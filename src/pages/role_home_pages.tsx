@@ -73,6 +73,20 @@ export function SysadminHomePage(): JSX.Element {
       <p class="page-lede">Open the account or scoped course-support operation you need.</p>
       <nav class="card-grid" aria-label="System administration tools">
         <article class="course-card">
+          <h2>Disciplines</h2>
+          <p>Manage the stable shared content-classification vocabulary.</p>
+          <A class="primary-link" href="/sysadmin/disciplines">
+            Open Disciplines
+          </A>
+        </article>
+        <article class="course-card">
+          <h2>Library activity</h2>
+          <p>Read published Library content and manage its improvement activity.</p>
+          <A class="primary-link" href="/library">
+            Open Library activity
+          </A>
+        </article>
+        <article class="course-card">
           <h2>Instructor Accounts</h2>
           <p>Create and manage Instructor Account access.</p>
           <A class="primary-link" href="/sysadmin/instructor-accounts">

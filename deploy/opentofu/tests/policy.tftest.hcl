@@ -177,20 +177,16 @@ run "security_baseline_plan" {
     error_message = "Deferred passkey configuration must not be required or distributed to the API task."
   }
   assert {
-    condition     = length([for container in jsondecode(aws_ecs_task_definition.api.container_definitions) : container if container.name == "api"]) == 1 && alltrue([for container in jsondecode(aws_ecs_task_definition.api.container_definitions) : container.readonlyRootFilesystem && contains([for mount in try(container.mountPoints, []) : "${mount.sourceVolume}:${mount.containerPath}:${mount.readOnly}"], "runtime-secrets:/run/ple-secrets:true") && contains([for entry in try(container.environment, []) : entry.name], "PLE_QUESTION_ID_SECRET_FILE") && contains([for entry in try(container.environment, []) : "${entry.name}=${entry.value}"], "PLE_QUESTION_ID_SECRET_FILE=/run/ple-secrets/question-id-secret") && !contains([for entry in try(container.environment, []) : entry.name], "PLE_QUESTION_ID_SECRET") && !contains([for entry in try(container.secrets, []) : entry.name], "PLE_QUESTION_ID_SECRET") if container.name == "api"])
-    error_message = "API must receive the Question ID capability only as the documented secret-file path, never as the raw secret."
+    condition     = length([for container in jsondecode(aws_ecs_task_definition.api.container_definitions) : container if container.name == "secret-files"]) == 1 && alltrue([for container in jsondecode(aws_ecs_task_definition.api.container_definitions) : container.user == "10001" && container.readonlyRootFilesystem && contains([for mount in try(container.mountPoints, []) : "${mount.sourceVolume}:${mount.containerPath}:${mount.readOnly}"], "runtime-secrets:/run/ple-secrets:false") && contains([for entry in try(container.environment, []) : "${entry.name}=${entry.value}"], "PLE_SECRET_OUTPUT_DIR=/run/ple-secrets") && contains([for entry in try(container.secrets, []) : entry.name], "PLE_SMTP_PASSWORD") && contains([for entry in try(container.secrets, []) : entry.name], "PLE_INVITATION_TOKEN_SECRET") if container.name == "secret-files"])
+    error_message = "The non-root SMTP secret-file sidecar must own only its SMTP and invitation capabilities."
   }
   assert {
-    condition     = length([for container in jsondecode(aws_ecs_task_definition.api.container_definitions) : container if container.name == "secret-files"]) == 1 && alltrue([for container in jsondecode(aws_ecs_task_definition.api.container_definitions) : container.user == "10001" && container.readonlyRootFilesystem && contains([for mount in try(container.mountPoints, []) : "${mount.sourceVolume}:${mount.containerPath}:${mount.readOnly}"], "runtime-secrets:/run/ple-secrets:false") && contains([for entry in try(container.environment, []) : "${entry.name}=${entry.value}"], "PLE_SECRET_OUTPUT_DIR=/run/ple-secrets") && contains([for entry in try(container.secrets, []) : entry.name], "PLE_QUESTION_ID_SECRET") if container.name == "secret-files"])
-    error_message = "The non-root secret-file sidecar must own the raw Question ID capability and write it into the shared runtime-secret volume."
-  }
-  assert {
-    condition     = alltrue([for container in jsondecode(aws_ecs_task_definition.api.container_definitions) : contains([for dependency in try(container.dependsOn, []) : "${dependency.containerName}:${dependency.condition}"], "secret-files:SUCCESS") if container.name == "api"])
-    error_message = "API startup must always wait for the secret-file sidecar to finish successfully."
+    condition     = alltrue([for container in jsondecode(aws_ecs_task_definition.api.container_definitions) : container.readonlyRootFilesystem && contains([for mount in try(container.mountPoints, []) : "${mount.sourceVolume}:${mount.containerPath}:${mount.readOnly}"], "runtime-secrets:/run/ple-secrets:true") && contains([for entry in try(container.environment, []) : "${entry.name}=${entry.value}"], "PLE_SMTP_PASSWORD_FILE=/run/ple-secrets/smtp-password") && contains([for entry in try(container.environment, []) : "${entry.name}=${entry.value}"], "PLE_INVITATION_TOKEN_SECRET_FILE=/run/ple-secrets/invitation-token") && contains([for dependency in try(container.dependsOn, []) : "${dependency.containerName}:${dependency.condition}"], "secret-files:SUCCESS") if container.name == "api"])
+    error_message = "SMTP-enabled API must receive only SMTP files and wait for the sidecar."
   }
 }
 
-run "question_id_secret_without_smtp_plan" {
+run "smtp_disabled_plan" {
   command = plan
 
   variables {
@@ -198,15 +194,11 @@ run "question_id_secret_without_smtp_plan" {
   }
 
   assert {
-    condition     = length(jsondecode(aws_ecs_task_definition.api.container_definitions)) == 2 && length([for container in jsondecode(aws_ecs_task_definition.api.container_definitions) : container if container.name == "api"]) == 1 && length([for container in jsondecode(aws_ecs_task_definition.api.container_definitions) : container if container.name == "secret-files"]) == 1
-    error_message = "Question ID file delivery requires exactly the API and its secret-file sidecar when SMTP is disabled."
+    condition     = length(jsondecode(aws_ecs_task_definition.api.container_definitions)) == 1 && length([for container in jsondecode(aws_ecs_task_definition.api.container_definitions) : container if container.name == "api"]) == 1 && length([for container in jsondecode(aws_ecs_task_definition.api.container_definitions) : container if container.name == "secret-files"]) == 0
+    error_message = "SMTP-disabled API must not run an unused secret-file sidecar."
   }
   assert {
-    condition     = alltrue([for container in jsondecode(aws_ecs_task_definition.api.container_definitions) : contains([for entry in try(container.secrets, []) : entry.name], "PLE_QUESTION_ID_SECRET") && !contains([for entry in try(container.secrets, []) : entry.name], "PLE_SMTP_PASSWORD") && !contains([for entry in try(container.secrets, []) : entry.name], "PLE_INVITATION_TOKEN_SECRET") if container.name == "secret-files"])
-    error_message = "SMTP-disabled secret-files must retain only the raw Question ID capability from this optional group."
-  }
-  assert {
-    condition     = alltrue([for container in jsondecode(aws_ecs_task_definition.api.container_definitions) : contains([for entry in try(container.environment, []) : "${entry.name}=${entry.value}"], "PLE_QUESTION_ID_SECRET_FILE=/run/ple-secrets/question-id-secret") && !contains([for entry in try(container.environment, []) : entry.name], "PLE_SMTP_PASSWORD_FILE") && !contains([for entry in try(container.environment, []) : entry.name], "PLE_INVITATION_TOKEN_SECRET_FILE") && !contains([for entry in try(container.secrets, []) : entry.name], "PLE_QUESTION_ID_SECRET") if container.name == "api"])
-    error_message = "SMTP-disabled API must retain only the Question ID secret-file path and no SMTP or raw Question ID secret."
+    condition     = alltrue([for container in jsondecode(aws_ecs_task_definition.api.container_definitions) : length(try(container.mountPoints, [])) == 0 && length(try(container.dependsOn, [])) == 0 && !contains([for entry in try(container.environment, []) : entry.name], "PLE_SMTP_PASSWORD_FILE") && !contains([for entry in try(container.environment, []) : entry.name], "PLE_INVITATION_TOKEN_SECRET_FILE") if container.name == "api"])
+    error_message = "SMTP-disabled API must not receive secret-file configuration."
   }
 }

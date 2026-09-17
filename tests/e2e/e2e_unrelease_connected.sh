@@ -122,7 +122,7 @@ BEGIN
         '30000000-0000-0000-0000-000000000002',
         '40000000-0000-0000-0000-000000000003',
         '[]'::jsonb,
-        '[{"issued_question_id":"50000000-0000-0000-0000-000000000013","assessment_entry_id":"40000000-0000-0000-0000-000000000013","issued_position":0,"question_id":"ABCDXEF0","revision_number":1}]'::jsonb
+        '[{"issued_question_id":"50000000-0000-0000-0000-000000000013","assessment_entry_id":"40000000-0000-0000-0000-000000000013","issued_position":0,"question_id":"ABCD-XEFG","revision_number":1}]'::jsonb
     );
     RAISE EXCEPTION 'Student Work started after Unrelease changed the Assessment state';
 EXCEPTION WHEN insufficient_privilege THEN NULL;

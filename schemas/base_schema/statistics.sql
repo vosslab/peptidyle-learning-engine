@@ -65,7 +65,11 @@ CREATE FUNCTION ple_data.increment_question_revision_statistics(
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
 BEGIN
-    IF p_question_id IS NULL OR p_question_id !~ '^[0-9A-HJKMNP-TV-Z]{8}$'
+    IF p_question_id IS NULL
+       OR p_question_id !~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
+       OR substr(p_question_id, 6, 1) <> ple_private.crockford_checksum_character(
+           substr(p_question_id, 1, 4) || substr(p_question_id, 7, 3)
+       )
        OR p_revision_number IS NULL OR p_revision_number <= 0
        OR p_correct IS NULL OR p_observed_at IS NULL
        OR p_eligible_choice_ids IS NULL

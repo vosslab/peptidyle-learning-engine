@@ -1,6 +1,8 @@
 //! Global identity validation and classification predicates for Library search.
 use axum::{http::StatusCode, response::Response};
-use learning_data_access::{ContentClassificationStore, SessionTokenHash};
+use learning_data_access::{
+    ContentClassificationStore, ContentDisciplineDiscoveryStore, SessionTokenHash,
+};
 use question_model::{PublishedQuestionSharedMetadata, QuestionSearchRequest};
 
 use super::{route_error, store_error_response};
@@ -11,7 +13,7 @@ use super::{route_error, store_error_response};
 // and require the route boundary to unwrap solely to preserve Axum's `Response`.
 #[allow(clippy::result_large_err)]
 pub(super) async fn validate(
-    store: &impl ContentClassificationStore,
+    store: &(impl ContentClassificationStore + ContentDisciplineDiscoveryStore),
     token: SessionTokenHash,
     query: &QuestionSearchRequest,
 ) -> Result<(), Response> {
@@ -25,7 +27,7 @@ pub(super) async fn validate(
         )
     };
     if !store
-        .list_disciplines(token)
+        .list_disciplines_including_retired(token)
         .await
         .map_err(store_error_response)?
         .iter()
@@ -128,7 +130,12 @@ mod tests {
             &self,
             _: SessionTokenHash,
         ) -> Result<Vec<learning_data_access::ContentClassificationItem>, StoreError> {
-            self.items(0, Uuid::nil(), 1)
+            if self.unavailable {
+                return Err(StoreError::Unavailable("vocabulary unavailable".into()));
+            }
+            // The active-choice projection cannot resolve the retired query
+            // exercised below; discovery must use the all-status capability.
+            Ok(Vec::new())
         }
         async fn list_subjects(
             &self,
@@ -150,6 +157,23 @@ mod tests {
             parent: Uuid,
         ) -> Result<Vec<learning_data_access::ContentClassificationItem>, StoreError> {
             self.items(3, parent, 4)
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl learning_data_access::ContentDisciplineDiscoveryStore for Vocabulary {
+        async fn list_disciplines_including_retired(
+            &self,
+            _: SessionTokenHash,
+        ) -> Result<Vec<learning_data_access::ContentDiscipline>, StoreError> {
+            if self.unavailable {
+                return Err(StoreError::Unavailable("vocabulary unavailable".into()));
+            }
+            Ok(vec![learning_data_access::ContentDiscipline {
+                uuid: Uuid::from_u128(1),
+                name: "Current name".into(),
+                is_retired: true,
+            }])
         }
     }
 

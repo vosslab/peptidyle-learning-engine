@@ -5,12 +5,12 @@ import { decodeCourseGradebook } from "../src/api/decoders/live_gradebook.ts";
 
 test("Gradebook distinguishes an expired submission still awaiting outcomes from zero credit", () => {
   const gradebook = {
-    courseReference: "CI7K3M2Q",
+    courseReference: "CI7K3M2QAZ",
     studentWork: [
       {
         rosterId: "student-1",
         rosterName: "Synthetic Student",
-        assessmentReference: "A7K3M2Q",
+        assessmentReference: "A7K3M2QAS",
         assessmentTitle: "Protein structure practice",
         assessmentAttemptCompletion: "inProgress",
         expiredSubmitting: true,
@@ -54,12 +54,12 @@ test("Gradebook distinguishes an expired submission still awaiting outcomes from
 
 test("Gradebook accepts finite non-negative grade contribution pairs", () => {
   const gradebook = {
-    courseReference: "CI7K3M2Q",
+    courseReference: "CI7K3M2QAZ",
     studentWork: [
       {
         rosterId: "bonus-student",
         rosterName: "Synthetic Student",
-        assessmentReference: "A7K3M2Q",
+        assessmentReference: "A7K3M2QAS",
         assessmentTitle: "Protein structure bonus",
         assessmentAttemptCompletion: "completed",
         expiredSubmitting: false,
@@ -68,7 +68,7 @@ test("Gradebook accepts finite non-negative grade contribution pairs", () => {
       {
         rosterId: "extra-credit-student",
         rosterName: "Synthetic Student",
-        assessmentReference: "A7K3M2R",
+        assessmentReference: "A7K3M2RAC",
         assessmentTitle: "Protein structure assignment",
         assessmentAttemptCompletion: "completed",
         expiredSubmitting: false,

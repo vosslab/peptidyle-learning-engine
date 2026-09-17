@@ -24,7 +24,7 @@ fn config() -> HttpWebworkRendererConfig {
 fn request() -> RenderRequest<'static> {
     static QUESTION_REVISION: LazyLock<question_model::QuestionRevisionReference> =
         LazyLock::new(|| question_model::QuestionRevisionReference {
-            question_id: question_model::QuestionId::from_canonical_parts("ABCDEFG", 'G')
+            question_id: question_model::QuestionId::from_random_identifier("ABCDEFG")
                 .expect("fixed Question ID is valid"),
             revision_number: question_model::QuestionRevisionNumber::new(1)
                 .expect("fixed Question Revision Number is valid"),
@@ -144,7 +144,7 @@ fn response_pairs_refuse_noncanonical_and_server_owned_names() {
 fn protocol_uses_embed_format_and_deployment_owned_urls() {
     let settings = config();
     let revision = question_model::QuestionRevisionReference {
-        question_id: question_model::QuestionId::from_canonical_parts("ABCDEFG", 'G').unwrap(),
+        question_id: question_model::QuestionId::from_random_identifier("ABCDEFG").unwrap(),
         revision_number: question_model::QuestionRevisionNumber::new(1).unwrap(),
     };
     let fields = super::super::protocol::render_fields(

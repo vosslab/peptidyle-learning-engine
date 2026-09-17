@@ -43,8 +43,8 @@ use crate::{
     authoring_source::{load_verified_source, put_workspace_source, validated_source},
     question_publication::{
         AuthoringAssetContext, ExistingQuestionRevisionPublicationCommand,
-        ExistingQuestionRevisionPublisher, HmacQuestionIdIssuer,
-        NewQuestionLineagePublicationCommand, NewQuestionLineagePublisher,
+        ExistingQuestionRevisionPublisher, NewQuestionLineagePublicationCommand,
+        NewQuestionLineagePublisher, RandomQuestionIdIssuer,
     },
 };
 
@@ -58,7 +58,7 @@ pub(crate) struct AuthoringRouteState {
     pub(crate) assets: Arc<PostgresAuthoringAssetsStore>,
     publication: PostgresDraftQuestionSourceBindingStore,
     pub(crate) objects: S3ObjectStore,
-    question_id_issuer: HmacQuestionIdIssuer,
+    question_id_issuer: RandomQuestionIdIssuer,
 }
 
 /// Registers private Authoring Workspace routes and the initial publication operation.
@@ -68,7 +68,7 @@ pub fn authoring_router(
     assets: PostgresAuthoringAssetsStore,
     publication: PostgresDraftQuestionSourceBindingStore,
     objects: S3ObjectStore,
-    question_id_issuer: HmacQuestionIdIssuer,
+    question_id_issuer: RandomQuestionIdIssuer,
 ) -> Router {
     Router::new()
         .route("/api/authoring/drafts", get(list_drafts).post(create_draft))
@@ -661,7 +661,6 @@ async fn publish_revision_draft(
         Err(response) => return *response,
     };
     let parent_question_revision = match existing_parent_question_revision(
-        &state.question_id_issuer,
         request.question_id,
         request.parent_revision_number,
     ) {
@@ -743,14 +742,10 @@ async fn publish_revision_draft(
 }
 
 fn existing_parent_question_revision(
-    question_id_issuer: &HmacQuestionIdIssuer,
     question_id: String,
     parent_revision_number: u32,
 ) -> Result<QuestionRevisionReference, ()> {
     let question_id = question_id.parse::<QuestionId>().map_err(|_| ())?;
-    if !question_id_issuer.validates_question_id(&question_id) {
-        return Err(());
-    }
     let revision_number = QuestionRevisionNumber::new(parent_revision_number).map_err(|_| ())?;
     Ok(QuestionRevisionReference {
         question_id,
@@ -959,22 +954,22 @@ pub(crate) fn now() -> Timestamp {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::question_publication::{QuestionIdIssuer, QuestionIdSecret};
+    use crate::question_publication::QuestionIdIssuer;
 
     #[test]
     fn same_lineage_publication_requires_a_server_validated_positive_parent_revision() {
-        let issuer = HmacQuestionIdIssuer::new(QuestionIdSecret::from_bytes([9; 32]));
+        let issuer = RandomQuestionIdIssuer::new();
         let question_id = issuer.issue_question_id().expect("issued Question ID");
 
         assert_eq!(
-            existing_parent_question_revision(&issuer, question_id.to_string(), 1),
+            existing_parent_question_revision(question_id.to_string(), 1),
             Ok(QuestionRevisionReference {
                 question_id: question_id.clone(),
                 revision_number: QuestionRevisionNumber::new(1)
                     .expect("positive Question Revision Number"),
             })
         );
-        assert!(existing_parent_question_revision(&issuer, question_id.to_string(), 0).is_err());
-        assert!(existing_parent_question_revision(&issuer, "0000-X000".to_string(), 1).is_err());
+        assert!(existing_parent_question_revision(question_id.to_string(), 0).is_err());
+        assert!(existing_parent_question_revision("0000-X000".to_string(), 1).is_err());
     }
 }

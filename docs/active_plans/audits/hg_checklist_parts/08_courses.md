@@ -19,11 +19,11 @@
   - Mismatch: `CourseInstanceView.is_assigned_instructor` exposes a special authority distinction.
 - [x] **Adoption** connects a Blueprint Course and a Course Instance when an **Instructor** creates a new Course Instance from a Blueprint Course or creates a new Blueprint Course from an existing Course Instance's reusable structure.
   - Evidence (runtime): `schemas/base_schema/course_blueprint_publication.sql` `ple_api.create_blueprint_from_course_instance` records the source Course as a distinct first Adoption; the existing Blueprint-to-Course path records daughters separately. Fresh PostgreSQL 17 actual-role proof passed source preservation and Adoption-count checks.
-  - Evidence (runtime): `tests/test_course_instance_summary.mjs` `Course-derived Blueprint creation sends only metadata and requires a new private root` anchors the accepted canonical HTTPS C420 browser workflow: exactly one child-route POST created a distinct actor-owned Private Revision-1 Blueprint, showed Adoption count 1, and left the source Course addressable and unchanged.
+  - Evidence (runtime): `src/pages/course_instance_page.tsx` `CourseInstancePage` passed canonical HTTPS C420 browser proof: one child-route POST created Private Revision-1 Blueprint `BPJD8H28` from Course `CI0QR41X`, showed Adoption count 1, and left the source addressable and unchanged.
 - [x] An Instructor may create a new Blueprint Course from an existing Course Instance's reusable structure. The new Blueprint Course records that Course Instance as its source, and the Course Instance remains the same teaching instance.
   - Evidence (source): `src/pages/course_instance_page.tsx` `CourseInstancePage` exposes a metadata-only Create Blueprint from Course Instance dialog; `src/api/http_client/course_instance.ts` `createBlueprintFromCourseInstance` validates the canonical Course reference, sends only generated names/classification with one retry-safe idempotency key, requires `201 no-store`, and accepts only a new owner-visible Private Revision-1 Blueprint receipt.
   - Evidence (runtime): `crates/learning-data-access/tests/blueprint_course_postgres/exchange.rs` `assert_actual_role_round_trip` passed authorization/no-write, stale rollback, replay, exact reusable content/Pool pins, immutable source provenance, unchanged source state, first-Adoption/student counts, and lifecycle rollback on PostgreSQL 17.
-  - Evidence (runtime): `tests/test_course_instance_summary.mjs` `Course-derived Blueprint creation sends only metadata and requires a new private root` anchors the accepted canonical HTTPS C420 browser workflow, including one child-route POST, a distinct actor-owned Private Revision-1 receipt, Adoption count 1, and unchanged addressable source Course.
+  - Evidence (runtime): `src/pages/course_instance_page.tsx` `CourseInstancePage` passed canonical HTTPS C420 browser proof: one child-route POST created actor-owned Private Revision-1 Blueprint `BPJD8H28` from Course `CI0QR41X`, showed Adoption count 1, and left the source addressable and unchanged.
 - [x] A Course Instance created from a Blueprint Course is a daughter Course Instance of that Blueprint Course.
   - Evidence (source): `schemas/base_schema/course_core.sql` `course_instance` records Blueprint reference and Revision source columns.
 
@@ -46,7 +46,8 @@
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
   - Owner: Course interfaces (first occurrence).
 - [ ] **Sysadmins** exclusively create and manage Disciplines.
-  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+  - Evidence (source): `src/pages/content_disciplines_page.tsx` `ContentDisciplinesPage` exposes the current Sysadmin-only stable-UUID create, rename, retire, and restore lifecycle without deletion.
+  - Verification pending: `schemas/base_schema/content_classification_operations.sql` `ple_private.require_active_content_discipline` excludes retired values from new choices while retaining visible/discoverable existing references and serializing retirement against new use; final review and major-milestone actual-role SQL plus canonical browser acceptance remain pending.
 - [ ] Course classification supports Course search, filtering, organization, and discovery where applicable.
   - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
 - [x] A Course Instance may have classification that differs from its Blueprint Course.
@@ -70,10 +71,10 @@
 - [x] An **Instructor** may create a new Blueprint Course from an existing Course Instance's reusable structure. The new Blueprint Course records that Course Instance as its source.
   - Evidence (source): `src/pages/course_instance_page.tsx` `CourseInstancePage` supplies the Course tools dialog; `src/api/http_client/course_instance.ts` `createBlueprintFromCourseInstance` supplies its strict, idempotent create request; `schemas/base_schema/course_blueprint_publication.sql` `ple_api.create_blueprint_from_course_instance` owns the atomic source lock/copy/provenance boundary.
   - Evidence (runtime): `crates/learning-data-access/tests/blueprint_course_postgres/exchange.rs` `assert_actual_role_round_trip` passed immutable source provenance, unchanged Course state, replay, stale rollback, exact pins, and first-Adoption counts on PostgreSQL 17.
-  - Evidence (runtime): `tests/test_course_instance_summary.mjs` `Course-derived Blueprint creation sends only metadata and requires a new private root` anchors the accepted canonical HTTPS C420 browser workflow's distinct Private Revision-1 receipt and unchanged source Course.
+  - Evidence (runtime): `src/pages/course_instance_page.tsx` `CourseInstancePage` passed canonical HTTPS C420 browser proof creating distinct Private Revision-1 Blueprint `BPJD8H28` from Course `CI0QR41X` while leaving the source unchanged.
 - [x] Creating a Blueprint Course from a Course Instance copies the ordered Course Instance Assessment list as ordered Blueprint Assessments, preserving order.
   - Evidence (source): `crates/learning-data-access/src/postgres/course_blueprint_publication.rs` `load_course_blueprint_publication_source` uses the existing visible Course order and `PostgresCourseBlueprintPublicationStore` preserves that vector under one deterministic `Assessments` wrapper with fresh Blueprint Assessment identities.
-  - Evidence (runtime): `tests/test_course_instance_summary.mjs` `Course-derived Blueprint creation sends only metadata and requires a new private root` anchors the accepted canonical HTTPS C420 browser workflow; the created distinct Private Revision-1 Blueprint retained the ordered reusable structure while the source Course remained unchanged.
+  - Evidence (runtime): `src/pages/course_instance_page.tsx` `CourseInstancePage` passed canonical HTTPS C420 browser proof showing Private Revision-1 Blueprint `BPJD8H28` retained reusable structure copied from unchanged Course `CI0QR41X`.
 
 #### Blueprint Course lifecycle specifications
 
@@ -370,7 +371,7 @@
 - [x] An **Instructor** may create a new **Blueprint Course** from an existing Course Instance's reusable structure. The new Blueprint Course records that Course Instance as its source.
   - Evidence (source): `src/pages/course_instance_page.tsx` `CourseInstancePage` offers the compact metadata-only Course tools action; its strict client retains source-Course identity and no delivery fields; `schemas/base_schema/course_blueprint_publication.sql` `ple_api.create_blueprint_from_course_instance` records the immutable source without changing the Course.
   - Evidence (runtime): `crates/learning-data-access/tests/blueprint_course_postgres/exchange.rs` `assert_actual_role_round_trip` passed source preservation, first-Adoption counts, exact pins/Pool fork, replay, and stale rollback on PostgreSQL 17.
-  - Evidence (runtime): `tests/test_course_instance_summary.mjs` `Course-derived Blueprint creation sends only metadata and requires a new private root` anchors the accepted canonical HTTPS C420 browser workflow: one child-route POST created the distinct actor-owned Private Revision-1 Blueprint and left the source addressable and unchanged.
+  - Evidence (runtime): `src/pages/course_instance_page.tsx` `CourseInstancePage` passed canonical HTTPS C420 browser proof: one child-route POST created actor-owned Private Revision-1 Blueprint `BPJD8H28` from Course `CI0QR41X`; the source remained addressable and unchanged.
 - [x] A new academic term uses a new Course Instance. Rollover is not a separate product model.
   - Evidence (source): `crates/question_model/src/course_term.rs` `CourseTerm` is input to each `CreateCourseInstanceInput`; no rollover model was found.
 
@@ -379,14 +380,14 @@
 - [x] **Adoption** connects a Blueprint Course and a Course Instance through either Course creation workflow.
   - Evidence (source): `src/pages/course_instance_page.tsx` `CourseInstancePage` calls C419 and explains that the unchanged source becomes the first Adoption.
   - Evidence (runtime): `crates/learning-data-access/tests/blueprint_course_postgres/exchange.rs` `assert_actual_role_round_trip` observed the immutable source relationship and Adoption count without creating a daughter relationship.
-  - Evidence (runtime): `tests/test_course_instance_summary.mjs` `Course-derived Blueprint creation sends only metadata and requires a new private root` anchors the accepted canonical HTTPS C420 browser workflow, which displayed the source Course as the new Blueprint's first Adoption.
+  - Evidence (runtime): `src/pages/course_instance_page.tsx` `CourseInstancePage` passed canonical HTTPS C420 browser proof displaying Course `CI0QR41X` as Private Revision-1 Blueprint `BPJD8H28`'s first Adoption.
 - [x] Creating a new Course Instance from a Blueprint Course establishes an Adoption and increases that Blueprint Course's **Adoption count** by one.
   - Evidence (source): `schemas/base_schema/course_core.sql` `course_instance_creation_event` records the Blueprint reference and Revision at creation, and `schemas/base_schema/blueprint_operations.sql` `ple_api.list_blueprint_courses` computes `total_adoptions` from those Course Instances.
   - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres.rs` `revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_safe` asserts the adopted Blueprint summary has `total_adoptions` equal to 1.
 - [x] Creating a new Blueprint Course from an existing Course Instance's reusable structure establishes the originating Course Instance as that Blueprint Course's first Adoption, giving the new Blueprint Course an Adoption count of one.
   - Evidence (source): `src/pages/course_instance_page.tsx` `CourseInstancePage` states the first-Adoption result and opens only the new Blueprint receipt after C419 accepts creation.
   - Evidence (runtime): `crates/learning-data-access/tests/blueprint_course_postgres/exchange.rs` `assert_actual_role_round_trip` observed the recorded source, `total_adoptions = 1`, distinct-student count, and denied Public-to-Private rollback.
-  - Evidence (runtime): `tests/test_course_instance_summary.mjs` `Course-derived Blueprint creation sends only metadata and requires a new private root` anchors the accepted canonical HTTPS C420 browser workflow, which displayed Adoption count 1 for the distinct actor-owned Private Revision-1 Blueprint.
+  - Evidence (runtime): `src/pages/course_instance_page.tsx` `CourseInstancePage` passed canonical HTTPS C420 browser proof displaying Adoption count 1 for actor-owned Private Revision-1 Blueprint `BPJD8H28`, created from Course `CI0QR41X`.
 - [x] A Course Instance created from a Blueprint Course is a **daughter Course Instance** of that Blueprint Course.
   - Evidence (source): `schemas/base_schema/course_core.sql` `course_instance` records Blueprint reference and Revision source columns.
 - [x] A daughter Course Instance records its parent Blueprint Course and the exact Blueprint Revision used to create it.

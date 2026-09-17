@@ -65,6 +65,7 @@ export const RIBBON_DESTINATION_GLYPHS = Object.freeze({
   courseSetup: "gear",
   attempt: "pen-to-square",
   instructorAccounts: "circle-user",
+  disciplines: "book-open",
   myBlueprintCourses: "layer-group",
   myActiveCourses: "graduation-cap",
   myInactiveCourses: "box-archive",

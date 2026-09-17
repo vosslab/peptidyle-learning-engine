@@ -1,6 +1,6 @@
 // library_page_model.ts - bounded, transport-validated Question Library browse state.
 
-import { normalizeQuestionIdSyntax } from "../question_id";
+import { validateCanonicalQuestionIdSyntax } from "../question_id";
 import {
   EMPTY_LIBRARY_CLASSIFICATION_FILTER,
   libraryClassificationFilter,
@@ -30,6 +30,10 @@ export interface QuestionLibraryBrowseRow {
   readonly questionRevision: QuestionRevisionReference;
   readonly questionTitle: string;
   readonly summary: string;
+  /** Current readable Discipline name for this Question's existing classification. */
+  readonly disciplineName: string;
+  /** Existing references may retain a retired Discipline. */
+  readonly disciplineIsRetired: boolean;
   /** Immutable source representation, without source location or content.
    * Retained Assessment picker candidates have no format projection, so they
    * explicitly retain unavailable metadata rather than guessing from backend. */
@@ -326,17 +330,23 @@ function decodeRow(value: unknown, path: string): QuestionLibraryBrowseRow {
       "questionRevision",
       "summary",
       "questionTitle",
+      "disciplineName",
+      "disciplineIsRetired",
       "evidence",
     ])
   ) {
     throw new Error(`${path} has an unexpected shape`);
   }
   const rawDisplayId = boundedText(value["displayId"], `${path}.displayId`);
-  const displayId = normalizeQuestionIdSyntax(rawDisplayId);
+  const displayId = validateCanonicalQuestionIdSyntax(rawDisplayId);
   if (displayId === null || displayId !== rawDisplayId) {
     throw new Error(`${path}.displayId must be a canonical Question ID`);
   }
   const evidence = decodeBrowseEvidence(value["evidence"], `${path}.evidence`);
+  const disciplineIsRetired = value["disciplineIsRetired"];
+  if (typeof disciplineIsRetired !== "boolean") {
+    throw new Error(`${path}.disciplineIsRetired must be boolean`);
+  }
   const questionRevision = decodeQuestionRevisionReference(
     value["questionRevision"],
     `${path}.questionRevision`,
@@ -350,6 +360,8 @@ function decodeRow(value: unknown, path: string): QuestionLibraryBrowseRow {
     questionRevision,
     questionTitle: boundedText(value["questionTitle"], `${path}.questionTitle`),
     summary: boundedText(value["summary"], `${path}.summary`, MAX_SUMMARY_LENGTH),
+    disciplineName: boundedText(value["disciplineName"], `${path}.disciplineName`, 120),
+    disciplineIsRetired,
     questionFormat: decodeQuestionFormat(value["questionFormat"], `${path}.questionFormat`),
     authorNames: stringList(value["authorNames"], `${path}.authorNames`),
     capabilities: stringList(value["capabilities"], `${path}.capabilities`),

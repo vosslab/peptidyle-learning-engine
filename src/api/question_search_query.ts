@@ -3,8 +3,9 @@
 import type { QuestionSearchRequest } from "../../generated/api/QuestionSearchRequest";
 import { MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS } from "../../generated/api/MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS";
 import { MAX_QUESTION_SEARCH_TAG_FILTERS } from "../../generated/api/MAX_QUESTION_SEARCH_TAG_FILTERS";
-import { normalizeQuestionIdSyntax } from "../question_id";
+import { validateCanonicalQuestionIdSyntax } from "../question_id";
 import { appendLibraryClassificationParameters } from "./library_classification_filter";
+import { PRODUCTION_QUESTION_BACKENDS } from "./decoders/shared";
 
 const MAX_QUESTION_SEARCH_TEXT_UNICODE_SCALARS = 256;
 const MAX_QUESTION_SEARCH_PAGE_SIZE = 100;
@@ -19,7 +20,6 @@ const QUESTION_SEARCH_CAPABILITIES = [
   "offlinePreview",
 ] as const;
 const QUESTION_LICENSES = ["CC0-1.0", "CC-BY-4.0", "CC-BY-SA-4.0"] as const;
-const QUESTION_SEARCH_BACKENDS = ["ple", "webwork", "imathas"] as const;
 const QUESTION_SEARCH_QUESTION_TYPES = [
   "multipleChoice",
   "multipleAnswer",
@@ -141,13 +141,13 @@ export function questionSearchPath(query: QuestionSearchRequest): string {
   }
   boundedQuestionSearchFilterValues(
     query.backends,
-    QUESTION_SEARCH_BACKENDS.length,
+    PRODUCTION_QUESTION_BACKENDS.length,
     "Question Library backends",
   );
   for (const backend of query.backends) {
     parameters.append(
       "backends",
-      questionSearchEnum(backend, QUESTION_SEARCH_BACKENDS, "Question Library backend"),
+      questionSearchEnum(backend, PRODUCTION_QUESTION_BACKENDS, "Question Library backend"),
     );
   }
   boundedQuestionSearchFilterValues(
@@ -254,9 +254,9 @@ export function questionSearchPath(query: QuestionSearchRequest): string {
   return `/api/questions/search${suffix}`;
 }
 
-/** Serializes one normalized Question ID without exposing server-owned check validation. */
+/** Serializes one exact canonical Question ID after local checksum validation. */
 export function questionReferencePath(displayReference: string): string {
-  const reference = normalizeQuestionIdSyntax(displayReference);
+  const reference = validateCanonicalQuestionIdSyntax(displayReference);
   if (reference === null) throw new Error("Question ID must use canonical Crockford entry syntax");
   return `/api/questions/by-id/${encodeURIComponent(reference)}`;
 }

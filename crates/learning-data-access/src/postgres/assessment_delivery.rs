@@ -755,7 +755,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
             for source in &mut ple_sources {
                 source.question_asset_renditions = current_ready_question_asset_renditions(
                     &mut tx,
-                    source.question_id.as_compact_str(),
+                    source.question_id.as_str(),
                     source.revision_number,
                 )
                 .await?;
@@ -763,7 +763,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
             for source in &mut webwork_sources {
                 source.question_asset_renditions = current_ready_question_asset_renditions(
                     &mut tx,
-                    source.question_id.as_compact_str(),
+                    source.question_id.as_str(),
                     source.revision_number,
                 )
                 .await?;

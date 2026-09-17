@@ -87,6 +87,15 @@ impl AssessmentAttemptStart {
         }
         let mut issued_question_pool_items = BTreeSet::new();
         for question in &self.issued_questions {
+            let backend = match question {
+                PreparedIssuedQuestion::FixedQuestion { backend, .. }
+                | PreparedIssuedQuestion::QuestionPoolItem { backend, .. } => backend,
+            };
+            if !backend.is_supported_for_production() {
+                return Err(StoreError::InvalidRecord(
+                    "Question Backend is unavailable for new Assessment work".to_string(),
+                ));
+            }
             let PreparedIssuedQuestion::QuestionPoolItem {
                 assessment_entry,
                 question_pool_selection_index,
@@ -188,14 +197,14 @@ mod tests {
 
     fn reference() -> QuestionRevisionReference {
         QuestionRevisionReference {
-            question_id: "1234-X567".parse::<QuestionId>().expect("Question ID"),
+            question_id: "1234-H567".parse::<QuestionId>().expect("Question ID"),
             revision_number: QuestionRevisionNumber::new(1).expect("positive revision"),
         }
     }
 
     fn pool_revision() -> QuestionPoolRevisionReference {
         QuestionPoolRevisionReference {
-            question_pool_id: "7654-X321".parse().expect("Pool ID"),
+            question_pool_id: "7654-Z321".parse().expect("Pool ID"),
             revision_number: QuestionPoolRevisionNumber::new(1).expect("positive Pool Revision"),
         }
     }
@@ -269,6 +278,26 @@ mod tests {
             start.validate(),
             Err(StoreError::InvalidRecord(message))
                 if message == "each selected Question Pool Item must produce exactly one matching Issued Question"
+        ));
+    }
+
+    #[test]
+    fn deferred_backend_cannot_start_new_assessment_work() {
+        let start = AssessmentAttemptStart {
+            student_record: StudentRecordId::from_uuid(Uuid::from_u128(1)),
+            assessment: AssessmentId::from_uuid(Uuid::from_u128(2)),
+            question_pool_selections: Vec::new(),
+            issued_questions: vec![PreparedIssuedQuestion::FixedQuestion {
+                assessment_entry: AssessmentEntryId::from_uuid(Uuid::from_u128(3)),
+                reference: reference(),
+                backend: QuestionBackend::Imathas,
+            }],
+        };
+
+        assert!(matches!(
+            start.validate(),
+            Err(StoreError::InvalidRecord(message))
+                if message == "Question Backend is unavailable for new Assessment work"
         ));
     }
 }

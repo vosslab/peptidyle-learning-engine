@@ -177,9 +177,17 @@ function decodeQuestionStatistics(value: unknown, path: string): QuestionStatist
 
 export function decodeQuestionSearchResult(value: unknown, path: string): QuestionSearchResult {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["summary", "evidence"]);
+  requireOnlyFields(record, path, ["summary", "disciplineName", "disciplineIsRetired", "evidence"]);
   return {
     summary: decodeQuestionSummary(field(record, "summary", path), `${path}.summary`, true),
+    disciplineName: decodeNonemptyString(
+      field(record, "disciplineName", path),
+      `${path}.disciplineName`,
+    ),
+    disciplineIsRetired: decodeBoolean(
+      field(record, "disciplineIsRetired", path),
+      `${path}.disciplineIsRetired`,
+    ),
     evidence: decodeQuestionStatistics(field(record, "evidence", path), `${path}.evidence`),
   };
 }
@@ -331,9 +339,24 @@ function decodeQuestionSearchCursor(value: unknown, path: string): string {
 /** Strict safe immutable Question Details View; source and grading fields are rejected. */
 export function decodeQuestionDetails(value: unknown, path = "response"): QuestionDetails {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["summary", "prompt", "evidence", "usage"]);
+  requireOnlyFields(record, path, [
+    "summary",
+    "disciplineName",
+    "disciplineIsRetired",
+    "prompt",
+    "evidence",
+    "usage",
+  ]);
   return {
     summary: decodeQuestionSummary(field(record, "summary", path), `${path}.summary`, true),
+    disciplineName: decodeNonemptyString(
+      field(record, "disciplineName", path),
+      `${path}.disciplineName`,
+    ),
+    disciplineIsRetired: decodeBoolean(
+      field(record, "disciplineIsRetired", path),
+      `${path}.disciplineIsRetired`,
+    ),
     prompt: decodeQuestionDetailsPromptView(field(record, "prompt", path), `${path}.prompt`),
     evidence: decodeQuestionStatistics(field(record, "evidence", path), `${path}.evidence`),
     usage: decodeQuestionUseDetails(field(record, "usage", path), `${path}.usage`),

@@ -84,11 +84,15 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
            ORDER BY revision.revision_number DESC
            LIMIT 1
       ) AS accepted ON true
+      JOIN ple_data.question_revision AS revision
+        ON revision.question_id = lineage.question_id
+       AND revision.revision_number = accepted.revision_number
       JOIN ple_data.published_question_metadata AS metadata
         ON metadata.question_id = lineage.question_id
      WHERE course.public_reference = p_course_reference_number
        AND ple_api.current_session_account_is_course_instructor(course.course_id)
        AND lineage.availability = 'available'
+       AND ple_private.question_backend_is_supported_for_production(revision.backend)
      ORDER BY metadata.question_title, lineage.question_id
 $$;
 

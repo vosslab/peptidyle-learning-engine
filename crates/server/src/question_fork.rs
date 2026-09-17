@@ -39,7 +39,7 @@ use uuid::Uuid;
 
 use crate::{
     auth::{AuthError, resolve_session},
-    question_publication::{HmacQuestionIdIssuer, QuestionIdIssuer},
+    question_publication::{QuestionIdIssuer, RandomQuestionIdIssuer},
 };
 
 const QUESTION_FORK_IDENTITY_ATTEMPTS: usize = 8;
@@ -55,23 +55,18 @@ struct RouteState {
     question_id_issuer: Arc<dyn QuestionForkIdIssuer>,
 }
 
-/// Trusted issuance and validation capability for a fork's future Question ID.
+/// Trusted issuance capability for a fork's future Question ID.
 trait QuestionForkIdIssuer: Send + Sync {
     fn issue_question_id(
         &self,
     ) -> Result<QuestionId, crate::question_publication::QuestionIdIssuanceError>;
-    fn validates_question_id(&self, value: &QuestionId) -> bool;
 }
 
-impl QuestionForkIdIssuer for HmacQuestionIdIssuer {
+impl QuestionForkIdIssuer for RandomQuestionIdIssuer {
     fn issue_question_id(
         &self,
     ) -> Result<QuestionId, crate::question_publication::QuestionIdIssuanceError> {
         QuestionIdIssuer::issue_question_id(self)
-    }
-
-    fn validates_question_id(&self, value: &QuestionId) -> bool {
-        self.validates_question_id(value)
     }
 }
 
@@ -82,7 +77,7 @@ pub fn question_fork_router(
     library: PostgresQuestionLibraryStore,
     drafts: PostgresAuthoringDraftStore,
     objects: S3ObjectStore,
-    question_id_issuer: HmacQuestionIdIssuer,
+    question_id_issuer: RandomQuestionIdIssuer,
 ) -> Router {
     question_fork_router_with_trusted_dependencies(
         sessions,
@@ -410,9 +405,6 @@ fn canonical_source(
     revision_number: String,
 ) -> Option<QuestionRevisionReference> {
     let question_id = question_id.parse::<QuestionId>().ok()?;
-    if !state.question_id_issuer.validates_question_id(&question_id) {
-        return None;
-    }
     let revision_number = revision_number
         .parse::<u32>()
         .ok()

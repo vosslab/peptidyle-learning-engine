@@ -15,6 +15,7 @@ import type { QuestionId } from "../../generated/api/QuestionId";
 import type { QuestionRevisionNumber } from "../../generated/api/QuestionRevisionNumber";
 import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
 import { useApplicationApi } from "../api/application_api";
+import { useSessionBootstrap } from "../auth/session_context";
 import type {
   LoadedQuestionLineage,
   QuestionAvailabilityClient,
@@ -23,6 +24,7 @@ import { ApiRequestError } from "../api/http_client/error";
 import { CopyableQuestionId } from "../components/copyable_question_id";
 import { OpaqueWebworkPreviewFrame } from "../components/opaque_webwork_preview_frame";
 import { QuestionWatchControl } from "../components/question_watch_control";
+import { LibraryDiscussionPanel } from "../components/library_discussion_panel";
 import { QuestionStarControl } from "../components/question_star_control";
 import { QuestionPromptRenderer } from "../components/question_renderer";
 import { parseQuestionRouteReference } from "../navigation/public_route";
@@ -359,6 +361,7 @@ export function QuestionArchiveControl(props: QuestionArchiveControlProps): JSX.
 
 export function QuestionDetailPage(): JSX.Element {
   const applicationApi = useApplicationApi();
+  const session = useSessionBootstrap();
   const params = useParams();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -367,6 +370,10 @@ export function QuestionDetailPage(): JSX.Element {
   const libraryReturnHref = (): string => {
     const token = libraryReturnToken();
     return token === null ? "/library" : questionLibraryReturnPath(token);
+  };
+  const mayMutateLibrary = (): boolean => {
+    const state = session.state();
+    return state.kind === "authenticated" && state.session.account.productRole === "instructor";
   };
   const detail = createAsync((): Promise<QuestionDetails> => {
     const questionReference = params["questionRef"];
@@ -461,6 +468,13 @@ export function QuestionDetailPage(): JSX.Element {
                     <dt>Backend</dt>
                     <dd>{record().summary.backend}</dd>
                   </div>
+                  <div>
+                    <dt>Discipline</dt>
+                    <dd>
+                      {record().disciplineName}
+                      <Show when={record().disciplineIsRetired}> (retired)</Show>
+                    </dd>
+                  </div>
                   <Show when={webworkFormatLabel(record().summary.questionFormat)}>
                     {(format) => (
                       <div>
@@ -488,20 +502,25 @@ export function QuestionDetailPage(): JSX.Element {
                     </p>
                   </aside>
                 </Show>
-                <div class="question-detail-support-actions">
-                  <QuestionStarControl questionId={record().summary.questionId} />
-                  <QuestionWatchControl questionId={record().summary.questionId} />
-                </div>
+                <Show when={mayMutateLibrary()}>
+                  <div class="question-detail-support-actions">
+                    <QuestionStarControl questionId={record().summary.questionId} />
+                    <QuestionWatchControl questionId={record().summary.questionId} />
+                  </div>
+                </Show>
               </section>
               <QuestionStatisticsPanel evidence={record().evidence} />
               <QuestionUsePanel usage={record().usage} />
-              <QuestionArchiveControl
-                client={applicationApi.client}
-                questionId={record().summary.questionId}
-                renderAvailableAction={() => (
-                  <QuestionForkControl source={record().summary.latestQuestionRevision} />
-                )}
-              />
+              <LibraryDiscussionPanel kind="question" publicId={record().summary.questionId} />
+              <Show when={mayMutateLibrary()}>
+                <QuestionArchiveControl
+                  client={applicationApi.client}
+                  questionId={record().summary.questionId}
+                  renderAvailableAction={() => (
+                    <QuestionForkControl source={record().summary.latestQuestionRevision} />
+                  )}
+                />
+              </Show>
             </article>
           )}
         </Show>

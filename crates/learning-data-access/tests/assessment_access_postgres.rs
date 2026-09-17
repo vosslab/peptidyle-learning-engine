@@ -147,7 +147,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
         .expect("data fixture role");
     sqlx::query(
         "INSERT INTO ple_data.published_question (question_id, created_at) \
-         VALUES ('BCDEXFG0', clock_timestamp())",
+         VALUES ('BCDE-2FGH', clock_timestamp())",
     )
     .execute(&mut *tx)
     .await
@@ -155,7 +155,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
     sqlx::query(
         "INSERT INTO ple_data.question_revision \
          (question_id, revision_number, backend, question_type, published_at) \
-         VALUES ('BCDEXFG0', 1, 'ple', 'multipleChoice', clock_timestamp())",
+         VALUES ('BCDE-2FGH', 1, 'ple', 'multipleChoice', clock_timestamp())",
     )
     .execute(&mut *tx)
     .await
@@ -367,7 +367,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
         "INSERT INTO ple_data.assessment_entry \
          (assessment_entry_id, assessment_id, authored_position, entry_kind, availability, \
           scoring_rule, question_id, question_revision_number, points_possible) \
-         VALUES ($1, $2, 0, 'fixed_question', 'available', 'normal', 'BCDEXFG0', 1, 2)",
+         VALUES ($1, $2, 0, 'fixed_question', 'available', 'normal', 'BCDE-2FGH', 1, 2)",
     )
     .bind(id(ASSESSMENT_ENTRY))
     .bind(id(ASSESSMENT))

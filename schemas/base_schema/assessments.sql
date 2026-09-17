@@ -9,7 +9,12 @@ CREATE TABLE ple_data.assessment (
     course_id uuid NOT NULL REFERENCES ple_data.course_instance(course_id),
     reference_number bigint GENERATED ALWAYS AS IDENTITY UNIQUE NOT NULL
         CHECK (reference_number BETWEEN 1 AND 2147483647),
-    public_reference text NOT NULL UNIQUE CHECK (public_reference ~ '^A[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$'),
+    public_reference text NOT NULL UNIQUE CHECK (
+        public_reference ~ '^A[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}$'
+        AND right(public_reference, 1) = ple_private.crockford_checksum_character(
+            left(public_reference, char_length(public_reference) - 1)
+        )
+    ),
     origin_kind text NOT NULL CHECK (origin_kind IN ('direct', 'adopted')),
     source_blueprint_course_reference_number bigint,
     source_blueprint_revision_number bigint CHECK (source_blueprint_revision_number > 0),
@@ -260,6 +265,7 @@ DECLARE
     changed boolean := false;
     row_count integer;
     question_available boolean;
+    question_backend_supported boolean;
     question_pool_id_value uuid;
 BEGIN
     IF p_entries IS NULL OR jsonb_typeof(p_entries) <> 'array'
@@ -296,12 +302,20 @@ BEGIN
 
         IF entry_kind = 'fixed_question' THEN
             IF entry_json ->> 'questionId' IS NULL
+               OR entry_json ->> 'questionId' !~ '^[0-9ABCDEFGHJKMNPQRSTVWXYZ]{4}-[0-9ABCDEFGHJKMNPQRSTVWXYZ]{4}$'
+               OR substr(entry_json ->> 'questionId', 6, 1)
+                    <> ple_private.crockford_checksum_character(
+                        substr(entry_json ->> 'questionId', 1, 4)
+                        || substr(entry_json ->> 'questionId', 7, 3)
+                    )
                OR entry_json ->> 'revisionNumber' !~ '^[1-9][0-9]*$'
                OR entry_json ->> 'pointsPossible' !~ '^[0-9]{1,10}(\.[0-9]{1,4})?$'
                OR (entry_json ->> 'pointsPossible')::numeric > 1000000000.9999 THEN
                 RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Fixed Question Assessment Entry is invalid';
             END IF;
-            SELECT question.availability = 'available' INTO question_available
+            SELECT question.availability = 'available',
+                   ple_private.question_backend_is_supported_for_production(revision.backend)
+              INTO question_available, question_backend_supported
               FROM ple_data.published_question AS question
               JOIN ple_data.question_revision AS revision
                 ON revision.question_id = question.question_id
@@ -318,6 +332,18 @@ BEGIN
                ) THEN
                 RAISE EXCEPTION USING ERRCODE = '22023',
                     MESSAGE = 'New Assessment Question pins require an Available Question';
+            END IF;
+            IF question_backend_supported IS DISTINCT FROM true
+               AND NOT EXISTS (
+                   SELECT 1 FROM ple_data.assessment_entry AS existing
+                    WHERE existing.assessment_id = p_assessment_id
+                      AND existing.assessment_entry_id = entry_id
+                      AND existing.entry_kind = 'fixed_question'
+                      AND existing.question_id = entry_json ->> 'questionId'
+                      AND existing.question_revision_number = (entry_json ->> 'revisionNumber')::integer
+               ) THEN
+                RAISE EXCEPTION USING ERRCODE = '22023',
+                    MESSAGE = 'New Assessment Question pins require a current production Question Backend';
             END IF;
             IF EXISTS (
                 SELECT 1 FROM ple_data.assessment_entry AS existing
@@ -381,7 +407,12 @@ BEGIN
                OR entry_json ->> 'pointsPerItem' !~ '^[0-9]{1,10}(\.[0-9]{1,4})?$'
                OR (entry_json ->> 'pointsPerItem')::numeric > 1000000000.9999
                OR entry_json ->> 'selectedQuestionOrder' NOT IN ('question_pool_order', 'random_order')
-               OR entry_json ->> 'questionPoolId' !~ '^[0-9A-HJKMNP-TV-Z]{8}$'
+               OR entry_json ->> 'questionPoolId' !~ '^[0-9ABCDEFGHJKMNPQRSTVWXYZ]{4}-[0-9ABCDEFGHJKMNPQRSTVWXYZ]{4}$'
+               OR substr(entry_json ->> 'questionPoolId', 6, 1)
+                    <> ple_private.crockford_checksum_character(
+                        substr(entry_json ->> 'questionPoolId', 1, 4)
+                        || substr(entry_json ->> 'questionPoolId', 7, 3)
+                    )
                OR entry_json ->> 'questionPoolRevisionNumber' !~ '^[1-9][0-9]*$' THEN
                 RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Question Pool Assessment Entry is invalid';
             END IF;
@@ -397,6 +428,32 @@ BEGIN
             ) THEN
                 RAISE EXCEPTION USING ERRCODE = '22023',
                     MESSAGE = 'Question Pool Assessment Entry is invalid';
+            END IF;
+            IF NOT EXISTS (
+                SELECT 1
+                  FROM ple_data.assessment_entry AS existing
+                  JOIN ple_data.assessment_question_pool_fork AS owned
+                    ON owned.assessment_entry_id = existing.assessment_entry_id
+                   AND owned.assessment_id = existing.assessment_id
+                   AND owned.question_pool_id = existing.question_pool_id
+                 WHERE existing.assessment_id = p_assessment_id
+                   AND existing.assessment_entry_id = entry_id
+                   AND existing.entry_kind = 'question_pool'
+                   AND existing.question_pool_id = question_pool_id_value
+                   AND existing.question_pool_revision_number
+                       = (entry_json ->> 'questionPoolRevisionNumber')::bigint
+            ) AND EXISTS (
+                SELECT 1
+                  FROM ple_data.question_pool_revision_member AS member
+                  JOIN ple_data.question_revision AS revision
+                    ON revision.question_id = member.question_id
+                   AND revision.revision_number = member.question_revision_number
+                 WHERE member.question_pool_id = question_pool_id_value
+                   AND member.revision_number = (entry_json ->> 'questionPoolRevisionNumber')::bigint
+                   AND NOT ple_private.question_backend_is_supported_for_production(revision.backend)
+            ) THEN
+                RAISE EXCEPTION USING ERRCODE = '22023',
+                    MESSAGE = 'New Assessment Question Pool pins require current production Question Backends';
             END IF;
             -- An Assessment Pool is its own immutable fork lineage.  The
             -- ordinary complete-content save may alter only Entry policy;

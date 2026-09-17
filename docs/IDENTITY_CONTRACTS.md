@@ -7,14 +7,16 @@ evidence, not a second product vocabulary.
 
 ## Rules that apply everywhere
 
-- A durable ID names one thing. Possessing or supplying it does not authorize
-  access.
-- The server resolves the authenticated Account and exact stored relationship
-  required by the operation.
-- A checksum detects disagreement in otherwise valid data. It does not provide
-  authentication or authorization.
-- Public References are human-facing selectors. Internal UUIDs remain behind
-  trusted boundaries.
+- A durable ID names one thing.
+- A checksum detects disagreement in otherwise valid data.
+- A public ID is the one universal, canonical human-facing identifier for a PLE
+  object that needs one.
+- A public ID remains its exact canonical string in PostgreSQL, Rust, JSON,
+  URLs, object storage, hashes, logs, and browser UI; no boundary translates,
+  reformats, strips, reconstructs, or derives it.
+- Internal UUIDs remain internal. An object may retain an internal UUID primary
+  key alongside a public ID, but the UUID never substitutes for or appears as
+  the public identity.
 - Published Questions, published Question Pools, and Blueprint Courses have
   immutable Revision families.
 
@@ -54,19 +56,37 @@ Course membership.
 | Identity | Scope and meaning |
 | --- | --- |
 | Draft Question ID | One private, mutable, unpublished Draft Question |
-| Question ID | One stable Published Question lineage, displayed as `AAAA-ZBBB` |
+| Question ID | One stable Published Question lineage, in canonical form `XXXX-ZXXX` |
 | Question Revision Reference | One immutable Revision in a Published Question lineage |
-| Question Pool ID | One stable published Pool lineage, using the same public ID shape |
+| Question Pool ID | One stable published Pool lineage in the shared `XXXX-ZXXX` namespace |
 | Pool Revision Reference | One immutable Revision of a Question Pool |
 | Blueprint Revision Reference | One immutable saved content state of a Blueprint Course |
 | Assessment ID | One current Blueprint or Course Instance Assessment; not a revision family |
 | Assessment Attempt ID | One Student's occurrence of one Course Instance Assessment |
-| Object ID | One immutable stored object; never a browser authorization grant |
+| Object ID | One immutable stored object |
 
-The visible Question and Pool ID contains seven random Crockford Base32 identity
-characters plus one HMAC-derived check character. The compact form is eight
-characters; the display form inserts a hyphen after four characters. See
-[QUESTION_ID_SPEC.md](QUESTION_ID_SPEC.md).
+In ID format notation, `X` is one cryptographically random Crockford Base32
+character and `Z` is the embedded calculated checksum character; both are
+stored characters. Every public ID has one canonical uppercase ASCII form.
+Human input may normalize lowercase Crockford characters, `O` or `o` to `0`,
+and `I`, `i`, `L`, or `l` to `1` before canonical syntax and checksum
+validation. The visible Question ID has
+seven random characters plus one embedded public SHA-256 checksum character.
+Its one canonical form is `XXXX-ZXXX` at every boundary; the hyphen is part of
+the form and makes it immediately recognizable. Human Question-ID entry may
+omit the hyphen; canonicalization restores it before validation and lookup.
+Published Questions and Question Pools share that one namespace: a
+value identifies either object, never both. See [QUESTION_ID_SPEC.md](QUESTION_ID_SPEC.md).
+
+Blueprint Course `BPXXXXXXXZ`, Course Instance `CIXXXXXXXZ`, Assessment
+`AXXXXXXXZ`, and Account `UXXXXXXXZ` IDs each contain seven random Crockford
+Base32 characters plus final checksum `Z`. Checksum input is the ASCII bytes of
+every other uppercase canonical-ID character, including a prefix and excluding
+only separators and checksum position. Public unsalted SHA-256 maps the high
+five bits of digest byte 0 through the Crockford alphabet. Validation happens
+before database lookup or resolution. Generation enforces global uniqueness
+across every public-ID object type, retries random collisions, and never
+reassigns an issued ID, including after deletion or archival.
 
 Published Question metadata and immutable Question Revision content are
 separate. A source change creates a Question Revision. A compatible metadata

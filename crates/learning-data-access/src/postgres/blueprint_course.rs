@@ -220,7 +220,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
             sqlx::query("SELECT * FROM ple_api.blueprint_pool_members($1,$2,$3,false,NULL,NULL)")
                 .bind(reference.as_string())
                 .bind(assessment.as_uuid())
-                .bind(question_pool_id.as_compact_str())
+                .bind(question_pool_id.as_str())
                 .fetch_all(&mut *transaction)
                 .await
                 .map_err(map_sqlx_error)?;
@@ -737,7 +737,7 @@ async fn validate_question_references(
             "SELECT question_id, revision_number, availability
              FROM ple_api.load_question_library_revision($1, $2)",
         )
-        .bind(reference.question_id.as_compact_str())
+        .bind(reference.question_id.as_str())
         .bind(
             i32::try_from(reference.revision_number.get())
                 .map_err(|_| invalid("Published Question Revision"))?,
@@ -836,9 +836,7 @@ fn decode_course(row: &sqlx::postgres::PgRow) -> Result<StoredBlueprintCourse, S
 }
 
 pub(super) fn encode_content(content: &StoredBlueprintCourseContent) -> Result<Value, StoreError> {
-    let mut encoded = serde_json::to_value(content).map_err(|_| invalid("Blueprint Content"))?;
-    compact_question_ids(&mut encoded)?;
-    Ok(encoded)
+    serde_json::to_value(content).map_err(|_| invalid("Blueprint Content"))
 }
 
 fn decode_stored_content(encoded: Value) -> Result<StoredBlueprintCourseContent, StoreError> {
@@ -853,35 +851,6 @@ pub(super) fn decode_revision_content(
     let content = decode_stored_content(encoded)?;
     verify_content_checksum(&content, expected)?;
     Ok(content)
-}
-
-/// PostgreSQL JSON is a machine boundary, so it stores compact Question IDs.
-/// Domain serialization remains grouped for browser-facing values.
-fn compact_question_ids(value: &mut Value) -> Result<(), StoreError> {
-    match value {
-        Value::Array(values) => {
-            for value in values {
-                compact_question_ids(value)?;
-            }
-        }
-        Value::Object(values) => {
-            for value in values.values_mut() {
-                compact_question_ids(value)?;
-            }
-            for key in ["questionId", "question_id"] {
-                if let Some(Value::String(question_id)) = values.get_mut(key) {
-                    let compact = question_id
-                        .parse::<QuestionId>()
-                        .map_err(|_| invalid("Blueprint Question ID"))?
-                        .as_compact_str()
-                        .to_owned();
-                    *question_id = compact;
-                }
-            }
-        }
-        _ => {}
-    }
-    Ok(())
 }
 
 fn verify_content_checksum(
@@ -952,24 +921,4 @@ pub(super) fn random_uuid() -> Result<uuid::Uuid, StoreError> {
     crate::random_uuid::random_uuid_v4(|_| {
         StoreError::Unavailable("Blueprint Course UUID randomness unavailable".to_string())
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use serde_json::json;
-
-    use super::compact_question_ids;
-
-    #[test]
-    fn postgres_blueprint_json_uses_compact_question_ids() {
-        let mut value = json!({
-            "questionId": "ABCD-XEFG",
-            "nested": [{"question_id": "2345-X678"}],
-        });
-
-        compact_question_ids(&mut value).expect("valid Question IDs");
-
-        assert_eq!(value["questionId"], "ABCDXEFG");
-        assert_eq!(value["nested"][0]["question_id"], "2345X678");
-    }
 }

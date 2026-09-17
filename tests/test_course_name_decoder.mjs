@@ -7,7 +7,7 @@ import { decodeCourseSummary } from "../src/api/decoders.ts";
 function courseSummary(shortName, longName) {
   return {
     id: "00000000-0000-0000-0000-000000000001",
-    reference: "CI7K3M2Q",
+    reference: "CI7K3M2QAZ",
     classification: {
       disciplineUuid: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6d",
       subjectUuid: null,

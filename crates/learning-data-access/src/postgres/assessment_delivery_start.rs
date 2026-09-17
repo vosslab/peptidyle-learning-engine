@@ -393,7 +393,7 @@ mod tests {
 
     fn pool_revision() -> QuestionPoolRevisionReference {
         QuestionPoolRevisionReference {
-            question_pool_id: "0000-X00N".parse::<QuestionId>().expect("Pool ID"),
+            question_pool_id: "0000-4000".parse::<QuestionId>().expect("Pool ID"),
             revision_number: QuestionPoolRevisionNumber::new(1).expect("revision"),
         }
     }
@@ -405,7 +405,7 @@ mod tests {
                 member_position: value,
             },
             reference: QuestionRevisionReference {
-                question_id: "0000-X00N".parse::<QuestionId>().expect("question ID"),
+                question_id: "0000-4000".parse::<QuestionId>().expect("question ID"),
                 revision_number: QuestionRevisionNumber::new(1).expect("revision"),
             },
         }

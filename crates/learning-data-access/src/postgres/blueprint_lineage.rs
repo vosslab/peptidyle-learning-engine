@@ -320,7 +320,7 @@ pub(super) async fn load_pool_memberships(
     for pin in pins {
         // ASVS 1.2.4, 8.2.3: exact bound metadata only, never Question bodies/answers.
         let rows = sqlx::query("SELECT * FROM ple_api.read_published_question_pool_revision($1, $2) ORDER BY member_position")
-            .bind(pin.question_pool_id.as_compact_str())
+            .bind(pin.question_pool_id.as_str())
             .bind(i64::try_from(pin.revision_number.get()).map_err(|_| invalid())?)
             .fetch_all(&mut **transaction).await.map_err(map_sqlx_error)?;
         if rows.is_empty() {

@@ -59,7 +59,7 @@ impl QuestionAssetDeliveryStore for PostgresQuestionAssetDeliveryStore {
             "SELECT public_object_id, rendition_checksum \
              FROM ple_api.resolve_ready_question_asset($1, $2, $3)",
         )
-        .bind(question_revision.question_id.as_compact_str())
+        .bind(question_revision.question_id.as_str())
         .bind(
             i32::try_from(question_revision.revision_number.get()).map_err(|_| {
                 StoreError::InvalidRecord("Question Revision number is invalid".to_string())

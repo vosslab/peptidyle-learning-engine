@@ -1238,6 +1238,11 @@
         "captureIds": ["instructor_question_library_browse_laptop"]
       },
       {
+        "routeId": "libraryWatchNotifications",
+        "status": "deferred",
+        "reason": "The private Watch notification inbox requires the next canonical Live Demo screenshot refresh before rendered evidence is claimed."
+      },
+      {
         "routeId": "questionDetail",
         "status": "captured",
         "captureIds": [
@@ -1363,6 +1368,11 @@
         ]
       },
       {
+        "routeId": "contentDisciplines",
+        "status": "deferred",
+        "reason": "The Sysadmin Discipline lifecycle workspace requires the next canonical Live Demo screenshot refresh before rendered evidence is claimed."
+      },
+      {
         "routeId": "pendingCourseInvitations",
         "status": "deferred",
         "reason": "Pending teaching invitations are not provisioned by the current Live Demo and are not restored for screenshots."
@@ -1464,6 +1474,11 @@
         "captureIds": ["sysadmin_instructor_accounts_initial_laptop"]
       },
       {
+        "id": "tab:disciplines",
+        "status": "deferred",
+        "reason": "The Sysadmin Disciplines tab requires the next canonical Live Demo screenshot refresh before rendered evidence is claimed."
+      },
+      {
         "id": "task:myBlueprintCourses",
         "status": "captured",
         "captureIds": ["instructor_blueprint_courses_laptop"]
@@ -1501,7 +1516,7 @@
       {
         "id": "task:watched",
         "status": "deferred",
-        "reason": "Watched Questions is a future Ribbon destination without a Product Route."
+        "reason": "The Watched destination now opens the private Watch inbox and requires the next canonical Live Demo screenshot refresh before rendered evidence is claimed."
       },
       {
         "id": "task:searchQuestionLibrary",

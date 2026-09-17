@@ -34,10 +34,7 @@ use question_model::{
     QuestionPresentationResponseFormat, QuestionRevisionNumber, QuestionRevisionReference,
 };
 
-use crate::{
-    auth::{AuthError, resolve_session},
-    question_publication::HmacQuestionIdIssuer,
-};
+use crate::auth::{AuthError, resolve_session};
 
 const WEBWORK_SOURCE_MEDIA_TYPE: &str = "text/x-wework-pg";
 
@@ -47,7 +44,6 @@ struct StateData {
     store: PostgresInstructorStudentViewStore,
     objects: S3ObjectStore,
     webwork: Arc<WebworkAdapter<HttpWebworkRenderer>>,
-    question_id_issuer: HmacQuestionIdIssuer,
     browser_origin: Arc<str>,
 }
 
@@ -67,7 +63,6 @@ pub fn assessment_student_view_router(
     store: PostgresInstructorStudentViewStore,
     objects: S3ObjectStore,
     webwork: Arc<WebworkAdapter<HttpWebworkRenderer>>,
-    question_id_issuer: HmacQuestionIdIssuer,
     browser_origin: Arc<str>,
 ) -> Router {
     // ASVS 4.1.4 and 8.3.1: the trusted server exposes GET only for this
@@ -90,7 +85,6 @@ pub fn assessment_student_view_router(
             store,
             objects,
             webwork,
-            question_id_issuer,
             browser_origin,
         })
 }
@@ -117,7 +111,7 @@ async fn manifest(
         Err(error) => return store_error(error),
     };
     let edit_number = snapshot.edit_number;
-    let view = match project_manifest(&state.question_id_issuer, snapshot) {
+    let view = match project_manifest(snapshot) {
         Ok(value) => value,
         Err(()) => return unavailable(),
     };
@@ -139,13 +133,9 @@ async fn presentation(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let Some((course, assessment, question_revision)) = route_question_references(
-        &state.question_id_issuer,
-        &course,
-        &assessment,
-        &question_id,
-        revision,
-    ) else {
+    let Some((course, assessment, question_revision)) =
+        route_question_references(&course, &assessment, &question_id, revision)
+    else {
         return concealed();
     };
     let token = match instructor(&state, &headers).await {
@@ -190,13 +180,9 @@ async fn document(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let Some((course, assessment, question_revision)) = route_question_references(
-        &state.question_id_issuer,
-        &course,
-        &assessment,
-        &question_id,
-        revision,
-    ) else {
+    let Some((course, assessment, question_revision)) =
+        route_question_references(&course, &assessment, &question_id, revision)
+    else {
         return concealed();
     };
     let token = match instructor(&state, &headers).await {
@@ -222,7 +208,6 @@ async fn document(
 }
 
 fn project_manifest(
-    issuer: &HmacQuestionIdIssuer,
     snapshot: learning_data_access::InstructorStudentViewSnapshot,
 ) -> Result<InstructorStudentView, ()> {
     let mut pending = Vec::with_capacity(snapshot.entries.len());
@@ -255,7 +240,7 @@ fn project_manifest(
                 availability: AssessmentEntryAvailability::Available,
                 question_revision,
             } => {
-                verified_revision(issuer, &question_revision)?;
+                verified_revision(&question_revision)?;
                 PendingEntry::Presented {
                     authored_position,
                     questions: vec![question_revision],
@@ -267,13 +252,8 @@ fn project_manifest(
                 assessment_entry,
                 members,
             } => {
-                if !issuer.validates_question_id(
-                    &assessment_entry.question_pool_revision.question_pool_id,
-                ) {
-                    return Err(());
-                }
                 for member in &members {
-                    verified_revision(issuer, &member.reference)?;
+                    verified_revision(&member.reference)?;
                 }
                 let selected =
                     select_question_pool_items(&assessment_entry, &members, selection_entropy()?)
@@ -562,7 +542,6 @@ fn route_references(
 }
 
 fn route_question_references(
-    issuer: &HmacQuestionIdIssuer,
     course: &str,
     assessment: &str,
     question_id: &str,
@@ -574,10 +553,7 @@ fn route_question_references(
 )> {
     let (course, assessment) = route_references(course, assessment)?;
     let question_id = question_id.parse::<QuestionId>().ok()?;
-    // ASVS 8.2.2: validate the installation HMAC before any Question lookup.
-    if !issuer.validates_question_id(&question_id) {
-        return None;
-    }
+    // ASVS 2.2.1/2: parse the exact checksum-bearing ID before any Question lookup.
     Some((
         course,
         assessment,
@@ -588,14 +564,13 @@ fn route_question_references(
     ))
 }
 
-fn verified_revision(
-    issuer: &HmacQuestionIdIssuer,
-    revision: &QuestionRevisionReference,
-) -> Result<(), ()> {
-    issuer
-        .validates_question_id(&revision.question_id)
-        .then_some(())
-        .ok_or(())
+fn verified_revision(revision: &QuestionRevisionReference) -> Result<(), ()> {
+    revision
+        .question_id
+        .as_str()
+        .parse::<QuestionId>()
+        .map(|_| ())
+        .map_err(|_| ())
 }
 
 fn edit_header(headers: &HeaderMap) -> Result<AssessmentEditNumber, Box<Response>> {

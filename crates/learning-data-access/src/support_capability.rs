@@ -120,7 +120,8 @@ mod tests {
 
     fn input(reference: &str, purpose: &str) -> IssueSupportRepairCapabilityInput {
         IssueSupportRepairCapabilityInput {
-            sysadmin_reference: AccountReference::new("U7K3M2Q").expect("valid reference"),
+            sysadmin_reference: AccountReference::from_random_identity("7K3M2QX")
+                .expect("valid reference"),
             resource_class: SupportRepairResourceClass::Student,
             resource_reference: reference.to_owned(),
             purpose: purpose.to_owned(),

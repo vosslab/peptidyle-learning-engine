@@ -248,12 +248,12 @@ pub(super) fn issuance_reproduction_from_row(
         ("ple", Some(_)) => Err(StoreError::InvalidRecord(
             "Native PLE Question issuance must not have a seed".to_string(),
         )),
-        ("webwork" | "imathas", Some(question_seed)) => question_seed
+        ("webwork", Some(question_seed)) => question_seed
             .parse::<u64>()
             .map(QuestionSeed::new)
             .map(|question_seed| QuestionIssuanceReproductionInput::Seeded { question_seed })
             .map_err(|_| StoreError::InvalidRecord("Question Seed is invalid".to_string())),
-        ("webwork" | "imathas", None) => Err(StoreError::InvalidRecord(
+        ("webwork", None) => Err(StoreError::InvalidRecord(
             "Renderer-backed Question issuance requires a seed".to_string(),
         )),
         _ => Err(StoreError::InvalidRecord(

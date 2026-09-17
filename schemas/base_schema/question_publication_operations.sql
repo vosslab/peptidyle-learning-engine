@@ -19,6 +19,10 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'authorized Draft Question Edit Number is required';
     END IF;
+    IF NOT ple_private.question_backend_is_supported_for_production(p_backend) THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Question Backend is unavailable for new production work';
+    END IF;
     SELECT draft_question_edit_number INTO current_edit FROM ple_private.draft_question
      WHERE draft_question_uuid = p_draft_question_uuid AND workspace_id = p_workspace_id
      FOR UPDATE;
@@ -101,7 +105,11 @@ DECLARE
     published_at timestamptz := clock_timestamp();
 BEGIN
     IF p_expected_edit_number IS NULL OR p_expected_edit_number <= 0
-       OR p_question_id IS NULL OR p_question_id !~ '^[0-9A-HJKMNP-TV-Z]{8}$'
+       OR p_question_id IS NULL
+       OR p_question_id !~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
+       OR substr(p_question_id, 6, 1) <> ple_private.crockford_checksum_character(
+           substr(p_question_id, 1, 4) || substr(p_question_id, 7, 3)
+       )
        OR p_expected_parent_revision_number IS NULL OR p_expected_parent_revision_number <= 0
        OR p_target_object_id IS NULL OR p_target_sha256 IS NULL OR octet_length(p_target_sha256) <> 32
        OR p_target_size_bytes IS NULL OR p_target_size_bytes < 0
@@ -149,6 +157,10 @@ BEGIN
      WHERE draft_question_uuid = p_draft_question_uuid FOR UPDATE;
     SELECT * INTO STRICT binding FROM ple_private.draft_question_source_binding
      WHERE draft_question_uuid = p_draft_question_uuid FOR UPDATE;
+    IF NOT ple_private.question_backend_is_supported_for_production(binding.backend) THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Question Backend is unavailable for new production work';
+    END IF;
     SELECT * INTO STRICT parent_binding FROM ple_private.question_revision_source_binding
      WHERE question_id = p_question_id
        AND revision_number = p_expected_parent_revision_number
@@ -316,7 +328,7 @@ CREATE FUNCTION ple_private.load_draft_question_publication_source(
     p_draft_question_uuid uuid, p_expected_edit_number bigint, p_workspace_id uuid
 ) RETURNS TABLE (
     object_id uuid, object_address jsonb, sha256 bytea, size_bytes bigint,
-    media_type text, created_at_millis bigint, reserved_question_id text
+    media_type text, created_at_millis bigint
 ) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
 DECLARE current_edit bigint; row_count bigint;
@@ -339,12 +351,9 @@ BEGIN
     END IF;
     RETURN QUERY SELECT record.object_id, record.object_address, record.sha256,
         record.size_bytes, record.media_type,
-        round(extract(epoch FROM record.created_at) * 1000)::bigint,
-        fork.forked_question_id
+        round(extract(epoch FROM record.created_at) * 1000)::bigint
       FROM ple_private.draft_question_source_binding AS binding
       JOIN ple_private.object_record AS record ON record.object_id = binding.source_object_id
-      LEFT JOIN ple_private.draft_question_fork_source AS fork
-        ON fork.draft_question_uuid = binding.draft_question_uuid
      WHERE binding.draft_question_uuid = p_draft_question_uuid
        AND binding.source_object_checksum = encode(record.sha256, 'hex')
        AND record.object_storage_area = 'private-content'
@@ -375,10 +384,15 @@ DECLARE
     binding ple_private.draft_question_source_binding%ROWTYPE;
     source_record ple_private.object_record%ROWTYPE; expected_address jsonb;
     published_at timestamptz := clock_timestamp(); author_count integer; valid_count integer;
-    recorded_forked_question_id text; recorded_source_question_id text;
+    recorded_source_question_id text;
+    recorded_source_revision_number integer; recorded_source_license text;
 BEGIN
     IF p_expected_edit_number IS NULL OR p_expected_edit_number <= 0
-       OR p_question_id IS NULL OR p_question_id !~ '^[0-9A-HJKMNP-TV-Z]{8}$'
+       OR p_question_id IS NULL
+       OR p_question_id !~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
+       OR substr(p_question_id, 6, 1) <> ple_private.crockford_checksum_character(
+           substr(p_question_id, 1, 4) || substr(p_question_id, 7, 3)
+       )
        OR p_target_object_id IS NULL OR p_target_sha256 IS NULL OR octet_length(p_target_sha256) <> 32
        OR p_target_size_bytes IS NULL OR p_target_size_bytes < 0
        OR p_target_media_type IS NULL OR char_length(btrim(p_target_media_type)) NOT BETWEEN 1 AND 255
@@ -416,43 +430,33 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '40001',
             MESSAGE = 'Question Publication Draft Question Edit Number is stale or not in its workspace';
     END IF;
-    SELECT fork.forked_question_id, fork.source_question_id
-      INTO recorded_forked_question_id, recorded_source_question_id
+    SELECT fork.source_question_id, fork.source_revision_number
+      INTO recorded_source_question_id,
+           recorded_source_revision_number
       FROM ple_private.draft_question_fork_source AS fork
      WHERE fork.draft_question_uuid = p_draft_question_uuid
      FOR UPDATE;
-    IF recorded_forked_question_id IS NOT NULL
-       AND recorded_forked_question_id <> p_question_id THEN
-        RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'Question Fork Publication must use its server-allocated Question ID';
-    END IF;
-    PERFORM pg_catalog.pg_advisory_xact_lock(
-        pg_catalog.hashtextextended('question-id:' || p_question_id, 0));
-    IF recorded_forked_question_id IS NOT NULL THEN
-        IF recorded_source_question_id = p_question_id
-           OR EXISTS (
-               SELECT 1 FROM ple_data.published_question AS published
-                WHERE published.question_id = p_question_id)
-           OR EXISTS (
-               SELECT 1 FROM ple_private.draft_question_fork_source AS reservation
-                WHERE reservation.forked_question_id = p_question_id
-                  AND reservation.draft_question_uuid <> p_draft_question_uuid) THEN
-            RAISE EXCEPTION USING ERRCODE = 'QP001',
-                MESSAGE = 'Question Fork reserved Question ID is no longer publishable';
+    -- ASVS 2.2.2, 2.2.3, and 2.3.3: derive the exact source Revision
+    -- license from the immutable server-owned fork pin and preserve that exact
+    -- license before this transaction writes publication state.
+    IF recorded_source_question_id IS NOT NULL THEN
+        SELECT license.spdx_expression INTO STRICT recorded_source_license
+          FROM ple_data.question_revision_license AS license
+         WHERE license.question_id = recorded_source_question_id
+           AND license.revision_number = recorded_source_revision_number;
+        IF p_license <> recorded_source_license THEN
+            RAISE EXCEPTION USING ERRCODE = '23514',
+                MESSAGE = 'Question Fork Publication must preserve its exact source Revision license';
         END IF;
-    ELSIF EXISTS (
-        SELECT 1 FROM ple_data.published_question AS published
-         WHERE published.question_id = p_question_id)
-       OR EXISTS (
-        SELECT 1 FROM ple_private.draft_question_fork_source AS reservation
-         WHERE reservation.forked_question_id = p_question_id) THEN
-        RAISE EXCEPTION USING ERRCODE = 'QP001',
-            MESSAGE = 'Question Publication candidate Question ID is already allocated';
     END IF;
     SELECT * INTO STRICT metadata FROM ple_private.draft_question_metadata
      WHERE draft_question_uuid = p_draft_question_uuid FOR UPDATE;
     SELECT * INTO STRICT binding FROM ple_private.draft_question_source_binding
      WHERE draft_question_uuid = p_draft_question_uuid FOR UPDATE;
+    IF NOT ple_private.question_backend_is_supported_for_production(binding.backend) THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Question Backend is unavailable for new production work';
+    END IF;
     SELECT * INTO STRICT source_record FROM ple_private.object_record
      WHERE object_id = binding.source_object_id;
     expected_address := jsonb_build_object('kind', 'questionSource',
@@ -467,6 +471,7 @@ BEGIN
             MESSAGE = 'Question Publication target must preserve the exact Draft Question Source bytes';
     END IF;
     INSERT INTO ple_data.published_question(question_id, created_at) VALUES (p_question_id, published_at);
+    PERFORM ple_private.require_active_content_discipline(p_discipline_uuid);
     INSERT INTO ple_data.published_question_metadata(
         question_id, question_title, question_description, language, tags,
         discipline_uuid, subject_uuid, topic_uuid, subtopic_uuid, created_at, updated_at

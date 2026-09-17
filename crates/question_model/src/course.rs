@@ -319,13 +319,13 @@ mod tests {
     fn rust_names_serialize_as_lower_camel_course_contracts() {
         let assessment = AssessmentSummary {
             id: AssessmentId::from_uuid(Uuid::from_u128(1)),
-            reference: crate::AssessmentReference::new("A7K3M2Q").expect("valid reference"),
+            reference: crate::AssessmentReference::new("A7K3M2QXF").expect("valid reference"),
             course_id: CourseId::from_uuid(Uuid::from_u128(3)),
             title: assessment_title("Peptide bonds"),
             entries: vec![AssessmentEntrySummary::FixedQuestion(
                 FixedQuestionAssessmentEntrySummary {
                     id: crate::AssessmentEntryId::from_uuid(Uuid::from_u128(4)),
-                    question_id: "7K3M-X9QX".parse().expect("fixture Question ID parses"),
+                    question_id: "7K3M-19QX".parse().expect("fixture Question ID parses"),
                     question_title: "Peptide bonds".to_string(),
                     backend: crate::QuestionBackend::Ple,
                     capabilities: crate::QuestionBackendCapabilities::none(),
@@ -347,14 +347,14 @@ mod tests {
         assert!(value.get("courseId").is_some());
         assert!(value.get("course_id").is_none());
         let item = &value["entries"][0];
-        assert_eq!(item["questionId"], "7K3M-X9QX");
+        assert_eq!(item["questionId"], "7K3M-19QX");
         assert!(item.get("reference").is_none());
         assert!(value.get("lifecycle").is_none());
         assert!(value.get("instructions").is_none());
 
         let student = StudentAssessmentLandingSummary::from(AssessmentSummary {
             id: AssessmentId::from_uuid(Uuid::from_u128(1)),
-            reference: crate::AssessmentReference::new("A7K3M2Q").expect("valid reference"),
+            reference: crate::AssessmentReference::new("A7K3M2QXF").expect("valid reference"),
             course_id: CourseId::from_uuid(Uuid::from_u128(3)),
             title: assessment_title("Peptide bonds"),
             entries: Vec::new(),
@@ -373,7 +373,7 @@ mod tests {
     fn student_detail_owns_instructions_and_server_resolved_delivery() {
         let assessment = AssessmentSummary {
             id: AssessmentId::from_uuid(Uuid::from_u128(1)),
-            reference: crate::AssessmentReference::new("A7K3M2Q").expect("valid reference"),
+            reference: crate::AssessmentReference::new("A7K3M2QXF").expect("valid reference"),
             course_id: CourseId::from_uuid(Uuid::from_u128(3)),
             title: assessment_title("Peptide bonds"),
             entries: Vec::new(),

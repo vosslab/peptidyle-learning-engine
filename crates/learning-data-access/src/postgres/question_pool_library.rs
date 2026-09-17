@@ -113,7 +113,7 @@ impl QuestionPoolLibraryStore for PostgresQuestionPoolLibraryStore {
     ) -> Result<PublishedQuestionPoolRevision, StoreError> {
         let mut transaction = self.begin(session_token_hash).await?;
         let rows = sqlx::query("SELECT * FROM ple_api.read_current_published_question_pool($1)")
-            .bind(public_question_pool_id.as_compact_str())
+            .bind(public_question_pool_id.as_str())
             .fetch_all(&mut *transaction)
             .await
             .map_err(map_sqlx_error)?;
@@ -131,7 +131,7 @@ impl QuestionPoolLibraryStore for PostgresQuestionPoolLibraryStore {
         let mut transaction = self.begin(session_token_hash).await?;
         let rows =
             sqlx::query("SELECT * FROM ple_api.read_published_question_pool_revision($1, $2)")
-                .bind(reference.question_pool_id.as_compact_str())
+                .bind(reference.question_pool_id.as_str())
                 .bind(
                     i64::try_from(reference.revision_number.get())
                         .map_err(|_| invalid("Question Pool Revision"))?,
@@ -290,6 +290,10 @@ fn decode_metadata(row: &sqlx::postgres::PgRow) -> Result<QuestionPoolMetadata, 
         title: row.try_get("title").map_err(map_sqlx_error)?,
         description: row.try_get("description").map_err(map_sqlx_error)?,
         discipline_uuid: row.try_get("discipline_uuid").map_err(map_sqlx_error)?,
+        discipline_name: row.try_get("discipline_name").map_err(map_sqlx_error)?,
+        discipline_is_retired: row
+            .try_get("discipline_is_retired")
+            .map_err(map_sqlx_error)?,
         subject_uuid: row.try_get("subject_uuid").map_err(map_sqlx_error)?,
         topic_uuid: row.try_get("topic_uuid").map_err(map_sqlx_error)?,
         subtopic_uuid: row.try_get("subtopic_uuid").map_err(map_sqlx_error)?,

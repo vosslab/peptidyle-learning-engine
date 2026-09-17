@@ -20,9 +20,9 @@ import {
   decodeSafeInteger,
   decodeString,
 } from "../decoder.ts";
+import { validateCanonicalPublicReference } from "../../question_id.ts";
 
 const MAX_REASON_LENGTH = 1_000;
-const ACCOUNT_REFERENCE_PATTERN = /^U[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$/u;
 const VETTING_REFERENCE_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 
@@ -44,7 +44,7 @@ function requireOnlyFields(
 
 /** The Sysadmin-only Account reference is opaque, not a public route identity. */
 export function isCanonicalAccountReference(value: string): value is AccountReference {
-  return ACCOUNT_REFERENCE_PATTERN.test(value);
+  return validateCanonicalPublicReference("account", value) !== null;
 }
 
 function accountReference(value: unknown, path: string): AccountReference {

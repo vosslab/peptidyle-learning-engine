@@ -11,6 +11,8 @@ const metadata = {
   title: "Inheritance reasoning",
   description: "Interpret interchangeable pedigrees.",
   disciplineUuid: "00000000-0000-0000-0000-000000000001",
+  disciplineName: "Biology",
+  disciplineIsRetired: false,
   subjectUuid: "00000000-0000-0000-0000-000000000002",
   topicUuid: null,
   subtopicUuid: null,
@@ -21,7 +23,7 @@ test("Pool list retains independent metadata and exact Revision identity", () =>
   const page = {
     items: [
       {
-        questionPoolRevision: { questionPoolId: "3S8B-Z4DZ", revisionNumber: 4 },
+        questionPoolRevision: { questionPoolId: "3S8B-24DZ", revisionNumber: 4 },
         metadata,
         memberCount: 2,
       },
@@ -29,6 +31,14 @@ test("Pool list retains independent metadata and exact Revision identity", () =>
     nextCursor: null,
   };
   assert.deepEqual(decodeQuestionPoolLibraryPage(page), page);
+  const retiredPage = {
+    ...page,
+    items: [{ ...page.items[0], metadata: { ...metadata, disciplineIsRetired: true } }],
+  };
+  assert.equal(
+    decodeQuestionPoolLibraryPage(retiredPage).items[0]?.metadata.disciplineIsRetired,
+    true,
+  );
   const unicodeMetadata = {
     ...metadata,
     title: "\u00a0Inheritance\u00a0",
@@ -56,6 +66,8 @@ test("Pool metadata rejects missing required fields, unknown fields and malforme
     { description: " " },
     { title: " trailing " },
     { disciplineUuid: null },
+    { disciplineName: "" },
+    { disciplineIsRetired: "false" },
     { subjectUuid: "Biology" },
     { topicUuid: "Genetics" },
     { subtopicUuid: "00000000-0000-0000-0000-000000000004" },

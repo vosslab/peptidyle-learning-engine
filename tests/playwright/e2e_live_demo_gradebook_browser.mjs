@@ -70,9 +70,9 @@ try {
   }
 
   const foreignResponse = page.waitForResponse((candidate) =>
-    candidate.url().endsWith("/api/course-instances/CI000000/gradebook"),
+    candidate.url().endsWith("/api/course-instances/CI000000AQ/gradebook"),
   );
-  await page.goto(`${origin}/instructor/courses/CI000000/gradebook`, {
+  await page.goto(`${origin}/instructor/courses/CI000000AQ/gradebook`, {
     waitUntil: "domcontentloaded",
   });
   if ((await foreignResponse).status() !== 404) {

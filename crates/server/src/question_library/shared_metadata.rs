@@ -84,7 +84,7 @@ fn decode_question_ids(
     }
     let mut distinct = BTreeSet::new();
     for value in values {
-        // The server-held HMAC is verified before the Store can perform any
+        // The shared exact checksum is parsed before the Store can perform any
         // existence, availability, or metadata lookup.
         let question_id = verified_question_id(&state.question_id_issuer, &value)?;
         if !distinct.insert(question_id) {

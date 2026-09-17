@@ -4,14 +4,23 @@
 
 SET LOCAL ROLE ple_private_owner;
 
-INSERT INTO ple_private.account (account_id, product_role, created_at) VALUES
-    ('00000000-0000-0000-0000-000000000101', 'instructor', clock_timestamp()),
-    ('00000000-0000-0000-0000-000000000102', 'student', clock_timestamp()),
-    ('00000000-0000-0000-0000-000000000103', 'student', clock_timestamp()),
-    ('00000000-0000-0000-0000-000000000104', 'student', clock_timestamp()),
-    ('00000000-0000-0000-0000-000000000105', 'sysadmin', clock_timestamp()),
-    ('00000000-0000-0000-0000-000000000107', 'instructor', clock_timestamp())
-ON CONFLICT (account_id) DO NOTHING;
+-- Short-circuit existing roots before INSERT. The Account public-ID trigger
+-- reserves an ID before conflict handling, so `ON CONFLICT DO NOTHING` would
+-- leave an unused reservation on every replay.
+INSERT INTO ple_private.account (account_id, product_role, created_at)
+SELECT seed.account_id, seed.product_role, clock_timestamp()
+  FROM (VALUES
+      ('00000000-0000-0000-0000-000000000101'::uuid, 'instructor'::text),
+      ('00000000-0000-0000-0000-000000000102'::uuid, 'student'::text),
+      ('00000000-0000-0000-0000-000000000103'::uuid, 'student'::text),
+      ('00000000-0000-0000-0000-000000000104'::uuid, 'student'::text),
+      ('00000000-0000-0000-0000-000000000105'::uuid, 'sysadmin'::text),
+      ('00000000-0000-0000-0000-000000000107'::uuid, 'instructor'::text)
+  ) AS seed(account_id, product_role)
+ WHERE NOT EXISTS (
+     SELECT 1 FROM ple_private.account AS existing
+      WHERE existing.account_id = seed.account_id
+ );
 
 INSERT INTO ple_private.account_authentication_email (
     account_id, normalized_email, delivery_email, verified_at, updated_at

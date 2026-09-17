@@ -31,7 +31,7 @@ import {
   parseAssessmentReference,
   parseCourseInstanceReference,
 } from "../../navigation/public_route";
-import { normalizeQuestionIdSyntax } from "../../../generated/api/QuestionIdSyntaxContract";
+import { validateCanonicalQuestionIdSyntax } from "../../../generated/api/QuestionIdSyntaxContract";
 
 /** A stale Assessment Pool command must reload its complete Assessment workspace. */
 export class AssessmentPoolForkConflictError extends ApiRequestError {
@@ -110,7 +110,7 @@ async function requestJson<T>(
 }
 
 function importBody(input: ImportAssessmentQuestionPoolForkInput): object {
-  const sourceQuestionPoolId = normalizeQuestionIdSyntax(input.sourceQuestionPoolId);
+  const sourceQuestionPoolId = validateCanonicalQuestionIdSyntax(input.sourceQuestionPoolId);
   if (sourceQuestionPoolId === null || sourceQuestionPoolId !== input.sourceQuestionPoolId) {
     throw new ApiProtocolError("Question Pool ID must be canonical");
   }

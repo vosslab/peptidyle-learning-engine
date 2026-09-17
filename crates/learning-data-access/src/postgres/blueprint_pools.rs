@@ -43,10 +43,10 @@ async fn import(
         .issue_question_pool_id()?;
     // ASVS 1.2.4 / 2.3.3: exact source pins and fresh children share the Blueprint transaction.
     sqlx::query("SELECT ple_api.fork_blueprint_question_pool($1,$2,$3,$4)")
-        .bind(source.question_pool_id.as_compact_str())
+        .bind(source.question_pool_id.as_str())
         .bind(source.revision_number.get() as i64)
         .bind(super::blueprint_course::random_uuid()?)
-        .bind(child.as_compact_str())
+        .bind(child.as_str())
         .execute(&mut **transaction)
         .await
         .map_err(map_sqlx_error)?;
@@ -132,7 +132,7 @@ pub(super) async fn materialize_authoring_pools(
                             if replacement != old {
                                 let ids: Vec<_> = replacement
                                     .iter()
-                                    .map(|q| q.question_id.as_compact_str().to_owned())
+                                    .map(|q| q.question_id.as_str().to_owned())
                                     .collect();
                                 let revisions: Vec<_> = replacement
                                     .iter()
@@ -140,7 +140,7 @@ pub(super) async fn materialize_authoring_pools(
                                     .collect();
                                 let row = sqlx::query("SELECT ple_api.append_blueprint_pool_revision($1,$2,$3,$4,$5,$6,$7,$8) AS revision")
                                     .bind(reference.as_string()).bind(assessment.blueprint_assessment_reference.as_uuid())
-                                    .bind(revision.value() as i64).bind(pin.question_pool_id.as_compact_str())
+                                    .bind(revision.value() as i64).bind(pin.question_pool_id.as_str())
                                     .bind(pin.revision_number.get() as i64).bind(ids).bind(revisions).bind(interchangeability_attested)
                                     .fetch_one(&mut **transaction).await.map_err(map_sqlx_error)?;
                                 pin.revision_number = QuestionPoolRevisionNumber::new(
@@ -170,7 +170,7 @@ pub(super) async fn members(
     let rows = sqlx::query("SELECT * FROM ple_api.blueprint_pool_members($1,$2,$3,$4,$5,$6)")
         .bind(reference.as_string())
         .bind(assessment.as_uuid())
-        .bind(pin.question_pool_id.as_compact_str())
+        .bind(pin.question_pool_id.as_str())
         .bind(write.is_some())
         .bind(write.map(|r| r.value() as i64))
         .bind(Some(pin.revision_number.get() as i64))

@@ -69,8 +69,13 @@ import type { QuestionForkClient } from "./question_fork";
 import type { AssessmentStudentViewClient } from "./assessment_student_view";
 import type { AssessmentTemplateClient } from "./assessment_template";
 import type { QuestionBulkMetadataClient } from "./question_bulk_metadata";
-import type { ContentClassificationClient } from "./content_classification";
+import type {
+  ContentClassificationClient,
+  ContentDisciplineAdministrationClient,
+} from "./content_classification";
 import type { CourseStudentWorkRecoveryClient } from "./course_student_work_recovery";
+import type { LibraryDiscussionClient } from "./library_discussion";
+import type { LibraryWatchNotificationClient } from "./library_watch_notification";
 /** Browser-safe client contract implemented by the current same-origin HTTP transport. */
 export interface ApiClient
   extends
@@ -95,10 +100,13 @@ export interface ApiClient
     QuestionPoolLibraryClient,
     QuestionPoolCreationClient,
     QuestionPoolStewardshipClient,
+    LibraryDiscussionClient,
+    LibraryWatchNotificationClient,
     AssessmentStudentViewClient,
     AssessmentTemplateClient,
     QuestionBulkMetadataClient,
     ContentClassificationClient,
+    ContentDisciplineAdministrationClient,
     CourseStudentWorkRecoveryClient {
   /** Reads only the authenticated Account's role-neutral Profile settings. */
   readonly getProfile: () => Promise<ProfileSettings>;

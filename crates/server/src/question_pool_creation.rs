@@ -29,7 +29,7 @@ use uuid::Uuid;
 
 use crate::{
     auth::{AuthError, resolve_session},
-    question_publication::{HmacQuestionIdIssuer, QuestionIdIssuer},
+    question_publication::{QuestionIdIssuer, RandomQuestionIdIssuer},
 };
 
 const MAX_CREATE_QUESTION_POOL_BYTES: usize = 128 * 1024;
@@ -42,27 +42,22 @@ struct RouteState {
     question_id_issuer: Arc<dyn QuestionPoolIdIssuer>,
 }
 
-/// Trusted issuance and verification capability for Pool references.
+/// Trusted issuance capability for Pool references.
 ///
-/// Production supplies the deployment HMAC issuer. Keeping this capability at
+/// Production supplies the stateless random issuer. Keeping this capability at
 /// the server boundary lets an isolated proof force the otherwise improbable
 /// collision branch without making any browser-controlled value an issuer.
 trait QuestionPoolIdIssuer: Send + Sync {
     fn issue_question_pool_id(
         &self,
     ) -> Result<QuestionId, crate::question_publication::QuestionIdIssuanceError>;
-    fn validates_question_pool_id(&self, value: &QuestionId) -> bool;
 }
 
-impl QuestionPoolIdIssuer for HmacQuestionIdIssuer {
+impl QuestionPoolIdIssuer for RandomQuestionIdIssuer {
     fn issue_question_pool_id(
         &self,
     ) -> Result<QuestionId, crate::question_publication::QuestionIdIssuanceError> {
         self.issue_question_id()
-    }
-
-    fn validates_question_pool_id(&self, value: &QuestionId) -> bool {
-        self.validates_question_id(value)
     }
 }
 
@@ -70,7 +65,7 @@ impl QuestionPoolIdIssuer for HmacQuestionIdIssuer {
 pub fn question_pool_creation_router(
     sessions: Arc<PostgresSessionStore>,
     pools: PostgresQuestionPoolCreationStore,
-    question_id_issuer: HmacQuestionIdIssuer,
+    question_id_issuer: RandomQuestionIdIssuer,
 ) -> Router {
     question_pool_creation_router_with_trusted_dependencies(
         sessions,
@@ -139,7 +134,7 @@ async fn create_question_pool(State(state): State<RouteState>, request: Request)
         Ok(value) => value,
         Err(_) => return route_error(StatusCode::UNPROCESSABLE_ENTITY, "Question Pool is invalid"),
     };
-    let members = match verified_members(state.question_id_issuer.as_ref(), request.members) {
+    let members = match verified_members(request.members) {
         Some(value) => value,
         None => return concealed(),
     };
@@ -195,15 +190,11 @@ async fn create_question_pool(State(state): State<RouteState>, request: Request)
 }
 
 fn verified_members(
-    issuer: &dyn QuestionPoolIdIssuer,
     values: Vec<QuestionPoolMemberRequest>,
 ) -> Option<Vec<QuestionRevisionReference>> {
     let mut members = Vec::with_capacity(values.len());
     for value in values {
         let question_id = value.question_id.parse::<QuestionId>().ok()?;
-        if !issuer.validates_question_pool_id(&question_id) {
-            return None;
-        }
         let revision_number = QuestionRevisionNumber::new(value.revision_number).ok()?;
         members.push(QuestionRevisionReference {
             question_id,

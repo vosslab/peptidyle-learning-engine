@@ -119,9 +119,6 @@ services:
       PLE_TEMP_PROCESSING_BUCKET: temp-processing
       AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
       AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
-      # The issuer reads the existing copied capability; the host source file
-      # never enters this one-shot process.
-      PLE_QUESTION_ID_SECRET_FILE: /run/ple-secrets/question_id_secret
     volumes:
       - type: volume
         source: ple_identity_runtime
@@ -298,12 +295,6 @@ services:
         bind:
           create_host_path: false
       - type: bind
-        source: ${PLE_QUESTION_ID_SECRET_HOST_FILE:?set PLE_QUESTION_ID_SECRET_HOST_FILE to an operator-created mode-0600 file containing unpadded base64url for exactly 32 secret bytes}
-        target: /run/source/question_id_secret
-        read_only: true
-        bind:
-          create_host_path: false
-      - type: bind
         # The controller creates this CSPRNG seed in ignored mode-0600 local
         # state. It is copied only into the API's private runtime volume.
         source: ${PLE_LOCAL_SYSADMIN_TOTP_SEED_HOST_FILE:?set PLE_LOCAL_SYSADMIN_TOTP_SEED_HOST_FILE to the controller-owned Morgan TOTP seed file}
@@ -332,7 +323,7 @@ services:
       [
         "/bin/sh",
         "-ec",
-        "cp /run/source/invitation_token_secret /run/ple-secrets/invitation_token_secret; cp /run/source/question_id_secret /run/ple-secrets/question_id_secret; cp /run/source/question-renderer-version /run/ple-secrets/question-renderer-version; cp /run/source/morgan_totp_seed /run/ple-sysadmin-totp/morgan_totp_seed; cp /run/source/morgan_totp_seed_wrapping_key /run/ple-sysadmin-totp/morgan_totp_seed_wrapping_key; chmod 600 /run/ple-secrets/invitation_token_secret /run/ple-secrets/question_id_secret /run/ple-secrets/question-renderer-version /run/ple-sysadmin-totp/morgan_totp_seed /run/ple-sysadmin-totp/morgan_totp_seed_wrapping_key; chown 10001:10001 /run/ple-secrets/invitation_token_secret /run/ple-secrets/question_id_secret /run/ple-secrets/question-renderer-version /run/ple-sysadmin-totp/morgan_totp_seed /run/ple-sysadmin-totp/morgan_totp_seed_wrapping_key",
+        "cp /run/source/invitation_token_secret /run/ple-secrets/invitation_token_secret; cp /run/source/question-renderer-version /run/ple-secrets/question-renderer-version; cp /run/source/morgan_totp_seed /run/ple-sysadmin-totp/morgan_totp_seed; cp /run/source/morgan_totp_seed_wrapping_key /run/ple-sysadmin-totp/morgan_totp_seed_wrapping_key; chmod 600 /run/ple-secrets/invitation_token_secret /run/ple-secrets/question-renderer-version /run/ple-sysadmin-totp/morgan_totp_seed /run/ple-sysadmin-totp/morgan_totp_seed_wrapping_key; chown 10001:10001 /run/ple-secrets/invitation_token_secret /run/ple-secrets/question-renderer-version /run/ple-sysadmin-totp/morgan_totp_seed /run/ple-sysadmin-totp/morgan_totp_seed_wrapping_key",
       ]
     network_mode: none
     read_only: true
@@ -387,7 +378,6 @@ services:
       PLE_TEMP_PROCESSING_BUCKET: temp-processing
       PLE_PUBLIC_ASSET_BASE_URL: ${PLE_PUBLIC_ASSET_BASE_URL:?set PLE_PUBLIC_ASSET_BASE_URL in the env file}
       PLE_INVITATION_TOKEN_SECRET_FILE: /run/ple-secrets/invitation_token_secret
-      PLE_QUESTION_ID_SECRET_FILE: /run/ple-secrets/question_id_secret
       PLE_LOCAL_SYSADMIN_TOTP_SEED_FILE: /run/ple-sysadmin-totp/morgan_totp_seed
       PLE_LOCAL_SYSADMIN_TOTP_SEED_KEY_FILE: /run/ple-sysadmin-totp/morgan_totp_seed_wrapping_key
       PLE_WEBWORK_RENDERER_BASE_URL: http://webwork-renderer:3000/

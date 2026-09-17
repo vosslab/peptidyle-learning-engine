@@ -172,12 +172,6 @@ ALTER TABLE ple_private.question_revision_source_binding
 CREATE TABLE ple_private.draft_question_fork_source (
     draft_question_uuid uuid PRIMARY KEY
         REFERENCES ple_private.draft_question(draft_question_uuid) ON DELETE CASCADE,
-    -- Allocated by the trusted server before this Draft exists. C878 owns
-    -- HMAC validation/issuance; this storage boundary validates only the
-    -- compact shape. It becomes the Question ID only if this fork publishes.
-    forked_question_id text NOT NULL UNIQUE CHECK (
-        forked_question_id ~ '^[0-9A-HJKMNP-TV-Z]{8}$'
-    ),
     actor_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
     idempotency_key uuid NOT NULL,
     source_question_id text NOT NULL,

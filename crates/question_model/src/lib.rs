@@ -51,6 +51,8 @@ pub mod feedback;
 pub mod generation;
 /// Browser-safe automated-grading operation status and safe explanation contracts.
 pub mod identity;
+/// Browser-safe retained Library discussion and impact activity vocabulary.
+pub mod library_discussion;
 /// Browser-safe, no-store Instructor samples of saved Assessment Question Pools.
 pub mod pool_preview;
 /// Browser-safe, attempt-presentation-scoped question contracts.
@@ -181,6 +183,9 @@ pub use crate::generation::{QuestionReproduction, QuestionSeed, QuestionSourceSe
 pub use crate::identity::{
     ObjectId, QuestionAssetId, QuestionRevisionNumber, WorkspaceId, WorkspaceImportId,
 };
+pub use crate::library_discussion::{
+    LibraryObjectKind, LibraryObjectReference, LibraryStewardshipEvent,
+};
 pub use crate::pool_preview::{
     QuestionPoolPreview, QuestionPoolPreviewItem, QuestionPoolPreviewRequest,
 };
@@ -211,8 +216,8 @@ pub use crate::profile_image::ProfileImageReference;
 pub use crate::public_route::{
     AccountReference, AssessmentAttemptReference, AssessmentReference, AuthoringWorkspaceReference,
     BlueprintCourseReference, CourseInstanceReference, CourseInvitationReference,
-    CourseMembershipReference, DraftQuestionReference, MAX_PUBLIC_ROUTE_NUMBER,
-    NavigationResolution, RESERVED_REFERENCE_PREFIXES,
+    CourseMembershipReference, DraftQuestionReference, NavigationResolution,
+    RESERVED_REFERENCE_PREFIXES,
 };
 pub use crate::question_authorship::{
     QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship, QuestionAuthorshipError,
@@ -236,9 +241,10 @@ pub use crate::question_library::{
     MAX_QUESTION_SEARCH_OWN_COURSE_USAGES, MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS,
     MAX_QUESTION_SEARCH_QUESTION_TYPE_FILTERS, MAX_QUESTION_SEARCH_TAG_FACETS,
     MAX_QUESTION_SEARCH_TAG_FILTERS, PublishedQuestionSharedMetadata, QUESTION_ID_ALPHABET,
-    QUESTION_ID_COMPACT_LENGTH, QUESTION_ID_IDENTIFIER_LENGTH, QuestionAvailability,
-    QuestionAvailabilityEditNumber, QuestionAvailabilityEditNumberError, QuestionAvailabilityEvent,
-    QuestionBackend, QuestionDetails, QuestionDetailsPromptView, QuestionId, QuestionLineageView,
+    QUESTION_ID_CANONICAL_LENGTH, QUESTION_ID_CHECK_CHARACTER_INDEX, QUESTION_ID_HYPHEN_INDEX,
+    QUESTION_ID_IDENTIFIER_LENGTH, QuestionAvailability, QuestionAvailabilityEditNumber,
+    QuestionAvailabilityEditNumberError, QuestionAvailabilityEvent, QuestionBackend,
+    QuestionDetails, QuestionDetailsPromptView, QuestionId, QuestionLineageView,
     QuestionRevisionReference, QuestionSearchAuthorFacet, QuestionSearchAuthorship,
     QuestionSearchBackendFacet, QuestionSearchCapabilityFacet, QuestionSearchCourseUse,
     QuestionSearchCourseUseFacet, QuestionSearchFacets, QuestionSearchFilter, QuestionSearchPage,

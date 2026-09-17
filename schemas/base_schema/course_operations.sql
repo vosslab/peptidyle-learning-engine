@@ -166,6 +166,18 @@ BEGIN
                 MESSAGE = 'Blueprint adoption requires every Assessment from its exact Revision';
         END IF;
     END IF;
+    -- Adoption may preserve only its locked source Blueprint's exact retired
+    -- Discipline. Every empty Course and every caller-selected replacement
+    -- remains an active-only choice.
+    IF p_source_kind <> 'adopted'
+       OR p_discipline IS DISTINCT FROM blueprint.discipline_uuid
+       OR NOT EXISTS (
+           SELECT 1 FROM ple_api.get_content_discipline(blueprint.discipline_uuid) AS discipline
+            WHERE discipline.discipline_uuid = blueprint.discipline_uuid
+              AND discipline.is_retired
+       ) THEN
+        PERFORM ple_api.require_active_content_discipline(p_discipline);
+    END IF;
     INSERT INTO ple_data.course_instance (
         course_id, source_kind, blueprint_course_reference_number, blueprint_revision_number,
         assigned_instructor_account_id, course_short_name, course_long_name,
@@ -328,6 +340,11 @@ BEGIN
         RETURN;
     END IF;
     v_next := pg_catalog.gen_random_uuid();
+    -- An existing retired Discipline remains valid when this update retains
+    -- its UUID; only a replacement needs an active new selection.
+    IF v_course.discipline_uuid IS DISTINCT FROM p_discipline THEN
+        PERFORM ple_api.require_active_content_discipline(p_discipline);
+    END IF;
     UPDATE ple_data.course_instance AS course SET
         discipline_uuid = p_discipline, subject_uuid = p_subject, topic_uuid = p_topic,
         subtopic_uuid = p_subtopic, tags = p_tags, metadata_etag = v_next

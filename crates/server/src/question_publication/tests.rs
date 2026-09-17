@@ -227,7 +227,7 @@ impl ObjectStore for PutAlreadyExistsObjectStore {
 }
 
 fn fixed_question_id(identifier: &str) -> QuestionId {
-    QuestionId::from_canonical_parts(identifier, '0')
+    QuestionId::from_random_identifier(identifier)
         .expect("fixed Question ID uses canonical Crockford characters")
 }
 
@@ -325,7 +325,7 @@ async fn publication_copies_verified_source_before_committing_its_exact_revision
         reserved_question_id: None,
         publications: Arc::clone(&publications),
     };
-    let issuer = HmacQuestionIdIssuer::new(QuestionIdSecret::from_bytes([7; 32]));
+    let issuer = RandomQuestionIdIssuer::new();
     let publisher =
         NewQuestionLineagePublisher::new(object_store.clone(), publication_store, issuer, None);
 
@@ -400,7 +400,7 @@ async fn publication_refuses_database_and_object_store_source_disagreement() {
     let publisher = NewQuestionLineagePublisher::new(
         object_store,
         publication_store,
-        HmacQuestionIdIssuer::new(QuestionIdSecret::from_bytes([7; 32])),
+        RandomQuestionIdIssuer::new(),
         None,
     );
 
@@ -419,21 +419,17 @@ async fn publication_refuses_database_and_object_store_source_disagreement() {
 }
 
 #[test]
-fn question_id_uses_the_documented_hmac_sha256_validation_character() {
-    let secret = QuestionIdSecret::from_bytes(std::array::from_fn(|index| index as u8));
-    let issuer = HmacQuestionIdIssuer::new(secret.clone());
-    let issued = question_id_from_random_bytes([0; 5], &secret);
-
-    assert_eq!(issued.to_string(), "0000-Q000");
-    assert!(issuer.validates_question_id(&issued));
-    assert!(issuer.validates_question_id(&"0000q000".parse().expect("syntax only ID")));
-    assert!(!issuer.validates_question_id(&"0000P000".parse().expect("syntax only ID")));
+fn question_id_issuer_mints_exact_public_checksum_ids() {
+    let issuer = RandomQuestionIdIssuer::new();
+    let vector = "0000-4000".parse::<QuestionId>().expect("checksum vector");
+    assert_eq!(vector.as_str(), "0000-4000");
+    assert!("0000-5000".parse::<QuestionId>().is_err());
+    assert!("00004000".parse::<QuestionId>().is_err());
     let minted = issuer
         .issue_question_id()
         .expect("operating-system randomness mints a Question ID");
-    assert_eq!(minted.as_compact_str().len(), 8);
-    assert!(issuer.validates_question_id(&minted));
-    assert_eq!(format!("{secret:?}"), "QuestionIdSecret([redacted])");
+    assert_eq!(minted.as_str().len(), 9);
+    assert!(minted.as_str().parse::<QuestionId>().is_ok());
 }
 
 #[tokio::test]

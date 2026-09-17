@@ -23,6 +23,24 @@ Those documents must preserve the meanings established by Human Guidance.
   A new Revision retains the object's identity; a fork has a new identity and
   starts at Revision 1 when published or created as a revisioned object.
 - Use Assignment only inside the three Assessment Type names.
+- A public ID is the one universal, canonical human-facing identifier for a PLE
+  object that needs one. Store and use the exact same ID in the database, Rust,
+  JSON, URLs, object storage, hashes, logs, and browser UI.
+- Preserve the canonical ID exactly across system boundaries. Parsing,
+  serialization, API transport, persistence, and display do not add, remove,
+  reformat, or translate characters.
+- In ID format notation, `X` denotes a cryptographically random Crockford
+  Base32 character and `Z` denotes the stored calculated checksum character.
+  Public IDs use the Crockford Base32 alphabet and one canonical uppercase
+  ASCII form. At a human-input boundary only, lowercase Crockford characters,
+  `O` or `o` for `0`, and `I`, `i`, `L`, or `l` for `1` normalize before
+  canonical syntax and checksum validation. Question-ID input may also restore
+  its canonical hyphen before validation and lookup.
+- Public IDs include their embedded checksum character. Entry validation checks
+  the ASCII bytes of every other uppercase canonical-ID character, including a
+  prefix and excluding only separators and the checksum position. The checksum
+  is the high five bits of public unsalted SHA-256 digest byte 0, mapped through
+  the Crockford alphabet.
 - Do not create product terms from job, event, receipt, snapshot, recovery, or
   compatibility mechanisms unless Human Guidance requires the concept.
 
@@ -90,17 +108,31 @@ Role alone provides no ambient FERPA access.
 
 ## Human-facing identifiers
 
-**Reference ID** is a short, opaque, human-facing reference used when a workflow
-needs to display, search, communicate, or support an object. References use
-`BP` for Blueprint Courses, `CI` for Course Instances, `A` for Assessments, and
-`U` for Accounts, followed directly by the common cryptographically random
-Crockford Base32 format. Account references are Sysadmin support references
-and are not automatically exposed to Students or Instructors.
+Public IDs are the canonical human-facing identifiers for PLE objects that
+need them.
 
-Published Questions and Question Pools retain their public `AAAA-ZBBB` IDs.
-Human-facing IDs reveal no creation order, counts, database keys, ownership,
-or metadata. Generation enforces uniqueness and retries random collisions.
-UUIDs do not appear in visible content, navigation URLs, or copyable links.
+**Reference ID** is a short, opaque, human-facing reference used when a workflow
+needs to display, search, communicate, or support an object. Blueprint Course
+`BPXXXXXXXZ`, Course Instance `CIXXXXXXXZ`, Assessment `AXXXXXXXZ`, and Account
+`UXXXXXXXZ` references use seven cryptographically random Crockford Base32
+characters plus embedded checksum `Z`; `Z` is a calculated placeholder, not a
+literal character. Account references are Sysadmin support references and are
+not automatically exposed to Students or Instructors.
+
+Give an internal object a public Reference ID when a useful human-facing
+workflow needs to display, search, communicate, or support it. Other internal
+objects use native UUID identifiers. An object with a public ID may retain an
+internal UUID primary key, but that UUID never substitutes for or appears as
+its public identity.
+
+Published Questions and Question Pools use the public `XXXX-ZXXX` format and
+share one global namespace. A value identifies either a Published Question or
+a Question Pool, never both. Human-facing IDs reveal no creation order, counts,
+database keys, ownership, or metadata. Generation enforces global uniqueness
+across every public-ID object type and retries random collisions. Once issued,
+a public ID permanently identifies that object and is never reassigned,
+including after deletion or archival. UUIDs
+do not appear in visible content, navigation URLs, or copyable links.
 An opaque identifier remains FERPA-sensitive when it links a Student to activity.
 
 ## Content classification
@@ -177,11 +209,14 @@ are outside the Question Library. Instructors may delete them; abandoned-Draft
 cleanup requires an appropriate warning and recovery period.
 
 **Published Question** is a stable reusable Question lineage in the Question
-Library. Its public **Question ID** displays as `AAAA-ZBBB` and has an eight-
-character compact form. Seven Crockford Base32 characters are cryptographically
-random identity; the first character after the hyphen is an HMAC-derived check
-character. The check character detects malformed IDs and is not a security
-boundary.
+Library. Its **Question ID** has the canonical form `XXXX-ZXXX`.
+The hyphen is part of the canonical form and makes the value immediately
+recognizable as a Question ID. Human input may omit the hyphen, but PLE always
+stores, transmits, and displays the canonical hyphenated form. Seven Crockford Base32
+characters are cryptographically random identity; the first character after
+the hyphen is an embedded checksum character. Checksum input for `XXXX-ZXXX`
+is the ASCII bytes of `XXXXXXX`: calculation excludes only the hyphen and `Z`,
+while the canonical value retains both. The checksum detects malformed IDs.
 
 **Question Revision** is one immutable source-bearing version within a
 Published Question lineage. Changes to source, answers, grading rules, Hints,
@@ -282,7 +317,7 @@ and immutable **Pool Revisions**. Questions and Pools remain distinct objects
 even though each may occupy an Assessment position.
 Pools contain interchangeable Published Questions, may span Question Backends,
 and cannot contain other Pools. Creation begins with a Published Question and
-enters the Library immediately. A Pool has its own public `AAAA-ZBBB` ID.
+enters the Library immediately. A Pool has its own public `XXXX-ZXXX` ID.
 
 **Pool classification** uses the first Question's Discipline and Subject.
 Every additional member has that same Discipline and Subject. Member Questions

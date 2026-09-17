@@ -117,9 +117,7 @@ def bootstrap_default_state(
 	runtime_directory = selected.env_file.parent
 	secret_directory = runtime_directory / ".secrets"
 	invitation_path = secret_directory / "invitation_token_secret"
-	question_path = secret_directory / "question_id_secret"
 	local_stack_control.local_environment.bootstrap_secret32_file(invitation_path)
-	local_stack_control.local_environment.bootstrap_secret32_file(question_path)
 	local_stack_control.local_totp_authenticator.bootstrap_local_totp_material(secret_directory)
 
 
@@ -138,7 +136,6 @@ def configure_default_environment(
 		"POSTGRES_PASSWORD": os.urandom(24).hex(),
 		"MINIO_ROOT_PASSWORD": os.urandom(24).hex(),
 		"PLE_INVITATION_TOKEN_SECRET_HOST_FILE": str(secret_directory / "invitation_token_secret"),
-		"PLE_QUESTION_ID_SECRET_HOST_FILE": str(secret_directory / "question_id_secret"),
 		"PLE_LOCAL_SYSADMIN_TOTP_SEED_HOST_FILE": str(
 			secret_directory / local_stack_control.local_totp_authenticator.MORGAN_TOTP_SEED_FILE
 		),
@@ -258,7 +255,7 @@ def validate_static(target: local_stack_control.models.ComposeTarget) -> dict[st
 	required = (
 		"POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_DB", "MINIO_ROOT_USER",
 		"MINIO_ROOT_PASSWORD",
-		"PLE_INVITATION_TOKEN_SECRET_HOST_FILE", "PLE_QUESTION_ID_SECRET_HOST_FILE",
+		"PLE_INVITATION_TOKEN_SECRET_HOST_FILE",
 		"PLE_LOCAL_SYSADMIN_TOTP_SEED_HOST_FILE",
 		"PLE_LOCAL_SYSADMIN_TOTP_SEED_KEY_HOST_FILE",
 		"PLE_LOCAL_SYSADMIN_TOTP_AUTHENTICATOR_ARTIFACT",
@@ -279,7 +276,7 @@ def validate_static(target: local_stack_control.models.ComposeTarget) -> dict[st
 		"PLE_GATEWAY_IMAGE_SHA256", "PLE_SECRET_INIT_IMAGE_SHA256",
 	):
 		require_digest(values, name)
-	for name in ("PLE_INVITATION_TOKEN_SECRET_HOST_FILE", "PLE_QUESTION_ID_SECRET_HOST_FILE"):
+	for name in ("PLE_INVITATION_TOKEN_SECRET_HOST_FILE",):
 		path = absolute_value_path(target.repo_root, values[name])
 		local_stack_control.local_environment.read_secret32_file(path)
 	local_stack_control.local_totp_authenticator.require_local_totp_material(

@@ -8,6 +8,7 @@ GRANT SELECT, INSERT ON ple_data.content_discipline, ple_data.content_subject,
     TO ple_private_owner;
 GRANT DELETE ON ple_data.content_subject_discipline TO ple_private_owner;
 -- SELECT FOR UPDATE needs UPDATE privilege; no private command edits Subject rows.
+GRANT UPDATE (name, is_retired) ON ple_data.content_discipline TO ple_private_owner;
 GRANT UPDATE ON ple_data.content_subject TO ple_private_owner;
 CREATE POLICY content_discipline_private_command_access ON ple_data.content_discipline
     FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
@@ -92,6 +93,71 @@ BEGIN
 END
 $$;
 
+-- This is deliberately a state change rather than deletion: content and
+-- historical records retain their stable vocabulary UUIDs.
+CREATE FUNCTION ple_private.rename_content_discipline(p_discipline_uuid uuid, p_name text)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
+DECLARE normalized_name text;
+BEGIN
+    PERFORM ple_private.require_content_classification_actor(true);
+    normalized_name := ple_private.normalize_content_classification_name(p_name, 120);
+    UPDATE ple_data.content_discipline SET name = normalized_name
+     WHERE discipline_uuid = p_discipline_uuid;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Content Discipline is invalid';
+    END IF;
+END
+$$;
+
+CREATE FUNCTION ple_private.retire_content_discipline(p_discipline_uuid uuid)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
+BEGIN
+    PERFORM ple_private.require_content_classification_actor(true);
+    UPDATE ple_data.content_discipline SET is_retired = true
+     WHERE discipline_uuid = p_discipline_uuid;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Content Discipline is invalid';
+    END IF;
+END
+$$;
+
+CREATE FUNCTION ple_private.restore_content_discipline(p_discipline_uuid uuid)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
+BEGIN
+    PERFORM ple_private.require_content_classification_actor(true);
+    UPDATE ple_data.content_discipline SET is_retired = false
+     WHERE discipline_uuid = p_discipline_uuid;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Content Discipline is invalid';
+    END IF;
+END
+$$;
+
+-- Reusable guard for every classified-object creation or replacement command.
+-- It deliberately does not inspect existing references, so retirement neither
+-- breaks history nor invalidates an unchanged classification. FOR SHARE holds
+-- the active row through the caller's transaction, so a concurrent retirement
+-- cannot commit between this check and a new/changed binding.
+CREATE FUNCTION ple_private.require_active_content_discipline(p_discipline_uuid uuid)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_data AS $$
+BEGIN
+    IF p_discipline_uuid IS NULL THEN
+        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Content Discipline is unavailable';
+    END IF;
+    PERFORM 1 FROM ple_data.content_discipline AS item
+     WHERE item.discipline_uuid = p_discipline_uuid
+       AND NOT item.is_retired
+     FOR SHARE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Content Discipline is unavailable';
+    END IF;
+END
+$$;
+
 -- ASVS 1.2.4: closed typed parameters and static SQL; no dynamic identifiers.
 CREATE FUNCTION ple_private.create_content_subject(p_name text, p_discipline_uuid uuid)
 RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER
@@ -100,11 +166,7 @@ DECLARE new_uuid uuid; normalized_name text;
 BEGIN
     PERFORM ple_private.require_content_classification_actor(false);
     normalized_name := ple_private.normalize_content_classification_name(p_name, 120);
-    IF p_discipline_uuid IS NULL OR NOT EXISTS (
-        SELECT 1 FROM ple_data.content_discipline WHERE discipline_uuid = p_discipline_uuid
-    ) THEN
-        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Content classification parent is invalid';
-    END IF;
+    PERFORM ple_private.require_active_content_discipline(p_discipline_uuid);
     new_uuid := pg_catalog.gen_random_uuid();
     INSERT INTO ple_data.content_subject (subject_uuid, name)
     VALUES (new_uuid, normalized_name);
@@ -165,12 +227,11 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 BEGIN
     PERFORM ple_private.require_content_classification_actor(false);
     PERFORM 1 FROM ple_data.content_subject WHERE subject_uuid = p_subject_uuid FOR UPDATE;
-    IF NOT FOUND OR p_discipline_uuid IS NULL OR NOT EXISTS (
-        SELECT 1 FROM ple_data.content_discipline WHERE discipline_uuid = p_discipline_uuid
-    ) THEN
+    IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Subject Discipline selection is invalid';
     END IF;
+    PERFORM ple_private.require_active_content_discipline(p_discipline_uuid);
     INSERT INTO ple_data.content_subject_discipline(subject_uuid, discipline_uuid)
     VALUES (p_subject_uuid, p_discipline_uuid) ON CONFLICT DO NOTHING;
 END
@@ -183,6 +244,7 @@ CREATE FUNCTION ple_private.replace_content_subject_disciplines(
     p_subject_uuid uuid, p_discipline_uuids uuid[]
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
+DECLARE new_discipline_uuid uuid;
 BEGIN
     PERFORM ple_private.require_content_classification_actor(true);
     IF p_discipline_uuids IS NULL OR cardinality(p_discipline_uuids) < 1
@@ -197,12 +259,20 @@ BEGIN
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Subject is invalid';
     END IF;
-    IF EXISTS (
-        SELECT 1 FROM unnest(p_discipline_uuids) AS selected(id)
-        WHERE NOT EXISTS (SELECT 1 FROM ple_data.content_discipline WHERE discipline_uuid = selected.id)
-    ) THEN
-        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Subject Discipline selection is invalid';
-    END IF;
+    -- Retained associations may name retired Disciplines. Every newly added
+    -- UUID instead takes the shared active-row lock, so retirement cannot
+    -- commit between validation and the replacement write below.
+    FOR new_discipline_uuid IN
+        SELECT selected.id FROM unnest(p_discipline_uuids) AS selected(id)
+         WHERE NOT EXISTS (
+             SELECT 1 FROM ple_data.content_subject_discipline AS existing
+              WHERE existing.subject_uuid = p_subject_uuid
+                AND existing.discipline_uuid = selected.id
+         )
+         ORDER BY selected.id
+    LOOP
+        PERFORM ple_private.require_active_content_discipline(new_discipline_uuid);
+    END LOOP;
     -- Retain unchanged associations: their identity may be referenced by
     -- Published Questions. Immediate foreign keys refuse referenced removals
     -- and roll back the entire replacement, including concurrent writers.
@@ -221,8 +291,35 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 BEGIN
     PERFORM ple_private.require_content_classification_reader();
     RETURN QUERY SELECT item.discipline_uuid, item.name FROM ple_data.content_discipline AS item
-
+    WHERE NOT item.is_retired
     ORDER BY lower(item.name), item.name, item.discipline_uuid;
+END
+$$;
+
+-- Discovery and exact-reference surfaces retain retired values with their
+-- current display name and explicit status. Authoring selection uses the
+-- active-only projection above.
+CREATE FUNCTION ple_private.list_content_disciplines_including_retired()
+RETURNS TABLE (discipline_uuid uuid, name text, is_retired boolean)
+LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
+BEGIN
+    PERFORM ple_private.require_content_classification_reader();
+    RETURN QUERY SELECT item.discipline_uuid, item.name, item.is_retired
+    FROM ple_data.content_discipline AS item
+    ORDER BY item.is_retired, lower(item.name), item.name, item.discipline_uuid;
+END
+$$;
+
+CREATE FUNCTION ple_private.get_content_discipline(p_discipline_uuid uuid)
+RETURNS TABLE (discipline_uuid uuid, name text, is_retired boolean)
+LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
+BEGIN
+    PERFORM ple_private.require_content_classification_reader();
+    RETURN QUERY SELECT item.discipline_uuid, item.name, item.is_retired
+    FROM ple_data.content_discipline AS item
+    WHERE item.discipline_uuid = p_discipline_uuid;
 END
 $$;
 
@@ -282,6 +379,14 @@ REVOKE ALL ON FUNCTION ple_private.add_content_subject_discipline(uuid, uuid) FR
 GRANT EXECUTE ON FUNCTION ple_private.add_content_subject_discipline(uuid, uuid) TO ple_api_owner;
 REVOKE ALL ON FUNCTION ple_private.create_content_discipline(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_private.create_content_discipline(text) TO ple_api_owner;
+REVOKE ALL ON FUNCTION ple_private.rename_content_discipline(uuid, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_private.rename_content_discipline(uuid, text) TO ple_api_owner;
+REVOKE ALL ON FUNCTION ple_private.retire_content_discipline(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_private.retire_content_discipline(uuid) TO ple_api_owner;
+REVOKE ALL ON FUNCTION ple_private.restore_content_discipline(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_private.restore_content_discipline(uuid) TO ple_api_owner;
+REVOKE ALL ON FUNCTION ple_private.require_active_content_discipline(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_private.require_active_content_discipline(uuid) TO ple_api_owner;
 REVOKE ALL ON FUNCTION ple_private.create_content_subject(text, uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_private.create_content_subject(text, uuid) TO ple_api_owner;
 REVOKE ALL ON FUNCTION ple_private.create_content_topic(text, uuid) FROM PUBLIC;
@@ -292,6 +397,10 @@ REVOKE ALL ON FUNCTION ple_private.replace_content_subject_disciplines(uuid, uui
 GRANT EXECUTE ON FUNCTION ple_private.replace_content_subject_disciplines(uuid, uuid[]) TO ple_api_owner;
 REVOKE ALL ON FUNCTION ple_private.list_content_disciplines() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_private.list_content_disciplines() TO ple_api_owner;
+REVOKE ALL ON FUNCTION ple_private.list_content_disciplines_including_retired() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_private.list_content_disciplines_including_retired() TO ple_api_owner;
+REVOKE ALL ON FUNCTION ple_private.get_content_discipline(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_private.get_content_discipline(uuid) TO ple_api_owner;
 REVOKE ALL ON FUNCTION ple_private.list_content_subjects(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_private.list_content_subjects(uuid) TO ple_api_owner;
 REVOKE ALL ON FUNCTION ple_private.list_content_topics(uuid) FROM PUBLIC;
@@ -324,6 +433,38 @@ SET search_path = pg_catalog, ple_api, ple_private AS $$ SELECT ple_private.crea
 REVOKE ALL ON FUNCTION ple_api.create_content_discipline(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_api.create_content_discipline(text) TO ple_app;
 
+CREATE FUNCTION ple_api.rename_content_discipline(p_discipline_uuid uuid, p_name text)
+RETURNS void LANGUAGE sql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_private AS $$
+    SELECT ple_private.rename_content_discipline(p_discipline_uuid, p_name)
+$$;
+REVOKE ALL ON FUNCTION ple_api.rename_content_discipline(uuid, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_api.rename_content_discipline(uuid, text) TO ple_app;
+
+CREATE FUNCTION ple_api.retire_content_discipline(p_discipline_uuid uuid)
+RETURNS void LANGUAGE sql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_private AS $$
+    SELECT ple_private.retire_content_discipline(p_discipline_uuid)
+$$;
+REVOKE ALL ON FUNCTION ple_api.retire_content_discipline(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_api.retire_content_discipline(uuid) TO ple_app;
+
+CREATE FUNCTION ple_api.restore_content_discipline(p_discipline_uuid uuid)
+RETURNS void LANGUAGE sql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_private AS $$
+    SELECT ple_private.restore_content_discipline(p_discipline_uuid)
+$$;
+REVOKE ALL ON FUNCTION ple_api.restore_content_discipline(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_api.restore_content_discipline(uuid) TO ple_app;
+
+CREATE FUNCTION ple_api.require_active_content_discipline(p_discipline_uuid uuid)
+RETURNS void LANGUAGE sql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_private AS $$
+    SELECT ple_private.require_active_content_discipline(p_discipline_uuid)
+$$;
+REVOKE ALL ON FUNCTION ple_api.require_active_content_discipline(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_api.require_active_content_discipline(uuid) TO ple_app;
+
 CREATE FUNCTION ple_api.create_content_subject(p_name text, p_discipline_uuid uuid)
 RETURNS uuid LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$ SELECT ple_private.create_content_subject(p_name, p_discipline_uuid) $$;
@@ -353,6 +494,24 @@ RETURNS TABLE (discipline_uuid uuid, name text) LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$ SELECT * FROM ple_private.list_content_disciplines() $$;
 REVOKE ALL ON FUNCTION ple_api.list_content_disciplines() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_api.list_content_disciplines() TO ple_app;
+
+CREATE FUNCTION ple_api.list_content_disciplines_including_retired()
+RETURNS TABLE (discipline_uuid uuid, name text, is_retired boolean)
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_private AS $$
+    SELECT * FROM ple_private.list_content_disciplines_including_retired()
+$$;
+REVOKE ALL ON FUNCTION ple_api.list_content_disciplines_including_retired() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_api.list_content_disciplines_including_retired() TO ple_app;
+
+CREATE FUNCTION ple_api.get_content_discipline(p_discipline_uuid uuid)
+RETURNS TABLE (discipline_uuid uuid, name text, is_retired boolean)
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_private AS $$
+    SELECT * FROM ple_private.get_content_discipline(p_discipline_uuid)
+$$;
+REVOKE ALL ON FUNCTION ple_api.get_content_discipline(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_api.get_content_discipline(uuid) TO ple_app;
 
 CREATE FUNCTION ple_api.list_content_subjects(p_discipline_uuid uuid)
 RETURNS TABLE (subject_uuid uuid, name text) LANGUAGE sql SECURITY DEFINER

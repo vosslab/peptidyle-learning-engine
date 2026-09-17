@@ -169,8 +169,8 @@ function source() {
 function publicationSummary(backend = "ple") {
   const questionFormat = backend === "ple" ? "pleQuestionJson" : "webworkPg";
   return {
-    questionId: "7K3M-X9QP",
-    latestQuestionRevision: { questionId: "7K3M-X9QP", revisionNumber: 1 },
+    questionId: "7K3M-79QP",
+    latestQuestionRevision: { questionId: "7K3M-79QP", revisionNumber: 1 },
     backend,
     questionFormat,
     questionType: "multipleChoice",
@@ -758,7 +758,7 @@ test("client sends exact protected paths, headers, body, and revisions", async (
         });
       }
       if (init.method === "PUT") return noContent('"2"');
-      if (init.method === "POST") return jsonResponse({ questionId: "7K3M-X9QP" }, 201);
+      if (init.method === "POST") return jsonResponse({ questionId: "7K3M-79QP" }, 201);
       return jsonResponse({ summary: publicationSummary(), viewerMayArchive: true });
     },
   });
@@ -781,7 +781,7 @@ test("client sends exact protected paths, headers, body, and revisions", async (
     JSON.stringify({ authors: ["Fixture Instructor"], ...publicationClassification }),
   );
   assert.equal(requests[2].init.headers["if-match"], '"2"');
-  assert.equal(requests[3].input, "/ple/api/questions/by-id/7K3M-X9QP");
+  assert.equal(requests[3].input, "/ple/api/questions/by-id/7K3M-79QP");
 });
 
 test("publication rejects invalid reviewed Question Authorship before it can make a request", async () => {
@@ -871,7 +871,7 @@ test("client rejects publication summaries that do not exactly confirm publicati
   const wrongPublication = createPleQuestionJsonClient({
     fetch: async (_input, init) =>
       init.method === "POST"
-        ? jsonResponse({ questionId: "7K3M-X9QP" })
+        ? jsonResponse({ questionId: "7K3M-79QP" })
         : jsonResponse({ summary: publicationSummary("webwork"), viewerMayArchive: true }),
   });
   await assert.rejects(
@@ -882,7 +882,7 @@ test("client rejects publication summaries that do not exactly confirm publicati
   const staleScope = createPleQuestionJsonClient({
     fetch: async (_input, init) =>
       init.method === "POST"
-        ? jsonResponse({ questionId: "7K3M-X9QP" })
+        ? jsonResponse({ questionId: "7K3M-79QP" })
         : jsonResponse({
             summary: { ...publicationSummary(), scope: "public" },
             viewerMayArchive: true,
@@ -897,7 +897,7 @@ test("client rejects publication summaries that do not exactly confirm publicati
     const wrongLifecycleOrScope = createPleQuestionJsonClient({
       fetch: async (_input, init) =>
         init.method === "POST"
-          ? jsonResponse({ questionId: "7K3M-X9QP" })
+          ? jsonResponse({ questionId: "7K3M-79QP" })
           : jsonResponse({ summary, viewerMayArchive: true }),
     });
     await assert.rejects(

@@ -185,7 +185,7 @@ export function QuestionBulkMetadataEditor(props: QuestionBulkMetadataEditorProp
   const [names] = createResource(metadata, async (items) => {
     const client = props.classificationClient;
     const vocabularies = await Promise.all([
-      client.listDisciplines(),
+      client.listDisciplinesIncludingRetired(),
       ...[...new Set(items.map((item) => item.disciplineUuid))].map((uuid) =>
         client.listSubjects(uuid),
       ),
@@ -386,7 +386,9 @@ export function QuestionBulkMetadataEditor(props: QuestionBulkMetadataEditorProp
             function load(
               uuid: string,
             ): ReturnType<ContentClassificationClient["listDisciplines"]> {
-              if (field === "disciplineUuid") return props.classificationClient.listDisciplines();
+              if (field === "disciplineUuid") {
+                return props.classificationClient.listDisciplinesIncludingRetired();
+              }
               if (field === "subjectUuid") return props.classificationClient.listSubjects(uuid);
               if (field === "topicUuid") return props.classificationClient.listTopics(uuid);
               return props.classificationClient.listSubtopics(uuid);

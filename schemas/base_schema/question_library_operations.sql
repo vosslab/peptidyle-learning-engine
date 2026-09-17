@@ -14,9 +14,10 @@ CREATE FUNCTION ple_private.question_library_entries(
 ) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 BEGIN
-    IF NOT ple_api.current_session_account_is_instructor() THEN
+    IF NOT (ple_api.current_session_account_is_instructor()
+            OR ple_api.current_session_account_has_platform_administration()) THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
-            MESSAGE = 'Question Library requires an active Instructor Account';
+            MESSAGE = 'Question Library requires an active Instructor or Sysadmin Account';
     END IF;
     -- ASVS 8.2.2 and 8.3.1: derive Course use from the current session's
     -- exact Instructor memberships at this trusted database boundary. The
@@ -154,7 +155,10 @@ BEGIN
        OR EXISTS (
            SELECT 1 FROM unnest(p_question_ids) AS requested(question_id)
             WHERE requested.question_id IS NULL
-               OR requested.question_id !~ '^[0-9A-HJKMNP-TV-Z]{8}$'
+               OR requested.question_id !~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
+               OR substr(requested.question_id, 6, 1) <> ple_private.crockford_checksum_character(
+                   substr(requested.question_id, 1, 4) || substr(requested.question_id, 7, 3)
+               )
        )
        OR cardinality(p_question_ids) <> (
            SELECT count(DISTINCT requested.question_id)

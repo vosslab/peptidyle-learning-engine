@@ -4,9 +4,9 @@
   },
   "sourceObjectChecksum": "4fbc6e9435cac34fa8de49c799dafbf2dae14090878a35dcc0e34e9f1eaecd4e",
   "questionSummary": {
-    "questionId": "7K3M-X9QP",
+    "questionId": "7K3M-79QP",
     "latestQuestionRevision": {
-      "questionId": "7K3M-X9QP",
+      "questionId": "7K3M-79QP",
       "revisionNumber": 1
     },
     "backend": "ple",
@@ -54,7 +54,7 @@
       "tags": []
     },
     "id": "0198e000-0000-7000-8000-000000000014",
-    "reference": "CI000001",
+    "reference": "CI000001AE",
     "shortName": "BIOC 301",
     "longName": "BIOC 301: Biochemistry",
     "term": {
@@ -65,14 +65,14 @@
   },
   "assessment": {
     "id": "0198e000-0000-7000-8000-000000000006",
-    "reference": "A000001",
+    "reference": "A000001AT",
     "courseId": "0198e000-0000-7000-8000-000000000014",
     "title": "Peptide bond mastery",
     "entries": [
       {
         "kind": "fixedQuestion",
         "id": "0198e000-0000-7000-8000-000000000017",
-        "questionId": "7K3M-X9QP",
+        "questionId": "7K3M-79QP",
         "questionTitle": "Peptide bond resonance and planarity",
         "backend": "ple",
         "capabilities": [
@@ -273,7 +273,7 @@
       "assessmentContentEntryIndex": 0,
       "issuedPosition": 0,
       "reference": {
-        "questionId": "7K3M-X9QP",
+        "questionId": "7K3M-79QP",
         "revisionNumber": 1
       },
       "sourceSelection": { "kind": "static" },
@@ -302,7 +302,7 @@
       "assessmentContentEntryIndex": 0,
       "issuedPosition": 0,
       "reference": {
-        "questionId": "7K3M-X9QP",
+        "questionId": "7K3M-79QP",
         "revisionNumber": 1
       },
       "sourceSelection": { "kind": "static" },
@@ -331,7 +331,7 @@
       "assessmentContentEntryIndex": 0,
       "issuedPosition": 0,
       "reference": {
-        "questionId": "7K3M-X9QP",
+        "questionId": "7K3M-79QP",
         "revisionNumber": 1
       },
       "sourceSelection": { "kind": "static" },
@@ -360,7 +360,7 @@
       "assessmentContentEntryIndex": 0,
       "issuedPosition": 0,
       "reference": {
-        "questionId": "7K3M-X9QP",
+        "questionId": "7K3M-79QP",
         "revisionNumber": 1
       },
       "sourceSelection": { "kind": "static" },

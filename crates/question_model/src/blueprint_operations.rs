@@ -432,7 +432,7 @@ mod wire_tests {
     #[test]
     fn question_pool_keeps_the_exact_pool_revision() {
         let pool_revision = crate::QuestionPoolRevisionReference {
-            question_pool_id: "7K3M-X9QX".parse().expect("Pool ID"),
+            question_pool_id: "7K3M-19QX".parse().expect("Pool ID"),
             revision_number: crate::QuestionPoolRevisionNumber::new(1).expect("Pool Revision"),
         };
         let pool = BlueprintQuestionPoolContent::new(

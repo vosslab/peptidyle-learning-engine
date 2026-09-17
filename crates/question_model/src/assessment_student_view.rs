@@ -105,14 +105,14 @@ mod tests {
 
     fn question_revision() -> QuestionRevisionReference {
         QuestionRevisionReference {
-            question_id: "0000-X00N".parse::<QuestionId>().expect("Question ID"),
+            question_id: "0000-T00N".parse::<QuestionId>().expect("Question ID"),
             revision_number: QuestionRevisionNumber::new(1).expect("Question Revision"),
         }
     }
 
     #[test]
     fn presented_entry_serializes_only_public_exact_question_locators() {
-        let question_id = "0000-X00N".parse::<QuestionId>().expect("Question ID");
+        let question_id = "0000-T00N".parse::<QuestionId>().expect("Question ID");
         let entry = InstructorStudentViewEntry::Presented {
             authored_position: 0,
             questions: vec![InstructorStudentViewQuestionReference {

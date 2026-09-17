@@ -128,7 +128,10 @@ BEGIN
     IF NOT ple_api.current_session_account_is_instructor() THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Bloom correction requires an active Instructor';
     END IF;
-    IF p_question_id IS NULL OR p_question_id !~ '^[0-9A-HJKMNP-TV-Z]{8}$'
+    IF p_question_id IS NULL OR p_question_id !~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
+       OR substr(p_question_id, 6, 1) <> ple_private.crockford_checksum_character(
+           substr(p_question_id, 1, 4) || substr(p_question_id, 7, 3)
+       )
        OR p_revision_number IS NULL OR p_revision_number <= 0
        OR p_expected_classification_edit_number IS NULL
        OR p_expected_classification_edit_number <= 0 THEN
@@ -205,7 +208,10 @@ BEGIN
     IF NOT ple_api.current_session_account_is_instructor() THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Bloom correction requires an active Instructor';
     END IF;
-    IF p_public_question_pool_id IS NULL OR p_public_question_pool_id !~ '^[0-9A-HJKMNP-TV-Z]{8}$'
+    IF p_public_question_pool_id IS NULL OR p_public_question_pool_id !~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
+       OR substr(p_public_question_pool_id, 6, 1) <> ple_private.crockford_checksum_character(
+           substr(p_public_question_pool_id, 1, 4) || substr(p_public_question_pool_id, 7, 3)
+       )
        OR p_revision_number IS NULL OR p_revision_number <= 0
        OR p_expected_classification_edit_number IS NULL
        OR p_expected_classification_edit_number <= 0 THEN

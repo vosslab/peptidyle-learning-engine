@@ -48,7 +48,12 @@ BEGIN
                OR EXISTS (SELECT 1 FROM jsonb_object_keys(value) AS key(name)
                            WHERE name NOT IN ('questionId', 'metadataEditNumber'))
                OR jsonb_typeof(value -> 'questionId') <> 'string'
-               OR value ->> 'questionId' !~ '^[0-9A-HJKMNP-TV-Z]{8}$'
+               OR value ->> 'questionId' !~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
+               OR substr(value ->> 'questionId', 6, 1) IS DISTINCT FROM
+                    ple_private.crockford_checksum_character(
+                        substr(value ->> 'questionId', 1, 4)
+                        || substr(value ->> 'questionId', 7, 3)
+                    )
                OR jsonb_typeof(value -> 'metadataEditNumber') <> 'number'
                OR value ->> 'metadataEditNumber' !~ '^[1-9][0-9]{0,17}$'
        ) THEN
@@ -147,6 +152,18 @@ BEGIN
                 MESSAGE = 'Bulk Published Question metadata Edit Number is stale';
         END IF;
     END LOOP;
+    IF set_discipline AND EXISTS (
+        SELECT 1
+          FROM ple_data.published_question_metadata AS metadata
+         WHERE metadata.question_id IN (
+             SELECT value ->> 'questionId'
+               FROM jsonb_array_elements(normalized_selection) AS element(value)
+         )
+           AND metadata.discipline_uuid IS DISTINCT FROM (normalized_patch ->> 'disciplineUuid')::uuid
+    ) THEN
+        PERFORM ple_private.require_active_content_discipline(
+            (normalized_patch ->> 'disciplineUuid')::uuid);
+    END IF;
 
     WITH updated AS (
         UPDATE ple_data.published_question_metadata AS metadata

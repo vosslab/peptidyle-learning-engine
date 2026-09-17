@@ -13,7 +13,7 @@ const questionAsset = {
   questionAsset: "00000000-0000-0000-0000-000000000001",
   checksum: "a".repeat(64),
 };
-const questionRevision = { questionId: "7K3M-X9QP", revisionNumber: 2 };
+const questionRevision = { questionId: "7K3M-79QP", revisionNumber: 2 };
 
 test("asset URLs must be the resolver-derived logical asset route", () => {
   const priorLocation = globalThis.location;

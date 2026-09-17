@@ -836,7 +836,7 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
                           required
                           value={disciplineUuid()}
                           disabled={isLocked()}
-                          load={() => props.classificationClient.listDisciplines()}
+                          load={() => props.classificationClient.listDisciplinesIncludingRetired()}
                           onChange={(uuid) =>
                             batch(() => {
                               setDisciplineUuid(uuid);

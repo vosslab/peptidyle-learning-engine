@@ -12,9 +12,10 @@ use axum::{
 use axum_extra::extract::Query;
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use learning_data_access::{
-    ContentClassificationStore, Cursor, PageRequest, PageSize, QuestionLibraryStore,
-    QuestionPoolDiscoveryFilter, QuestionPoolLibraryStore, QuestionPoolTextField,
-    QuestionPoolTextFilter, QuestionPoolTextTerm, SessionTokenHash, StoreError,
+    ContentClassificationStore, ContentDisciplineDiscoveryStore, Cursor, PageRequest, PageSize,
+    QuestionLibraryStore, QuestionPoolDiscoveryFilter, QuestionPoolLibraryStore,
+    QuestionPoolTextField, QuestionPoolTextFilter, QuestionPoolTextTerm, SessionTokenHash,
+    StoreError,
     postgres::{
         PostgresContentClassificationStore, PostgresQuestionLibraryStore,
         PostgresQuestionPoolLibraryStore, PostgresSessionStore,
@@ -32,7 +33,6 @@ use sha2::{Digest, Sha256};
 use crate::{
     auth::{AuthError, resolve_session},
     question_library::answer_free_reusable_question_view,
-    question_publication::HmacQuestionIdIssuer,
 };
 
 const DEFAULT_PAGE_SIZE: u16 = 50;
@@ -45,7 +45,6 @@ struct RouteState {
     questions: PostgresQuestionLibraryStore,
     classifications: PostgresContentClassificationStore,
     objects: S3ObjectStore,
-    issuer: HmacQuestionIdIssuer,
 }
 
 pub fn question_pool_library_router(
@@ -54,7 +53,6 @@ pub fn question_pool_library_router(
     questions: PostgresQuestionLibraryStore,
     classifications: PostgresContentClassificationStore,
     objects: S3ObjectStore,
-    issuer: HmacQuestionIdIssuer,
 ) -> Router {
     Router::new()
         .route("/api/question-pools", get(list_pools))
@@ -69,7 +67,6 @@ pub fn question_pool_library_router(
             questions,
             classifications,
             objects,
-            issuer,
         })
 }
 
@@ -121,7 +118,7 @@ async fn list_pools(
         Ok(value) => value,
         Err(_) => return bad_request("Question Pool page size is invalid"),
     };
-    let token = match instructor(&state, &headers).await {
+    let token = match library_reader(&state, &headers).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -146,12 +143,10 @@ async fn list_pools(
         Err(message) => return bad_request(message),
     };
     let after = match query.cursor {
-        Some(value) => {
-            match decode_cursor(&state.issuer, &value, page_size.get(), filter, &text_filter) {
-                Some(value) => Some(value),
-                None => return bad_request("Question Pool continuation is invalid"),
-            }
-        }
+        Some(value) => match decode_cursor(&value, page_size.get(), filter, &text_filter) {
+            Some(value) => Some(value),
+            None => return bad_request("Question Pool continuation is invalid"),
+        },
         None => None,
     };
     let page = match state
@@ -170,13 +165,6 @@ async fn list_pools(
         Ok(value) => value,
         Err(error) => return store_error(error),
     };
-    if page.items.iter().any(|item| {
-        !state
-            .issuer
-            .validates_question_id(&item.question_pool_revision.question_pool_id)
-    }) {
-        return unavailable();
-    }
     let next_cursor = match page.next_cursor {
         Some(value) => match encode_cursor(value.as_str(), page_size.get(), filter, &text_filter) {
             Some(value) => Some(value),
@@ -198,11 +186,11 @@ async fn current_pool(
     headers: HeaderMap,
     Path(question_pool_id): Path<String>,
 ) -> Response {
-    let pool_id = match verified_id(&state.issuer, &question_pool_id) {
+    let pool_id = match verified_id(&question_pool_id) {
         Some(value) => value,
         None => return concealed(),
     };
-    let token = match instructor(&state, &headers).await {
+    let token = match library_reader(&state, &headers).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -257,12 +245,6 @@ async fn assessment_fork(
         Ok(value) => value,
         Err(error) => return store_error(error),
     };
-    if !state
-        .issuer
-        .validates_question_id(&record.question_pool_revision.question_pool_id)
-    {
-        return unavailable();
-    }
     let revision = match revision_view(
         &state,
         token,
@@ -301,9 +283,6 @@ async fn revision_view(
 ) -> Result<QuestionPoolRevisionView, Response> {
     let mut views = Vec::with_capacity(members.len());
     for (position, member) in members.into_iter().enumerate() {
-        if !state.issuer.validates_question_id(&member.question_id) {
-            return Err(unavailable());
-        }
         let entry = state
             .questions
             .load_published_question_revision_library_entry(token, &member)
@@ -326,7 +305,7 @@ async fn revision_view(
 }
 
 async fn valid_classification(
-    store: &impl ContentClassificationStore,
+    store: &(impl ContentClassificationStore + ContentDisciplineDiscoveryStore),
     token: SessionTokenHash,
     filter: QuestionPoolDiscoveryFilter,
 ) -> Result<bool, StoreError> {
@@ -334,7 +313,7 @@ async fn valid_classification(
         return Ok(true);
     };
     if !store
-        .list_disciplines(token)
+        .list_disciplines_including_retired(token)
         .await?
         .iter()
         .any(|item| item.uuid == discipline)
@@ -374,9 +353,8 @@ async fn valid_classification(
         .any(|item| item.uuid == subtopic))
 }
 
-fn verified_id(issuer: &HmacQuestionIdIssuer, value: &str) -> Option<QuestionId> {
-    let id = value.parse().ok()?;
-    issuer.validates_question_id(&id).then_some(id)
+fn verified_id(value: &str) -> Option<QuestionId> {
+    value.parse().ok()
 }
 
 fn encode_cursor(
@@ -396,7 +374,6 @@ fn encode_cursor(
 }
 
 fn decode_cursor(
-    issuer: &HmacQuestionIdIssuer,
     value: &str,
     page_size: u16,
     filter: QuestionPoolDiscoveryFilter,
@@ -415,9 +392,6 @@ fn decode_cursor(
         return None;
     }
     let id = cursor.after.parse::<QuestionId>().ok()?;
-    if !issuer.validates_question_id(&id) {
-        return None;
-    }
     Cursor::parse(id.to_string()).ok()
 }
 
@@ -500,6 +474,31 @@ async fn instructor(
     }
 }
 
+async fn library_reader(
+    state: &RouteState,
+    headers: &HeaderMap,
+) -> Result<SessionTokenHash, Box<Response>> {
+    let cookies = headers
+        .get_all(COOKIE)
+        .iter()
+        .map(|value| value.to_str().ok())
+        .collect::<Option<Vec<_>>>()
+        .filter(|values| !values.is_empty())
+        .map(|values| values.join("; "));
+    match resolve_session(state.sessions.as_ref(), cookies.as_deref()).await {
+        Ok(session)
+            if matches!(
+                session.record.product_role,
+                ProductRole::Instructor | ProductRole::Sysadmin
+            ) =>
+        {
+            Ok(session.session_hash)
+        }
+        Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
+        Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(unavailable())),
+    }
+}
+
 fn store_error(error: StoreError) -> Response {
     match error {
         StoreError::NotFound | StoreError::Forbidden => concealed(),
@@ -528,7 +527,6 @@ mod tests {
     use question_model::QuestionId;
 
     use super::*;
-    use crate::question_publication::{QuestionIdIssuer, QuestionIdSecret};
 
     #[test]
     fn pool_text_and_tags_keep_shared_grammar_and_normalized_meaning() {
@@ -572,29 +570,27 @@ mod tests {
 
     #[test]
     fn continuation_binds_normalized_text_and_tags() {
-        let issuer = HmacQuestionIdIssuer::new(QuestionIdSecret::from_bytes([7; 32]));
-        let id = issuer.issue_question_id().expect("Pool ID");
+        let id = QuestionId::from_random_identifier("ABCDEFG").expect("Pool ID");
         let identities = QuestionPoolDiscoveryFilter::default();
         let filter =
             normalize_text_filter(Some(" REVIEW ".into()), vec![" Exam ".into()]).expect("filter");
         let encoded = encode_cursor(&id.to_string(), 25, identities, &filter).expect("cursor");
         let same = normalize_text_filter(Some("review".into()), vec!["exam".into(), "EXAM".into()])
             .expect("same meaning");
-        assert!(decode_cursor(&issuer, &encoded, 25, identities, &same).is_some());
+        assert!(decode_cursor(&encoded, 25, identities, &same).is_some());
         for changed in [
             normalize_text_filter(Some("practice".into()), vec!["exam".into()])
                 .expect("text change"),
             normalize_text_filter(Some("review".into()), vec!["practice".into()])
                 .expect("tag change"),
         ] {
-            assert!(decode_cursor(&issuer, &encoded, 25, identities, &changed).is_none());
+            assert!(decode_cursor(&encoded, 25, identities, &changed).is_none());
         }
     }
 
     #[test]
-    fn continuation_is_opaque_query_bound_and_hmac_validated() {
-        let issuer = HmacQuestionIdIssuer::new(QuestionIdSecret::from_bytes([7; 32]));
-        let id = issuer.issue_question_id().expect("Pool ID");
+    fn continuation_is_opaque_query_bound_and_checksum_validated() {
+        let id = QuestionId::from_random_identifier("ABCDEFG").expect("Pool ID");
         let filter = QuestionPoolDiscoveryFilter::default();
         let encoded = encode_cursor(
             &id.to_string(),
@@ -604,60 +600,21 @@ mod tests {
         )
         .expect("cursor encodes");
         assert_eq!(
-            decode_cursor(
-                &issuer,
-                &encoded,
-                25,
-                filter,
-                &QuestionPoolTextFilter::default()
-            )
-            .expect("matching query cursor")
-            .as_str(),
+            decode_cursor(&encoded, 25, filter, &QuestionPoolTextFilter::default())
+                .expect("matching query cursor")
+                .as_str(),
             id.to_string()
         );
-        assert!(
-            decode_cursor(
-                &issuer,
-                &encoded,
-                50,
-                filter,
-                &QuestionPoolTextFilter::default()
-            )
-            .is_none()
-        );
+        assert!(decode_cursor(&encoded, 50, filter, &QuestionPoolTextFilter::default()).is_none());
 
-        let wrong = QuestionId::from_canonical_parts(
-            id.identifier_compact(),
-            if id.validation_character() == '0' {
-                '1'
-            } else {
-                '0'
-            },
-        )
-        .expect("syntax-valid alternate HMAC character");
-        let forged = encode_cursor(
-            &wrong.to_string(),
-            25,
-            filter,
-            &QuestionPoolTextFilter::default(),
-        )
-        .expect("forged cursor encodes");
-        assert!(
-            decode_cursor(
-                &issuer,
-                &forged,
-                25,
-                filter,
-                &QuestionPoolTextFilter::default()
-            )
-            .is_none()
-        );
+        let forged = encode_cursor("0000-5000", 25, filter, &QuestionPoolTextFilter::default())
+            .expect("forged cursor encodes");
+        assert!(decode_cursor(&forged, 25, filter, &QuestionPoolTextFilter::default()).is_none());
     }
 
     #[test]
     fn continuation_rejects_changed_classification_and_old_format() {
-        let issuer = HmacQuestionIdIssuer::new(QuestionIdSecret::from_bytes([7; 32]));
-        let id = issuer.issue_question_id().expect("Pool ID");
+        let id = QuestionId::from_random_identifier("ABCDEFG").expect("Pool ID");
         let filter = QuestionPoolDiscoveryFilter {
             discipline_uuid: Some(uuid::Uuid::from_u128(1)),
             subject_uuid: Some(uuid::Uuid::from_u128(2)),
@@ -672,16 +629,7 @@ mod tests {
             &QuestionPoolTextFilter::default(),
         )
         .expect("cursor encodes");
-        assert!(
-            decode_cursor(
-                &issuer,
-                &encoded,
-                25,
-                filter,
-                &QuestionPoolTextFilter::default()
-            )
-            .is_some()
-        );
+        assert!(decode_cursor(&encoded, 25, filter, &QuestionPoolTextFilter::default()).is_some());
         for changed in [
             QuestionPoolDiscoveryFilter {
                 discipline_uuid: Some(uuid::Uuid::from_u128(5)),
@@ -705,14 +653,7 @@ mod tests {
             },
         ] {
             assert!(
-                decode_cursor(
-                    &issuer,
-                    &encoded,
-                    25,
-                    changed,
-                    &QuestionPoolTextFilter::default()
-                )
-                .is_none()
+                decode_cursor(&encoded, 25, changed, &QuestionPoolTextFilter::default()).is_none()
             );
         }
         let old = URL_SAFE_NO_PAD.encode(
@@ -723,7 +664,6 @@ mod tests {
         );
         assert!(
             decode_cursor(
-                &issuer,
                 &old,
                 25,
                 QuestionPoolDiscoveryFilter::default(),

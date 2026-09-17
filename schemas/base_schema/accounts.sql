@@ -3,54 +3,15 @@
 
 SET LOCAL ROLE ple_private_owner;
 
--- Human references are a presentation/support boundary, never the identity
--- sequence used by internal relationships.  Six independent five-bit draws
--- give a short Crockford Base32 suffix without exposing creation order.
-CREATE FUNCTION ple_private.crockford_reference_suffix()
-RETURNS text LANGUAGE sql VOLATILE
-SET search_path = pg_catalog
-AS $$
-    WITH bytes AS (
-        SELECT decode(replace(gen_random_uuid()::text, '-', ''), 'hex') AS value
-    )
-    SELECT string_agg(
-        substr('0123456789ABCDEFGHJKMNPQRSTVWXYZ', (get_byte(value, position) & 31) + 1, 1),
-        '' ORDER BY position
-    )
-      FROM bytes, generate_series(0, 5) AS position
-$$;
-
--- Each target table keeps its own unique reference.  There is deliberately no
--- global registry: the type prefix makes the human reference unambiguous.
--- The trigger replaces caller input, including a colliding default, so every
--- emitted reference is server-minted and retries a collision before insert.
-CREATE FUNCTION ple_private.assign_human_reference()
-RETURNS trigger LANGUAGE plpgsql
-SET search_path = pg_catalog, ple_private
-AS $$
-DECLARE candidate text;
-DECLARE already_used boolean;
-BEGIN
-    -- The unique constraint is the final integrity boundary.  Serialize only
-    -- minting for this one table so a pre-insert collision is observed and
-    -- retried here rather than leaking a uniqueness failure to a caller.
-    PERFORM pg_advisory_xact_lock(hashtext(TG_TABLE_SCHEMA || '.' || TG_TABLE_NAME));
-    LOOP
-        candidate := TG_ARGV[0] || ple_private.crockford_reference_suffix();
-        EXECUTE format('SELECT EXISTS (SELECT 1 FROM %I.%I WHERE public_reference = $1)',
-                       TG_TABLE_SCHEMA, TG_TABLE_NAME)
-          INTO already_used USING candidate;
-        EXIT WHEN NOT already_used;
-    END LOOP;
-    NEW.public_reference := candidate;
-    RETURN NEW;
-END
-$$;
-
 CREATE TABLE ple_private.account (
     account_id uuid PRIMARY KEY,
     reference_number bigint GENERATED ALWAYS AS IDENTITY UNIQUE,
-    public_reference text NOT NULL UNIQUE CHECK (public_reference ~ '^U[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$'),
+    public_reference text NOT NULL UNIQUE CHECK (
+        public_reference ~ '^U[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}$'
+        AND right(public_reference, 1) = ple_private.crockford_checksum_character(
+            left(public_reference, char_length(public_reference) - 1)
+        )
+    ),
     product_role text NOT NULL CHECK (product_role IN ('student', 'instructor', 'sysadmin')),
     created_at timestamp with time zone NOT NULL,
     CONSTRAINT account_product_role_is_unique UNIQUE (account_id, product_role)
@@ -181,15 +142,12 @@ REVOKE ALL PRIVILEGES ON TABLE ple_private.account, ple_private.account_state_ev
     ple_private.account_time_zone FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON FUNCTION ple_private.reject_account_identity_change(),
     ple_private.record_initial_account_state(), ple_private.account_time_zone_is_exact_iana(text),
-    ple_private.reject_invalid_account_time_zone(), ple_private.record_default_account_time_zone(),
-    ple_private.crockford_reference_suffix(), ple_private.assign_human_reference()
+    ple_private.reject_invalid_account_time_zone(), ple_private.record_default_account_time_zone()
     FROM PUBLIC;
 GRANT USAGE ON SCHEMA ple_private TO ple_api_owner;
 GRANT SELECT ON ple_private.account, ple_private.account_state_event TO ple_api_owner;
 GRANT USAGE ON SCHEMA ple_private TO ple_data_owner;
 GRANT REFERENCES ON TABLE ple_private.account TO ple_data_owner;
-GRANT EXECUTE ON FUNCTION ple_private.crockford_reference_suffix(), ple_private.assign_human_reference()
-    TO ple_data_owner, ple_api_owner;
 GRANT USAGE ON SCHEMA ple_private TO ple_audit_owner;
 GRANT REFERENCES ON TABLE ple_private.account TO ple_audit_owner;
 

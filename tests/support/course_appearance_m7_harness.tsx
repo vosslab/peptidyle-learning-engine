@@ -15,8 +15,8 @@ import { CourseThemeVariables } from "../../src/features/course_appearance/cours
 import { CourseAppearancePage } from "../../src/pages/course_appearance_page";
 import { RouteScopeProvider } from "../../src/ribbon/route_scope_context";
 
-const COURSE_REFERENCE: CourseInstanceReference = "CI7K3M2Q";
-const COURSE_PATH = "/instructor/courses/CI7K3M2Q/appearance";
+const COURSE_REFERENCE: CourseInstanceReference = "CI7K3M2QAZ";
+const COURSE_PATH = "/instructor/courses/CI7K3M2QAZ/appearance";
 const FIXTURE_CLASSIFICATION = {
   disciplineUuid: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6d",
   subjectUuid: null,

@@ -6,7 +6,19 @@
 -- later because it depends on the lineage tables.
 SET LOCAL ROLE ple_private_owner;
 GRANT USAGE ON SCHEMA ple_private TO ple_data_owner;
+GRANT USAGE ON SCHEMA ple_private TO ple_api_owner;
 GRANT REFERENCES ON TABLE ple_private.account TO ple_data_owner;
+
+-- Current admission policy is separate from the retained source vocabulary:
+-- old iMathAS rows remain structurally readable, but no new production work
+-- may use them until a later release changes this one predicate.
+CREATE FUNCTION ple_private.question_backend_is_supported_for_production(p_backend text)
+RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path = pg_catalog AS $$
+    SELECT COALESCE(p_backend IN ('ple', 'webwork'), false)
+$$;
+REVOKE ALL ON FUNCTION ple_private.question_backend_is_supported_for_production(text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_private.question_backend_is_supported_for_production(text)
+    TO ple_private_owner, ple_data_owner, ple_api_owner;
 RESET ROLE;
 
 SET LOCAL ROLE ple_data_owner;
@@ -19,8 +31,17 @@ CREATE TABLE ple_data.published_question (
         CHECK (availability_edit_number > 0),
     created_at timestamptz NOT NULL,
     CONSTRAINT published_question_id_is_crockford_shape CHECK (
-        question_id ~ '^[0-9A-HJKMNP-TV-Z]{8}$'
+        question_id ~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
+        AND substr(question_id, 6, 1) = ple_private.crockford_checksum_character(
+            substr(question_id, 1, 4) || substr(question_id, 7, 3)
+        )
     )
+);
+
+CREATE TRIGGER published_question_public_id_is_reserved
+BEFORE INSERT ON ple_data.published_question
+FOR EACH ROW EXECUTE FUNCTION ple_private.reserve_public_id_from_trigger(
+    'published_question', 'question_id'
 );
 
 CREATE TABLE ple_data.question_revision (

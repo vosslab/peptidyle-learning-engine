@@ -57,7 +57,11 @@ pub(crate) mod http_security;
 pub(crate) mod instructor_account;
 /// Protected direct-Instructor invitation-mailer export route.
 pub(crate) mod invitation_export;
+/// Retained Question and Pool improvement threads and impact notices.
+mod library_discussion;
 mod library_search_terms;
+/// Private self-only Question and Pool Watch notification inbox.
+mod library_watch_notification;
 pub(crate) mod live_gradebook;
 pub(crate) mod live_student_course_landing;
 /// Authorized public Course-reference navigation route.

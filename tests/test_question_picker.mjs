@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import test from "node:test";
 import { EMPTY_QUESTION_LIBRARY_BROWSE_QUERY } from "../src/pages/library_page_model.ts";
 
@@ -16,6 +17,8 @@ function row(displayId, questionTitle = "Question", revisionNumber = 1) {
     questionRevision: { questionId: displayId, revisionNumber },
     questionTitle,
     summary: "Answer-free summary.",
+    disciplineName: "Biology",
+    disciplineIsRetired: false,
     questionFormat: "pleQuestionJson",
     authorNames: ["Published author"],
     capabilities: [],
@@ -33,38 +36,40 @@ function questionIdFor(index) {
     characters[position] = alphabet[digit];
     remaining = Math.floor(remaining / alphabet.length);
   }
-  return `${characters.slice(0, 4).join("")}-X${characters.slice(4).join("")}`;
+  const identifier = characters.join("");
+  const checksum = alphabet[createHash("sha256").update(identifier, "ascii").digest()[0] >>> 3];
+  return `${identifier.slice(0, 4)}-${checksum}${identifier.slice(4)}`;
 }
 
 test("Question Picker preserves public Question ID order and safe row metadata", () => {
   const selection = questionPickerSelection("many", 200, [
-    row("7K3M-X9QP", "First"),
-    row("2R5X-Z7YA", "Second"),
+    row("7K3M-79QP", "First"),
+    row("2R5X-E7YA", "Second"),
   ]);
-  assert.deepEqual(selection.questionIds, ["7K3M-X9QP", "2R5X-Z7YA"]);
+  assert.deepEqual(selection.questionIds, ["7K3M-79QP", "2R5X-E7YA"]);
   assert.equal(selection.questions[1]?.row.questionTitle, "Second");
   assert.deepEqual(selection.questions[1]?.row.questionRevision, {
-    questionId: "2R5X-Z7YA",
+    questionId: "2R5X-E7YA",
     revisionNumber: 1,
   });
 });
 
 test("single-selection mode replaces the prior result", () => {
-  const initial = questionPickerSelection("one", 1, [row("7K3M-X9QP")]);
-  const next = toggleQuestionPickerSelection("one", 1, initial, row("2R5X-Z7YA"), true);
-  assert.deepEqual(next.questionIds, ["2R5X-Z7YA"]);
+  const initial = questionPickerSelection("one", 1, [row("7K3M-79QP")]);
+  const next = toggleQuestionPickerSelection("one", 1, initial, row("2R5X-E7YA"), true);
+  assert.deepEqual(next.questionIds, ["2R5X-E7YA"]);
 });
 
 test("picker removes a selected row and preserves the other selected order", () => {
-  const initial = questionPickerSelection("many", 200, [row("7K3M-X9QP"), row("2R5X-Z7YA")]);
-  const next = toggleQuestionPickerSelection("many", 200, initial, row("7K3M-X9QP"), false);
-  assert.deepEqual(next.questionIds, ["2R5X-Z7YA"]);
+  const initial = questionPickerSelection("many", 200, [row("7K3M-79QP"), row("2R5X-E7YA")]);
+  const next = toggleQuestionPickerSelection("many", 200, initial, row("7K3M-79QP"), false);
+  assert.deepEqual(next.questionIds, ["2R5X-E7YA"]);
 });
 
 test("picker reorders the selected tray without changing membership", () => {
-  const initial = questionPickerSelection("many", 200, [row("7K3M-X9QP"), row("2R5X-Z7YA")]);
+  const initial = questionPickerSelection("many", 200, [row("7K3M-79QP"), row("2R5X-E7YA")]);
   const next = moveQuestionPickerSelection("many", 200, initial, 1, -1);
-  assert.deepEqual(next.questionIds, ["2R5X-Z7YA", "7K3M-X9QP"]);
+  assert.deepEqual(next.questionIds, ["2R5X-E7YA", "7K3M-79QP"]);
 });
 
 test("picker enforces the shared bounded selection limit", () => {
@@ -88,7 +93,7 @@ test("picker session drops a stale source response before publishing it", async 
       search: async (request) => {
         if (request.source.kind === "library") return await questionLibrary;
         return {
-          items: [row("2R5X-Z7YA", "Mine")],
+          items: [row("2R5X-E7YA", "Mine")],
           aggregates: [],
           nextCursor: null,
           facetTruncation: noTruncation(),
@@ -100,7 +105,7 @@ test("picker session drops a stale source response before publishing it", async 
   const first = session.reset({ kind: "library", label: "Question Library" }, { ...emptyQuery() });
   const second = session.reset({ kind: "mine", label: "My questions" }, { ...emptyQuery() });
   resolveQuestionLibrary({
-    items: [row("7K3M-X9QP", "Stale")],
+    items: [row("7K3M-79QP", "Stale")],
     aggregates: [],
     nextCursor: null,
     facetTruncation: noTruncation(),
@@ -110,15 +115,35 @@ test("picker session drops a stale source response before publishing it", async 
   assert.equal(states.at(-1)?.rows[0]?.questionTitle, "Mine");
 });
 
+test("picker excludes deferred iMathAS rows from new selections", async () => {
+  const states = [];
+  const deferred = row("7K3M-79QP", "Deferred backend");
+  deferred.questionFormat = "imathas";
+  const session = new QuestionPickerSession(
+    {
+      search: async () => ({
+        items: [deferred],
+        aggregates: [],
+        nextCursor: null,
+        facetTruncation: noTruncation(),
+      }),
+    },
+    (state) => states.push(state),
+  );
+
+  await session.reset({ kind: "library", label: "Question Library" }, emptyQuery());
+  assert.equal(states.at(-1)?.kind, "empty");
+});
+
 test("picker selection remains ordered while a source and query change", async () => {
   const selection = questionPickerSelection("many", 200, [
-    row("7K3M-X9QP", "Preserved first"),
-    row("2R5X-Z7YA", "Preserved second"),
+    row("7K3M-79QP", "Preserved first"),
+    row("2R5X-E7YA", "Preserved second"),
   ]);
   const session = new QuestionPickerSession(
     {
       search: async (request) => ({
-        items: [row(request.source.kind === "library" ? "3S8B-Z4DZ" : "4T9C-Z5EW")],
+        items: [row(request.source.kind === "library" ? "3S8B-24DZ" : "4T9C-C5EW")],
         aggregates: [],
         nextCursor: null,
         facetTruncation: noTruncation(),
@@ -134,18 +159,18 @@ test("picker selection remains ordered while a source and query change", async (
     { kind: "mine", label: "My questions" },
     { ...emptyQuery(), search: "second" },
   );
-  assert.deepEqual(selection.questionIds, ["7K3M-X9QP", "2R5X-Z7YA"]);
+  assert.deepEqual(selection.questionIds, ["7K3M-79QP", "2R5X-E7YA"]);
 });
 
 test("pagination failure retains loaded rows while external selection remains usable", async () => {
   const states = [];
-  const selection = questionPickerSelection("many", 200, [row("7K3M-X9QP")]);
+  const selection = questionPickerSelection("many", 200, [row("7K3M-79QP")]);
   const session = new QuestionPickerSession(
     {
       search: async (request) => {
         if (request.cursor === null) {
           return {
-            items: [row("2R5X-Z7YA")],
+            items: [row("2R5X-E7YA")],
             aggregates: [],
             nextCursor: "next",
             facetTruncation: noTruncation(),
@@ -159,8 +184,8 @@ test("pagination failure retains loaded rows while external selection remains us
   await session.reset({ kind: "library", label: "Question Library" }, emptyQuery());
   await session.loadNext();
   assert.equal(states.at(-1)?.kind, "error");
-  assert.equal(states.at(-1)?.rows[0]?.displayId, "2R5X-Z7YA");
-  assert.deepEqual(selection.questionIds, ["7K3M-X9QP"]);
+  assert.equal(states.at(-1)?.rows[0]?.displayId, "2R5X-E7YA");
+  assert.deepEqual(selection.questionIds, ["7K3M-79QP"]);
 });
 
 function emptyQuery() {

@@ -70,7 +70,7 @@ impl PostgresQuestionStarStore {
         // ASVS 8.2.1--8.3.1: this API procedure derives the subject from the
         // installed session; it accepts no Account ID or client role claim.
         let row = sqlx::query("SELECT * FROM ple_api.read_current_question_star($1)")
-            .bind(question_id.as_compact_str())
+            .bind(question_id.as_str())
             .fetch_optional(&mut **tx)
             .await
             .map_err(map_sqlx_error)?
@@ -120,7 +120,7 @@ impl QuestionStarStore for PostgresQuestionStarStore {
         // The SQL procedure is the idempotent, database-authorized mutation;
         // the subsequent projection is from the same transaction snapshot.
         sqlx::query("SELECT ple_api.set_current_question_star($1, $2)")
-            .bind(question_id.as_compact_str())
+            .bind(question_id.as_str())
             .bind(starred)
             .execute(&mut *tx)
             .await

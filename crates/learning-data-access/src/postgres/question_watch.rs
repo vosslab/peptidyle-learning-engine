@@ -58,7 +58,7 @@ impl PostgresQuestionWatchStore {
         // The SQL function derives and validates the actor from the installed
         // session. Its closed row has only the actor's boolean Watch state.
         let row = sqlx::query("SELECT * FROM ple_api.read_current_question_watch($1)")
-            .bind(question_id.as_compact_str())
+            .bind(question_id.as_str())
             .fetch_optional(&mut **tx)
             .await
             .map_err(map_sqlx_error)?
@@ -88,7 +88,7 @@ impl QuestionWatchStore for PostgresQuestionWatchStore {
     ) -> Result<QuestionWatchProjection, StoreError> {
         let mut tx = self.begin(session_token_hash).await?;
         sqlx::query("SELECT ple_api.set_current_question_watch($1, $2)")
-            .bind(question_id.as_compact_str())
+            .bind(question_id.as_str())
             .bind(watching)
             .execute(&mut *tx)
             .await

@@ -7,14 +7,14 @@ pub(super) struct FixturePoolIdIssuer(pub(super) AtomicUsize);
 impl CourseInstancePoolIdIssuer for FixturePoolIdIssuer {
     fn issue_question_pool_id(&self) -> Result<QuestionId, StoreError> {
         const IDS: [&str; 8] = [
-            "8K3M-X9Q1",
-            "9K3M-X9Q2",
-            "7K3M-X9Q3",
-            "6K3M-X9Q4",
-            "5K3M-X9Q5",
-            "4K3M-X9Q6",
-            "3K3M-X9Q7",
-            "2K3M-X9Q8",
+            "8K3M-69Q1",
+            "9K3M-09Q2",
+            "7K3M-T9Q3",
+            "6K3M-19Q4",
+            "5K3M-V9Q5",
+            "4K3M-D9Q6",
+            "3K3M-S9Q7",
+            "2K3M-49Q8",
         ];
         let index = self.0.fetch_add(1, Ordering::SeqCst);
         IDS.get(index)
@@ -107,7 +107,7 @@ pub(super) async fn question_pool_member_pins(
           WHERE pool.public_question_pool_id = $1 AND member.revision_number = $2 \
           ORDER BY member.member_position",
     )
-    .bind(pool.question_pool_id.as_compact_str())
+    .bind(pool.question_pool_id.as_str())
     .bind(pool.revision_number.get() as i64)
     .fetch_all(&mut inspection)
     .await
@@ -278,36 +278,9 @@ pub(super) async fn save(
     }
 }
 
-/// PostgreSQL content stores compact Question IDs; public values remain grouped.
+/// PostgreSQL content keeps the exact canonical Question IDs.
 fn database_content_json(content: &StoredBlueprintCourseContent) -> serde_json::Value {
-    let mut encoded = serde_json::to_value(content).expect("Blueprint content JSON");
-    compact_question_ids(&mut encoded);
-    encoded
-}
-
-fn compact_question_ids(value: &mut serde_json::Value) {
-    match value {
-        serde_json::Value::Array(values) => {
-            for value in values {
-                compact_question_ids(value);
-            }
-        }
-        serde_json::Value::Object(values) => {
-            for value in values.values_mut() {
-                compact_question_ids(value);
-            }
-            for key in ["questionId", "question_id"] {
-                if let Some(serde_json::Value::String(question_id)) = values.get_mut(key) {
-                    *question_id = question_id
-                        .parse::<QuestionId>()
-                        .expect("fixture Question ID")
-                        .as_compact_str()
-                        .to_owned();
-                }
-            }
-        }
-        _ => {}
-    }
+    serde_json::to_value(content).expect("Blueprint content JSON")
 }
 
 pub(super) async fn transition_blueprint_availability(
@@ -402,8 +375,8 @@ pub(super) const INSTRUCTOR: u128 = 0xb100;
 pub(super) const SESSION: u128 = 0xb101;
 pub(super) const READER_INSTRUCTOR: u128 = 0xb102;
 pub(super) const READER_SESSION: u128 = 0xb103;
-pub(super) const QUESTION: &str = "ABCDEFG3";
-pub(super) const QUESTION_POOL: &str = "7654X321";
+pub(super) const QUESTION: &str = "ABCD-XEFG";
+pub(super) const QUESTION_POOL: &str = "7654-Z321";
 
 pub(super) fn id(value: u128) -> Uuid {
     Uuid::from_u128(value)
@@ -426,7 +399,7 @@ fn question_id() -> QuestionId {
 }
 
 fn question_pool_id() -> QuestionId {
-    "7654-X321".parse().expect("closed Pool ID fixture")
+    QUESTION_POOL.parse().expect("closed Pool ID fixture")
 }
 
 pub(super) fn content_input(title: &str) -> CreateBlueprintCourseInput {

@@ -19,8 +19,8 @@ const catalogById = new Map(
   [...TAB_CATALOG, ...RIBBON_TASK_CATALOG].map((control) => [control.id, control]),
 );
 const fixtureParams = {
-  courseRef: "CI7K3M2Q",
-  assessmentRef: "A9D2RX5",
+  courseRef: "CI7K3M2QAZ",
+  assessmentRef: "A9D2RX5AF",
   assessmentAttemptRef: "R-1",
 };
 const topologyRowsTestName = [

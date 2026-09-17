@@ -71,13 +71,11 @@ BEGIN
           FROM ple_private.issued_question AS issued
           JOIN ple_private.question_attempt AS question_attempt
             ON question_attempt.issued_question_id = issued.issued_question_id
-          JOIN ple_private.assessment_attempt_saved_response AS response
-            ON response.question_attempt_id = question_attempt.question_attempt_id
           JOIN ple_private.question_revision_source_binding AS source
             ON source.question_id = issued.question_id
            AND source.revision_number = issued.revision_number
          WHERE issued.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id
-           AND source.backend NOT IN ('ple', 'webwork')
+           AND NOT ple_private.question_backend_is_supported_for_production(source.backend)
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Assessment Attempt submission is unavailable';

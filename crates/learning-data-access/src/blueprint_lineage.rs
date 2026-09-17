@@ -40,7 +40,7 @@ pub struct BlueprintComparisonSources {
 }
 
 /// Immutable source fact retained by a forked Blueprint lineage.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlueprintForkSource {
     pub blueprint_revision: BlueprintRevisionReference,
 }

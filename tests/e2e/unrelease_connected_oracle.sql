@@ -19,17 +19,17 @@ SET LOCAL ROLE ple_data_owner;
 INSERT INTO ple_data.content_discipline (discipline_uuid, name)
 VALUES ('20000000-0000-0000-0000-00000000cc01', 'Unrelease fixture discipline');
 INSERT INTO ple_data.published_question (question_id, created_at)
-VALUES ('ABCDXEF0', clock_timestamp());
+VALUES ('ABCD-XEFG', clock_timestamp());
 INSERT INTO ple_data.question_revision (
     question_id, revision_number, backend, question_type, published_at
-) VALUES ('ABCDXEF0', 1, 'ple', 'multipleChoice', clock_timestamp());
+) VALUES ('ABCD-XEFG', 1, 'ple', 'multipleChoice', clock_timestamp());
 SET LOCAL ROLE ple_private_owner;
 INSERT INTO ple_private.object_record (
     object_id, object_address, object_storage_area, object_data_class, sha256,
     size_bytes, media_type, created_at
 ) VALUES (
     '20000000-0000-0000-0000-000000000010',
-    '{"kind":"questionSource","questionRevision":{"questionId":"ABCDXEF0","revisionNumber":1},"object":"20000000-0000-0000-0000-000000000010"}'::jsonb,
+    '{"kind":"questionSource","questionRevision":{"questionId":"ABCD-XEFG","revisionNumber":1},"object":"20000000-0000-0000-0000-000000000010"}'::jsonb,
     'private-content', 'question-source', decode(repeat('10', 32), 'hex'), 1,
     'application/json', clock_timestamp()
 );
@@ -37,7 +37,7 @@ INSERT INTO ple_private.question_revision_source_binding (
     question_id, revision_number, backend, question_format, source_object_id,
     source_object_checksum, created_at
 ) VALUES (
-    'ABCDXEF0', 1, 'ple', 'pleQuestionJson',
+    'ABCD-XEFG', 1, 'ple', 'pleQuestionJson',
     '20000000-0000-0000-0000-000000000010', repeat('10', 32), clock_timestamp()
 );
 SET LOCAL ROLE ple_api_owner;
@@ -148,11 +148,11 @@ INSERT INTO ple_data.assessment_entry (
     availability, scoring_rule, question_id, question_revision_number, points_possible
 ) VALUES
     ('40000000-0000-0000-0000-000000000011', '40000000-0000-0000-0000-000000000001',
-     0, 'fixed_question', 'available', 'normal', 'ABCDXEF0', 1, 1),
+     0, 'fixed_question', 'available', 'normal', 'ABCD-XEFG', 1, 1),
     ('40000000-0000-0000-0000-000000000012', '40000000-0000-0000-0000-000000000002',
-     0, 'fixed_question', 'available', 'normal', 'ABCDXEF0', 1, 1),
+     0, 'fixed_question', 'available', 'normal', 'ABCD-XEFG', 1, 1),
     ('40000000-0000-0000-0000-000000000013', '40000000-0000-0000-0000-000000000003',
-     0, 'fixed_question', 'available', 'normal', 'ABCDXEF0', 1, 1);
+     0, 'fixed_question', 'available', 'normal', 'ABCD-XEFG', 1, 1);
 
 -- Start both Attempts through the ordinary restricted path.  The fixture then
 -- adds the lower-level submission/grading receipts needed to exercise the
@@ -164,14 +164,14 @@ SELECT * FROM ple_api.start_assessment_attempt(
     '30000000-0000-0000-0000-000000000002',
     '40000000-0000-0000-0000-000000000001',
     '[]'::jsonb,
-    '[{"issued_question_id":"50000000-0000-0000-0000-000000000011","assessment_entry_id":"40000000-0000-0000-0000-000000000011","issued_position":0,"question_id":"ABCDXEF0","revision_number":1}]'::jsonb
+    '[{"issued_question_id":"50000000-0000-0000-0000-000000000011","assessment_entry_id":"40000000-0000-0000-0000-000000000011","issued_position":0,"question_id":"ABCD-XEFG","revision_number":1}]'::jsonb
 );
 SELECT * FROM ple_api.start_assessment_attempt(
     '50000000-0000-0000-0000-000000000002',
     '30000000-0000-0000-0000-000000000002',
     '40000000-0000-0000-0000-000000000002',
     '[]'::jsonb,
-    '[{"issued_question_id":"50000000-0000-0000-0000-000000000012","assessment_entry_id":"40000000-0000-0000-0000-000000000012","issued_position":0,"question_id":"ABCDXEF0","revision_number":1}]'::jsonb
+    '[{"issued_question_id":"50000000-0000-0000-0000-000000000012","assessment_entry_id":"40000000-0000-0000-0000-000000000012","issued_position":0,"question_id":"ABCD-XEFG","revision_number":1}]'::jsonb
 );
 RESET ROLE;
 SET LOCAL ROLE ple_private_owner;
@@ -221,11 +221,11 @@ DO $$
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM ple_data.question_revision_statistics
-         WHERE question_id = 'ABCDXEF0' AND revision_number = 1
+         WHERE question_id = 'ABCD-XEFG' AND revision_number = 1
            AND accepted_graded_attempt_count = 2 AND correct_count = 2
     ) OR NOT EXISTS (
         SELECT 1 FROM ple_data.question_revision_choice_statistics
-         WHERE question_id = 'ABCDXEF0' AND revision_number = 1
+         WHERE question_id = 'ABCD-XEFG' AND revision_number = 1
            AND choice_id = 'eligible-choice' AND selected_count = 2
     ) THEN
         RAISE EXCEPTION 'production statistics capture did not count each accepted grade exactly once';
@@ -341,7 +341,7 @@ BEGIN
                      AND assessment_status = 'unreleased'
                      AND assessment_edit_number = 2)
        OR NOT EXISTS (SELECT 1 FROM ple_data.assessment_entry WHERE assessment_id = '40000000-0000-0000-0000-000000000001')
-       OR NOT EXISTS (SELECT 1 FROM ple_data.question_revision WHERE question_id = 'ABCDXEF0' AND revision_number = 1) THEN
+       OR NOT EXISTS (SELECT 1 FROM ple_data.question_revision WHERE question_id = 'ABCD-XEFG' AND revision_number = 1) THEN
         RAISE EXCEPTION 'Unrelease did not preserve current Assessment or shared Question state';
     END IF;
 END $$;
@@ -365,11 +365,11 @@ DO $$
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM ple_data.question_revision_statistics
-         WHERE question_id = 'ABCDXEF0' AND revision_number = 1
+         WHERE question_id = 'ABCD-XEFG' AND revision_number = 1
            AND accepted_graded_attempt_count = 2 AND correct_count = 2
     ) OR NOT EXISTS (
         SELECT 1 FROM ple_data.question_revision_choice_statistics
-         WHERE question_id = 'ABCDXEF0' AND revision_number = 1
+         WHERE question_id = 'ABCD-XEFG' AND revision_number = 1
            AND choice_id = 'eligible-choice' AND selected_count = 2
     ) THEN
         RAISE EXCEPTION 'Unrelease changed retained anonymous Question Revision statistics';
@@ -430,11 +430,11 @@ DO $$
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM ple_data.question_revision_statistics
-         WHERE question_id = 'ABCDXEF0' AND revision_number = 1
+         WHERE question_id = 'ABCD-XEFG' AND revision_number = 1
            AND accepted_graded_attempt_count = 2 AND correct_count = 2
     ) OR NOT EXISTS (
         SELECT 1 FROM ple_data.question_revision_choice_statistics
-         WHERE question_id = 'ABCDXEF0' AND revision_number = 1
+         WHERE question_id = 'ABCD-XEFG' AND revision_number = 1
            AND choice_id = 'eligible-choice' AND selected_count = 2
     ) THEN
         RAISE EXCEPTION 'rejected repeat or deleted-grade recapture changed retained statistics';

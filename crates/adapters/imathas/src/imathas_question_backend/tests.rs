@@ -82,7 +82,7 @@ mod launch_session_bridge {
 
     fn question() -> QuestionRevisionReference {
         QuestionRevisionReference {
-            question_id: QuestionId::from_canonical_parts("ABCDEFG", 'G').expect("question ID"),
+            question_id: QuestionId::from_random_identifier("ABCDEFG").expect("question ID"),
             revision_number: QuestionRevisionNumber::new(2).expect("revision"),
         }
     }
@@ -387,7 +387,7 @@ mod launch_session_bridge {
         wrong_question_id.grading_context = learning_data_access::ImathasGradingContext::new(
             wrong_question_id.grading_context.question_attempt(),
             QuestionRevisionReference {
-                question_id: QuestionId::from_canonical_parts("BCDEFGH", 'H').expect("Question ID"),
+                question_id: QuestionId::from_random_identifier("BCDEFGH").expect("Question ID"),
                 revision_number: wrong_question_id
                     .grading_context
                     .question_revision()
@@ -516,7 +516,7 @@ mod launch_session_bridge {
                 validation.grading_context = learning_data_access::ImathasGradingContext::new(
                     validation.grading_context.question_attempt(),
                     QuestionRevisionReference {
-                        question_id: QuestionId::from_canonical_parts("BCDEFGH", 'H')
+                        question_id: QuestionId::from_random_identifier("BCDEFGH")
                             .expect("Question ID"),
                         revision_number: validation
                             .grading_context

@@ -316,12 +316,12 @@ impl ImathasGradingContext {
 
     /// Returns the locked row-530 HMAC payload for this exact context.
     ///
-    /// Version 1 is exactly: Question Attempt UUID bytes, canonical unprefixed
-    /// Question ID UTF-8 bytes, Question Revision Number big-endian bytes, and
-    /// Question Seed big-endian bytes. The compact Question ID has eight UTF-8
-    /// bytes (for example, `1234X567`) and is intentionally not length-prefixed.
+    /// Version 1 is exactly: Question Attempt UUID bytes, canonical Question ID
+    /// UTF-8 bytes, Question Revision Number big-endian bytes, and Question Seed
+    /// big-endian bytes. The hyphenated Question ID has nine ASCII bytes (for
+    /// example, `1234-H567`) and is intentionally not length-prefixed.
     pub fn authentication_payload_v1(&self) -> Vec<u8> {
-        let question_id = self.question_revision.question_id.as_compact_str();
+        let question_id = self.question_revision.question_id.as_str();
         let mut payload = Vec::with_capacity(16 + question_id.len() + 4 + 8);
         payload.extend_from_slice(self.question_attempt.as_uuid().as_bytes());
         payload.extend_from_slice(question_id.as_bytes());

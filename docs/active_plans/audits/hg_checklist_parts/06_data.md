@@ -16,18 +16,51 @@
 - [ ] Human-facing reference IDs should be short, opaque, easy to communicate, and should not reveal creation order, counts, database keys, ownership, or other object metadata.
   - Evidence (source): `crates/question_model/src/public_route.rs` defines opaque typed read/use formats and `src/navigation/public_route.ts` accepts only their typed forms at browser route boundaries.
   - Mismatch: no connected creation/allocation proof establishes cryptographically random, nonsequential references across all required objects.
-- [ ] Blueprint Course IDs use `BP`, Course Instance IDs use `CI`, Assessment IDs use `A`, and Account IDs use `U`, followed directly by a common cryptographically random Crockford Base32 reference format.
-  - Evidence (source): `crates/question_model/src/public_route.rs` and generated/browser route contracts read and use the `BP`, `CI`, `A`, and `U` typed formats; authenticated server paths parse those formats before Store authorization.
-  - Mismatch: creation and allocation boundaries have not received connected proof of the common cryptographically random format.
-- [ ] ID generation enforces uniqueness and retries random collisions.
-  - Mismatch: no connected common human-reference allocator/retry collision proof exists.
+- [ ] Public IDs are the canonical human-facing IDs used by **Instructors** and **Sysadmins**.
+  - Verification pending: current public-ID projections need an implementation inventory.
+- [ ] **Students** operate within locked-down workflows and generally do not interact with the public-ID namespace.
+  - Verification pending: current Student DTO and route projections need an implementation inventory.
+- [ ] A public ID is one universal, canonical identifier, not a display representation of another identifier. Store and use the exact same ID in the database, Rust, JSON, URLs, object storage, hashes, logs, and browser UI.
+  - Verification pending: current implementation inventory is required.
+- [ ] Preserve the canonical ID exactly across system boundaries. Parsing, serialization, API transport, persistence, and display do not add, remove, reformat, or translate characters.
+  - Verification pending: current implementation inventory is required.
+- [ ] In ID format notation, `X` denotes a cryptographically random Crockford Base32 character and `Z` denotes the calculated checksum character. Both represent characters stored as part of the canonical ID; `Z` is not a literal character or separate metadata.
+  - Verification pending: current implementation inventory is required.
+- [ ] Public IDs use the Crockford Base32 alphabet `0123456789ABCDEFGHJKMNPQRSTVWXYZ`.
+  - Verification pending: current implementation inventory is required.
+- [ ] Public IDs have one canonical uppercase ASCII form.
+  - Verification pending: current implementation inventory is required.
+- [ ] Human-entered IDs may use lowercase Crockford characters, `O` or `o` for `0`, and `I`, `i`, `L`, or `l` for `1`.
+  - Verification pending: current implementation inventory is required.
+- [ ] Normalize human-entered IDs to canonical form, then validate the canonical syntax and checksum at the human-input boundary.
+  - Verification pending: current implementation inventory is required.
+- [ ] Store, transmit, display, copy, and generate only the canonical form.
+  - Verification pending: current implementation inventory is required.
+- [ ] Calculate the checksum from every other uppercase canonical-ID character, including prefixes and excluding only separators and the checksum position: `XXXX-ZXXX` -> `XXXXXXX`; `BPXXXXXXXZ` -> `BPXXXXXXX`; `CIXXXXXXXZ` -> `CIXXXXXXX`; `UXXXXXXXZ` -> `UXXXXXXX`; `AXXXXXXXZ` -> `AXXXXXXX`.
+  - Verification pending: current implementation inventory is required.
+- [ ] Use public unsalted SHA-256: map the high five bits of digest byte 0 through the Crockford alphabet.
+  - Verification pending: current implementation inventory is required.
+- [ ] Validate the public-ID syntax and embedded checksum before database lookup or resolution.
+  - Verification pending: current implementation inventory is required.
+- [ ] The embedded checksum detects typos.
+  - Verification pending: current implementation inventory is required.
+- [ ] Blueprint Course `BPXXXXXXXZ`, Course Instance `CIXXXXXXXZ`, Assessment `AXXXXXXXZ`, and Account `UXXXXXXXZ` references use seven cryptographically random Crockford Base32 characters plus final embedded checksum `Z`. `Z` is the calculated checksum placeholder, not a literal character. The random namespace is 32^7 = 34,359,738,368; the checksum adds no identity space.
+  - Verification pending: current implementation inventory is required.
+- [ ] ID generation enforces global uniqueness across all public IDs and retries random collisions.
+  - Mismatch: no connected common global public-ID registry/allocation proof exists.
+- [ ] Once issued, a public ID permanently identifies that object and is never reused for another object, including after deletion or archival.
+  - Verification pending: current implementation inventory is required.
 - [ ] Give an internal object a human-facing reference ID when a useful workflow needs to display, search, communicate, or support it.
+  - Verification pending: current private-route and workflow inventory is required.
+- [ ] Other internal objects use native UUID identifiers.
   - Mismatch: Current private route-token inventory needs a workflow-by-workflow audit before a reference is exposed or retained as human-facing.
+- [ ] An object with a public ID may retain an internal UUID primary key, but that UUID never substitutes for or appears as its public identity.
+  - Verification pending: current implementation inventory is required.
 - [ ] Account `U` references are Sysadmin support references and are not automatically exposed to Students or Instructors.
   - Evidence (source): accepted source review found `U` parsing/use limited to authenticated Account-management paths; no Student or Instructor projection was identified in that review.
   - Mismatch: full cross-route authorization and creation-boundary proof remains outstanding.
-- [ ] Published Questions and Question Pools retain their existing public `AAAA-ZBBB` IDs.
-  - Mismatch: Published Question IDs use `AAAA-ZBBB`, but published Question Pool identities are not complete.
+- [ ] Published Questions and Question Pools use the public `XXXX-ZXXX` format and share one global namespace. A value may identify either a Published Question or a Question Pool, never both.
+  - Mismatch: exact canonical Question/Pool storage and shared global namespace proof remain outstanding.
 
 ### Content classification
 
@@ -258,6 +291,8 @@
 - [x] Immutable Question source and Question assets use SHA-256 checksums where needed to verify their stored contents.
   - Evidence (source): `schemas/base_schema/question_authoring_state.sql` `source_object_checksum` binds immutable Question-source contents to SHA-256 object records.
   - Evidence (source): `schemas/base_schema/question_assets.sql` `public_object_checksum` binds immutable Question-asset contents to SHA-256 object records.
+- [ ] A public-ID checksum is one embedded character derived from other ID characters; a stored-content checksum is a full SHA-256 value verifying exact bytes. They are not interchangeable, and neither authorizes access.
+  - Verification pending: current implementation inventory is required.
 
 ### Dates and time zones
 

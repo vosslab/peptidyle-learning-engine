@@ -33,7 +33,7 @@ import {
   decodeUuid,
   type Decoder,
 } from "../decoder";
-import { normalizeQuestionIdSyntax } from "../../question_id";
+import { validateCanonicalQuestionIdSyntax } from "../../question_id";
 
 const CAPABILITIES = [
   "algorithmicGeneration",
@@ -55,6 +55,19 @@ export const QUESTION_BACKENDS = [
   "webwork",
   "imathas",
 ] as const satisfies ReadonlyArray<QuestionBackend>;
+
+/** Backends this browser may offer for new production Library work. */
+export const PRODUCTION_QUESTION_BACKENDS = [
+  "ple",
+  "webwork",
+] as const satisfies ReadonlyArray<QuestionBackend>;
+
+/** Keeps historical backend values readable without offering them for new work. */
+export function isProductionQuestionBackend(
+  backend: QuestionBackend,
+): backend is (typeof PRODUCTION_QUESTION_BACKENDS)[number] {
+  return (PRODUCTION_QUESTION_BACKENDS as ReadonlyArray<QuestionBackend>).includes(backend);
+}
 
 export const MAX_QUESTION_SEARCH_PAGE_ITEMS = MAX_CURSOR_PAGE_ITEMS;
 export const MAX_QUESTION_SEARCH_CAPABILITY_FACETS = CAPABILITIES.length;
@@ -227,7 +240,7 @@ export function decodeIdentifier(value: unknown, path: string): string {
 /** Decodes the canonical, browser-visible identity of an immutable question. */
 export function decodeQuestionId(value: unknown, path: string): QuestionId {
   const questionId = decodeString(value, path);
-  const canonicalQuestionId = normalizeQuestionIdSyntax(questionId);
+  const canonicalQuestionId = validateCanonicalQuestionIdSyntax(questionId);
   if (canonicalQuestionId === null || canonicalQuestionId !== questionId) {
     throw new DecodeError(path, "a canonical Question ID");
   }

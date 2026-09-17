@@ -6,6 +6,7 @@
 \set ON_ERROR_STOP on
 
 \ir foundation_roles.sql
+\ir public_references.sql
 \ir accounts.sql
 \ir authentication.sql
 \ir authorization.sql
@@ -15,6 +16,8 @@
 \ir question_pools.sql
 \ir question_stewardship.sql
 \ir question_pool_stewardship.sql
+\ir library_discussions.sql
+\ir library_discussion_operations.sql
 \ir question_watch_notifications.sql
 \ir object_records.sql
 \ir question_authoring_state.sql

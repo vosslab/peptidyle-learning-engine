@@ -240,9 +240,12 @@ mod tests {
     #[test]
     fn creation_source_accepts_only_the_closed_browser_wire() {
         let empty = serde_json::json!({"kind": "empty"});
+        let blueprint_course =
+            question_model::BlueprintCourseReference::from_random_identity("7K3M2QX")
+                .expect("canonical Blueprint Course reference");
         let adopted = serde_json::json!({
             "kind": "adopted",
-            "blueprintCourse": "BP7K3M2Q",
+            "blueprintCourse": blueprint_course,
             "blueprintRevision": "1"
         });
         assert!(serde_json::from_value::<CourseInstanceCreationSource>(empty).is_ok());
@@ -250,7 +253,8 @@ mod tests {
         assert!(
             serde_json::from_value::<CourseInstanceCreationSource>(serde_json::json!({
                 "kind": "adopted",
-                "blueprint_course": "BP7K3M2Q",
+                "blueprint_course": question_model::BlueprintCourseReference::from_random_identity("7K3M2QX")
+                    .expect("canonical Blueprint Course reference"),
                 "blueprint_revision": "1"
             }))
             .is_err()
@@ -258,9 +262,11 @@ mod tests {
         assert!(
             serde_json::from_value::<CourseInstanceCreationSource>(serde_json::json!({
                 "kind": "adopted",
-                "blueprintCourse": "BP7K3M2Q",
+                "blueprintCourse": question_model::BlueprintCourseReference::from_random_identity("7K3M2QX")
+                    .expect("canonical Blueprint Course reference"),
                 "blueprintRevision": "1",
-                "blueprint_course": "BP7K3M2Q"
+                "blueprint_course": question_model::BlueprintCourseReference::from_random_identity("7K3M2QX")
+                    .expect("canonical Blueprint Course reference")
             }))
             .is_err()
         );

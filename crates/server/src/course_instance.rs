@@ -26,10 +26,10 @@ use serde::Serialize;
 
 use crate::{
     auth::{AuthError, resolve_session},
-    question_publication::{HmacQuestionIdIssuer, QuestionIdIssuer},
+    question_publication::{QuestionIdIssuer, RandomQuestionIdIssuer},
 };
 
-impl CourseInstancePoolIdIssuer for HmacQuestionIdIssuer {
+impl CourseInstancePoolIdIssuer for RandomQuestionIdIssuer {
     fn issue_question_pool_id(&self) -> Result<question_model::QuestionId, StoreError> {
         self.issue_question_id().map_err(|_| {
             StoreError::Unavailable(

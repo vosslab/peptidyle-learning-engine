@@ -12,7 +12,7 @@ BEGIN;
 SET CONSTRAINTS ALL DEFERRED;
 
 -- The Assessment Access fixture supplies Course eb01, Assessment ed01, one
--- fixed two-point Entry ed02, native Question BCDEXFG0 Revision 1, and the two
+-- fixed two-point Entry ed02, native Question BCDE-2FGH Revision 1, and the two
 -- Student roots below. Resolve the minted public references from those UUIDs.
 -- This source binding enables direct evaluation of its native Question.
 SET LOCAL ROLE ple_data_owner;
@@ -22,16 +22,16 @@ SELECT set_config('ple.test_direct_assessment_reference', public_reference, true
   FROM ple_data.assessment WHERE assessment_id = '00000000-0000-0000-0000-00000000ed01';
 SET LOCAL ROLE ple_private_owner;
 INSERT INTO ple_private.object_record (object_id, object_address, object_storage_area, object_data_class, sha256, size_bytes, media_type, created_at) VALUES
-('e3000000-0000-0000-0000-000000000001', '{"kind":"questionSource","questionRevision":{"questionId":"BCDEXFG0","revisionNumber":1},"object":"e3000000-0000-0000-0000-000000000001"}'::jsonb, 'private-content', 'question-source', decode(repeat('e3', 32), 'hex'), 1, 'application/json', clock_timestamp());
+('e3000000-0000-0000-0000-000000000001', '{"kind":"questionSource","questionRevision":{"questionId":"BCDE-2FGH","revisionNumber":1},"object":"e3000000-0000-0000-0000-000000000001"}'::jsonb, 'private-content', 'question-source', decode(repeat('e3', 32), 'hex'), 1, 'application/json', clock_timestamp());
 INSERT INTO ple_private.question_revision_source_binding (question_id, revision_number, backend, question_format, source_object_id, source_object_checksum, created_at) VALUES
-('BCDEXFG0', 1, 'ple', 'pleQuestionJson', 'e3000000-0000-0000-0000-000000000001', repeat('e3', 32), clock_timestamp());
+('BCDE-2FGH', 1, 'ple', 'pleQuestionJson', 'e3000000-0000-0000-0000-000000000001', repeat('e3', 32), clock_timestamp());
 
 -- Save A, prepare it, then save B at the same millisecond. Response bytes are
 -- part of the immutable snapshot fence, so stale backend work leaves no
 -- partial submission, result, receipt, or completion behind.
 SET LOCAL ROLE ple_api_owner;
 SELECT set_config('ple.session_account_id', '00000000-0000-0000-0000-00000000eb05', true);
-SELECT * FROM ple_api.start_assessment_attempt('e3000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-00000000eb06', '00000000-0000-0000-0000-00000000ed01', '[]'::jsonb, '[{"issued_question_id":"e3000000-0000-0000-0000-000000000011","assessment_entry_id":"00000000-0000-0000-0000-00000000ed02","issued_position":0,"question_id":"BCDEXFG0","revision_number":1}]'::jsonb);
+SELECT * FROM ple_api.start_assessment_attempt('e3000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-00000000eb06', '00000000-0000-0000-0000-00000000ed01', '[]'::jsonb, '[{"issued_question_id":"e3000000-0000-0000-0000-000000000011","assessment_entry_id":"00000000-0000-0000-0000-00000000ed02","issued_position":0,"question_id":"BCDE-2FGH","revision_number":1}]'::jsonb);
 SET LOCAL ROLE ple_private_owner;
 INSERT INTO ple_private.question_attempt (question_attempt_id, issued_question_id, issued_at, question_attempt_state, backend_name, backend_version, grader_name, grader_version, rendered_question_sha256, issued_capability) VALUES
 ('e3000000-0000-0000-0000-000000000031', 'e3000000-0000-0000-0000-000000000011', clock_timestamp(), 'open', 'ple', '1', 'ple', '1', decode(repeat('31', 32), 'hex'), 'not_applicable');
@@ -162,7 +162,7 @@ ON CONFLICT (student_record_id, assessment_id) DO UPDATE
 SET LOCAL ROLE ple_api_owner;
 -- The generic baseline maps Student record eb02 to Student Account ea02.
 SELECT set_config('ple.session_account_id', '00000000-0000-0000-0000-00000000ea02', true);
-SELECT * FROM ple_api.start_assessment_attempt('e3000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-00000000eb02', '00000000-0000-0000-0000-00000000ed01', '[]'::jsonb, '[{"issued_question_id":"e3000000-0000-0000-0000-000000000021","assessment_entry_id":"00000000-0000-0000-0000-00000000ed02","issued_position":0,"question_id":"BCDEXFG0","revision_number":1}]'::jsonb);
+SELECT * FROM ple_api.start_assessment_attempt('e3000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-00000000eb02', '00000000-0000-0000-0000-00000000ed01', '[]'::jsonb, '[{"issued_question_id":"e3000000-0000-0000-0000-000000000021","assessment_entry_id":"00000000-0000-0000-0000-00000000ed02","issued_position":0,"question_id":"BCDE-2FGH","revision_number":1}]'::jsonb);
 SET LOCAL ROLE ple_private_owner;
 INSERT INTO ple_private.question_attempt (question_attempt_id, issued_question_id, issued_at, question_attempt_state, backend_name, backend_version, grader_name, grader_version, rendered_question_sha256, issued_capability) VALUES
 ('e3000000-0000-0000-0000-000000000041', 'e3000000-0000-0000-0000-000000000021', clock_timestamp(), 'open', 'ple', '1', 'ple', '1', decode(repeat('41', 32), 'hex'), 'not_applicable');

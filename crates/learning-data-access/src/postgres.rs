@@ -92,6 +92,10 @@ mod instructor_account;
 #[cfg(feature = "postgres")]
 mod invitation_export;
 #[cfg(feature = "postgres")]
+mod library_discussion;
+#[cfg(feature = "postgres")]
+mod library_watch_notification;
+#[cfg(feature = "postgres")]
 mod live_gradebook;
 #[cfg(feature = "postgres")]
 mod live_student_course_landing;
@@ -127,8 +131,6 @@ mod question_source;
 mod question_star;
 #[cfg(feature = "postgres")]
 mod question_watch;
-#[cfg(feature = "postgres")]
-mod question_watch_notification;
 #[cfg(feature = "postgres")]
 mod retention;
 #[cfg(feature = "postgres")]
@@ -195,6 +197,10 @@ pub use instructor_account::PostgresInstructorAccountStore;
 #[cfg(feature = "postgres")]
 pub use invitation_export::PostgresInvitationExportStore;
 #[cfg(feature = "postgres")]
+pub use library_discussion::PostgresLibraryDiscussionStore;
+#[cfg(feature = "postgres")]
+pub use library_watch_notification::PostgresLibraryWatchNotificationStore;
+#[cfg(feature = "postgres")]
 pub use live_gradebook::PostgresCourseGradebookStore;
 #[cfg(feature = "postgres")]
 pub use live_student_course_landing::PostgresLiveStudentCourseLandingStore;
@@ -227,8 +233,6 @@ pub use question_source::PostgresDraftQuestionSourceBindingStore;
 pub use question_star::PostgresQuestionStarStore;
 #[cfg(feature = "postgres")]
 pub use question_watch::PostgresQuestionWatchStore;
-#[cfg(feature = "postgres")]
-pub use question_watch_notification::PostgresQuestionWatchNotificationStore;
 #[cfg(feature = "postgres")]
 pub use retention::PostgresCourseRetentionStore;
 #[cfg(feature = "postgres")]

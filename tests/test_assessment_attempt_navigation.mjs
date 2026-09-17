@@ -26,12 +26,12 @@ test("Assessment Attempt context retains one strict server expiry and display zo
     expiresAt: 1_768_507_200_000,
     timerRemainingMilliseconds: 15_000,
     course: {
-      reference: "CI7K3M2Q",
+      reference: "CI7K3M2QAZ",
       shortName: "BCHM 301",
       longName: "Biochemistry 301: Proteins and Peptides",
       theme: "grass",
     },
-    assessment: { reference: "A7K3M2Q", title: "Peptide structure practice" },
+    assessment: { reference: "A7K3M2QAS", title: "Peptide structure practice" },
   };
   assert.deepEqual(decodeStudentAssessmentAttemptContext(context), context);
   assert.throws(() => decodeStudentAssessmentAttemptContext({ ...context, expiresAt: -1 }));
@@ -157,7 +157,7 @@ test("selected presentation accepts only the exact existing public presentation 
   const presentation = {
     position: 1,
     presentation: {
-      questionRevision: { questionId: "7K3M-X9QP", revisionNumber: 2 },
+      questionRevision: { questionId: "7K3M-79QP", revisionNumber: 2 },
       prompt: [],
       response: { kind: "fillIn", maxCharacters: 10 },
     },
@@ -324,7 +324,7 @@ test("Student Assessment Attempt GET projections match their request", async () 
         noStoreJson({
           position: 2,
           presentation: {
-            questionRevision: { questionId: "7K3M-X9QP", revisionNumber: 2 },
+            questionRevision: { questionId: "7K3M-79QP", revisionNumber: 2 },
             prompt: [],
             response: { kind: "fillIn", maxCharacters: 10 },
           },

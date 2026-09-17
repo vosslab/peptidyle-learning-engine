@@ -69,10 +69,13 @@ concurrency controls.
 
 ## Questions and Pools
 
-A Published Question has one stable public ID. Storage uses the eight-character
-compact Crockford Base32 form; presentation uses `AAAA-ZBBB`. Seven characters
-are random identity and the first character after the hyphen is the
-HMAC-derived check character.
+A Published Question has one stable public `XXXX-ZXXX` ID. The exact uppercase
+ASCII value, including its hyphen and embedded checksum, is stored unchanged;
+there is no compact persistence form or presentation translation. Seven `X`
+characters are cryptographically random and `Z` is the public unsalted
+SHA-256 checksum character. Published Questions and Question Pools share this
+one global namespace, while every public ID is globally unique across all
+public-ID object types and is never reused.
 
 Question source changes create immutable Question Revisions. Current metadata
 changes do not. Draft Questions remain private, mutable, unpublished, and

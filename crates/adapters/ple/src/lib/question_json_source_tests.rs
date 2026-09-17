@@ -10,7 +10,7 @@ use crate::test_support::ple_question_json_single_choice_bytes;
 
 fn question_revision() -> QuestionRevisionReference {
     QuestionRevisionReference {
-        question_id: QuestionId::from_canonical_parts("ABCDEFG", 'G').expect("Question ID"),
+        question_id: QuestionId::from_random_identifier("ABCDEFG").expect("Question ID"),
         revision_number: QuestionRevisionNumber::new(1).expect("revision number"),
     }
 }

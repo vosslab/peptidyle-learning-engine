@@ -127,9 +127,7 @@ AS $$
                     WHEN 'fixed_question' THEN jsonb_build_object(
                         'kind', 'fixed',
                         'question_revision', jsonb_build_object(
-                            'questionId', ple_data.canonical_public_crockford_display(
-                                entry.question_id
-                            ),
+                            'questionId', entry.question_id,
                             'revisionNumber', entry.question_revision_number
                         ),
                         'points_possible', entry.points_possible::text,
@@ -154,9 +152,7 @@ AS $$
                     WHEN 'question_pool' THEN jsonb_build_object(
                         'kind', 'pool',
                         'question_pool_revision', jsonb_build_object(
-                            'questionPoolId', ple_data.canonical_public_crockford_display(
-                                pool.public_question_pool_id
-                            ),
+                            'questionPoolId', pool.public_question_pool_id,
                             'revisionNumber', entry.question_pool_revision_number
                         ),
                         'selection_count', entry.selection_count,
@@ -463,11 +459,27 @@ BEGIN
     -- availability changes independently of the locked Course rows.
     PERFORM ple_data.lock_course_blueprint_publication_questions(source_course.course_id);
 
-    SELECT * INTO created FROM ple_api.create_blueprint_course(
-        p_blueprint_id, p_request_checksum, p_short_name, p_long_name,
-        p_content, p_content_checksum, p_discipline, p_subject, p_topic,
-        p_subtopic, p_tags
-    );
+    -- Only this locked Course-copy path can retain an exact retired source
+    -- Discipline. The private primitive is unavailable to ple_app, and an
+    -- altered caller-supplied UUID follows the ordinary active-only wrapper.
+    IF p_discipline IS NOT DISTINCT FROM source_course.discipline_uuid
+       AND EXISTS (
+           SELECT 1 FROM ple_api.get_content_discipline(source_course.discipline_uuid) AS discipline
+            WHERE discipline.discipline_uuid = source_course.discipline_uuid
+              AND discipline.is_retired
+       ) THEN
+        SELECT * INTO created FROM ple_private.create_blueprint_course(
+            p_blueprint_id, p_request_checksum, p_short_name, p_long_name,
+            p_content, p_content_checksum, p_discipline, p_subject, p_topic,
+            p_subtopic, p_tags, source_course.discipline_uuid
+        );
+    ELSE
+        SELECT * INTO created FROM ple_api.create_blueprint_course(
+            p_blueprint_id, p_request_checksum, p_short_name, p_long_name,
+            p_content, p_content_checksum, p_discipline, p_subject, p_topic,
+            p_subtopic, p_tags
+        );
+    END IF;
     SELECT blueprint.reference_number INTO created_reference_number
       FROM ple_data.blueprint_course AS blueprint
      WHERE blueprint.public_reference = created.public_reference;

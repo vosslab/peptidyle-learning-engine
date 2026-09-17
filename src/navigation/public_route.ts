@@ -8,7 +8,11 @@ import type { AssessmentAttemptReference } from "../../generated/api/AssessmentA
 import type { AuthoringWorkspaceReference } from "../../generated/api/AuthoringWorkspaceReference";
 import type { DraftQuestionReference } from "../../generated/api/DraftQuestionReference";
 import type { BlueprintCourseReference } from "../../generated/api/BlueprintCourseReference";
-import { normalizeQuestionIdSyntax } from "../question_id";
+import {
+  validateCanonicalPublicReference,
+  validateCanonicalQuestionIdSyntax,
+  type CanonicalPublicReferenceFamily,
+} from "../question_id";
 
 declare const routeReferenceBrand: unique symbol;
 type BrandedRouteReference<Kind extends string> = string & { readonly [routeReferenceBrand]: Kind };
@@ -45,7 +49,7 @@ function parseNumeric<Kind extends string>(
     : null;
 }
 export function parseCourseInstanceReference(value: string): CourseInstanceRouteReference | null {
-  return parseOpaqueReference<"courseInstance">(value, "CI");
+  return parseCanonicalPublicReference<"courseInstance">(value, "courseInstance");
 }
 export function parseCourseMembershipReference(
   value: string,
@@ -53,7 +57,7 @@ export function parseCourseMembershipReference(
   return parseNumeric<"courseMembership">(value, "M");
 }
 export function parseAssessmentReference(value: string): AssessmentRouteReference | null {
-  return parseOpaqueReference<"assessment">(value, "A");
+  return parseCanonicalPublicReference<"assessment">(value, "assessment");
 }
 export function parseAssessmentAttemptReference(
   value: string,
@@ -69,7 +73,7 @@ export function parseDraftQuestionReference(value: string): DraftQuestionRouteRe
   return parseNumeric<"draftQuestion">(value, "D");
 }
 export function parseBlueprintCourseReference(value: string): BlueprintCourseRouteReference | null {
-  return parseOpaqueReference<"blueprintCourse">(value, "BP");
+  return parseCanonicalPublicReference<"blueprintCourse">(value, "blueprintCourse");
 }
 
 /** Syntax only: the existing opaque Proposal UUID is never an authorization grant. */
@@ -79,14 +83,13 @@ export function parseBlueprintChangeProposalHandle(value: string): string | null
     : null;
 }
 
-/** Human-facing IDs carry a type prefix plus six opaque Crockford characters. */
-function parseOpaqueReference<Kind extends string>(
+/** Parses one exact, checksum-valid public ID without reformatting it. */
+function parseCanonicalPublicReference<Kind extends string>(
   value: string,
-  prefix: string,
+  family: CanonicalPublicReferenceFamily,
 ): BrandedRouteReference<Kind> | null {
-  return new RegExp(`^${prefix}[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$`, "u").test(value)
-    ? (value as BrandedRouteReference<Kind>)
-    : null;
+  const result = validateCanonicalPublicReference(family, value);
+  return result === null ? null : (result as BrandedRouteReference<Kind>);
 }
 export function courseInstanceRouteReference(
   value: CourseInstanceReference,
@@ -144,5 +147,6 @@ export function questionRouteReference(questionId: QuestionId): QuestionRouteRef
   return result;
 }
 export function parseQuestionRouteReference(value: string): QuestionRouteReference | null {
-  return normalizeQuestionIdSyntax(value) as QuestionRouteReference | null;
+  const result = validateCanonicalQuestionIdSyntax(value);
+  return result === null ? null : (result as QuestionRouteReference);
 }

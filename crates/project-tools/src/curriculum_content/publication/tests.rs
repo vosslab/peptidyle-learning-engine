@@ -73,8 +73,8 @@ fn canonical_blueprint_uses_ordered_direct_fixed_questions() {
         .unwrap_err()
         .to_string();
     assert!(error.contains("first requires explicit authored classification"));
-    let first = reference("7K3M-X9QX", 1);
-    let second = reference("8K3M-X9QX", 1);
+    let first = reference("7K3M-19QX", 1);
+    let second = reference("8K3M-99QX", 1);
     let revisions = BTreeMap::from([
         ("first".to_owned(), first.clone()),
         ("second".to_owned(), second.clone()),
@@ -117,8 +117,8 @@ fn canonical_blueprint_uses_ordered_direct_fixed_questions() {
 #[test]
 fn exact_replay_rejects_semantic_drift() {
     let manifest = manifest();
-    let first = reference("7K3M-X9QX", 1);
-    let second = reference("8K3M-X9QX", 1);
+    let first = reference("7K3M-19QX", 1);
+    let second = reference("8K3M-99QX", 1);
     let revisions = BTreeMap::from([
         ("first".to_owned(), first.clone()),
         ("second".to_owned(), second.clone()),

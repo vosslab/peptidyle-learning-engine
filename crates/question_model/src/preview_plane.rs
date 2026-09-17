@@ -481,7 +481,7 @@ mod direct_preview_tests {
     #[test]
     fn hypothetical_student_view_scenario_request_accepts_only_direct_preview_fields() {
         let request = serde_json::json!({
-            "assessment": "A7K3M2Q",
+            "assessment": "A7K3M2QXF",
             "edit_number": "1",
             "selected_moment": { "value": "2026-08-20T09:00:00.000" },
             "modifiers": { "mode": "extend_only", "adjustment": {
@@ -495,7 +495,7 @@ mod direct_preview_tests {
         serde_json::from_value::<HypotheticalStudentViewScenarioRequest>(request)
             .expect("direct hypothetical Student View Scenario request");
         let retired = serde_json::json!({
-            "assessment": "A7K3M2Q",
+            "assessment": "A7K3M2QXF",
             "revision": "1",
             "selectedMoment": { "value": "2026-08-20T09:00:00.000" },
             "modifiers": { "mode": "extend_only", "adjustment": {
@@ -513,7 +513,7 @@ mod direct_preview_tests {
     fn student_view_scenario_serializes_without_membership_or_group_facts() {
         let student_view_scenario = StudentViewScenario::new(
             StudentViewScenarioOrigin::Hypothetical,
-            AssessmentReference::new("A7K3M2Q").expect("assessment reference"),
+            AssessmentReference::new("A7K3M2QXF").expect("assessment reference"),
             "1".parse().expect("edit number"),
             PreviewSelectedMoment {
                 value: LocalDateAndTime::parse("2026-08-20T09:00:00.000").expect("moment"),

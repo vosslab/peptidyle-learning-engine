@@ -17,6 +17,33 @@ closed shape, and does not supply authority. Database functions derive account,
 membership, and record scope from the authenticated session and their typed
 arguments.
 
+A public ID is the one universal, canonical human-facing identifier for a PLE
+object that needs one. Store and use the exact same ID in the database, Rust,
+JSON, URLs, object storage, hashes, logs, and browser UI.
+Preserve the canonical ID exactly across system boundaries. Parsing,
+serialization, API transport, persistence, and display do not add, remove,
+reformat, or translate characters.
+Public IDs include their embedded checksum character, and entry validation
+checks it against every other uppercase canonical-ID character, including any
+prefix and excluding only separators and the checksum position, without changing
+the canonical value. The checksum is the high five bits of public unsalted
+SHA-256 digest byte 0, mapped through the Crockford alphabet.
+Public IDs use the Crockford Base32 alphabet and one canonical uppercase ASCII
+form. Human entry may normalize lowercase Crockford characters, `O` or `o` to
+`0`, and `I`, `i`, `L`, or `l` to `1` before canonical syntax and checksum
+validation; Question-ID entry may also restore its canonical hyphen. `X` in a
+format denotes one cryptographically random Crockford Base32 character; `Z`
+denotes the stored, calculated checksum character. Generation enforces global uniqueness across
+every public-ID type, retries random collisions, and never reuses an issued ID,
+including after deletion or archival. Published Questions and Question Pools
+share one global `XXXX-ZXXX` namespace: a value identifies either object,
+never both.
+Blueprint Course `BPXXXXXXXZ`, Course Instance `CIXXXXXXXZ`, Assessment `AXXXXXXXZ`,
+and Account `UXXXXXXXZ` references use seven random Crockford Base32 characters
+plus embedded checksum `Z`; `Z` is a calculated placeholder, not a literal.
+Internal, non-user-facing objects use native UUID identifiers; a public
+reference exists only for a human-facing workflow that needs it.
+
 The application has one installation and global Accounts. There is no
 institution tenancy boundary. Course, Assessment, Student Work, worker, and
 object operations each authorize their exact parent relationship rather than a
@@ -26,7 +53,7 @@ caller-selected role or scope.
 
 Before the first production deployment, every generic `assignment` identifier
 changes directly to Assessment in the schema, model, Store/server contracts,
-routes, DTOs, API, and Blueprint JSON. This preserves public `A-` references,
+routes, DTOs, API, and Blueprint JSON. This preserves public `AXXXXXXXZ` IDs,
 UUID values, and the five Assessment Type enum values; Assignment remains only
 in the three Type display names. The canonical JSON names are `assessment`,
 `assessmentReference`, `assessmentAttempt`, `assessmentEntry`,
@@ -136,11 +163,13 @@ credential and does not bypass MFA.
 
 | Boundary                       | Current contract                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Owner and evidence                                                                                                                                                                                                      |
 | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Question lineage and revision  | A Published Question is one stable lineage. A `QuestionRevisionReference` is its Question ID plus immutable positive revision number. Publication creates complete immutable Question Revision facts, including source, provenance, and required metadata. A later publication appends a revision; it does not alter an earlier one.                                                                                                                                                                     | [question_library.rs](../crates/question_model/src/question_library.rs), [question_publication.rs](../crates/server/src/question_publication.rs), [question_lineages.sql](../schemas/base_schema/question_lineages.sql) |
+| Question lineage and revision  | A Published Question is one stable lineage. A `QuestionRevisionReference` is its Question ID plus immutable positive revision number. Publication creates complete immutable Question Revision facts, including source, provenance, license, and required metadata. A later publication appends a revision; it does not alter an earlier one. A fork publication derives and preserves the exact source Revision license rather than accepting a replacement. | [question_library.rs](../crates/question_model/src/question_library.rs), [question_publication.rs](../crates/server/src/question_publication.rs), [question_lineages.sql](../schemas/base_schema/question_lineages.sql), [question_publication_operations.sql](../schemas/base_schema/question_publication_operations.sql) |
 | Question discovery             | A Published Question is discoverable and selectable by vetted Instructors. Archive hides it from ordinary discovery and new selection while authorized exact Revision references continue to resolve. Current implementation may call the discoverable state `Available`; that name is not a separate product object or Revision state. | [question_library.rs](../crates/question_model/src/question_library.rs), [question_lineages.sql](../schemas/base_schema/question_lineages.sql) |
-| Question ID                    | PostgreSQL stores the compact eight-character canonical Crockford Base32 value. Browser-facing display and serialization use `AAAA-ZBBB`; the hyphen is presentation only. Seven identity characters come from a cryptographically secure server source and the middle check character is validated by the server-held HMAC secret. Database uniqueness of the valid full value is the identity boundary.                                                                                                 | [question_library.rs](../crates/question_model/src/question_library.rs), [question_publication.rs](../crates/server/src/question_publication.rs), [QUESTION_ID_SPEC.md](QUESTION_ID_SPEC.md)                            |
+| Question ID                    | `XXXX-ZXXX` is the canonical Question ID value at every persisted and transmitted boundary. Its hyphen makes the value immediately recognizable as a Question ID. Human entry may omit that hyphen and use the closed Crockford aliases before canonicalization, syntax validation, checksum validation, and lookup. Seven identity characters come from a cryptographically secure server source and the first character after the hyphen is the embedded public SHA-256 checksum character. Global public-ID registry reservation is the identity boundary. | [question_library.rs](../crates/question_model/src/question_library.rs), [question_publication.rs](../crates/server/src/question_publication.rs), [QUESTION_ID_SPEC.md](QUESTION_ID_SPEC.md)                            |
 | Question Pool                  | A reusable Published Pool has one server-minted public ID and immutable sequential Pool Revisions. Each Revision pins a bounded nonempty ordered distinct list of Published Question ID-and-Revision references and retains its Instructor interchangeability attestation; a change appends through Pool metadata ETag/CAS. Pool membership is backend neutral. Each Assessment-owned Pool entry/fork has one positive `selection_count`; the reusable immutable Pool Revision owns exact members. There is no Pool-level default or Assessment override. C905-C909 own exact fork provenance, count-bound validation, delivery, and connected proof. | C312, C313, C885-C887, and C904-C909 in the active [Human Guidance implementation compliance plan](active_plans/active/human_guidance_implementation_compliance_plan.md); [question_pools.sql](../schemas/base_schema/question_pools.sql), [assessments.sql](../schemas/base_schema/assessments.sql) |
 | Bulk Published Question metadata | An active vetted Instructor may atomically replace only the current shared `tags`, `subject`, and `topic` for a bounded nonempty distinct set of canonical Published Question IDs. Every selected ID supplies its exact metadata Edit Number; stale, invalid, unauthorized, unavailable, duplicate, or oversized selection changes none and produces only a whole outcome. First publication seeds tags once from validated native `PLE authoring`/`Pilot` source tags or an empty WebWork list; thereafter tags are database-owned current metadata, and a successor preserves an intentional clear. Source, answer, grading, feedback, assets, backend, Question Type, authorship, ownership, availability, and immutable Question Revisions are excluded. | C365-C368 and C893 in the active [Human Guidance implementation compliance plan](active_plans/active/human_guidance_implementation_compliance_plan.md) |
+| Discipline lifecycle | A Discipline has one stable UUID. Sysadmins create, rename, retire, and restore it; there is no delete transition. Retirement removes it from new choices while existing exact references remain visible and discoverable with retired status. Copy and inheritance may retain an exact referenced retired Discipline, while new use requires an active row. Shared row locks serialize retirement against concurrent new use. | [content_classification_operations.sql](../schemas/base_schema/content_classification_operations.sql), [content_classification.rs](../crates/server/src/content_classification.rs), [content_disciplines_page.tsx](../src/pages/content_disciplines_page.tsx) |
+| Library improvement activity | Active vetted Instructors may create and reply to retained text-only improvement threads on an available Question or Pool and edit only their own posts. Question owners and Sysadmins may resolve or reopen Question threads and manage Question impact notices; Pool administration is Sysadmin-only. Records remain after resolution or cancellation. Sysadmins read Library content without ordinary Instructor mutation controls and use the same retained activity view for administration. This source boundary is distinct from private Watch delivery, whose four-event acceptance remains open. | [library_discussions.sql](../schemas/base_schema/library_discussions.sql), [library_discussion_operations.sql](../schemas/base_schema/library_discussion_operations.sql), [library_discussion.rs](../crates/server/src/library_discussion.rs), [library_discussion_panel.tsx](../src/components/library_discussion_panel.tsx) |
 | BiologyProblems.org algorithmic catalog | Each BiologyProblems.org WeBWorK family records one canonical algorithmic author source (official PG/PGML or generator), produces exactly one canonical algorithmic PG/PGML file and ordinary Published Question lineage, and replaces its generated static variants. Algorithmic Questions ordinarily stand alone, but an Instructor may deliberately Pool distinct similar algorithms when selection is useful; Pool selection and backend-native variation remain independent. Only after per-family source acceptance, representative deterministic render/grade proof, and expected-current Blueprint Revision CAS may current placements change. A successor Pool Revision removes redundant generated variants while intentional distinct-algorithm Pools remain. Replaced static Question lineages, redundant Pool lineages, and generated source copies retire only through this forward path. Exact immutable Question/Pool Revisions, Blueprint pins, and Student Work remain resolvable; no history is deleted, repurposed, or raw-SQL-rewritten. The shipped 119 static banks remain unmigrated; the manifest's 13 algorithmic-source definitions, including HLA, are migration inputs, not runtime proof. | C824-C841 in the active [Human Guidance implementation compliance plan](active_plans/active/human_guidance_implementation_compliance_plan.md); future bundled content manifest, Question publication, Pool, and Blueprint publication boundaries |
 | Blueprint lineage and revision | A Blueprint Course is a stable reusable lineage created Private with Revision 1. A `BlueprintRevisionReference` names one exact immutable Revision; a changed explicit Save based on its current Revision creates the next one, while a canonical no-op returns the current Revision with `changed: false`. Blueprint Assessment provenance retains that exact Revision and the stable Blueprint Assessment reference when Course state derives from reusable content. | [contracts.rs](../crates/question_model/src/blueprint_operations/contracts.rs), [blueprints.sql](../schemas/base_schema/blueprints.sql)                                                                                 |
 
@@ -184,10 +213,13 @@ through the normal update workflow.
 | Course Blueprint update review | An authorized Course Instructor may lazily derive one current-parent Course summary for adopted Assessments only. It classifies changed, matching, removed-source, Type-mismatch, and automatically-added correspondences; direct local Assessments are excluded. Each changed adopted Assessment uses the existing explicit detail Apply with parent-Revision and Assessment-Edit CAS. It preserves local dates, status, origin, and existing Student Work; equivalent content is a no-op and changed Pools receive fresh owned forks. It has no persisted offers, receipts, baselines, or stored update state, and does not close a whole-Course lifecycle. | [assessment_blueprint_update.rs](../crates/learning-data-access/src/postgres/assessment_blueprint_update.rs), [assessment_blueprint_updates.sql](../schemas/base_schema/assessment_blueprint_updates.sql), [assessment_release.rs](../crates/server/src/assessment_release.rs), [course_blueprint_update_review.tsx](../src/pages/course_blueprint_update_review.tsx) |
 | Assessment Unrelease           | An authorized Teaching Team member supplies the exact Assessment ETag and title confirmation. The database locks the Assessment, confirms Released status, changes it to Unreleased, and permanently deletes its Student Work. Shared Questions, current Assessment state, and Course membership survive. | [assessment_release.rs](../crates/server/src/assessment_release.rs), [unrelease.sql](../schemas/base_schema/unrelease.sql) |
 
-An Instructor may deliberately publish reusable Course Instance structure as a
-new Blueprint Course. The new Blueprint contains reusable content only; it does
+**Create Blueprint from Course Instance** creates a distinct actor-owned Private
+Blueprint Course at Revision 1 from an existing Course Instance's reusable
+structure. It records immutable source provenance and that unchanged source
+Course Instance as the new Blueprint's first Adoption. The new Blueprint does
 not carry Students, Course dates, releases, Student Work, or other delivery
-state.
+state, and the source Course Instance remains the same addressable teaching
+Course.
 
 `412 Precondition Failed` represents an ETag conflict, `422 Unprocessable
 Entity` represents invalid resulting content or confirmation, and `409 Conflict`
@@ -225,11 +257,12 @@ it is neither a source nor author-JavaScript seed. `Seeded` backends retain
 their backend-owned seed and generated-parameter hash only when used. The
 descriptor evidence checksum v4 binds the tag and applicable facts: a static
 descriptor rejects a seed/hash, while a seeded descriptor binds them. Current
-delivery maps native PLE JSON to `Static`, WeBWorK to `Seeded`, and iMathAS to
-`Seeded` when its backend session is delivered. H5P has no delivered binding or
-retained binding seam: C870 removed the placeholder. A future product-approved
-H5P implementation must explicitly choose `Static` or `Seeded`; it must not
-infer or default a seed. Private normalized response-item bindings map
+production delivery maps native PLE JSON to `Static` and WeBWorK to `Seeded`.
+iMathAS and H5P are desired but deferred Backends and are not current
+implementation requirements. H5P has no delivered binding or retained binding
+seam: C870 removed the placeholder. Any later Backend moved out of Human
+Guidance's Deferred section must define its reproduction contract before
+implementation. Private normalized response-item bindings map
 each presentation-scoped four-hex reference to the durable authored
 response-item identity, so evidence readers interpret saved work without a
 mutable source lookup. Saved responses are private mutable input while the

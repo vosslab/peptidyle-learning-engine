@@ -41,10 +41,12 @@ function query() {
 }
 function row() {
   return {
-    displayId: "7K3M-X9QP",
-    questionRevision: { questionId: "7K3M-X9QP", revisionNumber: 1 },
+    displayId: "7K3M-79QP",
+    questionRevision: { questionId: "7K3M-79QP", revisionNumber: 1 },
     questionTitle: "Cell division",
     summary: "Answer-free summary",
+    disciplineName: "Biology",
+    disciplineIsRetired: false,
     questionFormat: "pleQuestionJson",
     authorNames: [],
     capabilities: [],
@@ -110,6 +112,7 @@ test("Library request rejects malformed identities, incomplete chains, false boo
     { topic_uuid: null },
     { cross_discipline: "false" },
     { hidden: true },
+    { backends: ["imathas"] },
   ]) {
     assert.throws(() => questionSearchPath({ ...request, ...change }));
   }

@@ -6,6 +6,7 @@
 use serde::{Deserialize, Serialize};
 use std::num::NonZeroU32;
 
+use crate::question_library::{QUESTION_ID_ALPHABET, public_id_checksum_character};
 use crate::{AssessmentAttemptId, AssessmentId, CourseId, StudentRecordId, WorkspaceId};
 
 /// Largest route number that remains compact and lossless in every product layer.
@@ -16,57 +17,92 @@ pub const RESERVED_REFERENCE_PREFIXES: &[&str] = &[
     "R", "W", "D", "G", "U", "M", "I", "QC", "QS", "BP", "CI", "A",
 ];
 
-/// The alphabet used for short human reference identities.  It deliberately
-/// excludes the visually ambiguous Crockford letters I, L, O, and U.
-const CROCKFORD_BASE32: &str = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+/// Every public ID includes seven server-random Crockford characters and one
+/// public SHA-256 checksum character.
+pub const PUBLIC_REFERENCE_RANDOM_LENGTH: usize = 7;
 
-macro_rules! impl_human_reference {
-    ($name:ident, $prefix:literal, $description:literal) => {
+macro_rules! impl_public_reference {
+    ($name:ident, $wire_prefix:literal, $checksum_prefix:literal, $description:literal) => {
         impl $name {
-            /// Builds a validated opaque reference returned by the data boundary.
+            /// Validates the exact canonical reference returned by a data boundary.
             pub fn new(value: impl AsRef<str>) -> Result<Self, &'static str> {
                 value.as_ref().parse()
             }
 
-            /// The exact opaque string to bind at the public data boundary.
+            /// Mints a reference from seven server-random Crockford characters.
+            ///
+            /// ASVS V2.1.1 and V2.2.1: callers must use a cryptographically
+            /// secure source for the supplied random characters.
+            pub fn from_random_identity(identity: impl AsRef<str>) -> Result<Self, &'static str> {
+                let identity = identity.as_ref();
+                if identity.len() != PUBLIC_REFERENCE_RANDOM_LENGTH
+                    || !identity
+                        .bytes()
+                        .all(|character| QUESTION_ID_ALPHABET.contains(&character))
+                {
+                    return Err(concat!(
+                        $description,
+                        " random characters must be exact uppercase Crockford Base32"
+                    ));
+                }
+                let checksum_input = format!("{}{}", $checksum_prefix, identity);
+                let checksum = public_id_checksum_character(checksum_input.as_bytes());
+                Ok(Self(format!("{}{}{}", $wire_prefix, identity, checksum)))
+            }
+
+            /// The exact canonical public value for every storage and transport boundary.
+            pub fn as_str(&self) -> &str {
+                &self.0
+            }
+
+            /// An owned copy of the exact canonical public value.
             pub fn as_string(&self) -> String {
-                self.to_string()
+                self.0.clone()
             }
         }
 
         impl std::fmt::Display for $name {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                let bytes = self.0.to_be_bytes();
-                let first = bytes
-                    .iter()
-                    .position(|byte| *byte != 0)
-                    .unwrap_or(bytes.len());
-                let value = std::str::from_utf8(&bytes[first..]).map_err(|_| std::fmt::Error)?;
-                f.write_str(value)
+                f.write_str(&self.0)
             }
         }
 
         impl std::str::FromStr for $name {
             type Err = &'static str;
             fn from_str(value: &str) -> Result<Self, Self::Err> {
-                const PREFIX: &str = $prefix;
-                let Some(suffix) = value.strip_prefix(PREFIX) else {
-                    return Err(concat!($description, " has an invalid prefix"));
+                // ASVS V2.2.1 and V2.2.2: this untrusted boundary preserves
+                // only one exact canonical spelling and never translates it.
+                let Some(suffix) = value.strip_prefix($wire_prefix) else {
+                    return Err(concat!(
+                        $description,
+                        " must use its exact canonical syntax"
+                    ));
                 };
-                if suffix.len() != 6
+                if !value.is_ascii()
+                    || suffix.len() != PUBLIC_REFERENCE_RANDOM_LENGTH + 1
                     || !suffix
                         .bytes()
-                        .all(|byte| CROCKFORD_BASE32.as_bytes().contains(&byte))
+                        .all(|character| QUESTION_ID_ALPHABET.contains(&character))
                 {
                     return Err(concat!(
                         $description,
-                        " must use six Crockford Base32 characters"
+                        " must use its exact canonical syntax"
                     ));
                 }
-                let packed = value
-                    .bytes()
-                    .fold(0u64, |packed, byte| (packed << 8) | u64::from(byte));
-                Ok(Self(packed))
+                let checksum_input = format!(
+                    "{}{}",
+                    $checksum_prefix,
+                    &suffix[..PUBLIC_REFERENCE_RANDOM_LENGTH]
+                );
+                if suffix.as_bytes()[PUBLIC_REFERENCE_RANDOM_LENGTH]
+                    != public_id_checksum_character(checksum_input.as_bytes()) as u8
+                {
+                    return Err(concat!(
+                        $description,
+                        " checksum does not match its canonical characters"
+                    ));
+                }
+                Ok(Self(value.to_owned()))
             }
         }
 
@@ -84,7 +120,7 @@ macro_rules! impl_human_reference {
     };
 }
 
-macro_rules! impl_reference {
+macro_rules! impl_numeric_reference {
     ($name:ident, $prefix:literal, $description:literal) => {
         impl $name {
             /// Builds one typed reference from its positive database identity.
@@ -103,13 +139,14 @@ macro_rules! impl_reference {
         }
 
         impl std::fmt::Display for $name {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                write!(f, concat!($prefix, "-{}"), self.number())
+            fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(formatter, concat!($prefix, "-{}"), self.number())
             }
         }
 
         impl std::str::FromStr for $name {
             type Err = &'static str;
+
             fn from_str(value: &str) -> Result<Self, Self::Err> {
                 let Some(digits) = value.strip_prefix(concat!($prefix, "-")) else {
                     return Err(concat!($description, " must look like ", $prefix, "-123"));
@@ -131,10 +168,12 @@ macro_rules! impl_reference {
 
         impl TryFrom<String> for $name {
             type Error = &'static str;
+
             fn try_from(value: String) -> Result<Self, Self::Error> {
                 value.parse()
             }
         }
+
         impl From<$name> for String {
             fn from(value: $name) -> Self {
                 value.to_string()
@@ -143,12 +182,12 @@ macro_rules! impl_reference {
     };
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct CourseInstanceReference(u64);
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct CourseInstanceReference(String);
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct AssessmentReference(u64);
+pub struct AssessmentReference(String);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct AssessmentAttemptReference(NonZeroU32);
@@ -160,9 +199,9 @@ pub struct AuthoringWorkspaceReference(NonZeroU32);
 #[serde(try_from = "String", into = "String")]
 pub struct DraftQuestionReference(NonZeroU32);
 /// An authorized Account Reference for an existing platform account. It carries neither email nor authority.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct AccountReference(u64);
+pub struct AccountReference(String);
 /// An authorized Course Membership Reference for one course-membership episode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
@@ -172,35 +211,45 @@ pub struct CourseMembershipReference(NonZeroU32);
 #[serde(try_from = "String", into = "String")]
 pub struct CourseInvitationReference(NonZeroU32);
 /// An authorized Blueprint Course Reference for one reusable Blueprint Course.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct BlueprintCourseReference(u64);
+pub struct BlueprintCourseReference(String);
 
-impl_human_reference!(CourseInstanceReference, "CI", "Course Instance reference");
-impl_human_reference!(AssessmentReference, "A", "Assessment reference");
-impl_reference!(
+impl_public_reference!(
+    CourseInstanceReference,
+    "CI",
+    "CI",
+    "Course Instance reference"
+);
+impl_public_reference!(AssessmentReference, "A", "A", "Assessment reference");
+impl_public_reference!(AccountReference, "U", "U", "Account reference");
+impl_public_reference!(
+    BlueprintCourseReference,
+    "BP",
+    "BP",
+    "Blueprint Course reference"
+);
+impl_numeric_reference!(
     AssessmentAttemptReference,
     "R",
     "Assessment Attempt reference"
 );
-impl_reference!(
+impl_numeric_reference!(
     AuthoringWorkspaceReference,
     "W",
     "Authoring Workspace reference"
 );
-impl_reference!(DraftQuestionReference, "D", "Draft Question reference");
-impl_human_reference!(AccountReference, "U", "Account reference");
-impl_reference!(
+impl_numeric_reference!(DraftQuestionReference, "D", "Draft Question reference");
+impl_numeric_reference!(
     CourseMembershipReference,
     "M",
     "course-membership reference"
 );
-impl_reference!(
+impl_numeric_reference!(
     CourseInvitationReference,
     "I",
     "Course Invitation reference"
 );
-impl_human_reference!(BlueprintCourseReference, "BP", "Blueprint Course reference");
 
 /// One authorized navigation target. IDs remain transport details after Store authorization.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -231,89 +280,73 @@ pub enum NavigationResolution {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::QuestionId;
+
     #[test]
-    fn references_use_exact_full_string_wire_values() {
-        macro_rules! assert_human_reference_wire {
-            ($reference:ty, $valid:literal, $wrong_prefix:literal) => {{
-                let reference: $reference = $valid.parse().expect("valid opaque reference");
-                assert_eq!(reference.to_string(), $valid);
-                assert_eq!(
-                    serde_json::to_value(reference.clone()).expect("serializes"),
-                    $valid
-                );
-                assert_eq!(
-                    serde_json::from_value::<$reference>(serde_json::json!($valid))
-                        .expect("parses"),
-                    reference
-                );
-                for invalid in [
-                    $wrong_prefix,
-                    concat!($valid, "0"),
-                    "CI00000I",
-                    "CI00000O",
-                    "CI00000U",
-                ] {
-                    assert!(invalid.parse::<$reference>().is_err(), "{invalid}");
-                }
-            }};
+    fn public_ids_are_exact_checksum_validated_values() {
+        fn question(value: &str) -> bool {
+            value.parse::<QuestionId>().is_ok()
         }
-        macro_rules! assert_reference_wire {
-            ($reference:ty, $valid:literal, $wrong_prefix:literal, $zero:literal, $leading_zero:literal, $overflow:literal) => {{
-                let reference: $reference = $valid.parse().expect("valid reference");
-                assert_eq!(reference.to_string(), $valid);
-                assert_eq!(serde_json::to_value(reference).expect("serializes"), $valid);
-                assert_eq!(
-                    serde_json::from_value::<$reference>(serde_json::json!($valid))
-                        .expect("parses"),
-                    reference
-                );
-                for invalid in [
-                    $wrong_prefix,
-                    concat!(stringify!($valid), "0"),
-                    $zero,
-                    $leading_zero,
-                    $overflow,
-                ] {
-                    assert!(invalid.parse::<$reference>().is_err(), "{invalid}");
-                }
-            }};
+        fn blueprint(value: &str) -> bool {
+            value.parse::<BlueprintCourseReference>().is_ok()
         }
-        assert_human_reference_wire!(CourseInstanceReference, "CI7K3M2Q", "C7K3M2Q");
-        assert_human_reference_wire!(AssessmentReference, "A7K3M2Q", "CI7K3M2Q");
-        assert_reference_wire!(
-            AssessmentAttemptReference,
-            "R-125",
-            "C-125",
-            "R-0",
-            "R-01",
-            "R-2147483648"
+        fn course(value: &str) -> bool {
+            value.parse::<CourseInstanceReference>().is_ok()
+        }
+        fn assessment(value: &str) -> bool {
+            value.parse::<AssessmentReference>().is_ok()
+        }
+        fn account(value: &str) -> bool {
+            value.parse::<AccountReference>().is_ok()
+        }
+
+        let cases: [(&str, fn(&str) -> bool); 5] = [
+            ("ABCD-XEFG", question),
+            ("BPABCDEFGJ", blueprint),
+            ("CIABCDEFGS", course),
+            ("AABCDEFG8", assessment),
+            ("UABCDEFGM", account),
+        ];
+        for (canonical, parses) in cases {
+            assert!(parses(canonical), "{canonical}");
+            assert!(!parses(&format!("{}0", &canonical[..canonical.len() - 1])));
+            assert!(!parses(&canonical.to_ascii_lowercase()));
+            assert!(!parses(&format!(" {canonical}")));
+            assert!(!parses(&format!("{canonical} ")));
+        }
+
+        assert_eq!(
+            QuestionId::from_random_identifier("ABCDEFG")
+                .expect("Question random identity")
+                .to_string(),
+            "ABCD-XEFG"
         );
-        assert_reference_wire!(
-            AuthoringWorkspaceReference,
-            "W-126",
-            "C-126",
-            "W-0",
-            "W-01",
-            "W-2147483648"
+        assert_eq!(
+            BlueprintCourseReference::from_random_identity("ABCDEFG")
+                .expect("Blueprint random identity")
+                .to_string(),
+            "BPABCDEFGJ"
         );
-        assert_human_reference_wire!(AccountReference, "U7K3M2Q", "A7K3M2Q");
-        assert_reference_wire!(
-            CourseMembershipReference,
-            "M-129",
-            "C-129",
-            "M-0",
-            "M-01",
-            "M-2147483648"
+        assert_eq!(
+            CourseInstanceReference::from_random_identity("ABCDEFG")
+                .expect("Course random identity")
+                .to_string(),
+            "CIABCDEFGS"
         );
-        assert_reference_wire!(
-            CourseInvitationReference,
-            "I-130",
-            "C-130",
-            "CI-0",
-            "CI-01",
-            "CI-2147483648"
+        let course: CourseInstanceReference = "CIABCDEFGS".parse().expect("Course reference");
+        assert_eq!(course.as_string(), course.as_str());
+        assert_eq!(
+            AssessmentReference::from_random_identity("ABCDEFG")
+                .expect("Assessment random identity")
+                .to_string(),
+            "AABCDEFG8"
         );
-        assert_human_reference_wire!(BlueprintCourseReference, "BP7K3M2Q", "A7K3M2Q");
+        assert_eq!(
+            AccountReference::from_random_identity("ABCDEFG")
+                .expect("Account random identity")
+                .to_string(),
+            "UABCDEFGM"
+        );
         assert!(!RESERVED_REFERENCE_PREFIXES.contains(&"AC"));
     }
 }

@@ -155,19 +155,21 @@ transitions, pin resolution, archival behavior, and CAS stop. It becomes permane
 historic archived-pin resolution satisfies every `PYTEST_STYLE.md` criterion;
 otherwise it is removed at plan closeout. C824-C841 own this work.
 
-### Course Instances keep their own identity and may become new Blueprints
+### Create Blueprint from Course Instance preserves both identities
 
 **Decision.** A Course Instance has deliberately entered short and long names,
 not names derived from a parent Blueprint. It starts empty or from a Public
-Blueprint, always has at least one assigned Instructor, and may be deliberately
-published as a new Blueprint Course.
+Blueprint and always has at least one assigned Instructor. **Create Blueprint
+from Course Instance** creates a separate actor-owned Private Blueprint Course
+at Revision 1 from that Course Instance's reusable structure.
 
 **Why.** A teaching Course needs its own identity and delivery context, while a
 Blueprint contains reusable Course structure without Student records or dates.
 
-**Consequence.** Publishing reusable Course structure creates a new Blueprint
-lineage rather than converting the teaching Course or exposing its Students,
-dates, Student Work, or other delivery state.
+**Consequence.** The new Blueprint records immutable source provenance and the
+originating Course Instance as its first Adoption. The source Course Instance
+remains the same teaching Course, unchanged and addressable. Students, dates,
+releases, Student Work, and other delivery state are not copied.
 
 ## Accounts, roles, and authorization
 
@@ -355,8 +357,11 @@ Question ID with attribution.
 
 **Decision.** A fork begins from one exact Published Question Revision and creates one distinct,
 private Draft Question owned by the active Instructor who invoked it. The server resolves the
-selected source, obtains the new Question ID from the server-held HMAC allocator, and writes the
-Draft, ownership, exact source Revision, and immutable attribution in one transaction. The client
+selected source, obtains the new Question ID from the server-side cryptographically random
+allocator with its public SHA-256 checksum, and writes the Draft, ownership, exact source
+Revision, and immutable attribution in one transaction. Later
+publication derives and preserves that exact source Revision's compatible CC license; it rejects a
+requested replacement even when that replacement is otherwise supported. The client
 submits no new Question ID, source facts, authorship, Draft content, or attribution payload. It
 may carry an opaque idempotency key; that key is bound to the active Instructor and exact source
 Revision so a retry returns the same Draft and a key reuse for another source is refused.
@@ -412,23 +417,63 @@ replaces it.
 C365-C368 and C893 implement it in the active
 [Human Guidance implementation compliance plan](active_plans/active/human_guidance_implementation_compliance_plan.md).
 
+### Disciplines use stable retirement, not deletion
+
+**Decision.** A Discipline keeps one stable UUID through rename, retirement,
+and restoration. Sysadmins exclusively perform those transitions. PLE does not
+delete Disciplines.
+
+**Why.** Courses and Library Objects need durable classification references even
+when a value should no longer be offered for new work.
+
+**Consequence.** Retired Disciplines leave new-choice lists but remain visible
+and discoverable with retired status on existing references. Exact inheritance
+and copying may retain an already referenced retired value. New use requires an
+active value, and shared row locks serialize that check against retirement.
+
+### Library improvement activity is retained
+
+**Decision.** Active vetted Instructors may create, read, reply to, and edit
+their own text-only improvement-thread posts for available Questions and Pools.
+Question owners and Sysadmins administer Question thread state and impact
+notices; Pool administration is Sysadmin-only. Resolved threads and cancelled
+impact notices remain retained current records.
+
+**Why.** Reusable teaching content needs a visible stewardship conversation and
+durable impact history without exposing Watch subscribers or inventing a second
+content Revision system.
+
+**Consequence.** Threads target a stable Library Object and record the exact
+Revision current at creation. Impact notices may name one existing affected
+Revision. Sysadmins use a read-only Library mode for ordinary content controls
+while retaining the explicit administration actions above. The source core does
+not close private Watch delivery: final review, major-milestone SQL/browser
+proof, and four-event notification acceptance remain pending.
+
 ### Public Question and Pool IDs are checked human references
 
 **Decision.** Before the first production deployment, PLE uses one direct
-Question-ID cutover. The stored form is eight compact Crockford Base32
-characters, `AAAAZBBB`; the displayed and serialized form is `AAAA-ZBBB`.
-The seven identity characters are every compact character except compact index
-4, which is the middle HMAC check character. The check character is the high
-five bits of byte zero of `HMAC-SHA-256(question_id_secret, identity)` encoded
-in the Crockford alphabet. The exact accepted input aliases, case
-normalization, grouping, and rejection rules remain those in
+Question-ID cutover to `XXXX-ZXXX` at every boundary, including storage,
+serialization, and browser use. Its hyphen is part of the form and makes it
+immediately recognizable as a Question ID. Human entry may omit the hyphen;
+canonicalization restores it before validation and lookup.
+The seven identity characters are the four characters before and three after
+the embedded checksum character, which is the first character after the hyphen.
+The checksum is the high five bits of public unsalted `SHA-256(identity)` digest
+byte zero, encoded in the Crockford alphabet. The exact canonical syntax and
+rejection rules remain those in
 [QUESTION_ID_SPEC.md](QUESTION_ID_SPEC.md).
 
-**Why.** A short copyable Reference benefits from typo detection without
-becoming sequential or authorization-bearing.
+**Why.** A short copyable public ID benefits from typo detection without
+revealing creation order or object metadata.
 
-**Consequence.** The trusted server validates the HMAC before any lookup;
-browser code may normalize and validate syntax but never receives the secret.
+**Consequence.** Every Question-ID entry boundary validates the public checksum
+before lookup while preserving the exact canonical value.
+
+Internal, non-user-facing objects retain native UUID identifiers. A public
+reference is created only when a human-facing workflow needs one. Existing
+`R`, `W`, `D`, `M`, and `I` short-reference concepts are implementation drift,
+not approved public formats, and must be removed rather than replaced.
 There is no dual parser, legacy-ID reader, data rewrite, or compatibility path.
 A fresh-schema preflight requires zero published Question rows before the
 cutover; a nonzero count stops the work and escalates rather than converting
@@ -437,7 +482,7 @@ generation and validation contract. UUIDs remain internal.
 
 Pool creation uses this same server-held allocator: a browser never supplies a
 Pool ID, and the typed server command retries only a database uniqueness
-collision with a newly issued canonical ID. Pool schema owns the unique compact
+collision with a newly issued canonical ID. Pool schema owns the exact canonical
 ID and immutable sequential Revision storage, but it does not become an
 unrouted ID issuer. The create route is the only path that combines the active
 Instructor authorization, allocator, and atomic Pool creation operation.
@@ -621,39 +666,22 @@ or local delivery authority. C900-C902 build, serve, and maintain the reviewed
 chain. C858's document route waits for C901's current-runtime handoff, and C903 is the only owner of the three
 external-dependency Human Guidance occurrences.
 
-### Future H5P delivery is a blocked isolated Lumi runtime
+### H5P and iMathAS are deferred Backends
 
-**Decision.** H5P is not currently delivered. Its only approved future design is
-a dedicated rootless Node 20 service using GPL-3.0
-[`@lumieducation/h5p-server`](https://github.com/Lumieducation/H5P-Nodejs-library)
-with a small per-launch filesystem adapter; no Hub, editor, or headless
-simulation. Dispatch is blocked by this exact question: **Which H5P content
-type(s) and exact pinned library versions are supported first; for each which
-terminal xAPI event/score semantics are authoritative; are scoreless activities
-non-assessment only?** The [H5P xAPI event documentation](https://h5p.org/documentation/developers/x-api-event)
-and [contract documentation](https://h5p.org/documentation/developers/contracts), plus the
-[Lumi status record](https://github.com/Lumieducation/H5P-Nodejs-library/blob/master/docs/development/status.md),
-are the primary source references.
+**Decision.** Current production Question Backends are PLE and WeBWorK. iMathAS
+and H5P remain desired secondary Backends in Human Guidance's Deferred product
+behavior section and are not current implementation requirements. Future H5P
+use is limited to Regular Assignments, Bonus Assignments, and Practice Question
+Assignments; Quizzes and Exams do not use H5P because its runtime exposes
+answers and correctness to the Student browser.
 
-**Why.** H5P combines third-party executable content with outcome reporting, so PLE needs exact
-supported content, dependency, and grading semantics before it can define a safe runtime boundary.
+**Why.** The Deferred section lets current implementation and compliance work
+finish without treating desired later Backends as present production support.
 
-**Consequence.** C870 removes all dormant H5P placeholder seams now. After a
-product answer only, C863-C869 may dispatch: immutable package/policy binding;
-rootless runtime/container; private tickets/gateway; terminal-xAPI normalizer;
-opaque outcome persistence; cross-origin frame; and connected Podman proof.
-The API alone owns authorization, lifecycle, source SHA256, ticket redemption,
-and atomic immutable results. The runtime has no PG, S3, PLE session, renderer,
-or general API credential; it validates archive structure/paths/symlinks/limits
-and pinned library checksums, extracts only to tmpfs, has no egress/Hub/download,
-and uses a fixed UID, dropped capabilities, no-new-privileges, read-only root,
-and resource limits. It is `h5p.<origin>` behind a gateway with no host port,
-no PLE cookies, a no-store/no-referrer one-use TTL ticket, and an iframe limited
-to `sandbox="allow-scripts allow-same-origin"`. Only bounded opaque state,
-response, and evidence cross the boundary; PLE never parses controls, answers,
-seeds, or xAPI. Static only; Seeded is rejected. Runtime failure fails closed
-with no score or fallback. Record GPL/notices/licenses/hashes and complete the
-pinned Node/npm/H5P supply-chain and security review before release.
+**Consequence.** No iMathAS or H5P delivery work dispatches while it remains
+deferred. C870's removal of dormant H5P placeholders remains complete. Detailed
+future H5P runtime design is outside the current goal and must be decided when
+the Backend moves out of Deferred product behavior.
 
 ### Native PLE JSON attempt reproduction is seed-free
 
@@ -675,12 +703,11 @@ and its applicable facts. A `Static` native descriptor binds the exact source
 and presentation facts, including the presentation nonce where it determines
 response-item or choice order, and rejects a seed or generated-parameter hash.
 A `Seeded` descriptor binds its backend-owned seed and generated-parameter
-hash when that backend uses them. WeBWorK is currently `Seeded`; iMathAS
-retains backend-owned `Seeded` reproduction when its delivered adapter uses a
-seed. H5P has no delivered binding and no retained binding seam: C870 removed
-the placeholder. If a later product decision unlocks H5P, its approved
-implementation must explicitly select `Static` or `Seeded`; it must not infer
-or default a seed.
+hash when that backend uses them. WeBWorK is currently `Seeded`. iMathAS and
+H5P are deferred and have no current production reproduction requirement; H5P
+also has no delivered binding or retained binding seam after C870. Any Backend
+moved out of Deferred product behavior must explicitly select `Static` or
+`Seeded`; it must not infer or default a seed.
 
 This is a preproduction direct cutover: model, base-schema, Store/server
 issuance, descriptor validation, and Student Work readers change together, and
@@ -912,11 +939,13 @@ public background-grading machinery.
 ### One stable Ribbon frame serves role-specific work
 
 **Decision.** The shell keeps stable page geometry, separates global context
-from page tasks, and preserves required backed destinations even when their
-collections are empty. Sign Out is in the Profile menu.
+from page tasks, and preserves every required destination even when its
+collection is empty. Every required Instructor destination also remains visible
+when its target is incomplete, but it is presented as unavailable rather than
+as a usable link. Sign Out is in the Profile menu.
 
-**Why.** Stable geometry and honest empty states reduce cognitive load and
-prevent unavailable controls from masquerading as features.
+**Why.** Stable geometry, honest empty states, and visible unavailable tasks
+reduce cognitive load without letting incomplete features masquerade as usable.
 
 **Consequence.** Instructor primary tabs are Courses, Questions, and
 Assessments. Their exact task rows come from Human Guidance. Student work is
@@ -1211,8 +1240,11 @@ layer does not claim acceptance at a higher layer.
 
 **Why.** Mocked or structural evidence cannot prove a real teaching workflow.
 
-**Consequence.** Permanent tests protect stable external behavior, not internal
-call order, inventories, current dates, artificial delays, or tunable defaults.
+**Consequence.** Tests are liabilities as well as assets. Permanent tests
+protect stable external behavior, not internal call order, inventories, current
+dates, artificial delays, or tunable defaults. Bounded work runs its narrow
+gate. Full Podman and `source source_me.sh && ./launchers/all_test.sh` acceptance
+runs at major milestones, not after every small source or documentation slice.
 See [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md).
 
 ### Current implementation and target product remain distinguishable

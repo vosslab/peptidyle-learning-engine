@@ -120,14 +120,14 @@ test("scope hooks fail explicitly outside their provider", () => {
 
 test("controller begins the direct Course Instance scope read before any consumer reads its data", async () => {
   const fixture = createDeferredQueries();
-  const app = mountedController(fixture.queries, "/courses/CI7K3M2Q");
+  const app = mountedController(fixture.queries, "/courses/CI7K3M2QAZ");
   assert.deepEqual(app.controller.identity(), {
     kind: "courseInstance",
-    courseReference: "CI7K3M2Q",
+    courseReference: "CI7K3M2QAZ",
   });
-  assert.ok(fixture.courseViews.has("CI7K3M2Q"));
-  const course = courseRouteData("CI7K3M2Q");
-  fixture.courseViews.get("CI7K3M2Q").resolve(course);
+  assert.ok(fixture.courseViews.has("CI7K3M2QAZ"));
+  const course = courseRouteData("CI7K3M2QAZ");
+  fixture.courseViews.get("CI7K3M2QAZ").resolve(course);
   await nextTurn();
   assert.deepEqual(app.controller.data(), { kind: "course", course });
   app.dispose();
@@ -163,28 +163,28 @@ test(
       },
     };
     const { mountRouteScopeProviderHarness } = await loadRouteScopeProviderHarness();
-    const app = mountRouteScopeProviderHarness(applicationApi, "/courses/CI7K3M2Q");
+    const app = mountRouteScopeProviderHarness(applicationApi, "/courses/CI7K3M2QAZ");
     await nextTurn();
     assert.deepEqual(app.latest(), {
-      identity: { kind: "courseInstance", courseReference: "CI7K3M2Q" },
+      identity: { kind: "courseInstance", courseReference: "CI7K3M2QAZ" },
       data: undefined,
     });
-    const courseOne = courseRouteData("CI7K3M2Q");
-    fixture.courseViews.get("CI7K3M2Q").resolve(courseOne);
+    const courseOne = courseRouteData("CI7K3M2QAZ");
+    fixture.courseViews.get("CI7K3M2QAZ").resolve(courseOne);
     await nextTurn();
     assert.deepEqual(app.latest(), {
-      identity: { kind: "courseInstance", courseReference: "CI7K3M2Q" },
+      identity: { kind: "courseInstance", courseReference: "CI7K3M2QAZ" },
       data: { kind: "course", course: courseOne },
     });
-    app.navigate("/courses/CI4W8QF9");
+    app.navigate("/courses/CI4W8QF9AD");
     await nextTurn();
     assert.deepEqual(app.latest(), {
-      identity: { kind: "courseInstance", courseReference: "CI4W8QF9" },
+      identity: { kind: "courseInstance", courseReference: "CI4W8QF9AD" },
       data: undefined,
     });
-    app.navigate("/courses/CI7K3M2Q");
+    app.navigate("/courses/CI7K3M2QAZ");
     await nextTurn();
-    fixture.courseViews.get("CI4W8QF9").resolve(courseRouteData("CI4W8QF9"));
+    fixture.courseViews.get("CI4W8QF9AD").resolve(courseRouteData("CI4W8QF9AD"));
     await nextTurn();
     assert.deepEqual(app.latest().data, { kind: "course", course: courseOne });
     app.navigate("/assessment-attempts/R-1");
@@ -195,11 +195,11 @@ test(
     });
     assert.ok(fixture.attemptContexts.has("R-1"));
     assert.equal(fixture.attemptResolvers.has("R-1"), false);
-    const context = assignmentAttemptContext("CI7K3M2Q");
+    const context = assignmentAttemptContext("CI7K3M2QAZ");
     fixture.attemptContexts.get("R-1").resolve(context);
     await nextTurn();
     assert.deepEqual(app.latest().data, { kind: "assessmentAttempt", context });
-    app.navigate("/courses/CI7K3M2Q");
+    app.navigate("/courses/CI7K3M2QAZ");
     await nextTurn();
     assert.deepEqual(app.latest().data, { kind: "course", course: courseOne });
     assert.equal(app.mounts(), 1);
@@ -211,7 +211,7 @@ test("stable controller retains separate Attempt views", async () => {
   const fixture = createDeferredQueries();
   const app = mountedController(fixture.queries, "/assessment-attempts/R-1");
   assert.ok(fixture.attemptContexts.has("R-1"));
-  const context = assignmentAttemptContext("CI7K3M2Q");
+  const context = assignmentAttemptContext("CI7K3M2QAZ");
   fixture.attemptContexts.get("R-1").resolve(context);
   await nextTurn();
   assert.deepEqual(app.controller.data(), { kind: "assessmentAttempt", context });
@@ -219,7 +219,7 @@ test("stable controller retains separate Attempt views", async () => {
   await nextTurn();
   assert.equal(app.controller.data(), undefined);
   assert.ok(fixture.histories.has("R-1"));
-  const history = assignmentAttemptHistoryData("CI7K3M2Q");
+  const history = assignmentAttemptHistoryData("CI7K3M2QAZ");
   fixture.histories.get("R-1").resolve(history);
   await nextTurn();
   assert.deepEqual(app.controller.data(), {
@@ -248,23 +248,23 @@ test("active Student Attempt retry replaces only its rejected R-reference contex
   assert.equal(app.controller.data(), undefined);
   app.controller.retry();
   assert.equal(attempts.length, 2);
-  attempts[1].resolve(assignmentAttemptContext("CI7K3M2Q"));
+  attempts[1].resolve(assignmentAttemptContext("CI7K3M2QAZ"));
   await nextTurn();
   assert.equal(app.controller.loadState(), "resolved");
   assert.deepEqual(app.controller.data(), {
     kind: "assessmentAttempt",
-    context: assignmentAttemptContext("CI7K3M2Q"),
+    context: assignmentAttemptContext("CI7K3M2QAZ"),
   });
   app.dispose();
 });
 
 test("shared transition driver retains one owner through scoped and unscoped routes", async () => {
   const fixture = createDeferredQueries();
-  const app = mountedController(fixture.queries, "/courses/CI7K3M2Q");
+  const app = mountedController(fixture.queries, "/courses/CI7K3M2QAZ");
   await walkPathnamesThroughMountedApp({
     pathnames: [
-      "/courses/CI7K3M2Q/assessments/A9D2RX5",
-      "/courses/CI4W8QF9",
+      "/courses/CI7K3M2QAZ/assessments/A9D2RX5AF",
+      "/courses/CI4W8QF9AD",
       "/library",
       "/courses/CI7K3M2",
     ],
@@ -281,12 +281,12 @@ test("Product, invalid, and rejected entries stay data-free without retrying", a
   assert.equal(app.controller.data(), undefined);
   app.navigate("/courses/CI7K3M2");
   assert.deepEqual(app.controller.identity(), { kind: "invalid", scope: "courseInstance" });
-  app.navigate("/courses/CI4W8QF9");
-  fixture.courseViews.get("CI4W8QF9").reject(new Error("refused"));
+  app.navigate("/courses/CI4W8QF9AD");
+  fixture.courseViews.get("CI4W8QF9AD").reject(new Error("refused"));
   await nextTurn();
   assert.equal(app.controller.data(), undefined);
   app.navigate("/library");
-  app.navigate("/courses/CI4W8QF9");
+  app.navigate("/courses/CI4W8QF9AD");
   await nextTurn();
   assert.equal(app.controller.data(), undefined);
   app.dispose();

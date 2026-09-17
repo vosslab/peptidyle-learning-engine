@@ -59,9 +59,9 @@ mod tests {
             )
             .is_err()
         );
-        let question_id: QuestionId = "ABCD-XEF1".parse().expect("canonical question ID");
+        let question_id: QuestionId = "ABCD-QEF1".parse().expect("canonical question ID");
         let result = QuestionPoolPreview {
-            assessment: "A7K3M2Q".parse().expect("assessment reference"),
+            assessment: "A7K3M2QXF".parse().expect("assessment reference"),
             edit_number: "3".parse().expect("edit number"),
             assessment_entry_id: serde_json::from_value(serde_json::json!(
                 "0198e000-0000-7000-8000-000000000017"
@@ -84,10 +84,10 @@ mod tests {
         assert_eq!(
             serde_json::to_value(result).expect("serializes"),
             serde_json::json!({
-                "assessment":"A7K3M2Q", "editNumber":"3", "assessmentEntryId":"0198e000-0000-7000-8000-000000000017", "questionPoolLabel":"Pool 3",
+                "assessment":"A7K3M2QXF", "editNumber":"3", "assessmentEntryId":"0198e000-0000-7000-8000-000000000017", "questionPoolLabel":"Pool 3",
                 "selectionCount":1, "selectionRule":{"selectedQuestionOrder":"randomOrder"},
-                "items":[{"questionId":"ABCD-XEF1", "questionTitle":"Question Pool Item"}],
-                "selectedItems":[{"questionId":"ABCD-XEF1", "questionTitle":"Question Pool Item"}]
+                "items":[{"questionId":"ABCD-QEF1", "questionTitle":"Question Pool Item"}],
+                "selectedItems":[{"questionId":"ABCD-QEF1", "questionTitle":"Question Pool Item"}]
             })
         );
     }

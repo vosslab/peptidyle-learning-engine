@@ -318,7 +318,7 @@ pub(super) fn imathas_question_backend_state_aad(
             .grading_context
             .question_revision()
             .question_id
-            .as_compact_str()
+            .as_str()
             .as_bytes(),
         &session
             .grading_context

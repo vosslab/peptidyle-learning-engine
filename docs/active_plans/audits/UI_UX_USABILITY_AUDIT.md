@@ -1,7 +1,7 @@
 # UI, UX, and usability audit
 
-Date: 2026-09-16. Status: historical screenshot baseline with dated current-source and rendered
-receipts. Findings without an explicit current disposition remain open.
+Date: 2026-09-17. Status: reconciled current-source and rendered dispositions over a historical
+screenshot baseline. Findings without an explicit current rendered disposition remain open.
 
 [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) owns durable product guidance. This audit records
 concrete examples and acceptance checks for implementation review.
@@ -21,7 +21,9 @@ workflows target laptop browsers.
 The committed PNGs establish visible presentation at their capture time and are historical until
 the planned full canonical replay replaces the current corpus. Live behavior, keyboard traversal,
 accessible names, touch interaction, and current source remain verification work. Findings below
-remain open until the corresponding rendered and interaction checks pass. The initial inspection
+remain open until the corresponding rendered and interaction checks pass. Historical filenames
+containing `assignment` or `overview` identify captured artifacts; they do not restore retired
+product vocabulary or the retired multi-tab workspace. The initial inspection
 was not a runtime audit or participant study; dated receipts below add bounded runtime evidence.
 
 ## Review coverage
@@ -90,6 +92,11 @@ owner-reported rather than independently replayable transcript evidence. No offi
 refresh, full responsive/touch/contrast matrix, new SQL/server claim, or broader UI closure follows.
 Receipts: `/private/tmp/ple-native-connected-interaction-20260916.md` and
 `/private/tmp/ple-native-interaction-receipt-review-20260916.md`.
+
+C522 connected acceptance (2026-09-17) passed authorized Student delivery and Work issuance
+through the production server/data-access/access-page chain and denied unauthorized access. Its
+temporary probe was removed. This closes the two exact Course Instance Assessment delivery rows;
+it does not close the broader saved/submitted interaction matrix described above.
 
 The Instructor preview delivery defect is closed by the 2026-09-17 canonical HTTPS receipt under
 I15. Student captures still do not establish Instructor layout consistency, preview height, or the
@@ -251,7 +258,7 @@ author or adopt it, assemble and release Coursework, and manage enrollment and r
 below reflects friction at those steps, rather than implementation effort.
 
 [current_capture_manifest.json](../../screenshots/current_capture_manifest.json) marks Assessment
-Templates as needing a fresh capture and the legacy multi-tab Assignment workspace as retired.
+Templates as needing a fresh capture and the historical multi-tab Assignment workspace as retired.
 Some manifest entries still describe required Ribbon destinations as deferred; those descriptions
 are historical and do not override the current Ribbon contract below. File presence and filenames
 alone establish neither current route behavior nor successful task completion. Reproduce findings
@@ -290,6 +297,9 @@ deferred/future descriptions with their current disposition.
   but the harness does not assert every observation. Connected-route/CAS/error behavior,
   successful deletion, and actual dark-theme evidence remain unverified; simulated dark mode is
   not theme evidence.
+- Current rendered disposition: partially corrected in bounded component rendering; the finding
+  remains open for connected current-route behavior, successful deletion, dark theme, and fresh
+  official capture.
 
 ### I02: roster management puts the roster below setup controls
 
@@ -313,6 +323,8 @@ deferred/future descriptions with their current disposition.
   Full current-path roster authority and browser acceptance now pass after the repairs. The
   protected invitation-export route and owner-private attended-mailer dry run also pass without
   Mail delivery; no screenshot refresh follows.
+- Current rendered disposition: corrected on the connected current roster path at desktop and
+  narrow widths; the official screenshot corpus still needs replay.
 
 ### I03: successful roster import looks like an error
 
@@ -321,12 +333,16 @@ deferred/future descriptions with their current disposition.
 - "Roster import recorded" uses red text, a red edge, and a pink background despite describing
   successful import with expected pending invitations.
 - Acceptance: distinguish recorded import, pending enrollment, and actual import errors through
-  accurate wording and semantic styling. Verify success, partial failure, and rejected input states.
-- Receipt (2026-09-16): source review accepts distinct success and error presentation: success
-  uses local status semantics and the success style, while invalid import feedback uses error/alert
-  semantics. The current runtime receipt proves only rejected local input; it does not submit an
-  actual successful import, export, or revocation, and it does not establish partial-success
-  behavior. Those outcome states remain open.
+  accurate wording and semantic styling. Verify success and rejected input. The current import is
+  all-or-error; introducing partial acceptance would require a separate product/API decision.
+- Receipt (reconciled 2026-09-17): source review and the registered canonical roster-browser
+  scenario cover both outcomes. A successful import renders `Roster import recorded.` with status
+  semantics and success styling, explains that new Students remain pending, and shows the populated
+  roster row. Rejected local input renders alert/error styling and sends no import request. The
+  current import is all-or-error; this audit does not invent or require an unsupported partial-import
+  state.
+- Current rendered disposition: corrected for the current successful and rejected import outcomes;
+  the official screenshot corpus still needs replay.
 
 ### I04: Question inspection puts metadata ahead of teaching content
 
@@ -349,6 +365,8 @@ deferred/future descriptions with their current disposition.
   build `fa08ad78` with exit 0. This is a bounded I04 improvement, not all UI closure: the native
   capture displays its existing stem only and does not establish native response-control rendering
   for every Question Type, a submission workflow, or broader interaction/accessibility coverage.
+- Current rendered disposition: partially corrected in bounded current-component rendering; the
+  finding remains open for broader Question-Type interaction coverage and fresh official capture.
 
 ### I05: publication success offers a generic destination
 
@@ -367,6 +385,8 @@ deferred/future descriptions with their current disposition.
   `/private/tmp/ple-publication-browser-proof-result.md` reports exit 0, and independent review
   visually inspected both PNGs. This does not establish mobile, theme, broad accessibility,
   failure, concurrency, or all-authoring behavior.
+- Current rendered disposition: corrected for the connected desktop publication transition; the
+  official corpus and broader responsive/theme matrices remain outside this receipt.
 
 ### I06: assessment identity and records are hard to scan
 
@@ -379,7 +399,7 @@ deferred/future descriptions with their current disposition.
   "Initial Teaching Team" also reads like setup terminology in an ordinary Course workspace.
 - Acceptance: on the current admitted editors, keep the Assessment title and release state
   recognizable. Use aligned Question records with compact supporting details and clear actions.
-  Reproduce on current routes; the manifest retires the legacy multi-tab workspace.
+  Reproduce on current routes; the manifest retires the historical multi-tab workspace.
 - Current bounded receipt (2026-09-16): the Course Instance workspace now leads with its ordered
   Assessments and adjacent Create Assessment action. Each compact row exposes its order, title,
   release state, public reference, due time, and local edit/lifecycle actions; Course metadata and
@@ -392,9 +412,10 @@ deferred/future descriptions with their current disposition.
   and returns focus on cancel. The user-facing explanation distinguishes copying reusable structure
   from altering the source Course Instance and names its first-Adoption result. Focused client
   transport/decoder, TypeScript, ESLint, and Prettier checks pass. Canonical HTTPS browser evidence
-  used exactly one child-route POST to create a distinct actor-owned Private Revision-1 Blueprint,
-  showed Adoption count 1, and left the source Course addressable and unchanged. No screenshot
-  refresh follows.
+  used exactly one child-route POST to create actor-owned Private Revision-1 Blueprint `BPJD8H28`
+  from Course `CI0QR41X`, showed Adoption count 1, counted source Students only in the statistic,
+  copied no roster or delivery state, and left the source Course addressable and unchanged. No
+  screenshot refresh follows.
 - Current editor receipt (2026-09-17): the already-authorized Assessment workspace now supplies
   its pathname-bound title to the persistent breadcrumb without another request. Question and
   Properties editors show the same title, release status, and Edit Number. Ordered entries use
@@ -402,6 +423,8 @@ deferred/future descriptions with their current disposition.
   and narrow widths. Temporary 390-pixel inspection and the canonical HTTPS Assessment release
   journey passed; the full production-browser suite also passed. Temporary images were removed,
   and this receipt does not refresh or approve the historical screenshot corpus.
+- Current rendered disposition: corrected on the admitted connected Assessment editors at desktop
+  and narrow width; the official screenshot corpus remains historical pending replay.
 
 ### I07: search results repeat the title and fragment actions
 
@@ -563,6 +586,9 @@ Coursework`; keyboard Enter reached the admitted Instructor Course-management de
   `/private/tmp/ple-rebuilt-roster-ui-acceptance-20260916.md`,
   `/private/tmp/ple-roster-name-backend-20260916.md`, and
   `/private/tmp/ple-roster-name-ui-20260916.md`.
+- Current rendered disposition: corrected on the connected 1280-pixel Gradebook path for the three
+  demonstrated states; broader Gradebook/mobile coverage and the official corpus remain outside
+  this receipt.
 
 ### I14: generated Question wording joins separate words
 
@@ -581,6 +607,9 @@ Coursework`; keyboard Enter reached the admitted Instructor Course-management de
   generator, vendored WeBWorK/renderer, PLE demo, or official screenshot refresh changed. A future
   upstream regeneration can overwrite the artifact-only correction absent separately authorized
   producer repair. Receipt: `/private/tmp/ple-chromosome-spacing-receipts-20260916.md`.
+- Current rendered disposition: partially corrected in bounded renderer evidence; the canonical
+  PLE demo and official screenshot replay remain pending, and producer-level durability is not
+  claimed.
 
 ### I15: preview height and control styling vary across surfaces
 
@@ -611,6 +640,14 @@ Coursework`; keyboard Enter reached the admitted Instructor Course-management de
   exact opaque source/origin/resize shape at 444 px with reachable no-overflow content, no Student
   Work or grade request, and keyboard Star/Watch `aria-pressed` toggle and restore. No screenshot
   refresh follows. Receipt: `/private/tmp/ple-connected-webwork-preview-receipt-20260916.md`.
+
+C879 connected browser acceptance (2026-09-17) passed the visible Published-Question fork action,
+opened only the returned distinct private Draft for its active Instructor, and denied the second
+Instructor. Its connected PostgreSQL/server matrix also covered exact source attribution,
+retry/concurrency, distinct HMAC-issued identity, and prevalidation-publication denial. Separate
+3-by-3 PostgreSQL proof preserved each exact source Revision license across the three supported
+compatible CC licenses and rejected every mismatch through the approved minimal SQL. Temporary
+probes were removed; no screenshot refresh follows.
 
 ### I16: Profile emphasizes avatar descriptions over account settings
 
@@ -646,10 +683,21 @@ Coursework`; keyboard Enter reached the admitted Instructor Course-management de
 
 ## Classification implementation questions
 
-HG owns the approved hierarchy, editing authority, and name-validation requirements. This audit
-retains the implementation questions rather than repeating those requirements:
+HG owns the approved hierarchy, editing authority, and name-validation requirements. Current source
+implements the settled Discipline lifecycle: Sysadmin-only stable UUID create, rename, retire, and
+restore; no delete; active-only new choices; visible/discoverable retired references; exact
+inheritance/copy; and concurrency locks. The compact Sysadmin page reports active/retired state.
+Final review and major-milestone actual-role SQL plus canonical browser acceptance remain open.
 
-- Define the occasional Discipline management workflow and remaining lower-level editing permissions.
+Current source also implements retained Question/Pool improvement threads and impact notices.
+Vetted Instructors participate in text-only threads; Question owners and Sysadmins administer
+Question activity, while Pool administration is Sysadmin-only. Sysadmins use read-only Library
+content controls outside those administration actions. Final review and major-milestone proof
+remain pending, and four-event Watch delivery is still in progress.
+
+Remaining implementation questions and acceptance checks are:
+
+- Verify the implemented occasional Discipline-management workflow and remaining lower-level editing permissions.
 - Define exact name limits, length units, and detailed formatting rules, including internal whitespace,
   capitalization, punctuation, and duplicate handling.
 - Resolve cross-disciplinary classification and how existing metadata maps to the approved hierarchy.

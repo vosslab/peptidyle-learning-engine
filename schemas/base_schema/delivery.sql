@@ -57,6 +57,9 @@ DECLARE assessment_attempt ple_private.question_attempt%ROWTYPE;
 BEGIN
     IF p_session_id IS NULL OR p_issued_at IS NULL OR p_expires_at IS NULL OR p_expires_at <= p_issued_at
        OR p_expires_at <= clock_timestamp() THEN RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'iMathAS Session expiry is invalid'; END IF;
+    IF NOT ple_private.question_backend_is_supported_for_production('imathas') THEN
+        RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'iMathAS Session is unavailable';
+    END IF;
     assessment_attempt := ple_private.require_owned_open_question_attempt(p_course_id, p_assessment_id, p_question_attempt_id);
     IF assessment_attempt.question_seed <> p_seed OR NOT EXISTS (
         SELECT 1 FROM ple_private.issued_question AS issued

@@ -18,18 +18,18 @@ import { createRecordingFetch, jsonResponse } from "./http_client_test_support.m
 test("asset URLs require and retain the exact Question Revision identity", () => {
   const client = createHttpApiClient({ basePath: "/live" });
   const assetUrl = client.assetUrl(
-    { questionId: "7K3M-X9QP", revisionNumber: 2 },
+    { questionId: "7K3M-79QP", revisionNumber: 2 },
     "00000000-0000-0000-0000-000000000001",
   );
   assert.equal(
     assetUrl,
-    "/live/api/questions/7K3M-X9QP/revisions/2/assets/00000000-0000-0000-0000-000000000001",
+    "/live/api/questions/7K3M-79QP/revisions/2/assets/00000000-0000-0000-0000-000000000001",
   );
 });
 
 test("an issued iMathAS Question Backend Question Presentation accepts only its public marker", () => {
   const presentation = {
-    questionRevision: { questionId: "7K3M-X9QP", revisionNumber: 1 },
+    questionRevision: { questionId: "7K3M-79QP", revisionNumber: 1 },
     presentationNonce: "0123456789abcdef0123456789abcdef",
     questionTitle: "iMathAS Question Backend practice item",
     prompt: [],

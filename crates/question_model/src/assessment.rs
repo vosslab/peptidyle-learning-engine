@@ -68,7 +68,7 @@ pub enum AssessmentType {
 }
 
 /// Immutable creation origin for one Course Instance Assessment.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub enum AssessmentOrigin {
     /// Created directly inside a Course Instance.

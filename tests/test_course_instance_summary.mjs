@@ -24,7 +24,7 @@ const classification = {
 
 function courseSummary(theme = "forest") {
   return {
-    reference: "CI6F2R8T",
+    reference: "CI6F2R8TA0",
     classification,
     metadataEtag: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6e",
     shortName: "Mol Bio",
@@ -85,15 +85,15 @@ test("Course creation accepts only the two current source wires", () => {
   assert.deepEqual(
     decodeCreateCourseInstanceInput({
       ...common,
-      source: { kind: "adopted", blueprintCourse: "BP6F2R8T", blueprintRevision: "2" },
+      source: { kind: "adopted", blueprintCourse: "BP6F2R8TA9", blueprintRevision: "2" },
     }).source,
-    { kind: "adopted", blueprintCourse: "BP6F2R8T", blueprintRevision: "2" },
+    { kind: "adopted", blueprintCourse: "BP6F2R8TA9", blueprintRevision: "2" },
   );
   assert.throws(
     () =>
       decodeCreateCourseInstanceInput({
         ...common,
-        source: { kind: "empty", blueprintCourse: "BP6F2R8T" },
+        source: { kind: "empty", blueprintCourse: "BP6F2R8TA9" },
       }),
     DecodeError,
   );
@@ -101,19 +101,19 @@ test("Course creation accepts only the two current source wires", () => {
     () =>
       decodeCreateCourseInstanceInput({
         ...common,
-        source: { kind: "adopted", blueprint_course: "BP6F2R8T", blueprint_revision: 2 },
+        source: { kind: "adopted", blueprint_course: "BP6F2R8TA9", blueprint_revision: 2 },
       }),
     DecodeError,
   );
   assert.throws(
-    () => decodeCreateCourseInstanceInput({ ...common, blueprintCourse: "BP6F2R8T" }),
+    () => decodeCreateCourseInstanceInput({ ...common, blueprintCourse: "BP6F2R8TA9" }),
     DecodeError,
   );
 });
 
 test("Course-derived Blueprint creation sends only metadata and requires a new private root", async () => {
   const requests = [];
-  let revisionReference = "BP7K3M2Q";
+  let revisionReference = "BP7K3M2QAF";
   const client = createHttpApiClient({
     fetch: async (input, init) => {
       const request = new Request(new URL(input.toString(), "https://ple.example"), init);
@@ -121,7 +121,7 @@ test("Course-derived Blueprint creation sends only metadata and requires a new p
       return new Response(
         JSON.stringify({
           classification,
-          reference: "BP7K3M2Q",
+          reference: "BP7K3M2QAF",
           short_name: "Mol Bio",
           long_name: "Molecular Biology",
           availability: "private",
@@ -143,12 +143,12 @@ test("Course-derived Blueprint creation sends only metadata and requires a new p
     },
   });
   const input = { classification, shortName: "Mol Bio", longName: "Molecular Biology" };
-  const created = await client.createBlueprintFromCourseInstance("CI6F2R8T", input, "create-7");
-  assert.equal(created.blueprintCourse.reference, "BP7K3M2Q");
+  const created = await client.createBlueprintFromCourseInstance("CI6F2R8TA0", input, "create-7");
+  assert.equal(created.blueprintCourse.reference, "BP7K3M2QAF");
   assert.equal(created.revisionEtag, '"1"');
   assert.equal(requests.length, 1);
   const [request] = requests;
-  assert.equal(new URL(request.url).pathname, "/api/course-instances/CI6F2R8T/course-blueprints");
+  assert.equal(new URL(request.url).pathname, "/api/course-instances/CI6F2R8TA0/course-blueprints");
   assert.equal(request.method, "POST");
   assert.equal(request.headers.get("idempotency-key"), "create-7");
   assert.deepEqual(await request.json(), input);
@@ -156,9 +156,9 @@ test("Course-derived Blueprint creation sends only metadata and requires a new p
     () => decodeCreateBlueprintFromCourseInstanceInput({ ...input, modules: [] }),
     DecodeError,
   );
-  revisionReference = "BP6F2R8T";
+  revisionReference = "BP6F2R8TA9";
   await assert.rejects(
-    client.createBlueprintFromCourseInstance("CI6F2R8T", input, "create-8"),
+    client.createBlueprintFromCourseInstance("CI6F2R8TA0", input, "create-8"),
     ApiProtocolError,
   );
 });

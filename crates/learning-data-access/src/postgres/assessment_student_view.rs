@@ -152,7 +152,7 @@ impl InstructorStudentViewStore for PostgresInstructorStudentViewStore {
         .bind(assessment.as_string())
         .bind(expected_edit_number)
         .bind(authored_position)
-        .bind(question_revision.question_id.as_compact_str())
+        .bind(question_revision.question_id.as_str())
         .bind(revision_number)
         .fetch_one(&mut *transaction)
         .await

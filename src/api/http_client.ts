@@ -35,8 +35,13 @@ import { createQuestionPoolStewardshipClient } from "./http_client/question_pool
 import { createAssessmentStudentViewClient } from "./http_client/assessment_student_view";
 import { createAssessmentTemplateClient } from "./http_client/assessment_template";
 import { createQuestionBulkMetadataClient } from "./http_client/question_bulk_metadata";
-import { createContentClassificationClient } from "./http_client/content_classification";
+import {
+  createContentClassificationClient,
+  createContentDisciplineAdministrationClient,
+} from "./http_client/content_classification";
 import { createCourseStudentWorkRecoveryClient } from "./http_client/course_student_work_recovery";
+import { createLibraryDiscussionClient } from "./http_client/library_discussion";
+import { createLibraryWatchNotificationClient } from "./http_client/library_watch_notification";
 
 export {
   ApiProtocolError,
@@ -84,7 +89,10 @@ export function createHttpApiClient(config: HttpApiClientConfig = {}): OrdinaryB
     createAssessmentTemplateClient(fetchImplementation, basePath),
     createQuestionBulkMetadataClient(fetchImplementation, basePath),
     createContentClassificationClient(fetchImplementation, basePath),
+    createContentDisciplineAdministrationClient(fetchImplementation, basePath),
     createCourseStudentWorkRecoveryClient(fetchImplementation, basePath),
+    createLibraryDiscussionClient(fetchImplementation, basePath),
+    createLibraryWatchNotificationClient(fetchImplementation, basePath),
     responses,
     requests,
   );

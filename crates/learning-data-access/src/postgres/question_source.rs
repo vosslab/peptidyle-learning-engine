@@ -81,20 +81,8 @@ impl DraftQuestionPublicationSourceStore for PostgresDraftQuestionSourceBindingS
             question_revision: None,
             created_at: Timestamp::from_unix_millis(created_at_millis),
         };
-        let reserved_question_id = row
-            .try_get::<Option<String>, _>("reserved_question_id")
-            .map_err(map_sqlx_error)?
-            .map(|value| {
-                value.parse().map_err(|_| {
-                    StoreError::InvalidRecord(
-                        "Draft Question reserved publication ID is invalid".to_owned(),
-                    )
-                })
-            })
-            .transpose()?;
         Ok(DraftQuestionPublicationSource {
             source_record,
-            reserved_question_id,
         })
     }
 }
@@ -445,7 +433,7 @@ fn is_published_question_identity_collision(code: Option<&str>, constraint: Opti
 }
 
 fn question_id_for_persistence(question_id: &question_model::QuestionId) -> &str {
-    question_id.as_compact_str()
+    question_id.as_str()
 }
 
 fn wire_string(value: &impl Serialize, label: &str) -> Result<String, StoreError> {
@@ -487,10 +475,10 @@ mod tests {
     }
 
     #[test]
-    fn new_lineage_publication_binds_the_compact_database_question_id() {
+    fn new_lineage_publication_binds_the_canonical_database_question_id() {
         let question_id = question_model::QuestionId::from_str("ABCD-XEFG")
-            .expect("display Question ID is accepted at the model boundary");
+            .expect("canonical Question ID is accepted at the model boundary");
 
-        assert_eq!(question_id_for_persistence(&question_id), "ABCDXEFG");
+        assert_eq!(question_id_for_persistence(&question_id), "ABCD-XEFG");
     }
 }

@@ -4,8 +4,8 @@ import test from "node:test";
 import { DecodeError } from "../src/api/decoder.ts";
 import { createHttpApiClient } from "../src/api/http_client.ts";
 
-const FIRST_QUESTION = "7K3M-X9QP";
-const SECOND_QUESTION = "2R5X-Z7YA";
+const FIRST_QUESTION = "7K3M-79QP";
+const SECOND_QUESTION = "2R5X-E7YA";
 
 function createdPoolResponse(value) {
   return new Response(JSON.stringify(value), {
@@ -23,7 +23,7 @@ test("Question Pool creation sends explicit metadata and attested ordered pins w
     fetch: async (input, init) => {
       const request = new Request(new URL(input.toString(), "https://ple.example"), init);
       requests.push(request.clone());
-      return createdPoolResponse({ questionPoolId: "3S8B-Z4DZ", revisionNumber: 1 });
+      return createdPoolResponse({ questionPoolId: "3S8B-24DZ", revisionNumber: 1 });
     },
   });
   const created = await client.createQuestionPool({
@@ -36,7 +36,7 @@ test("Question Pool creation sends explicit metadata and attested ordered pins w
     interchangeabilityAttested: true,
   });
 
-  assert.deepEqual(created, { questionPoolId: "3S8B-Z4DZ", revisionNumber: 1 });
+  assert.deepEqual(created, { questionPoolId: "3S8B-24DZ", revisionNumber: 1 });
   const request = requests[0];
   assert.ok(request);
   assert.equal(new URL(request.url).pathname, "/api/question-pools");
@@ -53,7 +53,7 @@ test("Question Pool creation sends explicit metadata and attested ordered pins w
   });
 
   const malformedReceiptClient = createHttpApiClient({
-    fetch: async () => createdPoolResponse({ questionPoolId: "3S8B-Z4DZ", revisionNumber: 2 }),
+    fetch: async () => createdPoolResponse({ questionPoolId: "3S8B-24DZ", revisionNumber: 2 }),
   });
   await assert.rejects(
     malformedReceiptClient.createQuestionPool({
@@ -71,7 +71,7 @@ test("Question Pool creation rejects missing or noncanonical metadata before tra
   const client = createHttpApiClient({
     fetch: async () => {
       requests += 1;
-      return createdPoolResponse({ questionPoolId: "3S8B-Z4DZ", revisionNumber: 1 });
+      return createdPoolResponse({ questionPoolId: "3S8B-24DZ", revisionNumber: 1 });
     },
   });
   const valid = {

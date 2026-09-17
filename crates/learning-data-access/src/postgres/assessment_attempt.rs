@@ -136,7 +136,7 @@ fn storage_selections(
                 json!({
                     "question_pool_selection_id": id.as_uuid(),
                     "assessment_entry_id": selection.question_pool_assessment_entry.as_uuid(),
-                    "question_pool_id": selection.question_pool_revision.question_pool_id.as_compact_str(),
+                    "question_pool_id": selection.question_pool_revision.question_pool_id.as_str(),
                     "question_pool_revision_number": selection.question_pool_revision.revision_number.get(),
                     "selected_items": selection.selected_items.iter().map(|item| {
                         // PostgreSQL stores Pool Revision member positions one-based;
@@ -199,13 +199,18 @@ fn storage_issued_questions(
             };
             let question_seed = match backend {
                 QuestionBackend::Ple => Value::Null,
-                QuestionBackend::Webwork | QuestionBackend::Imathas => json!(
+                QuestionBackend::Webwork => json!(
                     crate::random_uuid::random_question_seed(|error| {
                         StoreError::Unavailable(format!(
                             "Question seed randomness unavailable: {error}"
                         ))
                     })?
                 ),
+                QuestionBackend::Imathas => {
+                    return Err(StoreError::InvalidRecord(
+                        "Question Backend is unavailable for new Assessment work".to_string(),
+                    ));
+                }
             };
             let issued_question = IssuedQuestionId::for_frozen_content(
                 assessment_attempt,
@@ -216,7 +221,7 @@ fn storage_issued_questions(
                 "issued_question_id": issued_question.as_uuid(),
                 "assessment_entry_id": assessment_entry.as_uuid(),
                 "issued_position": position,
-                "question_id": reference.question_id.as_compact_str(),
+                "question_id": reference.question_id.as_str(),
                 "revision_number": reference.revision_number.get(),
                 "question_pool_selection_id": question_pool_selection.map(|selection| selection.as_uuid()),
                 "question_pool_member_position": pool_revision_member.map(|member| {
@@ -249,7 +254,7 @@ mod tests {
             issued_questions: vec![PreparedIssuedQuestion::FixedQuestion {
                 assessment_entry,
                 reference: QuestionRevisionReference {
-                    question_id: "1234-X567".parse::<QuestionId>().expect("Question ID"),
+                    question_id: "1234-H567".parse::<QuestionId>().expect("Question ID"),
                     revision_number: QuestionRevisionNumber::new(1).expect("revision number"),
                 },
                 backend: QuestionBackend::Ple,
@@ -271,7 +276,7 @@ mod tests {
         assert_eq!(issued.get("question_seed"), Some(&Value::Null));
         assert_eq!(
             issued.get("question_id").and_then(Value::as_str),
-            Some("1234X567")
+            Some("1234-H567")
         );
         assert!(!issued.contains_key("questionSeed"));
     }
@@ -286,7 +291,7 @@ mod tests {
             issued_questions: vec![PreparedIssuedQuestion::FixedQuestion {
                 assessment_entry,
                 reference: QuestionRevisionReference {
-                    question_id: "1234-X567".parse::<QuestionId>().expect("Question ID"),
+                    question_id: "1234-H567".parse::<QuestionId>().expect("Question ID"),
                     revision_number: QuestionRevisionNumber::new(1).expect("revision number"),
                 },
                 backend: QuestionBackend::Webwork,

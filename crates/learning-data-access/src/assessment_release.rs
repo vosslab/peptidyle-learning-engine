@@ -478,13 +478,15 @@ mod tests {
 
     #[test]
     fn workspace_save_requires_an_exact_question_revision_pin() {
+        let question_id = question_model::QuestionId::from_random_identifier("7K3MXQP")
+            .expect("canonical Question ID");
         let input: SaveLiveAssessmentInput = serde_json::from_value(serde_json::json!({
             "title": "Peptide bonds",
             "instructions": "Answer every question.",
             "entries": [{
                 "kind": "fixedQuestion",
                 "id": "00000000-0000-0000-0000-000000000001",
-                "reference": { "questionId": "7K3M-X9QP", "revisionNumber": 1 },
+                "reference": { "questionId": question_id, "revisionNumber": 1 },
                 "pointsPossible": "1",
                 "availability": "available",
                 "scoringRule": "normal",

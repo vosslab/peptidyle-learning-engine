@@ -177,20 +177,20 @@ resource "aws_ecs_task_definition" "api" {
   execution_role_arn       = aws_iam_role.api_execution.arn
   task_role_arn            = aws_iam_role.api.arn
   container_definitions = jsonencode(concat(
-    [{
+    var.enable_smtp ? [{
       name             = "secret-files", image = var.secret_file_writer_image, essential = false, user = "10001", readonlyRootFilesystem = true, stopTimeout = 45,
       environment      = [{ name = "PLE_SECRET_OUTPUT_DIR", value = "/run/ple-secrets" }],
-      secrets          = [for key in concat(["PLE_QUESTION_ID_SECRET"], var.enable_smtp ? ["PLE_SMTP_PASSWORD", "PLE_INVITATION_TOKEN_SECRET"] : []) : { name = key, valueFrom = "${var.api_application_secrets_arn}:${key}::" }],
+      secrets          = [for key in ["PLE_SMTP_PASSWORD", "PLE_INVITATION_TOKEN_SECRET"] : { name = key, valueFrom = "${var.api_application_secrets_arn}:${key}::" }],
       mountPoints      = [{ sourceVolume = "runtime-secrets", containerPath = "/run/ple-secrets", readOnly = false }],
       linuxParameters  = { initProcessEnabled = true },
       logConfiguration = { logDriver = "awslogs", options = { awslogs-group = aws_cloudwatch_log_group.application["api"].name, awslogs-region = var.aws_region, awslogs-stream-prefix = "secret-files" } }
     }],
     [{
       name             = "api", image = var.api_image, essential = true, user = "10001", readonlyRootFilesystem = true, stopTimeout = 45,
-      dependsOn        = [{ containerName = "secret-files", condition = "SUCCESS" }],
+      dependsOn        = var.enable_smtp ? [{ containerName = "secret-files", condition = "SUCCESS" }] : [],
       portMappings     = [{ containerPort = 3000, protocol = "tcp" }],
-      environment      = concat(local.runtime_environment, [{ name = "PLE_QUESTION_ID_SECRET_FILE", value = "/run/ple-secrets/question-id-secret" }], var.enable_smtp ? [{ name = "PLE_SMTP_PASSWORD_FILE", value = "/run/ple-secrets/smtp-password" }, { name = "PLE_INVITATION_TOKEN_SECRET_FILE", value = "/run/ple-secrets/invitation-token" }] : []), secrets = concat(local.api_secrets, local.fast_path_secrets),
-      mountPoints      = [{ sourceVolume = "runtime-secrets", containerPath = "/run/ple-secrets", readOnly = true }],
+      environment      = concat(local.runtime_environment, var.enable_smtp ? [{ name = "PLE_SMTP_PASSWORD_FILE", value = "/run/ple-secrets/smtp-password" }, { name = "PLE_INVITATION_TOKEN_SECRET_FILE", value = "/run/ple-secrets/invitation-token" }] : []), secrets = concat(local.api_secrets, local.fast_path_secrets),
+      mountPoints      = var.enable_smtp ? [{ sourceVolume = "runtime-secrets", containerPath = "/run/ple-secrets", readOnly = true }] : [],
       linuxParameters  = { initProcessEnabled = true },
       logConfiguration = { logDriver = "awslogs", options = { awslogs-group = aws_cloudwatch_log_group.application["api"].name, awslogs-region = var.aws_region, awslogs-stream-prefix = "ecs" } },
       healthCheck      = { command = ["CMD", "/usr/local/bin/peptidyle-api", "--health-probe"], interval = 30, timeout = 5, retries = 3, startPeriod = 30 }

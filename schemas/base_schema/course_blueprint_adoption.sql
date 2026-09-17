@@ -139,12 +139,11 @@ BEGIN
                 IF proposed_entry ->> 'kind' IS DISTINCT FROM 'fixed_question'
                    OR proposed_entry ->> 'availability' IS DISTINCT FROM 'available'
                    OR proposed_entry ->> 'authoredPosition' IS DISTINCT FROM entry_index::text
-                   -- C842/C843 store Question IDs compactly. The sealed JSON
-                   -- uses the model's display serialization (AAAA-ZBBB), so
-                   -- remove only that presentation separator at this trusted
-                   -- persistence seam; this is not a legacy input parser.
+                   -- C842/C843 persist the exact canonical Question ID in the
+                   -- sealed JSON and relational state; no representation
+                   -- translation is permitted at this persistence seam.
                    OR proposed_entry ->> 'questionId' IS DISTINCT FROM
-                        replace(source_entry #>> '{question_revision,questionId}', '-', '')
+                        source_entry #>> '{question_revision,questionId}'
                    OR proposed_entry ->> 'revisionNumber' IS DISTINCT FROM source_entry #>> '{question_revision,revisionNumber}'
                    OR proposed_entry ->> 'pointsPossible' IS DISTINCT FROM source_entry ->> 'points_possible'
                    OR proposed_entry ->> 'scoringRule' IS DISTINCT FROM (CASE (source_entry ->> 'scoring_rule')
@@ -163,13 +162,18 @@ BEGIN
                    OR proposed_entry ->> 'availability' IS DISTINCT FROM 'available'
                    OR proposed_entry ->> 'authoredPosition' IS DISTINCT FROM entry_index::text
                    OR proposed_entry ->> 'sourceQuestionPoolId' IS DISTINCT FROM
-                        replace(source_entry #>> '{question_pool_revision,questionPoolId}', '-', '')
+                        source_entry #>> '{question_pool_revision,questionPoolId}'
                    OR proposed_entry ->> 'sourceQuestionPoolRevisionNumber' IS DISTINCT FROM
                         source_entry #>> '{question_pool_revision,revisionNumber}'
                    OR proposed_entry ->> 'forkQuestionPoolId' !~*
                         '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
                    OR proposed_entry ->> 'forkPublicQuestionPoolId' !~
-                        '^[0-9A-HJKMNP-TV-Z]{8}$'
+                        '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
+                   OR substr(proposed_entry ->> 'forkPublicQuestionPoolId', 6, 1) IS DISTINCT FROM
+                        ple_private.crockford_checksum_character(
+                            substr(proposed_entry ->> 'forkPublicQuestionPoolId', 1, 4)
+                            || substr(proposed_entry ->> 'forkPublicQuestionPoolId', 7, 3)
+                        )
                    OR proposed_entry ->> 'selectionCount' IS DISTINCT FROM source_entry ->> 'selection_count'
                    OR proposed_entry ->> 'pointsPerItem' IS DISTINCT FROM source_entry ->> 'points_per_item'
                    OR proposed_entry ->> 'scoringRule' IS DISTINCT FROM (CASE (source_entry ->> 'scoring_rule')

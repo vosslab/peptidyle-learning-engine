@@ -24,13 +24,13 @@ pub(super) async fn load_pool_members(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    // ASVS 2.2.1/2: validate typed identities and the deployment's QID HMAC.
+    // ASVS 2.2.1/2: parse the exact checksum-bearing typed identity.
     let assessment = match assessment.parse::<BlueprintAssessmentReference>() {
         Ok(value) => value,
         Err(_) => return concealed(),
     };
     let pool = match pool.parse::<QuestionId>() {
-        Ok(value) if state.question_id_issuer.validates_question_id(&value) => value,
+        Ok(value) => value,
         _ => return concealed(),
     };
     let session = match instructor_session_hash(&state, &headers).await {

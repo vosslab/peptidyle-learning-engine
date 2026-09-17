@@ -5,7 +5,9 @@ import type { QuestionPoolLibrarySummary } from "../../generated/api/QuestionPoo
 import type { QuestionPoolRevisionView } from "../../generated/api/QuestionPoolRevisionView";
 import type { ContentClassificationClient } from "../api/content_classification";
 import type { QuestionPoolLibraryClient } from "../api/question_pool_library";
+import type { LibraryDiscussionClient } from "../api/library_discussion";
 import type { QuestionPoolLibraryFilter } from "../api/question_pool_library";
+import { decodeQuestionId } from "../api/decoders/shared";
 import { questionPoolLibraryFilter } from "../api/question_pool_library_filter";
 import { ApiRequestError } from "../api/http_client/error";
 import {
@@ -14,10 +16,29 @@ import {
   type LibraryClassificationFilter,
 } from "../api/library_classification_filter";
 import { LibraryClassificationSearch } from "../components/library_classification_search";
+import { LibraryDiscussionPanel } from "../components/library_discussion_panel";
+import { QuestionPoolWatchControl } from "../components/question_pool_watch_control";
+
+type PoolInspectionTarget = {
+  readonly publicId: QuestionPoolLibrarySummary["questionPoolRevision"]["questionPoolId"];
+  readonly title: string;
+};
+
+function linkedPoolId(): PoolInspectionTarget["publicId"] | null {
+  const values = new URLSearchParams(window.location.search).getAll("pool");
+  if (values.length !== 1) return null;
+  try {
+    return decodeQuestionId(values[0], "pool");
+  } catch {
+    return null;
+  }
+}
 
 export function LibraryPoolDiscovery(props: {
-  readonly client: QuestionPoolLibraryClient;
+  readonly client: QuestionPoolLibraryClient & LibraryDiscussionClient;
   readonly classificationClient: ContentClassificationClient;
+  /** Sysadmins inspect Pools read-only and never load private Watch state. */
+  readonly mayWatchPools: boolean;
 }): JSX.Element {
   const [filter, setFilter] = createSignal<LibraryClassificationFilter>(
     EMPTY_LIBRARY_CLASSIFICATION_FILTER,
@@ -33,13 +54,14 @@ export function LibraryPoolDiscovery(props: {
   const [submitted, setSubmitted] = createSignal<QuestionPoolLibraryFilter>(
     questionPoolLibraryFilter(EMPTY_LIBRARY_CLASSIFICATION_FILTER),
   );
-  const [inspecting, setInspecting] = createSignal<QuestionPoolLibrarySummary | null>(null);
+  const [inspecting, setInspecting] = createSignal<PoolInspectionTarget | null>(null);
   const [detail, setDetail] = createSignal<QuestionPoolRevisionView | null>(null);
   const [detailError, setDetailError] = createSignal(false);
   let listGeneration = 0;
   let detailGeneration = 0;
   let retryCursor: string | undefined;
   let returnButton: HTMLButtonElement | undefined;
+  let poolSearchInput: HTMLInputElement | undefined;
   let detailHeading: HTMLHeadingElement | undefined;
   let returnScroll = 0;
 
@@ -104,12 +126,12 @@ export function LibraryPoolDiscovery(props: {
     void readPage();
   }
 
-  async function readDetail(pool: QuestionPoolLibrarySummary): Promise<void> {
+  async function readDetail(publicId: PoolInspectionTarget["publicId"]): Promise<void> {
     const generation = ++detailGeneration;
     setDetail(null);
     setDetailError(false);
     try {
-      const value = await props.client.getQuestionPool(pool.questionPoolRevision.questionPoolId);
+      const value = await props.client.getQuestionPool(publicId);
       if (generation === detailGeneration) setDetail(value);
     } catch {
       if (generation === detailGeneration) setDetailError(true);
@@ -119,9 +141,12 @@ export function LibraryPoolDiscovery(props: {
   function inspect(pool: QuestionPoolLibrarySummary, button: HTMLButtonElement): void {
     returnButton = button;
     returnScroll = window.scrollY;
-    setInspecting(pool);
+    setInspecting({
+      publicId: pool.questionPoolRevision.questionPoolId,
+      title: pool.metadata.title,
+    });
     queueMicrotask(() => detailHeading?.focus());
-    void readDetail(pool);
+    void readDetail(pool.questionPoolRevision.questionPoolId);
   }
 
   function returnToResults(): void {
@@ -129,13 +154,23 @@ export function LibraryPoolDiscovery(props: {
     setInspecting(null);
     setDetail(null);
     setDetailError(false);
+    if (items().length === 0) void readPage();
     queueMicrotask(() => {
-      returnButton?.focus({ preventScroll: true });
+      (returnButton ?? poolSearchInput)?.focus({ preventScroll: true });
       window.scrollTo({ top: returnScroll });
     });
   }
 
-  onMount(() => void readPage());
+  onMount(() => {
+    const publicId = linkedPoolId();
+    if (publicId === null) {
+      void readPage();
+      return;
+    }
+    setInspecting({ publicId, title: "Question Pool" });
+    queueMicrotask(() => detailHeading?.focus());
+    void readDetail(publicId);
+  });
   onCleanup(() => {
     ++listGeneration;
     ++detailGeneration;
@@ -159,6 +194,9 @@ export function LibraryPoolDiscovery(props: {
           <label class="question-library-pool-search-control">
             Search published Pools
             <input
+              ref={(element) => {
+                poolSearchInput = element;
+              }}
               type="search"
               value={text()}
               onInput={(event) => setText(event.currentTarget.value)}
@@ -241,6 +279,10 @@ export function LibraryPoolDiscovery(props: {
                 {/* ASVS 1.2.1: metadata is rendered as text, never injected HTML. */}
                 <p>{pool.metadata.description}</p>
                 <p>
+                  Discipline: {pool.metadata.disciplineName}
+                  <Show when={pool.metadata.disciplineIsRetired}> (retired)</Show>
+                </p>
+                <p>
                   Pool ID: {pool.questionPoolRevision.questionPoolId} | Revision:{" "}
                   {pool.questionPoolRevision.revisionNumber} | Members: {pool.memberCount}
                 </p>
@@ -270,7 +312,7 @@ export function LibraryPoolDiscovery(props: {
               }}
               tabindex="-1"
             >
-              {detail()?.metadata.title ?? pool().metadata.title}
+              {detail()?.metadata.title ?? pool().title}
             </h2>
             <button type="button" onClick={returnToResults}>
               Return to Pool results
@@ -280,7 +322,7 @@ export function LibraryPoolDiscovery(props: {
             </Show>
             <Show when={detailError()}>
               <p role="alert">Could not load this Pool. Retry or return to your results.</p>
-              <button type="button" onClick={() => void readDetail(pool())}>
+              <button type="button" onClick={() => void readDetail(pool().publicId)}>
                 Retry Pool detail
               </button>
             </Show>
@@ -289,11 +331,20 @@ export function LibraryPoolDiscovery(props: {
                 <>
                   <p>{value().metadata.description}</p>
                   <p>
+                    Discipline: {value().metadata.disciplineName}
+                    <Show when={value().metadata.disciplineIsRetired}> (retired)</Show>
+                  </p>
+                  <p>
                     Pool ID: {value().questionPoolRevision.questionPoolId} | Revision:{" "}
                     {value().questionPoolRevision.revisionNumber} | Members:{" "}
                     {value().members.length}
                   </p>
                   <p>Tags: {value().metadata.tags.join(", ") || "None"}</p>
+                  <Show when={props.mayWatchPools}>
+                    <QuestionPoolWatchControl
+                      poolId={value().questionPoolRevision.questionPoolId}
+                    />
+                  </Show>
                   <h3>Exact Question Revisions</h3>
                   <ol>
                     <For each={value().members}>
@@ -305,6 +356,10 @@ export function LibraryPoolDiscovery(props: {
                       )}
                     </For>
                   </ol>
+                  <LibraryDiscussionPanel
+                    kind="questionPool"
+                    publicId={value().questionPoolRevision.questionPoolId}
+                  />
                 </>
               )}
             </Show>

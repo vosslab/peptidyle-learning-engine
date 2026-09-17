@@ -70,7 +70,7 @@ test("authentication and authorization: seeded sessions and role-owned boundarie
     const morgan = await morganContext.newPage();
 
     await test.step("A public no-record course path remains outside a signed-out session", async () => {
-      await publicPage.goto("/courses/CI7K3M2Q");
+      await publicPage.goto("/courses/CI7K3M2QAZ");
       await expect(
         publicPage.getByRole("heading", {
           level: 1,
@@ -105,7 +105,7 @@ test("authentication and authorization: seeded sessions and role-owned boundarie
       await expect(morgan.context().cookies()).resolves.not.toEqual(
         expect.arrayContaining([expect.objectContaining({ name: "__Host-ple_session" })]),
       );
-      await morgan.goto("/courses/CI7K3M2Q");
+      await morgan.goto("/courses/CI7K3M2QAZ");
       await expect(
         morgan.getByRole("heading", {
           level: 1,

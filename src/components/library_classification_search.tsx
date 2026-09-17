@@ -19,8 +19,9 @@ export function LibraryClassificationSearch(props: {
       <ContentClassificationSelect
         label="Discipline"
         value={props.value.discipline_uuid}
+        allowRetired
         disabled={props.disabled}
-        load={() => props.client.listDisciplines()}
+        load={() => props.client.listDisciplinesIncludingRetired()}
         onChange={(uuid) => props.onChange(libraryClassificationChange("discipline_uuid", uuid))}
       />
       <ContentClassificationSelect

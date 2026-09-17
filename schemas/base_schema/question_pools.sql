@@ -11,11 +11,14 @@ SET LOCAL ROLE ple_data_owner;
 
 CREATE TABLE ple_data.question_pool (
     question_pool_id uuid PRIMARY KEY,
-    -- Compact storage for the human-facing `AAAA-ZBBB` Pool ID. The server's
-    -- Question-ID issuer owns randomness and the HMAC check character; the
+    -- The stored `XXXX-ZXXX` value is the public Pool ID. Its seven random
+    -- Crockford characters are checked by the sixth checksum character; the
     -- database remains the final collision authority and owns no secret.
     public_question_pool_id text NOT NULL UNIQUE CHECK (
-        public_question_pool_id ~ '^[0-9A-HJKMNP-TV-Z]{8}$'
+        public_question_pool_id ~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
+        AND substr(public_question_pool_id, 6, 1) = ple_private.crockford_checksum_character(
+            substr(public_question_pool_id, 1, 4) || substr(public_question_pool_id, 7, 3)
+        )
     ),
     metadata_etag uuid NOT NULL,
     title text NOT NULL CHECK (
@@ -47,6 +50,12 @@ CREATE TABLE ple_data.question_pool (
     source_question_pool_revision_number bigint,
     created_at timestamptz NOT NULL,
     CHECK ((source_question_pool_id IS NULL) = (source_question_pool_revision_number IS NULL))
+);
+
+CREATE TRIGGER question_pool_public_id_is_reserved
+BEFORE INSERT ON ple_data.question_pool
+FOR EACH ROW EXECUTE FUNCTION ple_private.reserve_public_id_from_trigger(
+    'question_pool', 'public_question_pool_id'
 );
 
 -- A Question Pool is a stable lineage. This narrow schema makes an exact
@@ -140,7 +149,7 @@ $$;
 CREATE FUNCTION ple_data.validate_question_pool_revision_member_insert()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
-DECLARE expected_count integer; existing_count integer;
+DECLARE expected_count integer; existing_count integer; backend_name text;
 BEGIN
     SELECT member_count INTO expected_count FROM ple_data.question_pool_revision
      WHERE question_pool_id = NEW.question_pool_id AND revision_number = NEW.revision_number;
@@ -150,6 +159,14 @@ BEGIN
        OR NEW.member_position <> existing_count + 1 THEN
         RAISE EXCEPTION USING ERRCODE = '55000',
             MESSAGE = 'Question Pool Revision member set is immutable and ordered';
+    END IF;
+    SELECT revision.backend INTO backend_name
+      FROM ple_data.question_revision AS revision
+     WHERE revision.question_id = NEW.question_id
+       AND revision.revision_number = NEW.question_revision_number;
+    IF NOT ple_private.question_backend_is_supported_for_production(backend_name) THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Question Pool members require a current production Question Backend';
     END IF;
     RETURN NEW;
 END
@@ -208,7 +225,7 @@ GRANT SELECT ON ple_data.question_pool, ple_data.question_pool_revision,
     TO ple_private_owner, ple_api_owner;
 
 COMMENT ON TABLE ple_data.question_pool IS
-    'Stable Question Pool lineage, immutable exact source-Pool provenance for forks, server-issued compact public Crockford ID, and current metadata ETag.';
+    'Stable Question Pool lineage, immutable exact source-Pool provenance for forks, server-issued canonical public Crockford ID, and current metadata ETag.';
 COMMENT ON TABLE ple_data.question_pool_revision IS
     'Append-only sequential immutable Pool Revision with creating Instructor attestation and exact member count.';
 COMMENT ON TABLE ple_data.question_pool_revision_member IS
@@ -216,8 +233,8 @@ COMMENT ON TABLE ple_data.question_pool_revision_member IS
 
 RESET ROLE;
 
--- The later typed trusted server command supplies an already HMAC-validated
--- canonical compact ID. This schema is not an issuer; the narrow session-bound
+-- The later typed trusted server command supplies an already checksum-validated
+-- canonical public ID. This schema is not an issuer; the narrow session-bound
 -- API wrapper below is the only application creation capability. Pool
 -- ownership/content rules belong to the later published-Pool closure.
 SET LOCAL ROLE ple_data_owner;
@@ -234,7 +251,10 @@ DECLARE actor_id uuid; created_at timestamptz := pg_catalog.clock_timestamp(); n
     first_metadata ple_data.published_question_metadata%ROWTYPE;
 BEGIN
     IF p_question_pool_id IS NULL OR p_public_question_pool_id IS NULL
-       OR p_public_question_pool_id !~ '^[0-9A-HJKMNP-TV-Z]{8}$'
+       OR p_public_question_pool_id !~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
+       OR substr(p_public_question_pool_id, 6, 1) <> ple_private.crockford_checksum_character(
+           substr(p_public_question_pool_id, 1, 4) || substr(p_public_question_pool_id, 7, 3)
+       )
        OR p_member_question_ids IS NULL OR p_member_revision_numbers IS NULL
        OR cardinality(p_member_question_ids) IS NULL OR cardinality(p_member_question_ids) = 0
        OR cardinality(p_member_question_ids) > 1024
@@ -265,6 +285,18 @@ BEGIN
         WHERE metadata.question_id IS NULL
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '23503', MESSAGE = 'Question Pool member is unavailable';
+    END IF;
+    IF EXISTS (
+        SELECT 1
+          FROM unnest(p_member_question_ids, p_member_revision_numbers)
+               AS member(question_id, revision_number)
+          JOIN ple_data.question_revision AS revision
+            ON revision.question_id = member.question_id
+           AND revision.revision_number = member.revision_number
+         WHERE NOT ple_private.question_backend_is_supported_for_production(revision.backend)
+    ) THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Question Pool members require a current production Question Backend';
     END IF;
     IF EXISTS (
         SELECT 1 FROM ple_data.published_question_metadata AS metadata
@@ -355,6 +387,18 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'New Question Pool members must share the established Discipline and Subject';
     END IF;
+    IF EXISTS (
+        SELECT 1
+          FROM unnest(p_member_question_ids, p_member_revision_numbers)
+               AS member(question_id, revision_number)
+          JOIN ple_data.question_revision AS revision
+            ON revision.question_id = member.question_id
+           AND revision.revision_number = member.revision_number
+         WHERE NOT ple_private.question_backend_is_supported_for_production(revision.backend)
+    ) THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Question Pool members require a current production Question Backend';
+    END IF;
     actor_id := ple_api.current_session_account_id();
     next_revision_number := pool_row.current_revision_number + 1;
     next_etag := pg_catalog.gen_random_uuid();
@@ -395,7 +439,10 @@ DECLARE source_revision ple_data.question_pool_revision%ROWTYPE;
 DECLARE source_metadata ple_data.question_pool%ROWTYPE;
 BEGIN
     IF p_question_pool_id IS NULL OR p_public_question_pool_id IS NULL
-       OR p_public_question_pool_id !~ '^[0-9A-HJKMNP-TV-Z]{8}$'
+       OR p_public_question_pool_id !~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
+       OR substr(p_public_question_pool_id, 6, 1) <> ple_private.crockford_checksum_character(
+           substr(p_public_question_pool_id, 1, 4) || substr(p_public_question_pool_id, 7, 3)
+       )
        OR p_source_question_pool_id IS NULL OR p_source_question_pool_revision_number IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Question Pool fork is invalid';
@@ -412,6 +459,19 @@ BEGIN
     END IF;
     SELECT source_pool.* INTO source_metadata FROM ple_data.question_pool AS source_pool
      WHERE source_pool.question_pool_id = p_source_question_pool_id FOR SHARE;
+    IF EXISTS (
+        SELECT 1
+          FROM ple_data.question_pool_revision_member AS member
+          JOIN ple_data.question_revision AS revision
+            ON revision.question_id = member.question_id
+           AND revision.revision_number = member.question_revision_number
+         WHERE member.question_pool_id = p_source_question_pool_id
+           AND member.revision_number = p_source_question_pool_revision_number
+           AND NOT ple_private.question_backend_is_supported_for_production(revision.backend)
+    ) THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Question Pool source Revision has an unavailable Question Backend';
+    END IF;
     next_etag := pg_catalog.gen_random_uuid();
     INSERT INTO ple_data.question_pool(
         question_pool_id, public_question_pool_id, metadata_etag, current_revision_number,
@@ -461,7 +521,10 @@ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
 BEGIN
     IF p_question_pool_id IS NULL OR p_public_question_pool_id IS NULL
-       OR p_public_question_pool_id !~ '^[0-9A-HJKMNP-TV-Z]{8}$'
+       OR p_public_question_pool_id !~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
+       OR substr(p_public_question_pool_id, 6, 1) <> ple_private.crockford_checksum_character(
+           substr(p_public_question_pool_id, 1, 4) || substr(p_public_question_pool_id, 7, 3)
+       )
        OR p_source_question_pool_id IS NULL OR p_source_question_pool_revision_number IS NULL
        OR NOT ple_api.current_session_account_is_instructor() THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Question Pool fork is unavailable';
@@ -531,28 +594,6 @@ GRANT EXECUTE ON FUNCTION ple_api.create_question_pool(uuid, text, text[], integ
 
 RESET ROLE;
 
--- This is the sole SQL presentation projection for a stored public Question
--- or Pool identifier. It receives only compact values already constrained by
--- their owning tables; it does not parse browser input, normalize aliases, or
--- validate the server HMAC. Keeping the 4-4 rendering here lets one actual
--- schema projection hand the same canonical public reference to both kinds.
-SET LOCAL ROLE ple_data_owner;
-CREATE FUNCTION ple_data.canonical_public_crockford_display(p_compact_id text)
-RETURNS text LANGUAGE plpgsql IMMUTABLE STRICT
-SET search_path = pg_catalog AS $$
-BEGIN
-    IF p_compact_id !~ '^[0-9A-HJKMNP-TV-Z]{8}$' THEN
-        RAISE EXCEPTION USING ERRCODE = '22023',
-            MESSAGE = 'public Crockford ID must be canonical compact storage form';
-    END IF;
-    RETURN substr(p_compact_id, 1, 4) || '-' || substr(p_compact_id, 5, 4);
-END
-$$;
-REVOKE ALL ON FUNCTION ple_data.canonical_public_crockford_display(text) FROM PUBLIC;
-GRANT USAGE ON SCHEMA ple_data TO ple_api_owner;
-GRANT EXECUTE ON FUNCTION ple_data.canonical_public_crockford_display(text) TO ple_api_owner;
-RESET ROLE;
-
 -- A deliberately narrow, answer-free public-reference projection. It names
 -- no internal UUID and does not make Pool content, membership, selection,
 -- ownership, or lifecycle state visible. C355 may consume these stable IDs;
@@ -572,14 +613,14 @@ BEGIN
     END IF;
     RETURN QUERY
     SELECT 'question'::text,
-           ple_data.canonical_public_crockford_display(question.question_id),
+           question.question_id,
            max(revision.revision_number)::bigint
       FROM ple_data.published_question AS question
       JOIN ple_data.question_revision AS revision ON revision.question_id = question.question_id
      GROUP BY question.question_id
     UNION ALL
     SELECT 'pool'::text,
-           ple_data.canonical_public_crockford_display(pool.public_question_pool_id),
+           pool.public_question_pool_id,
            max(revision.revision_number)
       FROM ple_data.question_pool AS pool
       JOIN ple_data.question_pool_revision AS revision
@@ -616,14 +657,13 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT pool.question_pool_id, pool.current_revision_number
       FROM ple_data.question_pool AS pool
      WHERE ple_api.current_session_account_is_instructor()
-       AND ple_data.canonical_public_crockford_display(pool.public_question_pool_id)
-           = p_public_question_pool_id
+       AND pool.public_question_pool_id = p_public_question_pool_id
 $$;
 REVOKE ALL ON FUNCTION ple_api.resolve_current_published_question_pool(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_api.resolve_current_published_question_pool(text) TO ple_app;
 
 -- ASVS V1.2/V2.2/V8.3: parameters remain typed SQL values, bounds are
--- enforced at the capability boundary, and active-Instructor authorization is
+-- enforced at the capability boundary, and active-Instructor-or-Sysadmin read authorization is
 -- checked before globally published Pool facts are projected.
 CREATE FUNCTION ple_api.list_published_question_pools(
     p_after text, p_page_size integer,
@@ -635,20 +675,23 @@ RETURNS TABLE (
     public_question_pool_id text,
     revision_number bigint,
     member_count integer,
-    title text, description text, discipline_uuid uuid, subject_uuid uuid,
+    title text, description text, discipline_uuid uuid, discipline_name text,
+    discipline_is_retired boolean, subject_uuid uuid,
     topic_uuid uuid, subtopic_uuid uuid, tags text[]
 ) LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
 BEGIN
-    -- ASVS 8.2.1: preserve empty non-Instructor discovery before invoking
+    -- ASVS 8.2.1: preserve empty unauthorized discovery before invoking
     -- the shared vocabulary readers, whose own boundary rejects those sessions.
-    IF NOT ple_api.current_session_account_is_instructor() THEN
+    IF NOT (ple_api.current_session_account_is_instructor()
+            OR ple_api.current_session_account_has_platform_administration()) THEN
         RETURN;
     END IF;
     RETURN QUERY
-    SELECT ple_data.canonical_public_crockford_display(pool.public_question_pool_id),
+    SELECT pool.public_question_pool_id,
            pool.current_revision_number, revision.member_count,
-           pool.title, pool.description, pool.discipline_uuid, pool.subject_uuid,
+           pool.title, pool.description, pool.discipline_uuid, discipline.name,
+           discipline.is_retired, pool.subject_uuid,
            pool.topic_uuid, pool.subtopic_uuid, pool.tags
       FROM ple_data.question_pool AS pool
       JOIN ple_data.question_pool_revision AS revision
@@ -658,7 +701,7 @@ BEGIN
       -- of widening API-owner or runtime-role privileges on vocabulary tables.
       -- Parent arguments come from the Pool, not the selected search filters,
       -- so cross-Discipline discovery still searches each Pool's own labels.
-      LEFT JOIN ple_api.list_content_disciplines() AS discipline
+      LEFT JOIN ple_api.list_content_disciplines_including_retired() AS discipline
         ON discipline.discipline_uuid = pool.discipline_uuid
       LEFT JOIN LATERAL ple_api.list_content_subjects(pool.discipline_uuid) AS subject
         ON subject.subject_uuid = pool.subject_uuid
@@ -666,7 +709,8 @@ BEGIN
         ON topic.topic_uuid = pool.topic_uuid
       LEFT JOIN LATERAL ple_api.list_content_subtopics(pool.topic_uuid) AS subtopic
         ON subtopic.subtopic_uuid = pool.subtopic_uuid
-     WHERE ple_api.current_session_account_is_instructor()
+     WHERE (ple_api.current_session_account_is_instructor()
+            OR ple_api.current_session_account_has_platform_administration())
        AND p_page_size BETWEEN 1 AND 100
        AND (p_subject_uuid IS NULL OR p_discipline_uuid IS NOT NULL)
        AND (p_topic_uuid IS NULL OR p_subject_uuid IS NOT NULL)
@@ -698,8 +742,13 @@ BEGIN
                    WHERE strpos(lower(candidate.value), term.value) > 0
                ) = term.excluded)
        )
-       AND (p_after IS NULL OR pool.public_question_pool_id > replace(p_after, '-', ''))
-       AND (p_after IS NULL OR p_after ~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$')
+       AND (p_after IS NULL OR pool.public_question_pool_id > p_after)
+       AND (p_after IS NULL OR (
+           p_after ~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
+           AND substr(p_after, 6, 1) = ple_private.crockford_checksum_character(
+               substr(p_after, 1, 4) || substr(p_after, 7, 3)
+           )
+       ))
      ORDER BY pool.public_question_pool_id
      LIMIT p_page_size + 1;
 END
@@ -712,27 +761,32 @@ RETURNS TABLE (
     member_position integer,
     question_id text,
     question_revision_number integer,
-    title text, description text, discipline_uuid uuid, subject_uuid uuid,
+    title text, description text, discipline_uuid uuid, discipline_name text,
+    discipline_is_retired boolean, subject_uuid uuid,
     topic_uuid uuid, subtopic_uuid uuid, tags text[]
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
-    SELECT ple_data.canonical_public_crockford_display(pool.public_question_pool_id),
+    SELECT pool.public_question_pool_id,
            pool.current_revision_number, member.member_position,
-           ple_data.canonical_public_crockford_display(member.question_id),
+           member.question_id,
            member.question_revision_number,
-           pool.title, pool.description, pool.discipline_uuid, pool.subject_uuid,
+           pool.title, pool.description, pool.discipline_uuid, discipline.name,
+           discipline.is_retired, pool.subject_uuid,
            pool.topic_uuid, pool.subtopic_uuid, pool.tags
       FROM ple_data.question_pool AS pool
       JOIN ple_data.question_pool_revision_member AS member
         ON member.question_pool_id = pool.question_pool_id
        AND member.revision_number = pool.current_revision_number
-     WHERE ple_api.current_session_account_is_instructor()
+      JOIN LATERAL ple_api.list_content_disciplines_including_retired() AS discipline
+        ON discipline.discipline_uuid = pool.discipline_uuid
+     WHERE (ple_api.current_session_account_is_instructor()
+            OR ple_api.current_session_account_has_platform_administration())
        AND pool.public_question_pool_id = p_public_question_pool_id
      ORDER BY member.member_position
 $$;
 
--- An exact Revision remains readable to active vetted Instructors after a
--- later append. The caller supplies the canonical compact public Pool ID and
+-- An exact Revision remains readable to active Instructors or Sysadmins after a
+-- later append. The caller supplies the canonical public Pool ID and
 -- positive immutable Revision number; the projection exposes only public IDs
 -- and exact ordered member pins.
 CREATE FUNCTION ple_api.read_published_question_pool_revision(
@@ -745,15 +799,17 @@ RETURNS TABLE (
     member_position integer,
     question_id text,
     question_revision_number integer,
-    title text, description text, discipline_uuid uuid, subject_uuid uuid,
+    title text, description text, discipline_uuid uuid, discipline_name text,
+    discipline_is_retired boolean, subject_uuid uuid,
     topic_uuid uuid, subtopic_uuid uuid, tags text[]
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
-    SELECT ple_data.canonical_public_crockford_display(pool.public_question_pool_id),
+    SELECT pool.public_question_pool_id,
            revision.revision_number, member.member_position,
-           ple_data.canonical_public_crockford_display(member.question_id),
+           member.question_id,
            member.question_revision_number,
-           pool.title, pool.description, pool.discipline_uuid, pool.subject_uuid,
+           pool.title, pool.description, pool.discipline_uuid, discipline.name,
+           discipline.is_retired, pool.subject_uuid,
            pool.topic_uuid, pool.subtopic_uuid, pool.tags
       FROM ple_data.question_pool AS pool
       JOIN ple_data.question_pool_revision AS revision
@@ -762,7 +818,10 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
       JOIN ple_data.question_pool_revision_member AS member
         ON member.question_pool_id = revision.question_pool_id
        AND member.revision_number = revision.revision_number
-     WHERE ple_api.current_session_account_is_instructor()
+      JOIN LATERAL ple_api.list_content_disciplines_including_retired() AS discipline
+        ON discipline.discipline_uuid = pool.discipline_uuid
+     WHERE (ple_api.current_session_account_is_instructor()
+            OR ple_api.current_session_account_has_platform_administration())
        AND p_revision_number > 0
        AND pool.public_question_pool_id = p_public_question_pool_id
      ORDER BY member.member_position

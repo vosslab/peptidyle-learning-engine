@@ -41,7 +41,10 @@ import {
   field,
   requireOnlyFields,
 } from "./shared";
-import { normalizeQuestionIdSyntax } from "../../question_id";
+import {
+  validateCanonicalPublicReference,
+  validateCanonicalQuestionIdSyntax,
+} from "../../question_id";
 import { decodeCourseClassification } from "./course_classification";
 
 const MAX_PAGE_SIZE = 100;
@@ -61,7 +64,7 @@ export function text(value: unknown, path: string): string {
 
 function blueprintReference(value: unknown, path: string): BlueprintCourseReference {
   const decoded = decodeString(value, path);
-  if (!/^BP[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$/u.test(decoded)) {
+  if (validateCanonicalPublicReference("blueprintCourse", decoded) === null) {
     throw new DecodeError(path, "a canonical opaque Blueprint Course reference");
   }
   return decoded;
@@ -77,7 +80,7 @@ function revision(value: unknown, path: string): string {
 
 export function questionId(value: unknown, path: string): string {
   const decoded = decodeString(value, path);
-  const canonicalQuestionId = normalizeQuestionIdSyntax(decoded);
+  const canonicalQuestionId = validateCanonicalQuestionIdSyntax(decoded);
   if (canonicalQuestionId === null || canonicalQuestionId !== decoded)
     throw new DecodeError(path, "a canonical public Question ID");
   return canonicalQuestionId;

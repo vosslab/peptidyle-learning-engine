@@ -309,7 +309,7 @@ mod tests {
     }
 
     fn question_id() -> QuestionId {
-        "7K3M-X9QX".parse().expect("valid question ID")
+        "7K3M-19QX".parse().expect("valid question ID")
     }
 
     fn defaults() -> BlueprintAssessmentDefaults {
@@ -345,7 +345,7 @@ mod tests {
                 BlueprintAssessmentEntryInput::Pool(ReusablePoolInput {
                     pool: BlueprintPoolInputChoice::Import {
                         question_pool_revision: QuestionPoolRevisionReference {
-                            question_pool_id: "12A4-XBCZ".parse().expect("valid Pool ID"),
+                            question_pool_id: "12A4-TBCZ".parse().expect("valid Pool ID"),
                             revision_number: QuestionPoolRevisionNumber::new(1)
                                 .expect("valid Pool Revision"),
                         },
@@ -394,16 +394,18 @@ mod tests {
                 availability: QuestionAvailability::Available,
                 published_at: Timestamp::from_unix_millis(0),
             },
+            discipline_name: "Biology".to_string(),
+            discipline_is_retired: false,
             evidence: QuestionStatistics::Unavailable,
         }
     }
 
     #[test]
     fn curriculum_references_round_trip_as_compact_wire_values() {
-        let blueprint: BlueprintCourseReference = "BP7K3M2Q".parse().expect("valid reference");
+        let blueprint: BlueprintCourseReference = "BP7K3M2QXH".parse().expect("valid reference");
         assert_eq!(
             serde_json::to_value(blueprint).expect("serializes"),
-            "BP7K3M2Q"
+            "BP7K3M2QXH"
         );
         assert!("BP7K3M2I".parse::<BlueprintCourseReference>().is_err());
         assert!("AC7K3M2Q".parse::<BlueprintCourseReference>().is_err());
@@ -418,7 +420,7 @@ mod tests {
         assert_eq!(wire["entries"][0]["kind"], "fixed");
         assert_eq!(
             wire["entries"][0]["published_question"]["questionId"],
-            "7K3M-X9QX"
+            "7K3M-19QX"
         );
         assert_eq!(
             wire["entries"][0]["published_question"]["revisionNumber"],
@@ -475,13 +477,13 @@ mod tests {
                 subtopic_uuid: None,
                 tags: Vec::new(),
             },
-            reference: "BP7K3M2Q".parse().expect("valid reference"),
+            reference: "BP7K3M2QXH".parse().expect("valid reference"),
             short_name: "Biochemistry".to_string(),
             long_name: "Biochemistry Blueprint".to_string(),
             availability: crate::BlueprintAvailability::Public,
             metadata_etag: crate::BlueprintMetadataEtag::from_uuid(uuid::Uuid::from_u128(42)),
             current_revision: crate::BlueprintRevisionReference {
-                reference: "BP7K3M2Q".parse().expect("valid reference"),
+                reference: "BP7K3M2QXH".parse().expect("valid reference"),
                 revision: BlueprintRevision::INITIAL,
             },
             read_access: BlueprintCourseReadAccess::ActiveInstructor,
@@ -511,7 +513,7 @@ mod tests {
                             },
                             BlueprintAssessmentEntryView::Pool(ReusablePoolView {
                                 question_pool_revision: QuestionPoolRevisionReference {
-                                    question_pool_id: "12A4-XBCZ".parse().expect("Pool ID"),
+                                    question_pool_id: "12A4-TBCZ".parse().expect("Pool ID"),
                                     revision_number: QuestionPoolRevisionNumber::new(1)
                                         .expect("Pool Revision"),
                                 },
@@ -532,7 +534,7 @@ mod tests {
             }],
         };
         let wire = serde_json::to_value(view).expect("safe view serializes");
-        assert_eq!(wire["reference"], "BP7K3M2Q");
+        assert_eq!(wire["reference"], "BP7K3M2QXH");
         assert_eq!(wire["current_revision"]["revision"], "1");
         assert_eq!(
             wire["modules"][0]["assessments"][0]["content"]["entries"][0]["kind"],
@@ -560,7 +562,7 @@ mod tests {
             wire.pointer(
                 "/modules/0/assessments/0/content/entries/1/question_pool_revision/questionPoolId"
             ),
-            Some(&serde_json::Value::String("12A4-XBCZ".to_string()))
+            Some(&serde_json::Value::String("12A4-TBCZ".to_string()))
         );
         assert_eq!(
             wire.pointer(
@@ -606,7 +608,7 @@ mod blueprint_course_tests {
                     entries: vec![BlueprintAssessmentEntryInput::Fixed(
                         ReusableFixedQuestionInput {
                             published_question: QuestionRevisionReference {
-                                question_id: "7K3M-X9QX".parse().expect("QuestionId"),
+                                question_id: "7K3M-19QX".parse().expect("QuestionId"),
                                 revision_number: QuestionRevisionNumber::new(1)
                                     .expect("positive Revision"),
                             },
@@ -662,7 +664,7 @@ mod blueprint_course_tests {
             entries: vec![BlueprintAssessmentEntryInput::Fixed(
                 ReusableFixedQuestionInput {
                     published_question: QuestionRevisionReference {
-                        question_id: "7K3M-X9QX".parse().expect("QuestionId"),
+                        question_id: "7K3M-19QX".parse().expect("QuestionId"),
                         revision_number: QuestionRevisionNumber::new(1).expect("positive Revision"),
                     },
                     points_possible: AssessmentPointValue::from_whole(1),

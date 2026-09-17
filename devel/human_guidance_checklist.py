@@ -42,6 +42,7 @@ PART_CONTEXT_HEADINGS: dict[str, tuple[str, ...]] = {
 	"03_shell.md": ("## Interface design",),
 }
 CHECKLIST_EXCLUDED_ROOT_HEADINGS = frozenset({
+	"Deferred product behavior",
 	"How to use this guidance",
 	"Product vocabulary and glossary",
 })
@@ -170,7 +171,7 @@ def source_lines() -> list[str]:
 
 #============================================
 def checklist_source_lines() -> list[str]:
-	"""Return Human Guidance lines that belong in the implementation checklist."""
+	"""Return current implementation requirements from Human Guidance."""
 	selected: list[str] = []
 	excluded_level: int | None = None
 	for line in source_lines():
@@ -206,8 +207,8 @@ def checklist_header() -> str:
 	"""Return the fixed status legend."""
 	return ("# Human Guidance implementation compliance checklist\n\n"
 		"Source: `docs/HUMAN_GUIDANCE.md`. Human Guidance remains authoritative. This file records\n"
-		"implementation status only. `How to use this guidance` and `Product vocabulary and glossary`\n"
-		"remain interpretive authority, but are not checklist items.\n\n"
+		"current implementation status only. `Deferred product behavior`, `How to use this guidance`,\n"
+		"and `Product vocabulary and glossary` remain authoritative, but are not checklist items.\n\n"
 		"- [x] Verified: implemented behavior matches the bullet. Evidence follows.\n"
 		"- [ ] Unverified: Mismatch identifies missing or incorrect behavior; Verification pending identifies implemented behavior awaiting named proof.\n"
 		"- N/A: audited and not an implementation requirement. Reason follows.\n\n")

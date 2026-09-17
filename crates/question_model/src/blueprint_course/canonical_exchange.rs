@@ -431,11 +431,11 @@ mod tests {
         // refusing transferred authority. On failure, repair this projection
         // or conversion; never admit owner or operational fields.
         let fixed = QuestionRevisionReference {
-            question_id: "7K3M-X9QX".parse().expect("Question ID"),
+            question_id: "7K3M-19QX".parse().expect("Question ID"),
             revision_number: QuestionRevisionNumber::new(2).expect("Question Revision"),
         };
         let pool = QuestionPoolRevisionReference {
-            question_pool_id: "12A4-XBCZ".parse().expect("Pool ID"),
+            question_pool_id: "12A4-TBCZ".parse().expect("Pool ID"),
             revision_number: QuestionPoolRevisionNumber::new(3).expect("Pool Revision"),
         };
         let defaults = BlueprintAssessmentDefaults {

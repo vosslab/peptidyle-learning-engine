@@ -127,7 +127,6 @@ pub enum ObjectAddress {
     /// An original source package for a published version.
     QuestionSource {
         /// Exact immutable Question Revision that owns the source.
-        #[serde(with = "compact_question_revision")]
         question_revision: QuestionRevisionReference,
         /// Physical object-record identity.
         object: ObjectId,
@@ -139,7 +138,6 @@ pub enum ObjectAddress {
     /// eligible for a signed delivery URL.
     PublishedImportArchive {
         /// Exact immutable Question Revision that owns the archive.
-        #[serde(with = "compact_question_revision")]
         question_revision: QuestionRevisionReference,
         /// Import identity which produced this published version.
         import: WorkspaceImportId,
@@ -149,7 +147,6 @@ pub enum ObjectAddress {
     /// A logical asset and its physical object for a published version.
     QuestionAsset {
         /// Exact immutable Question Revision that owns the asset.
-        #[serde(with = "compact_question_revision")]
         question_revision: QuestionRevisionReference,
         /// Logical asset referenced by content.
         asset: QuestionAssetId,
@@ -164,7 +161,6 @@ pub enum ObjectAddress {
     /// published content.
     RestrictedQuestionAsset {
         /// Exact immutable Question Revision that owns the asset.
-        #[serde(with = "compact_question_revision")]
         question_revision: QuestionRevisionReference,
         /// Logical asset referenced by content.
         asset: QuestionAssetId,
@@ -174,7 +170,6 @@ pub enum ObjectAddress {
     /// A deterministic rendered Question cached by exact Question Revision and Question Seed.
     QuestionRender {
         /// Exact immutable Question Revision that owns the rendered result.
-        #[serde(with = "compact_question_revision")]
         question_revision: QuestionRevisionReference,
         /// Question Seed that fully determines the render.
         question_seed: QuestionSeed,
@@ -226,59 +221,6 @@ pub enum ObjectAddress {
         /// Physical object-record identity.
         object: ObjectId,
     },
-}
-
-/// Serde boundary for a Question Revision nested inside an internal Object Address.
-///
-/// Object metadata and object-store keys are machine boundaries, so they retain the
-/// compact seven-character Question ID that the database stores. Public DTOs retain
-/// `QuestionRevisionReference`'s grouped human representation.
-mod compact_question_revision {
-    use question_model::{QuestionId, QuestionRevisionNumber, QuestionRevisionReference};
-    use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
-
-    #[derive(Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    struct CompactQuestionRevisionReference {
-        question_id: String,
-        revision_number: QuestionRevisionNumber,
-    }
-
-    pub fn serialize<S>(
-        reference: &QuestionRevisionReference,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        CompactQuestionRevisionReference {
-            question_id: reference.question_id.as_compact_str().to_owned(),
-            revision_number: reference.revision_number,
-        }
-        .serialize(serializer)
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<QuestionRevisionReference, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        // ASVS 1.5.2: this internal persistence boundary accepts only the
-        // fixed compact Question Revision representation.
-        let compact = CompactQuestionRevisionReference::deserialize(deserializer)?;
-        let question_id = compact
-            .question_id
-            .parse::<QuestionId>()
-            .map_err(de::Error::custom)?;
-        if compact.question_id != question_id.as_compact_str() {
-            return Err(de::Error::custom(
-                "Object Address Question ID must use canonical compact seven-character spelling",
-            ));
-        }
-        Ok(QuestionRevisionReference {
-            question_id,
-            revision_number: compact.revision_number,
-        })
-    }
 }
 
 impl ObjectAddress {
@@ -363,7 +305,7 @@ impl ObjectAddress {
                 object,
             } => format!(
                 "questions/{}/versions/{}/source/{object}",
-                question_revision.question_id.as_compact_str(),
+                question_revision.question_id.as_str(),
                 question_revision.revision_number
             ),
             Self::PublishedImportArchive {
@@ -372,7 +314,7 @@ impl ObjectAddress {
                 object,
             } => format!(
                 "questions/{}/versions/{}/imports/{import}/archive/{object}",
-                question_revision.question_id.as_compact_str(),
+                question_revision.question_id.as_str(),
                 question_revision.revision_number
             ),
             Self::QuestionAsset {
@@ -381,7 +323,7 @@ impl ObjectAddress {
                 object,
             } => format!(
                 "questions/{}/versions/{}/assets/{asset}/{object}",
-                question_revision.question_id.as_compact_str(),
+                question_revision.question_id.as_str(),
                 question_revision.revision_number
             ),
             Self::RestrictedQuestionAsset {
@@ -391,7 +333,7 @@ impl ObjectAddress {
             } => {
                 format!(
                     "questions/{}/versions/{}/restricted-assets/{asset}/{object}",
-                    question_revision.question_id.as_compact_str(),
+                    question_revision.question_id.as_str(),
                     question_revision.revision_number
                 )
             }
@@ -401,7 +343,7 @@ impl ObjectAddress {
                 object,
             } => format!(
                 "questions/{}/versions/{}/renders/{}/{object}",
-                question_revision.question_id.as_compact_str(),
+                question_revision.question_id.as_str(),
                 question_revision.revision_number,
                 question_seed.value()
             ),
@@ -613,8 +555,8 @@ pub fn published_import_archive_object_id(
     archive_sha256: Sha256Checksum,
 ) -> ObjectId {
     let mut hasher = Sha256::new();
-    hasher.update(b"ple:published-import-archive:v1\0");
-    hasher.update(question_revision.question_id.as_compact_str().as_bytes());
+    hasher.update(b"ple:published-import-archive:v2\0");
+    hasher.update(question_revision.question_id.as_str().as_bytes());
     hasher.update(question_revision.revision_number.get().to_be_bytes());
     hasher.update(import.as_uuid().as_bytes());
     hasher.update(archive_sha256.as_bytes());

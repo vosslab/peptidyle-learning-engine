@@ -100,7 +100,7 @@ impl AssessmentPoolForkStore for PostgresAssessmentPoolForkStore {
         .bind(input.assessment_entry.as_uuid())
         .bind(expected_edit)
         .bind(input.fork_question_pool_id)
-        .bind(input.fork_public_question_pool_id.as_compact_str())
+        .bind(input.fork_public_question_pool_id.as_str())
         .bind(source_question_pool_id)
         .bind(source_revision)
         .bind(authored_position)
@@ -166,7 +166,7 @@ impl AssessmentPoolForkStore for PostgresAssessmentPoolForkStore {
         let question_ids = input
             .members
             .iter()
-            .map(|member| member.question_id.as_compact_str())
+            .map(|member| member.question_id.as_str())
             .collect::<Vec<_>>();
         let revision_numbers = input
             .members

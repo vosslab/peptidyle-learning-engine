@@ -21,7 +21,6 @@ async-trait.workspace = true
 axum.workspace = true
 axum-extra.workspace = true
 tokio.workspace = true
-base64.workspace = true
 cookie.workspace = true
 csv.workspace = true
 getrandom.workspace = true

@@ -114,7 +114,7 @@ impl IssuedQuestionId {
                 member
                     .question_pool_revision
                     .question_pool_id
-                    .as_compact_str()
+                    .as_str()
                     .as_bytes(),
             );
             name.extend_from_slice(
@@ -140,7 +140,7 @@ mod tests {
         let entry = AssessmentEntryId::from_uuid(Uuid::from_u128(2));
         let pool_revision_member = crate::PoolRevisionMemberReference {
             question_pool_revision: crate::QuestionPoolRevisionReference {
-                question_pool_id: "7654-X321".parse().expect("valid Pool ID"),
+                question_pool_id: "7654-Z321".parse().expect("valid Pool ID"),
                 revision_number: crate::QuestionPoolRevisionNumber::new(1)
                     .expect("positive Pool Revision"),
             },

@@ -39,7 +39,6 @@ use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
 use crate::auth::{AuthError, resolve_session};
-use crate::question_publication::HmacQuestionIdIssuer;
 use question_model::ProductRole;
 
 const DEFAULT_PAGE_SIZE: u16 = 50;
@@ -60,17 +59,15 @@ struct QuestionLibraryRouteState {
     classifications: PostgresContentClassificationStore,
     objects: S3ObjectStore,
     webwork: Arc<WebworkAdapter<HttpWebworkRenderer>>,
-    question_id_issuer: HmacQuestionIdIssuer,
 }
 
-/// Registers the Instructor-only Question Library browse and detail routes.
+/// Registers Question Library browse and detail reads for Instructors and Sysadmins.
 pub fn question_library_router(
     sessions: Arc<learning_data_access::postgres::PostgresSessionStore>,
     store: PostgresQuestionLibraryStore,
     classifications: PostgresContentClassificationStore,
     objects: S3ObjectStore,
     webwork: Arc<WebworkAdapter<HttpWebworkRenderer>>,
-    question_id_issuer: HmacQuestionIdIssuer,
 ) -> Router {
     Router::new()
         .route("/api/questions/search", get(search_questions))
@@ -105,7 +102,6 @@ pub fn question_library_router(
             classifications,
             objects,
             webwork,
-            question_id_issuer,
         })
 }
 
@@ -132,7 +128,7 @@ async fn search_questions(
         Ok(query) => query,
         Err((status, message)) => return route_error(status, message),
     };
-    let session_hash = match instructor_session_hash(&state, &headers).await {
+    let session_hash = match library_reader_session_hash(&state, &headers).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -177,6 +173,8 @@ async fn search_questions(
             .iter()
             .map(|entry| QuestionSearchResult {
                 summary: entry.summary.clone(),
+                discipline_name: entry.discipline.clone().unwrap_or_default(),
+                discipline_is_retired: entry.discipline_is_retired,
                 evidence: QuestionStatistics::Unavailable,
             })
             .collect(),
@@ -191,17 +189,12 @@ async fn resolve_question(
     headers: HeaderMap,
     Path(question_id): Path<String>,
 ) -> Response {
-    let session_hash = match instructor_session_hash(&state, &headers).await {
+    let session_hash = match library_reader_session_hash(&state, &headers).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let entry = match load_verified_question_library_entry(
-        &state.store,
-        &state.question_id_issuer,
-        session_hash,
-        &question_id,
-    )
-    .await
+    let entry = match load_verified_question_library_entry(&state.store, session_hash, &question_id)
+        .await
     {
         Ok(Some(entry)) => entry,
         Ok(None) => return concealed(),
@@ -230,17 +223,12 @@ async fn question_details(
     headers: HeaderMap,
     Path(question_id): Path<String>,
 ) -> Response {
-    let session_hash = match instructor_session_hash(&state, &headers).await {
+    let session_hash = match library_reader_session_hash(&state, &headers).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let entry = match load_verified_question_library_entry(
-        &state.store,
-        &state.question_id_issuer,
-        session_hash,
-        &question_id,
-    )
-    .await
+    let entry = match load_verified_question_library_entry(&state.store, session_hash, &question_id)
+        .await
     {
         Ok(Some(entry)) => entry,
         Ok(None) => return concealed(),
@@ -268,16 +256,14 @@ async fn question_revision_details(
     headers: HeaderMap,
     Path((question_id, revision_number)): Path<(String, String)>,
 ) -> Response {
-    let session_hash = match instructor_session_hash(&state, &headers).await {
+    let session_hash = match library_reader_session_hash(&state, &headers).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let reference =
-        match verified_question_revision(&state.question_id_issuer, &question_id, &revision_number)
-        {
-            Some(reference) => reference,
-            None => return concealed(),
-        };
+    let reference = match verified_question_revision(&question_id, &revision_number) {
+        Some(reference) => reference,
+        None => return concealed(),
+    };
     let entry = match state
         .store
         .load_published_question_revision_library_entry(session_hash, &reference)
@@ -304,16 +290,14 @@ async fn question_revision_preview_document(
     headers: HeaderMap,
     Path((question_id, revision_number)): Path<(String, String)>,
 ) -> Response {
-    let session_hash = match instructor_session_hash(&state, &headers).await {
+    let session_hash = match library_reader_session_hash(&state, &headers).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let reference =
-        match verified_question_revision(&state.question_id_issuer, &question_id, &revision_number)
-        {
-            Some(reference) => reference,
-            None => return concealed(),
-        };
+    let reference = match verified_question_revision(&question_id, &revision_number) {
+        Some(reference) => reference,
+        None => return concealed(),
+    };
     let entry = match state
         .store
         .load_published_question_revision_library_entry(session_hash, &reference)
@@ -399,7 +383,7 @@ async fn transition_question_availability(
     value: String,
     confirmation_title: Option<String>,
 ) -> Response {
-    let question_id = match verified_question_id(&state.question_id_issuer, &value) {
+    let question_id = match verified_question_id(&value) {
         Some(question_id) => question_id,
         None => return concealed(),
     };
@@ -464,6 +448,8 @@ fn expected_availability_edit_number(
 fn details_from_resolved(resolved: ResolvedQuestionLibraryEntry) -> QuestionDetails {
     QuestionDetails {
         summary: resolved.summary,
+        discipline_name: resolved.discipline.unwrap_or_default(),
+        discipline_is_retired: resolved.discipline_is_retired,
         prompt: QuestionDetailsPromptView::Static {
             blocks: resolved.prompt,
         },
@@ -481,26 +467,18 @@ fn details_from_resolved(resolved: ResolvedQuestionLibraryEntry) -> QuestionDeta
     }
 }
 
-/// Parses a browser-supplied exact ID and accepts only the deployment-issued
-/// canonical identity. Syntax remains a shared model concern; the HMAC check
-/// is server-only and intentionally uses the concealed resolution outcome.
-fn verified_question_id(
-    question_id_issuer: &HmacQuestionIdIssuer,
-    value: &str,
-) -> Option<QuestionId> {
-    let question_id = value.parse::<QuestionId>().ok()?;
-    question_id_issuer
-        .validates_question_id(&question_id)
-        .then_some(question_id)
+/// Parses only a browser-supplied exact canonical ID. The shared model verifies
+/// syntax and checksum, and this route intentionally conceals invalid values.
+fn verified_question_id(value: &str) -> Option<QuestionId> {
+    value.parse().ok()
 }
 
 fn verified_question_revision(
-    question_id_issuer: &HmacQuestionIdIssuer,
     question_id: &str,
     revision_number: &str,
 ) -> Option<QuestionRevisionReference> {
     Some(QuestionRevisionReference {
-        question_id: verified_question_id(question_id_issuer, question_id)?,
+        question_id: verified_question_id(question_id)?,
         revision_number: revision_number
             .parse::<u32>()
             .ok()
@@ -516,16 +494,15 @@ fn preview_question_seed() -> Result<question_model::generation::QuestionSeed, (
     ))
 }
 
-/// Resolves only a server-HMAC-validated Question ID through the authorized
-/// Question Library Store. A syntax-valid ID with another validation character
-/// is concealed before any Question lookup can occur.
+/// Resolves only a checksum-validated Question ID through the authorized
+/// Question Library Store. An invalid canonical ID is concealed before any
+/// Question lookup can occur.
 async fn load_verified_question_library_entry(
     store: &impl QuestionLibraryStore,
-    question_id_issuer: &HmacQuestionIdIssuer,
     session_hash: SessionTokenHash,
     value: &str,
 ) -> Result<Option<PublishedQuestionLibraryEntry>, StoreError> {
-    let Some(question_id) = verified_question_id(question_id_issuer, value) else {
+    let Some(question_id) = verified_question_id(value) else {
         return Ok(None);
     };
     store
@@ -541,6 +518,28 @@ async fn instructor_session_hash(
     let cookie_header = joined_cookie_header(headers);
     match resolve_session(state.sessions.as_ref(), cookie_header.as_deref()).await {
         Ok(session) if session.record.product_role == ProductRole::Instructor => {
+            Ok(session.session_hash)
+        }
+        Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
+        Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(route_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Question Library authentication unavailable",
+        ))),
+    }
+}
+
+async fn library_reader_session_hash(
+    state: &QuestionLibraryRouteState,
+    headers: &HeaderMap,
+) -> Result<SessionTokenHash, Box<Response>> {
+    let cookie_header = joined_cookie_header(headers);
+    match resolve_session(state.sessions.as_ref(), cookie_header.as_deref()).await {
+        Ok(session)
+            if matches!(
+                session.record.product_role,
+                ProductRole::Instructor | ProductRole::Sysadmin
+            ) =>
+        {
             Ok(session.session_hash)
         }
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
@@ -568,6 +567,7 @@ struct ResolvedQuestionLibraryEntry {
     subject: Option<String>,
     topic: Option<String>,
     discipline: Option<String>,
+    discipline_is_retired: bool,
     subtopic: Option<String>,
     classification: question_model::PublishedQuestionSharedMetadata,
 }
@@ -598,6 +598,8 @@ pub(crate) async fn answer_free_question_search_results(
             question_revision,
             QuestionSearchResult {
                 summary: resolved.summary,
+                discipline_name: resolved.discipline.unwrap_or_default(),
+                discipline_is_retired: resolved.discipline_is_retired,
                 evidence: QuestionStatistics::Unavailable,
             },
         );
@@ -621,6 +623,8 @@ pub(crate) async fn answer_free_reusable_question_view(
         reference,
         question_library: QuestionSearchResult {
             summary: resolved.summary,
+            discipline_name: resolved.discipline.unwrap_or_default(),
+            discipline_is_retired: resolved.discipline_is_retired,
             evidence: QuestionStatistics::Unavailable,
         },
         selection_availability,
@@ -687,6 +691,7 @@ fn webwork_question_library_entry(
         subject,
         topic,
         discipline: Some(entry.discipline_name),
+        discipline_is_retired: entry.discipline_is_retired,
         subtopic: entry.subtopic_name,
         classification: entry.shared_metadata,
     })
@@ -751,6 +756,7 @@ async fn resolved_ple_question(
         subject,
         topic,
         discipline: Some(entry.discipline_name),
+        discipline_is_retired: entry.discipline_is_retired,
         subtopic: entry.subtopic_name,
         classification: entry.shared_metadata,
     })

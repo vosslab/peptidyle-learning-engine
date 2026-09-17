@@ -3,8 +3,8 @@
 use async_trait::async_trait;
 use objects::{ObjectAddress, ObjectDataClass, ObjectRecord, ObjectStorageArea, Sha256Checksum};
 use question_model::{
-    DraftQuestionReference, ObjectId, QuestionAssetId, QuestionId, QuestionRevisionReference,
-    Timestamp, WorkspaceId,
+    DraftQuestionReference, ObjectId, QuestionAssetId, QuestionRevisionReference, Timestamp,
+    WorkspaceId,
 };
 use sqlx::{Postgres, Row, Transaction, types::Json};
 
@@ -68,7 +68,7 @@ impl QuestionForkStore for PostgresQuestionForkStore {
             })?;
         let mut transaction = self.begin(session_token_hash).await?;
         let rows = sqlx::query("SELECT * FROM ple_api.load_question_fork_asset($1, $2)")
-            .bind(question_revision.question_id.as_compact_str())
+            .bind(question_revision.question_id.as_str())
             .bind(revision_number)
             .fetch_all(&mut *transaction)
             .await
@@ -119,13 +119,12 @@ impl QuestionForkStore for PostgresQuestionForkStore {
             .map_err(ForkPublishedQuestionError::Store)?;
         let row = sqlx::query(
             "SELECT * FROM ple_api.fork_published_question_to_draft(\
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13\
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12\
              )",
         )
         .bind(input.workspace.as_uuid())
         .bind(input.proposed_draft_question_id)
-        .bind(input.forked_question_id.as_compact_str())
-        .bind(input.source_question_revision.question_id.as_compact_str())
+        .bind(input.source_question_revision.question_id.as_str())
         .bind(source_revision_number)
         .bind(input.idempotency_key)
         .bind(target.id.as_uuid())
@@ -155,15 +154,6 @@ impl QuestionForkStore for PostgresQuestionForkStore {
                 .map_err(map_sqlx_error)
                 .map_err(ForkPublishedQuestionError::Store)?,
         );
-        let forked_question_id: String = row
-            .try_get("forked_question_id")
-            .map_err(map_sqlx_error)
-            .map_err(ForkPublishedQuestionError::Store)?;
-        let forked_question_id = forked_question_id.parse::<QuestionId>().map_err(|_| {
-            ForkPublishedQuestionError::Store(StoreError::InvalidRecord(
-                "Question Fork returned an invalid Question ID".to_owned(),
-            ))
-        })?;
         let created_new: bool = row
             .try_get("created_new")
             .map_err(map_sqlx_error)
@@ -176,7 +166,6 @@ impl QuestionForkStore for PostgresQuestionForkStore {
         Ok(ForkedPublishedQuestionDraft {
             draft_question,
             workspace,
-            forked_question_id,
             created_new,
         })
     }
@@ -261,11 +250,6 @@ fn encode_hotspot_asset(
 }
 
 fn map_fork_error(error: sqlx::Error) -> ForkPublishedQuestionError {
-    if let sqlx::Error::Database(database_error) = &error
-        && database_error.code().as_deref() == Some("QF001")
-    {
-        return ForkPublishedQuestionError::IdentityCollision;
-    }
     if let sqlx::Error::Database(database_error) = &error
         && database_error.code().as_deref() == Some("QF002")
     {

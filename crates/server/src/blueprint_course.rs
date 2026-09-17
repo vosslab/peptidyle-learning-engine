@@ -1,6 +1,6 @@
 //! Blueprint Revision, lineage metadata, and availability routes.
 //!
-//! Browser Question IDs are HMAC-validated before Store resolution. The Store
+//! Browser Question IDs are checksum-validated before Store resolution. The Store
 //! alone resolves the exact immutable Question Revision pins.
 
 use std::{collections::BTreeMap, sync::Arc};
@@ -38,10 +38,7 @@ use question_model::{
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::{
-    auth::{AuthError, resolve_session},
-    question_publication::HmacQuestionIdIssuer,
-};
+use crate::auth::{AuthError, resolve_session};
 
 mod change_proposal_view;
 mod change_proposals;
@@ -74,11 +71,9 @@ pub(super) struct BlueprintCourseRouteState {
     pub(super) lineage: PostgresBlueprintLineageStore,
     pub(super) question_library: PostgresQuestionLibraryStore,
     pub(super) objects: S3ObjectStore,
-    pub(super) question_id_issuer: HmacQuestionIdIssuer,
 }
 
-/// Registers the Instructor Blueprint lifecycle. Composition supplies the
-/// deployment-only issuer so input validation precedes Store access.
+/// Registers the Instructor Blueprint lifecycle.
 pub fn blueprint_course_router(
     sessions: Arc<PostgresSessionStore>,
     blueprints: PostgresBlueprintCourseStore,
@@ -86,7 +81,6 @@ pub fn blueprint_course_router(
     lineage: PostgresBlueprintLineageStore,
     question_library: PostgresQuestionLibraryStore,
     objects: S3ObjectStore,
-    question_id_issuer: HmacQuestionIdIssuer,
 ) -> Router {
     Router::new()
         .route(
@@ -185,7 +179,6 @@ pub fn blueprint_course_router(
             lineage,
             question_library,
             objects,
-            question_id_issuer,
         })
 }
 
@@ -248,7 +241,7 @@ async fn create_blueprint(
     headers: HeaderMap,
     Json(input): Json<CreateBlueprintCourseInput>,
 ) -> Response {
-    if !valid_create_question_ids(&state.question_id_issuer, &input) {
+    if !valid_create_question_ids(&input) {
         return concealed();
     }
     let checksum = match request_checksum("create-blueprint-course", &headers, &input) {
@@ -284,7 +277,7 @@ async fn save_blueprint(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    if !valid_replace_question_ids(&state.question_id_issuer, &input) {
+    if !valid_replace_question_ids(&input) {
         return concealed();
     }
     let expected = match expected_revision(&headers) {
@@ -742,53 +735,26 @@ fn selection_availability(
 
 // ASVS 2.2.1/2.2.2: reject a syntactically plausible but deployment-invalid ID
 // before a persistence resolver can disclose whether a Question exists.
-fn valid_create_question_ids(
-    issuer: &HmacQuestionIdIssuer,
-    input: &CreateBlueprintCourseInput,
-) -> bool {
+fn valid_create_question_ids(input: &CreateBlueprintCourseInput) -> bool {
     input
         .modules
         .iter()
         .flat_map(|module| module.assessments.iter())
-        .all(|assessment| valid_assessment_question_ids(issuer, assessment))
+        .all(valid_assessment_question_ids)
 }
-fn valid_replace_question_ids(
-    issuer: &HmacQuestionIdIssuer,
-    input: &ReplaceBlueprintCourseContentInput,
-) -> bool {
+fn valid_replace_question_ids(input: &ReplaceBlueprintCourseContentInput) -> bool {
     input
         .modules
         .iter()
         .flat_map(|module| module.assessments.iter())
-        .all(|assessment| valid_assessment_question_ids(issuer, &assessment.content))
+        .all(|assessment| valid_assessment_question_ids(&assessment.content))
 }
-fn valid_assessment_question_ids(
-    issuer: &HmacQuestionIdIssuer,
-    input: &question_model::BlueprintAssessmentContentInput,
-) -> bool {
+fn valid_assessment_question_ids(input: &question_model::BlueprintAssessmentContentInput) -> bool {
     input.entries.iter().all(|entry| match entry {
-        question_model::BlueprintAssessmentEntryInput::Fixed(value) => {
-            issuer.validates_question_id(&value.published_question.question_id)
-        }
+        question_model::BlueprintAssessmentEntryInput::Fixed(_) => true,
         // ASVS 2.2.1/2.2.2: validate the exact Pool and any newly authored
         // member Question IDs before the Store resolves private state.
-        question_model::BlueprintAssessmentEntryInput::Pool(value) => match &value.pool {
-            question_model::BlueprintPoolInputChoice::Import {
-                question_pool_revision,
-            } => issuer.validates_question_id(&question_pool_revision.question_pool_id),
-            question_model::BlueprintPoolInputChoice::Retained {
-                question_pool_revision,
-                members,
-                ..
-            } => {
-                issuer.validates_question_id(&question_pool_revision.question_pool_id)
-                    && members.as_ref().is_none_or(|members| {
-                        members
-                            .iter()
-                            .all(|member| issuer.validates_question_id(&member.question_id))
-                    })
-            }
-        },
+        question_model::BlueprintAssessmentEntryInput::Pool(_) => true,
     })
 }
 
@@ -892,24 +858,16 @@ fn joined_cookie_header(headers: &HeaderMap) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::question_publication::{QuestionIdIssuer, QuestionIdSecret};
+    use crate::question_publication::QuestionIdIssuer;
     use axum::http::{HeaderValue, StatusCode};
     use learning_data_access::StoreError;
     #[test]
-    fn rejects_syntactically_valid_id_with_wrong_hmac() {
-        let issuer = HmacQuestionIdIssuer::new(QuestionIdSecret::from_bytes([5; 32]));
+    fn rejects_id_with_wrong_checksum() {
+        let issuer = RandomQuestionIdIssuer::new();
         let valid = issuer.issue_question_id().expect("ID");
-        let wrong = QuestionId::from_canonical_parts(
-            valid.identifier_compact(),
-            if valid.validation_character() == '0' {
-                '1'
-            } else {
-                '0'
-            },
-        )
-        .expect("shape");
-        assert!(issuer.validates_question_id(&valid));
-        assert!(!issuer.validates_question_id(&wrong));
+        let wrong = "0000-5000".parse::<QuestionId>();
+        assert!(valid.as_str().parse::<QuestionId>().is_ok());
+        assert!(wrong.is_err());
         assert!(!valid_idempotency_key(""));
         assert!(valid_idempotency_key("publish-1"));
     }

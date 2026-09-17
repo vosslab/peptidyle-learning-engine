@@ -37,7 +37,7 @@ export function CourseClassificationFields(props: {
         required
         value={props.value.disciplineUuid}
         disabled={props.disabled}
-        load={() => api.client.listDisciplines()}
+        load={() => api.client.listDisciplinesIncludingRetired()}
         onChange={(disciplineUuid) =>
           props.onChange({
             ...props.value,

@@ -13,14 +13,14 @@ import { createRecordingFetch } from "./http_client_test_support.mjs";
 
 function savedPolicyWorkspace() {
   return {
-    reference: "A8H4N6P",
+    reference: "A8H4N6PA6",
     editNumber: "4",
     status: "unreleased",
     assessmentType: "regular_assignment",
     origin: {
       kind: "adopted",
       source: {
-        blueprint_revision: { reference: "BP7K3M2Q", revision: "1" },
+        blueprint_revision: { reference: "BP7K3M2QAF", revision: "1" },
         blueprint_assessment_reference: "00000000-0000-0000-0000-000000000011",
       },
     },
@@ -77,7 +77,7 @@ function baseAssessmentPolicy() {
 test("Course Assessment rows require exact due and Instructor-zone display facts", () => {
   const rows = decodeCourseAssessments([
     {
-      reference: "A8H4N6P",
+      reference: "A8H4N6PA6",
       assessmentType: "regular_assignment",
       title: "Peptide bonds",
       dueAt: "2026-09-11T14:30:00.000",
@@ -92,7 +92,7 @@ test("Course Assessment rows require exact due and Instructor-zone display facts
   assert.throws(() =>
     decodeCourseAssessments([
       {
-        reference: "A8H4N6P",
+        reference: "A8H4N6PA6",
         assessmentType: "regular_assignment",
         title: "Peptide bonds",
         displayTimeZone: "America/Chicago",
@@ -104,7 +104,7 @@ test("Course Assessment rows require exact due and Instructor-zone display facts
   assert.throws(() =>
     decodeCourseAssessments([
       {
-        reference: "A8H4N6P",
+        reference: "A8H4N6PA6",
         assessmentType: "regular_assignment",
         title: "Peptide bonds",
         dueAt: "2026-09-11T14:30:00.000",
@@ -148,8 +148,8 @@ test("Base Assessment Policy save uses the current workspace boundary and exact 
   );
 
   const saved = await createHttpApiClient({ fetch: recordingFetch }).saveBaseAssessmentPolicy(
-    "CI7K3M2Q",
-    "A8H4N6P",
+    "CI7K3M2QAZ",
+    "A8H4N6PA6",
     baseAssessmentPolicy(),
     '"3"',
   );
@@ -158,7 +158,7 @@ test("Base Assessment Policy save uses the current workspace boundary and exact 
   assert.equal(saved.etag, '"4"');
   assert.equal(
     new URL(requests[0].url).pathname,
-    "/api/course-instances/CI7K3M2Q/assessments/A8H4N6P/policies",
+    "/api/course-instances/CI7K3M2QAZ/assessments/A8H4N6PA6/policies",
   );
   assert.equal(requests[0].method, "PUT");
   assert.equal(requests[0].headers.get("if-match"), '"3"');
@@ -174,8 +174,8 @@ test("Base Assessment Policy save requires a matching response ETag and maps an 
   );
   await assert.rejects(
     createHttpApiClient({ fetch: missingEtag.recordingFetch }).saveBaseAssessmentPolicy(
-      "CI7K3M2Q",
-      "A8H4N6P",
+      "CI7K3M2QAZ",
+      "A8H4N6PA6",
       baseAssessmentPolicy(),
       '"3"',
     ),
@@ -191,8 +191,8 @@ test("Base Assessment Policy save requires a matching response ETag and maps an 
   );
   await assert.rejects(
     createHttpApiClient({ fetch: conflict.recordingFetch }).saveBaseAssessmentPolicy(
-      "CI7K3M2Q",
-      "A8H4N6P",
+      "CI7K3M2QAZ",
+      "A8H4N6PA6",
       baseAssessmentPolicy(),
       '"3"',
     ),
@@ -203,7 +203,7 @@ test("Base Assessment Policy save requires a matching response ETag and maps an 
 test("Student Assessment detail accepts only its viewer-owned display zone", () => {
   const detail = decodeStudentAssessmentDetail({
     id: "00000000-0000-0000-0000-000000000001",
-    reference: "A9D2RX5",
+    reference: "A9D2RX5AF",
     title: "Peptide bonds",
     instructions: "Use your notes.",
     display_time_zone: "America/New_York",

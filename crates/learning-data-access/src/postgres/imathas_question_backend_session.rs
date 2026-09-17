@@ -94,7 +94,7 @@ impl ImathasQuestionBackendSessionStore for PostgresImathasQuestionBackendSessio
         .bind(parts.grading_context.question_attempt().as_uuid())
         .bind(parts.imathas_question_backend_binding.deployment_reference().as_str())
         .bind(parts.imathas_question_backend_binding.item_reference().as_str())
-        .bind(parts.grading_context.question_revision().question_id.as_compact_str())
+        .bind(parts.grading_context.question_revision().question_id.as_str())
         .bind(i32::try_from(parts.grading_context.question_revision().revision_number.get()).map_err(|_| {
             StoreError::InvalidRecord("Question Revision number exceeds PostgreSQL integer range".into())
         })?)
@@ -179,7 +179,7 @@ async fn load_row(
             .item_reference()
             .as_str(),
     )
-    .bind(expectation.storage_parts().grading_context.question_revision().question_id.as_compact_str())
+    .bind(expectation.storage_parts().grading_context.question_revision().question_id.as_str())
     .bind(i32::try_from(expectation.storage_parts().grading_context.question_revision().revision_number.get()).map_err(|_| {
         StoreError::InvalidRecord("Question Revision number exceeds PostgreSQL integer range".into())
     })?)

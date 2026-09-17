@@ -16,6 +16,7 @@ import type { BlueprintComparisonSide } from "../../../generated/api/BlueprintCo
 import type { BlueprintRevision } from "../../../generated/api/BlueprintRevision";
 import type { BlueprintCourseClient } from "../../api/blueprint_course";
 import { assessmentTypePresentation } from "../../assessment_type_presentation";
+import { normalizeHumanEnteredPublicReference } from "../../question_id";
 import { BlueprintForkApply } from "./blueprint_fork_apply";
 import {
   assessmentDifferenceLabels,
@@ -323,11 +324,8 @@ function RelatedComparison(props: ForkProps): JSX.Element {
         class="blueprint-related-comparison-form"
         onSubmit={(event) => {
           event.preventDefault();
-          const candidate = reference().trim().toUpperCase();
-          if (
-            !/^BP[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$/u.test(candidate) ||
-            candidate === props.reference
-          ) {
+          const candidate = normalizeHumanEnteredPublicReference("blueprintCourse", reference());
+          if (candidate === null || candidate === props.reference) {
             setInvalid(true);
             input?.focus();
             return;
@@ -355,7 +353,7 @@ function RelatedComparison(props: ForkProps): JSX.Element {
       </form>
       <Show when={invalid()}>
         <p id={`${inputId}-error`} role="alert">
-          Enter a different Blueprint Course Reference in BPXXXXXX format.
+          Enter a different Blueprint Course Reference in BPXXXXXXAN format.
         </p>
       </Show>
       <Show when={selected()} keyed>

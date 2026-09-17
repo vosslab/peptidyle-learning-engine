@@ -1,6 +1,6 @@
 // question_picker_model.ts - reusable, answer-free Question Picker contracts.
 
-import { normalizeQuestionIdSyntax } from "../../question_id";
+import { validateCanonicalQuestionIdSyntax } from "../../question_id";
 import type { BlueprintCourseClient } from "../../api/blueprint_course";
 import type { BlueprintAssessmentSource } from "../../../generated/api/BlueprintAssessmentSource";
 import type { QuestionFormat } from "../../../generated/api/QuestionFormat";
@@ -107,25 +107,30 @@ function selectionLimit(mode: QuestionPickerSelectionMode, maximumSelection: num
   return mode === "one" ? 1 : maximumSelection;
 }
 
-function normalizeQuestionId(value: string): string {
-  const questionId = normalizeQuestionIdSyntax(value);
+function canonicalQuestionId(value: string): string {
+  const questionId = validateCanonicalQuestionIdSyntax(value);
   if (questionId === null)
     throw new Error("A selected question must have a canonical Question ID.");
   return questionId;
 }
 
-function rowsWithNormalizedUniqueQuestionIds(
+function rowsWithCanonicalUniqueQuestionIds(
   rows: ReadonlyArray<QuestionLibraryBrowseRow>,
 ): ReadonlyArray<QuestionLibraryBrowseRow> {
   const known = new Set<string>();
   const unique: QuestionLibraryBrowseRow[] = [];
   for (const row of rows) {
-    const questionId = normalizeQuestionId(row.displayId);
+    const questionId = canonicalQuestionId(row.displayId);
     if (known.has(questionId)) continue;
     known.add(questionId);
     unique.push(row);
   }
   return unique;
+}
+
+/** Picker choices create new reusable work, unlike historical Library reads. */
+function isCurrentProductionPickerRow(row: QuestionLibraryBrowseRow): boolean {
+  return row.questionFormat !== "imathas";
 }
 
 /** Builds the public, ordered selection while retaining only D1-safe row metadata. */
@@ -134,13 +139,13 @@ export function questionPickerSelection(
   maximumSelection: number,
   rows: ReadonlyArray<QuestionLibraryBrowseRow>,
 ): QuestionPickerSelection {
-  const uniqueRows = rowsWithNormalizedUniqueQuestionIds(rows);
+  const uniqueRows = rowsWithCanonicalUniqueQuestionIds(rows);
   const maximum = selectionLimit(mode, maximumSelection);
   if (uniqueRows.length > maximum) {
     throw new Error(`Choose at most ${maximum} question${maximum === 1 ? "" : "s"} here.`);
   }
   const questions = uniqueRows.map((row) => ({
-    questionId: normalizeQuestionId(row.displayId),
+    questionId: canonicalQuestionId(row.displayId),
     row,
   }));
   const questionIds = questions.map((question) => question.questionId);
@@ -155,7 +160,7 @@ export function toggleQuestionPickerSelection(
   row: QuestionLibraryBrowseRow,
   selected: boolean,
 ): QuestionPickerSelection {
-  const questionId = normalizeQuestionId(row.displayId);
+  const questionId = canonicalQuestionId(row.displayId);
   const withoutCurrent = selection.questions.filter(
     (question) => question.questionId !== questionId,
   );
@@ -252,6 +257,8 @@ function reusableQuestionLibraryRow(item: {
     readonly authorship: { readonly authors: ReadonlyArray<{ readonly displayName: string }> };
     readonly capabilities: ReadonlyArray<string>;
   };
+  readonly disciplineName: string;
+  readonly disciplineIsRetired: boolean;
   readonly evidence: { readonly state: "unavailable" };
 }): QuestionLibraryBrowseRow {
   const summary = item.summary;
@@ -261,6 +268,8 @@ function reusableQuestionLibraryRow(item: {
     questionRevision: summary.latestQuestionRevision,
     questionTitle: summary.metadata.questionTitle,
     summary: summary.metadata.questionDescription,
+    disciplineName: item.disciplineName,
+    disciplineIsRetired: item.disciplineIsRetired,
     questionFormat: summary.questionFormat,
     authorNames: summary.authorship.authors.map((author) => author.displayName),
     capabilities: summary.capabilities,
@@ -429,8 +438,10 @@ export class QuestionPickerSession {
       const raw = await this.repository.search({ source, query: this.#query, cursor });
       const page = decodeQuestionLibraryBrowsePage(raw);
       if (generation !== this.#generation) return;
-      const rows = rowsWithNormalizedUniqueQuestionIds(
-        replace ? page.items : [...retainedRows, ...page.items],
+      const rows = rowsWithCanonicalUniqueQuestionIds(
+        (replace ? page.items : [...retainedRows, ...page.items]).filter(
+          isCurrentProductionPickerRow,
+        ),
       );
       this.setState(
         rows.length === 0

@@ -10,9 +10,9 @@ function responseBody() {
   return {
     items: [
       {
-        courseReference: "CI8H4N6P",
+        courseReference: "CI8H4N6PAW",
         courseLongName: "Molecular Biology",
-        assessmentReference: "A9J5V7W",
+        assessmentReference: "A9J5V7WA3",
         assessmentType: "quiz",
         assessmentTitle: "DNA repair",
         assessmentStatus: "released",
@@ -38,7 +38,7 @@ test("Due Soon client reads the closed Account-zone cross-Course projection", as
   const result = await createHttpApiClient({ fetch: recordingFetch }).listAssessmentsDueSoon();
 
   assert.equal(result.displayTimeZone, "America/Chicago");
-  assert.equal(result.items[0]?.courseReference, "CI8H4N6P");
+  assert.equal(result.items[0]?.courseReference, "CI8H4N6PAW");
   assert.equal(result.items[0]?.dueAtMillis, 1790971200125);
   assert.equal(new URL(requests[0].url).pathname, "/api/assessments/due-soon");
   assert.equal(requests[0].method, "GET");

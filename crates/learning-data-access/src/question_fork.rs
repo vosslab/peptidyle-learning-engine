@@ -1,14 +1,12 @@
 //! Server-derived Published Question fork persistence.
 //!
 //! The browser names only an already-public Question Revision in the request
-//! path. This contract keeps the source pin, future Question ID, private
-//! workspace, Draft identity, and idempotency receipt inside trusted code.
+//! path. This contract keeps the source pin, private workspace, Draft identity,
+//! and idempotency receipt inside trusted code.
 
 use async_trait::async_trait;
 use objects::{ObjectAddress, ObjectDataClass, ObjectRecord, ObjectStorageArea};
-use question_model::{
-    DraftQuestionReference, QuestionAssetId, QuestionId, QuestionRevisionReference, WorkspaceId,
-};
+use question_model::{DraftQuestionReference, QuestionAssetId, QuestionRevisionReference, WorkspaceId};
 use uuid::Uuid;
 
 use crate::{SessionTokenHash, StoreError};
@@ -18,8 +16,6 @@ use crate::{SessionTokenHash, StoreError};
 pub struct ForkPublishedQuestionInput {
     /// Existing available immutable source Revision, resolved from the path.
     pub source_question_revision: QuestionRevisionReference,
-    /// Fresh HMAC-validated identity reserved for this fork's later publication.
-    pub forked_question_id: QuestionId,
     /// Existing owner workspace resolved through the ordinary authoring Store.
     pub workspace: WorkspaceId,
     /// Opaque server persistence identity; it never crosses the browser boundary.
@@ -96,18 +92,14 @@ pub struct ForkedPublishedQuestionDraft {
     pub draft_question: DraftQuestionReference,
     /// Server-only workspace that owns the Draft.
     pub workspace: WorkspaceId,
-    /// Server-minted future Published Question identity.
-    pub forked_question_id: QuestionId,
     /// Whether this invocation committed the aggregate rather than replaying its receipt.
     pub created_new: bool,
 }
 
-/// Only a collision of the reserved fork identity is conclusive and retryable.
+/// Fork persistence failures are not safe for the coordinator to retry.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ForkPublishedQuestionError {
-    /// A freshly HMAC-issued future Question ID was already reserved by a fork.
-    IdentityCollision,
-    /// Every other persistence result is not safe for the coordinator to retry.
+    /// No public ID exists until later publication.
     Store(StoreError),
 }
 

@@ -9,7 +9,7 @@ export function CourseClassificationSummary(props: {
   readonly value: CourseClassification;
 }): JSX.Element {
   const api = useApplicationApi();
-  const [disciplines] = createResource(() => api.client.listDisciplines());
+  const [disciplines] = createResource(() => api.client.listDisciplinesIncludingRetired());
   const [subjects] = createResource(
     () => props.value.disciplineUuid,
     (uuid) => api.client.listSubjects(uuid),
@@ -26,7 +26,9 @@ export function CourseClassificationSummary(props: {
     items: ReadonlyArray<ContentClassificationItem> | undefined,
     uuid: string,
   ): string {
-    return items?.find((item) => item.uuid === uuid)?.name ?? uuid;
+    const item = items?.find((candidate) => candidate.uuid === uuid);
+    if (item === undefined) return uuid;
+    return item.isRetired ? `${item.name} (retired)` : item.name;
   }
   // ASVS 1.2.1: vocabulary names and Tags use escaped text, never markup injection.
   return (

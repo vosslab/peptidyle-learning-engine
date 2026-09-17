@@ -14,6 +14,7 @@ import {
 } from "../decoder";
 import { decodeAssessmentTitle, field, requireOnlyFields } from "./shared";
 import { decodeRosterName } from "./course_roster";
+import { validateCanonicalPublicReference } from "../../question_id";
 
 const ASSIGNMENT_ATTEMPT_COMPLETIONS = [
   "inProgress",
@@ -22,7 +23,7 @@ const ASSIGNMENT_ATTEMPT_COMPLETIONS = [
 
 function courseReference(value: unknown, path: string): CourseInstanceReference {
   const decoded = decodeString(value, path);
-  if (!/^CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$/u.test(decoded)) {
+  if (validateCanonicalPublicReference("courseInstance", decoded) === null) {
     throw new DecodeError(path, "a canonical opaque Course Instance reference");
   }
   return decoded;
@@ -30,7 +31,7 @@ function courseReference(value: unknown, path: string): CourseInstanceReference 
 
 function assessmentReference(value: unknown, path: string): AssessmentReference {
   const decoded = decodeString(value, path);
-  if (!/^A[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$/u.test(decoded)) {
+  if (validateCanonicalPublicReference("assessment", decoded) === null) {
     throw new DecodeError(path, "a canonical opaque Assessment reference");
   }
   return decoded;

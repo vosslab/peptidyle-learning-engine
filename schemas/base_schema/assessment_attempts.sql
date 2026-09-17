@@ -333,9 +333,9 @@ BEGIN
       FROM ple_private.question_revision_source_binding
      WHERE question_id = NEW.question_id
        AND revision_number = NEW.revision_number;
-    IF NOT FOUND OR source_backend NOT IN ('ple', 'webwork', 'imathas')
+    IF NOT FOUND OR NOT ple_private.question_backend_is_supported_for_production(source_backend)
        OR (source_backend = 'ple' AND NEW.question_seed IS NOT NULL)
-       OR (source_backend IN ('webwork', 'imathas') AND NEW.question_seed IS NULL) THEN
+       OR (source_backend = 'webwork' AND NEW.question_seed IS NULL) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Issued Question reproduction must match its source backend';
     END IF;

@@ -24,10 +24,7 @@ use question_model::{MAX_BULK_QUESTION_METADATA_ITEMS, ProductRole, QuestionId};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{
-    auth::{AuthError, resolve_session},
-    question_publication::HmacQuestionIdIssuer,
-};
+use crate::auth::{AuthError, resolve_session};
 
 const MAX_BULK_QUESTION_METADATA_BYTES: usize = 256 * 1024;
 
@@ -35,21 +32,18 @@ const MAX_BULK_QUESTION_METADATA_BYTES: usize = 256 * 1024;
 struct RouteState {
     sessions: Arc<PostgresSessionStore>,
     store: Arc<dyn BulkPublishedQuestionMetadataStore>,
-    question_id_issuer: HmacQuestionIdIssuer,
 }
 
 /// Registers the sole browser command for atomic shared Question metadata edits.
 pub fn question_bulk_metadata_router(
     sessions: Arc<PostgresSessionStore>,
     store: PostgresBulkPublishedQuestionMetadataStore,
-    question_id_issuer: HmacQuestionIdIssuer,
 ) -> Router {
     Router::new()
         .route("/api/questions/bulk-metadata", post(bulk_replace_metadata))
         .with_state(RouteState {
             sessions,
             store: Arc::new(store),
-            question_id_issuer,
         })
 }
 
@@ -110,7 +104,7 @@ async fn bulk_replace_metadata(State(state): State<RouteState>, request: Request
             );
         }
     };
-    let input = match decode_input(&state.question_id_issuer, request) {
+    let input = match decode_input(request) {
         Some(input) => input,
         None => {
             return route_error(
@@ -140,10 +134,7 @@ async fn bulk_replace_metadata(State(state): State<RouteState>, request: Request
     }
 }
 
-fn decode_input(
-    issuer: &HmacQuestionIdIssuer,
-    request: BulkMetadataRequest,
-) -> Option<BulkPublishedQuestionMetadataInput> {
+fn decode_input(request: BulkMetadataRequest) -> Option<BulkPublishedQuestionMetadataInput> {
     if request.selection.is_empty() || request.selection.len() > MAX_BULK_QUESTION_METADATA_ITEMS {
         return None;
     }
@@ -152,12 +143,10 @@ fn decode_input(
         .into_iter()
         .map(|selected| {
             let question_id = selected.question_id.parse::<QuestionId>().ok()?;
-            issuer.validates_question_id(&question_id).then_some(
-                BulkPublishedQuestionMetadataSelection {
-                    question_id,
-                    metadata_edit_number: selected.metadata_edit_number,
-                },
-            )
+            Some(BulkPublishedQuestionMetadataSelection {
+                question_id,
+                metadata_edit_number: selected.metadata_edit_number,
+            })
         })
         .collect::<Option<Vec<_>>>()?;
     let patch = decode_patch(request.patch)?;

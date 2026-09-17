@@ -77,6 +77,8 @@ function modules() {
                   reference: publishedQuestion.latestQuestionRevision,
                   question_library: {
                     summary: publishedQuestion,
+                    disciplineName: "Biology",
+                    disciplineIsRetired: false,
                     evidence: { state: "unavailable" },
                   },
                   selection_availability: "available",
@@ -97,12 +99,12 @@ function modules() {
 function blueprint(revision = "3") {
   return {
     classification,
-    reference: "BP7K3M2Q",
+    reference: "BP7K3M2QAF",
     short_name: "Biochemistry",
     long_name: "Biochemistry sequence",
     availability: "private",
     metadata_etag: metadataEtag,
-    current_revision: { reference: "BP7K3M2Q", revision },
+    current_revision: { reference: "BP7K3M2QAF", revision },
     fork_source: null,
     read_access: "blueprint_course_owner",
     modules: modules(),
@@ -183,12 +185,12 @@ test("Course classification metadata updates send explicit hierarchy with indepe
     },
   });
   const blueprintReceipt = await client.updateBlueprintCourseClassification(
-    "BP7K3M2Q",
+    "BP7K3M2QAF",
     selected,
     `"${metadataEtag}"`,
   );
   const instanceReceipt = await client.updateCourseInstanceClassification(
-    "CI6F2R8T",
+    "CI6F2R8TA0",
     selected,
     metadataEtag,
   );
@@ -198,8 +200,8 @@ test("Course classification metadata updates send explicit hierarchy with indepe
   assert.deepEqual(
     requests.map(({ path }) => path),
     [
-      "/api/course-blueprints/BP7K3M2Q/classification",
-      "/api/course-instances/CI6F2R8T/classification",
+      "/api/course-blueprints/BP7K3M2QAF/classification",
+      "/api/course-instances/CI6F2R8TA0/classification",
     ],
   );
   for (const { options } of requests) {
@@ -375,40 +377,40 @@ test("B1 client sends Revision and metadata validators to their separate routes"
         return noStoreJson(privateMetadata, `"${privateMetadata.metadata_etag}"`);
       if (path.endsWith("/revisions/3"))
         return noStoreJson({
-          blueprintRevision: { reference: "BP7K3M2Q", revision: "3" },
+          blueprintRevision: { reference: "BP7K3M2QAF", revision: "3" },
           modules: modules(),
         });
-      if (request.method === "GET" && path.endsWith("BP7K3M2Q"))
+      if (request.method === "GET" && path.endsWith("BP7K3M2QAF"))
         return noStoreJson(blueprint(), '"3"');
       if (request.method === "POST" && path.endsWith("course-blueprints"))
         return noStoreJson(blueprint("1"), '"1"', 201);
-      if (request.method === "PUT" && path.endsWith("BP7K3M2Q"))
+      if (request.method === "PUT" && path.endsWith("BP7K3M2QAF"))
         return noStoreJson({ blueprintCourse: blueprint("4"), changed: true }, '"4"');
       return noStoreJson({ items: [], nextCursor: null });
     },
   });
-  const current = await client.getBlueprintCourse("BP7K3M2Q");
+  const current = await client.getBlueprintCourse("BP7K3M2QAF");
   await client.createBlueprintCourse(creationInput(), "create-7");
   const saved = await client.saveBlueprintCourse(
-    "BP7K3M2Q",
+    "BP7K3M2QAF",
     replacementInput(),
     current.revisionEtag,
     "save-7",
   );
   const renamed = await client.renameBlueprintCourse(
-    "BP7K3M2Q",
+    "BP7K3M2QAF",
     { short_name: "Biochemistry", long_name: "Biochemistry sequence" },
     `"${metadataEtag}"`,
   );
-  const published = await client.publishBlueprintCourse("BP7K3M2Q", renamed.metadataEtag);
+  const published = await client.publishBlueprintCourse("BP7K3M2QAF", renamed.metadataEtag);
   const archived = await client.archiveBlueprintCourse(
-    "BP7K3M2Q",
+    "BP7K3M2QAF",
     "Biochemistry sequence",
     published.metadataEtag,
   );
-  const restored = await client.restoreBlueprintCourse("BP7K3M2Q", archived.metadataEtag);
-  const returned = await client.returnBlueprintCourseToPrivate("BP7K3M2Q", restored.metadataEtag);
-  const revision = await client.getBlueprintRevision("BP7K3M2Q", "3");
+  const restored = await client.restoreBlueprintCourse("BP7K3M2QAF", archived.metadataEtag);
+  const returned = await client.returnBlueprintCourseToPrivate("BP7K3M2QAF", restored.metadataEtag);
+  const revision = await client.getBlueprintRevision("BP7K3M2QAF", "3");
   assert.equal(current.blueprintCourse.modules[0].assessments[0].content.assessment_type, "exam");
   assert.equal(saved.changed, true);
   assert.equal(saved.blueprintCourse.modules[0].assessments[0].content.assessment_type, "exam");
@@ -416,7 +418,7 @@ test("B1 client sends Revision and metadata validators to their separate routes"
   assert.equal(returned.metadata.availability, "private");
   assert.equal(revision.blueprintRevision.revision, "3");
   const save = requests.find(
-    (request) => request.method === "PUT" && request.url.endsWith("BP7K3M2Q"),
+    (request) => request.method === "PUT" && request.url.endsWith("BP7K3M2QAF"),
   );
   const creation = requests.find(
     (request) => request.method === "POST" && request.url.endsWith("course-blueprints"),
@@ -433,18 +435,18 @@ test("B1 client sends Revision and metadata validators to their separate routes"
     requests.some(
       (request) =>
         request.method === "POST" &&
-        request.url.endsWith("/api/course-blueprints/BP7K3M2Q/publish"),
+        request.url.endsWith("/api/course-blueprints/BP7K3M2QAF/publish"),
     ),
   );
   assert.ok(
     requests.some(
       (request) =>
         request.method === "POST" &&
-        request.url.endsWith("/api/course-blueprints/BP7K3M2Q/return-to-private"),
+        request.url.endsWith("/api/course-blueprints/BP7K3M2QAF/return-to-private"),
     ),
   );
   await assert.rejects(
-    client.saveBlueprintCourse("BP7K3M2Q", replacementInput(), '"07"', "save-7"),
+    client.saveBlueprintCourse("BP7K3M2QAF", replacementInput(), '"07"', "save-7"),
     ApiProtocolError,
   );
   await assert.rejects(
@@ -467,18 +469,18 @@ test("Canonical Blueprint exchange uses the one strict reusable-structure transp
       const request = new Request(new URL(input.toString(), "https://ple.example"), init);
       requests.push(request.clone());
       if (request.method === "GET") return noStoreJson(exchange);
-      return noStoreJson({ ...blueprint("1"), reference: "BP7K3M2R" }, '"1"', 201);
+      return noStoreJson({ ...blueprint("1"), reference: "BP7K3M2RAW" }, '"1"', 201);
     },
   });
 
-  assert.deepEqual(await client.exportBlueprintCourse("BP7K3M2Q"), exchange);
+  assert.deepEqual(await client.exportBlueprintCourse("BP7K3M2QAF"), exchange);
   const imported = await client.importBlueprintCourse(exchange, "import-7");
-  assert.equal(imported.blueprintCourse.reference, "BP7K3M2R");
+  assert.equal(imported.blueprintCourse.reference, "BP7K3M2RAW");
   assert.equal(imported.blueprintCourse.availability, "private");
   assert.deepEqual(
     requests.map((request) => [request.method, new URL(request.url).pathname]),
     [
-      ["GET", "/api/course-blueprints/BP7K3M2Q/export"],
+      ["GET", "/api/course-blueprints/BP7K3M2QAF/export"],
       ["POST", "/api/course-blueprints/import"],
     ],
   );
@@ -496,12 +498,12 @@ test("Canonical Blueprint import rejects a receipt that is not a new actor-owned
   const malformedReceipts = [
     { availability: "public" },
     { read_access: "active_instructor" },
-    { fork_source: { reference: "BP7K3M2Q", revision: "1" } },
-    { current_revision: { reference: "BP7K3M2R", revision: "2" } },
+    { fork_source: { reference: "BP7K3M2QAF", revision: "1" } },
+    { current_revision: { reference: "BP7K3M2RAW", revision: "2" } },
   ];
 
   for (const changes of malformedReceipts) {
-    const receipt = { ...blueprint("1"), reference: "BP7K3M2R", ...changes };
+    const receipt = { ...blueprint("1"), reference: "BP7K3M2RAW", ...changes };
     const client = createHttpApiClient({
       fetch: () =>
         Promise.resolve(noStoreJson(receipt, `"${receipt.current_revision.revision}"`, 201)),
@@ -521,7 +523,7 @@ test("B1 client gives a typed conflict for a stale Blueprint Revision Save", asy
       ),
   });
   await assert.rejects(
-    client.saveBlueprintCourse("BP7K3M2Q", replacementInput(), '"3"', "save-7"),
+    client.saveBlueprintCourse("BP7K3M2QAF", replacementInput(), '"3"', "save-7"),
     BlueprintCourseConflictError,
   );
 });
@@ -532,7 +534,7 @@ test("B1 client accepts a canonical Save no-op at the current Blueprint Revision
       Promise.resolve(noStoreJson({ blueprintCourse: blueprint("3"), changed: false }, '"3"')),
   });
   const saved = await client.saveBlueprintCourse(
-    "BP7K3M2Q",
+    "BP7K3M2QAF",
     replacementInput(),
     '"3"',
     "save-no-op",
@@ -549,7 +551,7 @@ test("B1 Blueprint aggregates have a dedicated bounded response budget", async (
   const blueprintClient = createHttpApiClient({
     fetch: () => Promise.resolve(noStoreJson(largeBlueprint, '"3"')),
   });
-  const loaded = await blueprintClient.getBlueprintCourse("BP7K3M2Q");
+  const loaded = await blueprintClient.getBlueprintCourse("BP7K3M2QAF");
   assert.equal(loaded.blueprintCourse.modules[0].assessments.length, 85);
 
   const ordinaryClient = createHttpApiClient({
@@ -569,7 +571,7 @@ test("B1 Blueprint aggregates reject responses beyond their dedicated budget", a
   const client = createHttpApiClient({
     fetch: () => Promise.resolve(noStoreJson(oversizedBlueprint, '"3"')),
   });
-  await assert.rejects(client.getBlueprintCourse("BP7K3M2Q"), ApiProtocolError);
+  await assert.rejects(client.getBlueprintCourse("BP7K3M2QAF"), ApiProtocolError);
 });
 
 test("B1 metadata decoder rejects non-opaque validators", () => {

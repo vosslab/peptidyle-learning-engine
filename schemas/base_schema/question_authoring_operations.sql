@@ -32,15 +32,13 @@ END
 $$;
 
 -- A fork starts a distinct, private, unversioned Draft without copying any
--- browser-provided content. The server has already resolved the exact source
--- Revision and, through C878, issued the HMAC-validated future Question ID;
--- this operation validates only its compact shape and keeps both facts in one
--- immutable private receipt. The actor/key advisory lock
+-- browser-provided content. The server has resolved the exact source Revision.
+-- Publication mints the new public Question ID; this immutable private receipt
+-- keeps only the source provenance. The actor/key advisory lock
 -- makes concurrent retries return one Draft instead of racing a second one.
 CREATE FUNCTION ple_private.fork_published_question_to_draft(
     p_workspace_id uuid,
     p_draft_question_uuid uuid,
-    p_forked_question_id text,
     p_source_question_id text,
     p_source_revision_number integer,
     p_idempotency_key uuid,
@@ -55,7 +53,6 @@ CREATE FUNCTION ple_private.fork_published_question_to_draft(
     draft_question_uuid uuid,
     workspace_id uuid,
     reference_number bigint,
-    forked_question_id text,
     created_new boolean
 ) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
@@ -88,10 +85,11 @@ DECLARE
     target_asset_height integer;
 BEGIN
     IF p_workspace_id IS NULL OR p_draft_question_uuid IS NULL
-       OR p_forked_question_id IS NULL
-       OR p_forked_question_id !~ '^[0-9A-HJKMNP-TV-Z]{8}$'
        OR p_source_question_id IS NULL
-       OR p_source_question_id !~ '^[0-9A-HJKMNP-TV-Z]{8}$'
+       OR p_source_question_id !~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
+       OR substr(p_source_question_id, 6, 1) <> ple_private.crockford_checksum_character(
+           substr(p_source_question_id, 1, 4) || substr(p_source_question_id, 7, 3)
+       )
        OR p_source_revision_number IS NULL OR p_source_revision_number <= 0
        OR p_idempotency_key IS NULL
        OR NOT ple_api.current_session_account_is_instructor() THEN
@@ -121,7 +119,7 @@ BEGIN
         END IF;
         RETURN QUERY
         SELECT question.draft_question_uuid, question.workspace_id,
-               question.reference_number, fork.forked_question_id, false
+               question.reference_number, false
           FROM ple_private.draft_question_fork_source AS fork
           JOIN ple_private.draft_question AS question
             ON question.draft_question_uuid = fork.draft_question_uuid
@@ -179,6 +177,10 @@ BEGIN
      WHERE binding.question_id = p_source_question_id
        AND binding.revision_number = p_source_revision_number
      FOR KEY SHARE;
+    IF NOT ple_private.question_backend_is_supported_for_production(source_binding.backend) THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Question Fork source backend is unavailable for new production work';
+    END IF;
     SELECT * INTO STRICT source_record
       FROM ple_private.object_record AS record
      WHERE record.object_id = source_binding.source_object_id;
@@ -200,18 +202,6 @@ BEGIN
        OR source_record.object_data_class <> 'question-source' THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Question Fork target must preserve the exact source Revision bytes';
-    END IF;
-    PERFORM pg_catalog.pg_advisory_xact_lock(
-        pg_catalog.hashtextextended('question-id:' || p_forked_question_id, 0));
-    IF p_forked_question_id = p_source_question_id
-       OR EXISTS (
-           SELECT 1 FROM ple_data.published_question AS published
-            WHERE published.question_id = p_forked_question_id)
-       OR EXISTS (
-           SELECT 1 FROM ple_private.draft_question_fork_source AS reservation
-            WHERE reservation.forked_question_id = p_forked_question_id) THEN
-        RAISE EXCEPTION USING ERRCODE = 'QF001',
-            MESSAGE = 'Question Fork Question ID candidate is already allocated';
     END IF;
     IF source_revision.question_type = 'hotspot' THEN
         SELECT pg_catalog.count(*) INTO asset_count
@@ -319,21 +309,16 @@ BEGIN
             target_asset_object_id, target_asset_width, target_asset_height);
     END IF;
     INSERT INTO ple_private.draft_question_fork_source(
-        draft_question_uuid, forked_question_id, actor_account_id, idempotency_key,
+        draft_question_uuid, actor_account_id, idempotency_key,
         source_question_id, source_revision_number, created_at
     ) VALUES (
-        p_draft_question_uuid, p_forked_question_id, actor_id, p_idempotency_key,
+        p_draft_question_uuid, actor_id, p_idempotency_key,
         p_source_question_id, p_source_revision_number, created_at
     );
     draft_question_uuid := p_draft_question_uuid;
     workspace_id := p_workspace_id;
-    forked_question_id := p_forked_question_id;
     created_new := true;
     RETURN NEXT;
-EXCEPTION
-    WHEN unique_violation THEN
-        RAISE EXCEPTION USING ERRCODE = 'QF001',
-            MESSAGE = 'Question Fork allocation candidate collided';
 END
 $$;
 
@@ -697,7 +682,7 @@ END
 $$;
 
 REVOKE ALL ON FUNCTION ple_private.ensure_own_authoring_workspace(uuid),
-    ple_private.fork_published_question_to_draft(uuid, uuid, text, text, integer, uuid,
+    ple_private.fork_published_question_to_draft(uuid, uuid, text, integer, uuid,
         uuid, jsonb, bytea, bigint, text, bigint, jsonb),
     ple_private.current_session_account_owns_draft_question(uuid),
     ple_private.list_authoring_drafts(), ple_private.load_authoring_draft(bigint),
@@ -727,7 +712,6 @@ $$;
 CREATE FUNCTION ple_api.fork_published_question_to_draft(
     p_workspace_id uuid,
     p_draft_question_uuid uuid,
-    p_forked_question_id text,
     p_source_question_id text,
     p_source_revision_number integer,
     p_idempotency_key uuid,
@@ -742,13 +726,12 @@ CREATE FUNCTION ple_api.fork_published_question_to_draft(
     draft_question_uuid uuid,
     workspace_id uuid,
     reference_number bigint,
-    forked_question_id text,
     created_new boolean
 ) LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT * FROM ple_private.fork_published_question_to_draft(
-        p_workspace_id, p_draft_question_uuid, p_forked_question_id,
-        p_source_question_id, p_source_revision_number, p_idempotency_key,
+        p_workspace_id, p_draft_question_uuid, p_source_question_id,
+        p_source_revision_number, p_idempotency_key,
         p_target_object_id, p_target_object_address, p_target_sha256,
         p_target_size_bytes, p_target_media_type, p_target_created_at_millis,
         p_hotspot_asset)

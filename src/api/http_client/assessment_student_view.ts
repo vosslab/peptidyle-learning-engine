@@ -3,7 +3,7 @@
 import type { AssessmentReference } from "../../../generated/api/AssessmentReference";
 import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
 import type { QuestionRevisionReference } from "../../../generated/api/QuestionRevisionReference";
-import { normalizeQuestionIdSyntax } from "../../../generated/api/QuestionIdSyntaxContract";
+import { validateCanonicalQuestionIdSyntax } from "../../../generated/api/QuestionIdSyntaxContract";
 import type { AssessmentStudentViewClient } from "../assessment_student_view";
 import { decodeInstructorStudentView } from "../decoders/assessment_student_view";
 import { decodeStudentQuestionPresentation } from "../decoders/presentation_delivery";
@@ -36,7 +36,7 @@ function questionPath(
   questionRevision: QuestionRevisionReference,
 ): string {
   const base = assessmentStudentViewPath(course, assessment);
-  const questionId = normalizeQuestionIdSyntax(questionRevision.questionId);
+  const questionId = validateCanonicalQuestionIdSyntax(questionRevision.questionId);
   if (
     !Number.isSafeInteger(authoredPosition) ||
     authoredPosition < 0 ||

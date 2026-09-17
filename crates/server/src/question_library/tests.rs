@@ -1,4 +1,3 @@
-use crate::question_publication::QuestionIdSecret;
 use async_trait::async_trait;
 use axum::http::{HeaderValue, Uri};
 use question_model::QuestionSearchSort;
@@ -73,18 +72,15 @@ impl QuestionLibraryStore for LookupCountingStore {
 }
 
 #[tokio::test]
-async fn exact_question_routes_reject_a_syntax_valid_wrong_hmac_character_before_lookup() {
-    let issuer =
-        HmacQuestionIdIssuer::new(QuestionIdSecret::from_bytes(std::array::from_fn(|index| {
-            index as u8
-        })));
+async fn exact_question_routes_reject_a_wrong_checksum_character_before_lookup() {
+    let issuer = RandomQuestionIdIssuer::new();
     let store = LookupCountingStore(AtomicUsize::new(0));
 
     assert_eq!(
-        verified_question_id(&issuer, "0000-M00N")
-            .expect("documented issuer vector")
+        verified_question_id(&issuer, "0000-4000")
+            .expect("documented checksum vector")
             .to_string(),
-        "0000-M00N"
+        "0000-4000"
     );
     assert_eq!(
         load_verified_question_library_entry(
@@ -94,7 +90,7 @@ async fn exact_question_routes_reject_a_syntax_valid_wrong_hmac_character_before
             "0000-N00N",
         )
         .await
-        .expect("invalid HMAC is concealed before any Store failure"),
+        .expect("invalid checksum is concealed before any Store failure"),
         None
     );
     assert_eq!(store.0.load(Ordering::SeqCst), 0);

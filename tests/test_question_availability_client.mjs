@@ -19,12 +19,14 @@ function noStoreJson(value, etag) {
   });
 }
 
-function details(revisionNumber) {
+function details(revisionNumber, disciplineIsRetired = false) {
   return {
     summary: {
       ...question,
       latestQuestionRevision: { questionId: question.questionId, revisionNumber },
     },
+    disciplineName: "Biology",
+    disciplineIsRetired,
     prompt: { kind: "static", blocks: [] },
     evidence: { state: "unavailable" },
     usage: {
@@ -47,7 +49,7 @@ test("Question availability client keeps current lineage transitions and exact r
       const request = new Request(new URL(input.toString(), "https://ple.example"), init);
       requests.push(request.clone());
       const path = new URL(request.url).pathname;
-      if (path.endsWith("/revisions/2")) return noStoreJson(details(2), '"5"');
+      if (path.endsWith("/revisions/2")) return noStoreJson(details(2, true), '"5"');
       if (path.endsWith("/archive")) {
         return noStoreJson({ availability: { availability: "archived" }, editNumber: "6" }, '"6"');
       }
@@ -75,6 +77,8 @@ test("Question availability client keeps current lineage transitions and exact r
   assert.equal(lineage.viewerMayArchive, true);
   assert.equal(resolved.questionId, question.questionId);
   assert.equal(exact.summary.latestQuestionRevision.revisionNumber, 2);
+  assert.equal(exact.disciplineName, "Biology");
+  assert.equal(exact.disciplineIsRetired, true);
   assert.equal(archived.availability, "archived");
   assert.equal(restored.availability, "available");
   assert.equal(requests[3].headers.get("if-match"), '"5"');

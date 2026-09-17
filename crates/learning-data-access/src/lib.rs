@@ -35,6 +35,8 @@ mod course_theme;
 mod imathas_question_backend_session;
 mod instructor_account;
 mod invitation_export;
+mod library_discussion;
+mod library_watch_notification;
 mod live_gradebook;
 mod live_student_course_landing;
 pub use archived_student_work_recovery::{
@@ -46,7 +48,10 @@ pub mod postgres;
 mod public_asset_publication;
 mod question_asset_delivery;
 mod question_bulk_metadata;
-pub use content_classification::{ContentClassificationItem, ContentClassificationStore};
+pub use content_classification::{
+    ContentClassificationItem, ContentClassificationStore, ContentDiscipline,
+    ContentDisciplineAdministrationStore, ContentDisciplineDiscoveryStore,
+};
 mod question_fork;
 mod question_library;
 mod question_pool_creation;
@@ -59,7 +64,6 @@ pub use question_pool_stewardship::{
 mod question_source;
 mod question_star;
 mod question_watch;
-mod question_watch_notification;
 mod random_uuid;
 mod retention;
 mod retention_notification;
@@ -212,6 +216,15 @@ pub use invitation_export::{
     InvitationExportStore, InvitationMailerExport, InvitationMailerRecipient,
     PendingInvitationExport, PendingInvitationRecipient,
 };
+pub use library_discussion::{
+    LibraryDiscussionStore, LibraryDiscussionTarget, LibraryDiscussionView, LibraryImpactNotice,
+    LibraryImpactNoticeState, LibraryImprovementPost, LibraryImprovementThread,
+    LibraryImprovementThreadState,
+};
+pub use library_watch_notification::{
+    LibraryWatchEventKind, LibraryWatchInboxStore, LibraryWatchNotification,
+    LibraryWatchNotificationStore, LibraryWatchTargetKind,
+};
 pub use live_gradebook::{CourseGradebook, CourseGradebookStore, CourseGradebookStudentWork};
 pub use live_student_course_landing::{
     LiveAssessmentGradeContribution, LiveStudentAssessmentLandingSummary,
@@ -254,7 +267,6 @@ pub use question_source::{
 };
 pub use question_star::{QuestionStarProjection, QuestionStarStore, QuestionStarredInstructor};
 pub use question_watch::{QuestionWatchProjection, QuestionWatchStore};
-pub use question_watch_notification::QuestionWatchNotificationStore;
 pub use retention::{CourseRetentionDueAction, CourseRetentionDueActionKind, CourseRetentionStore};
 pub use retention_notification::{
     ClaimedCourseRetentionNotification, CourseRetentionNotificationFailure,

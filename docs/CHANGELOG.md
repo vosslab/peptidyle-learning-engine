@@ -8,11 +8,48 @@
 
 ### Behavior or Interface Changes
 
-- Added the Course tools action to create a new Blueprint from a Course Instance. Its compact accessible dialog pre-fills only new Blueprint short name, long name, and classification; explains copied reusable structure and unchanged source/first Adoption; validates the canonical Course reference; sends only the metadata DTO with retry-stable idempotency; requires `201`/`no-store`; retains values and reports accessibly; returns focus on cancel; and opens the owner-visible Private Revision-1 receipt. `cargo tsgen`, focused Node, TypeScript, ESLint, Prettier, and `./check_codebase.sh` (369 Node tests) passed. The backend atomically derives ordered reusable structure, forks Course-owned Pools, and records immutable source provenance. PostgreSQL 17 actual-role proof passed authorization/no-write, stale rollback, idempotency, source preservation, exact pins, Adoption/student counts, and lifecycle rollback. Canonical HTTPS browser proof made one child-route POST, showed Adoption count 1, and left the source addressable and unchanged.
+- Added the Course tools action to create a new Blueprint from a Course Instance. Its compact accessible dialog pre-fills only new Blueprint short name, long name, and classification; explains copied reusable structure and unchanged source/first Adoption; validates the canonical Course reference; sends only the metadata DTO with retry-stable idempotency; requires `201`/`no-store`; retains values and reports accessibly; returns focus on cancel; and opens the owner-visible Private Revision-1 receipt. `cargo tsgen`, focused Node, TypeScript, ESLint, Prettier, and `./check_codebase.sh` (369 Node tests) passed. The backend atomically derives ordered reusable structure, forks Course-owned Pools, and records immutable source provenance. PostgreSQL 17 actual-role proof passed authorization/no-write, stale rollback, idempotency, source preservation, exact pins, Adoption/student counts, and lifecycle rollback. Canonical HTTPS C420 proof made one child-route POST from `CI0QR41X` to Private Revision-1 `BPJD8H28`, showed Adoption count 1, counted source Students only in the statistic, copied no roster/delivery state, and left the source addressable and unchanged.
+- Accepted C522 connected Student delivery and Work issuance through the production
+  server/data-access/access-page chain, including denied access. Accepted C879 connected
+  Question-fork proof with two Instructors, exact source attribution, private denial,
+  retry/concurrency, distinct server-issued identity, and prevalidation-publication denial. A separate
+  3-by-3 PostgreSQL proof preserved all three compatible CC source licenses and rejected every
+  mismatch through the approved minimal SQL. Temporary probes were removed.
+- Implemented the settled Discipline and Library improvement-activity source boundaries. Disciplines
+  use stable UUID create/rename/retire/restore with no delete, active-only new choice, retained
+  visible references, exact inheritance/copy, and concurrency locks. Vetted-Instructor retained
+  threads and owner/Sysadmin Question or Sysadmin-only Pool impact administration are present with
+  Sysadmin read-only Library content controls. Final review, major-milestone SQL/browser proof, and
+  four-event private Watch delivery remain open.
 - Accepted I08's bounded 33-line, three-file Question Library correction: explicit Subject loading/ready/empty/error states explain settled zero Subjects and route discovery to Tags, Question Types, and Search while preserving ordinary facets, cascade, keyboard use, and detail return. The compact top-aligned `12rem` scroll region passed temporary actual-component Chromium at 1280/390 without overflow; the harness was removed. Strict TypeScript, 51 focused Library/Ribbon Node tests, ESLint, scoped Prettier/diff checks, and independent review passed. Official screenshots and authenticated connected Library acceptance remain deferred; no global density-row or SQL-lock claim follows.
 
 ### Decisions and Failures
 
+- Clarified the universal canonical public-ID invariant: exact canonical values persist unchanged
+  across all boundaries, use public SHA-256 checksum characters, reserve globally, and are never
+  reused. The closed human-entry forms normalize before canonical syntax/checksum validation;
+  stored, transmitted, displayed, copied, and generated values stay canonical. Implementation
+  inventory and the separately planned cutover remain open, so this documentation change claims no
+  production behavior.
+- Clarified that internal non-user-facing objects retain native UUIDs and public references exist only
+  for required human-facing workflows. Existing `R`, `W`, `D`, `M`, and `I` short-reference concepts
+  are implementation drift and must be removed rather than replaced.
+- Added a Human Guidance deferred-product section that overrides implementation language elsewhere.
+  iMathAS and H5P remain desired but deferred secondary backends. Future H5P use is limited to
+  Regular Assignments, Bonus Assignments, and Practice Question Assignments and is excluded from
+  Quizzes and Exams because its runtime exposes answers and correctness to the Student browser.
+- Reconciled the Human Guidance plan and audit ledgers with current evidence: current checklist
+  accounting is 1,018 bullets (472 verified, 498 open, 48 N/A); Deferred product behavior is
+  authority but excluded from current implementation counting; only the two HG-unlocked complete
+  Ribbon layouts may remain unresolved at closeout; closed SQL rows are distinct from pending
+  application acceptance; high-priority UI findings now state their current rendered disposition;
+  and Course Instance-to-Blueprint documentation uses Create Blueprint from Course Instance with a
+  new Private Revision 1, immutable source provenance, first Adoption, and an unchanged source Course.
+  The plan also records completed removal of dormant H5P placeholders. Current production Backends
+  are PLE and WeBWorK; desired iMathAS/H5P behavior is deferred and implies no current backend work.
+- Recorded tests as liabilities as well as assets: bounded work runs narrow gates and removes
+  temporary probes; full Podman and `source source_me.sh && ./launchers/all_test.sh` acceptance is
+  reserved for major milestones.
 - Recorded C528 as open and decision-blocked: text-entry completeness needs raw-versus-trimmed-nonempty-versus-optional semantics, and opaque backend capture needs a product choice between successful capture and an adapter-supplied trusted completeness verdict. No implementation, test, or checklist completion is claimed.
 
 ## 2026-09-16

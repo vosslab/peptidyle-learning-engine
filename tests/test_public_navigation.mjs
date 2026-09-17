@@ -1,4 +1,4 @@
-// Human navigation uses compact typed references while internal UUIDs remain API identities.
+// Human navigation uses canonical typed references while internal UUIDs remain API identities.
 
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -24,21 +24,22 @@ import {
   resolveAssessmentAttemptIdentity,
   resolveWorkspaceRoute,
 } from "../src/navigation/resolved_route.ts";
+import { normalizeHumanEnteredQuestionId } from "../src/question_id.ts";
 
-test("human route references are compact, typed, and bounded", () => {
-  assert.equal(courseInstanceRouteReference("CI7K3M2Q"), "CI7K3M2Q");
-  assert.equal(assessmentRouteReference("A9D2RX5"), "A9D2RX5");
+test("human route references are canonical, typed, and bounded", () => {
+  assert.equal(courseInstanceRouteReference("CIABCDEFGS"), "CIABCDEFGS");
+  assert.equal(assessmentRouteReference("AABCDEFG8"), "AABCDEFG8");
   assert.equal(assessmentAttemptRouteReference("R-30"), "R-30");
   assert.equal(authoringWorkspaceRouteReference("W-40"), "W-40");
   assert.equal(draftQuestionRouteReference("D-50"), "D-50");
-  assert.equal(questionRouteReference("7K3M-X9QP"), "7K3M-X9QP");
+  assert.equal(questionRouteReference("7K3M-79QP"), "7K3M-79QP");
 
-  for (const reference of ["CI7K3M2Q", "A9D2RX5", "R-30", "W-40", "D-50"]) {
+  for (const reference of ["CIABCDEFGS", "AABCDEFG8", "R-30", "W-40", "D-50"]) {
     assert.equal(parsePublicRouteReference(reference), reference);
   }
   for (const [parser, valid, rejected] of [
-    [parseCourseInstanceReference, "CI7K3M2Q", ["C-1", "CI7K3M2", "CI7K3M2I"]],
-    [parseAssessmentReference, "A9D2RX5", ["A-1", "A9D2RX", "A9D2RXI"]],
+    [parseCourseInstanceReference, "CIABCDEFGS", ["C-1", "CIABCDEFG", "CIABCDEFGT"]],
+    [parseAssessmentReference, "AABCDEFG8", ["A-1", "AABCDEFG", "AABCDEFG9"]],
     [parseAssessmentAttemptReference, "R"],
     [parseAuthoringWorkspaceReference, "W"],
     [parseDraftQuestionReference, "D"],
@@ -59,8 +60,13 @@ test("human route references are compact, typed, and bounded", () => {
       }
     }
   }
-  assert.equal(parseQuestionRouteReference("7k3mx9qp"), "7K3M-X9QP");
-  assert.equal(parseQuestionRouteReference("OI0O-XOlx"), "0100-X01X");
+  assert.equal(parseQuestionRouteReference("7K3M-79QP"), "7K3M-79QP");
+  assert.equal(parseQuestionRouteReference("7k3m79qp"), null);
+  assert.equal(parseQuestionRouteReference("7K3M79QP"), null);
+  assert.equal(parseQuestionRouteReference("7K3M-89QP"), null);
+  assert.equal(normalizeHumanEnteredQuestionId("7k3m79qp"), "7K3M-79QP");
+  assert.equal(normalizeHumanEnteredQuestionId("O1OO-raIb"), "0100-RA1B");
+  assert.equal(normalizeHumanEnteredQuestionId(" 7K3M79QP"), null);
   assert.equal(parseQuestionRouteReference("P-50-v3"), null);
   assert.equal(parseQuestionRouteReference("7K3-M9QU"), null);
 });
@@ -68,14 +74,14 @@ test("human route references are compact, typed, and bounded", () => {
 test("route resolution recovers protected API identities without weakening reference kinds", async () => {
   const fixture = {
     courseId: "course-id",
-    assessment: { reference: "A9D2RX5", id: "assessment-id" },
+    assessment: { reference: "AABCDEFG8", id: "assessment-id" },
     assessmentAttempt: { reference: "R-1", id: "assessment-attempt-id" },
     workspace: { reference: "W-1", id: "workspace-id" },
   };
   const client = {
     resolveNavigation: async (reference) => {
       const values = {
-        A9D2RX5: {
+        AABCDEFG8: {
           kind: "assessment",
           courseId: fixture.courseId,
           assessmentId: fixture.assessment.id,
@@ -127,7 +133,7 @@ test("route resolution recovers protected API identities without weakening refer
   await assert.rejects(resolveAssessmentRoute(wrongKindClient, fixture.assessment.reference), {
     message: "Assessment reference resolved to another resource",
   });
-  await assert.rejects(resolveAssessmentAttemptIdentity(client, "CI7K3M2Q"), {
+  await assert.rejects(resolveAssessmentAttemptIdentity(client, "CIABCDEFGS"), {
     message: "Assessment Attempt route is incomplete",
   });
   await assert.rejects(resolveAssessmentAttemptIdentity(client, "R-01"), {

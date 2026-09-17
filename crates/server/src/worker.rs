@@ -12,7 +12,7 @@ use tokio::io::AsyncWriteExt;
 use adapter_webwork::{HttpWebworkRenderer, WebworkAdapter};
 use learning_data_access::{
     AssessmentAttemptExpirySweepStore, ExpiredAssessmentAttemptFinalizationPreparation,
-    QuestionWatchNotificationStore, StoreError, StudentAssessmentAttemptFinalizationEvaluation,
+    LibraryWatchNotificationStore, StoreError, StudentAssessmentAttemptFinalizationEvaluation,
     StudentAssessmentAttemptFinalizationPreparation,
 };
 use objects::s3::S3ObjectStore;
@@ -50,22 +50,19 @@ impl<E: AssessmentAttemptExpirySweepStore + Send + Sync, W: Send + Sync>
 }
 
 #[async_trait::async_trait]
-impl<E: Send + Sync, W: QuestionWatchNotificationStore> QuestionWatchNotificationStore
+impl<E: Send + Sync, W: LibraryWatchNotificationStore> LibraryWatchNotificationStore
     for WorkerStores<E, W>
 {
-    async fn materialize_question_watch_notifications(
-        &self,
-        limit: u16,
-    ) -> Result<u32, StoreError> {
+    async fn materialize_library_watch_notifications(&self, limit: u16) -> Result<u32, StoreError> {
         self.watches
-            .materialize_question_watch_notifications(limit)
+            .materialize_library_watch_notifications(limit)
             .await
     }
 }
 
 const WORKER_READINESS_BIND_ADDRESS: &str = "0.0.0.0:3001";
 const ATTEMPT_EXPIRY_SWEEP_LIMIT: u32 = 100;
-const QUESTION_WATCH_NOTIFICATION_LIMIT: u16 = 100;
+const LIBRARY_WATCH_NOTIFICATION_LIMIT: u16 = 100;
 // The Student-visible expiry window is intentionally about a minute. This
 // also bounds retries of an unavailable backend without per-Attempt state.
 const ATTEMPT_EXPIRY_SWEEP_INTERVAL: std::time::Duration = std::time::Duration::from_secs(60);
@@ -74,7 +71,7 @@ const ATTEMPT_EXPIRY_SWEEP_INTERVAL: std::time::Duration = std::time::Duration::
 // ASVS 2.3.1 and 2.3.3: expiry follows the same server-owned submission order
 // and PostgreSQL atomically rechecks the captured snapshot before committing it.
 pub async fn run_until_shutdown<
-    S: AssessmentAttemptExpirySweepStore + QuestionWatchNotificationStore,
+    S: AssessmentAttemptExpirySweepStore + LibraryWatchNotificationStore,
 >(
     store: S,
     objects: S3ObjectStore,
@@ -98,7 +95,7 @@ pub async fn run_until_shutdown<
 }
 
 async fn run_attempt_expiry_sweep<
-    S: AssessmentAttemptExpirySweepStore + QuestionWatchNotificationStore,
+    S: AssessmentAttemptExpirySweepStore + LibraryWatchNotificationStore,
 >(
     store: S,
     objects: S3ObjectStore,
@@ -106,11 +103,21 @@ async fn run_attempt_expiry_sweep<
 ) -> Result<()> {
     loop {
         run_attempt_expiry_sweep_iteration(&store, &objects, webwork.as_ref()).await?;
-        store
-            .materialize_question_watch_notifications(QUESTION_WATCH_NOTIFICATION_LIMIT)
-            .await
-            .map_err(store_unavailable)?;
+        materialize_library_watch_notifications_iteration(&store).await;
         tokio::time::sleep(ATTEMPT_EXPIRY_SWEEP_INTERVAL).await;
+    }
+}
+
+/// Watch delivery is retryable background work. It must not take down the
+/// expiry worker when one bounded materialization attempt is unavailable.
+async fn materialize_library_watch_notifications_iteration<S: LibraryWatchNotificationStore>(
+    store: &S,
+) {
+    if let Err(error) = store
+        .materialize_library_watch_notifications(LIBRARY_WATCH_NOTIFICATION_LIMIT)
+        .await
+    {
+        tracing::warn!(event = "library_watch_materialization_failed", error = %error);
     }
 }
 

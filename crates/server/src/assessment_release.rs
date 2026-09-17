@@ -19,19 +19,17 @@ use learning_data_access::{
     postgres::{PostgresLiveAssessmentStore, PostgresSessionStore},
 };
 use question_model::{
-    AssessmentEditNumber, AssessmentEntry, AssessmentReference, AssessmentTitle,
-    CourseInstanceReference, ProductRole, QuestionRevisionReference,
+    AssessmentEditNumber, AssessmentReference, AssessmentTitle, CourseInstanceReference,
+    ProductRole,
 };
 use serde::Deserialize;
 
 use crate::auth::{AuthError, resolve_session};
-use crate::question_publication::HmacQuestionIdIssuer;
 
 #[derive(Clone)]
 struct StateData {
     sessions: Arc<PostgresSessionStore>,
     assessments: PostgresLiveAssessmentStore,
-    question_id_issuer: HmacQuestionIdIssuer,
 }
 
 /// The closed confirmation payload for the irreversible Unrelease transition.
@@ -48,7 +46,6 @@ struct UnreleaseAssessmentInput {
 pub fn assessment_release_router(
     sessions: Arc<PostgresSessionStore>,
     assessments: PostgresLiveAssessmentStore,
-    question_id_issuer: HmacQuestionIdIssuer,
 ) -> Router {
     Router::new()
         .route(
@@ -99,7 +96,6 @@ pub fn assessment_release_router(
         .with_state(StateData {
             sessions,
             assessments,
-            question_id_issuer,
         })
 }
 
@@ -304,12 +300,6 @@ async fn save_assessment(
         Ok(v) => v,
         Err(r) => return *r,
     };
-    // ASVS 2.2.1, 2.2.2, and 11.4.1: exact Question Revision references are
-    // browser input.  Verify the server-held HMAC character before the Store
-    // can resolve an ID, while retaining the route's concealed outcome.
-    if !has_verified_question_references(&state.question_id_issuer, &input.entries) {
-        return concealed();
-    }
     input.expected_edit_number = expected;
     let token = match instructor(&state, &headers).await {
         Ok(v) => v,
@@ -520,32 +510,6 @@ fn unreleased_response(value: &learning_data_access::UnreleasedLiveAssessment) -
     response
 }
 
-/// Accepts only Question IDs minted for this deployment in every Assessment
-/// Entry variant.  PostgreSQL still authorizes the exact revision and current
-/// availability; this server boundary keeps its HMAC capability private.
-fn has_verified_question_references(
-    question_id_issuer: &HmacQuestionIdIssuer,
-    entries: &[AssessmentEntry],
-) -> bool {
-    entries.iter().all(|entry| match entry {
-        AssessmentEntry::FixedQuestion(entry) => {
-            has_verified_question_reference(question_id_issuer, &entry.reference)
-        }
-        // The Assessment-owned fork is already an immutable stored Pool
-        // Revision. Its members are never re-supplied by this current-state
-        // save, so validate only the fork's server-issued public identity.
-        AssessmentEntry::QuestionPool(entry) => {
-            question_id_issuer.validates_question_id(&entry.question_pool_revision.question_pool_id)
-        }
-    })
-}
-
-fn has_verified_question_reference(
-    question_id_issuer: &HmacQuestionIdIssuer,
-    reference: &QuestionRevisionReference,
-) -> bool {
-    question_id_issuer.validates_question_id(&reference.question_id)
-}
 fn course_reference(value: &str) -> Result<CourseInstanceReference, Box<Response>> {
     CourseInstanceReference::from_str(value).map_err(|_| Box::new(concealed()))
 }
@@ -623,127 +587,8 @@ fn error(status: StatusCode, message: &'static str) -> Response {
 mod tests {
     use axum::http::StatusCode;
     use learning_data_access::StoreError;
-    use question_model::{
-        AssessmentEntryAvailability, AssessmentEntryId, AssessmentEntryScoringRule,
-        AssessmentPointValue, FixedQuestionAssessmentEntry, QuestionAttemptLimit,
-        QuestionAttemptTimeLimit, QuestionPoolAssessmentEntry, QuestionPoolRevisionNumber,
-        QuestionPoolRevisionReference, QuestionPoolSelectedQuestionOrder,
-        QuestionPoolSelectionRule, QuestionRevisionNumber,
-    };
-    use std::num::NonZeroU32;
-    use uuid::Uuid;
 
-    use super::{
-        AssessmentEntry, HmacQuestionIdIssuer, QuestionRevisionReference, UnreleaseAssessmentInput,
-        has_verified_question_references,
-    };
-    use crate::question_publication::{QuestionIdIssuer, QuestionIdSecret};
-
-    fn issuer() -> HmacQuestionIdIssuer {
-        HmacQuestionIdIssuer::new(QuestionIdSecret::from_bytes([41; 32]))
-    }
-
-    fn reference(issuer: &HmacQuestionIdIssuer) -> QuestionRevisionReference {
-        QuestionRevisionReference {
-            question_id: issuer.issue_question_id().expect("question ID mints"),
-            revision_number: QuestionRevisionNumber::new(1).expect("positive revision"),
-        }
-    }
-
-    fn invalid_reference(reference: &QuestionRevisionReference) -> QuestionRevisionReference {
-        let mut value = reference.question_id.to_string();
-        let replacement = if value.ends_with('0') { '1' } else { '0' };
-        value.pop();
-        value.push(replacement);
-        QuestionRevisionReference {
-            question_id: value.parse().expect("syntactically valid Question ID"),
-            revision_number: reference.revision_number,
-        }
-    }
-
-    #[test]
-    fn workspace_rejects_an_unverified_fixed_question_reference_before_store_access() {
-        let issuer = issuer();
-        let reference = invalid_reference(&reference(&issuer));
-        let entries = vec![AssessmentEntry::FixedQuestion(
-            FixedQuestionAssessmentEntry {
-                id: AssessmentEntryId::from_uuid(Uuid::from_u128(1)),
-                reference,
-                points_possible: AssessmentPointValue::from_whole(1),
-                availability: AssessmentEntryAvailability::Available,
-                scoring_rule: AssessmentEntryScoringRule::Normal,
-                question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
-                question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
-            },
-        )];
-
-        assert!(!has_verified_question_references(&issuer, &entries));
-    }
-
-    #[test]
-    fn workspace_rejects_an_unverified_question_pool_fork_before_store_access() {
-        let issuer = issuer();
-        let valid = issuer.issue_question_id().expect("Pool ID mints");
-        let invalid_pool_id = invalid_reference(&QuestionRevisionReference {
-            question_id: valid,
-            revision_number: QuestionRevisionNumber::new(1).expect("revision"),
-        })
-        .question_id;
-        let entries = vec![AssessmentEntry::QuestionPool(QuestionPoolAssessmentEntry {
-            id: AssessmentEntryId::from_uuid(Uuid::from_u128(2)),
-            question_pool_revision: QuestionPoolRevisionReference {
-                question_pool_id: invalid_pool_id,
-                revision_number: QuestionPoolRevisionNumber::new(1).expect("revision"),
-            },
-            availability: AssessmentEntryAvailability::Available,
-            scoring_rule: AssessmentEntryScoringRule::Normal,
-            selection_count: NonZeroU32::new(1).expect("positive selection count"),
-            points_per_item: AssessmentPointValue::from_whole(1),
-            selection_rule: QuestionPoolSelectionRule {
-                selected_question_order: QuestionPoolSelectedQuestionOrder::QuestionPoolOrder,
-            },
-            question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
-            question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
-        })];
-
-        assert!(!has_verified_question_references(&issuer, &entries));
-    }
-
-    #[test]
-    fn workspace_accepts_verified_fixed_and_pool_question_references() {
-        let issuer = issuer();
-        let fixed = reference(&issuer);
-        let pooled = issuer.issue_question_id().expect("Pool ID mints");
-        let entries = vec![
-            AssessmentEntry::FixedQuestion(FixedQuestionAssessmentEntry {
-                id: AssessmentEntryId::from_uuid(Uuid::from_u128(4)),
-                reference: fixed,
-                points_possible: AssessmentPointValue::from_whole(1),
-                availability: AssessmentEntryAvailability::Available,
-                scoring_rule: AssessmentEntryScoringRule::Normal,
-                question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
-                question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
-            }),
-            AssessmentEntry::QuestionPool(QuestionPoolAssessmentEntry {
-                id: AssessmentEntryId::from_uuid(Uuid::from_u128(5)),
-                question_pool_revision: QuestionPoolRevisionReference {
-                    question_pool_id: pooled,
-                    revision_number: QuestionPoolRevisionNumber::new(1).expect("revision"),
-                },
-                availability: AssessmentEntryAvailability::Available,
-                scoring_rule: AssessmentEntryScoringRule::Normal,
-                selection_count: NonZeroU32::new(1).expect("positive selection count"),
-                points_per_item: AssessmentPointValue::from_whole(1),
-                selection_rule: QuestionPoolSelectionRule {
-                    selected_question_order: QuestionPoolSelectedQuestionOrder::QuestionPoolOrder,
-                },
-                question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
-                question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
-            }),
-        ];
-
-        assert!(has_verified_question_references(&issuer, &entries));
-    }
+    use super::UnreleaseAssessmentInput;
 
     #[test]
     fn lifecycle_and_edit_number_conflicts_have_distinct_statuses() {

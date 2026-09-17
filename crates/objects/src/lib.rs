@@ -274,7 +274,7 @@ mod tests {
     #[test]
     fn object_record_json_shape_uses_canonical_hex_checksum() {
         let question_revision = QuestionRevisionReference {
-            question_id: QuestionId::from_canonical_parts("ABCDEFG", 'G')
+            question_id: QuestionId::from_random_identifier("ABCDEFG")
                 .expect("canonical Question ID"),
             revision_number: QuestionRevisionNumber::new(2)
                 .expect("positive Question Revision Number"),
@@ -303,13 +303,13 @@ mod tests {
                 "\"storageArea\":\"private-content\",",
                 "\"dataClass\":\"question-source\",",
                 "\"address\":{\"kind\":\"questionSource\",",
-                "\"questionRevision\":{\"questionId\":\"ABCDGEFG\",\"revisionNumber\":2},",
+                "\"questionRevision\":{\"questionId\":\"ABCD-XEFG\",\"revisionNumber\":2},",
                 "\"object\":\"00000000-0000-0000-0000-000000000003\"},",
                 "\"sha256\":\"000102030405060708090a0b0c0d0e0f",
                 "101112131415161718191a1b1c1d1e1f\",",
                 "\"sizeBytes\":123,",
                 "\"mediaType\":\"application/zip\",",
-                "\"questionRevision\":{\"questionId\":\"ABCD-GEFG\",\"revisionNumber\":2},",
+                "\"questionRevision\":{\"questionId\":\"ABCD-XEFG\",\"revisionNumber\":2},",
                 "\"createdAt\":1000}"
             )
         );

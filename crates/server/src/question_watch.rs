@@ -20,10 +20,7 @@ use learning_data_access::{
 use question_model::{ProductRole, QuestionId};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    auth::{AuthError, resolve_session},
-    question_publication::HmacQuestionIdIssuer,
-};
+use crate::auth::{AuthError, resolve_session};
 
 const MAX_WATCH_UPDATE_BYTES: usize = 128;
 
@@ -31,25 +28,19 @@ const MAX_WATCH_UPDATE_BYTES: usize = 128;
 struct RouteState {
     sessions: Arc<PostgresSessionStore>,
     watches: PostgresQuestionWatchStore,
-    question_id_issuer: HmacQuestionIdIssuer,
 }
 
 /// Registers the self-only Question Watch surface for Published Questions.
 pub fn question_watch_router(
     sessions: Arc<PostgresSessionStore>,
     watches: PostgresQuestionWatchStore,
-    question_id_issuer: HmacQuestionIdIssuer,
 ) -> Router {
     Router::new()
         .route(
             "/api/questions/by-id/{question_id}/stewardship/watch",
             get(read_watch).put(set_watch),
         )
-        .with_state(RouteState {
-            sessions,
-            watches,
-            question_id_issuer,
-        })
+        .with_state(RouteState { sessions, watches })
 }
 
 /// Closed browser payload; clients select only their own desired Watch state.
@@ -79,7 +70,7 @@ async fn read_watch(
     headers: HeaderMap,
     Path(raw_question_id): Path<String>,
 ) -> Response {
-    let question_id = match verified_question_id(&state.question_id_issuer, &raw_question_id) {
+    let question_id = match verified_question_id(&raw_question_id) {
         Some(value) => value,
         None => return concealed(),
     };
@@ -104,7 +95,7 @@ async fn set_watch(
     Path(raw_question_id): Path<String>,
     request: Request,
 ) -> Response {
-    let question_id = match verified_question_id(&state.question_id_issuer, &raw_question_id) {
+    let question_id = match verified_question_id(&raw_question_id) {
         Some(value) => value,
         None => return concealed(),
     };
@@ -142,15 +133,9 @@ async fn set_watch(
     }
 }
 
-/// Validates syntax and server-held HMAC before a private Watch lookup.
-fn verified_question_id(
-    question_id_issuer: &HmacQuestionIdIssuer,
-    value: &str,
-) -> Option<QuestionId> {
-    let question_id = value.parse::<QuestionId>().ok()?;
-    question_id_issuer
-        .validates_question_id(&question_id)
-        .then_some(question_id)
+/// Parses the exact checksum-bearing ID before a private Watch lookup.
+fn verified_question_id(value: &str) -> Option<QuestionId> {
+    value.parse::<QuestionId>().ok()
 }
 
 async fn instructor_session_hash(

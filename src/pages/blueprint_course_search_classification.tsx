@@ -54,7 +54,8 @@ export function BlueprintSearchClassification(props: {
       <ContentClassificationSelect
         label="Discipline"
         value={props.value.disciplineUuid}
-        load={() => choices(() => props.client.listDisciplines())}
+        allowRetired
+        load={() => choices(() => props.client.listDisciplinesIncludingRetired())}
         onChange={(disciplineUuid) =>
           change({ ...emptyBlueprintClassificationSearch(), disciplineUuid })
         }

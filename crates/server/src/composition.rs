@@ -5,7 +5,6 @@ use std::{net::SocketAddr, sync::Arc};
 use adapter_webwork::{HttpWebworkRenderer, HttpWebworkRendererConfig, WebworkAdapter};
 use anyhow::{Context, Result, bail};
 use axum::{Router, routing::get};
-use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use learning_data_access::{
     SessionLifetime, SysadminTotpSeed, SysadminTotpStore,
     postgres::{
@@ -21,15 +20,15 @@ use learning_data_access::{
         PostgresCourseRetentionStore, PostgresCourseRosterStore, PostgresCourseThemeStore,
         PostgresDraftQuestionSourceBindingStore, PostgresInstructorAccountStore,
         PostgresInstructorStudentViewStore, PostgresInvitationExportStore,
+        PostgresLibraryDiscussionStore, PostgresLibraryWatchNotificationStore,
         PostgresLiveAssessmentDeliveryStore, PostgresLiveAssessmentStore,
         PostgresLiveStudentCourseLandingStore, PostgresPublicAssetPublicationStore,
         PostgresQuestionAssetDeliveryStore, PostgresQuestionForkStore,
         PostgresQuestionLibraryStore, PostgresQuestionPoolCreationStore,
         PostgresQuestionPoolLibraryStore, PostgresQuestionPoolStewardshipStore,
-        PostgresQuestionStarStore, PostgresQuestionWatchNotificationStore,
-        PostgresQuestionWatchStore, PostgresSessionStore, PostgresSupportCapabilityStore,
-        PostgresSysadminTotpStore, ProductionLoginProfile, SysadminTotpSeedKeyId,
-        SysadminTotpSeedKeyRing, local_development_pool, production_pool,
+        PostgresQuestionStarStore, PostgresQuestionWatchStore, PostgresSessionStore,
+        PostgresSupportCapabilityStore, PostgresSysadminTotpStore, ProductionLoginProfile,
+        SysadminTotpSeedKeyId, SysadminTotpSeedKeyRing, local_development_pool, production_pool,
     },
 };
 use objects::s3::S3ObjectStore;
@@ -108,6 +107,8 @@ pub async fn production_router_from_env() -> Result<Router> {
     let question_forks = PostgresQuestionForkStore::new(pool.clone());
     let question_stars = PostgresQuestionStarStore::new(pool.clone());
     let question_watches = PostgresQuestionWatchStore::new(pool.clone());
+    let library_discussions = PostgresLibraryDiscussionStore::new(pool.clone());
+    let library_watch_notifications = PostgresLibraryWatchNotificationStore::new(pool.clone());
     let blueprint_stewardship = PostgresBlueprintStewardshipStore::new(pool.clone());
     let course_themes = PostgresCourseThemeStore::new(pool.clone());
     let course_banners = PostgresCourseBannerStore::new(pool.clone());
@@ -138,7 +139,7 @@ pub async fn production_router_from_env() -> Result<Router> {
     let question_library_objects = question_library_object_store_from_env().await?;
     let webwork_adapter = webwork_adapter_from_env()?;
     let webwork_asset_proxy = webwork_asset_proxy_from_env()?;
-    let question_id_issuer = question_id_issuer_from_env()?;
+    let question_id_issuer = question_id_issuer();
     let blueprint_lineage = PostgresBlueprintLineageStore::new(pool.clone())
         .with_question_pool_id_issuer(Arc::new(question_id_issuer.clone()));
     let assessments = PostgresLiveAssessmentStore::new(pool.clone())
@@ -188,7 +189,6 @@ pub async fn production_router_from_env() -> Result<Router> {
             content_classification.clone(),
             question_library_objects.clone(),
             Arc::clone(&webwork_adapter),
-            question_id_issuer.clone(),
         ))
         .merge(crate::question_pool_library::question_pool_library_router(
             Arc::clone(&sessions),
@@ -196,20 +196,17 @@ pub async fn production_router_from_env() -> Result<Router> {
             question_library_store.clone(),
             content_classification.clone(),
             question_library_objects.clone(),
-            question_id_issuer.clone(),
         ))
         .merge(
             crate::question_pool_stewardship::question_pool_stewardship_router(
                 Arc::clone(&sessions),
                 question_pool_stewardship,
-                question_id_issuer.clone(),
             ),
         )
         .merge(
             crate::question_bulk_metadata::question_bulk_metadata_router(
                 Arc::clone(&sessions),
                 question_bulk_metadata,
-                question_id_issuer.clone(),
             ),
         )
         .merge(
@@ -230,13 +227,21 @@ pub async fn production_router_from_env() -> Result<Router> {
         .merge(crate::question_stewardship::question_stewardship_router(
             Arc::clone(&sessions),
             question_stars,
-            question_id_issuer.clone(),
         ))
         .merge(crate::question_watch::question_watch_router(
             Arc::clone(&sessions),
             question_watches,
-            question_id_issuer.clone(),
         ))
+        .merge(crate::library_discussion::library_discussion_router(
+            Arc::clone(&sessions),
+            library_discussions,
+        ))
+        .merge(
+            crate::library_watch_notification::library_watch_notification_router(
+                Arc::clone(&sessions),
+                library_watch_notifications,
+            ),
+        )
         .merge(crate::authoring::authoring_router(
             Arc::clone(&sessions),
             authoring_drafts,
@@ -252,7 +257,6 @@ pub async fn production_router_from_env() -> Result<Router> {
             blueprint_lineage,
             question_library_store,
             question_library_objects.clone(),
-            question_id_issuer.clone(),
         ))
         .merge(crate::blueprint_stewardship::blueprint_stewardship_router(
             Arc::clone(&sessions),
@@ -318,7 +322,6 @@ pub async fn production_router_from_env() -> Result<Router> {
         .merge(crate::assessment_release::assessment_release_router(
             Arc::clone(&sessions),
             assessments,
-            question_id_issuer.clone(),
         ))
         .merge(crate::assessment_template::assessment_template_router(
             Arc::clone(&sessions),
@@ -351,7 +354,6 @@ pub async fn production_router_from_env() -> Result<Router> {
                 assessment_student_view,
                 question_library_objects.clone(),
                 Arc::clone(&webwork_adapter),
-                question_id_issuer.clone(),
                 Arc::clone(&browser_boundary.origin),
             ),
         )
@@ -367,7 +369,6 @@ pub async fn production_router_from_env() -> Result<Router> {
                     "PLE_PUBLIC_ASSET_BASE_URL",
                 )?)
                 .map_err(anyhow::Error::msg)?,
-                question_id_issuer,
             ),
         );
     Ok(crate::http_security::apply_api_security_headers(
@@ -423,26 +424,11 @@ fn webwork_asset_proxy_from_env() -> Result<crate::webwork_asset_proxy::WebworkA
     .map_err(anyhow::Error::msg)
 }
 
-/// Reads the deployment-owned HMAC key that validates newly minted Question IDs.
-/// The base64url capability remains in the mounted private file and is never
-/// emitted in diagnostics or browser data.
-/// Loads the deployment-owned Question ID issuer for trusted installation and
-/// service publication paths. The capability remains private to the process
-/// environment and its errors never include the secret value.
-pub fn question_id_issuer_from_env() -> Result<crate::question_publication::HmacQuestionIdIssuer> {
-    let path = required_env("PLE_QUESTION_ID_SECRET_FILE")?;
-    let encoded = std::fs::read_to_string(path)
-        .context("could not read the Question ID secret capability")?;
-    let encoded = encoded.trim_end_matches(['\r', '\n']);
-    let bytes = URL_SAFE_NO_PAD
-        .decode(encoded)
-        .context("Question ID secret capability must be unpadded base64url")?;
-    let bytes: [u8; 32] = bytes.try_into().map_err(|_| {
-        anyhow::anyhow!("Question ID secret capability must contain exactly 32 bytes")
-    })?;
-    Ok(crate::question_publication::HmacQuestionIdIssuer::new(
-        crate::question_publication::QuestionIdSecret::from_bytes(bytes),
-    ))
+/// Constructs the stateless OS-random issuer used by service and trusted
+/// installation publication paths. The public checksum belongs to QuestionId,
+/// so this path needs neither an environment secret nor deployment state.
+pub const fn question_id_issuer() -> crate::question_publication::RandomQuestionIdIssuer {
+    crate::question_publication::RandomQuestionIdIssuer
 }
 
 /// Constructs the API-owned object reader used to compile answer-free Question
@@ -553,7 +539,7 @@ pub async fn run_attempt_expiry_worker_from_env() -> Result<()> {
     crate::worker::run_until_shutdown(
         crate::worker::WorkerStores {
             expiry: PostgresAssessmentAttemptExpirySweepStore::new(pool.clone()),
-            watches: PostgresQuestionWatchNotificationStore::new(pool),
+            watches: PostgresLibraryWatchNotificationStore::new(pool),
         },
         objects,
         webwork,

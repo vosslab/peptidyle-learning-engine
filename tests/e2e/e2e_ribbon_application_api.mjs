@@ -56,22 +56,22 @@ const resolvingClient = createHttpApiClient({
   fetch(input) {
     const pathname = typeof input === "string" ? input : new URL(input.url).pathname;
     const responseByPath = {
-      "/api/course-instances/CI7K3M2Q/summary": {
-        reference: "CI7K3M2Q",
+      "/api/course-instances/CI7K3M2QAZ/summary": {
+        reference: "CI7K3M2QAZ",
         shortName: "BIO 301",
         longName: "Molecular Biology",
         term: { startDate: "2026-01-12", endDate: "2026-05-08" },
         role: "instructor",
       },
-      "/api/course-instances/CI7K3M2Q/appearance": { theme: "grass", banner: null },
-      "/api/course-instances/CI4W8QF9/summary": {
-        reference: "CI4W8QF9",
+      "/api/course-instances/CI7K3M2QAZ/appearance": { theme: "grass", banner: null },
+      "/api/course-instances/CI4W8QF9AD/summary": {
+        reference: "CI4W8QF9AD",
         shortName: "BIO 302",
         longName: "Genetics",
         term: { startDate: "2026-08-24", endDate: "2026-12-11" },
         role: "student",
       },
-      "/api/course-instances/CI4W8QF9/appearance": { theme: "forest", banner: null },
+      "/api/course-instances/CI4W8QF9AD/appearance": { theme: "forest", banner: null },
       "/api/navigation/R-1": {
         kind: "assessmentAttempt",
         courseId: identity.courseOne,
@@ -96,8 +96,8 @@ const resolvingClient = createHttpApiClient({
   },
 });
 const resolutionApi = createApplicationApi(resolvingClient);
-const courseOne = courseInstanceRouteReference("CI7K3M2Q");
-const courseTwo = courseInstanceRouteReference("CI4W8QF9");
+const courseOne = courseInstanceRouteReference("CI7K3M2QAZ");
+const courseTwo = courseInstanceRouteReference("CI4W8QF9AD");
 const attemptOne = assessmentAttemptRouteReference("R-1");
 const attemptTwo = assessmentAttemptRouteReference("R-2");
 
@@ -121,12 +121,12 @@ assert.notEqual(
   resolutionApi.queries.resolveAssessmentAttempt.keyFor(attemptOne),
   resolutionApi.queries.resolveAssessmentAttempt.keyFor(attemptTwo),
 );
-assert.match(resolutionApi.queries.courseScope.keyFor(courseOne), /CI7K3M2Q/u);
+assert.match(resolutionApi.queries.courseScope.keyFor(courseOne), /CI7K3M2QAZ/u);
 assert.match(resolutionApi.queries.resolveAssessmentAttempt.keyFor(attemptOne), /R-1/u);
 
 assert.deepEqual(await resolutionApi.queries.courseScope(courseOne), {
   summary: {
-    reference: "CI7K3M2Q",
+    reference: "CI7K3M2QAZ",
     shortName: "BIO 301",
     longName: "Molecular Biology",
     term: { startDate: "2026-01-12", endDate: "2026-05-08" },
@@ -141,7 +141,7 @@ assert.deepEqual(await resolutionApi.queries.resolveAssessmentAttempt(attemptOne
 });
 assert.deepEqual(await resolutionApi.queries.courseScope(courseTwo), {
   summary: {
-    reference: "CI4W8QF9",
+    reference: "CI4W8QF9AD",
     shortName: "BIO 302",
     longName: "Genetics",
     term: { startDate: "2026-08-24", endDate: "2026-12-11" },

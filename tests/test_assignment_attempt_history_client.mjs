@@ -9,17 +9,17 @@ function history() {
     assessmentAttempt: "R-12",
     attemptNumber: 3,
     course: {
-      reference: "CI7K3M2Q",
+      reference: "CI7K3M2QAZ",
       shortName: "BCHM 301",
       longName: "Biochemistry 301: Proteins and Peptides",
       theme: "ocean",
     },
-    assessment: { reference: "A7K3M2Q", title: "Peptide structure practice" },
+    assessment: { reference: "A7K3M2QAS", title: "Peptide structure practice" },
     state: "submitted",
     questions: [
       {
         position: 1,
-        questionRevision: { questionId: "7K3M-X9QP", revisionNumber: 2 },
+        questionRevision: { questionId: "7K3M-79QP", revisionNumber: 2 },
         responseState: "submitted",
       },
     ],

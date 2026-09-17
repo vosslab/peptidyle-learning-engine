@@ -296,7 +296,6 @@ fn validate_publisher_environment() -> Result<()> {
         "PLE_PRIVATE_CONTENT_BUCKET",
         "PLE_STUDENT_RECORDS_BUCKET",
         "PLE_TEMP_PROCESSING_BUCKET",
-        "PLE_QUESTION_ID_SECRET_FILE",
     ] {
         required_environment(name)?;
     }

@@ -1,5 +1,16 @@
 use super::*;
 
+const FIXTURE_QUESTION_IDS: [&str; 8] = [
+    "A000-BCDE",
+    "A001-0CDE",
+    "A002-RCDE",
+    "A003-KCDE",
+    "A004-GCDE",
+    "A005-6CDE",
+    "A006-XCDE",
+    "A007-GCDE",
+];
+
 #[test]
 fn pilot_publication_preserves_explicit_source_formats() {
     let manifest_path = tracked_manifest_path().expect("tracked Pilot manifest");
@@ -69,7 +80,7 @@ fn publication_mapping_rejects_a_checksum_that_is_not_the_canonical_source() {
             serde_json::json!({
                 "sourceSha256": question.source_sha256,
                 "questionRevision": {
-                    "questionId": format!("A{index:03}-BCDE"),
+                    "questionId": FIXTURE_QUESTION_IDS[index],
                     "revisionNumber": 1,
                 },
             }),
@@ -101,7 +112,7 @@ fn validated_mapping_selects_the_four_ple_question_json_revisions_in_plan_order(
                 serde_json::json!({
                     "sourceSha256": question.source_sha256,
                     "questionRevision": {
-                        "questionId": format!("A{index:03}-BCDE"),
+                    "questionId": FIXTURE_QUESTION_IDS[index],
                         "revisionNumber": 1,
                     },
                 }),
@@ -114,6 +125,6 @@ fn validated_mapping_selects_the_four_ple_question_json_revisions_in_plan_order(
         .expect("approved PLE Question JSON publications resolve");
 
     assert_eq!(selected.len(), 4);
-    assert_eq!(selected[0].question_id.to_string(), "A002-BCDE");
-    assert_eq!(selected[3].question_id.to_string(), "A007-BCDE");
+    assert_eq!(selected[0].question_id.to_string(), "A002-RCDE");
+    assert_eq!(selected[3].question_id.to_string(), "A007-GCDE");
 }

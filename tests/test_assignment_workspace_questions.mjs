@@ -11,7 +11,7 @@ import { assessmentPolicySaveInput } from "../src/pages/assessment_workspace/ass
 const fixed = {
   kind: "fixedQuestion",
   id: "00000000-0000-0000-0000-000000000001",
-  reference: { questionId: "7K3M-X9QP", revisionNumber: 1 },
+  reference: { questionId: "7K3M-79QP", revisionNumber: 1 },
   pointsPossible: "1",
   availability: "available",
   scoringRule: "normal",
@@ -32,7 +32,7 @@ const pool = {
   items: [
     {
       id: "00000000-0000-0000-0000-000000000003",
-      reference: { questionId: "2R5X-Z7YA", revisionNumber: 3 },
+      reference: { questionId: "2R5X-E7YA", revisionNumber: 3 },
       availability: "available",
     },
   ],
@@ -48,7 +48,7 @@ test("Questions editing retains pool identity, item pin, availability, and polic
   );
   assert.equal(moved[0], pool);
   assert.equal(moved[0].items[0], pool.items[0]);
-  assert.deepEqual(moved[0].items[0].reference, { questionId: "2R5X-Z7YA", revisionNumber: 3 });
+  assert.deepEqual(moved[0].items[0].reference, { questionId: "2R5X-E7YA", revisionNumber: 3 });
   assert.equal(moved[0].selectionRule.selectedQuestionOrder, "questionPoolOrder");
   assert.equal(moved[0].questionAttemptTimeLimit.seconds, 60);
 });
@@ -57,7 +57,7 @@ test("Questions picker adds an Available exact revision without flattening retai
   const entries = [pool];
   const added = appendAvailableFixedQuestion(
     entries,
-    { reference: { questionId: "7K4M-X9QP", revisionNumber: 4 }, description: "Exact revision" },
+    { reference: { questionId: "7K4M-69QP", revisionNumber: 4 }, description: "Exact revision" },
     "00000000-0000-0000-0000-000000000004",
   );
 
@@ -65,7 +65,7 @@ test("Questions picker adds an Available exact revision without flattening retai
   assert.deepEqual(added[1], {
     kind: "fixedQuestion",
     id: "00000000-0000-0000-0000-000000000004",
-    reference: { questionId: "7K4M-X9QP", revisionNumber: 4 },
+    reference: { questionId: "7K4M-69QP", revisionNumber: 4 },
     pointsPossible: "1",
     availability: "available",
     scoringRule: "normal",

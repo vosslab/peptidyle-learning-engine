@@ -212,6 +212,7 @@ mod tests {
             subject: None,
             topic: None,
             discipline: None,
+            discipline_is_retired: false,
             subtopic: None,
             classification: question_model::PublishedQuestionSharedMetadata {
                 question_id: "0000-X00N".parse().expect("Question ID"),

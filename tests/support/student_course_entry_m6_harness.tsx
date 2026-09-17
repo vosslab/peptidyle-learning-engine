@@ -36,12 +36,12 @@ const FIXTURE_CLASSIFICATION = {
 } satisfies CourseClassification;
 
 const COURSE_ONE: LiveStudentCourseLandingSummary = {
-  reference: "CI7K3M2Q",
+  reference: "CI7K3M2QAZ",
   shortName: "BCHM 301",
   longName: "Biochemistry 301: Proteins and Peptides",
 };
 const COURSE_TWO: LiveStudentCourseLandingSummary = {
-  reference: "CI4W8QF9",
+  reference: "CI4W8QF9AD",
   shortName: "BIOL 302",
   longName: "Molecular Genetics: Gene Regulation",
 };
@@ -58,7 +58,7 @@ const ASSESSMENT_DECISION = {
   publicReason: null,
 } as const;
 const ASSESSMENT: LiveStudentAssessmentLandingSummary = {
-  reference: "A9D2RX5",
+  reference: "A9D2RX5AF",
   title: "Protein structure practice",
   assessmentType: "regular_assignment",
   decision: ASSESSMENT_DECISION,
@@ -72,7 +72,7 @@ const ASSESSMENT: LiveStudentAssessmentLandingSummary = {
 };
 const BONUS_ASSESSMENT: LiveStudentAssessmentLandingSummary = {
   ...ASSESSMENT,
-  reference: "A4N8BQ2",
+  reference: "A4N8BQ2A1",
   title: "Bonus protein challenge",
   assessmentType: "bonus_assignment",
   decision: { ...ASSESSMENT_DECISION, attemptLimit: null },
@@ -85,7 +85,7 @@ const BONUS_ASSESSMENT: LiveStudentAssessmentLandingSummary = {
   assessmentScore: { pointsEarned: 3, pointsPossible: 0 },
 };
 const WITHHELD_ASSESSMENT: LiveStudentAssessmentLandingSummary = {
-  reference: "A7K2CW4",
+  reference: "A7K2CW4A0",
   title: "Peptide quiz",
   assessmentType: "quiz",
   decision: ASSESSMENT_DECISION,
@@ -98,7 +98,7 @@ const WITHHELD_ASSESSMENT: LiveStudentAssessmentLandingSummary = {
 };
 const UNSTARTED_ASSESSMENT: LiveStudentAssessmentLandingSummary = {
   ...WITHHELD_ASSESSMENT,
-  reference: "A3N7DX6",
+  reference: "A3N7DX6AT",
   title: "Protein folding quiz",
   assessmentAttemptNumber: null,
   assessmentAttemptCompletion: null,
@@ -150,7 +150,7 @@ export function mountStudentCourseEntryM6Harness(
   history.set({
     value:
       caseName === "landing"
-        ? "/student/courses/CI7K3M2Q"
+        ? "/student/courses/CI7K3M2QAZ"
         : caseName === "choose"
           ? "/student?choose=1"
           : "/",

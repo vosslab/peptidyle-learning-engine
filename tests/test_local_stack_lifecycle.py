@@ -763,12 +763,11 @@ def test_live_teaching_bootstrap_keeps_seed_inputs_without_local_auth_files(
 	values = local_stack_control.env_file.env_settings(target.env_file)
 	secret_directory = target.env_file.parent / ".secrets"
 	invitation_path = secret_directory / "invitation_token_secret"
-	question_path = secret_directory / "question_id_secret"
 
 	assert "PLE_LOCAL_AUTH_HOST_FILE" not in values
 	assert not (target.env_file.parent / "local-login.txt").exists()
 	assert not (target.env_file.parent / "local-identities.json").exists()
-	assert invitation_path.is_file() and question_path.is_file()
+	assert invitation_path.is_file()
 
 
 #============================================
@@ -804,7 +803,6 @@ def test_database_migrator_projects_only_the_existing_installation_data_capabili
 		"PLE_TEMP_PROCESSING_BUCKET: temp-processing",
 		"AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}",
 		"AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}",
-		"PLE_QUESTION_ID_SECRET_FILE: /run/ple-secrets/question_id_secret",
 		"source: ple_identity_runtime",
 		"target: /run/ple-secrets",
 		"read_only: true",

@@ -651,7 +651,7 @@ mod tests {
                         instructions: AssessmentInstructions::default(),
                         entries: vec![StoredBlueprintAssessmentEntry::Fixed {
                             question_revision: QuestionRevisionReference {
-                                question_id: "7K3M-X9QX".parse().expect("Question ID"),
+                                question_id: "7K3M-19QX".parse().expect("Question ID"),
                                 revision_number: question_model::QuestionRevisionNumber::new(1)
                                     .expect("revision"),
                             },

@@ -280,19 +280,21 @@ CREATE FUNCTION ple_api.read_assessment_question_pool_fork(
     member_position integer,
     question_id text,
     question_revision_number integer,
-    title text, description text, discipline_uuid uuid, subject_uuid uuid,
+    title text, description text, discipline_uuid uuid, discipline_name text,
+    discipline_is_retired boolean, subject_uuid uuid,
     topic_uuid uuid, subtopic_uuid uuid, tags text[]
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT entry.assessment_entry_id,
-           ple_data.canonical_public_crockford_display(pool.public_question_pool_id),
+           pool.public_question_pool_id,
            entry.question_pool_revision_number,
            pool.metadata_etag,
            entry.selection_count,
            member.member_position,
-           ple_data.canonical_public_crockford_display(member.question_id),
+           member.question_id,
            member.question_revision_number,
-           pool.title, pool.description, pool.discipline_uuid, pool.subject_uuid,
+           pool.title, pool.description, pool.discipline_uuid, discipline.name,
+           discipline.is_retired, pool.subject_uuid,
            pool.topic_uuid, pool.subtopic_uuid, pool.tags
       FROM ple_data.course_instance AS course
       JOIN ple_data.assessment AS assessment ON assessment.course_id = course.course_id
@@ -302,6 +304,8 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
        AND owned.assessment_id = assessment.assessment_id
        AND owned.question_pool_id = entry.question_pool_id
       JOIN ple_data.question_pool AS pool ON pool.question_pool_id = entry.question_pool_id
+      JOIN LATERAL ple_api.list_content_disciplines_including_retired() AS discipline
+        ON discipline.discipline_uuid = pool.discipline_uuid
       JOIN ple_data.question_pool_revision_member AS member
         ON member.question_pool_id = entry.question_pool_id
        AND member.revision_number = entry.question_pool_revision_number

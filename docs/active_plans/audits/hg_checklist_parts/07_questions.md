@@ -134,23 +134,20 @@
 
 #### Supported Question Backends
 
-- [ ] WeBWorK, iMathAS, and H5P are PLE-managed Question Backends.
-  - Mismatch: C870 removed every current H5P source, import, adapter, and runtime seam; H5P is not a delivered backend.
-  - Question: Which H5P content type(s) are supported first; for each which terminal xAPI event/score semantics are authoritative; are scoreless activities non-assessment only?
+- [x] WeBWorK is a PLE-managed Question Backend.
+  - Evidence (source): `crates/adapters/webwork/src/lib.rs` `WebworkAdapter` is the current PLE-managed WeBWorK integration boundary.
 - [x] The initial primary Question Backends are PLE-native JSON and WeBWorK.
   - Evidence (source): `schemas/base_schema/assessment_attempt_presentation.sql` `backend IN ('ple', 'webwork')` is the delivered presentation boundary.
-- [ ] iMathAS and H5P are supported secondary Question Backends.
-  - Mismatch: iMathAS has a launch boundary, while C870 leaves no current H5P source, import, or delivered backend seam.
-  - Question: Which H5P content type(s) are supported first; for each which terminal xAPI event/score semantics are authoritative; are scoreless activities non-assessment only?
+- N/A iMathAS and H5P are desired secondary Question Backends governed by Deferred product behavior.
+  - Reason: Human Guidance explicitly defers both Backends, so they are desired product behavior rather than current implementation requirements. Current production Backends are PLE and WeBWorK.
 - [x] PLE-native Questions use the PLE Question Backend.
   - Evidence (source): `schemas/base_schema/question_authoring_state.sql` `question_source_binding_fields_are_valid` maps `ple` to `pleQuestionJson`.
 - [ ] WeBWorK owns PG/PGML rendering, controls, answer evaluators, partial credit, and feedback.
   - Mismatch: the isolated opaque adapter proves renderer documents, ordered pairs, score, partial credit, and stateless state. Connected live-ownership proof remains required; PLE is not required to capture historic renderer feedback.
-- [ ] H5P owns its runtime, interactions, state, and scoring.
-  - Mismatch: C870 leaves no current H5P source, import, adapter, or runtime seam, so H5P cannot yet own delivered runtime behavior.
-  - Question: Which H5P content type(s) are supported first; for each which terminal xAPI event/score semantics are authoritative; are scoreless activities non-assessment only?
-- [ ] iMathAS owns its rendering and evaluation.
-  - Mismatch: needs runtime rendering and evaluation proof for iMathAS.
+- N/A H5P owns its runtime, interactions, state, and scoring.
+  - Reason: H5P is desired but explicitly deferred and is not a current implementation requirement.
+- N/A iMathAS owns its rendering and evaluation.
+  - Reason: iMathAS is desired but explicitly deferred and is not a current implementation requirement.
 
 #### Question Backend responsibilities
 
@@ -169,10 +166,9 @@
 - [ ] PLE uses the same basic interface for every Question Backend, each backend handles its own internal details.
   - Mismatch: `crates/question_model/src/question_library.rs` `QuestionBackend` is only an enum discriminator. Issuance and finalization branch separately on backend in `crates/server/src/assignment_delivery.rs` `issue_new_presentations` and `crates/server/src/assignment_delivery/direct_finalization.rs` `evaluate_one`; no common adapter interface covers every backend.
 - [ ] Each Question Backend adapter retains its backend-specific interaction knowledge.
-  - Mismatch: `crates/adapters/webwork/src/lib.rs` `WebworkAdapter` establishes an opaque WeBWorK boundary, and `crates/adapters/imathas/src/imathas_question_backend.rs` defines an iMathAS seam, but C870 leaves no current H5P adapter or runtime seam. Evidence from WeBWorK alone cannot establish this claim for each backend.
-  - Question: Which H5P content type(s) are supported first; for each which terminal xAPI event/score semantics are authoritative; are scoreless activities non-assessment only?
+  - Verification pending: `crates/adapters/webwork/src/lib.rs` `WebworkAdapter` establishes the current production external-backend boundary. Current PLE/WeBWorK connected acceptance remains required; deferred iMathAS/H5P behavior does not block this row.
 - [ ] Question Backends may support more complex interactions without requiring PLE to implement those interactions.
-  - Mismatch: incomplete secondary backends leave the general capability unverified.
+  - Verification pending: `crates/adapters/webwork/src/lib.rs` `WebworkAdapter` keeps current production WeBWorK interaction details outside PLE. Connected current-backend acceptance of this broad capability remains pending; deferred iMathAS/H5P behavior is not a blocker.
 
 #### Question Backend grading and feedback
 
@@ -240,19 +236,24 @@
 
 #### Published Question identity specifications
 
-- [x] Published Questions receive a public `AAAA-ZBBB` Crockford Base32 ID.
-  - Evidence (source): `crates/question_model/src/question_library.rs` `QuestionId` defines and displays the canonical `AAAA-ZBBB` public Question ID; `crates/server/src/question_publication.rs` `NewQuestionLineagePublisher` issues it for a new Published Question lineage.
-  - Evidence (runtime): `crates/server/src/question_publication.rs` `NewQuestionLineagePublisher` passed accepted actual-server proof that published two native Questions, whose exact public IDs then formed a reusable Pool's members. Artifact: `/private/tmp/ple-course-empty-artifacts.JTjOJ3`.
-- [x] Seven Crockford Base32 characters are cryptographically random and provide the identity.
-  - Evidence (source): `crates/server/src/question_publication.rs` `question_id_from_random_bytes` derives the identifier from random bytes.
-- [x] The middle character is an HMAC-derived check character calculated from the seven identity characters.
-  - Evidence (source): `crates/server/src/question_publication.rs` `question_id_validation_character` derives the validation character with HMAC.
-- [x] The check character detects mistyped or malformed IDs; it is not a security boundary.
-  - Evidence (source): `crates/server/src/question_publication.rs` `validates_question_id` validates syntax/check character separately from authorization.
-- [ ] ID generation enforces database uniqueness and retries when a random collision occurs.
-  - Mismatch: database uniqueness exists, but collision retry behavior was not found in the issuer or publication store.
-- [x] IDs never encode creation order, Question Type, ownership, subject, or other metadata.
-  - Evidence (source): `crates/server/src/question_publication.rs` `question_id_from_random_bytes` uses random bytes and a secret only.
+- [ ] Published Questions receive a public `XXXX-ZXXX` Crockford Base32 ID.
+  - Mismatch: fresh exact canonical public-ID source and connected proof remain required.
+- [ ] Question IDs have the canonical form `XXXX-ZXXX`.
+  - Verification pending: replacement source and connected proof remain required.
+- [ ] The hyphen is part of the canonical ID and makes Question IDs immediately recognizable.
+  - Verification pending: replacement source and connected proof remain required.
+- [ ] Human-entered Question IDs may omit the hyphen.
+  - Verification pending: replacement source and connected proof remain required.
+- [ ] Normalize accepted human input to the canonical hyphenated form before validation and lookup.
+  - Verification pending: replacement source and connected proof remain required.
+- [ ] PLE always stores, transmits, displays, and copies the canonical hyphenated form.
+  - Verification pending: replacement source and connected proof remain required.
+- [ ] Seven Crockford Base32 characters are cryptographically random and provide the identity.
+  - Verification pending: the replacement issuer and global registry need source and connected proof.
+- [ ] ID generation enforces global uniqueness across all public IDs and retries random collisions.
+  - Mismatch: fresh global-registry collision proof remains outstanding.
+- [ ] IDs never encode creation order, Question Type, ownership, subject, or other metadata.
+  - Verification pending: the replacement issuer needs source and connected proof.
 
 #### Published Question metadata
 
@@ -290,10 +291,12 @@
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [x] Search metadata belongs to the Published Question as a whole rather than to one Revision.
   - Evidence (source): `schemas/base_schema/question_lineages.sql` `published_question_metadata` keys metadata to `question_id` only.
-- [ ] Any **Instructor** may fork a Published Question to create a separate Question with a new Question ID.
-  - Mismatch: draft-fork source support is source evidence only; no authorization or behavior test verifies any eligible Instructor can publish a separate ID.
+- [x] Any **Instructor** may fork a Published Question to create a separate Question with a new Question ID.
+  - Evidence (source): `src/pages/question_detail_page.tsx` `QuestionForkControl` invokes the exact-Revision server command, which mints the separate Question ID and opens only the returned private Draft.
+  - Evidence (runtime): `src/pages/question_detail_page.tsx` `QuestionForkControl` passed accepted C879 connected PostgreSQL/server/browser proof with two Instructors, exact source attribution, private cross-account denial, retry/concurrency, a distinct server-issued identity, and prevalidation-publication denial; exact canonical-ID proof remains required.
 - [x] A fork starts as a private **Draft Question** with its own authorship and lineage.
   - Evidence (source): `schemas/base_schema/question_authoring_state.sql` `draft_question_fork_source` records a private draft fork source.
+  - Evidence (runtime): `src/pages/question_detail_page.tsx` `QuestionForkControl` passed accepted C879 connected browser proof that opened only the returned private Draft for the invoking Instructor and denied the other Instructor.
 - [x] A fork must pass Question Publication Validation before joining the Question Library.
   - Evidence (source): `schemas/base_schema/question_stewardship.sql` `validate_question_publication` guards publication.
 - [x] Published forks retain source attribution.
@@ -302,11 +305,10 @@
   - Evidence (source): `schemas/base_schema/corrections.sql` `forced_question_correction` and its immutable audit targets record correction actions.
 - [x] Question authorship, contributor credit, history, attribution, and compatible CC licensing are preserved across Revisions and forks.
   - Evidence (source): `schemas/base_schema/question_stewardship.sql` `question_revision_authorship` and `question_revision_license` preserve revision stewardship.
+  - Evidence (runtime): `schemas/base_schema/question_publication_operations.sql` `ple_private.publish_new_question_lineage` passed the accepted C879 3-by-3 PostgreSQL publication proof: each exact source Revision license was preserved across three supported compatible CC licenses and every mismatched requested license was rejected.
 - [ ] Watching a Published Question drives in-app notifications for new Revisions, forks, improvement
   threads, and impact notices.
-  - Verification pending: `schemas/base_schema/question_stewardship.sql` `validate_question_publication` supplies Published-Question stewardship context only. Re-audit this exact Question/Pool obligation, including private identity/watch projection and all named notification kinds; existing Question-only evidence does not establish Pool scope.
-  - Mismatch: source-bound Watch events exist for revisions and forks, but improvement threads and impact notices have no product-defined model or private delivery behavior.
-  - Question: For improvement threads, who may create/read/reply/edit/resolve them, which identity/attachments/linkage/notification/retention rules apply; and for impact notices, who may create them, under what condition, with what text/category/severity/manual-or-derived/linkage/audience/update/cancel rules?
+  - Verification pending: retained vetted-Instructor improvement threads and owner/Sysadmin impact notices now have Question and Pool SQL/LDA/server/browser source boundaries. Four-event private Watch delivery is still in progress, and final review plus major-milestone SQL/browser proof remain pending.
 
 #### Published Question behavior specifications
 
@@ -351,18 +353,16 @@
 - [x] Question Pools are available to all vetted **Instructors**.
   - Evidence (source): `schemas/base_schema/question_pools.sql` `list_published_question_pools` and `read_current_published_question_pool` authorize active Instructors and project only public Pool/Revision/member facts.
   - Evidence (runtime): `crates/server/src/question_pool_library.rs` `list_pools` passed accepted actual-server proof that a second vetted Instructor listed and read root Pool `1N6T-MZRD` and child Pool `J1BX-8V8F` with exact public member pins and no Course facts. A nonmember Assessment-fork PUT returned 404 without mutation; Student and anonymous Pool list/read calls returned no-store 404. Artifact: `/private/tmp/ple-course-empty-artifacts.hvS4KT`.
-- [x] A Question Pool has its own public `AAAA-ZBBB` Crockford Base32 ID and immutable Revisions.
-  - Evidence (source): `schemas/base_schema/question_pools.sql` `question_pool` stores the unique compact public Pool ID, while `question_pool_revision` and `question_pool_revision_member` have immutable update/delete triggers and ordered exact member pins.
-  - Evidence (runtime): `src/components/question_pool_create_dialog.tsx` `QuestionPoolCreateDialog` passed accepted actual-main proof that returned canonical Pool ID `SBQR-N5RE`, Revision 1, then read the same identity and exact ordered Question Revision pins.
+- [ ] A Question Pool has its own public `XXXX-ZXXX` Crockford Base32 ID and immutable Revisions.
+  - Mismatch: prior compact per-table Pool-ID evidence is superseded. Fresh proof must show exact canonical storage and shared Question/Pool namespace reservation.
 - [x] Importing a Question Pool into a new Assessment automatically forks the Question Pool.
   - Evidence (source): `schemas/base_schema/assessment_pool_forks.sql` `import_assessment_question_pool_fork` atomically creates a fresh child Pool Revision and Assessment Entry from an exact reusable source Revision without accepting raw member pins.
   - Evidence (runtime): `crates/server/src/assessment_pool_fork.rs` `import_fork` passed accepted actual-server proof that imported source Pool `P8H3-QYX9` into a direct Assessment and returned distinct fork `VFH9-CQKS`, Revision 1, at Assessment Edit 2.
 - [x] The fork belongs to the new Assessment and can be changed without changing the source Question Pool.
   - Evidence (source): `schemas/base_schema/assessments.sql` `assessment_question_pool_fork` owns each child Pool through exactly one Assessment Entry, and `schemas/base_schema/question_pools.sql` retains exact source-Revision provenance.
   - Evidence (runtime): `crates/server/src/assessment_pool_fork.rs` `append_fork_revision` passed accepted actual-server proof that appended the fork's Revision 2 with the two exact member pins reversed, then reread the reusable source unchanged at Revision 1 with its original order. Artifact: `/private/tmp/ple-course-empty-artifacts.BbKFFd`.
-- [x] Forking a Question Pool preserves its Published Questions by their public `AAAA-ZBBB` IDs.
-  - Evidence (source): `schemas/base_schema/question_pools.sql` `question_pool_revision_member` pins each ordered public Question identity and Revision, and `import_assessment_question_pool_fork` copies those exact immutable source members.
-  - Evidence (runtime): `crates/server/src/assessment_pool_fork.rs` `import_fork` passed accepted actual-server proof that returned both source Question IDs and Revision 1 pins unchanged and in order in the fresh fork; subsequent Student selection retained one exact member pin.
+- [ ] Forking a Question Pool preserves its list of Published Questions by their public `XXXX-ZXXX` IDs.
+  - Verification pending: former exact-pin behavior is relevant, but must be rechecked through the exact canonical ID and shared-namespace cutover.
 - [ ] Question Pools work the same way regardless of the Question Backend.
   - Mismatch: incomplete secondary backend delivery leaves this unverified.
 - [x] **Instructors** choose the contents of a Question Pool and how many Questions are selected.
@@ -390,9 +390,7 @@
   - Verification pending: Source-contributor audit must confirm only exact Published Question Revision members and no Pool-member input; broad runtime evidence remains pending.
 - [ ] Watching a Question Pool drives in-app notifications for new Revisions, forks, improvement
   threads, and impact notices.
-  - Verification pending: `schemas/base_schema/question_stewardship.sql` `validate_question_publication` supplies Published-Question stewardship context only. Re-audit this exact Question/Pool obligation, including private identity/watch projection and all named notification kinds; existing Question-only evidence does not establish Pool scope.
-  - Mismatch: source-bound Watch events exist for revisions and forks, but improvement threads and impact notices have no product-defined model or private delivery behavior.
-  - Question: For improvement threads, who may create/read/reply/edit/resolve them, which identity/attachments/linkage/notification/retention rules apply; and for impact notices, who may create them, under what condition, with what text/category/severity/manual-or-derived/linkage/audience/update/cancel rules?
+  - Verification pending: retained vetted-Instructor improvement threads and Sysadmin-managed Pool impact notices now have SQL/LDA/server/browser source boundaries. Four-event private Watch delivery is still in progress, and final review plus major-milestone SQL/browser proof remain pending.
 
 #### Question Pool metadata
 
@@ -567,9 +565,7 @@
   - Mismatch: Question watches are not implemented.
 - [ ] Watching a Published Question or Question Pool drives in-app notifications for new Revisions,
   forks, improvement threads, and impact notices.
-  - Verification pending: `schemas/base_schema/question_stewardship.sql` `validate_question_publication` supplies Published-Question stewardship context only. Re-audit this exact Question/Pool obligation, including private identity/watch projection and all named notification kinds; existing Question-only evidence does not establish Pool scope.
-  - Mismatch: source-bound Watch events exist for revisions and forks, but improvement threads and impact notices have no product-defined model or private delivery behavior.
-  - Question: For improvement threads, who may create/read/reply/edit/resolve them, which identity/attachments/linkage/notification/retention rules apply; and for impact notices, who may create them, under what condition, with what text/category/severity/manual-or-derived/linkage/audience/update/cancel rules?
+  - Verification pending: the two retained discussion lifecycles and their Question/Pool activity vocabulary are implemented in current source. The private four-event Watch delivery path is in progress; final review and major-milestone SQL/browser acceptance remain pending.
 - [ ] An **Instructor's** watch list remains private.
   - Mismatch: Question watches are not implemented.
 - [ ] **Students** and anonymous users do not receive **Instructor** identity lists or watch information.

@@ -42,7 +42,7 @@ export function assignmentAttemptContext(reference: string): StudentAssessmentAt
       longName: `Course ${reference}: Molecular Biology`,
       theme: "grass",
     },
-    assessment: { reference: "A9D2RX5", title: "Assessment one" },
+    assessment: { reference: "A9D2RX5AF", title: "Assessment one" },
   } satisfies StudentAssessmentAttemptContext;
 }
 
@@ -57,7 +57,7 @@ export function assignmentAttemptHistoryData(reference: string): StudentAssessme
       longName: `Course ${reference}: Molecular Biology`,
       theme: "grass",
     },
-    assessment: { reference: "A9D2RX5", title: "Assessment one" },
+    assessment: { reference: "A9D2RX5AF", title: "Assessment one" },
     state: "submitted",
     questions: [],
   } satisfies StudentAssessmentAttemptHistory;

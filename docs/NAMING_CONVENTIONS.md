@@ -37,7 +37,7 @@ not generic `assignment`.
 | PostgreSQL identifiers | unquoted `snake_case` | `assessment_uuid` |
 | Static URL segments and CSS classes | lowercase kebab case | `assessment-templates` |
 | Constants and environment variables | `SCREAMING_SNAKE_CASE` | `MAX_ASSESSMENT_ATTEMPTS` |
-| Public References | reviewed product format | `C-11`, `AAAA-ZBBB` |
+| Public IDs | canonical product format | `BPXXXXXXXZ`, `XXXX-ZXXX` |
 
 Framework, DOM, HTTP, database-provider, and registered protocol names retain
 their owner's spelling.
@@ -48,8 +48,7 @@ their owner's spelling.
 | --- | --- | --- |
 | Domain aggregate | Domain noun | `Account`, `CourseInstance`, `Assessment` |
 | Typed internal UUID | `Uuid` / `_uuid` | `AssessmentAttemptUuid`, `assessment_attempt_uuid` |
-| Human locator | reviewed `Reference` term | `CourseInstanceReference` |
-| Public product ID | reviewed `Id` term | `QuestionId` |
+| Public product ID | reviewed `Id` term | `CourseInstanceId` |
 | Immutable Revision number | `RevisionNumber` | `QuestionRevisionNumber` |
 | Immutable Revision reference | `RevisionReference` | `BlueprintRevisionReference` |
 | Current-state concurrency | `EditNumber` | `AssessmentEditNumber` |
@@ -62,9 +61,11 @@ Blueprint Courses. An Edit
 Number, event, receipt, snapshot, job generation, or current state is not a
 Revision.
 
-Use `Uuid` only when the physical value is a UUID. A public Reference is a
-separate human locator and never authorization. The public Question/Pool ID
-remains `QuestionId`/`PoolId` because ID is its product name.
+Use `Uuid` only when the physical value is a UUID. A public ID is the one
+universal, canonical human-facing identifier for a PLE object that needs one.
+Store and use an exact public ID unchanged across all boundaries; it is not a
+display form or a translated version of another identifier. The public
+Question/Pool ID remains `QuestionId`/`PoolId` because ID is its product name.
 
 ## Domain map
 
@@ -76,9 +77,9 @@ remains `QuestionId`/`PoolId` because ID is its product name.
 | Draft Question | `draft_question_uuid`, optional `draft_question_edit_number` |
 | Published Question | `question_id` plus `QuestionRevisionReference` |
 | Question Pool | `pool_id` plus `PoolRevisionReference` |
-| Blueprint Course | `blueprint_course_uuid` plus `BlueprintRevisionReference` and current lifecycle |
-| Course Instance | `course_instance_uuid` with equal co-Instructor relationships |
-| Assessment | `assessment_uuid`; Blueprint Assessment or Course Instance Assessment where scope matters |
+| Blueprint Course | `blueprint_course_id` plus internal `blueprint_course_uuid`, `BlueprintRevisionReference`, and current lifecycle |
+| Course Instance | `course_instance_id` plus internal `course_instance_uuid` with equal co-Instructor relationships |
+| Assessment | `assessment_id` plus internal `assessment_uuid`; Blueprint Assessment or Course Instance Assessment where scope matters |
 | Assessment Attempt | `assessment_attempt_uuid` and current whole-submission state |
 | Saved response | `saved_response_uuid` or exact implementation evidence name; never a Student submission |
 | Object | `object_record_uuid` plus typed owner/scope |

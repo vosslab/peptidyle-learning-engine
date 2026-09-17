@@ -27,7 +27,7 @@ use uuid::Uuid;
 
 use crate::{
     auth::{AuthError, resolve_session},
-    question_publication::{HmacQuestionIdIssuer, QuestionIdIssuer},
+    question_publication::{QuestionIdIssuer, RandomQuestionIdIssuer},
 };
 
 const MAX_POOL_FORK_REQUEST_BYTES: usize = 128 * 1024;
@@ -37,7 +37,7 @@ const POOL_IDENTITY_ATTEMPTS: usize = 8;
 struct RouteState {
     sessions: Arc<learning_data_access::postgres::PostgresSessionStore>,
     forks: Arc<dyn AssessmentPoolForkStore>,
-    issuer: HmacQuestionIdIssuer,
+    issuer: RandomQuestionIdIssuer,
 }
 
 /// Registers only trusted import and append commands; ordinary Assessment saves
@@ -45,7 +45,7 @@ struct RouteState {
 pub fn assessment_pool_fork_router(
     sessions: Arc<learning_data_access::postgres::PostgresSessionStore>,
     forks: PostgresAssessmentPoolForkStore,
-    issuer: HmacQuestionIdIssuer,
+    issuer: RandomQuestionIdIssuer,
 ) -> Router {
     assessment_pool_fork_router_with_store(sessions, Arc::new(forks), issuer)
 }
@@ -53,7 +53,7 @@ pub fn assessment_pool_fork_router(
 pub(crate) fn assessment_pool_fork_router_with_store(
     sessions: Arc<learning_data_access::postgres::PostgresSessionStore>,
     forks: Arc<dyn AssessmentPoolForkStore>,
-    issuer: HmacQuestionIdIssuer,
+    issuer: RandomQuestionIdIssuer,
 ) -> Router {
     Router::new()
         .route(
@@ -137,7 +137,7 @@ async fn import_fork(
         Err(response) => return response,
     };
     let source_public_question_pool_id =
-        match verified_question_id(&state.issuer, &request.source_question_pool_id) {
+        match verified_question_id(&request.source_question_pool_id) {
             Some(value) => value,
             None => return concealed(),
         };
@@ -188,7 +188,7 @@ async fn import_fork(
                 return response;
             }
             // The candidate entry and fork UUIDs are fresh, so the only expected
-            // uniqueness race is the HMAC public Pool identity.
+            // uniqueness race is the canonical public Pool identity.
             Err(StoreError::AlreadyExists) => continue,
             Err(error) => return store_error(error),
         }
@@ -221,7 +221,7 @@ async fn append_fork_revision(
         Ok(value) => value,
         Err(response) => return response,
     };
-    let members = match verified_members(&state.issuer, request.members) {
+    let members = match verified_members(request.members) {
         Some(value) if !value.is_empty() && request.interchangeability_attested => value,
         _ => return invalid(),
     };
@@ -305,20 +305,16 @@ fn refs(course: &str, assessment: &str) -> Option<(CourseInstanceReference, Asse
     Some((course.parse().ok()?, assessment.parse().ok()?))
 }
 
-fn verified_question_id(issuer: &HmacQuestionIdIssuer, raw: &str) -> Option<QuestionId> {
-    let value = raw.parse().ok()?;
-    issuer.validates_question_id(&value).then_some(value)
+fn verified_question_id(raw: &str) -> Option<QuestionId> {
+    raw.parse().ok()
 }
 
-fn verified_members(
-    issuer: &HmacQuestionIdIssuer,
-    values: Vec<ForkMemberRequest>,
-) -> Option<Vec<QuestionRevisionReference>> {
+fn verified_members(values: Vec<ForkMemberRequest>) -> Option<Vec<QuestionRevisionReference>> {
     values
         .into_iter()
         .map(|member| {
             Some(QuestionRevisionReference {
-                question_id: verified_question_id(issuer, &member.question_id)?,
+                question_id: verified_question_id(&member.question_id)?,
                 revision_number: QuestionRevisionNumber::new(member.revision_number).ok()?,
             })
         })

@@ -186,7 +186,7 @@ BEGIN
               AND pin.blueprint_revision_number = 1) <> 4
        OR EXISTS (
            WITH input AS (
-               SELECT replace(value -> 'questionRevision' ->> 'questionId', '-', '') AS question_id,
+               SELECT value -> 'questionRevision' ->> 'questionId' AS question_id,
                       (value -> 'questionRevision' ->> 'revisionNumber')::integer AS revision_number
                  FROM jsonb_each(
                      current_setting('ple.installation_pilot_question_publications')::jsonb
@@ -320,11 +320,15 @@ BEGIN
        OR EXISTS (
            SELECT 1 FROM ple_data.assessment_entry
             WHERE assessment_id = '00000000-0000-0000-0000-000000000270'
-              AND question_id !~ '^[0-9A-HJKMNP-TV-Z]{8}$'
+              AND (question_id !~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
+                   OR substr(question_id, 6, 1) IS DISTINCT FROM
+                        ple_private.crockford_checksum_character(
+                            substr(question_id, 1, 4) || substr(question_id, 7, 3)
+                        ))
        )
        OR EXISTS (
            WITH input AS (
-               SELECT replace(value -> 'questionRevision' ->> 'questionId', '-', '') AS question_id,
+               SELECT value -> 'questionRevision' ->> 'questionId' AS question_id,
                       (value -> 'questionRevision' ->> 'revisionNumber')::integer AS revision_number,
                       row_number() OVER (ORDER BY array_position(ARRAY[
                           'genetics-disorders-ple-question-json-mc',

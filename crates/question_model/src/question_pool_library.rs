@@ -21,6 +21,11 @@ pub struct QuestionPoolMetadata {
     pub title: String,
     pub description: String,
     pub discipline_uuid: Uuid,
+    /// Current readable Discipline name for this Pool's existing classification reference.
+    pub discipline_name: String,
+    /// Whether `discipline_name` is retired. Retired classifications remain readable on existing
+    /// references and are not new-selection choices.
+    pub discipline_is_retired: bool,
     pub subject_uuid: Uuid,
     pub topic_uuid: Option<Uuid>,
     pub subtopic_uuid: Option<Uuid>,

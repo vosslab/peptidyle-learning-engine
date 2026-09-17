@@ -11,7 +11,7 @@ use crate::{
 };
 
 /// One exact Blueprint Course and immutable Blueprint Revision pair.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct BlueprintRevisionReference {
     pub reference: BlueprintCourseReference,
@@ -19,7 +19,7 @@ pub struct BlueprintRevisionReference {
 }
 
 /// Stable Blueprint Assessment provenance inside one exact Blueprint Revision.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct BlueprintAssessmentSource {
     pub blueprint_revision: BlueprintRevisionReference,
@@ -143,7 +143,7 @@ pub struct BlueprintMetadataState {
 }
 
 /// Durable receipt for atomic lineage and Revision 1 creation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CreateBlueprintCourseReceipt {
     pub blueprint_revision: BlueprintRevisionReference,
     pub metadata_etag: BlueprintMetadataEtag,
@@ -153,7 +153,7 @@ pub struct CreateBlueprintCourseReceipt {
 }
 
 /// Durable receipt for a changed or canonical no-op Save.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SaveBlueprintCourseReceipt {
     pub blueprint_revision: BlueprintRevisionReference,
     pub changed: bool,
@@ -164,7 +164,7 @@ pub struct SaveBlueprintCourseReceipt {
 
 /// Provenance retained by a destination Assessment created from a Blueprint
 /// Assessment. The destination is stable current Assessment state.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlueprintAssessmentImportReceipt {
     pub source: BlueprintAssessmentSource,
     pub destination_assessment: AssessmentReference,
@@ -192,10 +192,11 @@ mod tests {
 
     #[test]
     fn creation_receipt_identifies_revision_one() {
-        let blueprint = BlueprintCourseReference::new("BP7K3M2Q").expect("valid Blueprint Course");
+        let blueprint =
+            BlueprintCourseReference::new("BP7K3M2QXH").expect("valid Blueprint Course");
         let receipt = CreateBlueprintCourseReceipt {
             blueprint_revision: BlueprintRevisionReference {
-                reference: blueprint,
+                reference: blueprint.clone(),
                 revision: BlueprintRevision::INITIAL,
             },
             metadata_etag: BlueprintMetadataEtag::from_uuid(Uuid::from_u128(13)),

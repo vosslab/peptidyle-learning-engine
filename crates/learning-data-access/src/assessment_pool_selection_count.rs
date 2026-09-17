@@ -11,7 +11,7 @@ use question_model::{
 use crate::{SessionTokenHash, StoreError};
 
 /// Closed input for one optimistic-concurrency Pool selection-count change.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AssessmentPoolSelectionCountInput {
     /// Opaque Course reference from the canonical route.
     pub course: CourseInstanceReference,

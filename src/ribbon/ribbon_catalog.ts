@@ -243,6 +243,16 @@ export const TAB_CATALOG = [
     presentation: "standard",
     ...pairedIconFlags,
   },
+  {
+    id: "disciplines",
+    label: "Disciplines",
+    destination: { kind: "route", routeId: "contentDisciplines" },
+    requiredParams: [],
+    role: "primary",
+    priority: "critical",
+    presentation: "standard",
+    ...pairedIconFlags,
+  },
 ] as const satisfies ReadonlyArray<RibbonCatalogControl<RibbonTabId>>;
 
 /**
@@ -337,7 +347,7 @@ export const RIBBON_TASK_CATALOG = [
   {
     id: "watched",
     label: "Watched",
-    destination: { kind: "future", futureId: "watchedQuestions" },
+    destination: { kind: "route", routeId: "libraryWatchNotifications" },
     requiredParams: [],
     taskGroup: "instructorQuestions",
     area: "instructorQuestions",

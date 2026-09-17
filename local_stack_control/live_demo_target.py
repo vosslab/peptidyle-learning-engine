@@ -199,9 +199,7 @@ def write_private_target(
 	_write_private_file(capability_path, capability)
 	capability_digest = hashlib.sha256(capability).hexdigest()
 	invitation_path = directory / "invitation-secret"
-	question_path = directory / "question-id-secret"
 	_write_private_file(invitation_path, random_secret32())
-	_write_private_file(question_path, random_secret32())
 	totp_artifact_path = local_stack_control.local_totp_authenticator.bootstrap_local_totp_material(
 		directory
 	)
@@ -231,7 +229,6 @@ def write_private_target(
 		"PLE_TRUSTED_PROXY_CIDRS=172.30.255.0/29\n"
 		"PLE_STORAGE_TOPOLOGY=disposable-local\n"
 		f"PLE_INVITATION_TOKEN_SECRET_HOST_FILE={invitation_path}\n"
-		f"PLE_QUESTION_ID_SECRET_HOST_FILE={question_path}\n"
 		f"PLE_LOCAL_SYSADMIN_TOTP_SEED_HOST_FILE={totp_seed_path}\n"
 		f"PLE_LOCAL_SYSADMIN_TOTP_SEED_KEY_HOST_FILE={totp_key_path}\n"
 		f"PLE_LOCAL_SYSADMIN_TOTP_AUTHENTICATOR_ARTIFACT={totp_artifact_path}\n"

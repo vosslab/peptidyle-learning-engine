@@ -19,13 +19,13 @@ import { M6_RIBBON_FIXTURES } from "./support/ribbon_model_fixtures.ts";
 const PRODUCT_ROLES = ["student", "instructor", "sysadmin"];
 const LABELS = {};
 const PARAMETER_VALUES = {
-  courseRef: "CI7K3M2Q",
-  assessmentRef: "A9D2RX5",
+  courseRef: "CI7K3M2QAZ",
+  assessmentRef: "A9D2RX5AF",
   assessmentAttemptRef: "R-1",
   membershipRef: "M-1",
-  questionRef: "7K3MX9QP",
+  questionRef: "7K3M-79QP",
   draftQuestionRef: "D-1",
-  blueprintCourseRef: "BP7K3M2Q",
+  blueprintCourseRef: "BP7K3M2QAF",
   proposalId: "e3396265-6653-4c65-bc9b-8d869c142d87",
 };
 const CATALOG = [...TAB_CATALOG, ...RIBBON_TASK_CATALOG];
@@ -68,10 +68,13 @@ test("route construction fails closed for incomplete, surplus, and malformed inp
   assert.equal(buildRoutePath("unknown", {}), undefined);
   assert.equal(buildRoutePath("courseAssessments", {}), undefined);
   assert.equal(
-    buildRoutePath("courseAssessments", { courseRef: "CI7K3M2Q", extra: "x" }),
+    buildRoutePath("courseAssessments", { courseRef: "CI7K3M2QAZ", extra: "x" }),
     undefined,
   );
-  assert.equal(buildRoutePath("courseAssessments", { courseRef: "CI7K3M2Q/gradebook" }), undefined);
+  assert.equal(
+    buildRoutePath("courseAssessments", { courseRef: "CI7K3M2QAZ/gradebook" }),
+    undefined,
+  );
   assert.equal(buildRoutePath("questionDetail", { questionRef: "7K3%2FM9QP" }), undefined);
 });
 
@@ -159,7 +162,7 @@ test("Appearance admits only the Instructor Course Setup task and preserves its 
   );
   assert.match(
     instructorHtml,
-    /href="\/instructor\/courses\/CI7K3M2Q\/appearance"[^>]*data-ribbon-control="appearance"/,
+    /href="\/instructor\/courses\/CI7K3M2QAZ\/appearance"[^>]*data-ribbon-control="appearance"/,
   );
   for (const role of ["student", "sysadmin"]) {
     const model = controlsFor("courseAppearance", role).model;
@@ -298,7 +301,7 @@ test("Student Coursework navigation retains collective labels", () => {
       destination: { kind: "route", routeId: "studentCourseLanding" },
       availability: "Available",
       selected: true,
-      href: "/student/courses/CI7K3M2Q",
+      href: "/student/courses/CI7K3M2QAZ",
       role: "primary",
       priority: "critical",
       presentation: "standard",
@@ -320,9 +323,9 @@ test("Student Coursework navigation retains collective labels", () => {
 test("Assessment workspace tasks retain canonical links and one selected task", async () => {
   const RealAppRibbon = await loadAppRibbonForSsr();
   const expected = {
-    assessmentWorkspaceOverview: "/instructor/courses/CI7K3M2Q/assessments/A9D2RX5",
-    assessmentWorkspaceQuestions: "/instructor/courses/CI7K3M2Q/assessments/A9D2RX5/questions",
-    assessmentWorkspacePolicies: "/instructor/courses/CI7K3M2Q/assessments/A9D2RX5/properties",
+    assessmentWorkspaceOverview: "/instructor/courses/CI7K3M2QAZ/assessments/A9D2RX5AF",
+    assessmentWorkspaceQuestions: "/instructor/courses/CI7K3M2QAZ/assessments/A9D2RX5AF/questions",
+    assessmentWorkspacePolicies: "/instructor/courses/CI7K3M2QAZ/assessments/A9D2RX5AF/properties",
   };
   for (const [routeId, selectedHref] of Object.entries(expected)) {
     const { model, controls } = controlsFor(routeId, "instructor");
@@ -428,7 +431,7 @@ test("breadcrumb trails are canonical route projections with one current termina
       routeId === "assessmentAttempt" || routeId === "assessmentAttemptSummary"
         ? {
             ...routeState,
-            params: { ...routeState.params, courseRef: "CI7K3M2Q", assessmentRef: "A9D2RX5" },
+            params: { ...routeState.params, courseRef: "CI7K3M2QAZ", assessmentRef: "A9D2RX5AF" },
           }
         : routeState,
       { productRole: "instructor" },

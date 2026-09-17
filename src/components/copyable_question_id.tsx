@@ -1,7 +1,7 @@
 // copyable_question_id.tsx - one operational instructor-facing Question reference.
 import { createSignal, type JSX } from "solid-js";
 
-import { normalizeQuestionIdSyntax } from "../question_id";
+import { validateCanonicalQuestionIdSyntax } from "../question_id";
 import "./copyable_question_id.css";
 
 export interface CopyableQuestionIdProps {
@@ -15,7 +15,7 @@ export interface CopyableQuestionIdProps {
 }
 export function CopyableQuestionId(props: CopyableQuestionIdProps): JSX.Element {
   // ASVS V2.2.1: display and copy only the allowlisted public Question-reference syntax.
-  const questionReference = normalizeQuestionIdSyntax(props.displayId);
+  const questionReference = validateCanonicalQuestionIdSyntax(props.displayId);
   const [status, setStatus] = createSignal("");
   async function copy(): Promise<void> {
     if (questionReference === null) return;

@@ -64,7 +64,7 @@ impl BulkPublishedQuestionMetadataStore for PostgresBulkPublishedQuestionMetadat
                 .iter()
                 .map(|selected| {
                     json!({
-                        "questionId": selected.question_id.as_compact_str(),
+                        "questionId": selected.question_id.as_str(),
                         "metadataEditNumber": selected.metadata_edit_number,
                     })
                 })

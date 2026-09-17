@@ -16,7 +16,7 @@ import { LiveAssessmentWorkspaceConflictError } from "../../api/http_client/asse
 import { AssessmentPoolForkConflictError } from "../../api/http_client/assessment_pool_fork";
 import { AssessmentPoolEntryEditor } from "./assessment_pool_entry_editor";
 import { SelectedAssessmentEntryIdentity } from "./assessment_workspace_selected_entry";
-import { normalizeQuestionIdSyntax } from "../../question_id";
+import { normalizeHumanEnteredQuestionId } from "../../question_id";
 import {
   AssessmentWorkspaceIdentity,
   useAssessmentWorkspace,
@@ -250,15 +250,17 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
       .trim()
       .split(/[\s,]+/u)
       .filter(Boolean);
-    const invalidIds = rawIds.filter((id) => normalizeQuestionIdSyntax(id) === null);
+    const normalizedIds = rawIds.map((id) => normalizeHumanEnteredQuestionId(id));
+    const invalidIds = rawIds.filter((_, index) => normalizedIds[index] === null);
     if (invalidIds.length > 0) {
       setMessage(
         `Invalid Question IDs: ${invalidIds.join(", ")}. Use the IDs shown below; no Questions were added.`,
       );
       return;
     }
-    const ids = rawIds.map((id) => normalizeQuestionIdSyntax(id)!);
+    const ids = normalizedIds.map((id) => id!);
     if (ids.length === 0) return;
+    setQuestionIdsToAdd(ids.join("\n"));
     if (new Set(ids).size !== ids.length) {
       setMessage(
         "Question IDs must appear only once. Remove duplicate IDs and try again; no Questions were added.",

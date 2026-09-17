@@ -88,15 +88,14 @@ done
 
 python3 -c 'import sys; from local_stack_control.process_logins import login_sql; print("BEGIN;\n" + login_sql("ple_api_login", ("ple_app", "ple_auth"), sys.argv[1]) + "COMMIT;")' "$api_password" \
     | podman exec -i "$postgres_name" psql -X -v ON_ERROR_STOP=1 -U postgres -d "$database" >/dev/null
-printf '%s' 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' > "$work/question-id-secret"
 printf 'oci_id=sha256:%064d\n' 0 > "$work/question-renderer-version"
-chmod 600 "$work/question-id-secret" "$work/question-renderer-version"
+chmod 600 "$work/question-renderer-version"
 (
     export DATABASE_URL="postgres://ple_api_login:${api_password}@127.0.0.1:${postgres_port}/${database}"
     export PLE_STORAGE_TOPOLOGY=disposable-local PLE_S3_ENDPOINT="http://127.0.0.1:${minio_port}" PLE_S3_REGION=us-east-1
     export AWS_ACCESS_KEY_ID=c853root AWS_SECRET_ACCESS_KEY="$minio_password" PLE_PUBLIC_ASSETS_BUCKET=public-assets PLE_PRIVATE_CONTENT_BUCKET=private-content
     export PLE_STUDENT_RECORDS_BUCKET=student-records PLE_TEMP_PROCESSING_BUCKET=temp-processing PLE_PUBLIC_ASSET_BASE_URL="$origin/public-assets"
-    export PLE_BROWSER_ORIGIN="$origin" PLE_BIND_ADDR="127.0.0.1:${api_port}" PLE_QUESTION_ID_SECRET_FILE="$work/question-id-secret"
+    export PLE_BROWSER_ORIGIN="$origin" PLE_BIND_ADDR="127.0.0.1:${api_port}"
     export PLE_WEBWORK_RENDERER_VERSION_FILE="$work/question-renderer-version" PLE_WEBWORK_RENDERER_BASE_URL=http://127.0.0.1:9/
     export PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS=1 PLE_WEBWORK_MAX_RESPONSE_BYTES=1024 PLE_WEBWORK_RENDERER_ID=c853
     export PLE_LIVE_DEMO_ELENA_INSTRUCTOR_ACCOUNT_ID=00000000-0000-0000-0000-00000000c833 PLE_LIVE_DEMO_MORGAN_SYSADMIN_ACCOUNT_ID=00000000-0000-0000-0000-00000000c831

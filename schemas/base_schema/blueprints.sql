@@ -1,14 +1,5 @@
 -- Reusable Blueprint Course lineages and immutable save-created Revisions.
 
-SET LOCAL ROLE ple_private_owner;
-GRANT USAGE ON SCHEMA ple_private TO ple_data_owner, ple_api_owner;
-GRANT REFERENCES ON TABLE ple_private.account TO ple_data_owner;
--- The table-local human-reference trigger is created by ple_data_owner below.
--- Keep this grant adjacent to its first use so a fresh install cannot depend
--- on a later privilege bundle.
-GRANT EXECUTE ON FUNCTION ple_private.assign_human_reference() TO ple_data_owner, ple_api_owner;
-RESET ROLE;
-
 SET LOCAL ROLE ple_data_owner;
 GRANT USAGE ON SCHEMA ple_data TO ple_api_owner;
 
@@ -30,7 +21,12 @@ GRANT EXECUTE ON FUNCTION ple_data.course_classification_tags_are_valid(text[])
 CREATE TABLE ple_data.blueprint_course (
     blueprint_id uuid PRIMARY KEY,
     reference_number bigint GENERATED ALWAYS AS IDENTITY UNIQUE NOT NULL,
-    public_reference text NOT NULL UNIQUE CHECK (public_reference ~ '^BP[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$'),
+    public_reference text NOT NULL UNIQUE CHECK (
+        public_reference ~ '^BP[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}$'
+        AND right(public_reference, 1) = ple_private.crockford_checksum_character(
+            left(public_reference, char_length(public_reference) - 1)
+        )
+    ),
     owner_account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
     short_name text NOT NULL CHECK (char_length(btrim(short_name)) BETWEEN 1 AND 500),
     long_name text NOT NULL CHECK (char_length(btrim(long_name)) BETWEEN 1 AND 500),
@@ -234,7 +230,7 @@ AS $$
     )
     SELECT pg_catalog.format('m%s.a%s.e%s.p%s', module_ordinality,
                assessment_ordinality, entry_ordinality, 0),
-           pg_catalog.replace(pin ->> 'questionId', '-', ''),
+           pin ->> 'questionId',
            (pin ->> 'revisionNumber')::bigint
       FROM pins
 $$;
@@ -249,7 +245,7 @@ SET search_path = pg_catalog, ple_data
 AS $$
     SELECT pg_catalog.format('m%s.a%s.e%s', module_ordinality,
                assessment_ordinality, entry_ordinality),
-           pg_catalog.replace(entry #>> '{question_pool_revision,questionPoolId}', '-', ''),
+           entry #>> '{question_pool_revision,questionPoolId}',
            (entry #>> '{question_pool_revision,revisionNumber}')::bigint
       FROM pg_catalog.jsonb_array_elements(p_content -> 'modules')
              WITH ORDINALITY AS module_row(module, module_ordinality)

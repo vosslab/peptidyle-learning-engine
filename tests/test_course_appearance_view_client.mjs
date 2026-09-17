@@ -7,7 +7,7 @@ import { DecodeError } from "../src/api/decoder.ts";
 import { ApiProtocolError, createHttpApiClient } from "../src/api/http_client.ts";
 import { createRecordingFetch } from "./http_client_test_support.mjs";
 
-const COURSE_REFERENCE = "CI7K3M2Q";
+const COURSE_REFERENCE = "CI7K3M2QAZ";
 
 function appearanceView() {
   return { theme: "grass", banner: null };
@@ -83,7 +83,7 @@ test("Course Appearance client refuses non-Course-Instance references before dis
   );
   const client = createHttpApiClient({ fetch: recordingFetch });
 
-  await assert.rejects(client.getCourseAppearanceView("BP7K3M2Q"), ApiProtocolError);
+  await assert.rejects(client.getCourseAppearanceView("BP7K3M2QAF"), ApiProtocolError);
   assert.equal(requests.length, 0);
 });
 

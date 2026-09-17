@@ -25,10 +25,10 @@ interface DeferredContentHarness {
 const PATHS: Readonly<Record<EvidenceCase, string>> = {
   // This is a role-authorized Instructor route; the fixture's session remains
   // Instructor for every routed case in this harness.
-  policies: "/instructor/courses/CI7K3M2Q/assessments/A9D2RX5/properties",
-  studentView: "/instructor/courses/CI4W8QF9/assessments/A5G7K3M/student-view",
-  workspace: "/instructor/courses/CI2N7H5X/assessments/A2N7H5X",
-  roster: "/instructor/courses/CI9P6R4V/students",
+  policies: "/instructor/courses/CI7K3M2QAZ/assessments/A9D2RX5AF/properties",
+  studentView: "/instructor/courses/CI4W8QF9AD/assessments/A5G7K3MA0/student-view",
+  workspace: "/instructor/courses/CI2N7H5XAH/assessments/A2N7H5XA1",
+  roster: "/instructor/courses/CI9P6R4VA5/students",
 };
 
 /**
@@ -47,10 +47,10 @@ function assertFixturePathsHaveValidScope(): void {
 }
 
 const COURSE_REFERENCE: Readonly<Record<EvidenceCase, string>> = {
-  policies: "CI7K3M2Q",
-  studentView: "CI4W8QF9",
-  workspace: "CI2N7H5X",
-  roster: "CI9P6R4V",
+  policies: "CI7K3M2QAZ",
+  studentView: "CI4W8QF9AD",
+  workspace: "CI2N7H5XAH",
+  roster: "CI9P6R4VA5",
 };
 const FIXTURE_CLASSIFICATION = {
   disciplineUuid: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6d",

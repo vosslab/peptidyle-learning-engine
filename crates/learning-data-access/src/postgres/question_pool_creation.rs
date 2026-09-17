@@ -11,6 +11,7 @@ use crate::{
 };
 
 const QUESTION_POOL_PUBLIC_ID_UNIQUE: &str = "question_pool_public_question_pool_id_key";
+const PUBLIC_ID_COLLISION_SQLSTATE: &str = "QP001";
 
 /// PostgreSQL Store for the one trusted Pool-create capability.
 #[derive(Clone)]
@@ -62,7 +63,7 @@ impl QuestionPoolCreationStore for PostgresQuestionPoolCreationStore {
         let member_question_ids = input
             .members
             .iter()
-            .map(|member| member.question_id.as_compact_str().to_owned())
+            .map(|member| member.question_id.as_str().to_owned())
             .collect::<Vec<_>>();
         let member_revision_numbers = input
             .members
@@ -83,7 +84,7 @@ impl QuestionPoolCreationStore for PostgresQuestionPoolCreationStore {
              FROM ple_api.create_question_pool($1, $2, $3, $4, $5, $6, $7)",
         )
         .bind(input.question_pool_id)
-        .bind(input.public_question_pool_id.as_compact_str())
+        .bind(input.public_question_pool_id.as_str())
         .bind(member_question_ids)
         .bind(member_revision_numbers)
         .bind(input.interchangeability_attested)
@@ -138,15 +139,43 @@ impl QuestionPoolCreationStore for PostgresQuestionPoolCreationStore {
 
 fn map_create_question_pool_error(error: sqlx::Error) -> CreateQuestionPoolError {
     if let sqlx::Error::Database(database_error) = &error
+        && is_question_pool_identity_collision(
+            database_error.code().as_deref(),
+            database_error.constraint(),
+        )
+    {
+        return CreateQuestionPoolError::IdentityCollision;
+    }
+    if let sqlx::Error::Database(database_error) = &error
         && database_error.code().as_deref() == Some("23505")
     {
-        return if database_error.constraint() == Some(QUESTION_POOL_PUBLIC_ID_UNIQUE) {
-            CreateQuestionPoolError::IdentityCollision
-        } else {
-            CreateQuestionPoolError::Store(StoreError::InvalidRecord(
-                "Question Pool creation violates a database uniqueness invariant".to_owned(),
-            ))
-        };
+        return CreateQuestionPoolError::Store(StoreError::InvalidRecord(
+            "Question Pool creation violates a database uniqueness invariant".to_owned(),
+        ));
     }
     CreateQuestionPoolError::Store(map_sqlx_error(error))
+}
+
+fn is_question_pool_identity_collision(code: Option<&str>, constraint: Option<&str>) -> bool {
+    code == Some(PUBLIC_ID_COLLISION_SQLSTATE)
+        || (code == Some("23505") && constraint == Some(QUESTION_POOL_PUBLIC_ID_UNIQUE))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_question_pool_identity_collision;
+
+    #[test]
+    fn recognizes_only_the_shared_public_id_collision_signal() {
+        assert!(is_question_pool_identity_collision(Some("QP001"), None));
+        assert!(is_question_pool_identity_collision(
+            Some("23505"),
+            Some("question_pool_public_question_pool_id_key"),
+        ));
+        assert!(!is_question_pool_identity_collision(
+            Some("23505"),
+            Some("unrelated_unique_constraint"),
+        ));
+        assert!(!is_question_pool_identity_collision(Some("23503"), None));
+    }
 }

@@ -25,7 +25,7 @@ use question_model::{
     QuestionType, SourceObjectChecksum, SourceObjectReference, Timestamp, WorkspaceId,
 };
 use server_core::question_publication::{
-    HmacQuestionIdIssuer, NewQuestionLineagePublicationCommand, NewQuestionLineagePublisher,
+    NewQuestionLineagePublicationCommand, NewQuestionLineagePublisher, RandomQuestionIdIssuer,
 };
 use uuid::Uuid;
 
@@ -109,8 +109,7 @@ async fn publish_validated_with_context(
     let objects = server_core::composition::question_library_object_store_from_env()
         .await
         .context("configuring ordinary Question source object store")?;
-    let issuer = server_core::composition::question_id_issuer_from_env()
-        .context("loading Question ID publication capability")?;
+    let issuer = server_core::composition::question_id_issuer();
     let authorship = QuestionAuthorship::new(vec![QuestionAuthor {
         display_name: QuestionAuthorDisplayName::new(manifest.course.author.clone())
             .map_err(|_| anyhow::anyhow!("curriculum source author is invalid"))?,
@@ -396,7 +395,7 @@ async fn publish_source(
     drafts: &PostgresAuthoringDraftStore,
     bindings: &PostgresDraftQuestionSourceBindingStore,
     objects: &objects::s3::S3ObjectStore,
-    issuer: &HmacQuestionIdIssuer,
+    issuer: &RandomQuestionIdIssuer,
 ) -> Result<QuestionRevisionReference> {
     let draft = matching_or_new_draft(
         session,

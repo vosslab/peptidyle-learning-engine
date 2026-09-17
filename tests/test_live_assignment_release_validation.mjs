@@ -11,8 +11,8 @@ import {
 } from "../src/api/decoders/assessment_release.ts";
 import { createRecordingFetch } from "./http_client_test_support.mjs";
 
-const course = "CI7K3M2Q";
-const assessment = "A8H4N6P";
+const course = "CI7K3M2QAZ";
+const assessment = "A8H4N6PA6";
 const directOrigin = { kind: "direct" };
 
 function createdWorkspace(
@@ -21,7 +21,7 @@ function createdWorkspace(
   origin = {
     kind: "adopted",
     source: {
-      blueprint_revision: { reference: "BP7K3M2Q", revision: "1" },
+      blueprint_revision: { reference: "BP7K3M2QAF", revision: "1" },
       blueprint_assessment_reference: "00000000-0000-0000-0000-000000000011",
     },
   },
@@ -57,7 +57,7 @@ function createdWorkspace(
       {
         kind: "fixedQuestion",
         id: "00000000-0000-0000-0000-000000000001",
-        reference: { questionId: "7K3M-X9QP", revisionNumber: 1 },
+        reference: { questionId: "7K3M-79QP", revisionNumber: 1 },
         pointsPossible: "1",
         availability: "available",
         scoringRule: "normal",
@@ -67,7 +67,7 @@ function createdWorkspace(
       {
         kind: "questionPool",
         id: "00000000-0000-0000-0000-000000000002",
-        questionPoolRevision: { questionPoolId: "2R5X-Z7YA", revisionNumber: 2 },
+        questionPoolRevision: { questionPoolId: "2R5X-E7YA", revisionNumber: 2 },
         availability: "available",
         scoringRule: "normal",
         selectionCount: 1,
@@ -79,7 +79,7 @@ function createdWorkspace(
     ],
     questions: [
       {
-        reference: { questionId: "7K3M-X9QP", revisionNumber: 1 },
+        reference: { questionId: "7K3M-79QP", revisionNumber: 1 },
         description: "A fixed question.",
       },
     ],
@@ -156,7 +156,7 @@ test("Assessment creation uses the Course Instance Assessment boundary", async (
   );
 
   assert.equal(requests[0].method, "POST");
-  assert.equal(new URL(requests[0].url).pathname, "/api/course-instances/CI7K3M2Q/assessments");
+  assert.equal(new URL(requests[0].url).pathname, "/api/course-instances/CI7K3M2QAZ/assessments");
   assert.equal(created.workspace.assessmentType, "quiz");
   assert.deepEqual(created.workspace.origin, directOrigin);
   assert.deepEqual(JSON.parse(await requests[0].text()), {
@@ -185,10 +185,10 @@ test("Assessment creation accepts only Type, title, and instructions", () => {
 test("current adopted Assessment workspace retains exact origin and normalized fixed and pool pins", () => {
   const workspace = decodeLiveAssessmentWorkspace(createdWorkspace());
   assert.equal(workspace.origin.kind, "adopted");
-  assert.equal(workspace.origin.source.blueprint_revision.reference, "BP7K3M2Q");
+  assert.equal(workspace.origin.source.blueprint_revision.reference, "BP7K3M2QAF");
   assert.equal(workspace.entries[0].kind, "fixedQuestion");
   assert.equal(workspace.entries[1].kind, "questionPool");
-  assert.equal(workspace.entries[1].questionPoolRevision.questionPoolId, "2R5X-Z7YA");
+  assert.equal(workspace.entries[1].questionPoolRevision.questionPoolId, "2R5X-E7YA");
   assert.throws(() => decodeLiveAssessmentWorkspace({ ...createdWorkspace(), revisionNumber: 1 }));
 });
 
@@ -204,7 +204,7 @@ test("current direct Assessment workspace accepts only the closed tagged origin"
     decodeLiveAssessmentWorkspace({
       ...withoutOrigin,
       source: {
-        blueprint_revision: { reference: "BP7K3M2Q", revision: "1" },
+        blueprint_revision: { reference: "BP7K3M2QAF", revision: "1" },
         blueprint_assessment_reference: "00000000-0000-0000-0000-000000000011",
       },
     }),
@@ -291,7 +291,7 @@ test("release readiness uses the current direct Assessment validation boundary",
   assert.equal(requests[0].method, "GET");
   assert.equal(
     new URL(requests[0].url).pathname,
-    "/api/course-instances/CI7K3M2Q/assessments/A8H4N6P/release-validation",
+    "/api/course-instances/CI7K3M2QAZ/assessments/A8H4N6PA6/release-validation",
   );
 });
 

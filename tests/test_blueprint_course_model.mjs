@@ -83,9 +83,9 @@ test("new regular Blueprint Assessment remains unlimited without a score or corr
 test("reusable entries preserve fixed and Question Pool interleaving", () => {
   const fixed = appendPickedFixedEntries(
     emptyReusableContent("quiz", "Quiz"),
-    selection("AAAA-ZBBB"),
+    selection("AAAA-2BBB"),
   );
-  const pooled = appendPickedPool(fixed, "CCCD-XDDD");
+  const pooled = appendPickedPool(fixed, "CCCD-NDDD");
   const reordered = moveReusableEntry(pooled, 1, -1);
 
   assert.deepEqual(
@@ -96,7 +96,7 @@ test("reusable entries preserve fixed and Question Pool interleaving", () => {
 });
 
 test("Question Pool validation requires a positive whole selection count", () => {
-  const content = appendPickedPool(emptyReusableContent("quiz", "Quiz"), "AAAA-ZBBB");
+  const content = appendPickedPool(emptyReusableContent("quiz", "Quiz"), "AAAA-2BBB");
   const pool = content.entries[0];
   const invalid =
     pool?.kind === "pool" ? { ...content, entries: [{ ...pool, selection_count: 0 }] } : content;
@@ -133,7 +133,7 @@ test("Blueprint Course creation requires separate short and long lineage names",
     entries: [
       {
         kind: "fixed",
-        published_question: { questionId: "AAAA-ZBBB", revisionNumber: 1 },
+        published_question: { questionId: "AAAA-2BBB", revisionNumber: 1 },
         points_possible: "1",
         scoring_rule: "normal",
       },

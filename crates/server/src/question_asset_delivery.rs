@@ -26,14 +26,12 @@ use url::Url;
 use uuid::Uuid;
 
 use crate::auth::{AuthError, resolve_session};
-use crate::question_publication::HmacQuestionIdIssuer;
 
 #[derive(Clone)]
 struct QuestionAssetDeliveryRouteState {
     sessions: Arc<PostgresSessionStore>,
     store: PostgresQuestionAssetDeliveryStore,
     public_asset_base_url: Url,
-    question_id_issuer: HmacQuestionIdIssuer,
 }
 
 /// Registers the only public-asset GET route. The configured base is
@@ -42,7 +40,6 @@ pub fn question_asset_delivery_router(
     sessions: Arc<PostgresSessionStore>,
     store: PostgresQuestionAssetDeliveryStore,
     public_asset_base_url: Url,
-    question_id_issuer: HmacQuestionIdIssuer,
 ) -> Router {
     Router::new()
         .route(
@@ -53,7 +50,6 @@ pub fn question_asset_delivery_router(
             sessions,
             store,
             public_asset_base_url,
-            question_id_issuer,
         })
 }
 
@@ -85,12 +81,10 @@ async fn get_public_question_asset(
     headers: HeaderMap,
     Path((question_id, revision_number, asset_id)): Path<(String, String, String)>,
 ) -> Response {
-    let question_revision =
-        match verified_question_revision(&state.question_id_issuer, &question_id, &revision_number)
-        {
-            Some(value) => value,
-            None => return concealed(),
-        };
+    let question_revision = match verified_question_revision(&question_id, &revision_number) {
+        Some(value) => value,
+        None => return concealed(),
+    };
     let asset_id = match Uuid::parse_str(&asset_id) {
         Ok(value) => QuestionAssetId::from_uuid(value),
         Err(_) => return concealed(),
@@ -118,19 +112,14 @@ async fn get_public_question_asset(
 
 /// Parses the browser route's complete immutable Question Revision identity.
 ///
-/// The shared model owns syntax; the server-held issuer validates the HMAC
-/// character before this authorization-sensitive Store lookup (ASVS 2.2.1,
-/// 2.2.2, and 11.4.1). Invalid and unauthorized references share the opaque
-/// response below.
+/// The shared model parses the exact checksum-bearing ID before this
+/// authorization-sensitive Store lookup (ASVS 2.2.1 and 2.2.2). Invalid and
+/// unauthorized references share the opaque response below.
 fn verified_question_revision(
-    question_id_issuer: &HmacQuestionIdIssuer,
     question_id: &str,
     revision_number: &str,
 ) -> Option<QuestionRevisionReference> {
     let question_id = question_id.parse::<QuestionId>().ok()?;
-    if !question_id_issuer.validates_question_id(&question_id) {
-        return None;
-    }
     let revision_value = revision_number.parse::<u32>().ok()?;
     if revision_value.to_string() != revision_number {
         return None;
@@ -213,7 +202,6 @@ mod tests {
     use question_model::{ObjectId, QuestionId, QuestionRevisionNumber, QuestionRevisionReference};
 
     use super::*;
-    use crate::question_publication::QuestionIdSecret;
 
     fn rendition() -> ReadyQuestionAssetDelivery {
         ReadyQuestionAssetDelivery {
@@ -259,24 +247,19 @@ mod tests {
 
     #[test]
     fn asset_route_requires_a_verified_exact_question_revision() {
-        let issuer =
-            HmacQuestionIdIssuer::new(QuestionIdSecret::from_bytes(std::array::from_fn(|index| {
-                index as u8
-            })));
-        let reference = verified_question_revision(&issuer, "0000-Q000", "1")
-            .expect("documented issuer vector and positive revision");
-        assert_eq!(reference.question_id.to_string(), "0000-Q000");
+        let reference = verified_question_revision("0000-4000", "1")
+            .expect("documented checksum vector and positive revision");
+        assert_eq!(reference.question_id.to_string(), "0000-4000");
         assert_eq!(reference.revision_number.get(), 1);
 
         for (question_id, revision_number) in [
-            ("0000-P000", "1"),
-            ("0000-X000", "1"),
-            ("0000-Q000", "0"),
-            ("0000-Q000", "01"),
-            ("0000-Q000", "+1"),
+            ("0000-5000", "1"),
+            ("0000-4000", "0"),
+            ("0000-4000", "01"),
+            ("0000-4000", "+1"),
         ] {
             assert!(
-                verified_question_revision(&issuer, question_id, revision_number).is_none(),
+                verified_question_revision(question_id, revision_number).is_none(),
                 "{question_id}/{revision_number} must not reach the Store"
             );
         }

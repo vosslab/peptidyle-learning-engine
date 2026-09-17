@@ -293,6 +293,18 @@ const CAPABILITY_DECLARATIONS = {
       "src/api/http_client/instructor_account.ts::createInstructorAccountClient",
     ],
   },
+  disciplines: {
+    kind: "backed",
+    clientMethod: "ApiClient.listDisciplinesIncludingRetired",
+    serverEvidence: {
+      kind: "registeredHandler",
+      handler: "crates/server/src/content_classification.rs::content_classification_router",
+    },
+    evidence: [
+      "crates/server/src/content_classification.rs::content_classification_router",
+      "src/api/http_client/content_classification.ts::createContentDisciplineAdministrationClient",
+    ],
+  },
   myBlueprintCourses: {
     kind: "backed",
     clientMethod: "ApiClient.listBlueprintCourses",
@@ -347,9 +359,16 @@ const CAPABILITY_DECLARATIONS = {
     evidence: [...NO_TEACHING_HANDLER, "src/ribbon/ribbon_catalog.ts::starred"],
   },
   watched: {
-    kind: "unbacked",
-    reason: "Watched has no declared route, page, client method, or registered handler.",
-    evidence: [...NO_TEACHING_HANDLER, "src/ribbon/ribbon_catalog.ts::watched"],
+    kind: "backed",
+    clientMethod: "ApiClient.getLibraryWatchNotifications",
+    serverEvidence: {
+      kind: "registeredHandler",
+      handler: "crates/server/src/library_watch_notification.rs::library_watch_notification_router",
+    },
+    evidence: [
+      "crates/server/src/library_watch_notification.rs::library_watch_notification_router",
+      "src/pages/library_watch_notifications_page.tsx::LibraryWatchNotificationsPage",
+    ],
   },
   searchQuestionLibrary: {
     kind: "backed",

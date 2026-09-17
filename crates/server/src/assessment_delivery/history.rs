@@ -297,7 +297,7 @@ mod tests {
                 questions: vec![StudentAssessmentAttemptHistoryQuestion {
                     position: 1,
                     question_revision: QuestionRevisionReference {
-                        question_id: QuestionId::from_canonical_parts("ABCDEF1", '1')
+                        question_id: QuestionId::from_random_identifier("ABCDEF1")
                             .expect("Question ID"),
                         revision_number: QuestionRevisionNumber::new(3)
                             .expect("Question Revision Number"),

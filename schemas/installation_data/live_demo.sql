@@ -44,8 +44,7 @@ BEGIN
     WITH input AS (
         SELECT publication.key AS slug,
                publication.value ->> 'sourceSha256' AS source_checksum,
-               publication.value -> 'questionRevision' ->> 'questionId' AS rendered_question_id,
-               replace(publication.value -> 'questionRevision' ->> 'questionId', '-', '') AS question_id,
+               publication.value -> 'questionRevision' ->> 'questionId' AS question_id,
                (publication.value -> 'questionRevision' ->> 'revisionNumber')::integer AS revision_number
           FROM jsonb_each(
               current_setting('ple.installation_pilot_question_publications')::jsonb
@@ -62,8 +61,11 @@ BEGIN
                 'biochemistry-functional-groups-ple-question-json-mc',
                 'biochemistry-functional-groups-ple-question-json-matching'
         ) OR source_checksum !~ '^[0-9a-f]{64}$'
-          OR rendered_question_id !~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
-          OR question_id !~ '^[0-9A-HJKMNP-TV-Z]{8}$'
+          OR question_id !~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
+          OR substr(question_id, 6, 1) IS DISTINCT FROM
+                ple_private.crockford_checksum_character(
+                    substr(question_id, 1, 4) || substr(question_id, 7, 3)
+                )
           OR revision_number <= 0
           OR NOT EXISTS (
               SELECT 1 FROM ple_private.question_revision_source_binding AS binding
@@ -159,6 +161,10 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Live Demo Blueprint public reference is unavailable';
     END IF;
+    SELECT reference_number INTO course_reference
+      FROM ple_data.course_instance
+     WHERE course_id = '00000000-0000-0000-0000-000000000220';
+    IF course_reference IS NULL THEN
     INSERT INTO ple_data.course_instance (
         course_id, source_kind, blueprint_course_reference_number, blueprint_revision_number,
         assigned_instructor_account_id, course_short_name, course_long_name,
@@ -169,8 +175,7 @@ BEGIN
         '00000000-0000-0000-0000-000000000101', 'BCHM 301',
         'Biochemistry 301: Proteins and Peptides', date '2026-08-24', date '2026-12-11',
         clock_timestamp(), selected_discipline, selected_subject, NULL, NULL, ARRAY[]::text[]
-    ) ON CONFLICT (course_id) DO NOTHING RETURNING reference_number INTO course_reference;
-    IF course_reference IS NOT NULL THEN
+    ) RETURNING reference_number INTO course_reference;
         INSERT INTO ple_data.course_origin (
             course_origin_id, course_id, source_kind, blueprint_course_reference_number,
             blueprint_revision_number, source_course_id, created_at
@@ -188,8 +193,6 @@ BEGIN
             '00000000-0000-0000-0000-000000000101', clock_timestamp()
         );
     ELSE
-        SELECT reference_number INTO course_reference FROM ple_data.course_instance
-         WHERE course_id = '00000000-0000-0000-0000-000000000220';
         IF NOT EXISTS (SELECT 1 FROM ple_data.course_instance
                         WHERE reference_number = course_reference
                           AND discipline_uuid = selected_discipline
@@ -251,7 +254,7 @@ BEGIN
                 WHERE assessment_id = '00000000-0000-0000-0000-000000000270') <> 4
            OR EXISTS (
                WITH input AS (
-                   SELECT replace(value -> 'questionRevision' ->> 'questionId', '-', '') AS question_id,
+                   SELECT value -> 'questionRevision' ->> 'questionId' AS question_id,
                           (value -> 'questionRevision' ->> 'revisionNumber')::integer AS revision_number,
                           row_number() OVER (ORDER BY array_position(ARRAY[
                               'genetics-disorders-ple-question-json-mc', 'genetics-disorders-ple-question-json-matching',
@@ -286,6 +289,12 @@ DECLARE
         'ple.installation_live_demo_blueprint_assessment_reference'
     )::uuid;
 BEGIN
+    IF EXISTS (
+        SELECT 1 FROM ple_data.assessment
+         WHERE assessment_id = '00000000-0000-0000-0000-000000000270'
+    ) THEN
+        RETURN;
+    END IF;
     INSERT INTO ple_data.assessment (
         assessment_id, course_id, origin_kind, source_blueprint_course_reference_number,
         source_blueprint_revision_number, source_blueprint_assessment_reference,
@@ -306,11 +315,7 @@ BEGIN
           WHERE course_id = '00000000-0000-0000-0000-000000000220'),
         1800, 'accept', 'new_variation', 'authored_order', 'after_submit', 'after_submit', 'after_submit',
         'never', 'never', 'never'
-    ) ON CONFLICT (assessment_id) DO NOTHING
-    RETURNING assessment_id INTO new_assessment_id;
-    IF new_assessment_id IS NULL THEN
-        RETURN;
-    END IF;
+    ) RETURNING assessment_id INTO new_assessment_id;
     INSERT INTO ple_data.assessment_entry (
         assessment_entry_id, assessment_id, authored_position, entry_kind, scoring_rule,
         question_id, question_revision_number, points_possible
@@ -320,7 +325,7 @@ BEGIN
            'fixed_question', 'normal', input.question_id, input.revision_number, 1
       FROM (
           SELECT publication.key AS slug,
-                 replace(publication.value -> 'questionRevision' ->> 'questionId', '-', '') AS question_id,
+                 publication.value -> 'questionRevision' ->> 'questionId' AS question_id,
                  (publication.value -> 'questionRevision' ->> 'revisionNumber')::integer AS revision_number,
                  row_number() OVER (ORDER BY array_position(ARRAY[
                      'genetics-disorders-ple-question-json-mc', 'genetics-disorders-ple-question-json-matching',

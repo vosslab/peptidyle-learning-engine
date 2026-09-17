@@ -48,6 +48,7 @@ import {
   decodeString,
   decodeStringEnum,
 } from "../decoder";
+import { validateCanonicalPublicReference } from "../../question_id";
 import { decodeStudentFeedbackReleaseRule } from "./assessment_policy";
 import { decodeQuestionAttemptLimit, decodeQuestionAttemptTimeLimit } from "./question_model";
 import {
@@ -327,7 +328,7 @@ function displayTimeZone(value: unknown, path: string): AccountTimeZone {
 
 export function blueprintCourseReference(value: unknown, path: string): BlueprintCourseReference {
   const decoded = decodeString(value, path);
-  if (!/^BP[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$/u.test(decoded)) {
+  if (validateCanonicalPublicReference("blueprintCourse", decoded) === null) {
     throw new DecodeError(path, "a canonical opaque Blueprint Course reference");
   }
   return decoded;

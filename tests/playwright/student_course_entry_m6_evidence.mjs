@@ -57,7 +57,7 @@ try {
   await page.goto(`${origin}/?mode=one`);
   await page.locator("[data-m6-location]").waitFor({ state: "visible" });
   await page.waitForFunction(
-    () => document.querySelector("[data-m6-location]")?.textContent === "/student/courses/CI7K3M2Q",
+    () => document.querySelector("[data-m6-location]")?.textContent === "/student/courses/CI7K3M2QAZ",
   );
 
   await page.goto(`${origin}/?mode=choose`);

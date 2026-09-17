@@ -151,7 +151,7 @@ mod tests {
             assessment_content_entry_index: 0,
             issued_position: 0,
             reference: QuestionRevisionReference {
-                question_id: QuestionId::from_canonical_parts("ABCDEFG", 'G').expect("question ID"),
+                question_id: QuestionId::from_random_identifier("ABCDEFG").expect("question ID"),
                 revision_number: QuestionRevisionNumber::new(1).expect("revision"),
             },
             source_selection: QuestionSourceSelection::Static,

@@ -403,9 +403,9 @@ BEGIN
                 v_child_entry := v_child_assessment #> ARRAY['content','entries',(v_entry_position - 1)::text];
                 IF v_source_entry ? 'question_pool_revision' THEN
                     SELECT * INTO v_source_pool FROM ple_data.question_pool
-                     WHERE public_question_pool_id = replace(v_source_entry #>> '{question_pool_revision,questionPoolId}', '-', '');
+                     WHERE public_question_pool_id = v_source_entry #>> '{question_pool_revision,questionPoolId}';
                     SELECT * INTO v_child_pool FROM ple_data.question_pool
-                     WHERE public_question_pool_id = replace(v_child_entry #>> '{question_pool_revision,questionPoolId}', '-', '');
+                     WHERE public_question_pool_id = v_child_entry #>> '{question_pool_revision,questionPoolId}';
                     v_source_pool_revision := (v_source_entry #>> '{question_pool_revision,revisionNumber}')::bigint;
                     IF v_child_pool.question_pool_id IS NULL
                        OR v_child_pool.source_question_pool_id IS DISTINCT FROM v_source_pool.question_pool_id

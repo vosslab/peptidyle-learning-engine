@@ -35,7 +35,7 @@ function template(editNumber = "1") {
 
 function workspace(editNumber = "3") {
   return {
-    reference: "A8H4N6P",
+    reference: "A8H4N6PA6",
     editNumber,
     status: "unreleased",
     origin: { kind: "direct" },
@@ -196,16 +196,16 @@ test("Assessment Template client copies a Template through the closed Course Ass
     noStoreJson(workspace(), 201, '"3"'),
   );
   const client = createHttpApiClient({ fetch: recordingFetch });
-  const created = await client.createAssessmentFromTemplate("CI7K3M2Q", {
+  const created = await client.createAssessmentFromTemplate("CI7K3M2QAZ", {
     templateId,
     title: "Genetics practice",
   });
 
-  assert.equal(created.workspace.reference, "A8H4N6P");
+  assert.equal(created.workspace.reference, "A8H4N6PA6");
   assert.equal(created.etag, '"3"');
   assert.equal(
     new URL(requests[0].url).pathname,
-    "/api/course-instances/CI7K3M2Q/assessments/from-template",
+    "/api/course-instances/CI7K3M2QAZ/assessments/from-template",
   );
   assert.equal(requests[0].method, "POST");
   assert.deepEqual(JSON.parse(await requests[0].text()), {
@@ -217,7 +217,7 @@ test("Assessment Template client copies a Template through the closed Course Ass
     fetch: async () => noStoreJson(workspace(), 201, '"4"'),
   });
   await assert.rejects(
-    mismatchedEtag.createAssessmentFromTemplate("CI7K3M2Q", {
+    mismatchedEtag.createAssessmentFromTemplate("CI7K3M2QAZ", {
       templateId,
       title: "Genetics practice",
     }),
@@ -225,13 +225,13 @@ test("Assessment Template client copies a Template through the closed Course Ass
   );
 
   await assert.rejects(
-    client.createAssessmentFromTemplate("CI7K3M2Q", {
+    client.createAssessmentFromTemplate("CI7K3M2QAZ", {
       templateId: "not-a-uuid",
       title: "Genetics practice",
     }),
   );
   await assert.rejects(
-    client.createAssessmentFromTemplate("CI7K3M2Q", {
+    client.createAssessmentFromTemplate("CI7K3M2QAZ", {
       templateId,
       title: "   ",
     }),

@@ -11,6 +11,7 @@ import {
 import { NotFoundPage } from "./pages/contract_pages";
 import { AssessmentAttemptSummaryPage } from "./pages/assessment_attempt_summary_page";
 import { BrowseLibraryRoutePage, LibraryRoutePage } from "./pages/library_route_page";
+import { LibraryWatchNotificationsPage } from "./pages/library_watch_notifications_page";
 import { QuestionDetailPage } from "./pages/question_detail_page";
 import { QuestionDraftEditorPage } from "./pages/question_draft_editor_page";
 import { QuestionDraftsPage } from "./pages/question_drafts_page";
@@ -35,6 +36,7 @@ import { StudentCourseInvitationPage } from "./pages/student_course_invitation_p
 import { StudentCourseInvitationsPage } from "./pages/student_course_invitations_page";
 import { StudentCourseLandingPage } from "./pages/student_course_landing_page";
 import { InstructorAccountsPage } from "./pages/instructor_accounts_page";
+import { ContentDisciplinesPage } from "./pages/content_disciplines_page";
 import { AssessmentsDueSoonPage } from "./pages/assessments_due_soon_page";
 import { AssessmentTemplatesPage } from "./pages/assessment_templates_page";
 import { AssessmentWorkspaceCreatePage } from "./pages/assessment_workspace/assessment_workspace_create_page";
@@ -65,12 +67,14 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
   studentCourseInvitation: StudentCourseInvitationPage,
   studentCourseLanding: StudentCourseLandingPage,
   instructorAccounts: InstructorAccountsPage,
+  contentDisciplines: ContentDisciplinesPage,
   courseAssessments: CourseInstancePage,
   assessmentOverview: AssessmentOverviewPage,
   assessmentAttempt: AssessmentAttemptPage,
   assessmentAttemptSummary: AssessmentAttemptSummaryPage,
   library: LibraryRoutePage,
   libraryBrowse: BrowseLibraryRoutePage,
+  libraryWatchNotifications: LibraryWatchNotificationsPage,
   questionDetail: QuestionDetailPage,
   questionDrafts: QuestionDraftsPage,
   questionDraftEditor: QuestionDraftEditorPage,

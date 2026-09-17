@@ -119,8 +119,7 @@ pub(super) fn materialize_assessment(
                 )
             })?;
             entry["forkQuestionPoolId"] = json!(random_uuid()?.to_string());
-            entry["forkPublicQuestionPoolId"] =
-                json!(issuer.issue_question_pool_id()?.as_compact_str());
+            entry["forkPublicQuestionPoolId"] = json!(issuer.issue_question_pool_id()?.as_str());
         }
     }
     Ok(member)
@@ -164,7 +163,7 @@ fn fixed_entry_json(
             Ok(
                 json!({"authoredPosition": i32::try_from(position).map_err(|_| invalid("Assessment Entry position"))?,
                 "kind": "fixed_question", "availability": "available",
-                "questionId": question_revision.question_id.as_compact_str(),
+                "questionId": question_revision.question_id.as_str(),
                 "revisionNumber": question_revision.revision_number.get(),
                 "pointsPossible": points_possible.to_string(),
                 "scoringRule": pool_scoring_rule(*scoring_rule),
@@ -193,7 +192,7 @@ fn pool_entry_json(
         "authoredPosition": position,
         "kind": "question_pool",
         "availability": "available",
-        "sourceQuestionPoolId": source.question_pool_id.as_compact_str(),
+        "sourceQuestionPoolId": source.question_pool_id.as_str(),
         "sourceQuestionPoolRevisionNumber": source.revision_number.get(),
         "selectionCount": selection_count.get(),
         "pointsPerItem": points_per_item.to_string(),

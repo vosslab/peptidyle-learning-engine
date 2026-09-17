@@ -14,7 +14,6 @@ use super::{
     request_checksum,
     responses::{blueprint_response, concealed, store_error_response, unavailable},
 };
-use crate::question_publication::HmacQuestionIdIssuer;
 
 pub(super) async fn export(
     State(state): State<BlueprintCourseRouteState>,
@@ -48,7 +47,7 @@ pub(super) async fn import(
 ) -> Response {
     // ASVS 2.2.2 and 8.3.1: validate deployment-bound public identifiers and
     // authorize at the server before the Store performs the trusted import.
-    if !valid_question_ids(&state.question_id_issuer, &exchange) {
+    if !valid_question_ids(&exchange) {
         return concealed();
     }
     let checksum = match request_checksum("import-blueprint-course", &headers, &exchange) {
@@ -74,7 +73,7 @@ pub(super) async fn import(
     }
 }
 
-fn valid_question_ids(issuer: &HmacQuestionIdIssuer, exchange: &CanonicalBlueprintCourse) -> bool {
+fn valid_question_ids(exchange: &CanonicalBlueprintCourse) -> bool {
     exchange
         .modules()
         .iter()
@@ -83,10 +82,10 @@ fn valid_question_ids(issuer: &HmacQuestionIdIssuer, exchange: &CanonicalBluepri
         .all(|entry| match entry {
             CanonicalBlueprintAssessmentEntry::Fixed {
                 published_question, ..
-            } => issuer.validates_question_id(&published_question.question_id),
+            } => true,
             CanonicalBlueprintAssessmentEntry::Pool {
                 question_pool_revision,
                 ..
-            } => issuer.validates_question_id(&question_pool_revision.question_pool_id),
+            } => true,
         })
 }

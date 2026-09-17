@@ -18,6 +18,19 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Headings should identify their broader section when practical so they remain clear in isolation.
 - Avoid repeating that context when the immediate parent heading already makes it clear.
 
+## Deferred product behavior
+
+- Items in this section remain desired product behavior but are not current implementation
+  requirements.
+- This section overrides implementation language elsewhere in this document until an item is moved
+  out of this section.
+- iMathAS is a desired Question Backend deferred until a later release.
+- H5P is a desired Question Backend deferred until a later release.
+- Future H5P use is limited to Regular Assignments, Bonus Assignments, and Practice Question
+  Assignments.
+- Quizzes and Exams do not use H5P because its runtime exposes answers and correctness to the
+  Student browser.
+
 ## Development principles
 
 ### Agent working principles
@@ -653,12 +666,52 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ### Human-facing reference IDs
 
-- Human-facing reference IDs should be short, opaque, easy to communicate, and should not reveal creation order, counts, database keys, ownership, or other object metadata.
-- Blueprint Course IDs use `BP`, Course Instance IDs use `CI`, Assessment IDs use `A`, and Account IDs use `U`, followed directly by a common cryptographically random Crockford Base32 reference format.
-- ID generation enforces uniqueness and retries random collisions.
-- Give an internal object a human-facing reference ID when a useful workflow needs to display, search, communicate, or support it.
-- Account `U` references are Sysadmin support references and are not automatically exposed to Students or Instructors.
-- Published Questions and Question Pools retain their existing public `AAAA-ZBBB` IDs.
+- Human-facing reference IDs should be short, opaque, and easy to communicate.
+- Human-facing reference IDs should not reveal creation order, counts, database keys, ownership, or other object metadata.
+- A public ID is the one universal, canonical human-facing identifier for a PLE object that needs one.
+- Store and use the exact same public ID in the database, Rust, JSON, URLs, object storage, hashes, logs, and browser UI.
+- Preserve the canonical ID exactly across system boundaries.
+- Parsing, serialization, API transport, persistence, and display do not reformat or translate the canonical ID.
+- In ID format notation, `X` denotes a cryptographically random Crockford Base32 character.
+- In ID format notation, `Z` denotes the calculated checksum character.
+- Both `X` and `Z` represent characters stored as part of the canonical ID.
+- `Z` is not a literal character or separate metadata.
+- Public IDs use the Crockford Base32 alphabet `0123456789ABCDEFGHJKMNPQRSTVWXYZ`.
+- Public IDs have one canonical uppercase ASCII form.
+- Human-entered IDs may use lowercase Crockford characters.
+- Human-entered IDs may use `O` or `o` for `0`.
+- Human-entered IDs may use `I`, `i`, `L`, or `l` for `1`.
+- Normalize human-entered IDs to canonical form, then validate the canonical syntax and checksum at the human-input boundary.
+- Store, transmit, display, copy, and generate only the canonical form.
+- Calculate the checksum from the ASCII bytes of every other uppercase canonical-ID character.
+- Include type prefixes in the checksum input.
+- Exclude only separators and the checksum position from the checksum input.
+- `XXXX-ZXXX` has checksum input `XXXXXXX`.
+- For `BPXXXXXXXZ`, `CIXXXXXXXZ`, `UXXXXXXXZ`, and `AXXXXXXXZ`, calculate the checksum from every preceding character.
+- Use public unsalted SHA-256 for the checksum.
+- Map the high five bits of SHA-256 digest byte 0 through the Crockford alphabet.
+- Validate the public-ID syntax and embedded checksum before database lookup or resolution.
+- The embedded checksum detects typos.
+- Blueprint Course IDs use `BPXXXXXXXZ`.
+- Course Instance IDs use `CIXXXXXXXZ`.
+- Assessment IDs use `AXXXXXXXZ`.
+- Account IDs use `UXXXXXXXZ`.
+- Each prefixed public ID uses seven cryptographically random Crockford Base32 characters and a final embedded checksum.
+- Each prefixed public-ID random namespace contains 32^7 = 34,359,738,368 values.
+- The checksum adds no identity space.
+- ID generation enforces global uniqueness across all public IDs and retries random collisions.
+- Once issued, a public ID permanently identifies that object.
+- Never reuse a public ID for another object, including after deletion or archival.
+- Give an internal object a human-facing reference ID when a useful workflow needs it.
+- Useful human-facing ID workflows include display, search, communication, and support.
+- Other internal objects use native UUID identifiers.
+- An object with a public ID may also retain an internal UUID primary key.
+- Internal UUIDs never substitute for or appear as public identities.
+- Account `U` references are Sysadmin support references.
+- Account `U` references are not automatically exposed to Students or Instructors.
+- Published Questions and Question Pools use the public `XXXX-ZXXX` format.
+- Published Questions and Question Pools share the same public-ID namespace.
+- An `XXXX-ZXXX` value identifies either a Published Question or a Question Pool, never both.
 
 ### Content classification
 
@@ -777,6 +830,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Changes to Question point values recalculate scores from the stored grading outcome without changing the outcome.
 - Changes to Assessment settings do not change the recorded history of completed Assessment Attempts.
 - Immutable Question source and Question assets use SHA-256 checksums where needed to verify their stored contents.
+- A public-ID checksum is one embedded character derived from other ID characters.
+- A stored-content checksum is a full SHA-256 value verifying exact bytes.
+- Public-ID checksums and stored-content checksums are not interchangeable.
 
 ### Dates and time zones
 
@@ -863,9 +919,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 #### Supported Question Backends
 
-- WeBWorK, iMathAS, and H5P are PLE-managed Question Backends.
+- WeBWorK is a PLE-managed Question Backend.
 - The initial primary Question Backends are PLE-native JSON and WeBWorK.
-- iMathAS and H5P are supported secondary Question Backends.
+- iMathAS and H5P are desired secondary Question Backends governed by Deferred product behavior.
 - PLE-native Questions use the PLE Question Backend.
 - WeBWorK owns PG/PGML rendering, controls, answer evaluators, partial credit, and feedback.
 - H5P owns its runtime, interactions, state, and scoring.
@@ -914,11 +970,13 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 #### Published Question identity specifications
 
-- Published Questions receive a public `AAAA-ZBBB` Crockford Base32 ID.
+- Published Questions receive a public `XXXX-ZXXX` Crockford Base32 ID.
+- Question IDs have the canonical form `XXXX-ZXXX`.
+- The hyphen is part of the canonical ID and makes Question IDs immediately recognizable.
+- Human-entered Question IDs may omit the hyphen.
+- Normalize accepted human input to the canonical hyphenated form before validation and lookup.
+- PLE always stores, transmits, displays, and copies the canonical hyphenated form.
 - Seven Crockford Base32 characters are cryptographically random and provide the identity.
-- The middle character is an HMAC-derived check character calculated from the seven identity characters.
-- The check character detects mistyped or malformed IDs; it is not a security boundary.
-- ID generation enforces database uniqueness and retries when a random collision occurs.
 - IDs never encode creation order, Question Type, ownership, subject, or other metadata.
 
 #### Published Question metadata
@@ -967,10 +1025,10 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Question Pools are created from a Published Question and enter the Question Library immediately.
 - A Question Pool is an independently reusable Question Library object.
 - Question Pools are available to all vetted **Instructors**.
-- A Question Pool has its own public `AAAA-ZBBB` Crockford Base32 ID and immutable Revisions.
+- A Question Pool has its own public `XXXX-ZXXX` Crockford Base32 ID and immutable Revisions.
 - Importing a Question Pool into a new Assessment automatically forks the Question Pool.
 - The fork belongs to the new Assessment and can be changed without changing the source Question Pool.
-- Forking a Question Pool preserves its Published Questions by their public `AAAA-ZBBB` IDs.
+- Forking a Question Pool preserves its list of Published Questions by their public `XXXX-ZXXX` IDs.
 - Question Pools work the same way regardless of the Question Backend.
 - **Instructors** choose the contents of a Question Pool and how many Questions are selected.
 - PLE selects from the Question Pool; the selected Question Backend controls the Question interaction.

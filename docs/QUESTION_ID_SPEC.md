@@ -2,10 +2,10 @@
 
 ## Purpose
 
-PLE uses one short, human-usable Question ID for instructors to recognize, copy,
-communicate, and enter. The Question ID is the visible identity of one stable
-published question lineage. It is not a UUID, a sequence number, a credential,
-or an authorization decision.
+PLE uses one short, human-usable Question ID for Instructors and Sysadmins to
+recognize, copy, communicate, and enter. It is the canonical human-facing
+identity of one stable published Question lineage. A Question ID is not a UUID,
+sequence number, or credential.
 
 Each published `QuestionRevision` is immutable. A stable Question ID may therefore
 have multiple exact versions without changing the identity that instructors use.
@@ -14,21 +14,24 @@ operation resolves an Assessment through an implicit latest Revision.
 
 ## Format
 
-The canonical stored Question ID is eight compact Crockford Base32 characters.
-Its canonical browser display is `AAAA-ZBBB`, using a `4-4` grouping:
+`XXXX-ZXXX` is the canonical Question ID form everywhere, including
+PostgreSQL, object storage, serialization, and the browser. Its `4-4` grouping
+and hyphen make the value immediately recognizable as a Question ID:
 
 ```text
-AAAA-ZBBB
+XXXX-ZXXX
 ```
 
-The compact stored shape is `AAAAZBBB`. The four characters before the check
-character and the three characters after it are the seven random lineage
-identity characters. `Z` shows the position of the server-validated
-HMAC-SHA-256 check character; it is not a literal required character. The
-hyphen is presentation-only and is not part of the stored identifier.
+The four characters before the check character and the three characters after
+it are the seven random lineage identity characters. In ID format notation,
+`X` denotes a cryptographically random Crockford Base32 character and `Z`
+denotes the embedded calculated checksum character. Both are stored characters;
+`Z` is not a literal required character or separate metadata. The hyphen is
+part of the canonical Question ID.
 
 The identifier is non-sequential and copyable. Seven Crockford Base32 identity
-characters provide 32^7 possible identities without exposing creation order.
+characters provide 32^7 = 34,359,738,368 possible identities without exposing
+creation order; the checksum adds no identity space.
 
 ## Crockford alphabet
 
@@ -38,15 +41,17 @@ Use this Crockford Base32 alphabet:
 0123456789ABCDEFGHJKMNPQRSTVWXYZ
 ```
 
-Canonical stored and displayed IDs use uppercase characters. Input parsing is
-forgiving at the transcription boundary:
+Question IDs use the uppercase ASCII Crockford Base32 alphabet and canonical
+`4-4` hyphen position. Store, transmit, display, copy, and generate only that
+canonical form.
 
-- Accept either the compact eight-character form or one hyphen in the canonical
-  `4-4` display position.
-- Accept lowercase and normalize to uppercase.
-- Accept `O` or `o` as `0`.
-- Accept `I`, `i`, `L`, or `l` as `1`.
-- Reject every character outside the Crockford alphabet after normalization.
+## Human entry
+
+Human-entered Question IDs may use lowercase Crockford characters, `O` or `o`
+for `0`, `I`, `i`, `L`, or `l` for `1`, and may omit the Question-ID hyphen.
+Normalize only those accepted entry forms to canonical uppercase hyphenated
+form, then validate canonical syntax and checksum before lookup. No other
+translation or reformatted representation crosses the input boundary.
 
 ## Validation character
 
@@ -56,26 +61,25 @@ authentication, authorization, or existence proof.
 The check character is derived as follows:
 
 ```text
-identifier = seven canonical Crockford Base32 identity characters
-hmac_output = HMAC-SHA-256(question_id_secret, identifier)
-validation_value = the high five bits of hmac_output byte zero
+checksum_input = ASCII bytes of the seven uppercase Crockford Base32 identity characters
+digest = SHA-256(checksum_input)
+validation_value = the high five bits of digest byte zero
 validation_character = CrockfordBase32(validation_value)
 ```
 
-The HMAC input is the seven uppercase ASCII identity characters in display
-order, excluding the check character, hyphen, and any domain prefix. The
-derived character occupies the fifth position of the compact stored ID and
-the first position after the display hyphen.
+The SHA-256 input is the ASCII bytes of the seven uppercase identity characters
+in Question-ID order. Calculation excludes only the hyphen and checksum
+position: `XXXX-ZXXX` supplies `XXXXXXX`. The derived character is the first
+character after the hyphen; the canonical Question ID always retains both the
+hyphen and checksum.
 
-## Secret handling
+## Checksum handling
 
-The HMAC key is server-owned secret material. It never appears in browser code,
-generated TypeScript, WebAssembly, logs, deployed public documentation, or
-client configuration.
+The checksum uses public unsalted SHA-256. It detects typos only; it is not an
+authentication, authorization, or existence proof.
 
-Browser validation may check syntax only. Server validation is authoritative.
-Changing the deployed key would invalidate existing IDs, so key rotation and
-recovery are application-state operations rather than ordinary configuration.
+Validate the checksum whenever a Question ID is entered, without changing the
+canonical value. Browser and server validation use the same public calculation.
 
 ## Generation
 
@@ -88,14 +92,19 @@ The publish transition mints a Question ID only for a new published lineage:
 3. Copy the immutable source bytes to their server-created target address and
    atomically persist the Question ID with its new lineage and first immutable
    version.
-4. Never reassign an issued Question ID to another lineage.
+4. Never reassign an issued Question ID to another object, including after
+   deletion or archival.
 
-`published_question.question_id` is the sole database uniqueness boundary for
-Question ID allocation. The base schema checks the compact uppercase Crockford
-shape; the trusted server verifies the HMAC character before identifier-based
-resolution. Correctly minted full IDs already uniquely determine their
-seven-character identity for one deployment secret, so the schema does not
-need a second identity-only uniqueness constraint.
+Every public ID is globally unique across every public-ID object type. Published
+Questions and Question Pools share the `XXXX-ZXXX` namespace because one lookup
+path resolves either object; a value identifies one of them, never both. The
+allocator reserves the full canonical Question ID in the global public-ID
+namespace while atomically persisting its lineage and first immutable Revision.
+The base schema checks the exact uppercase `XXXX-ZXXX` shape; every
+identifier-entry boundary verifies its embedded checksum before database lookup
+or resolution. Correctly minted full IDs already uniquely determine their
+seven-character identity, so the schema does not need a second identity-only
+uniqueness constraint.
 
 The publisher retries only a PostgreSQL `23505` violation of that primary key.
 It deletes the just-written target object before that conclusive retry; another
@@ -145,35 +154,24 @@ in a new lineage. Current lineage metadata records whether the Published
 Question is Archived for ordinary browsing and new selection. Either condition
 preserves exact historical resolution through the same Question Revision Reference.
 
-## Authorization boundary
-
-Question IDs are public references, not bearer credentials. A valid ID does not
-grant Question Library access, reveal whether a question exists to an unauthorized
-caller, establish ownership, or grant course or Student authority. Question Library
-resolution requires an authenticated active Instructor. Student delivery
-requires exact Assessment access for that Student and Assessment. Anonymous callers cannot browse,
-search, resolve, or inspect a Question ID.
-
 ## Display and entry
 
 Display IDs in canonical uppercase `4-4` form and keep them visually subordinate
-to the human-readable title. Copy actions copy the canonical form. Search and
-entry controls accept both `AAAA-ZBBB` and `AAAAZBBB`, then normalize to the
-canonical display form.
+to the human-readable title. Copy actions and entry controls use only the
+canonical `XXXX-ZXXX` value and validate its embedded checksum.
 
 ## Required behavior
 
 The implementation is complete when:
 
-- one visible `AAAA-ZBBB` ID names each stable published lineage;
+- one visible `XXXX-ZXXX` ID names each stable published lineage;
 - each publication has an immutable Question Revision identified by one exact
   Question Revision Reference;
 - same-lineage publication advances the Question Revision Number and a separate lineage
   receives a new Question ID;
 - Assessments, Attempts, and evidence retain exact Revision pins;
-- equivalent Crockford input normalizes consistently and malformed input is
-  rejected before authorized resolution; and
-- the HMAC secret remains outside browser and WebAssembly boundaries.
+- only the canonical `XXXX-ZXXX` value is accepted at every boundary, and its
+  embedded checksum is validated whenever it is entered.
 
 ## Related documents
 

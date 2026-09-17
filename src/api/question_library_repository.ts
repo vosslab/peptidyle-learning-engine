@@ -8,8 +8,9 @@ import type { QuestionLicense } from "../../generated/api/QuestionLicense";
 import type { QuestionType } from "../../generated/api/QuestionType";
 import { MAX_BULK_QUESTION_METADATA_ITEMS } from "../../generated/api/MAX_BULK_QUESTION_METADATA_ITEMS";
 import type { ApiClient } from "./client";
-import { normalizeQuestionIdSyntax } from "../question_id";
+import { validateCanonicalQuestionIdSyntax } from "../question_id";
 import { libraryClassificationFilter } from "./library_classification_filter";
+import { isProductionQuestionBackend, PRODUCTION_QUESTION_BACKENDS } from "./decoders/shared";
 import type {
   QuestionLibraryBrowseQuery,
   QuestionLibraryBrowseRepository,
@@ -33,7 +34,6 @@ const QUESTION_LICENSES = [
   "CC-BY-4.0",
   "CC-BY-SA-4.0",
 ] as const satisfies ReadonlyArray<QuestionLicense>;
-const BACKENDS = ["ple", "webwork", "imathas"] as const;
 const QUESTION_TYPES = [
   "multipleChoice",
   "multipleAnswer",
@@ -69,7 +69,7 @@ export function questionLibraryBulkSelectionRequest(
       `A Question Library bulk operation accepts at most ${MAX_BULK_QUESTION_METADATA_ITEMS} Questions`,
     );
   }
-  const normalized = questionIds.map((questionId) => normalizeQuestionIdSyntax(questionId));
+  const normalized = questionIds.map((questionId) => validateCanonicalQuestionIdSyntax(questionId));
   if (normalized.some((questionId) => questionId === null)) {
     throw new Error("A Question Library bulk operation requires canonical Question IDs");
   }
@@ -105,7 +105,7 @@ function selectedQuestionLicense(value: string | null): Array<QuestionLicense> {
 
 function selectedBackend(value: string | null): QuestionSearchRequest["backends"] {
   if (value === null) return [];
-  const selected = BACKENDS.find((candidate) => candidate === value);
+  const selected = PRODUCTION_QUESTION_BACKENDS.find((candidate) => candidate === value);
   if (selected === undefined) throw new Error("Question Library backend selection is invalid");
   return [selected];
 }
@@ -135,11 +135,13 @@ function facets(
       value: facet.authorName,
       count: facet.count,
     })),
-    ...page.facets.backends.map((facet) => ({
-      facet: "backend" as const,
-      value: facet.backend,
-      count: facet.count,
-    })),
+    ...page.facets.backends
+      .filter((facet) => isProductionQuestionBackend(facet.backend))
+      .map((facet) => ({
+        facet: "backend" as const,
+        value: facet.backend,
+        count: facet.count,
+      })),
     ...page.facets.tags.map((facet) => ({
       facet: "tag" as const,
       value: facet.tag,
@@ -214,6 +216,8 @@ export function createQuestionLibraryRepository(
           questionRevision: item.summary.latestQuestionRevision,
           questionTitle: item.summary.metadata.questionTitle,
           summary: item.summary.metadata.questionDescription,
+          disciplineName: item.disciplineName,
+          disciplineIsRetired: item.disciplineIsRetired,
           questionFormat: item.summary.questionFormat,
           authorNames: item.summary.authorship.authors.map((author) => author.displayName),
           capabilities: item.summary.capabilities,

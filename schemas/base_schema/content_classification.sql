@@ -17,8 +17,17 @@ CREATE TABLE ple_data.content_discipline (
         char_length(name) BETWEEN 1 AND 120
         AND name !~ '^[[:space:]]|[[:space:]]$'
         AND name !~ '[[:cntrl:]]'
-    )
+    ),
+    -- Retirement is reversible: existing rows keep their stable UUID and may
+    -- continue to resolve it, while new classification choices use only
+    -- active Disciplines.
+    is_retired boolean NOT NULL DEFAULT false
 );
+
+-- A retired name stays reserved. Renaming never changes the stable UUID and
+-- restore cannot silently revive a case-only duplicate.
+CREATE UNIQUE INDEX content_discipline_global_name_unique
+    ON ple_data.content_discipline (lower(name));
 
 CREATE TABLE ple_data.content_subject (
     subject_uuid uuid PRIMARY KEY,

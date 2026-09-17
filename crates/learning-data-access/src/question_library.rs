@@ -39,6 +39,10 @@ pub struct PublishedQuestionLibraryEntry {
     pub subject_name: String,
     pub topic_name: Option<String>,
     pub discipline_name: String,
+    /// Whether this existing classification reference is retired. Retired
+    /// names remain resolvable for historical/current reads but cannot be
+    /// selected for new classification.
+    pub discipline_is_retired: bool,
     pub subtopic_name: Option<String>,
     /// Whether a current available entry in one of the viewer's Courses uses
     /// this stable Question lineage.

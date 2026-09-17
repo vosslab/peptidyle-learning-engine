@@ -6,8 +6,7 @@ use uuid::Uuid;
 
 fn question_revision(revision_number: u32) -> QuestionRevisionReference {
     QuestionRevisionReference {
-        question_id: QuestionId::from_canonical_parts("ABCDEFG", 'G')
-            .expect("canonical Question ID"),
+        question_id: QuestionId::from_random_identifier("ABCDEFG").expect("canonical Question ID"),
         revision_number: QuestionRevisionNumber::new(revision_number)
             .expect("positive Question Revision Number"),
     }
@@ -313,7 +312,7 @@ fn published_import_archive_key_has_distinct_path_and_private_classification() {
 
     assert_eq!(
         key.path(),
-        "questions/ABCDGEFG/versions/3/imports/00000000-0000-0000-0000-000000000004/archive/00000000-0000-0000-0000-000000000005"
+        "questions/ABCD-XEFG/versions/3/imports/00000000-0000-0000-0000-000000000004/archive/00000000-0000-0000-0000-000000000005"
     );
     assert_eq!(key.storage_area(), ObjectStorageArea::PrivateContent);
     assert_eq!(key.question_revision(), Some(&question_revision(3)));
@@ -330,7 +329,7 @@ fn every_archive_identity_input_changes_the_object_id() {
         base,
         published_import_archive_object_id(
             &QuestionRevisionReference {
-                question_id: QuestionId::from_canonical_parts("BCDEFGH", 'H')
+                question_id: QuestionId::from_random_identifier("BCDEFGH")
                     .expect("canonical Question ID"),
                 revision_number: reference.revision_number,
             },
@@ -373,12 +372,11 @@ fn published_import_archive_address_round_trips_through_serde() {
         serde_json::from_str(&encoded).expect("Object Address should deserialize");
     assert_eq!(decoded, address);
     assert!(encoded.contains("publishedImportArchive"));
-    assert!(encoded.contains("\"questionId\":\"ABCDGEFG\""));
-    assert!(!encoded.contains("ABCD-GEFG"));
+    assert!(encoded.contains("\"questionId\":\"ABCD-XEFG\""));
 }
 
 #[test]
-fn every_published_question_address_uses_compact_question_id_json() {
+fn every_published_question_address_uses_canonical_question_id_json() {
     let revision = question_revision(3);
     let object = ObjectId::from_uuid(Uuid::from_u128(5));
     let addresses = [
@@ -410,8 +408,7 @@ fn every_published_question_address_uses_compact_question_id_json() {
 
     for address in addresses {
         let encoded = serde_json::to_string(&address).expect("Object Address should serialize");
-        assert!(encoded.contains("\"questionId\":\"ABCDGEFG\""));
-        assert!(!encoded.contains("ABCD-GEFG"));
+        assert!(encoded.contains("\"questionId\":\"ABCD-XEFG\""));
         assert_eq!(
             serde_json::from_str::<ObjectAddress>(&encoded)
                 .expect("compact Object Address should deserialize"),
@@ -421,8 +418,8 @@ fn every_published_question_address_uses_compact_question_id_json() {
 }
 
 #[test]
-fn object_address_rejects_display_question_id_json() {
-    let encoded = r#"{"kind":"questionSource","questionRevision":{"questionId":"ABCD-XEFG","revisionNumber":3},"object":"00000000-0000-0000-0000-000000000005"}"#;
+fn object_address_rejects_noncanonical_question_id_json() {
+    let encoded = r#"{"kind":"questionSource","questionRevision":{"questionId":"ABCDXEFG","revisionNumber":3},"object":"00000000-0000-0000-0000-000000000005"}"#;
 
     assert!(serde_json::from_str::<ObjectAddress>(encoded).is_err());
 }

@@ -3,7 +3,7 @@
 import { For, Show, createResource, type JSX } from "solid-js";
 import "./content_classification_select.css";
 
-type VocabularyItem = { readonly uuid: string; readonly name: string };
+type VocabularyItem = { readonly uuid: string; readonly name: string; readonly isRetired: boolean };
 
 export function ContentClassificationSelect(props: {
   readonly label: string;
@@ -11,6 +11,8 @@ export function ContentClassificationSelect(props: {
   readonly parentUuid?: string | null;
   readonly required?: boolean;
   readonly disabled?: boolean;
+  /** Discovery filters may intentionally select retired values; authoring cannot. */
+  readonly allowRetired?: boolean;
   readonly load: (parentUuid: string) => Promise<ReadonlyArray<VocabularyItem>>;
   readonly onChange: (uuid: string | null) => void;
 }): JSX.Element {
@@ -36,8 +38,13 @@ export function ContentClassificationSelect(props: {
         <For each={items.error ? [] : items()}>
           {(item) => (
             // Apply the current UUID when async choices arrive, even if it has not changed.
-            <option value={item.uuid} selected={props.value === item.uuid}>
+            <option
+              value={item.uuid}
+              selected={props.value === item.uuid}
+              disabled={item.isRetired && !props.allowRetired && props.value !== item.uuid}
+            >
               {item.name}
+              {item.isRetired ? " (retired)" : ""}
             </option>
           )}
         </For>

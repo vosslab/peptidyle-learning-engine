@@ -9,7 +9,7 @@ test("inline Assessment save sends raw local time with its row edit number", asy
     async () =>
       new Response(
         JSON.stringify({
-          reference: "A8H4N6P",
+          reference: "A8H4N6PA6",
           assessmentType: "exam",
           title: "Edited peptide bonds",
           dueAt: "2026-09-11T14:30:00.125",
@@ -28,8 +28,8 @@ test("inline Assessment save sends raw local time with its row edit number", asy
   );
 
   const saved = await createHttpApiClient({ fetch: recordingFetch }).saveLiveAssessmentInline(
-    "CI7K3M2Q",
-    "A8H4N6P",
+    "CI7K3M2QAZ",
+    "A8H4N6PA6",
     { title: "Edited peptide bonds", dueAt: "2026-09-11T14:30:00.125" },
     "3",
   );
@@ -38,7 +38,7 @@ test("inline Assessment save sends raw local time with its row edit number", asy
   assert.equal(saved.assessmentType, "exam");
   assert.equal(
     new URL(requests[0].url).pathname,
-    "/api/course-instances/CI7K3M2Q/assessments/A8H4N6P/inline",
+    "/api/course-instances/CI7K3M2QAZ/assessments/A8H4N6PA6/inline",
   );
   assert.equal(requests[0].method, "PUT");
   assert.equal(requests[0].headers.get("if-match"), '"3"');

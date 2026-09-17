@@ -83,7 +83,7 @@ BEGIN
            jsonb_array_elements(module -> 'assessments') AS assessment,
            jsonb_array_elements(assessment #> '{content,entries}') AS entry
       WHERE (assessment ->> 'blueprint_assessment_reference')::uuid = p_assessment
-        AND replace(entry #>> '{question_pool_revision,questionPoolId}', '-', '') = p_public_pool_id;
+        AND entry #>> '{question_pool_revision,questionPoolId}' = p_public_pool_id;
     IF pin_revision IS NULL OR (p_write AND pin_revision IS DISTINCT FROM p_expected_pool_revision) THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Blueprint Assessment Pool membership is unavailable';
     END IF;
@@ -132,7 +132,7 @@ BEGIN
         jsonb_array_elements(module -> 'assessments') AS assessment LOOP
         FOR entry_value IN SELECT entry FROM jsonb_array_elements(assessment_value #> '{content,entries}') AS entry
             WHERE entry ->> 'kind' = 'pool' LOOP
-            public_id := replace(entry_value #>> '{question_pool_revision,questionPoolId}', '-', '');
+            public_id := entry_value #>> '{question_pool_revision,questionPoolId}';
             next_pin := (entry_value #>> '{question_pool_revision,revisionNumber}')::bigint;
             IF public_id = ANY(used_ids) THEN
                 RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'A Blueprint owned Pool may occur only once';
@@ -150,7 +150,7 @@ BEGIN
                      jsonb_array_elements(module -> 'assessments') AS assessment,
                      jsonb_array_elements(assessment #> '{content,entries}') AS entry
                 WHERE assessment ->> 'blueprint_assessment_reference' = assessment_value ->> 'blueprint_assessment_reference'
-                  AND replace(entry #>> '{question_pool_revision,questionPoolId}', '-', '') = public_id;
+                  AND entry #>> '{question_pool_revision,questionPoolId}' = public_id;
             -- ASVS 8.2.2: unchanged membership or a fresh transaction-local fork is the only write authority.
             IF pool_row.question_pool_id IS NULL OR pool_row.source_question_pool_id IS NULL OR
                 (prior_pin IS NOT NULL AND next_pin <> prior_pin AND next_pin <> pool_row.current_revision_number) OR

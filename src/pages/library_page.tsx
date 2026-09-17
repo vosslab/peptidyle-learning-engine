@@ -7,6 +7,7 @@ import { CopyableQuestionId } from "../components/copyable_question_id";
 import { QuestionBulkMetadataEditor } from "../components/question_bulk_metadata_editor";
 import { QuestionPoolCreateDialog } from "../components/question_pool_create_dialog";
 import type { QuestionPoolLibraryClient } from "../api/question_pool_library";
+import type { LibraryDiscussionClient } from "../api/library_discussion";
 import { LibraryPoolDiscovery } from "./library_pool_discovery";
 import { MAX_BULK_QUESTION_METADATA_ITEMS } from "../../generated/api/MAX_BULK_QUESTION_METADATA_ITEMS";
 import type { QuestionDetails } from "../../generated/api/QuestionDetails";
@@ -17,6 +18,7 @@ import type {
   QuestionBulkMetadataUpdateResult,
 } from "../api/question_bulk_metadata";
 import type { QuestionPoolCreationClient } from "../api/question_pool_creation";
+import { decodeQuestionId } from "../api/decoders/shared";
 import { questionLibraryBulkSelectionRequest } from "../api/question_library_repository";
 import { useSessionBootstrap } from "../auth/session_context";
 import { buildRoutePath } from "../ribbon/ribbon_contract";
@@ -88,6 +90,17 @@ function selectedQuestionLibrarySort(value: string): QuestionLibraryBrowseQuery[
   throw new Error("Question Library sort selection is invalid");
 }
 
+function hasCanonicalPoolDeepLink(search: string): boolean {
+  const values = new URLSearchParams(search).getAll("pool");
+  if (values.length !== 1) return false;
+  try {
+    decodeQuestionId(values[0], "pool");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function RetainedSelectOption(props: {
   readonly value: string | null | undefined;
   readonly label: (value: string) => string;
@@ -115,7 +128,7 @@ export interface LibraryPageProps {
   readonly metadataClient: QuestionBulkMetadataClient;
   readonly classificationClient: import("../api/content_classification").ContentClassificationClient;
   readonly questionPoolClient: QuestionPoolCreationClient;
-  readonly poolLibraryClient?: QuestionPoolLibraryClient;
+  readonly poolLibraryClient?: QuestionPoolLibraryClient & LibraryDiscussionClient;
   readonly getQuestionDetails: (questionId: QuestionId) => Promise<QuestionDetails>;
 }
 
@@ -126,8 +139,10 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
     throw new Error("Question Library requires an authenticated session scope");
   }
   const sessionScope = sessionBootstrapState.session;
+  const mayMutateLibrary = sessionScope.account.productRole === "instructor";
   const location = useLocation();
   const navigate = useNavigate();
+  const hasInitialPoolDeepLink = hasCanonicalPoolDeepLink(location.search);
   const [searchParams] = useSearchParams();
   const returnToken = parseQuestionLibraryReturnToken(
     searchParams[QUESTION_LIBRARY_RETURN_TOKEN_PARAMETER],
@@ -173,7 +188,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
     createSignal<ReadonlyArray<QuestionBulkMetadataUpdateResult> | null>(null);
   const [questionPoolCreateOpen, setQuestionPoolCreateOpen] = createSignal(false);
   const [questionPoolTaskActive, setQuestionPoolTaskActive] = createSignal(false);
-  const [poolDiscoveryOpened, setPoolDiscoveryOpened] = createSignal(false);
+  const [poolDiscoveryOpened, setPoolDiscoveryOpened] = createSignal(hasInitialPoolDeepLink);
   let pendingScrollRestore = returnState?.scrollTop ?? null;
   const questionReturnTokens = new Map<string, string>();
   const session = new QuestionLibraryBrowseSession(props.repository, setState);
@@ -424,9 +439,11 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
       <p class="eyebrow">Shared educational content</p>
       <h1>{props.mode === "browse" ? "Browse Question Library" : "Search Question Library"}</h1>
       <p class="page-lede">
-        {props.mode === "browse"
-          ? "Explore what the library contains, then narrow from a broad subject to exact topics."
-          : "Find a current published question to study, reuse, or assign."}
+        {!mayMutateLibrary
+          ? "Review published Library content and its recorded improvement activity."
+          : props.mode === "browse"
+            ? "Explore what the library contains, then narrow from a broad subject to exact topics."
+            : "Find a current published question to study, reuse, or assign."}
       </p>
       <Show when={invalidLinkOptions()}>
         <div role="alert">
@@ -444,6 +461,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
           {(client) => (
             <details
               class="question-library-pool-discovery"
+              open={hasInitialPoolDeepLink}
               onToggle={(event) => {
                 if (event.currentTarget.open) setPoolDiscoveryOpened(true);
               }}
@@ -453,12 +471,13 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
                 <LibraryPoolDiscovery
                   client={client()}
                   classificationClient={props.classificationClient}
+                  mayWatchPools={mayMutateLibrary}
                 />
               </Show>
             </details>
           )}
         </Show>
-        <Show when={sessionScope.account.productRole === "instructor"}>
+        <Show when={mayMutateLibrary}>
           <p>
             <button
               type="button"
@@ -791,7 +810,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
             </label>
           </div>
         </Show>
-        <Show when={displayedRows().length > 0 || selectedIds().size > 0}>
+        <Show when={mayMutateLibrary && (displayedRows().length > 0 || selectedIds().size > 0)}>
           <section class="question-library-bulk-toolbar" aria-label="Bulk Question actions">
             <p aria-live="polite">
               <strong>{selectedIds().size} selected</strong> from {displayedRows().length} loaded
@@ -830,7 +849,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
             </p>
           </section>
         </Show>
-        <Show when={questionPoolCreateOpen()}>
+        <Show when={mayMutateLibrary && questionPoolCreateOpen()}>
           <div class="question-pool-create-host">
             <QuestionPoolCreateDialog
               questionPoolClient={props.questionPoolClient}
@@ -850,7 +869,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
             Reading current metadata for all selected Questions...
           </p>
         </Show>
-        <Show when={editorLoadError()}>
+        <Show when={mayMutateLibrary && editorLoadError()}>
           <section class="route-error" role="alert">
             <h2>Current metadata could not be loaded</h2>
             <p>Your selection is preserved. Retry the read before editing.</p>
@@ -859,7 +878,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
             </button>
           </section>
         </Show>
-        <Show when={editorMetadata()}>
+        <Show when={mayMutateLibrary && editorMetadata()}>
           {(metadata) => (
             <QuestionBulkMetadataEditor
               client={props.metadataClient}
@@ -923,25 +942,32 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
                 <For each={virtualWindow().rows}>
                   {(row) => (
                     <article class="question-library-row" style={{ height: `${rowHeightPx()}px` }}>
-                      <label class="question-library-row-selection">
-                        <input
-                          type="checkbox"
-                          checked={selectedIds().has(row.displayId)}
-                          disabled={
-                            editorBusy() ||
-                            (!selectedIds().has(row.displayId) &&
-                              selectedIds().size >= MAX_BULK_QUESTION_METADATA_ITEMS)
-                          }
-                          onChange={(event) =>
-                            updateSelection(row.displayId, event.currentTarget.checked)
-                          }
-                        />
-                        <span class="sr-only">Select {row.questionTitle}</span>
-                      </label>
+                      <Show when={mayMutateLibrary}>
+                        <label class="question-library-row-selection">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds().has(row.displayId)}
+                            disabled={
+                              editorBusy() ||
+                              (!selectedIds().has(row.displayId) &&
+                                selectedIds().size >= MAX_BULK_QUESTION_METADATA_ITEMS)
+                            }
+                            onChange={(event) =>
+                              updateSelection(row.displayId, event.currentTarget.checked)
+                            }
+                          />
+                          <span class="sr-only">Select {row.questionTitle}</span>
+                        </label>
+                      </Show>
                       <h2>{row.questionTitle}</h2>
                       <p class="question-library-row-summary">{row.summary}</p>
                       <p class="question-library-row-authors" aria-label="Question Authors">
                         Authors: {row.authorNames.join(", ")}
+                        <span>
+                          {" "}
+                          · Discipline: {row.disciplineName}
+                          <Show when={row.disciplineIsRetired}> (retired)</Show>
+                        </span>
                         <Show when={webworkFormatLabel(row.questionFormat)}>
                           {(format) => <> · Format: {format()}</>}
                         </Show>

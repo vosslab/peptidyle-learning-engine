@@ -116,7 +116,7 @@ function deferredCourseScopes(): DeferredCourseScopes {
 
   function waitForRelease(reference: string): Promise<void> {
     requests.set(reference, (requests.get(reference) ?? 0) + 1);
-    if (reference !== "CI7K3M2Q") return Promise.resolve();
+    if (reference !== "CI7K3M2QAZ") return Promise.resolve();
     return new Promise((resolve) => {
       releases.set(reference, resolve);
     });
@@ -152,7 +152,7 @@ function presentationApi(deferredScopes?: DeferredCourseScopes): {
       return released.then(() => instructorCourseRouteData(reference));
     }),
     assessmentAttemptScope: queryFunction("assessment-attempt-scope", () =>
-      Promise.resolve(assignmentAttemptContext("CI7K3M2Q")),
+      Promise.resolve(assignmentAttemptContext("CI7K3M2QAZ")),
     ),
     assessmentAttemptHistory: queryFunction("assessment-attempt-history", () =>
       Promise.reject(
@@ -291,11 +291,11 @@ function fixtureModelForPathname(pathname: string): RibbonModel {
   if (pathname === "/library") return productFixture("questions");
   if (pathname === "/blueprint-courses") return productFixture("courses");
   if (pathname === "/blueprint-courses/search/public") return productFixture("courses");
-  if (pathname === "/instructor/courses/CI7K3M2Q/students")
-    return courseFixture("CI7K3M2Q", "students");
-  if (pathname === "/instructor/courses/CI7K3M2Q/gradebook")
-    return courseFixture("CI7K3M2Q", "gradebook");
-  if (pathname === "/courses/CI4W8QF9") return courseFixture("CI4W8QF9");
+  if (pathname === "/instructor/courses/CI7K3M2QAZ/students")
+    return courseFixture("CI7K3M2QAZ", "students");
+  if (pathname === "/instructor/courses/CI7K3M2QAZ/gradebook")
+    return courseFixture("CI7K3M2QAZ", "gradebook");
+  if (pathname === "/courses/CI4W8QF9AD") return courseFixture("CI4W8QF9AD");
   if (pathname === "/assessment-attempts/R-1") {
     return {
       ...M6_RIBBON_FIXTURES.attemptInstructor,
@@ -312,7 +312,7 @@ function fixtureModelForPathname(pathname: string): RibbonModel {
   ) {
     return courseFixture(segments[3], "assessments", true);
   }
-  return courseFixture("CI7K3M2Q");
+  return courseFixture("CI7K3M2QAZ");
 }
 
 function FixtureContent(props: {
@@ -325,7 +325,7 @@ function FixtureContent(props: {
     if (presentAppearance === undefined) {
       throw new Error("Shell fixture requires the source course-theme presentation context.");
     }
-    presentAppearance({ ...courseRouteData("CI7K3M2Q").appearance, theme: "ocean" });
+    presentAppearance({ ...courseRouteData("CI7K3M2QAZ").appearance, theme: "ocean" });
   }
 
   if (props.shouldThrow()) throw new Error("Shell fixture content sentinel failure");

@@ -8,7 +8,7 @@ import { createHttpApiClient } from "../src/api/http_client.ts";
 import { ApiProtocolError } from "../src/api/http_client/error.ts";
 import { createRecordingFetch } from "./http_client_test_support.mjs";
 
-const COURSE_REFERENCE = "CI7K3M2Q";
+const COURSE_REFERENCE = "CI7K3M2QAZ";
 
 function courseSummary() {
   return {

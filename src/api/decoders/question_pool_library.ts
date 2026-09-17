@@ -11,6 +11,7 @@ import type { QuestionPoolLibraryPage } from "../question_pool_library";
 import {
   DecodeError,
   decodeArray,
+  decodeBoolean,
   decodeNonnegativeInteger,
   decodeNullable,
   decodePositiveInteger,
@@ -59,6 +60,8 @@ export function decodeQuestionPoolMetadata(value: unknown, path: string): Questi
     "title",
     "description",
     "disciplineUuid",
+    "disciplineName",
+    "disciplineIsRetired",
     "subjectUuid",
     "topicUuid",
     "subtopicUuid",
@@ -91,6 +94,15 @@ export function decodeQuestionPoolMetadata(value: unknown, path: string): Questi
       4000,
     ),
     disciplineUuid: decodeUuid(field(record, "disciplineUuid", path), `${path}.disciplineUuid`),
+    disciplineName: decodeQuestionPoolText(
+      field(record, "disciplineName", path),
+      `${path}.disciplineName`,
+      120,
+    ),
+    disciplineIsRetired: decodeBoolean(
+      field(record, "disciplineIsRetired", path),
+      `${path}.disciplineIsRetired`,
+    ),
     subjectUuid: decodeUuid(field(record, "subjectUuid", path), `${path}.subjectUuid`),
     topicUuid,
     subtopicUuid,

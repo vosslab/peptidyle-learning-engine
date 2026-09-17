@@ -22,6 +22,7 @@ export const RIBBON_TAB_IDS = [
   "courseSetup",
   "attempt",
   "instructorAccounts",
+  "disciplines",
 ] as const;
 
 export type RibbonTabId = (typeof RIBBON_TAB_IDS)[number];
@@ -56,6 +57,7 @@ export interface RouteContract {
     | "assessmentAttemptSummary"
     | "library"
     | "libraryBrowse"
+    | "libraryWatchNotifications"
     | "questionDetail"
     | "questionDrafts"
     | "questionDraftEditor"
@@ -78,6 +80,7 @@ export interface RouteContract {
     | "accountSettings"
     | "courseRoster"
     | "instructorAccounts"
+    | "contentDisciplines"
     | "pendingCourseInvitations"
     | "studentCourseInvitations"
     | "studentCourseInvitation"
@@ -209,6 +212,13 @@ export const ROUTE_CONTRACT = [
     ribbon: { scope: "product", tab: "instructorAccounts", contentLayout: "reading" },
   },
   {
+    id: "contentDisciplines",
+    path: "/sysadmin/disciplines",
+    surface: "Sysadmin Discipline lifecycle workspace",
+    requiredProductRoles: ["sysadmin"],
+    ribbon: { scope: "product", tab: "disciplines", contentLayout: "reading" },
+  },
+  {
     id: "courseAssessments",
     path: "/courses/:courseRef",
     surface: "Course Instance Teaching Team, roster, and Assessment delivery workspace",
@@ -252,7 +262,7 @@ export const ROUTE_CONTRACT = [
     id: "library",
     path: "/library",
     surface: "Question Library",
-    requiredProductRoles: ["instructor"],
+    requiredProductRoles: ["instructor", "sysadmin"],
     ribbon: {
       scope: "product",
       tab: "questions",
@@ -264,7 +274,7 @@ export const ROUTE_CONTRACT = [
     id: "libraryBrowse",
     path: "/library/browse",
     surface: "Browse Question Library",
-    requiredProductRoles: ["instructor"],
+    requiredProductRoles: ["instructor", "sysadmin"],
     ribbon: {
       scope: "product",
       tab: "questions",
@@ -273,10 +283,22 @@ export const ROUTE_CONTRACT = [
     },
   },
   {
+    id: "libraryWatchNotifications",
+    path: "/library/watch-notifications",
+    surface: "Instructor private Question Library Watch inbox",
+    requiredProductRoles: ["instructor"],
+    ribbon: {
+      scope: "product",
+      tab: "questions",
+      taskGroup: "instructorQuestions",
+      contentLayout: "reading",
+    },
+  },
+  {
     id: "questionDetail",
     path: "/library/:questionRef",
     surface: "Published question detail",
-    requiredProductRoles: ["instructor"],
+    requiredProductRoles: ["instructor", "sysadmin"],
     ribbon: {
       scope: "product",
       tab: "questions",

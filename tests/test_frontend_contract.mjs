@@ -10,8 +10,8 @@ import { createSessionBootstrap, sessionFailureState } from "../src/auth/session
 import { productRoleMayAccessRoute, routeContractForPathname } from "../src/route_contract.ts";
 
 test("route contracts fail closed and reserve declared teaching routes for instructors", () => {
-  assert.equal(routeContractForPathname("/library/7K3M-X9QP")?.id, "questionDetail");
-  assert.equal(routeContractForPathname("/library/7K3M-X9QP/extra"), undefined);
+  assert.equal(routeContractForPathname("/library/7K3M-79QP")?.id, "questionDetail");
+  assert.equal(routeContractForPathname("/library/7K3M-79QP/extra"), undefined);
   assert.equal(routeContractForPathname("/blueprint-courses")?.id, "blueprintCourses");
   assert.equal(
     routeContractForPathname("/blueprint-courses/search/public")?.id,
@@ -24,37 +24,37 @@ test("route contracts fail closed and reserve declared teaching routes for instr
   assert.equal(routeContractForPathname("/blueprint-courses/BP-7/extra"), undefined);
   assert.equal(routeContractForPathname("/sysadmin/instructor-approval"), undefined);
   assert.equal(
-    routeContractForPathname("/instructor/courses/CI7K3M2Q/assessments/A9D2RX5")?.id,
+    routeContractForPathname("/instructor/courses/CI7K3M2QAZ/assessments/A9D2RX5AF")?.id,
     "assessmentWorkspaceOverview",
   );
   assert.equal(
-    routeContractForPathname("/instructor/courses/CI7K3M2Q/assessments/A9D2RX5/questions")?.id,
+    routeContractForPathname("/instructor/courses/CI7K3M2QAZ/assessments/A9D2RX5AF/questions")?.id,
     "assessmentWorkspaceQuestions",
   );
   assert.equal(
-    routeContractForPathname("/instructor/courses/CI7K3M2Q/assessments/A9D2RX5/properties")?.id,
+    routeContractForPathname("/instructor/courses/CI7K3M2QAZ/assessments/A9D2RX5AF/properties")?.id,
     "assessmentWorkspacePolicies",
   );
   assert.equal(
-    routeContractForPathname("/instructor/courses/CI7K3M2Q/assessments/A9D2RX5/student-view")?.id,
+    routeContractForPathname("/instructor/courses/CI7K3M2QAZ/assessments/A9D2RX5AF/student-view")?.id,
     "assessmentWorkspaceStudentView",
   );
   assert.equal(
-    routeContractForPathname("/instructor/courses/CI7K3M2Q/assessments/A9D2RX5/delivery-check"),
+    routeContractForPathname("/instructor/courses/CI7K3M2QAZ/assessments/A9D2RX5AF/delivery-check"),
     undefined,
   );
   assert.equal(
-    routeContractForPathname("/instructor/courses/CI7K3M2Q/assessments/A9D2RX5/release"),
+    routeContractForPathname("/instructor/courses/CI7K3M2QAZ/assessments/A9D2RX5AF/release"),
     undefined,
   );
   assert.equal(
     routeContractForPathname(
-      "/courses/CI7K3M2Q/assessments/A9D2RX5/presentations/0123456789abcdef0123456789abcdef",
+      "/courses/CI7K3M2QAZ/assessments/A9D2RX5AF/presentations/0123456789abcdef0123456789abcdef",
     ),
     undefined,
   );
   assert.equal(
-    routeContractForPathname("/instructor/courses/CI7K3M2Q/assessments/A9D2RX5/edit"),
+    routeContractForPathname("/instructor/courses/CI7K3M2QAZ/assessments/A9D2RX5AF/edit"),
     undefined,
   );
   assert.equal(productRoleMayAccessRoute("assessmentOverview", "student"), true);

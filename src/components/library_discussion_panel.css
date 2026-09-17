@@ -1,0 +1,54 @@
+/* Compact, text-first activity surface shared by Question and Pool Library views. */
+
+.library-discussion-panel {
+  display: grid;
+  gap: var(--ple-space-3);
+  margin-block: var(--ple-space-4);
+  padding-block-start: var(--ple-space-3);
+  border-block-start: 1px solid var(--ple-border);
+}
+
+.library-discussion-panel h2,
+.library-discussion-panel h3,
+.library-discussion-panel p {
+  margin-block: 0;
+}
+
+.library-discussion-panel > section,
+.library-discussion-create,
+.library-improvement-thread,
+.library-impact-notice,
+.library-improvement-post {
+  display: grid;
+  gap: var(--ple-space-2);
+}
+
+.library-improvement-thread,
+.library-impact-notice {
+  padding-block: var(--ple-space-2);
+  border-block-start: 1px solid var(--ple-border);
+}
+
+.library-impact-notice[data-state="cancelled"] {
+  color: var(--ple-muted);
+}
+
+.library-discussion-panel label {
+  display: grid;
+  gap: var(--ple-space-1);
+  max-inline-size: 72ch;
+  color: var(--ple-muted);
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.library-discussion-panel textarea {
+  min-block-size: 5rem;
+  resize: vertical;
+}
+
+.library-discussion-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ple-space-2);
+}

@@ -1,16 +1,17 @@
-//! Four read-only, installed-session classification selectors.
+//! Installed-session classification selectors and Sysadmin Discipline lifecycle routes.
 
 use std::sync::Arc;
 
 use axum::{
     Json, Router,
-    extract::{Query, State, rejection::QueryRejection},
+    extract::{Path, Query, State, rejection::QueryRejection},
     http::{HeaderMap, StatusCode, header::COOKIE},
     response::{IntoResponse, Response},
-    routing::get,
+    routing::{get, post},
 };
 use learning_data_access::{
-    ContentClassificationItem, ContentClassificationStore, SessionTokenHash, StoreError,
+    ContentClassificationItem, ContentClassificationStore, ContentDiscipline,
+    ContentDisciplineAdministrationStore, SessionTokenHash, StoreError,
     postgres::{PostgresContentClassificationStore, PostgresSessionStore},
 };
 use question_model::ProductRole;
@@ -22,7 +23,8 @@ use crate::auth::{AuthError, resolve_session};
 #[derive(Clone)]
 struct RouteState {
     sessions: Arc<PostgresSessionStore>,
-    store: Arc<dyn ContentClassificationStore>,
+    selections: Arc<dyn ContentClassificationStore>,
+    disciplines: Arc<dyn ContentDisciplineAdministrationStore>,
 }
 
 pub fn content_classification_router(
@@ -30,13 +32,33 @@ pub fn content_classification_router(
     store: PostgresContentClassificationStore,
 ) -> Router {
     Router::new()
-        .route("/api/content-classification/disciplines", get(disciplines))
+        .route(
+            "/api/content-classification/disciplines",
+            get(disciplines).post(create_discipline),
+        )
+        .route(
+            "/api/content-classification/disciplines/discovery",
+            get(disciplines_including_retired),
+        )
+        .route(
+            "/api/content-classification/disciplines/{discipline_uuid}/rename",
+            post(rename_discipline),
+        )
+        .route(
+            "/api/content-classification/disciplines/{discipline_uuid}/retire",
+            post(retire_discipline),
+        )
+        .route(
+            "/api/content-classification/disciplines/{discipline_uuid}/restore",
+            post(restore_discipline),
+        )
         .route("/api/content-classification/subjects", get(subjects))
         .route("/api/content-classification/topics", get(topics))
         .route("/api/content-classification/subtopics", get(subtopics))
         .with_state(RouteState {
             sessions,
-            store: Arc::new(store),
+            selections: Arc::new(store.clone()),
+            disciplines: Arc::new(store),
         })
 }
 
@@ -59,6 +81,12 @@ struct SubtopicQuery {
     topic_uuid: String,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct DisciplineNameInput {
+    name: String,
+}
+
 async fn disciplines(
     State(state): State<RouteState>,
     headers: HeaderMap,
@@ -71,7 +99,111 @@ async fn disciplines(
     if query.is_err() {
         return invalid();
     }
-    list_response("disciplines", state.store.list_disciplines(token).await)
+    list_response(
+        "disciplines",
+        state.selections.list_disciplines(token).await,
+    )
+}
+
+async fn disciplines_including_retired(
+    State(state): State<RouteState>,
+    headers: HeaderMap,
+    query: Result<Query<EmptyQuery>, QueryRejection>,
+) -> Response {
+    let token = match reader_token(&state, &headers).await {
+        Ok(token) => token,
+        Err(response) => return *response,
+    };
+    if query.is_err() {
+        return invalid();
+    }
+    discipline_list_response(
+        "disciplines",
+        state
+            .disciplines
+            .list_disciplines_including_retired(token)
+            .await,
+    )
+}
+
+async fn create_discipline(
+    State(state): State<RouteState>,
+    headers: HeaderMap,
+    Json(input): Json<DisciplineNameInput>,
+) -> Response {
+    let token = match sysadmin_token(&state, &headers).await {
+        Ok(token) => token,
+        Err(response) => return *response,
+    };
+    discipline_response(
+        state.disciplines.create_discipline(token, input.name).await,
+        StatusCode::CREATED,
+    )
+}
+
+async fn rename_discipline(
+    State(state): State<RouteState>,
+    headers: HeaderMap,
+    Path(discipline_uuid): Path<String>,
+    Json(input): Json<DisciplineNameInput>,
+) -> Response {
+    let Some(discipline_uuid) = canonical_uuid(&discipline_uuid) else {
+        return concealed();
+    };
+    let token = match sysadmin_token(&state, &headers).await {
+        Ok(token) => token,
+        Err(response) => return *response,
+    };
+    discipline_response(
+        state
+            .disciplines
+            .rename_discipline(token, discipline_uuid, input.name)
+            .await,
+        StatusCode::OK,
+    )
+}
+
+async fn retire_discipline(
+    State(state): State<RouteState>,
+    headers: HeaderMap,
+    Path(discipline_uuid): Path<String>,
+) -> Response {
+    discipline_state_response(state, headers, discipline_uuid, true).await
+}
+
+async fn restore_discipline(
+    State(state): State<RouteState>,
+    headers: HeaderMap,
+    Path(discipline_uuid): Path<String>,
+) -> Response {
+    discipline_state_response(state, headers, discipline_uuid, false).await
+}
+
+async fn discipline_state_response(
+    state: RouteState,
+    headers: HeaderMap,
+    discipline_uuid: String,
+    retire: bool,
+) -> Response {
+    let Some(discipline_uuid) = canonical_uuid(&discipline_uuid) else {
+        return concealed();
+    };
+    let token = match sysadmin_token(&state, &headers).await {
+        Ok(token) => token,
+        Err(response) => return *response,
+    };
+    let result = if retire {
+        state
+            .disciplines
+            .retire_discipline(token, discipline_uuid)
+            .await
+    } else {
+        state
+            .disciplines
+            .restore_discipline(token, discipline_uuid)
+            .await
+    };
+    discipline_response(result, StatusCode::OK)
 }
 
 async fn subjects(
@@ -89,7 +221,10 @@ async fn subjects(
     let Some(parent) = parent else {
         return invalid();
     };
-    list_response("subjects", state.store.list_subjects(token, parent).await)
+    list_response(
+        "subjects",
+        state.selections.list_subjects(token, parent).await,
+    )
 }
 
 async fn topics(
@@ -107,7 +242,7 @@ async fn topics(
     let Some(parent) = parent else {
         return invalid();
     };
-    list_response("topics", state.store.list_topics(token, parent).await)
+    list_response("topics", state.selections.list_topics(token, parent).await)
 }
 
 async fn subtopics(
@@ -125,7 +260,10 @@ async fn subtopics(
     let Some(parent) = parent else {
         return invalid();
     };
-    list_response("subtopics", state.store.list_subtopics(token, parent).await)
+    list_response(
+        "subtopics",
+        state.selections.list_subtopics(token, parent).await,
+    )
 }
 
 fn canonical_uuid(value: &str) -> Option<Uuid> {
@@ -159,6 +297,25 @@ async fn reader_token(
     }
 }
 
+async fn sysadmin_token(
+    state: &RouteState,
+    headers: &HeaderMap,
+) -> Result<SessionTokenHash, Box<Response>> {
+    let cookies = headers
+        .get_all(COOKIE)
+        .iter()
+        .map(|value| value.to_str().ok())
+        .collect::<Option<Vec<_>>>()
+        .map(|values| values.join("; "));
+    match resolve_session(state.sessions.as_ref(), cookies.as_deref()).await {
+        Ok(session) if session.record.product_role == ProductRole::Sysadmin => {
+            Ok(session.session_hash)
+        }
+        Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
+        Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(unavailable())),
+    }
+}
+
 fn list_response(
     key: &'static str,
     result: Result<Vec<ContentClassificationItem>, StoreError>,
@@ -167,7 +324,7 @@ fn list_response(
         Ok(items) => {
             let items = items
                 .into_iter()
-                .map(|item| serde_json::json!({ "uuid": item.uuid.to_string(), "name": item.name }))
+                .map(|item| item_json(item, false))
                 .collect::<Vec<_>>();
             crate::auth::no_store(Json(serde_json::json!({ (key): items })).into_response())
         }
@@ -176,6 +333,51 @@ fn list_response(
         }
         Err(_) => unavailable(),
     }
+}
+fn discipline_list_response(
+    key: &'static str,
+    result: Result<Vec<ContentDiscipline>, StoreError>,
+) -> Response {
+    match result {
+        Ok(items) => {
+            let items = items.into_iter().map(discipline_json).collect::<Vec<_>>();
+            crate::auth::no_store(Json(serde_json::json!({ (key): items })).into_response())
+        }
+        Err(StoreError::NotFound | StoreError::Forbidden | StoreError::OwnershipMismatch) => {
+            concealed()
+        }
+        Err(_) => unavailable(),
+    }
+}
+fn discipline_response(
+    result: Result<ContentDiscipline, StoreError>,
+    status: StatusCode,
+) -> Response {
+    match result {
+        Ok(item) => crate::auth::no_store((status, Json(discipline_json(item))).into_response()),
+        Err(StoreError::NotFound | StoreError::Forbidden | StoreError::OwnershipMismatch) => {
+            concealed()
+        }
+        Err(StoreError::AlreadyExists) => {
+            error(StatusCode::CONFLICT, "Content Discipline conflicts")
+        }
+        Err(StoreError::InvalidRecord(_)) => invalid(),
+        Err(_) => unavailable(),
+    }
+}
+fn item_json(item: ContentClassificationItem, is_retired: bool) -> serde_json::Value {
+    serde_json::json!({
+        "uuid": item.uuid.to_string(),
+        "name": item.name,
+        "isRetired": is_retired,
+    })
+}
+fn discipline_json(item: ContentDiscipline) -> serde_json::Value {
+    serde_json::json!({
+        "uuid": item.uuid.to_string(),
+        "name": item.name,
+        "isRetired": item.is_retired,
+    })
 }
 fn invalid() -> Response {
     error(

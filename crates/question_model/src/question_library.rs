@@ -4,6 +4,7 @@ use std::num::NonZeroU64;
 use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 use crate::question_license::QuestionLicense;
 use crate::question_tag::Tag;
@@ -32,24 +33,20 @@ pub use crate::response::QuestionType;
 /// compact, visible decision aid rather than an unbounded course inventory.
 pub const MAX_QUESTION_SEARCH_OWN_COURSE_USAGES: usize = 100;
 
-/// Crockford Base32 alphabet used by the one human-facing Question ID.
+/// Crockford Base32 alphabet used by public identifiers.
 pub const QUESTION_ID_ALPHABET: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 
-/// Uppercase transcription aliases accepted before alphabet validation.
-pub const QUESTION_ID_NORMALIZATION_ALIASES: &[(char, char)] =
-    &[('O', '0'), ('I', '1'), ('L', '1')];
-
-/// Number of random identity characters around the middle validation character.
+/// Number of server-random Crockford characters in one Question or Pool ID.
 pub const QUESTION_ID_IDENTIFIER_LENGTH: usize = 7;
 
-/// Total compact Question ID length, including its validation character.
-pub const QUESTION_ID_COMPACT_LENGTH: usize = 8;
+/// Byte length of the exact canonical `XXXX-ZXXX` Question or Pool ID.
+pub const QUESTION_ID_CANONICAL_LENGTH: usize = 9;
 
-/// Zero-based compact position of the server-validated HMAC character.
-pub const QUESTION_ID_CHECK_CHARACTER_COMPACT_INDEX: usize = 4;
+/// Zero-based byte position of the embedded checksum character.
+pub const QUESTION_ID_CHECK_CHARACTER_INDEX: usize = 5;
 
-/// Zero-based display position where the presentation-only hyphen is inserted.
-pub const QUESTION_ID_DISPLAY_HYPHEN_INDEX: usize = 4;
+/// Zero-based byte position of the required Question or Pool hyphen.
+pub const QUESTION_ID_HYPHEN_INDEX: usize = 4;
 
 /// Product limit kept independent of the larger encoded namespace.
 pub const MAX_QUESTION_ID_COUNT: u64 = 100_000_000;
@@ -61,69 +58,46 @@ pub const MAX_BULK_QUESTION_METADATA_ITEMS: usize = 1000;
 /// lineage. [`QuestionRevisionReference`] pairs it with a positive revision
 /// number to identify one immutable Question Revision.
 ///
-/// The canonical display is `AAAA-ZBBB`. Parsing accepts unhyphenated and
-/// lowercase Crockford input plus the documented `O` to `0` and `I`/`L` to
-/// `1` transcription aliases. This type validates syntax only; the server-held
-/// HMAC secret validates the middle character before resolution.
+/// `XXXX-ZXXX` is the one canonical value at every boundary. The hyphen and
+/// public checksum character are both part of the ID, not presentation.
+/// Parsing rejects every alternate spelling, including lowercase,
+/// unhyphenated, alias, and whitespace-padded input.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct QuestionId(String);
 
 impl QuestionId {
-    /// Canonical eight-character storage value without the display hyphen.
-    ///
-    /// This is the spelling for database, object-address, and deterministic
-    /// machine boundaries. Browser-facing serialization and [`Display`] use
-    /// the grouped human form instead.
-    pub fn as_compact_str(&self) -> &str {
+    /// The exact canonical public value for every storage and transport boundary.
+    pub fn as_str(&self) -> &str {
         &self.0
     }
 
-    /// Returns the seven-character identity in compact display order.
-    pub fn identifier_compact(&self) -> String {
-        format!(
-            "{}{}",
-            &self.0[..QUESTION_ID_CHECK_CHARACTER_COMPACT_INDEX],
-            &self.0[QUESTION_ID_CHECK_CHARACTER_COMPACT_INDEX + 1..]
-        )
-    }
-
-    /// Canonical validation character.
-    pub fn validation_character(&self) -> char {
-        self.0.as_bytes()[QUESTION_ID_CHECK_CHARACTER_COMPACT_INDEX] as char
-    }
-
-    /// Builds a canonical ID from server-generated canonical components.
-    pub fn from_canonical_parts(
-        identifier: impl AsRef<str>,
-        validation: char,
-    ) -> Result<Self, &'static str> {
+    /// Mints the exact public value from seven server-random Crockford characters.
+    ///
+    /// ASVS V2.1.1 and V2.2.1: this trusted server-generation boundary checks its
+    /// constrained input before creating an identifier. Callers must obtain the
+    /// seven random characters from a cryptographically secure source.
+    pub fn from_random_identifier(identifier: impl AsRef<str>) -> Result<Self, &'static str> {
         let identifier = identifier.as_ref();
         if identifier.len() != QUESTION_ID_IDENTIFIER_LENGTH
             || !identifier
                 .bytes()
                 .all(|character| QUESTION_ID_ALPHABET.contains(&character))
-            || !validation.is_ascii()
-            || !QUESTION_ID_ALPHABET.contains(&(validation as u8))
         {
-            return Err("question ID components are not canonical Crockford Base32");
+            return Err("Question ID random characters must be exact uppercase Crockford Base32");
         }
+        let checksum = public_id_checksum_character(identifier.as_bytes());
         Ok(Self(format!(
-            "{}{validation}{}",
-            &identifier[..QUESTION_ID_CHECK_CHARACTER_COMPACT_INDEX],
-            &identifier[QUESTION_ID_CHECK_CHARACTER_COMPACT_INDEX..]
+            "{}-{checksum}{}",
+            &identifier[..QUESTION_ID_HYPHEN_INDEX],
+            &identifier[QUESTION_ID_HYPHEN_INDEX..]
         )))
     }
 }
 
 impl std::fmt::Display for QuestionId {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            formatter,
-            "{}-{}",
-            &self.0[..QUESTION_ID_DISPLAY_HYPHEN_INDEX],
-            &self.0[QUESTION_ID_DISPLAY_HYPHEN_INDEX..]
-        )
+        formatter.write_str(&self.0)
     }
 }
 
@@ -131,48 +105,40 @@ impl std::str::FromStr for QuestionId {
     type Err = &'static str;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        let trimmed = value.trim();
-        if trimmed.contains('-')
-            && (trimmed.len() != QUESTION_ID_COMPACT_LENGTH + 1
-                || trimmed.as_bytes()[QUESTION_ID_DISPLAY_HYPHEN_INDEX] != b'-'
-                || trimmed
-                    .chars()
-                    .filter(|character| *character == '-')
-                    .count()
-                    != 1)
-        {
-            return Err("question ID hyphen must use the canonical 4-4 grouping");
-        }
-        let normalized: String = trimmed
-            .chars()
-            .filter(|character| *character != '-')
-            .map(normalize_question_id_character)
-            .collect();
-        if normalized.len() != QUESTION_ID_COMPACT_LENGTH
-            || !normalized
+        // ASVS V2.2.1 and V2.2.2: an untrusted boundary accepts only this
+        // one exact value; it never trims, aliases, or reformats an ID.
+        if value.len() != QUESTION_ID_CANONICAL_LENGTH
+            || !value.is_ascii()
+            || value.as_bytes()[QUESTION_ID_HYPHEN_INDEX] != b'-'
+            || !value[..QUESTION_ID_HYPHEN_INDEX]
                 .bytes()
+                .chain(value[QUESTION_ID_CHECK_CHARACTER_INDEX..].bytes())
                 .all(|character| QUESTION_ID_ALPHABET.contains(&character))
         {
-            return Err("question ID must contain eight Crockford Base32 characters");
+            return Err("Question ID must use exact canonical XXXX-ZXXX syntax");
         }
-        let identifier = format!(
+        let checksum_input = format!(
             "{}{}",
-            &normalized[..QUESTION_ID_CHECK_CHARACTER_COMPACT_INDEX],
-            &normalized[QUESTION_ID_CHECK_CHARACTER_COMPACT_INDEX + 1..]
+            &value[..QUESTION_ID_HYPHEN_INDEX],
+            &value[QUESTION_ID_CHECK_CHARACTER_INDEX + 1..]
         );
-        Self::from_canonical_parts(
-            &identifier,
-            normalized.as_bytes()[QUESTION_ID_CHECK_CHARACTER_COMPACT_INDEX] as char,
-        )
+        if value.as_bytes()[QUESTION_ID_CHECK_CHARACTER_INDEX]
+            != public_id_checksum_character(checksum_input.as_bytes()) as u8
+        {
+            return Err("Question ID checksum does not match its canonical characters");
+        }
+        Ok(Self(value.to_owned()))
     }
 }
 
-fn normalize_question_id_character(character: char) -> char {
-    let uppercase = character.to_ascii_uppercase();
-    QUESTION_ID_NORMALIZATION_ALIASES
-        .iter()
-        .find_map(|(alias, normalized)| (*alias == uppercase).then_some(*normalized))
-        .unwrap_or(uppercase)
+/// Calculates the public checksum character for canonical-ID characters after
+/// separators and checksum positions have been excluded by the caller.
+///
+/// This is intentionally public and unsalted so the same exact ID can be
+/// validated outside PLE; it is an entry-integrity check, never authority.
+pub fn public_id_checksum_character(canonical_characters: &[u8]) -> char {
+    let digest = Sha256::digest(canonical_characters);
+    QUESTION_ID_ALPHABET[(digest[0] >> 3) as usize] as char
 }
 
 impl TryFrom<String> for QuestionId {
@@ -380,6 +346,14 @@ impl QuestionBackend {
     /// behavior.
     pub const ALL: [Self; 3] = [Self::Ple, Self::Webwork, Self::Imathas];
 
+    /// Whether this backend may create new production work in this release.
+    ///
+    /// `ALL` remains the closed wire vocabulary so retained historical records
+    /// can still be decoded and inspected. iMathAS is deliberately deferred.
+    pub const fn is_supported_for_production(self) -> bool {
+        matches!(self, Self::Ple | Self::Webwork)
+    }
+
     /// Canonical public wire value for this closed backend vocabulary.
     pub const fn as_str(self) -> &'static str {
         match self {
@@ -520,6 +494,11 @@ pub enum QuestionStatistics {
 pub struct QuestionSearchResult {
     /// Exact immutable Question Library summary metadata.
     pub summary: QuestionSummary,
+    /// Current readable Discipline name for this Question's existing classification reference.
+    pub discipline_name: String,
+    /// Whether `discipline_name` is retired. Retired classifications remain readable on existing
+    /// references and are not new-selection choices.
+    pub discipline_is_retired: bool,
     /// Decomposed anonymous evidence suitable for search discovery.
     pub evidence: QuestionStatistics,
 }
@@ -605,6 +584,11 @@ pub enum QuestionDetailsPromptView {
 pub struct QuestionDetails {
     /// Exact immutable hot metadata for this publication.
     pub summary: QuestionSummary,
+    /// Current readable Discipline name for this Question's existing classification reference.
+    pub discipline_name: String,
+    /// Whether `discipline_name` is retired. Retired classifications remain readable on existing
+    /// references and are not new-selection choices.
+    pub discipline_is_retired: bool,
     /// Static content or one server-generated example; source, response,
     /// Question Variation Rule, grading, keys, and Question Pool Preview Nonce are excluded.
     pub prompt: QuestionDetailsPromptView,
@@ -620,59 +604,6 @@ mod tests {
     use crate::Capability;
 
     #[test]
-    fn question_id_normalization_and_wire_display_follow_the_stable_contract() {
-        let canonical: QuestionId = "7K3M-X9QX".parse().expect("canonical ID parses");
-        assert_eq!(canonical.to_string(), "7K3M-X9QX");
-        assert_eq!(canonical.as_compact_str(), "7K3MX9QX");
-        assert_eq!(canonical.identifier_compact(), "7K3M9QX");
-        assert_eq!(canonical.validation_character(), 'X');
-        assert_eq!(
-            "7k3mx9qx".parse::<QuestionId>().expect("lowercase parses"),
-            canonical
-        );
-        assert_eq!(
-            "o11l-i11x"
-                .parse::<QuestionId>()
-                .expect("aliases parse")
-                .to_string(),
-            "0111-111X"
-        );
-        for invalid in ["7K3M-X9Q", "7K3M-X9QXX", "7K3M-X9QU", "7K3M X9QX"] {
-            assert!(invalid.parse::<QuestionId>().is_err(), "{invalid}");
-        }
-        assert_eq!(
-            serde_json::to_value(&canonical).expect("ID serializes"),
-            serde_json::json!("7K3M-X9QX")
-        );
-        assert_eq!(
-            serde_json::from_value::<QuestionId>(serde_json::json!("7k3m-x9qx"))
-                .expect("wire aliases normalize"),
-            canonical
-        );
-    }
-
-    #[test]
-    fn question_id_text_recognizes_one_human_question_id_without_a_revision() {
-        let exact = QuestionSearchRequest {
-            text: Some(" 7k3m-x9qx ".to_string()),
-            ..QuestionSearchRequest::default()
-        }
-        .normalized()
-        .expect("search text normalizes")
-        .exact_question_id()
-        .expect("Question ID is recognized");
-        assert_eq!(exact.to_string(), "7K3M-X9QX");
-
-        let old_versioned = QuestionSearchRequest {
-            text: Some("P-70-v1".to_string()),
-            ..QuestionSearchRequest::default()
-        }
-        .normalized()
-        .expect("search text normalizes");
-        assert_eq!(old_versioned.exact_question_id(), None);
-    }
-
-    #[test]
     fn backend_summary_never_carries_private_backend_fields() {
         assert_eq!(
             serde_json::to_string(&QuestionBackend::Webwork).expect("backend serializes"),
@@ -682,6 +613,9 @@ mod tests {
             QuestionBackend::ALL.map(QuestionBackend::as_str),
             ["ple", "webwork", "imathas"]
         );
+        assert!(QuestionBackend::Ple.is_supported_for_production());
+        assert!(QuestionBackend::Webwork.is_supported_for_production());
+        assert!(!QuestionBackend::Imathas.is_supported_for_production());
     }
 
     #[test]
@@ -736,9 +670,9 @@ mod tests {
     fn question_library_detail_wire_shape_has_no_source_or_grading_fields() {
         let detail = QuestionDetails {
             summary: QuestionSummary {
-                question_id: "7K3M-X9QX".parse().expect("fixture Question ID parses"),
+                question_id: "ABCD-XEFG".parse().expect("fixture Question ID parses"),
                 latest_question_revision: QuestionRevisionReference {
-                    question_id: "7K3M-X9QX".parse().expect("fixture Question ID parses"),
+                    question_id: "ABCD-XEFG".parse().expect("fixture Question ID parses"),
                     revision_number: QuestionRevisionNumber::new(1).expect("positive version"),
                 },
                 backend: QuestionBackend::Ple,
@@ -764,6 +698,8 @@ mod tests {
                 availability: QuestionAvailability::Available,
                 published_at: Timestamp::from_unix_millis(0),
             },
+            discipline_name: "Biology".to_string(),
+            discipline_is_retired: false,
             prompt: QuestionDetailsPromptView::Static { blocks: Vec::new() },
             evidence: QuestionStatistics::Unavailable,
             usage: QuestionUseDetails {

@@ -1,9 +1,13 @@
 SET LOCAL ROLE ple_api_owner;
 
-CREATE FUNCTION ple_api.create_blueprint_course(
+-- This private primitive has one narrowly trusted exception for copying a
+-- locked source Course's exact retired Discipline. The public wrapper below
+-- never supplies that value, so ordinary new Blueprints remain active-only.
+CREATE FUNCTION ple_private.create_blueprint_course(
     p_blueprint_id uuid, p_request_checksum bytea, p_short_name text, p_long_name text,
     p_content jsonb, p_content_checksum bytea,
-    p_discipline uuid, p_subject uuid, p_topic uuid, p_subtopic uuid, p_tags text[]
+    p_discipline uuid, p_subject uuid, p_topic uuid, p_subtopic uuid, p_tags text[],
+    p_retired_source_discipline uuid
 )
 RETURNS TABLE (
     public_reference text, blueprint_revision_number bigint, metadata_etag uuid,
@@ -44,6 +48,15 @@ BEGIN
     PERFORM ple_data.validate_blueprint_question_selection(NULL, NULL, p_content);
     v_now := pg_catalog.clock_timestamp();
     v_metadata_etag := pg_catalog.gen_random_uuid();
+    IF p_retired_source_discipline IS NULL
+       OR p_discipline IS DISTINCT FROM p_retired_source_discipline
+       OR NOT EXISTS (
+           SELECT 1 FROM ple_api.get_content_discipline(p_retired_source_discipline) AS discipline
+            WHERE discipline.discipline_uuid = p_retired_source_discipline
+              AND discipline.is_retired
+       ) THEN
+        PERFORM ple_api.require_active_content_discipline(p_discipline);
+    END IF;
     INSERT INTO ple_data.blueprint_course AS course (
         blueprint_id, owner_account_id, short_name, long_name, metadata_etag, created_at,
         discipline_uuid, subject_uuid, topic_uuid, subtopic_uuid, tags
@@ -97,6 +110,32 @@ BEGIN
     metadata_etag := v_metadata_etag; accepted_at := v_now;
     RETURN NEXT;
 END
+$$;
+
+REVOKE ALL ON FUNCTION ple_private.create_blueprint_course(
+    uuid, bytea, text, text, jsonb, bytea, uuid, uuid, uuid, uuid, text[], uuid
+) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_private.create_blueprint_course(
+    uuid, bytea, text, text, jsonb, bytea, uuid, uuid, uuid, uuid, text[], uuid
+) TO ple_api_owner;
+
+CREATE FUNCTION ple_api.create_blueprint_course(
+    p_blueprint_id uuid, p_request_checksum bytea, p_short_name text, p_long_name text,
+    p_content jsonb, p_content_checksum bytea,
+    p_discipline uuid, p_subject uuid, p_topic uuid, p_subtopic uuid, p_tags text[]
+)
+RETURNS TABLE (
+    public_reference text, blueprint_revision_number bigint, metadata_etag uuid,
+    accepted_at timestamp with time zone
+)
+LANGUAGE sql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private
+AS $$
+    SELECT * FROM ple_private.create_blueprint_course(
+        p_blueprint_id, p_request_checksum, p_short_name, p_long_name,
+        p_content, p_content_checksum, p_discipline, p_subject, p_topic,
+        p_subtopic, p_tags, NULL
+    )
 $$;
 
 CREATE FUNCTION ple_api.save_blueprint_course(
@@ -400,7 +439,12 @@ BEGIN
         RETURN;
     END IF;
     v_next := pg_catalog.gen_random_uuid();
-    -- ASVS 2.2.2/2.2.3: mandatory Discipline and exact ancestry are durable FKs.
+    -- Retaining an existing retired Discipline does not make it a new choice.
+    -- A true replacement requires an active Discipline and retains its row
+    -- lock through this update transaction.
+    IF v_course.discipline_uuid IS DISTINCT FROM p_discipline THEN
+        PERFORM ple_api.require_active_content_discipline(p_discipline);
+    END IF;
     UPDATE ple_data.blueprint_course AS course SET
         discipline_uuid = p_discipline, subject_uuid = p_subject, topic_uuid = p_topic,
         subtopic_uuid = p_subtopic, tags = p_tags, metadata_etag = v_next
@@ -451,7 +495,7 @@ BEGIN
         RAISE EXCEPTION 'invalid Blueprint classification filter' USING ERRCODE = '22023';
     END IF;
     IF (p_discipline_uuid IS NOT NULL AND NOT EXISTS (
-            SELECT 1 FROM ple_api.list_content_disciplines() AS item
+            SELECT 1 FROM ple_api.list_content_disciplines_including_retired() AS item
              WHERE item.discipline_uuid = p_discipline_uuid))
        OR (p_subject_uuid IS NOT NULL AND NOT EXISTS (
             SELECT 1 FROM ple_api.list_content_subjects(p_discipline_uuid) AS item

@@ -89,7 +89,7 @@ fn assessment_attempt_retains_interpretation_evidence() {
 fn question_pool_selection_retains_exact_entries_and_issued_question_link() {
     let selection_id = QuestionPoolSelectionId::from_uuid(Uuid::from_u128(10));
     let pool_revision = crate::QuestionPoolRevisionReference {
-        question_pool_id: "7654-X321".parse().expect("valid Pool ID"),
+        question_pool_id: "7654-Z321".parse().expect("valid Pool ID"),
         revision_number: crate::QuestionPoolRevisionNumber::new(1).expect("positive Pool Revision"),
     };
     let pool_revision_member = crate::PoolRevisionMemberReference {
@@ -97,7 +97,7 @@ fn question_pool_selection_retains_exact_entries_and_issued_question_link() {
         member_position: 0,
     };
     let reference = QuestionRevisionReference {
-        question_id: "1234-X567".parse().expect("valid Question ID"),
+        question_id: "1234-H567".parse().expect("valid Question ID"),
         revision_number: crate::QuestionRevisionNumber::new(1).expect("positive version"),
     };
     let selection = QuestionPoolSelection {

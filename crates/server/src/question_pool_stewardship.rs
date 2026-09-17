@@ -19,10 +19,7 @@ use learning_data_access::{
 use question_model::{ProductRole, QuestionId};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    auth::{AuthError, resolve_session},
-    question_publication::HmacQuestionIdIssuer,
-};
+use crate::auth::{AuthError, resolve_session};
 
 const MAX_UPDATE_BYTES: usize = 128;
 
@@ -30,14 +27,12 @@ const MAX_UPDATE_BYTES: usize = 128;
 struct RouteState {
     sessions: Arc<PostgresSessionStore>,
     stewardship: PostgresQuestionPoolStewardshipStore,
-    issuer: HmacQuestionIdIssuer,
 }
 
 /// Registers closed own-state commands and public vetted-name endorsements.
 pub fn question_pool_stewardship_router(
     sessions: Arc<PostgresSessionStore>,
     stewardship: PostgresQuestionPoolStewardshipStore,
-    issuer: HmacQuestionIdIssuer,
 ) -> Router {
     Router::new()
         .route(
@@ -51,7 +46,6 @@ pub fn question_pool_stewardship_router(
         .with_state(RouteState {
             sessions,
             stewardship,
-            issuer,
         })
 }
 
@@ -117,7 +111,7 @@ async fn read_star(
     headers: HeaderMap,
     Path(raw_pool_id): Path<String>,
 ) -> Response {
-    let Some(pool_id) = verified_pool_id(&state.issuer, &raw_pool_id) else {
+    let Some(pool_id) = verified_pool_id(&raw_pool_id) else {
         return concealed();
     };
     let session = match instructor_session_hash(&state, &headers).await {
@@ -141,7 +135,7 @@ async fn read_watch(
     headers: HeaderMap,
     Path(raw_pool_id): Path<String>,
 ) -> Response {
-    let Some(pool_id) = verified_pool_id(&state.issuer, &raw_pool_id) else {
+    let Some(pool_id) = verified_pool_id(&raw_pool_id) else {
         return concealed();
     };
     let session = match instructor_session_hash(&state, &headers).await {
@@ -165,7 +159,7 @@ async fn set_star(
     Path(raw_pool_id): Path<String>,
     request: Request,
 ) -> Response {
-    let Some(pool_id) = verified_pool_id(&state.issuer, &raw_pool_id) else {
+    let Some(pool_id) = verified_pool_id(&raw_pool_id) else {
         return concealed();
     };
     let session = match instructor_session_hash(&state, request.headers()).await {
@@ -202,7 +196,7 @@ async fn set_watch(
     Path(raw_pool_id): Path<String>,
     request: Request,
 ) -> Response {
-    let Some(pool_id) = verified_pool_id(&state.issuer, &raw_pool_id) else {
+    let Some(pool_id) = verified_pool_id(&raw_pool_id) else {
         return concealed();
     };
     let session = match instructor_session_hash(&state, request.headers()).await {
@@ -234,10 +228,10 @@ async fn set_watch(
     }
 }
 
-/// ASVS 2.2.2: syntax-only public IDs do not suffice at the trusted boundary.
-fn verified_pool_id(issuer: &HmacQuestionIdIssuer, value: &str) -> Option<QuestionId> {
-    let pool_id = value.parse::<QuestionId>().ok()?;
-    issuer.validates_question_id(&pool_id).then_some(pool_id)
+/// The typed parser admits only the exact canonical public ID, including its
+/// required checksum and Question-family hyphen.
+fn verified_pool_id(value: &str) -> Option<QuestionId> {
+    value.parse().ok()
 }
 
 async fn instructor_session_hash(

@@ -6,7 +6,12 @@ CREATE TABLE ple_data.course_instance (
     course_id uuid PRIMARY KEY,
     reference_number bigint GENERATED ALWAYS AS IDENTITY UNIQUE
         CHECK (reference_number BETWEEN 1 AND 2147483647),
-    public_reference text NOT NULL UNIQUE CHECK (public_reference ~ '^CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$'),
+    public_reference text NOT NULL UNIQUE CHECK (
+        public_reference ~ '^CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}$'
+        AND right(public_reference, 1) = ple_private.crockford_checksum_character(
+            left(public_reference, char_length(public_reference) - 1)
+        )
+    ),
     -- Empty is a real Course source variant, not a sentinel Blueprint.
     source_kind text NOT NULL CHECK (source_kind IN ('empty', 'adopted')),
     blueprint_course_reference_number bigint,

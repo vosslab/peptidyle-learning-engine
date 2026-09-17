@@ -6,7 +6,6 @@
 
 use std::sync::Arc;
 
-use hmac::{Hmac, KeyInit, Mac};
 use learning_data_access::{
     AuthoringAssetsStore, DraftQuestionEditNumber, DraftQuestionPublicationSourceStore,
     DraftQuestionUuid, ExistingQuestionRevisionPublicationError,
@@ -21,8 +20,6 @@ use question_model::{
     QuestionAuthorship, QuestionId, QuestionLicense, QuestionRevisionNumber,
     QuestionRevisionReason, QuestionRevisionReference, Tag, Timestamp, WorkspaceId,
 };
-use sha2::Sha256;
-use subtle::ConstantTimeEq;
 use uuid::Uuid;
 
 const PUBLICATION_IDENTITY_ATTEMPTS: usize = 8;
@@ -32,23 +29,6 @@ const PUBLICATION_IDENTITY_ATTEMPTS: usize = 8;
 pub struct AuthoringAssetContext {
     pub store: Arc<dyn AuthoringAssetsStore>,
     pub reference: DraftQuestionReference,
-}
-
-/// Server-held HMAC-SHA-256 key for Question ID validation characters.
-#[derive(Clone)]
-pub struct QuestionIdSecret([u8; 32]);
-
-impl QuestionIdSecret {
-    /// Wraps the exact 256-bit secret supplied by deployment secret storage.
-    pub const fn from_bytes(bytes: [u8; 32]) -> Self {
-        Self(bytes)
-    }
-}
-
-impl std::fmt::Debug for QuestionIdSecret {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str("QuestionIdSecret([redacted])")
-    }
 }
 
 /// Failure to mint one server-authenticated Question ID.
@@ -63,50 +43,37 @@ impl std::fmt::Display for QuestionIdIssuanceError {
 
 impl std::error::Error for QuestionIdIssuanceError {}
 
-/// Server-only source of fresh HMAC-validated Question IDs.
+/// Server-only source of fresh canonical Question IDs.
 pub trait QuestionIdIssuer: Send + Sync {
     /// Mints one fresh candidate for a new Published Question lineage.
     fn issue_question_id(&self) -> Result<QuestionId, QuestionIdIssuanceError>;
 }
 
-/// HMAC-SHA-256 Question ID issuer backed by operating-system randomness.
-#[derive(Clone)]
-pub struct HmacQuestionIdIssuer {
-    secret: QuestionIdSecret,
-}
+/// Stateless operating-system-random issuer for canonical Question IDs.
+///
+/// [`QuestionId`] itself validates the public SHA-256 checksum at every parse
+/// boundary, so no deployment secret or issuer-specific validation exists.
+#[derive(Clone, Copy, Default)]
+pub struct RandomQuestionIdIssuer;
 
-impl HmacQuestionIdIssuer {
-    /// Binds issuance to the deployment-owned Question ID secret.
-    pub const fn new(secret: QuestionIdSecret) -> Self {
-        Self { secret }
-    }
-
-    /// Verifies that a syntactically valid Question ID carries this
-    /// deployment's HMAC-SHA-256 validation character.
-    ///
-    /// The shared [`QuestionId`] model deliberately remains syntax-only so
-    /// browser and persistence code never receive this server capability.
-    pub fn validates_question_id(&self, question_id: &QuestionId) -> bool {
-        let validation = question_id_validation_character(
-            question_id.identifier_compact().as_bytes(),
-            &self.secret,
-        );
-        // ASVS 2.2.2 and 11.4.1: the trusted service boundary verifies the
-        // HMAC-SHA-256-derived character before an exact-ID lookup. Constant
-        // time comparison avoids making this integrity check an oracle.
-        bool::from([validation as u8].ct_eq(&[question_id.validation_character() as u8]))
+impl RandomQuestionIdIssuer {
+    /// Builds the stateless issuer.
+    pub const fn new() -> Self {
+        Self
     }
 }
 
-impl QuestionIdIssuer for HmacQuestionIdIssuer {
+impl QuestionIdIssuer for RandomQuestionIdIssuer {
     fn issue_question_id(&self) -> Result<QuestionId, QuestionIdIssuanceError> {
-        let mut random = [0_u8; 5];
-        // ASVS 11.4.1 and 11.5.1: the documented HMAC-SHA-256 construction
-        // uses vetted RustCrypto primitives. The public identifier is not a
-        // credential, but its seven-character candidate still uses the OS
-        // CSPRNG. Five random bytes supply the 35 bits consumed below.
+        let mut random = [0_u8; QUESTION_ID_IDENTIFIER_LENGTH];
+        // ASVS 2.2.1 and 2.2.2: issuance uses OS CSPRNG output, then the
+        // shared model constructs the one exact checksum-bearing public form.
         getrandom::fill(&mut random).map_err(|_| QuestionIdIssuanceError)?;
-        Ok(question_id_from_random_bytes(random, &self.secret))
+        let identifier: String = random
+            .into_iter()
+            .map(|byte| QUESTION_ID_ALPHABET[(byte & 0x1f) as usize] as char)
+            .collect();
+        QuestionId::from_random_identifier(&identifier).map_err(|_| QuestionIdIssuanceError)
     }
 }
 
@@ -516,42 +483,6 @@ fn successor_revision(
         question_id: parent_question_revision.question_id.clone(),
         revision_number,
     })
-}
-
-fn question_id_from_random_bytes(random: [u8; 5], secret: &QuestionIdSecret) -> QuestionId {
-    // Retain exactly 35 uniformly random bits: one Crockford Base32 symbol
-    // for each of the seven identity positions. The shared QuestionId model
-    // inserts the HMAC character at compact index four.
-    let value = u64::from_be_bytes([
-        0, 0, 0, random[0], random[1], random[2], random[3], random[4],
-    ]) >> 5;
-    let identifier: String = (0..QUESTION_ID_IDENTIFIER_LENGTH)
-        .map(|position| {
-            let shift = (QUESTION_ID_IDENTIFIER_LENGTH - position - 1) * 5;
-            QUESTION_ID_ALPHABET[((value >> shift) & 0x1f) as usize] as char
-        })
-        .collect();
-    format_question_id(&identifier, secret)
-}
-
-/// Formats one canonical seven-character Question identity with its server-held
-/// validation character.
-///
-/// Random candidate allocation stays in [`question_id_from_random_bytes`].
-/// The shared model places the resulting HMAC character at compact index four,
-/// yielding the public `AAAA-ZBBB` form without exposing the secret to a
-/// browser or persistence boundary.
-fn format_question_id(identifier: &str, secret: &QuestionIdSecret) -> QuestionId {
-    let validation = question_id_validation_character(identifier.as_bytes(), secret);
-    QuestionId::from_canonical_parts(identifier, validation)
-        .expect("generated Question ID components use the canonical alphabet")
-}
-
-fn question_id_validation_character(identifier: &[u8], secret: &QuestionIdSecret) -> char {
-    let mut hmac = Hmac::<Sha256>::new_from_slice(&secret.0)
-        .expect("HMAC-SHA-256 accepts the fixed 256-bit Question ID secret");
-    hmac.update(identifier);
-    QUESTION_ID_ALPHABET[(hmac.finalize().into_bytes()[0] >> 3) as usize] as char
 }
 
 #[cfg(test)]

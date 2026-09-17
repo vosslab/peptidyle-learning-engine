@@ -1,15 +1,23 @@
-//! Read-only global classification selector capability.
+//! Global classification selector and Sysadmin Discipline-lifecycle capability.
 
 use async_trait::async_trait;
 use uuid::Uuid;
 
 use crate::{SessionTokenHash, StoreError};
 
-/// One vocabulary identity and its display name, in SQL-defined order.
+/// One vocabulary identity, display name, and reversible lifecycle state.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ContentClassificationItem {
     pub uuid: Uuid,
     pub name: String,
+}
+
+/// One Discipline identity and its reversible lifecycle state.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ContentDiscipline {
+    pub uuid: Uuid,
+    pub name: String,
+    pub is_retired: bool,
 }
 
 /// Authorized immediate-child reads; SQL owns actor and association policy.
@@ -34,4 +42,44 @@ pub trait ContentClassificationStore: Send + Sync {
         token: SessionTokenHash,
         topic_uuid: Uuid,
     ) -> Result<Vec<ContentClassificationItem>, StoreError>;
+}
+
+/// All-status Discipline discovery for filters and existing-reference resolution.
+#[async_trait]
+pub trait ContentDisciplineDiscoveryStore: Send + Sync {
+    /// Lists active and retired Disciplines for discovery and exact references.
+    async fn list_disciplines_including_retired(
+        &self,
+        token: SessionTokenHash,
+    ) -> Result<Vec<ContentDiscipline>, StoreError>;
+}
+
+/// Sysadmin Discipline lifecycle, separate from the all-status discovery projection.
+#[async_trait]
+pub trait ContentDisciplineAdministrationStore: ContentDisciplineDiscoveryStore {
+    /// Creates a stable active Discipline; PostgreSQL derives Sysadmin authority from the session.
+    async fn create_discipline(
+        &self,
+        token: SessionTokenHash,
+        name: String,
+    ) -> Result<ContentDiscipline, StoreError>;
+    /// Renames one stable Discipline without changing its UUID.
+    async fn rename_discipline(
+        &self,
+        token: SessionTokenHash,
+        discipline_uuid: Uuid,
+        name: String,
+    ) -> Result<ContentDiscipline, StoreError>;
+    /// Retires one Discipline without deleting existing references.
+    async fn retire_discipline(
+        &self,
+        token: SessionTokenHash,
+        discipline_uuid: Uuid,
+    ) -> Result<ContentDiscipline, StoreError>;
+    /// Restores one previously retired Discipline.
+    async fn restore_discipline(
+        &self,
+        token: SessionTokenHash,
+        discipline_uuid: Uuid,
+    ) -> Result<ContentDiscipline, StoreError>;
 }

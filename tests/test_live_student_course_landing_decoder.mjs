@@ -9,14 +9,14 @@ import {
 
 test("Student Course landing carries both Course Instance names", () => {
   const value = {
-    courses: [{ reference: "CI6F2R8T", shortName: "Mol Bio", longName: "Molecular Biology" }],
+    courses: [{ reference: "CI6F2R8TA0", shortName: "Mol Bio", longName: "Molecular Biology" }],
   };
   assert.deepEqual(decodeLiveStudentCourseLandings(value), value.courses);
 });
 
 function assessment(overrides = {}) {
   return {
-    reference: "A5D9Q3X",
+    reference: "A5D9Q3XAH",
     title: "Peptide practice",
     assessmentType: "regular_assignment",
     decision: {

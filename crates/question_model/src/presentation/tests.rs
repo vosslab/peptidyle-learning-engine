@@ -65,7 +65,7 @@ fn fixture() -> QuestionVariationPresentation {
     QuestionVariationPresentation {
         variation: crate::QuestionVariation::from_question_revision_and_reproduction(
             QuestionRevisionReference {
-                question_id: "1234-X567".parse().expect("valid Question ID"),
+                question_id: "1234-H567".parse().expect("valid Question ID"),
                 revision_number: QuestionRevisionNumber::new(1).expect("positive version"),
             },
             crate::QuestionReproduction::Static,

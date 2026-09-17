@@ -96,7 +96,7 @@ export interface QuestionPoolPreview {
 }
 
 /**
- * One public, ordered Assessment Content entry. The browser sends compact Question IDs only;
+ * One public, ordered Assessment Content entry. The browser sends canonical Question IDs only;
  * the server resolves immutable publications and owns all internal identities and selection mechanics.
  */
 export type AssessmentEditorEntryInput =

@@ -354,9 +354,9 @@ BEGIN
           FROM ple_private.question_revision_source_binding AS source
          WHERE source.question_id = issued ->> 'question_id'
            AND source.revision_number = (issued ->> 'revision_number')::integer;
-        IF NOT FOUND OR issued_source.backend NOT IN ('ple', 'webwork', 'imathas')
+        IF NOT FOUND OR NOT ple_private.question_backend_is_supported_for_production(issued_source.backend)
            OR (issued_source.backend = 'ple' AND (issued ->> 'question_seed') IS NOT NULL)
-           OR (issued_source.backend IN ('webwork', 'imathas')
+           OR (issued_source.backend = 'webwork'
                AND ((issued ->> 'question_seed') IS NULL
                     OR (issued ->> 'question_seed') !~ '^(0|[1-9][0-9]{0,19})$'
                     OR (issued ->> 'question_seed')::numeric > 18446744073709551615)) THEN
@@ -698,9 +698,13 @@ BEGIN
     SELECT question_attempt.question_attempt_id INTO question_attempt_id_value
       FROM ple_private.issued_question AS issued
       JOIN ple_private.question_attempt ON question_attempt.issued_question_id = issued.issued_question_id
+      JOIN ple_private.question_revision_source_binding AS source
+        ON source.question_id = issued.question_id
+       AND source.revision_number = issued.revision_number
      WHERE issued.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id
        AND issued.issued_position = p_issued_position
        AND question_attempt.question_attempt_state = 'open'
+       AND ple_private.question_backend_is_supported_for_production(source.backend)
      FOR UPDATE OF question_attempt;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Issued Question is unavailable';

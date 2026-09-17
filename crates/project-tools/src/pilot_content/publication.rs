@@ -72,8 +72,7 @@ pub(crate) fn publish_with_context(
         let objects = server_core::composition::question_library_object_store_from_env()
             .await
             .context("configuring the ordinary Question source object store")?;
-        let issuer = server_core::composition::question_id_issuer_from_env()
-            .context("loading the Question ID publication capability")?;
+        let issuer = server_core::composition::question_id_issuer();
         publish_plan(
             session,
             workspace,
@@ -163,7 +162,7 @@ struct PilotPublicationServices<'a> {
     publication: &'a PostgresDraftQuestionSourceBindingStore,
     library: &'a PostgresQuestionLibraryStore,
     objects: &'a objects::s3::S3ObjectStore,
-    issuer: &'a server_core::question_publication::HmacQuestionIdIssuer,
+    issuer: &'a server_core::question_publication::RandomQuestionIdIssuer,
 }
 
 async fn publish_plan(

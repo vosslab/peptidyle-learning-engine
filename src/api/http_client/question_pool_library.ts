@@ -2,7 +2,7 @@
 
 import type { QuestionId } from "../../../generated/api/QuestionId";
 import type { QuestionPoolRevisionView } from "../../../generated/api/QuestionPoolRevisionView";
-import { normalizeQuestionIdSyntax } from "../../../generated/api/QuestionIdSyntaxContract";
+import { validateCanonicalQuestionIdSyntax } from "../../../generated/api/QuestionIdSyntaxContract";
 import {
   decodeQuestionPoolLibraryPage,
   decodeQuestionPoolRevisionView,
@@ -32,7 +32,7 @@ const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 100;
 
 function canonicalQuestionPoolId(value: QuestionId): QuestionId {
-  const canonical = normalizeQuestionIdSyntax(value);
+  const canonical = validateCanonicalQuestionIdSyntax(value);
   if (canonical === null || canonical !== value) {
     throw new ApiProtocolError("Question Pool ID must be canonical");
   }

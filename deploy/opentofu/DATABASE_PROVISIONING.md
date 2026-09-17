@@ -39,15 +39,11 @@ installation workflow owns the final product-data step.
    creation, table ownership, and unrelated memberships. ECS uses IAM only for AWS APIs and
    PostgreSQL logins are separate credentials.
 3. Create five Secrets Manager JSON values: the API value holds the names
-   selected by `local.api_required_secret_keys` and enabled feature groups,
-   plus `PLE_QUESTION_ID_SECRET` for the `secret-files` sidecar only; the API
-   container receives that capability only as
-   `PLE_QUESTION_ID_SECRET_FILE=/run/ple-secrets/question-id-secret`. The
-   sidecar always writes `question-id-secret` into the shared volume as UID
-   10001 with mode 0600 before the API starts. When SMTP is enabled, the
-   sidecar also receives and writes `smtp-password` and `invitation-token`;
-   they do not exist in the sidecar environment when SMTP is disabled. The
-   worker value holds only `PLE_WORKER_DATABASE_URL`.
+   selected by `local.api_required_secret_keys` and enabled feature groups.
+   When SMTP is enabled, the `secret-files` sidecar receives and writes
+   `smtp-password` and `invitation-token` into the shared volume as UID 10001
+   with mode 0600 before the API starts; it is absent when SMTP is disabled.
+   The worker value holds only `PLE_WORKER_DATABASE_URL`.
    The recovery value holds only `PLE_ACCEPTED_SUBMISSION_RECOVERY_DATABASE_URL` for
    `ple_accepted_submission_recovery_login`. The fast-path value holds only
    `PLE_ACCEPTED_SUBMISSION_FAST_PATH_DATABASE_URL` for

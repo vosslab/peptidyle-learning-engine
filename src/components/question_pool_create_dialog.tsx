@@ -8,7 +8,7 @@ import type { QuestionId } from "../../generated/api/QuestionId";
 import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
 import type { QuestionPoolCreationClient } from "../api/question_pool_creation";
 import { decodeQuestionPoolText } from "../api/decoders/question_pool_library";
-import { normalizeQuestionIdSyntax } from "../question_id";
+import { validateCanonicalQuestionIdSyntax } from "../question_id";
 import type { QuestionLibraryBrowseRepository } from "../pages/library_page_model";
 import {
   QuestionPicker,
@@ -33,7 +33,7 @@ export interface QuestionPoolCreateDialogProps {
 }
 
 function canonicalQuestionId(value: string): QuestionId {
-  const questionId = normalizeQuestionIdSyntax(value);
+  const questionId = validateCanonicalQuestionIdSyntax(value);
   if (questionId === null || questionId !== value) {
     throw new Error("The selected Question is no longer a canonical Published Question.");
   }
