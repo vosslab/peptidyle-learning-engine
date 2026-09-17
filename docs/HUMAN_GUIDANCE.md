@@ -24,7 +24,11 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
   requirements.
 - This section overrides implementation language elsewhere in this document until an item is moved
   out of this section.
+- all automated daemon backends are deferred until final server location
+- all automated AI/LLM backends are deferred until final server location
 - AI-backed Bloom classification is desired but deferred until a later release.
+- Initial Bloom Classification is deferred with the AI backend.
+- Bloom Classification does not block publication or Question Library entry until then.
 - Any AI backend is desired but deferred and low priority for the current PLE.
 - No specific AI backend is selected.
 - iMathAS is a desired Question Backend deferred until a later release.
