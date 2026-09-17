@@ -43,6 +43,10 @@ DEVELOPER_STOP_WAIT_SECONDS = 20.0
 # bounded service-readiness stages. This is an operator recovery ceiling, not
 # a startup-performance acceptance requirement.
 DEVELOPER_START_WAIT_SECONDS = 600.0
+# A first start builds Rust, pulls images, and installs the database; print progress so a
+# quiet terminal is distinguishable from a stalled one.
+START_HEARTBEAT_SECONDS = 30.0
+SUPERVISOR_LOG_NAME = "supervisor.log"
 SOCKET_NAME = local_stack_control.browser_suite_private_state.SOCKET_NAME
 _require_control_name = local_stack_control.browser_suite_private_state._require_control_name
 RunningDeveloperStack = (
@@ -851,16 +855,27 @@ def start_developer_browser_suite(
 			]
 		if without_live_demo:
 			arguments.append("--without-live-demo")
-		return subprocess.Popen(
-			arguments,
-			cwd=root,
-			stdin=subprocess.DEVNULL,
-			stdout=subprocess.DEVNULL,
-			stderr=subprocess.DEVNULL,
-			close_fds=True,
-			pass_fds=descriptors,
-			start_new_session=True,
+		# Keep supervisor diagnostics in a private log so a long first start is inspectable.
+		log_descriptor = os.open(
+			root
+			/ local_stack_control.browser_suite_lease.LIVE_DEMO_BROWSER_STATE_DIRECTORY
+			/ SUPERVISOR_LOG_NAME,
+			os.O_WRONLY | os.O_CREAT | os.O_APPEND,
+			0o600,
 		)
+		try:
+			return subprocess.Popen(
+				arguments,
+				cwd=root,
+				stdin=subprocess.DEVNULL,
+				stdout=log_descriptor,
+				stderr=log_descriptor,
+				close_fds=True,
+				pass_fds=descriptors,
+				start_new_session=True,
+			)
+		finally:
+			os.close(log_descriptor)
 	launcher = default_spawn if spawn is None else spawn
 	handoff_started = False
 	child: object | None = None
@@ -874,7 +889,9 @@ def start_developer_browser_suite(
 			lease.release()
 	failure: BaseException | None = None
 	result: DeveloperStartReceipt | None = None
-	deadline = time.monotonic() + timeout_seconds
+	started = time.monotonic()
+	deadline = started + timeout_seconds
+	next_heartbeat = started + START_HEARTBEAT_SECONDS
 	while time.monotonic() < deadline:
 		try:
 			receipt = read_control_receipt(repository_root)
@@ -886,6 +903,18 @@ def start_developer_browser_suite(
 			failure = error
 			if _child_exited_before_ready(child):
 				break
+			if time.monotonic() >= next_heartbeat:
+				elapsed = int(time.monotonic() - started)
+				log_path = (
+					local_stack_control.browser_suite_lease.LIVE_DEMO_BROWSER_STATE_DIRECTORY
+					/ SUPERVISOR_LOG_NAME
+				)
+				print(
+					f"Live Demo still starting ({elapsed}s): building, pulling images, "
+					f"installing the database; see {log_path}",
+					flush=True,
+				)
+				next_heartbeat += START_HEARTBEAT_SECONDS
 			time.sleep(0.05)
 	if result is not None:
 		return result

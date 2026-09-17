@@ -24,11 +24,10 @@ for argument in "$@"; do
 	-h | --help)
 		printf '%s\n' \
 			"Usage: ./devel/capture_screenshots.sh [--verify] [--headed] [--fresh]" \
-			"" \
-			"Default: capture and publish the complete manifest corpus headlessly against the" \
-			"already-running Live Demo (start one with ./launchers/run_live_demo.sh --headless)." \
+			"Default: publish the complete corpus against the running Live Demo" \
+			"(start one with ./launchers/run_live_demo.sh --headless)." \
 			"--verify: validate tracked artifacts, replay live, and retain replay evidence." \
-			"--headed: open Chromium; local CLI authenticator still completes normal Sysadmin MFA." \
+			"--headed: open Chromium; the local CLI authenticator still completes Sysadmin MFA." \
 			"--fresh: stop, start, and afterwards stop an owned Live Demo instead of reusing one."
 		exit 0
 		;;
@@ -51,23 +50,13 @@ source "$repository_root/source_me.sh"
 
 if [[ "$fresh" == "yes" ]]; then
 	"$repository_root/launchers/run_live_demo.sh" stop
-
 	cleanup() {
 		"$repository_root/launchers/run_live_demo.sh" stop >/dev/null || true
 	}
 	trap cleanup EXIT
-
-	live_demo_output="$("$repository_root/launchers/run_live_demo.sh" --headless | tee /dev/stderr)"
-else
-	# Reuse the running owned stack. A stack whose code is unchanged counts as fresh.
-	control_receipt="$repository_root/local_stack_state/live_demo_browser/developer-control.json"
-	if [[ ! -f "$control_receipt" ]]; then
-		printf 'No running Live Demo; start one with ./launchers/run_live_demo.sh --headless\n' >&2
-		exit 1
-	fi
-	live_demo_output="Live demo entry: $(jq -r '.origin' "$control_receipt")sign-in"
-	printf '%s\n' "$live_demo_output" >&2
 fi
+# The launcher reuses a running suite (reporting its URL) or starts one when none is running.
+live_demo_output="$("$repository_root/launchers/run_live_demo.sh" --headless | tee /dev/stderr)"
 
 live_demo_entry="$(printf '%s\n' "$live_demo_output" | sed -n 's/^Live demo entry: //p')"
 if [[ -z "$live_demo_entry" ]]; then

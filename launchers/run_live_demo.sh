@@ -65,11 +65,12 @@ case "$command" in
     ;;
 esac
 
-# A suite that is already running keeps running: report its URL instead of clearing it.
-# Only an explicit `stop` clears an existing suite.
+# Only an explicit `stop` clears a running suite; `start` reports its URL. A launch receipt
+# counts as still starting only while the supervisor holds the lease lock.
 suite_state="$repository_root/local_stack_state/live_demo_browser"
 control_receipt="$suite_state/developer-control.json"
-if [[ -f "$suite_state/developer-launch.json" && ! -f "$control_receipt" ]]; then
+if [[ -f "$suite_state/developer-launch.json" && ! -f "$control_receipt" ]] \
+  && lsof "$suite_state/browser-suite.lock" >/dev/null 2>&1; then
   echo "Live Demo is still starting; wait for its ready URL or run ./launchers/run_live_demo.sh stop." >&2
   exit 1
 fi

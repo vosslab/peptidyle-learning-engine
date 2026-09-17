@@ -72,7 +72,6 @@ else
 fi
 
 run_stage avatar_catalog bash -lc 'source source_me.sh && python3 devel/generate_avatar_catalog.py --check'
-# generated/ is not tracked, so a build regenerates this contract instead of only checking it.
 run_stage question_id_contract bash -lc 'source source_me.sh && python3 devel/generate_question_id_contract.py'
 
 # shellcheck disable=SC2086

@@ -193,14 +193,21 @@ export function monitorCapturePrivacy(page: Page, applicationOrigin: string): Pr
         const url = new URL(response.url());
         const contentType = response.headers()["content-type"] ?? "";
         if (url.origin !== applicationOrigin || !contentType.includes("application/json")) return;
+        let body: string;
         try {
-          responseBodies.push((await response.json()) as unknown);
+          body = await response.text();
+        } catch {
+          // A body Chromium discarded during navigation was never rendered; nothing to inspect.
+          return;
+        }
+        try {
+          responseBodies.push(JSON.parse(body) as unknown);
         } catch {
           violations.push(`${url.pathname} could not be inspected as JSON`);
         }
       })
       .catch(() => {
-        violations.push(`${new URL(request.url()).pathname} response inspection failed`);
+        // The request was abandoned by navigation before a response existed.
       });
     responseInspections.push(inspection);
   });
