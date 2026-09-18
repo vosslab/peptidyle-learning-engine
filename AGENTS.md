@@ -10,6 +10,7 @@
 - docs/CODE_ARCHITECTURE.md
 - docs/FILE_STRUCTURE.md
 - docs/DATABASE_STRUCTURE.md
+- docs/DATABASE_STYLE.md
 - docs/TEST_EVIDENCE_MODEL.md
 
 ## Workflow

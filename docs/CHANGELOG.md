@@ -6,7 +6,161 @@
 
 > September 16 entries are archived in [CHANGELOG-2026-09l.md](CHANGELOG-2026-09l.md).
 
+## 2026-09-18
+
+### Additions and New Features
+
+- Added the SQL base schema restructure plan
+  ([sql_schema_restructure_plan.md](active_plans/active/sql_schema_restructure_plan.md)) in the
+  `blueprint-plan-drafter` multi-workstream form: five milestones (M0 layered layout and catalog
+  comments, M1 types and identity, M2 snapshots, M3 derived data and fan-out, M4 measured indexes
+  and generic immutability guards), eight workstreams with parallel-readiness stated per
+  milestone, 28 one-owner work packages numbered in dependency order, six resolved decisions so execution needs no further
+  human input (feedback rules frozen in the Attempt snapshot, the public ID as primary key
+  wherever one exists, Edit Numbers replace `metadata_etag`, responses finalized in place,
+  iMathAS removed, course themes stay a reference table), gates, risk register, and patch plan. The audit now holds
+  evidence only and points to the plan.
+
+- Renumbered the `DATABASE_STYLE.md` checklist to a straight 1-18 (the inserted `6b` and `9b`
+  became 7 and 11) and the restructure plan's M2 work packages to dependency order (partition
+  keys are WP-2.3, the probe WP-2.4); every cross-reference in the style doc, both plans, the
+  audit, and this changelog uses the new numbers.
+- Added `devel/markdown_section_sizes.py`: lists a Markdown file's headings with line numbers
+  sorted by the count of `- ` bullets directly under each (`-n` top N, `-m` minimum), so
+  oversized Human Guidance sections are easy to find. First run on `HUMAN_GUIDANCE.md`: 116
+  headings, 1,118 bullets; largest are Content classification (36), Search Question Library
+  interface (29), and Agent working principles (23). Documented in `USAGE.md`.
+- Split three oversized Human Guidance sections with every bullet preserved: "Human-facing
+  reference IDs" (48) into the parent plus alphabet and canonical form, checksum, formats by
+  object, and database keys and clocks; "Content classification" (36) into the hierarchy plus
+  vocabulary management, selection and discovery, and tags and names; "Search Question Library
+  interface" (29) into interface, filters, and syntax siblings. Human Guidance now states the
+  under-25-bullets rule per section with the tool that checks it; no section exceeds it. The
+  pre-production bullets were reduced to one "no legacy" and one "fix the foundation" bullet.
+- Added a separate step-list plan for the schema style checker
+  ([schema_style_checker_plan.md](active_plans/active/schema_style_checker_plan.md)):
+  `devel/schema_catalog_lib.py` (one parser and model shared with the doc generator) and
+  `devel/check_schema_style.py` (one `rule_<id>` function per mechanical checklist item, findings
+  with locations, summary per rule, exit code, `--snapshot` / `--database` / `--report`). Tier 1
+  rules run on the current source today and must reproduce the audit's counts (72 / ~110 / 17 /
+  43 / 166); Tier 2 activates with role tags, Tier 3 with the catalog. The restructure plan's
+  WP-0.5 now references this plan instead of restating it.
+
+### Behavior or Interface Changes
+
+- Question Pools are now current state with an Edit Number, not a Revision family. Student Work
+  already pins the exact Published Question Revision served from a Pool, so a Pool Revision added
+  nothing that grading, history, or Unrelease needs; Assessments own forked Pools as current
+  state; Blueprint Revisions embed their Pool member lists; statistics and Bloom key by Pool.
+  For every Pool-served Question, Student Work pins four values: Published Question ID, its
+  Revision Number, Question Pool ID, and the Pool's Edit Number at selection (evidence, not an
+  FK). Human Guidance (revision specifications, Question Pool specifications, usage statistics,
+  Bloom metadata, Student Work), the FERPA policy, `DATABASE_STYLE.md` role and identity tables,
+  and plan decision 7 with WP-2.5 (drop `question_pool_revision`, one `save_question_pool_members`
+  with CAS and canonical no-op) record it. Patches renumbered 1-10+.
+- Human Guidance "Human-facing reference IDs" now states one identity rule instead of "may":
+  an object with a public ID uses that public ID as its primary key and sole foreign-key target;
+  objects without one use a native UUID or a composite natural key; no table carries an
+  auto-increment integer key; every table has one creation clock (`timestamptz` for enforced,
+  ordered, or audited rows, `date` for authored content); table shape follows
+  `DATABASE_STYLE.md`. The pre-production rule now also says to use that state to improve
+  foundational schemas, contracts, abstractions, and ownership boundaries. `DATABASE_STYLE.md`
+  "Identity" and checklist item 7, plan decision 2 and WP-1.4, and audit finding 2.1 record the
+  same decision: Question Pools, Course Instances, Assessments, Accounts, and Blueprint Courses
+  re-key to their public IDs and every `reference_number` column is dropped.
+
+- `DATABASE_STYLE.md` gained "Partition readiness": at 50 Courses x 100 Students x 20
+  Assessments x 25 Questions x 5 Attempts, Student Work tables grow ~12.5M rows per semester,
+  held to a 25-40M steady state by the 365-day FERPA purge, so partitioning is unlikely; every
+  Student Work table nonetheless carries `course_instance_id`, binds it in its parent FK, and
+  leads every PK and UNIQUE with it, because the per-Course purge benefits now and a future
+  `PARTITION BY LIST (course_instance_id)` then attaches without a re-key. Nothing is partitioned before a
+  measured trigger (100M rows, per-Course purge in seconds, or autovacuum lag). Checklist item 11
+  and plan WP-2.3 carry it; row estimates use five Attempts per Student.
+
+### Fixes and Maintenance
+
+- Settled the Question usage statistic in one dedicated Human Guidance section ("Question
+  Library object usage statistics"), mirrored in `FERPA_DATA_POLICY.md` and `DATABASE_STYLE.md`: per Published
+  Question Revision, counters for issued, blank, answered, correct, partial, and incorrect plus
+  credit sum and sum of squares (mean and standard deviation for bulk sorting); every Attempt
+  counts, including practice; blank is tracked separately from incorrect and never reaches a
+  backend; the row holds no Course, Student, Account, Attempt, timestamp, choice, or response
+  linkage; the per-observation receipt is purged Student Work; Pool statistics are the sum of
+  member Revisions at read time, while each Pool Revision keeps its own issued count and
+  per-member selected counts; storage is per Revision, every bulk view displays the
+  all-Revision rollup, and the Question detail page alone adds the per-Revision breakdown; the Library shows each rate beside its observation count
+  with no exposure threshold. Answer-choice counts and "privacy threshold" wording were removed from
+  HG and the FERPA policy. Plan WP-3.8 reshapes `question_revision_statistics` accordingly and
+  drops the two choice tables.
+- Rewrote `DATABASE_STYLE.md` in positive phrasing throughout: every rule states the action to
+  take ("declare every column NOT NULL", "enforce immutability with privileges", "reach a
+  parent's value through the foreign key") and lists of things to avoid were removed or folded
+  into a "Replaces" column in the type table, following the prompt-positively principle in
+  `REPO_STYLE.md`. Checklist questions now read as positive checks ("Is immutability enforced by
+  privilege?"). The enum declaration file is `10_types.sql` throughout. No rule changed meaning.
+- The clock rule now assigns the type by table role: full-precision `timestamptz` where the
+  server enforces, orders, or audits (Student Work, sessions, leases, events, Courses,
+  Accounts) and `date` for authored content (Published Questions, Pools, Blueprints, their
+  Revisions, Draft Questions, usage statistics), because every `timestamptz` precision stores
+  the same 8 bytes and compares at the same speed while `date` is 4 bytes and reads as the day.
+  Rows mutated in place carry a second bookkeeping clock (`updated_at`/`updated_on`) of the same
+  type; every further clock is a domain fact named for its event and typed by its meaning. The
+  statistics aggregate carries `created_on` and `updated_on` (day of last increment), since day
+  granularity on a global counter identifies no one. Integer epochs and
+  reduced-precision `timestamptz(n)` are outside the rule. Recorded in
+  `DATABASE_STYLE.md`, `HUMAN_GUIDANCE.md`, the FERPA policy (statistics carry the publication
+  date), and plan WP-1.7.
+- `DATABASE_STYLE.md` records the aggregate exception to the clock rule: anonymous statistics
+  tables carry `created_on` and `updated_on` as `date`, because an increment `timestamptz` on a
+  small-count aggregate is a re-identification path when joined to a roster while a calendar
+  date on a global counter is not; FERPA attaches to identifiability, not timestamps. Plan
+  WP-1.7 converts `question_revision_statistics.updated_at`.
+- Style enforcement is designed as a Python maintainer tool rather than an external linter
+  (SQLFluff and Squawk cover formatting and migration safety, schemalint and pgTAP need Node or a
+  live database): the M0 generator also emits `schemas/catalog_snapshot.json`, every table
+  comment begins with a role tag, and the maintainer tool `devel/check_schema_style.py`
+  checks the layout and the mechanical checklist items (key names, types, clocks, Student
+  Work keys, comments) against the snapshot or a live database in one command, with
+  unindexed purge-path FKs under `--report`; a pytest wrapper is optional and later. schemalint (seven built-ins: casing,
+  singular names, text, timestamptz, jsonb, identity, primary key) runs in parallel against the
+  disposable Podman database whenever the snapshot is regenerated, as independent confirmation
+  rather than a gate; the schema already satisfies all seven. Recorded in `DATABASE_STYLE.md`
+  "Organization of the SQL source" and plan WP-0.4 / WP-0.5.
+- The schema audit gained finding 2.11: 72 of 180 single-column FK columns are named so the
+  parent table is invisible (`course_id` -> `course_instance`, `object_id` -> `object_record`,
+  `thread_id`, and so on). `DATABASE_STYLE.md` "Naming" now requires PK `<table>_id` and FK
+  `[<role>_]<parent_table>_id` with the full table name, checklist item 7 checks it, and plan
+  WP-1.8 renames the columns while API field names stay mapped at the boundary.
+- The schema audit gained finding 2.10 on growth outside the FERPA purge: grading and statistics
+  receipts cascade with the Work (fine); `authenticated_session` and the other authentication
+  tables are revoked but never deleted (unbounded, identifying); `ple_audit.object_delivery_access_event`
+  has no writer anywhere and would log every asset load if wired (placeholder, remove); Published
+  Questions are authored-scale and stay a global Library, with discovery search, not partitioning,
+  as the Question-side concern. Plan WP-3.7 adds the expiry sweeps and drops the placeholder.
+- The schema audit gained finding 2.9: 43 of 146 tables have no timestamp column, including the
+  current-state `assessment_template` and the Student Work row `issued_question`; plan work
+  package WP-1.7 adds the creation instant required by `DATABASE_STYLE.md`.
+
 ## 2026-09-17
+
+### Additions and New Features
+
+- Added [DATABASE_STYLE.md](DATABASE_STYLE.md), the table-design rule set behind the schema
+  audit: philosophy (tables are forever, one fact one place, invalid states unrepresentable, types
+  carry meaning, measure before cost), shape rules for current-state/revision/event tables and
+  content-addressed snapshots referenced rather than copied, the Human Guidance identity model as
+  one convention, a type table (timestamptz, text plus CHECK or domain, enums for closed
+  vocabularies, reference tables for retiring ones, numeric, bytea checksums, jsonb only for
+  opaque documents), constraint preference order with the role-typed FK idiom kept, FK index and
+  naming rules, a mandatory creation instant on every table (no blanket incremental integer key:
+  PostgreSQL heaps do not cluster on the primary key), a layered source layout
+  (`10_types`, `20_tables/<aggregate>`, `30_constraints`, `40_indexes`, `50_functions`,
+  `60_policies`, `70_grants`) with catalog `COMMENT ON` and a generated `docs/SCHEMA_TABLES.md`
+  as the audit completion gate, and an 18-question "is my table well designed" checklist with fail
+  signals, scored against `assessment_attempt` as a worked example (11 of 18 fail). Sources:
+  PostgreSQL 17 docs, Angelakos *PostgreSQL Mistakes*, and the normalization chapter of the local
+  corpus. Listed as a durable authority in `AGENTS.md` and linked from `DATABASE_STRUCTURE.md`.
 
 ### Behavior or Interface Changes
 
@@ -175,6 +329,37 @@
 
 ### Decisions and Failures
 
+- Added the read-only SQL schema quality and efficiency audit
+  ([sql_schema_quality_audit.md](active_plans/audits/sql_schema_quality_audit.md)) over the
+  146-table base schema, installed into a disposable PostgreSQL 17 container for catalog evidence
+  (281 FKs, 166 without a referencing-side index; 497 CHECKs; 3 native enums against ~110
+  text-plus-CHECK closed vocabularies; 92 hand-listed immutability comparisons). It confirms and
+  extends the human's repetition note: the Assessment Attempt copies the whole current Assessment
+  including a 50 KB instruction body and nine policy strings; Question Attempts repeat a
+  seven-string toolchain per Question; `question_attempt_state`, `finalization_kind`, and the
+  `question_response_grading` wrapper are derived; the finalized response JSON is stored twice;
+  Library Watch notifications store each event three times; 17 constant columns exist, of which
+  the role-typed ones are legitimate composite-FK carriers and should become an enum rather than
+  be removed. It also records Human Guidance misalignments (dead `closed`/`archived` Assessment
+  states, a privileged `assigned_instructor` Course column, `metadata_etag` beside Edit Numbers,
+  installed iMathAS scaffolding, four aggregate identity conventions) and proposes six bounded fix
+  packages with a target snapshot structure. A source census (39 table-bearing files, 36 of them
+  also holding functions; 57% of lines in function bodies; 32 catalog comments for 146 tables;
+  Student Work tables split across four files) adds package 0, a layered layout with catalog
+  comments and a generated `docs/SCHEMA_TABLES.md`, as the audit's completion gate. Verdict:
+  readiness not established for a freeze; no code changed.
+- Added the read-only UI density and layout audit
+  ([ui_density_and_layout_audit.md](active_plans/audits/ui_density_and_layout_audit.md)) over the
+  refreshed 76-capture screenshot corpus. It names four shared root causes behind the recurring
+  per-page findings: a 190-260 px header stack on every page, object cards for every collection
+  (`.instructor-list__row` 4.25rem floor, `.course-card` 5.75rem), stacked label/value grids that
+  wrap values under labels (plus `h1 { max-width: 28ch }`), and status banners inserted in flow
+  above the controls that produced them so saves and validation move the buttons. It specifies one
+  shared `.ple-table` spreadsheet idiom with per-collection columns, seven fix packages (header
+  budget, table migration, reserved status region, inline label/value pairs, prose cuts, Library
+  entry, Student Coursework rows, Student attempt chrome and backend frame sizing), 34 per-surface
+  findings with a coverage ledger over all 76 captures, and Playwright oracles for row count,
+  layout shift, and value wrap. No code changed.
 - The pre-build image prune is now `podman image prune -f` (dangling layers only), not `-a`.
   The `-a` form deleted every image without a running container before each start: the reviewed
   WeBWorK renderer (about eight minutes to rebuild on this Podman machine), the pulled postgres

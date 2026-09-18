@@ -6,6 +6,9 @@ some legacy `assignment`, `available`, response-finalization, and worker
 identifiers. Those names describe implementation gaps; they are not alternate
 product decisions.
 
+Table shape rules (types, identity, snapshots, constraints, indexes, and the
+"is my table well designed" checklist) live in [DATABASE_STYLE.md](DATABASE_STYLE.md).
+
 ## One canonical structural build
 
 [schemas/base_schema/install.sql](../schemas/base_schema/install.sql) is the

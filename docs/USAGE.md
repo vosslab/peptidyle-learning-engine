@@ -131,6 +131,16 @@ its declared connected service lanes, not a complete visible teaching journey. T
 aggregate front door and evidence classifications are in
 [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md).
 
+## Find oversized documentation sections
+
+```bash
+source source_me.sh && python3 devel/markdown_section_sizes.py -i docs/HUMAN_GUIDANCE.md -n 15
+```
+
+Prints every heading with its line number and the number of `- ` bullets directly under it,
+largest first; `-n` limits the listing and `-m` hides sections below a bullet count. Use it to
+pick the sections of a long guidance document that want splitting.
+
 ## Evidence boundaries
 
 The completed baseline reset has connected PostgreSQL, service, browser,

@@ -17,6 +17,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Bullet duplication is acceptable because many agents only skim read one section at a time.
 - Headings should identify their broader section when practical so they remain clear in isolation.
 - Avoid repeating that context when the immediate parent heading already makes it clear.
+- Sections should contain less than 25 bulleted items; split a larger section with subheadings.
+  `devel/markdown_section_sizes.py -i docs/HUMAN_GUIDANCE.md -m 25` lists any that grew past it.
 
 ## Deferred product behavior
 
@@ -39,7 +41,6 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
   Student browser.
 - public API for instructors to use AI to control their classes.
 - public API perhaps modeled after BrickLink OAuth https://www.bricklink.com/v3/api.page?page=auth
-
 
 ## Development principles
 
@@ -77,11 +78,13 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 ### Codebase development rules
 
 - Every source file should stay below 1000 lines. Split complete capabilities into focused modules.
-- PLE is pre-production with no users. Fix the design directly rather than preserving legacy behavior.
+- PLE is pre-production with no users or durable production data. Fix the design directly;
+  there is no legacy behavior to preserve.
+- Use the pre-production state to improve foundational schemas, contracts, and abstractions
+  whenever that produces a stronger long-term system.
 - Use SQL directly to create the initial PostgreSQL database.
 - Before production, edit the main database design directly as the design changes.
 - After production, update existing databases without rebuilding them from scratch.
-- PLE is pre-production with no users or durable production data. Improve the design directly.
 - Use readable `snake_case` whenever possible; see [NAMING_CONVENTIONS.md](/docs/NAMING_CONVENTIONS.md) for details.
 - Adaptability should be a focus so the software can evolve as requirements and insights change.
 - Cargo, Node, and PyPI dependencies should use the latest versions to include security fixes.
@@ -491,9 +494,28 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - The initial Search page should stay simple and focus attention on entering a search.
 - Search should assume the Instructor has some idea what they want to find.
 - Question Library search should work well with ordinary words by default.
+- Instructors should not need to learn search syntax to use Search Question Library.
 - Search results should switch to a dense, information-rich layout.
 - Results should make it easy to scan many Questions quickly.
 - Results should show the information needed to judge relevance without opening each Question.
+- Search terms and active filters should remain visible while reviewing results.
+- Clearing or changing part of a search should be quick.
+- Should opening a result and returning preserve the Instructor's search and position.
+  - we should offer some hover preview and open items in a new browser tab by default
+- Advanced Search considerations:
+  - Simple and advanced searches could use the same search box, but we should seriously consider
+    advanced search versus simple search interfaces forms.
+  - The interface should be minimal, show options by priority, not overwhelming to new users;
+  - Movie Lens as a tiered filter system https://movielens.org/explore/
+  - IMDB advanced search page is wel designed, https://www.imdb.com/search/title/ but questions
+    would not be displayed as movie posters
+  - Google advanced image search is more user friendly design https://www.google.com/advanced_search
+  - Pubmed is clean, but not obvious to use https://pubmed.ncbi.nlm.nih.gov/advanced/
+  - Ebay is dated, but perhaps a useful comparison https://www.ebay.com/sch/ebayadvsearch
+  - Should Question IDs have a preview image/movie poster style?
+
+##### Search Question Library filters
+
 - Search results should support filters for narrowing the Question Library.
 - Classification browsing and filtering should begin with Discipline and follow the shared
   Discipline -> Subject -> Topic -> Subtopic hierarchy.
@@ -502,6 +524,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - After selecting a Subject, Instructors should have an explicit option to include Library Objects
   associated with that Subject across its other Disciplines.
 - Filters should update the current search rather than start a separate workflow.
+
+##### Search Question Library syntax
+
 - Search should support Google-like syntax for more precise queries.
 - Quoted text should search for an exact phrase.
 - A minus sign should exclude matching terms.
@@ -511,13 +536,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - A Subtopic field example is `subtopic:"x-linked recessive crosses"`.
 - Search fields should use PLE concepts and vocabulary.
 - Useful fields may include Discipline, Subject, Topic, Subtopic, Tags, Question Type, and author.
-- Simple and advanced searches should use the same search box.
-- Instructors should not need to learn search syntax to use Search Question Library.
 - The interface should make useful search syntax discoverable when needed.
 - Search syntax should help expert users quickly narrow a very large Question Library.
-- Search terms and active filters should remain visible while reviewing results.
-- Clearing or changing part of a search should be quick.
-- Opening a result and returning should preserve the Instructor's search and position.
 
 ##### Browse Question Library interface
 
@@ -686,20 +706,31 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Human-facing reference IDs should be short, opaque, and easy to communicate.
 - Human-facing reference IDs should not reveal creation order, counts, database keys, ownership, or other object metadata.
 - A public ID is the one universal, canonical human-facing identifier for a PLE object that needs one.
+- Give an internal object a human-facing reference ID when a useful workflow needs it.
+- Useful human-facing ID workflows include display, search, communication, and support.
 - Store and use the exact same public ID in the database, Rust, JSON, URLs, object storage, hashes, logs, and browser UI.
 - Preserve the canonical ID exactly across system boundaries.
 - Parsing, serialization, API transport, persistence, and display do not reformat or translate the canonical ID.
+- ID generation enforces global uniqueness across all public IDs and retries random collisions.
+- Once issued, a public ID permanently identifies that object.
+- Never reuse a public ID for another object, including after deletion or archival.
+
+#### Public ID alphabet and canonical form
+
+- Public IDs use the Crockford Base32 alphabet `0123456789ABCDEFGHJKMNPQRSTVWXYZ`.
+- Public IDs have one canonical uppercase ASCII form.
 - In ID format notation, `X` denotes a cryptographically random Crockford Base32 character.
 - In ID format notation, `Z` denotes the calculated checksum character.
 - Both `X` and `Z` represent characters stored as part of the canonical ID.
 - `Z` is not a literal character or separate metadata.
-- Public IDs use the Crockford Base32 alphabet `0123456789ABCDEFGHJKMNPQRSTVWXYZ`.
-- Public IDs have one canonical uppercase ASCII form.
 - Human-entered IDs may use lowercase Crockford characters.
 - Human-entered IDs may use `O` or `o` for `0`.
 - Human-entered IDs may use `I`, `i`, `L`, or `l` for `1`.
 - Normalize human-entered IDs to canonical form, then validate the canonical syntax and checksum at the human-input boundary.
 - Store, transmit, display, copy, and generate only the canonical form.
+
+#### Public ID checksum
+
 - Calculate the checksum from the ASCII bytes of every other uppercase canonical-ID character.
 - Include type prefixes in the checksum input.
 - Exclude only separators and the checksum position from the checksum input.
@@ -709,37 +740,39 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Map the high five bits of SHA-256 digest byte 0 through the Crockford alphabet.
 - Validate the public-ID syntax and embedded checksum before database lookup or resolution.
 - The embedded checksum detects typos.
+- The checksum adds no identity space.
+
+#### Public ID formats by object
+
+- Published Questions and Question Pools use the public `XXXX-ZXXX` format.
+- Published Questions and Question Pools share the same public-ID namespace.
+- An `XXXX-ZXXX` value identifies either a Published Question or a Question Pool, never both.
 - Blueprint Course IDs use `BPXXXXXXXZ`.
 - Course Instance IDs use `CIXXXXXXXZ`.
 - Assessment IDs use `AXXXXXXXZ`.
 - Account IDs use `UXXXXXXXZ`.
 - Each prefixed public ID uses seven cryptographically random Crockford Base32 characters and a final embedded checksum.
 - Each prefixed public-ID random namespace contains 32^7 = 34,359,738,368 values.
-- The checksum adds no identity space.
-- ID generation enforces global uniqueness across all public IDs and retries random collisions.
-- Once issued, a public ID permanently identifies that object.
-- Never reuse a public ID for another object, including after deletion or archival.
-- Give an internal object a human-facing reference ID when a useful workflow needs it.
-- Useful human-facing ID workflows include display, search, communication, and support.
-- Other internal objects use native UUID identifiers.
-- An object with a public ID may also retain an internal UUID primary key.
-- Internal UUIDs never substitute for or appear as public identities.
 - Account `U` references are Sysadmin support references.
 - Account `U` references are not automatically exposed to Students or Instructors.
-- Published Questions and Question Pools use the public `XXXX-ZXXX` format.
-- Published Questions and Question Pools share the same public-ID namespace.
-- An `XXXX-ZXXX` value identifies either a Published Question or a Question Pool, never both.
+
+#### Database keys and clocks
+
+- An object with a public ID uses that public ID as its primary key and as the target of every
+  foreign key to it.
+- An object without a public ID uses a native UUID primary key, or a composite natural key when
+  it is owned by a parent (for example a Revision keyed by its lineage ID and Revision Number).
+- Internal UUIDs never substitute for or appear as public identities.
+- Every table has one creation clock on every row: a full-precision `timestamptz` where the
+  server enforces, orders, or audits (Student Work, sessions, events, Courses, Accounts), and a
+  `date` for authored content (Published Questions, Question Pools, Blueprint Courses, their
+  Revisions, Draft Questions, usage statistics).
+- Table shape follows [DATABASE_STYLE.md](/docs/DATABASE_STYLE.md).
 
 ### Content classification
 
 - PLE uses one shared global content classification vocabulary for **Courses** and **Library
   Objects**.
-- Every Course has exactly one **Discipline**.
-- **Subject**, **Topic**, and **Subtopic** are optional for Courses.
-- Every Library Object has exactly one **Discipline** and one **Subject**.
-- **Topic** and **Subtopic** are optional for Library Objects.
-- Courses retain the hierarchy because their classification supports Course organization, search,
-  filtering, and discovery.
 - Content classification uses **Discipline** -> **Subject** -> **Topic** -> **Subtopic**.
 - **Discipline** is the broad academic field, such as Biology, Chemistry, or Mathematics.
 - **Subject** identifies a global area associated with one or more Disciplines, such as Genetics,
@@ -750,9 +783,18 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - A Subject may be associated with one or more Disciplines.
 - A Topic belongs to one Subject.
 - A Subtopic belongs to one Topic.
+- Every Course has exactly one **Discipline**.
+- **Subject**, **Topic**, and **Subtopic** are optional for Courses.
+- Every Library Object has exactly one **Discipline** and one **Subject**.
+- **Topic** and **Subtopic** are optional for Library Objects.
+- Courses retain the hierarchy because their classification supports Course organization, search,
+  filtering, and discovery.
 - Course and Library Object selections follow the hierarchy: the Subject is associated with the
   selected Discipline, the Topic belongs to that Subject, and the Subtopic belongs to that Topic.
 - Courses and Library Objects select from the same shared global vocabulary.
+
+#### Classification vocabulary management
+
 - **Sysadmins** exclusively create and manage the Discipline vocabulary and its lifecycle.
 - Discipline is a stable vocabulary expected to change infrequently.
 - **Instructors** classify content by selecting from the Sysadmin-managed Disciplines.
@@ -761,18 +803,24 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
   offers the existing Subject.
 - PLE requires explicit Instructor acceptance before associating the existing Subject with the
   selected Discipline.
-- Creating or selecting vocabulary should fit naturally into the classification workflow.
 - **Instructors** may create new Topics within a Subject.
 - **Instructors** may create new Subtopics within a Topic.
+- Creating or selecting vocabulary should fit naturally into the classification workflow.
+
+#### Classification selection and discovery
+
 - Classification selection, browsing, and filtering begin with Discipline.
 - Course and Library Object classification follow Discipline -> Subject -> Topic -> Subtopic,
   progressively narrowing the available choices at each level.
 - Selecting a Discipline limits Subject choices to Subjects associated with that Discipline.
 - After selecting a Subject, search interfaces may offer an explicit option to include content
   associated with that Subject across its other Disciplines.
+- Classification supports searching, filtering, sorting, organization, and discovery wherever those capabilities are useful.
+
+#### Tags and classification names
+
 - **Tags** provide flexible labels outside the Discipline, Subject, Topic, and Subtopic hierarchy.
 - Courses and Library Objects may have any number of Tags, including none.
-- Classification supports searching, filtering, sorting, organization, and discovery wherever those capabilities are useful.
 - Subject, Topic, and Subtopic names must satisfy length limits and formatting requirements.
 - Length allowances increase from Subject to Topic to Subtopic, supporting more specific names as classification becomes narrower.
 - Strip leading and trailing whitespace from Subject, Topic, and Subtopic names and validate the resulting names consistently.
@@ -789,12 +837,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Student Work** is the collective term for FERPA-sensitive records created by a Student in a Course Instance.
 - Student Work includes Assessment Attempts, saved Question responses, grading outcomes, and the evidence needed to interpret that work after an Attempt is submitted.
 - Student Work is an umbrella term; the underlying records retain their own identities and purposes.
-- Student retention removes identifiable Student evidence, not privacy-safe aggregate Question statistics.
-- Privacy-safe aggregate Question statistics remain after the underlying Student records are deleted.
-- Aggregate Question statistics must not identify or allow reconstruction of individual Student activity.
-- Published Question statistics retain accepted graded Attempt count and correct count.
-- Eligible Question Types may also retain aggregate answer-choice counts.
-- Question statistics are version-specific first, with clearly labeled Question-level rollups when appropriate.
+- Student retention removes identifiable Student evidence and leaves Question usage statistics
+  unchanged. Question statistics are stored per Revision and displayed as a Question-level
+  rollup by default; see "Question Library object usage statistics".
 
 ### Course retention and lifecycle
 
@@ -831,19 +876,19 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 ### Common revision and history specifications
 
 - Be conservative about creating revisions.
-- Assessments, Course Instances, and Draft Questions use current state.
-- Published Questions, Question Pools, and Blueprint Courses have immutable revisions.
+- Assessments, Course Instances, Draft Questions, and Question Pools use current state.
+- Published Questions and Blueprint Courses have immutable revisions.
 - Mutable working state uses a monotonic sequential Edit Number when needed for concurrency.
 - An Edit Number is only a counter and does not identify a stored historical object.
-- Question, Question Pool, and Blueprint Revision Numbers start at 1 and increase sequentially for
-  each object.
+- Question and Blueprint Revision Numbers start at 1 and increase sequentially for each object.
 - A Revision Number identifies a specific immutable Revision stored by PLE.
-- A new Revision keeps the same Published Question ID or Question Pool ID.
+- A new Revision keeps the same Published Question ID.
 - Forking a Published Question or Question Pool creates a new public ID.
 - A fork starts at Revision 1 under its new ID.
 - Student Work records the exact Assessment Attempt and Published Question Revision delivered to the Student.
 - Student Work records the Student's responses and the grading outcome returned by the Question Backend.
-- Student Work records the Question Pool Revision and selected Published Question Revision for each response.
+- For a Question served from a Question Pool, Student Work pins all four: the Published Question
+  ID, its Revision Number, the Question Pool ID, and the Pool's Edit Number at selection time.
 - Changes to Question point values recalculate scores from the stored grading outcome without changing the outcome.
 - Changes to Assessment settings do not change the recorded history of completed Assessment Attempts.
 - Immutable Question source and Question assets use SHA-256 checksums where needed to verify their stored contents.
@@ -1042,7 +1087,10 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Question Pools are created from a Published Question and enter the Question Library immediately.
 - A Question Pool is an independently reusable Question Library object.
 - Question Pools are available to all vetted **Instructors**.
-- A Question Pool has its own public `XXXX-ZXXX` Crockford Base32 ID and immutable Revisions.
+- A Question Pool has its own public `XXXX-ZXXX` Crockford Base32 ID.
+- A Question Pool is a current ordered list of exact Published Question Revisions plus its
+  metadata. Saving the list re-attests interchangeability and advances the Pool's Edit Number;
+  no Revision is created. Removing ten Questions and saving once is one Edit.
 - Importing a Question Pool into a new Assessment automatically forks the Question Pool.
 - The fork belongs to the new Assessment and can be changed without changing the source Question Pool.
 - Forking a Question Pool preserves its list of Published Questions by their public `XXXX-ZXXX` IDs.
@@ -1052,7 +1100,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Question Pool selection and backend-native randomization are separate forms of variation.
 - Returning to an Attempt preserves the Question Pool selections already made.
 - Starting a new Attempt makes fresh selections from its Question Pools.
-- Student Work preserves the exact Question Pool Revision and Published Question Revision delivered.
+- Student Work pins the Published Question ID, its Revision Number, the Question Pool ID, and the
+  Pool's Edit Number for every Question served from a Pool; the pinned Published Question
+  Revision is all that later interpretation and grading need.
 - Grading and historical evidence follow the exact Published Question Revision delivered to the Student.
 - Each member of a Question Pool is a **Published Question**.
 - Question Pools contain only **Published Questions**; Question Pools cannot be members of Question Pools.
@@ -1106,20 +1156,50 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Published Questions and Question Pools may have PLE-managed **Hints**, **Question Feedback**, and **Worked Solutions**.
 - Support content may be attached at the level where it applies rather than duplicated across individual Questions.
 
-#### Question Library object statistics
+#### Question Library object usage statistics
 
-- Published Questions and Question Pools may retain privacy-safe aggregate statistics.
-- Statistics are kept separately for each Published Question Revision and Question Pool Revision.
-- Each Published Question Revision may retain aggregate counts of correct, incorrect, partial-credit,
-  and unanswered results.
-- Eligible Question Types may also retain aggregate answer-choice counts.
-- Each Question Pool Revision may retain aggregate statistics for its use and Question selections.
-- Published Question and Question Pool statistics may combine Revisions when clearly labeled and
-  privacy thresholds are met.
-- Aggregate statistics contain counts rather than Student Attempts or identifiable Student records.
-- Privacy-safe aggregate statistics remain after the underlying Student records are deleted.
-- Student data retention removes the underlying Student evidence without removing approved aggregate
-  statistics.
+- Published Questions and Question Pools keep privacy-safe aggregate usage statistics.
+- Statistics are kept separately for each Published Question Revision and for each Question
+  Pool.
+- Aggregate statistics contain counts and sums, never Student Attempts or identifiable Student
+  records.
+- Every Published Question Revision keeps one global usage statistic so Instructors can judge
+  how often a Question is used and how hard it is.
+- The statistic is six counters and two sums: `issued_count`, `blank_count`, `answered_count`,
+  `correct_count` (full credit), `partial_count`, `incorrect_count` (zero credit), `credit_sum`,
+  and `credit_sum_sq` (the sum of squared credit fractions). Mean and standard deviation of
+  credit derive from the sums; sorting Questions in bulk uses them.
+- Every counter increments when the Assessment Attempt is submitted, so an Attempt that is
+  Unreleased or deleted before submission contributes nothing. `issued_count = blank_count +
+  answered_count` and `answered_count = correct_count + partial_count + incorrect_count`.
+- A blank Question is one submitted with no saved response. It counts as blank, separately from
+  incorrect, and is never sent to a Question Backend.
+- Every Attempt counts as one observation, including practice Attempts after full credit.
+- The statistic records the exact Revision, the outcome class, the credit fraction, and the
+  calendar date of the most recent increment (`updated_on`), and nothing else: no Course,
+  Student, Account, Attempt, roster, time of day, point value, timing, ordering, seed, selected
+  choice, or response text. Day granularity on a global counter identifies no one.
+- The per-observation receipt that makes each increment exactly-once is Student Work and is
+  purged with the Attempt. The aggregate is global content and survives Unrelease and Student
+  data deletion unchanged; PLE never rebuilds it from Student Work.
+- Each Question Pool keeps two stored counters that membership changes do not invalidate: an
+  `issued_count` for the Pool, and a `selected_count` per member Published Question (how often
+  that member was drawn from this Pool). A member's `selected_count` row is removed with the
+  member and starts at zero if the member is re-added.
+- A member Question's outcomes count in that Question Revision's own statistic, never in a
+  Pool-level copy.
+- A Question Pool's difficulty (mean and standard deviation of credit) is derived when read from
+  its current members' Question statistics, so removing or adding a member changes it with no
+  stored value to update. Search and sorting compute it from the member join; a cached value on
+  the Pool row is a measured exception, never the default.
+- Storage is per Revision; display is per Question. Every bulk view (Library lists, search
+  results, Assessment editors) shows the rollup across all Revisions of a Question; the Question
+  detail page is the one place that adds the per-Revision breakdown.
+- The Question Library shows every rate beside its observation count.
+- Students see Course-scoped class statistics through the Assessment feedback policy; those are
+  protected Student Work projections and are purged with the Course.
+- [FERPA_DATA_POLICY.md](/docs/FERPA_DATA_POLICY.md) "Question Library object usage statistics" and
+  [DATABASE_STYLE.md](/docs/DATABASE_STYLE.md) "Every table has a clock" carry the same rule.
 - Removing Student names alone does not make statistics anonymous.
 - Shared statistics should be shown only when individual Students cannot reasonably be identified
   from the aggregate.
@@ -1127,16 +1207,16 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 #### Question Library Bloom classification metadata
 
-- Published Question Revisions and Question Pool Revisions can have a Bloom Cognitive Process and
-  Bloom Knowledge Dimension.
+- Published Question Revisions and Question Pools can have a Bloom Cognitive Process and Bloom
+  Knowledge Dimension.
 - The two Bloom dimensions are independent and together determine the object's Bloom Classification.
 - Bloom Classification supports Question Library search and Assessment item sorting.
 - A Question Pool's Bloom Classification describes the intended cognitive work of the Pool as a whole.
 - Bloom Classification is left blank when a Published Question or Question Pool enters the Question
   Library, to be updated by AI later.
 - AI assigns the initial Bloom Classification using a daemon after publication.
-- An **Instructor** can correct either Bloom dimension without creating a new Published Question or
-  Question Pool Revision.
+- An **Instructor** can correct either Bloom dimension without creating a new Published Question
+  Revision.
 - Question Library search and reporting should make both Bloom dimensions useful to **Instructors**.
 - Follow `docs/BLOOM_TAXONOMY_GUIDE.md` for Bloom classification and teaching interpretation.
 
@@ -1550,7 +1630,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 ### Student Work specifications
 
 - Student Work keeps the exact Published Question Revision delivered to the **Student**.
-- For a Question Pool, Student Work keeps the exact Question Pool Revision and Published Question Revision selected.
+- For a Question Pool, Student Work keeps the Question Pool ID, the Pool's Edit Number at
+  selection, and the exact Published Question Revision selected.
 - Student Work keeps each saved response as finalized with the submitted Attempt and the grading outcome returned by the Question Backend.
 - Changes to Assessment content do not replace Question evidence already delivered in existing Attempts.
 - PLE should retain only the additional historical Student Work data needed to interpret or grade that work correctly.
