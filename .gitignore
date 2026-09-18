@@ -41,3 +41,4 @@ stats.html
 /local_stack_state/
 /plan-*.md
 #__pycache__ # not allowed per docs/PYTHON_STYLE.md; use source source_me.sh
+/schemas/catalog_snapshot.json
