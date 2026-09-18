@@ -7,6 +7,7 @@ import re
 
 # local repo modules
 import schema_style.schema_catalog_lib as schema_catalog_lib
+import schema_style.schema_catalog_parse as schema_catalog_parse
 
 
 Finding = collections.namedtuple("Finding", ["rule", "location", "message"])
@@ -250,9 +251,19 @@ def rule_layout(catalog: dict, source_dir: str) -> list:
 			))
 	if tables_dir.is_dir():
 		for path in sorted(tables_dir.rglob("*.sql")):
-			text = path.read_text().upper()
-			for token in ("CREATE FUNCTION", "CREATE POLICY", "GRANT", "REVOKE"):
-				if token in text:
+			text = path.read_text()
+			for _start, statement in schema_catalog_parse._iter_statements(text):
+				keywords = schema_catalog_parse._leading_keywords(statement, 3)
+				token = None
+				if keywords[:2] == ["CREATE", "FUNCTION"]:
+					token = "CREATE FUNCTION"
+				elif keywords[:2] == ["CREATE", "POLICY"]:
+					token = "CREATE POLICY"
+				elif keywords[:1] == ["GRANT"]:
+					token = "GRANT"
+				elif keywords[:1] == ["REVOKE"]:
+					token = "REVOKE"
+				if token is not None:
 					findings.append(Finding(
 						"rule_layout",
 						str(path),
@@ -702,6 +713,62 @@ def rule_9_null_meaning(catalog: dict) -> list:
 
 
 #============================================
+def advisory_rule_ids(source_dir: str) -> set:
+	"""
+	Return advisory rule ids for this source tree.
+
+	rule_14_unindexed_fk is always advisory. rule_layout is advisory only
+	when 20_tables/ is absent. M1 type/identity/clock rules and M2 Student
+	Work keys stay advisory until those milestones land.
+
+	Args:
+		source_dir: SQL source directory.
+
+	Returns:
+		set: Advisory rule id strings.
+	"""
+	ids = {
+		"rule_14_unindexed_fk",
+		"rule_2_constant_columns",
+		"rule_4_types",
+		"rule_5_duplicate_literal_sets",
+		"rule_7_key_names",
+		"rule_11_student_work_keys",
+		"rule_16_clock_present",
+		"rule_16_clock_type",
+		"rule_16_updated_clock",
+	}
+	if not _layout_blocks(source_dir):
+		ids.add("rule_layout")
+	return ids
+
+
+#============================================
+def policy_usage_text() -> str:
+	"""
+	Return the usage sentences shared with docs/USAGE.md and argparse.
+
+	Returns:
+		str: Command policy for stdout, flags, and exit codes.
+	"""
+	text = (
+		"Reports mechanical rules from docs/DATABASE_STYLE.md against "
+		"schemas/base_schema/ (override with -s/--source-dir). Default stdout "
+		"is one count, tab, rule_##_title line per rule with findings "
+		"(two-digit numbers), skip notes, and N findings in M rules only. "
+		"One finding line per violation (rule_##_title, location, message, "
+		"source file:line) is written to output/schema_style_findings.txt. "
+		"-v/--verbose also prints those finding lines to stdout. "
+		"-r/--report includes advisory findings (rule_14_unindexed_fk, and "
+		"rule_layout only when 20_tables/ is absent) in verbose stdout and "
+		"the findings file without changing the exit code. -j/--snapshot "
+		"reads a catalog snapshot; -d/--database reads a live database. "
+		"Exit 1 on blocking findings, 0 if clean."
+	)
+	return text
+
+
+#============================================
 def collect_findings(catalog: dict, source_dir: str, tier3: bool) -> tuple:
 	"""
 	Run style rules and return findings, skip notes, and advisory rule ids.
@@ -717,7 +784,6 @@ def collect_findings(catalog: dict, source_dir: str, tier3: bool) -> tuple:
 	notes = []
 	findings = []
 	findings.extend(rule_create_table_count(catalog, source_dir))
-	layout_blocking = _layout_blocks(source_dir)
 	findings.extend(rule_layout(catalog, source_dir))
 	findings.extend(rule_7_key_names(catalog))
 	findings.extend(rule_4_types(catalog))
@@ -738,7 +804,5 @@ def collect_findings(catalog: dict, source_dir: str, tier3: bool) -> tuple:
 		findings.extend(rule_9_null_meaning(catalog))
 	else:
 		notes.append("Tier 3 skipped (source-only)")
-	advisory_rules = {"rule_14_unindexed_fk"}
-	if not layout_blocking:
-		advisory_rules.add("rule_layout")
+	advisory_rules = advisory_rule_ids(source_dir)
 	return findings, notes, advisory_rules

@@ -2,6 +2,7 @@
 """Report mechanical DATABASE_STYLE.md findings against the SQL catalog."""
 
 # Standard Library
+import re
 import sys
 import signal
 import argparse
@@ -14,6 +15,7 @@ import schema_style.schema_style_rules as schema_style_rules
 
 
 FINDINGS_PATH = "output/schema_style_findings.txt"
+RULE_ID_PATTERN = re.compile(r"^rule_(\d+)_(.*)$")
 
 
 #============================================
@@ -25,7 +27,8 @@ def parse_args() -> argparse.Namespace:
 		argparse.Namespace: Parsed flags.
 	"""
 	parser = argparse.ArgumentParser(
-		description="Check SQL schema style against docs/DATABASE_STYLE.md"
+		description="Check SQL schema style against docs/DATABASE_STYLE.md",
+		epilog=schema_style_rules.policy_usage_text(),
 	)
 	parser.add_argument(
 		"-s", "--source-dir", dest="source_dir", default="schemas/base_schema",
@@ -41,13 +44,13 @@ def parse_args() -> argparse.Namespace:
 	)
 	parser.add_argument(
 		"-r", "--report", dest="report", action="store_true",
-		help="Include advisory findings in the stdout listing",
+		help="Include advisory findings (rule_14_unindexed_fk) in verbose stdout",
 	)
 	parser.add_argument(
-		"-q", "--quiet", dest="quiet", action="store_true",
-		help="Print summary counts only, not per-finding lines",
+		"-v", "--verbose", dest="verbose", action="store_true",
+		help="Print one finding line per violation on stdout",
 	)
-	parser.set_defaults(report=False, quiet=False)
+	parser.set_defaults(report=False, verbose=False)
 	args = parser.parse_args()
 	return args
 
@@ -75,6 +78,45 @@ def load_catalog(args: argparse.Namespace) -> tuple:
 
 
 #============================================
+def format_rule_id(rule: str) -> str:
+	"""
+	Return a rule id with a two-digit number, for example rule_07_key_names.
+
+	Args:
+		rule: Internal rule id.
+
+	Returns:
+		str: Aligned rule id.
+	"""
+	match = RULE_ID_PATTERN.match(rule)
+	if not match:
+		return rule
+	number = int(match.group(1))
+	rest = match.group(2)
+	formatted = f"rule_{number:02d}_{rest}"
+	return formatted
+
+
+#============================================
+def rule_sort_key(rule: str) -> tuple:
+	"""
+	Sort numbered rules by checklist number, then name.
+
+	Args:
+		rule: Internal rule id.
+
+	Returns:
+		tuple: Sort key.
+	"""
+	match = RULE_ID_PATTERN.match(rule)
+	if match:
+		key = (0, int(match.group(1)), match.group(2))
+		return key
+	key = (1, 0, rule)
+	return key
+
+
+#============================================
 def format_finding(item: schema_style_rules.Finding) -> str:
 	"""
 	Format one finding line.
@@ -85,7 +127,7 @@ def format_finding(item: schema_style_rules.Finding) -> str:
 	Returns:
 		str: Rule id, location, and message.
 	"""
-	line = f"{item.rule}  {item.location}  {item.message}"
+	line = f"{format_rule_id(item.rule)}  {item.location}  {item.message}"
 	return line
 
 
@@ -113,8 +155,9 @@ def format_report(
 		for item in listed:
 			lines.append(format_finding(item))
 	counts = collections.Counter(item.rule for item in all_findings)
-	for rule in sorted(counts):
-		lines.append(f"{rule}  {counts[rule]}")
+	for rule in sorted(counts, key=rule_sort_key):
+		count_text = f"{counts[rule]:3d}"
+		lines.append(count_text + "\t" + format_rule_id(rule))
 	for note in notes:
 		lines.append(note)
 	if not all_findings:
@@ -152,7 +195,7 @@ def main() -> None:
 	)
 	blocking = [item for item in findings if item.rule not in advisory_rules]
 	listed = findings if args.report else blocking
-	stdout_lines = format_report(listed, findings, notes, not args.quiet)
+	stdout_lines = format_report(listed, findings, notes, args.verbose)
 	for line in stdout_lines:
 		print(line)
 	file_lines = format_report(findings, findings, notes, True)
