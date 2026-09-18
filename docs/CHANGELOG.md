@@ -10,6 +10,17 @@
 
 ### Additions and New Features
 
+- Added `devel/generate_schema_tables_doc.py` (WP-0.4): reads the schema catalog
+  through `schema_style.schema_catalog_lib` from `schemas/base_schema/` or
+  `-d`/`--database`, and writes [SCHEMA_TABLES.md](SCHEMA_TABLES.md) plus
+  [../schemas/catalog_snapshot.json](../schemas/catalog_snapshot.json). One
+  Markdown section per `20_tables/*.sql` file when that directory exists,
+  otherwise one section per source file that contains `CREATE TABLE`. Each table
+  lists qualified name, role tag, columns, constraints, foreign keys, indexes,
+  and catalog comments. Command:
+  `source source_me.sh && python3 devel/generate_schema_tables_doc.py`. Documented
+  in [USAGE.md](USAGE.md).
+
 - Added the SQL base schema restructure plan
   ([sql_schema_restructure_plan.md](active_plans/active/sql_schema_restructure_plan.md)) in the
   `blueprint-plan-drafter` multi-workstream form: five milestones (M0 layered layout and catalog
@@ -45,8 +56,39 @@
   rules run on the current source today and must reproduce the audit's counts (72 / ~110 / 17 /
   43 / 166); Tier 2 activates with role tags, Tier 3 with the catalog. The restructure plan's
   WP-0.5 now references this plan instead of restating it.
+- Shipped the schema style checker as repo-root package `schema_style/` (`check_schema_style.py`
+  orchestrator, `schema_style_rules.py`, `schema_catalog_lib.py` plus parse/scan/database
+  modules). `devel/` is a support location, not an import package. Command:
+  `source source_me.sh && python3 schema_style/check_schema_style.py`. Each finding line is
+  `rule_<id>`, location, message, and source `file:line`. `-q`/`--quiet` prints per-rule
+  counts only. CLI flags are `-s`/`--source-dir`, `-j`/`--snapshot`, `-d`/`--database`,
+  `-r`/`--report`, and `-q`/`--quiet`; the findings file path is hardcoded to
+  `output/schema_style_findings.txt`. First source run exits 1 with 612 findings in 7 rules.
+  Versus the 2026-09-17 audit (72 / ~110 / 17 / 43 / 166): `rule_7_key_names` 74
+  single-column FK suffix misses (audit 72 of 180; parser sees 177); `rule_4_types` 104
+  (audit ~110); `rule_2_constant_columns` 17; `rule_16_clock_present` 44 (audit 43; extra
+  `ple_private.object_storage_check`); `rule_14_unindexed_fk` 165 advisory (audit 166);
+  `rule_5_duplicate_literal_sets` 59; `rule_layout` 149 advisory until `20_tables/` exists.
+  A CREATE TABLE parse/count mismatch is blocking (`rule_table_count`). Tier 2 skipped
+  (no role tags); Tier 3 skipped (source-only). `--snapshot` on a missing path raises
+  FileNotFoundError.
 
 ### Behavior or Interface Changes
+
+- WP-0.5: `schema_style/check_schema_style.py` keeps every rule implementation and
+  treats M1 rules as advisory until M1 (`rule_7_key_names`, `rule_4_types`,
+  `rule_2_constant_columns`, `rule_5_duplicate_literal_sets`,
+  `rule_16_clock_present`, `rule_16_updated_clock`, `rule_16_clock_type`), M2
+  `rule_11_student_work_keys` as advisory until M2, and `rule_14_unindexed_fk` as
+  advisory. `rule_layout` stays advisory until `20_tables/` exists, then blocks.
+  `rule_17_role_tag` blocks once any table carries a role tag. `table count`
+  stays blocking. Gate:
+  `source source_me.sh && ./schema_style/check_schema_style.py`.
+- `schema_style/check_schema_style.py` prints one `rule_<id>` finding line per blocking
+  violation on stdout, then per-rule counts. `-q`/`--quiet` is summary-only. The full list
+  including advisory findings is always written to `output/schema_style_findings.txt`.
+  Flags are `-s`/`--source-dir`, `-j`/`--snapshot`, `-d`/`--database`, `-r`/`--report`,
+  and `-q`/`--quiet`.
 
 - Question Pools are now current state with an Edit Number, not a Revision family. Student Work
   already pins the exact Published Question Revision served from a Pool, so a Pool Revision added

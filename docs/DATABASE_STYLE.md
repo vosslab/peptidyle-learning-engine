@@ -279,10 +279,12 @@ section per domain file: table, columns with type and nullability, constraints, 
 catalog comments) so a structural audit reads one document. Regenerate it with the changelog
 entry that changes any table.
 
-Enforcement is one Python maintainer tool, `devel/check_schema_style.py`, run directly
-(`source source_me.sh && python3 devel/check_schema_style.py`). It checks the source layout
-and the mechanical checklist items (7, 4, 16, 11, 17) against `schemas/catalog_snapshot.json`
-(or a live database with `--database`), using the role tag that begins every table comment
+Enforcement is one Python maintainer tool, `schema_style/check_schema_style.py`, run directly
+(`source source_me.sh && python3 schema_style/check_schema_style.py`). It checks the current
+`schemas/base_schema/` source today (layout, key names, types, constant columns, duplicate IN
+lists, clocks, unindexed FKs). Role-tag rules and catalog-only identity/immutability/null
+rules join once comments and `schemas/catalog_snapshot.json` (or `--database`) exist, using
+the role tag that begins every table comment
 (`role: current state | revision | event | snapshot | student work | aggregate | vocabulary`).
 `npx schemalint` runs against the same disposable database whenever the snapshot is
 regenerated, with its seven built-in rules as an independent confirmation of casing, singular
@@ -352,22 +354,22 @@ question, the signal that it fails, and the fix. A table passes when every row r
 | # | Question | Fails when | Fix |
 | --- | --- | --- | --- |
 | 1 | What is this table? | The HUMAN_GUIDANCE.md concept is unnamed, or its role (current state, revision, event) is unclear. | Name it, pick one role, take that role's shape from [Current state, revisions, events](#current-state-revisions-events). |
-| 2 | Is every column a fact only this row can state? | A value is reachable by one join through an FK on the same row; a value is computable from other columns; a CHECK admits exactly one value. | Drop the column; derive it; or, when it must be frozen, cite the guidance line and reference a snapshot row. |
+| 2 | Is every column a fact only this row can state? | A value is reachable by one join through an FK on the same row; a value is computable from other columns; a CHECK admits exactly one value. | Drop the column; derive it; or, when it must be frozen, cite the guidance line and reference a snapshot row. Constant CHECK: `rule_2_constant_columns`. |
 | 3 | Is every copied value a deliberate snapshot? | Columns were copied from a parent "so history survives" without a snapshot table. | Content-addressed immutable snapshot row, referenced by id. |
-| 4 | Do types say what the data is? | A `text` column has a `CHECK (col IN (...))`; a `timestamp` lacks a zone; a `varchar(n)`; a hex checksum in `text`; relational data inside `jsonb`. | Enum or reference table; `timestamptz`; `text` + CHECK or a domain; `bytea`; real columns. |
-| 5 | Is each rule written once? | The same literal list, regex, or length CHECK appears on more than one column. | One enum type or one domain in `10_types.sql`. |
+| 4 | Do types say what the data is? | A `text` column has a `CHECK (col IN (...))`; a `timestamp` lacks a zone; a `varchar(n)`; a hex checksum in `text`; relational data inside `jsonb`. | Enum or reference table; `timestamptz`; `text` + CHECK or a domain; `bytea`; real columns. `rule_4_types`. |
+| 5 | Is each rule written once? | The same literal list, regex, or length CHECK appears on more than one column. | One enum type or one domain in `10_types.sql`. `rule_5_duplicate_literal_sets`. |
 | 6 | Is every reference a foreign key? | A `*_id` column lacks `REFERENCES`; an FK to a parent id leaves the row's tenant, owner, or revision unbound. | Add the FK; make it composite so it binds the owner. A documented copied identity is the one exception. |
-| 7 | Does each key column name its table? | A PK is named other than `<table>_id`; an FK column's name ends in something other than the parent's full table name plus `_id` (`course_id` for `course_instance`, `object_id` for `object_record`, `thread_id`). | Rename to `[<role>_]<parent_table>_id`; map API field names at the boundary. |
-| 8 | Is identity the repository convention? | A public object's PK differs from its public ID; an internal aggregate's PK is something other than `uuid`; an owned child lacks a composite natural key; a table carries a second surrogate such as an identity `bigint`; a revision number differs in width from its siblings. | Public ID as PK, `uuid` for internal aggregates, composite natural keys for children, one key per table, `integer` revision numbers. |
-| 9 | Does `NULL` mean something? | A nullable column lacks both a comment and a CHECK pairing it with the state that makes it absent. | `NOT NULL`, or a CHECK that names when it is NULL. |
+| 7 | Does each key column name its table? | A PK is named other than `<table>_id`; an FK column's name ends in something other than the parent's full table name plus `_id` (`course_id` for `course_instance`, `object_id` for `object_record`, `thread_id`). | Rename to `[<role>_]<parent_table>_id`; map API field names at the boundary. `rule_7_key_names`. |
+| 8 | Is identity the repository convention? | A public object's PK differs from its public ID; an internal aggregate's PK is something other than `uuid`; an owned child lacks a composite natural key; a table carries a second surrogate such as an identity `bigint`; a revision number differs in width from its siblings. | Public ID as PK, `uuid` for internal aggregates, composite natural keys for children, one key per table, `integer` revision numbers. `rule_8_identity` (Tier 3). |
+| 9 | Does `NULL` mean something? | A nullable column lacks both a comment and a CHECK pairing it with the state that makes it absent. | `NOT NULL`, or a CHECK that names when it is NULL. `rule_9_null_meaning` (Tier 3). |
 | 10 | Is it narrow enough for its row rate? | The table multiplies with Student Work and has free text, a closed-vocabulary `text`, or a column group repeated across siblings. | Factor the group into a referenced row; move text to the parent. |
-| 11 | Is it partition-ready? | A Student Work table lacks `course_instance_id`, or its PK / UNIQUE constraints start with another column. | Add `course_instance_id NOT NULL`, bind it in the parent FK, lead every key with it. |
-| 12 | Is immutability enforced by privilege? | A trigger enumerates `NEW.x IS DISTINCT FROM OLD.x`. | `REVOKE UPDATE` plus RLS `WITH CHECK (false)`, or the one generic `to_jsonb` trigger. |
+| 11 | Is it partition-ready? | A Student Work table lacks `course_instance_id`, or its PK / UNIQUE constraints start with another column. | Add `course_instance_id NOT NULL`, bind it in the parent FK, lead every key with it. `rule_11_student_work_keys` (Tier 2). |
+| 12 | Is immutability enforced by privilege? | A trigger enumerates `NEW.x IS DISTINCT FROM OLD.x`. | `REVOKE UPDATE` plus RLS `WITH CHECK (false)`, or the one generic `to_jsonb` trigger. `rule_12_immutability` (Tier 3). |
 | 13 | Is the state machine declared once? | Two CHECKs disagree about a state; the same lease or lifecycle shape exists on another table with different column names. | One pairing CHECK, one transition trigger, one shared shape. |
-| 14 | Which FK edges need an index? | A child of a table that is purged, unreleased, or closed lacks an index on the referencing columns; a hot parent-to-child lookup lacks one. | Add the referencing-side index; record the `EXPLAIN` that justified any other index. |
+| 14 | Which FK edges need an index? | A child of a table that is purged, unreleased, or closed lacks an index on the referencing columns; a hot parent-to-child lookup lacks one. | Add the referencing-side index; record the `EXPLAIN` that justified any other index. `rule_14_unindexed_fk` (advisory). |
 | 15 | What deletes these rows? | The delete path (FERPA purge, Unrelease, retention, or none) is unnamed, or it is neither an FK cascade nor an explicit statement. | Name the path in the module comment; make it cascade or explicit. |
-| 16 | Does it have a clock? | The table lacks a `NOT NULL` creation clock; the clock is `timestamptz(n)`, an integer epoch, or `date` on an enforced/ordered/audited row; a current-state table lacks `updated_at`; an incremental integer key lacks a documented need. | Add the clock in the type its role requires; drop the counter. |
-| 17 | Is it where a reader expects? | The table sits outside `20_tables/<aggregate>.sql`, beside functions or grants, or lacks `COMMENT ON TABLE`. | Move it; comment it; regenerate `docs/SCHEMA_TABLES.md`. |
+| 16 | Does it have a clock? | The table lacks a `NOT NULL` creation clock; the clock is `timestamptz(n)`, an integer epoch, or `date` on an enforced/ordered/audited row; a current-state table lacks `updated_at`; an incremental integer key lacks a documented need. | Add the clock in the type its role requires; drop the counter. `rule_16_clock_present`, `rule_16_updated_clock`, `rule_16_clock_type`. |
+| 17 | Is it where a reader expects? | The table sits outside `20_tables/<aggregate>.sql`, beside functions or grants, or lacks `COMMENT ON TABLE`. | Move it; comment it; regenerate `docs/SCHEMA_TABLES.md`. `rule_layout` / `rule_17_role_tag`. |
 | 18 | Does it install and seed? | Fresh `install.sql` fails; the Live Demo seed fails; the changelog entry is missing. | Fix, then log. |
 
 ### Worked example

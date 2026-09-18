@@ -141,6 +141,47 @@ Prints every heading with its line number and the number of `- ` bullets directl
 largest first; `-n` limits the listing and `-m` hides sections below a bullet count. Use it to
 pick the sections of a long guidance document that want splitting.
 
+## Generate schema tables documentation
+
+```bash
+source source_me.sh && python3 devel/generate_schema_tables_doc.py
+```
+
+Reads `schemas/base_schema/` (override with `-s`/`--source-dir`) or a live
+database (`-d`/`--database`) through
+[../schema_style/schema_catalog_lib.py](../schema_style/schema_catalog_lib.py)
+and writes [SCHEMA_TABLES.md](SCHEMA_TABLES.md) (`-o`/`--output`) plus
+[../schemas/catalog_snapshot.json](../schemas/catalog_snapshot.json)
+(`-j`/`--snapshot`). One Markdown section per `20_tables/*.sql` file when that
+directory exists, otherwise one section per source file that contains
+`CREATE TABLE`. Each table lists its qualified name, role tag, columns, types,
+nullability, constraints, foreign keys, indexes, and catalog comments.
+
+The checker can load the same snapshot with `-j`/`--snapshot`. A missing
+snapshot path raises `FileNotFoundError`.
+
+## Check schema style
+
+```bash
+source source_me.sh && ./schema_style/check_schema_style.py
+```
+
+Reports mechanical rules from [DATABASE_STYLE.md](DATABASE_STYLE.md) against
+`schemas/base_schema/` (override with `-s`/`--source-dir`). Default stdout is one
+finding line per blocking violation (`rule_<id>`, location, message, source
+`file:line`), then a count per rule, then `N findings in M rules`. `-q`/`--quiet`
+prints those summary lines only. `-r`/`--report` includes advisory findings
+(`rule_layout` until `20_tables/` exists, M1 type/identity/clock rules, M2
+Student Work keys, and `rule_14_unindexed_fk`) in the stdout listing without
+changing the exit code. The full finding list is always written to
+`output/schema_style_findings.txt`. `-j`/`--snapshot` reads a catalog snapshot;
+`-d`/`--database` reads a live database.
+
+Exit 1 on blocking findings, 0 if clean. On the current mixed tree, layout is
+advisory and M1/M2 rules are advisory, so the gate exits 0 unless `table count`
+mismatches. `rule_layout` blocks once `20_tables/` exists. `rule_17_role_tag`
+blocks once any table carries a role tag.
+
 ## Evidence boundaries
 
 The completed baseline reset has connected PostgreSQL, service, browser,

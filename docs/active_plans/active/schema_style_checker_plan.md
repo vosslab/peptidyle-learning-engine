@@ -1,12 +1,12 @@
 # Plan: schema style checker
 
-A Python maintainer tool, `devel/check_schema_style.py`, that reports every mechanical rule in
+A Python maintainer tool, `schema_style/check_schema_style.py`, that reports every mechanical rule in
 [docs/DATABASE_STYLE.md](../../DATABASE_STYLE.md) against the SQL source today and against the
 installed catalog once [sql_schema_restructure_plan.md](sql_schema_restructure_plan.md) lands its
 layout. The two plans are separate: this one ships a tool; that one changes tables. The tool
 lands first so every restructure patch watches its finding counts fall.
 
-Status: not started. Opened 2026-09-18.
+Status: shipped 2026-09-18 (Tier 1 against current source). Opened 2026-09-18.
 
 ## Context
 
@@ -16,8 +16,10 @@ table, ~110 `text` columns with literal `IN (...)` CHECKs, 17 constant columns, 
 clock, 166 FK edges with no referencing-side index. Those numbers are the restructure plan's
 progress meter, and nothing in the repository can reproduce them. Off-the-shelf linters (SQLFluff,
 Squawk, schemalint, pgTAP) cover formatting, migration safety, or seven generic rules; none knows
-this repository's naming, clock, or key rules. The human's preference is a `devel/` Python tool
-run directly, with a fast turnaround, ahead of any pytest wrapper.
+this repository's naming, clock, or key rules. The human's preference is a Python tool run
+directly, with a fast turnaround, ahead of any pytest wrapper. It lives in the repo-root package
+`schema_style/` because `devel/` is a support location, not an import package
+([DEVEL_README.md](../../../devel/DEVEL_README.md) Import boundary).
 
 ## Objectives
 
@@ -42,12 +44,12 @@ the measurement.
 
 ## Scope
 
-- Write `devel/schema_catalog_lib.py`: parse `CREATE TABLE`, `CREATE TYPE ... AS ENUM`,
+- Write `schema_style/schema_catalog_lib.py`: parse `CREATE TABLE`, `CREATE TYPE ... AS ENUM`,
   `CREATE DOMAIN`, `CREATE INDEX`, `ALTER TABLE ... ADD FOREIGN KEY`, and `COMMENT ON TABLE`
   from the SQL source into one plain-dict model; load the same model from
   `schemas/catalog_snapshot.json`; load it from a live database through `psql` in a Podman
   container when `--database` is given.
-- Write `devel/check_schema_style.py`: run every rule over the model, print findings, exit code.
+- Write `schema_style/check_schema_style.py`: run every rule over the model, print findings, exit code.
 - Implement the Tier 1 rules now, Tier 2 rules gated on role tags, Tier 3 rules gated on catalog
   input.
 - Document usage in `docs/USAGE.md` and the tool's place in `docs/DATABASE_STYLE.md`.
@@ -62,14 +64,14 @@ the measurement.
 
 ## Approach
 
-1. Move the scratch parser into `devel/schema_catalog_lib.py` with a stable model:
+1. Move the scratch parser into `schema_style/schema_catalog_lib.py` with a stable model:
    `{"tables": {qualified_name: {"file", "line", "columns": [{name, type, not_null, check}],
    "primary_key": [...], "uniques": [[...]], "foreign_keys": [{columns, parent, parent_columns,
    file, line}], "comment", "role"}}, "enums": {...}, "domains": {...}, "indexes": [...]}`.
    Comment-strip, top-level-comma split, and `ALTER TABLE` FK capture carry over from the
    audit's parser; add `COMMENT ON TABLE` capture and a `role` field parsed from a comment that
    begins with `role:`.
-2. Write `check_schema_style.py` with `parse_args` (`-s/--source-dir` default
+2. Write `schema_style/check_schema_style.py` with `parse_args` (`-s/--source-dir` default
    `schemas/base_schema`, `-j/--snapshot` path, `-d/--database` name, `-r/--report` for advisory
    rules, `-q/--quiet` summary only), `main`, and one `rule_<id>` function per rule returning a
    list of `Finding(rule, location, message)`.
@@ -116,8 +118,8 @@ the measurement.
 
 ## Files to modify
 
-- `devel/schema_catalog_lib.py` (new): SQL parser, snapshot loader, live-catalog loader, model.
-- `devel/check_schema_style.py` (new, executable, shebang): rules, output, exit code.
+- `schema_style/schema_catalog_lib.py` (new): SQL parser, snapshot loader, live-catalog loader, model.
+- `schema_style/check_schema_style.py` (new, executable, shebang): rules, output, exit code.
 - `docs/USAGE.md`: one section with the command, flags, output shape, and exit codes.
 - `docs/DATABASE_STYLE.md`: "Organization of the SQL source" names the tool (already does) and
   each checklist row gains its `rule_<id>` name in the "Fix" column where a rule exists.
@@ -126,10 +128,10 @@ the measurement.
 
 ## Verification
 
-- `source source_me.sh && python3 devel/check_schema_style.py` on the current source prints the
+- `source source_me.sh && python3 schema_style/check_schema_style.py` on the current source prints the
   audit's counts within a stated tolerance (exact for 7, 2, 16; +-5 for 4 and 14, whose audit
   numbers came from a looser regex) and exits 1.
-- `python3 devel/check_schema_style.py --report --quiet` prints only summary lines.
+- `python3 schema_style/check_schema_style.py --report --quiet` prints only summary lines.
 - A scratch copy of `schemas/base_schema/` with one deliberate violation per rule (a
   `varchar(10)`, a `course_id` FK, a table with no clock) produces exactly one finding per rule;
   the scratch copy is deleted afterwards.
@@ -147,7 +149,7 @@ the measurement.
 | Regex parser misses a DDL shape | false clean | a table or FK absent from the model | tooling coder | the model's table count is printed and compared with `grep -c 'CREATE TABLE'`; a mismatch is a finding |
 | Rule disagrees with the audit count | trust lost on first run | count differs beyond tolerance | tooling coder | reconcile before the rule blocks; record the reason in the changelog |
 | Tool blocks before the schema can comply | restructure patches stall | Tier 2 rule fires with no tags | tooling coder | Tier 2 and 3 rules skip with a note until their inputs exist; Tier 1 layout rule reports until `20_tables/` exists |
-| Two parsers drift (checker vs generator) | inconsistent docs and findings | generator lands with its own reader | tooling coder | one library, `devel/schema_catalog_lib.py`, imported by both |
+| Two parsers drift (checker vs generator) | inconsistent docs and findings | generator lands with its own reader | tooling coder | one library, `schema_style/schema_catalog_lib.py`, imported by both |
 
 ## Open questions and decisions needed
 

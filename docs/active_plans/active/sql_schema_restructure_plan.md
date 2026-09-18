@@ -111,7 +111,7 @@ dependent milestone starts, and record it in `docs/DESIGN_DECISIONS.md` at close
 | `schemas/base_schema/30_constraints.sql`, `40_indexes.sql` | late FKs; measured indexes | schema coder |
 | `schemas/base_schema/50_functions/*.sql`, `60_policies.sql`, `70_grants.sql` | behavior, RLS, grants | schema coder |
 | `devel/generate_schema_tables_doc.py`, `docs/SCHEMA_TABLES.md` | generated structure doc | tooling coder |
-| `devel/check_schema_style.py`, `devel/schema_catalog_lib.py`, `schemas/catalog_snapshot.json` | style checker over the committed snapshot or a live database | tooling coder |
+| `schema_style/check_schema_style.py`, `schema_style/schema_catalog_lib.py`, `schemas/catalog_snapshot.json` | style checker over the committed snapshot or a live database | tooling coder |
 | `crates/learning-data-access/src/postgres/*` | Rust readers of changed columns | Rust coder |
 | `schemas/installation_data/live_demo.sql` | seed must load after every milestone | schema coder |
 
@@ -120,7 +120,7 @@ dependent milestone starts, and record it in `docs/DESIGN_DECISIONS.md` at close
 | Milestone / Workstream | Component | Review boundary |
 | --- | --- | --- |
 | M0 / WS-layout | all of `schemas/base_schema/`, `install.sql` | one patch, mechanical move |
-| M0 / WS-docgen | `devel/generate_schema_tables_doc.py`, `devel/check_schema_style.py` | one patch |
+| M0 / WS-docgen | `devel/generate_schema_tables_doc.py`, `schema_style/check_schema_style.py` | one patch |
 | M1 / WS-types | `10_types.sql`, every table file, Rust enum mappings | one patch per vocabulary family group |
 | M1 / WS-identity | Blueprint, Course, Assessment table files; `30_constraints.sql` | one patch |
 | M2 / WS-snapshots | `20_tables/assessment.sql`, `assessment_attempt.sql`, `50_functions/assessment_*` , Rust readers | two patches (policy, entry) |
@@ -143,7 +143,7 @@ dependent milestone starts, and record it in `docs/DESIGN_DECISIONS.md` at close
 - Depends on: none.
 - Deliverables: layered `schemas/base_schema/` tree; `install.sql` layer manifest; `COMMENT ON`
   for 146 tables; `devel/generate_schema_tables_doc.py`; committed `docs/SCHEMA_TABLES.md`;
-  `devel/check_schema_style.py`.
+  `schema_style/check_schema_style.py`.
 - Workstreams: WS-layout (serial, owns every SQL file), WS-docgen (independent, owns the two new
   Python files; runs against the pre-move tree first, then re-runs after).
 - Entry criteria: none.
@@ -241,7 +241,7 @@ dependent milestone starts, and record it in `docs/DESIGN_DECISIONS.md` at close
 - Owner: tooling coder.
 - Work packages: WP-0.4, WP-0.5.
 - Needs: a `20_tables/` directory to scan (may stub against the pre-move tree).
-- Provides: `docs/SCHEMA_TABLES.md`, `schemas/catalog_snapshot.json`, `devel/check_schema_style.py`.
+- Provides: `docs/SCHEMA_TABLES.md`, `schemas/catalog_snapshot.json`, `schema_style/check_schema_style.py`.
 - Review boundary: one patch.
 
 ### Workstream: WS-types
@@ -352,9 +352,10 @@ dependent milestone starts, and record it in `docs/DESIGN_DECISIONS.md` at close
 ### Work package: WP-0.5 extend the schema style checker to the new layout
 
 - Owner: tooling coder.
-- Touch points: `devel/check_schema_style.py` and `devel/schema_catalog_lib.py`, which
-  [schema_style_checker_plan.md](schema_style_checker_plan.md) ships ahead of this plan against
-  the current source; `schemas/catalog_snapshot.json` from WP-0.4.
+- Touch points: `schema_style/check_schema_style.py` and `schema_style/schema_catalog_lib.py`, which
+  [schema_style_checker_plan.md](schema_style_checker_plan.md) ships against the current source
+  (Tier 1 now); this work package extends that tool with Tier 2 rules and snapshot input.
+  `schemas/catalog_snapshot.json` from WP-0.4.
 - Depends on: WP-0.4; the checker plan's Tier 1 delivery.
 - Acceptance criteria: the checker reads the snapshot (`--snapshot`) and a live database
   (`--database`) and reports the same findings as the source run; its Tier 2 rules (role tags,
@@ -448,7 +449,7 @@ dependent milestone starts, and record it in `docs/DESIGN_DECISIONS.md` at close
   `question_revision_statistics.updated_at` becomes `created_on date` plus `updated_on date`
   (aggregate exception: day granularity, no time of day); Rust binds follow the type change; a fast pytest over
   `schemas/catalog_snapshot.json` fails on a table without a clock (rule 14 in
-  `devel/check_schema_style.py`).
+  `schema_style/check_schema_style.py`).
 - Obvious follow-ons: none.
 
 ### Work package: WP-1.8 key columns name their table
@@ -652,7 +653,7 @@ dependent milestone starts, and record it in `docs/DESIGN_DECISIONS.md` at close
 ## Acceptance criteria and gates
 
 - Per-patch gate: fresh install from `install.sql` in a disposable `postgres:17` container; Live
-  Demo seed loads; `devel/check_schema_style.py` exits clean, `tests/test_markdown_links.py` and the focused
+  Demo seed loads; `schema_style/check_schema_style.py` exits clean, `tests/test_markdown_links.py` and the focused
   Rust tests for touched readers pass; `docs/CHANGELOG.md` entry names the milestone and patch.
 - Integration gate (per milestone): the milestone's exit criteria; `./check_codebase.sh`;
   `docs/SCHEMA_TABLES.md` regenerated when any table changed.
