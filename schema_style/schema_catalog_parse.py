@@ -221,6 +221,11 @@ def _add_table_part(
 		start_line: Table line, used for inline FK locations.
 	"""
 	item = part.strip()
+	while item.startswith("--"):
+		newline = item.find("\n")
+		if newline < 0:
+			return
+		item = item[newline + 1:].strip()
 	if not item:
 		return
 	rest = _strip_constraint_name(item)

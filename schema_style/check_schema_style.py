@@ -15,6 +15,7 @@ import schema_style.schema_style_rules as schema_style_rules
 
 
 FINDINGS_PATH = "output/schema_style_findings.txt"
+DEFAULT_SNAPSHOT_PATH = "schemas/catalog_snapshot.json"
 RULE_ID_PATTERN = re.compile(r"^rule_(\d+)_(.*)$")
 
 
@@ -36,7 +37,7 @@ def parse_args() -> argparse.Namespace:
 	)
 	parser.add_argument(
 		"-j", "--snapshot", dest="snapshot", default=None,
-		help="Catalog snapshot JSON path",
+		help="Catalog snapshot JSON path (default: schemas/catalog_snapshot.json when that file exists)",
 	)
 	parser.add_argument(
 		"-d", "--database", dest="database", default=None,
@@ -68,8 +69,13 @@ def load_catalog(args: argparse.Namespace) -> tuple:
 	"""
 	catalog = schema_catalog_lib.load_from_source(args.source_dir)
 	tier3 = False
-	if args.snapshot is not None:
-		catalog = schema_catalog_lib.load_from_snapshot(args.snapshot)
+	snapshot = args.snapshot
+	if snapshot is None:
+		default_snapshot = pathlib.Path(DEFAULT_SNAPSHOT_PATH)
+		if default_snapshot.is_file():
+			snapshot = str(default_snapshot)
+	if snapshot is not None:
+		catalog = schema_catalog_lib.load_from_snapshot(snapshot)
 		tier3 = True
 	if args.database is not None:
 		catalog = schema_catalog_lib.load_from_database(args.database)

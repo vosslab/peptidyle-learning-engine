@@ -648,6 +648,8 @@ def rule_8_identity(catalog: dict) -> list:
 			if "generated" in col_type or "identity" in col_type:
 				identity_cols.add((qualified, column["name"]))
 		pk = table["primary_key"]
+		if qualified.startswith("ple_migration."):
+			continue
 		if len(pk) == 1:
 			pk_col = None
 			for column in table["columns"]:
@@ -753,9 +755,11 @@ def policy_usage_text() -> str:
 		"-v/--verbose also prints those finding lines to stdout. "
 		"-r/--report includes advisory findings (rule_14_unindexed_fk, and "
 		"rule_layout only when 20_tables/ is absent) in verbose stdout and "
-		"the findings file without changing the exit code. -j/--snapshot "
-		"reads a catalog snapshot; -d/--database reads a live database. "
-		"Exit 1 on blocking findings, 0 if clean."
+		"the findings file without changing the exit code. "
+		"-j/--snapshot reads a catalog snapshot (default "
+		"schemas/catalog_snapshot.json when that file exists); "
+		"-d/--database reads a live database. Snapshot and database runs "
+		"apply Tier 3 rules. Exit 1 on blocking findings, 0 if clean."
 	)
 	return text
 
