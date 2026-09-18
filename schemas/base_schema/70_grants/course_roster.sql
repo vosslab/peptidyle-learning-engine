@@ -8,7 +8,7 @@ REVOKE ALL ON TABLE ple_private.course_invitation,ple_private.course_invitation_
 -- Invitation acceptance locks its immutable invitation row so concurrent
 -- claims serialize before the unique acceptance event is inserted.  UPDATE is
 -- used only for that row lock; the immutability trigger rejects data changes.
-GRANT SELECT, INSERT, UPDATE (invitation_id) ON ple_private.course_invitation TO ple_api_owner;
+GRANT SELECT, INSERT, UPDATE (course_invitation_id) ON ple_private.course_invitation TO ple_api_owner;
 
 GRANT SELECT, INSERT ON ple_private.course_invitation_event,
     ple_private.course_roster_profile TO ple_api_owner;

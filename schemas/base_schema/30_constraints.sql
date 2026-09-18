@@ -4,7 +4,7 @@ SET LOCAL ROLE ple_audit_owner;
 
 ALTER TABLE ple_audit.instructor_account_creation_event
     ADD CONSTRAINT instructor_account_creation_event_vetting_decision_id_fkey
-    FOREIGN KEY (vetting_decision_id)
+    FOREIGN KEY (instructor_identity_vetting_decision_id)
     REFERENCES ple_audit.instructor_identity_vetting_decision (decision_id);
 
 SET LOCAL ROLE ple_data_owner;
@@ -18,11 +18,11 @@ SET LOCAL ROLE ple_private_owner;
 
 ALTER TABLE ple_private.draft_question_source_binding
     ADD CONSTRAINT draft_question_source_binding_object_record_exists
-    FOREIGN KEY (source_object_id) REFERENCES ple_private.object_record(object_id);
+    FOREIGN KEY (source_object_record_id) REFERENCES ple_private.object_record(object_record_id);
 
 ALTER TABLE ple_private.question_revision_source_binding
     ADD CONSTRAINT question_revision_source_binding_object_record_exists
-    FOREIGN KEY (source_object_id) REFERENCES ple_private.object_record(object_id);
+    FOREIGN KEY (source_object_record_id) REFERENCES ple_private.object_record(object_record_id);
 
 SET LOCAL ROLE ple_data_owner;
 
@@ -30,7 +30,7 @@ ALTER TABLE ple_data.blueprint_course
     ADD CONSTRAINT blueprint_course_current_revision_fk
     FOREIGN KEY (reference_number, current_blueprint_revision_number)
     REFERENCES ple_data.blueprint_course_revision (
-        blueprint_course_reference_number, blueprint_revision_number
+        blueprint_course_id, blueprint_revision_number
     ) DEFERRABLE INITIALLY DEFERRED;
 
 
@@ -40,9 +40,9 @@ ALTER TABLE ple_data.blueprint_course
 -- children, and its event in that order without an RLS-sensitive trigger.
 ALTER TABLE ple_data.blueprint_course_revision
     ADD CONSTRAINT blueprint_revision_requires_event_fk
-    FOREIGN KEY (blueprint_course_reference_number, blueprint_revision_number)
+    FOREIGN KEY (blueprint_course_id, blueprint_revision_number)
     REFERENCES ple_data.blueprint_revision_event (
-        blueprint_course_reference_number, blueprint_revision_number
+        blueprint_course_id, blueprint_revision_number
     ) DEFERRABLE INITIALLY DEFERRED;
 
 -- Course banner metadata and the database half of its object-store saga.
@@ -54,7 +54,7 @@ ALTER TABLE ple_data.blueprint_course_revision
 -- exist until this point in the manifest.
 ALTER TABLE ple_data.course_object_delivery
     ADD CONSTRAINT course_object_delivery_course_fkey
-    FOREIGN KEY (course_id) REFERENCES ple_data.course_instance(course_id);
+    FOREIGN KEY (course_instance_id) REFERENCES ple_data.course_instance(course_instance_id);
 
 ALTER TABLE ple_data.course_instance
     ADD COLUMN current_course_banner_id uuid,
@@ -103,8 +103,8 @@ SET LOCAL ROLE ple_data_owner;
 -- each family self-contained without a corrective migration.
 ALTER TABLE ple_data.course_instance
     ADD CONSTRAINT course_instance_current_banner_fkey
-        FOREIGN KEY (course_id, current_course_banner_id)
-        REFERENCES ple_data.course_banner(course_id, course_banner_id);
+        FOREIGN KEY (course_instance_id, current_course_banner_id)
+        REFERENCES ple_data.course_banner(course_instance_id, course_banner_id);
 
 SET LOCAL ROLE ple_private_owner;
 

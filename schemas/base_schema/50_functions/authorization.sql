@@ -38,7 +38,7 @@ AS $$
                LIMIT 1
           ) AS state_event ON state_event.state = 'active'
          WHERE account.account_id = ple_api.current_session_account_id()
-           AND account.product_role = p_role
+           AND account.product_role = p_role::ple_data.product_role
     )
 $$;
 
@@ -62,88 +62,88 @@ RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api
 AS $$ SELECT ple_api.current_session_account_has_platform_administration() $$;
 
-CREATE FUNCTION ple_api.current_session_account_is_course_instructor(p_course_id uuid)
+CREATE FUNCTION ple_api.current_session_account_is_course_instructor(p_course_instance_id uuid)
 RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data
 AS $$
 DECLARE allowed boolean;
 BEGIN
-    IF p_course_id IS NULL THEN RETURN false; END IF;
+    IF p_course_instance_id IS NULL THEN RETURN false; END IF;
     EXECUTE
         'SELECT EXISTS (
             SELECT 1 FROM ple_data.course_membership AS membership
-             WHERE membership.course_id = $1
+             WHERE membership.course_instance_id = $1
                AND membership.account_id = ple_api.current_session_account_id()
                AND membership.role = ''instructor''
-               AND ple_data.course_membership_is_active(membership.membership_id)
+               AND ple_data.course_membership_is_active(membership.course_membership_id)
          )'
-    INTO allowed USING p_course_id;
+    INTO allowed USING p_course_instance_id;
     RETURN allowed;
 END
 $$;
 
-CREATE FUNCTION ple_api.current_session_account_is_course_member(p_course_id uuid)
+CREATE FUNCTION ple_api.current_session_account_is_course_member(p_course_instance_id uuid)
 RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data
 AS $$
 DECLARE allowed boolean;
 BEGIN
-    IF p_course_id IS NULL THEN RETURN false; END IF;
+    IF p_course_instance_id IS NULL THEN RETURN false; END IF;
     EXECUTE
         'SELECT EXISTS (
             SELECT 1 FROM ple_data.course_membership AS membership
-             WHERE membership.course_id = $1
+             WHERE membership.course_instance_id = $1
                AND membership.account_id = ple_api.current_session_account_id()
-               AND ple_data.course_membership_is_active(membership.membership_id)
+               AND ple_data.course_membership_is_active(membership.course_membership_id)
          )'
-    INTO allowed USING p_course_id;
+    INTO allowed USING p_course_instance_id;
     RETURN allowed;
 END
 $$;
 
 CREATE FUNCTION ple_api.current_session_account_owns_course_membership(
-    p_course_id uuid, p_membership_id uuid
+    p_course_instance_id uuid, p_membership_id uuid
 )
 RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data
 AS $$
 DECLARE allowed boolean;
 BEGIN
-    IF p_course_id IS NULL OR p_membership_id IS NULL THEN RETURN false; END IF;
+    IF p_course_instance_id IS NULL OR p_membership_id IS NULL THEN RETURN false; END IF;
     EXECUTE
         'SELECT EXISTS (
             SELECT 1 FROM ple_data.course_membership AS membership
-             WHERE membership.course_id = $1 AND membership.membership_id = $2
+             WHERE membership.course_instance_id = $1 AND membership.course_membership_id = $2
                AND membership.account_id = ple_api.current_session_account_id()
-               AND ple_data.course_membership_is_active(membership.membership_id)
+               AND ple_data.course_membership_is_active(membership.course_membership_id)
          )'
-    INTO allowed USING p_course_id, p_membership_id;
+    INTO allowed USING p_course_instance_id, p_membership_id;
     RETURN allowed;
 END
 $$;
 
 CREATE FUNCTION ple_api.current_session_account_owns_student_record(
-    p_course_id uuid, p_student_record_id uuid
+    p_course_instance_id uuid, p_student_record_id uuid
 )
 RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data
 AS $$
 DECLARE allowed boolean;
 BEGIN
-    IF p_course_id IS NULL OR p_student_record_id IS NULL THEN RETURN false; END IF;
+    IF p_course_instance_id IS NULL OR p_student_record_id IS NULL THEN RETURN false; END IF;
     EXECUTE
         'SELECT EXISTS (
             SELECT 1
               FROM ple_data.student_record AS student
               JOIN ple_data.course_membership AS membership
                 ON membership.student_record_id = student.student_record_id
-             WHERE student.course_id = $1 AND student.student_record_id = $2
+             WHERE student.course_instance_id = $1 AND student.student_record_id = $2
                AND student.student_account_id = ple_api.current_session_account_id()
                AND membership.account_id = student.student_account_id
                AND membership.role = ''student''
-               AND ple_data.course_membership_is_active(membership.membership_id)
+               AND ple_data.course_membership_is_active(membership.course_membership_id)
          )'
-    INTO allowed USING p_course_id, p_student_record_id;
+    INTO allowed USING p_course_instance_id, p_student_record_id;
     RETURN allowed;
 END
 $$;

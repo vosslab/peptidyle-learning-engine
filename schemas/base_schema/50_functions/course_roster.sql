@@ -11,9 +11,9 @@ RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_private AS $$
 BEGIN
     -- Column-level grants and immutable identity checks constrain name correction.
     IF TG_OP = 'UPDATE' AND current_user = 'ple_api_owner'
-       AND ROW(NEW.course_roster_profile_id, NEW.course_id, NEW.student_account_id,
+       AND ROW(NEW.course_roster_profile_id, NEW.course_instance_id, NEW.student_account_id,
                NEW.roster_id, NEW.created_at)
-           IS NOT DISTINCT FROM ROW(OLD.course_roster_profile_id, OLD.course_id,
+           IS NOT DISTINCT FROM ROW(OLD.course_roster_profile_id, OLD.course_instance_id,
                OLD.student_account_id, OLD.roster_id, OLD.created_at) THEN
         RETURN NEW;
     END IF;
@@ -26,7 +26,7 @@ END $$;
 -- invitation delivery operation; callers cannot use it for active, revoked,
 -- expired, or unrelated Course records.
 CREATE FUNCTION ple_private.pending_course_invitation_delivery_email(
-    p_course_id uuid, p_student_account_id uuid
+    p_course_instance_id uuid, p_student_account_id uuid
 ) RETURNS text
 LANGUAGE sql VOLATILE SECURITY DEFINER
 SET search_path = pg_catalog, ple_private
@@ -37,14 +37,14 @@ AS $$
        AND EXISTS (
            SELECT 1
              FROM ple_private.course_invitation AS invitation
-            WHERE invitation.course_id = $1
+            WHERE invitation.course_instance_id = $1
               AND invitation.target_account_id = $2
               AND invitation.membership_role = 'student'
               AND invitation.expires_at > pg_catalog.clock_timestamp()
               AND NOT EXISTS (
                   SELECT 1
                     FROM ple_private.course_invitation_event AS event
-                   WHERE event.invitation_id = invitation.invitation_id
+                   WHERE event.course_invitation_id = invitation.course_invitation_id
               )
        )
 $$;
@@ -57,7 +57,7 @@ CREATE TRIGGER course_roster_profile_is_immutable BEFORE UPDATE OR DELETE ON ple
 
 CREATE FUNCTION ple_private.assert_course_invitation_event_is_valid() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,ple_private AS $$
 DECLARE invite ple_private.course_invitation%ROWTYPE;
-BEGIN SELECT * INTO invite FROM ple_private.course_invitation WHERE invitation_id=NEW.invitation_id;
+BEGIN SELECT * INTO invite FROM ple_private.course_invitation WHERE course_invitation_id=NEW.course_invitation_id;
  IF NOT FOUND OR NEW.occurred_at<invite.issued_at OR NEW.occurred_at>=invite.expires_at OR (NEW.event_kind IN ('accepted','declined') AND NEW.performed_by_account_id<>invite.target_account_id) THEN RAISE EXCEPTION USING ERRCODE='23514',MESSAGE='Course Invitation Event is outside its exact transition boundary'; END IF; RETURN NEW; END $$;
 
 CREATE TRIGGER course_invitation_event_has_valid_transition BEFORE INSERT ON ple_private.course_invitation_event FOR EACH ROW EXECUTE FUNCTION ple_private.assert_course_invitation_event_is_valid();

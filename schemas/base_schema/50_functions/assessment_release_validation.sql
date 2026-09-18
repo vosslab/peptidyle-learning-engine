@@ -57,7 +57,7 @@ BEGIN
     SELECT assessment.*, course.active_until_at
       INTO assessment_row
       FROM ple_data.assessment AS assessment
-      JOIN ple_data.course_instance AS course ON course.course_id = assessment.course_id
+      JOIN ple_data.course_instance AS course ON course.course_instance_id = assessment.course_instance_id
      WHERE assessment.assessment_id = p_assessment_id;
     IF NOT FOUND THEN
         RETURN;

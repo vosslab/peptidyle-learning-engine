@@ -8,17 +8,15 @@ SET LOCAL ROLE ple_data_owner;
 -- Guidance event kinds. It is not a generic event bus and never delivers email.
 CREATE TABLE ple_data.library_watch_event (
     event_id uuid PRIMARY KEY DEFAULT pg_catalog.gen_random_uuid(),
-    target_kind text NOT NULL CHECK (target_kind IN ('question', 'question_pool')),
+    target_kind ple_data.library_object_kind NOT NULL,
     target_public_id text NOT NULL CHECK (
         target_public_id ~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
         AND substr(target_public_id, 6, 1) = ple_private.crockford_checksum_character(
             substr(target_public_id, 1, 4) || substr(target_public_id, 7, 3)
         )
     ),
-    event_kind text NOT NULL CHECK (event_kind IN (
-        'revision', 'fork', 'improvement_thread', 'impact_notice'
-    )),
-    revision_number bigint CHECK (revision_number > 0),
+    event_kind ple_data.library_watch_event_kind NOT NULL,
+    revision_number integer CHECK (revision_number > 0),
     forked_public_id text CHECK (forked_public_id IS NULL
         OR (forked_public_id ~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
             AND substr(forked_public_id, 6, 1) = ple_private.crockford_checksum_character(
@@ -41,33 +39,34 @@ CREATE TABLE ple_data.library_watch_event (
 
 
 
+
 -- Recipient snapshots preserve who was actively subscribed when the source
 -- event INSERT statement ran in its transaction. That transaction commits or
 -- rolls back the event and frozen snapshot together; a later Watch/unwatch
 -- cannot rewrite that event.
 CREATE TABLE ple_data.library_watch_event_recipient (
-    event_id uuid NOT NULL REFERENCES ple_data.library_watch_event(event_id),
+    library_watch_event_id uuid NOT NULL REFERENCES ple_data.library_watch_event(event_id),
     recipient_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
-    PRIMARY KEY (event_id, recipient_account_id)
+    PRIMARY KEY (library_watch_event_id, recipient_account_id),
+    created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
 );
+
 
 SET LOCAL ROLE ple_private_owner;
 
 CREATE TABLE ple_private.library_watch_notification (
     notification_id uuid PRIMARY KEY DEFAULT pg_catalog.gen_random_uuid(),
     recipient_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
-    event_id uuid NOT NULL REFERENCES ple_data.library_watch_event(event_id),
-    target_kind text NOT NULL CHECK (target_kind IN ('question', 'question_pool')),
+    library_watch_event_id uuid NOT NULL REFERENCES ple_data.library_watch_event(event_id),
+    target_kind ple_data.library_object_kind NOT NULL,
     target_public_id text NOT NULL CHECK (
         target_public_id ~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
         AND substr(target_public_id, 6, 1) = ple_private.crockford_checksum_character(
             substr(target_public_id, 1, 4) || substr(target_public_id, 7, 3)
         )
     ),
-    event_kind text NOT NULL CHECK (event_kind IN (
-        'revision', 'fork', 'improvement_thread', 'impact_notice'
-    )),
-    revision_number bigint CHECK (revision_number > 0),
+    event_kind ple_data.library_watch_event_kind NOT NULL,
+    revision_number integer CHECK (revision_number > 0),
     forked_public_id text CHECK (forked_public_id IS NULL
         OR (forked_public_id ~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
             AND substr(forked_public_id, 6, 1) = ple_private.crockford_checksum_character(
@@ -75,7 +74,7 @@ CREATE TABLE ple_private.library_watch_notification (
             ))),
     activity_id uuid,
     occurred_at timestamptz NOT NULL,
-    UNIQUE (recipient_account_id, event_id),
+    UNIQUE (recipient_account_id, library_watch_event_id),
     CHECK (
         (event_kind = 'revision' AND revision_number IS NOT NULL
             AND forked_public_id IS NULL AND activity_id IS NULL)
@@ -88,13 +87,90 @@ CREATE TABLE ple_private.library_watch_notification (
     )
 );
 
+
 SET LOCAL ROLE ple_data_owner;
 
+SET LOCAL ROLE ple_data_owner;
 COMMENT ON TABLE ple_data.library_watch_event IS 'role: event, deleted by Watch unsubscribe and event retention. HUMAN_GUIDANCE.md Library Watch.';
 
 COMMENT ON TABLE ple_data.library_watch_event_recipient IS 'role: event, deleted by Watch unsubscribe and event retention. HUMAN_GUIDANCE.md Library Watch.';
 
 SET LOCAL ROLE ple_private_owner;
 
+SET LOCAL ROLE ple_private_owner;
+COMMENT ON TABLE ple_private.library_watch_notification IS 'role: event, deleted by Watch unsubscribe and event retention. HUMAN_GUIDANCE.md Library Watch.';
+
+
+
+SET LOCAL ROLE ple_data_owner;
+
+SET LOCAL ROLE ple_data_owner;
+COMMENT ON TABLE ple_data.library_watch_event IS 'role: event, deleted by Watch unsubscribe and event retention. HUMAN_GUIDANCE.md Library Watch.';
+
+COMMENT ON TABLE ple_data.library_watch_event_recipient IS 'role: event, deleted by Watch unsubscribe and event retention. HUMAN_GUIDANCE.md Library Watch.';
+
+SET LOCAL ROLE ple_private_owner;
+
+SET LOCAL ROLE ple_private_owner;
+COMMENT ON TABLE ple_private.library_watch_notification IS 'role: event, deleted by Watch unsubscribe and event retention. HUMAN_GUIDANCE.md Library Watch.';
+
+
+
+SET LOCAL ROLE ple_private_owner;
+
+
+SET LOCAL ROLE ple_data_owner;
+
+SET LOCAL ROLE ple_data_owner;
+COMMENT ON TABLE ple_data.library_watch_event IS 'role: event, deleted by Watch unsubscribe and event retention. HUMAN_GUIDANCE.md Library Watch.';
+
+COMMENT ON TABLE ple_data.library_watch_event_recipient IS 'role: event, deleted by Watch unsubscribe and event retention. HUMAN_GUIDANCE.md Library Watch.';
+
+SET LOCAL ROLE ple_private_owner;
+
+SET LOCAL ROLE ple_private_owner;
+COMMENT ON TABLE ple_private.library_watch_notification IS 'role: event, deleted by Watch unsubscribe and event retention. HUMAN_GUIDANCE.md Library Watch.';
+
+
+
+SET LOCAL ROLE ple_data_owner;
+
+SET LOCAL ROLE ple_data_owner;
+COMMENT ON TABLE ple_data.library_watch_event IS 'role: event, deleted by Watch unsubscribe and event retention. HUMAN_GUIDANCE.md Library Watch.';
+
+COMMENT ON TABLE ple_data.library_watch_event_recipient IS 'role: event, deleted by Watch unsubscribe and event retention. HUMAN_GUIDANCE.md Library Watch.';
+
+SET LOCAL ROLE ple_private_owner;
+
+SET LOCAL ROLE ple_private_owner;
+COMMENT ON TABLE ple_private.library_watch_notification IS 'role: event, deleted by Watch unsubscribe and event retention. HUMAN_GUIDANCE.md Library Watch.';
+
+
+
+
+SET LOCAL ROLE ple_data_owner;
+
+SET LOCAL ROLE ple_data_owner;
+COMMENT ON TABLE ple_data.library_watch_event IS 'role: event, deleted by Watch unsubscribe and event retention. HUMAN_GUIDANCE.md Library Watch.';
+
+COMMENT ON TABLE ple_data.library_watch_event_recipient IS 'role: event, deleted by Watch unsubscribe and event retention. HUMAN_GUIDANCE.md Library Watch.';
+
+SET LOCAL ROLE ple_private_owner;
+
+SET LOCAL ROLE ple_private_owner;
+COMMENT ON TABLE ple_private.library_watch_notification IS 'role: event, deleted by Watch unsubscribe and event retention. HUMAN_GUIDANCE.md Library Watch.';
+
+
+
+SET LOCAL ROLE ple_data_owner;
+
+SET LOCAL ROLE ple_data_owner;
+COMMENT ON TABLE ple_data.library_watch_event IS 'role: event, deleted by Watch unsubscribe and event retention. HUMAN_GUIDANCE.md Library Watch.';
+
+COMMENT ON TABLE ple_data.library_watch_event_recipient IS 'role: event, deleted by Watch unsubscribe and event retention. HUMAN_GUIDANCE.md Library Watch.';
+
+SET LOCAL ROLE ple_private_owner;
+
+SET LOCAL ROLE ple_private_owner;
 COMMENT ON TABLE ple_private.library_watch_notification IS 'role: event, deleted by Watch unsubscribe and event retention. HUMAN_GUIDANCE.md Library Watch.';
 

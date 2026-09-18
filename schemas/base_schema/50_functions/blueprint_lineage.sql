@@ -48,7 +48,7 @@ BEGIN
            ple_private.verified_instructor_display_name(child.owner_account_id)
       FROM ple_data.blueprint_course_fork AS ancestry
       JOIN ple_data.blueprint_course AS child
-        ON child.reference_number = ancestry.blueprint_course_reference_number
+        ON child.reference_number = ancestry.blueprint_course_id
      WHERE ancestry.source_blueprint_course_reference_number = v_source_reference_number
        AND (child.availability IN ('public', 'archived')
            OR child.owner_account_id = v_actor)
@@ -127,14 +127,14 @@ BEGIN
             SELECT ancestry.source_blueprint_course_reference_number
               FROM ple_data.blueprint_course_fork AS ancestry
               JOIN left_ancestors AS ancestor ON ancestor.reference_number =
-                  ancestry.blueprint_course_reference_number
+                  ancestry.blueprint_course_id
         ), right_ancestors(reference_number) AS (
             SELECT v_fork.reference_number
             UNION
             SELECT ancestry.source_blueprint_course_reference_number
               FROM ple_data.blueprint_course_fork AS ancestry
               JOIN right_ancestors AS ancestor ON ancestor.reference_number =
-                  ancestry.blueprint_course_reference_number
+                  ancestry.blueprint_course_id
         )
         SELECT 1 FROM left_ancestors JOIN right_ancestors USING (reference_number)
     ) THEN RETURN; END IF;
@@ -150,7 +150,7 @@ BEGIN
               v_fork.current_blueprint_revision_number)
       ) AS inputs(position, reference_number, reference, revision_number)
       JOIN ple_data.blueprint_course_revision AS revision
-        ON revision.blueprint_course_reference_number = inputs.reference_number
+        ON revision.blueprint_course_id = inputs.reference_number
        AND revision.blueprint_revision_number = inputs.revision_number
      ORDER BY inputs.position;
 END
@@ -181,7 +181,7 @@ BEGIN
     END IF;
     SELECT ancestry.* INTO v_origin FROM ple_data.blueprint_course_fork AS ancestry
       JOIN ple_data.blueprint_course AS fork_course
-        ON fork_course.reference_number = ancestry.blueprint_course_reference_number
+        ON fork_course.reference_number = ancestry.blueprint_course_id
       JOIN ple_data.blueprint_course AS source_course
         ON source_course.reference_number = ancestry.source_blueprint_course_reference_number
      WHERE fork_course.public_reference = p_fork_reference
@@ -190,10 +190,10 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Blueprint Course is unavailable';
     END IF;
     FOR v_reference IN SELECT course.reference_number FROM ple_data.blueprint_course AS course
-      WHERE course.reference_number IN (v_origin.blueprint_course_reference_number,
+      WHERE course.reference_number IN (v_origin.blueprint_course_id,
           v_origin.source_blueprint_course_reference_number) ORDER BY course.reference_number
     LOOP
-        IF v_reference = v_origin.blueprint_course_reference_number THEN
+        IF v_reference = v_origin.blueprint_course_id THEN
             PERFORM 1 FROM ple_data.blueprint_course WHERE reference_number = v_reference FOR UPDATE;
         ELSE
             PERFORM 1 FROM ple_data.blueprint_course WHERE reference_number = v_reference FOR SHARE;
@@ -202,7 +202,7 @@ BEGIN
     SELECT course.* INTO STRICT v_source FROM ple_data.blueprint_course AS course
       WHERE course.reference_number = v_origin.source_blueprint_course_reference_number;
     SELECT course.* INTO STRICT v_fork FROM ple_data.blueprint_course AS course
-      WHERE course.reference_number = v_origin.blueprint_course_reference_number;
+      WHERE course.reference_number = v_origin.blueprint_course_id;
     IF NOT ple_api.current_session_account_is_instructor()
        OR v_fork.owner_account_id <> v_actor
        OR NOT (v_source.availability IN ('public', 'archived') OR v_source.owner_account_id = v_actor) THEN
@@ -224,7 +224,7 @@ BEGIN
           (1, v_fork.reference_number, p_fork_revision, v_fork.short_name, v_fork.long_name))
           AS inputs(position, reference_number, revision_number, current_short_name, current_long_name)
       JOIN ple_data.blueprint_course_revision AS revision
-        ON revision.blueprint_course_reference_number = inputs.reference_number
+        ON revision.blueprint_course_id = inputs.reference_number
        AND revision.blueprint_revision_number = inputs.revision_number ORDER BY inputs.position;
 END
 $$;
@@ -268,7 +268,7 @@ BEGIN
     END IF;
     RETURN QUERY SELECT revision.content, revision.content_checksum
       FROM ple_data.blueprint_course_revision AS revision
-     WHERE revision.blueprint_course_reference_number = v_source_reference
+     WHERE revision.blueprint_course_id = v_source_reference
        AND revision.blueprint_revision_number = p_source_revision_number;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '23503',
@@ -333,7 +333,7 @@ BEGIN
       INTO public_reference, blueprint_revision_number, metadata_etag, accepted_at
       FROM ple_data.blueprint_course_fork_receipt AS receipt
       JOIN ple_data.blueprint_course AS course
-        ON course.reference_number = receipt.blueprint_course_reference_number
+        ON course.reference_number = receipt.blueprint_course_id
      WHERE receipt.actor_account_id = v_actor
        AND receipt.request_checksum = p_request_checksum;
     IF FOUND THEN
@@ -354,7 +354,7 @@ BEGIN
     END IF;
     SELECT * INTO v_source_revision
       FROM ple_data.blueprint_course_revision AS source_revision
-     WHERE source_revision.blueprint_course_reference_number = v_source_reference_number
+     WHERE source_revision.blueprint_course_id = v_source_reference_number
        AND source_revision.blueprint_revision_number = p_source_revision_number;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '23503',
@@ -424,15 +424,15 @@ BEGIN
                             AND child.interchangeability_attested_at = source.interchangeability_attested_at)
                        OR EXISTS (
                            SELECT 1 FROM
-                               (SELECT member_position, question_id, question_revision_number
+                               (SELECT member_position, published_question_id, question_revision_number
                                   FROM ple_data.question_pool_revision_member
                                  WHERE question_pool_id = v_child_pool.question_pool_id AND revision_number = 1) AS child
                            FULL JOIN
-                               (SELECT member_position, question_id, question_revision_number
+                               (SELECT member_position, published_question_id, question_revision_number
                                   FROM ple_data.question_pool_revision_member
                                  WHERE question_pool_id = v_source_pool.question_pool_id AND revision_number = v_source_pool_revision) AS source
                              USING (member_position)
-                           WHERE child.question_id IS DISTINCT FROM source.question_id
+                           WHERE child.published_question_id IS DISTINCT FROM source.published_question_id
                               OR child.question_revision_number IS DISTINCT FROM source.question_revision_number) THEN
                         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Blueprint fork Pool differs from exact source';
                     END IF;
@@ -452,15 +452,15 @@ BEGIN
     INSERT INTO ple_data.blueprint_course AS child (
         blueprint_id, owner_account_id, short_name, long_name, availability,
         metadata_etag, current_blueprint_revision_number, created_at,
-        discipline_uuid, subject_uuid, topic_uuid, subtopic_uuid, tags
+        content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags
     ) VALUES (
         p_blueprint_id, v_actor, v_source.short_name, v_source.long_name, 'private',
         v_metadata_etag, 1, v_now,
-        v_source.discipline_uuid, v_source.subject_uuid, v_source.topic_uuid,
-        v_source.subtopic_uuid, v_source.tags
+        v_source.content_discipline_id, v_source.content_subject_id, v_source.content_topic_id,
+        v_source.content_subtopic_id, v_source.tags
     ) RETURNING child.reference_number INTO v_child_reference;
     INSERT INTO ple_data.blueprint_course_revision (
-        blueprint_course_reference_number, blueprint_revision_number,
+        blueprint_course_id, blueprint_revision_number,
         content, content_checksum, saved_at
     ) VALUES (
         v_child_reference, v_child_revision, p_content,
@@ -468,7 +468,7 @@ BEGIN
     );
     INSERT INTO ple_data.blueprint_revision_question_pin
     SELECT v_child_reference, v_child_revision, pin.content_path,
-           pin.question_id, pin.question_revision_number
+           pin.published_question_id, pin.question_revision_number
       FROM ple_data.blueprint_content_question_pins(p_content) AS pin;
     INSERT INTO ple_data.blueprint_revision_module
     SELECT v_child_reference, v_child_revision, member.blueprint_module_reference,
@@ -479,20 +479,20 @@ BEGIN
            member.blueprint_assessment_reference, member.assessment_position
       FROM ple_data.blueprint_content_assessments(p_content) AS member;
     INSERT INTO ple_data.blueprint_revision_event (
-        blueprint_course_reference_number, blueprint_revision_number, actor_account_id,
+        blueprint_course_id, blueprint_revision_number, actor_account_id,
         request_checksum, occurred_at
     ) VALUES (
         v_child_reference, v_child_revision, v_actor, p_request_checksum, v_now
     );
     INSERT INTO ple_data.blueprint_metadata_event (
-        blueprint_course_reference_number, actor_account_id, short_name, long_name,
+        blueprint_course_id, actor_account_id, short_name, long_name,
         availability, metadata_etag, occurred_at,
-        discipline_uuid, subject_uuid, topic_uuid, subtopic_uuid, tags
+        content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags
     ) VALUES (
         v_child_reference, v_actor, v_source.short_name, v_source.long_name,
         'private', v_metadata_etag, v_now,
-        v_source.discipline_uuid, v_source.subject_uuid, v_source.topic_uuid,
-        v_source.subtopic_uuid, v_source.tags
+        v_source.content_discipline_id, v_source.content_subject_id, v_source.content_topic_id,
+        v_source.content_subtopic_id, v_source.tags
     );
     INSERT INTO ple_data.blueprint_course_fork VALUES (
         v_child_reference, v_source_reference_number, p_source_revision_number, v_now

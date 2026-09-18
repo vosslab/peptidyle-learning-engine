@@ -9,7 +9,7 @@ CREATE FUNCTION ple_api.list_blueprint_history(
 RETURNS TABLE (
     continuation_key text, revision_number bigint, recorded_at_ms bigint,
     short_name text, long_name text, availability text,
-    discipline_uuid uuid, subject_uuid uuid, topic_uuid uuid, subtopic_uuid uuid, tags text[]
+    content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid, content_subtopic_id uuid, tags text[]
 )
 LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private
@@ -48,7 +48,7 @@ BEGIN
                NULL::text, NULL::text, NULL::text,
                NULL::uuid, NULL::uuid, NULL::uuid, NULL::uuid, NULL::text[]
           FROM ple_data.blueprint_course_revision AS revision
-         WHERE revision.blueprint_course_reference_number = v_reference
+         WHERE revision.blueprint_course_id = v_reference
            AND (p_after IS NULL OR revision.blueprint_revision_number < p_after::bigint)
          ORDER BY revision.blueprint_revision_number DESC LIMIT p_page_size + 1;
     ELSE
@@ -61,14 +61,14 @@ BEGIN
         SELECT event.metadata_etag::text, NULL::bigint,
                (extract(epoch FROM event.occurred_at) * 1000)::bigint,
                event.short_name, event.long_name, event.availability,
-               event.discipline_uuid, event.subject_uuid, event.topic_uuid,
-               event.subtopic_uuid, event.tags
+               event.content_discipline_id, event.content_subject_id, event.content_topic_id,
+               event.content_subtopic_id, event.tags
           FROM ple_data.blueprint_metadata_event AS event
-         WHERE event.blueprint_course_reference_number = v_reference
+         WHERE event.blueprint_course_id = v_reference
            AND (p_after IS NULL OR event.blueprint_metadata_event_id < (
                SELECT prior.blueprint_metadata_event_id
                  FROM ple_data.blueprint_metadata_event AS prior
-                WHERE prior.blueprint_course_reference_number = v_reference
+                WHERE prior.blueprint_course_id = v_reference
                   AND prior.metadata_etag = p_after::uuid))
          ORDER BY event.blueprint_metadata_event_id DESC LIMIT p_page_size + 1;
     END IF;

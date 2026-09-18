@@ -22,38 +22,38 @@ FOR EACH ROW EXECUTE FUNCTION ple_data.reject_blueprint_course_instance_source_c
 -- ordinary Available-Published-Question predicate to fixed pins and every
 -- exact Pool member. The data-owner capability avoids granting the API owner
 -- a general Question update privilege merely to obtain row locks.
-CREATE FUNCTION ple_data.lock_course_blueprint_publication_questions(p_course_id uuid)
+CREATE FUNCTION ple_data.lock_course_blueprint_publication_questions(p_course_instance_id uuid)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data
 AS $$
 BEGIN
-    IF NOT ple_api.current_session_account_is_course_instructor(p_course_id) THEN
+    IF NOT ple_api.current_session_account_is_course_instructor(p_course_instance_id) THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Course Instance reusable structure is unavailable';
     END IF;
-    PERFORM question.question_id
+    PERFORM question.published_question_id
       FROM ple_data.published_question AS question
-     WHERE question.question_id IN (
-               SELECT entry.question_id
+     WHERE question.published_question_id IN (
+               SELECT entry.published_question_id
                  FROM ple_data.assessment AS assessment
                  JOIN ple_data.assessment_entry AS entry
                    ON entry.assessment_id = assessment.assessment_id
-                WHERE assessment.course_id = p_course_id
+                WHERE assessment.course_instance_id = p_course_instance_id
                   AND entry.availability = 'available'
                   AND entry.entry_kind = 'fixed_question'
                UNION
-               SELECT member.question_id
+               SELECT member.published_question_id
                  FROM ple_data.assessment AS assessment
                  JOIN ple_data.assessment_entry AS entry
                    ON entry.assessment_id = assessment.assessment_id
                  JOIN ple_data.question_pool_revision_member AS member
                    ON member.question_pool_id = entry.question_pool_id
                   AND member.revision_number = entry.question_pool_revision_number
-                WHERE assessment.course_id = p_course_id
+                WHERE assessment.course_instance_id = p_course_instance_id
                   AND entry.availability = 'available'
                   AND entry.entry_kind = 'question_pool'
            )
-     ORDER BY question.question_id
+     ORDER BY question.published_question_id
      FOR SHARE OF question;
     IF EXISTS (
         SELECT 1
@@ -61,8 +61,8 @@ BEGIN
           JOIN ple_data.assessment_entry AS entry
             ON entry.assessment_id = assessment.assessment_id
           LEFT JOIN ple_data.published_question AS question
-            ON question.question_id = entry.question_id
-         WHERE assessment.course_id = p_course_id
+            ON question.published_question_id = entry.published_question_id
+         WHERE assessment.course_instance_id = p_course_instance_id
            AND entry.availability = 'available'
            AND entry.entry_kind = 'fixed_question'
            AND question.availability IS DISTINCT FROM 'available'
@@ -75,8 +75,8 @@ BEGIN
             ON member.question_pool_id = entry.question_pool_id
            AND member.revision_number = entry.question_pool_revision_number
           LEFT JOIN ple_data.published_question AS question
-            ON question.question_id = member.question_id
-         WHERE assessment.course_id = p_course_id
+            ON question.published_question_id = member.published_question_id
+         WHERE assessment.course_instance_id = p_course_instance_id
            AND entry.availability = 'available'
            AND entry.entry_kind = 'question_pool'
            AND question.availability IS DISTINCT FROM 'available'
@@ -105,7 +105,7 @@ AS $$
                     WHEN 'fixed_question' THEN jsonb_build_object(
                         'kind', 'fixed',
                         'question_revision', jsonb_build_object(
-                            'questionId', entry.question_id,
+                            'questionId', entry.published_question_id,
                             'revisionNumber', entry.question_revision_number
                         ),
                         'points_possible', entry.points_possible::text,
@@ -201,7 +201,7 @@ $$;
 -- Edit Numbers bind all current Assessment content. Pool pins are repeated in
 -- the snapshot because Pool membership is copied through a separate immutable
 -- fork primitive inside the same transaction.
-CREATE FUNCTION ple_data.course_blueprint_publication_snapshot(p_course_id uuid)
+CREATE FUNCTION ple_data.course_blueprint_publication_snapshot(p_course_instance_id uuid)
 RETURNS jsonb LANGUAGE sql STABLE STRICT
 SET search_path = pg_catalog, ple_data
 AS $$
@@ -221,7 +221,7 @@ AS $$
         ), '[]'::jsonb)
     ) ORDER BY assessment.due_at NULLS LAST, assessment.reference_number), '[]'::jsonb)
       FROM ple_data.assessment AS assessment
-     WHERE assessment.course_id = p_course_id
+     WHERE assessment.course_instance_id = p_course_instance_id
 $$;
 
 SET LOCAL ROLE ple_api_owner;
@@ -252,23 +252,23 @@ BEGIN
      WHERE course.public_reference = p_course_reference
      FOR UPDATE;
     IF NOT FOUND
-       OR NOT ple_api.current_session_account_is_course_instructor(source_course.course_id) THEN
+       OR NOT ple_api.current_session_account_is_course_instructor(source_course.course_instance_id) THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Course Instance reusable structure is unavailable';
     END IF;
 
     PERFORM 1
       FROM ple_data.assessment AS assessment
-     WHERE assessment.course_id = source_course.course_id
+     WHERE assessment.course_instance_id = source_course.course_instance_id
      ORDER BY assessment.due_at NULLS LAST, assessment.reference_number
      FOR UPDATE;
 
     -- New Blueprint pins use the same Available-Published-Question predicate
     -- as ordinary Blueprint creation, including every exact Pool member pin.
-    PERFORM ple_data.lock_course_blueprint_publication_questions(source_course.course_id);
+    PERFORM ple_data.lock_course_blueprint_publication_questions(source_course.course_instance_id);
 
     course_metadata_etag := source_course.metadata_etag;
-    source_snapshot := ple_data.course_blueprint_publication_snapshot(source_course.course_id);
+    source_snapshot := ple_data.course_blueprint_publication_snapshot(source_course.course_instance_id);
     SELECT COALESCE(jsonb_agg(jsonb_build_object(
         'content', ple_data.course_blueprint_publication_assessment_content(
             assessment.assessment_id
@@ -276,7 +276,7 @@ BEGIN
     ) ORDER BY assessment.due_at NULLS LAST, assessment.reference_number), '[]'::jsonb)
       INTO source_assessments
       FROM ple_data.assessment AS assessment
-     WHERE assessment.course_id = source_course.course_id;
+     WHERE assessment.course_instance_id = source_course.course_instance_id;
     RETURN NEXT;
 END
 $$;
@@ -301,7 +301,7 @@ SET search_path = pg_catalog, ple_api, ple_data
 AS $$
 DECLARE
     actor_id uuid;
-    source_course_id uuid;
+    source_course_instance_id uuid;
     prior_source_course_id uuid;
 BEGIN
     IF p_request_checksum IS NULL
@@ -314,23 +314,23 @@ BEGIN
     PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
         pg_catalog.format('ple:blueprint-course-create:%s:%s', actor_id,
             pg_catalog.encode(p_request_checksum, 'hex')), 0));
-    SELECT course.course_id INTO source_course_id
+    SELECT course.course_instance_id INTO source_course_instance_id
       FROM ple_data.course_instance AS course
      WHERE course.public_reference = p_course_reference;
     SELECT blueprint.public_reference, receipt.blueprint_revision_number,
-           receipt.metadata_etag, receipt.accepted_at, source.source_course_id
+           receipt.metadata_etag, receipt.accepted_at, source.source_course_instance_id
       INTO public_reference, blueprint_revision_number, metadata_etag, accepted_at,
            prior_source_course_id
       FROM ple_data.blueprint_course_create_receipt AS receipt
       JOIN ple_data.blueprint_course AS blueprint
-        ON blueprint.reference_number = receipt.blueprint_course_reference_number
+        ON blueprint.reference_number = receipt.blueprint_course_id
       LEFT JOIN ple_data.blueprint_course_instance_source AS source
-        ON source.blueprint_course_reference_number = receipt.blueprint_course_reference_number
+        ON source.blueprint_course_id = receipt.blueprint_course_id
      WHERE receipt.actor_account_id = actor_id
        AND receipt.request_checksum = p_request_checksum;
     IF FOUND THEN
-        IF source_course_id IS NULL
-           OR prior_source_course_id IS DISTINCT FROM source_course_id THEN
+        IF source_course_instance_id IS NULL
+           OR prior_source_course_id IS DISTINCT FROM source_course_instance_id THEN
             RAISE EXCEPTION USING ERRCODE = '22023',
                 MESSAGE = 'Idempotency-Key belongs to another Blueprint operation';
         END IF;
@@ -390,20 +390,20 @@ BEGIN
             pg_catalog.encode(p_request_checksum, 'hex')), 0));
 
     SELECT blueprint.public_reference, receipt.blueprint_revision_number,
-           receipt.metadata_etag, receipt.accepted_at, source.source_course_id
+           receipt.metadata_etag, receipt.accepted_at, source.source_course_instance_id
       INTO prior_receipt
       FROM ple_data.blueprint_course_create_receipt AS receipt
       JOIN ple_data.blueprint_course AS blueprint
-        ON blueprint.reference_number = receipt.blueprint_course_reference_number
+        ON blueprint.reference_number = receipt.blueprint_course_id
       LEFT JOIN ple_data.blueprint_course_instance_source AS source
-        ON source.blueprint_course_reference_number = receipt.blueprint_course_reference_number
+        ON source.blueprint_course_id = receipt.blueprint_course_id
      WHERE receipt.actor_account_id = actor_id
        AND receipt.request_checksum = p_request_checksum;
     IF FOUND THEN
         SELECT * INTO source_course
           FROM ple_data.course_instance AS course
          WHERE course.public_reference = p_course_reference;
-        IF NOT FOUND OR prior_receipt.source_course_id IS DISTINCT FROM source_course.course_id THEN
+        IF NOT FOUND OR prior_receipt.source_course_instance_id IS DISTINCT FROM source_course.course_instance_id THEN
             RAISE EXCEPTION USING ERRCODE = '22023',
                 MESSAGE = 'Idempotency-Key belongs to another Blueprint operation';
         END IF;
@@ -420,17 +420,17 @@ BEGIN
      WHERE course.public_reference = p_course_reference
      FOR UPDATE;
     IF NOT FOUND
-       OR NOT ple_api.current_session_account_is_course_instructor(source_course.course_id) THEN
+       OR NOT ple_api.current_session_account_is_course_instructor(source_course.course_instance_id) THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Course Instance reusable structure is unavailable';
     END IF;
     PERFORM 1
       FROM ple_data.assessment AS assessment
-     WHERE assessment.course_id = source_course.course_id
+     WHERE assessment.course_instance_id = source_course.course_instance_id
      ORDER BY assessment.due_at NULLS LAST, assessment.reference_number
      FOR UPDATE;
     IF source_course.metadata_etag IS DISTINCT FROM p_expected_course_metadata_etag
-       OR ple_data.course_blueprint_publication_snapshot(source_course.course_id)
+       OR ple_data.course_blueprint_publication_snapshot(source_course.course_instance_id)
             IS DISTINCT FROM p_expected_source_snapshot THEN
         RAISE EXCEPTION USING ERRCODE = '40001',
             MESSAGE = 'Course reusable structure changed during Blueprint creation';
@@ -438,21 +438,21 @@ BEGIN
     -- Recheck and lock eligibility at the final write boundary. The earlier
     -- projection check is not accepted as authority because Question
     -- availability changes independently of the locked Course rows.
-    PERFORM ple_data.lock_course_blueprint_publication_questions(source_course.course_id);
+    PERFORM ple_data.lock_course_blueprint_publication_questions(source_course.course_instance_id);
 
     -- Only this locked Course-copy path can retain an exact retired source
     -- Discipline. The private primitive is unavailable to ple_app, and an
     -- altered caller-supplied UUID follows the ordinary active-only wrapper.
-    IF p_discipline IS NOT DISTINCT FROM source_course.discipline_uuid
+    IF p_discipline IS NOT DISTINCT FROM source_course.content_discipline_id
        AND EXISTS (
-           SELECT 1 FROM ple_api.get_content_discipline(source_course.discipline_uuid) AS discipline
-            WHERE discipline.discipline_uuid = source_course.discipline_uuid
+           SELECT 1 FROM ple_api.get_content_discipline(source_course.content_discipline_id) AS discipline
+            WHERE discipline.content_discipline_id = source_course.content_discipline_id
               AND discipline.is_retired
        ) THEN
         SELECT * INTO created FROM ple_private.create_blueprint_course(
             p_blueprint_id, p_request_checksum, p_short_name, p_long_name,
             p_content, p_content_checksum, p_discipline, p_subject, p_topic,
-            p_subtopic, p_tags, source_course.discipline_uuid
+            p_subtopic, p_tags, source_course.content_discipline_id
         );
     ELSE
         SELECT * INTO created FROM ple_api.create_blueprint_course(
@@ -465,9 +465,9 @@ BEGIN
       FROM ple_data.blueprint_course AS blueprint
      WHERE blueprint.public_reference = created.public_reference;
     INSERT INTO ple_data.blueprint_course_instance_source (
-        blueprint_course_reference_number, source_course_id, recorded_at
+        blueprint_course_id, source_course_instance_id, recorded_at
     ) VALUES (
-        created_reference_number, source_course.course_id, created.accepted_at
+        created_reference_number, source_course.course_instance_id, created.accepted_at
     );
     public_reference := created.public_reference;
     blueprint_revision_number := created.blueprint_revision_number;

@@ -9,15 +9,15 @@ SET LOCAL ROLE ple_api_owner;
 -- The API owner has the existing narrow Course Membership read capability.
 -- Expose only current Student Record identifiers to the private completion
 -- predicate; Account state and invitations are deliberately not cohort facts.
-CREATE FUNCTION ple_api.current_course_student_record_ids(p_course_id uuid)
+CREATE FUNCTION ple_api.current_course_student_record_ids(p_course_instance_id uuid)
 RETURNS TABLE (student_record_id uuid)
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
     SELECT membership.student_record_id
       FROM ple_data.course_membership AS membership
-     WHERE membership.course_id = p_course_id
+     WHERE membership.course_instance_id = p_course_instance_id
        AND membership.role = 'student'
-       AND ple_data.course_membership_is_active(membership.membership_id)
+       AND ple_data.course_membership_is_active(membership.course_membership_id)
 $$;
 
 SET LOCAL ROLE ple_private_owner;
@@ -40,7 +40,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
                SELECT 1
                  FROM ple_data.assessment AS assessment
                  CROSS JOIN LATERAL ple_api.current_course_student_record_ids(
-                     assessment.course_id
+                     assessment.course_instance_id
                  ) AS student
                 WHERE assessment.assessment_id = p_assessment_id
                   AND NOT EXISTS (
@@ -57,7 +57,7 @@ $$;
 CREATE FUNCTION ple_private.read_student_assessment_attempt_history(
     p_assessment_attempt_reference_number bigint
 ) RETURNS TABLE (
-    course_id uuid, assessment_reference_number text, assessment_title text, assessment_type text,
+    course_instance_id uuid, assessment_reference_number text, assessment_title text, assessment_type text,
     assessment_attempt_number integer,
     state text, questions jsonb, feedback_rule jsonb, due_at_millis bigint,
     closes_at_millis bigint, submitted_at_millis bigint, evaluated_at_millis bigint,
@@ -67,7 +67,7 @@ CREATE FUNCTION ple_private.read_student_assessment_attempt_history(
 SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
     WITH owned_assessment_attempt AS (
         SELECT assessment_attempt.assessment_attempt_id, assessment_attempt.assessment_id,
-               assessment.course_id,
+               assessment.course_instance_id,
                assessment.public_reference AS assessment_reference_number,
                assessment_attempt.assessment_title,
                assessment.assessment_type,
@@ -91,14 +91,14 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
                 WHERE submission.assessment_attempt_id = assessment_attempt.assessment_attempt_id
            )
            AND ple_api.current_session_account_owns_student_record(
-               assessment.course_id, assessment_attempt.student_record_id
+               assessment.course_instance_id, assessment_attempt.student_record_id
            )
            -- ASVS 2.3.1: archive is an ordered retention transition.  Once
            -- it occurs, an otherwise-owned Assessment Attempt reference is not a path
            -- back into ordinary Student history.
-           AND ple_api.course_student_work_is_ordinarily_visible(assessment.course_id)
+           AND ple_api.course_student_work_is_ordinarily_visible(assessment.course_instance_id)
     )
-    SELECT owned.course_id,
+    SELECT owned.course_instance_id,
            owned.assessment_reference_number,
            owned.assessment_title,
            owned.assessment_type,
@@ -122,7 +122,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
       CROSS JOIN LATERAL (
           SELECT COALESCE(jsonb_agg(jsonb_build_object(
                      'position', issued.issued_position + 1,
-                     'questionId', issued.question_id,
+                     'questionId', issued.published_question_id,
                      'revisionNumber', issued.revision_number,
                      'responseState', CASE question_attempt.question_attempt_state
                          WHEN 'response_finalized' THEN 'submitted'
@@ -207,7 +207,7 @@ SET search_path = pg_catalog, ple_data, ple_private AS $$
     SELECT course.public_reference,
            course.course_short_name,
            course.course_long_name,
-           course.course_theme,
+           course.course_theme_id AS course_theme,
            history.assessment_reference_number,
            history.assessment_title,
            history.assessment_type,
@@ -225,7 +225,7 @@ SET search_path = pg_catalog, ple_data, ple_private AS $$
       FROM ple_private.read_student_assessment_attempt_history(
                p_assessment_attempt_reference_number
            ) AS history
-      JOIN ple_data.course_instance AS course ON course.course_id = history.course_id
+      JOIN ple_data.course_instance AS course ON course.course_instance_id = history.course_instance_id
 $$;
 
 SET LOCAL ROLE ple_private_owner;
@@ -243,7 +243,7 @@ CREATE FUNCTION ple_private.read_student_assessment_attempt_history_response_sou
     p_assessment_attempt_reference_number bigint
 ) RETURNS TABLE (
     "position" integer, assessment_attempt_id uuid, student_response jsonb, backend text, question_attempt_id uuid,
-    question_id text, revision_number integer, general_feedback text, source_object_id uuid, source_object_address jsonb,
+    published_question_id text, revision_number integer, general_feedback text, source_object_record_id uuid, source_object_address jsonb,
     source_object_checksum text, webwork_pg_path text, question_seed text,
     generated_parameter_sha256 text,
     presentation_nonce text, presentation_checksum text, presentation jsonb, author_content jsonb,
@@ -263,21 +263,21 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
            -- Student Membership without widening this private reader's table
            -- privileges.
            AND ple_api.current_session_account_owns_student_record(
-               assessment.course_id, assessment_attempt.student_record_id
+               assessment.course_instance_id, assessment_attempt.student_record_id
            )
            -- ASVS 2.3.1: richer response-source history obeys the exact
            -- ordinary-visibility boundary too.
-           AND ple_api.course_student_work_is_ordinarily_visible(assessment.course_id)
+           AND ple_api.course_student_work_is_ordinarily_visible(assessment.course_instance_id)
     )
     SELECT issued.issued_position,
            owned.assessment_attempt_id,
            submission.student_response,
            binding.backend,
            question_attempt.question_attempt_id,
-           issued.question_id,
+           issued.published_question_id,
            issued.revision_number,
            revision.general_feedback,
-           binding.source_object_id,
+           binding.source_object_record_id,
            source_object.object_address,
            binding.source_object_checksum,
            binding.webwork_pg_path,
@@ -295,17 +295,17 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
       JOIN ple_private.question_attempt
         ON question_attempt.issued_question_id = issued.issued_question_id
       JOIN ple_data.question_revision AS revision
-        ON revision.question_id = issued.question_id
+        ON revision.published_question_id = issued.published_question_id
        AND revision.revision_number = issued.revision_number
       LEFT JOIN ple_private.question_response AS submission
         ON submission.question_attempt_id = question_attempt.question_attempt_id
       JOIN ple_private.question_attempt_presentation_binding AS presentation
         ON presentation.question_attempt_id = question_attempt.question_attempt_id
       LEFT JOIN ple_private.question_revision_source_binding AS binding
-        ON binding.question_id = issued.question_id
+        ON binding.published_question_id = issued.published_question_id
        AND binding.revision_number = issued.revision_number
       LEFT JOIN ple_private.object_record AS source_object
-        ON source_object.object_id = binding.source_object_id
+        ON source_object.object_record_id = binding.source_object_record_id
       LEFT JOIN LATERAL (
           SELECT jsonb_agg(jsonb_build_object(
               'asset_id', presented.asset_id,
@@ -334,7 +334,7 @@ CREATE FUNCTION ple_api.read_student_assessment_attempt_history_response_sources
     p_assessment_attempt_reference_number bigint
 ) RETURNS TABLE (
     "position" integer, assessment_attempt_id uuid, student_response jsonb, backend text, question_attempt_id uuid,
-    question_id text, revision_number integer, general_feedback text, source_object_id uuid, source_object_address jsonb,
+    published_question_id text, revision_number integer, general_feedback text, source_object_record_id uuid, source_object_address jsonb,
     source_object_checksum text, webwork_pg_path text, question_seed text,
     generated_parameter_sha256 text,
     presentation_nonce text, presentation_checksum text, presentation jsonb, author_content jsonb,
@@ -342,7 +342,7 @@ CREATE FUNCTION ple_api.read_student_assessment_attempt_history_response_sources
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT "position" + 1, assessment_attempt_id, student_response, backend, question_attempt_id,
-           question_id, revision_number, general_feedback, source_object_id, source_object_address,
+           published_question_id, revision_number, general_feedback, source_object_record_id, source_object_address,
            source_object_checksum, webwork_pg_path, question_seed,
            generated_parameter_sha256,
            presentation_nonce, presentation_checksum, presentation, author_content, question_asset_renditions,
@@ -386,7 +386,7 @@ $$;
 SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.read_archived_course_student_work_for_retention(
-    p_course_id uuid
+    p_course_instance_id uuid
 ) RETURNS TABLE (
     assessment_attempt_reference_number bigint,
     student_record_id uuid,
@@ -404,9 +404,9 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
            course.student_data_archived_at
       FROM ple_data.course_instance AS course
       JOIN ple_data.student_record AS student
-        ON student.course_id = course.course_id
+        ON student.course_instance_id = course.course_instance_id
       CROSS JOIN LATERAL ple_private.read_course_student_work_for_retention(student.student_record_id) AS work
-     WHERE course.course_id = p_course_id
+     WHERE course.course_instance_id = p_course_instance_id
        AND course.retention_lifecycle_state = 'archived'
        AND course.student_data_archived_at IS NOT NULL
        AND course.student_data_deleted_at IS NULL

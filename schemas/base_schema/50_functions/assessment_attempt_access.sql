@@ -80,14 +80,14 @@ DECLARE evaluation_time timestamptz := pg_catalog.statement_timestamp(); started
 BEGIN
     IF p_course_reference_number NOT BETWEEN 1 AND 2147483647 THEN RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable'; END IF;
     SELECT assessment.* INTO assessment_row FROM ple_data.assessment AS assessment WHERE assessment.public_reference = p_assessment_reference_number;
-    IF NOT FOUND OR ple_api.course_reference_number_for_assessment_attempt(assessment_row.course_id) IS DISTINCT FROM p_course_reference_number THEN RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable'; END IF;
+    IF NOT FOUND OR ple_api.course_reference_number_for_assessment_attempt(assessment_row.course_instance_id) IS DISTINCT FROM p_course_reference_number THEN RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable'; END IF;
     -- ASVS 8.2.2, 8.2.3, 14.2.6: return only this session Student's
     -- effective policy values, never accommodation identity or another record.
-    SELECT ple_api.current_session_student_record_id(assessment_row.course_id) INTO student_record_id_value;
-    IF student_record_id_value IS NULL OR NOT ple_api.current_session_account_owns_student_record(assessment_row.course_id, student_record_id_value) THEN RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable'; END IF;
+    SELECT ple_api.current_session_student_record_id(assessment_row.course_instance_id) INTO student_record_id_value;
+    IF student_record_id_value IS NULL OR NOT ple_api.current_session_account_owns_student_record(assessment_row.course_instance_id, student_record_id_value) THEN RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable'; END IF;
     -- ASVS 8.2.2, 8.2.3, 8.3.1: effective Student policy and retained
     -- Attempt history are ordinary Work, not reusable teaching definitions.
-    IF NOT ple_api.course_student_work_is_ordinarily_visible(assessment_row.course_id) THEN
+    IF NOT ple_api.course_student_work_is_ordinarily_visible(assessment_row.course_instance_id) THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable';
     END IF;
     SELECT * INTO accommodation_row FROM ple_private.student_assessment_accommodation WHERE student_record_id = student_record_id_value AND assessment_id = assessment_row.assessment_id;
@@ -173,7 +173,7 @@ END $$;
 
 CREATE FUNCTION ple_private.read_active_student_assessment_attempt_reference(p_course_reference_number bigint, p_assessment_reference_number text)
 RETURNS TABLE (assessment_attempt_reference_number bigint) LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
-    SELECT assessment_attempt.reference_number FROM ple_private.assessment_attempt AS assessment_attempt JOIN ple_data.assessment AS assessment ON assessment.assessment_id = assessment_attempt.assessment_id WHERE p_course_reference_number BETWEEN 1 AND 2147483647 AND ple_api.course_reference_number_for_assessment_attempt(assessment.course_id) = p_course_reference_number AND assessment.public_reference = p_assessment_reference_number AND NOT EXISTS (SELECT 1 FROM ple_private.assessment_submission AS submission WHERE submission.assessment_attempt_id = assessment_attempt.assessment_attempt_id) AND (assessment_attempt.expires_at IS NULL OR assessment_attempt.expires_at > pg_catalog.statement_timestamp()) AND ple_api.course_student_work_is_ordinarily_visible(assessment.course_id) AND ple_api.current_session_account_owns_student_record(assessment.course_id, assessment_attempt.student_record_id) ORDER BY assessment_attempt.assessment_attempt_number DESC LIMIT 1
+    SELECT assessment_attempt.reference_number FROM ple_private.assessment_attempt AS assessment_attempt JOIN ple_data.assessment AS assessment ON assessment.assessment_id = assessment_attempt.assessment_id WHERE p_course_reference_number BETWEEN 1 AND 2147483647 AND ple_api.course_reference_number_for_assessment_attempt(assessment.course_instance_id) = p_course_reference_number AND assessment.public_reference = p_assessment_reference_number AND NOT EXISTS (SELECT 1 FROM ple_private.assessment_submission AS submission WHERE submission.assessment_attempt_id = assessment_attempt.assessment_attempt_id) AND (assessment_attempt.expires_at IS NULL OR assessment_attempt.expires_at > pg_catalog.statement_timestamp()) AND ple_api.course_student_work_is_ordinarily_visible(assessment.course_instance_id) AND ple_api.current_session_account_owns_student_record(assessment.course_instance_id, assessment_attempt.student_record_id) ORDER BY assessment_attempt.assessment_attempt_number DESC LIMIT 1
 $$;
 
 
@@ -196,7 +196,7 @@ CREATE FUNCTION ple_private.read_student_assessment_attempt_pool_selection(
     question_pool_public_id text,
     question_pool_revision_number bigint,
     member_position integer,
-    question_id text,
+    published_question_id text,
     revision_number integer
 )
 LANGUAGE plpgsql STABLE SECURITY DEFINER
@@ -215,7 +215,7 @@ BEGIN
            pool.public_question_pool_id,
            selection.question_pool_revision_number,
            selected.member_position,
-           selected.question_id,
+           selected.published_question_id,
            selected.revision_number
       FROM ple_private.question_pool_selection AS selection
       JOIN ple_data.question_pool AS pool ON pool.question_pool_id = selection.question_pool_id
@@ -238,16 +238,16 @@ BEGIN
      WHERE p_assessment_attempt_reference_number BETWEEN 1 AND 2147483647
        AND assessment_attempt.reference_number = p_assessment_attempt_reference_number
        -- ASVS 8.2.2, 8.3.1: ownership does not bypass ordinary Work archive.
-       AND ple_api.course_student_work_is_ordinarily_visible(assessment.course_id)
+       AND ple_api.course_student_work_is_ordinarily_visible(assessment.course_instance_id)
        AND ple_api.current_session_account_owns_student_record(
-           assessment.course_id, assessment_attempt.student_record_id
+           assessment.course_instance_id, assessment_attempt.student_record_id
        );
     IF NOT FOUND THEN
         RETURN;
     END IF;
     RETURN QUERY
     SELECT assessment_attempt.reference_number, assessment_attempt.assessment_attempt_number, course.course_reference_number,
-           course.course_short_name, course.course_long_name, course.course_theme,
+           course.course_short_name, course.course_long_name, course.course_theme_id AS course_theme,
            assessment.public_reference, assessment_attempt.assessment_title,
            preference.time_zone,
            CASE WHEN assessment_attempt.expires_at IS NULL THEN NULL
@@ -260,7 +260,7 @@ BEGIN
       JOIN ple_data.assessment AS assessment ON assessment.assessment_id = assessment_attempt.assessment_id
       JOIN ple_private.account_time_zone AS preference
         ON preference.account_id = ple_api.current_session_account_id()
-      JOIN LATERAL ple_api.course_display_for_assessment_attempt(assessment.course_id) AS course ON true
+      JOIN LATERAL ple_api.course_display_for_assessment_attempt(assessment.course_instance_id) AS course ON true
      WHERE assessment_attempt.assessment_attempt_id = assessment_attempt_id_value;
 END
 $$;
@@ -271,7 +271,7 @@ CREATE FUNCTION ple_api.read_student_assessment_access(text, text) RETURNS TABLE
 
 CREATE FUNCTION ple_api.read_active_student_assessment_attempt_reference(text, text) RETURNS TABLE (assessment_attempt_reference_number bigint) LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api, ple_data AS $$ SELECT * FROM ple_private.read_active_student_assessment_attempt_reference((SELECT reference_number FROM ple_data.course_instance WHERE public_reference = $1), $2) $$;
 
-CREATE FUNCTION ple_api.read_student_assessment_attempt_pool_selection(bigint) RETURNS TABLE (assessment_attempt_reference_number bigint, assessment_entry_id uuid, question_pool_selection_id uuid, selection_position integer, question_pool_id uuid, question_pool_public_id text, question_pool_revision_number bigint, member_position integer, question_id text, revision_number integer) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$ SELECT * FROM ple_private.read_student_assessment_attempt_pool_selection($1) $$;
+CREATE FUNCTION ple_api.read_student_assessment_attempt_pool_selection(bigint) RETURNS TABLE (assessment_attempt_reference_number bigint, assessment_entry_id uuid, question_pool_selection_id uuid, selection_position integer, question_pool_id uuid, question_pool_public_id text, question_pool_revision_number bigint, member_position integer, published_question_id text, revision_number integer) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$ SELECT * FROM ple_private.read_student_assessment_attempt_pool_selection($1) $$;
 
 CREATE FUNCTION ple_api.read_student_assessment_attempt_context(bigint) RETURNS TABLE (assessment_attempt_reference_number bigint, assessment_attempt_number integer, course_reference_number text, course_short_name text, course_long_name text, course_theme text, assessment_reference_number text, assessment_title text, display_time_zone text, expires_at_millis bigint, timer_remaining_milliseconds bigint) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$ SELECT * FROM ple_private.read_student_assessment_attempt_context($1) $$;
 

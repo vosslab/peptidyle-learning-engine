@@ -8,7 +8,7 @@ SET LOCAL ROLE ple_private_owner;
 -- writing, then returns its result in canonical Question-ID order (ASVS 2.3.3).
 CREATE FUNCTION ple_private.bulk_replace_published_question_metadata(
     p_selection jsonb, p_patch jsonb
-) RETURNS TABLE(question_id text, metadata_edit_number bigint)
+) RETURNS TABLE(published_question_id text, metadata_edit_number bigint)
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
@@ -143,8 +143,8 @@ BEGIN
         SELECT metadata.metadata_edit_number, lineage.availability
           INTO current_metadata_edit_number, current_availability
           FROM ple_data.published_question_metadata AS metadata
-          JOIN ple_data.published_question AS lineage ON lineage.question_id = metadata.question_id
-         WHERE metadata.question_id = selected.selected_question_id
+          JOIN ple_data.published_question AS lineage ON lineage.published_question_id = metadata.published_question_id
+         WHERE metadata.published_question_id = selected.selected_question_id
          FOR UPDATE OF metadata, lineage;
         IF NOT FOUND OR current_availability <> 'available' THEN
             RAISE EXCEPTION USING ERRCODE = '42501',
@@ -158,11 +158,11 @@ BEGIN
     IF set_discipline AND EXISTS (
         SELECT 1
           FROM ple_data.published_question_metadata AS metadata
-         WHERE metadata.question_id IN (
+         WHERE metadata.published_question_id IN (
              SELECT value ->> 'questionId'
                FROM jsonb_array_elements(normalized_selection) AS element(value)
          )
-           AND metadata.discipline_uuid IS DISTINCT FROM (normalized_patch ->> 'disciplineUuid')::uuid
+           AND metadata.content_discipline_id IS DISTINCT FROM (normalized_patch ->> 'disciplineUuid')::uuid
     ) THEN
         PERFORM ple_private.require_active_content_discipline(
             (normalized_patch ->> 'disciplineUuid')::uuid);
@@ -171,22 +171,22 @@ BEGIN
     WITH updated AS (
         UPDATE ple_data.published_question_metadata AS metadata
            SET tags = CASE WHEN set_tags THEN normalized_tags ELSE metadata.tags END,
-               discipline_uuid = CASE WHEN set_discipline THEN (normalized_patch ->> 'disciplineUuid')::uuid ELSE metadata.discipline_uuid END,
-               subject_uuid = CASE WHEN set_subject THEN (normalized_patch ->> 'subjectUuid')::uuid ELSE metadata.subject_uuid END,
-               topic_uuid = CASE WHEN set_topic THEN (normalized_patch ->> 'topicUuid')::uuid ELSE metadata.topic_uuid END,
-               subtopic_uuid = CASE WHEN set_subtopic THEN (normalized_patch ->> 'subtopicUuid')::uuid ELSE metadata.subtopic_uuid END,
+               content_discipline_id = CASE WHEN set_discipline THEN (normalized_patch ->> 'disciplineUuid')::uuid ELSE metadata.content_discipline_id END,
+               content_subject_id = CASE WHEN set_subject THEN (normalized_patch ->> 'subjectUuid')::uuid ELSE metadata.content_subject_id END,
+               content_topic_id = CASE WHEN set_topic THEN (normalized_patch ->> 'topicUuid')::uuid ELSE metadata.content_topic_id END,
+               content_subtopic_id = CASE WHEN set_subtopic THEN (normalized_patch ->> 'subtopicUuid')::uuid ELSE metadata.content_subtopic_id END,
                metadata_edit_number = metadata.metadata_edit_number + 1,
                updated_at = pg_catalog.clock_timestamp()
-         WHERE metadata.question_id IN (
+         WHERE metadata.published_question_id IN (
              SELECT value ->> 'questionId'
                FROM jsonb_array_elements(normalized_selection) AS element(value)
          )
-         RETURNING metadata.question_id, metadata.metadata_edit_number
+         RETURNING metadata.published_question_id, metadata.metadata_edit_number
     )
     SELECT jsonb_agg(jsonb_build_object(
-        'questionId', updated.question_id,
+        'questionId', updated.published_question_id,
         'metadataEditNumber', updated.metadata_edit_number
-    ) ORDER BY updated.question_id)
+    ) ORDER BY updated.published_question_id)
       INTO operation_result
       FROM updated AS updated;
     RETURN QUERY
@@ -200,7 +200,7 @@ SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.bulk_replace_published_question_metadata(
     p_selection jsonb, p_patch jsonb
-) RETURNS TABLE(question_id text, metadata_edit_number bigint)
+) RETURNS TABLE(published_question_id text, metadata_edit_number bigint)
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT * FROM ple_private.bulk_replace_published_question_metadata(

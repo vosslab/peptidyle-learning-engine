@@ -6,7 +6,7 @@ SET LOCAL ROLE ple_private_owner;
 -- grading workers to retained Question Attempt evidence.  They lock the
 -- Assessment before its Student Work, so Unrelease wins or loses atomically.
 CREATE FUNCTION ple_private.require_owned_open_question_attempt(
-    p_course_id uuid, p_assessment_id uuid, p_question_attempt_id uuid
+    p_course_instance_id uuid, p_assessment_id uuid, p_question_attempt_id uuid
 ) RETURNS ple_private.question_attempt
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
@@ -14,7 +14,7 @@ DECLARE result ple_private.question_attempt%ROWTYPE;
 BEGIN
     -- Assessment is intentionally the first row lock in every delivery write.
     PERFORM 1 FROM ple_data.assessment AS assessment
-     WHERE assessment.assessment_id = p_assessment_id AND assessment.course_id = p_course_id
+     WHERE assessment.assessment_id = p_assessment_id AND assessment.course_instance_id = p_course_instance_id
      FOR UPDATE;
     IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Question delivery is unavailable'; END IF;
     SELECT question_attempt.* INTO result
@@ -24,13 +24,13 @@ BEGIN
       JOIN ple_data.student_record AS student ON student.student_record_id = assessment_attempt.student_record_id
      WHERE question_attempt.question_attempt_id = p_question_attempt_id
        AND assessment_attempt.assessment_id = p_assessment_id
-       AND student.course_id = p_course_id
+       AND student.course_instance_id = p_course_instance_id
        AND student.student_account_id = ple_api.current_session_account_id()
        AND NOT EXISTS (
            SELECT 1 FROM ple_private.assessment_submission AS submission
             WHERE submission.assessment_attempt_id = assessment_attempt.assessment_attempt_id
        )
-       AND ple_api.current_session_account_owns_student_record(p_course_id, student.student_record_id)
+       AND ple_api.current_session_account_owns_student_record(p_course_instance_id, student.student_record_id)
      FOR UPDATE OF question_attempt, issued, assessment_attempt;
     IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Question delivery is unavailable'; END IF;
     RETURN result;
@@ -39,8 +39,8 @@ END $$;
 SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.create_imathas_question_backend_session(
-    p_session_id uuid, p_course_id uuid, p_assessment_id uuid, p_question_attempt_id uuid,
-    p_deployment text, p_item text, p_question_id text, p_revision_number integer,
+    p_session_id uuid, p_course_instance_id uuid, p_assessment_id uuid, p_question_attempt_id uuid,
+    p_deployment text, p_item text, p_published_question_id text, p_revision_number integer,
     p_source_object_id uuid, p_source_checksum bytea, p_profile text, p_seed numeric,
     p_launch_checksum text, p_response_sha256 bytea, p_challenge bytea, p_authentication bytea,
     p_issued_at timestamptz, p_expires_at timestamptz, p_state_key_id text, p_state_nonce bytea,
@@ -54,37 +54,37 @@ BEGIN
     IF NOT ple_private.question_backend_is_supported_for_production('imathas') THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'iMathAS Session is unavailable';
     END IF;
-    assessment_attempt := ple_private.require_owned_open_question_attempt(p_course_id, p_assessment_id, p_question_attempt_id);
+    assessment_attempt := ple_private.require_owned_open_question_attempt(p_course_instance_id, p_assessment_id, p_question_attempt_id);
     IF assessment_attempt.question_seed <> p_seed OR NOT EXISTS (
         SELECT 1 FROM ple_private.issued_question AS issued
         JOIN ple_private.question_revision_source_binding AS source
-          ON source.question_id = issued.question_id AND source.revision_number = issued.revision_number
+          ON source.published_question_id = issued.published_question_id AND source.revision_number = issued.revision_number
         WHERE issued.issued_question_id = assessment_attempt.issued_question_id
-          AND issued.question_id = p_question_id AND issued.revision_number = p_revision_number
+          AND issued.published_question_id = p_published_question_id AND issued.revision_number = p_revision_number
           AND source.backend = 'imathas' AND source.question_format = 'imathas'
-          AND source.source_object_id = p_source_object_id
+          AND source.source_object_record_id = p_source_object_id
           AND source.source_object_checksum = encode(p_source_checksum, 'hex')
           AND source.imathas_deployment_reference = p_deployment
           AND source.imathas_item_reference = p_item AND source.imathas_profile = p_profile
     ) THEN RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'iMathAS Session is unavailable'; END IF;
     INSERT INTO ple_private.imathas_question_backend_session (
-        imathas_question_backend_session_id, course_id, assessment_id, question_attempt_id, account_id,
-        imathas_deployment_reference, imathas_item_reference, question_id, revision_number,
-        source_object_id, source_object_checksum, imathas_profile, question_seed,
+        imathas_question_backend_session_id, course_instance_id, assessment_id, question_attempt_id, account_id,
+        imathas_deployment_reference, imathas_item_reference, published_question_id, revision_number,
+        source_object_record_id, source_object_checksum, imathas_profile, question_seed,
         imathas_launch_binding_checksum, imathas_response_sha256,
         imathas_question_backend_session_challenge, imathas_question_backend_session_authentication,
         issued_at, expires_at, imathas_question_backend_state_key_id,
         imathas_question_backend_state_nonce, imathas_question_backend_state_ciphertext
-    ) VALUES (p_session_id, p_course_id, p_assessment_id, p_question_attempt_id,
-        ple_api.current_session_account_id(), p_deployment, p_item, p_question_id, p_revision_number,
+    ) VALUES (p_session_id, p_course_instance_id, p_assessment_id, p_question_attempt_id,
+        ple_api.current_session_account_id(), p_deployment, p_item, p_published_question_id, p_revision_number,
         p_source_object_id, p_source_checksum, p_profile, p_seed, p_launch_checksum, p_response_sha256,
         p_challenge, p_authentication, p_issued_at, p_expires_at, p_state_key_id, p_state_nonce, p_state_ciphertext);
     RETURN p_session_id;
 END $$;
 
 CREATE FUNCTION ple_api.load_imathas_question_backend_session(
-    p_session_id uuid, p_account_id uuid, p_course_id uuid, p_assessment_id uuid, p_question_attempt_id uuid,
-    p_deployment text, p_item text, p_question_id text, p_revision_number integer,
+    p_session_id uuid, p_account_id uuid, p_course_instance_id uuid, p_assessment_id uuid, p_question_attempt_id uuid,
+    p_deployment text, p_item text, p_published_question_id text, p_revision_number integer,
     p_source_object_id uuid, p_source_checksum bytea, p_profile text, p_seed numeric, p_launch_checksum text
 ) RETURNS TABLE (
     imathas_question_backend_session_id uuid, imathas_item_reference text, question_seed numeric,
@@ -103,19 +103,19 @@ BEGIN
       FROM ple_private.imathas_question_backend_session AS session
      WHERE session.imathas_question_backend_session_id = p_session_id
        AND session.account_id = p_account_id AND session.account_id = ple_api.current_session_account_id()
-       AND ROW(session.course_id, session.assessment_id, session.question_attempt_id, session.imathas_deployment_reference,
-               session.imathas_item_reference, session.question_id, session.revision_number, session.source_object_id,
+       AND ROW(session.course_instance_id, session.assessment_id, session.question_attempt_id, session.imathas_deployment_reference,
+               session.imathas_item_reference, session.published_question_id, session.revision_number, session.source_object_record_id,
                session.source_object_checksum, session.imathas_profile, session.question_seed, session.imathas_launch_binding_checksum)
-           IS NOT DISTINCT FROM ROW(p_course_id, p_assessment_id, p_question_attempt_id, p_deployment, p_item,
-               p_question_id, p_revision_number, p_source_object_id, p_source_checksum, p_profile, p_seed, p_launch_checksum)
+           IS NOT DISTINCT FROM ROW(p_course_instance_id, p_assessment_id, p_question_attempt_id, p_deployment, p_item,
+               p_published_question_id, p_revision_number, p_source_object_id, p_source_checksum, p_profile, p_seed, p_launch_checksum)
        AND session.revoked_at IS NULL AND session.consumed_at IS NULL
        AND session.issued_at <= clock_timestamp() AND session.expires_at > clock_timestamp();
     IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'iMathAS Session is unavailable'; END IF;
 END $$;
 
 CREATE FUNCTION ple_api.lease_imathas_question_backend_session(
-    p_session_id uuid, p_course_id uuid, p_assessment_id uuid, p_question_attempt_id uuid,
-    p_deployment text, p_item text, p_question_id text, p_revision_number integer,
+    p_session_id uuid, p_course_instance_id uuid, p_assessment_id uuid, p_question_attempt_id uuid,
+    p_deployment text, p_item text, p_published_question_id text, p_revision_number integer,
     p_source_object_id uuid, p_source_checksum bytea, p_profile text, p_seed numeric,
     p_launch_checksum text, p_lease_sha256 bytea, p_lease_expires_at timestamptz
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
@@ -129,7 +129,7 @@ BEGIN
     END IF;
     -- Lock the Assessment before Session state so Unrelease and delivery share
     -- one root-first order (ASVS 2.3.1/2.3.3/8.3.1).
-    SELECT course_id, assessment_id INTO session_course_id, session_assessment_id
+    SELECT course_instance_id, assessment_id INTO session_course_id, session_assessment_id
       FROM ple_private.imathas_question_backend_session
      WHERE imathas_question_backend_session_id = p_session_id;
     IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'iMathAS Session is unavailable'; END IF;
@@ -137,11 +137,11 @@ BEGIN
     SELECT * INTO session FROM ple_private.imathas_question_backend_session
      WHERE imathas_question_backend_session_id = p_session_id FOR UPDATE;
     IF NOT FOUND OR session.account_id <> ple_api.current_session_account_id()
-       OR ROW(session.course_id, session.assessment_id, session.question_attempt_id, session.imathas_deployment_reference,
-              session.imathas_item_reference, session.question_id, session.revision_number, session.source_object_id,
+       OR ROW(session.course_instance_id, session.assessment_id, session.question_attempt_id, session.imathas_deployment_reference,
+              session.imathas_item_reference, session.published_question_id, session.revision_number, session.source_object_record_id,
               session.source_object_checksum, session.imathas_profile, session.question_seed, session.imathas_launch_binding_checksum)
-          IS DISTINCT FROM ROW(p_course_id, p_assessment_id, p_question_attempt_id, p_deployment, p_item,
-              p_question_id, p_revision_number, p_source_object_id, p_source_checksum, p_profile, p_seed, p_launch_checksum)
+          IS DISTINCT FROM ROW(p_course_instance_id, p_assessment_id, p_question_attempt_id, p_deployment, p_item,
+              p_published_question_id, p_revision_number, p_source_object_id, p_source_checksum, p_profile, p_seed, p_launch_checksum)
        OR session.revoked_at IS NOT NULL OR session.consumed_at IS NOT NULL OR session.expires_at <= clock_timestamp()
        OR session.activity_lease_expires_at > clock_timestamp() OR p_lease_expires_at > session.expires_at THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'iMathAS Session is unavailable';

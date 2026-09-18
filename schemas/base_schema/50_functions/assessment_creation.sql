@@ -30,11 +30,11 @@ BEGIN
     END IF;
     SELECT * INTO course_row FROM ple_data.course_instance
      WHERE reference_number = p_course_reference_number;
-    IF NOT FOUND OR NOT ple_api.current_session_account_is_course_instructor(course_row.course_id) THEN
+    IF NOT FOUND OR NOT ple_api.current_session_account_is_course_instructor(course_row.course_instance_id) THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable';
     END IF;
     INSERT INTO ple_data.assessment AS inserted (
-        assessment_id, course_id, origin_kind,
+        assessment_id, course_instance_id, origin_kind,
         source_blueprint_course_reference_number, source_blueprint_revision_number,
         source_blueprint_assessment_reference,
         created_at, updated_at, assessment_type, assessment_title, assessment_instructions,
@@ -43,7 +43,7 @@ BEGIN
         feedback_per_item_correctness, feedback_submitted_response, feedback_question_answer,
         feedback_question_answer_explanation, feedback_class_statistics
     ) VALUES (
-        p_assessment_id, course_row.course_id, 'direct', NULL, NULL, NULL,
+        p_assessment_id, course_row.course_instance_id, 'direct', NULL, NULL, NULL,
         clock_timestamp(), clock_timestamp(), p_assessment_type, p_title, p_instructions,
         CASE WHEN p_assessment_type IN ('quiz', 'exam') THEN 1 ELSE NULL END,
         'reject', 'new_variation',

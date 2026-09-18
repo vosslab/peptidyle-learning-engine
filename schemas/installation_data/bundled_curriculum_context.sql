@@ -16,10 +16,10 @@ SELECT '00000000-0000-0000-0000-000000000106'::uuid, 'instructor', clock_timesta
 
 -- No authentication email or passkey is inserted. This account cannot be used
 -- to sign in; its fresh session is a narrow, transient publisher capability.
-INSERT INTO ple_private.authoring_workspace (workspace_id, owner_account_id, created_at)
+INSERT INTO ple_private.authoring_workspace (authoring_workspace_id, owner_account_id, created_at)
 VALUES ('00000000-0000-0000-0000-000000000202',
         '00000000-0000-0000-0000-000000000106', clock_timestamp())
-ON CONFLICT (workspace_id) DO NOTHING;
+ON CONFLICT (authoring_workspace_id) DO NOTHING;
 
 SELECT session_id
   FROM ple_private.create_authenticated_session(

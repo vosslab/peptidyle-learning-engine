@@ -1,5 +1,6 @@
 -- Table and routine privileges.
 
+RESET ROLE;
 \ir 70_grants/foundation_roles.sql
 \ir 70_grants/public_references.sql
 \ir 70_grants/accounts.sql

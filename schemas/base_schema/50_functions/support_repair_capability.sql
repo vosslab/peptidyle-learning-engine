@@ -9,7 +9,7 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '55000',
             MESSAGE = 'Support repair capabilities are retained as audited evidence';
     END IF;
-    IF NEW.capability_id IS DISTINCT FROM OLD.capability_id
+    IF NEW.support_repair_capability_id IS DISTINCT FROM OLD.support_repair_capability_id
        OR NEW.sysadmin_account_id IS DISTINCT FROM OLD.sysadmin_account_id
        OR NEW.issuer_account_id IS DISTINCT FROM OLD.issuer_account_id
        OR NEW.resource_class IS DISTINCT FROM OLD.resource_class
@@ -84,9 +84,9 @@ SET LOCAL ROLE ple_api_owner;
 CREATE FUNCTION ple_api.support_repair_roster_course(p_resource_reference text)
 RETURNS uuid LANGUAGE sql STABLE
 SET search_path = pg_catalog, ple_data, ple_private AS $$
-    SELECT course.course_id
+    SELECT course.course_instance_id
       FROM ple_data.course_instance AS course
-      JOIN ple_private.course_roster_profile AS profile ON profile.course_id = course.course_id
+      JOIN ple_private.course_roster_profile AS profile ON profile.course_instance_id = course.course_instance_id
      WHERE course.public_reference = split_part(p_resource_reference, '/', 2)
        AND profile.roster_id = split_part(p_resource_reference, '/', 4)
        AND p_resource_reference = 'course-instance/' || course.public_reference || '/roster/' || profile.roster_id
@@ -101,7 +101,7 @@ CREATE FUNCTION ple_api.issue_support_repair_capability(
     p_sysadmin_public_reference text, p_resource_class text,
     p_resource_reference text, p_purpose text, p_capability_id uuid
 )
-RETURNS TABLE(capability_id uuid, sysadmin_public_reference text, resource_class text,
+RETURNS TABLE(support_repair_capability_id uuid, sysadmin_public_reference text, resource_class text,
               resource_reference text, purpose text, expires_at_millis bigint, revoked_at_millis bigint)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_audit, ple_private AS $$
 DECLARE issuer uuid; sysadmin uuid; now_at timestamptz; repair_course uuid;
@@ -134,25 +134,25 @@ BEGIN
     IF NOT FOUND THEN RETURN; END IF;
     now_at := pg_catalog.transaction_timestamp();
     INSERT INTO ple_private.support_repair_capability (
-        capability_id, sysadmin_account_id, issuer_account_id, resource_class,
+        support_repair_capability_id, sysadmin_account_id, issuer_account_id, resource_class,
         resource_reference, purpose, issued_at, expires_at
     ) VALUES (p_capability_id, sysadmin, issuer, p_resource_class, p_resource_reference,
               p_purpose, now_at, now_at + interval '1 hour');
     PERFORM ple_audit.record_support_repair_capability_event(
         p_capability_id, sysadmin, issuer, p_resource_class, p_resource_reference, p_purpose, 'issued'
     );
-    RETURN QUERY SELECT capability.capability_id, account.public_reference,
+    RETURN QUERY SELECT capability.support_repair_capability_id, account.public_reference,
         capability.resource_class, capability.resource_reference, capability.purpose,
         (extract(epoch FROM capability.expires_at) * 1000)::bigint,
         (extract(epoch FROM capability.revoked_at) * 1000)::bigint
       FROM ple_private.support_repair_capability AS capability
       JOIN ple_private.account AS account ON account.account_id = capability.sysadmin_account_id
-     WHERE capability.capability_id = p_capability_id;
+     WHERE capability.support_repair_capability_id = p_capability_id;
 END
 $$;
 
 CREATE FUNCTION ple_api.revoke_support_repair_capability(p_capability_id uuid)
-RETURNS TABLE(capability_id uuid, sysadmin_public_reference text, resource_class text,
+RETURNS TABLE(support_repair_capability_id uuid, sysadmin_public_reference text, resource_class text,
               resource_reference text, purpose text, expires_at_millis bigint, revoked_at_millis bigint)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_audit, ple_private AS $$
 DECLARE issuer uuid; capability ple_private.support_repair_capability%ROWTYPE;
@@ -160,28 +160,28 @@ BEGIN
     IF p_capability_id IS NULL OR NOT ple_api.current_session_account_is_instructor() THEN RETURN; END IF;
     issuer := ple_api.current_session_account_id();
     SELECT stored.* INTO capability FROM ple_private.support_repair_capability AS stored
-     WHERE stored.capability_id = p_capability_id FOR UPDATE OF stored;
+     WHERE stored.support_repair_capability_id = p_capability_id FOR UPDATE OF stored;
     IF NOT FOUND OR capability.issuer_account_id <> issuer OR capability.revoked_at IS NOT NULL THEN RETURN; END IF;
     UPDATE ple_private.support_repair_capability AS stored SET revoked_at = pg_catalog.transaction_timestamp()
-     WHERE stored.capability_id = p_capability_id;
+     WHERE stored.support_repair_capability_id = p_capability_id;
     PERFORM ple_audit.record_support_repair_capability_event(
-        capability.capability_id, capability.sysadmin_account_id, issuer, capability.resource_class,
+        capability.support_repair_capability_id, capability.sysadmin_account_id, issuer, capability.resource_class,
         capability.resource_reference, capability.purpose, 'revoked'
     );
-    RETURN QUERY SELECT stored.capability_id, account.public_reference, stored.resource_class,
+    RETURN QUERY SELECT stored.support_repair_capability_id, account.public_reference, stored.resource_class,
         stored.resource_reference, stored.purpose,
         (extract(epoch FROM stored.expires_at) * 1000)::bigint,
         (extract(epoch FROM stored.revoked_at) * 1000)::bigint
       FROM ple_private.support_repair_capability AS stored
       JOIN ple_private.account AS account ON account.account_id = stored.sysadmin_account_id
-     WHERE stored.capability_id = p_capability_id;
+     WHERE stored.support_repair_capability_id = p_capability_id;
 END
 $$;
 
 CREATE FUNCTION ple_api.record_support_repair_capability_use(
     p_capability_id uuid, p_resource_class text, p_resource_reference text
 )
-RETURNS TABLE(audit_event_id uuid, capability_id uuid, resource_class text,
+RETURNS TABLE(audit_event_id uuid, support_repair_capability_id uuid, resource_class text,
               resource_reference text, used_at_millis bigint)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_audit, ple_private AS $$
 DECLARE capability ple_private.support_repair_capability%ROWTYPE; event_id uuid; now_at timestamptz; repair_course uuid;
@@ -193,7 +193,7 @@ BEGIN
        OR NOT ple_api.current_session_account_has_platform_administration() THEN RETURN; END IF;
     -- FOR UPDATE keeps revocation and the C26 repair transaction ordered.
     SELECT stored.* INTO capability FROM ple_private.support_repair_capability AS stored
-     WHERE stored.capability_id = p_capability_id AND stored.resource_class = p_resource_class
+     WHERE stored.support_repair_capability_id = p_capability_id AND stored.resource_class = p_resource_class
        AND stored.resource_reference = p_resource_reference AND stored.revoked_at IS NULL
        AND stored.expires_at > pg_catalog.clock_timestamp()
        AND stored.sysadmin_account_id = ple_api.current_session_account_id()
@@ -210,16 +210,16 @@ BEGIN
              ORDER BY event.occurred_at DESC, event.event_id DESC LIMIT 1
         ) AS current_state ON current_state.state = 'active'
         JOIN ple_data.course_membership AS membership ON membership.account_id = issuer.account_id
-         AND membership.course_id = repair_course AND membership.role = 'instructor'
-         AND ple_data.course_membership_is_active(membership.membership_id)
+         AND membership.course_instance_id = repair_course AND membership.role = 'instructor'
+         AND ple_data.course_membership_is_active(membership.course_membership_id)
         WHERE issuer.account_id = capability.issuer_account_id AND issuer.product_role = 'instructor'
     ) THEN RETURN; END IF;
     event_id := ple_audit.record_support_repair_capability_event(
-        capability.capability_id, capability.sysadmin_account_id, capability.issuer_account_id,
+        capability.support_repair_capability_id, capability.sysadmin_account_id, capability.issuer_account_id,
         capability.resource_class, capability.resource_reference, capability.purpose, 'used'
     );
     now_at := pg_catalog.transaction_timestamp();
-    RETURN QUERY SELECT event_id, capability.capability_id, capability.resource_class,
+    RETURN QUERY SELECT event_id, capability.support_repair_capability_id, capability.resource_class,
         capability.resource_reference, (extract(epoch FROM now_at) * 1000)::bigint;
 END
 $$;

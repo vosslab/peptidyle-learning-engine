@@ -26,7 +26,7 @@ BEGIN
        OR p_expected_edit_number IS NULL OR p_expected_edit_number < 0 THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Student Assessment Accommodation save is invalid';
     END IF;
-    SELECT assessment.course_id INTO course_id_value
+    SELECT assessment.course_instance_id INTO course_id_value
       FROM ple_data.assessment AS assessment
      WHERE assessment.assessment_id = p_assessment_id;
     IF NOT FOUND
@@ -145,8 +145,8 @@ CREATE FUNCTION ple_api.prepare_student_assessment_attempt_finalization(bigint)
 RETURNS TABLE (
     preparation_state text, finalization_kind text,
     points_earned double precision, points_possible double precision,
-    question_attempt_id uuid, saved_at_millis bigint, question_id text,
-    revision_number integer, source_object_id uuid, source_object_checksum text,
+    question_attempt_id uuid, saved_at_millis bigint, published_question_id text,
+    revision_number integer, source_object_record_id uuid, source_object_checksum text,
     question_seed numeric, generated_parameter_sha256 text, student_response jsonb, backend text, webwork_pg_path text
 )
 LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$
@@ -162,7 +162,7 @@ $$;
 CREATE FUNCTION ple_api.prepare_expired_student_assessment_attempt_finalizations(integer)
 RETURNS TABLE (
     assessment_attempt_id uuid, question_attempt_id uuid, saved_at_millis bigint,
-    question_id text, revision_number integer, source_object_id uuid,
+    published_question_id text, revision_number integer, source_object_record_id uuid,
     source_object_checksum text, question_seed numeric, generated_parameter_sha256 text, student_response jsonb,
     backend text, webwork_pg_path text
 )
@@ -194,13 +194,13 @@ $$;
 
 CREATE FUNCTION ple_api.read_student_assessment_attempt_history_evidence(bigint)
 RETURNS TABLE (assessment_attempt_reference_number bigint, assessment_title text, assessment_instructions text,
-    issued_position integer, question_id text, revision_number integer, question_seed numeric,
+    issued_position integer, published_question_id text, revision_number integer, question_seed numeric,
     generated_parameter_sha256 text,
     question_attempt_limit integer, question_attempt_time_limit_seconds integer,
     question_attempt_grace_seconds integer, question_attempt_state text, student_response jsonb)
 LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$
     SELECT assessment_attempt_reference_number, assessment_title, assessment_instructions,
-           issued_position + 1, question_id, revision_number, question_seed,
+           issued_position + 1, published_question_id, revision_number, question_seed,
            generated_parameter_sha256,
            question_attempt_limit, question_attempt_time_limit_seconds,
            question_attempt_grace_seconds, question_attempt_state, student_response

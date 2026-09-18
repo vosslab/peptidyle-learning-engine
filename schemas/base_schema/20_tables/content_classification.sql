@@ -14,7 +14,7 @@ SET LOCAL ROLE ple_data_owner;
 -- CHECK rejects untrimmed storage; authenticated operations normalize boundary
 -- input before checking these same bounds.
 CREATE TABLE ple_data.content_discipline (
-    discipline_uuid uuid PRIMARY KEY,
+    content_discipline_id uuid PRIMARY KEY,
     name text NOT NULL CHECK (
         char_length(name) BETWEEN 1 AND 120
         AND name !~ '^[[:space:]]|[[:space:]]$'
@@ -23,17 +23,21 @@ CREATE TABLE ple_data.content_discipline (
     -- Retirement is reversible: existing rows keep their stable UUID and may
     -- continue to resolve it, while new classification choices use only
     -- active Disciplines.
-    is_retired boolean NOT NULL DEFAULT false
+    is_retired boolean NOT NULL DEFAULT false,
+    created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
 );
 
+
 CREATE TABLE ple_data.content_subject (
-    subject_uuid uuid PRIMARY KEY,
+    content_subject_id uuid PRIMARY KEY,
     name text NOT NULL CHECK (
         char_length(name) BETWEEN 1 AND 120
         AND name !~ '^[[:space:]]|[[:space:]]$'
         AND name !~ '[[:cntrl:]]'
-    )
+    ),
+    created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
 );
+
 
 
 
@@ -41,33 +45,52 @@ CREATE TABLE ple_data.content_subject (
 -- association addition and replacement serialize on the Subject row. This
 -- relation enforces real, nonduplicate associations independently of commands.
 CREATE TABLE ple_data.content_subject_discipline (
-    subject_uuid uuid NOT NULL REFERENCES ple_data.content_subject(subject_uuid),
-    discipline_uuid uuid NOT NULL REFERENCES ple_data.content_discipline(discipline_uuid),
-    PRIMARY KEY (subject_uuid, discipline_uuid)
+    content_subject_id uuid NOT NULL REFERENCES ple_data.content_subject(content_subject_id),
+    content_discipline_id uuid NOT NULL REFERENCES ple_data.content_discipline(content_discipline_id),
+    PRIMARY KEY (content_subject_id, content_discipline_id),
+    created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
 );
 
+
 CREATE TABLE ple_data.content_topic (
-    topic_uuid uuid PRIMARY KEY,
-    UNIQUE (subject_uuid, topic_uuid),
-    subject_uuid uuid NOT NULL
-        REFERENCES ple_data.content_subject(subject_uuid),
+    content_topic_id uuid PRIMARY KEY,
+    UNIQUE (content_subject_id, content_topic_id),
+    content_subject_id uuid NOT NULL
+        REFERENCES ple_data.content_subject(content_subject_id),
     name text NOT NULL CHECK (
         char_length(name) BETWEEN 1 AND 240
         AND name !~ '^[[:space:]]|[[:space:]]$'
         AND name !~ '[[:cntrl:]]'
-    )
+    ),
+    created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
 );
 
+
 CREATE TABLE ple_data.content_subtopic (
-    subtopic_uuid uuid PRIMARY KEY,
-    UNIQUE (topic_uuid, subtopic_uuid),
-    topic_uuid uuid NOT NULL REFERENCES ple_data.content_topic(topic_uuid),
+    content_subtopic_id uuid PRIMARY KEY,
+    UNIQUE (content_topic_id, content_subtopic_id),
+    content_topic_id uuid NOT NULL REFERENCES ple_data.content_topic(content_topic_id),
     name text NOT NULL CHECK (
         char_length(name) BETWEEN 1 AND 480
         AND name !~ '^[[:space:]]|[[:space:]]$'
         AND name !~ '[[:cntrl:]]'
-    )
+    ),
+    created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
 );
+
+
+SET LOCAL ROLE ple_data_owner;
+COMMENT ON TABLE ple_data.content_discipline IS 'role: vocabulary, deleted by none; vocabulary rows persist. HUMAN_GUIDANCE.md Content classification.';
+
+COMMENT ON TABLE ple_data.content_subject IS 'role: vocabulary, deleted by none; vocabulary rows persist. HUMAN_GUIDANCE.md Content classification.';
+
+COMMENT ON TABLE ple_data.content_subject_discipline IS 'role: vocabulary, deleted by none; vocabulary rows persist. HUMAN_GUIDANCE.md Content classification.';
+
+COMMENT ON TABLE ple_data.content_topic IS 'role: vocabulary, deleted by none; vocabulary rows persist. HUMAN_GUIDANCE.md Content classification.';
+
+COMMENT ON TABLE ple_data.content_subtopic IS 'role: vocabulary, deleted by none; vocabulary rows persist. HUMAN_GUIDANCE.md Content classification.';
+
+
 
 COMMENT ON TABLE ple_data.content_discipline IS 'role: vocabulary, deleted by none; vocabulary rows persist. HUMAN_GUIDANCE.md Content classification.';
 

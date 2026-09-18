@@ -718,8 +718,7 @@ def advisory_rule_ids(source_dir: str) -> set:
 	Return advisory rule ids for this source tree.
 
 	rule_14_unindexed_fk is always advisory. rule_layout is advisory only
-	when 20_tables/ is absent. M1 type/identity/clock rules and M2 Student
-	Work keys stay advisory until those milestones land.
+	when 20_tables/ is absent. M2 Student Work keys stay advisory until M2.
 
 	Args:
 		source_dir: SQL source directory.
@@ -729,14 +728,7 @@ def advisory_rule_ids(source_dir: str) -> set:
 	"""
 	ids = {
 		"rule_14_unindexed_fk",
-		"rule_2_constant_columns",
-		"rule_4_types",
-		"rule_5_duplicate_literal_sets",
-		"rule_7_key_names",
 		"rule_11_student_work_keys",
-		"rule_16_clock_present",
-		"rule_16_clock_type",
-		"rule_16_updated_clock",
 	}
 	if not _layout_blocks(source_dir):
 		ids.add("rule_layout")

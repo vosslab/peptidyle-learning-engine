@@ -4,28 +4,27 @@
 SET LOCAL ROLE ple_data_owner;
 
 CREATE TABLE ple_data.published_question (
-    question_id text PRIMARY KEY,
-    availability text NOT NULL DEFAULT 'available'
-        CHECK (availability IN ('available', 'archived')),
+    published_question_id text PRIMARY KEY,
+    availability ple_data.question_availability NOT NULL DEFAULT 'available',
     availability_edit_number bigint NOT NULL DEFAULT 1
         CHECK (availability_edit_number > 0),
     created_at timestamptz NOT NULL,
     CONSTRAINT published_question_id_is_crockford_shape CHECK (
-        question_id ~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
-        AND substr(question_id, 6, 1) = ple_private.crockford_checksum_character(
-            substr(question_id, 1, 4) || substr(question_id, 7, 3)
+        published_question_id ~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
+        AND substr(published_question_id, 6, 1) = ple_private.crockford_checksum_character(
+            substr(published_question_id, 1, 4) || substr(published_question_id, 7, 3)
         )
-    )
+    ),
+    updated_on date NOT NULL DEFAULT CURRENT_DATE
 );
 
+
+
 CREATE TABLE ple_data.question_revision (
-    question_id text NOT NULL REFERENCES ple_data.published_question(question_id),
+    published_question_id text NOT NULL REFERENCES ple_data.published_question(published_question_id),
     revision_number integer NOT NULL CHECK (revision_number > 0),
-    backend text NOT NULL CHECK (backend IN ('ple', 'webwork', 'imathas')),
-    question_type text NOT NULL CHECK (question_type IN (
-        'multipleChoice', 'multipleAnswer', 'fillInBlank', 'multipleFillInBlank',
-        'numeric', 'matching', 'ordering', 'hotspot'
-    )),
+    backend ple_data.question_backend NOT NULL,
+    question_type ple_data.question_type NOT NULL,
     -- Deliberately authored, backend-independent general feedback.  It is
     -- immutable with this Question Revision; dynamic backend feedback is not
     -- captured here.
@@ -35,11 +34,12 @@ CREATE TABLE ple_data.question_revision (
         AND general_feedback !~ '[[:cntrl:]]'
     ),
     published_at timestamptz NOT NULL,
-    PRIMARY KEY (question_id, revision_number)
+    PRIMARY KEY (published_question_id, revision_number)
 );
 
+
 CREATE TABLE ple_data.published_question_metadata (
-    question_id text PRIMARY KEY REFERENCES ple_data.published_question(question_id),
+    published_question_id text PRIMARY KEY REFERENCES ple_data.published_question(published_question_id),
     question_title text NOT NULL CHECK (
         question_title = btrim(question_title)
         AND char_length(question_title) BETWEEN 1 AND 512
@@ -61,41 +61,41 @@ CREATE TABLE ple_data.published_question_metadata (
         CHECK (ple_data.question_metadata_tags_are_valid(tags)),
     -- ASVS 2.2.2/2.3.3: real vocabulary references preserve the hierarchy
     -- even during concurrent vocabulary repairs; no free-text bridge exists.
-    discipline_uuid uuid NOT NULL,
-    subject_uuid uuid NOT NULL,
-    topic_uuid uuid,
-    subtopic_uuid uuid,
-    FOREIGN KEY (subject_uuid, discipline_uuid)
-        REFERENCES ple_data.content_subject_discipline(subject_uuid, discipline_uuid),
-    FOREIGN KEY (subject_uuid, topic_uuid)
-        REFERENCES ple_data.content_topic(subject_uuid, topic_uuid),
-    FOREIGN KEY (topic_uuid, subtopic_uuid)
-        REFERENCES ple_data.content_subtopic(topic_uuid, subtopic_uuid),
-    CHECK (subtopic_uuid IS NULL OR topic_uuid IS NOT NULL),
+    content_discipline_id uuid NOT NULL,
+    content_subject_id uuid NOT NULL,
+    content_topic_id uuid,
+    content_subtopic_id uuid,
+    FOREIGN KEY (content_subject_id, content_discipline_id)
+        REFERENCES ple_data.content_subject_discipline(content_subject_id, content_discipline_id),
+    FOREIGN KEY (content_subject_id, content_topic_id)
+        REFERENCES ple_data.content_topic(content_subject_id, content_topic_id),
+    FOREIGN KEY (content_topic_id, content_subtopic_id)
+        REFERENCES ple_data.content_subtopic(content_topic_id, content_subtopic_id),
+    CHECK (content_subtopic_id IS NULL OR content_topic_id IS NOT NULL),
     created_at timestamptz NOT NULL,
     updated_at timestamptz NOT NULL CHECK (updated_at >= created_at)
 );
 
 CREATE TABLE ple_data.question_publication_event (
     event_id uuid PRIMARY KEY,
-    question_id text NOT NULL,
+    published_question_id text NOT NULL,
     revision_number integer NOT NULL CHECK (revision_number > 0),
     actor_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
     occurred_at timestamptz NOT NULL,
-    UNIQUE (question_id, revision_number),
-    FOREIGN KEY (question_id, revision_number)
-        REFERENCES ple_data.question_revision(question_id, revision_number)
+    UNIQUE (published_question_id, revision_number),
+    FOREIGN KEY (published_question_id, revision_number)
+        REFERENCES ple_data.question_revision(published_question_id, revision_number)
 );
 
 CREATE TABLE ple_data.question_availability_event (
     event_id uuid PRIMARY KEY,
-    question_id text NOT NULL REFERENCES ple_data.published_question(question_id),
+    published_question_id text NOT NULL REFERENCES ple_data.published_question(published_question_id),
     actor_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
-    availability text NOT NULL CHECK (availability IN ('available', 'archived')),
+    availability ple_data.question_availability NOT NULL,
     edit_number bigint NOT NULL CHECK (edit_number > 0),
     reason text,
     occurred_at timestamptz NOT NULL,
-    UNIQUE (question_id, edit_number),
+    UNIQUE (published_question_id, edit_number),
     CHECK (
         (availability = 'available' AND reason IS NULL)
         OR (availability = 'archived' AND reason = btrim(reason)
@@ -103,6 +103,8 @@ CREATE TABLE ple_data.question_availability_event (
     )
 );
 
+
+SET LOCAL ROLE ple_data_owner;
 COMMENT ON TABLE ple_data.published_question IS 'role: current state, Stable Question lineage with current availability and its qualified edit number.';
 
 COMMENT ON TABLE ple_data.question_revision IS 'role: revision, Immutable exact published Question content identity; archive never removes this provenance.';
@@ -110,7 +112,7 @@ COMMENT ON TABLE ple_data.question_revision IS 'role: revision, Immutable exact 
 COMMENT ON TABLE ple_data.question_availability_event IS 'role: event, Append-only actor-attributed current-lineage availability transitions.';
 
 CREATE TABLE ple_data.question_revision_acceptance (
-    question_id text NOT NULL,
+    published_question_id text NOT NULL,
     revision_number integer NOT NULL CHECK (revision_number > 0),
     parent_revision_number integer,
     editor_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
@@ -121,17 +123,17 @@ CREATE TABLE ple_data.question_revision_acceptance (
         AND char_length(reason_for_edit) BETWEEN 1 AND 2000
         AND reason_for_edit !~ '[[:cntrl:]]'
     ),
-    PRIMARY KEY (question_id, revision_number),
-    FOREIGN KEY (question_id, revision_number)
-        REFERENCES ple_data.question_revision(question_id, revision_number),
-    FOREIGN KEY (question_id, parent_revision_number)
-        REFERENCES ple_data.question_revision(question_id, revision_number),
+    PRIMARY KEY (published_question_id, revision_number),
+    FOREIGN KEY (published_question_id, revision_number)
+        REFERENCES ple_data.question_revision(published_question_id, revision_number),
+    FOREIGN KEY (published_question_id, parent_revision_number)
+        REFERENCES ple_data.question_revision(published_question_id, revision_number),
     CHECK ((revision_number = 1 AND parent_revision_number IS NULL)
         OR (revision_number > 1 AND parent_revision_number BETWEEN 1 AND revision_number - 1))
 );
 
 CREATE TABLE ple_data.question_revision_authorship (
-    question_id text NOT NULL,
+    published_question_id text NOT NULL,
     revision_number integer NOT NULL,
     author_position integer NOT NULL CHECK (author_position BETWEEN 1 AND 16),
     author_display_name text NOT NULL CHECK (
@@ -140,54 +142,66 @@ CREATE TABLE ple_data.question_revision_authorship (
         AND author_display_name !~ '[[:cntrl:]]'
     ),
     author_account_id uuid REFERENCES ple_private.account(account_id),
-    PRIMARY KEY (question_id, revision_number, author_position),
-    UNIQUE (question_id, revision_number, author_display_name),
-    FOREIGN KEY (question_id, revision_number)
-        REFERENCES ple_data.question_revision(question_id, revision_number)
+    PRIMARY KEY (published_question_id, revision_number, author_position),
+    UNIQUE (published_question_id, revision_number, author_display_name),
+    FOREIGN KEY (published_question_id, revision_number)
+        REFERENCES ple_data.question_revision(published_question_id, revision_number),
+    created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp(),
+    updated_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp(),
+    CHECK (updated_at >= created_at)
 );
+
 
 CREATE TABLE ple_data.question_revision_license (
-    question_id text NOT NULL,
+    published_question_id text NOT NULL,
     revision_number integer NOT NULL,
-    spdx_expression text NOT NULL CHECK (spdx_expression IN (
-        'CC0-1.0', 'CC-BY-4.0', 'CC-BY-SA-4.0'
-    )),
-    PRIMARY KEY (question_id, revision_number),
-    FOREIGN KEY (question_id, revision_number)
-        REFERENCES ple_data.question_revision(question_id, revision_number)
+    spdx_expression ple_data.license_spdx NOT NULL,
+    PRIMARY KEY (published_question_id, revision_number),
+    FOREIGN KEY (published_question_id, revision_number)
+        REFERENCES ple_data.question_revision(published_question_id, revision_number),
+    created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp(),
+    updated_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp(),
+    CHECK (updated_at >= created_at)
 );
 
+
+
 CREATE TABLE ple_data.question_revision_citation (
-    question_id text NOT NULL,
+    published_question_id text NOT NULL,
     revision_number integer NOT NULL,
     citation_url text,
     citation_text text,
-    PRIMARY KEY (question_id, revision_number),
-    FOREIGN KEY (question_id, revision_number)
-        REFERENCES ple_data.question_revision(question_id, revision_number),
+    PRIMARY KEY (published_question_id, revision_number),
+    FOREIGN KEY (published_question_id, revision_number)
+        REFERENCES ple_data.question_revision(published_question_id, revision_number),
     CHECK (NULLIF(btrim(citation_url), '') IS NOT NULL
         OR NULLIF(btrim(citation_text), '') IS NOT NULL),
     CHECK (citation_url IS NULL OR char_length(btrim(citation_url)) <= 2048),
-    CHECK (citation_text IS NULL OR char_length(btrim(citation_text)) <= 4000)
+    CHECK (citation_text IS NULL OR char_length(btrim(citation_text)) <= 4000),
+    created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp(),
+    updated_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp(),
+    CHECK (updated_at >= created_at)
 );
+
 
 CREATE TABLE ple_data.question_ownership_event (
     question_ownership_event_id uuid PRIMARY KEY,
-    question_id text NOT NULL REFERENCES ple_data.published_question(question_id),
+    published_question_id text NOT NULL REFERENCES ple_data.published_question(published_question_id),
     owner_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
     recorded_by_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
-    event_kind text NOT NULL CHECK (event_kind IN ('initial', 'transferred')),
+    event_kind ple_data.ownership_event_kind NOT NULL,
     occurred_at timestamptz NOT NULL
 );
 
+
 CREATE TABLE ple_data.question_fork_source (
-    forked_question_id text PRIMARY KEY REFERENCES ple_data.published_question(question_id),
+    forked_published_question_id text PRIMARY KEY REFERENCES ple_data.published_question(published_question_id),
     source_question_id text NOT NULL,
     source_revision_number integer NOT NULL CHECK (source_revision_number > 0),
     recorded_at timestamptz NOT NULL,
     FOREIGN KEY (source_question_id, source_revision_number)
-        REFERENCES ple_data.question_revision(question_id, revision_number),
-    CHECK (forked_question_id <> source_question_id)
+        REFERENCES ple_data.question_revision(published_question_id, revision_number),
+    CHECK (forked_published_question_id <> source_question_id)
 );
 
 
@@ -198,11 +212,13 @@ CREATE TABLE ple_data.question_fork_source (
 -- application persistence adapter and C371 owns the vetted-Instructor count
 -- and identity projection; this table is not itself a browser projection.
 CREATE TABLE ple_data.question_star (
-    question_id text NOT NULL REFERENCES ple_data.published_question(question_id),
+    published_question_id text NOT NULL REFERENCES ple_data.published_question(published_question_id),
     instructor_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
     starred_at timestamptz NOT NULL,
-    PRIMARY KEY (question_id, instructor_account_id)
+    PRIMARY KEY (published_question_id, instructor_account_id),
+    updated_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
 );
+
 
 
 
@@ -212,22 +228,28 @@ CREATE TABLE ple_data.question_star (
 -- browser projection.  This store intentionally has no watcher count,
 -- identity projection, notification delivery, or public read path.
 CREATE TABLE ple_data.question_watch (
-    question_id text NOT NULL REFERENCES ple_data.published_question(question_id),
+    published_question_id text NOT NULL REFERENCES ple_data.published_question(published_question_id),
     instructor_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
     watched_at timestamptz NOT NULL,
-    PRIMARY KEY (question_id, instructor_account_id)
+    PRIMARY KEY (published_question_id, instructor_account_id),
+    updated_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
 );
 
+
 CREATE TABLE ple_data.question_revision_bloom (
-    question_id text NOT NULL,
+    published_question_id text NOT NULL,
     revision_number integer NOT NULL,
     cognitive_process ple_data.bloom_cognitive_process NOT NULL,
     knowledge_dimension ple_data.bloom_knowledge_dimension NOT NULL,
     classification_edit_number bigint NOT NULL CHECK (classification_edit_number > 0),
-    PRIMARY KEY (question_id, revision_number),
-    FOREIGN KEY (question_id, revision_number)
-        REFERENCES ple_data.question_revision (question_id, revision_number)
+    PRIMARY KEY (published_question_id, revision_number),
+    FOREIGN KEY (published_question_id, revision_number)
+        REFERENCES ple_data.question_revision (published_question_id, revision_number),
+    created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp(),
+    updated_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp(),
+    CHECK (updated_at >= created_at)
 );
+
 
 SET LOCAL ROLE ple_private_owner;
 
@@ -236,8 +258,10 @@ CREATE TABLE ple_private.bloom_preparation_receipt (
     target_kind ple_private.bloom_preparation_target_kind NOT NULL,
     candidate_fingerprint bytea NOT NULL CHECK (octet_length(candidate_fingerprint) = 32),
     cognitive_process ple_data.bloom_cognitive_process NOT NULL,
-    knowledge_dimension ple_data.bloom_knowledge_dimension NOT NULL
+    knowledge_dimension ple_data.bloom_knowledge_dimension NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
 );
+
 
 SET LOCAL ROLE ple_data_owner;
 
@@ -265,5 +289,166 @@ COMMENT ON TABLE ple_data.question_revision_bloom IS 'role: current state, delet
 
 SET LOCAL ROLE ple_private_owner;
 
+SET LOCAL ROLE ple_private_owner;
+COMMENT ON TABLE ple_private.bloom_preparation_receipt IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+SET LOCAL ROLE ple_private_owner;
+
+SET LOCAL ROLE ple_data_owner;
+
+SET LOCAL ROLE ple_data_owner;
+COMMENT ON TABLE ple_data.published_question_metadata IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_publication_event IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_revision_acceptance IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_revision_authorship IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_revision_license IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_revision_citation IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_ownership_event IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_fork_source IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_star IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_watch IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_revision_bloom IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+SET LOCAL ROLE ple_private_owner;
+
+SET LOCAL ROLE ple_private_owner;
+COMMENT ON TABLE ple_private.bloom_preparation_receipt IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+
+
+SET LOCAL ROLE ple_data_owner;
+
+SET LOCAL ROLE ple_data_owner;
+COMMENT ON TABLE ple_data.published_question_metadata IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_publication_event IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_revision_acceptance IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_revision_authorship IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_revision_license IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_revision_citation IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_ownership_event IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_fork_source IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_star IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_watch IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_revision_bloom IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+SET LOCAL ROLE ple_private_owner;
+
+SET LOCAL ROLE ple_private_owner;
+COMMENT ON TABLE ple_private.bloom_preparation_receipt IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+
+
+SET LOCAL ROLE ple_data_owner;
+
+SET LOCAL ROLE ple_data_owner;
+COMMENT ON TABLE ple_data.published_question_metadata IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_publication_event IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_revision_acceptance IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_revision_authorship IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_revision_license IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_revision_citation IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_ownership_event IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_fork_source IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_star IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_watch IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_revision_bloom IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+SET LOCAL ROLE ple_private_owner;
+
+SET LOCAL ROLE ple_private_owner;
+COMMENT ON TABLE ple_private.bloom_preparation_receipt IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+SET LOCAL ROLE ple_private_owner;
+
+SET LOCAL ROLE ple_data_owner;
+
+SET LOCAL ROLE ple_data_owner;
+COMMENT ON TABLE ple_data.published_question_metadata IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_publication_event IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_revision_acceptance IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_revision_authorship IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_revision_license IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_revision_citation IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_ownership_event IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_fork_source IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_star IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_watch IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_revision_bloom IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+SET LOCAL ROLE ple_private_owner;
+
+SET LOCAL ROLE ple_private_owner;
+COMMENT ON TABLE ple_private.bloom_preparation_receipt IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+
+
+SET LOCAL ROLE ple_data_owner;
+
+SET LOCAL ROLE ple_data_owner;
+COMMENT ON TABLE ple_data.published_question_metadata IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_publication_event IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_revision_acceptance IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_revision_authorship IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_revision_license IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_revision_citation IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_ownership_event IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_fork_source IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_star IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_watch IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+COMMENT ON TABLE ple_data.question_revision_bloom IS 'role: current state, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+SET LOCAL ROLE ple_private_owner;
+
+SET LOCAL ROLE ple_private_owner;
 COMMENT ON TABLE ple_private.bloom_preparation_receipt IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
 

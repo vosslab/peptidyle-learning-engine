@@ -63,7 +63,7 @@ BEGIN
           SELECT question_watch.instructor_account_id
             FROM ple_data.question_watch AS question_watch
            WHERE NEW.target_kind = 'question'
-             AND question_watch.question_id = NEW.target_public_id
+             AND question_watch.published_question_id = NEW.target_public_id
           UNION ALL
           SELECT pool_watch.instructor_account_id
             FROM ple_data.question_pool_watch AS pool_watch
@@ -93,7 +93,7 @@ SET search_path = pg_catalog, ple_data AS $$
 BEGIN
     INSERT INTO ple_data.library_watch_event(
         target_kind, target_public_id, event_kind, revision_number, occurred_at
-    ) VALUES ('question', NEW.question_id, 'revision', NEW.revision_number, NEW.occurred_at);
+    ) VALUES ('question', NEW.published_question_id, 'revision', NEW.revision_number, NEW.occurred_at);
     RETURN NEW;
 END
 $$;
@@ -178,7 +178,7 @@ BEGIN
         target_kind, target_public_id, event_kind, revision_number, activity_id, occurred_at
     ) VALUES (
         NEW.object_kind, NEW.public_object_id, 'improvement_thread',
-        NEW.creation_revision_number, NEW.thread_id, NEW.created_at
+        NEW.creation_revision_number, NEW.library_improvement_thread_id, NEW.created_at
     );
     RETURN NEW;
 END

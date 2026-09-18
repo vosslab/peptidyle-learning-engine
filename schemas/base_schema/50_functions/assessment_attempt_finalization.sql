@@ -19,9 +19,9 @@ CREATE FUNCTION ple_private.prepare_assessment_attempt_finalization(
     points_possible double precision,
     question_attempt_id uuid,
     saved_at_millis bigint,
-    question_id text,
+    published_question_id text,
     revision_number integer,
-    source_object_id uuid,
+    source_object_record_id uuid,
     source_object_checksum text,
     question_seed numeric, generated_parameter_sha256 text,
     student_response jsonb,
@@ -76,7 +76,7 @@ BEGIN
           JOIN ple_private.question_attempt AS question_attempt
             ON question_attempt.issued_question_id = issued.issued_question_id
           JOIN ple_private.question_revision_source_binding AS source
-            ON source.question_id = issued.question_id
+            ON source.published_question_id = issued.published_question_id
            AND source.revision_number = issued.revision_number
          WHERE issued.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id
            AND NOT ple_private.question_backend_is_supported_for_production(source.backend)
@@ -88,7 +88,7 @@ BEGIN
     SELECT 'ready', resolved_kind, NULL::double precision,
            NULL::double precision, question_attempt.question_attempt_id,
            floor(extract(epoch FROM response.saved_at) * 1000)::bigint,
-           issued.question_id, issued.revision_number, source.source_object_id,
+           issued.published_question_id, issued.revision_number, source.source_object_record_id,
            source.source_object_checksum, question_attempt.question_seed,
            question_attempt.generated_parameter_sha256,
            response.student_response, source.backend, source.webwork_pg_path
@@ -98,7 +98,7 @@ BEGIN
       JOIN ple_private.assessment_attempt_saved_response AS response
         ON response.question_attempt_id = question_attempt.question_attempt_id
       JOIN ple_private.question_revision_source_binding AS source
-        ON source.question_id = issued.question_id
+        ON source.published_question_id = issued.published_question_id
        AND source.revision_number = issued.revision_number
      WHERE issued.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id
      ORDER BY issued.issued_position;
@@ -123,9 +123,9 @@ CREATE FUNCTION ple_private.prepare_student_assessment_attempt_finalization(
     points_possible double precision,
     question_attempt_id uuid,
     saved_at_millis bigint,
-    question_id text,
+    published_question_id text,
     revision_number integer,
-    source_object_id uuid,
+    source_object_record_id uuid,
     source_object_checksum text,
     question_seed numeric, generated_parameter_sha256 text,
     student_response jsonb,
@@ -175,9 +175,9 @@ CREATE FUNCTION ple_private.prepare_expired_student_assessment_attempt_finalizat
     assessment_attempt_id uuid,
     question_attempt_id uuid,
     saved_at_millis bigint,
-    question_id text,
+    published_question_id text,
     revision_number integer,
-    source_object_id uuid,
+    source_object_record_id uuid,
     source_object_checksum text,
     question_seed numeric, generated_parameter_sha256 text,
     student_response jsonb,
@@ -205,8 +205,8 @@ BEGIN
     )
     SELECT candidate.assessment_attempt_id,
            prepared.question_attempt_id, prepared.saved_at_millis,
-           prepared.question_id, prepared.revision_number,
-           prepared.source_object_id, prepared.source_object_checksum,
+           prepared.published_question_id, prepared.revision_number,
+           prepared.source_object_record_id, prepared.source_object_checksum,
            prepared.question_seed, prepared.generated_parameter_sha256,
            prepared.student_response,
            prepared.backend, prepared.webwork_pg_path

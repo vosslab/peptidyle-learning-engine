@@ -4,8 +4,8 @@
 SET LOCAL ROLE ple_data_owner;
 
 CREATE TABLE ple_data.library_improvement_thread (
-    thread_id uuid PRIMARY KEY,
-    object_kind text NOT NULL CHECK (object_kind IN ('question', 'question_pool')),
+    library_improvement_thread_id uuid PRIMARY KEY,
+    object_kind ple_data.library_object_kind NOT NULL,
     public_object_id text NOT NULL CHECK (
         public_object_id ~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
         AND substr(public_object_id, 6, 1) = ple_private.crockford_checksum_character(
@@ -15,17 +15,21 @@ CREATE TABLE ple_data.library_improvement_thread (
     creation_revision_number bigint NOT NULL CHECK (creation_revision_number > 0),
     created_by_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
     created_at timestamptz NOT NULL,
-    state text NOT NULL DEFAULT 'open' CHECK (state IN ('open', 'resolved')),
+    state ple_data.thread_state NOT NULL DEFAULT 'open',
     resolved_by_account_id uuid REFERENCES ple_private.account(account_id),
     resolved_at timestamptz,
     CHECK ((state = 'open' AND resolved_by_account_id IS NULL AND resolved_at IS NULL)
         OR (state = 'resolved' AND resolved_by_account_id IS NOT NULL
-            AND resolved_at IS NOT NULL AND resolved_at >= created_at))
+            AND resolved_at IS NOT NULL AND resolved_at >= created_at)),
+    updated_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp(),
+    CHECK (updated_at >= created_at)
 );
+
+
 
 CREATE TABLE ple_data.library_improvement_post (
     post_id uuid PRIMARY KEY,
-    thread_id uuid NOT NULL REFERENCES ple_data.library_improvement_thread(thread_id),
+    library_improvement_thread_id uuid NOT NULL REFERENCES ple_data.library_improvement_thread(library_improvement_thread_id),
     author_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
     author_display_name text NOT NULL CHECK (
         author_display_name = btrim(author_display_name)
@@ -42,7 +46,7 @@ CREATE TABLE ple_data.library_improvement_post (
 
 CREATE TABLE ple_data.library_impact_notice (
     impact_notice_id uuid PRIMARY KEY,
-    object_kind text NOT NULL CHECK (object_kind IN ('question', 'question_pool')),
+    object_kind ple_data.library_object_kind NOT NULL,
     public_object_id text NOT NULL CHECK (
         public_object_id ~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
         AND substr(public_object_id, 6, 1) = ple_private.crockford_checksum_character(
@@ -61,7 +65,7 @@ CREATE TABLE ple_data.library_impact_notice (
     ),
     created_at timestamptz NOT NULL,
     updated_at timestamptz NOT NULL CHECK (updated_at >= created_at),
-    state text NOT NULL DEFAULT 'active' CHECK (state IN ('active', 'cancelled')),
+    state ple_data.notice_state NOT NULL DEFAULT 'active',
     cancelled_by_account_id uuid REFERENCES ple_private.account(account_id),
     cancelled_at timestamptz,
     CHECK ((state = 'active' AND cancelled_by_account_id IS NULL AND cancelled_at IS NULL)
@@ -69,6 +73,48 @@ CREATE TABLE ple_data.library_impact_notice (
             AND cancelled_at IS NOT NULL AND cancelled_at >= created_at
             AND updated_at = cancelled_at))
 );
+
+
+SET LOCAL ROLE ple_data_owner;
+COMMENT ON TABLE ple_data.library_improvement_thread IS 'role: current state, Retained vetted-Instructor improvement thread targeting a stable Library Object lineage and its exact creation Revision.';
+
+COMMENT ON TABLE ple_data.library_improvement_post IS 'role: event, Retained text-only vetted-Instructor thread post with a visible creation-time verified display name.';
+
+COMMENT ON TABLE ple_data.library_impact_notice IS 'role: event, Question-owner- or Sysadmin-maintained retained impact notice; Pool administration is Sysadmin-only and cancelled notices remain historical.';
+
+
+
+COMMENT ON TABLE ple_data.library_improvement_thread IS 'role: current state, Retained vetted-Instructor improvement thread targeting a stable Library Object lineage and its exact creation Revision.';
+
+COMMENT ON TABLE ple_data.library_improvement_post IS 'role: event, Retained text-only vetted-Instructor thread post with a visible creation-time verified display name.';
+
+COMMENT ON TABLE ple_data.library_impact_notice IS 'role: event, Question-owner- or Sysadmin-maintained retained impact notice; Pool administration is Sysadmin-only and cancelled notices remain historical.';
+
+
+COMMENT ON TABLE ple_data.library_improvement_thread IS 'role: current state, Retained vetted-Instructor improvement thread targeting a stable Library Object lineage and its exact creation Revision.';
+
+COMMENT ON TABLE ple_data.library_improvement_post IS 'role: event, Retained text-only vetted-Instructor thread post with a visible creation-time verified display name.';
+
+COMMENT ON TABLE ple_data.library_impact_notice IS 'role: event, Question-owner- or Sysadmin-maintained retained impact notice; Pool administration is Sysadmin-only and cancelled notices remain historical.';
+
+
+
+COMMENT ON TABLE ple_data.library_improvement_thread IS 'role: current state, Retained vetted-Instructor improvement thread targeting a stable Library Object lineage and its exact creation Revision.';
+
+COMMENT ON TABLE ple_data.library_improvement_post IS 'role: event, Retained text-only vetted-Instructor thread post with a visible creation-time verified display name.';
+
+COMMENT ON TABLE ple_data.library_impact_notice IS 'role: event, Question-owner- or Sysadmin-maintained retained impact notice; Pool administration is Sysadmin-only and cancelled notices remain historical.';
+
+
+
+
+COMMENT ON TABLE ple_data.library_improvement_thread IS 'role: current state, Retained vetted-Instructor improvement thread targeting a stable Library Object lineage and its exact creation Revision.';
+
+COMMENT ON TABLE ple_data.library_improvement_post IS 'role: event, Retained text-only vetted-Instructor thread post with a visible creation-time verified display name.';
+
+COMMENT ON TABLE ple_data.library_impact_notice IS 'role: event, Question-owner- or Sysadmin-maintained retained impact notice; Pool administration is Sysadmin-only and cancelled notices remain historical.';
+
+
 
 COMMENT ON TABLE ple_data.library_improvement_thread IS 'role: current state, Retained vetted-Instructor improvement thread targeting a stable Library Object lineage and its exact creation Revision.';
 

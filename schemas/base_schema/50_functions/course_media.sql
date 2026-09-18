@@ -12,9 +12,9 @@ SET search_path = pg_catalog, ple_data, ple_private AS $$
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM ple_private.object_record AS record
-         WHERE record.object_id = NEW.source_object_id
+         WHERE record.object_record_id = NEW.source_object_record_id
            AND record.object_address = jsonb_build_object(
-               'kind', 'courseBannerSource', 'course', NEW.course_id, 'banner', NEW.course_banner_id)
+               'kind', 'courseBannerSource', 'course', NEW.course_instance_id, 'banner', NEW.course_banner_id)
            AND record.object_storage_area = 'private-content'
            AND record.object_data_class = 'course-appearance'
            AND record.sha256 = NEW.source_object_checksum
@@ -34,9 +34,9 @@ SET search_path = pg_catalog, ple_data, ple_private AS $$
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM ple_private.object_record AS record
-         WHERE record.object_id = NEW.object_id
+         WHERE record.object_record_id = NEW.object_record_id
            AND record.object_address = jsonb_build_object(
-               'kind', 'courseBannerRendition', 'course', NEW.course_id,
+               'kind', 'courseBannerRendition', 'course', NEW.course_instance_id,
                'banner', NEW.course_banner_id, 'rendition', NEW.rendition_kind)
            AND record.object_storage_area = 'private-content'
            AND record.object_data_class = 'course-appearance'
@@ -54,10 +54,10 @@ SET search_path = pg_catalog, ple_data, ple_private AS $$
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM ple_data.object_delivery AS delivery
-        JOIN ple_private.object_record AS record ON record.object_id = delivery.object_id
-         WHERE delivery.delivery_id = NEW.delivery_id AND delivery.object_id = NEW.object_id
+        JOIN ple_private.object_record AS record ON record.object_record_id = delivery.object_record_id
+         WHERE delivery.object_delivery_id = NEW.object_delivery_id AND delivery.object_record_id = NEW.object_record_id
            AND record.object_address = jsonb_build_object(
-               'kind', 'courseBannerRendition', 'course', NEW.course_id,
+               'kind', 'courseBannerRendition', 'course', NEW.course_instance_id,
                'banner', NEW.course_banner_id, 'rendition', NEW.rendition_kind)
            AND record.object_storage_area = 'private-content'
            AND record.object_data_class = 'course-appearance'
@@ -85,41 +85,41 @@ FOR EACH ROW EXECUTE FUNCTION ple_data.validate_course_banner_delivery_object_re
 
 SET LOCAL ROLE ple_api_owner;
 
-CREATE FUNCTION ple_api.read_course_banner(p_course_id uuid)
+CREATE FUNCTION ple_api.read_course_banner(p_course_instance_id uuid)
 RETURNS TABLE(course_banner_id uuid, alternative_kind text, alternative_text text)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT course.current_course_banner_id, course.course_banner_alternative_kind,
            course.course_banner_alternative_text
       FROM ple_data.course_instance AS course
-     WHERE course.course_id = p_course_id AND course.current_course_banner_id IS NOT NULL
-       AND ple_api.current_session_account_is_course_member(p_course_id)
+     WHERE course.course_instance_id = p_course_instance_id AND course.current_course_banner_id IS NOT NULL
+       AND ple_api.current_session_account_is_course_member(p_course_instance_id)
 $$;
 
 CREATE FUNCTION ple_api.resolve_current_course_banner(p_banner_id uuid)
-RETURNS TABLE(course_id uuid) LANGUAGE sql STABLE SECURITY DEFINER
+RETURNS TABLE(course_instance_id uuid) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
-    SELECT course.course_id FROM ple_data.course_instance AS course
+    SELECT course.course_instance_id FROM ple_data.course_instance AS course
      WHERE course.current_course_banner_id = p_banner_id
-       AND ple_api.current_session_account_is_course_member(course.course_id)
+       AND ple_api.current_session_account_is_course_member(course.course_instance_id)
 $$;
 
 CREATE FUNCTION ple_api.stage_course_banner_upload(
-    p_course_id uuid, p_upload_id uuid, p_object_id uuid, p_media_type text,
+    p_course_instance_id uuid, p_upload_id uuid, p_object_record_id uuid, p_media_type text,
     p_byte_length bigint, p_sha256 bytea, p_width integer, p_height integer, p_expires_millis bigint
 ) RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE account_id uuid; subject_id uuid := gen_random_uuid(); work_id uuid := gen_random_uuid();
-    expected_address jsonb := jsonb_build_object('kind', 'courseBannerUpload', 'course', p_course_id, 'upload', p_upload_id);
+    expected_address jsonb := jsonb_build_object('kind', 'courseBannerUpload', 'course', p_course_instance_id, 'upload', p_upload_id);
 BEGIN
-    IF NOT ple_api.current_session_account_is_course_instructor(p_course_id) THEN RETURN NULL; END IF;
+    IF NOT ple_api.current_session_account_is_course_instructor(p_course_instance_id) THEN RETURN NULL; END IF;
     account_id := ple_api.current_session_account_id();
     INSERT INTO ple_private.object_record
-        (object_id, object_address, object_storage_area, object_data_class,
+        (object_record_id, object_address, object_storage_area, object_data_class,
          sha256, size_bytes, media_type, created_at)
-    VALUES (p_object_id, expected_address, 'temp-processing', 'course-appearance',
+    VALUES (p_object_record_id, expected_address, 'temp-processing', 'course-appearance',
         p_sha256, p_byte_length, p_media_type, clock_timestamp()) ON CONFLICT DO NOTHING;
     IF NOT EXISTS (
-        SELECT 1 FROM ple_private.object_record WHERE object_id = p_object_id
+        SELECT 1 FROM ple_private.object_record WHERE object_record_id = p_object_record_id
           AND object_address = expected_address AND object_storage_area = 'temp-processing'
           AND object_data_class = 'course-appearance' AND sha256 = p_sha256
           AND size_bytes = p_byte_length AND media_type = p_media_type
@@ -127,54 +127,54 @@ BEGIN
         RETURN NULL;
     END IF;
     INSERT INTO ple_private.course_banner_upload
-        (course_banner_upload_id, course_id, account_id, object_id, canonical_media_type, byte_length,
+        (course_banner_upload_id, course_instance_id, account_id, object_record_id, canonical_media_type, byte_length,
          sha256, width, height, expires_at, created_at)
-    VALUES (p_upload_id, p_course_id, account_id, p_object_id, p_media_type, p_byte_length,
+    VALUES (p_upload_id, p_course_instance_id, account_id, p_object_record_id, p_media_type, p_byte_length,
         p_sha256, p_width, p_height, to_timestamp(p_expires_millis / 1000.0), clock_timestamp());
     INSERT INTO ple_private.course_banner_storage_subject
-        (course_banner_storage_subject_id, subject_kind, course_id, course_banner_upload_id,
-         object_id, expected_sha256, expected_size_bytes, expected_media_type, storage_area)
-    VALUES (subject_id, 'upload', p_course_id, p_upload_id, p_object_id, p_sha256,
+        (course_banner_storage_subject_id, subject_kind, course_instance_id, course_banner_upload_id,
+         object_record_id, expected_sha256, expected_size_bytes, expected_media_type, storage_area)
+    VALUES (subject_id, 'upload', p_course_instance_id, p_upload_id, p_object_record_id, p_sha256,
         p_byte_length, p_media_type, 'temp-processing');
     INSERT INTO ple_private.course_banner_work
-        (course_banner_work_id, course_id, operation_kind, object_id, state,
+        (course_banner_work_id, course_instance_id, operation_kind, object_record_id, state,
          course_banner_storage_subject_id, created_at)
-    VALUES (work_id, p_course_id, 'put-upload', p_object_id, 'pending', subject_id, clock_timestamp());
+    VALUES (work_id, p_course_instance_id, 'put-upload', p_object_record_id, 'pending', subject_id, clock_timestamp());
     RETURN work_id;
 EXCEPTION WHEN unique_violation OR check_violation THEN RETURN NULL;
 END $$;
 
-CREATE FUNCTION ple_api.finalize_course_banner_upload_stage(p_course_id uuid, p_upload_id uuid)
+CREATE FUNCTION ple_api.finalize_course_banner_upload_stage(p_course_instance_id uuid, p_upload_id uuid)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$
 BEGIN
     UPDATE ple_private.course_banner_work AS work SET state = 'completed', completed_at = clock_timestamp()
       FROM ple_private.course_banner_upload AS upload
-     WHERE upload.course_banner_upload_id = p_upload_id AND upload.course_id = p_course_id
+     WHERE upload.course_banner_upload_id = p_upload_id AND upload.course_instance_id = p_course_instance_id
        AND upload.account_id = ple_api.current_session_account_id()
        AND work.course_banner_storage_subject_id IN (SELECT course_banner_storage_subject_id
            FROM ple_private.course_banner_storage_subject WHERE course_banner_upload_id = upload.course_banner_upload_id)
        AND work.operation_kind = 'put-upload' AND work.state = 'pending'
-       AND ple_api.current_session_account_is_course_instructor(p_course_id);
+       AND ple_api.current_session_account_is_course_instructor(p_course_instance_id);
     RETURN FOUND;
 END $$;
 
-CREATE FUNCTION ple_api.read_staged_course_banner_upload(p_course_id uuid, p_upload_id uuid)
-RETURNS TABLE(object_id uuid, sha256 bytea, byte_length bigint, canonical_media_type text,
+CREATE FUNCTION ple_api.read_staged_course_banner_upload(p_course_instance_id uuid, p_upload_id uuid)
+RETURNS TABLE(object_record_id uuid, sha256 bytea, byte_length bigint, canonical_media_type text,
               width integer, height integer, put_work_id uuid)
 LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$
-    SELECT upload.object_id, upload.sha256, upload.byte_length, upload.canonical_media_type,
+    SELECT upload.object_record_id, upload.sha256, upload.byte_length, upload.canonical_media_type,
            upload.width, upload.height, work.course_banner_work_id
       FROM ple_private.course_banner_upload upload
       JOIN ple_private.course_banner_storage_subject subject ON subject.course_banner_upload_id = upload.course_banner_upload_id
       JOIN ple_private.course_banner_work work ON work.course_banner_storage_subject_id = subject.course_banner_storage_subject_id
-     WHERE upload.course_id = p_course_id AND upload.course_banner_upload_id = p_upload_id
+     WHERE upload.course_instance_id = p_course_instance_id AND upload.course_banner_upload_id = p_upload_id
        AND upload.account_id = ple_api.current_session_account_id() AND upload.promoted_at IS NULL
        AND upload.expires_at > clock_timestamp() AND work.operation_kind = 'put-upload'
-       AND work.state = 'completed' AND ple_api.current_session_account_is_course_instructor(p_course_id)
+       AND work.state = 'completed' AND ple_api.current_session_account_is_course_instructor(p_course_instance_id)
 $$;
 
 CREATE FUNCTION ple_api.prepare_course_banner_promotion(
-    p_course_id uuid, p_upload_id uuid, p_banner_id uuid, p_kind text, p_text text,
+    p_course_instance_id uuid, p_upload_id uuid, p_banner_id uuid, p_kind text, p_text text,
     p_source_object uuid, p_source_sha256 bytea, p_source_size bigint, p_source_media text,
     p_source_width integer, p_source_height integer,
     p_banner_object uuid, p_banner_sha256 bytea, p_banner_size bigint, p_banner_media text,
@@ -185,9 +185,9 @@ DECLARE upload ple_private.course_banner_upload%ROWTYPE; source_subject uuid := 
     banner_delivery uuid := gen_random_uuid();
     source_work uuid := gen_random_uuid(); banner_work uuid := gen_random_uuid();
 BEGIN
-    IF NOT ple_api.current_session_account_is_course_instructor(p_course_id) THEN RETURN; END IF;
+    IF NOT ple_api.current_session_account_is_course_instructor(p_course_instance_id) THEN RETURN; END IF;
     SELECT * INTO upload FROM ple_private.course_banner_upload
-     WHERE course_banner_upload_id = p_upload_id AND course_id = p_course_id
+     WHERE course_banner_upload_id = p_upload_id AND course_instance_id = p_course_instance_id
        AND account_id = ple_api.current_session_account_id() AND promoted_at IS NULL
        AND expires_at > clock_timestamp() FOR UPDATE;
     IF NOT FOUND OR p_source_sha256 <> upload.sha256 OR p_source_size <> upload.byte_length
@@ -199,56 +199,56 @@ BEGIN
        OR p_banner_width IS NULL OR p_banner_height IS NULL
        OR p_banner_width <> 1280 OR p_banner_height <> 256 THEN RETURN; END IF;
     INSERT INTO ple_private.object_record
-        (object_id, object_address, object_storage_area, object_data_class,
+        (object_record_id, object_address, object_storage_area, object_data_class,
          sha256, size_bytes, media_type, created_at)
     VALUES
-        (p_source_object, jsonb_build_object('kind', 'courseBannerSource', 'course', p_course_id, 'banner', p_banner_id),
+        (p_source_object, jsonb_build_object('kind', 'courseBannerSource', 'course', p_course_instance_id, 'banner', p_banner_id),
          'private-content', 'course-appearance', p_source_sha256, p_source_size, p_source_media, clock_timestamp()),
-        (p_banner_object, jsonb_build_object('kind', 'courseBannerRendition', 'course', p_course_id, 'banner', p_banner_id, 'rendition', 'banner'),
+        (p_banner_object, jsonb_build_object('kind', 'courseBannerRendition', 'course', p_course_instance_id, 'banner', p_banner_id, 'rendition', 'banner'),
          'private-content', 'course-appearance', p_banner_sha256, p_banner_size, p_banner_media, clock_timestamp())
     ON CONFLICT DO NOTHING;
     IF NOT EXISTS (
-        SELECT 1 FROM ple_private.object_record WHERE object_id = p_source_object
-          AND object_address = jsonb_build_object('kind', 'courseBannerSource', 'course', p_course_id, 'banner', p_banner_id)
+        SELECT 1 FROM ple_private.object_record WHERE object_record_id = p_source_object
+          AND object_address = jsonb_build_object('kind', 'courseBannerSource', 'course', p_course_instance_id, 'banner', p_banner_id)
           AND object_storage_area = 'private-content' AND object_data_class = 'course-appearance'
           AND sha256 = p_source_sha256 AND size_bytes = p_source_size AND media_type = p_source_media
     ) OR NOT EXISTS (
-        SELECT 1 FROM ple_private.object_record WHERE object_id = p_banner_object
-          AND object_address = jsonb_build_object('kind', 'courseBannerRendition', 'course', p_course_id, 'banner', p_banner_id, 'rendition', 'banner')
+        SELECT 1 FROM ple_private.object_record WHERE object_record_id = p_banner_object
+          AND object_address = jsonb_build_object('kind', 'courseBannerRendition', 'course', p_course_instance_id, 'banner', p_banner_id, 'rendition', 'banner')
           AND object_storage_area = 'private-content' AND object_data_class = 'course-appearance'
           AND sha256 = p_banner_sha256 AND size_bytes = p_banner_size AND media_type = p_banner_media
     ) THEN
         RETURN;
     END IF;
     INSERT INTO ple_data.course_banner
-        (course_id, course_banner_id, source_object_id, source_object_checksum, source_byte_length, source_media_type,
+        (course_instance_id, course_banner_id, source_object_record_id, source_object_checksum, source_byte_length, source_media_type,
          source_width, source_height)
-    VALUES (p_course_id, p_banner_id, p_source_object, p_source_sha256, p_source_size, p_source_media,
+    VALUES (p_course_instance_id, p_banner_id, p_source_object, p_source_sha256, p_source_size, p_source_media,
         p_source_width, p_source_height);
-    INSERT INTO ple_private.course_banner_prepared_presentation VALUES (p_course_id, p_banner_id, p_kind, p_text);
+    INSERT INTO ple_private.course_banner_prepared_presentation VALUES (p_course_instance_id, p_banner_id, p_kind, p_text);
     INSERT INTO ple_private.course_banner_storage_subject VALUES
-        (source_subject, 'source', p_course_id, NULL, p_banner_id, p_source_object, p_source_sha256,
+        (source_subject, 'source', p_course_instance_id, NULL, p_banner_id, p_source_object, p_source_sha256,
          p_source_size, p_source_media, 'private-content');
     INSERT INTO ple_data.course_banner_rendition VALUES
-        (p_course_id, p_banner_id, 'banner', p_banner_object, p_banner_width, p_banner_height);
+        (p_course_instance_id, p_banner_id, 'banner', p_banner_object, p_banner_width, p_banner_height);
     INSERT INTO ple_data.object_delivery VALUES
         (banner_delivery, p_banner_object, p_banner_sha256, p_banner_media, p_banner_size, 'pending', clock_timestamp());
     INSERT INTO ple_data.course_banner_delivery VALUES
-        (banner_delivery, p_banner_object, p_course_id, p_banner_id, 'banner');
+        (banner_delivery, p_banner_object, p_course_instance_id, p_banner_id, 'banner');
     INSERT INTO ple_private.course_banner_work VALUES
-        (source_work, p_course_id, p_banner_id, 'put-source', p_source_object, 'pending', source_subject, NULL, clock_timestamp(), NULL),
-        (banner_work, p_course_id, p_banner_id, 'put-rendition', p_banner_object, 'pending', NULL, banner_delivery, clock_timestamp(), NULL);
+        (source_work, p_course_instance_id, p_banner_id, 'put-source', p_source_object, 'pending', source_subject, NULL, clock_timestamp(), NULL),
+        (banner_work, p_course_instance_id, p_banner_id, 'put-rendition', p_banner_object, 'pending', NULL, banner_delivery, clock_timestamp(), NULL);
     RETURN QUERY SELECT source_work, banner_work;
 EXCEPTION WHEN unique_violation OR foreign_key_violation OR check_violation THEN RETURN;
 END $$;
 
-CREATE FUNCTION ple_api.complete_prepared_course_banner_object(p_course_id uuid, p_banner_id uuid, p_object_id uuid)
+CREATE FUNCTION ple_api.complete_prepared_course_banner_object(p_course_instance_id uuid, p_banner_id uuid, p_object_record_id uuid)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$
 BEGIN
     UPDATE ple_private.course_banner_work SET state = 'completed', completed_at = clock_timestamp()
-     WHERE course_id = p_course_id AND course_banner_id = p_banner_id AND object_id = p_object_id
+     WHERE course_instance_id = p_course_instance_id AND course_banner_id = p_banner_id AND object_record_id = p_object_record_id
        AND operation_kind IN ('put-source', 'put-rendition') AND state = 'pending'
-       AND ple_api.current_session_account_is_course_instructor(p_course_id);
+       AND ple_api.current_session_account_is_course_instructor(p_course_instance_id);
     RETURN FOUND;
 END $$;
 
@@ -257,14 +257,14 @@ RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple
 DECLARE put_work ple_private.course_banner_work%ROWTYPE; delete_id uuid := gen_random_uuid();
 BEGIN
     SELECT * INTO put_work FROM ple_private.course_banner_work WHERE course_banner_work_id = p_put_work_id FOR UPDATE;
-    IF NOT FOUND OR NOT ple_api.current_session_account_is_course_instructor(put_work.course_id)
+    IF NOT FOUND OR NOT ple_api.current_session_account_is_course_instructor(put_work.course_instance_id)
        OR put_work.operation_kind NOT IN ('put-upload','put-source','put-rendition') THEN RETURN NULL; END IF;
     INSERT INTO ple_private.course_banner_work
-        (course_banner_work_id, course_id, course_banner_id, operation_kind, object_id, state,
-         course_banner_storage_subject_id, delivery_id, created_at)
-    VALUES (delete_id, put_work.course_id, put_work.course_banner_id,
+        (course_banner_work_id, course_instance_id, course_banner_id, operation_kind, object_record_id, state,
+         course_banner_storage_subject_id, object_delivery_id, created_at)
+    VALUES (delete_id, put_work.course_instance_id, put_work.course_banner_id,
         CASE put_work.operation_kind WHEN 'put-upload' THEN 'delete-upload' WHEN 'put-source' THEN 'delete-source' ELSE 'delete-rendition' END,
-        put_work.object_id, 'pending', put_work.course_banner_storage_subject_id, put_work.delivery_id, clock_timestamp());
+        put_work.object_record_id, 'pending', put_work.course_banner_storage_subject_id, put_work.object_delivery_id, clock_timestamp());
     RETURN delete_id;
 EXCEPTION WHEN unique_violation THEN RETURN NULL;
 END $$;
@@ -274,16 +274,16 @@ RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, 
 BEGIN
     UPDATE ple_private.course_banner_work SET state = 'completed', completed_at = clock_timestamp()
      WHERE course_banner_work_id = p_delete_work_id AND operation_kind LIKE 'delete-%' AND state = 'pending'
-       AND ple_api.current_session_account_is_course_instructor(course_id);
+       AND ple_api.current_session_account_is_course_instructor(course_instance_id);
     RETURN FOUND;
 END $$;
 
-CREATE FUNCTION ple_api.require_course_banner_object_repair(p_course_id uuid, p_banner_id uuid, p_object_id uuid)
+CREATE FUNCTION ple_api.require_course_banner_object_repair(p_course_instance_id uuid, p_banner_id uuid, p_object_record_id uuid)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$
 BEGIN
     UPDATE ple_private.course_banner_work SET state = 'repair-required'
-     WHERE course_id = p_course_id AND course_banner_id IS NOT DISTINCT FROM p_banner_id AND object_id = p_object_id
-       AND state = 'pending' AND ple_api.current_session_account_is_course_instructor(p_course_id);
+     WHERE course_instance_id = p_course_instance_id AND course_banner_id IS NOT DISTINCT FROM p_banner_id AND object_record_id = p_object_record_id
+       AND state = 'pending' AND ple_api.current_session_account_is_course_instructor(p_course_instance_id);
     RETURN FOUND;
 END $$;
 
@@ -292,7 +292,7 @@ RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, 
 BEGIN
     UPDATE ple_private.course_banner_work SET state = 'repair-required'
      WHERE course_banner_work_id = p_delete_work_id AND operation_kind LIKE 'delete-%' AND state = 'pending'
-       AND ple_api.current_session_account_is_course_instructor(course_id);
+       AND ple_api.current_session_account_is_course_instructor(course_instance_id);
     RETURN FOUND;
 END $$;
 
@@ -302,16 +302,16 @@ DECLARE work ple_private.course_banner_work%ROWTYPE; expected bytea; check_id uu
 BEGIN
     SELECT * INTO work FROM ple_private.course_banner_work WHERE course_banner_work_id = p_delete_work_id
       AND operation_kind LIKE 'delete-%' AND state = 'repair-required' FOR UPDATE;
-    IF NOT FOUND OR NOT ple_api.current_session_account_is_course_instructor(work.course_id) THEN RETURN false; END IF;
+    IF NOT FOUND OR NOT ple_api.current_session_account_is_course_instructor(work.course_instance_id) THEN RETURN false; END IF;
     SELECT COALESCE(subject.expected_sha256, delivery.sha256) INTO expected FROM ple_private.course_banner_work w
       LEFT JOIN ple_private.course_banner_storage_subject subject ON subject.course_banner_storage_subject_id = w.course_banner_storage_subject_id
-      LEFT JOIN ple_data.object_delivery delivery ON delivery.delivery_id = w.delivery_id WHERE w.course_banner_work_id = p_delete_work_id;
+      LEFT JOIN ple_data.object_delivery delivery ON delivery.object_delivery_id = w.object_delivery_id WHERE w.course_banner_work_id = p_delete_work_id;
     IF NOT p_object_present AND p_observed_checksum IS NULL THEN result := 'missing';
     ELSIF p_object_present AND p_observed_checksum = expected THEN result := 'verified';
     ELSIF p_object_present AND octet_length(p_observed_checksum) = 32 THEN result := 'mismatched';
     ELSE RETURN false; END IF;
-    INSERT INTO ple_private.object_storage_check (object_storage_check_id, delivery_id, course_banner_storage_subject_id, expected_sha256, check_result, checked_at)
-    VALUES (check_id, work.delivery_id, work.course_banner_storage_subject_id, expected, result, clock_timestamp());
+    INSERT INTO ple_private.object_storage_check (object_storage_check_id, object_delivery_id, course_banner_storage_subject_id, expected_sha256, check_result, checked_at)
+    VALUES (check_id, work.object_delivery_id, work.course_banner_storage_subject_id, expected, result, clock_timestamp());
     disposition := CASE result WHEN 'missing' THEN 'already_absent' ELSE 'retained' END;
     INSERT INTO ple_private.object_cleanup_manifest VALUES (manifest_id, check_id, clock_timestamp(), disposition);
     INSERT INTO ple_audit.object_storage_check_event VALUES (gen_random_uuid(), check_id, result, clock_timestamp(),
@@ -321,23 +321,23 @@ BEGIN
     RETURN true;
 END $$;
 
-CREATE FUNCTION ple_api.finalize_course_banner_promotion(p_course_id uuid, p_upload_id uuid, p_banner_id uuid)
+CREATE FUNCTION ple_api.finalize_course_banner_promotion(p_course_instance_id uuid, p_upload_id uuid, p_banner_id uuid)
 RETURNS TABLE(alternative_kind text, alternative_text text, retired_course_banner_id uuid, upload_put_work_id uuid, retired_source_put_work_id uuid, retired_banner_put_work_id uuid)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE old_banner uuid; kind text; alt_text text;
 BEGIN
-    IF NOT ple_api.current_session_account_is_course_instructor(p_course_id) THEN RETURN; END IF;
-    IF (SELECT count(*) FROM ple_private.course_banner_work WHERE course_id = p_course_id AND course_banner_id = p_banner_id
+    IF NOT ple_api.current_session_account_is_course_instructor(p_course_instance_id) THEN RETURN; END IF;
+    IF (SELECT count(*) FROM ple_private.course_banner_work WHERE course_instance_id = p_course_instance_id AND course_banner_id = p_banner_id
           AND operation_kind IN ('put-source','put-rendition') AND state = 'completed') <> 2 THEN RETURN; END IF;
-    SELECT current_course_banner_id INTO old_banner FROM ple_data.course_instance WHERE course_id = p_course_id FOR UPDATE;
+    SELECT current_course_banner_id INTO old_banner FROM ple_data.course_instance WHERE course_instance_id = p_course_instance_id FOR UPDATE;
     SELECT presentation.alternative_kind, presentation.alternative_text INTO kind, alt_text
       FROM ple_private.course_banner_prepared_presentation AS presentation
-     WHERE presentation.course_id = p_course_id
+     WHERE presentation.course_instance_id = p_course_instance_id
        AND presentation.course_banner_id = p_banner_id;
-    UPDATE ple_data.object_delivery SET delivery_state = 'available' WHERE delivery_id IN (SELECT delivery_id FROM ple_data.course_banner_delivery WHERE course_id = p_course_id AND course_banner_id = p_banner_id);
-    UPDATE ple_data.course_instance SET current_course_banner_id = p_banner_id, course_banner_alternative_kind = kind, course_banner_alternative_text = alt_text WHERE course_id = p_course_id;
+    UPDATE ple_data.object_delivery SET delivery_state = 'available' WHERE object_delivery_id IN (SELECT object_delivery_id FROM ple_data.course_banner_delivery WHERE course_instance_id = p_course_instance_id AND course_banner_id = p_banner_id);
+    UPDATE ple_data.course_instance SET current_course_banner_id = p_banner_id, course_banner_alternative_kind = kind, course_banner_alternative_text = alt_text WHERE course_instance_id = p_course_instance_id;
     UPDATE ple_private.course_banner_upload SET promoted_at = clock_timestamp() WHERE course_banner_upload_id = p_upload_id AND promoted_at IS NULL;
-    IF old_banner IS NOT NULL THEN UPDATE ple_data.object_delivery SET delivery_state = 'retired' WHERE delivery_id IN (SELECT delivery_id FROM ple_data.course_banner_delivery WHERE course_id = p_course_id AND course_banner_id = old_banner); END IF;
+    IF old_banner IS NOT NULL THEN UPDATE ple_data.object_delivery SET delivery_state = 'retired' WHERE object_delivery_id IN (SELECT object_delivery_id FROM ple_data.course_banner_delivery WHERE course_instance_id = p_course_instance_id AND course_banner_id = old_banner); END IF;
     RETURN QUERY SELECT kind, alt_text, old_banner,
       (SELECT work.course_banner_work_id
          FROM ple_private.course_banner_work AS work
@@ -347,34 +347,34 @@ BEGIN
           AND work.operation_kind = 'put-upload'),
       (SELECT work.course_banner_work_id
          FROM ple_private.course_banner_work AS work
-        WHERE work.course_id = p_course_id AND work.course_banner_id = old_banner
+        WHERE work.course_instance_id = p_course_instance_id AND work.course_banner_id = old_banner
           AND work.operation_kind = 'put-source'),
       (SELECT work.course_banner_work_id
          FROM ple_private.course_banner_work AS work
          JOIN ple_data.course_banner_delivery AS delivery
-           ON delivery.delivery_id = work.delivery_id
-        WHERE work.course_id = p_course_id AND work.course_banner_id = old_banner
+           ON delivery.object_delivery_id = work.object_delivery_id
+        WHERE work.course_instance_id = p_course_instance_id AND work.course_banner_id = old_banner
           AND delivery.rendition_kind = 'banner');
 END $$;
 
-CREATE FUNCTION ple_api.prepare_course_banner_removal(p_course_id uuid)
+CREATE FUNCTION ple_api.prepare_course_banner_removal(p_course_instance_id uuid)
 RETURNS TABLE(course_banner_id uuid, source_put_work_id uuid, banner_put_work_id uuid)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE banner uuid;
 BEGIN
-    IF NOT ple_api.current_session_account_is_course_instructor(p_course_id) THEN RETURN; END IF;
-    SELECT current_course_banner_id INTO banner FROM ple_data.course_instance WHERE course_id = p_course_id FOR UPDATE;
+    IF NOT ple_api.current_session_account_is_course_instructor(p_course_instance_id) THEN RETURN; END IF;
+    SELECT current_course_banner_id INTO banner FROM ple_data.course_instance WHERE course_instance_id = p_course_instance_id FOR UPDATE;
     IF banner IS NULL THEN RETURN; END IF;
-    UPDATE ple_data.course_instance SET current_course_banner_id=NULL, course_banner_alternative_kind=NULL, course_banner_alternative_text=NULL WHERE course_id=p_course_id;
+    UPDATE ple_data.course_instance SET current_course_banner_id=NULL, course_banner_alternative_kind=NULL, course_banner_alternative_text=NULL WHERE course_instance_id=p_course_instance_id;
     UPDATE ple_data.object_delivery SET delivery_state='retired'
-     WHERE delivery_id IN (
-         SELECT delivery.delivery_id
+     WHERE object_delivery_id IN (
+         SELECT delivery.object_delivery_id
            FROM ple_data.course_banner_delivery AS delivery
-          WHERE delivery.course_id=p_course_id AND delivery.course_banner_id=banner
+          WHERE delivery.course_instance_id=p_course_instance_id AND delivery.course_banner_id=banner
      );
     RETURN QUERY SELECT banner,
       (SELECT work.course_banner_work_id FROM ple_private.course_banner_work AS work
-        WHERE work.course_id=p_course_id AND work.course_banner_id=banner AND work.operation_kind='put-source'),
-      (SELECT work.course_banner_work_id FROM ple_private.course_banner_work work JOIN ple_data.course_banner_delivery delivery ON delivery.delivery_id=work.delivery_id WHERE work.course_id=p_course_id AND work.course_banner_id=banner AND delivery.rendition_kind='banner');
+        WHERE work.course_instance_id=p_course_instance_id AND work.course_banner_id=banner AND work.operation_kind='put-source'),
+      (SELECT work.course_banner_work_id FROM ple_private.course_banner_work work JOIN ple_data.course_banner_delivery delivery ON delivery.object_delivery_id=work.object_delivery_id WHERE work.course_instance_id=p_course_instance_id AND work.course_banner_id=banner AND delivery.rendition_kind='banner');
 END $$;
 

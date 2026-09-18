@@ -24,7 +24,7 @@ BEGIN
        OR publication_job.job_kind IS DISTINCT FROM 'publish_public_assets'
        OR publication_job.job_target_kind IS DISTINCT FROM 'public_asset_publication'
        OR publication_job.worker_kind IS DISTINCT FROM 'public_asset_publisher'
-       OR publication_job.question_id IS DISTINCT FROM publication.question_id
+       OR publication_job.published_question_id IS DISTINCT FROM publication.published_question_id
        OR publication_job.revision_number IS DISTINCT FROM publication.revision_number THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Question Asset Publication requires its exact Public Asset publisher Job';
@@ -42,10 +42,10 @@ CREATE FUNCTION ple_private.claim_question_asset_publication_job(
     p_lease_expires_at timestamptz
 ) RETURNS TABLE (
     job_id uuid,
-    question_id text,
+    published_question_id text,
     revision_number integer,
     asset_id uuid,
-    source_object_id uuid,
+    source_object_record_id uuid,
     source_object_checksum bytea,
     public_object_id uuid,
     public_object_checksum bytea,
@@ -53,7 +53,7 @@ CREATE FUNCTION ple_private.claim_question_asset_publication_job(
     verified_media_type text,
     intrinsic_width integer,
     intrinsic_height integer,
-    delivery_id uuid
+    object_delivery_id uuid
 )
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private AS $$
@@ -77,7 +77,7 @@ BEGIN
        AND candidate.job_kind = 'publish_public_assets'
        AND candidate.job_target_kind = 'public_asset_publication'
        AND candidate.worker_kind = 'public_asset_publisher'
-       AND candidate.question_id = registry.question_id
+       AND candidate.published_question_id = registry.published_question_id
        AND candidate.revision_number = registry.revision_number
        AND candidate.attempt_count < candidate.max_attempts
        AND ((candidate.state = 'ready' AND candidate.available_at <= claimed_at)
@@ -99,7 +99,7 @@ BEGIN
        AND job.job_kind = 'publish_public_assets'
        AND job.job_target_kind = 'public_asset_publication'
        AND job.worker_kind = 'public_asset_publisher'
-       AND job.question_id = publication.question_id
+       AND job.published_question_id = publication.published_question_id
        AND job.revision_number = publication.revision_number
        AND job.attempt_count = publication_job.attempt_count
        AND ((job.state = 'ready' AND job.available_at <= claimed_at)
@@ -109,13 +109,13 @@ BEGIN
             MESSAGE = 'Question Asset Publication Job changed during claim';
     END IF;
 
-    RETURN QUERY SELECT publication_job.job_id, publication.question_id,
+    RETURN QUERY SELECT publication_job.job_id, publication.published_question_id,
         publication.revision_number, publication.asset_id,
-        publication.source_object_id, publication.source_object_checksum,
+        publication.source_object_record_id, publication.source_object_checksum,
         publication.public_object_id, publication.public_object_checksum,
         publication.public_byte_length, publication.verified_media_type,
         publication.intrinsic_width, publication.intrinsic_height,
-        publication.delivery_id;
+        publication.object_delivery_id;
 END $$;
 
 CREATE FUNCTION ple_private.activate_question_asset_publication(
@@ -146,7 +146,7 @@ BEGIN
        OR publication_job.job_kind <> 'publish_public_assets'
        OR publication_job.job_target_kind <> 'public_asset_publication'
        OR publication_job.worker_kind <> 'public_asset_publisher'
-       OR publication_job.question_id <> publication.question_id
+       OR publication_job.published_question_id <> publication.published_question_id
        OR publication_job.revision_number <> publication.revision_number
        OR publication_job.state <> 'leased'
        OR publication_job.lease_token <> p_job_lease_token
@@ -159,18 +159,18 @@ BEGIN
             MESSAGE = 'Question Asset Publication is not Pending';
     END IF;
     SELECT * INTO delivery FROM ple_data.object_delivery
-     WHERE delivery_id = publication.delivery_id FOR UPDATE;
+     WHERE object_delivery_id = publication.object_delivery_id FOR UPDATE;
     IF NOT FOUND
-       OR delivery.object_id <> publication.public_object_id
+       OR delivery.object_record_id <> publication.public_object_id
        OR delivery.sha256 <> publication.public_object_checksum
        OR delivery.media_type <> publication.verified_media_type
        OR delivery.byte_length <> publication.public_byte_length
        OR delivery.delivery_state <> 'pending'
        OR NOT EXISTS (
             SELECT 1 FROM ple_data.question_asset_delivery AS asset_delivery
-             WHERE asset_delivery.delivery_id = publication.delivery_id
-               AND asset_delivery.object_id = publication.public_object_id
-               AND asset_delivery.question_id = publication.question_id
+             WHERE asset_delivery.object_delivery_id = publication.object_delivery_id
+               AND asset_delivery.object_record_id = publication.public_object_id
+               AND asset_delivery.published_question_id = publication.published_question_id
                AND asset_delivery.revision_number = publication.revision_number
                AND asset_delivery.asset_id = publication.asset_id
        ) THEN
@@ -181,20 +181,20 @@ BEGIN
     expected_public_address := jsonb_build_object(
         'kind', 'questionAsset',
         'questionRevision', jsonb_build_object(
-            'questionId', publication.question_id,
+            'questionId', publication.published_question_id,
             'revisionNumber', publication.revision_number),
         'asset', publication.asset_id, 'object', publication.public_object_id);
     INSERT INTO ple_private.object_record (
-        object_id, object_address, object_storage_area, object_data_class,
+        object_record_id, object_address, object_storage_area, object_data_class,
         sha256, size_bytes, media_type, created_at
     ) VALUES (
         publication.public_object_id, expected_public_address, 'public-assets',
         'question-asset', publication.public_object_checksum,
         publication.public_byte_length, publication.verified_media_type, activated_at
-    ) ON CONFLICT (object_id) DO NOTHING;
+    ) ON CONFLICT (object_record_id) DO NOTHING;
     IF NOT EXISTS (
         SELECT 1 FROM ple_private.object_record AS record
-         WHERE record.object_id = publication.public_object_id
+         WHERE record.object_record_id = publication.public_object_id
            AND record.object_address = expected_public_address
            AND record.object_storage_area = 'public-assets'
            AND record.object_data_class = 'question-asset'
@@ -207,8 +207,8 @@ BEGIN
     END IF;
 
     UPDATE ple_data.object_delivery SET delivery_state = 'available'
-     WHERE delivery_id = publication.delivery_id
-       AND object_id = publication.public_object_id
+     WHERE object_delivery_id = publication.object_delivery_id
+       AND object_record_id = publication.public_object_id
        AND delivery_state = 'pending';
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '40001',
@@ -243,31 +243,31 @@ END $$;
 -- shorten this resolver's signature.  An empty result intentionally conceals
 -- absent, pending, and unauthorized assets alike.
 CREATE FUNCTION ple_private.resolve_ready_question_asset_delivery(
-    p_question_id text,
+    p_published_question_id text,
     p_revision_number integer,
     p_asset_id uuid
 )
 RETURNS TABLE (
-    question_id text, revision_number integer, asset_id uuid,
+    published_question_id text, revision_number integer, asset_id uuid,
     public_object_id uuid, rendition_checksum bytea
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
-    SELECT publication.question_id, publication.revision_number,
+    SELECT publication.published_question_id, publication.revision_number,
            publication.asset_id, publication.public_object_id,
            publication.public_object_checksum
       FROM ple_private.question_asset_publication AS publication
       JOIN ple_data.object_delivery AS delivery
-        ON delivery.delivery_id = publication.delivery_id
-       AND delivery.object_id = publication.public_object_id
+        ON delivery.object_delivery_id = publication.object_delivery_id
+       AND delivery.object_record_id = publication.public_object_id
       JOIN ple_data.question_asset_delivery AS asset_delivery
-        ON asset_delivery.delivery_id = publication.delivery_id
-       AND asset_delivery.object_id = publication.public_object_id
-       AND asset_delivery.question_id = publication.question_id
+        ON asset_delivery.object_delivery_id = publication.object_delivery_id
+       AND asset_delivery.object_record_id = publication.public_object_id
+       AND asset_delivery.published_question_id = publication.published_question_id
        AND asset_delivery.revision_number = publication.revision_number
        AND asset_delivery.asset_id = publication.asset_id
       JOIN ple_private.object_record AS public_record
-        ON public_record.object_id = publication.public_object_id
-     WHERE publication.question_id = p_question_id
+        ON public_record.object_record_id = publication.public_object_id
+     WHERE publication.published_question_id = p_published_question_id
        AND publication.revision_number = p_revision_number
        AND publication.asset_id = p_asset_id
        AND publication.publication_state = 'ready'
@@ -299,10 +299,10 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
                     ON presentation.question_attempt_id = presented_asset.question_attempt_id
                   JOIN ple_data.assessment AS assessment
                     ON assessment.assessment_id = assessment_attempt.assessment_id
-                 WHERE issued.question_id = publication.question_id
+                 WHERE issued.published_question_id = publication.published_question_id
                    AND issued.revision_number = publication.revision_number
                    AND ple_api.current_session_account_owns_student_record(
-                       assessment.course_id, assessment_attempt.student_record_id)
+                       assessment.course_instance_id, assessment_attempt.student_record_id)
             )
        )
 $$;
@@ -310,17 +310,17 @@ $$;
 SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.resolve_ready_question_asset(
-    p_question_id text,
+    p_published_question_id text,
     p_revision_number integer,
     p_asset_id uuid
 )
 RETURNS TABLE (
-    question_id text, revision_number integer, asset_id uuid,
+    published_question_id text, revision_number integer, asset_id uuid,
     public_object_id uuid, rendition_checksum bytea
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
-    SELECT question_id, revision_number, asset_id, public_object_id, rendition_checksum
+    SELECT published_question_id, revision_number, asset_id, public_object_id, rendition_checksum
       FROM ple_private.resolve_ready_question_asset_delivery(
-          p_question_id, p_revision_number, p_asset_id)
+          p_published_question_id, p_revision_number, p_asset_id)
 $$;
 

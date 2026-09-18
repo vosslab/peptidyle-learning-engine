@@ -13,7 +13,7 @@ SET LOCAL ROLE ple_private_owner;
 -- uses the one p_now supplied from statement_timestamp(); the browser never
 -- recomputes permission from its own clock.
 CREATE FUNCTION ple_private.read_student_released_assessment_landing_evidence(
-    p_course_id uuid,
+    p_course_instance_id uuid,
     p_student_record_id uuid,
     p_now timestamptz
 ) RETURNS TABLE (
@@ -62,9 +62,9 @@ SET search_path = pg_catalog, ple_data, ple_private, ple_audit AS $$
           FROM ple_data.assessment AS assessment
           LEFT JOIN ple_data.assessment_entry AS entry
             ON entry.assessment_id = assessment.assessment_id
-         WHERE assessment.course_id = p_course_id
+         WHERE assessment.course_instance_id = p_course_instance_id
            AND assessment.assessment_status = 'released'
-           AND ple_api.course_student_work_is_ordinarily_visible(assessment.course_id)
+           AND ple_api.course_student_work_is_ordinarily_visible(assessment.course_instance_id)
          GROUP BY assessment.assessment_id, assessment.public_reference,
                   assessment.assessment_title, assessment.assessment_type,
                   assessment.assessment_status,
@@ -299,7 +299,7 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Course is unavailable';
     END IF;
 
-    SELECT course.course_id, student.student_record_id
+    SELECT course.course_instance_id, student.student_record_id
       INTO course_id_value, student_record_id_value
       FROM ple_private.account AS account
       JOIN LATERAL (
@@ -312,13 +312,13 @@ BEGIN
       JOIN ple_data.course_membership AS membership
         ON membership.account_id = account.account_id
        AND membership.role = 'student'
-       AND ple_data.course_membership_is_active(membership.membership_id)
+       AND ple_data.course_membership_is_active(membership.course_membership_id)
       JOIN ple_data.course_instance AS course
-        ON course.course_id = membership.course_id
+        ON course.course_instance_id = membership.course_instance_id
        AND course.retention_lifecycle_state = 'active'
       JOIN ple_data.student_record AS student
         ON student.student_record_id = membership.student_record_id
-       AND student.course_id = course.course_id
+       AND student.course_instance_id = course.course_instance_id
        AND student.student_account_id = account.account_id
      WHERE account.account_id = ple_api.current_session_account_id()
        AND account.product_role = 'student'

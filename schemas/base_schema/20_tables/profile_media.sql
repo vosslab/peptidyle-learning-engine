@@ -8,13 +8,17 @@ SET LOCAL ROLE ple_data_owner;
 -- ASVS 2.2.1/2.2.2: the schema makes each avatar variant exclusive and binds
 -- an image selection to an exact, self-owned delivery record.
 CREATE TABLE ple_data.profile_image_delivery (
-    delivery_id uuid PRIMARY KEY,
-    object_id uuid NOT NULL REFERENCES ple_private.object_record,
+    object_delivery_id uuid PRIMARY KEY,
+    object_record_id uuid NOT NULL REFERENCES ple_private.object_record,
     profile_image_id uuid NOT NULL UNIQUE,
-    UNIQUE (delivery_id, object_id),
-    UNIQUE (profile_image_id, delivery_id),
-    FOREIGN KEY (delivery_id, object_id) REFERENCES ple_data.object_delivery (delivery_id, object_id)
+    UNIQUE (object_delivery_id, object_record_id),
+    UNIQUE (profile_image_id, object_delivery_id),
+    FOREIGN KEY (object_delivery_id, object_record_id) REFERENCES ple_data.object_delivery (object_delivery_id, object_record_id),
+    created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp(),
+    updated_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp(),
+    CHECK (updated_at >= created_at)
 );
+
 
 CREATE TABLE ple_data.provided_avatar (
     provided_avatar_id text PRIMARY KEY CHECK (
@@ -24,8 +28,10 @@ CREATE TABLE ple_data.provided_avatar (
     asset_sha256 text NOT NULL CHECK (
         asset_sha256 ~ '^[0-9a-f]{64}$'
     ),
-    is_selectable boolean NOT NULL
+    is_selectable boolean NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
 );
+
 
 
 -- C832 is the single literal catalog source.  It upserts catalog facts during
@@ -79,7 +85,7 @@ SET LOCAL ROLE ple_private_owner;
 
 CREATE TABLE ple_private.account_avatar (
     account_id uuid PRIMARY KEY REFERENCES ple_private.account,
-    avatar_kind text NOT NULL CHECK (avatar_kind IN ('provided', 'profile-image')),
+    avatar_kind ple_data.avatar_kind NOT NULL,
     provided_avatar_id text REFERENCES ple_data.provided_avatar,
     profile_image_id uuid,
     profile_image_delivery_id uuid,
@@ -93,32 +99,120 @@ CREATE TABLE ple_private.account_avatar (
     UNIQUE (profile_image_id),
     UNIQUE (profile_image_delivery_id),
     FOREIGN KEY (profile_image_id, profile_image_delivery_id)
-        REFERENCES ple_data.profile_image_delivery (profile_image_id, delivery_id)
+        REFERENCES ple_data.profile_image_delivery (profile_image_id, object_delivery_id),
+    created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp(),
+    updated_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp(),
+    CHECK (updated_at >= created_at)
 );
+
+
 
 CREATE TABLE ple_private.profile_image_work (
     profile_image_work_id uuid PRIMARY KEY,
     account_id uuid NOT NULL REFERENCES ple_private.account,
     profile_image_id uuid NOT NULL,
-    delivery_id uuid NOT NULL,
-    object_id uuid NOT NULL REFERENCES ple_private.object_record,
-    operation_kind text NOT NULL CHECK (operation_kind IN ('put', 'delete')),
-    state text NOT NULL CHECK (state IN ('pending', 'completed', 'repair-required', 'finalized')),
+    object_delivery_id uuid NOT NULL,
+    object_record_id uuid NOT NULL REFERENCES ple_private.object_record,
+    operation_kind ple_data.object_work_operation NOT NULL,
+    state ple_data.lease_state NOT NULL,
     created_at timestamptz NOT NULL,
     completed_at timestamptz,
     UNIQUE (profile_image_id, operation_kind),
-    FOREIGN KEY (delivery_id, object_id)
-        REFERENCES ple_data.profile_image_delivery (delivery_id, object_id)
+    FOREIGN KEY (object_delivery_id, object_record_id)
+        REFERENCES ple_data.profile_image_delivery (object_delivery_id, object_record_id)
 );
+
 
 SET LOCAL ROLE ple_data_owner;
 
+SET LOCAL ROLE ple_data_owner;
 COMMENT ON TABLE ple_data.profile_image_delivery IS 'role: current state, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
 
 COMMENT ON TABLE ple_data.provided_avatar IS 'role: vocabulary, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
 
 SET LOCAL ROLE ple_private_owner;
 
+SET LOCAL ROLE ple_private_owner;
+COMMENT ON TABLE ple_private.account_avatar IS 'role: current state, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
+
+COMMENT ON TABLE ple_private.profile_image_work IS 'role: event, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
+
+
+
+SET LOCAL ROLE ple_data_owner;
+
+SET LOCAL ROLE ple_data_owner;
+COMMENT ON TABLE ple_data.profile_image_delivery IS 'role: current state, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
+
+COMMENT ON TABLE ple_data.provided_avatar IS 'role: vocabulary, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
+
+SET LOCAL ROLE ple_private_owner;
+
+SET LOCAL ROLE ple_private_owner;
+COMMENT ON TABLE ple_private.account_avatar IS 'role: current state, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
+
+COMMENT ON TABLE ple_private.profile_image_work IS 'role: event, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
+
+
+SET LOCAL ROLE ple_data_owner;
+
+SET LOCAL ROLE ple_data_owner;
+COMMENT ON TABLE ple_data.profile_image_delivery IS 'role: current state, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
+
+COMMENT ON TABLE ple_data.provided_avatar IS 'role: vocabulary, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
+
+SET LOCAL ROLE ple_private_owner;
+
+SET LOCAL ROLE ple_private_owner;
+COMMENT ON TABLE ple_private.account_avatar IS 'role: current state, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
+
+COMMENT ON TABLE ple_private.profile_image_work IS 'role: event, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
+
+
+
+SET LOCAL ROLE ple_data_owner;
+
+SET LOCAL ROLE ple_data_owner;
+COMMENT ON TABLE ple_data.profile_image_delivery IS 'role: current state, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
+
+COMMENT ON TABLE ple_data.provided_avatar IS 'role: vocabulary, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
+
+SET LOCAL ROLE ple_private_owner;
+
+SET LOCAL ROLE ple_private_owner;
+COMMENT ON TABLE ple_private.account_avatar IS 'role: current state, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
+
+COMMENT ON TABLE ple_private.profile_image_work IS 'role: event, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
+
+
+
+
+SET LOCAL ROLE ple_data_owner;
+
+SET LOCAL ROLE ple_data_owner;
+COMMENT ON TABLE ple_data.profile_image_delivery IS 'role: current state, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
+
+COMMENT ON TABLE ple_data.provided_avatar IS 'role: vocabulary, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
+
+SET LOCAL ROLE ple_private_owner;
+
+SET LOCAL ROLE ple_private_owner;
+COMMENT ON TABLE ple_private.account_avatar IS 'role: current state, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
+
+COMMENT ON TABLE ple_private.profile_image_work IS 'role: event, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
+
+
+
+SET LOCAL ROLE ple_data_owner;
+
+SET LOCAL ROLE ple_data_owner;
+COMMENT ON TABLE ple_data.profile_image_delivery IS 'role: current state, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
+
+COMMENT ON TABLE ple_data.provided_avatar IS 'role: vocabulary, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
+
+SET LOCAL ROLE ple_private_owner;
+
+SET LOCAL ROLE ple_private_owner;
 COMMENT ON TABLE ple_private.account_avatar IS 'role: current state, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
 
 COMMENT ON TABLE ple_private.profile_image_work IS 'role: event, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';

@@ -33,7 +33,7 @@ BEGIN
             ('Mathematics', 'Biostatistics')
         ) AS vocabulary(discipline_name, subject_name)
     LOOP
-        SELECT count(*), min(item.discipline_uuid::text)::uuid
+        SELECT count(*), min(item.content_discipline_id::text)::uuid
           INTO discipline_matches, selected_discipline
           FROM ple_data.content_discipline AS item
          WHERE lower(item.name) = lower(declared.discipline_name);
@@ -43,19 +43,19 @@ BEGIN
         END IF;
         IF discipline_matches = 0 THEN
             selected_discipline := pg_catalog.gen_random_uuid();
-            INSERT INTO ple_data.content_discipline(discipline_uuid, name)
+            INSERT INTO ple_data.content_discipline(content_discipline_id, name)
             VALUES (selected_discipline, declared.discipline_name);
         END IF;
 
         -- Preserve global identities, display names, and all unrelated
         -- associations; only the explicitly declared association is added.
-        INSERT INTO ple_data.content_subject(subject_uuid, name)
+        INSERT INTO ple_data.content_subject(content_subject_id, name)
         VALUES (pg_catalog.gen_random_uuid(), declared.subject_name)
         ON CONFLICT (lower(name)) DO NOTHING;
-        SELECT item.subject_uuid INTO STRICT selected_subject
+        SELECT item.content_subject_id INTO STRICT selected_subject
           FROM ple_data.content_subject AS item
          WHERE lower(item.name) = lower(declared.subject_name);
-        INSERT INTO ple_data.content_subject_discipline(subject_uuid, discipline_uuid)
+        INSERT INTO ple_data.content_subject_discipline(content_subject_id, content_discipline_id)
         VALUES (selected_subject, selected_discipline)
         ON CONFLICT DO NOTHING;
     END LOOP;

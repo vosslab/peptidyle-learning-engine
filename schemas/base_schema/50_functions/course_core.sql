@@ -94,8 +94,8 @@ RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_data
 AS $$
 BEGIN
     IF NEW.source_kind IS DISTINCT FROM OLD.source_kind
-       OR NEW.blueprint_course_reference_number
-          IS DISTINCT FROM OLD.blueprint_course_reference_number
+       OR NEW.blueprint_course_id
+          IS DISTINCT FROM OLD.blueprint_course_id
        OR NEW.blueprint_revision_number IS DISTINCT FROM OLD.blueprint_revision_number THEN
         RAISE EXCEPTION USING ERRCODE = '55000',
             MESSAGE = 'a Course Instance source is immutable';
@@ -105,7 +105,7 @@ END
 $$;
 
 CREATE TRIGGER course_instance_source_is_immutable
-BEFORE UPDATE OF source_kind, blueprint_course_reference_number, blueprint_revision_number
+BEFORE UPDATE OF source_kind, blueprint_course_id, blueprint_revision_number
 ON ple_data.course_instance
 FOR EACH ROW EXECUTE FUNCTION ple_data.reject_course_instance_source_change();
 
@@ -137,7 +137,7 @@ BEFORE UPDATE OR DELETE ON ple_audit.course_instance_creation_event
 FOR EACH ROW EXECUTE FUNCTION ple_audit.reject_course_instance_creation_event_change();
 
 CREATE FUNCTION ple_audit.record_course_instance_creation_event(
-    p_event_id uuid, p_course_id uuid, p_reference bigint, p_source_kind text,
+    p_event_id uuid, p_course_instance_id uuid, p_reference bigint, p_source_kind text,
     p_blueprint_reference bigint, p_blueprint_revision bigint,
     p_assigned_instructor uuid, p_creator uuid,
     p_occurred_at timestamp with time zone
@@ -145,7 +145,7 @@ CREATE FUNCTION ple_audit.record_course_instance_creation_event(
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_audit
 AS $$
 BEGIN
-    IF p_event_id IS NULL OR p_course_id IS NULL OR p_reference NOT BETWEEN 1 AND 2147483647
+    IF p_event_id IS NULL OR p_course_instance_id IS NULL OR p_reference NOT BETWEEN 1 AND 2147483647
        OR p_source_kind IS NULL OR p_source_kind NOT IN ('empty', 'adopted')
        OR (p_source_kind = 'empty'
            AND (p_blueprint_reference IS NOT NULL OR p_blueprint_revision IS NOT NULL))
@@ -157,7 +157,7 @@ BEGIN
             MESSAGE = 'Course Instance Creation Event arguments are invalid';
     END IF;
     INSERT INTO ple_audit.course_instance_creation_event
-    VALUES (p_event_id, p_course_id, p_reference, p_source_kind,
+    VALUES (p_event_id, p_course_instance_id, p_reference, p_source_kind,
             p_blueprint_reference, p_blueprint_revision,
             p_assigned_instructor, p_creator, p_occurred_at);
 END

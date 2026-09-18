@@ -32,12 +32,12 @@ BEGIN
     END IF;
     IF p_starred THEN
         INSERT INTO ple_data.blueprint_course_star (
-            blueprint_course_reference_number, instructor_account_id, starred_at
+            blueprint_course_id, instructor_account_id, starred_at
         ) VALUES (p_reference_number, actor_id, pg_catalog.clock_timestamp())
-        ON CONFLICT (blueprint_course_reference_number, instructor_account_id) DO NOTHING;
+        ON CONFLICT (blueprint_course_id, instructor_account_id) DO NOTHING;
     ELSE
         DELETE FROM ple_data.blueprint_course_star
-         WHERE blueprint_course_reference_number = p_reference_number
+         WHERE blueprint_course_id = p_reference_number
            AND instructor_account_id = actor_id;
     END IF;
 END
@@ -72,12 +72,12 @@ BEGIN
     END IF;
     IF p_watching THEN
         INSERT INTO ple_data.blueprint_course_watch (
-            blueprint_course_reference_number, instructor_account_id, watched_at
+            blueprint_course_id, instructor_account_id, watched_at
         ) VALUES (p_reference_number, actor_id, pg_catalog.clock_timestamp())
-        ON CONFLICT (blueprint_course_reference_number, instructor_account_id) DO NOTHING;
+        ON CONFLICT (blueprint_course_id, instructor_account_id) DO NOTHING;
     ELSE
         DELETE FROM ple_data.blueprint_course_watch
-         WHERE blueprint_course_reference_number = p_reference_number
+         WHERE blueprint_course_id = p_reference_number
            AND instructor_account_id = actor_id;
     END IF;
 END
@@ -106,7 +106,7 @@ BEGIN
             MESSAGE = 'Blueprint Course Watch event is invalid';
     END IF;
     INSERT INTO ple_private.blueprint_course_watch_notification (
-        recipient_account_id, blueprint_course_reference_number, event_kind,
+        recipient_account_id, blueprint_course_id, event_kind,
         source_event_id, occurred_at
     )
     SELECT watch.instructor_account_id, p_reference_number, p_event_kind,
@@ -119,7 +119,7 @@ BEGIN
            WHERE account_id = account.account_id
            ORDER BY occurred_at DESC, event_id DESC LIMIT 1
       ) AS state_event ON state_event.state = 'active'
-     WHERE watch.blueprint_course_reference_number = p_reference_number
+     WHERE watch.blueprint_course_id = p_reference_number
        AND account.product_role = 'instructor'
     ON CONFLICT (recipient_account_id, event_kind, source_event_id) DO NOTHING;
 END
@@ -130,7 +130,7 @@ RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
 BEGIN
     PERFORM ple_data.fan_out_blueprint_course_watch_notifications(
-        NEW.blueprint_course_reference_number, 'revision',
+        NEW.blueprint_course_id, 'revision',
         NEW.blueprint_revision_event_id, NEW.occurred_at
     );
     RETURN NEW;
@@ -148,7 +148,7 @@ DECLARE previous_availability text; event_kind text;
 BEGIN
     SELECT availability INTO previous_availability
       FROM ple_data.blueprint_metadata_event
-     WHERE blueprint_course_reference_number = NEW.blueprint_course_reference_number
+     WHERE blueprint_course_id = NEW.blueprint_course_id
        AND blueprint_metadata_event_id < NEW.blueprint_metadata_event_id
      ORDER BY blueprint_metadata_event_id DESC LIMIT 1;
     event_kind := CASE
@@ -159,7 +159,7 @@ BEGIN
     END;
     IF event_kind IS NOT NULL THEN
         PERFORM ple_data.fan_out_blueprint_course_watch_notifications(
-            NEW.blueprint_course_reference_number, event_kind,
+            NEW.blueprint_course_id, event_kind,
             NEW.blueprint_metadata_event_id, NEW.occurred_at
         );
     END IF;
@@ -212,7 +212,7 @@ BEGIN
                ORDER BY event.occurred_at DESC, event.event_id DESC
                LIMIT 1
           ) AS state_event ON state_event.state = 'active'
-         WHERE star.blueprint_course_reference_number = p_reference_number
+         WHERE star.blueprint_course_id = p_reference_number
     )
     SELECT EXISTS (
                SELECT 1 FROM active_endorsers
@@ -272,7 +272,7 @@ BEGIN
            ORDER BY event.occurred_at DESC, event.event_id DESC
            LIMIT 1
       ) AS state_event ON state_event.state = 'active'
-     WHERE star.blueprint_course_reference_number = p_reference_number
+     WHERE star.blueprint_course_id = p_reference_number
        AND ple_private.verified_instructor_display_name(star.instructor_account_id) IS NOT NULL
      ORDER BY ple_private.verified_instructor_display_name(star.instructor_account_id) COLLATE "C";
 END
@@ -302,7 +302,7 @@ BEGIN
     END IF;
     RETURN QUERY SELECT EXISTS (
         SELECT 1 FROM ple_data.blueprint_course_watch
-         WHERE blueprint_course_reference_number = p_reference_number
+         WHERE blueprint_course_id = p_reference_number
            AND instructor_account_id = actor_id
     );
 END
@@ -335,7 +335,7 @@ BEGIN
         (EXTRACT(EPOCH FROM notification.occurred_at) * 1000)::bigint
       FROM ple_private.blueprint_course_watch_notification AS notification
      WHERE notification.recipient_account_id = actor_id
-       AND notification.blueprint_course_reference_number = p_reference_number
+       AND notification.blueprint_course_id = p_reference_number
      ORDER BY notification.occurred_at DESC, notification.notification_id DESC
      LIMIT p_limit;
 END

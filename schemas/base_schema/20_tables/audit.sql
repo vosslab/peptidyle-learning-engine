@@ -14,8 +14,10 @@ CREATE TABLE ple_migration._sqlx_migrations (
     installed_on timestamp with time zone NOT NULL DEFAULT now(),
     success boolean NOT NULL,
     checksum bytea NOT NULL,
-    execution_time bigint NOT NULL
+    execution_time bigint NOT NULL,
+    updated_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
 );
+
 ALTER TABLE ple_migration._sqlx_migrations OWNER TO ple_migrator;
 
 SET LOCAL ROLE ple_audit_owner;
@@ -29,11 +31,35 @@ CREATE TABLE ple_audit.assessment_unrelease_event (
     question_response_count bigint NOT NULL CHECK (question_response_count >= 0),
     assessment_submission_count bigint NOT NULL CHECK (assessment_submission_count >= 0),
     grading_result_count bigint NOT NULL CHECK (grading_result_count >= 0),
-    outcome text NOT NULL CHECK (outcome = 'completed'),
+    outcome text NOT NULL DEFAULT 'completed',
     occurred_at timestamptz NOT NULL
 );
 
+SET LOCAL ROLE ple_audit_owner;
 COMMENT ON TABLE ple_audit.assessment_unrelease_event IS 'role: event, Redacted completed Assessment Unrelease audit evidence: actor, Assessment, aggregate counts, and time only.';
 
+RESET ROLE;
+RESET ROLE;
+COMMENT ON TABLE ple_migration._sqlx_migrations IS 'role: aggregate, deleted by retention policy for audit rows; the SQLx ledger is never purged. HUMAN_GUIDANCE.md Audit and Unrelease.';
+
+
+ALTER TABLE ple_migration._sqlx_migrations OWNER TO ple_migrator;
+
+SET LOCAL ROLE ple_audit_owner;
+
+SET LOCAL ROLE ple_audit_owner;
+COMMENT ON TABLE ple_audit.assessment_unrelease_event IS 'role: event, Redacted completed Assessment Unrelease audit evidence: actor, Assessment, aggregate counts, and time only.';
+
+RESET ROLE;
+RESET ROLE;
+COMMENT ON TABLE ple_migration._sqlx_migrations IS 'role: aggregate, deleted by retention policy for audit rows; the SQLx ledger is never purged. HUMAN_GUIDANCE.md Audit and Unrelease.';
+
+
+
+SET LOCAL ROLE ple_audit_owner;
+COMMENT ON TABLE ple_audit.assessment_unrelease_event IS 'role: event, Redacted completed Assessment Unrelease audit evidence: actor, Assessment, aggregate counts, and time only.';
+
+RESET ROLE;
+RESET ROLE;
 COMMENT ON TABLE ple_migration._sqlx_migrations IS 'role: aggregate, deleted by retention policy for audit rows; the SQLx ledger is never purged. HUMAN_GUIDANCE.md Audit and Unrelease.';
 

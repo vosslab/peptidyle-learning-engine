@@ -5,7 +5,7 @@ SET LOCAL ROLE ple_private_owner;
 -- Late private-only helper: authoring publication calls this inside its final transaction.
 -- Requires Assets and Jobs to exist; never a standalone ple_app command.
 CREATE FUNCTION ple_private.bind_draft_asset_publication(
-    p_draft_uuid uuid, p_workspace_id uuid, p_question_id text, p_revision integer,
+    p_draft_uuid uuid, p_authoring_workspace_id uuid, p_published_question_id text, p_revision integer,
     p_backend text, p_question_type text, p_asset jsonb, p_published_at timestamptz
 ) RETURNS void LANGUAGE plpgsql
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
@@ -45,22 +45,22 @@ BEGIN
     END IF;
     -- ASVS 8.2.2, 8.3.1, 15.4.2: repeat owner and locked Draft checks, not caller checksum authority.
     PERFORM 1 FROM ple_private.draft_question AS draft
-     WHERE draft.draft_question_uuid = p_draft_uuid AND draft.workspace_id = p_workspace_id
+     WHERE draft.draft_question_id = p_draft_uuid AND draft.authoring_workspace_id = p_authoring_workspace_id
        AND ple_api.current_session_account_is_instructor()
-       AND ple_private.current_session_is_authoring_workspace_owner(draft.workspace_id)
+       AND ple_private.current_session_is_authoring_workspace_owner(draft.authoring_workspace_id)
      FOR UPDATE;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Prepared image requires current Draft ownership';
     END IF;
     SELECT * INTO draft_asset FROM ple_private.draft_question_asset AS asset
-     WHERE asset.draft_question_uuid = p_draft_uuid AND asset.workspace_id = p_workspace_id
+     WHERE asset.draft_question_id = p_draft_uuid AND asset.authoring_workspace_id = p_authoring_workspace_id
        AND asset.asset_id = v_asset_id;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Publication image is not owned by this Draft';
     END IF;
-    SELECT * INTO STRICT record FROM ple_private.object_record WHERE object_id = draft_asset.source_object_id;
+    SELECT * INTO STRICT record FROM ple_private.object_record WHERE object_record_id = draft_asset.source_object_record_id;
     expected_address := jsonb_build_object('kind','restrictedQuestionAsset',
-        'questionRevision',jsonb_build_object('questionId',p_question_id,'revisionNumber',p_revision),
+        'questionRevision',jsonb_build_object('questionId',p_published_question_id,'revisionNumber',p_revision),
         'asset',v_asset_id,'object',source_id);
     IF p_asset->'sourceObjectAddress' IS DISTINCT FROM expected_address
        OR record.sha256 IS DISTINCT FROM checksum OR record.size_bytes IS DISTINCT FROM v_byte_length
@@ -69,19 +69,19 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Publication image must preserve exact Draft-owned raster evidence';
     END IF;
     -- ASVS 2.3.3: restricted record, Pending delivery, sole Job, and registry commit together.
-    INSERT INTO ple_private.object_record(object_id,object_address,object_storage_area,object_data_class,
+    INSERT INTO ple_private.object_record(object_record_id,object_address,object_storage_area,object_data_class,
         sha256,size_bytes,media_type,created_at)
     VALUES(source_id,expected_address,'private-content','question-asset',checksum,v_byte_length,v_media_type,
         to_timestamp(created_at_millis::double precision / 1000.0));
-    INSERT INTO ple_data.object_delivery(delivery_id,object_id,sha256,media_type,byte_length,delivery_state,registered_at)
+    INSERT INTO ple_data.object_delivery(object_delivery_id,object_record_id,sha256,media_type,byte_length,delivery_state,registered_at)
     VALUES(v_delivery_id,public_id,checksum,v_media_type,v_byte_length,'pending',p_published_at);
-    INSERT INTO ple_data.question_asset_delivery(delivery_id,object_id,question_id,revision_number,asset_id)
-    VALUES(v_delivery_id,public_id,p_question_id,p_revision,v_asset_id);
-    PERFORM ple_private.enqueue_public_asset_publication(v_job_id,p_question_id,p_revision,'{}',p_published_at,3,p_published_at);
-    INSERT INTO ple_private.question_asset_publication(question_id,revision_number,asset_id,source_object_id,
+    INSERT INTO ple_data.question_asset_delivery(object_delivery_id,object_record_id,published_question_id,revision_number,asset_id)
+    VALUES(v_delivery_id,public_id,p_published_question_id,p_revision,v_asset_id);
+    PERFORM ple_private.enqueue_public_asset_publication(v_job_id,p_published_question_id,p_revision,'{}',p_published_at,3,p_published_at);
+    INSERT INTO ple_private.question_asset_publication(published_question_id,revision_number,asset_id,source_object_record_id,
         source_object_checksum,public_object_id,public_object_checksum,public_byte_length,verified_media_type,
-        intrinsic_width,intrinsic_height,delivery_id,job_id,publication_state)
-    VALUES(p_question_id,p_revision,v_asset_id,source_id,checksum,public_id,checksum,v_byte_length,v_media_type,
+        intrinsic_width,intrinsic_height,object_delivery_id,job_id,publication_state)
+    VALUES(p_published_question_id,p_revision,v_asset_id,source_id,checksum,public_id,checksum,v_byte_length,v_media_type,
         width,height,v_delivery_id,v_job_id,'pending');
 END $$;
 

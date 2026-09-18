@@ -41,7 +41,7 @@ CREATE POLICY assessment_question_pool_fork_private_owner_lookup ON ple_data.ass
 
 CREATE POLICY assessment_api_owner_read ON ple_data.assessment
     FOR SELECT TO ple_api_owner
-    USING (ple_api.current_session_account_is_course_instructor(course_id));
+    USING (ple_api.current_session_account_is_course_instructor(course_instance_id));
 
 
 -- Course-to-Blueprint publication takes the same aggregate-root lock as an
@@ -49,15 +49,15 @@ CREATE POLICY assessment_api_owner_read ON ple_data.assessment
 -- SELECT FOR UPDATE; this policy grants no general Assessment mutation path.
 CREATE POLICY assessment_api_owner_blueprint_publication_root_lock
     ON ple_data.assessment FOR UPDATE TO ple_api_owner
-    USING (ple_api.current_session_account_is_course_instructor(course_id))
-    WITH CHECK (ple_api.current_session_account_is_course_instructor(course_id));
+    USING (ple_api.current_session_account_is_course_instructor(course_instance_id))
+    WITH CHECK (ple_api.current_session_account_is_course_instructor(course_instance_id));
 
 CREATE POLICY assessment_entry_api_owner_read ON ple_data.assessment_entry
     FOR SELECT TO ple_api_owner
     USING (EXISTS (
         SELECT 1 FROM ple_data.assessment
          WHERE assessment_id = assessment_entry.assessment_id
-           AND ple_api.current_session_account_is_course_instructor(course_id)
+           AND ple_api.current_session_account_is_course_instructor(course_instance_id)
     ));
 
 CREATE POLICY assessment_question_pool_fork_api_owner_read ON ple_data.assessment_question_pool_fork
@@ -65,6 +65,6 @@ CREATE POLICY assessment_question_pool_fork_api_owner_read ON ple_data.assessmen
     USING (EXISTS (
         SELECT 1 FROM ple_data.assessment
          WHERE assessment_id = assessment_question_pool_fork.assessment_id
-           AND ple_api.current_session_account_is_course_instructor(course_id)
+           AND ple_api.current_session_account_is_course_instructor(course_instance_id)
     ));
 

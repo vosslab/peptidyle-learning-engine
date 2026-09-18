@@ -9,7 +9,7 @@ CREATE INDEX passkey_active_account_idx ON ple_private.passkey (account_id, crea
 WHERE revoked_at IS NULL;
 
 CREATE INDEX sysadmin_totp_attestation_active_idx
-ON ple_private.sysadmin_totp_attestation (attestation_id, expires_at) WHERE consumed_at IS NULL;
+ON ple_private.sysadmin_totp_attestation (sysadmin_totp_attestation_id, expires_at) WHERE consumed_at IS NULL;
 
 CREATE INDEX authenticated_session_active_account_idx ON ple_private.authenticated_session (account_id, expires_at)
 WHERE revoked_at IS NULL;
@@ -30,25 +30,25 @@ CREATE UNIQUE INDEX content_subject_global_name_unique
     ON ple_data.content_subject (lower(name));
 
 CREATE INDEX published_question_available_discovery_idx
-    ON ple_data.published_question(question_id) WHERE availability = 'available';
+    ON ple_data.published_question(published_question_id) WHERE availability = 'available';
 
 CREATE INDEX published_question_metadata_search_idx ON ple_data.published_question_metadata
     USING gin (to_tsvector('simple', question_title || ' ' || question_description));
 
 CREATE UNIQUE INDEX question_ownership_event_initial_once
-    ON ple_data.question_ownership_event(question_id) WHERE event_kind = 'initial';
+    ON ple_data.question_ownership_event(published_question_id) WHERE event_kind = 'initial';
 
 CREATE INDEX question_star_instructor_collection_idx
-    ON ple_data.question_star(instructor_account_id, starred_at DESC, question_id);
+    ON ple_data.question_star(instructor_account_id, starred_at DESC, published_question_id);
 
 CREATE INDEX question_watch_instructor_collection_idx
-    ON ple_data.question_watch(instructor_account_id, watched_at DESC, question_id);
+    ON ple_data.question_watch(instructor_account_id, watched_at DESC, published_question_id);
 
 CREATE INDEX library_improvement_thread_object_idx
-    ON ple_data.library_improvement_thread(object_kind, public_object_id, created_at, thread_id);
+    ON ple_data.library_improvement_thread(object_kind, public_object_id, created_at, library_improvement_thread_id);
 
 CREATE INDEX library_improvement_post_thread_idx
-    ON ple_data.library_improvement_post(thread_id, created_at, post_id);
+    ON ple_data.library_improvement_post(library_improvement_thread_id, created_at, post_id);
 
 CREATE INDEX library_impact_notice_object_idx
     ON ple_data.library_impact_notice(object_kind, public_object_id, created_at DESC, impact_notice_id);
@@ -64,7 +64,7 @@ CREATE INDEX library_watch_notification_recipient_idx
     );
 
 CREATE UNIQUE INDEX object_storage_check_delivery_once
-    ON ple_private.object_storage_check (delivery_id) WHERE delivery_id IS NOT NULL;
+    ON ple_private.object_storage_check (object_delivery_id) WHERE object_delivery_id IS NOT NULL;
 
 CREATE UNIQUE INDEX object_storage_check_banner_subject_once
     ON ple_private.object_storage_check (course_banner_storage_subject_id)
@@ -76,7 +76,7 @@ CREATE INDEX blueprint_course_available_owner_idx
     ON ple_data.blueprint_course (availability, owner_account_id, reference_number);
 
 CREATE INDEX blueprint_revision_question_pin_question_idx
-    ON ple_data.blueprint_revision_question_pin (question_id, question_revision_number);
+    ON ple_data.blueprint_revision_question_pin (published_question_id, question_revision_number);
 
 CREATE INDEX blueprint_course_fork_source_idx ON ple_data.blueprint_course_fork (
     source_blueprint_course_reference_number, source_blueprint_revision_number
@@ -84,12 +84,12 @@ CREATE INDEX blueprint_course_fork_source_idx ON ple_data.blueprint_course_fork 
 
 CREATE INDEX blueprint_course_star_instructor_collection_idx
     ON ple_data.blueprint_course_star (
-        instructor_account_id, starred_at DESC, blueprint_course_reference_number
+        instructor_account_id, starred_at DESC, blueprint_course_id
     );
 
 CREATE INDEX blueprint_course_watch_instructor_collection_idx
     ON ple_data.blueprint_course_watch (
-        instructor_account_id, watched_at DESC, blueprint_course_reference_number
+        instructor_account_id, watched_at DESC, blueprint_course_id
     );
 
 SET LOCAL ROLE ple_private_owner;
@@ -102,16 +102,16 @@ CREATE INDEX blueprint_course_watch_notification_recipient_idx
 SET LOCAL ROLE ple_data_owner;
 
 CREATE INDEX course_membership_event_current_lookup_idx
-    ON ple_data.course_membership_event (membership_id, occurred_at DESC, course_membership_event_id DESC);
+    ON ple_data.course_membership_event (course_membership_id, occurred_at DESC, course_membership_event_id DESC);
 
-CREATE INDEX course_membership_account_course_idx ON ple_data.course_membership (account_id, course_id);
+CREATE INDEX course_membership_account_course_idx ON ple_data.course_membership (account_id, course_instance_id);
 
-CREATE INDEX student_record_account_course_idx ON ple_data.student_record (student_account_id, course_id);
+CREATE INDEX student_record_account_course_idx ON ple_data.student_record (student_account_id, course_instance_id);
 
-CREATE INDEX assessment_course_due_idx ON ple_data.assessment(course_id, due_at, reference_number)
+CREATE INDEX assessment_course_due_idx ON ple_data.assessment(course_instance_id, due_at, reference_number)
     WHERE assessment_status IN ('unreleased', 'released');
 
-CREATE INDEX assessment_due_soon_idx ON ple_data.assessment(due_at, course_id, reference_number)
+CREATE INDEX assessment_due_soon_idx ON ple_data.assessment(due_at, course_instance_id, reference_number)
     WHERE assessment_status IN ('unreleased', 'released') AND due_at IS NOT NULL;
 
 CREATE INDEX assessment_entry_current_idx ON ple_data.assessment_entry(assessment_id, authored_position)
@@ -131,7 +131,7 @@ CREATE INDEX assessment_template_owner_list_idx
 SET LOCAL ROLE ple_data_owner;
 
 CREATE INDEX blueprint_course_instance_source_course_idx
-    ON ple_data.blueprint_course_instance_source (source_course_id);
+    ON ple_data.blueprint_course_instance_source (source_course_instance_id);
 
 SET LOCAL ROLE ple_private_owner;
 

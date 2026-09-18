@@ -6,7 +6,7 @@ REVOKE ALL ON ple_data.profile_image_delivery FROM PUBLIC;
 
 REVOKE ALL ON FUNCTION ple_data.validate_profile_image_delivery_object_record() FROM PUBLIC;
 
-GRANT REFERENCES (delivery_id, object_id, profile_image_id) ON ple_data.profile_image_delivery
+GRANT REFERENCES (object_delivery_id, object_record_id, profile_image_id) ON ple_data.profile_image_delivery
     TO ple_private_owner;
 
 REVOKE ALL ON ple_data.provided_avatar FROM PUBLIC;

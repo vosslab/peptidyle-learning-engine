@@ -74,9 +74,9 @@ BEGIN
         RETURN OLD;
     END IF;
     IF TG_OP = 'UPDATE' AND current_user = 'ple_api_owner'
-       AND ROW(NEW.course_roster_profile_id, NEW.course_id, NEW.student_account_id,
+       AND ROW(NEW.course_roster_profile_id, NEW.course_instance_id, NEW.student_account_id,
                NEW.roster_id, NEW.created_at)
-           IS NOT DISTINCT FROM ROW(OLD.course_roster_profile_id, OLD.course_id,
+           IS NOT DISTINCT FROM ROW(OLD.course_roster_profile_id, OLD.course_instance_id,
                OLD.student_account_id, OLD.roster_id, OLD.created_at) THEN
         RETURN NEW;
     END IF;
@@ -97,7 +97,7 @@ END $$;
 SET LOCAL ROLE ple_course_retention_executor;
 
 CREATE FUNCTION ple_api.mark_course_instance_inactive(
-    p_course_id uuid,
+    p_course_instance_id uuid,
     p_evaluated_at timestamp with time zone
 ) RETURNS boolean
 LANGUAGE plpgsql SECURITY DEFINER
@@ -106,7 +106,7 @@ AS $$
 DECLARE
     course_row ple_data.course_instance%ROWTYPE;
 BEGIN
-    IF p_course_id IS NULL OR p_evaluated_at IS NULL THEN
+    IF p_course_instance_id IS NULL OR p_evaluated_at IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Course inactivity arguments are invalid';
     END IF;
@@ -114,7 +114,7 @@ BEGIN
     -- ASVS 2.3.3/15.4.2: check and change the lifecycle under one row lock.
     SELECT * INTO course_row
       FROM ple_data.course_instance
-     WHERE course_id = p_course_id
+     WHERE course_instance_id = p_course_instance_id
      FOR UPDATE;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
@@ -133,13 +133,13 @@ BEGIN
     UPDATE ple_data.course_instance
        SET course_lifecycle_state = 'inactive',
            course_became_inactive_at = active_until_at
-     WHERE course_id = course_row.course_id;
+     WHERE course_instance_id = course_row.course_instance_id;
     RETURN true;
 END
 $$;
 
 CREATE FUNCTION ple_api.archive_course_student_records(
-    p_course_id uuid,
+    p_course_instance_id uuid,
     p_evaluated_at timestamp with time zone
 ) RETURNS boolean
 LANGUAGE plpgsql SECURITY DEFINER
@@ -149,14 +149,14 @@ DECLARE
     course_row ple_data.course_instance%ROWTYPE;
     archive_due_at timestamp with time zone;
 BEGIN
-    IF p_course_id IS NULL OR p_evaluated_at IS NULL THEN
+    IF p_course_instance_id IS NULL OR p_evaluated_at IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Course Student-record archive arguments are invalid';
     END IF;
 
     SELECT * INTO course_row
       FROM ple_data.course_instance
-     WHERE course_id = p_course_id
+     WHERE course_instance_id = p_course_instance_id
      FOR UPDATE;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
@@ -183,13 +183,13 @@ BEGIN
     UPDATE ple_data.course_instance
        SET retention_lifecycle_state = 'archived',
            student_data_archived_at = p_evaluated_at
-     WHERE course_id = course_row.course_id;
+     WHERE course_instance_id = course_row.course_instance_id;
     RETURN true;
 END
 $$;
 
 CREATE FUNCTION ple_api.delete_course_student_records(
-    p_course_id uuid,
+    p_course_instance_id uuid,
     p_evaluated_at timestamp with time zone
 ) RETURNS boolean
 LANGUAGE plpgsql SECURITY DEFINER
@@ -200,14 +200,14 @@ DECLARE
     delete_due_at timestamp with time zone;
     students_ever_enrolled bigint;
 BEGIN
-    IF p_course_id IS NULL OR p_evaluated_at IS NULL THEN
+    IF p_course_instance_id IS NULL OR p_evaluated_at IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Course Student-record deletion arguments are invalid';
     END IF;
 
     SELECT * INTO course_row
       FROM ple_data.course_instance
-     WHERE course_id = p_course_id
+     WHERE course_instance_id = p_course_instance_id
      FOR UPDATE;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
@@ -239,7 +239,7 @@ BEGIN
     -- between this purge's scan and its Student-record removal.
     PERFORM 1
       FROM ple_data.assessment AS assessment
-     WHERE assessment.course_id = course_row.course_id
+     WHERE assessment.course_instance_id = course_row.course_instance_id
      FOR UPDATE;
 
     -- ASVS 2.3.3/14.2.4: capture only the existing anonymous Course/Account
@@ -247,7 +247,7 @@ BEGIN
     SELECT count(DISTINCT membership.account_id)
       INTO students_ever_enrolled
       FROM ple_data.course_membership AS membership
-     WHERE membership.course_id = course_row.course_id
+     WHERE membership.course_instance_id = course_row.course_instance_id
        AND membership.role = 'student';
 
     -- Preserve Account, Course, Assessment, Question, configuration, and
@@ -257,44 +257,44 @@ BEGIN
      WHERE assessment_attempt.student_record_id IN (
          SELECT student.student_record_id
            FROM ple_data.student_record AS student
-          WHERE student.course_id = course_row.course_id
+          WHERE student.course_instance_id = course_row.course_instance_id
      );
     DELETE FROM ple_private.student_assessment_accommodation AS accommodation
      WHERE accommodation.student_record_id IN (
          SELECT student.student_record_id
            FROM ple_data.student_record AS student
-          WHERE student.course_id = course_row.course_id
+          WHERE student.course_instance_id = course_row.course_instance_id
      );
 
     DELETE FROM ple_audit.course_roster_event AS event
-     WHERE event.course_id = course_row.course_id;
+     WHERE event.course_instance_id = course_row.course_instance_id;
     DELETE FROM ple_private.course_invitation_event AS event
      USING ple_private.course_invitation AS invitation
-     WHERE event.invitation_id = invitation.invitation_id
-       AND invitation.course_id = course_row.course_id
+     WHERE event.course_invitation_id = invitation.course_invitation_id
+       AND invitation.course_instance_id = course_row.course_instance_id
        AND invitation.membership_role = 'student';
     DELETE FROM ple_private.course_invitation AS invitation
-     WHERE invitation.course_id = course_row.course_id
+     WHERE invitation.course_instance_id = course_row.course_instance_id
        AND invitation.membership_role = 'student';
     DELETE FROM ple_private.course_roster_profile AS profile
-     WHERE profile.course_id = course_row.course_id;
+     WHERE profile.course_instance_id = course_row.course_instance_id;
 
     DELETE FROM ple_data.course_membership_event AS event
      USING ple_data.course_membership AS membership
-     WHERE event.membership_id = membership.membership_id
-       AND membership.course_id = course_row.course_id
+     WHERE event.course_membership_id = membership.course_membership_id
+       AND membership.course_instance_id = course_row.course_instance_id
        AND membership.role = 'student';
     DELETE FROM ple_data.course_membership AS membership
-     WHERE membership.course_id = course_row.course_id
+     WHERE membership.course_instance_id = course_row.course_instance_id
        AND membership.role = 'student';
     DELETE FROM ple_data.student_record AS student
-     WHERE student.course_id = course_row.course_id;
+     WHERE student.course_instance_id = course_row.course_instance_id;
 
     UPDATE ple_data.course_instance
        SET retention_lifecycle_state = 'deleted',
            student_data_deleted_at = p_evaluated_at,
            purged_students_ever_enrolled = students_ever_enrolled
-     WHERE course_id = course_row.course_id;
+     WHERE course_instance_id = course_row.course_instance_id;
     RETURN true;
 END
 $$;

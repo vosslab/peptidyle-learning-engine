@@ -166,21 +166,7 @@ snapshot path raises `FileNotFoundError`.
 source source_me.sh && ./schema_style/check_schema_style.py
 ```
 
-Reports mechanical rules from [DATABASE_STYLE.md](DATABASE_STYLE.md) against
-`schemas/base_schema/` (override with `-s`/`--source-dir`). Default stdout is one
-finding line per blocking violation (`rule_<id>`, location, message, source
-`file:line`), then a count per rule, then `N findings in M rules`. `-q`/`--quiet`
-prints those summary lines only. `-r`/`--report` includes advisory findings
-(`rule_layout` until `20_tables/` exists, M1 type/identity/clock rules, M2
-Student Work keys, and `rule_14_unindexed_fk`) in the stdout listing without
-changing the exit code. The full finding list is always written to
-`output/schema_style_findings.txt`. `-j`/`--snapshot` reads a catalog snapshot;
-`-d`/`--database` reads a live database.
-
-Exit 1 on blocking findings, 0 if clean. On the current mixed tree, layout is
-advisory and M1/M2 rules are advisory, so the gate exits 0 unless `table count`
-mismatches. `rule_layout` blocks once `20_tables/` exists. `rule_17_role_tag`
-blocks once any table carries a role tag.
+Reports mechanical rules from docs/DATABASE_STYLE.md against schemas/base_schema/ (override with -s/--source-dir). Default stdout is one count, tab, rule_##_title line per rule with findings (two-digit numbers), skip notes, and N findings in M rules only. One finding line per violation (rule_##_title, location, message, source file:line) is written to output/schema_style_findings.txt. -v/--verbose also prints those finding lines to stdout. -r/--report includes advisory findings (rule_14_unindexed_fk, and rule_layout only when 20_tables/ is absent) in verbose stdout and the findings file without changing the exit code. -j/--snapshot reads a catalog snapshot; -d/--database reads a live database. Exit 1 on blocking findings, 0 if clean.
 
 ## Evidence boundaries
 

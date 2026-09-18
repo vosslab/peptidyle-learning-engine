@@ -13,8 +13,8 @@ BEGIN
     IF p_object_kind = 'question' THEN
         SELECT max(revision.revision_number)::bigint INTO v_revision
           FROM ple_data.published_question AS question
-          JOIN ple_data.question_revision AS revision ON revision.question_id = question.question_id
-         WHERE question.question_id = p_public_object_id
+          JOIN ple_data.question_revision AS revision ON revision.published_question_id = question.published_question_id
+         WHERE question.published_question_id = p_public_object_id
            AND (NOT p_require_available OR question.availability = 'available');
     ELSIF p_object_kind = 'question_pool' THEN
         SELECT pool.current_revision_number INTO v_revision
@@ -35,7 +35,7 @@ SET search_path = pg_catalog, ple_data AS $$
     SELECT CASE p_object_kind
       WHEN 'question' THEN EXISTS (
         SELECT 1 FROM ple_data.question_revision
-         WHERE question_id = p_public_object_id AND revision_number = p_revision_number)
+         WHERE published_question_id = p_public_object_id AND revision_number = p_revision_number)
       WHEN 'question_pool' THEN EXISTS (
         SELECT 1 FROM ple_data.question_pool AS pool
         JOIN ple_data.question_pool_revision AS revision ON revision.question_pool_id = pool.question_pool_id
@@ -50,7 +50,7 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT CASE p_object_kind
       WHEN 'question' THEN EXISTS (
         SELECT 1 FROM ple_data.question_current_owner
-         WHERE question_id = p_public_object_id
+         WHERE published_question_id = p_public_object_id
            AND owner_account_id = ple_api.current_session_account_id())
       -- Pools have no owner role.  Their administration is Sysadmin-only.
       WHEN 'question_pool' THEN false
@@ -153,11 +153,11 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Improvement thread is invalid';
     END IF;
     INSERT INTO ple_data.library_improvement_thread(
-        thread_id, object_kind, public_object_id, creation_revision_number,
+        library_improvement_thread_id, object_kind, public_object_id, creation_revision_number,
         created_by_account_id, created_at
     ) VALUES (v_thread_id, p_object_kind, p_public_object_id, v_revision, v_actor, v_now);
     INSERT INTO ple_data.library_improvement_post(
-        post_id, thread_id, author_account_id, author_display_name, body, created_at
+        post_id, library_improvement_thread_id, author_account_id, author_display_name, body, created_at
     ) VALUES (pg_catalog.gen_random_uuid(), v_thread_id, v_actor, v_name, p_body, v_now);
     RETURN v_thread_id;
 END
@@ -177,7 +177,7 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Improvement reply is invalid';
     END IF;
     SELECT * INTO v_thread FROM ple_data.library_improvement_thread
-     WHERE thread_id = p_thread_id AND object_kind = p_object_kind
+     WHERE library_improvement_thread_id = p_thread_id AND object_kind = p_object_kind
        AND public_object_id = p_public_object_id FOR KEY SHARE;
     IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE = 'P1D01', MESSAGE = 'Improvement thread is unavailable'; END IF;
     IF p_body IS NULL OR p_body <> btrim(p_body)
@@ -185,7 +185,7 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Improvement reply is invalid';
     END IF;
     INSERT INTO ple_data.library_improvement_post(
-        post_id, thread_id, author_account_id, author_display_name, body, created_at
+        post_id, library_improvement_thread_id, author_account_id, author_display_name, body, created_at
     ) VALUES (v_post_id, p_thread_id, v_actor, v_name, p_body, pg_catalog.clock_timestamp());
     RETURN v_post_id;
 END
@@ -207,7 +207,7 @@ BEGIN
     SELECT post.author_account_id, thread.object_kind, thread.public_object_id
       INTO v_post
       FROM ple_data.library_improvement_post AS post
-      JOIN ple_data.library_improvement_thread AS thread ON thread.thread_id = post.thread_id
+      JOIN ple_data.library_improvement_thread AS thread ON thread.library_improvement_thread_id = post.library_improvement_thread_id
      WHERE post.post_id = p_post_id AND thread.object_kind = p_object_kind
        AND thread.public_object_id = p_public_object_id
      FOR UPDATE OF post;
@@ -238,17 +238,17 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Improvement thread state is invalid';
     END IF;
     SELECT * INTO v_thread FROM ple_data.library_improvement_thread
-     WHERE thread_id = p_thread_id AND object_kind = p_object_kind
+     WHERE library_improvement_thread_id = p_thread_id AND object_kind = p_object_kind
        AND public_object_id = p_public_object_id FOR UPDATE;
     IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE = 'P1D01', MESSAGE = 'Improvement thread is unavailable'; END IF;
     IF p_resolved THEN
         UPDATE ple_data.library_improvement_thread SET state = 'resolved',
             resolved_by_account_id = ple_api.current_session_account_id(), resolved_at = pg_catalog.clock_timestamp()
-         WHERE thread_id = p_thread_id AND state <> 'resolved';
+         WHERE library_improvement_thread_id = p_thread_id AND state <> 'resolved';
     ELSE
         UPDATE ple_data.library_improvement_thread SET state = 'open',
             resolved_by_account_id = NULL, resolved_at = NULL
-         WHERE thread_id = p_thread_id AND state <> 'open';
+         WHERE library_improvement_thread_id = p_thread_id AND state <> 'open';
     END IF;
 END
 $$;
@@ -345,14 +345,14 @@ $$;
 CREATE FUNCTION ple_data.read_library_improvement_threads(
     p_object_kind text, p_public_object_id text
 ) RETURNS TABLE (
-    thread_id uuid, creation_revision_number bigint, state text, created_at_millis bigint,
+    library_improvement_thread_id uuid, creation_revision_number bigint, state text, created_at_millis bigint,
     resolved_at_millis bigint, viewer_may_resolve boolean
 ) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
 BEGIN
     PERFORM ple_data.require_library_discussion_reader(
         p_object_kind, p_public_object_id);
-    RETURN QUERY SELECT thread.thread_id::uuid AS thread_id,
+    RETURN QUERY SELECT thread.library_improvement_thread_id::uuid AS library_improvement_thread_id,
         thread.creation_revision_number, thread.state,
         floor(extract(epoch FROM thread.created_at) * 1000)::bigint,
         CASE WHEN thread.resolved_at IS NULL THEN NULL ELSE floor(extract(epoch FROM thread.resolved_at) * 1000)::bigint END,
@@ -360,7 +360,7 @@ BEGIN
             thread.object_kind, thread.public_object_id)
       FROM ple_data.library_improvement_thread AS thread
      WHERE thread.object_kind = p_object_kind AND thread.public_object_id = p_public_object_id
-     ORDER BY thread.created_at, thread.thread_id;
+     ORDER BY thread.created_at, thread.library_improvement_thread_id;
 END
 $$;
 
@@ -372,7 +372,7 @@ RETURNS TABLE (
 SET search_path = pg_catalog, ple_api, ple_data AS $$
 DECLARE v_thread ple_data.library_improvement_thread%ROWTYPE;
 BEGIN
-    SELECT * INTO v_thread FROM ple_data.library_improvement_thread WHERE thread_id = p_thread_id;
+    SELECT * INTO v_thread FROM ple_data.library_improvement_thread WHERE library_improvement_thread_id = p_thread_id;
     IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE = 'P1D01', MESSAGE = 'Improvement thread is unavailable'; END IF;
     PERFORM ple_data.require_library_discussion_reader(
         v_thread.object_kind, v_thread.public_object_id);
@@ -382,7 +382,7 @@ BEGIN
         post.author_account_id = ple_api.current_session_account_id()
           AND ple_data.current_actor_is_library_discussion_participant()
       FROM ple_data.library_improvement_post AS post
-     WHERE post.thread_id = p_thread_id ORDER BY post.created_at, post.post_id;
+     WHERE post.library_improvement_thread_id = p_thread_id ORDER BY post.created_at, post.post_id;
 END
 $$;
 
@@ -453,7 +453,7 @@ RETURNS void LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_dat
     SELECT ple_data.cancel_library_impact_notice($1, $2, $3) $$;
 
 CREATE FUNCTION ple_api.read_library_improvement_threads(text, text)
-RETURNS TABLE(thread_id uuid, creation_revision_number bigint, state text, created_at_millis bigint,
+RETURNS TABLE(library_improvement_thread_id uuid, creation_revision_number bigint, state text, created_at_millis bigint,
     resolved_at_millis bigint, viewer_may_resolve boolean)
 LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_data AS $$
     SELECT * FROM ple_data.read_library_improvement_threads($1, $2) $$;

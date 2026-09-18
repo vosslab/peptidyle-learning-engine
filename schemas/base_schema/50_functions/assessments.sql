@@ -7,7 +7,7 @@ RETURNS trigger LANGUAGE plpgsql
 SET search_path = pg_catalog, ple_data AS $$
 BEGIN
     IF NEW.assessment_id IS DISTINCT FROM OLD.assessment_id
-       OR NEW.course_id IS DISTINCT FROM OLD.course_id
+       OR NEW.course_instance_id IS DISTINCT FROM OLD.course_instance_id
        OR NEW.reference_number IS DISTINCT FROM OLD.reference_number
        OR NEW.origin_kind IS DISTINCT FROM OLD.origin_kind
        OR NEW.source_blueprint_course_reference_number
@@ -135,8 +135,8 @@ BEGIN
               INTO question_available, question_backend_supported
               FROM ple_data.published_question AS question
               JOIN ple_data.question_revision AS revision
-                ON revision.question_id = question.question_id
-             WHERE question.question_id = entry_json ->> 'questionId'
+                ON revision.published_question_id = question.published_question_id
+             WHERE question.published_question_id = entry_json ->> 'questionId'
                AND revision.revision_number = (entry_json ->> 'revisionNumber')::integer;
             IF question_available IS DISTINCT FROM true
                AND NOT EXISTS (
@@ -144,7 +144,7 @@ BEGIN
                     WHERE existing.assessment_id = p_assessment_id
                       AND existing.assessment_entry_id = entry_id
                       AND existing.entry_kind = 'fixed_question'
-                      AND existing.question_id = entry_json ->> 'questionId'
+                      AND existing.published_question_id = entry_json ->> 'questionId'
                       AND existing.question_revision_number = (entry_json ->> 'revisionNumber')::integer
                ) THEN
                 RAISE EXCEPTION USING ERRCODE = '22023',
@@ -156,7 +156,7 @@ BEGIN
                     WHERE existing.assessment_id = p_assessment_id
                       AND existing.assessment_entry_id = entry_id
                       AND existing.entry_kind = 'fixed_question'
-                      AND existing.question_id = entry_json ->> 'questionId'
+                      AND existing.published_question_id = entry_json ->> 'questionId'
                       AND existing.question_revision_number = (entry_json ->> 'revisionNumber')::integer
                ) THEN
                 RAISE EXCEPTION USING ERRCODE = '22023',
@@ -175,7 +175,7 @@ BEGIN
                SET authored_position = COALESCE((entry_json ->> 'authoredPosition')::integer, 0),
                    entry_kind = 'fixed_question', availability = entry_json ->> 'availability',
                    scoring_rule = entry_json ->> 'scoringRule',
-                   question_id = entry_json ->> 'questionId',
+                   published_question_id = entry_json ->> 'questionId',
                    question_revision_number = (entry_json ->> 'revisionNumber')::integer,
                    question_pool_id = NULL, question_pool_revision_number = NULL,
                    points_possible = (entry_json ->> 'pointsPossible')::numeric,
@@ -186,7 +186,7 @@ BEGIN
              WHERE target.assessment_id = p_assessment_id
                AND target.assessment_entry_id = entry_id
                AND ROW(target.authored_position, target.entry_kind, target.availability,
-                       target.scoring_rule, target.question_id, target.question_revision_number,
+                       target.scoring_rule, target.published_question_id, target.question_revision_number,
                        target.points_possible, target.question_attempt_limit,
                        target.question_attempt_time_limit_seconds, target.question_attempt_grace_seconds)
                    IS DISTINCT FROM ROW(
@@ -206,7 +206,7 @@ BEGIN
             ) THEN
                 INSERT INTO ple_data.assessment_entry(
                     assessment_entry_id, assessment_id, authored_position, entry_kind, availability,
-                    scoring_rule, question_id, question_revision_number, points_possible,
+                    scoring_rule, published_question_id, question_revision_number, points_possible,
                     question_attempt_limit, question_attempt_time_limit_seconds, question_attempt_grace_seconds
                 ) VALUES (
                     entry_id, p_assessment_id, COALESCE((entry_json ->> 'authoredPosition')::integer, 0),
@@ -263,7 +263,7 @@ BEGIN
                 SELECT 1
                   FROM ple_data.question_pool_revision_member AS member
                   JOIN ple_data.question_revision AS revision
-                    ON revision.question_id = member.question_id
+                    ON revision.published_question_id = member.published_question_id
                    AND revision.revision_number = member.question_revision_number
                  WHERE member.question_pool_id = question_pool_id_value
                    AND member.revision_number = (entry_json ->> 'questionPoolRevisionNumber')::bigint
@@ -297,7 +297,7 @@ BEGIN
             UPDATE ple_data.assessment_entry AS target
                SET authored_position = COALESCE((entry_json ->> 'authoredPosition')::integer, 0),
                    entry_kind = 'question_pool', availability = entry_json ->> 'availability',
-                   scoring_rule = entry_json ->> 'scoringRule', question_id = NULL,
+                   scoring_rule = entry_json ->> 'scoringRule', published_question_id = NULL,
                    question_revision_number = NULL, points_possible = NULL,
                    question_pool_id = question_pool_id_value,
                    question_pool_revision_number = (entry_json ->> 'questionPoolRevisionNumber')::bigint,
@@ -379,14 +379,14 @@ BEGIN
     SELECT course.* INTO course_row
       FROM ple_data.course_instance AS course
      WHERE course.reference_number = p_course_reference_number
-       AND ple_api.current_session_account_is_course_instructor(course.course_id)
+       AND ple_api.current_session_account_is_course_instructor(course.course_instance_id)
      FOR UPDATE;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable';
     END IF;
     SELECT assessment.* INTO current_assessment
       FROM ple_data.assessment AS assessment
-     WHERE assessment.course_id = course_row.course_id
+     WHERE assessment.course_instance_id = course_row.course_instance_id
        AND assessment.reference_number = p_assessment_reference_number
      FOR UPDATE;
     IF NOT FOUND THEN
@@ -453,7 +453,7 @@ BEGIN
                 candidate.due_at IS DISTINCT FROM current_assessment.due_at
             );
         END IF;
-        PERFORM ple_data.synchronize_course_assessment_deadline(course_row.course_id);
+        PERFORM ple_data.synchronize_course_assessment_deadline(course_row.course_instance_id);
     ELSE
         assessment_reference_number := current_assessment.reference_number;
         assessment_edit_number := current_assessment.assessment_edit_number;
@@ -486,14 +486,14 @@ BEGIN
     SELECT course.* INTO course_row
       FROM ple_data.course_instance AS course
      WHERE course.reference_number = p_course_reference_number
-       AND ple_api.current_session_account_is_course_instructor(course.course_id)
+       AND ple_api.current_session_account_is_course_instructor(course.course_instance_id)
      FOR UPDATE;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable';
     END IF;
     SELECT assessment.* INTO assessment_row
       FROM ple_data.assessment AS assessment
-     WHERE assessment.course_id = course_row.course_id
+     WHERE assessment.course_instance_id = course_row.course_instance_id
        AND assessment.reference_number = p_assessment_reference_number
      FOR UPDATE;
     IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable'; END IF;
@@ -521,7 +521,7 @@ BEGIN
                 p_due_at IS DISTINCT FROM assessment_row.due_at
             );
         END IF;
-        PERFORM ple_data.synchronize_course_assessment_deadline(course_row.course_id);
+        PERFORM ple_data.synchronize_course_assessment_deadline(course_row.course_instance_id);
     ELSE
         assessment_reference_number := assessment_row.reference_number; assessment_title := assessment_row.assessment_title;
         due_at_millis := CASE WHEN assessment_row.due_at IS NULL THEN NULL ELSE floor(extract(epoch FROM assessment_row.due_at) * 1000)::bigint END;
@@ -565,14 +565,14 @@ BEGIN
     SELECT course.* INTO course_row
       FROM ple_data.course_instance AS course
      WHERE course.reference_number = p_course_reference_number
-       AND ple_api.current_session_account_is_course_instructor(course.course_id)
+       AND ple_api.current_session_account_is_course_instructor(course.course_instance_id)
      FOR UPDATE;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable';
     END IF;
     SELECT assessment.* INTO current_assessment
       FROM ple_data.assessment AS assessment
-     WHERE assessment.course_id = course_row.course_id
+     WHERE assessment.course_instance_id = course_row.course_instance_id
        AND assessment.reference_number = p_assessment_reference_number
      FOR UPDATE;
     IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable'; END IF;
@@ -623,7 +623,7 @@ BEGIN
                 candidate.due_at IS DISTINCT FROM current_assessment.due_at
             );
         END IF;
-        PERFORM ple_data.synchronize_course_assessment_deadline(course_row.course_id);
+        PERFORM ple_data.synchronize_course_assessment_deadline(course_row.course_instance_id);
     ELSE
         assessment_reference_number := current_assessment.reference_number; assessment_edit_number := current_assessment.assessment_edit_number;
         assessment_status := current_assessment.assessment_status; assessment_title := current_assessment.assessment_title;
@@ -655,14 +655,14 @@ BEGIN
     SELECT course.* INTO course_row
       FROM ple_data.course_instance AS course
      WHERE course.reference_number = p_course_reference_number
-       AND ple_api.current_session_account_is_course_instructor(course.course_id)
+       AND ple_api.current_session_account_is_course_instructor(course.course_instance_id)
      FOR UPDATE;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable';
     END IF;
     SELECT assessment.* INTO assessment_row
       FROM ple_data.assessment AS assessment
-     WHERE assessment.course_id = course_row.course_id
+     WHERE assessment.course_instance_id = course_row.course_instance_id
        AND assessment.reference_number = p_assessment_reference_number
      FOR UPDATE;
     IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable'; END IF;
@@ -682,7 +682,7 @@ BEGIN
     RETURNING updated.reference_number, updated.assessment_title, updated.assessment_status,
         updated.assessment_edit_number
       INTO assessment_reference_number, assessment_title, assessment_status, assessment_edit_number;
-    PERFORM ple_data.synchronize_course_assessment_deadline(course_row.course_id);
+    PERFORM ple_data.synchronize_course_assessment_deadline(course_row.course_instance_id);
     RETURN NEXT;
 END
 $$;

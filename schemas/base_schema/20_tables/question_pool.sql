@@ -24,27 +24,29 @@ CREATE TABLE ple_data.question_pool (
         AND description !~ '[[:cntrl:]]'
     ),
     -- Pool search metadata is its own lineage state, not live member metadata.
-    discipline_uuid uuid NOT NULL,
-    subject_uuid uuid NOT NULL,
-    topic_uuid uuid,
-    subtopic_uuid uuid,
+    content_discipline_id uuid NOT NULL,
+    content_subject_id uuid NOT NULL,
+    content_topic_id uuid,
+    content_subtopic_id uuid,
     tags text[] NOT NULL DEFAULT ARRAY[]::text[]
         CHECK (ple_data.question_metadata_tags_are_valid(tags)),
-    FOREIGN KEY (subject_uuid, discipline_uuid)
-        REFERENCES ple_data.content_subject_discipline(subject_uuid, discipline_uuid),
-    FOREIGN KEY (subject_uuid, topic_uuid)
-        REFERENCES ple_data.content_topic(subject_uuid, topic_uuid),
-    FOREIGN KEY (topic_uuid, subtopic_uuid)
-        REFERENCES ple_data.content_subtopic(topic_uuid, subtopic_uuid),
-    CHECK (subtopic_uuid IS NULL OR topic_uuid IS NOT NULL),
+    FOREIGN KEY (content_subject_id, content_discipline_id)
+        REFERENCES ple_data.content_subject_discipline(content_subject_id, content_discipline_id),
+    FOREIGN KEY (content_subject_id, content_topic_id)
+        REFERENCES ple_data.content_topic(content_subject_id, content_topic_id),
+    FOREIGN KEY (content_topic_id, content_subtopic_id)
+        REFERENCES ple_data.content_subtopic(content_topic_id, content_subtopic_id),
+    CHECK (content_subtopic_id IS NULL OR content_topic_id IS NOT NULL),
     current_revision_number bigint NOT NULL DEFAULT 1 CHECK (current_revision_number > 0),
     -- A fork is a new immutable lineage.  Its source names one exact immutable
     -- published Pool Revision; original published Pools have no source pair.
     source_question_pool_id uuid,
     source_question_pool_revision_number bigint,
     created_at timestamptz NOT NULL,
-    CHECK ((source_question_pool_id IS NULL) = (source_question_pool_revision_number IS NULL))
+    CHECK ((source_question_pool_id IS NULL) = (source_question_pool_revision_number IS NULL)),
+    updated_on date NOT NULL DEFAULT CURRENT_DATE
 );
+
 
 
 
@@ -54,7 +56,7 @@ CREATE TABLE ple_data.question_pool (
 CREATE TABLE ple_data.question_pool_revision (
     question_pool_id uuid NOT NULL
         REFERENCES ple_data.question_pool(question_pool_id),
-    revision_number bigint NOT NULL CHECK (revision_number > 0),
+    revision_number integer NOT NULL CHECK (revision_number > 0),
     member_count integer NOT NULL CHECK (member_count > 0),
     interchangeability_attested_by_account_id uuid NOT NULL
         REFERENCES ple_private.account(account_id),
@@ -68,18 +70,21 @@ CREATE TABLE ple_data.question_pool_revision (
 
 CREATE TABLE ple_data.question_pool_revision_member (
     question_pool_id uuid NOT NULL,
-    revision_number bigint NOT NULL,
+    revision_number integer NOT NULL,
     member_position integer NOT NULL CHECK (member_position > 0),
-    question_id text NOT NULL,
+    published_question_id text NOT NULL,
     question_revision_number integer NOT NULL CHECK (question_revision_number > 0),
     PRIMARY KEY (question_pool_id, revision_number, member_position),
-    UNIQUE (question_pool_id, revision_number, question_id, question_revision_number),
+    UNIQUE (question_pool_id, revision_number, published_question_id, question_revision_number),
     FOREIGN KEY (question_pool_id, revision_number)
         REFERENCES ple_data.question_pool_revision(question_pool_id, revision_number),
-    FOREIGN KEY (question_id, question_revision_number)
-        REFERENCES ple_data.question_revision(question_id, revision_number)
+    FOREIGN KEY (published_question_id, question_revision_number)
+        REFERENCES ple_data.question_revision(published_question_id, revision_number),
+    created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
 );
 
+
+SET LOCAL ROLE ple_data_owner;
 COMMENT ON TABLE ple_data.question_pool IS 'role: current state, Stable Question Pool lineage, immutable exact source-Pool provenance for forks, server-issued canonical public Crockford ID, and current metadata ETag.';
 
 COMMENT ON TABLE ple_data.question_pool_revision IS 'role: revision, Append-only sequential immutable Pool Revision with creating Instructor attestation and exact member count.';
@@ -90,26 +95,40 @@ CREATE TABLE ple_data.question_pool_star (
     public_question_pool_id text NOT NULL REFERENCES ple_data.question_pool(public_question_pool_id),
     instructor_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
     starred_at timestamptz NOT NULL,
-    PRIMARY KEY (public_question_pool_id, instructor_account_id)
+    PRIMARY KEY (public_question_pool_id, instructor_account_id),
+    updated_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
 );
+
 
 CREATE TABLE ple_data.question_pool_watch (
     public_question_pool_id text NOT NULL REFERENCES ple_data.question_pool(public_question_pool_id),
     instructor_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
     watched_at timestamptz NOT NULL,
-    PRIMARY KEY (public_question_pool_id, instructor_account_id)
+    PRIMARY KEY (public_question_pool_id, instructor_account_id),
+    updated_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
 );
+
 
 CREATE TABLE ple_data.question_pool_revision_bloom (
     question_pool_id uuid NOT NULL,
-    revision_number bigint NOT NULL,
+    revision_number integer NOT NULL,
     cognitive_process ple_data.bloom_cognitive_process NOT NULL,
     knowledge_dimension ple_data.bloom_knowledge_dimension NOT NULL,
     classification_edit_number bigint NOT NULL CHECK (classification_edit_number > 0),
     PRIMARY KEY (question_pool_id, revision_number),
     FOREIGN KEY (question_pool_id, revision_number)
-        REFERENCES ple_data.question_pool_revision (question_pool_id, revision_number)
+        REFERENCES ple_data.question_pool_revision (question_pool_id, revision_number),
+    created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
 );
+
+
+COMMENT ON TABLE ple_data.question_pool_star IS 'role: current state, deleted by none for published Pools. HUMAN_GUIDANCE.md Question Pool specifications.';
+
+COMMENT ON TABLE ple_data.question_pool_watch IS 'role: current state, deleted by none for published Pools. HUMAN_GUIDANCE.md Question Pool specifications.';
+
+COMMENT ON TABLE ple_data.question_pool_revision_bloom IS 'role: revision, deleted by none for published Pools. HUMAN_GUIDANCE.md Question Pool specifications.';
+
+
 
 COMMENT ON TABLE ple_data.question_pool_star IS 'role: current state, deleted by none for published Pools. HUMAN_GUIDANCE.md Question Pool specifications.';
 

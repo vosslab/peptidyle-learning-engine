@@ -30,7 +30,7 @@ SET search_path = pg_catalog, ple_data
 AS $$
 BEGIN
     PERFORM 1 FROM ple_data.blueprint_course_revision AS revision
-     WHERE revision.blueprint_course_reference_number = NEW.blueprint_course_reference_number
+     WHERE revision.blueprint_course_id = NEW.blueprint_course_id
        AND revision.blueprint_revision_number = NEW.blueprint_revision_number
      FOR UPDATE;
     IF NOT FOUND THEN
@@ -39,7 +39,7 @@ BEGIN
     END IF;
     IF EXISTS (
         SELECT 1 FROM ple_data.blueprint_revision_event AS event
-         WHERE event.blueprint_course_reference_number = NEW.blueprint_course_reference_number
+         WHERE event.blueprint_course_id = NEW.blueprint_course_id
            AND event.blueprint_revision_number = NEW.blueprint_revision_number
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '55000',

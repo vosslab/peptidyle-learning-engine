@@ -62,15 +62,15 @@ $$;
 
 -- This is Elena's ordinary private workspace.  It remains ordinary product
 -- state after the temporary publication session expires.
-INSERT INTO ple_private.authoring_workspace (workspace_id, owner_account_id, created_at)
+INSERT INTO ple_private.authoring_workspace (authoring_workspace_id, owner_account_id, created_at)
 VALUES ('00000000-0000-0000-0000-000000000201',
         '00000000-0000-0000-0000-000000000101', clock_timestamp())
-ON CONFLICT (workspace_id) DO NOTHING;
+ON CONFLICT (authoring_workspace_id) DO NOTHING;
 
-INSERT INTO ple_private.authoring_workspace (workspace_id, owner_account_id, created_at)
+INSERT INTO ple_private.authoring_workspace (authoring_workspace_id, owner_account_id, created_at)
 VALUES ('00000000-0000-0000-0000-000000000206',
         '00000000-0000-0000-0000-000000000107', clock_timestamp())
-ON CONFLICT (workspace_id) DO NOTHING;
+ON CONFLICT (authoring_workspace_id) DO NOTHING;
 
 -- A new session is supplied on every publisher invocation.  Use the ordinary
 -- session boundary so it validates the active Account and derives its Product

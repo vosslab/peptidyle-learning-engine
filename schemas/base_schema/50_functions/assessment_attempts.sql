@@ -45,7 +45,7 @@ SET search_path = pg_catalog, ple_data AS $$
     SELECT EXISTS (
         SELECT 1
           FROM ple_data.student_record AS student
-          JOIN ple_data.assessment AS assessment ON assessment.course_id = student.course_id
+          JOIN ple_data.assessment AS assessment ON assessment.course_instance_id = student.course_instance_id
          WHERE student.student_record_id = $1 AND assessment.assessment_id = $2
     )
 $$;
@@ -124,7 +124,7 @@ BEGIN
            AND member.revision_number = selection.question_pool_revision_number
          WHERE selection.question_pool_selection_id = NEW.question_pool_selection_id
            AND member.member_position = NEW.member_position
-           AND member.question_id = NEW.question_id
+           AND member.published_question_id = NEW.published_question_id
            AND member.question_revision_number = NEW.revision_number
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
@@ -152,19 +152,19 @@ SET search_path = pg_catalog, ple_private AS $$
 DECLARE selection_id uuid := CASE WHEN TG_OP = 'DELETE' THEN OLD.question_pool_selection_id ELSE NEW.question_pool_selection_id END;
 BEGIN
     IF EXISTS (
-        (SELECT item.member_position, item.question_id, item.revision_number
+        (SELECT item.member_position, item.published_question_id, item.revision_number
            FROM ple_private.question_pool_selected_item AS item
           WHERE item.question_pool_selection_id = selection_id
          EXCEPT
-         SELECT issued.question_pool_member_position, issued.question_id, issued.revision_number
+         SELECT issued.question_pool_member_position, issued.published_question_id, issued.revision_number
            FROM ple_private.issued_question AS issued
           WHERE issued.question_pool_selection_id = selection_id)
         UNION ALL
-        (SELECT issued.question_pool_member_position, issued.question_id, issued.revision_number
+        (SELECT issued.question_pool_member_position, issued.published_question_id, issued.revision_number
            FROM ple_private.issued_question AS issued
           WHERE issued.question_pool_selection_id = selection_id
          EXCEPT
-         SELECT item.member_position, item.question_id, item.revision_number
+         SELECT item.member_position, item.published_question_id, item.revision_number
            FROM ple_private.question_pool_selected_item AS item
           WHERE item.question_pool_selection_id = selection_id)
     ) THEN
@@ -187,7 +187,7 @@ DECLARE source_backend text;
 BEGIN
     SELECT backend INTO source_backend
       FROM ple_private.question_revision_source_binding
-     WHERE question_id = NEW.question_id
+     WHERE published_question_id = NEW.published_question_id
        AND revision_number = NEW.revision_number;
     IF NOT FOUND OR NOT ple_private.question_backend_is_supported_for_production(source_backend)
        OR (source_backend = 'ple' AND NEW.question_seed IS NOT NULL)
@@ -233,7 +233,7 @@ EXECUTE FUNCTION ple_private.validate_question_pool_selected_item_member();
 CREATE TRIGGER issued_question_is_immutable BEFORE UPDATE ON ple_private.issued_question
 FOR EACH ROW EXECUTE FUNCTION ple_private.reject_immutable_student_work_change();
 
-CREATE TRIGGER issued_question_reproduction_matches_source BEFORE INSERT OR UPDATE OF question_id, revision_number, question_seed
+CREATE TRIGGER issued_question_reproduction_matches_source BEFORE INSERT OR UPDATE OF published_question_id, revision_number, question_seed
 ON ple_private.issued_question FOR EACH ROW EXECUTE FUNCTION ple_private.validate_issued_question_reproduction();
 
 CREATE TRIGGER issued_question_delete_is_guarded BEFORE DELETE ON ple_private.issued_question

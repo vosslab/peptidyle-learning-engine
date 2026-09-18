@@ -72,10 +72,10 @@ BEGIN
         RAISE EXCEPTION 'Blueprint Proposal comparison is stale' USING ERRCODE = '40001';
     END IF;
     IF NOT EXISTS (SELECT 1 FROM ple_data.blueprint_course_revision AS revision
-         WHERE revision.blueprint_course_reference_number = v_source.reference_number
+         WHERE revision.blueprint_course_id = v_source.reference_number
            AND revision.blueprint_revision_number = p_source_revision)
        OR NOT EXISTS (SELECT 1 FROM ple_data.blueprint_metadata_event AS event
-         WHERE event.blueprint_course_reference_number = v_source.reference_number
+         WHERE event.blueprint_course_id = v_source.reference_number
            AND event.metadata_etag = p_source_metadata_etag) THEN
         RAISE EXCEPTION 'Blueprint Proposal basis is unavailable' USING ERRCODE = '42501';
     END IF;
@@ -91,31 +91,31 @@ $$;
 
 CREATE FUNCTION ple_api.read_blueprint_change_proposal(p_proposal_id uuid)
 RETURNS TABLE (
-    proposal_id uuid, proposer_account_id uuid, created_at_ms bigint,
+    blueprint_change_proposal_id uuid, proposer_account_id uuid, created_at_ms bigint,
     target_is_stale boolean, source_position integer, public_reference text,
     revision_number bigint, metadata_etag uuid, content jsonb, content_checksum bytea,
-    short_name text, long_name text, discipline_uuid uuid, subject_uuid uuid,
-    topic_uuid uuid, subtopic_uuid uuid, tags text[], can_accept boolean
+    short_name text, long_name text, content_discipline_id uuid, content_subject_id uuid,
+    content_topic_id uuid, content_subtopic_id uuid, tags text[], can_accept boolean
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
     -- ASVS 8.2.2, 8.3.2: submission intentionally shares the exact proposed
     -- evidence with the receiving owner, including a Private source. This grants
     -- no general source or history reads. Proposer reads retain ordinary source
     -- visibility, and both participants retain ordinary target visibility.
-    SELECT proposal.proposal_id, proposal.proposer_account_id,
+    SELECT proposal.blueprint_change_proposal_id, proposal.proposer_account_id,
            (extract(epoch FROM proposal.created_at) * 1000)::bigint,
            target.current_blueprint_revision_number <> proposal.target_revision_number
                OR target.metadata_etag <> proposal.target_metadata_etag,
            basis.position, course.public_reference, basis.revision_number,
            basis.metadata_etag, revision.content, revision.content_checksum,
-           event.short_name, event.long_name, event.discipline_uuid, event.subject_uuid,
-           event.topic_uuid, event.subtopic_uuid, event.tags,
+           event.short_name, event.long_name, event.content_discipline_id, event.content_subject_id,
+           event.content_topic_id, event.content_subtopic_id, event.tags,
            target.owner_account_id = ple_api.current_session_account_id()
                AND target.availability <> 'archived'
                AND target.current_blueprint_revision_number = proposal.target_revision_number
                AND target.metadata_etag = proposal.target_metadata_etag
                AND NOT EXISTS (SELECT 1 FROM ple_data.blueprint_change_proposal_acceptance AS accepted
-                    WHERE accepted.proposal_id = proposal.proposal_id)
+                    WHERE accepted.blueprint_change_proposal_id = proposal.blueprint_change_proposal_id)
       FROM ple_data.blueprint_change_proposal AS proposal
       JOIN ple_data.blueprint_course AS source
         ON source.reference_number = proposal.source_reference_number
@@ -130,12 +130,12 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
       JOIN ple_data.blueprint_course AS course
         ON course.reference_number = basis.reference_number
       JOIN ple_data.blueprint_course_revision AS revision
-        ON revision.blueprint_course_reference_number = basis.reference_number
+        ON revision.blueprint_course_id = basis.reference_number
        AND revision.blueprint_revision_number = basis.revision_number
       JOIN ple_data.blueprint_metadata_event AS event
-        ON event.blueprint_course_reference_number = basis.reference_number
+        ON event.blueprint_course_id = basis.reference_number
        AND event.metadata_etag = basis.metadata_etag
-     WHERE proposal.proposal_id = p_proposal_id
+     WHERE proposal.blueprint_change_proposal_id = p_proposal_id
        AND ple_api.current_session_account_is_instructor()
        AND (proposal.proposer_account_id = ple_api.current_session_account_id()
             OR target.owner_account_id = ple_api.current_session_account_id())
@@ -151,7 +151,7 @@ CREATE FUNCTION ple_api.list_blueprint_change_proposals(
     p_target_reference text, p_mine boolean, p_after_created_at text,
     p_after_proposal_id uuid, p_limit integer
 ) RETURNS TABLE (
-    proposal_id uuid, created_at_ms bigint, created_at_key text,
+    blueprint_change_proposal_id uuid, created_at_ms bigint, created_at_key text,
     source_public_reference text, source_revision_number bigint, source_metadata_etag uuid,
     source_short_name text, source_long_name text,
     target_public_reference text, target_revision_number bigint, target_metadata_etag uuid,
@@ -207,7 +207,7 @@ BEGIN
     -- ASVS 1.2.4: static parameterized SQL; recheck the exact-read predicates
     -- for each returned record. Only pinned metadata supplies basis names.
     RETURN QUERY
-    SELECT proposal.proposal_id, (extract(epoch FROM proposal.created_at) * 1000)::bigint,
+    SELECT proposal.blueprint_change_proposal_id, (extract(epoch FROM proposal.created_at) * 1000)::bigint,
            to_char(proposal.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
            source.public_reference, proposal.source_revision_number, proposal.source_metadata_etag,
            source_event.short_name, source_event.long_name,
@@ -223,13 +223,13 @@ BEGIN
       JOIN ple_data.blueprint_course AS target
         ON target.reference_number = proposal.target_reference_number
       JOIN ple_data.blueprint_metadata_event AS source_event
-        ON source_event.blueprint_course_reference_number = proposal.source_reference_number
+        ON source_event.blueprint_course_id = proposal.source_reference_number
        AND source_event.metadata_etag = proposal.source_metadata_etag
       JOIN ple_data.blueprint_metadata_event AS target_event
-        ON target_event.blueprint_course_reference_number = proposal.target_reference_number
+        ON target_event.blueprint_course_id = proposal.target_reference_number
        AND target_event.metadata_etag = proposal.target_metadata_etag
       LEFT JOIN ple_data.blueprint_change_proposal_acceptance AS accepted
-        ON accepted.proposal_id = proposal.proposal_id
+        ON accepted.blueprint_change_proposal_id = proposal.blueprint_change_proposal_id
        AND accepted.target_reference_number = proposal.target_reference_number
      WHERE (p_mine AND proposal.proposer_account_id = v_actor
             OR NOT p_mine AND target.public_reference = p_target_reference)
@@ -237,8 +237,8 @@ BEGIN
        AND (source.availability IN ('public', 'archived')
             OR source.owner_account_id = v_actor OR target.owner_account_id = v_actor)
        AND (target.availability IN ('public', 'archived') OR target.owner_account_id = v_actor)
-       AND (v_after IS NULL OR (proposal.created_at, proposal.proposal_id) < (v_after, p_after_proposal_id))
-     ORDER BY proposal.created_at DESC, proposal.proposal_id DESC
+       AND (v_after IS NULL OR (proposal.created_at, proposal.blueprint_change_proposal_id) < (v_after, p_after_proposal_id))
+     ORDER BY proposal.created_at DESC, proposal.blueprint_change_proposal_id DESC
      LIMIT p_limit;
 END
 $$;
@@ -257,7 +257,7 @@ DECLARE
     v_target ple_data.blueprint_course%ROWTYPE;
 BEGIN
     SELECT * INTO v_proposal FROM ple_data.blueprint_change_proposal
-     WHERE proposal_id = p_proposal_id;
+     WHERE blueprint_change_proposal_id = p_proposal_id;
     SELECT * INTO v_target FROM ple_data.blueprint_course
      WHERE reference_number = v_proposal.target_reference_number
        AND public_reference = p_target_reference
@@ -270,7 +270,7 @@ BEGIN
         RAISE EXCEPTION 'Archived Blueprint Course is read-only' USING ERRCODE = '55000';
     END IF;
     IF EXISTS (SELECT 1 FROM ple_data.blueprint_change_proposal_acceptance
-        WHERE proposal_id = p_proposal_id) THEN
+        WHERE blueprint_change_proposal_id = p_proposal_id) THEN
         RAISE EXCEPTION 'Blueprint Proposal is already accepted' USING ERRCODE = '55000';
     END IF;
     IF p_expected_revision IS DISTINCT FROM v_target.current_blueprint_revision_number
@@ -311,14 +311,14 @@ BEGIN
         RAISE EXCEPTION 'Blueprint Proposal decision is invalid' USING ERRCODE = '22023';
     END IF;
     SELECT * INTO STRICT v_proposal FROM ple_data.blueprint_change_proposal
-     WHERE proposal_id = p_proposal_id;
+     WHERE blueprint_change_proposal_id = p_proposal_id;
     SELECT * INTO STRICT v_target FROM ple_data.blueprint_course
      WHERE reference_number = v_proposal.target_reference_number;
     SELECT * INTO STRICT v_source FROM ple_data.blueprint_metadata_event
-     WHERE blueprint_course_reference_number = v_proposal.source_reference_number
+     WHERE blueprint_course_id = v_proposal.source_reference_number
        AND metadata_etag = v_proposal.source_metadata_etag;
     SELECT * INTO STRICT v_prior FROM ple_data.blueprint_course_revision
-     WHERE blueprint_course_reference_number = v_proposal.target_reference_number
+     WHERE blueprint_course_id = v_proposal.target_reference_number
        AND blueprint_revision_number = p_expected_revision;
     v_short_name := CASE WHEN p_decision #>> '{decision,kind}' = 'entire'
         OR p_decision #> '{decision,source_short_name}' = 'true'::jsonb
@@ -330,10 +330,10 @@ BEGIN
         OR coalesce(p_decision #> '{decision,source_classification}' = 'true'::jsonb, false);
     v_metadata_changed := v_short_name <> v_target.short_name
         OR v_long_name <> v_target.long_name
-        OR (v_source_classification AND ROW(v_source.discipline_uuid, v_source.subject_uuid,
-            v_source.topic_uuid, v_source.subtopic_uuid, v_source.tags) IS DISTINCT FROM
-            ROW(v_target.discipline_uuid, v_target.subject_uuid, v_target.topic_uuid,
-                v_target.subtopic_uuid, v_target.tags));
+        OR (v_source_classification AND ROW(v_source.content_discipline_id, v_source.content_subject_id,
+            v_source.content_topic_id, v_source.content_subtopic_id, v_source.tags) IS DISTINCT FROM
+            ROW(v_target.content_discipline_id, v_target.content_subject_id, v_target.content_topic_id,
+                v_target.content_subtopic_id, v_target.tags));
     -- Metadata-only is an actual accepted change, never a normal no-op Save receipt.
     IF p_content = v_prior.content AND p_content_checksum = v_prior.content_checksum THEN
         IF NOT v_metadata_changed THEN
@@ -346,22 +346,22 @@ BEGIN
             v_prior.content, v_prior.content_checksum, v_now);
         INSERT INTO ple_data.blueprint_revision_question_pin
         SELECT v_target.reference_number, v_result_revision, content_path,
-               question_id, question_revision_number FROM ple_data.blueprint_revision_question_pin
-         WHERE blueprint_course_reference_number = v_target.reference_number
+               published_question_id, question_revision_number FROM ple_data.blueprint_revision_question_pin
+         WHERE blueprint_course_id = v_target.reference_number
            AND blueprint_revision_number = p_expected_revision;
         INSERT INTO ple_data.blueprint_revision_module
         SELECT v_target.reference_number, v_result_revision, blueprint_module_reference,
                module_position FROM ple_data.blueprint_revision_module
-         WHERE blueprint_course_reference_number = v_target.reference_number
+         WHERE blueprint_course_id = v_target.reference_number
            AND blueprint_revision_number = p_expected_revision;
         INSERT INTO ple_data.blueprint_revision_assessment
         SELECT v_target.reference_number, v_result_revision, blueprint_module_reference,
                blueprint_assessment_reference, assessment_position
           FROM ple_data.blueprint_revision_assessment
-         WHERE blueprint_course_reference_number = v_target.reference_number
+         WHERE blueprint_course_id = v_target.reference_number
            AND blueprint_revision_number = p_expected_revision;
         INSERT INTO ple_data.blueprint_revision_event (
-            blueprint_course_reference_number, blueprint_revision_number,
+            blueprint_course_id, blueprint_revision_number,
             actor_account_id, request_checksum, occurred_at
         ) VALUES (
             v_target.reference_number, v_result_revision,
@@ -382,8 +382,8 @@ BEGIN
         p_target_reference, p_expected_metadata_etag, v_short_name, v_long_name);
     IF v_source_classification THEN
         SELECT metadata_etag INTO STRICT v_etag FROM ple_api.update_blueprint_classification(
-            p_target_reference, v_etag, v_source.discipline_uuid, v_source.subject_uuid,
-            v_source.topic_uuid, v_source.subtopic_uuid, v_source.tags);
+            p_target_reference, v_etag, v_source.content_discipline_id, v_source.content_subject_id,
+            v_source.content_topic_id, v_source.content_subtopic_id, v_source.tags);
     END IF;
     INSERT INTO ple_data.blueprint_change_proposal_acceptance VALUES (
         p_proposal_id, ple_api.current_session_account_id(), v_now, p_decision,
@@ -393,28 +393,28 @@ $$;
 
 CREATE FUNCTION ple_api.read_accepted_blueprint_change_proposal(p_proposal_id uuid)
 RETURNS TABLE (
-    proposal_id uuid, actor_account_id uuid, accepted_at_ms bigint, decision jsonb,
+    blueprint_change_proposal_id uuid, actor_account_id uuid, accepted_at_ms bigint, decision jsonb,
     public_reference text, revision_number bigint, metadata_etag uuid,
     content jsonb, content_checksum bytea, short_name text, long_name text,
-    discipline_uuid uuid, subject_uuid uuid, topic_uuid uuid, subtopic_uuid uuid, tags text[]
+    content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid, content_subtopic_id uuid, tags text[]
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
-    SELECT acceptance.proposal_id, acceptance.actor_account_id,
+    SELECT acceptance.blueprint_change_proposal_id, acceptance.actor_account_id,
            (extract(epoch FROM acceptance.accepted_at) * 1000)::bigint, acceptance.decision,
            target.public_reference, acceptance.resulting_revision_number,
            acceptance.resulting_metadata_etag, revision.content, revision.content_checksum,
-           event.short_name, event.long_name, event.discipline_uuid, event.subject_uuid,
-           event.topic_uuid, event.subtopic_uuid, event.tags
+           event.short_name, event.long_name, event.content_discipline_id, event.content_subject_id,
+           event.content_topic_id, event.content_subtopic_id, event.tags
       FROM ple_data.blueprint_change_proposal_acceptance AS acceptance
       JOIN ple_data.blueprint_course AS target
         ON target.reference_number = acceptance.target_reference_number
       JOIN ple_data.blueprint_course_revision AS revision
-        ON revision.blueprint_course_reference_number = acceptance.target_reference_number
+        ON revision.blueprint_course_id = acceptance.target_reference_number
        AND revision.blueprint_revision_number = acceptance.resulting_revision_number
       JOIN ple_data.blueprint_metadata_event AS event
-        ON event.blueprint_course_reference_number = acceptance.target_reference_number
+        ON event.blueprint_course_id = acceptance.target_reference_number
        AND event.metadata_etag = acceptance.resulting_metadata_etag
-     WHERE acceptance.proposal_id = p_proposal_id
+     WHERE acceptance.blueprint_change_proposal_id = p_proposal_id
        AND EXISTS (SELECT 1 FROM ple_api.read_blueprint_change_proposal(p_proposal_id));
 $$;
 

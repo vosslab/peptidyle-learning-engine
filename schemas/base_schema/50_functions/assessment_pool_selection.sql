@@ -38,7 +38,7 @@ BEGIN
      WHERE assessment.assessment_id = p_assessment_id
        AND assessment.assessment_status = 'unreleased'
        AND ple_api.current_session_account_is_instructor()
-       AND ple_api.current_session_account_is_course_instructor(assessment.course_id)
+       AND ple_api.current_session_account_is_course_instructor(assessment.course_instance_id)
      FOR UPDATE;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
@@ -132,11 +132,11 @@ BEGIN
 
     SELECT assessment.assessment_id INTO assessment_id_value
       FROM ple_data.course_instance AS course
-      JOIN ple_data.assessment AS assessment ON assessment.course_id = course.course_id
+      JOIN ple_data.assessment AS assessment ON assessment.course_instance_id = course.course_instance_id
      WHERE course.public_reference = p_course_reference
        AND assessment.public_reference = p_assessment_reference
        AND ple_api.current_session_account_is_instructor()
-       AND ple_api.current_session_account_is_course_instructor(course.course_id);
+       AND ple_api.current_session_account_is_course_instructor(course.course_instance_id);
     IF NOT FOUND THEN
         -- ASVS 16.5.1: one concealed outcome covers missing and unauthorized
         -- Course, Assessment, and session combinations.

@@ -130,7 +130,7 @@ RETURNS TABLE (
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
     WITH course AS (
-        SELECT instance.course_id, instance.public_reference
+        SELECT instance.course_instance_id, instance.public_reference
           FROM ple_data.course_instance AS instance
          WHERE instance.public_reference = p_course_public_reference
            -- Ordinary Instructor gradebook reads end with normal Student
@@ -139,27 +139,27 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
            -- ASVS 2.3.1: the retention lifecycle gates the same aggregate
            -- evidence boundary that it gates ordinary Student reads.
            AND instance.retention_lifecycle_state = 'active'
-           AND ple_api.current_session_account_is_course_instructor(instance.course_id)
+           AND ple_api.current_session_account_is_course_instructor(instance.course_instance_id)
     ), active_student AS (
         SELECT record.student_record_id, profile.roster_id, profile.roster_name
           FROM course
           JOIN ple_data.student_record AS record
-            ON record.course_id = course.course_id
+            ON record.course_instance_id = course.course_instance_id
           JOIN ple_data.course_membership AS membership
-            ON membership.course_id = course.course_id
+            ON membership.course_instance_id = course.course_instance_id
            AND membership.student_record_id = record.student_record_id
            AND membership.account_id = record.student_account_id
            AND membership.role = 'student'
-           AND ple_data.course_membership_is_active(membership.membership_id)
+           AND ple_data.course_membership_is_active(membership.course_membership_id)
           JOIN ple_private.course_roster_profile AS profile
-            ON profile.course_id = course.course_id
+            ON profile.course_instance_id = course.course_instance_id
            AND profile.student_account_id = record.student_account_id
     ), released_assessment AS (
         -- ASVS 8.2.2/8.2.3: titles stay in this authorized Course's released set.
         SELECT assessment.assessment_id, assessment.public_reference, assessment.assessment_title
           FROM course
           JOIN ple_data.assessment AS assessment
-            ON assessment.course_id = course.course_id
+            ON assessment.course_instance_id = course.course_instance_id
            AND assessment.assessment_status = 'released'
          GROUP BY assessment.assessment_id, assessment.public_reference, assessment.assessment_title
     ), gradebook AS (

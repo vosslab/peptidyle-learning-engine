@@ -60,7 +60,7 @@ BEGIN
     -- capability; an owned Assessment Attempt reference is never an ordinary read or
     -- mutator bypass after archive or deletion.  Keep this beside the
     -- ownership assertion because every current-Assessment Attempt operation shares it.
-    SELECT assessment.course_id INTO course_id_value
+    SELECT assessment.course_instance_id INTO course_id_value
       FROM ple_data.assessment AS assessment
      WHERE assessment.assessment_id = result.assessment_id;
     IF NOT FOUND
@@ -110,7 +110,7 @@ BEGIN
     IF NOT FOUND OR assessment_row.assessment_status <> 'released'
        OR account_id IS NULL
        OR NOT ple_api.current_session_account_owns_student_record(
-           assessment_row.course_id, p_student_record_id
+           assessment_row.course_instance_id, p_student_record_id
        ) THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Assessment Attempt start is unavailable';
@@ -311,10 +311,10 @@ BEGIN
             entry_row.selection_count
         );
         INSERT INTO ple_private.question_pool_selected_item(
-            question_pool_selection_id, member_position, selection_position, question_id, revision_number
+            question_pool_selection_id, member_position, selection_position, published_question_id, revision_number
         )
         SELECT selection_id, (item.value #>> '{}')::integer, item.ordinality - 1,
-               pool.question_id, pool.question_revision_number
+               pool.published_question_id, pool.question_revision_number
           FROM jsonb_array_elements(selection -> 'selected_items') WITH ORDINALITY AS item(value, ordinality)
           JOIN ple_data.question_pool_revision_member AS pool
             ON pool.question_pool_id = entry_row.question_pool_id
@@ -338,7 +338,7 @@ BEGIN
         END IF;
         IF entry_row.entry_kind = 'fixed_question' THEN
             IF issued_selection_id IS NOT NULL OR issued_member_position IS NOT NULL
-               OR issued ->> 'question_id' <> entry_row.question_id
+               OR issued ->> 'published_question_id' <> entry_row.published_question_id
                OR (issued ->> 'revision_number')::integer <> entry_row.question_revision_number THEN
                 RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Fixed Issued Question does not match its current Assessment Entry';
             END IF;
@@ -347,7 +347,7 @@ BEGIN
                 SELECT 1 FROM ple_private.question_pool_selected_item AS selected
                  WHERE selected.question_pool_selection_id = issued_selection_id
                    AND selected.member_position = issued_member_position
-                   AND selected.question_id = issued ->> 'question_id'
+                   AND selected.published_question_id = issued ->> 'published_question_id'
                    AND selected.revision_number = (issued ->> 'revision_number')::integer
             ) THEN
                 RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Pooled Issued Question does not match its selected Item';
@@ -355,7 +355,7 @@ BEGIN
         END IF;
         SELECT * INTO issued_source
           FROM ple_private.question_revision_source_binding AS source
-         WHERE source.question_id = issued ->> 'question_id'
+         WHERE source.published_question_id = issued ->> 'published_question_id'
            AND source.revision_number = (issued ->> 'revision_number')::integer;
         IF NOT FOUND OR NOT ple_private.question_backend_is_supported_for_production(issued_source.backend)
            OR (issued_source.backend = 'ple' AND (issued ->> 'question_seed') IS NOT NULL)
@@ -368,14 +368,14 @@ BEGIN
         END IF;
         INSERT INTO ple_private.issued_question(
             issued_question_id, assessment_attempt_id, assessment_entry_id,
-            assessment_content_entry_index, issued_position, question_id, revision_number,
+            assessment_content_entry_index, issued_position, published_question_id, revision_number,
             question_seed, point_value, scoring_rule, question_statistics_eligibility,
             question_attempt_limit, question_attempt_time_limit_seconds, question_attempt_grace_seconds,
             question_pool_selection_id, question_pool_member_position
         ) VALUES (
             (issued ->> 'issued_question_id')::uuid, p_assessment_attempt_id, issued_entry_id,
             entry_row.authored_position, (issued ->> 'issued_position')::integer,
-            issued ->> 'question_id', (issued ->> 'revision_number')::integer,
+            issued ->> 'published_question_id', (issued ->> 'revision_number')::integer,
             (issued ->> 'question_seed')::numeric,
             CASE WHEN entry_row.entry_kind = 'fixed_question' THEN entry_row.points_possible ELSE entry_row.points_per_item END,
             entry_row.scoring_rule, entry_row.scoring_rule <> 'excluded',
@@ -400,7 +400,7 @@ BEGIN
                SELECT 1 FROM ple_private.issued_question AS issued
                 WHERE issued.assessment_attempt_id = p_assessment_attempt_id
                   AND issued.assessment_entry_id = entry.assessment_entry_id
-                  AND issued.question_id = entry.question_id
+                  AND issued.published_question_id = entry.published_question_id
                   AND issued.revision_number = entry.question_revision_number
            )
     ) THEN
@@ -428,18 +428,18 @@ SET LOCAL ROLE ple_api_owner;
 -- executable only by the private Assessment Attempt boundary, so application sessions
 -- cannot enumerate Student records.  The public ownership predicate continues
 -- to decide whether the resulting record is usable for Student Work.
-CREATE FUNCTION ple_api.current_session_student_record_id(p_course_id uuid)
+CREATE FUNCTION ple_api.current_session_student_record_id(p_course_instance_id uuid)
 RETURNS uuid LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT student.student_record_id
       FROM ple_data.student_record AS student
       JOIN ple_data.course_membership AS membership
         ON membership.student_record_id = student.student_record_id
-       AND membership.course_id = student.course_id
+       AND membership.course_instance_id = student.course_instance_id
        AND membership.account_id = student.student_account_id
        AND membership.role = 'student'
-       AND ple_data.course_membership_is_active(membership.membership_id)
-     WHERE student.course_id = p_course_id
+       AND ple_data.course_membership_is_active(membership.course_membership_id)
+     WHERE student.course_instance_id = p_course_instance_id
        AND student.student_account_id = ple_api.current_session_account_id()
 $$;
 
@@ -448,15 +448,15 @@ $$;
 -- Private Assessment Attempt readers need stable Course route/display facts but do not
 -- receive direct access to the Course relation.  These API-owner functions
 -- are executable only by that trusted private boundary.
-CREATE FUNCTION ple_api.course_reference_number_for_assessment_attempt(p_course_id uuid)
+CREATE FUNCTION ple_api.course_reference_number_for_assessment_attempt(p_course_instance_id uuid)
 RETURNS bigint LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
     SELECT course.reference_number
       FROM ple_data.course_instance AS course
-     WHERE course.course_id = p_course_id
+     WHERE course.course_instance_id = p_course_instance_id
 $$;
 
-CREATE FUNCTION ple_api.course_display_for_assessment_attempt(p_course_id uuid)
+CREATE FUNCTION ple_api.course_display_for_assessment_attempt(p_course_instance_id uuid)
 RETURNS TABLE (
     course_reference_number text,
     course_short_name text,
@@ -467,9 +467,9 @@ SET search_path = pg_catalog, ple_data AS $$
     SELECT course.public_reference,
            course.course_short_name,
            course.course_long_name,
-           course.course_theme
+           course.course_theme_id
       FROM ple_data.course_instance AS course
-     WHERE course.course_id = p_course_id
+     WHERE course.course_instance_id = p_course_instance_id
 $$;
 
 SET LOCAL ROLE ple_private_owner;
@@ -508,12 +508,12 @@ BEGIN
       FROM ple_data.assessment AS assessment
      WHERE assessment.public_reference = p_assessment_public_reference;
     IF NOT FOUND OR ple_api.course_reference_number_for_assessment_attempt(
-        assessment_row.course_id
+        assessment_row.course_instance_id
     ) IS DISTINCT FROM p_course_reference_number THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Assessment Attempt start is unavailable';
     END IF;
-    SELECT ple_api.current_session_student_record_id(assessment_row.course_id)
+    SELECT ple_api.current_session_student_record_id(assessment_row.course_instance_id)
       INTO student_record_id_value;
     RETURN QUERY
     SELECT gate.resumable_assessment_attempt_id,
@@ -561,7 +561,7 @@ BEGIN
       FROM ple_data.assessment AS assessment
      WHERE assessment.public_reference = p_assessment_public_reference;
     IF NOT FOUND OR ple_api.course_reference_number_for_assessment_attempt(
-        assessment_row.course_id
+        assessment_row.course_instance_id
     ) IS DISTINCT FROM p_course_reference_number THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Assessment Attempt start is unavailable';
@@ -574,11 +574,11 @@ BEGIN
     SELECT assessment.* INTO assessment_row
       FROM ple_data.assessment AS assessment
      WHERE assessment.assessment_id = assessment_row.assessment_id;
-    SELECT ple_api.current_session_student_record_id(assessment_row.course_id)
+    SELECT ple_api.current_session_student_record_id(assessment_row.course_instance_id)
       INTO student_record_id_value;
     IF assessment_row.assessment_status <> 'released' OR NOT FOUND
        OR NOT ple_api.current_session_account_owns_student_record(
-           assessment_row.course_id, student_record_id_value
+           assessment_row.course_instance_id, student_record_id_value
        ) THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Assessment Attempt start is unavailable';
@@ -590,13 +590,13 @@ BEGIN
            entry.assessment_entry_id,
            entry.entry_kind,
            entry.authored_position,
-           entry.question_id,
+           entry.published_question_id,
            entry.question_revision_number,
            entry.question_pool_id,
            pool.public_question_pool_id,
            entry.question_pool_revision_number,
            item.member_position,
-           item.question_id,
+           item.published_question_id,
            item.question_revision_number,
            COALESCE(fixed_source.backend, pool_source.backend),
            entry.selection_count,
@@ -605,14 +605,14 @@ BEGIN
            assessment_row.assessment_question_order_rule
       FROM ple_data.assessment_entry AS entry
       LEFT JOIN ple_private.question_revision_source_binding AS fixed_source
-        ON fixed_source.question_id = entry.question_id
+        ON fixed_source.published_question_id = entry.published_question_id
        AND fixed_source.revision_number = entry.question_revision_number
       LEFT JOIN ple_data.question_pool AS pool ON pool.question_pool_id = entry.question_pool_id
       LEFT JOIN ple_data.question_pool_revision_member AS item
         ON item.question_pool_id = entry.question_pool_id
        AND item.revision_number = entry.question_pool_revision_number
       LEFT JOIN ple_private.question_revision_source_binding AS pool_source
-        ON pool_source.question_id = item.question_id
+        ON pool_source.published_question_id = item.published_question_id
        AND pool_source.revision_number = item.question_revision_number
      WHERE entry.assessment_id = assessment_row.assessment_id
        AND entry.availability = 'available'
@@ -656,10 +656,10 @@ BEGIN
            assessment_attempt.assessment_instructions
       FROM ple_private.assessment_attempt AS assessment_attempt
       JOIN ple_data.assessment AS assessment ON assessment.assessment_id = assessment_attempt.assessment_id
-      JOIN LATERAL ple_api.course_display_for_assessment_attempt(assessment.course_id) AS course ON true
+      JOIN LATERAL ple_api.course_display_for_assessment_attempt(assessment.course_instance_id) AS course ON true
      WHERE assessment_attempt.assessment_attempt_id = p_assessment_attempt_id
        AND ple_api.current_session_account_owns_student_record(
-           assessment.course_id, assessment_attempt.student_record_id
+           assessment.course_instance_id, assessment_attempt.student_record_id
        );
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
@@ -707,7 +707,7 @@ BEGIN
       FROM ple_private.issued_question AS issued
       JOIN ple_private.question_attempt ON question_attempt.issued_question_id = issued.issued_question_id
       JOIN ple_private.question_revision_source_binding AS source
-        ON source.question_id = issued.question_id
+        ON source.published_question_id = issued.published_question_id
        AND source.revision_number = issued.revision_number
      WHERE issued.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id
        AND issued.issued_position = p_issued_position
@@ -809,7 +809,7 @@ END $$;
 CREATE FUNCTION ple_private.lock_question_attempt_for_grading(p_question_attempt_id uuid)
 RETURNS TABLE (
     question_attempt_id uuid, issued_question_id uuid, assessment_attempt_id uuid,
-    assessment_id uuid, question_id text, revision_number integer, question_seed numeric,
+    assessment_id uuid, published_question_id text, revision_number integer, question_seed numeric,
     generated_parameter_sha256 text
 ) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data, ple_private AS $$
@@ -826,7 +826,7 @@ BEGIN
     PERFORM ple_private.lock_assessment_for_student_work(assessment_id_value);
     RETURN QUERY
     SELECT question_attempt.question_attempt_id, issued.issued_question_id,
-           assessment_attempt.assessment_attempt_id, assessment_attempt.assessment_id, issued.question_id,
+           assessment_attempt.assessment_attempt_id, assessment_attempt.assessment_id, issued.published_question_id,
            issued.revision_number, question_attempt.question_seed,
            question_attempt.generated_parameter_sha256
       FROM ple_private.question_attempt AS question_attempt
@@ -840,7 +840,7 @@ CREATE FUNCTION ple_private.read_student_assessment_attempt_history_evidence(
     p_assessment_attempt_reference_number bigint
 ) RETURNS TABLE (
     assessment_attempt_reference_number bigint, assessment_title text, assessment_instructions text,
-    issued_position integer, question_id text, revision_number integer, question_seed numeric,
+    issued_position integer, published_question_id text, revision_number integer, question_seed numeric,
     generated_parameter_sha256 text,
     question_attempt_limit integer, question_attempt_time_limit_seconds integer,
     question_attempt_grace_seconds integer, question_attempt_state text, student_response jsonb
@@ -851,7 +851,7 @@ BEGIN
     assessment_attempt_row := ple_private.assert_current_student_assessment_attempt(p_assessment_attempt_reference_number);
     RETURN QUERY
     SELECT assessment_attempt_row.reference_number, assessment_attempt_row.assessment_title, assessment_attempt_row.assessment_instructions,
-           issued.issued_position, issued.question_id, issued.revision_number,
+           issued.issued_position, issued.published_question_id, issued.revision_number,
            question_attempt.question_seed, question_attempt.generated_parameter_sha256,
            issued.question_attempt_limit, issued.question_attempt_time_limit_seconds,
            issued.question_attempt_grace_seconds, question_attempt.question_attempt_state,

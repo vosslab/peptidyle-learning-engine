@@ -2,24 +2,6 @@
 
 SET LOCAL ROLE ple_private_owner;
 
-CREATE FUNCTION ple_private.question_source_binding_fields_are_valid(
-    p_backend text, p_question_format text, p_webwork_pg_path text,
-    p_imathas_deployment_reference text, p_imathas_item_reference text,
-    p_imathas_profile text, p_requires_profile boolean
-) RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path = pg_catalog AS $$
-    SELECT COALESCE(
-        (p_backend = 'ple' AND p_question_format = 'pleQuestionJson'
-            AND p_webwork_pg_path IS NULL AND p_imathas_deployment_reference IS NULL
-            AND p_imathas_item_reference IS NULL AND p_imathas_profile IS NULL)
-        OR (p_backend = 'webwork' AND p_question_format IN ('webworkPg', 'webworkPgml')
-            AND p_webwork_pg_path IS NOT NULL AND p_imathas_deployment_reference IS NULL
-            AND p_imathas_item_reference IS NULL AND p_imathas_profile IS NULL)
-        OR (p_backend = 'imathas' AND p_question_format = 'imathas'
-            AND p_webwork_pg_path IS NULL AND p_imathas_deployment_reference IS NOT NULL
-            AND p_imathas_item_reference IS NOT NULL
-            AND (p_imathas_profile IS NOT NULL) = p_requires_profile), false)
-$$;
-
 CREATE FUNCTION ple_private.reject_immutable_question_source_change()
 RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_private AS $$
 BEGIN
@@ -41,10 +23,10 @@ SET search_path = pg_catalog, ple_private AS $$
 BEGIN
     IF TG_OP = 'DELETE'
        AND pg_catalog.current_setting('ple.authorized_draft_delete_uuid', true)
-            IS NOT DISTINCT FROM OLD.draft_question_uuid::text
+            IS NOT DISTINCT FROM OLD.draft_question_id::text
        AND NOT EXISTS (
            SELECT 1 FROM ple_private.draft_question AS question
-            WHERE question.draft_question_uuid = OLD.draft_question_uuid
+            WHERE question.draft_question_id = OLD.draft_question_id
        ) THEN
         RETURN OLD;
     END IF;
@@ -61,10 +43,10 @@ DECLARE
 BEGIN
     PERFORM pg_catalog.pg_advisory_xact_lock(
         pg_catalog.hashtextextended(
-            NEW.workspace_id::text || ':' || NEW.collaborator_account_id::text, 0));
+            NEW.authoring_workspace_id::text || ':' || NEW.collaborator_account_id::text, 0));
     SELECT owner_account_id INTO workspace_owner
       FROM ple_private.authoring_workspace
-     WHERE workspace_id = NEW.workspace_id AND revoked_at IS NULL;
+     WHERE authoring_workspace_id = NEW.authoring_workspace_id AND revoked_at IS NULL;
     IF workspace_owner IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Workspace Collaborator Events require an active Authoring Workspace';
@@ -78,7 +60,7 @@ BEGIN
                 MESSAGE = 'only the Authoring Workspace Owner starts an Instructor collaborator relationship';
         END IF;
     ELSIF NOT EXISTS (SELECT 1 FROM ple_private.authoring_workspace_collaborator_event AS started
-        WHERE started.workspace_id = NEW.workspace_id
+        WHERE started.authoring_workspace_id = NEW.authoring_workspace_id
           AND started.collaborator_account_id = NEW.collaborator_account_id
           AND started.event_kind = 'started' AND started.occurred_at <= NEW.occurred_at)
        OR NEW.actor_account_id NOT IN (workspace_owner, NEW.collaborator_account_id) THEN
@@ -100,7 +82,7 @@ CREATE FUNCTION ple_private.reject_committed_workspace_import_item_result_change
 RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_private AS $$
 BEGIN
     IF EXISTS (SELECT 1 FROM ple_private.workspace_import
-        WHERE workspace_id = OLD.workspace_id AND import_id = OLD.import_id AND state = 'committed') THEN
+        WHERE authoring_workspace_id = OLD.authoring_workspace_id AND import_id = OLD.import_id AND state = 'committed') THEN
         RAISE EXCEPTION USING ERRCODE = '55000',
             MESSAGE = 'Committed Workspace Import Item Result is immutable';
     END IF;
@@ -113,12 +95,12 @@ RETURNS trigger LANGUAGE plpgsql
 SET search_path = pg_catalog, ple_private AS $$
 DECLARE expected_address jsonb; workspace uuid;
 BEGIN
-    SELECT workspace_id INTO workspace FROM ple_private.draft_question
-     WHERE draft_question_uuid = NEW.draft_question_uuid;
+    SELECT authoring_workspace_id INTO workspace FROM ple_private.draft_question
+     WHERE draft_question_id = NEW.draft_question_id;
     expected_address := jsonb_build_object('kind', 'workspaceQuestionSource',
-        'workspace', workspace, 'object', NEW.source_object_id);
+        'workspace', workspace, 'object', NEW.source_object_record_id);
     IF NOT EXISTS (SELECT 1 FROM ple_private.object_record AS record
-        WHERE record.object_id = NEW.source_object_id
+        WHERE record.object_record_id = NEW.source_object_record_id
           AND record.object_storage_area = 'private-content'
           AND record.object_data_class = 'authoring-content'
           AND encode(record.sha256, 'hex') = NEW.source_object_checksum
@@ -136,10 +118,10 @@ SET search_path = pg_catalog, ple_private AS $$
 DECLARE expected_address jsonb;
 BEGIN
     expected_address := jsonb_build_object('kind', 'questionSource',
-        'questionRevision', jsonb_build_object('questionId', NEW.question_id,
-            'revisionNumber', NEW.revision_number), 'object', NEW.source_object_id);
+        'questionRevision', jsonb_build_object('questionId', NEW.published_question_id,
+            'revisionNumber', NEW.revision_number), 'object', NEW.source_object_record_id);
     IF NOT EXISTS (SELECT 1 FROM ple_private.object_record AS record
-        WHERE record.object_id = NEW.source_object_id
+        WHERE record.object_record_id = NEW.source_object_record_id
           AND record.object_storage_area = 'private-content'
           AND record.object_data_class = 'question-source'
           AND encode(record.sha256, 'hex') = NEW.source_object_checksum
@@ -156,7 +138,7 @@ RETURNS trigger LANGUAGE plpgsql
 SET search_path = pg_catalog, ple_data, ple_private AS $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM ple_data.question_revision
-        WHERE question_id = NEW.question_id AND revision_number = NEW.revision_number
+        WHERE published_question_id = NEW.published_question_id AND revision_number = NEW.revision_number
           AND backend = NEW.backend) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Question Revision Source Binding backend must match its Question Revision';
@@ -205,39 +187,39 @@ FOR EACH ROW EXECUTE FUNCTION ple_private.reject_committed_workspace_import_item
 -- ASVS 2.2.1-2.2.3 and 2.3.1-2.3.4: authorization is derived from the
 -- current session and immutable source binding, never caller-supplied facts.
 CREATE FUNCTION ple_private.current_session_is_authoring_workspace_owner(
-    p_workspace_id uuid
+    p_authoring_workspace_id uuid
 ) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
-    SELECT p_workspace_id IS NOT NULL AND EXISTS (
+    SELECT p_authoring_workspace_id IS NOT NULL AND EXISTS (
         SELECT 1
           FROM ple_private.authoring_workspace AS workspace
-         WHERE workspace.workspace_id = p_workspace_id
+         WHERE workspace.authoring_workspace_id = p_authoring_workspace_id
            AND workspace.owner_account_id = ple_api.current_session_account_id()
            AND workspace.revoked_at IS NULL
     )
 $$;
 
 CREATE FUNCTION ple_private.current_session_can_access_authoring_workspace(
-    p_workspace_id uuid
+    p_authoring_workspace_id uuid
 ) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
-    SELECT p_workspace_id IS NOT NULL AND EXISTS (
+    SELECT p_authoring_workspace_id IS NOT NULL AND EXISTS (
         SELECT 1
           FROM ple_private.authoring_workspace AS workspace
-         WHERE workspace.workspace_id = p_workspace_id
+         WHERE workspace.authoring_workspace_id = p_authoring_workspace_id
            AND workspace.revoked_at IS NULL
            AND (
                workspace.owner_account_id = ple_api.current_session_account_id()
                OR EXISTS (
                    SELECT 1
                      FROM ple_private.authoring_workspace_collaborator_event AS collaborator
-                    WHERE collaborator.workspace_id = workspace.workspace_id
+                    WHERE collaborator.authoring_workspace_id = workspace.authoring_workspace_id
                       AND collaborator.collaborator_account_id = ple_api.current_session_account_id()
                       AND collaborator.event_kind = 'started'
                       AND NOT EXISTS (
                           SELECT 1
                             FROM ple_private.authoring_workspace_collaborator_event AS ended
-                           WHERE ended.workspace_id = collaborator.workspace_id
+                           WHERE ended.authoring_workspace_id = collaborator.authoring_workspace_id
                              AND ended.collaborator_account_id = collaborator.collaborator_account_id
                              AND ended.event_kind = 'ended'
                       )
@@ -247,12 +229,12 @@ SET search_path = pg_catalog, ple_api, ple_private AS $$
 $$;
 
 CREATE FUNCTION ple_private.question_revision_has_source_binding(
-    p_question_id text, p_revision_number integer
+    p_published_question_id text, p_revision_number integer
 ) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_private AS $$
-    SELECT p_question_id IS NOT NULL AND p_revision_number IS NOT NULL AND EXISTS (
+    SELECT p_published_question_id IS NOT NULL AND p_revision_number IS NOT NULL AND EXISTS (
         SELECT 1 FROM ple_private.question_revision_source_binding AS binding
-         WHERE binding.question_id = p_question_id
+         WHERE binding.published_question_id = p_published_question_id
            AND binding.revision_number = p_revision_number
     )
 $$;

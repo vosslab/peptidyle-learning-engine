@@ -46,7 +46,7 @@ BEGIN
     SELECT * INTO assessment_row FROM ple_data.assessment
      WHERE assessment_id = p_assessment_id FOR UPDATE;
     IF NOT FOUND OR assessment_row.assessment_status <> 'unreleased'
-       OR NOT ple_api.current_session_account_is_course_instructor(assessment_row.course_id) THEN
+       OR NOT ple_api.current_session_account_is_course_instructor(assessment_row.course_instance_id) THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment Question Pool import is unavailable';
     END IF;
     IF assessment_row.assessment_edit_number <> p_expected_assessment_edit_number THEN
@@ -134,7 +134,7 @@ BEGIN
     SELECT assessment.* INTO assessment_row
       FROM ple_data.assessment AS assessment
      WHERE assessment.assessment_id = p_assessment_id
-       AND ple_api.current_session_account_is_course_instructor(assessment.course_id)
+       AND ple_api.current_session_account_is_course_instructor(assessment.course_instance_id)
      FOR UPDATE;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
@@ -243,10 +243,10 @@ DECLARE assessment_id_value uuid;
 BEGIN
     SELECT assessment.assessment_id INTO assessment_id_value
       FROM ple_data.course_instance AS course
-      JOIN ple_data.assessment AS assessment ON assessment.course_id = course.course_id
+      JOIN ple_data.assessment AS assessment ON assessment.course_instance_id = course.course_instance_id
      WHERE course.public_reference = p_course_public_reference
        AND assessment.public_reference = p_assessment_public_reference
-       AND ple_api.current_session_account_is_course_instructor(course.course_id);
+       AND ple_api.current_session_account_is_course_instructor(course.course_instance_id);
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment Question Pool import is unavailable';
     END IF;
@@ -276,11 +276,11 @@ CREATE FUNCTION ple_api.read_assessment_question_pool_fork(
     pool_metadata_etag uuid,
     selection_count integer,
     member_position integer,
-    question_id text,
+    published_question_id text,
     question_revision_number integer,
-    title text, description text, discipline_uuid uuid, discipline_name text,
-    discipline_is_retired boolean, subject_uuid uuid,
-    topic_uuid uuid, subtopic_uuid uuid, tags text[],
+    title text, description text, content_discipline_id uuid, discipline_name text,
+    discipline_is_retired boolean, content_subject_id uuid,
+    content_topic_id uuid, content_subtopic_id uuid, tags text[],
     bloom_cognitive_process text, bloom_knowledge_dimension text,
     bloom_classification_edit_number bigint
 ) LANGUAGE sql STABLE SECURITY DEFINER
@@ -291,15 +291,15 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
            pool.metadata_etag,
            entry.selection_count,
            member.member_position,
-           member.question_id,
+           member.published_question_id,
            member.question_revision_number,
-           pool.title, pool.description, pool.discipline_uuid, discipline.name,
-           discipline.is_retired, pool.subject_uuid,
-           pool.topic_uuid, pool.subtopic_uuid, pool.tags,
+           pool.title, pool.description, pool.content_discipline_id, discipline.name,
+           discipline.is_retired, pool.content_subject_id,
+           pool.content_topic_id, pool.content_subtopic_id, pool.tags,
            bloom.cognitive_process::text, bloom.knowledge_dimension::text,
            bloom.classification_edit_number
       FROM ple_data.course_instance AS course
-      JOIN ple_data.assessment AS assessment ON assessment.course_id = course.course_id
+      JOIN ple_data.assessment AS assessment ON assessment.course_instance_id = course.course_instance_id
       JOIN ple_data.assessment_entry AS entry ON entry.assessment_id = assessment.assessment_id
       JOIN ple_data.assessment_question_pool_fork AS owned
         ON owned.assessment_entry_id = entry.assessment_entry_id
@@ -310,7 +310,7 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
         ON bloom.question_pool_id = entry.question_pool_id
        AND bloom.revision_number = entry.question_pool_revision_number
       JOIN LATERAL ple_api.list_content_disciplines_including_retired() AS discipline
-        ON discipline.discipline_uuid = pool.discipline_uuid
+        ON discipline.content_discipline_id = pool.content_discipline_id
       JOIN ple_data.question_pool_revision_member AS member
         ON member.question_pool_id = entry.question_pool_id
        AND member.revision_number = entry.question_pool_revision_number
@@ -318,7 +318,7 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
        AND assessment.public_reference = p_assessment_reference
        AND entry.assessment_entry_id = p_assessment_entry_id
        AND entry.entry_kind = 'question_pool'
-       AND ple_api.current_session_account_is_course_instructor(course.course_id)
+       AND ple_api.current_session_account_is_course_instructor(course.course_instance_id)
      ORDER BY member.member_position
 $$;
 
@@ -354,10 +354,10 @@ DECLARE assessment_id_value uuid;
 BEGIN
     SELECT assessment.assessment_id INTO assessment_id_value
       FROM ple_data.course_instance AS course
-      JOIN ple_data.assessment AS assessment ON assessment.course_id = course.course_id
+      JOIN ple_data.assessment AS assessment ON assessment.course_instance_id = course.course_instance_id
      WHERE course.public_reference = p_course_public_reference
        AND assessment.public_reference = p_assessment_public_reference
-       AND ple_api.current_session_account_is_course_instructor(course.course_id);
+       AND ple_api.current_session_account_is_course_instructor(course.course_instance_id);
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment Question Pool Revision append is unavailable';
     END IF;

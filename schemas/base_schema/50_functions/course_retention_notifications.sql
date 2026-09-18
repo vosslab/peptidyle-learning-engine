@@ -24,27 +24,27 @@ BEGIN
     -- with the exact recipient identity deduplicated before the unique receipt
     -- insert.  Archive and delete are not notification actions.
     INSERT INTO ple_private.course_retention_notification (
-        course_id, action_kind, due_at, recipient_account_id,
+        course_instance_id, action_kind, due_at, recipient_account_id,
         created_at, next_attempt_at
     )
     WITH due AS (
-        SELECT action.course_id, action.due_action AS action_kind, action.due_at
+        SELECT action.course_instance_id, action.due_action AS action_kind, action.due_at
           FROM ple_data.course_retention_due_actions(p_evaluated_at) AS action
          WHERE action.due_action IN ('warn_inactive', 'notify_archive')
     ), recipient AS (
-        SELECT due.course_id, due.action_kind, due.due_at,
+        SELECT due.course_instance_id, due.action_kind, due.due_at,
                course.assigned_instructor_account_id AS account_id
           FROM due
-          JOIN ple_data.course_instance AS course ON course.course_id = due.course_id
+          JOIN ple_data.course_instance AS course ON course.course_instance_id = due.course_instance_id
         UNION
-        SELECT due.course_id, due.action_kind, due.due_at, membership.account_id
+        SELECT due.course_instance_id, due.action_kind, due.due_at, membership.account_id
           FROM due
           JOIN ple_data.course_membership AS membership
-            ON membership.course_id = due.course_id
+            ON membership.course_instance_id = due.course_instance_id
            AND membership.role = 'instructor'
-           AND ple_data.course_membership_is_active(membership.membership_id)
+           AND ple_data.course_membership_is_active(membership.course_membership_id)
     )
-    SELECT recipient.course_id, recipient.action_kind, recipient.due_at,
+    SELECT recipient.course_instance_id, recipient.action_kind, recipient.due_at,
            recipient.account_id, p_evaluated_at, recipient.due_at
       FROM recipient
       JOIN ple_private.account AS account
@@ -90,24 +90,24 @@ BEGIN
            AND EXISTS (
                SELECT 1
                  FROM ple_data.course_retention_due_actions(p_evaluated_at) AS due
-                WHERE due.course_id = receipt.course_id
+                WHERE due.course_instance_id = receipt.course_instance_id
                   AND due.due_action = receipt.action_kind
                   AND due.due_at = receipt.due_at
            )
            AND EXISTS (
                SELECT 1
                  FROM ple_data.course_instance AS course
-                WHERE course.course_id = receipt.course_id
+                WHERE course.course_instance_id = receipt.course_instance_id
                   AND (
                       course.assigned_instructor_account_id = receipt.recipient_account_id
                       OR EXISTS (
                           SELECT 1
                             FROM ple_data.course_membership AS membership
-                           WHERE membership.course_id = receipt.course_id
+                           WHERE membership.course_instance_id = receipt.course_instance_id
                              AND membership.account_id = receipt.recipient_account_id
                              AND membership.role = 'instructor'
                              AND ple_data.course_membership_is_active(
-                                 membership.membership_id
+                                 membership.course_membership_id
                              )
                       )
                   )

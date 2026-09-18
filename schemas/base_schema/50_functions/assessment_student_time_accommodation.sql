@@ -14,7 +14,7 @@ SET search_path = pg_catalog, ple_private, ple_data, ple_api AS $$
 DECLARE current_row ple_private.student_assessment_accommodation%ROWTYPE;
 DECLARE course_id_value uuid;
 BEGIN
-    SELECT assessment.course_id INTO course_id_value FROM ple_data.assessment AS assessment
+    SELECT assessment.course_instance_id INTO course_id_value FROM ple_data.assessment AS assessment
      WHERE assessment.assessment_id = p_assessment_id;
     -- ASVS 8.2.1-8.2.3, 8.3.1: authorization and exact Course/Student scope
     -- precede the private lookup; no private identity is projected.
@@ -83,15 +83,15 @@ BEGIN
     SELECT assessment.assessment_id, membership.student_record_id
       INTO assessment_id_value, student_record_id_value
       FROM ple_data.course_instance AS course
-      JOIN ple_data.assessment AS assessment ON assessment.course_id = course.course_id
-      JOIN ple_private.course_roster_profile AS profile ON profile.course_id = course.course_id
+      JOIN ple_data.assessment AS assessment ON assessment.course_instance_id = course.course_instance_id
+      JOIN ple_private.course_roster_profile AS profile ON profile.course_instance_id = course.course_instance_id
       JOIN ple_data.course_membership AS membership
-        ON membership.course_id = course.course_id
+        ON membership.course_instance_id = course.course_instance_id
        AND membership.account_id = profile.student_account_id AND membership.role = 'student'
      WHERE course.public_reference = p_course AND assessment.public_reference = p_assessment
        AND profile.roster_id = p_roster_id
-       AND ple_data.course_membership_is_active(membership.membership_id)
-       AND ple_api.current_session_account_is_course_instructor(course.course_id);
+       AND ple_data.course_membership_is_active(membership.course_membership_id)
+       AND ple_api.current_session_account_is_course_instructor(course.course_instance_id);
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Student time configuration is unavailable';
     END IF;

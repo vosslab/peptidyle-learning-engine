@@ -7,16 +7,17 @@
 
 \ir 00_roles.sql
 \ir 10_types.sql
+\ir 15_table_check_functions.sql
 \ir 20_tables/account.sql
 \ir 20_tables/authentication.sql
 \ir 20_tables/content_classification.sql
 \ir 20_tables/published_question.sql
 \ir 20_tables/question_pool.sql
+\ir 20_tables/object_record.sql
 \ir 20_tables/question_authoring.sql
 \ir 20_tables/question_assets.sql
 \ir 20_tables/library_discussion.sql
 \ir 20_tables/library_watch.sql
-\ir 20_tables/object_record.sql
 \ir 20_tables/blueprint_course.sql
 \ir 20_tables/course_instance.sql
 \ir 20_tables/course_membership.sql
@@ -31,6 +32,7 @@
 \ir 20_tables/jobs.sql
 \ir 20_tables/corrections.sql
 \ir 20_tables/audit.sql
+\ir 22_reference_grants.sql
 \ir 30_constraints.sql
 \ir 40_indexes.sql
 \ir 50_functions/public_references.sql

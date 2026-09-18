@@ -1,5 +1,9 @@
 -- Privileges from course_operations.sql.
 
+SET LOCAL ROLE ple_data_owner;
+GRANT SELECT ON TABLE ple_data.course_theme TO ple_api_owner, ple_app;
+GRANT REFERENCES ON TABLE ple_data.course_theme TO ple_api_owner;
+
 SET LOCAL ROLE ple_api_owner;
 
 REVOKE ALL ON FUNCTION ple_api.update_course_classification(text, uuid, uuid, uuid, uuid, uuid, text[]) FROM PUBLIC;

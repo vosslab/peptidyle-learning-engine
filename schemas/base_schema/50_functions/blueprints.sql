@@ -4,23 +4,12 @@ SET LOCAL ROLE ple_data_owner;
 
 
 
--- ASVS 2.2.1/2.2.3: canonical set with no Course Tag-count ceiling.
-CREATE FUNCTION ple_data.course_classification_tags_are_valid(p_tags text[])
-RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path = pg_catalog AS $$
-    SELECT p_tags IS NOT NULL
-       AND NOT EXISTS (SELECT 1 FROM unnest(p_tags) AS tag(value)
-            WHERE value IS NULL OR value <> btrim(value)
-               OR char_length(value) NOT BETWEEN 1 AND 120 OR value ~ '[[:cntrl:]]')
-       AND cardinality(p_tags) = cardinality(
-           ARRAY(SELECT DISTINCT value FROM unnest(p_tags) AS tag(value)));
-$$;
-
 CREATE TRIGGER blueprint_course_human_reference_is_minted
 BEFORE INSERT ON ple_data.blueprint_course
 FOR EACH ROW EXECUTE FUNCTION ple_private.assign_human_reference('BP');
 
 CREATE FUNCTION ple_data.blueprint_content_question_pins(p_content jsonb)
-RETURNS TABLE (content_path text, question_id text, question_revision_number bigint)
+RETURNS TABLE (content_path text, published_question_id text, question_revision_number bigint)
 LANGUAGE sql IMMUTABLE STRICT
 SET search_path = pg_catalog, ple_data
 AS $$
@@ -324,25 +313,25 @@ BEGIN
     PERFORM 1
       FROM ple_data.published_question AS question
       JOIN ple_data.blueprint_content_question_pins(p_content) AS pin
-        ON pin.question_id = question.question_id
+        ON pin.published_question_id = question.published_question_id
      FOR KEY SHARE OF question;
     IF EXISTS (
         SELECT 1
           FROM ple_data.blueprint_content_question_pins(p_content) AS pin
           LEFT JOIN ple_data.published_question AS question
-            ON question.question_id = pin.question_id
+            ON question.published_question_id = pin.published_question_id
           LEFT JOIN ple_data.question_revision AS revision
-            ON revision.question_id = pin.question_id
+            ON revision.published_question_id = pin.published_question_id
            AND revision.revision_number = pin.question_revision_number
           LEFT JOIN ple_data.blueprint_revision_question_pin AS existing
-            ON existing.blueprint_course_reference_number
+            ON existing.blueprint_course_id
                  = p_existing_blueprint_course_reference_number
            AND existing.blueprint_revision_number = p_existing_blueprint_revision_number
-           AND existing.question_id = pin.question_id
+           AND existing.published_question_id = pin.published_question_id
            AND existing.question_revision_number = pin.question_revision_number
          WHERE (question.availability IS DISTINCT FROM 'available'
-                OR revision.question_id IS NULL)
-           AND existing.blueprint_course_reference_number IS NULL
+                OR revision.published_question_id IS NULL)
+           AND existing.blueprint_course_id IS NULL
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'New Blueprint Question pins require an Available Question';

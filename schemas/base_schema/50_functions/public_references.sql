@@ -34,37 +34,6 @@ $$;
 -- canonical Crockford characters before Z; separators and Z are excluded by
 -- the caller, never normalized from a stored identifier. The public,
 -- unsalted SHA-256 derivation permits independent checksum verification.
-CREATE FUNCTION ple_private.crockford_checksum_character(p_checksum_input text)
-RETURNS text LANGUAGE sql IMMUTABLE STRICT
-SET search_path = pg_catalog
-AS $$
-    SELECT substr(
-        '0123456789ABCDEFGHJKMNPQRSTVWXYZ',
-        (get_byte(sha256(convert_to(p_checksum_input, 'UTF8')), 0) >> 3) + 1,
-        1
-    )
-$$;
-
-
-
--- Prefixed public IDs have one stored ASCII form: their literal type prefix,
--- seven random Crockford characters, and one checksum character.  Input
--- normalization belongs only at explicit human-entry boundaries, never here.
-CREATE FUNCTION ple_private.is_canonical_prefixed_public_id(
-    p_public_id text, p_prefix text
-) RETURNS boolean LANGUAGE sql IMMUTABLE
-SET search_path = pg_catalog, ple_private
-AS $$
-    SELECT p_public_id IS NOT NULL
-       AND p_prefix IN ('BP', 'CI', 'A', 'U')
-       AND p_public_id ~ (
-           '^' || p_prefix || '[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}$'
-       )
-       AND right(p_public_id, 1) = ple_private.crockford_checksum_character(
-           left(p_public_id, char_length(p_public_id) - 1)
-       )
-$$;
-
 CREATE FUNCTION ple_private.reject_public_id_reservation_change()
 RETURNS trigger LANGUAGE plpgsql
 SET search_path = pg_catalog
@@ -123,7 +92,7 @@ AS $$
 DECLARE canonical_public_id text;
 BEGIN
     IF TG_NARGS <> 2 OR TG_ARGV[0] NOT IN ('published_question', 'question_pool')
-       OR TG_ARGV[1] NOT IN ('question_id', 'public_question_pool_id') THEN
+       OR TG_ARGV[1] NOT IN ('published_question_id', 'public_question_pool_id') THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Public ID reservation trigger is invalid';
     END IF;

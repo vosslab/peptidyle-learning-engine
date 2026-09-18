@@ -42,19 +42,6 @@ CREATE TRIGGER account_human_reference_is_minted
 BEFORE INSERT ON ple_private.account
 FOR EACH ROW EXECUTE FUNCTION ple_private.assign_human_reference('U');
 
-CREATE FUNCTION ple_private.account_time_zone_is_exact_iana(p_time_zone text)
-RETURNS boolean LANGUAGE sql STABLE
-SET search_path = pg_catalog
-AS $$
-    SELECT p_time_zone IS NOT NULL
-       AND p_time_zone = btrim(p_time_zone)
-       AND char_length(p_time_zone) BETWEEN 1 AND 100
-       AND EXISTS (
-           SELECT 1 FROM pg_catalog.pg_timezone_names AS zone
-            WHERE zone.name = p_time_zone
-       )
-$$;
-
 CREATE FUNCTION ple_private.reject_invalid_account_time_zone()
 RETURNS trigger LANGUAGE plpgsql
 SET search_path = pg_catalog, ple_private
@@ -135,7 +122,7 @@ BEGIN
     END IF;
     INSERT INTO ple_audit.instructor_account_creation_event (
         event_id, created_instructor_account_id, created_by_sysadmin_account_id,
-        vetting_decision_id, occurred_at
+        instructor_identity_vetting_decision_id, occurred_at
     ) VALUES (
         pg_catalog.gen_random_uuid(), p_created_instructor_account_id,
         p_created_by_sysadmin_account_id, p_vetting_decision_id,
@@ -145,7 +132,7 @@ BEGIN
         SELECT 1 FROM ple_audit.instructor_account_creation_event
          WHERE created_instructor_account_id = p_created_instructor_account_id
            AND created_by_sysadmin_account_id = p_created_by_sysadmin_account_id
-           AND vetting_decision_id = p_vetting_decision_id
+           AND instructor_identity_vetting_decision_id = p_vetting_decision_id
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Instructor Account creation evidence conflicts with immutable history';
@@ -225,7 +212,7 @@ AS $$
     SELECT decision.verified_instructor_display_name
       FROM ple_audit.instructor_account_creation_event AS creation
       JOIN ple_audit.instructor_identity_vetting_decision AS decision
-        ON decision.decision_id = creation.vetting_decision_id
+        ON decision.decision_id = creation.instructor_identity_vetting_decision_id
      WHERE creation.created_instructor_account_id = p_instructor_account_id
        AND creation.created_instructor_product_role = 'instructor'
 $$;

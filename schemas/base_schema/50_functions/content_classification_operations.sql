@@ -72,7 +72,7 @@ BEGIN
     PERFORM ple_private.require_content_classification_actor(true);
     normalized_name := ple_private.normalize_content_classification_name(p_name, 120);
     new_uuid := pg_catalog.gen_random_uuid();
-    INSERT INTO ple_data.content_discipline (discipline_uuid, name)
+    INSERT INTO ple_data.content_discipline (content_discipline_id, name)
     VALUES (new_uuid, normalized_name);
     RETURN new_uuid;
 END
@@ -90,7 +90,7 @@ BEGIN
     PERFORM ple_private.require_content_classification_actor(true);
     normalized_name := ple_private.normalize_content_classification_name(p_name, 120);
     UPDATE ple_data.content_discipline SET name = normalized_name
-     WHERE discipline_uuid = p_discipline_uuid;
+     WHERE content_discipline_id = p_discipline_uuid;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Content Discipline is invalid';
     END IF;
@@ -103,7 +103,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 BEGIN
     PERFORM ple_private.require_content_classification_actor(true);
     UPDATE ple_data.content_discipline SET is_retired = true
-     WHERE discipline_uuid = p_discipline_uuid;
+     WHERE content_discipline_id = p_discipline_uuid;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Content Discipline is invalid';
     END IF;
@@ -116,7 +116,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 BEGIN
     PERFORM ple_private.require_content_classification_actor(true);
     UPDATE ple_data.content_discipline SET is_retired = false
-     WHERE discipline_uuid = p_discipline_uuid;
+     WHERE content_discipline_id = p_discipline_uuid;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Content Discipline is invalid';
     END IF;
@@ -138,7 +138,7 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Content Discipline is unavailable';
     END IF;
     PERFORM 1 FROM ple_data.content_discipline AS item
-     WHERE item.discipline_uuid = p_discipline_uuid
+     WHERE item.content_discipline_id = p_discipline_uuid
        AND NOT item.is_retired
      FOR SHARE;
     IF NOT FOUND THEN
@@ -159,10 +159,10 @@ BEGIN
     normalized_name := ple_private.normalize_content_classification_name(p_name, 120);
     PERFORM ple_private.require_active_content_discipline(p_discipline_uuid);
     new_uuid := pg_catalog.gen_random_uuid();
-    INSERT INTO ple_data.content_subject (subject_uuid, name)
+    INSERT INTO ple_data.content_subject (content_subject_id, name)
     VALUES (new_uuid, normalized_name);
     -- Initial association is inseparable from Instructor creation within a Discipline.
-    INSERT INTO ple_data.content_subject_discipline (subject_uuid, discipline_uuid)
+    INSERT INTO ple_data.content_subject_discipline (content_subject_id, content_discipline_id)
     VALUES (new_uuid, p_discipline_uuid);
     RETURN new_uuid;
 END
@@ -179,12 +179,12 @@ BEGIN
     PERFORM ple_private.require_content_classification_actor(false);
     normalized_name := ple_private.normalize_content_classification_name(p_name, 240);
     IF p_subject_uuid IS NULL OR NOT EXISTS (
-        SELECT 1 FROM ple_data.content_subject WHERE subject_uuid = p_subject_uuid
+        SELECT 1 FROM ple_data.content_subject WHERE content_subject_id = p_subject_uuid
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Content classification parent is invalid';
     END IF;
     new_uuid := pg_catalog.gen_random_uuid();
-    INSERT INTO ple_data.content_topic (topic_uuid, subject_uuid, name)
+    INSERT INTO ple_data.content_topic (content_topic_id, content_subject_id, name)
     VALUES (new_uuid, p_subject_uuid, normalized_name);
     RETURN new_uuid;
 END
@@ -201,12 +201,12 @@ BEGIN
     PERFORM ple_private.require_content_classification_actor(false);
     normalized_name := ple_private.normalize_content_classification_name(p_name, 480);
     IF p_topic_uuid IS NULL OR NOT EXISTS (
-        SELECT 1 FROM ple_data.content_topic WHERE topic_uuid = p_topic_uuid
+        SELECT 1 FROM ple_data.content_topic WHERE content_topic_id = p_topic_uuid
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Content classification parent is invalid';
     END IF;
     new_uuid := pg_catalog.gen_random_uuid();
-    INSERT INTO ple_data.content_subtopic (subtopic_uuid, topic_uuid, name)
+    INSERT INTO ple_data.content_subtopic (content_subtopic_id, content_topic_id, name)
     VALUES (new_uuid, p_topic_uuid, normalized_name);
     RETURN new_uuid;
 END
@@ -223,13 +223,13 @@ CREATE FUNCTION ple_private.add_content_subject_discipline(
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 BEGIN
     PERFORM ple_private.require_content_classification_actor(false);
-    PERFORM 1 FROM ple_data.content_subject WHERE subject_uuid = p_subject_uuid FOR UPDATE;
+    PERFORM 1 FROM ple_data.content_subject WHERE content_subject_id = p_subject_uuid FOR UPDATE;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Subject Discipline selection is invalid';
     END IF;
     PERFORM ple_private.require_active_content_discipline(p_discipline_uuid);
-    INSERT INTO ple_data.content_subject_discipline(subject_uuid, discipline_uuid)
+    INSERT INTO ple_data.content_subject_discipline(content_subject_id, content_discipline_id)
     VALUES (p_subject_uuid, p_discipline_uuid) ON CONFLICT DO NOTHING;
 END
 $$;
@@ -254,7 +254,7 @@ BEGIN
        ) THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Subject Discipline selection is invalid';
     END IF;
-    PERFORM 1 FROM ple_data.content_subject WHERE subject_uuid = p_subject_uuid FOR UPDATE;
+    PERFORM 1 FROM ple_data.content_subject WHERE content_subject_id = p_subject_uuid FOR UPDATE;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Subject is invalid';
     END IF;
@@ -265,8 +265,8 @@ BEGIN
         SELECT selected.id FROM unnest(p_discipline_uuids) AS selected(id)
          WHERE NOT EXISTS (
              SELECT 1 FROM ple_data.content_subject_discipline AS existing
-              WHERE existing.subject_uuid = p_subject_uuid
-                AND existing.discipline_uuid = selected.id
+              WHERE existing.content_subject_id = p_subject_uuid
+                AND existing.content_discipline_id = selected.id
          )
          ORDER BY selected.id
     LOOP
@@ -276,22 +276,22 @@ BEGIN
     -- Published Questions. Immediate foreign keys refuse referenced removals
     -- and roll back the entire replacement, including concurrent writers.
     DELETE FROM ple_data.content_subject_discipline
-     WHERE subject_uuid = p_subject_uuid
-       AND NOT (discipline_uuid = ANY(p_discipline_uuids));
-    INSERT INTO ple_data.content_subject_discipline (subject_uuid, discipline_uuid)
+     WHERE content_subject_id = p_subject_uuid
+       AND NOT (content_discipline_id = ANY(p_discipline_uuids));
+    INSERT INTO ple_data.content_subject_discipline (content_subject_id, content_discipline_id)
     SELECT p_subject_uuid, id FROM unnest(p_discipline_uuids) AS selected(id) ORDER BY id
     ON CONFLICT DO NOTHING;
 END
 $$;
 
 CREATE FUNCTION ple_private.list_content_disciplines()
-RETURNS TABLE (discipline_uuid uuid, name text) LANGUAGE plpgsql STABLE SECURITY DEFINER
+RETURNS TABLE (content_discipline_id uuid, name text) LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 BEGIN
     PERFORM ple_private.require_content_classification_reader();
-    RETURN QUERY SELECT item.discipline_uuid, item.name FROM ple_data.content_discipline AS item
+    RETURN QUERY SELECT item.content_discipline_id, item.name FROM ple_data.content_discipline AS item
     WHERE NOT item.is_retired
-    ORDER BY lower(item.name), item.name, item.discipline_uuid;
+    ORDER BY lower(item.name), item.name, item.content_discipline_id;
 END
 $$;
 
@@ -301,80 +301,80 @@ $$;
 -- current display name and explicit status. Authoring selection uses the
 -- active-only projection above.
 CREATE FUNCTION ple_private.list_content_disciplines_including_retired()
-RETURNS TABLE (discipline_uuid uuid, name text, is_retired boolean)
+RETURNS TABLE (content_discipline_id uuid, name text, is_retired boolean)
 LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 BEGIN
     PERFORM ple_private.require_content_classification_reader();
-    RETURN QUERY SELECT item.discipline_uuid, item.name, item.is_retired
+    RETURN QUERY SELECT item.content_discipline_id, item.name, item.is_retired
     FROM ple_data.content_discipline AS item
-    ORDER BY item.is_retired, lower(item.name), item.name, item.discipline_uuid;
+    ORDER BY item.is_retired, lower(item.name), item.name, item.content_discipline_id;
 END
 $$;
 
 CREATE FUNCTION ple_private.get_content_discipline(p_discipline_uuid uuid)
-RETURNS TABLE (discipline_uuid uuid, name text, is_retired boolean)
+RETURNS TABLE (content_discipline_id uuid, name text, is_retired boolean)
 LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 BEGIN
     PERFORM ple_private.require_content_classification_reader();
-    RETURN QUERY SELECT item.discipline_uuid, item.name, item.is_retired
+    RETURN QUERY SELECT item.content_discipline_id, item.name, item.is_retired
     FROM ple_data.content_discipline AS item
-    WHERE item.discipline_uuid = p_discipline_uuid;
+    WHERE item.content_discipline_id = p_discipline_uuid;
 END
 $$;
 
 CREATE FUNCTION ple_private.list_content_subjects(p_discipline_uuid uuid)
-RETURNS TABLE (subject_uuid uuid, name text) LANGUAGE plpgsql STABLE SECURITY DEFINER
+RETURNS TABLE (content_subject_id uuid, name text) LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 BEGIN
     PERFORM ple_private.require_content_classification_reader();
-    RETURN QUERY SELECT item.subject_uuid, item.name FROM ple_data.content_subject AS item
-    JOIN ple_data.content_subject_discipline AS association ON association.subject_uuid = item.subject_uuid
-    WHERE association.discipline_uuid = p_discipline_uuid
-    ORDER BY lower(item.name), item.name, item.subject_uuid;
+    RETURN QUERY SELECT item.content_subject_id, item.name FROM ple_data.content_subject AS item
+    JOIN ple_data.content_subject_discipline AS association ON association.content_subject_id = item.content_subject_id
+    WHERE association.content_discipline_id = p_discipline_uuid
+    ORDER BY lower(item.name), item.name, item.content_subject_id;
 END
 $$;
 
 CREATE FUNCTION ple_private.list_content_topics(p_subject_uuid uuid)
-RETURNS TABLE (topic_uuid uuid, name text) LANGUAGE plpgsql STABLE SECURITY DEFINER
+RETURNS TABLE (content_topic_id uuid, name text) LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 BEGIN
     PERFORM ple_private.require_content_classification_reader();
-    RETURN QUERY SELECT item.topic_uuid, item.name FROM ple_data.content_topic AS item
-    WHERE item.subject_uuid = p_subject_uuid
-    ORDER BY lower(item.name), item.name, item.topic_uuid;
+    RETURN QUERY SELECT item.content_topic_id, item.name FROM ple_data.content_topic AS item
+    WHERE item.content_subject_id = p_subject_uuid
+    ORDER BY lower(item.name), item.name, item.content_topic_id;
 END
 $$;
 
 CREATE FUNCTION ple_private.list_content_subtopics(p_topic_uuid uuid)
-RETURNS TABLE (subtopic_uuid uuid, name text) LANGUAGE plpgsql STABLE SECURITY DEFINER
+RETURNS TABLE (content_subtopic_id uuid, name text) LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 BEGIN
     PERFORM ple_private.require_content_classification_reader();
-    RETURN QUERY SELECT item.subtopic_uuid, item.name FROM ple_data.content_subtopic AS item
-    WHERE item.topic_uuid = p_topic_uuid
-    ORDER BY lower(item.name), item.name, item.subtopic_uuid;
+    RETURN QUERY SELECT item.content_subtopic_id, item.name FROM ple_data.content_subtopic AS item
+    WHERE item.content_topic_id = p_topic_uuid
+    ORDER BY lower(item.name), item.name, item.content_subtopic_id;
 END
 $$;
 
 CREATE FUNCTION ple_private.find_content_subject(p_name text)
-RETURNS TABLE (subject_uuid uuid, name text) LANGUAGE plpgsql STABLE SECURITY DEFINER
+RETURNS TABLE (content_subject_id uuid, name text) LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE normalized_name text;
 BEGIN
     PERFORM ple_private.require_content_classification_reader();
     normalized_name := ple_private.normalize_content_classification_name(p_name, 120);
-    RETURN QUERY SELECT item.subject_uuid, item.name
+    RETURN QUERY SELECT item.content_subject_id, item.name
     FROM ple_data.content_subject AS item WHERE lower(item.name) = lower(normalized_name)
-    ORDER BY item.subject_uuid;
+    ORDER BY item.content_subject_id;
 END
 $$;
 
 SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.find_content_subject(p_name text)
-RETURNS TABLE (subject_uuid uuid, name text) LANGUAGE sql STABLE SECURITY DEFINER
+RETURNS TABLE (content_subject_id uuid, name text) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT * FROM ple_private.find_content_subject(p_name)
 $$;
@@ -431,32 +431,32 @@ RETURNS void LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$ SELECT ple_private.replace_content_subject_disciplines(p_subject_uuid, p_discipline_uuids) $$;
 
 CREATE FUNCTION ple_api.list_content_disciplines()
-RETURNS TABLE (discipline_uuid uuid, name text) LANGUAGE sql SECURITY DEFINER
+RETURNS TABLE (content_discipline_id uuid, name text) LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$ SELECT * FROM ple_private.list_content_disciplines() $$;
 
 CREATE FUNCTION ple_api.list_content_disciplines_including_retired()
-RETURNS TABLE (discipline_uuid uuid, name text, is_retired boolean)
+RETURNS TABLE (content_discipline_id uuid, name text, is_retired boolean)
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT * FROM ple_private.list_content_disciplines_including_retired()
 $$;
 
 CREATE FUNCTION ple_api.get_content_discipline(p_discipline_uuid uuid)
-RETURNS TABLE (discipline_uuid uuid, name text, is_retired boolean)
+RETURNS TABLE (content_discipline_id uuid, name text, is_retired boolean)
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT * FROM ple_private.get_content_discipline(p_discipline_uuid)
 $$;
 
 CREATE FUNCTION ple_api.list_content_subjects(p_discipline_uuid uuid)
-RETURNS TABLE (subject_uuid uuid, name text) LANGUAGE sql SECURITY DEFINER
+RETURNS TABLE (content_subject_id uuid, name text) LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$ SELECT * FROM ple_private.list_content_subjects(p_discipline_uuid) $$;
 
 CREATE FUNCTION ple_api.list_content_topics(p_subject_uuid uuid)
-RETURNS TABLE (topic_uuid uuid, name text) LANGUAGE sql SECURITY DEFINER
+RETURNS TABLE (content_topic_id uuid, name text) LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$ SELECT * FROM ple_private.list_content_topics(p_subject_uuid) $$;
 
 CREATE FUNCTION ple_api.list_content_subtopics(p_topic_uuid uuid)
-RETURNS TABLE (subtopic_uuid uuid, name text) LANGUAGE sql SECURITY DEFINER
+RETURNS TABLE (content_subtopic_id uuid, name text) LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$ SELECT * FROM ple_private.list_content_subtopics(p_topic_uuid) $$;
 

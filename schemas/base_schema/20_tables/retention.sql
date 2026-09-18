@@ -12,8 +12,10 @@ CREATE TABLE ple_data.course_retention_policy (
     archive_after_retention_start interval NOT NULL
         CHECK (archive_after_retention_start > INTERVAL '0'),
     delete_after_archive interval NOT NULL CHECK (delete_after_archive > INTERVAL '0'),
-    CHECK (archive_notice_lead_time <= archive_after_retention_start)
+    CHECK (archive_notice_lead_time <= archive_after_retention_start),
+    created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
 );
+
 
 
 
@@ -43,12 +45,11 @@ SET LOCAL ROLE ple_private_owner;
 -- nor exposes a general Account lookup or outbound-message queue.
 CREATE TABLE ple_private.course_retention_notification (
     notification_id uuid PRIMARY KEY DEFAULT pg_catalog.gen_random_uuid(),
-    course_id uuid NOT NULL REFERENCES ple_data.course_instance (course_id),
-    action_kind text NOT NULL CHECK (action_kind IN ('warn_inactive', 'notify_archive')),
+    course_instance_id uuid NOT NULL REFERENCES ple_data.course_instance (course_instance_id),
+    action_kind ple_data.retention_action_kind NOT NULL,
     due_at timestamp with time zone NOT NULL,
     recipient_account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
-    recipient_product_role text NOT NULL DEFAULT 'instructor'
-        CHECK (recipient_product_role = 'instructor'),
+    recipient_product_role ple_data.product_role NOT NULL DEFAULT 'instructor',
     provider_idempotency_key uuid NOT NULL DEFAULT pg_catalog.gen_random_uuid(),
     created_at timestamp with time zone NOT NULL,
     next_attempt_at timestamp with time zone NOT NULL,
@@ -57,12 +58,10 @@ CREATE TABLE ple_private.course_retention_notification (
     lease_token uuid,
     provider_accepted_at timestamp with time zone,
     last_failure_at timestamp with time zone,
-    last_failure_kind text CHECK (last_failure_kind IN (
-        'not_configured', 'provider_transient', 'provider_rejected'
-    )),
+    last_failure_kind ple_data.retention_failure_kind,
     attempt_count integer NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
     CONSTRAINT course_retention_notification_identity
-        UNIQUE (course_id, action_kind, due_at, recipient_account_id),
+        UNIQUE (course_instance_id, action_kind, due_at, recipient_account_id),
     UNIQUE (provider_idempotency_key),
     FOREIGN KEY (recipient_account_id, recipient_product_role)
         REFERENCES ple_private.account (account_id, product_role),
@@ -74,11 +73,14 @@ CREATE TABLE ple_private.course_retention_notification (
     CHECK (next_attempt_at >= due_at)
 );
 
+
 SET LOCAL ROLE ple_data_owner;
 
+SET LOCAL ROLE ple_data_owner;
 COMMENT ON TABLE ple_data.course_retention_policy IS 'role: vocabulary, deleted by Course delete after the retention sweep. HUMAN_GUIDANCE.md Retention.';
 
 SET LOCAL ROLE ple_private_owner;
 
+SET LOCAL ROLE ple_private_owner;
 COMMENT ON TABLE ple_private.course_retention_notification IS 'role: event, deleted by Course delete after the retention sweep. HUMAN_GUIDANCE.md Retention.';
 

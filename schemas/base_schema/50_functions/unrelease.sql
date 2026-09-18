@@ -47,11 +47,11 @@ BEGIN
 
     SELECT assessment.* INTO assessment_row
       FROM ple_data.course_instance AS course
-      JOIN ple_data.assessment AS assessment ON assessment.course_id = course.course_id
+      JOIN ple_data.assessment AS assessment ON assessment.course_instance_id = course.course_instance_id
      WHERE course.public_reference = p_course_reference_number
        AND assessment.public_reference = p_assessment_reference_number
        AND assessment.assessment_status = 'released'
-       AND ple_api.current_session_account_is_course_instructor(course.course_id);
+       AND ple_api.current_session_account_is_course_instructor(course.course_instance_id);
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable';
     END IF;
@@ -124,10 +124,10 @@ BEGIN
     -- grading paths.  It serializes every Student Work mutation with Unrelease.
     SELECT assessment.* INTO assessment_row
       FROM ple_data.course_instance AS course
-      JOIN ple_data.assessment AS assessment ON assessment.course_id = course.course_id
+      JOIN ple_data.assessment AS assessment ON assessment.course_instance_id = course.course_instance_id
      WHERE course.public_reference = p_course_reference_number
        AND assessment.public_reference = p_assessment_reference_number
-       AND ple_api.current_session_account_is_course_instructor(course.course_id)
+       AND ple_api.current_session_account_is_course_instructor(course.course_instance_id)
      FOR UPDATE OF assessment;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable';

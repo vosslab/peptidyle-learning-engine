@@ -28,10 +28,10 @@ BEGIN
        OR NEW.created_at <> OLD.created_at
        OR NEW.title IS DISTINCT FROM OLD.title
        OR NEW.description IS DISTINCT FROM OLD.description
-       OR NEW.discipline_uuid IS DISTINCT FROM OLD.discipline_uuid
-       OR NEW.subject_uuid IS DISTINCT FROM OLD.subject_uuid
-       OR NEW.topic_uuid IS DISTINCT FROM OLD.topic_uuid
-       OR NEW.subtopic_uuid IS DISTINCT FROM OLD.subtopic_uuid
+       OR NEW.content_discipline_id IS DISTINCT FROM OLD.content_discipline_id
+       OR NEW.content_subject_id IS DISTINCT FROM OLD.content_subject_id
+       OR NEW.content_topic_id IS DISTINCT FROM OLD.content_topic_id
+       OR NEW.content_subtopic_id IS DISTINCT FROM OLD.content_subtopic_id
        OR NEW.tags IS DISTINCT FROM OLD.tags
        OR NEW.current_revision_number <> OLD.current_revision_number + 1
        OR NEW.metadata_etag = OLD.metadata_etag THEN
@@ -75,7 +75,7 @@ BEGIN
     END IF;
     SELECT revision.backend INTO backend_name
       FROM ple_data.question_revision AS revision
-     WHERE revision.question_id = NEW.question_id
+     WHERE revision.published_question_id = NEW.published_question_id
        AND revision.revision_number = NEW.question_revision_number;
     IF NOT ple_private.question_backend_is_supported_for_production(backend_name) THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
@@ -155,30 +155,30 @@ BEGIN
     -- ASVS 2.2.2/2.3.3/2.3.4/15.4.2/15.4.3: canonical-order
     -- FOR SHARE locks every matching lineage and live metadata row regardless
     -- of availability, ordering post-lock admission with lifecycle and metadata edits.
-    PERFORM metadata.question_id
+    PERFORM metadata.published_question_id
       FROM ple_data.published_question_metadata AS metadata
-     JOIN ple_data.published_question AS lineage USING (question_id)
-     WHERE metadata.question_id = ANY(p_member_question_ids)
-     ORDER BY metadata.question_id
+     JOIN ple_data.published_question AS lineage USING (published_question_id)
+     WHERE metadata.published_question_id = ANY(p_member_question_ids)
+     ORDER BY metadata.published_question_id
      FOR SHARE OF metadata, lineage;
     SELECT metadata.* INTO first_metadata FROM ple_data.published_question_metadata AS metadata
-     WHERE metadata.question_id = p_member_question_ids[array_lower(p_member_question_ids, 1)];
+     WHERE metadata.published_question_id = p_member_question_ids[array_lower(p_member_question_ids, 1)];
     IF NOT FOUND OR EXISTS (
-        SELECT 1 FROM unnest(p_member_question_ids) AS member(question_id)
-        LEFT JOIN ple_data.published_question AS lineage USING (question_id)
-        LEFT JOIN ple_data.published_question_metadata AS metadata USING (question_id)
-        WHERE lineage.question_id IS NULL
+        SELECT 1 FROM unnest(p_member_question_ids) AS member(published_question_id)
+        LEFT JOIN ple_data.published_question AS lineage USING (published_question_id)
+        LEFT JOIN ple_data.published_question_metadata AS metadata USING (published_question_id)
+        WHERE lineage.published_question_id IS NULL
            OR lineage.availability <> 'available'
-           OR metadata.question_id IS NULL
+           OR metadata.published_question_id IS NULL
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '23503', MESSAGE = 'Question Pool member is unavailable';
     END IF;
     IF EXISTS (
         SELECT 1
           FROM unnest(p_member_question_ids, p_member_revision_numbers)
-               AS member(question_id, revision_number)
+               AS member(published_question_id, revision_number)
           JOIN ple_data.question_revision AS revision
-            ON revision.question_id = member.question_id
+            ON revision.published_question_id = member.published_question_id
            AND revision.revision_number = member.revision_number
          WHERE NOT ple_private.question_backend_is_supported_for_production(revision.backend)
     ) THEN
@@ -187,9 +187,9 @@ BEGIN
     END IF;
     IF EXISTS (
         SELECT 1 FROM ple_data.published_question_metadata AS metadata
-         WHERE metadata.question_id = ANY(p_member_question_ids)
-           AND (metadata.discipline_uuid <> first_metadata.discipline_uuid
-                OR metadata.subject_uuid <> first_metadata.subject_uuid)
+         WHERE metadata.published_question_id = ANY(p_member_question_ids)
+           AND (metadata.content_discipline_id <> first_metadata.content_discipline_id
+                OR metadata.content_subject_id <> first_metadata.content_subject_id)
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Question Pool members must share the established Discipline and Subject';
@@ -197,19 +197,19 @@ BEGIN
     next_etag := pg_catalog.gen_random_uuid();
     INSERT INTO ple_data.question_pool(
         question_pool_id, public_question_pool_id, metadata_etag, current_revision_number, created_at,
-        title, description, discipline_uuid, subject_uuid
+        title, description, content_discipline_id, content_subject_id
     ) VALUES (p_question_pool_id, p_public_question_pool_id, next_etag, 1, created_at,
-        p_title, p_description, first_metadata.discipline_uuid, first_metadata.subject_uuid);
+        p_title, p_description, first_metadata.content_discipline_id, first_metadata.content_subject_id);
     INSERT INTO ple_data.question_pool_revision(
         question_pool_id, revision_number, member_count, interchangeability_attested_by_account_id,
         interchangeability_attested_at, created_at
     ) VALUES (p_question_pool_id, 1, cardinality(p_member_question_ids), actor_id, created_at, created_at);
     INSERT INTO ple_data.question_pool_revision_member(
-        question_pool_id, revision_number, member_position, question_id, question_revision_number
+        question_pool_id, revision_number, member_position, published_question_id, question_revision_number
     )
-    SELECT p_question_pool_id, 1, member.ordinality::integer, member.question_id,
+    SELECT p_question_pool_id, 1, member.ordinality::integer, member.published_question_id,
            p_member_revision_numbers[member.ordinality]
-      FROM unnest(p_member_question_ids) WITH ORDINALITY AS member(question_id, ordinality)
+      FROM unnest(p_member_question_ids) WITH ORDINALITY AS member(published_question_id, ordinality)
      ORDER BY member.ordinality;
     RETURN QUERY SELECT pool.question_pool_id, pool.public_question_pool_id, 1::bigint, pool.metadata_etag
       FROM ple_data.question_pool AS pool WHERE pool.question_pool_id = p_question_pool_id;
@@ -250,26 +250,26 @@ BEGIN
     -- Admission-time invariant: retained Question IDs (including changed exact
     -- pins) do not re-admit. Remove/readd checks current Question metadata.
     -- Question reclassification never changes or vetoes existing Pool state.
-    PERFORM metadata.question_id FROM ple_data.published_question_metadata AS metadata
-     WHERE metadata.question_id = ANY(p_member_question_ids)
+    PERFORM metadata.published_question_id FROM ple_data.published_question_metadata AS metadata
+     WHERE metadata.published_question_id = ANY(p_member_question_ids)
        AND NOT EXISTS (
            SELECT 1 FROM ple_data.question_pool_revision_member AS previous
             WHERE previous.question_pool_id = p_question_pool_id
               AND previous.revision_number = pool_row.current_revision_number
-              AND previous.question_id = metadata.question_id
+              AND previous.published_question_id = metadata.published_question_id
        )
-     ORDER BY metadata.question_id FOR SHARE;
+     ORDER BY metadata.published_question_id FOR SHARE;
     IF EXISTS (
-        SELECT 1 FROM unnest(p_member_question_ids) AS member(question_id)
-        LEFT JOIN ple_data.published_question_metadata AS metadata USING (question_id)
+        SELECT 1 FROM unnest(p_member_question_ids) AS member(published_question_id)
+        LEFT JOIN ple_data.published_question_metadata AS metadata USING (published_question_id)
          WHERE NOT EXISTS (
              SELECT 1 FROM ple_data.question_pool_revision_member AS previous
               WHERE previous.question_pool_id = p_question_pool_id
                 AND previous.revision_number = pool_row.current_revision_number
-                AND previous.question_id = member.question_id
-         ) AND (metadata.question_id IS NULL
-                OR metadata.discipline_uuid <> pool_row.discipline_uuid
-                OR metadata.subject_uuid <> pool_row.subject_uuid)
+                AND previous.published_question_id = member.published_question_id
+         ) AND (metadata.published_question_id IS NULL
+                OR metadata.content_discipline_id <> pool_row.content_discipline_id
+                OR metadata.content_subject_id <> pool_row.content_subject_id)
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'New Question Pool members must share the established Discipline and Subject';
@@ -277,9 +277,9 @@ BEGIN
     IF EXISTS (
         SELECT 1
           FROM unnest(p_member_question_ids, p_member_revision_numbers)
-               AS member(question_id, revision_number)
+               AS member(published_question_id, revision_number)
           JOIN ple_data.question_revision AS revision
-            ON revision.question_id = member.question_id
+            ON revision.published_question_id = member.published_question_id
            AND revision.revision_number = member.revision_number
          WHERE NOT ple_private.question_backend_is_supported_for_production(revision.backend)
     ) THEN
@@ -294,11 +294,11 @@ BEGIN
         interchangeability_attested_at, created_at
     ) VALUES (p_question_pool_id, next_revision_number, cardinality(p_member_question_ids), actor_id, created_at, created_at);
     INSERT INTO ple_data.question_pool_revision_member(
-        question_pool_id, revision_number, member_position, question_id, question_revision_number
+        question_pool_id, revision_number, member_position, published_question_id, question_revision_number
     )
-    SELECT p_question_pool_id, next_revision_number, member.ordinality::integer, member.question_id,
+    SELECT p_question_pool_id, next_revision_number, member.ordinality::integer, member.published_question_id,
            p_member_revision_numbers[member.ordinality]
-      FROM unnest(p_member_question_ids) WITH ORDINALITY AS member(question_id, ordinality)
+      FROM unnest(p_member_question_ids) WITH ORDINALITY AS member(published_question_id, ordinality)
      ORDER BY member.ordinality;
     UPDATE ple_data.question_pool SET current_revision_number = next_revision_number, metadata_etag = next_etag
      WHERE question_pool_id = p_question_pool_id;
@@ -352,7 +352,7 @@ BEGIN
         SELECT 1
           FROM ple_data.question_pool_revision_member AS member
           JOIN ple_data.question_revision AS revision
-            ON revision.question_id = member.question_id
+            ON revision.published_question_id = member.published_question_id
            AND revision.revision_number = member.question_revision_number
          WHERE member.question_pool_id = p_source_question_pool_id
            AND member.revision_number = p_source_question_pool_revision_number
@@ -365,12 +365,12 @@ BEGIN
     INSERT INTO ple_data.question_pool(
         question_pool_id, public_question_pool_id, metadata_etag, current_revision_number,
         source_question_pool_id, source_question_pool_revision_number, created_at,
-        title, description, discipline_uuid, subject_uuid, topic_uuid, subtopic_uuid, tags
+        title, description, content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags
     ) VALUES (
         p_question_pool_id, p_public_question_pool_id, next_etag, 1,
         p_source_question_pool_id, p_source_question_pool_revision_number, created_at,
-        source_metadata.title, source_metadata.description, source_metadata.discipline_uuid,
-        source_metadata.subject_uuid, source_metadata.topic_uuid, source_metadata.subtopic_uuid,
+        source_metadata.title, source_metadata.description, source_metadata.content_discipline_id,
+        source_metadata.content_subject_id, source_metadata.content_topic_id, source_metadata.content_subtopic_id,
         source_metadata.tags
     );
     INSERT INTO ple_data.question_pool_revision(
@@ -382,9 +382,9 @@ BEGIN
         source_revision.interchangeability_attested_at, created_at
     );
     INSERT INTO ple_data.question_pool_revision_member(
-        question_pool_id, revision_number, member_position, question_id, question_revision_number
+        question_pool_id, revision_number, member_position, published_question_id, question_revision_number
     )
-    SELECT p_question_pool_id, 1, member.member_position, member.question_id,
+    SELECT p_question_pool_id, 1, member.member_position, member.published_question_id,
            member.question_revision_number
       FROM ple_data.question_pool_revision_member AS member
      WHERE member.question_pool_id = p_source_question_pool_id
@@ -500,11 +500,11 @@ BEGIN
     END IF;
     RETURN QUERY
     SELECT 'question'::text,
-           question.question_id,
+           question.published_question_id,
            max(revision.revision_number)::bigint
       FROM ple_data.published_question AS question
-      JOIN ple_data.question_revision AS revision ON revision.question_id = question.question_id
-     GROUP BY question.question_id
+      JOIN ple_data.question_revision AS revision ON revision.published_question_id = question.published_question_id
+     GROUP BY question.published_question_id
     UNION ALL
     SELECT 'pool'::text,
            pool.public_question_pool_id,
@@ -560,9 +560,9 @@ RETURNS TABLE (
     public_question_pool_id text,
     revision_number bigint,
     member_count integer,
-    title text, description text, discipline_uuid uuid, discipline_name text,
-    discipline_is_retired boolean, subject_uuid uuid,
-    topic_uuid uuid, subtopic_uuid uuid, tags text[],
+    title text, description text, content_discipline_id uuid, discipline_name text,
+    discipline_is_retired boolean, content_subject_id uuid,
+    content_topic_id uuid, content_subtopic_id uuid, tags text[],
     bloom_cognitive_process text, bloom_knowledge_dimension text,
     bloom_classification_edit_number bigint,
     bloom_cognitive_process_counts bigint[], bloom_knowledge_dimension_counts bigint[]
@@ -593,9 +593,9 @@ BEGIN
     WITH filtered AS MATERIALIZED (
         SELECT pool.public_question_pool_id,
                pool.current_revision_number AS revision_number, revision.member_count,
-               pool.title, pool.description, pool.discipline_uuid, discipline.name AS discipline_name,
-               discipline.is_retired AS discipline_is_retired, pool.subject_uuid,
-               pool.topic_uuid, pool.subtopic_uuid, pool.tags,
+               pool.title, pool.description, pool.content_discipline_id, discipline.name AS discipline_name,
+               discipline.is_retired AS discipline_is_retired, pool.content_subject_id,
+               pool.content_topic_id, pool.content_subtopic_id, pool.tags,
                bloom.cognitive_process::text AS bloom_cognitive_process,
                bloom.knowledge_dimension::text AS bloom_knowledge_dimension,
                bloom.classification_edit_number
@@ -609,20 +609,20 @@ BEGIN
           -- ASVS 8.2.2/8.2.3: reuse authorized vocabulary projections. Every
           -- predicate below describes this Pool and its own pair, never a member.
           LEFT JOIN ple_api.list_content_disciplines_including_retired() AS discipline
-            ON discipline.discipline_uuid = pool.discipline_uuid
-          LEFT JOIN LATERAL ple_api.list_content_subjects(pool.discipline_uuid) AS subject
-            ON subject.subject_uuid = pool.subject_uuid
-          LEFT JOIN LATERAL ple_api.list_content_topics(pool.subject_uuid) AS topic
-            ON topic.topic_uuid = pool.topic_uuid
-          LEFT JOIN LATERAL ple_api.list_content_subtopics(pool.topic_uuid) AS subtopic
-            ON subtopic.subtopic_uuid = pool.subtopic_uuid
+            ON discipline.content_discipline_id = pool.content_discipline_id
+          LEFT JOIN LATERAL ple_api.list_content_subjects(pool.content_discipline_id) AS subject
+            ON subject.content_subject_id = pool.content_subject_id
+          LEFT JOIN LATERAL ple_api.list_content_topics(pool.content_subject_id) AS topic
+            ON topic.content_topic_id = pool.content_topic_id
+          LEFT JOIN LATERAL ple_api.list_content_subtopics(pool.content_topic_id) AS subtopic
+            ON subtopic.content_subtopic_id = pool.content_subtopic_id
          WHERE (ple_api.current_session_account_is_instructor()
                 OR ple_api.current_session_account_has_platform_administration())
            AND (p_discipline_uuid IS NULL OR p_cross_discipline
-                OR pool.discipline_uuid = p_discipline_uuid)
-           AND (p_subject_uuid IS NULL OR pool.subject_uuid = p_subject_uuid)
-           AND (p_topic_uuid IS NULL OR pool.topic_uuid = p_topic_uuid)
-           AND (p_subtopic_uuid IS NULL OR pool.subtopic_uuid = p_subtopic_uuid)
+                OR pool.content_discipline_id = p_discipline_uuid)
+           AND (p_subject_uuid IS NULL OR pool.content_subject_id = p_subject_uuid)
+           AND (p_topic_uuid IS NULL OR pool.content_topic_id = p_topic_uuid)
+           AND (p_subtopic_uuid IS NULL OR pool.content_subtopic_id = p_subtopic_uuid)
            AND (p_bloom_cognitive_process IS NULL
                 OR bloom.cognitive_process::text = p_bloom_cognitive_process)
            AND (p_bloom_knowledge_dimension IS NULL
@@ -681,9 +681,9 @@ BEGIN
           FROM filtered AS matched
     )
     SELECT page.public_question_pool_id, page.revision_number, page.member_count,
-           page.title, page.description, page.discipline_uuid, page.discipline_name,
-           page.discipline_is_retired, page.subject_uuid, page.topic_uuid,
-           page.subtopic_uuid, page.tags, page.bloom_cognitive_process,
+           page.title, page.description, page.content_discipline_id, page.discipline_name,
+           page.discipline_is_retired, page.content_subject_id, page.content_topic_id,
+           page.content_subtopic_id, page.tags, page.bloom_cognitive_process,
            page.bloom_knowledge_dimension, page.classification_edit_number,
            aggregates.cognitive_counts, aggregates.knowledge_counts
       FROM aggregates
@@ -697,11 +697,11 @@ RETURNS TABLE (
     public_question_pool_id text,
     revision_number bigint,
     member_position integer,
-    question_id text,
+    published_question_id text,
     question_revision_number integer,
-    title text, description text, discipline_uuid uuid, discipline_name text,
-    discipline_is_retired boolean, subject_uuid uuid,
-    topic_uuid uuid, subtopic_uuid uuid, tags text[],
+    title text, description text, content_discipline_id uuid, discipline_name text,
+    discipline_is_retired boolean, content_subject_id uuid,
+    content_topic_id uuid, content_subtopic_id uuid, tags text[],
     bloom_cognitive_process text, bloom_knowledge_dimension text,
     bloom_classification_edit_number bigint
 ) LANGUAGE plpgsql STABLE SECURITY DEFINER
@@ -710,11 +710,11 @@ BEGIN
     RETURN QUERY
     SELECT pool.public_question_pool_id,
            pool.current_revision_number, member.member_position,
-           member.question_id,
+           member.published_question_id,
            member.question_revision_number,
-           pool.title, pool.description, pool.discipline_uuid, discipline.name,
-           discipline.is_retired, pool.subject_uuid,
-           pool.topic_uuid, pool.subtopic_uuid, pool.tags,
+           pool.title, pool.description, pool.content_discipline_id, discipline.name,
+           discipline.is_retired, pool.content_subject_id,
+           pool.content_topic_id, pool.content_subtopic_id, pool.tags,
            bloom.cognitive_process::text, bloom.knowledge_dimension::text,
            bloom.classification_edit_number
       FROM ple_data.question_pool AS pool
@@ -725,7 +725,7 @@ BEGIN
         ON member.question_pool_id = pool.question_pool_id
        AND member.revision_number = pool.current_revision_number
       JOIN LATERAL ple_api.list_content_disciplines_including_retired() AS discipline
-        ON discipline.discipline_uuid = pool.discipline_uuid
+        ON discipline.content_discipline_id = pool.content_discipline_id
      WHERE (ple_api.current_session_account_is_instructor()
             OR ple_api.current_session_account_has_platform_administration())
        AND pool.public_question_pool_id = p_public_question_pool_id
@@ -747,11 +747,11 @@ RETURNS TABLE (
     public_question_pool_id text,
     revision_number bigint,
     member_position integer,
-    question_id text,
+    published_question_id text,
     question_revision_number integer,
-    title text, description text, discipline_uuid uuid, discipline_name text,
-    discipline_is_retired boolean, subject_uuid uuid,
-    topic_uuid uuid, subtopic_uuid uuid, tags text[],
+    title text, description text, content_discipline_id uuid, discipline_name text,
+    discipline_is_retired boolean, content_subject_id uuid,
+    content_topic_id uuid, content_subtopic_id uuid, tags text[],
     bloom_cognitive_process text, bloom_knowledge_dimension text,
     bloom_classification_edit_number bigint
 ) LANGUAGE plpgsql STABLE SECURITY DEFINER
@@ -760,11 +760,11 @@ BEGIN
     RETURN QUERY
     SELECT pool.public_question_pool_id,
            revision.revision_number, member.member_position,
-           member.question_id,
+           member.published_question_id,
            member.question_revision_number,
-           pool.title, pool.description, pool.discipline_uuid, discipline.name,
-           discipline.is_retired, pool.subject_uuid,
-           pool.topic_uuid, pool.subtopic_uuid, pool.tags,
+           pool.title, pool.description, pool.content_discipline_id, discipline.name,
+           discipline.is_retired, pool.content_subject_id,
+           pool.content_topic_id, pool.content_subtopic_id, pool.tags,
            bloom.cognitive_process::text, bloom.knowledge_dimension::text,
            bloom.classification_edit_number
       FROM ple_data.question_pool AS pool
@@ -778,7 +778,7 @@ BEGIN
         ON member.question_pool_id = revision.question_pool_id
        AND member.revision_number = revision.revision_number
       JOIN LATERAL ple_api.list_content_disciplines_including_retired() AS discipline
-        ON discipline.discipline_uuid = pool.discipline_uuid
+        ON discipline.content_discipline_id = pool.content_discipline_id
      WHERE (ple_api.current_session_account_is_instructor()
             OR ple_api.current_session_account_has_platform_administration())
        AND p_revision_number > 0

@@ -12,11 +12,11 @@ SET search_path = pg_catalog, ple_data, ple_private AS $$
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM ple_data.object_delivery AS delivery
-        JOIN ple_private.object_record AS record ON record.object_id = delivery.object_id
-         WHERE delivery.delivery_id = NEW.delivery_id AND delivery.object_id = NEW.object_id
+        JOIN ple_private.object_record AS record ON record.object_record_id = delivery.object_record_id
+         WHERE delivery.object_delivery_id = NEW.object_delivery_id AND delivery.object_record_id = NEW.object_record_id
            AND record.object_address = jsonb_build_object(
                'kind', 'profileImage', 'image', NEW.profile_image_id,
-               'object', NEW.object_id)
+               'object', NEW.object_record_id)
            AND record.object_storage_area = 'private-content'
            AND record.object_data_class = 'profile-image'
            AND record.sha256 = delivery.sha256 AND record.size_bytes = delivery.byte_length
@@ -43,7 +43,7 @@ BEGIN
         SELECT 1 FROM ple_private.profile_image_work AS work
          WHERE work.account_id = NEW.account_id
            AND work.profile_image_id = NEW.profile_image_id
-           AND work.delivery_id = NEW.profile_image_delivery_id
+           AND work.object_delivery_id = NEW.profile_image_delivery_id
            AND work.operation_kind = 'put' AND work.state = 'finalized'
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
@@ -198,12 +198,12 @@ BEGIN
         profile_image_delivery_id = NULL;
     IF old_delivery_id IS NOT NULL THEN
         UPDATE ple_data.object_delivery SET delivery_state = 'retired'
-         WHERE delivery_id = old_delivery_id;
-        SELECT object_id INTO old_object_id FROM ple_data.object_delivery
-         WHERE delivery_id = old_delivery_id;
+         WHERE object_delivery_id = old_delivery_id;
+        SELECT object_record_id INTO old_object_id FROM ple_data.object_delivery
+         WHERE object_delivery_id = old_delivery_id;
         INSERT INTO ple_private.profile_image_work
-            (profile_image_work_id, account_id, profile_image_id, delivery_id,
-             object_id, operation_kind, state, created_at)
+            (profile_image_work_id, account_id, profile_image_id, object_delivery_id,
+             object_record_id, operation_kind, state, created_at)
         VALUES (gen_random_uuid(), v_account_id, old_profile_image_id,
             old_delivery_id, old_object_id, 'delete', 'pending', clock_timestamp())
         ON CONFLICT (profile_image_id, operation_kind) DO NOTHING;
@@ -214,12 +214,12 @@ BEGIN
            AND state = 'completed'
     LOOP
         UPDATE ple_data.object_delivery SET delivery_state = 'retired'
-         WHERE delivery_id = completed_work.delivery_id;
+         WHERE object_delivery_id = completed_work.object_delivery_id;
         INSERT INTO ple_private.profile_image_work
-            (profile_image_work_id, account_id, profile_image_id, delivery_id,
-             object_id, operation_kind, state, created_at)
+            (profile_image_work_id, account_id, profile_image_id, object_delivery_id,
+             object_record_id, operation_kind, state, created_at)
         VALUES (gen_random_uuid(), v_account_id, completed_work.profile_image_id,
-            completed_work.delivery_id, completed_work.object_id, 'delete',
+            completed_work.object_delivery_id, completed_work.object_record_id, 'delete',
             'pending', clock_timestamp())
         ON CONFLICT (profile_image_id, operation_kind) DO NOTHING;
     END LOOP;
@@ -227,29 +227,29 @@ BEGIN
 END $$;
 
 CREATE FUNCTION ple_api.prepare_account_profile_image(
-    p_profile_image_id uuid, p_object_id uuid, p_sha256 bytea, p_byte_length bigint
-) RETURNS TABLE(work_id uuid, profile_image_id uuid, object_id uuid) LANGUAGE plpgsql SECURITY DEFINER
+    p_profile_image_id uuid, p_object_record_id uuid, p_sha256 bytea, p_byte_length bigint
+) RETURNS TABLE(work_id uuid, profile_image_id uuid, object_record_id uuid) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE v_account_id uuid := ple_api.current_session_account_id(); v_delivery_id uuid := gen_random_uuid(); v_work_id uuid := gen_random_uuid();
     expected_address jsonb := jsonb_build_object(
-        'kind', 'profileImage', 'image', p_profile_image_id, 'object', p_object_id);
+        'kind', 'profileImage', 'image', p_profile_image_id, 'object', p_object_record_id);
 BEGIN
     IF NOT (ple_api.current_session_account_is_instructor() OR ple_api.current_session_account_is_sysadmin())
-       OR p_profile_image_id IS NULL OR p_object_id IS NULL OR p_sha256 IS NULL
+       OR p_profile_image_id IS NULL OR p_object_record_id IS NULL OR p_sha256 IS NULL
        OR octet_length(p_sha256) <> 32 OR p_byte_length NOT BETWEEN 1 AND 2097152 THEN RETURN; END IF;
-    INSERT INTO ple_private.object_record (object_id, object_address, object_storage_area, object_data_class, sha256, size_bytes, media_type, created_at)
-    VALUES (p_object_id, expected_address, 'private-content', 'profile-image', p_sha256, p_byte_length, 'image/webp', clock_timestamp()) ON CONFLICT DO NOTHING;
-    IF NOT EXISTS (SELECT 1 FROM ple_private.object_record AS record WHERE record.object_id = p_object_id
+    INSERT INTO ple_private.object_record (object_record_id, object_address, object_storage_area, object_data_class, sha256, size_bytes, media_type, created_at)
+    VALUES (p_object_record_id, expected_address, 'private-content', 'profile-image', p_sha256, p_byte_length, 'image/webp', clock_timestamp()) ON CONFLICT DO NOTHING;
+    IF NOT EXISTS (SELECT 1 FROM ple_private.object_record AS record WHERE record.object_record_id = p_object_record_id
         AND record.object_address = expected_address AND record.object_storage_area = 'private-content' AND record.object_data_class = 'profile-image'
         AND record.sha256 = p_sha256 AND record.size_bytes = p_byte_length AND record.media_type = 'image/webp') THEN RETURN; END IF;
-    INSERT INTO ple_data.object_delivery (delivery_id, object_id, sha256, media_type, byte_length, delivery_state, registered_at)
-    VALUES (v_delivery_id, p_object_id, p_sha256, 'image/webp', p_byte_length, 'pending', clock_timestamp());
-    INSERT INTO ple_data.profile_image_delivery VALUES (v_delivery_id, p_object_id, p_profile_image_id);
-    INSERT INTO ple_private.profile_image_work (profile_image_work_id, account_id, profile_image_id, delivery_id, object_id, operation_kind, state, created_at)
-    VALUES (v_work_id, v_account_id, p_profile_image_id, v_delivery_id, p_object_id, 'put', 'pending', clock_timestamp());
+    INSERT INTO ple_data.object_delivery (object_delivery_id, object_record_id, sha256, media_type, byte_length, delivery_state, registered_at)
+    VALUES (v_delivery_id, p_object_record_id, p_sha256, 'image/webp', p_byte_length, 'pending', clock_timestamp());
+    INSERT INTO ple_data.profile_image_delivery VALUES (v_delivery_id, p_object_record_id, p_profile_image_id);
+    INSERT INTO ple_private.profile_image_work (profile_image_work_id, account_id, profile_image_id, object_delivery_id, object_record_id, operation_kind, state, created_at)
+    VALUES (v_work_id, v_account_id, p_profile_image_id, v_delivery_id, p_object_record_id, 'put', 'pending', clock_timestamp());
     work_id := v_work_id;
     profile_image_id := p_profile_image_id;
-    object_id := p_object_id;
+    object_record_id := p_object_record_id;
     RETURN NEXT;
 EXCEPTION WHEN unique_violation OR foreign_key_violation OR check_violation THEN RETURN;
 END $$;
@@ -265,19 +265,19 @@ BEGIN UPDATE ple_private.profile_image_work SET state = 'repair-required'
  AND (ple_api.current_session_account_is_instructor() OR ple_api.current_session_account_is_sysadmin()); RETURN FOUND; END $$;
 
 CREATE FUNCTION ple_api.prepare_account_profile_image_deletion(p_put_work_id uuid)
-RETURNS TABLE(delete_work_id uuid, profile_image_id uuid, object_id uuid) LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$
+RETURNS TABLE(delete_work_id uuid, profile_image_id uuid, object_record_id uuid) LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$
 DECLARE put_work ple_private.profile_image_work%ROWTYPE;
 BEGIN
  SELECT * INTO put_work FROM ple_private.profile_image_work WHERE profile_image_work_id = p_put_work_id AND operation_kind = 'put' AND state = 'completed'
   AND account_id = ple_api.current_session_account_id() FOR UPDATE;
  IF NOT FOUND OR NOT (ple_api.current_session_account_is_instructor() OR ple_api.current_session_account_is_sysadmin()) THEN RETURN; END IF;
- SELECT existing.profile_image_work_id, existing.profile_image_id, existing.object_id
-   INTO delete_work_id, profile_image_id, object_id FROM ple_private.profile_image_work existing
+ SELECT existing.profile_image_work_id, existing.profile_image_id, existing.object_record_id
+   INTO delete_work_id, profile_image_id, object_record_id FROM ple_private.profile_image_work existing
   WHERE existing.profile_image_id = put_work.profile_image_id AND existing.operation_kind = 'delete'; IF FOUND THEN RETURN NEXT; RETURN; END IF;
- delete_work_id := gen_random_uuid(); profile_image_id := put_work.profile_image_id; object_id := put_work.object_id;
- INSERT INTO ple_private.profile_image_work (profile_image_work_id, account_id, profile_image_id, delivery_id, object_id, operation_kind, state, created_at)
- VALUES (delete_work_id, put_work.account_id, put_work.profile_image_id, put_work.delivery_id, put_work.object_id, 'delete', 'pending', clock_timestamp()); RETURN NEXT;
-EXCEPTION WHEN unique_violation THEN SELECT existing.profile_image_work_id, existing.profile_image_id, existing.object_id INTO delete_work_id, profile_image_id, object_id FROM ple_private.profile_image_work existing WHERE existing.profile_image_id = put_work.profile_image_id AND existing.operation_kind = 'delete'; IF FOUND THEN RETURN NEXT; END IF;
+ delete_work_id := gen_random_uuid(); profile_image_id := put_work.profile_image_id; object_record_id := put_work.object_record_id;
+ INSERT INTO ple_private.profile_image_work (profile_image_work_id, account_id, profile_image_id, object_delivery_id, object_record_id, operation_kind, state, created_at)
+ VALUES (delete_work_id, put_work.account_id, put_work.profile_image_id, put_work.object_delivery_id, put_work.object_record_id, 'delete', 'pending', clock_timestamp()); RETURN NEXT;
+EXCEPTION WHEN unique_violation THEN SELECT existing.profile_image_work_id, existing.profile_image_id, existing.object_record_id INTO delete_work_id, profile_image_id, object_record_id FROM ple_private.profile_image_work existing WHERE existing.profile_image_id = put_work.profile_image_id AND existing.operation_kind = 'delete'; IF FOUND THEN RETURN NEXT; END IF;
 END $$;
 
 CREATE FUNCTION ple_api.complete_account_profile_image_deletion(p_delete_work_id uuid) RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$
@@ -292,9 +292,9 @@ DECLARE work ple_private.profile_image_work%ROWTYPE; expected bytea; check_id uu
 BEGIN
  SELECT * INTO work FROM ple_private.profile_image_work WHERE profile_image_work_id = p_delete_work_id AND operation_kind = 'delete' AND state = 'repair-required' FOR UPDATE;
  IF NOT FOUND OR work.account_id <> ple_api.current_session_account_id() OR NOT (ple_api.current_session_account_is_instructor() OR ple_api.current_session_account_is_sysadmin()) THEN RETURN false; END IF;
- SELECT sha256 INTO expected FROM ple_data.object_delivery WHERE delivery_id = work.delivery_id;
+ SELECT sha256 INTO expected FROM ple_data.object_delivery WHERE object_delivery_id = work.object_delivery_id;
  IF NOT p_object_present AND p_observed_checksum IS NULL THEN result := 'missing'; ELSIF p_object_present AND p_observed_checksum = expected THEN result := 'verified'; ELSIF p_object_present AND octet_length(p_observed_checksum) = 32 THEN result := 'mismatched'; ELSE RETURN false; END IF;
- INSERT INTO ple_private.object_storage_check (object_storage_check_id, delivery_id, expected_sha256, check_result, checked_at) VALUES (check_id, work.delivery_id, expected, result, clock_timestamp());
+ INSERT INTO ple_private.object_storage_check (object_storage_check_id, object_delivery_id, expected_sha256, check_result, checked_at) VALUES (check_id, work.object_delivery_id, expected, result, clock_timestamp());
  disposition := CASE result WHEN 'missing' THEN 'already_absent' ELSE 'retained' END; INSERT INTO ple_private.object_cleanup_manifest VALUES (manifest_id, check_id, clock_timestamp(), disposition);
  INSERT INTO ple_audit.object_storage_check_event VALUES (gen_random_uuid(), check_id, result, clock_timestamp(), sha256(convert_to('ple:profile-image-storage-check-event:v1', 'UTF8') || uuid_send(check_id) || convert_to(result, 'UTF8') || expected));
  INSERT INTO ple_audit.object_cleanup_receipt VALUES (gen_random_uuid(), manifest_id, disposition, clock_timestamp());
@@ -302,24 +302,24 @@ BEGIN
 END $$;
 
 CREATE FUNCTION ple_api.finalize_account_profile_image(p_work_id uuid)
-RETURNS TABLE(profile_image_id uuid, object_id uuid, retired_delete_work_id uuid, retired_profile_image_id uuid, retired_object_id uuid) LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
+RETURNS TABLE(profile_image_id uuid, object_record_id uuid, retired_delete_work_id uuid, retired_profile_image_id uuid, retired_object_id uuid) LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE work ple_private.profile_image_work%ROWTYPE; old_delivery uuid; old_image uuid; old_object uuid; expected_address jsonb;
 BEGIN
  PERFORM pg_advisory_xact_lock(hashtextextended('ple:profile-image-finalize:v1:' || ple_api.current_session_account_id()::text, 0));
  SELECT * INTO work FROM ple_private.profile_image_work WHERE profile_image_work_id = p_work_id AND operation_kind = 'put' AND state = 'completed' AND account_id = ple_api.current_session_account_id() FOR UPDATE;
  IF NOT FOUND OR NOT (ple_api.current_session_account_is_instructor() OR ple_api.current_session_account_is_sysadmin()) OR EXISTS (SELECT 1 FROM ple_private.profile_image_work existing WHERE existing.profile_image_id = work.profile_image_id AND existing.operation_kind = 'delete') THEN RETURN; END IF;
  expected_address := jsonb_build_object(
-     'kind', 'profileImage', 'image', work.profile_image_id, 'object', work.object_id);
- IF NOT EXISTS (SELECT 1 FROM ple_data.object_delivery delivery JOIN ple_private.object_record record ON record.object_id = delivery.object_id JOIN ple_data.profile_image_delivery owner ON owner.delivery_id = delivery.delivery_id AND owner.object_id = delivery.object_id AND owner.profile_image_id = work.profile_image_id WHERE delivery.delivery_id = work.delivery_id AND delivery.object_id = work.object_id AND record.object_address = expected_address AND record.object_storage_area = 'private-content' AND record.object_data_class = 'profile-image' AND record.sha256 = delivery.sha256 AND record.size_bytes = delivery.byte_length AND record.media_type = delivery.media_type) THEN RETURN; END IF;
+     'kind', 'profileImage', 'image', work.profile_image_id, 'object', work.object_record_id);
+ IF NOT EXISTS (SELECT 1 FROM ple_data.object_delivery delivery JOIN ple_private.object_record record ON record.object_record_id = delivery.object_record_id JOIN ple_data.profile_image_delivery owner ON owner.object_delivery_id = delivery.object_delivery_id AND owner.object_record_id = delivery.object_record_id AND owner.profile_image_id = work.profile_image_id WHERE delivery.object_delivery_id = work.object_delivery_id AND delivery.object_record_id = work.object_record_id AND record.object_address = expected_address AND record.object_storage_area = 'private-content' AND record.object_data_class = 'profile-image' AND record.sha256 = delivery.sha256 AND record.size_bytes = delivery.byte_length AND record.media_type = delivery.media_type) THEN RETURN; END IF;
  SELECT avatar.profile_image_delivery_id, avatar.profile_image_id INTO old_delivery, old_image FROM ple_private.account_avatar avatar WHERE avatar.account_id = work.account_id AND avatar.avatar_kind = 'profile-image' FOR UPDATE;
  UPDATE ple_private.profile_image_work SET state = 'finalized', completed_at = clock_timestamp() WHERE profile_image_work_id = work.profile_image_work_id;
- INSERT INTO ple_private.account_avatar (account_id, avatar_kind, profile_image_id, profile_image_delivery_id) VALUES (work.account_id, 'profile-image', work.profile_image_id, work.delivery_id) ON CONFLICT (account_id) DO UPDATE SET avatar_kind = EXCLUDED.avatar_kind, provided_avatar_id = NULL, profile_image_id = EXCLUDED.profile_image_id, profile_image_delivery_id = EXCLUDED.profile_image_delivery_id;
- UPDATE ple_data.object_delivery SET delivery_state = 'available' WHERE delivery_id = work.delivery_id;
- IF old_delivery IS NOT NULL THEN UPDATE ple_data.object_delivery SET delivery_state = 'retired' WHERE delivery_id = old_delivery; SELECT object_id INTO old_object FROM ple_data.object_delivery WHERE delivery_id = old_delivery; retired_delete_work_id := gen_random_uuid(); retired_profile_image_id := old_image; retired_object_id := old_object; INSERT INTO ple_private.profile_image_work (profile_image_work_id, account_id, profile_image_id, delivery_id, object_id, operation_kind, state, created_at) VALUES (retired_delete_work_id, work.account_id, old_image, old_delivery, old_object, 'delete', 'pending', clock_timestamp()); END IF;
- profile_image_id := work.profile_image_id; object_id := work.object_id; RETURN NEXT;
+ INSERT INTO ple_private.account_avatar (account_id, avatar_kind, profile_image_id, profile_image_delivery_id) VALUES (work.account_id, 'profile-image', work.profile_image_id, work.object_delivery_id) ON CONFLICT (account_id) DO UPDATE SET avatar_kind = EXCLUDED.avatar_kind, provided_avatar_id = NULL, profile_image_id = EXCLUDED.profile_image_id, profile_image_delivery_id = EXCLUDED.profile_image_delivery_id;
+ UPDATE ple_data.object_delivery SET delivery_state = 'available' WHERE object_delivery_id = work.object_delivery_id;
+ IF old_delivery IS NOT NULL THEN UPDATE ple_data.object_delivery SET delivery_state = 'retired' WHERE object_delivery_id = old_delivery; SELECT object_record_id INTO old_object FROM ple_data.object_delivery WHERE object_delivery_id = old_delivery; retired_delete_work_id := gen_random_uuid(); retired_profile_image_id := old_image; retired_object_id := old_object; INSERT INTO ple_private.profile_image_work (profile_image_work_id, account_id, profile_image_id, object_delivery_id, object_record_id, operation_kind, state, created_at) VALUES (retired_delete_work_id, work.account_id, old_image, old_delivery, old_object, 'delete', 'pending', clock_timestamp()); END IF;
+ profile_image_id := work.profile_image_id; object_record_id := work.object_record_id; RETURN NEXT;
 END $$;
 
 CREATE FUNCTION ple_api.resolve_current_account_profile_image(p_profile_image_id uuid) RETURNS uuid LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
- SELECT delivery.object_id FROM ple_private.account_avatar avatar JOIN ple_data.object_delivery delivery ON delivery.delivery_id = avatar.profile_image_delivery_id WHERE avatar.profile_image_id = p_profile_image_id AND avatar.account_id = ple_api.current_session_account_id() AND avatar.avatar_kind = 'profile-image' AND (ple_api.current_session_account_is_instructor() OR ple_api.current_session_account_is_sysadmin()) AND delivery.delivery_state = 'available'
+ SELECT delivery.object_record_id FROM ple_private.account_avatar avatar JOIN ple_data.object_delivery delivery ON delivery.object_delivery_id = avatar.profile_image_delivery_id WHERE avatar.profile_image_id = p_profile_image_id AND avatar.account_id = ple_api.current_session_account_id() AND avatar.avatar_kind = 'profile-image' AND (ple_api.current_session_account_is_instructor() OR ple_api.current_session_account_is_sysadmin()) AND delivery.delivery_state = 'available'
 $$;
 

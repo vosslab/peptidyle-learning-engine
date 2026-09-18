@@ -211,7 +211,7 @@ CREATE FUNCTION ple_private.create_pending_sysadmin_totp_attestation(
     p_attestation_id uuid, p_account_id uuid, p_browser_binding_hash bytea,
     p_lifetime_seconds bigint
 )
-RETURNS TABLE (attestation_id uuid)
+RETURNS TABLE (sysadmin_totp_attestation_id uuid)
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private
 AS $$
@@ -226,7 +226,7 @@ BEGIN
     -- non-Sysadmin receives the same empty result as an unknown Account.
     RETURN QUERY
     INSERT INTO ple_private.sysadmin_totp_attestation (
-        attestation_id, account_id, browser_binding_hash, created_at, expires_at
+        sysadmin_totp_attestation_id, account_id, browser_binding_hash, created_at, expires_at
     ) SELECT p_attestation_id, account.account_id, p_browser_binding_hash, v_now,
              v_now + p_lifetime_seconds * interval '1 second'
       FROM ple_private.account AS account
@@ -238,7 +238,7 @@ BEGIN
           ORDER BY event.occurred_at DESC, event.event_id DESC LIMIT 1
       ) AS state ON state.state = 'active'
      WHERE account.account_id = p_account_id AND account.product_role = 'sysadmin'
-    RETURNING sysadmin_totp_attestation.attestation_id;
+    RETURNING sysadmin_totp_attestation.sysadmin_totp_attestation_id;
 END
 $$;
 
@@ -262,7 +262,7 @@ AS $$
           WHERE event.account_id = account.account_id
           ORDER BY event.occurred_at DESC, event.event_id DESC LIMIT 1
       ) AS state ON state.state = 'active'
-     WHERE attestation.attestation_id = p_attestation_id
+     WHERE attestation.sysadmin_totp_attestation_id = p_attestation_id
        AND attestation.browser_binding_hash = p_browser_binding_hash
        AND attestation.consumed_at IS NULL
        AND attestation.expires_at > pg_catalog.clock_timestamp()
@@ -298,7 +298,7 @@ BEGIN
           WHERE event.account_id = account.account_id
           ORDER BY event.occurred_at DESC, event.event_id DESC LIMIT 1
       ) AS state ON state.state = 'active'
-     WHERE attestation.attestation_id = p_attestation_id
+     WHERE attestation.sysadmin_totp_attestation_id = p_attestation_id
        AND attestation.browser_binding_hash = p_browser_binding_hash
        AND attestation.consumed_at IS NULL
        AND attestation.expires_at > pg_catalog.clock_timestamp()
@@ -310,7 +310,7 @@ BEGIN
            attempt.charged_attempt_count, attempt.locked_until
       INTO v_attempt
       FROM ple_private.sysadmin_totp_verification_attempt AS attempt
-     WHERE attempt.attestation_id = p_attestation_id
+     WHERE attempt.sysadmin_totp_attestation_id = p_attestation_id
      FOR UPDATE;
     IF FOUND AND (v_attempt.account_id IS DISTINCT FROM v_candidate.account_id
                   OR v_attempt.browser_binding_hash IS DISTINCT FROM p_browser_binding_hash) THEN
@@ -321,11 +321,11 @@ BEGIN
     END IF;
     IF NOT FOUND OR v_attempt.window_started_at + interval '10 minutes' <= v_now THEN
         INSERT INTO ple_private.sysadmin_totp_verification_attempt (
-            attestation_id, account_id, browser_binding_hash, window_started_at,
+            sysadmin_totp_attestation_id, account_id, browser_binding_hash, window_started_at,
             charged_attempt_count, locked_until
         ) VALUES (
             p_attestation_id, v_candidate.account_id, p_browser_binding_hash, v_now, 1, NULL
-        ) ON CONFLICT (attestation_id) DO UPDATE SET
+        ) ON CONFLICT (sysadmin_totp_attestation_id) DO UPDATE SET
             account_id = EXCLUDED.account_id,
             browser_binding_hash = EXCLUDED.browser_binding_hash,
             window_started_at = EXCLUDED.window_started_at,
@@ -337,7 +337,7 @@ BEGIN
         UPDATE ple_private.sysadmin_totp_verification_attempt AS attempt
            SET charged_attempt_count = v_next_count,
                locked_until = CASE WHEN v_next_count = 5 THEN v_candidate.expires_at ELSE NULL END
-         WHERE attempt.attestation_id = p_attestation_id;
+         WHERE attempt.sysadmin_totp_attestation_id = p_attestation_id;
     END IF;
     RETURN QUERY SELECT v_candidate.account_id;
 END
@@ -365,7 +365,7 @@ BEGIN
     -- ceremony consumed.  Any failed later step rolls the transaction back.
     RETURN QUERY
     WITH candidate AS MATERIALIZED (
-        SELECT attestation.attestation_id, attestation.account_id
+        SELECT attestation.sysadmin_totp_attestation_id, attestation.account_id
           FROM ple_private.sysadmin_totp_attestation AS attestation
           JOIN ple_private.account AS account ON account.account_id = attestation.account_id
           JOIN LATERAL (
@@ -373,7 +373,7 @@ BEGIN
               WHERE event.account_id = account.account_id
               ORDER BY event.occurred_at DESC, event.event_id DESC LIMIT 1
           ) AS state ON state.state = 'active'
-         WHERE attestation.attestation_id = p_attestation_id
+         WHERE attestation.sysadmin_totp_attestation_id = p_attestation_id
            AND attestation.browser_binding_hash = p_browser_binding_hash
            AND attestation.consumed_at IS NULL
            AND attestation.expires_at > pg_catalog.clock_timestamp()
@@ -398,9 +398,9 @@ BEGIN
     ), consumed AS (
         UPDATE ple_private.sysadmin_totp_attestation AS attestation SET consumed_at = v_now
           FROM created
-         WHERE attestation.attestation_id = p_attestation_id
+         WHERE attestation.sysadmin_totp_attestation_id = p_attestation_id
            AND attestation.account_id = created.account_id
-        RETURNING attestation.attestation_id
+        RETURNING attestation.sysadmin_totp_attestation_id
     ) SELECT created.session_id, created.token_hash, created.account_id, created.product_role,
              created.created_at, created.expires_at
         FROM created CROSS JOIN consumed;
@@ -478,7 +478,7 @@ CREATE FUNCTION ple_api.create_pending_sysadmin_totp_attestation(
     p_attestation_id uuid, p_account_id uuid, p_browser_binding_hash bytea,
     p_lifetime_seconds bigint
 )
-RETURNS TABLE (attestation_id uuid)
+RETURNS TABLE (sysadmin_totp_attestation_id uuid)
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private
 AS $$ SELECT * FROM ple_private.create_pending_sysadmin_totp_attestation(

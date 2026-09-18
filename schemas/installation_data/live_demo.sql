@@ -25,11 +25,11 @@ DECLARE
     selected_discipline uuid;
     selected_subject uuid;
 BEGIN
-    SELECT discipline.discipline_uuid, subject.subject_uuid
+    SELECT discipline.content_discipline_id, subject.content_subject_id
       INTO STRICT selected_discipline, selected_subject
       FROM ple_data.content_discipline AS discipline
-      JOIN ple_data.content_subject_discipline AS association USING (discipline_uuid)
-      JOIN ple_data.content_subject AS subject USING (subject_uuid)
+      JOIN ple_data.content_subject_discipline AS association USING (content_discipline_id)
+      JOIN ple_data.content_subject AS subject USING (content_subject_id)
      WHERE discipline.name = 'Biology' AND subject.name = 'Biochemistry';
     PERFORM set_config('ple.installation_live_demo_discipline_uuid', selected_discipline::text, true);
     PERFORM set_config('ple.installation_live_demo_subject_uuid', selected_subject::text, true);
@@ -44,13 +44,13 @@ BEGIN
     WITH input AS (
         SELECT publication.key AS slug,
                publication.value ->> 'sourceSha256' AS source_checksum,
-               publication.value -> 'questionRevision' ->> 'questionId' AS question_id,
+               publication.value -> 'questionRevision' ->> 'questionId' AS published_question_id,
                (publication.value -> 'questionRevision' ->> 'revisionNumber')::integer AS revision_number
           FROM jsonb_each(
               current_setting('ple.installation_pilot_question_publications')::jsonb
           ) AS publication(key, value)
     )
-    SELECT count(*), count(DISTINCT question_id), COALESCE(bool_or(
+    SELECT count(*), count(DISTINCT published_question_id), COALESCE(bool_or(
         slug NOT IN (
                 'genetics-disorders-webwork-mc',
                 'genetics-disorders-webwork-matching',
@@ -61,15 +61,15 @@ BEGIN
                 'biochemistry-functional-groups-ple-question-json-mc',
                 'biochemistry-functional-groups-ple-question-json-matching'
         ) OR source_checksum !~ '^[0-9a-f]{64}$'
-          OR question_id !~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
-          OR substr(question_id, 6, 1) IS DISTINCT FROM
+          OR published_question_id !~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
+          OR substr(published_question_id, 6, 1) IS DISTINCT FROM
                 ple_private.crockford_checksum_character(
-                    substr(question_id, 1, 4) || substr(question_id, 7, 3)
+                    substr(published_question_id, 1, 4) || substr(published_question_id, 7, 3)
                 )
           OR revision_number <= 0
           OR NOT EXISTS (
               SELECT 1 FROM ple_private.question_revision_source_binding AS binding
-               WHERE binding.question_id = input.question_id
+               WHERE binding.published_question_id = input.published_question_id
                  AND binding.revision_number = input.revision_number
                  AND binding.source_object_checksum = input.source_checksum
           )
@@ -113,7 +113,7 @@ BEGIN
            AND current_blueprint_revision_number = 1
            AND EXISTS (
                SELECT 1 FROM ple_data.blueprint_revision_assessment AS revision_assessment
-                WHERE revision_assessment.blueprint_course_reference_number = blueprint_reference
+                WHERE revision_assessment.blueprint_course_id = blueprint_reference
                   AND revision_assessment.blueprint_revision_number = 1
                   AND revision_assessment.blueprint_assessment_reference
                       = expected_blueprint_assessment_reference
@@ -122,17 +122,17 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Live Demo Blueprint Revision 1 is unavailable';
     END IF;
-    IF EXISTS (SELECT 1 FROM ple_data.course_instance WHERE course_id = '00000000-0000-0000-0000-000000000220')
+    IF EXISTS (SELECT 1 FROM ple_data.course_instance WHERE course_instance_id = '00000000-0000-0000-0000-000000000220')
        AND NOT EXISTS (
            SELECT 1 FROM ple_data.course_instance AS course
-            WHERE course.course_id = '00000000-0000-0000-0000-000000000220'
+            WHERE course.course_instance_id = '00000000-0000-0000-0000-000000000220'
               AND course.assigned_instructor_account_id = '00000000-0000-0000-0000-000000000101'
               AND course.course_short_name = 'BCHM 301'
               AND course.course_long_name = 'Biochemistry 301: Proteins and Peptides'
               AND course.term_starts_on = date '2026-08-24'
               AND course.term_ends_on = date '2026-12-11'
               AND course.source_kind = 'adopted'
-              AND course.blueprint_course_reference_number = blueprint_reference
+              AND course.blueprint_course_id = blueprint_reference
               AND course.blueprint_revision_number = 1
        ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
@@ -163,13 +163,13 @@ BEGIN
     END IF;
     SELECT reference_number INTO course_reference
       FROM ple_data.course_instance
-     WHERE course_id = '00000000-0000-0000-0000-000000000220';
+     WHERE course_instance_id = '00000000-0000-0000-0000-000000000220';
     IF course_reference IS NULL THEN
     INSERT INTO ple_data.course_instance (
-        course_id, source_kind, blueprint_course_reference_number, blueprint_revision_number,
+        course_instance_id, source_kind, blueprint_course_id, blueprint_revision_number,
         assigned_instructor_account_id, course_short_name, course_long_name,
         term_starts_on, term_ends_on, created_at,
-        discipline_uuid, subject_uuid, topic_uuid, subtopic_uuid, tags
+        content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags
     ) VALUES (
         '00000000-0000-0000-0000-000000000220', 'adopted', blueprint_reference, 1,
         '00000000-0000-0000-0000-000000000101', 'BCHM 301',
@@ -177,13 +177,13 @@ BEGIN
         clock_timestamp(), selected_discipline, selected_subject, NULL, NULL, ARRAY[]::text[]
     ) RETURNING reference_number INTO course_reference;
         INSERT INTO ple_data.course_origin (
-            course_origin_id, course_id, source_kind, blueprint_course_reference_number,
-            blueprint_revision_number, source_course_id, created_at
+            course_origin_id, course_instance_id, source_kind, blueprint_course_id,
+            blueprint_revision_number, source_course_instance_id, created_at
         ) VALUES (
             '00000000-0000-0000-0000-000000000221', '00000000-0000-0000-0000-000000000220',
             'adopted', blueprint_reference, 1, NULL, clock_timestamp()
         );
-        INSERT INTO ple_data.course_membership (membership_id, course_id, account_id, role, joined_at)
+        INSERT INTO ple_data.course_membership (course_membership_id, course_instance_id, account_id, role, joined_at)
         VALUES ('00000000-0000-0000-0000-000000000222', '00000000-0000-0000-0000-000000000220',
                 '00000000-0000-0000-0000-000000000101', 'instructor', clock_timestamp());
         PERFORM ple_audit.record_course_instance_creation_event(
@@ -195,9 +195,9 @@ BEGIN
     ELSE
         IF NOT EXISTS (SELECT 1 FROM ple_data.course_instance
                         WHERE reference_number = course_reference
-                          AND discipline_uuid = selected_discipline
-                          AND subject_uuid = selected_subject
-                          AND topic_uuid IS NULL AND subtopic_uuid IS NULL
+                          AND content_discipline_id = selected_discipline
+                          AND content_subject_id = selected_subject
+                          AND content_topic_id IS NULL AND content_subtopic_id IS NULL
                           AND tags = ARRAY[]::text[]) THEN
             RAISE EXCEPTION USING ERRCODE = '23514',
                 MESSAGE = 'Live Demo Course classification conflicts with authored metadata';
@@ -207,7 +207,7 @@ END
 $$;
 
 INSERT INTO ple_private.course_roster_profile (
-    course_roster_profile_id, course_id, student_account_id, roster_id, roster_name, created_at
+    course_roster_profile_id, course_instance_id, student_account_id, roster_id, roster_name, created_at
 ) VALUES
     ('00000000-0000-0000-0000-000000000231', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000102', 'BIO301-MARY', 'Mary', clock_timestamp()),
     ('00000000-0000-0000-0000-000000000232', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000103', 'BIO301-JACK', 'Jack', clock_timestamp()),
@@ -215,27 +215,27 @@ INSERT INTO ple_private.course_roster_profile (
 ON CONFLICT (course_roster_profile_id) DO NOTHING;
 
 INSERT INTO ple_private.course_invitation (
-    invitation_id, course_id, target_account_id, membership_role,
+    course_invitation_id, course_instance_id, target_account_id, membership_role,
     inviting_instructor_account_id, inviting_instructor_role, issued_at, expires_at
 ) VALUES
     ('00000000-0000-0000-0000-000000000241', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000102', 'student', '00000000-0000-0000-0000-000000000101', 'instructor', clock_timestamp(), clock_timestamp() + interval '365 days'),
     ('00000000-0000-0000-0000-000000000242', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000103', 'student', '00000000-0000-0000-0000-000000000101', 'instructor', clock_timestamp(), clock_timestamp() + interval '365 days'),
     ('00000000-0000-0000-0000-000000000243', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000104', 'student', '00000000-0000-0000-0000-000000000101', 'instructor', clock_timestamp(), clock_timestamp() + interval '365 days')
-ON CONFLICT (invitation_id) DO NOTHING;
+ON CONFLICT (course_invitation_id) DO NOTHING;
 
-INSERT INTO ple_data.student_record (student_record_id, course_id, student_account_id, created_at) VALUES
+INSERT INTO ple_data.student_record (student_record_id, course_instance_id, student_account_id, created_at) VALUES
     ('00000000-0000-0000-0000-000000000251', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000102', clock_timestamp()),
     ('00000000-0000-0000-0000-000000000252', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000103', clock_timestamp()),
     ('00000000-0000-0000-0000-000000000253', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000104', clock_timestamp())
 ON CONFLICT (student_record_id) DO NOTHING;
 
 INSERT INTO ple_data.course_membership (
-    membership_id, course_id, account_id, role, student_record_id, joined_at
+    course_membership_id, course_instance_id, account_id, role, student_record_id, joined_at
 ) VALUES
     ('00000000-0000-0000-0000-000000000261', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000102', 'student', '00000000-0000-0000-0000-000000000251', clock_timestamp()),
     ('00000000-0000-0000-0000-000000000262', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000103', 'student', '00000000-0000-0000-0000-000000000252', clock_timestamp()),
     ('00000000-0000-0000-0000-000000000263', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000104', 'student', '00000000-0000-0000-0000-000000000253', clock_timestamp())
-ON CONFLICT (membership_id) DO NOTHING;
+ON CONFLICT (course_membership_id) DO NOTHING;
 
 SET LOCAL ROLE ple_data_owner;
 
@@ -246,7 +246,7 @@ BEGIN
            NOT EXISTS (
                SELECT 1 FROM ple_data.assessment
                 WHERE assessment_id = '00000000-0000-0000-0000-000000000270'
-                  AND course_id = '00000000-0000-0000-0000-000000000220'
+                  AND course_instance_id = '00000000-0000-0000-0000-000000000220'
                   AND assessment_status = 'released'
                   AND assessment_type = 'practice_question_assignment'
                   AND assessment_title = 'Chapter 1 Pilot Practice'
@@ -255,7 +255,7 @@ BEGIN
                 WHERE assessment_id = '00000000-0000-0000-0000-000000000270') <> 4
            OR EXISTS (
                WITH input AS (
-                   SELECT value -> 'questionRevision' ->> 'questionId' AS question_id,
+                   SELECT value -> 'questionRevision' ->> 'questionId' AS published_question_id,
                           (value -> 'questionRevision' ->> 'revisionNumber')::integer AS revision_number,
                           row_number() OVER (ORDER BY array_position(ARRAY[
                               'genetics-disorders-ple-question-json-mc', 'genetics-disorders-ple-question-json-matching',
@@ -272,7 +272,7 @@ BEGIN
                  ON entry.assessment_id = '00000000-0000-0000-0000-000000000270'
                 AND entry.authored_position = input.position
                 AND entry.entry_kind = 'fixed_question'
-                AND entry.question_id = input.question_id
+                AND entry.published_question_id = input.published_question_id
                 AND entry.question_revision_number = input.revision_number
                WHERE entry.assessment_entry_id IS NULL
            )
@@ -297,7 +297,7 @@ BEGIN
         RETURN;
     END IF;
     INSERT INTO ple_data.assessment (
-        assessment_id, course_id, origin_kind, source_blueprint_course_reference_number,
+        assessment_id, course_instance_id, origin_kind, source_blueprint_course_reference_number,
         source_blueprint_revision_number, source_blueprint_assessment_reference,
         created_at, updated_at, assessment_type, assessment_title, assessment_instructions, due_at,
         assessment_attempt_time_limit_seconds, late_work_rule,
@@ -308,25 +308,25 @@ BEGIN
         '00000000-0000-0000-0000-000000000270',
         '00000000-0000-0000-0000-000000000220',
         'adopted',
-        (SELECT blueprint_course_reference_number FROM ple_data.course_instance WHERE course_id = '00000000-0000-0000-0000-000000000220'),
+        (SELECT blueprint_course_id FROM ple_data.course_instance WHERE course_instance_id = '00000000-0000-0000-0000-000000000220'),
         1, expected_blueprint_assessment_reference, clock_timestamp(), clock_timestamp(),
         'practice_question_assignment',
         'Chapter 1 Pilot Practice', 'Complete the four reviewed Chapter 1 practice questions.',
         (SELECT active_until_at FROM ple_data.course_instance
-          WHERE course_id = '00000000-0000-0000-0000-000000000220'),
+          WHERE course_instance_id = '00000000-0000-0000-0000-000000000220'),
         1800, 'accept', 'new_variation', 'authored_order', 'after_submit', 'after_submit', 'after_submit',
         'never', 'never', 'never'
     ) RETURNING assessment_id INTO new_assessment_id;
     INSERT INTO ple_data.assessment_entry (
         assessment_entry_id, assessment_id, authored_position, entry_kind, scoring_rule,
-        question_id, question_revision_number, points_possible
+        published_question_id, question_revision_number, points_possible
     )
     SELECT ('00000000-0000-0000-0000-00000000028' || input_position)::uuid,
            new_assessment_id, input_position::integer,
-           'fixed_question', 'normal', input.question_id, input.revision_number, 1
+           'fixed_question', 'normal', input.published_question_id, input.revision_number, 1
       FROM (
           SELECT publication.key AS slug,
-                 publication.value -> 'questionRevision' ->> 'questionId' AS question_id,
+                 publication.value -> 'questionRevision' ->> 'questionId' AS published_question_id,
                  (publication.value -> 'questionRevision' ->> 'revisionNumber')::integer AS revision_number,
                  row_number() OVER (ORDER BY array_position(ARRAY[
                      'genetics-disorders-ple-question-json-mc', 'genetics-disorders-ple-question-json-matching',
@@ -356,7 +356,7 @@ RESET ROLE;
 SET LOCAL ROLE ple_api_owner;
 
 INSERT INTO ple_private.course_invitation_event (
-    course_invitation_event_id, invitation_id, event_kind, performed_by_account_id, occurred_at, reason
+    course_invitation_event_id, course_invitation_id, event_kind, performed_by_account_id, occurred_at, reason
 ) VALUES
     ('00000000-0000-0000-0000-000000000291', '00000000-0000-0000-0000-000000000241', 'accepted', '00000000-0000-0000-0000-000000000102', clock_timestamp(), 'student accepted Course Invitation'),
     ('00000000-0000-0000-0000-000000000292', '00000000-0000-0000-0000-000000000242', 'accepted', '00000000-0000-0000-0000-000000000103', clock_timestamp(), 'student accepted Course Invitation'),
@@ -367,7 +367,7 @@ RESET ROLE;
 
 SET LOCAL ROLE ple_audit_owner;
 INSERT INTO ple_audit.course_roster_event (
-    course_roster_event_id, course_id, student_account_id, acting_account_id, event_kind, occurred_at
+    course_roster_event_id, course_instance_id, student_account_id, acting_account_id, event_kind, occurred_at
 ) VALUES
     ('00000000-0000-0000-0000-000000000281', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000102', '00000000-0000-0000-0000-000000000101', 'invitation_created', clock_timestamp()),
     ('00000000-0000-0000-0000-000000000282', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000103', '00000000-0000-0000-0000-000000000101', 'invitation_created', clock_timestamp()),

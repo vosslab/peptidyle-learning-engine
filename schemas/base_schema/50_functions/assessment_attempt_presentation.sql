@@ -139,7 +139,7 @@ BEGIN
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment Attempt presentation is unavailable';
     END IF;
-    SELECT assessment.course_id INTO course_id_value
+    SELECT assessment.course_instance_id INTO course_id_value
       FROM ple_data.assessment AS assessment
      WHERE assessment.assessment_id = result.assessment_id;
     IF NOT FOUND OR NOT ple_api.current_session_account_owns_student_record(
@@ -162,9 +162,9 @@ CREATE FUNCTION ple_private.prepare_student_assessment_attempt_presentation(
 ) RETURNS TABLE (
     assessment_attempt_id uuid, issued_question_id uuid, issued_position integer,
     assessment_entry_id uuid, assessment_content_entry_index integer,
-    question_id text, revision_number integer, question_seed numeric,
+    published_question_id text, revision_number integer, question_seed numeric,
     generated_parameter_sha256 text, backend text,
-    issued_capability text, source_object_id uuid, source_object_address jsonb,
+    issued_capability text, source_object_record_id uuid, source_object_address jsonb,
     source_object_checksum text, webwork_pg_path text,
     question_attempt_id uuid, presentation_nonce text, presentation_checksum text,
     presentation jsonb, author_content jsonb, question_asset_renditions jsonb
@@ -175,11 +175,11 @@ BEGIN
     RETURN QUERY
     SELECT issued.assessment_attempt_id, issued.issued_question_id, issued.issued_position,
            issued.assessment_entry_id, issued.assessment_content_entry_index,
-           issued.question_id, issued.revision_number, issued.question_seed,
+           issued.published_question_id, issued.revision_number, issued.question_seed,
            assessment_attempt.generated_parameter_sha256, source.backend,
            CASE source.backend WHEN 'ple' THEN 'ple_question_json_presentation'
                                WHEN 'webwork' THEN 'webwork_presentation' END,
-           source.source_object_id, object_record.object_address,
+           source.source_object_record_id, object_record.object_address,
            source.source_object_checksum, source.webwork_pg_path,
            assessment_attempt.question_attempt_id, binding.presentation_nonce,
            CASE WHEN binding.question_attempt_id IS NULL THEN NULL
@@ -194,10 +194,10 @@ BEGIN
            ) ORDER BY rendition.asset_id) FILTER (WHERE rendition.asset_id IS NOT NULL), '[]'::jsonb)
       FROM ple_private.issued_question AS issued
       JOIN ple_private.question_revision_source_binding AS source
-        ON source.question_id = issued.question_id
+        ON source.published_question_id = issued.published_question_id
        AND source.revision_number = issued.revision_number
       JOIN ple_private.object_record AS object_record
-        ON object_record.object_id = source.source_object_id
+        ON object_record.object_record_id = source.source_object_record_id
       LEFT JOIN ple_private.question_attempt AS assessment_attempt
         ON assessment_attempt.issued_question_id = issued.issued_question_id
       LEFT JOIN ple_private.question_attempt_presentation_binding AS binding
@@ -214,7 +214,7 @@ BEGIN
           SELECT ready.asset_id, decode(ready.question_asset_checksum, 'hex'),
                  decode(ready.rendition_checksum, 'hex'), ready.intrinsic_width, ready.intrinsic_height
             FROM ple_private.select_ready_question_asset_renditions(
-                issued.question_id, issued.revision_number
+                issued.published_question_id, issued.revision_number
             ) AS ready
            WHERE assessment_attempt.question_attempt_id IS NULL
       ) AS rendition ON true
@@ -222,9 +222,9 @@ BEGIN
        AND source.backend IN ('ple', 'webwork')
      GROUP BY issued.assessment_attempt_id, issued.issued_question_id, issued.issued_position,
               issued.assessment_entry_id, issued.assessment_content_entry_index,
-              issued.question_id, issued.revision_number, issued.question_seed,
+              issued.published_question_id, issued.revision_number, issued.question_seed,
               assessment_attempt.generated_parameter_sha256, source.backend,
-              source.source_object_id, object_record.object_address, source.source_object_checksum,
+              source.source_object_record_id, object_record.object_address, source.source_object_checksum,
               source.webwork_pg_path, assessment_attempt.question_attempt_id, binding.presentation_nonce,
               binding.question_attempt_id, binding.presentation_checksum, binding.presentation, binding.author_content
      ORDER BY issued.issued_position;
@@ -268,21 +268,21 @@ BEGIN
     SELECT count(*) INTO expected_count
       FROM ple_private.issued_question AS issued
       JOIN ple_private.question_revision_source_binding AS source
-        ON source.question_id = issued.question_id AND source.revision_number = issued.revision_number
+        ON source.published_question_id = issued.published_question_id AND source.revision_number = issued.revision_number
      WHERE issued.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id
        AND source.backend IN ('ple', 'webwork');
     SELECT count(*) INTO existing_count
       FROM ple_private.question_attempt AS question_attempt
       JOIN ple_private.issued_question AS issued ON issued.issued_question_id = question_attempt.issued_question_id
       JOIN ple_private.question_revision_source_binding AS source
-        ON source.question_id = issued.question_id AND source.revision_number = issued.revision_number
+        ON source.published_question_id = issued.published_question_id AND source.revision_number = issued.revision_number
      WHERE issued.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id
        AND source.backend IN ('ple', 'webwork');
     IF existing_count <> 0 THEN
         IF existing_count <> expected_count OR EXISTS (
             SELECT 1 FROM ple_private.issued_question AS issued
             JOIN ple_private.question_revision_source_binding AS source
-              ON source.question_id = issued.question_id AND source.revision_number = issued.revision_number
+              ON source.published_question_id = issued.published_question_id AND source.revision_number = issued.revision_number
             LEFT JOIN ple_private.question_attempt AS question_attempt
               ON question_attempt.issued_question_id = issued.issued_question_id
             LEFT JOIN ple_private.question_attempt_presentation_binding AS binding
@@ -300,7 +300,7 @@ BEGIN
                binding.presentation_nonce, encode(binding.presentation_checksum, 'hex'), true
           FROM ple_private.issued_question AS issued
           JOIN ple_private.question_revision_source_binding AS source
-            ON source.question_id = issued.question_id AND source.revision_number = issued.revision_number
+            ON source.published_question_id = issued.published_question_id AND source.revision_number = issued.revision_number
           JOIN ple_private.question_attempt AS question_attempt ON question_attempt.issued_question_id = issued.issued_question_id
           JOIN ple_private.question_attempt_presentation_binding AS binding ON binding.question_attempt_id = question_attempt.question_attempt_id
          WHERE issued.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id AND source.backend IN ('ple', 'webwork')
@@ -314,7 +314,7 @@ BEGIN
     ) OR EXISTS (
         SELECT issued.issued_question_id FROM ple_private.issued_question AS issued
         JOIN ple_private.question_revision_source_binding AS source
-          ON source.question_id = issued.question_id AND source.revision_number = issued.revision_number
+          ON source.published_question_id = issued.published_question_id AND source.revision_number = issued.revision_number
         WHERE issued.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id AND source.backend IN ('ple', 'webwork')
         EXCEPT
         SELECT supplied.issued_question_id FROM jsonb_to_recordset(p_presentations) AS supplied(issued_question_id uuid)
@@ -342,7 +342,7 @@ BEGIN
          WHERE issued.issued_question_id = item_issued_question_id
            AND issued.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id;
         SELECT source.* INTO source_row FROM ple_private.question_revision_source_binding AS source
-         WHERE source.question_id = issued_row.question_id AND source.revision_number = issued_row.revision_number;
+         WHERE source.published_question_id = issued_row.published_question_id AND source.revision_number = issued_row.revision_number;
         IF NOT FOUND OR item_question_attempt_id IS NULL
            OR item_backend_version IS NULL OR char_length(btrim(item_backend_version)) NOT BETWEEN 1 AND 100
            OR (item_renderer_name IS NULL) <> (item_renderer_version IS NULL)
@@ -402,7 +402,7 @@ BEGIN
         INSERT INTO ple_private.question_attempt(
             question_attempt_id, issued_question_id, question_seed, generated_parameter_sha256,
             issued_at, deadline_at, question_attempt_state, backend_name, backend_version,
-            renderer_name, renderer_version, source_object_id, source_object_checksum,
+            renderer_name, renderer_version, source_object_record_id, source_object_checksum,
             grader_name, grader_version, rendered_question_sha256, issued_capability
         ) VALUES (
             item_question_attempt_id, issued_row.issued_question_id, issued_row.question_seed,
@@ -410,7 +410,7 @@ BEGIN
             CASE WHEN issued_row.question_attempt_time_limit_seconds IS NULL THEN NULL
                  ELSE clock_timestamp() + make_interval(secs => issued_row.question_attempt_time_limit_seconds + issued_row.question_attempt_grace_seconds) END,
             'open', source_row.backend, item_backend_version, item_renderer_name, item_renderer_version,
-            source_row.source_object_id, decode(source_row.source_object_checksum, 'hex'),
+            source_row.source_object_record_id, decode(source_row.source_object_checksum, 'hex'),
             item_grader_name, item_grader_version, decode(item_rendered_hash, 'hex'), item_capability
         );
         INSERT INTO ple_private.question_attempt_presentation_binding(
@@ -438,7 +438,7 @@ BEGIN
                     OR supplied.intrinsic_width IS NULL OR supplied.intrinsic_width <= 0 OR supplied.intrinsic_height IS NULL OR supplied.intrinsic_height <= 0
                     OR NOT EXISTS (
                         SELECT 1 FROM ple_private.select_ready_question_asset_renditions(
-                            issued_row.question_id, issued_row.revision_number
+                            issued_row.published_question_id, issued_row.revision_number
                         ) AS ready
                          WHERE ready.asset_id = supplied.asset_id
                            AND ready.question_asset_checksum = supplied.question_asset_checksum
@@ -465,7 +465,7 @@ BEGIN
            binding.presentation_nonce, encode(binding.presentation_checksum, 'hex'), false
       FROM ple_private.issued_question AS issued
       JOIN ple_private.question_revision_source_binding AS source
-        ON source.question_id = issued.question_id AND source.revision_number = issued.revision_number
+        ON source.published_question_id = issued.published_question_id AND source.revision_number = issued.revision_number
       JOIN ple_private.question_attempt AS question_attempt ON question_attempt.issued_question_id = issued.issued_question_id
       JOIN ple_private.question_attempt_presentation_binding AS binding ON binding.question_attempt_id = question_attempt.question_attempt_id
      WHERE issued.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id AND source.backend IN ('ple', 'webwork')
@@ -479,7 +479,7 @@ END $$;
 CREATE FUNCTION ple_private.read_student_assessment_attempt_presentation_evidence(
     p_assessment_attempt_reference_number bigint, p_issued_position integer
 ) RETURNS TABLE (
-    question_id text, revision_number integer, question_seed numeric,
+    published_question_id text, revision_number integer, question_seed numeric,
     generated_parameter_sha256 text,
     presentation_nonce text, presentation_checksum text, presentation jsonb, author_content jsonb,
     question_asset_renditions jsonb, response_item_bindings jsonb
@@ -498,7 +498,7 @@ BEGIN
     END IF;
     PERFORM ple_private.require_owned_assessment_attempt_for_presentation(assessment_attempt_id_value);
     RETURN QUERY
-    SELECT issued.question_id, issued.revision_number, question_attempt.question_seed,
+    SELECT issued.published_question_id, issued.revision_number, question_attempt.question_seed,
            question_attempt.generated_parameter_sha256,
            binding.presentation_nonce,
            encode(binding.presentation_checksum, 'hex'),
@@ -528,7 +528,7 @@ BEGIN
       ) AS response_item_bindings ON true
      WHERE issued.assessment_attempt_id = assessment_attempt_id_value
        AND issued.issued_position = p_issued_position
-     GROUP BY issued.question_id, issued.revision_number, question_attempt.question_seed,
+     GROUP BY issued.published_question_id, issued.revision_number, question_attempt.question_seed,
               question_attempt.generated_parameter_sha256,
               binding.presentation_nonce, binding.presentation_checksum, binding.presentation, binding.author_content,
               response_item_bindings.response_item_bindings;
@@ -537,7 +537,7 @@ END $$;
 CREATE FUNCTION ple_private.read_student_assessment_attempt_presentation_evidence_set(
     p_assessment_attempt_id uuid
 ) RETURNS TABLE (
-    assessment_entry_id uuid, issued_position integer, question_id text, revision_number integer,
+    assessment_entry_id uuid, issued_position integer, published_question_id text, revision_number integer,
     question_seed numeric, generated_parameter_sha256 text,
     presentation_nonce text, presentation_checksum text, presentation jsonb, author_content jsonb,
     question_asset_renditions jsonb, response_item_bindings jsonb
@@ -551,7 +551,7 @@ BEGIN
     SELECT count(*) INTO expected_count
      FROM ple_private.issued_question AS issued
       JOIN ple_private.question_revision_source_binding AS source
-        ON source.question_id = issued.question_id AND source.revision_number = issued.revision_number
+        ON source.published_question_id = issued.published_question_id AND source.revision_number = issued.revision_number
      WHERE issued.assessment_attempt_id = p_assessment_attempt_id
        AND source.backend IN ('ple', 'webwork');
     SELECT count(*) INTO assessment_attempt_count
@@ -559,7 +559,7 @@ BEGIN
       JOIN ple_private.question_attempt AS question_attempt
         ON question_attempt.issued_question_id = issued.issued_question_id
       JOIN ple_private.question_revision_source_binding AS source
-        ON source.question_id = issued.question_id AND source.revision_number = issued.revision_number
+        ON source.published_question_id = issued.published_question_id AND source.revision_number = issued.revision_number
      WHERE issued.assessment_attempt_id = p_assessment_attempt_id
        AND source.backend IN ('ple', 'webwork');
     SELECT count(*) INTO complete_count
@@ -567,7 +567,7 @@ BEGIN
       JOIN ple_private.question_attempt AS question_attempt
         ON question_attempt.issued_question_id = issued.issued_question_id
       JOIN ple_private.question_revision_source_binding AS source
-        ON source.question_id = issued.question_id AND source.revision_number = issued.revision_number
+        ON source.published_question_id = issued.published_question_id AND source.revision_number = issued.revision_number
       JOIN ple_private.question_attempt_presentation_binding AS binding
         ON binding.question_attempt_id = question_attempt.question_attempt_id
      WHERE issued.assessment_attempt_id = p_assessment_attempt_id
@@ -579,14 +579,14 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = 'Assessment Attempt presentation evidence is incomplete';
     END IF;
     RETURN QUERY
-    SELECT issued.assessment_entry_id, issued.issued_position, issued.question_id, issued.revision_number,
+    SELECT issued.assessment_entry_id, issued.issued_position, issued.published_question_id, issued.revision_number,
            question_attempt.question_seed, question_attempt.generated_parameter_sha256,
            binding.presentation_nonce, encode(binding.presentation_checksum, 'hex'), binding.presentation, binding.author_content,
            COALESCE(jsonb_agg(jsonb_build_object('asset_id', rendition.asset_id, 'question_asset_checksum', encode(rendition.question_asset_checksum, 'hex'), 'rendition_checksum', encode(rendition.rendition_checksum, 'hex'), 'intrinsic_width', rendition.intrinsic_width, 'intrinsic_height', rendition.intrinsic_height) ORDER BY rendition.asset_id) FILTER (WHERE rendition.asset_id IS NOT NULL), '[]'::jsonb)
            , COALESCE(response_item_bindings.response_item_bindings, '[]'::jsonb)
       FROM ple_private.issued_question AS issued
       JOIN ple_private.question_attempt AS question_attempt ON question_attempt.issued_question_id = issued.issued_question_id
-      JOIN ple_private.question_revision_source_binding AS source ON source.question_id = issued.question_id AND source.revision_number = issued.revision_number
+      JOIN ple_private.question_revision_source_binding AS source ON source.published_question_id = issued.published_question_id AND source.revision_number = issued.revision_number
       JOIN ple_private.question_attempt_presentation_binding AS binding ON binding.question_attempt_id = question_attempt.question_attempt_id
       LEFT JOIN ple_private.question_attempt_presentation_asset_rendition AS rendition ON rendition.question_attempt_id = question_attempt.question_attempt_id
       LEFT JOIN LATERAL (
@@ -599,7 +599,7 @@ BEGIN
       ) AS response_item_bindings ON true
      WHERE issued.assessment_attempt_id = p_assessment_attempt_id
        AND source.backend IN ('ple', 'webwork')
-     GROUP BY issued.assessment_entry_id, issued.issued_position, issued.question_id, issued.revision_number,
+     GROUP BY issued.assessment_entry_id, issued.issued_position, issued.published_question_id, issued.revision_number,
               question_attempt.question_seed, question_attempt.generated_parameter_sha256,
               binding.presentation_nonce, binding.presentation_checksum, binding.presentation, binding.author_content,
               response_item_bindings.response_item_bindings
@@ -618,10 +618,10 @@ CREATE FUNCTION ple_private.read_student_assessment_attempt_backend_document(
     issued_question_id uuid,
     assessment_entry_id uuid,
     issued_position integer,
-    question_id text,
+    published_question_id text,
     revision_number integer,
     question_seed numeric, generated_parameter_sha256 text,
-    source_object_id uuid,
+    source_object_record_id uuid,
     source_object_checksum text,
     webwork_pg_path text,
     student_response jsonb
@@ -644,10 +644,10 @@ BEGIN
            issued.issued_question_id,
            issued.assessment_entry_id,
            issued.issued_position,
-           issued.question_id,
+           issued.published_question_id,
            issued.revision_number,
            question_attempt.question_seed, question_attempt.generated_parameter_sha256,
-           question_attempt.source_object_id,
+           question_attempt.source_object_record_id,
            encode(question_attempt.source_object_checksum, 'hex'),
            source.webwork_pg_path,
            response.student_response
@@ -657,7 +657,7 @@ BEGIN
       JOIN ple_private.question_attempt_presentation_binding AS binding
         ON binding.question_attempt_id = question_attempt.question_attempt_id
       JOIN ple_private.question_revision_source_binding AS source
-        ON source.question_id = issued.question_id
+        ON source.published_question_id = issued.published_question_id
        AND source.revision_number = issued.revision_number
       LEFT JOIN ple_private.assessment_attempt_saved_response AS response
         ON response.question_attempt_id = question_attempt.question_attempt_id
@@ -665,7 +665,7 @@ BEGIN
        AND issued.issued_position = p_issued_position
        AND question_attempt.issued_capability = 'webwork_presentation'
        AND source.backend = 'webwork'
-       AND question_attempt.source_object_id IS NOT NULL
+       AND question_attempt.source_object_record_id IS NOT NULL
        AND question_attempt.source_object_checksum IS NOT NULL
        AND binding.backend_document IS NOT NULL
        AND char_length(btrim(binding.backend_document)) > 0;
@@ -677,17 +677,17 @@ CREATE FUNCTION ple_api.prepare_student_assessment_attempt_presentation(uuid)
 RETURNS TABLE (
     assessment_attempt_id uuid, issued_question_id uuid, issued_position integer,
     assessment_entry_id uuid, assessment_content_entry_index integer,
-    question_id text, revision_number integer, question_seed numeric,
+    published_question_id text, revision_number integer, question_seed numeric,
     generated_parameter_sha256 text, backend text,
-    issued_capability text, source_object_id uuid, source_object_address jsonb,
+    issued_capability text, source_object_record_id uuid, source_object_address jsonb,
     source_object_checksum text, webwork_pg_path text,
     question_attempt_id uuid, presentation_nonce text, presentation_checksum text,
     presentation jsonb, author_content jsonb, question_asset_renditions jsonb
 ) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$
     SELECT assessment_attempt_id, issued_question_id, issued_position + 1,
            assessment_entry_id, assessment_content_entry_index,
-           question_id, revision_number, question_seed, generated_parameter_sha256, backend,
-           issued_capability, source_object_id, source_object_address,
+           published_question_id, revision_number, question_seed, generated_parameter_sha256, backend,
+           issued_capability, source_object_record_id, source_object_address,
            source_object_checksum, webwork_pg_path,
            question_attempt_id, presentation_nonce, presentation_checksum,
            presentation, author_content, question_asset_renditions
@@ -706,21 +706,21 @@ $$;
 
 CREATE FUNCTION ple_api.read_student_assessment_attempt_presentation_evidence(bigint, integer)
 RETURNS TABLE (
-    question_id text, revision_number integer, question_seed numeric,
+    published_question_id text, revision_number integer, question_seed numeric,
     generated_parameter_sha256 text,
     presentation_nonce text, presentation_checksum text, presentation jsonb, author_content jsonb,
     question_asset_renditions jsonb, response_item_bindings jsonb
 ) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$
-    SELECT question_id, revision_number, question_seed, generated_parameter_sha256,
+    SELECT published_question_id, revision_number, question_seed, generated_parameter_sha256,
            presentation_nonce, presentation_checksum, presentation, author_content,
            question_asset_renditions, response_item_bindings
       FROM ple_private.read_student_assessment_attempt_presentation_evidence($1, $2 - 1)
 $$;
 
 CREATE FUNCTION ple_api.read_student_assessment_attempt_presentation_evidence_set(uuid)
-RETURNS TABLE (assessment_entry_id uuid, issued_position integer, question_id text, revision_number integer, question_seed numeric, generated_parameter_sha256 text, presentation_nonce text, presentation_checksum text, presentation jsonb, author_content jsonb, question_asset_renditions jsonb, response_item_bindings jsonb)
+RETURNS TABLE (assessment_entry_id uuid, issued_position integer, published_question_id text, revision_number integer, question_seed numeric, generated_parameter_sha256 text, presentation_nonce text, presentation_checksum text, presentation jsonb, author_content jsonb, question_asset_renditions jsonb, response_item_bindings jsonb)
 LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$
-    SELECT assessment_entry_id, issued_position + 1, question_id, revision_number, question_seed, generated_parameter_sha256, presentation_nonce, presentation_checksum, presentation, author_content, question_asset_renditions, response_item_bindings
+    SELECT assessment_entry_id, issued_position + 1, published_question_id, revision_number, question_seed, generated_parameter_sha256, presentation_nonce, presentation_checksum, presentation, author_content, question_asset_renditions, response_item_bindings
       FROM ple_private.read_student_assessment_attempt_presentation_evidence_set($1)
 $$;
 
@@ -730,17 +730,17 @@ RETURNS TABLE (
     issued_question_id uuid,
     assessment_entry_id uuid,
     issued_position integer,
-    question_id text,
+    published_question_id text,
     revision_number integer,
     question_seed numeric, generated_parameter_sha256 text,
-    source_object_id uuid,
+    source_object_record_id uuid,
     source_object_checksum text,
     webwork_pg_path text,
     student_response jsonb
 )
 LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$
     SELECT backend_document, issued_question_id, assessment_entry_id, issued_position + 1 AS issued_position,
-           question_id, revision_number, question_seed, generated_parameter_sha256, source_object_id,
+           published_question_id, revision_number, question_seed, generated_parameter_sha256, source_object_record_id,
            source_object_checksum, webwork_pg_path, student_response
       FROM ple_private.read_student_assessment_attempt_backend_document($1, $2 - 1)
 $$;

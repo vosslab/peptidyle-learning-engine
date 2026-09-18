@@ -24,9 +24,9 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
            assessment.assessment_status,
            assessment.assessment_edit_number
       FROM ple_data.course_instance AS course
-      JOIN ple_data.assessment AS assessment ON assessment.course_id = course.course_id
+      JOIN ple_data.assessment AS assessment ON assessment.course_instance_id = course.course_instance_id
      WHERE course.public_reference = p_course_reference_number
-       AND ple_api.current_session_account_is_course_instructor(course.course_id)
+       AND ple_api.current_session_account_is_course_instructor(course.course_instance_id)
      ORDER BY assessment.due_at NULLS LAST, assessment.reference_number
 $$;
 
@@ -50,10 +50,10 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
            assessment.assessment_status,
            floor(extract(epoch FROM assessment.due_at) * 1000)::bigint
       FROM ple_data.assessment AS assessment
-      JOIN ple_data.course_instance AS course ON course.course_id = assessment.course_id
+      JOIN ple_data.course_instance AS course ON course.course_instance_id = assessment.course_instance_id
      -- ASVS 8.2.2 and 8.3.1: derive every returned Course from the current
      -- session's server-side Instructor authority.
-     WHERE ple_api.current_session_account_is_course_instructor(course.course_id)
+     WHERE ple_api.current_session_account_is_course_instructor(course.course_instance_id)
        AND assessment.assessment_status IN ('unreleased', 'released')
        AND assessment.due_at >= pg_catalog.statement_timestamp()
        AND assessment.due_at < pg_catalog.statement_timestamp() + interval '7 days'
@@ -67,7 +67,7 @@ $$;
 -- publication cannot silently change a selected Question.
 CREATE FUNCTION ple_api.list_assessment_question_picker(p_course_reference_number text)
 RETURNS TABLE (
-    question_id text,
+    published_question_id text,
     question_revision_number integer,
     question_title text,
     question_description text,
@@ -77,7 +77,7 @@ RETURNS TABLE (
 )
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
-    SELECT lineage.question_id,
+    SELECT lineage.published_question_id,
            accepted.revision_number,
            metadata.question_title,
            metadata.question_description,
@@ -89,23 +89,23 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
       JOIN LATERAL (
           SELECT revision.revision_number
             FROM ple_data.question_revision_acceptance AS revision
-           WHERE revision.question_id = lineage.question_id
+           WHERE revision.published_question_id = lineage.published_question_id
            ORDER BY revision.revision_number DESC
            LIMIT 1
       ) AS accepted ON true
       JOIN ple_data.question_revision AS revision
-        ON revision.question_id = lineage.question_id
+        ON revision.published_question_id = lineage.published_question_id
        AND revision.revision_number = accepted.revision_number
       JOIN ple_data.published_question_metadata AS metadata
-        ON metadata.question_id = lineage.question_id
+        ON metadata.published_question_id = lineage.published_question_id
       JOIN LATERAL ple_private.question_library_entries(
-          lineage.question_id, accepted.revision_number, true
+          lineage.published_question_id, accepted.revision_number, true
       ) AS bloom ON true
      WHERE course.public_reference = p_course_reference_number
-       AND ple_api.current_session_account_is_course_instructor(course.course_id)
+       AND ple_api.current_session_account_is_course_instructor(course.course_instance_id)
        AND lineage.availability = 'available'
        AND ple_private.question_backend_is_supported_for_production(revision.backend)
-     ORDER BY metadata.question_title, lineage.question_id
+     ORDER BY metadata.question_title, lineage.published_question_id
 $$;
 
 
@@ -158,7 +158,7 @@ RETURNS TABLE (
     question_pool_public_id text,
     question_pool_revision_number bigint,
     member_position integer,
-    question_id text,
+    published_question_id text,
     question_revision_number integer,
     question_title text,
     question_description text,
@@ -211,7 +211,7 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
            pool.public_question_pool_id,
            entry.question_pool_revision_number,
            item.member_position,
-           COALESCE(item.question_id, entry.question_id),
+           COALESCE(item.published_question_id, entry.published_question_id),
            COALESCE(item.question_revision_number, entry.question_revision_number),
            metadata.question_title,
            metadata.question_description,
@@ -219,7 +219,7 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
            question_bloom.bloom_knowledge_dimension,
            question_bloom.bloom_classification_edit_number
       FROM ple_data.course_instance AS course
-      JOIN ple_data.assessment AS assessment ON assessment.course_id = course.course_id
+      JOIN ple_data.assessment AS assessment ON assessment.course_instance_id = course.course_instance_id
       LEFT JOIN ple_data.blueprint_course AS blueprint
         ON blueprint.reference_number = assessment.source_blueprint_course_reference_number
       -- ASVS 8.2.2 and 8.3.1: this Course-Instructor projection retains
@@ -231,15 +231,15 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
         ON item.question_pool_id = entry.question_pool_id
        AND item.revision_number = entry.question_pool_revision_number
       LEFT JOIN ple_data.published_question_metadata AS metadata
-        ON metadata.question_id = COALESCE(item.question_id, entry.question_id)
+        ON metadata.published_question_id = COALESCE(item.published_question_id, entry.published_question_id)
       LEFT JOIN LATERAL ple_private.question_library_entries(
-          COALESCE(item.question_id, entry.question_id, ''),
+          COALESCE(item.published_question_id, entry.published_question_id, ''),
           COALESCE(item.question_revision_number, entry.question_revision_number, 0),
           false
       ) AS question_bloom ON true
      WHERE course.public_reference = p_course_reference_number
        AND assessment.public_reference = p_assessment_reference_number
-       AND ple_api.current_session_account_is_course_instructor(course.course_id)
+       AND ple_api.current_session_account_is_course_instructor(course.course_instance_id)
      ORDER BY entry.authored_position NULLS LAST, item.member_position NULLS LAST
 $$;
 
@@ -257,10 +257,10 @@ BEGIN
     SELECT assessment.assessment_id, assessment.assessment_status
       INTO assessment_id_value, assessment_status_value
       FROM ple_data.course_instance AS course
-      JOIN ple_data.assessment AS assessment ON assessment.course_id = course.course_id
+      JOIN ple_data.assessment AS assessment ON assessment.course_instance_id = course.course_instance_id
      WHERE course.public_reference = p_course_reference_number
        AND assessment.public_reference = p_assessment_reference_number
-       AND ple_api.current_session_account_is_course_instructor(course.course_id);
+       AND ple_api.current_session_account_is_course_instructor(course.course_instance_id);
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable';
     END IF;
@@ -325,7 +325,7 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
         (SELECT course.reference_number FROM ple_data.course_instance AS course
           WHERE course.public_reference = p_course_reference_number),
         (SELECT assessment.reference_number FROM ple_data.course_instance AS course
-          JOIN ple_data.assessment ON assessment.course_id = course.course_id
+          JOIN ple_data.assessment ON assessment.course_instance_id = course.course_instance_id
          WHERE course.public_reference = p_course_reference_number
            AND assessment.public_reference = p_assessment_reference_number), p_expected_edit_number,
         p_values, p_entries
@@ -357,7 +357,7 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
         (SELECT course.reference_number FROM ple_data.course_instance AS course
           WHERE course.public_reference = p_course_reference_number),
         (SELECT assessment.reference_number FROM ple_data.course_instance AS course
-          JOIN ple_data.assessment ON assessment.course_id = course.course_id
+          JOIN ple_data.assessment ON assessment.course_instance_id = course.course_instance_id
          WHERE course.public_reference = p_course_reference_number
            AND assessment.public_reference = p_assessment_reference_number), p_expected_edit_number,
         p_title, p_due_at
@@ -380,7 +380,7 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
         (SELECT course.reference_number FROM ple_data.course_instance AS course
           WHERE course.public_reference = p_course_reference_number),
         (SELECT assessment.reference_number FROM ple_data.course_instance AS course
-          JOIN ple_data.assessment ON assessment.course_id = course.course_id
+          JOIN ple_data.assessment ON assessment.course_instance_id = course.course_instance_id
          WHERE course.public_reference = p_course_reference_number
            AND assessment.public_reference = p_assessment_reference_number),
         p_expected_edit_number, p_policies) AS result
@@ -406,7 +406,7 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
         (SELECT course.reference_number FROM ple_data.course_instance AS course
           WHERE course.public_reference = p_course_reference_number),
         (SELECT assessment.reference_number FROM ple_data.course_instance AS course
-          JOIN ple_data.assessment ON assessment.course_id = course.course_id
+          JOIN ple_data.assessment ON assessment.course_instance_id = course.course_instance_id
          WHERE course.public_reference = p_course_reference_number
            AND assessment.public_reference = p_assessment_reference_number),
         p_expected_edit_number

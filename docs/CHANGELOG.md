@@ -10,6 +10,30 @@
 
 ### Additions and New Features
 
+- M0 install census (disposable `postgres:17`, bootstrap through
+  `migration_principal_bootstrap_sql`, then `psql --single-transaction -f
+  install.sql` as `ple_migrator`): 146 tables / 281 FKs / 497 CHECKs / 282
+  indexes / 290 policies / 599 routines / 158 triggers, matching the
+  2026-09-17 audit. `content_vocabulary.sql` loaded. `live_demo.sql` still
+  requires publisher `psql` variables (`pilot_question_publications` and
+  Blueprint references) from `cargo tools installation-data apply`. CHECK
+  helpers live in `15_table_check_functions.sql`; default REFERENCES/EXECUTE
+  grants let later layers create cross-schema FKs and triggers. Gate log:
+  `{SCRATCH}/install_seed.log`.
+
+- M0 WP-0.1 to WP-0.3: moved `schemas/base_schema/` into the DATABASE_STYLE.md
+  layered layout with `git mv` for every mixed module that survived as one
+  destination (`00_roles.sql`, `10_types.sql`, `20_tables/<aggregate>.sql`,
+  `30_constraints.sql`, `40_indexes.sql`, `50_functions/<domain>.sql`,
+  `60_policies/` plus a short include manifest, `70_grants/` plus a short
+  include manifest). Every table has a `COMMENT ON TABLE` that begins with
+  `role:`. Policies and privileges are split by domain so no layer file
+  crosses the 999-line source budget. `rule_layout` now matches GRANT/REVOKE
+  as statement keywords, not substrings of `revoked_at`. Gate:
+  `source source_me.sh && ./schema_style/check_schema_style.py` exits 0 with
+  zero blocking findings (M1/M2 rules remain advisory). `provided_avatar_catalog.sql`
+  was inlined into `20_tables/profile_media.sql` and removed as a path.
+
 - Added `devel/generate_schema_tables_doc.py` (WP-0.4): reads the schema catalog
   through `schema_style.schema_catalog_lib` from `schemas/base_schema/` or
   `-d`/`--database`, and writes [SCHEMA_TABLES.md](SCHEMA_TABLES.md) plus
@@ -84,11 +108,13 @@
   `rule_17_role_tag` blocks once any table carries a role tag. `table count`
   stays blocking. Gate:
   `source source_me.sh && ./schema_style/check_schema_style.py`.
-- `schema_style/check_schema_style.py` prints one `rule_<id>` finding line per blocking
-  violation on stdout, then per-rule counts. `-q`/`--quiet` is summary-only. The full list
-  including advisory findings is always written to `output/schema_style_findings.txt`.
-  Flags are `-s`/`--source-dir`, `-j`/`--snapshot`, `-d`/`--database`, `-r`/`--report`,
-  and `-q`/`--quiet`.
+- `schema_style/check_schema_style.py` default stdout is per-rule counts only. `-v`/`--verbose`
+  prints one `rule_<id>` finding line per violation. The full list is always written to
+  `output/schema_style_findings.txt`. Flags are `-s`/`--source-dir`, `-j`/`--snapshot`,
+  `-d`/`--database`, `-r`/`--report`, and `-v`/`--verbose`.
+- Schema style default summaries are `count`, tab, `rule_##_title` with two-digit
+  numbers so they align and sort (` 17\trule_02_constant_columns` before
+  `166\trule_14_unindexed_fk`). Verbose finding lines use the same padded ids.
 
 - Question Pools are now current state with an Edit Number, not a Revision family. Student Work
   already pins the exact Published Question Revision served from a Pool, so a Pool Revision added
@@ -122,7 +148,13 @@
 
 ### Fixes and Maintenance
 
-- Settled the Question usage statistic in one dedicated Human Guidance section ("Question
+- Restored `schema_style` M1 rules as blocking (`rule_7_key_names`, `rule_4_types`,
+  `rule_2_constant_columns`, `rule_5_duplicate_literal_sets`, `rule_16_clock_present`).
+  Only `rule_14_unindexed_fk` and `rule_layout` (until `20_tables/` exists) are advisory.
+  Default CLI prints `rule_<id>` finding lines and exits 1. Current source: 529 findings
+  in 8 rules, `rule_7_key_names` 75 (audit 72 of 180).
+
+- Settled the Question usage statistic in one dedicated Human Guidance section ("Question"
   Library object usage statistics"), mirrored in `FERPA_DATA_POLICY.md` and `DATABASE_STYLE.md`: per Published
   Question Revision, counters for issued, blank, answered, correct, partial, and incorrect plus
   credit sum and sum of squares (mean and standard deviation for bulk sorting); every Attempt
@@ -183,6 +215,20 @@
 - The schema audit gained finding 2.9: 43 of 146 tables have no timestamp column, including the
   current-state `assessment_template` and the Student Work row `issued_question`; plan work
   package WP-1.7 adds the creation instant required by `DATABASE_STYLE.md`.
+
+### Developer Tests and Notes
+
+- WP-0.4/WP-0.5: `source source_me.sh && python3 devel/generate_schema_tables_doc.py`
+  exits 0 and writes [SCHEMA_TABLES.md](SCHEMA_TABLES.md) (24 `20_tables/` sections,
+  146 tables) and [../schemas/catalog_snapshot.json](../schemas/catalog_snapshot.json)
+  (146 tables, 282 indexes, 3 enums, all 146 tables tagged).
+  `python3 -m pyflakes devel/generate_schema_tables_doc.py schema_style/*.py` exits 0.
+  `source source_me.sh && ./schema_style/check_schema_style.py` exits 0 with
+  `529 findings in 8 rules`, all advisory: `rule_11_student_work_keys 15`,
+  `rule_14_unindexed_fk 166`, `rule_16_clock_present 44`, `rule_16_updated_clock 49`,
+  `rule_2_constant_columns 17`, `rule_4_types 104`,
+  `rule_5_duplicate_literal_sets 59`, `rule_7_key_names 75`. `rule_layout` is
+  blocking and clean. `--snapshot` on a missing path raises `FileNotFoundError`.
 
 ## 2026-09-17
 

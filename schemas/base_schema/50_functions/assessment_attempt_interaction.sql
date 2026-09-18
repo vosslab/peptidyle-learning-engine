@@ -15,7 +15,7 @@ BEGIN
        OR NEW.backend_version IS DISTINCT FROM OLD.backend_version
        OR NEW.renderer_name IS DISTINCT FROM OLD.renderer_name
        OR NEW.renderer_version IS DISTINCT FROM OLD.renderer_version
-       OR NEW.source_object_id IS DISTINCT FROM OLD.source_object_id
+       OR NEW.source_object_record_id IS DISTINCT FROM OLD.source_object_record_id
        OR NEW.source_object_checksum IS DISTINCT FROM OLD.source_object_checksum
        OR NEW.grader_name IS DISTINCT FROM OLD.grader_name
        OR NEW.grader_version IS DISTINCT FROM OLD.grader_version
@@ -41,7 +41,7 @@ BEGIN
      WHERE issued_question_id = NEW.issued_question_id;
     SELECT backend INTO source_backend
       FROM ple_private.question_revision_source_binding
-     WHERE question_id = issued.question_id
+     WHERE published_question_id = issued.published_question_id
        AND revision_number = issued.revision_number;
     IF NOT FOUND
        OR source_backend IS DISTINCT FROM NEW.backend_name

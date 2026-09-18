@@ -7,7 +7,9 @@ can audit table shape without opening a function body:
 
 - `00_roles.sql` -- cluster roles, schemas, default-deny ACLs
 - `10_types.sql` -- enums and domains
+- `15_table_check_functions.sql` -- functions used by table CHECK constraints
 - `20_tables/<aggregate>.sql` -- `CREATE TABLE` and `COMMENT ON` only
+- `22_reference_grants.sql` -- REFERENCES on existing tables for late FKs
 - `30_constraints.sql` -- late and circular foreign keys
 - `40_indexes.sql` -- explicit indexes
 - `50_functions/<domain>.sql` -- functions, triggers, and views

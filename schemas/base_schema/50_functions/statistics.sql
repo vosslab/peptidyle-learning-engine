@@ -7,7 +7,7 @@ SET LOCAL ROLE ple_data_owner;
 -- ASVS 15.4.2: the private receipt winner increments in the same transaction.
 -- Retained counts never depend on reconstructing deleted Student evidence.
 CREATE FUNCTION ple_data.increment_question_revision_statistics(
-    p_question_id text,
+    p_published_question_id text,
     p_revision_number integer,
     p_correct boolean,
     p_eligible_choice_ids text[],
@@ -16,10 +16,10 @@ CREATE FUNCTION ple_data.increment_question_revision_statistics(
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
 BEGIN
-    IF p_question_id IS NULL
-       OR p_question_id !~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
-       OR substr(p_question_id, 6, 1) <> ple_private.crockford_checksum_character(
-           substr(p_question_id, 1, 4) || substr(p_question_id, 7, 3)
+    IF p_published_question_id IS NULL
+       OR p_published_question_id !~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
+       OR substr(p_published_question_id, 6, 1) <> ple_private.crockford_checksum_character(
+           substr(p_published_question_id, 1, 4) || substr(p_published_question_id, 7, 3)
        )
        OR p_revision_number IS NULL OR p_revision_number <= 0
        OR p_correct IS NULL OR p_observed_at IS NULL
@@ -37,20 +37,20 @@ BEGIN
     END IF;
 
     INSERT INTO ple_data.question_revision_statistics AS retained (
-        question_id, revision_number, accepted_graded_attempt_count, correct_count, updated_at
-    ) VALUES (p_question_id, p_revision_number, 1, p_correct::integer, p_observed_at)
-    ON CONFLICT (question_id, revision_number) DO UPDATE
+        published_question_id, revision_number, accepted_graded_attempt_count, correct_count, updated_at
+    ) VALUES (p_published_question_id, p_revision_number, 1, p_correct::integer, p_observed_at)
+    ON CONFLICT (published_question_id, revision_number) DO UPDATE
         SET accepted_graded_attempt_count = retained.accepted_graded_attempt_count + 1,
             correct_count = retained.correct_count + EXCLUDED.correct_count,
             updated_at = greatest(retained.updated_at, EXCLUDED.updated_at);
 
     -- ASVS 15.4.3: parent first, then choices in consistent identity order.
     INSERT INTO ple_data.question_revision_choice_statistics AS retained (
-        question_id, revision_number, choice_id, selected_count
-    ) SELECT p_question_id, p_revision_number, choice.choice_id, 1
+        published_question_id, revision_number, choice_id, selected_count
+    ) SELECT p_published_question_id, p_revision_number, choice.choice_id, 1
         FROM unnest(p_eligible_choice_ids) AS choice(choice_id)
        ORDER BY choice.choice_id
-    ON CONFLICT (question_id, revision_number, choice_id) DO UPDATE
+    ON CONFLICT (published_question_id, revision_number, choice_id) DO UPDATE
         SET selected_count = retained.selected_count + 1;
 END
 $$;
@@ -89,7 +89,7 @@ BEGIN
             MESSAGE = 'Question Statistics Observation choices must be distinct nonempty IDs';
     END IF;
 
-    SELECT attempt.question_attempt_id, issued.question_id, issued.revision_number,
+    SELECT attempt.question_attempt_id, issued.published_question_id, issued.revision_number,
            result.normalized_credit = 1, receipt.committed_at
       INTO v_question_attempt_id, v_question_id, v_revision_number, v_correct, v_observed_at
       FROM ple_audit.automated_grading_receipt AS receipt
@@ -111,7 +111,7 @@ BEGIN
     END IF;
 
     INSERT INTO ple_private.question_statistics_observation_receipt (
-        automated_grading_receipt_id, question_attempt_id, question_id,
+        automated_grading_receipt_id, question_attempt_id, published_question_id,
         revision_number, correct, observed_at
     ) VALUES (
         p_automated_grading_receipt_id, v_question_attempt_id, v_question_id,

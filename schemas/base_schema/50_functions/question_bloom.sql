@@ -104,7 +104,7 @@ END
 $$;
 
 CREATE FUNCTION ple_private.attach_question_revision_bloom(
-    p_bloom_preparation_receipt_id uuid, p_question_id text,
+    p_bloom_preparation_receipt_id uuid, p_published_question_id text,
     p_revision_number integer, p_source_checksum text
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data, ple_private AS $$
@@ -115,10 +115,10 @@ BEGIN
         ple_private.question_revision_bloom_candidate_fingerprint(
             p_source_checksum));
     INSERT INTO ple_data.question_revision_bloom(
-        question_id, revision_number, cognitive_process, knowledge_dimension,
+        published_question_id, revision_number, cognitive_process, knowledge_dimension,
         classification_edit_number
     ) VALUES (
-        p_question_id, p_revision_number,
+        p_published_question_id, p_revision_number,
         bloom_pair.cognitive_process::ple_data.bloom_cognitive_process,
         bloom_pair.knowledge_dimension::ple_data.bloom_knowledge_dimension, 1
     );
@@ -185,7 +185,7 @@ $$;
 SET LOCAL ROLE ple_private_owner;
 
 CREATE FUNCTION ple_private.correct_question_revision_bloom(
-    p_question_id text, p_revision_number integer,
+    p_published_question_id text, p_revision_number integer,
     p_expected_classification_edit_number bigint,
     p_cognitive_process text, p_knowledge_dimension text
 ) RETURNS TABLE (cognitive_process text, knowledge_dimension text, classification_edit_number bigint)
@@ -201,9 +201,9 @@ BEGIN
     IF NOT ple_api.current_session_account_is_instructor() THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Bloom correction requires an active Instructor';
     END IF;
-    IF p_question_id IS NULL OR p_question_id !~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
-       OR substr(p_question_id, 6, 1) <> ple_private.crockford_checksum_character(
-           substr(p_question_id, 1, 4) || substr(p_question_id, 7, 3)
+    IF p_published_question_id IS NULL OR p_published_question_id !~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
+       OR substr(p_published_question_id, 6, 1) <> ple_private.crockford_checksum_character(
+           substr(p_published_question_id, 1, 4) || substr(p_published_question_id, 7, 3)
        )
        OR p_revision_number IS NULL OR p_revision_number <= 0
        OR p_expected_classification_edit_number IS NULL
@@ -214,12 +214,12 @@ BEGIN
     validated_cognitive_process := p_cognitive_process::ple_data.bloom_cognitive_process;
     validated_knowledge_dimension := p_knowledge_dimension::ple_data.bloom_knowledge_dimension;
     IF NOT EXISTS (SELECT 1 FROM ple_private.question_library_entries(
-        p_question_id, p_revision_number, false)) THEN
+        p_published_question_id, p_revision_number, false)) THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Bloom correction target is unavailable';
     END IF;
     -- ASVS 15.4.2: pair-level row lock and CAS serialize either-dimension edits.
     SELECT bloom.* INTO current_bloom FROM ple_data.question_revision_bloom AS bloom
-     WHERE bloom.question_id = p_question_id
+     WHERE bloom.published_question_id = p_published_question_id
        AND bloom.revision_number = p_revision_number FOR UPDATE;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Bloom correction target is unavailable';
@@ -234,7 +234,7 @@ BEGIN
            SET cognitive_process = validated_cognitive_process,
                knowledge_dimension = validated_knowledge_dimension,
                classification_edit_number = bloom.classification_edit_number + 1
-         WHERE bloom.question_id = p_question_id
+         WHERE bloom.published_question_id = p_published_question_id
            AND bloom.revision_number = p_revision_number
          RETURNING bloom.* INTO current_bloom;
     END IF;
@@ -246,14 +246,14 @@ $$;
 SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.correct_question_revision_bloom(
-    p_question_id text, p_revision_number integer,
+    p_published_question_id text, p_revision_number integer,
     p_expected_classification_edit_number bigint,
     p_cognitive_process text, p_knowledge_dimension text
 ) RETURNS TABLE (cognitive_process text, knowledge_dimension text, classification_edit_number bigint)
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private AS $$
     SELECT * FROM ple_private.correct_question_revision_bloom(
-        p_question_id, p_revision_number, p_expected_classification_edit_number,
+        p_published_question_id, p_revision_number, p_expected_classification_edit_number,
         p_cognitive_process, p_knowledge_dimension)
 $$;
 

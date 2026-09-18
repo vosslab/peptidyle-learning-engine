@@ -12,16 +12,16 @@ DECLARE course_row ple_data.course_instance%ROWTYPE; assessment_row ple_data.ass
 BEGIN
     SELECT * INTO course_row FROM ple_data.course_instance
      WHERE public_reference = p_course_reference
-       AND blueprint_course_reference_number = p_parent_reference
-       AND ple_api.current_session_account_is_course_instructor(course_id)
+       AND blueprint_course_id = p_parent_reference
+       AND ple_api.current_session_account_is_course_instructor(course_instance_id)
      FOR UPDATE;
     IF NOT FOUND THEN RETURN NULL; END IF;
     SELECT * INTO assessment_row FROM ple_data.assessment
-     WHERE course_id = course_row.course_id AND public_reference = p_assessment_reference
+     WHERE course_instance_id = course_row.course_instance_id AND public_reference = p_assessment_reference
        AND origin_kind = 'adopted'
        AND source_blueprint_course_reference_number = p_parent_reference
      FOR UPDATE;
-    IF NOT FOUND OR NOT ple_api.current_session_account_is_course_instructor(course_row.course_id)
+    IF NOT FOUND OR NOT ple_api.current_session_account_is_course_instructor(course_row.course_instance_id)
         THEN RETURN NULL; END IF;
     RETURN assessment_row;
 END
@@ -47,13 +47,13 @@ BEGIN
     SELECT blueprint.* INTO parent
       FROM ple_data.blueprint_course AS blueprint
       JOIN ple_data.course_instance AS course
-        ON course.blueprint_course_reference_number = blueprint.reference_number
-      JOIN ple_data.assessment AS assessment ON assessment.course_id = course.course_id
+        ON course.blueprint_course_id = blueprint.reference_number
+      JOIN ple_data.assessment AS assessment ON assessment.course_instance_id = course.course_instance_id
        AND assessment.source_blueprint_course_reference_number = blueprint.reference_number
      WHERE course.public_reference = p_course_reference
        AND assessment.public_reference = p_assessment_reference
        AND assessment.origin_kind = 'adopted'
-       AND ple_api.current_session_account_is_course_instructor(course.course_id)
+       AND ple_api.current_session_account_is_course_instructor(course.course_instance_id)
        AND ple_api.current_session_account_is_instructor()
        AND (blueprint.availability IN ('public', 'archived')
             OR blueprint.owner_account_id = ple_api.current_session_account_id())
@@ -64,7 +64,7 @@ BEGIN
     assessment_row := ple_data.lock_assessment_blueprint_update_destination(
         p_course_reference, p_assessment_reference, parent.reference_number);
     IF assessment_row.assessment_id IS NULL
-       OR NOT ple_api.current_session_account_is_course_instructor(assessment_row.course_id)
+       OR NOT ple_api.current_session_account_is_course_instructor(assessment_row.course_instance_id)
        OR NOT ple_api.current_session_account_is_instructor()
        OR NOT (parent.availability IN ('public', 'archived')
                OR parent.owner_account_id = ple_api.current_session_account_id()) THEN RETURN; END IF;
@@ -73,7 +73,7 @@ BEGIN
     source_assessment_reference := assessment_row.source_blueprint_assessment_reference;
     SELECT revision.content, revision.content_checksum INTO content, content_checksum
       FROM ple_data.blueprint_course_revision AS revision
-     WHERE revision.blueprint_course_reference_number = source_reference
+     WHERE revision.blueprint_course_id = source_reference
        AND revision.blueprint_revision_number = source_revision;
     SELECT member.value -> 'content' INTO source_assessment_content
       FROM jsonb_array_elements(content -> 'modules') AS module
@@ -106,7 +106,7 @@ BEGIN
         normalized := entry_json - 'assessmentEntryId' - 'authoredPosition'
             - 'forkQuestionPoolId' - 'forkPublicQuestionPoolId';
         IF entry_json ->> 'kind' = 'question_pool' THEN
-            SELECT jsonb_agg(jsonb_build_array(member.question_id, member.question_revision_number)
+            SELECT jsonb_agg(jsonb_build_array(member.published_question_id, member.question_revision_number)
                              ORDER BY member.member_position) INTO members
               FROM ple_data.question_pool AS pool
               JOIN ple_data.question_pool_revision_member AS member
@@ -147,7 +147,7 @@ SET search_path = pg_catalog, ple_data AS $$
                     'questionAttemptTimeLimitSeconds', entry.question_attempt_time_limit_seconds,
                     'questionAttemptGraceSeconds', entry.question_attempt_grace_seconds)
                 || CASE WHEN entry.entry_kind = 'fixed_question' THEN jsonb_build_object(
-                    'questionId', entry.question_id, 'revisionNumber', entry.question_revision_number,
+                    'questionId', entry.published_question_id, 'revisionNumber', entry.question_revision_number,
                     'pointsPossible', entry.points_possible::text)
                 ELSE jsonb_build_object('questionPoolId', pool.public_question_pool_id,
                     'questionPoolRevisionNumber', entry.question_pool_revision_number,
@@ -178,7 +178,7 @@ BEGIN
     END IF;
     SELECT * INTO course_row FROM ple_data.course_instance WHERE public_reference = p_course_reference;
     SELECT * INTO assessment_row FROM ple_data.assessment
-     WHERE course_id = course_row.course_id AND public_reference = p_assessment_reference;
+     WHERE course_instance_id = course_row.course_instance_id AND public_reference = p_assessment_reference;
     IF source.source_revision IS DISTINCT FROM p_expected_source_revision
        OR assessment_row.assessment_edit_number IS DISTINCT FROM p_expected_edit_number THEN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Blueprint update precondition is stale';
@@ -282,7 +282,7 @@ BEGIN
     IF NOT FOUND OR source.cannot_apply_reason IS NOT NULL THEN RETURN false; END IF;
     SELECT assessment.assessment_id INTO destination_id
       FROM ple_data.course_instance AS course
-      JOIN ple_data.assessment AS assessment ON assessment.course_id = course.course_id
+      JOIN ple_data.assessment AS assessment ON assessment.course_instance_id = course.course_instance_id
      WHERE course.public_reference = $1 AND assessment.public_reference = $2;
     RETURN ple_data.assessment_blueprint_update_equivalent(destination_id, p_values, p_entries);
 END
@@ -298,16 +298,16 @@ DECLARE course_row ple_data.course_instance%ROWTYPE;
 BEGIN
     SELECT * INTO course_row FROM ple_data.course_instance
      WHERE public_reference = p_course_reference AND source_kind = 'adopted'
-       AND blueprint_course_reference_number = p_parent_reference
-       AND ple_api.current_session_account_is_course_instructor(course_id)
+       AND blueprint_course_id = p_parent_reference
+       AND ple_api.current_session_account_is_course_instructor(course_instance_id)
      FOR UPDATE;
     IF NOT FOUND THEN RETURN NULL; END IF;
     -- ASVS 15.4.2-15.4.3: stable lock order protects the complete current
     -- adopted membership and each reusable aggregate during summary derivation.
     PERFORM assessment_id FROM ple_data.assessment
-     WHERE course_id = course_row.course_id AND origin_kind = 'adopted'
+     WHERE course_instance_id = course_row.course_instance_id AND origin_kind = 'adopted'
      ORDER BY assessment_id FOR UPDATE;
-    IF NOT ple_api.current_session_account_is_course_instructor(course_row.course_id)
+    IF NOT ple_api.current_session_account_is_course_instructor(course_row.course_instance_id)
         THEN RETURN NULL; END IF;
     RETURN course_row;
 END
@@ -336,9 +336,9 @@ BEGIN
     SELECT blueprint.* INTO parent
       FROM ple_data.blueprint_course AS blueprint
       JOIN ple_data.course_instance AS course
-        ON course.blueprint_course_reference_number = blueprint.reference_number
+        ON course.blueprint_course_id = blueprint.reference_number
      WHERE course.public_reference = p_course_reference AND course.source_kind = 'adopted'
-       AND ple_api.current_session_account_is_course_instructor(course.course_id)
+       AND ple_api.current_session_account_is_course_instructor(course.course_instance_id)
        AND ple_api.current_session_account_is_instructor()
        AND (blueprint.availability IN ('public', 'archived')
             OR blueprint.owner_account_id = ple_api.current_session_account_id())
@@ -346,8 +346,8 @@ BEGIN
     IF NOT FOUND THEN RETURN; END IF;
     course_row := ple_data.lock_course_blueprint_update_destination(
         p_course_reference, parent.reference_number);
-    IF course_row.course_id IS NULL
-       OR NOT ple_api.current_session_account_is_course_instructor(course_row.course_id)
+    IF course_row.course_instance_id IS NULL
+       OR NOT ple_api.current_session_account_is_course_instructor(course_row.course_instance_id)
        OR NOT ple_api.current_session_account_is_instructor()
        OR NOT (parent.availability IN ('public', 'archived')
                OR parent.owner_account_id = ple_api.current_session_account_id()) THEN RETURN; END IF;
@@ -356,7 +356,7 @@ BEGIN
     source_revision := parent.current_blueprint_revision_number;
     SELECT revision.content, revision.content_checksum INTO content, content_checksum
       FROM ple_data.blueprint_course_revision AS revision
-     WHERE revision.blueprint_course_reference_number = parent.reference_number
+     WHERE revision.blueprint_course_id = parent.reference_number
        AND revision.blueprint_revision_number = source_revision;
     IF p_members IS NOT NULL AND jsonb_typeof(p_members) IS DISTINCT FROM 'array' THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Blueprint update projections are invalid';
@@ -390,7 +390,7 @@ BEGIN
           SELECT value AS member FROM jsonb_array_elements(p_members)
            WHERE value ->> 'source' = destination.source_blueprint_assessment_reference::text
       ) AS projection ON true
-     WHERE destination.course_id = course_row.course_id AND destination.origin_kind = 'adopted';
+     WHERE destination.course_instance_id = course_row.course_instance_id AND destination.origin_kind = 'adopted';
     RETURN NEXT;
 END
 $$;

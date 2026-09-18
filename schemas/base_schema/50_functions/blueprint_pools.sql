@@ -21,7 +21,7 @@ BEGIN
         RETURN QUERY SELECT course.public_reference, receipt.blueprint_revision_number,
             receipt.metadata_etag, true, (extract(epoch FROM receipt.accepted_at)*1000)::bigint
             FROM ple_data.blueprint_course_create_receipt AS receipt JOIN ple_data.blueprint_course AS course
-            ON course.reference_number = receipt.blueprint_course_reference_number
+            ON course.reference_number = receipt.blueprint_course_id
             WHERE receipt.actor_account_id = ple_api.current_session_account_id() AND receipt.request_checksum = p_checksum;
     ELSE
         SELECT * INTO course_row FROM ple_data.blueprint_course WHERE blueprint_course.public_reference = p_reference FOR UPDATE;
@@ -32,7 +32,7 @@ BEGIN
         RETURN QUERY SELECT p_reference, receipt.resulting_blueprint_revision_number,
             course_row.metadata_etag, receipt.changed, (extract(epoch FROM receipt.accepted_at)*1000)::bigint
             FROM ple_data.blueprint_course_save_receipt AS receipt
-            WHERE receipt.blueprint_course_reference_number = course_row.reference_number
+            WHERE receipt.blueprint_course_id = course_row.reference_number
               AND receipt.actor_account_id = ple_api.current_session_account_id() AND receipt.request_checksum = p_checksum;
     END IF;
 END $$;
@@ -56,7 +56,7 @@ END $$;
 CREATE FUNCTION ple_api.blueprint_pool_members(
     p_reference text, p_assessment uuid, p_public_pool_id text, p_write boolean,
     p_expected_revision bigint DEFAULT NULL, p_expected_pool_revision bigint DEFAULT NULL
-) RETURNS TABLE (pool_revision bigint, question_id text, question_revision_number integer)
+) RETURNS TABLE (pool_revision bigint, published_question_id text, question_revision_number integer)
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
 DECLARE course_row ple_data.blueprint_course%ROWTYPE; content_value jsonb; pin_revision bigint;
@@ -75,7 +75,7 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Blueprint Revision precondition is stale';
     END IF;
     SELECT content INTO content_value FROM ple_data.blueprint_course_revision
-      WHERE blueprint_course_reference_number = course_row.reference_number
+      WHERE blueprint_course_id = course_row.reference_number
         AND blueprint_revision_number = course_row.current_blueprint_revision_number;
     SELECT (entry #>> '{question_pool_revision,revisionNumber}')::bigint INTO pin_revision
       FROM jsonb_array_elements(content_value -> 'modules') AS module,
@@ -86,7 +86,7 @@ BEGIN
     IF pin_revision IS NULL OR (p_write AND pin_revision IS DISTINCT FROM p_expected_pool_revision) THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Blueprint Assessment Pool membership is unavailable';
     END IF;
-    RETURN QUERY SELECT pin_revision, member.question_id, member.question_revision_number
+    RETURN QUERY SELECT pin_revision, member.published_question_id, member.question_revision_number
       FROM ple_data.question_pool AS pool
       JOIN ple_data.question_pool_revision_member AS member USING (question_pool_id)
       WHERE pool.public_question_pool_id = p_public_pool_id AND member.revision_number = pin_revision
@@ -117,7 +117,7 @@ DECLARE assessment_value jsonb; entry_value jsonb; prior_content jsonb; pool_row
     prior_pin bigint; next_pin bigint; used_ids text[] := ARRAY[]::text[]; public_id text;
 BEGIN
     SELECT content INTO prior_content FROM ple_data.blueprint_course_revision
-        WHERE blueprint_course_reference_number = NEW.blueprint_course_reference_number
+        WHERE blueprint_course_id = NEW.blueprint_course_id
           AND blueprint_revision_number < NEW.blueprint_revision_number
         ORDER BY blueprint_revision_number DESC LIMIT 1;
     FOR assessment_value IN SELECT assessment FROM jsonb_array_elements(NEW.content -> 'modules') AS module,

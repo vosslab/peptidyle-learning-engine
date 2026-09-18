@@ -7,11 +7,11 @@ RETURNS trigger LANGUAGE plpgsql
 SET search_path = pg_catalog, ple_private AS $$
 BEGIN
     IF ROW(
-        NEW.job_id, NEW.job_kind, NEW.job_target_kind, NEW.question_id,
+        NEW.job_id, NEW.job_kind, NEW.job_target_kind, NEW.published_question_id,
         NEW.revision_number, NEW.worker_kind,
         NEW.payload, NEW.max_attempts, NEW.created_at
     ) IS DISTINCT FROM ROW(
-        OLD.job_id, OLD.job_kind, OLD.job_target_kind, OLD.question_id,
+        OLD.job_id, OLD.job_kind, OLD.job_target_kind, OLD.published_question_id,
         OLD.revision_number, OLD.worker_kind,
         OLD.payload, OLD.max_attempts, OLD.created_at
     ) THEN
@@ -70,7 +70,7 @@ FOR EACH ROW EXECUTE FUNCTION ple_private.notify_job_ready();
 
 CREATE FUNCTION ple_private.enqueue_public_asset_publication(
     p_job_id uuid,
-    p_question_id text,
+    p_published_question_id text,
     p_revision_number integer,
     p_payload jsonb,
     p_available_at timestamptz,
@@ -79,7 +79,7 @@ CREATE FUNCTION ple_private.enqueue_public_asset_publication(
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data, ple_private AS $$
 BEGIN
-    IF p_job_id IS NULL OR p_question_id IS NULL OR p_revision_number IS NULL
+    IF p_job_id IS NULL OR p_published_question_id IS NULL OR p_revision_number IS NULL
        OR jsonb_typeof(p_payload) <> 'object'
        OR p_available_at IS NULL OR p_created_at IS NULL
        OR p_max_attempts NOT BETWEEN 1 AND 20 THEN
@@ -88,7 +88,7 @@ BEGIN
     END IF;
     IF NOT EXISTS (
         SELECT 1 FROM ple_data.question_revision
-         WHERE question_id = p_question_id AND revision_number = p_revision_number
+         WHERE published_question_id = p_published_question_id AND revision_number = p_revision_number
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Public Asset Publication Job requires an exact Question Revision';
@@ -99,7 +99,7 @@ BEGIN
              WHERE job.job_id = p_job_id
                AND job.job_kind = 'publish_public_assets'
                AND job.job_target_kind = 'public_asset_publication'
-               AND job.question_id = p_question_id
+               AND job.published_question_id = p_published_question_id
                AND job.revision_number = p_revision_number
                AND job.worker_kind = 'public_asset_publisher'
                AND job.payload = p_payload
@@ -114,11 +114,11 @@ BEGIN
     END IF;
 
     INSERT INTO ple_private.job (
-        job_id, job_kind, job_target_kind, question_id, revision_number, worker_kind,
+        job_id, job_kind, job_target_kind, published_question_id, revision_number, worker_kind,
         payload, available_at, max_attempts, created_at
     ) VALUES (
         p_job_id, 'publish_public_assets', 'public_asset_publication',
-        p_question_id, p_revision_number, 'public_asset_publisher',
+        p_published_question_id, p_revision_number, 'public_asset_publisher',
         p_payload, p_available_at, p_max_attempts, p_created_at
     );
 END $$;
