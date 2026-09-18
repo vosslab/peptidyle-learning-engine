@@ -20,15 +20,10 @@ COMMENT ON TABLE ple_data.course_theme IS
 
 -- Current Course Instance truth and immutable source history.
 CREATE TABLE ple_data.course_instance (
-    course_instance_id uuid PRIMARY KEY,
-    reference_number bigint GENERATED ALWAYS AS IDENTITY UNIQUE
-        CHECK (reference_number BETWEEN 1 AND 2147483647),
-    public_reference text NOT NULL UNIQUE CHECK (
-        ple_private.is_canonical_prefixed_public_id(public_reference, 'CI')
-    ),
+    course_instance_id ple_data.course_instance_id PRIMARY KEY,
     source_kind ple_data.course_source_kind NOT NULL,
-    blueprint_course_id bigint,
-    blueprint_revision_number bigint CHECK (blueprint_revision_number > 0),
+    blueprint_course_id ple_data.blueprint_course_id,
+    blueprint_revision_number integer CHECK (blueprint_revision_number > 0),
     course_short_name text NOT NULL CHECK (
         course_short_name = btrim(course_short_name)
         AND char_length(course_short_name) BETWEEN 1 AND 200
@@ -124,11 +119,11 @@ CREATE TABLE ple_data.course_instance (
 
 CREATE TABLE ple_data.course_origin (
     course_origin_id uuid PRIMARY KEY,
-    course_instance_id uuid NOT NULL UNIQUE REFERENCES ple_data.course_instance (course_instance_id),
+    course_instance_id ple_data.course_instance_id NOT NULL UNIQUE REFERENCES ple_data.course_instance (course_instance_id),
     source_kind ple_data.course_source_kind NOT NULL,
-    blueprint_course_id bigint,
-    blueprint_revision_number bigint CHECK (blueprint_revision_number > 0),
-    source_course_instance_id uuid REFERENCES ple_data.course_instance (course_instance_id),
+    blueprint_course_id ple_data.blueprint_course_id,
+    blueprint_revision_number integer CHECK (blueprint_revision_number > 0),
+    source_course_instance_id ple_data.course_instance_id REFERENCES ple_data.course_instance (course_instance_id),
     created_at timestamp with time zone NOT NULL,
     CHECK (
         (source_kind = 'empty'
@@ -150,13 +145,12 @@ SET LOCAL ROLE ple_audit_owner;
 
 CREATE TABLE ple_audit.course_instance_creation_event (
     course_instance_creation_event_id uuid PRIMARY KEY,
-    course_instance_id uuid NOT NULL UNIQUE REFERENCES ple_data.course_instance (course_instance_id),
-    course_reference_number bigint NOT NULL UNIQUE,
+    course_instance_id ple_data.course_instance_id NOT NULL UNIQUE REFERENCES ple_data.course_instance (course_instance_id),
     source_kind ple_data.course_source_kind NOT NULL,
-    blueprint_course_id bigint,
-    blueprint_revision_number bigint CHECK (blueprint_revision_number > 0),
-    assigned_instructor_account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
-    created_by_account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
+    blueprint_course_id ple_data.blueprint_course_id,
+    blueprint_revision_number integer CHECK (blueprint_revision_number > 0),
+    assigned_instructor_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account (account_id),
+    created_by_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account (account_id),
     occurred_at timestamp with time zone NOT NULL,
     CHECK (
         (source_kind = 'empty'
@@ -178,9 +172,10 @@ SET LOCAL ROLE ple_data_owner;
 -- A Course Instance remains unchanged and never acquires a parent Blueprint
 -- when its reusable structure is copied into a new lineage.
 CREATE TABLE ple_data.blueprint_course_instance_source (
-    blueprint_course_id bigint PRIMARY KEY
-        REFERENCES ple_data.blueprint_course (reference_number),
-    source_course_instance_id uuid NOT NULL REFERENCES ple_data.course_instance (course_instance_id),
+    blueprint_course_instance_source_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    blueprint_course_id ple_data.blueprint_course_id NOT NULL UNIQUE
+        REFERENCES ple_data.blueprint_course (blueprint_course_id),
+    source_course_instance_id ple_data.course_instance_id NOT NULL REFERENCES ple_data.course_instance (course_instance_id),
     recorded_at timestamp with time zone NOT NULL,
     updated_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
 );
@@ -196,3 +191,23 @@ SET LOCAL ROLE ple_audit_owner;
 
 SET LOCAL ROLE ple_audit_owner;
 COMMENT ON TABLE ple_audit.course_instance_creation_event IS 'role: event, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course Instances.';
+
+SET LOCAL ROLE ple_data_owner;
+COMMENT ON COLUMN ple_data.course_instance.course_instance_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.course_instance.blueprint_course_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.course_instance.blueprint_revision_number IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.course_instance.content_subject_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.course_instance.content_topic_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.course_instance.content_subtopic_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.course_instance.course_became_inactive_at IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.course_instance.latest_assessment_due_at IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.course_instance.student_data_archived_at IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.course_instance.student_data_deleted_at IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.course_instance.purged_students_ever_enrolled IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.course_origin.blueprint_course_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.course_origin.blueprint_revision_number IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.course_origin.source_course_instance_id IS 'NULL means this optional fact is absent.';
+SET LOCAL ROLE ple_audit_owner;
+COMMENT ON COLUMN ple_audit.course_instance_creation_event.blueprint_course_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_audit.course_instance_creation_event.blueprint_revision_number IS 'NULL means this optional fact is absent.';
+

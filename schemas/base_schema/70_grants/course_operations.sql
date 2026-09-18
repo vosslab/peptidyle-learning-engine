@@ -10,9 +10,9 @@ REVOKE ALL ON FUNCTION ple_api.update_course_classification(text, uuid, uuid, uu
 
 GRANT EXECUTE ON FUNCTION ple_api.update_course_classification(text, uuid, uuid, uuid, uuid, uuid, text[]) TO ple_app;
 
-REVOKE ALL ON FUNCTION ple_api.read_course_theme(uuid), ple_api.update_course_theme(uuid, text),
-    ple_api.resolve_course_navigation(text), ple_api.read_course_summary(uuid),
-    ple_api.create_course_instance(uuid, uuid, uuid, uuid, text, text, bigint, text, text, date, date, text, jsonb, uuid, uuid, uuid, uuid, text[]),
+REVOKE ALL ON FUNCTION ple_api.read_course_theme(text), ple_api.update_course_theme(text, text),
+    ple_api.resolve_course_navigation(text), ple_api.read_course_summary(text),
+    ple_api.create_course_instance(text, uuid, uuid, uuid, text, text, bigint, text, text, date, date, text, jsonb, uuid, uuid, uuid, uuid, text[]),
     ple_api.add_course_instructor(uuid, text, text),
     ple_api.list_course_instances(), ple_api.load_course_instance(text),
     ple_api.list_course_creation_instructors(), ple_api.list_course_roster(text),
@@ -25,9 +25,9 @@ REVOKE ALL ON FUNCTION ple_api.read_course_theme(uuid), ple_api.update_course_th
     ple_api.claim_course_invitation(uuid, uuid, uuid, text),
     ple_api.revoke_course_roster_entry(uuid, text, text) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_api.read_course_theme(uuid), ple_api.update_course_theme(uuid, text),
-    ple_api.resolve_course_navigation(text), ple_api.read_course_summary(uuid),
-    ple_api.create_course_instance(uuid, uuid, uuid, uuid, text, text, bigint, text, text, date, date, text, jsonb, uuid, uuid, uuid, uuid, text[]),
+GRANT EXECUTE ON FUNCTION ple_api.read_course_theme(text), ple_api.update_course_theme(text, text),
+    ple_api.resolve_course_navigation(text), ple_api.read_course_summary(text),
+    ple_api.create_course_instance(text, uuid, uuid, uuid, text, text, bigint, text, text, date, date, text, jsonb, uuid, uuid, uuid, uuid, text[]),
     ple_api.add_course_instructor(uuid, text, text),
     ple_api.list_course_instances(), ple_api.load_course_instance(text),
     ple_api.list_course_creation_instructors(), ple_api.list_course_roster(text),

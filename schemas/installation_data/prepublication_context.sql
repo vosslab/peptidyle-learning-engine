@@ -1,86 +1,143 @@
 -- Fixed fictional identities plus the temporary ordinary Instructor context
 -- used by the Pilot publisher.  The caller supplies only a new opaque session
 -- hash and UUID; browser credentials never enter this manifest.
+-- Account primary keys are server-minted public IDs. Email is the stable
+-- seed lookup.
 
 SET LOCAL ROLE ple_private_owner;
 
--- Short-circuit existing roots before INSERT. The Account public-ID trigger
--- reserves an ID before conflict handling, so `ON CONFLICT DO NOTHING` would
--- leave an unused reservation on every replay.
-INSERT INTO ple_private.account (account_id, product_role, created_at)
-SELECT seed.account_id, seed.product_role, clock_timestamp()
-  FROM (VALUES
-      ('00000000-0000-0000-0000-000000000101'::uuid, 'instructor'::text),
-      ('00000000-0000-0000-0000-000000000102'::uuid, 'student'::text),
-      ('00000000-0000-0000-0000-000000000103'::uuid, 'student'::text),
-      ('00000000-0000-0000-0000-000000000104'::uuid, 'student'::text),
-      ('00000000-0000-0000-0000-000000000105'::uuid, 'sysadmin'::text),
-      ('00000000-0000-0000-0000-000000000107'::uuid, 'instructor'::text)
-  ) AS seed(account_id, product_role)
- WHERE NOT EXISTS (
-     SELECT 1 FROM ple_private.account AS existing
-      WHERE existing.account_id = seed.account_id
- );
-
-INSERT INTO ple_private.account_authentication_email (
-    account_id, normalized_email, delivery_email, verified_at, updated_at
-) VALUES
-    ('00000000-0000-0000-0000-000000000101', 'elena.martinez@live-demo.invalid', 'elena.martinez@live-demo.invalid', clock_timestamp(), clock_timestamp()),
-    ('00000000-0000-0000-0000-000000000102', 'mary.okafor@biology.roosevelt.edu', 'mary.okafor@biology.roosevelt.edu', clock_timestamp(), clock_timestamp()),
-    ('00000000-0000-0000-0000-000000000103', 'jack.nguyen@biology.roosevelt.edu', 'jack.nguyen@biology.roosevelt.edu', clock_timestamp(), clock_timestamp()),
-    ('00000000-0000-0000-0000-000000000104', 'avery.thompson@biology.roosevelt.edu', 'avery.thompson@biology.roosevelt.edu', clock_timestamp(), clock_timestamp()),
-    ('00000000-0000-0000-0000-000000000107', 'priya.shah@live-demo.invalid', 'priya.shah@live-demo.invalid', clock_timestamp(), clock_timestamp())
-ON CONFLICT (account_id) DO NOTHING;
-
--- The canonical Instructor is represented by the same immutable vetting and
--- creation facts as an ordinary Sysadmin-created Instructor.  This is not an
--- Account/Profile display name; later Star projections may use it only through
--- their dedicated authorization procedure.
 DO $$
-DECLARE decision uuid;
+DECLARE
+    elena ple_data.account_id;
+    mary ple_data.account_id;
+    jack ple_data.account_id;
+    avery ple_data.account_id;
+    sysadmin_id ple_data.account_id;
+    priya ple_data.account_id;
+    decision uuid;
+    placeholder constant text := 'U00000009';
 BEGIN
+    SELECT email.account_id INTO elena
+      FROM ple_private.account_authentication_email AS email
+     WHERE email.normalized_email = 'elena.martinez@live-demo.invalid';
+    IF elena IS NULL THEN
+        INSERT INTO ple_private.account (account_id, product_role, created_at)
+        VALUES (placeholder, 'instructor', clock_timestamp())
+        RETURNING account_id INTO elena;
+        INSERT INTO ple_private.account_authentication_email (
+            account_id, normalized_email, delivery_email, verified_at, updated_at
+        ) VALUES (
+            elena, 'elena.martinez@live-demo.invalid',
+            'elena.martinez@live-demo.invalid', clock_timestamp(), clock_timestamp()
+        );
+    END IF;
+
+    SELECT email.account_id INTO mary
+      FROM ple_private.account_authentication_email AS email
+     WHERE email.normalized_email = 'mary.okafor@biology.roosevelt.edu';
+    IF mary IS NULL THEN
+        INSERT INTO ple_private.account (account_id, product_role, created_at)
+        VALUES (placeholder, 'student', clock_timestamp())
+        RETURNING account_id INTO mary;
+        INSERT INTO ple_private.account_authentication_email (
+            account_id, normalized_email, delivery_email, verified_at, updated_at
+        ) VALUES (
+            mary, 'mary.okafor@biology.roosevelt.edu',
+            'mary.okafor@biology.roosevelt.edu', clock_timestamp(), clock_timestamp()
+        );
+    END IF;
+
+    SELECT email.account_id INTO jack
+      FROM ple_private.account_authentication_email AS email
+     WHERE email.normalized_email = 'jack.nguyen@biology.roosevelt.edu';
+    IF jack IS NULL THEN
+        INSERT INTO ple_private.account (account_id, product_role, created_at)
+        VALUES (placeholder, 'student', clock_timestamp())
+        RETURNING account_id INTO jack;
+        INSERT INTO ple_private.account_authentication_email (
+            account_id, normalized_email, delivery_email, verified_at, updated_at
+        ) VALUES (
+            jack, 'jack.nguyen@biology.roosevelt.edu',
+            'jack.nguyen@biology.roosevelt.edu', clock_timestamp(), clock_timestamp()
+        );
+    END IF;
+
+    SELECT email.account_id INTO avery
+      FROM ple_private.account_authentication_email AS email
+     WHERE email.normalized_email = 'avery.thompson@biology.roosevelt.edu';
+    IF avery IS NULL THEN
+        INSERT INTO ple_private.account (account_id, product_role, created_at)
+        VALUES (placeholder, 'student', clock_timestamp())
+        RETURNING account_id INTO avery;
+        INSERT INTO ple_private.account_authentication_email (
+            account_id, normalized_email, delivery_email, verified_at, updated_at
+        ) VALUES (
+            avery, 'avery.thompson@biology.roosevelt.edu',
+            'avery.thompson@biology.roosevelt.edu', clock_timestamp(), clock_timestamp()
+        );
+    END IF;
+
+    SELECT account.account_id INTO sysadmin_id
+      FROM ple_private.account AS account
+     WHERE account.product_role = 'sysadmin'
+     ORDER BY account.created_at, account.account_id
+     LIMIT 1;
+    IF sysadmin_id IS NULL THEN
+        INSERT INTO ple_private.account (account_id, product_role, created_at)
+        VALUES (placeholder, 'sysadmin', clock_timestamp())
+        RETURNING account_id INTO sysadmin_id;
+    END IF;
+
+    SELECT email.account_id INTO priya
+      FROM ple_private.account_authentication_email AS email
+     WHERE email.normalized_email = 'priya.shah@live-demo.invalid';
+    IF priya IS NULL THEN
+        INSERT INTO ple_private.account (account_id, product_role, created_at)
+        VALUES (placeholder, 'instructor', clock_timestamp())
+        RETURNING account_id INTO priya;
+        INSERT INTO ple_private.account_authentication_email (
+            account_id, normalized_email, delivery_email, verified_at, updated_at
+        ) VALUES (
+            priya, 'priya.shah@live-demo.invalid',
+            'priya.shah@live-demo.invalid', clock_timestamp(), clock_timestamp()
+        );
+    END IF;
+
     SELECT ple_audit.record_completed_instructor_identity_vetting_decision(
-        'elena.martinez@live-demo.invalid', 'Elena Martinez',
-        '00000000-0000-0000-0000-000000000105'::uuid
+        'elena.martinez@live-demo.invalid', 'Elena Martinez', sysadmin_id
     ) INTO decision;
     PERFORM ple_audit.record_instructor_account_creation_event(
-        '00000000-0000-0000-0000-000000000101'::uuid,
-        '00000000-0000-0000-0000-000000000105'::uuid, decision
+        elena, sysadmin_id, decision
     );
-    -- ASVS 8.3.1: Priya receives ordinary immutable vetting/creation evidence,
-    -- not a selector-only role or academic authority grant.
     SELECT ple_audit.record_completed_instructor_identity_vetting_decision(
-        'priya.shah@live-demo.invalid', 'Priya Shah',
-        '00000000-0000-0000-0000-000000000105'::uuid
+        'priya.shah@live-demo.invalid', 'Priya Shah', sysadmin_id
     ) INTO decision;
     PERFORM ple_audit.record_instructor_account_creation_event(
-        '00000000-0000-0000-0000-000000000107'::uuid,
-        '00000000-0000-0000-0000-000000000105'::uuid, decision
+        priya, sysadmin_id, decision
     );
+
+    INSERT INTO ple_private.authoring_workspace (
+        authoring_workspace_id, owner_account_id, created_at
+    ) VALUES (
+        '00000000-0000-0000-0000-000000000201', elena, clock_timestamp()
+    ) ON CONFLICT (authoring_workspace_id) DO NOTHING;
+
+    INSERT INTO ple_private.authoring_workspace (
+        authoring_workspace_id, owner_account_id, created_at
+    ) VALUES (
+        '00000000-0000-0000-0000-000000000206', priya, clock_timestamp()
+    ) ON CONFLICT (authoring_workspace_id) DO NOTHING;
 END
 $$;
 
--- This is Elena's ordinary private workspace.  It remains ordinary product
--- state after the temporary publication session expires.
-INSERT INTO ple_private.authoring_workspace (authoring_workspace_id, owner_account_id, created_at)
-VALUES ('00000000-0000-0000-0000-000000000201',
-        '00000000-0000-0000-0000-000000000101', clock_timestamp())
-ON CONFLICT (authoring_workspace_id) DO NOTHING;
-
-INSERT INTO ple_private.authoring_workspace (authoring_workspace_id, owner_account_id, created_at)
-VALUES ('00000000-0000-0000-0000-000000000206',
-        '00000000-0000-0000-0000-000000000107', clock_timestamp())
-ON CONFLICT (authoring_workspace_id) DO NOTHING;
-
--- A new session is supplied on every publisher invocation.  Use the ordinary
--- session boundary so it validates the active Account and derives its Product
--- Role from the Account.  The coordinator generates a fresh opaque session
--- identity for each invocation; a collision is rejected rather than changing
--- an established session.
 SELECT session_id
   FROM ple_private.create_authenticated_session(
       :'pilot_publication_session_id'::uuid,
-      '00000000-0000-0000-0000-000000000101'::uuid,
+      (
+          SELECT email.account_id
+            FROM ple_private.account_authentication_email AS email
+           WHERE email.normalized_email = 'elena.martinez@live-demo.invalid'
+      ),
       decode(:'pilot_publication_session_token_hash', 'hex'),
       900
   );

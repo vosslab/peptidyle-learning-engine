@@ -10,7 +10,7 @@ SET LOCAL ROLE ple_data_owner;
 -- ASVS 8.3.1: trusted callers authorize the Assessment before using this
 -- owner-only lookup; ple_app cannot execute it. A fixed owner also prevents
 -- a nested cached SQL call from retaining an earlier caller's RLS policy.
-CREATE FUNCTION ple_data.assessment_delivered_question_count(p_assessment_id uuid)
+CREATE FUNCTION ple_data.assessment_delivered_question_count(p_assessment_id text)
 RETURNS bigint LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
     SELECT COALESCE(sum(CASE entry_kind
@@ -23,7 +23,7 @@ $$;
 
 -- ASVS 2.2.1, 2.2.2, 2.3.2: one read/start authority resolves the finite base.
 -- Empty drafts have no duration yet; valid starts must have 1..250 Questions.
-CREATE FUNCTION ple_data.assessment_effective_base_duration_seconds(p_assessment_id uuid)
+CREATE FUNCTION ple_data.assessment_effective_base_duration_seconds(p_assessment_id text)
 RETURNS integer LANGUAGE plpgsql STABLE
 SET search_path = pg_catalog, ple_data AS $$
 DECLARE authored_seconds integer;
@@ -45,7 +45,7 @@ END $$;
 -- interactive projection can explain and correct them; released state always
 -- passes the thin hard gate below.
 CREATE FUNCTION ple_data.assessment_release_issues(
-    p_assessment_id uuid,
+    p_assessment_id text,
     p_evaluated_at timestamptz,
     p_require_rolling_24_hours boolean
 ) RETURNS TABLE (issue text)
@@ -115,7 +115,7 @@ END
 $$;
 
 CREATE FUNCTION ple_data.validate_assessment_release(
-    p_assessment_id uuid,
+    p_assessment_id text,
     p_evaluated_at timestamptz,
     p_require_rolling_24_hours boolean
 ) RETURNS void LANGUAGE plpgsql STABLE

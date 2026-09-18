@@ -8,7 +8,7 @@ SET LOCAL ROLE ple_data_owner;
 CREATE TABLE ple_data.question_asset_delivery (
     object_delivery_id uuid PRIMARY KEY,
     object_record_id uuid NOT NULL,
-    published_question_id text NOT NULL,
+    published_question_id ple_data.question_family_id NOT NULL,
     revision_number integer NOT NULL CHECK (revision_number > 0),
     asset_id uuid NOT NULL,
     FOREIGN KEY (object_delivery_id, object_record_id) REFERENCES ple_data.object_delivery (object_delivery_id, object_record_id),
@@ -22,7 +22,7 @@ CREATE TABLE ple_data.question_asset_delivery (
 SET LOCAL ROLE ple_private_owner;
 
 CREATE TABLE ple_private.question_asset_publication (
-    published_question_id text NOT NULL,
+    published_question_id ple_data.question_family_id NOT NULL,
     revision_number integer NOT NULL CHECK (revision_number > 0),
     asset_id uuid NOT NULL,
     source_object_record_id uuid NOT NULL REFERENCES ple_private.object_record,

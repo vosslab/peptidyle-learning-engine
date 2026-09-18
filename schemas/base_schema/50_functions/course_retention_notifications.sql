@@ -32,11 +32,6 @@ BEGIN
           FROM ple_data.course_retention_due_actions(p_evaluated_at) AS action
          WHERE action.due_action IN ('warn_inactive', 'notify_archive')
     ), recipient AS (
-        SELECT due.course_instance_id, due.action_kind, due.due_at,
-               course.assigned_instructor_account_id AS account_id
-          FROM due
-          JOIN ple_data.course_instance AS course ON course.course_instance_id = due.course_instance_id
-        UNION
         SELECT due.course_instance_id, due.action_kind, due.due_at, membership.account_id
           FROM due
           JOIN ple_data.course_membership AS membership
@@ -96,20 +91,12 @@ BEGIN
            )
            AND EXISTS (
                SELECT 1
-                 FROM ple_data.course_instance AS course
-                WHERE course.course_instance_id = receipt.course_instance_id
-                  AND (
-                      course.assigned_instructor_account_id = receipt.recipient_account_id
-                      OR EXISTS (
-                          SELECT 1
-                            FROM ple_data.course_membership AS membership
-                           WHERE membership.course_instance_id = receipt.course_instance_id
-                             AND membership.account_id = receipt.recipient_account_id
-                             AND membership.role = 'instructor'
-                             AND ple_data.course_membership_is_active(
-                                 membership.course_membership_id
-                             )
-                      )
+                 FROM ple_data.course_membership AS membership
+                WHERE membership.course_instance_id = receipt.course_instance_id
+                  AND membership.account_id = receipt.recipient_account_id
+                  AND membership.role = 'instructor'
+                  AND ple_data.course_membership_is_active(
+                      membership.course_membership_id
                   )
            )
          ORDER BY receipt.due_at, receipt.notification_id

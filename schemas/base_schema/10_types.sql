@@ -265,3 +265,73 @@ CREATE TYPE ple_private.bloom_preparation_target_kind AS ENUM (
 
 GRANT USAGE ON TYPE ple_private.bloom_preparation_target_kind
     TO ple_data_owner, ple_audit_owner, ple_api_owner;
+
+-- Public-ID checksum and domains. One CHECK per identity shape, reused by
+-- every column that stores that identity (DATABASE_STYLE.md Types).
+
+CREATE FUNCTION ple_private.crockford_checksum_character(p_checksum_input text)
+RETURNS text LANGUAGE sql IMMUTABLE STRICT
+SET search_path = pg_catalog
+AS $$
+    SELECT substr(
+        '0123456789ABCDEFGHJKMNPQRSTVWXYZ',
+        (get_byte(sha256(convert_to(p_checksum_input, 'UTF8')), 0) >> 3) + 1,
+        1
+    )
+$$;
+
+CREATE FUNCTION ple_private.is_canonical_prefixed_public_id(
+    p_public_id text, p_prefix text
+) RETURNS boolean LANGUAGE sql IMMUTABLE
+SET search_path = pg_catalog, ple_private
+AS $$
+    SELECT p_public_id IS NOT NULL
+       AND p_prefix IN ('BP', 'CI', 'A', 'U')
+       AND p_public_id ~ (
+           '^' || p_prefix || '[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}$'
+       )
+       AND right(p_public_id, 1) = ple_private.crockford_checksum_character(
+           left(p_public_id, char_length(p_public_id) - 1)
+       )
+$$;
+
+CREATE FUNCTION ple_private.is_canonical_question_family_id(p_public_id text)
+RETURNS boolean LANGUAGE sql IMMUTABLE
+SET search_path = pg_catalog, ple_private
+AS $$
+    SELECT p_public_id IS NOT NULL
+       AND p_public_id ~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
+       AND substr(p_public_id, 6, 1) = ple_private.crockford_checksum_character(
+           substr(p_public_id, 1, 4) || substr(p_public_id, 7, 3)
+       )
+$$;
+
+GRANT EXECUTE ON FUNCTION
+    ple_private.crockford_checksum_character(text),
+    ple_private.is_canonical_prefixed_public_id(text, text),
+    ple_private.is_canonical_question_family_id(text)
+    TO ple_data_owner, ple_audit_owner, ple_api_owner;
+
+SET LOCAL ROLE ple_data_owner;
+
+CREATE DOMAIN ple_data.account_id AS text
+    CHECK (VALUE IS NULL OR ple_private.is_canonical_prefixed_public_id(VALUE, 'U'));
+CREATE DOMAIN ple_data.course_instance_id AS text
+    CHECK (VALUE IS NULL OR ple_private.is_canonical_prefixed_public_id(VALUE, 'CI'));
+CREATE DOMAIN ple_data.blueprint_course_id AS text
+    CHECK (VALUE IS NULL OR ple_private.is_canonical_prefixed_public_id(VALUE, 'BP'));
+CREATE DOMAIN ple_data.assessment_id AS text
+    CHECK (VALUE IS NULL OR ple_private.is_canonical_prefixed_public_id(VALUE, 'A'));
+CREATE DOMAIN ple_data.question_family_id AS text
+    CHECK (VALUE IS NULL OR ple_private.is_canonical_question_family_id(VALUE));
+CREATE DOMAIN ple_data.sha256_digest AS bytea
+    CHECK (VALUE IS NULL OR octet_length(VALUE) = 32);
+
+GRANT USAGE ON TYPE
+    ple_data.account_id,
+    ple_data.course_instance_id,
+    ple_data.blueprint_course_id,
+    ple_data.assessment_id,
+    ple_data.question_family_id,
+    ple_data.sha256_digest
+    TO ple_private_owner, ple_audit_owner, ple_api_owner;

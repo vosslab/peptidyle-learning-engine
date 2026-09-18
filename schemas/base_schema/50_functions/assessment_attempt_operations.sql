@@ -11,7 +11,7 @@ SET LOCAL ROLE ple_private_owner;
 -- The same finite calculation serves landing, access, start, and Instructor
 -- previews. Apply the Student multiplier only after the authored/default base.
 CREATE FUNCTION ple_private.assessment_effective_duration_seconds(
-    p_assessment_id uuid, p_time_multiplier numeric
+    p_assessment_id text, p_time_multiplier numeric
 ) RETURNS integer LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_data, ple_private AS $$
 DECLARE base_seconds integer;
@@ -29,7 +29,7 @@ BEGIN
     RETURN least(86400, ceil(base_seconds * multiplier)::integer);
 END $$;
 
-CREATE FUNCTION ple_private.lock_assessment_for_student_work(p_assessment_id uuid)
+CREATE FUNCTION ple_private.lock_assessment_for_student_work(p_assessment_id text)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data, ple_private AS $$
 BEGIN
@@ -46,7 +46,7 @@ CREATE FUNCTION ple_private.assert_current_student_assessment_attempt(
 ) RETURNS ple_private.assessment_attempt LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE result ple_private.assessment_attempt%ROWTYPE;
-DECLARE course_id_value uuid;
+DECLARE course_id_value text;
 BEGIN
     SELECT assessment_attempt.* INTO result
       FROM ple_private.assessment_attempt AS assessment_attempt
@@ -82,7 +82,7 @@ END $$;
 -- Question selection and immutable evidence creation.
 CREATE FUNCTION ple_private.assessment_attempt_start_gate(
     p_student_record_id uuid,
-    p_assessment_id uuid
+    p_assessment_id text
 ) RETURNS TABLE (
     resumable_assessment_attempt_id uuid,
     resumable_assessment_attempt_number integer,
@@ -94,7 +94,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE assessment_row ple_data.assessment%ROWTYPE;
 DECLARE accommodation_row ple_private.student_assessment_accommodation%ROWTYPE;
 DECLARE existing_assessment_attempt ple_private.assessment_attempt%ROWTYPE;
-DECLARE account_id uuid := ple_api.current_session_account_id();
+DECLARE account_id text := ple_api.current_session_account_id();
 DECLARE started_assessment_attempt_count integer;
 DECLARE start_decision_value text;
 BEGIN
@@ -183,7 +183,7 @@ END $$;
 CREATE FUNCTION ple_private.start_assessment_attempt(
     p_assessment_attempt_id uuid,
     p_student_record_id uuid,
-    p_assessment_id uuid,
+    p_assessment_id text,
     p_selections jsonb,
     p_issued_questions jsonb
 ) RETURNS TABLE (assessment_attempt_id uuid, assessment_attempt_number integer, resumed boolean)
@@ -428,7 +428,7 @@ SET LOCAL ROLE ple_api_owner;
 -- executable only by the private Assessment Attempt boundary, so application sessions
 -- cannot enumerate Student records.  The public ownership predicate continues
 -- to decide whether the resulting record is usable for Student Work.
-CREATE FUNCTION ple_api.current_session_student_record_id(p_course_instance_id uuid)
+CREATE FUNCTION ple_api.current_session_student_record_id(p_course_instance_id text)
 RETURNS uuid LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT student.student_record_id
@@ -448,15 +448,15 @@ $$;
 -- Private Assessment Attempt readers need stable Course route/display facts but do not
 -- receive direct access to the Course relation.  These API-owner functions
 -- are executable only by that trusted private boundary.
-CREATE FUNCTION ple_api.course_reference_number_for_assessment_attempt(p_course_instance_id uuid)
-RETURNS bigint LANGUAGE sql STABLE SECURITY DEFINER
+CREATE FUNCTION ple_api.course_reference_number_for_assessment_attempt(p_course_instance_id text)
+RETURNS text LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
-    SELECT course.reference_number
+    SELECT course.course_instance_id
       FROM ple_data.course_instance AS course
      WHERE course.course_instance_id = p_course_instance_id
 $$;
 
-CREATE FUNCTION ple_api.course_display_for_assessment_attempt(p_course_instance_id uuid)
+CREATE FUNCTION ple_api.course_display_for_assessment_attempt(p_course_instance_id text)
 RETURNS TABLE (
     course_reference_number text,
     course_short_name text,
@@ -464,7 +464,7 @@ RETURNS TABLE (
     course_theme text
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
-    SELECT course.public_reference,
+    SELECT course.course_instance_id,
            course.course_short_name,
            course.course_long_name,
            course.course_theme_id
@@ -488,7 +488,7 @@ SET LOCAL ROLE ple_private_owner;
 -- the Student and route references rather than accepting either identity from
 -- the browser.
 CREATE FUNCTION ple_private.prepare_current_assessment_attempt_start_decision(
-    p_course_reference_number bigint,
+    p_course_reference_number text,
     p_assessment_public_reference text
 ) RETURNS TABLE (
     resumable_assessment_attempt_id uuid,
@@ -499,14 +499,14 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE assessment_row ple_data.assessment%ROWTYPE;
 DECLARE student_record_id_value uuid;
 BEGIN
-    IF p_course_reference_number NOT BETWEEN 1 AND 2147483647
+    IF p_course_reference_number IS NULL
        OR p_assessment_public_reference IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Assessment Attempt start is unavailable';
     END IF;
     SELECT assessment.* INTO assessment_row
       FROM ple_data.assessment AS assessment
-     WHERE assessment.public_reference = p_assessment_public_reference;
+     WHERE assessment.assessment_id = p_assessment_public_reference;
     IF NOT FOUND OR ple_api.course_reference_number_for_assessment_attempt(
         assessment_row.course_instance_id
     ) IS DISTINCT FROM p_course_reference_number THEN
@@ -524,17 +524,17 @@ BEGIN
 END $$;
 
 CREATE FUNCTION ple_private.prepare_current_assessment_attempt_start(
-    p_course_reference_number bigint,
+    p_course_reference_number text,
     p_assessment_public_reference text
 ) RETURNS TABLE (
     student_record_id uuid,
-    assessment_id uuid,
+    assessment_id text,
     assessment_entry_id uuid,
     entry_kind text,
     authored_position integer,
     fixed_question_id text,
     fixed_revision_number integer,
-    question_pool_id uuid,
+    question_pool_id text,
     question_pool_public_id text,
     question_pool_revision_number bigint,
     member_position integer,
@@ -551,7 +551,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE assessment_row ple_data.assessment%ROWTYPE;
 DECLARE student_record_id_value uuid;
 BEGIN
-    IF p_course_reference_number NOT BETWEEN 1 AND 2147483647
+    IF p_course_reference_number IS NULL
        OR p_assessment_public_reference IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Assessment Attempt start is unavailable';
@@ -559,7 +559,7 @@ BEGIN
 
     SELECT assessment.* INTO assessment_row
       FROM ple_data.assessment AS assessment
-     WHERE assessment.public_reference = p_assessment_public_reference;
+     WHERE assessment.assessment_id = p_assessment_public_reference;
     IF NOT FOUND OR ple_api.course_reference_number_for_assessment_attempt(
         assessment_row.course_instance_id
     ) IS DISTINCT FROM p_course_reference_number THEN
@@ -593,7 +593,7 @@ BEGIN
            entry.published_question_id,
            entry.question_revision_number,
            entry.question_pool_id,
-           pool.public_question_pool_id,
+           pool.question_pool_id,
            entry.question_pool_revision_number,
            item.member_position,
            item.published_question_id,
@@ -649,8 +649,8 @@ BEGIN
     END IF;
     RETURN QUERY
     SELECT assessment_attempt.reference_number,
-           course.course_reference_number,
-           assessment.public_reference,
+           course.course_instance_id,
+           assessment.assessment_id,
            assessment_attempt.assessment_attempt_number,
            assessment_attempt.assessment_title,
            assessment_attempt.assessment_instructions
@@ -809,11 +809,11 @@ END $$;
 CREATE FUNCTION ple_private.lock_question_attempt_for_grading(p_question_attempt_id uuid)
 RETURNS TABLE (
     question_attempt_id uuid, issued_question_id uuid, assessment_attempt_id uuid,
-    assessment_id uuid, published_question_id text, revision_number integer, question_seed numeric,
+    assessment_id text, published_question_id text, revision_number integer, question_seed numeric,
     generated_parameter_sha256 text
 ) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data, ple_private AS $$
-DECLARE assessment_id_value uuid;
+DECLARE assessment_id_value text;
 BEGIN
     SELECT assessment_attempt.assessment_id INTO assessment_id_value
       FROM ple_private.question_attempt AS question_attempt

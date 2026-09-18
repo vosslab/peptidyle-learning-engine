@@ -239,7 +239,7 @@ CREATE FUNCTION ple_private.commit_assessment_attempt_finalization(
     p_assessment_attempt_id uuid,
     p_finalization_kind text,
     p_evaluations jsonb,
-    p_authorized_by_account_id uuid
+    p_authorized_by_account_id text
 ) RETURNS TABLE (points_earned double precision, points_possible double precision)
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$

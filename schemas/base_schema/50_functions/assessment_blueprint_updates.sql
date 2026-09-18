@@ -5,21 +5,21 @@ SET LOCAL ROLE ple_data_owner;
 -- Derived retained-Assessment review and one explicit, atomic reusable-content update.
 -- No offers, approval receipts or merge baselines are persisted.
 CREATE FUNCTION ple_data.lock_assessment_blueprint_update_destination(
-    p_course_reference text, p_assessment_reference text, p_parent_reference bigint
+    p_course_reference text, p_assessment_reference text, p_parent_reference text
 ) RETURNS ple_data.assessment LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
 DECLARE course_row ple_data.course_instance%ROWTYPE; assessment_row ple_data.assessment%ROWTYPE;
 BEGIN
     SELECT * INTO course_row FROM ple_data.course_instance
-     WHERE public_reference = p_course_reference
+     WHERE course_instance_id = p_course_reference
        AND blueprint_course_id = p_parent_reference
        AND ple_api.current_session_account_is_course_instructor(course_instance_id)
      FOR UPDATE;
     IF NOT FOUND THEN RETURN NULL; END IF;
     SELECT * INTO assessment_row FROM ple_data.assessment
-     WHERE course_instance_id = course_row.course_instance_id AND public_reference = p_assessment_reference
+     WHERE course_instance_id = course_row.course_instance_id AND assessment_id = p_assessment_reference
        AND origin_kind = 'adopted'
-       AND source_blueprint_course_reference_number = p_parent_reference
+       AND source_blueprint_course_id = p_parent_reference
      FOR UPDATE;
     IF NOT FOUND OR NOT ple_api.current_session_account_is_course_instructor(course_row.course_instance_id)
         THEN RETURN NULL; END IF;
@@ -32,7 +32,7 @@ SET LOCAL ROLE ple_api_owner;
 CREATE FUNCTION ple_api.load_assessment_blueprint_update(
     p_course_reference text, p_assessment_reference text
 ) RETURNS TABLE (
-    source_reference bigint, source_revision bigint, source_assessment_reference uuid,
+    source_reference text, source_revision bigint, source_assessment_reference uuid,
     content jsonb, content_checksum bytea, source_assessment_content jsonb,
     cannot_apply_reason text
 )
@@ -47,11 +47,11 @@ BEGIN
     SELECT blueprint.* INTO parent
       FROM ple_data.blueprint_course AS blueprint
       JOIN ple_data.course_instance AS course
-        ON course.blueprint_course_id = blueprint.reference_number
+        ON course.blueprint_course_id = blueprint.blueprint_course_id
       JOIN ple_data.assessment AS assessment ON assessment.course_instance_id = course.course_instance_id
-       AND assessment.source_blueprint_course_reference_number = blueprint.reference_number
-     WHERE course.public_reference = p_course_reference
-       AND assessment.public_reference = p_assessment_reference
+       AND assessment.source_blueprint_course_id = blueprint.blueprint_course_id
+     WHERE course.course_instance_id = p_course_reference
+       AND assessment.assessment_id = p_assessment_reference
        AND assessment.origin_kind = 'adopted'
        AND ple_api.current_session_account_is_course_instructor(course.course_instance_id)
        AND ple_api.current_session_account_is_instructor()
@@ -62,13 +62,13 @@ BEGIN
     -- ASVS 2.3.3, 15.4.2-15.4.3: parent -> Course -> Assessment lock order
     -- matches Blueprint Save/adoption. Reauthorize after each lock is acquired.
     assessment_row := ple_data.lock_assessment_blueprint_update_destination(
-        p_course_reference, p_assessment_reference, parent.reference_number);
+        p_course_reference, p_assessment_reference, parent.blueprint_course_id);
     IF assessment_row.assessment_id IS NULL
        OR NOT ple_api.current_session_account_is_course_instructor(assessment_row.course_instance_id)
        OR NOT ple_api.current_session_account_is_instructor()
        OR NOT (parent.availability IN ('public', 'archived')
                OR parent.owner_account_id = ple_api.current_session_account_id()) THEN RETURN; END IF;
-    source_reference := parent.reference_number;
+    source_reference := parent.blueprint_course_id;
     source_revision := parent.current_blueprint_revision_number;
     source_assessment_reference := assessment_row.source_blueprint_assessment_reference;
     SELECT revision.content, revision.content_checksum INTO content, content_checksum
@@ -111,7 +111,7 @@ BEGIN
               FROM ple_data.question_pool AS pool
               JOIN ple_data.question_pool_revision_member AS member
                 ON member.question_pool_id = pool.question_pool_id
-             WHERE pool.public_question_pool_id = COALESCE(entry_json ->> 'sourceQuestionPoolId',
+             WHERE pool.question_pool_id = COALESCE(entry_json ->> 'sourceQuestionPoolId',
                                                            entry_json ->> 'questionPoolId')
                AND member.revision_number = COALESCE(
                    entry_json ->> 'sourceQuestionPoolRevisionNumber',
@@ -131,7 +131,7 @@ END
 $$;
 
 CREATE FUNCTION ple_data.assessment_blueprint_update_equivalent(
-    p_assessment_id uuid, p_values jsonb, p_entries jsonb
+    p_assessment_id text, p_values jsonb, p_entries jsonb
 ) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
     SELECT NOT EXISTS (
@@ -149,7 +149,7 @@ SET search_path = pg_catalog, ple_data AS $$
                 || CASE WHEN entry.entry_kind = 'fixed_question' THEN jsonb_build_object(
                     'questionId', entry.published_question_id, 'revisionNumber', entry.question_revision_number,
                     'pointsPossible', entry.points_possible::text)
-                ELSE jsonb_build_object('questionPoolId', pool.public_question_pool_id,
+                ELSE jsonb_build_object('questionPoolId', pool.question_pool_id,
                     'questionPoolRevisionNumber', entry.question_pool_revision_number,
                     'selectionCount', entry.selection_count, 'pointsPerItem', entry.points_per_item::text,
                     'selectedQuestionOrder', entry.selected_question_order) END
@@ -169,16 +169,16 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
 DECLARE
     source record; assessment_row ple_data.assessment%ROWTYPE; course_row ple_data.course_instance%ROWTYPE;
     values_json jsonb; entries_json jsonb := '[]'::jsonb; entry_json jsonb;
-    source_pool_id uuid; forked record;
+    source_pool_id text; forked record;
 BEGIN
     SELECT * INTO source FROM ple_api.load_assessment_blueprint_update(
         p_course_reference, p_assessment_reference);
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable';
     END IF;
-    SELECT * INTO course_row FROM ple_data.course_instance WHERE public_reference = p_course_reference;
+    SELECT * INTO course_row FROM ple_data.course_instance WHERE course_instance_id = p_course_reference;
     SELECT * INTO assessment_row FROM ple_data.assessment
-     WHERE course_instance_id = course_row.course_instance_id AND public_reference = p_assessment_reference;
+     WHERE course_instance_id = course_row.course_instance_id AND assessment_id = p_assessment_reference;
     IF source.source_revision IS DISTINCT FROM p_expected_source_revision
        OR assessment_row.assessment_edit_number IS DISTINCT FROM p_expected_edit_number THEN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Blueprint update precondition is stale';
@@ -221,9 +221,8 @@ BEGIN
     FOR entry_json IN SELECT value FROM jsonb_array_elements(p_member -> 'entries') LOOP
         IF entry_json ->> 'kind' = 'question_pool' THEN
             SELECT question_pool_id INTO source_pool_id FROM ple_data.question_pool
-             WHERE public_question_pool_id = entry_json ->> 'sourceQuestionPoolId';
+             WHERE question_pool_id = entry_json ->> 'sourceQuestionPoolId';
             SELECT * INTO forked FROM ple_data.fork_question_pool_revision_for_course_adoption(
-                (entry_json ->> 'forkQuestionPoolId')::uuid,
                 entry_json ->> 'forkPublicQuestionPoolId', source_pool_id,
                 (entry_json ->> 'sourceQuestionPoolRevisionNumber')::bigint);
             -- Create the owned Entry and fork association without an intermediate
@@ -248,11 +247,11 @@ BEGIN
                       forked.question_pool_id, 1);
             entry_json := entry_json - 'sourceQuestionPoolId' - 'sourceQuestionPoolRevisionNumber'
                 - 'forkQuestionPoolId' - 'forkPublicQuestionPoolId' || jsonb_build_object(
-                    'questionPoolId', forked.public_question_pool_id, 'questionPoolRevisionNumber', 1);
+                    'questionPoolId', forked.question_pool_id, 'questionPoolRevisionNumber', 1);
         END IF;
         entries_json := entries_json || jsonb_build_array(entry_json);
     END LOOP;
-    PERFORM ple_data.save_assessment(course_row.reference_number, assessment_row.reference_number,
+    PERFORM ple_data.save_assessment(course_row.blueprint_course_id, assessment_row.assessment_id,
         p_expected_edit_number, values_json, entries_json);
 END
 $$;
@@ -276,14 +275,14 @@ CREATE FUNCTION ple_api.assessment_blueprint_update_equivalent(
     p_course_reference text, p_assessment_reference text, p_values jsonb, p_entries jsonb
 ) RETURNS boolean LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
-DECLARE source record; destination_id uuid;
+DECLARE source record; destination_id text;
 BEGIN
     SELECT * INTO source FROM ple_api.load_assessment_blueprint_update($1, $2);
     IF NOT FOUND OR source.cannot_apply_reason IS NOT NULL THEN RETURN false; END IF;
     SELECT assessment.assessment_id INTO destination_id
       FROM ple_data.course_instance AS course
       JOIN ple_data.assessment AS assessment ON assessment.course_instance_id = course.course_instance_id
-     WHERE course.public_reference = $1 AND assessment.public_reference = $2;
+     WHERE course.course_instance_id = $1 AND assessment.assessment_id = $2;
     RETURN ple_data.assessment_blueprint_update_equivalent(destination_id, p_values, p_entries);
 END
 $$;
@@ -291,13 +290,13 @@ $$;
 SET LOCAL ROLE ple_data_owner;
 
 CREATE FUNCTION ple_data.lock_course_blueprint_update_destination(
-    p_course_reference text, p_parent_reference bigint
+    p_course_reference text, p_parent_reference text
 ) RETURNS ple_data.course_instance LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
 DECLARE course_row ple_data.course_instance%ROWTYPE;
 BEGIN
     SELECT * INTO course_row FROM ple_data.course_instance
-     WHERE public_reference = p_course_reference AND source_kind = 'adopted'
+     WHERE course_instance_id = p_course_reference AND source_kind = 'adopted'
        AND blueprint_course_id = p_parent_reference
        AND ple_api.current_session_account_is_course_instructor(course_instance_id)
      FOR UPDATE;
@@ -336,8 +335,8 @@ BEGIN
     SELECT blueprint.* INTO parent
       FROM ple_data.blueprint_course AS blueprint
       JOIN ple_data.course_instance AS course
-        ON course.blueprint_course_id = blueprint.reference_number
-     WHERE course.public_reference = p_course_reference AND course.source_kind = 'adopted'
+        ON course.blueprint_course_id = blueprint.blueprint_course_id
+     WHERE course.course_instance_id = p_course_reference AND course.source_kind = 'adopted'
        AND ple_api.current_session_account_is_course_instructor(course.course_instance_id)
        AND ple_api.current_session_account_is_instructor()
        AND (blueprint.availability IN ('public', 'archived')
@@ -345,24 +344,24 @@ BEGIN
      FOR UPDATE OF blueprint;
     IF NOT FOUND THEN RETURN; END IF;
     course_row := ple_data.lock_course_blueprint_update_destination(
-        p_course_reference, parent.reference_number);
+        p_course_reference, parent.blueprint_course_id);
     IF course_row.course_instance_id IS NULL
        OR NOT ple_api.current_session_account_is_course_instructor(course_row.course_instance_id)
        OR NOT ple_api.current_session_account_is_instructor()
        OR NOT (parent.availability IN ('public', 'archived')
                OR parent.owner_account_id = ple_api.current_session_account_id()) THEN RETURN; END IF;
-    blueprint_reference := parent.public_reference;
+    blueprint_reference := parent.blueprint_course_id;
     adopted_revision := course_row.blueprint_revision_number;
     source_revision := parent.current_blueprint_revision_number;
     SELECT revision.content, revision.content_checksum INTO content, content_checksum
       FROM ple_data.blueprint_course_revision AS revision
-     WHERE revision.blueprint_course_id = parent.reference_number
+     WHERE revision.blueprint_course_id = parent.blueprint_course_id
        AND revision.blueprint_revision_number = source_revision;
     IF p_members IS NOT NULL AND jsonb_typeof(p_members) IS DISTINCT FROM 'array' THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Blueprint update projections are invalid';
     END IF;
     SELECT COALESCE(jsonb_agg(jsonb_build_object(
-        'assessmentReference', destination.public_reference,
+        'assessmentReference', destination.assessment_id,
         'title', destination.assessment_title,
         'assessmentType', destination.assessment_type,
         'cannotApplyReason', CASE
@@ -376,7 +375,7 @@ BEGIN
             ELSE COALESCE(ple_data.assessment_blueprint_update_equivalent(
                 destination.assessment_id, projection.member -> 'values',
                 projection.member -> 'entries'), false) END
-        ) ORDER BY destination.reference_number), '[]'::jsonb) INTO assessments
+        ) ORDER BY destination.assessment_id), '[]'::jsonb) INTO assessments
       FROM ple_data.assessment AS destination
       LEFT JOIN LATERAL (
           SELECT member.value -> 'content' AS source_content
@@ -384,7 +383,7 @@ BEGIN
             CROSS JOIN LATERAL jsonb_array_elements(module.value -> 'assessments') AS member
            WHERE member.value ->> 'blueprint_assessment_reference' =
                  destination.source_blueprint_assessment_reference::text
-             AND destination.source_blueprint_course_reference_number = parent.reference_number
+             AND destination.source_blueprint_course_id = parent.blueprint_course_id
       ) AS source_member ON true
       LEFT JOIN LATERAL (
           SELECT value AS member FROM jsonb_array_elements(p_members)

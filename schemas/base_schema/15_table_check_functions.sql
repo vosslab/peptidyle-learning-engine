@@ -4,32 +4,6 @@
 
 SET LOCAL ROLE ple_private_owner;
 
-CREATE FUNCTION ple_private.crockford_checksum_character(p_checksum_input text)
-RETURNS text LANGUAGE sql IMMUTABLE STRICT
-SET search_path = pg_catalog
-AS $$
-    SELECT substr(
-        '0123456789ABCDEFGHJKMNPQRSTVWXYZ',
-        (get_byte(sha256(convert_to(p_checksum_input, 'UTF8')), 0) >> 3) + 1,
-        1
-    )
-$$;
-
-CREATE FUNCTION ple_private.is_canonical_prefixed_public_id(
-    p_public_id text, p_prefix text
-) RETURNS boolean LANGUAGE sql IMMUTABLE
-SET search_path = pg_catalog, ple_private
-AS $$
-    SELECT p_public_id IS NOT NULL
-       AND p_prefix IN ('BP', 'CI', 'A', 'U')
-       AND p_public_id ~ (
-           '^' || p_prefix || '[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}$'
-       )
-       AND right(p_public_id, 1) = ple_private.crockford_checksum_character(
-           left(p_public_id, char_length(p_public_id) - 1)
-       )
-$$;
-
 CREATE FUNCTION ple_private.account_time_zone_is_exact_iana(p_time_zone text)
 RETURNS boolean LANGUAGE sql STABLE
 SET search_path = pg_catalog
@@ -111,8 +85,6 @@ GRANT EXECUTE ON FUNCTION
 SET LOCAL ROLE ple_private_owner;
 
 GRANT EXECUTE ON FUNCTION
-    ple_private.crockford_checksum_character(text),
-    ple_private.is_canonical_prefixed_public_id(text, text),
     ple_private.account_time_zone_is_exact_iana(text),
     ple_private.assessment_template_name_is_valid(text),
     ple_private.question_source_binding_fields_are_valid(

@@ -19,7 +19,7 @@ BEGIN
     ELSIF p_object_kind = 'question_pool' THEN
         SELECT pool.current_revision_number INTO v_revision
           FROM ple_data.question_pool AS pool
-         WHERE pool.public_question_pool_id = p_public_object_id;
+         WHERE pool.question_pool_id = p_public_object_id;
     END IF;
     IF v_revision IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = 'P1D01', MESSAGE = 'Library Object is unavailable';
@@ -39,7 +39,7 @@ SET search_path = pg_catalog, ple_data AS $$
       WHEN 'question_pool' THEN EXISTS (
         SELECT 1 FROM ple_data.question_pool AS pool
         JOIN ple_data.question_pool_revision AS revision ON revision.question_pool_id = pool.question_pool_id
-         WHERE pool.public_question_pool_id = p_public_object_id AND revision.revision_number = p_revision_number)
+         WHERE pool.question_pool_id = p_public_object_id AND revision.revision_number = p_revision_number)
       ELSE false END
 $$;
 
@@ -141,7 +141,7 @@ CREATE FUNCTION ple_data.create_library_improvement_thread(
     p_object_kind text, p_public_object_id text, p_body text
 ) RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
-DECLARE v_actor uuid := ple_api.current_session_account_id(); v_name text;
+DECLARE v_actor text := ple_api.current_session_account_id(); v_name text;
     v_revision bigint; v_thread_id uuid := pg_catalog.gen_random_uuid(); v_now timestamptz := pg_catalog.clock_timestamp();
 BEGIN
     v_name := ple_data.require_library_discussion_participant();
@@ -167,7 +167,7 @@ CREATE FUNCTION ple_data.reply_to_library_improvement_thread(
     p_object_kind text, p_public_object_id text, p_thread_id uuid, p_body text
 ) RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
-DECLARE v_actor uuid := ple_api.current_session_account_id(); v_name text;
+DECLARE v_actor text := ple_api.current_session_account_id(); v_name text;
     v_post_id uuid := pg_catalog.gen_random_uuid(); v_thread ple_data.library_improvement_thread%ROWTYPE;
 BEGIN
     v_name := ple_data.require_library_discussion_participant();
@@ -195,7 +195,7 @@ CREATE FUNCTION ple_data.edit_own_library_improvement_post(
     p_object_kind text, p_public_object_id text, p_post_id uuid, p_body text
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
-DECLARE v_actor uuid := ple_api.current_session_account_id();
+DECLARE v_actor text := ple_api.current_session_account_id();
     v_post record;
 BEGIN
     PERFORM ple_data.require_library_discussion_participant();

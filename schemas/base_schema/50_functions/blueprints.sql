@@ -40,7 +40,7 @@ $$;
 -- member pins live in that immutable Pool Revision, rather than being copied
 -- into Blueprint JSON as a second representation.
 CREATE FUNCTION ple_data.blueprint_content_pool_pins(p_content jsonb)
-RETURNS TABLE (content_path text, public_question_pool_id text, question_pool_revision_number bigint)
+RETURNS TABLE (content_path text, question_pool_id text, question_pool_revision_number bigint)
 LANGUAGE sql IMMUTABLE STRICT
 SET search_path = pg_catalog, ple_data
 AS $$
@@ -302,7 +302,7 @@ $$;
 -- New pins must select an Available Published Question. A Save may retain an
 -- exact pin already owned by its expected immutable head Revision.
 CREATE FUNCTION ple_data.validate_blueprint_question_selection(
-    p_existing_blueprint_course_reference_number bigint,
+    p_existing_blueprint_course_reference_number text,
     p_existing_blueprint_revision_number bigint,
     p_content jsonb
 ) RETURNS void

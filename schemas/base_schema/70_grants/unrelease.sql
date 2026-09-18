@@ -34,7 +34,7 @@ GRANT SELECT ON TABLE ple_private.issued_question, ple_private.question_attempt,
 SET LOCAL ROLE ple_api_owner;
 
 GRANT EXECUTE ON FUNCTION ple_api.current_session_account_id(),
-    ple_api.current_session_account_is_course_instructor(uuid)
+    ple_api.current_session_account_is_course_instructor(text)
     TO ple_unrelease_executor;
 
 SET LOCAL ROLE ple_unrelease_executor;

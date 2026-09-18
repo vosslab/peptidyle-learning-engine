@@ -5,7 +5,7 @@ SET LOCAL ROLE ple_private_owner;
 CREATE FUNCTION ple_private.require_content_classification_actor(p_sysadmin_only boolean)
 RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
-DECLARE actor_id uuid;
+DECLARE actor_id text;
 BEGIN
     IF p_sysadmin_only OR ple_api.current_session_account_has_platform_administration() THEN
         RETURN ple_private.require_current_sysadmin_account();
@@ -29,7 +29,7 @@ $$;
 CREATE FUNCTION ple_private.require_content_classification_reader()
 RETURNS uuid LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
-DECLARE actor_id uuid;
+DECLARE actor_id text;
 BEGIN
     IF ple_api.current_session_account_has_platform_administration() THEN
         RETURN ple_private.require_current_sysadmin_account();

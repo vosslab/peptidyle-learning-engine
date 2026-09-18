@@ -9,7 +9,7 @@ CREATE FUNCTION ple_private.ensure_own_authoring_workspace(p_proposed_workspace_
 RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
 DECLARE
-    account_id uuid;
+    account_id text;
     authoring_workspace_id uuid;
 BEGIN
     IF p_proposed_workspace_id IS NULL
@@ -61,7 +61,7 @@ CREATE FUNCTION ple_private.fork_published_question_to_draft(
 ) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
-    actor_id uuid;
+    actor_id text;
     existing_source_question_id text;
     existing_source_revision_number integer;
     created_at timestamptz := pg_catalog.clock_timestamp();

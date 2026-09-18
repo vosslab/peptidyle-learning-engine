@@ -186,6 +186,24 @@ def _column_type(column: dict) -> str:
 
 
 #============================================
+def _is_uuid_or_public_id_type(col_type: str) -> bool:
+	"""
+	Return whether col_type is uuid, text, or a public-ID domain.
+
+	Args:
+		col_type: Lowercased type string.
+
+	Returns:
+		bool: True when the type is an allowed identity PK type.
+	"""
+	if col_type in ("uuid", "text") or "text" in col_type:
+		return True
+	if col_type.startswith("ple_data.") and col_type.endswith("_id"):
+		return True
+	return False
+
+
+#============================================
 def _is_clock_type(col_type: str) -> bool:
 	"""
 	Return whether a type is a creation clock.
@@ -660,7 +678,7 @@ def rule_8_identity(catalog: dict) -> list:
 				continue
 			col_type = _column_type(pk_col)
 			# Public-ID tables use a text domain; internals use uuid.
-			if col_type not in ("uuid", "text") and "text" not in col_type:
+			if not _is_uuid_or_public_id_type(col_type):
 				findings.append(make_finding("rule_8_identity", table, qualified + "." + pk[0], "PK type is not uuid or text public ID",
 				))
 	for qualified, table in catalog["tables"].items():

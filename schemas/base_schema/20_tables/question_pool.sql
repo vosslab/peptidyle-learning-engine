@@ -4,16 +4,10 @@
 SET LOCAL ROLE ple_data_owner;
 
 CREATE TABLE ple_data.question_pool (
-    question_pool_id uuid PRIMARY KEY,
     -- The stored `XXXX-ZXXX` value is the public Pool ID. Its seven random
     -- Crockford characters are checked by the sixth checksum character; the
     -- database remains the final collision authority and owns no secret.
-    public_question_pool_id text NOT NULL UNIQUE CHECK (
-        public_question_pool_id ~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
-        AND substr(public_question_pool_id, 6, 1) = ple_private.crockford_checksum_character(
-            substr(public_question_pool_id, 1, 4) || substr(public_question_pool_id, 7, 3)
-        )
-    ),
+    question_pool_id ple_data.question_family_id PRIMARY KEY,
     metadata_etag uuid NOT NULL,
     title text NOT NULL CHECK (
         title = btrim(title) AND char_length(title) BETWEEN 1 AND 512
@@ -37,11 +31,11 @@ CREATE TABLE ple_data.question_pool (
     FOREIGN KEY (content_topic_id, content_subtopic_id)
         REFERENCES ple_data.content_subtopic(content_topic_id, content_subtopic_id),
     CHECK (content_subtopic_id IS NULL OR content_topic_id IS NOT NULL),
-    current_revision_number bigint NOT NULL DEFAULT 1 CHECK (current_revision_number > 0),
+    current_revision_number integer NOT NULL DEFAULT 1 CHECK (current_revision_number > 0),
     -- A fork is a new immutable lineage.  Its source names one exact immutable
     -- published Pool Revision; original published Pools have no source pair.
-    source_question_pool_id uuid,
-    source_question_pool_revision_number bigint,
+    source_question_pool_id ple_data.question_family_id,
+    source_question_pool_revision_number integer,
     created_at timestamptz NOT NULL,
     CHECK ((source_question_pool_id IS NULL) = (source_question_pool_revision_number IS NULL)),
     updated_on date NOT NULL DEFAULT CURRENT_DATE
@@ -54,11 +48,11 @@ CREATE TABLE ple_data.question_pool (
 -- immutable revision reference representable without inventing Pool contents,
 -- current state, ownership, or a draft lifecycle.
 CREATE TABLE ple_data.question_pool_revision (
-    question_pool_id uuid NOT NULL
+    question_pool_id ple_data.question_family_id NOT NULL
         REFERENCES ple_data.question_pool(question_pool_id),
     revision_number integer NOT NULL CHECK (revision_number > 0),
     member_count integer NOT NULL CHECK (member_count > 0),
-    interchangeability_attested_by_account_id uuid NOT NULL
+    interchangeability_attested_by_account_id ple_data.account_id NOT NULL
         REFERENCES ple_private.account(account_id),
     interchangeability_attested_at timestamptz NOT NULL,
     created_at timestamptz NOT NULL,
@@ -69,10 +63,10 @@ CREATE TABLE ple_data.question_pool_revision (
 );
 
 CREATE TABLE ple_data.question_pool_revision_member (
-    question_pool_id uuid NOT NULL,
+    question_pool_id ple_data.question_family_id NOT NULL,
     revision_number integer NOT NULL,
     member_position integer NOT NULL CHECK (member_position > 0),
-    published_question_id text NOT NULL,
+    published_question_id ple_data.question_family_id NOT NULL,
     question_revision_number integer NOT NULL CHECK (question_revision_number > 0),
     PRIMARY KEY (question_pool_id, revision_number, member_position),
     UNIQUE (question_pool_id, revision_number, published_question_id, question_revision_number),
@@ -92,25 +86,25 @@ COMMENT ON TABLE ple_data.question_pool_revision IS 'role: revision, Append-only
 COMMENT ON TABLE ple_data.question_pool_revision_member IS 'role: revision, Ordered distinct exact Published Question Revision pins; backend-neutral and intentionally no selected count.';
 
 CREATE TABLE ple_data.question_pool_star (
-    public_question_pool_id text NOT NULL REFERENCES ple_data.question_pool(public_question_pool_id),
-    instructor_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
+    question_pool_id ple_data.question_family_id NOT NULL REFERENCES ple_data.question_pool(question_pool_id),
+    instructor_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account(account_id),
     starred_at timestamptz NOT NULL,
-    PRIMARY KEY (public_question_pool_id, instructor_account_id),
+    PRIMARY KEY (question_pool_id, instructor_account_id),
     updated_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
 );
 
 
 CREATE TABLE ple_data.question_pool_watch (
-    public_question_pool_id text NOT NULL REFERENCES ple_data.question_pool(public_question_pool_id),
-    instructor_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
+    question_pool_id ple_data.question_family_id NOT NULL REFERENCES ple_data.question_pool(question_pool_id),
+    instructor_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account(account_id),
     watched_at timestamptz NOT NULL,
-    PRIMARY KEY (public_question_pool_id, instructor_account_id),
+    PRIMARY KEY (question_pool_id, instructor_account_id),
     updated_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
 );
 
 
 CREATE TABLE ple_data.question_pool_revision_bloom (
-    question_pool_id uuid NOT NULL,
+    question_pool_id ple_data.question_family_id NOT NULL,
     revision_number integer NOT NULL,
     cognitive_process ple_data.bloom_cognitive_process NOT NULL,
     knowledge_dimension ple_data.bloom_knowledge_dimension NOT NULL,
@@ -135,4 +129,10 @@ COMMENT ON TABLE ple_data.question_pool_star IS 'role: current state, deleted by
 COMMENT ON TABLE ple_data.question_pool_watch IS 'role: current state, deleted by none for published Pools. HUMAN_GUIDANCE.md Question Pool specifications.';
 
 COMMENT ON TABLE ple_data.question_pool_revision_bloom IS 'role: revision, deleted by none for published Pools. HUMAN_GUIDANCE.md Question Pool specifications.';
+
+SET LOCAL ROLE ple_data_owner;
+COMMENT ON COLUMN ple_data.question_pool.content_topic_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.question_pool.content_subtopic_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.question_pool.source_question_pool_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.question_pool.source_question_pool_revision_number IS 'NULL means this optional fact is absent.';
 

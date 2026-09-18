@@ -9,7 +9,7 @@ CREATE TABLE ple_data.forced_question_correction (
     flawed_revision_number integer NOT NULL CHECK (flawed_revision_number > 0),
     replacement_question_id text NOT NULL,
     replacement_revision_number integer NOT NULL CHECK (replacement_revision_number > 0),
-    approved_by_account_id uuid NOT NULL,
+    approved_by_account_id ple_data.account_id NOT NULL,
     approver_role ple_data.product_role NOT NULL DEFAULT 'sysadmin',
     approved_at timestamptz NOT NULL,
     correction_generation integer NOT NULL CHECK (correction_generation > 0),
@@ -37,7 +37,7 @@ CREATE TABLE ple_data.question_change_event (
     question_change_event_id uuid PRIMARY KEY,
     forced_question_correction_id uuid NOT NULL UNIQUE
         REFERENCES ple_data.forced_question_correction(forced_question_correction_id),
-    recorded_by_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
+    recorded_by_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account(account_id),
     occurred_at timestamptz NOT NULL,
     evidence jsonb NOT NULL CHECK (jsonb_typeof(evidence) = 'object')
 );

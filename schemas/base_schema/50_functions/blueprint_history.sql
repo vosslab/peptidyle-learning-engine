@@ -15,7 +15,7 @@ LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private
 AS $$
 DECLARE
-    v_reference bigint;
+    v_reference text;
 BEGIN
     -- ASVS 2.2.1/2: SQL callers share the trusted boundary's row/key limits.
     IF p_kind NOT IN ('revisions', 'metadata') OR p_kind IS NULL
@@ -23,10 +23,10 @@ BEGIN
         RAISE EXCEPTION 'invalid Blueprint history page' USING ERRCODE = '22023';
     END IF;
     -- ASVS 8.2.1/2/3, 8.3.1/2: current ordinary visibility governs all history.
-    SELECT course.reference_number INTO v_reference
+    SELECT course.blueprint_course_id INTO v_reference
       FROM ple_data.blueprint_course AS course
      WHERE ple_private.is_canonical_prefixed_public_id(p_reference, 'BP')
-       AND course.public_reference = p_reference
+       AND course.blueprint_course_id = p_reference
        AND ple_api.current_session_account_is_instructor()
        AND (course.availability IN ('public', 'archived')
             OR course.owner_account_id = ple_api.current_session_account_id());

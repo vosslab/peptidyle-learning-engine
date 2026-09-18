@@ -92,7 +92,7 @@ AS $$
 DECLARE canonical_public_id text;
 BEGIN
     IF TG_NARGS <> 2 OR TG_ARGV[0] NOT IN ('published_question', 'question_pool')
-       OR TG_ARGV[1] NOT IN ('published_question_id', 'public_question_pool_id') THEN
+       OR TG_ARGV[1] NOT IN ('published_question_id', 'question_pool_id') THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Public ID reservation trigger is invalid';
     END IF;
@@ -133,7 +133,15 @@ BEGIN
             -- Draw again; the registry remains the final global boundary.
         END;
     END LOOP;
-    NEW.public_reference := candidate;
+    IF TG_ARGV[0] = 'U' THEN
+        NEW.account_id := candidate;
+    ELSIF TG_ARGV[0] = 'CI' THEN
+        NEW.course_instance_id := candidate;
+    ELSIF TG_ARGV[0] = 'BP' THEN
+        NEW.blueprint_course_id := candidate;
+    ELSIF TG_ARGV[0] = 'A' THEN
+        NEW.assessment_id := candidate;
+    END IF;
     RETURN NEW;
 END
 $$;

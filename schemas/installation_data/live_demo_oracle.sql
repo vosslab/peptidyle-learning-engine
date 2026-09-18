@@ -7,6 +7,8 @@ DO $$
 DECLARE
     selected_discipline uuid;
     selected_subject uuid;
+    course_id text;
+    assessment_id_value text;
 BEGIN
     SELECT discipline.content_discipline_id, subject.content_subject_id
       INTO STRICT selected_discipline, selected_subject
@@ -16,38 +18,77 @@ BEGIN
      WHERE discipline.name = 'Biology' AND subject.name = 'Biochemistry';
     PERFORM set_config('ple.installation_live_demo_discipline_uuid', selected_discipline::text, true);
     PERFORM set_config('ple.installation_live_demo_subject_uuid', selected_subject::text, true);
+    SELECT course.course_instance_id INTO course_id
+      FROM ple_data.course_instance AS course
+     WHERE course.course_short_name = 'BCHM 301';
+    IF course_id IS NOT NULL THEN
+        PERFORM set_config('ple.installation_live_demo_course_instance_id', course_id, true);
+        SELECT assessment.assessment_id INTO assessment_id_value
+          FROM ple_data.assessment AS assessment
+         WHERE assessment.course_instance_id = course_id
+           AND assessment.assessment_title = 'Chapter 1 Pilot Practice';
+        IF assessment_id_value IS NOT NULL THEN
+            PERFORM set_config(
+                'ple.installation_live_demo_assessment_id', assessment_id_value, true
+            );
+        END IF;
+    END IF;
 END
 $$;
 
 SET LOCAL ROLE ple_private_owner;
 DO $$
+DECLARE
+    elena text;
+    mary text;
+    jack text;
+    avery text;
+    priya text;
+    sysadmin_id text;
 BEGIN
-    IF EXISTS (
-        SELECT 1 FROM (VALUES
-            ('00000000-0000-0000-0000-000000000101'::uuid, 'instructor'::text),
-            ('00000000-0000-0000-0000-000000000102'::uuid, 'student'::text),
-            ('00000000-0000-0000-0000-000000000103'::uuid, 'student'::text),
-            ('00000000-0000-0000-0000-000000000104'::uuid, 'student'::text),
-            ('00000000-0000-0000-0000-000000000105'::uuid, 'sysadmin'::text),
-            ('00000000-0000-0000-0000-000000000107'::uuid, 'instructor'::text)
-        ) AS expected(account_id, product_role)
-        LEFT JOIN ple_private.account AS account
-          ON account.account_id = expected.account_id
-         AND account.product_role = expected.product_role
-        WHERE account.account_id IS NULL
-    ) THEN
+    SELECT email.account_id INTO elena
+      FROM ple_private.account_authentication_email AS email
+      JOIN ple_private.account AS account
+        ON account.account_id = email.account_id
+     WHERE email.normalized_email = 'elena.martinez@live-demo.invalid'
+       AND account.product_role = 'instructor';
+    SELECT email.account_id INTO mary
+      FROM ple_private.account_authentication_email AS email
+      JOIN ple_private.account AS account
+        ON account.account_id = email.account_id
+     WHERE email.normalized_email = 'mary.okafor@biology.roosevelt.edu'
+       AND account.product_role = 'student';
+    SELECT email.account_id INTO jack
+      FROM ple_private.account_authentication_email AS email
+      JOIN ple_private.account AS account
+        ON account.account_id = email.account_id
+     WHERE email.normalized_email = 'jack.nguyen@biology.roosevelt.edu'
+       AND account.product_role = 'student';
+    SELECT email.account_id INTO avery
+      FROM ple_private.account_authentication_email AS email
+      JOIN ple_private.account AS account
+        ON account.account_id = email.account_id
+     WHERE email.normalized_email = 'avery.thompson@biology.roosevelt.edu'
+       AND account.product_role = 'student';
+    SELECT email.account_id INTO priya
+      FROM ple_private.account_authentication_email AS email
+      JOIN ple_private.account AS account
+        ON account.account_id = email.account_id
+     WHERE email.normalized_email = 'priya.shah@live-demo.invalid'
+       AND account.product_role = 'instructor';
+    SELECT account.account_id INTO sysadmin_id
+      FROM ple_private.account AS account
+     WHERE account.product_role = 'sysadmin'
+     ORDER BY account.created_at, account.account_id
+     LIMIT 1;
+    IF elena IS NULL OR mary IS NULL OR jack IS NULL OR avery IS NULL
+       OR priya IS NULL OR sysadmin_id IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Live Demo fictional identities are incomplete';
     END IF;
     IF EXISTS (
         SELECT 1
-          FROM (VALUES
-              ('00000000-0000-0000-0000-000000000101'::uuid),
-              ('00000000-0000-0000-0000-000000000102'::uuid),
-              ('00000000-0000-0000-0000-000000000103'::uuid),
-              ('00000000-0000-0000-0000-000000000104'::uuid),
-              ('00000000-0000-0000-0000-000000000105'::uuid),
-              ('00000000-0000-0000-0000-000000000107'::uuid)
+          FROM (VALUES (elena), (mary), (jack), (avery), (priya), (sysadmin_id)
           ) AS expected(account_id)
           LEFT JOIN LATERAL (
               SELECT event.state
@@ -61,34 +102,19 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Live Demo fictional identities are not active';
     END IF;
-    IF ple_private.verified_instructor_display_name(
-        '00000000-0000-0000-0000-000000000101'::uuid
-    ) IS DISTINCT FROM 'Elena Martinez'
-       OR ple_private.verified_instructor_display_name(
-           '00000000-0000-0000-0000-000000000107'::uuid
-       ) IS DISTINCT FROM 'Priya Shah' THEN
+    IF ple_private.verified_instructor_display_name(elena)
+           IS DISTINCT FROM 'Elena Martinez'
+       OR ple_private.verified_instructor_display_name(priya)
+           IS DISTINCT FROM 'Priya Shah' THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Live Demo Instructor vetted identity is incomplete';
     END IF;
-    IF EXISTS (
-        SELECT 1 FROM (VALUES
-            ('00000000-0000-0000-0000-000000000101'::uuid, 'elena.martinez@live-demo.invalid'::text),
-            ('00000000-0000-0000-0000-000000000102'::uuid, 'mary.okafor@biology.roosevelt.edu'::text),
-            ('00000000-0000-0000-0000-000000000103'::uuid, 'jack.nguyen@biology.roosevelt.edu'::text),
-            ('00000000-0000-0000-0000-000000000104'::uuid, 'avery.thompson@biology.roosevelt.edu'::text),
-            ('00000000-0000-0000-0000-000000000107'::uuid, 'priya.shah@live-demo.invalid'::text)
-        ) AS expected(account_id, normalized_email)
-        LEFT JOIN ple_private.account_authentication_email AS email
-          ON email.account_id = expected.account_id
-         AND email.normalized_email = expected.normalized_email
-        WHERE email.account_id IS NULL
-    )
-       OR NOT EXISTS (SELECT 1 FROM ple_private.authoring_workspace
-                       WHERE authoring_workspace_id = '00000000-0000-0000-0000-000000000201'
-                         AND owner_account_id = '00000000-0000-0000-0000-000000000101')
+    IF NOT EXISTS (SELECT 1 FROM ple_private.authoring_workspace
+                    WHERE authoring_workspace_id = '00000000-0000-0000-0000-000000000201'
+                      AND owner_account_id = elena)
        OR NOT EXISTS (SELECT 1 FROM ple_private.authoring_workspace
                        WHERE authoring_workspace_id = '00000000-0000-0000-0000-000000000206'
-                         AND owner_account_id = '00000000-0000-0000-0000-000000000107') THEN
+                         AND owner_account_id = priya) THEN
         RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Live Demo authoring context is incomplete';
     END IF;
     IF current_setting('ple.installation_pilot_publication_session_id', true) IS NOT NULL
@@ -102,25 +128,37 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Pilot publication session was not revoked';
     END IF;
+    PERFORM set_config('ple.installation_live_demo_elena_account_id', elena, true);
+    PERFORM set_config('ple.installation_live_demo_mary_account_id', mary, true);
+    PERFORM set_config('ple.installation_live_demo_jack_account_id', jack, true);
+    PERFORM set_config('ple.installation_live_demo_avery_account_id', avery, true);
+    PERFORM set_config('ple.installation_live_demo_priya_account_id', priya, true);
 END
 $$;
 RESET ROLE;
 
 SET LOCAL ROLE ple_audit_owner;
 DO $$
+DECLARE
+    course_id text := current_setting('ple.installation_live_demo_course_instance_id', true);
+    elena text := current_setting('ple.installation_live_demo_elena_account_id', true);
+    mary text := current_setting('ple.installation_live_demo_mary_account_id', true);
+    jack text := current_setting('ple.installation_live_demo_jack_account_id', true);
+    avery text := current_setting('ple.installation_live_demo_avery_account_id', true);
 BEGIN
-    IF (SELECT count(*) FROM ple_audit.course_roster_event
-         WHERE course_instance_id = '00000000-0000-0000-0000-000000000220') <> 6
+    IF course_id IS NULL
+       OR (SELECT count(*) FROM ple_audit.course_roster_event
+            WHERE course_instance_id = course_id) <> 6
        OR EXISTS (
            SELECT 1 FROM ple_audit.course_roster_event
-            WHERE course_instance_id = '00000000-0000-0000-0000-000000000220'
+            WHERE course_instance_id = course_id
               AND (student_account_id, acting_account_id, event_kind) NOT IN (
-                  ('00000000-0000-0000-0000-000000000102'::uuid, '00000000-0000-0000-0000-000000000101'::uuid, 'invitation_created'),
-                  ('00000000-0000-0000-0000-000000000103'::uuid, '00000000-0000-0000-0000-000000000101'::uuid, 'invitation_created'),
-                  ('00000000-0000-0000-0000-000000000104'::uuid, '00000000-0000-0000-0000-000000000101'::uuid, 'invitation_created'),
-                  ('00000000-0000-0000-0000-000000000102'::uuid, '00000000-0000-0000-0000-000000000102'::uuid, 'invitation_claimed'),
-                  ('00000000-0000-0000-0000-000000000103'::uuid, '00000000-0000-0000-0000-000000000103'::uuid, 'invitation_claimed'),
-                  ('00000000-0000-0000-0000-000000000104'::uuid, '00000000-0000-0000-0000-000000000104'::uuid, 'invitation_claimed')
+                  (mary, elena, 'invitation_created'),
+                  (jack, elena, 'invitation_created'),
+                  (avery, elena, 'invitation_created'),
+                  (mary, mary, 'invitation_claimed'),
+                  (jack, jack, 'invitation_claimed'),
+                  (avery, avery, 'invitation_claimed')
               )
        ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
@@ -133,29 +171,38 @@ RESET ROLE;
 SET LOCAL ROLE ple_api_owner;
 DO $$
 DECLARE
-    blueprint_reference bigint;
+    blueprint_id text;
+    course_id text;
+    elena text := current_setting('ple.installation_live_demo_elena_account_id');
+    mary text := current_setting('ple.installation_live_demo_mary_account_id');
+    jack text := current_setting('ple.installation_live_demo_jack_account_id');
+    avery text := current_setting('ple.installation_live_demo_avery_account_id');
     expected_blueprint_assessment_reference uuid;
 BEGIN
-    -- ASVS 1.2.4 and 8.2.2: the installer carries only the opaque public
-    -- Blueprint reference; this owner resolves its internal key exactly here.
-    SELECT reference_number INTO blueprint_reference
-      FROM ple_data.blueprint_course
-     WHERE public_reference = current_setting(
+    -- ASVS 1.2.4 and 8.2.2: the installer carries only the canonical public
+    -- Blueprint Course ID; this owner resolves that key exactly here.
+    blueprint_id := current_setting(
         'ple.installation_live_demo_blueprint_public_reference'
-     );
-    IF blueprint_reference IS NULL THEN
+    );
+    IF blueprint_id IS NULL OR NOT EXISTS (
+        SELECT 1 FROM ple_data.blueprint_course
+         WHERE blueprint_course_id = blueprint_id
+    ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Live Demo Blueprint public reference is unavailable';
     END IF;
     expected_blueprint_assessment_reference := current_setting(
         'ple.installation_live_demo_blueprint_assessment_reference'
     )::uuid;
+    SELECT course.course_instance_id INTO course_id
+      FROM ple_data.course_instance AS course
+     WHERE course.course_short_name = 'BCHM 301';
     IF (SELECT count(*) FROM ple_data.blueprint_course
-             WHERE reference_number = blueprint_reference) <> 1
+             WHERE blueprint_course_id = blueprint_id) <> 1
        OR NOT EXISTS (
            SELECT 1 FROM ple_data.blueprint_course
-            WHERE reference_number = blueprint_reference
-              AND owner_account_id = '00000000-0000-0000-0000-000000000101'
+            WHERE blueprint_course_id = blueprint_id
+              AND owner_account_id = elena
               AND short_name = 'BCHM 301'
               AND long_name = 'Biochemistry 301: Proteins and Peptides'
               AND content_discipline_id = current_setting('ple.installation_live_demo_discipline_uuid')::uuid
@@ -164,25 +211,23 @@ BEGIN
               AND availability = 'public'
               AND current_blueprint_revision_number = 1
        )
+       OR (SELECT count(*) FROM ple_data.course_instance
+            WHERE course_short_name = 'BCHM 301') <> 1
        OR NOT EXISTS (SELECT 1 FROM ple_data.course_instance
-                       WHERE course_instance_id = '00000000-0000-0000-0000-000000000220'
+                       WHERE course_instance_id = course_id
                          AND course_short_name = 'BCHM 301'
                          AND course_long_name = 'Biochemistry 301: Proteins and Peptides'
                          AND content_discipline_id = current_setting('ple.installation_live_demo_discipline_uuid')::uuid
                          AND content_subject_id = current_setting('ple.installation_live_demo_subject_uuid')::uuid
                          AND content_topic_id IS NULL AND content_subtopic_id IS NULL AND tags = ARRAY[]::text[]
                          AND term_starts_on = date '2026-08-24' AND term_ends_on = date '2026-12-11'
-                         AND blueprint_course_id = blueprint_reference
+                         AND blueprint_course_id = blueprint_id
                          AND blueprint_revision_number = 1)
        OR (SELECT count(*) FROM ple_data.blueprint_course_revision AS revision
-            JOIN ple_data.blueprint_course AS blueprint
-              ON blueprint.reference_number = revision.blueprint_course_id
-            WHERE blueprint.reference_number = blueprint_reference
+            WHERE revision.blueprint_course_id = blueprint_id
               AND revision.blueprint_revision_number = 1) <> 1
        OR (SELECT count(*) FROM ple_data.blueprint_revision_question_pin AS pin
-            JOIN ple_data.blueprint_course AS blueprint
-              ON blueprint.reference_number = pin.blueprint_course_id
-            WHERE blueprint.reference_number = blueprint_reference
+            WHERE pin.blueprint_course_id = blueprint_id
               AND pin.blueprint_revision_number = 1) <> 4
        OR EXISTS (
            WITH input AS (
@@ -200,7 +245,7 @@ BEGIN
            )
            SELECT 1 FROM input
            LEFT JOIN ple_data.blueprint_revision_question_pin AS pin
-             ON pin.blueprint_course_id = blueprint_reference
+             ON pin.blueprint_course_id = blueprint_id
             AND pin.blueprint_revision_number = 1
             AND pin.published_question_id = input.published_question_id
             AND pin.question_revision_number = input.revision_number
@@ -208,7 +253,7 @@ BEGIN
        )
        OR NOT EXISTS (
            SELECT 1 FROM ple_data.blueprint_revision_assessment AS revision_assessment
-            WHERE revision_assessment.blueprint_course_id = blueprint_reference
+            WHERE revision_assessment.blueprint_course_id = blueprint_id
               AND revision_assessment.blueprint_revision_number = 1
               AND revision_assessment.blueprint_assessment_reference
                   = expected_blueprint_assessment_reference
@@ -216,21 +261,21 @@ BEGIN
        OR NOT EXISTS (
            SELECT 1 FROM ple_data.course_origin
             WHERE course_origin_id = '00000000-0000-0000-0000-000000000221'
-              AND course_instance_id = '00000000-0000-0000-0000-000000000220'
-              AND blueprint_course_id = blueprint_reference
+              AND course_instance_id = course_id
+              AND blueprint_course_id = blueprint_id
               AND blueprint_revision_number = 1
               AND source_course_instance_id IS NULL
        )
        OR EXISTS (
            SELECT 1 FROM (VALUES
-               ('00000000-0000-0000-0000-000000000222'::uuid, '00000000-0000-0000-0000-000000000101'::uuid, 'instructor'::text, NULL::uuid),
-               ('00000000-0000-0000-0000-000000000261'::uuid, '00000000-0000-0000-0000-000000000102'::uuid, 'student'::text, '00000000-0000-0000-0000-000000000251'::uuid),
-               ('00000000-0000-0000-0000-000000000262'::uuid, '00000000-0000-0000-0000-000000000103'::uuid, 'student'::text, '00000000-0000-0000-0000-000000000252'::uuid),
-               ('00000000-0000-0000-0000-000000000263'::uuid, '00000000-0000-0000-0000-000000000104'::uuid, 'student'::text, '00000000-0000-0000-0000-000000000253'::uuid)
+               ('00000000-0000-0000-0000-000000000222'::uuid, elena, 'instructor'::text, NULL::uuid),
+               ('00000000-0000-0000-0000-000000000261'::uuid, mary, 'student'::text, '00000000-0000-0000-0000-000000000251'::uuid),
+               ('00000000-0000-0000-0000-000000000262'::uuid, jack, 'student'::text, '00000000-0000-0000-0000-000000000252'::uuid),
+               ('00000000-0000-0000-0000-000000000263'::uuid, avery, 'student'::text, '00000000-0000-0000-0000-000000000253'::uuid)
            ) AS expected(course_membership_id, account_id, role, student_record_id)
            LEFT JOIN ple_data.course_membership AS membership
              ON membership.course_membership_id = expected.course_membership_id
-            AND membership.course_instance_id = '00000000-0000-0000-0000-000000000220'
+            AND membership.course_instance_id = course_id
             AND membership.account_id = expected.account_id
             AND membership.role = expected.role
             AND membership.student_record_id IS NOT DISTINCT FROM expected.student_record_id
@@ -238,25 +283,25 @@ BEGIN
        )
        OR EXISTS (
            SELECT 1 FROM (VALUES
-               ('00000000-0000-0000-0000-000000000251'::uuid, '00000000-0000-0000-0000-000000000102'::uuid),
-               ('00000000-0000-0000-0000-000000000252'::uuid, '00000000-0000-0000-0000-000000000103'::uuid),
-               ('00000000-0000-0000-0000-000000000253'::uuid, '00000000-0000-0000-0000-000000000104'::uuid)
+               ('00000000-0000-0000-0000-000000000251'::uuid, mary),
+               ('00000000-0000-0000-0000-000000000252'::uuid, jack),
+               ('00000000-0000-0000-0000-000000000253'::uuid, avery)
            ) AS expected(student_record_id, student_id)
            LEFT JOIN ple_data.student_record AS record
              ON record.student_record_id = expected.student_record_id
-            AND record.course_instance_id = '00000000-0000-0000-0000-000000000220'
+            AND record.course_instance_id = course_id
             AND record.student_account_id = expected.student_id
            WHERE record.student_record_id IS NULL
        )
        OR EXISTS (
            SELECT 1 FROM (VALUES
-               ('00000000-0000-0000-0000-000000000231'::uuid, '00000000-0000-0000-0000-000000000102'::uuid, 'BIO301-MARY'::text, 'Mary'::text),
-               ('00000000-0000-0000-0000-000000000232'::uuid, '00000000-0000-0000-0000-000000000103'::uuid, 'BIO301-JACK'::text, 'Jack'::text),
-               ('00000000-0000-0000-0000-000000000233'::uuid, '00000000-0000-0000-0000-000000000104'::uuid, 'BIO301-AVERY'::text, 'Avery'::text)
+               ('00000000-0000-0000-0000-000000000231'::uuid, mary, 'BIO301-MARY'::text, 'Mary'::text),
+               ('00000000-0000-0000-0000-000000000232'::uuid, jack, 'BIO301-JACK'::text, 'Jack'::text),
+               ('00000000-0000-0000-0000-000000000233'::uuid, avery, 'BIO301-AVERY'::text, 'Avery'::text)
            ) AS expected(profile_id, student_id, roster_id, roster_name)
            LEFT JOIN ple_private.course_roster_profile AS profile
              ON profile.course_roster_profile_id = expected.profile_id
-            AND profile.course_instance_id = '00000000-0000-0000-0000-000000000220'
+            AND profile.course_instance_id = course_id
             AND profile.student_account_id = expected.student_id
             AND profile.roster_id = expected.roster_id
             AND profile.roster_name = expected.roster_name
@@ -264,13 +309,13 @@ BEGIN
        )
        OR EXISTS (
            SELECT 1 FROM (VALUES
-               ('00000000-0000-0000-0000-000000000241'::uuid, '00000000-0000-0000-0000-000000000102'::uuid),
-               ('00000000-0000-0000-0000-000000000242'::uuid, '00000000-0000-0000-0000-000000000103'::uuid),
-               ('00000000-0000-0000-0000-000000000243'::uuid, '00000000-0000-0000-0000-000000000104'::uuid)
+               ('00000000-0000-0000-0000-000000000241'::uuid, mary),
+               ('00000000-0000-0000-0000-000000000242'::uuid, jack),
+               ('00000000-0000-0000-0000-000000000243'::uuid, avery)
            ) AS expected(course_invitation_id, student_id)
            LEFT JOIN ple_private.course_invitation AS invitation
              ON invitation.course_invitation_id = expected.course_invitation_id
-            AND invitation.course_instance_id = '00000000-0000-0000-0000-000000000220'
+            AND invitation.course_instance_id = course_id
             AND invitation.target_account_id = expected.student_id
             AND invitation.membership_role = 'student'
            LEFT JOIN ple_private.course_invitation_event AS invitation_event
@@ -290,37 +335,47 @@ RESET ROLE;
 SET LOCAL ROLE ple_data_owner;
 DO $$
 DECLARE
-    blueprint_reference bigint;
+    blueprint_id text;
+    course_id text;
+    assessment_id_value text;
     expected_blueprint_assessment_reference uuid := current_setting(
         'ple.installation_live_demo_blueprint_assessment_reference'
     )::uuid;
 BEGIN
-    -- ASVS 1.2.4 and 8.2.2: resolve the internal key only from the exact
-    -- canonical public reference at this privileged installation boundary.
-    SELECT reference_number INTO blueprint_reference
-      FROM ple_data.blueprint_course
-     WHERE public_reference = current_setting(
+    -- ASVS 1.2.4 and 8.2.2: resolve the Blueprint Course from the exact
+    -- canonical public ID at this privileged installation boundary.
+    blueprint_id := current_setting(
         'ple.installation_live_demo_blueprint_public_reference'
-     );
-    IF blueprint_reference IS NULL THEN
+    );
+    IF blueprint_id IS NULL OR NOT EXISTS (
+        SELECT 1 FROM ple_data.blueprint_course
+         WHERE blueprint_course_id = blueprint_id
+    ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Live Demo Blueprint public reference is unavailable';
     END IF;
+    SELECT course.course_instance_id INTO course_id
+      FROM ple_data.course_instance AS course
+     WHERE course.course_short_name = 'BCHM 301';
+    SELECT assessment.assessment_id INTO assessment_id_value
+      FROM ple_data.assessment AS assessment
+     WHERE assessment.course_instance_id = course_id
+       AND assessment.assessment_title = 'Chapter 1 Pilot Practice';
     IF (SELECT count(*) FROM ple_data.assessment
-             WHERE assessment_id = '00000000-0000-0000-0000-000000000270'
+             WHERE assessment_id = assessment_id_value
                AND assessment_status = 'released'
                AND assessment_type = 'practice_question_assignment'
-               AND course_instance_id = '00000000-0000-0000-0000-000000000220'
+               AND course_instance_id = course_id
                AND origin_kind = 'adopted'
-               AND source_blueprint_course_reference_number = blueprint_reference
+               AND source_blueprint_course_id = blueprint_id
                AND source_blueprint_revision_number = 1
                AND source_blueprint_assessment_reference
                    = expected_blueprint_assessment_reference) <> 1
        OR (SELECT count(*) FROM ple_data.assessment_entry
-             WHERE assessment_id = '00000000-0000-0000-0000-000000000270') <> 4
+             WHERE assessment_id = assessment_id_value) <> 4
        OR EXISTS (
            SELECT 1 FROM ple_data.assessment_entry
-            WHERE assessment_id = '00000000-0000-0000-0000-000000000270'
+            WHERE assessment_id = assessment_id_value
               AND (published_question_id !~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
                    OR substr(published_question_id, 6, 1) IS DISTINCT FROM
                         ple_private.crockford_checksum_character(
@@ -349,7 +404,7 @@ BEGIN
            )
            SELECT 1 FROM input
            LEFT JOIN ple_data.assessment_entry AS entry
-             ON entry.assessment_id = '00000000-0000-0000-0000-000000000270'
+             ON entry.assessment_id = assessment_id_value
             AND entry.authored_position = input.authored_position
             AND entry.entry_kind = 'fixed_question'
             AND entry.published_question_id = input.published_question_id

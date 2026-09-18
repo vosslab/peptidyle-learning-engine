@@ -21,8 +21,8 @@ GRANT EXECUTE ON FUNCTION ple_api.load_blueprint_fork_source(text, bigint, bytea
 REVOKE ALL PRIVILEGES ON TABLE
     ple_data.blueprint_course_fork, ple_data.blueprint_course_fork_receipt FROM PUBLIC;
 
-REVOKE ALL ON FUNCTION ple_api.fork_blueprint_course(uuid, text, bigint, bytea, jsonb, bytea) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_api.fork_blueprint_course(text, text, bigint, bytea, jsonb, bytea) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_api.fork_blueprint_course(uuid, text, bigint, bytea, jsonb, bytea)
+GRANT EXECUTE ON FUNCTION ple_api.fork_blueprint_course(text, text, bigint, bytea, jsonb, bytea)
 TO ple_app;
 

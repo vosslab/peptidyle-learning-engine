@@ -8,10 +8,9 @@ SET search_path = pg_catalog, ple_data AS $$
 BEGIN
     IF NEW.assessment_id IS DISTINCT FROM OLD.assessment_id
        OR NEW.course_instance_id IS DISTINCT FROM OLD.course_instance_id
-       OR NEW.reference_number IS DISTINCT FROM OLD.reference_number
        OR NEW.origin_kind IS DISTINCT FROM OLD.origin_kind
-       OR NEW.source_blueprint_course_reference_number
-            IS DISTINCT FROM OLD.source_blueprint_course_reference_number
+       OR NEW.source_blueprint_course_id
+            IS DISTINCT FROM OLD.source_blueprint_course_id
        OR NEW.source_blueprint_revision_number
             IS DISTINCT FROM OLD.source_blueprint_revision_number
        OR NEW.source_blueprint_assessment_reference
@@ -69,7 +68,7 @@ $$;
 -- exact pin to remain in a current Assessment while requiring any new or
 -- replaced pin to come from an Available Question lineage.
 CREATE FUNCTION ple_data.replace_assessment_entries(
-    p_assessment_id uuid,
+    p_assessment_id text,
     p_entries jsonb
 ) RETURNS boolean
 LANGUAGE plpgsql SECURITY DEFINER
@@ -83,7 +82,7 @@ DECLARE
     row_count integer;
     question_available boolean;
     question_backend_supported boolean;
-    question_pool_id_value uuid;
+    question_pool_id_value text;
 BEGIN
     IF p_entries IS NULL OR jsonb_typeof(p_entries) <> 'array'
        OR jsonb_array_length(p_entries) > 1024 THEN
@@ -235,7 +234,7 @@ BEGIN
             END IF;
             SELECT pool.question_pool_id INTO question_pool_id_value
               FROM ple_data.question_pool AS pool
-             WHERE pool.public_question_pool_id = entry_json ->> 'questionPoolId';
+             WHERE pool.question_pool_id = entry_json ->> 'questionPoolId';
             IF NOT FOUND OR NOT EXISTS (
                 SELECT 1 FROM ple_data.question_pool_revision AS pool_revision
                  WHERE pool_revision.question_pool_id = question_pool_id_value
@@ -339,13 +338,13 @@ $$;
 -- non-identity fields.  Keeping the tagged child collection separate avoids
 -- generic snapshot persistence while one operation validates the full result.
 CREATE FUNCTION ple_data.save_assessment(
-    p_course_reference_number bigint,
-    p_assessment_reference_number bigint,
+    p_course_reference_number text,
+    p_assessment_reference_number text,
     p_expected_edit_number bigint,
     p_values jsonb,
     p_entries jsonb
 ) RETURNS TABLE (
-    assessment_reference_number bigint, assessment_edit_number bigint,
+    assessment_reference_number text, assessment_edit_number bigint,
     assessment_status text, assessment_title text, assessment_instructions text
 )
 LANGUAGE plpgsql SECURITY DEFINER
@@ -365,8 +364,8 @@ DECLARE
         'feedback_question_answer_explanation', 'feedback_class_statistics'
     ];
 BEGIN
-    IF p_course_reference_number NOT BETWEEN 1 AND 2147483647
-       OR p_assessment_reference_number NOT BETWEEN 1 AND 2147483647
+    IF p_course_reference_number IS NULL
+       OR p_assessment_reference_number IS NULL
        OR p_expected_edit_number IS NULL OR p_expected_edit_number <= 0
        OR p_values IS NULL OR jsonb_typeof(p_values) <> 'object'
        OR EXISTS (
@@ -378,7 +377,7 @@ BEGIN
     END IF;
     SELECT course.* INTO course_row
       FROM ple_data.course_instance AS course
-     WHERE course.reference_number = p_course_reference_number
+     WHERE course.course_instance_id = p_course_reference_number
        AND ple_api.current_session_account_is_course_instructor(course.course_instance_id)
      FOR UPDATE;
     IF NOT FOUND THEN
@@ -387,7 +386,7 @@ BEGIN
     SELECT assessment.* INTO current_assessment
       FROM ple_data.assessment AS assessment
      WHERE assessment.course_instance_id = course_row.course_instance_id
-       AND assessment.reference_number = p_assessment_reference_number
+       AND assessment.assessment_id = p_assessment_reference_number
      FOR UPDATE;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable';
@@ -442,7 +441,7 @@ BEGIN
             assessment_edit_number = updated.assessment_edit_number + 1,
             updated_at = clock_timestamp()
          WHERE updated.assessment_id = current_assessment.assessment_id
-        RETURNING updated.reference_number, updated.assessment_edit_number,
+        RETURNING updated.assessment_id, updated.assessment_edit_number,
             updated.assessment_status, updated.assessment_title, updated.assessment_instructions
           INTO assessment_reference_number, assessment_edit_number, assessment_status,
                assessment_title, assessment_instructions;
@@ -455,7 +454,7 @@ BEGIN
         END IF;
         PERFORM ple_data.synchronize_course_assessment_deadline(course_row.course_instance_id);
     ELSE
-        assessment_reference_number := current_assessment.reference_number;
+        assessment_reference_number := current_assessment.assessment_id;
         assessment_edit_number := current_assessment.assessment_edit_number;
         assessment_status := current_assessment.assessment_status;
         assessment_title := current_assessment.assessment_title;
@@ -466,10 +465,10 @@ END
 $$;
 
 CREATE FUNCTION ple_data.save_assessment_inline(
-    p_course_reference_number bigint, p_assessment_reference_number bigint,
+    p_course_reference_number text, p_assessment_reference_number text,
     p_expected_edit_number bigint, p_title text, p_due_at timestamptz
 ) RETURNS TABLE (
-    assessment_reference_number bigint, assessment_title text, due_at_millis bigint,
+    assessment_reference_number text, assessment_title text, due_at_millis bigint,
     assessment_status text, assessment_edit_number bigint
 )
 LANGUAGE plpgsql SECURITY DEFINER
@@ -478,14 +477,14 @@ DECLARE
     course_row ple_data.course_instance%ROWTYPE;
     assessment_row ple_data.assessment%ROWTYPE;
 BEGIN
-    IF p_course_reference_number NOT BETWEEN 1 AND 2147483647
-       OR p_assessment_reference_number NOT BETWEEN 1 AND 2147483647
+    IF p_course_reference_number IS NULL
+       OR p_assessment_reference_number IS NULL
        OR p_expected_edit_number IS NULL OR p_expected_edit_number <= 0 OR p_title IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Assessment inline save is invalid';
     END IF;
     SELECT course.* INTO course_row
       FROM ple_data.course_instance AS course
-     WHERE course.reference_number = p_course_reference_number
+     WHERE course.course_instance_id = p_course_reference_number
        AND ple_api.current_session_account_is_course_instructor(course.course_instance_id)
      FOR UPDATE;
     IF NOT FOUND THEN
@@ -494,7 +493,7 @@ BEGIN
     SELECT assessment.* INTO assessment_row
       FROM ple_data.assessment AS assessment
      WHERE assessment.course_instance_id = course_row.course_instance_id
-       AND assessment.reference_number = p_assessment_reference_number
+       AND assessment.assessment_id = p_assessment_reference_number
      FOR UPDATE;
     IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable'; END IF;
     IF assessment_row.assessment_edit_number IS DISTINCT FROM p_expected_edit_number THEN
@@ -508,7 +507,7 @@ BEGIN
         UPDATE ple_data.assessment AS updated SET assessment_title = p_title, due_at = p_due_at,
             assessment_edit_number = updated.assessment_edit_number + 1, updated_at = clock_timestamp()
          WHERE updated.assessment_id = assessment_row.assessment_id
-        RETURNING updated.reference_number, updated.assessment_title,
+        RETURNING updated.assessment_id, updated.assessment_title,
             CASE WHEN updated.due_at IS NULL THEN NULL
                  ELSE floor(extract(epoch FROM updated.due_at) * 1000)::bigint END,
             updated.assessment_status, updated.assessment_edit_number
@@ -523,7 +522,7 @@ BEGIN
         END IF;
         PERFORM ple_data.synchronize_course_assessment_deadline(course_row.course_instance_id);
     ELSE
-        assessment_reference_number := assessment_row.reference_number; assessment_title := assessment_row.assessment_title;
+        assessment_reference_number := assessment_row.assessment_id; assessment_title := assessment_row.assessment_title;
         due_at_millis := CASE WHEN assessment_row.due_at IS NULL THEN NULL ELSE floor(extract(epoch FROM assessment_row.due_at) * 1000)::bigint END;
         assessment_status := assessment_row.assessment_status; assessment_edit_number := assessment_row.assessment_edit_number;
     END IF;
@@ -535,10 +534,10 @@ $$;
 
 -- Policy-only persistence keeps Question Entries and title outside this write boundary.
 CREATE FUNCTION ple_data.save_assessment_policies(
-    p_course_reference_number bigint, p_assessment_reference_number bigint,
+    p_course_reference_number text, p_assessment_reference_number text,
     p_expected_edit_number bigint, p_policies jsonb
 ) RETURNS TABLE (
-    assessment_reference_number bigint, assessment_edit_number bigint,
+    assessment_reference_number text, assessment_edit_number bigint,
     assessment_status text, assessment_title text, assessment_instructions text
 )
 LANGUAGE plpgsql SECURITY DEFINER
@@ -554,8 +553,8 @@ DECLARE course_row ple_data.course_instance%ROWTYPE;
         'feedback_per_item_correctness', 'feedback_submitted_response',
         'feedback_question_answer', 'feedback_question_answer_explanation', 'feedback_class_statistics'];
 BEGIN
-    IF p_course_reference_number NOT BETWEEN 1 AND 2147483647
-       OR p_assessment_reference_number NOT BETWEEN 1 AND 2147483647
+    IF p_course_reference_number IS NULL
+       OR p_assessment_reference_number IS NULL
        OR p_expected_edit_number IS NULL OR p_expected_edit_number <= 0
        OR p_policies IS NULL OR jsonb_typeof(p_policies) <> 'object'
        OR EXISTS (SELECT 1 FROM jsonb_object_keys(p_policies) AS key WHERE key <> ALL (allowed_keys))
@@ -564,7 +563,7 @@ BEGIN
     END IF;
     SELECT course.* INTO course_row
       FROM ple_data.course_instance AS course
-     WHERE course.reference_number = p_course_reference_number
+     WHERE course.course_instance_id = p_course_reference_number
        AND ple_api.current_session_account_is_course_instructor(course.course_instance_id)
      FOR UPDATE;
     IF NOT FOUND THEN
@@ -573,7 +572,7 @@ BEGIN
     SELECT assessment.* INTO current_assessment
       FROM ple_data.assessment AS assessment
      WHERE assessment.course_instance_id = course_row.course_instance_id
-       AND assessment.reference_number = p_assessment_reference_number
+       AND assessment.assessment_id = p_assessment_reference_number
      FOR UPDATE;
     IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable'; END IF;
     IF current_assessment.assessment_edit_number IS DISTINCT FROM p_expected_edit_number THEN
@@ -613,7 +612,7 @@ BEGIN
           feedback_class_statistics = candidate.feedback_class_statistics,
           assessment_edit_number = updated.assessment_edit_number + 1, updated_at = clock_timestamp()
           WHERE updated.assessment_id = current_assessment.assessment_id
-        RETURNING updated.reference_number, updated.assessment_edit_number, updated.assessment_status,
+        RETURNING updated.assessment_id, updated.assessment_edit_number, updated.assessment_status,
           updated.assessment_title, updated.assessment_instructions INTO assessment_reference_number,
           assessment_edit_number, assessment_status, assessment_title, assessment_instructions;
         IF assessment_status = 'released' THEN
@@ -625,7 +624,7 @@ BEGIN
         END IF;
         PERFORM ple_data.synchronize_course_assessment_deadline(course_row.course_instance_id);
     ELSE
-        assessment_reference_number := current_assessment.reference_number; assessment_edit_number := current_assessment.assessment_edit_number;
+        assessment_reference_number := current_assessment.assessment_id; assessment_edit_number := current_assessment.assessment_edit_number;
         assessment_status := current_assessment.assessment_status; assessment_title := current_assessment.assessment_title;
         assessment_instructions := current_assessment.assessment_instructions;
     END IF;
@@ -634,11 +633,11 @@ END
 $$;
 
 CREATE FUNCTION ple_data.release_assessment(
-    p_course_reference_number bigint,
-    p_assessment_reference_number bigint,
+    p_course_reference_number text,
+    p_assessment_reference_number text,
     p_expected_edit_number bigint
 ) RETURNS TABLE (
-    assessment_reference_number bigint, assessment_title text,
+    assessment_reference_number text, assessment_title text,
     assessment_status text, assessment_edit_number bigint
 )
 LANGUAGE plpgsql SECURITY DEFINER
@@ -647,14 +646,14 @@ DECLARE
     course_row ple_data.course_instance%ROWTYPE;
     assessment_row ple_data.assessment%ROWTYPE;
 BEGIN
-    IF p_course_reference_number NOT BETWEEN 1 AND 2147483647
-       OR p_assessment_reference_number NOT BETWEEN 1 AND 2147483647
+    IF p_course_reference_number IS NULL
+       OR p_assessment_reference_number IS NULL
        OR p_expected_edit_number IS NULL OR p_expected_edit_number <= 0 THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable';
     END IF;
     SELECT course.* INTO course_row
       FROM ple_data.course_instance AS course
-     WHERE course.reference_number = p_course_reference_number
+     WHERE course.course_instance_id = p_course_reference_number
        AND ple_api.current_session_account_is_course_instructor(course.course_instance_id)
      FOR UPDATE;
     IF NOT FOUND THEN
@@ -663,7 +662,7 @@ BEGIN
     SELECT assessment.* INTO assessment_row
       FROM ple_data.assessment AS assessment
      WHERE assessment.course_instance_id = course_row.course_instance_id
-       AND assessment.reference_number = p_assessment_reference_number
+       AND assessment.assessment_id = p_assessment_reference_number
      FOR UPDATE;
     IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable'; END IF;
     IF assessment_row.assessment_edit_number IS DISTINCT FROM p_expected_edit_number THEN
@@ -679,7 +678,7 @@ BEGIN
         assessment_edit_number = updated.assessment_edit_number + 1,
         updated_at = clock_timestamp()
      WHERE updated.assessment_id = assessment_row.assessment_id
-    RETURNING updated.reference_number, updated.assessment_title, updated.assessment_status,
+    RETURNING updated.assessment_id, updated.assessment_title, updated.assessment_status,
         updated.assessment_edit_number
       INTO assessment_reference_number, assessment_title, assessment_status, assessment_edit_number;
     PERFORM ple_data.synchronize_course_assessment_deadline(course_row.course_instance_id);

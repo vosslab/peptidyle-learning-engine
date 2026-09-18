@@ -73,13 +73,13 @@ CREATE UNIQUE INDEX object_storage_check_banner_subject_once
 SET LOCAL ROLE ple_data_owner;
 
 CREATE INDEX blueprint_course_available_owner_idx
-    ON ple_data.blueprint_course (availability, owner_account_id, reference_number);
+    ON ple_data.blueprint_course (availability, owner_account_id, blueprint_course_id);
 
 CREATE INDEX blueprint_revision_question_pin_question_idx
     ON ple_data.blueprint_revision_question_pin (published_question_id, question_revision_number);
 
 CREATE INDEX blueprint_course_fork_source_idx ON ple_data.blueprint_course_fork (
-    source_blueprint_course_reference_number, source_blueprint_revision_number
+    source_blueprint_course_id, source_blueprint_revision_number
 );
 
 CREATE INDEX blueprint_course_star_instructor_collection_idx
@@ -108,10 +108,10 @@ CREATE INDEX course_membership_account_course_idx ON ple_data.course_membership 
 
 CREATE INDEX student_record_account_course_idx ON ple_data.student_record (student_account_id, course_instance_id);
 
-CREATE INDEX assessment_course_due_idx ON ple_data.assessment(course_instance_id, due_at, reference_number)
+CREATE INDEX assessment_course_due_idx ON ple_data.assessment(course_instance_id, due_at, assessment_id)
     WHERE assessment_status IN ('unreleased', 'released');
 
-CREATE INDEX assessment_due_soon_idx ON ple_data.assessment(due_at, course_instance_id, reference_number)
+CREATE INDEX assessment_due_soon_idx ON ple_data.assessment(due_at, course_instance_id, assessment_id)
     WHERE assessment_status IN ('unreleased', 'released') AND due_at IS NOT NULL;
 
 CREATE INDEX assessment_entry_current_idx ON ple_data.assessment_entry(assessment_id, authored_position)

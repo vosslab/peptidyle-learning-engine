@@ -1,42 +1,7 @@
 -- retention tables. CREATE TABLE and COMMENT ON only.
 -- Functions, policies, and privileges live in later layers.
-
-SET LOCAL ROLE ple_data_owner;
-
--- Operational Course-retention policy.  Course-core owns Course facts; this
--- module only derives due work from those facts and the current policy.
-CREATE TABLE ple_data.course_retention_policy (
-    policy_key boolean PRIMARY KEY DEFAULT true CHECK (policy_key),
-    inactive_warning_lead_time interval NOT NULL CHECK (inactive_warning_lead_time > INTERVAL '0'),
-    archive_notice_lead_time interval NOT NULL CHECK (archive_notice_lead_time > INTERVAL '0'),
-    archive_after_retention_start interval NOT NULL
-        CHECK (archive_after_retention_start > INTERVAL '0'),
-    delete_after_archive interval NOT NULL CHECK (delete_after_archive > INTERVAL '0'),
-    CHECK (archive_notice_lead_time <= archive_after_retention_start),
-    created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
-);
-
-
-
-
--- These are operational defaults, not product-policy constants.  The retention
--- start is the latest Assessment deadline: archive at day 100, with a day-30
--- notice expressed as a 70-day lead (100 - 70), then delete at day 365 through
--- the 265-day interval after the same absolute archive cutoff (100 + 265).
--- The independent 14-day inactive-Course warning remains unchanged.
--- A deployment administrator can set its local FERPA periods before retention
--- processing.
-INSERT INTO ple_data.course_retention_policy (
-    inactive_warning_lead_time,
-    archive_notice_lead_time,
-    archive_after_retention_start,
-    delete_after_archive
-) VALUES (
-    INTERVAL '14 days',
-    INTERVAL '70 days',
-    INTERVAL '100 days',
-    INTERVAL '265 days'
-);
+-- FERPA notice/archive/deletion intervals are deployment configuration
+-- (ple.retention_* settings via ple_data.retention_schedule()), not a table.
 
 SET LOCAL ROLE ple_private_owner;
 
@@ -45,10 +10,10 @@ SET LOCAL ROLE ple_private_owner;
 -- nor exposes a general Account lookup or outbound-message queue.
 CREATE TABLE ple_private.course_retention_notification (
     notification_id uuid PRIMARY KEY DEFAULT pg_catalog.gen_random_uuid(),
-    course_instance_id uuid NOT NULL REFERENCES ple_data.course_instance (course_instance_id),
+    course_instance_id ple_data.course_instance_id NOT NULL REFERENCES ple_data.course_instance (course_instance_id),
     action_kind ple_data.retention_action_kind NOT NULL,
     due_at timestamp with time zone NOT NULL,
-    recipient_account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
+    recipient_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account (account_id),
     recipient_product_role ple_data.product_role NOT NULL DEFAULT 'instructor',
     provider_idempotency_key uuid NOT NULL DEFAULT pg_catalog.gen_random_uuid(),
     created_at timestamp with time zone NOT NULL,
@@ -73,14 +38,10 @@ CREATE TABLE ple_private.course_retention_notification (
     CHECK (next_attempt_at >= due_at)
 );
 
-
-SET LOCAL ROLE ple_data_owner;
-
-SET LOCAL ROLE ple_data_owner;
-COMMENT ON TABLE ple_data.course_retention_policy IS 'role: vocabulary, deleted by Course delete after the retention sweep. HUMAN_GUIDANCE.md Retention.';
-
-SET LOCAL ROLE ple_private_owner;
-
-SET LOCAL ROLE ple_private_owner;
 COMMENT ON TABLE ple_private.course_retention_notification IS 'role: event, deleted by Course delete after the retention sweep. HUMAN_GUIDANCE.md Retention.';
-
+COMMENT ON COLUMN ple_private.course_retention_notification.claimed_at IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.course_retention_notification.lease_expires_at IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.course_retention_notification.lease_token IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.course_retention_notification.provider_accepted_at IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.course_retention_notification.last_failure_at IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.course_retention_notification.last_failure_kind IS 'NULL means this optional fact is absent.';

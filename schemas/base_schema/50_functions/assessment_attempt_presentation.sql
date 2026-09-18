@@ -124,7 +124,7 @@ CREATE FUNCTION ple_private.require_owned_assessment_attempt_for_presentation(
 ) RETURNS ple_private.assessment_attempt LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE result ple_private.assessment_attempt%ROWTYPE;
-DECLARE course_id_value uuid;
+DECLARE course_id_value text;
 BEGIN
     IF p_assessment_attempt_id IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Assessment Attempt presentation identity is invalid';
@@ -454,7 +454,7 @@ BEGIN
             END IF;
             INSERT INTO ple_private.question_attempt_presentation_asset_binding(question_attempt_id)
             VALUES (item_question_attempt_id);
-            INSERT INTO ple_private.question_attempt_presentation_asset_rendition(question_attempt_id, asset_id, question_asset_checksum, rendition_checksum, intrinsic_width, intrinsic_height)
+            INSERT INTO ple_private.question_attempt_presentation_asset_rendition(question_attempt_presentation_asset_binding_id, asset_id, question_asset_checksum, rendition_checksum, intrinsic_width, intrinsic_height)
             SELECT item_question_attempt_id, supplied.asset_id, decode(supplied.question_asset_checksum, 'hex'), decode(supplied.rendition_checksum, 'hex'), supplied.intrinsic_width, supplied.intrinsic_height
               FROM jsonb_to_recordset(item -> 'question_assets') AS supplied(asset_id uuid, question_asset_checksum text, rendition_checksum text, intrinsic_width integer, intrinsic_height integer);
         END IF;
@@ -588,7 +588,7 @@ BEGIN
       JOIN ple_private.question_attempt AS question_attempt ON question_attempt.issued_question_id = issued.issued_question_id
       JOIN ple_private.question_revision_source_binding AS source ON source.published_question_id = issued.published_question_id AND source.revision_number = issued.revision_number
       JOIN ple_private.question_attempt_presentation_binding AS binding ON binding.question_attempt_id = question_attempt.question_attempt_id
-      LEFT JOIN ple_private.question_attempt_presentation_asset_rendition AS rendition ON rendition.question_attempt_id = question_attempt.question_attempt_id
+      LEFT JOIN ple_private.question_attempt_presentation_asset_rendition AS rendition ON rendition.question_attempt_presentation_asset_binding_id = question_attempt.question_attempt_id
       LEFT JOIN LATERAL (
           SELECT jsonb_agg(jsonb_build_object(
               'presentation_response_item_reference', response_item.presentation_response_item_reference,

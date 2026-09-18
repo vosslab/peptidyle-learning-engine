@@ -13,7 +13,7 @@ SET LOCAL ROLE ple_private_owner;
 -- uses the one p_now supplied from statement_timestamp(); the browser never
 -- recomputes permission from its own clock.
 CREATE FUNCTION ple_private.read_student_released_assessment_landing_evidence(
-    p_course_instance_id uuid,
+    p_course_instance_id text,
     p_student_record_id uuid,
     p_now timestamptz
 ) RETURNS TABLE (
@@ -44,7 +44,6 @@ SET search_path = pg_catalog, ple_data, ple_private, ple_audit AS $$
     -- not conditional on which projection reaches this helper.
     WITH released_assessment AS (
         SELECT assessment.assessment_id,
-               assessment.public_reference,
                assessment.assessment_title,
                assessment.assessment_type,
                assessment.assessment_status,
@@ -65,14 +64,14 @@ SET search_path = pg_catalog, ple_data, ple_private, ple_audit AS $$
          WHERE assessment.course_instance_id = p_course_instance_id
            AND assessment.assessment_status = 'released'
            AND ple_api.course_student_work_is_ordinarily_visible(assessment.course_instance_id)
-         GROUP BY assessment.assessment_id, assessment.public_reference,
+         GROUP BY assessment.assessment_id,
                   assessment.assessment_title, assessment.assessment_type,
                   assessment.assessment_status,
                   assessment.available_at, assessment.due_at, assessment.closes_at,
                   assessment.assessment_attempt_time_limit_seconds,
                   assessment.assessment_attempt_limit, assessment.late_work_rule
     )
-    SELECT assessment.public_reference,
+    SELECT assessment.assessment_id,
            CASE WHEN assessment_attempt.assessment_attempt_id IS NULL
                 THEN assessment.assessment_title
                 ELSE assessment_attempt.assessment_title
@@ -251,7 +250,7 @@ SET search_path = pg_catalog, ple_data, ple_private, ple_audit AS $$
             ) AS chain ON true
            WHERE issued.assessment_attempt_id = assessment_attempt.assessment_attempt_id
       ) AS evidence ON true
-     ORDER BY assessment.assessment_title, assessment.public_reference
+     ORDER BY assessment.assessment_title, assessment.assessment_id
 $$;
 
 SET LOCAL ROLE ple_api_owner;
@@ -291,7 +290,7 @@ CREATE FUNCTION ple_api.list_released_live_student_assessments(
 ) LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
-    course_id_value uuid;
+    course_id_value text;
     student_record_id_value uuid;
     evaluation_time timestamptz := pg_catalog.statement_timestamp();
 BEGIN
@@ -322,7 +321,7 @@ BEGIN
        AND student.student_account_id = account.account_id
      WHERE account.account_id = ple_api.current_session_account_id()
        AND account.product_role = 'student'
-       AND course.public_reference = p_course_public_reference;
+       AND course.course_instance_id = p_course_public_reference;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Course is unavailable';
     END IF;

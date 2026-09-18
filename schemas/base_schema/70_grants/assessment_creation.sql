@@ -2,8 +2,8 @@
 
 SET LOCAL ROLE ple_data_owner;
 
-REVOKE ALL ON FUNCTION ple_data.create_assessment(uuid, bigint, text, text, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_data.create_assessment(text, text, text, text, text) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_data.create_assessment(uuid, bigint, text, text, text)
+GRANT EXECUTE ON FUNCTION ple_data.create_assessment(text, text, text, text, text)
     TO ple_api_owner;
 

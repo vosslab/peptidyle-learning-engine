@@ -46,7 +46,7 @@ CREATE TABLE ple_data.library_watch_event (
 -- cannot rewrite that event.
 CREATE TABLE ple_data.library_watch_event_recipient (
     library_watch_event_id uuid NOT NULL REFERENCES ple_data.library_watch_event(event_id),
-    recipient_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
+    recipient_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account(account_id),
     PRIMARY KEY (library_watch_event_id, recipient_account_id),
     created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
 );
@@ -56,7 +56,7 @@ SET LOCAL ROLE ple_private_owner;
 
 CREATE TABLE ple_private.library_watch_notification (
     notification_id uuid PRIMARY KEY DEFAULT pg_catalog.gen_random_uuid(),
-    recipient_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
+    recipient_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account(account_id),
     library_watch_event_id uuid NOT NULL REFERENCES ple_data.library_watch_event(event_id),
     target_kind ple_data.library_object_kind NOT NULL,
     target_public_id text NOT NULL CHECK (
@@ -173,4 +173,14 @@ SET LOCAL ROLE ple_private_owner;
 
 SET LOCAL ROLE ple_private_owner;
 COMMENT ON TABLE ple_private.library_watch_notification IS 'role: event, deleted by Watch unsubscribe and event retention. HUMAN_GUIDANCE.md Library Watch.';
+
+SET LOCAL ROLE ple_data_owner;
+COMMENT ON COLUMN ple_data.library_watch_event.revision_number IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.library_watch_event.forked_public_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.library_watch_event.activity_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.library_watch_event.processed_at IS 'NULL means this optional fact is absent.';
+SET LOCAL ROLE ple_private_owner;
+COMMENT ON COLUMN ple_private.library_watch_notification.revision_number IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.library_watch_notification.forked_public_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.library_watch_notification.activity_id IS 'NULL means this optional fact is absent.';
 

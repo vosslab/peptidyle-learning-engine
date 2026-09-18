@@ -85,7 +85,7 @@ FOR EACH ROW EXECUTE FUNCTION ple_data.validate_course_banner_delivery_object_re
 
 SET LOCAL ROLE ple_api_owner;
 
-CREATE FUNCTION ple_api.read_course_banner(p_course_instance_id uuid)
+CREATE FUNCTION ple_api.read_course_banner(p_course_instance_id text)
 RETURNS TABLE(course_banner_id uuid, alternative_kind text, alternative_text text)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT course.current_course_banner_id, course.course_banner_alternative_kind,
@@ -96,7 +96,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_
 $$;
 
 CREATE FUNCTION ple_api.resolve_current_course_banner(p_banner_id uuid)
-RETURNS TABLE(course_instance_id uuid) LANGUAGE sql STABLE SECURITY DEFINER
+RETURNS TABLE(course_instance_id text) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT course.course_instance_id FROM ple_data.course_instance AS course
      WHERE course.current_course_banner_id = p_banner_id
@@ -104,11 +104,11 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
 $$;
 
 CREATE FUNCTION ple_api.stage_course_banner_upload(
-    p_course_instance_id uuid, p_upload_id uuid, p_object_record_id uuid, p_media_type text,
+    p_course_instance_id text, p_upload_id uuid, p_object_record_id uuid, p_media_type text,
     p_byte_length bigint, p_sha256 bytea, p_width integer, p_height integer, p_expires_millis bigint
 ) RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
-DECLARE account_id uuid; subject_id uuid := gen_random_uuid(); work_id uuid := gen_random_uuid();
+DECLARE account_id text; subject_id uuid := gen_random_uuid(); work_id uuid := gen_random_uuid();
     expected_address jsonb := jsonb_build_object('kind', 'courseBannerUpload', 'course', p_course_instance_id, 'upload', p_upload_id);
 BEGIN
     IF NOT ple_api.current_session_account_is_course_instructor(p_course_instance_id) THEN RETURN NULL; END IF;
@@ -144,7 +144,7 @@ BEGIN
 EXCEPTION WHEN unique_violation OR check_violation THEN RETURN NULL;
 END $$;
 
-CREATE FUNCTION ple_api.finalize_course_banner_upload_stage(p_course_instance_id uuid, p_upload_id uuid)
+CREATE FUNCTION ple_api.finalize_course_banner_upload_stage(p_course_instance_id text, p_upload_id uuid)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$
 BEGIN
     UPDATE ple_private.course_banner_work AS work SET state = 'completed', completed_at = clock_timestamp()
@@ -158,7 +158,7 @@ BEGIN
     RETURN FOUND;
 END $$;
 
-CREATE FUNCTION ple_api.read_staged_course_banner_upload(p_course_instance_id uuid, p_upload_id uuid)
+CREATE FUNCTION ple_api.read_staged_course_banner_upload(p_course_instance_id text, p_upload_id uuid)
 RETURNS TABLE(object_record_id uuid, sha256 bytea, byte_length bigint, canonical_media_type text,
               width integer, height integer, put_work_id uuid)
 LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$
@@ -174,7 +174,7 @@ LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private
 $$;
 
 CREATE FUNCTION ple_api.prepare_course_banner_promotion(
-    p_course_instance_id uuid, p_upload_id uuid, p_banner_id uuid, p_kind text, p_text text,
+    p_course_instance_id text, p_upload_id uuid, p_banner_id uuid, p_kind text, p_text text,
     p_source_object uuid, p_source_sha256 bytea, p_source_size bigint, p_source_media text,
     p_source_width integer, p_source_height integer,
     p_banner_object uuid, p_banner_sha256 bytea, p_banner_size bigint, p_banner_media text,
@@ -242,7 +242,7 @@ BEGIN
 EXCEPTION WHEN unique_violation OR foreign_key_violation OR check_violation THEN RETURN;
 END $$;
 
-CREATE FUNCTION ple_api.complete_prepared_course_banner_object(p_course_instance_id uuid, p_banner_id uuid, p_object_record_id uuid)
+CREATE FUNCTION ple_api.complete_prepared_course_banner_object(p_course_instance_id text, p_banner_id uuid, p_object_record_id uuid)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$
 BEGIN
     UPDATE ple_private.course_banner_work SET state = 'completed', completed_at = clock_timestamp()
@@ -278,7 +278,7 @@ BEGIN
     RETURN FOUND;
 END $$;
 
-CREATE FUNCTION ple_api.require_course_banner_object_repair(p_course_instance_id uuid, p_banner_id uuid, p_object_record_id uuid)
+CREATE FUNCTION ple_api.require_course_banner_object_repair(p_course_instance_id text, p_banner_id uuid, p_object_record_id uuid)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$
 BEGIN
     UPDATE ple_private.course_banner_work SET state = 'repair-required'
@@ -321,7 +321,7 @@ BEGIN
     RETURN true;
 END $$;
 
-CREATE FUNCTION ple_api.finalize_course_banner_promotion(p_course_instance_id uuid, p_upload_id uuid, p_banner_id uuid)
+CREATE FUNCTION ple_api.finalize_course_banner_promotion(p_course_instance_id text, p_upload_id uuid, p_banner_id uuid)
 RETURNS TABLE(alternative_kind text, alternative_text text, retired_course_banner_id uuid, upload_put_work_id uuid, retired_source_put_work_id uuid, retired_banner_put_work_id uuid)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE old_banner uuid; kind text; alt_text text;
@@ -357,7 +357,7 @@ BEGIN
           AND delivery.rendition_kind = 'banner');
 END $$;
 
-CREATE FUNCTION ple_api.prepare_course_banner_removal(p_course_instance_id uuid)
+CREATE FUNCTION ple_api.prepare_course_banner_removal(p_course_instance_id text)
 RETURNS TABLE(course_banner_id uuid, source_put_work_id uuid, banner_put_work_id uuid)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE banner uuid;

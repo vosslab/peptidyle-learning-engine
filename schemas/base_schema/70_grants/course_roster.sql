@@ -2,7 +2,7 @@
 
 SET LOCAL ROLE ple_private_owner;
 
-REVOKE ALL ON TABLE ple_private.course_invitation,ple_private.course_invitation_event,ple_private.course_roster_profile FROM PUBLIC;
+REVOKE ALL ON TABLE ple_private.course_invitation, ple_private.course_invitation_event, ple_private.course_roster_profile FROM PUBLIC;
 
 
 -- Invitation acceptance locks its immutable invitation row so concurrent
@@ -15,9 +15,9 @@ GRANT SELECT, INSERT ON ple_private.course_invitation_event,
 
 GRANT UPDATE (roster_name) ON ple_private.course_roster_profile TO ple_api_owner;
 
-REVOKE ALL ON FUNCTION ple_private.reject_course_invitation_change(),ple_private.reject_course_invitation_event_change(),ple_private.reject_course_roster_profile_change(),ple_private.assert_course_invitation_event_is_valid(),ple_private.pending_course_invitation_delivery_email(uuid, uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_private.reject_course_invitation_change(), ple_private.reject_course_invitation_event_change(), ple_private.reject_course_roster_profile_change(), ple_private.assert_course_invitation_event_is_valid(), ple_private.pending_course_invitation_delivery_email(text, text) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_private.pending_course_invitation_delivery_email(uuid, uuid)
+GRANT EXECUTE ON FUNCTION ple_private.pending_course_invitation_delivery_email(text, text)
     TO ple_api_owner;
 
 SET LOCAL ROLE ple_audit_owner;
@@ -25,8 +25,8 @@ SET LOCAL ROLE ple_audit_owner;
 REVOKE ALL ON TABLE ple_audit.course_roster_event FROM PUBLIC;
 
 REVOKE ALL ON FUNCTION ple_audit.reject_course_roster_event_change(),
-    ple_audit.record_course_roster_event(uuid, uuid, uuid, text) FROM PUBLIC;
+    ple_audit.record_course_roster_event(text, text, text, text) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_audit.record_course_roster_event(uuid, uuid, uuid, text)
+GRANT EXECUTE ON FUNCTION ple_audit.record_course_roster_event(text, text, text, text)
     TO ple_api_owner;
 

@@ -2,13 +2,9 @@
 
 SET LOCAL ROLE ple_private_owner;
 
-REVOKE ALL ON FUNCTION ple_private.read_student_released_assessment_landing_evidence(
-    uuid, uuid, timestamptz
-) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_private.read_student_released_assessment_landing_evidence(text, uuid, timestamptz) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_private.read_student_released_assessment_landing_evidence(
-    uuid, uuid, timestamptz
-) TO ple_api_owner;
+GRANT EXECUTE ON FUNCTION ple_private.read_student_released_assessment_landing_evidence(text, uuid, timestamptz) TO ple_api_owner;
 
 SET LOCAL ROLE ple_api_owner;
 

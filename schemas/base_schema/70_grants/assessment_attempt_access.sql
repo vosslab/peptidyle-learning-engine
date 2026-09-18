@@ -2,9 +2,9 @@
 
 SET LOCAL ROLE ple_private_owner;
 
-REVOKE ALL ON FUNCTION ple_private.assessment_start_decision(text, timestamptz, timestamptz, timestamptz, integer, integer, text, timestamptz), ple_private.read_student_assessment_access(bigint, text), ple_private.read_active_student_assessment_attempt_reference(bigint, text), ple_private.read_student_assessment_attempt_pool_selection(bigint), ple_private.read_student_assessment_attempt_context(bigint) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_private.assessment_start_decision(ple_data.assessment_status, timestamptz, timestamptz, timestamptz, integer, integer, ple_data.late_work_rule, timestamptz), ple_private.read_student_assessment_access(text, text), ple_private.read_active_student_assessment_attempt_reference(text, text), ple_private.read_student_assessment_attempt_pool_selection(bigint), ple_private.read_student_assessment_attempt_context(bigint) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_private.read_student_assessment_access(bigint, text), ple_private.read_active_student_assessment_attempt_reference(bigint, text), ple_private.read_student_assessment_attempt_pool_selection(bigint), ple_private.read_student_assessment_attempt_context(bigint) TO ple_api_owner;
+GRANT EXECUTE ON FUNCTION ple_private.read_student_assessment_access(text, text), ple_private.read_active_student_assessment_attempt_reference(text, text), ple_private.read_student_assessment_attempt_pool_selection(bigint), ple_private.read_student_assessment_attempt_context(bigint) TO ple_api_owner;
 
 SET LOCAL ROLE ple_api_owner;
 

@@ -22,11 +22,7 @@ SET LOCAL ROLE ple_audit_owner;
 REVOKE ALL ON TABLE ple_audit.course_instance_creation_event FROM PUBLIC;
 
 REVOKE ALL ON FUNCTION ple_audit.reject_course_instance_creation_event_change(),
-    ple_audit.record_course_instance_creation_event(
-        uuid, uuid, bigint, text, bigint, bigint, uuid, uuid, timestamp with time zone
-    ) FROM PUBLIC;
+    ple_audit.record_course_instance_creation_event(uuid, text, text, text, integer, text, text, timestamp with time zone) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_audit.record_course_instance_creation_event(
-    uuid, uuid, bigint, text, bigint, bigint, uuid, uuid, timestamp with time zone
-) TO ple_api_owner;
+GRANT EXECUTE ON FUNCTION ple_audit.record_course_instance_creation_event(uuid, text, text, text, integer, text, text, timestamp with time zone) TO ple_api_owner;
 

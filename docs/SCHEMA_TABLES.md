@@ -17,7 +17,7 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | canonical_public_id | text | NOT NULL |
-| object_kind | ple_data | NOT NULL |
+| object_kind | ple_data.public_id_object_kind | NOT NULL |
 | reserved_at | timestamptz | NOT NULL |
 
 Constraints:
@@ -41,20 +41,15 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| account_id | uuid | NOT NULL |
-| reference_number | bigint | NULL |
-| public_reference | text | NOT NULL |
-| product_role | ple_data | NOT NULL |
+| account_id | ple_data.account_id | NOT NULL |
+| product_role | ple_data.product_role | NOT NULL |
 | created_at | timestamp with time zone | NOT NULL |
 | updated_at | timestamptz | NOT NULL |
 
 Constraints:
 
 - PRIMARY KEY (account_id)
-- UNIQUE (reference_number)
-- UNIQUE (public_reference)
 - UNIQUE (account_id, product_role)
-- CHECK public_reference: `( ple_private.is_canonical_prefixed_public_id(public_reference, 'U') )`
 
 Foreign keys:
 
@@ -63,9 +58,7 @@ Foreign keys:
 Indexes:
 
 - ple_private.account_pkey UNIQUE (account_id)
-- ple_private.account_unique_0 UNIQUE (reference_number)
-- ple_private.account_unique_1 UNIQUE (public_reference)
-- ple_private.account_unique_2 UNIQUE (account_id, product_role)
+- ple_private.account_unique_0 UNIQUE (account_id, product_role)
 
 ### ple_private.account_state_event
 
@@ -77,8 +70,8 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | event_id | uuid | NOT NULL |
-| account_id | uuid | NOT NULL |
-| state | ple_data | NOT NULL |
+| account_id | ple_data.account_id | NOT NULL |
+| state | ple_data.account_state | NOT NULL |
 | occurred_at | timestamp with time zone | NOT NULL |
 | reason | text | NULL |
 
@@ -103,7 +96,7 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| account_id | uuid | NOT NULL |
+| account_id | ple_data.account_id | NOT NULL |
 | time_zone | text | NOT NULL |
 | student_invitation_default_pending | boolean | NOT NULL |
 | created_at | timestamptz | NOT NULL |
@@ -132,10 +125,10 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | event_id | uuid | NOT NULL |
-| created_instructor_account_id | uuid | NOT NULL |
-| created_instructor_product_role | ple_data | NOT NULL |
-| created_by_sysadmin_account_id | uuid | NOT NULL |
-| created_by_sysadmin_product_role | ple_data | NOT NULL |
+| created_instructor_account_id | ple_data.account_id | NOT NULL |
+| created_instructor_product_role | ple_data.product_role | NOT NULL |
+| created_by_sysadmin_account_id | ple_data.account_id | NOT NULL |
+| created_by_sysadmin_product_role | ple_data.product_role | NOT NULL |
 | instructor_identity_vetting_decision_id | uuid | NOT NULL |
 | occurred_at | timestamp with time zone | NOT NULL |
 
@@ -167,8 +160,8 @@ Columns:
 | decision_id | uuid | NOT NULL |
 | normalized_email | text | NOT NULL |
 | verified_instructor_display_name | text | NOT NULL |
-| completed_by_sysadmin_account_id | uuid | NOT NULL |
-| completed_by_sysadmin_product_role | ple_data | NOT NULL |
+| completed_by_sysadmin_account_id | ple_data.account_id | NOT NULL |
+| completed_by_sysadmin_product_role | ple_data.product_role | NOT NULL |
 | completed_at | timestamp with time zone | NOT NULL |
 
 Constraints:
@@ -198,46 +191,39 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| assessment_id | uuid | NOT NULL |
-| course_instance_id | uuid | NOT NULL |
-| reference_number | bigint | NOT NULL |
-| public_reference | text | NOT NULL |
-| origin_kind | ple_data | NOT NULL |
-| source_blueprint_course_reference_number | bigint | NULL |
-| source_blueprint_revision_number | bigint | NULL |
+| assessment_id | ple_data.assessment_id | NOT NULL |
+| course_instance_id | ple_data.course_instance_id | NOT NULL |
+| origin_kind | ple_data.assessment_origin_kind | NOT NULL |
+| source_blueprint_course_id | ple_data.blueprint_course_id | NULL |
+| source_blueprint_revision_number | integer | NULL |
 | source_blueprint_assessment_reference | uuid | NULL |
 | created_at | timestamptz | NOT NULL |
 | updated_at | timestamptz | NOT NULL |
 | assessment_edit_number | bigint | NOT NULL |
 | assessment_title | text | NOT NULL |
-| assessment_type | ple_data | NOT NULL |
+| assessment_type | ple_data.assessment_type | NOT NULL |
 | assessment_instructions | text | NOT NULL |
 | available_at | timestamptz | NULL |
 | due_at | timestamptz | NULL |
 | closes_at | timestamptz | NULL |
 | assessment_attempt_time_limit_seconds | integer | NULL |
 | assessment_attempt_limit | integer | NULL |
-| late_work_rule | ple_data | NOT NULL |
-| question_variation_rule | ple_data | NOT NULL |
-| assessment_question_order_rule | ple_data | NOT NULL |
-| feedback_score | ple_data | NOT NULL |
-| feedback_per_item_correctness | ple_data | NOT NULL |
-| feedback_submitted_response | ple_data | NOT NULL |
-| feedback_question_answer | ple_data | NOT NULL |
-| feedback_question_answer_explanation | ple_data | NOT NULL |
-| feedback_class_statistics | ple_data | NOT NULL |
-| assessment_status | ple_data | NOT NULL |
-| CHECK | ( assessment_type NOT IN ('quiz', 'exam') OR (assessment_attempt_limit IS NOT NULL AND assessment_attempt_limit = 1) ) | NULL |
+| late_work_rule | ple_data.late_work_rule | NOT NULL |
+| question_variation_rule | ple_data.question_variation_rule | NOT NULL |
+| assessment_question_order_rule | ple_data.question_order_rule | NOT NULL |
+| feedback_score | ple_data.feedback_release | NOT NULL |
+| feedback_per_item_correctness | ple_data.feedback_release | NOT NULL |
+| feedback_submitted_response | ple_data.feedback_release | NOT NULL |
+| feedback_question_answer | ple_data.feedback_release | NOT NULL |
+| feedback_question_answer_explanation | ple_data.feedback_release | NOT NULL |
+| feedback_class_statistics | ple_data.feedback_release | NOT NULL |
+| assessment_status | ple_data.assessment_status | NOT NULL |
 
 Constraints:
 
 - PRIMARY KEY (assessment_id)
-- UNIQUE (reference_number)
-- UNIQUE (public_reference)
-- UNIQUE (course_instance_id, reference_number)
 - UNIQUE (assessment_id, course_instance_id)
-- CHECK reference_number: `(reference_number BETWEEN 1 AND 2147483647)`
-- CHECK public_reference: `( ple_private.is_canonical_prefixed_public_id(public_reference, 'A') )`
+- UNIQUE (assessment_id, course_instance_id)
 - CHECK source_blueprint_revision_number: `(source_blueprint_revision_number > 0)`
 - CHECK assessment_edit_number: `(assessment_edit_number > 0)`
 - CHECK assessment_title: `( assessment_title ~ '[^[:space:]]' AND char_length(assessment_title) <= 200 )`
@@ -248,17 +234,15 @@ Constraints:
 Foreign keys:
 
 - (course_instance_id) -> ple_data.course_instance (course_instance_id)
-- (source_blueprint_course_reference_number, source_blueprint_revision_number, source_blueprint_assessment_reference) -> ple_data.blueprint_revision_assessment (blueprint_course_id, blueprint_revision_number, blueprint_assessment_reference)
+- (source_blueprint_course_id, source_blueprint_revision_number, source_blueprint_assessment_reference) -> ple_data.blueprint_revision_assessment (blueprint_course_id, blueprint_revision_number, blueprint_assessment_reference)
 
 Indexes:
 
 - ple_data.assessment_pkey UNIQUE (assessment_id)
-- ple_data.assessment_unique_0 UNIQUE (reference_number)
-- ple_data.assessment_unique_1 UNIQUE (public_reference)
-- ple_data.assessment_unique_2 UNIQUE (course_instance_id, reference_number)
-- ple_data.assessment_unique_3 UNIQUE (assessment_id, course_instance_id)
-- assessment_course_due_idx (course_instance_id, due_at, reference_number) WHERE assessment_status IN ('unreleased', 'released')
-- assessment_due_soon_idx (due_at, course_instance_id, reference_number) WHERE assessment_status IN ('unreleased', 'released') AND due_at IS NOT NULL
+- ple_data.assessment_unique_0 UNIQUE (assessment_id, course_instance_id)
+- ple_data.assessment_unique_1 UNIQUE (assessment_id, course_instance_id)
+- assessment_course_due_idx (course_instance_id, due_at, assessment_id) WHERE assessment_status IN ('unreleased', 'released')
+- assessment_due_soon_idx (due_at, course_instance_id, assessment_id) WHERE assessment_status IN ('unreleased', 'released') AND due_at IS NOT NULL
 
 ### ple_data.assessment_entry
 
@@ -270,16 +254,16 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | assessment_entry_id | uuid | NOT NULL |
-| assessment_id | uuid | NOT NULL |
+| assessment_id | ple_data.assessment_id | NOT NULL |
 | authored_position | integer | NOT NULL |
-| entry_kind | ple_data | NOT NULL |
-| availability | ple_data | NOT NULL |
+| entry_kind | ple_data.entry_kind | NOT NULL |
+| availability | ple_data.entry_availability | NOT NULL |
 | active_authored_position | integer | NULL |
-| scoring_rule | ple_data | NOT NULL |
-| published_question_id | text | NULL |
+| scoring_rule | ple_data.scoring_rule | NOT NULL |
+| published_question_id | ple_data.question_family_id | NULL |
 | question_revision_number | integer | NULL |
-| question_pool_id | uuid | NULL |
-| question_pool_revision_number | bigint | NULL |
+| question_pool_id | ple_data.question_family_id | NULL |
+| question_pool_revision_number | integer | NULL |
 | points_possible | numeric | NULL |
 | selection_count | integer | NULL |
 | points_per_item | numeric | NULL |
@@ -323,9 +307,9 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | assessment_entry_id | uuid | NOT NULL |
-| assessment_id | uuid | NOT NULL |
-| question_pool_id | uuid | NOT NULL |
-| origin_question_pool_revision_number | bigint | NOT NULL |
+| assessment_id | ple_data.assessment_id | NOT NULL |
+| question_pool_id | ple_data.question_family_id | NOT NULL |
+| origin_question_pool_revision_number | integer | NOT NULL |
 | created_at | timestamptz | NOT NULL |
 | updated_at | timestamptz | NOT NULL |
 
@@ -358,7 +342,7 @@ Columns:
 | --- | --- | --- |
 | imathas_render_cache_entry_id | uuid | NOT NULL |
 | imathas_deployment_reference | text | NOT NULL |
-| published_question_id | text | NOT NULL |
+| published_question_id | ple_data.question_family_id | NOT NULL |
 | revision_number | integer | NOT NULL |
 | imathas_normalized_question_seed | integer | NOT NULL |
 | imathas_profile | text | NOT NULL |
@@ -401,7 +385,7 @@ Columns:
 | --- | --- | --- |
 | accommodation_id | uuid | NOT NULL |
 | student_record_id | uuid | NOT NULL |
-| assessment_id | uuid | NOT NULL |
+| assessment_id | ple_data.assessment_id | NOT NULL |
 | available_at | timestamptz | NULL |
 | due_at | timestamptz | NULL |
 | closes_at | timestamptz | NULL |
@@ -440,7 +424,7 @@ Columns:
 | assessment_attempt_id | uuid | NOT NULL |
 | reference_number | bigint | NULL |
 | student_record_id | uuid | NOT NULL |
-| assessment_id | uuid | NOT NULL |
+| assessment_id | ple_data.assessment_id | NOT NULL |
 | assessment_attempt_number | integer | NOT NULL |
 | started_at | timestamptz | NOT NULL |
 | expires_at | timestamptz | NULL |
@@ -451,15 +435,15 @@ Columns:
 | closes_at | timestamptz | NULL |
 | assessment_attempt_time_limit_seconds | integer | NULL |
 | assessment_attempt_limit | integer | NULL |
-| late_work_rule | ple_data | NOT NULL |
-| question_variation_rule | ple_data | NOT NULL |
-| assessment_question_order_rule | ple_data | NOT NULL |
-| feedback_score | ple_data | NOT NULL |
-| feedback_per_item_correctness | ple_data | NOT NULL |
-| feedback_submitted_response | ple_data | NOT NULL |
-| feedback_question_answer | ple_data | NOT NULL |
-| feedback_question_answer_explanation | ple_data | NOT NULL |
-| feedback_class_statistics | ple_data | NOT NULL |
+| late_work_rule | ple_data.late_work_rule | NOT NULL |
+| question_variation_rule | ple_data.question_variation_rule | NOT NULL |
+| assessment_question_order_rule | ple_data.question_order_rule | NOT NULL |
+| feedback_score | ple_data.feedback_release | NOT NULL |
+| feedback_per_item_correctness | ple_data.feedback_release | NOT NULL |
+| feedback_submitted_response | ple_data.feedback_release | NOT NULL |
+| feedback_question_answer | ple_data.feedback_release | NOT NULL |
+| feedback_question_answer_explanation | ple_data.feedback_release | NOT NULL |
+| feedback_class_statistics | ple_data.feedback_release | NOT NULL |
 | schedule_accommodation_id | uuid | NULL |
 | schedule_accommodation_edit_number | bigint | NULL |
 | time_limit_accommodation_id | uuid | NULL |
@@ -508,8 +492,8 @@ Columns:
 | question_pool_selection_id | uuid | NOT NULL |
 | assessment_attempt_id | uuid | NOT NULL |
 | assessment_entry_id | uuid | NOT NULL |
-| question_pool_id | uuid | NOT NULL |
-| question_pool_revision_number | bigint | NOT NULL |
+| question_pool_id | ple_data.question_family_id | NOT NULL |
+| question_pool_revision_number | integer | NOT NULL |
 | created_at | timestamptz | NOT NULL |
 | selected_question_count | integer | NOT NULL |
 
@@ -543,7 +527,7 @@ Columns:
 | question_pool_selection_id | uuid | NOT NULL |
 | member_position | integer | NOT NULL |
 | selection_position | integer | NOT NULL |
-| published_question_id | text | NOT NULL |
+| published_question_id | ple_data.question_family_id | NOT NULL |
 | revision_number | integer | NOT NULL |
 | created_at | timestamptz | NOT NULL |
 
@@ -580,11 +564,11 @@ Columns:
 | assessment_entry_id | uuid | NOT NULL |
 | assessment_content_entry_index | integer | NOT NULL |
 | issued_position | integer | NOT NULL |
-| published_question_id | text | NOT NULL |
+| published_question_id | ple_data.question_family_id | NOT NULL |
 | revision_number | integer | NOT NULL |
 | question_seed | numeric(20, 0) | NULL |
 | point_value | numeric | NOT NULL |
-| scoring_rule | ple_data | NOT NULL |
+| scoring_rule | ple_data.scoring_rule | NOT NULL |
 | question_statistics_eligibility | boolean | NOT NULL |
 | question_attempt_limit | integer | NULL |
 | question_attempt_time_limit_seconds | integer | NULL |
@@ -630,7 +614,7 @@ Columns:
 | issued_at | timestamptz | NOT NULL |
 | deadline_at | timestamptz | NULL |
 | finalized_at | timestamptz | NULL |
-| question_attempt_state | ple_data | NOT NULL |
+| question_attempt_state | ple_data.question_attempt_state | NOT NULL |
 | backend_name | text | NOT NULL |
 | backend_version | text | NOT NULL |
 | renderer_name | text | NULL |
@@ -640,8 +624,7 @@ Columns:
 | grader_name | text | NOT NULL |
 | grader_version | text | NOT NULL |
 | rendered_question_sha256 | bytea | NOT NULL |
-| issued_capability | ple_data | NOT NULL |
-| CHECK | ((question_seed IS NULL) = (generated_parameter_sha256 IS NULL)) | NULL |
+| issued_capability | ple_data.issued_capability | NOT NULL |
 
 Constraints:
 
@@ -737,8 +720,8 @@ Columns:
 | assessment_submission_id | uuid | NOT NULL |
 | assessment_attempt_id | uuid | NOT NULL |
 | submitted_at | timestamptz | NOT NULL |
-| finalization_kind | ple_data | NOT NULL |
-| authorized_by_account_id | uuid | NULL |
+| finalization_kind | ple_data.finalization_kind | NOT NULL |
+| authorized_by_account_id | ple_data.account_id | NULL |
 | receipt | jsonb | NOT NULL |
 
 Constraints:
@@ -991,13 +974,13 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | imathas_question_backend_session_id | uuid | NOT NULL |
-| course_instance_id | uuid | NOT NULL |
-| assessment_id | uuid | NOT NULL |
+| course_instance_id | ple_data.course_instance_id | NOT NULL |
+| assessment_id | ple_data.assessment_id | NOT NULL |
 | question_attempt_id | uuid | NOT NULL |
-| account_id | uuid | NOT NULL |
+| account_id | ple_data.account_id | NOT NULL |
 | imathas_deployment_reference | text | NOT NULL |
 | imathas_item_reference | text | NOT NULL |
-| published_question_id | text | NOT NULL |
+| published_question_id | ple_data.question_family_id | NOT NULL |
 | revision_number | integer | NOT NULL |
 | source_object_record_id | uuid | NOT NULL |
 | source_object_checksum | bytea | NOT NULL |
@@ -1063,23 +1046,22 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | assessment_template_id | uuid | NOT NULL |
-| owner_account_id | uuid | NOT NULL |
+| owner_account_id | ple_data.account_id | NOT NULL |
 | assessment_template_edit_number | bigint | NOT NULL |
 | template_name | text | NOT NULL |
-| assessment_type | ple_data | NOT NULL |
+| assessment_type | ple_data.assessment_type | NOT NULL |
 | instructions | text | NOT NULL |
 | assessment_attempt_time_limit_seconds | integer | NULL |
 | assessment_attempt_limit | integer | NULL |
-| late_work_rule | ple_data | NOT NULL |
-| question_variation_rule | ple_data | NOT NULL |
-| assessment_question_order_rule | ple_data | NOT NULL |
-| feedback_score | ple_data | NOT NULL |
-| feedback_per_item_correctness | ple_data | NOT NULL |
-| feedback_submitted_response | ple_data | NOT NULL |
-| feedback_question_answer | ple_data | NOT NULL |
-| feedback_question_answer_explanation | ple_data | NOT NULL |
-| feedback_class_statistics | ple_data | NOT NULL |
-| CHECK | ( assessment_type NOT IN ('quiz', 'exam') OR (assessment_attempt_limit IS NOT NULL AND assessment_attempt_limit = 1) ) | NULL |
+| late_work_rule | ple_data.late_work_rule | NOT NULL |
+| question_variation_rule | ple_data.question_variation_rule | NOT NULL |
+| assessment_question_order_rule | ple_data.question_order_rule | NOT NULL |
+| feedback_score | ple_data.feedback_release | NOT NULL |
+| feedback_per_item_correctness | ple_data.feedback_release | NOT NULL |
+| feedback_submitted_response | ple_data.feedback_release | NOT NULL |
+| feedback_question_answer | ple_data.feedback_release | NOT NULL |
+| feedback_question_answer_explanation | ple_data.feedback_release | NOT NULL |
+| feedback_class_statistics | ple_data.feedback_release | NOT NULL |
 | created_at | timestamptz | NOT NULL |
 | updated_at | timestamptz | NOT NULL |
 
@@ -1141,8 +1123,8 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | event_id | uuid | NOT NULL |
-| assessment_id | uuid | NOT NULL |
-| actor_account_id | uuid | NOT NULL |
+| assessment_id | ple_data.assessment_id | NOT NULL |
+| actor_account_id | ple_data.account_id | NOT NULL |
 | assessment_edit_number | bigint | NOT NULL |
 | assessment_attempt_count | bigint | NOT NULL |
 | question_response_count | bigint | NOT NULL |
@@ -1180,7 +1162,7 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| account_id | uuid | NOT NULL |
+| account_id | ple_data.account_id | NOT NULL |
 | normalized_email | text | NOT NULL |
 | delivery_email | text | NOT NULL |
 | verified_at | timestamp with time zone | NOT NULL |
@@ -1209,7 +1191,7 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| scope | ple_data | NOT NULL |
+| scope | ple_data.auth_rate_scope | NOT NULL |
 | key_hash | bytea | NOT NULL |
 | window_started_at | timestamp with time zone | NOT NULL |
 | consumed_attempts | integer | NOT NULL |
@@ -1243,8 +1225,8 @@ Columns:
 | browser_binding_hash | bytea | NOT NULL |
 | email_rate_limit_key_hash | bytea | NOT NULL |
 | email | text | NOT NULL |
-| purpose | ple_data | NOT NULL |
-| target_account_id | uuid | NOT NULL |
+| purpose | ple_data.email_challenge_purpose | NOT NULL |
+| target_account_id | ple_data.account_id | NOT NULL |
 | created_at | timestamp with time zone | NOT NULL |
 | expires_at | timestamp with time zone | NOT NULL |
 | consumed_at | timestamp with time zone | NULL |
@@ -1278,8 +1260,8 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | ceremony_id | uuid | NOT NULL |
-| kind | ple_data | NOT NULL |
-| target_account_id | uuid | NULL |
+| kind | ple_data.passkey_ceremony_kind | NOT NULL |
+| target_account_id | ple_data.account_id | NULL |
 | browser_binding_hash | bytea | NOT NULL |
 | state | bytea | NOT NULL |
 | created_at | timestamp with time zone | NOT NULL |
@@ -1310,7 +1292,7 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | passkey_id | uuid | NOT NULL |
-| account_id | uuid | NOT NULL |
+| account_id | ple_data.account_id | NOT NULL |
 | credential_id_hash | bytea | NOT NULL |
 | label | text | NOT NULL |
 | credential_state | bytea | NOT NULL |
@@ -1346,7 +1328,7 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| account_id | uuid | NOT NULL |
+| account_id | ple_data.account_id | NOT NULL |
 | encryption_key_id | text | NOT NULL |
 | seed_nonce | bytea | NOT NULL |
 | encrypted_seed | bytea | NOT NULL |
@@ -1378,7 +1360,7 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | sysadmin_totp_attestation_id | uuid | NOT NULL |
-| account_id | uuid | NOT NULL |
+| account_id | ple_data.account_id | NOT NULL |
 | browser_binding_hash | bytea | NOT NULL |
 | created_at | timestamp with time zone | NOT NULL |
 | expires_at | timestamp with time zone | NOT NULL |
@@ -1407,7 +1389,7 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| account_id | uuid | NOT NULL |
+| account_id | ple_data.account_id | NOT NULL |
 | totp_counter | bigint | NOT NULL |
 | used_at | timestamp with time zone | NOT NULL |
 
@@ -1434,7 +1416,7 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | sysadmin_totp_attestation_id | uuid | NOT NULL |
-| account_id | uuid | NOT NULL |
+| account_id | ple_data.account_id | NOT NULL |
 | browser_binding_hash | bytea | NOT NULL |
 | window_started_at | timestamp with time zone | NOT NULL |
 | charged_attempt_count | integer | NOT NULL |
@@ -1465,8 +1447,8 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | session_id | uuid | NOT NULL |
-| account_id | uuid | NOT NULL |
-| product_role | ple_data | NOT NULL |
+| account_id | ple_data.account_id | NOT NULL |
+| product_role | ple_data.product_role | NOT NULL |
 | token_hash | bytea | NOT NULL |
 | created_at | timestamp with time zone | NOT NULL |
 | expires_at | timestamp with time zone | NOT NULL |
@@ -1501,10 +1483,8 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| blueprint_id | uuid | NOT NULL |
-| reference_number | bigint | NOT NULL |
-| public_reference | text | NOT NULL |
-| owner_account_id | uuid | NOT NULL |
+| blueprint_course_id | ple_data.blueprint_course_id | NOT NULL |
+| owner_account_id | ple_data.account_id | NOT NULL |
 | short_name | text | NOT NULL |
 | long_name | text | NOT NULL |
 | content_discipline_id | uuid | NOT NULL |
@@ -1512,19 +1492,16 @@ Columns:
 | content_topic_id | uuid | NULL |
 | content_subtopic_id | uuid | NULL |
 | tags | text[] | NOT NULL |
-| availability | ple_data | NOT NULL |
+| availability | ple_data.blueprint_availability | NOT NULL |
 | promoted | boolean | NOT NULL |
 | metadata_etag | uuid | NOT NULL |
-| current_blueprint_revision_number | bigint | NOT NULL |
+| current_blueprint_revision_number | integer | NOT NULL |
 | created_at | timestamp with time zone | NOT NULL |
 | updated_on | date | NOT NULL |
 
 Constraints:
 
-- PRIMARY KEY (blueprint_id)
-- UNIQUE (reference_number)
-- UNIQUE (public_reference)
-- CHECK public_reference: `( ple_private.is_canonical_prefixed_public_id(public_reference, 'BP') )`
+- PRIMARY KEY (blueprint_course_id)
 - CHECK short_name: `(char_length(btrim(short_name)) BETWEEN 1 AND 500)`
 - CHECK long_name: `(char_length(btrim(long_name)) BETWEEN 1 AND 500)`
 - CHECK tags: `(ple_data.course_classification_tags_are_valid(tags))`
@@ -1537,14 +1514,12 @@ Foreign keys:
 - (content_subject_id, content_discipline_id) -> ple_data.content_subject_discipline (content_subject_id, content_discipline_id)
 - (content_subject_id, content_topic_id) -> ple_data.content_topic (content_subject_id, content_topic_id)
 - (content_topic_id, content_subtopic_id) -> ple_data.content_subtopic (content_topic_id, content_subtopic_id)
-- (reference_number, current_blueprint_revision_number) -> ple_data.blueprint_course_revision (blueprint_course_id, blueprint_revision_number)
+- (blueprint_course_id, current_blueprint_revision_number) -> ple_data.blueprint_course_revision (blueprint_course_id, blueprint_revision_number)
 
 Indexes:
 
-- ple_data.blueprint_course_pkey UNIQUE (blueprint_id)
-- ple_data.blueprint_course_unique_0 UNIQUE (reference_number)
-- ple_data.blueprint_course_unique_1 UNIQUE (public_reference)
-- blueprint_course_available_owner_idx (availability, owner_account_id, reference_number)
+- ple_data.blueprint_course_pkey UNIQUE (blueprint_course_id)
+- blueprint_course_available_owner_idx (availability, owner_account_id, blueprint_course_id)
 
 ### ple_data.blueprint_course_revision
 
@@ -1555,8 +1530,8 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| blueprint_course_id | bigint | NOT NULL |
-| blueprint_revision_number | bigint | NOT NULL |
+| blueprint_course_id | ple_data.blueprint_course_id | NOT NULL |
+| blueprint_revision_number | integer | NOT NULL |
 | content | jsonb | NOT NULL |
 | content_checksum | bytea | NOT NULL |
 | saved_at | timestamp with time zone | NOT NULL |
@@ -1570,7 +1545,7 @@ Constraints:
 
 Foreign keys:
 
-- (blueprint_course_id) -> ple_data.blueprint_course (reference_number)
+- (blueprint_course_id) -> ple_data.blueprint_course (blueprint_course_id)
 - (blueprint_course_id, blueprint_revision_number) -> ple_data.blueprint_revision_event (blueprint_course_id, blueprint_revision_number)
 
 Indexes:
@@ -1586,11 +1561,11 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| blueprint_course_id | bigint | NOT NULL |
-| blueprint_revision_number | bigint | NOT NULL |
+| blueprint_course_id | ple_data.blueprint_course_id | NOT NULL |
+| blueprint_revision_number | integer | NOT NULL |
 | content_path | text | NOT NULL |
-| published_question_id | text | NOT NULL |
-| question_revision_number | bigint | NOT NULL |
+| published_question_id | ple_data.question_family_id | NOT NULL |
+| question_revision_number | integer | NOT NULL |
 | created_at | timestamptz | NOT NULL |
 
 Constraints:
@@ -1618,8 +1593,8 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| blueprint_course_id | bigint | NOT NULL |
-| blueprint_revision_number | bigint | NOT NULL |
+| blueprint_course_id | ple_data.blueprint_course_id | NOT NULL |
+| blueprint_revision_number | integer | NOT NULL |
 | blueprint_module_reference | uuid | NOT NULL |
 | module_position | integer | NOT NULL |
 | created_at | timestamptz | NOT NULL |
@@ -1648,8 +1623,8 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| blueprint_course_id | bigint | NOT NULL |
-| blueprint_revision_number | bigint | NOT NULL |
+| blueprint_course_id | ple_data.blueprint_course_id | NOT NULL |
+| blueprint_revision_number | integer | NOT NULL |
 | blueprint_module_reference | uuid | NOT NULL |
 | blueprint_assessment_reference | uuid | NOT NULL |
 | assessment_position | integer | NOT NULL |
@@ -1679,10 +1654,10 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| blueprint_revision_event_id | bigint | NOT NULL |
-| blueprint_course_id | bigint | NOT NULL |
-| blueprint_revision_number | bigint | NOT NULL |
-| actor_account_id | uuid | NOT NULL |
+| blueprint_revision_event_id | uuid | NOT NULL |
+| blueprint_course_id | ple_data.blueprint_course_id | NOT NULL |
+| blueprint_revision_number | integer | NOT NULL |
+| actor_account_id | ple_data.account_id | NOT NULL |
 | request_checksum | bytea | NOT NULL |
 | occurred_at | timestamp with time zone | NOT NULL |
 
@@ -1713,9 +1688,9 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| blueprint_metadata_event_id | bigint | NOT NULL |
-| blueprint_course_id | bigint | NOT NULL |
-| actor_account_id | uuid | NOT NULL |
+| blueprint_metadata_event_id | uuid | NOT NULL |
+| blueprint_course_id | ple_data.blueprint_course_id | NOT NULL |
+| actor_account_id | ple_data.account_id | NOT NULL |
 | short_name | text | NOT NULL |
 | long_name | text | NOT NULL |
 | content_discipline_id | uuid | NOT NULL |
@@ -1723,7 +1698,7 @@ Columns:
 | content_topic_id | uuid | NULL |
 | content_subtopic_id | uuid | NULL |
 | tags | text[] | NOT NULL |
-| availability | ple_data | NOT NULL |
+| availability | ple_data.blueprint_availability | NOT NULL |
 | metadata_etag | uuid | NOT NULL |
 | occurred_at | timestamp with time zone | NOT NULL |
 
@@ -1735,7 +1710,7 @@ Constraints:
 
 Foreign keys:
 
-- (blueprint_course_id) -> ple_data.blueprint_course (reference_number)
+- (blueprint_course_id) -> ple_data.blueprint_course (blueprint_course_id)
 - (actor_account_id) -> ple_private.account (account_id)
 
 Indexes:
@@ -1752,10 +1727,10 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| actor_account_id | uuid | NOT NULL |
+| actor_account_id | ple_data.account_id | NOT NULL |
 | request_checksum | bytea | NOT NULL |
-| blueprint_course_id | bigint | NOT NULL |
-| blueprint_revision_number | bigint | NOT NULL |
+| blueprint_course_id | ple_data.blueprint_course_id | NOT NULL |
+| blueprint_revision_number | integer | NOT NULL |
 | metadata_etag | uuid | NOT NULL |
 | accepted_at | timestamp with time zone | NOT NULL |
 
@@ -1782,10 +1757,10 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| blueprint_course_id | bigint | NOT NULL |
-| actor_account_id | uuid | NOT NULL |
+| blueprint_course_id | ple_data.blueprint_course_id | NOT NULL |
+| actor_account_id | ple_data.account_id | NOT NULL |
 | request_checksum | bytea | NOT NULL |
-| resulting_blueprint_revision_number | bigint | NOT NULL |
+| resulting_blueprint_revision_number | integer | NOT NULL |
 | changed | boolean | NOT NULL |
 | accepted_at | timestamp with time zone | NOT NULL |
 
@@ -1797,7 +1772,7 @@ Constraints:
 
 Foreign keys:
 
-- (blueprint_course_id) -> ple_data.blueprint_course (reference_number)
+- (blueprint_course_id) -> ple_data.blueprint_course (blueprint_course_id)
 - (actor_account_id) -> ple_private.account (account_id)
 
 Indexes:
@@ -1813,25 +1788,28 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| blueprint_course_id | bigint | NOT NULL |
-| source_blueprint_course_reference_number | bigint | NOT NULL |
-| source_blueprint_revision_number | bigint | NOT NULL |
+| blueprint_course_fork_id | uuid | NOT NULL |
+| blueprint_course_id | ple_data.blueprint_course_id | NOT NULL |
+| source_blueprint_course_id | ple_data.blueprint_course_id | NOT NULL |
+| source_blueprint_revision_number | integer | NOT NULL |
 | forked_at | timestamp with time zone | NOT NULL |
 
 Constraints:
 
-- PRIMARY KEY (blueprint_course_id)
+- PRIMARY KEY (blueprint_course_fork_id)
+- UNIQUE (blueprint_course_id)
 - CHECK source_blueprint_revision_number: `( source_blueprint_revision_number > 0 )`
 
 Foreign keys:
 
-- (blueprint_course_id) -> ple_data.blueprint_course (reference_number)
-- (source_blueprint_course_reference_number, source_blueprint_revision_number) -> ple_data.blueprint_course_revision (blueprint_course_id, blueprint_revision_number)
+- (blueprint_course_id) -> ple_data.blueprint_course (blueprint_course_id)
+- (source_blueprint_course_id, source_blueprint_revision_number) -> ple_data.blueprint_course_revision (blueprint_course_id, blueprint_revision_number)
 
 Indexes:
 
-- ple_data.blueprint_course_fork_pkey UNIQUE (blueprint_course_id)
-- blueprint_course_fork_source_idx (source_blueprint_course_reference_number, source_blueprint_revision_number)
+- ple_data.blueprint_course_fork_pkey UNIQUE (blueprint_course_fork_id)
+- ple_data.blueprint_course_fork_unique_0 UNIQUE (blueprint_course_id)
+- blueprint_course_fork_source_idx (source_blueprint_course_id, source_blueprint_revision_number)
 
 ### ple_data.blueprint_course_fork_receipt
 
@@ -1842,11 +1820,11 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| actor_account_id | uuid | NOT NULL |
+| actor_account_id | ple_data.account_id | NOT NULL |
 | request_checksum | bytea | NOT NULL |
-| blueprint_course_id | bigint | NOT NULL |
-| source_blueprint_course_reference_number | bigint | NOT NULL |
-| source_blueprint_revision_number | bigint | NOT NULL |
+| blueprint_course_id | ple_data.blueprint_course_id | NOT NULL |
+| source_blueprint_course_id | ple_data.blueprint_course_id | NOT NULL |
+| source_blueprint_revision_number | integer | NOT NULL |
 | metadata_etag | uuid | NOT NULL |
 | accepted_at | timestamp with time zone | NOT NULL |
 
@@ -1859,8 +1837,8 @@ Constraints:
 Foreign keys:
 
 - (actor_account_id) -> ple_private.account (account_id)
-- (blueprint_course_id) -> ple_data.blueprint_course (reference_number)
-- (source_blueprint_course_reference_number, source_blueprint_revision_number) -> ple_data.blueprint_course_revision (blueprint_course_id, blueprint_revision_number)
+- (blueprint_course_id) -> ple_data.blueprint_course (blueprint_course_id)
+- (source_blueprint_course_id, source_blueprint_revision_number) -> ple_data.blueprint_course_revision (blueprint_course_id, blueprint_revision_number)
 
 Indexes:
 
@@ -1876,12 +1854,12 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | blueprint_change_proposal_id | uuid | NOT NULL |
-| proposer_account_id | uuid | NOT NULL |
-| source_reference_number | bigint | NOT NULL |
-| source_revision_number | bigint | NOT NULL |
+| proposer_account_id | ple_data.account_id | NOT NULL |
+| source_blueprint_course_id | ple_data.blueprint_course_id | NOT NULL |
+| source_revision_number | integer | NOT NULL |
 | source_metadata_etag | uuid | NOT NULL |
-| target_reference_number | bigint | NOT NULL |
-| target_revision_number | bigint | NOT NULL |
+| target_blueprint_course_id | ple_data.blueprint_course_id | NOT NULL |
+| target_revision_number | integer | NOT NULL |
 | target_metadata_etag | uuid | NOT NULL |
 | created_at | timestamp with time zone | NOT NULL |
 | updated_at | timestamptz | NOT NULL |
@@ -1893,10 +1871,10 @@ Constraints:
 Foreign keys:
 
 - (proposer_account_id) -> ple_private.account (account_id)
-- (source_reference_number, source_revision_number) -> ple_data.blueprint_course_revision (blueprint_course_id, blueprint_revision_number)
-- (target_reference_number, target_revision_number) -> ple_data.blueprint_course_revision (blueprint_course_id, blueprint_revision_number)
-- (source_reference_number, source_metadata_etag) -> ple_data.blueprint_metadata_event (blueprint_course_id, metadata_etag)
-- (target_reference_number, target_metadata_etag) -> ple_data.blueprint_metadata_event (blueprint_course_id, metadata_etag)
+- (source_blueprint_course_id, source_revision_number) -> ple_data.blueprint_course_revision (blueprint_course_id, blueprint_revision_number)
+- (target_blueprint_course_id, target_revision_number) -> ple_data.blueprint_course_revision (blueprint_course_id, blueprint_revision_number)
+- (source_blueprint_course_id, source_metadata_etag) -> ple_data.blueprint_metadata_event (blueprint_course_id, metadata_etag)
+- (target_blueprint_course_id, target_metadata_etag) -> ple_data.blueprint_metadata_event (blueprint_course_id, metadata_etag)
 
 Indexes:
 
@@ -1912,11 +1890,11 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | blueprint_change_proposal_id | uuid | NOT NULL |
-| actor_account_id | uuid | NOT NULL |
+| actor_account_id | ple_data.account_id | NOT NULL |
 | accepted_at | timestamp with time zone | NOT NULL |
 | decision | jsonb | NOT NULL |
-| target_reference_number | bigint | NOT NULL |
-| resulting_revision_number | bigint | NOT NULL |
+| target_blueprint_course_id | ple_data.blueprint_course_id | NOT NULL |
+| resulting_revision_number | integer | NOT NULL |
 | resulting_metadata_etag | uuid | NOT NULL |
 
 Constraints:
@@ -1928,8 +1906,8 @@ Foreign keys:
 
 - (blueprint_change_proposal_id) -> ple_data.blueprint_change_proposal (blueprint_change_proposal_id)
 - (actor_account_id) -> ple_private.account (account_id)
-- (target_reference_number, resulting_revision_number) -> ple_data.blueprint_course_revision (blueprint_course_id, blueprint_revision_number)
-- (target_reference_number, resulting_metadata_etag) -> ple_data.blueprint_metadata_event (blueprint_course_id, metadata_etag)
+- (target_blueprint_course_id, resulting_revision_number) -> ple_data.blueprint_course_revision (blueprint_course_id, blueprint_revision_number)
+- (target_blueprint_course_id, resulting_metadata_etag) -> ple_data.blueprint_metadata_event (blueprint_course_id, metadata_etag)
 
 Indexes:
 
@@ -1944,8 +1922,8 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| blueprint_course_id | bigint | NOT NULL |
-| instructor_account_id | uuid | NOT NULL |
+| blueprint_course_id | ple_data.blueprint_course_id | NOT NULL |
+| instructor_account_id | ple_data.account_id | NOT NULL |
 | starred_at | timestamptz | NOT NULL |
 | updated_at | timestamptz | NOT NULL |
 
@@ -1955,7 +1933,7 @@ Constraints:
 
 Foreign keys:
 
-- (blueprint_course_id) -> ple_data.blueprint_course (reference_number)
+- (blueprint_course_id) -> ple_data.blueprint_course (blueprint_course_id)
 - (instructor_account_id) -> ple_private.account (account_id)
 
 Indexes:
@@ -1972,8 +1950,8 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| blueprint_course_id | bigint | NOT NULL |
-| instructor_account_id | uuid | NOT NULL |
+| blueprint_course_id | ple_data.blueprint_course_id | NOT NULL |
+| instructor_account_id | ple_data.account_id | NOT NULL |
 | watched_at | timestamptz | NOT NULL |
 | updated_at | timestamptz | NOT NULL |
 
@@ -1983,7 +1961,7 @@ Constraints:
 
 Foreign keys:
 
-- (blueprint_course_id) -> ple_data.blueprint_course (reference_number)
+- (blueprint_course_id) -> ple_data.blueprint_course (blueprint_course_id)
 - (instructor_account_id) -> ple_private.account (account_id)
 
 Indexes:
@@ -2001,9 +1979,9 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | notification_id | uuid | NOT NULL |
-| recipient_account_id | uuid | NOT NULL |
-| blueprint_course_id | bigint | NOT NULL |
-| event_kind | ple_data | NOT NULL |
+| recipient_account_id | ple_data.account_id | NOT NULL |
+| blueprint_course_id | ple_data.blueprint_course_id | NOT NULL |
+| event_kind | ple_data.watch_notification_event_kind | NOT NULL |
 | source_event_id | bigint | NOT NULL |
 | occurred_at | timestamptz | NOT NULL |
 
@@ -2016,7 +1994,7 @@ Constraints:
 Foreign keys:
 
 - (recipient_account_id) -> ple_private.account (account_id)
-- (blueprint_course_id) -> ple_data.blueprint_course (reference_number)
+- (blueprint_course_id) -> ple_data.blueprint_course (blueprint_course_id)
 
 Indexes:
 
@@ -2181,11 +2159,11 @@ Columns:
 | flawed_revision_number | integer | NOT NULL |
 | replacement_question_id | text | NOT NULL |
 | replacement_revision_number | integer | NOT NULL |
-| approved_by_account_id | uuid | NOT NULL |
-| approver_role | ple_data | NOT NULL |
+| approved_by_account_id | ple_data.account_id | NOT NULL |
+| approver_role | ple_data.product_role | NOT NULL |
 | approved_at | timestamptz | NOT NULL |
 | correction_generation | integer | NOT NULL |
-| reason | ple_data | NOT NULL |
+| reason | ple_data.correction_reason | NOT NULL |
 | updated_at | timestamptz | NOT NULL |
 
 Constraints:
@@ -2218,7 +2196,7 @@ Columns:
 | --- | --- | --- |
 | question_change_event_id | uuid | NOT NULL |
 | forced_question_correction_id | uuid | NOT NULL |
-| recorded_by_account_id | uuid | NOT NULL |
+| recorded_by_account_id | ple_data.account_id | NOT NULL |
 | occurred_at | timestamptz | NOT NULL |
 | evidence | jsonb | NOT NULL |
 
@@ -2326,12 +2304,10 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| course_instance_id | uuid | NOT NULL |
-| reference_number | bigint | NULL |
-| public_reference | text | NOT NULL |
-| source_kind | ple_data | NOT NULL |
-| blueprint_course_id | bigint | NULL |
-| blueprint_revision_number | bigint | NULL |
+| course_instance_id | ple_data.course_instance_id | NOT NULL |
+| source_kind | ple_data.course_source_kind | NOT NULL |
+| blueprint_course_id | ple_data.blueprint_course_id | NULL |
+| blueprint_revision_number | integer | NULL |
 | course_short_name | text | NOT NULL |
 | course_long_name | text | NOT NULL |
 | content_discipline_id | uuid | NOT NULL |
@@ -2345,24 +2321,19 @@ Columns:
 | course_theme_id | text | NOT NULL |
 | created_at | timestamp with time zone | NOT NULL |
 | active_until_at | timestamp with time zone | NOT NULL |
-| course_lifecycle_state | ple_data | NOT NULL |
+| course_lifecycle_state | ple_data.course_lifecycle_state | NOT NULL |
 | course_became_inactive_at | timestamp with time zone | NULL |
 | latest_assessment_due_at | timestamp with time zone | NULL |
 | retention_starts_at | timestamp with time zone | NOT NULL |
-| retention_lifecycle_state | ple_data | NOT NULL |
+| retention_lifecycle_state | ple_data.retention_lifecycle_state | NOT NULL |
 | student_data_archived_at | timestamp with time zone | NULL |
 | student_data_deleted_at | timestamp with time zone | NULL |
 | purged_students_ever_enrolled | bigint | NULL |
-| CHECK | (term_ends_on <= (active_until_at AT TIME ZONE 'UTC')::date) | NULL |
 | updated_at | timestamptz | NOT NULL |
 
 Constraints:
 
 - PRIMARY KEY (course_instance_id)
-- UNIQUE (reference_number)
-- UNIQUE (public_reference)
-- CHECK reference_number: `(reference_number BETWEEN 1 AND 2147483647)`
-- CHECK public_reference: `( ple_private.is_canonical_prefixed_public_id(public_reference, 'CI') )`
 - CHECK blueprint_revision_number: `(blueprint_revision_number > 0)`
 - CHECK course_short_name: `( course_short_name = btrim(course_short_name) AND char_length(course_short_name) BETWEEN 1 AND 200 )`
 - CHECK course_long_name: `( course_long_name = btrim(course_long_name) AND char_length(course_long_name) BETWEEN 1 AND 200 )`
@@ -2383,8 +2354,6 @@ Foreign keys:
 Indexes:
 
 - ple_data.course_instance_pkey UNIQUE (course_instance_id)
-- ple_data.course_instance_unique_0 UNIQUE (reference_number)
-- ple_data.course_instance_unique_1 UNIQUE (public_reference)
 
 ### ple_data.course_origin
 
@@ -2396,11 +2365,11 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | course_origin_id | uuid | NOT NULL |
-| course_instance_id | uuid | NOT NULL |
-| source_kind | ple_data | NOT NULL |
-| blueprint_course_id | bigint | NULL |
-| blueprint_revision_number | bigint | NULL |
-| source_course_instance_id | uuid | NULL |
+| course_instance_id | ple_data.course_instance_id | NOT NULL |
+| source_kind | ple_data.course_source_kind | NOT NULL |
+| blueprint_course_id | ple_data.blueprint_course_id | NULL |
+| blueprint_revision_number | integer | NULL |
+| source_course_instance_id | ple_data.course_instance_id | NULL |
 | created_at | timestamp with time zone | NOT NULL |
 
 Constraints:
@@ -2430,20 +2399,18 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | course_instance_creation_event_id | uuid | NOT NULL |
-| course_instance_id | uuid | NOT NULL |
-| course_reference_number | bigint | NOT NULL |
-| source_kind | ple_data | NOT NULL |
-| blueprint_course_id | bigint | NULL |
-| blueprint_revision_number | bigint | NULL |
-| assigned_instructor_account_id | uuid | NOT NULL |
-| created_by_account_id | uuid | NOT NULL |
+| course_instance_id | ple_data.course_instance_id | NOT NULL |
+| source_kind | ple_data.course_source_kind | NOT NULL |
+| blueprint_course_id | ple_data.blueprint_course_id | NULL |
+| blueprint_revision_number | integer | NULL |
+| assigned_instructor_account_id | ple_data.account_id | NOT NULL |
+| created_by_account_id | ple_data.account_id | NOT NULL |
 | occurred_at | timestamp with time zone | NOT NULL |
 
 Constraints:
 
 - PRIMARY KEY (course_instance_creation_event_id)
 - UNIQUE (course_instance_id)
-- UNIQUE (course_reference_number)
 - CHECK blueprint_revision_number: `(blueprint_revision_number > 0)`
 
 Foreign keys:
@@ -2457,7 +2424,6 @@ Indexes:
 
 - ple_audit.course_instance_creation_event_pkey UNIQUE (course_instance_creation_event_id)
 - ple_audit.course_instance_creation_event_unique_0 UNIQUE (course_instance_id)
-- ple_audit.course_instance_creation_event_unique_1 UNIQUE (course_reference_number)
 
 ### ple_data.blueprint_course_instance_source
 
@@ -2468,23 +2434,26 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| blueprint_course_id | bigint | NOT NULL |
-| source_course_instance_id | uuid | NOT NULL |
+| blueprint_course_instance_source_id | uuid | NOT NULL |
+| blueprint_course_id | ple_data.blueprint_course_id | NOT NULL |
+| source_course_instance_id | ple_data.course_instance_id | NOT NULL |
 | recorded_at | timestamp with time zone | NOT NULL |
 | updated_at | timestamptz | NOT NULL |
 
 Constraints:
 
-- PRIMARY KEY (blueprint_course_id)
+- PRIMARY KEY (blueprint_course_instance_source_id)
+- UNIQUE (blueprint_course_id)
 
 Foreign keys:
 
-- (blueprint_course_id) -> ple_data.blueprint_course (reference_number)
+- (blueprint_course_id) -> ple_data.blueprint_course (blueprint_course_id)
 - (source_course_instance_id) -> ple_data.course_instance (course_instance_id)
 
 Indexes:
 
-- ple_data.blueprint_course_instance_source_pkey UNIQUE (blueprint_course_id)
+- ple_data.blueprint_course_instance_source_pkey UNIQUE (blueprint_course_instance_source_id)
+- ple_data.blueprint_course_instance_source_unique_0 UNIQUE (blueprint_course_id)
 - blueprint_course_instance_source_course_idx (source_course_instance_id)
 
 ## 20_tables/course_media.sql
@@ -2498,12 +2467,12 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| course_instance_id | uuid | NOT NULL |
+| course_instance_id | ple_data.course_instance_id | NOT NULL |
 | course_banner_id | uuid | NOT NULL |
 | source_object_record_id | uuid | NOT NULL |
 | source_object_checksum | bytea | NOT NULL |
 | source_byte_length | bigint | NOT NULL |
-| source_media_type | ple_data | NOT NULL |
+| source_media_type | ple_data.media_type | NOT NULL |
 | source_width | integer | NOT NULL |
 | source_height | integer | NOT NULL |
 | created_at | timestamptz | NOT NULL |
@@ -2537,7 +2506,7 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| course_instance_id | uuid | NOT NULL |
+| course_instance_id | ple_data.course_instance_id | NOT NULL |
 | course_banner_id | uuid | NOT NULL |
 | rendition_kind | text | NOT NULL |
 | object_record_id | uuid | NOT NULL |
@@ -2574,7 +2543,7 @@ Columns:
 | --- | --- | --- |
 | object_delivery_id | uuid | NOT NULL |
 | object_record_id | uuid | NOT NULL |
-| course_instance_id | uuid | NOT NULL |
+| course_instance_id | ple_data.course_instance_id | NOT NULL |
 | course_banner_id | uuid | NOT NULL |
 | rendition_kind | text | NOT NULL |
 | created_at | timestamptz | NOT NULL |
@@ -2603,10 +2572,10 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | course_banner_upload_id | uuid | NOT NULL |
-| course_instance_id | uuid | NOT NULL |
-| account_id | uuid | NOT NULL |
+| course_instance_id | ple_data.course_instance_id | NOT NULL |
+| account_id | ple_data.account_id | NOT NULL |
 | object_record_id | uuid | NOT NULL |
-| canonical_media_type | ple_data | NOT NULL |
+| canonical_media_type | ple_data.media_type | NOT NULL |
 | byte_length | bigint | NOT NULL |
 | sha256 | bytea | NOT NULL |
 | width | integer | NOT NULL |
@@ -2645,15 +2614,15 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | course_banner_storage_subject_id | uuid | NOT NULL |
-| subject_kind | ple_data | NOT NULL |
-| course_instance_id | uuid | NOT NULL |
+| subject_kind | ple_data.banner_subject_kind | NOT NULL |
+| course_instance_id | ple_data.course_instance_id | NOT NULL |
 | course_banner_upload_id | uuid | NULL |
 | course_banner_id | uuid | NULL |
 | object_record_id | uuid | NOT NULL |
 | expected_sha256 | bytea | NOT NULL |
 | expected_size_bytes | bigint | NOT NULL |
-| expected_media_type | ple_data | NOT NULL |
-| storage_area | ple_data | NOT NULL |
+| expected_media_type | ple_data.media_type | NOT NULL |
+| storage_area | ple_data.object_storage_area | NOT NULL |
 | created_at | timestamptz | NOT NULL |
 | updated_at | timestamptz | NOT NULL |
 
@@ -2688,11 +2657,11 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | course_banner_work_id | uuid | NOT NULL |
-| course_instance_id | uuid | NOT NULL |
+| course_instance_id | ple_data.course_instance_id | NOT NULL |
 | course_banner_id | uuid | NULL |
-| operation_kind | ple_data | NOT NULL |
+| operation_kind | ple_data.banner_work_operation | NOT NULL |
 | object_record_id | uuid | NOT NULL |
-| state | ple_data | NOT NULL |
+| state | ple_data.lease_state | NOT NULL |
 | course_banner_storage_subject_id | uuid | NULL |
 | object_delivery_id | uuid | NULL |
 | created_at | timestamptz | NOT NULL |
@@ -2723,9 +2692,9 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| course_instance_id | uuid | NOT NULL |
+| course_instance_id | ple_data.course_instance_id | NOT NULL |
 | course_banner_id | uuid | NOT NULL |
-| alternative_kind | ple_data | NOT NULL |
+| alternative_kind | ple_data.alternative_kind | NOT NULL |
 | alternative_text | text | NULL |
 | created_at | timestamptz | NOT NULL |
 
@@ -2753,8 +2722,8 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | student_record_id | uuid | NOT NULL |
-| course_instance_id | uuid | NOT NULL |
-| student_account_id | uuid | NOT NULL |
+| course_instance_id | ple_data.course_instance_id | NOT NULL |
+| student_account_id | ple_data.account_id | NOT NULL |
 | created_at | timestamp with time zone | NOT NULL |
 | updated_at | timestamptz | NOT NULL |
 
@@ -2786,9 +2755,9 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | course_membership_id | uuid | NOT NULL |
-| course_instance_id | uuid | NOT NULL |
-| account_id | uuid | NOT NULL |
-| role | ple_data | NOT NULL |
+| course_instance_id | ple_data.course_instance_id | NOT NULL |
+| account_id | ple_data.account_id | NOT NULL |
+| role | ple_data.product_role | NOT NULL |
 | student_record_id | uuid | NULL |
 | joined_at | timestamp with time zone | NOT NULL |
 | updated_at | timestamptz | NOT NULL |
@@ -2820,7 +2789,7 @@ Columns:
 | --- | --- | --- |
 | course_membership_event_id | uuid | NOT NULL |
 | course_membership_id | uuid | NOT NULL |
-| event_kind | ple_data | NOT NULL |
+| event_kind | ple_data.membership_event_kind | NOT NULL |
 | occurred_at | timestamp with time zone | NOT NULL |
 | reason | text | NOT NULL |
 
@@ -2850,11 +2819,11 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | course_invitation_id | uuid | NOT NULL |
-| course_instance_id | uuid | NOT NULL |
-| target_account_id | uuid | NOT NULL |
-| membership_role | ple_data | NOT NULL |
-| inviting_instructor_account_id | uuid | NOT NULL |
-| inviting_instructor_role | ple_data | NOT NULL |
+| course_instance_id | ple_data.course_instance_id | NOT NULL |
+| target_account_id | ple_data.account_id | NOT NULL |
+| membership_role | ple_data.product_role | NOT NULL |
+| inviting_instructor_account_id | ple_data.account_id | NOT NULL |
+| inviting_instructor_role | ple_data.product_role | NOT NULL |
 | issued_at | timestamp with time zone | NOT NULL |
 | expires_at | timestamp with time zone | NOT NULL |
 | updated_at | timestamptz | NOT NULL |
@@ -2886,8 +2855,8 @@ Columns:
 | --- | --- | --- |
 | course_invitation_event_id | uuid | NOT NULL |
 | course_invitation_id | uuid | NOT NULL |
-| event_kind | ple_data | NOT NULL |
-| performed_by_account_id | uuid | NOT NULL |
+| event_kind | ple_data.invitation_response | NOT NULL |
+| performed_by_account_id | ple_data.account_id | NOT NULL |
 | occurred_at | timestamp with time zone | NOT NULL |
 | reason | text | NOT NULL |
 
@@ -2917,8 +2886,8 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | course_roster_profile_id | uuid | NOT NULL |
-| course_instance_id | uuid | NOT NULL |
-| student_account_id | uuid | NOT NULL |
+| course_instance_id | ple_data.course_instance_id | NOT NULL |
+| student_account_id | ple_data.account_id | NOT NULL |
 | roster_id | text | NOT NULL |
 | roster_name | text | NOT NULL |
 | created_at | timestamp with time zone | NOT NULL |
@@ -2953,10 +2922,10 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | course_roster_event_id | uuid | NOT NULL |
-| course_instance_id | uuid | NOT NULL |
-| student_account_id | uuid | NOT NULL |
-| acting_account_id | uuid | NOT NULL |
-| event_kind | ple_data | NOT NULL |
+| course_instance_id | ple_data.course_instance_id | NOT NULL |
+| student_account_id | ple_data.account_id | NOT NULL |
+| acting_account_id | ple_data.account_id | NOT NULL |
+| event_kind | ple_data.roster_event_kind | NOT NULL |
 | occurred_at | timestamp with time zone | NOT NULL |
 
 Constraints:
@@ -2985,10 +2954,10 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | job_id | uuid | NOT NULL |
-| published_question_id | text | NOT NULL |
+| published_question_id | ple_data.question_family_id | NOT NULL |
 | revision_number | integer | NOT NULL |
 | payload | jsonb | NOT NULL |
-| state | ple_data | NOT NULL |
+| state | ple_data.job_state | NOT NULL |
 | available_at | timestamptz | NOT NULL |
 | lease_token | uuid | NULL |
 | lease_expires_at | timestamptz | NULL |
@@ -3027,13 +2996,13 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | library_improvement_thread_id | uuid | NOT NULL |
-| object_kind | ple_data | NOT NULL |
+| object_kind | ple_data.library_object_kind | NOT NULL |
 | public_object_id | text | NOT NULL |
-| creation_revision_number | bigint | NOT NULL |
-| created_by_account_id | uuid | NOT NULL |
+| creation_revision_number | integer | NOT NULL |
+| created_by_account_id | ple_data.account_id | NOT NULL |
 | created_at | timestamptz | NOT NULL |
-| state | ple_data | NOT NULL |
-| resolved_by_account_id | uuid | NULL |
+| state | ple_data.thread_state | NOT NULL |
+| resolved_by_account_id | ple_data.account_id | NULL |
 | resolved_at | timestamptz | NULL |
 | updated_at | timestamptz | NOT NULL |
 
@@ -3064,7 +3033,7 @@ Columns:
 | --- | --- | --- |
 | post_id | uuid | NOT NULL |
 | library_improvement_thread_id | uuid | NOT NULL |
-| author_account_id | uuid | NOT NULL |
+| author_account_id | ple_data.account_id | NOT NULL |
 | author_display_name | text | NOT NULL |
 | body | text | NOT NULL |
 | created_at | timestamptz | NOT NULL |
@@ -3097,16 +3066,16 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | impact_notice_id | uuid | NOT NULL |
-| object_kind | ple_data | NOT NULL |
+| object_kind | ple_data.library_object_kind | NOT NULL |
 | public_object_id | text | NOT NULL |
-| affected_revision_number | bigint | NULL |
-| created_by_account_id | uuid | NOT NULL |
+| affected_revision_number | integer | NULL |
+| created_by_account_id | ple_data.account_id | NOT NULL |
 | author_display_name | text | NOT NULL |
 | body | text | NOT NULL |
 | created_at | timestamptz | NOT NULL |
 | updated_at | timestamptz | NOT NULL |
-| state | ple_data | NOT NULL |
-| cancelled_by_account_id | uuid | NULL |
+| state | ple_data.notice_state | NOT NULL |
+| cancelled_by_account_id | ple_data.account_id | NULL |
 | cancelled_at | timestamptz | NULL |
 
 Constraints:
@@ -3140,9 +3109,9 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | event_id | uuid | NOT NULL |
-| target_kind | ple_data | NOT NULL |
+| target_kind | ple_data.library_object_kind | NOT NULL |
 | target_public_id | text | NOT NULL |
-| event_kind | ple_data | NOT NULL |
+| event_kind | ple_data.library_watch_event_kind | NOT NULL |
 | revision_number | integer | NULL |
 | forked_public_id | text | NULL |
 | activity_id | uuid | NULL |
@@ -3175,7 +3144,7 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | library_watch_event_id | uuid | NOT NULL |
-| recipient_account_id | uuid | NOT NULL |
+| recipient_account_id | ple_data.account_id | NOT NULL |
 | created_at | timestamptz | NOT NULL |
 
 Constraints:
@@ -3201,11 +3170,11 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | notification_id | uuid | NOT NULL |
-| recipient_account_id | uuid | NOT NULL |
+| recipient_account_id | ple_data.account_id | NOT NULL |
 | library_watch_event_id | uuid | NOT NULL |
-| target_kind | ple_data | NOT NULL |
+| target_kind | ple_data.library_object_kind | NOT NULL |
 | target_public_id | text | NOT NULL |
-| event_kind | ple_data | NOT NULL |
+| event_kind | ple_data.library_watch_event_kind | NOT NULL |
 | revision_number | integer | NULL |
 | forked_public_id | text | NULL |
 | activity_id | uuid | NULL |
@@ -3243,8 +3212,8 @@ Columns:
 | --- | --- | --- |
 | object_record_id | uuid | NOT NULL |
 | object_address | jsonb | NOT NULL |
-| object_storage_area | ple_data | NOT NULL |
-| object_data_class | ple_data | NOT NULL |
+| object_storage_area | ple_data.object_storage_area | NOT NULL |
+| object_data_class | ple_data.object_data_class | NOT NULL |
 | sha256 | bytea | NOT NULL |
 | size_bytes | bigint | NOT NULL |
 | media_type | text | NOT NULL |
@@ -3283,7 +3252,7 @@ Columns:
 | sha256 | bytea | NOT NULL |
 | media_type | text | NOT NULL |
 | byte_length | bigint | NOT NULL |
-| delivery_state | ple_data | NOT NULL |
+| delivery_state | ple_data.delivery_state | NOT NULL |
 | registered_at | timestamptz | NOT NULL |
 | updated_at | timestamptz | NOT NULL |
 
@@ -3315,7 +3284,7 @@ Columns:
 | --- | --- | --- |
 | object_delivery_id | uuid | NOT NULL |
 | object_record_id | uuid | NOT NULL |
-| course_instance_id | uuid | NOT NULL |
+| course_instance_id | ple_data.course_instance_id | NOT NULL |
 | created_at | timestamptz | NOT NULL |
 | updated_at | timestamptz | NOT NULL |
 
@@ -3375,7 +3344,7 @@ Columns:
 | object_cleanup_manifest_id | uuid | NOT NULL |
 | object_storage_check_id | uuid | NOT NULL |
 | authorized_at | timestamptz | NOT NULL |
-| permitted_disposition | ple_data | NOT NULL |
+| permitted_disposition | ple_data.cleanup_disposition | NOT NULL |
 
 Constraints:
 
@@ -3402,8 +3371,8 @@ Columns:
 | --- | --- | --- |
 | event_id | uuid | NOT NULL |
 | object_delivery_id | uuid | NOT NULL |
-| account_id | uuid | NOT NULL |
-| access_decision | ple_data | NOT NULL |
+| account_id | ple_data.account_id | NOT NULL |
+| access_decision | ple_data.access_decision | NOT NULL |
 | accessed_at | timestamptz | NOT NULL |
 
 Constraints:
@@ -3461,7 +3430,7 @@ Columns:
 | --- | --- | --- |
 | object_cleanup_receipt_id | uuid | NOT NULL |
 | object_cleanup_manifest_id | uuid | NOT NULL |
-| disposition | ple_data | NOT NULL |
+| disposition | ple_data.cleanup_disposition | NOT NULL |
 | recorded_at | timestamptz | NOT NULL |
 
 Constraints:
@@ -3549,8 +3518,8 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| account_id | uuid | NOT NULL |
-| avatar_kind | ple_data | NOT NULL |
+| account_id | ple_data.account_id | NOT NULL |
+| avatar_kind | ple_data.avatar_kind | NOT NULL |
 | provided_avatar_id | text | NULL |
 | profile_image_id | uuid | NULL |
 | profile_image_delivery_id | uuid | NULL |
@@ -3585,12 +3554,12 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | profile_image_work_id | uuid | NOT NULL |
-| account_id | uuid | NOT NULL |
+| account_id | ple_data.account_id | NOT NULL |
 | profile_image_id | uuid | NOT NULL |
 | object_delivery_id | uuid | NOT NULL |
 | object_record_id | uuid | NOT NULL |
-| operation_kind | ple_data | NOT NULL |
-| state | ple_data | NOT NULL |
+| operation_kind | ple_data.object_work_operation | NOT NULL |
+| state | ple_data.lease_state | NOT NULL |
 | created_at | timestamptz | NOT NULL |
 | completed_at | timestamptz | NULL |
 
@@ -3621,8 +3590,8 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| published_question_id | text | NOT NULL |
-| availability | ple_data | NOT NULL |
+| published_question_id | ple_data.question_family_id | NOT NULL |
+| availability | ple_data.question_availability | NOT NULL |
 | availability_edit_number | bigint | NOT NULL |
 | created_at | timestamptz | NOT NULL |
 | updated_on | date | NOT NULL |
@@ -3650,10 +3619,10 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| published_question_id | text | NOT NULL |
+| published_question_id | ple_data.question_family_id | NOT NULL |
 | revision_number | integer | NOT NULL |
-| backend | ple_data | NOT NULL |
-| question_type | ple_data | NOT NULL |
+| backend | ple_data.question_backend | NOT NULL |
+| question_type | ple_data.question_type | NOT NULL |
 | general_feedback | text | NULL |
 | published_at | timestamptz | NOT NULL |
 
@@ -3680,7 +3649,7 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| published_question_id | text | NOT NULL |
+| published_question_id | ple_data.question_family_id | NOT NULL |
 | question_title | text | NOT NULL |
 | question_description | text | NOT NULL |
 | language | text | NOT NULL |
@@ -3725,9 +3694,9 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | event_id | uuid | NOT NULL |
-| published_question_id | text | NOT NULL |
+| published_question_id | ple_data.question_family_id | NOT NULL |
 | revision_number | integer | NOT NULL |
-| actor_account_id | uuid | NOT NULL |
+| actor_account_id | ple_data.account_id | NOT NULL |
 | occurred_at | timestamptz | NOT NULL |
 
 Constraints:
@@ -3756,9 +3725,9 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | event_id | uuid | NOT NULL |
-| published_question_id | text | NOT NULL |
-| actor_account_id | uuid | NOT NULL |
-| availability | ple_data | NOT NULL |
+| published_question_id | ple_data.question_family_id | NOT NULL |
+| actor_account_id | ple_data.account_id | NOT NULL |
+| availability | ple_data.question_availability | NOT NULL |
 | edit_number | bigint | NOT NULL |
 | reason | text | NULL |
 | occurred_at | timestamptz | NOT NULL |
@@ -3788,11 +3757,11 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| published_question_id | text | NOT NULL |
+| published_question_id | ple_data.question_family_id | NOT NULL |
 | revision_number | integer | NOT NULL |
 | parent_revision_number | integer | NULL |
-| editor_account_id | uuid | NOT NULL |
-| accepted_by_account_id | uuid | NOT NULL |
+| editor_account_id | ple_data.account_id | NOT NULL |
+| accepted_by_account_id | ple_data.account_id | NOT NULL |
 | accepted_at | timestamptz | NOT NULL |
 | reason_for_edit | text | NOT NULL |
 
@@ -3822,11 +3791,11 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| published_question_id | text | NOT NULL |
+| published_question_id | ple_data.question_family_id | NOT NULL |
 | revision_number | integer | NOT NULL |
 | author_position | integer | NOT NULL |
 | author_display_name | text | NOT NULL |
-| author_account_id | uuid | NULL |
+| author_account_id | ple_data.account_id | NULL |
 | created_at | timestamptz | NOT NULL |
 | updated_at | timestamptz | NOT NULL |
 
@@ -3856,9 +3825,9 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| published_question_id | text | NOT NULL |
+| published_question_id | ple_data.question_family_id | NOT NULL |
 | revision_number | integer | NOT NULL |
-| spdx_expression | ple_data | NOT NULL |
+| spdx_expression | ple_data.license_spdx | NOT NULL |
 | created_at | timestamptz | NOT NULL |
 | updated_at | timestamptz | NOT NULL |
 
@@ -3883,7 +3852,7 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| published_question_id | text | NOT NULL |
+| published_question_id | ple_data.question_family_id | NOT NULL |
 | revision_number | integer | NOT NULL |
 | citation_url | text | NULL |
 | citation_text | text | NULL |
@@ -3912,10 +3881,10 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | question_ownership_event_id | uuid | NOT NULL |
-| published_question_id | text | NOT NULL |
-| owner_account_id | uuid | NOT NULL |
-| recorded_by_account_id | uuid | NOT NULL |
-| event_kind | ple_data | NOT NULL |
+| published_question_id | ple_data.question_family_id | NOT NULL |
+| owner_account_id | ple_data.account_id | NOT NULL |
+| recorded_by_account_id | ple_data.account_id | NOT NULL |
+| event_kind | ple_data.ownership_event_kind | NOT NULL |
 | occurred_at | timestamptz | NOT NULL |
 
 Constraints:
@@ -3942,7 +3911,7 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| forked_published_question_id | text | NOT NULL |
+| forked_published_question_id | ple_data.question_family_id | NOT NULL |
 | source_question_id | text | NOT NULL |
 | source_revision_number | integer | NOT NULL |
 | recorded_at | timestamptz | NOT NULL |
@@ -3970,8 +3939,8 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| published_question_id | text | NOT NULL |
-| instructor_account_id | uuid | NOT NULL |
+| published_question_id | ple_data.question_family_id | NOT NULL |
+| instructor_account_id | ple_data.account_id | NOT NULL |
 | starred_at | timestamptz | NOT NULL |
 | updated_at | timestamptz | NOT NULL |
 
@@ -3998,8 +3967,8 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| published_question_id | text | NOT NULL |
-| instructor_account_id | uuid | NOT NULL |
+| published_question_id | ple_data.question_family_id | NOT NULL |
+| instructor_account_id | ple_data.account_id | NOT NULL |
 | watched_at | timestamptz | NOT NULL |
 | updated_at | timestamptz | NOT NULL |
 
@@ -4026,10 +3995,10 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| published_question_id | text | NOT NULL |
+| published_question_id | ple_data.question_family_id | NOT NULL |
 | revision_number | integer | NOT NULL |
-| cognitive_process | ple_data | NOT NULL |
-| knowledge_dimension | ple_data | NOT NULL |
+| cognitive_process | ple_data.bloom_cognitive_process | NOT NULL |
+| knowledge_dimension | ple_data.bloom_knowledge_dimension | NOT NULL |
 | classification_edit_number | bigint | NOT NULL |
 | created_at | timestamptz | NOT NULL |
 | updated_at | timestamptz | NOT NULL |
@@ -4057,10 +4026,10 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | bloom_preparation_receipt_id | uuid | NOT NULL |
-| target_kind | ple_private | NOT NULL |
+| target_kind | ple_private.bloom_preparation_target_kind | NOT NULL |
 | candidate_fingerprint | bytea | NOT NULL |
-| cognitive_process | ple_data | NOT NULL |
-| knowledge_dimension | ple_data | NOT NULL |
+| cognitive_process | ple_data.bloom_cognitive_process | NOT NULL |
+| knowledge_dimension | ple_data.bloom_knowledge_dimension | NOT NULL |
 | created_at | timestamptz | NOT NULL |
 
 Constraints:
@@ -4089,7 +4058,7 @@ Columns:
 | --- | --- | --- |
 | object_delivery_id | uuid | NOT NULL |
 | object_record_id | uuid | NOT NULL |
-| published_question_id | text | NOT NULL |
+| published_question_id | ple_data.question_family_id | NOT NULL |
 | revision_number | integer | NOT NULL |
 | asset_id | uuid | NOT NULL |
 | created_at | timestamptz | NOT NULL |
@@ -4118,7 +4087,7 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| published_question_id | text | NOT NULL |
+| published_question_id | ple_data.question_family_id | NOT NULL |
 | revision_number | integer | NOT NULL |
 | asset_id | uuid | NOT NULL |
 | source_object_record_id | uuid | NOT NULL |
@@ -4126,12 +4095,12 @@ Columns:
 | public_object_id | uuid | NOT NULL |
 | public_object_checksum | bytea | NOT NULL |
 | public_byte_length | bigint | NOT NULL |
-| verified_media_type | ple_data | NOT NULL |
+| verified_media_type | ple_data.media_type | NOT NULL |
 | intrinsic_width | integer | NOT NULL |
 | intrinsic_height | integer | NOT NULL |
 | object_delivery_id | uuid | NOT NULL |
 | job_id | uuid | NOT NULL |
-| publication_state | ple_data | NOT NULL |
+| publication_state | ple_data.publication_state | NOT NULL |
 | created_at | timestamptz | NOT NULL |
 
 Constraints:
@@ -4174,7 +4143,7 @@ Columns:
 | --- | --- | --- |
 | authoring_workspace_id | uuid | NOT NULL |
 | reference_number | bigint | NULL |
-| owner_account_id | uuid | NOT NULL |
+| owner_account_id | ple_data.account_id | NOT NULL |
 | created_at | timestamptz | NOT NULL |
 | revoked_at | timestamptz | NULL |
 | updated_at | timestamptz | NOT NULL |
@@ -4204,9 +4173,9 @@ Columns:
 | --- | --- | --- |
 | event_id | uuid | NOT NULL |
 | authoring_workspace_id | uuid | NOT NULL |
-| collaborator_account_id | uuid | NOT NULL |
-| actor_account_id | uuid | NOT NULL |
-| event_kind | ple_data | NOT NULL |
+| collaborator_account_id | ple_data.account_id | NOT NULL |
+| actor_account_id | ple_data.account_id | NOT NULL |
+| event_kind | ple_data.membership_event_kind | NOT NULL |
 | occurred_at | timestamptz | NOT NULL |
 
 Constraints:
@@ -4299,9 +4268,9 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | draft_question_id | uuid | NOT NULL |
-| backend | ple_data | NOT NULL |
-| question_format | ple_data | NOT NULL |
-| question_type | ple_data | NOT NULL |
+| backend | ple_data.question_backend | NOT NULL |
+| question_format | ple_data.question_format | NOT NULL |
+| question_type | ple_data.question_type | NOT NULL |
 | webwork_pg_path | text | NULL |
 | imathas_deployment_reference | text | NULL |
 | imathas_item_reference | text | NULL |
@@ -4335,10 +4304,10 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| published_question_id | text | NOT NULL |
+| published_question_id | ple_data.question_family_id | NOT NULL |
 | revision_number | integer | NOT NULL |
-| backend | ple_data | NOT NULL |
-| question_format | ple_data | NOT NULL |
+| backend | ple_data.question_backend | NOT NULL |
+| question_format | ple_data.question_format | NOT NULL |
 | webwork_pg_path | text | NULL |
 | imathas_deployment_reference | text | NULL |
 | imathas_item_reference | text | NULL |
@@ -4372,12 +4341,12 @@ Columns:
 | --- | --- | --- |
 | authoring_workspace_id | uuid | NOT NULL |
 | import_id | uuid | NOT NULL |
-| import_format | ple_data | NOT NULL |
+| import_format | ple_data.import_format | NOT NULL |
 | format_import_data | jsonb | NOT NULL |
 | format_import_data_sha256 | text | NOT NULL |
 | item_registry | jsonb | NOT NULL |
 | item_registry_sha256 | text | NOT NULL |
-| state | ple_data | NOT NULL |
+| state | ple_data.import_state | NOT NULL |
 | staged_at | timestamptz | NOT NULL |
 | committed_at | timestamptz | NULL |
 
@@ -4409,7 +4378,7 @@ Columns:
 | authoring_workspace_id | uuid | NOT NULL |
 | import_id | uuid | NOT NULL |
 | source_item_reference | text | NOT NULL |
-| item_result | ple_data | NOT NULL |
+| item_result | ple_data.import_item_result | NOT NULL |
 | format_item_data | jsonb | NOT NULL |
 | format_item_data_sha256 | text | NOT NULL |
 | recorded_at | timestamptz | NOT NULL |
@@ -4439,7 +4408,7 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | draft_question_id | uuid | NOT NULL |
-| actor_account_id | uuid | NOT NULL |
+| actor_account_id | ple_data.account_id | NOT NULL |
 | idempotency_key | uuid | NOT NULL |
 | source_question_id | text | NOT NULL |
 | source_revision_number | integer | NOT NULL |
@@ -4471,7 +4440,7 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | question_folder_id | uuid | NOT NULL |
-| owner_account_id | uuid | NOT NULL |
+| owner_account_id | ple_data.account_id | NOT NULL |
 | title | text | NOT NULL |
 | edit_number | bigint | NOT NULL |
 | created_at | timestamptz | NOT NULL |
@@ -4502,7 +4471,7 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | question_folder_id | uuid | NOT NULL |
-| published_question_id | text | NOT NULL |
+| published_question_id | ple_data.question_family_id | NOT NULL |
 | added_at | timestamptz | NOT NULL |
 | updated_at | timestamptz | NOT NULL |
 
@@ -4529,7 +4498,7 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | search_id | uuid | NOT NULL |
-| owner_account_id | uuid | NOT NULL |
+| owner_account_id | ple_data.account_id | NOT NULL |
 | edit_number | bigint | NOT NULL |
 | filter | jsonb | NOT NULL |
 | created_at | timestamptz | NOT NULL |
@@ -4596,8 +4565,7 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| question_pool_id | uuid | NOT NULL |
-| public_question_pool_id | text | NOT NULL |
+| question_pool_id | ple_data.question_family_id | NOT NULL |
 | metadata_etag | uuid | NOT NULL |
 | title | text | NOT NULL |
 | description | text | NOT NULL |
@@ -4606,17 +4574,15 @@ Columns:
 | content_topic_id | uuid | NULL |
 | content_subtopic_id | uuid | NULL |
 | tags | text[] | NOT NULL |
-| current_revision_number | bigint | NOT NULL |
-| source_question_pool_id | uuid | NULL |
-| source_question_pool_revision_number | bigint | NULL |
+| current_revision_number | integer | NOT NULL |
+| source_question_pool_id | ple_data.question_family_id | NULL |
+| source_question_pool_revision_number | integer | NULL |
 | created_at | timestamptz | NOT NULL |
 | updated_on | date | NOT NULL |
 
 Constraints:
 
 - PRIMARY KEY (question_pool_id)
-- UNIQUE (public_question_pool_id)
-- CHECK public_question_pool_id: `( public_question_pool_id ~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$' AND substr(public_question_pool_id, 6, 1) = ple_private.crockford_checksum_character( substr(public_question_pool_id, 1, 4) // substr(public_question_pool_id, 7, 3) ) )`
 - CHECK title: `( title = btrim(title) AND char_length(title) BETWEEN 1 AND 512 AND title !~ '[[:cntrl:]]' )`
 - CHECK description: `( description = btrim(description) AND char_length(description) BETWEEN 1 AND 4000 AND description !~ '[[:cntrl:]]' )`
 - CHECK tags: `(ple_data.question_metadata_tags_are_valid(tags))`
@@ -4632,7 +4598,6 @@ Foreign keys:
 Indexes:
 
 - ple_data.question_pool_pkey UNIQUE (question_pool_id)
-- ple_data.question_pool_unique_0 UNIQUE (public_question_pool_id)
 
 ### ple_data.question_pool_revision
 
@@ -4643,10 +4608,10 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| question_pool_id | uuid | NOT NULL |
+| question_pool_id | ple_data.question_family_id | NOT NULL |
 | revision_number | integer | NOT NULL |
 | member_count | integer | NOT NULL |
-| interchangeability_attested_by_account_id | uuid | NOT NULL |
+| interchangeability_attested_by_account_id | ple_data.account_id | NOT NULL |
 | interchangeability_attested_at | timestamptz | NOT NULL |
 | created_at | timestamptz | NOT NULL |
 | created_in_transaction | xid8 | NOT NULL |
@@ -4675,10 +4640,10 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| question_pool_id | uuid | NOT NULL |
+| question_pool_id | ple_data.question_family_id | NOT NULL |
 | revision_number | integer | NOT NULL |
 | member_position | integer | NOT NULL |
-| published_question_id | text | NOT NULL |
+| published_question_id | ple_data.question_family_id | NOT NULL |
 | question_revision_number | integer | NOT NULL |
 | created_at | timestamptz | NOT NULL |
 
@@ -4708,23 +4673,23 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| public_question_pool_id | text | NOT NULL |
-| instructor_account_id | uuid | NOT NULL |
+| question_pool_id | ple_data.question_family_id | NOT NULL |
+| instructor_account_id | ple_data.account_id | NOT NULL |
 | starred_at | timestamptz | NOT NULL |
 | updated_at | timestamptz | NOT NULL |
 
 Constraints:
 
-- PRIMARY KEY (public_question_pool_id, instructor_account_id)
+- PRIMARY KEY (question_pool_id, instructor_account_id)
 
 Foreign keys:
 
-- (public_question_pool_id) -> ple_data.question_pool (public_question_pool_id)
+- (question_pool_id) -> ple_data.question_pool (question_pool_id)
 - (instructor_account_id) -> ple_private.account (account_id)
 
 Indexes:
 
-- ple_data.question_pool_star_pkey UNIQUE (public_question_pool_id, instructor_account_id)
+- ple_data.question_pool_star_pkey UNIQUE (question_pool_id, instructor_account_id)
 
 ### ple_data.question_pool_watch
 
@@ -4735,23 +4700,23 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| public_question_pool_id | text | NOT NULL |
-| instructor_account_id | uuid | NOT NULL |
+| question_pool_id | ple_data.question_family_id | NOT NULL |
+| instructor_account_id | ple_data.account_id | NOT NULL |
 | watched_at | timestamptz | NOT NULL |
 | updated_at | timestamptz | NOT NULL |
 
 Constraints:
 
-- PRIMARY KEY (public_question_pool_id, instructor_account_id)
+- PRIMARY KEY (question_pool_id, instructor_account_id)
 
 Foreign keys:
 
-- (public_question_pool_id) -> ple_data.question_pool (public_question_pool_id)
+- (question_pool_id) -> ple_data.question_pool (question_pool_id)
 - (instructor_account_id) -> ple_private.account (account_id)
 
 Indexes:
 
-- ple_data.question_pool_watch_pkey UNIQUE (public_question_pool_id, instructor_account_id)
+- ple_data.question_pool_watch_pkey UNIQUE (question_pool_id, instructor_account_id)
 
 ### ple_data.question_pool_revision_bloom
 
@@ -4762,10 +4727,10 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| question_pool_id | uuid | NOT NULL |
+| question_pool_id | ple_data.question_family_id | NOT NULL |
 | revision_number | integer | NOT NULL |
-| cognitive_process | ple_data | NOT NULL |
-| knowledge_dimension | ple_data | NOT NULL |
+| cognitive_process | ple_data.bloom_cognitive_process | NOT NULL |
+| knowledge_dimension | ple_data.bloom_knowledge_dimension | NOT NULL |
 | classification_edit_number | bigint | NOT NULL |
 | created_at | timestamptz | NOT NULL |
 
@@ -4784,39 +4749,6 @@ Indexes:
 
 ## 20_tables/retention.sql
 
-### ple_data.course_retention_policy
-
-- Role: vocabulary
-- Comment: role: vocabulary, deleted by Course delete after the retention sweep. HUMAN_GUIDANCE.md Retention.
-
-Columns:
-
-| Name | Type | Null |
-| --- | --- | --- |
-| policy_key | boolean | NOT NULL |
-| inactive_warning_lead_time | interval | NOT NULL |
-| archive_notice_lead_time | interval | NOT NULL |
-| archive_after_retention_start | interval | NOT NULL |
-| delete_after_archive | interval | NOT NULL |
-| created_at | timestamptz | NOT NULL |
-
-Constraints:
-
-- PRIMARY KEY (policy_key)
-- CHECK policy_key: `(policy_key)`
-- CHECK inactive_warning_lead_time: `(inactive_warning_lead_time > INTERVAL '0')`
-- CHECK archive_notice_lead_time: `(archive_notice_lead_time > INTERVAL '0')`
-- CHECK archive_after_retention_start: `(archive_after_retention_start > INTERVAL '0')`
-- CHECK delete_after_archive: `(delete_after_archive > INTERVAL '0')`
-
-Foreign keys:
-
-- none
-
-Indexes:
-
-- ple_data.course_retention_policy_pkey UNIQUE (policy_key)
-
 ### ple_private.course_retention_notification
 
 - Role: event
@@ -4827,11 +4759,11 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | notification_id | uuid | NOT NULL |
-| course_instance_id | uuid | NOT NULL |
-| action_kind | ple_data | NOT NULL |
+| course_instance_id | ple_data.course_instance_id | NOT NULL |
+| action_kind | ple_data.retention_action_kind | NOT NULL |
 | due_at | timestamp with time zone | NOT NULL |
-| recipient_account_id | uuid | NOT NULL |
-| recipient_product_role | ple_data | NOT NULL |
+| recipient_account_id | ple_data.account_id | NOT NULL |
+| recipient_product_role | ple_data.product_role | NOT NULL |
 | provider_idempotency_key | uuid | NOT NULL |
 | created_at | timestamp with time zone | NOT NULL |
 | next_attempt_at | timestamp with time zone | NOT NULL |
@@ -4840,7 +4772,7 @@ Columns:
 | lease_token | uuid | NULL |
 | provider_accepted_at | timestamp with time zone | NULL |
 | last_failure_at | timestamp with time zone | NULL |
-| last_failure_kind | ple_data | NULL |
+| last_failure_kind | ple_data.retention_failure_kind | NULL |
 | attempt_count | integer | NOT NULL |
 
 Constraints:
@@ -4874,7 +4806,7 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| published_question_id | text | NOT NULL |
+| published_question_id | ple_data.question_family_id | NOT NULL |
 | revision_number | integer | NOT NULL |
 | accepted_graded_attempt_count | bigint | NOT NULL |
 | correct_count | bigint | NOT NULL |
@@ -4905,7 +4837,7 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| published_question_id | text | NOT NULL |
+| published_question_id | ple_data.question_family_id | NOT NULL |
 | revision_number | integer | NOT NULL |
 | choice_id | text | NOT NULL |
 | selected_count | bigint | NOT NULL |
@@ -4938,7 +4870,7 @@ Columns:
 | --- | --- | --- |
 | automated_grading_receipt_id | uuid | NOT NULL |
 | question_attempt_id | uuid | NOT NULL |
-| published_question_id | text | NOT NULL |
+| published_question_id | ple_data.question_family_id | NOT NULL |
 | revision_number | integer | NOT NULL |
 | correct | boolean | NOT NULL |
 | observed_at | timestamptz | NOT NULL |
@@ -4998,9 +4930,9 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | support_repair_capability_id | uuid | NOT NULL |
-| sysadmin_account_id | uuid | NOT NULL |
-| sysadmin_role | ple_data | NOT NULL |
-| issuer_account_id | uuid | NOT NULL |
+| sysadmin_account_id | ple_data.account_id | NOT NULL |
+| sysadmin_role | ple_data.product_role | NOT NULL |
+| issuer_account_id | ple_data.account_id | NOT NULL |
 | resource_class | text | NOT NULL |
 | resource_reference | text | NOT NULL |
 | purpose | text | NOT NULL |
@@ -5037,12 +4969,12 @@ Columns:
 | --- | --- | --- |
 | event_id | uuid | NOT NULL |
 | support_repair_capability_id | uuid | NOT NULL |
-| sysadmin_account_id | uuid | NOT NULL |
-| issuer_account_id | uuid | NOT NULL |
+| sysadmin_account_id | ple_data.account_id | NOT NULL |
+| issuer_account_id | ple_data.account_id | NOT NULL |
 | resource_class | text | NOT NULL |
 | resource_reference | text | NOT NULL |
 | purpose | text | NOT NULL |
-| result | ple_data | NOT NULL |
+| result | ple_data.repair_result | NOT NULL |
 | occurred_at | timestamp with time zone | NOT NULL |
 
 Constraints:

@@ -16,10 +16,6 @@ CREATE POLICY course_instance_retention_notification_owner_read
     ON ple_data.course_instance FOR SELECT
     TO ple_course_retention_notification_owner USING (true);
 
-CREATE POLICY course_retention_policy_notification_owner_read
-    ON ple_data.course_retention_policy FOR SELECT
-    TO ple_course_retention_notification_owner USING (true);
-
 CREATE POLICY course_membership_retention_notification_owner_read
     ON ple_data.course_membership FOR SELECT
     TO ple_course_retention_notification_owner USING (true);

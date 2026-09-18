@@ -97,7 +97,7 @@ END $$;
 SET LOCAL ROLE ple_course_retention_executor;
 
 CREATE FUNCTION ple_api.mark_course_instance_inactive(
-    p_course_instance_id uuid,
+    p_course_instance_id text,
     p_evaluated_at timestamp with time zone
 ) RETURNS boolean
 LANGUAGE plpgsql SECURITY DEFINER
@@ -139,7 +139,7 @@ END
 $$;
 
 CREATE FUNCTION ple_api.archive_course_student_records(
-    p_course_instance_id uuid,
+    p_course_instance_id text,
     p_evaluated_at timestamp with time zone
 ) RETURNS boolean
 LANGUAGE plpgsql SECURITY DEFINER
@@ -171,10 +171,9 @@ BEGIN
             MESSAGE = 'Course Student-record archive has not started retention';
     END IF;
 
-    SELECT course_row.retention_starts_at + policy.archive_after_retention_start
+    SELECT course_row.retention_starts_at + schedule.archive_after_retention_start
       INTO archive_due_at
-      FROM ple_data.course_retention_policy AS policy
-     WHERE policy.policy_key;
+      FROM ple_data.retention_schedule() AS schedule;
     IF archive_due_at IS NULL OR p_evaluated_at < archive_due_at THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Course Student-record archive is not due';
@@ -189,7 +188,7 @@ END
 $$;
 
 CREATE FUNCTION ple_api.delete_course_student_records(
-    p_course_instance_id uuid,
+    p_course_instance_id text,
     p_evaluated_at timestamp with time zone
 ) RETURNS boolean
 LANGUAGE plpgsql SECURITY DEFINER
@@ -224,11 +223,10 @@ BEGIN
 
     -- ASVS 14.2.4/14.2.7: enforce the configured absolute deletion deadline;
     -- student_data_archived_at remains immutable transition evidence only.
-    SELECT course_row.retention_starts_at + policy.archive_after_retention_start
-               + policy.delete_after_archive
+    SELECT course_row.retention_starts_at + schedule.archive_after_retention_start
+               + schedule.delete_after_archive
       INTO delete_due_at
-      FROM ple_data.course_retention_policy AS policy
-     WHERE policy.policy_key;
+      FROM ple_data.retention_schedule() AS schedule;
     IF delete_due_at IS NULL OR p_evaluated_at < delete_due_at THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Course Student-record deletion is not due';

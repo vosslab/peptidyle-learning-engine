@@ -163,7 +163,7 @@ BEGIN
     IF NOT FOUND
        OR delivery.object_record_id <> publication.public_object_id
        OR delivery.sha256 <> publication.public_object_checksum
-       OR delivery.media_type <> publication.verified_media_type
+       OR delivery.media_type <> publication.verified_media_type::text
        OR delivery.byte_length <> publication.public_byte_length
        OR delivery.delivery_state <> 'pending'
        OR NOT EXISTS (
@@ -200,7 +200,7 @@ BEGIN
            AND record.object_data_class = 'question-asset'
            AND record.sha256 = publication.public_object_checksum
            AND record.size_bytes = publication.public_byte_length
-           AND record.media_type = publication.verified_media_type
+           AND record.media_type = publication.verified_media_type::text
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '23505',
             MESSAGE = 'Question Asset Publication public Object Record is not its exact immutable rendition';
@@ -273,13 +273,13 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
        AND publication.publication_state = 'ready'
        AND delivery.delivery_state = 'available'
        AND delivery.sha256 = publication.public_object_checksum
-       AND delivery.media_type = publication.verified_media_type
+       AND delivery.media_type = publication.verified_media_type::text
        AND delivery.byte_length = publication.public_byte_length
        AND public_record.object_storage_area = 'public-assets'
        AND public_record.object_data_class = 'question-asset'
        AND public_record.sha256 = publication.public_object_checksum
        AND public_record.size_bytes = publication.public_byte_length
-       AND public_record.media_type = publication.verified_media_type
+       AND public_record.media_type = publication.verified_media_type::text
        AND (
             ple_api.current_session_account_is_instructor()
             OR EXISTS (
@@ -290,13 +290,16 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
                   JOIN ple_private.question_attempt AS question_attempt
                     ON question_attempt.issued_question_id = issued.issued_question_id
                   JOIN ple_private.question_attempt_presentation_asset_rendition AS presented_asset
-                    ON presented_asset.question_attempt_id = question_attempt.question_attempt_id
+                    ON presented_asset.question_attempt_presentation_asset_binding_id
+                        = question_attempt.question_attempt_id
                    AND presented_asset.asset_id = publication.asset_id
                    AND presented_asset.rendition_checksum = publication.public_object_checksum
                   JOIN ple_private.question_attempt_presentation_asset_binding AS presented_assets
-                    ON presented_assets.question_attempt_id = presented_asset.question_attempt_id
+                    ON presented_assets.question_attempt_presentation_binding_id
+                        = presented_asset.question_attempt_presentation_asset_binding_id
                   JOIN ple_private.question_attempt_presentation_binding AS presentation
-                    ON presentation.question_attempt_id = presented_asset.question_attempt_id
+                    ON presentation.question_attempt_id
+                        = presented_assets.question_attempt_presentation_binding_id
                   JOIN ple_data.assessment AS assessment
                     ON assessment.assessment_id = assessment_attempt.assessment_id
                  WHERE issued.published_question_id = publication.published_question_id

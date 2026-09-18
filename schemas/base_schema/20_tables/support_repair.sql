@@ -8,9 +8,9 @@ SET LOCAL ROLE ple_private_owner;
 -- membership. Course/content repair authority remains future implementation.
 CREATE TABLE ple_private.support_repair_capability (
     support_repair_capability_id uuid PRIMARY KEY,
-    sysadmin_account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
+    sysadmin_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account (account_id),
     sysadmin_role ple_data.product_role NOT NULL DEFAULT 'sysadmin',
-    issuer_account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
+    issuer_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account (account_id),
     resource_class text NOT NULL DEFAULT 'student',
     resource_reference text NOT NULL CHECK (
         resource_reference = btrim(resource_reference)
@@ -34,8 +34,8 @@ SET LOCAL ROLE ple_audit_owner;
 CREATE TABLE ple_audit.support_repair_capability_event (
     event_id uuid PRIMARY KEY,
     support_repair_capability_id uuid NOT NULL REFERENCES ple_private.support_repair_capability (support_repair_capability_id),
-    sysadmin_account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
-    issuer_account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
+    sysadmin_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account (account_id),
+    issuer_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account (account_id),
     resource_class text NOT NULL DEFAULT 'student',
     resource_reference text NOT NULL CHECK (resource_reference = btrim(resource_reference)
         AND char_length(resource_reference) BETWEEN 1 AND 512 AND resource_reference !~ '[[:cntrl:]]'),
@@ -119,4 +119,7 @@ SET LOCAL ROLE ple_audit_owner;
 
 SET LOCAL ROLE ple_audit_owner;
 COMMENT ON TABLE ple_audit.support_repair_capability_event IS 'role: event, deleted by capability revoke. HUMAN_GUIDANCE.md Support repair.';
+
+SET LOCAL ROLE ple_private_owner;
+COMMENT ON COLUMN ple_private.support_repair_capability.revoked_at IS 'NULL means this optional fact is absent.';
 

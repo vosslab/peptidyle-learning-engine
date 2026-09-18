@@ -63,7 +63,7 @@ FOR EACH ROW EXECUTE FUNCTION ple_data.assert_course_membership_event_transition
 
 CREATE FUNCTION ple_data.assert_assigned_instructor_membership() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_data AS $$
-DECLARE checked_course uuid; checked_membership uuid;
+DECLARE checked_course text; checked_membership uuid;
 BEGIN
  IF TG_TABLE_NAME = 'course_instance' THEN
   IF TG_OP = 'DELETE' THEN checked_course := OLD.course_instance_id; ELSE checked_course := NEW.course_instance_id; END IF;

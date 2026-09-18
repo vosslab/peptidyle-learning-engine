@@ -22,7 +22,9 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'authorized Draft Question Edit Number is required';
     END IF;
-    IF NOT ple_private.question_backend_is_supported_for_production(p_backend) THEN
+    IF NOT ple_private.question_backend_is_supported_for_production(
+        p_backend::ple_data.question_backend
+    ) THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Question Backend is unavailable for new production work';
     END IF;
@@ -93,7 +95,7 @@ CREATE FUNCTION ple_private.publish_question_revision(
 ) RETURNS integer LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
-    actor_id uuid;
+    actor_id text;
     current_edit bigint;
     next_revision_number integer;
     metadata ple_private.draft_question_metadata%ROWTYPE;
@@ -373,7 +375,7 @@ CREATE FUNCTION ple_private.publish_new_question_lineage(
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
-    actor_id uuid; current_edit bigint; metadata ple_private.draft_question_metadata%ROWTYPE;
+    actor_id text; current_edit bigint; metadata ple_private.draft_question_metadata%ROWTYPE;
     binding ple_private.draft_question_source_binding%ROWTYPE;
     source_record ple_private.object_record%ROWTYPE; expected_address jsonb;
     published_at timestamptz := clock_timestamp(); author_count integer; valid_count integer;

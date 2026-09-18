@@ -48,7 +48,7 @@ REVOKE ALL ON FUNCTION ple_private.prepare_bloom_classification(
     ple_private.consume_bloom_classification(
         uuid, ple_private.bloom_preparation_target_kind, bytea),
     ple_private.attach_question_revision_bloom(uuid, text, integer, text),
-    ple_private.attach_question_pool_revision_bloom(uuid, uuid, bigint, text, text, text[], integer[])
+    ple_private.attach_question_pool_revision_bloom(uuid, text, bigint, text, text, text[], integer[])
     FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION ple_private.prepare_bloom_classification(
@@ -60,7 +60,7 @@ GRANT EXECUTE ON FUNCTION ple_private.consume_bloom_classification(
     TO ple_data_owner, ple_private_owner;
 
 GRANT EXECUTE ON FUNCTION ple_private.attach_question_revision_bloom(uuid, text, integer, text),
-    ple_private.attach_question_pool_revision_bloom(uuid, uuid, bigint, text, text, text[], integer[])
+    ple_private.attach_question_pool_revision_bloom(uuid, text, bigint, text, text, text[], integer[])
     TO ple_data_owner, ple_private_owner;
 
 SET LOCAL ROLE ple_api_owner;

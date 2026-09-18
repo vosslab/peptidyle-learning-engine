@@ -48,8 +48,8 @@ BEGIN
     SELECT assessment.* INTO assessment_row
       FROM ple_data.course_instance AS course
       JOIN ple_data.assessment AS assessment ON assessment.course_instance_id = course.course_instance_id
-     WHERE course.public_reference = p_course_reference_number
-       AND assessment.public_reference = p_assessment_reference_number
+     WHERE course.course_instance_id = p_course_reference_number
+       AND assessment.assessment_id = p_assessment_reference_number
        AND assessment.assessment_status = 'released'
        AND ple_api.current_session_account_is_course_instructor(course.course_instance_id);
     IF NOT FOUND THEN
@@ -109,7 +109,7 @@ RETURNS TABLE (
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
 DECLARE assessment_row ple_data.assessment%ROWTYPE;
-DECLARE actor_account_id uuid;
+DECLARE actor_account_id text;
 DECLARE now_at timestamptz := pg_catalog.transaction_timestamp();
 BEGIN
     IF p_course_reference_number IS NULL
@@ -125,8 +125,8 @@ BEGIN
     SELECT assessment.* INTO assessment_row
       FROM ple_data.course_instance AS course
       JOIN ple_data.assessment AS assessment ON assessment.course_instance_id = course.course_instance_id
-     WHERE course.public_reference = p_course_reference_number
-       AND assessment.public_reference = p_assessment_reference_number
+     WHERE course.course_instance_id = p_course_reference_number
+       AND assessment.assessment_id = p_assessment_reference_number
        AND ple_api.current_session_account_is_course_instructor(course.course_instance_id)
      FOR UPDATE OF assessment;
     IF NOT FOUND THEN
@@ -176,7 +176,7 @@ BEGIN
            assessment_edit_number = updated.assessment_edit_number + 1,
            updated_at = now_at
      WHERE updated.assessment_id = assessment_row.assessment_id
-     RETURNING updated.public_reference, updated.assessment_title, updated.assessment_status,
+     RETURNING updated.assessment_id, updated.assessment_title, updated.assessment_status,
                updated.assessment_edit_number
       INTO assessment_reference_number, assessment_title, assessment_status,
            assessment_edit_number;

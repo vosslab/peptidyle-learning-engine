@@ -124,7 +124,7 @@ AS $$
 BEGIN
     PERFORM ple_private.require_current_sysadmin_account();
     RETURN QUERY
-    SELECT summary.public_reference,
+    SELECT summary.account_id,
            summary.state,
            summary.last_successful_sign_in,
            CASE WHEN avatar.avatar_kind = 'provided' THEN avatar.provided_avatar_id ELSE NULL END
@@ -132,7 +132,7 @@ BEGIN
       CROSS JOIN LATERAL ple_private.instructor_account_summary(account.account_id) AS summary
       LEFT JOIN ple_private.account_avatar AS avatar ON avatar.account_id = account.account_id
      WHERE account.product_role = 'instructor'
-     ORDER BY summary.public_reference;
+     ORDER BY summary.account_id;
 END
 $$;
 
@@ -160,7 +160,7 @@ $$;
 CREATE FUNCTION ple_api.select_provided_account_avatar(p_provided_avatar_id text)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
-DECLARE v_account_id uuid := ple_api.current_session_account_id();
+DECLARE v_account_id text := ple_api.current_session_account_id();
     old_delivery_id uuid; old_profile_image_id uuid; old_object_id uuid;
     completed_work ple_private.profile_image_work%ROWTYPE;
 BEGIN
@@ -230,7 +230,7 @@ CREATE FUNCTION ple_api.prepare_account_profile_image(
     p_profile_image_id uuid, p_object_record_id uuid, p_sha256 bytea, p_byte_length bigint
 ) RETURNS TABLE(work_id uuid, profile_image_id uuid, object_record_id uuid) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
-DECLARE v_account_id uuid := ple_api.current_session_account_id(); v_delivery_id uuid := gen_random_uuid(); v_work_id uuid := gen_random_uuid();
+DECLARE v_account_id text := ple_api.current_session_account_id(); v_delivery_id uuid := gen_random_uuid(); v_work_id uuid := gen_random_uuid();
     expected_address jsonb := jsonb_build_object(
         'kind', 'profileImage', 'image', p_profile_image_id, 'object', p_object_record_id);
 BEGIN

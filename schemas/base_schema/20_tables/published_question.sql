@@ -4,24 +4,19 @@
 SET LOCAL ROLE ple_data_owner;
 
 CREATE TABLE ple_data.published_question (
-    published_question_id text PRIMARY KEY,
+    published_question_id ple_data.question_family_id PRIMARY KEY,
     availability ple_data.question_availability NOT NULL DEFAULT 'available',
     availability_edit_number bigint NOT NULL DEFAULT 1
         CHECK (availability_edit_number > 0),
     created_at timestamptz NOT NULL,
-    CONSTRAINT published_question_id_is_crockford_shape CHECK (
-        published_question_id ~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
-        AND substr(published_question_id, 6, 1) = ple_private.crockford_checksum_character(
-            substr(published_question_id, 1, 4) || substr(published_question_id, 7, 3)
-        )
-    ),
+
     updated_on date NOT NULL DEFAULT CURRENT_DATE
 );
 
 
 
 CREATE TABLE ple_data.question_revision (
-    published_question_id text NOT NULL REFERENCES ple_data.published_question(published_question_id),
+    published_question_id ple_data.question_family_id NOT NULL REFERENCES ple_data.published_question(published_question_id),
     revision_number integer NOT NULL CHECK (revision_number > 0),
     backend ple_data.question_backend NOT NULL,
     question_type ple_data.question_type NOT NULL,
@@ -39,7 +34,7 @@ CREATE TABLE ple_data.question_revision (
 
 
 CREATE TABLE ple_data.published_question_metadata (
-    published_question_id text PRIMARY KEY REFERENCES ple_data.published_question(published_question_id),
+    published_question_id ple_data.question_family_id PRIMARY KEY REFERENCES ple_data.published_question(published_question_id),
     question_title text NOT NULL CHECK (
         question_title = btrim(question_title)
         AND char_length(question_title) BETWEEN 1 AND 512
@@ -78,9 +73,9 @@ CREATE TABLE ple_data.published_question_metadata (
 
 CREATE TABLE ple_data.question_publication_event (
     event_id uuid PRIMARY KEY,
-    published_question_id text NOT NULL,
+    published_question_id ple_data.question_family_id NOT NULL,
     revision_number integer NOT NULL CHECK (revision_number > 0),
-    actor_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
+    actor_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account(account_id),
     occurred_at timestamptz NOT NULL,
     UNIQUE (published_question_id, revision_number),
     FOREIGN KEY (published_question_id, revision_number)
@@ -89,8 +84,8 @@ CREATE TABLE ple_data.question_publication_event (
 
 CREATE TABLE ple_data.question_availability_event (
     event_id uuid PRIMARY KEY,
-    published_question_id text NOT NULL REFERENCES ple_data.published_question(published_question_id),
-    actor_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
+    published_question_id ple_data.question_family_id NOT NULL REFERENCES ple_data.published_question(published_question_id),
+    actor_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account(account_id),
     availability ple_data.question_availability NOT NULL,
     edit_number bigint NOT NULL CHECK (edit_number > 0),
     reason text,
@@ -112,11 +107,11 @@ COMMENT ON TABLE ple_data.question_revision IS 'role: revision, Immutable exact 
 COMMENT ON TABLE ple_data.question_availability_event IS 'role: event, Append-only actor-attributed current-lineage availability transitions.';
 
 CREATE TABLE ple_data.question_revision_acceptance (
-    published_question_id text NOT NULL,
+    published_question_id ple_data.question_family_id NOT NULL,
     revision_number integer NOT NULL CHECK (revision_number > 0),
     parent_revision_number integer,
-    editor_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
-    accepted_by_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
+    editor_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account(account_id),
+    accepted_by_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account(account_id),
     accepted_at timestamptz NOT NULL,
     reason_for_edit text NOT NULL CHECK (
         reason_for_edit = btrim(reason_for_edit)
@@ -133,7 +128,7 @@ CREATE TABLE ple_data.question_revision_acceptance (
 );
 
 CREATE TABLE ple_data.question_revision_authorship (
-    published_question_id text NOT NULL,
+    published_question_id ple_data.question_family_id NOT NULL,
     revision_number integer NOT NULL,
     author_position integer NOT NULL CHECK (author_position BETWEEN 1 AND 16),
     author_display_name text NOT NULL CHECK (
@@ -141,7 +136,7 @@ CREATE TABLE ple_data.question_revision_authorship (
         AND char_length(author_display_name) BETWEEN 1 AND 120
         AND author_display_name !~ '[[:cntrl:]]'
     ),
-    author_account_id uuid REFERENCES ple_private.account(account_id),
+    author_account_id ple_data.account_id REFERENCES ple_private.account(account_id),
     PRIMARY KEY (published_question_id, revision_number, author_position),
     UNIQUE (published_question_id, revision_number, author_display_name),
     FOREIGN KEY (published_question_id, revision_number)
@@ -153,7 +148,7 @@ CREATE TABLE ple_data.question_revision_authorship (
 
 
 CREATE TABLE ple_data.question_revision_license (
-    published_question_id text NOT NULL,
+    published_question_id ple_data.question_family_id NOT NULL,
     revision_number integer NOT NULL,
     spdx_expression ple_data.license_spdx NOT NULL,
     PRIMARY KEY (published_question_id, revision_number),
@@ -167,7 +162,7 @@ CREATE TABLE ple_data.question_revision_license (
 
 
 CREATE TABLE ple_data.question_revision_citation (
-    published_question_id text NOT NULL,
+    published_question_id ple_data.question_family_id NOT NULL,
     revision_number integer NOT NULL,
     citation_url text,
     citation_text text,
@@ -186,16 +181,16 @@ CREATE TABLE ple_data.question_revision_citation (
 
 CREATE TABLE ple_data.question_ownership_event (
     question_ownership_event_id uuid PRIMARY KEY,
-    published_question_id text NOT NULL REFERENCES ple_data.published_question(published_question_id),
-    owner_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
-    recorded_by_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
+    published_question_id ple_data.question_family_id NOT NULL REFERENCES ple_data.published_question(published_question_id),
+    owner_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account(account_id),
+    recorded_by_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account(account_id),
     event_kind ple_data.ownership_event_kind NOT NULL,
     occurred_at timestamptz NOT NULL
 );
 
 
 CREATE TABLE ple_data.question_fork_source (
-    forked_published_question_id text PRIMARY KEY REFERENCES ple_data.published_question(published_question_id),
+    forked_published_question_id ple_data.question_family_id PRIMARY KEY REFERENCES ple_data.published_question(published_question_id),
     source_question_id text NOT NULL,
     source_revision_number integer NOT NULL CHECK (source_revision_number > 0),
     recorded_at timestamptz NOT NULL,
@@ -212,8 +207,8 @@ CREATE TABLE ple_data.question_fork_source (
 -- application persistence adapter and C371 owns the vetted-Instructor count
 -- and identity projection; this table is not itself a browser projection.
 CREATE TABLE ple_data.question_star (
-    published_question_id text NOT NULL REFERENCES ple_data.published_question(published_question_id),
-    instructor_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
+    published_question_id ple_data.question_family_id NOT NULL REFERENCES ple_data.published_question(published_question_id),
+    instructor_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account(account_id),
     starred_at timestamptz NOT NULL,
     PRIMARY KEY (published_question_id, instructor_account_id),
     updated_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
@@ -228,8 +223,8 @@ CREATE TABLE ple_data.question_star (
 -- browser projection.  This store intentionally has no watcher count,
 -- identity projection, notification delivery, or public read path.
 CREATE TABLE ple_data.question_watch (
-    published_question_id text NOT NULL REFERENCES ple_data.published_question(published_question_id),
-    instructor_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
+    published_question_id ple_data.question_family_id NOT NULL REFERENCES ple_data.published_question(published_question_id),
+    instructor_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account(account_id),
     watched_at timestamptz NOT NULL,
     PRIMARY KEY (published_question_id, instructor_account_id),
     updated_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
@@ -237,7 +232,7 @@ CREATE TABLE ple_data.question_watch (
 
 
 CREATE TABLE ple_data.question_revision_bloom (
-    published_question_id text NOT NULL,
+    published_question_id ple_data.question_family_id NOT NULL,
     revision_number integer NOT NULL,
     cognitive_process ple_data.bloom_cognitive_process NOT NULL,
     knowledge_dimension ple_data.bloom_knowledge_dimension NOT NULL,
@@ -451,4 +446,14 @@ SET LOCAL ROLE ple_private_owner;
 
 SET LOCAL ROLE ple_private_owner;
 COMMENT ON TABLE ple_private.bloom_preparation_receipt IS 'role: event, deleted by none for published lineage; Draft rows follow workspace delete. HUMAN_GUIDANCE.md Published Questions.';
+
+SET LOCAL ROLE ple_data_owner;
+COMMENT ON COLUMN ple_data.question_revision.general_feedback IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.published_question_metadata.content_topic_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.published_question_metadata.content_subtopic_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.question_availability_event.reason IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.question_revision_acceptance.parent_revision_number IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.question_revision_authorship.author_account_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.question_revision_citation.citation_url IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.question_revision_citation.citation_text IS 'NULL means this optional fact is absent.';
 

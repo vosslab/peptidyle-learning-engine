@@ -6,10 +6,6 @@ CREATE POLICY course_instance_retention_executor_access
     ON ple_data.course_instance FOR ALL TO ple_course_retention_executor
     USING (true) WITH CHECK (true);
 
-CREATE POLICY course_retention_policy_executor_read
-    ON ple_data.course_retention_policy FOR SELECT TO ple_course_retention_executor
-    USING (true);
-
 CREATE POLICY assessment_retention_executor_read
     ON ple_data.assessment FOR SELECT TO ple_course_retention_executor
     USING (true);

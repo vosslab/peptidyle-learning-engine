@@ -41,7 +41,7 @@ CREATE TABLE ple_data.object_delivery (
 CREATE TABLE ple_data.course_object_delivery (
     object_delivery_id uuid PRIMARY KEY,
     object_record_id uuid NOT NULL,
-    course_instance_id uuid NOT NULL,
+    course_instance_id ple_data.course_instance_id NOT NULL,
     FOREIGN KEY (object_delivery_id, object_record_id) REFERENCES ple_data.object_delivery (object_delivery_id, object_record_id),
     created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp(),
     updated_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp(),
@@ -80,7 +80,7 @@ SET LOCAL ROLE ple_audit_owner;
 CREATE TABLE ple_audit.object_delivery_access_event (
     event_id uuid PRIMARY KEY,
     object_delivery_id uuid NOT NULL REFERENCES ple_data.object_delivery,
-    account_id uuid NOT NULL REFERENCES ple_private.account,
+    account_id ple_data.account_id NOT NULL REFERENCES ple_private.account,
     access_decision ple_data.access_decision NOT NULL,
     accessed_at timestamptz NOT NULL,
     UNIQUE (event_id, object_delivery_id)
@@ -367,4 +367,8 @@ COMMENT ON TABLE ple_audit.object_delivery_access_event IS 'role: event, deleted
 COMMENT ON TABLE ple_audit.object_storage_check_event IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
 
 COMMENT ON TABLE ple_audit.object_cleanup_receipt IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
+
+SET LOCAL ROLE ple_private_owner;
+COMMENT ON COLUMN ple_private.object_storage_check.object_delivery_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.object_storage_check.course_banner_storage_subject_id IS 'NULL means this optional fact is absent.';
 

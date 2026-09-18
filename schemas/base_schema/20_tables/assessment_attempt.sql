@@ -6,7 +6,7 @@ SET LOCAL ROLE ple_private_owner;
 CREATE TABLE ple_private.student_assessment_accommodation (
     accommodation_id uuid PRIMARY KEY,
     student_record_id uuid NOT NULL REFERENCES ple_data.student_record(student_record_id),
-    assessment_id uuid NOT NULL REFERENCES ple_data.assessment(assessment_id),
+    assessment_id ple_data.assessment_id NOT NULL REFERENCES ple_data.assessment(assessment_id),
     available_at timestamptz,
     due_at timestamptz,
     closes_at timestamptz,
@@ -29,7 +29,7 @@ CREATE TABLE ple_private.assessment_attempt (
     reference_number bigint GENERATED ALWAYS AS IDENTITY UNIQUE
         CHECK (reference_number BETWEEN 1 AND 2147483647),
     student_record_id uuid NOT NULL REFERENCES ple_data.student_record(student_record_id),
-    assessment_id uuid NOT NULL REFERENCES ple_data.assessment(assessment_id),
+    assessment_id ple_data.assessment_id NOT NULL REFERENCES ple_data.assessment(assessment_id),
     assessment_attempt_number integer NOT NULL CHECK (assessment_attempt_number > 0),
     started_at timestamptz NOT NULL,
     expires_at timestamptz,
@@ -80,8 +80,8 @@ CREATE TABLE ple_private.question_pool_selection (
     -- key to the mutable current Assessment Entry.  Released Assessment saves
     -- may replace current entries while this Student Work remains interpretable.
     assessment_entry_id uuid NOT NULL,
-    question_pool_id uuid NOT NULL,
-    question_pool_revision_number bigint NOT NULL,
+    question_pool_id ple_data.question_family_id NOT NULL,
+    question_pool_revision_number integer NOT NULL,
     created_at timestamptz NOT NULL,
     selected_question_count integer NOT NULL CHECK (selected_question_count > 0),
     UNIQUE (question_pool_selection_id, assessment_attempt_id, assessment_entry_id),
@@ -94,7 +94,7 @@ CREATE TABLE ple_private.question_pool_selected_item (
     question_pool_selection_id uuid NOT NULL REFERENCES ple_private.question_pool_selection(question_pool_selection_id) ON DELETE CASCADE,
     member_position integer NOT NULL CHECK (member_position > 0),
     selection_position integer NOT NULL CHECK (selection_position >= 0),
-    published_question_id text NOT NULL,
+    published_question_id ple_data.question_family_id NOT NULL,
     revision_number integer NOT NULL,
     PRIMARY KEY (question_pool_selection_id, selection_position),
     UNIQUE (question_pool_selection_id, member_position),
@@ -110,7 +110,7 @@ CREATE TABLE ple_private.issued_question (
     assessment_entry_id uuid NOT NULL,
     assessment_content_entry_index integer NOT NULL CHECK (assessment_content_entry_index >= 0),
     issued_position integer NOT NULL CHECK (issued_position >= 0),
-    published_question_id text NOT NULL,
+    published_question_id ple_data.question_family_id NOT NULL,
     revision_number integer NOT NULL,
     -- This pre-render source-selection record is not completed reproduction
     -- evidence. Native PLE JSON retains no seed; renderer-backed Questions
@@ -199,7 +199,7 @@ CREATE TABLE ple_private.assessment_submission (
     assessment_attempt_id uuid NOT NULL UNIQUE REFERENCES ple_private.assessment_attempt(assessment_attempt_id) ON DELETE CASCADE,
     submitted_at timestamptz NOT NULL,
     finalization_kind ple_data.finalization_kind NOT NULL,
-    authorized_by_account_id uuid REFERENCES ple_private.account(account_id),
+    authorized_by_account_id ple_data.account_id REFERENCES ple_private.account(account_id),
     receipt jsonb NOT NULL CHECK (jsonb_typeof(receipt) = 'object'),
     CHECK ((finalization_kind = 'student') = (authorized_by_account_id IS NOT NULL))
 );
@@ -321,13 +321,13 @@ SET LOCAL ROLE ple_private_owner;
 
 CREATE TABLE ple_private.imathas_question_backend_session (
     imathas_question_backend_session_id uuid PRIMARY KEY,
-    course_instance_id uuid NOT NULL,
-    assessment_id uuid NOT NULL,
+    course_instance_id ple_data.course_instance_id NOT NULL,
+    assessment_id ple_data.assessment_id NOT NULL,
     question_attempt_id uuid NOT NULL UNIQUE REFERENCES ple_private.question_attempt(question_attempt_id) ON DELETE CASCADE,
-    account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
+    account_id ple_data.account_id NOT NULL REFERENCES ple_private.account(account_id),
     imathas_deployment_reference text NOT NULL CHECK (imathas_deployment_reference ~ '^[A-Za-z0-9._-]{1,160}$'),
     imathas_item_reference text NOT NULL CHECK (octet_length(imathas_item_reference) BETWEEN 1 AND 128 AND imathas_item_reference ~ '^[A-Za-z0-9._-]+$'),
-    published_question_id text NOT NULL,
+    published_question_id ple_data.question_family_id NOT NULL,
     revision_number integer NOT NULL,
     source_object_record_id uuid NOT NULL,
     source_object_checksum bytea NOT NULL CHECK (octet_length(source_object_checksum) = 32),
@@ -677,4 +677,46 @@ COMMENT ON TABLE ple_private.question_attempt_presentation_asset_binding IS 'rol
 COMMENT ON TABLE ple_private.question_attempt_presentation_asset_rendition IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
 
 COMMENT ON TABLE ple_private.question_response_grading IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
+
+SET LOCAL ROLE ple_private_owner;
+COMMENT ON COLUMN ple_private.student_assessment_accommodation.available_at IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.student_assessment_accommodation.due_at IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.student_assessment_accommodation.closes_at IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.student_assessment_accommodation.time_multiplier IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.student_assessment_accommodation.assessment_attempt_limit IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.assessment_attempt.reference_number IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.assessment_attempt.expires_at IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.assessment_attempt.available_at IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.assessment_attempt.due_at IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.assessment_attempt.closes_at IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.assessment_attempt.assessment_attempt_time_limit_seconds IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.assessment_attempt.assessment_attempt_limit IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.assessment_attempt.schedule_accommodation_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.assessment_attempt.schedule_accommodation_edit_number IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.assessment_attempt.time_limit_accommodation_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.assessment_attempt.time_limit_accommodation_edit_number IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.assessment_attempt.assessment_attempt_limit_accommodation_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.assessment_attempt.assessment_attempt_limit_accommodation_edit_number IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.issued_question.question_seed IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.issued_question.question_attempt_limit IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.issued_question.question_attempt_time_limit_seconds IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.issued_question.question_attempt_grace_seconds IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.issued_question.question_pool_selection_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.issued_question.question_pool_member_position IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.question_attempt.question_seed IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.question_attempt.generated_parameter_sha256 IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.question_attempt.deadline_at IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.question_attempt.finalized_at IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.question_attempt.renderer_name IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.question_attempt.renderer_version IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.question_attempt.source_object_record_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.question_attempt.source_object_checksum IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.assessment_submission.authorized_by_account_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.question_attempt_presentation_binding.author_content IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.question_attempt_presentation_binding.backend_document IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.question_response_grading.completed_at IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.imathas_question_backend_session.revoked_at IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.imathas_question_backend_session.consumed_at IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.imathas_question_backend_session.activity_lease_token_sha256 IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.imathas_question_backend_session.activity_lease_expires_at IS 'NULL means this optional fact is absent.';
 

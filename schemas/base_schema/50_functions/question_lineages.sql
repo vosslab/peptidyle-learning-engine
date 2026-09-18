@@ -7,7 +7,9 @@ SET LOCAL ROLE ple_private_owner;
 -- Current admission policy is separate from the retained source vocabulary:
 -- old iMathAS rows remain structurally readable, but no new production work
 -- may use them until a later release changes this one predicate.
-CREATE FUNCTION ple_private.question_backend_is_supported_for_production(p_backend text)
+CREATE FUNCTION ple_private.question_backend_is_supported_for_production(
+    p_backend ple_data.question_backend
+)
 RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path = pg_catalog AS $$
     SELECT COALESCE(p_backend IN ('ple', 'webwork'), false)
 $$;
@@ -97,7 +99,7 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
 DECLARE
     current_question ple_data.published_question%ROWTYPE;
     current_title text;
-    actor_id uuid;
+    actor_id text;
 BEGIN
     actor_id := ple_api.current_session_account_id();
     IF actor_id IS NULL OR NOT ple_api.current_session_account_is_instructor() THEN

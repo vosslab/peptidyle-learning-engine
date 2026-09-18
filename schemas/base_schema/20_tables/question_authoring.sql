@@ -6,7 +6,7 @@ SET LOCAL ROLE ple_private_owner;
 CREATE TABLE ple_private.authoring_workspace (
     authoring_workspace_id uuid PRIMARY KEY,
     reference_number bigint GENERATED ALWAYS AS IDENTITY UNIQUE,
-    owner_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
+    owner_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account(account_id),
     created_at timestamptz NOT NULL,
     revoked_at timestamptz,
     CHECK (reference_number > 0 AND reference_number <= 2147483647),
@@ -19,8 +19,8 @@ CREATE TABLE ple_private.authoring_workspace (
 CREATE TABLE ple_private.authoring_workspace_collaborator_event (
     event_id uuid PRIMARY KEY,
     authoring_workspace_id uuid NOT NULL REFERENCES ple_private.authoring_workspace(authoring_workspace_id),
-    collaborator_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
-    actor_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
+    collaborator_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account(account_id),
+    actor_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account(account_id),
     event_kind ple_data.membership_event_kind NOT NULL,
     occurred_at timestamptz NOT NULL,
     UNIQUE (authoring_workspace_id, collaborator_account_id, event_kind),
@@ -86,7 +86,7 @@ CREATE TABLE ple_private.draft_question_source_binding (
 
 
 CREATE TABLE ple_private.question_revision_source_binding (
-    published_question_id text NOT NULL,
+    published_question_id ple_data.question_family_id NOT NULL,
     revision_number integer NOT NULL,
     backend ple_data.question_backend NOT NULL,
     question_format ple_data.question_format NOT NULL,
@@ -142,7 +142,7 @@ CREATE TABLE ple_private.workspace_import_item_result (
 CREATE TABLE ple_private.draft_question_fork_source (
     draft_question_id uuid PRIMARY KEY
         REFERENCES ple_private.draft_question(draft_question_id) ON DELETE CASCADE,
-    actor_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
+    actor_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account(account_id),
     idempotency_key uuid NOT NULL,
     source_question_id text NOT NULL,
     source_revision_number integer NOT NULL,
@@ -154,7 +154,7 @@ CREATE TABLE ple_private.draft_question_fork_source (
 
 CREATE TABLE ple_private.question_folder (
     question_folder_id uuid PRIMARY KEY,
-    owner_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
+    owner_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account(account_id),
     title text NOT NULL CHECK (title = btrim(title) AND char_length(title) BETWEEN 1 AND 300),
     edit_number bigint NOT NULL DEFAULT 1 CHECK (edit_number > 0),
     created_at timestamptz NOT NULL,
@@ -163,7 +163,7 @@ CREATE TABLE ple_private.question_folder (
 
 CREATE TABLE ple_private.question_folder_entry (
     question_folder_id uuid NOT NULL REFERENCES ple_private.question_folder(question_folder_id) ON DELETE CASCADE,
-    published_question_id text NOT NULL REFERENCES ple_data.published_question(published_question_id),
+    published_question_id ple_data.question_family_id NOT NULL REFERENCES ple_data.published_question(published_question_id),
     added_at timestamptz NOT NULL,
     PRIMARY KEY (question_folder_id, published_question_id),
     updated_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
@@ -172,7 +172,7 @@ CREATE TABLE ple_private.question_folder_entry (
 
 CREATE TABLE ple_private.saved_question_search (
     search_id uuid PRIMARY KEY,
-    owner_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
+    owner_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account(account_id),
     edit_number bigint NOT NULL DEFAULT 1 CHECK (edit_number > 0),
     filter jsonb NOT NULL CHECK (jsonb_typeof(filter) = 'object'),
     created_at timestamptz NOT NULL,
@@ -359,4 +359,18 @@ COMMENT ON TABLE ple_private.question_folder_entry IS 'role: current state, dele
 COMMENT ON TABLE ple_private.saved_question_search IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
 
 COMMENT ON TABLE ple_private.draft_question_asset IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
+
+SET LOCAL ROLE ple_private_owner;
+COMMENT ON COLUMN ple_private.authoring_workspace.reference_number IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.authoring_workspace.revoked_at IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.draft_question_metadata.general_feedback IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.draft_question_source_binding.webwork_pg_path IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.draft_question_source_binding.imathas_deployment_reference IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.draft_question_source_binding.imathas_item_reference IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.draft_question_source_binding.imathas_profile IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.question_revision_source_binding.webwork_pg_path IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.question_revision_source_binding.imathas_deployment_reference IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.question_revision_source_binding.imathas_item_reference IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.question_revision_source_binding.imathas_profile IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.workspace_import.committed_at IS 'NULL means this optional fact is absent.';
 

@@ -3,7 +3,7 @@
 SET LOCAL ROLE ple_private_owner;
 
 CREATE FUNCTION ple_private.read_archived_assessment_attempt_evidence(
-    p_course_instance_id uuid, p_assessment_attempt_reference_number bigint
+    p_course_instance_id text, p_assessment_attempt_reference_number bigint
 ) RETURNS TABLE (
     student_record_id uuid, assessment_reference_number text,
     assessment_attempt_reference_number bigint, assessment_attempt_number integer,
@@ -11,7 +11,7 @@ CREATE FUNCTION ple_private.read_archived_assessment_attempt_evidence(
     attempt_facts jsonb, submission jsonb, questions jsonb
 ) LANGUAGE sql VOLATILE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
-    SELECT work.student_record_id, assessment.public_reference,
+    SELECT work.student_record_id, assessment.assessment_id,
            work.reference_number, work.assessment_attempt_number,
            work.started_at, work.expires_at,
            jsonb_build_object(
@@ -123,7 +123,8 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
                     'response_item_reference', item.response_item_reference
                 ) ORDER BY item.presentation_response_item_reference), '[]'::jsonb) AS items
                   FROM ple_private.question_attempt_response_item_binding AS item
-                 WHERE item.question_attempt_id = attempt.question_attempt_id
+                 WHERE item.question_attempt_presentation_binding_id
+                       = attempt.question_attempt_id
             ) AS response_items
             CROSS JOIN LATERAL (
                 SELECT COALESCE(jsonb_agg(jsonb_build_object(
@@ -133,7 +134,8 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
                     'intrinsic_width', asset.intrinsic_width, 'intrinsic_height', asset.intrinsic_height
                 ) ORDER BY asset.asset_id), '[]'::jsonb) AS items
                   FROM ple_private.question_attempt_presentation_asset_rendition AS asset
-                 WHERE asset.question_attempt_id = attempt.question_attempt_id
+                 WHERE asset.question_attempt_presentation_asset_binding_id
+                       = attempt.question_attempt_id
             ) AS assets
            WHERE issued.assessment_attempt_id = work.assessment_attempt_id
       ) AS evidence
@@ -148,14 +150,14 @@ $$;
 
 -- Minimized selection is private Work, never an ordinary archived history feed.
 CREATE FUNCTION ple_private.select_archived_assessment_attempt_evidence(
-    p_course_instance_id uuid, p_after_reference_number bigint, p_limit integer
+    p_course_instance_id text, p_after_reference_number bigint, p_limit integer
 ) RETURNS TABLE (
     student_record_id uuid, assessment_reference_number text, assessment_title text,
     assessment_attempt_reference_number bigint, assessment_attempt_number integer,
     started_at timestamptz, submitted_at timestamptz
 ) LANGUAGE sql VOLATILE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
-    SELECT work.student_record_id, assessment.public_reference, work.assessment_title,
+    SELECT work.student_record_id, assessment.assessment_id, work.assessment_title,
            work.reference_number, work.assessment_attempt_number,
            work.started_at, submitted.submitted_at
       FROM ple_private.assessment_attempt AS work
@@ -183,7 +185,7 @@ SET LOCAL ROLE ple_api_owner;
 CREATE FUNCTION ple_api.lock_archived_course_for_recovery(
     p_course_public_reference text
 ) RETURNS TABLE (
-    course_instance_id uuid, course_reference_number text,
+    course_instance_id text, course_reference_number text,
     student_data_archived_at timestamptz, delete_due_at timestamptz
 ) LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
@@ -196,13 +198,13 @@ BEGIN
     -- including non-key lifecycle writes. Existing Course-media definer
     -- privileges support this lock; no new Course UPDATE grant/helper needed.
     SELECT course.* INTO course_row FROM ple_data.course_instance AS course
-     WHERE course.public_reference = p_course_public_reference
+     WHERE course.course_instance_id = p_course_public_reference
        AND ple_api.current_session_account_is_course_instructor(course.course_instance_id)
      FOR SHARE;
     IF NOT FOUND THEN RETURN; END IF;
-    SELECT course_row.retention_starts_at + policy.archive_after_retention_start
-               + policy.delete_after_archive INTO deletion_deadline
-      FROM ple_data.course_retention_policy AS policy WHERE policy.policy_key;
+    SELECT course_row.retention_starts_at + schedule.archive_after_retention_start
+               + schedule.delete_after_archive INTO deletion_deadline
+      FROM ple_data.retention_schedule() AS schedule;
     -- ASVS 2.3.2/8.3.2: use current wall time AFTER any lock wait, not caller
     -- time/transaction start. Archive marking cannot extend absolute expiry.
     IF course_row.retention_lifecycle_state <> 'archived'
@@ -213,7 +215,7 @@ BEGIN
        OR NOT ple_api.current_session_account_is_instructor()
        OR NOT ple_api.current_session_account_is_course_instructor(course_row.course_instance_id)
        THEN RETURN; END IF;
-    RETURN QUERY SELECT course_row.course_instance_id, course_row.public_reference,
+    RETURN QUERY SELECT course_row.course_instance_id, course_row.course_instance_id,
         course_row.student_data_archived_at, deletion_deadline;
 END $$;
 

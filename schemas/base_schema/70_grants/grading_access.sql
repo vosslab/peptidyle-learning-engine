@@ -15,12 +15,14 @@ GRANT EXECUTE ON FUNCTION ple_api.read_course_gradebook(text)
 SET LOCAL ROLE ple_private_owner;
 
 REVOKE ALL ON FUNCTION ple_private.reject_grading_evidence_change(),
-    ple_private.grade_contribution_points_possible(text, text, numeric),
+    ple_private.grade_contribution_points_possible(
+        ple_data.assessment_type, ple_data.scoring_rule, numeric
+    ),
     ple_private.record_direct_automated_grading_result(uuid, uuid, numeric, timestamptz),
-    ple_private.read_assessment_gradebook_evidence(uuid, uuid)
+    ple_private.read_assessment_gradebook_evidence(uuid, text)
     FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_private.read_assessment_gradebook_evidence(uuid, uuid)
+GRANT EXECUTE ON FUNCTION ple_private.read_assessment_gradebook_evidence(uuid, text)
     TO ple_api_owner;
 
 SET LOCAL ROLE ple_audit_owner;

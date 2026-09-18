@@ -2,20 +2,20 @@
 
 SET LOCAL ROLE ple_data_owner;
 
-REVOKE ALL ON FUNCTION ple_data.assessment_delivered_question_count(uuid),
-    ple_data.assessment_effective_base_duration_seconds(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_data.assessment_delivered_question_count(text),
+    ple_data.assessment_effective_base_duration_seconds(text) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_data.assessment_delivered_question_count(uuid),
-    ple_data.assessment_effective_base_duration_seconds(uuid)
+GRANT EXECUTE ON FUNCTION ple_data.assessment_delivered_question_count(text),
+    ple_data.assessment_effective_base_duration_seconds(text)
     TO ple_api_owner, ple_private_owner;
 
 REVOKE ALL ON FUNCTION
-    ple_data.assessment_release_issues(uuid, timestamptz, boolean),
-    ple_data.validate_assessment_release(uuid, timestamptz, boolean)
+    ple_data.assessment_release_issues(text, timestamptz, boolean),
+    ple_data.validate_assessment_release(text, timestamptz, boolean)
     FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION
-    ple_data.assessment_release_issues(uuid, timestamptz, boolean),
-    ple_data.validate_assessment_release(uuid, timestamptz, boolean)
+    ple_data.assessment_release_issues(text, timestamptz, boolean),
+    ple_data.validate_assessment_release(text, timestamptz, boolean)
     TO ple_api_owner;
 

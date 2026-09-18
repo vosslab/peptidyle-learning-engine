@@ -115,7 +115,7 @@ CREATE FUNCTION ple_data.set_current_question_star(
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
 DECLARE
-    actor_id uuid;
+    actor_id text;
 BEGIN
     actor_id := ple_api.current_session_account_id();
     IF p_published_question_id IS NULL OR p_starred IS NULL
@@ -160,7 +160,7 @@ CREATE FUNCTION ple_data.read_current_question_star(
 ) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
-    actor_id uuid;
+    actor_id text;
 BEGIN
     actor_id := ple_api.current_session_account_id();
     IF p_published_question_id IS NULL
@@ -221,7 +221,7 @@ CREATE FUNCTION ple_data.set_current_question_watch(
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
 DECLARE
-    actor_id uuid;
+    actor_id text;
 BEGIN
     actor_id := ple_api.current_session_account_id();
     IF p_published_question_id IS NULL OR p_watched IS NULL
@@ -257,7 +257,7 @@ CREATE FUNCTION ple_data.read_current_question_watch(
 ) RETURNS TABLE (watching boolean) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
 DECLARE
-    actor_id uuid;
+    actor_id text;
 BEGIN
     actor_id := ple_api.current_session_account_id();
     IF p_published_question_id IS NULL

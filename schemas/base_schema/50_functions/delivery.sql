@@ -6,7 +6,7 @@ SET LOCAL ROLE ple_private_owner;
 -- grading workers to retained Question Attempt evidence.  They lock the
 -- Assessment before its Student Work, so Unrelease wins or loses atomically.
 CREATE FUNCTION ple_private.require_owned_open_question_attempt(
-    p_course_instance_id uuid, p_assessment_id uuid, p_question_attempt_id uuid
+    p_course_instance_id text, p_assessment_id text, p_question_attempt_id uuid
 ) RETURNS ple_private.question_attempt
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
@@ -39,7 +39,7 @@ END $$;
 SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.create_imathas_question_backend_session(
-    p_session_id uuid, p_course_instance_id uuid, p_assessment_id uuid, p_question_attempt_id uuid,
+    p_session_id uuid, p_course_instance_id text, p_assessment_id text, p_question_attempt_id uuid,
     p_deployment text, p_item text, p_published_question_id text, p_revision_number integer,
     p_source_object_id uuid, p_source_checksum bytea, p_profile text, p_seed numeric,
     p_launch_checksum text, p_response_sha256 bytea, p_challenge bytea, p_authentication bytea,
@@ -83,7 +83,7 @@ BEGIN
 END $$;
 
 CREATE FUNCTION ple_api.load_imathas_question_backend_session(
-    p_session_id uuid, p_account_id uuid, p_course_instance_id uuid, p_assessment_id uuid, p_question_attempt_id uuid,
+    p_session_id uuid, p_account_id text, p_course_instance_id text, p_assessment_id text, p_question_attempt_id uuid,
     p_deployment text, p_item text, p_published_question_id text, p_revision_number integer,
     p_source_object_id uuid, p_source_checksum bytea, p_profile text, p_seed numeric, p_launch_checksum text
 ) RETURNS TABLE (
@@ -114,15 +114,15 @@ BEGIN
 END $$;
 
 CREATE FUNCTION ple_api.lease_imathas_question_backend_session(
-    p_session_id uuid, p_course_instance_id uuid, p_assessment_id uuid, p_question_attempt_id uuid,
+    p_session_id uuid, p_course_instance_id text, p_assessment_id text, p_question_attempt_id uuid,
     p_deployment text, p_item text, p_published_question_id text, p_revision_number integer,
     p_source_object_id uuid, p_source_checksum bytea, p_profile text, p_seed numeric,
     p_launch_checksum text, p_lease_sha256 bytea, p_lease_expires_at timestamptz
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
 DECLARE session ple_private.imathas_question_backend_session%ROWTYPE;
-DECLARE session_course_id uuid;
-DECLARE session_assessment_id uuid;
+DECLARE session_course_id text;
+DECLARE session_assessment_id text;
 BEGIN
     IF octet_length(p_lease_sha256) <> 32 OR p_lease_expires_at <= clock_timestamp() THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'iMathAS Session lease is invalid';

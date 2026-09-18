@@ -137,29 +137,34 @@ BEFORE UPDATE OR DELETE ON ple_audit.course_instance_creation_event
 FOR EACH ROW EXECUTE FUNCTION ple_audit.reject_course_instance_creation_event_change();
 
 CREATE FUNCTION ple_audit.record_course_instance_creation_event(
-    p_event_id uuid, p_course_instance_id uuid, p_reference bigint, p_source_kind text,
-    p_blueprint_reference bigint, p_blueprint_revision bigint,
-    p_assigned_instructor uuid, p_creator uuid,
+    p_event_id uuid, p_course_instance_id text, p_source_kind text,
+    p_blueprint_reference text, p_blueprint_revision integer,
+    p_assigned_instructor text, p_creator text,
     p_occurred_at timestamp with time zone
 )
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_audit
 AS $$
 BEGIN
-    IF p_event_id IS NULL OR p_course_instance_id IS NULL OR p_reference NOT BETWEEN 1 AND 2147483647
+    IF p_event_id IS NULL OR p_course_instance_id IS NULL
        OR p_source_kind IS NULL OR p_source_kind NOT IN ('empty', 'adopted')
        OR (p_source_kind = 'empty'
            AND (p_blueprint_reference IS NOT NULL OR p_blueprint_revision IS NOT NULL))
        OR (p_source_kind = 'adopted'
            AND (p_blueprint_reference IS NULL OR p_blueprint_revision IS NULL
-                OR p_blueprint_reference NOT BETWEEN 1 AND 2147483647 OR p_blueprint_revision <= 0))
+                OR p_blueprint_revision <= 0))
        OR p_assigned_instructor IS NULL OR p_creator IS NULL OR p_occurred_at IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Course Instance Creation Event arguments are invalid';
     END IF;
-    INSERT INTO ple_audit.course_instance_creation_event
-    VALUES (p_event_id, p_course_instance_id, p_reference, p_source_kind,
-            p_blueprint_reference, p_blueprint_revision,
-            p_assigned_instructor, p_creator, p_occurred_at);
+    INSERT INTO ple_audit.course_instance_creation_event (
+        course_instance_creation_event_id, course_instance_id, source_kind,
+        blueprint_course_id, blueprint_revision_number,
+        assigned_instructor_account_id, created_by_account_id, occurred_at
+    ) VALUES (
+        p_event_id, p_course_instance_id, p_source_kind,
+        p_blueprint_reference, p_blueprint_revision,
+        p_assigned_instructor, p_creator, p_occurred_at
+    );
 END
 $$;
 

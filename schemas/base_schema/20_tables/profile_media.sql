@@ -84,7 +84,7 @@ WHERE is_selectable
 SET LOCAL ROLE ple_private_owner;
 
 CREATE TABLE ple_private.account_avatar (
-    account_id uuid PRIMARY KEY REFERENCES ple_private.account,
+    account_id ple_data.account_id PRIMARY KEY REFERENCES ple_private.account,
     avatar_kind ple_data.avatar_kind NOT NULL,
     provided_avatar_id text REFERENCES ple_data.provided_avatar,
     profile_image_id uuid,
@@ -109,7 +109,7 @@ CREATE TABLE ple_private.account_avatar (
 
 CREATE TABLE ple_private.profile_image_work (
     profile_image_work_id uuid PRIMARY KEY,
-    account_id uuid NOT NULL REFERENCES ple_private.account,
+    account_id ple_data.account_id NOT NULL REFERENCES ple_private.account,
     profile_image_id uuid NOT NULL,
     object_delivery_id uuid NOT NULL,
     object_record_id uuid NOT NULL REFERENCES ple_private.object_record,
@@ -216,4 +216,10 @@ SET LOCAL ROLE ple_private_owner;
 COMMENT ON TABLE ple_private.account_avatar IS 'role: current state, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
 
 COMMENT ON TABLE ple_private.profile_image_work IS 'role: event, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
+
+SET LOCAL ROLE ple_private_owner;
+COMMENT ON COLUMN ple_private.account_avatar.provided_avatar_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.account_avatar.profile_image_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.account_avatar.profile_image_delivery_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.profile_image_work.completed_at IS 'NULL means this optional fact is absent.';
 

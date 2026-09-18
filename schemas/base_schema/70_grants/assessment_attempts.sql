@@ -12,9 +12,9 @@ SET LOCAL ROLE ple_data_owner;
 GRANT REFERENCES ON TABLE ple_data.student_record, ple_data.assessment,
     ple_data.question_revision, ple_data.question_pool_revision TO ple_private_owner;
 
-REVOKE ALL ON FUNCTION ple_data.student_assessment_has_course_scope(uuid, uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_data.student_assessment_has_course_scope(uuid, text) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_data.student_assessment_has_course_scope(uuid, uuid) TO ple_private_owner;
+GRANT EXECUTE ON FUNCTION ple_data.student_assessment_has_course_scope(uuid, text) TO ple_private_owner;
 
 SET LOCAL ROLE ple_private_owner;
 

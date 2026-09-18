@@ -9,7 +9,7 @@ SET LOCAL ROLE ple_api_owner;
 -- The API owner has the existing narrow Course Membership read capability.
 -- Expose only current Student Record identifiers to the private completion
 -- predicate; Account state and invitations are deliberately not cohort facts.
-CREATE FUNCTION ple_api.current_course_student_record_ids(p_course_instance_id uuid)
+CREATE FUNCTION ple_api.current_course_student_record_ids(p_course_instance_id text)
 RETURNS TABLE (student_record_id uuid)
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
@@ -29,7 +29,7 @@ SET LOCAL ROLE ple_private_owner;
 -- ASVS 2.3.1, 8.2.2, 15.4.2: derive cohort completion from current
 -- membership and immutable Assessment Submission evidence at the read instant.
 -- There is no latch, snapshot, invitation, or Account-active filter.
-CREATE FUNCTION ple_private.current_student_cohort_completed_assessment(p_assessment_id uuid)
+CREATE FUNCTION ple_private.current_student_cohort_completed_assessment(p_assessment_id text)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
     SELECT EXISTS (
@@ -57,7 +57,7 @@ $$;
 CREATE FUNCTION ple_private.read_student_assessment_attempt_history(
     p_assessment_attempt_reference_number bigint
 ) RETURNS TABLE (
-    course_instance_id uuid, assessment_reference_number text, assessment_title text, assessment_type text,
+    course_instance_id text, assessment_reference_number text, assessment_title text, assessment_type text,
     assessment_attempt_number integer,
     state text, questions jsonb, feedback_rule jsonb, due_at_millis bigint,
     closes_at_millis bigint, submitted_at_millis bigint, evaluated_at_millis bigint,
@@ -68,7 +68,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
     WITH owned_assessment_attempt AS (
         SELECT assessment_attempt.assessment_attempt_id, assessment_attempt.assessment_id,
                assessment.course_instance_id,
-               assessment.public_reference AS assessment_reference_number,
+               assessment.assessment_id AS assessment_reference_number,
                assessment_attempt.assessment_title,
                assessment.assessment_type,
                assessment_attempt.assessment_attempt_number,
@@ -204,7 +204,7 @@ CREATE FUNCTION ple_api.read_student_assessment_attempt_history(
     grading_is_current boolean, grading_results jsonb
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_data, ple_private AS $$
-    SELECT course.public_reference,
+    SELECT course.course_instance_id,
            course.course_short_name,
            course.course_long_name,
            course.course_theme_id AS course_theme,
@@ -315,7 +315,8 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
               'intrinsic_height', presented.intrinsic_height
           ) ORDER BY presented.asset_id) AS question_asset_renditions
             FROM ple_private.question_attempt_presentation_asset_rendition AS presented
-           WHERE presented.question_attempt_id = question_attempt.question_attempt_id
+           WHERE presented.question_attempt_presentation_asset_binding_id
+                 = question_attempt.question_attempt_id
       ) AS asset_renditions ON true
       LEFT JOIN LATERAL (
           SELECT jsonb_agg(jsonb_build_object(
@@ -323,7 +324,8 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
               'response_item_reference', response_item.response_item_reference
           ) ORDER BY response_item.presentation_response_item_reference) AS response_item_bindings
             FROM ple_private.question_attempt_response_item_binding AS response_item
-           WHERE response_item.question_attempt_id = question_attempt.question_attempt_id
+           WHERE response_item.question_attempt_presentation_binding_id
+                 = question_attempt.question_attempt_id
       ) AS response_item_bindings ON true
      ORDER BY issued.issued_position
 $$;
@@ -366,7 +368,7 @@ CREATE FUNCTION ple_private.read_course_student_work_for_retention(
 ) RETURNS TABLE (
     assessment_attempt_reference_number bigint,
     student_record_id uuid,
-    assessment_id uuid,
+    assessment_id text,
     assessment_attempt_started_at timestamptz,
     assessment_submitted_at timestamptz
 ) LANGUAGE sql STABLE SECURITY DEFINER
@@ -386,11 +388,11 @@ $$;
 SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.read_archived_course_student_work_for_retention(
-    p_course_instance_id uuid
+    p_course_instance_id text
 ) RETURNS TABLE (
     assessment_attempt_reference_number bigint,
     student_record_id uuid,
-    assessment_id uuid,
+    assessment_id text,
     assessment_attempt_started_at timestamptz,
     assessment_submitted_at timestamptz,
     student_data_archived_at timestamptz

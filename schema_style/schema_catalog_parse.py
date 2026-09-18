@@ -287,6 +287,13 @@ def _add_column(
 		if word in schema_catalog_scan.COLUMN_STOP:
 			break
 		index = match.end()
+		index = schema_catalog_scan._skip_space(item, index)
+		if index < len(item) and item[index] == ".":
+			index += 1
+			qual = schema_catalog_scan.IDENT_RE.match(item, index)
+			if not qual:
+				break
+			index = qual.end()
 	col_type = " ".join(item[type_start:index].split())
 	tail = item[index:]
 	tail_upper = tail.upper()

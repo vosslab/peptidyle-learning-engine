@@ -24,8 +24,8 @@ SET LOCAL ROLE ple_audit_owner;
 
 CREATE TABLE ple_audit.assessment_unrelease_event (
     event_id uuid PRIMARY KEY,
-    assessment_id uuid NOT NULL REFERENCES ple_data.assessment(assessment_id),
-    actor_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
+    assessment_id ple_data.assessment_id NOT NULL REFERENCES ple_data.assessment(assessment_id),
+    actor_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account(account_id),
     assessment_edit_number bigint NOT NULL CHECK (assessment_edit_number > 0),
     assessment_attempt_count bigint NOT NULL CHECK (assessment_attempt_count >= 0),
     question_response_count bigint NOT NULL CHECK (question_response_count >= 0),

@@ -7,16 +7,11 @@ SET LOCAL ROLE ple_data_owner;
 -- used for future Assessment Attempts; student_work.sql retains the facts used to
 -- interpret an Assessment Attempt after a later Assessment edit.
 CREATE TABLE ple_data.assessment (
-    assessment_id uuid PRIMARY KEY,
-    course_instance_id uuid NOT NULL REFERENCES ple_data.course_instance(course_instance_id),
-    reference_number bigint GENERATED ALWAYS AS IDENTITY UNIQUE NOT NULL
-        CHECK (reference_number BETWEEN 1 AND 2147483647),
-    public_reference text NOT NULL UNIQUE CHECK (
-        ple_private.is_canonical_prefixed_public_id(public_reference, 'A')
-    ),
+    assessment_id ple_data.assessment_id PRIMARY KEY,
+    course_instance_id ple_data.course_instance_id NOT NULL REFERENCES ple_data.course_instance(course_instance_id),
     origin_kind ple_data.assessment_origin_kind NOT NULL,
-    source_blueprint_course_reference_number bigint,
-    source_blueprint_revision_number bigint CHECK (source_blueprint_revision_number > 0),
+    source_blueprint_course_id ple_data.blueprint_course_id,
+    source_blueprint_revision_number integer CHECK (source_blueprint_revision_number > 0),
     -- BlueprintAssessmentSource: an exact immutable Blueprint Revision plus
     -- the stable Assessment member selected from that Revision.
     source_blueprint_assessment_reference uuid,
@@ -48,10 +43,10 @@ CREATE TABLE ple_data.assessment (
     feedback_question_answer_explanation ple_data.feedback_release NOT NULL,
     feedback_class_statistics ple_data.feedback_release NOT NULL,
     assessment_status ple_data.assessment_status NOT NULL DEFAULT 'unreleased',
-    UNIQUE (course_instance_id, reference_number),
+    UNIQUE (assessment_id, course_instance_id),
     UNIQUE (assessment_id, course_instance_id),
     FOREIGN KEY (
-        source_blueprint_course_reference_number,
+        source_blueprint_course_id,
         source_blueprint_revision_number,
         source_blueprint_assessment_reference
     ) REFERENCES ple_data.blueprint_revision_assessment (
@@ -61,11 +56,11 @@ CREATE TABLE ple_data.assessment (
     ),
     CHECK (
         (origin_kind = 'direct'
-            AND source_blueprint_course_reference_number IS NULL
+            AND source_blueprint_course_id IS NULL
             AND source_blueprint_revision_number IS NULL
             AND source_blueprint_assessment_reference IS NULL)
         OR (origin_kind = 'adopted'
-            AND source_blueprint_course_reference_number IS NOT NULL
+            AND source_blueprint_course_id IS NOT NULL
             AND source_blueprint_revision_number IS NOT NULL
             AND source_blueprint_assessment_reference IS NOT NULL)
     ),
@@ -81,7 +76,7 @@ CREATE TABLE ple_data.assessment (
 
 CREATE TABLE ple_data.assessment_entry (
     assessment_entry_id uuid PRIMARY KEY,
-    assessment_id uuid NOT NULL REFERENCES ple_data.assessment(assessment_id),
+    assessment_id ple_data.assessment_id NOT NULL REFERENCES ple_data.assessment(assessment_id),
     authored_position integer NOT NULL CHECK (authored_position >= 0),
     entry_kind ple_data.entry_kind NOT NULL,
     availability ple_data.entry_availability NOT NULL DEFAULT 'available',
@@ -89,10 +84,10 @@ CREATE TABLE ple_data.assessment_entry (
         CASE WHEN availability = 'available' THEN authored_position END
     ) STORED,
     scoring_rule ple_data.scoring_rule NOT NULL,
-    published_question_id text,
+    published_question_id ple_data.question_family_id,
     question_revision_number integer,
-    question_pool_id uuid,
-    question_pool_revision_number bigint,
+    question_pool_id ple_data.question_family_id,
+    question_pool_revision_number integer,
     points_possible numeric CHECK (points_possible BETWEEN 0 AND 1000000000.9999 AND scale(points_possible) <= 4),
     selection_count integer,
     points_per_item numeric CHECK (points_per_item BETWEEN 0 AND 1000000000.9999 AND scale(points_per_item) <= 4),
@@ -155,9 +150,9 @@ CREATE TABLE ple_data.assessment_entry (
 -- the entry, fork revision 1, and this association atomically.
 CREATE TABLE ple_data.assessment_question_pool_fork (
     assessment_entry_id uuid NOT NULL,
-    assessment_id uuid NOT NULL,
-    question_pool_id uuid NOT NULL UNIQUE,
-    origin_question_pool_revision_number bigint NOT NULL CHECK (origin_question_pool_revision_number = 1),
+    assessment_id ple_data.assessment_id NOT NULL,
+    question_pool_id ple_data.question_family_id NOT NULL UNIQUE,
+    origin_question_pool_revision_number integer NOT NULL CHECK (origin_question_pool_revision_number = 1),
     PRIMARY KEY (assessment_entry_id),
     UNIQUE (assessment_entry_id, assessment_id, question_pool_id),
     FOREIGN KEY (assessment_entry_id, assessment_id)
@@ -186,7 +181,7 @@ SET LOCAL ROLE ple_private_owner;
 CREATE TABLE ple_private.imathas_render_cache_entry (
     imathas_render_cache_entry_id uuid PRIMARY KEY,
     imathas_deployment_reference text NOT NULL CHECK (imathas_deployment_reference ~ '^[A-Za-z0-9._-]{1,160}$'),
-    published_question_id text NOT NULL,
+    published_question_id ple_data.question_family_id NOT NULL,
     revision_number integer NOT NULL,
     imathas_normalized_question_seed integer NOT NULL CHECK (imathas_normalized_question_seed BETWEEN 1 AND 9999),
     imathas_profile text NOT NULL CHECK (imathas_profile ~ '^[A-Za-z0-9._-]{1,160}$'),
@@ -262,4 +257,26 @@ COMMENT ON TABLE ple_private.imathas_render_cache_entry IS 'role: current state,
 
 
 COMMENT ON TABLE ple_private.imathas_render_cache_entry IS 'role: current state, deleted by Unrelease of Student Work; Assessment rows remain with the Course. HUMAN_GUIDANCE.md Assessments.';
+
+SET LOCAL ROLE ple_data_owner;
+COMMENT ON COLUMN ple_data.assessment.source_blueprint_course_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.assessment.source_blueprint_revision_number IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.assessment.source_blueprint_assessment_reference IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.assessment.available_at IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.assessment.due_at IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.assessment.closes_at IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.assessment.assessment_attempt_time_limit_seconds IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.assessment.assessment_attempt_limit IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.assessment_entry.active_authored_position IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.assessment_entry.published_question_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.assessment_entry.question_revision_number IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.assessment_entry.question_pool_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.assessment_entry.question_pool_revision_number IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.assessment_entry.points_possible IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.assessment_entry.selection_count IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.assessment_entry.points_per_item IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.assessment_entry.selected_question_order IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.assessment_entry.question_attempt_limit IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.assessment_entry.question_attempt_time_limit_seconds IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.assessment_entry.question_attempt_grace_seconds IS 'NULL means this optional fact is absent.';
 

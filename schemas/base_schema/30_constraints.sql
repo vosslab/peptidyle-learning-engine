@@ -28,7 +28,7 @@ SET LOCAL ROLE ple_data_owner;
 
 ALTER TABLE ple_data.blueprint_course
     ADD CONSTRAINT blueprint_course_current_revision_fk
-    FOREIGN KEY (reference_number, current_blueprint_revision_number)
+    FOREIGN KEY (blueprint_course_id, current_blueprint_revision_number)
     REFERENCES ple_data.blueprint_course_revision (
         blueprint_course_id, blueprint_revision_number
     ) DEFERRABLE INITIALLY DEFERRED;

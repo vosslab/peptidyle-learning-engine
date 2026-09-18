@@ -2,6 +2,12 @@
 -- publisher supplies one exact Question Revision per fixed source checksum.
 -- This file deliberately creates no demo-only database concept.
 
+\if :{?pilot_question_publications}
+\else
+\echo live_demo.sql requires publisher psql variables; skipping teaching graph
+\quit
+\endif
+
 SELECT set_config(
     'ple.installation_pilot_question_publications',
     :'pilot_question_publications', true
@@ -83,37 +89,82 @@ BEGIN
 END
 $$;
 
+DO $$
+DECLARE
+    elena text;
+    mary text;
+    jack text;
+    avery text;
+BEGIN
+    SELECT email.account_id INTO elena
+      FROM ple_private.account_authentication_email AS email
+      JOIN ple_private.account AS account
+        ON account.account_id = email.account_id
+     WHERE email.normalized_email = 'elena.martinez@live-demo.invalid'
+       AND account.product_role = 'instructor';
+    SELECT email.account_id INTO mary
+      FROM ple_private.account_authentication_email AS email
+      JOIN ple_private.account AS account
+        ON account.account_id = email.account_id
+     WHERE email.normalized_email = 'mary.okafor@biology.roosevelt.edu'
+       AND account.product_role = 'student';
+    SELECT email.account_id INTO jack
+      FROM ple_private.account_authentication_email AS email
+      JOIN ple_private.account AS account
+        ON account.account_id = email.account_id
+     WHERE email.normalized_email = 'jack.nguyen@biology.roosevelt.edu'
+       AND account.product_role = 'student';
+    SELECT email.account_id INTO avery
+      FROM ple_private.account_authentication_email AS email
+      JOIN ple_private.account AS account
+        ON account.account_id = email.account_id
+     WHERE email.normalized_email = 'avery.thompson@biology.roosevelt.edu'
+       AND account.product_role = 'student';
+    IF elena IS NULL OR mary IS NULL OR jack IS NULL OR avery IS NULL THEN
+        RAISE EXCEPTION USING ERRCODE = '23514',
+            MESSAGE = 'Live Demo fictional identities are incomplete';
+    END IF;
+    PERFORM set_config('ple.installation_live_demo_elena_account_id', elena, true);
+    PERFORM set_config('ple.installation_live_demo_mary_account_id', mary, true);
+    PERFORM set_config('ple.installation_live_demo_jack_account_id', jack, true);
+    PERFORM set_config('ple.installation_live_demo_avery_account_id', avery, true);
+END
+$$;
+
 RESET ROLE;
 
 SET LOCAL ROLE ple_api_owner;
 
 DO $$
 DECLARE
-    blueprint_reference bigint;
+    blueprint_id text;
+    elena text;
     expected_blueprint_assessment_reference uuid := current_setting(
         'ple.installation_live_demo_blueprint_assessment_reference'
     )::uuid;
 BEGIN
-    -- ASVS 1.2.4 and 8.2.2: resolve the typed public Blueprint reference at
-    -- the privileged installation boundary; never decode it as an internal ID.
-    SELECT reference_number INTO blueprint_reference
-      FROM ple_data.blueprint_course
-     WHERE public_reference = current_setting(
+    -- ASVS 1.2.4 and 8.2.2: the installer carries the canonical Blueprint
+    -- Course public ID; never decode it as an internal UUID.
+    blueprint_id := current_setting(
         'ple.installation_live_demo_blueprint_public_reference'
-     );
-    IF blueprint_reference IS NULL THEN
+    );
+    elena := current_setting('ple.installation_live_demo_elena_account_id');
+    IF NOT EXISTS (
+        SELECT 1 FROM ple_data.blueprint_course
+         WHERE blueprint_course_id = blueprint_id
+    ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Live Demo Blueprint public reference is unavailable';
     END IF;
     IF NOT EXISTS (
         SELECT 1 FROM ple_data.blueprint_course
-         WHERE reference_number = blueprint_reference
-           AND owner_account_id = '00000000-0000-0000-0000-000000000101'
+         WHERE blueprint_course_id = blueprint_id
+           AND owner_account_id = elena
            AND availability = 'public'
            AND current_blueprint_revision_number = 1
            AND EXISTS (
                SELECT 1 FROM ple_data.blueprint_revision_assessment AS revision_assessment
-                WHERE revision_assessment.blueprint_course_id = blueprint_reference
+                WHERE revision_assessment.blueprint_course_id = blueprint_id
                   AND revision_assessment.blueprint_revision_number = 1
                   AND revision_assessment.blueprint_assessment_reference
                       = expected_blueprint_assessment_reference
@@ -122,18 +173,22 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Live Demo Blueprint Revision 1 is unavailable';
     END IF;
-    IF EXISTS (SELECT 1 FROM ple_data.course_instance WHERE course_instance_id = '00000000-0000-0000-0000-000000000220')
+    IF EXISTS (SELECT 1 FROM ple_data.course_instance WHERE course_short_name = 'BCHM 301')
        AND NOT EXISTS (
            SELECT 1 FROM ple_data.course_instance AS course
-            WHERE course.course_instance_id = '00000000-0000-0000-0000-000000000220'
-              AND course.assigned_instructor_account_id = '00000000-0000-0000-0000-000000000101'
-              AND course.course_short_name = 'BCHM 301'
+            WHERE course.course_short_name = 'BCHM 301'
               AND course.course_long_name = 'Biochemistry 301: Proteins and Peptides'
               AND course.term_starts_on = date '2026-08-24'
               AND course.term_ends_on = date '2026-12-11'
               AND course.source_kind = 'adopted'
-              AND course.blueprint_course_id = blueprint_reference
+              AND course.blueprint_course_id = blueprint_id
               AND course.blueprint_revision_number = 1
+              AND EXISTS (
+                  SELECT 1 FROM ple_data.course_membership AS membership
+                   WHERE membership.course_instance_id = course.course_instance_id
+                     AND membership.account_id = elena
+                     AND membership.role = 'instructor'
+              )
        ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Live Demo Course root conflicts with existing product data';
@@ -143,58 +198,69 @@ $$;
 
 DO $$
 DECLARE
-    course_reference bigint;
-    blueprint_reference bigint;
+    course_id text;
+    blueprint_id text;
+    elena text;
     selected_discipline uuid;
     selected_subject uuid;
+    created_at_value timestamptz;
+    active_until_value timestamptz;
+    course_placeholder constant text := 'CI0000000Y';
 BEGIN
     selected_discipline := current_setting('ple.installation_live_demo_discipline_uuid')::uuid;
     selected_subject := current_setting('ple.installation_live_demo_subject_uuid')::uuid;
-    -- ASVS 1.2.4 and 8.2.2: retain the opaque public reference across the
-    -- Rust/psql boundary and resolve the internal key only under this owner.
-    SELECT reference_number INTO blueprint_reference
-      FROM ple_data.blueprint_course
-     WHERE public_reference = current_setting(
+    blueprint_id := current_setting(
         'ple.installation_live_demo_blueprint_public_reference'
-     );
-    IF blueprint_reference IS NULL THEN
+    );
+    elena := current_setting('ple.installation_live_demo_elena_account_id');
+    IF blueprint_id IS NULL OR NOT EXISTS (
+        SELECT 1 FROM ple_data.blueprint_course
+         WHERE blueprint_course_id = blueprint_id
+    ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Live Demo Blueprint public reference is unavailable';
     END IF;
-    SELECT reference_number INTO course_reference
-      FROM ple_data.course_instance
-     WHERE course_instance_id = '00000000-0000-0000-0000-000000000220';
-    IF course_reference IS NULL THEN
-    INSERT INTO ple_data.course_instance (
-        course_instance_id, source_kind, blueprint_course_id, blueprint_revision_number,
-        assigned_instructor_account_id, course_short_name, course_long_name,
-        term_starts_on, term_ends_on, created_at,
-        content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags
-    ) VALUES (
-        '00000000-0000-0000-0000-000000000220', 'adopted', blueprint_reference, 1,
-        '00000000-0000-0000-0000-000000000101', 'BCHM 301',
-        'Biochemistry 301: Proteins and Peptides', date '2026-08-24', date '2026-12-11',
-        clock_timestamp(), selected_discipline, selected_subject, NULL, NULL, ARRAY[]::text[]
-    ) RETURNING reference_number INTO course_reference;
+    SELECT course.course_instance_id INTO course_id
+      FROM ple_data.course_instance AS course
+     WHERE course.course_short_name = 'BCHM 301';
+    IF course_id IS NULL THEN
+        created_at_value := clock_timestamp();
+        active_until_value := (
+            (created_at_value AT TIME ZONE 'UTC') + interval '6 months'
+        ) AT TIME ZONE 'UTC';
+        INSERT INTO ple_data.course_instance (
+            course_instance_id, source_kind, blueprint_course_id, blueprint_revision_number,
+            course_short_name, course_long_name,
+            term_starts_on, term_ends_on, created_at, active_until_at, retention_starts_at,
+            content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags
+        ) VALUES (
+            course_placeholder, 'adopted', blueprint_id, 1,
+            'BCHM 301', 'Biochemistry 301: Proteins and Peptides',
+            date '2026-08-24', date '2026-12-11',
+            created_at_value, active_until_value, active_until_value,
+            selected_discipline, selected_subject, NULL, NULL, ARRAY[]::text[]
+        ) RETURNING course_instance_id INTO course_id;
         INSERT INTO ple_data.course_origin (
             course_origin_id, course_instance_id, source_kind, blueprint_course_id,
             blueprint_revision_number, source_course_instance_id, created_at
         ) VALUES (
-            '00000000-0000-0000-0000-000000000221', '00000000-0000-0000-0000-000000000220',
-            'adopted', blueprint_reference, 1, NULL, clock_timestamp()
+            '00000000-0000-0000-0000-000000000221', course_id,
+            'adopted', blueprint_id, 1, NULL, created_at_value
         );
-        INSERT INTO ple_data.course_membership (course_membership_id, course_instance_id, account_id, role, joined_at)
-        VALUES ('00000000-0000-0000-0000-000000000222', '00000000-0000-0000-0000-000000000220',
-                '00000000-0000-0000-0000-000000000101', 'instructor', clock_timestamp());
+        INSERT INTO ple_data.course_membership (
+            course_membership_id, course_instance_id, account_id, role, joined_at
+        ) VALUES (
+            '00000000-0000-0000-0000-000000000222', course_id,
+            elena, 'instructor', created_at_value
+        );
         PERFORM ple_audit.record_course_instance_creation_event(
-            '00000000-0000-0000-0000-000000000223', '00000000-0000-0000-0000-000000000220',
-            course_reference, 'adopted', blueprint_reference, 1,
-            '00000000-0000-0000-0000-000000000101',
-            '00000000-0000-0000-0000-000000000101', clock_timestamp()
+            '00000000-0000-0000-0000-000000000223', course_id,
+            'adopted', blueprint_id, 1,
+            elena, elena, created_at_value
         );
     ELSE
         IF NOT EXISTS (SELECT 1 FROM ple_data.course_instance
-                        WHERE reference_number = course_reference
+                        WHERE course_instance_id = course_id
                           AND content_discipline_id = selected_discipline
                           AND content_subject_id = selected_subject
                           AND content_topic_id IS NULL AND content_subtopic_id IS NULL
@@ -203,56 +269,100 @@ BEGIN
                 MESSAGE = 'Live Demo Course classification conflicts with authored metadata';
         END IF;
     END IF;
+    PERFORM set_config('ple.installation_live_demo_course_instance_id', course_id, true);
 END
 $$;
 
 INSERT INTO ple_private.course_roster_profile (
     course_roster_profile_id, course_instance_id, student_account_id, roster_id, roster_name, created_at
 ) VALUES
-    ('00000000-0000-0000-0000-000000000231', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000102', 'BIO301-MARY', 'Mary', clock_timestamp()),
-    ('00000000-0000-0000-0000-000000000232', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000103', 'BIO301-JACK', 'Jack', clock_timestamp()),
-    ('00000000-0000-0000-0000-000000000233', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000104', 'BIO301-AVERY', 'Avery', clock_timestamp())
+    ('00000000-0000-0000-0000-000000000231',
+     current_setting('ple.installation_live_demo_course_instance_id'),
+     current_setting('ple.installation_live_demo_mary_account_id'),
+     'BIO301-MARY', 'Mary', clock_timestamp()),
+    ('00000000-0000-0000-0000-000000000232',
+     current_setting('ple.installation_live_demo_course_instance_id'),
+     current_setting('ple.installation_live_demo_jack_account_id'),
+     'BIO301-JACK', 'Jack', clock_timestamp()),
+    ('00000000-0000-0000-0000-000000000233',
+     current_setting('ple.installation_live_demo_course_instance_id'),
+     current_setting('ple.installation_live_demo_avery_account_id'),
+     'BIO301-AVERY', 'Avery', clock_timestamp())
 ON CONFLICT (course_roster_profile_id) DO NOTHING;
 
 INSERT INTO ple_private.course_invitation (
     course_invitation_id, course_instance_id, target_account_id, membership_role,
     inviting_instructor_account_id, inviting_instructor_role, issued_at, expires_at
 ) VALUES
-    ('00000000-0000-0000-0000-000000000241', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000102', 'student', '00000000-0000-0000-0000-000000000101', 'instructor', clock_timestamp(), clock_timestamp() + interval '365 days'),
-    ('00000000-0000-0000-0000-000000000242', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000103', 'student', '00000000-0000-0000-0000-000000000101', 'instructor', clock_timestamp(), clock_timestamp() + interval '365 days'),
-    ('00000000-0000-0000-0000-000000000243', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000104', 'student', '00000000-0000-0000-0000-000000000101', 'instructor', clock_timestamp(), clock_timestamp() + interval '365 days')
+    ('00000000-0000-0000-0000-000000000241',
+     current_setting('ple.installation_live_demo_course_instance_id'),
+     current_setting('ple.installation_live_demo_mary_account_id'),
+     'student', current_setting('ple.installation_live_demo_elena_account_id'),
+     'instructor', clock_timestamp(), clock_timestamp() + interval '365 days'),
+    ('00000000-0000-0000-0000-000000000242',
+     current_setting('ple.installation_live_demo_course_instance_id'),
+     current_setting('ple.installation_live_demo_jack_account_id'),
+     'student', current_setting('ple.installation_live_demo_elena_account_id'),
+     'instructor', clock_timestamp(), clock_timestamp() + interval '365 days'),
+    ('00000000-0000-0000-0000-000000000243',
+     current_setting('ple.installation_live_demo_course_instance_id'),
+     current_setting('ple.installation_live_demo_avery_account_id'),
+     'student', current_setting('ple.installation_live_demo_elena_account_id'),
+     'instructor', clock_timestamp(), clock_timestamp() + interval '365 days')
 ON CONFLICT (course_invitation_id) DO NOTHING;
 
 INSERT INTO ple_data.student_record (student_record_id, course_instance_id, student_account_id, created_at) VALUES
-    ('00000000-0000-0000-0000-000000000251', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000102', clock_timestamp()),
-    ('00000000-0000-0000-0000-000000000252', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000103', clock_timestamp()),
-    ('00000000-0000-0000-0000-000000000253', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000104', clock_timestamp())
+    ('00000000-0000-0000-0000-000000000251',
+     current_setting('ple.installation_live_demo_course_instance_id'),
+     current_setting('ple.installation_live_demo_mary_account_id'), clock_timestamp()),
+    ('00000000-0000-0000-0000-000000000252',
+     current_setting('ple.installation_live_demo_course_instance_id'),
+     current_setting('ple.installation_live_demo_jack_account_id'), clock_timestamp()),
+    ('00000000-0000-0000-0000-000000000253',
+     current_setting('ple.installation_live_demo_course_instance_id'),
+     current_setting('ple.installation_live_demo_avery_account_id'), clock_timestamp())
 ON CONFLICT (student_record_id) DO NOTHING;
 
 INSERT INTO ple_data.course_membership (
     course_membership_id, course_instance_id, account_id, role, student_record_id, joined_at
 ) VALUES
-    ('00000000-0000-0000-0000-000000000261', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000102', 'student', '00000000-0000-0000-0000-000000000251', clock_timestamp()),
-    ('00000000-0000-0000-0000-000000000262', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000103', 'student', '00000000-0000-0000-0000-000000000252', clock_timestamp()),
-    ('00000000-0000-0000-0000-000000000263', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000104', 'student', '00000000-0000-0000-0000-000000000253', clock_timestamp())
+    ('00000000-0000-0000-0000-000000000261',
+     current_setting('ple.installation_live_demo_course_instance_id'),
+     current_setting('ple.installation_live_demo_mary_account_id'),
+     'student', '00000000-0000-0000-0000-000000000251', clock_timestamp()),
+    ('00000000-0000-0000-0000-000000000262',
+     current_setting('ple.installation_live_demo_course_instance_id'),
+     current_setting('ple.installation_live_demo_jack_account_id'),
+     'student', '00000000-0000-0000-0000-000000000252', clock_timestamp()),
+    ('00000000-0000-0000-0000-000000000263',
+     current_setting('ple.installation_live_demo_course_instance_id'),
+     current_setting('ple.installation_live_demo_avery_account_id'),
+     'student', '00000000-0000-0000-0000-000000000253', clock_timestamp())
 ON CONFLICT (course_membership_id) DO NOTHING;
 
 SET LOCAL ROLE ple_data_owner;
 
 DO $$
+DECLARE
+    course_id text := current_setting('ple.installation_live_demo_course_instance_id');
+    assessment_id_value text;
 BEGIN
-    IF EXISTS (SELECT 1 FROM ple_data.assessment WHERE assessment_id = '00000000-0000-0000-0000-000000000270')
+    SELECT assessment.assessment_id INTO assessment_id_value
+      FROM ple_data.assessment AS assessment
+     WHERE assessment.course_instance_id = course_id
+       AND assessment.assessment_title = 'Chapter 1 Pilot Practice';
+    IF assessment_id_value IS NOT NULL
        AND (
            NOT EXISTS (
                SELECT 1 FROM ple_data.assessment
-                WHERE assessment_id = '00000000-0000-0000-0000-000000000270'
-                  AND course_instance_id = '00000000-0000-0000-0000-000000000220'
+                WHERE assessment_id = assessment_id_value
+                  AND course_instance_id = course_id
                   AND assessment_status = 'released'
                   AND assessment_type = 'practice_question_assignment'
                   AND assessment_title = 'Chapter 1 Pilot Practice'
            )
            OR (SELECT count(*) FROM ple_data.assessment_entry
-                WHERE assessment_id = '00000000-0000-0000-0000-000000000270') <> 4
+                WHERE assessment_id = assessment_id_value) <> 4
            OR EXISTS (
                WITH input AS (
                    SELECT value -> 'questionRevision' ->> 'questionId' AS published_question_id,
@@ -269,7 +379,7 @@ BEGIN
                )
                SELECT 1 FROM input
                LEFT JOIN ple_data.assessment_entry AS entry
-                 ON entry.assessment_id = '00000000-0000-0000-0000-000000000270'
+                 ON entry.assessment_id = assessment_id_value
                 AND entry.authored_position = input.position
                 AND entry.entry_kind = 'fixed_question'
                 AND entry.published_question_id = input.published_question_id
@@ -285,19 +395,25 @@ $$;
 
 DO $$
 DECLARE
-    new_assessment_id uuid;
+    course_id text := current_setting('ple.installation_live_demo_course_instance_id');
+    new_assessment_id text;
+    assessment_placeholder constant text := 'A0000000A';
     expected_blueprint_assessment_reference uuid := current_setting(
         'ple.installation_live_demo_blueprint_assessment_reference'
     )::uuid;
 BEGIN
-    IF EXISTS (
-        SELECT 1 FROM ple_data.assessment
-         WHERE assessment_id = '00000000-0000-0000-0000-000000000270'
-    ) THEN
+    SELECT assessment.assessment_id INTO new_assessment_id
+      FROM ple_data.assessment AS assessment
+     WHERE assessment.course_instance_id = course_id
+       AND assessment.assessment_title = 'Chapter 1 Pilot Practice';
+    IF new_assessment_id IS NOT NULL THEN
+        PERFORM set_config(
+            'ple.installation_live_demo_assessment_id', new_assessment_id, true
+        );
         RETURN;
     END IF;
     INSERT INTO ple_data.assessment (
-        assessment_id, course_instance_id, origin_kind, source_blueprint_course_reference_number,
+        assessment_id, course_instance_id, origin_kind, source_blueprint_course_id,
         source_blueprint_revision_number, source_blueprint_assessment_reference,
         created_at, updated_at, assessment_type, assessment_title, assessment_instructions, due_at,
         assessment_attempt_time_limit_seconds, late_work_rule,
@@ -305,15 +421,15 @@ BEGIN
         feedback_submitted_response, feedback_question_answer,
         feedback_question_answer_explanation, feedback_class_statistics
     ) VALUES (
-        '00000000-0000-0000-0000-000000000270',
-        '00000000-0000-0000-0000-000000000220',
+        assessment_placeholder,
+        course_id,
         'adopted',
-        (SELECT blueprint_course_id FROM ple_data.course_instance WHERE course_instance_id = '00000000-0000-0000-0000-000000000220'),
+        (SELECT blueprint_course_id FROM ple_data.course_instance WHERE course_instance_id = course_id),
         1, expected_blueprint_assessment_reference, clock_timestamp(), clock_timestamp(),
         'practice_question_assignment',
         'Chapter 1 Pilot Practice', 'Complete the four reviewed Chapter 1 practice questions.',
         (SELECT active_until_at FROM ple_data.course_instance
-          WHERE course_instance_id = '00000000-0000-0000-0000-000000000220'),
+          WHERE course_instance_id = course_id),
         1800, 'accept', 'new_variation', 'authored_order', 'after_submit', 'after_submit', 'after_submit',
         'never', 'never', 'never'
     ) RETURNING assessment_id INTO new_assessment_id;
@@ -345,8 +461,9 @@ BEGIN
     UPDATE ple_data.assessment SET assessment_status = 'released',
         assessment_edit_number = assessment_edit_number + 1, updated_at = clock_timestamp()
      WHERE assessment_id = new_assessment_id;
-    PERFORM ple_data.synchronize_course_assessment_deadline(
-        '00000000-0000-0000-0000-000000000220'
+    PERFORM ple_data.synchronize_course_assessment_deadline(course_id);
+    PERFORM set_config(
+        'ple.installation_live_demo_assessment_id', new_assessment_id, true
     );
 END
 $$;
@@ -358,9 +475,15 @@ SET LOCAL ROLE ple_api_owner;
 INSERT INTO ple_private.course_invitation_event (
     course_invitation_event_id, course_invitation_id, event_kind, performed_by_account_id, occurred_at, reason
 ) VALUES
-    ('00000000-0000-0000-0000-000000000291', '00000000-0000-0000-0000-000000000241', 'accepted', '00000000-0000-0000-0000-000000000102', clock_timestamp(), 'student accepted Course Invitation'),
-    ('00000000-0000-0000-0000-000000000292', '00000000-0000-0000-0000-000000000242', 'accepted', '00000000-0000-0000-0000-000000000103', clock_timestamp(), 'student accepted Course Invitation'),
-    ('00000000-0000-0000-0000-000000000293', '00000000-0000-0000-0000-000000000243', 'accepted', '00000000-0000-0000-0000-000000000104', clock_timestamp(), 'student accepted Course Invitation')
+    ('00000000-0000-0000-0000-000000000291', '00000000-0000-0000-0000-000000000241', 'accepted',
+     current_setting('ple.installation_live_demo_mary_account_id'), clock_timestamp(),
+     'student accepted Course Invitation'),
+    ('00000000-0000-0000-0000-000000000292', '00000000-0000-0000-0000-000000000242', 'accepted',
+     current_setting('ple.installation_live_demo_jack_account_id'), clock_timestamp(),
+     'student accepted Course Invitation'),
+    ('00000000-0000-0000-0000-000000000293', '00000000-0000-0000-0000-000000000243', 'accepted',
+     current_setting('ple.installation_live_demo_avery_account_id'), clock_timestamp(),
+     'student accepted Course Invitation')
 ON CONFLICT (course_invitation_event_id) DO NOTHING;
 
 RESET ROLE;
@@ -369,12 +492,36 @@ SET LOCAL ROLE ple_audit_owner;
 INSERT INTO ple_audit.course_roster_event (
     course_roster_event_id, course_instance_id, student_account_id, acting_account_id, event_kind, occurred_at
 ) VALUES
-    ('00000000-0000-0000-0000-000000000281', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000102', '00000000-0000-0000-0000-000000000101', 'invitation_created', clock_timestamp()),
-    ('00000000-0000-0000-0000-000000000282', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000103', '00000000-0000-0000-0000-000000000101', 'invitation_created', clock_timestamp()),
-    ('00000000-0000-0000-0000-000000000283', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000104', '00000000-0000-0000-0000-000000000101', 'invitation_created', clock_timestamp()),
-    ('00000000-0000-0000-0000-000000000284', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000102', '00000000-0000-0000-0000-000000000102', 'invitation_claimed', clock_timestamp()),
-    ('00000000-0000-0000-0000-000000000285', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000103', '00000000-0000-0000-0000-000000000103', 'invitation_claimed', clock_timestamp()),
-    ('00000000-0000-0000-0000-000000000286', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000104', '00000000-0000-0000-0000-000000000104', 'invitation_claimed', clock_timestamp())
+    ('00000000-0000-0000-0000-000000000281',
+     current_setting('ple.installation_live_demo_course_instance_id'),
+     current_setting('ple.installation_live_demo_mary_account_id'),
+     current_setting('ple.installation_live_demo_elena_account_id'),
+     'invitation_created', clock_timestamp()),
+    ('00000000-0000-0000-0000-000000000282',
+     current_setting('ple.installation_live_demo_course_instance_id'),
+     current_setting('ple.installation_live_demo_jack_account_id'),
+     current_setting('ple.installation_live_demo_elena_account_id'),
+     'invitation_created', clock_timestamp()),
+    ('00000000-0000-0000-0000-000000000283',
+     current_setting('ple.installation_live_demo_course_instance_id'),
+     current_setting('ple.installation_live_demo_avery_account_id'),
+     current_setting('ple.installation_live_demo_elena_account_id'),
+     'invitation_created', clock_timestamp()),
+    ('00000000-0000-0000-0000-000000000284',
+     current_setting('ple.installation_live_demo_course_instance_id'),
+     current_setting('ple.installation_live_demo_mary_account_id'),
+     current_setting('ple.installation_live_demo_mary_account_id'),
+     'invitation_claimed', clock_timestamp()),
+    ('00000000-0000-0000-0000-000000000285',
+     current_setting('ple.installation_live_demo_course_instance_id'),
+     current_setting('ple.installation_live_demo_jack_account_id'),
+     current_setting('ple.installation_live_demo_jack_account_id'),
+     'invitation_claimed', clock_timestamp()),
+    ('00000000-0000-0000-0000-000000000286',
+     current_setting('ple.installation_live_demo_course_instance_id'),
+     current_setting('ple.installation_live_demo_avery_account_id'),
+     current_setting('ple.installation_live_demo_avery_account_id'),
+     'invitation_claimed', clock_timestamp())
 ON CONFLICT DO NOTHING;
 RESET ROLE;
 
@@ -385,7 +532,8 @@ BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM ple_private.authenticated_session
          WHERE authenticated_session.session_id = v_session_id
-           AND authenticated_session.account_id = '00000000-0000-0000-0000-000000000101'
+           AND authenticated_session.account_id
+               = current_setting('ple.installation_live_demo_elena_account_id')
            AND authenticated_session.product_role = 'instructor'
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '22023',

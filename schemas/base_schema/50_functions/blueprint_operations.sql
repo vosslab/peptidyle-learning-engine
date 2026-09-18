@@ -11,7 +11,7 @@ SET LOCAL ROLE ple_api_owner;
 -- locked source Course's exact retired Discipline. The public wrapper below
 -- never supplies that value, so ordinary new Blueprints remain active-only.
 CREATE FUNCTION ple_private.create_blueprint_course(
-    p_blueprint_id uuid, p_request_checksum bytea, p_short_name text, p_long_name text,
+    p_blueprint_id text, p_request_checksum bytea, p_short_name text, p_long_name text,
     p_content jsonb, p_content_checksum bytea,
     p_discipline uuid, p_subject uuid, p_topic uuid, p_subtopic uuid, p_tags text[],
     p_retired_source_discipline uuid
@@ -24,10 +24,10 @@ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private
 AS $$
 DECLARE
-    v_actor uuid;
+    v_actor text;
     v_now timestamp with time zone;
     v_metadata_etag uuid;
-    v_reference_number bigint;
+    v_reference_number text;
 BEGIN
     IF p_blueprint_id IS NULL OR octet_length(p_request_checksum) <> 32
        OR p_short_name IS NULL OR p_short_name <> btrim(p_short_name)
@@ -43,12 +43,12 @@ BEGIN
     PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
         pg_catalog.format('ple:blueprint-course-create:%s:%s', v_actor,
             pg_catalog.encode(p_request_checksum, 'hex')), 0));
-    SELECT course.public_reference, receipt.blueprint_revision_number,
+    SELECT course.blueprint_course_id, receipt.blueprint_revision_number,
            receipt.metadata_etag, receipt.accepted_at
       INTO public_reference, blueprint_revision_number, metadata_etag, accepted_at
       FROM ple_data.blueprint_course_create_receipt AS receipt
       JOIN ple_data.blueprint_course AS course
-        ON course.reference_number = receipt.blueprint_course_id
+        ON course.blueprint_course_id = receipt.blueprint_course_id
      WHERE receipt.actor_account_id = v_actor AND receipt.request_checksum = p_request_checksum;
     IF FOUND THEN RETURN NEXT; RETURN; END IF;
     PERFORM ple_data.validate_blueprint_content(p_content);
@@ -65,12 +65,12 @@ BEGIN
         PERFORM ple_api.require_active_content_discipline(p_discipline);
     END IF;
     INSERT INTO ple_data.blueprint_course AS course (
-        blueprint_id, owner_account_id, short_name, long_name, metadata_etag, created_at,
+        blueprint_course_id, owner_account_id, short_name, long_name, metadata_etag, created_at,
         content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags
     ) VALUES (
         p_blueprint_id, v_actor, p_short_name, p_long_name, v_metadata_etag, v_now,
         p_discipline, p_subject, p_topic, p_subtopic, p_tags
-    ) RETURNING course.reference_number INTO v_reference_number;
+    ) RETURNING course.blueprint_course_id INTO v_reference_number;
     blueprint_revision_number := 1;
     INSERT INTO ple_data.blueprint_course_revision (
         blueprint_course_id, blueprint_revision_number,
@@ -111,16 +111,16 @@ BEGIN
         v_actor, p_request_checksum, v_reference_number, blueprint_revision_number,
         v_metadata_etag, v_now
     );
-    SELECT course.public_reference INTO public_reference
+    SELECT course.blueprint_course_id INTO public_reference
       FROM ple_data.blueprint_course AS course
-     WHERE course.reference_number = v_reference_number;
+     WHERE course.blueprint_course_id = v_reference_number;
     metadata_etag := v_metadata_etag; accepted_at := v_now;
     RETURN NEXT;
 END
 $$;
 
 CREATE FUNCTION ple_api.create_blueprint_course(
-    p_blueprint_id uuid, p_request_checksum bytea, p_short_name text, p_long_name text,
+    p_blueprint_id text, p_request_checksum bytea, p_short_name text, p_long_name text,
     p_content jsonb, p_content_checksum bytea,
     p_discipline uuid, p_subject uuid, p_topic uuid, p_subtopic uuid, p_tags text[]
 )
@@ -150,11 +150,11 @@ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private
 AS $$
 DECLARE
-    v_actor uuid;
+    v_actor text;
     v_course ple_data.blueprint_course%ROWTYPE;
     v_prior ple_data.blueprint_course_revision%ROWTYPE;
     v_now timestamp with time zone;
-    v_reference_number bigint;
+    v_reference_number text;
 BEGIN
     IF NOT ple_private.is_canonical_prefixed_public_id(p_reference, 'BP')
        OR p_expected_blueprint_revision_number <= 0
@@ -164,12 +164,12 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Blueprint Course Save is invalid';
     END IF;
     v_actor := ple_api.current_session_account_id();
-    SELECT course.reference_number INTO v_reference_number
+    SELECT course.blueprint_course_id INTO v_reference_number
       FROM ple_data.blueprint_course AS course
-     WHERE course.public_reference = p_reference;
+     WHERE course.blueprint_course_id = p_reference;
     SELECT * INTO v_course
       FROM ple_data.blueprint_course
-     WHERE reference_number = v_reference_number AND owner_account_id = v_actor
+     WHERE blueprint_course_id = v_reference_number AND owner_account_id = v_actor
      FOR UPDATE;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Blueprint Course is not available';
@@ -234,7 +234,7 @@ BEGIN
         );
         UPDATE ple_data.blueprint_course
            SET current_blueprint_revision_number = resulting_blueprint_revision_number
-         WHERE reference_number = v_reference_number;
+         WHERE blueprint_course_id = v_reference_number;
     ELSE
         resulting_blueprint_revision_number := p_expected_blueprint_revision_number;
     END IF;
@@ -259,10 +259,10 @@ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private
 AS $$
 DECLARE
-    v_actor uuid;
+    v_actor text;
     v_course ple_data.blueprint_course%ROWTYPE;
     v_next uuid;
-    v_reference_number bigint;
+    v_reference_number text;
 BEGIN
     IF NOT ple_private.is_canonical_prefixed_public_id(p_reference, 'BP')
        OR p_expected_metadata_etag IS NULL
@@ -275,11 +275,11 @@ BEGIN
             MESSAGE = 'Blueprint Course rename is invalid';
     END IF;
     v_actor := ple_api.current_session_account_id();
-    SELECT course.reference_number INTO v_reference_number
+    SELECT course.blueprint_course_id INTO v_reference_number
       FROM ple_data.blueprint_course AS course
-     WHERE course.public_reference = p_reference;
+     WHERE course.blueprint_course_id = p_reference;
     SELECT * INTO v_course FROM ple_data.blueprint_course
-     WHERE reference_number = v_reference_number AND owner_account_id = v_actor FOR UPDATE;
+     WHERE blueprint_course_id = v_reference_number AND owner_account_id = v_actor FOR UPDATE;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Blueprint Course is not available';
     END IF;
@@ -301,7 +301,7 @@ BEGIN
     v_next := pg_catalog.gen_random_uuid();
     UPDATE ple_data.blueprint_course AS course
        SET short_name = p_short_name, long_name = p_long_name, metadata_etag = v_next
-     WHERE course.reference_number = v_reference_number;
+     WHERE course.blueprint_course_id = v_reference_number;
     INSERT INTO ple_data.blueprint_metadata_event (
         blueprint_course_id, actor_account_id, short_name, long_name,
         availability, metadata_etag, occurred_at,
@@ -330,10 +330,10 @@ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private
 AS $$
 DECLARE
-    v_actor uuid;
+    v_actor text;
     v_course ple_data.blueprint_course%ROWTYPE;
     v_next uuid;
-    v_reference_number bigint;
+    v_reference_number text;
 BEGIN
     IF NOT ple_private.is_canonical_prefixed_public_id(p_reference, 'BP')
        OR p_expected_metadata_etag IS NULL
@@ -343,11 +343,11 @@ BEGIN
             MESSAGE = 'Blueprint availability change is invalid';
     END IF;
     v_actor := ple_api.current_session_account_id();
-    SELECT course.reference_number INTO v_reference_number
+    SELECT course.blueprint_course_id INTO v_reference_number
       FROM ple_data.blueprint_course AS course
-     WHERE course.public_reference = p_reference;
+     WHERE course.blueprint_course_id = p_reference;
     SELECT * INTO v_course FROM ple_data.blueprint_course
-     WHERE reference_number = v_reference_number AND owner_account_id = v_actor FOR UPDATE;
+     WHERE blueprint_course_id = v_reference_number AND owner_account_id = v_actor FOR UPDATE;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Blueprint Course is not available';
     END IF;
@@ -388,7 +388,7 @@ BEGIN
     v_next := pg_catalog.gen_random_uuid();
     UPDATE ple_data.blueprint_course AS course
        SET availability = p_availability, metadata_etag = v_next
-     WHERE course.reference_number = v_reference_number;
+     WHERE course.blueprint_course_id = v_reference_number;
     INSERT INTO ple_data.blueprint_metadata_event (
         blueprint_course_id, actor_account_id, short_name, long_name,
         availability, metadata_etag, occurred_at,
@@ -418,7 +418,7 @@ DECLARE
 BEGIN
     -- ASVS 8.2.1/8.2.2: ownership, not ambient Product Role, permits mutation.
     SELECT course.* INTO v_course FROM ple_data.blueprint_course AS course
-     WHERE course.public_reference = p_reference
+     WHERE course.blueprint_course_id = p_reference
        AND course.owner_account_id = ple_api.current_session_account_id()
        AND ple_api.current_session_account_is_instructor()
      FOR UPDATE;
@@ -448,13 +448,13 @@ BEGIN
     UPDATE ple_data.blueprint_course AS course SET
         content_discipline_id = p_discipline, content_subject_id = p_subject, content_topic_id = p_topic,
         content_subtopic_id = p_subtopic, tags = p_tags, metadata_etag = v_next
-     WHERE course.reference_number = v_course.reference_number;
+     WHERE course.blueprint_course_id = v_course.blueprint_course_id;
     INSERT INTO ple_data.blueprint_metadata_event (
         blueprint_course_id, actor_account_id, short_name, long_name,
         availability, metadata_etag, occurred_at,
         content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags
     ) VALUES (
-        v_course.reference_number, ple_api.current_session_account_id(),
+        v_course.blueprint_course_id, ple_api.current_session_account_id(),
         v_course.short_name, v_course.long_name, v_course.availability,
         v_next, pg_catalog.clock_timestamp(), p_discipline, p_subject, p_topic, p_subtopic, p_tags
     );
@@ -505,18 +505,18 @@ BEGIN
              WHERE item.content_subtopic_id = p_subtopic_uuid)) THEN
         RAISE EXCEPTION 'invalid Blueprint classification filter' USING ERRCODE = '22023';
     END IF;
-    RETURN QUERY SELECT course.public_reference, course.short_name, course.long_name,
+    RETURN QUERY SELECT course.blueprint_course_id, course.short_name, course.long_name,
            course.availability, course.metadata_etag,
            course.current_blueprint_revision_number,
            course.owner_account_id = ple_api.current_session_account_id(),
            (SELECT count(*) FROM (
                 SELECT adoption.course_instance_id
                   FROM ple_data.course_instance AS adoption
-                 WHERE adoption.blueprint_course_id = course.reference_number
+                 WHERE adoption.blueprint_course_id = course.blueprint_course_id
                 UNION
                 SELECT source.source_course_instance_id
                   FROM ple_data.blueprint_course_instance_source AS source
-                 WHERE source.blueprint_course_id = course.reference_number
+                 WHERE source.blueprint_course_id = course.blueprint_course_id
            ) AS adopted_course),
            (SELECT COALESCE(sum(CASE
                        WHEN adoption.retention_lifecycle_state = 'deleted'
@@ -530,11 +530,11 @@ BEGIN
               JOIN (
                     SELECT daughter.course_instance_id
                       FROM ple_data.course_instance AS daughter
-                     WHERE daughter.blueprint_course_id = course.reference_number
+                     WHERE daughter.blueprint_course_id = course.blueprint_course_id
                     UNION
                     SELECT source.source_course_instance_id
                       FROM ple_data.blueprint_course_instance_source AS source
-                     WHERE source.blueprint_course_id = course.reference_number
+                     WHERE source.blueprint_course_id = course.blueprint_course_id
               ) AS adopted_course ON adopted_course.course_instance_id = adoption.course_instance_id),
            course.content_discipline_id, course.content_subject_id, course.content_topic_id,
            course.content_subtopic_id, course.tags
@@ -553,7 +553,7 @@ BEGIN
             OR course.long_name ILIKE
             '%' || replace(replace(replace(p_query, '\', '\\'), '%', '\%'), '_', '\_') || '%')
        AND (p_after_long_name IS NULL OR
-            (course.long_name COLLATE "C", course.public_reference COLLATE "C") >
+            (course.long_name COLLATE "C", course.blueprint_course_id COLLATE "C") >
             (p_after_long_name COLLATE "C", p_after_reference COLLATE "C"))
        AND (
            -- ASVS 8.2.2/8.3.1: opt-in history never exposes another owner's Private course.
@@ -562,7 +562,7 @@ BEGIN
                AND course.availability = 'private')
            OR (p_include_archived AND course.availability = 'archived')
        )
-     ORDER BY course.long_name COLLATE "C", course.public_reference COLLATE "C"
+     ORDER BY course.long_name COLLATE "C", course.blueprint_course_id COLLATE "C"
      LIMIT p_limit;
 END
 $$;
@@ -578,30 +578,30 @@ RETURNS TABLE (
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private
 AS $$
-    SELECT course.public_reference, course.short_name, course.long_name,
+    SELECT course.blueprint_course_id, course.short_name, course.long_name,
            course.availability, course.metadata_etag,
            course.current_blueprint_revision_number,
            revision.content, revision.content_checksum,
            course.owner_account_id = ple_api.current_session_account_id(),
-           source.public_reference,
-           CASE WHEN source.reference_number IS NOT NULL
+           source.blueprint_course_id,
+           CASE WHEN source.blueprint_course_id IS NOT NULL
                 THEN ancestry.source_blueprint_revision_number END,
            course.content_discipline_id, course.content_subject_id, course.content_topic_id,
            course.content_subtopic_id, course.tags
       FROM ple_data.blueprint_course AS course
       JOIN ple_data.blueprint_course_revision AS revision
-        ON revision.blueprint_course_id = course.reference_number
+        ON revision.blueprint_course_id = course.blueprint_course_id
        AND revision.blueprint_revision_number = course.current_blueprint_revision_number
       LEFT JOIN ple_data.blueprint_course_fork AS ancestry
-        ON ancestry.blueprint_course_id = course.reference_number
+        ON ancestry.blueprint_course_id = course.blueprint_course_id
       -- ASVS 8.2.2/3, 8.3.1/2: mask ancestry using current source visibility.
       -- Roots and hidden sources share the same two null fields.
       LEFT JOIN ple_data.blueprint_course AS source
-        ON source.reference_number = ancestry.source_blueprint_course_reference_number
+        ON source.blueprint_course_id = ancestry.source_blueprint_course_id
        AND (source.availability IN ('public', 'archived')
             OR source.owner_account_id = ple_api.current_session_account_id())
      WHERE ple_private.is_canonical_prefixed_public_id(p_reference, 'BP')
-       AND course.public_reference = p_reference
+       AND course.blueprint_course_id = p_reference
        AND ple_api.current_session_account_is_instructor()
        AND (
            course.owner_account_id = ple_api.current_session_account_id()
@@ -624,10 +624,10 @@ AS $$
     SELECT revision.content, revision.content_checksum, revision.saved_at
       FROM ple_data.blueprint_course_revision AS revision
       JOIN ple_data.blueprint_course AS course
-        ON course.reference_number = revision.blueprint_course_id
+        ON course.blueprint_course_id = revision.blueprint_course_id
      WHERE ple_private.is_canonical_prefixed_public_id(p_reference, 'BP')
        AND p_blueprint_revision_number > 0
-       AND course.public_reference = p_reference
+       AND course.blueprint_course_id = p_reference
        AND revision.blueprint_revision_number = p_blueprint_revision_number
        AND ple_api.current_session_account_is_instructor()
        AND (
@@ -647,7 +647,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private
 AS $$
     SELECT course.promoted, course.metadata_etag
       FROM ple_data.blueprint_course AS course
-     WHERE course.public_reference = p_reference
+     WHERE course.blueprint_course_id = p_reference
        AND ple_api.current_session_account_is_sysadmin()
 $$;
 
@@ -671,7 +671,7 @@ BEGIN
     END IF;
     -- ASVS 15.4.2: the row lock covers the metadata comparison and flag write.
     SELECT course.* INTO v_course FROM ple_data.blueprint_course AS course
-     WHERE course.public_reference = p_reference FOR UPDATE;
+     WHERE course.blueprint_course_id = p_reference FOR UPDATE;
     IF NOT FOUND THEN
         RETURN;
     END IF;
@@ -685,7 +685,7 @@ BEGIN
     v_next := pg_catalog.gen_random_uuid();
     UPDATE ple_data.blueprint_course AS course
        SET promoted = p_promoted, metadata_etag = v_next
-     WHERE course.blueprint_id = v_course.blueprint_id;
+     WHERE course.blueprint_course_id = v_course.blueprint_course_id;
     RETURN QUERY SELECT p_promoted, v_next;
 END
 $$;

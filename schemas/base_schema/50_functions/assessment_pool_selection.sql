@@ -11,7 +11,7 @@ SET LOCAL ROLE ple_data_owner;
 -- Edit Number and exact owned Pool fork.  It changes only selection_count and
 -- advances the parent Assessment Edit Number exactly once.
 CREATE FUNCTION ple_data.update_assessment_question_pool_selection_count(
-    p_assessment_id uuid,
+    p_assessment_id text,
     p_assessment_entry_id uuid,
     p_expected_assessment_edit_number bigint,
     p_selection_count integer
@@ -120,7 +120,7 @@ CREATE FUNCTION ple_api.update_assessment_question_pool_selection_count(
 )
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
-DECLARE assessment_id_value uuid;
+DECLARE assessment_id_value text;
 BEGIN
     -- ASVS 1.2.4 and 2.2.1: values remain typed parameters, and the public
     -- references use the same closed canonical shapes as their stored rows.
@@ -133,8 +133,8 @@ BEGIN
     SELECT assessment.assessment_id INTO assessment_id_value
       FROM ple_data.course_instance AS course
       JOIN ple_data.assessment AS assessment ON assessment.course_instance_id = course.course_instance_id
-     WHERE course.public_reference = p_course_reference
-       AND assessment.public_reference = p_assessment_reference
+     WHERE course.course_instance_id = p_course_reference
+       AND assessment.assessment_id = p_assessment_reference
        AND ple_api.current_session_account_is_instructor()
        AND ple_api.current_session_account_is_course_instructor(course.course_instance_id);
     IF NOT FOUND THEN

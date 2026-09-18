@@ -19,23 +19,23 @@ REVOKE ALL ON FUNCTION ple_data.validate_question_pool_lineage_update(),
     ple_data.validate_question_pool_revision_members(),
     ple_data.validate_question_pool_revision_member_insert() FROM PUBLIC;
 
-REVOKE ALL ON FUNCTION ple_data.create_question_pool(uuid, text, text[], integer[], boolean, text, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_data.create_question_pool(text, text[], integer[], boolean, text, text) FROM PUBLIC;
 
-REVOKE ALL ON FUNCTION ple_data.append_question_pool_revision(uuid, uuid, text[], integer[], boolean) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_data.append_question_pool_revision(text, uuid, text[], integer[], boolean) FROM PUBLIC;
 
-REVOKE ALL ON FUNCTION ple_data.construct_question_pool_revision_fork(uuid, text, uuid, bigint) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_data.construct_question_pool_revision_fork(text, text, bigint) FROM PUBLIC;
 
-REVOKE ALL ON FUNCTION ple_data.fork_question_pool_revision_for_course_adoption(uuid, text, uuid, bigint) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_data.fork_question_pool_revision_for_course_adoption(text, text, bigint) FROM PUBLIC;
 
-REVOKE ALL ON FUNCTION ple_data.fork_question_pool_revision(uuid, text, uuid, bigint) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_data.fork_question_pool_revision(text, text, bigint) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_data.create_question_pool(uuid, text, text[], integer[], boolean, text, text) TO ple_api_owner;
+GRANT EXECUTE ON FUNCTION ple_data.create_question_pool(text, text[], integer[], boolean, text, text) TO ple_api_owner;
 
 SET LOCAL ROLE ple_api_owner;
 
-REVOKE ALL ON FUNCTION ple_api.create_question_pool(uuid, text, text[], integer[], boolean, text, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_api.create_question_pool(text, text[], integer[], boolean, text, text) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_api.create_question_pool(uuid, text, text[], integer[], boolean, text, text) TO ple_app;
+GRANT EXECUTE ON FUNCTION ple_api.create_question_pool(text, text[], integer[], boolean, text, text) TO ple_app;
 
 SET LOCAL ROLE ple_data_owner;
 

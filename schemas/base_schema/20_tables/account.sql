@@ -19,11 +19,7 @@ CREATE TABLE ple_private.public_id_reservation (
 -- Global account identity, current state, profile preference, and account audit.
 -- Credential material and sessions are owned by authentication.sql.
 CREATE TABLE ple_private.account (
-    account_id uuid PRIMARY KEY,
-    reference_number bigint GENERATED ALWAYS AS IDENTITY UNIQUE,
-    public_reference text NOT NULL UNIQUE CHECK (
-        ple_private.is_canonical_prefixed_public_id(public_reference, 'U')
-    ),
+    account_id ple_data.account_id PRIMARY KEY,
     product_role ple_data.product_role NOT NULL,
     created_at timestamp with time zone NOT NULL,
     CONSTRAINT account_product_role_is_unique UNIQUE (account_id, product_role),
@@ -35,7 +31,7 @@ CREATE TABLE ple_private.account (
 
 CREATE TABLE ple_private.account_state_event (
     event_id uuid PRIMARY KEY,
-    account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
+    account_id ple_data.account_id NOT NULL REFERENCES ple_private.account (account_id),
     state ple_data.account_state NOT NULL,
     occurred_at timestamp with time zone NOT NULL,
     reason text,
@@ -46,7 +42,7 @@ CREATE TABLE ple_private.account_state_event (
 
 
 CREATE TABLE ple_private.account_time_zone (
-    account_id uuid PRIMARY KEY REFERENCES ple_private.account (account_id),
+    account_id ple_data.account_id PRIMARY KEY REFERENCES ple_private.account (account_id),
     time_zone text NOT NULL CHECK (ple_private.account_time_zone_is_exact_iana(time_zone)),
     student_invitation_default_pending boolean NOT NULL DEFAULT false,
     created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp(),
@@ -59,9 +55,9 @@ SET LOCAL ROLE ple_audit_owner;
 
 CREATE TABLE ple_audit.instructor_account_creation_event (
     event_id uuid PRIMARY KEY,
-    created_instructor_account_id uuid NOT NULL,
+    created_instructor_account_id ple_data.account_id NOT NULL,
     created_instructor_product_role ple_data.product_role NOT NULL DEFAULT 'instructor',
-    created_by_sysadmin_account_id uuid NOT NULL,
+    created_by_sysadmin_account_id ple_data.account_id NOT NULL,
     created_by_sysadmin_product_role ple_data.product_role NOT NULL DEFAULT 'sysadmin',
     instructor_identity_vetting_decision_id uuid NOT NULL,
     occurred_at timestamp with time zone NOT NULL,
@@ -90,7 +86,7 @@ CREATE TABLE ple_audit.instructor_identity_vetting_decision (
         AND char_length(verified_instructor_display_name) BETWEEN 1 AND 200
         AND verified_instructor_display_name !~ '[[:cntrl:]]'
     ),
-    completed_by_sysadmin_account_id uuid NOT NULL,
+    completed_by_sysadmin_account_id ple_data.account_id NOT NULL,
     completed_by_sysadmin_product_role ple_data.product_role NOT NULL DEFAULT 'sysadmin',
     completed_at timestamp with time zone NOT NULL,
     FOREIGN KEY (completed_by_sysadmin_account_id, completed_by_sysadmin_product_role)
@@ -276,4 +272,7 @@ SET LOCAL ROLE ple_audit_owner;
 COMMENT ON TABLE ple_audit.instructor_account_creation_event IS 'role: event, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and Product Roles.';
 
 COMMENT ON TABLE ple_audit.instructor_identity_vetting_decision IS 'role: event, deleted by Account deactivation and closure; public IDs are never reclaimed. HUMAN_GUIDANCE.md Accounts and Product Roles.';
+
+SET LOCAL ROLE ple_private_owner;
+COMMENT ON COLUMN ple_private.account_state_event.reason IS 'NULL means this optional fact is absent.';
 

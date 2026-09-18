@@ -3,7 +3,7 @@
 SET LOCAL ROLE ple_data_owner;
 
 -- Private synchronization of current Assessment deadlines to Course facts.
-CREATE FUNCTION ple_data.synchronize_course_assessment_deadline(p_course_instance_id uuid)
+CREATE FUNCTION ple_data.synchronize_course_assessment_deadline(p_course_instance_id text)
 RETURNS void LANGUAGE plpgsql
 SET search_path = pg_catalog, ple_data AS $$
 DECLARE

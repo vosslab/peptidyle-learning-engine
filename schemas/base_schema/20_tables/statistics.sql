@@ -10,7 +10,7 @@ SET LOCAL ROLE ple_data_owner;
 -- Course retention and Unrelease leave anonymous totals unchanged; subsequent
 -- accepted grades increment those totals without reconstructing private evidence.
 CREATE TABLE ple_data.question_revision_statistics (
-    published_question_id text NOT NULL,
+    published_question_id ple_data.question_family_id NOT NULL,
     revision_number integer NOT NULL CHECK (revision_number > 0),
     accepted_graded_attempt_count bigint NOT NULL DEFAULT 0
         CHECK (accepted_graded_attempt_count >= 0),
@@ -25,7 +25,7 @@ CREATE TABLE ple_data.question_revision_statistics (
 );
 
 CREATE TABLE ple_data.question_revision_choice_statistics (
-    published_question_id text NOT NULL,
+    published_question_id ple_data.question_family_id NOT NULL,
     revision_number integer NOT NULL CHECK (revision_number > 0),
     choice_id text NOT NULL CHECK (
         choice_id = btrim(choice_id) AND char_length(choice_id) BETWEEN 1 AND 256
@@ -48,7 +48,7 @@ CREATE TABLE ple_private.question_statistics_observation_receipt (
         ON DELETE CASCADE,
     question_attempt_id uuid NOT NULL UNIQUE
         REFERENCES ple_private.question_attempt(question_attempt_id) ON DELETE CASCADE,
-    published_question_id text NOT NULL,
+    published_question_id ple_data.question_family_id NOT NULL,
     revision_number integer NOT NULL CHECK (revision_number > 0),
     correct boolean NOT NULL,
     observed_at timestamptz NOT NULL,

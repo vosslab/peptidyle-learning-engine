@@ -38,7 +38,7 @@ END $$;
 SET LOCAL ROLE ple_data_owner;
 
 CREATE FUNCTION ple_data.student_assessment_has_course_scope(
-    p_student_record_id uuid, p_assessment_id uuid
+    p_student_record_id uuid, p_assessment_id text
 ) RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
@@ -183,7 +183,7 @@ END $$;
 CREATE FUNCTION ple_private.validate_issued_question_reproduction()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private AS $$
-DECLARE source_backend text;
+DECLARE source_backend ple_data.question_backend;
 BEGIN
     SELECT backend INTO source_backend
       FROM ple_private.question_revision_source_binding

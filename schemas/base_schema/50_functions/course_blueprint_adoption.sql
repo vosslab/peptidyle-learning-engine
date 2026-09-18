@@ -3,35 +3,19 @@
 SET LOCAL ROLE ple_api_owner;
 
 -- Atomic initial teaching content, materialized by the Store from the exact Blueprint.
-CREATE FUNCTION ple_api.load_course_instance_blueprint(p_reference bigint, p_revision bigint)
+CREATE FUNCTION ple_api.load_course_instance_blueprint(p_reference text, p_revision bigint)
 RETURNS TABLE(content jsonb, content_checksum bytea)
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT revision.content, revision.content_checksum
       FROM ple_data.blueprint_course AS blueprint
       JOIN ple_data.blueprint_course_revision AS revision
-        ON revision.blueprint_course_id = blueprint.reference_number
+        ON revision.blueprint_course_id = blueprint.blueprint_course_id
        AND revision.blueprint_revision_number = p_revision
-     WHERE blueprint.reference_number = p_reference
-       -- C49 defines Public as the only reusable state. C73 owns the
-       -- separate adoption-default structure below.
+     WHERE blueprint.blueprint_course_id = p_reference
        AND blueprint.availability = 'public'
        AND (ple_api.current_session_account_is_instructor()
             OR ple_api.current_session_account_is_sysadmin())
-$$;
-
-
-
--- Only the typed Store receives human-facing Blueprint references.  The
--- data-owner adoption validator above retains its internal numeric reader.
-CREATE FUNCTION ple_api.load_course_instance_blueprint(p_reference text, p_revision bigint)
-RETURNS TABLE(content jsonb, content_checksum bytea)
-LANGUAGE sql STABLE SECURITY DEFINER
-SET search_path = pg_catalog, ple_api, ple_data AS $$
-    SELECT * FROM ple_api.load_course_instance_blueprint(
-        (SELECT reference_number FROM ple_data.blueprint_course WHERE public_reference = $1),
-        $2
-    )
 $$;
 
 
@@ -40,16 +24,16 @@ $$;
 
 -- The automatic append is authorized by Blueprint ownership, not daughter
 -- teaching membership or current Course Instance activity.
-CREATE FUNCTION ple_api.load_blueprint_assessment_copy_source(p_reference bigint, p_revision bigint)
+CREATE FUNCTION ple_api.load_blueprint_assessment_copy_source(p_reference text, p_revision bigint)
 RETURNS TABLE(content jsonb, content_checksum bytea)
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT revision.content, revision.content_checksum
       FROM ple_data.blueprint_course AS blueprint
       JOIN ple_data.blueprint_course_revision AS revision
-        ON revision.blueprint_course_id = blueprint.reference_number
+        ON revision.blueprint_course_id = blueprint.blueprint_course_id
        AND revision.blueprint_revision_number = p_revision
-     WHERE blueprint.reference_number = p_reference
+     WHERE blueprint.blueprint_course_id = p_reference
        AND ((blueprint.availability IN ('public', 'archived')
              AND (ple_api.current_session_account_is_instructor()
                   OR ple_api.current_session_account_is_sysadmin()))
@@ -69,7 +53,7 @@ SET LOCAL ROLE ple_data_owner;
 -- persisted curriculum or policy value.  Compare that proposed materialization
 -- to the sealed Blueprint Revision here, before any Course child exists.
 CREATE FUNCTION ple_data.validate_course_blueprint_adoption(
-    p_blueprint_reference bigint, p_blueprint_revision bigint, p_assessments jsonb
+    p_blueprint_reference text, p_blueprint_revision bigint, p_assessments jsonb
 )
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
@@ -201,7 +185,7 @@ END;
 $$;
 
 CREATE FUNCTION ple_data.append_course_assessments(
-    p_course_instance_id uuid, p_blueprint_reference bigint, p_blueprint_revision bigint, p_assessments jsonb
+    p_course_instance_id text, p_blueprint_reference text, p_blueprint_revision bigint, p_assessments jsonb
 )
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
@@ -209,8 +193,8 @@ DECLARE
     member jsonb;
     entry_json jsonb;
     candidate ple_data.assessment%ROWTYPE;
-    new_assessment_id uuid;
-    source_question_pool_id uuid;
+    new_assessment_id text;
+    source_question_pool_id text;
     forked record;
 BEGIN
     IF jsonb_typeof(p_assessments) IS DISTINCT FROM 'array' THEN
@@ -225,7 +209,7 @@ BEGIN
         IF EXISTS (
             SELECT 1 FROM ple_data.assessment
              WHERE course_instance_id = p_course_instance_id
-               AND source_blueprint_course_reference_number = p_blueprint_reference
+               AND source_blueprint_course_id = p_blueprint_reference
                AND source_blueprint_assessment_reference = (member ->> 'source')::uuid
         ) THEN CONTINUE; END IF;
         IF jsonb_typeof(member -> 'entries') IS DISTINCT FROM 'array'
@@ -238,7 +222,7 @@ BEGIN
             member -> 'values');
         new_assessment_id := gen_random_uuid();
         INSERT INTO ple_data.assessment (
-            assessment_id, course_instance_id, origin_kind, source_blueprint_course_reference_number,
+            assessment_id, course_instance_id, origin_kind, source_blueprint_course_id,
             source_blueprint_revision_number, source_blueprint_assessment_reference,
             created_at, updated_at,
             assessment_type,
@@ -300,13 +284,12 @@ BEGIN
         LOOP
             SELECT pool.question_pool_id INTO source_question_pool_id
              FROM ple_data.question_pool AS pool
-             WHERE pool.public_question_pool_id = entry_json ->> 'sourceQuestionPoolId';
+             WHERE pool.question_pool_id = entry_json ->> 'sourceQuestionPoolId';
             IF NOT FOUND THEN
                 RAISE EXCEPTION USING ERRCODE = '22023',
                     MESSAGE = 'Blueprint Question Pool source is unavailable';
             END IF;
             SELECT * INTO forked FROM ple_data.fork_question_pool_revision_for_course_adoption(
-                (entry_json ->> 'forkQuestionPoolId')::uuid,
                 entry_json ->> 'forkPublicQuestionPoolId',
                 source_question_pool_id,
                 (entry_json ->> 'sourceQuestionPoolRevisionNumber')::bigint
@@ -347,7 +330,7 @@ END
 $$;
 
 CREATE FUNCTION ple_data.initialize_course_assessments(
-    p_course_instance_id uuid, p_blueprint_reference bigint, p_blueprint_revision bigint, p_assessments jsonb
+    p_course_instance_id text, p_blueprint_reference text, p_blueprint_revision bigint, p_assessments jsonb
 )
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
@@ -364,20 +347,20 @@ $$;
 SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.list_blueprint_daughter_course_ids(p_reference text)
-RETURNS TABLE(course_instance_id uuid)
+RETURNS TABLE(course_instance_id text)
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
 BEGIN
     PERFORM 1 FROM ple_data.blueprint_course
-     WHERE public_reference = p_reference
+     WHERE blueprint_course_id = p_reference
        AND owner_account_id = ple_api.current_session_account_id()
        AND ple_api.current_session_account_is_instructor()
      FOR UPDATE;
     RETURN QUERY SELECT daughter.course_instance_id
       FROM ple_data.course_instance AS daughter
       JOIN ple_data.blueprint_course AS blueprint
-        ON blueprint.reference_number = daughter.blueprint_course_id
-     WHERE blueprint.public_reference = p_reference
+        ON blueprint.blueprint_course_id = daughter.blueprint_course_id
+     WHERE blueprint.blueprint_course_id = p_reference
        AND blueprint.owner_account_id = ple_api.current_session_account_id()
        AND ple_api.current_session_account_is_instructor()
      ORDER BY daughter.course_instance_id;
@@ -386,7 +369,7 @@ $$;
 
 CREATE FUNCTION ple_api.append_new_blueprint_assessments(
     p_reference text, p_prior_revision bigint, p_saved_revision bigint,
-    p_course_instance_id uuid, p_assessments jsonb
+    p_course_instance_id text, p_assessments jsonb
 )
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
@@ -399,7 +382,7 @@ BEGIN
     -- ASVS 2.3.1, 2.3.3: this runs before the Store commits the Save,
     -- under the same Blueprint lock used by Save and Course adoption.
     SELECT * INTO blueprint FROM ple_data.blueprint_course
-     WHERE public_reference = p_reference
+     WHERE blueprint_course_id = p_reference
        AND owner_account_id = ple_api.current_session_account_id()
        AND ple_api.current_session_account_is_instructor()
      FOR UPDATE;
@@ -409,7 +392,7 @@ BEGIN
        OR NOT EXISTS (
            SELECT 1 FROM ple_data.course_instance
             WHERE course_instance_id = p_course_instance_id
-              AND blueprint_course_id = blueprint.reference_number
+              AND blueprint_course_id = blueprint.blueprint_course_id
        ) THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Blueprint Assessment append is invalid';
     END IF;
@@ -417,11 +400,11 @@ BEGIN
                              ORDER BY added.blueprint_assessment_reference::text), '[]'::jsonb)
       INTO expected_sources
       FROM ple_data.blueprint_revision_assessment AS added
-     WHERE added.blueprint_course_id = blueprint.reference_number
+     WHERE added.blueprint_course_id = blueprint.blueprint_course_id
        AND added.blueprint_revision_number = p_saved_revision
        AND NOT EXISTS (
            SELECT 1 FROM ple_data.blueprint_revision_assessment AS prior
-            WHERE prior.blueprint_course_id = blueprint.reference_number
+            WHERE prior.blueprint_course_id = blueprint.blueprint_course_id
               AND prior.blueprint_revision_number = p_prior_revision
               AND prior.blueprint_assessment_reference = added.blueprint_assessment_reference
        );
@@ -431,7 +414,7 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Blueprint append must contain only newly added Assessments';
     END IF;
     PERFORM ple_data.append_course_assessments(
-        p_course_instance_id, blueprint.reference_number, p_saved_revision, p_assessments
+        p_course_instance_id, blueprint.blueprint_course_id, p_saved_revision, p_assessments
     );
 END
 $$;
@@ -457,8 +440,8 @@ BEGIN
     SELECT EXISTS (
         SELECT 1 FROM ple_data.blueprint_course_save_receipt AS prior_receipt
         JOIN ple_data.blueprint_course AS blueprint
-          ON blueprint.reference_number = prior_receipt.blueprint_course_id
-        WHERE blueprint.public_reference = p_reference
+          ON blueprint.blueprint_course_id = prior_receipt.blueprint_course_id
+        WHERE blueprint.blueprint_course_id = p_reference
           AND prior_receipt.actor_account_id = ple_api.current_session_account_id()
           AND prior_receipt.request_checksum = p_request_checksum
     ) INTO replay;
@@ -479,7 +462,7 @@ BEGIN
             PERFORM ple_api.append_new_blueprint_assessments(
                 p_reference, p_expected_blueprint_revision_number,
                 receipt.resulting_blueprint_revision_number,
-                (daughter ->> 'course_instance_id')::uuid, daughter -> 'assessments'
+                daughter ->> 'course_instance_id', daughter -> 'assessments'
             );
         END LOOP;
     END IF;

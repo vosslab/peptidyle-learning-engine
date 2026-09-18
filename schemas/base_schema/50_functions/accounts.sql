@@ -8,8 +8,6 @@ SET search_path = pg_catalog, ple_private
 AS $$
 BEGIN
     IF NEW.account_id IS DISTINCT FROM OLD.account_id
-       OR NEW.reference_number IS DISTINCT FROM OLD.reference_number
-       OR NEW.public_reference IS DISTINCT FROM OLD.public_reference
        OR NEW.product_role IS DISTINCT FROM OLD.product_role
        OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
@@ -106,8 +104,8 @@ BEFORE UPDATE OR DELETE ON ple_audit.instructor_identity_vetting_decision
 FOR EACH ROW EXECUTE FUNCTION ple_audit.reject_instructor_identity_vetting_decision_change();
 
 CREATE FUNCTION ple_audit.record_instructor_account_creation_event(
-    p_created_instructor_account_id uuid,
-    p_created_by_sysadmin_account_id uuid,
+    p_created_instructor_account_id text,
+    p_created_by_sysadmin_account_id text,
     p_vetting_decision_id uuid
 )
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER
@@ -143,7 +141,7 @@ $$;
 CREATE FUNCTION ple_audit.record_completed_instructor_identity_vetting_decision(
     p_normalized_email text,
     p_verified_instructor_display_name text,
-    p_completed_by_sysadmin_account_id uuid
+    p_completed_by_sysadmin_account_id text
 )
 RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_audit
@@ -205,7 +203,7 @@ $$;
 
 -- This is callable only by the server-owned internal wrapper below.  It does
 -- not grant browser clients or ordinary application logins any audit read.
-CREATE FUNCTION ple_audit.verified_instructor_display_name(p_instructor_account_id uuid)
+CREATE FUNCTION ple_audit.verified_instructor_display_name(p_instructor_account_id text)
 RETURNS text LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_audit, ple_private
 AS $$
@@ -223,7 +221,7 @@ CREATE FUNCTION ple_private.require_current_sysadmin_account()
 RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private
 AS $$
-DECLARE v_account_id uuid;
+DECLARE v_account_id text;
 BEGIN
     v_account_id := ple_api.current_session_account_id();
     -- C10 consumes C24's one platform-administration authority rather than
@@ -241,7 +239,7 @@ CREATE FUNCTION ple_private.current_authenticated_account_time_zone()
 RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private
 AS $$
-DECLARE v_account_id uuid;
+DECLARE v_account_id text;
 BEGIN
     v_account_id := ple_api.current_session_account_id();
     IF v_account_id IS NULL OR NOT (
@@ -260,7 +258,7 @@ END
 $$;
 
 CREATE FUNCTION ple_private.apply_student_invitation_time_zone_default(
-    p_student_account_id uuid, p_inviting_instructor_account_id uuid
+    p_student_account_id text, p_inviting_instructor_account_id text
 )
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private
@@ -284,10 +282,10 @@ $$;
 CREATE FUNCTION ple_private.resolve_or_create_student_account(
     p_normalized_email text, p_delivery_email text
 )
-RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER
+RETURNS text LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private
 AS $$
-DECLARE v_account_id uuid; v_now timestamptz := pg_catalog.transaction_timestamp();
+DECLARE v_account_id text; v_now timestamptz := pg_catalog.transaction_timestamp();
 BEGIN
     IF p_normalized_email IS NULL
        OR char_length(p_normalized_email) NOT BETWEEN 3 AND 320
@@ -303,9 +301,9 @@ BEGIN
     IF EXISTS (SELECT 1 FROM ple_private.account_authentication_email WHERE normalized_email = p_normalized_email) THEN
         RAISE EXCEPTION USING ERRCODE = '23505', MESSAGE = 'Student Authentication Email is unavailable';
     END IF;
-    v_account_id := pg_catalog.gen_random_uuid();
     INSERT INTO ple_private.account (account_id, product_role, created_at)
-    VALUES (v_account_id, 'student', v_now);
+    VALUES ('U00000009', 'student', v_now)
+    RETURNING account_id INTO v_account_id;
     UPDATE ple_private.account_time_zone
        SET student_invitation_default_pending = true
      WHERE account_id = v_account_id;
@@ -319,11 +317,11 @@ $$;
 CREATE FUNCTION ple_private.create_instructor_account(
     p_normalized_email text, p_delivery_email text, p_vetting_decision_id uuid
 )
-RETURNS TABLE (account_id uuid, created_at timestamp with time zone)
+RETURNS TABLE (account_id text, created_at timestamp with time zone)
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_audit, ple_private
 AS $$
-DECLARE v_account_id uuid; v_actor_account_id uuid; v_created_at timestamptz;
+DECLARE v_account_id text; v_actor_account_id text; v_created_at timestamptz;
 BEGIN
     IF p_normalized_email IS NULL
        OR char_length(p_normalized_email) NOT BETWEEN 3 AND 320
@@ -337,10 +335,10 @@ BEGIN
     PERFORM ple_private.require_completed_instructor_identity_vetting(
         p_vetting_decision_id, p_normalized_email
     );
-    v_account_id := pg_catalog.gen_random_uuid();
     v_created_at := pg_catalog.transaction_timestamp();
     INSERT INTO ple_private.account (account_id, product_role, created_at)
-    VALUES (v_account_id, 'instructor', v_created_at);
+    VALUES ('U00000009', 'instructor', v_created_at)
+    RETURNING account_id INTO v_account_id;
     INSERT INTO ple_private.account_authentication_email (
         account_id, normalized_email, delivery_email, verified_at, updated_at
     ) VALUES (v_account_id, p_normalized_email, p_delivery_email, v_created_at, v_created_at);
@@ -357,7 +355,7 @@ CREATE FUNCTION ple_private.complete_instructor_identity_vetting(
 RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_audit, ple_private
 AS $$
-DECLARE v_actor_account_id uuid;
+DECLARE v_actor_account_id text;
 BEGIN
     IF p_normalized_email IS NULL
        OR char_length(p_normalized_email) NOT BETWEEN 3 AND 320
@@ -383,7 +381,7 @@ $$;
 -- Internal-only source for the two later Star projections.  It is not exposed
 -- through ple_api: their own authorized procedures must select it after they
 -- establish a published item and active Instructor viewer.
-CREATE FUNCTION ple_private.verified_instructor_display_name(p_instructor_account_id uuid)
+CREATE FUNCTION ple_private.verified_instructor_display_name(p_instructor_account_id text)
 RETURNS text LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_audit, ple_private
 AS $$ SELECT ple_audit.verified_instructor_display_name(p_instructor_account_id) $$;
@@ -404,14 +402,14 @@ BEGIN
 END
 $$;
 
-CREATE FUNCTION ple_private.instructor_account_summary(p_account_id uuid)
+CREATE FUNCTION ple_private.instructor_account_summary(p_account_id text)
 RETURNS TABLE (public_reference text, state text, last_successful_sign_in timestamp with time zone)
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private
 AS $$
 BEGIN
     RETURN QUERY
-    SELECT account.public_reference, current_state.state,
+    SELECT account.account_id, current_state.state,
            (SELECT max(session.created_at) FROM ple_private.authenticated_session AS session
              WHERE session.account_id = account.account_id)
       FROM ple_private.account AS account
@@ -432,10 +430,10 @@ AS $$
 BEGIN
     PERFORM ple_private.require_current_sysadmin_account();
     RETURN QUERY
-    SELECT summary.public_reference, summary.state, summary.last_successful_sign_in
+    SELECT summary.account_id, summary.state, summary.last_successful_sign_in
     FROM ple_private.account AS account
     CROSS JOIN LATERAL ple_private.instructor_account_summary(account.account_id) AS summary
-    WHERE account.product_role = 'instructor' ORDER BY summary.public_reference;
+    WHERE account.product_role = 'instructor' ORDER BY summary.account_id;
 END
 $$;
 
@@ -446,7 +444,7 @@ RETURNS TABLE (public_reference text, state text, last_successful_sign_in timest
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private
 AS $$
-DECLARE v_account_id uuid;
+DECLARE v_account_id text;
 BEGIN
     SELECT created.account_id INTO v_account_id
     FROM ple_private.create_instructor_account(
@@ -463,7 +461,7 @@ RETURNS TABLE (public_reference text, state text, last_successful_sign_in timest
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private
 AS $$
-DECLARE v_account_id uuid; v_current_state text;
+DECLARE v_account_id text; v_current_state text;
 BEGIN
     PERFORM ple_private.require_current_sysadmin_account();
     IF p_next_state NOT IN ('active', 'deactivated') OR p_public_reference IS NULL THEN
@@ -476,7 +474,7 @@ BEGIN
          WHERE event.account_id = account.account_id
          ORDER BY event.occurred_at DESC, event.event_id DESC LIMIT 1
     ) AS state_event ON true
-    WHERE account.public_reference = p_public_reference AND account.product_role = 'instructor'
+    WHERE account.account_id = p_public_reference AND account.product_role = 'instructor'
     FOR UPDATE OF account;
     IF NOT FOUND OR v_current_state = p_next_state THEN RETURN; END IF;
     IF p_next_state = 'deactivated' AND char_length(btrim(p_reason)) NOT BETWEEN 1 AND 1000 THEN
@@ -493,7 +491,7 @@ CREATE FUNCTION ple_private.update_current_authenticated_account_time_zone(p_tim
 RETURNS text LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private
 AS $$
-DECLARE v_account_id uuid;
+DECLARE v_account_id text;
 BEGIN
     -- ASVS 2.2.1--2.2.2 and 8.2.2: positive IANA validation and the installed
     -- session are the only accepted mutation inputs. No Account ID or role is

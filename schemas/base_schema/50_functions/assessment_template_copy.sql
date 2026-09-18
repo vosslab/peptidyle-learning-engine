@@ -6,8 +6,8 @@ SET LOCAL ROLE ple_data_owner;
 -- The Template is read once and its portable settings are copied by value;
 -- neither aggregate retains the other's identity.
 CREATE FUNCTION ple_data.create_assessment_from_template_values(
-    p_assessment_id uuid,
-    p_course_reference_number bigint,
+    p_assessment_id text,
+    p_course_reference_number text,
     p_assessment_type text,
     p_title text,
     p_instructions text,
@@ -72,7 +72,7 @@ $$;
 SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.create_assessment_from_template(
-    p_assessment_id uuid,
+    p_assessment_id text,
     p_course_reference_number text,
     p_assessment_template_id uuid,
     p_title text
@@ -86,7 +86,7 @@ CREATE FUNCTION ple_api.create_assessment_from_template(
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
-    course_reference_number bigint;
+    course_reference_number text;
     template ple_private.assessment_template%ROWTYPE;
 BEGIN
     IF p_assessment_id IS NULL OR p_assessment_template_id IS NULL OR p_title IS NULL
@@ -107,9 +107,9 @@ BEGIN
             MESSAGE = 'Assessment Template is unavailable';
     END IF;
 
-    SELECT course.reference_number INTO course_reference_number
+    SELECT course.course_instance_id INTO course_reference_number
       FROM ple_data.course_instance AS course
-     WHERE course.public_reference = p_course_reference_number;
+     WHERE course.course_instance_id = p_course_reference_number;
 
     -- ASVS 1.2.4 and 2.2.2: every input is a typed procedure parameter.
     -- Canonical direct creation repeats destination Course authorization.

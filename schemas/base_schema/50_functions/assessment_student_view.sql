@@ -52,8 +52,8 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT ple_data.assessment_effective_base_duration_seconds(assessment.assessment_id)
       FROM ple_data.assessment AS assessment
       JOIN ple_data.course_instance AS course ON course.course_instance_id = assessment.course_instance_id
-     WHERE course.public_reference = p_course_public_reference
-       AND assessment.public_reference = p_assessment_public_reference
+     WHERE course.course_instance_id = p_course_public_reference
+       AND assessment.assessment_id = p_assessment_public_reference
        AND ple_api.current_session_account_is_course_instructor(course.course_instance_id)
 $$;
 
@@ -98,8 +98,8 @@ BEGIN
       FROM ple_data.course_instance AS course
       JOIN ple_data.assessment AS assessment
         ON assessment.course_instance_id = course.course_instance_id
-     WHERE course.public_reference = p_course_public_reference
-       AND assessment.public_reference = p_assessment_public_reference
+     WHERE course.course_instance_id = p_course_public_reference
+       AND assessment.assessment_id = p_assessment_public_reference
        AND ple_api.current_session_account_is_course_instructor(course.course_instance_id);
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501',

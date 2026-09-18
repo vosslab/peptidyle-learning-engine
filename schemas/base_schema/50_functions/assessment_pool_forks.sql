@@ -11,12 +11,11 @@ SET LOCAL ROLE ple_data_owner;
 -- accepts no raw member pins: membership is copied only from the resolved
 -- immutable reusable source Revision.
 CREATE FUNCTION ple_data.import_assessment_question_pool_fork(
-    p_assessment_id uuid,
+    p_assessment_id text,
     p_assessment_entry_id uuid,
     p_expected_assessment_edit_number bigint,
-    p_fork_question_pool_id uuid,
-    p_fork_public_question_pool_id text,
-    p_source_question_pool_id uuid,
+    p_fork_question_pool_id text,
+    p_source_question_pool_id text,
     p_source_question_pool_revision_number bigint,
     p_authored_position integer,
     p_selection_count integer,
@@ -25,7 +24,7 @@ CREATE FUNCTION ple_data.import_assessment_question_pool_fork(
     p_scoring_rule text
 ) RETURNS TABLE (
     assessment_entry_id uuid,
-    question_pool_id uuid,
+    question_pool_id text,
     question_pool_revision_number bigint,
     assessment_edit_number bigint
 )
@@ -53,7 +52,7 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Assessment Question Pool import is stale';
     END IF;
     SELECT * INTO forked FROM ple_data.fork_question_pool_revision(
-        p_fork_question_pool_id, p_fork_public_question_pool_id,
+        p_fork_question_pool_id,
         p_source_question_pool_id, p_source_question_pool_revision_number
     );
     IF p_selection_count > (
@@ -99,7 +98,7 @@ $$;
 -- The same qualified Assessment edit that changes the Entry advances the Pool
 -- Revision, so a caller cannot append a root reusable Pool or a foreign fork.
 CREATE FUNCTION ple_data.append_assessment_question_pool_fork_revision(
-    p_assessment_id uuid,
+    p_assessment_id text,
     p_assessment_entry_id uuid,
     p_expected_assessment_edit_number bigint,
     p_expected_question_pool_metadata_etag uuid,
@@ -108,7 +107,7 @@ CREATE FUNCTION ple_data.append_assessment_question_pool_fork_revision(
     p_interchangeability_attested boolean
 ) RETURNS TABLE (
     assessment_entry_id uuid,
-    question_pool_id uuid,
+    question_pool_id text,
     question_pool_revision_number bigint,
     question_pool_metadata_etag uuid,
     assessment_edit_number bigint
@@ -198,17 +197,17 @@ $$;
 SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.import_assessment_question_pool_fork(
-    uuid, uuid, bigint, uuid, text, uuid, bigint, integer, integer, numeric, text, text
+    text, uuid, bigint, text, text, bigint, integer, integer, numeric, text, text
 ) RETURNS TABLE (
     assessment_entry_id uuid,
-    question_pool_id uuid,
+    question_pool_id text,
     question_pool_revision_number bigint,
     assessment_edit_number bigint
 )
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT * FROM ple_data.import_assessment_question_pool_fork(
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
     )
 $$;
 
@@ -222,9 +221,8 @@ CREATE FUNCTION ple_api.import_assessment_question_pool_fork_for_reference(
     p_assessment_public_reference text,
     p_assessment_entry_id uuid,
     p_expected_assessment_edit_number bigint,
-    p_fork_question_pool_id uuid,
-    p_fork_public_question_pool_id text,
-    p_source_question_pool_id uuid,
+    p_fork_question_pool_id text,
+    p_source_question_pool_id text,
     p_source_question_pool_revision_number bigint,
     p_authored_position integer,
     p_selection_count integer,
@@ -233,27 +231,26 @@ CREATE FUNCTION ple_api.import_assessment_question_pool_fork_for_reference(
     p_scoring_rule text
 ) RETURNS TABLE (
     assessment_entry_id uuid,
-    question_pool_id uuid,
+    question_pool_id text,
     question_pool_revision_number bigint,
     assessment_edit_number bigint
 )
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
-DECLARE assessment_id_value uuid;
+DECLARE assessment_id_value text;
 BEGIN
     SELECT assessment.assessment_id INTO assessment_id_value
       FROM ple_data.course_instance AS course
       JOIN ple_data.assessment AS assessment ON assessment.course_instance_id = course.course_instance_id
-     WHERE course.public_reference = p_course_public_reference
-       AND assessment.public_reference = p_assessment_public_reference
+     WHERE course.course_instance_id = p_course_public_reference
+       AND assessment.assessment_id = p_assessment_public_reference
        AND ple_api.current_session_account_is_course_instructor(course.course_instance_id);
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment Question Pool import is unavailable';
     END IF;
     RETURN QUERY SELECT * FROM ple_data.import_assessment_question_pool_fork(
         assessment_id_value, p_assessment_entry_id, p_expected_assessment_edit_number,
-        p_fork_question_pool_id,
-        p_fork_public_question_pool_id, p_source_question_pool_id,
+        p_fork_question_pool_id, p_source_question_pool_id,
         p_source_question_pool_revision_number, p_authored_position,
         p_selection_count, p_points_per_item, p_selected_question_order, p_scoring_rule
     );
@@ -271,7 +268,7 @@ CREATE FUNCTION ple_api.read_assessment_question_pool_fork(
     p_assessment_entry_id uuid
 ) RETURNS TABLE (
     assessment_entry_id uuid,
-    public_question_pool_id text,
+    question_pool_id text,
     revision_number bigint,
     pool_metadata_etag uuid,
     selection_count integer,
@@ -286,7 +283,7 @@ CREATE FUNCTION ple_api.read_assessment_question_pool_fork(
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT entry.assessment_entry_id,
-           pool.public_question_pool_id,
+           pool.question_pool_id,
            entry.question_pool_revision_number,
            pool.metadata_etag,
            entry.selection_count,
@@ -314,8 +311,8 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
       JOIN ple_data.question_pool_revision_member AS member
         ON member.question_pool_id = entry.question_pool_id
        AND member.revision_number = entry.question_pool_revision_number
-     WHERE course.public_reference = p_course_reference
-       AND assessment.public_reference = p_assessment_reference
+     WHERE course.course_instance_id = p_course_reference
+       AND assessment.assessment_id = p_assessment_reference
        AND entry.assessment_entry_id = p_assessment_entry_id
        AND entry.entry_kind = 'question_pool'
        AND ple_api.current_session_account_is_course_instructor(course.course_instance_id)
@@ -323,9 +320,9 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
 $$;
 
 CREATE FUNCTION ple_api.append_assessment_question_pool_fork_revision(
-    uuid, uuid, bigint, uuid, text[], integer[], boolean
+    text, uuid, bigint, uuid, text[], integer[], boolean
 ) RETURNS TABLE (
-    assessment_entry_id uuid, question_pool_id uuid, question_pool_revision_number bigint,
+    assessment_entry_id uuid, question_pool_id text, question_pool_revision_number bigint,
     question_pool_metadata_etag uuid, assessment_edit_number bigint
 )
 LANGUAGE sql SECURITY DEFINER
@@ -345,18 +342,18 @@ CREATE FUNCTION ple_api.append_assessment_question_pool_fork_revision_for_refere
     p_member_revision_numbers integer[],
     p_interchangeability_attested boolean
 ) RETURNS TABLE (
-    assessment_entry_id uuid, question_pool_id uuid, question_pool_revision_number bigint,
+    assessment_entry_id uuid, question_pool_id text, question_pool_revision_number bigint,
     question_pool_metadata_etag uuid, assessment_edit_number bigint
 )
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
-DECLARE assessment_id_value uuid;
+DECLARE assessment_id_value text;
 BEGIN
     SELECT assessment.assessment_id INTO assessment_id_value
       FROM ple_data.course_instance AS course
       JOIN ple_data.assessment AS assessment ON assessment.course_instance_id = course.course_instance_id
-     WHERE course.public_reference = p_course_public_reference
-       AND assessment.public_reference = p_assessment_public_reference
+     WHERE course.course_instance_id = p_course_public_reference
+       AND assessment.assessment_id = p_assessment_public_reference
        AND ple_api.current_session_account_is_course_instructor(course.course_instance_id);
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment Question Pool Revision append is unavailable';

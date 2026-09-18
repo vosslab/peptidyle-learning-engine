@@ -15,7 +15,7 @@ SET LOCAL ROLE ple_private_owner;
 -- changing immutable grading evidence or consulting a backend.
 CREATE FUNCTION ple_private.score_recorded_credit(
     p_normalized_credit numeric,
-    p_scoring_rule text,
+    p_scoring_rule ple_data.scoring_rule,
     p_point_value numeric
 ) RETURNS TABLE (points_earned numeric, points_possible numeric)
 LANGUAGE sql IMMUTABLE
@@ -40,8 +40,8 @@ $$;
 -- ASVS 1.2.4, 2.1.1: fixed parameters and closed stored values define the
 -- complete grade-contribution rule without dynamic SQL.
 CREATE FUNCTION ple_private.grade_contribution_points_possible(
-    p_assessment_type text,
-    p_scoring_rule text,
+    p_assessment_type ple_data.assessment_type,
+    p_scoring_rule ple_data.scoring_rule,
     p_authored_points_possible numeric
 ) RETURNS numeric
 LANGUAGE sql IMMUTABLE

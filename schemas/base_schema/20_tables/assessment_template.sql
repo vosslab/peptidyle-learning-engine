@@ -5,7 +5,7 @@ SET LOCAL ROLE ple_private_owner;
 
 CREATE TABLE ple_private.assessment_template (
     assessment_template_id uuid PRIMARY KEY,
-    owner_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
+    owner_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account(account_id),
     assessment_template_edit_number bigint NOT NULL DEFAULT 1
         CHECK (assessment_template_edit_number > 0),
     template_name text NOT NULL CHECK (
@@ -58,4 +58,8 @@ COMMENT ON TABLE ple_private.assessment_template IS 'role: current state, delete
 
 
 COMMENT ON TABLE ple_private.assessment_template IS 'role: current state, deleted by owner delete of the template. HUMAN_GUIDANCE.md Assessment templates.';
+
+SET LOCAL ROLE ple_private_owner;
+COMMENT ON COLUMN ple_private.assessment_template.assessment_attempt_time_limit_seconds IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.assessment_template.assessment_attempt_limit IS 'NULL means this optional fact is absent.';
 

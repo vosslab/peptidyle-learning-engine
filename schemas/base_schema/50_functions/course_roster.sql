@@ -26,7 +26,7 @@ END $$;
 -- invitation delivery operation; callers cannot use it for active, revoked,
 -- expired, or unrelated Course records.
 CREATE FUNCTION ple_private.pending_course_invitation_delivery_email(
-    p_course_instance_id uuid, p_student_account_id uuid
+    p_course_instance_id text, p_student_account_id text
 ) RETURNS text
 LANGUAGE sql VOLATILE SECURITY DEFINER
 SET search_path = pg_catalog, ple_private
@@ -69,7 +69,7 @@ CREATE FUNCTION ple_audit.reject_course_roster_event_change() RETURNS trigger LA
 CREATE TRIGGER course_roster_event_is_immutable BEFORE UPDATE OR DELETE ON ple_audit.course_roster_event FOR EACH ROW EXECUTE FUNCTION ple_audit.reject_course_roster_event_change();
 
 CREATE FUNCTION ple_audit.record_course_roster_event(
-    p_course uuid, p_student uuid, p_actor uuid, p_kind text
+    p_course text, p_student text, p_actor text, p_kind text
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_audit AS $$
 BEGIN
     IF p_course IS NULL OR p_student IS NULL OR p_actor IS NULL

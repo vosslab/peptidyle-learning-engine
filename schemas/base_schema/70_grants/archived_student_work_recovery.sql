@@ -6,18 +6,15 @@ SET LOCAL ROLE ple_data_owner;
 -- The retained backend document is data for the trusted server, not an HTML
 -- response. No object addresses, credentials, Profiles, or receipt blobs cross
 -- this boundary. Existing Student/history/Instructor readers remain unchanged.
-GRANT SELECT (archive_after_retention_start, delete_after_archive, policy_key)
-    ON ple_data.course_retention_policy TO ple_api_owner;
-
 SET LOCAL ROLE ple_private_owner;
 
-REVOKE ALL ON FUNCTION ple_private.read_archived_assessment_attempt_evidence(uuid, bigint) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_private.read_archived_assessment_attempt_evidence(text, bigint) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_private.read_archived_assessment_attempt_evidence(uuid, bigint) TO ple_api_owner;
+GRANT EXECUTE ON FUNCTION ple_private.read_archived_assessment_attempt_evidence(text, bigint) TO ple_api_owner;
 
-REVOKE ALL ON FUNCTION ple_private.select_archived_assessment_attempt_evidence(uuid, bigint, integer) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_private.select_archived_assessment_attempt_evidence(text, bigint, integer) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_private.select_archived_assessment_attempt_evidence(uuid, bigint, integer) TO ple_api_owner;
+GRANT EXECUTE ON FUNCTION ple_private.select_archived_assessment_attempt_evidence(text, bigint, integer) TO ple_api_owner;
 
 SET LOCAL ROLE ple_api_owner;
 

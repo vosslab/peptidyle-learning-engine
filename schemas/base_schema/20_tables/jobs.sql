@@ -7,7 +7,7 @@ SET LOCAL ROLE ple_private_owner;
 -- history. Its immutable target is one pending public-asset publication.
 CREATE TABLE ple_private.job (
     job_id uuid PRIMARY KEY,
-    published_question_id text NOT NULL,
+    published_question_id ple_data.question_family_id NOT NULL,
     revision_number integer NOT NULL,
     payload jsonb NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(payload) = 'object'),
     state ple_data.job_state NOT NULL DEFAULT 'ready',
@@ -36,4 +36,9 @@ CREATE TABLE ple_private.job (
 
 SET LOCAL ROLE ple_private_owner;
 COMMENT ON TABLE ple_private.job IS 'role: current state, One immutable public Asset publication target with a bounded worker lease.';
+
+SET LOCAL ROLE ple_private_owner;
+COMMENT ON COLUMN ple_private.job.lease_token IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.job.lease_expires_at IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.job.completed_at IS 'NULL means this optional fact is absent.';
 

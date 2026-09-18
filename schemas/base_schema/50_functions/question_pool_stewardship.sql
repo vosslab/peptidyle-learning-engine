@@ -3,15 +3,15 @@
 SET LOCAL ROLE ple_data_owner;
 
 CREATE FUNCTION ple_data.set_current_question_pool_star(
-    p_public_question_pool_id text,
+    p_question_pool_id text,
     p_starred boolean
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
-    actor_id uuid;
+    actor_id text;
 BEGIN
     actor_id := ple_api.current_session_account_id();
-    IF p_public_question_pool_id IS NULL OR p_starred IS NULL
+    IF p_question_pool_id IS NULL OR p_starred IS NULL
        OR actor_id IS NULL
        OR NOT ple_api.current_session_account_is_instructor()
        OR ple_private.verified_instructor_display_name(actor_id) IS NULL THEN
@@ -19,18 +19,18 @@ BEGIN
             MESSAGE = 'Question Pool Star requires an active Instructor Account';
     END IF;
     PERFORM 1 FROM ple_data.question_pool
-     WHERE public_question_pool_id = p_public_question_pool_id;
+     WHERE question_pool_id = p_question_pool_id;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Question Pool Star requires a published Question Pool';
     END IF;
     IF p_starred THEN
-        INSERT INTO ple_data.question_pool_star(public_question_pool_id, instructor_account_id, starred_at)
-        VALUES (p_public_question_pool_id, actor_id, pg_catalog.clock_timestamp())
-        ON CONFLICT (public_question_pool_id, instructor_account_id) DO NOTHING;
+        INSERT INTO ple_data.question_pool_star(question_pool_id, instructor_account_id, starred_at)
+        VALUES (p_question_pool_id, actor_id, pg_catalog.clock_timestamp())
+        ON CONFLICT (question_pool_id, instructor_account_id) DO NOTHING;
     ELSE
         DELETE FROM ple_data.question_pool_star
-         WHERE public_question_pool_id = p_public_question_pool_id AND instructor_account_id = actor_id;
+         WHERE question_pool_id = p_question_pool_id AND instructor_account_id = actor_id;
     END IF;
 END
 $$;
@@ -46,7 +46,7 @@ $$;
 -- ASVS 8.2.1 and 8.3.1: both viewer role and each disclosed endorser's active
 -- Instructor status are derived in PostgreSQL, never from browser claims.
 CREATE FUNCTION ple_data.read_current_question_pool_star(
-    p_public_question_pool_id text
+    p_question_pool_id text
 ) RETURNS TABLE (
     viewer_has_starred boolean,
     star_count bigint,
@@ -54,10 +54,10 @@ CREATE FUNCTION ple_data.read_current_question_pool_star(
 ) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
-    actor_id uuid;
+    actor_id text;
 BEGIN
     actor_id := ple_api.current_session_account_id();
-    IF p_public_question_pool_id IS NULL
+    IF p_question_pool_id IS NULL
        OR actor_id IS NULL
        OR NOT ple_api.current_session_account_is_instructor()
        OR ple_private.verified_instructor_display_name(actor_id) IS NULL THEN
@@ -65,7 +65,7 @@ BEGIN
             MESSAGE = 'Question Pool Star requires an active Instructor Account';
     END IF;
     PERFORM 1 FROM ple_data.question_pool
-     WHERE public_question_pool_id = p_public_question_pool_id;
+     WHERE question_pool_id = p_question_pool_id;
     -- A missing public Pool identifier returns the Store's ordinary NotFound.
     -- HTTP concealment belongs to the separately reviewed server slice.
     IF NOT FOUND THEN RETURN; END IF;
@@ -86,7 +86,7 @@ BEGIN
                ORDER BY event.occurred_at DESC, event.event_id DESC
                LIMIT 1
           ) AS state_event ON state_event.state = 'active'
-         WHERE star.public_question_pool_id = p_public_question_pool_id
+         WHERE star.question_pool_id = p_question_pool_id
     )
     SELECT EXISTS (
                SELECT 1 FROM active_endorsers
@@ -110,15 +110,15 @@ $$;
 -- idempotent; Only the owning Instructor's projection is exposed.
 -- ASVS 8.2.1 and 8.3.1: authorization is enforced at the database boundary.
 CREATE FUNCTION ple_data.set_current_question_pool_watch(
-    p_public_question_pool_id text,
+    p_question_pool_id text,
     p_watched boolean
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
-    actor_id uuid;
+    actor_id text;
 BEGIN
     actor_id := ple_api.current_session_account_id();
-    IF p_public_question_pool_id IS NULL OR p_watched IS NULL
+    IF p_question_pool_id IS NULL OR p_watched IS NULL
        OR actor_id IS NULL
        OR NOT ple_api.current_session_account_is_instructor()
        OR ple_private.verified_instructor_display_name(actor_id) IS NULL THEN
@@ -126,18 +126,18 @@ BEGIN
             MESSAGE = 'Question Pool Watch requires an active Instructor Account';
     END IF;
     PERFORM 1 FROM ple_data.question_pool
-     WHERE public_question_pool_id = p_public_question_pool_id;
+     WHERE question_pool_id = p_question_pool_id;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Question Pool Watch requires a published Question Pool';
     END IF;
     IF p_watched THEN
-        INSERT INTO ple_data.question_pool_watch(public_question_pool_id, instructor_account_id, watched_at)
-        VALUES (p_public_question_pool_id, actor_id, pg_catalog.clock_timestamp())
-        ON CONFLICT (public_question_pool_id, instructor_account_id) DO NOTHING;
+        INSERT INTO ple_data.question_pool_watch(question_pool_id, instructor_account_id, watched_at)
+        VALUES (p_question_pool_id, actor_id, pg_catalog.clock_timestamp())
+        ON CONFLICT (question_pool_id, instructor_account_id) DO NOTHING;
     ELSE
         DELETE FROM ple_data.question_pool_watch
-         WHERE public_question_pool_id = p_public_question_pool_id AND instructor_account_id = actor_id;
+         WHERE question_pool_id = p_question_pool_id AND instructor_account_id = actor_id;
     END IF;
 END
 $$;
@@ -148,14 +148,14 @@ $$;
 -- one published Question Pool.  It deliberately does not enumerate watches or
 -- reveal any other watcher, even to another active Instructor.
 CREATE FUNCTION ple_data.read_current_question_pool_watch(
-    p_public_question_pool_id text
+    p_question_pool_id text
 ) RETURNS TABLE (watching boolean) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
-    actor_id uuid;
+    actor_id text;
 BEGIN
     actor_id := ple_api.current_session_account_id();
-    IF p_public_question_pool_id IS NULL
+    IF p_question_pool_id IS NULL
        OR actor_id IS NULL
        OR NOT ple_api.current_session_account_is_instructor()
        OR ple_private.verified_instructor_display_name(actor_id) IS NULL THEN
@@ -163,14 +163,14 @@ BEGIN
             MESSAGE = 'Question Pool Watch requires an active Instructor Account';
     END IF;
     PERFORM 1 FROM ple_data.question_pool
-     WHERE public_question_pool_id = p_public_question_pool_id;
+     WHERE question_pool_id = p_question_pool_id;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Question Pool Watch requires a published Question Pool';
     END IF;
     RETURN QUERY SELECT EXISTS (
         SELECT 1 FROM ple_data.question_pool_watch
-         WHERE public_question_pool_id = p_public_question_pool_id AND instructor_account_id = actor_id
+         WHERE question_pool_id = p_question_pool_id AND instructor_account_id = actor_id
     );
 END
 $$;
@@ -178,7 +178,7 @@ $$;
 SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.set_current_question_pool_star(
-    p_public_question_pool_id text,
+    p_question_pool_id text,
     p_starred boolean
 ) RETURNS void LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
@@ -186,7 +186,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 $$;
 
 CREATE FUNCTION ple_api.read_current_question_pool_star(
-    p_public_question_pool_id text
+    p_question_pool_id text
 ) RETURNS TABLE (
     viewer_has_starred boolean,
     star_count bigint,
@@ -197,7 +197,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 $$;
 
 CREATE FUNCTION ple_api.set_current_question_pool_watch(
-    p_public_question_pool_id text,
+    p_question_pool_id text,
     p_watched boolean
 ) RETURNS void LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
@@ -205,7 +205,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 $$;
 
 CREATE FUNCTION ple_api.read_current_question_pool_watch(
-    p_public_question_pool_id text
+    p_question_pool_id text
 ) RETURNS TABLE (watching boolean) LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
     SELECT * FROM ple_data.read_current_question_pool_watch($1)

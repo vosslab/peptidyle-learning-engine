@@ -21,10 +21,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
     ple_data.blueprint_course_save_receipt
 TO ple_api_owner;
 
-GRANT USAGE ON SEQUENCE ple_data.blueprint_course_reference_number_seq,
-    ple_data.blueprint_revision_event_blueprint_revision_event_id_seq,
-    ple_data.blueprint_metadata_event_blueprint_metadata_event_id_seq
-TO ple_api_owner;
+
 
 REVOKE ALL PRIVILEGES ON TABLE
     ple_data.blueprint_course,
@@ -44,7 +41,7 @@ REVOKE ALL PRIVILEGES ON FUNCTION ple_data.blueprint_content_question_pins(jsonb
     ple_data.blueprint_content_has_exact_keys(jsonb, text[]),
     ple_data.blueprint_content_is_closed(jsonb),
     ple_data.validate_blueprint_content(jsonb),
-    ple_data.validate_blueprint_question_selection(bigint, bigint, jsonb) FROM PUBLIC;
+    ple_data.validate_blueprint_question_selection(text, bigint, jsonb) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION ple_data.blueprint_content_question_pins(jsonb),
     ple_data.blueprint_content_pool_pins(jsonb),
@@ -52,7 +49,7 @@ GRANT EXECUTE ON FUNCTION ple_data.blueprint_content_question_pins(jsonb),
     ple_data.blueprint_content_has_exact_keys(jsonb, text[]),
     ple_data.blueprint_content_is_closed(jsonb),
     ple_data.validate_blueprint_content(jsonb),
-    ple_data.validate_blueprint_question_selection(bigint, bigint, jsonb)
+    ple_data.validate_blueprint_question_selection(text, bigint, jsonb)
 TO ple_api_owner;
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE

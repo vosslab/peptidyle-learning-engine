@@ -206,7 +206,7 @@ RETURNS TABLE (
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
 DECLARE
-    actor_id uuid;
+    actor_id text;
     activity_rules jsonb;
     feedback_rules jsonb;
 BEGIN

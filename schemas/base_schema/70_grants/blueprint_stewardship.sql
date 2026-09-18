@@ -11,11 +11,11 @@ GRANT SELECT ON ple_data.blueprint_metadata_event TO ple_data_owner;
 REVOKE ALL ON TABLE ple_data.blueprint_course_star,
     ple_data.blueprint_course_watch FROM PUBLIC;
 
-REVOKE ALL ON FUNCTION ple_data.set_current_blueprint_course_star(bigint, boolean),
-    ple_data.set_current_blueprint_course_watch(bigint, boolean) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_data.set_current_blueprint_course_star(text, boolean),
+    ple_data.set_current_blueprint_course_watch(text, boolean) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_data.set_current_blueprint_course_star(bigint, boolean),
-    ple_data.set_current_blueprint_course_watch(bigint, boolean) TO ple_api_owner;
+GRANT EXECUTE ON FUNCTION ple_data.set_current_blueprint_course_star(text, boolean),
+    ple_data.set_current_blueprint_course_watch(text, boolean) TO ple_api_owner;
 
 SET LOCAL ROLE ple_private_owner;
 
@@ -41,20 +41,19 @@ SET LOCAL ROLE ple_data_owner;
 GRANT EXECUTE ON FUNCTION ple_data.reject_blueprint_course_watch_notification_change()
     TO ple_private_owner;
 
-REVOKE ALL ON FUNCTION ple_data.fan_out_blueprint_course_watch_notifications(
-    bigint, text, bigint, timestamptz),
+REVOKE ALL ON FUNCTION ple_data.fan_out_blueprint_course_watch_notifications(text, text, bigint, timestamptz),
     ple_data.enqueue_blueprint_course_watch_revision(),
     ple_data.enqueue_blueprint_course_watch_lifecycle_change(),
-    ple_data.read_current_blueprint_course_star(bigint),
-    ple_data.read_current_blueprint_course_starred_instructors(bigint),
-    ple_data.read_current_blueprint_course_watch(bigint),
-    ple_data.read_current_blueprint_course_watch_events(bigint, integer),
+    ple_data.read_current_blueprint_course_star(text),
+    ple_data.read_current_blueprint_course_starred_instructors(text),
+    ple_data.read_current_blueprint_course_watch(text),
+    ple_data.read_current_blueprint_course_watch_events(text, integer),
     ple_data.reject_blueprint_course_watch_notification_change() FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_data.read_current_blueprint_course_star(bigint),
-    ple_data.read_current_blueprint_course_starred_instructors(bigint),
-    ple_data.read_current_blueprint_course_watch(bigint),
-    ple_data.read_current_blueprint_course_watch_events(bigint, integer) TO ple_api_owner;
+GRANT EXECUTE ON FUNCTION ple_data.read_current_blueprint_course_star(text),
+    ple_data.read_current_blueprint_course_starred_instructors(text),
+    ple_data.read_current_blueprint_course_watch(text),
+    ple_data.read_current_blueprint_course_watch_events(text, integer) TO ple_api_owner;
 
 SET LOCAL ROLE ple_api_owner;
 

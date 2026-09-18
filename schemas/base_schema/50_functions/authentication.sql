@@ -62,7 +62,7 @@ AFTER INSERT ON ple_private.account_state_event
 FOR EACH ROW EXECUTE FUNCTION ple_private.revoke_sessions_after_account_deactivation_or_closure();
 
 CREATE FUNCTION ple_private.resolve_active_authenticated_session(p_token_hash bytea)
-RETURNS TABLE (account_id uuid, session_id uuid, product_role text, token_hash bytea,
+RETURNS TABLE (account_id text, session_id uuid, product_role text, token_hash bytea,
                created_at timestamp with time zone, expires_at timestamp with time zone)
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private
@@ -80,9 +80,9 @@ AS $$
 $$;
 
 CREATE FUNCTION ple_private.create_authenticated_session(
-    p_session_id uuid, p_account_id uuid, p_token_hash bytea, p_lifetime_seconds bigint
+    p_session_id uuid, p_account_id text, p_token_hash bytea, p_lifetime_seconds bigint
 )
-RETURNS TABLE (session_id uuid, token_hash bytea, account_id uuid, product_role text,
+RETURNS TABLE (session_id uuid, token_hash bytea, account_id text, product_role text,
                created_at timestamp with time zone, expires_at timestamp with time zone)
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private
@@ -133,7 +133,7 @@ $$;
 CREATE FUNCTION ple_private.consume_email_authentication_challenge(
     p_challenge_id uuid, p_proof_hash bytea, p_browser_binding_hash bytea
 )
-RETURNS TABLE (account_id uuid, product_role text)
+RETURNS TABLE (account_id text, product_role text)
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private
 AS $$
@@ -152,7 +152,7 @@ $$;
 CREATE FUNCTION ple_private.consume_passkey_authentication(
     p_ceremony_id uuid, p_credential_id_hash bytea, p_browser_binding_hash bytea
 )
-RETURNS TABLE (account_id uuid, product_role text)
+RETURNS TABLE (account_id text, product_role text)
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private
 AS $$
@@ -172,7 +172,7 @@ AS $$
 $$;
 
 CREATE FUNCTION ple_private.provision_sysadmin_totp_credential(
-    p_account_id uuid, p_encryption_key_id text, p_seed_nonce bytea, p_encrypted_seed bytea
+    p_account_id text, p_encryption_key_id text, p_seed_nonce bytea, p_encrypted_seed bytea
 )
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private
@@ -208,7 +208,7 @@ END
 $$;
 
 CREATE FUNCTION ple_private.create_pending_sysadmin_totp_attestation(
-    p_attestation_id uuid, p_account_id uuid, p_browser_binding_hash bytea,
+    p_attestation_id uuid, p_account_id text, p_browser_binding_hash bytea,
     p_lifetime_seconds bigint
 )
 RETURNS TABLE (sysadmin_totp_attestation_id uuid)
@@ -246,7 +246,7 @@ CREATE FUNCTION ple_private.load_pending_sysadmin_totp_attestation(
     p_attestation_id uuid, p_browser_binding_hash bytea
 )
 RETURNS TABLE (
-    account_id uuid, encryption_key_id text, seed_nonce bytea, encrypted_seed bytea
+    account_id text, encryption_key_id text, seed_nonce bytea, encrypted_seed bytea
 )
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private
@@ -273,7 +273,7 @@ $$;
 CREATE FUNCTION ple_private.reserve_sysadmin_totp_verification_attempt(
     p_attestation_id uuid, p_browser_binding_hash bytea
 )
-RETURNS TABLE (account_id uuid)
+RETURNS TABLE (account_id text)
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private
 AS $$
@@ -347,7 +347,7 @@ CREATE FUNCTION ple_private.consume_sysadmin_totp_attestation_into_session(
     p_attestation_id uuid, p_browser_binding_hash bytea, p_totp_counter bigint,
     p_session_id uuid, p_token_hash bytea, p_lifetime_seconds bigint
 )
-RETURNS TABLE (session_id uuid, token_hash bytea, account_id uuid, product_role text,
+RETURNS TABLE (session_id uuid, token_hash bytea, account_id text, product_role text,
                created_at timestamp with time zone, expires_at timestamp with time zone)
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private
@@ -410,7 +410,7 @@ $$;
 SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.resolve_and_install_session(p_token_hash bytea)
-RETURNS TABLE (account_id uuid, session_id uuid, product_role text, token_hash bytea,
+RETURNS TABLE (account_id text, session_id uuid, product_role text, token_hash bytea,
                created_at timestamp with time zone, expires_at timestamp with time zone)
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private
@@ -430,9 +430,9 @@ END
 $$;
 
 CREATE FUNCTION ple_api.create_authenticated_session(
-    p_session_id uuid, p_account_id uuid, p_token_hash bytea, p_lifetime_seconds bigint
+    p_session_id uuid, p_account_id text, p_token_hash bytea, p_lifetime_seconds bigint
 )
-RETURNS TABLE (session_id uuid, token_hash bytea, account_id uuid, product_role text,
+RETURNS TABLE (session_id uuid, token_hash bytea, account_id text, product_role text,
                created_at timestamp with time zone, expires_at timestamp with time zone)
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private
@@ -448,7 +448,7 @@ AS $$ SELECT ple_private.revoke_authenticated_session(p_token_hash) $$;
 CREATE FUNCTION ple_api.consume_email_authentication_challenge(
     p_challenge_id uuid, p_proof_hash bytea, p_browser_binding_hash bytea
 )
-RETURNS TABLE (account_id uuid, product_role text)
+RETURNS TABLE (account_id text, product_role text)
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private
 AS $$ SELECT * FROM ple_private.consume_email_authentication_challenge(
@@ -458,7 +458,7 @@ AS $$ SELECT * FROM ple_private.consume_email_authentication_challenge(
 CREATE FUNCTION ple_api.consume_passkey_authentication(
     p_ceremony_id uuid, p_credential_id_hash bytea, p_browser_binding_hash bytea
 )
-RETURNS TABLE (account_id uuid, product_role text)
+RETURNS TABLE (account_id text, product_role text)
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private
 AS $$ SELECT * FROM ple_private.consume_passkey_authentication(
@@ -466,7 +466,7 @@ AS $$ SELECT * FROM ple_private.consume_passkey_authentication(
 ) $$;
 
 CREATE FUNCTION ple_api.provision_sysadmin_totp_credential(
-    p_account_id uuid, p_encryption_key_id text, p_seed_nonce bytea, p_encrypted_seed bytea
+    p_account_id text, p_encryption_key_id text, p_seed_nonce bytea, p_encrypted_seed bytea
 )
 RETURNS void LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private
@@ -475,7 +475,7 @@ AS $$ SELECT ple_private.provision_sysadmin_totp_credential(
 ) $$;
 
 CREATE FUNCTION ple_api.create_pending_sysadmin_totp_attestation(
-    p_attestation_id uuid, p_account_id uuid, p_browser_binding_hash bytea,
+    p_attestation_id uuid, p_account_id text, p_browser_binding_hash bytea,
     p_lifetime_seconds bigint
 )
 RETURNS TABLE (sysadmin_totp_attestation_id uuid)
@@ -489,7 +489,7 @@ CREATE FUNCTION ple_api.load_pending_sysadmin_totp_attestation(
     p_attestation_id uuid, p_browser_binding_hash bytea
 )
 RETURNS TABLE (
-    account_id uuid, encryption_key_id text, seed_nonce bytea, encrypted_seed bytea
+    account_id text, encryption_key_id text, seed_nonce bytea, encrypted_seed bytea
 )
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private
@@ -500,7 +500,7 @@ AS $$ SELECT * FROM ple_private.load_pending_sysadmin_totp_attestation(
 CREATE FUNCTION ple_api.reserve_sysadmin_totp_verification_attempt(
     p_attestation_id uuid, p_browser_binding_hash bytea
 )
-RETURNS TABLE (account_id uuid)
+RETURNS TABLE (account_id text)
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private
 AS $$ SELECT * FROM ple_private.reserve_sysadmin_totp_verification_attempt(
@@ -511,7 +511,7 @@ CREATE FUNCTION ple_api.consume_sysadmin_totp_attestation_into_session(
     p_attestation_id uuid, p_browser_binding_hash bytea, p_totp_counter bigint,
     p_session_id uuid, p_token_hash bytea, p_lifetime_seconds bigint
 )
-RETURNS TABLE (session_id uuid, token_hash bytea, account_id uuid, product_role text,
+RETURNS TABLE (session_id uuid, token_hash bytea, account_id text, product_role text,
                created_at timestamp with time zone, expires_at timestamp with time zone)
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private

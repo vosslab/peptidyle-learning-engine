@@ -4,7 +4,7 @@
 SET LOCAL ROLE ple_data_owner;
 
 CREATE TABLE ple_data.course_banner (
-    course_instance_id uuid NOT NULL REFERENCES ple_data.course_instance,
+    course_instance_id ple_data.course_instance_id NOT NULL REFERENCES ple_data.course_instance,
     course_banner_id uuid NOT NULL,
     source_object_record_id uuid NOT NULL REFERENCES ple_private.object_record,
     source_object_checksum bytea NOT NULL CHECK (octet_length(source_object_checksum) = 32),
@@ -26,7 +26,7 @@ CREATE TABLE ple_data.course_banner (
 
 
 CREATE TABLE ple_data.course_banner_rendition (
-    course_instance_id uuid NOT NULL,
+    course_instance_id ple_data.course_instance_id NOT NULL,
     course_banner_id uuid NOT NULL,
     rendition_kind text NOT NULL DEFAULT 'banner',
     object_record_id uuid NOT NULL REFERENCES ple_private.object_record,
@@ -44,7 +44,7 @@ CREATE TABLE ple_data.course_banner_rendition (
 CREATE TABLE ple_data.course_banner_delivery (
     object_delivery_id uuid PRIMARY KEY,
     object_record_id uuid NOT NULL,
-    course_instance_id uuid NOT NULL,
+    course_instance_id ple_data.course_instance_id NOT NULL,
     course_banner_id uuid NOT NULL,
     rendition_kind text NOT NULL DEFAULT 'banner',
     FOREIGN KEY (object_delivery_id, object_record_id) REFERENCES ple_data.object_delivery (object_delivery_id, object_record_id),
@@ -61,8 +61,8 @@ SET LOCAL ROLE ple_private_owner;
 
 CREATE TABLE ple_private.course_banner_upload (
     course_banner_upload_id uuid PRIMARY KEY,
-    course_instance_id uuid NOT NULL REFERENCES ple_data.course_instance,
-    account_id uuid NOT NULL REFERENCES ple_private.account,
+    course_instance_id ple_data.course_instance_id NOT NULL REFERENCES ple_data.course_instance,
+    account_id ple_data.account_id NOT NULL REFERENCES ple_private.account,
     object_record_id uuid NOT NULL UNIQUE REFERENCES ple_private.object_record,
     canonical_media_type ple_data.media_type NOT NULL,
     byte_length bigint NOT NULL CHECK (byte_length BETWEEN 1 AND 8388608),
@@ -80,7 +80,7 @@ CREATE TABLE ple_private.course_banner_upload (
 CREATE TABLE ple_private.course_banner_storage_subject (
     course_banner_storage_subject_id uuid PRIMARY KEY,
     subject_kind ple_data.banner_subject_kind NOT NULL,
-    course_instance_id uuid NOT NULL REFERENCES ple_data.course_instance,
+    course_instance_id ple_data.course_instance_id NOT NULL REFERENCES ple_data.course_instance,
     course_banner_upload_id uuid REFERENCES ple_private.course_banner_upload,
     course_banner_id uuid,
     object_record_id uuid NOT NULL UNIQUE REFERENCES ple_private.object_record,
@@ -103,7 +103,7 @@ CREATE TABLE ple_private.course_banner_storage_subject (
 
 CREATE TABLE ple_private.course_banner_work (
     course_banner_work_id uuid PRIMARY KEY,
-    course_instance_id uuid NOT NULL REFERENCES ple_data.course_instance,
+    course_instance_id ple_data.course_instance_id NOT NULL REFERENCES ple_data.course_instance,
     course_banner_id uuid,
     operation_kind ple_data.banner_work_operation NOT NULL,
     object_record_id uuid NOT NULL,
@@ -121,7 +121,7 @@ CREATE TABLE ple_private.course_banner_work (
 
 
 CREATE TABLE ple_private.course_banner_prepared_presentation (
-    course_instance_id uuid NOT NULL,
+    course_instance_id ple_data.course_instance_id NOT NULL,
     course_banner_id uuid NOT NULL,
     alternative_kind ple_data.alternative_kind NOT NULL,
     alternative_text text,
@@ -220,4 +220,14 @@ COMMENT ON TABLE ple_private.course_banner_storage_subject IS 'role: current sta
 COMMENT ON TABLE ple_private.course_banner_work IS 'role: event, deleted by Course delete and object cleanup. HUMAN_GUIDANCE.md Course appearance.';
 
 COMMENT ON TABLE ple_private.course_banner_prepared_presentation IS 'role: event, deleted by Course delete and object cleanup. HUMAN_GUIDANCE.md Course appearance.';
+
+SET LOCAL ROLE ple_private_owner;
+COMMENT ON COLUMN ple_private.course_banner_upload.promoted_at IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.course_banner_storage_subject.course_banner_upload_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.course_banner_storage_subject.course_banner_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.course_banner_work.course_banner_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.course_banner_work.course_banner_storage_subject_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.course_banner_work.object_delivery_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.course_banner_work.completed_at IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.course_banner_prepared_presentation.alternative_text IS 'NULL means this optional fact is absent.';
 

@@ -126,7 +126,7 @@ END
 $$;
 
 CREATE FUNCTION ple_private.attach_question_pool_revision_bloom(
-    p_bloom_preparation_receipt_id uuid, p_question_pool_id uuid,
+    p_bloom_preparation_receipt_id uuid, p_question_pool_id text,
     p_revision_number bigint, p_title text, p_description text,
     p_member_question_ids text[], p_member_revision_numbers integer[]
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
@@ -260,7 +260,7 @@ $$;
 SET LOCAL ROLE ple_private_owner;
 
 CREATE FUNCTION ple_private.correct_question_pool_revision_bloom(
-    p_public_question_pool_id text, p_revision_number bigint,
+    p_question_pool_id text, p_revision_number bigint,
     p_expected_classification_edit_number bigint,
     p_cognitive_process text, p_knowledge_dimension text
 ) RETURNS TABLE (cognitive_process text, knowledge_dimension text, classification_edit_number bigint)
@@ -268,7 +268,7 @@ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
     current_bloom ple_data.question_pool_revision_bloom%ROWTYPE;
-    target_pool_id uuid;
+    target_pool_id text;
     validated_cognitive_process ple_data.bloom_cognitive_process;
     validated_knowledge_dimension ple_data.bloom_knowledge_dimension;
 BEGIN
@@ -277,9 +277,9 @@ BEGIN
     IF NOT ple_api.current_session_account_is_instructor() THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Bloom correction requires an active Instructor';
     END IF;
-    IF p_public_question_pool_id IS NULL OR p_public_question_pool_id !~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
-       OR substr(p_public_question_pool_id, 6, 1) <> ple_private.crockford_checksum_character(
-           substr(p_public_question_pool_id, 1, 4) || substr(p_public_question_pool_id, 7, 3)
+    IF p_question_pool_id IS NULL OR p_question_pool_id !~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
+       OR substr(p_question_pool_id, 6, 1) <> ple_private.crockford_checksum_character(
+           substr(p_question_pool_id, 1, 4) || substr(p_question_pool_id, 7, 3)
        )
        OR p_revision_number IS NULL OR p_revision_number <= 0
        OR p_expected_classification_edit_number IS NULL
@@ -294,7 +294,7 @@ BEGIN
       JOIN ple_data.question_pool_revision AS revision
         ON revision.question_pool_id = pool.question_pool_id
        AND revision.revision_number = p_revision_number
-     WHERE pool.public_question_pool_id = p_public_question_pool_id;
+     WHERE pool.question_pool_id = p_question_pool_id;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Bloom correction target is unavailable';
     END IF;
@@ -327,14 +327,14 @@ $$;
 SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.correct_question_pool_revision_bloom(
-    p_public_question_pool_id text, p_revision_number bigint,
+    p_question_pool_id text, p_revision_number bigint,
     p_expected_classification_edit_number bigint,
     p_cognitive_process text, p_knowledge_dimension text
 ) RETURNS TABLE (cognitive_process text, knowledge_dimension text, classification_edit_number bigint)
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private AS $$
     SELECT * FROM ple_private.correct_question_pool_revision_bloom(
-        p_public_question_pool_id, p_revision_number, p_expected_classification_edit_number,
+        p_question_pool_id, p_revision_number, p_expected_classification_edit_number,
         p_cognitive_process, p_knowledge_dimension)
 $$;
 

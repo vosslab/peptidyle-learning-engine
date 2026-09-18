@@ -35,21 +35,21 @@ GRANT INSERT ON ple_audit.object_storage_check_event, ple_audit.object_cleanup_r
 
 SET LOCAL ROLE ple_api_owner;
 
-REVOKE ALL ON FUNCTION ple_api.read_course_banner(uuid), ple_api.resolve_current_course_banner(uuid),
-    ple_api.stage_course_banner_upload(uuid,uuid,uuid,text,bigint,bytea,integer,integer,bigint),
-    ple_api.finalize_course_banner_upload_stage(uuid,uuid), ple_api.read_staged_course_banner_upload(uuid,uuid),
-    ple_api.prepare_course_banner_promotion(uuid,uuid,uuid,text,text,uuid,bytea,bigint,text,integer,integer,uuid,bytea,bigint,text,integer,integer),
-    ple_api.complete_prepared_course_banner_object(uuid,uuid,uuid), ple_api.prepare_course_banner_object_deletion(uuid),
-    ple_api.complete_course_banner_object_deletion(uuid), ple_api.require_course_banner_object_repair(uuid,uuid,uuid),
-    ple_api.require_course_banner_deletion_repair(uuid), ple_api.record_course_banner_cleanup_check(uuid,boolean,bytea),
-    ple_api.finalize_course_banner_promotion(uuid,uuid,uuid), ple_api.prepare_course_banner_removal(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_api.read_course_banner(text), ple_api.resolve_current_course_banner(uuid),
+    ple_api.stage_course_banner_upload(text, uuid, uuid, text, bigint, bytea, integer, integer, bigint),
+    ple_api.finalize_course_banner_upload_stage(text, uuid), ple_api.read_staged_course_banner_upload(text, uuid),
+    ple_api.prepare_course_banner_promotion(text, uuid, uuid, text, text, uuid, bytea, bigint, text, integer, integer, uuid, bytea, bigint, text, integer, integer),
+    ple_api.complete_prepared_course_banner_object(text, uuid, uuid), ple_api.prepare_course_banner_object_deletion(uuid),
+    ple_api.complete_course_banner_object_deletion(uuid), ple_api.require_course_banner_object_repair(text, uuid, uuid),
+    ple_api.require_course_banner_deletion_repair(uuid), ple_api.record_course_banner_cleanup_check(uuid, boolean, bytea),
+    ple_api.finalize_course_banner_promotion(text, uuid, uuid), ple_api.prepare_course_banner_removal(text) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_api.read_course_banner(uuid), ple_api.resolve_current_course_banner(uuid),
-    ple_api.stage_course_banner_upload(uuid,uuid,uuid,text,bigint,bytea,integer,integer,bigint),
-    ple_api.finalize_course_banner_upload_stage(uuid,uuid), ple_api.read_staged_course_banner_upload(uuid,uuid),
-    ple_api.prepare_course_banner_promotion(uuid,uuid,uuid,text,text,uuid,bytea,bigint,text,integer,integer,uuid,bytea,bigint,text,integer,integer),
-    ple_api.complete_prepared_course_banner_object(uuid,uuid,uuid), ple_api.prepare_course_banner_object_deletion(uuid),
-    ple_api.complete_course_banner_object_deletion(uuid), ple_api.require_course_banner_object_repair(uuid,uuid,uuid),
-    ple_api.require_course_banner_deletion_repair(uuid), ple_api.record_course_banner_cleanup_check(uuid,boolean,bytea),
-    ple_api.finalize_course_banner_promotion(uuid,uuid,uuid), ple_api.prepare_course_banner_removal(uuid) TO ple_app;
+GRANT EXECUTE ON FUNCTION ple_api.read_course_banner(text), ple_api.resolve_current_course_banner(uuid),
+    ple_api.stage_course_banner_upload(text, uuid, uuid, text, bigint, bytea, integer, integer, bigint),
+    ple_api.finalize_course_banner_upload_stage(text, uuid), ple_api.read_staged_course_banner_upload(text, uuid),
+    ple_api.prepare_course_banner_promotion(text, uuid, uuid, text, text, uuid, bytea, bigint, text, integer, integer, uuid, bytea, bigint, text, integer, integer),
+    ple_api.complete_prepared_course_banner_object(text, uuid, uuid), ple_api.prepare_course_banner_object_deletion(uuid),
+    ple_api.complete_course_banner_object_deletion(uuid), ple_api.require_course_banner_object_repair(text, uuid, uuid),
+    ple_api.require_course_banner_deletion_repair(uuid), ple_api.record_course_banner_cleanup_check(uuid, boolean, bytea),
+    ple_api.finalize_course_banner_promotion(text, uuid, uuid), ple_api.prepare_course_banner_removal(text) TO ple_app;
 

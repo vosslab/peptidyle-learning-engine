@@ -12,7 +12,7 @@ CREATE FUNCTION ple_private.bulk_replace_published_question_metadata(
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
-    actor_id uuid;
+    actor_id text;
     selection_count integer;
     distinct_count integer;
     normalized_selection jsonb;

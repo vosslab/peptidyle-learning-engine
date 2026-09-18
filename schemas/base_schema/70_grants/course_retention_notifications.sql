@@ -10,14 +10,14 @@ REVOKE ALL ON TABLE ple_private.course_retention_notification,
 
 SET LOCAL ROLE ple_data_owner;
 
-GRANT SELECT ON ple_data.course_instance, ple_data.course_retention_policy,
+GRANT SELECT ON ple_data.course_instance,
     ple_data.course_membership, ple_data.course_membership_event
     TO ple_course_retention_notification_owner;
 
 GRANT EXECUTE ON FUNCTION ple_data.course_retention_due_actions(timestamp with time zone),
     ple_data.course_membership_is_active(uuid) TO ple_course_retention_notification_owner;
 
-REVOKE ALL ON TABLE ple_data.course_instance, ple_data.course_retention_policy,
+REVOKE ALL ON TABLE ple_data.course_instance,
     ple_data.course_membership, ple_data.course_membership_event FROM ple_course_retention_notifier;
 
 SET LOCAL ROLE ple_private_owner;

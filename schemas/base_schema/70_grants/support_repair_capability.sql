@@ -15,12 +15,10 @@ SET LOCAL ROLE ple_audit_owner;
 REVOKE ALL ON TABLE ple_audit.support_repair_capability_event FROM PUBLIC;
 
 REVOKE ALL ON FUNCTION ple_audit.reject_support_repair_capability_event_change(),
-    ple_audit.record_support_repair_capability_event(uuid, uuid, uuid, text, text, text, text)
+    ple_audit.record_support_repair_capability_event(uuid, text, text, text, text, text, text)
     FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_audit.record_support_repair_capability_event(
-    uuid, uuid, uuid, text, text, text, text
-) TO ple_api_owner;
+GRANT EXECUTE ON FUNCTION ple_audit.record_support_repair_capability_event(uuid, text, text, text, text, text, text) TO ple_api_owner;
 
 SET LOCAL ROLE ple_api_owner;
 

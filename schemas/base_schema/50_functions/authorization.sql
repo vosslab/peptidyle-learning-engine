@@ -5,22 +5,17 @@ SET LOCAL ROLE ple_api_owner;
 -- Session-derived account and authoring predicates. Course-specific
 -- authorization follows the Course roots in course_operations.sql.
 CREATE FUNCTION ple_api.current_session_account_id()
-RETURNS uuid LANGUAGE sql STABLE SECURITY DEFINER
+RETURNS text LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private
 AS $$
     WITH configured AS (
         SELECT pg_catalog.current_setting('ple.session_account_id', true) AS raw_account_id
-    ), parsed AS (
-        SELECT CASE
-            WHEN raw_account_id ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
-            THEN raw_account_id::uuid
-        END AS account_id
-        FROM configured
     )
     SELECT account.account_id
-      FROM parsed
+      FROM configured
       JOIN ple_private.account AS account
-        ON account.account_id = parsed.account_id
+        ON account.account_id = configured.raw_account_id
+       AND ple_private.is_canonical_prefixed_public_id(configured.raw_account_id, 'U')
 $$;
 
 CREATE FUNCTION ple_api.current_session_account_has_active_role(p_role text)
@@ -62,7 +57,7 @@ RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api
 AS $$ SELECT ple_api.current_session_account_has_platform_administration() $$;
 
-CREATE FUNCTION ple_api.current_session_account_is_course_instructor(p_course_instance_id uuid)
+CREATE FUNCTION ple_api.current_session_account_is_course_instructor(p_course_instance_id text)
 RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data
 AS $$
@@ -82,7 +77,7 @@ BEGIN
 END
 $$;
 
-CREATE FUNCTION ple_api.current_session_account_is_course_member(p_course_instance_id uuid)
+CREATE FUNCTION ple_api.current_session_account_is_course_member(p_course_instance_id text)
 RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data
 AS $$
@@ -102,7 +97,7 @@ END
 $$;
 
 CREATE FUNCTION ple_api.current_session_account_owns_course_membership(
-    p_course_instance_id uuid, p_membership_id uuid
+    p_course_instance_id text, p_membership_id uuid
 )
 RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data
@@ -123,7 +118,7 @@ END
 $$;
 
 CREATE FUNCTION ple_api.current_session_account_owns_student_record(
-    p_course_instance_id uuid, p_student_record_id uuid
+    p_course_instance_id text, p_student_record_id uuid
 )
 RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data

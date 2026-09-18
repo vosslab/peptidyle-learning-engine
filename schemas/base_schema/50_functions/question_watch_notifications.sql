@@ -68,7 +68,7 @@ BEGIN
           SELECT pool_watch.instructor_account_id
             FROM ple_data.question_pool_watch AS pool_watch
            WHERE NEW.target_kind = 'question_pool'
-             AND pool_watch.public_question_pool_id = NEW.target_public_id
+             AND pool_watch.question_pool_id = NEW.target_public_id
       ) AS watch
       JOIN ple_private.account AS account
         ON account.account_id = watch.instructor_account_id
@@ -130,7 +130,7 @@ RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
 DECLARE public_id text;
 BEGIN
-    SELECT public_question_pool_id INTO public_id
+    SELECT question_pool_id INTO public_id
       FROM ple_data.question_pool WHERE question_pool_id = NEW.question_pool_id;
     INSERT INTO ple_data.library_watch_event(
         target_kind, target_public_id, event_kind, revision_number, occurred_at
@@ -149,14 +149,14 @@ SET search_path = pg_catalog, ple_data AS $$
 DECLARE source_public_id text;
 BEGIN
     IF NEW.source_question_pool_id IS NULL THEN RETURN NEW; END IF;
-    SELECT public_question_pool_id INTO source_public_id
+    SELECT question_pool_id INTO source_public_id
       FROM ple_data.question_pool WHERE question_pool_id = NEW.source_question_pool_id;
     INSERT INTO ple_data.library_watch_event(
         target_kind, target_public_id, event_kind, revision_number,
         forked_public_id, occurred_at
     ) VALUES (
         'question_pool', source_public_id, 'fork', NEW.source_question_pool_revision_number,
-        NEW.public_question_pool_id, NEW.created_at
+        NEW.question_pool_id, NEW.created_at
     );
     RETURN NEW;
 END
@@ -216,7 +216,7 @@ RETURNS TABLE(
     revision_number bigint, forked_public_id text, activity_id uuid, occurred_at_millis bigint
 ) LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
-DECLARE actor_id uuid;
+DECLARE actor_id text;
 BEGIN
     actor_id := ple_api.current_session_account_id();
     IF p_limit NOT BETWEEN 1 AND 100 OR actor_id IS NULL

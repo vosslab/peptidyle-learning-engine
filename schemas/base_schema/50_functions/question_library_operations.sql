@@ -154,7 +154,7 @@ CREATE FUNCTION ple_private.load_current_published_question_shared_metadata(
 ) LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
-    actor_id uuid;
+    actor_id text;
     returned_count integer;
 BEGIN
     actor_id := ple_api.current_session_account_id();

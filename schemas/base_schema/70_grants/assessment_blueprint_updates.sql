@@ -2,9 +2,9 @@
 
 SET LOCAL ROLE ple_data_owner;
 
-REVOKE ALL ON FUNCTION ple_data.lock_assessment_blueprint_update_destination(text, text, bigint) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_data.lock_assessment_blueprint_update_destination(text, text, text) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_data.lock_assessment_blueprint_update_destination(text, text, bigint) TO ple_api_owner;
+GRANT EXECUTE ON FUNCTION ple_data.lock_assessment_blueprint_update_destination(text, text, text) TO ple_api_owner;
 
 SET LOCAL ROLE ple_api_owner;
 
@@ -15,9 +15,9 @@ GRANT EXECUTE ON FUNCTION ple_api.load_assessment_blueprint_update(text, text) T
 SET LOCAL ROLE ple_data_owner;
 
 REVOKE ALL ON FUNCTION ple_data.assessment_blueprint_update_entries_semantics(jsonb),
-    ple_data.assessment_blueprint_update_equivalent(uuid, jsonb, jsonb) FROM PUBLIC;
+    ple_data.assessment_blueprint_update_equivalent(text, jsonb, jsonb) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_data.assessment_blueprint_update_equivalent(uuid, jsonb, jsonb) TO ple_api_owner;
+GRANT EXECUTE ON FUNCTION ple_data.assessment_blueprint_update_equivalent(text, jsonb, jsonb) TO ple_api_owner;
 
 REVOKE ALL ON FUNCTION ple_data.apply_assessment_blueprint_update(text, text, bigint, bigint, jsonb) FROM PUBLIC;
 
@@ -35,9 +35,9 @@ GRANT EXECUTE ON FUNCTION ple_api.assessment_blueprint_update_equivalent(text, t
 
 SET LOCAL ROLE ple_data_owner;
 
-REVOKE ALL ON FUNCTION ple_data.lock_course_blueprint_update_destination(text, bigint) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_data.lock_course_blueprint_update_destination(text, text) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_data.lock_course_blueprint_update_destination(text, bigint) TO ple_api_owner;
+GRANT EXECUTE ON FUNCTION ple_data.lock_course_blueprint_update_destination(text, text) TO ple_api_owner;
 
 SET LOCAL ROLE ple_api_owner;
 

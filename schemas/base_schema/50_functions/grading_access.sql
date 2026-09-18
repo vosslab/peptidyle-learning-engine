@@ -13,7 +13,7 @@
 -- execution grant preserve the authorized, minimum-field Gradebook boundary.
 CREATE FUNCTION ple_private.read_assessment_gradebook_evidence(
     p_student_record_id uuid,
-    p_assessment_id uuid
+    p_assessment_id text
 ) RETURNS TABLE (
     assessment_attempt_id uuid,
     assessment_attempt_completion text,
@@ -130,9 +130,9 @@ RETURNS TABLE (
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
     WITH course AS (
-        SELECT instance.course_instance_id, instance.public_reference
+        SELECT instance.course_instance_id
           FROM ple_data.course_instance AS instance
-         WHERE instance.public_reference = p_course_public_reference
+         WHERE instance.course_instance_id = p_course_public_reference
            -- Ordinary Instructor gradebook reads end with normal Student
            -- Work visibility. Retention's protected pre-delete capability is
            -- intentionally separate and does not reuse this projection.
@@ -156,17 +156,17 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
            AND profile.student_account_id = record.student_account_id
     ), released_assessment AS (
         -- ASVS 8.2.2/8.2.3: titles stay in this authorized Course's released set.
-        SELECT assessment.assessment_id, assessment.public_reference, assessment.assessment_title
+        SELECT assessment.assessment_id, assessment.assessment_title
           FROM course
           JOIN ple_data.assessment AS assessment
             ON assessment.course_instance_id = course.course_instance_id
            AND assessment.assessment_status = 'released'
-         GROUP BY assessment.assessment_id, assessment.public_reference, assessment.assessment_title
+         GROUP BY assessment.assessment_id, assessment.assessment_title
     ), gradebook AS (
-        SELECT course.public_reference AS course_public_reference,
+        SELECT course.course_instance_id AS course_public_reference,
                student.roster_id,
                student.roster_name,
-               assessment.public_reference AS assessment_reference_number,
+               assessment.assessment_id AS assessment_reference_number,
                assessment.assessment_title,
                evidence.assessment_attempt_completion,
                coalesce(evidence.expired_submitting, false) AS expired_submitting,
@@ -183,7 +183,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
            assessment_attempt_completion, expired_submitting, points_earned, points_possible
       FROM gradebook
     UNION ALL
-    SELECT course.public_reference, NULL::text, NULL::text, NULL::text, NULL::text, NULL::text, NULL::boolean,
+    SELECT course.course_instance_id, NULL::text, NULL::text, NULL::text, NULL::text, NULL::text, NULL::boolean,
            NULL::double precision, NULL::double precision
       FROM course
      WHERE NOT EXISTS (SELECT 1 FROM gradebook)

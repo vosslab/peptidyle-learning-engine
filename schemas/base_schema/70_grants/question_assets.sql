@@ -23,15 +23,15 @@ GRANT SELECT, INSERT, UPDATE ON ple_data.object_delivery, ple_data.question_asse
 
 SET LOCAL ROLE ple_private_owner;
 
-REVOKE ALL ON FUNCTION ple_private.select_ready_question_asset_renditions(text,integer) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_private.select_ready_question_asset_renditions(text, integer) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_private.select_ready_question_asset_renditions(text,integer) TO ple_api_owner;
+GRANT EXECUTE ON FUNCTION ple_private.select_ready_question_asset_renditions(text, integer) TO ple_api_owner;
 
 SET LOCAL ROLE ple_api_owner;
 
-REVOKE ALL ON FUNCTION ple_api.select_ready_question_asset_renditions(text,integer) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_api.select_ready_question_asset_renditions(text, integer) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_api.select_ready_question_asset_renditions(text,integer) TO ple_app;
+GRANT EXECUTE ON FUNCTION ple_api.select_ready_question_asset_renditions(text, integer) TO ple_app;
 
 SET LOCAL ROLE ple_private_owner;
 

@@ -144,7 +144,7 @@ pick the sections of a long guidance document that want splitting.
 ## Generate schema tables documentation
 
 ```bash
-source source_me.sh && python3 devel/generate_schema_tables_doc.py
+source source_me.sh && ./devel/generate_schema_tables_doc.py && ./schema_style/check_schema_style.py
 ```
 
 Reads `schemas/base_schema/` (override with `-s`/`--source-dir`) or a live
@@ -157,16 +157,36 @@ directory exists, otherwise one section per source file that contains
 `CREATE TABLE`. Each table lists its qualified name, role tag, columns, types,
 nullability, constraints, foreign keys, indexes, and catalog comments.
 
-The checker can load the same snapshot with `-j`/`--snapshot`. A missing
-snapshot path raises `FileNotFoundError`.
+The checker loads `schemas/catalog_snapshot.json` when that file exists.
+`-j`/`--snapshot` selects another path and raises `FileNotFoundError` if it
+is missing. Snapshot and database runs also apply Tier 3 rules.
 
 ## Check schema style
 
+Regenerate the catalog snapshot, then check it. The checker reads
+`schemas/catalog_snapshot.json` on its own when that file exists:
+
 ```bash
-source source_me.sh && ./schema_style/check_schema_style.py
+source source_me.sh && ./devel/generate_schema_tables_doc.py && ./schema_style/check_schema_style.py
 ```
 
+`-j`/`--snapshot` still selects an explicit snapshot path. Omit the snapshot
+file (and `-j`) for a source-only run.
+
 Reports mechanical rules from docs/DATABASE_STYLE.md against schemas/base_schema/ (override with -s/--source-dir). Default stdout is one count, tab, rule_##_title line per rule with findings (two-digit numbers), skip notes, and N findings in M rules only. One finding line per violation (rule_##_title, location, message, source file:line) is written to output/schema_style_findings.txt. -v/--verbose also prints those finding lines to stdout. -r/--report includes advisory findings (rule_14_unindexed_fk, and rule_layout only when 20_tables/ is absent) in verbose stdout and the findings file without changing the exit code. -j/--snapshot reads a catalog snapshot; -d/--database reads a live database. Exit 1 on blocking findings, 0 if clean.
+
+## Course retention intervals
+
+The installation-wide FERPA schedule is PostgreSQL settings, not a table.
+Defaults are 14 days inactive warning, 70 days archive notice, 100 days from
+retention start to archive, and 265 days from that archive cutoff to deletion.
+Override per database:
+
+```sql
+ALTER DATABASE ple SET ple.retention_archive_after_retention_start = '100 days';
+```
+
+`ple_data.retention_schedule()` is the SQL read path for those values.
 
 ## Evidence boundaries
 

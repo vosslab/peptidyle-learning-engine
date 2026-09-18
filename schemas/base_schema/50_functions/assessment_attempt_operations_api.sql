@@ -9,7 +9,7 @@
 CREATE FUNCTION ple_private.save_student_assessment_accommodation(
     p_accommodation_id uuid,
     p_student_record_id uuid,
-    p_assessment_id uuid,
+    p_assessment_id text,
     p_expected_edit_number bigint,
     p_available_at timestamptz,
     p_due_at timestamptz,
@@ -20,7 +20,7 @@ CREATE FUNCTION ple_private.save_student_assessment_accommodation(
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE current_row ple_private.student_assessment_accommodation%ROWTYPE;
-DECLARE course_id_value uuid;
+DECLARE course_id_value text;
 BEGIN
     IF p_accommodation_id IS NULL OR p_student_record_id IS NULL OR p_assessment_id IS NULL
        OR p_expected_edit_number IS NULL OR p_expected_edit_number < 0 THEN
@@ -86,7 +86,7 @@ END $$;
 
 SET LOCAL ROLE ple_api_owner;
 
-CREATE FUNCTION ple_api.start_assessment_attempt(uuid, uuid, uuid, jsonb, jsonb)
+CREATE FUNCTION ple_api.start_assessment_attempt(uuid, uuid, text, jsonb, jsonb)
 RETURNS TABLE (assessment_attempt_id uuid, assessment_attempt_number integer, resumed boolean)
 LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$
     SELECT * FROM ple_private.start_assessment_attempt($1, $2, $3, $4, $5)
@@ -99,17 +99,17 @@ RETURNS TABLE (
 )
 LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api, ple_data AS $$
     SELECT * FROM ple_private.prepare_current_assessment_attempt_start_decision(
-        (SELECT course.reference_number FROM ple_data.course_instance AS course
-          WHERE course.public_reference = $1),
+        (SELECT course.course_instance_id FROM ple_data.course_instance AS course
+          WHERE course.course_instance_id = $1),
         $2
     )
 $$;
 
 CREATE FUNCTION ple_api.prepare_current_assessment_attempt_start(text, text)
 RETURNS TABLE (
-    student_record_id uuid, assessment_id uuid, assessment_entry_id uuid,
+    student_record_id uuid, assessment_id text, assessment_entry_id uuid,
     entry_kind text, authored_position integer, fixed_question_id text,
-    fixed_revision_number integer, question_pool_id uuid,
+    fixed_revision_number integer, question_pool_id text,
     question_pool_public_id text, question_pool_revision_number bigint, member_position integer,
     pool_question_id text, pool_revision_number integer, question_backend text,
     selection_count integer,
@@ -118,8 +118,8 @@ RETURNS TABLE (
 )
 LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api, ple_data AS $$
     SELECT * FROM ple_private.prepare_current_assessment_attempt_start(
-        (SELECT course.reference_number FROM ple_data.course_instance AS course
-          WHERE course.public_reference = $1),
+        (SELECT course.course_instance_id FROM ple_data.course_instance AS course
+          WHERE course.course_instance_id = $1),
         $2
     )
 $$;
@@ -208,7 +208,7 @@ LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api
 $$;
 
 CREATE FUNCTION ple_api.save_student_assessment_accommodation(
-    uuid, uuid, uuid, bigint, timestamptz, timestamptz, timestamptz, numeric, integer
+    uuid, uuid, text, bigint, timestamptz, timestamptz, timestamptz, numeric, integer
 ) RETURNS TABLE (accommodation_edit_number bigint)
 LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$
     SELECT * FROM ple_private.save_student_assessment_accommodation($1, $2, $3, $4, $5, $6, $7, $8, $9)

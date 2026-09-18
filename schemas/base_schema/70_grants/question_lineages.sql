@@ -4,9 +4,11 @@ SET LOCAL ROLE ple_private_owner;
 
 GRANT REFERENCES ON TABLE ple_private.account TO ple_data_owner;
 
-REVOKE ALL ON FUNCTION ple_private.question_backend_is_supported_for_production(text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_private.question_backend_is_supported_for_production(ple_data.question_backend) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_private.question_backend_is_supported_for_production(text)
+GRANT EXECUTE ON FUNCTION ple_private.question_backend_is_supported_for_production(
+    ple_data.question_backend
+)
     TO ple_private_owner, ple_data_owner, ple_api_owner;
 
 SET LOCAL ROLE ple_data_owner;

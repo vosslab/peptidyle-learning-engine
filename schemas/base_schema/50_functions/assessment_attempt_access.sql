@@ -14,13 +14,13 @@ SET LOCAL ROLE ple_private_owner;
 -- ASVS 2.1.2, 2.2.3, 8.1.3, 8.3.1: document and enforce the combined timing
 -- rules at the trusted PostgreSQL boundary.
 CREATE FUNCTION ple_private.assessment_start_decision(
-    p_assessment_status text,
+    p_assessment_status ple_data.assessment_status,
     p_available_at timestamptz,
     p_due_at timestamptz,
     p_closes_at timestamptz,
     p_assessment_attempt_limit integer,
     p_started_assessment_attempt_count integer,
-    p_late_work_rule text,
+    p_late_work_rule ple_data.late_work_rule,
     p_evaluated_at timestamptz
 ) RETURNS text
 LANGUAGE plpgsql IMMUTABLE SET search_path = pg_catalog AS $$
@@ -55,7 +55,7 @@ BEGIN
 END $$;
 
 CREATE FUNCTION ple_private.read_student_assessment_access(
-    p_course_reference_number bigint,
+    p_course_reference_number text,
     p_assessment_reference_number text
 ) RETURNS TABLE (
     start_decision text,
@@ -78,8 +78,8 @@ DECLARE assessment_row ple_data.assessment%ROWTYPE; accommodation_row ple_privat
 DECLARE student_record_id_value uuid; active_assessment_attempt ple_private.assessment_attempt%ROWTYPE;
 DECLARE evaluation_time timestamptz := pg_catalog.statement_timestamp(); started_assessment_attempt_count integer;
 BEGIN
-    IF p_course_reference_number NOT BETWEEN 1 AND 2147483647 THEN RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable'; END IF;
-    SELECT assessment.* INTO assessment_row FROM ple_data.assessment AS assessment WHERE assessment.public_reference = p_assessment_reference_number;
+    IF p_course_reference_number IS NULL THEN RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable'; END IF;
+    SELECT assessment.* INTO assessment_row FROM ple_data.assessment AS assessment WHERE assessment.assessment_id = p_assessment_reference_number;
     IF NOT FOUND OR ple_api.course_reference_number_for_assessment_attempt(assessment_row.course_instance_id) IS DISTINCT FROM p_course_reference_number THEN RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable'; END IF;
     -- ASVS 8.2.2, 8.2.3, 14.2.6: return only this session Student's
     -- effective policy values, never accommodation identity or another record.
@@ -171,9 +171,9 @@ BEGIN
     RETURN NEXT;
 END $$;
 
-CREATE FUNCTION ple_private.read_active_student_assessment_attempt_reference(p_course_reference_number bigint, p_assessment_reference_number text)
+CREATE FUNCTION ple_private.read_active_student_assessment_attempt_reference(p_course_reference_number text, p_assessment_reference_number text)
 RETURNS TABLE (assessment_attempt_reference_number bigint) LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
-    SELECT assessment_attempt.reference_number FROM ple_private.assessment_attempt AS assessment_attempt JOIN ple_data.assessment AS assessment ON assessment.assessment_id = assessment_attempt.assessment_id WHERE p_course_reference_number BETWEEN 1 AND 2147483647 AND ple_api.course_reference_number_for_assessment_attempt(assessment.course_instance_id) = p_course_reference_number AND assessment.public_reference = p_assessment_reference_number AND NOT EXISTS (SELECT 1 FROM ple_private.assessment_submission AS submission WHERE submission.assessment_attempt_id = assessment_attempt.assessment_attempt_id) AND (assessment_attempt.expires_at IS NULL OR assessment_attempt.expires_at > pg_catalog.statement_timestamp()) AND ple_api.course_student_work_is_ordinarily_visible(assessment.course_instance_id) AND ple_api.current_session_account_owns_student_record(assessment.course_instance_id, assessment_attempt.student_record_id) ORDER BY assessment_attempt.assessment_attempt_number DESC LIMIT 1
+    SELECT assessment_attempt.reference_number FROM ple_private.assessment_attempt AS assessment_attempt JOIN ple_data.assessment AS assessment ON assessment.assessment_id = assessment_attempt.assessment_id WHERE ple_api.course_reference_number_for_assessment_attempt(assessment.course_instance_id) = p_course_reference_number AND assessment.assessment_id = p_assessment_reference_number AND NOT EXISTS (SELECT 1 FROM ple_private.assessment_submission AS submission WHERE submission.assessment_attempt_id = assessment_attempt.assessment_attempt_id) AND (assessment_attempt.expires_at IS NULL OR assessment_attempt.expires_at > pg_catalog.statement_timestamp()) AND ple_api.course_student_work_is_ordinarily_visible(assessment.course_instance_id) AND ple_api.current_session_account_owns_student_record(assessment.course_instance_id, assessment_attempt.student_record_id) ORDER BY assessment_attempt.assessment_attempt_number DESC LIMIT 1
 $$;
 
 
@@ -192,7 +192,7 @@ CREATE FUNCTION ple_private.read_student_assessment_attempt_pool_selection(
     assessment_entry_id uuid,
     question_pool_selection_id uuid,
     selection_position integer,
-    question_pool_id uuid,
+    question_pool_id text,
     question_pool_public_id text,
     question_pool_revision_number bigint,
     member_position integer,
@@ -212,7 +212,7 @@ BEGIN
            selection.question_pool_selection_id,
            selected.selection_position,
            selection.question_pool_id,
-           pool.public_question_pool_id,
+           pool.question_pool_id,
            selection.question_pool_revision_number,
            selected.member_position,
            selected.published_question_id,
@@ -246,9 +246,9 @@ BEGIN
         RETURN;
     END IF;
     RETURN QUERY
-    SELECT assessment_attempt.reference_number, assessment_attempt.assessment_attempt_number, course.course_reference_number,
+    SELECT assessment_attempt.reference_number, assessment_attempt.assessment_attempt_number, course.course_instance_id,
            course.course_short_name, course.course_long_name, course.course_theme_id AS course_theme,
-           assessment.public_reference, assessment_attempt.assessment_title,
+           assessment.assessment_id, assessment_attempt.assessment_title,
            preference.time_zone,
            CASE WHEN assessment_attempt.expires_at IS NULL THEN NULL
                 ELSE floor(extract(epoch FROM assessment_attempt.expires_at) * 1000)::bigint END,
@@ -267,11 +267,11 @@ $$;
 
 SET LOCAL ROLE ple_api_owner;
 
-CREATE FUNCTION ple_api.read_student_assessment_access(text, text) RETURNS TABLE (start_decision text, assessment_title text, assessment_type text, question_count integer, points_possible double precision, assessment_attempt_time_limit_seconds integer, available_at timestamptz, due_at timestamptz, closes_at timestamptz, assessment_attempt_limit integer, late_work_rule text, evaluated_at timestamptz, display_time_zone text, previous_assessment_attempts jsonb) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api, ple_data AS $$ SELECT * FROM ple_private.read_student_assessment_access((SELECT reference_number FROM ple_data.course_instance WHERE public_reference = $1), $2) $$;
+CREATE FUNCTION ple_api.read_student_assessment_access(text, text) RETURNS TABLE (start_decision text, assessment_title text, assessment_type text, question_count integer, points_possible double precision, assessment_attempt_time_limit_seconds integer, available_at timestamptz, due_at timestamptz, closes_at timestamptz, assessment_attempt_limit integer, late_work_rule text, evaluated_at timestamptz, display_time_zone text, previous_assessment_attempts jsonb) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api, ple_data AS $$ SELECT * FROM ple_private.read_student_assessment_access((SELECT course_instance_id FROM ple_data.course_instance WHERE course_instance_id = $1), $2) $$;
 
-CREATE FUNCTION ple_api.read_active_student_assessment_attempt_reference(text, text) RETURNS TABLE (assessment_attempt_reference_number bigint) LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api, ple_data AS $$ SELECT * FROM ple_private.read_active_student_assessment_attempt_reference((SELECT reference_number FROM ple_data.course_instance WHERE public_reference = $1), $2) $$;
+CREATE FUNCTION ple_api.read_active_student_assessment_attempt_reference(text, text) RETURNS TABLE (assessment_attempt_reference_number bigint) LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api, ple_data AS $$ SELECT * FROM ple_private.read_active_student_assessment_attempt_reference((SELECT course_instance_id FROM ple_data.course_instance WHERE course_instance_id = $1), $2) $$;
 
-CREATE FUNCTION ple_api.read_student_assessment_attempt_pool_selection(bigint) RETURNS TABLE (assessment_attempt_reference_number bigint, assessment_entry_id uuid, question_pool_selection_id uuid, selection_position integer, question_pool_id uuid, question_pool_public_id text, question_pool_revision_number bigint, member_position integer, published_question_id text, revision_number integer) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$ SELECT * FROM ple_private.read_student_assessment_attempt_pool_selection($1) $$;
+CREATE FUNCTION ple_api.read_student_assessment_attempt_pool_selection(bigint) RETURNS TABLE (assessment_attempt_reference_number bigint, assessment_entry_id uuid, question_pool_selection_id uuid, selection_position integer, question_pool_id text, question_pool_public_id text, question_pool_revision_number bigint, member_position integer, published_question_id text, revision_number integer) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$ SELECT * FROM ple_private.read_student_assessment_attempt_pool_selection($1) $$;
 
 CREATE FUNCTION ple_api.read_student_assessment_attempt_context(bigint) RETURNS TABLE (assessment_attempt_reference_number bigint, assessment_attempt_number integer, course_reference_number text, course_short_name text, course_long_name text, course_theme text, assessment_reference_number text, assessment_title text, display_time_zone text, expires_at_millis bigint, timer_remaining_milliseconds bigint) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$ SELECT * FROM ple_private.read_student_assessment_attempt_context($1) $$;
 
