@@ -3,8 +3,8 @@
 import type { AssessmentEntryId } from "../../../generated/api/AssessmentEntryId";
 import type { AssessmentQuestionPoolForkView } from "../../../generated/api/AssessmentQuestionPoolForkView";
 import type { AssessmentQuestionPoolSelectionCountReceipt } from "../../../generated/api/AssessmentQuestionPoolSelectionCountReceipt";
-import type { AssessmentReference } from "../../../generated/api/AssessmentReference";
-import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
+import type { AssessmentId } from "../../../generated/api/AssessmentId";
+import type { CourseInstanceId } from "../../../generated/api/CourseInstanceId";
 import type {
   AppendAssessmentQuestionPoolForkRevisionInput,
   AppendedAssessmentQuestionPoolForkRevision,
@@ -28,8 +28,8 @@ import { ApiProtocolError, ApiRequestError } from "./error";
 import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
 import {
-  parseAssessmentReference,
-  parseCourseInstanceReference,
+  parseAssessmentId,
+  parseCourseInstanceId,
 } from "../../navigation/public_route";
 import { validateCanonicalQuestionIdSyntax } from "../../../generated/api/QuestionIdSyntaxContract";
 
@@ -41,10 +41,10 @@ export class AssessmentPoolForkConflictError extends ApiRequestError {
   }
 }
 
-function assessmentPath(course: CourseInstanceReference, assessment: AssessmentReference): string {
+function assessmentPath(course: CourseInstanceId, assessment: AssessmentId): string {
   if (
-    parseCourseInstanceReference(course) === null ||
-    parseAssessmentReference(assessment) === null
+    parseCourseInstanceId(course) === null ||
+    parseAssessmentId(assessment) === null
   ) {
     throw new ApiProtocolError("Assessment Pool route references must be canonical");
   }
@@ -52,8 +52,8 @@ function assessmentPath(course: CourseInstanceReference, assessment: AssessmentR
 }
 
 function forkPath(
-  course: CourseInstanceReference,
-  assessment: AssessmentReference,
+  course: CourseInstanceId,
+  assessment: AssessmentId,
   entry?: AssessmentEntryId,
 ): string {
   const base = `${assessmentPath(course, assessment)}/question-pool-forks`;
@@ -128,11 +128,12 @@ function appendBody(input: AppendAssessmentQuestionPoolForkRevisionInput): objec
     throw new ApiProtocolError("Assessment Pool fork revision requires attested nonempty members");
   }
   if (
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(
-      input.expectedPoolMetadataEtag,
-    )
+    !/^[1-9][0-9]*$/u.test(input.expectedQuestionPoolEditNumber) ||
+    BigInt(input.expectedQuestionPoolEditNumber) > 9_223_372_036_854_775_807n
   ) {
-    throw new ApiProtocolError("Assessment Pool metadata ETag must be a UUID");
+    throw new ApiProtocolError(
+      "Assessment Pool expected Question Pool Edit Number must be a positive integer",
+    );
   }
   return input;
 }
@@ -142,7 +143,12 @@ function decodeAppendReceipt(
   path = "response",
 ): AppendedAssessmentQuestionPoolForkRevision {
   const record = decodeRecord(value, path);
-  const allowed = ["assessmentEntryId", "revisionNumber", "metadataEtag", "assessmentEditNumber"];
+  const allowed = [
+    "assessmentEntryId",
+    "revisionNumber",
+    "blueprintEditNumber",
+    "assessmentEditNumber",
+  ];
   if (
     Object.keys(record).length !== allowed.length ||
     Object.keys(record).some((key) => !allowed.includes(key))
@@ -156,10 +162,17 @@ function decodeAppendReceipt(
   if (!/^[1-9][0-9]*$/u.test(assessmentEditNumber)) {
     throw new DecodeError(`${path}.assessmentEditNumber`, "a positive Assessment Edit Number");
   }
+  const blueprintEditNumber = decodeString(
+    record.blueprintEditNumber,
+    `${path}.blueprintEditNumber`,
+  );
+  if (!/^[1-9][0-9]*$/u.test(blueprintEditNumber)) {
+    throw new DecodeError(`${path}.blueprintEditNumber`, "a positive Blueprint Edit Number");
+  }
   return {
     assessmentEntryId: decodeUuid(record.assessmentEntryId, `${path}.assessmentEntryId`),
     revisionNumber: decodePositiveInteger(record.revisionNumber, `${path}.revisionNumber`),
-    metadataEtag: decodeUuid(record.metadataEtag, `${path}.metadataEtag`),
+    blueprintEditNumber,
     assessmentEditNumber,
   };
 }

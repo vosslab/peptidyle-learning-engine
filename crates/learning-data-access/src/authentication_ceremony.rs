@@ -118,7 +118,7 @@ impl std::fmt::Debug for EmailAuthenticationChallenge {
 }
 
 /// Trusted Account facts returned only after a credential ceremony succeeds.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AuthenticatedAccount {
     /// Existing global Account verified by the ceremony.
     pub account: AccountId,
@@ -304,7 +304,7 @@ pub struct PendingSysadminTotpAttestation {
 /// The reservation is deliberately opaque to the browser. Its presence means
 /// PostgreSQL accepted this attempt before TOTP-code verification and charged
 /// it to the one Account/browser-bound pending ceremony.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SysadminTotpVerificationReservation {
     /// Existing Sysadmin Account resolved only by PostgreSQL.
     pub account: AccountId,

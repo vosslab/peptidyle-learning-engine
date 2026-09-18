@@ -1,6 +1,6 @@
 //! Pure active-membership gate for Student Assessment Access.
 
-use question_model::{AccountId, AssessmentId, CourseId, CourseMembershipId, StudentRecordId};
+use question_model::{AccountId, AssessmentId, CourseInstanceId, CourseMembershipId, StudentRecordId};
 
 /// Why the active-membership prerequisite for Assessment Access is absent.
 /// Reasons are internal and never a Student DTO.
@@ -16,7 +16,7 @@ pub enum ActiveStudentCourseMembershipDenial {
 /// evaluator can mint a grant.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ActiveStudentCourseMembershipGrant {
-    course: CourseId,
+    course: CourseInstanceId,
     assessment: AssessmentId,
     student_account: AccountId,
     student_record: StudentRecordId,
@@ -24,14 +24,14 @@ pub struct ActiveStudentCourseMembershipGrant {
 }
 
 impl ActiveStudentCourseMembershipGrant {
-    pub fn course(&self) -> CourseId {
-        self.course
+    pub fn course(&self) -> CourseInstanceId {
+        self.course.clone()
     }
     pub fn assessment(&self) -> AssessmentId {
-        self.assessment
+        self.assessment.clone()
     }
     pub fn student_account(&self) -> AccountId {
-        self.student_account
+        self.student_account.clone()
     }
     pub fn student_record(&self) -> StudentRecordId {
         self.student_record
@@ -53,12 +53,12 @@ pub enum ActiveStudentCourseMembershipDecision {
 /// membership, or persisted Student Record.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HypotheticalStudentViewScenarioAdmissionFacts {
-    course: CourseId,
+    course: CourseInstanceId,
     assessment: AssessmentId,
 }
 
 impl HypotheticalStudentViewScenarioAdmissionFacts {
-    pub fn new(course: CourseId, assessment: AssessmentId) -> Self {
+    pub fn new(course: CourseInstanceId, assessment: AssessmentId) -> Self {
         Self { course, assessment }
     }
 }
@@ -67,16 +67,16 @@ impl HypotheticalStudentViewScenarioAdmissionFacts {
 /// remain private so only this module can approve scenario scope.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HypotheticalStudentViewScenarioAdmission {
-    course: CourseId,
+    course: CourseInstanceId,
     assessment: AssessmentId,
 }
 
 impl HypotheticalStudentViewScenarioAdmission {
-    pub fn course(&self) -> CourseId {
-        self.course
+    pub fn course(&self) -> CourseInstanceId {
+        self.course.clone()
     }
     pub fn assessment(&self) -> AssessmentId {
-        self.assessment
+        self.assessment.clone()
     }
 }
 
@@ -96,7 +96,7 @@ pub enum HypotheticalStudentViewScenarioAdmissionDecision {
 /// All normalized facts the Store must load under its transaction boundary.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ActiveStudentCourseMembershipFacts {
-    pub course: CourseId,
+    pub course: CourseInstanceId,
     pub assessment: AssessmentId,
     pub student_account: AccountId,
     pub membership: Option<ActiveStudentMembership>,
@@ -157,9 +157,9 @@ mod tests {
     fn active_student_membership_grants_direct_assessment_access() {
         let decision =
             evaluate_active_student_course_membership(ActiveStudentCourseMembershipFacts {
-                course: CourseId::from_uuid(id(2)),
-                assessment: AssessmentId::from_uuid(id(3)),
-                student_account: AccountId::from_uuid(id(4)),
+                course: CourseInstanceId::from_debug_serial(2),
+                assessment: AssessmentId::from_debug_serial(3),
+                student_account: AccountId::from_debug_serial(4),
                 membership: Some(ActiveStudentMembership {
                     id: CourseMembershipId::from_uuid(id(5)),
                     student_record: StudentRecordId::from_uuid(id(6)),
@@ -175,9 +175,9 @@ mod tests {
     fn direct_access_has_the_active_membership_basis() {
         let decision =
             evaluate_active_student_course_membership(ActiveStudentCourseMembershipFacts {
-                course: CourseId::from_uuid(id(2)),
-                assessment: AssessmentId::from_uuid(id(3)),
-                student_account: AccountId::from_uuid(id(4)),
+                course: CourseInstanceId::from_debug_serial(2),
+                assessment: AssessmentId::from_debug_serial(3),
+                student_account: AccountId::from_debug_serial(4),
                 membership: Some(ActiveStudentMembership {
                     id: CourseMembershipId::from_uuid(id(5)),
                     student_record: StudentRecordId::from_uuid(id(6)),
@@ -193,8 +193,8 @@ mod tests {
     fn hypothetical_student_view_scenario_grants_scope_admission() {
         let decision = admit_hypothetical_student_view_scenario(
             HypotheticalStudentViewScenarioAdmissionFacts::new(
-                CourseId::from_uuid(id(2)),
-                AssessmentId::from_uuid(id(3)),
+                CourseInstanceId::from_debug_serial(2),
+                AssessmentId::from_debug_serial(3),
             ),
         );
         assert!(matches!(

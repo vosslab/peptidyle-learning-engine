@@ -42,7 +42,7 @@ BEGIN
 END $$;
 
 CREATE FUNCTION ple_private.assert_current_student_assessment_attempt(
-    p_assessment_attempt_reference_number bigint
+    p_assessment_attempt_id uuid
 ) RETURNS ple_private.assessment_attempt LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE result ple_private.assessment_attempt%ROWTYPE;
@@ -50,7 +50,7 @@ DECLARE course_id_value text;
 BEGIN
     SELECT assessment_attempt.* INTO result
       FROM ple_private.assessment_attempt AS assessment_attempt
-     WHERE assessment_attempt.reference_number = p_assessment_attempt_reference_number;
+     WHERE assessment_attempt.assessment_attempt_id = p_assessment_attempt_id;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Assessment Attempt is unavailable';
@@ -92,6 +92,7 @@ CREATE FUNCTION ple_private.assessment_attempt_start_gate(
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE assessment_row ple_data.assessment%ROWTYPE;
+DECLARE policy_row ple_data.assessment_policy_snapshot%ROWTYPE;
 DECLARE accommodation_row ple_private.student_assessment_accommodation%ROWTYPE;
 DECLARE existing_assessment_attempt ple_private.assessment_attempt%ROWTYPE;
 DECLARE account_id text := ple_api.current_session_account_id();
@@ -107,6 +108,8 @@ BEGIN
     PERFORM ple_private.lock_assessment_for_student_work(p_assessment_id);
     SELECT * INTO assessment_row FROM ple_data.assessment
      WHERE assessment_id = p_assessment_id;
+    SELECT * INTO policy_row FROM ple_data.assessment_policy_snapshot
+     WHERE assessment_policy_snapshot_id = assessment_row.assessment_policy_snapshot_id;
     IF NOT FOUND OR assessment_row.assessment_status <> 'released'
        OR account_id IS NULL
        OR NOT ple_api.current_session_account_owns_student_record(
@@ -123,7 +126,7 @@ BEGIN
         WHEN assessment_row.assessment_type IN ('quiz', 'exam') THEN 1
         ELSE COALESCE(
             accommodation_row.assessment_attempt_limit,
-            assessment_row.assessment_attempt_limit
+            policy_row.assessment_attempt_limit
         )
     END;
     evaluated_at := pg_catalog.clock_timestamp();
@@ -133,12 +136,12 @@ BEGIN
        AND assessment_attempt.assessment_id = p_assessment_id;
     start_decision_value := ple_private.assessment_start_decision(
         assessment_row.assessment_status,
-        COALESCE(accommodation_row.available_at, assessment_row.available_at),
-        COALESCE(accommodation_row.due_at, assessment_row.due_at),
-        COALESCE(accommodation_row.closes_at, assessment_row.closes_at),
+        COALESCE(accommodation_row.available_at, policy_row.available_at),
+        COALESCE(accommodation_row.due_at, policy_row.due_at),
+        COALESCE(accommodation_row.closes_at, policy_row.closes_at),
         effective_assessment_attempt_limit,
         started_assessment_attempt_count,
-        assessment_row.late_work_rule,
+        policy_row.late_work_rule,
         evaluated_at
     );
     IF start_decision_value IN ('closed', 'not_yet_available') THEN
@@ -190,6 +193,7 @@ CREATE FUNCTION ple_private.start_assessment_attempt(
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE assessment_row ple_data.assessment%ROWTYPE;
+DECLARE policy_row ple_data.assessment_policy_snapshot%ROWTYPE;
 DECLARE now_value timestamptz;
 DECLARE effective_assessment_attempt_limit integer;
 DECLARE effective_duration_seconds integer;
@@ -197,7 +201,8 @@ DECLARE start_gate record;
 DECLARE next_assessment_attempt_number integer;
 DECLARE selection jsonb;
 DECLARE issued jsonb;
-DECLARE entry_row ple_data.assessment_entry%ROWTYPE;
+DECLARE entry_row record;
+DECLARE entry_snapshot_id ple_data.sha256_digest;
 DECLARE accommodation_row ple_private.student_assessment_accommodation%ROWTYPE;
 DECLARE selection_id uuid;
 DECLARE selection_entry_id uuid;
@@ -226,6 +231,8 @@ BEGIN
     now_value := start_gate.evaluated_at;
     effective_assessment_attempt_limit := start_gate.effective_assessment_attempt_limit;
     SELECT * INTO assessment_row FROM ple_data.assessment WHERE assessment_id = p_assessment_id;
+    SELECT * INTO policy_row FROM ple_data.assessment_policy_snapshot
+     WHERE assessment_policy_snapshot_id = assessment_row.assessment_policy_snapshot_id;
     SELECT * INTO accommodation_row
       FROM ple_private.student_assessment_accommodation
      WHERE student_record_id = p_student_record_id AND assessment_id = p_assessment_id;
@@ -243,40 +250,31 @@ BEGIN
        AND next_assessment_attempt_number > effective_assessment_attempt_limit THEN
         RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Assessment Attempt limit is reached';
     END IF;
+    IF assessment_row.course_instance_id IS DISTINCT FROM (
+        SELECT student.course_instance_id FROM ple_data.student_record AS student
+         WHERE student.student_record_id = p_student_record_id
+    ) THEN
+        RAISE EXCEPTION USING ERRCODE = '23514',
+            MESSAGE = 'Assessment Attempt requires a Student and Assessment in one Course';
+    END IF;
     INSERT INTO ple_private.assessment_attempt(
-        assessment_attempt_id, student_record_id, assessment_id, assessment_attempt_number, started_at, expires_at,
-        assessment_title, assessment_instructions, available_at, due_at, closes_at,
-        assessment_attempt_time_limit_seconds, assessment_attempt_limit, late_work_rule,
-        question_variation_rule,
-        assessment_question_order_rule, feedback_score,
-        feedback_per_item_correctness, feedback_submitted_response,
-        feedback_question_answer, feedback_question_answer_explanation, feedback_class_statistics,
+        course_instance_id, assessment_attempt_id, student_record_id, assessment_id, assessment_attempt_number, started_at, expires_at,
+        assessment_policy_snapshot_id,
         schedule_accommodation_id, schedule_accommodation_edit_number,
         time_limit_accommodation_id, time_limit_accommodation_edit_number,
         assessment_attempt_limit_accommodation_id, assessment_attempt_limit_accommodation_edit_number
     ) VALUES (
-        p_assessment_attempt_id, p_student_record_id, p_assessment_id, next_assessment_attempt_number, now_value,
+        assessment_row.course_instance_id, p_assessment_attempt_id, p_student_record_id, p_assessment_id, next_assessment_attempt_number, now_value,
         -- ASVS 2.3.2, 8.3.1: one immutable server-owned expiration applies
         -- every effective timing limit that authorizes Student interaction.
         least(
             now_value + pg_catalog.make_interval(secs => effective_duration_seconds),
-            COALESCE(accommodation_row.closes_at, assessment_row.closes_at),
-            CASE WHEN assessment_row.late_work_rule = 'reject'
-                THEN COALESCE(accommodation_row.due_at, assessment_row.due_at)
+            COALESCE(accommodation_row.closes_at, policy_row.closes_at),
+            CASE WHEN policy_row.late_work_rule = 'reject'
+                THEN COALESCE(accommodation_row.due_at, policy_row.due_at)
             END
         ),
-        assessment_row.assessment_title, assessment_row.assessment_instructions,
-        COALESCE(accommodation_row.available_at, assessment_row.available_at),
-        COALESCE(accommodation_row.due_at, assessment_row.due_at),
-        COALESCE(accommodation_row.closes_at, assessment_row.closes_at),
-        effective_duration_seconds,
-        effective_assessment_attempt_limit,
-        assessment_row.late_work_rule, assessment_row.question_variation_rule,
-        assessment_row.assessment_question_order_rule,
-        assessment_row.feedback_score, assessment_row.feedback_per_item_correctness,
-        assessment_row.feedback_submitted_response,
-        assessment_row.feedback_question_answer, assessment_row.feedback_question_answer_explanation,
-        assessment_row.feedback_class_statistics,
+        assessment_row.assessment_policy_snapshot_id,
         CASE WHEN accommodation_row.available_at IS NOT NULL OR accommodation_row.due_at IS NOT NULL
                OR accommodation_row.closes_at IS NOT NULL THEN accommodation_row.accommodation_id END,
         CASE WHEN accommodation_row.available_at IS NOT NULL OR accommodation_row.due_at IS NOT NULL
@@ -294,31 +292,42 @@ BEGIN
     FOR selection IN SELECT value FROM jsonb_array_elements(p_selections) LOOP
         selection_id := (selection ->> 'question_pool_selection_id')::uuid;
         selection_entry_id := (selection ->> 'assessment_entry_id')::uuid;
-        SELECT * INTO entry_row FROM ple_data.assessment_entry
-         WHERE assessment_entry_id = selection_entry_id AND assessment_id = p_assessment_id
-           AND entry_kind = 'question_pool' AND availability = 'available';
+        SELECT entry.assessment_entry_id, entry.assessment_id, entry.entry_kind,
+               entry.availability, entry.scoring_rule, entry.authored_position,
+               entry.question_attempt_limit, entry.question_attempt_time_limit_seconds,
+               entry.question_attempt_grace_seconds,
+               pool_entry.question_pool_id, pool.question_pool_edit_number AS question_pool_edit_number,
+               pool_entry.selection_count, pool_entry.points_per_item,
+               pool_entry.selected_question_order
+          INTO entry_row
+          FROM ple_data.assessment_entry AS entry
+          JOIN ple_data.assessment_entry_pool AS pool_entry
+            ON pool_entry.assessment_entry_id = entry.assessment_entry_id
+          JOIN ple_data.question_pool AS pool
+            ON pool.question_pool_id = pool_entry.question_pool_id
+         WHERE entry.assessment_entry_id = selection_entry_id AND entry.assessment_id = p_assessment_id
+           AND entry.entry_kind = 'question_pool' AND entry.availability = 'available';
         IF NOT FOUND OR selection_id IS NULL
            OR jsonb_typeof(selection -> 'selected_items') <> 'array'
            OR jsonb_array_length(selection -> 'selected_items') <> entry_row.selection_count THEN
             RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Question Pool Selection is not current released Assessment content';
         END IF;
         INSERT INTO ple_private.question_pool_selection(
-            question_pool_selection_id, assessment_attempt_id, assessment_entry_id,
-            question_pool_id, question_pool_revision_number, created_at, selected_question_count
+            course_instance_id, question_pool_selection_id, assessment_attempt_id, assessment_entry_id,
+            question_pool_id, question_pool_edit_number, created_at, selected_question_count
         ) VALUES (
-            selection_id, p_assessment_attempt_id, selection_entry_id,
-            entry_row.question_pool_id, entry_row.question_pool_revision_number, now_value,
+            assessment_row.course_instance_id, selection_id, p_assessment_attempt_id, selection_entry_id,
+            entry_row.question_pool_id, entry_row.question_pool_edit_number, now_value,
             entry_row.selection_count
         );
         INSERT INTO ple_private.question_pool_selected_item(
-            question_pool_selection_id, member_position, selection_position, published_question_id, revision_number
+            course_instance_id, question_pool_selection_id, member_position, selection_position, published_question_id, revision_number
         )
-        SELECT selection_id, (item.value #>> '{}')::integer, item.ordinality - 1,
+        SELECT assessment_row.course_instance_id, selection_id, (item.value #>> '{}')::integer, item.ordinality - 1,
                pool.published_question_id, pool.question_revision_number
           FROM jsonb_array_elements(selection -> 'selected_items') WITH ORDINALITY AS item(value, ordinality)
-          JOIN ple_data.question_pool_revision_member AS pool
+          JOIN ple_data.question_pool_member AS pool
             ON pool.question_pool_id = entry_row.question_pool_id
-           AND pool.revision_number = entry_row.question_pool_revision_number
            AND pool.member_position = (item.value #>> '{}')::integer;
         IF (SELECT count(*) FROM ple_private.question_pool_selected_item WHERE question_pool_selection_id = selection_id)
              <> entry_row.selection_count THEN
@@ -330,9 +339,22 @@ BEGIN
         issued_entry_id := (issued ->> 'assessment_entry_id')::uuid;
         issued_selection_id := NULLIF(issued ->> 'question_pool_selection_id', '')::uuid;
         issued_member_position := NULLIF(issued ->> 'question_pool_member_position', '')::integer;
-        SELECT * INTO entry_row FROM ple_data.assessment_entry
-         WHERE assessment_entry_id = issued_entry_id AND assessment_id = p_assessment_id
-           AND availability = 'available';
+        SELECT entry.assessment_entry_id, entry.assessment_id, entry.entry_kind,
+               entry.availability, entry.scoring_rule, entry.authored_position,
+               entry.question_attempt_limit, entry.question_attempt_time_limit_seconds,
+               entry.question_attempt_grace_seconds,
+               question.published_question_id, question.question_revision_number,
+               question.points_possible,
+               pool_entry.question_pool_id,
+               pool_entry.selection_count, pool_entry.points_per_item
+          INTO entry_row
+          FROM ple_data.assessment_entry AS entry
+          LEFT JOIN ple_data.assessment_entry_question AS question
+            ON question.assessment_entry_id = entry.assessment_entry_id
+          LEFT JOIN ple_data.assessment_entry_pool AS pool_entry
+            ON pool_entry.assessment_entry_id = entry.assessment_entry_id
+         WHERE entry.assessment_entry_id = issued_entry_id AND entry.assessment_id = p_assessment_id
+           AND entry.availability = 'available';
         IF NOT FOUND OR (issued ->> 'issued_question_id') IS NULL THEN
             RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Issued Question is not current released Assessment content';
         END IF;
@@ -366,21 +388,29 @@ BEGIN
             RAISE EXCEPTION USING ERRCODE = '23514',
                 MESSAGE = 'Issued Question reproduction does not match its source backend';
         END IF;
+        entry_snapshot_id := ple_private.ensure_assessment_entry_snapshot(
+            entry_row.entry_kind, entry_row.scoring_rule,
+            CASE WHEN entry_row.entry_kind = 'fixed_question'
+                 THEN entry_row.points_possible ELSE entry_row.points_per_item END,
+            entry_row.published_question_id, entry_row.question_revision_number,
+            entry_row.question_pool_id,
+            entry_row.question_attempt_limit, entry_row.question_attempt_time_limit_seconds,
+            entry_row.question_attempt_grace_seconds
+        );
         INSERT INTO ple_private.issued_question(
-            issued_question_id, assessment_attempt_id, assessment_entry_id,
+            course_instance_id, issued_question_id, assessment_attempt_id, assessment_entry_id,
+            assessment_entry_snapshot_id,
             assessment_content_entry_index, issued_position, published_question_id, revision_number,
-            question_seed, point_value, scoring_rule, question_statistics_eligibility,
-            question_attempt_limit, question_attempt_time_limit_seconds, question_attempt_grace_seconds,
+            question_seed, question_statistics_eligibility,
             question_pool_selection_id, question_pool_member_position
         ) VALUES (
-            (issued ->> 'issued_question_id')::uuid, p_assessment_attempt_id, issued_entry_id,
+            assessment_row.course_instance_id, (issued ->> 'issued_question_id')::uuid, p_assessment_attempt_id, issued_entry_id,
+            entry_snapshot_id,
             entry_row.authored_position, (issued ->> 'issued_position')::integer,
             issued ->> 'published_question_id', (issued ->> 'revision_number')::integer,
             (issued ->> 'question_seed')::numeric,
-            CASE WHEN entry_row.entry_kind = 'fixed_question' THEN entry_row.points_possible ELSE entry_row.points_per_item END,
-            entry_row.scoring_rule, entry_row.scoring_rule <> 'excluded',
-            entry_row.question_attempt_limit, entry_row.question_attempt_time_limit_seconds,
-            entry_row.question_attempt_grace_seconds, issued_selection_id, issued_member_position
+            entry_row.scoring_rule <> 'excluded',
+            issued_selection_id, issued_member_position
         );
     END LOOP;
     IF EXISTS (
@@ -394,14 +424,16 @@ BEGIN
            )
     ) OR EXISTS (
         SELECT 1 FROM ple_data.assessment_entry AS entry
+          JOIN ple_data.assessment_entry_question AS question
+            ON question.assessment_entry_id = entry.assessment_entry_id
          WHERE entry.assessment_id = p_assessment_id AND entry.availability = 'available'
            AND entry.entry_kind = 'fixed_question'
            AND NOT EXISTS (
                SELECT 1 FROM ple_private.issued_question AS issued
                 WHERE issued.assessment_attempt_id = p_assessment_attempt_id
                   AND issued.assessment_entry_id = entry.assessment_entry_id
-                  AND issued.published_question_id = entry.published_question_id
-                  AND issued.revision_number = entry.question_revision_number
+                  AND issued.published_question_id = question.published_question_id
+                  AND issued.revision_number = question.question_revision_number
            )
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
@@ -536,7 +568,7 @@ CREATE FUNCTION ple_private.prepare_current_assessment_attempt_start(
     fixed_revision_number integer,
     question_pool_id text,
     question_pool_public_id text,
-    question_pool_revision_number bigint,
+    question_pool_edit_number bigint,
     member_position integer,
     pool_question_id text,
     pool_revision_number integer,
@@ -549,6 +581,7 @@ CREATE FUNCTION ple_private.prepare_current_assessment_attempt_start(
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE assessment_row ple_data.assessment%ROWTYPE;
+DECLARE policy_row ple_data.assessment_policy_snapshot%ROWTYPE;
 DECLARE student_record_id_value uuid;
 BEGIN
     IF p_course_reference_number IS NULL
@@ -574,6 +607,8 @@ BEGIN
     SELECT assessment.* INTO assessment_row
       FROM ple_data.assessment AS assessment
      WHERE assessment.assessment_id = assessment_row.assessment_id;
+    SELECT * INTO policy_row FROM ple_data.assessment_policy_snapshot
+     WHERE assessment_policy_snapshot_id = assessment_row.assessment_policy_snapshot_id;
     SELECT ple_api.current_session_student_record_id(assessment_row.course_instance_id)
       INTO student_record_id_value;
     IF assessment_row.assessment_status <> 'released' OR NOT FOUND
@@ -590,27 +625,30 @@ BEGIN
            entry.assessment_entry_id,
            entry.entry_kind,
            entry.authored_position,
-           entry.published_question_id,
-           entry.question_revision_number,
-           entry.question_pool_id,
+           question.published_question_id,
+           question.question_revision_number,
+           pool_entry.question_pool_id,
            pool.question_pool_id,
-           entry.question_pool_revision_number,
+           pool.question_pool_edit_number,
            item.member_position,
            item.published_question_id,
            item.question_revision_number,
            COALESCE(fixed_source.backend, pool_source.backend),
-           entry.selection_count,
-           entry.selected_question_order,
-           assessment_row.question_variation_rule,
-           assessment_row.assessment_question_order_rule
+           pool_entry.selection_count,
+           pool_entry.selected_question_order,
+           policy_row.question_variation_rule,
+           policy_row.assessment_question_order_rule
       FROM ple_data.assessment_entry AS entry
+      LEFT JOIN ple_data.assessment_entry_question AS question
+        ON question.assessment_entry_id = entry.assessment_entry_id
+      LEFT JOIN ple_data.assessment_entry_pool AS pool_entry
+        ON pool_entry.assessment_entry_id = entry.assessment_entry_id
       LEFT JOIN ple_private.question_revision_source_binding AS fixed_source
-        ON fixed_source.published_question_id = entry.published_question_id
-       AND fixed_source.revision_number = entry.question_revision_number
-      LEFT JOIN ple_data.question_pool AS pool ON pool.question_pool_id = entry.question_pool_id
-      LEFT JOIN ple_data.question_pool_revision_member AS item
-        ON item.question_pool_id = entry.question_pool_id
-       AND item.revision_number = entry.question_pool_revision_number
+        ON fixed_source.published_question_id = question.published_question_id
+       AND fixed_source.revision_number = question.question_revision_number
+      LEFT JOIN ple_data.question_pool AS pool ON pool.question_pool_id = pool_entry.question_pool_id
+      LEFT JOIN ple_data.question_pool_member AS item
+        ON item.question_pool_id = pool_entry.question_pool_id
       LEFT JOIN ple_private.question_revision_source_binding AS pool_source
         ON pool_source.published_question_id = item.published_question_id
        AND pool_source.revision_number = item.question_revision_number
@@ -633,7 +671,7 @@ END $$;
 CREATE FUNCTION ple_private.read_started_student_assessment_attempt(
     p_assessment_attempt_id uuid
 ) RETURNS TABLE (
-    assessment_attempt_reference_number bigint,
+    assessment_attempt_id uuid,
     course_reference_number text,
     assessment_reference_number text,
     assessment_attempt_number integer,
@@ -648,14 +686,16 @@ BEGIN
             MESSAGE = 'Assessment Attempt is unavailable';
     END IF;
     RETURN QUERY
-    SELECT assessment_attempt.reference_number,
+    SELECT assessment_attempt.assessment_attempt_id,
            course.course_instance_id,
            assessment.assessment_id,
            assessment_attempt.assessment_attempt_number,
-           assessment_attempt.assessment_title,
-           assessment_attempt.assessment_instructions
+           policy.assessment_title,
+           policy.assessment_instructions
       FROM ple_private.assessment_attempt AS assessment_attempt
       JOIN ple_data.assessment AS assessment ON assessment.assessment_id = assessment_attempt.assessment_id
+      JOIN ple_data.assessment_policy_snapshot AS policy
+        ON policy.assessment_policy_snapshot_id = assessment_attempt.assessment_policy_snapshot_id
       JOIN LATERAL ple_api.course_display_for_assessment_attempt(assessment.course_instance_id) AS course ON true
      WHERE assessment_attempt.assessment_attempt_id = p_assessment_attempt_id
        AND ple_api.current_session_account_owns_student_record(
@@ -668,8 +708,8 @@ BEGIN
 END $$;
 
 CREATE FUNCTION ple_private.save_student_assessment_attempt_response(
-    p_assessment_attempt_reference_number bigint, p_issued_position integer, p_student_response jsonb
-) RETURNS TABLE (assessment_attempt_reference_number bigint, issued_position integer, response_state text)
+    p_assessment_attempt_id uuid, p_issued_position integer, p_student_response jsonb
+) RETURNS TABLE (assessment_attempt_id uuid, issued_position integer, response_state text)
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE assessment_attempt_row ple_private.assessment_attempt%ROWTYPE;
@@ -677,7 +717,7 @@ DECLARE question_attempt_id_value uuid;
 DECLARE now_value timestamptz;
 BEGIN
     assessment_attempt_row := ple_private.assert_current_student_assessment_attempt(
-        p_assessment_attempt_reference_number
+        p_assessment_attempt_id
     );
     -- Match finalization's Assessment -> Assessment Attempt -> Question Attempt
     -- lock order. A pre-expiry save therefore commits before a worker can
@@ -694,7 +734,7 @@ BEGIN
         SELECT 1 FROM ple_private.assessment_submission AS submission
          WHERE submission.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id
     ) OR (assessment_attempt_row.expires_at IS NOT NULL AND now_value >= assessment_attempt_row.expires_at) THEN
-        assessment_attempt_reference_number := assessment_attempt_row.reference_number;
+        assessment_attempt_id := assessment_attempt_row.assessment_attempt_id;
         issued_position := p_issued_position;
         response_state := 'expired';
         RETURN NEXT;
@@ -722,34 +762,35 @@ BEGIN
         SELECT 1 FROM ple_private.assessment_submission AS submission
          WHERE submission.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id
     ) OR (assessment_attempt_row.expires_at IS NOT NULL AND now_value >= assessment_attempt_row.expires_at) THEN
-        assessment_attempt_reference_number := assessment_attempt_row.reference_number;
+        assessment_attempt_id := assessment_attempt_row.assessment_attempt_id;
         issued_position := p_issued_position;
         response_state := 'expired';
         RETURN NEXT;
         RETURN;
     END IF;
-    INSERT INTO ple_private.assessment_attempt_saved_response(question_attempt_id, student_response, saved_at)
-    VALUES (question_attempt_id_value, p_student_response, now_value)
-    ON CONFLICT (question_attempt_id) DO UPDATE
+    INSERT INTO ple_private.assessment_attempt_saved_response(
+        course_instance_id, question_attempt_id, student_response, saved_at)
+    VALUES (assessment_attempt_row.course_instance_id, question_attempt_id_value, p_student_response, now_value)
+    ON CONFLICT (course_instance_id, question_attempt_id) DO UPDATE
        SET student_response = EXCLUDED.student_response, saved_at = EXCLUDED.saved_at;
-    assessment_attempt_reference_number := assessment_attempt_row.reference_number;
+    assessment_attempt_id := assessment_attempt_row.assessment_attempt_id;
     issued_position := p_issued_position;
     response_state := 'saved';
     RETURN NEXT;
 END $$;
 
 CREATE FUNCTION ple_private.read_student_assessment_attempt_progress(
-    p_assessment_attempt_reference_number bigint
+    p_assessment_attempt_id uuid
 ) RETURNS TABLE (
-    assessment_attempt_reference_number bigint, question_count integer,
+    assessment_attempt_id uuid, question_count integer,
     recommended_position integer, issued_position integer, response_state text
 ) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
 DECLARE assessment_attempt_row ple_private.assessment_attempt%ROWTYPE;
 BEGIN
-    assessment_attempt_row := ple_private.assert_current_student_assessment_attempt(p_assessment_attempt_reference_number);
+    assessment_attempt_row := ple_private.assert_current_student_assessment_attempt(p_assessment_attempt_id);
     RETURN QUERY
-    SELECT assessment_attempt_row.reference_number, count(*) OVER ()::integer,
+    SELECT assessment_attempt_row.assessment_attempt_id, count(*) OVER ()::integer,
            min(issued.issued_position) FILTER (WHERE question_attempt.question_attempt_state = 'open'
                AND response.question_attempt_id IS NULL) OVER (),
            issued.issued_position,
@@ -770,7 +811,7 @@ END $$;
 -- Question and Question Attempt evidence; it does not consult mutable
 -- Assessment configuration.
 CREATE FUNCTION ple_private.read_student_assessment_attempt_saved_response(
-    p_assessment_attempt_reference_number bigint,
+    p_assessment_attempt_id uuid,
     p_issued_position integer
 ) RETURNS TABLE (issued_position integer, student_response jsonb)
 LANGUAGE plpgsql STABLE SECURITY DEFINER
@@ -783,7 +824,7 @@ BEGIN
     END IF;
 
     assessment_attempt_row := ple_private.assert_current_student_assessment_attempt(
-        p_assessment_attempt_reference_number
+        p_assessment_attempt_id
     );
     RETURN QUERY
     SELECT issued.issued_position,
@@ -837,26 +878,30 @@ BEGIN
 END $$;
 
 CREATE FUNCTION ple_private.read_student_assessment_attempt_history_evidence(
-    p_assessment_attempt_reference_number bigint
+    p_assessment_attempt_id uuid
 ) RETURNS TABLE (
-    assessment_attempt_reference_number bigint, assessment_title text, assessment_instructions text,
+    assessment_attempt_id uuid, assessment_title text, assessment_instructions text,
     issued_position integer, published_question_id text, revision_number integer, question_seed numeric,
     generated_parameter_sha256 text,
     question_attempt_limit integer, question_attempt_time_limit_seconds integer,
     question_attempt_grace_seconds integer, question_attempt_state text, student_response jsonb
 ) LANGUAGE plpgsql SECURITY DEFINER
-SET search_path = pg_catalog, ple_api, ple_private AS $$
+SET search_path = pg_catalog, ple_api, ple_private, ple_data AS $$
 DECLARE assessment_attempt_row ple_private.assessment_attempt%ROWTYPE;
 BEGIN
-    assessment_attempt_row := ple_private.assert_current_student_assessment_attempt(p_assessment_attempt_reference_number);
+    assessment_attempt_row := ple_private.assert_current_student_assessment_attempt(p_assessment_attempt_id);
     RETURN QUERY
-    SELECT assessment_attempt_row.reference_number, assessment_attempt_row.assessment_title, assessment_attempt_row.assessment_instructions,
+    SELECT assessment_attempt_row.assessment_attempt_id, policy.assessment_title, policy.assessment_instructions,
            issued.issued_position, issued.published_question_id, issued.revision_number,
            question_attempt.question_seed, question_attempt.generated_parameter_sha256,
-           issued.question_attempt_limit, issued.question_attempt_time_limit_seconds,
-           issued.question_attempt_grace_seconds, question_attempt.question_attempt_state,
+           snapshot.question_attempt_limit, snapshot.question_attempt_time_limit_seconds,
+           snapshot.question_attempt_grace_seconds, question_attempt.question_attempt_state,
            COALESCE(submission.student_response, response.student_response)
       FROM ple_private.issued_question AS issued
+      JOIN ple_private.assessment_entry_snapshot AS snapshot
+        ON snapshot.assessment_entry_snapshot_id = issued.assessment_entry_snapshot_id
+      JOIN ple_data.assessment_policy_snapshot AS policy
+        ON policy.assessment_policy_snapshot_id = assessment_attempt_row.assessment_policy_snapshot_id
       JOIN ple_private.question_attempt ON question_attempt.issued_question_id = issued.issued_question_id
       LEFT JOIN ple_private.assessment_attempt_saved_response AS response ON response.question_attempt_id = question_attempt.question_attempt_id
       LEFT JOIN ple_private.question_response AS submission ON submission.question_attempt_id = question_attempt.question_attempt_id

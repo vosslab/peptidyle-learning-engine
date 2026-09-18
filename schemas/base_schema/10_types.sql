@@ -25,6 +25,9 @@ CREATE TYPE ple_data.question_variation_rule AS ENUM (
 CREATE TYPE ple_data.question_order_rule AS ENUM (
     'authored_order', 'shuffled'
 );
+CREATE TYPE ple_data.selected_question_order AS ENUM (
+    'question_pool_order', 'random_order'
+);
 CREATE TYPE ple_data.feedback_release AS ENUM (
     'during_attempt', 'after_submit', 'after_due', 'after_close', 'never'
 );
@@ -51,7 +54,7 @@ CREATE TYPE ple_data.library_object_kind AS ENUM (
     'question', 'question_pool'
 );
 CREATE TYPE ple_data.library_watch_event_kind AS ENUM (
-    'revision', 'fork', 'improvement_thread', 'impact_notice'
+    'revision', 'members_changed', 'fork', 'improvement_thread', 'impact_notice'
 );
 CREATE TYPE ple_data.media_type AS ENUM (
     'image/png', 'image/jpeg', 'image/webp'
@@ -201,6 +204,7 @@ GRANT USAGE ON TYPE
     ple_data.late_work_rule,
     ple_data.question_variation_rule,
     ple_data.question_order_rule,
+    ple_data.selected_question_order,
     ple_data.feedback_release,
     ple_data.scoring_rule,
     ple_data.entry_kind,
@@ -260,7 +264,7 @@ GRANT USAGE ON TYPE
 SET LOCAL ROLE ple_private_owner;
 
 CREATE TYPE ple_private.bloom_preparation_target_kind AS ENUM (
-    'question_revision', 'question_pool_revision'
+    'question_revision', 'question_pool'
 );
 
 GRANT USAGE ON TYPE ple_private.bloom_preparation_target_kind

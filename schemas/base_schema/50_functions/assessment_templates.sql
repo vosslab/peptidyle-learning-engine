@@ -123,7 +123,7 @@ RETURNS TABLE (
     assessment_template_edit_number bigint
 )
 LANGUAGE plpgsql STABLE SECURITY DEFINER
-SET search_path = pg_catalog, ple_api, ple_private AS $$
+SET search_path = pg_catalog, ple_api, ple_private, ple_data AS $$
 BEGIN
     IF NOT ple_api.current_session_account_is_instructor() THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
@@ -135,29 +135,31 @@ BEGIN
            template.template_name,
            template.assessment_type,
            jsonb_build_object(
-               'instructions', template.instructions,
+               'instructions', policy.assessment_instructions,
                'assessmentAttemptTimeLimitSeconds',
-                    template.assessment_attempt_time_limit_seconds,
-               'attemptLimit', template.assessment_attempt_limit,
-               'lateWorkRule', template.late_work_rule,
+                    policy.assessment_attempt_time_limit_seconds,
+               'attemptLimit', policy.assessment_attempt_limit,
+               'lateWorkRule', policy.late_work_rule,
                'activityRules', jsonb_build_object(
-                   'questionVariationRule', CASE template.question_variation_rule
+                   'questionVariationRule', CASE policy.question_variation_rule
                        WHEN 'reuse_variation' THEN 'reuseVariation' ELSE 'newVariation' END,
-                   'assessmentQuestionOrderRule', CASE template.assessment_question_order_rule
+                   'assessmentQuestionOrderRule', CASE policy.assessment_question_order_rule
                        WHEN 'authored_order' THEN 'authoredOrder' ELSE 'shuffled' END
                ),
                'studentFeedbackReleaseRule', jsonb_build_object(
-                   'score', template.feedback_score,
-                   'per_item_correctness', template.feedback_per_item_correctness,
-                   'submitted_response', template.feedback_submitted_response,
-                   'question_answer', template.feedback_question_answer,
+                   'score', policy.feedback_score,
+                   'per_item_correctness', policy.feedback_per_item_correctness,
+                   'submitted_response', policy.feedback_submitted_response,
+                   'question_answer', policy.feedback_question_answer,
                    'question_answer_explanation',
-                        template.feedback_question_answer_explanation,
-                   'class_statistics', template.feedback_class_statistics
+                        policy.feedback_question_answer_explanation,
+                   'class_statistics', policy.feedback_class_statistics
                )
            ),
            template.assessment_template_edit_number
       FROM ple_private.assessment_template AS template
+      JOIN ple_data.assessment_policy_snapshot AS policy
+        ON policy.assessment_policy_snapshot_id = template.assessment_policy_snapshot_id
      WHERE template.owner_account_id = ple_api.current_session_account_id()
      ORDER BY template.template_name, template.assessment_template_id;
 END
@@ -204,11 +206,12 @@ RETURNS TABLE (
     assessment_template_edit_number bigint
 )
 LANGUAGE plpgsql SECURITY DEFINER
-SET search_path = pg_catalog, ple_api, ple_private AS $$
+SET search_path = pg_catalog, ple_api, ple_private, ple_data AS $$
 DECLARE
     actor_id text;
     activity_rules jsonb;
     feedback_rules jsonb;
+    snapshot_id ple_data.sha256_digest;
 BEGIN
     IF NOT ple_api.current_session_account_is_instructor() THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
@@ -218,27 +221,31 @@ BEGIN
     PERFORM ple_private.validate_assessment_template_settings(p_settings);
     activity_rules := p_settings -> 'activityRules';
     feedback_rules := p_settings -> 'studentFeedbackReleaseRule';
-
-    INSERT INTO ple_private.assessment_template (
-        assessment_template_id, owner_account_id, template_name, assessment_type, instructions,
-        assessment_attempt_time_limit_seconds, assessment_attempt_limit, late_work_rule,
-        question_variation_rule,
-        assessment_question_order_rule, feedback_score,
-        feedback_per_item_correctness, feedback_submitted_response,
-        feedback_question_answer, feedback_question_answer_explanation, feedback_class_statistics
-    ) VALUES (
-        p_assessment_template_id, actor_id, p_template_name, p_assessment_type,
+    snapshot_id := ple_private.ensure_assessment_policy_snapshot(
+        p_template_name,
         p_settings ->> 'instructions',
+        NULL, NULL, NULL,
         (p_settings ->> 'assessmentAttemptTimeLimitSeconds')::integer,
-        (p_settings ->> 'attemptLimit')::integer, p_settings ->> 'lateWorkRule',
+        (p_settings ->> 'attemptLimit')::integer,
+        (p_settings ->> 'lateWorkRule')::ple_data.late_work_rule,
         CASE activity_rules ->> 'questionVariationRule'
             WHEN 'reuseVariation' THEN 'reuse_variation' ELSE 'new_variation' END,
         CASE activity_rules ->> 'assessmentQuestionOrderRule'
             WHEN 'authoredOrder' THEN 'authored_order' ELSE 'shuffled' END,
-        feedback_rules ->> 'score', feedback_rules ->> 'per_item_correctness',
-        feedback_rules ->> 'submitted_response',
-        feedback_rules ->> 'question_answer', feedback_rules ->> 'question_answer_explanation',
-        feedback_rules ->> 'class_statistics'
+        (feedback_rules ->> 'score')::ple_data.feedback_release,
+        (feedback_rules ->> 'per_item_correctness')::ple_data.feedback_release,
+        (feedback_rules ->> 'submitted_response')::ple_data.feedback_release,
+        (feedback_rules ->> 'question_answer')::ple_data.feedback_release,
+        (feedback_rules ->> 'question_answer_explanation')::ple_data.feedback_release,
+        (feedback_rules ->> 'class_statistics')::ple_data.feedback_release,
+        p_assessment_type::ple_data.assessment_type
+    );
+
+    INSERT INTO ple_private.assessment_template (
+        assessment_template_id, owner_account_id, template_name, assessment_type,
+        assessment_policy_snapshot_id
+    ) VALUES (
+        p_assessment_template_id, actor_id, p_template_name, p_assessment_type, snapshot_id
     );
 
     RETURN QUERY SELECT created.*
@@ -261,11 +268,12 @@ RETURNS TABLE (
     assessment_template_edit_number bigint
 )
 LANGUAGE plpgsql SECURITY DEFINER
-SET search_path = pg_catalog, ple_api, ple_private AS $$
+SET search_path = pg_catalog, ple_api, ple_private, ple_data AS $$
 DECLARE
     activity_rules jsonb;
     current_edit_number bigint;
     feedback_rules jsonb;
+    snapshot_id ple_data.sha256_digest;
 BEGIN
     IF NOT ple_api.current_session_account_is_instructor() THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
@@ -293,27 +301,31 @@ BEGIN
     PERFORM ple_private.validate_assessment_template_settings(p_settings);
     activity_rules := p_settings -> 'activityRules';
     feedback_rules := p_settings -> 'studentFeedbackReleaseRule';
+    snapshot_id := ple_private.ensure_assessment_policy_snapshot(
+        p_template_name,
+        p_settings ->> 'instructions',
+        NULL, NULL, NULL,
+        (p_settings ->> 'assessmentAttemptTimeLimitSeconds')::integer,
+        (p_settings ->> 'attemptLimit')::integer,
+        (p_settings ->> 'lateWorkRule')::ple_data.late_work_rule,
+        CASE activity_rules ->> 'questionVariationRule'
+            WHEN 'reuseVariation' THEN 'reuse_variation' ELSE 'new_variation' END,
+        CASE activity_rules ->> 'assessmentQuestionOrderRule'
+            WHEN 'authoredOrder' THEN 'authored_order' ELSE 'shuffled' END,
+        (feedback_rules ->> 'score')::ple_data.feedback_release,
+        (feedback_rules ->> 'per_item_correctness')::ple_data.feedback_release,
+        (feedback_rules ->> 'submitted_response')::ple_data.feedback_release,
+        (feedback_rules ->> 'question_answer')::ple_data.feedback_release,
+        (feedback_rules ->> 'question_answer_explanation')::ple_data.feedback_release,
+        (feedback_rules ->> 'class_statistics')::ple_data.feedback_release,
+        p_assessment_type::ple_data.assessment_type
+    );
 
     UPDATE ple_private.assessment_template AS template
        SET assessment_template_edit_number = template.assessment_template_edit_number + 1,
            template_name = p_template_name,
            assessment_type = p_assessment_type,
-           instructions = p_settings ->> 'instructions',
-           assessment_attempt_time_limit_seconds =
-                (p_settings ->> 'assessmentAttemptTimeLimitSeconds')::integer,
-           assessment_attempt_limit = (p_settings ->> 'attemptLimit')::integer,
-           late_work_rule = p_settings ->> 'lateWorkRule',
-           question_variation_rule = CASE activity_rules ->> 'questionVariationRule'
-               WHEN 'reuseVariation' THEN 'reuse_variation' ELSE 'new_variation' END,
-           assessment_question_order_rule = CASE activity_rules ->> 'assessmentQuestionOrderRule'
-               WHEN 'authoredOrder' THEN 'authored_order' ELSE 'shuffled' END,
-           feedback_score = feedback_rules ->> 'score',
-           feedback_per_item_correctness = feedback_rules ->> 'per_item_correctness',
-           feedback_submitted_response = feedback_rules ->> 'submitted_response',
-           feedback_question_answer = feedback_rules ->> 'question_answer',
-           feedback_question_answer_explanation =
-                feedback_rules ->> 'question_answer_explanation',
-           feedback_class_statistics = feedback_rules ->> 'class_statistics'
+           assessment_policy_snapshot_id = snapshot_id
      WHERE template.assessment_template_id = p_assessment_template_id
        AND template.owner_account_id = ple_api.current_session_account_id();
 

@@ -3,8 +3,8 @@
 import type { AssessmentEditNumber } from "../../generated/api/AssessmentEditNumber";
 import type { AssessmentEntry } from "../../generated/api/AssessmentEntry";
 import type { AssessmentOrigin } from "../../generated/api/AssessmentOrigin";
-import type { AssessmentReference } from "../../generated/api/AssessmentReference";
-import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
+import type { AssessmentId } from "../../generated/api/AssessmentId";
+import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { LocalDateAndTime } from "../../generated/api/LocalDateAndTime";
 import type { LateWorkRule } from "../../generated/api/LateWorkRule";
 import type { AccountTimeZone } from "../../generated/api/AccountTimeZone";
@@ -13,7 +13,7 @@ import type { AssessmentType } from "../../generated/api/AssessmentType";
 import type { StudentFeedbackReleaseRule } from "../../generated/api/StudentFeedbackReleaseRule";
 import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
 import type { BlueprintRevision } from "../../generated/api/BlueprintRevision";
-import type { BlueprintCourseReference } from "../../generated/api/BlueprintCourseReference";
+import type { BlueprintCourseId } from "../../generated/api/BlueprintCourseId";
 import type { BlueprintAssessmentDefaults } from "../../generated/api/BlueprintAssessmentDefaults";
 import type { FixedQuestionAssessmentEntry } from "../../generated/api/FixedQuestionAssessmentEntry";
 import type { QuestionPoolAssessmentEntry } from "../../generated/api/QuestionPoolAssessmentEntry";
@@ -40,7 +40,7 @@ export interface AssessmentBlueprintUpdateReview {
 
 /** One current adopted Assessment correspondence; direct local Assessments are omitted. */
 export interface CourseAssessmentBlueprintUpdateSummary {
-  readonly assessmentReference: AssessmentReference;
+  readonly assessmentReference: AssessmentId;
   readonly title: string;
   readonly assessmentType: AssessmentType;
   readonly matchesSource: boolean;
@@ -49,7 +49,7 @@ export interface CourseAssessmentBlueprintUpdateSummary {
 
 /** Derived together from one parent Revision; adoptedRevision is the immutable creation pin. */
 export interface CourseBlueprintUpdateReview {
-  readonly blueprintReference: BlueprintCourseReference;
+  readonly blueprintReference: BlueprintCourseId;
   readonly adoptedRevision: BlueprintRevision;
   readonly sourceRevision: BlueprintRevision;
   readonly assessments: ReadonlyArray<CourseAssessmentBlueprintUpdateSummary>;
@@ -63,7 +63,7 @@ export interface ApplyAssessmentBlueprintUpdateInput {
 export type LiveAssessmentStatus = "unreleased" | "released" | "closed" | "archived";
 
 export interface CourseAssessmentSummary {
-  readonly reference: AssessmentReference;
+  readonly reference: AssessmentId;
   readonly assessmentType: AssessmentType;
   readonly title: string;
   readonly dueAt: LocalDateAndTime | null;
@@ -75,9 +75,9 @@ export interface CourseAssessmentSummary {
 
 /** One Course-qualified Assessment due in the authenticated Instructor's rolling next-seven-days window. */
 export interface DueSoonAssessmentSummary {
-  readonly courseReference: CourseInstanceReference;
+  readonly courseReference: CourseInstanceId;
   readonly courseLongName: string;
-  readonly assessmentReference: AssessmentReference;
+  readonly assessmentReference: AssessmentId;
   readonly assessmentType: AssessmentType;
   readonly assessmentTitle: string;
   readonly assessmentStatus: LiveAssessmentStatus;
@@ -112,7 +112,7 @@ export interface AuthoredAssessmentQuestion {
 }
 
 export interface LiveAssessmentWorkspace {
-  readonly reference: AssessmentReference;
+  readonly reference: AssessmentId;
   readonly editNumber: AssessmentEditNumber;
   readonly status: LiveAssessmentStatus;
   /** Trusted server-derived direct or adopted origin; create requests never send it. */
@@ -212,70 +212,70 @@ export interface UnreleasedLiveAssessment {
 /** Same-origin direct-Instructor Assessment Workspace boundary. */
 export interface LiveAssessmentReleaseClient {
   readonly getCourseBlueprintUpdateReview: (
-    course: CourseInstanceReference,
+    course: CourseInstanceId,
   ) => Promise<CourseBlueprintUpdateReview>;
   readonly getAssessmentBlueprintUpdateReview: (
-    course: CourseInstanceReference,
-    assessment: AssessmentReference,
+    course: CourseInstanceId,
+    assessment: AssessmentId,
   ) => Promise<AssessmentBlueprintUpdateReview>;
   readonly applyAssessmentBlueprintUpdate: (
-    course: CourseInstanceReference,
-    assessment: AssessmentReference,
+    course: CourseInstanceId,
+    assessment: AssessmentId,
     input: ApplyAssessmentBlueprintUpdateInput,
   ) => Promise<LiveAssessmentWorkspaceResponse>;
   readonly listAssessmentsDueSoon: () => Promise<DueSoonAssessments>;
   readonly listCourseAssessments: (
-    course: CourseInstanceReference,
+    course: CourseInstanceId,
   ) => Promise<ReadonlyArray<CourseAssessmentSummary>>;
   /** Saves the mutable title and due date shown on the Course Assessment list row. */
   readonly saveLiveAssessmentInline: (
-    course: CourseInstanceReference,
-    assessment: AssessmentReference,
+    course: CourseInstanceId,
+    assessment: AssessmentId,
     input: SaveLiveAssessmentInlineInput,
     editNumber: AssessmentEditNumber,
   ) => Promise<CourseAssessmentSummary>;
   readonly listLiveAssessmentQuestionPicker: (
-    course: CourseInstanceReference,
+    course: CourseInstanceId,
   ) => Promise<ReadonlyArray<AssessmentQuestionPickerEntry>>;
   readonly createLiveAssessment: (
-    course: CourseInstanceReference,
+    course: CourseInstanceId,
     input: CreateLiveAssessmentInput,
   ) => Promise<LiveAssessmentWorkspaceResponse>;
   readonly getLiveAssessmentWorkspace: (
-    course: CourseInstanceReference,
-    assessment: AssessmentReference,
+    course: CourseInstanceId,
+    assessment: AssessmentId,
   ) => Promise<LiveAssessmentWorkspaceResponse>;
   readonly saveLiveAssessment: (
-    course: CourseInstanceReference,
-    assessment: AssessmentReference,
+    course: CourseInstanceId,
+    assessment: AssessmentId,
     input: SaveLiveAssessmentInput,
     etag: string,
   ) => Promise<LiveAssessmentWorkspaceResponse>;
   /** Saves only Base Assessment Policy fields with an exact Assessment Edit Number. */
   readonly saveBaseAssessmentPolicy: (
-    course: CourseInstanceReference,
-    assessment: AssessmentReference,
+    course: CourseInstanceId,
+    assessment: AssessmentId,
     input: SaveBaseAssessmentPolicyInput,
     etag: string,
   ) => Promise<LiveAssessmentWorkspaceResponse>;
   readonly validateLiveAssessmentRelease: (
-    course: CourseInstanceReference,
-    assessment: AssessmentReference,
+    course: CourseInstanceId,
+    assessment: AssessmentId,
   ) => Promise<AssessmentReleaseValidation>;
   readonly releaseLiveAssessment: (
-    course: CourseInstanceReference,
-    assessment: AssessmentReference,
+    course: CourseInstanceId,
+    assessment: AssessmentId,
     etag: string,
   ) => Promise<LiveAssessmentWorkspaceResponse>;
   /** Reads the aggregate confirmation facts for a currently Released Assessment. */
   readonly getLiveAssessmentUnreleaseImpact: (
-    course: CourseInstanceReference,
-    assessment: AssessmentReference,
+    course: CourseInstanceId,
+    assessment: AssessmentId,
   ) => Promise<AssessmentUnreleaseImpact>;
   /** Restores a Released Assessment to Unreleased after exact-title confirmation. */
   readonly unreleaseLiveAssessment: (
-    course: CourseInstanceReference,
-    assessment: AssessmentReference,
+    course: CourseInstanceId,
+    assessment: AssessmentId,
     confirmationTitle: string,
     etag: string,
   ) => Promise<{

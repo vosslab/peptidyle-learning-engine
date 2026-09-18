@@ -132,7 +132,7 @@ try {
         { cause: error },
       );
     });
-  assert.equal(await page.locator("[data-m6-location]").textContent(), "/assessment-attempts/R-6");
+  assert.equal(await page.locator("[data-m6-location]").textContent(), "/assessment-attempts/00000000-0000-0000-0000-000000000006");
 
   await page.goto(`${origin}/?mode=landing`);
   await page.getByRole("link", { name: "Review Bonus Assignment", exact: true }).focus();
@@ -145,7 +145,7 @@ try {
     .waitFor({ state: "visible" });
   assert.equal(
     await page.getByRole("link", { name: "Attempt 1", exact: true }).getAttribute("href"),
-    "/assessment-attempts/R-5/summary",
+    "/assessment-attempts/00000000-0000-0000-0000-000000000005/summary",
   );
 
   await page.goto(`${origin}/?mode=landing`);

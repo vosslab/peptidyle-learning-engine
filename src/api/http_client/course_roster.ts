@@ -1,6 +1,6 @@
 // Strict same-origin transport for Course Roster routes.
 
-import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
+import type { CourseInstanceId } from "../../../generated/api/CourseInstanceId";
 import type { ApiClient } from "../client";
 import type { LiveCourseRosterClient } from "../course_roster";
 import {
@@ -11,10 +11,10 @@ import {
 import { ApiProtocolError, ApiRequestError } from "./error";
 import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
-import { parseCourseInstanceReference } from "../../navigation/public_route";
+import { parseCourseInstanceId } from "../../navigation/public_route";
 
-function courseRosterPath(course: CourseInstanceReference): string {
-  if (parseCourseInstanceReference(course) === null) {
+function courseRosterPath(course: CourseInstanceId): string {
+  if (parseCourseInstanceId(course) === null) {
     throw new ApiProtocolError("Course Instance reference must be canonical");
   }
   return `/api/course-instances/${encodeURIComponent(course)}/roster`;

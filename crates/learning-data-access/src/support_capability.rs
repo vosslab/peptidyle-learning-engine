@@ -1,7 +1,7 @@
 //! Exact-course Sysadmin support-capability issuance and revocation.
 
 use async_trait::async_trait;
-use question_model::{AccountReference, CourseInstanceReference, Timestamp};
+use question_model::{AccountId, CourseInstanceId, Timestamp};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -36,7 +36,7 @@ impl SupportRepairResourceClass {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct IssueSupportRepairCapabilityInput {
-    pub sysadmin_reference: AccountReference,
+    pub sysadmin_reference: AccountId,
     pub resource_class: SupportRepairResourceClass,
     pub resource_reference: String,
     pub purpose: String,
@@ -64,7 +64,7 @@ impl IssueSupportRepairCapabilityInput {
 #[serde(rename_all = "camelCase")]
 pub struct SupportRepairCapabilityReceipt {
     pub capability_id: Uuid,
-    pub sysadmin_reference: AccountReference,
+    pub sysadmin_reference: AccountId,
     pub resource_class: SupportRepairResourceClass,
     pub resource_reference: String,
     pub purpose: String,
@@ -109,7 +109,7 @@ pub trait SupportRepairCapabilityStore: Send + Sync {
         &self,
         token: SessionTokenHash,
         capability_id: Uuid,
-        course: CourseInstanceReference,
+        course: CourseInstanceId,
         roster_id: String,
     ) -> Result<Option<SupportCourseRosterEntry>, StoreError>;
 }
@@ -120,7 +120,7 @@ mod tests {
 
     fn input(reference: &str, purpose: &str) -> IssueSupportRepairCapabilityInput {
         IssueSupportRepairCapabilityInput {
-            sysadmin_reference: AccountReference::from_random_identity("7K3M2QX")
+            sysadmin_reference: AccountId::from_random_identity("7K3M2QX")
                 .expect("valid reference"),
             resource_class: SupportRepairResourceClass::Student,
             resource_reference: reference.to_owned(),

@@ -1,7 +1,7 @@
 // Strict same-origin transport for the Assessment Workspace and release boundary.
 
-import type { AssessmentReference } from "../../../generated/api/AssessmentReference";
-import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
+import type { AssessmentId } from "../../../generated/api/AssessmentId";
+import type { CourseInstanceId } from "../../../generated/api/CourseInstanceId";
 import type { ApiClient } from "../client";
 import type {
   CourseAssessmentSummary,
@@ -31,8 +31,8 @@ import { decodeCourseBlueprintUpdateReview } from "../decoders/course_blueprint_
 import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
 import {
-  parseAssessmentReference,
-  parseCourseInstanceReference,
+  parseAssessmentId,
+  parseCourseInstanceId,
 } from "../../navigation/public_route";
 
 export class LiveAssessmentWorkspaceConflictError extends ApiRequestError {
@@ -42,15 +42,15 @@ export class LiveAssessmentWorkspaceConflictError extends ApiRequestError {
   }
 }
 
-function coursePath(course: CourseInstanceReference): string {
-  if (parseCourseInstanceReference(course) === null) {
+function coursePath(course: CourseInstanceId): string {
+  if (parseCourseInstanceId(course) === null) {
     throw new ApiProtocolError("Course Instance reference must be canonical");
   }
   return `/api/course-instances/${encodeURIComponent(course)}`;
 }
 
-function assessmentPath(course: CourseInstanceReference, assessment: AssessmentReference): string {
-  if (parseAssessmentReference(assessment) === null) {
+function assessmentPath(course: CourseInstanceId, assessment: AssessmentId): string {
+  if (parseAssessmentId(assessment) === null) {
     throw new ApiProtocolError("Assessment reference must be canonical");
   }
   return `${coursePath(course)}/assessments/${encodeURIComponent(assessment)}`;

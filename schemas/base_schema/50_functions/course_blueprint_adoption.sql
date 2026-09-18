@@ -188,11 +188,13 @@ CREATE FUNCTION ple_data.append_course_assessments(
     p_course_instance_id text, p_blueprint_reference text, p_blueprint_revision bigint, p_assessments jsonb
 )
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER
-SET search_path = pg_catalog, ple_api, ple_data AS $$
+SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
     member jsonb;
     entry_json jsonb;
-    candidate ple_data.assessment%ROWTYPE;
+    candidate ple_data.assessment_policy_snapshot%ROWTYPE;
+    assessment_type_value ple_data.assessment_type;
+    snapshot_id ple_data.sha256_digest;
     new_assessment_id text;
     source_question_pool_id text;
     forked record;
@@ -218,51 +220,32 @@ BEGIN
         END IF;
         -- Only content/policy columns below are admitted. Identity, provenance,
         -- initial Edit Number, and unreleased state are always database-owned.
-        SELECT * INTO candidate FROM jsonb_populate_record(NULL::ple_data.assessment,
-            member -> 'values');
+        assessment_type_value := (member -> 'values' ->> 'assessment_type')::ple_data.assessment_type;
+        SELECT * INTO candidate FROM jsonb_populate_record(
+            NULL::ple_data.assessment_policy_snapshot, member -> 'values');
+        snapshot_id := ple_private.ensure_assessment_policy_snapshot(
+            candidate.assessment_title, candidate.assessment_instructions,
+            NULL, NULL, NULL,
+            candidate.assessment_attempt_time_limit_seconds, candidate.assessment_attempt_limit,
+            candidate.late_work_rule, candidate.question_variation_rule,
+            candidate.assessment_question_order_rule, candidate.feedback_score,
+            candidate.feedback_per_item_correctness, candidate.feedback_submitted_response,
+            candidate.feedback_question_answer, candidate.feedback_question_answer_explanation,
+            candidate.feedback_class_statistics, assessment_type_value
+        );
         new_assessment_id := gen_random_uuid();
         INSERT INTO ple_data.assessment (
             assessment_id, course_instance_id, origin_kind, source_blueprint_course_id,
             source_blueprint_revision_number, source_blueprint_assessment_reference,
             created_at, updated_at,
             assessment_type,
-            assessment_title,
-            assessment_instructions,
-            available_at,
-            due_at,
-            closes_at,
-            assessment_attempt_time_limit_seconds,
-            assessment_attempt_limit,
-            late_work_rule,
-            question_variation_rule,
-            assessment_question_order_rule,
-            feedback_score,
-            feedback_per_item_correctness,
-            feedback_submitted_response,
-            feedback_question_answer,
-            feedback_question_answer_explanation,
-            feedback_class_statistics
+            assessment_policy_snapshot_id
         ) VALUES (
             new_assessment_id, p_course_instance_id, 'adopted', p_blueprint_reference,
             p_blueprint_revision, (member ->> 'source')::uuid,
             transaction_timestamp(), transaction_timestamp(),
-            candidate.assessment_type,
-            candidate.assessment_title,
-            candidate.assessment_instructions,
-            NULL,
-            NULL,
-            NULL,
-            candidate.assessment_attempt_time_limit_seconds,
-            candidate.assessment_attempt_limit,
-            candidate.late_work_rule,
-            candidate.question_variation_rule,
-            candidate.assessment_question_order_rule,
-            candidate.feedback_score,
-            candidate.feedback_per_item_correctness,
-            candidate.feedback_submitted_response,
-            candidate.feedback_question_answer,
-            candidate.feedback_question_answer_explanation,
-            candidate.feedback_class_statistics
+            assessment_type_value,
+            snapshot_id
         );
         -- Fixed entries have no child lineage and can use the ordinary guarded
         -- entry writer. Pool entries are created below through their distinct
@@ -291,38 +274,42 @@ BEGIN
             END IF;
             SELECT * INTO forked FROM ple_data.fork_question_pool_revision_for_course_adoption(
                 entry_json ->> 'forkPublicQuestionPoolId',
-                source_question_pool_id,
-                (entry_json ->> 'sourceQuestionPoolRevisionNumber')::bigint
+                source_question_pool_id
             );
             IF (entry_json ->> 'selectionCount')::integer > (
-                SELECT member_count FROM ple_data.question_pool_revision
-                 WHERE question_pool_id = forked.question_pool_id AND revision_number = 1
+                SELECT count(*) FROM ple_data.question_pool_member AS member
+                 WHERE member.question_pool_id = forked.question_pool_id
             ) THEN
                 RAISE EXCEPTION USING ERRCODE = '22023',
                     MESSAGE = 'Blueprint Question Pool selection exceeds fork member count';
             END IF;
             INSERT INTO ple_data.assessment_entry (
                 assessment_entry_id, assessment_id, authored_position, entry_kind, availability,
-                scoring_rule, question_pool_id, question_pool_revision_number, selection_count,
-                points_per_item, selected_question_order, question_attempt_limit,
+                scoring_rule, question_attempt_limit,
                 question_attempt_time_limit_seconds, question_attempt_grace_seconds
             ) VALUES (
                 (entry_json ->> 'assessmentEntryId')::uuid, new_assessment_id,
                 (entry_json ->> 'authoredPosition')::integer, 'question_pool', 'available',
-                entry_json ->> 'scoringRule', forked.question_pool_id, 1,
-                (entry_json ->> 'selectionCount')::integer,
-                (entry_json ->> 'pointsPerItem')::numeric,
-                entry_json ->> 'selectedQuestionOrder',
+                entry_json ->> 'scoringRule',
                 NULLIF(entry_json ->> 'questionAttemptLimit', '')::integer,
                 NULLIF(entry_json ->> 'questionAttemptTimeLimitSeconds', '')::integer,
                 NULLIF(entry_json ->> 'questionAttemptGraceSeconds', '')::integer
             );
-            INSERT INTO ple_data.assessment_question_pool_fork (
+            INSERT INTO ple_data.assessment_entry_pool (
                 assessment_entry_id, assessment_id, question_pool_id,
-                origin_question_pool_revision_number
+                selection_count, points_per_item, selected_question_order
             ) VALUES (
                 (entry_json ->> 'assessmentEntryId')::uuid, new_assessment_id,
-                forked.question_pool_id, 1
+                forked.question_pool_id,
+                (entry_json ->> 'selectionCount')::integer,
+                (entry_json ->> 'pointsPerItem')::numeric,
+                entry_json ->> 'selectedQuestionOrder'
+            );
+            INSERT INTO ple_data.assessment_question_pool_fork (
+                assessment_entry_id, assessment_id, question_pool_id
+            ) VALUES (
+                (entry_json ->> 'assessmentEntryId')::uuid, new_assessment_id,
+                forked.question_pool_id
             );
         END LOOP;
     END LOOP;

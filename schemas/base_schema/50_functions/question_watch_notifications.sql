@@ -125,23 +125,26 @@ CREATE TRIGGER question_fork_enqueues_watch_notification
 AFTER INSERT ON ple_data.question_fork_source
 FOR EACH ROW EXECUTE FUNCTION ple_data.enqueue_question_watch_fork_event();
 
-CREATE FUNCTION ple_data.enqueue_question_pool_watch_revision_event()
+CREATE FUNCTION ple_data.enqueue_question_pool_watch_members_changed_event()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
-DECLARE public_id text;
 BEGIN
-    SELECT question_pool_id INTO public_id
-      FROM ple_data.question_pool WHERE question_pool_id = NEW.question_pool_id;
+    IF NEW.question_pool_edit_number <= OLD.question_pool_edit_number THEN
+        RETURN NEW;
+    END IF;
     INSERT INTO ple_data.library_watch_event(
         target_kind, target_public_id, event_kind, revision_number, occurred_at
-    ) VALUES ('question_pool', public_id, 'revision', NEW.revision_number, NEW.created_at);
+    ) VALUES (
+        'question_pool', NEW.question_pool_id, 'members_changed',
+        NEW.question_pool_edit_number, clock_timestamp()
+    );
     RETURN NEW;
 END
 $$;
 
-CREATE TRIGGER question_pool_revision_enqueues_watch_notification
-AFTER INSERT ON ple_data.question_pool_revision
-FOR EACH ROW EXECUTE FUNCTION ple_data.enqueue_question_pool_watch_revision_event();
+CREATE TRIGGER question_pool_members_changed_enqueues_watch_notification
+AFTER UPDATE OF question_pool_edit_number ON ple_data.question_pool
+FOR EACH ROW EXECUTE FUNCTION ple_data.enqueue_question_pool_watch_members_changed_event();
 
 CREATE FUNCTION ple_data.enqueue_question_pool_watch_fork_event()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
@@ -155,7 +158,11 @@ BEGIN
         target_kind, target_public_id, event_kind, revision_number,
         forked_public_id, occurred_at
     ) VALUES (
-        'question_pool', source_public_id, 'fork', NEW.source_question_pool_revision_number,
+        'question_pool', source_public_id, 'fork', (
+            SELECT source_pool.question_pool_edit_number
+              FROM ple_data.question_pool AS source_pool
+             WHERE source_pool.question_pool_id = NEW.source_question_pool_id
+        ),
         NEW.question_pool_id, NEW.created_at
     );
     RETURN NEW;

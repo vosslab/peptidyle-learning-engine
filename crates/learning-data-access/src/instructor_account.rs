@@ -1,7 +1,7 @@
 //! Sysadmin-authorized Instructor Account management records.
 
 use async_trait::async_trait;
-use question_model::{AccountReference, AccountTimeZone, Timestamp};
+use question_model::{AccountId, AccountTimeZone, Timestamp};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -25,7 +25,7 @@ pub enum InstructorAccountState {
 #[serde(rename_all = "camelCase")]
 pub struct InstructorAccountSummary {
     /// Canonical opaque Account Reference.
-    pub reference: AccountReference,
+    pub reference: AccountId,
     /// Current Account State derived from the immutable event history.
     pub state: InstructorAccountState,
     /// Most recent successful credential verification/session creation, if any.
@@ -173,7 +173,7 @@ pub trait InstructorAccountStore: Send + Sync {
     async fn deactivate_instructor_account(
         &self,
         session_token_hash: SessionTokenHash,
-        reference: AccountReference,
+        reference: AccountId,
         input: DeactivateInstructorAccountInput,
     ) -> Result<InstructorAccountSummary, StoreError>;
 
@@ -181,6 +181,6 @@ pub trait InstructorAccountStore: Send + Sync {
     async fn reactivate_instructor_account(
         &self,
         session_token_hash: SessionTokenHash,
-        reference: AccountReference,
+        reference: AccountId,
     ) -> Result<InstructorAccountSummary, StoreError>;
 }

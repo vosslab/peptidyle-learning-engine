@@ -6,7 +6,7 @@
 
 use uuid::Uuid;
 
-use crate::{AccountId, CourseId, CourseMembershipId, CourseMembershipRole, Timestamp};
+use crate::{AccountId, CourseInstanceId, CourseMembershipId, CourseMembershipRole, Timestamp};
 
 /// Stable internal identifier for one target-bound Course Invitation.
 ///
@@ -38,7 +38,7 @@ pub enum CourseInvitationState {
 }
 
 /// One immutable terminal transition for an exact Course Invitation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CourseInvitationEvent {
     /// Exact invitation whose state changes.
     pub invitation: CourseInvitationId,
@@ -68,7 +68,7 @@ pub struct CourseInvitation {
     /// Internal storage identity, never a visible reference.
     pub id: CourseInvitationId,
     /// Exact course that can receive one ordinary Instructor Course Membership.
-    pub course: CourseId,
+    pub course: CourseInstanceId,
     /// Exact Instructor Course Membership episode that initiated the invitation.
     pub invited_by: CourseMembershipId,
     /// Exact Course Membership Role granted if the target accepts this invitation.

@@ -119,7 +119,7 @@ pub(crate) fn create_live_demo_blueprint(
                 .publish_blueprint(
                     session,
                     receipt.blueprint_revision.reference.clone(),
-                    blueprint.metadata_etag,
+                    blueprint.blueprint_edit_number,
                 )
                 .await
                 .context("publishing the ordinary Live Demo Blueprint Course")?;
@@ -146,7 +146,7 @@ fn validate_loaded_content(
     content: &StoredBlueprintCourseContent,
     expected: &CreateBlueprintCourseInput,
     questions: &[QuestionRevisionReference],
-) -> Result<question_model::BlueprintAssessmentReference> {
+) -> Result<question_model::BlueprintAssessmentId> {
     ensure!(
         content.modules.len() == 1 && expected.modules.len() == 1,
         "Live Demo Blueprint must contain exactly one Module"
@@ -262,7 +262,7 @@ mod tests {
     use learning_data_access::{
         StoredBlueprintAssessment, StoredBlueprintAssessmentContent, StoredBlueprintModule,
     };
-    use question_model::{BlueprintAssessmentReference, BlueprintModuleReference};
+    use question_model::{BlueprintAssessmentId, BlueprintModuleReference};
     use uuid::Uuid;
 
     fn question(number: u8) -> QuestionRevisionReference {
@@ -326,7 +326,7 @@ mod tests {
                 blueprint_module_reference: BlueprintModuleReference::from_uuid(Uuid::from_u128(1)),
                 label: input.modules[0].label.clone(),
                 assessments: vec![StoredBlueprintAssessment {
-                    blueprint_assessment_reference: BlueprintAssessmentReference::from_uuid(
+                    blueprint_assessment_reference: BlueprintAssessmentId::from_uuid(
                         Uuid::from_u128(2),
                     ),
                     content: StoredBlueprintAssessmentContent {

@@ -4,7 +4,7 @@ use crate::active_student_course_membership::{
     HypotheticalStudentViewScenarioAdmissionFacts, admit_hypothetical_student_view_scenario,
     evaluate_active_student_course_membership,
 };
-use question_model::{AccountId, AssessmentId, CourseId, CourseMembershipId};
+use question_model::{AccountId, AssessmentId, CourseInstanceId, CourseMembershipId};
 use std::num::NonZeroU32;
 use uuid::Uuid;
 
@@ -33,9 +33,9 @@ fn base() -> BaseAssessmentPolicy {
 
 fn active_student_course_membership() -> ActiveStudentCourseMembershipDecision {
     evaluate_active_student_course_membership(ActiveStudentCourseMembershipFacts {
-        course: CourseId::from_uuid(id(2)),
-        assessment: AssessmentId::from_uuid(id(3)),
-        student_account: AccountId::from_uuid(id(4)),
+        course: CourseInstanceId::from_debug_serial(2),
+        assessment: AssessmentId::from_debug_serial(3),
+        student_account: AccountId::from_debug_serial(4),
         membership: Some(ActiveStudentMembership {
             id: CourseMembershipId::from_uuid(id(5)),
             student_record: student_record(6),
@@ -190,8 +190,8 @@ fn hypothetical_student_view_scenario_can_apply_direct_modifiers() {
             assessment_status: AssessmentStatusGate::Open,
             hypothetical_student_view_scenario_admission: admit_hypothetical_student_view_scenario(
                 HypotheticalStudentViewScenarioAdmissionFacts::new(
-                    CourseId::from_uuid(id(2)),
-                    AssessmentId::from_uuid(id(3)),
+                    CourseInstanceId::from_debug_serial(2),
+                    AssessmentId::from_debug_serial(3),
                 ),
             ),
             authorization: AuthorizationGate::Authorized,

@@ -1,7 +1,7 @@
 //! Derived source review and one retained Assessment's explicit reusable-content update.
 
 use question_model::{
-    AssessmentReference, BlueprintCourseReference, BlueprintRevision, CourseInstanceReference,
+    AssessmentId, BlueprintCourseId, BlueprintRevision, CourseInstanceId,
 };
 use sqlx::{Postgres, Row, Transaction, types::Json};
 use uuid::Uuid;
@@ -30,7 +30,7 @@ struct UpdateSource {
 pub(super) async fn review_course(
     store: &PostgresLiveAssessmentStore,
     token: SessionTokenHash,
-    course: CourseInstanceReference,
+    course: CourseInstanceId,
 ) -> Result<CourseBlueprintUpdateReview, StoreError> {
     let mut tx = store.begin(token).await?;
     // ASVS 8.3.1, 15.4.2-15.4.3: the authorized reader locks parent -> Course
@@ -45,7 +45,7 @@ pub(super) async fn review_course(
         .try_get("blueprint_reference")
         .map_err(map_sqlx_error)?;
     let blueprint_reference = blueprint_reference
-        .parse::<BlueprintCourseReference>()
+        .parse::<BlueprintCourseId>()
         .map_err(|_| invalid("Blueprint Course Reference"))?;
     let revision = |field: &str| -> Result<BlueprintRevision, StoreError> {
         let value: i64 = source.try_get(field).map_err(map_sqlx_error)?;
@@ -96,8 +96,8 @@ pub(super) async fn review_course(
 pub(super) async fn review(
     store: &PostgresLiveAssessmentStore,
     token: SessionTokenHash,
-    course: CourseInstanceReference,
-    assessment: AssessmentReference,
+    course: CourseInstanceId,
+    assessment: AssessmentId,
 ) -> Result<AssessmentBlueprintUpdateReview, StoreError> {
     let mut tx = store.begin(token).await?;
     let source = load_source(&mut tx, &course, &assessment).await?;
@@ -115,8 +115,8 @@ pub(super) async fn review(
 pub(super) async fn apply(
     store: &PostgresLiveAssessmentStore,
     token: SessionTokenHash,
-    course: CourseInstanceReference,
-    assessment: AssessmentReference,
+    course: CourseInstanceId,
+    assessment: AssessmentId,
     input: ApplyAssessmentBlueprintUpdateInput,
     mut bloom_receipts: crate::PoolBloomPreparationReceipts,
 ) -> Result<LiveAssessmentWorkspace, StoreError> {
@@ -179,8 +179,8 @@ pub(super) async fn apply(
 
 async fn load_source(
     tx: &mut Transaction<'_, Postgres>,
-    course: &CourseInstanceReference,
-    assessment: &AssessmentReference,
+    course: &CourseInstanceId,
+    assessment: &AssessmentId,
 ) -> Result<UpdateSource, StoreError> {
     let row = sqlx::query("SELECT * FROM ple_api.load_assessment_blueprint_update($1, $2)")
         .bind(course.as_string())
@@ -234,8 +234,8 @@ async fn load_source(
 
 async fn load_workspace(
     tx: &mut Transaction<'_, Postgres>,
-    course: &CourseInstanceReference,
-    assessment: &AssessmentReference,
+    course: &CourseInstanceId,
+    assessment: &AssessmentId,
 ) -> Result<LiveAssessmentWorkspace, StoreError> {
     let context = schedule_context(tx, course).await?;
     let rows = workspace_rows(tx, course, assessment).await?;

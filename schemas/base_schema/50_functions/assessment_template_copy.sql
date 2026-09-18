@@ -30,9 +30,10 @@ CREATE FUNCTION ple_data.create_assessment_from_template_values(
     assessment_instructions text
 )
 LANGUAGE plpgsql SECURITY DEFINER
-SET search_path = pg_catalog, ple_api, ple_data AS $$
+SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
     created record;
+    snapshot_id ple_data.sha256_digest;
 BEGIN
     -- ASVS 2.3.3: canonical direct creation and the initial by-value copy are
     -- one transaction. A failure leaves neither a partial Assessment nor links.
@@ -45,19 +46,22 @@ BEGIN
         p_instructions
     );
 
+    snapshot_id := ple_private.ensure_assessment_policy_snapshot(
+        p_title, p_instructions, NULL, NULL, NULL,
+        p_assessment_attempt_time_limit_seconds, p_assessment_attempt_limit,
+        p_late_work_rule::ple_data.late_work_rule,
+        p_question_variation_rule::ple_data.question_variation_rule,
+        p_assessment_question_order_rule::ple_data.question_order_rule,
+        p_feedback_score::ple_data.feedback_release,
+        p_feedback_per_item_correctness::ple_data.feedback_release,
+        p_feedback_submitted_response::ple_data.feedback_release,
+        p_feedback_question_answer::ple_data.feedback_release,
+        p_feedback_question_answer_explanation::ple_data.feedback_release,
+        p_feedback_class_statistics::ple_data.feedback_release,
+        p_assessment_type::ple_data.assessment_type
+    );
     UPDATE ple_data.assessment AS assessment
-       SET assessment_attempt_time_limit_seconds =
-               p_assessment_attempt_time_limit_seconds,
-           assessment_attempt_limit = p_assessment_attempt_limit,
-           late_work_rule = p_late_work_rule,
-           question_variation_rule = p_question_variation_rule,
-           assessment_question_order_rule = p_assessment_question_order_rule,
-           feedback_score = p_feedback_score,
-           feedback_per_item_correctness = p_feedback_per_item_correctness,
-           feedback_submitted_response = p_feedback_submitted_response,
-           feedback_question_answer = p_feedback_question_answer,
-           feedback_question_answer_explanation = p_feedback_question_answer_explanation,
-           feedback_class_statistics = p_feedback_class_statistics
+       SET assessment_policy_snapshot_id = snapshot_id
      WHERE assessment.assessment_id = p_assessment_id;
 
     assessment_reference_number := created.assessment_public_reference;
@@ -88,6 +92,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
     course_reference_number text;
     template ple_private.assessment_template%ROWTYPE;
+    policy ple_data.assessment_policy_snapshot%ROWTYPE;
 BEGIN
     IF p_assessment_id IS NULL OR p_assessment_template_id IS NULL OR p_title IS NULL
        OR NOT ple_api.current_session_account_is_instructor() THEN
@@ -106,6 +111,9 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Assessment Template is unavailable';
     END IF;
+    SELECT * INTO policy
+      FROM ple_data.assessment_policy_snapshot
+     WHERE assessment_policy_snapshot_id = template.assessment_policy_snapshot_id;
 
     SELECT course.course_instance_id INTO course_reference_number
       FROM ple_data.course_instance AS course
@@ -120,18 +128,18 @@ BEGIN
         course_reference_number,
         template.assessment_type,
         p_title,
-        template.instructions,
-        template.assessment_attempt_time_limit_seconds,
-        template.assessment_attempt_limit,
-        template.late_work_rule,
-        template.question_variation_rule,
-        template.assessment_question_order_rule,
-        template.feedback_score,
-        template.feedback_per_item_correctness,
-        template.feedback_submitted_response,
-        template.feedback_question_answer,
-        template.feedback_question_answer_explanation,
-        template.feedback_class_statistics
+        policy.assessment_instructions,
+        policy.assessment_attempt_time_limit_seconds,
+        policy.assessment_attempt_limit,
+        policy.late_work_rule,
+        policy.question_variation_rule,
+        policy.assessment_question_order_rule,
+        policy.feedback_score,
+        policy.feedback_per_item_correctness,
+        policy.feedback_submitted_response,
+        policy.feedback_question_answer,
+        policy.feedback_question_answer_explanation,
+        policy.feedback_class_statistics
     ) AS created;
 END
 $$;

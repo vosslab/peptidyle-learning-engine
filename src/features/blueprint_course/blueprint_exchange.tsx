@@ -3,7 +3,7 @@
 import { useNavigate } from "@solidjs/router";
 import { Show, createSignal, onCleanup, type JSX } from "solid-js";
 
-import type { BlueprintCourseReference } from "../../../generated/api/BlueprintCourseReference";
+import type { BlueprintCourseId } from "../../../generated/api/BlueprintCourseId";
 import { decodeCanonicalBlueprintCourse } from "../../api/decoders/blueprint_comparison";
 import type { BlueprintCourseClient } from "../../api/blueprint_course";
 import { ApiRequestError } from "../../api/http_client";
@@ -17,7 +17,7 @@ function detailPath(reference: string): string {
 /** Downloads only the server's current canonical reusable-structure projection. */
 export function BlueprintCourseExport(props: {
   readonly client: BlueprintCourseClient;
-  readonly reference: BlueprintCourseReference;
+  readonly reference: BlueprintCourseId;
 }): JSX.Element {
   const [busy, setBusy] = createSignal(false);
   const [message, setMessage] = createSignal("");

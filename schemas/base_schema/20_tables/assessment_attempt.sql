@@ -5,14 +5,17 @@ SET LOCAL ROLE ple_private_owner;
 
 CREATE TABLE ple_private.student_assessment_accommodation (
     accommodation_id uuid PRIMARY KEY,
-    student_record_id uuid NOT NULL REFERENCES ple_data.student_record(student_record_id),
-    assessment_id ple_data.assessment_id NOT NULL REFERENCES ple_data.assessment(assessment_id),
+    course_instance_id ple_data.course_instance_id NOT NULL,
+    student_record_id uuid NOT NULL,
+    assessment_id ple_data.assessment_id NOT NULL,
     available_at timestamptz,
     due_at timestamptz,
     closes_at timestamptz,
     time_multiplier numeric,
     assessment_attempt_limit integer,
     created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp(),
+    CHECK (updated_at >= created_at),
     accommodation_edit_number bigint NOT NULL DEFAULT 1
         CHECK (accommodation_edit_number > 0),
     CHECK ((available_at IS NULL OR due_at IS NULL OR available_at <= due_at)
@@ -20,94 +23,134 @@ CREATE TABLE ple_private.student_assessment_accommodation (
     CHECK (time_multiplier IS NULL
        OR (time_multiplier >= 1 AND time_multiplier < 'Infinity'::numeric)),
     CHECK (assessment_attempt_limit IS NULL OR assessment_attempt_limit > 0),
-    UNIQUE (accommodation_id, student_record_id, assessment_id),
-    UNIQUE (student_record_id, assessment_id)
+    UNIQUE (accommodation_id, student_record_id, assessment_id, course_instance_id),
+    UNIQUE (student_record_id, assessment_id),
+    FOREIGN KEY (student_record_id, course_instance_id)
+        REFERENCES ple_data.student_record(student_record_id, course_instance_id),
+    FOREIGN KEY (assessment_id, course_instance_id)
+        REFERENCES ple_data.assessment(assessment_id, course_instance_id)
 );
 
 CREATE TABLE ple_private.assessment_attempt (
-    assessment_attempt_id uuid PRIMARY KEY,
-    reference_number bigint GENERATED ALWAYS AS IDENTITY UNIQUE
-        CHECK (reference_number BETWEEN 1 AND 2147483647),
-    student_record_id uuid NOT NULL REFERENCES ple_data.student_record(student_record_id),
-    assessment_id ple_data.assessment_id NOT NULL REFERENCES ple_data.assessment(assessment_id),
+    course_instance_id ple_data.course_instance_id NOT NULL,
+    assessment_attempt_id uuid NOT NULL,
+    student_record_id uuid NOT NULL,
+    assessment_id ple_data.assessment_id NOT NULL,
     assessment_attempt_number integer NOT NULL CHECK (assessment_attempt_number > 0),
     started_at timestamptz NOT NULL,
     expires_at timestamptz,
-    assessment_title text NOT NULL CHECK (assessment_title ~ '[^[:space:]]'),
-    assessment_instructions text NOT NULL CHECK (assessment_instructions !~ E'\\x00'),
-    available_at timestamptz,
-    due_at timestamptz,
-    closes_at timestamptz,
-    assessment_attempt_time_limit_seconds integer,
-    assessment_attempt_limit integer,
-    late_work_rule ple_data.late_work_rule NOT NULL,
-    question_variation_rule ple_data.question_variation_rule NOT NULL,
-    assessment_question_order_rule ple_data.question_order_rule NOT NULL,
-    feedback_score ple_data.feedback_release NOT NULL,
-    feedback_per_item_correctness ple_data.feedback_release NOT NULL,
-    feedback_submitted_response ple_data.feedback_release NOT NULL,
-    feedback_question_answer ple_data.feedback_release NOT NULL,
-    feedback_question_answer_explanation ple_data.feedback_release NOT NULL,
-    feedback_class_statistics ple_data.feedback_release NOT NULL,
+    assessment_policy_snapshot_id ple_data.sha256_digest NOT NULL
+        REFERENCES ple_data.assessment_policy_snapshot(assessment_policy_snapshot_id),
     schedule_accommodation_id uuid,
     schedule_accommodation_edit_number bigint CHECK (schedule_accommodation_edit_number > 0),
     time_limit_accommodation_id uuid,
     time_limit_accommodation_edit_number bigint CHECK (time_limit_accommodation_edit_number > 0),
     assessment_attempt_limit_accommodation_id uuid,
     assessment_attempt_limit_accommodation_edit_number bigint CHECK (assessment_attempt_limit_accommodation_edit_number > 0),
-    UNIQUE (student_record_id, assessment_id, assessment_attempt_number),
+    PRIMARY KEY (course_instance_id, assessment_attempt_id),
+    UNIQUE (course_instance_id, student_record_id, assessment_id, assessment_attempt_number),
     CHECK (expires_at IS NULL OR expires_at >= started_at),
-    CHECK ((available_at IS NULL OR due_at IS NULL OR available_at <= due_at)
-       AND (due_at IS NULL OR closes_at IS NULL OR due_at <= closes_at)),
-    CHECK (assessment_attempt_time_limit_seconds IS NULL OR assessment_attempt_time_limit_seconds > 0),
-    CHECK (assessment_attempt_limit IS NULL OR assessment_attempt_limit > 0),
-    FOREIGN KEY (schedule_accommodation_id, student_record_id, assessment_id)
-        REFERENCES ple_private.student_assessment_accommodation(accommodation_id, student_record_id, assessment_id),
-    FOREIGN KEY (time_limit_accommodation_id, student_record_id, assessment_id)
-        REFERENCES ple_private.student_assessment_accommodation(accommodation_id, student_record_id, assessment_id),
-    FOREIGN KEY (assessment_attempt_limit_accommodation_id, student_record_id, assessment_id)
-        REFERENCES ple_private.student_assessment_accommodation(accommodation_id, student_record_id, assessment_id),
+    FOREIGN KEY (student_record_id, course_instance_id)
+        REFERENCES ple_data.student_record(student_record_id, course_instance_id),
+    FOREIGN KEY (assessment_id, course_instance_id)
+        REFERENCES ple_data.assessment(assessment_id, course_instance_id),
+    FOREIGN KEY (schedule_accommodation_id, student_record_id, assessment_id, course_instance_id)
+        REFERENCES ple_private.student_assessment_accommodation(
+            accommodation_id, student_record_id, assessment_id, course_instance_id),
+    FOREIGN KEY (time_limit_accommodation_id, student_record_id, assessment_id, course_instance_id)
+        REFERENCES ple_private.student_assessment_accommodation(
+            accommodation_id, student_record_id, assessment_id, course_instance_id),
+    FOREIGN KEY (assessment_attempt_limit_accommodation_id, student_record_id, assessment_id, course_instance_id)
+        REFERENCES ple_private.student_assessment_accommodation(
+            accommodation_id, student_record_id, assessment_id, course_instance_id),
     CHECK ((schedule_accommodation_id IS NULL) = (schedule_accommodation_edit_number IS NULL)),
     CHECK ((time_limit_accommodation_id IS NULL) = (time_limit_accommodation_edit_number IS NULL)),
     CHECK ((assessment_attempt_limit_accommodation_id IS NULL) = (assessment_attempt_limit_accommodation_edit_number IS NULL))
 );
 
-
 CREATE TABLE ple_private.question_pool_selection (
-    question_pool_selection_id uuid PRIMARY KEY,
-    assessment_attempt_id uuid NOT NULL REFERENCES ple_private.assessment_attempt(assessment_attempt_id) ON DELETE CASCADE,
+    course_instance_id ple_data.course_instance_id NOT NULL,
+    question_pool_selection_id uuid NOT NULL,
+    assessment_attempt_id uuid NOT NULL,
     -- This is the stable authored identity copied at issue time, not a foreign
     -- key to the mutable current Assessment Entry.  Released Assessment saves
     -- may replace current entries while this Student Work remains interpretable.
     assessment_entry_id uuid NOT NULL,
-    question_pool_id ple_data.question_family_id NOT NULL,
-    question_pool_revision_number integer NOT NULL,
+    question_pool_id ple_data.question_family_id NOT NULL
+        REFERENCES ple_data.question_pool(question_pool_id),
+    question_pool_edit_number bigint NOT NULL CHECK (question_pool_edit_number > 0),
     created_at timestamptz NOT NULL,
     selected_question_count integer NOT NULL CHECK (selected_question_count > 0),
-    UNIQUE (question_pool_selection_id, assessment_attempt_id, assessment_entry_id),
-    UNIQUE (assessment_attempt_id, assessment_entry_id),
-    FOREIGN KEY (question_pool_id, question_pool_revision_number)
-        REFERENCES ple_data.question_pool_revision(question_pool_id, revision_number)
+    PRIMARY KEY (course_instance_id, question_pool_selection_id),
+    UNIQUE (course_instance_id, question_pool_selection_id, assessment_attempt_id, assessment_entry_id),
+    UNIQUE (course_instance_id, assessment_attempt_id, assessment_entry_id),
+    FOREIGN KEY (course_instance_id, assessment_attempt_id)
+        REFERENCES ple_private.assessment_attempt(course_instance_id, assessment_attempt_id)
+        ON DELETE CASCADE
 );
 
 CREATE TABLE ple_private.question_pool_selected_item (
-    question_pool_selection_id uuid NOT NULL REFERENCES ple_private.question_pool_selection(question_pool_selection_id) ON DELETE CASCADE,
+    course_instance_id ple_data.course_instance_id NOT NULL,
+    question_pool_selection_id uuid NOT NULL,
     member_position integer NOT NULL CHECK (member_position > 0),
     selection_position integer NOT NULL CHECK (selection_position >= 0),
     published_question_id ple_data.question_family_id NOT NULL,
     revision_number integer NOT NULL,
-    PRIMARY KEY (question_pool_selection_id, selection_position),
-    UNIQUE (question_pool_selection_id, member_position),
-    UNIQUE (question_pool_selection_id, member_position, published_question_id, revision_number),
-    FOREIGN KEY (published_question_id, revision_number) REFERENCES ple_data.question_revision(published_question_id, revision_number),
+    PRIMARY KEY (course_instance_id, question_pool_selection_id, selection_position),
+    UNIQUE (course_instance_id, question_pool_selection_id, member_position),
+    UNIQUE (course_instance_id, question_pool_selection_id, member_position, published_question_id, revision_number),
+    FOREIGN KEY (course_instance_id, question_pool_selection_id)
+        REFERENCES ple_private.question_pool_selection(course_instance_id, question_pool_selection_id)
+        ON DELETE CASCADE,
+    FOREIGN KEY (published_question_id, revision_number)
+        REFERENCES ple_data.question_revision(published_question_id, revision_number),
     created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
 );
 
+-- Frozen Assessment Entry facts needed to score or interpret an Issued
+-- Question. Two equal Entry configurations share one immutable row.
+CREATE TABLE ple_private.assessment_entry_snapshot (
+    assessment_entry_snapshot_id ple_data.sha256_digest PRIMARY KEY,
+    entry_kind ple_data.entry_kind NOT NULL,
+    scoring_rule ple_data.scoring_rule NOT NULL,
+    points numeric NOT NULL CHECK (
+        points BETWEEN 0 AND 1000000000.9999 AND scale(points) <= 4
+    ),
+    published_question_id ple_data.question_family_id,
+    question_revision_number integer,
+    question_pool_id ple_data.question_family_id
+        REFERENCES ple_data.question_pool(question_pool_id),
+    question_attempt_limit integer,
+    question_attempt_time_limit_seconds integer,
+    question_attempt_grace_seconds integer,
+    created_at timestamptz NOT NULL,
+    FOREIGN KEY (published_question_id, question_revision_number)
+        REFERENCES ple_data.question_revision(published_question_id, revision_number),
+    CHECK (
+        (entry_kind = 'fixed_question'
+            AND published_question_id IS NOT NULL
+            AND question_revision_number IS NOT NULL
+            AND question_pool_id IS NULL)
+        OR (entry_kind = 'question_pool'
+            AND published_question_id IS NULL
+            AND question_revision_number IS NULL
+            AND question_pool_id IS NOT NULL)
+    ),
+    CHECK (question_attempt_limit IS NULL OR question_attempt_limit > 0),
+    CHECK (
+        (question_attempt_time_limit_seconds IS NULL AND question_attempt_grace_seconds IS NULL)
+        OR (question_attempt_time_limit_seconds > 0
+            AND question_attempt_grace_seconds >= 0)
+    )
+);
 
 CREATE TABLE ple_private.issued_question (
-    issued_question_id uuid PRIMARY KEY,
-    assessment_attempt_id uuid NOT NULL REFERENCES ple_private.assessment_attempt(assessment_attempt_id) ON DELETE CASCADE,
+    course_instance_id ple_data.course_instance_id NOT NULL,
+    issued_question_id uuid NOT NULL,
+    assessment_attempt_id uuid NOT NULL,
     assessment_entry_id uuid NOT NULL,
+    assessment_entry_snapshot_id ple_data.sha256_digest NOT NULL
+        REFERENCES ple_private.assessment_entry_snapshot(assessment_entry_snapshot_id),
     assessment_content_entry_index integer NOT NULL CHECK (assessment_content_entry_index >= 0),
     issued_position integer NOT NULL CHECK (issued_position >= 0),
     published_question_id ple_data.question_family_id NOT NULL,
@@ -116,38 +159,30 @@ CREATE TABLE ple_private.issued_question (
     -- evidence. Native PLE JSON retains no seed; renderer-backed Questions
     -- retain only the seed needed to obtain their later genuine hash.
     question_seed numeric(20, 0) CHECK (question_seed >= 0 AND question_seed <= 18446744073709551615),
-    point_value numeric NOT NULL CHECK (point_value >= 0),
-    scoring_rule ple_data.scoring_rule NOT NULL,
     question_statistics_eligibility boolean NOT NULL,
-    question_attempt_limit integer,
-    question_attempt_time_limit_seconds integer,
-    question_attempt_grace_seconds integer,
     question_pool_selection_id uuid,
     question_pool_member_position integer,
-    UNIQUE (assessment_attempt_id, issued_position),
-    FOREIGN KEY (published_question_id, revision_number) REFERENCES ple_data.question_revision(published_question_id, revision_number),
-    FOREIGN KEY (question_pool_selection_id, assessment_attempt_id, assessment_entry_id)
-        REFERENCES ple_private.question_pool_selection(question_pool_selection_id, assessment_attempt_id, assessment_entry_id),
-    FOREIGN KEY (question_pool_selection_id, question_pool_member_position, published_question_id, revision_number)
-        REFERENCES ple_private.question_pool_selected_item(question_pool_selection_id, member_position, published_question_id, revision_number),
+    PRIMARY KEY (course_instance_id, issued_question_id),
+    UNIQUE (course_instance_id, assessment_attempt_id, issued_position),
+    FOREIGN KEY (course_instance_id, assessment_attempt_id)
+        REFERENCES ple_private.assessment_attempt(course_instance_id, assessment_attempt_id)
+        ON DELETE CASCADE,
+    FOREIGN KEY (published_question_id, revision_number)
+        REFERENCES ple_data.question_revision(published_question_id, revision_number),
+    FOREIGN KEY (course_instance_id, question_pool_selection_id, assessment_attempt_id, assessment_entry_id)
+        REFERENCES ple_private.question_pool_selection(
+            course_instance_id, question_pool_selection_id, assessment_attempt_id, assessment_entry_id),
+    FOREIGN KEY (course_instance_id, question_pool_selection_id, question_pool_member_position, published_question_id, revision_number)
+        REFERENCES ple_private.question_pool_selected_item(
+            course_instance_id, question_pool_selection_id, member_position, published_question_id, revision_number),
     CHECK ((question_pool_selection_id IS NULL) = (question_pool_member_position IS NULL)),
-    CHECK (question_attempt_limit IS NULL OR question_attempt_limit > 0),
-    CHECK ((question_attempt_time_limit_seconds IS NULL AND question_attempt_grace_seconds IS NULL)
-        OR (question_attempt_time_limit_seconds > 0 AND question_attempt_grace_seconds >= 0)),
     created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
 );
 
-
-
-SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.assessment_attempt IS 'role: student work, Immutable effective Assessment evidence for one Student Work occurrence; its immutable Assessment Submission is the sole completion authority.';
-
-COMMENT ON TABLE ple_private.issued_question IS 'role: student work, Pre-render source-selection record: exact Assessment Entry identity, Question Revision, optional renderer seed, per-question policy, scoring, statistics, and pool-selection evidence for one issued position.';
-
--- Question-Assessment Attempt interaction and submission evidence below an Assessment Attempt.
 CREATE TABLE ple_private.question_attempt (
-    question_attempt_id uuid PRIMARY KEY,
-    issued_question_id uuid NOT NULL UNIQUE REFERENCES ple_private.issued_question(issued_question_id) ON DELETE CASCADE,
+    course_instance_id ple_data.course_instance_id NOT NULL,
+    question_attempt_id uuid NOT NULL,
+    issued_question_id uuid NOT NULL,
     question_seed numeric(20, 0) CHECK (question_seed >= 0 AND question_seed <= 18446744073709551615),
     generated_parameter_sha256 text CHECK (generated_parameter_sha256 ~ '^[0-9a-f]{64}$'),
     issued_at timestamptz NOT NULL,
@@ -164,6 +199,11 @@ CREATE TABLE ple_private.question_attempt (
     grader_version text NOT NULL CHECK (char_length(btrim(grader_version)) BETWEEN 1 AND 100),
     rendered_question_sha256 bytea NOT NULL CHECK (octet_length(rendered_question_sha256) = 32),
     issued_capability ple_data.issued_capability NOT NULL,
+    PRIMARY KEY (course_instance_id, question_attempt_id),
+    UNIQUE (course_instance_id, issued_question_id),
+    FOREIGN KEY (course_instance_id, issued_question_id)
+        REFERENCES ple_private.issued_question(course_instance_id, issued_question_id)
+        ON DELETE CASCADE,
     CHECK (deadline_at IS NULL OR deadline_at >= issued_at),
     -- Static PLE JSON has no generator-derived reproduction values.  The two
     -- fields are an atomic pair for renderer-backed Questions (ASVS 2.2.3).
@@ -178,41 +218,51 @@ CREATE TABLE ple_private.question_attempt (
     CHECK (finalized_at IS NULL OR finalized_at >= issued_at)
 );
 
-
 CREATE TABLE ple_private.assessment_attempt_saved_response (
-    question_attempt_id uuid PRIMARY KEY REFERENCES ple_private.question_attempt(question_attempt_id) ON DELETE CASCADE,
+    course_instance_id ple_data.course_instance_id NOT NULL,
+    question_attempt_id uuid NOT NULL,
     student_response jsonb NOT NULL CHECK (jsonb_typeof(student_response) = 'object'),
-    saved_at timestamptz NOT NULL
+    saved_at timestamptz NOT NULL,
+    PRIMARY KEY (course_instance_id, question_attempt_id),
+    FOREIGN KEY (course_instance_id, question_attempt_id)
+        REFERENCES ple_private.question_attempt(course_instance_id, question_attempt_id)
+        ON DELETE CASCADE
 );
 
 CREATE TABLE ple_private.question_response (
-    question_response_id uuid PRIMARY KEY,
+    course_instance_id ple_data.course_instance_id NOT NULL,
+    question_response_id uuid NOT NULL,
     assessment_submission_id uuid NOT NULL,
-    question_attempt_id uuid NOT NULL UNIQUE REFERENCES ple_private.question_attempt(question_attempt_id) ON DELETE CASCADE,
+    question_attempt_id uuid NOT NULL,
     finalized_at timestamptz NOT NULL,
     student_response jsonb NOT NULL CHECK (jsonb_typeof(student_response) = 'object'),
-    UNIQUE (question_response_id, question_attempt_id)
+    PRIMARY KEY (course_instance_id, question_response_id),
+    UNIQUE (course_instance_id, question_attempt_id),
+    UNIQUE (course_instance_id, question_response_id, question_attempt_id),
+    FOREIGN KEY (course_instance_id, question_attempt_id)
+        REFERENCES ple_private.question_attempt(course_instance_id, question_attempt_id)
+        ON DELETE CASCADE
 );
 
 CREATE TABLE ple_private.assessment_submission (
-    assessment_submission_id uuid PRIMARY KEY,
-    assessment_attempt_id uuid NOT NULL UNIQUE REFERENCES ple_private.assessment_attempt(assessment_attempt_id) ON DELETE CASCADE,
+    course_instance_id ple_data.course_instance_id NOT NULL,
+    assessment_submission_id uuid NOT NULL,
+    assessment_attempt_id uuid NOT NULL,
     submitted_at timestamptz NOT NULL,
     finalization_kind ple_data.finalization_kind NOT NULL,
     authorized_by_account_id ple_data.account_id REFERENCES ple_private.account(account_id),
     receipt jsonb NOT NULL CHECK (jsonb_typeof(receipt) = 'object'),
+    PRIMARY KEY (course_instance_id, assessment_submission_id),
+    UNIQUE (course_instance_id, assessment_attempt_id),
+    FOREIGN KEY (course_instance_id, assessment_attempt_id)
+        REFERENCES ple_private.assessment_attempt(course_instance_id, assessment_attempt_id)
+        ON DELETE CASCADE,
     CHECK ((finalization_kind = 'student') = (authorized_by_account_id IS NOT NULL))
 );
 
-
-COMMENT ON TABLE ple_private.question_attempt IS 'role: student work, Exact reproduction and operational evidence for one Issued Question; mutable current Question content is not an interpretation source.';
-
-COMMENT ON TABLE ple_private.assessment_attempt_saved_response IS 'role: student work, Private current response state before submission; root-owned by its Question Attempt.';
-
--- Immutable presentation bindings.  Backend-owned documents remain below a
--- Question Attempt so Unrelease can remove them with Student Work.
 CREATE TABLE ple_private.question_attempt_presentation_binding (
-    question_attempt_id uuid PRIMARY KEY REFERENCES ple_private.question_attempt(question_attempt_id) ON DELETE CASCADE,
+    course_instance_id ple_data.course_instance_id NOT NULL,
+    question_attempt_id uuid NOT NULL,
     -- Preproduction direct cutover: the author-content digest descriptor is v3.
     -- Do not accept v1/v2 compatibility rows or synthesize a sentinel pair.
     descriptor_version smallint NOT NULL CHECK (descriptor_version = 3),
@@ -225,68 +275,75 @@ CREATE TABLE ple_private.question_attempt_presentation_binding (
     -- The backend-owned document is retained with this immutable Question
     -- Assessment Attempt.  Only the WeBWorK capability supplies it.
     backend_document text,
-    UNIQUE (question_attempt_id, presentation_nonce),
+    PRIMARY KEY (course_instance_id, question_attempt_id),
+    UNIQUE (course_instance_id, question_attempt_id, presentation_nonce),
+    FOREIGN KEY (course_instance_id, question_attempt_id)
+        REFERENCES ple_private.question_attempt(course_instance_id, question_attempt_id)
+        ON DELETE CASCADE,
     created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
 );
 
-
-
-
--- The public descriptor determines presentation references; this normalized
--- child retains only the durable response identity needed to interpret saved
--- Student Work after source content is gone.
 CREATE TABLE ple_private.question_attempt_response_item_binding (
-    question_attempt_presentation_binding_id uuid NOT NULL REFERENCES ple_private.question_attempt_presentation_binding(question_attempt_id) ON DELETE CASCADE,
+    course_instance_id ple_data.course_instance_id NOT NULL,
+    question_attempt_presentation_binding_id uuid NOT NULL,
     presentation_response_item_reference text NOT NULL CHECK (presentation_response_item_reference ~ '^[0-9a-f]{4}$'),
     response_item_reference text NOT NULL CHECK (char_length(btrim(response_item_reference)) > 0),
-    PRIMARY KEY (question_attempt_presentation_binding_id, presentation_response_item_reference),
-    UNIQUE (question_attempt_presentation_binding_id, response_item_reference),
+    PRIMARY KEY (course_instance_id, question_attempt_presentation_binding_id, presentation_response_item_reference),
+    UNIQUE (course_instance_id, question_attempt_presentation_binding_id, response_item_reference),
+    FOREIGN KEY (course_instance_id, question_attempt_presentation_binding_id)
+        REFERENCES ple_private.question_attempt_presentation_binding(course_instance_id, question_attempt_id)
+        ON DELETE CASCADE,
     created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
 );
-
 
 CREATE TABLE ple_private.question_attempt_presentation_asset_binding (
-    question_attempt_presentation_binding_id uuid PRIMARY KEY REFERENCES ple_private.question_attempt_presentation_binding(question_attempt_id) ON DELETE CASCADE,
+    course_instance_id ple_data.course_instance_id NOT NULL,
+    question_attempt_id uuid NOT NULL,
+    PRIMARY KEY (course_instance_id, question_attempt_id),
+    FOREIGN KEY (course_instance_id, question_attempt_id)
+        REFERENCES ple_private.question_attempt_presentation_binding(course_instance_id, question_attempt_id)
+        ON DELETE CASCADE,
     created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
 );
 
-
 CREATE TABLE ple_private.question_attempt_presentation_asset_rendition (
-    question_attempt_presentation_asset_binding_id uuid NOT NULL REFERENCES ple_private.question_attempt_presentation_asset_binding(question_attempt_presentation_binding_id) ON DELETE CASCADE,
+    course_instance_id ple_data.course_instance_id NOT NULL,
+    question_attempt_presentation_asset_binding_id uuid NOT NULL,
     asset_id uuid NOT NULL,
     question_asset_checksum bytea NOT NULL CHECK (octet_length(question_asset_checksum) = 32),
     rendition_checksum bytea NOT NULL CHECK (octet_length(rendition_checksum) = 32),
     intrinsic_width integer NOT NULL CHECK (intrinsic_width > 0),
     intrinsic_height integer NOT NULL CHECK (intrinsic_height > 0),
-    PRIMARY KEY (question_attempt_presentation_asset_binding_id, asset_id),
+    PRIMARY KEY (course_instance_id, question_attempt_presentation_asset_binding_id, asset_id),
+    FOREIGN KEY (course_instance_id, question_attempt_presentation_asset_binding_id)
+        REFERENCES ple_private.question_attempt_presentation_asset_binding(course_instance_id, question_attempt_id)
+        ON DELETE CASCADE,
     created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
 );
 
-
-COMMENT ON TABLE ple_private.question_attempt_presentation_binding IS 'role: student work, Checksummed issued presentation and, for backend-owned Questions, immutable document retained for one Question Attempt.';
-
--- Immutable grading evidence.  Every result is rooted at one accepted
--- Submission and retained Assessment Attempt evidence; Assessment Revision is not an
--- interpretation source.
 CREATE TABLE ple_private.question_response_grading (
-    question_response_grading_id uuid PRIMARY KEY,
-    question_response_id uuid NOT NULL UNIQUE REFERENCES ple_private.question_response(question_response_id)
-        ON DELETE CASCADE,
+    course_instance_id ple_data.course_instance_id NOT NULL,
+    question_response_grading_id uuid NOT NULL,
+    question_response_id uuid NOT NULL,
     grading_state text NOT NULL DEFAULT 'graded',
     created_at timestamptz NOT NULL,
     completed_at timestamptz,
-    UNIQUE (question_response_grading_id, question_response_id),
+    PRIMARY KEY (course_instance_id, question_response_grading_id),
+    UNIQUE (course_instance_id, question_response_id),
+    UNIQUE (course_instance_id, question_response_grading_id, question_response_id),
+    FOREIGN KEY (course_instance_id, question_response_id)
+        REFERENCES ple_private.question_response(course_instance_id, question_response_id)
+        ON DELETE CASCADE,
     CHECK (completed_at IS NOT NULL),
     CHECK (completed_at IS NULL OR completed_at >= created_at)
 );
 
 CREATE TABLE ple_private.grading_result (
-    grading_result_id uuid PRIMARY KEY,
-    question_response_id uuid NOT NULL UNIQUE REFERENCES ple_private.question_response(question_response_id)
-        ON DELETE CASCADE,
-    question_response_grading_id uuid NOT NULL UNIQUE,
-    question_attempt_id uuid NOT NULL UNIQUE REFERENCES ple_private.question_attempt(question_attempt_id)
-        ON DELETE CASCADE,
+    course_instance_id ple_data.course_instance_id NOT NULL,
+    grading_result_id uuid NOT NULL,
+    question_response_id uuid NOT NULL,
+    question_response_grading_id uuid NOT NULL,
+    question_attempt_id uuid NOT NULL,
     -- The Question Backend owns response interpretation.  PLE retains only
     -- its normalized immutable outcome; point values remain Assessment
     -- configuration and are applied by score readers.
@@ -294,26 +351,40 @@ CREATE TABLE ple_private.grading_result (
         normalized_credit >= 0 AND normalized_credit <= 1
     ),
     recorded_at timestamptz NOT NULL,
-    FOREIGN KEY (question_response_id, question_attempt_id)
-        REFERENCES ple_private.question_response(question_response_id, question_attempt_id)
+    PRIMARY KEY (course_instance_id, grading_result_id),
+    UNIQUE (course_instance_id, question_response_id),
+    UNIQUE (course_instance_id, question_response_grading_id),
+    UNIQUE (course_instance_id, question_attempt_id),
+    UNIQUE (course_instance_id, question_response_grading_id, grading_result_id),
+    FOREIGN KEY (course_instance_id, question_response_id)
+        REFERENCES ple_private.question_response(course_instance_id, question_response_id)
         ON DELETE CASCADE,
-    FOREIGN KEY (question_response_grading_id, question_response_id)
-        REFERENCES ple_private.question_response_grading(question_response_grading_id, question_response_id)
+    FOREIGN KEY (course_instance_id, question_attempt_id)
+        REFERENCES ple_private.question_attempt(course_instance_id, question_attempt_id)
         ON DELETE CASCADE,
-    UNIQUE (question_response_grading_id, grading_result_id)
+    FOREIGN KEY (course_instance_id, question_response_id, question_attempt_id)
+        REFERENCES ple_private.question_response(course_instance_id, question_response_id, question_attempt_id)
+        ON DELETE CASCADE,
+    FOREIGN KEY (course_instance_id, question_response_grading_id, question_response_id)
+        REFERENCES ple_private.question_response_grading(
+            course_instance_id, question_response_grading_id, question_response_id)
+        ON DELETE CASCADE
 );
 
 SET LOCAL ROLE ple_audit_owner;
 
 CREATE TABLE ple_audit.automated_grading_receipt (
     automated_grading_receipt_id uuid PRIMARY KEY,
+    course_instance_id ple_data.course_instance_id NOT NULL,
     question_response_grading_id uuid NOT NULL,
-    grading_result_id uuid NOT NULL UNIQUE,
+    grading_result_id uuid NOT NULL,
     committed_at timestamptz NOT NULL,
     automated_grading_receipt_checksum bytea NOT NULL
         CHECK (octet_length(automated_grading_receipt_checksum) = 32),
-    FOREIGN KEY (question_response_grading_id, grading_result_id)
-        REFERENCES ple_private.grading_result(question_response_grading_id, grading_result_id)
+    UNIQUE (course_instance_id, grading_result_id),
+    FOREIGN KEY (course_instance_id, question_response_grading_id, grading_result_id)
+        REFERENCES ple_private.grading_result(
+            course_instance_id, question_response_grading_id, grading_result_id)
         ON DELETE CASCADE
 );
 
@@ -323,7 +394,7 @@ CREATE TABLE ple_private.imathas_question_backend_session (
     imathas_question_backend_session_id uuid PRIMARY KEY,
     course_instance_id ple_data.course_instance_id NOT NULL,
     assessment_id ple_data.assessment_id NOT NULL,
-    question_attempt_id uuid NOT NULL UNIQUE REFERENCES ple_private.question_attempt(question_attempt_id) ON DELETE CASCADE,
+    question_attempt_id uuid NOT NULL,
     account_id ple_data.account_id NOT NULL REFERENCES ple_private.account(account_id),
     imathas_deployment_reference text NOT NULL CHECK (imathas_deployment_reference ~ '^[A-Za-z0-9._-]{1,160}$'),
     imathas_item_reference text NOT NULL CHECK (octet_length(imathas_item_reference) BETWEEN 1 AND 128 AND imathas_item_reference ~ '^[A-Za-z0-9._-]+$'),
@@ -346,8 +417,14 @@ CREATE TABLE ple_private.imathas_question_backend_session (
     imathas_question_backend_state_key_id text NOT NULL CHECK (imathas_question_backend_state_key_id ~ '^[A-Za-z0-9._:-]{1,160}$'),
     imathas_question_backend_state_nonce bytea NOT NULL CHECK (octet_length(imathas_question_backend_state_nonce) = 24),
     imathas_question_backend_state_ciphertext bytea NOT NULL CHECK (octet_length(imathas_question_backend_state_ciphertext) BETWEEN 17 AND 65536),
-    FOREIGN KEY (course_instance_id, assessment_id) REFERENCES ple_data.assessment(course_instance_id, assessment_id),
-    FOREIGN KEY (published_question_id, revision_number) REFERENCES ple_data.question_revision(published_question_id, revision_number),
+    UNIQUE (course_instance_id, question_attempt_id),
+    FOREIGN KEY (assessment_id, course_instance_id)
+        REFERENCES ple_data.assessment(assessment_id, course_instance_id),
+    FOREIGN KEY (course_instance_id, question_attempt_id)
+        REFERENCES ple_private.question_attempt(course_instance_id, question_attempt_id)
+        ON DELETE CASCADE,
+    FOREIGN KEY (published_question_id, revision_number)
+        REFERENCES ple_data.question_revision(published_question_id, revision_number),
     CHECK (revoked_at IS NULL OR revoked_at >= issued_at),
     CHECK (consumed_at IS NULL OR consumed_at >= issued_at),
     CHECK ((activity_lease_token_sha256 IS NULL) = (activity_lease_expires_at IS NULL)),
@@ -356,327 +433,27 @@ CREATE TABLE ple_private.imathas_question_backend_session (
     UNIQUE (imathas_question_backend_state_key_id, imathas_question_backend_state_nonce)
 );
 
-COMMENT ON TABLE ple_private.imathas_question_backend_session IS 'role: event, deleted by Unrelease of Student Work; Assessment rows remain with the Course. HUMAN_GUIDANCE.md Assessments.';
-
-COMMENT ON TABLE ple_private.grading_result IS 'role: student work, One immutable normalized-credit outcome for an accepted Submission; current Assessment Entry points calculate scores on read.';
-
-SET LOCAL ROLE ple_audit_owner;
-
-SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.automated_grading_receipt IS 'role: event, Immutable receipt for one automated grading commit; deleted only with its exclusive Student Work root.';
-
 SET LOCAL ROLE ple_private_owner;
-
-SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.student_assessment_accommodation IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
+COMMENT ON TABLE ple_private.student_assessment_accommodation IS 'role: current state, Course-scoped per-Student Assessment schedule and time configuration copied onto Assessment Attempts at start.';
+COMMENT ON TABLE ple_private.assessment_attempt IS 'role: student work, Immutable effective Assessment evidence for one Student Work occurrence; its immutable Assessment Submission is the sole completion authority.';
 COMMENT ON TABLE ple_private.question_pool_selection IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
 COMMENT ON TABLE ple_private.question_pool_selected_item IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_response IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.assessment_submission IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_attempt_response_item_binding IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_attempt_presentation_asset_binding IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_attempt_presentation_asset_rendition IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_response_grading IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-
-
+COMMENT ON TABLE ple_private.assessment_entry_snapshot IS 'role: snapshot, deleted by nothing (shared, immutable). HUMAN_GUIDANCE.md Assessment Attempt snapshots.';
+COMMENT ON TABLE ple_private.issued_question IS 'role: student work, Pre-render source-selection record: exact Assessment Entry identity, Entry snapshot, Question Revision, optional renderer seed, statistics, and pool-selection evidence for one issued position.';
 COMMENT ON TABLE ple_private.question_attempt IS 'role: student work, Exact reproduction and operational evidence for one Issued Question; mutable current Question content is not an interpretation source.';
-
 COMMENT ON TABLE ple_private.assessment_attempt_saved_response IS 'role: student work, Private current response state before submission; root-owned by its Question Attempt.';
-
+COMMENT ON TABLE ple_private.question_response IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
+COMMENT ON TABLE ple_private.assessment_submission IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
 COMMENT ON TABLE ple_private.question_attempt_presentation_binding IS 'role: student work, Checksummed issued presentation and, for backend-owned Questions, immutable document retained for one Question Attempt.';
-
-SET LOCAL ROLE ple_audit_owner;
-
-SET LOCAL ROLE ple_private_owner;
-
-COMMENT ON TABLE ple_private.imathas_question_backend_session IS 'role: event, deleted by Unrelease of Student Work; Assessment rows remain with the Course. HUMAN_GUIDANCE.md Assessments.';
-
+COMMENT ON TABLE ple_private.question_attempt_response_item_binding IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
+COMMENT ON TABLE ple_private.question_attempt_presentation_asset_binding IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
+COMMENT ON TABLE ple_private.question_attempt_presentation_asset_rendition IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
+COMMENT ON TABLE ple_private.question_response_grading IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
 COMMENT ON TABLE ple_private.grading_result IS 'role: student work, One immutable normalized-credit outcome for an accepted Submission; current Assessment Entry points calculate scores on read.';
-
-SET LOCAL ROLE ple_audit_owner;
+COMMENT ON TABLE ple_private.imathas_question_backend_session IS 'role: event, deleted by Unrelease of Student Work; Assessment rows remain with the Course. HUMAN_GUIDANCE.md Assessments.';
 
 SET LOCAL ROLE ple_audit_owner;
 COMMENT ON TABLE ple_audit.automated_grading_receipt IS 'role: event, Immutable receipt for one automated grading commit; deleted only with its exclusive Student Work root.';
-
-SET LOCAL ROLE ple_private_owner;
-
-SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.student_assessment_accommodation IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_pool_selection IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_pool_selected_item IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_response IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.assessment_submission IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_attempt_response_item_binding IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_attempt_presentation_asset_binding IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_attempt_presentation_asset_rendition IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_response_grading IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-
-
-COMMENT ON TABLE ple_private.imathas_question_backend_session IS 'role: event, deleted by Unrelease of Student Work; Assessment rows remain with the Course. HUMAN_GUIDANCE.md Assessments.';
-
-COMMENT ON TABLE ple_private.grading_result IS 'role: student work, One immutable normalized-credit outcome for an accepted Submission; current Assessment Entry points calculate scores on read.';
-
-SET LOCAL ROLE ple_audit_owner;
-
-SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.automated_grading_receipt IS 'role: event, Immutable receipt for one automated grading commit; deleted only with its exclusive Student Work root.';
-
-SET LOCAL ROLE ple_private_owner;
-
-SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.student_assessment_accommodation IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_pool_selection IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_pool_selected_item IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_response IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.assessment_submission IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_attempt_response_item_binding IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_attempt_presentation_asset_binding IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_attempt_presentation_asset_rendition IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_response_grading IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-
-
-COMMENT ON TABLE ple_private.question_attempt_presentation_binding IS 'role: student work, Checksummed issued presentation and, for backend-owned Questions, immutable document retained for one Question Attempt.';
-
-SET LOCAL ROLE ple_audit_owner;
-
-SET LOCAL ROLE ple_private_owner;
-
-COMMENT ON TABLE ple_private.imathas_question_backend_session IS 'role: event, deleted by Unrelease of Student Work; Assessment rows remain with the Course. HUMAN_GUIDANCE.md Assessments.';
-
-COMMENT ON TABLE ple_private.grading_result IS 'role: student work, One immutable normalized-credit outcome for an accepted Submission; current Assessment Entry points calculate scores on read.';
-
-SET LOCAL ROLE ple_audit_owner;
-
-SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.automated_grading_receipt IS 'role: event, Immutable receipt for one automated grading commit; deleted only with its exclusive Student Work root.';
-
-SET LOCAL ROLE ple_private_owner;
-
-SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.student_assessment_accommodation IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_pool_selection IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_pool_selected_item IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_response IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.assessment_submission IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_attempt_response_item_binding IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_attempt_presentation_asset_binding IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_attempt_presentation_asset_rendition IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_response_grading IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-
-
-COMMENT ON TABLE ple_private.question_attempt IS 'role: student work, Exact reproduction and operational evidence for one Issued Question; mutable current Question content is not an interpretation source.';
-
-COMMENT ON TABLE ple_private.assessment_attempt_saved_response IS 'role: student work, Private current response state before submission; root-owned by its Question Attempt.';
-
-COMMENT ON TABLE ple_private.question_attempt_presentation_binding IS 'role: student work, Checksummed issued presentation and, for backend-owned Questions, immutable document retained for one Question Attempt.';
-
-SET LOCAL ROLE ple_audit_owner;
-
-SET LOCAL ROLE ple_private_owner;
-
-COMMENT ON TABLE ple_private.imathas_question_backend_session IS 'role: event, deleted by Unrelease of Student Work; Assessment rows remain with the Course. HUMAN_GUIDANCE.md Assessments.';
-
-COMMENT ON TABLE ple_private.grading_result IS 'role: student work, One immutable normalized-credit outcome for an accepted Submission; current Assessment Entry points calculate scores on read.';
-
-SET LOCAL ROLE ple_audit_owner;
-
-SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.automated_grading_receipt IS 'role: event, Immutable receipt for one automated grading commit; deleted only with its exclusive Student Work root.';
-
-SET LOCAL ROLE ple_private_owner;
-
-SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.student_assessment_accommodation IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_pool_selection IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_pool_selected_item IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_response IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.assessment_submission IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_attempt_response_item_binding IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_attempt_presentation_asset_binding IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_attempt_presentation_asset_rendition IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_response_grading IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-
-
-COMMENT ON TABLE ple_private.imathas_question_backend_session IS 'role: event, deleted by Unrelease of Student Work; Assessment rows remain with the Course. HUMAN_GUIDANCE.md Assessments.';
-
-COMMENT ON TABLE ple_private.grading_result IS 'role: student work, One immutable normalized-credit outcome for an accepted Submission; current Assessment Entry points calculate scores on read.';
-
-SET LOCAL ROLE ple_audit_owner;
-
-SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.automated_grading_receipt IS 'role: event, Immutable receipt for one automated grading commit; deleted only with its exclusive Student Work root.';
-
-SET LOCAL ROLE ple_private_owner;
-
-SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.student_assessment_accommodation IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_pool_selection IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_pool_selected_item IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_response IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.assessment_submission IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_attempt_response_item_binding IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_attempt_presentation_asset_binding IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_attempt_presentation_asset_rendition IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_response_grading IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-
-
-COMMENT ON TABLE ple_private.imathas_question_backend_session IS 'role: event, deleted by Unrelease of Student Work; Assessment rows remain with the Course. HUMAN_GUIDANCE.md Assessments.';
-
-COMMENT ON TABLE ple_private.grading_result IS 'role: student work, One immutable normalized-credit outcome for an accepted Submission; current Assessment Entry points calculate scores on read.';
-
-SET LOCAL ROLE ple_audit_owner;
-
-SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.automated_grading_receipt IS 'role: event, Immutable receipt for one automated grading commit; deleted only with its exclusive Student Work root.';
-
-SET LOCAL ROLE ple_private_owner;
-
-SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.student_assessment_accommodation IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_pool_selection IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_pool_selected_item IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_response IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.assessment_submission IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_attempt_response_item_binding IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_attempt_presentation_asset_binding IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_attempt_presentation_asset_rendition IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_response_grading IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-
-
-COMMENT ON TABLE ple_private.question_attempt IS 'role: student work, Exact reproduction and operational evidence for one Issued Question; mutable current Question content is not an interpretation source.';
-
-COMMENT ON TABLE ple_private.assessment_attempt_saved_response IS 'role: student work, Private current response state before submission; root-owned by its Question Attempt.';
-
-COMMENT ON TABLE ple_private.question_attempt_presentation_binding IS 'role: student work, Checksummed issued presentation and, for backend-owned Questions, immutable document retained for one Question Attempt.';
-
-SET LOCAL ROLE ple_audit_owner;
-
-SET LOCAL ROLE ple_private_owner;
-
-COMMENT ON TABLE ple_private.imathas_question_backend_session IS 'role: event, deleted by Unrelease of Student Work; Assessment rows remain with the Course. HUMAN_GUIDANCE.md Assessments.';
-
-COMMENT ON TABLE ple_private.grading_result IS 'role: student work, One immutable normalized-credit outcome for an accepted Submission; current Assessment Entry points calculate scores on read.';
-
-SET LOCAL ROLE ple_audit_owner;
-
-SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.automated_grading_receipt IS 'role: event, Immutable receipt for one automated grading commit; deleted only with its exclusive Student Work root.';
-
-SET LOCAL ROLE ple_private_owner;
-
-SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.student_assessment_accommodation IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_pool_selection IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_pool_selected_item IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_response IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.assessment_submission IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_attempt_response_item_binding IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_attempt_presentation_asset_binding IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_attempt_presentation_asset_rendition IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_response_grading IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-
-
-COMMENT ON TABLE ple_private.imathas_question_backend_session IS 'role: event, deleted by Unrelease of Student Work; Assessment rows remain with the Course. HUMAN_GUIDANCE.md Assessments.';
-
-COMMENT ON TABLE ple_private.grading_result IS 'role: student work, One immutable normalized-credit outcome for an accepted Submission; current Assessment Entry points calculate scores on read.';
-
-SET LOCAL ROLE ple_audit_owner;
-
-SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.automated_grading_receipt IS 'role: event, Immutable receipt for one automated grading commit; deleted only with its exclusive Student Work root.';
-
-SET LOCAL ROLE ple_private_owner;
-
-SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.student_assessment_accommodation IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_pool_selection IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_pool_selected_item IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_response IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.assessment_submission IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_attempt_response_item_binding IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_attempt_presentation_asset_binding IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_attempt_presentation_asset_rendition IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-
-COMMENT ON TABLE ple_private.question_response_grading IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
 
 SET LOCAL ROLE ple_private_owner;
 COMMENT ON COLUMN ple_private.student_assessment_accommodation.available_at IS 'NULL means this optional fact is absent.';
@@ -684,23 +461,20 @@ COMMENT ON COLUMN ple_private.student_assessment_accommodation.due_at IS 'NULL m
 COMMENT ON COLUMN ple_private.student_assessment_accommodation.closes_at IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_private.student_assessment_accommodation.time_multiplier IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_private.student_assessment_accommodation.assessment_attempt_limit IS 'NULL means this optional fact is absent.';
-COMMENT ON COLUMN ple_private.assessment_attempt.reference_number IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_private.assessment_attempt.expires_at IS 'NULL means this optional fact is absent.';
-COMMENT ON COLUMN ple_private.assessment_attempt.available_at IS 'NULL means this optional fact is absent.';
-COMMENT ON COLUMN ple_private.assessment_attempt.due_at IS 'NULL means this optional fact is absent.';
-COMMENT ON COLUMN ple_private.assessment_attempt.closes_at IS 'NULL means this optional fact is absent.';
-COMMENT ON COLUMN ple_private.assessment_attempt.assessment_attempt_time_limit_seconds IS 'NULL means this optional fact is absent.';
-COMMENT ON COLUMN ple_private.assessment_attempt.assessment_attempt_limit IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_private.assessment_attempt.schedule_accommodation_id IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_private.assessment_attempt.schedule_accommodation_edit_number IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_private.assessment_attempt.time_limit_accommodation_id IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_private.assessment_attempt.time_limit_accommodation_edit_number IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_private.assessment_attempt.assessment_attempt_limit_accommodation_id IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_private.assessment_attempt.assessment_attempt_limit_accommodation_edit_number IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.assessment_entry_snapshot.published_question_id IS 'NULL means this snapshot is a Question Pool Entry.';
+COMMENT ON COLUMN ple_private.assessment_entry_snapshot.question_revision_number IS 'NULL means this snapshot is a Question Pool Entry.';
+COMMENT ON COLUMN ple_private.assessment_entry_snapshot.question_pool_id IS 'NULL means this snapshot is a fixed Question Entry.';
+COMMENT ON COLUMN ple_private.assessment_entry_snapshot.question_attempt_limit IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.assessment_entry_snapshot.question_attempt_time_limit_seconds IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.assessment_entry_snapshot.question_attempt_grace_seconds IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_private.issued_question.question_seed IS 'NULL means this optional fact is absent.';
-COMMENT ON COLUMN ple_private.issued_question.question_attempt_limit IS 'NULL means this optional fact is absent.';
-COMMENT ON COLUMN ple_private.issued_question.question_attempt_time_limit_seconds IS 'NULL means this optional fact is absent.';
-COMMENT ON COLUMN ple_private.issued_question.question_attempt_grace_seconds IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_private.issued_question.question_pool_selection_id IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_private.issued_question.question_pool_member_position IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_private.question_attempt.question_seed IS 'NULL means this optional fact is absent.';
@@ -719,4 +493,3 @@ COMMENT ON COLUMN ple_private.imathas_question_backend_session.revoked_at IS 'NU
 COMMENT ON COLUMN ple_private.imathas_question_backend_session.consumed_at IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_private.imathas_question_backend_session.activity_lease_token_sha256 IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_private.imathas_question_backend_session.activity_lease_expires_at IS 'NULL means this optional fact is absent.';
-

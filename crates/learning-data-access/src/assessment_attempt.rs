@@ -221,7 +221,7 @@ mod tests {
         let entry = AssessmentEntryId::from_uuid(Uuid::from_u128(2));
         let start = AssessmentAttemptStart {
             student_record: StudentRecordId::from_uuid(Uuid::from_u128(1)),
-            assessment: AssessmentId::from_uuid(Uuid::from_u128(3)),
+            assessment: AssessmentId::from_debug_serial(3),
             question_pool_selections: vec![PreparedQuestionPoolSelection {
                 question_pool_assessment_entry: entry,
                 question_pool_revision: pool_revision(),
@@ -250,7 +250,7 @@ mod tests {
         let entry = AssessmentEntryId::from_uuid(Uuid::from_u128(2));
         let start = AssessmentAttemptStart {
             student_record: StudentRecordId::from_uuid(Uuid::from_u128(1)),
-            assessment: AssessmentId::from_uuid(Uuid::from_u128(3)),
+            assessment: AssessmentId::from_debug_serial(3),
             question_pool_selections: vec![PreparedQuestionPoolSelection {
                 question_pool_assessment_entry: entry,
                 question_pool_revision: pool_revision(),
@@ -285,7 +285,7 @@ mod tests {
     fn deferred_backend_cannot_start_new_assessment_work() {
         let start = AssessmentAttemptStart {
             student_record: StudentRecordId::from_uuid(Uuid::from_u128(1)),
-            assessment: AssessmentId::from_uuid(Uuid::from_u128(2)),
+            assessment: AssessmentId::from_debug_serial(2),
             question_pool_selections: Vec::new(),
             issued_questions: vec![PreparedIssuedQuestion::FixedQuestion {
                 assessment_entry: AssessmentEntryId::from_uuid(Uuid::from_u128(3)),

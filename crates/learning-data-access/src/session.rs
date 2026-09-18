@@ -121,7 +121,7 @@ pub struct SessionRecord {
 impl SessionRecord {
     /// Returns the global account authenticated by this resolved session.
     pub fn account_id(&self) -> AccountId {
-        self.account
+        self.account.clone()
     }
 }
 

@@ -2,7 +2,7 @@
 
 use async_trait::async_trait;
 use question_model::{
-    CourseInstanceReference, CreateBlueprintCourseReceipt, CreateBlueprintFromCourseInstanceInput,
+    CourseInstanceId, CreateBlueprintCourseReceipt, CreateBlueprintFromCourseInstanceInput,
     RequestChecksum,
 };
 
@@ -14,7 +14,7 @@ pub trait CourseBlueprintPublicationStore: Send + Sync {
     async fn create_blueprint_from_course_instance(
         &self,
         session: SessionTokenHash,
-        source_course: CourseInstanceReference,
+        source_course: CourseInstanceId,
         request_checksum: RequestChecksum,
         input: CreateBlueprintFromCourseInstanceInput,
         bloom_receipts: crate::PoolBloomPreparationReceipts,

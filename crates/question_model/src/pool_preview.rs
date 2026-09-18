@@ -8,7 +8,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AssessmentEditNumber, AssessmentEntryId, AssessmentReference, QuestionId,
+    AssessmentEditNumber, AssessmentEntryId, AssessmentId, QuestionId,
     QuestionPoolSelectionRule,
 };
 
@@ -34,7 +34,7 @@ pub struct QuestionPoolPreviewItem {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionPoolPreview {
-    pub assessment: AssessmentReference,
+    pub assessment: AssessmentId,
     pub edit_number: AssessmentEditNumber,
     pub assessment_entry_id: AssessmentEntryId,
     /// Stable presentation label derived from the saved Question Pool

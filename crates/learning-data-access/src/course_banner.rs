@@ -3,7 +3,7 @@
 use async_trait::async_trait;
 use objects::{ObjectAddress, Sha256Checksum};
 use question_model::{
-    CourseBanner, CourseBannerReference, CourseBannerUpdate, CourseBannerUploadReference, CourseId,
+    CourseBanner, CourseBannerReference, CourseBannerUpdate, CourseBannerUploadReference, CourseInstanceId,
 };
 
 use crate::{SessionTokenHash, StoreError};
@@ -66,7 +66,7 @@ pub struct PreparedCourseBannerPromotion {
 /// All database facts that must be durable before the upload object put.
 #[derive(Debug, Clone)]
 pub struct StageCourseBannerUpload {
-    pub course: CourseId,
+    pub course: CourseInstanceId,
     pub upload: CourseBannerUploadReference,
     pub metadata: CourseBannerObjectMetadata,
     pub width: u32,
@@ -77,7 +77,7 @@ pub struct StageCourseBannerUpload {
 /// All database facts that must be durable before source/rendition puts.
 #[derive(Debug, Clone)]
 pub struct PrepareCourseBannerPromotion {
-    pub course: CourseId,
+    pub course: CourseInstanceId,
     pub upload: CourseBannerUploadReference,
     pub banner: CourseBannerReference,
     pub update: CourseBannerUpdate,
@@ -144,7 +144,7 @@ pub trait CourseBannerStore: Send + Sync {
     async fn finalize_course_banner_upload_stage(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseId,
+        course: CourseInstanceId,
         upload: CourseBannerUploadReference,
     ) -> Result<(), StoreError>;
 
@@ -161,7 +161,7 @@ pub trait CourseBannerStore: Send + Sync {
     async fn complete_prepared_course_banner_object(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseId,
+        course: CourseInstanceId,
         banner: CourseBannerReference,
         object_id: question_model::ObjectId,
     ) -> Result<(), StoreError>;
@@ -171,7 +171,7 @@ pub trait CourseBannerStore: Send + Sync {
     async fn require_course_banner_object_repair(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseId,
+        course: CourseInstanceId,
         banner: Option<CourseBannerReference>,
         object_id: question_model::ObjectId,
     ) -> Result<(), StoreError>;
@@ -204,14 +204,14 @@ pub trait CourseBannerStore: Send + Sync {
     async fn finalize_course_banner_promotion(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseId,
+        course: CourseInstanceId,
         upload: CourseBannerUploadReference,
         banner: CourseBannerReference,
     ) -> Result<FinalizedCourseBannerPromotion, StoreError>;
     async fn read_current_course_banner(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseId,
+        course: CourseInstanceId,
     ) -> Result<Option<CourseBanner>, StoreError>;
 
     /// Resolves an opaque current banner reference only for an active member.
@@ -219,7 +219,7 @@ pub trait CourseBannerStore: Send + Sync {
         &self,
         session_token_hash: SessionTokenHash,
         banner: CourseBannerReference,
-    ) -> Result<CourseId, StoreError>;
+    ) -> Result<CourseInstanceId, StoreError>;
 
     /// Reads a still-live, completed upload for the exact current Instructor.
     /// It does not consume the upload; only finalization consumes it after both
@@ -227,7 +227,7 @@ pub trait CourseBannerStore: Send + Sync {
     async fn read_staged_course_banner_upload(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseId,
+        course: CourseInstanceId,
         upload: CourseBannerUploadReference,
     ) -> Result<ClaimedCourseBannerUpload, StoreError>;
 
@@ -236,6 +236,6 @@ pub trait CourseBannerStore: Send + Sync {
     async fn prepare_course_banner_removal(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseId,
+        course: CourseInstanceId,
     ) -> Result<PreparedCourseBannerRemoval, StoreError>;
 }

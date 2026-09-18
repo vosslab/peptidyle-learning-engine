@@ -1,6 +1,6 @@
-import type { AssessmentAttemptReference } from "../../generated/api/AssessmentAttemptReference";
-import type { AssessmentReference } from "../../generated/api/AssessmentReference";
-import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
+import type { AssessmentAttemptId } from "../../generated/api/AssessmentAttemptId";
+import type { AssessmentId } from "../../generated/api/AssessmentId";
+import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { CourseTheme } from "../../generated/api/CourseTheme";
 import type { AccountTimeZone } from "../../generated/api/AccountTimeZone";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
@@ -10,7 +10,7 @@ export type StudentAssessmentAttemptResponseState = "unanswered" | "saved" | "su
 
 /** Answer-free durable navigation projection for one authorized Student Attempt. */
 export interface StudentAssessmentAttemptProgress {
-  readonly assessmentAttempt: AssessmentAttemptReference;
+  readonly assessmentAttempt: AssessmentAttemptId;
   readonly questionCount: number;
   readonly recommendedPosition: number | null;
   readonly positions: ReadonlyArray<{
@@ -21,19 +21,19 @@ export interface StudentAssessmentAttemptProgress {
 
 /** UUID-free display context authorized with an active Student Assessment Attempt. */
 export interface StudentAssessmentAttemptContext {
-  readonly assessmentAttempt: AssessmentAttemptReference;
+  readonly assessmentAttempt: AssessmentAttemptId;
   readonly attemptNumber: number;
   readonly displayTimeZone: AccountTimeZone;
   readonly expiresAt: number | null;
   readonly timerRemainingMilliseconds: number | null;
   readonly course: {
-    readonly reference: CourseInstanceReference;
+    readonly reference: CourseInstanceId;
     readonly shortName: string;
     readonly longName: string;
     readonly theme: CourseTheme;
   };
   readonly assessment: {
-    readonly reference: AssessmentReference;
+    readonly reference: AssessmentId;
     readonly title: string;
   };
 }
@@ -48,38 +48,38 @@ export interface StudentAssessmentAttemptPresentation {
 
 /** Durable-save receipt for one owned Question position in an Assessment Attempt. */
 export interface StudentAssessmentAttemptResponseSaveAcknowledgement {
-  readonly assessmentAttempt: AssessmentAttemptReference;
+  readonly assessmentAttempt: AssessmentAttemptId;
   readonly position: number;
   readonly responseState: "saved";
 }
 
 /** Immutable final-submission result for the whole Assessment Attempt. */
 export interface StudentAssessmentAttemptSubmissionResult {
-  readonly assessmentAttempt: AssessmentAttemptReference;
+  readonly assessmentAttempt: AssessmentAttemptId;
   readonly submissionState: "submitted";
 }
 
 export interface StudentAssessmentAttemptNavigationClient {
   readonly getStudentAssessmentAttemptContext: (
-    assessmentAttempt: AssessmentAttemptReference,
+    assessmentAttempt: AssessmentAttemptId,
   ) => Promise<StudentAssessmentAttemptContext>;
   readonly getStudentAssessmentAttemptProgress: (
-    assessmentAttempt: AssessmentAttemptReference,
+    assessmentAttempt: AssessmentAttemptId,
   ) => Promise<StudentAssessmentAttemptProgress>;
   readonly getStudentAssessmentAttemptPresentation: (
-    assessmentAttempt: AssessmentAttemptReference,
+    assessmentAttempt: AssessmentAttemptId,
     position: number,
   ) => Promise<StudentAssessmentAttemptPresentation>;
   readonly studentAuthorContentDocumentUrl: (
-    assessmentAttempt: AssessmentAttemptReference,
+    assessmentAttempt: AssessmentAttemptId,
     position: number,
   ) => string;
   readonly saveStudentAssessmentAttemptResponse: (
-    assessmentAttempt: AssessmentAttemptReference,
+    assessmentAttempt: AssessmentAttemptId,
     position: number,
     response: StudentResponse,
   ) => Promise<StudentAssessmentAttemptResponseSaveAcknowledgement>;
   readonly submitStudentAssessmentAttempt: (
-    assessmentAttempt: AssessmentAttemptReference,
+    assessmentAttempt: AssessmentAttemptId,
   ) => Promise<StudentAssessmentAttemptSubmissionResult>;
 }

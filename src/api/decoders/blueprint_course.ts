@@ -7,13 +7,14 @@ import { ASSESSMENT_TYPE_VALUES, type AssessmentType } from "../../../generated/
 import { MAX_BLUEPRINT_COURSE_TITLE_UNICODE_SCALARS } from "../../../generated/api/MAX_BLUEPRINT_COURSE_TITLE_UNICODE_SCALARS";
 import type { BlueprintCourseSummaryView } from "../../../generated/api/BlueprintCourseSummaryView";
 import type { BlueprintCourseView } from "../../../generated/api/BlueprintCourseView";
-import type { BlueprintCourseReference } from "../../../generated/api/BlueprintCourseReference";
+import type { BlueprintCourseId } from "../../../generated/api/BlueprintCourseId";
 import type { BlueprintAvailability } from "../../../generated/api/BlueprintAvailability";
 import type { BlueprintRevisionReference } from "../../../generated/api/BlueprintRevisionReference";
 import type { BlueprintRevisionView } from "../../../generated/api/BlueprintRevisionView";
 import type { BlueprintKnownForkView } from "../../../generated/api/BlueprintKnownForkView";
 import type { BlueprintModuleView } from "../../../generated/api/BlueprintModuleView";
 import type { BlueprintCourseSaveResponse } from "../../../generated/api/BlueprintCourseSaveResponse";
+import type { BlueprintEditNumber } from "../../../generated/api/BlueprintEditNumber";
 import type { BlueprintMetadataState } from "../../../generated/api/BlueprintMetadataState";
 import type { CreateBlueprintCourseInput } from "../../../generated/api/CreateBlueprintCourseInput";
 import type { RenameBlueprintCourseInput } from "../../../generated/api/RenameBlueprintCourseInput";
@@ -49,7 +50,6 @@ import { decodeCourseClassification } from "./course_classification";
 
 const MAX_PAGE_SIZE = 100;
 const POSITIVE_REVISION = /^[1-9][0-9]*$/u;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 
 export function text(value: unknown, path: string): string {
   const decoded = decodeNonemptyString(value, path);
@@ -62,7 +62,7 @@ export function text(value: unknown, path: string): string {
   return decoded;
 }
 
-function blueprintReference(value: unknown, path: string): BlueprintCourseReference {
+function blueprintReference(value: unknown, path: string): BlueprintCourseId {
   const decoded = decodeString(value, path);
   if (validateCanonicalPublicReference("blueprintCourse", decoded) === null) {
     throw new DecodeError(path, "a canonical opaque Blueprint Course reference");
@@ -503,9 +503,11 @@ function availability(value: unknown, path: string): BlueprintAvailability {
   return decodeStringEnum(value, path, ["private", "public", "archived"]);
 }
 
-export function metadataEtag(value: unknown, path: string): string {
+export function blueprintEditNumber(value: unknown, path: string): BlueprintEditNumber {
   const decoded = decodeString(value, path);
-  if (!UUID.test(decoded)) throw new DecodeError(path, "a canonical opaque metadata UUID");
+  if (!POSITIVE_REVISION.test(decoded) || BigInt(decoded) > 9_223_372_036_854_775_807n) {
+    throw new DecodeError(path, "a positive Blueprint Edit Number");
+  }
   return decoded;
 }
 
@@ -527,7 +529,7 @@ function summary(value: unknown, path: string): BlueprintCourseSummaryView {
     "short_name",
     "long_name",
     "availability",
-    "metadata_etag",
+    "blueprint_edit_number",
     "classification",
     "current_revision",
     "read_access",
@@ -553,7 +555,10 @@ function summary(value: unknown, path: string): BlueprintCourseSummaryView {
     short_name: text(field(record, "short_name", path), `${path}.short_name`),
     long_name: text(field(record, "long_name", path), `${path}.long_name`),
     availability: availability(field(record, "availability", path), `${path}.availability`),
-    metadata_etag: metadataEtag(field(record, "metadata_etag", path), `${path}.metadata_etag`),
+    blueprint_edit_number: blueprintEditNumber(
+      field(record, "blueprint_edit_number", path),
+      `${path}.blueprint_edit_number`,
+    ),
     current_revision: revisionReference(
       field(record, "current_revision", path),
       `${path}.current_revision`,
@@ -606,7 +611,7 @@ export function decodeBlueprintCourseView(value: unknown, path = "response"): Bl
     "short_name",
     "long_name",
     "availability",
-    "metadata_etag",
+    "blueprint_edit_number",
     "classification",
     "current_revision",
     "fork_source",
@@ -622,7 +627,10 @@ export function decodeBlueprintCourseView(value: unknown, path = "response"): Bl
     short_name: text(field(record, "short_name", path), `${path}.short_name`),
     long_name: text(field(record, "long_name", path), `${path}.long_name`),
     availability: availability(field(record, "availability", path), `${path}.availability`),
-    metadata_etag: metadataEtag(field(record, "metadata_etag", path), `${path}.metadata_etag`),
+    blueprint_edit_number: blueprintEditNumber(
+      field(record, "blueprint_edit_number", path),
+      `${path}.blueprint_edit_number`,
+    ),
     current_revision: revisionReference(
       field(record, "current_revision", path),
       `${path}.current_revision`,
@@ -681,7 +689,7 @@ export function decodeBlueprintMetadataState(
     "short_name",
     "long_name",
     "availability",
-    "metadata_etag",
+    "blueprint_edit_number",
     "classification",
   ]);
   return {
@@ -692,7 +700,10 @@ export function decodeBlueprintMetadataState(
     short_name: text(field(record, "short_name", path), `${path}.short_name`),
     long_name: text(field(record, "long_name", path), `${path}.long_name`),
     availability: availability(field(record, "availability", path), `${path}.availability`),
-    metadata_etag: metadataEtag(field(record, "metadata_etag", path), `${path}.metadata_etag`),
+    blueprint_edit_number: blueprintEditNumber(
+      field(record, "blueprint_edit_number", path),
+      `${path}.blueprint_edit_number`,
+    ),
   };
 }
 
@@ -707,10 +718,10 @@ export function decodeRenameBlueprintCourseInput(
   return value as RenameBlueprintCourseInput;
 }
 
-export function decodeBlueprintCourseReference(
+export function decodeBlueprintCourseId(
   value: unknown,
   path = "reference",
-): BlueprintCourseReference {
+): BlueprintCourseId {
   return blueprintReference(value, path);
 }
 

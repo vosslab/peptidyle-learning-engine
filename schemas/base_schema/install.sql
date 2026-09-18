@@ -69,6 +69,8 @@
 \ir 50_functions/course_operations.sql
 \ir 50_functions/course_media.sql
 \ir 50_functions/profile_media.sql
+\ir 50_functions/assessment_policy_snapshot.sql
+\ir 50_functions/assessment_entry_snapshot.sql
 \ir 50_functions/assessments.sql
 \ir 50_functions/question_library_operations.sql
 \ir 50_functions/question_bloom.sql

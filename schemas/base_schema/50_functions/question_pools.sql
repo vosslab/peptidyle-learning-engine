@@ -13,7 +13,7 @@ RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
 BEGIN
     RAISE EXCEPTION USING ERRCODE = '55000',
-        MESSAGE = 'Question Pool and Question Pool Revision records are immutable';
+        MESSAGE = 'Question Pool identity is immutable';
 END
 $$;
 
@@ -22,10 +22,9 @@ RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
 BEGIN
     IF NEW.question_pool_id <> OLD.question_pool_id
-       OR NEW.question_pool_id <> OLD.question_pool_id
        OR NEW.source_question_pool_id IS DISTINCT FROM OLD.source_question_pool_id
-       OR NEW.source_question_pool_revision_number IS DISTINCT FROM OLD.source_question_pool_revision_number
        OR NEW.created_at <> OLD.created_at
+       OR NEW.created_in_transaction IS DISTINCT FROM OLD.created_in_transaction
        OR NEW.title IS DISTINCT FROM OLD.title
        OR NEW.description IS DISTINCT FROM OLD.description
        OR NEW.content_discipline_id IS DISTINCT FROM OLD.content_discipline_id
@@ -33,45 +32,41 @@ BEGIN
        OR NEW.content_topic_id IS DISTINCT FROM OLD.content_topic_id
        OR NEW.content_subtopic_id IS DISTINCT FROM OLD.content_subtopic_id
        OR NEW.tags IS DISTINCT FROM OLD.tags
-       OR NEW.current_revision_number <> OLD.current_revision_number + 1
-       OR NEW.metadata_etag = OLD.metadata_etag THEN
+       OR NEW.question_pool_edit_number <> OLD.question_pool_edit_number + 1 THEN
         RAISE EXCEPTION USING ERRCODE = '55000',
-            MESSAGE = 'Question Pool identity is immutable and Revision append must advance metadata ETag once';
+            MESSAGE = 'Question Pool identity is immutable and member-list save must advance Edit Number once';
     END IF;
     RETURN NEW;
 END
 $$;
 
-CREATE FUNCTION ple_data.validate_question_pool_revision_members()
+CREATE FUNCTION ple_data.validate_question_pool_members()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
-DECLARE member_count integer; last_position integer;
+DECLARE member_count integer; last_position integer; pool_id text;
 BEGIN
+    pool_id := COALESCE(NEW.question_pool_id, OLD.question_pool_id);
     SELECT count(*), max(member_position) INTO member_count, last_position
-      FROM ple_data.question_pool_revision_member
-     WHERE question_pool_id = NEW.question_pool_id
-       AND revision_number = NEW.revision_number;
+      FROM ple_data.question_pool_member
+     WHERE question_pool_id = pool_id;
     IF member_count = 0 OR last_position <> member_count THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'Question Pool Revision requires a nonempty contiguous ordered member list';
+            MESSAGE = 'Question Pool requires a nonempty contiguous ordered member list';
     END IF;
     RETURN NULL;
 END
 $$;
 
-CREATE FUNCTION ple_data.validate_question_pool_revision_member_insert()
+CREATE FUNCTION ple_data.validate_question_pool_member_insert()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
-DECLARE expected_count integer; existing_count integer; backend_name ple_data.question_backend;
+DECLARE existing_count integer; backend_name ple_data.question_backend;
 BEGIN
-    SELECT member_count INTO expected_count FROM ple_data.question_pool_revision
-     WHERE question_pool_id = NEW.question_pool_id AND revision_number = NEW.revision_number;
-    SELECT count(*) INTO existing_count FROM ple_data.question_pool_revision_member
-     WHERE question_pool_id = NEW.question_pool_id AND revision_number = NEW.revision_number;
-    IF expected_count IS NULL OR existing_count >= expected_count
-       OR NEW.member_position <> existing_count + 1 THEN
+    SELECT count(*) INTO existing_count FROM ple_data.question_pool_member
+     WHERE question_pool_id = NEW.question_pool_id;
+    IF NEW.member_position <> existing_count + 1 THEN
         RAISE EXCEPTION USING ERRCODE = '55000',
-            MESSAGE = 'Question Pool Revision member set is immutable and ordered';
+            MESSAGE = 'Question Pool member set is ordered';
     END IF;
     SELECT revision.backend INTO backend_name
       FROM ple_data.question_revision AS revision
@@ -93,26 +88,14 @@ CREATE TRIGGER question_pool_append_updates_lineage
 BEFORE UPDATE ON ple_data.question_pool
 FOR EACH ROW EXECUTE FUNCTION ple_data.validate_question_pool_lineage_update();
 
-CREATE TRIGGER question_pool_revision_is_immutable
-BEFORE UPDATE OR DELETE ON ple_data.question_pool_revision
-FOR EACH ROW EXECUTE FUNCTION ple_data.reject_question_pool_immutable_change();
+CREATE TRIGGER question_pool_member_insert_is_ordered
+BEFORE INSERT ON ple_data.question_pool_member
+FOR EACH ROW EXECUTE FUNCTION ple_data.validate_question_pool_member_insert();
 
-CREATE TRIGGER question_pool_revision_member_is_immutable
-BEFORE UPDATE OR DELETE ON ple_data.question_pool_revision_member
-FOR EACH ROW EXECUTE FUNCTION ple_data.reject_question_pool_immutable_change();
-
-CREATE TRIGGER question_pool_revision_member_insert_is_ordered
-BEFORE INSERT ON ple_data.question_pool_revision_member
-FOR EACH ROW EXECUTE FUNCTION ple_data.validate_question_pool_revision_member_insert();
-
-CREATE CONSTRAINT TRIGGER question_pool_revision_has_members
-AFTER INSERT ON ple_data.question_pool_revision
+CREATE CONSTRAINT TRIGGER question_pool_has_members
+AFTER INSERT OR DELETE ON ple_data.question_pool_member
 DEFERRABLE INITIALLY DEFERRED FOR EACH ROW
-EXECUTE FUNCTION ple_data.validate_question_pool_revision_members();
-
-
-
-
+EXECUTE FUNCTION ple_data.validate_question_pool_members();
 
 -- The later typed trusted server command supplies an already checksum-validated
 -- canonical public ID. This schema is not an issuer; the narrow session-bound
@@ -123,14 +106,14 @@ CREATE FUNCTION ple_data.create_question_pool(
     p_member_question_ids text[], p_member_revision_numbers integer[],
     p_interchangeability_attested boolean, p_title text, p_description text
 ) RETURNS TABLE (
-    question_pool_id text, revision_number bigint, metadata_etag uuid
+    question_pool_id text, question_pool_edit_number bigint
 )
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
-DECLARE actor_id text; created_at timestamptz := pg_catalog.clock_timestamp(); next_etag uuid;
+DECLARE actor_id text; created_at timestamptz := pg_catalog.clock_timestamp();
     first_metadata ple_data.published_question_metadata%ROWTYPE;
 BEGIN
-    IF p_question_pool_id IS NULL OR p_question_pool_id IS NULL
+    IF p_question_pool_id IS NULL
        OR p_question_pool_id !~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
        OR substr(p_question_pool_id, 6, 1) <> ple_private.crockford_checksum_character(
            substr(p_question_pool_id, 1, 4) || substr(p_question_pool_id, 7, 3)
@@ -194,58 +177,65 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Question Pool members must share the established Discipline and Subject';
     END IF;
-    next_etag := pg_catalog.gen_random_uuid();
     INSERT INTO ple_data.question_pool(
-        question_pool_id, metadata_etag, current_revision_number, created_at,
+        question_pool_id, question_pool_edit_number, created_at,
+        interchangeability_attested_by_account_id, interchangeability_attested_at,
         title, description, content_discipline_id, content_subject_id
-    ) VALUES (p_question_pool_id, next_etag, 1, created_at,
+    ) VALUES (p_question_pool_id, 1, created_at, actor_id, created_at,
         p_title, p_description, first_metadata.content_discipline_id, first_metadata.content_subject_id);
-    INSERT INTO ple_data.question_pool_revision(
-        question_pool_id, revision_number, member_count, interchangeability_attested_by_account_id,
-        interchangeability_attested_at, created_at
-    ) VALUES (p_question_pool_id, 1, cardinality(p_member_question_ids), actor_id, created_at, created_at);
-    INSERT INTO ple_data.question_pool_revision_member(
-        question_pool_id, revision_number, member_position, published_question_id, question_revision_number
+    INSERT INTO ple_data.question_pool_member(
+        question_pool_id, member_position, published_question_id, question_revision_number, created_at
     )
-    SELECT p_question_pool_id, 1, member.ordinality::integer, member.published_question_id,
-           p_member_revision_numbers[member.ordinality]
+    SELECT p_question_pool_id, member.ordinality::integer, member.published_question_id,
+           p_member_revision_numbers[member.ordinality], created_at
       FROM unnest(p_member_question_ids) WITH ORDINALITY AS member(published_question_id, ordinality)
      ORDER BY member.ordinality;
-    RETURN QUERY SELECT pool.question_pool_id, 1::bigint, pool.metadata_etag
+    RETURN QUERY SELECT pool.question_pool_id, pool.question_pool_edit_number
       FROM ple_data.question_pool AS pool WHERE pool.question_pool_id = p_question_pool_id;
 END
 $$;
 
-CREATE FUNCTION ple_data.append_question_pool_revision(
-    p_question_pool_id text, p_expected_metadata_etag uuid,
+CREATE FUNCTION ple_data.save_question_pool_members(
+    p_question_pool_id text, p_expected_question_pool_edit_number bigint,
     p_member_question_ids text[], p_member_revision_numbers integer[],
     p_interchangeability_attested boolean
-) RETURNS TABLE (revision_number bigint, metadata_etag uuid) LANGUAGE plpgsql SECURITY DEFINER
+) RETURNS TABLE (question_pool_edit_number bigint) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
 DECLARE pool_row ple_data.question_pool%ROWTYPE; actor_id text;
-    next_revision_number bigint; next_etag uuid; created_at timestamptz := pg_catalog.clock_timestamp();
+    created_at timestamptz := pg_catalog.clock_timestamp();
+    current_question_ids text[]; current_revision_numbers integer[];
 BEGIN
-    IF p_question_pool_id IS NULL OR p_expected_metadata_etag IS NULL
+    IF p_question_pool_id IS NULL OR p_expected_question_pool_edit_number IS NULL
        OR p_member_question_ids IS NULL OR p_member_revision_numbers IS NULL
        OR cardinality(p_member_question_ids) IS NULL OR cardinality(p_member_question_ids) = 0
        OR cardinality(p_member_question_ids) <> cardinality(p_member_revision_numbers)
        OR p_interchangeability_attested IS DISTINCT FROM true THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
-            MESSAGE = 'Question Pool Revision append requires metadata ETag, nonempty ordered members, and interchangeability attestation';
+            MESSAGE = 'Question Pool member save requires metadata ETag, nonempty ordered members, and interchangeability attestation';
     END IF;
     IF NOT ple_api.current_session_account_is_instructor() THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
-            MESSAGE = 'Active Instructor authority is required for Question Pool Revision append';
+            MESSAGE = 'Active Instructor authority is required for Question Pool member save';
     END IF;
-    -- The stable lineage lock serializes appenders; expected-current is CAS.
     SELECT * INTO pool_row FROM ple_data.question_pool
      WHERE question_pool_id = p_question_pool_id FOR UPDATE;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '23503', MESSAGE = 'Question Pool does not exist';
     END IF;
-    IF pool_row.metadata_etag <> p_expected_metadata_etag THEN
+    IF pool_row.question_pool_edit_number <> p_expected_question_pool_edit_number THEN
         RAISE EXCEPTION USING ERRCODE = '40001',
             MESSAGE = 'Question Pool metadata ETag is stale';
+    END IF;
+    SELECT array_agg(member.published_question_id ORDER BY member.member_position),
+           array_agg(member.question_revision_number ORDER BY member.member_position)
+      INTO current_question_ids, current_revision_numbers
+      FROM ple_data.question_pool_member AS member
+     WHERE member.question_pool_id = p_question_pool_id;
+    IF current_question_ids IS NOT DISTINCT FROM p_member_question_ids
+       AND current_revision_numbers IS NOT DISTINCT FROM p_member_revision_numbers THEN
+        question_pool_edit_number := pool_row.question_pool_edit_number;
+        RETURN NEXT;
+        RETURN;
     END IF;
     -- Admission-time invariant: retained Question IDs (including changed exact
     -- pins) do not re-admit. Remove/readd checks current Question metadata.
@@ -253,9 +243,8 @@ BEGIN
     PERFORM metadata.published_question_id FROM ple_data.published_question_metadata AS metadata
      WHERE metadata.published_question_id = ANY(p_member_question_ids)
        AND NOT EXISTS (
-           SELECT 1 FROM ple_data.question_pool_revision_member AS previous
+           SELECT 1 FROM ple_data.question_pool_member AS previous
             WHERE previous.question_pool_id = p_question_pool_id
-              AND previous.revision_number = pool_row.current_revision_number
               AND previous.published_question_id = metadata.published_question_id
        )
      ORDER BY metadata.published_question_id FOR SHARE;
@@ -263,9 +252,8 @@ BEGIN
         SELECT 1 FROM unnest(p_member_question_ids) AS member(published_question_id)
         LEFT JOIN ple_data.published_question_metadata AS metadata USING (published_question_id)
          WHERE NOT EXISTS (
-             SELECT 1 FROM ple_data.question_pool_revision_member AS previous
+             SELECT 1 FROM ple_data.question_pool_member AS previous
               WHERE previous.question_pool_id = p_question_pool_id
-                AND previous.revision_number = pool_row.current_revision_number
                 AND previous.published_question_id = member.published_question_id
          ) AND (metadata.published_question_id IS NULL
                 OR metadata.content_discipline_id <> pool_row.content_discipline_id
@@ -287,155 +275,128 @@ BEGIN
             MESSAGE = 'Question Pool members require a current production Question Backend';
     END IF;
     actor_id := ple_api.current_session_account_id();
-    next_revision_number := pool_row.current_revision_number + 1;
-    next_etag := pg_catalog.gen_random_uuid();
-    INSERT INTO ple_data.question_pool_revision(
-        question_pool_id, revision_number, member_count, interchangeability_attested_by_account_id,
-        interchangeability_attested_at, created_at
-    ) VALUES (p_question_pool_id, next_revision_number, cardinality(p_member_question_ids), actor_id, created_at, created_at);
-    INSERT INTO ple_data.question_pool_revision_member(
-        question_pool_id, revision_number, member_position, published_question_id, question_revision_number
+    DELETE FROM ple_data.question_pool_member
+     WHERE question_pool_id = p_question_pool_id;
+    INSERT INTO ple_data.question_pool_member(
+        question_pool_id, member_position, published_question_id, question_revision_number, created_at
     )
-    SELECT p_question_pool_id, next_revision_number, member.ordinality::integer, member.published_question_id,
-           p_member_revision_numbers[member.ordinality]
+    SELECT p_question_pool_id, member.ordinality::integer, member.published_question_id,
+           p_member_revision_numbers[member.ordinality], created_at
       FROM unnest(p_member_question_ids) WITH ORDINALITY AS member(published_question_id, ordinality)
      ORDER BY member.ordinality;
-    UPDATE ple_data.question_pool SET current_revision_number = next_revision_number, metadata_etag = next_etag
-     WHERE question_pool_id = p_question_pool_id;
-    revision_number := next_revision_number;
-    metadata_etag := next_etag;
+    UPDATE ple_data.question_pool
+       SET question_pool_edit_number = pool_row.question_pool_edit_number + 1,
+           interchangeability_attested_by_account_id = actor_id,
+           interchangeability_attested_at = created_at,
+           updated_on = CURRENT_DATE
+     WHERE question_pool_id = p_question_pool_id
+     RETURNING ple_data.question_pool.question_pool_edit_number INTO question_pool_edit_number;
     RETURN NEXT;
 END
 $$;
 
-
-
 -- This private construction primitive has no application/API grant. Its
--- authorized wrappers retain the source Revision's actual interchangeability
+-- authorized wrappers retain the source Pool's actual interchangeability
 -- attestation; creating a fork does not re-attest the source member set.
-CREATE FUNCTION ple_data.construct_question_pool_revision_fork(
+CREATE FUNCTION ple_data.construct_question_pool_fork(
     p_question_pool_id text,
-    p_source_question_pool_id text,
-    p_source_question_pool_revision_number bigint
+    p_source_question_pool_id text
 ) RETURNS TABLE (
-    question_pool_id text, revision_number bigint, metadata_etag uuid
+    question_pool_id text, question_pool_edit_number bigint
 )
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
-DECLARE created_at timestamptz := pg_catalog.clock_timestamp(); next_etag uuid;
-DECLARE source_revision ple_data.question_pool_revision%ROWTYPE;
+DECLARE created_at timestamptz := pg_catalog.clock_timestamp();
 DECLARE source_metadata ple_data.question_pool%ROWTYPE;
 BEGIN
-    IF p_question_pool_id IS NULL OR p_question_pool_id IS NULL
+    IF p_question_pool_id IS NULL
        OR p_question_pool_id !~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
        OR substr(p_question_pool_id, 6, 1) <> ple_private.crockford_checksum_character(
            substr(p_question_pool_id, 1, 4) || substr(p_question_pool_id, 7, 3)
        )
-       OR p_source_question_pool_id IS NULL OR p_source_question_pool_revision_number IS NULL THEN
+       OR p_source_question_pool_id IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Question Pool fork is invalid';
     END IF;
-    SELECT revision.* INTO source_revision
-      FROM ple_data.question_pool AS source_pool
-      JOIN ple_data.question_pool_revision AS revision
-        ON revision.question_pool_id = source_pool.question_pool_id
-     WHERE source_pool.question_pool_id = p_source_question_pool_id
-       AND revision.revision_number = p_source_question_pool_revision_number;
-    IF NOT FOUND THEN
-        RAISE EXCEPTION USING ERRCODE = '23503',
-            MESSAGE = 'Question Pool source Revision does not exist';
-    END IF;
     SELECT source_pool.* INTO source_metadata FROM ple_data.question_pool AS source_pool
      WHERE source_pool.question_pool_id = p_source_question_pool_id FOR SHARE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION USING ERRCODE = '23503',
+            MESSAGE = 'Question Pool source does not exist';
+    END IF;
     IF EXISTS (
         SELECT 1
-          FROM ple_data.question_pool_revision_member AS member
+          FROM ple_data.question_pool_member AS member
           JOIN ple_data.question_revision AS revision
             ON revision.published_question_id = member.published_question_id
            AND revision.revision_number = member.question_revision_number
          WHERE member.question_pool_id = p_source_question_pool_id
-           AND member.revision_number = p_source_question_pool_revision_number
            AND NOT ple_private.question_backend_is_supported_for_production(revision.backend)
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
-            MESSAGE = 'Question Pool source Revision has an unavailable Question Backend';
+            MESSAGE = 'Question Pool source has an unavailable Question Backend';
     END IF;
-    next_etag := pg_catalog.gen_random_uuid();
     INSERT INTO ple_data.question_pool(
-        question_pool_id, metadata_etag, current_revision_number,
-        source_question_pool_id, source_question_pool_revision_number, created_at,
+        question_pool_id, question_pool_edit_number,
+        source_question_pool_id, created_at,
+        interchangeability_attested_by_account_id, interchangeability_attested_at,
         title, description, content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags
     ) VALUES (
-        p_question_pool_id, next_etag, 1,
-        p_source_question_pool_id, p_source_question_pool_revision_number, created_at,
+        p_question_pool_id, 1,
+        p_source_question_pool_id, created_at,
+        source_metadata.interchangeability_attested_by_account_id,
+        source_metadata.interchangeability_attested_at,
         source_metadata.title, source_metadata.description, source_metadata.content_discipline_id,
         source_metadata.content_subject_id, source_metadata.content_topic_id, source_metadata.content_subtopic_id,
         source_metadata.tags
     );
-    INSERT INTO ple_data.question_pool_revision(
-        question_pool_id, revision_number, member_count, interchangeability_attested_by_account_id,
-        interchangeability_attested_at, created_at
-    ) VALUES (
-        p_question_pool_id, 1, source_revision.member_count,
-        source_revision.interchangeability_attested_by_account_id,
-        source_revision.interchangeability_attested_at, created_at
-    );
-    INSERT INTO ple_data.question_pool_revision_member(
-        question_pool_id, revision_number, member_position, published_question_id, question_revision_number
+    INSERT INTO ple_data.question_pool_member(
+        question_pool_id, member_position, published_question_id, question_revision_number, created_at
     )
-    SELECT p_question_pool_id, 1, member.member_position, member.published_question_id,
-           member.question_revision_number
-      FROM ple_data.question_pool_revision_member AS member
+    SELECT p_question_pool_id, member.member_position, member.published_question_id,
+           member.question_revision_number, created_at
+      FROM ple_data.question_pool_member AS member
      WHERE member.question_pool_id = p_source_question_pool_id
-       AND member.revision_number = p_source_question_pool_revision_number
      ORDER BY member.member_position;
-    RETURN QUERY SELECT pool.question_pool_id, 1::bigint,
-                        pool.metadata_etag
+    RETURN QUERY SELECT pool.question_pool_id, pool.question_pool_edit_number
       FROM ple_data.question_pool AS pool WHERE pool.question_pool_id = p_question_pool_id;
 END
 $$;
-
-
 
 -- Importing a reusable Pool into an Assessment never aliases the published
 -- lineage. The ordinary route remains Instructor-only.
 CREATE FUNCTION ple_data.fork_question_pool_revision(
     p_question_pool_id text,
-    p_source_question_pool_id text,
-    p_source_question_pool_revision_number bigint
+    p_source_question_pool_id text
 ) RETURNS TABLE (
-    question_pool_id text, revision_number bigint, metadata_etag uuid
+    question_pool_id text, question_pool_edit_number bigint
 )
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
 BEGIN
-    IF p_question_pool_id IS NULL OR p_question_pool_id IS NULL
+    IF p_question_pool_id IS NULL
        OR p_question_pool_id !~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
        OR substr(p_question_pool_id, 6, 1) <> ple_private.crockford_checksum_character(
            substr(p_question_pool_id, 1, 4) || substr(p_question_pool_id, 7, 3)
        )
-       OR p_source_question_pool_id IS NULL OR p_source_question_pool_revision_number IS NULL
+       OR p_source_question_pool_id IS NULL
        OR NOT ple_api.current_session_account_is_instructor() THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Question Pool fork is unavailable';
     END IF;
-    RETURN QUERY SELECT * FROM ple_data.construct_question_pool_revision_fork(
-        p_question_pool_id, p_source_question_pool_id,
-        p_source_question_pool_revision_number
+    RETURN QUERY SELECT * FROM ple_data.construct_question_pool_fork(
+        p_question_pool_id, p_source_question_pool_id
     );
 END
 $$;
-
-
 
 -- Course adoption is the one additional internal context where a Sysadmin may
 -- create a Course for an assigned Instructor. It has no standalone API grant:
 -- the already-authorized atomic Course creation boundary is its only caller.
 CREATE FUNCTION ple_data.fork_question_pool_revision_for_course_adoption(
     p_question_pool_id text,
-    p_source_question_pool_id text,
-    p_source_question_pool_revision_number bigint
+    p_source_question_pool_id text
 ) RETURNS TABLE (
-    question_pool_id text, revision_number bigint, metadata_etag uuid
+    question_pool_id text, question_pool_edit_number bigint
 )
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
@@ -445,17 +406,13 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Course adoption Question Pool fork is unavailable';
     END IF;
-    RETURN QUERY SELECT * FROM ple_data.construct_question_pool_revision_fork(
-        p_question_pool_id, p_source_question_pool_id,
-        p_source_question_pool_revision_number
+    RETURN QUERY SELECT * FROM ple_data.construct_question_pool_fork(
+        p_question_pool_id, p_source_question_pool_id
     );
 END
 $$;
 
 SET LOCAL ROLE ple_api_owner;
-
-
-
 
 -- The application receives only this session-bound capability. The data-owner
 -- procedure remains private, and it derives active Instructor authority and
@@ -465,7 +422,7 @@ CREATE FUNCTION ple_api.create_question_pool(
     p_member_question_ids text[], p_member_revision_numbers integer[],
     p_interchangeability_attested boolean, p_title text, p_description text
 ) RETURNS TABLE (
-    question_pool_id text, revision_number bigint, metadata_etag uuid
+    question_pool_id text, question_pool_edit_number bigint
 ) LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT * FROM ple_data.create_question_pool(
@@ -474,10 +431,6 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
 $$;
 
 SET LOCAL ROLE ple_data_owner;
-
-
-
-
 
 -- A deliberately narrow, answer-free public-reference projection. It names
 -- no internal UUID and does not make Pool content, membership, selection,
@@ -505,11 +458,8 @@ BEGIN
     UNION ALL
     SELECT 'pool'::text,
            pool.question_pool_id,
-           max(revision.revision_number)
+           pool.question_pool_edit_number
       FROM ple_data.question_pool AS pool
-      JOIN ple_data.question_pool_revision AS revision
-        ON revision.question_pool_id = pool.question_pool_id
-     GROUP BY pool.question_pool_id, pool.question_pool_id
      ORDER BY 1, 2;
 END
 $$;
@@ -526,22 +476,18 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT * FROM ple_data.list_published_content_identities()
 $$;
 
-
-
 -- The server resolves an author-visible reusable Pool identity once, under
 -- the installed Instructor session. It never accepts a caller-selected
 -- Revision; every published Pool lineage, including a child fork, is reusable.
 CREATE FUNCTION ple_api.resolve_current_published_question_pool(p_question_pool_id text)
-RETURNS TABLE (question_pool_id text, current_revision_number bigint)
+RETURNS TABLE (question_pool_id text, question_pool_edit_number bigint)
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
-    SELECT pool.question_pool_id, pool.current_revision_number
+    SELECT pool.question_pool_id, pool.question_pool_edit_number
       FROM ple_data.question_pool AS pool
      WHERE ple_api.current_session_account_is_instructor()
        AND pool.question_pool_id = p_question_pool_id
 $$;
-
-
 
 -- ASVS V1.2/V2.2/V8.3: parameters remain typed SQL values, bounds are
 -- enforced at the capability boundary, and active-Instructor-or-Sysadmin read authorization is
@@ -555,7 +501,7 @@ CREATE FUNCTION ple_api.list_published_question_pools(
 )
 RETURNS TABLE (
     question_pool_id text,
-    revision_number bigint,
+    question_pool_edit_number bigint,
     member_count integer,
     title text, description text, content_discipline_id uuid, discipline_name text,
     discipline_is_retired boolean, content_subject_id uuid,
@@ -589,7 +535,9 @@ BEGIN
     RETURN QUERY
     WITH filtered AS MATERIALIZED (
         SELECT pool.question_pool_id,
-               pool.current_revision_number AS revision_number, revision.member_count,
+               pool.question_pool_edit_number,
+               (SELECT count(*)::integer FROM ple_data.question_pool_member AS member
+                 WHERE member.question_pool_id = pool.question_pool_id) AS member_count,
                pool.title, pool.description, pool.content_discipline_id, discipline.name AS discipline_name,
                discipline.is_retired AS discipline_is_retired, pool.content_subject_id,
                pool.content_topic_id, pool.content_subtopic_id, pool.tags,
@@ -597,12 +545,8 @@ BEGIN
                bloom.knowledge_dimension::text AS bloom_knowledge_dimension,
                bloom.classification_edit_number
           FROM ple_data.question_pool AS pool
-          JOIN ple_data.question_pool_revision AS revision
-            ON revision.question_pool_id = pool.question_pool_id
-           AND revision.revision_number = pool.current_revision_number
-          LEFT JOIN ple_data.question_pool_revision_bloom AS bloom
-            ON bloom.question_pool_id = revision.question_pool_id
-           AND bloom.revision_number = revision.revision_number
+          LEFT JOIN ple_data.question_pool_bloom AS bloom
+            ON bloom.question_pool_id = pool.question_pool_id
           -- ASVS 8.2.2/8.2.3: reuse authorized vocabulary projections. Every
           -- predicate below describes this Pool and its own pair, never a member.
           LEFT JOIN ple_api.list_content_disciplines_including_retired() AS discipline
@@ -677,7 +621,7 @@ BEGIN
                ]::bigint[] AS knowledge_counts
           FROM filtered AS matched
     )
-    SELECT page.question_pool_id, page.revision_number, page.member_count,
+    SELECT page.question_pool_id, page.question_pool_edit_number, page.member_count,
            page.title, page.description, page.content_discipline_id, page.discipline_name,
            page.discipline_is_retired, page.content_subject_id, page.content_topic_id,
            page.content_subtopic_id, page.tags, page.bloom_cognitive_process,
@@ -692,7 +636,7 @@ $$;
 CREATE FUNCTION ple_api.read_current_published_question_pool(p_question_pool_id text)
 RETURNS TABLE (
     question_pool_id text,
-    revision_number bigint,
+    question_pool_edit_number bigint,
     member_position integer,
     published_question_id text,
     question_revision_number integer,
@@ -706,7 +650,7 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
 BEGIN
     RETURN QUERY
     SELECT pool.question_pool_id,
-           pool.current_revision_number, member.member_position,
+           pool.question_pool_edit_number, member.member_position,
            member.published_question_id,
            member.question_revision_number,
            pool.title, pool.description, pool.content_discipline_id, discipline.name,
@@ -715,12 +659,10 @@ BEGIN
            bloom.cognitive_process::text, bloom.knowledge_dimension::text,
            bloom.classification_edit_number
       FROM ple_data.question_pool AS pool
-      LEFT JOIN ple_data.question_pool_revision_bloom AS bloom
+      LEFT JOIN ple_data.question_pool_bloom AS bloom
         ON bloom.question_pool_id = pool.question_pool_id
-       AND bloom.revision_number = pool.current_revision_number
-      JOIN ple_data.question_pool_revision_member AS member
+      JOIN ple_data.question_pool_member AS member
         ON member.question_pool_id = pool.question_pool_id
-       AND member.revision_number = pool.current_revision_number
       JOIN LATERAL ple_api.list_content_disciplines_including_retired() AS discipline
         ON discipline.content_discipline_id = pool.content_discipline_id
      WHERE (ple_api.current_session_account_is_instructor()
@@ -729,58 +671,3 @@ BEGIN
      ORDER BY member.member_position;
 END
 $$;
-
-
-
--- An exact Revision remains readable to active Instructors or Sysadmins after a
--- later append. The caller supplies the canonical public Pool ID and
--- positive immutable Revision number; the projection exposes only public IDs
--- and exact ordered member pins.
-CREATE FUNCTION ple_api.read_published_question_pool_revision(
-    p_question_pool_id text,
-    p_revision_number bigint
-)
-RETURNS TABLE (
-    question_pool_id text,
-    revision_number bigint,
-    member_position integer,
-    published_question_id text,
-    question_revision_number integer,
-    title text, description text, content_discipline_id uuid, discipline_name text,
-    discipline_is_retired boolean, content_subject_id uuid,
-    content_topic_id uuid, content_subtopic_id uuid, tags text[],
-    bloom_cognitive_process text, bloom_knowledge_dimension text,
-    bloom_classification_edit_number bigint
-) LANGUAGE plpgsql STABLE SECURITY DEFINER
-SET search_path = pg_catalog, ple_api, ple_data AS $$
-BEGIN
-    RETURN QUERY
-    SELECT pool.question_pool_id,
-           revision.revision_number, member.member_position,
-           member.published_question_id,
-           member.question_revision_number,
-           pool.title, pool.description, pool.content_discipline_id, discipline.name,
-           discipline.is_retired, pool.content_subject_id,
-           pool.content_topic_id, pool.content_subtopic_id, pool.tags,
-           bloom.cognitive_process::text, bloom.knowledge_dimension::text,
-           bloom.classification_edit_number
-      FROM ple_data.question_pool AS pool
-      JOIN ple_data.question_pool_revision AS revision
-        ON revision.question_pool_id = pool.question_pool_id
-       AND revision.revision_number = p_revision_number
-      LEFT JOIN ple_data.question_pool_revision_bloom AS bloom
-        ON bloom.question_pool_id = revision.question_pool_id
-       AND bloom.revision_number = revision.revision_number
-      JOIN ple_data.question_pool_revision_member AS member
-        ON member.question_pool_id = revision.question_pool_id
-       AND member.revision_number = revision.revision_number
-      JOIN LATERAL ple_api.list_content_disciplines_including_retired() AS discipline
-        ON discipline.content_discipline_id = pool.content_discipline_id
-     WHERE (ple_api.current_session_account_is_instructor()
-            OR ple_api.current_session_account_has_platform_administration())
-       AND p_revision_number > 0
-       AND pool.question_pool_id = p_question_pool_id
-     ORDER BY member.member_position;
-END
-$$;
-

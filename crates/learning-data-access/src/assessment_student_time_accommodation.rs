@@ -2,7 +2,7 @@
 use crate::{SessionTokenHash, StoreError};
 use async_trait::async_trait;
 use question_model::{
-    AssessmentReference, AssessmentStudentTimeAccommodation, CourseInstanceReference,
+    AssessmentId, AssessmentStudentTimeAccommodation, CourseInstanceId,
     SaveAssessmentStudentTimeAccommodationInput,
 };
 
@@ -13,8 +13,8 @@ pub trait AssessmentStudentTimeAccommodationStore: Send + Sync {
     async fn student_time_configuration(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceReference,
-        assessment: AssessmentReference,
+        course: CourseInstanceId,
+        assessment: AssessmentId,
         roster_id: String,
         save: Option<SaveAssessmentStudentTimeAccommodationInput>,
     ) -> Result<AssessmentStudentTimeAccommodation, StoreError>;

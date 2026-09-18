@@ -18,16 +18,18 @@ LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT assessment.assessment_id,
            assessment.assessment_type,
-           assessment.assessment_title,
-           CASE WHEN assessment.due_at IS NULL THEN NULL
-                ELSE floor(extract(epoch FROM assessment.due_at) * 1000)::bigint END,
+           policy.assessment_title,
+           CASE WHEN policy.due_at IS NULL THEN NULL
+                ELSE floor(extract(epoch FROM policy.due_at) * 1000)::bigint END,
            assessment.assessment_status,
            assessment.assessment_edit_number
       FROM ple_data.course_instance AS course
       JOIN ple_data.assessment AS assessment ON assessment.course_instance_id = course.course_instance_id
+      JOIN ple_data.assessment_policy_snapshot AS policy
+        ON policy.assessment_policy_snapshot_id = assessment.assessment_policy_snapshot_id
      WHERE course.course_instance_id = p_course_reference_number
        AND ple_api.current_session_account_is_course_instructor(course.course_instance_id)
-     ORDER BY assessment.due_at NULLS LAST, assessment.assessment_id
+     ORDER BY policy.due_at NULLS LAST, assessment.assessment_id
 $$;
 
 CREATE FUNCTION ple_api.list_assessments_due_soon()
@@ -46,18 +48,20 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
            course.course_long_name,
            assessment.assessment_id,
            assessment.assessment_type,
-           assessment.assessment_title,
+           policy.assessment_title,
            assessment.assessment_status,
-           floor(extract(epoch FROM assessment.due_at) * 1000)::bigint
+           floor(extract(epoch FROM policy.due_at) * 1000)::bigint
       FROM ple_data.assessment AS assessment
       JOIN ple_data.course_instance AS course ON course.course_instance_id = assessment.course_instance_id
+      JOIN ple_data.assessment_policy_snapshot AS policy
+        ON policy.assessment_policy_snapshot_id = assessment.assessment_policy_snapshot_id
      -- ASVS 8.2.2 and 8.3.1: derive every returned Course from the current
      -- session's server-side Instructor authority.
      WHERE ple_api.current_session_account_is_course_instructor(course.course_instance_id)
        AND assessment.assessment_status IN ('unreleased', 'released')
-       AND assessment.due_at >= pg_catalog.statement_timestamp()
-       AND assessment.due_at < pg_catalog.statement_timestamp() + interval '7 days'
-     ORDER BY assessment.due_at, course.course_instance_id, assessment.assessment_id
+       AND policy.due_at >= pg_catalog.statement_timestamp()
+       AND policy.due_at < pg_catalog.statement_timestamp() + interval '7 days'
+     ORDER BY policy.due_at, course.course_instance_id, assessment.assessment_id
 $$;
 
 
@@ -156,7 +160,7 @@ RETURNS TABLE (
     question_attempt_grace_seconds integer,
     question_pool_id text,
     question_pool_public_id text,
-    question_pool_revision_number bigint,
+    question_pool_edit_number bigint,
     member_position integer,
     published_question_id text,
     question_revision_number integer,
@@ -176,43 +180,43 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
            assessment.source_blueprint_revision_number,
            assessment.source_blueprint_assessment_reference,
            assessment.assessment_type,
-           assessment.assessment_title,
-           assessment.assessment_instructions,
-           CASE WHEN assessment.available_at IS NULL THEN NULL
-                ELSE floor(extract(epoch FROM assessment.available_at) * 1000)::bigint END,
-           CASE WHEN assessment.due_at IS NULL THEN NULL
-                ELSE floor(extract(epoch FROM assessment.due_at) * 1000)::bigint END,
-           CASE WHEN assessment.closes_at IS NULL THEN NULL
-                ELSE floor(extract(epoch FROM assessment.closes_at) * 1000)::bigint END,
-           assessment.assessment_attempt_time_limit_seconds,
-           assessment.assessment_attempt_limit,
-           assessment.late_work_rule,
-           assessment.question_variation_rule,
-           assessment.assessment_question_order_rule,
-           assessment.feedback_score,
-           assessment.feedback_per_item_correctness,
-           assessment.feedback_submitted_response,
-           assessment.feedback_question_answer,
-           assessment.feedback_question_answer_explanation,
-           assessment.feedback_class_statistics,
+           policy.assessment_title,
+           policy.assessment_instructions,
+           CASE WHEN policy.available_at IS NULL THEN NULL
+                ELSE floor(extract(epoch FROM policy.available_at) * 1000)::bigint END,
+           CASE WHEN policy.due_at IS NULL THEN NULL
+                ELSE floor(extract(epoch FROM policy.due_at) * 1000)::bigint END,
+           CASE WHEN policy.closes_at IS NULL THEN NULL
+                ELSE floor(extract(epoch FROM policy.closes_at) * 1000)::bigint END,
+           policy.assessment_attempt_time_limit_seconds,
+           policy.assessment_attempt_limit,
+           policy.late_work_rule,
+           policy.question_variation_rule,
+           policy.assessment_question_order_rule,
+           policy.feedback_score,
+           policy.feedback_per_item_correctness,
+           policy.feedback_submitted_response,
+           policy.feedback_question_answer,
+           policy.feedback_question_answer_explanation,
+           policy.feedback_class_statistics,
            entry.assessment_entry_id,
            entry.authored_position,
            entry.entry_kind,
            entry.availability,
            entry.scoring_rule,
-           entry.points_possible,
-           entry.selection_count,
-           entry.points_per_item,
-           entry.selected_question_order,
+           question.points_possible,
+           pool_entry.selection_count,
+           pool_entry.points_per_item,
+           pool_entry.selected_question_order,
            entry.question_attempt_limit,
            entry.question_attempt_time_limit_seconds,
            entry.question_attempt_grace_seconds,
-           entry.question_pool_id,
+           pool_entry.question_pool_id,
            pool.question_pool_id,
-           entry.question_pool_revision_number,
+           pool.question_pool_edit_number,
            item.member_position,
-           COALESCE(item.published_question_id, entry.published_question_id),
-           COALESCE(item.question_revision_number, entry.question_revision_number),
+           COALESCE(item.published_question_id, question.published_question_id),
+           COALESCE(item.question_revision_number, question.question_revision_number),
            metadata.question_title,
            metadata.question_description,
            question_bloom.bloom_cognitive_process,
@@ -220,21 +224,26 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
            question_bloom.bloom_classification_edit_number
       FROM ple_data.course_instance AS course
       JOIN ple_data.assessment AS assessment ON assessment.course_instance_id = course.course_instance_id
+      JOIN ple_data.assessment_policy_snapshot AS policy
+        ON policy.assessment_policy_snapshot_id = assessment.assessment_policy_snapshot_id
       LEFT JOIN ple_data.blueprint_course AS blueprint
         ON blueprint.blueprint_course_id = assessment.source_blueprint_course_id
       -- ASVS 8.2.2 and 8.3.1: this Course-Instructor projection retains
       -- every exact Entry; availability remains a separate delivery gate.
       LEFT JOIN ple_data.assessment_entry AS entry
         ON entry.assessment_id = assessment.assessment_id
-      LEFT JOIN ple_data.question_pool AS pool ON pool.question_pool_id = entry.question_pool_id
-      LEFT JOIN ple_data.question_pool_revision_member AS item
-        ON item.question_pool_id = entry.question_pool_id
-       AND item.revision_number = entry.question_pool_revision_number
+      LEFT JOIN ple_data.assessment_entry_question AS question
+        ON question.assessment_entry_id = entry.assessment_entry_id
+      LEFT JOIN ple_data.assessment_entry_pool AS pool_entry
+        ON pool_entry.assessment_entry_id = entry.assessment_entry_id
+      LEFT JOIN ple_data.question_pool AS pool ON pool.question_pool_id = pool_entry.question_pool_id
+      LEFT JOIN ple_data.question_pool_member AS item
+        ON item.question_pool_id = pool_entry.question_pool_id
       LEFT JOIN ple_data.published_question_metadata AS metadata
-        ON metadata.published_question_id = COALESCE(item.published_question_id, entry.published_question_id)
+        ON metadata.published_question_id = COALESCE(item.published_question_id, question.published_question_id)
       LEFT JOIN LATERAL ple_private.question_library_entries(
-          COALESCE(item.published_question_id, entry.published_question_id, ''),
-          COALESCE(item.question_revision_number, entry.question_revision_number, 0),
+          COALESCE(item.published_question_id, question.published_question_id, ''),
+          COALESCE(item.question_revision_number, question.question_revision_number, 0),
           false
       ) AS question_bloom ON true
      WHERE course.course_instance_id = p_course_reference_number

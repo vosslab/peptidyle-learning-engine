@@ -12,17 +12,17 @@ import { UnsavedChangesGuard } from "./unsaved_changes_guard";
 
 export function CourseClassificationEditor(props: {
   readonly value: CourseClassification;
-  readonly metadataEtag: string;
+  readonly editNumber: string;
   readonly canEdit: boolean;
-  readonly save: (value: CourseClassification, metadataEtag: string) => Promise<void>;
+  readonly save: (value: CourseClassification, editNumber: string) => Promise<void>;
   readonly reload: () => Promise<{
     readonly classification: CourseClassification;
-    readonly metadataEtag: string;
+    readonly editNumber: string;
   }>;
 }): JSX.Element {
   const [editing, setEditing] = createSignal(false);
   const [draft, setDraft] = createSignal<CourseClassificationDraft>(props.value);
-  const [etag, setEtag] = createSignal(props.metadataEtag);
+  const [editNumber, setEditNumber] = createSignal(props.editNumber);
   const [busy, setBusy] = createSignal(false);
   const [stale, setStale] = createSignal(false);
   const [message, setMessage] = createSignal("");
@@ -41,7 +41,7 @@ export function CourseClassificationEditor(props: {
     }
     setBusy(true);
     try {
-      await props.save(classification, etag());
+      await props.save(classification, editNumber());
       setEditing(false);
       setMessage("Course classification saved.");
       queueMicrotask(() => editButton?.focus());
@@ -64,7 +64,7 @@ export function CourseClassificationEditor(props: {
     setBusy(true);
     try {
       const current = await props.reload();
-      setEtag(current.metadataEtag);
+      setEditNumber(current.editNumber);
       setStale(false);
       setMessage(
         "Current classification loaded below. Your selections remain in the fields; review both before saving again.",
@@ -85,7 +85,7 @@ export function CourseClassificationEditor(props: {
           class="quiet-action"
           onClick={() => {
             setDraft({ ...props.value, tags: [...props.value.tags] });
-            setEtag(props.metadataEtag);
+            setEditNumber(props.editNumber);
             setMessage("");
             setStale(false);
             setEditing(true);

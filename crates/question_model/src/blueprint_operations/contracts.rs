@@ -2,19 +2,17 @@
 
 use std::str::FromStr;
 
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
-
 use crate::{
-    AccountId, AssessmentReference, BlueprintAssessmentReference, BlueprintCourseReference,
+    AccountId, AssessmentId, BlueprintAssessmentId, BlueprintCourseId,
     BlueprintRevision, Timestamp,
 };
+use serde::{Deserialize, Serialize};
 
 /// One exact Blueprint Course and immutable Blueprint Revision pair.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct BlueprintRevisionReference {
-    pub reference: BlueprintCourseReference,
+    pub reference: BlueprintCourseId,
     pub revision: BlueprintRevision,
 }
 
@@ -23,13 +21,13 @@ pub struct BlueprintRevisionReference {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct BlueprintAssessmentSource {
     pub blueprint_revision: BlueprintRevisionReference,
-    pub blueprint_assessment_reference: BlueprintAssessmentReference,
+    pub blueprint_assessment_reference: BlueprintAssessmentId,
 }
 
 impl BlueprintAssessmentSource {
     pub const fn new(
         blueprint_revision: BlueprintRevisionReference,
-        blueprint_assessment_reference: BlueprintAssessmentReference,
+        blueprint_assessment_reference: BlueprintAssessmentId,
     ) -> Self {
         Self {
             blueprint_revision,
@@ -64,62 +62,62 @@ pub enum BlueprintAvailability {
     Archived,
 }
 
-/// Opaque validator for Blueprint Course names and availability.
+/// Concurrency token for Blueprint Course names and availability.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct BlueprintMetadataEtag(Uuid);
+pub struct BlueprintEditNumber(i64);
 
-impl BlueprintMetadataEtag {
-    /// Wraps a server-generated opaque metadata validator.
-    pub const fn from_uuid(value: Uuid) -> Self {
+impl BlueprintEditNumber {
+    /// Wraps a server-generated Edit Number.
+    pub const fn from_edit_number(value: i64) -> Self {
         Self(value)
     }
 
-    /// Returns the opaque persistence value.
-    pub const fn into_uuid(self) -> Uuid {
+    /// Returns the Edit Number used for compare-and-set.
+    pub const fn as_i64(self) -> i64 {
         self.0
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct BlueprintMetadataEtagError;
+pub struct BlueprintEditNumberError;
 
-impl std::fmt::Display for BlueprintMetadataEtagError {
+impl std::fmt::Display for BlueprintEditNumberError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str("Blueprint metadata ETag must be one canonical UUID")
+        formatter.write_str("Blueprint metadata ETag must be a positive Edit Number")
     }
 }
 
-impl std::error::Error for BlueprintMetadataEtagError {}
+impl std::error::Error for BlueprintEditNumberError {}
 
-impl FromStr for BlueprintMetadataEtag {
-    type Err = BlueprintMetadataEtagError;
+impl FromStr for BlueprintEditNumber {
+    type Err = BlueprintEditNumberError;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        let parsed = Uuid::parse_str(value).map_err(|_| BlueprintMetadataEtagError)?;
-        (parsed.hyphenated().to_string() == value)
+        let parsed = value.parse::<i64>().map_err(|_| BlueprintEditNumberError)?;
+        (parsed > 0 && parsed.to_string() == value)
             .then_some(Self(parsed))
-            .ok_or(BlueprintMetadataEtagError)
+            .ok_or(BlueprintEditNumberError)
     }
 }
 
-impl TryFrom<String> for BlueprintMetadataEtag {
-    type Error = BlueprintMetadataEtagError;
+impl TryFrom<String> for BlueprintEditNumber {
+    type Error = BlueprintEditNumberError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         value.parse()
     }
 }
 
-impl From<BlueprintMetadataEtag> for String {
-    fn from(value: BlueprintMetadataEtag) -> Self {
+impl From<BlueprintEditNumber> for String {
+    fn from(value: BlueprintEditNumber) -> Self {
         value.to_string()
     }
 }
 
-impl std::fmt::Display for BlueprintMetadataEtag {
+impl std::fmt::Display for BlueprintEditNumber {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.0.hyphenated().fmt(formatter)
+        write!(formatter, "{}", self.0)
     }
 }
 
@@ -139,14 +137,14 @@ pub struct BlueprintMetadataState {
     pub short_name: String,
     pub long_name: String,
     pub availability: BlueprintAvailability,
-    pub metadata_etag: BlueprintMetadataEtag,
+    pub blueprint_edit_number: BlueprintEditNumber,
 }
 
 /// Durable receipt for atomic lineage and Revision 1 creation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CreateBlueprintCourseReceipt {
     pub blueprint_revision: BlueprintRevisionReference,
-    pub metadata_etag: BlueprintMetadataEtag,
+    pub blueprint_edit_number: BlueprintEditNumber,
     pub actor: AccountId,
     pub request_checksum: RequestChecksum,
     pub accepted_at: Timestamp,
@@ -167,7 +165,7 @@ pub struct SaveBlueprintCourseReceipt {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlueprintAssessmentImportReceipt {
     pub source: BlueprintAssessmentSource,
-    pub destination_assessment: AssessmentReference,
+    pub destination_assessment: AssessmentId,
     pub actor: AccountId,
     pub request_checksum: RequestChecksum,
     pub accepted_at: Timestamp,
@@ -178,29 +176,26 @@ mod tests {
     use super::*;
 
     #[test]
-    fn metadata_etags_are_canonical_opaque_values() {
-        let value = "00000000-0000-0000-0000-000000000007";
-        let etag: BlueprintMetadataEtag = value.parse().expect("canonical metadata ETag");
+    fn blueprint_edit_numbers_are_canonical_opaque_values() {
+        let value = "7";
+        let etag: BlueprintEditNumber = value.parse().expect("canonical metadata ETag");
         assert_eq!(etag.to_string(), value);
-        for invalid in ["", "7", "{00000000-0000-0000-0000-000000000007}"] {
-            assert!(
-                invalid.parse::<BlueprintMetadataEtag>().is_err(),
-                "{invalid}"
-            );
+        for invalid in ["", "07", "0", "00000000-0000-0000-0000-000000000007"] {
+            assert!(invalid.parse::<BlueprintEditNumber>().is_err(), "{invalid}");
         }
     }
 
     #[test]
     fn creation_receipt_identifies_revision_one() {
         let blueprint =
-            BlueprintCourseReference::new("BP7K3M2QXH").expect("valid Blueprint Course");
+            BlueprintCourseId::new("BP7K3M2QXH").expect("valid Blueprint Course");
         let receipt = CreateBlueprintCourseReceipt {
             blueprint_revision: BlueprintRevisionReference {
                 reference: blueprint.clone(),
                 revision: BlueprintRevision::INITIAL,
             },
-            metadata_etag: BlueprintMetadataEtag::from_uuid(Uuid::from_u128(13)),
-            actor: AccountId::from_uuid(Uuid::from_u128(14)),
+            blueprint_edit_number: BlueprintEditNumber::from_edit_number(13),
+            actor: AccountId::from_debug_serial(14),
             request_checksum: RequestChecksum::from_bytes([15; 32]),
             accepted_at: Timestamp::from_unix_millis(16),
         };

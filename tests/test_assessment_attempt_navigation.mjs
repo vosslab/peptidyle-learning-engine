@@ -24,20 +24,20 @@ test("author-content document URLs select only canonical Attempts and positive p
     fetch: () => assert.fail("an iframe URL must not fetch source into the parent"),
   });
   assert.equal(
-    client.studentAuthorContentDocumentUrl("R-12", 2),
-    "/ple/api/assessment-attempts/R-12/questions/2/author-content-document",
+    client.studentAuthorContentDocumentUrl("00000000-0000-0000-0000-00000000000c", 2),
+    "/ple/api/assessment-attempts/00000000-0000-0000-0000-00000000000c/questions/2/author-content-document",
   );
-  for (const attempt of ["R-0", "R-012", "R-2147483648", "R-12/../context", "https://other.test"]) {
+  for (const attempt of ["R-0", "R-012", "R-2147483648", "00000000-0000-0000-0000-00000000000c/../context", "https://other.test"]) {
     assert.throws(() => client.studentAuthorContentDocumentUrl(attempt, 2), ApiProtocolError);
   }
   for (const position of [0, -1, 1.5, NaN, Infinity, 2147483648]) {
-    assert.throws(() => client.studentAuthorContentDocumentUrl("R-12", position), ApiProtocolError);
+    assert.throws(() => client.studentAuthorContentDocumentUrl("00000000-0000-0000-0000-00000000000c", position), ApiProtocolError);
   }
 });
 
 test("Assessment Attempt context retains one strict server expiry and display zone", () => {
   const context = {
-    assessmentAttempt: "R-12",
+    assessmentAttempt: "00000000-0000-0000-0000-00000000000c",
     attemptNumber: 2,
     displayTimeZone: "America/Chicago",
     expiresAt: 1_768_507_200_000,
@@ -59,7 +59,7 @@ test("Assessment Attempt context retains one strict server expiry and display zo
 
 test("Student Assessment Attempt progress rejects answer-bearing and extra fields", () => {
   const projection = {
-    assessmentAttempt: "R-12",
+    assessmentAttempt: "00000000-0000-0000-0000-00000000000c",
     questionCount: 2,
     recommendedPosition: 2,
     positions: [
@@ -103,14 +103,14 @@ test("Assessment Access carries only its authorized answer-free facts and Attemp
     pointsPossible: 8,
     previousAttempts: [
       {
-        assessmentAttempt: "R-11",
+        assessmentAttempt: "00000000-0000-0000-0000-00000000000b",
         attemptNumber: 1,
         state: "submitted",
         score: { pointsEarned: 6, pointsPossible: 8 },
       },
     ],
   };
-  const resumable = { activeAssessmentAttempt: "R-12", ...facts };
+  const resumable = { activeAssessmentAttempt: "00000000-0000-0000-0000-00000000000c", ...facts };
   const startable = {
     ...resumable,
     activeAssessmentAttempt: null,
@@ -209,27 +209,27 @@ test("Student Assessment Attempt save and final submission use closed no-store c
       const path = new URL(request.url).pathname;
       if (path.endsWith("/submission")) {
         return noStoreJson({
-          assessmentAttempt: "R-12",
+          assessmentAttempt: "00000000-0000-0000-0000-00000000000c",
           submissionState: "submitted",
         });
       }
-      return noStoreJson({ assessmentAttempt: "R-12", position: 2, responseState: "saved" });
+      return noStoreJson({ assessmentAttempt: "00000000-0000-0000-0000-00000000000c", position: 2, responseState: "saved" });
     },
   });
 
-  await client.saveStudentAssessmentAttemptResponse("R-12", 2, {
+  await client.saveStudentAssessmentAttemptResponse("00000000-0000-0000-0000-00000000000c", 2, {
     kind: "shortText",
     text: "student working answer",
   });
-  assert.deepEqual(await client.submitStudentAssessmentAttempt("R-12"), {
-    assessmentAttempt: "R-12",
+  assert.deepEqual(await client.submitStudentAssessmentAttempt("00000000-0000-0000-0000-00000000000c"), {
+    assessmentAttempt: "00000000-0000-0000-0000-00000000000c",
     submissionState: "submitted",
   });
 
   assert.equal(requests[0].request.method, "PUT");
   assert.equal(
     requests[0].request.url,
-    "https://ple.example/api/assessment-attempts/R-12/responses/2",
+    "https://ple.example/api/assessment-attempts/00000000-0000-0000-0000-00000000000c/responses/2",
   );
   assert.equal(requests[0].request.cache, "no-store");
   assert.deepEqual(JSON.parse(requests[0].body), {
@@ -238,7 +238,7 @@ test("Student Assessment Attempt save and final submission use closed no-store c
   assert.equal(requests[1].request.method, "POST");
   assert.equal(
     requests[1].request.url,
-    "https://ple.example/api/assessment-attempts/R-12/submission",
+    "https://ple.example/api/assessment-attempts/00000000-0000-0000-0000-00000000000c/submission",
   );
   assert.equal(requests[1].request.cache, "no-store");
   assert.equal(requests[1].body, null);
@@ -247,14 +247,14 @@ test("Student Assessment Attempt save and final submission use closed no-store c
 test("final submission reports completion without grading data", () => {
   assert.deepEqual(
     decodeStudentAssessmentAttemptSubmissionResult({
-      assessmentAttempt: "R-12",
+      assessmentAttempt: "00000000-0000-0000-0000-00000000000c",
       submissionState: "submitted",
     }),
-    { assessmentAttempt: "R-12", submissionState: "submitted" },
+    { assessmentAttempt: "00000000-0000-0000-0000-00000000000c", submissionState: "submitted" },
   );
   assert.throws(() =>
     decodeStudentAssessmentAttemptSubmissionResult({
-      assessmentAttempt: "R-12",
+      assessmentAttempt: "00000000-0000-0000-0000-00000000000c",
       submissionState: "submitted",
       score: { pointsEarned: 1, pointsPossible: 2 },
     }),
@@ -270,23 +270,23 @@ test("Student Assessment Attempt mutations reject invalid requests and acknowled
     ApiProtocolError,
   );
   await assert.rejects(
-    client.saveStudentAssessmentAttemptResponse("R-12", 0, { kind: "shortText", text: "x" }),
+    client.saveStudentAssessmentAttemptResponse("00000000-0000-0000-0000-00000000000c", 0, { kind: "shortText", text: "x" }),
     ApiProtocolError,
   );
   assert.throws(
-    () => client.getStudentAssessmentAttemptPresentation("R-12", 2.5),
+    () => client.getStudentAssessmentAttemptPresentation("00000000-0000-0000-0000-00000000000c", 2.5),
     ApiProtocolError,
   );
 
   const mismatch = createHttpApiClient({
     fetch: () =>
       Promise.resolve(
-        noStoreJson({ assessmentAttempt: "R-13", position: 1, responseState: "saved" }),
+        noStoreJson({ assessmentAttempt: "00000000-0000-0000-0000-00000000000d", position: 1, responseState: "saved" }),
       ),
   });
   await assert.rejects(
     () =>
-      mismatch.saveStudentAssessmentAttemptResponse("R-12", 1, {
+      mismatch.saveStudentAssessmentAttemptResponse("00000000-0000-0000-0000-00000000000c", 1, {
         kind: "shortText",
         text: "x",
       }),
@@ -296,12 +296,12 @@ test("Student Assessment Attempt mutations reject invalid requests and acknowled
   const positionMismatch = createHttpApiClient({
     fetch: () =>
       Promise.resolve(
-        noStoreJson({ assessmentAttempt: "R-12", position: 2, responseState: "saved" }),
+        noStoreJson({ assessmentAttempt: "00000000-0000-0000-0000-00000000000c", position: 2, responseState: "saved" }),
       ),
   });
   await assert.rejects(
     () =>
-      positionMismatch.saveStudentAssessmentAttemptResponse("R-12", 1, {
+      positionMismatch.saveStudentAssessmentAttemptResponse("00000000-0000-0000-0000-00000000000c", 1, {
         kind: "shortText",
         text: "x",
       }),
@@ -310,10 +310,10 @@ test("Student Assessment Attempt mutations reject invalid requests and acknowled
 
   const badFinalSubmission = createHttpApiClient({
     fetch: () =>
-      Promise.resolve(noStoreJson({ assessmentAttempt: "R-12", submissionState: "saved" })),
+      Promise.resolve(noStoreJson({ assessmentAttempt: "00000000-0000-0000-0000-00000000000c", submissionState: "saved" })),
   });
   await assert.rejects(
-    () => badFinalSubmission.submitStudentAssessmentAttempt("R-12"),
+    () => badFinalSubmission.submitStudentAssessmentAttempt("00000000-0000-0000-0000-00000000000c"),
     /submissionState/u,
   );
 });
@@ -323,7 +323,7 @@ test("Student Assessment Attempt GET projections match their request", async () 
     fetch: () =>
       Promise.resolve(
         noStoreJson({
-          assessmentAttempt: "R-13",
+          assessmentAttempt: "00000000-0000-0000-0000-00000000000d",
           questionCount: 1,
           recommendedPosition: 1,
           positions: [{ position: 1, responseState: "unanswered" }],
@@ -331,7 +331,7 @@ test("Student Assessment Attempt GET projections match their request", async () 
       ),
   });
   await assert.rejects(
-    () => progressMismatch.getStudentAssessmentAttemptProgress("R-12"),
+    () => progressMismatch.getStudentAssessmentAttemptProgress("00000000-0000-0000-0000-00000000000c"),
     /progress does not match/u,
   );
 
@@ -350,7 +350,7 @@ test("Student Assessment Attempt GET projections match their request", async () 
       ),
   });
   await assert.rejects(
-    () => presentationPositionMismatch.getStudentAssessmentAttemptPresentation("R-12", 1),
+    () => presentationPositionMismatch.getStudentAssessmentAttemptPresentation("00000000-0000-0000-0000-00000000000c", 1),
     /presentation position does not match/u,
   );
 });

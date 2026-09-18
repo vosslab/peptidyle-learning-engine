@@ -22,7 +22,7 @@ use learning_data_access::{
     LiveAssessmentAttemptScore, LiveAssessmentDeliveryStore, StoreError,
     StudentAssessmentAttemptHistory, StudentAssessmentAttemptHistoryEvidence,
 };
-use question_model::{AssessmentAttemptReference, QuestionFeedback, StudentFeedback};
+use question_model::{AssessmentAttemptId, QuestionFeedback, StudentFeedback};
 use question_model::{AssessmentScoringState, LateWorkRule, Timestamp};
 
 use super::{
@@ -35,7 +35,7 @@ pub(super) async fn student_history(
     headers: HeaderMap,
     Path(assessment_attempt): Path<String>,
 ) -> Response {
-    let assessment_attempt = match AssessmentAttemptReference::from_str(&assessment_attempt) {
+    let assessment_attempt = match AssessmentAttemptId::from_str(&assessment_attempt) {
         Ok(value) => value,
         Err(_) => return concealed(),
     };
@@ -133,7 +133,7 @@ pub(crate) fn history_decision(
 async fn project_released_content(
     state: &StateData,
     token: learning_data_access::SessionTokenHash,
-    assessment_attempt: AssessmentAttemptReference,
+    assessment_attempt: AssessmentAttemptId,
     evidence: &StudentAssessmentAttemptHistoryEvidence,
     decision: domain::student_feedback_release::StudentFeedbackReleaseDecision,
     history: &mut StudentAssessmentAttemptHistory,
@@ -283,7 +283,7 @@ mod tests {
         StudentAssessmentAttemptHistoryCourse, StudentAssessmentAttemptHistoryQuestion,
     };
     use question_model::{
-        AssessmentReference, AssessmentType, CourseInstanceReference, CourseTheme, GradingResult,
+        AssessmentId, AssessmentType, CourseInstanceId, CourseTheme, GradingResult,
         QuestionId, QuestionRevisionNumber, QuestionRevisionReference, StudentFeedback,
         StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming,
     };
@@ -291,16 +291,16 @@ mod tests {
     fn evidence() -> StudentAssessmentAttemptHistoryEvidence {
         StudentAssessmentAttemptHistoryEvidence {
             history: StudentAssessmentAttemptHistory {
-                assessment_attempt: AssessmentAttemptReference::new(12).expect("valid reference"),
+                assessment_attempt: AssessmentAttemptId::from_uuid(uuid::Uuid::from_u128(12)),
                 attempt_number: 2,
                 course: StudentAssessmentAttemptHistoryCourse {
-                    reference: CourseInstanceReference::new("CIABCDEFGS").expect("valid reference"),
+                    reference: CourseInstanceId::new("CIABCDEFGS").expect("valid reference"),
                     short_name: "Mol Bio".to_string(),
                     long_name: "Molecular biology".to_string(),
                     theme: CourseTheme::Forest,
                 },
                 assessment: StudentAssessmentAttemptHistoryAssessment {
-                    reference: AssessmentReference::new("AABCDEFG8").expect("valid reference"),
+                    reference: AssessmentId::new("AABCDEFG8").expect("valid reference"),
                     title: "Protein folding practice".to_string(),
                 },
                 state: LiveAssessmentPreviousAttemptState::Submitted,

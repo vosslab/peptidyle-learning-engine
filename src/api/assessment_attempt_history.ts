@@ -1,13 +1,13 @@
 // Strict browser contract for one Student-owned completed Assessment Attempt.
 
-import type { AssessmentAttemptReference } from "../../generated/api/AssessmentAttemptReference";
-import type { AssessmentReference } from "../../generated/api/AssessmentReference";
-import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
+import type { AssessmentAttemptId } from "../../generated/api/AssessmentAttemptId";
+import type { AssessmentId } from "../../generated/api/AssessmentId";
+import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { CourseTheme } from "../../generated/api/CourseTheme";
 import type { QuestionContentBlock } from "../../generated/api/QuestionContentBlock";
 import type { StudentFeedback } from "../../generated/api/StudentFeedback";
 import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
-import { parseAssessmentAttemptReference } from "../navigation/public_route";
+import { parseAssessmentAttemptId } from "../navigation/public_route";
 
 export interface StudentAssessmentAttemptHistoryQuestion extends StudentFeedback {
   readonly position: number;
@@ -22,10 +22,10 @@ export interface StudentAssessmentAttemptHistoryQuestion extends StudentFeedback
 
 /** Derives the sole review route from existing public Attempt and position identities. */
 export function backendAnswerReviewDocumentUrl(
-  assessmentAttempt: AssessmentAttemptReference,
+  assessmentAttempt: AssessmentAttemptId,
   position: number,
 ): string {
-  const reference = parseAssessmentAttemptReference(assessmentAttempt);
+  const reference = parseAssessmentAttemptId(assessmentAttempt);
   if (reference === null || !Number.isSafeInteger(position) || position < 1) {
     throw new Error("Invalid completed Assessment Attempt position");
   }
@@ -34,16 +34,16 @@ export function backendAnswerReviewDocumentUrl(
 
 /** A no-store selected-history projection with protected fields omitted. */
 export interface StudentAssessmentAttemptHistory {
-  readonly assessmentAttempt: AssessmentAttemptReference;
+  readonly assessmentAttempt: AssessmentAttemptId;
   readonly attemptNumber: number;
   readonly course: {
-    readonly reference: CourseInstanceReference;
+    readonly reference: CourseInstanceId;
     readonly shortName: string;
     readonly longName: string;
     readonly theme: CourseTheme;
   };
   readonly assessment: {
-    readonly reference: AssessmentReference;
+    readonly reference: AssessmentId;
     readonly title: string;
   };
   readonly state: "submitted" | "closed";
@@ -56,6 +56,6 @@ export interface StudentAssessmentAttemptHistory {
 
 export interface StudentAssessmentAttemptHistoryClient {
   readonly getStudentAssessmentAttemptHistory: (
-    assessmentAttempt: AssessmentAttemptReference,
+    assessmentAttempt: AssessmentAttemptId,
   ) => Promise<StudentAssessmentAttemptHistory>;
 }

@@ -5,7 +5,7 @@ import type {
   BlueprintWatchEvent,
 } from "../blueprint_stewardship";
 import { decodeBoolean } from "../decoder";
-import { decodeBlueprintCourseReference, metadataEtag } from "../decoders/blueprint_course";
+import { blueprintEditNumber, decodeBlueprintCourseId } from "../decoders/blueprint_course";
 import {
   decodeBlueprintStar,
   decodeBlueprintStarredInstructors,
@@ -19,14 +19,11 @@ import { boundedResponseJson, requireNoStore } from "./response";
 
 function referencePath(reference: string): string {
   // ASVS 1.2.2: validated references remain encoded as one path component.
-  return encodeURIComponent(decodeBlueprintCourseReference(reference));
+  return encodeURIComponent(decodeBlueprintCourseId(reference));
 }
 
-function strongMetadataEtag(value: string): string {
-  if (!value.startsWith('"') || !value.endsWith('"'))
-    throw new ApiProtocolError("Blueprint promotion requires a strong metadata ETag");
-  metadataEtag(value.slice(1, -1), "metadataEtag");
-  return value;
+function quotedBlueprintEditNumber(value: string): string {
+  return `"${blueprintEditNumber(value, "blueprintEditNumber")}"`;
 }
 
 export function createBlueprintStewardshipClient(
@@ -42,7 +39,7 @@ export function createBlueprintStewardshipClient(
     const response = await requestSameOrigin(fetchImplementation, basePath, path, {
       method: body === undefined ? "GET" : "PUT",
       body,
-      headers: etag === undefined ? {} : { "if-match": strongMetadataEtag(etag) },
+      headers: etag === undefined ? {} : { "if-match": quotedBlueprintEditNumber(etag) },
     });
     requireNoStore(response, path);
     if (response.status === 412) throw new BlueprintCourseConflictError(path);
@@ -68,9 +65,12 @@ export function createBlueprintStewardshipClient(
       etag,
     );
     const validator = result.response.headers.get("etag");
-    if (validator === null || strongMetadataEtag(validator) !== `"${result.body.metadataEtag}"`)
-      throw new ApiProtocolError("Blueprint promotion ETag must match its metadata validator");
-    return { promoted: result.body.promoted, metadataEtag: validator };
+    if (validator === null || validator !== `"${result.body.blueprintEditNumber}"`)
+      throw new ApiProtocolError("Blueprint promotion ETag must match its Blueprint Edit Number");
+    return {
+      promoted: result.body.promoted,
+      blueprintEditNumber: result.body.blueprintEditNumber,
+    };
   }
 
   return {
@@ -109,6 +109,6 @@ export function createBlueprintStewardshipClient(
     },
     getBlueprintPromotion: (reference) => promotion(reference),
     setBlueprintPromotion: (reference, promoted, etag) =>
-      promotion(reference, decodeBoolean(promoted, "promoted"), strongMetadataEtag(etag)),
+      promotion(reference, decodeBoolean(promoted, "promoted"), etag),
   };
 }

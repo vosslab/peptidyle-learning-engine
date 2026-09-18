@@ -1,22 +1,22 @@
 // Browser contract for the current Student Course Landing projection.
 
-import type { AssessmentReference } from "../../generated/api/AssessmentReference";
+import type { AssessmentId } from "../../generated/api/AssessmentId";
 import type { AssessmentAttemptCompletion } from "../../generated/api/AssessmentAttemptCompletion";
 import type { AssessmentType } from "../../generated/api/AssessmentType";
-import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
+import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { CourseTerm } from "../../generated/api/CourseTerm";
 import type { StudentAssessmentDecisionSummary } from "../../generated/api/StudentAssessmentDecisionSummary";
 
 /** One current Student-visible Course Instance, without membership or progress details. */
 export interface LiveStudentCourseLandingSummary {
-  readonly reference: CourseInstanceReference;
+  readonly reference: CourseInstanceId;
   readonly shortName: string;
   readonly longName: string;
 }
 
 /** One pending Student Course Invitation, without invitation or membership details. */
 export interface LiveStudentCourseInvitationSummary {
-  readonly reference: CourseInstanceReference;
+  readonly reference: CourseInstanceId;
   readonly shortName: string;
   readonly longName: string;
   readonly instructorDisplayName: string;
@@ -25,7 +25,7 @@ export interface LiveStudentCourseInvitationSummary {
 
 /** One current Student-visible Assessment with self-only, answer-free progress. */
 export interface LiveStudentAssessmentLandingSummary {
-  readonly reference: AssessmentReference;
+  readonly reference: AssessmentId;
   readonly title: string;
   readonly assessmentType: AssessmentType;
   readonly decision: StudentAssessmentDecisionSummary;
@@ -53,6 +53,6 @@ export interface LiveStudentCourseLandingClient {
   >;
   readonly listLiveStudentCourses: () => Promise<ReadonlyArray<LiveStudentCourseLandingSummary>>;
   readonly listLiveStudentAssessments: (
-    course: CourseInstanceReference,
+    course: CourseInstanceId,
   ) => Promise<ReadonlyArray<LiveStudentAssessmentLandingSummary>>;
 }

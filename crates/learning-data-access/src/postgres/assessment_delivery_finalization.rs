@@ -11,14 +11,14 @@ use crate::{
     StudentAssessmentAttemptFinalizationPreparationOutcome,
     StudentAssessmentAttemptFinalizationSource,
 };
-use question_model::{AssessmentAttemptReference, Timestamp};
+use question_model::{AssessmentAttemptId, Timestamp};
 use sqlx::Row;
 use uuid::Uuid;
 
 pub(super) async fn prepare(
     store: &PostgresLiveAssessmentDeliveryStore,
     token: SessionTokenHash,
-    assessment_attempt: AssessmentAttemptReference,
+    assessment_attempt: AssessmentAttemptId,
 ) -> Result<StudentAssessmentAttemptFinalizationPreparationOutcome, StoreError> {
     let mut tx = store.begin(token).await?;
     let rows = sqlx::query(
@@ -29,7 +29,7 @@ pub(super) async fn prepare(
                 backend, webwork_pg_path \
          FROM ple_api.prepare_student_assessment_attempt_finalization($1)",
     )
-    .bind(i64::from(assessment_attempt.number()))
+    .bind(assessment_attempt.as_uuid())
     .fetch_all(&mut *tx)
     .await
     .map_err(map_sqlx_error)?;
@@ -73,7 +73,7 @@ pub(super) async fn prepare(
 pub(super) async fn commit(
     store: &PostgresLiveAssessmentDeliveryStore,
     token: SessionTokenHash,
-    assessment_attempt: AssessmentAttemptReference,
+    assessment_attempt: AssessmentAttemptId,
     preparation: StudentAssessmentAttemptFinalizationPreparation,
     evaluations: Vec<StudentAssessmentAttemptFinalizationEvaluation>,
 ) -> Result<StudentAssessmentAttemptFinalization, StoreError> {
@@ -96,7 +96,7 @@ pub(super) async fn commit(
         "SELECT points_earned, points_possible \
          FROM ple_api.commit_student_assessment_attempt_finalization($1, $2, $3)",
     )
-    .bind(i64::from(assessment_attempt.number()))
+    .bind(assessment_attempt.as_uuid())
     .bind(finalization_kind_name(preparation.kind))
     .bind(evaluation_payload)
     .fetch_one(&mut *tx)

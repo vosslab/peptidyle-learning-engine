@@ -4,8 +4,9 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 /// A course-owned assessment offered to Students.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct AssessmentId(Uuid);
+///
+/// This is the canonical public ID (`AXXXXXXXZ`), not a second identifier.
+pub use crate::public_route::AssessmentId;
 
 /// One stable Assessment Entry within an Assessment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -17,8 +18,9 @@ pub struct AssessmentEntryId(Uuid);
 pub struct QuestionPoolSelectionId(Uuid);
 
 /// A Course Instance containing Assessments.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct CourseId(Uuid);
+///
+/// This is the canonical public ID (`CIXXXXXXXZ`), not a second identifier.
+pub use crate::public_route::CourseInstanceId;
 
 /// One durable Course Membership record.
 ///
@@ -80,13 +82,21 @@ macro_rules! impl_student_work_identifier {
                 write!(formatter, "{}", self.0)
             }
         }
+
+        impl std::str::FromStr for $name {
+            type Err = &'static str;
+
+            fn from_str(value: &str) -> Result<Self, Self::Err> {
+                Uuid::parse_str(value)
+                    .map(Self)
+                    .map_err(|_| "must be a UUID")
+            }
+        }
     };
 }
 
-impl_student_work_identifier!(AssessmentId);
 impl_student_work_identifier!(AssessmentEntryId);
 impl_student_work_identifier!(QuestionPoolSelectionId);
-impl_student_work_identifier!(CourseId);
 impl_student_work_identifier!(CourseMembershipId);
 impl_student_work_identifier!(StudentRecordId);
 impl_student_work_identifier!(AccommodationId);
@@ -156,5 +166,15 @@ mod tests {
         );
         assert_ne!(fixed, pooled);
         assert_eq!(pooled.as_uuid().get_version_num(), 5);
+    }
+
+    #[test]
+    fn assessment_attempt_id_parses_canonical_uuid_text() {
+        let id = AssessmentAttemptId::from_uuid(Uuid::from_u128(1));
+        assert_eq!(id.to_string().parse::<AssessmentAttemptId>(), Ok(id));
+        assert_eq!(
+            "not-a-uuid".parse::<AssessmentAttemptId>(),
+            Err("must be a UUID")
+        );
     }
 }

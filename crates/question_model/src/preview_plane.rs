@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     AccommodationAdjustmentView, AccommodationApplicationRuleView, AssessmentEditNumber,
-    AssessmentReference, CourseMembershipReference, LateWorkRule, LocalDateAndTime,
+    AssessmentId, CourseMembershipReference, LateWorkRule, LocalDateAndTime,
     MAX_ASSESSMENT_ATTEMPT_LIMIT, MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS, TeachingDisplayLabel,
 };
 
@@ -24,7 +24,7 @@ pub struct PreviewSelectedMoment {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct HypotheticalStudentViewScenarioRequest {
-    pub assessment: AssessmentReference,
+    pub assessment: AssessmentId,
     pub edit_number: AssessmentEditNumber,
     pub selected_moment: PreviewSelectedMoment,
     pub modifiers: HypotheticalStudentViewScenarioModifiers,
@@ -48,7 +48,7 @@ pub struct HypotheticalStudentViewScenarioModifiers {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct SelectedStudentViewScenarioRequest {
-    pub assessment: AssessmentReference,
+    pub assessment: AssessmentId,
     pub edit_number: AssessmentEditNumber,
     pub selected_moment: PreviewSelectedMoment,
     pub selected_student_membership: CourseMembershipReference,
@@ -234,7 +234,7 @@ pub enum StudentViewScenarioAdmission {
 )]
 pub struct StudentViewScenario {
     pub origin: StudentViewScenarioOrigin,
-    pub assessment: AssessmentReference,
+    pub assessment: AssessmentId,
     pub edit_number: AssessmentEditNumber,
     pub selected_moment: PreviewSelectedMoment,
     pub policy: PreviewResolvedPolicy,
@@ -245,7 +245,7 @@ pub struct StudentViewScenario {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 struct StudentViewScenarioWire {
     origin: StudentViewScenarioOrigin,
-    assessment: AssessmentReference,
+    assessment: AssessmentId,
     edit_number: AssessmentEditNumber,
     selected_moment: PreviewSelectedMoment,
     policy: PreviewResolvedPolicy,
@@ -271,7 +271,7 @@ impl StudentViewScenario {
     /// authorization and resolution.
     pub fn new(
         origin: StudentViewScenarioOrigin,
-        assessment: AssessmentReference,
+        assessment: AssessmentId,
         edit_number: AssessmentEditNumber,
         selected_moment: PreviewSelectedMoment,
         policy: PreviewResolvedPolicy,
@@ -513,7 +513,7 @@ mod direct_preview_tests {
     fn student_view_scenario_serializes_without_membership_or_group_facts() {
         let student_view_scenario = StudentViewScenario::new(
             StudentViewScenarioOrigin::Hypothetical,
-            AssessmentReference::new("A7K3M2QXF").expect("assessment reference"),
+            AssessmentId::new("A7K3M2QXF").expect("assessment reference"),
             "1".parse().expect("edit number"),
             PreviewSelectedMoment {
                 value: LocalDateAndTime::parse("2026-08-20T09:00:00.000").expect("moment"),

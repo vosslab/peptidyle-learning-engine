@@ -4,9 +4,9 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use question_model::{
-    AccountId, BlueprintAssessmentReference, BlueprintCourseReference, BlueprintMetadataEtag,
+    AccountId, BlueprintAssessmentId, BlueprintCourseId, BlueprintEditNumber,
     BlueprintModuleReference, BlueprintRevision, BlueprintRevisionReference,
-    CourseInstanceReference, CreateBlueprintCourseReceipt, CreateBlueprintFromCourseInstanceInput,
+    CourseInstanceId, CreateBlueprintCourseReceipt, CreateBlueprintFromCourseInstanceInput,
     RequestChecksum, Timestamp,
 };
 use serde::Deserialize;
@@ -57,7 +57,7 @@ impl CourseBlueprintPublicationStore for PostgresCourseBlueprintPublicationStore
     async fn create_blueprint_from_course_instance(
         &self,
         session: SessionTokenHash,
-        source_course: CourseInstanceReference,
+        source_course: CourseInstanceId,
         request_checksum: RequestChecksum,
         input: CreateBlueprintFromCourseInstanceInput,
         mut bloom_receipts: crate::PoolBloomPreparationReceipts,
@@ -74,7 +74,7 @@ impl CourseBlueprintPublicationStore for PostgresCourseBlueprintPublicationStore
         // ASVS 2.3.3: a retry resolves before any fresh child or Pool identity
         // is issued, preventing committed orphan Pool forks.
         if let Some(row) = sqlx::query(
-            "SELECT public_reference, blueprint_revision_number, metadata_etag, \
+            "SELECT public_reference, blueprint_revision_number, blueprint_edit_number, \
              (EXTRACT(EPOCH FROM accepted_at) * 1000)::bigint AS accepted_at_millis \
              FROM ple_api.course_blueprint_publication_receipt($1, $2)",
         )
@@ -93,15 +93,15 @@ impl CourseBlueprintPublicationStore for PostgresCourseBlueprintPublicationStore
         // locks Course metadata plus all current Assessment rows before this
         // server-owned projection is decoded.
         let row = sqlx::query(
-            "SELECT course_metadata_etag, source_snapshot, source_assessments \
+            "SELECT course_blueprint_edit_number, source_snapshot, source_assessments \
              FROM ple_api.load_course_blueprint_publication_source($1)",
         )
         .bind(source_course.as_string())
         .fetch_one(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
-        let expected_course_metadata_etag: uuid::Uuid = row
-            .try_get("course_metadata_etag")
+        let expected_course_blueprint_edit_number: uuid::Uuid = row
+            .try_get("course_blueprint_edit_number")
             .map_err(map_sqlx_error)?;
         let Json(source_snapshot): Json<Value> =
             row.try_get("source_snapshot").map_err(map_sqlx_error)?;
@@ -120,13 +120,13 @@ impl CourseBlueprintPublicationStore for PostgresCourseBlueprintPublicationStore
         let checksum = content.checksum()?;
         let classification = input.classification;
         let row = sqlx::query(
-            "SELECT public_reference, blueprint_revision_number, metadata_etag, \
+            "SELECT public_reference, blueprint_revision_number, blueprint_edit_number, \
              (EXTRACT(EPOCH FROM accepted_at) * 1000)::bigint AS accepted_at_millis \
              FROM ple_api.create_blueprint_from_course_instance( \
                  $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)",
         )
         .bind(source_course.as_string())
-        .bind(expected_course_metadata_etag)
+        .bind(expected_course_blueprint_edit_number)
         .bind(source_snapshot)
         .bind(random_uuid()?)
         .bind(request_checksum.into_bytes().to_vec())
@@ -160,7 +160,7 @@ fn publication_content(
         .into_iter()
         .map(|assessment| {
             Ok(StoredBlueprintAssessment {
-                blueprint_assessment_reference: BlueprintAssessmentReference::from_uuid(
+                blueprint_assessment_reference: BlueprintAssessmentId::from_uuid(
                     random_uuid()?,
                 ),
                 content: assessment.content,
@@ -184,7 +184,7 @@ fn decode_receipt(
     let reference = row
         .try_get::<String, _>("public_reference")
         .map_err(map_sqlx_error)?
-        .parse::<BlueprintCourseReference>()
+        .parse::<BlueprintCourseId>()
         .map_err(|_| invalid("Blueprint Course Reference"))?;
     let revision = u64::try_from(
         row.try_get::<i64, _>("blueprint_revision_number")
@@ -198,8 +198,9 @@ fn decode_receipt(
             reference,
             revision,
         },
-        metadata_etag: BlueprintMetadataEtag::from_uuid(
-            row.try_get("metadata_etag").map_err(map_sqlx_error)?,
+        blueprint_edit_number: BlueprintEditNumber::from_edit_number(
+            row.try_get("blueprint_edit_number")
+                .map_err(map_sqlx_error)?,
         ),
         actor,
         request_checksum,

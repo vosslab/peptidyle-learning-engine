@@ -14,6 +14,6 @@ export {
   type QuestionPickerSource,
   type QuestionPickerSourceRepository,
   type QuestionPickerState,
-  type RetainedAssessmentReference,
+  type RetainedAssessmentId,
   blueprintCourseQuestionPickerRepository,
 } from "./question_picker_model";

@@ -165,7 +165,7 @@ to explain then-current work-package references in other archived material.
   rejected `*Id` to `*Reference` migration claims as verified distinctions:
   opaque UUID-backed private record IDs and existing SQL `*_id` keys remain
   IDs; approved prefixed public locators are separate and authorization-scoped.
-  `CourseInstanceReference` (`C-`), `CourseMembershipReference` (`M-`),
+  `CourseInstanceId` (`C-`), `CourseMembershipReference` (`M-`),
   `AssignmentReference` (`A-`), and `AssignmentAttemptReference` (`R-`) remain
   separate from their private identities, while Student Record, Issued
   Question, and Question Attempt have no public Reference. Account Reference

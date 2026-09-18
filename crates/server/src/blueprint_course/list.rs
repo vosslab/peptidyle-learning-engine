@@ -14,7 +14,7 @@ use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use learning_data_access::{
     BlueprintCourseListRequest, BlueprintCourseStore, Cursor, PageRequest, PageSize,
 };
-use question_model::{BlueprintCourseReference, BlueprintCourseSummaryView};
+use question_model::{BlueprintCourseId, BlueprintCourseSummaryView};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -48,7 +48,7 @@ struct ListCursor {
     public_only: bool,
     promoted_only: bool,
     page_size: u16,
-    after: (String, BlueprintCourseReference),
+    after: (String, BlueprintCourseId),
     discipline_uuid: Option<Uuid>,
     subject_uuid: Option<Uuid>,
     topic_uuid: Option<Uuid>,

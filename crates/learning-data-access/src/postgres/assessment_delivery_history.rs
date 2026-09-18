@@ -10,9 +10,9 @@ use crate::{
     StudentAssessmentAttemptHistoryQuestion,
 };
 use question_model::{
-    AssessmentAttemptReference, AssessmentReference, AssessmentType, CourseInstanceReference,
-    CourseTheme, GradingResult, QuestionId, QuestionRevisionNumber, QuestionRevisionReference,
-    StudentFeedback, StudentFeedbackReleaseRule, Timestamp,
+    AssessmentAttemptId, AssessmentId, AssessmentType, CourseInstanceId, CourseTheme,
+    GradingResult, QuestionId, QuestionRevisionNumber, QuestionRevisionReference, StudentFeedback,
+    StudentFeedbackReleaseRule, Timestamp,
 };
 use serde::Deserialize;
 use sqlx::Row;
@@ -38,7 +38,7 @@ struct StoredGradingResult {
 pub(super) async fn read(
     store: &PostgresLiveAssessmentDeliveryStore,
     token: SessionTokenHash,
-    assessment_attempt: AssessmentAttemptReference,
+    assessment_attempt: AssessmentAttemptId,
 ) -> Result<StudentAssessmentAttemptHistoryEvidence, StoreError> {
     let mut tx = store.begin(token).await?;
     // ASVS 8.2.2 and 8.3.1: the parameter is only a public reference; the
@@ -50,7 +50,7 @@ pub(super) async fn read(
          all_students_completed, grading_is_current, grading_results \
          FROM ple_api.read_student_assessment_attempt_history($1)",
     )
-    .bind(i64::from(assessment_attempt.number()))
+    .bind(assessment_attempt.as_uuid())
     .fetch_optional(&mut *tx)
     .await
     .map_err(map_sqlx_error)?
@@ -58,7 +58,7 @@ pub(super) async fn read(
     let assessment_reference_value: String = row
         .try_get("assessment_reference_number")
         .map_err(map_sqlx_error)?;
-    let assessment = AssessmentReference::new(assessment_reference_value)
+    let assessment = AssessmentId::new(assessment_reference_value)
         .map_err(|_| StoreError::InvalidRecord("Assessment reference is invalid".to_string()))?;
     let attempt_number = u32::try_from(
         row.try_get::<i32, _>("assessment_attempt_number")
@@ -142,8 +142,8 @@ pub(super) async fn read(
     Ok(result)
 }
 
-fn course_reference(value: String) -> Result<CourseInstanceReference, StoreError> {
-    CourseInstanceReference::new(value)
+fn course_reference(value: String) -> Result<CourseInstanceId, StoreError> {
+    CourseInstanceId::new(value)
         .map_err(|_| StoreError::InvalidRecord("Course reference is invalid".to_string()))
 }
 

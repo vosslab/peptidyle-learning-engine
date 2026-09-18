@@ -105,7 +105,7 @@ pub struct AssessmentQuestionPoolForkView {
     /// Exact immutable fork Pool Revision.
     pub question_pool_revision: QuestionPoolRevisionReference,
     /// Opaque current metadata validator for the Pool fork.
-    pub pool_metadata_etag: Uuid,
+    pub question_pool_edit_number: Uuid,
     /// Positive number of members selected for each future Assessment Attempt.
     pub selection_count: NonZeroU32,
     /// Exact fork-owned Bloom Classification when assigned; source and member pairs do not substitute.

@@ -45,7 +45,7 @@ import { MAX_ASSESSMENT_QUESTION_POOL_ITEMS } from "../../../generated/api/MAX_A
 import { MAX_QUESTION_SEARCH_OWN_COURSE_USAGES } from "../../../generated/api/MAX_QUESTION_SEARCH_OWN_COURSE_USAGES";
 import {
   MAX_QUESTION_SEARCH_PAGE_ITEMS,
-  decodeAssessmentReference,
+  decodeAssessmentId,
   decodeAssessmentTitle,
   decodeCourseName,
   decodeQuestionBackendCapabilities,
@@ -53,7 +53,7 @@ import {
   decodeQuestionRevisionReference,
   decodeQuestionAvailability,
   decodeQuestionTitle,
-  decodeCourseInstanceReference,
+  decodeCourseInstanceId,
   decodeIdentifier,
   decodeQuestionMetadata,
   decodeQuestionId,
@@ -243,7 +243,7 @@ function decodeCourseQuestionUse(value: unknown, path: string): CourseQuestionUs
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["course", "title", "assessmentCount"]);
   return {
-    course: decodeCourseInstanceReference(field(record, "course", path), `${path}.course`),
+    course: decodeCourseInstanceId(field(record, "course", path), `${path}.course`),
     title: decodeCourseName(field(record, "title", path), `${path}.title`),
     assessmentCount: decodePositiveInteger(
       field(record, "assessmentCount", path),
@@ -426,7 +426,7 @@ export function decodeCourseSummary(value: unknown, path = "response"): CourseSu
       `${path}.classification`,
     ),
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
-    reference: decodeCourseInstanceReference(field(record, "reference", path), `${path}.reference`),
+    reference: decodeCourseInstanceId(field(record, "reference", path), `${path}.reference`),
     shortName: decodeCourseName(field(record, "shortName", path), `${path}.shortName`),
     longName: decodeCourseName(field(record, "longName", path), `${path}.longName`),
     term: decodeCourseTerm(field(record, "term", path), `${path}.term`),
@@ -766,7 +766,7 @@ export function decodeAssessmentSummary(
   }
   const decoded = {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
-    reference: decodeAssessmentReference(field(record, "reference", path), `${path}.reference`),
+    reference: decodeAssessmentId(field(record, "reference", path), `${path}.reference`),
     courseId: decodeIdentifier(field(record, "courseId", path), `${path}.courseId`),
     title: decodeNonemptyString(field(record, "title", path), `${path}.title`),
     entries: decodeArray(field(record, "entries", path), `${path}.entries`, decodeAssessmentEntry),

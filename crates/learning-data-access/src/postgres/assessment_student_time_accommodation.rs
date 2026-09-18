@@ -3,7 +3,7 @@ use super::{Pool, connection::map_sqlx_error};
 use crate::{AssessmentStudentTimeAccommodationStore, SessionTokenHash, StoreError};
 use async_trait::async_trait;
 use question_model::{
-    AssessmentReference, AssessmentStudentTimeAccommodation, CourseInstanceReference,
+    AssessmentId, AssessmentStudentTimeAccommodation, CourseInstanceId,
     SaveAssessmentStudentTimeAccommodationInput,
 };
 use sqlx::Row;
@@ -24,8 +24,8 @@ impl AssessmentStudentTimeAccommodationStore for PostgresAssessmentStudentTimeAc
     async fn student_time_configuration(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceReference,
-        assessment: AssessmentReference,
+        course: CourseInstanceId,
+        assessment: AssessmentId,
         roster_id: String,
         save: Option<SaveAssessmentStudentTimeAccommodationInput>,
     ) -> Result<AssessmentStudentTimeAccommodation, StoreError> {

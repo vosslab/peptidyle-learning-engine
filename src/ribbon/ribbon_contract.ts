@@ -9,10 +9,10 @@ import {
 } from "../navigation/route_params";
 import {
   parseAssessmentAttemptReference,
-  parseAssessmentReference,
-  parseBlueprintCourseReference,
+  parseAssessmentId,
+  parseBlueprintCourseId,
   parseBlueprintChangeProposalHandle,
-  parseCourseInstanceReference,
+  parseCourseInstanceId,
   parseCourseMembershipReference,
   parseDraftQuestionId,
   parseQuestionRouteReference,
@@ -203,13 +203,13 @@ function accountControlsFor(productRole: ProductRole): ReadonlyArray<RibbonConte
 type RouteParamParser = (value: string) => string | null;
 
 const ROUTE_PARAM_PARSERS: Readonly<Record<RouteParamName, RouteParamParser>> = {
-  courseRef: parseCourseInstanceReference,
-  assessmentRef: parseAssessmentReference,
+  courseRef: parseCourseInstanceId,
+  assessmentRef: parseAssessmentId,
   assessmentAttemptRef: parseAssessmentAttemptReference,
   membershipRef: parseCourseMembershipReference,
   questionRef: parseQuestionRouteReference,
   draftQuestionId: parseDraftQuestionId,
-  blueprintCourseRef: parseBlueprintCourseReference,
+  blueprintCourseRef: parseBlueprintCourseId,
   proposalId: parseBlueprintChangeProposalHandle,
 };
 

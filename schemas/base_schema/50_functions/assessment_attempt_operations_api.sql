@@ -45,10 +45,10 @@ BEGIN
             RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Student Assessment Accommodation Edit Number is stale';
         END IF;
         INSERT INTO ple_private.student_assessment_accommodation(
-            accommodation_id, student_record_id, assessment_id, available_at, due_at, closes_at,
+            accommodation_id, course_instance_id, student_record_id, assessment_id, available_at, due_at, closes_at,
             time_multiplier, assessment_attempt_limit, created_at
         ) VALUES (
-            p_accommodation_id, p_student_record_id, p_assessment_id, p_available_at, p_due_at,
+            p_accommodation_id, course_id_value, p_student_record_id, p_assessment_id, p_available_at, p_due_at,
             p_closes_at, p_time_multiplier, p_assessment_attempt_limit,
             pg_catalog.transaction_timestamp()
         ) RETURNING ple_private.student_assessment_accommodation.accommodation_edit_number
@@ -110,7 +110,7 @@ RETURNS TABLE (
     student_record_id uuid, assessment_id text, assessment_entry_id uuid,
     entry_kind text, authored_position integer, fixed_question_id text,
     fixed_revision_number integer, question_pool_id text,
-    question_pool_public_id text, question_pool_revision_number bigint, member_position integer,
+    question_pool_public_id text, question_pool_edit_number bigint, member_position integer,
     pool_question_id text, pool_revision_number integer, question_backend text,
     selection_count integer,
     pool_selection_rule text,
@@ -126,7 +126,7 @@ $$;
 
 CREATE FUNCTION ple_api.read_started_student_assessment_attempt(uuid)
 RETURNS TABLE (
-    assessment_attempt_reference_number bigint, course_reference_number text,
+    assessment_attempt_id uuid, course_reference_number text,
     assessment_reference_number text, assessment_attempt_number integer,
     assessment_title text, assessment_instructions text
 )
@@ -134,14 +134,14 @@ LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api
     SELECT * FROM ple_private.read_started_student_assessment_attempt($1)
 $$;
 
-CREATE FUNCTION ple_api.save_student_assessment_attempt_response(bigint, integer, jsonb)
-RETURNS TABLE (assessment_attempt_reference_number bigint, issued_position integer, response_state text)
+CREATE FUNCTION ple_api.save_student_assessment_attempt_response(uuid, integer, jsonb)
+RETURNS TABLE (assessment_attempt_id uuid, issued_position integer, response_state text)
 LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$
-    SELECT assessment_attempt_reference_number, issued_position + 1, response_state
+    SELECT assessment_attempt_id, issued_position + 1, response_state
       FROM ple_private.save_student_assessment_attempt_response($1, $2 - 1, $3)
 $$;
 
-CREATE FUNCTION ple_api.prepare_student_assessment_attempt_finalization(bigint)
+CREATE FUNCTION ple_api.prepare_student_assessment_attempt_finalization(uuid)
 RETURNS TABLE (
     preparation_state text, finalization_kind text,
     points_earned double precision, points_possible double precision,
@@ -153,7 +153,7 @@ LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api
     SELECT * FROM ple_private.prepare_student_assessment_attempt_finalization($1)
 $$;
 
-CREATE FUNCTION ple_api.commit_student_assessment_attempt_finalization(bigint, text, jsonb)
+CREATE FUNCTION ple_api.commit_student_assessment_attempt_finalization(uuid, text, jsonb)
 RETURNS TABLE (points_earned double precision, points_possible double precision)
 LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$
     SELECT * FROM ple_private.commit_student_assessment_attempt_finalization($1, $2, $3)
@@ -176,30 +176,30 @@ LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api
     SELECT * FROM ple_private.commit_expired_student_assessment_attempt_finalization($1, $2)
 $$;
 
-CREATE FUNCTION ple_api.read_student_assessment_attempt_progress(bigint)
-RETURNS TABLE (assessment_attempt_reference_number bigint, question_count integer,
+CREATE FUNCTION ple_api.read_student_assessment_attempt_progress(uuid)
+RETURNS TABLE (assessment_attempt_id uuid, question_count integer,
     recommended_position integer, issued_position integer, response_state text)
 LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$
-    SELECT assessment_attempt_reference_number, question_count,
+    SELECT assessment_attempt_id, question_count,
            recommended_position + 1, issued_position + 1, response_state
       FROM ple_private.read_student_assessment_attempt_progress($1)
 $$;
 
-CREATE FUNCTION ple_api.read_student_assessment_attempt_saved_response(bigint, integer)
+CREATE FUNCTION ple_api.read_student_assessment_attempt_saved_response(uuid, integer)
 RETURNS TABLE (issued_position integer, student_response jsonb)
 LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$
     SELECT issued_position + 1, student_response
       FROM ple_private.read_student_assessment_attempt_saved_response($1, $2 - 1)
 $$;
 
-CREATE FUNCTION ple_api.read_student_assessment_attempt_history_evidence(bigint)
-RETURNS TABLE (assessment_attempt_reference_number bigint, assessment_title text, assessment_instructions text,
+CREATE FUNCTION ple_api.read_student_assessment_attempt_history_evidence(uuid)
+RETURNS TABLE (assessment_attempt_id uuid, assessment_title text, assessment_instructions text,
     issued_position integer, published_question_id text, revision_number integer, question_seed numeric,
     generated_parameter_sha256 text,
     question_attempt_limit integer, question_attempt_time_limit_seconds integer,
     question_attempt_grace_seconds integer, question_attempt_state text, student_response jsonb)
 LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$
-    SELECT assessment_attempt_reference_number, assessment_title, assessment_instructions,
+    SELECT assessment_attempt_id, assessment_title, assessment_instructions,
            issued_position + 1, published_question_id, revision_number, question_seed,
            generated_parameter_sha256,
            question_attempt_limit, question_attempt_time_limit_seconds,

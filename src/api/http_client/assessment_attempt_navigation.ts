@@ -1,4 +1,5 @@
-import type { AssessmentAttemptReference } from "../../../generated/api/AssessmentAttemptReference";
+import type { AssessmentAttemptId } from "../../../generated/api/AssessmentAttemptId";
+import { parseAssessmentAttemptReference } from "../../navigation/public_route";
 import type { ApiClient } from "../client";
 import type {
   StudentAssessmentAttemptContext,
@@ -19,9 +20,9 @@ import { ApiProtocolError, ApiRequestError } from "./error";
 import { requestPath, requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
 
-function attemptPath(value: AssessmentAttemptReference): string {
-  if (!/^R-[1-9][0-9]{0,9}$/u.test(value) || Number(value.slice(2)) > 2_147_483_647)
-    throw new ApiProtocolError("Assessment Attempt reference must be canonical");
+function attemptPath(value: AssessmentAttemptId): string {
+  if (parseAssessmentAttemptReference(value) === null)
+    throw new ApiProtocolError("Assessment Attempt ID must be a UUID");
   return `/api/assessment-attempts/${encodeURIComponent(value)}`;
 }
 

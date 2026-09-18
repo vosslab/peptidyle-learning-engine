@@ -1,7 +1,7 @@
 //! PostgreSQL implementation of the self-only Blueprint Course stewardship boundary.
 
 use async_trait::async_trait;
-use question_model::{BlueprintCourseReference, Timestamp};
+use question_model::{BlueprintCourseId, Timestamp};
 use sqlx::{Postgres, Row, Transaction};
 
 use super::{Pool, connection::map_sqlx_error};
@@ -51,7 +51,7 @@ impl PostgresBlueprintStewardshipStore {
 
     async fn read_star_in(
         tx: &mut Transaction<'_, Postgres>,
-        reference: BlueprintCourseReference,
+        reference: BlueprintCourseId,
     ) -> Result<BlueprintCourseStarProjection, StoreError> {
         let row = sqlx::query("SELECT * FROM ple_api.read_current_blueprint_course_star($1)")
             .bind(reference.as_string())
@@ -69,7 +69,7 @@ impl PostgresBlueprintStewardshipStore {
 
     async fn read_watch_in(
         tx: &mut Transaction<'_, Postgres>,
-        reference: BlueprintCourseReference,
+        reference: BlueprintCourseId,
     ) -> Result<BlueprintCourseWatchProjection, StoreError> {
         let row = sqlx::query("SELECT * FROM ple_api.read_current_blueprint_course_watch($1)")
             .bind(reference.as_string())
@@ -84,7 +84,7 @@ impl PostgresBlueprintStewardshipStore {
 
     async fn read_starred_instructors_in(
         tx: &mut Transaction<'_, Postgres>,
-        reference: BlueprintCourseReference,
+        reference: BlueprintCourseId,
     ) -> Result<Vec<BlueprintCourseStarredInstructor>, StoreError> {
         // ASVS 8.2.1--8.3.1: the SQL capability derives the viewer from the
         // installed session; it accepts no Account ID or claimed role.
@@ -121,7 +121,7 @@ impl BlueprintStewardshipStore for PostgresBlueprintStewardshipStore {
     async fn blueprint_course_star_projection(
         &self,
         session_token_hash: SessionTokenHash,
-        blueprint_course_reference: BlueprintCourseReference,
+        blueprint_course_reference: BlueprintCourseId,
     ) -> Result<BlueprintCourseStarProjection, StoreError> {
         let mut tx = self.begin(session_token_hash).await?;
         let projection = Self::read_star_in(&mut tx, blueprint_course_reference).await?;
@@ -132,7 +132,7 @@ impl BlueprintStewardshipStore for PostgresBlueprintStewardshipStore {
     async fn set_current_blueprint_course_star_projection(
         &self,
         session_token_hash: SessionTokenHash,
-        blueprint_course_reference: BlueprintCourseReference,
+        blueprint_course_reference: BlueprintCourseId,
         starred: bool,
     ) -> Result<BlueprintCourseStarProjection, StoreError> {
         let mut tx = self.begin(session_token_hash).await?;
@@ -150,7 +150,7 @@ impl BlueprintStewardshipStore for PostgresBlueprintStewardshipStore {
     async fn blueprint_course_starred_instructors(
         &self,
         session_token_hash: SessionTokenHash,
-        blueprint_course_reference: BlueprintCourseReference,
+        blueprint_course_reference: BlueprintCourseId,
     ) -> Result<Vec<BlueprintCourseStarredInstructor>, StoreError> {
         let mut tx = self.begin(session_token_hash).await?;
         let instructors =
@@ -162,7 +162,7 @@ impl BlueprintStewardshipStore for PostgresBlueprintStewardshipStore {
     async fn blueprint_course_watch_projection(
         &self,
         session_token_hash: SessionTokenHash,
-        blueprint_course_reference: BlueprintCourseReference,
+        blueprint_course_reference: BlueprintCourseId,
     ) -> Result<BlueprintCourseWatchProjection, StoreError> {
         let mut tx = self.begin(session_token_hash).await?;
         let projection = Self::read_watch_in(&mut tx, blueprint_course_reference).await?;
@@ -173,7 +173,7 @@ impl BlueprintStewardshipStore for PostgresBlueprintStewardshipStore {
     async fn set_current_blueprint_course_watch_projection(
         &self,
         session_token_hash: SessionTokenHash,
-        blueprint_course_reference: BlueprintCourseReference,
+        blueprint_course_reference: BlueprintCourseId,
         watching: bool,
     ) -> Result<BlueprintCourseWatchProjection, StoreError> {
         let mut tx = self.begin(session_token_hash).await?;
@@ -191,7 +191,7 @@ impl BlueprintStewardshipStore for PostgresBlueprintStewardshipStore {
     async fn blueprint_course_watch_events(
         &self,
         session_token_hash: SessionTokenHash,
-        blueprint_course_reference: BlueprintCourseReference,
+        blueprint_course_reference: BlueprintCourseId,
         limit: u16,
     ) -> Result<Vec<BlueprintCourseWatchEvent>, StoreError> {
         if limit == 0 || limit > 100 {

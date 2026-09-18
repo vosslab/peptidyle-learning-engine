@@ -8,7 +8,7 @@ use axum::{
 };
 use browser_api_contract::blueprint_course::BlueprintPoolMembersView;
 use learning_data_access::BlueprintCourseStore;
-use question_model::{BlueprintAssessmentReference, QuestionId};
+use question_model::{BlueprintAssessmentId, QuestionId};
 
 use super::{
     BlueprintCourseRouteState, concealed, instructor_session_hash, parse_reference,
@@ -25,7 +25,7 @@ pub(super) async fn load_pool_members(
         Err(response) => return *response,
     };
     // ASVS 2.2.1/2: parse the exact checksum-bearing typed identity.
-    let assessment = match assessment.parse::<BlueprintAssessmentReference>() {
+    let assessment = match assessment.parse::<BlueprintAssessmentId>() {
         Ok(value) => value,
         Err(_) => return concealed(),
     };

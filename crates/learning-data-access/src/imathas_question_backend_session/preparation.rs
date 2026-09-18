@@ -1,13 +1,13 @@
 use super::*;
 use question_model::{
-    AccountId, AssessmentId, CourseId, ImathasQuestionBackendBinding, SourceObjectChecksum,
+    AccountId, AssessmentId, CourseInstanceId, ImathasQuestionBackendBinding, SourceObjectChecksum,
     SourceObjectReference, Timestamp,
 };
 
 /// Server-only pre-imathas_question_backend-launch facts for one iMathAS Question Backend Session.
 pub struct ImathasQuestionBackendSessionPreparationContext {
     account: AccountId,
-    course: CourseId,
+    course: CourseInstanceId,
     assessment: AssessmentId,
     grading_context: ImathasGradingContext,
     imathas_question_backend_binding: ImathasQuestionBackendBinding,
@@ -37,7 +37,7 @@ impl ImathasQuestionBackendSessionPreparationContext {
     #[allow(clippy::too_many_arguments)] // Preparation gathers independent trusted launch facts.
     pub fn new(
         account: AccountId,
-        course: CourseId,
+        course: CourseInstanceId,
         assessment: AssessmentId,
         grading_context: ImathasGradingContext,
         imathas_question_backend_binding: ImathasQuestionBackendBinding,

@@ -7,7 +7,7 @@
 //! Instance. No Assessment or Student-work record is created here.
 
 use async_trait::async_trait;
-use question_model::CourseInstanceReference;
+use question_model::CourseInstanceId;
 use serde::{Deserialize, Serialize};
 
 use crate::{AuthenticationEmail, SessionTokenHash, StoreError};
@@ -148,14 +148,14 @@ pub trait CourseRosterStore: Send + Sync {
     async fn list_course_roster(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
+        course: CourseInstanceId,
     ) -> Result<Vec<CourseRosterEntry>, StoreError>;
 
     /// Resolves or creates Student Accounts and records pending Course Invitations atomically.
     async fn import_course_roster(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
+        course: CourseInstanceId,
         input: CourseRosterImportInput,
     ) -> Result<Vec<CourseRosterEntry>, StoreError>;
 
@@ -163,14 +163,14 @@ pub trait CourseRosterStore: Send + Sync {
     async fn claim_course_invitation(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
+        course: CourseInstanceId,
     ) -> Result<ClaimedCourseInvitation, StoreError>;
 
     /// Ends a pending invitation or active Student Course Membership without deleting records.
     async fn revoke_course_roster_entry(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
+        course: CourseInstanceId,
         roster_id: String,
     ) -> Result<(), StoreError>;
 }

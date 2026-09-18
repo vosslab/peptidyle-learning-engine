@@ -2,16 +2,16 @@
 
 use super::PostgresAssessmentAttemptStore;
 use super::assessment_delivery::PostgresLiveAssessmentDeliveryStore;
-use super::connection::map_sqlx_error;
+use super::connection::{map_sqlx_error, parse_assessment_id};
 use crate::{
     AssessmentAttemptStart, PreparedIssuedQuestion, PreparedQuestionPoolSelection,
     SessionTokenHash, StoreError,
 };
 use question_model::{
-    AssessmentAttemptId, AssessmentEntryId, AssessmentId, AssessmentReference,
-    CourseInstanceReference, PoolRevisionMemberReference, QuestionBackend,
-    QuestionPoolRevisionNumber, QuestionPoolRevisionReference, QuestionPoolSelectedItem,
-    QuestionRevisionNumber, QuestionRevisionReference, StudentRecordId,
+    AssessmentAttemptId, AssessmentEntryId, AssessmentId, CourseInstanceId,
+    PoolRevisionMemberReference, QuestionBackend, QuestionPoolRevisionNumber,
+    QuestionPoolRevisionReference, QuestionPoolSelectedItem, QuestionRevisionNumber,
+    QuestionRevisionReference, StudentRecordId,
 };
 use sqlx::Row;
 use std::collections::BTreeMap;
@@ -31,8 +31,8 @@ struct CurrentPoolEntry {
 pub(super) async fn start_current_assessment_attempt(
     store: &PostgresLiveAssessmentDeliveryStore,
     token: SessionTokenHash,
-    course: CourseInstanceReference,
-    assessment: AssessmentReference,
+    course: CourseInstanceId,
+    assessment: AssessmentId,
 ) -> Result<crate::AssessmentAttemptStartResult, StoreError> {
     let mut tx = store.begin(token).await?;
     let decision = sqlx::query(
@@ -100,8 +100,7 @@ fn current_attempt_start_from_rows(
     let first = rows.first().ok_or(StoreError::NotFound)?;
     let student_record =
         StudentRecordId::from_uuid(first.try_get("student_record_id").map_err(map_sqlx_error)?);
-    let assessment =
-        AssessmentId::from_uuid(first.try_get("assessment_id").map_err(map_sqlx_error)?);
+    let assessment = parse_assessment_id(first.try_get("assessment_id").map_err(map_sqlx_error)?)?;
     let question_order_rule = first
         .try_get::<String, _>("assessment_question_order_rule")
         .map_err(map_sqlx_error)?;

@@ -5,22 +5,20 @@ use std::{collections::BTreeMap, time::Duration};
 use anyhow::{Context, Result, bail, ensure};
 use learning_data_access::{
     SessionLifetime, SessionStore, SessionTokenHash,
-    postgres::{PostgresSessionStore, ProductionLoginProfile},
+    postgres::{PostgresSessionStore, ProductionLoginProfile, lazy_pool},
 };
 use question_model::{
-    AccountId, AssessmentAttemptReference, AssessmentReference, AssessmentType,
-    CourseInstanceReference,
+    AccountId, AssessmentAttemptId, AssessmentId, AssessmentType, CourseInstanceId,
 };
 use reqwest::{Method, StatusCode, header};
 use serde_json::{Map, Value, json};
 use server_core::auth::{self, CookieTransport, SessionConfig};
 use url::Url;
-use uuid::Uuid;
 
 use crate::installation_data::{
-    LIVE_DEMO_ASSESSMENT_TITLE, LIVE_DEMO_AVERY_ACCOUNT_ID, LIVE_DEMO_COURSE_LONG_NAME,
-    LIVE_DEMO_COURSE_SHORT_NAME, LIVE_DEMO_ELENA_ACCOUNT_ID, LIVE_DEMO_JACK_ACCOUNT_ID,
-    LIVE_DEMO_MARY_ACCOUNT_ID,
+    LIVE_DEMO_ASSESSMENT_TITLE, LIVE_DEMO_AVERY_EMAIL, LIVE_DEMO_COURSE_LONG_NAME,
+    LIVE_DEMO_COURSE_SHORT_NAME, LIVE_DEMO_ELENA_EMAIL, LIVE_DEMO_JACK_EMAIL,
+    LIVE_DEMO_MARY_EMAIL,
 };
 
 #[path = "installation_data_activity_http.rs"]
@@ -38,21 +36,21 @@ const REQUEST_TIMEOUT: Duration = Duration::from_secs(12);
 const MAX_RESPONSE_BYTES: usize = 128 * 1024;
 
 const DEMO_ACCOUNTS: [DemoAccount; 4] = [
-    DemoAccount::new("elena", LIVE_DEMO_ELENA_ACCOUNT_ID),
-    DemoAccount::new("mary", LIVE_DEMO_MARY_ACCOUNT_ID),
-    DemoAccount::new("jack", LIVE_DEMO_JACK_ACCOUNT_ID),
-    DemoAccount::new("avery", LIVE_DEMO_AVERY_ACCOUNT_ID),
+    DemoAccount::new("elena", LIVE_DEMO_ELENA_EMAIL),
+    DemoAccount::new("mary", LIVE_DEMO_MARY_EMAIL),
+    DemoAccount::new("jack", LIVE_DEMO_JACK_EMAIL),
+    DemoAccount::new("avery", LIVE_DEMO_AVERY_EMAIL),
 ];
 
 #[derive(Clone, Copy)]
 struct DemoAccount {
     name: &'static str,
-    account_id: &'static str,
+    email: &'static str,
 }
 
 impl DemoAccount {
-    const fn new(name: &'static str, account_id: &'static str) -> Self {
-        Self { name, account_id }
+    const fn new(name: &'static str, email: &'static str) -> Self {
+        Self { name, email }
     }
 }
 
@@ -74,8 +72,10 @@ pub(crate) fn provision() -> Result<()> {
 }
 
 async fn provision_async(pool: sqlx::PgPool, endpoint: BrowserEndpoint) -> Result<()> {
+    let lookup_pool = lazy_pool(&required_environment("PLE_MIGRATION_DATABASE_URL")?)
+        .map_err(|_| anyhow::anyhow!("Live Demo account lookup database URL is invalid"))?;
     let sessions = PostgresSessionStore::new(pool);
-    let mut temporary = TemporarySessions::issue(&sessions).await?;
+    let mut temporary = TemporarySessions::issue(&sessions, &lookup_pool).await?;
     let result = converge(&endpoint, &temporary).await;
     let cleanup = temporary.revoke_all(&sessions).await;
     match (result, cleanup) {
@@ -187,11 +187,12 @@ struct TemporarySessions {
 }
 
 impl TemporarySessions {
-    async fn issue(store: &PostgresSessionStore) -> Result<Self> {
-        let accounts = DEMO_ACCOUNTS
-            .into_iter()
-            .map(|account| Ok((account, fixed_account_id(account.account_id)?)))
-            .collect::<Result<Vec<_>>>()?;
+    async fn issue(store: &PostgresSessionStore, lookup_pool: &sqlx::PgPool) -> Result<Self> {
+        let mut accounts = Vec::with_capacity(DEMO_ACCOUNTS.len());
+        for account in DEMO_ACCOUNTS {
+            let account_id = account_id_for_email(lookup_pool, account.email).await?;
+            accounts.push((account, account_id));
+        }
         let config = temporary_session_config()?;
         let mut values = BTreeMap::new();
         for (account, account_id) in accounts {
@@ -269,10 +270,30 @@ async fn revoke_session_hash(store: &PostgresSessionStore, token_hash: SessionTo
     store.revoke_session(token_hash).await.is_ok()
 }
 
-fn fixed_account_id(value: &str) -> Result<AccountId> {
-    Uuid::parse_str(value)
-        .map(AccountId::from_uuid)
-        .map_err(|_| anyhow::anyhow!("fixed Live Demo account ID is invalid"))
+async fn account_id_for_email(pool: &sqlx::PgPool, email: &str) -> Result<AccountId> {
+    let mut transaction = pool
+        .begin()
+        .await
+        .context("opening Live Demo account lookup")?;
+    sqlx::query("SET LOCAL ROLE ple_private_owner")
+        .execute(&mut *transaction)
+        .await
+        .context("assuming Live Demo account lookup authority")?;
+    let account_id: Option<String> = sqlx::query_scalar(
+        "SELECT email.account_id::text \
+         FROM ple_private.account_authentication_email AS email \
+         WHERE email.normalized_email = $1",
+    )
+    .bind(email)
+    .fetch_optional(&mut *transaction)
+    .await
+    .context("looking up the Live Demo account")?;
+    transaction
+        .commit()
+        .await
+        .context("committing Live Demo account lookup")?;
+    let account_id = account_id.context("Live Demo account is unavailable")?;
+    AccountId::new(account_id).map_err(|_| anyhow::anyhow!("Live Demo account ID is invalid"))
 }
 
 fn canonical_cookie_header(set_cookie: &str) -> Result<header::HeaderValue> {
@@ -378,7 +399,7 @@ async fn resolve_graph(api: &ProductApi, instructor: &TemporarySession) -> Resul
                 &[
                     "classification",
                     "lifecycleState",
-                    "metadataEtag",
+                    "courseEditNumber",
                     "reference",
                     "shortName",
                     "longName",
@@ -402,7 +423,7 @@ async fn resolve_graph(api: &ProductApi, instructor: &TemporarySession) -> Resul
         "Live Demo Course is missing or ambiguous"
     );
     let course =
-        public_reference::<CourseInstanceReference>(courses[0].get("reference"), "Course")?;
+        public_reference::<CourseInstanceId>(courses[0].get("reference"), "Course")?;
 
     let assessments = expect_status(
         api.request(
@@ -450,7 +471,7 @@ async fn resolve_graph(api: &ProductApi, instructor: &TemporarySession) -> Resul
         "Live Demo Assessment is missing or ambiguous"
     );
     let assessment =
-        public_reference::<AssessmentReference>(assessments[0].get("reference"), "Assessment")?;
+        public_reference::<AssessmentId>(assessments[0].get("reference"), "Assessment")?;
     Ok(DemoGraph { course, assessment })
 }
 
@@ -648,7 +669,7 @@ async fn prepare_attempt(
                 .is_some_and(|items| items.len() == LIVE_DEMO_QUESTION_COUNT as usize),
         "Live Demo {student_name} Assessment Attempt is invalid"
     );
-    public_reference::<AssessmentAttemptReference>(
+    public_reference::<AssessmentAttemptId>(
         object.get("assessmentAttempt"),
         "Assessment Attempt",
     )

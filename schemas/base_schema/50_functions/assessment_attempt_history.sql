@@ -55,7 +55,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 $$;
 
 CREATE FUNCTION ple_private.read_student_assessment_attempt_history(
-    p_assessment_attempt_reference_number bigint
+    p_assessment_attempt_id uuid
 ) RETURNS TABLE (
     course_instance_id text, assessment_reference_number text, assessment_title text, assessment_type text,
     assessment_attempt_number integer,
@@ -69,23 +69,25 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
         SELECT assessment_attempt.assessment_attempt_id, assessment_attempt.assessment_id,
                assessment.course_instance_id,
                assessment.assessment_id AS assessment_reference_number,
-               assessment_attempt.assessment_title,
+               policy.assessment_title,
                assessment.assessment_type,
                assessment_attempt.assessment_attempt_number,
-               assessment_attempt.due_at,
-               assessment_attempt.closes_at,
+               policy.due_at,
+               policy.closes_at,
                jsonb_build_object(
-                   'score', assessment_attempt.feedback_score,
-                   'per_item_correctness', assessment_attempt.feedback_per_item_correctness,
-                   'submitted_response', assessment_attempt.feedback_submitted_response,
-                   'question_answer', assessment_attempt.feedback_question_answer,
-                   'question_answer_explanation', assessment_attempt.feedback_question_answer_explanation,
-                   'class_statistics', assessment_attempt.feedback_class_statistics
+                   'score', policy.feedback_score,
+                   'per_item_correctness', policy.feedback_per_item_correctness,
+                   'submitted_response', policy.feedback_submitted_response,
+                   'question_answer', policy.feedback_question_answer,
+                   'question_answer_explanation', policy.feedback_question_answer_explanation,
+                   'class_statistics', policy.feedback_class_statistics
                ) AS feedback_rule
           FROM ple_private.assessment_attempt AS assessment_attempt
           JOIN ple_data.assessment AS assessment
             ON assessment.assessment_id = assessment_attempt.assessment_id
-         WHERE assessment_attempt.reference_number = p_assessment_attempt_reference_number
+          JOIN ple_data.assessment_policy_snapshot AS policy
+            ON policy.assessment_policy_snapshot_id = assessment_attempt.assessment_policy_snapshot_id
+         WHERE assessment_attempt.assessment_attempt_id = p_assessment_attempt_id
            AND EXISTS (
                SELECT 1 FROM ple_private.assessment_submission AS submission
                 WHERE submission.assessment_attempt_id = assessment_attempt.assessment_attempt_id
@@ -177,14 +179,10 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
               ON result.question_response_grading_id = grading_state.question_response_grading_id
              AND result.question_response_id = submission.question_response_id
              AND result.question_attempt_id = question_attempt.question_attempt_id
-            JOIN ple_data.assessment_entry AS entry
-              ON entry.assessment_entry_id = issued.assessment_entry_id
+            JOIN ple_private.assessment_entry_snapshot AS snapshot
+              ON snapshot.assessment_entry_snapshot_id = issued.assessment_entry_snapshot_id
             CROSS JOIN LATERAL ple_private.score_recorded_credit(
-                result.normalized_credit, issued.scoring_rule,
-                CASE entry.entry_kind
-                    WHEN 'fixed_question' THEN entry.points_possible
-                    ELSE entry.points_per_item
-                END
+                result.normalized_credit, snapshot.scoring_rule, snapshot.points
             ) AS score
            WHERE issued.assessment_attempt_id = owned.assessment_attempt_id
       ) AS grading
@@ -193,7 +191,7 @@ $$;
 SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.read_student_assessment_attempt_history(
-    p_assessment_attempt_reference_number bigint
+    p_assessment_attempt_id uuid
 ) RETURNS TABLE (
     course_reference_number text, course_short_name text, course_long_name text, course_theme text,
     assessment_reference_number text, assessment_title text, assessment_type text,
@@ -223,7 +221,7 @@ SET search_path = pg_catalog, ple_data, ple_private AS $$
            history.grading_is_current,
            history.grading_results
       FROM ple_private.read_student_assessment_attempt_history(
-               p_assessment_attempt_reference_number
+               p_assessment_attempt_id
            ) AS history
       JOIN ple_data.course_instance AS course ON course.course_instance_id = history.course_instance_id
 $$;
@@ -240,7 +238,7 @@ SET LOCAL ROLE ple_private_owner;
 -- The selected Question Revision and source binding are immutable, so this
 -- reader never interprets a past Assessment Attempt through current Assessment content.
 CREATE FUNCTION ple_private.read_student_assessment_attempt_history_response_sources(
-    p_assessment_attempt_reference_number bigint
+    p_assessment_attempt_id uuid
 ) RETURNS TABLE (
     "position" integer, assessment_attempt_id uuid, student_response jsonb, backend text, question_attempt_id uuid,
     published_question_id text, revision_number integer, general_feedback text, source_object_record_id uuid, source_object_address jsonb,
@@ -257,7 +255,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
             ON assessment.assessment_id = assessment_attempt.assessment_id
           JOIN ple_private.assessment_submission
             ON assessment_submission.assessment_attempt_id = assessment_attempt.assessment_attempt_id
-         WHERE assessment_attempt.reference_number = p_assessment_attempt_reference_number
+         WHERE assessment_attempt.assessment_attempt_id = p_assessment_attempt_id
            -- ASVS 8.2.2 and 8.3.1: the trusted authorization helper proves
            -- the exact Course, Student Record, session Account, and active
            -- Student Membership without widening this private reader's table
@@ -333,7 +331,7 @@ $$;
 SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.read_student_assessment_attempt_history_response_sources(
-    p_assessment_attempt_reference_number bigint
+    p_assessment_attempt_id uuid
 ) RETURNS TABLE (
     "position" integer, assessment_attempt_id uuid, student_response jsonb, backend text, question_attempt_id uuid,
     published_question_id text, revision_number integer, general_feedback text, source_object_record_id uuid, source_object_address jsonb,
@@ -366,14 +364,14 @@ SET LOCAL ROLE ple_private_owner;
 CREATE FUNCTION ple_private.read_course_student_work_for_retention(
     p_student_record_id uuid
 ) RETURNS TABLE (
-    assessment_attempt_reference_number bigint,
+    assessment_attempt_id uuid,
     student_record_id uuid,
     assessment_id text,
     assessment_attempt_started_at timestamptz,
     assessment_submitted_at timestamptz
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_data, ple_private AS $$
-    SELECT assessment_attempt.reference_number,
+    SELECT assessment_attempt.assessment_attempt_id,
            assessment_attempt.student_record_id,
            assessment_attempt.assessment_id,
            assessment_attempt.started_at,
@@ -382,7 +380,7 @@ SET search_path = pg_catalog, ple_data, ple_private AS $$
       LEFT JOIN ple_private.assessment_submission AS submission
         ON submission.assessment_attempt_id = assessment_attempt.assessment_attempt_id
      WHERE assessment_attempt.student_record_id = p_student_record_id
-     ORDER BY assessment_attempt.reference_number
+     ORDER BY assessment_attempt.assessment_attempt_id
 $$;
 
 SET LOCAL ROLE ple_api_owner;
@@ -390,7 +388,7 @@ SET LOCAL ROLE ple_api_owner;
 CREATE FUNCTION ple_api.read_archived_course_student_work_for_retention(
     p_course_instance_id text
 ) RETURNS TABLE (
-    assessment_attempt_reference_number bigint,
+    assessment_attempt_id uuid,
     student_record_id uuid,
     assessment_id text,
     assessment_attempt_started_at timestamptz,
@@ -398,7 +396,7 @@ CREATE FUNCTION ple_api.read_archived_course_student_work_for_retention(
     student_data_archived_at timestamptz
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
-    SELECT work.assessment_attempt_reference_number,
+    SELECT work.assessment_attempt_id,
            work.student_record_id,
            work.assessment_id,
            work.assessment_attempt_started_at,

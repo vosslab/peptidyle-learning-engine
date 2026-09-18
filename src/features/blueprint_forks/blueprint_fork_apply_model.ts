@@ -11,9 +11,9 @@ export function destinationKey(value: Layout["module"] | Layout["assessments"][n
       ? value.targetModuleReference
       : "sourceModuleReference" in value
         ? value.sourceModuleReference
-        : "targetAssessmentReference" in value
-          ? value.targetAssessmentReference
-          : value.sourceAssessmentReference)
+        : "targetAssessmentId" in value
+          ? value.targetAssessmentId
+          : value.sourceAssessmentId)
   );
 }
 export function currentForkLayout(review: BlueprintComparisonView): Layout[] {
@@ -26,7 +26,7 @@ export function currentForkLayout(review: BlueprintComparisonView): Layout[] {
         .sort((a, b) => a.position - b.position)
         .map((a) => ({
           kind: "existing",
-          targetAssessmentReference: a.blueprintAssessmentReference,
+          targetAssessmentId: a.blueprintAssessmentId,
         })),
     }));
 }
@@ -56,7 +56,7 @@ export function forkSelectionProblem(
     return "Each destination may appear only once.";
   if (
     new Set(labels.map((c) => c.sourceModuleReference)).size !== labels.length ||
-    new Set(assessments.map((c) => c.sourceAssessmentReference)).size !== assessments.length
+    new Set(assessments.map((c) => c.sourceAssessmentId)).size !== assessments.length
   )
     return "Copy each source only once.";
   if (
@@ -65,9 +65,9 @@ export function forkSelectionProblem(
     ).size !== labels.filter((c) => c.targetModuleReference !== null).length ||
     new Set(
       assessments.flatMap((c) =>
-        c.targetAssessmentReference === null ? [] : [c.targetAssessmentReference],
+        c.targetAssessmentId === null ? [] : [c.targetAssessmentId],
       ),
-    ).size !== assessments.filter((c) => c.targetAssessmentReference !== null).length
+    ).size !== assessments.filter((c) => c.targetAssessmentId !== null).length
   )
     return "Choose a different target for each source copy.";
   for (const copy of labels)
@@ -85,13 +85,13 @@ export function forkSelectionProblem(
   for (const copy of assessments)
     if (
       !review.left.assessments.some(
-        (a) => a.blueprintAssessmentReference === copy.sourceAssessmentReference,
+        (a) => a.blueprintAssessmentId === copy.sourceAssessmentId,
       ) ||
       !entries.includes(
         destinationKey(
-          copy.targetAssessmentReference === null
-            ? { kind: "newFromSource", sourceAssessmentReference: copy.sourceAssessmentReference }
-            : { kind: "existing", targetAssessmentReference: copy.targetAssessmentReference },
+          copy.targetAssessmentId === null
+            ? { kind: "newFromSource", sourceAssessmentId: copy.sourceAssessmentId }
+            : { kind: "existing", targetAssessmentId: copy.targetAssessmentId },
         ),
       )
     )
@@ -114,12 +114,12 @@ export function forkSelectionProblem(
       if (
         entry.kind === "existing"
           ? !review.right.assessments.some(
-              (a) => a.blueprintAssessmentReference === entry.targetAssessmentReference,
+              (a) => a.blueprintAssessmentId === entry.targetAssessmentId,
             )
           : !assessments.some(
               (c) =>
-                c.sourceAssessmentReference === entry.sourceAssessmentReference &&
-                c.targetAssessmentReference === null,
+                c.sourceAssessmentId === entry.sourceAssessmentId &&
+                c.targetAssessmentId === null,
             )
       )
         return "Choose a valid existing Assessment or select complete content for the new copy.";

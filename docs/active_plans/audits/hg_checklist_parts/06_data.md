@@ -66,13 +66,13 @@
 - [x] The embedded checksum detects typos.
   - Evidence (test): `crates/question_model/src/public_route.rs` `public_ids_are_exact_checksum_validated_values` accepts canonical vectors and rejects altered checksum characters for every current public-ID family.
 - [x] Blueprint Course IDs use `BPXXXXXXXZ`.
-  - Evidence (source): `crates/question_model/src/public_route.rs` `BlueprintCourseReference` and `schemas/base_schema/blueprints.sql` `blueprint_course.public_reference` enforce the exact form.
+  - Evidence (source): `crates/question_model/src/public_route.rs` `BlueprintCourseId` and `schemas/base_schema/blueprints.sql` `blueprint_course.public_reference` enforce the exact form.
 - [x] Course Instance IDs use `CIXXXXXXXZ`.
-  - Evidence (source): `crates/question_model/src/public_route.rs` `CourseInstanceReference` and `schemas/base_schema/course_core.sql` `course_instance.public_reference` enforce the exact form.
+  - Evidence (source): `crates/question_model/src/public_route.rs` `CourseInstanceId` and `schemas/base_schema/course_core.sql` `course_instance.public_reference` enforce the exact form.
 - [x] Assessment IDs use `AXXXXXXXZ`.
-  - Evidence (source): `crates/question_model/src/public_route.rs` `AssessmentReference` and `schemas/base_schema/assessments.sql` `assessment.public_reference` enforce the exact form.
+  - Evidence (source): `crates/question_model/src/public_route.rs` `AssessmentId` and `schemas/base_schema/assessments.sql` `assessment.public_reference` enforce the exact form.
 - [x] Account IDs use `UXXXXXXXZ`.
-  - Evidence (source): `crates/question_model/src/public_route.rs` `AccountReference` and `schemas/base_schema/accounts.sql` `account.public_reference` enforce the exact form.
+  - Evidence (source): `crates/question_model/src/public_route.rs` `AccountId` and `schemas/base_schema/accounts.sql` `account.public_reference` enforce the exact form.
 - [x] Each prefixed public ID uses seven cryptographically random Crockford Base32 characters and a final embedded checksum.
   - Evidence (source): `schemas/base_schema/public_references.sql` `assign_human_reference` generates seven random characters, calculates the checksum over prefix plus random identity, and stores the result.
 - [x] Each prefixed public-ID random namespace contains 32^7 = 34,359,738,368 values.
@@ -96,7 +96,7 @@
 - [ ] Internal UUIDs never substitute for or appear as public identities.
   - Verification pending: owning tables separate UUID primary keys from public references, but every API, URL, export, log, and browser projection has not been inventoried.
 - [ ] Account `U` references are Sysadmin support references.
-  - Verification pending: `crates/question_model/src/public_route.rs` `AccountReference` exists, but the complete Sysadmin support workflow has not been verified as its sole human-facing use.
+  - Verification pending: `crates/question_model/src/public_route.rs` `AccountId` exists, but the complete Sysadmin support workflow has not been verified as its sole human-facing use.
 - [ ] Account `U` references are not automatically exposed to Students or Instructors.
   - Verification pending: prior source review found no ordinary Student or Instructor projection; full cross-route and browser-output verification remains pending.
 - [x] Published Questions and Question Pools use the public `XXXX-ZXXX` format.

@@ -5,15 +5,15 @@
 //! and invoke the one-way inactivity, archive, and deletion procedures.
 
 use async_trait::async_trait;
-use question_model::{CourseId, Timestamp};
+use question_model::{CourseInstanceId, Timestamp};
 
 use crate::StoreError;
 
 /// One stored retention action that is due at the supplied database instant.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CourseRetentionDueAction {
     /// The Course whose stored schedule produced this action.
-    pub course: CourseId,
+    pub course: CourseInstanceId,
     /// Closed action kind selected by the database policy function.
     pub action: CourseRetentionDueActionKind,
     /// Database-authoritative due instant.
@@ -51,21 +51,21 @@ pub trait CourseRetentionStore: Send + Sync {
     /// returns a Store error without changing the Course.
     async fn mark_course_instance_inactive(
         &self,
-        course: CourseId,
+        course: CourseInstanceId,
         evaluated_at: Timestamp,
     ) -> Result<bool, StoreError>;
 
     /// Commits the database-owned archive transition for one Course.
     async fn archive_course_student_records(
         &self,
-        course: CourseId,
+        course: CourseInstanceId,
         evaluated_at: Timestamp,
     ) -> Result<bool, StoreError>;
 
     /// Commits the database-owned deletion transition for one Course.
     async fn delete_course_student_records(
         &self,
-        course: CourseId,
+        course: CourseInstanceId,
         evaluated_at: Timestamp,
     ) -> Result<bool, StoreError>;
 }

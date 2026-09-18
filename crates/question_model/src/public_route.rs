@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::num::NonZeroU32;
 
 use crate::question_library::{QUESTION_ID_ALPHABET, public_id_checksum_character};
-use crate::{AssessmentAttemptId, AssessmentId, CourseId, StudentRecordId, WorkspaceId};
+use crate::{AssessmentAttemptId, StudentRecordId, WorkspaceId};
 
 /// Largest route number that remains compact and lossless in every product layer.
 pub const MAX_PUBLIC_ROUTE_NUMBER: u32 = i32::MAX as u32;
@@ -57,6 +57,13 @@ macro_rules! impl_public_reference {
             /// An owned copy of the exact canonical public value.
             pub fn as_string(&self) -> String {
                 self.0.clone()
+            }
+
+            /// Builds a canonical ID from a dense serial. Production minting
+            /// uses cryptographically random Crockford characters.
+            pub fn from_debug_serial(serial: u128) -> Self {
+                Self::from_random_identity(crockford_serial(serial))
+                    .expect("debug serial encodes to Crockford")
             }
         }
 
@@ -183,20 +190,20 @@ macro_rules! impl_numeric_reference {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct CourseInstanceReference(String);
+pub struct CourseInstanceId(String);
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct AssessmentReference(String);
+pub struct AssessmentId(String);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct AssessmentAttemptReference(NonZeroU32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct AuthoringWorkspaceReference(NonZeroU32);
-/// An authorized Account Reference for an existing platform account. It carries neither email nor authority.
+/// An authorized Account ID for an existing platform account. It carries neither email nor authority.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct AccountReference(String);
+pub struct AccountId(String);
 /// An authorized Course Membership Reference for one course-membership episode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
@@ -205,25 +212,35 @@ pub struct CourseMembershipReference(NonZeroU32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct CourseInvitationReference(NonZeroU32);
-/// An authorized Blueprint Course Reference for one reusable Blueprint Course.
+/// An authorized Blueprint Course ID for one reusable Blueprint Course.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct BlueprintCourseReference(String);
+pub struct BlueprintCourseId(String);
 
 impl_public_reference!(
-    CourseInstanceReference,
+    CourseInstanceId,
     "CI",
     "CI",
-    "Course Instance reference"
+    "Course Instance ID"
 );
-impl_public_reference!(AssessmentReference, "A", "A", "Assessment reference");
-impl_public_reference!(AccountReference, "U", "U", "Account reference");
+impl_public_reference!(AssessmentId, "A", "A", "Assessment ID");
+impl_public_reference!(AccountId, "U", "U", "Account ID");
 impl_public_reference!(
-    BlueprintCourseReference,
+    BlueprintCourseId,
     "BP",
     "BP",
-    "Blueprint Course reference"
+    "Blueprint Course ID"
 );
+
+fn crockford_serial(mut serial: u128) -> String {
+    let mut chars = [b'0'; 7];
+    for index in (0..7).rev() {
+        chars[index] = QUESTION_ID_ALPHABET[(serial % 32) as usize];
+        serial /= 32;
+    }
+    String::from_utf8(chars.to_vec()).expect("Crockford alphabet is ASCII")
+}
+
 impl_numeric_reference!(
     AssessmentAttemptReference,
     "R",
@@ -246,7 +263,7 @@ impl_numeric_reference!(
 );
 
 /// One authorized navigation target. IDs remain transport details after Store authorization.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(
     tag = "kind",
     rename_all = "camelCase",
@@ -254,14 +271,14 @@ impl_numeric_reference!(
 )]
 pub enum NavigationResolution {
     Course {
-        course_id: CourseId,
+        course_instance_id: CourseInstanceId,
     },
     Assessment {
-        course_id: CourseId,
+        course_instance_id: CourseInstanceId,
         assessment_id: AssessmentId,
     },
     AssessmentAttempt {
-        course_id: CourseId,
+        course_instance_id: CourseInstanceId,
         assessment_id: AssessmentId,
         student_record_id: StudentRecordId,
         assessment_attempt_id: AssessmentAttemptId,
@@ -284,16 +301,16 @@ mod tests {
             value.parse::<QuestionId>().is_ok()
         }
         fn blueprint(value: &str) -> bool {
-            value.parse::<BlueprintCourseReference>().is_ok()
+            value.parse::<BlueprintCourseId>().is_ok()
         }
         fn course(value: &str) -> bool {
-            value.parse::<CourseInstanceReference>().is_ok()
+            value.parse::<CourseInstanceId>().is_ok()
         }
         fn assessment(value: &str) -> bool {
-            value.parse::<AssessmentReference>().is_ok()
+            value.parse::<AssessmentId>().is_ok()
         }
         fn account(value: &str) -> bool {
-            value.parse::<AccountReference>().is_ok()
+            value.parse::<AccountId>().is_ok()
         }
 
         let cases: [(&str, PublicIdParser); 5] = [
@@ -318,27 +335,27 @@ mod tests {
             "ABCD-XEFG"
         );
         assert_eq!(
-            BlueprintCourseReference::from_random_identity("ABCDEFG")
+            BlueprintCourseId::from_random_identity("ABCDEFG")
                 .expect("Blueprint random identity")
                 .to_string(),
             "BPABCDEFGJ"
         );
         assert_eq!(
-            CourseInstanceReference::from_random_identity("ABCDEFG")
-                .expect("Course random identity")
+            CourseInstanceId::from_random_identity("ABCDEFG")
+                .expect("Course Instance random identity")
                 .to_string(),
             "CIABCDEFGS"
         );
-        let course: CourseInstanceReference = "CIABCDEFGS".parse().expect("Course reference");
+        let course: CourseInstanceId = "CIABCDEFGS".parse().expect("Course Instance ID");
         assert_eq!(course.as_string(), course.as_str());
         assert_eq!(
-            AssessmentReference::from_random_identity("ABCDEFG")
+            AssessmentId::from_random_identity("ABCDEFG")
                 .expect("Assessment random identity")
                 .to_string(),
             "AABCDEFG8"
         );
         assert_eq!(
-            AccountReference::from_random_identity("ABCDEFG")
+            AccountId::from_random_identity("ABCDEFG")
                 .expect("Account random identity")
                 .to_string(),
             "UABCDEFGM"

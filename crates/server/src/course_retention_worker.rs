@@ -90,17 +90,17 @@ where
         let result = match action.action {
             CourseRetentionDueActionKind::MarkInactive => {
                 retention
-                    .mark_course_instance_inactive(action.course, evaluated_at)
+                    .mark_course_instance_inactive(action.course.clone(), evaluated_at)
                     .await
             }
             CourseRetentionDueActionKind::Archive => {
                 retention
-                    .archive_course_student_records(action.course, evaluated_at)
+                    .archive_course_student_records(action.course.clone(), evaluated_at)
                     .await
             }
             CourseRetentionDueActionKind::Delete => {
                 retention
-                    .delete_course_student_records(action.course, evaluated_at)
+                    .delete_course_student_records(action.course.clone(), evaluated_at)
                     .await
             }
             CourseRetentionDueActionKind::WarnInactive

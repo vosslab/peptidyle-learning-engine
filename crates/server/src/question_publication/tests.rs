@@ -321,12 +321,8 @@ async fn publication_copies_verified_source_before_committing_its_exact_revision
         publications: Arc::clone(&publications),
     };
     let issuer = RandomQuestionIdIssuer::new();
-    let publisher = NewQuestionLineagePublisher::new(
-        object_store.clone(),
-        publication_store,
-        issuer,
-        None,
-    );
+    let publisher =
+        NewQuestionLineagePublisher::new(object_store.clone(), publication_store, issuer, None);
 
     let published = publisher
         .publish(

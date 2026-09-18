@@ -3,10 +3,10 @@
 import { useParams } from "@solidjs/router";
 import { For, Show, createResource, createSignal, onCleanup, type JSX } from "solid-js";
 
-import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
+import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { CourseGradebook, GradebookExportFormat } from "../api/live_gradebook";
 import { useApplicationApi } from "../api/application_api";
-import { parseCourseInstanceReference } from "../navigation/public_route";
+import { parseCourseInstanceId } from "../navigation/public_route";
 import { formatPointScore } from "../score_format";
 import "./instructor_data_tables.css";
 
@@ -72,7 +72,7 @@ function GradebookEvidence(props: { readonly gradebook: CourseGradebook }): JSX.
   );
 }
 
-function GradebookCoursePage(props: { readonly course: CourseInstanceReference }): JSX.Element {
+function GradebookCoursePage(props: { readonly course: CourseInstanceId }): JSX.Element {
   const runtime = useApplicationApi();
   const [gradebook] = createResource(() => props.course, runtime.client.getCourseGradebook);
   const [downloading, setDownloading] = createSignal(false);
@@ -163,8 +163,8 @@ function GradebookCoursePage(props: { readonly course: CourseInstanceReference }
 export function GradebookPage(): JSX.Element {
   const params = useParams();
   // ASVS 2.2.1/8.3.1: validate the locator here; the server retains authorization.
-  const course = (): ReturnType<typeof parseCourseInstanceReference> =>
-    parseCourseInstanceReference(params["courseRef"] ?? "");
+  const course = (): ReturnType<typeof parseCourseInstanceId> =>
+    parseCourseInstanceId(params["courseRef"] ?? "");
   return (
     <Show
       when={course()}

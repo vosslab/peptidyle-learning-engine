@@ -37,7 +37,7 @@ CREATE TABLE ple_data.course_instance (
     content_topic_id uuid,
     content_subtopic_id uuid,
     tags text[] NOT NULL CHECK (ple_data.course_classification_tags_are_valid(tags)),
-    metadata_etag uuid NOT NULL DEFAULT gen_random_uuid(),
+    course_edit_number bigint NOT NULL DEFAULT 1 CHECK (course_edit_number > 0),
     CHECK (content_topic_id IS NULL OR content_subject_id IS NOT NULL),
     CHECK (content_subtopic_id IS NULL OR content_topic_id IS NOT NULL),
     FOREIGN KEY (content_subject_id, content_discipline_id)

@@ -2,7 +2,7 @@
 
 import { createContext, useContext } from "solid-js";
 
-import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
+import type { CourseInstanceId } from "../../../generated/api/CourseInstanceId";
 import type { CourseAppearanceView } from "../../../generated/api/CourseAppearanceView";
 import type { CourseRouteView } from "../../api/contracts";
 import type { StudentAssessmentAttemptContext } from "../../api/assessment_attempt_navigation";
@@ -40,6 +40,6 @@ export function useCourseThemePresentation(): CourseThemePresentation | undefine
 
 /** Replaces a saved Course Appearance in the presentation cache for its Course. */
 export type ReplaceCourseAppearance = (
-  courseReference: CourseInstanceReference,
+  courseReference: CourseInstanceId,
   appearance: CourseAppearanceView,
 ) => void;

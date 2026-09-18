@@ -15,7 +15,7 @@ import { useSessionBootstrap } from "../../auth/session_context";
 import { courseRouteView } from "../../features/course_appearance/course_theme_context";
 import {
   assessmentRouteReference,
-  parseCourseInstanceReference,
+  parseCourseInstanceId,
   type CourseInstanceRouteReference,
 } from "../../navigation/public_route";
 import { useRouteScopeData } from "../../ribbon/route_scope_context";
@@ -51,7 +51,7 @@ export function AssessmentWorkspaceCreatePage(): JSX.Element {
   const course = (): ReturnType<typeof courseRouteView>["summary"] | undefined =>
     route()?.kind === "course" ? courseRouteView(route()!).summary : undefined;
   const courseReference = (): CourseInstanceRouteReference | null =>
-    parseCourseInstanceReference(params["courseRef"] ?? "");
+    parseCourseInstanceId(params["courseRef"] ?? "");
   const mayCreate = (): boolean => {
     const currentSession = session.state();
     const currentCourse = course();

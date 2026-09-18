@@ -69,7 +69,10 @@ BEGIN
     END IF;
 
     INSERT INTO ple_private.public_id_reservation(canonical_public_id, object_kind)
-    VALUES (p_canonical_public_id, p_object_kind);
+    VALUES (
+        p_canonical_public_id,
+        p_object_kind::ple_data.public_id_object_kind
+    );
 EXCEPTION WHEN unique_violation THEN
     -- QP001 is the shared, retryable collision signal for the common
     -- Published Question/Question Pool namespace. The existing Question

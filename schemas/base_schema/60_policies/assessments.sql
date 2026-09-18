@@ -2,6 +2,25 @@
 
 SET LOCAL ROLE ple_data_owner;
 
+ALTER TABLE ple_data.assessment_policy_snapshot ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE ple_data.assessment_policy_snapshot FORCE ROW LEVEL SECURITY;
+
+CREATE POLICY assessment_policy_snapshot_select
+    ON ple_data.assessment_policy_snapshot
+    FOR SELECT TO ple_data_owner, ple_private_owner, ple_api_owner, ple_unrelease_executor
+    USING (true);
+
+CREATE POLICY assessment_policy_snapshot_insert
+    ON ple_data.assessment_policy_snapshot
+    FOR INSERT TO ple_data_owner, ple_private_owner
+    WITH CHECK (true);
+
+CREATE POLICY assessment_policy_snapshot_immutable_update
+    ON ple_data.assessment_policy_snapshot
+    FOR UPDATE TO ple_data_owner, ple_private_owner, ple_api_owner, ple_unrelease_executor
+    USING (false) WITH CHECK (false);
+
 ALTER TABLE ple_data.assessment ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE ple_data.assessment FORCE ROW LEVEL SECURITY;
@@ -9,6 +28,14 @@ ALTER TABLE ple_data.assessment FORCE ROW LEVEL SECURITY;
 ALTER TABLE ple_data.assessment_entry ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE ple_data.assessment_entry FORCE ROW LEVEL SECURITY;
+
+ALTER TABLE ple_data.assessment_entry_question ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE ple_data.assessment_entry_question FORCE ROW LEVEL SECURITY;
+
+ALTER TABLE ple_data.assessment_entry_pool ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE ple_data.assessment_entry_pool FORCE ROW LEVEL SECURITY;
 
 ALTER TABLE ple_data.assessment_question_pool_fork ENABLE ROW LEVEL SECURITY;
 
@@ -18,6 +45,12 @@ CREATE POLICY assessment_data_owner_access ON ple_data.assessment
     FOR ALL TO ple_data_owner USING (true) WITH CHECK (true);
 
 CREATE POLICY assessment_entry_data_owner_access ON ple_data.assessment_entry
+    FOR ALL TO ple_data_owner USING (true) WITH CHECK (true);
+
+CREATE POLICY assessment_entry_question_data_owner_access ON ple_data.assessment_entry_question
+    FOR ALL TO ple_data_owner USING (true) WITH CHECK (true);
+
+CREATE POLICY assessment_entry_pool_data_owner_access ON ple_data.assessment_entry_pool
     FOR ALL TO ple_data_owner USING (true) WITH CHECK (true);
 
 CREATE POLICY assessment_question_pool_fork_data_owner_access ON ple_data.assessment_question_pool_fork
@@ -34,6 +67,12 @@ CREATE POLICY assessment_private_owner_student_work_root_lock ON ple_data.assess
     FOR UPDATE TO ple_private_owner USING (true) WITH CHECK (true);
 
 CREATE POLICY assessment_entry_private_owner_lookup ON ple_data.assessment_entry
+    FOR SELECT TO ple_private_owner USING (true);
+
+CREATE POLICY assessment_entry_question_private_owner_lookup ON ple_data.assessment_entry_question
+    FOR SELECT TO ple_private_owner USING (true);
+
+CREATE POLICY assessment_entry_pool_private_owner_lookup ON ple_data.assessment_entry_pool
     FOR SELECT TO ple_private_owner USING (true);
 
 CREATE POLICY assessment_question_pool_fork_private_owner_lookup ON ple_data.assessment_question_pool_fork
@@ -57,6 +96,22 @@ CREATE POLICY assessment_entry_api_owner_read ON ple_data.assessment_entry
     USING (EXISTS (
         SELECT 1 FROM ple_data.assessment
          WHERE assessment_id = assessment_entry.assessment_id
+           AND ple_api.current_session_account_is_course_instructor(course_instance_id)
+    ));
+
+CREATE POLICY assessment_entry_question_api_owner_read ON ple_data.assessment_entry_question
+    FOR SELECT TO ple_api_owner
+    USING (EXISTS (
+        SELECT 1 FROM ple_data.assessment
+         WHERE assessment_id = assessment_entry_question.assessment_id
+           AND ple_api.current_session_account_is_course_instructor(course_instance_id)
+    ));
+
+CREATE POLICY assessment_entry_pool_api_owner_read ON ple_data.assessment_entry_pool
+    FOR SELECT TO ple_api_owner
+    USING (EXISTS (
+        SELECT 1 FROM ple_data.assessment
+         WHERE assessment_id = assessment_entry_pool.assessment_id
            AND ple_api.current_session_account_is_course_instructor(course_instance_id)
     ));
 

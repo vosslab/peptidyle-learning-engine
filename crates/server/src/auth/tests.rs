@@ -15,7 +15,7 @@ use tower::ServiceExt;
 use uuid::Uuid;
 
 fn account() -> AccountId {
-    AccountId::from_uuid(Uuid::from_u128(2))
+    AccountId::from_debug_serial(2)
 }
 
 #[derive(Clone, Default)]

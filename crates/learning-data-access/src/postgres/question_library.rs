@@ -396,7 +396,9 @@ fn decode_entry(row: &sqlx::postgres::PgRow) -> Result<PublishedQuestionLibraryE
     })
 }
 
-fn decode_bloom(row: &sqlx::postgres::PgRow) -> Result<Option<BloomClassificationView>, StoreError> {
+fn decode_bloom(
+    row: &sqlx::postgres::PgRow,
+) -> Result<Option<BloomClassificationView>, StoreError> {
     let cognitive_process = row
         .try_get::<Option<String>, _>("bloom_cognitive_process")
         .map_err(map_sqlx_error)?;
@@ -412,9 +414,11 @@ fn decode_bloom(row: &sqlx::postgres::PgRow) -> Result<Option<BloomClassificatio
         classification_edit_number,
     ) {
         (None, None, None) => return Ok(None),
-        (Some(cognitive_process), Some(knowledge_dimension), Some(classification_edit_number)) => {
-            (cognitive_process, knowledge_dimension, classification_edit_number)
-        }
+        (Some(cognitive_process), Some(knowledge_dimension), Some(classification_edit_number)) => (
+            cognitive_process,
+            knowledge_dimension,
+            classification_edit_number,
+        ),
         _ => return Err(invalid("Bloom Classification")),
     };
     Ok(Some(BloomClassificationView {

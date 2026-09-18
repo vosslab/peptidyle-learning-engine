@@ -1,6 +1,6 @@
 // Browser capability for frozen Blueprint Change Proposal creation, review, and one decision.
 
-import type { BlueprintCourseReference } from "../../generated/api/BlueprintCourseReference";
+import type { BlueprintCourseId } from "../../generated/api/BlueprintCourseId";
 import type { BlueprintChangeProposalAcceptanceRequest } from "../../generated/api/BlueprintChangeProposalAcceptanceRequest";
 import type { BlueprintChangeProposalAcceptedView } from "../../generated/api/BlueprintChangeProposalAcceptedView";
 import type { BlueprintChangeProposalCreateRequest } from "../../generated/api/BlueprintChangeProposalCreateRequest";
@@ -10,11 +10,11 @@ import type { BlueprintChangeProposalPageView } from "../../generated/api/Bluepr
 /** Participant-only browser operations for immutable Change Proposal evidence. */
 export interface BlueprintChangeProposalClient {
   readonly createBlueprintChangeProposal: (
-    target: BlueprintCourseReference,
+    target: BlueprintCourseId,
     request: BlueprintChangeProposalCreateRequest,
   ) => Promise<BlueprintChangeProposalDetailView>;
   readonly listBlueprintChangeProposalsForTarget: (
-    target: BlueprintCourseReference,
+    target: BlueprintCourseId,
     cursor?: string,
     pageSize?: number,
   ) => Promise<BlueprintChangeProposalPageView>;

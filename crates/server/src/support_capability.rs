@@ -17,7 +17,7 @@ use learning_data_access::{
     IssueSupportRepairCapabilityInput, SessionTokenHash, StoreError, SupportRepairCapabilityStore,
     postgres::{PostgresSessionStore, PostgresSupportCapabilityStore},
 };
-use question_model::{CourseInstanceReference, ProductRole};
+use question_model::{CourseInstanceId, ProductRole};
 use std::{str::FromStr, sync::Arc};
 use uuid::Uuid;
 
@@ -56,7 +56,7 @@ async fn read_repair_roster_entry(
         Ok(value) => value,
         Err(_) => return concealed(),
     };
-    let course = match CourseInstanceReference::from_str(&reference) {
+    let course = match CourseInstanceId::from_str(&reference) {
         Ok(value) => value,
         Err(_) => return concealed(),
     };

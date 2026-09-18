@@ -1,6 +1,6 @@
 // Strict decoding for the Course Instance creation and Teaching Team boundary.
 
-import type { AccountReference } from "../../../generated/api/AccountReference";
+import type { AccountId } from "../../../generated/api/AccountId";
 import type { CourseInstanceRouteSummary } from "../../../generated/api/CourseInstanceRouteSummary";
 import type { CreateBlueprintFromCourseInstanceInput } from "../../../generated/api/CreateBlueprintFromCourseInstanceInput";
 import { COURSE_THEME_VALUES } from "../../../generated/api/CourseTheme";
@@ -12,6 +12,7 @@ import type {
   CreateCourseInstanceInput,
   CreatedCourseInstance,
 } from "../course_instance";
+import type { CourseEditNumber } from "../../../generated/api/CourseEditNumber";
 import {
   DecodeError,
   decodeArray,
@@ -20,21 +21,28 @@ import {
   decodeString,
   decodeStringEnum,
 } from "../decoder";
-import { decodeBlueprintCourseReference, decodeBlueprintRevision } from "./blueprint_course";
-import { isCanonicalAccountReference } from "./instructor_account";
+import { decodeBlueprintCourseId, decodeBlueprintRevision } from "./blueprint_course";
+import { isCanonicalAccountId } from "./instructor_account";
 import { decodeCourseTerm } from "./course_term";
 import { decodeCourseClassification } from "./course_classification";
-import { decodeUuid } from "../decoder";
 import {
-  decodeCourseInstanceReference,
+  decodeCourseInstanceId,
   decodeCourseName,
   field,
   requireOnlyFields,
 } from "./shared";
 
-function accountReference(value: unknown, path: string): AccountReference {
+function courseEditNumber(value: unknown, path: string): CourseEditNumber {
   const decoded = decodeString(value, path);
-  if (!isCanonicalAccountReference(decoded)) {
+  if (!/^[1-9][0-9]*$/u.test(decoded) || BigInt(decoded) > 9_223_372_036_854_775_807n) {
+    throw new DecodeError(path, "a positive Course Edit Number");
+  }
+  return decoded;
+}
+
+function accountReference(value: unknown, path: string): AccountId {
+  const decoded = decodeString(value, path);
+  if (!isCanonicalAccountId(decoded)) {
     throw new DecodeError(path, "a canonical Account public reference");
   }
   return decoded;
@@ -50,7 +58,7 @@ function summary(value: unknown, path: string): CourseInstanceSummary {
     "theme",
     "classification",
     "lifecycleState",
-    "metadataEtag",
+    "courseEditNumber",
   ]);
   return {
     classification: decodeCourseClassification(
@@ -62,8 +70,11 @@ function summary(value: unknown, path: string): CourseInstanceSummary {
       `${path}.lifecycleState`,
       ["active", "inactive"] as const,
     ),
-    metadataEtag: decodeUuid(field(record, "metadataEtag", path), `${path}.metadataEtag`),
-    reference: decodeCourseInstanceReference(field(record, "reference", path), `${path}.reference`),
+    courseEditNumber: courseEditNumber(
+      field(record, "courseEditNumber", path),
+      `${path}.courseEditNumber`,
+    ),
+    reference: decodeCourseInstanceId(field(record, "reference", path), `${path}.reference`),
     shortName: decodeCourseName(field(record, "shortName", path), `${path}.shortName`),
     longName: decodeCourseName(field(record, "longName", path), `${path}.longName`),
     term: decodeCourseTerm(field(record, "term", path), `${path}.term`),
@@ -91,7 +102,7 @@ export function decodeCourseInstanceRouteSummary(
       field(record, "classification", path),
       `${path}.classification`,
     ),
-    reference: decodeCourseInstanceReference(field(record, "reference", path), `${path}.reference`),
+    reference: decodeCourseInstanceId(field(record, "reference", path), `${path}.reference`),
     shortName: decodeCourseName(field(record, "shortName", path), `${path}.shortName`),
     longName: decodeCourseName(field(record, "longName", path), `${path}.longName`),
     term: decodeCourseTerm(field(record, "term", path), `${path}.term`),
@@ -128,7 +139,7 @@ export function decodeCreateCourseInstanceInput(
     requireOnlyFields(sourceRecord, sourcePath, ["kind", "blueprintCourse", "blueprintRevision"]);
     source = {
       kind,
-      blueprintCourse: decodeBlueprintCourseReference(
+      blueprintCourse: decodeBlueprintCourseId(
         field(sourceRecord, "blueprintCourse", sourcePath),
         `${sourcePath}.blueprintCourse`,
       ),
@@ -195,7 +206,7 @@ export function decodeCourseInstanceView(value: unknown, path = "response"): Cou
     const origin = decodeRecord(originValue, originPath);
     requireOnlyFields(origin, originPath, ["reference", "adoptedRevision", "currentRevision"]);
     blueprintOrigin = {
-      reference: decodeBlueprintCourseReference(
+      reference: decodeBlueprintCourseId(
         field(origin, "reference", originPath),
         `${originPath}.reference`,
       ),

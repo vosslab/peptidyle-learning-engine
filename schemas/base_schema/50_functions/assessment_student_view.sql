@@ -122,15 +122,21 @@ BEGIN
            AND entry.availability = 'available'
            AND (
                (entry.entry_kind = 'fixed_question'
-                AND entry.published_question_id = p_published_question_id
-                AND entry.question_revision_number = p_question_revision_number)
+                AND EXISTS (
+                    SELECT 1
+                      FROM ple_data.assessment_entry_question AS question
+                     WHERE question.assessment_entry_id = entry.assessment_entry_id
+                       AND question.published_question_id = p_published_question_id
+                       AND question.question_revision_number = p_question_revision_number
+                ))
                OR
                (entry.entry_kind = 'question_pool'
                 AND EXISTS (
                     SELECT 1
-                      FROM ple_data.question_pool_revision_member AS member
-                     WHERE member.question_pool_id = entry.question_pool_id
-                       AND member.revision_number = entry.question_pool_revision_number
+                      FROM ple_data.assessment_entry_pool AS pool_entry
+                      JOIN ple_data.question_pool_member AS member
+                        ON member.question_pool_id = pool_entry.question_pool_id
+                     WHERE pool_entry.assessment_entry_id = entry.assessment_entry_id
                        AND member.published_question_id = p_published_question_id
                        AND member.question_revision_number = p_question_revision_number
                 ))

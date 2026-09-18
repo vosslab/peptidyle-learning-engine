@@ -20,7 +20,7 @@ import {
 export const MAX_QUESTION_PICKER_SELECTION_CAP = 1024;
 
 /** Stable browser References for one retained Course Instance Assessment. */
-export interface RetainedAssessmentReference {
+export interface RetainedAssessmentId {
   readonly course: string;
   readonly assessment: string;
 }
@@ -35,7 +35,7 @@ export type QuestionPickerSource =
   | {
       readonly kind: "retainedAssessment";
       readonly label: string;
-      readonly retainedAssessment: RetainedAssessmentReference;
+      readonly retainedAssessment: RetainedAssessmentId;
     }
   | {
       readonly kind: "blueprintCourseAssessment";

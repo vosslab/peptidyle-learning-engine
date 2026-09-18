@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::{
-    BlueprintAssessmentContent, BlueprintAssessmentReference, BlueprintCourseContent,
+    BlueprintAssessmentContent, BlueprintAssessmentId, BlueprintCourseContent,
     BlueprintCourseModuleContent, BlueprintCourseValidationError, BlueprintModuleReference,
 };
 
@@ -46,10 +46,10 @@ pub struct BlueprintForkApplyModuleLabelCopy {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BlueprintForkApplyAssessmentCopy {
     /// Assessment in the readable current source.
-    pub source_assessment_reference: BlueprintAssessmentReference,
+    pub source_assessment_reference: BlueprintAssessmentId,
     /// Existing target-local Assessment; null explicitly requests a new copy.
     #[serde(deserialize_with = "deserialize_explicit_target")]
-    pub target_assessment_reference: Option<BlueprintAssessmentReference>,
+    pub target_assessment_reference: Option<BlueprintAssessmentId>,
 }
 
 // ASVS 1.5.2: a missing target is not the explicit null new-copy choice.
@@ -94,12 +94,12 @@ pub enum BlueprintForkApplyAssessmentDestination {
     /// Retains a target-local Assessment ID.
     Existing {
         /// Assessment already in the target.
-        target_assessment_reference: BlueprintAssessmentReference,
+        target_assessment_reference: BlueprintAssessmentId,
     },
     /// Allocates a fresh target-local ID for selected complete source content.
     NewFromSource {
         /// Source Assessment selected for copying.
-        source_assessment_reference: BlueprintAssessmentReference,
+        source_assessment_reference: BlueprintAssessmentId,
     },
 }
 
@@ -109,11 +109,11 @@ pub enum BlueprintForkApplyError {
     /// A supplied tree, selection, or layout repeats a module identity.
     DuplicateModuleReference,
     /// A supplied tree, selection, or layout repeats an Assessment identity.
-    DuplicateAssessmentReference,
+    DuplicateAssessmentId,
     /// A selected source label or destination module does not exist on the required side.
     UnknownModuleReference,
     /// A selected source Assessment or destination Assessment does not exist on the required side.
-    UnknownAssessmentReference,
+    UnknownAssessmentId,
     /// A destination source-only module needs an explicit source-label choice.
     MissingSourceModuleLabelSelection,
     /// A destination source-only Assessment needs an explicit complete source-content choice.
@@ -132,13 +132,13 @@ impl std::fmt::Display for BlueprintForkApplyError {
             Self::DuplicateModuleReference => {
                 formatter.write_str("Blueprint apply repeats a module reference")
             }
-            Self::DuplicateAssessmentReference => {
+            Self::DuplicateAssessmentId => {
                 formatter.write_str("Blueprint apply repeats an Assessment reference")
             }
             Self::UnknownModuleReference => {
                 formatter.write_str("Blueprint apply has an unknown module reference")
             }
-            Self::UnknownAssessmentReference => {
+            Self::UnknownAssessmentId => {
                 formatter.write_str("Blueprint apply has an unknown Assessment reference")
             }
             Self::MissingSourceModuleLabelSelection => formatter.write_str(
@@ -162,7 +162,7 @@ impl std::error::Error for BlueprintForkApplyError {}
 
 struct ContentIndex<'a> {
     modules: BTreeMap<BlueprintModuleReference, &'a BlueprintCourseModuleContent>,
-    assessments: BTreeMap<BlueprintAssessmentReference, &'a BlueprintAssessmentContent>,
+    assessments: BTreeMap<BlueprintAssessmentId, &'a BlueprintAssessmentContent>,
 }
 
 impl<'a> ContentIndex<'a> {
@@ -185,7 +185,7 @@ impl<'a> ContentIndex<'a> {
                     .insert(assessment.blueprint_assessment_reference(), assessment)
                     .is_some()
                 {
-                    return Err(BlueprintForkApplyError::DuplicateAssessmentReference);
+                    return Err(BlueprintForkApplyError::DuplicateAssessmentId);
                 }
             }
         }
@@ -215,7 +215,7 @@ pub fn apply_blueprint_fork(
     target: &BlueprintCourseContent,
     selection: &BlueprintForkApplySelection,
     new_modules: &BTreeMap<BlueprintModuleReference, BlueprintModuleReference>,
-    new_assessments: &BTreeMap<BlueprintAssessmentReference, BlueprintAssessmentReference>,
+    new_assessments: &BTreeMap<BlueprintAssessmentId, BlueprintAssessmentId>,
 ) -> Result<BlueprintCourseContent, BlueprintForkApplyError> {
     // An explicit fork layout remains an ordinary authored replacement tree.
     // Trusted C419 persistence may represent an empty Course, but fork apply
@@ -260,23 +260,23 @@ pub fn apply_blueprint_fork(
     }
     for copy in &selection.source_assessments {
         if !assessment_sources.insert(copy.source_assessment_reference) {
-            return Err(BlueprintForkApplyError::DuplicateAssessmentReference);
+            return Err(BlueprintForkApplyError::DuplicateAssessmentId);
         }
         if !source_index
             .assessments
             .contains_key(&copy.source_assessment_reference)
         {
-            return Err(BlueprintForkApplyError::UnknownAssessmentReference);
+            return Err(BlueprintForkApplyError::UnknownAssessmentId);
         }
         if let Some(reference) = copy.target_assessment_reference {
             if !target_index.assessments.contains_key(&reference) {
-                return Err(BlueprintForkApplyError::UnknownAssessmentReference);
+                return Err(BlueprintForkApplyError::UnknownAssessmentId);
             }
             if assessment_copies
                 .insert(reference, copy.source_assessment_reference)
                 .is_some()
             {
-                return Err(BlueprintForkApplyError::DuplicateAssessmentReference);
+                return Err(BlueprintForkApplyError::DuplicateAssessmentId);
             }
         } else {
             new_assessment_sources.insert(copy.source_assessment_reference);
@@ -369,7 +369,7 @@ pub fn apply_blueprint_fork(
                     let original = target_index
                         .assessments
                         .get(&target_assessment_reference)
-                        .ok_or(BlueprintForkApplyError::UnknownAssessmentReference)?;
+                        .ok_or(BlueprintForkApplyError::UnknownAssessmentId)?;
                     let content = assessment_copies
                         .get(&target_assessment_reference)
                         .map_or(*original, |source| source_index.assessments[source]);
@@ -388,7 +388,7 @@ pub fn apply_blueprint_fork(
                 }
             };
             if !destination_assessments.insert(reference) {
-                return Err(BlueprintForkApplyError::DuplicateAssessmentReference);
+                return Err(BlueprintForkApplyError::DuplicateAssessmentId);
             }
             assessments.push(
                 BlueprintAssessmentContent::new(

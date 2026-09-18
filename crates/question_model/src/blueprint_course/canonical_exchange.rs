@@ -418,7 +418,7 @@ mod tests {
     use super::*;
     use crate::{
         AssessmentActivityRules, AssessmentTitle, BlueprintAssessmentContent,
-        BlueprintAssessmentReference, BlueprintCourseModuleContent, BlueprintModuleReference,
+        BlueprintAssessmentId, BlueprintCourseModuleContent, BlueprintModuleReference,
         BlueprintQuestionPoolContent, LateWorkRule, QuestionPoolRevisionNumber,
         QuestionPoolRevisionReference, QuestionPoolSelectedQuestionOrder, QuestionRevisionNumber,
         StudentFeedbackReleaseRule,
@@ -451,7 +451,7 @@ mod tests {
                 "Module 1".to_owned(),
                 vec![
                     BlueprintAssessmentContent::new(
-                        BlueprintAssessmentReference::from_uuid(Uuid::from_u128(2)),
+                        BlueprintAssessmentId::from_uuid(Uuid::from_u128(2)),
                         crate::AssessmentType::Quiz,
                         AssessmentTitle::try_new("Structure check".to_owned()).expect("title"),
                         AssessmentInstructions::try_new("Explain each choice.".to_owned())

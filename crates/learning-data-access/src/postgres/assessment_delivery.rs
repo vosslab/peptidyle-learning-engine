@@ -14,8 +14,8 @@ use crate::{
 };
 use async_trait::async_trait;
 use question_model::{
-    AssessmentAttemptReference, AssessmentReference, CourseInstanceReference,
-    QuestionRevisionNumber, StudentAssessmentAttemptPosition, StudentAssessmentAttemptProgress,
+    AssessmentAttemptId, AssessmentId, CourseInstanceId, QuestionRevisionNumber,
+    StudentAssessmentAttemptPosition, StudentAssessmentAttemptProgress,
     StudentAssessmentAttemptResponseState, StudentResponse,
 };
 use sqlx::{Postgres, Row, Transaction};
@@ -64,11 +64,11 @@ impl PostgresLiveAssessmentDeliveryStore {
 
     pub(super) async fn optional_active_attempt_reference(
         tx: &mut Transaction<'_, Postgres>,
-        course: CourseInstanceReference,
-        assessment: AssessmentReference,
-    ) -> Result<Option<AssessmentAttemptReference>, StoreError> {
+        course: CourseInstanceId,
+        assessment: AssessmentId,
+    ) -> Result<Option<AssessmentAttemptId>, StoreError> {
         let row = sqlx::query(
-            "SELECT assessment_attempt_reference_number \
+            "SELECT assessment_attempt_id \
              FROM ple_api.read_active_student_assessment_attempt_reference($1, $2)",
         )
         .bind(course.as_string())
@@ -79,24 +79,14 @@ impl PostgresLiveAssessmentDeliveryStore {
         let Some(row) = row else {
             return Ok(None);
         };
-        let number = row
-            .try_get::<i64, _>("assessment_attempt_reference_number")
-            .map_err(map_sqlx_error)?;
-        let number = u64::try_from(number).map_err(|_| {
-            StoreError::InvalidRecord("Assessment Attempt reference is invalid".to_string())
-        })?;
-        AssessmentAttemptReference::new(number)
-            .map(Some)
-            .ok_or_else(|| {
-                StoreError::InvalidRecord("Assessment Attempt reference is invalid".to_string())
-            })
+        Ok(Some(decode_assessment_attempt_id(&row)?))
     }
 
     async fn start_current_assessment_attempt(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceReference,
-        assessment: AssessmentReference,
+        course: CourseInstanceId,
+        assessment: AssessmentId,
     ) -> Result<crate::AssessmentAttemptStartResult, StoreError> {
         super::assessment_delivery_start::start_current_assessment_attempt(
             self, token, course, assessment,
@@ -110,7 +100,7 @@ async fn read_committed_assessment_attempt(
     assessment_attempt_id: Uuid,
 ) -> Result<LiveAssessmentAttempt, StoreError> {
     let header = sqlx::query(
-        "SELECT assessment_attempt_reference_number, course_reference_number, assessment_reference_number, \
+        "SELECT assessment_attempt_id, course_reference_number, assessment_reference_number, \
          assessment_attempt_number, assessment_title, assessment_instructions \
          FROM ple_api.read_started_student_assessment_attempt($1)",
     )
@@ -127,20 +117,8 @@ async fn read_committed_assessment_attempt(
     .fetch_all(&mut **tx)
     .await
     .map_err(map_sqlx_error)?;
-    let assessment_attempt = AssessmentAttemptReference::new(
-        u64::try_from(
-            header
-                .try_get::<i64, _>("assessment_attempt_reference_number")
-                .map_err(map_sqlx_error)?,
-        )
-        .map_err(|_| {
-            StoreError::InvalidRecord("Assessment Attempt reference is invalid".to_string())
-        })?,
-    )
-    .ok_or_else(|| {
-        StoreError::InvalidRecord("Assessment Attempt reference is invalid".to_string())
-    })?;
-    let assessment = AssessmentReference::new(
+    let assessment_attempt = decode_assessment_attempt_id(&header)?;
+    let assessment = AssessmentId::new(
         header
             .try_get::<String, _>("assessment_reference_number")
             .map_err(map_sqlx_error)?,
@@ -311,7 +289,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
     async fn student_assessment_attempt_context(
         &self,
         token: SessionTokenHash,
-        assessment_attempt: AssessmentAttemptReference,
+        assessment_attempt: AssessmentAttemptId,
     ) -> Result<crate::StudentAssessmentAttemptContext, StoreError> {
         self.read_student_assessment_attempt_context(token, assessment_attempt)
             .await
@@ -320,7 +298,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
     async fn save_student_assessment_attempt_response(
         &self,
         token: SessionTokenHash,
-        assessment_attempt: AssessmentAttemptReference,
+        assessment_attempt: AssessmentAttemptId,
         position: u32,
         response: StudentResponse,
     ) -> Result<StudentAssessmentAttemptSavedResponse, StoreError> {
@@ -333,16 +311,16 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
         })?;
         let mut tx = self.begin(token).await?;
         let row = sqlx::query(
-            "SELECT assessment_attempt_reference_number, issued_position, response_state \
+            "SELECT assessment_attempt_id, issued_position, response_state \
              FROM ple_api.save_student_assessment_attempt_response($1, $2, $3)",
         )
-        .bind(i64::from(assessment_attempt.number()))
+        .bind(assessment_attempt.as_uuid())
         .bind(position)
         .bind(response)
         .fetch_one(&mut *tx)
         .await
         .map_err(map_sqlx_error)?;
-        let returned_attempt = assessment_attempt_reference(&row)?;
+        let returned_attempt = decode_assessment_attempt_id(&row)?;
         let response_state = row
             .try_get::<String, _>("response_state")
             .map_err(map_sqlx_error)?;
@@ -374,7 +352,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
     async fn student_assessment_attempt_saved_response(
         &self,
         token: SessionTokenHash,
-        assessment_attempt: AssessmentAttemptReference,
+        assessment_attempt: AssessmentAttemptId,
         position: u32,
     ) -> Result<Option<StudentResponse>, StoreError> {
         let position = positive_position(position)?;
@@ -386,7 +364,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
             "SELECT issued_position, student_response \
              FROM ple_api.read_student_assessment_attempt_saved_response($1, $2)",
         )
-        .bind(i64::from(assessment_attempt.number()))
+        .bind(assessment_attempt.as_uuid())
         .bind(position)
         .fetch_optional(&mut *tx)
         .await
@@ -413,7 +391,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
     async fn prepare_student_assessment_attempt_finalization(
         &self,
         token: SessionTokenHash,
-        assessment_attempt: AssessmentAttemptReference,
+        assessment_attempt: AssessmentAttemptId,
     ) -> Result<StudentAssessmentAttemptFinalizationPreparationOutcome, StoreError> {
         super::assessment_delivery_finalization::prepare(self, token, assessment_attempt).await
     }
@@ -421,7 +399,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
     async fn commit_student_assessment_attempt_finalization(
         &self,
         token: SessionTokenHash,
-        assessment_attempt: AssessmentAttemptReference,
+        assessment_attempt: AssessmentAttemptId,
         preparation: StudentAssessmentAttemptFinalizationPreparation,
         evaluations: Vec<StudentAssessmentAttemptFinalizationEvaluation>,
     ) -> Result<StudentAssessmentAttemptFinalization, StoreError> {
@@ -438,14 +416,14 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
     async fn student_assessment_attempt_progress(
         &self,
         token: SessionTokenHash,
-        assessment_attempt: AssessmentAttemptReference,
+        assessment_attempt: AssessmentAttemptId,
     ) -> Result<StudentAssessmentAttemptProgress, StoreError> {
         let mut tx = self.begin(token).await?;
         let rows = sqlx::query(
-            "SELECT assessment_attempt_reference_number, question_count, recommended_position, issued_position, response_state \
+            "SELECT assessment_attempt_id, question_count, recommended_position, issued_position, response_state \
              FROM ple_api.read_student_assessment_attempt_progress($1)",
         )
-        .bind(i64::from(assessment_attempt.number()))
+        .bind(assessment_attempt.as_uuid())
         .fetch_all(&mut *tx)
         .await
         .map_err(map_sqlx_error)?;
@@ -488,7 +466,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
     async fn student_assessment_attempt_presentation_evidence(
         &self,
         token: SessionTokenHash,
-        assessment_attempt: AssessmentAttemptReference,
+        assessment_attempt: AssessmentAttemptId,
         position: u32,
     ) -> Result<StudentAssessmentAttemptPresentationEvidence, StoreError> {
         let position = i32::try_from(position).map_err(|_| StoreError::NotFound)?;
@@ -501,7 +479,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
              question_asset_renditions, response_item_bindings \
              FROM ple_api.read_student_assessment_attempt_presentation_evidence($1, $2)",
         )
-        .bind(i64::from(assessment_attempt.number()))
+        .bind(assessment_attempt.as_uuid())
         .bind(position)
         .fetch_optional(&mut *tx)
         .await
@@ -515,7 +493,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
     async fn student_assessment_attempt_backend_document(
         &self,
         token: SessionTokenHash,
-        assessment_attempt: AssessmentAttemptReference,
+        assessment_attempt: AssessmentAttemptId,
         position: u32,
     ) -> Result<StudentAssessmentAttemptBackendDocument, StoreError> {
         let position = i32::try_from(position).map_err(|_| StoreError::NotFound)?;
@@ -529,7 +507,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
                     source_object_checksum, webwork_pg_path, student_response \
              FROM ple_api.read_student_assessment_attempt_backend_document($1, $2)",
         )
-        .bind(i64::from(assessment_attempt.number()))
+        .bind(assessment_attempt.as_uuid())
         .bind(position)
         .fetch_optional(&mut *tx)
         .await
@@ -616,8 +594,8 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
     async fn prepare_native_assessment_issuance(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceReference,
-        assessment: AssessmentReference,
+        course: CourseInstanceId,
+        assessment: AssessmentId,
     ) -> Result<NativeAssessmentIssuanceBatch, StoreError> {
         let started = self
             .start_current_assessment_attempt(token, course, assessment)
@@ -817,8 +795,8 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
     async fn live_assessment_access(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceReference,
-        assessment: AssessmentReference,
+        course: CourseInstanceId,
+        assessment: AssessmentId,
     ) -> Result<LiveAssessmentAccess, StoreError> {
         super::assessment_delivery_access::read(self, token, course, assessment).await
     }
@@ -826,7 +804,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
     async fn student_assessment_attempt_history(
         &self,
         token: SessionTokenHash,
-        assessment_attempt: AssessmentAttemptReference,
+        assessment_attempt: AssessmentAttemptId,
     ) -> Result<StudentAssessmentAttemptHistoryEvidence, StoreError> {
         super::assessment_delivery_history::read(self, token, assessment_attempt).await
     }
@@ -834,7 +812,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
     async fn student_assessment_attempt_history_response_sources(
         &self,
         token: SessionTokenHash,
-        assessment_attempt: AssessmentAttemptReference,
+        assessment_attempt: AssessmentAttemptId,
     ) -> Result<Vec<StudentAssessmentAttemptHistoryResponseSource>, StoreError> {
         super::assessment_delivery_history_response::read(self, token, assessment_attempt).await
     }
@@ -858,18 +836,12 @@ fn positive_position(position: u32) -> Result<i32, StoreError> {
         .ok_or_else(|| StoreError::InvalidRecord("Issued Question position is invalid".to_string()))
 }
 
-fn assessment_attempt_reference(
+fn decode_assessment_attempt_id(
     row: &sqlx::postgres::PgRow,
-) -> Result<AssessmentAttemptReference, StoreError> {
-    let number = row
-        .try_get::<i64, _>("assessment_attempt_reference_number")
-        .map_err(map_sqlx_error)?;
-    let number = u64::try_from(number).map_err(|_| {
-        StoreError::InvalidRecord("Assessment Attempt reference is invalid".to_string())
-    })?;
-    AssessmentAttemptReference::new(number).ok_or_else(|| {
-        StoreError::InvalidRecord("Assessment Attempt reference is invalid".to_string())
-    })
+) -> Result<AssessmentAttemptId, StoreError> {
+    row.try_get::<Uuid, _>("assessment_attempt_id")
+        .map(AssessmentAttemptId::from_uuid)
+        .map_err(map_sqlx_error)
 }
 
 pub(super) use super::assessment_delivery_finalization::finalization_source_from_row;

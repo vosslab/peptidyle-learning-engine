@@ -6,9 +6,9 @@ GRANT REFERENCES ON TABLE ple_data.course_theme TO ple_api_owner;
 
 SET LOCAL ROLE ple_api_owner;
 
-REVOKE ALL ON FUNCTION ple_api.update_course_classification(text, uuid, uuid, uuid, uuid, uuid, text[]) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_api.update_course_classification(text, bigint, uuid, uuid, uuid, uuid, text[]) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_api.update_course_classification(text, uuid, uuid, uuid, uuid, uuid, text[]) TO ple_app;
+GRANT EXECUTE ON FUNCTION ple_api.update_course_classification(text, bigint, uuid, uuid, uuid, uuid, text[]) TO ple_app;
 
 REVOKE ALL ON FUNCTION ple_api.read_course_theme(text), ple_api.update_course_theme(text, text),
     ple_api.resolve_course_navigation(text), ple_api.read_course_summary(text),

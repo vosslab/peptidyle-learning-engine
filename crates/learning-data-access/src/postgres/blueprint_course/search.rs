@@ -1,6 +1,6 @@
 //! Bound classification discovery and stable Blueprint continuation.
 
-use question_model::BlueprintCourseReference;
+use question_model::BlueprintCourseId;
 
 use super::{PostgresBlueprintCourseStore, decode_summary, invalid, map_sqlx_error};
 use crate::{SessionTokenHash, StoreError, StoredBlueprintCourseSummary};
@@ -11,7 +11,7 @@ impl PostgresBlueprintCourseStore {
         session: SessionTokenHash,
         request: crate::BlueprintCourseListRequest,
     ) -> Result<crate::Page<StoredBlueprintCourseSummary>, StoreError> {
-        let after: Option<(String, BlueprintCourseReference)> = request
+        let after: Option<(String, BlueprintCourseId)> = request
             .page
             .after
             .as_ref()

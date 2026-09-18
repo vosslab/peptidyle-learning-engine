@@ -168,7 +168,7 @@ export function mountStudentCourseEntryM6Harness(
       listLiveStudentCourses: () => Promise.resolve(courses),
       startLiveAssessment: () =>
         Promise.resolve({
-          assessmentAttempt: "R-6",
+          assessmentAttempt: "00000000-0000-0000-0000-000000000006",
           assessment: ASSESSMENT.reference,
           attemptNumber: ASSESSMENT.assessmentAttemptNumber,
           resumed: true,
@@ -192,7 +192,7 @@ export function mountStudentCourseEntryM6Harness(
         if (item === undefined) throw new Error("Unknown harness Coursework");
         return Promise.resolve({
           decision: item.decision,
-          activeAssessmentAttempt: item.canResumeAssessmentAttempt ? "R-6" : null,
+          activeAssessmentAttempt: item.canResumeAssessmentAttempt ? "00000000-0000-0000-0000-000000000006" : null,
           title: item.title,
           assessmentType: item.assessmentType,
           questionCount: item.questionCount,
@@ -201,7 +201,7 @@ export function mountStudentCourseEntryM6Harness(
             item.assessmentAttemptCompletion === "completed"
               ? [
                   {
-                    assessmentAttempt: "R-5",
+                    assessmentAttempt: "00000000-0000-0000-0000-000000000005",
                     attemptNumber: 1,
                     state: "submitted",
                     score: item.assessmentScore,
@@ -230,7 +230,7 @@ export function mountStudentCourseEntryM6Harness(
       assessmentAttemptScope: query(
         (_reference: AssessmentAttemptRouteReference): Promise<StudentAssessmentAttemptContext> =>
           Promise.resolve({
-            assessmentAttempt: "R-6",
+            assessmentAttempt: "00000000-0000-0000-0000-000000000006",
             attemptNumber: ASSESSMENT.assessmentAttemptNumber ?? 1,
             displayTimeZone: ASSESSMENT_DECISION.displayTimeZone,
             expiresAt: null,
@@ -243,7 +243,7 @@ export function mountStudentCourseEntryM6Harness(
       assessmentAttemptHistory: query(
         (_reference: AssessmentAttemptRouteReference): Promise<StudentAssessmentAttemptHistory> =>
           Promise.resolve({
-            assessmentAttempt: "R-5",
+            assessmentAttempt: "00000000-0000-0000-0000-000000000005",
             attemptNumber: 1,
             course: { ...COURSE_ONE, theme: "ocean" },
             assessment: { reference: BONUS_ASSESSMENT.reference, title: BONUS_ASSESSMENT.title },

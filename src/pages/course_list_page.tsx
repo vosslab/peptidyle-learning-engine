@@ -14,7 +14,7 @@ import { useSessionBootstrap } from "../auth/session_context";
 import { courseThemeTokens } from "../features/course_appearance/course_theme_registry";
 import {
   courseInstanceRouteReference,
-  parseBlueprintCourseReference,
+  parseBlueprintCourseId,
 } from "../navigation/public_route";
 import { StudentCoursesPage } from "./student_courses_page";
 import {
@@ -127,7 +127,7 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
   );
   const [creationSource, setCreationSource] = createSignal<"empty" | "adopted">(
     typeof searchParams.blueprint === "string" &&
-      parseBlueprintCourseReference(searchParams.blueprint) !== null
+      parseBlueprintCourseId(searchParams.blueprint) !== null
       ? "adopted"
       : "empty",
   );
@@ -145,7 +145,7 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
       if (!isInstructor() || creationSource() !== "adopted") return false;
       // ASVS 2.2.1: only canonical Blueprint references enter the exact-source request.
       return typeof searchParams.blueprint === "string"
-        ? (parseBlueprintCourseReference(searchParams.blueprint) ?? false)
+        ? (parseBlueprintCourseId(searchParams.blueprint) ?? false)
         : false;
     },
     async (reference) =>

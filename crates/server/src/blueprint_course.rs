@@ -29,8 +29,8 @@ use learning_data_access::{
 use objects::s3::S3ObjectStore;
 use question_model::{
     BlueprintAssessmentContentView, BlueprintAssessmentEntryView,
-    BlueprintCourseAssessmentContentView, BlueprintCourseReference, BlueprintCourseSummaryView,
-    BlueprintCourseView, BlueprintMetadataEtag, BlueprintModuleView, BlueprintRevision,
+    BlueprintCourseAssessmentContentView, BlueprintCourseId, BlueprintCourseSummaryView,
+    BlueprintCourseView, BlueprintEditNumber, BlueprintModuleView, BlueprintRevision,
     BlueprintRevisionReference, CreateBlueprintCourseInput, QuestionId, QuestionRevisionReference,
     QuestionSearchResult, RenameBlueprintCourseInput, ReplaceBlueprintCourseContentInput,
     RequestChecksum, ReusablePoolView, ReusableQuestionView, ReusableSelectionAvailability,
@@ -218,7 +218,7 @@ async fn update_classification(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let expected = match expected_metadata_etag(&headers) {
+    let expected = match expected_edit_number(&headers) {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -327,7 +327,7 @@ async fn rename_blueprint(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let expected = match expected_metadata_etag(&headers) {
+    let expected = match expected_edit_number(&headers) {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -464,7 +464,7 @@ async fn transition_availability(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let expected = match expected_metadata_etag(headers) {
+    let expected = match expected_edit_number(headers) {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -513,7 +513,7 @@ pub(super) enum RouteLoadError {
 pub(super) async fn load_view(
     state: &BlueprintCourseRouteState,
     session: SessionTokenHash,
-    reference: BlueprintCourseReference,
+    reference: BlueprintCourseId,
 ) -> Result<BlueprintCourseView, RouteLoadError> {
     view_from_record(
         state,
@@ -537,7 +537,7 @@ async fn view_from_record(
         short_name: record.short_name,
         long_name: record.long_name,
         availability: record.availability,
-        metadata_etag: record.metadata_etag,
+        blueprint_edit_number: record.blueprint_edit_number,
         current_revision: BlueprintRevisionReference {
             reference: record.reference,
             revision: record.current_revision,
@@ -558,7 +558,7 @@ fn summary_view(
         short_name: record.short_name,
         long_name: record.long_name,
         availability: record.availability,
-        metadata_etag: record.metadata_etag,
+        blueprint_edit_number: record.blueprint_edit_number,
         current_revision: BlueprintRevisionReference {
             reference: record.reference,
             revision: record.current_revision,
@@ -765,7 +765,7 @@ fn valid_assessment_question_ids(input: &question_model::BlueprintAssessmentCont
     })
 }
 
-pub(super) fn parse_reference(value: &str) -> Result<BlueprintCourseReference, Box<Response>> {
+pub(super) fn parse_reference(value: &str) -> Result<BlueprintCourseId, Box<Response>> {
     value.parse().map_err(|_| Box::new(concealed()))
 }
 fn quoted_if_match(headers: &HeaderMap) -> Result<&str, Box<Response>> {
@@ -794,7 +794,7 @@ fn expected_revision(headers: &HeaderMap) -> Result<BlueprintRevision, Box<Respo
         ))
     })
 }
-fn expected_metadata_etag(headers: &HeaderMap) -> Result<BlueprintMetadataEtag, Box<Response>> {
+fn expected_edit_number(headers: &HeaderMap) -> Result<BlueprintEditNumber, Box<Response>> {
     quoted_if_match(headers)?.parse().map_err(|_| {
         Box::new(route_error(
             StatusCode::BAD_REQUEST,
@@ -924,7 +924,7 @@ mod tests {
             HeaderValue::from_static("\"00000000-0000-0000-0000-000000000007\""),
         );
         assert_eq!(
-            expected_metadata_etag(&headers)
+            expected_edit_number(&headers)
                 .expect("metadata ETag")
                 .to_string(),
             "00000000-0000-0000-0000-000000000007"

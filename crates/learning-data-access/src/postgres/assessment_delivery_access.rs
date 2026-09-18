@@ -2,14 +2,14 @@
 
 use super::{assessment_delivery::PostgresLiveAssessmentDeliveryStore, connection::map_sqlx_error};
 use crate::{LiveAssessmentAccess, LiveAssessmentPreviousAttempt, SessionTokenHash, StoreError};
-use question_model::{AssessmentReference, AssessmentType, CourseInstanceReference};
+use question_model::{AssessmentId, AssessmentType, CourseInstanceId};
 use sqlx::Row;
 
 pub(super) async fn read(
     store: &PostgresLiveAssessmentDeliveryStore,
     token: SessionTokenHash,
-    course: CourseInstanceReference,
-    assessment: AssessmentReference,
+    course: CourseInstanceId,
+    assessment: AssessmentId,
 ) -> Result<LiveAssessmentAccess, StoreError> {
     let mut tx = store.begin(token).await?;
     let row = sqlx::query(

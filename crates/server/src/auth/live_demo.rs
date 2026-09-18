@@ -112,7 +112,7 @@ impl SeededDemoConfig {
         }
         let identities = accounts
             .iter()
-            .map(|account| account.account)
+            .map(|account| account.account.clone())
             .collect::<BTreeSet<_>>();
         if identities.len() != accounts.len() {
             return Err("seeded demo accounts must have distinct AccountIds".to_string());
@@ -277,7 +277,7 @@ where
     // Secure, HttpOnly session cookie carrying an opaque random credential.
     let issued = match issue_session(
         state.sessions.as_ref(),
-        selected.account,
+        selected.account.clone(),
         state.session_config,
     )
     .await
@@ -338,7 +338,7 @@ where
     // ceremony. The Store remains authoritative for the Sysadmin branch and
     // for every resulting session record; request data cannot name a role.
     let primary = AuthenticatedAccount {
-        account: selected.account,
+        account: selected.account.clone(),
         product_role: selected.persona.required_product_role(),
     };
     match establish_primary_authentication(state.sessions.as_ref(), primary, state.session_config)
@@ -406,10 +406,9 @@ mod tests {
     use question_model::Timestamp;
     use std::{collections::BTreeMap, sync::Mutex};
     use tower::ServiceExt;
-    use uuid::Uuid;
 
     fn account(value: u128) -> AccountId {
-        AccountId::from_uuid(Uuid::from_u128(value))
+        AccountId::from_debug_serial(value)
     }
 
     fn entry(persona: SeededDemoPersona, value: u128) -> SeededDemoAccount {

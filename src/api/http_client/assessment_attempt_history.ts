@@ -1,6 +1,7 @@
 // Strict same-origin transport for one Student-owned completed Assessment Attempt.
 
-import type { AssessmentAttemptReference } from "../../../generated/api/AssessmentAttemptReference";
+import type { AssessmentAttemptId } from "../../../generated/api/AssessmentAttemptId";
+import { parseAssessmentAttemptReference } from "../../navigation/public_route";
 import type { ApiClient } from "../client";
 import type {
   StudentAssessmentAttemptHistory,
@@ -11,13 +12,9 @@ import { ApiProtocolError, ApiRequestError } from "./error";
 import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
 
-function historyPath(assessmentAttempt: AssessmentAttemptReference): string {
-  // ASVS 2.2.1: accept only the closed public Attempt-reference grammar before transport.
-  if (
-    !/^R-[1-9][0-9]{0,9}$/u.test(assessmentAttempt) ||
-    Number(assessmentAttempt.slice(2)) > 2_147_483_647
-  ) {
-    throw new ApiProtocolError("Assessment Attempt reference must be canonical");
+function historyPath(assessmentAttempt: AssessmentAttemptId): string {
+  if (parseAssessmentAttemptReference(assessmentAttempt) === null) {
+    throw new ApiProtocolError("Assessment Attempt ID must be a UUID");
   }
   return `/api/assessment-attempts/${encodeURIComponent(assessmentAttempt)}/history`;
 }
@@ -25,7 +22,7 @@ function historyPath(assessmentAttempt: AssessmentAttemptReference): string {
 async function getHistory(
   fetchImplementation: ApiFetch,
   basePath: string,
-  assessmentAttempt: AssessmentAttemptReference,
+  assessmentAttempt: AssessmentAttemptId,
 ): Promise<StudentAssessmentAttemptHistory> {
   const path = historyPath(assessmentAttempt);
   // ASVS 3.5.1 and 4.1.1: retain the shared same-origin, JSON-only request boundary.

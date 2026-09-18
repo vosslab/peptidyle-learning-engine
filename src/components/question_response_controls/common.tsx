@@ -4,8 +4,8 @@ import { createContext, createSignal, onCleanup, useContext, type JSX } from "so
 
 import type { QuestionContentBlock } from "../../../generated/api/QuestionContentBlock";
 import type { AssessmentId } from "../../../generated/api/AssessmentId";
-import type { CourseId } from "../../../generated/api/CourseId";
-import type { AssessmentAttemptReference } from "../../../generated/api/AssessmentAttemptReference";
+import type { CourseInstanceId } from "../../../generated/api/CourseInstanceId";
+import type { AssessmentAttemptId } from "../../../generated/api/AssessmentAttemptId";
 import type { QuestionResponseFormat } from "../../../generated/api/QuestionResponseFormat";
 import type { QuestionPresentationResponseFormat } from "../../../generated/api/QuestionPresentationResponseFormat";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
@@ -68,7 +68,7 @@ type QuestionResponseControlPhase =
   | { readonly kind: "failed"; readonly message: string };
 
 export interface StudentWorkRouteScope {
-  readonly courseId: CourseId;
+  readonly courseId: CourseInstanceId;
   readonly assessmentId: AssessmentId;
 }
 
@@ -104,7 +104,7 @@ export interface QuestionResponseControlBaseProps {
   readonly studentWorkRoute?: StudentWorkRouteScope;
   readonly beginImathasQuestionBackendLaunch?: () => Promise<ImathasQuestionBackendLaunch>;
   /** Current authorized lifecycle reference for a backend-owned document route. */
-  readonly assessmentAttempt?: AssessmentAttemptReference;
+  readonly assessmentAttempt?: AssessmentAttemptId;
   /** Current 1-based position for a backend-owned document route. */
   readonly position?: number;
   /**

@@ -19,7 +19,7 @@ use learning_data_access::{
 };
 use question_model::{
     AssessmentEditNumber, AssessmentEntryId, AssessmentEntryScoringRule, AssessmentPointValue,
-    AssessmentReference, CourseInstanceReference, ProductRole, QuestionId,
+    AssessmentId, CourseInstanceId, ProductRole, QuestionId,
     QuestionPoolSelectedQuestionOrder, QuestionRevisionNumber, QuestionRevisionReference,
 };
 use serde::{Deserialize, Serialize};
@@ -92,7 +92,7 @@ struct ForkMemberRequest {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct AppendForkRequest {
-    expected_pool_metadata_etag: Uuid,
+    expected_question_pool_edit_number: Uuid,
     members: Vec<ForkMemberRequest>,
     interchangeability_attested: bool,
 }
@@ -111,7 +111,7 @@ struct ImportedForkResponse {
 struct AppendedForkResponse {
     assessment_entry_id: AssessmentEntryId,
     revision_number: u64,
-    metadata_etag: Uuid,
+    blueprint_edit_number: Uuid,
     assessment_edit_number: AssessmentEditNumber,
 }
 
@@ -234,7 +234,7 @@ async fn append_fork_revision(
                 assessment,
                 assessment_entry: entry,
                 expected_assessment_edit_number,
-                expected_pool_metadata_etag: request.expected_pool_metadata_etag,
+                expected_question_pool_edit_number: request.expected_question_pool_edit_number,
                 members,
                 interchangeability_attested: true,
             },
@@ -248,7 +248,7 @@ async fn append_fork_revision(
                     Json(AppendedForkResponse {
                         assessment_entry_id: result.assessment_entry,
                         revision_number: result.question_pool_revision_number.get(),
-                        metadata_etag: result.metadata_etag,
+                        blueprint_edit_number: result.blueprint_edit_number,
                         assessment_edit_number: result.assessment_edit_number,
                     }),
                 )
@@ -301,7 +301,7 @@ async fn decode_json<T: serde::de::DeserializeOwned>(request: Request) -> Result
     serde_json::from_slice(&body).map_err(|_| invalid())
 }
 
-fn refs(course: &str, assessment: &str) -> Option<(CourseInstanceReference, AssessmentReference)> {
+fn refs(course: &str, assessment: &str) -> Option<(CourseInstanceId, AssessmentId)> {
     Some((course.parse().ok()?, assessment.parse().ok()?))
 }
 

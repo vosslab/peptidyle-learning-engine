@@ -4,8 +4,8 @@ use std::num::NonZeroU32;
 
 use async_trait::async_trait;
 use question_model::{
-    AssessmentEntryId, AssessmentReference, BloomClassificationEditNumber, BloomClassificationView,
-    BloomCognitiveProcess, BloomKnowledgeDimension, CourseInstanceReference, QuestionId,
+    AssessmentEntryId, AssessmentId, BloomClassificationEditNumber, BloomClassificationView,
+    BloomCognitiveProcess, BloomKnowledgeDimension, CourseInstanceId, QuestionId,
     QuestionPoolLibrarySummary, QuestionPoolMetadata, QuestionPoolRevisionNumber,
     QuestionPoolRevisionReference, QuestionRevisionNumber, QuestionRevisionReference,
     QuestionSearchBloomCognitiveProcessFacet, QuestionSearchBloomKnowledgeDimensionFacet,
@@ -209,8 +209,8 @@ impl QuestionPoolLibraryStore for PostgresQuestionPoolLibraryStore {
     async fn load_assessment_question_pool_fork(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
-        assessment: AssessmentReference,
+        course: CourseInstanceId,
+        assessment: AssessmentId,
         assessment_entry: AssessmentEntryId,
     ) -> Result<AssessmentQuestionPoolForkRecord, StoreError> {
         let mut transaction = self.begin(session_token_hash).await?;
@@ -249,8 +249,8 @@ impl QuestionPoolLibraryStore for PostgresQuestionPoolLibraryStore {
                 question_pool_id: pool_id,
                 revision_number,
             },
-            pool_metadata_etag: first
-                .try_get("pool_metadata_etag")
+            question_pool_edit_number: first
+                .try_get("question_pool_edit_number")
                 .map_err(map_sqlx_error)?,
             selection_count,
             bloom: decode_bloom(first)?,

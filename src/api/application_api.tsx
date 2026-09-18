@@ -4,7 +4,7 @@ import { query } from "@solidjs/router";
 import { createContext, useContext, type JSX } from "solid-js";
 
 import type { AssessmentId } from "../../generated/api/AssessmentId";
-import type { CourseId } from "../../generated/api/CourseId";
+import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { QuestionDetails } from "../../generated/api/QuestionDetails";
 import type { QuestionSearchPage } from "../../generated/api/QuestionSearchPage";
 import type { QuestionSearchRequest } from "../../generated/api/QuestionSearchRequest";
@@ -41,7 +41,7 @@ export interface ApplicationApi<Client extends ApiClient = ApiClient> {
     readonly courses: QueryFunction<[], CursorPage<CourseSummary>>;
     readonly questionSearch: QueryFunction<[QuestionSearchRequest], QuestionSearchPage>;
     readonly questionDetails: QueryFunction<[QuestionId], QuestionDetails>;
-    readonly assessments: QueryFunction<[CourseId], CursorPage<StudentAssessmentLandingSummary>>;
+    readonly assessments: QueryFunction<[CourseInstanceId], CursorPage<StudentAssessmentLandingSummary>>;
     readonly assessment: QueryFunction<[AssessmentId], StudentAssessmentDetail>;
     readonly assessmentSummary: QueryFunction<[AssessmentId], StudentAssessmentProgress>;
     readonly courseScope: QueryFunction<[CourseInstanceRouteReference], CourseRouteView>;
@@ -49,7 +49,7 @@ export interface ApplicationApi<Client extends ApiClient = ApiClient> {
       [AssessmentAttemptRouteReference],
       StudentAssessmentAttemptHistory
     >;
-    /** Live Student Attempt presentation scope keyed directly by R-n. */
+    /** Live Student Attempt presentation scope keyed by Assessment Attempt ID. */
     readonly assessmentAttemptScope: QueryFunction<
       [AssessmentAttemptRouteReference],
       StudentAssessmentAttemptContext
@@ -79,7 +79,7 @@ export function createApplicationApi<Client extends ApiClient>(
         "question-details",
       ),
       assessments: query(
-        (courseId: CourseId) => client.listAssessments(courseId),
+        (courseId: CourseInstanceId) => client.listAssessments(courseId),
         "course-assessments",
       ),
       assessment: query(

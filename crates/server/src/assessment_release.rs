@@ -19,7 +19,7 @@ use learning_data_access::{
     postgres::{PostgresLiveAssessmentStore, PostgresSessionStore},
 };
 use question_model::{
-    AssessmentEditNumber, AssessmentReference, AssessmentTitle, CourseInstanceReference,
+    AssessmentEditNumber, AssessmentId, AssessmentTitle, CourseInstanceId,
     ProductRole,
 };
 use serde::Deserialize;
@@ -510,16 +510,16 @@ fn unreleased_response(value: &learning_data_access::UnreleasedLiveAssessment) -
     response
 }
 
-fn course_reference(value: &str) -> Result<CourseInstanceReference, Box<Response>> {
-    CourseInstanceReference::from_str(value).map_err(|_| Box::new(concealed()))
+fn course_reference(value: &str) -> Result<CourseInstanceId, Box<Response>> {
+    CourseInstanceId::from_str(value).map_err(|_| Box::new(concealed()))
 }
 fn refs(
     course_value: &str,
     assessment_value: &str,
-) -> Result<(CourseInstanceReference, AssessmentReference), Box<Response>> {
+) -> Result<(CourseInstanceId, AssessmentId), Box<Response>> {
     Ok((
         course_reference(course_value)?,
-        AssessmentReference::from_str(assessment_value).map_err(|_| Box::new(concealed()))?,
+        AssessmentId::from_str(assessment_value).map_err(|_| Box::new(concealed()))?,
     ))
 }
 fn edit_header(headers: &HeaderMap) -> Result<AssessmentEditNumber, Box<Response>> {

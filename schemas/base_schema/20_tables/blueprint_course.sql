@@ -23,7 +23,7 @@ CREATE TABLE ple_data.blueprint_course (
         REFERENCES ple_data.content_subtopic(content_topic_id, content_subtopic_id),
     availability ple_data.blueprint_availability NOT NULL DEFAULT 'private',
     promoted boolean NOT NULL DEFAULT false,
-    metadata_etag uuid NOT NULL,
+    blueprint_edit_number bigint NOT NULL CHECK (blueprint_edit_number > 0),
     current_blueprint_revision_number integer NOT NULL DEFAULT 1
         CHECK (current_blueprint_revision_number > 0),
     created_at timestamp with time zone NOT NULL,
@@ -134,9 +134,9 @@ CREATE TABLE ple_data.blueprint_metadata_event (
     content_subtopic_id uuid,
     tags text[] NOT NULL CHECK (ple_data.course_classification_tags_are_valid(tags)),
     availability ple_data.blueprint_availability NOT NULL,
-    metadata_etag uuid NOT NULL,
+    blueprint_edit_number bigint NOT NULL CHECK (blueprint_edit_number > 0),
     occurred_at timestamp with time zone NOT NULL,
-    UNIQUE (blueprint_course_id, metadata_etag)
+    UNIQUE (blueprint_course_id, blueprint_edit_number)
 );
 
 
@@ -145,7 +145,7 @@ CREATE TABLE ple_data.blueprint_course_create_receipt (
     request_checksum bytea NOT NULL CHECK (octet_length(request_checksum) = 32),
     blueprint_course_id ple_data.blueprint_course_id NOT NULL,
     blueprint_revision_number integer NOT NULL,
-    metadata_etag uuid NOT NULL,
+    blueprint_edit_number bigint NOT NULL CHECK (blueprint_edit_number > 0),
     accepted_at timestamp with time zone NOT NULL,
     PRIMARY KEY (actor_account_id, request_checksum),
     FOREIGN KEY (blueprint_course_id, blueprint_revision_number)
@@ -197,7 +197,7 @@ CREATE TABLE ple_data.blueprint_course_fork_receipt (
     source_blueprint_revision_number integer NOT NULL CHECK (
         source_blueprint_revision_number > 0
     ),
-    metadata_etag uuid NOT NULL,
+    blueprint_edit_number bigint NOT NULL CHECK (blueprint_edit_number > 0),
     accepted_at timestamp with time zone NOT NULL,
     PRIMARY KEY (actor_account_id, request_checksum),
     FOREIGN KEY (
@@ -223,10 +223,10 @@ CREATE TABLE ple_data.blueprint_change_proposal (
     proposer_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account(account_id),
     source_blueprint_course_id ple_data.blueprint_course_id NOT NULL,
     source_revision_number integer NOT NULL,
-    source_metadata_etag uuid NOT NULL,
+    source_blueprint_edit_number bigint NOT NULL CHECK (source_blueprint_edit_number > 0),
     target_blueprint_course_id ple_data.blueprint_course_id NOT NULL,
     target_revision_number integer NOT NULL,
-    target_metadata_etag uuid NOT NULL,
+    target_blueprint_edit_number bigint NOT NULL CHECK (target_blueprint_edit_number > 0),
     created_at timestamp with time zone NOT NULL,
     CHECK (source_blueprint_course_id <> target_blueprint_course_id),
     FOREIGN KEY (source_blueprint_course_id, source_revision_number)
@@ -235,12 +235,12 @@ CREATE TABLE ple_data.blueprint_change_proposal (
     FOREIGN KEY (target_blueprint_course_id, target_revision_number)
         REFERENCES ple_data.blueprint_course_revision
             (blueprint_course_id, blueprint_revision_number),
-    FOREIGN KEY (source_blueprint_course_id, source_metadata_etag)
+    FOREIGN KEY (source_blueprint_course_id, source_blueprint_edit_number)
         REFERENCES ple_data.blueprint_metadata_event
-            (blueprint_course_id, metadata_etag),
-    FOREIGN KEY (target_blueprint_course_id, target_metadata_etag)
+            (blueprint_course_id, blueprint_edit_number),
+    FOREIGN KEY (target_blueprint_course_id, target_blueprint_edit_number)
         REFERENCES ple_data.blueprint_metadata_event
-            (blueprint_course_id, metadata_etag),
+            (blueprint_course_id, blueprint_edit_number),
     updated_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp(),
     CHECK (updated_at >= created_at)
 );
@@ -253,13 +253,13 @@ CREATE TABLE ple_data.blueprint_change_proposal_acceptance (
     decision jsonb NOT NULL CHECK (jsonb_typeof(decision) = 'object'),
     target_blueprint_course_id ple_data.blueprint_course_id NOT NULL,
     resulting_revision_number integer NOT NULL,
-    resulting_metadata_etag uuid NOT NULL,
+    resulting_blueprint_edit_number bigint NOT NULL CHECK (resulting_blueprint_edit_number > 0),
     FOREIGN KEY (target_blueprint_course_id, resulting_revision_number)
         REFERENCES ple_data.blueprint_course_revision
             (blueprint_course_id, blueprint_revision_number),
-    FOREIGN KEY (target_blueprint_course_id, resulting_metadata_etag)
+    FOREIGN KEY (target_blueprint_course_id, resulting_blueprint_edit_number)
         REFERENCES ple_data.blueprint_metadata_event
-            (blueprint_course_id, metadata_etag)
+            (blueprint_course_id, blueprint_edit_number)
 );
 
 CREATE TABLE ple_data.blueprint_course_star (

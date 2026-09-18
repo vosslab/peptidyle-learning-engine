@@ -10,12 +10,8 @@ REVOKE ALL ON FUNCTION ple_private.assessment_template_name_is_valid(text),
 GRANT SELECT, INSERT ON TABLE ple_private.assessment_template TO ple_api_owner;
 
 GRANT UPDATE (
-    assessment_template_edit_number, template_name, assessment_type, instructions,
-    assessment_attempt_time_limit_seconds, assessment_attempt_limit, late_work_rule,
-    question_variation_rule,
-    assessment_question_order_rule, feedback_score,
-    feedback_per_item_correctness, feedback_submitted_response,
-    feedback_question_answer, feedback_question_answer_explanation, feedback_class_statistics
+    assessment_template_edit_number, template_name, assessment_type,
+    assessment_policy_snapshot_id
 ) ON TABLE ple_private.assessment_template TO ple_api_owner;
 
 GRANT EXECUTE ON FUNCTION ple_private.assessment_template_name_is_valid(text),

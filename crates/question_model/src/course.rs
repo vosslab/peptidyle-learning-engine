@@ -6,11 +6,10 @@ use crate::{
     AccountTimeZone, AssessmentActivityRules, AssessmentEntryAvailability, AssessmentEntryId,
     AssessmentEntryScoringRule, AssessmentGrade, AssessmentId, AssessmentInstructions,
     AssessmentPointValue, AssessmentProgressRecord, AssessmentQuestionVariationRule,
-    AssessmentReference, AssessmentScoringState, AssessmentTitle, CourseId,
-    CourseInstanceReference, CourseTerm, LateWorkRule, QuestionAttemptLimit,
-    QuestionAttemptTimeLimit, QuestionBackend, QuestionBackendCapabilities, QuestionId,
-    QuestionPoolRevisionReference, QuestionPoolSelectionRule, StudentFeedbackReleaseRule,
-    StudentRecordId, Timestamp,
+    AssessmentScoringState, AssessmentTitle, CourseInstanceId, CourseTerm, LateWorkRule,
+    QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionBackend, QuestionBackendCapabilities,
+    QuestionId, QuestionPoolRevisionReference, QuestionPoolSelectionRule,
+    StudentFeedbackReleaseRule, StudentRecordId, Timestamp,
 };
 
 /// Relationship that may be persisted on one direct course membership.
@@ -33,10 +32,10 @@ pub enum CourseMembershipRole {
 pub struct CourseSummary {
     /// Current Course metadata; members cannot acquire editing authority from it.
     pub classification: crate::CourseClassification,
-    /// Durable course identity.
-    pub id: CourseId,
-    /// Stable Course Instance Reference used in application navigation.
-    pub reference: CourseInstanceReference,
+    /// Course Instance ID (`CIXXXXXXXZ`).
+    pub id: CourseInstanceId,
+    /// Same Course Instance ID on the legacy JSON `reference` field.
+    pub reference: CourseInstanceId,
     /// Compact Course Instance name for constrained navigation.
     pub short_name: String,
     /// Descriptive Course Instance name for headings and breadcrumbs.
@@ -57,7 +56,7 @@ pub struct CourseInstanceRouteSummary {
     /// Current independently selected Course classification.
     pub classification: crate::CourseClassification,
     /// Stable Course Instance Reference used in application navigation.
-    pub reference: CourseInstanceReference,
+    pub reference: CourseInstanceId,
     /// Compact Course Instance name for constrained navigation.
     pub short_name: String,
     /// Descriptive Course Instance name for headings and breadcrumbs.
@@ -139,9 +138,9 @@ pub struct AssessmentSummary {
     /// Durable assessment identity.
     pub id: AssessmentId,
     /// Stable Assessment Reference used in application navigation.
-    pub reference: AssessmentReference,
+    pub reference: AssessmentId,
     /// Course that owns this assessment.
-    pub course_id: CourseId,
+    pub course_id: CourseInstanceId,
     /// Human-facing assessment title.
     pub title: AssessmentTitle,
     /// Ordered complete Assessment Content Entry.
@@ -184,7 +183,7 @@ pub struct StudentAssessmentLandingSummary {
     /// Durable assessment identity scoped by the authenticated route.
     pub id: AssessmentId,
     /// Stable Assessment Reference used in application navigation.
-    pub reference: AssessmentReference,
+    pub reference: AssessmentId,
     /// Human-facing assessment title.
     pub title: AssessmentTitle,
 }
@@ -235,7 +234,7 @@ pub struct StudentAssessmentDetail {
     /// Durable assessment identity scoped by the authenticated route.
     pub id: AssessmentId,
     /// Stable Assessment Reference used in application navigation.
-    pub reference: AssessmentReference,
+    pub reference: AssessmentId,
     /// Human-facing assessment title.
     pub title: AssessmentTitle,
     /// Validated Student-facing plain-text instructions.
@@ -288,7 +287,7 @@ impl StudentAssessmentDetail {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct GradebookSummaryRow {
     /// Course whose instructor requested this bounded page.
-    pub course_id: CourseId,
+    pub course_id: CourseInstanceId,
     /// Course-owned Student Record represented by this row.
     pub student_record_id: StudentRecordId,
     /// Human-facing Student name from the protected course roster.
@@ -318,9 +317,9 @@ mod tests {
     #[test]
     fn rust_names_serialize_as_lower_camel_course_contracts() {
         let assessment = AssessmentSummary {
-            id: AssessmentId::from_uuid(Uuid::from_u128(1)),
-            reference: crate::AssessmentReference::new("A7K3M2QXF").expect("valid reference"),
-            course_id: CourseId::from_uuid(Uuid::from_u128(3)),
+            id: AssessmentId::from_debug_serial(1),
+            reference: crate::AssessmentId::new("A7K3M2QXF").expect("valid reference"),
+            course_id: CourseInstanceId::from_debug_serial(3),
             title: assessment_title("Peptide bonds"),
             entries: vec![AssessmentEntrySummary::FixedQuestion(
                 FixedQuestionAssessmentEntrySummary {
@@ -353,9 +352,9 @@ mod tests {
         assert!(value.get("instructions").is_none());
 
         let student = StudentAssessmentLandingSummary::from(AssessmentSummary {
-            id: AssessmentId::from_uuid(Uuid::from_u128(1)),
-            reference: crate::AssessmentReference::new("A7K3M2QXF").expect("valid reference"),
-            course_id: CourseId::from_uuid(Uuid::from_u128(3)),
+            id: AssessmentId::from_debug_serial(1),
+            reference: crate::AssessmentId::new("A7K3M2QXF").expect("valid reference"),
+            course_id: CourseInstanceId::from_debug_serial(3),
             title: assessment_title("Peptide bonds"),
             entries: Vec::new(),
             student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
@@ -372,9 +371,9 @@ mod tests {
     #[test]
     fn student_detail_owns_instructions_and_server_resolved_delivery() {
         let assessment = AssessmentSummary {
-            id: AssessmentId::from_uuid(Uuid::from_u128(1)),
-            reference: crate::AssessmentReference::new("A7K3M2QXF").expect("valid reference"),
-            course_id: CourseId::from_uuid(Uuid::from_u128(3)),
+            id: AssessmentId::from_debug_serial(1),
+            reference: crate::AssessmentId::new("A7K3M2QXF").expect("valid reference"),
+            course_id: CourseInstanceId::from_debug_serial(3),
             title: assessment_title("Peptide bonds"),
             entries: Vec::new(),
             student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
@@ -426,18 +425,18 @@ mod tests {
     #[test]
     fn gradebook_summary_row_keeps_the_projection_nested() {
         let row = GradebookSummaryRow {
-            course_id: CourseId::from_uuid(Uuid::from_u128(2)),
+            course_id: CourseInstanceId::from_debug_serial(2),
             student_record_id: StudentRecordId::from_uuid(Uuid::from_u128(3)),
             student_name: "Ada Student".to_string(),
-            assessment_id: AssessmentId::from_uuid(Uuid::from_u128(5)),
+            assessment_id: AssessmentId::from_debug_serial(5),
             assessment_title: assessment_title("Peptide bonds"),
             assessment_grade: AssessmentGrade::empty(
                 StudentRecordId::from_uuid(Uuid::from_u128(3)),
-                AssessmentId::from_uuid(Uuid::from_u128(5)),
+                AssessmentId::from_debug_serial(5),
             ),
             assessment_progress: AssessmentProgressRecord::empty(
                 StudentRecordId::from_uuid(Uuid::from_u128(3)),
-                AssessmentId::from_uuid(Uuid::from_u128(5)),
+                AssessmentId::from_debug_serial(5),
             ),
             assessment_scoring_state: crate::AssessmentScoringState::Current,
         };

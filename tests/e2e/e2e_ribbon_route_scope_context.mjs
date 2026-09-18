@@ -187,16 +187,16 @@ test(
     fixture.courseViews.get("CI4W8QF9AD").resolve(courseRouteData("CI4W8QF9AD"));
     await nextTurn();
     assert.deepEqual(app.latest().data, { kind: "course", course: courseOne });
-    app.navigate("/assessment-attempts/R-1");
+    app.navigate("/assessment-attempts/00000000-0000-0000-0000-000000000001");
     await nextTurn();
     assert.deepEqual(app.latest(), {
-      identity: { kind: "assessmentAttempt", assessmentAttemptReference: "R-1" },
+      identity: { kind: "assessmentAttempt", assessmentAttemptReference: "00000000-0000-0000-0000-000000000001" },
       data: undefined,
     });
-    assert.ok(fixture.attemptContexts.has("R-1"));
-    assert.equal(fixture.attemptResolvers.has("R-1"), false);
+    assert.ok(fixture.attemptContexts.has("00000000-0000-0000-0000-000000000001"));
+    assert.equal(fixture.attemptResolvers.has("00000000-0000-0000-0000-000000000001"), false);
     const context = assignmentAttemptContext("CI7K3M2QAZ");
-    fixture.attemptContexts.get("R-1").resolve(context);
+    fixture.attemptContexts.get("00000000-0000-0000-0000-000000000001").resolve(context);
     await nextTurn();
     assert.deepEqual(app.latest().data, { kind: "assessmentAttempt", context });
     app.navigate("/courses/CI7K3M2QAZ");
@@ -209,18 +209,18 @@ test(
 
 test("stable controller retains separate Attempt views", async () => {
   const fixture = createDeferredQueries();
-  const app = mountedController(fixture.queries, "/assessment-attempts/R-1");
-  assert.ok(fixture.attemptContexts.has("R-1"));
+  const app = mountedController(fixture.queries, "/assessment-attempts/00000000-0000-0000-0000-000000000001");
+  assert.ok(fixture.attemptContexts.has("00000000-0000-0000-0000-000000000001"));
   const context = assignmentAttemptContext("CI7K3M2QAZ");
-  fixture.attemptContexts.get("R-1").resolve(context);
+  fixture.attemptContexts.get("00000000-0000-0000-0000-000000000001").resolve(context);
   await nextTurn();
   assert.deepEqual(app.controller.data(), { kind: "assessmentAttempt", context });
-  app.navigate("/assessment-attempts/R-1/summary");
+  app.navigate("/assessment-attempts/00000000-0000-0000-0000-000000000001/summary");
   await nextTurn();
   assert.equal(app.controller.data(), undefined);
-  assert.ok(fixture.histories.has("R-1"));
+  assert.ok(fixture.histories.has("00000000-0000-0000-0000-000000000001"));
   const history = assignmentAttemptHistoryData("CI7K3M2QAZ");
-  fixture.histories.get("R-1").resolve(history);
+  fixture.histories.get("00000000-0000-0000-0000-000000000001").resolve(history);
   await nextTurn();
   assert.deepEqual(app.controller.data(), {
     kind: "assessmentAttemptHistory",
@@ -239,7 +239,7 @@ test("active Student Attempt retry replaces only its rejected R-reference contex
         return deferred.promise;
       },
     },
-    "/assessment-attempts/R-1",
+    "/assessment-attempts/00000000-0000-0000-0000-000000000001",
   );
   assert.equal(attempts.length, 1);
   attempts[0].reject(new Error("temporary context failure"));

@@ -6,7 +6,7 @@
 //! a direct membership.
 
 use question_model::{
-    AccountId, CourseId, CourseInvitation, CourseInvitationEventKind, CourseInvitationState,
+    AccountId, CourseInstanceId, CourseInvitation, CourseInvitationEventKind, CourseInvitationState,
     CourseMembershipId, CourseMembershipRole, StudentRecordId, Timestamp,
 };
 
@@ -18,9 +18,9 @@ pub const COURSE_INVITATION_LIFETIME_MILLIS: i64 = 30 * 24 * 60 * 60 * 1_000;
 /// The Store supplies these Instructor Course Membership facts after locking
 /// the durable membership record. It deliberately contains no creator distinction:
 /// the course creator and every accepted Teaching Team Member use the same exact membership relation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CurrentInstructorCourseMembership {
-    pub course: CourseId,
+    pub course: CourseInstanceId,
     pub instructor_account: AccountId,
     pub active: bool,
 }
@@ -41,7 +41,7 @@ pub enum InstructorAuthority {
 pub fn current_course_instructor(
     membership: Option<CurrentInstructorCourseMembership>,
     instructor_account: AccountId,
-    course: CourseId,
+    course: CourseInstanceId,
 ) -> bool {
     matches!(
         membership,
@@ -58,10 +58,10 @@ pub fn current_course_instructor(
 /// The membership episode remains distinct from the global account and from
 /// the Student identity, so revocation and re-enrollment cannot rewrite past
 /// evidence.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StudentCourseMembership {
     pub membership: CourseMembershipId,
-    pub course: CourseId,
+    pub course: CourseInstanceId,
     pub student_account: AccountId,
     pub student_record: StudentRecordId,
     pub role: CourseMembershipRole,
@@ -78,7 +78,7 @@ pub struct StudentCourseMembership {
 pub fn student_owns_course_record(
     membership: Option<StudentCourseMembership>,
     student_account: AccountId,
-    course: CourseId,
+    course: CourseInstanceId,
     student_record: StudentRecordId,
 ) -> bool {
     matches!(
@@ -96,7 +96,7 @@ pub fn student_owns_course_record(
 /// denial reason without turning a role label into authority.
 pub fn evaluate_course_instructor_authority(
     membership: Option<CurrentInstructorCourseMembership>,
-    course: CourseId,
+    course: CourseInstanceId,
     instructor_account: AccountId,
 ) -> InstructorAuthority {
     if current_course_instructor(membership, instructor_account, course) {
@@ -120,9 +120,9 @@ pub enum CourseInvitationError {
 }
 
 /// The Instructor Course Membership fact a Store must atomically create after acceptance.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CourseInvitationAcceptance {
-    pub course: CourseId,
+    pub course: CourseInstanceId,
     pub target: AccountId,
     pub accepted_at: Timestamp,
 }
@@ -133,7 +133,7 @@ pub fn invitation_state(
     now: Timestamp,
 ) -> Result<CourseInvitationState, CourseInvitationError> {
     validate_invitation_record(invitation, now)?;
-    match invitation.terminal_event.map(|event| event.kind) {
+    match invitation.terminal_event.as_ref().map(|event| event.kind) {
         Some(CourseInvitationEventKind::Accepted) => {
             return Ok(CourseInvitationState::Accepted);
         }
@@ -176,8 +176,8 @@ pub fn accept_course_invitation(
         return Err(CourseInvitationError::WrongTarget);
     }
     Ok(CourseInvitationAcceptance {
-        course: invitation.course,
-        target: invitation.target,
+        course: invitation.course.clone(),
+        target: invitation.target.clone(),
         accepted_at: now,
     })
 }
@@ -211,7 +211,7 @@ fn validate_invitation_record(
     if invitation.expires_at.as_unix_millis() != expected_expiry {
         return Err(CourseInvitationError::ExpiryDoesNotMatchThirtyDays);
     }
-    if let Some(event) = invitation.terminal_event
+    if let Some(ref event) = invitation.terminal_event
         && (event.invitation != invitation.id
             || event.occurred_at < invitation.created_at
             || event.occurred_at >= invitation.expires_at
@@ -244,10 +244,10 @@ mod tests {
     fn invitation() -> CourseInvitation {
         CourseInvitation {
             id: CourseInvitationId::from_uuid(id(1)),
-            course: CourseId::from_uuid(id(2)),
+            course: CourseInstanceId::from_debug_serial(2),
             invited_by: CourseMembershipId::from_uuid(id(4)),
             membership_role: CourseMembershipRole::Instructor,
-            target: AccountId::from_uuid(id(3)),
+            target: AccountId::from_debug_serial(3),
             created_at: stamp(1_000),
             expires_at: stamp(1_000 + COURSE_INVITATION_LIFETIME_MILLIS),
             terminal_event: None,
@@ -270,8 +270,8 @@ mod tests {
 
     #[test]
     fn current_course_instructor_requires_exact_active_membership() {
-        let instructor_account = AccountId::from_uuid(id(3));
-        let course = CourseId::from_uuid(id(2));
+        let instructor_account = AccountId::from_debug_serial(3);
+        let course = CourseInstanceId::from_debug_serial(2);
         let membership = CurrentInstructorCourseMembership {
             course,
             instructor_account,
@@ -285,18 +285,18 @@ mod tests {
 
     #[test]
     fn missing_membership_revokes_course_instructor_authority() {
-        let instructor_account = AccountId::from_uuid(id(3));
-        let course = CourseId::from_uuid(id(2));
+        let instructor_account = AccountId::from_debug_serial(3);
+        let course = CourseInstanceId::from_debug_serial(2);
         assert!(!current_course_instructor(None, instructor_account, course));
     }
 
     #[test]
     fn foreign_course_membership_cannot_authorize_an_instructor() {
-        let instructor_account = AccountId::from_uuid(id(3));
-        let course = CourseId::from_uuid(id(2));
+        let instructor_account = AccountId::from_debug_serial(3);
+        let course = CourseInstanceId::from_debug_serial(2);
         assert!(!current_course_instructor(
             Some(CurrentInstructorCourseMembership {
-                course: CourseId::from_uuid(id(4)),
+                course: CourseInstanceId::from_debug_serial(4),
                 instructor_account,
                 active: true,
             }),
@@ -307,12 +307,12 @@ mod tests {
 
     #[test]
     fn foreign_account_membership_cannot_authorize_an_instructor() {
-        let instructor_account = AccountId::from_uuid(id(3));
-        let course = CourseId::from_uuid(id(2));
+        let instructor_account = AccountId::from_debug_serial(3);
+        let course = CourseInstanceId::from_debug_serial(2);
         assert!(!current_course_instructor(
             Some(CurrentInstructorCourseMembership {
                 course,
-                instructor_account: AccountId::from_uuid(id(4)),
+                instructor_account: AccountId::from_debug_serial(4),
                 active: true,
             }),
             instructor_account,
@@ -322,8 +322,8 @@ mod tests {
 
     #[test]
     fn revoked_membership_cannot_authorize_an_instructor() {
-        let instructor_account = AccountId::from_uuid(id(3));
-        let course = CourseId::from_uuid(id(2));
+        let instructor_account = AccountId::from_debug_serial(3);
+        let course = CourseInstanceId::from_debug_serial(2);
         assert!(!current_course_instructor(
             Some(CurrentInstructorCourseMembership {
                 course,
@@ -337,8 +337,8 @@ mod tests {
 
     #[test]
     fn exact_student_record_is_permitted_and_other_student_is_denied() {
-        let student_account = AccountId::from_uuid(id(3));
-        let course = CourseId::from_uuid(id(2));
+        let student_account = AccountId::from_debug_serial(3);
+        let course = CourseInstanceId::from_debug_serial(2);
         let membership = student_membership(student_account, course);
         assert!(student_owns_course_record(
             Some(membership),
@@ -356,8 +356,8 @@ mod tests {
 
     #[test]
     fn renewed_student_membership_reuses_the_stable_course_record() {
-        let student_account = AccountId::from_uuid(id(3));
-        let course = CourseId::from_uuid(id(2));
+        let student_account = AccountId::from_debug_serial(3);
+        let course = CourseInstanceId::from_debug_serial(2);
         let membership = student_membership(student_account, course);
         assert!(student_owns_course_record(
             Some(StudentCourseMembership {
@@ -372,8 +372,8 @@ mod tests {
 
     #[test]
     fn inactive_student_membership_cannot_authorize_course_record_access() {
-        let student_account = AccountId::from_uuid(id(3));
-        let course = CourseId::from_uuid(id(2));
+        let student_account = AccountId::from_debug_serial(3);
+        let course = CourseInstanceId::from_debug_serial(2);
         let membership = student_membership(student_account, course);
         assert!(!student_owns_course_record(
             Some(StudentCourseMembership {
@@ -388,8 +388,8 @@ mod tests {
 
     #[test]
     fn non_student_membership_cannot_authorize_course_record_access() {
-        let student_account = AccountId::from_uuid(id(3));
-        let course = CourseId::from_uuid(id(2));
+        let student_account = AccountId::from_debug_serial(3);
+        let course = CourseInstanceId::from_debug_serial(2);
         let membership = student_membership(student_account, course);
         assert!(!student_owns_course_record(
             Some(StudentCourseMembership {
@@ -431,7 +431,7 @@ mod tests {
             terminal_event: Some(terminal_event(
                 &pending,
                 CourseInvitationEventKind::Revoked,
-                AccountId::from_uuid(id(9)),
+                AccountId::from_debug_serial(9),
                 stamp(1_010),
             )),
             ..pending.clone()
@@ -504,7 +504,7 @@ mod tests {
                     &pending,
                     kind,
                     if matches!(kind, CourseInvitationEventKind::Revoked) {
-                        AccountId::from_uuid(id(9))
+                        AccountId::from_debug_serial(9)
                     } else {
                         pending.target
                     },
@@ -525,7 +525,7 @@ mod tests {
                     &pending,
                     kind,
                     if matches!(kind, CourseInvitationEventKind::Revoked) {
-                        AccountId::from_uuid(id(9))
+                        AccountId::from_debug_serial(9)
                     } else {
                         pending.target
                     },
@@ -545,7 +545,7 @@ mod tests {
         let invitation = invitation();
         let now = stamp(1_001);
         assert_eq!(
-            accept_course_invitation(&invitation, AccountId::from_uuid(id(4)), now,),
+            accept_course_invitation(&invitation, AccountId::from_debug_serial(4), now,),
             Err(CourseInvitationError::WrongTarget)
         );
         assert_eq!(
@@ -571,7 +571,7 @@ mod tests {
         assert_eq!(refuse_final_instructor_removal(2), Ok(()));
     }
 
-    fn student_membership(student_account: AccountId, course: CourseId) -> StudentCourseMembership {
+    fn student_membership(student_account: AccountId, course: CourseInstanceId) -> StudentCourseMembership {
         StudentCourseMembership {
             membership: CourseMembershipId::from_uuid(id(6)),
             course,

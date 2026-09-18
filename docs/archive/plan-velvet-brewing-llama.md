@@ -157,7 +157,7 @@ Watch the field-name mismatch while wiring: the server projection carries singul
 `roles: ReadonlyArray<UserRole>` (`src/api/contracts.ts:165`). Follow the existing decoder rather
 than assuming either shape.
 
-Carry `reference`, `title`, and `role` only. Do **not** put `CourseId` in the membership index: it is
+Carry `reference`, `title`, and `role` only. Do **not** put `CourseInstanceId` in the membership index: it is
 an internal identity, and keeping it out preserves the no-UUID rule
 (`docs/HUMAN_GUIDANCE.md:67`, `docs/DESIGN_DECISIONS.md:889`).
 
@@ -896,7 +896,7 @@ Two separate mechanisms, worth not conflating:
 So the plan adds a cached resolution query alongside the existing ones:
 
 ```ts
-readonly resolveCourse: QueryFunction<[CourseRouteReference], CourseId>;   // key "course-resolve"
+readonly resolveCourse: QueryFunction<[CourseRouteReference], CourseInstanceId>;   // key "course-resolve"
 readonly resolveAssignmentAttempt: QueryFunction<[RunRouteReference], RunId>;  // "attempt-resolve"
 ```
 

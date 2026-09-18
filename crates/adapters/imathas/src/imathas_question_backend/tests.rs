@@ -44,7 +44,7 @@ mod launch_session_bridge {
     use objects::{ObjectAddress, ObjectStore, PutObject};
     use question_model::generation::QuestionSeed;
     use question_model::{
-        AccountId, AssessmentId, CourseId, ImathasDeploymentReference, ImathasItemReference,
+        AccountId, AssessmentId, CourseInstanceId, ImathasDeploymentReference, ImathasItemReference,
         ImathasProfile, ImathasQuestionBackendBinding, ObjectId, QuestionAttemptId, QuestionId,
         QuestionRevisionNumber, QuestionRevisionReference, SourceObjectChecksum,
         SourceObjectReference, Timestamp,
@@ -139,9 +139,9 @@ mod launch_session_bridge {
             .authenticate_for_lda(&grading_context, &challenge);
         let imathas_question_backend_binding = lda_imathas_backend();
         ImathasQuestionBackendSessionPreparationContext::new(
-            AccountId::from_uuid(Uuid::from_u128(1)),
-            CourseId::from_uuid(Uuid::from_u128(2)),
-            AssessmentId::from_uuid(Uuid::from_u128(3)),
+            AccountId::from_debug_serial(1),
+            CourseInstanceId::from_debug_serial(2),
+            AssessmentId::from_debug_serial(3),
             grading_context,
             imathas_question_backend_binding,
             artifact.clone(),
@@ -213,7 +213,7 @@ mod launch_session_bridge {
         assert_eq!(transport.launch_calls(), 1);
         assert!(!format!("{preparation:?}").contains("recorded-proxy-session"));
 
-        let account = AccountId::from_uuid(Uuid::from_u128(1));
+        let account = AccountId::from_debug_serial(1);
         let token = SessionTokenHash::compute(b"adapter-launch-session");
         let store = MemoryImathasQuestionBackendSessionStore::new(
             ImathasQuestionBackendStateKeyRing::new(
@@ -227,7 +227,7 @@ mod launch_session_bridge {
         store.install_authenticated_session(token, account);
         store.install_active_student_authorization(
             account,
-            CourseId::from_uuid(Uuid::from_u128(2)),
+            CourseInstanceId::from_debug_serial(2),
             QuestionAttemptId::from_uuid(Uuid::from_u128(7)),
         );
         let digest = preparation.imathas_launch_binding_checksum().clone();
@@ -243,8 +243,8 @@ mod launch_session_bridge {
         let imathas_question_backend_binding = lda_imathas_backend();
         let initial_restore_expectation = ImathasQuestionBackendSessionRestoreExpectation::new(
             account,
-            CourseId::from_uuid(Uuid::from_u128(2)),
-            AssessmentId::from_uuid(Uuid::from_u128(3)),
+            CourseInstanceId::from_debug_serial(2),
+            AssessmentId::from_debug_serial(3),
             learning_data_access::ImathasGradingContext::new(
                 QuestionAttemptId::from_uuid(Uuid::from_u128(7)),
                 question.clone(),

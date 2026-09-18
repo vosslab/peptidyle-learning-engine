@@ -8,7 +8,7 @@ import {
   decodeRecoverySelection,
 } from "../decoders/course_student_work_recovery";
 import {
-  parseCourseInstanceReference,
+  parseCourseInstanceId,
   parseAssessmentAttemptReference,
 } from "../../navigation/public_route";
 import { ApiProtocolError, ApiRequestError } from "./error";
@@ -20,7 +20,7 @@ export function createCourseStudentWorkRecoveryClient(
   basePath: string,
 ): CourseStudentWorkRecoveryClient {
   async function request(course: string, body: unknown): Promise<unknown> {
-    if (parseCourseInstanceReference(course) === null)
+    if (parseCourseInstanceId(course) === null)
       throw new ApiProtocolError("Course reference must be canonical");
     // ASVS 14.2.1, 14.3.2: selection cursor and Attempt are POST body only; no cache.
     const path = `/api/course-instances/${encodeURIComponent(course)}/student-work/recovery`;

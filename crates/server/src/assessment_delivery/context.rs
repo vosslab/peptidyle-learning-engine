@@ -10,8 +10,7 @@ use axum::{
 };
 use learning_data_access::LiveAssessmentDeliveryStore;
 use question_model::{
-    AccountTimeZone, AssessmentAttemptReference, AssessmentReference, CourseInstanceReference,
-    Timestamp,
+    AccountTimeZone, AssessmentAttemptId, AssessmentId, CourseInstanceId, Timestamp,
 };
 use serde::Serialize;
 
@@ -22,7 +21,7 @@ pub(super) async fn student_context(
     headers: HeaderMap,
     Path(assessment_attempt): Path<String>,
 ) -> Response {
-    let assessment_attempt = match AssessmentAttemptReference::from_str(&assessment_attempt) {
+    let assessment_attempt = match AssessmentAttemptId::from_str(&assessment_attempt) {
         Ok(value) => value,
         Err(_) => return concealed(),
     };
@@ -54,7 +53,7 @@ pub(super) async fn student_context(
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct StudentAssessmentAttemptContextResponse {
-    assessment_attempt: AssessmentAttemptReference,
+    assessment_attempt: AssessmentAttemptId,
     attempt_number: u32,
     display_time_zone: AccountTimeZone,
     expires_at: Option<Timestamp>,
@@ -66,7 +65,7 @@ struct StudentAssessmentAttemptContextResponse {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct StudentAssessmentAttemptCourseContext {
-    reference: CourseInstanceReference,
+    reference: CourseInstanceId,
     short_name: String,
     long_name: String,
     theme: question_model::CourseTheme,
@@ -75,7 +74,7 @@ struct StudentAssessmentAttemptCourseContext {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct StudentAssessmentAttemptAssessmentContext {
-    reference: AssessmentReference,
+    reference: AssessmentId,
     title: String,
 }
 

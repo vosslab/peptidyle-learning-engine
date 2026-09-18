@@ -1,8 +1,8 @@
 // Strict decoding for the answer-free Gradebook projection.
 
-import type { AssessmentReference } from "../../../generated/api/AssessmentReference";
+import type { AssessmentId } from "../../../generated/api/AssessmentId";
 import type { AssessmentAttemptCompletion } from "../../../generated/api/AssessmentAttemptCompletion";
-import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
+import type { CourseInstanceId } from "../../../generated/api/CourseInstanceId";
 import type { CourseGradebook, CourseGradebookStudentWork } from "../live_gradebook";
 import {
   DecodeError,
@@ -21,7 +21,7 @@ const ASSIGNMENT_ATTEMPT_COMPLETIONS = [
   "completed",
 ] as const satisfies ReadonlyArray<AssessmentAttemptCompletion>;
 
-function courseReference(value: unknown, path: string): CourseInstanceReference {
+function courseReference(value: unknown, path: string): CourseInstanceId {
   const decoded = decodeString(value, path);
   if (validateCanonicalPublicReference("courseInstance", decoded) === null) {
     throw new DecodeError(path, "a canonical opaque Course Instance reference");
@@ -29,7 +29,7 @@ function courseReference(value: unknown, path: string): CourseInstanceReference 
   return decoded;
 }
 
-function assessmentReference(value: unknown, path: string): AssessmentReference {
+function assessmentReference(value: unknown, path: string): AssessmentId {
   const decoded = decodeString(value, path);
   if (validateCanonicalPublicReference("assessment", decoded) === null) {
     throw new DecodeError(path, "a canonical opaque Assessment reference");

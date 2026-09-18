@@ -13,10 +13,12 @@ SET LOCAL ROLE ple_data_owner;
 CREATE FUNCTION ple_data.assessment_delivered_question_count(p_assessment_id text)
 RETURNS bigint LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
-    SELECT COALESCE(sum(CASE entry_kind
-        WHEN 'fixed_question' THEN 1 ELSE selection_count END), 0)::bigint
-      FROM ple_data.assessment_entry
-     WHERE assessment_id = p_assessment_id AND availability = 'available'
+    SELECT COALESCE(sum(CASE entry.entry_kind
+        WHEN 'fixed_question' THEN 1 ELSE pool_entry.selection_count END), 0)::bigint
+      FROM ple_data.assessment_entry AS entry
+      LEFT JOIN ple_data.assessment_entry_pool AS pool_entry
+        ON pool_entry.assessment_entry_id = entry.assessment_entry_id
+     WHERE entry.assessment_id = p_assessment_id AND entry.availability = 'available'
 $$;
 
 
@@ -29,8 +31,11 @@ SET search_path = pg_catalog, ple_data AS $$
 DECLARE authored_seconds integer;
 DECLARE question_count bigint;
 BEGIN
-    SELECT assessment_attempt_time_limit_seconds INTO authored_seconds
-      FROM ple_data.assessment WHERE assessment_id = p_assessment_id;
+    SELECT policy.assessment_attempt_time_limit_seconds INTO authored_seconds
+      FROM ple_data.assessment AS assessment
+      JOIN ple_data.assessment_policy_snapshot AS policy
+        ON policy.assessment_policy_snapshot_id = assessment.assessment_policy_snapshot_id
+     WHERE assessment.assessment_id = p_assessment_id;
     question_count := ple_data.assessment_delivered_question_count(p_assessment_id);
     IF question_count NOT BETWEEN 1 AND 250 THEN
         RETURN NULL;
@@ -54,10 +59,13 @@ SET search_path = pg_catalog, ple_data AS $$
 DECLARE
     assessment_row record;
 BEGIN
-    SELECT assessment.*, course.active_until_at
+    SELECT assessment.assessment_id, course.active_until_at,
+           policy.due_at, policy.available_at, policy.closes_at
       INTO assessment_row
       FROM ple_data.assessment AS assessment
       JOIN ple_data.course_instance AS course ON course.course_instance_id = assessment.course_instance_id
+      JOIN ple_data.assessment_policy_snapshot AS policy
+        ON policy.assessment_policy_snapshot_id = assessment.assessment_policy_snapshot_id
      WHERE assessment.assessment_id = p_assessment_id;
     IF NOT FOUND THEN
         RETURN;
@@ -76,13 +84,15 @@ BEGIN
     IF EXISTS (
         SELECT 1
           FROM ple_data.assessment_entry AS entry
-          JOIN ple_data.question_pool_revision AS pool_revision
-            ON pool_revision.question_pool_id = entry.question_pool_id
-           AND pool_revision.revision_number = entry.question_pool_revision_number
+          JOIN ple_data.assessment_entry_pool AS pool_entry
+            ON pool_entry.assessment_entry_id = entry.assessment_entry_id
          WHERE entry.assessment_id = p_assessment_id
            AND entry.availability = 'available'
            AND entry.entry_kind = 'question_pool'
-           AND entry.selection_count > pool_revision.member_count
+           AND pool_entry.selection_count > (
+               SELECT count(*) FROM ple_data.question_pool_member AS member
+                WHERE member.question_pool_id = pool_entry.question_pool_id
+           )
     ) THEN
         issue := 'question_pool_insufficient_items';
         RETURN NEXT;

@@ -6,7 +6,7 @@ use sqlx::postgres::PgRow;
 use sqlx::{Postgres, Row, Transaction};
 
 use super::Pool;
-use super::connection::map_sqlx_error;
+use super::connection::{map_sqlx_error, parse_account_id};
 use crate::{
     SessionId, SessionLifetime, SessionRecord, SessionStore, SessionTokenHash, StoreError,
 };
@@ -64,7 +64,7 @@ impl SessionStore for PostgresSessionStore {
              )",
         )
         .bind(session_id.as_uuid())
-        .bind(account.as_uuid())
+        .bind(account.as_str())
         .bind(token_hash.to_string())
         .bind(i64::from(lifetime.as_seconds()))
         .fetch_one(&mut *transaction)
@@ -109,7 +109,7 @@ impl SessionStore for PostgresSessionStore {
 fn decode_session_row(row: &PgRow) -> Result<SessionRecord, StoreError> {
     let token_hash: String = row.try_get("session_hash").map_err(map_sqlx_error)?;
     let session_id = row.try_get("session_id").map_err(map_sqlx_error)?;
-    let account = row.try_get("account_id").map_err(map_sqlx_error)?;
+    let account = parse_account_id(row.try_get("account_id").map_err(map_sqlx_error)?)?;
     let product_role: String = row.try_get("product_role").map_err(map_sqlx_error)?;
     let created_at_millis: i64 = row.try_get("created_at_millis").map_err(map_sqlx_error)?;
     let expires_at_millis: i64 = row.try_get("expires_at_millis").map_err(map_sqlx_error)?;
@@ -119,7 +119,7 @@ fn decode_session_row(row: &PgRow) -> Result<SessionRecord, StoreError> {
     Ok(SessionRecord {
         id: SessionId::from_uuid(session_id),
         token_hash,
-        account: AccountId::from_uuid(account),
+        account: account,
         product_role: decode_product_role(&product_role)?,
         created_at: Timestamp::from_unix_millis(created_at_millis),
         expires_at: Timestamp::from_unix_millis(expires_at_millis),

@@ -28,7 +28,7 @@ use learning_data_access::{
 use objects::s3::S3ObjectStore;
 use question_model::{
     AssessmentEditNumber, AssessmentEntryAvailability, AssessmentQuestionOrderRule,
-    AssessmentReference, CourseInstanceReference, InstructorStudentView,
+    AssessmentId, CourseInstanceId, InstructorStudentView,
     InstructorStudentViewEntry, InstructorStudentViewNotShownReason,
     InstructorStudentViewQuestionReference, ProductRole, QuestionId,
     QuestionPresentationResponseFormat, QuestionRevisionNumber, QuestionRevisionReference,
@@ -537,7 +537,7 @@ fn question_seed() -> Result<question_model::generation::QuestionSeed, ()> {
 fn route_references(
     course: &str,
     assessment: &str,
-) -> Option<(CourseInstanceReference, AssessmentReference)> {
+) -> Option<(CourseInstanceId, AssessmentId)> {
     Some((course.parse().ok()?, assessment.parse().ok()?))
 }
 
@@ -547,8 +547,8 @@ fn route_question_references(
     question_id: &str,
     revision: u32,
 ) -> Option<(
-    CourseInstanceReference,
-    AssessmentReference,
+    CourseInstanceId,
+    AssessmentId,
     QuestionRevisionReference,
 )> {
     let (course, assessment) = route_references(course, assessment)?;
@@ -739,7 +739,7 @@ mod tests {
             Ok(Some(SessionRecord {
                 id: SessionId::from_uuid(Uuid::from_u128(1)),
                 token_hash,
-                account: AccountId::from_uuid(Uuid::from_u128(2)),
+                account: AccountId::from_debug_serial(2),
                 product_role: self.role,
                 created_at: Timestamp::from_unix_millis(1),
                 expires_at: Timestamp::from_unix_millis(2),

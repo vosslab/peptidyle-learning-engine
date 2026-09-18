@@ -1,8 +1,8 @@
 //! Narrow Sysadmin-only lineage promotion, independent of Blueprint Revisions.
 
 use super::{
-    BlueprintCourseRouteState, concealed, expected_metadata_etag, joined_cookie_header,
-    route_error, store_error_response, unavailable,
+    BlueprintCourseRouteState, concealed, expected_edit_number, joined_cookie_header, route_error,
+    store_error_response, unavailable,
 };
 use crate::auth::{AuthError, resolve_session};
 use axum::{
@@ -12,7 +12,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use learning_data_access::{BlueprintPromotionStore, SessionTokenHash};
-use question_model::{BlueprintCourseReference, ProductRole};
+use question_model::{BlueprintCourseId, ProductRole};
 use serde::Deserialize;
 
 // ASVS 2.2.1/8.2.3: exact boolean command; no arbitrary metadata assignment.
@@ -50,7 +50,7 @@ pub(super) async fn load_promotion(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let reference = match reference.parse::<BlueprintCourseReference>() {
+    let reference = match reference.parse::<BlueprintCourseId>() {
         Ok(value) => value,
         Err(_) => return concealed(),
     };
@@ -74,11 +74,11 @@ pub(super) async fn set_promotion(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let reference = match reference.parse::<BlueprintCourseReference>() {
+    let reference = match reference.parse::<BlueprintCourseId>() {
         Ok(value) => value,
         Err(_) => return concealed(),
     };
-    let expected = match expected_metadata_etag(&headers) {
+    let expected = match expected_edit_number(&headers) {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -97,7 +97,7 @@ pub(super) async fn set_promotion(
 }
 
 fn promotion_response(value: learning_data_access::StoredBlueprintPromotion) -> Response {
-    let etag = value.metadata_etag;
+    let etag = value.blueprint_edit_number;
     let mut response = crate::auth::no_store(Json(value).into_response());
     match HeaderValue::from_str(&format!("\"{etag}\"")) {
         Ok(value) => {

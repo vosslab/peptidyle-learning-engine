@@ -11,7 +11,7 @@ use browser_api_contract::blueprint_course::BlueprintHistoryPageView;
 use learning_data_access::{
     BlueprintHistoryKind, BlueprintHistoryStore, Cursor, PageRequest, PageSize,
 };
-use question_model::BlueprintCourseReference;
+use question_model::BlueprintCourseId;
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -49,7 +49,7 @@ pub(super) struct HistoryQuery {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct HistoryCursor {
     version: u8,
-    reference: BlueprintCourseReference,
+    reference: BlueprintCourseId,
     kind: HistoryKind,
     page_size: u16,
     after: String,
@@ -105,7 +105,7 @@ pub(super) async fn list_history(
     }
 }
 
-fn page_request(reference: &BlueprintCourseReference, query: &HistoryQuery) -> Option<PageRequest> {
+fn page_request(reference: &BlueprintCourseId, query: &HistoryQuery) -> Option<PageRequest> {
     // ASVS 2.2.1/2/3: bound cursor size and bind the sequence/course/page limit.
     let size = PageSize::new(query.page_size.unwrap_or(50)).ok()?;
     let after = match query.cursor.as_ref() {
@@ -146,7 +146,7 @@ fn valid_key(kind: HistoryKind, key: &str) -> bool {
 }
 
 fn encode_cursor(
-    reference: BlueprintCourseReference,
+    reference: BlueprintCourseId,
     kind: HistoryKind,
     page_size: u16,
     after: Cursor,

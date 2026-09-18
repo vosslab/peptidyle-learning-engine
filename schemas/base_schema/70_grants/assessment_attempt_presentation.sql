@@ -14,27 +14,27 @@ REVOKE ALL ON FUNCTION ple_private.reject_question_attempt_presentation_change()
 REVOKE ALL ON FUNCTION ple_private.require_owned_assessment_attempt_for_presentation(uuid),
     ple_private.prepare_student_assessment_attempt_presentation(uuid),
     ple_private.commit_student_assessment_attempt_presentation(uuid, jsonb),
-    ple_private.read_student_assessment_attempt_presentation_evidence(bigint, integer),
+    ple_private.read_student_assessment_attempt_presentation_evidence(uuid, integer),
     ple_private.read_student_assessment_attempt_presentation_evidence_set(uuid),
-    ple_private.read_student_assessment_attempt_backend_document(bigint, integer) FROM PUBLIC;
+    ple_private.read_student_assessment_attempt_backend_document(uuid, integer) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION ple_private.prepare_student_assessment_attempt_presentation(uuid),
     ple_private.commit_student_assessment_attempt_presentation(uuid, jsonb),
-    ple_private.read_student_assessment_attempt_presentation_evidence(bigint, integer),
+    ple_private.read_student_assessment_attempt_presentation_evidence(uuid, integer),
     ple_private.read_student_assessment_attempt_presentation_evidence_set(uuid),
-    ple_private.read_student_assessment_attempt_backend_document(bigint, integer) TO ple_api_owner;
+    ple_private.read_student_assessment_attempt_backend_document(uuid, integer) TO ple_api_owner;
 
 SET LOCAL ROLE ple_api_owner;
 
 REVOKE ALL ON FUNCTION ple_api.prepare_student_assessment_attempt_presentation(uuid),
     ple_api.commit_student_assessment_attempt_presentation(uuid, jsonb),
-    ple_api.read_student_assessment_attempt_presentation_evidence(bigint, integer),
+    ple_api.read_student_assessment_attempt_presentation_evidence(uuid, integer),
     ple_api.read_student_assessment_attempt_presentation_evidence_set(uuid),
-    ple_api.read_student_assessment_attempt_backend_document(bigint, integer) FROM PUBLIC;
+    ple_api.read_student_assessment_attempt_backend_document(uuid, integer) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION ple_api.prepare_student_assessment_attempt_presentation(uuid),
     ple_api.commit_student_assessment_attempt_presentation(uuid, jsonb),
-    ple_api.read_student_assessment_attempt_presentation_evidence(bigint, integer),
+    ple_api.read_student_assessment_attempt_presentation_evidence(uuid, integer),
     ple_api.read_student_assessment_attempt_presentation_evidence_set(uuid),
-    ple_api.read_student_assessment_attempt_backend_document(bigint, integer) TO ple_app;
+    ple_api.read_student_assessment_attempt_backend_document(uuid, integer) TO ple_app;
 

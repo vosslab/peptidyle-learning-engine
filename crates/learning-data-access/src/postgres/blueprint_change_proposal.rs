@@ -7,7 +7,7 @@ use question_model::blueprint_course::{
     BlueprintForkApplyModuleLayout, BlueprintForkApplySelection,
 };
 use question_model::{
-    AccountId, BlueprintAssessmentReference, BlueprintCourseReference, BlueprintMetadataEtag,
+    BlueprintAssessmentId, BlueprintCourseId, BlueprintEditNumber,
     BlueprintModuleReference, BlueprintRevision, BlueprintRevisionReference,
     CanonicalBlueprintCourse, Timestamp,
 };
@@ -21,7 +21,7 @@ use super::{
         PostgresBlueprintCourseStore, decode_classification, decode_revision_content,
         encode_content,
     },
-    connection::map_sqlx_error,
+    connection::{map_sqlx_error, parse_account_id},
 };
 use crate::{
     AcceptBlueprintChangeProposalInput, AcceptedBlueprintChangeProposal,
@@ -137,10 +137,10 @@ impl BlueprintChangeProposalStore for PostgresBlueprintCourseStore {
         )
         .bind(input.source.reference.as_string())
         .bind(revision_number(input.source.revision)?)
-        .bind(input.source_metadata_etag.into_uuid())
+        .bind(input.source_blueprint_edit_number.as_i64())
         .bind(input.target.reference.as_string())
         .bind(revision_number(input.target.revision)?)
-        .bind(input.target_metadata_etag.into_uuid())
+        .bind(input.target_blueprint_edit_number.as_i64())
         .fetch_one(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
@@ -180,7 +180,7 @@ impl BlueprintChangeProposalStore for PostgresBlueprintCourseStore {
             .bind(input.proposal_id)
             .bind(input.expected_target.reference.as_string())
             .bind(revision_number(input.expected_target.revision)?)
-            .bind(input.expected_target_metadata_etag.into_uuid())
+            .bind(input.expected_target_blueprint_edit_number.as_i64())
             .execute(&mut *transaction)
             .await
             .map_err(map_sqlx_error)?;
@@ -230,7 +230,7 @@ impl BlueprintChangeProposalStore for PostgresBlueprintCourseStore {
                 .map(|copy| {
                     Ok((
                         copy.source_assessment_reference,
-                        BlueprintAssessmentReference::from_uuid(
+                        BlueprintAssessmentId::from_uuid(
                             super::blueprint_course::random_uuid()?,
                         ),
                     ))
@@ -333,7 +333,7 @@ impl BlueprintChangeProposalStore for PostgresBlueprintCourseStore {
         .bind(input.proposal_id)
         .bind(input.expected_target.reference.as_string())
         .bind(revision_number(input.expected_target.revision)?)
-        .bind(input.expected_target_metadata_etag.into_uuid())
+        .bind(input.expected_target_blueprint_edit_number.as_i64())
         .bind(Json(encoded_evidence))
         .bind(checksum.to_vec())
         .bind(Json(encoded_content))
@@ -418,7 +418,7 @@ fn selected_stored_content(
     source: &StoredBlueprintCourseContent,
     target: &StoredBlueprintCourseContent,
     applied: &question_model::BlueprintCourseContent,
-    copied: &BTreeMap<BlueprintAssessmentReference, BlueprintAssessmentReference>,
+    copied: &BTreeMap<BlueprintAssessmentId, BlueprintAssessmentId>,
 ) -> Result<StoredBlueprintCourseContent, StoreError> {
     let mut modules = Vec::new();
     for module in applied.modules() {
@@ -467,13 +467,14 @@ async fn read_accepted_in_transaction(
         row.try_get("decision").map_err(map_sqlx_error)?;
     Ok(Some(AcceptedBlueprintChangeProposal {
         proposal_id: row.try_get("proposal_id").map_err(map_sqlx_error)?,
-        actor: AccountId::from_uuid(row.try_get("actor_account_id").map_err(map_sqlx_error)?),
+        actor: parse_account_id(row.try_get("actor_account_id").map_err(map_sqlx_error)?)?,
         accepted_at: Timestamp::from_unix_millis(
             row.try_get("accepted_at_ms").map_err(map_sqlx_error)?,
         ),
         target: reference(&row)?,
-        target_metadata_etag: BlueprintMetadataEtag::from_uuid(
-            row.try_get("metadata_etag").map_err(map_sqlx_error)?,
+        target_blueprint_edit_number: BlueprintEditNumber::from_edit_number(
+            row.try_get("blueprint_edit_number")
+                .map_err(map_sqlx_error)?,
         ),
         decision,
         resulting_json: canonical(&row)?,
@@ -526,21 +527,24 @@ async fn read_sources_in_transaction(
     let target_content = content_row(target)?;
     let proposal = StoredBlueprintChangeProposal {
         proposal_id: source.try_get("proposal_id").map_err(map_sqlx_error)?,
-        proposer: AccountId::from_uuid(
-            source
-                .try_get("proposer_account_id")
-                .map_err(map_sqlx_error)?,
-        ),
+        proposer: source
+            .try_get("proposer_account_id")
+            .map_err(map_sqlx_error)
+            .and_then(parse_account_id)?,
         created_at: Timestamp::from_unix_millis(
             source.try_get("created_at_ms").map_err(map_sqlx_error)?,
         ),
         source: reference(source)?,
-        source_metadata_etag: BlueprintMetadataEtag::from_uuid(
-            source.try_get("metadata_etag").map_err(map_sqlx_error)?,
+        source_blueprint_edit_number: BlueprintEditNumber::from_edit_number(
+            source
+                .try_get("blueprint_edit_number")
+                .map_err(map_sqlx_error)?,
         ),
         target: reference(target)?,
-        target_metadata_etag: BlueprintMetadataEtag::from_uuid(
-            target.try_get("metadata_etag").map_err(map_sqlx_error)?,
+        target_blueprint_edit_number: BlueprintEditNumber::from_edit_number(
+            target
+                .try_get("blueprint_edit_number")
+                .map_err(map_sqlx_error)?,
         ),
         proposed_json: canonical_content(source, &source_content)?,
         target_comparison_json: canonical_content(target, &target_content)?,
@@ -593,7 +597,7 @@ fn reference(row: &sqlx::postgres::PgRow) -> Result<BlueprintRevisionReference, 
     let revision: i64 = row.try_get("revision_number").map_err(map_sqlx_error)?;
     Ok(BlueprintRevisionReference {
         reference: reference
-            .parse::<BlueprintCourseReference>()
+            .parse::<BlueprintCourseId>()
             .map_err(|_| invalid())?,
         revision: BlueprintRevision::new(u64::try_from(revision).map_err(|_| invalid())?)
             .ok_or_else(invalid)?,
@@ -608,8 +612,8 @@ fn proposal_summary(
     let accepted_revision: Option<i64> = row
         .try_get("accepted_target_revision_number")
         .map_err(map_sqlx_error)?;
-    let accepted_etag: Option<uuid::Uuid> = row
-        .try_get("accepted_target_metadata_etag")
+    let accepted_etag: Option<i64> = row
+        .try_get("accepted_target_blueprint_edit_number")
         .map_err(map_sqlx_error)?;
     let accepted = match (accepted_at, accepted_revision, accepted_etag) {
         (None, None, None) => None,
@@ -620,7 +624,7 @@ fn proposal_summary(
                 revision: BlueprintRevision::new(u64::try_from(revision).map_err(|_| invalid())?)
                     .ok_or_else(invalid)?,
             },
-            target_metadata_etag: BlueprintMetadataEtag::from_uuid(etag),
+            target_blueprint_edit_number: BlueprintEditNumber::from_edit_number(etag),
         }),
         _ => return Err(invalid()),
     };
@@ -630,15 +634,15 @@ fn proposal_summary(
             row.try_get("created_at_ms").map_err(map_sqlx_error)?,
         ),
         source: summary_reference(row, "source_public_reference", "source_revision_number")?,
-        source_metadata_etag: BlueprintMetadataEtag::from_uuid(
-            row.try_get("source_metadata_etag")
+        source_blueprint_edit_number: BlueprintEditNumber::from_edit_number(
+            row.try_get("source_blueprint_edit_number")
                 .map_err(map_sqlx_error)?,
         ),
         source_short_name: row.try_get("source_short_name").map_err(map_sqlx_error)?,
         source_long_name: row.try_get("source_long_name").map_err(map_sqlx_error)?,
         target,
-        target_metadata_etag: BlueprintMetadataEtag::from_uuid(
-            row.try_get("target_metadata_etag")
+        target_blueprint_edit_number: BlueprintEditNumber::from_edit_number(
+            row.try_get("target_blueprint_edit_number")
                 .map_err(map_sqlx_error)?,
         ),
         target_short_name: row.try_get("target_short_name").map_err(map_sqlx_error)?,

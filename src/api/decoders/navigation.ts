@@ -10,29 +10,38 @@ export function decodeNavigationResolution(
   const record = decodeRecord(value, path);
   switch (kind(record, path)) {
     case "course":
-      requireOnlyFields(record, path, ["kind", "courseId"]);
+      requireOnlyFields(record, path, ["kind", "courseInstanceId"]);
       return {
         kind: "course",
-        courseId: decodeIdentifier(field(record, "courseId", path), `${path}.courseId`),
+        courseInstanceId: decodeIdentifier(
+          field(record, "courseInstanceId", path),
+          `${path}.courseInstanceId`,
+        ),
       };
     case "assessment":
-      requireOnlyFields(record, path, ["kind", "courseId", "assessmentId"]);
+      requireOnlyFields(record, path, ["kind", "courseInstanceId", "assessmentId"]);
       return {
         kind: "assessment",
-        courseId: decodeIdentifier(field(record, "courseId", path), `${path}.courseId`),
+        courseInstanceId: decodeIdentifier(
+          field(record, "courseInstanceId", path),
+          `${path}.courseInstanceId`,
+        ),
         assessmentId: decodeIdentifier(field(record, "assessmentId", path), `${path}.assessmentId`),
       };
     case "assessmentAttempt":
       requireOnlyFields(record, path, [
         "kind",
-        "courseId",
+        "courseInstanceId",
         "assessmentId",
         "studentRecordId",
         "assessmentAttemptId",
       ]);
       return {
         kind: "assessmentAttempt",
-        courseId: decodeIdentifier(field(record, "courseId", path), `${path}.courseId`),
+        courseInstanceId: decodeIdentifier(
+          field(record, "courseInstanceId", path),
+          `${path}.courseInstanceId`,
+        ),
         assessmentId: decodeIdentifier(field(record, "assessmentId", path), `${path}.assessmentId`),
         studentRecordId: decodeIdentifier(
           field(record, "studentRecordId", path),

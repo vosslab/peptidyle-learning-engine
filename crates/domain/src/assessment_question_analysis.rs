@@ -4,7 +4,7 @@
 //! never retain Student identity, raw responses, answer choices, or Object Addresses.
 
 use question_model::{
-    AssessmentEntryId, AssessmentId, CourseId, QuestionRevisionReference, ScoringGeneration,
+    AssessmentEntryId, AssessmentId, CourseInstanceId, QuestionRevisionReference, ScoringGeneration,
     Timestamp,
 };
 use serde::{Deserialize, Serialize};
@@ -45,7 +45,7 @@ impl QuestionOutcomeDistribution {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct AssessmentQuestionAnalysis {
-    pub course: CourseId,
+    pub course: CourseInstanceId,
     pub assessment: AssessmentId,
     pub assessment_entry: AssessmentEntryId,
     pub question_revision: QuestionRevisionReference,
@@ -75,7 +75,7 @@ pub struct AssessmentQuestionAnalysis {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct AssessmentQuestionAnalysisReport {
-    pub course: CourseId,
+    pub course: CourseInstanceId,
     pub assessment: AssessmentId,
     pub scoring_generation: ScoringGeneration,
     pub analyzed_at: Timestamp,

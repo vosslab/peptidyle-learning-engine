@@ -3,7 +3,7 @@
 use async_trait::async_trait;
 use question_model::{
     AssessmentTemplate, AssessmentTemplateEditNumber, AssessmentTemplateId, AssessmentTemplateName,
-    AssessmentTemplateSettings, AssessmentType, CourseInstanceReference,
+    AssessmentTemplateSettings, AssessmentType, CourseInstanceId,
 };
 use sqlx::{Postgres, Row, Transaction, types::Json};
 
@@ -169,7 +169,7 @@ impl AssessmentTemplateStore for PostgresAssessmentTemplateStore {
     async fn create_assessment_from_template(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
+        course: CourseInstanceId,
         input: CreateAssessmentFromTemplateInput,
     ) -> Result<LiveAssessmentWorkspace, StoreError> {
         let assessment_id = crate::random_uuid::random_uuid_v4(|_| {

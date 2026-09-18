@@ -1,7 +1,7 @@
 use super::*;
 use question_model::generation::QuestionSeed;
 use question_model::{
-    AccountId, AssessmentId, CourseId, ImathasDeploymentReference, ImathasItemReference,
+    AccountId, AssessmentId, CourseInstanceId, ImathasDeploymentReference, ImathasItemReference,
     ImathasProfile, ImathasQuestionBackendBinding, ObjectId, QuestionAttemptId, QuestionId,
     QuestionRevisionNumber, QuestionRevisionReference, SourceObjectChecksum, SourceObjectReference,
     Timestamp,
@@ -13,8 +13,8 @@ fn facts(
     ImathasQuestionBackendSessionCreate,
     ImathasQuestionBackendSessionRestoreExpectation,
 ) {
-    let course = CourseId::from_uuid(Uuid::from_u128(2));
-    let assessment = AssessmentId::from_uuid(Uuid::from_u128(3));
+    let course = CourseInstanceId::from_debug_serial(2);
+    let assessment = AssessmentId::from_debug_serial(3);
     let attempt = QuestionAttemptId::from_uuid(Uuid::from_u128(4));
     let revision = QuestionRevisionReference {
         question_id: "1234-H567".parse::<QuestionId>().expect("question ID"),
@@ -162,14 +162,14 @@ fn authorize(
     store.install_authenticated_session(token, account);
     store.install_active_student_authorization(
         account,
-        CourseId::from_uuid(Uuid::from_u128(2)),
+        CourseInstanceId::from_debug_serial(2),
         QuestionAttemptId::from_uuid(Uuid::from_u128(4)),
     );
 }
 
 #[tokio::test]
 async fn memory_oracle_restores_exact_backend_state() {
-    let account = AccountId::from_uuid(Uuid::from_u128(1));
+    let account = AccountId::from_debug_serial(1);
     let token = SessionTokenHash::compute(b"session");
     let store =
         MemoryImathasQuestionBackendSessionStore::new(ring(), Timestamp::from_unix_millis(20));
@@ -192,7 +192,7 @@ async fn memory_oracle_restores_exact_backend_state() {
 
 #[tokio::test]
 async fn memory_oracle_refuses_wrong_restore_context_and_revoked_student_authorization() {
-    let account = AccountId::from_uuid(Uuid::from_u128(1));
+    let account = AccountId::from_debug_serial(1);
     let token = SessionTokenHash::compute(b"owner");
     let store =
         MemoryImathasQuestionBackendSessionStore::new(ring(), Timestamp::from_unix_millis(20));
@@ -202,7 +202,7 @@ async fn memory_oracle_refuses_wrong_restore_context_and_revoked_student_authori
         .create_imathas_question_backend_session(token, create)
         .await
         .expect("create");
-    let (_, wrong) = facts(AccountId::from_uuid(Uuid::from_u128(99)));
+    let (_, wrong) = facts(AccountId::from_debug_serial(99));
     assert_eq!(
         store
             .load_imathas_question_backend_session(token, reference, wrong)
@@ -211,7 +211,7 @@ async fn memory_oracle_refuses_wrong_restore_context_and_revoked_student_authori
     );
     store.revoke_active_student_authorization(
         account,
-        CourseId::from_uuid(Uuid::from_u128(2)),
+        CourseInstanceId::from_debug_serial(2),
         QuestionAttemptId::from_uuid(Uuid::from_u128(4)),
     );
     assert_eq!(
@@ -224,7 +224,7 @@ async fn memory_oracle_refuses_wrong_restore_context_and_revoked_student_authori
 
 #[tokio::test]
 async fn memory_oracle_refuses_every_changed_imathas_question_backend_grading_context_fact() {
-    let account = AccountId::from_uuid(Uuid::from_u128(1));
+    let account = AccountId::from_debug_serial(1);
     let token = SessionTokenHash::compute(b"owner");
     let store =
         MemoryImathasQuestionBackendSessionStore::new(ring(), Timestamp::from_unix_millis(20));
@@ -271,7 +271,7 @@ async fn memory_oracle_refuses_every_changed_imathas_question_backend_grading_co
 
 #[test]
 fn session_validity_interval_starts_at_issue_time() {
-    let account = AccountId::from_uuid(Uuid::from_u128(1));
+    let account = AccountId::from_debug_serial(1);
     let (create, _) = facts(account);
     let (session, _) = create.into_session(ImathasQuestionBackendSessionReference::from_uuid(
         Uuid::from_u128(99),
@@ -310,7 +310,7 @@ impl ImathasQuestionBackendStateNonceSource for FixedNonce {
 
 #[test]
 fn cipher_binds_every_immutable_fact_with_deterministic_nonces_and_redaction() {
-    let account = AccountId::from_uuid(Uuid::from_u128(1));
+    let account = AccountId::from_debug_serial(1);
     let (create, _) = facts(account);
     let (session, plaintext) = create.into_session(
         ImathasQuestionBackendSessionReference::from_uuid(Uuid::from_u128(7)),
@@ -346,7 +346,7 @@ fn cipher_binds_every_immutable_fact_with_deterministic_nonces_and_redaction() {
 
 #[test]
 fn encrypted_state_aad_uses_the_canonical_question_id() {
-    let account = AccountId::from_uuid(Uuid::from_u128(1));
+    let account = AccountId::from_debug_serial(1);
     let (create, _) = facts(account);
     let (session, _) = create.into_session(ImathasQuestionBackendSessionReference::from_uuid(
         Uuid::from_u128(7),

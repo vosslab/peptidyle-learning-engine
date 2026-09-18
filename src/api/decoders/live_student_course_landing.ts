@@ -21,9 +21,9 @@ import {
   decodeString,
 } from "../decoder";
 import {
-  decodeAssessmentReference,
+  decodeAssessmentId,
   decodeAssessmentTitle,
-  decodeCourseInstanceReference,
+  decodeCourseInstanceId,
   decodeCourseName,
   field,
   requireOnlyFields,
@@ -40,7 +40,7 @@ function decodeCourseSummary(value: unknown, path: string): LiveStudentCourseLan
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["reference", "shortName", "longName"]);
   return {
-    reference: decodeCourseInstanceReference(field(record, "reference", path), `${path}.reference`),
+    reference: decodeCourseInstanceId(field(record, "reference", path), `${path}.reference`),
     shortName: decodeCourseName(field(record, "shortName", path), `${path}.shortName`),
     longName: decodeCourseName(field(record, "longName", path), `${path}.longName`),
   };
@@ -69,7 +69,7 @@ function decodeInvitationSummary(value: unknown, path: string): LiveStudentCours
     throw new DecodeError(`${path}.instructorDisplayName`, "one verified Instructor display name");
   }
   return {
-    reference: decodeCourseInstanceReference(field(record, "reference", path), `${path}.reference`),
+    reference: decodeCourseInstanceId(field(record, "reference", path), `${path}.reference`),
     shortName: decodeCourseName(field(record, "shortName", path), `${path}.shortName`),
     longName: decodeCourseName(field(record, "longName", path), `${path}.longName`),
     instructorDisplayName,
@@ -157,7 +157,7 @@ function decodeAssessmentSummary(
     throw new DecodeError(path, "internally consistent self-only Assessment progress");
   }
   return {
-    reference: decodeAssessmentReference(field(record, "reference", path), `${path}.reference`),
+    reference: decodeAssessmentId(field(record, "reference", path), `${path}.reference`),
     title: decodeAssessmentTitle(field(record, "title", path), `${path}.title`),
     assessmentType: decodeStringEnum(
       field(record, "assessmentType", path),

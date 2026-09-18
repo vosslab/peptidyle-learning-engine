@@ -348,7 +348,7 @@ re-based for the SD1 cutover as one Blueprint Course source aggregate. `Blueprin
 answer-free, ordered, revisioned course-level aggregate: a vetted Instructor-visible published
 `BlueprintCourseView` contains ordered modules and assignments, and every entry pins an exact published
 `QuestionRevisionReference`. Draft source remains owner/workspace-collaborator scoped. `CourseInstance` is
-the separate exact-`CourseId` teaching aggregate created from that source; it owns copied Assignment
+the separate exact-`CourseInstanceId` teaching aggregate created from that source; it owns copied Assignment
 Content, Students, releases, live deadlines, accommodations, grades, and delivery settings.
 It has exactly one immutable Blueprint parent and applied source revision. A blank CourseInstance is
 created from a minimal Blueprint, not from a second course type. Relative calendar-day and local-wall-
@@ -367,7 +367,7 @@ Term, and Shift Course Dates.
 
 This is a clean pre-production cutover, not a compatibility layer. The SD1 sequence removes Alpha
 types, routes, schema branches, Store capabilities, generated aliases, and browser resource kinds;
-`BlueprintCourseReference` (`BP-*`) is the only reusable-course reference. Existing `WP-INST-B1` and
+`BlueprintCourseId` (`BP-*`) is the only reusable-course reference. Existing `WP-INST-B1` and
 `WP-INST-B2` acceptance records remain historical evidence; the current handoff and migration
 allocation remain solely in [implementation_status.md](implementation_status.md). `WP-R0`, `WP-R1`,
 `WP-R2`, and `WP-PY-L1` retain their registered package identities and acceptance status.
@@ -915,7 +915,7 @@ BlueprintCourse (workspace-owned, revisioned, answer-free)
   -> ordered BlueprintModule -> ordered BlueprintAssignment
   -> exact published Question Revision Reference pins and relative schedule intent
 
-CourseInstance (exact CourseId, private teaching aggregate)
+CourseInstance (exact CourseInstanceId, private teaching aggregate)
   -> copied Assignment Content, resolved deadlines, releases, accommodations,
      Students, Assignment Attempts, grades, and delivery settings
 ```
@@ -930,7 +930,7 @@ assignments arrive in daughter instances as unreleased; release and divergent de
 an explicit CourseInstance action. Archived referenced Blueprints remain resolvable through the exact
 Blueprint references retained by Course Origin and Assignment Source Record history.
 
-The SD1 cutover is source-, schema-, API-, and browser-wide. It retains only `BlueprintCourseReference`
+The SD1 cutover is source-, schema-, API-, and browser-wide. It retains only `BlueprintCourseId`
 (`BP-*`) and one exact Store/route/decoder/editor boundary; it removes Alpha types, route surfaces, schema
 branches, capabilities, aliases, and browser resource kinds. One-assignment reuse is a bounded
 module/assignment `BlueprintCourseView` of the same BlueprintCourse. Fork Blueprint Course, Copy Assignment from Blueprint, and

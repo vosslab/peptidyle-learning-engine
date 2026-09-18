@@ -54,7 +54,7 @@ CREATE FUNCTION ple_api.create_course_instance(
 )
 RETURNS TABLE(public_reference text, short_name text, long_name text, term_starts_on date,
               term_ends_on date, content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid,
-              content_subtopic_id uuid, tags text[], metadata_etag uuid, course_lifecycle_state text)
+              content_subtopic_id uuid, tags text[], course_edit_number bigint, course_lifecycle_state text)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
 DECLARE
     actor text;
@@ -188,7 +188,7 @@ BEGIN
     );
     RETURN QUERY SELECT course.course_instance_id, course.course_short_name, course.course_long_name,
         course.term_starts_on, course.term_ends_on, course.content_discipline_id, course.content_subject_id,
-        course.content_topic_id, course.content_subtopic_id, course.tags, course.metadata_etag,
+        course.content_topic_id, course.content_subtopic_id, course.tags, course.course_edit_number,
         course.course_lifecycle_state
         FROM ple_data.course_instance AS course WHERE course.course_instance_id = p_course_instance_id;
 END
@@ -244,13 +244,13 @@ $$;
 CREATE FUNCTION ple_api.list_course_instances()
 RETURNS TABLE(public_reference text, short_name text, long_name text, term_starts_on date,
               term_ends_on date, course_theme text, content_discipline_id uuid, content_subject_id uuid,
-              content_topic_id uuid, content_subtopic_id uuid, tags text[], metadata_etag uuid,
+              content_topic_id uuid, content_subtopic_id uuid, tags text[], course_edit_number bigint,
               course_lifecycle_state text)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT course.course_instance_id, course.course_short_name, course.course_long_name,
            course.term_starts_on, course.term_ends_on, course.course_theme_id AS course_theme,
            course.content_discipline_id, course.content_subject_id, course.content_topic_id,
-           course.content_subtopic_id, course.tags, course.metadata_etag, course.course_lifecycle_state
+           course.content_subtopic_id, course.tags, course.course_edit_number, course.course_lifecycle_state
       FROM ple_data.course_instance AS course
       JOIN ple_data.course_membership AS membership
         ON membership.course_instance_id = course.course_instance_id
@@ -267,7 +267,7 @@ RETURNS TABLE(public_reference text, short_name text, long_name text, term_start
               active_instructor_count bigint, blueprint_reference text,
               adopted_blueprint_revision bigint, current_blueprint_revision bigint,
               content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid, content_subtopic_id uuid,
-              tags text[], metadata_etag uuid, course_lifecycle_state text)
+              tags text[], course_edit_number bigint, course_lifecycle_state text)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT course.course_instance_id, course.course_short_name, course.course_long_name,
            course.term_starts_on, course.term_ends_on, course.course_theme_id AS course_theme,
@@ -279,7 +279,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_
                 THEN course.blueprint_revision_number END,
            readable_blueprint.current_blueprint_revision_number,
            course.content_discipline_id, course.content_subject_id, course.content_topic_id,
-           course.content_subtopic_id, course.tags, course.metadata_etag, course.course_lifecycle_state
+           course.content_subtopic_id, course.tags, course.course_edit_number, course.course_lifecycle_state
       FROM ple_data.course_instance AS course
       LEFT JOIN ple_data.blueprint_course AS parent_blueprint
         ON parent_blueprint.blueprint_course_id = course.blueprint_course_id
@@ -297,14 +297,14 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_
 $$;
 
 CREATE FUNCTION ple_api.update_course_classification(
-    p_reference text, p_expected_metadata_etag uuid,
+    p_reference text, p_expected_course_edit_number bigint,
     p_discipline uuid, p_subject uuid, p_topic uuid, p_subtopic uuid, p_tags text[]
 )
-RETURNS TABLE(metadata_etag uuid, changed boolean)
+RETURNS TABLE(course_edit_number bigint, changed boolean)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data AS $$
 DECLARE
     v_course ple_data.course_instance%ROWTYPE;
-    v_next uuid;
+    v_next bigint;
 BEGIN
     -- ASVS 8.2.1/8.2.2: every current co-Instructor has equal scoped authority.
     SELECT course.* INTO v_course FROM ple_data.course_instance AS course
@@ -315,16 +315,16 @@ BEGIN
         RAISE EXCEPTION 'Course Instance is not available' USING ERRCODE = '42501';
     END IF;
     -- ASVS 2.3.3: only classification writes advance this bounded CAS validator.
-    IF p_expected_metadata_etag IS DISTINCT FROM v_course.metadata_etag THEN
+    IF p_expected_course_edit_number IS DISTINCT FROM v_course.course_edit_number THEN
         RAISE EXCEPTION 'Course metadata ETag is stale' USING ERRCODE = '40001';
     END IF;
     IF ROW(v_course.content_discipline_id, v_course.content_subject_id, v_course.content_topic_id,
            v_course.content_subtopic_id, v_course.tags)
        IS NOT DISTINCT FROM ROW(p_discipline, p_subject, p_topic, p_subtopic, p_tags) THEN
-        RETURN QUERY SELECT v_course.metadata_etag, false;
+        RETURN QUERY SELECT v_course.course_edit_number, false;
         RETURN;
     END IF;
-    v_next := pg_catalog.gen_random_uuid();
+    v_next := v_course.course_edit_number + 1;
     -- An existing retired Discipline remains valid when this update retains
     -- its UUID; only a replacement needs an active new selection.
     IF v_course.content_discipline_id IS DISTINCT FROM p_discipline THEN
@@ -332,7 +332,7 @@ BEGIN
     END IF;
     UPDATE ple_data.course_instance AS course SET
         content_discipline_id = p_discipline, content_subject_id = p_subject, content_topic_id = p_topic,
-        content_subtopic_id = p_subtopic, tags = p_tags, metadata_etag = v_next
+        content_subtopic_id = p_subtopic, tags = p_tags, course_edit_number = v_next
      WHERE course.course_instance_id = v_course.course_instance_id;
     RETURN QUERY SELECT v_next, true;
 END

@@ -9,8 +9,10 @@ SET search_path = pg_catalog, ple_data AS $$
 DECLARE
     latest_due_at timestamp with time zone;
 BEGIN
-    SELECT max(assessment.due_at) INTO latest_due_at
+    SELECT max(policy.due_at) INTO latest_due_at
       FROM ple_data.assessment AS assessment
+      JOIN ple_data.assessment_policy_snapshot AS policy
+        ON policy.assessment_policy_snapshot_id = assessment.assessment_policy_snapshot_id
      WHERE assessment.course_instance_id = p_course_instance_id
        AND assessment.assessment_status IN ('unreleased', 'released');
     UPDATE ple_data.course_instance AS course

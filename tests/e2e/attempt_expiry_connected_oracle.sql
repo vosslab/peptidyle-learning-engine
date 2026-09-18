@@ -36,8 +36,8 @@ SET LOCAL ROLE ple_private_owner;
 INSERT INTO ple_private.question_attempt (question_attempt_id, issued_question_id, issued_at, question_attempt_state, backend_name, backend_version, grader_name, grader_version, rendered_question_sha256, issued_capability) VALUES
 ('e3000000-0000-0000-0000-000000000031', 'e3000000-0000-0000-0000-000000000011', clock_timestamp(), 'open', 'ple', '1', 'ple', '1', decode(repeat('31', 32), 'hex'), 'not_applicable');
 SET LOCAL ROLE ple_api_owner;
-SELECT * FROM ple_api.save_student_assessment_attempt_response((SELECT assessment_attempt_reference_number FROM ple_api.read_started_student_assessment_attempt('e3000000-0000-0000-0000-000000000010')), 1, '{"kind":"shortText","text":"response A"}'::jsonb);
-SELECT set_config('ple.test_direct_attempt_reference', assessment_attempt_reference_number::text, true) FROM ple_api.read_started_student_assessment_attempt('e3000000-0000-0000-0000-000000000010');
+SELECT * FROM ple_api.save_student_assessment_attempt_response((SELECT assessment_attempt_id FROM ple_api.read_started_student_assessment_attempt('e3000000-0000-0000-0000-000000000010')), 1, '{"kind":"shortText","text":"response A"}'::jsonb);
+SELECT set_config('ple.test_direct_attempt_reference', assessment_attempt_id::text, true) FROM ple_api.read_started_student_assessment_attempt('e3000000-0000-0000-0000-000000000010');
 
 DO $$
 DECLARE saved_millis bigint;

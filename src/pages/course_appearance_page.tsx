@@ -3,7 +3,7 @@
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, type JSX } from "solid-js";
 
 import type { CourseAppearanceView } from "../../generated/api/CourseAppearanceView";
-import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
+import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { CourseBannerAlternativeText } from "../../generated/api/CourseBannerAlternativeText";
 import type { CourseTheme } from "../../generated/api/CourseTheme";
 import { useApplicationApi } from "../api/application_api";
@@ -65,7 +65,7 @@ function ThemePalettePreview(props: { readonly theme: CourseTheme }): JSX.Elemen
 }
 
 function AppearanceThemeEditor(props: {
-  readonly courseReference: CourseInstanceReference;
+  readonly courseReference: CourseInstanceId;
   readonly storedAppearance: () => CourseAppearanceView;
 }): JSX.Element {
   const applicationApi = useApplicationApi();
@@ -185,7 +185,7 @@ function BannerImage(props: {
 }
 
 function AppearanceBannerEditor(props: {
-  readonly courseReference: CourseInstanceReference;
+  readonly courseReference: CourseInstanceId;
   readonly courseLongName: string;
   readonly storedAppearance: () => CourseAppearanceView;
 }): JSX.Element {

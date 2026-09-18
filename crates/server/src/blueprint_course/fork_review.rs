@@ -68,14 +68,14 @@ fn project_comparison(
             sources.left.reference,
             sources.left_short_name,
             sources.left_long_name,
-            sources.left_metadata_etag,
+            sources.left_blueprint_edit_number,
         ),
         right: comparison_side(
             comparison.right,
             sources.right.reference,
             sources.right_short_name,
             sources.right_long_name,
-            sources.right_metadata_etag,
+            sources.right_blueprint_edit_number,
         ),
         assessment_relationships: comparison
             .relationships
@@ -97,7 +97,7 @@ pub(super) fn comparison_side(
     current_revision: question_model::BlueprintRevisionReference,
     short_name: String,
     long_name: String,
-    metadata_etag: question_model::BlueprintMetadataEtag,
+    blueprint_edit_number: question_model::BlueprintEditNumber,
 ) -> BlueprintComparisonSide {
     BlueprintComparisonSide {
         current_revision,
@@ -105,7 +105,7 @@ pub(super) fn comparison_side(
             short_name,
             long_name,
         },
-        metadata_etag,
+        blueprint_edit_number,
         modules: inventory
             .modules
             .into_iter()

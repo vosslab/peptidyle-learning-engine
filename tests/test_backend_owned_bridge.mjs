@@ -247,11 +247,11 @@ test("only the matching capture reply can advance Finish past queued bridge subm
 
 test("parent accepts only the bridge message and builds only the current document route", () => {
   assert.equal(
-    backendOwnedDocumentPath("R-42", 3),
-    "/api/assessment-attempts/R-42/questions/3/document",
+    backendOwnedDocumentPath("00000000-0000-0000-0000-00000000002a", 3),
+    "/api/assessment-attempts/00000000-0000-0000-0000-00000000002a/questions/3/document",
   );
   assert.equal(backendOwnedDocumentPath("question-attempt-42", 3), null);
-  assert.equal(backendOwnedDocumentPath("R-42", 0), null);
+  assert.equal(backendOwnedDocumentPath("00000000-0000-0000-0000-00000000002a", 0), null);
   assert.equal(
     isBackendOwnedResponseMessage({
       kind: "ple.backendOwned.response",

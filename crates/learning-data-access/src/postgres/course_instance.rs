@@ -4,13 +4,13 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use question_model::{
-    AccountReference, BlueprintRevision, CourseId, CourseInstanceReference, CourseMembershipRole,
+    AccountId, BlueprintRevision, CourseInstanceId, CourseMembershipRole,
     CourseSummary, CourseTerm, CourseTheme,
 };
 use sqlx::{Postgres, Row, Transaction};
 
 use super::Pool;
-use super::connection::map_sqlx_error;
+use super::connection::{map_sqlx_error, parse_course_id};
 use crate::course_instance::CourseInstanceBlueprintOrigin;
 use crate::{
     CourseCreationInstructor, CourseInstanceCreationSource, CourseInstanceLifecycleState,
@@ -79,8 +79,8 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
     async fn update_course_classification(
         &self,
         session_token_hash: SessionTokenHash,
-        reference: CourseInstanceReference,
-        expected_metadata_etag: question_model::CourseMetadataEtag,
+        reference: CourseInstanceId,
+        expected_edit_number: question_model::CourseEditNumber,
         classification: question_model::CourseClassification,
     ) -> Result<crate::course_instance::CourseClassificationUpdate, StoreError> {
         classification
@@ -92,7 +92,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         let row =
             sqlx::query("SELECT * FROM ple_api.update_course_classification($1,$2,$3,$4,$5,$6,$7)")
                 .bind(reference.as_string())
-                .bind(expected_metadata_etag.as_uuid())
+                .bind(expected_edit_number.as_i64())
                 .bind(classification.discipline_uuid)
                 .bind(classification.subject_uuid)
                 .bind(classification.topic_uuid)
@@ -105,8 +105,8 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
                 .map_err(map_sqlx_error)?;
         let result = crate::course_instance::CourseClassificationUpdate {
             classification,
-            metadata_etag: question_model::CourseMetadataEtag::from_uuid(
-                row.try_get("metadata_etag").map_err(map_sqlx_error)?,
+            course_edit_number: question_model::CourseEditNumber::from_edit_number(
+                row.try_get("course_edit_number").map_err(map_sqlx_error)?,
             ),
             changed: row.try_get("changed").map_err(map_sqlx_error)?,
         };
@@ -116,8 +116,8 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
     async fn resolve_course_navigation(
         &self,
         session_token_hash: SessionTokenHash,
-        reference: CourseInstanceReference,
-    ) -> Result<CourseId, StoreError> {
+        reference: CourseInstanceId,
+    ) -> Result<CourseInstanceId, StoreError> {
         let mut transaction = self
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
@@ -131,8 +131,8 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         let course = row
             .map(|row| {
                 row.try_get("course_id")
-                    .map(CourseId::from_uuid)
                     .map_err(map_sqlx_error)
+                    .and_then(parse_course_id)
             })
             .transpose()?
             .ok_or(StoreError::NotFound)?;
@@ -143,7 +143,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
     async fn read_course_summary(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseId,
+        course: CourseInstanceId,
     ) -> Result<CourseSummary, StoreError> {
         let mut transaction = self
             .begin_authenticated_application_transaction(session_token_hash)
@@ -155,7 +155,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
              term_ends_on::text AS term_ends_on, membership_role, discipline_uuid, subject_uuid, topic_uuid, subtopic_uuid, tags \
              FROM ple_api.read_course_summary($1)",
         )
-        .bind(course.as_uuid())
+        .bind(course.as_str())
         .fetch_optional(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
@@ -177,7 +177,9 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
             .await?;
         let rows = sqlx::query(
             "SELECT public_reference, short_name, long_name, term_starts_on::text AS term_starts_on, \
-             term_ends_on::text AS term_ends_on, course_theme, course_lifecycle_state, metadata_etag, discipline_uuid, subject_uuid, topic_uuid, subtopic_uuid, tags \
+             term_ends_on::text AS term_ends_on, course_theme, course_lifecycle_state, course_edit_number, \
+             content_discipline_id AS discipline_uuid, content_subject_id AS subject_uuid, \
+             content_topic_id AS topic_uuid, content_subtopic_id AS subtopic_uuid, tags \
              FROM ple_api.list_course_instances()",
         )
         .fetch_all(&mut *transaction)
@@ -227,7 +229,9 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
             };
             let row = sqlx::query(
             "SELECT public_reference, short_name, long_name, term_starts_on::text AS term_starts_on, \
-             term_ends_on::text AS term_ends_on, course_lifecycle_state, metadata_etag, discipline_uuid, subject_uuid, topic_uuid, subtopic_uuid, tags \
+             term_ends_on::text AS term_ends_on, course_lifecycle_state, course_edit_number, \
+             content_discipline_id AS discipline_uuid, content_subject_id AS subject_uuid, \
+             content_topic_id AS topic_uuid, content_subtopic_id AS subtopic_uuid, tags \
              FROM ple_api.create_course_instance(\
              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10::date, $11::date, $12, $13, $14,$15,$16,$17,$18)",
         )
@@ -275,8 +279,8 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
                         row.try_get("course_lifecycle_state")
                             .map_err(map_sqlx_error)?,
                     )?,
-                    metadata_etag: question_model::CourseMetadataEtag::from_uuid(
-                        row.try_get("metadata_etag").map_err(map_sqlx_error)?,
+                    course_edit_number: question_model::CourseEditNumber::from_edit_number(
+                        row.try_get("course_edit_number").map_err(map_sqlx_error)?,
                     ),
                     reference: course_reference(
                         row.try_get("public_reference").map_err(map_sqlx_error)?,
@@ -301,8 +305,8 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
     async fn add_course_instructor(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
-        instructor: AccountReference,
+        course: CourseInstanceId,
+        instructor: AccountId,
     ) -> Result<(), StoreError> {
         let mut transaction = self
             .begin_authenticated_application_transaction(session_token_hash)
@@ -324,14 +328,16 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
     async fn load_course_instance(
         &self,
         session_token_hash: SessionTokenHash,
-        reference: CourseInstanceReference,
+        reference: CourseInstanceId,
     ) -> Result<CourseInstanceView, StoreError> {
         let mut transaction = self
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
         let row = sqlx::query(
             "SELECT public_reference, short_name, long_name, term_starts_on::text AS term_starts_on, \
-             term_ends_on::text AS term_ends_on, course_theme, course_lifecycle_state, metadata_etag, discipline_uuid, subject_uuid, topic_uuid, subtopic_uuid, tags, \
+             term_ends_on::text AS term_ends_on, course_theme, course_lifecycle_state, course_edit_number, \
+             content_discipline_id AS discipline_uuid, content_subject_id AS subject_uuid, \
+             content_topic_id AS topic_uuid, content_subtopic_id AS subtopic_uuid, tags, \
              active_instructor_count, blueprint_reference, adopted_blueprint_revision, \
              current_blueprint_revision FROM ple_api.load_course_instance($1)",
         )
@@ -381,8 +387,8 @@ fn decode_summary(row: &sqlx::postgres::PgRow) -> Result<CourseInstanceSummary, 
             row.try_get("course_lifecycle_state")
                 .map_err(map_sqlx_error)?,
         )?,
-        metadata_etag: question_model::CourseMetadataEtag::from_uuid(
-            row.try_get("metadata_etag").map_err(map_sqlx_error)?,
+        course_edit_number: question_model::CourseEditNumber::from_edit_number(
+            row.try_get("course_edit_number").map_err(map_sqlx_error)?,
         ),
         reference: course_reference(row.try_get("public_reference").map_err(map_sqlx_error)?)?,
         short_name: row.try_get("short_name").map_err(map_sqlx_error)?,
@@ -396,12 +402,12 @@ fn decode_summary(row: &sqlx::postgres::PgRow) -> Result<CourseInstanceSummary, 
 }
 
 fn decode_course_summary(row: &sqlx::postgres::PgRow) -> Result<CourseSummary, StoreError> {
-    let course_id = row.try_get("course_id").map_err(map_sqlx_error)?;
+    let course = parse_course_id(row.try_get("public_reference").map_err(map_sqlx_error)?)?;
     let stored_membership_role: String = row.try_get("membership_role").map_err(map_sqlx_error)?;
     Ok(CourseSummary {
         classification: super::blueprint_course::decode_classification(row)?,
-        id: CourseId::from_uuid(course_id),
-        reference: course_reference(row.try_get("public_reference").map_err(map_sqlx_error)?)?,
+        id: course.clone(),
+        reference: course,
         short_name: row.try_get("short_name").map_err(map_sqlx_error)?,
         long_name: row.try_get("long_name").map_err(map_sqlx_error)?,
         term: term(
@@ -452,12 +458,12 @@ fn decode_view(row: &sqlx::postgres::PgRow) -> Result<CourseInstanceView, StoreE
     })
 }
 
-fn course_reference(value: String) -> Result<CourseInstanceReference, StoreError> {
-    CourseInstanceReference::new(value).map_err(|_| invalid("Course Instance Reference"))
+fn course_reference(value: String) -> Result<CourseInstanceId, StoreError> {
+    CourseInstanceId::new(value).map_err(|_| invalid("Course Instance Reference"))
 }
 
-fn account_reference(value: String) -> Result<AccountReference, StoreError> {
-    AccountReference::new(value).map_err(|_| invalid("Account Reference"))
+fn account_reference(value: String) -> Result<AccountId, StoreError> {
+    AccountId::new(value).map_err(|_| invalid("Account Reference"))
 }
 
 fn term(start_date: String, end_date: String) -> Result<CourseTerm, StoreError> {

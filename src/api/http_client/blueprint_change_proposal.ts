@@ -3,7 +3,7 @@
 import type { ApiClient } from "../client";
 import type { BlueprintChangeProposalClient } from "../blueprint_change_proposal";
 import type { BlueprintChangeProposalDetailView } from "../../../generated/api/BlueprintChangeProposalDetailView";
-import { decodeBlueprintCourseReference } from "../decoders/blueprint_course";
+import { decodeBlueprintCourseId } from "../decoders/blueprint_course";
 import { decodeCursor } from "../decoders/shared";
 import {
   decodeBlueprintChangeProposalAcceptanceRequest,
@@ -25,7 +25,7 @@ function proposalId(value: string): string {
 }
 
 function targetPath(target: string): string {
-  return `/api/course-blueprints/${encodeURIComponent(decodeBlueprintCourseReference(target, "target"))}/change-proposals`;
+  return `/api/course-blueprints/${encodeURIComponent(decodeBlueprintCourseId(target, "target"))}/change-proposals`;
 }
 
 function pagePath(path: string, cursor?: string, pageSize?: number): string {

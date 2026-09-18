@@ -1,7 +1,7 @@
 //! Session-installed protected recovery with no external renderer or grader calls.
 
 use async_trait::async_trait;
-use question_model::{AssessmentAttemptReference, CourseInstanceReference};
+use question_model::{AssessmentAttemptId, CourseInstanceId};
 use serde::{Serialize, de::DeserializeOwned};
 use sqlx::{Postgres, Row, Transaction, postgres::PgRow};
 
@@ -52,17 +52,17 @@ impl ArchivedStudentWorkRecoveryStore for PostgresArchivedStudentWorkRecoverySto
     async fn select_retained_work(
         &self,
         session: SessionTokenHash,
-        course: CourseInstanceReference,
-        after: Option<AssessmentAttemptReference>,
+        course: CourseInstanceId,
+        after: Option<AssessmentAttemptId>,
     ) -> Result<Vec<RecoverySummary>, StoreError> {
         let mut tx = self.begin(session).await?;
         // ASVS 1.2.4/8.3.1: parameterized protected wrapper repeats exact authority.
         let rows = sqlx::query(
             "SELECT course_reference_number, roster_id, assessment_reference_number, assessment_title, \
-             assessment_attempt_reference_number, assessment_attempt_number, started_at::text, \
+             assessment_attempt_id, assessment_attempt_number, started_at::text, \
              submitted_at::text, student_data_archived_at::text, delete_due_at::text \
              FROM ple_api.select_archived_assessment_attempts_for_recovery($1,$2,101)",
-        ).bind(course.as_string()).bind(after.map(|r| i64::from(r.number())))
+        ).bind(course.as_string()).bind(after.map(|id| id.as_uuid()))
             .fetch_all(&mut *tx).await.map_err(map_sqlx_error)?;
         let result = rows.iter().map(summary).collect::<Result<Vec<_>, _>>()?;
         if result.iter().any(|r| r.course != course) {
@@ -76,20 +76,20 @@ impl ArchivedStudentWorkRecoveryStore for PostgresArchivedStudentWorkRecoverySto
     async fn recover_retained_work(
         &self,
         session: SessionTokenHash,
-        course: CourseInstanceReference,
-        attempt: AssessmentAttemptReference,
+        course: CourseInstanceId,
+        attempt: AssessmentAttemptId,
     ) -> Result<RecoveredAttempt, StoreError> {
         let mut tx = self.begin(session).await?;
         // Explicit columns exclude internal Student Record UUID and all Account fields.
         let row = sqlx::query(
             "SELECT course_reference_number, roster_id, assessment_reference_number, \
-             assessment_attempt_reference_number, assessment_attempt_number, started_at::text, \
+             assessment_attempt_id, assessment_attempt_number, started_at::text, \
              expires_at::text, student_data_archived_at::text, delete_due_at::text, \
              attempt_facts, submission, questions \
              FROM ple_api.read_archived_assessment_attempt_for_recovery($1,$2)",
         )
         .bind(course.as_string())
-        .bind(i64::from(attempt.number()))
+        .bind(attempt.as_uuid())
         .fetch_optional(&mut *tx)
         .await
         .map_err(map_sqlx_error)?
@@ -105,7 +105,7 @@ impl ArchivedStudentWorkRecoveryStore for PostgresArchivedStudentWorkRecoverySto
             assessment: get::<String>(&row, "assessment_reference_number")?
                 .parse()
                 .map_err(|_| invalid())?,
-            assessment_attempt: reference(&row)?,
+            assessment_attempt: assessment_attempt_id(&row)?,
             assessment_attempt_number: positive(&row, "assessment_attempt_number")?,
             started_at: get(&row, "started_at")?,
             expires_at: get(&row, "expires_at")?,
@@ -190,7 +190,7 @@ fn summary(row: &PgRow) -> Result<RecoverySummary, StoreError> {
             .parse()
             .map_err(|_| invalid())?,
         assessment_title: get(row, "assessment_title")?,
-        assessment_attempt: reference(row)?,
+        assessment_attempt: assessment_attempt_id(row)?,
         assessment_attempt_number: positive(row, "assessment_attempt_number")?,
         started_at: get(row, "started_at")?,
         submitted_at: get(row, "submitted_at")?,
@@ -199,11 +199,11 @@ fn summary(row: &PgRow) -> Result<RecoverySummary, StoreError> {
     })
 }
 
-fn reference(row: &PgRow) -> Result<AssessmentAttemptReference, StoreError> {
-    u64::try_from(get::<i64>(row, "assessment_attempt_reference_number")?)
-        .ok()
-        .and_then(AssessmentAttemptReference::new)
-        .ok_or_else(invalid)
+fn assessment_attempt_id(row: &PgRow) -> Result<AssessmentAttemptId, StoreError> {
+    Ok(AssessmentAttemptId::from_uuid(get(
+        row,
+        "assessment_attempt_id",
+    )?))
 }
 fn positive(row: &PgRow, name: &str) -> Result<u32, StoreError> {
     u32::try_from(get::<i32>(row, name)?)

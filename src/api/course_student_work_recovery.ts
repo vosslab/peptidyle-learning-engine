@@ -1,4 +1,4 @@
-import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
+import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 
 export interface RecoverySummary {
   readonly course: string;
@@ -41,11 +41,11 @@ export interface RecoverySelection {
 }
 export interface CourseStudentWorkRecoveryClient {
   readonly selectArchivedStudentWork: (
-    course: CourseInstanceReference,
+    course: CourseInstanceId,
     cursor: string | null,
   ) => Promise<RecoverySelection>;
   readonly recoverArchivedStudentWork: (
-    course: CourseInstanceReference,
+    course: CourseInstanceId,
     assessmentAttempt: string,
   ) => Promise<RecoveredAttempt>;
 }

@@ -286,20 +286,17 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
                 SELECT 1
                   FROM ple_private.issued_question AS issued
                   JOIN ple_private.assessment_attempt AS assessment_attempt
-                    ON assessment_attempt.assessment_attempt_id = issued.assessment_attempt_id
+                    ON assessment_attempt.course_instance_id = issued.course_instance_id
+                   AND assessment_attempt.assessment_attempt_id = issued.assessment_attempt_id
                   JOIN ple_private.question_attempt AS question_attempt
-                    ON question_attempt.issued_question_id = issued.issued_question_id
+                    ON question_attempt.course_instance_id = issued.course_instance_id
+                   AND question_attempt.issued_question_id = issued.issued_question_id
                   JOIN ple_private.question_attempt_presentation_asset_rendition AS presented_asset
-                    ON presented_asset.question_attempt_presentation_asset_binding_id
+                    ON presented_asset.course_instance_id = question_attempt.course_instance_id
+                   AND presented_asset.question_attempt_presentation_asset_binding_id
                         = question_attempt.question_attempt_id
                    AND presented_asset.asset_id = publication.asset_id
                    AND presented_asset.rendition_checksum = publication.public_object_checksum
-                  JOIN ple_private.question_attempt_presentation_asset_binding AS presented_assets
-                    ON presented_assets.question_attempt_presentation_binding_id
-                        = presented_asset.question_attempt_presentation_asset_binding_id
-                  JOIN ple_private.question_attempt_presentation_binding AS presentation
-                    ON presentation.question_attempt_id
-                        = presented_assets.question_attempt_presentation_binding_id
                   JOIN ple_data.assessment AS assessment
                     ON assessment.assessment_id = assessment_attempt.assessment_id
                  WHERE issued.published_question_id = publication.published_question_id

@@ -851,8 +851,7 @@ fn matches_query(
             .bloom
             .as_ref()
             .is_none_or(|bloom| value != bloom.cognitive_process)
-    })
-    {
+    }) {
         return false;
     }
     if query.bloom_knowledge_dimension.is_some_and(|value| {
@@ -860,8 +859,7 @@ fn matches_query(
             .bloom
             .as_ref()
             .is_none_or(|bloom| value != bloom.knowledge_dimension)
-    })
-    {
+    }) {
         return false;
     }
     if !query.author_names.is_empty()

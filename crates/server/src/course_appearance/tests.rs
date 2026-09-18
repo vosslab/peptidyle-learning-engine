@@ -32,7 +32,7 @@ impl CourseBannerStore for CompletionStore {
     async fn finalize_course_banner_upload_stage(
         &self,
         _: SessionTokenHash,
-        _: CourseId,
+        _: CourseInstanceId,
         _: CourseBannerUploadReference,
     ) -> Result<(), StoreError> {
         *self.stage_finalizes.lock().unwrap() += 1;
@@ -54,7 +54,7 @@ impl CourseBannerStore for CompletionStore {
     async fn complete_prepared_course_banner_object(
         &self,
         _: SessionTokenHash,
-        _: CourseId,
+        _: CourseInstanceId,
         _: CourseBannerReference,
         object: question_model::ObjectId,
     ) -> Result<(), StoreError> {
@@ -71,7 +71,7 @@ impl CourseBannerStore for CompletionStore {
     async fn require_course_banner_object_repair(
         &self,
         _: SessionTokenHash,
-        _: CourseId,
+        _: CourseInstanceId,
         _: Option<CourseBannerReference>,
         _: question_model::ObjectId,
     ) -> Result<(), StoreError> {
@@ -118,7 +118,7 @@ impl CourseBannerStore for CompletionStore {
     async fn finalize_course_banner_promotion(
         &self,
         _: SessionTokenHash,
-        _: CourseId,
+        _: CourseInstanceId,
         _: CourseBannerUploadReference,
         _: CourseBannerReference,
     ) -> Result<FinalizedCourseBannerPromotion, StoreError> {
@@ -127,7 +127,7 @@ impl CourseBannerStore for CompletionStore {
     async fn read_current_course_banner(
         &self,
         _: SessionTokenHash,
-        _: CourseId,
+        _: CourseInstanceId,
     ) -> Result<Option<question_model::CourseBanner>, StoreError> {
         Ok(self.current_banner.clone())
     }
@@ -135,13 +135,13 @@ impl CourseBannerStore for CompletionStore {
         &self,
         _: SessionTokenHash,
         _: CourseBannerReference,
-    ) -> Result<CourseId, StoreError> {
+    ) -> Result<CourseInstanceId, StoreError> {
         Err(StoreError::Unavailable("unused".to_string()))
     }
     async fn read_staged_course_banner_upload(
         &self,
         _: SessionTokenHash,
-        _: CourseId,
+        _: CourseInstanceId,
         _: CourseBannerUploadReference,
     ) -> Result<ClaimedCourseBannerUpload, StoreError> {
         Err(StoreError::Unavailable("unused".to_string()))
@@ -149,7 +149,7 @@ impl CourseBannerStore for CompletionStore {
     async fn prepare_course_banner_removal(
         &self,
         _: SessionTokenHash,
-        _: CourseId,
+        _: CourseInstanceId,
     ) -> Result<PreparedCourseBannerRemoval, StoreError> {
         Err(StoreError::Unavailable("unused".to_string()))
     }
@@ -165,7 +165,7 @@ impl CourseThemeStore for ThemeStore {
     async fn read_course_theme(
         &self,
         _: SessionTokenHash,
-        _: CourseId,
+        _: CourseInstanceId,
     ) -> Result<question_model::CourseTheme, StoreError> {
         Ok(self.accepted_theme)
     }
@@ -173,7 +173,7 @@ impl CourseThemeStore for ThemeStore {
     async fn update_course_theme(
         &self,
         _: SessionTokenHash,
-        _: CourseId,
+        _: CourseInstanceId,
         _: question_model::CourseTheme,
     ) -> Result<question_model::CourseTheme, StoreError> {
         Ok(self.accepted_theme)
@@ -228,8 +228,8 @@ impl ObjectStore for FaultObjectStore {
     }
 }
 
-fn prepared_fixture() -> (CourseId, CourseBannerReference, PreparedFixtureObjects) {
-    let course = CourseId::from_uuid(Uuid::from_u128(71));
+fn prepared_fixture() -> (CourseInstanceId, CourseBannerReference, PreparedFixtureObjects) {
+    let course = CourseInstanceId::from_debug_serial(71);
     let banner = CourseBannerReference::from_uuid(Uuid::from_u128(72));
     let addresses = [
         ObjectAddress::CourseBannerSource { course, banner },
@@ -263,7 +263,7 @@ fn prepared_fixture() -> (CourseId, CourseBannerReference, PreparedFixtureObject
 
 #[tokio::test]
 async fn theme_update_returns_the_current_course_banner_in_the_complete_appearance_view() {
-    let course = CourseId::from_uuid(Uuid::from_u128(111));
+    let course = CourseInstanceId::from_debug_serial(111);
     let banner = question_model::CourseBanner {
         reference: CourseBannerReference::from_uuid(Uuid::from_u128(112)),
         alternative_text: question_model::CourseBannerAlternativeText::Decorative,
@@ -295,7 +295,7 @@ async fn theme_update_keeps_banner_free_course_appearance_banner_free() {
         },
         &CompletionStore::default(),
         SessionTokenHash::compute(b"theme-without-banner"),
-        CourseId::from_uuid(Uuid::from_u128(113)),
+        CourseInstanceId::from_debug_serial(113),
         question_model::CourseTheme::Ocean,
     )
     .await
@@ -387,7 +387,7 @@ async fn prepared_banner_completion_failure_stops_before_visibility_can_finalize
 
 #[tokio::test]
 async fn staged_put_failure_repairs_without_finalizing() {
-    let course = CourseId::from_uuid(Uuid::from_u128(81));
+    let course = CourseInstanceId::from_debug_serial(81);
     let upload = CourseBannerUploadReference::from_uuid(Uuid::from_u128(82));
     let address = ObjectAddress::CourseBannerUpload { course, upload };
     let bytes = b"stage".to_vec();
@@ -419,7 +419,7 @@ async fn staged_put_failure_repairs_without_finalizing() {
 
 #[tokio::test]
 async fn staged_finalize_failure_deletes_and_repairs() {
-    let course = CourseId::from_uuid(Uuid::from_u128(83));
+    let course = CourseInstanceId::from_debug_serial(83);
     let upload = CourseBannerUploadReference::from_uuid(Uuid::from_u128(84));
     let address = ObjectAddress::CourseBannerUpload { course, upload };
     let bytes = b"stage".to_vec();
@@ -452,7 +452,7 @@ async fn staged_finalize_failure_deletes_and_repairs() {
 
 #[tokio::test]
 async fn cleanup_confirms_only_a_successful_delete_and_repairs_a_failed_delete() {
-    let course = CourseId::from_uuid(Uuid::from_u128(91));
+    let course = CourseInstanceId::from_debug_serial(91);
     let banner = CourseBannerReference::from_uuid(Uuid::from_u128(92));
     let address = ObjectAddress::CourseBannerSource { course, banner };
     let seed = MemoryObjectStore::default();

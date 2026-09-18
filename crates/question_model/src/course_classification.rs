@@ -58,46 +58,48 @@ impl std::fmt::Display for CourseClassificationError {
 
 impl std::error::Error for CourseClassificationError {}
 
-/// Opaque CAS validator for independently editable Instance classification.
+/// CAS validator for independently editable Instance classification.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct CourseMetadataEtag(Uuid);
+pub struct CourseEditNumber(i64);
 
-impl CourseMetadataEtag {
+impl CourseEditNumber {
     /// Rebuilds a validator returned by trusted storage.
-    pub fn from_uuid(value: Uuid) -> Self {
+    pub fn from_edit_number(value: i64) -> Self {
         Self(value)
     }
     /// Storage representation, never a content Revision.
-    pub fn as_uuid(self) -> Uuid {
+    pub fn as_i64(self) -> i64 {
         self.0
     }
 }
 
-impl std::str::FromStr for CourseMetadataEtag {
+impl std::str::FromStr for CourseEditNumber {
     type Err = CourseClassificationError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        let parsed = Uuid::parse_str(value).map_err(|_| CourseClassificationError)?;
-        (parsed.to_string() == value)
+        let parsed = value
+            .parse::<i64>()
+            .map_err(|_| CourseClassificationError)?;
+        (parsed > 0 && parsed.to_string() == value)
             .then_some(Self(parsed))
             .ok_or(CourseClassificationError)
     }
 }
 
-impl TryFrom<String> for CourseMetadataEtag {
+impl TryFrom<String> for CourseEditNumber {
     type Error = CourseClassificationError;
     fn try_from(value: String) -> Result<Self, Self::Error> {
         value.parse()
     }
 }
 
-impl From<CourseMetadataEtag> for String {
-    fn from(value: CourseMetadataEtag) -> Self {
+impl From<CourseEditNumber> for String {
+    fn from(value: CourseEditNumber) -> Self {
         value.0.to_string()
     }
 }
 
-impl std::fmt::Display for CourseMetadataEtag {
+impl std::fmt::Display for CourseEditNumber {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(formatter, "{}", self.0)
     }

@@ -1,6 +1,6 @@
 import { A } from "@solidjs/router";
 import { createResource, createSignal, For, Show, type JSX } from "solid-js";
-import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
+import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type {
   CourseAssessmentBlueprintUpdateSummary,
   CourseBlueprintUpdateReview,
@@ -20,7 +20,7 @@ function updateLabel(assessment: CourseAssessmentBlueprintUpdateSummary): string
 
 /** Read-only discovery; each Assessment's editor loads its own current detailed review. */
 export function CourseBlueprintUpdateReviewList(props: {
-  readonly courseReference: CourseInstanceReference;
+  readonly courseReference: CourseInstanceId;
 }): JSX.Element {
   const applicationApi = useApplicationApi();
   const [opened, setOpened] = createSignal(false);

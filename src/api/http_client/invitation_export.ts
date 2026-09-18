@@ -1,18 +1,18 @@
 // Strict same-origin transport for the protected Course Invitation export.
 
-import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
+import type { CourseInstanceId } from "../../../generated/api/CourseInstanceId";
 import type { ApiClient } from "../client";
 import type { LiveInvitationExportClient } from "../invitation_export";
 import { ApiProtocolError, ApiRequestError } from "./error";
 import { requestSameOrigin, type ApiFetch } from "./request";
 import { requireNoStore } from "./response";
-import { parseCourseInstanceReference } from "../../navigation/public_route";
+import { parseCourseInstanceId } from "../../navigation/public_route";
 
 const INVITATION_EXPORT_FILENAME = "ple-invitations.json";
 const MAX_INVITATION_EXPORT_BYTES = 1_048_576;
 
-function invitationExportPath(course: CourseInstanceReference): string {
-  if (parseCourseInstanceReference(course) === null) {
+function invitationExportPath(course: CourseInstanceId): string {
+  if (parseCourseInstanceId(course) === null) {
     throw new ApiProtocolError("Course Instance reference must be canonical");
   }
   return `/api/course-instances/${encodeURIComponent(course)}/invitation-export`;

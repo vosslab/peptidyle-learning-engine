@@ -17,7 +17,7 @@ CREATE FUNCTION ple_private.create_blueprint_course(
     p_retired_source_discipline uuid
 )
 RETURNS TABLE (
-    public_reference text, blueprint_revision_number bigint, metadata_etag uuid,
+    public_reference text, blueprint_revision_number bigint, blueprint_edit_number bigint,
     accepted_at timestamp with time zone
 )
 LANGUAGE plpgsql SECURITY DEFINER
@@ -26,7 +26,7 @@ AS $$
 DECLARE
     v_actor text;
     v_now timestamp with time zone;
-    v_metadata_etag uuid;
+    v_blueprint_edit_number bigint;
     v_reference_number text;
 BEGIN
     IF p_blueprint_id IS NULL OR octet_length(p_request_checksum) <> 32
@@ -44,8 +44,8 @@ BEGIN
         pg_catalog.format('ple:blueprint-course-create:%s:%s', v_actor,
             pg_catalog.encode(p_request_checksum, 'hex')), 0));
     SELECT course.blueprint_course_id, receipt.blueprint_revision_number,
-           receipt.metadata_etag, receipt.accepted_at
-      INTO public_reference, blueprint_revision_number, metadata_etag, accepted_at
+           receipt.blueprint_edit_number, receipt.accepted_at
+      INTO public_reference, blueprint_revision_number, blueprint_edit_number, accepted_at
       FROM ple_data.blueprint_course_create_receipt AS receipt
       JOIN ple_data.blueprint_course AS course
         ON course.blueprint_course_id = receipt.blueprint_course_id
@@ -54,7 +54,7 @@ BEGIN
     PERFORM ple_data.validate_blueprint_content(p_content);
     PERFORM ple_data.validate_blueprint_question_selection(NULL, NULL, p_content);
     v_now := pg_catalog.clock_timestamp();
-    v_metadata_etag := pg_catalog.gen_random_uuid();
+    v_blueprint_edit_number := 1;
     IF p_retired_source_discipline IS NULL
        OR p_discipline IS DISTINCT FROM p_retired_source_discipline
        OR NOT EXISTS (
@@ -65,10 +65,10 @@ BEGIN
         PERFORM ple_api.require_active_content_discipline(p_discipline);
     END IF;
     INSERT INTO ple_data.blueprint_course AS course (
-        blueprint_course_id, owner_account_id, short_name, long_name, metadata_etag, created_at,
+        blueprint_course_id, owner_account_id, short_name, long_name, blueprint_edit_number, created_at,
         content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags
     ) VALUES (
-        p_blueprint_id, v_actor, p_short_name, p_long_name, v_metadata_etag, v_now,
+        p_blueprint_id, v_actor, p_short_name, p_long_name, v_blueprint_edit_number, v_now,
         p_discipline, p_subject, p_topic, p_subtopic, p_tags
     ) RETURNING course.blueprint_course_id INTO v_reference_number;
     blueprint_revision_number := 1;
@@ -99,22 +99,22 @@ BEGIN
     );
     INSERT INTO ple_data.blueprint_metadata_event (
         blueprint_course_id, actor_account_id, short_name, long_name,
-        availability, metadata_etag, occurred_at,
+        availability, blueprint_edit_number, occurred_at,
         content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags
     ) VALUES (
         v_reference_number, v_actor, p_short_name, p_long_name,
-        'private', v_metadata_etag, v_now,
+        'private', v_blueprint_edit_number, v_now,
         p_discipline, p_subject, p_topic, p_subtopic, p_tags
     );
     INSERT INTO ple_data.blueprint_course_create_receipt
     VALUES (
         v_actor, p_request_checksum, v_reference_number, blueprint_revision_number,
-        v_metadata_etag, v_now
+        v_blueprint_edit_number, v_now
     );
     SELECT course.blueprint_course_id INTO public_reference
       FROM ple_data.blueprint_course AS course
      WHERE course.blueprint_course_id = v_reference_number;
-    metadata_etag := v_metadata_etag; accepted_at := v_now;
+    blueprint_edit_number := v_blueprint_edit_number; accepted_at := v_now;
     RETURN NEXT;
 END
 $$;
@@ -125,7 +125,7 @@ CREATE FUNCTION ple_api.create_blueprint_course(
     p_discipline uuid, p_subject uuid, p_topic uuid, p_subtopic uuid, p_tags text[]
 )
 RETURNS TABLE (
-    public_reference text, blueprint_revision_number bigint, metadata_etag uuid,
+    public_reference text, blueprint_revision_number bigint, blueprint_edit_number bigint,
     accepted_at timestamp with time zone
 )
 LANGUAGE sql SECURITY DEFINER
@@ -248,11 +248,11 @@ END
 $$;
 
 CREATE FUNCTION ple_api.rename_blueprint_course(
-    p_reference text, p_expected_metadata_etag uuid,
+    p_reference text, p_expected_blueprint_edit_number bigint,
     p_short_name text, p_long_name text
 )
 RETURNS TABLE (
-    short_name text, long_name text, availability text, metadata_etag uuid,
+    short_name text, long_name text, availability text, blueprint_edit_number bigint,
     content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid, content_subtopic_id uuid, tags text[]
 )
 LANGUAGE plpgsql SECURITY DEFINER
@@ -261,11 +261,11 @@ AS $$
 DECLARE
     v_actor text;
     v_course ple_data.blueprint_course%ROWTYPE;
-    v_next uuid;
+    v_next bigint;
     v_reference_number text;
 BEGIN
     IF NOT ple_private.is_canonical_prefixed_public_id(p_reference, 'BP')
-       OR p_expected_metadata_etag IS NULL
+       OR p_expected_blueprint_edit_number IS NULL
        OR p_short_name IS NULL OR p_short_name <> btrim(p_short_name)
        OR char_length(p_short_name) NOT BETWEEN 1 AND 500
        OR p_long_name IS NULL OR p_long_name <> btrim(p_long_name)
@@ -288,23 +288,23 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '55000',
             MESSAGE = 'Archived Blueprint Course is read-only';
     END IF;
-    IF v_course.metadata_etag <> p_expected_metadata_etag THEN
+    IF v_course.blueprint_edit_number <> p_expected_blueprint_edit_number THEN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Blueprint metadata ETag is stale';
     END IF;
     IF v_course.short_name = p_short_name AND v_course.long_name = p_long_name THEN
         RETURN QUERY SELECT v_course.short_name, v_course.long_name,
-            v_course.availability, v_course.metadata_etag,
+            v_course.availability, v_course.blueprint_edit_number,
             v_course.content_discipline_id, v_course.content_subject_id, v_course.content_topic_id,
             v_course.content_subtopic_id, v_course.tags;
         RETURN;
     END IF;
-    v_next := pg_catalog.gen_random_uuid();
+    v_next := v_course.blueprint_edit_number + 1;
     UPDATE ple_data.blueprint_course AS course
-       SET short_name = p_short_name, long_name = p_long_name, metadata_etag = v_next
+       SET short_name = p_short_name, long_name = p_long_name, blueprint_edit_number = v_next
      WHERE course.blueprint_course_id = v_reference_number;
     INSERT INTO ple_data.blueprint_metadata_event (
         blueprint_course_id, actor_account_id, short_name, long_name,
-        availability, metadata_etag, occurred_at,
+        availability, blueprint_edit_number, occurred_at,
         content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags
     ) VALUES (
         v_reference_number, v_actor, p_short_name, p_long_name,
@@ -319,11 +319,11 @@ END
 $$;
 
 CREATE FUNCTION ple_api.set_blueprint_availability(
-    p_reference text, p_expected_metadata_etag uuid, p_availability text,
+    p_reference text, p_expected_blueprint_edit_number bigint, p_availability text,
     p_archive_confirmation_long_name text
 )
 RETURNS TABLE (
-    short_name text, long_name text, availability text, metadata_etag uuid,
+    short_name text, long_name text, availability text, blueprint_edit_number bigint,
     content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid, content_subtopic_id uuid, tags text[]
 )
 LANGUAGE plpgsql SECURITY DEFINER
@@ -332,11 +332,11 @@ AS $$
 DECLARE
     v_actor text;
     v_course ple_data.blueprint_course%ROWTYPE;
-    v_next uuid;
+    v_next bigint;
     v_reference_number text;
 BEGIN
     IF NOT ple_private.is_canonical_prefixed_public_id(p_reference, 'BP')
-       OR p_expected_metadata_etag IS NULL
+       OR p_expected_blueprint_edit_number IS NULL
        OR p_availability NOT IN ('private', 'public', 'archived')
        OR NOT ple_api.current_session_account_is_instructor() THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
@@ -351,7 +351,7 @@ BEGIN
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Blueprint Course is not available';
     END IF;
-    IF v_course.metadata_etag <> p_expected_metadata_etag THEN
+    IF v_course.blueprint_edit_number <> p_expected_blueprint_edit_number THEN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Blueprint metadata ETag is stale';
     END IF;
     -- Reusable content advances through one directed lifecycle. A Public
@@ -385,13 +385,13 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '55000',
             MESSAGE = 'Blueprint availability already has that state';
     END IF;
-    v_next := pg_catalog.gen_random_uuid();
+    v_next := v_course.blueprint_edit_number + 1;
     UPDATE ple_data.blueprint_course AS course
-       SET availability = p_availability, metadata_etag = v_next
+       SET availability = p_availability, blueprint_edit_number = v_next
      WHERE course.blueprint_course_id = v_reference_number;
     INSERT INTO ple_data.blueprint_metadata_event (
         blueprint_course_id, actor_account_id, short_name, long_name,
-        availability, metadata_etag, occurred_at,
+        availability, blueprint_edit_number, occurred_at,
         content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags
     ) VALUES (
         v_reference_number, v_actor, v_course.short_name, v_course.long_name,
@@ -406,15 +406,15 @@ END
 $$;
 
 CREATE FUNCTION ple_api.update_blueprint_classification(
-    p_reference text, p_expected_metadata_etag uuid,
+    p_reference text, p_expected_blueprint_edit_number bigint,
     p_discipline uuid, p_subject uuid, p_topic uuid, p_subtopic uuid, p_tags text[]
 )
-RETURNS TABLE(metadata_etag uuid, changed boolean)
+RETURNS TABLE(blueprint_edit_number bigint, changed boolean)
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
     v_course ple_data.blueprint_course%ROWTYPE;
-    v_next uuid;
+    v_next bigint;
 BEGIN
     -- ASVS 8.2.1/8.2.2: ownership, not ambient Product Role, permits mutation.
     SELECT course.* INTO v_course FROM ple_data.blueprint_course AS course
@@ -429,16 +429,16 @@ BEGIN
         RAISE EXCEPTION 'Archived Blueprint Course is read-only' USING ERRCODE = '55000';
     END IF;
     -- ASVS 2.3.3: row lock and validator reject concurrent stale metadata writes.
-    IF p_expected_metadata_etag IS DISTINCT FROM v_course.metadata_etag THEN
+    IF p_expected_blueprint_edit_number IS DISTINCT FROM v_course.blueprint_edit_number THEN
         RAISE EXCEPTION 'Blueprint metadata ETag is stale' USING ERRCODE = '40001';
     END IF;
     IF ROW(v_course.content_discipline_id, v_course.content_subject_id, v_course.content_topic_id,
            v_course.content_subtopic_id, v_course.tags)
        IS NOT DISTINCT FROM ROW(p_discipline, p_subject, p_topic, p_subtopic, p_tags) THEN
-        RETURN QUERY SELECT v_course.metadata_etag, false;
+        RETURN QUERY SELECT v_course.blueprint_edit_number, false;
         RETURN;
     END IF;
-    v_next := pg_catalog.gen_random_uuid();
+    v_next := v_course.blueprint_edit_number + 1;
     -- Retaining an existing retired Discipline does not make it a new choice.
     -- A true replacement requires an active Discipline and retains its row
     -- lock through this update transaction.
@@ -447,11 +447,11 @@ BEGIN
     END IF;
     UPDATE ple_data.blueprint_course AS course SET
         content_discipline_id = p_discipline, content_subject_id = p_subject, content_topic_id = p_topic,
-        content_subtopic_id = p_subtopic, tags = p_tags, metadata_etag = v_next
+        content_subtopic_id = p_subtopic, tags = p_tags, blueprint_edit_number = v_next
      WHERE course.blueprint_course_id = v_course.blueprint_course_id;
     INSERT INTO ple_data.blueprint_metadata_event (
         blueprint_course_id, actor_account_id, short_name, long_name,
-        availability, metadata_etag, occurred_at,
+        availability, blueprint_edit_number, occurred_at,
         content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags
     ) VALUES (
         v_course.blueprint_course_id, ple_api.current_session_account_id(),
@@ -470,7 +470,7 @@ CREATE FUNCTION ple_api.list_blueprint_courses(
 )
 RETURNS TABLE (
     public_reference text, short_name text, long_name text, availability text,
-    metadata_etag uuid, current_blueprint_revision_number bigint, is_owner boolean,
+    blueprint_edit_number bigint, current_blueprint_revision_number bigint, is_owner boolean,
     total_adoptions bigint, total_students_ever_enrolled bigint,
     content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid, content_subtopic_id uuid, tags text[]
 )
@@ -506,7 +506,7 @@ BEGIN
         RAISE EXCEPTION 'invalid Blueprint classification filter' USING ERRCODE = '22023';
     END IF;
     RETURN QUERY SELECT course.blueprint_course_id, course.short_name, course.long_name,
-           course.availability, course.metadata_etag,
+           course.availability, course.blueprint_edit_number,
            course.current_blueprint_revision_number,
            course.owner_account_id = ple_api.current_session_account_id(),
            (SELECT count(*) FROM (
@@ -570,7 +570,7 @@ $$;
 CREATE FUNCTION ple_api.load_blueprint_course(p_reference text)
 RETURNS TABLE (
     public_reference text, short_name text, long_name text, availability text,
-    metadata_etag uuid, current_blueprint_revision_number bigint,
+    blueprint_edit_number bigint, current_blueprint_revision_number bigint,
     content jsonb, content_checksum bytea, is_owner boolean,
     fork_source_reference text, fork_source_revision_number bigint,
     content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid, content_subtopic_id uuid, tags text[]
@@ -579,7 +579,7 @@ LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private
 AS $$
     SELECT course.blueprint_course_id, course.short_name, course.long_name,
-           course.availability, course.metadata_etag,
+           course.availability, course.blueprint_edit_number,
            course.current_blueprint_revision_number,
            revision.content, revision.content_checksum,
            course.owner_account_id = ple_api.current_session_account_id(),
@@ -641,32 +641,32 @@ $$;
 -- ASVS 8.2.1/8.2.3/8.3.1: only the authenticated active Sysadmin may inspect
 -- or mutate promotion, regardless of lineage ownership or availability.
 CREATE FUNCTION ple_api.load_blueprint_promotion(p_reference text)
-RETURNS TABLE(promoted boolean, metadata_etag uuid)
+RETURNS TABLE(promoted boolean, blueprint_edit_number bigint)
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private
 AS $$
-    SELECT course.promoted, course.metadata_etag
+    SELECT course.promoted, course.blueprint_edit_number
       FROM ple_data.blueprint_course AS course
      WHERE course.blueprint_course_id = p_reference
        AND ple_api.current_session_account_is_sysadmin()
 $$;
 
 CREATE FUNCTION ple_api.set_blueprint_promotion(
-    p_reference text, p_expected_metadata_etag uuid, p_promoted boolean
+    p_reference text, p_expected_blueprint_edit_number bigint, p_promoted boolean
 )
-RETURNS TABLE(promoted boolean, metadata_etag uuid)
+RETURNS TABLE(promoted boolean, blueprint_edit_number bigint)
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private
 AS $$
 DECLARE
     v_course ple_data.blueprint_course%ROWTYPE;
-    v_next uuid;
+    v_next bigint;
 BEGIN
     IF NOT ple_api.current_session_account_is_sysadmin() THEN
         RAISE EXCEPTION 'Blueprint promotion forbidden' USING ERRCODE = '42501';
     END IF;
     IF NOT ple_private.is_canonical_prefixed_public_id(p_reference, 'BP')
-       OR p_expected_metadata_etag IS NULL OR p_promoted IS NULL THEN
+       OR p_expected_blueprint_edit_number IS NULL OR p_promoted IS NULL THEN
         RAISE EXCEPTION 'invalid Blueprint promotion' USING ERRCODE = '22023';
     END IF;
     -- ASVS 15.4.2: the row lock covers the metadata comparison and flag write.
@@ -675,16 +675,16 @@ BEGIN
     IF NOT FOUND THEN
         RETURN;
     END IF;
-    IF v_course.metadata_etag <> p_expected_metadata_etag THEN
+    IF v_course.blueprint_edit_number <> p_expected_blueprint_edit_number THEN
         RAISE EXCEPTION 'Blueprint Course changed' USING ERRCODE = '40001';
     END IF;
     IF v_course.promoted = p_promoted THEN
-        RETURN QUERY SELECT v_course.promoted, v_course.metadata_etag;
+        RETURN QUERY SELECT v_course.promoted, v_course.blueprint_edit_number;
         RETURN;
     END IF;
-    v_next := pg_catalog.gen_random_uuid();
+    v_next := v_course.blueprint_edit_number + 1;
     UPDATE ple_data.blueprint_course AS course
-       SET promoted = p_promoted, metadata_etag = v_next
+       SET promoted = p_promoted, blueprint_edit_number = v_next
      WHERE course.blueprint_course_id = v_course.blueprint_course_id;
     RETURN QUERY SELECT p_promoted, v_next;
 END

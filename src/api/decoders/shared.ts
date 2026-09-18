@@ -16,8 +16,8 @@ import type {
   CourseInstanceRouteReference,
 } from "../../navigation/public_route";
 import {
-  parseAssessmentReference,
-  parseCourseInstanceReference,
+  parseAssessmentId,
+  parseCourseInstanceId,
 } from "../../navigation/public_route";
 import type { CursorPage } from "../contracts";
 import {
@@ -80,19 +80,19 @@ export const MAX_PUBLICATION_SEMANTIC_ENTRIES = 100;
 const MAX_ASSIGNMENT_TITLE_UNICODE_SCALARS = 200;
 const MAX_COURSE_NAME_UNICODE_SCALARS = 200;
 
-export function decodeCourseInstanceReference(
+export function decodeCourseInstanceId(
   value: unknown,
   path: string,
 ): CourseInstanceRouteReference {
   if (typeof value !== "string") throw new DecodeError(path, "a CI reference");
-  const reference = parseCourseInstanceReference(value);
+  const reference = parseCourseInstanceId(value);
   if (reference === null) throw new DecodeError(path, "a CI reference");
   return reference;
 }
 
-export function decodeAssessmentReference(value: unknown, path: string): AssessmentRouteReference {
+export function decodeAssessmentId(value: unknown, path: string): AssessmentRouteReference {
   if (typeof value !== "string") throw new DecodeError(path, "an A reference");
-  const reference = parseAssessmentReference(value);
+  const reference = parseAssessmentId(value);
   if (reference === null) throw new DecodeError(path, "an A reference");
   return reference;
 }

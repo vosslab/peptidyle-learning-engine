@@ -4,12 +4,15 @@ use async_trait::async_trait;
 use objects::{ObjectAddress, Sha256Checksum};
 use question_model::{
     CourseBanner, CourseBannerAlternativeText, CourseBannerReference, CourseBannerUploadReference,
-    CourseId,
+    CourseInstanceId,
 };
 use sqlx::{Postgres, Row, Transaction};
 use uuid::Uuid;
 
-use super::{Pool, connection::map_sqlx_error};
+use super::{
+    Pool,
+    connection::{map_sqlx_error, parse_course_id},
+};
 use crate::{
     ClaimedCourseBannerUpload, CourseBannerDeleteWork, CourseBannerStore,
     FinalizedCourseBannerPromotion, PrepareCourseBannerPromotion, PreparedCourseBannerPromotion,
@@ -78,7 +81,7 @@ impl CourseBannerStore for PostgresCourseBannerStore {
             sqlx::query_scalar::<_, Option<Uuid>>(
                 "SELECT ple_api.stage_course_banner_upload($1,$2,$3,$4,$5,$6,$7,$8,$9)",
             )
-            .bind(course.as_uuid())
+            .bind(course.as_str())
             .bind(upload.as_uuid())
             .bind(metadata.object_id.as_uuid())
             .bind(metadata.media_type)
@@ -105,14 +108,14 @@ impl CourseBannerStore for PostgresCourseBannerStore {
     async fn finalize_course_banner_upload_stage(
         &self,
         token: SessionTokenHash,
-        course: CourseId,
+        course: CourseInstanceId,
         upload: CourseBannerUploadReference,
     ) -> Result<(), StoreError> {
         let mut tx = self.begin(token).await?;
         let accepted = sqlx::query_scalar::<_, bool>(
             "SELECT ple_api.finalize_course_banner_upload_stage($1,$2)",
         )
-        .bind(course.as_uuid())
+        .bind(course.as_str())
         .bind(upload.as_uuid())
         .fetch_one(&mut *tx)
         .await
@@ -151,7 +154,7 @@ impl CourseBannerStore for PostgresCourseBannerStore {
         };
         let mut tx = self.begin(token).await?;
         let row = sqlx::query("SELECT source_put_work_id, banner_put_work_id FROM ple_api.prepare_course_banner_promotion($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)")
-            .bind(course.as_uuid()).bind(upload.as_uuid()).bind(banner.as_uuid()).bind(kind).bind(text)
+            .bind(course.as_str()).bind(upload.as_uuid()).bind(banner.as_uuid()).bind(kind).bind(text)
             .bind(source.object_id.as_uuid()).bind(source.sha256.as_bytes().to_vec()).bind(convert(source.byte_length)?).bind(source.media_type).bind(i32::try_from(source.width).map_err(|_| StoreError::InvalidRecord("invalid Course Banner width".to_string()))?).bind(i32::try_from(source.height).map_err(|_| StoreError::InvalidRecord("invalid Course Banner height".to_string()))?)
             .bind(rendition.object_id.as_uuid()).bind(rendition.sha256.as_bytes().to_vec()).bind(convert(rendition.byte_length)?).bind(rendition.media_type).bind(i32::try_from(rendition.width).map_err(|_| StoreError::InvalidRecord("invalid Course Banner width".to_string()))?).bind(i32::try_from(rendition.height).map_err(|_| StoreError::InvalidRecord("invalid Course Banner height".to_string()))?)
             .fetch_optional(&mut *tx).await.map_err(map_sqlx_error)?
@@ -159,7 +162,10 @@ impl CourseBannerStore for PostgresCourseBannerStore {
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(PreparedCourseBannerPromotion {
             banner,
-            source: ObjectAddress::CourseBannerSource { course, banner },
+            source: ObjectAddress::CourseBannerSource {
+                course: course.clone(),
+                banner,
+            },
             rendition: ObjectAddress::CourseBannerRendition {
                 course,
                 banner,
@@ -191,7 +197,7 @@ impl CourseBannerStore for PostgresCourseBannerStore {
     async fn complete_prepared_course_banner_object(
         &self,
         token: SessionTokenHash,
-        course: CourseId,
+        course: CourseInstanceId,
         banner: CourseBannerReference,
         object_id: question_model::ObjectId,
     ) -> Result<(), StoreError> {
@@ -199,7 +205,7 @@ impl CourseBannerStore for PostgresCourseBannerStore {
         let accepted = sqlx::query_scalar::<_, bool>(
             "SELECT ple_api.complete_prepared_course_banner_object($1,$2,$3)",
         )
-        .bind(course.as_uuid())
+        .bind(course.as_str())
         .bind(banner.as_uuid())
         .bind(object_id.as_uuid())
         .fetch_one(&mut *tx)
@@ -214,7 +220,7 @@ impl CourseBannerStore for PostgresCourseBannerStore {
     async fn require_course_banner_object_repair(
         &self,
         token: SessionTokenHash,
-        course: CourseId,
+        course: CourseInstanceId,
         banner: Option<CourseBannerReference>,
         object_id: question_model::ObjectId,
     ) -> Result<(), StoreError> {
@@ -222,7 +228,7 @@ impl CourseBannerStore for PostgresCourseBannerStore {
         let accepted = sqlx::query_scalar::<_, bool>(
             "SELECT ple_api.require_course_banner_object_repair($1,$2,$3)",
         )
-        .bind(course.as_uuid())
+        .bind(course.as_str())
         .bind(banner.map(CourseBannerReference::as_uuid))
         .bind(object_id.as_uuid())
         .fetch_one(&mut *tx)
@@ -298,13 +304,13 @@ impl CourseBannerStore for PostgresCourseBannerStore {
     async fn finalize_course_banner_promotion(
         &self,
         token: SessionTokenHash,
-        course: CourseId,
+        course: CourseInstanceId,
         upload: CourseBannerUploadReference,
         banner: CourseBannerReference,
     ) -> Result<FinalizedCourseBannerPromotion, StoreError> {
         let mut tx = self.begin(token).await?;
         let row = sqlx::query("SELECT alternative_kind, alternative_text, retired_course_banner_id, upload_put_work_id, retired_source_put_work_id, retired_banner_put_work_id FROM ple_api.finalize_course_banner_promotion($1,$2,$3)")
-            .bind(course.as_uuid()).bind(upload.as_uuid()).bind(banner.as_uuid()).fetch_optional(&mut *tx).await.map_err(map_sqlx_error)?
+            .bind(course.as_str()).bind(upload.as_uuid()).bind(banner.as_uuid()).fetch_optional(&mut *tx).await.map_err(map_sqlx_error)?
             .ok_or(StoreError::NotFound)?;
         let kind: String = row.try_get("alternative_kind").map_err(map_sqlx_error)?;
         let alternative_text = match kind.as_str() {
@@ -350,9 +356,12 @@ impl CourseBannerStore for PostgresCourseBannerStore {
                 retired_work_ids.expect("retired work ids are loaded");
             PreparedCourseBannerRemoval {
                 banner,
-                source: ObjectAddress::CourseBannerSource { course, banner },
+                source: ObjectAddress::CourseBannerSource {
+                    course: course.clone(),
+                    banner,
+                },
                 rendition: ObjectAddress::CourseBannerRendition {
-                    course,
+                    course: course.clone(),
                     banner,
                     rendition: question_model::CourseBannerRendition::Banner,
                 },
@@ -371,11 +380,11 @@ impl CourseBannerStore for PostgresCourseBannerStore {
     async fn read_current_course_banner(
         &self,
         token: SessionTokenHash,
-        course: CourseId,
+        course: CourseInstanceId,
     ) -> Result<Option<CourseBanner>, StoreError> {
         let mut tx = self.begin(token).await?;
         let row = sqlx::query("SELECT course_banner_id, alternative_kind, alternative_text FROM ple_api.read_course_banner($1)")
-            .bind(course.as_uuid()).fetch_optional(&mut *tx).await.map_err(map_sqlx_error)?;
+            .bind(course.as_str()).fetch_optional(&mut *tx).await.map_err(map_sqlx_error)?;
         let value = row
             .map(|row| {
                 let id: Uuid = row.try_get("course_banner_id").map_err(map_sqlx_error)?;
@@ -413,9 +422,9 @@ impl CourseBannerStore for PostgresCourseBannerStore {
         &self,
         token: SessionTokenHash,
         banner: CourseBannerReference,
-    ) -> Result<CourseId, StoreError> {
+    ) -> Result<CourseInstanceId, StoreError> {
         let mut tx = self.begin(token).await?;
-        let course = sqlx::query_scalar::<_, Uuid>(
+        let course = sqlx::query_scalar::<_, String>(
             "SELECT course_id FROM ple_api.resolve_current_course_banner($1)",
         )
         .bind(banner.as_uuid())
@@ -424,18 +433,18 @@ impl CourseBannerStore for PostgresCourseBannerStore {
         .map_err(map_sqlx_error)?
         .ok_or(StoreError::NotFound)?;
         tx.commit().await.map_err(map_sqlx_error)?;
-        Ok(CourseId::from_uuid(course))
+        parse_course_id(course)
     }
 
     async fn read_staged_course_banner_upload(
         &self,
         token: SessionTokenHash,
-        course: CourseId,
+        course: CourseInstanceId,
         upload: CourseBannerUploadReference,
     ) -> Result<ClaimedCourseBannerUpload, StoreError> {
         let mut tx = self.begin(token).await?;
         let row = sqlx::query("SELECT object_id, sha256, byte_length, canonical_media_type, width, height, put_work_id FROM ple_api.read_staged_course_banner_upload($1,$2)")
-            .bind(course.as_uuid()).bind(upload.as_uuid()).fetch_optional(&mut *tx).await.map_err(map_sqlx_error)?
+            .bind(course.as_str()).bind(upload.as_uuid()).fetch_optional(&mut *tx).await.map_err(map_sqlx_error)?
             .ok_or(StoreError::NotFound)?;
         let object_id =
             question_model::ObjectId::from_uuid(row.try_get("object_id").map_err(map_sqlx_error)?);
@@ -471,12 +480,12 @@ impl CourseBannerStore for PostgresCourseBannerStore {
     async fn prepare_course_banner_removal(
         &self,
         token: SessionTokenHash,
-        course: CourseId,
+        course: CourseInstanceId,
     ) -> Result<PreparedCourseBannerRemoval, StoreError> {
         let mut tx = self.begin(token).await?;
         let row =
             sqlx::query("SELECT course_banner_id, source_put_work_id, banner_put_work_id FROM ple_api.prepare_course_banner_removal($1)")
-                .bind(course.as_uuid())
+                .bind(course.as_str())
                 .fetch_optional(&mut *tx)
                 .await
                 .map_err(map_sqlx_error)?
@@ -489,7 +498,10 @@ impl CourseBannerStore for PostgresCourseBannerStore {
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(PreparedCourseBannerRemoval {
             banner,
-            source: ObjectAddress::CourseBannerSource { course, banner },
+            source: ObjectAddress::CourseBannerSource {
+                course: course.clone(),
+                banner,
+            },
             rendition: ObjectAddress::CourseBannerRendition {
                 course,
                 banner,

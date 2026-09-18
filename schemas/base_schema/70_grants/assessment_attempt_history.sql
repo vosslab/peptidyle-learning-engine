@@ -12,30 +12,30 @@ REVOKE ALL ON FUNCTION ple_private.current_student_cohort_completed_assessment(t
 
 GRANT EXECUTE ON FUNCTION ple_private.current_student_cohort_completed_assessment(text) TO ple_api_owner;
 
-REVOKE ALL ON FUNCTION ple_private.read_student_assessment_attempt_history(bigint) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_private.read_student_assessment_attempt_history(uuid) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_private.read_student_assessment_attempt_history(bigint) TO ple_api_owner;
+GRANT EXECUTE ON FUNCTION ple_private.read_student_assessment_attempt_history(uuid) TO ple_api_owner;
 
 SET LOCAL ROLE ple_api_owner;
 
-REVOKE ALL ON FUNCTION ple_api.read_student_assessment_attempt_history(bigint) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_api.read_student_assessment_attempt_history(uuid) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_api.read_student_assessment_attempt_history(bigint) TO ple_app;
+GRANT EXECUTE ON FUNCTION ple_api.read_student_assessment_attempt_history(uuid) TO ple_app;
 
 SET LOCAL ROLE ple_private_owner;
 
-REVOKE ALL ON FUNCTION ple_private.read_student_assessment_attempt_history_response_sources(bigint)
+REVOKE ALL ON FUNCTION ple_private.read_student_assessment_attempt_history_response_sources(uuid)
     FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_private.read_student_assessment_attempt_history_response_sources(bigint)
+GRANT EXECUTE ON FUNCTION ple_private.read_student_assessment_attempt_history_response_sources(uuid)
     TO ple_api_owner;
 
 SET LOCAL ROLE ple_api_owner;
 
-REVOKE ALL ON FUNCTION ple_api.read_student_assessment_attempt_history_response_sources(bigint)
+REVOKE ALL ON FUNCTION ple_api.read_student_assessment_attempt_history_response_sources(uuid)
     FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_api.read_student_assessment_attempt_history_response_sources(bigint)
+GRANT EXECUTE ON FUNCTION ple_api.read_student_assessment_attempt_history_response_sources(uuid)
     TO ple_app;
 
 SET LOCAL ROLE ple_private_owner;

@@ -6,7 +6,7 @@
 //! caller's own immutable Watch-event records.
 
 use async_trait::async_trait;
-use question_model::{BlueprintCourseReference, Timestamp};
+use question_model::{BlueprintCourseId, Timestamp};
 
 use crate::{SessionTokenHash, StoreError};
 
@@ -60,14 +60,14 @@ pub trait BlueprintStewardshipStore: Send + Sync {
     async fn blueprint_course_star_projection(
         &self,
         session_token_hash: SessionTokenHash,
-        blueprint_course_reference: BlueprintCourseReference,
+        blueprint_course_reference: BlueprintCourseId,
     ) -> Result<BlueprintCourseStarProjection, StoreError>;
 
     /// Sets only the caller's Star state, then reads the closed Star projection.
     async fn set_current_blueprint_course_star_projection(
         &self,
         session_token_hash: SessionTokenHash,
-        blueprint_course_reference: BlueprintCourseReference,
+        blueprint_course_reference: BlueprintCourseId,
         starred: bool,
     ) -> Result<BlueprintCourseStarProjection, StoreError>;
 
@@ -77,21 +77,21 @@ pub trait BlueprintStewardshipStore: Send + Sync {
     async fn blueprint_course_starred_instructors(
         &self,
         session_token_hash: SessionTokenHash,
-        blueprint_course_reference: BlueprintCourseReference,
+        blueprint_course_reference: BlueprintCourseId,
     ) -> Result<Vec<BlueprintCourseStarredInstructor>, StoreError>;
 
     /// Reads only the caller's private Watch state.
     async fn blueprint_course_watch_projection(
         &self,
         session_token_hash: SessionTokenHash,
-        blueprint_course_reference: BlueprintCourseReference,
+        blueprint_course_reference: BlueprintCourseId,
     ) -> Result<BlueprintCourseWatchProjection, StoreError>;
 
     /// Sets only the caller's private Watch state, then reads it.
     async fn set_current_blueprint_course_watch_projection(
         &self,
         session_token_hash: SessionTokenHash,
-        blueprint_course_reference: BlueprintCourseReference,
+        blueprint_course_reference: BlueprintCourseId,
         watching: bool,
     ) -> Result<BlueprintCourseWatchProjection, StoreError>;
 
@@ -101,7 +101,7 @@ pub trait BlueprintStewardshipStore: Send + Sync {
     async fn blueprint_course_watch_events(
         &self,
         session_token_hash: SessionTokenHash,
-        blueprint_course_reference: BlueprintCourseReference,
+        blueprint_course_reference: BlueprintCourseId,
         limit: u16,
     ) -> Result<Vec<BlueprintCourseWatchEvent>, StoreError>;
 }

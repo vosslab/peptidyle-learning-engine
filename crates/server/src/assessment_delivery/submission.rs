@@ -11,7 +11,7 @@ use learning_data_access::{
     StudentAssessmentAttemptFinalizationPreparationOutcome,
 };
 use question_model::{
-    AssessmentAttemptReference, StudentResponse,
+    AssessmentAttemptId, StudentResponse,
     presentation::{
         IssuedQuestionPresentation, StudentResponseInspection,
         project_durable_response_to_presentation_response_item_references,
@@ -43,7 +43,7 @@ pub(super) async fn save_selected_response(
     Path((assessment_attempt, position)): Path<(String, u32)>,
     Json(request): Json<SavedResponseRequest>,
 ) -> Response {
-    let assessment_attempt = match assessment_attempt.parse::<AssessmentAttemptReference>() {
+    let assessment_attempt = match assessment_attempt.parse::<AssessmentAttemptId>() {
         Ok(value) if position > 0 => value,
         _ => return concealed(),
     };
@@ -110,7 +110,7 @@ pub(super) async fn save_selected_response(
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct SavedResponseAcknowledgement {
-    assessment_attempt: AssessmentAttemptReference,
+    assessment_attempt: AssessmentAttemptId,
     position: u32,
     response_state: &'static str,
 }
@@ -118,7 +118,7 @@ struct SavedResponseAcknowledgement {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct AssessmentAttemptSubmissionAcknowledgement {
-    assessment_attempt: AssessmentAttemptReference,
+    assessment_attempt: AssessmentAttemptId,
     submission_state: &'static str,
 }
 
@@ -129,7 +129,7 @@ pub(super) async fn finalize_assessment_attempt(
     headers: HeaderMap,
     Path(assessment_attempt): Path<String>,
 ) -> Response {
-    let assessment_attempt = match assessment_attempt.parse::<AssessmentAttemptReference>() {
+    let assessment_attempt = match assessment_attempt.parse::<AssessmentAttemptId>() {
         Ok(value) => value,
         Err(_) => return concealed(),
     };
@@ -340,7 +340,7 @@ mod tests {
     #[test]
     fn submission_acknowledgement_reports_completion_without_grading_data() {
         let wire = serde_json::to_value(AssessmentAttemptSubmissionAcknowledgement {
-            assessment_attempt: "R-1".parse().expect("Assessment Attempt reference"),
+            assessment_attempt: AssessmentAttemptId::from_uuid(uuid::Uuid::from_u128(1)),
             submission_state: "submitted",
         })
         .expect("submission acknowledgement serializes");
@@ -348,7 +348,7 @@ mod tests {
         assert_eq!(
             wire,
             serde_json::json!({
-                "assessmentAttempt": "R-1",
+                "assessmentAttempt": "00000000-0000-0000-0000-000000000001",
                 "submissionState": "submitted",
             })
         );

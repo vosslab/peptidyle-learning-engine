@@ -1,7 +1,7 @@
 // Strict same-origin transport for Student Assessment Access and start.
 
-import type { AssessmentReference } from "../../../generated/api/AssessmentReference";
-import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
+import type { AssessmentId } from "../../../generated/api/AssessmentId";
+import type { CourseInstanceId } from "../../../generated/api/CourseInstanceId";
 import type { ApiClient } from "../client";
 import type {
   LiveAssessmentAccess,
@@ -16,15 +16,15 @@ import { ApiProtocolError, ApiRequestError } from "./error";
 import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
 import {
-  parseAssessmentReference,
-  parseCourseInstanceReference,
+  parseAssessmentId,
+  parseCourseInstanceId,
 } from "../../navigation/public_route";
 
-function assessmentPath(course: CourseInstanceReference, assessment: AssessmentReference): string {
-  if (parseCourseInstanceReference(course) === null) {
+function assessmentPath(course: CourseInstanceId, assessment: AssessmentId): string {
+  if (parseCourseInstanceId(course) === null) {
     throw new ApiProtocolError("Course Instance reference must be canonical");
   }
-  if (parseAssessmentReference(assessment) === null) {
+  if (parseAssessmentId(assessment) === null) {
     throw new ApiProtocolError("Assessment reference must be canonical");
   }
   return `/api/course-instances/${encodeURIComponent(course)}/assessments/${encodeURIComponent(assessment)}`;

@@ -42,7 +42,7 @@ pub mod course;
 /// Mandatory current classification for both Course forms.
 pub mod course_classification;
 pub use course_classification::{
-    CourseClassification, CourseClassificationError, CourseMetadataEtag,
+    CourseClassification, CourseClassificationError, CourseEditNumber,
 };
 /// Closed, browser-safe course appearance and banner presentation contracts.
 pub mod course_appearance;
@@ -63,7 +63,7 @@ pub mod presentation;
 pub mod preview_plane;
 /// Opaque role-neutral identity for a self-owned Account Profile image.
 pub mod profile_image;
-/// Human-facing route References that resolve to internal identities under authorization.
+/// Human-facing public IDs that resolve under authorization.
 pub mod public_route;
 /// Immutable browser-safe Question Authorship display records.
 pub mod question_authorship;
@@ -155,7 +155,7 @@ pub use crate::blueprint_course::canonical_exchange::{
 pub use crate::blueprint_course::{
     BlueprintAssessmentContentInput, BlueprintAssessmentContentView, BlueprintAssessmentDefaults,
     BlueprintAssessmentEditChoice, BlueprintAssessmentEntryInput, BlueprintAssessmentEntryView,
-    BlueprintAssessmentReference, BlueprintAssessmentReplacementInput, BlueprintChildIdError,
+    BlueprintAssessmentId, BlueprintAssessmentReplacementInput, BlueprintChildIdError,
     BlueprintCourseAssessmentContentView, BlueprintCourseReadAccess, BlueprintCourseSummaryView,
     BlueprintCourseTitleError, BlueprintCourseValidationError, BlueprintCourseView,
     BlueprintModuleEditChoice, BlueprintModuleReference, BlueprintModuleReplacementInput,
@@ -224,9 +224,9 @@ pub use crate::preview_plane::{
 };
 pub use crate::profile_image::ProfileImageReference;
 pub use crate::public_route::{
-    AccountReference, AssessmentAttemptReference, AssessmentReference, AuthoringWorkspaceReference,
-    BlueprintCourseReference, CourseInstanceReference, CourseInvitationReference,
-    CourseMembershipReference, NavigationResolution, RESERVED_REFERENCE_PREFIXES,
+    AssessmentAttemptReference, AssessmentId, AuthoringWorkspaceReference, BlueprintCourseId,
+    CourseInstanceId, CourseInvitationReference, CourseMembershipReference, NavigationResolution,
+    RESERVED_REFERENCE_PREFIXES,
 };
 pub use crate::question_authorship::{
     QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship, QuestionAuthorshipError,
@@ -287,8 +287,8 @@ pub use crate::statistics::{ClassStatistics, DEFAULT_STATISTICS_MINIMUM_COHORT_S
 pub use crate::student_work::{
     AccommodationId, AssessmentAttempt, AssessmentAttemptCompletion, AssessmentAttemptEvidence,
     AssessmentAttemptId, AssessmentAttemptPolicySource, AssessmentAttemptPolicySources,
-    AssessmentEntryId, AssessmentGrade, AssessmentGradeScoreState, AssessmentId,
-    AssessmentProgress, AssessmentProgressRecord, CourseId, CourseMembershipId, GradingResult,
+    AssessmentEntryId, AssessmentGrade, AssessmentGradeScoreState,
+    AssessmentProgress, AssessmentProgressRecord, CourseMembershipId, GradingResult,
     IssuedAttemptCapability, IssuedQuestion, IssuedQuestionId, QuestionAttempt, QuestionAttemptId,
     QuestionAttemptReproductionDetails, QuestionAttemptState, QuestionAttemptTiming,
     QuestionBackendVersion, QuestionEvaluation, QuestionEvaluationError, QuestionGraderVersion,

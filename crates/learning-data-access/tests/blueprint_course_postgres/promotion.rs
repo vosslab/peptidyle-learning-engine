@@ -26,7 +26,7 @@ pub(super) fn discovery(
 // the connected lifecycle oracle rather than constructing another full fixture.
 pub(super) async fn promotion_boundary(
     store: &PostgresBlueprintCourseStore,
-    reference: BlueprintCourseReference,
+    reference: BlueprintCourseId,
 ) {
     let runtime = acceptance_runtime::AcceptanceRuntime::load().expect("acceptance runtime");
     let admin = lazy_pool(runtime.migration_url().expose()).expect("migration pool");
@@ -68,7 +68,12 @@ pub(super) async fn promotion_boundary(
         ));
         assert!(matches!(
             store
-                .set_blueprint_promotion(actor, reference.clone(), initial.metadata_etag, true)
+                .set_blueprint_promotion(
+                    actor,
+                    reference.clone(),
+                    initial.blueprint_edit_number,
+                    true
+                )
                 .await,
             Err(StoreError::Forbidden)
         ));
@@ -85,20 +90,38 @@ pub(super) async fn promotion_boundary(
             .all(|item| item.reference != reference)
     );
     let promoted = store
-        .set_blueprint_promotion(sysadmin, reference.clone(), initial.metadata_etag, true)
+        .set_blueprint_promotion(
+            sysadmin,
+            reference.clone(),
+            initial.blueprint_edit_number,
+            true,
+        )
         .await
         .expect("Sysadmin promotes");
     assert!(promoted.promoted);
-    assert_ne!(promoted.metadata_etag, initial.metadata_etag);
+    assert_ne!(
+        promoted.blueprint_edit_number,
+        initial.blueprint_edit_number
+    );
     assert!(matches!(
         store
-            .set_blueprint_promotion(sysadmin, reference.clone(), initial.metadata_etag, false)
+            .set_blueprint_promotion(
+                sysadmin,
+                reference.clone(),
+                initial.blueprint_edit_number,
+                false
+            )
             .await,
         Err(StoreError::RetryableTransaction | StoreError::Conflict)
     ));
     assert_eq!(
         store
-            .set_blueprint_promotion(sysadmin, reference.clone(), promoted.metadata_etag, true)
+            .set_blueprint_promotion(
+                sysadmin,
+                reference.clone(),
+                promoted.blueprint_edit_number,
+                true
+            )
             .await
             .expect("no-op promotion"),
         promoted
@@ -130,7 +153,7 @@ pub(super) async fn promotion_boundary(
         head
     );
     store
-        .set_blueprint_promotion(sysadmin, reference, promoted.metadata_etag, false)
+        .set_blueprint_promotion(sysadmin, reference, promoted.blueprint_edit_number, false)
         .await
         .expect("restore fixture flag");
 }

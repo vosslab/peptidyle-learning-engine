@@ -39,6 +39,8 @@ RESET ROLE;
 \ir 70_grants/course_media.sql
 \ir 70_grants/profile_media.sql
 \ir 70_grants/assessments.sql
+\ir 70_grants/assessment_policy_snapshot.sql
+\ir 70_grants/assessment_entry_snapshot.sql
 \ir 70_grants/question_library_operations.sql
 \ir 70_grants/question_bloom.sql
 \ir 70_grants/assessment_creation.sql

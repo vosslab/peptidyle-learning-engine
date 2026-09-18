@@ -18,7 +18,7 @@ use learning_data_access::{
     StoreError, postgres::PostgresAssessmentPoolSelectionCountStore,
 };
 use question_model::{
-    AssessmentEditNumber, AssessmentEntryId, AssessmentReference, CourseInstanceReference,
+    AssessmentEditNumber, AssessmentEntryId, AssessmentId, CourseInstanceId,
     ProductRole,
 };
 use serde::Deserialize;
@@ -150,7 +150,7 @@ async fn decode_json<T: serde::de::DeserializeOwned>(request: Request) -> Result
     serde_json::from_slice(&body).map_err(|_| invalid())
 }
 
-fn refs(course: &str, assessment: &str) -> Option<(CourseInstanceReference, AssessmentReference)> {
+fn refs(course: &str, assessment: &str) -> Option<(CourseInstanceId, AssessmentId)> {
     Some((course.parse().ok()?, assessment.parse().ok()?))
 }
 

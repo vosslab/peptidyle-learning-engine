@@ -12,9 +12,9 @@ function decodeAssessmentAttemptReference(
   value: unknown,
   path: string,
 ): AssessmentAttemptRouteReference {
-  if (typeof value !== "string") throw new DecodeError(path, "an Assessment Attempt R- reference");
+  if (typeof value !== "string") throw new DecodeError(path, "an Assessment Attempt UUID");
   const reference = parseAssessmentAttemptReference(value);
-  if (reference === null) throw new DecodeError(path, "an Assessment Attempt R- reference");
+  if (reference === null) throw new DecodeError(path, "an Assessment Attempt UUID");
   return reference;
 }
 import type { StudentAssessmentLandingSummary } from "../../../generated/api/StudentAssessmentLandingSummary";

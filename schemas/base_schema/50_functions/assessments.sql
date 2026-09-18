@@ -41,7 +41,6 @@ BEGIN
         SELECT 1 FROM ple_data.question_pool AS pool
          WHERE pool.question_pool_id = NEW.question_pool_id
            AND pool.source_question_pool_id IS NOT NULL
-           AND pool.source_question_pool_revision_number IS NOT NULL
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Assessment Question Pool ownership requires a fork with immutable source provenance';
@@ -140,11 +139,13 @@ BEGIN
             IF question_available IS DISTINCT FROM true
                AND NOT EXISTS (
                    SELECT 1 FROM ple_data.assessment_entry AS existing
+                   JOIN ple_data.assessment_entry_question AS question
+                     ON question.assessment_entry_id = existing.assessment_entry_id
                     WHERE existing.assessment_id = p_assessment_id
                       AND existing.assessment_entry_id = entry_id
                       AND existing.entry_kind = 'fixed_question'
-                      AND existing.published_question_id = entry_json ->> 'questionId'
-                      AND existing.question_revision_number = (entry_json ->> 'revisionNumber')::integer
+                      AND question.published_question_id = entry_json ->> 'questionId'
+                      AND question.question_revision_number = (entry_json ->> 'revisionNumber')::integer
                ) THEN
                 RAISE EXCEPTION USING ERRCODE = '22023',
                     MESSAGE = 'New Assessment Question pins require an Available Question';
@@ -152,11 +153,13 @@ BEGIN
             IF question_backend_supported IS DISTINCT FROM true
                AND NOT EXISTS (
                    SELECT 1 FROM ple_data.assessment_entry AS existing
+                   JOIN ple_data.assessment_entry_question AS question
+                     ON question.assessment_entry_id = existing.assessment_entry_id
                     WHERE existing.assessment_id = p_assessment_id
                       AND existing.assessment_entry_id = entry_id
                       AND existing.entry_kind = 'fixed_question'
-                      AND existing.published_question_id = entry_json ->> 'questionId'
-                      AND existing.question_revision_number = (entry_json ->> 'revisionNumber')::integer
+                      AND question.published_question_id = entry_json ->> 'questionId'
+                      AND question.question_revision_number = (entry_json ->> 'revisionNumber')::integer
                ) THEN
                 RAISE EXCEPTION USING ERRCODE = '22023',
                     MESSAGE = 'New Assessment Question pins require a current production Question Backend';
@@ -172,30 +175,35 @@ BEGIN
             END IF;
             UPDATE ple_data.assessment_entry AS target
                SET authored_position = COALESCE((entry_json ->> 'authoredPosition')::integer, 0),
-                   entry_kind = 'fixed_question', availability = entry_json ->> 'availability',
+                   availability = entry_json ->> 'availability',
                    scoring_rule = entry_json ->> 'scoringRule',
-                   published_question_id = entry_json ->> 'questionId',
-                   question_revision_number = (entry_json ->> 'revisionNumber')::integer,
-                   question_pool_id = NULL, question_pool_revision_number = NULL,
-                   points_possible = (entry_json ->> 'pointsPossible')::numeric,
-                   selection_count = NULL, points_per_item = NULL, selected_question_order = NULL,
                    question_attempt_limit = NULLIF(entry_json ->> 'questionAttemptLimit', '')::integer,
                    question_attempt_time_limit_seconds = NULLIF(entry_json ->> 'questionAttemptTimeLimitSeconds', '')::integer,
                    question_attempt_grace_seconds = NULLIF(entry_json ->> 'questionAttemptGraceSeconds', '')::integer
              WHERE target.assessment_id = p_assessment_id
                AND target.assessment_entry_id = entry_id
-               AND ROW(target.authored_position, target.entry_kind, target.availability,
-                       target.scoring_rule, target.published_question_id, target.question_revision_number,
-                       target.points_possible, target.question_attempt_limit,
-                       target.question_attempt_time_limit_seconds, target.question_attempt_grace_seconds)
+               AND ROW(target.authored_position, target.availability, target.scoring_rule,
+                       target.question_attempt_limit, target.question_attempt_time_limit_seconds,
+                       target.question_attempt_grace_seconds)
                    IS DISTINCT FROM ROW(
-                       COALESCE((entry_json ->> 'authoredPosition')::integer, 0), 'fixed_question',
+                       COALESCE((entry_json ->> 'authoredPosition')::integer, 0),
                        entry_json ->> 'availability', entry_json ->> 'scoringRule',
-                       entry_json ->> 'questionId', (entry_json ->> 'revisionNumber')::integer,
-                       (entry_json ->> 'pointsPossible')::numeric,
                        NULLIF(entry_json ->> 'questionAttemptLimit', '')::integer,
                        NULLIF(entry_json ->> 'questionAttemptTimeLimitSeconds', '')::integer,
                        NULLIF(entry_json ->> 'questionAttemptGraceSeconds', '')::integer);
+            GET DIAGNOSTICS row_count = ROW_COUNT;
+            changed := changed OR row_count > 0;
+            UPDATE ple_data.assessment_entry_question AS question
+               SET published_question_id = entry_json ->> 'questionId',
+                   question_revision_number = (entry_json ->> 'revisionNumber')::integer,
+                   points_possible = (entry_json ->> 'pointsPossible')::numeric
+             WHERE question.assessment_entry_id = entry_id
+               AND question.assessment_id = p_assessment_id
+               AND ROW(question.published_question_id, question.question_revision_number,
+                       question.points_possible)
+                   IS DISTINCT FROM ROW(
+                       entry_json ->> 'questionId', (entry_json ->> 'revisionNumber')::integer,
+                       (entry_json ->> 'pointsPossible')::numeric);
             GET DIAGNOSTICS row_count = ROW_COUNT;
             changed := changed OR row_count > 0;
             IF NOT EXISTS (
@@ -205,16 +213,22 @@ BEGIN
             ) THEN
                 INSERT INTO ple_data.assessment_entry(
                     assessment_entry_id, assessment_id, authored_position, entry_kind, availability,
-                    scoring_rule, published_question_id, question_revision_number, points_possible,
-                    question_attempt_limit, question_attempt_time_limit_seconds, question_attempt_grace_seconds
+                    scoring_rule, question_attempt_limit, question_attempt_time_limit_seconds,
+                    question_attempt_grace_seconds
                 ) VALUES (
                     entry_id, p_assessment_id, COALESCE((entry_json ->> 'authoredPosition')::integer, 0),
                     'fixed_question', entry_json ->> 'availability', entry_json ->> 'scoringRule',
-                    entry_json ->> 'questionId', (entry_json ->> 'revisionNumber')::integer,
-                    (entry_json ->> 'pointsPossible')::numeric,
                     NULLIF(entry_json ->> 'questionAttemptLimit', '')::integer,
                     NULLIF(entry_json ->> 'questionAttemptTimeLimitSeconds', '')::integer,
                     NULLIF(entry_json ->> 'questionAttemptGraceSeconds', '')::integer
+                );
+                INSERT INTO ple_data.assessment_entry_question(
+                    assessment_entry_id, assessment_id, published_question_id,
+                    question_revision_number, points_possible
+                ) VALUES (
+                    entry_id, p_assessment_id, entry_json ->> 'questionId',
+                    (entry_json ->> 'revisionNumber')::integer,
+                    (entry_json ->> 'pointsPossible')::numeric
                 );
                 changed := true;
             END IF;
@@ -229,18 +243,16 @@ BEGIN
                         substr(entry_json ->> 'questionPoolId', 1, 4)
                         || substr(entry_json ->> 'questionPoolId', 7, 3)
                     )
-               OR entry_json ->> 'questionPoolRevisionNumber' !~ '^[1-9][0-9]*$' THEN
+            THEN
                 RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Question Pool Assessment Entry is invalid';
             END IF;
             SELECT pool.question_pool_id INTO question_pool_id_value
               FROM ple_data.question_pool AS pool
              WHERE pool.question_pool_id = entry_json ->> 'questionPoolId';
             IF NOT FOUND OR NOT EXISTS (
-                SELECT 1 FROM ple_data.question_pool_revision AS pool_revision
-                 WHERE pool_revision.question_pool_id = question_pool_id_value
-                   AND pool_revision.revision_number
-                       = (entry_json ->> 'questionPoolRevisionNumber')::bigint
-                   AND (entry_json ->> 'selectionCount')::integer <= pool_revision.member_count
+                SELECT 1 FROM ple_data.question_pool_member AS member
+                 WHERE member.question_pool_id = question_pool_id_value
+                HAVING count(*) >= (entry_json ->> 'selectionCount')::integer
             ) THEN
                 RAISE EXCEPTION USING ERRCODE = '22023',
                     MESSAGE = 'Question Pool Assessment Entry is invalid';
@@ -248,24 +260,23 @@ BEGIN
             IF NOT EXISTS (
                 SELECT 1
                   FROM ple_data.assessment_entry AS existing
+                  JOIN ple_data.assessment_entry_pool AS pool_entry
+                    ON pool_entry.assessment_entry_id = existing.assessment_entry_id
                   JOIN ple_data.assessment_question_pool_fork AS owned
                     ON owned.assessment_entry_id = existing.assessment_entry_id
                    AND owned.assessment_id = existing.assessment_id
-                   AND owned.question_pool_id = existing.question_pool_id
+                   AND owned.question_pool_id = pool_entry.question_pool_id
                  WHERE existing.assessment_id = p_assessment_id
                    AND existing.assessment_entry_id = entry_id
                    AND existing.entry_kind = 'question_pool'
-                   AND existing.question_pool_id = question_pool_id_value
-                   AND existing.question_pool_revision_number
-                       = (entry_json ->> 'questionPoolRevisionNumber')::bigint
+                   AND pool_entry.question_pool_id = question_pool_id_value
             ) AND EXISTS (
                 SELECT 1
-                  FROM ple_data.question_pool_revision_member AS member
+                  FROM ple_data.question_pool_member AS member
                   JOIN ple_data.question_revision AS revision
                     ON revision.published_question_id = member.published_question_id
                    AND revision.revision_number = member.question_revision_number
                  WHERE member.question_pool_id = question_pool_id_value
-                   AND member.revision_number = (entry_json ->> 'questionPoolRevisionNumber')::bigint
                    AND NOT ple_private.question_backend_is_supported_for_production(revision.backend)
             ) THEN
                 RAISE EXCEPTION USING ERRCODE = '22023',
@@ -279,47 +290,49 @@ BEGIN
             IF NOT EXISTS (
                 SELECT 1
                   FROM ple_data.assessment_entry AS existing
+                  JOIN ple_data.assessment_entry_pool AS pool_entry
+                    ON pool_entry.assessment_entry_id = existing.assessment_entry_id
                   JOIN ple_data.assessment_question_pool_fork AS owned
                     ON owned.assessment_entry_id = existing.assessment_entry_id
                    AND owned.assessment_id = existing.assessment_id
-                   AND owned.question_pool_id = existing.question_pool_id
+                   AND owned.question_pool_id = pool_entry.question_pool_id
                  WHERE existing.assessment_id = p_assessment_id
                    AND existing.assessment_entry_id = entry_id
                    AND existing.entry_kind = 'question_pool'
-                   AND existing.question_pool_id = question_pool_id_value
-                   AND existing.question_pool_revision_number
-                       = (entry_json ->> 'questionPoolRevisionNumber')::bigint
+                   AND pool_entry.question_pool_id = question_pool_id_value
             ) THEN
                 RAISE EXCEPTION USING ERRCODE = '22023',
                     MESSAGE = 'Assessment Question Pool membership requires an immutable fork command';
             END IF;
             UPDATE ple_data.assessment_entry AS target
                SET authored_position = COALESCE((entry_json ->> 'authoredPosition')::integer, 0),
-                   entry_kind = 'question_pool', availability = entry_json ->> 'availability',
-                   scoring_rule = entry_json ->> 'scoringRule', published_question_id = NULL,
-                   question_revision_number = NULL, points_possible = NULL,
-                   question_pool_id = question_pool_id_value,
-                   question_pool_revision_number = (entry_json ->> 'questionPoolRevisionNumber')::bigint,
-                   selection_count = (entry_json ->> 'selectionCount')::integer,
-                   points_per_item = (entry_json ->> 'pointsPerItem')::numeric,
-                   selected_question_order = entry_json ->> 'selectedQuestionOrder',
+                   availability = entry_json ->> 'availability',
+                   scoring_rule = entry_json ->> 'scoringRule',
                    question_attempt_limit = NULLIF(entry_json ->> 'questionAttemptLimit', '')::integer,
                    question_attempt_time_limit_seconds = NULLIF(entry_json ->> 'questionAttemptTimeLimitSeconds', '')::integer,
                    question_attempt_grace_seconds = NULLIF(entry_json ->> 'questionAttemptGraceSeconds', '')::integer
              WHERE target.assessment_id = p_assessment_id AND target.assessment_entry_id = entry_id
-               AND ROW(target.authored_position, target.entry_kind, target.availability, target.scoring_rule,
-                       target.selection_count, target.points_per_item, target.selected_question_order,
-                       target.question_pool_id, target.question_pool_revision_number,
+               AND ROW(target.authored_position, target.availability, target.scoring_rule,
                        target.question_attempt_limit, target.question_attempt_time_limit_seconds,
                        target.question_attempt_grace_seconds) IS DISTINCT FROM ROW(
-                       COALESCE((entry_json ->> 'authoredPosition')::integer, 0), 'question_pool',
+                       COALESCE((entry_json ->> 'authoredPosition')::integer, 0),
                        entry_json ->> 'availability', entry_json ->> 'scoringRule',
-                       (entry_json ->> 'selectionCount')::integer, (entry_json ->> 'pointsPerItem')::numeric,
-                       entry_json ->> 'selectedQuestionOrder',
-                       target.question_pool_id, target.question_pool_revision_number,
                        NULLIF(entry_json ->> 'questionAttemptLimit', '')::integer,
                        NULLIF(entry_json ->> 'questionAttemptTimeLimitSeconds', '')::integer,
                        NULLIF(entry_json ->> 'questionAttemptGraceSeconds', '')::integer);
+            GET DIAGNOSTICS row_count = ROW_COUNT;
+            changed := changed OR row_count > 0;
+            UPDATE ple_data.assessment_entry_pool AS pool_entry
+               SET selection_count = (entry_json ->> 'selectionCount')::integer,
+                   points_per_item = (entry_json ->> 'pointsPerItem')::numeric,
+                   selected_question_order = entry_json ->> 'selectedQuestionOrder'
+             WHERE pool_entry.assessment_entry_id = entry_id
+               AND pool_entry.assessment_id = p_assessment_id
+               AND ROW(pool_entry.selection_count, pool_entry.points_per_item,
+                       pool_entry.selected_question_order) IS DISTINCT FROM ROW(
+                       (entry_json ->> 'selectionCount')::integer,
+                       (entry_json ->> 'pointsPerItem')::numeric,
+                       entry_json ->> 'selectedQuestionOrder');
             GET DIAGNOSTICS row_count = ROW_COUNT;
             changed := changed OR row_count > 0;
         END IF;
@@ -328,6 +341,21 @@ BEGIN
      WHERE assessment_id = p_assessment_id AND availability <> 'retired'
        AND NOT (assessment_entry_id = ANY (entry_ids));
     GET DIAGNOSTICS row_count = ROW_COUNT;
+    PERFORM ple_private.ensure_assessment_entry_snapshot(
+        entry.entry_kind, entry.scoring_rule,
+        COALESCE(question.points_possible, pool_entry.points_per_item),
+        question.published_question_id, question.question_revision_number,
+        pool_entry.question_pool_id,
+        entry.question_attempt_limit, entry.question_attempt_time_limit_seconds,
+        entry.question_attempt_grace_seconds
+    )
+      FROM ple_data.assessment_entry AS entry
+      LEFT JOIN ple_data.assessment_entry_question AS question
+        ON question.assessment_entry_id = entry.assessment_entry_id
+      LEFT JOIN ple_data.assessment_entry_pool AS pool_entry
+        ON pool_entry.assessment_entry_id = entry.assessment_entry_id
+     WHERE entry.assessment_id = p_assessment_id
+       AND entry.assessment_entry_id = ANY (entry_ids);
     RETURN changed OR row_count > 0;
 END
 $$;
@@ -348,11 +376,13 @@ CREATE FUNCTION ple_data.save_assessment(
     assessment_status text, assessment_title text, assessment_instructions text
 )
 LANGUAGE plpgsql SECURITY DEFINER
-SET search_path = pg_catalog, ple_api, ple_data AS $$
+SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
     course_row ple_data.course_instance%ROWTYPE;
     current_assessment ple_data.assessment%ROWTYPE;
-    candidate ple_data.assessment%ROWTYPE;
+    current_snapshot ple_data.assessment_policy_snapshot%ROWTYPE;
+    candidate ple_data.assessment_policy_snapshot%ROWTYPE;
+    snapshot_id ple_data.sha256_digest;
     entries_changed boolean;
     values_changed boolean;
     allowed_keys text[] := ARRAY[
@@ -394,62 +424,42 @@ BEGIN
     IF current_assessment.assessment_edit_number IS DISTINCT FROM p_expected_edit_number THEN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Assessment Edit Number is stale';
     END IF;
-    SELECT * INTO candidate FROM jsonb_populate_record(current_assessment, p_values);
+    SELECT * INTO current_snapshot
+      FROM ple_data.assessment_policy_snapshot
+     WHERE assessment_policy_snapshot_id = current_assessment.assessment_policy_snapshot_id;
+    SELECT * INTO candidate FROM jsonb_populate_record(current_snapshot, p_values);
     IF candidate.due_at > course_row.active_until_at THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Assessment due date is after the Course Active cutoff';
     END IF;
-    values_changed := ROW(
-        candidate.assessment_title, candidate.assessment_instructions, candidate.available_at,
-        candidate.due_at, candidate.closes_at, candidate.assessment_attempt_time_limit_seconds,
-        candidate.assessment_attempt_limit, candidate.late_work_rule,
-        candidate.question_variation_rule,
-        candidate.assessment_question_order_rule,
-        candidate.feedback_score, candidate.feedback_per_item_correctness,
-        candidate.feedback_submitted_response,
+    snapshot_id := ple_private.ensure_assessment_policy_snapshot(
+        candidate.assessment_title, candidate.assessment_instructions,
+        candidate.available_at, candidate.due_at, candidate.closes_at,
+        candidate.assessment_attempt_time_limit_seconds, candidate.assessment_attempt_limit,
+        candidate.late_work_rule, candidate.question_variation_rule,
+        candidate.assessment_question_order_rule, candidate.feedback_score,
+        candidate.feedback_per_item_correctness, candidate.feedback_submitted_response,
         candidate.feedback_question_answer, candidate.feedback_question_answer_explanation,
-        candidate.feedback_class_statistics
-    ) IS DISTINCT FROM ROW(
-        current_assessment.assessment_title, current_assessment.assessment_instructions,
-        current_assessment.available_at, current_assessment.due_at, current_assessment.closes_at,
-        current_assessment.assessment_attempt_time_limit_seconds, current_assessment.assessment_attempt_limit,
-        current_assessment.late_work_rule, current_assessment.question_variation_rule,
-        current_assessment.assessment_question_order_rule, current_assessment.feedback_score,
-        current_assessment.feedback_per_item_correctness,
-        current_assessment.feedback_submitted_response,
-        current_assessment.feedback_question_answer,
-        current_assessment.feedback_question_answer_explanation,
-        current_assessment.feedback_class_statistics
+        candidate.feedback_class_statistics, current_assessment.assessment_type
     );
+    values_changed := snapshot_id IS DISTINCT FROM current_assessment.assessment_policy_snapshot_id;
     entries_changed := ple_data.replace_assessment_entries(current_assessment.assessment_id, p_entries);
     IF values_changed OR entries_changed THEN
         UPDATE ple_data.assessment AS updated SET
-            assessment_title = candidate.assessment_title,
-            assessment_instructions = candidate.assessment_instructions,
-            available_at = candidate.available_at, due_at = candidate.due_at,
-            closes_at = candidate.closes_at,
-            assessment_attempt_time_limit_seconds = candidate.assessment_attempt_time_limit_seconds,
-            assessment_attempt_limit = candidate.assessment_attempt_limit, late_work_rule = candidate.late_work_rule,
-            question_variation_rule = candidate.question_variation_rule,
-            assessment_question_order_rule = candidate.assessment_question_order_rule,
-            feedback_score = candidate.feedback_score,
-            feedback_per_item_correctness = candidate.feedback_per_item_correctness,
-            feedback_submitted_response = candidate.feedback_submitted_response,
-            feedback_question_answer = candidate.feedback_question_answer,
-            feedback_question_answer_explanation = candidate.feedback_question_answer_explanation,
-            feedback_class_statistics = candidate.feedback_class_statistics,
+            assessment_policy_snapshot_id = snapshot_id,
             assessment_edit_number = updated.assessment_edit_number + 1,
             updated_at = clock_timestamp()
          WHERE updated.assessment_id = current_assessment.assessment_id
         RETURNING updated.assessment_id, updated.assessment_edit_number,
-            updated.assessment_status, updated.assessment_title, updated.assessment_instructions
-          INTO assessment_reference_number, assessment_edit_number, assessment_status,
-               assessment_title, assessment_instructions;
+            updated.assessment_status
+          INTO assessment_reference_number, assessment_edit_number, assessment_status;
+        assessment_title := candidate.assessment_title;
+        assessment_instructions := candidate.assessment_instructions;
         IF assessment_status = 'released' THEN
             PERFORM ple_data.validate_assessment_release(
                 current_assessment.assessment_id,
                 transaction_timestamp(),
-                candidate.due_at IS DISTINCT FROM current_assessment.due_at
+                candidate.due_at IS DISTINCT FROM current_snapshot.due_at
             );
         END IF;
         PERFORM ple_data.synchronize_course_assessment_deadline(course_row.course_instance_id);
@@ -457,8 +467,8 @@ BEGIN
         assessment_reference_number := current_assessment.assessment_id;
         assessment_edit_number := current_assessment.assessment_edit_number;
         assessment_status := current_assessment.assessment_status;
-        assessment_title := current_assessment.assessment_title;
-        assessment_instructions := current_assessment.assessment_instructions;
+        assessment_title := current_snapshot.assessment_title;
+        assessment_instructions := current_snapshot.assessment_instructions;
     END IF;
     RETURN NEXT;
 END
@@ -472,10 +482,12 @@ CREATE FUNCTION ple_data.save_assessment_inline(
     assessment_status text, assessment_edit_number bigint
 )
 LANGUAGE plpgsql SECURITY DEFINER
-SET search_path = pg_catalog, ple_api, ple_data AS $$
+SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
     course_row ple_data.course_instance%ROWTYPE;
     assessment_row ple_data.assessment%ROWTYPE;
+    current_snapshot ple_data.assessment_policy_snapshot%ROWTYPE;
+    snapshot_id ple_data.sha256_digest;
 BEGIN
     IF p_course_reference_number IS NULL
        OR p_assessment_reference_number IS NULL
@@ -503,28 +515,49 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Assessment due date is after the Course Active cutoff';
     END IF;
-    IF ROW(assessment_row.assessment_title, assessment_row.due_at) IS DISTINCT FROM ROW(p_title, p_due_at) THEN
-        UPDATE ple_data.assessment AS updated SET assessment_title = p_title, due_at = p_due_at,
-            assessment_edit_number = updated.assessment_edit_number + 1, updated_at = clock_timestamp()
+    SELECT * INTO current_snapshot
+      FROM ple_data.assessment_policy_snapshot
+     WHERE assessment_policy_snapshot_id = assessment_row.assessment_policy_snapshot_id;
+    IF ROW(current_snapshot.assessment_title, current_snapshot.due_at)
+         IS DISTINCT FROM ROW(p_title, p_due_at) THEN
+        snapshot_id := ple_private.ensure_assessment_policy_snapshot(
+            p_title, current_snapshot.assessment_instructions,
+            current_snapshot.available_at, p_due_at, current_snapshot.closes_at,
+            current_snapshot.assessment_attempt_time_limit_seconds,
+            current_snapshot.assessment_attempt_limit,
+            current_snapshot.late_work_rule, current_snapshot.question_variation_rule,
+            current_snapshot.assessment_question_order_rule, current_snapshot.feedback_score,
+            current_snapshot.feedback_per_item_correctness,
+            current_snapshot.feedback_submitted_response,
+            current_snapshot.feedback_question_answer,
+            current_snapshot.feedback_question_answer_explanation,
+            current_snapshot.feedback_class_statistics, assessment_row.assessment_type
+        );
+        UPDATE ple_data.assessment AS updated SET
+            assessment_policy_snapshot_id = snapshot_id,
+            assessment_edit_number = updated.assessment_edit_number + 1,
+            updated_at = clock_timestamp()
          WHERE updated.assessment_id = assessment_row.assessment_id
-        RETURNING updated.assessment_id, updated.assessment_title,
-            CASE WHEN updated.due_at IS NULL THEN NULL
-                 ELSE floor(extract(epoch FROM updated.due_at) * 1000)::bigint END,
-            updated.assessment_status, updated.assessment_edit_number
-          INTO assessment_reference_number, assessment_title, due_at_millis,
-               assessment_status, assessment_edit_number;
+        RETURNING updated.assessment_id, updated.assessment_status, updated.assessment_edit_number
+          INTO assessment_reference_number, assessment_status, assessment_edit_number;
+        assessment_title := p_title;
+        due_at_millis := CASE WHEN p_due_at IS NULL THEN NULL
+            ELSE floor(extract(epoch FROM p_due_at) * 1000)::bigint END;
         IF assessment_status = 'released' THEN
             PERFORM ple_data.validate_assessment_release(
                 assessment_row.assessment_id,
                 transaction_timestamp(),
-                p_due_at IS DISTINCT FROM assessment_row.due_at
+                p_due_at IS DISTINCT FROM current_snapshot.due_at
             );
         END IF;
         PERFORM ple_data.synchronize_course_assessment_deadline(course_row.course_instance_id);
     ELSE
-        assessment_reference_number := assessment_row.assessment_id; assessment_title := assessment_row.assessment_title;
-        due_at_millis := CASE WHEN assessment_row.due_at IS NULL THEN NULL ELSE floor(extract(epoch FROM assessment_row.due_at) * 1000)::bigint END;
-        assessment_status := assessment_row.assessment_status; assessment_edit_number := assessment_row.assessment_edit_number;
+        assessment_reference_number := assessment_row.assessment_id;
+        assessment_title := current_snapshot.assessment_title;
+        due_at_millis := CASE WHEN current_snapshot.due_at IS NULL THEN NULL
+            ELSE floor(extract(epoch FROM current_snapshot.due_at) * 1000)::bigint END;
+        assessment_status := assessment_row.assessment_status;
+        assessment_edit_number := assessment_row.assessment_edit_number;
     END IF;
     RETURN NEXT;
 END
@@ -541,9 +574,12 @@ CREATE FUNCTION ple_data.save_assessment_policies(
     assessment_status text, assessment_title text, assessment_instructions text
 )
 LANGUAGE plpgsql SECURITY DEFINER
-SET search_path = pg_catalog, ple_api, ple_data AS $$
+SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE course_row ple_data.course_instance%ROWTYPE;
-    current_assessment ple_data.assessment%ROWTYPE; candidate ple_data.assessment%ROWTYPE;
+    current_assessment ple_data.assessment%ROWTYPE;
+    current_snapshot ple_data.assessment_policy_snapshot%ROWTYPE;
+    candidate ple_data.assessment_policy_snapshot%ROWTYPE;
+    snapshot_id ple_data.sha256_digest;
     values_changed boolean;
     allowed_keys text[] := ARRAY[
         'assessment_instructions', 'available_at', 'due_at', 'closes_at',
@@ -578,55 +614,48 @@ BEGIN
     IF current_assessment.assessment_edit_number IS DISTINCT FROM p_expected_edit_number THEN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Assessment Edit Number is stale';
     END IF;
-    SELECT * INTO candidate FROM jsonb_populate_record(current_assessment, p_policies);
+    SELECT * INTO current_snapshot
+      FROM ple_data.assessment_policy_snapshot
+     WHERE assessment_policy_snapshot_id = current_assessment.assessment_policy_snapshot_id;
+    SELECT * INTO candidate FROM jsonb_populate_record(current_snapshot, p_policies);
     IF candidate.due_at > course_row.active_until_at THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Assessment due date is after the Course Active cutoff';
     END IF;
-    values_changed := ROW(candidate.assessment_instructions, candidate.available_at, candidate.due_at,
-        candidate.closes_at, candidate.assessment_attempt_time_limit_seconds, candidate.assessment_attempt_limit,
-        candidate.late_work_rule, candidate.question_variation_rule, candidate.assessment_question_order_rule, candidate.feedback_score, candidate.feedback_per_item_correctness,
-        candidate.feedback_submitted_response, candidate.feedback_question_answer,
-        candidate.feedback_question_answer_explanation, candidate.feedback_class_statistics)
-      IS DISTINCT FROM ROW(current_assessment.assessment_instructions, current_assessment.available_at,
-        current_assessment.due_at, current_assessment.closes_at, current_assessment.assessment_attempt_time_limit_seconds,
-        current_assessment.assessment_attempt_limit, current_assessment.late_work_rule,
-        current_assessment.question_variation_rule,
-        current_assessment.assessment_question_order_rule,
-        current_assessment.feedback_score, current_assessment.feedback_per_item_correctness,
-        current_assessment.feedback_submitted_response,
-        current_assessment.feedback_question_answer, current_assessment.feedback_question_answer_explanation,
-        current_assessment.feedback_class_statistics);
+    snapshot_id := ple_private.ensure_assessment_policy_snapshot(
+        candidate.assessment_title, candidate.assessment_instructions,
+        candidate.available_at, candidate.due_at, candidate.closes_at,
+        candidate.assessment_attempt_time_limit_seconds, candidate.assessment_attempt_limit,
+        candidate.late_work_rule, candidate.question_variation_rule,
+        candidate.assessment_question_order_rule, candidate.feedback_score,
+        candidate.feedback_per_item_correctness, candidate.feedback_submitted_response,
+        candidate.feedback_question_answer, candidate.feedback_question_answer_explanation,
+        candidate.feedback_class_statistics, current_assessment.assessment_type
+    );
+    values_changed := snapshot_id IS DISTINCT FROM current_assessment.assessment_policy_snapshot_id;
     IF values_changed THEN
         UPDATE ple_data.assessment AS updated SET
-          assessment_instructions = candidate.assessment_instructions, available_at = candidate.available_at,
-          due_at = candidate.due_at, closes_at = candidate.closes_at,
-          assessment_attempt_time_limit_seconds = candidate.assessment_attempt_time_limit_seconds,
-          assessment_attempt_limit = candidate.assessment_attempt_limit, late_work_rule = candidate.late_work_rule,
-          question_variation_rule = candidate.question_variation_rule,
-          assessment_question_order_rule = candidate.assessment_question_order_rule,
-          feedback_score = candidate.feedback_score, feedback_per_item_correctness = candidate.feedback_per_item_correctness,
-          feedback_submitted_response = candidate.feedback_submitted_response,
-          feedback_question_answer = candidate.feedback_question_answer,
-          feedback_question_answer_explanation = candidate.feedback_question_answer_explanation,
-          feedback_class_statistics = candidate.feedback_class_statistics,
+          assessment_policy_snapshot_id = snapshot_id,
           assessment_edit_number = updated.assessment_edit_number + 1, updated_at = clock_timestamp()
           WHERE updated.assessment_id = current_assessment.assessment_id
-        RETURNING updated.assessment_id, updated.assessment_edit_number, updated.assessment_status,
-          updated.assessment_title, updated.assessment_instructions INTO assessment_reference_number,
-          assessment_edit_number, assessment_status, assessment_title, assessment_instructions;
+        RETURNING updated.assessment_id, updated.assessment_edit_number, updated.assessment_status
+          INTO assessment_reference_number, assessment_edit_number, assessment_status;
+        assessment_title := candidate.assessment_title;
+        assessment_instructions := candidate.assessment_instructions;
         IF assessment_status = 'released' THEN
             PERFORM ple_data.validate_assessment_release(
                 current_assessment.assessment_id,
                 transaction_timestamp(),
-                candidate.due_at IS DISTINCT FROM current_assessment.due_at
+                candidate.due_at IS DISTINCT FROM current_snapshot.due_at
             );
         END IF;
         PERFORM ple_data.synchronize_course_assessment_deadline(course_row.course_instance_id);
     ELSE
-        assessment_reference_number := current_assessment.assessment_id; assessment_edit_number := current_assessment.assessment_edit_number;
-        assessment_status := current_assessment.assessment_status; assessment_title := current_assessment.assessment_title;
-        assessment_instructions := current_assessment.assessment_instructions;
+        assessment_reference_number := current_assessment.assessment_id;
+        assessment_edit_number := current_assessment.assessment_edit_number;
+        assessment_status := current_assessment.assessment_status;
+        assessment_title := current_snapshot.assessment_title;
+        assessment_instructions := current_snapshot.assessment_instructions;
     END IF;
     RETURN NEXT;
 END
@@ -678,9 +707,11 @@ BEGIN
         assessment_edit_number = updated.assessment_edit_number + 1,
         updated_at = clock_timestamp()
      WHERE updated.assessment_id = assessment_row.assessment_id
-    RETURNING updated.assessment_id, updated.assessment_title, updated.assessment_status,
-        updated.assessment_edit_number
-      INTO assessment_reference_number, assessment_title, assessment_status, assessment_edit_number;
+    RETURNING updated.assessment_id, updated.assessment_status, updated.assessment_edit_number
+      INTO assessment_reference_number, assessment_status, assessment_edit_number;
+    SELECT policy.assessment_title INTO assessment_title
+      FROM ple_data.assessment_policy_snapshot AS policy
+     WHERE policy.assessment_policy_snapshot_id = assessment_row.assessment_policy_snapshot_id;
     PERFORM ple_data.synchronize_course_assessment_deadline(course_row.course_instance_id);
     RETURN NEXT;
 END

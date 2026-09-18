@@ -72,8 +72,8 @@ CREATE FUNCTION ple_api.load_blueprint_comparison_sources(
     left_long_name text,
     right_short_name text,
     right_long_name text,
-    left_metadata_etag uuid,
-    right_metadata_etag uuid
+    left_blueprint_edit_number bigint,
+    right_blueprint_edit_number bigint
 ) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
@@ -142,7 +142,7 @@ BEGIN
     SELECT inputs.position, inputs.reference, revision.blueprint_revision_number,
            revision.content, revision.content_checksum,
            v_source.short_name, v_source.long_name, v_fork.short_name, v_fork.long_name,
-           v_source.metadata_etag, v_fork.metadata_etag
+           v_source.blueprint_edit_number, v_fork.blueprint_edit_number
       FROM (VALUES
           (0, v_source.blueprint_course_id, v_source.blueprint_course_id,
               v_source.current_blueprint_revision_number),
@@ -215,7 +215,7 @@ BEGIN
        OR p_source_etag IS NULL OR p_fork_etag IS NULL
        OR v_source.current_blueprint_revision_number <> p_source_revision
        OR v_fork.current_blueprint_revision_number <> p_fork_revision
-       OR v_source.metadata_etag <> p_source_etag OR v_fork.metadata_etag <> p_fork_etag THEN
+       OR v_source.blueprint_edit_number <> p_source_etag OR v_fork.blueprint_edit_number <> p_fork_etag THEN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Blueprint fork apply precondition is stale';
     END IF;
     RETURN QUERY SELECT inputs.position, revision.content, revision.content_checksum,
@@ -287,7 +287,7 @@ CREATE FUNCTION ple_api.fork_blueprint_course(
 ) RETURNS TABLE (
     public_reference text,
     blueprint_revision_number bigint,
-    metadata_etag uuid,
+    blueprint_edit_number bigint,
     accepted_at timestamp with time zone
 ) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
@@ -298,7 +298,7 @@ DECLARE
     v_child_reference text;
     v_child_revision bigint := 1;
     v_now timestamp with time zone;
-    v_metadata_etag uuid;
+    v_blueprint_edit_number bigint;
     v_source_reference_number text;
     v_source_module jsonb;
     v_child_module jsonb;
@@ -328,9 +328,9 @@ BEGIN
     PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
         pg_catalog.format('ple:blueprint-course-fork:%s:%s', v_actor,
             pg_catalog.encode(p_request_checksum, 'hex')), 0));
-    SELECT course.blueprint_course_id, 1, receipt.metadata_etag,
+    SELECT course.blueprint_course_id, 1, receipt.blueprint_edit_number,
            receipt.accepted_at
-      INTO public_reference, blueprint_revision_number, metadata_etag, accepted_at
+      INTO public_reference, blueprint_revision_number, blueprint_edit_number, accepted_at
       FROM ple_data.blueprint_course_fork_receipt AS receipt
       JOIN ple_data.blueprint_course AS course
         ON course.blueprint_course_id = receipt.blueprint_course_id
@@ -408,29 +408,21 @@ BEGIN
                      WHERE question_pool_id = v_source_entry #>> '{question_pool_revision,questionPoolId}';
                     SELECT * INTO v_child_pool FROM ple_data.question_pool
                      WHERE question_pool_id = v_child_entry #>> '{question_pool_revision,questionPoolId}';
-                    v_source_pool_revision := (v_source_entry #>> '{question_pool_revision,revisionNumber}')::bigint;
                     IF v_child_pool.question_pool_id IS NULL
                        OR v_child_pool.source_question_pool_id IS DISTINCT FROM v_source_pool.question_pool_id
-                       OR v_child_pool.source_question_pool_revision_number IS DISTINCT FROM v_source_pool_revision
-                       OR (v_child_entry #>> '{question_pool_revision,revisionNumber}')::bigint IS DISTINCT FROM 1
-                       OR NOT EXISTS (
-                           SELECT 1 FROM ple_data.question_pool_revision AS child
-                           JOIN ple_data.question_pool_revision AS source
-                             ON source.question_pool_id = v_source_pool.question_pool_id
-                            AND source.revision_number = v_source_pool_revision
-                          WHERE child.question_pool_id = v_child_pool.question_pool_id AND child.revision_number = 1
-                            AND child.member_count = source.member_count
-                            AND child.interchangeability_attested_by_account_id = source.interchangeability_attested_by_account_id
-                            AND child.interchangeability_attested_at = source.interchangeability_attested_at)
+                       OR v_child_pool.interchangeability_attested_by_account_id
+                            IS DISTINCT FROM v_source_pool.interchangeability_attested_by_account_id
+                       OR v_child_pool.interchangeability_attested_at
+                            IS DISTINCT FROM v_source_pool.interchangeability_attested_at
                        OR EXISTS (
                            SELECT 1 FROM
                                (SELECT member_position, published_question_id, question_revision_number
-                                  FROM ple_data.question_pool_revision_member
-                                 WHERE question_pool_id = v_child_pool.question_pool_id AND revision_number = 1) AS child
+                                  FROM ple_data.question_pool_member
+                                 WHERE question_pool_id = v_child_pool.question_pool_id) AS child
                            FULL JOIN
                                (SELECT member_position, published_question_id, question_revision_number
-                                  FROM ple_data.question_pool_revision_member
-                                 WHERE question_pool_id = v_source_pool.question_pool_id AND revision_number = v_source_pool_revision) AS source
+                                  FROM ple_data.question_pool_member
+                                 WHERE question_pool_id = v_source_pool.question_pool_id) AS source
                              USING (member_position)
                            WHERE child.published_question_id IS DISTINCT FROM source.published_question_id
                               OR child.question_revision_number IS DISTINCT FROM source.question_revision_number) THEN
@@ -448,14 +440,14 @@ BEGIN
         END LOOP;
     END LOOP;
     v_now := pg_catalog.clock_timestamp();
-    v_metadata_etag := pg_catalog.gen_random_uuid();
+    v_blueprint_edit_number := 1;
     INSERT INTO ple_data.blueprint_course AS child (
         blueprint_course_id, owner_account_id, short_name, long_name, availability,
-        metadata_etag, current_blueprint_revision_number, created_at,
+        blueprint_edit_number, current_blueprint_revision_number, created_at,
         content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags
     ) VALUES (
         p_blueprint_id, v_actor, v_source.short_name, v_source.long_name, 'private',
-        v_metadata_etag, 1, v_now,
+        v_blueprint_edit_number, 1, v_now,
         v_source.content_discipline_id, v_source.content_subject_id, v_source.content_topic_id,
         v_source.content_subtopic_id, v_source.tags
     ) RETURNING child.blueprint_course_id INTO v_child_reference;
@@ -486,11 +478,11 @@ BEGIN
     );
     INSERT INTO ple_data.blueprint_metadata_event (
         blueprint_course_id, actor_account_id, short_name, long_name,
-        availability, metadata_etag, occurred_at,
+        availability, blueprint_edit_number, occurred_at,
         content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags
     ) VALUES (
         v_child_reference, v_actor, v_source.short_name, v_source.long_name,
-        'private', v_metadata_etag, v_now,
+        'private', v_blueprint_edit_number, v_now,
         v_source.content_discipline_id, v_source.content_subject_id, v_source.content_topic_id,
         v_source.content_subtopic_id, v_source.tags
     );
@@ -499,13 +491,13 @@ BEGIN
     );
     INSERT INTO ple_data.blueprint_course_fork_receipt VALUES (
         v_actor, p_request_checksum, v_child_reference, v_source_reference_number,
-        p_source_revision_number, v_metadata_etag, v_now
+        p_source_revision_number, v_blueprint_edit_number, v_now
     );
     SELECT course.blueprint_course_id INTO public_reference
       FROM ple_data.blueprint_course AS course
      WHERE course.blueprint_course_id = v_child_reference;
     blueprint_revision_number := v_child_revision;
-    metadata_etag := v_metadata_etag;
+    blueprint_edit_number := v_blueprint_edit_number;
     accepted_at := v_now;
     RETURN NEXT;
 END

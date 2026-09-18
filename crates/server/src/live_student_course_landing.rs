@@ -16,7 +16,7 @@ use learning_data_access::{
     postgres::{PostgresLiveStudentCourseLandingStore, PostgresSessionStore},
 };
 use question_model::{
-    AssessmentAttemptCompletion, AssessmentReference, AssessmentType, CourseInstanceReference,
+    AssessmentAttemptCompletion, AssessmentId, AssessmentType, CourseInstanceId,
     CourseTerm, ProductRole,
 };
 use serde::Serialize;
@@ -55,7 +55,7 @@ struct CourseListResponse {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct CourseSummary {
-    reference: CourseInstanceReference,
+    reference: CourseInstanceId,
     short_name: String,
     long_name: String,
 }
@@ -68,7 +68,7 @@ struct CourseInvitationListResponse {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct CourseInvitationSummary {
-    reference: CourseInstanceReference,
+    reference: CourseInstanceId,
     short_name: String,
     long_name: String,
     instructor_display_name: String,
@@ -95,7 +95,7 @@ struct AssessmentListResponse {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct AssessmentSummary {
-    reference: AssessmentReference,
+    reference: AssessmentId,
     title: String,
     assessment_type: AssessmentType,
     decision: StudentAssessmentDecisionSummary,
@@ -164,7 +164,7 @@ async fn list_assessments(
     headers: HeaderMap,
     Path(course): Path<String>,
 ) -> Response {
-    let course = match CourseInstanceReference::from_str(&course) {
+    let course = match CourseInstanceId::from_str(&course) {
         Ok(value) => value,
         Err(_) => return concealed(),
     };
@@ -278,7 +278,7 @@ fn route_error(status: StatusCode, message: &'static str) -> Response {
 #[cfg(test)]
 mod tests {
     use learning_data_access::{LiveStudentCourseInvitationSummary, StoreError};
-    use question_model::{CourseInstanceReference, CourseTerm, ProductRole};
+    use question_model::{CourseInstanceId, CourseTerm, ProductRole};
     use serde_json::json;
 
     use super::{CourseInvitationSummary, store_error_response, student_profile_role_is_allowed};
@@ -286,7 +286,7 @@ mod tests {
     #[test]
     fn pending_invitation_projects_only_pre_acceptance_course_context() {
         let invitation = LiveStudentCourseInvitationSummary {
-            course: CourseInstanceReference::new("CI6F2R8TA0").expect("canonical Course reference"),
+            course: CourseInstanceId::new("CI6F2R8TA0").expect("canonical Course reference"),
             short_name: "Mol Bio".into(),
             long_name: "Molecular Biology".into(),
             instructor_display_name: "Elena Voss".into(),

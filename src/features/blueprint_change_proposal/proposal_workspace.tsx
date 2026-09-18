@@ -202,9 +202,9 @@ export function ProposalTargetTools(props: {
     try {
       const result = await props.client.createBlueprintChangeProposal(target.reference, {
         source: source.current_revision,
-        sourceMetadataEtag: source.metadata_etag,
+        sourceBlueprintEditNumber: source.blueprint_edit_number,
         target: target.current_revision,
-        targetMetadataEtag: target.metadata_etag,
+        targetBlueprintEditNumber: target.blueprint_edit_number,
       });
       if (generation !== targetGeneration) return;
       setCreated(result.proposal.proposalId);
@@ -288,8 +288,9 @@ export function ProposalTargetTools(props: {
                   <h4>{source().long_name}</h4>
                   <p>
                     Source {source().short_name}, Revision {source().current_revision.revision},
-                    metadata {source().metadata_etag}; target {props.target.long_name}, Revision{" "}
-                    {props.target.current_revision.revision}, metadata {props.target.metadata_etag}.
+                    edit {source().blueprint_edit_number}; target {props.target.long_name}, Revision{" "}
+                    {props.target.current_revision.revision}, edit{" "}
+                    {props.target.blueprint_edit_number}.
                   </p>
                   <CourseClassificationSummary value={source().classification} />
                   <p>

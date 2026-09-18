@@ -9,7 +9,7 @@ pub const MAX_IMATHAS_QUESTION_BACKEND_STATE_CIPHERTEXT_BYTES: usize = 64 * 1024
 pub const MAX_IMATHAS_QUESTION_BACKEND_STATE_PLAINTEXT_BYTES: usize =
     MAX_IMATHAS_QUESTION_BACKEND_STATE_CIPHERTEXT_BYTES - 16;
 pub(super) const IMATHAS_QUESTION_BACKEND_STATE_NONCE_BYTES: usize = 24;
-const IMATHAS_QUESTION_BACKEND_STATE_AAD_VERSION: u8 = 1;
+const IMATHAS_QUESTION_BACKEND_STATE_AAD_VERSION: u8 = 2;
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct ImathasQuestionBackendStatePlaintext(Vec<u8>);
@@ -305,9 +305,9 @@ pub(super) fn imathas_question_backend_state_aad(
     let mut aad = vec![IMATHAS_QUESTION_BACKEND_STATE_AAD_VERSION];
     for value in [
         session.reference.as_uuid().as_bytes().as_slice(),
-        session.account.as_uuid().as_bytes().as_slice(),
-        session.course.as_uuid().as_bytes().as_slice(),
-        session.assessment.as_uuid().as_bytes().as_slice(),
+        session.account.as_str().as_bytes(),
+        session.course.as_str().as_bytes(),
+        session.assessment.as_str().as_bytes(),
         session
             .grading_context
             .question_attempt()

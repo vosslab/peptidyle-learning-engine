@@ -13,7 +13,7 @@ use learning_data_access::{
     ArchivedStudentWorkRecoveryStore, RecoveredAttempt, RecoverySummary, StoreError,
     postgres::{PostgresArchivedStudentWorkRecoveryStore, PostgresSessionStore},
 };
-use question_model::{AssessmentAttemptReference, CourseInstanceReference, ProductRole};
+use question_model::{AssessmentAttemptId, CourseInstanceId, ProductRole};
 use serde::{Deserialize, Serialize};
 use std::{str::FromStr, sync::Arc};
 
@@ -48,7 +48,7 @@ enum Input {
     },
     Recover {
         #[serde(rename = "assessmentAttempt")]
-        assessment_attempt: AssessmentAttemptReference,
+        assessment_attempt: AssessmentAttemptId,
     },
 }
 
@@ -61,7 +61,7 @@ fn required_nullable_cursor<'de, D: serde::Deserializer<'de>>(
 #[serde(tag = "action", rename_all = "camelCase")]
 enum Output {
     Select {
-        course: CourseInstanceReference,
+        course: CourseInstanceId,
         attempts: Vec<RecoverySummary>,
         #[serde(rename = "nextCursor")]
         next_cursor: Option<String>,
@@ -77,7 +77,7 @@ async fn recover(
     headers: HeaderMap,
     input: Result<Json<Input>, axum::extract::rejection::JsonRejection>,
 ) -> Response {
-    let course = match CourseInstanceReference::from_str(&course) {
+    let course = match CourseInstanceId::from_str(&course) {
         Ok(c) => c,
         Err(_) => return concealed(),
     };
@@ -151,8 +151,8 @@ async fn recover(
 
 fn decode_cursor(
     cursor: &str,
-    course: &CourseInstanceReference,
-) -> Result<AssessmentAttemptReference, ()> {
+    course: &CourseInstanceId,
+) -> Result<AssessmentAttemptId, ()> {
     if cursor.len() > 80 {
         return Err(());
     }

@@ -13,7 +13,7 @@ use learning_data_access::{
     CourseRosterImportInput, CourseRosterStore, SessionTokenHash, StoreError,
     postgres::{PostgresCourseRosterStore, PostgresSessionStore},
 };
-use question_model::{CourseInstanceReference, ProductRole};
+use question_model::{CourseInstanceId, ProductRole};
 
 use crate::auth::{AuthError, resolve_session};
 
@@ -142,8 +142,8 @@ async fn revoke_course_roster_entry(
     }
 }
 
-fn course_reference(value: &str) -> Result<CourseInstanceReference, Box<Response>> {
-    CourseInstanceReference::from_str(value).map_err(|_| Box::new(concealed()))
+fn course_reference(value: &str) -> Result<CourseInstanceId, Box<Response>> {
+    CourseInstanceId::from_str(value).map_err(|_| Box::new(concealed()))
 }
 
 async fn required_session_hash(

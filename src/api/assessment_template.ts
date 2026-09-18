@@ -6,7 +6,7 @@ import type { AssessmentTemplateName } from "../../generated/api/AssessmentTempl
 import type { AssessmentTemplateSettings } from "../../generated/api/AssessmentTemplateSettings";
 import type { AssessmentType } from "../../generated/api/AssessmentType";
 import type { AssessmentTitle } from "../../generated/api/AssessmentTitle";
-import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
+import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { LiveAssessmentWorkspaceResponse } from "./assessment_release";
 
 /** Closed creation input; server-owned settings begin from the model defaults. */
@@ -48,7 +48,7 @@ export interface AssessmentTemplateClient {
   ) => Promise<AssessmentTemplateResponse>;
   /** Creates an Unreleased live Assessment from one private Template and returns its strong ETag. */
   readonly createAssessmentFromTemplate: (
-    course: CourseInstanceReference,
+    course: CourseInstanceId,
     input: CreateAssessmentFromTemplateInput,
   ) => Promise<LiveAssessmentWorkspaceResponse>;
 }

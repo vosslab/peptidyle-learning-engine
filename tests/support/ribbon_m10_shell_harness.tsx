@@ -24,7 +24,7 @@ import type {
   CourseSummary,
   CursorPage,
 } from "../../src/api/contracts";
-import type { CourseId } from "../../generated/api/CourseId";
+import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 // prettier-ignore
 import type {
   StudentAssessmentLandingSummary,
@@ -138,7 +138,7 @@ function presentationApi(deferredScopes?: DeferredCourseScopes): {
   let courseInstanceQueries = 0;
   const queries = {
     courses: queryFunction("courses", () => Promise.resolve(courses)),
-    assessments: queryFunction("course-assessments", (_courseId: CourseId) => {
+    assessments: queryFunction("course-assessments", (_courseId: CourseInstanceId) => {
       assessmentQueries += 1;
       return Promise.resolve(assessments);
     }),
@@ -297,7 +297,7 @@ function fixtureModelForPathname(pathname: string): RibbonModel {
   if (pathname === "/instructor/courses/CI7K3M2QAZ/gradebook")
     return courseFixture("CI7K3M2QAZ", "gradebook");
   if (pathname === "/courses/CI4W8QF9AD") return courseFixture("CI4W8QF9AD");
-  if (pathname === "/assessment-attempts/R-1") {
+  if (pathname === "/assessment-attempts/00000000-0000-0000-0000-000000000001") {
     return {
       ...M6_RIBBON_FIXTURES.attemptInstructor,
       taskAreas: M6_RIBBON_FIXTURES.attemptStudent.taskAreas,

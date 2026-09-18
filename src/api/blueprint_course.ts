@@ -1,7 +1,7 @@
 // Browser capability contract for Blueprint lineage metadata and immutable Revisions.
 
-import type { BlueprintCourseReference } from "../../generated/api/BlueprintCourseReference";
-import type { BlueprintAssessmentReference } from "../../generated/api/BlueprintAssessmentReference";
+import type { BlueprintCourseId } from "../../generated/api/BlueprintCourseId";
+import type { BlueprintAssessmentId } from "../../generated/api/BlueprintAssessmentId";
 import type { BlueprintPoolMembersView } from "../../generated/api/BlueprintPoolMembersView";
 import type { QuestionId } from "../../generated/api/QuestionId";
 import type { BlueprintCourseSummaryView } from "../../generated/api/BlueprintCourseSummaryView";
@@ -11,6 +11,7 @@ import type { BlueprintHistoryPageView } from "../../generated/api/BlueprintHist
 import type { BlueprintComparisonView } from "../../generated/api/BlueprintComparisonView";
 import type { BlueprintKnownForkView } from "../../generated/api/BlueprintKnownForkView";
 import type { BlueprintCourseSaveResponse } from "../../generated/api/BlueprintCourseSaveResponse";
+import type { BlueprintEditNumber } from "../../generated/api/BlueprintEditNumber";
 import type { BlueprintForkApplyRequest } from "../../generated/api/BlueprintForkApplyRequest";
 import type { BlueprintForkApplyResponse } from "../../generated/api/BlueprintForkApplyResponse";
 import type { BlueprintMetadataState } from "../../generated/api/BlueprintMetadataState";
@@ -23,7 +24,7 @@ import type { CanonicalBlueprintCourse } from "../../generated/api/CanonicalBlue
 import type { BlueprintStewardshipClient } from "./blueprint_stewardship";
 
 export type BlueprintRevisionEtag = string;
-export type BlueprintMetadataEtag = string;
+export type { BlueprintEditNumber };
 export type BlueprintIdempotencyKey = string;
 
 /** Optional identity-based discovery restrictions; Discipline remains the browsing anchor. */
@@ -43,15 +44,13 @@ export interface LoadedBlueprintCourse {
 
 export interface BlueprintMetadataTransition {
   readonly metadata: BlueprintMetadataState;
-  /** Strong opaque validator for future lineage metadata changes. */
-  readonly metadataEtag: BlueprintMetadataEtag;
 }
 
 /** Browser capability for Instructor-owned reusable Blueprint Course lifecycle operations. */
 export interface BlueprintCourseClient extends BlueprintStewardshipClient {
   /** Exports the current reusable structure without ownership or delivery state. */
   readonly exportBlueprintCourse: (
-    reference: BlueprintCourseReference,
+    reference: BlueprintCourseId,
   ) => Promise<CanonicalBlueprintCourse>;
   /** Creates an independent Private Blueprint Course from validated reusable structure. */
   readonly importBlueprintCourse: (
@@ -59,36 +58,36 @@ export interface BlueprintCourseClient extends BlueprintStewardshipClient {
     idempotencyKey: BlueprintIdempotencyKey,
   ) => Promise<LoadedBlueprintCourse>;
   readonly updateBlueprintCourseClassification: (
-    reference: BlueprintCourseReference,
+    reference: BlueprintCourseId,
     classification: CourseClassification,
-    etag: BlueprintMetadataEtag,
+    etag: BlueprintEditNumber,
   ) => Promise<BlueprintMetadataTransition>;
   readonly listBlueprintHistory: (
-    reference: BlueprintCourseReference,
+    reference: BlueprintCourseId,
     kind?: "revisions" | "metadata",
     cursor?: string,
     pageSize?: number,
   ) => Promise<BlueprintHistoryPageView>;
   readonly getBlueprintPoolMembers: (
-    reference: BlueprintCourseReference,
-    assessmentReference: BlueprintAssessmentReference,
+    reference: BlueprintCourseId,
+    assessmentReference: BlueprintAssessmentId,
     poolId: QuestionId,
   ) => Promise<BlueprintPoolMembersView>;
   readonly forkBlueprintCourse: (
-    reference: BlueprintCourseReference,
+    reference: BlueprintCourseId,
     revision: string,
     idempotencyKey: BlueprintIdempotencyKey,
   ) => Promise<LoadedBlueprintCourse>;
   readonly applyBlueprintFork: (
-    reference: BlueprintCourseReference,
+    reference: BlueprintCourseId,
     request: BlueprintForkApplyRequest,
   ) => Promise<BlueprintForkApplyResponse>;
   readonly listKnownBlueprintForks: (
-    reference: BlueprintCourseReference,
+    reference: BlueprintCourseId,
   ) => Promise<readonly BlueprintKnownForkView[]>;
   readonly getBlueprintComparison: (
-    left: BlueprintCourseReference,
-    right: BlueprintCourseReference,
+    left: BlueprintCourseId,
+    right: BlueprintCourseId,
   ) => Promise<BlueprintComparisonView>;
   readonly listBlueprintCourses: (
     cursor?: string,
@@ -100,42 +99,42 @@ export interface BlueprintCourseClient extends BlueprintStewardshipClient {
     classification?: BlueprintCourseClassificationSearch,
   ) => Promise<CursorPage<BlueprintCourseSummaryView>>;
   readonly getBlueprintCourse: (
-    reference: BlueprintCourseReference,
+    reference: BlueprintCourseId,
   ) => Promise<LoadedBlueprintCourse>;
   readonly createBlueprintCourse: (
     content: CreateBlueprintCourseInput,
     idempotencyKey: BlueprintIdempotencyKey,
   ) => Promise<LoadedBlueprintCourse>;
   readonly saveBlueprintCourse: (
-    reference: BlueprintCourseReference,
+    reference: BlueprintCourseId,
     content: ReplaceBlueprintCourseContentInput,
     etag: BlueprintRevisionEtag,
     idempotencyKey: BlueprintIdempotencyKey,
   ) => Promise<BlueprintCourseSaveResponse & { readonly revisionEtag: BlueprintRevisionEtag }>;
   readonly renameBlueprintCourse: (
-    reference: BlueprintCourseReference,
+    reference: BlueprintCourseId,
     names: RenameBlueprintCourseInput,
-    etag: BlueprintMetadataEtag,
+    etag: BlueprintEditNumber,
   ) => Promise<BlueprintMetadataTransition>;
   readonly publishBlueprintCourse: (
-    reference: BlueprintCourseReference,
-    etag: BlueprintMetadataEtag,
+    reference: BlueprintCourseId,
+    etag: BlueprintEditNumber,
   ) => Promise<BlueprintMetadataTransition>;
   readonly getBlueprintRevision: (
-    reference: BlueprintCourseReference,
+    reference: BlueprintCourseId,
     revision: string,
   ) => Promise<BlueprintRevisionView>;
   readonly archiveBlueprintCourse: (
-    reference: BlueprintCourseReference,
+    reference: BlueprintCourseId,
     confirmationLongName: string,
-    etag: BlueprintMetadataEtag,
+    etag: BlueprintEditNumber,
   ) => Promise<BlueprintMetadataTransition>;
   readonly restoreBlueprintCourse: (
-    reference: BlueprintCourseReference,
-    etag: BlueprintMetadataEtag,
+    reference: BlueprintCourseId,
+    etag: BlueprintEditNumber,
   ) => Promise<BlueprintMetadataTransition>;
   readonly returnBlueprintCourseToPrivate: (
-    reference: BlueprintCourseReference,
-    etag: BlueprintMetadataEtag,
+    reference: BlueprintCourseId,
+    etag: BlueprintEditNumber,
   ) => Promise<BlueprintMetadataTransition>;
 }

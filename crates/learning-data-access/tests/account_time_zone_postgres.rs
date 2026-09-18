@@ -9,7 +9,7 @@ use learning_data_access::{
     AccountTimeZoneStore, CourseRosterImportEntry, CourseRosterImportInput, CourseRosterStore,
     SessionTokenHash,
 };
-use question_model::{AccountTimeZone, CourseInstanceReference};
+use question_model::{AccountTimeZone, CourseInstanceId};
 use sqlx::Row;
 use uuid::Uuid;
 
@@ -31,7 +31,7 @@ fn token(byte: u8) -> SessionTokenHash {
     SessionTokenHash::compute(&[byte; 32])
 }
 
-async fn seed(admin: &sqlx::postgres::PgPool) -> CourseInstanceReference {
+async fn seed(admin: &sqlx::postgres::PgPool) -> CourseInstanceId {
     let mut tx = admin.begin().await.expect("fixture transaction");
     sqlx::query("SET LOCAL ROLE ple_data_owner")
         .execute(&mut *tx)
@@ -98,7 +98,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> CourseInstanceReference {
     sqlx::query(
         "INSERT INTO ple_data.blueprint_course \
          (blueprint_id, reference_number, owner_account_id, short_name, long_name, \
-          metadata_etag, created_at, discipline_uuid, tags) OVERRIDING SYSTEM VALUE \
+          blueprint_edit_number, created_at, discipline_uuid, tags) OVERRIDING SYSTEM VALUE \
          VALUES ($1, $2, $3, 'ZONE', 'Student Time Zone Blueprint', \
                  '00000000-0000-0000-0000-00000000ef04', clock_timestamp(), '00000000-0000-0000-0000-00000000cc01', ARRAY[]::text[])",
     )
@@ -163,7 +163,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> CourseInstanceReference {
     .await
     .expect("Course public reference");
     tx.commit().await.expect("fixture commit");
-    CourseInstanceReference::new(public_reference).expect("Course reference")
+    CourseInstanceId::new(public_reference).expect("Course reference")
 }
 
 async fn new_student_id_and_session(admin: &sqlx::postgres::PgPool) -> Uuid {

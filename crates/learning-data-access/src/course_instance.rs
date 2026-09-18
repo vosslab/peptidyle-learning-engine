@@ -6,8 +6,8 @@
 
 use async_trait::async_trait;
 use question_model::{
-    AccountReference, BlueprintCourseReference, BlueprintRevision, CourseId,
-    CourseInstanceReference, CourseSummary, CourseTerm, CourseTheme, QuestionId,
+    AccountId, BlueprintCourseId, BlueprintRevision, CourseInstanceId, CourseSummary, CourseTerm,
+    CourseTheme, QuestionId,
 };
 use serde::{Deserialize, Serialize};
 
@@ -31,7 +31,7 @@ pub enum CourseInstanceCreationSource {
     /// Materialize content from exactly this reusable Blueprint Revision.
     Adopted {
         /// Exact reusable Blueprint Course source.
-        blueprint_course: BlueprintCourseReference,
+        blueprint_course: BlueprintCourseId,
         /// Exact immutable Blueprint Revision source.
         blueprint_revision: BlueprintRevision,
     },
@@ -53,7 +53,7 @@ pub struct CreateCourseInstanceInput {
     pub term: CourseTerm,
     /// Required when a Sysadmin creates for an Instructor; omitted by an Instructor creating for self.
     #[serde(default)]
-    pub assigned_instructor: Option<AccountReference>,
+    pub assigned_instructor: Option<AccountId>,
 }
 
 impl CreateCourseInstanceInput {
@@ -78,9 +78,9 @@ pub struct CourseInstanceSummary {
     pub classification: question_model::CourseClassification,
     /// Stored Course activity state; it is independent of Student-data retention.
     pub lifecycle_state: CourseInstanceLifecycleState,
-    pub metadata_etag: question_model::CourseMetadataEtag,
+    pub course_edit_number: question_model::CourseEditNumber,
     /// Public C-reference only; internal Course IDs never enter this route.
-    pub reference: CourseInstanceReference,
+    pub reference: CourseInstanceId,
     /// Compact Course Instance name for constrained navigation.
     pub short_name: String,
     /// Descriptive Course Instance name for headings and breadcrumbs.
@@ -120,7 +120,7 @@ pub struct CourseInstanceView {
 #[serde(rename_all = "camelCase")]
 pub struct CourseInstanceBlueprintOrigin {
     /// Readable parent Blueprint public identity.
-    pub reference: BlueprintCourseReference,
+    pub reference: BlueprintCourseId,
     /// Immutable Revision originally adopted when the Course was created.
     pub adopted_revision: BlueprintRevision,
     /// Current readable source Revision, without applying any changes.
@@ -132,7 +132,7 @@ pub struct CourseInstanceBlueprintOrigin {
 #[serde(rename_all = "camelCase")]
 pub struct CourseCreationInstructor {
     /// Public Account reference carries neither email nor authority.
-    pub reference: AccountReference,
+    pub reference: AccountId,
 }
 
 /// Creation receipt that does not imply the creator has Course access.
@@ -158,22 +158,22 @@ pub trait CourseInstanceStore: Send + Sync {
     async fn update_course_classification(
         &self,
         session_token_hash: SessionTokenHash,
-        reference: CourseInstanceReference,
-        expected_metadata_etag: question_model::CourseMetadataEtag,
+        reference: CourseInstanceId,
+        expected_edit_number: question_model::CourseEditNumber,
         classification: question_model::CourseClassification,
     ) -> Result<CourseClassificationUpdate, StoreError>;
     /// Resolves one public Course reference only for the current active Course Member.
     async fn resolve_course_navigation(
         &self,
         session_token_hash: SessionTokenHash,
-        reference: CourseInstanceReference,
-    ) -> Result<CourseId, StoreError>;
+        reference: CourseInstanceId,
+    ) -> Result<CourseInstanceId, StoreError>;
 
     /// Reads one browser-safe Course Summary only for the current active Course Member.
     async fn read_course_summary(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseId,
+        course: CourseInstanceId,
     ) -> Result<CourseSummary, StoreError>;
 
     /// Lists only Course Instances where the current Account has an active Instructor Course Membership.
@@ -196,15 +196,15 @@ pub trait CourseInstanceStore: Send + Sync {
     async fn add_course_instructor(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
-        instructor: AccountReference,
+        course: CourseInstanceId,
+        instructor: AccountId,
     ) -> Result<(), StoreError>;
 
     /// Loads the current Instructor's minimal teaching-team workspace projection.
     async fn load_course_instance(
         &self,
         session_token_hash: SessionTokenHash,
-        reference: CourseInstanceReference,
+        reference: CourseInstanceId,
     ) -> Result<CourseInstanceView, StoreError>;
 
     /// Lists active Instructor Accounts only for the current Sysadmin's explicit assessment choice.
@@ -219,7 +219,7 @@ pub trait CourseInstanceStore: Send + Sync {
 #[serde(rename_all = "camelCase")]
 pub struct CourseClassificationUpdate {
     pub classification: question_model::CourseClassification,
-    pub metadata_etag: question_model::CourseMetadataEtag,
+    pub course_edit_number: question_model::CourseEditNumber,
     pub changed: bool,
 }
 
@@ -252,7 +252,7 @@ mod tests {
     fn creation_source_accepts_only_the_closed_browser_wire() {
         let empty = serde_json::json!({"kind": "empty"});
         let blueprint_course =
-            question_model::BlueprintCourseReference::from_random_identity("7K3M2QX")
+            question_model::BlueprintCourseId::from_random_identity("7K3M2QX")
                 .expect("canonical Blueprint Course reference");
         let adopted = serde_json::json!({
             "kind": "adopted",
@@ -264,7 +264,7 @@ mod tests {
         assert!(
             serde_json::from_value::<CourseInstanceCreationSource>(serde_json::json!({
                 "kind": "adopted",
-                "blueprint_course": question_model::BlueprintCourseReference::from_random_identity("7K3M2QX")
+                "blueprint_course": question_model::BlueprintCourseId::from_random_identity("7K3M2QX")
                     .expect("canonical Blueprint Course reference"),
                 "blueprint_revision": "1"
             }))
@@ -273,10 +273,10 @@ mod tests {
         assert!(
             serde_json::from_value::<CourseInstanceCreationSource>(serde_json::json!({
                 "kind": "adopted",
-                "blueprintCourse": question_model::BlueprintCourseReference::from_random_identity("7K3M2QX")
+                "blueprintCourse": question_model::BlueprintCourseId::from_random_identity("7K3M2QX")
                     .expect("canonical Blueprint Course reference"),
                 "blueprintRevision": "1",
-                "blueprint_course": question_model::BlueprintCourseReference::from_random_identity("7K3M2QX")
+                "blueprint_course": question_model::BlueprintCourseId::from_random_identity("7K3M2QX")
                     .expect("canonical Blueprint Course reference")
             }))
             .is_err()

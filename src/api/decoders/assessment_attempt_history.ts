@@ -10,9 +10,9 @@ import {
   decodeString,
 } from "../decoder";
 import {
-  decodeAssessmentReference,
+  decodeAssessmentId,
   decodeAssessmentTitle,
-  decodeCourseInstanceReference,
+  decodeCourseInstanceId,
   decodeCourseName,
   decodeQuestionRevisionReference,
   field,
@@ -48,10 +48,10 @@ export function decodeStudentAssessmentAttemptHistory(
   ]);
   const reference = field(record, "assessmentAttempt", path);
   if (typeof reference !== "string")
-    throw new DecodeError(`${path}.assessmentAttempt`, "an Assessment Attempt R- reference");
+    throw new DecodeError(`${path}.assessmentAttempt`, "an Assessment Attempt UUID");
   const assessmentAttempt = parseAssessmentAttemptReference(reference);
   if (assessmentAttempt === null)
-    throw new DecodeError(`${path}.assessmentAttempt`, "an Assessment Attempt R- reference");
+    throw new DecodeError(`${path}.assessmentAttempt`, "an Assessment Attempt UUID");
   const assessment = decodeRecord(field(record, "assessment", path), `${path}.assessment`);
   requireOnlyFields(assessment, `${path}.assessment`, ["reference", "title"]);
   const course = decodeRecord(field(record, "course", path), `${path}.course`);
@@ -64,7 +64,7 @@ export function decodeStudentAssessmentAttemptHistory(
       `${path}.attemptNumber`,
     ),
     course: {
-      reference: decodeCourseInstanceReference(
+      reference: decodeCourseInstanceId(
         field(course, "reference", `${path}.course`),
         `${path}.course.reference`,
       ),
@@ -83,7 +83,7 @@ export function decodeStudentAssessmentAttemptHistory(
       ),
     },
     assessment: {
-      reference: decodeAssessmentReference(
+      reference: decodeAssessmentId(
         field(assessment, "reference", `${path}.assessment`),
         `${path}.assessment.reference`,
       ),

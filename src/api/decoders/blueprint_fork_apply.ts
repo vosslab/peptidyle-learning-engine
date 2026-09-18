@@ -5,7 +5,11 @@ import type { BlueprintForkApplyResponse } from "../../../generated/api/Blueprin
 import { MAX_ASSESSMENT_ORDERED_ENTRIES } from "../../../generated/api/MAX_ASSESSMENT_ORDERED_ENTRIES";
 import { DecodeError, decodeBoolean, decodeNullable, decodeRecord, decodeUuid } from "../decoder";
 import { decodeBoundedArray, field, requireOnlyFields } from "./shared";
-import { decodeBlueprintMetadataState, metadataEtag, revisionReference } from "./blueprint_course";
+import {
+  blueprintEditNumber,
+  decodeBlueprintMetadataState,
+  revisionReference,
+} from "./blueprint_course";
 
 function copies(
   value: unknown,
@@ -42,10 +46,10 @@ function destination(value: unknown, path: string, module: boolean): Record<stri
     kind === "existing"
       ? module
         ? "targetModuleReference"
-        : "targetAssessmentReference"
+        : "targetAssessmentId"
       : module
         ? "sourceModuleReference"
-        : "sourceAssessmentReference";
+        : "sourceAssessmentId";
   requireOnlyFields(record, path, ["kind", name]);
   return { kind, [name]: decodeUuid(field(record, name, path), `${path}.${name}`) };
 }
@@ -59,8 +63,8 @@ export function decodeBlueprintForkApplyRequest(
   requireOnlyFields(record, path, [
     "expectedSource",
     "expectedFork",
-    "expectedSourceMetadataEtag",
-    "expectedForkMetadataEtag",
+    "expectedSourceBlueprintEditNumber",
+    "expectedForkBlueprintEditNumber",
     "sourceShortName",
     "sourceLongName",
     "selection",
@@ -113,13 +117,13 @@ export function decodeBlueprintForkApplyRequest(
       `${path}.expectedSource`,
     ),
     expectedFork: revisionReference(field(record, "expectedFork", path), `${path}.expectedFork`),
-    expectedSourceMetadataEtag: metadataEtag(
-      field(record, "expectedSourceMetadataEtag", path),
-      `${path}.expectedSourceMetadataEtag`,
+    expectedSourceBlueprintEditNumber: blueprintEditNumber(
+      field(record, "expectedSourceBlueprintEditNumber", path),
+      `${path}.expectedSourceBlueprintEditNumber`,
     ),
-    expectedForkMetadataEtag: metadataEtag(
-      field(record, "expectedForkMetadataEtag", path),
-      `${path}.expectedForkMetadataEtag`,
+    expectedForkBlueprintEditNumber: blueprintEditNumber(
+      field(record, "expectedForkBlueprintEditNumber", path),
+      `${path}.expectedForkBlueprintEditNumber`,
     ),
     sourceShortName: decodeBoolean(
       field(record, "sourceShortName", path),
@@ -136,8 +140,8 @@ export function decodeBlueprintForkApplyRequest(
       sourceAssessments: copies(
         field(selection, "sourceAssessments", selectionPath),
         `${selectionPath}.sourceAssessments`,
-        "sourceAssessmentReference",
-        "targetAssessmentReference",
+        "sourceAssessmentId",
+        "targetAssessmentId",
         MAX_ASSESSMENT_ORDERED_ENTRIES * MAX_ASSESSMENT_ORDERED_ENTRIES,
       ) as BlueprintForkApplyRequest["selection"]["sourceAssessments"],
       layout: layout as BlueprintForkApplyRequest["selection"]["layout"],

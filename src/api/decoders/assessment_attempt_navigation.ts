@@ -21,8 +21,8 @@ import {
   type AssessmentRouteReference,
   type CourseInstanceRouteReference,
   parseAssessmentAttemptReference,
-  parseAssessmentReference,
-  parseCourseInstanceReference,
+  parseAssessmentId,
+  parseCourseInstanceId,
 } from "../../navigation/public_route";
 import { COURSE_THEME_VALUES } from "../../../generated/api/CourseTheme";
 import { decodeAccountTimeZone } from "./student_assessment_decision";
@@ -39,22 +39,22 @@ function decodeAssessmentAttemptReference(
   value: unknown,
   path: string,
 ): AssessmentAttemptRouteReference {
-  if (typeof value !== "string") throw new DecodeError(path, "an Assessment Attempt R- reference");
+  if (typeof value !== "string") throw new DecodeError(path, "an Assessment Attempt UUID");
   const parsed = parseAssessmentAttemptReference(value);
-  if (parsed === null) throw new DecodeError(path, "an Assessment Attempt R- reference");
+  if (parsed === null) throw new DecodeError(path, "an Assessment Attempt UUID");
   return parsed;
 }
 
 function decodeCourseReference(value: unknown, path: string): CourseInstanceRouteReference {
   if (typeof value !== "string") throw new DecodeError(path, "a Course CI reference");
-  const parsed = parseCourseInstanceReference(value);
+  const parsed = parseCourseInstanceId(value);
   if (parsed === null) throw new DecodeError(path, "a Course CI reference");
   return parsed;
 }
 
-function decodeAssessmentReference(value: unknown, path: string): AssessmentRouteReference {
+function decodeAssessmentId(value: unknown, path: string): AssessmentRouteReference {
   if (typeof value !== "string") throw new DecodeError(path, "an Assessment A reference");
-  const parsed = parseAssessmentReference(value);
+  const parsed = parseAssessmentId(value);
   if (parsed === null) throw new DecodeError(path, "an Assessment A reference");
   return parsed;
 }
@@ -118,7 +118,7 @@ export function decodeStudentAssessmentAttemptContext(
       ),
     },
     assessment: {
-      reference: decodeAssessmentReference(
+      reference: decodeAssessmentId(
         field(assessment, "reference", `${path}.assessment`),
         `${path}.assessment.reference`,
       ),

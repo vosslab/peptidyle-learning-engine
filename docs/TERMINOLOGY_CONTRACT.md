@@ -15,8 +15,8 @@ Those documents must preserve the meanings established by Human Guidance.
 - Use Account for a global login identity and relationship for scoped access.
 - Use Course for either a Blueprint Course or a Course Instance, and Library
   Object for either a Published Question or a Question Pool.
-- Use Revision only for Published Questions, published Question Pools, and
-  Blueprint Courses.
+- Use Revision only for Published Questions and Blueprint Courses. Question
+  Pools, Assessments, Course Instances, and Draft Questions use current state.
 - Use Edit Number only for current-state concurrency; it is not history. When
   needed, it is a monotonic sequential counter, not a stored historical object.
 - Revision Numbers start at 1 and increase sequentially within each object.
@@ -109,31 +109,41 @@ Role alone provides no ambient FERPA access.
 ## Human-facing identifiers
 
 Public IDs are the canonical human-facing identifiers for PLE objects that
-need them.
+need them. Human Guidance names them **IDs**, not references:
 
-**Reference ID** is a short, opaque, human-facing reference used when a workflow
-needs to display, search, communicate, or support an object. Blueprint Course
-`BPXXXXXXXZ`, Course Instance `CIXXXXXXXZ`, Assessment `AXXXXXXXZ`, and Account
-`UXXXXXXXZ` references use seven cryptographically random Crockford Base32
-characters plus embedded checksum `Z`; `Z` is a calculated placeholder, not a
-literal character. Account references are Sysadmin support references and are
-not automatically exposed to Students or Instructors.
+| Object | Product name | Canonical form |
+| --- | --- | --- |
+| Account | Account ID | `UXXXXXXXZ` |
+| Course Instance | Course Instance ID | `CIXXXXXXXZ` |
+| Assessment | Assessment ID | `AXXXXXXXZ` |
+| Blueprint Course | Blueprint Course ID | `BPXXXXXXXZ` |
+| Published Question | Question ID | `XXXX-ZXXX` |
+| Question Pool | Pool ID | `XXXX-ZXXX` |
 
-Give an internal object a public Reference ID when a useful human-facing
-workflow needs to display, search, communicate, or support it. Other internal
-objects use native UUID identifiers. An object with a public ID may retain an
-internal UUID primary key, but that UUID never substitutes for or appears as
-its public identity.
+Prefixed IDs use seven cryptographically random Crockford Base32 characters
+plus embedded checksum `Z`; `Z` is a calculated placeholder, not a literal
+character. Account IDs are Sysadmin support IDs and are not automatically
+exposed to Students or Instructors.
 
-Published Questions and Question Pools use the public `XXXX-ZXXX` format and
-share one global namespace. A value identifies either a Published Question or
-a Question Pool, never both. Human-facing IDs reveal no creation order, counts,
-database keys, ownership, or metadata. Generation enforces global uniqueness
-across every public-ID object type and retries random collisions. Once issued,
-a public ID permanently identifies that object and is never reassigned,
-including after deletion or archival. UUIDs
-do not appear in visible content, navigation URLs, or copyable links.
-An opaque identifier remains FERPA-sensitive when it links a Student to activity.
+Store and use the exact same ID in the database, Rust, JSON, URLs, object
+storage, hashes, logs, and browser UI. An object with a public ID uses that
+ID as its primary key and as the target of every foreign key to it. Do not
+keep a second UUID identity beside the public ID. Objects without a public ID
+use a native UUID primary key, or a composite natural key when owned by a
+parent.
+
+Give an internal object a public ID when a useful human-facing workflow needs
+to display, search, communicate, or support it.
+
+Published Questions and Question Pools share one `XXXX-ZXXX` namespace. A
+value identifies either a Published Question or a Question Pool, never both.
+Human-facing IDs reveal no creation order, counts, database keys, ownership,
+or metadata. Generation enforces global uniqueness across every public-ID
+object type and retries random collisions. Once issued, a public ID
+permanently identifies that object and is never reassigned, including after
+deletion or archival. UUIDs do not appear in visible content, navigation URLs,
+or copyable links. An opaque identifier remains FERPA-sensitive when it links
+a Student to activity.
 
 ## Content classification
 
@@ -245,22 +255,25 @@ through authorized Coursework rather than Library discovery.
 **Starred Library Object** is an Instructor favorite and visible endorsement.
 Vetted Instructors can see Star counts and who Starred a Question or Pool.
 **Watched Library Object** is a subscription to in-app notifications about new
-Revisions, forks, improvement threads, and impact notices. Watch lists remain
+Question Revisions, Pool member-list changes, forks, improvement threads, and
+impact notices. Watch lists remain
 private. Students and anonymous users receive neither Instructor identity
 lists nor Watch information. Stars and Watches are not Student Work.
 
 **Library Object Statistics** are aggregate counts kept separately for each
-Question Revision and Pool Revision. Question statistics include accepted
-graded Attempt and correct counts, and may include incorrect, partial-credit,
-unanswered, and eligible answer-choice counts. Pool statistics may include use
-and selection counts. Rollups across Revisions must be clearly labeled and meet
-privacy thresholds. Removing names alone does not make statistics anonymous.
-Shared statistics must prevent identification or reconstruction of individual
-Student activity; Course-specific analysis remains FERPA-sensitive when Students
-can be inferred. Privacy-safe aggregates survive Student-record deletion.
+Question Revision and for each Question Pool. Question statistics include
+accepted graded Attempt and correct counts, and may include incorrect,
+partial-credit, unanswered, and eligible answer-choice counts. Pool statistics
+may include use and selection counts. Question rollups across Revisions must
+be clearly labeled and meet privacy thresholds. Removing names alone does not
+make statistics anonymous. Shared statistics must prevent identification or
+reconstruction of individual Student activity; Course-specific analysis remains
+FERPA-sensitive when Students can be inferred. Privacy-safe aggregates survive
+Student-record deletion.
 
 **Bloom Classification** combines independent **Bloom Cognitive Process** and
-**Bloom Knowledge Dimension** metadata on Question and Pool Revisions. It
+**Bloom Knowledge Dimension** metadata on Question Revisions and Question
+Pools. It
 describes the cognitive work needed for full credit, rather than **Question
 Difficulty**. A Pool's classification describes its intended cognitive work as
 a whole. Bloom Classification is required for Library entry; AI assigns it
@@ -324,31 +337,35 @@ PLE's internal source or another runtime Question model.
 
 Authority: [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#question-pool-specifications).
 
-**Question Pool** is a published reusable collection with a stable public ID
-and immutable **Pool Revisions**. Questions and Pools remain distinct objects
-even though each may occupy an Assessment position.
-Pools contain interchangeable Published Questions, may span Question Backends,
-and cannot contain other Pools. Creation begins with a Published Question and
-enters the Library immediately. A Pool has its own public `XXXX-ZXXX` ID.
+**Question Pool** is a published reusable collection with a stable **Pool ID**
+(`XXXX-ZXXX`). It is current state: an ordered list of exact Published Question
+Revisions plus Pool metadata. Saving the member list re-attests
+interchangeability and advances the Pool's **Edit Number**; no Pool Revision is
+created. Questions and Pools remain distinct objects even though each may
+occupy an Assessment position. Pools contain interchangeable Published
+Questions, may span Question Backends, and cannot contain other Pools. Creation
+begins with a Published Question and enters the Library immediately.
 
 **Pool classification** uses the first Question's Discipline and Subject.
 Every additional member has that same Discipline and Subject. Member Questions
 retain their own Topic, Subtopic, Tags, and other metadata; the Pool also has
 its own Title, Description, and applicable Library metadata and support content.
 
-**Question Pool fork** creates a new Pool ID at Revision 1, initially retaining
-the same member Question IDs and exact Revisions. Adding a Pool to another
-Assessment automatically forks it into an independently editable Pool belonging
-to that Assessment; the source is unchanged.
+**Question Pool fork** creates a new Pool ID, initially retaining the same
+member Question IDs and exact Question Revisions, with Edit Number 1. Adding a
+Pool to another Assessment automatically forks it into an independently
+editable Pool belonging to that Assessment; the source is unchanged.
 
 **Pool selection** is PLE's selection of the Instructor-specified number of
 Questions from Instructor-chosen interchangeable contents. A resumed Attempt
 retains its selections; a new Attempt makes fresh selections. The selected
 Question Backend owns the resulting interaction.
 
-**Pool selection evidence** is the exact Pool Revision and Published Question
-Revision selected for an Assessment Attempt. Later Pool changes do not rewrite
-an Assessment or Student Work.
+**Pool selection evidence** pins four values for every Question served from a
+Pool: the Published Question ID, its Revision Number, the Question Pool ID,
+and the Pool's Edit Number at selection time. The pinned Published Question
+Revision is what later interpretation and grading need. Later Pool changes do
+not rewrite an Assessment or Student Work.
 
 ## Courses
 
@@ -636,10 +653,11 @@ home LMS.
 Student in a Course Instance, including Attempts, saved Question responses,
 submissions, Grading Outcomes, and evidence needed to interpret submitted work.
 The underlying records retain their own identities and purposes. Work preserves
-the exact Attempt, Question Revision, and Pool Revision/selection delivered,
-finalized response, and grading outcome. Content or settings changes do not
-rewrite delivered evidence or completed Attempt history. Retain only additional
-historical facts needed to interpret or grade the work correctly.
+the exact Attempt, Published Question Revision delivered, and, when the Question
+came from a Pool, the Question Pool ID and Pool Edit Number at selection,
+plus the finalized response and grading outcome. Content or settings changes
+do not rewrite delivered evidence or completed Attempt history. Retain only
+additional historical facts needed to interpret or grade the work correctly.
 
 ## Interface vocabulary
 
@@ -694,8 +712,8 @@ Authority: [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#course-retention-and-lifecycle)
 **FERPA retention clock** begins at the latest Assessment deadline. Creating an
 Assessment with a later deadline or extending a deadline can move the clock,
 but not beyond the Course Instance's six-month Active limit. Starting the clock
-does not itself notify, archive, hide, or delete Student data. The configured
-retention policy determines those later transitions. The six-month limit keeps
+does not itself notify, archive, hide, or delete Student data. Installation-wide FERPA retention intervals, as operational
+configuration, determine those later transitions. The six-month limit keeps
 Course reuse or deadline extensions from indefinitely delaying FERPA retention
 and deletion. Becoming Inactive does not itself delete Student records.
 
@@ -720,8 +738,14 @@ of identifiable Course records.
 
 Implementation identifiers such as `QuestionResponse` name underlying records;
 they do not imply a per-Question Student submission action. Legacy names such
-as `AssignmentId`, `QuestionAttemptId`, or `Available` must not define current
-product meaning. Technical terms such as jobs, generations, and receipts belong
-to their implementation boundaries. Use precise identifiers when documenting
-source evidence, with the product meaning or gap nearby; internal names create
-no additional product workflow or lifecycle state.
+as `AssignmentId`, `Reference ID`, `AccountId`, `CourseInstanceId` as a second
+name for Course Instance ID, `metadata_etag`, or `Available` must not define
+current product meaning. Technical terms such as jobs, generations, and
+receipts belong to their implementation boundaries. Use precise identifiers
+when documenting source evidence, with the product meaning or gap nearby;
+internal names create no additional product workflow or lifecycle state.
+
+Rust, TypeScript, SQL, and JSON use the same public-ID names as this contract:
+`AccountId`, `CourseInstanceId`, `AssessmentId`, `BlueprintCourseId`,
+`QuestionId`, and Pool ID (`question_pool_id`). Do not keep a parallel
+`*Reference` type or a UUID primary key beside a public ID.

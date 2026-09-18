@@ -2,8 +2,8 @@
 
 use async_trait::async_trait;
 use question_model::{
-    BlueprintAssessmentReference, BlueprintAvailability, BlueprintCourseReference,
-    BlueprintMetadataEtag, BlueprintModuleReference, BlueprintRevision, BlueprintRevisionReference,
+    BlueprintAssessmentId, BlueprintAvailability, BlueprintCourseId,
+    BlueprintEditNumber, BlueprintModuleReference, BlueprintRevision, BlueprintRevisionReference,
     QuestionId, QuestionPoolRevisionReference, QuestionRevisionNumber, QuestionRevisionReference,
     RequestChecksum, Timestamp,
 };
@@ -11,7 +11,10 @@ use sqlx::{Postgres, Row, Transaction, types::Json};
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
-use super::{Pool, connection::map_sqlx_error};
+use super::{
+    Pool,
+    connection::{map_sqlx_error, parse_account_id},
+};
 use crate::blueprint_lineage::StoredKnownBlueprintFork;
 use crate::{
     BlueprintComparisonSources, BlueprintForkSource, BlueprintLineageStore,
@@ -74,7 +77,7 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
     async fn list_known_blueprint_forks(
         &self,
         session: SessionTokenHash,
-        source: BlueprintCourseReference,
+        source: BlueprintCourseId,
     ) -> Result<Vec<StoredKnownBlueprintFork>, StoreError> {
         let concealed = |error| match error {
             StoreError::Forbidden => StoreError::NotFound,
@@ -135,8 +138,8 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
     async fn load_blueprint_comparison_sources(
         &self,
         session: SessionTokenHash,
-        left: BlueprintCourseReference,
-        right: BlueprintCourseReference,
+        left: BlueprintCourseId,
+        right: BlueprintCourseId,
     ) -> Result<BlueprintComparisonSources, StoreError> {
         let mut transaction = self.begin(session).await.map_err(|error| match error {
             StoreError::Forbidden => StoreError::NotFound,
@@ -196,11 +199,13 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
             left_long_name: row.try_get("left_long_name").map_err(map_sqlx_error)?,
             right_short_name: row.try_get("right_short_name").map_err(map_sqlx_error)?,
             right_long_name: row.try_get("right_long_name").map_err(map_sqlx_error)?,
-            left_metadata_etag: BlueprintMetadataEtag::from_uuid(
-                row.try_get("left_metadata_etag").map_err(map_sqlx_error)?,
+            left_blueprint_edit_number: BlueprintEditNumber::from_edit_number(
+                row.try_get("left_blueprint_edit_number")
+                    .map_err(map_sqlx_error)?,
             ),
-            right_metadata_etag: BlueprintMetadataEtag::from_uuid(
-                row.try_get("right_metadata_etag").map_err(map_sqlx_error)?,
+            right_blueprint_edit_number: BlueprintEditNumber::from_edit_number(
+                row.try_get("right_blueprint_edit_number")
+                    .map_err(map_sqlx_error)?,
             ),
             pool_memberships,
         };
@@ -244,7 +249,7 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
                     BlueprintModuleReference::from_uuid(random_uuid()?);
                 for assessment in &mut module.assessments {
                     assessment.blueprint_assessment_reference =
-                        BlueprintAssessmentReference::from_uuid(random_uuid()?);
+                        BlueprintAssessmentId::from_uuid(random_uuid()?);
                 }
             }
             super::blueprint_pools::materialize_imported_pools(
@@ -263,7 +268,7 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
             (None, None)
         };
         let row = sqlx::query(
-            "SELECT public_reference, blueprint_revision_number, metadata_etag, \
+            "SELECT public_reference, blueprint_revision_number, blueprint_edit_number, \
              (EXTRACT(EPOCH FROM accepted_at) * 1000)::bigint AS accepted_at_millis \
              FROM ple_api.fork_blueprint_course($1, $2, $3, $4, $5, $6)",
         )
@@ -287,8 +292,9 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
                 revision: blueprint_revision(revision_number)?,
             },
             source,
-            metadata_etag: BlueprintMetadataEtag::from_uuid(
-                row.try_get("metadata_etag").map_err(map_sqlx_error)?,
+            blueprint_edit_number: BlueprintEditNumber::from_edit_number(
+                row.try_get("blueprint_edit_number")
+                    .map_err(map_sqlx_error)?,
             ),
             actor,
             request_checksum,
@@ -381,12 +387,10 @@ async fn current_actor(
         .await
         .map_err(map_sqlx_error)?
         .ok_or(StoreError::Forbidden)?;
-    Ok(question_model::AccountId::from_uuid(
-        row.try_get("account_id").map_err(map_sqlx_error)?,
-    ))
+    parse_account_id(row.try_get("account_id").map_err(map_sqlx_error)?)
 }
 
-fn blueprint_reference(value: String) -> Result<BlueprintCourseReference, StoreError> {
+fn blueprint_reference(value: String) -> Result<BlueprintCourseId, StoreError> {
     value
         .parse()
         .map_err(|_| StoreError::InvalidRecord("Blueprint reference is invalid".to_string()))

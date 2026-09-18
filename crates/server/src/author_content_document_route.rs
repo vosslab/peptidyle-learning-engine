@@ -13,7 +13,7 @@ use axum::{
 };
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use learning_data_access::LiveAssessmentDeliveryStore;
-use question_model::{AssessmentAttemptReference, AuthorContentLibraryId};
+use question_model::{AssessmentAttemptId, AuthorContentLibraryId};
 
 use crate::{
     assessment_delivery::{StateData, concealed, reproduce_selected_issued_presentation, student},
@@ -32,7 +32,7 @@ pub(crate) async fn document(
     headers: HeaderMap,
     Path((assessment_attempt, position)): Path<(String, u32)>,
 ) -> Response {
-    let assessment_attempt = match AssessmentAttemptReference::from_str(&assessment_attempt) {
+    let assessment_attempt = match AssessmentAttemptId::from_str(&assessment_attempt) {
         Ok(value) if position > 0 => value,
         _ => return concealed(),
     };

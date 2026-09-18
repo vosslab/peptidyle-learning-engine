@@ -190,7 +190,7 @@ Shared-resource ownership: the theme migration is owned by M2, any banner schema
 vocabulary is owned by M1 and consumed unchanged. The read model, page, predicate, Ribbon entry, and
 scenario are owned by WS-S; both property workstreams supply into them and neither edits them. M7 may
 narrowly repair the existing `CourseThemeVariables` presentation setter to bind preview and release to
-`CourseId` and preserve an unsaved theme across independent same-course banner cache writes. No
+`CourseInstanceId` and preserve an unsaved theme across independent same-course banner cache writes. No
 milestone touches `course_theme_scope_styles.ts`, theme tokens, selectors, or shell layout, so this
 plan has **no dependency on `docs/active_plans/virtual-doodling-honey.md`**.
 

@@ -243,6 +243,7 @@ DECLARE supplied_count integer;
 DECLARE existing_count integer;
 DECLARE item jsonb;
 DECLARE issued_row ple_private.issued_question%ROWTYPE;
+DECLARE snapshot_row ple_private.assessment_entry_snapshot%ROWTYPE;
 DECLARE source_row ple_private.question_revision_source_binding%ROWTYPE;
 DECLARE item_question_attempt_id uuid;
 DECLARE item_issued_question_id uuid;
@@ -340,7 +341,10 @@ BEGIN
         item_response_item_bindings := item -> 'response_item_bindings';
         SELECT issued.* INTO issued_row FROM ple_private.issued_question AS issued
          WHERE issued.issued_question_id = item_issued_question_id
-           AND issued.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id;
+           AND issued.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id
+           AND issued.course_instance_id = assessment_attempt_row.course_instance_id;
+        SELECT snapshot.* INTO snapshot_row FROM ple_private.assessment_entry_snapshot AS snapshot
+         WHERE snapshot.assessment_entry_snapshot_id = issued_row.assessment_entry_snapshot_id;
         SELECT source.* INTO source_row FROM ple_private.question_revision_source_binding AS source
          WHERE source.published_question_id = issued_row.published_question_id AND source.revision_number = issued_row.revision_number;
         IF NOT FOUND OR item_question_attempt_id IS NULL
@@ -400,30 +404,30 @@ BEGIN
             RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Question presentation response-item bindings are invalid';
         END IF;
         INSERT INTO ple_private.question_attempt(
-            question_attempt_id, issued_question_id, question_seed, generated_parameter_sha256,
+            course_instance_id, question_attempt_id, issued_question_id, question_seed, generated_parameter_sha256,
             issued_at, deadline_at, question_attempt_state, backend_name, backend_version,
             renderer_name, renderer_version, source_object_record_id, source_object_checksum,
             grader_name, grader_version, rendered_question_sha256, issued_capability
         ) VALUES (
-            item_question_attempt_id, issued_row.issued_question_id, issued_row.question_seed,
+            assessment_attempt_row.course_instance_id, item_question_attempt_id, issued_row.issued_question_id, issued_row.question_seed,
             item_parameter_hash, clock_timestamp(),
-            CASE WHEN issued_row.question_attempt_time_limit_seconds IS NULL THEN NULL
-                 ELSE clock_timestamp() + make_interval(secs => issued_row.question_attempt_time_limit_seconds + issued_row.question_attempt_grace_seconds) END,
+            CASE WHEN snapshot_row.question_attempt_time_limit_seconds IS NULL THEN NULL
+                 ELSE clock_timestamp() + make_interval(secs => snapshot_row.question_attempt_time_limit_seconds + snapshot_row.question_attempt_grace_seconds) END,
             'open', source_row.backend, item_backend_version, item_renderer_name, item_renderer_version,
             source_row.source_object_record_id, decode(source_row.source_object_checksum, 'hex'),
             item_grader_name, item_grader_version, decode(item_rendered_hash, 'hex'), item_capability
         );
         INSERT INTO ple_private.question_attempt_presentation_binding(
-            question_attempt_id, descriptor_version, presentation_nonce, presentation_checksum, presentation, author_content,
+            course_instance_id, question_attempt_id, descriptor_version, presentation_nonce, presentation_checksum, presentation, author_content,
             backend_document
         ) VALUES (
-            item_question_attempt_id, 3, item_nonce, decode(item_checksum, 'hex'), item_presentation, item_author_content,
+            assessment_attempt_row.course_instance_id, item_question_attempt_id, 3, item_nonce, decode(item_checksum, 'hex'), item_presentation, item_author_content,
             item_backend_document
         );
         INSERT INTO ple_private.question_attempt_response_item_binding(
-            question_attempt_id, presentation_response_item_reference, response_item_reference
+            course_instance_id, question_attempt_presentation_binding_id, presentation_response_item_reference, response_item_reference
         )
-        SELECT item_question_attempt_id, supplied.presentation_response_item_reference,
+        SELECT assessment_attempt_row.course_instance_id, item_question_attempt_id, supplied.presentation_response_item_reference,
                supplied.response_item_reference
           FROM jsonb_to_recordset(item_response_item_bindings) AS supplied(
               presentation_response_item_reference text, response_item_reference text
@@ -452,10 +456,10 @@ BEGIN
             ) THEN
                 RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Question presentation assets are invalid';
             END IF;
-            INSERT INTO ple_private.question_attempt_presentation_asset_binding(question_attempt_id)
-            VALUES (item_question_attempt_id);
-            INSERT INTO ple_private.question_attempt_presentation_asset_rendition(question_attempt_presentation_asset_binding_id, asset_id, question_asset_checksum, rendition_checksum, intrinsic_width, intrinsic_height)
-            SELECT item_question_attempt_id, supplied.asset_id, decode(supplied.question_asset_checksum, 'hex'), decode(supplied.rendition_checksum, 'hex'), supplied.intrinsic_width, supplied.intrinsic_height
+            INSERT INTO ple_private.question_attempt_presentation_asset_binding(course_instance_id, question_attempt_id)
+            VALUES (assessment_attempt_row.course_instance_id, item_question_attempt_id);
+            INSERT INTO ple_private.question_attempt_presentation_asset_rendition(course_instance_id, question_attempt_presentation_asset_binding_id, asset_id, question_asset_checksum, rendition_checksum, intrinsic_width, intrinsic_height)
+            SELECT assessment_attempt_row.course_instance_id, item_question_attempt_id, supplied.asset_id, decode(supplied.question_asset_checksum, 'hex'), decode(supplied.rendition_checksum, 'hex'), supplied.intrinsic_width, supplied.intrinsic_height
               FROM jsonb_to_recordset(item -> 'question_assets') AS supplied(asset_id uuid, question_asset_checksum text, rendition_checksum text, intrinsic_width integer, intrinsic_height integer);
         END IF;
     END LOOP;
@@ -477,7 +481,7 @@ END $$;
 -- Server-only read after a presentation has been committed.  It reads the
 -- retained bundle, never a mutable Assessment Entry or Question configuration.
 CREATE FUNCTION ple_private.read_student_assessment_attempt_presentation_evidence(
-    p_assessment_attempt_reference_number bigint, p_issued_position integer
+    p_assessment_attempt_id uuid, p_issued_position integer
 ) RETURNS TABLE (
     published_question_id text, revision_number integer, question_seed numeric,
     generated_parameter_sha256 text,
@@ -487,12 +491,12 @@ CREATE FUNCTION ple_private.read_student_assessment_attempt_presentation_evidenc
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE assessment_attempt_id_value uuid;
 BEGIN
-    IF p_assessment_attempt_reference_number IS NULL OR p_issued_position < 0 THEN
+    IF p_assessment_attempt_id IS NULL OR p_issued_position < 0 THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Issued Question position is invalid';
     END IF;
     SELECT assessment_attempt_id INTO assessment_attempt_id_value
       FROM ple_private.assessment_attempt
-     WHERE reference_number = p_assessment_attempt_reference_number;
+     WHERE assessment_attempt_id = p_assessment_attempt_id;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment Attempt presentation is unavailable';
     END IF;
@@ -612,7 +616,7 @@ END $$;
 -- evidence reader remains answer-free JSON and never serializes backend HTML;
 -- private resume facts remain below the document route boundary.
 CREATE FUNCTION ple_private.read_student_assessment_attempt_backend_document(
-    p_assessment_attempt_reference_number bigint, p_issued_position integer
+    p_assessment_attempt_id uuid, p_issued_position integer
 ) RETURNS TABLE (
     backend_document text,
     issued_question_id uuid,
@@ -629,12 +633,12 @@ CREATE FUNCTION ple_private.read_student_assessment_attempt_backend_document(
 SET search_path = pg_catalog, ple_api, ple_private AS $$
 DECLARE assessment_attempt_id_value uuid;
 BEGIN
-    IF p_assessment_attempt_reference_number IS NULL OR p_issued_position < 0 THEN
+    IF p_assessment_attempt_id IS NULL OR p_issued_position < 0 THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Issued Question position is invalid';
     END IF;
     SELECT assessment_attempt_id INTO assessment_attempt_id_value
       FROM ple_private.assessment_attempt
-     WHERE reference_number = p_assessment_attempt_reference_number;
+     WHERE assessment_attempt_id = p_assessment_attempt_id;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Question backend document is unavailable';
     END IF;
@@ -704,7 +708,7 @@ RETURNS TABLE (
       FROM ple_private.commit_student_assessment_attempt_presentation($1, $2)
 $$;
 
-CREATE FUNCTION ple_api.read_student_assessment_attempt_presentation_evidence(bigint, integer)
+CREATE FUNCTION ple_api.read_student_assessment_attempt_presentation_evidence(uuid, integer)
 RETURNS TABLE (
     published_question_id text, revision_number integer, question_seed numeric,
     generated_parameter_sha256 text,
@@ -724,7 +728,7 @@ LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api
       FROM ple_private.read_student_assessment_attempt_presentation_evidence_set($1)
 $$;
 
-CREATE FUNCTION ple_api.read_student_assessment_attempt_backend_document(bigint, integer)
+CREATE FUNCTION ple_api.read_student_assessment_attempt_backend_document(uuid, integer)
 RETURNS TABLE (
     backend_document text,
     issued_question_id uuid,

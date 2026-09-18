@@ -22,13 +22,13 @@ pub(super) fn summary(
         proposal_id: record.proposal_id.to_string(),
         created_at: record.created_at,
         source: record.source,
-        source_metadata_etag: record.source_metadata_etag,
+        source_blueprint_edit_number: record.source_blueprint_edit_number,
         source_names: BlueprintComparisonNames {
             short_name: record.source_short_name,
             long_name: record.source_long_name,
         },
         target: record.target,
-        target_metadata_etag: record.target_metadata_etag,
+        target_blueprint_edit_number: record.target_blueprint_edit_number,
         target_names: BlueprintComparisonNames {
             short_name: record.target_short_name,
             long_name: record.target_long_name,
@@ -39,7 +39,7 @@ pub(super) fn summary(
             .map(|row| BlueprintChangeProposalAcceptedSummaryView {
                 accepted_at: row.accepted_at,
                 target: row.target,
-                target_metadata_etag: row.target_metadata_etag,
+                target_blueprint_edit_number: row.target_blueprint_edit_number,
             }),
     }
 }
@@ -69,17 +69,17 @@ pub(super) fn detail(
             proposal_id: proposal.proposal_id.to_string(),
             created_at: proposal.created_at,
             source: proposal.source.clone(),
-            source_metadata_etag: proposal.source_metadata_etag,
+            source_blueprint_edit_number: proposal.source_blueprint_edit_number,
             source_names: source_names.clone(),
             target: proposal.target.clone(),
-            target_metadata_etag: proposal.target_metadata_etag,
+            target_blueprint_edit_number: proposal.target_blueprint_edit_number,
             target_names: target_names.clone(),
             target_is_stale: proposal.target_is_stale,
             accepted: review.accepted.as_ref().map(|row| {
                 BlueprintChangeProposalAcceptedSummaryView {
                     accepted_at: row.accepted_at,
                     target: row.target.clone(),
-                    target_metadata_etag: row.target_metadata_etag,
+                    target_blueprint_edit_number: row.target_blueprint_edit_number,
                 }
             }),
         },
@@ -88,14 +88,14 @@ pub(super) fn detail(
             source: side(
                 comparison.left,
                 proposal.source.clone(),
-                proposal.source_metadata_etag,
+                proposal.source_blueprint_edit_number,
                 source_names,
                 source_metadata.classification().clone(),
             ),
             target: side(
                 comparison.right,
                 proposal.target.clone(),
-                proposal.target_metadata_etag,
+                proposal.target_blueprint_edit_number,
                 target_names,
                 target_metadata.classification().clone(),
             ),
@@ -119,7 +119,7 @@ pub(super) fn detail(
 fn side(
     inventory: BlueprintComparisonInventory,
     revision: question_model::BlueprintRevisionReference,
-    metadata_etag: question_model::BlueprintMetadataEtag,
+    blueprint_edit_number: question_model::BlueprintEditNumber,
     names: BlueprintComparisonNames,
     classification: question_model::CourseClassification,
 ) -> BlueprintChangeProposalSideView {
@@ -128,11 +128,11 @@ fn side(
         revision.clone(),
         names.short_name,
         names.long_name,
-        metadata_etag,
+        blueprint_edit_number,
     );
     BlueprintChangeProposalSideView {
         revision,
-        metadata_etag,
+        blueprint_edit_number,
         names: projected.names,
         classification,
         modules: projected.modules,
@@ -146,7 +146,7 @@ pub(super) fn accepted(
     BlueprintChangeProposalAcceptedView {
         accepted_at: record.accepted_at,
         target: record.target,
-        target_metadata_etag: record.target_metadata_etag,
+        target_blueprint_edit_number: record.target_blueprint_edit_number,
         decision: decision_view(record.decision.decision),
         applied_selection: record.decision.applied_selection,
         new_modules: record.decision.new_modules,

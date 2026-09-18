@@ -4,7 +4,7 @@
 //! It never grants browser access to private invitation or roster tables.
 
 use async_trait::async_trait;
-use question_model::CourseInstanceReference;
+use question_model::CourseInstanceId;
 use serde::Serialize;
 
 use crate::{SessionTokenHash, StoreError};
@@ -66,6 +66,6 @@ pub trait InvitationExportStore: Send + Sync {
     async fn export_pending_course_invitations(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
+        course: CourseInstanceId,
     ) -> Result<PendingInvitationExport, StoreError>;
 }

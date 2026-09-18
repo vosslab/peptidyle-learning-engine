@@ -1,7 +1,7 @@
 //! Deliberate, read-only retained Work recovery. No ordinary-history capability.
 
 use async_trait::async_trait;
-use question_model::{AssessmentAttemptReference, CourseInstanceReference};
+use question_model::{AssessmentAttemptId, CourseInstanceId};
 use serde::{Deserialize, Serialize};
 
 use crate::{SessionTokenHash, StoreError};
@@ -10,11 +10,11 @@ use crate::{SessionTokenHash, StoreError};
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RecoverySummary {
-    pub course: CourseInstanceReference,
+    pub course: CourseInstanceId,
     pub roster_id: Option<String>,
-    pub assessment: question_model::AssessmentReference,
+    pub assessment: question_model::AssessmentId,
     pub assessment_title: String,
-    pub assessment_attempt: AssessmentAttemptReference,
+    pub assessment_attempt: AssessmentAttemptId,
     pub assessment_attempt_number: u32,
     pub started_at: String,
     pub submitted_at: Option<String>,
@@ -26,10 +26,10 @@ pub struct RecoverySummary {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RecoveredAttempt {
-    pub course: CourseInstanceReference,
+    pub course: CourseInstanceId,
     pub roster_id: Option<String>,
-    pub assessment: question_model::AssessmentReference,
-    pub assessment_attempt: AssessmentAttemptReference,
+    pub assessment: question_model::AssessmentId,
+    pub assessment_attempt: AssessmentAttemptId,
     pub assessment_attempt_number: u32,
     pub started_at: String,
     pub expires_at: Option<String>,
@@ -66,15 +66,15 @@ pub trait ArchivedStudentWorkRecoveryStore: Send + Sync {
     async fn select_retained_work(
         &self,
         session: SessionTokenHash,
-        course: CourseInstanceReference,
-        after: Option<AssessmentAttemptReference>,
+        course: CourseInstanceId,
+        after: Option<AssessmentAttemptId>,
     ) -> Result<Vec<RecoverySummary>, StoreError>;
 
     async fn recover_retained_work(
         &self,
         session: SessionTokenHash,
-        course: CourseInstanceReference,
-        attempt: AssessmentAttemptReference,
+        course: CourseInstanceId,
+        attempt: AssessmentAttemptId,
     ) -> Result<RecoveredAttempt, StoreError>;
 }
 

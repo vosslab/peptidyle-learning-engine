@@ -11,7 +11,7 @@ use learning_data_access::{
     postgres::{PostgresBlueprintCourseStore, lazy_pool},
 };
 use question_model::{
-    BlueprintAvailability, BlueprintCourseReadAccess, BlueprintCourseReference, WorkspaceId,
+    BlueprintAvailability, BlueprintCourseReadAccess, BlueprintCourseId, WorkspaceId,
 };
 use uuid::Uuid;
 
@@ -26,10 +26,10 @@ const BUNDLED_GENETICS_MANIFEST: &str = "manifest.yaml";
 const PILOT_WORKSPACE_ID: &str = "00000000-0000-0000-0000-000000000201";
 const EXAMPLE_CONTENT_WORKSPACE_ID: &str = "00000000-0000-0000-0000-000000000202";
 
-pub(crate) const LIVE_DEMO_ELENA_ACCOUNT_ID: &str = "00000000-0000-0000-0000-000000000101";
-pub(crate) const LIVE_DEMO_MARY_ACCOUNT_ID: &str = "00000000-0000-0000-0000-000000000102";
-pub(crate) const LIVE_DEMO_JACK_ACCOUNT_ID: &str = "00000000-0000-0000-0000-000000000103";
-pub(crate) const LIVE_DEMO_AVERY_ACCOUNT_ID: &str = "00000000-0000-0000-0000-000000000104";
+pub(crate) const LIVE_DEMO_ELENA_EMAIL: &str = "elena.martinez@live-demo.invalid";
+pub(crate) const LIVE_DEMO_MARY_EMAIL: &str = "mary.okafor@biology.roosevelt.edu";
+pub(crate) const LIVE_DEMO_JACK_EMAIL: &str = "jack.nguyen@biology.roosevelt.edu";
+pub(crate) const LIVE_DEMO_AVERY_EMAIL: &str = "avery.thompson@biology.roosevelt.edu";
 pub(crate) const LIVE_DEMO_COURSE_SHORT_NAME: &str = "BCHM 301";
 pub(crate) const LIVE_DEMO_COURSE_LONG_NAME: &str = "Biochemistry 301: Proteins and Peptides";
 pub(crate) const LIVE_DEMO_ASSESSMENT_TITLE: &str = "Chapter 1 Pilot Practice";
@@ -213,7 +213,7 @@ fn publish_bundled_genetics(
         )
         .await
         .context("publishing the bundled Genetics Blueprint through the ordinary publisher")?;
-        let reference = BlueprintCourseReference::new(receipt.blueprint_reference())
+        let reference = BlueprintCourseId::new(receipt.blueprint_reference())
             .map_err(anyhow::Error::msg)
             .context("resolving the bundled Genetics Blueprint receipt")?;
         let database_url = required_environment("DATABASE_URL")?;
@@ -239,7 +239,7 @@ fn publish_bundled_genetics(
         );
         if blueprint.availability == BlueprintAvailability::Private {
             store
-                .publish_blueprint(session, reference.clone(), blueprint.metadata_etag)
+                .publish_blueprint(session, reference.clone(), blueprint.blueprint_edit_number)
                 .await
                 .context("making the bundled Genetics example Blueprint Public")?;
         }

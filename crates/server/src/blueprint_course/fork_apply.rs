@@ -50,8 +50,9 @@ pub(super) async fn apply_fork_update(
             ApplyBlueprintForkInput {
                 expected_source: request.expected_source,
                 expected_fork: request.expected_fork,
-                expected_source_metadata_etag: request.expected_source_metadata_etag,
-                expected_fork_metadata_etag: request.expected_fork_metadata_etag,
+                expected_source_blueprint_edit_number: request
+                    .expected_source_blueprint_edit_number,
+                expected_fork_blueprint_edit_number: request.expected_fork_blueprint_edit_number,
                 source_short_name: request.source_short_name,
                 source_long_name: request.source_long_name,
                 selection: request.selection,

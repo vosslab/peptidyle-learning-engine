@@ -34,7 +34,7 @@ not generic `assignment`.
 | TypeScript types and components | `UpperCamelCase` | `AssessmentPropertiesEditor` |
 | Python modules, functions, locals | `snake_case` | `assessment_reference` |
 | Python classes | `UpperCamelCase` | `ScenarioReceipt` |
-| PostgreSQL identifiers | unquoted `snake_case` | `assessment_uuid` |
+| PostgreSQL identifiers | unquoted `snake_case` | `assessment_id` |
 | Static URL segments and CSS classes | lowercase kebab case | `assessment-templates` |
 | Constants and environment variables | `SCREAMING_SNAKE_CASE` | `MAX_ASSESSMENT_ATTEMPTS` |
 | Public IDs | canonical product format | `BPXXXXXXXZ`, `XXXX-ZXXX` |
@@ -71,18 +71,18 @@ Question/Pool ID remains `QuestionId`/`PoolId` because ID is its product name.
 
 | Domain | Canonical naming |
 | --- | --- |
-| Account/session | `account_uuid`, `session_uuid`, immutable Product Role |
-| Course relationship | `course_relationship_uuid` or precise Student/Instructor relationship name |
-| Student record | `student_record_uuid` under one Course Instance |
-| Draft Question | `draft_question_uuid`, optional `draft_question_edit_number` |
-| Published Question | `question_id` plus `QuestionRevisionReference` |
-| Question Pool | `pool_id` plus `PoolRevisionReference` |
-| Blueprint Course | `blueprint_course_id` plus internal `blueprint_course_uuid`, `BlueprintRevisionReference`, and current lifecycle |
-| Course Instance | `course_instance_id` plus internal `course_instance_uuid` with equal co-Instructor relationships |
-| Assessment | `assessment_id` plus internal `assessment_uuid`; Blueprint Assessment or Course Instance Assessment where scope matters |
-| Assessment Attempt | `assessment_attempt_uuid` and current whole-submission state |
-| Saved response | `saved_response_uuid` or exact implementation evidence name; never a Student submission |
-| Object | `object_record_uuid` plus typed owner/scope |
+| Account/session | `account_id` (Account ID), `session_id` UUID, immutable Product Role |
+| Course relationship | `course_membership_id` UUID or precise Student/Instructor relationship name |
+| Student record | `student_record_id` UUID under one Course Instance |
+| Draft Question | `draft_question_id` UUID, optional `draft_question_edit_number` |
+| Published Question | `published_question_id` / `QuestionId` plus `QuestionRevisionReference` |
+| Question Pool | `question_pool_id` / `PoolId` plus Pool member list and `question_pool_edit_number` |
+| Blueprint Course | `blueprint_course_id` / `BlueprintCourseId`, `BlueprintRevisionReference`, and current lifecycle |
+| Course Instance | `course_instance_id` / `CourseInstanceId` with equal co-Instructor relationships |
+| Assessment | `assessment_id` / `AssessmentId`; Blueprint Assessment or Course Instance Assessment where scope matters |
+| Assessment Attempt | `assessment_attempt_id` UUID and current whole-submission state |
+| Saved response | UUID of the saved-response row; never a Student submission |
+| Object | `object_record_id` UUID plus typed owner/scope |
 | Service work | Exact operation target plus lease only when asynchronous work is required |
 
 Current `assignment_uuid`, `assignment_attempt_uuid`, `QuestionAttempt`, or

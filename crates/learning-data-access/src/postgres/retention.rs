@@ -1,10 +1,13 @@
 //! PostgreSQL adapter for the Course-retention executor capability.
 
 use async_trait::async_trait;
-use question_model::{CourseId, Timestamp};
+use question_model::{CourseInstanceId, Timestamp};
 use sqlx::Row;
 
-use super::{Pool, connection::map_sqlx_error};
+use super::{
+    Pool,
+    connection::{map_sqlx_error, parse_course_id},
+};
 use crate::{
     CourseRetentionDueAction, CourseRetentionDueActionKind, CourseRetentionStore, StoreError,
 };
@@ -59,7 +62,7 @@ impl CourseRetentionStore for PostgresCourseRetentionStore {
 
     async fn mark_course_instance_inactive(
         &self,
-        course: CourseId,
+        course: CourseInstanceId,
         evaluated_at: Timestamp,
     ) -> Result<bool, StoreError> {
         self.commit_transition(
@@ -72,7 +75,7 @@ impl CourseRetentionStore for PostgresCourseRetentionStore {
 
     async fn archive_course_student_records(
         &self,
-        course: CourseId,
+        course: CourseInstanceId,
         evaluated_at: Timestamp,
     ) -> Result<bool, StoreError> {
         self.commit_transition(
@@ -85,7 +88,7 @@ impl CourseRetentionStore for PostgresCourseRetentionStore {
 
     async fn delete_course_student_records(
         &self,
-        course: CourseId,
+        course: CourseInstanceId,
         evaluated_at: Timestamp,
     ) -> Result<bool, StoreError> {
         self.commit_transition(
@@ -101,7 +104,7 @@ impl PostgresCourseRetentionStore {
     async fn commit_transition(
         &self,
         procedure: &'static str,
-        course: CourseId,
+        course: CourseInstanceId,
         evaluated_at: Timestamp,
     ) -> Result<bool, StoreError> {
         let mut transaction = self.begin().await?;
@@ -123,7 +126,7 @@ impl PostgresCourseRetentionStore {
         };
         // ASVS 1.2.4: Course identity and evaluated instant are bound values.
         let committed = sqlx::query_scalar(statement)
-            .bind(course.as_uuid())
+            .bind(course.as_str())
             .bind(evaluated_at.as_unix_millis())
             .fetch_one(&mut *transaction)
             .await
@@ -151,7 +154,7 @@ fn decode_due_action(row: &sqlx::postgres::PgRow) -> Result<CourseRetentionDueAc
         }
     };
     Ok(CourseRetentionDueAction {
-        course: CourseId::from_uuid(row.try_get("course_id").map_err(map_sqlx_error)?),
+        course: parse_course_id(row.try_get("course_id").map_err(map_sqlx_error)?)?,
         action,
         due_at: Timestamp::from_unix_millis(row.try_get("due_at_millis").map_err(map_sqlx_error)?),
         archive_marked_at: row

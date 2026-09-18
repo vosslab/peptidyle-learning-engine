@@ -1,7 +1,7 @@
 //! PostgreSQL persistence for Sysadmin Instructor Account management.
 
 use async_trait::async_trait;
-use question_model::{AccountReference, AccountTimeZone, Timestamp};
+use question_model::{AccountId, AccountTimeZone, Timestamp};
 use sqlx::{Postgres, Row, Transaction};
 
 use super::{Pool, connection::map_sqlx_error};
@@ -141,7 +141,7 @@ impl InstructorAccountStore for PostgresInstructorAccountStore {
     async fn deactivate_instructor_account(
         &self,
         token: SessionTokenHash,
-        reference: AccountReference,
+        reference: AccountId,
         input: DeactivateInstructorAccountInput,
     ) -> Result<InstructorAccountSummary, StoreError> {
         input.validate()?;
@@ -152,7 +152,7 @@ impl InstructorAccountStore for PostgresInstructorAccountStore {
     async fn reactivate_instructor_account(
         &self,
         token: SessionTokenHash,
-        reference: AccountReference,
+        reference: AccountId,
     ) -> Result<InstructorAccountSummary, StoreError> {
         self.change_state(token, reference, "active", None).await
     }
@@ -162,7 +162,7 @@ impl PostgresInstructorAccountStore {
     async fn change_state(
         &self,
         token: SessionTokenHash,
-        reference: AccountReference,
+        reference: AccountId,
         state: &'static str,
         reason: Option<String>,
     ) -> Result<InstructorAccountSummary, StoreError> {
@@ -205,7 +205,7 @@ async fn summary_for_reference(
 }
 
 fn decode_summary(row: &sqlx::postgres::PgRow) -> Result<InstructorAccountSummary, StoreError> {
-    let reference = AccountReference::new(
+    let reference = AccountId::new(
         row.try_get::<String, _>("public_reference")
             .map_err(map_sqlx_error)?,
     )

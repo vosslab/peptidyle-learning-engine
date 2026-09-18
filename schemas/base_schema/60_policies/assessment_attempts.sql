@@ -21,6 +21,10 @@ ALTER TABLE ple_private.assessment_attempt ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE ple_private.assessment_attempt FORCE ROW LEVEL SECURITY;
 
+ALTER TABLE ple_private.assessment_entry_snapshot ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE ple_private.assessment_entry_snapshot FORCE ROW LEVEL SECURITY;
+
 ALTER TABLE ple_private.question_pool_selection ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE ple_private.question_pool_selection FORCE ROW LEVEL SECURITY;
@@ -36,6 +40,21 @@ ALTER TABLE ple_private.issued_question FORCE ROW LEVEL SECURITY;
 CREATE POLICY student_assessment_accommodation_private_owner_access ON ple_private.student_assessment_accommodation FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
 
 CREATE POLICY assessment_attempt_private_owner_access ON ple_private.assessment_attempt FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
+
+CREATE POLICY assessment_entry_snapshot_select
+    ON ple_private.assessment_entry_snapshot
+    FOR SELECT TO ple_private_owner, ple_data_owner, ple_api_owner, ple_unrelease_executor
+    USING (true);
+
+CREATE POLICY assessment_entry_snapshot_insert
+    ON ple_private.assessment_entry_snapshot
+    FOR INSERT TO ple_private_owner, ple_data_owner
+    WITH CHECK (true);
+
+CREATE POLICY assessment_entry_snapshot_immutable_update
+    ON ple_private.assessment_entry_snapshot
+    FOR UPDATE TO ple_private_owner, ple_data_owner, ple_api_owner, ple_unrelease_executor
+    USING (false) WITH CHECK (false);
 
 CREATE POLICY question_pool_selection_private_owner_access ON ple_private.question_pool_selection FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
 

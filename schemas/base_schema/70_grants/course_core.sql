@@ -10,7 +10,7 @@ REVOKE ALL ON FUNCTION ple_data.reject_course_origin_change(),
 
 GRANT SELECT, INSERT ON ple_data.course_instance, ple_data.course_origin TO ple_api_owner;
 
-GRANT UPDATE (content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags, metadata_etag)
+GRANT UPDATE (content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags, course_edit_number)
     ON ple_data.course_instance TO ple_api_owner;
 
 GRANT REFERENCES ON TABLE ple_data.course_instance TO ple_private_owner, ple_audit_owner;

@@ -16,8 +16,8 @@ import {
 import {
   field,
   requireOnlyFields,
-  decodeCourseInstanceReference,
-  decodeAssessmentReference,
+  decodeCourseInstanceId,
+  decodeAssessmentId,
 } from "./shared";
 import { parseAssessmentAttemptReference } from "../../navigation/public_route";
 
@@ -52,11 +52,11 @@ function common(
   const text = (key: string): string => decodeString(field(record, key, path), `${path}.${key}`);
   const assessmentAttempt = text("assessmentAttempt");
   if (parseAssessmentAttemptReference(assessmentAttempt) === null)
-    throw new DecodeError(`${path}.assessmentAttempt`, "a canonical R- reference");
+    throw new DecodeError(`${path}.assessmentAttempt`, "an Assessment Attempt UUID");
   return {
-    course: decodeCourseInstanceReference(field(record, "course", path), `${path}.course`),
+    course: decodeCourseInstanceId(field(record, "course", path), `${path}.course`),
     rosterId: nullableText(field(record, "rosterId", path), `${path}.rosterId`),
-    assessment: decodeAssessmentReference(field(record, "assessment", path), `${path}.assessment`),
+    assessment: decodeAssessmentId(field(record, "assessment", path), `${path}.assessment`),
     assessmentTitle: text("assessmentTitle"),
     assessmentAttempt,
     assessmentAttemptNumber: decodePositiveInteger(
@@ -118,7 +118,7 @@ export function decodeRecoverySelection(value: unknown, path = "response"): Reco
   if (field(record, "action", path) !== "select") throw new DecodeError(`${path}.action`, "select");
   return {
     action: "select",
-    course: decodeCourseInstanceReference(field(record, "course", path), `${path}.course`),
+    course: decodeCourseInstanceId(field(record, "course", path), `${path}.course`),
     attempts: decodeArray(field(record, "attempts", path), `${path}.attempts`, summary),
     nextCursor: nullableText(field(record, "nextCursor", path), `${path}.nextCursor`),
   };

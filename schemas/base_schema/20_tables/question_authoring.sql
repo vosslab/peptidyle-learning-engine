@@ -5,11 +5,9 @@ SET LOCAL ROLE ple_private_owner;
 
 CREATE TABLE ple_private.authoring_workspace (
     authoring_workspace_id uuid PRIMARY KEY,
-    reference_number bigint GENERATED ALWAYS AS IDENTITY UNIQUE,
     owner_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account(account_id),
     created_at timestamptz NOT NULL,
     revoked_at timestamptz,
-    CHECK (reference_number > 0 AND reference_number <= 2147483647),
     CHECK (revoked_at IS NULL OR revoked_at >= created_at),
     updated_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp(),
     CHECK (updated_at >= created_at)
@@ -361,7 +359,6 @@ COMMENT ON TABLE ple_private.saved_question_search IS 'role: current state, dele
 COMMENT ON TABLE ple_private.draft_question_asset IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
 
 SET LOCAL ROLE ple_private_owner;
-COMMENT ON COLUMN ple_private.authoring_workspace.reference_number IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_private.authoring_workspace.revoked_at IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_private.draft_question_metadata.general_feedback IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_private.draft_question_source_binding.webwork_pg_path IS 'NULL means this optional fact is absent.';

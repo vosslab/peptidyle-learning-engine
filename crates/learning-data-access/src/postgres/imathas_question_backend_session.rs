@@ -7,7 +7,7 @@ use sqlx::postgres::PgRow;
 use sqlx::{Postgres, Row, Transaction};
 
 use super::Pool;
-use super::connection::map_sqlx_error;
+use super::connection::{map_sqlx_error, parse_account_id};
 use crate::{
     ImathasLaunchBindingChecksum, ImathasQuestionBackendSession,
     ImathasQuestionBackendSessionAuthentication, ImathasQuestionBackendSessionChallenge,
@@ -48,9 +48,12 @@ impl PostgresImathasQuestionBackendSessionStore {
         .await
         .map_err(map_sqlx_error)?;
         let account = session
-            .map(|row| row.try_get("account_id").map(AccountId::from_uuid))
-            .transpose()
-            .map_err(map_sqlx_error)?
+            .map(|row| {
+                row.try_get("account_id")
+                    .map_err(map_sqlx_error)
+                    .and_then(parse_account_id)
+            })
+            .transpose()?
             .ok_or(StoreError::Forbidden)?;
         sqlx::query("SET LOCAL ROLE ple_app")
             .execute(&mut *transaction)
@@ -89,8 +92,8 @@ impl ImathasQuestionBackendSessionStore for PostgresImathasQuestionBackendSessio
                 $19, $20, $21)",
         )
         .bind(parts.reference.as_uuid())
-        .bind(parts.course.as_uuid())
-        .bind(parts.assessment.as_uuid())
+        .bind(parts.course.as_str())
+        .bind(parts.assessment.as_str())
         .bind(parts.grading_context.question_attempt().as_uuid())
         .bind(parts.imathas_question_backend_binding.deployment_reference().as_str())
         .bind(parts.imathas_question_backend_binding.item_reference().as_str())
@@ -161,9 +164,9 @@ async fn load_row(
              $13::numeric, $14)",
     )
     .bind(reference.as_uuid())
-    .bind(expectation.storage_parts().account.as_uuid())
-    .bind(expectation.storage_parts().course.as_uuid())
-    .bind(expectation.storage_parts().assessment.as_uuid())
+    .bind(expectation.storage_parts().account.as_str())
+    .bind(expectation.storage_parts().course.as_str())
+    .bind(expectation.storage_parts().assessment.as_str())
     .bind(expectation.storage_parts().grading_context.question_attempt().as_uuid())
     .bind(
         expectation
@@ -324,8 +327,8 @@ mod tests {
 
     #[test]
     fn session_creation_refuses_an_account_other_than_the_resolved_session_account() {
-        let resolved = AccountId::from_uuid(uuid::Uuid::from_u128(1));
-        let different_session_account = AccountId::from_uuid(uuid::Uuid::from_u128(2));
+        let resolved = AccountId::from_debug_serial(1);
+        let different_session_account = AccountId::from_debug_serial(2);
 
         assert_eq!(
             ensure_resolved_session_account(resolved, different_session_account),

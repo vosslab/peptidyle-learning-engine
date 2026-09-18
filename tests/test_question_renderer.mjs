@@ -19,7 +19,7 @@ test("asset URLs must be the resolver-derived logical asset route", () => {
   const priorLocation = globalThis.location;
   Object.defineProperty(globalThis, "location", {
     configurable: true,
-    value: new URL("https://ple.example.test/assignment-attempts/R-1"),
+    value: new URL("https://ple.example.test/assignment-attempts/00000000-0000-0000-0000-000000000001"),
   });
   try {
     assert.equal(

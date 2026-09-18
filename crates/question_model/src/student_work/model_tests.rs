@@ -39,9 +39,9 @@ fn assessment_attempt_retains_interpretation_evidence() {
         crate::AssessmentQuestionVariationRule::ReuseVariation;
     let mut attempt = AssessmentAttempt {
         id: AssessmentAttemptId::from_uuid(Uuid::from_u128(1)),
-        reference: AssessmentAttemptReference::new(1).expect("valid attempt reference"),
+        reference: AssessmentAttemptId::from_uuid(Uuid::from_u128(1)),
         student_record: StudentRecordId::from_uuid(Uuid::from_u128(2)),
-        assessment: AssessmentId::from_uuid(Uuid::from_u128(3)),
+        assessment: AssessmentId::from_debug_serial(3),
         evidence,
         attempt_number: 1,
         started_at: Timestamp::from_unix_millis(1_000),
@@ -50,7 +50,10 @@ fn assessment_attempt_retains_interpretation_evidence() {
     };
 
     assert_eq!(attempt.student_record.as_uuid(), Uuid::from_u128(2));
-    assert_eq!(attempt.assessment.as_uuid(), Uuid::from_u128(3));
+    assert_eq!(
+        attempt.assessment.as_str(),
+        AssessmentId::from_debug_serial(3).as_str()
+    );
     assert_eq!(
         attempt.completion(),
         AssessmentAttemptCompletion::InProgress
@@ -151,9 +154,9 @@ fn student_assessment_progress_separates_activity_from_disclosed_grade() {
     );
     let mut progress = AssessmentProgressRecord::empty(
         StudentRecordId::from_uuid(Uuid::from_u128(2)),
-        AssessmentId::from_uuid(Uuid::from_u128(3)),
+        AssessmentId::from_debug_serial(3),
     );
-    let mut grade = AssessmentGrade::empty(progress.student_record, progress.assessment);
+    let mut grade = AssessmentGrade::empty(progress.student_record, progress.assessment.clone());
     assert_eq!(
         StudentAssessmentGrade::from_assessment_grade(
             &grade,
@@ -200,10 +203,10 @@ fn student_assessment_progress_separates_activity_from_disclosed_grade() {
 fn student_assessment_grade_hides_scores_while_scoring_is_not_current() {
     let mut progress = AssessmentProgressRecord::empty(
         StudentRecordId::from_uuid(Uuid::from_u128(2)),
-        AssessmentId::from_uuid(Uuid::from_u128(3)),
+        AssessmentId::from_debug_serial(3),
     );
     progress.total_question_attempts = 1;
-    let mut grade = AssessmentGrade::empty(progress.student_record, progress.assessment);
+    let mut grade = AssessmentGrade::empty(progress.student_record, progress.assessment.clone());
     grade.current_score = Some(0.5);
     for assessment_scoring_state in [
         crate::AssessmentScoringState::Recalculating,

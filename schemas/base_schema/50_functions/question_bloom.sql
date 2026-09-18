@@ -40,7 +40,7 @@ SET search_path = pg_catalog AS $$
     )::text, 'UTF8'))
 $$;
 
-CREATE FUNCTION ple_private.question_pool_revision_bloom_candidate_fingerprint(
+CREATE FUNCTION ple_private.question_pool_bloom_candidate_fingerprint(
     p_title text, p_description text,
     p_member_question_ids text[], p_member_revision_numbers integer[]
 ) RETURNS bytea LANGUAGE sql IMMUTABLE
@@ -125,24 +125,24 @@ BEGIN
 END
 $$;
 
-CREATE FUNCTION ple_private.attach_question_pool_revision_bloom(
+CREATE FUNCTION ple_private.attach_question_pool_bloom(
     p_bloom_preparation_receipt_id uuid, p_question_pool_id text,
-    p_revision_number bigint, p_title text, p_description text,
+    p_title text, p_description text,
     p_member_question_ids text[], p_member_revision_numbers integer[]
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data, ple_private AS $$
 DECLARE bloom_pair record;
 BEGIN
     SELECT * INTO bloom_pair FROM ple_private.consume_bloom_classification(
-        p_bloom_preparation_receipt_id, 'question_pool_revision',
-        ple_private.question_pool_revision_bloom_candidate_fingerprint(
+        p_bloom_preparation_receipt_id, 'question_pool',
+        ple_private.question_pool_bloom_candidate_fingerprint(
             p_title, p_description, p_member_question_ids,
             p_member_revision_numbers));
-    INSERT INTO ple_data.question_pool_revision_bloom(
-        question_pool_id, revision_number, cognitive_process, knowledge_dimension,
+    INSERT INTO ple_data.question_pool_bloom(
+        question_pool_id, cognitive_process, knowledge_dimension,
         classification_edit_number
     ) VALUES (
-        p_question_pool_id, p_revision_number,
+        p_question_pool_id,
         bloom_pair.cognitive_process::ple_data.bloom_cognitive_process,
         bloom_pair.knowledge_dimension::ple_data.bloom_knowledge_dimension, 1
     );
@@ -168,7 +168,7 @@ SET search_path = pg_catalog, ple_private AS $$
         p_cognitive_process, p_knowledge_dimension)
 $$;
 
-CREATE FUNCTION ple_api.prepare_question_pool_revision_bloom_classification(
+CREATE FUNCTION ple_api.prepare_question_pool_bloom_classification(
     p_bloom_preparation_receipt_id uuid, p_title text, p_description text,
     p_member_question_ids text[], p_member_revision_numbers integer[],
     p_cognitive_process text, p_knowledge_dimension text
@@ -176,8 +176,8 @@ CREATE FUNCTION ple_api.prepare_question_pool_revision_bloom_classification(
 SET search_path = pg_catalog, ple_private AS $$
     SELECT ple_private.prepare_bloom_classification(
         p_bloom_preparation_receipt_id,
-        'question_pool_revision',
-        ple_private.question_pool_revision_bloom_candidate_fingerprint(
+        'question_pool',
+        ple_private.question_pool_bloom_candidate_fingerprint(
             p_title, p_description, p_member_question_ids, p_member_revision_numbers),
         p_cognitive_process, p_knowledge_dimension)
 $$;
@@ -259,15 +259,15 @@ $$;
 
 SET LOCAL ROLE ple_private_owner;
 
-CREATE FUNCTION ple_private.correct_question_pool_revision_bloom(
-    p_question_pool_id text, p_revision_number bigint,
+CREATE FUNCTION ple_private.correct_question_pool_bloom(
+    p_question_pool_id text,
     p_expected_classification_edit_number bigint,
     p_cognitive_process text, p_knowledge_dimension text
 ) RETURNS TABLE (cognitive_process text, knowledge_dimension text, classification_edit_number bigint)
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
-    current_bloom ple_data.question_pool_revision_bloom%ROWTYPE;
+    current_bloom ple_data.question_pool_bloom%ROWTYPE;
     target_pool_id text;
     validated_cognitive_process ple_data.bloom_cognitive_process;
     validated_knowledge_dimension ple_data.bloom_knowledge_dimension;
@@ -281,7 +281,6 @@ BEGIN
        OR substr(p_question_pool_id, 6, 1) <> ple_private.crockford_checksum_character(
            substr(p_question_pool_id, 1, 4) || substr(p_question_pool_id, 7, 3)
        )
-       OR p_revision_number IS NULL OR p_revision_number <= 0
        OR p_expected_classification_edit_number IS NULL
        OR p_expected_classification_edit_number <= 0 THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Bloom correction reference is invalid';
@@ -291,17 +290,13 @@ BEGIN
     validated_knowledge_dimension := p_knowledge_dimension::ple_data.bloom_knowledge_dimension;
     SELECT pool.question_pool_id INTO target_pool_id
       FROM ple_data.question_pool AS pool
-      JOIN ple_data.question_pool_revision AS revision
-        ON revision.question_pool_id = pool.question_pool_id
-       AND revision.revision_number = p_revision_number
      WHERE pool.question_pool_id = p_question_pool_id;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Bloom correction target is unavailable';
     END IF;
     -- ASVS 15.4.2: pair-level row lock and CAS serialize either-dimension edits.
-    SELECT bloom.* INTO current_bloom FROM ple_data.question_pool_revision_bloom AS bloom
-     WHERE bloom.question_pool_id = target_pool_id
-       AND bloom.revision_number = p_revision_number FOR UPDATE;
+    SELECT bloom.* INTO current_bloom FROM ple_data.question_pool_bloom AS bloom
+     WHERE bloom.question_pool_id = target_pool_id FOR UPDATE;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Bloom correction target is unavailable';
     END IF;
@@ -311,12 +306,11 @@ BEGIN
     -- An exact no-op keeps its token, but a stale no-op still refuses.
     IF validated_cognitive_process IS DISTINCT FROM current_bloom.cognitive_process
        OR validated_knowledge_dimension IS DISTINCT FROM current_bloom.knowledge_dimension THEN
-        UPDATE ple_data.question_pool_revision_bloom AS bloom
+        UPDATE ple_data.question_pool_bloom AS bloom
            SET cognitive_process = validated_cognitive_process,
                knowledge_dimension = validated_knowledge_dimension,
                classification_edit_number = bloom.classification_edit_number + 1
          WHERE bloom.question_pool_id = target_pool_id
-           AND bloom.revision_number = p_revision_number
          RETURNING bloom.* INTO current_bloom;
     END IF;
     RETURN QUERY SELECT current_bloom.cognitive_process::text, current_bloom.knowledge_dimension::text,
@@ -326,15 +320,15 @@ $$;
 
 SET LOCAL ROLE ple_api_owner;
 
-CREATE FUNCTION ple_api.correct_question_pool_revision_bloom(
-    p_question_pool_id text, p_revision_number bigint,
+CREATE FUNCTION ple_api.correct_question_pool_bloom(
+    p_question_pool_id text,
     p_expected_classification_edit_number bigint,
     p_cognitive_process text, p_knowledge_dimension text
 ) RETURNS TABLE (cognitive_process text, knowledge_dimension text, classification_edit_number bigint)
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private AS $$
-    SELECT * FROM ple_private.correct_question_pool_revision_bloom(
-        p_question_pool_id, p_revision_number, p_expected_classification_edit_number,
+    SELECT * FROM ple_private.correct_question_pool_bloom(
+        p_question_pool_id, p_expected_classification_edit_number,
         p_cognitive_process, p_knowledge_dimension)
 $$;
 

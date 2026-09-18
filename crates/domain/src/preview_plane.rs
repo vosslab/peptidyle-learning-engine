@@ -240,7 +240,7 @@ mod tests {
     };
     use chrono::TimeZone;
     use question_model::{
-        AccountId, AssessmentId, BaseAssessmentPolicy, CourseId, CourseMembershipId, CourseTerm,
+        AccountId, AssessmentId, BaseAssessmentPolicy, CourseInstanceId, CourseMembershipId, CourseTerm,
         LateWorkRule, StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming, StudentRecordId,
     };
     use std::num::NonZeroU32;
@@ -254,9 +254,9 @@ mod tests {
         AssessmentAccessDecision,
     ) {
         let facts = ActiveStudentCourseMembershipFacts {
-            course: CourseId::from_uuid(id(2)),
-            assessment: AssessmentId::from_uuid(id(3)),
-            student_account: AccountId::from_uuid(id(4)),
+            course: CourseInstanceId::from_debug_serial(2),
+            assessment: AssessmentId::from_debug_serial(3),
+            student_account: AccountId::from_debug_serial(4),
             membership: Some(ActiveStudentMembership {
                 id: CourseMembershipId::from_uuid(id(5)),
                 student_record: StudentRecordId::from_uuid(id(6)),

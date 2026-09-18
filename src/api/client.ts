@@ -8,8 +8,8 @@ import type { QuestionSummary } from "../../generated/api/QuestionSummary";
 import type { QuestionDetails } from "../../generated/api/QuestionDetails";
 import type { QuestionSearchPage } from "../../generated/api/QuestionSearchPage";
 import type { QuestionSearchRequest } from "../../generated/api/QuestionSearchRequest";
-import type { CourseId } from "../../generated/api/CourseId";
-import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
+import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
+import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { CourseAppearanceView } from "../../generated/api/CourseAppearanceView";
 import type { CourseThemeUpdate } from "../../generated/api/CourseThemeUpdate";
 import type { CourseBannerReference } from "../../generated/api/CourseBannerReference";
@@ -30,7 +30,7 @@ import type { CourseInvitationReference } from "../../generated/api/CourseInvita
 import type { CourseInvitationTerminalActionRequest } from "../../generated/api/CourseInvitationTerminalActionRequest";
 import type { PendingCourseInvitationsPage } from "../../generated/api/PendingCourseInvitationsPage";
 import type { CourseInvitationStatePrecondition } from "../../generated/api/CourseInvitationStatePrecondition";
-import type { AssessmentReference } from "../../generated/api/AssessmentReference";
+import type { AssessmentId } from "../../generated/api/AssessmentId";
 import type { CapabilityValidator, FormatValidator, TimerEvaluator } from "../wasm/index";
 import type {
   AssessmentEditorDetail,
@@ -155,29 +155,29 @@ export interface ApiClient
   readonly listCourses: (cursor?: string) => Promise<CursorPage<CourseSummary>>;
   /** Gets only the authorized current Course Appearance View. */
   readonly getCourseAppearanceView: (
-    courseReference: CourseInstanceReference,
+    courseReference: CourseInstanceId,
   ) => Promise<CourseAppearanceView>;
   /** Saves one independent Course Theme and returns the current aggregate appearance. */
   readonly updateCourseTheme: (
-    courseReference: CourseInstanceReference,
+    courseReference: CourseInstanceId,
     update: CourseThemeUpdate,
   ) => Promise<CourseAppearanceView>;
   /** Stages raw verified banner bytes for this exact Instructor and Course. */
   readonly uploadCourseBanner: (
-    courseReference: CourseInstanceReference,
+    courseReference: CourseInstanceId,
     image: Blob,
   ) => Promise<CourseBannerUploadReceipt>;
   /** Promotes one staged banner independently of the Course Theme. */
   readonly setCourseBanner: (
-    courseReference: CourseInstanceReference,
+    courseReference: CourseInstanceId,
     update: CourseBannerUpdate,
   ) => Promise<CourseAppearanceView>;
   /** Removes only the current Course Banner. */
   readonly removeCourseBanner: (
-    courseReference: CourseInstanceReference,
+    courseReference: CourseInstanceId,
   ) => Promise<CourseAppearanceView>;
   readonly listAssessments: (
-    courseId: CourseId,
+    courseId: CourseInstanceId,
     cursor?: string,
   ) => Promise<CursorPage<StudentAssessmentLandingSummary>>;
   /** Student-safe detail; Instructor workspace reads require an exact course identity. */
@@ -186,19 +186,19 @@ export interface ApiClient
   readonly getAssessmentSummary: (assessmentId: AssessmentId) => Promise<StudentAssessmentProgress>;
   /** Reads the course-bound Instructor assessment workspace. */
   readonly getAssessmentWorkspace: (
-    courseId: CourseId,
+    courseId: CourseInstanceId,
     assessmentId: AssessmentId,
   ) => Promise<AssessmentEditorDetail>;
   /** Creates a persisted empty Assessment with server-owned defaults. */
   readonly createAssessment: (
-    courseId: CourseId,
+    courseId: CourseInstanceId,
     input: AssessmentCreateInput,
   ) => Promise<AssessmentEditorDetail>;
   /** Replaces only Questions-owned title and ordered content. */
   readonly saveAssessmentContent: (
-    courseId: CourseId,
+    courseId: CourseInstanceId,
     assessmentId: AssessmentId,
-    assessmentReference: AssessmentReference,
+    assessmentReference: AssessmentId,
     input: AssessmentContentInput,
     assessmentEtag: string,
   ) => Promise<AssessmentEditorDetail>;
@@ -211,7 +211,7 @@ export interface ApiClient
    * The browser supplies no student-work authority or Answer Key.
    */
   readonly startAssessmentAttempt: (
-    courseId: CourseId,
+    courseId: CourseInstanceId,
     assessmentId: AssessmentId,
   ) => Promise<AssessmentAttempt>;
   readonly getAssessmentAttempt: (
@@ -224,13 +224,13 @@ export interface ApiClient
   readonly getAttempt: (attemptId: QuestionAttemptId) => Promise<StudentQuestionAttempt>;
   /** Returns the regenerated, answer-free Question Presentation; grading stays server-side. */
   readonly getIssuedQuestion: (
-    courseId: CourseId,
+    courseId: CourseInstanceId,
     assessmentId: AssessmentId,
     attemptId: QuestionAttemptId,
   ) => Promise<QuestionPresentation>;
   /** Creates an iMathAS Question Backend launch by same-origin POST, then returns its inert shell route. */
   readonly beginImathasQuestionBackendLaunch: (
-    courseId: CourseId,
+    courseId: CourseInstanceId,
     assessmentId: AssessmentId,
     attemptId: QuestionAttemptId,
   ) => Promise<ImathasQuestionBackendLaunch>;

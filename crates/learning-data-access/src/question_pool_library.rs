@@ -91,7 +91,7 @@ pub struct AssessmentQuestionPoolForkRecord {
     pub metadata: QuestionPoolMetadata,
     pub assessment_entry_id: AssessmentEntryId,
     pub question_pool_revision: QuestionPoolRevisionReference,
-    pub pool_metadata_etag: Uuid,
+    pub question_pool_edit_number: Uuid,
     pub selection_count: std::num::NonZeroU32,
     pub bloom: Option<BloomClassificationView>,
     pub members: Vec<QuestionRevisionReference>,
@@ -140,8 +140,8 @@ pub trait QuestionPoolLibraryStore: Send + Sync {
     async fn load_assessment_question_pool_fork(
         &self,
         session_token_hash: SessionTokenHash,
-        course: question_model::CourseInstanceReference,
-        assessment: question_model::AssessmentReference,
+        course: question_model::CourseInstanceId,
+        assessment: question_model::AssessmentId,
         assessment_entry: AssessmentEntryId,
     ) -> Result<AssessmentQuestionPoolForkRecord, StoreError>;
 }

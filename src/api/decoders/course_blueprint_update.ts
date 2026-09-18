@@ -14,7 +14,7 @@ import {
 } from "../decoder";
 import { blueprintCourseReference, blueprintRevision } from "./assessment_release";
 import {
-  decodeAssessmentReference,
+  decodeAssessmentId,
   decodeAssessmentTitle,
   field,
   requireOnlyFields,
@@ -45,7 +45,7 @@ function assessmentSummary(value: unknown, path: string): CourseAssessmentBluepr
     throw new DecodeError(path, "an applicable matching Blueprint Assessment");
   }
   return {
-    assessmentReference: decodeAssessmentReference(
+    assessmentReference: decodeAssessmentId(
       field(record, "assessmentReference", path),
       `${path}.assessmentReference`,
     ),

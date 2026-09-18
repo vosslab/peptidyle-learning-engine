@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::QuestionRevisionReference;
 use crate::course_appearance::CourseTheme;
 use crate::question_content::{QuestionAssetReference, QuestionContentBlock};
-use crate::student_work::{AssessmentId, CourseId, QuestionAttemptId, Timestamp};
+use crate::student_work::{AssessmentId, CourseInstanceId, QuestionAttemptId, Timestamp};
 
 /// Four-lowercase-hex identifier for one object in one issued presentation.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -346,7 +346,7 @@ pub struct StudentAttemptDescriptor {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct StudentAssessmentAttemptScreenScope {
-    pub course: CourseId,
+    pub course: CourseInstanceId,
     pub assessment: AssessmentId,
     pub theme: CourseTheme,
 }

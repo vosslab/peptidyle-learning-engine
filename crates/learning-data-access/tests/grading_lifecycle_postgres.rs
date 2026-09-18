@@ -72,7 +72,7 @@ async fn make_attempt(
     attempt_id: Uuid,
     issued_id: Uuid,
     question_attempt_id: Uuid,
-) -> i64 {
+) -> Uuid {
     let mut tx = pool.begin().await.expect("fixture transaction");
     sqlx::query("SET LOCAL ROLE ple_data_owner")
         .execute(&mut *tx)
@@ -137,14 +137,7 @@ async fn make_attempt(
     .fetch_one(&mut *tx)
     .await
     .expect("start Attempt");
-    let reference: i64 = sqlx::query_scalar(
-        "SELECT assessment_attempt_reference_number \
-         FROM ple_api.read_started_student_assessment_attempt($1)",
-    )
-    .bind(started_attempt_id)
-    .fetch_one(&mut *tx)
-    .await
-    .expect("started Attempt reference");
+    let reference = started_attempt_id;
     sqlx::query("SET LOCAL ROLE ple_private_owner")
         .execute(&mut *tx)
         .await

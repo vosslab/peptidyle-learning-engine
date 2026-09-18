@@ -1,11 +1,11 @@
 // Strict same-origin transport for Course Instance creation and Teaching Team reads.
 
-import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
+import type { CourseInstanceId } from "../../../generated/api/CourseInstanceId";
 import { decodeBlueprintCourseView } from "../decoders/blueprint_course";
 import type { ApiClient } from "../client";
 import type { CourseInstanceClient } from "../course_instance";
 import { decodeCourseClassification } from "../decoders/course_classification";
-import { decodeRecord, decodeUuid, DecodeError } from "../decoder";
+import { decodeRecord, decodeString, DecodeError } from "../decoder";
 import { field, requireOnlyFields } from "../decoders/shared";
 import {
   decodeCourseCreationInstructors,
@@ -19,7 +19,7 @@ import {
 import { ApiProtocolError, ApiRequestError } from "./error";
 import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
-import { parseCourseInstanceReference } from "../../navigation/public_route";
+import { parseCourseInstanceId } from "../../navigation/public_route";
 
 const MAX_IDEMPOTENCY_KEY_BYTES = 128;
 
@@ -39,8 +39,8 @@ function idempotencyKey(value: string, path: string): string {
   return value;
 }
 
-export function courseInstancePath(reference: CourseInstanceReference): string {
-  if (parseCourseInstanceReference(reference) === null) {
+export function courseInstancePath(reference: CourseInstanceId): string {
+  if (parseCourseInstanceId(reference) === null) {
     throw new ApiProtocolError("Course Instance reference must be canonical");
   }
   // ASVS 1.2.2 and 2.2.1: positively validate, then path-encode route input.
@@ -117,10 +117,13 @@ export function createCourseInstanceClient(
     updateCourseInstanceClassification: async (
       reference,
       classification,
-      metadataEtag,
+      courseEditNumber,
     ): Promise<Awaited<ReturnType<CourseInstanceClient["updateCourseInstanceClassification"]>>> => {
       const path = `${courseInstancePath(reference)}/classification`;
-      const validator = decodeUuid(metadataEtag, "metadataEtag");
+      const validator = decodeString(courseEditNumber, "courseEditNumber");
+      if (!/^[1-9][0-9]*$/u.test(validator) || BigInt(validator) > 9_223_372_036_854_775_807n) {
+        throw new ApiProtocolError("Course If-Match must be a positive Course Edit Number");
+      }
       const response = await requestSameOrigin(fetchImplementation, basePath, path, {
         method: "PUT",
         body: decodeCourseClassification(classification, "request"),
@@ -131,13 +134,19 @@ export function createCourseInstanceClient(
       if (response.status !== 200)
         throw new ApiProtocolError(`API response ${path} must use status 200`);
       const record = decodeRecord(await boundedResponseJson(response, path), "response");
-      requireOnlyFields(record, "response", ["classification", "metadataEtag", "changed"]);
-      const nextEtag = decodeUuid(
-        field(record, "metadataEtag", "response"),
-        "response.metadataEtag",
+      requireOnlyFields(record, "response", ["classification", "courseEditNumber", "changed"]);
+      const nextEditNumber = decodeString(
+        field(record, "courseEditNumber", "response"),
+        "response.courseEditNumber",
       );
-      if (response.headers.get("etag") !== `"${nextEtag}"`)
-        throw new ApiProtocolError("Course metadata response ETag must match its validator");
+      if (
+        !/^[1-9][0-9]*$/u.test(nextEditNumber) ||
+        BigInt(nextEditNumber) > 9_223_372_036_854_775_807n
+      ) {
+        throw new DecodeError("response.courseEditNumber", "a positive Course Edit Number");
+      }
+      if (response.headers.get("etag") !== `"${nextEditNumber}"`)
+        throw new ApiProtocolError("Course metadata response ETag must match its Edit Number");
       const changed = field(record, "changed", "response");
       if (typeof changed !== "boolean") throw new DecodeError("response.changed", "a boolean");
       return {
@@ -145,7 +154,7 @@ export function createCourseInstanceClient(
           field(record, "classification", "response"),
           "response.classification",
         ),
-        metadataEtag: nextEtag,
+        courseEditNumber: nextEditNumber,
         changed,
       };
     },

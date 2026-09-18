@@ -3,7 +3,7 @@
 use std::str::FromStr;
 
 use question_model::{
-    AccountTimeZone, AssessmentAttemptReference, AssessmentReference, CourseInstanceReference,
+    AccountTimeZone, AssessmentAttemptId, AssessmentId, CourseInstanceId,
     CourseTheme, Timestamp,
 };
 use sqlx::Row;
@@ -15,30 +15,28 @@ impl PostgresLiveAssessmentDeliveryStore {
     pub(super) async fn read_student_assessment_attempt_context(
         &self,
         token: SessionTokenHash,
-        assessment_attempt: AssessmentAttemptReference,
+        assessment_attempt: AssessmentAttemptId,
     ) -> Result<StudentAssessmentAttemptContext, StoreError> {
         let mut tx = self.begin(token).await?;
         let row = sqlx::query(
-            "SELECT assessment_attempt_reference_number, assessment_attempt_number, \
+            "SELECT assessment_attempt_id, assessment_attempt_number, \
                     course_reference_number, course_short_name, course_long_name, course_theme, \
                     assessment_reference_number, assessment_title, \
                     display_time_zone, expires_at_millis, timer_remaining_milliseconds \
                FROM ple_api.read_student_assessment_attempt_context($1)",
         )
-        .bind(i64::from(assessment_attempt.number()))
+        .bind(assessment_attempt.as_uuid())
         .fetch_optional(&mut *tx)
         .await
         .map_err(map_sqlx_error)?
         .ok_or(StoreError::NotFound)?;
-        let returned_attempt = reference(
-            row.try_get("assessment_attempt_reference_number")
+        let returned_attempt = AssessmentAttemptId::from_uuid(
+            row.try_get("assessment_attempt_id")
                 .map_err(map_sqlx_error)?,
-            "Assessment Attempt reference",
-            AssessmentAttemptReference::new,
-        )?;
+        );
         if returned_attempt != assessment_attempt {
             return Err(StoreError::InvalidRecord(
-                "Assessment Attempt context reference is invalid".to_string(),
+                "Assessment Attempt context ID is invalid".to_string(),
             ));
         }
         let value = StudentAssessmentAttemptContext {
@@ -106,24 +104,13 @@ fn positive(value: i32, label: &str) -> Result<u32, StoreError> {
         .ok_or_else(|| StoreError::InvalidRecord(format!("{label} is invalid")))
 }
 
-fn reference<T>(
-    value: i64,
-    label: &str,
-    build: impl FnOnce(u64) -> Option<T>,
-) -> Result<T, StoreError> {
-    u64::try_from(value)
-        .ok()
-        .and_then(build)
-        .ok_or_else(|| StoreError::InvalidRecord(format!("{label} is invalid")))
-}
-
-fn course_reference(value: String) -> Result<CourseInstanceReference, StoreError> {
-    CourseInstanceReference::new(value)
+fn course_reference(value: String) -> Result<CourseInstanceId, StoreError> {
+    CourseInstanceId::new(value)
         .map_err(|_| StoreError::InvalidRecord("Course reference is invalid".to_string()))
 }
 
-fn assessment_reference(value: String) -> Result<AssessmentReference, StoreError> {
-    AssessmentReference::new(value)
+fn assessment_reference(value: String) -> Result<AssessmentId, StoreError> {
+    AssessmentId::new(value)
         .map_err(|_| StoreError::InvalidRecord("Assessment reference is invalid".to_string()))
 }
 

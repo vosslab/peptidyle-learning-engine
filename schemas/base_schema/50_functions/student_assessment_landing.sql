@@ -44,32 +44,36 @@ SET search_path = pg_catalog, ple_data, ple_private, ple_audit AS $$
     -- not conditional on which projection reaches this helper.
     WITH released_assessment AS (
         SELECT assessment.assessment_id,
-               assessment.assessment_title,
+               policy.assessment_title,
                assessment.assessment_type,
                assessment.assessment_status,
-               assessment.available_at,
-               assessment.due_at,
-               assessment.closes_at,
-               assessment.assessment_attempt_time_limit_seconds,
-               assessment.assessment_attempt_limit,
-               assessment.late_work_rule,
+               policy.available_at,
+               policy.due_at,
+               policy.closes_at,
+               policy.assessment_attempt_time_limit_seconds,
+               policy.assessment_attempt_limit,
+               policy.late_work_rule,
                coalesce(sum(CASE entry.entry_kind
                    WHEN 'fixed_question' THEN 1
-                   ELSE entry.selection_count
+                   ELSE pool_entry.selection_count
                END) FILTER (WHERE entry.availability = 'available'), 0)::bigint
                    AS current_question_count
           FROM ple_data.assessment AS assessment
+          JOIN ple_data.assessment_policy_snapshot AS policy
+            ON policy.assessment_policy_snapshot_id = assessment.assessment_policy_snapshot_id
           LEFT JOIN ple_data.assessment_entry AS entry
             ON entry.assessment_id = assessment.assessment_id
+          LEFT JOIN ple_data.assessment_entry_pool AS pool_entry
+            ON pool_entry.assessment_entry_id = entry.assessment_entry_id
          WHERE assessment.course_instance_id = p_course_instance_id
            AND assessment.assessment_status = 'released'
            AND ple_api.course_student_work_is_ordinarily_visible(assessment.course_instance_id)
          GROUP BY assessment.assessment_id,
-                  assessment.assessment_title, assessment.assessment_type,
+                  policy.assessment_title, assessment.assessment_type,
                   assessment.assessment_status,
-                  assessment.available_at, assessment.due_at, assessment.closes_at,
-                  assessment.assessment_attempt_time_limit_seconds,
-                  assessment.assessment_attempt_limit, assessment.late_work_rule
+                  policy.available_at, policy.due_at, policy.closes_at,
+                  policy.assessment_attempt_time_limit_seconds,
+                  policy.assessment_attempt_limit, policy.late_work_rule
     )
     SELECT assessment.assessment_id,
            CASE WHEN assessment_attempt.assessment_attempt_id IS NULL
@@ -108,24 +112,24 @@ SET search_path = pg_catalog, ple_data, ple_private, ple_audit AS $$
                 ELSE coalesce(evidence.question_count, 0)::bigint
            END,
            CASE WHEN grade_evidence.points_earned IS NOT NULL
-                     AND CASE assessment_score_attempt.feedback_score
+                     AND CASE score_policy.feedback_score
                          WHEN 'during_attempt' THEN true
                          WHEN 'after_submit' THEN assessment_score_submission.assessment_attempt_id IS NOT NULL
-                         WHEN 'after_due' THEN assessment_score_attempt.due_at IS NOT NULL
-                              AND p_now >= assessment_score_attempt.due_at
-                         WHEN 'after_close' THEN assessment_score_attempt.closes_at IS NOT NULL
-                              AND p_now >= assessment_score_attempt.closes_at
+                         WHEN 'after_due' THEN score_policy.due_at IS NOT NULL
+                              AND p_now >= score_policy.due_at
+                         WHEN 'after_close' THEN score_policy.closes_at IS NOT NULL
+                              AND p_now >= score_policy.closes_at
                          ELSE false
                      END
                 THEN grade_evidence.points_earned ELSE NULL END,
            CASE WHEN grade_evidence.points_possible IS NOT NULL
-                     AND CASE assessment_score_attempt.feedback_score
+                     AND CASE score_policy.feedback_score
                          WHEN 'during_attempt' THEN true
                          WHEN 'after_submit' THEN assessment_score_submission.assessment_attempt_id IS NOT NULL
-                         WHEN 'after_due' THEN assessment_score_attempt.due_at IS NOT NULL
-                              AND p_now >= assessment_score_attempt.due_at
-                         WHEN 'after_close' THEN assessment_score_attempt.closes_at IS NOT NULL
-                              AND p_now >= assessment_score_attempt.closes_at
+                         WHEN 'after_due' THEN score_policy.due_at IS NOT NULL
+                              AND p_now >= score_policy.due_at
+                         WHEN 'after_close' THEN score_policy.closes_at IS NOT NULL
+                              AND p_now >= score_policy.closes_at
                          ELSE false
                      END
                 THEN grade_evidence.points_possible ELSE NULL END
@@ -149,12 +153,14 @@ SET search_path = pg_catalog, ple_data, ple_private, ple_audit AS $$
                  END AS assessment_attempt_limit
       ) AS effective ON true
       LEFT JOIN LATERAL (
-          SELECT candidate.assessment_attempt_id, candidate.assessment_title,
+          SELECT candidate.assessment_attempt_id, policy.assessment_title,
                  candidate.assessment_attempt_number,
-                 candidate.feedback_score,
-                 candidate.assessment_attempt_time_limit_seconds,
-                 candidate.due_at, candidate.closes_at
+                 policy.feedback_score,
+                 policy.assessment_attempt_time_limit_seconds,
+                 policy.due_at, policy.closes_at
             FROM ple_private.assessment_attempt AS candidate
+            JOIN ple_data.assessment_policy_snapshot AS policy
+              ON policy.assessment_policy_snapshot_id = candidate.assessment_policy_snapshot_id
            WHERE candidate.student_record_id = p_student_record_id
              AND candidate.assessment_id = assessment.assessment_id
            ORDER BY candidate.started_at DESC, candidate.assessment_attempt_id DESC
@@ -204,6 +210,9 @@ SET search_path = pg_catalog, ple_data, ple_private, ple_audit AS $$
       ) AS grade_evidence ON true
       LEFT JOIN ple_private.assessment_attempt AS assessment_score_attempt
         ON assessment_score_attempt.assessment_attempt_id = grade_evidence.assessment_attempt_id
+      LEFT JOIN ple_data.assessment_policy_snapshot AS score_policy
+        ON score_policy.assessment_policy_snapshot_id
+           = assessment_score_attempt.assessment_policy_snapshot_id
       LEFT JOIN ple_private.assessment_submission AS assessment_score_submission
         ON assessment_score_submission.assessment_attempt_id = assessment_score_attempt.assessment_attempt_id
       LEFT JOIN LATERAL (

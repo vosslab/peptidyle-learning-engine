@@ -2,10 +2,10 @@
 
 import {
   parseAssessmentAttemptReference,
-  parseAssessmentReference,
-  parseBlueprintCourseReference,
+  parseAssessmentId,
+  parseBlueprintCourseId,
   parseBlueprintChangeProposalHandle,
-  parseCourseInstanceReference,
+  parseCourseInstanceId,
   parseCourseMembershipReference,
   parseDraftQuestionId,
   parseQuestionRouteReference,
@@ -50,13 +50,13 @@ export type RouteScopeKey =
 type RouteParamParser = (value: string) => string | null;
 
 const ROUTE_PARAM_PARSERS: Readonly<Record<RouteParamName, RouteParamParser>> = {
-  courseRef: parseCourseInstanceReference,
-  assessmentRef: parseAssessmentReference,
+  courseRef: parseCourseInstanceId,
+  assessmentRef: parseAssessmentId,
   assessmentAttemptRef: parseAssessmentAttemptReference,
   membershipRef: parseCourseMembershipReference,
   questionRef: parseQuestionRouteReference,
   draftQuestionId: parseDraftQuestionId,
-  blueprintCourseRef: parseBlueprintCourseReference,
+  blueprintCourseRef: parseBlueprintCourseId,
   proposalId: parseBlueprintChangeProposalHandle,
 };
 
@@ -123,7 +123,7 @@ export function routeScopeKey(pathname: string): RouteScopeKey {
   if (scope === "courseInstance") {
     const courseReference = params.courseRef;
     const parsedCourseReference =
-      courseReference === undefined ? null : parseCourseInstanceReference(courseReference);
+      courseReference === undefined ? null : parseCourseInstanceId(courseReference);
     if (parsedCourseReference === null) return invalidScope(scope);
     return { kind: "courseInstance", courseReference: parsedCourseReference };
   }

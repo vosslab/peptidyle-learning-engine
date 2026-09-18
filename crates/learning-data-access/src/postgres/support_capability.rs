@@ -1,7 +1,7 @@
 //! PostgreSQL Store for the closed support registry.
 
 use async_trait::async_trait;
-use question_model::{AccountReference, CourseInstanceReference, Timestamp};
+use question_model::{AccountId, CourseInstanceId, Timestamp};
 use sqlx::{Postgres, Row, Transaction};
 use uuid::Uuid;
 
@@ -122,7 +122,7 @@ impl SupportRepairCapabilityStore for PostgresSupportCapabilityStore {
         &self,
         token: SessionTokenHash,
         capability_id: Uuid,
-        course: CourseInstanceReference,
+        course: CourseInstanceId,
         roster_id: String,
     ) -> Result<Option<crate::SupportCourseRosterEntry>, StoreError> {
         let mut tx = self.begin(token).await?;
@@ -160,7 +160,7 @@ fn invalid(label: &str) -> StoreError {
 fn decode_repair(
     row: &sqlx::postgres::PgRow,
 ) -> Result<SupportRepairCapabilityReceipt, StoreError> {
-    let reference = AccountReference::new(
+    let reference = AccountId::new(
         row.try_get::<String, _>("sysadmin_public_reference")
             .map_err(map_sqlx_error)?,
     )

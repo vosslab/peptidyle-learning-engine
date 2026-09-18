@@ -539,7 +539,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
         workspace.assessmentReference,
         entry.id,
         {
-          expectedPoolMetadataEtag: fork.poolMetadataEtag,
+          expectedQuestionPoolEditNumber: fork.questionPoolEditNumber,
           members,
           interchangeabilityAttested: true,
         },

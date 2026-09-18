@@ -9,8 +9,8 @@
 use async_trait::async_trait;
 use question_model::{
     AccountTimeZone, AssessmentEditNumber, AssessmentEntryAvailability, AssessmentInstructions,
-    AssessmentQuestionOrderRule, AssessmentReference, AssessmentStatus, AssessmentTitle,
-    CourseInstanceReference, DraftImathasQuestionBackendBinding, InstructorStudentViewDelivery,
+    AssessmentQuestionOrderRule, AssessmentId, AssessmentStatus, AssessmentTitle,
+    CourseInstanceId, DraftImathasQuestionBackendBinding, InstructorStudentViewDelivery,
     QuestionPoolAssessmentEntry, QuestionPoolSelectedItem, QuestionRevisionReference,
     SourceObjectChecksum, SourceObjectReference,
 };
@@ -102,8 +102,8 @@ pub trait InstructorStudentViewStore: Send + Sync {
     async fn load_instructor_student_view_snapshot(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
-        assessment: AssessmentReference,
+        course: CourseInstanceId,
+        assessment: AssessmentId,
     ) -> Result<InstructorStudentViewSnapshot, StoreError>;
 
     /// Reauthorizes one exact Question against the current Assessment snapshot.
@@ -114,8 +114,8 @@ pub trait InstructorStudentViewStore: Send + Sync {
     async fn load_instructor_student_view_question_source(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
-        assessment: AssessmentReference,
+        course: CourseInstanceId,
+        assessment: AssessmentId,
         expected_edit_number: AssessmentEditNumber,
         authored_position: u32,
         question_revision: QuestionRevisionReference,

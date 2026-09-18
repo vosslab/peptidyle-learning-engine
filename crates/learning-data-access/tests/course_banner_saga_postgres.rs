@@ -14,7 +14,7 @@ use objects::s3::{BucketNames, S3ObjectStore};
 use objects::{ObjectAddress, ObjectStore, PutObject, Sha256Checksum};
 use question_model::{
     CourseBannerAlternativeText, CourseBannerInformativeText, CourseBannerReference,
-    CourseBannerRendition, CourseBannerUpdate, CourseBannerUploadReference, CourseId, ObjectId,
+    CourseBannerRendition, CourseBannerUpdate, CourseBannerUploadReference, CourseInstanceId, ObjectId,
     Timestamp,
 };
 use sqlx::postgres::PgConnection;
@@ -120,7 +120,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
         .execute(&mut *transaction)
         .await
         .expect("data fixture role");
-    sqlx::query("INSERT INTO ple_data.blueprint_course (blueprint_id, reference_number, owner_account_id, short_name, long_name, metadata_etag, created_at, discipline_uuid, tags) OVERRIDING SYSTEM VALUE VALUES ($1,1,$2,'BANNER','Banner oracle', '00000000-0000-0000-0000-00000000cd02',clock_timestamp(), '00000000-0000-0000-0000-00000000cc01', ARRAY[]::text[])")
+    sqlx::query("INSERT INTO ple_data.blueprint_course (blueprint_id, reference_number, owner_account_id, short_name, long_name, blueprint_edit_number, created_at, discipline_uuid, tags) OVERRIDING SYSTEM VALUE VALUES ($1,1,$2,'BANNER','Banner oracle', '00000000-0000-0000-0000-00000000cd02',clock_timestamp(), '00000000-0000-0000-0000-00000000cc01', ARRAY[]::text[])")
         .bind(id(0xcd01)).bind(id(INSTRUCTOR)).execute(&mut *transaction).await.expect("blueprint");
     sqlx::query("INSERT INTO ple_data.blueprint_course_revision (blueprint_course_reference_number, blueprint_revision_number, content, content_checksum, saved_at) VALUES (1,1,'{}',decode(repeat('00',32),'hex'),clock_timestamp())")
         .execute(&mut *transaction).await.expect("revision");
@@ -167,8 +167,8 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
         }),
         BucketNames::default(),
     );
-    let course = CourseId::from_uuid(id(COURSE));
-    let foreign_course = CourseId::from_uuid(id(FOREIGN_COURSE));
+    let course = CourseInstanceId::from_debug_serial(COURSE);
+    let foreign_course = CourseInstanceId::from_debug_serial(FOREIGN_COURSE);
     // Geometry belongs to the Course Banner production contract.  This saga
     // needs valid metadata to exercise persistence, not a second frozen copy
     // of a chosen pixel size or a resize policy.
@@ -579,7 +579,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
     set_inspection_role(&mut inspection, "ple_data_owner").await;
     let theme_before: String =
         sqlx::query_scalar("SELECT course_theme FROM ple_data.course_instance WHERE course_id=$1")
-            .bind(course.as_uuid())
+            .bind(course.as_str())
             .fetch_one(&mut inspection)
             .await
             .expect("theme before remove");
@@ -593,7 +593,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
     );
     let theme_after: String =
         sqlx::query_scalar("SELECT course_theme FROM ple_data.course_instance WHERE course_id=$1")
-            .bind(course.as_uuid())
+            .bind(course.as_str())
             .fetch_one(&mut inspection)
             .await
             .expect("theme after remove");

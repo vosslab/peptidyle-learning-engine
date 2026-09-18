@@ -11,7 +11,7 @@ import type { AssessmentEntryScoringRule } from "../../../generated/api/Assessme
 import type { AssessmentPointValue } from "../../../generated/api/AssessmentPointValue";
 import type { AccountTimeZone } from "../../../generated/api/AccountTimeZone";
 import type { BlueprintAssessmentSource } from "../../../generated/api/BlueprintAssessmentSource";
-import type { BlueprintCourseReference } from "../../../generated/api/BlueprintCourseReference";
+import type { BlueprintCourseId } from "../../../generated/api/BlueprintCourseId";
 import type { BlueprintRevision } from "../../../generated/api/BlueprintRevision";
 import type { LateWorkRule } from "../../../generated/api/LateWorkRule";
 import type { LocalDateAndTime } from "../../../generated/api/LocalDateAndTime";
@@ -54,10 +54,10 @@ import { validateCanonicalPublicReference } from "../../question_id";
 import { decodeStudentFeedbackReleaseRule } from "./assessment_policy";
 import { decodeQuestionAttemptLimit, decodeQuestionAttemptTimeLimit } from "./question_model";
 import {
-  decodeAssessmentReference,
+  decodeAssessmentId,
   decodeAssessmentTitle,
   decodeBoundedArray,
-  decodeCourseInstanceReference,
+  decodeCourseInstanceId,
   decodeCourseName,
   decodeIdentifier,
   decodeQuestionDescription,
@@ -328,7 +328,7 @@ function displayTimeZone(value: unknown, path: string): AccountTimeZone {
   return timeZone;
 }
 
-export function blueprintCourseReference(value: unknown, path: string): BlueprintCourseReference {
+export function blueprintCourseReference(value: unknown, path: string): BlueprintCourseId {
   const decoded = decodeString(value, path);
   if (validateCanonicalPublicReference("blueprintCourse", decoded) === null) {
     throw new DecodeError(path, "a canonical opaque Blueprint Course reference");
@@ -559,7 +559,7 @@ function courseAssessmentSummary(value: unknown, path: string): CourseAssessment
     "editNumber",
   ]);
   return {
-    reference: decodeAssessmentReference(field(record, "reference", path), `${path}.reference`),
+    reference: decodeAssessmentId(field(record, "reference", path), `${path}.reference`),
     assessmentType: assessmentType(field(record, "assessmentType", path), `${path}.assessmentType`),
     title: decodeAssessmentTitle(field(record, "title", path), `${path}.title`),
     dueAt: localDateAndTime(field(record, "dueAt", path), `${path}.dueAt`),
@@ -587,7 +587,7 @@ function dueSoonAssessmentSummary(value: unknown, path: string): DueSoonAssessme
   if (!Number.isSafeInteger(dueAtMillis))
     throw new DecodeError(`${path}.dueAtMillis`, "a safe Unix millisecond instant");
   return {
-    courseReference: decodeCourseInstanceReference(
+    courseReference: decodeCourseInstanceId(
       field(record, "courseReference", path),
       `${path}.courseReference`,
     ),
@@ -595,7 +595,7 @@ function dueSoonAssessmentSummary(value: unknown, path: string): DueSoonAssessme
       field(record, "courseLongName", path),
       `${path}.courseLongName`,
     ),
-    assessmentReference: decodeAssessmentReference(
+    assessmentReference: decodeAssessmentId(
       field(record, "assessmentReference", path),
       `${path}.assessmentReference`,
     ),
@@ -789,7 +789,7 @@ export function decodeLiveAssessmentWorkspace(
     "questions",
   ]);
   return {
-    reference: decodeAssessmentReference(field(record, "reference", path), `${path}.reference`),
+    reference: decodeAssessmentId(field(record, "reference", path), `${path}.reference`),
     editNumber: editNumber(field(record, "editNumber", path), `${path}.editNumber`),
     status: status(field(record, "status", path), `${path}.status`),
     origin: assessmentOrigin(field(record, "origin", path), `${path}.origin`),

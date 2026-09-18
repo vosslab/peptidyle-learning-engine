@@ -20,7 +20,7 @@ use learning_data_access::{
     SessionTokenHash, StoreError,
     postgres::{PostgresBlueprintStewardshipStore, PostgresSessionStore},
 };
-use question_model::{BlueprintCourseReference, ProductRole};
+use question_model::{BlueprintCourseId, ProductRole};
 use serde::{Deserialize, Serialize};
 
 use crate::auth::{AuthError, resolve_session};
@@ -351,7 +351,7 @@ async fn read_watch_events(
 
 /// ASVS 2.2.1--2.2.2: parsing occurs before Store access and admits only the
 /// exact canonical Blueprint Course reference shape.
-fn blueprint_reference(value: &str) -> Option<BlueprintCourseReference> {
+fn blueprint_reference(value: &str) -> Option<BlueprintCourseId> {
     value.parse().ok()
 }
 

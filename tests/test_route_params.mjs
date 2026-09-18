@@ -41,9 +41,9 @@ test("canonical Assessment routes extract opaque references and reject the retir
     ],
     [
       "assessmentAttempt",
-      "/assessment-attempts/R-1",
-      { assessmentAttemptRef: "R-1" },
-      attemptKey("R-1"),
+      "/assessment-attempts/00000000-0000-0000-0000-000000000001",
+      { assessmentAttemptRef: "00000000-0000-0000-0000-000000000001" },
+      attemptKey("00000000-0000-0000-0000-000000000001"),
     ],
   ];
   for (const [id, pathname, expectedParams, expectedScopeKey] of routeCases) {

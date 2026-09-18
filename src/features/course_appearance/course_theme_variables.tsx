@@ -3,7 +3,7 @@
 import { createEffect, createMemo, createSignal, type JSX } from "solid-js";
 
 import type { CourseAppearanceView } from "../../../generated/api/CourseAppearanceView";
-import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
+import type { CourseInstanceId } from "../../../generated/api/CourseInstanceId";
 import { useRouteScopeData } from "../../ribbon/route_scope_context";
 import {
   CourseThemePresentationContext,
@@ -19,7 +19,7 @@ export interface CourseThemeVariablesProps {
 }
 
 interface CourseThemePresentationOverride {
-  readonly courseReference: CourseInstanceReference;
+  readonly courseReference: CourseInstanceId;
   readonly appearance: CourseAppearanceView;
 }
 

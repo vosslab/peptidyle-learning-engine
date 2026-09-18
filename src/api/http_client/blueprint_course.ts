@@ -1,6 +1,6 @@
 // Strict same-origin transport for Blueprint lineage metadata and immutable Revisions.
 
-import type { BlueprintCourseReference } from "../../../generated/api/BlueprintCourseReference";
+import type { BlueprintCourseId } from "../../../generated/api/BlueprintCourseId";
 import type { BlueprintPoolMembersView } from "../../../generated/api/BlueprintPoolMembersView";
 import { decodeBlueprintPoolMembersView } from "../decoders/blueprint_pool_members";
 import {
@@ -30,7 +30,7 @@ import type { CursorPage } from "../contracts";
 import {
   decodeBlueprintCoursePage,
   decodeKnownBlueprintForks,
-  decodeBlueprintCourseReference,
+  decodeBlueprintCourseId,
   decodeBlueprintCourseSaveResponse,
   decodeBlueprintCourseView,
   decodeBlueprintMetadataState,
@@ -56,7 +56,6 @@ import { createBlueprintStewardshipClient } from "./blueprint_stewardship";
 const MAX_PAGE_SIZE = 100;
 const MAX_IDEMPOTENCY_KEY_BYTES = 128;
 const MAX_BLUEPRINT_RESPONSE_CHARACTERS = 16 * 1_024 * 1_024;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 
 function pagePath(
   path: string,
@@ -130,17 +129,9 @@ function parseRevisionEtag(value: string, path: string): string {
   return value;
 }
 
-function parseMetadataEtag(value: string, path: string): string {
-  const unquoted = /^"(.+)"$/u.exec(value)?.[1];
-  if (unquoted === undefined || !UUID.test(unquoted)) {
-    throw new ApiProtocolError(`API ${path} ETag must be one strong opaque metadata validator`);
-  }
-  return value;
-}
-
-function metadataEtag(value: string, path: string): string {
-  if (!UUID.test(value)) {
-    throw new ApiProtocolError(`API ${path} metadata ETag must be a canonical UUID`);
+function parseBlueprintEditNumberIfMatch(value: string, path: string): string {
+  if (!/^[1-9][0-9]*$/u.test(value) || BigInt(value) > 9_223_372_036_854_775_807n) {
+    throw new ApiProtocolError(`API ${path} If-Match must be a positive Blueprint Edit Number`);
   }
   return `"${value}"`;
 }
@@ -161,8 +152,8 @@ function idempotencyKey(value: BlueprintIdempotencyKey, path: string): string {
   return value;
 }
 
-function blueprintPath(value: BlueprintCourseReference): string {
-  return `/api/course-blueprints/${encodeURIComponent(decodeBlueprintCourseReference(value, "blueprint"))}`;
+function blueprintPath(value: BlueprintCourseId): string {
+  return `/api/course-blueprints/${encodeURIComponent(decodeBlueprintCourseId(value, "blueprint"))}`;
 }
 
 async function blueprintJson<T>(
@@ -218,17 +209,15 @@ function requireRevisionEtag(response: Response, revision: string, path: string)
   return etag;
 }
 
-function requireMetadataEtag(
+function requireBlueprintEditNumberEtag(
   response: Response,
   state: BlueprintMetadataState,
   path: string,
 ): string {
   const etag = response.headers.get("etag");
-  const expected = metadataEtag(state.metadata_etag, path);
-  if (etag === null || parseMetadataEtag(etag, path) !== expected) {
-    throw new ApiProtocolError(
-      `API response ${path} ETag must match its opaque metadata validator`,
-    );
+  const expected = `"${state.blueprint_edit_number}"`;
+  if (etag === null || parseRevisionEtag(etag, path) !== expected) {
+    throw new ApiProtocolError(`API response ${path} ETag must match its Blueprint Edit Number`);
   }
   return etag;
 }
@@ -249,7 +238,8 @@ function metadataTransition(
   response: Response,
   path: string,
 ): BlueprintMetadataTransition {
-  return { metadata, metadataEtag: requireMetadataEtag(response, metadata, path) };
+  requireBlueprintEditNumberEtag(response, metadata, path);
+  return { metadata };
 }
 
 /** Creates the complete Blueprint Course capability without coupling it to a screen model. */
@@ -370,7 +360,7 @@ export function createBlueprintCourseClient(
       ).body;
     },
     getBlueprintComparison: async (left, right): Promise<BlueprintComparisonView> => {
-      const path = `${blueprintPath(left)}/compare/${encodeURIComponent(decodeBlueprintCourseReference(right, "right"))}`;
+      const path = `${blueprintPath(left)}/compare/${encodeURIComponent(decodeBlueprintCourseId(right, "right"))}`;
       const body = (
         await blueprintJson(fetchImplementation, basePath, path, decodeBlueprintComparisonView, {
           expectedStatus: 200,
@@ -494,7 +484,7 @@ export function createBlueprintCourseClient(
           method: "PUT",
           body: decodeCourseClassification(classification, "request"),
           etag,
-          parseEtag: parseMetadataEtag,
+          parseEtag: parseBlueprintEditNumberIfMatch,
           expectedStatus: 200,
         },
       );
@@ -511,7 +501,7 @@ export function createBlueprintCourseClient(
           method: "PUT",
           body: decodeRenameBlueprintCourseInput(names),
           etag,
-          parseEtag: parseMetadataEtag,
+          parseEtag: parseBlueprintEditNumberIfMatch,
           expectedStatus: 200,
         },
       );
@@ -527,7 +517,7 @@ export function createBlueprintCourseClient(
         {
           method: "POST",
           etag,
-          parseEtag: parseMetadataEtag,
+          parseEtag: parseBlueprintEditNumberIfMatch,
           expectedStatus: 200,
         },
       );
@@ -553,7 +543,7 @@ export function createBlueprintCourseClient(
           method: "POST",
           body: { confirmationLongName },
           etag,
-          parseEtag: parseMetadataEtag,
+          parseEtag: parseBlueprintEditNumberIfMatch,
           expectedStatus: 200,
         },
       );
@@ -569,7 +559,7 @@ export function createBlueprintCourseClient(
         {
           method: "POST",
           etag,
-          parseEtag: parseMetadataEtag,
+          parseEtag: parseBlueprintEditNumberIfMatch,
           expectedStatus: 200,
         },
       );
@@ -588,7 +578,7 @@ export function createBlueprintCourseClient(
         {
           method: "POST",
           etag,
-          parseEtag: parseMetadataEtag,
+          parseEtag: parseBlueprintEditNumberIfMatch,
           expectedStatus: 200,
         },
       );

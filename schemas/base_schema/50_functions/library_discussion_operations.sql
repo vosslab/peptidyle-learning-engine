@@ -17,7 +17,7 @@ BEGIN
          WHERE question.published_question_id = p_public_object_id
            AND (NOT p_require_available OR question.availability = 'available');
     ELSIF p_object_kind = 'question_pool' THEN
-        SELECT pool.current_revision_number INTO v_revision
+        SELECT pool.question_pool_edit_number INTO v_revision
           FROM ple_data.question_pool AS pool
          WHERE pool.question_pool_id = p_public_object_id;
     END IF;
@@ -38,8 +38,9 @@ SET search_path = pg_catalog, ple_data AS $$
          WHERE published_question_id = p_public_object_id AND revision_number = p_revision_number)
       WHEN 'question_pool' THEN EXISTS (
         SELECT 1 FROM ple_data.question_pool AS pool
-        JOIN ple_data.question_pool_revision AS revision ON revision.question_pool_id = pool.question_pool_id
-         WHERE pool.question_pool_id = p_public_object_id AND revision.revision_number = p_revision_number)
+         WHERE pool.question_pool_id = p_public_object_id
+           AND p_revision_number > 0
+           AND p_revision_number <= pool.question_pool_edit_number)
       ELSE false END
 $$;
 

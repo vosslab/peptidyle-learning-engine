@@ -19,8 +19,8 @@ import type {
 } from "../../api/assessment_release";
 import { useApplicationApi } from "../../api/application_api";
 import {
-  parseAssessmentReference,
-  parseCourseInstanceReference,
+  parseAssessmentId,
+  parseCourseInstanceId,
   type AssessmentRouteReference,
   type CourseInstanceRouteReference,
 } from "../../navigation/public_route";
@@ -184,8 +184,8 @@ function AssessmentWorkspaceLiveContent(props: AssessmentWorkspaceLivePageProps)
   async function load(): Promise<void> {
     const pathname = location.pathname;
     setState("loading");
-    const courseReference = parseCourseInstanceReference(params["courseRef"] ?? "");
-    const assessmentReference = parseAssessmentReference(params["assessmentRef"] ?? "");
+    const courseReference = parseCourseInstanceId(params["courseRef"] ?? "");
+    const assessmentReference = parseAssessmentId(params["assessmentRef"] ?? "");
     if (courseReference === null || assessmentReference === null) {
       setState("unavailable");
       return;

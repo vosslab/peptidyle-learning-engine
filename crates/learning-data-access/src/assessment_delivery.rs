@@ -3,10 +3,10 @@
 use async_trait::async_trait;
 use browser_api_contract::student_assessment_decision::StudentAssessmentDecisionSummary;
 use question_model::{
-    AssessmentAttemptReference, AssessmentReference, AssessmentType, CourseInstanceReference,
-    CourseTheme, GradingResult, QuestionAssetId, QuestionAttemptId, QuestionId,
-    QuestionRevisionReference, StudentAssessmentAttemptProgress, StudentFeedback,
-    StudentFeedbackReleaseRule, StudentResponse, Timestamp,
+    AssessmentAttemptId, AssessmentId, AssessmentType, CourseInstanceId, CourseTheme,
+    GradingResult, QuestionAssetId, QuestionAttemptId, QuestionId, QuestionRevisionReference,
+    StudentAssessmentAttemptProgress, StudentFeedback, StudentFeedbackReleaseRule, StudentResponse,
+    Timestamp,
 };
 use serde::{Deserialize, Serialize};
 
@@ -19,7 +19,7 @@ pub struct LiveAssessmentAccess {
     /// Complete policy and decision calculated at authoritative server time.
     pub decision: StudentAssessmentDecisionSummary,
     /// The current authorized unfinished Assessment Attempt, if one exists.
-    pub active_assessment_attempt: Option<AssessmentAttemptReference>,
+    pub active_assessment_attempt: Option<AssessmentAttemptId>,
     /// The effective Student-facing title for the current delivery state.
     pub title: String,
     /// Product-defined pedagogical Type for this Assessment.
@@ -37,7 +37,7 @@ pub struct LiveAssessmentAccess {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LiveAssessmentPreviousAttempt {
-    pub assessment_attempt: AssessmentAttemptReference,
+    pub assessment_attempt: AssessmentAttemptId,
     pub attempt_number: u32,
     pub state: LiveAssessmentPreviousAttemptState,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -68,7 +68,7 @@ pub struct LiveAssessmentAttemptScore {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StudentAssessmentAttemptHistory {
-    pub assessment_attempt: AssessmentAttemptReference,
+    pub assessment_attempt: AssessmentAttemptId,
     pub attempt_number: u32,
     /// Current Course display identity, authorized with the completed Attempt.
     pub course: StudentAssessmentAttemptHistoryCourse,
@@ -83,7 +83,7 @@ pub struct StudentAssessmentAttemptHistory {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StudentAssessmentAttemptHistoryCourse {
-    pub reference: CourseInstanceReference,
+    pub reference: CourseInstanceId,
     pub short_name: String,
     pub long_name: String,
     pub theme: CourseTheme,
@@ -93,7 +93,7 @@ pub struct StudentAssessmentAttemptHistoryCourse {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StudentAssessmentAttemptHistoryAssessment {
-    pub reference: AssessmentReference,
+    pub reference: AssessmentId,
     pub title: String,
 }
 
@@ -209,9 +209,9 @@ pub struct IssuedQuestionPresentation {
 #[serde(rename_all = "camelCase")]
 pub struct LiveAssessmentAttempt {
     /// Public attempt identity used only after server authorization.
-    pub assessment_attempt: AssessmentAttemptReference,
+    pub assessment_attempt: AssessmentAttemptId,
     /// Public Assessment locator; the private Attempt identity stays server-side.
-    pub assessment: AssessmentReference,
+    pub assessment: AssessmentId,
     /// One-based Student-specific Attempt sequence.
     pub attempt_number: u32,
     /// Released Student-facing Assessment title.
@@ -454,8 +454,8 @@ mod presentation_source_tests {
 /// Confirmation that one owned working response was saved at its fixed position.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StudentAssessmentAttemptSavedResponse {
-    /// Public Assessment Attempt reference that owns the saved response.
-    pub assessment_attempt: AssessmentAttemptReference,
+    /// Assessment Attempt identity that owns the saved response.
+    pub assessment_attempt: AssessmentAttemptId,
     /// One-based fixed issued Question position.
     pub position: u32,
 }
@@ -464,13 +464,13 @@ pub struct StudentAssessmentAttemptSavedResponse {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StudentAssessmentAttemptContext {
-    pub assessment_attempt: AssessmentAttemptReference,
+    pub assessment_attempt: AssessmentAttemptId,
     pub attempt_number: u32,
-    pub course: CourseInstanceReference,
+    pub course: CourseInstanceId,
     pub course_short_name: String,
     pub course_long_name: String,
     pub course_theme: CourseTheme,
-    pub assessment: AssessmentReference,
+    pub assessment: AssessmentId,
     pub assessment_title: String,
     /// Authenticated Student's selected IANA display zone.
     pub display_time_zone: question_model::AccountTimeZone,
@@ -561,7 +561,7 @@ pub trait LiveAssessmentDeliveryStore: Send + Sync {
     async fn student_assessment_attempt_context(
         &self,
         session_token_hash: SessionTokenHash,
-        assessment_attempt: AssessmentAttemptReference,
+        assessment_attempt: AssessmentAttemptId,
     ) -> Result<StudentAssessmentAttemptContext, StoreError>;
 
     /// Saves one canonical Student response for an active, owned issued position.
@@ -571,7 +571,7 @@ pub trait LiveAssessmentDeliveryStore: Send + Sync {
     async fn save_student_assessment_attempt_response(
         &self,
         session_token_hash: SessionTokenHash,
-        assessment_attempt: AssessmentAttemptReference,
+        assessment_attempt: AssessmentAttemptId,
         position: u32,
         response: StudentResponse,
     ) -> Result<StudentAssessmentAttemptSavedResponse, StoreError>;
@@ -582,7 +582,7 @@ pub trait LiveAssessmentDeliveryStore: Send + Sync {
     async fn student_assessment_attempt_saved_response(
         &self,
         session_token_hash: SessionTokenHash,
-        assessment_attempt: AssessmentAttemptReference,
+        assessment_attempt: AssessmentAttemptId,
         position: u32,
     ) -> Result<Option<StudentResponse>, StoreError>;
 
@@ -591,7 +591,7 @@ pub trait LiveAssessmentDeliveryStore: Send + Sync {
     async fn prepare_student_assessment_attempt_finalization(
         &self,
         session_token_hash: SessionTokenHash,
-        assessment_attempt: AssessmentAttemptReference,
+        assessment_attempt: AssessmentAttemptId,
     ) -> Result<StudentAssessmentAttemptFinalizationPreparationOutcome, StoreError>;
 
     /// Atomically accepts only the still-current prepared snapshot and stores
@@ -600,23 +600,23 @@ pub trait LiveAssessmentDeliveryStore: Send + Sync {
     async fn commit_student_assessment_attempt_finalization(
         &self,
         session_token_hash: SessionTokenHash,
-        assessment_attempt: AssessmentAttemptReference,
+        assessment_attempt: AssessmentAttemptId,
         preparation: StudentAssessmentAttemptFinalizationPreparation,
         evaluations: Vec<StudentAssessmentAttemptFinalizationEvaluation>,
     ) -> Result<StudentAssessmentAttemptFinalization, StoreError>;
 
-    /// Loads an answer-free, Student-owned progress projection by public Attempt reference.
+    /// Loads an answer-free, Student-owned progress projection by Assessment Attempt ID.
     async fn student_assessment_attempt_progress(
         &self,
         session_token_hash: SessionTokenHash,
-        assessment_attempt: AssessmentAttemptReference,
+        assessment_attempt: AssessmentAttemptId,
     ) -> Result<StudentAssessmentAttemptProgress, StoreError>;
 
     /// Reads exactly one immutable issued-presentation bundle inside the authenticated Student boundary.
     async fn student_assessment_attempt_presentation_evidence(
         &self,
         session_token_hash: SessionTokenHash,
-        assessment_attempt: AssessmentAttemptReference,
+        assessment_attempt: AssessmentAttemptId,
         position: u32,
     ) -> Result<StudentAssessmentAttemptPresentationEvidence, StoreError>;
 
@@ -626,7 +626,7 @@ pub trait LiveAssessmentDeliveryStore: Send + Sync {
     async fn student_assessment_attempt_backend_document(
         &self,
         session_token_hash: SessionTokenHash,
-        assessment_attempt: AssessmentAttemptReference,
+        assessment_attempt: AssessmentAttemptId,
         position: u32,
     ) -> Result<StudentAssessmentAttemptBackendDocument, StoreError>;
     /// Starts exactly one current Attempt and resolves every native source pin
@@ -634,8 +634,8 @@ pub trait LiveAssessmentDeliveryStore: Send + Sync {
     async fn prepare_native_assessment_issuance(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
-        assessment: AssessmentReference,
+        course: CourseInstanceId,
+        assessment: AssessmentId,
     ) -> Result<NativeAssessmentIssuanceBatch, StoreError>;
 
     /// Commits all native presentation evidence in one atomic operation, or
@@ -650,8 +650,8 @@ pub trait LiveAssessmentDeliveryStore: Send + Sync {
     async fn live_assessment_access(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
-        assessment: AssessmentReference,
+        course: CourseInstanceId,
+        assessment: AssessmentId,
     ) -> Result<LiveAssessmentAccess, StoreError>;
 
     /// Reads one completed Attempt after the store has re-authorized exact
@@ -659,7 +659,7 @@ pub trait LiveAssessmentDeliveryStore: Send + Sync {
     async fn student_assessment_attempt_history(
         &self,
         session_token_hash: SessionTokenHash,
-        assessment_attempt: AssessmentAttemptReference,
+        assessment_attempt: AssessmentAttemptId,
     ) -> Result<StudentAssessmentAttemptHistoryEvidence, StoreError>;
 
     /// Loads submitted canonical responses and their exact pinned presentation
@@ -667,6 +667,6 @@ pub trait LiveAssessmentDeliveryStore: Send + Sync {
     async fn student_assessment_attempt_history_response_sources(
         &self,
         session_token_hash: SessionTokenHash,
-        assessment_attempt: AssessmentAttemptReference,
+        assessment_attempt: AssessmentAttemptId,
     ) -> Result<Vec<StudentAssessmentAttemptHistoryResponseSource>, StoreError>;
 }

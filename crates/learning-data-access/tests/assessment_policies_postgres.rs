@@ -7,7 +7,7 @@ use learning_data_access::{
     AssessmentReleaseIssue, LiveAssessmentStore, SaveBaseAssessmentPolicyInput, SessionTokenHash,
     StoreError,
 };
-use question_model::{AssessmentEditNumber, AssessmentReference, CourseInstanceReference};
+use question_model::{AssessmentEditNumber, AssessmentId, CourseInstanceId};
 use sqlx::{Connection, Row};
 use uuid::Uuid;
 
@@ -39,7 +39,7 @@ fn policy(expected_edit_number: u64, instructions: &str) -> SaveBaseAssessmentPo
     input
 }
 
-async fn seed(admin: &sqlx::postgres::PgPool) -> (CourseInstanceReference, AssessmentReference) {
+async fn seed(admin: &sqlx::postgres::PgPool) -> (CourseInstanceId, AssessmentId) {
     let mut tx = admin.begin().await.expect("fixture transaction");
     sqlx::query("SET LOCAL ROLE ple_data_owner")
         .execute(&mut *tx)
@@ -84,7 +84,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> (CourseInstanceReference, Asses
         .execute(&mut *tx)
         .await
         .expect("API fixture role");
-    sqlx::query("INSERT INTO ple_data.blueprint_course (blueprint_id, reference_number, owner_account_id, short_name, long_name, metadata_etag, created_at, discipline_uuid, tags) OVERRIDING SYSTEM VALUE VALUES ($1, 1, $2, 'POL-1', 'Policy oracle Blueprint', '00000000-0000-0000-0000-00000000bd02', clock_timestamp(), '00000000-0000-0000-0000-00000000cc01', ARRAY[]::text[])")
+    sqlx::query("INSERT INTO ple_data.blueprint_course (blueprint_id, reference_number, owner_account_id, short_name, long_name, blueprint_edit_number, created_at, discipline_uuid, tags) OVERRIDING SYSTEM VALUE VALUES ($1, 1, $2, 'POL-1', 'Policy oracle Blueprint', '00000000-0000-0000-0000-00000000bd02', clock_timestamp(), '00000000-0000-0000-0000-00000000cc01', ARRAY[]::text[])")
         .bind(id(BLUEPRINT)).bind(id(INSTRUCTOR)).execute(&mut *tx).await.expect("Blueprint");
     sqlx::query("INSERT INTO ple_data.blueprint_course_revision (blueprint_course_reference_number, blueprint_revision_number, content, content_checksum, saved_at) VALUES (1, 1, '{}'::jsonb, decode(repeat('0', 64), 'hex'), clock_timestamp())")
         .execute(&mut *tx).await.expect("Blueprint Revision");
@@ -123,8 +123,8 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> (CourseInstanceReference, Asses
     .expect("Assessment public reference");
     tx.commit().await.expect("fixture commit");
     (
-        CourseInstanceReference::new(course_public_reference).expect("Course reference"),
-        AssessmentReference::new(assessment_public_reference).expect("Assessment reference"),
+        CourseInstanceId::new(course_public_reference).expect("Course reference"),
+        AssessmentId::new(assessment_public_reference).expect("Assessment reference"),
     )
 }
 

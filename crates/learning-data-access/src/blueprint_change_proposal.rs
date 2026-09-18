@@ -2,8 +2,7 @@
 
 use async_trait::async_trait;
 use question_model::{
-    AccountId, BlueprintMetadataEtag, BlueprintRevisionReference, CanonicalBlueprintCourse,
-    Timestamp,
+    AccountId, BlueprintEditNumber, BlueprintRevisionReference, CanonicalBlueprintCourse, Timestamp,
 };
 
 use crate::{Page, PageRequest, SessionTokenHash, StoreError, StoredBlueprintRevision};
@@ -28,7 +27,7 @@ pub enum BlueprintChangeProposalDecision {
 pub struct AcceptBlueprintChangeProposalInput {
     pub proposal_id: uuid::Uuid,
     pub expected_target: BlueprintRevisionReference,
-    pub expected_target_metadata_etag: BlueprintMetadataEtag,
+    pub expected_target_blueprint_edit_number: BlueprintEditNumber,
     pub decision: BlueprintChangeProposalDecision,
 }
 
@@ -43,8 +42,8 @@ pub struct BlueprintChangeProposalAcceptedDecision {
         question_model::BlueprintModuleReference,
     >,
     pub new_assessments: BTreeMap<
-        question_model::BlueprintAssessmentReference,
-        question_model::BlueprintAssessmentReference,
+        question_model::BlueprintAssessmentId,
+        question_model::BlueprintAssessmentId,
     >,
 }
 
@@ -55,7 +54,7 @@ pub struct AcceptedBlueprintChangeProposal {
     pub actor: AccountId,
     pub accepted_at: Timestamp,
     pub target: BlueprintRevisionReference,
-    pub target_metadata_etag: BlueprintMetadataEtag,
+    pub target_blueprint_edit_number: BlueprintEditNumber,
     pub decision: BlueprintChangeProposalAcceptedDecision,
     pub resulting_json: CanonicalBlueprintCourse,
 }
@@ -64,9 +63,9 @@ pub struct AcceptedBlueprintChangeProposal {
 #[derive(Debug, Clone)]
 pub struct CreateBlueprintChangeProposalInput {
     pub source: BlueprintRevisionReference,
-    pub source_metadata_etag: BlueprintMetadataEtag,
+    pub source_blueprint_edit_number: BlueprintEditNumber,
     pub target: BlueprintRevisionReference,
-    pub target_metadata_etag: BlueprintMetadataEtag,
+    pub target_blueprint_edit_number: BlueprintEditNumber,
 }
 
 /// Frozen Proposal evidence reconstructed from existing immutable fact sequences.
@@ -76,9 +75,9 @@ pub struct StoredBlueprintChangeProposal {
     pub proposer: AccountId,
     pub created_at: Timestamp,
     pub source: BlueprintRevisionReference,
-    pub source_metadata_etag: BlueprintMetadataEtag,
+    pub source_blueprint_edit_number: BlueprintEditNumber,
     pub target: BlueprintRevisionReference,
-    pub target_metadata_etag: BlueprintMetadataEtag,
+    pub target_blueprint_edit_number: BlueprintEditNumber,
     pub proposed_json: CanonicalBlueprintCourse,
     pub target_comparison_json: CanonicalBlueprintCourse,
     /// Current target content OR metadata differs from the frozen comparison basis.
@@ -89,7 +88,7 @@ pub struct StoredBlueprintChangeProposal {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BlueprintChangeProposalListScope {
     Mine,
-    Target(question_model::BlueprintCourseReference),
+    Target(question_model::BlueprintCourseId),
 }
 
 /// Exact metadata-event names and accepted pins; no actor identity is projected.
@@ -98,11 +97,11 @@ pub struct BlueprintChangeProposalSummary {
     pub proposal_id: uuid::Uuid,
     pub created_at: Timestamp,
     pub source: BlueprintRevisionReference,
-    pub source_metadata_etag: BlueprintMetadataEtag,
+    pub source_blueprint_edit_number: BlueprintEditNumber,
     pub source_short_name: String,
     pub source_long_name: String,
     pub target: BlueprintRevisionReference,
-    pub target_metadata_etag: BlueprintMetadataEtag,
+    pub target_blueprint_edit_number: BlueprintEditNumber,
     pub target_short_name: String,
     pub target_long_name: String,
     pub target_is_stale: bool,
@@ -113,7 +112,7 @@ pub struct BlueprintChangeProposalSummary {
 pub struct BlueprintChangeProposalAcceptedSummary {
     pub accepted_at: Timestamp,
     pub target: BlueprintRevisionReference,
-    pub target_metadata_etag: BlueprintMetadataEtag,
+    pub target_blueprint_edit_number: BlueprintEditNumber,
 }
 
 /// Participant-authorized ID-bearing trees and exact answer-free Pool memberships.

@@ -165,14 +165,14 @@ function Comparison(props: { readonly view: BlueprintComparisonView }): JSX.Elem
     side: BlueprintComparisonSide,
     reference: string,
   ): BlueprintComparisonSide["assessments"][number] | undefined =>
-    side.assessments.find((item) => item.blueprintAssessmentReference === reference);
+    side.assessments.find((item) => item.blueprintAssessmentId === reference);
   const sideOnly = (side: "left" | "right"): BlueprintComparisonSide["assessments"] =>
     props.view[side].assessments.filter(
       (item) =>
         !props.view.assessmentRelationships.some(
           (edge) =>
-            (side === "left" ? edge.leftAssessmentReference : edge.rightAssessmentReference) ===
-            item.blueprintAssessmentReference,
+            (side === "left" ? edge.leftAssessmentId : edge.rightAssessmentId) ===
+            item.blueprintAssessmentId,
         ),
     );
   return (
@@ -240,13 +240,13 @@ function Comparison(props: { readonly view: BlueprintComparisonView }): JSX.Elem
         {(edge) => (
           <details class="blueprint-fork-item">
             <summary>
-              {assessment(props.view.left, edge.leftAssessmentReference)?.content.title} compared
-              with {assessment(props.view.right, edge.rightAssessmentReference)?.content.title}
+              {assessment(props.view.left, edge.leftAssessmentId)?.content.title} compared
+              with {assessment(props.view.right, edge.rightAssessmentId)?.content.title}
             </summary>
             <p>Shared Question IDs: {edge.sharedQuestionIds.join(", ")}.</p>
-            <Show when={assessment(props.view.left, edge.leftAssessmentReference)}>
+            <Show when={assessment(props.view.left, edge.leftAssessmentId)}>
               {(left) => (
-                <Show when={assessment(props.view.right, edge.rightAssessmentReference)}>
+                <Show when={assessment(props.view.right, edge.rightAssessmentId)}>
                   {(right) => (
                     <p>
                       {assessmentDifferenceLabels(
@@ -264,14 +264,14 @@ function Comparison(props: { readonly view: BlueprintComparisonView }): JSX.Elem
               <section>
                 <h4>Left Assessment</h4>
                 <AssessmentSnapshot
-                  snapshot={assessment(props.view.left, edge.leftAssessmentReference)}
+                  snapshot={assessment(props.view.left, edge.leftAssessmentId)}
                   side={props.view.left}
                 />
               </section>
               <section>
                 <h4>Right Assessment</h4>
                 <AssessmentSnapshot
-                  snapshot={assessment(props.view.right, edge.rightAssessmentReference)}
+                  snapshot={assessment(props.view.right, edge.rightAssessmentId)}
                   side={props.view.right}
                 />
               </section>

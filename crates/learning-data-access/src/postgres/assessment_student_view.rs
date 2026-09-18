@@ -6,8 +6,8 @@ use async_trait::async_trait;
 use question_model::{
     AccountTimeZone, AssessmentEditNumber, AssessmentEntryAvailability, AssessmentEntryId,
     AssessmentEntryScoringRule, AssessmentInstructions, AssessmentPointValue,
-    AssessmentQuestionOrderRule, AssessmentReference, AssessmentStatus, AssessmentTitle,
-    CourseInstanceReference, DraftImathasQuestionBackendBinding, ImathasDeploymentReference,
+    AssessmentQuestionOrderRule, AssessmentId, AssessmentStatus, AssessmentTitle,
+    CourseInstanceId, DraftImathasQuestionBackendBinding, ImathasDeploymentReference,
     ImathasItemReference, InstructorStudentViewDelivery, LateWorkRule, ObjectId,
     PoolRevisionMemberReference, QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionId,
     QuestionPoolAssessmentEntry, QuestionPoolRevisionNumber, QuestionPoolRevisionReference,
@@ -76,8 +76,8 @@ impl InstructorStudentViewStore for PostgresInstructorStudentViewStore {
     async fn load_instructor_student_view_snapshot(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
-        assessment: AssessmentReference,
+        course: CourseInstanceId,
+        assessment: AssessmentId,
     ) -> Result<InstructorStudentViewSnapshot, StoreError> {
         let mut transaction = self.begin_read_only(session_token_hash).await?;
         // ASVS 1.2.4 and 8.2.2: opaque references are bound parameters and the
@@ -129,8 +129,8 @@ impl InstructorStudentViewStore for PostgresInstructorStudentViewStore {
     async fn load_instructor_student_view_question_source(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
-        assessment: AssessmentReference,
+        course: CourseInstanceId,
+        assessment: AssessmentId,
         expected_edit_number: AssessmentEditNumber,
         authored_position: u32,
         question_revision: QuestionRevisionReference,

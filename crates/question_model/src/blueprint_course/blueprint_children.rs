@@ -27,7 +27,7 @@ pub struct BlueprintModuleReference(Uuid);
 /// lineage key used by snapshots, Blueprint updates, and audit evidence.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct BlueprintAssessmentReference(Uuid);
+pub struct BlueprintAssessmentId(Uuid);
 
 macro_rules! impl_blueprint_child_id {
     ($name:ident) => {
@@ -83,7 +83,7 @@ macro_rules! impl_blueprint_child_id {
 }
 
 impl_blueprint_child_id!(BlueprintModuleReference);
-impl_blueprint_child_id!(BlueprintAssessmentReference);
+impl_blueprint_child_id!(BlueprintAssessmentId);
 
 /// A browser-supplied Blueprint child Reference was not a canonical UUID string.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -216,7 +216,7 @@ impl BlueprintModuleEditChoice {
 pub enum BlueprintAssessmentEditChoice {
     /// Keep this exact assessment lineage from the expected head revision.
     Retained {
-        blueprint_assessment_reference: BlueprintAssessmentReference,
+        blueprint_assessment_reference: BlueprintAssessmentId,
     },
     /// Add an assessment and let the server allocate its stable identity.
     New,
@@ -224,7 +224,7 @@ pub enum BlueprintAssessmentEditChoice {
 
 impl BlueprintAssessmentEditChoice {
     /// Returns the retained Blueprint Assessment Reference, if this edit preserves the lineage.
-    pub fn retained_reference(self) -> Option<BlueprintAssessmentReference> {
+    pub fn retained_reference(self) -> Option<BlueprintAssessmentId> {
         match self {
             Self::Retained {
                 blueprint_assessment_reference,
@@ -305,7 +305,7 @@ impl ReplaceBlueprintCourseContentInput {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct BlueprintCourseAssessmentContentView {
     /// Stable opaque Blueprint Assessment Reference retained by an edit of this Assessment.
-    pub blueprint_assessment_reference: BlueprintAssessmentReference,
+    pub blueprint_assessment_reference: BlueprintAssessmentId,
     /// Current answer-free assessment meaning.
     pub content: BlueprintAssessmentContentView,
 }

@@ -54,7 +54,7 @@ SET search_path = pg_catalog, ple_data, ple_private AS $$
                      ) = count(issued.issued_question_id)
                 THEN coalesce(sum(ple_private.grade_contribution_points_possible(
                     assessment_attempt.assessment_type,
-                    issued.scoring_rule,
+                    snapshot.scoring_rule,
                     score.points_possible
                 )), 0)
                 END AS points_possible
@@ -65,15 +65,11 @@ SET search_path = pg_catalog, ple_data, ple_private AS $$
             ON question_attempt.issued_question_id = issued.issued_question_id
           LEFT JOIN ple_private.grading_result AS result
             ON result.question_attempt_id = question_attempt.question_attempt_id
-          LEFT JOIN ple_data.assessment_entry AS entry
-            ON entry.assessment_entry_id = issued.assessment_entry_id
+          LEFT JOIN ple_private.assessment_entry_snapshot AS snapshot
+            ON snapshot.assessment_entry_snapshot_id = issued.assessment_entry_snapshot_id
           LEFT JOIN LATERAL ple_private.score_recorded_credit(
-              result.normalized_credit, issued.scoring_rule,
-              CASE entry.entry_kind
-                  WHEN 'fixed_question' THEN entry.points_possible
-                  ELSE entry.points_per_item
-              END
-          ) AS score ON entry.assessment_entry_id IS NOT NULL
+              result.normalized_credit, snapshot.scoring_rule, snapshot.points
+          ) AS score ON snapshot.assessment_entry_snapshot_id IS NOT NULL
          GROUP BY assessment_attempt.assessment_attempt_id, assessment_attempt.started_at,
                   assessment_attempt.expires_at,
                   assessment_attempt.assessment_type, assessment_attempt.is_submitted
@@ -156,12 +152,14 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
            AND profile.student_account_id = record.student_account_id
     ), released_assessment AS (
         -- ASVS 8.2.2/8.2.3: titles stay in this authorized Course's released set.
-        SELECT assessment.assessment_id, assessment.assessment_title
+        SELECT assessment.assessment_id, policy.assessment_title
           FROM course
           JOIN ple_data.assessment AS assessment
             ON assessment.course_instance_id = course.course_instance_id
            AND assessment.assessment_status = 'released'
-         GROUP BY assessment.assessment_id, assessment.assessment_title
+          JOIN ple_data.assessment_policy_snapshot AS policy
+            ON policy.assessment_policy_snapshot_id = assessment.assessment_policy_snapshot_id
+         GROUP BY assessment.assessment_id, policy.assessment_title
     ), gradebook AS (
         SELECT course.course_instance_id AS course_public_reference,
                student.roster_id,

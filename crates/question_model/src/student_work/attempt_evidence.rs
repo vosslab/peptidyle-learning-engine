@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 
 use super::{AccommodationId, AssessmentAttemptId, AssessmentId, StudentRecordId, Timestamp};
 use crate::{
-    AssessmentActivityRules, AssessmentAttemptReference, AssessmentInstructions, AssessmentTitle,
-    BaseAssessmentPolicy, StudentFeedbackReleaseRule,
+    AssessmentActivityRules, AssessmentInstructions, AssessmentTitle, BaseAssessmentPolicy,
+    StudentFeedbackReleaseRule,
 };
 
 /// Authoritative completion state of one Assessment Attempt.
@@ -86,8 +86,8 @@ impl Default for AssessmentAttemptPolicySources {
 pub struct AssessmentAttempt {
     /// Durable Assessment Attempt identity.
     pub id: AssessmentAttemptId,
-    /// Stable Assessment Attempt Reference used in application navigation.
-    pub reference: AssessmentAttemptReference,
+    /// Assessment Attempt identity used in application navigation.
+    pub reference: AssessmentAttemptId,
     /// Student Record that owns this Assessment Attempt.
     pub student_record: StudentRecordId,
     /// Assessment that this Student Record attempts.

@@ -2,7 +2,7 @@
 
 import type { AssessmentTemplate } from "../../../generated/api/AssessmentTemplate";
 import type { AssessmentTemplateId } from "../../../generated/api/AssessmentTemplateId";
-import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
+import type { CourseInstanceId } from "../../../generated/api/CourseInstanceId";
 import type { ApiClient } from "../client";
 import type {
   AssessmentTemplateClient,
@@ -22,7 +22,7 @@ import { decodeAssessmentTitle, field, requireOnlyFields } from "../decoders/sha
 import { ApiProtocolError, ApiRequestError } from "./error";
 import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
-import { parseCourseInstanceReference } from "../../navigation/public_route";
+import { parseCourseInstanceId } from "../../navigation/public_route";
 
 function templatePath(id?: AssessmentTemplateId): string {
   if (id === undefined) return "/api/assessment-templates";
@@ -32,8 +32,8 @@ function templatePath(id?: AssessmentTemplateId): string {
   return `/api/assessment-templates/${encodeURIComponent(id)}`;
 }
 
-function createFromTemplatePath(course: CourseInstanceReference): string {
-  if (parseCourseInstanceReference(course) === null) {
+function createFromTemplatePath(course: CourseInstanceId): string {
+  if (parseCourseInstanceId(course) === null) {
     throw new ApiProtocolError("Course Instance reference must be canonical");
   }
   return `/api/course-instances/${encodeURIComponent(course)}/assessments/from-template`;

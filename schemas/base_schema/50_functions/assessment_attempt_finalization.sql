@@ -60,12 +60,10 @@ BEGIN
             ON question_attempt.issued_question_id = issued.issued_question_id
           LEFT JOIN ple_private.grading_result AS result
             ON result.question_attempt_id = question_attempt.question_attempt_id
-          JOIN ple_data.assessment_entry AS entry
-            ON entry.assessment_entry_id = issued.assessment_entry_id
+          JOIN ple_private.assessment_entry_snapshot AS snapshot
+            ON snapshot.assessment_entry_snapshot_id = issued.assessment_entry_snapshot_id
           CROSS JOIN LATERAL ple_private.score_recorded_credit(
-              result.normalized_credit, issued.scoring_rule,
-              CASE entry.entry_kind WHEN 'fixed_question' THEN entry.points_possible
-                   ELSE entry.points_per_item END
+              result.normalized_credit, snapshot.scoring_rule, snapshot.points
           ) AS score
          WHERE issued.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id;
         RETURN;
@@ -115,7 +113,7 @@ END $$;
 -- Student authorization remains at this outer boundary.  The common core is
 -- deliberately identity-neutral so the worker never needs a Student session.
 CREATE FUNCTION ple_private.prepare_student_assessment_attempt_finalization(
-    p_assessment_attempt_reference_number bigint
+    p_assessment_attempt_id uuid
 ) RETURNS TABLE (
     preparation_state text,
     finalization_kind text,
@@ -136,7 +134,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE assessment_attempt_row ple_private.assessment_attempt%ROWTYPE;
 BEGIN
     assessment_attempt_row := ple_private.assert_current_student_assessment_attempt(
-        p_assessment_attempt_reference_number
+        p_assessment_attempt_id
     );
     RETURN QUERY SELECT * FROM ple_private.prepare_assessment_attempt_finalization(
         assessment_attempt_row.assessment_attempt_id
@@ -144,7 +142,7 @@ BEGIN
 END $$;
 
 CREATE FUNCTION ple_private.commit_student_assessment_attempt_finalization(
-    p_assessment_attempt_reference_number bigint,
+    p_assessment_attempt_id uuid,
     p_finalization_kind text,
     p_evaluations jsonb
 ) RETURNS TABLE (points_earned double precision, points_possible double precision)
@@ -153,7 +151,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE assessment_attempt_row ple_private.assessment_attempt%ROWTYPE;
 BEGIN
     assessment_attempt_row := ple_private.assert_current_student_assessment_attempt(
-        p_assessment_attempt_reference_number
+        p_assessment_attempt_id
     );
     RETURN QUERY SELECT * FROM ple_private.commit_assessment_attempt_finalization(
         assessment_attempt_row.assessment_attempt_id,
@@ -292,12 +290,10 @@ BEGIN
             ON question_attempt.issued_question_id = issued.issued_question_id
           LEFT JOIN ple_private.grading_result AS result
             ON result.question_attempt_id = question_attempt.question_attempt_id
-          JOIN ple_data.assessment_entry AS entry
-            ON entry.assessment_entry_id = issued.assessment_entry_id
+          JOIN ple_private.assessment_entry_snapshot AS snapshot
+            ON snapshot.assessment_entry_snapshot_id = issued.assessment_entry_snapshot_id
           CROSS JOIN LATERAL ple_private.score_recorded_credit(
-              result.normalized_credit, issued.scoring_rule,
-              CASE entry.entry_kind WHEN 'fixed_question' THEN entry.points_possible
-                   ELSE entry.points_per_item END
+              result.normalized_credit, snapshot.scoring_rule, snapshot.points
           ) AS score
          WHERE issued.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id;
         RETURN;
@@ -339,10 +335,10 @@ BEGIN
             MESSAGE = 'Assessment Attempt saved responses changed';
     END IF;
     INSERT INTO ple_private.assessment_submission(
-        assessment_submission_id, assessment_attempt_id, submitted_at,
+        course_instance_id, assessment_submission_id, assessment_attempt_id, submitted_at,
         finalization_kind, authorized_by_account_id, receipt
     ) VALUES (
-        assessment_submission_id_value, assessment_attempt_row.assessment_attempt_id, now_value,
+        assessment_attempt_row.course_instance_id, assessment_submission_id_value, assessment_attempt_row.assessment_attempt_id, now_value,
         resolved_kind,
         p_authorized_by_account_id,
         jsonb_build_object('submissionState', 'submitted', 'finalizationKind', resolved_kind)
@@ -366,9 +362,9 @@ BEGIN
     ) LOOP
         question_response_id_value := pg_catalog.gen_random_uuid();
         INSERT INTO ple_private.question_response(
-            question_response_id, assessment_submission_id, question_attempt_id, finalized_at, student_response
+            course_instance_id, question_response_id, assessment_submission_id, question_attempt_id, finalized_at, student_response
         )
-        SELECT question_response_id_value, assessment_submission_id_value, response.question_attempt_id, now_value,
+        SELECT assessment_attempt_row.course_instance_id, question_response_id_value, assessment_submission_id_value, response.question_attempt_id, now_value,
                response.student_response
           FROM ple_private.assessment_attempt_saved_response AS response
          WHERE response.question_attempt_id = evaluation_row.question_attempt_id;
@@ -389,12 +385,10 @@ BEGIN
         ON question_attempt.issued_question_id = issued.issued_question_id
       LEFT JOIN ple_private.grading_result AS result
         ON result.question_attempt_id = question_attempt.question_attempt_id
-      JOIN ple_data.assessment_entry AS entry
-        ON entry.assessment_entry_id = issued.assessment_entry_id
+      JOIN ple_private.assessment_entry_snapshot AS snapshot
+        ON snapshot.assessment_entry_snapshot_id = issued.assessment_entry_snapshot_id
       CROSS JOIN LATERAL ple_private.score_recorded_credit(
-          result.normalized_credit, issued.scoring_rule,
-          CASE entry.entry_kind WHEN 'fixed_question' THEN entry.points_possible
-               ELSE entry.points_per_item END
+          result.normalized_credit, snapshot.scoring_rule, snapshot.points
       ) AS score
      WHERE issued.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id;
 END $$;

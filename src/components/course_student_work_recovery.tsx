@@ -1,5 +1,5 @@
 import { createEffect, createSignal, For, onCleanup, Show, type JSX } from "solid-js";
-import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
+import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type {
   CourseStudentWorkRecoveryClient,
   RecoveredAttempt,
@@ -39,7 +39,7 @@ function Evidence(props: { readonly label: string; readonly text: string | null 
 
 /** Deliberate evidence access, not an archive browser or restoration command. */
 export function CourseStudentWorkRecovery(props: {
-  readonly course: CourseInstanceReference;
+  readonly course: CourseInstanceId;
   readonly client: CourseStudentWorkRecoveryClient;
   /** Authenticated Instructor Account preference, never the Course or browser zone. */
   readonly displayTimeZone: string;

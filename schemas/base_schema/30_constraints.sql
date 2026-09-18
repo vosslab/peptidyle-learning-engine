@@ -9,11 +9,6 @@ ALTER TABLE ple_audit.instructor_account_creation_event
 
 SET LOCAL ROLE ple_data_owner;
 
-ALTER TABLE ple_data.question_pool
-    ADD CONSTRAINT question_pool_source_revision_exists
-    FOREIGN KEY (source_question_pool_id, source_question_pool_revision_number)
-    REFERENCES ple_data.question_pool_revision(question_pool_id, revision_number);
-
 SET LOCAL ROLE ple_private_owner;
 
 ALTER TABLE ple_private.draft_question_source_binding
@@ -69,7 +64,7 @@ ALTER TABLE ple_data.course_instance
             AND char_length(btrim(course_banner_alternative_text)) BETWEEN 1 AND 160)
     );
 
-ALTER TABLE ple_data.assessment_entry
+ALTER TABLE ple_data.assessment_entry_pool
     ADD CONSTRAINT assessment_entry_owns_exact_question_pool_fork
     FOREIGN KEY (
         assessment_entry_id, assessment_id, question_pool_id
@@ -80,8 +75,8 @@ ALTER TABLE ple_data.assessment_entry
 SET LOCAL ROLE ple_private_owner;
 
 ALTER TABLE ple_private.question_response
-    ADD FOREIGN KEY (assessment_submission_id)
-        REFERENCES ple_private.assessment_submission(assessment_submission_id)
+    ADD FOREIGN KEY (course_instance_id, assessment_submission_id)
+        REFERENCES ple_private.assessment_submission(course_instance_id, assessment_submission_id)
         ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED;
 
 -- Late operations for immutable Question Revision public assets.  This module

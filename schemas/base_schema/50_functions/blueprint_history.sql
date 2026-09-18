@@ -58,7 +58,7 @@ BEGIN
         END IF;
         -- Exact recorded metadata states, not invented historical name diffs.
         RETURN QUERY
-        SELECT event.metadata_etag::text, NULL::bigint,
+        SELECT event.blueprint_edit_number::text, NULL::bigint,
                (extract(epoch FROM event.occurred_at) * 1000)::bigint,
                event.short_name, event.long_name, event.availability,
                event.content_discipline_id, event.content_subject_id, event.content_topic_id,
@@ -69,7 +69,7 @@ BEGIN
                SELECT prior.blueprint_metadata_event_id
                  FROM ple_data.blueprint_metadata_event AS prior
                 WHERE prior.blueprint_course_id = v_reference
-                  AND prior.metadata_etag = p_after::uuid))
+                  AND prior.blueprint_edit_number = p_after::bigint))
          ORDER BY event.blueprint_metadata_event_id DESC LIMIT p_page_size + 1;
     END IF;
 END

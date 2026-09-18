@@ -11,8 +11,8 @@ use std::num::NonZeroU32;
 
 use question_model::{
     AccountTimeZone, AssessmentActivityRules, AssessmentEditNumber, AssessmentEntry,
-    AssessmentInstructions, AssessmentOrigin, AssessmentReference, AssessmentStatus,
-    AssessmentTitle, AssessmentType, CourseInstanceReference, LateWorkRule, LocalDateAndTime,
+    AssessmentInstructions, AssessmentOrigin, AssessmentId, AssessmentStatus,
+    AssessmentTitle, AssessmentType, CourseInstanceId, LateWorkRule, LocalDateAndTime,
     QuestionRevisionReference, StudentFeedbackReleaseRule,
 };
 use serde::{Deserialize, Serialize};
@@ -33,7 +33,7 @@ pub struct AssessmentBlueprintUpdateReview {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CourseBlueprintUpdateReview {
-    pub blueprint_reference: question_model::BlueprintCourseReference,
+    pub blueprint_reference: question_model::BlueprintCourseId,
     /// Immutable creation pin, not a claim that the whole Course has applied a Revision.
     pub adopted_revision: question_model::BlueprintRevision,
     pub source_revision: question_model::BlueprintRevision,
@@ -44,7 +44,7 @@ pub struct CourseBlueprintUpdateReview {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CourseAssessmentBlueprintUpdateSummary {
-    pub assessment_reference: AssessmentReference,
+    pub assessment_reference: AssessmentId,
     pub title: AssessmentTitle,
     pub assessment_type: AssessmentType,
     pub matches_source: bool,
@@ -241,7 +241,7 @@ pub struct AuthoredAssessmentQuestion {
 #[serde(rename_all = "camelCase")]
 pub struct CourseAssessmentSummary {
     /// Public Assessment Reference; internal Assessment identity remains server-side.
-    pub reference: AssessmentReference,
+    pub reference: AssessmentId,
     /// Fixed pedagogical purpose of this Assessment.
     pub assessment_type: AssessmentType,
     /// Current Instructor-authored Assessment Title.
@@ -261,11 +261,11 @@ pub struct CourseAssessmentSummary {
 #[serde(rename_all = "camelCase")]
 pub struct DueSoonAssessmentSummary {
     /// Public Course Instance reference; internal Course identity remains server-side.
-    pub course_reference: CourseInstanceReference,
+    pub course_reference: CourseInstanceId,
     /// Descriptive Course Instance name for cross-Course lists.
     pub course_long_name: String,
     /// Public Assessment reference; internal Assessment identity remains server-side.
-    pub assessment_reference: AssessmentReference,
+    pub assessment_reference: AssessmentId,
     /// Fixed pedagogical purpose of this Assessment.
     pub assessment_type: AssessmentType,
     /// Current Instructor-authored Assessment title.
@@ -313,7 +313,7 @@ where
 #[serde(rename_all = "camelCase")]
 pub struct LiveAssessmentWorkspace {
     /// Public Assessment Reference; internal Assessment identity remains server-side.
-    pub reference: AssessmentReference,
+    pub reference: AssessmentId,
     /// Exact compare-and-swap value for the current authored content.
     pub edit_number: AssessmentEditNumber,
     /// Stable Assessment lifecycle, separate from future Assessment Access.
@@ -540,7 +540,7 @@ pub trait LiveAssessmentStore: Send + Sync {
     async fn review_course_blueprint_update(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
+        course: CourseInstanceId,
     ) -> Result<CourseBlueprintUpdateReview, StoreError> {
         let _ = (session_token_hash, course);
         Err(StoreError::Unavailable(
@@ -552,8 +552,8 @@ pub trait LiveAssessmentStore: Send + Sync {
     async fn review_assessment_blueprint_update(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
-        assessment: AssessmentReference,
+        course: CourseInstanceId,
+        assessment: AssessmentId,
     ) -> Result<AssessmentBlueprintUpdateReview, StoreError> {
         let _ = (session_token_hash, course, assessment);
         Err(StoreError::Unavailable(
@@ -565,8 +565,8 @@ pub trait LiveAssessmentStore: Send + Sync {
     async fn apply_assessment_blueprint_update(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
-        assessment: AssessmentReference,
+        course: CourseInstanceId,
+        assessment: AssessmentId,
         input: ApplyAssessmentBlueprintUpdateInput,
         bloom_receipts: crate::PoolBloomPreparationReceipts,
     ) -> Result<LiveAssessmentWorkspace, StoreError> {
@@ -592,21 +592,21 @@ pub trait LiveAssessmentStore: Send + Sync {
     async fn list_course_assessments(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
+        course: CourseInstanceId,
     ) -> Result<Vec<CourseAssessmentSummary>, StoreError>;
 
     /// Lists answer-free currently Available Published Questions for one authorized picker.
     async fn list_assessment_question_picker(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
+        course: CourseInstanceId,
     ) -> Result<Vec<AssessmentQuestionPickerEntry>, StoreError>;
 
     /// Creates one Unreleased Assessment without Question selection or Student activity.
     async fn create_live_assessment(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
+        course: CourseInstanceId,
         input: CreateLiveAssessmentInput,
     ) -> Result<LiveAssessmentWorkspace, StoreError>;
 
@@ -614,16 +614,16 @@ pub trait LiveAssessmentStore: Send + Sync {
     async fn load_live_assessment(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
-        assessment: AssessmentReference,
+        course: CourseInstanceId,
+        assessment: AssessmentId,
     ) -> Result<LiveAssessmentWorkspace, StoreError>;
 
     /// Saves complete authored content with its exact Assessment Edit Number.
     async fn save_live_assessment(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
-        assessment: AssessmentReference,
+        course: CourseInstanceId,
+        assessment: AssessmentId,
         input: SaveLiveAssessmentInput,
     ) -> Result<LiveAssessmentWorkspace, StoreError>;
 
@@ -631,8 +631,8 @@ pub trait LiveAssessmentStore: Send + Sync {
     async fn save_live_assessment_inline(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
-        assessment: AssessmentReference,
+        course: CourseInstanceId,
+        assessment: AssessmentId,
         expected_edit_number: AssessmentEditNumber,
         input: SaveLiveAssessmentInlineInput,
     ) -> Result<CourseAssessmentSummary, StoreError>;
@@ -641,8 +641,8 @@ pub trait LiveAssessmentStore: Send + Sync {
     async fn save_base_assessment_policy(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
-        assessment: AssessmentReference,
+        course: CourseInstanceId,
+        assessment: AssessmentId,
         input: SaveBaseAssessmentPolicyInput,
     ) -> Result<LiveAssessmentWorkspace, StoreError>;
 
@@ -650,8 +650,8 @@ pub trait LiveAssessmentStore: Send + Sync {
     async fn validate_live_assessment_release(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
-        assessment: AssessmentReference,
+        course: CourseInstanceId,
+        assessment: AssessmentId,
     ) -> Result<AssessmentReleaseValidation, StoreError>;
 
     /// Transitions the current Assessment from Unreleased to Released after
@@ -659,8 +659,8 @@ pub trait LiveAssessmentStore: Send + Sync {
     async fn release_live_assessment(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
-        assessment: AssessmentReference,
+        course: CourseInstanceId,
+        assessment: AssessmentId,
         expected_edit_number: AssessmentEditNumber,
     ) -> Result<LiveAssessmentWorkspace, StoreError>;
 
@@ -668,8 +668,8 @@ pub trait LiveAssessmentStore: Send + Sync {
     async fn read_live_assessment_unrelease_impact(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
-        assessment: AssessmentReference,
+        course: CourseInstanceId,
+        assessment: AssessmentId,
     ) -> Result<AssessmentUnreleaseImpact, StoreError>;
 
     /// Atomically deletes rooted Student Work and restores the current Assessment
@@ -677,8 +677,8 @@ pub trait LiveAssessmentStore: Send + Sync {
     async fn unrelease_live_assessment(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
-        assessment: AssessmentReference,
+        course: CourseInstanceId,
+        assessment: AssessmentId,
         expected_edit_number: AssessmentEditNumber,
         confirmation_title: AssessmentTitle,
     ) -> Result<UnreleasedLiveAssessment, StoreError>;

@@ -22,7 +22,7 @@ SET LOCAL ROLE ple_data_owner;
 REVOKE ALL ON FUNCTION ple_api.materialize_library_watch_notifications(integer),
     ple_data.enqueue_question_watch_revision_event(),
     ple_data.enqueue_question_watch_fork_event(),
-    ple_data.enqueue_question_pool_watch_revision_event(),
+    ple_data.enqueue_question_pool_watch_members_changed_event(),
     ple_data.enqueue_question_pool_watch_fork_event(),
     ple_data.enqueue_library_watch_thread_event(),
     ple_data.enqueue_library_watch_impact_event(),

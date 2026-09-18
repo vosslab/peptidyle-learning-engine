@@ -28,7 +28,7 @@ pub(super) async fn create(
     Path(target): Path<String>,
     Json(input): Json<BlueprintChangeProposalCreateRequest>,
 ) -> Response {
-    let reference = match target.parse::<question_model::BlueprintCourseReference>() {
+    let reference = match target.parse::<question_model::BlueprintCourseId>() {
         Ok(value) => value,
         Err(_) => return invalid_request(),
     };
@@ -46,9 +46,9 @@ pub(super) async fn create(
             session,
             CreateBlueprintChangeProposalInput {
                 source: input.source,
-                source_metadata_etag: input.source_metadata_etag,
+                source_blueprint_edit_number: input.source_blueprint_edit_number,
                 target: input.target,
-                target_metadata_etag: input.target_metadata_etag,
+                target_blueprint_edit_number: input.target_blueprint_edit_number,
             },
         )
         .await
@@ -118,7 +118,7 @@ pub(super) async fn accept(
             AcceptBlueprintChangeProposalInput {
                 proposal_id: id,
                 expected_target: input.expected_target,
-                expected_target_metadata_etag: input.expected_target_metadata_etag,
+                expected_target_blueprint_edit_number: input.expected_target_blueprint_edit_number,
                 decision: change_proposal_view::store_decision(input.decision),
             },
             Default::default(),
@@ -157,7 +157,7 @@ enum MineScope {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ProposalCursor {
     version: u8,
-    target: Option<question_model::BlueprintCourseReference>,
+    target: Option<question_model::BlueprintCourseId>,
     mine: bool,
     page_size: u16,
     after: String,
@@ -255,7 +255,7 @@ async fn list(
 
 fn scope_fields(
     scope: &BlueprintChangeProposalListScope,
-) -> (Option<question_model::BlueprintCourseReference>, bool) {
+) -> (Option<question_model::BlueprintCourseId>, bool) {
     match scope {
         BlueprintChangeProposalListScope::Mine => (None, true),
         BlueprintChangeProposalListScope::Target(reference) => (Some(reference.clone()), false),

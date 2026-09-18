@@ -2,7 +2,7 @@
 
 use async_trait::async_trait;
 use question_model::{
-    AssessmentAttemptCompletion, AssessmentReference, AssessmentType, CourseInstanceReference,
+    AssessmentAttemptCompletion, AssessmentId, AssessmentType, CourseInstanceId,
     CourseTerm,
 };
 use sqlx::{Postgres, Row, Transaction};
@@ -101,7 +101,7 @@ impl LiveStudentCourseLandingStore for PostgresLiveStudentCourseLandingStore {
     async fn list_released_live_student_assessments(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
+        course: CourseInstanceId,
     ) -> Result<Vec<LiveStudentAssessmentLandingSummary>, StoreError> {
         let mut transaction = self.begin(session_token_hash).await?;
         let rows = sqlx::query(
@@ -285,11 +285,11 @@ fn name(value: String, label: &str) -> Result<String, StoreError> {
         .ok_or_else(|| invalid(label))
 }
 
-fn course_reference(value: String) -> Result<CourseInstanceReference, StoreError> {
-    CourseInstanceReference::new(value).map_err(|_| invalid("Course Instance reference"))
+fn course_reference(value: String) -> Result<CourseInstanceId, StoreError> {
+    CourseInstanceId::new(value).map_err(|_| invalid("Course Instance reference"))
 }
 
-fn assessment_reference(value: String) -> Result<AssessmentReference, StoreError> {
-    AssessmentReference::new(value)
+fn assessment_reference(value: String) -> Result<AssessmentId, StoreError> {
+    AssessmentId::new(value)
         .map_err(|_| StoreError::InvalidRecord("Assessment reference is invalid".to_string()))
 }

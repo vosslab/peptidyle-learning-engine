@@ -5,7 +5,7 @@ use std::num::NonZeroU32;
 use async_trait::async_trait;
 use question_model::{
     AssessmentEditNumber, AssessmentEntryId, AssessmentQuestionPoolSelectionCountReceipt,
-    AssessmentReference, CourseInstanceReference,
+    AssessmentId, CourseInstanceId,
 };
 
 use crate::{SessionTokenHash, StoreError};
@@ -14,9 +14,9 @@ use crate::{SessionTokenHash, StoreError};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AssessmentPoolSelectionCountInput {
     /// Opaque Course reference from the canonical route.
-    pub course: CourseInstanceReference,
+    pub course: CourseInstanceId,
     /// Opaque Assessment reference from the canonical route.
-    pub assessment: AssessmentReference,
+    pub assessment: AssessmentId,
     /// Stable Assessment Entry selected by the route.
     pub assessment_entry: AssessmentEntryId,
     /// Strong current Assessment Edit Number from `If-Match`.

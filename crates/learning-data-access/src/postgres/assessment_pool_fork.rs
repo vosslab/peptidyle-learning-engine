@@ -181,7 +181,7 @@ impl AssessmentPoolForkStore for PostgresAssessmentPoolForkStore {
         let mut transaction = self.begin(session_token_hash).await?;
         let row = sqlx::query("SELECT * FROM ple_api.append_assessment_question_pool_fork_revision_for_reference($1,$2,$3,$4,$5,$6,$7,$8)")
             .bind(input.course.as_string()).bind(input.assessment.as_string()).bind(input.assessment_entry.as_uuid()).bind(expected_edit)
-            .bind(input.expected_pool_metadata_etag).bind(question_ids).bind(revision_numbers).bind(true)
+            .bind(input.expected_question_pool_edit_number).bind(question_ids).bind(revision_numbers).bind(true)
             .fetch_one(&mut *transaction).await.map_err(map_sqlx_error)?;
         let assessment_entry = question_model::AssessmentEntryId::from_uuid(
             row.try_get("assessment_entry_id").map_err(map_sqlx_error)?,
@@ -197,8 +197,8 @@ impl AssessmentPoolForkStore for PostgresAssessmentPoolForkStore {
             .map_err(|_| invalid("Assessment Pool fork Revision"))?,
         )
         .map_err(|_| invalid("Assessment Pool fork Revision"))?;
-        let metadata_etag = row
-            .try_get("question_pool_metadata_etag")
+        let blueprint_edit_number = row
+            .try_get("question_question_pool_edit_number")
             .map_err(map_sqlx_error)?;
         let assessment_edit_number = question_model::AssessmentEditNumber::new(
             u64::try_from(
@@ -212,7 +212,7 @@ impl AssessmentPoolForkStore for PostgresAssessmentPoolForkStore {
         Ok(AppendedAssessmentPoolForkRevision {
             assessment_entry,
             question_pool_revision_number: revision_number,
-            metadata_etag,
+            blueprint_edit_number,
             assessment_edit_number,
         })
     }

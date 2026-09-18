@@ -22,7 +22,7 @@ const LABELS = {};
 const PARAMETER_VALUES = {
   courseRef: "CI7K3M2QAZ",
   assessmentRef: "A9D2RX5AF",
-  assessmentAttemptRef: "R-1",
+  assessmentAttemptRef: "00000000-0000-0000-0000-000000000001",
   membershipRef: "M-1",
   questionRef: "7K3M-79QP",
   draftQuestionId: "0198e000-0000-7000-8000-000000000001",
@@ -531,7 +531,7 @@ test("deferred assessment-attempt summary retains only its linked current breadc
     { label: "Home", href: "/student", current: false },
     {
       label: "Attempt history",
-      href: "/assessment-attempts/R-1/summary",
+      href: "/assessment-attempts/00000000-0000-0000-0000-000000000001/summary",
       current: true,
     },
   ]);

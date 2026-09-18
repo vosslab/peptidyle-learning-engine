@@ -1,12 +1,12 @@
 // Browser-safe Sysadmin capability for the deliberate Instructor Account lifecycle.
 
-import type { AccountReference } from "../../generated/api/AccountReference";
+import type { AccountId } from "../../generated/api/AccountId";
 
 export type InstructorAccountState = "active" | "deactivated" | "closed";
 
 /** The only Instructor Account fields available to the browser. */
 export interface InstructorAccountSummary {
-  readonly reference: AccountReference;
+  readonly reference: AccountId;
   readonly state: InstructorAccountState;
   readonly lastSuccessfulSignIn: number | null;
   /** Static cross-account projection only; null also conceals private Profile images. */
@@ -50,10 +50,10 @@ export interface InstructorAccountClient {
     input: CreateInstructorAccountInput,
   ) => Promise<InstructorAccountSummary>;
   readonly deactivateInstructorAccount: (
-    reference: AccountReference,
+    reference: AccountId,
     input: DeactivateInstructorAccountInput,
   ) => Promise<InstructorAccountSummary>;
   readonly reactivateInstructorAccount: (
-    reference: AccountReference,
+    reference: AccountId,
   ) => Promise<InstructorAccountSummary>;
 }

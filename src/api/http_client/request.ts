@@ -1,6 +1,6 @@
 import type { AssessmentId } from "../../../generated/api/AssessmentId";
 import type { AssessmentAttempt } from "../../../generated/api/AssessmentAttempt";
-import type { CourseId } from "../../../generated/api/CourseId";
+import type { CourseInstanceId } from "../../../generated/api/CourseInstanceId";
 import type { QuestionAttemptId } from "../../../generated/api/QuestionAttemptId";
 import type { ApiClient } from "../client";
 import type {
@@ -117,7 +117,7 @@ function assessmentEditPrecondition(assessmentEditEtag: string): string {
     throw new ApiProtocolError("assessment edit number must be one positive strong numeric ETag");
   return assessmentEditEtag.slice(1, -1);
 }
-function assessmentPath(courseId: CourseId, assessmentId?: AssessmentId): string {
+function assessmentPath(courseId: CourseInstanceId, assessmentId?: AssessmentId): string {
   const course = encodedId(courseId);
   return assessmentId === undefined
     ? `/api/courses/${course}/assessments`
@@ -125,7 +125,7 @@ function assessmentPath(courseId: CourseId, assessmentId?: AssessmentId): string
 }
 
 export function studentAttemptPath(
-  courseId: CourseId,
+  courseId: CourseInstanceId,
   assessmentId: AssessmentId,
   attemptId: QuestionAttemptId,
 ): string {
@@ -136,7 +136,7 @@ export async function requestAssessmentEditor(
   fetchImplementation: ApiFetch,
   basePath: string,
   path: string,
-  expected: { readonly assessmentId?: AssessmentId; readonly courseId?: CourseId },
+  expected: { readonly assessmentId?: AssessmentId; readonly courseId?: CourseInstanceId },
   options: RequestOptions = {},
 ): Promise<AssessmentEditorDetail> {
   const headers: Record<string, string> = { accept: "application/json", ...options.headers };

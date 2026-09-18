@@ -3,7 +3,7 @@
 use async_trait::async_trait;
 use browser_api_contract::blueprint_course::BlueprintHistoryEntryView;
 use question_model::{
-    BlueprintAvailability, BlueprintCourseReference, BlueprintRevision, Timestamp,
+    BlueprintAvailability, BlueprintCourseId, BlueprintRevision, Timestamp,
 };
 use sqlx::Row;
 
@@ -18,7 +18,7 @@ impl BlueprintHistoryStore for PostgresBlueprintCourseStore {
     async fn list_blueprint_history(
         &self,
         session: SessionTokenHash,
-        reference: BlueprintCourseReference,
+        reference: BlueprintCourseId,
         kind: BlueprintHistoryKind,
         page: PageRequest,
     ) -> Result<Page<BlueprintHistoryEntryView>, StoreError> {

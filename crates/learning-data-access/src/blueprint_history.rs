@@ -1,7 +1,7 @@
 //! Bounded ordinary-visibility reads of existing Blueprint history facts.
 
 use async_trait::async_trait;
-use question_model::BlueprintCourseReference;
+use question_model::BlueprintCourseId;
 
 use crate::{Page, PageRequest, SessionTokenHash, StoreError};
 use browser_api_contract::blueprint_course::BlueprintHistoryEntryView;
@@ -28,7 +28,7 @@ pub trait BlueprintHistoryStore: Send + Sync {
     async fn list_blueprint_history(
         &self,
         session: SessionTokenHash,
-        reference: BlueprintCourseReference,
+        reference: BlueprintCourseId,
         kind: BlueprintHistoryKind,
         page: PageRequest,
     ) -> Result<Page<BlueprintHistoryEntryView>, StoreError>;

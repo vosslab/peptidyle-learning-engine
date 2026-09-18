@@ -1,6 +1,6 @@
 // Strict browser boundary for the deliberately small Instructor Accounts DTO.
 
-import type { AccountReference } from "../../../generated/api/AccountReference";
+import type { AccountId } from "../../../generated/api/AccountId";
 import type {
   CompleteInstructorIdentityVettingInput,
   CreateInstructorAccountInput,
@@ -43,13 +43,13 @@ function requireOnlyFields(
 }
 
 /** The Sysadmin-only Account reference is opaque, not a public route identity. */
-export function isCanonicalAccountReference(value: string): value is AccountReference {
+export function isCanonicalAccountId(value: string): value is AccountId {
   return validateCanonicalPublicReference("account", value) !== null;
 }
 
-function accountReference(value: unknown, path: string): AccountReference {
+function accountReference(value: unknown, path: string): AccountId {
   const decoded = decodeString(value, path);
-  if (!isCanonicalAccountReference(decoded)) {
+  if (!isCanonicalAccountId(decoded)) {
     throw new DecodeError(path, "a canonical Instructor Account public reference");
   }
   return decoded;

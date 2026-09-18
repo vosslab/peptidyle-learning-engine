@@ -9,7 +9,7 @@ use learning_data_access::{
     AssessmentStartDecision, LiveAssessmentDeliveryStore, LiveStudentCourseLandingStore,
     SessionTokenHash,
 };
-use question_model::{AssessmentReference, AssessmentType, CourseInstanceReference};
+use question_model::{AssessmentId, AssessmentType, CourseInstanceId};
 use sqlx::Row;
 use uuid::Uuid;
 
@@ -167,7 +167,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
         .expect("API fixture role");
     let blueprint_reference_number: i64 = sqlx::query_scalar(
         "INSERT INTO ple_data.blueprint_course \
-         (blueprint_id, owner_account_id, short_name, long_name, metadata_etag, created_at, discipline_uuid, tags) \
+         (blueprint_id, owner_account_id, short_name, long_name, blueprint_edit_number, created_at, discipline_uuid, tags) \
          VALUES ($1, $2, 'ACCESS', 'Assessment Access Blueprint', \
                  '00000000-0000-0000-0000-00000000ec04', clock_timestamp(), '00000000-0000-0000-0000-00000000cc01', ARRAY[]::text[]) \
          RETURNING reference_number",
@@ -424,9 +424,9 @@ async fn access_reader_projects_one_authoritative_decision_and_effective_policy(
         .commit()
         .await
         .expect("route fixture commit");
-    let course = CourseInstanceReference::new(&course_public_reference).expect("Course reference");
+    let course = CourseInstanceId::new(&course_public_reference).expect("Course reference");
     let assessment =
-        AssessmentReference::new(&assessment_public_reference).expect("Assessment reference");
+        AssessmentId::new(&assessment_public_reference).expect("Assessment reference");
 
     let application_url = std::env::var("DATABASE_URL").expect("application database URL");
     let application = lazy_pool(&application_url).expect("application pool");

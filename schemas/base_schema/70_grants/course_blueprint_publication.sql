@@ -27,10 +27,10 @@ SET LOCAL ROLE ple_api_owner;
 REVOKE ALL ON FUNCTION
     ple_api.load_course_blueprint_publication_source(text),
     ple_api.course_blueprint_publication_receipt(text, bytea),
-    ple_api.create_blueprint_from_course_instance(text, uuid, jsonb, text, bytea, text, text, jsonb, bytea, uuid, uuid, uuid, uuid, text[]) FROM PUBLIC;
+    ple_api.create_blueprint_from_course_instance(text, bigint, jsonb, text, bytea, text, text, jsonb, bytea, uuid, uuid, uuid, uuid, text[]) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION
     ple_api.load_course_blueprint_publication_source(text),
     ple_api.course_blueprint_publication_receipt(text, bytea),
-    ple_api.create_blueprint_from_course_instance(text, uuid, jsonb, text, bytea, text, text, jsonb, bytea, uuid, uuid, uuid, uuid, text[]) TO ple_app;
+    ple_api.create_blueprint_from_course_instance(text, bigint, jsonb, text, bytea, text, text, jsonb, bytea, uuid, uuid, uuid, uuid, text[]) TO ple_app;
 

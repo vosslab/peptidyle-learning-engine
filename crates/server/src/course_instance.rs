@@ -21,7 +21,7 @@ use learning_data_access::{
     StoreError,
     postgres::{PostgresCourseInstanceStore, PostgresSessionStore},
 };
-use question_model::{CourseInstanceReference, CourseInstanceRouteSummary, ProductRole};
+use question_model::{CourseInstanceId, CourseInstanceRouteSummary, ProductRole};
 use serde::Serialize;
 
 use crate::{
@@ -125,7 +125,7 @@ async fn load_course_instance(
     headers: HeaderMap,
     Path(reference): Path<String>,
 ) -> Response {
-    let reference = match CourseInstanceReference::from_str(&reference) {
+    let reference = match CourseInstanceId::from_str(&reference) {
         Ok(value) => value,
         Err(_) => return concealed(),
     };
@@ -148,7 +148,7 @@ async fn read_course_summary(
     headers: HeaderMap,
     Path(reference): Path<String>,
 ) -> Response {
-    let reference = match CourseInstanceReference::from_str(&reference) {
+    let reference = match CourseInstanceId::from_str(&reference) {
         Ok(value) => value,
         Err(_) => return concealed(),
     };
@@ -193,7 +193,7 @@ async fn update_classification(
     Path(reference): Path<String>,
     Json(classification): Json<question_model::CourseClassification>,
 ) -> Response {
-    let reference = match reference.parse::<CourseInstanceReference>() {
+    let reference = match reference.parse::<CourseInstanceId>() {
         Ok(value) => value,
         Err(_) => return concealed(),
     };
@@ -206,7 +206,7 @@ async fn update_classification(
     let expected = match raw
         .strip_prefix('"')
         .and_then(|value| value.strip_suffix('"'))
-        .and_then(|value| value.parse::<question_model::CourseMetadataEtag>().ok())
+        .and_then(|value| value.parse::<question_model::CourseEditNumber>().ok())
     {
         Some(value) => value,
         None => return route_error(StatusCode::BAD_REQUEST, "Course metadata ETag is invalid"),
@@ -221,7 +221,7 @@ async fn update_classification(
         .await
     {
         Ok(value) => {
-            let etag = match HeaderValue::from_str(&format!("\"{}\"", value.metadata_etag)) {
+            let etag = match HeaderValue::from_str(&format!("\"{}\"", value.course_edit_number)) {
                 Ok(value) => value,
                 Err(_) => {
                     return route_error(

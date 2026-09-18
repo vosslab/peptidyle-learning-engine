@@ -4,7 +4,7 @@ use axum::{
     Json, extract::Path, extract::State, http::HeaderMap, http::StatusCode, response::Response,
 };
 use learning_data_access::CourseBlueprintPublicationStore;
-use question_model::{CourseInstanceReference, CreateBlueprintFromCourseInstanceInput};
+use question_model::{CourseInstanceId, CreateBlueprintFromCourseInstanceInput};
 
 use super::{
     BlueprintCourseRouteState, RouteLoadError, blueprint_response, concealed,
@@ -17,7 +17,7 @@ pub(super) async fn create(
     Path(course): Path<String>,
     Json(input): Json<CreateBlueprintFromCourseInstanceInput>,
 ) -> Response {
-    let course = match CourseInstanceReference::new(course) {
+    let course = match CourseInstanceId::new(course) {
         Ok(value) => value,
         Err(_) => return concealed(),
     };

@@ -6,7 +6,7 @@ import { createRecordingFetch } from "./http_client_test_support.mjs";
 
 function history() {
   return {
-    assessmentAttempt: "R-12",
+    assessmentAttempt: "00000000-0000-0000-0000-00000000000c",
     attemptNumber: 3,
     course: {
       reference: "CI7K3M2QAZ",
@@ -35,10 +35,10 @@ test("selected Attempt history uses the exact same-origin no-store reader and st
   );
   const client = createHttpApiClient({ fetch: recordingFetch, basePath: "/live" });
 
-  assert.deepEqual(await client.getStudentAssessmentAttemptHistory("R-12"), history());
+  assert.deepEqual(await client.getStudentAssessmentAttemptHistory("00000000-0000-0000-0000-00000000000c"), history());
   assert.equal(
     requests[0]?.url,
-    "https://client.example.test/live/api/assessment-attempts/R-12/history",
+    "https://client.example.test/live/api/assessment-attempts/00000000-0000-0000-0000-00000000000c/history",
   );
   assert.equal(requests[0]?.method, "GET");
   assert.equal(requests[0]?.credentials, "same-origin");

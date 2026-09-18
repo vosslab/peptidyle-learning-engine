@@ -31,7 +31,7 @@ export function courseRouteData(reference: string): CourseRouteView {
 /** UUID-free display context for the live Student Assessment Attempt route. */
 export function assignmentAttemptContext(reference: string): StudentAssessmentAttemptContext {
   return {
-    assessmentAttempt: "R-1",
+    assessmentAttempt: "00000000-0000-0000-0000-000000000001",
     attemptNumber: 1,
     displayTimeZone: "America/Chicago",
     expiresAt: 1_768_507_200_000,
@@ -49,7 +49,7 @@ export function assignmentAttemptContext(reference: string): StudentAssessmentAt
 /** Complete direct-consumer record for an Attempt history route. */
 export function assignmentAttemptHistoryData(reference: string): StudentAssessmentAttemptHistory {
   return {
-    assessmentAttempt: "R-1",
+    assessmentAttempt: "00000000-0000-0000-0000-000000000001",
     attemptNumber: 1,
     course: {
       reference,

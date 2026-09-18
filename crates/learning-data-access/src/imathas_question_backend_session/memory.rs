@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Mutex;
 
 use async_trait::async_trait;
-use question_model::{AccountId, CourseId, QuestionAttemptId, Timestamp};
+use question_model::{AccountId, CourseInstanceId, QuestionAttemptId, Timestamp};
 
 use crate::{ImathasQuestionBackendSessionStore, SessionTokenHash, StoreError};
 
@@ -26,7 +26,7 @@ pub struct MemoryImathasQuestionBackendSessionStore {
 struct MemoryState {
     now: Timestamp,
     authenticated_accounts: BTreeMap<SessionTokenHash, AccountId>,
-    active_student_authorizations: BTreeSet<(AccountId, CourseId, QuestionAttemptId)>,
+    active_student_authorizations: BTreeSet<(AccountId, CourseInstanceId, QuestionAttemptId)>,
     records:
         BTreeMap<ImathasQuestionBackendSessionReference, MemoryImathasQuestionBackendSessionRecord>,
     used_nonces: BTreeSet<(
@@ -65,7 +65,7 @@ impl MemoryImathasQuestionBackendSessionStore {
     pub fn install_active_student_authorization(
         &self,
         account: AccountId,
-        course: CourseId,
+        course: CourseInstanceId,
         question_attempt: QuestionAttemptId,
     ) {
         self.state
@@ -78,7 +78,7 @@ impl MemoryImathasQuestionBackendSessionStore {
     pub fn revoke_active_student_authorization(
         &self,
         account: AccountId,
-        course: CourseId,
+        course: CourseInstanceId,
         question_attempt: QuestionAttemptId,
     ) {
         self.state
@@ -92,7 +92,7 @@ impl MemoryImathasQuestionBackendSessionStore {
         state
             .authenticated_accounts
             .get(&token)
-            .copied()
+            .cloned()
             .ok_or(StoreError::Forbidden)
     }
 
@@ -100,7 +100,7 @@ impl MemoryImathasQuestionBackendSessionStore {
         state: &MemoryState,
         token: SessionTokenHash,
         account: AccountId,
-        course: CourseId,
+        course: CourseInstanceId,
         attempt: QuestionAttemptId,
     ) -> Result<(), StoreError> {
         if Self::account(state, token)? != account
@@ -129,8 +129,8 @@ impl ImathasQuestionBackendSessionStore for MemoryImathasQuestionBackendSessionS
         Self::authorize(
             &state,
             token,
-            create.account,
-            create.course,
+            create.account.clone(),
+            create.course.clone(),
             create.grading_context.question_attempt(),
         )?;
         if create.issued_at > state.now || create.expires_at <= state.now {
@@ -168,8 +168,8 @@ impl ImathasQuestionBackendSessionStore for MemoryImathasQuestionBackendSessionS
         Self::authorize(
             &state,
             token,
-            session.account,
-            session.course,
+            session.account.clone(),
+            session.course.clone(),
             session.grading_context.question_attempt(),
         )?;
         if !expectation.matches(session) {

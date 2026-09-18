@@ -7,8 +7,8 @@ import type { CourseAppearanceView } from "../../../generated/api/CourseAppearan
 import type { CourseThemeUpdate } from "../../../generated/api/CourseThemeUpdate";
 import type { CourseBannerUpdate } from "../../../generated/api/CourseBannerUpdate";
 import type { CourseBannerUploadReceipt } from "../../../generated/api/CourseBannerUploadReceipt";
-import type { CourseId } from "../../../generated/api/CourseId";
-import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
+import type { CourseInstanceId } from "../../../generated/api/CourseInstanceId";
+import type { CourseInstanceId } from "../../../generated/api/CourseInstanceId";
 import type { CourseBannerReference } from "../../../generated/api/CourseBannerReference";
 import type { StudentRecordId } from "../../../generated/api/StudentRecordId";
 import type { QuestionId } from "../../../generated/api/QuestionId";
@@ -53,7 +53,7 @@ import {
   decodeSelectProvidedProfileAvatarInput,
 } from "../decoders/profile_avatar";
 import { ApiProtocolError, ApiRequestError } from "./error";
-import { parseCourseInstanceReference } from "../../navigation/public_route";
+import { parseCourseInstanceId } from "../../navigation/public_route";
 import {
   encodedId,
   cursorPath,
@@ -112,7 +112,7 @@ async function fetchCourseBanner(
 async function issuedQuestionForAttempt(
   fetchImplementation: ApiFetch,
   basePath: string,
-  courseId: CourseId,
+  courseId: CourseInstanceId,
   assessmentId: AssessmentId,
   attempt: StudentQuestionAttempt,
 ): Promise<import("../../../generated/api/QuestionPresentation").QuestionPresentation> {
@@ -154,8 +154,8 @@ export async function boundedResponseJson(
   return decodeJson(text, path);
 }
 
-function courseAppearanceViewPath(courseReference: CourseInstanceReference): string {
-  if (parseCourseInstanceReference(courseReference) === null) {
+function courseAppearanceViewPath(courseReference: CourseInstanceId): string {
+  if (parseCourseInstanceId(courseReference) === null) {
     throw new ApiProtocolError("Course Instance reference must be canonical");
   }
   // ASVS 1.2.2 and 2.2.1: positively validate, then path-encode route input.
@@ -322,7 +322,7 @@ async function fetchProfileAvatarImage(
 async function courseAppearanceView(
   fetchImplementation: ApiFetch,
   basePath: string,
-  courseReference: CourseInstanceReference,
+  courseReference: CourseInstanceId,
 ): Promise<CourseAppearanceView> {
   const path = courseAppearanceViewPath(courseReference);
   const response = await fetchImplementation(requestPath(basePath, path), {
@@ -337,7 +337,7 @@ async function courseAppearanceView(
 async function updateCourseTheme(
   fetchImplementation: ApiFetch,
   basePath: string,
-  courseReference: CourseInstanceReference,
+  courseReference: CourseInstanceId,
   update: CourseThemeUpdate,
 ): Promise<CourseAppearanceView> {
   const path = courseAppearanceViewPath(courseReference);
@@ -359,7 +359,7 @@ async function updateCourseTheme(
 async function uploadCourseBanner(
   fetchImplementation: ApiFetch,
   basePath: string,
-  courseReference: CourseInstanceReference,
+  courseReference: CourseInstanceId,
   image: Blob,
 ): Promise<CourseBannerUploadReceipt> {
   const path = `${courseAppearanceViewPath(courseReference)}/banner-uploads`;
@@ -378,7 +378,7 @@ async function uploadCourseBanner(
 async function setCourseBanner(
   fetchImplementation: ApiFetch,
   basePath: string,
-  courseReference: CourseInstanceReference,
+  courseReference: CourseInstanceId,
   update: CourseBannerUpdate,
 ): Promise<CourseAppearanceView> {
   const path = `${courseAppearanceViewPath(courseReference)}/banner`;
@@ -398,7 +398,7 @@ async function setCourseBanner(
 async function removeCourseBanner(
   fetchImplementation: ApiFetch,
   basePath: string,
-  courseReference: CourseInstanceReference,
+  courseReference: CourseInstanceId,
 ): Promise<CourseAppearanceView> {
   const path = `${courseAppearanceViewPath(courseReference)}/banner`;
   const response = await fetchImplementation(requestPath(basePath, path), {

@@ -4,7 +4,7 @@
 
 import type { Locator, Page } from "playwright";
 
-import { isCanonicalAccountReference } from "../../../src/api/decoders/instructor_account";
+import { isCanonicalAccountId } from "../../../src/api/decoders/instructor_account";
 import type { CaptureSession, ScenarioRuntime } from "./runtime";
 import type { ScenarioDefinition } from "./scenario_types";
 import { enterSysadmin, scrollTop } from "./visible_workflows";
@@ -84,7 +84,7 @@ async function sysadminAccounts(runtime: ScenarioRuntime): Promise<void> {
     await page.getByText("Instructor Account created.", { exact: true }).waitFor();
     const newest = page.getByRole("article").first();
     const reference = (await newest.getByRole("heading", { level: 2 }).innerText()).trim();
-    if (!isCanonicalAccountReference(reference)) {
+    if (!isCanonicalAccountId(reference)) {
       throw new Error("created Instructor Account lacks a canonical public reference");
     }
     await reloadInstructorAccounts(page);

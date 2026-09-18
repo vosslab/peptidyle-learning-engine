@@ -1,6 +1,6 @@
 // Same-origin transport for the current Student Course Landing projection.
 
-import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
+import type { CourseInstanceId } from "../../../generated/api/CourseInstanceId";
 import type { ApiClient } from "../client";
 import type { LiveStudentCourseLandingClient } from "../live_student_course_landing";
 import {
@@ -11,10 +11,10 @@ import {
 import { ApiProtocolError, ApiRequestError } from "./error";
 import { requestSameOrigin, type ApiFetch, type RequestOptions } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
-import { parseCourseInstanceReference } from "../../navigation/public_route";
+import { parseCourseInstanceId } from "../../navigation/public_route";
 
-function assessmentLandingPath(course: CourseInstanceReference): string {
-  if (parseCourseInstanceReference(course) === null) {
+function assessmentLandingPath(course: CourseInstanceId): string {
+  if (parseCourseInstanceId(course) === null) {
     throw new ApiProtocolError("Course Instance reference must be canonical");
   }
   return `/api/course-instances/${encodeURIComponent(course)}/assessment-landing`;

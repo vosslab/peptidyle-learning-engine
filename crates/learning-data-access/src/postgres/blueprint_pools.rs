@@ -3,7 +3,7 @@ use super::connection::map_sqlx_error;
 use crate::blueprint_course::StoredBlueprintAssessmentEntry;
 use crate::{CourseInstancePoolIdIssuer, StoreError, StoredBlueprintCourseContent};
 use question_model::{
-    BlueprintAssessmentReference, BlueprintCourseReference, BlueprintPoolInputChoice,
+    BlueprintAssessmentId, BlueprintCourseId, BlueprintPoolInputChoice,
     BlueprintRevision, QuestionPoolRevisionNumber, QuestionPoolRevisionReference,
     QuestionRevisionReference,
 };
@@ -62,7 +62,7 @@ pub(super) async fn materialize_authoring_pools(
     transaction: &mut Transaction<'_, Postgres>,
     content: &mut StoredBlueprintCourseContent,
     choices: Vec<Vec<Vec<BlueprintPoolInputChoice>>>,
-    context: Option<(BlueprintCourseReference, BlueprintRevision)>,
+    context: Option<(BlueprintCourseId, BlueprintRevision)>,
     prior: Option<&StoredBlueprintCourseContent>,
     issuer: Option<&dyn CourseInstancePoolIdIssuer>,
     _bloom_receipts: &mut crate::PoolBloomPreparationReceipts,
@@ -115,9 +115,7 @@ pub(super) async fn materialize_authoring_pools(
                 match choices.next().ok_or(StoreError::Forbidden)? {
                     BlueprintPoolInputChoice::Import {
                         question_pool_revision,
-                    } => {
-                        *pin = import(transaction, &question_pool_revision, issuer).await?
-                    }
+                    } => *pin = import(transaction, &question_pool_revision, issuer).await?,
                     BlueprintPoolInputChoice::Retained {
                         question_pool_revision,
                         members: replacement,
@@ -167,8 +165,8 @@ pub(super) async fn materialize_authoring_pools(
 
 pub(super) async fn members(
     transaction: &mut Transaction<'_, Postgres>,
-    reference: &BlueprintCourseReference,
-    assessment: BlueprintAssessmentReference,
+    reference: &BlueprintCourseId,
+    assessment: BlueprintAssessmentId,
     pin: &QuestionPoolRevisionReference,
     write: Option<BlueprintRevision>,
 ) -> Result<Vec<QuestionRevisionReference>, StoreError> {

@@ -29,7 +29,10 @@ import { normalizeHumanEnteredQuestionId } from "../src/question_id.ts";
 test("human route references are canonical, typed, and bounded", () => {
   assert.equal(courseInstanceRouteReference("CIABCDEFGS"), "CIABCDEFGS");
   assert.equal(assessmentRouteReference("AABCDEFG8"), "AABCDEFG8");
-  assert.equal(assessmentAttemptRouteReference("R-30"), "R-30");
+  assert.equal(
+    assessmentAttemptRouteReference("00000000-0000-0000-0000-00000000001e"),
+    "00000000-0000-0000-0000-00000000001e",
+  );
   assert.equal(authoringWorkspaceRouteReference("W-40"), "W-40");
   assert.equal(
     draftQuestionRouteId("0198e000-0000-7000-8000-000000000001"),
@@ -37,13 +40,22 @@ test("human route references are canonical, typed, and bounded", () => {
   );
   assert.equal(questionRouteReference("7K3M-79QP"), "7K3M-79QP");
 
-  for (const reference of ["CIABCDEFGS", "AABCDEFG8", "R-30", "W-40"]) {
+  for (const reference of [
+    "CIABCDEFGS",
+    "AABCDEFG8",
+    "00000000-0000-0000-0000-00000000001e",
+    "W-40",
+  ]) {
     assert.equal(parsePublicRouteReference(reference), reference);
   }
   for (const [parser, valid, rejected] of [
     [parseCourseInstanceReference, "CIABCDEFGS", ["C-1", "CIABCDEFG", "CIABCDEFGT"]],
     [parseAssessmentReference, "AABCDEFG8", ["A-1", "AABCDEFG", "AABCDEFG9"]],
-    [parseAssessmentAttemptReference, "R"],
+    [
+      parseAssessmentAttemptReference,
+      "00000000-0000-0000-0000-00000000001e",
+      ["R-1", "R-30", "X-1"],
+    ],
     [parseAuthoringWorkspaceReference, "W"],
   ]) {
     if (Array.isArray(rejected)) {
@@ -83,7 +95,10 @@ test("route resolution recovers protected API identities without weakening refer
   const fixture = {
     courseId: "course-id",
     assessment: { reference: "AABCDEFG8", id: "assessment-id" },
-    assessmentAttempt: { reference: "R-1", id: "assessment-attempt-id" },
+    assessmentAttempt: {
+      reference: "00000000-0000-0000-0000-000000000001",
+      id: "00000000-0000-0000-0000-000000000001",
+    },
     workspace: { reference: "W-1", id: "workspace-id" },
   };
   const client = {
@@ -94,7 +109,7 @@ test("route resolution recovers protected API identities without weakening refer
           courseId: fixture.courseId,
           assessmentId: fixture.assessment.id,
         },
-        "R-1": {
+        "00000000-0000-0000-0000-000000000001": {
           kind: "assessmentAttempt",
           courseId: fixture.courseId,
           assessmentId: fixture.assessment.id,
@@ -141,13 +156,16 @@ test("route resolution recovers protected API identities without weakening refer
   await assert.rejects(resolveAssessmentRoute(wrongKindClient, fixture.assessment.reference), {
     message: "Assessment reference resolved to another resource",
   });
-  await assert.rejects(resolveAssessmentAttemptIdentity(client, "CIABCDEFGS"), {
+  await assert.rejects(resolveAssessmentAttemptIdentity(client, undefined), {
     message: "Assessment Attempt route is incomplete",
   });
-  await assert.rejects(resolveAssessmentAttemptIdentity(client, "R-01"), {
+  await assert.rejects(resolveAssessmentAttemptIdentity(client, "CIABCDEFGS"), {
     message: "Assessment Attempt reference is invalid",
   });
-  await assert.rejects(resolveAssessmentAttemptIdentity(wrongKindClient, "R-1"), {
-    message: "Assessment Attempt reference resolved to another resource",
-  });
+  await assert.rejects(
+    resolveAssessmentAttemptIdentity(wrongKindClient, fixture.assessmentAttempt.reference),
+    {
+      message: "Assessment Attempt reference resolved to another resource",
+    },
+  );
 });

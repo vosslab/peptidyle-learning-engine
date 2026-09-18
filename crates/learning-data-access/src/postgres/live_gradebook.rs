@@ -1,7 +1,7 @@
 //! PostgreSQL adapter for the focused Course Gradebook read boundary.
 
 use async_trait::async_trait;
-use question_model::{AssessmentAttemptCompletion, AssessmentReference, CourseInstanceReference};
+use question_model::{AssessmentAttemptCompletion, AssessmentId, CourseInstanceId};
 use sqlx::{Postgres, Row, Transaction};
 
 use super::{Pool, connection::map_sqlx_error};
@@ -53,7 +53,7 @@ impl CourseGradebookStore for PostgresCourseGradebookStore {
     async fn course_gradebook(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceReference,
+        course: CourseInstanceId,
     ) -> Result<CourseGradebook, StoreError> {
         let mut transaction = self.begin(token).await?;
         let rows = sqlx::query(
@@ -156,12 +156,12 @@ fn decode_row(
     }))
 }
 
-fn course_reference(value: String) -> Result<CourseInstanceReference, StoreError> {
-    CourseInstanceReference::new(value).map_err(|_| invalid("Course Reference"))
+fn course_reference(value: String) -> Result<CourseInstanceId, StoreError> {
+    CourseInstanceId::new(value).map_err(|_| invalid("Course Reference"))
 }
 
-fn assessment_reference(value: String) -> Result<AssessmentReference, StoreError> {
-    AssessmentReference::new(value).map_err(|_| invalid("Assessment Reference"))
+fn assessment_reference(value: String) -> Result<AssessmentId, StoreError> {
+    AssessmentId::new(value).map_err(|_| invalid("Assessment Reference"))
 }
 
 fn finite_nonnegative(value: f64, label: &str) -> Result<f64, StoreError> {

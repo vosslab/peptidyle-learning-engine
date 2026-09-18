@@ -29,8 +29,10 @@ BEGIN
     -- stable Question lineage match deliberately ignores the pinned Revision.
     RETURN QUERY
     WITH authorized_course_question_ids(published_question_id) AS MATERIALIZED (
-        SELECT entry.published_question_id
+        SELECT question.published_question_id
           FROM ple_data.assessment_entry AS entry
+          JOIN ple_data.assessment_entry_question AS question
+            ON question.assessment_entry_id = entry.assessment_entry_id
           JOIN ple_data.assessment AS assessment
             ON assessment.assessment_id = entry.assessment_id
          WHERE entry.availability = 'available'
@@ -39,11 +41,12 @@ BEGIN
         UNION
         SELECT member.published_question_id
           FROM ple_data.assessment_entry AS entry
+          JOIN ple_data.assessment_entry_pool AS pool_entry
+            ON pool_entry.assessment_entry_id = entry.assessment_entry_id
           JOIN ple_data.assessment AS assessment
             ON assessment.assessment_id = entry.assessment_id
-          JOIN ple_data.question_pool_revision_member AS member
-            ON member.question_pool_id = entry.question_pool_id
-           AND member.revision_number = entry.question_pool_revision_number
+          JOIN ple_data.question_pool_member AS member
+            ON member.question_pool_id = pool_entry.question_pool_id
          WHERE entry.availability = 'available'
            AND entry.entry_kind = 'question_pool'
            AND ple_api.current_session_account_is_course_instructor(assessment.course_instance_id)

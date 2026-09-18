@@ -1,7 +1,7 @@
 // Same-origin, no-store transport for real Student time configuration.
-import type { AssessmentReference } from "../../../generated/api/AssessmentReference";
+import type { AssessmentId } from "../../../generated/api/AssessmentId";
 import type { AssessmentStudentTimeAccommodation } from "../../../generated/api/AssessmentStudentTimeAccommodation";
-import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
+import type { CourseInstanceId } from "../../../generated/api/CourseInstanceId";
 import type { AssessmentStudentTimeAccommodationClient } from "../assessment_student_time_accommodation";
 import type { SaveAssessmentStudentTimeAccommodationInput } from "../../../generated/api/SaveAssessmentStudentTimeAccommodationInput";
 import {
@@ -10,8 +10,8 @@ import {
   decodeStudentTimeMultiplier,
 } from "../decoders/assessment_student_time_accommodation";
 import {
-  parseAssessmentReference,
-  parseCourseInstanceReference,
+  parseAssessmentId,
+  parseCourseInstanceId,
 } from "../../navigation/public_route";
 import { ApiProtocolError, ApiRequestError } from "./error";
 import { requestSameOrigin, type ApiFetch } from "./request";
@@ -22,14 +22,14 @@ export function createAssessmentStudentTimeAccommodationClient(
   basePath: string,
 ): AssessmentStudentTimeAccommodationClient {
   async function configuration(
-    course: CourseInstanceReference,
-    assessment: AssessmentReference,
+    course: CourseInstanceId,
+    assessment: AssessmentId,
     rosterId: string,
     input?: SaveAssessmentStudentTimeAccommodationInput,
   ): Promise<AssessmentStudentTimeAccommodation> {
     if (
-      parseCourseInstanceReference(course) === null ||
-      parseAssessmentReference(assessment) === null ||
+      parseCourseInstanceId(course) === null ||
+      parseAssessmentId(assessment) === null ||
       !/^[A-Za-z0-9._-]{1,64}$/u.test(rosterId)
     )
       throw new ApiProtocolError("Student time configuration route is invalid");

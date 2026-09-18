@@ -1,13 +1,13 @@
 // One strict resolution boundary between visible route references and internal API identities.
 
 import type { AssessmentId } from "../../generated/api/AssessmentId";
-import type { CourseId } from "../../generated/api/CourseId";
+import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { AssessmentAttemptId } from "../../generated/api/AssessmentAttemptId";
 import type { WorkspaceId } from "../../generated/api/WorkspaceId";
 import type { ApiClient } from "../api/client";
 import {
   parseAssessmentAttemptReference,
-  parseAssessmentReference,
+  parseAssessmentId,
   parseAuthoringWorkspaceReference,
 } from "./public_route";
 
@@ -25,8 +25,21 @@ function publicReference<Reference extends string>(
   return reference;
 }
 
+function uuidRoute<Reference extends string>(
+  raw: string | undefined,
+  label: string,
+  parse: (value: string) => Reference | null,
+): Reference {
+  if (raw === undefined) {
+    throw new Error(`${label} route is incomplete`);
+  }
+  const reference = parse(raw);
+  if (reference === null) throw new Error(`${label} reference is invalid`);
+  return reference;
+}
+
 export interface ResolvedAssessmentAttemptIdentity {
-  readonly courseId: CourseId;
+  readonly courseInstanceId: CourseInstanceId;
   readonly assessmentId: AssessmentId;
   readonly assessmentAttemptId: AssessmentAttemptId;
 }
@@ -37,13 +50,13 @@ export async function resolveAssessmentAttemptIdentity(
   raw: string | undefined,
 ): Promise<ResolvedAssessmentAttemptIdentity> {
   const resolved = await client.resolveNavigation(
-    publicReference(raw, "R", "Assessment Attempt", parseAssessmentAttemptReference),
+    uuidRoute(raw, "Assessment Attempt", parseAssessmentAttemptReference),
   );
   if (resolved.kind !== "assessmentAttempt") {
     throw new Error("Assessment Attempt reference resolved to another resource");
   }
   return Object.freeze({
-    courseId: resolved.courseId,
+    courseInstanceId: resolved.courseInstanceId,
     assessmentId: resolved.assessmentId,
     assessmentAttemptId: resolved.assessmentAttemptId,
   });
@@ -52,9 +65,12 @@ export async function resolveAssessmentAttemptIdentity(
 export async function resolveAssessmentRoute(
   client: ApiClient,
   raw: string | undefined,
-): Promise<{ readonly courseId: CourseId; readonly assessmentId: AssessmentId }> {
+): Promise<{
+  readonly courseInstanceId: CourseInstanceId;
+  readonly assessmentId: AssessmentId;
+}> {
   const resolved = await client.resolveNavigation(
-    publicReference(raw, "A", "Assessment", parseAssessmentReference),
+    publicReference(raw, "A", "Assessment", parseAssessmentId),
   );
   if (resolved.kind !== "assessment") {
     throw new Error("Assessment reference resolved to another resource");

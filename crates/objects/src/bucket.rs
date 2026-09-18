@@ -2,7 +2,7 @@
 
 use question_model::generation::QuestionSeed;
 use question_model::{
-    CourseBannerReference, CourseBannerRendition, CourseBannerUploadReference, CourseId, ObjectId,
+    CourseBannerReference, CourseBannerRendition, CourseBannerUploadReference, CourseInstanceId, ObjectId,
     ProfileImageReference, QuestionAssetId, QuestionRevisionReference, WorkspaceId,
     WorkspaceImportId,
 };
@@ -182,21 +182,21 @@ pub enum ObjectAddress {
     /// course before persistence adds Account and expiry ownership.
     CourseBannerUpload {
         /// Course whose authorized appearance flow created the upload.
-        course: CourseId,
+        course: CourseInstanceId,
         /// Opaque upload reference returned to the authorized browser.
         upload: CourseBannerUploadReference,
     },
     /// Immutable verified private source retained for one Course Banner.
     CourseBannerSource {
         /// Course whose appearance may reference the banner.
-        course: CourseId,
+        course: CourseInstanceId,
         /// Stable browser-safe banner delivery identity.
         banner: CourseBannerReference,
     },
     /// Immutable normalized private delivery rendition for one Course Banner.
     CourseBannerRendition {
         /// Course whose appearance may reference the banner.
-        course: CourseId,
+        course: CourseInstanceId,
         /// Stable browser-safe banner delivery identity.
         banner: CourseBannerReference,
         /// Closed, server-owned rendition identity.
@@ -212,7 +212,7 @@ pub enum ObjectAddress {
     /// A course-owned Student Record Object.
     StudentRecord {
         /// Exact course whose protected record owns this object.
-        course: CourseId,
+        course: CourseInstanceId,
         /// Physical object-record identity.
         object: ObjectId,
     },
@@ -391,16 +391,16 @@ impl ObjectAddress {
             | Self::StudentRecord { object, .. }
             | Self::Temporary { object } => *object,
             Self::CourseBannerUpload { course, upload } => {
-                course_banner_upload_object_id(*course, *upload)
+                course_banner_upload_object_id(course.clone(), *upload)
             }
             Self::CourseBannerSource { course, banner } => {
-                course_banner_source_object_id(*course, *banner)
+                course_banner_source_object_id(course.clone(), *banner)
             }
             Self::CourseBannerRendition {
                 course,
                 banner,
                 rendition,
-            } => course_banner_rendition_object_id(*course, *banner, *rendition),
+            } => course_banner_rendition_object_id(course.clone(), *banner, *rendition),
             Self::ProfileImage { object, .. } => *object,
         }
     }
@@ -473,38 +473,61 @@ impl ObjectAddress {
 
 /// Derives the immutable physical identity for one Course Banner Upload.
 pub fn course_banner_upload_object_id(
-    course: CourseId,
+    course: CourseInstanceId,
     upload: CourseBannerUploadReference,
 ) -> ObjectId {
-    domain_separated_object_id(
-        b"ple:course-banner-upload:v1\0",
-        [course.as_uuid(), upload.as_uuid(), uuid::Uuid::nil()],
+    domain_separated_object_id_from_parts(
+        b"ple:course-banner-upload:v3\0",
+        course.as_str().as_bytes(),
+        upload.as_uuid().as_bytes(),
+        uuid::Uuid::nil().as_bytes(),
     )
 }
 
 /// Derives the immutable physical identity for one promoted course banner.
-pub fn course_banner_source_object_id(course: CourseId, banner: CourseBannerReference) -> ObjectId {
-    domain_separated_object_id(
-        b"ple:course-banner-source:v1\0",
-        [course.as_uuid(), banner.as_uuid(), uuid::Uuid::nil()],
+pub fn course_banner_source_object_id(course: CourseInstanceId, banner: CourseBannerReference) -> ObjectId {
+    domain_separated_object_id_from_parts(
+        b"ple:course-banner-source:v3\0",
+        course.as_str().as_bytes(),
+        banner.as_uuid().as_bytes(),
+        uuid::Uuid::nil().as_bytes(),
     )
 }
 
 /// Derives the immutable physical identity for one normalized course-banner rendition.
 pub fn course_banner_rendition_object_id(
-    course: CourseId,
+    course: CourseInstanceId,
     banner: CourseBannerReference,
     rendition: CourseBannerRendition,
 ) -> ObjectId {
     let rendition_uuid = match rendition {
         CourseBannerRendition::Banner => uuid::Uuid::from_u128(1),
     };
-    domain_separated_object_id(
-        // `v2` is a direct preproduction cutover.  It prevents the retired
-        // Hero identity from aliasing the only Banner rendition.
-        b"ple:course-banner-rendition:v2\0",
-        [course.as_uuid(), banner.as_uuid(), rendition_uuid],
+    domain_separated_object_id_from_parts(
+        // `v3` hashes the Course public ID. Pre-production has no durable
+        // object-store rows to preserve.
+        b"ple:course-banner-rendition:v3\0",
+        course.as_str().as_bytes(),
+        banner.as_uuid().as_bytes(),
+        rendition_uuid.as_bytes(),
     )
+}
+
+fn domain_separated_object_id_from_parts(
+    domain: &[u8],
+    first: &[u8],
+    second: &[u8],
+    third: &[u8],
+) -> ObjectId {
+    let mut hasher = Sha256::new();
+    hasher.update(domain);
+    hasher.update(first);
+    hasher.update(second);
+    hasher.update(third);
+    let digest = hasher.finalize();
+    let mut object_uuid = [0_u8; 16];
+    object_uuid.copy_from_slice(&digest[..16]);
+    ObjectId::from_uuid(uuid::Uuid::from_bytes(object_uuid))
 }
 
 fn domain_separated_object_id(domain: &[u8], components: [uuid::Uuid; 3]) -> ObjectId {

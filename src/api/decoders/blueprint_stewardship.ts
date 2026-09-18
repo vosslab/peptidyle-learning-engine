@@ -14,7 +14,7 @@ import type {
   BlueprintWatchProjection,
   BlueprintWatchEvent,
 } from "../blueprint_stewardship";
-import { metadataEtag } from "./blueprint_course";
+import { blueprintEditNumber } from "./blueprint_course";
 import { decodeBoundedArray, field, requireOnlyFields } from "./shared";
 
 export function decodeBlueprintStar(value: unknown, path = "response"): BlueprintStarProjection {
@@ -92,11 +92,14 @@ export function decodeBlueprintWatchEvents(
 export function decodeBlueprintPromotion(
   value: unknown,
   path = "response",
-): { readonly promoted: boolean; readonly metadataEtag: string } {
+): { readonly promoted: boolean; readonly blueprintEditNumber: string } {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["promoted", "metadataEtag"]);
+  requireOnlyFields(record, path, ["promoted", "blueprintEditNumber"]);
   return {
     promoted: decodeBoolean(field(record, "promoted", path), `${path}.promoted`),
-    metadataEtag: metadataEtag(field(record, "metadataEtag", path), `${path}.metadataEtag`),
+    blueprintEditNumber: blueprintEditNumber(
+      field(record, "blueprintEditNumber", path),
+      `${path}.blueprintEditNumber`,
+    ),
   };
 }

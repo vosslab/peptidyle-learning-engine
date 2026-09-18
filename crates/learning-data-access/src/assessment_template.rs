@@ -3,7 +3,7 @@
 use async_trait::async_trait;
 use question_model::{
     AssessmentTemplate, AssessmentTemplateEditNumber, AssessmentTemplateId, AssessmentTemplateName,
-    AssessmentTemplateSettings, AssessmentTitle, AssessmentType, CourseInstanceReference,
+    AssessmentTemplateSettings, AssessmentTitle, AssessmentType, CourseInstanceId,
 };
 
 use crate::{LiveAssessmentWorkspace, SessionTokenHash, StoreError};
@@ -66,7 +66,7 @@ pub trait AssessmentTemplateStore: Send + Sync {
     async fn create_assessment_from_template(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
+        course: CourseInstanceId,
         input: CreateAssessmentFromTemplateInput,
     ) -> Result<LiveAssessmentWorkspace, StoreError>;
 }

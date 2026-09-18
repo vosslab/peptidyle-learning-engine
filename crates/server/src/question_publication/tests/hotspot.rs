@@ -266,18 +266,13 @@ async fn native_hotspot_without_a_real_authoring_context_fails_before_any_public
     let workspace = WorkspaceId::from_uuid(Uuid::from_u128(1));
     let (source, _, _) = fixture(&objects, workspace).await;
     let (store, publications) = scripted_store(source, [Ok(())]);
-    let result = NewQuestionLineagePublisher::new(
-        objects,
-        store,
-        fixed_issuer(&["0000000"]),
-        None,
-    )
-    .publish(
-        SessionTokenHash::compute(b"session"),
-        command(workspace),
-        Timestamp::from_unix_millis(2_000),
-    )
-    .await;
+    let result = NewQuestionLineagePublisher::new(objects, store, fixed_issuer(&["0000000"]), None)
+        .publish(
+            SessionTokenHash::compute(b"session"),
+            command(workspace),
+            Timestamp::from_unix_millis(2_000),
+        )
+        .await;
     assert!(matches!(
         result,
         Err(QuestionPublicationError::Store(StoreError::InvalidRecord(

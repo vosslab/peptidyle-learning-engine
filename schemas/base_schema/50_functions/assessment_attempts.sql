@@ -27,6 +27,7 @@ BEGIN
     IF NEW.accommodation_id IS DISTINCT FROM OLD.accommodation_id
        OR NEW.student_record_id IS DISTINCT FROM OLD.student_record_id
        OR NEW.assessment_id IS DISTINCT FROM OLD.assessment_id
+       OR NEW.course_instance_id IS DISTINCT FROM OLD.course_instance_id
        OR NEW.created_at IS DISTINCT FROM OLD.created_at
        OR NEW.accommodation_edit_number <> OLD.accommodation_edit_number + 1 THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
@@ -79,27 +80,17 @@ CREATE FUNCTION ple_private.reject_assessment_attempt_rewrite()
 RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_private AS $$
 BEGIN
     IF NEW.assessment_attempt_id IS DISTINCT FROM OLD.assessment_attempt_id
-       OR NEW.reference_number IS DISTINCT FROM OLD.reference_number
+       OR NEW.course_instance_id IS DISTINCT FROM OLD.course_instance_id
        OR NEW.student_record_id IS DISTINCT FROM OLD.student_record_id
        OR NEW.assessment_id IS DISTINCT FROM OLD.assessment_id
        OR NEW.assessment_attempt_number IS DISTINCT FROM OLD.assessment_attempt_number
        OR NEW.started_at IS DISTINCT FROM OLD.started_at
        OR NEW.expires_at IS DISTINCT FROM OLD.expires_at
-       OR ROW(NEW.assessment_title, NEW.assessment_instructions, NEW.available_at, NEW.due_at, NEW.closes_at,
-              NEW.assessment_attempt_time_limit_seconds, NEW.assessment_attempt_limit, NEW.late_work_rule,
-              NEW.question_variation_rule,
-              NEW.assessment_question_order_rule, NEW.feedback_score,
-              NEW.feedback_per_item_correctness, NEW.feedback_submitted_response,
-              NEW.feedback_question_answer, NEW.feedback_question_answer_explanation, NEW.feedback_class_statistics,
+       OR ROW(NEW.assessment_policy_snapshot_id,
               NEW.schedule_accommodation_id, NEW.schedule_accommodation_edit_number,
               NEW.time_limit_accommodation_id, NEW.time_limit_accommodation_edit_number,
               NEW.assessment_attempt_limit_accommodation_id, NEW.assessment_attempt_limit_accommodation_edit_number)
-           IS DISTINCT FROM ROW(OLD.assessment_title, OLD.assessment_instructions, OLD.available_at, OLD.due_at, OLD.closes_at,
-              OLD.assessment_attempt_time_limit_seconds, OLD.assessment_attempt_limit, OLD.late_work_rule,
-              OLD.question_variation_rule,
-              OLD.assessment_question_order_rule, OLD.feedback_score,
-              OLD.feedback_per_item_correctness, OLD.feedback_submitted_response,
-              OLD.feedback_question_answer, OLD.feedback_question_answer_explanation, OLD.feedback_class_statistics,
+           IS DISTINCT FROM ROW(OLD.assessment_policy_snapshot_id,
               OLD.schedule_accommodation_id, OLD.schedule_accommodation_edit_number,
               OLD.time_limit_accommodation_id, OLD.time_limit_accommodation_edit_number,
               OLD.assessment_attempt_limit_accommodation_id, OLD.assessment_attempt_limit_accommodation_edit_number) THEN
@@ -119,9 +110,8 @@ BEGIN
     IF NOT EXISTS (
         SELECT 1
           FROM ple_private.question_pool_selection AS selection
-          JOIN ple_data.question_pool_revision_member AS member
+          JOIN ple_data.question_pool_member AS member
             ON member.question_pool_id = selection.question_pool_id
-           AND member.revision_number = selection.question_pool_revision_number
          WHERE selection.question_pool_selection_id = NEW.question_pool_selection_id
            AND member.member_position = NEW.member_position
            AND member.published_question_id = NEW.published_question_id

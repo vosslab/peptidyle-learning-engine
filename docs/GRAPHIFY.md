@@ -36,8 +36,8 @@ well-connected symbols provide useful starting points for source inspection.
 | Decoder Utilities | 170 | `src/api/decoders/question_library.ts`, `src/api/decoders/assignment_attempt.ts` | `decodeRecord()`, `requireOnlyFields()`, `field()` |
 | IMathAS HTTP Transport | 166 | `crates/adapters/imathas/src/imathas_question_backend.rs`, `crates/adapters/imathas/src/http_transport.rs` | `ImathasTransportFailure`, `Result`, `imathas_question_backend.rs` |
 | Disposable Demo Lifecycle | 151 | `local_stack_control/disposable_stack_adapter.py`, `local_stack_control/worker_lifecycle.py` | `DisposableComposeTarget`, `disposable_stack_adapter.py`, `lifecycle_migrations.py` |
-| Course Banner Storage | 137 | `crates/learning-data-access/src/course_banner.rs`, `crates/learning-data-access/src/postgres/course_banner.rs` | `SessionTokenHash`, `CourseId`, `CourseBannerReference` |
-| Assignment Release Domain | 136 | `crates/learning-data-access/src/postgres/assignment_release.rs`, `crates/learning-data-access/src/assignment_release.rs` | `CourseInstanceReference`, `AssignmentReference`, `Result` |
+| Course Banner Storage | 137 | `crates/learning-data-access/src/course_banner.rs`, `crates/learning-data-access/src/postgres/course_banner.rs` | `SessionTokenHash`, `CourseInstanceId`, `CourseBannerReference` |
+| Assignment Release Domain | 136 | `crates/learning-data-access/src/postgres/assignment_release.rs`, `crates/learning-data-access/src/assignment_release.rs` | `CourseInstanceId`, `AssignmentReference`, `Result` |
 | Browser API Decoders | 128 | `src/api/http_client/response.ts`, `src/api/http_client/request.ts` | `ApiProtocolError`, `response.ts`, `request.ts` |
 | Application Shell API Context | 124 | `src/pages/course_appearance_page.tsx`, `src/ribbon/route_scope_context.tsx` | `solid-js`, `routes.ts`, `useApplicationApi()` |
 | Container Lifecycle Runner | 117 | `local_stack_control/lifecycle.py`, `local_stack_control/lifecycle_commands.py` | `CommandRunner`, `lifecycle.py`, `ComposeTarget` |

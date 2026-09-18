@@ -1,14 +1,14 @@
 // Browser-safe Instructor Gradebook evidence boundary.
 
-import type { AssessmentReference } from "../../generated/api/AssessmentReference";
+import type { AssessmentId } from "../../generated/api/AssessmentId";
 import type { AssessmentAttemptCompletion } from "../../generated/api/AssessmentAttemptCompletion";
-import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
+import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 
 /** One answer-free progress aggregate for an active Student. */
 export interface CourseGradebookStudentWork {
   readonly rosterId: string;
   readonly rosterName: string;
-  readonly assessmentReference: AssessmentReference;
+  readonly assessmentReference: AssessmentId;
   readonly assessmentTitle: string;
   readonly assessmentAttemptCompletion: AssessmentAttemptCompletion | null;
   /** Derived from server time; no grading operation or queue state. */
@@ -25,7 +25,7 @@ export interface CourseGradebookStudentWork {
 
 /** The complete browser projection for one current Instructor Course. */
 export interface CourseGradebook {
-  readonly courseReference: CourseInstanceReference;
+  readonly courseReference: CourseInstanceId;
   readonly studentWork: ReadonlyArray<CourseGradebookStudentWork>;
 }
 
@@ -33,9 +33,9 @@ export type GradebookExportFormat = "csv" | "tsv";
 
 /** Same-origin current-Instructor Gradebook read and point-export capability. */
 export interface CourseGradebookClient {
-  readonly getCourseGradebook: (course: CourseInstanceReference) => Promise<CourseGradebook>;
+  readonly getCourseGradebook: (course: CourseInstanceId) => Promise<CourseGradebook>;
   readonly downloadCourseGradebook: (
-    course: CourseInstanceReference,
+    course: CourseInstanceId,
     format: GradebookExportFormat,
   ) => Promise<Blob>;
 }

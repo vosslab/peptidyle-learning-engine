@@ -22,7 +22,7 @@ import {
   decodeCanonicalBlueprintCourse,
   decodeBlueprintComparisonView,
 } from "./blueprint_comparison";
-import { metadataEtag, revisionReference, text } from "./blueprint_course";
+import { blueprintEditNumber, revisionReference, text } from "./blueprint_course";
 import { decodeCourseClassification } from "./course_classification";
 import { decodeCursorPage, decodeTimestamp, field, requireOnlyFields } from "./shared";
 
@@ -41,10 +41,10 @@ function summary(value: unknown, path: string): BlueprintChangeProposalSummaryVi
     "proposalId",
     "createdAt",
     "source",
-    "sourceMetadataEtag",
+    "sourceBlueprintEditNumber",
     "sourceNames",
     "target",
-    "targetMetadataEtag",
+    "targetBlueprintEditNumber",
     "targetNames",
     "targetIsStale",
     "accepted",
@@ -54,13 +54,13 @@ function summary(value: unknown, path: string): BlueprintChangeProposalSummaryVi
     `${path}.accepted`,
     (item, itemPath) => {
       const row = decodeRecord(item, itemPath);
-      requireOnlyFields(row, itemPath, ["acceptedAt", "target", "targetMetadataEtag"]);
+      requireOnlyFields(row, itemPath, ["acceptedAt", "target", "targetBlueprintEditNumber"]);
       return {
         acceptedAt: decodeTimestamp(field(row, "acceptedAt", itemPath), `${itemPath}.acceptedAt`),
         target: revisionReference(field(row, "target", itemPath), `${itemPath}.target`),
-        targetMetadataEtag: metadataEtag(
-          field(row, "targetMetadataEtag", itemPath),
-          `${itemPath}.targetMetadataEtag`,
+        targetBlueprintEditNumber: blueprintEditNumber(
+          field(row, "targetBlueprintEditNumber", itemPath),
+          `${itemPath}.targetBlueprintEditNumber`,
         ),
       };
     },
@@ -69,15 +69,15 @@ function summary(value: unknown, path: string): BlueprintChangeProposalSummaryVi
     proposalId: decodeUuid(field(record, "proposalId", path), `${path}.proposalId`),
     createdAt: decodeTimestamp(field(record, "createdAt", path), `${path}.createdAt`),
     source: revisionReference(field(record, "source", path), `${path}.source`),
-    sourceMetadataEtag: metadataEtag(
-      field(record, "sourceMetadataEtag", path),
-      `${path}.sourceMetadataEtag`,
+    sourceBlueprintEditNumber: blueprintEditNumber(
+      field(record, "sourceBlueprintEditNumber", path),
+      `${path}.sourceBlueprintEditNumber`,
     ),
     sourceNames: names(field(record, "sourceNames", path), `${path}.sourceNames`),
     target: revisionReference(field(record, "target", path), `${path}.target`),
-    targetMetadataEtag: metadataEtag(
-      field(record, "targetMetadataEtag", path),
-      `${path}.targetMetadataEtag`,
+    targetBlueprintEditNumber: blueprintEditNumber(
+      field(record, "targetBlueprintEditNumber", path),
+      `${path}.targetBlueprintEditNumber`,
     ),
     targetNames: names(field(record, "targetNames", path), `${path}.targetNames`),
     targetIsStale: decodeBoolean(field(record, "targetIsStale", path), `${path}.targetIsStale`),
@@ -112,8 +112,8 @@ function selection(value: unknown, path: string): BlueprintForkApplySelection {
   );
   const sourceAssessments = copies(
     "sourceAssessments",
-    "sourceAssessmentReference",
-    "targetAssessmentReference",
+    "sourceAssessmentId",
+    "targetAssessmentId",
   );
   const layout = decodeNullable(
     field(record, "layout", path),
@@ -136,11 +136,11 @@ function selection(value: unknown, path: string): BlueprintForkApplySelection {
             kind === "existing"
               ? module
                 ? "targetModuleReference"
-                : "targetAssessmentReference"
+                : "targetAssessmentId"
               : kind === "newFromSource"
                 ? module
                   ? "sourceModuleReference"
-                  : "sourceAssessmentReference"
+                  : "sourceAssessmentId"
                 : null;
           if (key === null) throw new DecodeError(destinationPath, "an explicit destination kind");
           requireOnlyFields(destination, destinationPath, ["kind", key]);
@@ -211,7 +211,7 @@ function side(
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "revision",
-    "metadataEtag",
+    "blueprintEditNumber",
     "names",
     "classification",
     "modules",
@@ -219,7 +219,10 @@ function side(
   ]);
   return {
     revision: revisionReference(field(record, "revision", path), `${path}.revision`),
-    metadataEtag: metadataEtag(field(record, "metadataEtag", path), `${path}.metadataEtag`),
+    blueprintEditNumber: blueprintEditNumber(
+      field(record, "blueprintEditNumber", path),
+      `${path}.blueprintEditNumber`,
+    ),
     names: names(field(record, "names", path), `${path}.names`),
     classification: decodeCourseClassification(
       field(record, "classification", path),
@@ -247,14 +250,14 @@ function comparison(value: unknown, path: string): BlueprintChangeProposalCompar
       left: {
         currentRevision: source.revision,
         names: source.names,
-        metadataEtag: source.metadataEtag,
+        blueprintEditNumber: source.blueprintEditNumber,
         modules: source.modules,
         assessments: source.assessments,
       },
       right: {
         currentRevision: target.revision,
         names: target.names,
-        metadataEtag: target.metadataEtag,
+        blueprintEditNumber: target.blueprintEditNumber,
         modules: target.modules,
         assessments: target.assessments,
       },
@@ -280,7 +283,7 @@ function accepted(value: unknown, path: string): BlueprintChangeProposalAccepted
   requireOnlyFields(record, path, [
     "acceptedAt",
     "target",
-    "targetMetadataEtag",
+    "targetBlueprintEditNumber",
     "decision",
     "appliedSelection",
     "newModules",
@@ -290,9 +293,9 @@ function accepted(value: unknown, path: string): BlueprintChangeProposalAccepted
   return {
     acceptedAt: decodeTimestamp(field(record, "acceptedAt", path), `${path}.acceptedAt`),
     target: revisionReference(field(record, "target", path), `${path}.target`),
-    targetMetadataEtag: metadataEtag(
-      field(record, "targetMetadataEtag", path),
-      `${path}.targetMetadataEtag`,
+    targetBlueprintEditNumber: blueprintEditNumber(
+      field(record, "targetBlueprintEditNumber", path),
+      `${path}.targetBlueprintEditNumber`,
     ),
     decision: decision(field(record, "decision", path), `${path}.decision`),
     appliedSelection: selection(
@@ -321,17 +324,22 @@ export function decodeBlueprintChangeProposalCreateRequest(
   path = "request",
 ): BlueprintChangeProposalCreateRequest {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["source", "sourceMetadataEtag", "target", "targetMetadataEtag"]);
+  requireOnlyFields(record, path, [
+    "source",
+    "sourceBlueprintEditNumber",
+    "target",
+    "targetBlueprintEditNumber",
+  ]);
   return {
     source: revisionReference(field(record, "source", path), `${path}.source`),
-    sourceMetadataEtag: metadataEtag(
-      field(record, "sourceMetadataEtag", path),
-      `${path}.sourceMetadataEtag`,
+    sourceBlueprintEditNumber: blueprintEditNumber(
+      field(record, "sourceBlueprintEditNumber", path),
+      `${path}.sourceBlueprintEditNumber`,
     ),
     target: revisionReference(field(record, "target", path), `${path}.target`),
-    targetMetadataEtag: metadataEtag(
-      field(record, "targetMetadataEtag", path),
-      `${path}.targetMetadataEtag`,
+    targetBlueprintEditNumber: blueprintEditNumber(
+      field(record, "targetBlueprintEditNumber", path),
+      `${path}.targetBlueprintEditNumber`,
     ),
   };
 }
@@ -341,15 +349,19 @@ export function decodeBlueprintChangeProposalAcceptanceRequest(
   path = "request",
 ): BlueprintChangeProposalAcceptanceRequest {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["expectedTarget", "expectedTargetMetadataEtag", "decision"]);
+  requireOnlyFields(record, path, [
+    "expectedTarget",
+    "expectedTargetBlueprintEditNumber",
+    "decision",
+  ]);
   return {
     expectedTarget: revisionReference(
       field(record, "expectedTarget", path),
       `${path}.expectedTarget`,
     ),
-    expectedTargetMetadataEtag: metadataEtag(
-      field(record, "expectedTargetMetadataEtag", path),
-      `${path}.expectedTargetMetadataEtag`,
+    expectedTargetBlueprintEditNumber: blueprintEditNumber(
+      field(record, "expectedTargetBlueprintEditNumber", path),
+      `${path}.expectedTargetBlueprintEditNumber`,
     ),
     decision: decision(field(record, "decision", path), `${path}.decision`),
   };

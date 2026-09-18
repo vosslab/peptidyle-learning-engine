@@ -108,12 +108,6 @@ CREATE INDEX course_membership_account_course_idx ON ple_data.course_membership 
 
 CREATE INDEX student_record_account_course_idx ON ple_data.student_record (student_account_id, course_instance_id);
 
-CREATE INDEX assessment_course_due_idx ON ple_data.assessment(course_instance_id, due_at, assessment_id)
-    WHERE assessment_status IN ('unreleased', 'released');
-
-CREATE INDEX assessment_due_soon_idx ON ple_data.assessment(due_at, course_instance_id, assessment_id)
-    WHERE assessment_status IN ('unreleased', 'released') AND due_at IS NOT NULL;
-
 CREATE INDEX assessment_entry_current_idx ON ple_data.assessment_entry(assessment_id, authored_position)
     WHERE availability = 'available';
 

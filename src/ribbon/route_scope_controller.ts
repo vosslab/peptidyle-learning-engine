@@ -4,7 +4,7 @@ import { createEffect, createMemo, createSignal, type Accessor } from "solid-js"
 
 import type { ApplicationApi } from "../api/application_api";
 import type { OrdinaryBrowserApiClient } from "../api/client";
-import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
+import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { CourseAppearanceView } from "../../generated/api/CourseAppearanceView";
 import {
   courseRouteView,
@@ -193,7 +193,7 @@ export function createRouteScopeController(
   };
 
   const replaceCourseAppearance: ReplaceCourseAppearance = (
-    courseReference: CourseInstanceReference,
+    courseReference: CourseInstanceId,
     appearance: CourseAppearanceView,
   ): void => {
     let changed = false;

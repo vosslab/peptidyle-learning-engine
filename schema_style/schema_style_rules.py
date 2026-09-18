@@ -200,6 +200,8 @@ def _is_uuid_or_public_id_type(col_type: str) -> bool:
 		return True
 	if col_type.startswith("ple_data.") and col_type.endswith("_id"):
 		return True
+	if "sha256_digest" in col_type or col_type == "bytea":
+		return True
 	return False
 
 
@@ -677,9 +679,13 @@ def rule_8_identity(catalog: dict) -> list:
 			if pk_col is None:
 				continue
 			col_type = _column_type(pk_col)
-			# Public-ID tables use a text domain; internals use uuid.
+			# Public-ID tables use a text domain; internals use uuid;
+			# content-addressed snapshots use the SHA-256 digest as PK.
 			if not _is_uuid_or_public_id_type(col_type):
-				findings.append(make_finding("rule_8_identity", table, qualified + "." + pk[0], "PK type is not uuid or text public ID",
+				findings.append(make_finding("rule_8_identity", table, qualified + "." + pk[0], "PK type is not uuid, text public ID, or sha256 digest",
+				))
+			elif ("sha256_digest" in col_type or col_type == "bytea") and table.get("role") != "snapshot":
+				findings.append(make_finding("rule_8_identity", table, qualified + "." + pk[0], "sha256 digest PK is only for snapshot tables",
 				))
 	for qualified, table in catalog["tables"].items():
 		for fk in table["foreign_keys"]:

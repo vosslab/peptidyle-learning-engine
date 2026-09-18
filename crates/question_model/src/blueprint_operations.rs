@@ -5,7 +5,7 @@ use sha2::{Digest, Sha256};
 
 use crate::{
     AssessmentEntryScoringRule, AssessmentInstructions, AssessmentPointValue, AssessmentTitle,
-    BlueprintAssessmentDefaults, BlueprintAssessmentReference, BlueprintCourseValidationError,
+    BlueprintAssessmentDefaults, BlueprintAssessmentId, BlueprintCourseValidationError,
     BlueprintModuleReference, MAX_ASSESSMENT_ORDERED_ENTRIES, QuestionAttemptLimit,
     QuestionAttemptTimeLimit, QuestionRevisionReference, validate_blueprint_course_title,
 };
@@ -65,7 +65,7 @@ impl BlueprintRevisionContent {
 /// One validated Blueprint Assessment with trusted immutable question pins.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BlueprintAssessmentContent {
-    blueprint_assessment_reference: BlueprintAssessmentReference,
+    blueprint_assessment_reference: BlueprintAssessmentId,
     assessment_type: crate::AssessmentType,
     title: AssessmentTitle,
     instructions: AssessmentInstructions,
@@ -75,7 +75,7 @@ pub struct BlueprintAssessmentContent {
 impl BlueprintAssessmentContent {
     /// Validates all Blueprint Assessment meaning before constructing a baseline.
     pub fn new(
-        blueprint_assessment_reference: BlueprintAssessmentReference,
+        blueprint_assessment_reference: BlueprintAssessmentId,
         assessment_type: crate::AssessmentType,
         title: AssessmentTitle,
         instructions: AssessmentInstructions,
@@ -96,7 +96,7 @@ impl BlueprintAssessmentContent {
         })
     }
     /// Returns the stable Blueprint Assessment identity retained across Revisions.
-    pub fn blueprint_assessment_reference(&self) -> BlueprintAssessmentReference {
+    pub fn blueprint_assessment_reference(&self) -> BlueprintAssessmentId {
         self.blueprint_assessment_reference
     }
     /// Returns the fixed pedagogical purpose retained across Blueprint Revisions.
@@ -333,7 +333,7 @@ struct EncodedModule<'a> {
 #[derive(Serialize)]
 #[serde(rename_all = "snake_case")]
 struct EncodedAssessment<'a> {
-    blueprint_assessment_reference: BlueprintAssessmentReference,
+    blueprint_assessment_reference: BlueprintAssessmentId,
     assessment_type: crate::AssessmentType,
     title: &'a str,
     instructions: &'a AssessmentInstructions,

@@ -34,7 +34,7 @@ use objects::{
 };
 use question_model::{
     CourseAppearanceView, CourseBannerReference, CourseBannerRendition, CourseBannerUpdate,
-    CourseBannerUploadReceipt, CourseBannerUploadReference, CourseId, CourseInstanceReference,
+    CourseBannerUploadReceipt, CourseBannerUploadReference, CourseInstanceId,
     CourseThemeUpdate, ProductRole, Timestamp,
 };
 use uuid::Uuid;
@@ -102,7 +102,7 @@ async fn update_theme(
     Path(course): Path<String>,
     request: Request,
 ) -> Response {
-    let reference = match CourseInstanceReference::from_str(&course) {
+    let reference = match CourseInstanceId::from_str(&course) {
         Ok(value) => value,
         Err(_) => return concealed(),
     };
@@ -142,7 +142,7 @@ async fn update_theme(
         &state.themes,
         &state.banners,
         session_hash,
-        course,
+        course.clone(),
         update.theme,
     )
     .await
@@ -159,14 +159,14 @@ async fn update_course_appearance(
     themes: &(impl CourseThemeStore + ?Sized),
     banners: &(impl CourseBannerStore + ?Sized),
     session_hash: SessionTokenHash,
-    course: CourseId,
+    course: CourseInstanceId,
     theme: question_model::CourseTheme,
 ) -> Result<CourseAppearanceView, StoreError> {
     let theme = themes
-        .update_course_theme(session_hash, course, theme)
+        .update_course_theme(session_hash, course.clone().clone(), theme)
         .await?;
     let banner = banners
-        .read_current_course_banner(session_hash, course)
+        .read_current_course_banner(session_hash, course.clone())
         .await?;
     Ok(CourseAppearanceView { theme, banner })
 }
@@ -176,7 +176,7 @@ async fn read_appearance(
     headers: HeaderMap,
     Path(course): Path<String>,
 ) -> Response {
-    let reference = match CourseInstanceReference::from_str(&course) {
+    let reference = match CourseInstanceId::from_str(&course) {
         Ok(value) => value,
         // ASVS 1.2.3 and 8.2.2: malformed identities receive the same
         // no-store concealment response as an authenticated nonmember.
@@ -193,10 +193,14 @@ async fn read_appearance(
     // ASVS 1.2.3 and 8.2.2: this session-bound Store operation invokes
     // current_session_account_is_course_member; role alone never authorizes
     // a Course Appearance read.
-    match state.themes.read_course_theme(session_hash, course).await {
+    match state
+        .themes
+        .read_course_theme(session_hash, course.clone().clone())
+        .await
+    {
         Ok(theme) => match state
             .banners
-            .read_current_course_banner(session_hash, course)
+            .read_current_course_banner(session_hash, course.clone())
             .await
         {
             Ok(banner) => {
@@ -213,7 +217,7 @@ async fn stage_banner_upload(
     Path(course): Path<String>,
     request: Request,
 ) -> Response {
-    let reference = match CourseInstanceReference::from_str(&course) {
+    let reference = match CourseInstanceId::from_str(&course) {
         Ok(value) => value,
         Err(_) => return concealed(),
     };
@@ -249,7 +253,10 @@ async fn stage_banner_upload(
     };
     let upload = CourseBannerUploadReference::generate();
     let media_type = verified.media_type.canonical_media_type().to_string();
-    let address = ObjectAddress::CourseBannerUpload { course, upload };
+    let address = ObjectAddress::CourseBannerUpload {
+        course: course.clone(),
+        upload,
+    };
     let metadata = banner_metadata(
         &address,
         &bytes,
@@ -263,7 +270,7 @@ async fn stage_banner_upload(
         .stage_course_banner_upload(
             token,
             StageCourseBannerUpload {
-                course,
+                course: course.clone(),
                 upload,
                 metadata: metadata.clone(),
                 width: verified.width,
@@ -280,7 +287,7 @@ async fn stage_banner_upload(
         &state.banners,
         &state.objects,
         token,
-        course,
+        course.clone(),
         upload,
         staged_address.put_work_id,
         &staged_address.address,
@@ -300,7 +307,7 @@ async fn promote_banner(
     Path(course): Path<String>,
     request: Request,
 ) -> Response {
-    let reference = match CourseInstanceReference::from_str(&course) {
+    let reference = match CourseInstanceId::from_str(&course) {
         Ok(value) => value,
         Err(_) => return concealed(),
     };
@@ -328,7 +335,7 @@ async fn promote_banner(
     };
     let claimed = match state
         .banners
-        .read_staged_course_banner_upload(token, course, update.upload)
+        .read_staged_course_banner_upload(token, course.clone(), update.upload)
         .await
     {
         Ok(value) => value,
@@ -345,7 +352,7 @@ async fn promote_banner(
             value
         }
         _ => {
-            mark_repair(&state, token, course, None, claimed.object_id).await;
+            mark_repair(&state, token, course.clone(), None, claimed.object_id).await;
             return route_error(
                 StatusCode::SERVICE_UNAVAILABLE,
                 "Course Appearance unavailable",
@@ -353,9 +360,12 @@ async fn promote_banner(
         }
     };
     let banner = CourseBannerReference::generate();
-    let source_address = ObjectAddress::CourseBannerSource { course, banner };
+    let source_address = ObjectAddress::CourseBannerSource {
+        course: course.clone(),
+        banner,
+    };
     let rendition_address = ObjectAddress::CourseBannerRendition {
-        course,
+        course: course.clone(),
         banner,
         rendition: CourseBannerRendition::Banner,
     };
@@ -368,7 +378,7 @@ async fn promote_banner(
         Err(_) => return route_error(StatusCode::UNPROCESSABLE_ENTITY, "Course Banner is invalid"),
     };
     if verified.width != claimed.width || verified.height != claimed.height {
-        mark_repair(&state, token, course, None, claimed.object_id).await;
+        mark_repair(&state, token, course.clone(), None, claimed.object_id).await;
         return route_error(
             StatusCode::SERVICE_UNAVAILABLE,
             "Course Appearance unavailable",
@@ -401,7 +411,7 @@ async fn promote_banner(
         .prepare_course_banner_promotion(
             token,
             PrepareCourseBannerPromotion {
-                course,
+                course: course.clone(),
                 upload: update.upload,
                 banner,
                 update: update.clone(),
@@ -432,14 +442,14 @@ async fn promote_banner(
         &state.banners,
         &state.objects,
         token,
-        course,
+        course.clone(),
         banner,
         &prepared_objects,
     )
     .await
     .is_err()
     {
-        compensate_prepared(&state, token, course, banner, &prepared_objects).await;
+        compensate_prepared(&state, token, course.clone(), banner, &prepared_objects).await;
         return route_error(
             StatusCode::SERVICE_UNAVAILABLE,
             "Course Appearance unavailable",
@@ -447,17 +457,17 @@ async fn promote_banner(
     }
     let finalized = match state
         .banners
-        .finalize_course_banner_promotion(token, course, update.upload, banner)
+        .finalize_course_banner_promotion(token, course.clone(), update.upload, banner)
         .await
     {
         Ok(value) => value,
         Err(error) => {
-            compensate_prepared(&state, token, course, banner, &prepared_objects).await;
+            compensate_prepared(&state, token, course.clone(), banner, &prepared_objects).await;
             return store_error_response(error);
         }
     };
-    cleanup_finalized_promotion(&state, token, course, &finalized).await;
-    let theme = match state.themes.read_course_theme(token, course).await {
+    cleanup_finalized_promotion(&state, token, course.clone(), &finalized).await;
+    let theme = match state.themes.read_course_theme(token, course.clone()).await {
         Ok(value) => value,
         Err(error) => return store_error_response(error),
     };
@@ -475,7 +485,7 @@ async fn remove_banner(
     Path(course): Path<String>,
     headers: HeaderMap,
 ) -> Response {
-    let reference = match CourseInstanceReference::from_str(&course) {
+    let reference = match CourseInstanceId::from_str(&course) {
         Ok(value) => value,
         Err(_) => return concealed(),
     };
@@ -489,12 +499,12 @@ async fn remove_banner(
     };
     match state
         .banners
-        .prepare_course_banner_removal(token, course)
+        .prepare_course_banner_removal(token, course.clone())
         .await
     {
         Ok(removal) => {
-            cleanup_removal(&state, token, course, &removal).await;
-            match state.themes.read_course_theme(token, course).await {
+            cleanup_removal(&state, token, course.clone(), &removal).await;
+            match state.themes.read_course_theme(token, course.clone()).await {
                 Ok(theme) => crate::auth::no_store(
                     Json(CourseAppearanceView {
                         theme,
@@ -530,7 +540,7 @@ async fn deliver_banner(
         Ok(course) => match state
             .objects
             .get(&ObjectAddress::CourseBannerRendition {
-                course,
+                course: course.clone(),
                 banner,
                 rendition: CourseBannerRendition::Banner,
             })
@@ -627,20 +637,20 @@ fn record_matches_metadata(
 async fn mark_repair(
     state: &RouteState,
     token: SessionTokenHash,
-    course: CourseId,
+    course: CourseInstanceId,
     banner: Option<CourseBannerReference>,
     object_id: question_model::ObjectId,
 ) {
     let _ = state
         .banners
-        .require_course_banner_object_repair(token, course, banner, object_id)
+        .require_course_banner_object_repair(token, course.clone(), banner, object_id)
         .await;
 }
 
 async fn compensate_prepared(
     state: &RouteState,
     token: SessionTokenHash,
-    course: CourseId,
+    course: CourseInstanceId,
     banner: CourseBannerReference,
     objects: &[(&ObjectAddress, Vec<u8>, CourseBannerObjectMetadata, Uuid)],
 ) {
@@ -649,7 +659,7 @@ async fn compensate_prepared(
             &state.banners,
             &state.objects,
             token,
-            course,
+            course.clone(),
             Some(banner),
             address,
             *put_work_id,
@@ -665,7 +675,7 @@ async fn write_prepared_objects<S: CourseBannerStore, O: ObjectStore>(
     banners: &S,
     objects: &O,
     token: SessionTokenHash,
-    course: CourseId,
+    course: CourseInstanceId,
     banner: CourseBannerReference,
     prepared: &[(&ObjectAddress, Vec<u8>, CourseBannerObjectMetadata, Uuid)],
 ) -> Result<(), ()> {
@@ -683,7 +693,12 @@ async fn write_prepared_objects<S: CourseBannerStore, O: ObjectStore>(
             return Err(());
         }
         banners
-            .complete_prepared_course_banner_object(token, course, banner, metadata.object_id)
+            .complete_prepared_course_banner_object(
+                token,
+                course.clone(),
+                banner,
+                metadata.object_id,
+            )
             .await
             .map_err(|_| ())?;
     }
@@ -695,7 +710,7 @@ async fn finalize_staged_upload<S: CourseBannerStore, O: ObjectStore>(
     banners: &S,
     objects: &O,
     token: SessionTokenHash,
-    course: CourseId,
+    course: CourseInstanceId,
     upload: CourseBannerUploadReference,
     put_work_id: Uuid,
     address: &ObjectAddress,
@@ -714,19 +729,28 @@ async fn finalize_staged_upload<S: CourseBannerStore, O: ObjectStore>(
     let valid = matches!(&put, Ok(record) if record_matches_metadata(record, address, metadata));
     if !valid {
         let _ = banners
-            .require_course_banner_object_repair(token, course, None, metadata.object_id)
+            .require_course_banner_object_repair(token, course.clone(), None, metadata.object_id)
             .await;
         return Err(StoreError::Unavailable(
             "Course Banner stage object put failed".to_string(),
         ));
     }
     match banners
-        .finalize_course_banner_upload_stage(token, course, upload)
+        .finalize_course_banner_upload_stage(token, course.clone(), upload)
         .await
     {
         Ok(()) => Ok(()),
         Err(error) => {
-            cleanup_address_with(banners, objects, token, course, None, address, put_work_id).await;
+            cleanup_address_with(
+                banners,
+                objects,
+                token,
+                course.clone(),
+                None,
+                address,
+                put_work_id,
+            )
+            .await;
             Err(error)
         }
     }
@@ -735,27 +759,27 @@ async fn finalize_staged_upload<S: CourseBannerStore, O: ObjectStore>(
 async fn cleanup_finalized_promotion(
     state: &RouteState,
     token: SessionTokenHash,
-    course: CourseId,
+    course: CourseInstanceId,
     finalized: &FinalizedCourseBannerPromotion,
 ) {
     cleanup_address(
         state,
         token,
-        course,
+        course.clone(),
         None,
         &finalized.upload,
         finalized.upload_put_work_id,
     )
     .await;
     if let Some(retired) = &finalized.retired {
-        cleanup_removal(state, token, course, retired).await;
+        cleanup_removal(state, token, course.clone(), retired).await;
     }
 }
 
 async fn cleanup_removal(
     state: &RouteState,
     token: SessionTokenHash,
-    course: CourseId,
+    course: CourseInstanceId,
     removal: &PreparedCourseBannerRemoval,
 ) {
     for (address, put_work_id) in [
@@ -765,7 +789,7 @@ async fn cleanup_removal(
         cleanup_address(
             state,
             token,
-            course,
+            course.clone(),
             Some(removal.banner),
             address,
             put_work_id,
@@ -777,7 +801,7 @@ async fn cleanup_removal(
 async fn cleanup_address(
     state: &RouteState,
     token: SessionTokenHash,
-    course: CourseId,
+    course: CourseInstanceId,
     banner: Option<CourseBannerReference>,
     address: &ObjectAddress,
     put_work_id: Uuid,
@@ -786,7 +810,7 @@ async fn cleanup_address(
         &state.banners,
         &state.objects,
         token,
-        course,
+        course.clone(),
         banner,
         address,
         put_work_id,
@@ -799,7 +823,7 @@ async fn cleanup_address_with<S: CourseBannerStore, O: ObjectStore>(
     banners: &S,
     objects: &O,
     token: SessionTokenHash,
-    _course: CourseId,
+    _course: CourseInstanceId,
     _banner: Option<CourseBannerReference>,
     address: &ObjectAddress,
     put_work_id: Uuid,
@@ -862,8 +886,8 @@ async fn cleanup_address_with<S: CourseBannerStore, O: ObjectStore>(
 async fn resolve_course(
     state: &RouteState,
     token: SessionTokenHash,
-    reference: CourseInstanceReference,
-) -> Result<CourseId, Box<Response>> {
+    reference: CourseInstanceId,
+) -> Result<CourseInstanceId, Box<Response>> {
     // ASVS 2.2.1, 8.2.2, and 8.3.1: the route accepts only a canonical public
     // Course Instance reference, then resolves its private ID through the
     // current session's active Course Membership before any Appearance read or

@@ -1,10 +1,10 @@
 //! Narrow session-authorized promotion persistence, separate from ordinary authoring.
 
-use super::{PostgresBlueprintCourseStore, metadata_etag};
+use super::{PostgresBlueprintCourseStore, blueprint_edit_number};
 use crate::postgres::connection::map_sqlx_error;
 use crate::{BlueprintPromotionStore, SessionTokenHash, StoreError};
 use async_trait::async_trait;
-use question_model::{BlueprintCourseReference, BlueprintMetadataEtag};
+use question_model::{BlueprintCourseId, BlueprintEditNumber};
 use sqlx::Row;
 
 #[async_trait]
@@ -12,7 +12,7 @@ impl BlueprintPromotionStore for PostgresBlueprintCourseStore {
     async fn load_blueprint_promotion(
         &self,
         session: SessionTokenHash,
-        reference: BlueprintCourseReference,
+        reference: BlueprintCourseId,
     ) -> Result<crate::blueprint_course::StoredBlueprintPromotion, StoreError> {
         let mut transaction = self
             .begin_authenticated_application_transaction(session)
@@ -31,8 +31,8 @@ impl BlueprintPromotionStore for PostgresBlueprintCourseStore {
     async fn set_blueprint_promotion(
         &self,
         session: SessionTokenHash,
-        reference: BlueprintCourseReference,
-        expected_metadata_etag: BlueprintMetadataEtag,
+        reference: BlueprintCourseId,
+        expected_edit_number: BlueprintEditNumber,
         promoted: bool,
     ) -> Result<crate::blueprint_course::StoredBlueprintPromotion, StoreError> {
         let mut transaction = self
@@ -41,7 +41,7 @@ impl BlueprintPromotionStore for PostgresBlueprintCourseStore {
         // ASVS 1.2.4: the trusted SQL operation receives only bound typed values.
         let row = sqlx::query("SELECT * FROM ple_api.set_blueprint_promotion($1,$2,$3)")
             .bind(reference.as_string())
-            .bind(expected_metadata_etag.into_uuid())
+            .bind(expected_edit_number.as_i64())
             .bind(promoted)
             .fetch_optional(&mut *transaction)
             .await
@@ -58,6 +58,9 @@ fn decode_promotion(
 ) -> Result<crate::blueprint_course::StoredBlueprintPromotion, StoreError> {
     Ok(crate::blueprint_course::StoredBlueprintPromotion {
         promoted: row.try_get("promoted").map_err(map_sqlx_error)?,
-        metadata_etag: metadata_etag(row.try_get("metadata_etag").map_err(map_sqlx_error)?),
+        blueprint_edit_number: blueprint_edit_number(
+            row.try_get("blueprint_edit_number")
+                .map_err(map_sqlx_error)?,
+        ),
     })
 }

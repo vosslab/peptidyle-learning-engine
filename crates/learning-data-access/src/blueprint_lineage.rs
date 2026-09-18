@@ -2,7 +2,7 @@
 
 use async_trait::async_trait;
 use question_model::{
-    AccountId, BlueprintAvailability, BlueprintCourseReference, BlueprintMetadataEtag,
+    AccountId, BlueprintAvailability, BlueprintCourseId, BlueprintEditNumber,
     BlueprintRevision, BlueprintRevisionReference, QuestionPoolRevisionReference,
     QuestionRevisionReference, RequestChecksum, Timestamp,
 };
@@ -14,7 +14,7 @@ use crate::{SessionTokenHash, StoreError, StoredBlueprintRevision};
 /// Private children of another Instructor never appear, including to the source owner.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StoredKnownBlueprintFork {
-    pub reference: BlueprintCourseReference,
+    pub reference: BlueprintCourseId,
     pub short_name: String,
     pub long_name: String,
     pub availability: BlueprintAvailability,
@@ -34,8 +34,8 @@ pub struct BlueprintComparisonSources {
     pub left_long_name: String,
     pub right_short_name: String,
     pub right_long_name: String,
-    pub left_metadata_etag: BlueprintMetadataEtag,
-    pub right_metadata_etag: BlueprintMetadataEtag,
+    pub left_blueprint_edit_number: BlueprintEditNumber,
+    pub right_blueprint_edit_number: BlueprintEditNumber,
     pub pool_memberships: BTreeMap<QuestionPoolRevisionReference, Vec<QuestionRevisionReference>>,
 }
 
@@ -50,7 +50,7 @@ pub struct BlueprintForkSource {
 pub struct ForkBlueprintCourseReceipt {
     pub blueprint_revision: BlueprintRevisionReference,
     pub source: BlueprintForkSource,
-    pub metadata_etag: BlueprintMetadataEtag,
+    pub blueprint_edit_number: BlueprintEditNumber,
     pub actor: AccountId,
     pub request_checksum: RequestChecksum,
     pub accepted_at: Timestamp,
@@ -64,7 +64,7 @@ pub trait BlueprintLineageStore: Send + Sync {
     async fn list_known_blueprint_forks(
         &self,
         session: SessionTokenHash,
-        source: BlueprintCourseReference,
+        source: BlueprintCourseId,
     ) -> Result<Vec<StoredKnownBlueprintFork>, StoreError>;
 
     /// Loads visible current heads of two related Courses and exact Pool membership.
@@ -72,8 +72,8 @@ pub trait BlueprintLineageStore: Send + Sync {
     async fn load_blueprint_comparison_sources(
         &self,
         session: SessionTokenHash,
-        left: BlueprintCourseReference,
-        right: BlueprintCourseReference,
+        left: BlueprintCourseId,
+        right: BlueprintCourseId,
     ) -> Result<BlueprintComparisonSources, StoreError>;
 
     /// Forks one exact Public or Archived source Revision into a distinct,

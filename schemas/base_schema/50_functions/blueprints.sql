@@ -40,14 +40,13 @@ $$;
 -- member pins live in that immutable Pool Revision, rather than being copied
 -- into Blueprint JSON as a second representation.
 CREATE FUNCTION ple_data.blueprint_content_pool_pins(p_content jsonb)
-RETURNS TABLE (content_path text, question_pool_id text, question_pool_revision_number bigint)
+RETURNS TABLE (content_path text, question_pool_id text)
 LANGUAGE sql IMMUTABLE STRICT
 SET search_path = pg_catalog, ple_data
 AS $$
     SELECT pg_catalog.format('m%s.a%s.e%s', module_ordinality,
                assessment_ordinality, entry_ordinality),
-           entry #>> '{question_pool_revision,questionPoolId}',
-           (entry #>> '{question_pool_revision,revisionNumber}')::bigint
+           entry #>> '{question_pool_revision,questionPoolId}'
       FROM pg_catalog.jsonb_array_elements(p_content -> 'modules')
              WITH ORDINALITY AS module_row(module, module_ordinality)
       CROSS JOIN LATERAL pg_catalog.jsonb_array_elements(module_row.module -> 'assessments')

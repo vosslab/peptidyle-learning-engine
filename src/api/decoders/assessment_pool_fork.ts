@@ -20,10 +20,10 @@ import { MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY } from "../../../generated
 import type { ImportedAssessmentQuestionPoolFork } from "../assessment_pool_fork";
 import { decodeBloomClassificationView } from "./bloom_classification";
 
-function assessmentEditNumber(value: unknown, path: string): string {
+function positiveEditNumber(value: unknown, path: string): string {
   const decoded = decodeString(value, path);
   if (!/^[1-9][0-9]*$/u.test(decoded) || BigInt(decoded) > 9_223_372_036_854_775_807n) {
-    throw new DecodeError(path, "a positive Assessment Edit Number");
+    throw new DecodeError(path, "a positive Edit Number");
   }
   return decoded;
 }
@@ -52,7 +52,7 @@ export function decodeAssessmentQuestionPoolForkView(
   requireOnlyFields(record, path, [
     "assessmentEntryId",
     "questionPoolRevision",
-    "poolMetadataEtag",
+    "questionPoolEditNumber",
     "selectionCount",
     "bloom",
     "metadata",
@@ -82,9 +82,9 @@ export function decodeAssessmentQuestionPoolForkView(
       field(record, "questionPoolRevision", path),
       `${path}.questionPoolRevision`,
     ),
-    poolMetadataEtag: decodeUuid(
-      field(record, "poolMetadataEtag", path),
-      `${path}.poolMetadataEtag`,
+    questionPoolEditNumber: positiveEditNumber(
+      field(record, "questionPoolEditNumber", path),
+      `${path}.questionPoolEditNumber`,
     ),
     selectionCount: decodePositiveInteger(
       field(record, "selectionCount", path),
@@ -115,7 +115,7 @@ export function decodeAssessmentQuestionPoolSelectionCountReceipt(
       field(record, "selectionCount", path),
       `${path}.selectionCount`,
     ),
-    assessmentEditNumber: assessmentEditNumber(
+    assessmentEditNumber: positiveEditNumber(
       field(record, "assessmentEditNumber", path),
       `${path}.assessmentEditNumber`,
     ),
@@ -147,7 +147,7 @@ export function decodeImportedAssessmentQuestionPoolFork(
       field(record, "revisionNumber", path),
       `${path}.revisionNumber`,
     ),
-    assessmentEditNumber: assessmentEditNumber(
+    assessmentEditNumber: positiveEditNumber(
       field(record, "assessmentEditNumber", path),
       `${path}.assessmentEditNumber`,
     ),

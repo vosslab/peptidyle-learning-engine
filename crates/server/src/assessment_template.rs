@@ -17,7 +17,7 @@ use learning_data_access::{
 };
 use question_model::{
     AssessmentTemplate, AssessmentTemplateEditNumber, AssessmentTemplateId, AssessmentTemplateName,
-    AssessmentTemplateSettings, AssessmentTitle, AssessmentType, CourseInstanceReference,
+    AssessmentTemplateSettings, AssessmentTitle, AssessmentType, CourseInstanceId,
     ProductRole,
 };
 use serde::{Deserialize, Serialize};
@@ -189,7 +189,7 @@ async fn create_assessment_from_template(
     Path(value): Path<String>,
     request: Request,
 ) -> Response {
-    let course = match CourseInstanceReference::from_str(&value) {
+    let course = match CourseInstanceId::from_str(&value) {
         Ok(value) => value,
         Err(_) => return concealed_assessment(),
     };

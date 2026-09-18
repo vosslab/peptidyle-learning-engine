@@ -122,6 +122,7 @@ DECLARE grading_id uuid := pg_catalog.gen_random_uuid();
 DECLARE result_id uuid := pg_catalog.gen_random_uuid();
 DECLARE receipt_id uuid := pg_catalog.gen_random_uuid();
 DECLARE calculated_checksum bytea;
+DECLARE course_id_value text;
 BEGIN
     IF p_question_response_id IS NULL OR p_question_attempt_id IS NULL
        OR p_normalized_credit IS NULL OR p_normalized_credit < 0
@@ -129,7 +130,8 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Direct automated grading facts are invalid';
     END IF;
-    PERFORM 1 FROM ple_private.question_response AS submission
+    SELECT submission.course_instance_id INTO course_id_value
+      FROM ple_private.question_response AS submission
      WHERE submission.question_response_id = p_question_response_id
        AND submission.question_attempt_id = p_question_attempt_id
      FOR KEY SHARE;
@@ -141,15 +143,15 @@ BEGIN
             MESSAGE = 'Direct automated grading target is unavailable';
     END IF;
     INSERT INTO ple_private.question_response_grading (
-        question_response_grading_id, question_response_id, grading_state, created_at, completed_at
+        course_instance_id, question_response_grading_id, question_response_id, grading_state, created_at, completed_at
     ) VALUES (
-        grading_id, p_question_response_id, 'graded', p_recorded_at, p_recorded_at
+        course_id_value, grading_id, p_question_response_id, 'graded', p_recorded_at, p_recorded_at
     );
     INSERT INTO ple_private.grading_result (
-        grading_result_id, question_response_id, question_response_grading_id,
+        course_instance_id, grading_result_id, question_response_id, question_response_grading_id,
         question_attempt_id, normalized_credit, recorded_at
     ) VALUES (
-        result_id, p_question_response_id, grading_id, p_question_attempt_id,
+        course_id_value, result_id, p_question_response_id, grading_id, p_question_attempt_id,
         p_normalized_credit, p_recorded_at
     );
     calculated_checksum := pg_catalog.sha256(
@@ -163,10 +165,10 @@ BEGIN
         || pg_catalog.int8send((extract(epoch FROM p_recorded_at) * 1000)::bigint)
     );
     INSERT INTO ple_audit.automated_grading_receipt (
-        automated_grading_receipt_id, question_response_grading_id,
+        automated_grading_receipt_id, course_instance_id, question_response_grading_id,
         grading_result_id, committed_at, automated_grading_receipt_checksum
     ) VALUES (
-        receipt_id, grading_id, result_id, p_recorded_at, calculated_checksum
+        receipt_id, course_id_value, grading_id, result_id, p_recorded_at, calculated_checksum
     );
     PERFORM ple_private.capture_question_statistics_observation(receipt_id, ARRAY[]::text[]);
 END $$;

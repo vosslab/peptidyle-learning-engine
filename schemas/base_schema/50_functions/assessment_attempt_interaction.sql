@@ -35,10 +35,13 @@ END $$;
 CREATE FUNCTION ple_private.validate_question_attempt_issue()
 RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_private AS $$
 DECLARE issued ple_private.issued_question%ROWTYPE;
+DECLARE snapshot ple_private.assessment_entry_snapshot%ROWTYPE;
 DECLARE source_backend text;
 BEGIN
     SELECT * INTO issued FROM ple_private.issued_question
      WHERE issued_question_id = NEW.issued_question_id;
+    SELECT * INTO snapshot FROM ple_private.assessment_entry_snapshot
+     WHERE assessment_entry_snapshot_id = issued.assessment_entry_snapshot_id;
     SELECT backend INTO source_backend
       FROM ple_private.question_revision_source_binding
      WHERE published_question_id = issued.published_question_id
@@ -49,10 +52,10 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Question Attempt reproduction must match its Issued Question source';
     END IF;
-    IF issued.question_attempt_time_limit_seconds IS NOT NULL
+    IF snapshot.question_attempt_time_limit_seconds IS NOT NULL
        AND NEW.deadline_at IS DISTINCT FROM NEW.issued_at
-            + pg_catalog.make_interval(secs => issued.question_attempt_time_limit_seconds
-                + issued.question_attempt_grace_seconds) THEN
+            + pg_catalog.make_interval(secs => snapshot.question_attempt_time_limit_seconds
+                + snapshot.question_attempt_grace_seconds) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Question Attempt deadline must retain its issued per-question limit and grace';
     END IF;

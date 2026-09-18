@@ -4,10 +4,10 @@ use async_trait::async_trait;
 use question_model::{
     AccountTimeZone, AssessmentAuthoredContentField, AssessmentEditNumber, AssessmentEntry,
     AssessmentEntryAvailability, AssessmentEntryId, AssessmentEntryScoringRule,
-    AssessmentInstructions, AssessmentOrigin, AssessmentPointValue, AssessmentReference,
-    AssessmentStatus, AssessmentTitle, AssessmentType, BlueprintAssessmentReference,
-    BlueprintAssessmentSource, BlueprintCourseReference, BlueprintRevision,
-    BlueprintRevisionReference, CourseInstanceReference, CourseTerm, FixedQuestionAssessmentEntry,
+    AssessmentInstructions, AssessmentOrigin, AssessmentPointValue, AssessmentId,
+    AssessmentStatus, AssessmentTitle, AssessmentType, BlueprintAssessmentId,
+    BlueprintAssessmentSource, BlueprintCourseId, BlueprintRevision,
+    BlueprintRevisionReference, CourseInstanceId, CourseTerm, FixedQuestionAssessmentEntry,
     LateWorkRule, LocalDateAndTime, QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionId,
     QuestionPoolAssessmentEntry, QuestionPoolRevisionNumber, QuestionPoolRevisionReference,
     QuestionPoolSelectedQuestionOrder, QuestionPoolSelectionRule, QuestionRevisionNumber,
@@ -35,7 +35,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
     async fn review_course_blueprint_update(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceReference,
+        course: CourseInstanceId,
     ) -> Result<crate::CourseBlueprintUpdateReview, StoreError> {
         super::assessment_blueprint_update::review_course(self, token, course).await
     }
@@ -43,8 +43,8 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
     async fn review_assessment_blueprint_update(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceReference,
-        assessment: AssessmentReference,
+        course: CourseInstanceId,
+        assessment: AssessmentId,
     ) -> Result<crate::AssessmentBlueprintUpdateReview, StoreError> {
         super::assessment_blueprint_update::review(self, token, course, assessment).await
     }
@@ -52,8 +52,8 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
     async fn apply_assessment_blueprint_update(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceReference,
-        assessment: AssessmentReference,
+        course: CourseInstanceId,
+        assessment: AssessmentId,
         input: crate::ApplyAssessmentBlueprintUpdateInput,
         bloom_receipts: crate::PoolBloomPreparationReceipts,
     ) -> Result<LiveAssessmentWorkspace, StoreError> {
@@ -130,7 +130,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
     async fn list_course_assessments(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceReference,
+        course: CourseInstanceId,
     ) -> Result<Vec<CourseAssessmentSummary>, StoreError> {
         let mut tx = self.begin(token).await?;
         let context = schedule_context(&mut tx, &course).await?;
@@ -185,7 +185,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
     async fn list_assessment_question_picker(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceReference,
+        course: CourseInstanceId,
     ) -> Result<Vec<AssessmentQuestionPickerEntry>, StoreError> {
         let mut tx = self.begin(token).await?;
         let rows = sqlx::query("SELECT question_id, question_revision_number, question_description, bloom_cognitive_process, bloom_knowledge_dimension, bloom_classification_edit_number FROM ple_api.list_assessment_question_picker($1)")
@@ -213,7 +213,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
     async fn create_live_assessment(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceReference,
+        course: CourseInstanceId,
         input: CreateLiveAssessmentInput,
     ) -> Result<LiveAssessmentWorkspace, StoreError> {
         let mut tx = self.begin(token).await?;
@@ -240,8 +240,8 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
     async fn load_live_assessment(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceReference,
-        assessment: AssessmentReference,
+        course: CourseInstanceId,
+        assessment: AssessmentId,
     ) -> Result<LiveAssessmentWorkspace, StoreError> {
         let mut tx = self.begin(token).await?;
         let context = schedule_context(&mut tx, &course).await?;
@@ -254,8 +254,8 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
     async fn save_live_assessment(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceReference,
-        assessment: AssessmentReference,
+        course: CourseInstanceId,
+        assessment: AssessmentId,
         input: SaveLiveAssessmentInput,
     ) -> Result<LiveAssessmentWorkspace, StoreError> {
         input.validate()?;
@@ -318,8 +318,8 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
     async fn save_live_assessment_inline(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceReference,
-        assessment: AssessmentReference,
+        course: CourseInstanceId,
+        assessment: AssessmentId,
         expected_edit_number: AssessmentEditNumber,
         input: SaveLiveAssessmentInlineInput,
     ) -> Result<CourseAssessmentSummary, StoreError> {
@@ -389,8 +389,8 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
     async fn save_base_assessment_policy(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceReference,
-        assessment: AssessmentReference,
+        course: CourseInstanceId,
+        assessment: AssessmentId,
         input: SaveBaseAssessmentPolicyInput,
     ) -> Result<LiveAssessmentWorkspace, StoreError> {
         let mut tx = self.begin(token).await?;
@@ -422,8 +422,8 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
     async fn validate_live_assessment_release(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceReference,
-        assessment: AssessmentReference,
+        course: CourseInstanceId,
+        assessment: AssessmentId,
     ) -> Result<AssessmentReleaseValidation, StoreError> {
         let mut tx = self.begin(token).await?;
         let rows = sqlx::query("SELECT issue FROM ple_api.validate_assessment_release($1, $2)")
@@ -470,8 +470,8 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
     async fn release_live_assessment(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceReference,
-        assessment: AssessmentReference,
+        course: CourseInstanceId,
+        assessment: AssessmentId,
         expected: AssessmentEditNumber,
     ) -> Result<LiveAssessmentWorkspace, StoreError> {
         let mut tx = self.begin(token).await?;
@@ -492,8 +492,8 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
     async fn read_live_assessment_unrelease_impact(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceReference,
-        assessment: AssessmentReference,
+        course: CourseInstanceId,
+        assessment: AssessmentId,
     ) -> Result<AssessmentUnreleaseImpact, StoreError> {
         let mut tx = self.begin(token).await?;
         let row = sqlx::query("SELECT * FROM ple_api.read_assessment_unrelease_impact($1, $2)")
@@ -511,8 +511,8 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
     async fn unrelease_live_assessment(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceReference,
-        assessment: AssessmentReference,
+        course: CourseInstanceId,
+        assessment: AssessmentId,
         expected: AssessmentEditNumber,
         confirmation_title: AssessmentTitle,
     ) -> Result<UnreleasedLiveAssessment, StoreError> {
@@ -579,8 +579,8 @@ fn map_unrelease_sqlx_error(error: sqlx::Error) -> StoreError {
 
 pub(super) async fn workspace_rows(
     tx: &mut Transaction<'_, Postgres>,
-    course: &CourseInstanceReference,
-    assessment: &AssessmentReference,
+    course: &CourseInstanceId,
+    assessment: &AssessmentId,
 ) -> Result<Vec<sqlx::postgres::PgRow>, StoreError> {
     sqlx::query("SELECT * FROM ple_api.load_assessment_workspace_rows($1, $2)")
         .bind(course.as_string())
@@ -597,7 +597,7 @@ pub(super) struct AssessmentScheduleContext {
 
 pub(super) async fn schedule_context(
     tx: &mut Transaction<'_, Postgres>,
-    course: &CourseInstanceReference,
+    course: &CourseInstanceId,
 ) -> Result<AssessmentScheduleContext, StoreError> {
     let row = sqlx::query(
         "SELECT term_starts_on::text AS term_starts_on, term_ends_on::text AS term_ends_on \
@@ -832,7 +832,7 @@ fn assessment_origin(row: &sqlx::postgres::PgRow) -> Result<AssessmentOrigin, St
     ) {
         ("direct", None, None, None) => Ok(AssessmentOrigin::Direct),
         ("adopted", Some(course_reference), Some(revision), Some(assessment_reference)) => {
-            let course_reference = BlueprintCourseReference::new(course_reference)
+            let course_reference = BlueprintCourseId::new(course_reference)
                 .map_err(|_| invalid("Assessment Origin"))?;
             let revision = u64::try_from(revision)
                 .ok()
@@ -844,7 +844,7 @@ fn assessment_origin(row: &sqlx::postgres::PgRow) -> Result<AssessmentOrigin, St
                         reference: course_reference,
                         revision,
                     },
-                    BlueprintAssessmentReference::from_uuid(assessment_reference),
+                    BlueprintAssessmentId::from_uuid(assessment_reference),
                 ),
             })
         }
@@ -871,11 +871,11 @@ fn local_timestamp_from_row(
         })
         .transpose()
 }
-pub(super) fn assessment_reference(value: String) -> Result<AssessmentReference, StoreError> {
-    AssessmentReference::new(value).map_err(|_| invalid("Assessment Reference"))
+pub(super) fn assessment_reference(value: String) -> Result<AssessmentId, StoreError> {
+    AssessmentId::new(value).map_err(|_| invalid("Assessment Reference"))
 }
-fn course_reference(value: String) -> Result<CourseInstanceReference, StoreError> {
-    CourseInstanceReference::new(value).map_err(|_| invalid("Course Instance Reference"))
+fn course_reference(value: String) -> Result<CourseInstanceId, StoreError> {
+    CourseInstanceId::new(value).map_err(|_| invalid("Course Instance Reference"))
 }
 fn course_name(value: String) -> Result<String, StoreError> {
     if value.is_empty() || value != value.trim() || value.chars().count() > 200 {

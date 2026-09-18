@@ -28,18 +28,26 @@ pub use attempt_evidence::{
 pub use grading::{GradingResult, QuestionEvaluation, QuestionEvaluationError, RecordedCredit};
 pub use source_object_checksum::{SourceObjectChecksum, SourceObjectChecksumError};
 
+use crate::QuestionRevisionReference;
 use crate::assessment::{AssessmentEntryScoringRule, AssessmentPointValue};
 use crate::generation::{QuestionReproduction, QuestionSourceSelection};
 use crate::identity::ObjectId;
 use crate::response::StudentResponse;
-use crate::{AssessmentAttemptReference, QuestionRevisionReference};
+
+mod identifiers;
+
+pub use identifiers::{
+    AccommodationId, AssessmentAttemptId, AssessmentEntryId, AssessmentId, CourseInstanceId,
+    CourseMembershipId, IssuedQuestionId, QuestionAttemptId, QuestionPoolSelectionId,
+    QuestionResponseId, StudentRecordId,
+};
 
 /// Answer-free, server-authorized navigation state for an issued Assessment
 /// Attempt. This is a projection, never a mutable "current question" record.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StudentAssessmentAttemptProgress {
-    pub assessment_attempt: AssessmentAttemptReference,
+    pub assessment_attempt: AssessmentAttemptId,
     pub question_count: u32,
     pub recommended_position: Option<u32>,
     pub positions: Vec<StudentAssessmentAttemptPosition>,
@@ -62,14 +70,6 @@ pub enum StudentAssessmentAttemptResponseState {
     Submitted,
     Closed,
 }
-
-mod identifiers;
-
-pub use identifiers::{
-    AccommodationId, AssessmentAttemptId, AssessmentEntryId, AssessmentId, CourseId,
-    CourseMembershipId, IssuedQuestionId, QuestionAttemptId, QuestionPoolSelectionId,
-    QuestionResponseId, StudentRecordId,
-};
 
 /// A timestamp supplied by the server as Unix milliseconds.
 ///

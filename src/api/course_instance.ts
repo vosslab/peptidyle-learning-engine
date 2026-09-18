@@ -1,13 +1,14 @@
 // Browser capability contract for live Course Instance creation and the initial Teaching Team.
 
-import type { AccountReference } from "../../generated/api/AccountReference";
-import type { BlueprintCourseReference } from "../../generated/api/BlueprintCourseReference";
+import type { AccountId } from "../../generated/api/AccountId";
+import type { BlueprintCourseId } from "../../generated/api/BlueprintCourseId";
 import type { BlueprintRevision } from "../../generated/api/BlueprintRevision";
-import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
+import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { CourseInstanceRouteSummary } from "../../generated/api/CourseInstanceRouteSummary";
 import type { CourseTerm } from "../../generated/api/CourseTerm";
 import type { CourseTheme } from "../../generated/api/CourseTheme";
 import type { CourseClassification } from "../../generated/api/CourseClassification";
+import type { CourseEditNumber } from "../../generated/api/CourseEditNumber";
 import type { BlueprintCourseView } from "../../generated/api/BlueprintCourseView";
 import type { CreateBlueprintFromCourseInstanceInput } from "../../generated/api/CreateBlueprintFromCourseInstanceInput";
 
@@ -16,7 +17,7 @@ export type CourseInstanceCreationSource =
   | { readonly kind: "empty" }
   | {
       readonly kind: "adopted";
-      readonly blueprintCourse: BlueprintCourseReference;
+      readonly blueprintCourse: BlueprintCourseId;
       readonly blueprintRevision: BlueprintRevision;
     };
 
@@ -28,7 +29,7 @@ export interface CreateCourseInstanceInput {
   readonly longName: string;
   readonly term: CourseTerm;
   /** Omitted for Instructor self-creation; required for a Sysadmin creation. */
-  readonly assignedInstructor?: AccountReference;
+  readonly assignedInstructor?: AccountId;
 }
 
 /** Browser-safe Course Instance landing-page identity. */
@@ -39,8 +40,8 @@ export interface CourseInstanceSummary {
   readonly classification: CourseClassification;
   /** Stored activity state; it is not inferred from dates or retention state. */
   readonly lifecycleState: CourseInstanceLifecycleState;
-  readonly metadataEtag: string;
-  readonly reference: CourseInstanceReference;
+  readonly courseEditNumber: CourseEditNumber;
+  readonly reference: CourseInstanceId;
   readonly shortName: string;
   readonly longName: string;
   readonly term: CourseTerm;
@@ -54,7 +55,7 @@ export interface CourseInstanceView {
   readonly activeInstructorCount: number;
   /** Original adoption provenance; null for Empty Courses or unreadable sources. */
   readonly blueprintOrigin: {
-    readonly reference: BlueprintCourseReference;
+    readonly reference: BlueprintCourseId;
     readonly adoptedRevision: BlueprintRevision;
     readonly currentRevision: BlueprintRevision;
   } | null;
@@ -62,7 +63,7 @@ export interface CourseInstanceView {
 
 /** Explicit Sysadmin selection target; it carries no email or course authority. */
 export interface CourseCreationInstructor {
-  readonly reference: AccountReference;
+  readonly reference: AccountId;
 }
 
 /** Creation receipt that does not imply creator Course access. */
@@ -81,27 +82,27 @@ export interface CreatedBlueprintFromCourseInstance {
 export interface CourseInstanceClient {
   /** Creates a new private Blueprint from one Course Instance's reusable structure. */
   readonly createBlueprintFromCourseInstance: (
-    reference: CourseInstanceReference,
+    reference: CourseInstanceId,
     input: CreateBlueprintFromCourseInstanceInput,
     idempotencyKey: string,
   ) => Promise<CreatedBlueprintFromCourseInstance>;
   readonly updateCourseInstanceClassification: (
-    reference: CourseInstanceReference,
+    reference: CourseInstanceId,
     classification: CourseClassification,
-    metadataEtag: string,
+    courseEditNumber: CourseEditNumber,
   ) => Promise<{
     readonly classification: CourseClassification;
-    readonly metadataEtag: string;
+    readonly courseEditNumber: CourseEditNumber;
     readonly changed: boolean;
   }>;
   readonly listCourseInstances: () => Promise<ReadonlyArray<CourseInstanceSummary>>;
   readonly createCourseInstance: (
     input: CreateCourseInstanceInput,
   ) => Promise<CreatedCourseInstance>;
-  readonly getCourseInstance: (reference: CourseInstanceReference) => Promise<CourseInstanceView>;
+  readonly getCourseInstance: (reference: CourseInstanceId) => Promise<CourseInstanceView>;
   /** Reads the closed member-safe identity used by Course Instance routes. */
   readonly getCourseInstanceRouteSummary: (
-    reference: CourseInstanceReference,
+    reference: CourseInstanceId,
   ) => Promise<CourseInstanceRouteSummary>;
   readonly listCourseCreationInstructors: () => Promise<ReadonlyArray<CourseCreationInstructor>>;
 }

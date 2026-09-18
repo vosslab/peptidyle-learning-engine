@@ -1,6 +1,6 @@
 // Strict same-origin transport for the Sysadmin Instructor Account lifecycle.
 
-import type { AccountReference } from "../../../generated/api/AccountReference";
+import type { AccountId } from "../../../generated/api/AccountId";
 import type { ApiClient } from "../client";
 import type { InstructorAccountClient } from "../instructor_account";
 import {
@@ -10,14 +10,14 @@ import {
   decodeInstructorAccount,
   decodeInstructorAccountList,
   decodeInstructorIdentityVettingReceipt,
-  isCanonicalAccountReference,
+  isCanonicalAccountId,
 } from "../decoders/instructor_account";
 import { ApiProtocolError, ApiRequestError } from "./error";
 import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
 
-function accountPath(reference: AccountReference): string {
-  if (!isCanonicalAccountReference(reference)) {
+function accountPath(reference: AccountId): string {
+  if (!isCanonicalAccountId(reference)) {
     throw new ApiProtocolError("Instructor Account reference must be canonical");
   }
   return `/api/instructor-accounts/${encodeURIComponent(reference)}`;

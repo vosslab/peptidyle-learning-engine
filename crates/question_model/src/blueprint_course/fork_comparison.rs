@@ -1,7 +1,7 @@
 //! Current-pair Blueprint comparison using shared Question IDs only.
 use super::canonical_exchange::CanonicalBlueprintAssessment;
 use crate::{
-    BlueprintAssessmentEntryContent, BlueprintAssessmentReference, BlueprintCourseContent,
+    BlueprintAssessmentEntryContent, BlueprintAssessmentId, BlueprintCourseContent,
     BlueprintModuleReference, QuestionId, QuestionPoolRevisionReference, QuestionRevisionReference,
 };
 use std::collections::{BTreeMap, BTreeSet};
@@ -21,7 +21,7 @@ pub struct BlueprintComparisonModule {
 #[derive(Debug, Clone, PartialEq)]
 pub struct BlueprintComparisonAssessment {
     /// Side-local Assessment handle, not matching evidence.
-    pub blueprint_assessment_reference: BlueprintAssessmentReference,
+    pub blueprint_assessment_reference: BlueprintAssessmentId,
     /// Side-local containing module handle.
     pub blueprint_module_reference: BlueprintModuleReference,
     /// Zero-based authored position within its module.
@@ -45,9 +45,9 @@ pub struct BlueprintComparisonInventory {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlueprintAssessmentRelationship {
     /// Assessment handle in the left inventory.
-    pub left_assessment_reference: BlueprintAssessmentReference,
+    pub left_assessment_reference: BlueprintAssessmentId,
     /// Assessment handle in the right inventory.
-    pub right_assessment_reference: BlueprintAssessmentReference,
+    pub right_assessment_reference: BlueprintAssessmentId,
     /// Sorted unique Question IDs shared by this pair.
     pub shared_question_ids: Vec<QuestionId>,
 }
@@ -75,7 +75,7 @@ pub enum BlueprintComparisonError {
     /// A module reference repeats within one side.
     DuplicateModuleReference,
     /// An Assessment reference repeats within one side.
-    DuplicateAssessmentReference,
+    DuplicateAssessmentId,
     /// A referenced exact Pool Revision has no supplied membership.
     MissingPoolMembership,
     /// Pool membership is empty, repeats a lineage, or cannot satisfy selection.
@@ -85,7 +85,7 @@ impl std::fmt::Display for BlueprintComparisonError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter.write_str(match self {
             Self::DuplicateModuleReference => "Blueprint comparison repeats a module reference",
-            Self::DuplicateAssessmentReference => {
+            Self::DuplicateAssessmentId => {
                 "Blueprint comparison repeats an Assessment reference"
             }
             Self::MissingPoolMembership => {
@@ -173,7 +173,7 @@ fn inventory(
         for (position, assessment) in module.assessments().iter().enumerate() {
             let assessment_reference = assessment.blueprint_assessment_reference();
             if !assessment_references.insert(assessment_reference) {
-                return Err(BlueprintComparisonError::DuplicateAssessmentReference);
+                return Err(BlueprintComparisonError::DuplicateAssessmentId);
             }
             let mut question_ids = BTreeSet::new();
             for entry in assessment.entries() {

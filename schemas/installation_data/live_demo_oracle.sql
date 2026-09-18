@@ -25,8 +25,10 @@ BEGIN
         PERFORM set_config('ple.installation_live_demo_course_instance_id', course_id, true);
         SELECT assessment.assessment_id INTO assessment_id_value
           FROM ple_data.assessment AS assessment
+          JOIN ple_data.assessment_policy_snapshot AS policy
+            ON policy.assessment_policy_snapshot_id = assessment.assessment_policy_snapshot_id
          WHERE assessment.course_instance_id = course_id
-           AND assessment.assessment_title = 'Chapter 1 Pilot Practice';
+           AND policy.assessment_title = 'Chapter 1 Pilot Practice';
         IF assessment_id_value IS NOT NULL THEN
             PERFORM set_config(
                 'ple.installation_live_demo_assessment_id', assessment_id_value, true
@@ -359,8 +361,10 @@ BEGIN
      WHERE course.course_short_name = 'BCHM 301';
     SELECT assessment.assessment_id INTO assessment_id_value
       FROM ple_data.assessment AS assessment
+      JOIN ple_data.assessment_policy_snapshot AS policy
+        ON policy.assessment_policy_snapshot_id = assessment.assessment_policy_snapshot_id
      WHERE assessment.course_instance_id = course_id
-       AND assessment.assessment_title = 'Chapter 1 Pilot Practice';
+       AND policy.assessment_title = 'Chapter 1 Pilot Practice';
     IF (SELECT count(*) FROM ple_data.assessment
              WHERE assessment_id = assessment_id_value
                AND assessment_status = 'released'
@@ -407,9 +411,11 @@ BEGIN
              ON entry.assessment_id = assessment_id_value
             AND entry.authored_position = input.authored_position
             AND entry.entry_kind = 'fixed_question'
-            AND entry.published_question_id = input.published_question_id
-            AND entry.question_revision_number = input.revision_number
-            WHERE entry.assessment_entry_id IS NULL
+           LEFT JOIN ple_data.assessment_entry_question AS question
+             ON question.assessment_entry_id = entry.assessment_entry_id
+            AND question.published_question_id = input.published_question_id
+            AND question.question_revision_number = input.revision_number
+            WHERE question.assessment_entry_id IS NULL
        ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Live Demo installation data is incomplete or uses an invalid Question identifier';

@@ -15,8 +15,10 @@ CREATE FUNCTION ple_data.create_assessment(
     assessment_status text, assessment_title text, assessment_instructions text
 )
 LANGUAGE plpgsql SECURITY DEFINER
-SET search_path = pg_catalog, ple_api, ple_data AS $$
-DECLARE course_row ple_data.course_instance%ROWTYPE;
+SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
+DECLARE
+    course_row ple_data.course_instance%ROWTYPE;
+    snapshot_id ple_data.sha256_digest;
 BEGIN
     -- ASVS 2.2.1-2.2.3 and 8.2.1-8.2.2: validate the closed creation shape
     -- and derive both Course authorization and direct origin in this trusted boundary.
@@ -33,31 +35,31 @@ BEGIN
     IF NOT FOUND OR NOT ple_api.current_session_account_is_course_instructor(course_row.course_instance_id) THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable';
     END IF;
-    INSERT INTO ple_data.assessment AS inserted (
-        assessment_id, course_instance_id, origin_kind,
-        source_blueprint_course_id, source_blueprint_revision_number,
-        source_blueprint_assessment_reference,
-        created_at, updated_at, assessment_type, assessment_title, assessment_instructions,
-        assessment_attempt_limit, late_work_rule, question_variation_rule,
-        assessment_question_order_rule, feedback_score,
-        feedback_per_item_correctness, feedback_submitted_response, feedback_question_answer,
-        feedback_question_answer_explanation, feedback_class_statistics
-    ) VALUES (
-        p_assessment_id, course_row.course_instance_id, 'direct', NULL, NULL, NULL,
-        clock_timestamp(), clock_timestamp(), p_assessment_type, p_title, p_instructions,
+    snapshot_id := ple_private.ensure_assessment_policy_snapshot(
+        p_title, p_instructions, NULL, NULL, NULL, NULL,
         CASE WHEN p_assessment_type IN ('quiz', 'exam') THEN 1 ELSE NULL END,
-        'reject', 'new_variation',
-        'shuffled',
+        'reject', 'new_variation', 'shuffled',
         'after_submit', 'after_submit', 'after_submit',
         CASE WHEN p_assessment_type IN ('practice_question_assignment', 'quiz', 'exam')
              THEN 'after_submit' ELSE 'never' END,
         CASE WHEN p_assessment_type IN ('quiz', 'exam')
              THEN 'after_submit' ELSE 'never' END,
-        'never'
+        'never',
+        p_assessment_type::ple_data.assessment_type
+    );
+    INSERT INTO ple_data.assessment AS inserted (
+        assessment_id, course_instance_id, origin_kind,
+        source_blueprint_course_id, source_blueprint_revision_number,
+        source_blueprint_assessment_reference,
+        created_at, updated_at, assessment_type, assessment_policy_snapshot_id
+    ) VALUES (
+        p_assessment_id, course_row.course_instance_id, 'direct', NULL, NULL, NULL,
+        clock_timestamp(), clock_timestamp(), p_assessment_type, snapshot_id
     ) RETURNING inserted.assessment_id, inserted.assessment_edit_number,
-        inserted.assessment_status, inserted.assessment_title, inserted.assessment_instructions
-      INTO assessment_public_reference, assessment_edit_number, assessment_status,
-           assessment_title, assessment_instructions;
+        inserted.assessment_status
+      INTO assessment_public_reference, assessment_edit_number, assessment_status;
+    assessment_title := p_title;
+    assessment_instructions := p_instructions;
     RETURN NEXT;
 END
 $$;

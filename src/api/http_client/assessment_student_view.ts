@@ -1,27 +1,27 @@
 // Strict same-origin transport for the no-write Instructor Student View.
 
-import type { AssessmentReference } from "../../../generated/api/AssessmentReference";
-import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
+import type { AssessmentId } from "../../../generated/api/AssessmentId";
+import type { CourseInstanceId } from "../../../generated/api/CourseInstanceId";
 import type { QuestionRevisionReference } from "../../../generated/api/QuestionRevisionReference";
 import { validateCanonicalQuestionIdSyntax } from "../../../generated/api/QuestionIdSyntaxContract";
 import type { AssessmentStudentViewClient } from "../assessment_student_view";
 import { decodeInstructorStudentView } from "../decoders/assessment_student_view";
 import { decodeStudentQuestionPresentation } from "../decoders/presentation_delivery";
 import {
-  parseAssessmentReference,
-  parseCourseInstanceReference,
+  parseAssessmentId,
+  parseCourseInstanceId,
 } from "../../navigation/public_route";
 import { ApiProtocolError, ApiRequestError, AssessmentConflictError } from "./error";
 import { requestPath, requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
 
 function assessmentStudentViewPath(
-  course: CourseInstanceReference,
-  assessment: AssessmentReference,
+  course: CourseInstanceId,
+  assessment: AssessmentId,
 ): string {
   if (
-    parseCourseInstanceReference(course) === null ||
-    parseAssessmentReference(assessment) === null
+    parseCourseInstanceId(course) === null ||
+    parseAssessmentId(assessment) === null
   ) {
     throw new ApiProtocolError("Student View route references must be canonical");
   }
@@ -30,8 +30,8 @@ function assessmentStudentViewPath(
 }
 
 function questionPath(
-  course: CourseInstanceReference,
-  assessment: AssessmentReference,
+  course: CourseInstanceId,
+  assessment: AssessmentId,
   authoredPosition: number,
   questionRevision: QuestionRevisionReference,
 ): string {
@@ -78,8 +78,8 @@ function sameQuestionRevision(
 async function manifestRequest(
   fetchImplementation: ApiFetch,
   basePath: string,
-  course: CourseInstanceReference,
-  assessment: AssessmentReference,
+  course: CourseInstanceId,
+  assessment: AssessmentId,
 ): ReturnType<AssessmentStudentViewClient["getInstructorStudentView"]> {
   const path = assessmentStudentViewPath(course, assessment);
   const response = await requestSameOrigin(fetchImplementation, basePath, path);
@@ -94,8 +94,8 @@ async function manifestRequest(
 async function presentationRequest(
   fetchImplementation: ApiFetch,
   basePath: string,
-  course: CourseInstanceReference,
-  assessment: AssessmentReference,
+  course: CourseInstanceId,
+  assessment: AssessmentId,
   authoredPosition: number,
   questionRevision: QuestionRevisionReference,
   editNumber: string,

@@ -46,8 +46,12 @@ CREATE TABLE ple_private.question_statistics_observation_receipt (
     automated_grading_receipt_id uuid PRIMARY KEY
         REFERENCES ple_audit.automated_grading_receipt(automated_grading_receipt_id)
         ON DELETE CASCADE,
-    question_attempt_id uuid NOT NULL UNIQUE
-        REFERENCES ple_private.question_attempt(question_attempt_id) ON DELETE CASCADE,
+    course_instance_id ple_data.course_instance_id NOT NULL,
+    question_attempt_id uuid NOT NULL,
+    UNIQUE (course_instance_id, question_attempt_id),
+    FOREIGN KEY (course_instance_id, question_attempt_id)
+        REFERENCES ple_private.question_attempt(course_instance_id, question_attempt_id)
+        ON DELETE CASCADE,
     published_question_id ple_data.question_family_id NOT NULL,
     revision_number integer NOT NULL CHECK (revision_number > 0),
     correct boolean NOT NULL,

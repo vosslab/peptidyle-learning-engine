@@ -15,7 +15,7 @@ import {
 import { CourseStudentWorkRecovery } from "../components/course_student_work_recovery";
 import type { CourseAssessmentSummary, LiveAssessmentStatus } from "../api/assessment_release";
 import { LiveAssessmentWorkspaceConflictError } from "../api/http_client/assessment_release";
-import { parseCourseInstanceReference } from "../navigation/public_route";
+import { parseCourseInstanceId } from "../navigation/public_route";
 import { CourseBlueprintUpdateReviewList } from "./course_blueprint_update_review";
 import {
   canonicalLocalDateAndTime,
@@ -489,8 +489,8 @@ function AssessmentRow(props: {
 export function CourseInstancePage(): JSX.Element {
   const applicationApi = useApplicationApi();
   const params = useParams();
-  function courseReference(): ReturnType<typeof parseCourseInstanceReference> {
-    return parseCourseInstanceReference(params["courseRef"] ?? "");
+  function courseReference(): ReturnType<typeof parseCourseInstanceId> {
+    return parseCourseInstanceId(params["courseRef"] ?? "");
   }
   const [course, { mutate: mutateCourse }] = createResource(courseReference, async (reference) =>
     applicationApi.client.getCourseInstance(reference),
@@ -620,20 +620,20 @@ export function CourseInstancePage(): JSX.Element {
                   <h3 id="course-classification-heading">Classification</h3>
                   <CourseClassificationEditor
                     value={view().course.classification}
-                    metadataEtag={view().course.metadataEtag}
+                    editNumber={view().course.courseEditNumber}
                     canEdit
-                    save={async (classification, etag) => {
+                    save={async (classification, editNumber) => {
                       const saved = await applicationApi.client.updateCourseInstanceClassification(
                         view().course.reference,
                         classification,
-                        etag,
+                        editNumber,
                       );
                       mutateCourse({
                         ...view(),
                         course: {
                           ...view().course,
                           classification: saved.classification,
-                          metadataEtag: saved.metadataEtag,
+                          courseEditNumber: saved.courseEditNumber,
                         },
                       });
                     }}
@@ -644,7 +644,7 @@ export function CourseInstancePage(): JSX.Element {
                       mutateCourse(current);
                       return {
                         classification: current.course.classification,
-                        metadataEtag: current.course.metadataEtag,
+                        editNumber: current.course.courseEditNumber,
                       };
                     }}
                   />

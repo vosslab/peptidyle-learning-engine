@@ -642,8 +642,8 @@ fn live_demo_config_from_environment_values(
         .iter()
         .filter_map(|(persona, name, display_name)| {
             let value = value_for(name)?;
-            let id = uuid::Uuid::parse_str(&value).ok()?;
-            Some((*persona, AccountId::from_uuid(id), *display_name))
+            let id = AccountId::new(value).ok()?;
+            Some((*persona, id, *display_name))
         })
         .collect::<Vec<_>>();
     live_demo_config_from_account_mappings(configured)
@@ -655,7 +655,7 @@ fn live_demo_config_from_account_mappings(
     let duplicate_accounts = configured.iter().fold(
         std::collections::BTreeMap::<AccountId, usize>::new(),
         |mut counts, (_, account, _)| {
-            *counts.entry(*account).or_default() += 1;
+            *counts.entry(account.clone()).or_default() += 1;
             counts
         },
     );
@@ -742,10 +742,8 @@ pub async fn provision_local_sysadmin_totp_from_env() -> Result<()> {
     let seed = SysadminTotpSeed::from_csprng_bytes(std::mem::take(&mut seed_bytes))
         .map_err(|_| anyhow::anyhow!("local Sysadmin TOTP seed is invalid"))?;
     seed_bytes.zeroize();
-    let account = AccountId::from_uuid(
-        uuid::Uuid::parse_str(&required_env("PLE_LIVE_DEMO_MORGAN_SYSADMIN_ACCOUNT_ID")?)
-            .context("Morgan local Sysadmin Account ID is invalid")?,
-    );
+    let account = AccountId::new(required_env("PLE_LIVE_DEMO_MORGAN_SYSADMIN_ACCOUNT_ID")?)
+        .map_err(|_| anyhow::anyhow!("Morgan local Sysadmin Account ID is invalid"))?;
     store
         .provision_sysadmin_totp_seed(account, seed)
         .await
@@ -770,7 +768,7 @@ mod tests {
     use tower::ServiceExt;
 
     fn account(value: u128) -> AccountId {
-        AccountId::from_uuid(uuid::Uuid::from_u128(value))
+        AccountId::from_debug_serial(value)
     }
 
     #[test]

@@ -23,7 +23,7 @@ use learning_data_access::{
     CourseGradebookStore, SessionTokenHash, StoreError,
     postgres::{PostgresCourseGradebookStore, PostgresSessionStore},
 };
-use question_model::{CourseInstanceReference, ProductRole};
+use question_model::{CourseInstanceId, ProductRole};
 use serde::Deserialize;
 
 use crate::auth::{AuthError, resolve_session};
@@ -74,7 +74,7 @@ async fn download_gradebook(
         Ok(Query(query)) => query.format,
         Err(_) => return route_error(StatusCode::BAD_REQUEST, "Invalid Gradebook export format"),
     };
-    let course = match CourseInstanceReference::from_str(&reference) {
+    let course = match CourseInstanceId::from_str(&reference) {
         Ok(value) => value,
         Err(_) => return concealed(),
     };
@@ -123,7 +123,7 @@ async fn read_gradebook(
     headers: HeaderMap,
     Path(reference): Path<String>,
 ) -> Response {
-    let course = match CourseInstanceReference::from_str(&reference) {
+    let course = match CourseInstanceId::from_str(&reference) {
         Ok(value) => value,
         Err(_) => return concealed(),
     };

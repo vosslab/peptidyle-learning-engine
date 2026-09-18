@@ -8,7 +8,7 @@ function hasReferenceKind(value: unknown, prefix: "CI" | "A"): value is string {
 }
 
 /** Validates the human-facing course reference copied from a route. */
-export function isCourseInstanceReference(value: unknown): value is string {
+export function isCourseInstanceId(value: unknown): value is string {
   return hasReferenceKind(value, "CI");
 }
 

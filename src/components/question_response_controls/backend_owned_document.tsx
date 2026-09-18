@@ -2,7 +2,8 @@
 
 import { createSignal, onCleanup, onMount, Show, type JSX } from "solid-js";
 
-import type { AssessmentAttemptReference } from "../../../generated/api/AssessmentAttemptReference";
+import type { AssessmentAttemptId } from "../../../generated/api/AssessmentAttemptId";
+import { parseAssessmentAttemptReference } from "../../navigation/public_route";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
 import type { QuestionResponseControlBaseProps } from "./common";
 import { handleQuestionResponseControlKeyDown } from "./keyboard";
@@ -93,16 +94,16 @@ export function backendOwnedResponseFromPairs(
 
 /** Builds only the document route authorized by the current Assessment Attempt and position. */
 export function backendOwnedDocumentPath(
-  assessmentAttempt: AssessmentAttemptReference,
+  assessmentAttempt: AssessmentAttemptId,
   position: number,
 ): string | null {
-  if (!/^R-[1-9][0-9]{0,9}$/u.test(assessmentAttempt)) return null;
+  if (parseAssessmentAttemptReference(assessmentAttempt) === null) return null;
   if (!Number.isSafeInteger(position) || position < 1 || position > 2_147_483_647) return null;
   return `/api/assessment-attempts/${encodeURIComponent(assessmentAttempt)}/questions/${position}/document`;
 }
 
 export interface BackendOwnedDocumentProps extends QuestionResponseControlBaseProps {
-  readonly assessmentAttempt: AssessmentAttemptReference;
+  readonly assessmentAttempt: AssessmentAttemptId;
   readonly position: number;
 }
 

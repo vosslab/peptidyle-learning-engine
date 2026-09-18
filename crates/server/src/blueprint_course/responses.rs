@@ -38,7 +38,7 @@ pub(super) fn blueprint_save_response(view: BlueprintCourseView, changed: bool) 
     }
 }
 pub(super) fn metadata_response(state: BlueprintMetadataState) -> Response {
-    let etag = state.metadata_etag;
+    let etag = state.blueprint_edit_number;
     let mut response = crate::auth::no_store(Json(state).into_response());
     match HeaderValue::from_str(&format!("\"{etag}\"")) {
         Ok(value) => {

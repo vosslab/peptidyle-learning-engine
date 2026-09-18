@@ -72,14 +72,14 @@ const resolvingClient = createHttpApiClient({
         role: "student",
       },
       "/api/course-instances/CI4W8QF9AD/appearance": { theme: "forest", banner: null },
-      "/api/navigation/R-1": {
+      "/api/navigation/00000000-0000-0000-0000-000000000001": {
         kind: "assessmentAttempt",
         courseId: identity.courseOne,
         assessmentId: identity.assessment,
         studentRecordId: identity.student,
         assessmentAttemptId: identity.attempt,
       },
-      "/api/navigation/R-9": {
+      "/api/navigation/00000000-0000-0000-0000-000000000009": {
         kind: "assessment",
         courseId: identity.courseOne,
         assessmentId: identity.assessment,
@@ -98,8 +98,8 @@ const resolvingClient = createHttpApiClient({
 const resolutionApi = createApplicationApi(resolvingClient);
 const courseOne = courseInstanceRouteReference("CI7K3M2QAZ");
 const courseTwo = courseInstanceRouteReference("CI4W8QF9AD");
-const attemptOne = assessmentAttemptRouteReference("R-1");
-const attemptTwo = assessmentAttemptRouteReference("R-2");
+const attemptOne = assessmentAttemptRouteReference("00000000-0000-0000-0000-000000000001");
+const attemptTwo = assessmentAttemptRouteReference("00000000-0000-0000-0000-000000000002");
 
 assert.equal(
   resolutionApi.queries.courseScope.keyFor(courseOne),
@@ -122,7 +122,7 @@ assert.notEqual(
   resolutionApi.queries.resolveAssessmentAttempt.keyFor(attemptTwo),
 );
 assert.match(resolutionApi.queries.courseScope.keyFor(courseOne), /CI7K3M2QAZ/u);
-assert.match(resolutionApi.queries.resolveAssessmentAttempt.keyFor(attemptOne), /R-1/u);
+assert.match(resolutionApi.queries.resolveAssessmentAttempt.keyFor(attemptOne), /00000000-0000-0000-0000-000000000001/u);
 
 assert.deepEqual(await resolutionApi.queries.courseScope(courseOne), {
   summary: {
@@ -153,6 +153,6 @@ await assert.rejects(resolutionApi.queries.resolveAssessmentAttempt("R-01"), {
   message: "Assessment Attempt reference is invalid",
 });
 await assert.rejects(
-  resolutionApi.queries.resolveAssessmentAttempt(assessmentAttemptRouteReference("R-9")),
+  resolutionApi.queries.resolveAssessmentAttempt(assessmentAttemptRouteReference("00000000-0000-0000-0000-000000000009")),
   { message: "Assessment Attempt reference resolved to another resource" },
 );

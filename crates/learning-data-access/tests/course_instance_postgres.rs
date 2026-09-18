@@ -7,7 +7,7 @@ use learning_data_access::{
     CourseInstanceCreationSource, CourseInstanceStore, CreateCourseInstanceInput, SessionTokenHash,
     StoreError,
 };
-use question_model::{AccountReference, CourseTerm};
+use question_model::{AccountId, CourseTerm};
 use sqlx::{Connection, PgConnection};
 use uuid::Uuid;
 
@@ -46,7 +46,7 @@ fn empty_course_input() -> CreateCourseInstanceInput {
     }
 }
 
-async fn seed(admin: &sqlx::postgres::PgPool) -> (AccountReference, AccountReference) {
+async fn seed(admin: &sqlx::postgres::PgPool) -> (AccountId, AccountId) {
     let mut transaction = admin.begin().await.expect("fixture transaction");
     sqlx::query("SET LOCAL ROLE ple_data_owner")
         .execute(&mut *transaction)
@@ -109,7 +109,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> (AccountReference, AccountRefer
             .iter()
             .find_map(|(found, reference)| (*found == account_id).then_some(reference))
             .expect("fixture Account public reference");
-        AccountReference::new(public_reference).expect("fixture Account reference")
+        AccountId::new(public_reference).expect("fixture Account reference")
     };
     (
         reference_for(id(CO_INSTRUCTOR)),

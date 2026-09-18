@@ -629,7 +629,7 @@ try {
     ["/library", true],
     ["/blueprint-courses", true],
     ["/courses/CI4W8QF9AD", false],
-    ["/assessment-attempts/R-1", true],
+    ["/assessment-attempts/00000000-0000-0000-0000-000000000001", true],
     ["/courses/CI7K3M2QAZ", false],
   ]) {
     await page.evaluate((nextPathname) => window.ribbonM10.currentNavigate(nextPathname), pathname);
@@ -787,7 +787,7 @@ try {
       taskRowReserved: false,
     },
     {
-      pathname: "/assessment-attempts/R-1",
+      pathname: "/assessment-attempts/00000000-0000-0000-0000-000000000001",
       scope: "assessmentAttempt",
       selected: undefined,
       context: undefined,

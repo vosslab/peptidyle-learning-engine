@@ -109,7 +109,7 @@ BEGIN
             SELECT jsonb_agg(jsonb_build_array(member.published_question_id, member.question_revision_number)
                              ORDER BY member.member_position) INTO members
               FROM ple_data.question_pool AS pool
-              JOIN ple_data.question_pool_revision_member AS member
+              JOIN ple_data.question_pool_member AS member
                 ON member.question_pool_id = pool.question_pool_id
              WHERE pool.question_pool_id = COALESCE(entry_json ->> 'sourceQuestionPoolId',
                                                            entry_json ->> 'questionPoolId')
@@ -137,7 +137,8 @@ SET search_path = pg_catalog, ple_data AS $$
     SELECT NOT EXISTS (
         SELECT 1 FROM jsonb_each(p_values) AS proposed
          WHERE proposed.key NOT IN ('assessment_type', 'available_at', 'due_at', 'closes_at')
-           AND proposed.value IS DISTINCT FROM to_jsonb(assessment) -> proposed.key
+           AND proposed.value IS DISTINCT FROM COALESCE(
+               to_jsonb(policy) -> proposed.key, to_jsonb(assessment) -> proposed.key)
     ) AND ple_data.assessment_blueprint_update_entries_semantics(p_entries) =
         ple_data.assessment_blueprint_update_entries_semantics(COALESCE((
             SELECT jsonb_agg(
@@ -147,18 +148,25 @@ SET search_path = pg_catalog, ple_data AS $$
                     'questionAttemptTimeLimitSeconds', entry.question_attempt_time_limit_seconds,
                     'questionAttemptGraceSeconds', entry.question_attempt_grace_seconds)
                 || CASE WHEN entry.entry_kind = 'fixed_question' THEN jsonb_build_object(
-                    'questionId', entry.published_question_id, 'revisionNumber', entry.question_revision_number,
-                    'pointsPossible', entry.points_possible::text)
+                    'questionId', question.published_question_id, 'revisionNumber', question.question_revision_number,
+                    'pointsPossible', question.points_possible::text)
                 ELSE jsonb_build_object('questionPoolId', pool.question_pool_id,
-                    'questionPoolRevisionNumber', entry.question_pool_revision_number,
-                    'selectionCount', entry.selection_count, 'pointsPerItem', entry.points_per_item::text,
-                    'selectedQuestionOrder', entry.selected_question_order) END
+                    'questionPoolRevisionNumber', pool.question_pool_edit_number,
+                    'selectionCount', pool_entry.selection_count, 'pointsPerItem', pool_entry.points_per_item::text,
+                    'selectedQuestionOrder', pool_entry.selected_question_order) END
                 ORDER BY entry.authored_position)
               FROM ple_data.assessment_entry AS entry
-              LEFT JOIN ple_data.question_pool AS pool ON pool.question_pool_id = entry.question_pool_id
+              LEFT JOIN ple_data.assessment_entry_question AS question
+                ON question.assessment_entry_id = entry.assessment_entry_id
+              LEFT JOIN ple_data.assessment_entry_pool AS pool_entry
+                ON pool_entry.assessment_entry_id = entry.assessment_entry_id
+              LEFT JOIN ple_data.question_pool AS pool ON pool.question_pool_id = pool_entry.question_pool_id
              WHERE entry.assessment_id = p_assessment_id AND entry.availability = 'available'
         ), '[]'::jsonb))
-      FROM ple_data.assessment AS assessment WHERE assessment.assessment_id = p_assessment_id
+      FROM ple_data.assessment AS assessment
+      JOIN ple_data.assessment_policy_snapshot AS policy
+        ON policy.assessment_policy_snapshot_id = assessment.assessment_policy_snapshot_id
+     WHERE assessment.assessment_id = p_assessment_id
 $$;
 
 CREATE FUNCTION ple_data.apply_assessment_blueprint_update(
@@ -168,6 +176,7 @@ CREATE FUNCTION ple_data.apply_assessment_blueprint_update(
 SET search_path = pg_catalog, ple_api, ple_data AS $$
 DECLARE
     source record; assessment_row ple_data.assessment%ROWTYPE; course_row ple_data.course_instance%ROWTYPE;
+    policy ple_data.assessment_policy_snapshot%ROWTYPE;
     values_json jsonb; entries_json jsonb := '[]'::jsonb; entry_json jsonb;
     source_pool_id text; forked record;
 BEGIN
@@ -179,6 +188,8 @@ BEGIN
     SELECT * INTO course_row FROM ple_data.course_instance WHERE course_instance_id = p_course_reference;
     SELECT * INTO assessment_row FROM ple_data.assessment
      WHERE course_instance_id = course_row.course_instance_id AND assessment_id = p_assessment_reference;
+    SELECT * INTO policy FROM ple_data.assessment_policy_snapshot
+     WHERE assessment_policy_snapshot_id = assessment_row.assessment_policy_snapshot_id;
     IF source.source_revision IS DISTINCT FROM p_expected_source_revision
        OR assessment_row.assessment_edit_number IS DISTINCT FROM p_expected_edit_number THEN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Blueprint update precondition is stale';
@@ -216,35 +227,39 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Blueprint update requires fresh Entry identities';
     END IF;
     values_json := (p_member -> 'values') - 'assessment_type' || jsonb_build_object(
-        'available_at', assessment_row.available_at, 'due_at', assessment_row.due_at,
-        'closes_at', assessment_row.closes_at);
+        'available_at', policy.available_at, 'due_at', policy.due_at,
+        'closes_at', policy.closes_at);
     FOR entry_json IN SELECT value FROM jsonb_array_elements(p_member -> 'entries') LOOP
         IF entry_json ->> 'kind' = 'question_pool' THEN
             SELECT question_pool_id INTO source_pool_id FROM ple_data.question_pool
              WHERE question_pool_id = entry_json ->> 'sourceQuestionPoolId';
             SELECT * INTO forked FROM ple_data.fork_question_pool_revision_for_course_adoption(
-                entry_json ->> 'forkPublicQuestionPoolId', source_pool_id,
-                (entry_json ->> 'sourceQuestionPoolRevisionNumber')::bigint);
+                entry_json ->> 'forkPublicQuestionPoolId', source_pool_id);
             -- Create the owned Entry and fork association without an intermediate
             -- Assessment edit. The one normal save below owns the complete edit.
             INSERT INTO ple_data.assessment_entry (
                 assessment_entry_id, assessment_id, authored_position, entry_kind, availability,
-                scoring_rule, question_pool_id, question_pool_revision_number, selection_count,
-                points_per_item, selected_question_order, question_attempt_limit,
+                scoring_rule, question_attempt_limit,
                 question_attempt_time_limit_seconds, question_attempt_grace_seconds
             ) VALUES (
                 (entry_json ->> 'assessmentEntryId')::uuid, assessment_row.assessment_id,
                 (entry_json ->> 'authoredPosition')::integer, 'question_pool', 'retired',
-                entry_json ->> 'scoringRule', forked.question_pool_id, 1,
-                (entry_json ->> 'selectionCount')::integer, (entry_json ->> 'pointsPerItem')::numeric,
-                entry_json ->> 'selectedQuestionOrder',
+                entry_json ->> 'scoringRule',
                 NULLIF(entry_json ->> 'questionAttemptLimit', '')::integer,
                 NULLIF(entry_json ->> 'questionAttemptTimeLimitSeconds', '')::integer,
                 NULLIF(entry_json ->> 'questionAttemptGraceSeconds', '')::integer);
+            INSERT INTO ple_data.assessment_entry_pool (
+                assessment_entry_id, assessment_id, question_pool_id,
+                selection_count, points_per_item, selected_question_order
+            ) VALUES (
+                (entry_json ->> 'assessmentEntryId')::uuid, assessment_row.assessment_id,
+                forked.question_pool_id,
+                (entry_json ->> 'selectionCount')::integer, (entry_json ->> 'pointsPerItem')::numeric,
+                entry_json ->> 'selectedQuestionOrder');
             INSERT INTO ple_data.assessment_question_pool_fork (
-                assessment_entry_id, assessment_id, question_pool_id, origin_question_pool_revision_number
+                assessment_entry_id, assessment_id, question_pool_id
             ) VALUES ((entry_json ->> 'assessmentEntryId')::uuid, assessment_row.assessment_id,
-                      forked.question_pool_id, 1);
+                      forked.question_pool_id);
             entry_json := entry_json - 'sourceQuestionPoolId' - 'sourceQuestionPoolRevisionNumber'
                 - 'forkQuestionPoolId' - 'forkPublicQuestionPoolId' || jsonb_build_object(
                     'questionPoolId', forked.question_pool_id, 'questionPoolRevisionNumber', 1);
@@ -362,7 +377,7 @@ BEGIN
     END IF;
     SELECT COALESCE(jsonb_agg(jsonb_build_object(
         'assessmentReference', destination.assessment_id,
-        'title', destination.assessment_title,
+        'title', policy.assessment_title,
         'assessmentType', destination.assessment_type,
         'cannotApplyReason', CASE
             WHEN source_member.source_content IS NULL THEN 'retainedSourceMissing'
@@ -377,6 +392,8 @@ BEGIN
                 projection.member -> 'entries'), false) END
         ) ORDER BY destination.assessment_id), '[]'::jsonb) INTO assessments
       FROM ple_data.assessment AS destination
+      JOIN ple_data.assessment_policy_snapshot AS policy
+        ON policy.assessment_policy_snapshot_id = destination.assessment_policy_snapshot_id
       LEFT JOIN LATERAL (
           SELECT member.value -> 'content' AS source_content
             FROM jsonb_array_elements(content -> 'modules') AS module

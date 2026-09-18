@@ -10,6 +10,152 @@
 
 ### Additions and New Features
 
+- M2 WP-2.5 and WP-2.3: Question Pools are current state. Dropped
+  `question_pool_revision`, `question_pool_revision_member`, and
+  `question_pool_revision_bloom`. Members live in `question_pool_member`
+  keyed by `(question_pool_id, member_position)`. Attestation and Edit
+  Number live on `question_pool`. `save_question_pool_members` CAS-es the
+  Edit Number, no-ops an identical ordered list, and re-attests on change.
+  Forks copy current members once. Assessment pool entries and snapshots
+  pin `question_pool_id` only. `question_pool_selection` stores
+  `question_pool_id` plus `question_pool_edit_number`; selected items keep
+  exact Question pins. Watch emits `members_changed`. Student Work tables
+  in `assessment_attempt.sql` (and ple_audit correction targets) carry
+  `course_instance_id NOT NULL` leading every PRIMARY KEY and UNIQUE, bound
+  in parent FKs. Accommodation stays teaching config with a uuid PK and
+  `course_instance_id` in Attempt FK tuples. JSON field names are unchanged.
+  Gate: `source source_me.sh && python3 devel/generate_schema_tables_doc.py &&
+  python3 schema_style/check_schema_style.py` twice exits 0 (advisory
+  `rule_14` 175). `tests/_temp/m2_snapshot_probes.sql` on disposable
+  `postgres:17` shows equal policies share one snapshot, distinct policies
+  do not, and an Attempt keeps the original snapshot after the Assessment
+  policy changes (`student_work_oracles.log`).
+
+- M2 WP-2.2: `assessment_entry` is a parent of common columns; kind-specific
+  facts live in `assessment_entry_question` and `assessment_entry_pool`.
+  Frozen issue facts live in `ple_private.assessment_entry_snapshot`
+  (content-addressed SHA-256 PK). `issued_question` stores
+  `assessment_entry_snapshot_id` and drops `point_value`, `scoring_rule`,
+  `question_attempt_limit`, `question_attempt_time_limit_seconds`, and
+  `question_attempt_grace_seconds`. Save and issue call
+  `ple_private.ensure_assessment_entry_snapshot`; the scorer reads points
+  through the snapshot. JSON field names are unchanged. Gate:
+  `source source_me.sh && python3 devel/generate_schema_tables_doc.py &&
+  python3 schema_style/check_schema_style.py` exits 0 (advisory `rule_11`
+  15, `rule_14` 172).
+
+- Human Guidance public-ID names: Rust/TypeScript types are `AccountId`,
+  `CourseInstanceId`, `AssessmentId`, and `BlueprintCourseId` (no parallel
+  `*Reference` or `CourseId` alias). `docs/TERMINOLOGY_CONTRACT.md` matches
+  HUMAN_GUIDANCE: public IDs are the primary keys; Question Pools are current
+  state with an Edit Number; Student Work pins Pool ID plus Pool Edit Number.
+  Gate: `cargo test -p question_model --offline --lib` (146 passed);
+  `cargo check -p learning-data-access -p server_core -p project-tools
+  --offline`; `cargo tsgen` wrote 395 types.
+
+- M2 WP-2.1: frozen Assessment policy lives in
+  `ple_data.assessment_policy_snapshot` (content-addressed SHA-256 PK).
+  `assessment`, `assessment_template`, and `assessment_attempt` store
+  `assessment_policy_snapshot_id` instead of copying title, instructions,
+  schedule, limits, rules, and feedback. `ple_private.ensure_assessment_policy_snapshot`
+  inserts-or-reuses the row; Attempt start copies the Assessment's current
+  snapshot id. Quiz/Exam attempt-limit = 1 is enforced in the helper.
+  JSON field names are unchanged. Style checker allows `sha256_digest` PKs
+  on `role: snapshot` tables. Gate:
+  `source source_me.sh && ./schema_style/check_schema_style.py` twice exits 0
+  (advisory `rule_11` 15, `rule_14` 170).
+
+
+
+- M1 WP-1.4: Account, Course Instance, Blueprint Course, Assessment, and
+  Question Pool primary keys are the public ID (`ple_data.account_id`,
+  `course_instance_id`, `blueprint_course_id`, `assessment_id`,
+  `question_family_id` domains in `10_types.sql`). Foreign keys target those
+  columns. GRANT identities were rewritten to match CREATE FUNCTION argument
+  types. Disposable `postgres:17` `install.sql` completes (146 tables, 281 FKs,
+  600 routines including public-ID domain helpers; CHECK/index/policy/trigger
+  counts changed with enums and clocks). Gate:
+  `source source_me.sh && ./devel/generate_schema_tables_doc.py && ./schema_style/check_schema_style.py`
+  exits 0 with advisory `rule_11` and `rule_14`. Catalog snapshot type display
+  keeps schema-qualified enums (`ple_data.product_role`). Live Demo seed and
+  Rust `AccountId`/`CourseInstanceId`/`AssessmentId` mappings still follow.
+
+- M1 WP-1.6: the concurrency token is the Edit Number only. SQL columns are
+  `course_edit_number`, `blueprint_edit_number`, and
+  `question_pool_edit_number`. JSON uses those names (`courseEditNumber` /
+  `blueprint_edit_number` / `blueprintEditNumber` depending on the contract's
+  serde case). HTTP `ETag`/`If-Match` is the decimal integer as a strong
+  validator (`"42"`), not a UUID. `cargo tsgen` wrote 395 types including
+  `BlueprintEditNumber`. Gate: `cargo check -p learning-data-access -p
+  server_core --offline` after the Course JSON field rename.
+
+- M1 Live Demo: `installation_data_activity` issues temporary sessions by
+  looking up `ple_private.account_authentication_email.normalized_email` as
+  `ple_migrator`/`ple_private_owner` through `PLE_MIGRATION_DATABASE_URL`.
+  Fictional emails stay the stable seed keys; minted Account public IDs are
+  not compiled in. Gate: `cargo check -p project-tools --offline`.
+
+- Account, Course Instance, and Assessment identities in Rust are the
+  canonical public ID string (`AccountId` / `CourseInstanceId` /
+  `AssessmentId`). `AccountId`, `CourseInstanceId`, and `AssessmentId` are
+  aliases of those types so SQL, Rust, and TypeScript share one value. Postgres
+  binds and decodes that text. Live Demo env vars parse public IDs, not UUIDs.
+
+- WP-1.4 leftover in `50_functions`: bodies that still read
+  `public_reference` / `reference_number` on Account, Course Instance,
+  Blueprint Course, Assessment, and Question Pool now use the text `*_id`
+  PK. Locals and parameters that held those IDs as `uuid` or `bigint`
+  (including `v_actor` from `current_session_account_id()`) are `text`.
+  API `RETURNS TABLE (public_reference text, ...)` aliases remain.
+  `assessment_attempt.reference_number` and
+  `authoring_workspace.reference_number` are unchanged. 60_policies needed
+  no further public-ID column rewrites.
+
+- After dropping `ple_private.assessment_attempt.reference_number` and
+  `ple_private.authoring_workspace.reference_number`, `50_functions` readers
+  and writers look up Assessment Attempts by `assessment_attempt_id uuid`.
+  Parameters, `RETURNS TABLE` columns, GRANT EXECUTE identities, and JSON
+  `assessmentAttempt` values use that PK text rather than `'R-' ||
+  reference_number`. Archived recovery keyset pagination uses
+  `p_after_assessment_attempt_id uuid`.
+
+- Removed `ple_data.course_retention_policy`. FERPA notice, archive, recovery,
+  and deletion intervals are installation GUCs
+  (`ple.retention_inactive_warning_lead_time`,
+  `ple.retention_archive_notice_lead_time`,
+  `ple.retention_archive_after_retention_start`,
+  `ple.retention_delete_after_archive`) read by `ple_data.retention_schedule()`,
+  with the previous 14/70/100/265-day defaults. Callers no longer select a
+  named policy row. Table grants and RLS for that object are gone.
+
+- Identity PKs that were bigint IDENTITY, boolean, or a Blueprint
+  reference-number PK are now `uuid` (or `text` for the singleton retention
+  policy). The SQLx ledger in `ple_migration` stays outside `rule_08`.
+  Nullable columns have `COMMENT ON COLUMN` stating that NULL means the
+  optional fact is absent. Table-level `CHECK` clauses after `--` comments
+  are no longer parsed as a column named CHECK. Gate:
+  `source source_me.sh && ./devel/generate_schema_tables_doc.py && ./schema_style/check_schema_style.py`
+  exits 0 with only advisory `rule_11` and `rule_14`.
+
+- `schema_style/check_schema_style.py` loads `schemas/catalog_snapshot.json`
+  when that file exists, so
+  `source source_me.sh && ./devel/generate_schema_tables_doc.py && ./schema_style/check_schema_style.py`
+  applies snapshot Tier 3 without `-j`. An explicit `-j` path still errors if
+  missing.
+
+- M1 types, clocks, and key names: closed vocabularies are PostgreSQL enums in
+  `10_types.sql` (snake_case labels); `text CHECK (IN ...)` columns now use
+  those types; every table has a creation clock and current-state/aggregate
+  tables have `updated_at`/`updated_on`; single-column FKs name their parent
+  table (`course_instance_id`, `published_question_id`, `object_record_id`)
+  per DATABASE_STYLE.md. JSON emitted by SQL stays snake_case
+  (NAMING_CONVENTIONS.md). Assigned-Instructor Course columns are gone;
+  Instructor membership is the Course teaching team. `course_theme` is a
+  vocabulary table. Disposable `postgres:17` `install.sql` completes.
+  Style gate:
+  `source source_me.sh && ./devel/generate_schema_tables_doc.py && ./schema_style/check_schema_style.py -j schemas/catalog_snapshot.json`.
+  Public-ID primary keys (WP-1.4) and Rust mappings remain.
+
 - M0 install census (disposable `postgres:17`, bootstrap through
   `migration_principal_bootstrap_sql`, then `psql --single-transaction -f
   install.sql` as `ple_migrator`): 146 tables / 281 FKs / 497 CHECKs / 282
@@ -147,6 +293,29 @@
   and plan WP-2.3 carry it; row estimates use five Attempts per Student.
 
 ### Fixes and Maintenance
+
+- Browser TypeScript uses Blueprint/Course Edit Number JSON fields
+  (`blueprint_edit_number`, `blueprintEditNumber`, `courseEditNumber`) and
+  quoted `"42"` ETags instead of retired `metadataEtag` UUID validators.
+
+- Assessment Attempt identity in Rust, HTTP paths, and JSON is
+  `AssessmentAttemptId` (UUID text). Store traits, Postgres binds, path
+  parsing, and TypeScript route/JSON parsers no longer use the `R-`
+  numeric `AssessmentAttemptReference`. JSON field names stay
+  `assessmentAttempt`. Gate:
+  `source source_me.sh && cargo test -p question_model student_work::identifiers --offline`
+  and `cargo check -p learning-data-access -p server_core --offline`.
+
+- Rewrote `schemas/installation_data/live_demo.sql` and `live_demo_oracle.sql`
+  onto public-ID primary keys. Accounts resolve by seed email, the Course by
+  short_name `BCHM 301`, the Assessment by title `Chapter 1 Pilot Practice`, and
+  `ple.installation_live_demo_blueprint_public_reference` is the Blueprint
+  Course ID. Course inserts set `created_at`, `active_until_at` (UTC plus six
+  months), and `retention_starts_at`. Instructor teaching-team membership
+  replaces assigned-instructor columns. Internal membership, invitation,
+  student-record, workspace, and event keys stay uuid. Domain placeholders
+  `CI0000000Y` and `A0000000A` satisfy the public-ID CHECK before
+  `assign_human_reference` mints the row.
 
 - Restored `schema_style` M1 rules as blocking (`rule_7_key_names`, `rule_4_types`,
   `rule_2_constant_columns`, `rule_5_duplicate_literal_sets`, `rule_16_clock_present`).

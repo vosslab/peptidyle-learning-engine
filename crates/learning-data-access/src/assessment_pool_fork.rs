@@ -3,7 +3,7 @@
 use async_trait::async_trait;
 use question_model::{
     AssessmentEditNumber, AssessmentEntryId, AssessmentEntryScoringRule, AssessmentPointValue,
-    AssessmentReference, CourseInstanceReference, QuestionId, QuestionPoolRevisionNumber,
+    AssessmentId, CourseInstanceId, QuestionId, QuestionPoolRevisionNumber,
     QuestionPoolRevisionReference, QuestionPoolSelectedQuestionOrder, QuestionRevisionReference,
 };
 use uuid::Uuid;
@@ -19,8 +19,8 @@ use crate::{SessionTokenHash, StoreError};
 pub struct ImportAssessmentPoolForkInput {
     /// Opaque route references; the Store resolves their authorized internal
     /// Assessment identity in the same transaction as the fork import.
-    pub course: CourseInstanceReference,
-    pub assessment: AssessmentReference,
+    pub course: CourseInstanceId,
+    pub assessment: AssessmentId,
     pub assessment_entry: AssessmentEntryId,
     pub expected_assessment_edit_number: AssessmentEditNumber,
     pub fork_question_pool_id: Uuid,
@@ -44,11 +44,11 @@ pub struct ImportedAssessmentPoolFork {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AppendAssessmentPoolForkRevisionInput {
     /// Opaque route references; no browser supplies an internal Assessment ID.
-    pub course: CourseInstanceReference,
-    pub assessment: AssessmentReference,
+    pub course: CourseInstanceId,
+    pub assessment: AssessmentId,
     pub assessment_entry: AssessmentEntryId,
     pub expected_assessment_edit_number: AssessmentEditNumber,
-    pub expected_pool_metadata_etag: Uuid,
+    pub expected_question_pool_edit_number: Uuid,
     pub members: Vec<QuestionRevisionReference>,
     pub interchangeability_attested: bool,
 }
@@ -57,7 +57,7 @@ pub struct AppendAssessmentPoolForkRevisionInput {
 pub struct AppendedAssessmentPoolForkRevision {
     pub assessment_entry: AssessmentEntryId,
     pub question_pool_revision_number: QuestionPoolRevisionNumber,
-    pub metadata_etag: Uuid,
+    pub blueprint_edit_number: Uuid,
     pub assessment_edit_number: AssessmentEditNumber,
 }
 

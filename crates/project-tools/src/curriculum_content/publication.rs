@@ -260,7 +260,7 @@ async fn create_blueprint(
     manifest: &Manifest,
     revisions: &SourceRevisions,
     store: &PostgresBlueprintCourseStore,
-) -> Result<(question_model::BlueprintCourseReference, BlueprintRevision)> {
+) -> Result<(question_model::BlueprintCourseId, BlueprintRevision)> {
     let checksum = request_checksum(input)?;
     let receipt = store
         .create_blueprint_course(session, checksum, input.clone(), Default::default())

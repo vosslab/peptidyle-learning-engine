@@ -5,7 +5,7 @@ import { render } from "solid-js/web";
 
 import type { CourseAppearanceView } from "../../generated/api/CourseAppearanceView";
 import type { CourseBannerUpdate } from "../../generated/api/CourseBannerUpdate";
-import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
+import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { CourseClassification } from "../../generated/api/CourseClassification";
 import type { ApplicationApi } from "../../src/api/application_api";
 import type { OrdinaryBrowserApiClient } from "../../src/api/client";
@@ -15,7 +15,7 @@ import { CourseThemeVariables } from "../../src/features/course_appearance/cours
 import { CourseAppearancePage } from "../../src/pages/course_appearance_page";
 import { RouteScopeProvider } from "../../src/ribbon/route_scope_context";
 
-const COURSE_REFERENCE: CourseInstanceReference = "CI7K3M2QAZ";
+const COURSE_REFERENCE: CourseInstanceId = "CI7K3M2QAZ";
 const COURSE_PATH = "/instructor/courses/CI7K3M2QAZ/appearance";
 const FIXTURE_CLASSIFICATION = {
   disciplineUuid: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6d",
@@ -100,7 +100,7 @@ export function mountCourseAppearanceM7Harness(
   const applicationApi = {
     client: {
       updateCourseTheme: (
-        _courseReference: CourseInstanceReference,
+        _courseReference: CourseInstanceId,
         update: { readonly theme: CourseAppearanceView["theme"] },
       ) => {
         saves += 1;
@@ -112,7 +112,7 @@ export function mountCourseAppearanceM7Harness(
         bannerUploads += 1;
         return Promise.resolve({ upload: "banner-upload" });
       },
-      setCourseBanner: (_courseReference: CourseInstanceReference, update: CourseBannerUpdate) => {
+      setCourseBanner: (_courseReference: CourseInstanceId, update: CourseBannerUpdate) => {
         bannerSets += 1;
         currentAppearance = {
           ...currentAppearance,

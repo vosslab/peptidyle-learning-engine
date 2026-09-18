@@ -1,7 +1,7 @@
 //! PostgreSQL implementation of the Course Roster lifecycle.
 
 use async_trait::async_trait;
-use question_model::CourseInstanceReference;
+use question_model::CourseInstanceId;
 use sqlx::{Postgres, Row, Transaction};
 
 use super::Pool;
@@ -55,7 +55,7 @@ impl CourseRosterStore for PostgresCourseRosterStore {
     async fn list_course_roster(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
+        course: CourseInstanceId,
     ) -> Result<Vec<CourseRosterEntry>, StoreError> {
         let mut transaction = self
             .begin_authenticated_application_transaction(session_token_hash)
@@ -77,7 +77,7 @@ impl CourseRosterStore for PostgresCourseRosterStore {
     async fn import_course_roster(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
+        course: CourseInstanceId,
         input: CourseRosterImportInput,
     ) -> Result<Vec<CourseRosterEntry>, StoreError> {
         let entries = input.validated_entries()?;
@@ -123,7 +123,7 @@ impl CourseRosterStore for PostgresCourseRosterStore {
     async fn claim_course_invitation(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
+        course: CourseInstanceId,
     ) -> Result<ClaimedCourseInvitation, StoreError> {
         let mut transaction = self
             .begin_authenticated_application_transaction(session_token_hash)
@@ -148,7 +148,7 @@ impl CourseRosterStore for PostgresCourseRosterStore {
     async fn revoke_course_roster_entry(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
+        course: CourseInstanceId,
         roster_id: String,
     ) -> Result<(), StoreError> {
         if roster_id.is_empty() || roster_id.len() > 64 {

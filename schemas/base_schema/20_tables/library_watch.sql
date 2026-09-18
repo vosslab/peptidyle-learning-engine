@@ -26,7 +26,7 @@ CREATE TABLE ple_data.library_watch_event (
     occurred_at timestamptz NOT NULL,
     processed_at timestamptz,
     CHECK (
-        (event_kind = 'revision' AND revision_number IS NOT NULL
+        (event_kind IN ('revision', 'members_changed') AND revision_number IS NOT NULL
             AND forked_public_id IS NULL AND activity_id IS NULL)
         OR (event_kind = 'fork' AND revision_number IS NOT NULL
             AND forked_public_id IS NOT NULL AND activity_id IS NULL)
@@ -76,7 +76,7 @@ CREATE TABLE ple_private.library_watch_notification (
     occurred_at timestamptz NOT NULL,
     UNIQUE (recipient_account_id, library_watch_event_id),
     CHECK (
-        (event_kind = 'revision' AND revision_number IS NOT NULL
+        (event_kind IN ('revision', 'members_changed') AND revision_number IS NOT NULL
             AND forked_public_id IS NULL AND activity_id IS NULL)
         OR (event_kind = 'fork' AND revision_number IS NOT NULL
             AND forked_public_id IS NOT NULL AND activity_id IS NULL)

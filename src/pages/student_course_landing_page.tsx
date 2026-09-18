@@ -11,7 +11,7 @@ import { assessmentTypePresentation } from "../assessment_type_presentation";
 import { useApplicationApi } from "../api/application_api";
 import { StudentAssessmentDecisionDetails } from "../components/student_assessment_presentation";
 import { CourseEntryIdentity } from "../features/course_appearance/course_entry_identity";
-import { parseCourseInstanceReference } from "../navigation/public_route";
+import { parseCourseInstanceId } from "../navigation/public_route";
 import { RibbonIcon } from "../ribbon/ribbon_icon";
 import { formatPointScore } from "../score_format";
 import { studentCourseworkDisplay } from "./student_coursework_presentation";
@@ -92,8 +92,8 @@ function AssessmentCard(props: {
 export function StudentCourseLandingPage(): JSX.Element {
   const applicationApi = useApplicationApi();
   const params = useParams();
-  function courseReference(): ReturnType<typeof parseCourseInstanceReference> {
-    return parseCourseInstanceReference(params["courseRef"] ?? "");
+  function courseReference(): ReturnType<typeof parseCourseInstanceId> {
+    return parseCourseInstanceId(params["courseRef"] ?? "");
   }
   async function loadCourses(): Promise<ReadonlyArray<LiveStudentCourseLandingSummary>> {
     return applicationApi.client.listLiveStudentCourses();

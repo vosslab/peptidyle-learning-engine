@@ -13,7 +13,7 @@ use learning_data_access::{
     postgres::{PostgresAssessmentStudentTimeAccommodationStore, PostgresSessionStore},
 };
 use question_model::{
-    AssessmentReference, CourseInstanceReference, ProductRole,
+    AssessmentId, CourseInstanceId, ProductRole,
     SaveAssessmentStudentTimeAccommodationInput,
 };
 use std::sync::Arc;
@@ -111,7 +111,7 @@ async fn configuration(
     headers: &HeaderMap,
     save: Option<SaveAssessmentStudentTimeAccommodationInput>,
 ) -> Response {
-    let (course, assessment): (CourseInstanceReference, AssessmentReference) =
+    let (course, assessment): (CourseInstanceId, AssessmentId) =
         match (course.parse(), assessment.parse()) {
             (Ok(course), Ok(assessment)) => (course, assessment),
             _ => return concealed(),

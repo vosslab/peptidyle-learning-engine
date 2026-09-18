@@ -44,7 +44,7 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
     transition_blueprint_availability(
         &url,
         blueprint_number,
-        private.metadata_etag.into_uuid(),
+        private.blueprint_edit_number.as_i64(),
         "public",
         None,
     )

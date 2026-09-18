@@ -34,10 +34,12 @@ BEGIN
     PERFORM question.published_question_id
       FROM ple_data.published_question AS question
      WHERE question.published_question_id IN (
-               SELECT entry.published_question_id
+               SELECT question.published_question_id
                  FROM ple_data.assessment AS assessment
                  JOIN ple_data.assessment_entry AS entry
                    ON entry.assessment_id = assessment.assessment_id
+                 JOIN ple_data.assessment_entry_question AS question
+                   ON question.assessment_entry_id = entry.assessment_entry_id
                 WHERE assessment.course_instance_id = p_course_instance_id
                   AND entry.availability = 'available'
                   AND entry.entry_kind = 'fixed_question'
@@ -46,9 +48,10 @@ BEGIN
                  FROM ple_data.assessment AS assessment
                  JOIN ple_data.assessment_entry AS entry
                    ON entry.assessment_id = assessment.assessment_id
-                 JOIN ple_data.question_pool_revision_member AS member
-                   ON member.question_pool_id = entry.question_pool_id
-                  AND member.revision_number = entry.question_pool_revision_number
+                 JOIN ple_data.assessment_entry_pool AS pool_entry
+                   ON pool_entry.assessment_entry_id = entry.assessment_entry_id
+                 JOIN ple_data.question_pool_member AS member
+                   ON member.question_pool_id = pool_entry.question_pool_id
                 WHERE assessment.course_instance_id = p_course_instance_id
                   AND entry.availability = 'available'
                   AND entry.entry_kind = 'question_pool'
@@ -60,8 +63,10 @@ BEGIN
           FROM ple_data.assessment AS assessment
           JOIN ple_data.assessment_entry AS entry
             ON entry.assessment_id = assessment.assessment_id
+          JOIN ple_data.assessment_entry_question AS entry_question
+            ON entry_question.assessment_entry_id = entry.assessment_entry_id
           LEFT JOIN ple_data.published_question AS question
-            ON question.published_question_id = entry.published_question_id
+            ON question.published_question_id = entry_question.published_question_id
          WHERE assessment.course_instance_id = p_course_instance_id
            AND entry.availability = 'available'
            AND entry.entry_kind = 'fixed_question'
@@ -71,9 +76,10 @@ BEGIN
           FROM ple_data.assessment AS assessment
           JOIN ple_data.assessment_entry AS entry
             ON entry.assessment_id = assessment.assessment_id
-          JOIN ple_data.question_pool_revision_member AS member
-            ON member.question_pool_id = entry.question_pool_id
-           AND member.revision_number = entry.question_pool_revision_number
+          JOIN ple_data.assessment_entry_pool AS pool_entry
+            ON pool_entry.assessment_entry_id = entry.assessment_entry_id
+          JOIN ple_data.question_pool_member AS member
+            ON member.question_pool_id = pool_entry.question_pool_id
           LEFT JOIN ple_data.published_question AS question
             ON question.published_question_id = member.published_question_id
          WHERE assessment.course_instance_id = p_course_instance_id
@@ -97,18 +103,18 @@ SET search_path = pg_catalog, ple_data
 AS $$
     SELECT jsonb_build_object(
         'assessment_type', assessment.assessment_type,
-        'title', assessment.assessment_title,
-        'instructions', assessment.assessment_instructions,
+        'title', policy.assessment_title,
+        'instructions', policy.assessment_instructions,
         'entries', COALESCE((
             SELECT jsonb_agg(
                 CASE entry.entry_kind
                     WHEN 'fixed_question' THEN jsonb_build_object(
                         'kind', 'fixed',
                         'question_revision', jsonb_build_object(
-                            'questionId', entry.published_question_id,
-                            'revisionNumber', entry.question_revision_number
+                            'questionId', question.published_question_id,
+                            'revisionNumber', question.question_revision_number
                         ),
-                        'points_possible', entry.points_possible::text,
+                        'points_possible', question.points_possible::text,
                         'scoring_rule', CASE entry.scoring_rule::text
                             WHEN 'full_credit' THEN 'fullCredit'
                             WHEN 'extra_credit' THEN 'extraCredit'
@@ -131,17 +137,17 @@ AS $$
                         'kind', 'pool',
                         'question_pool_revision', jsonb_build_object(
                             'questionPoolId', pool.question_pool_id,
-                            'revisionNumber', entry.question_pool_revision_number
+                            'revisionNumber', pool.question_pool_edit_number
                         ),
-                        'selection_count', entry.selection_count,
-                        'points_per_item', entry.points_per_item::text,
+                        'selection_count', pool_entry.selection_count,
+                        'points_per_item', pool_entry.points_per_item::text,
                         'scoring_rule', CASE entry.scoring_rule::text
                             WHEN 'full_credit' THEN 'fullCredit'
                             WHEN 'extra_credit' THEN 'extraCredit'
                             ELSE entry.scoring_rule::text
                         END,
                         'selection_rule', jsonb_build_object(
-                            'selectedQuestionOrder', CASE entry.selected_question_order
+                            'selectedQuestionOrder', CASE pool_entry.selected_question_order
                                 WHEN 'question_pool_order' THEN 'questionPoolOrder'
                                 WHEN 'random_order' THEN 'randomOrder'
                             END
@@ -162,37 +168,43 @@ AS $$
                 END ORDER BY entry.authored_position
             )
               FROM ple_data.assessment_entry AS entry
+              LEFT JOIN ple_data.assessment_entry_question AS question
+                ON question.assessment_entry_id = entry.assessment_entry_id
+              LEFT JOIN ple_data.assessment_entry_pool AS pool_entry
+                ON pool_entry.assessment_entry_id = entry.assessment_entry_id
               LEFT JOIN ple_data.question_pool AS pool
-                ON pool.question_pool_id = entry.question_pool_id
+                ON pool.question_pool_id = pool_entry.question_pool_id
              WHERE entry.assessment_id = assessment.assessment_id
                AND entry.availability = 'available'
         ), '[]'::jsonb),
         'defaults', jsonb_build_object(
             'assessment_attempt_time_limit_seconds',
-                assessment.assessment_attempt_time_limit_seconds,
-            'assessment_attempt_limit', assessment.assessment_attempt_limit,
-            'late_work_rule', assessment.late_work_rule,
+                policy.assessment_attempt_time_limit_seconds,
+            'assessment_attempt_limit', policy.assessment_attempt_limit,
+            'late_work_rule', policy.late_work_rule,
             'activity_rules', jsonb_build_object(
-                'questionVariationRule', CASE assessment.question_variation_rule
+                'questionVariationRule', CASE policy.question_variation_rule
                     WHEN 'reuse_variation' THEN 'reuseVariation'
                     WHEN 'new_variation' THEN 'newVariation'
                 END,
-                'assessmentQuestionOrderRule', CASE assessment.assessment_question_order_rule
+                'assessmentQuestionOrderRule', CASE policy.assessment_question_order_rule
                     WHEN 'authored_order' THEN 'authoredOrder'
                     WHEN 'shuffled' THEN 'shuffled'
                 END
             ),
             'student_feedback_release_rule', jsonb_build_object(
-                'score', assessment.feedback_score,
-                'per_item_correctness', assessment.feedback_per_item_correctness,
-                'submitted_response', assessment.feedback_submitted_response,
-                'question_answer', assessment.feedback_question_answer,
-                'question_answer_explanation', assessment.feedback_question_answer_explanation,
-                'class_statistics', assessment.feedback_class_statistics
+                'score', policy.feedback_score,
+                'per_item_correctness', policy.feedback_per_item_correctness,
+                'submitted_response', policy.feedback_submitted_response,
+                'question_answer', policy.feedback_question_answer,
+                'question_answer_explanation', policy.feedback_question_answer_explanation,
+                'class_statistics', policy.feedback_class_statistics
             )
         )
     )
       FROM ple_data.assessment AS assessment
+      JOIN ple_data.assessment_policy_snapshot AS policy
+        ON policy.assessment_policy_snapshot_id = assessment.assessment_policy_snapshot_id
      WHERE assessment.assessment_id = p_assessment_id
 $$;
 
@@ -211,16 +223,24 @@ AS $$
         'poolPins', COALESCE((
             SELECT jsonb_agg(jsonb_build_object(
                 'assessmentEntryId', entry.assessment_entry_id,
-                'questionPoolId', entry.question_pool_id,
-                'revisionNumber', entry.question_pool_revision_number
+                'questionPoolId', pool_entry.question_pool_id,
+                'revisionNumber', (
+                    SELECT pool.question_pool_edit_number
+                      FROM ple_data.question_pool AS pool
+                     WHERE pool.question_pool_id = pool_entry.question_pool_id
+                )
             ) ORDER BY entry.authored_position)
               FROM ple_data.assessment_entry AS entry
+              JOIN ple_data.assessment_entry_pool AS pool_entry
+                ON pool_entry.assessment_entry_id = entry.assessment_entry_id
              WHERE entry.assessment_id = assessment.assessment_id
                AND entry.availability = 'available'
                AND entry.entry_kind = 'question_pool'
         ), '[]'::jsonb)
-    ) ORDER BY assessment.due_at NULLS LAST, assessment.assessment_id), '[]'::jsonb)
+    ) ORDER BY policy.due_at NULLS LAST, assessment.assessment_id), '[]'::jsonb)
       FROM ple_data.assessment AS assessment
+      JOIN ple_data.assessment_policy_snapshot AS policy
+        ON policy.assessment_policy_snapshot_id = assessment.assessment_policy_snapshot_id
      WHERE assessment.course_instance_id = p_course_instance_id
 $$;
 
@@ -237,7 +257,7 @@ SET LOCAL ROLE ple_api_owner;
 -- before this snapshot, or wait until the complete publication commits.
 CREATE FUNCTION ple_api.load_course_blueprint_publication_source(p_course_reference text)
 RETURNS TABLE (
-    course_metadata_etag uuid,
+    course_edit_number bigint,
     source_snapshot jsonb,
     source_assessments jsonb
 )
@@ -259,23 +279,27 @@ BEGIN
 
     PERFORM 1
       FROM ple_data.assessment AS assessment
+      JOIN ple_data.assessment_policy_snapshot AS policy
+        ON policy.assessment_policy_snapshot_id = assessment.assessment_policy_snapshot_id
      WHERE assessment.course_instance_id = source_course.course_instance_id
-     ORDER BY assessment.due_at NULLS LAST, assessment.assessment_id
-     FOR UPDATE;
+     ORDER BY policy.due_at NULLS LAST, assessment.assessment_id
+     FOR UPDATE OF assessment;
 
     -- New Blueprint pins use the same Available-Published-Question predicate
     -- as ordinary Blueprint creation, including every exact Pool member pin.
     PERFORM ple_data.lock_course_blueprint_publication_questions(source_course.course_instance_id);
 
-    course_metadata_etag := source_course.metadata_etag;
+    course_edit_number := source_course.blueprint_edit_number;
     source_snapshot := ple_data.course_blueprint_publication_snapshot(source_course.course_instance_id);
     SELECT COALESCE(jsonb_agg(jsonb_build_object(
         'content', ple_data.course_blueprint_publication_assessment_content(
             assessment.assessment_id
         )
-    ) ORDER BY assessment.due_at NULLS LAST, assessment.assessment_id), '[]'::jsonb)
+    ) ORDER BY policy.due_at NULLS LAST, assessment.assessment_id), '[]'::jsonb)
       INTO source_assessments
       FROM ple_data.assessment AS assessment
+      JOIN ple_data.assessment_policy_snapshot AS policy
+        ON policy.assessment_policy_snapshot_id = assessment.assessment_policy_snapshot_id
      WHERE assessment.course_instance_id = source_course.course_instance_id;
     RETURN NEXT;
 END
@@ -293,7 +317,7 @@ CREATE FUNCTION ple_api.course_blueprint_publication_receipt(
 RETURNS TABLE (
     public_reference text,
     blueprint_revision_number bigint,
-    metadata_etag uuid,
+    blueprint_edit_number bigint,
     accepted_at timestamp with time zone
 )
 LANGUAGE plpgsql SECURITY DEFINER
@@ -318,8 +342,8 @@ BEGIN
       FROM ple_data.course_instance AS course
      WHERE course.course_instance_id = p_course_reference;
     SELECT blueprint.blueprint_course_id, receipt.blueprint_revision_number,
-           receipt.metadata_etag, receipt.accepted_at, source.source_course_instance_id
-      INTO public_reference, blueprint_revision_number, metadata_etag, accepted_at,
+           receipt.blueprint_edit_number, receipt.accepted_at, source.source_course_instance_id
+      INTO public_reference, blueprint_revision_number, blueprint_edit_number, accepted_at,
            prior_source_course_id
       FROM ple_data.blueprint_course_create_receipt AS receipt
       JOIN ple_data.blueprint_course AS blueprint
@@ -346,7 +370,7 @@ $$;
 -- construction, and records source provenance before the transaction commits.
 CREATE FUNCTION ple_api.create_blueprint_from_course_instance(
     p_course_reference text,
-    p_expected_course_metadata_etag uuid,
+    p_expected_course_edit_number bigint,
     p_expected_source_snapshot jsonb,
     p_blueprint_id text,
     p_request_checksum bytea,
@@ -363,7 +387,7 @@ CREATE FUNCTION ple_api.create_blueprint_from_course_instance(
 RETURNS TABLE (
     public_reference text,
     blueprint_revision_number bigint,
-    metadata_etag uuid,
+    blueprint_edit_number bigint,
     accepted_at timestamp with time zone
 )
 LANGUAGE plpgsql SECURITY DEFINER
@@ -378,7 +402,7 @@ DECLARE
 BEGIN
     IF p_request_checksum IS NULL
        OR octet_length(p_request_checksum) <> 32
-       OR p_expected_course_metadata_etag IS NULL
+       OR p_expected_course_edit_number IS NULL
        OR jsonb_typeof(p_expected_source_snapshot) IS DISTINCT FROM 'array'
        OR NOT ple_api.current_session_account_is_instructor() THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
@@ -390,7 +414,7 @@ BEGIN
             pg_catalog.encode(p_request_checksum, 'hex')), 0));
 
     SELECT blueprint.blueprint_course_id, receipt.blueprint_revision_number,
-           receipt.metadata_etag, receipt.accepted_at, source.source_course_instance_id
+           receipt.blueprint_edit_number, receipt.accepted_at, source.source_course_instance_id
       INTO prior_receipt
       FROM ple_data.blueprint_course_create_receipt AS receipt
       JOIN ple_data.blueprint_course AS blueprint
@@ -409,7 +433,7 @@ BEGIN
         END IF;
         public_reference := prior_receipt.blueprint_course_id;
         blueprint_revision_number := prior_receipt.blueprint_revision_number;
-        metadata_etag := prior_receipt.metadata_etag;
+        blueprint_edit_number := prior_receipt.blueprint_edit_number;
         accepted_at := prior_receipt.accepted_at;
         RETURN NEXT;
         RETURN;
@@ -426,10 +450,12 @@ BEGIN
     END IF;
     PERFORM 1
       FROM ple_data.assessment AS assessment
+      JOIN ple_data.assessment_policy_snapshot AS policy
+        ON policy.assessment_policy_snapshot_id = assessment.assessment_policy_snapshot_id
      WHERE assessment.course_instance_id = source_course.course_instance_id
-     ORDER BY assessment.due_at NULLS LAST, assessment.assessment_id
-     FOR UPDATE;
-    IF source_course.metadata_etag IS DISTINCT FROM p_expected_course_metadata_etag
+     ORDER BY policy.due_at NULLS LAST, assessment.assessment_id
+     FOR UPDATE OF assessment;
+    IF source_course.blueprint_edit_number IS DISTINCT FROM p_expected_course_edit_number
        OR ple_data.course_blueprint_publication_snapshot(source_course.course_instance_id)
             IS DISTINCT FROM p_expected_source_snapshot THEN
         RAISE EXCEPTION USING ERRCODE = '40001',
@@ -471,7 +497,7 @@ BEGIN
     );
     public_reference := created.public_reference;
     blueprint_revision_number := created.blueprint_revision_number;
-    metadata_etag := created.metadata_etag;
+    blueprint_edit_number := created.blueprint_edit_number;
     accepted_at := created.accepted_at;
     RETURN NEXT;
 END

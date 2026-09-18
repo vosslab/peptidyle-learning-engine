@@ -9,7 +9,7 @@ import { parseRosterImportRows } from "./roster_import_template";
 import { useApplicationApi } from "../api/application_api";
 import {
   type CourseInstanceRouteReference,
-  parseCourseInstanceReference,
+  parseCourseInstanceId,
 } from "../navigation/public_route";
 
 function stateLabel(state: "invitationPending" | "activeStudent"): string {
@@ -23,7 +23,7 @@ export function CourseRosterPage(): JSX.Element {
   const applicationApi = useApplicationApi();
   const params = useParams();
   const reference = (): CourseInstanceRouteReference | null =>
-    parseCourseInstanceReference(params["courseRef"] ?? "");
+    parseCourseInstanceId(params["courseRef"] ?? "");
   const [roster, { refetch }] = createResource(reference, async (course) => {
     if (course === null) throw new Error("Course Instance reference is invalid");
     return applicationApi.client.getLiveCourseRoster(course);

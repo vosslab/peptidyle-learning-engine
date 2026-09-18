@@ -349,8 +349,10 @@ DECLARE
 BEGIN
     SELECT assessment.assessment_id INTO assessment_id_value
       FROM ple_data.assessment AS assessment
+      JOIN ple_data.assessment_policy_snapshot AS policy
+        ON policy.assessment_policy_snapshot_id = assessment.assessment_policy_snapshot_id
      WHERE assessment.course_instance_id = course_id
-       AND assessment.assessment_title = 'Chapter 1 Pilot Practice';
+       AND policy.assessment_title = 'Chapter 1 Pilot Practice';
     IF assessment_id_value IS NOT NULL
        AND (
            NOT EXISTS (
@@ -382,9 +384,11 @@ BEGIN
                  ON entry.assessment_id = assessment_id_value
                 AND entry.authored_position = input.position
                 AND entry.entry_kind = 'fixed_question'
-                AND entry.published_question_id = input.published_question_id
-                AND entry.question_revision_number = input.revision_number
-               WHERE entry.assessment_entry_id IS NULL
+               LEFT JOIN ple_data.assessment_entry_question AS question
+                 ON question.assessment_entry_id = entry.assessment_entry_id
+                AND question.published_question_id = input.published_question_id
+                AND question.question_revision_number = input.revision_number
+               WHERE question.assessment_entry_id IS NULL
            )
        ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
@@ -404,8 +408,10 @@ DECLARE
 BEGIN
     SELECT assessment.assessment_id INTO new_assessment_id
       FROM ple_data.assessment AS assessment
+      JOIN ple_data.assessment_policy_snapshot AS policy
+        ON policy.assessment_policy_snapshot_id = assessment.assessment_policy_snapshot_id
      WHERE assessment.course_instance_id = course_id
-       AND assessment.assessment_title = 'Chapter 1 Pilot Practice';
+       AND policy.assessment_title = 'Chapter 1 Pilot Practice';
     IF new_assessment_id IS NOT NULL THEN
         PERFORM set_config(
             'ple.installation_live_demo_assessment_id', new_assessment_id, true
@@ -415,11 +421,7 @@ BEGIN
     INSERT INTO ple_data.assessment (
         assessment_id, course_instance_id, origin_kind, source_blueprint_course_id,
         source_blueprint_revision_number, source_blueprint_assessment_reference,
-        created_at, updated_at, assessment_type, assessment_title, assessment_instructions, due_at,
-        assessment_attempt_time_limit_seconds, late_work_rule,
-        question_variation_rule, assessment_question_order_rule, feedback_score, feedback_per_item_correctness,
-        feedback_submitted_response, feedback_question_answer,
-        feedback_question_answer_explanation, feedback_class_statistics
+        created_at, updated_at, assessment_type, assessment_policy_snapshot_id
     ) VALUES (
         assessment_placeholder,
         course_id,
@@ -427,19 +429,45 @@ BEGIN
         (SELECT blueprint_course_id FROM ple_data.course_instance WHERE course_instance_id = course_id),
         1, expected_blueprint_assessment_reference, clock_timestamp(), clock_timestamp(),
         'practice_question_assignment',
-        'Chapter 1 Pilot Practice', 'Complete the four reviewed Chapter 1 practice questions.',
-        (SELECT active_until_at FROM ple_data.course_instance
-          WHERE course_instance_id = course_id),
-        1800, 'accept', 'new_variation', 'authored_order', 'after_submit', 'after_submit', 'after_submit',
-        'never', 'never', 'never'
+        ple_private.ensure_assessment_policy_snapshot(
+            'Chapter 1 Pilot Practice',
+            'Complete the four reviewed Chapter 1 practice questions.',
+            NULL,
+            (SELECT active_until_at FROM ple_data.course_instance
+              WHERE course_instance_id = course_id),
+            NULL,
+            1800, NULL, 'accept', 'new_variation', 'authored_order',
+            'after_submit', 'after_submit', 'after_submit',
+            'never', 'never', 'never',
+            'practice_question_assignment'
+        )
     ) RETURNING assessment_id INTO new_assessment_id;
     INSERT INTO ple_data.assessment_entry (
-        assessment_entry_id, assessment_id, authored_position, entry_kind, scoring_rule,
-        published_question_id, question_revision_number, points_possible
+        assessment_entry_id, assessment_id, authored_position, entry_kind, scoring_rule
     )
     SELECT ('00000000-0000-0000-0000-00000000028' || input_position)::uuid,
            new_assessment_id, input_position::integer,
-           'fixed_question', 'normal', input.published_question_id, input.revision_number, 1
+           'fixed_question', 'normal'
+      FROM (
+          SELECT publication.key AS slug,
+                 publication.value -> 'questionRevision' ->> 'questionId' AS published_question_id,
+                 (publication.value -> 'questionRevision' ->> 'revisionNumber')::integer AS revision_number,
+                 row_number() OVER (ORDER BY array_position(ARRAY[
+                     'genetics-disorders-ple-question-json-mc', 'genetics-disorders-ple-question-json-matching',
+                     'biochemistry-functional-groups-ple-question-json-mc', 'biochemistry-functional-groups-ple-question-json-matching'
+                 ], publication.key)) - 1 AS input_position
+            FROM jsonb_each(current_setting('ple.installation_pilot_question_publications')::jsonb)
+                 AS publication(key, value)
+           WHERE publication.key IN (
+               'genetics-disorders-ple-question-json-mc', 'genetics-disorders-ple-question-json-matching',
+               'biochemistry-functional-groups-ple-question-json-mc', 'biochemistry-functional-groups-ple-question-json-matching'
+           )
+      ) AS input;
+    INSERT INTO ple_data.assessment_entry_question (
+        assessment_entry_id, assessment_id, published_question_id, question_revision_number, points_possible
+    )
+    SELECT ('00000000-0000-0000-0000-00000000028' || input_position)::uuid,
+           new_assessment_id, input.published_question_id, input.revision_number, 1
       FROM (
           SELECT publication.key AS slug,
                  publication.value -> 'questionRevision' ->> 'questionId' AS published_question_id,

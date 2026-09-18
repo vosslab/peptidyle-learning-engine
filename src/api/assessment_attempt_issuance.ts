@@ -1,9 +1,9 @@
 // Browser contract for Student Assessment Access and initial delivery.
 
-import type { AssessmentReference } from "../../generated/api/AssessmentReference";
-import type { AssessmentAttemptReference } from "../../generated/api/AssessmentAttemptReference";
+import type { AssessmentId } from "../../generated/api/AssessmentId";
+import type { AssessmentAttemptId } from "../../generated/api/AssessmentAttemptId";
 import type { AssessmentType } from "../../generated/api/AssessmentType";
-import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
+import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { QuestionPresentation } from "../../generated/api/QuestionPresentation";
 import type { StudentAssessmentDecisionSummary } from "../../generated/api/StudentAssessmentDecisionSummary";
 
@@ -13,7 +13,7 @@ export interface LiveAssessmentAttemptScore {
 }
 
 export interface LiveAssessmentPreviousAttempt {
-  readonly assessmentAttempt: AssessmentAttemptReference;
+  readonly assessmentAttempt: AssessmentAttemptId;
   readonly attemptNumber: number;
   readonly state: "submitted" | "closed";
   /** Omitted while grading is incomplete or disclosure withholds the score. */
@@ -24,7 +24,7 @@ export interface LiveAssessmentPreviousAttempt {
 export interface LiveAssessmentAccess {
   readonly decision: StudentAssessmentDecisionSummary;
   /** Authorized unfinished Assessment Attempt, if the Student can resume one. */
-  readonly activeAssessmentAttempt: AssessmentAttemptReference | null;
+  readonly activeAssessmentAttempt: AssessmentAttemptId | null;
   readonly title: string;
   readonly assessmentType: AssessmentType;
   readonly questionCount: number;
@@ -35,8 +35,8 @@ export interface LiveAssessmentAccess {
 
 /** Initial or resumed Assessment Attempt presentation with its response controls. */
 export interface LiveAssessmentAttempt {
-  readonly assessmentAttempt: AssessmentAttemptReference;
-  readonly assessment: AssessmentReference;
+  readonly assessmentAttempt: AssessmentAttemptId;
+  readonly assessment: AssessmentId;
   readonly attemptNumber: number;
   readonly resumed: boolean;
   readonly title: string;
@@ -47,11 +47,11 @@ export interface LiveAssessmentAttempt {
 /** Same-origin Student-only access and start boundary. */
 export interface LiveAssessmentAttemptIssuanceClient {
   readonly getLiveAssessmentAccess: (
-    course: CourseInstanceReference,
-    assessment: AssessmentReference,
+    course: CourseInstanceId,
+    assessment: AssessmentId,
   ) => Promise<LiveAssessmentAccess>;
   readonly startLiveAssessment: (
-    course: CourseInstanceReference,
-    assessment: AssessmentReference,
+    course: CourseInstanceId,
+    assessment: AssessmentId,
   ) => Promise<LiveAssessmentAttempt>;
 }

@@ -51,20 +51,21 @@ BEGIN
             MESSAGE = 'Assessment Edit Number is stale';
     END IF;
 
-    SELECT pool_revision.member_count INTO entry_member_count
+    SELECT (SELECT count(*) FROM ple_data.question_pool_member AS member
+             WHERE member.question_pool_id = pool_entry.question_pool_id)
+      INTO entry_member_count
       FROM ple_data.assessment_entry AS entry
+      JOIN ple_data.assessment_entry_pool AS pool_entry
+        ON pool_entry.assessment_entry_id = entry.assessment_entry_id
       JOIN ple_data.assessment_question_pool_fork AS owned
         ON owned.assessment_entry_id = entry.assessment_entry_id
        AND owned.assessment_id = entry.assessment_id
-       AND owned.question_pool_id = entry.question_pool_id
-      JOIN ple_data.question_pool_revision AS pool_revision
-        ON pool_revision.question_pool_id = entry.question_pool_id
-       AND pool_revision.revision_number = entry.question_pool_revision_number
+       AND owned.question_pool_id = pool_entry.question_pool_id
      WHERE entry.assessment_entry_id = p_assessment_entry_id
        AND entry.assessment_id = p_assessment_id
        AND entry.entry_kind = 'question_pool'
        AND entry.availability = 'available'
-     FOR UPDATE OF entry;
+     FOR UPDATE OF entry, pool_entry;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Assessment Question Pool selection count change is unavailable';
@@ -75,10 +76,10 @@ BEGIN
             MESSAGE = 'Assessment Question Pool selection exceeds fork member count';
     END IF;
 
-    UPDATE ple_data.assessment_entry AS entry
+    UPDATE ple_data.assessment_entry_pool AS pool_entry
        SET selection_count = p_selection_count
-     WHERE entry.assessment_entry_id = p_assessment_entry_id
-       AND entry.assessment_id = p_assessment_id;
+     WHERE pool_entry.assessment_entry_id = p_assessment_entry_id
+       AND pool_entry.assessment_id = p_assessment_id;
 
     -- ASVS 2.2.2, 2.3.3: the count-only command cannot bypass the full-save bound.
     IF ple_data.assessment_delivered_question_count(p_assessment_id) > 250 THEN

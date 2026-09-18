@@ -56,7 +56,7 @@ function historicalAssessmentDefaultDuration(content: BlueprintAssessmentContent
 export function BlueprintHistory(props: HistoryProps): JSX.Element {
   const identity = createMemo(
     () =>
-      `${props.view.reference}:${props.view.current_revision.revision}:${props.view.metadata_etag}`,
+      `${props.view.reference}:${props.view.current_revision.revision}:${props.view.blueprint_edit_number}`,
   );
   return (
     <Show when={identity()} keyed>

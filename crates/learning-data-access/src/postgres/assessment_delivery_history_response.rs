@@ -6,13 +6,13 @@ use super::{
     connection::map_sqlx_error,
 };
 use crate::{SessionTokenHash, StoreError, StudentAssessmentAttemptHistoryResponseSource};
-use question_model::{AssessmentAttemptReference, StudentResponse};
+use question_model::{AssessmentAttemptId, StudentResponse};
 use sqlx::Row;
 
 pub(super) async fn read(
     store: &super::assessment_delivery::PostgresLiveAssessmentDeliveryStore,
     token: SessionTokenHash,
-    assessment_attempt: AssessmentAttemptReference,
+    assessment_attempt: AssessmentAttemptId,
 ) -> Result<Vec<StudentAssessmentAttemptHistoryResponseSource>, StoreError> {
     let mut tx = store.begin(token).await?;
     // ASVS 8.2.2 and 8.3.1: this completed-history reader repeats exact
@@ -21,7 +21,7 @@ pub(super) async fn read(
         "SELECT *, position AS issued_position \
          FROM ple_api.read_student_assessment_attempt_history_response_sources($1)",
     )
-    .bind(i64::from(assessment_attempt.number()))
+    .bind(assessment_attempt.as_uuid())
     .fetch_all(&mut *tx)
     .await
     .map_err(map_sqlx_error)?;

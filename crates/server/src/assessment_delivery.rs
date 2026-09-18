@@ -25,8 +25,8 @@ use objects::s3::S3ObjectStore;
 use question_model::presentation::build_question_presentation;
 use question_model::question_library::QuestionBackendInterface;
 use question_model::{
-    AssessmentAttemptReference, AssessmentReference, CourseInstanceReference, ObjectId,
-    ProductRole, QuestionBackend, QuestionBackendCapabilities, QuestionPresentation,
+    AssessmentAttemptId, AssessmentId, CourseInstanceId, ObjectId, ProductRole,
+    QuestionBackend, QuestionBackendCapabilities, QuestionPresentation,
     QuestionPresentationChecksum, QuestionRevisionNumber, QuestionRevisionReference,
     SourceObjectChecksum, SourceObjectReference, StudentResponse,
 };
@@ -129,7 +129,7 @@ async fn student_progress(
     headers: HeaderMap,
     Path(assessment_attempt): Path<String>,
 ) -> Response {
-    let assessment_attempt = match AssessmentAttemptReference::from_str(&assessment_attempt) {
+    let assessment_attempt = match AssessmentAttemptId::from_str(&assessment_attempt) {
         Ok(value) => value,
         Err(_) => return concealed(),
     };
@@ -153,7 +153,7 @@ async fn student_question(
     Path(assessment_attempt): Path<String>,
     Query(query): Query<PositionQuery>,
 ) -> Response {
-    let assessment_attempt = match AssessmentAttemptReference::from_str(&assessment_attempt) {
+    let assessment_attempt = match AssessmentAttemptId::from_str(&assessment_attempt) {
         Ok(value) => value,
         Err(_) => return concealed(),
     };
@@ -320,8 +320,8 @@ async fn start(
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct LiveAssessmentAttemptResponse {
-    assessment_attempt: AssessmentAttemptReference,
-    assessment: AssessmentReference,
+    assessment_attempt: AssessmentAttemptId,
+    assessment: AssessmentId,
     attempt_number: u32,
     resumed: bool,
     title: String,
@@ -338,8 +338,8 @@ pub(crate) enum StartError {
 async fn issue_native_ple_presentation(
     state: &StateData,
     token: SessionTokenHash,
-    course: CourseInstanceReference,
-    assessment: AssessmentReference,
+    course: CourseInstanceId,
+    assessment: AssessmentId,
 ) -> Result<LiveAssessmentAttemptResponse, StartError> {
     let batch = state
         .delivery
@@ -613,10 +613,10 @@ pub(super) async fn resolve_source(
 pub(super) fn refs(
     course: &str,
     assessment: &str,
-) -> Result<(CourseInstanceReference, AssessmentReference), Response> {
+) -> Result<(CourseInstanceId, AssessmentId), Response> {
     Ok((
-        CourseInstanceReference::from_str(course).map_err(|_| concealed())?,
-        AssessmentReference::from_str(assessment).map_err(|_| concealed())?,
+        CourseInstanceId::from_str(course).map_err(|_| concealed())?,
+        AssessmentId::from_str(assessment).map_err(|_| concealed())?,
     ))
 }
 

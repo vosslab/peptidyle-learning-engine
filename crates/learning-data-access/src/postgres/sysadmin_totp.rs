@@ -12,7 +12,7 @@ use sqlx::{Postgres, Row, Transaction};
 use zeroize::Zeroize;
 
 use super::Pool;
-use super::connection::map_sqlx_error;
+use super::connection::{map_sqlx_error, parse_account_id};
 use crate::{
     AuthenticationCeremonyLifetime, AuthenticationSecretHash, PendingSysadminTotpAttestation,
     SessionId, SessionLifetime, SessionRecord, SessionTokenHash, StoreError,
@@ -23,7 +23,7 @@ use crate::{
 const TOTP_SEED_NONCE_BYTES: usize = 24;
 const TOTP_SEED_CIPHERTEXT_MINIMUM_BYTES: usize = 36;
 const TOTP_SEED_CIPHERTEXT_MAXIMUM_BYTES: usize = 80;
-const TOTP_SEED_AAD_VERSION: u8 = 1;
+const TOTP_SEED_AAD_VERSION: u8 = 2;
 
 /// Redacted identifier for a rotating Sysadmin TOTP seed-encryption key.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -191,7 +191,7 @@ impl EncryptedSysadminTotpSeed {
 
 fn seed_aad(account: AccountId) -> Vec<u8> {
     let mut aad = vec![TOTP_SEED_AAD_VERSION];
-    aad.extend_from_slice(account.as_uuid().as_bytes());
+    aad.extend_from_slice(account.as_str().as_bytes());
     aad
 }
 
@@ -225,10 +225,10 @@ impl SysadminTotpStore for PostgresSysadminTotpStore {
         account: AccountId,
         seed: SysadminTotpSeed,
     ) -> Result<(), StoreError> {
-        let encrypted = EncryptedSysadminTotpSeed::seal(&self.key_ring, account, &seed)?;
+        let encrypted = EncryptedSysadminTotpSeed::seal(&self.key_ring, account.clone(), &seed)?;
         let mut transaction = self.begin().await?;
         sqlx::query("SELECT ple_api.provision_sysadmin_totp_credential($1, $2, $3, $4)")
-            .bind(account.as_uuid())
+            .bind(account.as_str())
             .bind(encrypted.key_id.as_str())
             .bind(encrypted.nonce.to_vec())
             .bind(encrypted.ciphertext)
@@ -250,7 +250,7 @@ impl SysadminTotpStore for PostgresSysadminTotpStore {
             "SELECT attestation_id FROM ple_api.create_pending_sysadmin_totp_attestation($1, $2, $3, $4)",
         )
         .bind(attestation.as_uuid())
-        .bind(account.as_uuid())
+        .bind(account.as_str())
         .bind(browser_binding_hash.as_bytes().to_vec())
         .bind(i64::from(lifetime.as_seconds()))
         .fetch_optional(&mut *transaction)
@@ -295,9 +295,12 @@ impl SysadminTotpStore for PostgresSysadminTotpStore {
         .await
         .map_err(map_sqlx_error)?;
         transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(row.map(|row| SysadminTotpVerificationReservation {
-            account: AccountId::from_uuid(row.get("account_id")),
-        }))
+        Ok(row
+            .map(|row| {
+                parse_account_id(row.get::<String, _>("account_id"))
+                    .map(|account| SysadminTotpVerificationReservation { account })
+            })
+            .transpose()?)
     }
 
     async fn consume_sysadmin_totp_attestation_into_session(
@@ -335,14 +338,15 @@ fn decode_pending_row(
     attestation: SysadminTotpAttestationId,
     row: &PgRow,
 ) -> Result<PendingSysadminTotpAttestation, StoreError> {
-    let account = AccountId::from_uuid(row.try_get("account_id").map_err(map_sqlx_error)?);
+    let account = parse_account_id(row.try_get("account_id").map_err(map_sqlx_error)?)?;
     let key_id = SysadminTotpSeedKeyId::parse(
         row.try_get::<String, _>("encryption_key_id")
             .map_err(map_sqlx_error)?,
     )?;
     let nonce = row.try_get("seed_nonce").map_err(map_sqlx_error)?;
     let ciphertext = row.try_get("encrypted_seed").map_err(map_sqlx_error)?;
-    let seed = EncryptedSysadminTotpSeed::open(key_ring, account, key_id, nonce, ciphertext)?;
+    let seed =
+        EncryptedSysadminTotpSeed::open(key_ring, account.clone(), key_id, nonce, ciphertext)?;
     Ok(PendingSysadminTotpAttestation {
         id: attestation,
         account,
@@ -363,7 +367,7 @@ fn decode_session_row(row: &PgRow) -> Result<SessionRecord, StoreError> {
         token_hash: SessionTokenHash::from_hex(token_hash.trim_end()).map_err(|error| {
             StoreError::Unavailable(format!("stored Sysadmin session hash is invalid: {error}"))
         })?,
-        account: AccountId::from_uuid(row.try_get("account_id").map_err(map_sqlx_error)?),
+        account: parse_account_id(row.try_get("account_id").map_err(map_sqlx_error)?)?,
         product_role: ProductRole::Sysadmin,
         created_at: Timestamp::from_unix_millis(
             row.try_get("created_at_millis").map_err(map_sqlx_error)?,

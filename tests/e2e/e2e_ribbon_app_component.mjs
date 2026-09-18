@@ -21,7 +21,7 @@ const catalogById = new Map(
 const fixtureParams = {
   courseRef: "CI7K3M2QAZ",
   assessmentRef: "A9D2RX5AF",
-  assessmentAttemptRef: "R-1",
+  assessmentAttemptRef: "00000000-0000-0000-0000-000000000001",
 };
 const topologyRowsTestName = [
   "AppRibbon preserves every row reserved by declared topology",

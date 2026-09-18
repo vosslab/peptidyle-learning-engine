@@ -6,9 +6,9 @@ use async_trait::async_trait;
 use question_model::{
     AssessmentEntryScoringRule, AssessmentInstructions, AssessmentPointValue, AssessmentTitle,
     BlueprintAssessmentContent, BlueprintAssessmentContentInput, BlueprintAssessmentEditChoice,
-    BlueprintAssessmentEntryContent, BlueprintAssessmentReference, BlueprintAvailability,
+    BlueprintAssessmentEntryContent, BlueprintAssessmentId, BlueprintAvailability,
     BlueprintCourseContent, BlueprintCourseModuleContent, BlueprintCourseReadAccess,
-    BlueprintCourseReference, BlueprintCourseValidationError, BlueprintMetadataEtag,
+    BlueprintCourseId, BlueprintCourseValidationError, BlueprintEditNumber,
     BlueprintMetadataState, BlueprintModuleEditChoice, BlueprintModuleReference,
     BlueprintQuestionPoolContent, BlueprintRevision, BlueprintRevisionContent,
     BlueprintRevisionReference, CanonicalBlueprintCourse, CreateBlueprintCourseInput,
@@ -40,7 +40,7 @@ pub struct BlueprintCourseListRequest {
 #[serde(rename_all = "camelCase")]
 pub struct StoredBlueprintPromotion {
     pub promoted: bool,
-    pub metadata_etag: BlueprintMetadataEtag,
+    pub blueprint_edit_number: BlueprintEditNumber,
 }
 
 /// Explicit reviewed choices; content and names are always read by the Store.
@@ -49,8 +49,8 @@ pub struct StoredBlueprintPromotion {
 pub struct ApplyBlueprintForkInput {
     pub expected_source: BlueprintRevisionReference,
     pub expected_fork: BlueprintRevisionReference,
-    pub expected_source_metadata_etag: BlueprintMetadataEtag,
-    pub expected_fork_metadata_etag: BlueprintMetadataEtag,
+    pub expected_source_blueprint_edit_number: BlueprintEditNumber,
+    pub expected_fork_blueprint_edit_number: BlueprintEditNumber,
     pub source_short_name: bool,
     pub source_long_name: bool,
     pub selection: question_model::blueprint_course::BlueprintForkApplySelection,
@@ -67,11 +67,11 @@ pub struct ApplyBlueprintForkResult {
 #[derive(Debug, Clone, PartialEq)]
 pub struct StoredBlueprintCourse {
     pub classification: question_model::CourseClassification,
-    pub reference: BlueprintCourseReference,
+    pub reference: BlueprintCourseId,
     pub short_name: String,
     pub long_name: String,
     pub availability: BlueprintAvailability,
-    pub metadata_etag: BlueprintMetadataEtag,
+    pub blueprint_edit_number: BlueprintEditNumber,
     pub current_revision: BlueprintRevision,
     /// Exact immutable ancestry, filtered by current source visibility.
     pub fork_source: Option<BlueprintRevisionReference>,
@@ -84,11 +84,11 @@ pub struct StoredBlueprintCourse {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StoredBlueprintCourseSummary {
     pub classification: question_model::CourseClassification,
-    pub reference: BlueprintCourseReference,
+    pub reference: BlueprintCourseId,
     pub short_name: String,
     pub long_name: String,
     pub availability: BlueprintAvailability,
-    pub metadata_etag: BlueprintMetadataEtag,
+    pub blueprint_edit_number: BlueprintEditNumber,
     pub current_revision: BlueprintRevision,
     pub read_access: BlueprintCourseReadAccess,
     /// Lifetime Course Instances adopted from this Blueprint lineage, across Revisions.
@@ -124,7 +124,7 @@ pub struct StoredBlueprintModule {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct StoredBlueprintAssessment {
-    pub blueprint_assessment_reference: BlueprintAssessmentReference,
+    pub blueprint_assessment_reference: BlueprintAssessmentId,
     pub content: StoredBlueprintAssessmentContent,
 }
 
@@ -177,7 +177,7 @@ impl StoredBlueprintCourseContent {
                     .into_iter()
                     .map(|content| {
                         Ok(StoredBlueprintAssessment {
-                            blueprint_assessment_reference: BlueprintAssessmentReference::from_uuid(
+                            blueprint_assessment_reference: BlueprintAssessmentId::from_uuid(
                                 random_uuid()?,
                             ),
                             content: StoredBlueprintAssessmentContent::from_input(
@@ -331,7 +331,7 @@ impl StoredBlueprintCourseContent {
                 .map(|candidate| candidate.blueprint_assessment_reference)
                 .ok_or_else(|| invalid("retained Blueprint Assessment Reference"))?,
             BlueprintAssessmentEditChoice::New => {
-                BlueprintAssessmentReference::from_uuid(random_uuid()?)
+                BlueprintAssessmentId::from_uuid(random_uuid()?)
             }
         };
         Ok(StoredBlueprintAssessment {
@@ -395,7 +395,7 @@ impl StoredBlueprintAssessmentContent {
 
     fn to_domain(
         &self,
-        blueprint_assessment_reference: BlueprintAssessmentReference,
+        blueprint_assessment_reference: BlueprintAssessmentId,
     ) -> Result<BlueprintAssessmentContent, StoreError> {
         let entries = self
             .entries
@@ -467,13 +467,13 @@ pub trait BlueprintPromotionStore: Send + Sync {
     async fn load_blueprint_promotion(
         &self,
         session: SessionTokenHash,
-        reference: BlueprintCourseReference,
+        reference: BlueprintCourseId,
     ) -> Result<StoredBlueprintPromotion, StoreError>;
     async fn set_blueprint_promotion(
         &self,
         session: SessionTokenHash,
-        reference: BlueprintCourseReference,
-        expected_metadata_etag: BlueprintMetadataEtag,
+        reference: BlueprintCourseId,
+        expected_edit_number: BlueprintEditNumber,
         promoted: bool,
     ) -> Result<StoredBlueprintPromotion, StoreError>;
 }
@@ -483,15 +483,15 @@ pub trait BlueprintCourseStore: Send + Sync {
     async fn update_blueprint_classification(
         &self,
         session: SessionTokenHash,
-        reference: BlueprintCourseReference,
-        expected_metadata_etag: BlueprintMetadataEtag,
+        reference: BlueprintCourseId,
+        expected_edit_number: BlueprintEditNumber,
         classification: question_model::CourseClassification,
     ) -> Result<BlueprintMetadataState, StoreError>;
     async fn load_blueprint_pool_members(
         &self,
         session: SessionTokenHash,
-        reference: BlueprintCourseReference,
-        assessment: BlueprintAssessmentReference,
+        reference: BlueprintCourseId,
+        assessment: BlueprintAssessmentId,
         question_pool_id: QuestionId,
     ) -> Result<StoredBlueprintPoolMembers, StoreError>;
     async fn apply_blueprint_fork(
@@ -508,7 +508,7 @@ pub trait BlueprintCourseStore: Send + Sync {
     async fn load_blueprint_course(
         &self,
         session: SessionTokenHash,
-        reference: BlueprintCourseReference,
+        reference: BlueprintCourseId,
     ) -> Result<StoredBlueprintCourse, StoreError>;
     async fn load_blueprint_revision(
         &self,
@@ -519,7 +519,7 @@ pub trait BlueprintCourseStore: Send + Sync {
     async fn export_blueprint_course(
         &self,
         session: SessionTokenHash,
-        reference: BlueprintCourseReference,
+        reference: BlueprintCourseId,
     ) -> Result<CanonicalBlueprintCourse, StoreError>;
     /// Creates a distinct actor-owned Private Blueprint through the ordinary
     /// Revision 1 transaction, allocating fresh child and Pool identities.
@@ -540,7 +540,7 @@ pub trait BlueprintCourseStore: Send + Sync {
     async fn save_blueprint_course(
         &self,
         session: SessionTokenHash,
-        reference: BlueprintCourseReference,
+        reference: BlueprintCourseId,
         expected_revision: BlueprintRevision,
         request_checksum: RequestChecksum,
         input: ReplaceBlueprintCourseContentInput,
@@ -549,37 +549,37 @@ pub trait BlueprintCourseStore: Send + Sync {
     async fn rename_blueprint_course(
         &self,
         session: SessionTokenHash,
-        reference: BlueprintCourseReference,
-        expected_metadata_etag: BlueprintMetadataEtag,
+        reference: BlueprintCourseId,
+        expected_edit_number: BlueprintEditNumber,
         input: RenameBlueprintCourseInput,
     ) -> Result<BlueprintMetadataState, StoreError>;
     /// Requests C49's Private-to-Public lifecycle transition for an owner.
     async fn publish_blueprint(
         &self,
         session: SessionTokenHash,
-        reference: BlueprintCourseReference,
-        expected_metadata_etag: BlueprintMetadataEtag,
+        reference: BlueprintCourseId,
+        expected_edit_number: BlueprintEditNumber,
     ) -> Result<BlueprintMetadataState, StoreError>;
     async fn archive_blueprint(
         &self,
         session: SessionTokenHash,
-        reference: BlueprintCourseReference,
-        expected_metadata_etag: BlueprintMetadataEtag,
+        reference: BlueprintCourseId,
+        expected_edit_number: BlueprintEditNumber,
         confirmation_title: &str,
     ) -> Result<BlueprintMetadataState, StoreError>;
     async fn restore_blueprint(
         &self,
         session: SessionTokenHash,
-        reference: BlueprintCourseReference,
-        expected_metadata_etag: BlueprintMetadataEtag,
+        reference: BlueprintCourseId,
+        expected_edit_number: BlueprintEditNumber,
     ) -> Result<BlueprintMetadataState, StoreError>;
     /// Requests C49's permitted Public-to-Private transition for an owner.
     /// The Store transaction denies it after the lineage has been adopted.
     async fn return_blueprint_to_private(
         &self,
         session: SessionTokenHash,
-        reference: BlueprintCourseReference,
-        expected_metadata_etag: BlueprintMetadataEtag,
+        reference: BlueprintCourseId,
+        expected_edit_number: BlueprintEditNumber,
     ) -> Result<BlueprintMetadataState, StoreError>;
 }
 
@@ -646,7 +646,7 @@ mod tests {
                 blueprint_module_reference: BlueprintModuleReference::from_uuid(Uuid::from_u128(1)),
                 label: "Module".to_string(),
                 assessments: vec![StoredBlueprintAssessment {
-                    blueprint_assessment_reference: BlueprintAssessmentReference::from_uuid(
+                    blueprint_assessment_reference: BlueprintAssessmentId::from_uuid(
                         Uuid::from_u128(assessment_identity),
                     ),
                     content: StoredBlueprintAssessmentContent {

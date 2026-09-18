@@ -107,7 +107,7 @@ fn only_immutable_question_assets_enter_the_public_delivery_domain() {
             object,
         },
         ObjectAddress::CourseBannerSource {
-            course: CourseId::from_uuid(Uuid::from_u128(10)),
+            course: CourseInstanceId::from_debug_serial(10),
             banner: CourseBannerReference::from_uuid(Uuid::from_u128(11)),
         },
     ] {
@@ -121,7 +121,7 @@ fn only_immutable_question_assets_enter_the_public_delivery_domain() {
 
 #[test]
 fn course_banner_keys_bind_scope_classification_and_signing() {
-    let course = CourseId::from_uuid(Uuid::from_u128(2));
+    let course = CourseInstanceId::from_debug_serial(2);
     let upload_reference = CourseBannerUploadReference::from_uuid(Uuid::from_u128(3));
     let banner_reference = CourseBannerReference::from_uuid(Uuid::from_u128(4));
     let upload = ObjectAddress::CourseBannerUpload {
@@ -155,12 +155,12 @@ fn course_banner_keys_bind_scope_classification_and_signing() {
 
 #[test]
 fn banner_object_identity_changes_with_course_and_route_id() {
-    let course = CourseId::from_uuid(Uuid::from_u128(2));
+    let course = CourseInstanceId::from_debug_serial(2);
     let banner = CourseBannerReference::from_uuid(Uuid::from_u128(3));
     let base = course_banner_source_object_id(course, banner);
     assert_ne!(
         base,
-        course_banner_source_object_id(CourseId::from_uuid(Uuid::from_u128(12)), banner)
+        course_banner_source_object_id(CourseInstanceId::from_debug_serial(12), banner)
     );
     assert_ne!(
         base,
@@ -174,7 +174,7 @@ fn banner_object_identity_changes_with_course_and_route_id() {
 #[test]
 fn banner_keys_round_trip_without_a_caller_supplied_object_id() {
     let key = ObjectAddress::CourseBannerRendition {
-        course: CourseId::from_uuid(Uuid::from_u128(2)),
+        course: CourseInstanceId::from_debug_serial(2),
         banner: CourseBannerReference::from_uuid(Uuid::from_u128(3)),
         rendition: CourseBannerRendition::Banner,
     };

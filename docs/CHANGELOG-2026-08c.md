@@ -105,12 +105,12 @@
   routes. The `W-` locator now names the Authoring Workspace through the Rust model, regenerated
   browser types, strict decoder, editor navigation, public-navigation tests, and identity contract.
 
-- Replaced `CourseReference` with `CourseInstanceReference` across the live-teaching locator
+- Replaced `CourseReference` with `CourseInstanceId` across the live-teaching locator
   boundary. The `C-` reference now names a Course Instance throughout the Rust model and
   curriculum-adoption contracts, regenerated browser types, strict decoders, typed clients, route
   helpers, tests, and durable terminology documentation.
 
-- Replaced generic `BlueprintReference` with `BlueprintCourseReference` across the reusable-course
+- Replaced generic `BlueprintReference` with `BlueprintCourseId` across the reusable-course
   public route, curriculum-adoption contracts, regenerated TypeScript, strict browser decoding,
   typed clients, and durable documentation. The `BP-` locator remains the exact reusable Blueprint
   Course reference; focused browser consumers pass.
@@ -602,7 +602,7 @@
 
 - Made worker-job failure and inspection exact-resource operations. Failure accepts only the active job lease; inspection accepts only the job identity. The worker, server paths, in-memory and PostgreSQL Stores, fixtures, and conformance/live callers now follow that closed contract. Rust 2024 formatting and the JobStore call-shape sweep are clean; the focused crate check remains blocked at the earlier root context-contract cutover.
 
-- Made course-record lifecycle access a `CourseId`-bound Store operation. Route callers no longer supply an installation context; Memory resolves the unique stored course and PostgreSQL performs the same bounded course lookup before testing lifecycle accessibility. Rust 2024 formatting and the call-site sweep are clean; the focused crate check remains blocked at the earlier root context-contract cutover.
+- Made course-record lifecycle access a `CourseInstanceId`-bound Store operation. Route callers no longer supply an installation context; Memory resolves the unique stored course and PostgreSQL performs the same bounded course lookup before testing lifecycle accessibility. Rust 2024 formatting and the call-site sweep are clean; the focused crate check remains blocked at the earlier root context-contract cutover.
 
 - Removed the ambient context argument from assignment-scoring worker prepare and commit operations. The command already carries the exact job, lease, assignment, and generation; both Store backends derive their internal key only after validating that lease. Production workers, seed paths, and conformance/live callers now use the closed worker command directly. Rust 2024 formatting and the call-shape sweep are clean; the focused crate check remains blocked at the earlier root context-contract cutover.
 
@@ -664,7 +664,7 @@
 
 - Rewrote the concluded Rust/SQLx/PostgreSQL review around server-derived Account and exact-resource authorization. Its historical RLS, foreign-key, catalog, worker, and denial-matrix findings no longer preserve retired scope names or identifiers; the review is formatter-clean.
 
-- Aligned the accepted course-appearance plan with global `CourseId` ownership. Appearance, candidate banners, revisions, RLS, object delivery, and non-enumeration now describe exact course authority rather than a redundant installation scope. The plan is formatter-clean.
+- Aligned the accepted course-appearance plan with global `CourseInstanceId` ownership. Appearance, candidate banners, revisions, RLS, object delivery, and non-enumeration now describe exact course authority rather than a redundant installation scope. The plan is formatter-clean.
 
 - Reconciled the security architecture audit with the single-installation authorization model. Session-derived Accounts, exact course membership, Student ownership, and leased capabilities now define protected-resource access; its grading evidence describes automated evaluation and recalculation. The audit is formatter-clean.
 
@@ -672,7 +672,7 @@
 
 - Converted Chapter One's deterministic course, assignment, item, statistics learner, run, and attempt identifiers to a fixed domain-separated single-installation namespace. Resume-manifest selection and validation no longer accept a redundant scope input, so they protect the stable corpus shape directly. The affected Rust files pass formatter checks; their package test remains behind the same data-access compilation frontier.
 
-- Corrected the private Memory CourseInstance-to-Blueprint application map to use its globally unique `CourseId` as the sole key. Mutation and read paths retain exact course-state checks before consuming the immutable parent application, so the map no longer embeds a redundant installation scope in its durable parentage relation. The focused formatter check passes.
+- Corrected the private Memory CourseInstance-to-Blueprint application map to use its globally unique `CourseInstanceId` as the sole key. Mutation and read paths retain exact course-state checks before consuming the immutable parent application, so the map no longer embeds a redundant installation scope in its durable parentage relation. The focused formatter check passes.
 
 - Aligned the August 10 executive status report with the current account, Course, and Student ownership model. Educational records now describe their exact FERPA-bearing parent, invitation claim describes course-bound Student identity, and ordinary session language names the authenticated session directly. The dated report is formatter-clean.
 

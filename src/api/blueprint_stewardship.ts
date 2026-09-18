@@ -1,5 +1,6 @@
 // Closed projections from the existing Blueprint stewardship and promotion routes.
-import type { BlueprintCourseReference } from "../../generated/api/BlueprintCourseReference";
+import type { BlueprintCourseId } from "../../generated/api/BlueprintCourseId";
+import type { BlueprintEditNumber } from "../../generated/api/BlueprintEditNumber";
 
 export interface BlueprintStarProjection {
   readonly starCount: number;
@@ -21,38 +22,37 @@ export interface BlueprintWatchEvent {
 
 export interface BlueprintPromotion {
   readonly promoted: boolean;
-  /** Strong, quoted metadata validator, retained exactly for If-Match. */
-  readonly metadataEtag: string;
+  readonly blueprintEditNumber: BlueprintEditNumber;
 }
 
 export interface BlueprintStewardshipClient {
   readonly getBlueprintStar: (
-    reference: BlueprintCourseReference,
+    reference: BlueprintCourseId,
   ) => Promise<BlueprintStarProjection>;
   readonly setBlueprintStar: (
-    reference: BlueprintCourseReference,
+    reference: BlueprintCourseId,
     starred: boolean,
   ) => Promise<BlueprintStarProjection>;
   readonly getBlueprintStarredInstructors: (
-    reference: BlueprintCourseReference,
+    reference: BlueprintCourseId,
   ) => Promise<readonly BlueprintStarredInstructor[]>;
   readonly getBlueprintWatch: (
-    reference: BlueprintCourseReference,
+    reference: BlueprintCourseId,
   ) => Promise<BlueprintWatchProjection>;
   readonly setBlueprintWatch: (
-    reference: BlueprintCourseReference,
+    reference: BlueprintCourseId,
     watching: boolean,
   ) => Promise<BlueprintWatchProjection>;
   readonly getBlueprintWatchEvents: (
-    reference: BlueprintCourseReference,
+    reference: BlueprintCourseId,
     limit?: number,
   ) => Promise<readonly BlueprintWatchEvent[]>;
   readonly getBlueprintPromotion: (
-    reference: BlueprintCourseReference,
+    reference: BlueprintCourseId,
   ) => Promise<BlueprintPromotion>;
   readonly setBlueprintPromotion: (
-    reference: BlueprintCourseReference,
+    reference: BlueprintCourseId,
     promoted: boolean,
-    metadataEtag: string,
+    blueprintEditNumber: BlueprintEditNumber,
   ) => Promise<BlueprintPromotion>;
 }

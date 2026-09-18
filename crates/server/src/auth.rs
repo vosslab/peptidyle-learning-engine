@@ -316,7 +316,7 @@ pub async fn issue_session(
         let token = SessionToken::generate().map_err(AuthError::Randomness)?;
         let token_hash = token.hash();
         match sessions
-            .create_session(token_hash, account, config.lifetime())
+            .create_session(token_hash, account.clone(), config.lifetime())
             .await
         {
             Ok(record) => {
@@ -434,7 +434,7 @@ fn session_response(record: &SessionRecord) -> AuthSessionResponse {
     AuthSessionResponse {
         authenticated: true,
         account: AuthAccountResponse {
-            id: record.account,
+            id: record.account.clone(),
             product_role: record.product_role,
         },
     }

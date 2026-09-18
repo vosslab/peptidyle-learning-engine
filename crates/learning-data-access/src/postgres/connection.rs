@@ -7,6 +7,8 @@ use sqlx::postgres::{PgConnectOptions, PgConnection, PgPool, PgPoolOptions, PgSs
 use sqlx::types::Json;
 use sqlx::{Executor, Row};
 
+use question_model::{AccountId, AssessmentId, CourseInstanceId};
+
 use crate::StoreError;
 
 #[path = "connection_contract.rs"]
@@ -361,6 +363,18 @@ pub(super) fn is_connection_error(error: &sqlx::Error) -> bool {
         sqlx::Error::Database(database_error)
             if matches!(database_error.code().as_deref(), Some(code) if code.starts_with("08") || matches!(code, "57P01" | "57P02" | "57P03" | "53300"))
     )
+}
+
+pub(super) fn parse_account_id(value: String) -> Result<AccountId, StoreError> {
+    AccountId::new(value).map_err(|message| StoreError::InvalidRecord(message.to_string()))
+}
+
+pub(super) fn parse_course_id(value: String) -> Result<CourseInstanceId, StoreError> {
+    CourseInstanceId::new(value).map_err(|message| StoreError::InvalidRecord(message.to_string()))
+}
+
+pub(super) fn parse_assessment_id(value: String) -> Result<AssessmentId, StoreError> {
+    AssessmentId::new(value).map_err(|message| StoreError::InvalidRecord(message.to_string()))
 }
 
 pub(super) fn map_sqlx_error(error: sqlx::Error) -> StoreError {

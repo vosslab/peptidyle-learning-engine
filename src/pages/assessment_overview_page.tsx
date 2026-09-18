@@ -19,8 +19,8 @@ import { useApplicationApi } from "../api/application_api";
 import { StudentAssessmentStartFacts } from "../components/student_assessment_presentation";
 import {
   assessmentAttemptRouteReference,
-  parseAssessmentReference,
-  parseCourseInstanceReference,
+  parseAssessmentId,
+  parseCourseInstanceId,
   type AssessmentRouteReference,
   type CourseInstanceRouteReference,
 } from "../navigation/public_route";
@@ -38,9 +38,9 @@ export function AssessmentOverviewPage(): JSX.Element {
     disposed = true;
   });
   const course = (): CourseInstanceRouteReference | null =>
-    parseCourseInstanceReference(params["courseRef"] ?? "");
+    parseCourseInstanceId(params["courseRef"] ?? "");
   const assessment = (): AssessmentRouteReference | null =>
-    parseAssessmentReference(params["assessmentRef"] ?? "");
+    parseAssessmentId(params["assessmentRef"] ?? "");
   const access = createAsync(() => {
     const courseReference = course();
     const assessmentReference = assessment();

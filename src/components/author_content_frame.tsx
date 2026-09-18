@@ -2,13 +2,13 @@
 
 import type { JSX } from "solid-js";
 
-import type { AssessmentAttemptReference } from "../../generated/api/AssessmentAttemptReference";
+import type { AssessmentAttemptId } from "../../generated/api/AssessmentAttemptId";
 import { useApplicationApi } from "../api/application_api";
 
 import "./author_content_frame.css";
 
 export function AuthorContentFrame(props: {
-  readonly assessmentAttempt: AssessmentAttemptReference;
+  readonly assessmentAttempt: AssessmentAttemptId;
   readonly position: number;
 }): JSX.Element {
   const runtime = useApplicationApi();

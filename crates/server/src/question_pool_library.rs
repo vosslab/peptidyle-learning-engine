@@ -23,9 +23,9 @@ use learning_data_access::{
 };
 use objects::s3::S3ObjectStore;
 use question_model::{
-    AssessmentEntryId, AssessmentQuestionPoolForkView, AssessmentReference,
+    AssessmentEntryId, AssessmentQuestionPoolForkView, AssessmentId,
     BloomClassificationCorrectionRequest, BloomCognitiveProcess, BloomKnowledgeDimension,
-    CourseInstanceReference, ProductRole, QuestionId, QuestionPoolBloomCorrectionReceipt,
+    CourseInstanceId, ProductRole, QuestionId, QuestionPoolBloomCorrectionReceipt,
     QuestionPoolBloomFacets, QuestionPoolLibraryPage, QuestionPoolRevisionMemberView,
     QuestionPoolRevisionReference, QuestionPoolRevisionView,
 };
@@ -346,11 +346,11 @@ async fn assessment_fork(
     headers: HeaderMap,
     Path((course, assessment, entry)): Path<(String, String, String)>,
 ) -> Response {
-    let course = match course.parse::<CourseInstanceReference>() {
+    let course = match course.parse::<CourseInstanceId>() {
         Ok(value) => value,
         Err(_) => return concealed(),
     };
-    let assessment = match assessment.parse::<AssessmentReference>() {
+    let assessment = match assessment.parse::<AssessmentId>() {
         Ok(value) => value,
         Err(_) => return concealed(),
     };
@@ -379,7 +379,7 @@ async fn assessment_fork(
             metadata: record.metadata,
             assessment_entry_id: record.assessment_entry_id,
             question_pool_revision: record.question_pool_revision,
-            pool_metadata_etag: record.pool_metadata_etag,
+            question_pool_edit_number: record.question_pool_edit_number,
             selection_count: record.selection_count,
             bloom: record.bloom,
             members,

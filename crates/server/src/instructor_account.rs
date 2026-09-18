@@ -15,7 +15,7 @@ use learning_data_access::{
     InstructorIdentityVettingDecisionReference, SessionTokenHash, StoreError,
     postgres::{PostgresInstructorAccountStore, PostgresSessionStore},
 };
-use question_model::{AccountReference, ProductRole};
+use question_model::{AccountId, ProductRole};
 use serde::Serialize;
 
 use crate::auth::{AuthError, resolve_session};
@@ -126,7 +126,7 @@ async fn deactivate_instructor_account(
     Path(reference): Path<String>,
     Json(input): Json<DeactivateInstructorAccountInput>,
 ) -> Response {
-    let reference = match AccountReference::from_str(&reference) {
+    let reference = match AccountId::from_str(&reference) {
         Ok(value) => value,
         Err(_) => return concealed(),
     };
@@ -149,7 +149,7 @@ async fn reactivate_instructor_account(
     headers: HeaderMap,
     Path(reference): Path<String>,
 ) -> Response {
-    let reference = match AccountReference::from_str(&reference) {
+    let reference = match AccountId::from_str(&reference) {
         Ok(value) => value,
         Err(_) => return concealed(),
     };

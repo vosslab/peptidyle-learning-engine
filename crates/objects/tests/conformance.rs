@@ -6,7 +6,7 @@ use objects::{
     Sha256Checksum,
 };
 use question_model::{
-    CourseBannerReference, CourseBannerUploadReference, CourseId, ObjectId, QuestionAssetId,
+    CourseBannerReference, CourseBannerUploadReference, CourseInstanceId, ObjectId, QuestionAssetId,
     QuestionId, QuestionRevisionNumber, QuestionRevisionReference, Timestamp, WorkspaceId,
     WorkspaceImportId,
 };
@@ -101,7 +101,7 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         ObjectDataClass::QuestionAsset
     );
     let student_key = ObjectAddress::StudentRecord {
-        course: CourseId::from_uuid(id(4)),
+        course: CourseInstanceId::from_debug_serial(4),
         object: ObjectId::from_uuid(id(5)),
     };
     store
@@ -140,7 +140,7 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         .expect("temporary put should succeed");
 
     let banner_upload_key = ObjectAddress::CourseBannerUpload {
-        course: CourseId::from_uuid(id(51)),
+        course: CourseInstanceId::from_debug_serial(51),
         upload: CourseBannerUploadReference::from_uuid(id(52)),
     };
     let banner_upload_record = store
@@ -169,7 +169,7 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
     );
 
     let course_banner_key = ObjectAddress::CourseBannerRendition {
-        course: CourseId::from_uuid(id(51)),
+        course: CourseInstanceId::from_debug_serial(51),
         banner: CourseBannerReference::from_uuid(id(53)),
         rendition: question_model::CourseBannerRendition::Banner,
     };

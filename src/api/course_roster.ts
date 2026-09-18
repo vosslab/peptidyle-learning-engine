@@ -1,6 +1,6 @@
 // Browser contract for Course Roster Import and current roster access.
 
-import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
+import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 
 /** One reviewed course-scoped roster row. */
 export interface CourseRosterImportEntry {
@@ -24,17 +24,17 @@ export interface CourseRosterEntry {
 /** Same-origin roster transport boundary. */
 export interface LiveCourseRosterClient {
   readonly getLiveCourseRoster: (
-    course: CourseInstanceReference,
+    course: CourseInstanceId,
   ) => Promise<ReadonlyArray<CourseRosterEntry>>;
   readonly importLiveCourseRoster: (
-    course: CourseInstanceReference,
+    course: CourseInstanceId,
     input: CourseRosterImportInput,
   ) => Promise<ReadonlyArray<CourseRosterEntry>>;
   readonly claimLiveCourseInvitation: (
-    course: CourseInstanceReference,
+    course: CourseInstanceId,
   ) => Promise<{ readonly activeStudentMembership: boolean }>;
   readonly revokeLiveCourseRosterEntry: (
-    course: CourseInstanceReference,
+    course: CourseInstanceId,
     rosterId: string,
   ) => Promise<void>;
 }

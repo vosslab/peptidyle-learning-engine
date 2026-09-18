@@ -1,35 +1,11 @@
 //! Browser-safe global account identity and account roles.
 
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 /// One global login account, distinct from a course enrollment's student record.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct AccountId(Uuid);
-
-impl AccountId {
-    /// Wraps an identity read from trusted authentication storage.
-    pub fn from_uuid(value: Uuid) -> Self {
-        Self(value)
-    }
-
-    /// Returns the UUID used by storage and logging.
-    pub fn as_uuid(&self) -> Uuid {
-        self.0
-    }
-
-    /// Mints a fresh server-owned account identifier.
-    #[cfg(feature = "generate")]
-    pub fn generate() -> Self {
-        Self(Uuid::now_v7())
-    }
-}
-
-impl std::fmt::Display for AccountId {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(formatter, "{}", self.0)
-    }
-}
+///
+/// This is the canonical public ID (`UXXXXXXXZ`), not a second identifier.
+pub use crate::public_route::AccountId;
 
 /// The one immutable global Product Role assigned to an Account.
 ///
@@ -52,11 +28,10 @@ mod tests {
 
     #[test]
     fn account_identity_round_trips_without_becoming_a_student_identity() {
-        let value = Uuid::from_u128(42);
-        let account = AccountId::from_uuid(value);
+        let account = AccountId::new("U00000009").expect("fixture is canonical");
 
-        assert_eq!(account.as_uuid(), value);
-        assert_eq!(account.to_string(), value.to_string());
+        assert_eq!(account.as_str(), "U00000009");
+        assert_eq!(account.to_string(), "U00000009");
     }
 
     #[test]

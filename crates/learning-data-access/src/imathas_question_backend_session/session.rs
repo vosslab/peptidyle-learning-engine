@@ -1,6 +1,6 @@
 use super::*;
 use question_model::{
-    AccountId, AssessmentId, CourseId, ImathasQuestionBackendBinding, SourceObjectChecksum,
+    AccountId, AssessmentId, CourseInstanceId, ImathasQuestionBackendBinding, SourceObjectChecksum,
     SourceObjectReference, Timestamp,
 };
 
@@ -9,7 +9,7 @@ use question_model::{
 pub struct ImathasQuestionBackendSession {
     pub(crate) reference: ImathasQuestionBackendSessionReference,
     pub(crate) account: AccountId,
-    pub(crate) course: CourseId,
+    pub(crate) course: CourseInstanceId,
     pub(crate) assessment: AssessmentId,
     pub(crate) grading_context: ImathasGradingContext,
     pub(crate) imathas_question_backend_binding: ImathasQuestionBackendBinding,
@@ -28,7 +28,7 @@ impl ImathasQuestionBackendSession {
         self.reference
     }
     pub fn account(&self) -> AccountId {
-        self.account
+        self.account.clone()
     }
     pub fn grading_context(&self) -> &ImathasGradingContext {
         &self.grading_context
@@ -41,9 +41,9 @@ impl ImathasQuestionBackendSession {
     pub(crate) fn storage_parts(&self) -> ImathasQuestionBackendSessionStorageParts {
         ImathasQuestionBackendSessionStorageParts {
             reference: self.reference,
-            account: self.account,
-            course: self.course,
-            assessment: self.assessment,
+            account: self.account.clone(),
+            course: self.course.clone(),
+            assessment: self.assessment.clone(),
             grading_context: self.grading_context.clone(),
             imathas_question_backend_binding: self.imathas_question_backend_binding.clone(),
             source_object: self.source_object.clone(),
@@ -70,7 +70,7 @@ impl ImathasQuestionBackendSession {
     pub(crate) fn from_storage_parts(
         reference: ImathasQuestionBackendSessionReference,
         account: AccountId,
-        course: CourseId,
+        course: CourseInstanceId,
         assessment: AssessmentId,
         grading_context: ImathasGradingContext,
         imathas_question_backend_binding: ImathasQuestionBackendBinding,
@@ -154,7 +154,7 @@ impl std::fmt::Debug for ImathasQuestionBackendSession {
 #[derive(Clone, PartialEq)]
 pub struct ImathasQuestionBackendSessionRestoreExpectation {
     pub(crate) account: AccountId,
-    pub(crate) course: CourseId,
+    pub(crate) course: CourseInstanceId,
     pub(crate) assessment: AssessmentId,
     pub(crate) grading_context: ImathasGradingContext,
     pub(crate) imathas_question_backend_binding: ImathasQuestionBackendBinding,
@@ -168,7 +168,7 @@ impl ImathasQuestionBackendSessionRestoreExpectation {
     #[allow(clippy::too_many_arguments)] // Remaining facts are separate persistence predicates.
     pub fn new(
         account: AccountId,
-        course: CourseId,
+        course: CourseInstanceId,
         assessment: AssessmentId,
         grading_context: ImathasGradingContext,
         imathas_question_backend_binding: ImathasQuestionBackendBinding,
@@ -205,9 +205,9 @@ impl ImathasQuestionBackendSessionRestoreExpectation {
     #[allow(dead_code)] // Used by the feature-gated PostgreSQL Store.
     pub(crate) fn storage_parts(&self) -> ImathasQuestionBackendSessionRestoreParts {
         ImathasQuestionBackendSessionRestoreParts {
-            account: self.account,
-            course: self.course,
-            assessment: self.assessment,
+            account: self.account.clone(),
+            course: self.course.clone(),
+            assessment: self.assessment.clone(),
             grading_context: self.grading_context.clone(),
             imathas_question_backend_binding: self.imathas_question_backend_binding.clone(),
             source_object: self.source_object.clone(),
@@ -262,7 +262,7 @@ impl std::fmt::Debug for ImathasQuestionBackendSessionRestoreExpectation {
 
 pub struct ImathasQuestionBackendSessionCreate {
     pub(crate) account: AccountId,
-    pub(crate) course: CourseId,
+    pub(crate) course: CourseInstanceId,
     pub(crate) assessment: AssessmentId,
     pub(crate) grading_context: ImathasGradingContext,
     pub(crate) imathas_question_backend_binding: ImathasQuestionBackendBinding,
@@ -281,7 +281,7 @@ impl ImathasQuestionBackendSessionCreate {
     #[allow(clippy::too_many_arguments)] // Preparation owns the bounded construction boundary.
     pub(super) fn new(
         account: AccountId,
-        course: CourseId,
+        course: CourseInstanceId,
         assessment: AssessmentId,
         grading_context: ImathasGradingContext,
         imathas_question_backend_binding: ImathasQuestionBackendBinding,
@@ -327,9 +327,9 @@ impl ImathasQuestionBackendSessionCreate {
     ) {
         let session = ImathasQuestionBackendSession {
             reference,
-            account: self.account,
-            course: self.course,
-            assessment: self.assessment,
+            account: self.account.clone(),
+            course: self.course.clone(),
+            assessment: self.assessment.clone(),
             grading_context: self.grading_context,
             imathas_question_backend_binding: self.imathas_question_backend_binding,
             source_object: self.source_object,

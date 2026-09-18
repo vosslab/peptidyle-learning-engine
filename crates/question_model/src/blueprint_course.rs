@@ -10,7 +10,7 @@ use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
-use crate::BlueprintCourseReference;
+use crate::BlueprintCourseId;
 
 /// Shared instructor-content bound for reusable titles and module labels.
 pub const MAX_BLUEPRINT_COURSE_TITLE_UNICODE_SCALARS: usize = 200;
@@ -28,7 +28,7 @@ pub use assessment_content::{
     ReusableSelectionAvailability,
 };
 pub use blueprint_children::{
-    BlueprintAssessmentEditChoice, BlueprintAssessmentReference,
+    BlueprintAssessmentEditChoice, BlueprintAssessmentId,
     BlueprintAssessmentReplacementInput, BlueprintChildIdError,
     BlueprintCourseAssessmentContentView, BlueprintModuleEditChoice, BlueprintModuleReference,
     BlueprintModuleReplacementInput, BlueprintModuleView, CreateBlueprintCourseInput,
@@ -160,7 +160,7 @@ pub struct BlueprintCourseSummaryView {
     /// Independently editable current classification.
     pub classification: crate::CourseClassification,
     /// Blueprint Course Reference resolved under current read authority.
-    pub reference: BlueprintCourseReference,
+    pub reference: BlueprintCourseId,
     /// Compact stable-lineage name for constrained navigation.
     pub short_name: String,
     /// Descriptive stable-lineage name for headings and listings.
@@ -168,7 +168,7 @@ pub struct BlueprintCourseSummaryView {
     /// Current stable-lineage availability for discovery and new selection.
     pub availability: crate::BlueprintAvailability,
     /// Opaque validator for rename and availability actions.
-    pub metadata_etag: crate::BlueprintMetadataEtag,
+    pub blueprint_edit_number: crate::BlueprintEditNumber,
     /// Exact current immutable reusable state.
     pub current_revision: crate::BlueprintRevisionReference,
     /// Browser-safe classification for this returned Blueprint Course view.
@@ -186,7 +186,7 @@ pub struct BlueprintCourseView {
     /// Independently editable current classification.
     pub classification: crate::CourseClassification,
     /// Blueprint Course Reference resolved for this returned read view.
-    pub reference: BlueprintCourseReference,
+    pub reference: BlueprintCourseId,
     /// Compact stable-lineage name for constrained navigation.
     pub short_name: String,
     /// Descriptive stable-lineage name for headings and listings.
@@ -194,7 +194,7 @@ pub struct BlueprintCourseView {
     /// Current stable-lineage availability for discovery and new selection.
     pub availability: crate::BlueprintAvailability,
     /// Opaque validator for rename and availability actions.
-    pub metadata_etag: crate::BlueprintMetadataEtag,
+    pub blueprint_edit_number: crate::BlueprintEditNumber,
     /// Exact current immutable reusable state.
     pub current_revision: crate::BlueprintRevisionReference,
     /// Browser-safe classification for this returned Blueprint Course view.
@@ -304,8 +304,8 @@ mod tests {
         BlueprintModuleReference::from_uuid(Uuid::from_u128(1))
     }
 
-    fn blueprint_assessment_reference() -> BlueprintAssessmentReference {
-        BlueprintAssessmentReference::from_uuid(Uuid::from_u128(2))
+    fn blueprint_assessment_reference() -> BlueprintAssessmentId {
+        BlueprintAssessmentId::from_uuid(Uuid::from_u128(2))
     }
 
     fn question_id() -> QuestionId {
@@ -393,11 +393,11 @@ mod tests {
                 .expect("valid Question Authorship"),
                 availability: QuestionAvailability::Available,
                 published_at: Timestamp::from_unix_millis(0),
-                bloom: crate::BloomClassificationView {
+                bloom: Some(crate::BloomClassificationView {
                     cognitive_process: crate::BloomCognitiveProcess::Understand,
                     knowledge_dimension: crate::BloomKnowledgeDimension::ConceptualKnowledge,
                     classification_edit_number: crate::BloomClassificationEditNumber::INITIAL,
-                },
+                }),
             },
             discipline_name: "Biology".to_string(),
             discipline_is_retired: false,
@@ -407,13 +407,13 @@ mod tests {
 
     #[test]
     fn curriculum_references_round_trip_as_compact_wire_values() {
-        let blueprint: BlueprintCourseReference = "BP7K3M2QXH".parse().expect("valid reference");
+        let blueprint: BlueprintCourseId = "BP7K3M2QXH".parse().expect("valid reference");
         assert_eq!(
             serde_json::to_value(blueprint).expect("serializes"),
             "BP7K3M2QXH"
         );
-        assert!("BP7K3M2I".parse::<BlueprintCourseReference>().is_err());
-        assert!("AC7K3M2Q".parse::<BlueprintCourseReference>().is_err());
+        assert!("BP7K3M2I".parse::<BlueprintCourseId>().is_err());
+        assert!("AC7K3M2Q".parse::<BlueprintCourseId>().is_err());
     }
 
     #[test]
@@ -486,7 +486,7 @@ mod tests {
             short_name: "Biochemistry".to_string(),
             long_name: "Biochemistry Blueprint".to_string(),
             availability: crate::BlueprintAvailability::Public,
-            metadata_etag: crate::BlueprintMetadataEtag::from_uuid(uuid::Uuid::from_u128(42)),
+            blueprint_edit_number: crate::BlueprintEditNumber::from_edit_number(42),
             current_revision: crate::BlueprintRevisionReference {
                 reference: "BP7K3M2QXH".parse().expect("valid reference"),
                 revision: BlueprintRevision::INITIAL,
@@ -651,7 +651,7 @@ mod blueprint_course_tests {
     fn replacement_choices_are_explicit_strict_and_unique() {
         let blueprint_module_reference = BlueprintModuleReference::from_uuid(Uuid::from_u128(1));
         let blueprint_assessment_reference =
-            BlueprintAssessmentReference::from_uuid(Uuid::from_u128(2));
+            BlueprintAssessmentId::from_uuid(Uuid::from_u128(2));
         assert!(
             "00000000000000000000000000000001"
                 .parse::<BlueprintModuleReference>()
@@ -659,7 +659,7 @@ mod blueprint_course_tests {
         );
         assert!(
             "00000000-0000-0000-0000-00000000000A"
-                .parse::<BlueprintAssessmentReference>()
+                .parse::<BlueprintAssessmentId>()
                 .is_err()
         );
         let content = BlueprintAssessmentContentInput {

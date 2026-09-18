@@ -2,7 +2,7 @@
 
 use question_model::blueprint_course::apply_blueprint_fork;
 use question_model::{
-    BlueprintAssessmentReference, BlueprintModuleReference, RenameBlueprintCourseInput,
+    BlueprintAssessmentId, BlueprintModuleReference, RenameBlueprintCourseInput,
     RequestChecksum,
 };
 use serde_json::Value;
@@ -42,10 +42,10 @@ impl PostgresBlueprintCourseStore {
         )
         .bind(input.expected_source.reference.as_string())
         .bind(i64::try_from(input.expected_source.revision.value()).map_err(|_| invalid())?)
-        .bind(input.expected_source_metadata_etag.into_uuid())
+        .bind(input.expected_source_blueprint_edit_number.as_i64())
         .bind(input.expected_fork.reference.as_string())
         .bind(i64::try_from(input.expected_fork.revision.value()).map_err(|_| invalid())?)
-        .bind(input.expected_fork_metadata_etag.into_uuid())
+        .bind(input.expected_fork_blueprint_edit_number.as_i64())
         .fetch_all(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
@@ -84,7 +84,7 @@ impl PostgresBlueprintCourseStore {
                 && new_assessments
                     .insert(
                         copy.source_assessment_reference,
-                        BlueprintAssessmentReference::from_uuid(random_uuid()?),
+                        BlueprintAssessmentId::from_uuid(random_uuid()?),
                     )
                     .is_some()
             {
@@ -208,7 +208,7 @@ impl PostgresBlueprintCourseStore {
             .rename_in_transaction(
                 &mut transaction,
                 input.expected_fork.reference.clone(),
-                input.expected_fork_metadata_etag,
+                input.expected_fork_blueprint_edit_number,
                 RenameBlueprintCourseInput {
                     short_name,
                     long_name,

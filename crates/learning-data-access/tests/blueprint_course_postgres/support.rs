@@ -47,7 +47,7 @@ pub(super) async fn authenticate_application_transaction(
 
 /// Numeric references are relational inspection facts, never application input.
 pub(super) async fn blueprint_reference_number(
-    public_reference: &question_model::BlueprintCourseReference,
+    public_reference: &question_model::BlueprintCourseId,
 ) -> i64 {
     let mut inspection = adoption_inspection_connection().await;
     let reference = sqlx::query_scalar(
@@ -125,7 +125,7 @@ pub(super) async fn assert_revision_checksum_mismatch(
     migration_url: &str,
     application_url: &str,
     reference: i64,
-    blueprint_reference: question_model::BlueprintCourseReference,
+    blueprint_reference: question_model::BlueprintCourseId,
 ) {
     let tamper_pool = lazy_pool(application_url).expect("tamper application pool");
     let tamper_store = PostgresBlueprintCourseStore::new(tamper_pool.clone());
@@ -214,7 +214,7 @@ pub(super) async fn blueprint_write_state(reference: i64) -> serde_json::Value {
             'revision_events', (SELECT jsonb_agg(to_jsonb(event) ORDER BY blueprint_revision_number) \
                 FROM ple_data.blueprint_revision_event AS event \
                 WHERE blueprint_course_reference_number = $1), \
-            'metadata_events', (SELECT jsonb_agg(to_jsonb(event) ORDER BY occurred_at, metadata_etag) \
+            'metadata_events', (SELECT jsonb_agg(to_jsonb(event) ORDER BY occurred_at, blueprint_edit_number) \
                 FROM ple_data.blueprint_metadata_event AS event \
                 WHERE blueprint_course_reference_number = $1), \
             'save_receipts', (SELECT jsonb_agg(to_jsonb(receipt) ORDER BY request_checksum) \
@@ -286,7 +286,7 @@ fn database_content_json(content: &StoredBlueprintCourseContent) -> serde_json::
 pub(super) async fn transition_blueprint_availability(
     url: &str,
     reference: i64,
-    expected_metadata_etag: Uuid,
+    expected_edit_number: Uuid,
     availability: &'static str,
     archive_confirmation_long_name: Option<&str>,
 ) -> Result<(BlueprintAvailability, Uuid), sqlx::Error> {
@@ -300,10 +300,10 @@ pub(super) async fn transition_blueprint_availability(
         .expect("Blueprint lifecycle application transaction");
     authenticate_application_transaction(&mut transaction).await;
     let result = sqlx::query(
-        "SELECT availability, metadata_etag FROM ple_api.set_blueprint_availability($1, $2, $3, $4)",
+        "SELECT availability, blueprint_edit_number FROM ple_api.set_blueprint_availability($1, $2, $3, $4)",
     )
     .bind(public_reference)
-    .bind(expected_metadata_etag)
+    .bind(expected_edit_number)
     .bind(availability)
     .bind(archive_confirmation_long_name)
     .fetch_one(&mut *transaction)
@@ -321,7 +321,7 @@ pub(super) async fn transition_blueprint_availability(
         };
         (
             availability,
-            row.try_get("metadata_etag")
+            row.try_get("blueprint_edit_number")
                 .expect("Blueprint lifecycle metadata ETag"),
         )
     });
@@ -752,7 +752,7 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
         .expect("data Question Pool fixture role");
     sqlx::query(
         "INSERT INTO ple_data.question_pool (\
-             question_pool_id, public_question_pool_id, metadata_etag, current_revision_number, created_at, \
+             question_pool_id, public_question_pool_id, blueprint_edit_number, current_revision_number, created_at, \
              title, description, discipline_uuid, subject_uuid\
          ) SELECT $1, $2, $3, 1, clock_timestamp(), \
                   'Blueprint fixture Pool', 'Blueprint fixture Pool description', \

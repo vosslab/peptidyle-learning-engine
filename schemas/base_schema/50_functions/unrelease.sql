@@ -56,7 +56,9 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable';
     END IF;
 
-    assessment_title := assessment_row.assessment_title;
+    SELECT policy.assessment_title INTO assessment_title
+      FROM ple_data.assessment_policy_snapshot AS policy
+     WHERE policy.assessment_policy_snapshot_id = assessment_row.assessment_policy_snapshot_id;
     assessment_edit_number := assessment_row.assessment_edit_number;
     SELECT count(*) INTO assessment_attempt_count
       FROM ple_private.assessment_attempt
@@ -138,7 +140,10 @@ BEGIN
     IF assessment_row.assessment_status <> 'released' THEN
         RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = 'Assessment is not Released';
     END IF;
-    IF p_confirmation_title IS DISTINCT FROM assessment_row.assessment_title THEN
+    SELECT policy.assessment_title INTO assessment_title
+      FROM ple_data.assessment_policy_snapshot AS policy
+     WHERE policy.assessment_policy_snapshot_id = assessment_row.assessment_policy_snapshot_id;
+    IF p_confirmation_title IS DISTINCT FROM assessment_title THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Assessment Unrelease confirmation title does not match';
     END IF;
 
@@ -176,10 +181,8 @@ BEGIN
            assessment_edit_number = updated.assessment_edit_number + 1,
            updated_at = now_at
      WHERE updated.assessment_id = assessment_row.assessment_id
-     RETURNING updated.assessment_id, updated.assessment_title, updated.assessment_status,
-               updated.assessment_edit_number
-      INTO assessment_reference_number, assessment_title, assessment_status,
-           assessment_edit_number;
+     RETURNING updated.assessment_id, updated.assessment_status, updated.assessment_edit_number
+      INTO assessment_reference_number, assessment_status, assessment_edit_number;
 
     -- ASVS 14.2.4: remove Student Work, not approved identity-free totals.
     DELETE FROM ple_private.assessment_attempt

@@ -13,7 +13,7 @@ use learning_data_access::{
     InvitationExportStore, SessionTokenHash, StoreError,
     postgres::{PostgresInvitationExportStore, PostgresSessionStore},
 };
-use question_model::{CourseInstanceReference, ProductRole};
+use question_model::{CourseInstanceId, ProductRole};
 
 use crate::auth::{AuthError, resolve_session};
 
@@ -47,7 +47,7 @@ async fn download_pending_invitations(
     headers: HeaderMap,
     Path(course): Path<String>,
 ) -> Response {
-    let course = match CourseInstanceReference::from_str(&course) {
+    let course = match CourseInstanceId::from_str(&course) {
         Ok(value) => value,
         Err(_) => return concealed(),
     };

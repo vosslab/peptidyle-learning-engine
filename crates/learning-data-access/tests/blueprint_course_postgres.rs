@@ -19,7 +19,7 @@ use question_model::{
     AssessmentActivityRules, AssessmentEntryScoringRule, AssessmentInstructions,
     AssessmentPointValue, BlueprintAssessmentContentInput, BlueprintAssessmentDefaults,
     BlueprintAssessmentEditChoice, BlueprintAssessmentEntryInput,
-    BlueprintAssessmentReplacementInput, BlueprintAvailability, BlueprintCourseReference,
+    BlueprintAssessmentReplacementInput, BlueprintAvailability, BlueprintCourseId,
     BlueprintModuleEditChoice, BlueprintModuleReplacementInput, BlueprintRevision,
     CreateBlueprintCourseInput, CreateBlueprintModuleInput, LateWorkRule, QuestionAttemptLimit,
     QuestionAttemptTimeLimit, QuestionId, QuestionRevisionNumber, QuestionRevisionReference,
@@ -156,10 +156,10 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
             .await,
         Err(StoreError::NotFound)
     ));
-    let (availability, public_metadata_etag) = transition_blueprint_availability(
+    let (availability, public_blueprint_edit_number) = transition_blueprint_availability(
         &application_url,
         reference,
-        owner_private.metadata_etag.into_uuid(),
+        owner_private.blueprint_edit_number.as_i64(),
         "public",
         None,
     )
@@ -228,7 +228,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     let public_to_private = transition_blueprint_availability(
         &application_url,
         reference,
-        public_metadata_etag,
+        public_blueprint_edit_number,
         "private",
         None,
     )
@@ -256,7 +256,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         .archive_blueprint(
             token(),
             blueprint_reference.clone(),
-            owner_public.metadata_etag,
+            owner_public.blueprint_edit_number,
             "Revision acceptance Blueprint",
         )
         .await
@@ -289,7 +289,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
                     .rename_blueprint_course(
                         token(),
                         blueprint_reference.clone(),
-                        archived.metadata_etag,
+                        archived.blueprint_edit_number,
                         RenameBlueprintCourseInput {
                             short_name: short_name.to_owned(),
                             long_name: "Revision acceptance Blueprint".to_owned(),
@@ -390,7 +390,11 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         "Archived Blueprint adoption is denied"
     );
     let restored = owner_store
-        .restore_blueprint(token(), blueprint_reference.clone(), archived.metadata_etag)
+        .restore_blueprint(
+            token(),
+            blueprint_reference.clone(),
+            archived.blueprint_edit_number,
+        )
         .await
         .expect("owner restores Archived Blueprint to Public");
     assert_eq!(restored.availability, BlueprintAvailability::Public);
@@ -404,7 +408,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         .rename_blueprint_course(
             token(),
             blueprint_reference.clone(),
-            restored.metadata_etag,
+            restored.blueprint_edit_number,
             RenameBlueprintCourseInput {
                 short_name: "RESTORED".to_owned(),
                 long_name: "Revision acceptance Blueprint".to_owned(),
@@ -639,7 +643,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
            AND blueprint_revision_number IN (2, 3) ORDER BY blueprint_revision_number",
     )
     .bind(reference)
-    .bind(retained_assessment.as_uuid())
+    .bind(retained_assessment.as_str())
     .fetch_all(&mut inspection)
     .await
     .expect("retained Assessment lineage");

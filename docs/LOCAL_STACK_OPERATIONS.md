@@ -35,7 +35,7 @@ is only a lookup/input value; it cannot establish authority.
 | Published question            | Stable `QuestionId` lineage plus immutable `QuestionRevisionReference` | Approved-Instructor Question Library                              |
 | Draft authoring               | `WorkspaceId` plus owner/collaborators                                 | Workspace relationship                                            |
 | Reusable curriculum           | Blueprint Course Reference plus exact Blueprint Revision               | Owner for Private/lifecycle; vetted Instructor for Public or explicitly included Archived read |
-| Course and assignment         | `CourseId` and child records                                           | Current Instructor Course Membership                              |
+| Course and assignment         | `CourseInstanceId` and child records                                           | Current Instructor Course Membership                              |
 | Student work and grades       | Exact course plus Student owner                                        | Student self or current course Instructor                         |
 | Jobs and objects              | Typed target from the locked lease                                     | Store/PostgreSQL capability boundary                              |
 

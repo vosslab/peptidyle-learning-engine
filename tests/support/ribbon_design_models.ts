@@ -72,7 +72,7 @@ const ALL_CATALOG_CONTROLS: ReadonlyArray<RibbonCatalogControl<RibbonDestination
 const CANONICAL_PARAMS = {
   courseRef: "CI7K3M2QAZ",
   assessmentRef: "A9D2RX5AF",
-  assessmentAttemptRef: "R-1",
+  assessmentAttemptRef: "00000000-0000-0000-0000-000000000001",
   membershipRef: "M-1",
   questionRef: "7K3M-79QP",
   draftQuestionId: "0198e000-0000-7000-8000-000000000001",

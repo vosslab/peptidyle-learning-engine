@@ -11,7 +11,7 @@ use learning_data_access::{
     LiveAssessmentDeliveryStore, QuestionIssuanceReproductionInput,
     StudentAssessmentAttemptHistoryEvidence, StudentAssessmentAttemptPresentationSource,
 };
-use question_model::{AssessmentAttemptReference, QuestionRevisionReference};
+use question_model::{AssessmentAttemptId, QuestionRevisionReference};
 
 use crate::assessment_delivery::{StateData, concealed, student};
 
@@ -35,7 +35,7 @@ pub(crate) async fn answer_review(
         return concealed();
     }
     let (assessment_attempt, position) = match (
-        AssessmentAttemptReference::from_str(&assessment_attempt),
+        AssessmentAttemptId::from_str(&assessment_attempt),
         position.parse::<u32>(),
     ) {
         (Ok(reference), Ok(position)) if position > 0 => (reference, position),
@@ -155,7 +155,7 @@ pub(crate) async fn document(
     headers: HeaderMap,
     Path((assessment_attempt, position)): Path<(String, u32)>,
 ) -> Response {
-    let assessment_attempt = match AssessmentAttemptReference::from_str(&assessment_attempt) {
+    let assessment_attempt = match AssessmentAttemptId::from_str(&assessment_attempt) {
         Ok(value) if position > 0 => value,
         _ => return concealed(),
     };
@@ -301,7 +301,7 @@ mod tests {
         };
         StudentAssessmentAttemptHistoryEvidence {
             history: StudentAssessmentAttemptHistory {
-                assessment_attempt: "R-12".parse().unwrap(),
+                assessment_attempt: AssessmentAttemptId::from_uuid(uuid::Uuid::from_u128(12)),
                 attempt_number: 1,
                 course: StudentAssessmentAttemptHistoryCourse {
                     reference: "CIABCDEFGS".parse().unwrap(),

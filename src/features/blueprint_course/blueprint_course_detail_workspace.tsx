@@ -6,12 +6,8 @@ import type { ReplaceBlueprintCourseContentInput } from "../../../generated/api/
 import { UnsavedChangesGuard } from "../../components/unsaved_changes_guard";
 import { CourseClassificationEditor } from "../../components/course_classification_editor";
 import { ApiRequestError, BlueprintCourseConflictError } from "../../api/http_client";
-import { parseBlueprintCourseReference } from "../../navigation/public_route";
-import type {
-  BlueprintCourseClient,
-  BlueprintMetadataEtag,
-  BlueprintRevisionEtag,
-} from "../../api/blueprint_course";
+import { parseBlueprintCourseId } from "../../navigation/public_route";
+import type { BlueprintCourseClient, BlueprintRevisionEtag } from "../../api/blueprint_course";
 import { BlueprintAssessmentContentEditor } from "./blueprint_assessment_content_editor";
 import { BlueprintCourseLifecycleControls } from "./blueprint_course_lifecycle_controls";
 import { BlueprintCourseExport } from "./blueprint_exchange";
@@ -40,14 +36,8 @@ interface LoadedBlueprintCourse {
   readonly view: BlueprintCourseView;
   /** The exact Revision and ETag on which this local editor state is based. */
   readonly revisionEtag: BlueprintRevisionEtag;
-  /** Opaque validator for current lineage metadata, including classification. */
-  readonly metadataEtag: BlueprintMetadataEtag;
   readonly content: ReplaceBlueprintCourseContentInput;
   readonly savedContent: ReplaceBlueprintCourseContentInput;
-}
-
-function metadataEtagForView(value: string): BlueprintMetadataEtag {
-  return `"${value}"`;
 }
 
 function canonicalJson(value: unknown): string {
@@ -120,7 +110,7 @@ export function BlueprintCourseDetailWorkspace(
     );
   };
   async function load(keepLocalContent: boolean, keepVisible = false): Promise<void> {
-    if (parseBlueprintCourseReference(props.blueprintCourseRef) === null) {
+    if (parseBlueprintCourseId(props.blueprintCourseRef) === null) {
       setState("error");
       setNotice({ kind: "alert", text: "This Blueprint Course reference is invalid." });
       return;
@@ -141,7 +131,6 @@ export function BlueprintCourseDetailWorkspace(
       setCurrent({
         view: result.blueprintCourse,
         revisionEtag: result.revisionEtag,
-        metadataEtag: metadataEtagForView(result.blueprintCourse.metadata_etag),
         content,
         savedContent,
       });
@@ -231,7 +220,6 @@ export function BlueprintCourseDetailWorkspace(
       setCurrent({
         view: saved.blueprintCourse,
         revisionEtag: saved.revisionEtag,
-        metadataEtag: metadataEtagForView(saved.blueprintCourse.metadata_etag),
         content: savedContent,
         savedContent,
       });
@@ -274,14 +262,13 @@ export function BlueprintCourseDetailWorkspace(
     if (loaded === undefined) return;
     setCurrent({
       ...loaded,
-      metadataEtag: metadata.metadataEtag,
       view: {
         ...loaded.view,
         short_name: metadata.metadata.short_name,
         long_name: metadata.metadata.long_name,
         availability: metadata.metadata.availability,
         classification: metadata.metadata.classification,
-        metadata_etag: metadata.metadata.metadata_etag,
+        blueprint_edit_number: metadata.metadata.blueprint_edit_number,
       },
     });
     if (metadata.metadata.availability !== "private") setEditing(false);
@@ -315,7 +302,7 @@ export function BlueprintCourseDetailWorkspace(
       const metadata = await props.client.renameBlueprintCourse(
         loaded.view.reference,
         { short_name: shortName(), long_name: longName() },
-        loaded.metadataEtag,
+        loaded.view.blueprint_edit_number,
       );
       applyMetadata(metadata);
       setNotice({
@@ -358,7 +345,7 @@ export function BlueprintCourseDetailWorkspace(
       const metadata = await props.client.archiveBlueprintCourse(
         loaded.view.reference,
         archiveConfirmation(),
-        loaded.metadataEtag,
+        loaded.view.blueprint_edit_number,
       );
       applyMetadata(metadata);
       setArchiveConfirmation("");
@@ -394,7 +381,7 @@ export function BlueprintCourseDetailWorkspace(
     try {
       const metadata = await props.client.restoreBlueprintCourse(
         loaded.view.reference,
-        loaded.metadataEtag,
+        loaded.view.blueprint_edit_number,
       );
       applyMetadata(metadata);
       setNotice({
@@ -432,7 +419,10 @@ export function BlueprintCourseDetailWorkspace(
     setMetadataSaving(true);
     try {
       applyMetadata(
-        await props.client.publishBlueprintCourse(loaded.view.reference, loaded.metadataEtag),
+        await props.client.publishBlueprintCourse(
+          loaded.view.reference,
+          loaded.view.blueprint_edit_number,
+        ),
       );
       setNotice({
         kind: "status",
@@ -462,7 +452,7 @@ export function BlueprintCourseDetailWorkspace(
       applyMetadata(
         await props.client.returnBlueprintCourseToPrivate(
           loaded.view.reference,
-          loaded.metadataEtag,
+          loaded.view.blueprint_edit_number,
         ),
       );
       setNotice({ kind: "status", text: "Blueprint Course returned to Private." });
@@ -490,14 +480,13 @@ export function BlueprintCourseDetailWorkspace(
       if (prior === undefined || prior.view.reference !== result.blueprintCourse.reference) return;
       setCurrent({
         ...prior,
-        metadataEtag: metadataEtagForView(result.blueprintCourse.metadata_etag),
         view: {
           ...prior.view,
           short_name: result.blueprintCourse.short_name,
           long_name: result.blueprintCourse.long_name,
           availability: result.blueprintCourse.availability,
           classification: result.blueprintCourse.classification,
-          metadata_etag: result.blueprintCourse.metadata_etag,
+          blueprint_edit_number: result.blueprintCourse.blueprint_edit_number,
         },
       });
       setMetadataConflict(false);
@@ -559,18 +548,18 @@ export function BlueprintCourseDetailWorkspace(
               </Show>
               <CourseClassificationEditor
                 value={loaded().view.classification}
-                metadataEtag={loaded().metadataEtag}
+                editNumber={loaded().view.blueprint_edit_number}
                 canEdit={
                   blueprintLifecyclePresentation(
                     loaded().view.availability,
                     loaded().view.read_access,
                   ).canEdit && !metadataSaving()
                 }
-                save={async (classification, etag) => {
+                save={async (classification, editNumber) => {
                   const transition = await props.client.updateBlueprintCourseClassification(
                     loaded().view.reference,
                     classification,
-                    etag,
+                    editNumber,
                   );
                   // Classification saves update metadata without consuming unrelated name drafts.
                   applyMetadataState(transition);
@@ -581,19 +570,18 @@ export function BlueprintCourseDetailWorkspace(
                   if (prior !== undefined)
                     setCurrent({
                       ...prior,
-                      metadataEtag: metadataEtagForView(latest.blueprintCourse.metadata_etag),
                       view: {
                         ...prior.view,
                         short_name: latest.blueprintCourse.short_name,
                         long_name: latest.blueprintCourse.long_name,
                         availability: latest.blueprintCourse.availability,
                         classification: latest.blueprintCourse.classification,
-                        metadata_etag: latest.blueprintCourse.metadata_etag,
+                        blueprint_edit_number: latest.blueprintCourse.blueprint_edit_number,
                       },
                     });
                   return {
                     classification: latest.blueprintCourse.classification,
-                    metadataEtag: metadataEtagForView(latest.blueprintCourse.metadata_etag),
+                    editNumber: latest.blueprintCourse.blueprint_edit_number,
                   };
                 }}
               />

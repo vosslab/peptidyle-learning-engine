@@ -18,7 +18,7 @@ import {
 } from "../decoder";
 import { decodeIdentifier, decodeTimestamp, field, requireOnlyFields } from "./shared";
 import { decodeAssessmentEntry } from "./question_library";
-import { decodeAssessmentReference } from "./shared";
+import { decodeAssessmentId } from "./shared";
 
 export function decodeStudentAssessmentLandingSummary(
   value: unknown,
@@ -31,7 +31,7 @@ export function decodeStudentAssessmentLandingSummary(
   }
   return {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
-    reference: decodeAssessmentReference(field(record, "reference", path), `${path}.reference`),
+    reference: decodeAssessmentId(field(record, "reference", path), `${path}.reference`),
     title: decodeNonemptyString(field(record, "title", path), `${path}.title`),
   } satisfies StudentAssessmentLandingSummary;
 }
@@ -244,7 +244,7 @@ export function decodeStudentAssessmentDetail(
   };
   return {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
-    reference: decodeAssessmentReference(field(record, "reference", path), `${path}.reference`),
+    reference: decodeAssessmentId(field(record, "reference", path), `${path}.reference`),
     title: decodeNonemptyString(field(record, "title", path), `${path}.title`),
     instructions: decodeInstructions(field(record, "instructions", path), `${path}.instructions`),
     display_time_zone: decodeNonemptyString(

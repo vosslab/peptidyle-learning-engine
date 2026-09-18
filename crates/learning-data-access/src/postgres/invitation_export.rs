@@ -1,7 +1,7 @@
 //! PostgreSQL implementation of the protected invitation export boundary.
 
 use async_trait::async_trait;
-use question_model::CourseInstanceReference;
+use question_model::CourseInstanceId;
 use sqlx::{Postgres, Row, Transaction};
 
 use super::{Pool, connection::map_sqlx_error};
@@ -54,7 +54,7 @@ impl InvitationExportStore for PostgresInvitationExportStore {
     async fn export_pending_course_invitations(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
+        course: CourseInstanceId,
     ) -> Result<PendingInvitationExport, StoreError> {
         let mut transaction = self
             .begin_authenticated_application_transaction(session_token_hash)

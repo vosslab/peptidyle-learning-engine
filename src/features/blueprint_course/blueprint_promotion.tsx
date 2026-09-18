@@ -5,7 +5,7 @@ import type {
   BlueprintStewardshipClient,
 } from "../../api/blueprint_stewardship";
 import { BlueprintCourseConflictError } from "../../api/http_client";
-import { parseBlueprintCourseReference } from "../../navigation/public_route";
+import { parseBlueprintCourseId } from "../../navigation/public_route";
 
 interface Props {
   readonly client: BlueprintStewardshipClient;
@@ -27,7 +27,7 @@ export function BlueprintPromotion(props: Props): JSX.Element {
     setLoaded(undefined);
     setNotice("");
     setFailed(false);
-    const parsed = parseBlueprintCourseReference(reference());
+    const parsed = parseBlueprintCourseId(reference());
     if (parsed === null) {
       setFailed(true);
       setNotice("Enter a valid Blueprint Course reference, such as BP7K3M2QAF.");
@@ -56,7 +56,7 @@ export function BlueprintPromotion(props: Props): JSX.Element {
       const promotion = await props.client.setBlueprintPromotion(
         current.reference,
         !current.promotion.promoted,
-        current.promotion.metadataEtag,
+        current.promotion.blueprintEditNumber,
       );
       setLoaded({ reference: current.reference, promotion });
       setNotice(

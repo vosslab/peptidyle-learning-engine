@@ -4,7 +4,7 @@ use super::*;
 
 pub(super) async fn assert_actual_role_round_trip(
     store: &PostgresBlueprintCourseStore,
-    blueprint_reference: BlueprintCourseReference,
+    blueprint_reference: BlueprintCourseId,
     owner_private: &learning_data_access::StoredBlueprintCourse,
 ) {
     // The canonical exchange is a stable reusable-content contract. Import

@@ -19,7 +19,7 @@ import type { CourseAppearanceView } from "../../generated/api/CourseAppearanceV
 import type { InstructorAssessmentAuthoredContentLocal } from "../../generated/api/InstructorAssessmentAuthoredContentLocal";
 import type { InstructorAssessmentAvailabilityView } from "../../generated/api/InstructorAssessmentAvailabilityView";
 import type { NavigationResolution } from "../../generated/api/NavigationResolution";
-import type { AssessmentReference } from "../../generated/api/AssessmentReference";
+import type { AssessmentId } from "../../generated/api/AssessmentId";
 import type { AssessmentEditNumber } from "../../generated/api/AssessmentEditNumber";
 import type { AssessmentReleaseValidation } from "../../generated/api/AssessmentReleaseValidation";
 import type { InstructorStudentView } from "../../generated/api/InstructorStudentView";
@@ -83,7 +83,7 @@ export interface QuestionPoolPreviewRequest {
 
 /** A no-store Instructor sample of one saved pool; it is never student activity or evidence. */
 export interface QuestionPoolPreview {
-  readonly assessment: AssessmentReference;
+  readonly assessment: AssessmentId;
   readonly editNumber: AssessmentEditNumber;
   readonly assessmentEntryId: string;
   readonly questionPoolLabel: string;

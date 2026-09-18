@@ -2,14 +2,14 @@ import { A, useParams } from "@solidjs/router";
 import { Show, createEffect, createResource, createSignal, onCleanup, type JSX } from "solid-js";
 
 import { useApplicationApi } from "../api/application_api";
-import { parseCourseInstanceReference } from "../navigation/public_route";
+import { parseCourseInstanceId } from "../navigation/public_route";
 
 /** Student-owned acceptance of one exact course invitation. */
 export function StudentCourseInvitationPage(): JSX.Element {
   const runtime = useApplicationApi();
   const params = useParams();
-  function course(): ReturnType<typeof parseCourseInstanceReference> {
-    return parseCourseInstanceReference(params["courseRef"] ?? "");
+  function course(): ReturnType<typeof parseCourseInstanceId> {
+    return parseCourseInstanceId(params["courseRef"] ?? "");
   }
   const [invitation] = createResource(course, async (reference) => {
     const invitations = await runtime.client.listPendingLiveStudentCourseInvitations();
@@ -18,7 +18,7 @@ export function StudentCourseInvitationPage(): JSX.Element {
   const [busy, setBusy] = createSignal(false);
   const [message, setMessage] = createSignal("");
   const [acceptedCourse, setAcceptedCourse] =
-    createSignal<ReturnType<typeof parseCourseInstanceReference>>(null);
+    createSignal<ReturnType<typeof parseCourseInstanceId>>(null);
   let claimGeneration = 0;
 
   createEffect(() => {

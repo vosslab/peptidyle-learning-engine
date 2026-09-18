@@ -3,33 +3,33 @@
 SET LOCAL ROLE ple_private_owner;
 
 CREATE FUNCTION ple_private.read_archived_assessment_attempt_evidence(
-    p_course_instance_id text, p_assessment_attempt_reference_number bigint
+    p_course_instance_id text, p_assessment_attempt_id uuid
 ) RETURNS TABLE (
     student_record_id uuid, assessment_reference_number text,
-    assessment_attempt_reference_number bigint, assessment_attempt_number integer,
+    assessment_attempt_id uuid, assessment_attempt_number integer,
     started_at timestamptz, expires_at timestamptz,
     attempt_facts jsonb, submission jsonb, questions jsonb
 ) LANGUAGE sql VOLATILE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
     SELECT work.student_record_id, assessment.assessment_id,
-           work.reference_number, work.assessment_attempt_number,
+           work.assessment_attempt_id, work.assessment_attempt_number,
            work.started_at, work.expires_at,
            jsonb_build_object(
-               'assessment_title', work.assessment_title,
-               'assessment_instructions', work.assessment_instructions,
-               'available_at', work.available_at, 'due_at', work.due_at,
-               'closes_at', work.closes_at,
-               'assessment_attempt_time_limit_seconds', work.assessment_attempt_time_limit_seconds,
-               'assessment_attempt_limit', work.assessment_attempt_limit,
-               'late_work_rule', work.late_work_rule,
-               'question_variation_rule', work.question_variation_rule,
-               'assessment_question_order_rule', work.assessment_question_order_rule,
-               'feedback_score', work.feedback_score,
-               'feedback_per_item_correctness', work.feedback_per_item_correctness,
-               'feedback_submitted_response', work.feedback_submitted_response,
-               'feedback_question_answer', work.feedback_question_answer,
-               'feedback_question_answer_explanation', work.feedback_question_answer_explanation,
-               'feedback_class_statistics', work.feedback_class_statistics
+               'assessment_title', policy.assessment_title,
+               'assessment_instructions', policy.assessment_instructions,
+               'available_at', policy.available_at, 'due_at', policy.due_at,
+               'closes_at', policy.closes_at,
+               'assessment_attempt_time_limit_seconds', policy.assessment_attempt_time_limit_seconds,
+               'assessment_attempt_limit', policy.assessment_attempt_limit,
+               'late_work_rule', policy.late_work_rule,
+               'question_variation_rule', policy.question_variation_rule,
+               'assessment_question_order_rule', policy.assessment_question_order_rule,
+               'feedback_score', policy.feedback_score,
+               'feedback_per_item_correctness', policy.feedback_per_item_correctness,
+               'feedback_submitted_response', policy.feedback_submitted_response,
+               'feedback_question_answer', policy.feedback_question_answer,
+               'feedback_question_answer_explanation', policy.feedback_question_answer_explanation,
+               'feedback_class_statistics', policy.feedback_class_statistics
            ),
            CASE WHEN submitted.assessment_submission_id IS NOT NULL THEN
                jsonb_build_object('submitted_at', submitted.submitted_at,
@@ -37,6 +37,8 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
            evidence.questions
       FROM ple_private.assessment_attempt AS work
       JOIN ple_data.assessment AS assessment ON assessment.assessment_id = work.assessment_id
+      JOIN ple_data.assessment_policy_snapshot AS policy
+        ON policy.assessment_policy_snapshot_id = work.assessment_policy_snapshot_id
       LEFT JOIN ple_private.assessment_submission AS submitted
         ON submitted.assessment_attempt_id = work.assessment_attempt_id
       CROSS JOIN LATERAL (
@@ -45,14 +47,14 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
                   'assessment_content_entry_index', issued.assessment_content_entry_index,
                   'issued_position', issued.issued_position,
                   'published_question_id', issued.published_question_id, 'revision_number', issued.revision_number,
-                  'point_value', issued.point_value, 'scoring_rule', issued.scoring_rule,
-                  'question_attempt_limit', issued.question_attempt_limit,
-                  'question_attempt_time_limit_seconds', issued.question_attempt_time_limit_seconds,
-                  'question_attempt_grace_seconds', issued.question_attempt_grace_seconds
+                  'point_value', snapshot.points, 'scoring_rule', snapshot.scoring_rule,
+                  'question_attempt_limit', snapshot.question_attempt_limit,
+                  'question_attempt_time_limit_seconds', snapshot.question_attempt_time_limit_seconds,
+                  'question_attempt_grace_seconds', snapshot.question_attempt_grace_seconds
               ),
               'pool', CASE WHEN pool.question_pool_selection_id IS NOT NULL THEN
                   jsonb_build_object('question_pool_id', pool.question_pool_id,
-                      'question_pool_revision_number', pool.question_pool_revision_number,
+                      'question_pool_edit_number', pool.question_pool_edit_number,
                       'question_pool_member_position', selected.member_position,
                       'selection_position', selected.selection_position,
                       'selected_question_count', pool.selected_question_count) END,
@@ -92,6 +94,8 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
                       'normalized_credit', result.normalized_credit, 'recorded_at', result.recorded_at) END
           ) ORDER BY issued.issued_position), '[]'::jsonb) AS questions
             FROM ple_private.issued_question AS issued
+            JOIN ple_private.assessment_entry_snapshot AS snapshot
+              ON snapshot.assessment_entry_snapshot_id = issued.assessment_entry_snapshot_id
             LEFT JOIN ple_private.question_pool_selection AS pool
               ON pool.question_pool_selection_id = issued.question_pool_selection_id
              AND pool.assessment_attempt_id = issued.assessment_attempt_id
@@ -139,7 +143,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
             ) AS assets
            WHERE issued.assessment_attempt_id = work.assessment_attempt_id
       ) AS evidence
-     WHERE work.reference_number = p_assessment_attempt_reference_number
+     WHERE work.assessment_attempt_id = p_assessment_attempt_id
        AND assessment.course_instance_id = p_course_instance_id
        -- ASVS 8.2.2/8.3.1: defense in depth at the private evidence seam.
        AND ple_api.current_session_account_is_instructor()
@@ -150,27 +154,29 @@ $$;
 
 -- Minimized selection is private Work, never an ordinary archived history feed.
 CREATE FUNCTION ple_private.select_archived_assessment_attempt_evidence(
-    p_course_instance_id text, p_after_reference_number bigint, p_limit integer
+    p_course_instance_id text, p_after_assessment_attempt_id uuid, p_limit integer
 ) RETURNS TABLE (
     student_record_id uuid, assessment_reference_number text, assessment_title text,
-    assessment_attempt_reference_number bigint, assessment_attempt_number integer,
+    assessment_attempt_id uuid, assessment_attempt_number integer,
     started_at timestamptz, submitted_at timestamptz
 ) LANGUAGE sql VOLATILE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
-    SELECT work.student_record_id, assessment.assessment_id, work.assessment_title,
-           work.reference_number, work.assessment_attempt_number,
+    SELECT work.student_record_id, assessment.assessment_id, policy.assessment_title,
+           work.assessment_attempt_id, work.assessment_attempt_number,
            work.started_at, submitted.submitted_at
       FROM ple_private.assessment_attempt AS work
       JOIN ple_data.assessment AS assessment ON assessment.assessment_id = work.assessment_id
+      JOIN ple_data.assessment_policy_snapshot AS policy
+        ON policy.assessment_policy_snapshot_id = work.assessment_policy_snapshot_id
       LEFT JOIN ple_private.assessment_submission AS submitted
         ON submitted.assessment_attempt_id = work.assessment_attempt_id
      WHERE assessment.course_instance_id = p_course_instance_id
-       AND (p_after_reference_number IS NULL OR work.reference_number > p_after_reference_number)
+       AND (p_after_assessment_attempt_id IS NULL OR work.assessment_attempt_id > p_after_assessment_attempt_id)
        AND p_limit BETWEEN 1 AND 101
        -- ASVS 8.2.2/8.3.1: trusted originating Instructor and exact Course.
        AND ple_api.current_session_account_is_instructor()
        AND ple_api.current_session_account_is_course_instructor(p_course_instance_id)
-     ORDER BY work.reference_number
+     ORDER BY work.assessment_attempt_id
      LIMIT p_limit
 $$;
 
@@ -220,11 +226,11 @@ BEGIN
 END $$;
 
 CREATE FUNCTION ple_api.read_archived_assessment_attempt_for_recovery(
-    p_course_public_reference text, p_assessment_attempt_reference_number bigint
+    p_course_public_reference text, p_assessment_attempt_id uuid
 ) RETURNS TABLE (
     course_reference_number text, student_record_id uuid, roster_id text,
     assessment_reference_number text,
-    assessment_attempt_reference_number bigint, assessment_attempt_number integer,
+    assessment_attempt_id uuid, assessment_attempt_number integer,
     started_at timestamptz, expires_at timestamptz,
     student_data_archived_at timestamptz, delete_due_at timestamptz,
     attempt_facts jsonb, submission jsonb, questions jsonb
@@ -237,12 +243,12 @@ BEGIN
     IF NOT FOUND THEN RETURN; END IF;
     RETURN QUERY SELECT recovery_course.course_reference_number,
         evidence.student_record_id, roster.roster_id,
-        evidence.assessment_reference_number, evidence.assessment_attempt_reference_number,
+        evidence.assessment_reference_number, evidence.assessment_attempt_id,
         evidence.assessment_attempt_number, evidence.started_at, evidence.expires_at,
         recovery_course.student_data_archived_at, recovery_course.delete_due_at,
         evidence.attempt_facts, evidence.submission, evidence.questions
       FROM ple_private.read_archived_assessment_attempt_evidence(
-          recovery_course.course_instance_id, p_assessment_attempt_reference_number
+          recovery_course.course_instance_id, p_assessment_attempt_id
       ) AS evidence
       JOIN ple_data.student_record AS student
         ON student.student_record_id = evidence.student_record_id
@@ -253,20 +259,19 @@ BEGIN
 END $$;
 
 CREATE FUNCTION ple_api.select_archived_assessment_attempts_for_recovery(
-    p_course_public_reference text, p_after_reference_number bigint, p_limit integer
+    p_course_public_reference text, p_after_assessment_attempt_id uuid, p_limit integer
 ) RETURNS TABLE (
     course_reference_number text, roster_id text, assessment_reference_number text,
-    assessment_title text, assessment_attempt_reference_number bigint,
+    assessment_title text, assessment_attempt_id uuid,
     assessment_attempt_number integer, started_at timestamptz, submitted_at timestamptz,
     student_data_archived_at timestamptz, delete_due_at timestamptz
 ) LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE recovery_course record;
 BEGIN
-    -- Bounded reference keyset pagination; callers can request page size + 1.
+    -- Bounded identity keyset pagination; callers can request page size + 1.
     -- ASVS 14.2.6: no Student Record/Account UUID or evidence document in selection.
     IF p_limit IS NULL OR p_limit NOT BETWEEN 1 AND 101
-       OR (p_after_reference_number IS NOT NULL AND p_after_reference_number < 1)
        THEN RETURN; END IF;
     SELECT * INTO recovery_course
       FROM ple_api.lock_archived_course_for_recovery(p_course_public_reference);
@@ -277,11 +282,11 @@ BEGIN
     END IF;
     RETURN QUERY SELECT recovery_course.course_reference_number, roster.roster_id,
         evidence.assessment_reference_number, evidence.assessment_title,
-        evidence.assessment_attempt_reference_number, evidence.assessment_attempt_number,
+        evidence.assessment_attempt_id, evidence.assessment_attempt_number,
         evidence.started_at, evidence.submitted_at,
         recovery_course.student_data_archived_at, recovery_course.delete_due_at
       FROM ple_private.select_archived_assessment_attempt_evidence(
-          recovery_course.course_instance_id, p_after_reference_number, p_limit
+          recovery_course.course_instance_id, p_after_assessment_attempt_id, p_limit
       ) AS evidence
       JOIN ple_data.student_record AS student
         ON student.student_record_id = evidence.student_record_id
@@ -289,6 +294,6 @@ BEGIN
       LEFT JOIN ple_private.course_roster_profile AS roster
         ON roster.course_instance_id = student.course_instance_id
        AND roster.student_account_id = student.student_account_id
-     ORDER BY evidence.assessment_attempt_reference_number;
+     ORDER BY evidence.assessment_attempt_id;
 END $$;
 

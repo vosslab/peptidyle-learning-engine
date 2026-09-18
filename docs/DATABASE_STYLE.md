@@ -108,6 +108,7 @@ convention, three cases:
 | Has a public ID (Account, Course Instance, Blueprint Course, Assessment, Published Question, Question Pool) | the public ID itself: `<entity>_id text PRIMARY KEY` typed by the matching public-ID domain | the public ID |
 | Internal aggregate (Assessment Attempt, Draft Question, workspace, job, notification) | `<entity>_id uuid`; Student Work tables key as `(course_instance_id, <entity>_id)` per [Partition readiness](#partition-readiness) | the uuid, with `course_instance_id` for Student Work |
 | Owned child (Revision, Pool member, Blueprint module, Issued Question position) | composite natural key: `(published_question_id, revision_number)`, `(question_pool_id, member_position)` | the composite |
+| Content-addressed snapshot | the SHA-256 of canonical content: `<entity>_id ple_data.sha256_digest PRIMARY KEY` | the digest |
 
 - The public ID qualifies as a key because it is permanent, issued once, and stored in exactly
   one canonical form (HUMAN_GUIDANCE.md, "Human-facing reference IDs"). Using it as the PK gives

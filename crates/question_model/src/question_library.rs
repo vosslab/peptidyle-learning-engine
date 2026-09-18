@@ -9,7 +9,7 @@ use sha2::{Digest, Sha256};
 use crate::question_license::QuestionLicense;
 use crate::question_tag::Tag;
 use crate::{
-    CourseInstanceReference, QuestionBackendCapabilities, QuestionMetadata, QuestionRevisionNumber,
+    CourseInstanceId, QuestionBackendCapabilities, QuestionMetadata, QuestionRevisionNumber,
     Timestamp,
 };
 
@@ -529,7 +529,7 @@ pub struct QuestionUseSummary {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CourseQuestionUse {
     /// Authorized Course Instance Reference; it is never authority by itself.
-    pub course: CourseInstanceReference,
+    pub course: CourseInstanceId,
     /// Current course title visible to the requesting instructor.
     pub title: String,
     /// Number of current assessment uses in this course.
@@ -704,11 +704,11 @@ mod tests {
                 .expect("valid Question Authorship"),
                 availability: QuestionAvailability::Available,
                 published_at: Timestamp::from_unix_millis(0),
-                bloom: crate::BloomClassificationView {
+                bloom: Some(crate::BloomClassificationView {
                     cognitive_process: crate::BloomCognitiveProcess::Understand,
                     knowledge_dimension: crate::BloomKnowledgeDimension::ConceptualKnowledge,
                     classification_edit_number: crate::BloomClassificationEditNumber::INITIAL,
-                },
+                }),
             },
             discipline_name: "Biology".to_string(),
             subject_name: "Genetics".to_string(),
