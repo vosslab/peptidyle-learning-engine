@@ -1,0 +1,148 @@
+-- Functions, triggers, and views from statistics.sql.
+
+SET LOCAL ROLE ple_data_owner;
+
+
+
+-- ASVS 15.4.2: the private receipt winner increments in the same transaction.
+-- Retained counts never depend on reconstructing deleted Student evidence.
+CREATE FUNCTION ple_data.increment_question_revision_statistics(
+    p_question_id text,
+    p_revision_number integer,
+    p_correct boolean,
+    p_eligible_choice_ids text[],
+    p_observed_at timestamptz
+) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_data AS $$
+BEGIN
+    IF p_question_id IS NULL
+       OR p_question_id !~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
+       OR substr(p_question_id, 6, 1) <> ple_private.crockford_checksum_character(
+           substr(p_question_id, 1, 4) || substr(p_question_id, 7, 3)
+       )
+       OR p_revision_number IS NULL OR p_revision_number <= 0
+       OR p_correct IS NULL OR p_observed_at IS NULL
+       OR p_eligible_choice_ids IS NULL
+       OR EXISTS (
+           SELECT 1 FROM unnest(p_eligible_choice_ids) AS choice(choice_id)
+            WHERE choice.choice_id IS NULL OR choice.choice_id <> btrim(choice.choice_id)
+               OR char_length(choice.choice_id) NOT BETWEEN 1 AND 256
+       )
+       OR (SELECT count(*) FROM unnest(p_eligible_choice_ids))
+          <> (SELECT count(DISTINCT choice_id)
+                FROM unnest(p_eligible_choice_ids) AS choice(choice_id)) THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Question Revision Statistics increment is invalid';
+    END IF;
+
+    INSERT INTO ple_data.question_revision_statistics AS retained (
+        question_id, revision_number, accepted_graded_attempt_count, correct_count, updated_at
+    ) VALUES (p_question_id, p_revision_number, 1, p_correct::integer, p_observed_at)
+    ON CONFLICT (question_id, revision_number) DO UPDATE
+        SET accepted_graded_attempt_count = retained.accepted_graded_attempt_count + 1,
+            correct_count = retained.correct_count + EXCLUDED.correct_count,
+            updated_at = greatest(retained.updated_at, EXCLUDED.updated_at);
+
+    -- ASVS 15.4.3: parent first, then choices in consistent identity order.
+    INSERT INTO ple_data.question_revision_choice_statistics AS retained (
+        question_id, revision_number, choice_id, selected_count
+    ) SELECT p_question_id, p_revision_number, choice.choice_id, 1
+        FROM unnest(p_eligible_choice_ids) AS choice(choice_id)
+       ORDER BY choice.choice_id
+    ON CONFLICT (question_id, revision_number, choice_id) DO UPDATE
+        SET selected_count = retained.selected_count + 1;
+END
+$$;
+
+SET LOCAL ROLE ple_private_owner;
+
+
+
+-- The trusted grading commit has already locked and accepted its grading
+-- lineage.  This function derives the exact immutable Revision and eligibility
+-- from that lineage; callers supply only distinct opaque choice identifiers.
+CREATE FUNCTION ple_private.capture_question_statistics_observation(
+    p_automated_grading_receipt_id uuid,
+    p_eligible_choice_ids text[]
+) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_private, ple_data, ple_audit AS $$
+DECLARE
+    v_question_attempt_id uuid;
+    v_question_id text;
+    v_revision_number integer;
+    v_correct boolean;
+    v_observed_at timestamptz;
+    v_inserted boolean := false;
+BEGIN
+    IF p_eligible_choice_ids IS NULL
+       OR EXISTS (
+           SELECT 1 FROM unnest(p_eligible_choice_ids) AS choice(choice_id)
+            WHERE choice.choice_id <> btrim(choice.choice_id)
+               OR char_length(choice.choice_id) NOT BETWEEN 1 AND 256
+       )
+       OR (SELECT count(*) FROM unnest(p_eligible_choice_ids))
+          <> (SELECT count(DISTINCT choice_id)
+                FROM unnest(p_eligible_choice_ids) AS choice(choice_id)) THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Question Statistics Observation choices must be distinct nonempty IDs';
+    END IF;
+
+    SELECT attempt.question_attempt_id, issued.question_id, issued.revision_number,
+           result.normalized_credit = 1, receipt.committed_at
+      INTO v_question_attempt_id, v_question_id, v_revision_number, v_correct, v_observed_at
+      FROM ple_audit.automated_grading_receipt AS receipt
+      JOIN ple_private.grading_result AS result
+        ON result.grading_result_id = receipt.grading_result_id
+      JOIN ple_private.question_response_grading AS grading
+        ON grading.question_response_grading_id = result.question_response_grading_id
+      JOIN ple_private.question_response AS submission
+        ON submission.question_response_id = result.question_response_id
+      JOIN ple_private.question_attempt AS attempt
+        ON attempt.question_attempt_id = submission.question_attempt_id
+      JOIN ple_private.issued_question AS issued
+        ON issued.issued_question_id = attempt.issued_question_id
+     WHERE receipt.automated_grading_receipt_id = p_automated_grading_receipt_id
+       AND grading.grading_state = 'graded'
+       AND issued.question_statistics_eligibility;
+    IF NOT FOUND THEN
+        RETURN;
+    END IF;
+
+    INSERT INTO ple_private.question_statistics_observation_receipt (
+        automated_grading_receipt_id, question_attempt_id, question_id,
+        revision_number, correct, observed_at
+    ) VALUES (
+        p_automated_grading_receipt_id, v_question_attempt_id, v_question_id,
+        v_revision_number, v_correct, v_observed_at
+    ) ON CONFLICT (automated_grading_receipt_id) DO NOTHING
+      RETURNING true INTO v_inserted;
+    IF COALESCE(v_inserted, false) IS NOT TRUE THEN
+        RETURN;
+    END IF;
+
+    INSERT INTO ple_private.question_statistics_observation_choice (
+        automated_grading_receipt_id, choice_id
+    ) SELECT p_automated_grading_receipt_id, choice.choice_id
+        FROM unnest(p_eligible_choice_ids) AS choice(choice_id);
+
+    PERFORM ple_data.increment_question_revision_statistics(
+        v_question_id, v_revision_number, v_correct, p_eligible_choice_ids, v_observed_at);
+END
+$$;
+
+SET LOCAL ROLE ple_api_owner;
+
+CREATE FUNCTION ple_api.record_question_statistics_observation(
+    p_automated_grading_receipt_id uuid,
+    p_eligible_choice_ids text[]
+) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_private AS $$
+BEGIN
+    PERFORM ple_private.capture_question_statistics_observation(
+        p_automated_grading_receipt_id, p_eligible_choice_ids);
+END
+$$;
+
