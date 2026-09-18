@@ -46,14 +46,19 @@ class RecordingRunner(local_stack_control.process.CommandRunner):
 def test_prebuild_prune_uses_exact_command_and_blocks_on_failure(
 	tmp_path: pathlib.Path, returncode: int,
 ) -> None:
-	"""Pruning delegates reference retention to Podman and never tolerates failure."""
+	"""Pruning removes only dangling layers, keeps every tagged image, and never tolerates failure.
+
+	`-a` would also delete the reviewed renderer, pulled service images, and any of the
+	operator's other tagged images whose containers are stopped, turning every start into
+	a cold build.
+	"""
 	runner = RecordingRunner(returncode)
 	if returncode:
 		with pytest.raises(local_stack_control.models.ControllerError, match="pruning failed"):
 			local_stack_control.image_cleanup.remove_obsolete_images_before_build(runner, tmp_path)
 	else:
 		local_stack_control.image_cleanup.remove_obsolete_images_before_build(runner, tmp_path)
-	assert runner.calls == [["podman", "image", "prune", "-a", "-f"]]
+	assert runner.calls == [["podman", "image", "prune", "-f"]]
 
 
 #============================================

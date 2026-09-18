@@ -343,7 +343,7 @@ Two audit risks remain explicit:
 | [profile_default.png](../../../screenshots/instructor/profile_default.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
 | [publication_review.png](../../../screenshots/instructor/publication_review.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
 | [published_question_detail.png](../../../screenshots/instructor/published_question_detail.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
-| [published_question_result.png](../../../screenshots/instructor/published_question_result.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| `published_question_result.png` | Follow-up - generated implementation evidence needs a source-owned refresh |
 | [question_drafts.png](../../../screenshots/instructor/question_drafts.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
 | [question_library_filtered.png](../../../screenshots/instructor/question_library_filtered.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
 | [question_library.png](../../../screenshots/instructor/question_library.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
@@ -365,7 +365,7 @@ Two audit risks remain explicit:
 | [course_list_phone.png](../../../screenshots/student/course_list_phone.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
 | [course_not_started_laptop.png](../../../screenshots/student/course_not_started_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
 | [course_not_started_phone.png](../../../screenshots/student/course_not_started_phone.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
-| [invitation_accepted_laptop.png](../../../screenshots/student/invitation_accepted_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| `invitation_accepted_laptop.png` | Follow-up - generated implementation evidence needs a source-owned refresh |
 | [invitation_detail_laptop.png](../../../screenshots/student/invitation_detail_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
 | [invitation_index_laptop.png](../../../screenshots/student/invitation_index_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
 | [course_list_laptop.png](../../../screenshots/student/course_list_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |

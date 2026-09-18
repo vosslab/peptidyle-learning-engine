@@ -31,10 +31,15 @@ def remove_obsolete_images_before_build(
 	runner: local_stack_control.process.CommandRunner,
 	repo_root: pathlib.Path,
 ) -> None:
-	"""Remove all images unused by any running or stopped container once per cycle."""
+	"""Remove dangling (untagged) image layers left behind by earlier rebuilds.
+
+	Tagged images stay: the reviewed renderer takes minutes to rebuild, pulled
+	service images take minutes to fetch, and the operator's unrelated images are
+	not this controller's to remove.  Only layers no tag references any more go.
+	"""
 	# ASVS 1.2.5: the authorized engine-wide operation uses fixed parameterized argv.
 	result = runner.run(
-		["podman", "image", "prune", "-a", "-f"],
+		["podman", "image", "prune", "-f"],
 		local_stack_control.process.current_environment(), repo_root,
 	)
 	if not result.ok():

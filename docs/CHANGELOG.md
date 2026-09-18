@@ -78,6 +78,62 @@
 
 ### Fixes and Maintenance
 
+- Live Demo start is now visible and progress-based instead of a silent 600s deadline. Root
+  causes: `start_stack` ran the launch child with `capture_output=True`, so
+  `local_stack_state/live_demo_browser/supervisor.log` stayed empty for the whole build while the
+  heartbeat pointed at it; the fixed `DEVELOPER_START_WAIT_SECONDS = 600` covered a cold
+  Podman-machine build that measured over ten minutes, and the resulting SIGTERM only set a flag,
+  so the build ran to completion and was then purged. Now the launch child's output streams into
+  the supervisor log line by line (`stream_launch`), the supervisor writes `[phase]` markers and
+  `lifecycle` writes `Step:` lines before every captured Compose, host-build, wait, migration, and
+  provisioning step, the CLI heartbeat (every 15s) prints elapsed time, phase, and the last log
+  line plus a `tail -f` hint, and the parent keeps waiting while the log keeps growing, giving up
+  only after 300s of silence (`stalled during <phase>`), a 3600s ceiling, a child exit, or Ctrl-C.
+  Termination now forwards SIGTERM to the launch child's process group so a stall, ceiling, or
+  Ctrl-C stops the build within seconds before the suite reset; `start` also probes `podman info`
+  first so a stopped engine fails in seconds with `podman machine start` named. The parent-side
+  wait moved to `local_stack_control/browser_suite_developer_start.py` to keep the supervisor
+  module under the 1000-line gate.
+- Launch failures now keep their evidence. The first streamed run showed the earlier 16:32 start
+  had not timed out at all: it failed at "waiting for the complete stack to report ready" with the
+  message `PostgreSQL is starting`, which `unavailable_report` emitted for any failed gateway
+  health probe, and the purge then destroyed the stack before anyone could look. The probe now
+  reports `gateway health probe at <url> failed: <curl detail>`; the launch child prints redacted
+  `compose ps` and 60-line service log tails to the supervisor log before the purge
+  (`print_launch_failure_evidence`); `_launch_diagnostic` prefers the child's own `ERROR:` line,
+  so the operator message no longer shows cpanm's harmless `GD` bail-out (apt `libgd-perl` serves
+  the renderer at runtime) with the real error truncated off the end.
+- Controller curl probes pin `--ipv4`. The second streamed run's evidence showed every service
+  healthy while `curl https://localhost:<port>/health` reported `Recv failure: Connection reset
+  by peer`; a bare Caddy container reproduced it: `http://127.0.0.1:<port>/` answered 200 and
+  `http://localhost:<port>/` was reset because `localhost` resolves to `::1` first and the Podman
+  machine forwarder resets IPv6 loopback instead of refusing, so curl never falls back to IPv4.
+  Browser URLs keep `https://localhost:` for the internal certificate; browsers fall back on
+  their own.
+- Found the actual cause of today's unreachable gateway: Homebrew upgraded Podman 6.1.1 -> 6.1.2
+  at 16:07 while the machine VM and its `gvproxy` forwarder kept running the deleted 6.1.1
+  binaries. With that mismatch a container on two networks (the gateway sits on `gateway_api`
+  plus the browser overlay's `default`) publishes a port that the host cannot reach, while a
+  single-network container works; the real gateway image with the real Caddyfile reproduced both
+  outcomes in isolation. `podman machine stop; podman machine start` fixed it: the two-network
+  probe answered 200 afterwards. A client/server version gate was tried and removed the same
+  hour: the machine image keeps its own server version (still 6.1.1 after the restart), so the
+  mismatch is normal on macOS and would block every post-upgrade start. The preflight stays a
+  plain reachability check.
+- The machine restart was not the fix either; the live stack still reset every host connection
+  while `podman exec` inside the gateway answered 200 and even the VM could not reach the
+  container on either IP. The gateway's two networks (`gateway_api`, browser `default`) are both
+  `internal: true`, and this netavark drops host-side port forwarding into a container whose
+  every network is internal; a standalone gateway on one `--internal` network reproduced the
+  reset, on a normal network it answered 200. `containers/compose.yaml` now attaches the gateway
+  to a non-internal `gateway_edge` network for its published port, and the port binds on all
+  host interfaces (the operator wants Tailscale access) instead of `127.0.0.1` only. Firefox's
+  `PR_END_OF_FILE_ERROR` on the same URL was this reset, not a certificate problem. Verified
+  live: `/` and `/health` answer 200 on loopback and the port is open on the Tailscale address;
+  over Tailscale Caddy still answers with a TLS alert because the site block is
+  `https://localhost:8080`. Deferred by the operator; the one-line change is `https://:8080`.
+- Removed every `from __future__ import annotations` (16 files); Python 3.12 evaluates the same
+  annotations natively. `tests/test_no_future_imports.py` keeps them out.
 - Repaired drift that blocked the Live Demo and screenshot replay: the base schema still granted
   the pre-Bloom-receipt `publish_question_revision` signature (psql exit 3 on install); the Live
   Demo seeder rejected the Course summary's new `lifecycleState` field; the Question Library
@@ -119,6 +175,14 @@
 
 ### Decisions and Failures
 
+- The pre-build image prune is now `podman image prune -f` (dangling layers only), not `-a`.
+  The `-a` form deleted every image without a running container before each start: the reviewed
+  WeBWorK renderer (about eight minutes to rebuild on this Podman machine), the pulled postgres
+  and minio images, and any of the operator's unrelated tagged images whose containers happened
+  to be stopped. Every start was therefore a cold start, and the second streamed run today spent
+  its first nine minutes rebuilding an image the first run had already built. Stale layers from
+  rebuilds still go; tagged images are kept because they are either expensive inputs or not this
+  controller's to remove.
 - Removed the unreferenced Question-ID reinitialization preflight script. PLE is pre-production,
   and the canonical public-ID cutover changes the authoritative base schema directly rather than
   preserving a second migration or data-rewrite path.

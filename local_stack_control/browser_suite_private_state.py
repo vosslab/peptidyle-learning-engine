@@ -1,7 +1,5 @@
 """Checked private receipt storage for the Developer Browser Suite."""
 
-from __future__ import annotations
-
 import os
 import pathlib
 import stat

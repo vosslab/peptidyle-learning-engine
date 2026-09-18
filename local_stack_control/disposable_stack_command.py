@@ -161,6 +161,31 @@ def run_diagnostics(
 
 
 #============================================
+def print_launch_failure_evidence(
+	runner: local_stack_control.process.CommandRunner,
+	disposable: local_stack_control.models.DisposableComposeTarget,
+) -> None:
+	"""Print redacted service state and log tails on stderr before a failed launch is purged."""
+	environment = local_stack_control.disposable_stack_adapter.compose_environment(disposable)
+	private_values = local_stack_control.disposable_stack_adapter.private_environment_values(
+		disposable.target.env_file
+	)
+	commands = (
+		local_stack_control.compose.compose_argv(disposable.target, ["ps"]),
+		local_stack_control.compose.compose_argv(
+			disposable.target, ["logs", "--no-color", "--tail", "60"]
+		),
+	)
+	print("Launch failure evidence (redacted; the stack is purged next):", file=sys.stderr)
+	for argv in commands:
+		result = runner.run(argv, environment, disposable.target.repo_root)
+		text = local_stack_control.disposable_stack_adapter.redact_diagnostics(
+			result.stdout + "\n" + result.stderr, private_values
+		)
+		print(text, file=sys.stderr, flush=True)
+
+
+#============================================
 def compose_failure_diagnostics(
 	result: local_stack_control.models.CommandResult,
 	private_values: tuple[str, ...],
@@ -369,15 +394,21 @@ def main() -> None:
 			raise SystemExit(result.returncode)
 		if args.action == "launch":
 			local_stack_control.disposable_stack_adapter.require_mutating_capability(runner, disposable)
-			result = local_stack_control.lifecycle.start_lifecycle(
-				disposable,
-				runner,
-				root,
-				local_stack_control.disposable_stack_adapter.lifecycle_options(
-					disposable, args.timeout_seconds,
-					without_live_demo=args.without_live_demo,
-				),
-			)
+			try:
+				result = local_stack_control.lifecycle.start_lifecycle(
+					disposable,
+					runner,
+					root,
+					local_stack_control.disposable_stack_adapter.lifecycle_options(
+						disposable, args.timeout_seconds,
+						without_live_demo=args.without_live_demo,
+					),
+				)
+			except local_stack_control.models.ControllerError:
+				# The supervisor purges the stack after a failed launch, so the
+				# service state and log tails must reach the log before that.
+				print_launch_failure_evidence(runner, disposable)
+				raise
 			print(f"Disposable stack ready: {result.gateway_url}")
 			raise SystemExit(0)
 		if args.action == "replay-installation-data":

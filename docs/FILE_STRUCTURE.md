@@ -186,7 +186,8 @@ local_stack_control/
 +- lifecycle_database.py         Database initialization and verification path
 +- renderer.py                   Reviewed sibling renderer selection and Podman build
 +- live_demo_seed.py             Local Live Demo environment and selector support
-`- browser_suite_developer.py    Browser-suite developer operations
++- browser_suite_developer.py    Browser-suite supervisor (lease owner, control socket)
+`- browser_suite_developer_start.py  Parent-side start: progress heartbeat, stall detection
 
 deploy/opentofu/
 `- DATABASE_PROVISIONING.md      Future database-provisioning design runbook

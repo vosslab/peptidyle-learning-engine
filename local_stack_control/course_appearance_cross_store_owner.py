@@ -1,7 +1,5 @@
 """Lease-owned PostgreSQL and MinIO course-appearance acceptance lifecycle."""
 
-from __future__ import annotations
-
 import os
 import pathlib
 import socket

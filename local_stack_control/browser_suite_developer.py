@@ -1,7 +1,5 @@
 """Persistent fixed-owner lifecycle for the production live-demo browser stack."""
 
-from __future__ import annotations
-
 import dataclasses
 import hashlib
 import json
@@ -12,7 +10,6 @@ import secrets
 import signal
 import socket
 import stat
-import subprocess
 import sys
 import time
 from collections.abc import Callable
@@ -39,13 +36,9 @@ import local_stack_control.process
 SOCKET_DIRECTORY = pathlib.Path("/private/tmp") / "ple-live-demo-browser-control"
 MAXIMUM_FAILURE_DIAGNOSTIC_CHARACTERS = 240
 DEVELOPER_STOP_WAIT_SECONDS = 20.0
-# The parent wait covers a clean host build before the child's separately
-# bounded service-readiness stages. This is an operator recovery ceiling, not
-# a startup-performance acceptance requirement.
-DEVELOPER_START_WAIT_SECONDS = 600.0
-# A first start builds Rust, pulls images, and installs the database; print progress so a
-# quiet terminal is distinguishable from a stalled one.
-START_HEARTBEAT_SECONDS = 30.0
+# A later stop or status caller waits this long for a still-starting owner's receipt.
+# The parent-side start wait lives in browser_suite_developer_start.
+DEVELOPER_RECEIPT_WAIT_SECONDS = 600.0
 SUPERVISOR_LOG_NAME = "supervisor.log"
 SOCKET_NAME = local_stack_control.browser_suite_private_state.SOCKET_NAME
 _require_control_name = local_stack_control.browser_suite_private_state._require_control_name
@@ -265,6 +258,14 @@ def _redact_supervisor_diagnostic(detail: str) -> str:
 #============================================
 def _launch_diagnostic(output: str) -> str:
 	"""Prefer an actionable child error over wrapper and provider diagnostics."""
+	# The launch child states its own failure as one `ERROR:` line.  Streamed build
+	# output before it is full of "failed" and "not installed" noise, so that line
+	# comes first when present.
+	child_errors = [
+		line.strip() for line in output.splitlines() if line.startswith("ERROR: ")
+	]
+	if child_errors:
+		return _redact_supervisor_diagnostic(child_errors[-1])
 	actionable_lines: list[str] = []
 	expecting_cause = False
 	numbered_cause_seen = False
@@ -500,7 +501,7 @@ def read_developer_browser_suite_start_receipt(
 ) -> DeveloperStartReceipt:
 	"""Return the ready fixed-origin receipt without mutating its running suite."""
 	receipt = _wait_for_authenticated_control_receipt(
-		repository_root, DEVELOPER_START_WAIT_SECONDS
+		repository_root, DEVELOPER_RECEIPT_WAIT_SECONDS
 	)
 	result = DeveloperStartReceipt(receipt.origin, receipt.project)
 	return result
@@ -515,7 +516,7 @@ def request_developer_browser_suite_stop(
 	if timeout_seconds <= 0:
 		raise DeveloperBrowserSuiteError("developer browser stop timeout is invalid")
 	receipt = _wait_for_authenticated_control_receipt(
-		repository_root, DEVELOPER_START_WAIT_SECONDS
+		repository_root, DEVELOPER_RECEIPT_WAIT_SECONDS
 	)
 	path = _socket_path(repository_root)
 	directory_descriptor = _socket_directory_descriptor()
@@ -575,6 +576,12 @@ def default_operations(
 
 
 #============================================
+def _report_phase(phase: str) -> None:
+	"""Mark a supervisor phase change in the supervisor log for the parent heartbeat."""
+	local_stack_control.browser_suite_developer_operations.report_phase("[phase] " + phase)
+
+
+#============================================
 def run_supervisor(
 	repository_root: pathlib.Path,
 	operations: DeveloperOperations | None = None,
@@ -603,9 +610,11 @@ def run_supervisor(
 	failure_phase = "reset"
 
 	def request_supervisor_termination(_signal_number: int, _frame: object) -> None:
-		"""Request supervisor cleanup after receiving a termination signal."""
+		"""Request supervisor cleanup and stop any launch still in progress."""
 		nonlocal stop_requested
 		stop_requested = True
+		_report_phase("termination requested")
+		active_operations.interrupt()
 
 	previous_int: object | None = None
 	previous_term: object | None = None
@@ -614,13 +623,16 @@ def run_supervisor(
 		previous_term = signal.signal(signal.SIGTERM, request_supervisor_termination)
 	try:
 		failure_phase = "reset"
+		_report_phase(failure_phase)
 		local_stack_control.browser_suite_reset.reset_live_demo_browser(
 			lease, local_stack_control.process.SubprocessRunner(), repository_root
 		)
 		workspace = lease.reset_workspace()
 		failure_phase = "launch"
+		_report_phase(failure_phase)
 		running = active_operations.start(lease, repository_root, workspace)
 		failure_phase = "control"
+		_report_phase(failure_phase)
 		launch_id = _read_launch_id(repository_root)
 		control = DeveloperControlReceipt(
 			os.getpid(), secrets.token_hex(32), secrets.token_hex(32), launch_id, running.origin,
@@ -636,6 +648,7 @@ def run_supervisor(
 		server.settimeout(0.2)
 		_write_private_file(root_descriptor, CONTROL_NAME, _control_value(control))
 		_remove_private_entry(root_descriptor, LAUNCH_NAME)
+		_report_phase("ready")
 		while not stop_requested:
 			try:
 				connection, _address = server.accept()
@@ -651,6 +664,7 @@ def run_supervisor(
 	except BaseException as error:
 		failures.append(error)
 	finally:
+		_report_phase("cleanup")
 		if server is not None:
 			server.close()
 		if root_descriptor >= 0:
@@ -716,20 +730,6 @@ def clear_stale_control_state(repository_root: pathlib.Path) -> None:
 
 
 #============================================
-def _terminate_child(child: object, timeout_seconds: float) -> None:
-	"""Terminate the exact spawned supervisor before reclaiming its inherited lease."""
-	if not isinstance(child, subprocess.Popen):
-		raise DeveloperBrowserSuiteError("developer browser supervisor handle is invalid")
-	if child.poll() is None:
-		child.terminate()
-		try:
-			child.wait(timeout=timeout_seconds)
-		except subprocess.TimeoutExpired:
-			child.kill()
-			child.wait(timeout=timeout_seconds)
-
-
-#============================================
 def purge_orphaned_developer_browser_suite(
 	repository_root: pathlib.Path,
 	runner: local_stack_control.process.CommandRunner,
@@ -783,168 +783,6 @@ def clear_developer_browser_suite(
 		# this path therefore fails before engine or Podman work.
 		project = purge_orphaned_developer_browser_suite(repository_root, runner)
 	return project
-
-
-#============================================
-def _recover_failed_start(repository_root: pathlib.Path) -> None:
-	"""Reacquire the browser-suite lease and prove the fixed live-demo project is empty."""
-	purge_orphaned_developer_browser_suite(
-		repository_root,
-		local_stack_control.process.SubprocessRunner(),
-	)
-
-
-#============================================
-def _child_exited_before_ready(child: object) -> bool:
-	"""Return whether a process-like supervisor exited before its ready receipt."""
-	poll = getattr(child, "poll", None)
-	return callable(poll) and poll() is not None
-
-
-#============================================
-def _child_returncode(child: object) -> int | None:
-	"""Read only an already-complete supervisor's numeric exit result."""
-	poll = getattr(child, "poll", None)
-	result = poll() if callable(poll) else None
-	return result if isinstance(result, int) else None
-
-
-#============================================
-def start_developer_browser_suite(
-	repository_root: pathlib.Path,
-	timeout_seconds: float = DEVELOPER_START_WAIT_SECONDS,
-	spawn: Callable[[pathlib.Path, local_stack_control.browser_suite_lease.BrowserSuiteLease], object] | None = None,
-	child_terminator: Callable[[object, float], None] = _terminate_child,
-	without_live_demo: bool = False,
-) -> DeveloperStartReceipt:
-	"""Launch the background lease owner and return only its fixed HTTPS origin."""
-	if timeout_seconds <= 0:
-		raise DeveloperBrowserSuiteError("developer browser start timeout is invalid")
-	# The probe shares the browser-suite lease. It makes stale receipts powerless
-	# before any child can publish readiness (ASVS 15.4.2 and 15.4.3).
-	lease = local_stack_control.browser_suite_lease.BrowserSuiteLease.acquire(repository_root)
-	root_descriptor = -1
-	launch_id = secrets.token_hex(32)
-	try:
-		_remove_failure_receipt(repository_root)
-		root_descriptor = _checked_root_descriptor(repository_root)
-		_remove_private_entry(root_descriptor, CONTROL_NAME)
-		_remove_private_entry(root_descriptor, LAUNCH_NAME)
-		_remove_private_entry(root_descriptor, RESULT_NAME)
-		_remove_socket_path(repository_root)
-		_write_private_file(root_descriptor, LAUNCH_NAME, _launch_value(launch_id))
-	except BaseException:
-		lease.release()
-		raise
-	finally:
-		if root_descriptor >= 0:
-			os.close(root_descriptor)
-	def default_spawn(
-		root: pathlib.Path,
-		held_lease: local_stack_control.browser_suite_lease.BrowserSuiteLease,
-	) -> object:
-		descriptors = held_lease.inherited_descriptors()
-		arguments = [
-				sys.executable,
-				"-m",
-				"local_stack_control.browser_suite_developer",
-				"supervisor",
-				str(descriptors[0]),
-				str(descriptors[1]),
-				str(descriptors[2]),
-			]
-		if without_live_demo:
-			arguments.append("--without-live-demo")
-		# Keep supervisor diagnostics in a private log so a long first start is inspectable.
-		log_descriptor = os.open(
-			root
-			/ local_stack_control.browser_suite_lease.LIVE_DEMO_BROWSER_STATE_DIRECTORY
-			/ SUPERVISOR_LOG_NAME,
-			os.O_WRONLY | os.O_CREAT | os.O_APPEND,
-			0o600,
-		)
-		try:
-			return subprocess.Popen(
-				arguments,
-				cwd=root,
-				stdin=subprocess.DEVNULL,
-				stdout=log_descriptor,
-				stderr=log_descriptor,
-				close_fds=True,
-				pass_fds=descriptors,
-				start_new_session=True,
-			)
-		finally:
-			os.close(log_descriptor)
-	launcher = default_spawn if spawn is None else spawn
-	handoff_started = False
-	child: object | None = None
-	try:
-		child = launcher(repository_root, lease)
-		handoff_started = True
-	finally:
-		if handoff_started:
-			lease.detach_for_supervisor_handoff()
-		else:
-			lease.release()
-	failure: BaseException | None = None
-	result: DeveloperStartReceipt | None = None
-	started = time.monotonic()
-	deadline = started + timeout_seconds
-	next_heartbeat = started + START_HEARTBEAT_SECONDS
-	while time.monotonic() < deadline:
-		try:
-			receipt = read_control_receipt(repository_root)
-			if not secrets.compare_digest(receipt.launch_id, launch_id):
-				raise DeveloperBrowserSuiteError("developer browser supervisor published another launch")
-			result = DeveloperStartReceipt(receipt.origin, receipt.project)
-			break
-		except DeveloperBrowserSuiteError as error:
-			failure = error
-			if _child_exited_before_ready(child):
-				break
-			if time.monotonic() >= next_heartbeat:
-				elapsed = int(time.monotonic() - started)
-				log_path = (
-					local_stack_control.browser_suite_lease.LIVE_DEMO_BROWSER_STATE_DIRECTORY
-					/ SUPERVISOR_LOG_NAME
-				)
-				print(
-					f"Live Demo still starting ({elapsed}s): building, pulling images, "
-					f"installing the database; see {log_path}",
-					flush=True,
-				)
-				next_heartbeat += START_HEARTBEAT_SECONDS
-			time.sleep(0.05)
-	if result is not None:
-		return result
-	if child is None:
-		raise DeveloperBrowserSuiteError("developer browser supervisor did not start")
-	cleanup_failures: list[BaseException] = []
-	try:
-		child_terminator(child, timeout_seconds)
-	except BaseException as error:
-		cleanup_failures.append(error)
-	try:
-		_recover_failed_start(repository_root)
-	except BaseException as error:
-		cleanup_failures.append(error)
-	if cleanup_failures:
-		raise BaseExceptionGroup("developer browser failed-start cleanup failures", cleanup_failures)
-	receipt = _read_failure_receipt(repository_root)
-	if receipt is not None:
-		returncode = _child_returncode(child)
-		if receipt.returncode != returncode:
-			receipt = DeveloperFailureReceipt(receipt.phase, returncode, receipt.diagnostic)
-			_write_failure_receipt(repository_root, receipt)
-		exit_detail = "unknown" if receipt.returncode is None else str(receipt.returncode)
-		raise DeveloperBrowserSuiteError(
-			"developer browser supervisor failed during " + receipt.phase
-			+ " (exit " + exit_detail + "): " + receipt.diagnostic
-		)
-	if failure is not None:
-		raise DeveloperBrowserSuiteError("developer browser supervisor did not become ready") from failure
-	raise DeveloperBrowserSuiteError("developer browser supervisor did not become ready")
 
 
 #============================================

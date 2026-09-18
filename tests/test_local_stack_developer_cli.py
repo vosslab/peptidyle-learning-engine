@@ -5,6 +5,7 @@ import pathlib
 import pytest
 
 import local_stack_control.browser_suite_developer
+import local_stack_control.browser_suite_developer_start
 import local_stack_control.cli
 import local_stack_control.commands
 import local_stack_control.models
@@ -82,7 +83,7 @@ def test_start_forwards_explicit_demo_opt_out_to_the_fixed_owner(
 		lambda _root, _runner: receipt().project,
 	)
 	monkeypatch.setattr(
-		local_stack_control.browser_suite_developer,
+		local_stack_control.browser_suite_developer_start,
 		"start_developer_browser_suite",
 		lambda _root, without_live_demo=False: (
 			captured.append(without_live_demo), receipt()
@@ -130,7 +131,7 @@ def test_start_uses_the_fixed_owner_and_opens_its_safe_origin(
 		clear_browser_suite,
 	)
 	monkeypatch.setattr(
-		local_stack_control.browser_suite_developer,
+		local_stack_control.browser_suite_developer_start,
 		"start_developer_browser_suite",
 		start_owner,
 	)
@@ -144,7 +145,11 @@ def test_start_uses_the_fixed_owner_and_opens_its_safe_origin(
 	output = capsys.readouterr().out
 	assert result == 0
 	assert events == ["clear", "start"]
-	assert runner.argvs == [["open", entry_url()]]
+	# The engine reachability probe runs first so a stopped Podman fails in seconds.
+	assert runner.argvs == [
+		["podman", "info", "--format", "{{.Host.Arch}}"],
+		["open", entry_url()],
+	]
 	assert "Stop with: ./launchers/run_live_demo.sh stop" in output
 	assert entry_url() in output
 
@@ -175,14 +180,14 @@ def test_start_headless_preserves_the_same_developer_browser_suite(
 		clear_browser_suite,
 	)
 	monkeypatch.setattr(
-		local_stack_control.browser_suite_developer,
+		local_stack_control.browser_suite_developer_start,
 		"start_developer_browser_suite",
 		start_owner,
 	)
 	runner = RecordingRunner()
 	result = local_stack_control.cli.run(["start", "--headless"], runner, tmp_path)
 	assert result == 0
-	assert runner.argvs == []
+	assert runner.argvs == [["podman", "info", "--format", "{{.Host.Arch}}"]]
 	assert entry_url() in capsys.readouterr().out
 
 
@@ -237,7 +242,7 @@ def test_start_clears_the_existing_owner_before_starting_the_browser_suite(
 		clear_browser_suite,
 	)
 	monkeypatch.setattr(
-		local_stack_control.browser_suite_developer,
+		local_stack_control.browser_suite_developer_start,
 		"start_developer_browser_suite",
 		start_owner,
 	)

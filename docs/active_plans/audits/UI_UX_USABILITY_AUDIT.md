@@ -12,7 +12,7 @@ durable, reusable guidance in HG and observed implementation gaps here.
 
 ## Evidence scope
 
-The initial findings come from inspected Student PNGs in [screenshots](../../screenshots/student/), supplemented
+The initial findings come from inspected Student PNGs in `student`, supplemented
 by the user's live-demo observations. The review uses heuristic inspection of recognition,
 information density, responsive presentation, and visible state. It covers Student laptops,
 portrait tablets, narrow phones, and square displays as specified in HG. Instructor and Sysadmin
@@ -104,7 +104,7 @@ fresh official screenshot corpus.
 
 ### S01: accepted invitation retains pending-state actions
 
-- Evidence: [invitation_accepted_laptop.png](../../screenshots/student/invitation_accepted_laptop.png)
+- Evidence: `invitation_accepted_laptop.png`
   shows "Invitation accepted" alongside "Join this course", pending-state instructions, and an
   "Accept invitation" action.
 - User need: recognize successful enrollment and proceed into the Course.
@@ -252,7 +252,7 @@ color. Record computed-color evidence before closing any contrast finding.
 [ADAPT_UI_AUDIT.md](ADAPT_UI_AUDIT.md) records ADAPT observations and comparison comments.
 HG owns PLE classification and validation decisions. PLE-specific findings remain in this audit.
 
-The review covers the 32 PNGs in [instructor screenshots](../../screenshots/instructor/), including
+The review covers the 32 PNGs in `instructor`, including
 the files inspected earlier in this session. The task model is: find reusable content, inspect it,
 author or adopt it, assemble and release Coursework, and manage enrollment and results. Priority
 below reflects friction at those steps, rather than implementation effort.
@@ -378,7 +378,7 @@ deferred/future descriptions with their current disposition.
 ### I05: publication success offers a generic destination
 
 - Priority: high; evidence:
-  [published_question_result.png](../../screenshots/instructor/published_question_result.png).
+  `published_question_result.png`.
 - Publication succeeds, but the breadcrumb still names a Draft Question, the header remains
   authoring-oriented, and the offered link opens the Library rather than visibly identifying a
   direct path to the newly Published Question.

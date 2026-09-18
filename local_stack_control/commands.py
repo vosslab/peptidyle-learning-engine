@@ -10,6 +10,7 @@ import shlex
 import local_stack_control.cleanup
 import local_stack_control.acceptance_lanes
 import local_stack_control.browser_suite_developer
+import local_stack_control.browser_suite_developer_start
 import local_stack_control.compose
 import local_stack_control.disposable_stack_adapter
 import local_stack_control.discovery
@@ -366,6 +367,8 @@ def start(
 	repo_root: pathlib.Path,
 ) -> int:
 	"""Clear and start the fixed production-browser Developer Browser Suite."""
+	# Fail in seconds with a cause when the engine is down, not after a silent wait.
+	local_stack_control.browser_suite_developer_start.require_podman_reachable(runner, repo_root)
 	print("Preparing the fixed Developer Browser Suite...")
 	project = local_stack_control.browser_suite_developer.clear_developer_browser_suite(
 		repo_root,
@@ -373,9 +376,9 @@ def start(
 	)
 	print(f"Developer Browser Suite cleared: {project}")
 	if not args.without_live_demo:
-		result = local_stack_control.browser_suite_developer.start_developer_browser_suite(repo_root)
+		result = local_stack_control.browser_suite_developer_start.start_developer_browser_suite(repo_root)
 	else:
-		result = local_stack_control.browser_suite_developer.start_developer_browser_suite(
+		result = local_stack_control.browser_suite_developer_start.start_developer_browser_suite(
 			repo_root,
 			without_live_demo=args.without_live_demo,
 		)

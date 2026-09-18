@@ -197,7 +197,7 @@ def test_live_demo_browser_policy_requires_exact_primary_then_tls_overlay(
 	assert local_stack_control.live_demo_gateway.health_probe_argv(
 		local_stack_control.live_demo_gateway.gateway_url(base_target)
 	) == [
-		"curl", "--fail", "--silent", "--show-error", "--max-time", "2",
+		"curl", "--ipv4", "--fail", "--silent", "--show-error", "--max-time", "2",
 		"--insecure", "--output", "/dev/null", "https://localhost:8080/health",
 	]
 	for files in ((primary,), (overlay, primary)):

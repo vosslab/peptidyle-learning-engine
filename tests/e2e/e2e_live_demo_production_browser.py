@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Serial owner for real-stack browser scenarios."""
 
-from __future__ import annotations
-
 import argparse
 import json
 import os

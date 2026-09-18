@@ -1,7 +1,5 @@
 """Single-flight private workspace for the disposable live-demo browser suite."""
 
-from __future__ import annotations
-
 import fcntl
 import os
 import pathlib

@@ -79,6 +79,7 @@ LifecycleTarget = (
 # child execution, selected environments, and failure redaction.
 child_environment = local_stack_control.lifecycle_commands.child_environment
 compose_run = local_stack_control.lifecycle_commands.compose_run
+report_step = local_stack_control.lifecycle_commands.report_step
 require_command = local_stack_control.lifecycle_commands.require_command
 validate_compose = local_stack_control.lifecycle_commands.validate_compose
 #============================================
@@ -370,6 +371,7 @@ def _start_lifecycle(
 		# application service starts so the selected stack cannot reuse a stale
 		# tag after a Rust source change.
 		compose_run(selected, runner, ["build", "api"])
+	report_step("ensuring the WeBWorK renderer image (pulls on first use)")
 	oci_id = local_stack_control.renderer.ensure_renderer_oci_id(
 		runner, repo_root, values["PLE_WEBWORK_RENDERER_IMAGE"], environment, options.build
 	)
@@ -381,23 +383,30 @@ def _start_lifecycle(
 	compose_run(selected, runner, ["down", "--remove-orphans"])
 	compose_run(selected, runner, ["--profile", "maintenance", "run", "--rm", "--no-deps", "-T", "postgres-major-guard"])
 	compose_run(selected, runner, ["up", "-d", "postgres"])
+	report_step("waiting for PostgreSQL readiness")
 	wait_for_postgres(selected, runner, values, options)
 	initial_database_install = (
 		local_stack_control.lifecycle_migrations.database_operation_for(target)
 		== "initialize"
 	)
+	report_step("synchronizing the database baseline")
 	synchronize_database(target, runner, values, options)
+	report_step("running database migrations (builds the migrator image on first use)")
 	run_migrations(target, runner, repo_root, values, environment)
 	if local_stack_control.lifecycle_profiles.uses_local_teaching_state(target):
+		report_step("setting up service logins and verifying the migrated schema")
 		local_stack_control.process_logins.setup_service_logins(
 			selected, runner, values, child_environment(selected)
 		)
 		verify_migrated_application_schema(selected, runner)
 	compose_run(selected, runner, ["up", "-d", "minio", "createbuckets"])
+	report_step("waiting for object storage buckets")
 	wait_for_one_shot(selected, runner, options, "createbuckets")
 	compose_run(selected, runner, ["up", "-d", "--force-recreate", "--no-deps", "webwork-renderer"])
+	report_step("waiting for the WeBWorK renderer")
 	wait_for_renderer_ready(selected, runner, options, oci_id)
 	attest_renderer(selected, runner, repo_root, values, oci_id)
+	report_step("running API initializers")
 	run_api_initializers(selected, runner, options)
 	provision_installation_data = should_provision_installation_data(
 		target, initial_database_install
@@ -420,12 +429,15 @@ def _start_lifecycle(
 			*application_services,
 		],
 	)
+	report_step("waiting for the complete stack to report ready")
 	gateway_url = wait_for_complete_ready(target, runner, options)
 	if provision_installation_data:
+		report_step("provisioning installation data (Live Demo Course)")
 		provision_ready_installation_data(
 			target, runner, without_live_demo=options.without_live_demo
 		)
 	if retains_live_demo_persona_configuration(target, options):
+		report_step("provisioning the local sysadmin TOTP authenticator")
 		provision_local_sysadmin_totp(target, runner)
 	if options.open_browser:
 		open_browser(runner, repo_root, gateway_url)
@@ -499,6 +511,7 @@ def build_artifacts(runner: local_stack_control.process.CommandRunner, repo_root
 	environment = local_stack_control.env_file.sanitized_runtime_environment(
 		local_stack_control.process.current_environment()
 	)
+	report_step("host build ./build.sh " + profile + " (Rust and browser bundle; slow when cold)")
 	result = runner.run(["./build.sh", profile], environment, repo_root)
 	require_command(result, "host artifact build")
 
@@ -886,10 +899,13 @@ def ready_report(target: local_stack_control.models.ComposeTarget) -> local_stac
 
 
 #============================================
-def unavailable_report(target: local_stack_control.models.ComposeTarget) -> local_stack_control.models.StatusReport:
-	"""Build a minimal retry sentinel for a direct PostgreSQL command poll."""
+def unavailable_report(
+	target: local_stack_control.models.ComposeTarget,
+	message: str = "PostgreSQL is starting",
+) -> local_stack_control.models.StatusReport:
+	"""Build a minimal retry sentinel for one direct readiness probe."""
 	snapshot = local_stack_control.models.ProjectSnapshot(target.project, (), (), ())
-	return local_stack_control.models.StatusReport(target.project, target.with_smtp, snapshot, (), False, "starting", "PostgreSQL is starting")
+	return local_stack_control.models.StatusReport(target.project, target.with_smtp, snapshot, (), False, "starting", message)
 
 
 #============================================
@@ -946,7 +962,11 @@ def wait_for_complete_ready(
 		)
 		if result.ok():
 			return status_report(target, runner)
-		return unavailable_report(selected)
+		# Name the probe that failed; the gateway fronts every service, so a silent
+		# gateway is the usual final symptom of an api, worker, or TLS problem behind it.
+		probe_detail = result.stderr.strip().splitlines()
+		detail = probe_detail[-1] if probe_detail else "no response"
+		return unavailable_report(selected, f"gateway health probe at {url} failed: {detail}")
 	local_stack_control.lifecycle_wait.poll_ready(read_report, options.timeout_seconds)
 	require_complete_ready(target, runner)
 	return url

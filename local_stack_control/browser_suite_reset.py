@@ -1,7 +1,5 @@
 """Exact reset action for the one disposable live-demo browser fixture."""
 
-from __future__ import annotations
-
 import pathlib
 
 import local_stack_control.browser_suite_lease

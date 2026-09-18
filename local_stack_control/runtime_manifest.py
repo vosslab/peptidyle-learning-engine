@@ -1,7 +1,5 @@
 """Strict private runtime handoff for the disposable PostgreSQL acceptance lane."""
 
-from __future__ import annotations
-
 import dataclasses
 import hashlib
 import hmac

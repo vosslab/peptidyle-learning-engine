@@ -586,7 +586,9 @@ services:
       api:
         condition: service_started
     ports:
-      - "127.0.0.1:${PLE_GATEWAY_HOST_PORT:-8080}:8080"
+      # Bound on every host interface so the demo is reachable over the
+      # operator's own networks (for example Tailscale), not only loopback.
+      - "${PLE_GATEWAY_HOST_PORT:-8080}:8080"
     volumes:
       - type: bind
         source: ./Caddyfile
@@ -634,6 +636,7 @@ services:
       start_period: 5s
     networks:
       - gateway_api
+      - gateway_edge
 
   # PLE uses only the standalone PG rendering engine. It has no assignment,
   # course, roster, login, session, SQL, or persistent-volume state.
@@ -719,4 +722,9 @@ networks:
     labels: *ple-disposable-capability-label
     internal: true
   api_outbound:
+    labels: *ple-disposable-capability-label
+  # The gateway's published port needs one network that is not internal: Podman's
+  # netavark drops host-side forwarding into a container whose every network is
+  # internal, so the stack came up healthy and unreachable from the host.
+  gateway_edge:
     labels: *ple-disposable-capability-label

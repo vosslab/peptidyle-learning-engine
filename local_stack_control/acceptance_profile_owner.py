@@ -1,7 +1,5 @@
 """Shared serial lease lifecycle for fixed private acceptance profiles."""
 
-from __future__ import annotations
-
 import pathlib
 from collections.abc import Callable
 

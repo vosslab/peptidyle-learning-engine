@@ -1,13 +1,17 @@
 """Deterministic contracts for the fixed live-demo developer supervisor."""
 
-from __future__ import annotations
-
 import os
+import sys
+import time
+import signal
 import pathlib
+import threading
 
 import pytest
 
 import local_stack_control.browser_suite_developer
+import local_stack_control.browser_suite_developer_operations
+import local_stack_control.browser_suite_developer_start
 import local_stack_control.browser_suite_lease
 import local_stack_control.browser_suite_reset
 import local_stack_control.lifecycle_diagnostics
@@ -136,7 +140,7 @@ def test_start_waits_for_private_ready_receipt(tmp_path: pathlib.Path) -> None:
 			os.close(descriptor)
 		return object()
 
-	result = local_stack_control.browser_suite_developer.start_developer_browser_suite(
+	result = local_stack_control.browser_suite_developer_start.start_developer_browser_suite(
 		tmp_path, 0.5, spawn
 	)
 	assert result == local_stack_control.browser_suite_developer.DeveloperStartReceipt(
@@ -214,7 +218,7 @@ def test_start_early_supervisor_exit_terminates_child_then_exact_resets_fixed_ow
 
 	child = ExitedChild()
 	with pytest.raises(local_stack_control.browser_suite_developer.DeveloperBrowserSuiteError):
-		local_stack_control.browser_suite_developer.start_developer_browser_suite(
+		local_stack_control.browser_suite_developer_start.start_developer_browser_suite(
 			tmp_path,
 			0.5,
 			lambda _root, _lease: child,
@@ -290,4 +294,256 @@ def test_launch_diagnostic_retains_causes_but_excludes_trailing_diagnostics() ->
 	assert diagnostic == (
 		"Error: launch failed Caused by: permission denied for [private] [path] "
 		"Caused by: 0: wrapper cause 1: root cause 2: detail cause"
+	)
+
+
+#============================================
+def _write_child_script(tmp_path: pathlib.Path, body: str) -> pathlib.Path:
+	"""Write one small Python child used to stand in for the stack launch command."""
+	script = tmp_path / "_launch_child.py"
+	script.write_text(body, encoding="ascii")
+	return script
+
+
+#============================================
+def test_launch_output_streams_to_stderr_and_is_retained_for_diagnostics(
+	tmp_path: pathlib.Path,
+	capfd: pytest.CaptureFixture[str],
+) -> None:
+	"""Launch output reaches the supervisor log live and still feeds the failure diagnostic."""
+	script = _write_child_script(
+		tmp_path,
+		"import sys\n"
+		"print('line one', flush=True)\n"
+		"print('Error: line two', file=sys.stderr, flush=True)\n"
+		"raise SystemExit(1)\n",
+	)
+	active: list[object] = []
+	returncode, output = local_stack_control.browser_suite_developer_operations.stream_launch(
+		[sys.executable, str(script)], dict(os.environ), tmp_path, active
+	)
+	assert returncode == 1
+	assert "line one" in output and "Error: line two" in output
+	captured = capfd.readouterr().err
+	assert "line one" in captured and "Error: line two" in captured
+	assert active == []
+
+
+#============================================
+def test_interrupt_terminates_the_running_launch_process_group(tmp_path: pathlib.Path) -> None:
+	"""An interrupt stops a long launch within seconds instead of after it completes."""
+	script = _write_child_script(tmp_path, "import time\ntime.sleep(30)\n")
+	active: list[object] = []
+	results: list[tuple[int, str]] = []
+	def run_launch() -> None:
+		results.append(
+			local_stack_control.browser_suite_developer_operations.stream_launch(
+				[sys.executable, str(script)], dict(os.environ), tmp_path, active
+			)
+		)
+	worker = threading.Thread(target=run_launch)
+	started = time.monotonic()
+	worker.start()
+	while not active and time.monotonic() - started < 5:
+		time.sleep(0.01)
+	local_stack_control.browser_suite_developer_operations.interrupt_launch(active)
+	worker.join(timeout=5)
+	assert not worker.is_alive()
+	assert results[0][0] != 0
+	assert time.monotonic() - started < 5
+
+
+#============================================
+def test_supervisor_termination_signal_interrupts_a_blocked_launch(
+	tmp_path: pathlib.Path,
+	monkeypatch: pytest.MonkeyPatch,
+) -> None:
+	"""SIGTERM during launch forwards an interrupt so cleanup does not wait for the build."""
+	directory = tmp_path / "socket-control"
+	directory.mkdir(mode=0o700)
+	directory.chmod(0o700)
+	monkeypatch.setattr(local_stack_control.browser_suite_developer, "SOCKET_DIRECTORY", directory)
+	empty = local_stack_control.models.ProjectSnapshot("ple-live-demo-browser", (), (), ())
+	monkeypatch.setattr(
+		local_stack_control.browser_suite_reset,
+		"reset_live_demo_browser",
+		lambda _lease, _runner, _root: empty,
+	)
+	events: list[str] = []
+	interrupted = threading.Event()
+	def start(
+		_lease: local_stack_control.browser_suite_lease.BrowserSuiteLease,
+		_root: pathlib.Path,
+		_workspace: pathlib.Path,
+	) -> local_stack_control.browser_suite_developer.RunningDeveloperStack:
+		events.append("start")
+		if not interrupted.wait(timeout=5):
+			raise AssertionError("launch was never interrupted")
+		raise local_stack_control.browser_suite_developer.DeveloperBrowserSuiteError("launch interrupted")
+	def interrupt() -> None:
+		events.append("interrupt")
+		interrupted.set()
+	operations = local_stack_control.browser_suite_developer.DeveloperOperations(
+		start,
+		lambda _running, _root: events.append("stop"),
+		lambda _lease, _root: events.append("verify_empty"),
+		interrupt,
+	)
+	threading.Timer(0.1, lambda: os.kill(os.getpid(), signal.SIGTERM)).start()
+	with pytest.raises(local_stack_control.browser_suite_developer.DeveloperBrowserSuiteError):
+		local_stack_control.browser_suite_developer.run_supervisor(tmp_path, operations)
+	assert events == ["start", "interrupt", "verify_empty"]
+
+
+#============================================
+def test_supervisor_log_tail_reports_phase_and_last_line(tmp_path: pathlib.Path) -> None:
+	"""The heartbeat reads the newest phase marker and last non-empty supervisor line."""
+	log_path = tmp_path / "supervisor.log"
+	phase, last_line = local_stack_control.browser_suite_developer_start.log_tail(log_path)
+	assert (phase, last_line) == ("starting", "")
+	log_path.write_text(
+		"[phase] reset\n[phase] launch\nStep: ./build.sh --debug\n\nStep: compose up -d postgres\n\n",
+		encoding="ascii",
+	)
+	phase, last_line = local_stack_control.browser_suite_developer_start.log_tail(log_path)
+	assert (phase, last_line) == ("launch", "Step: compose up -d postgres")
+	# A long build pushes the marker out of the bounded tail; the known phase survives.
+	with log_path.open("a", encoding="ascii") as log:
+		log.write("build output line\n" * 400)
+	phase, last_line = local_stack_control.browser_suite_developer_start.log_tail(log_path, "launch")
+	assert (phase, last_line) == ("launch", "build output line")
+
+
+#============================================
+def test_start_keeps_waiting_while_supervisor_log_grows_then_reports_a_stall(
+	tmp_path: pathlib.Path,
+	monkeypatch: pytest.MonkeyPatch,
+) -> None:
+	"""Progress in the supervisor log extends the wait; silence ends it with a stall diagnosis."""
+	events: list[str] = []
+	empty = local_stack_control.models.ProjectSnapshot("ple-live-demo-browser", (), (), ())
+	monkeypatch.setattr(
+		local_stack_control.browser_suite_reset,
+		"reset_live_demo_browser",
+		lambda _lease, _runner, _root: (events.append("reset"), empty)[1],
+	)
+	log_path = (
+		tmp_path
+		/ local_stack_control.browser_suite_lease.LIVE_DEMO_BROWSER_STATE_DIRECTORY
+		/ local_stack_control.browser_suite_developer.SUPERVISOR_LOG_NAME
+	)
+	class LiveChild:
+		"""Process-like supervisor that never exits during the test."""
+
+		def poll(self) -> None:
+			return None
+
+	def append_progress() -> None:
+		"""Append log lines for 0.4s, longer than the injected stall window."""
+		finish = time.monotonic() + 0.4
+		while time.monotonic() < finish:
+			with log_path.open("a", encoding="ascii") as log:
+				log.write("[phase] launch\nStep: still building\n")
+			time.sleep(0.02)
+
+	def spawn(
+		_root: pathlib.Path,
+		_lease: local_stack_control.browser_suite_lease.BrowserSuiteLease,
+	) -> object:
+		log_path.parent.mkdir(parents=True, exist_ok=True)
+		log_path.touch()
+		threading.Thread(target=append_progress).start()
+		return LiveChild()
+
+	started = time.monotonic()
+	with pytest.raises(
+		local_stack_control.browser_suite_developer.DeveloperBrowserSuiteError,
+		match="stalled during launch.*Step: still building",
+	):
+		local_stack_control.browser_suite_developer_start.start_developer_browser_suite(
+			tmp_path,
+			5.0,
+			spawn,
+			lambda _child, _timeout: events.append("terminated"),
+			stall_seconds=0.15,
+		)
+	elapsed = time.monotonic() - started
+	assert 0.4 < elapsed < 3.0
+	assert events == ["terminated", "reset"]
+
+
+#============================================
+def test_start_keyboard_interrupt_terminates_child_and_resets(
+	tmp_path: pathlib.Path,
+	monkeypatch: pytest.MonkeyPatch,
+) -> None:
+	"""Ctrl-C during a start stops the supervisor and resets the fixed suite, then reports."""
+	events: list[str] = []
+	empty = local_stack_control.models.ProjectSnapshot("ple-live-demo-browser", (), (), ())
+	monkeypatch.setattr(
+		local_stack_control.browser_suite_reset,
+		"reset_live_demo_browser",
+		lambda _lease, _runner, _root: (events.append("reset"), empty)[1],
+	)
+	def interrupted_read(_root: pathlib.Path) -> local_stack_control.browser_suite_developer.DeveloperControlReceipt:
+		raise KeyboardInterrupt
+	monkeypatch.setattr(
+		local_stack_control.browser_suite_developer, "read_control_receipt", interrupted_read
+	)
+	with pytest.raises(
+		local_stack_control.browser_suite_developer.DeveloperBrowserSuiteError,
+		match="interrupted",
+	):
+		local_stack_control.browser_suite_developer_start.start_developer_browser_suite(
+			tmp_path,
+			5.0,
+			lambda _root, _lease: object(),
+			lambda _child, _timeout: events.append("terminated"),
+		)
+	assert events == ["terminated", "reset"]
+
+
+#============================================
+class _PodmanRunner(local_stack_control.process.CommandRunner):
+	"""Runner double answering only the Podman reachability probe."""
+
+	def __init__(self, returncode: int, stdout: str, stderr: str) -> None:
+		self.returncode = returncode
+		self.stdout = stdout
+		self.stderr = stderr
+		self.argv: list[list[str]] = []
+
+	def run(
+		self,
+		argv: list[str],
+		environment: dict[str, str] | None = None,
+		cwd: pathlib.Path | None = None,
+		stdin: str | None = None,
+	) -> local_stack_control.models.CommandResult:
+		self.argv.append(argv)
+		return local_stack_control.models.CommandResult(
+			tuple(argv), self.returncode, self.stdout, self.stderr
+		)
+
+	def stream(
+		self,
+		argv: list[str],
+		environment: dict[str, str] | None = None,
+		cwd: pathlib.Path | None = None,
+	) -> int:
+		raise AssertionError("stream is not used by the reachability probe")
+
+
+#============================================
+def test_require_podman_reachable_names_the_recovery_command(tmp_path: pathlib.Path) -> None:
+	"""A stopped Podman machine fails in seconds with the command that fixes it."""
+	runner = _PodmanRunner(125, "", "Cannot connect to Podman. Please verify your connection\n")
+	with pytest.raises(
+		local_stack_control.browser_suite_developer.DeveloperBrowserSuiteError,
+		match="Cannot connect to Podman.*podman machine start",
+	):
+		local_stack_control.browser_suite_developer_start.require_podman_reachable(runner, tmp_path)
+	assert runner.argv == [["podman", "info", "--format", "{{.Host.Arch}}"]]
+	local_stack_control.browser_suite_developer_start.require_podman_reachable(
+		_PodmanRunner(0, "arm64\n", ""), tmp_path
 	)

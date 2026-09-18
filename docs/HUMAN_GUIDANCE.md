@@ -57,6 +57,10 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
   omission keeps agent instructions focused on the intended actions.
 - Small LMs may interpret negative instructions as actions to perform. State the desired behavior
   directly, including when assigning responsibilities to agents.
+- Python code uses the current interpreter's defaults; `from __future__ import ...` belongs nowhere
+  in this repo. `tests/test_no_future_imports.py` enforces it.
+- Long local operations must be robust and informative: keep going through imperfect state where
+  useful, recover gracefully, and tell me what is happening while I wait. I am impatient.
 - Classify one-time checks separately from permanent tests.
 - Finish the obvious. Continue while the next safe step is defined by the plan, implied by the current task.
 - Robust means the software continues to function despite imperfect inputs, data, state, or behavior.

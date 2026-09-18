@@ -133,8 +133,13 @@ def gateway_url(target: local_stack_control.models.ComposeTarget) -> str:
 
 #============================================
 def health_probe_argv(url: str) -> list[str]:
-	"""Build a gateway health probe, trusting only the lane's internal certificate."""
-	argv = ["curl", "--fail", "--silent", "--show-error", "--max-time", "2"]
+	"""Build a gateway health probe, trusting only the lane's internal certificate.
+
+	Podman publishes the gateway on 127.0.0.1 only.  `localhost` resolves to `::1`
+	first on macOS, where the machine's forwarder resets the connection instead of
+	refusing it, so curl never falls back; the probe therefore pins IPv4.
+	"""
+	argv = ["curl", "--ipv4", "--fail", "--silent", "--show-error", "--max-time", "2"]
 	if url.startswith("https://"):
 		argv.append("--insecure")
 	argv.extend(("--output", "/dev/null", url + "health"))
@@ -146,7 +151,7 @@ def seeded_session_probe_argv(url: str) -> list[str]:
 	"""Build one same-origin demo-session probe after generic health succeeds."""
 	origin = live_demo_origin(url)
 	return [
-		"curl", "--fail", "--silent", "--show-error", "--max-time", "2", "--insecure",
+		"curl", "--ipv4", "--fail", "--silent", "--show-error", "--max-time", "2", "--insecure",
 		"--request", "POST",
 		"--header", f"origin: {origin}",
 		"--header", "accept: application/json",
@@ -166,7 +171,7 @@ def persona_session_argv(url: str, persona: str, cookie_jar_path: pathlib.Path) 
 	body = json.dumps({"persona": persona}, separators=(",", ":"))
 	# ASVS 13.3.2: the credential remains in the private jar and never enters argv.
 	argv = [
-		"curl", "--silent", "--show-error", "--max-time", "12", "--insecure",
+		"curl", "--ipv4", "--silent", "--show-error", "--max-time", "12", "--insecure",
 		"--request", "POST",
 		"--header", f"origin: {origin}",
 		"--header", "accept: application/json",
@@ -199,7 +204,7 @@ def demo_request_argv(
 	origin = live_demo_origin(url)
 	checked_path = demo_request_path(path)
 	argv = [
-		"curl", "--silent", "--show-error", "--max-time", "12", "--insecure",
+		"curl", "--ipv4", "--silent", "--show-error", "--max-time", "12", "--insecure",
 		"--request", method,
 		"--header", f"origin: {origin}",
 		"--header", "accept: application/json",

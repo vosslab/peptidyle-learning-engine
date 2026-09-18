@@ -6,8 +6,6 @@ authenticator setup tool locate the private seed without turning the artifact
 itself into an authentication credential.
 """
 
-from __future__ import annotations
-
 import base64
 import json
 import os

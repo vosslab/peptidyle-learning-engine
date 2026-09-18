@@ -1,5 +1,7 @@
 """Redaction-aware child-command boundary for lifecycle orchestration."""
 
+import sys
+import shlex
 import pathlib
 
 import local_stack_control.compose
@@ -16,6 +18,17 @@ def child_environment(target: local_stack_control.models.ComposeTarget) -> dict[
 		target, local_stack_control.process.current_environment()
 	)
 	return result
+
+
+#============================================
+def report_step(text: str) -> None:
+	"""Announce one lifecycle step on stderr before it runs.
+
+	Child output stays captured for redaction, so this line is what an operator sees
+	while a long build or readiness wait is in progress.  Only non-secret step names
+	and Compose arguments belong here.
+	"""
+	print("Step: " + text, file=sys.stderr, flush=True)
 
 
 #============================================
@@ -64,6 +77,7 @@ def compose_run(
 	arguments: list[str],
 ) -> None:
 	"""Run one selected Compose operation with its private values redacted on failure."""
+	report_step("compose " + shlex.join(arguments))
 	result = runner.run(
 		local_stack_control.compose.compose_argv(target, arguments),
 		child_environment(target),

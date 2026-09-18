@@ -1,7 +1,5 @@
 """Security contracts for the disposable PostgreSQL acceptance runtime."""
 
-from __future__ import annotations
-
 import os
 import pathlib
 import stat
