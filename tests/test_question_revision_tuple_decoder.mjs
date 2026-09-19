@@ -31,6 +31,43 @@ test("Blueprint Revision Tuple decodes blueprintCourseId plus revisionNumber", (
   );
 });
 
+test("Blueprint Assessment fixed entry rejects leftover published_question Tuple JSON", async () => {
+  const { decodeCreateBlueprintCourseInput } =
+    await import("../src/api/decoders/blueprint_course.ts");
+  const classification = {
+    disciplineUuid: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6d",
+    subjectUuid: null,
+    topicUuid: null,
+    subtopicUuid: null,
+    tags: [],
+  };
+  const content = {
+    title: "Ready exam",
+    instructions: "Answer.",
+    entries: [
+      {
+        kind: "fixed",
+        published_question: { questionId: "AAAA-2BBB", revisionNumber: 1 },
+        points_possible: "1",
+        scoring_rule: "normal",
+        question_attempt_limit: { maxAttempts: null },
+        question_attempt_time_limit: { kind: "unlimited" },
+      },
+    ],
+    defaults: {},
+  };
+  assert.throws(
+    () =>
+      decodeCreateBlueprintCourseInput({
+        classification,
+        short_name: "Local Blueprint",
+        long_name: "Local Blueprint Course",
+        modules: [{ label: "Module 1", assessments: [content] }],
+      }),
+    DecodeError,
+  );
+});
+
 test("Blueprint Revision Tuple rejects leftover reference and snake_case members", () => {
   assert.throws(
     () => blueprintRevisionTuple({ reference: BLUEPRINT_TUPLE }, "blueprintRevisionTuple"),

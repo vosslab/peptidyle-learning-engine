@@ -11,7 +11,7 @@ import {
   BlueprintCourseConflictError,
   createHttpApiClient,
 } from "../src/api/http_client.ts";
-import { publishedQuestionFixture } from "./fixtures/question_revision_tuple.ts";
+import { publishedQuestionFixture } from "./fixtures/published_question.ts";
 
 const { scope: _scope, ...questionSummary } = publishedQuestionFixture.publishedQuestion;
 const publishedQuestion = { ...questionSummary, questionFormat: "pleQuestionJson" };
@@ -509,7 +509,9 @@ test("Canonical Blueprint import rejects a receipt that is not a new actor-owned
     const receipt = { ...blueprint("1"), id: "BP7K3M2RAW", ...changes };
     const client = createHttpApiClient({
       fetch: () =>
-        Promise.resolve(noStoreJson(receipt, `"${receipt.current_revision_tuple.revisionNumber}"`, 201)),
+        Promise.resolve(
+          noStoreJson(receipt, `"${receipt.current_revision_tuple.revisionNumber}"`, 201),
+        ),
     });
     await assert.rejects(
       client.importBlueprintCourse(exchange, crypto.randomUUID()),
