@@ -411,7 +411,9 @@ export function AssessmentWorkspaceQuestionsView(
                 <li>
                   <strong>{candidate.questionRevisionTuple.questionId}</strong> * Revision{" "}
                   {candidate.questionRevisionTuple.revisionNumber}: {candidate.description}{" "}
-                  <A href={questionRevisionInspectionPath(candidate.questionRevisionTuple)}>Inspect</A>{" "}
+                  <A href={questionRevisionInspectionPath(candidate.questionRevisionTuple)}>
+                    Inspect
+                  </A>{" "}
                   <Show when={candidate.bloom}>
                     {(bloom) => (
                       <span>

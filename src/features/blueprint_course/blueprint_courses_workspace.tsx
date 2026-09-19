@@ -227,7 +227,7 @@ export function BlueprintCoursesWorkspace(props: BlueprintCoursesWorkspaceProps)
                           {course.read_access === "blueprint_course_owner"
                             ? "You are the Blueprint Course Owner."
                             : "Inspect its reusable modules."}{" "}
-                          Current Blueprint Revision {course.current_revision.revisionNumber}.
+                          Current Blueprint Revision {course.current_revision_tuple.revisionNumber}.
                         </span>
                       </A>
                       <CourseClassificationSummary value={course.classification} />

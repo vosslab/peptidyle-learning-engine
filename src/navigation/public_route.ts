@@ -16,13 +16,10 @@ import {
 declare const routeIdBrand: unique symbol;
 type BrandedRouteId<Kind extends string> = string & { readonly [routeIdBrand]: Kind };
 export type CourseInstanceRouteId = CourseInstanceId & BrandedRouteId<"courseInstance">;
-export type CourseMembershipRouteId = CourseMembershipId &
-  BrandedRouteId<"courseMembership">;
+export type CourseMembershipRouteId = CourseMembershipId & BrandedRouteId<"courseMembership">;
 export type AssessmentRouteId = AssessmentId & BrandedRouteId<"assessment">;
-export type AssessmentAttemptRouteId = AssessmentAttemptId &
-  BrandedRouteId<"assessmentAttempt">;
-export type AuthoringWorkspaceRouteId = WorkspaceId &
-  BrandedRouteId<"authoringWorkspace">;
+export type AssessmentAttemptRouteId = AssessmentAttemptId & BrandedRouteId<"assessmentAttempt">;
+export type AuthoringWorkspaceRouteId = WorkspaceId & BrandedRouteId<"authoringWorkspace">;
 /** Private Draft UUID accepted only in the authorized authoring route. */
 export type DraftQuestionRouteId = BrandedRouteId<"draftQuestion">;
 export type BlueprintCourseRouteId = BlueprintCourseId & BrandedRouteId<"blueprintCourse">;
@@ -33,9 +30,7 @@ export type NavigationRouteId = PublicRouteId | AuthoringWorkspaceRouteId;
 export function parseCourseInstanceId(value: string): CourseInstanceRouteId | null {
   return parseCanonicalPublicId<"courseInstance">(value, "courseInstance");
 }
-export function parseCourseMembershipId(
-  value: string,
-): CourseMembershipRouteId | null {
+export function parseCourseMembershipId(value: string): CourseMembershipRouteId | null {
   return parseUuid<"courseMembership">(value);
 }
 export function parseAssessmentId(value: string): AssessmentRouteId | null {
@@ -44,9 +39,7 @@ export function parseAssessmentId(value: string): AssessmentRouteId | null {
 export function parseAssessmentAttemptId(value: string): AssessmentAttemptRouteId | null {
   return parseUuid<"assessmentAttempt">(value);
 }
-export function parseAuthoringWorkspaceId(
-  value: string,
-): AuthoringWorkspaceRouteId | null {
+export function parseAuthoringWorkspaceId(value: string): AuthoringWorkspaceRouteId | null {
   return parseUuid<"authoringWorkspace">(value);
 }
 function parseUuid<Kind extends string>(value: string): BrandedRouteId<Kind> | null {
@@ -91,9 +84,7 @@ export function assessmentRouteId(value: AssessmentId): AssessmentRouteId {
   if (result === null) throw new Error("invalid Assessment ID");
   return result;
 }
-export function courseMembershipRouteId(
-  value: CourseMembershipId,
-): CourseMembershipRouteId {
+export function courseMembershipRouteId(value: CourseMembershipId): CourseMembershipRouteId {
   const result = parseCourseMembershipId(value);
   if (result === null) throw new Error("invalid Course Membership ID");
   return result;
@@ -103,9 +94,7 @@ export function assessmentAttemptRouteId(value: AssessmentAttemptId): Assessment
   if (result === null) throw new Error("invalid Assessment Attempt ID");
   return result;
 }
-export function authoringWorkspaceRouteId(
-  value: WorkspaceId,
-): AuthoringWorkspaceRouteId {
+export function authoringWorkspaceRouteId(value: WorkspaceId): AuthoringWorkspaceRouteId {
   const result = parseAuthoringWorkspaceId(value);
   if (result === null) throw new Error("invalid Authoring Workspace ID");
   return result;

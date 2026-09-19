@@ -139,8 +139,8 @@ export function BlueprintPoolMembersEditor(props: BlueprintPoolMembersEditorProp
         Question Pool {questionPoolId}, Edit {questionPoolEditNumber}
       </h4>
       <p>
-        Members are exact Question Revision Tuples, in authored order. This edit changes only
-        this Blueprint Assessment-owned Pool, not its source or adopted Course Instances.
+        Members are exact Question Revision Tuples, in authored order. This edit changes only this
+        Blueprint Assessment-owned Pool, not its source or adopted Course Instances.
       </p>
       <Show when={error()}>
         <p role="alert">{error()}</p>

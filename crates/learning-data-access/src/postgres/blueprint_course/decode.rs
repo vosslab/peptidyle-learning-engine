@@ -54,7 +54,7 @@ pub(super) fn decode_course(
     let fork_source_revision: Option<i64> = row
         .try_get("fork_source_revision_number")
         .map_err(map_sqlx_error)?;
-    let fork_source = match (fork_source_blueprint_course_id, fork_source_revision) {
+    let fork_source_tuple = match (fork_source_blueprint_course_id, fork_source_revision) {
         (Some(source), Some(number)) => Some(BlueprintRevisionTuple {
             blueprint_course_id: blueprint_course_id(source)?,
             revision: revision(number)?,
@@ -84,7 +84,7 @@ pub(super) fn decode_course(
         )?,
         read_access: read_access(row.try_get("is_owner").map_err(map_sqlx_error)?),
         content,
-        fork_source,
+        fork_source_tuple,
     })
 }
 

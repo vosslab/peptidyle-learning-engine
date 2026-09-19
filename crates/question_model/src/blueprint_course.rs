@@ -169,7 +169,7 @@ pub struct BlueprintCourseSummaryView {
     /// Opaque validator for rename and availability actions.
     pub blueprint_edit_number: crate::BlueprintEditNumber,
     /// Exact current immutable reusable state.
-    pub current_revision: crate::BlueprintRevisionTuple,
+    pub current_revision_tuple: crate::BlueprintRevisionTuple,
     /// Browser-safe classification for this returned Blueprint Course view.
     pub read_access: BlueprintCourseReadAccess,
     /// Lifetime Course Instances adopted from this Blueprint lineage, across Revisions.
@@ -195,11 +195,11 @@ pub struct BlueprintCourseView {
     /// Opaque validator for rename and availability actions.
     pub blueprint_edit_number: crate::BlueprintEditNumber,
     /// Exact current immutable reusable state.
-    pub current_revision: crate::BlueprintRevisionTuple,
+    pub current_revision_tuple: crate::BlueprintRevisionTuple,
     /// Browser-safe classification for this returned Blueprint Course view.
     pub read_access: BlueprintCourseReadAccess,
     /// Exact fork origin; roots and hidden sources both return null.
-    pub fork_source: Option<crate::BlueprintRevisionTuple>,
+    pub fork_source_tuple: Option<crate::BlueprintRevisionTuple>,
     /// Answer-free current Revision content.
     pub modules: Vec<BlueprintModuleView>,
 }
@@ -331,7 +331,7 @@ mod tests {
                 .expect("valid instructions"),
             entries: vec![
                 BlueprintAssessmentEntryInput::Fixed(ReusableFixedQuestionInput {
-                    published_question: QuestionRevisionTuple {
+                    question_revision_tuple: QuestionRevisionTuple {
                         question_id: question_id(),
                         revision_number: QuestionRevisionNumber::new(1).expect("positive Revision"),
                     },
@@ -420,11 +420,11 @@ mod tests {
         let wire = serde_json::to_value(&content).expect("content serializes");
         assert_eq!(wire["entries"][0]["kind"], "fixed");
         assert_eq!(
-            wire["entries"][0]["published_question"]["questionId"],
+            wire["entries"][0]["question_revision_tuple"]["questionId"],
             "7K3M-19QX"
         );
         assert_eq!(
-            wire["entries"][0]["published_question"]["revisionNumber"],
+            wire["entries"][0]["question_revision_tuple"]["revisionNumber"],
             1
         );
         assert_eq!(wire["entries"][0]["points_possible"], "3");
@@ -483,12 +483,12 @@ mod tests {
             long_name: "Biochemistry Blueprint".to_string(),
             availability: crate::BlueprintAvailability::Public,
             blueprint_edit_number: crate::BlueprintEditNumber::from_edit_number(42),
-            current_revision: crate::BlueprintRevisionTuple {
+            current_revision_tuple: crate::BlueprintRevisionTuple {
                 blueprint_course_id: "BP7K3M2QXH".parse().expect("valid Blueprint Course ID"),
                 revision: BlueprintRevision::INITIAL,
             },
             read_access: BlueprintCourseReadAccess::ActiveInstructor,
-            fork_source: None,
+            fork_source_tuple: None,
             modules: vec![BlueprintModuleView {
                 blueprint_module_id: blueprint_module_id(),
                 label: "Week 1".to_string(),
@@ -536,7 +536,7 @@ mod tests {
         };
         let wire = serde_json::to_value(view).expect("safe view serializes");
         assert_eq!(wire["id"], "BP7K3M2QXH");
-        assert_eq!(wire["current_revision"]["revisionNumber"], "1");
+        assert_eq!(wire["current_revision_tuple"]["revisionNumber"], "1");
         assert_eq!(
             wire["modules"][0]["assessments"][0]["content"]["entries"][0]["kind"],
             "fixed"
@@ -604,7 +604,7 @@ mod blueprint_course_tests {
                     instructions: AssessmentInstructions::default(),
                     entries: vec![BlueprintAssessmentEntryInput::Fixed(
                         ReusableFixedQuestionInput {
-                            published_question: QuestionRevisionTuple {
+                            question_revision_tuple: QuestionRevisionTuple {
                                 question_id: "7K3M-19QX".parse().expect("QuestionId"),
                                 revision_number: QuestionRevisionNumber::new(1)
                                     .expect("positive Revision"),
@@ -632,7 +632,7 @@ mod blueprint_course_tests {
         input.validate().expect("valid BlueprintCourse");
         let wire = serde_json::to_value(&input).expect("serializes");
         assert!(wire.get("modules").is_some());
-        assert!(wire.to_string().contains("published_question"));
+        assert!(wire.to_string().contains("question_revision_tuple"));
         assert!(!wire.to_string().contains("QuestionRevisionTuple"));
         let mut forged = wire;
         forged["owner"] = serde_json::json!("U-1");
@@ -659,7 +659,7 @@ mod blueprint_course_tests {
             instructions: AssessmentInstructions::default(),
             entries: vec![BlueprintAssessmentEntryInput::Fixed(
                 ReusableFixedQuestionInput {
-                    published_question: QuestionRevisionTuple {
+                    question_revision_tuple: QuestionRevisionTuple {
                         question_id: "7K3M-19QX".parse().expect("QuestionId"),
                         revision_number: QuestionRevisionNumber::new(1).expect("positive Revision"),
                     },

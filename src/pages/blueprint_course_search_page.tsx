@@ -313,7 +313,7 @@ export function PublicBlueprintSearchPage(props: PublicBlueprintSearchPageProps)
                       </h3>
                       <p class="instructor-list__metadata">
                         {course.short_name} - Current Blueprint Revision{" "}
-                        {course.current_revision.revisionNumber}
+                        {course.current_revision_tuple.revisionNumber}
                       </p>
                     </div>
                     <p class="instructor-list__metadata">

@@ -7,10 +7,7 @@ import {
   decodeRecoveredAttempt,
   decodeRecoverySelection,
 } from "../decoders/course_student_work_recovery";
-import {
-  parseCourseInstanceId,
-  parseAssessmentAttemptId,
-} from "../../navigation/public_route";
+import { parseCourseInstanceId, parseAssessmentAttemptId } from "../../navigation/public_route";
 import { ApiProtocolError, ApiRequestError } from "./error";
 import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";

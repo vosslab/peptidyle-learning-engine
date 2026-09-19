@@ -25,7 +25,7 @@ pub(super) fn blueprint_input(
                     })?;
                     Ok(BlueprintAssessmentEntryInput::Fixed(
                         ReusableFixedQuestionInput {
-                            published_question: revision.clone(),
+                            question_revision_tuple: revision.clone(),
                             points_possible: AssessmentPointValue::from_whole(1),
                             scoring_rule: AssessmentEntryScoringRule::Normal,
                             question_attempt_limit: QuestionAttemptLimit { max_attempts: None },

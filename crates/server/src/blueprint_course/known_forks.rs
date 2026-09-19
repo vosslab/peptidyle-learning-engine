@@ -49,8 +49,8 @@ fn fork_view(fork: StoredKnownBlueprintFork) -> BlueprintKnownForkView {
         short_name: fork.short_name,
         long_name: fork.long_name,
         availability: fork.availability,
-        current_revision: fork.current_revision,
-        source_revision: fork.source_revision,
+        current_revision_number: fork.current_revision,
+        source_revision_number: fork.source_revision,
         owner_display_name: fork.owner_display_name,
     }
 }

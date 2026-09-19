@@ -11,7 +11,7 @@ import {
   BlueprintCourseConflictError,
   createHttpApiClient,
 } from "../src/api/http_client.ts";
-import { publishedQuestionFixture } from "./fixtures/published_question.ts";
+import { publishedQuestionFixture } from "./fixtures/question_revision_tuple.ts";
 
 const { scope: _scope, ...questionSummary } = publishedQuestionFixture.publishedQuestion;
 const publishedQuestion = { ...questionSummary, questionFormat: "pleQuestionJson" };
@@ -33,7 +33,7 @@ function contentInput() {
     entries: [
       {
         kind: "fixed",
-        published_question: publishedQuestion.questionRevisionTuple,
+        question_revision_tuple: publishedQuestion.questionRevisionTuple,
         points_possible: "2",
         scoring_rule: "normal",
         question_attempt_limit: { maxAttempts: null },
@@ -104,8 +104,8 @@ function blueprint(revision = "3") {
     long_name: "Biochemistry sequence",
     availability: "private",
     blueprint_edit_number: blueprintEditNumber,
-    current_revision: { blueprintCourseId: "BP7K3M2QAF", revisionNumber: revision },
-    fork_source: null,
+    current_revision_tuple: { blueprintCourseId: "BP7K3M2QAF", revisionNumber: revision },
+    fork_source_tuple: null,
     read_access: "blueprint_course_owner",
     modules: modules(),
   };
@@ -223,7 +223,7 @@ function noStoreJson(value, etag, status = 200) {
 }
 
 test("B1 Blueprint Course decoder exposes one current Revision and opaque metadata", () => {
-  assert.equal(decodeBlueprintCourseView(blueprint()).current_revision.revisionNumber, "3");
+  assert.equal(decodeBlueprintCourseView(blueprint()).current_revision_tuple.revisionNumber, "3");
   assert.equal(decodeBlueprintCourseView(blueprint()).blueprint_edit_number, blueprintEditNumber);
   const missingType = structuredClone(blueprint());
   delete missingType.modules[0].assessments[0].content.assessment_type;
@@ -501,15 +501,15 @@ test("Canonical Blueprint import rejects a receipt that is not a new actor-owned
   const malformedReceipts = [
     { availability: "public" },
     { read_access: "active_instructor" },
-    { fork_source: { blueprintCourseId: "BP7K3M2QAF", revisionNumber: "1" } },
-    { current_revision: { blueprintCourseId: "BP7K3M2RAW", revisionNumber: "2" } },
+    { fork_source_tuple: { blueprintCourseId: "BP7K3M2QAF", revisionNumber: "1" } },
+    { current_revision_tuple: { blueprintCourseId: "BP7K3M2RAW", revisionNumber: "2" } },
   ];
 
   for (const changes of malformedReceipts) {
     const receipt = { ...blueprint("1"), id: "BP7K3M2RAW", ...changes };
     const client = createHttpApiClient({
       fetch: () =>
-        Promise.resolve(noStoreJson(receipt, `"${receipt.current_revision.revisionNumber}"`, 201)),
+        Promise.resolve(noStoreJson(receipt, `"${receipt.current_revision_tuple.revisionNumber}"`, 201)),
     });
     await assert.rejects(
       client.importBlueprintCourse(exchange, crypto.randomUUID()),

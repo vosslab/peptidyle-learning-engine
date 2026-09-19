@@ -96,7 +96,7 @@ export function createCourseInstanceClient(
         "response",
       );
       const revisionEtag = response.headers.get("etag");
-      if (revisionEtag !== `"${blueprintCourse.current_revision.revisionNumber}"`) {
+      if (revisionEtag !== `"${blueprintCourse.current_revision_tuple.revisionNumber}"`) {
         throw new ApiProtocolError(
           `API response ${path} ETag must match its current Blueprint Revision`,
         );
@@ -104,9 +104,9 @@ export function createCourseInstanceClient(
       if (
         blueprintCourse.availability !== "private" ||
         blueprintCourse.read_access !== "blueprint_course_owner" ||
-        blueprintCourse.fork_source !== null ||
-        blueprintCourse.current_revision.blueprintCourseId !== blueprintCourse.id ||
-        blueprintCourse.current_revision.revisionNumber !== "1"
+        blueprintCourse.fork_source_tuple !== null ||
+        blueprintCourse.current_revision_tuple.blueprintCourseId !== blueprintCourse.id ||
+        blueprintCourse.current_revision_tuple.revisionNumber !== "1"
       ) {
         throw new ApiProtocolError(
           "Course-derived Blueprint must be an actor-owned Private root at Revision 1",

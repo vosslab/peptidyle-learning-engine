@@ -48,8 +48,9 @@ export function AssessmentEntrySummary(props: {
       {props.entry.kind === "fixedQuestion" ? (
         <>
           <strong>{props.entry.questionRevisionTuple.questionId}</strong> * Revision{" "}
-          {props.entry.questionRevisionTuple.revisionNumber}: {props.description(props.entry.questionRevisionTuple)};{" "}
-          {props.entry.pointsPossible} points
+          {props.entry.questionRevisionTuple.revisionNumber}:{" "}
+          {props.description(props.entry.questionRevisionTuple)}; {props.entry.pointsPossible}{" "}
+          points
         </>
       ) : (
         <>

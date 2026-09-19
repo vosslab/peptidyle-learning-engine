@@ -93,11 +93,7 @@ export function decodeQuestionResponsePreview(
       requireOnlyFields(record, path, ["kind", "surface", "description", "regions", "selection"]);
       return {
         kind: responseKind,
-        surface: decodeQuestionAssetTuple(
-          field(record, "surface", path),
-          `${path}.surface`,
-          true,
-        ),
+        surface: decodeQuestionAssetTuple(field(record, "surface", path), `${path}.surface`, true),
         description: decodeString(field(record, "description", path), `${path}.description`),
         regions: decodeArray(field(record, "regions", path), `${path}.regions`, region),
         selection: decodeResponseSelectionRule(

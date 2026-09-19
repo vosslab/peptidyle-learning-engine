@@ -116,7 +116,10 @@ export function decodeBlueprintForkApplyRequest(
       field(record, "expectedSource", path),
       `${path}.expectedSource`,
     ),
-    expectedFork: blueprintRevisionTuple(field(record, "expectedFork", path), `${path}.expectedFork`),
+    expectedFork: blueprintRevisionTuple(
+      field(record, "expectedFork", path),
+      `${path}.expectedFork`,
+    ),
     expectedSourceBlueprintEditNumber: blueprintEditNumber(
       field(record, "expectedSourceBlueprintEditNumber", path),
       `${path}.expectedSourceBlueprintEditNumber`,

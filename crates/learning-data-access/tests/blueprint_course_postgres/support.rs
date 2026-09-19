@@ -432,7 +432,7 @@ pub(super) fn content_input(title: &str) -> CreateBlueprintCourseInput {
                         },
                     }),
                     BlueprintAssessmentEntryInput::Fixed(ReusableFixedQuestionInput {
-                        published_question: QuestionRevisionTuple {
+                        question_revision_tuple: QuestionRevisionTuple {
                             question_id: question_id(),
                             revision_number: QuestionRevisionNumber::new(1)
                                 .expect("fixture Question Revision"),
@@ -581,7 +581,7 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
         .await
         .expect("data fixture role");
     sqlx::query(
-        "INSERT INTO ple_data.published_question (published_question_id, created_at) \
+        "INSERT INTO ple_data.question_revision_tuple (published_question_id, created_at) \
          VALUES ($1, clock_timestamp())",
     )
     .bind(QUESTION)

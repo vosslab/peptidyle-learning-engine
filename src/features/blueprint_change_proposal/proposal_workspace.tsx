@@ -201,9 +201,9 @@ export function ProposalTargetTools(props: {
     setBusy(true);
     try {
       const result = await props.client.createBlueprintChangeProposal(target.id, {
-        source: source.current_revision,
+        source: source.current_revision_tuple,
         sourceBlueprintEditNumber: source.blueprint_edit_number,
-        target: target.current_revision,
+        target: target.current_revision_tuple,
         targetBlueprintEditNumber: target.blueprint_edit_number,
       });
       if (generation !== targetGeneration) return;
@@ -267,7 +267,7 @@ export function ProposalTargetTools(props: {
                   {(source) => (
                     <option value={source.id}>
                       {source.long_name} ({source.short_name}; {source.availability}; Revision{" "}
-                      {source.current_revision.revisionNumber})
+                      {source.current_revision_tuple.revisionNumber})
                     </option>
                   )}
                 </For>
@@ -285,9 +285,10 @@ export function ProposalTargetTools(props: {
                 <>
                   <h4>{source().long_name}</h4>
                   <p>
-                    Source {source().short_name}, Revision {source().current_revision.revisionNumber},
-                    edit {source().blueprint_edit_number}; target {props.target.long_name}, Revision{" "}
-                    {props.target.current_revision.revisionNumber}, edit{" "}
+                    Source {source().short_name}, Revision{" "}
+                    {source().current_revision_tuple.revisionNumber}, edit{" "}
+                    {source().blueprint_edit_number}; target {props.target.long_name}, Revision{" "}
+                    {props.target.current_revision_tuple.revisionNumber}, edit{" "}
                     {props.target.blueprint_edit_number}.
                   </p>
                   <CourseClassificationSummary value={source().classification} />

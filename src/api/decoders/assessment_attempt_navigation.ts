@@ -22,7 +22,10 @@ import {
   field,
   requireOnlyFields,
 } from "./shared";
-import { type AssessmentAttemptRouteId, parseAssessmentAttemptId } from "../../navigation/public_route";
+import {
+  type AssessmentAttemptRouteId,
+  parseAssessmentAttemptId,
+} from "../../navigation/public_route";
 import { COURSE_THEME_VALUES } from "../../../generated/api/CourseTheme";
 import { decodeAccountTimeZone } from "./student_assessment_decision";
 import { decodeStudentQuestionPresentation } from "./presentation_delivery";
@@ -34,10 +37,7 @@ function state(value: unknown, path: string): StudentAssessmentAttemptResponseSt
   throw new DecodeError(path, "an answer-free response state");
 }
 
-function decodeAssessmentAttemptId(
-  value: unknown,
-  path: string,
-): AssessmentAttemptRouteId {
+function decodeAssessmentAttemptId(value: unknown, path: string): AssessmentAttemptRouteId {
   if (typeof value !== "string") throw new DecodeError(path, "an Assessment Attempt UUID");
   const parsed = parseAssessmentAttemptId(value);
   if (parsed === null) throw new DecodeError(path, "an Assessment Attempt UUID");

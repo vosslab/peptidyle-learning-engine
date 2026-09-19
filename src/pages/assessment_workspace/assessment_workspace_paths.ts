@@ -1,9 +1,6 @@
 // assessment_workspace_paths.ts - pure public paths for Instructor assessment-local tasks.
 
-import type {
-  AssessmentRouteId,
-  CourseInstanceRouteId,
-} from "../../navigation/public_route";
+import type { AssessmentRouteId, CourseInstanceRouteId } from "../../navigation/public_route";
 
 export type AssessmentWorkspaceSection = "overview" | "questions" | "policies" | "studentView";
 
@@ -15,9 +12,7 @@ const ASSIGNMENT_WORKSPACE_SECTION_SEGMENTS = {
 } as const satisfies Readonly<Record<AssessmentWorkspaceSection, string>>;
 
 /** The one route owner for starting a persisted Assessment and its Assessment. */
-export function assessmentWorkspaceCreatePath(
-  courseInstanceId: CourseInstanceRouteId,
-): string {
+export function assessmentWorkspaceCreatePath(courseInstanceId: CourseInstanceRouteId): string {
   return `/instructor/courses/${courseInstanceId}/assessments/new`;
 }
 

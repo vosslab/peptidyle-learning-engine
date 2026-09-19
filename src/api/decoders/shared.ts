@@ -12,10 +12,7 @@ import type { QuestionBackend } from "../../../generated/api/QuestionBackend";
 import type { AccountId } from "../../../generated/api/AccountId";
 import type { QuestionId } from "../../../generated/api/QuestionId";
 import type { QuestionMetadata } from "../../../generated/api/QuestionMetadata";
-import type {
-  AssessmentRouteId,
-  CourseInstanceRouteId,
-} from "../../navigation/public_route";
+import type { AssessmentRouteId, CourseInstanceRouteId } from "../../navigation/public_route";
 import { parseAssessmentId, parseCourseInstanceId } from "../../navigation/public_route";
 import { validateCanonicalPublicId } from "../../question_id";
 import type { CursorPage } from "../contracts";

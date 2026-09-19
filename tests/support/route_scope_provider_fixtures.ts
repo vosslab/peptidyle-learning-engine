@@ -29,7 +29,9 @@ export function courseRouteData(courseInstanceId: string): CourseRouteView {
 }
 
 /** UUID-free display context for the live Student Assessment Attempt route. */
-export function assignmentAttemptContext(courseInstanceId: string): StudentAssessmentAttemptContext {
+export function assignmentAttemptContext(
+  courseInstanceId: string,
+): StudentAssessmentAttemptContext {
   return {
     assessmentAttempt: "00000000-0000-0000-0000-000000000001",
     attemptNumber: 1,
@@ -47,7 +49,9 @@ export function assignmentAttemptContext(courseInstanceId: string): StudentAsses
 }
 
 /** Complete direct-consumer record for an Attempt history route. */
-export function assignmentAttemptHistoryData(courseInstanceId: string): StudentAssessmentAttemptHistory {
+export function assignmentAttemptHistoryData(
+  courseInstanceId: string,
+): StudentAssessmentAttemptHistory {
   return {
     assessmentAttempt: "00000000-0000-0000-0000-000000000001",
     attemptNumber: 1,

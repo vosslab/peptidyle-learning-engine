@@ -38,9 +38,7 @@ export function RibbonAccountAvatar(props: RibbonAccountAvatarProps): JSX.Elemen
     const selected = avatar()?.avatar;
     return selected?.kind === "profileImage" ? selected.profileImageId : undefined;
   };
-  const [image] = createResource(profileImageId, (id) =>
-    props.client.fetchProfileAvatarImage(id),
-  );
+  const [image] = createResource(profileImageId, (id) => props.client.fetchProfileAvatarImage(id));
   const [imageUrl, setImageUrl] = createSignal<string>();
   const objectUrlOwner = createProfileAvatarObjectUrlOwner();
 

@@ -221,7 +221,7 @@ pub enum CanonicalBlueprintAssessmentEntry {
     /// One exact immutable Published Question Revision.
     Fixed {
         #[serde(deserialize_with = "deserialize_question_revision_tuple")]
-        published_question: QuestionRevisionTuple,
+        question_revision_tuple: QuestionRevisionTuple,
         points_possible: AssessmentPointValue,
         scoring_rule: AssessmentEntryScoringRule,
         question_attempt_limit: QuestionAttemptLimit,
@@ -298,13 +298,13 @@ impl CanonicalBlueprintAssessmentEntry {
     fn into_create_input(self) -> BlueprintAssessmentEntryInput {
         match self {
             Self::Fixed {
-                published_question,
+                question_revision_tuple,
                 points_possible,
                 scoring_rule,
                 question_attempt_limit,
                 question_attempt_time_limit,
             } => BlueprintAssessmentEntryInput::Fixed(ReusableFixedQuestionInput {
-                published_question,
+                question_revision_tuple,
                 points_possible,
                 scoring_rule,
                 question_attempt_limit,
@@ -374,7 +374,7 @@ impl From<&BlueprintAssessmentEntryContent> for CanonicalBlueprintAssessmentEntr
                 question_attempt_limit,
                 question_attempt_time_limit,
             } => Self::Fixed {
-                published_question: question_revision_tuple.clone(),
+                question_revision_tuple: question_revision_tuple.clone(),
                 points_possible: *points_possible,
                 scoring_rule: *scoring_rule,
                 question_attempt_limit: *question_attempt_limit,
@@ -501,7 +501,7 @@ mod tests {
         assert!(matches!(
             &input.modules[0].assessments[0].entries[0],
             BlueprintAssessmentEntryInput::Fixed(value)
-                if value.published_question == fixed
+                if value.question_revision_tuple == fixed
         ));
         assert!(matches!(
             &input.modules[0].assessments[0].entries[1],
@@ -544,7 +544,7 @@ mod tests {
         ))
         .expect("canonical value");
         injected
-            .pointer_mut("/modules/0/assessments/0/entries/0/published_question")
+            .pointer_mut("/modules/0/assessments/0/entries/0/question_revision_tuple")
             .and_then(serde_json::Value::as_object_mut)
             .expect("Question Revision Tuple")
             .insert("owner".to_owned(), serde_json::json!("not accepted"));

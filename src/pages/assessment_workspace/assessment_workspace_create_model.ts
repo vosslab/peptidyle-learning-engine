@@ -1,9 +1,6 @@
 // assessment_workspace_create_model.ts - direct destination after persisted Assessment creation.
 
-import type {
-  AssessmentRouteId,
-  CourseInstanceRouteId,
-} from "../../navigation/public_route";
+import type { AssessmentRouteId, CourseInstanceRouteId } from "../../navigation/public_route";
 import { isAssessmentType } from "../../assessment_type_presentation";
 import type { AssessmentType } from "../../../generated/api/AssessmentType";
 

@@ -57,7 +57,7 @@ function entrySummary(
   _savedEntry: BlueprintAssessmentContentView["entries"][number] | undefined,
 ): string {
   if (entry.kind === "fixed") {
-    const revision = entry.published_question;
+    const revision = entry.question_revision_tuple;
     return `Fixed Question ${revision.questionId}, Revision ${revision.revisionNumber}`;
   }
   return `Question Pool ${entry.pool.question_pool_id}, Edit ${entry.pool.question_pool_edit_number}: select ${entry.selection_count}`;

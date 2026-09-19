@@ -31,13 +31,7 @@ test("Blueprint Stars preserve exact verified names and reject substitute identi
     decodeBlueprintStarredInstructors({ starredInstructors: [{ displayName: name }] }),
     [{ displayName: name }],
   );
-  for (const forbidden of [
-    "email",
-    "accountId",
-    "profileUrl",
-    "avatar",
-    "watching",
-  ]) {
+  for (const forbidden of ["email", "accountId", "profileUrl", "avatar", "watching"]) {
     assert.throws(
       () =>
         decodeBlueprintStarredInstructors({

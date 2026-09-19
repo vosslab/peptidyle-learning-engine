@@ -350,7 +350,7 @@ fn validate_loaded_content(
             })?;
             ensure!(
                 question_revision_tuple == expected_revision
-                    && question_revision_tuple == &expected_fixed.published_question
+                    && question_revision_tuple == &expected_fixed.question_revision_tuple
                     && points_possible == &expected_fixed.points_possible
                     && scoring_rule == &AssessmentEntryScoringRule::Normal
                     && scoring_rule == &expected_fixed.scoring_rule

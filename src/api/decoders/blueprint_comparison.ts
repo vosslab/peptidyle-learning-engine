@@ -73,7 +73,7 @@ function canonicalAssessment(value: unknown, path: string): void {
         kind === "fixed"
           ? [
               "kind",
-              "published_question",
+              "question_revision_tuple",
               "points_possible",
               "scoring_rule",
               "question_attempt_limit",
@@ -92,8 +92,8 @@ function canonicalAssessment(value: unknown, path: string): void {
             ],
       );
       if (kind === "fixed") {
-        const pinPath = `${entryPath}.published_question`;
-        const pin = decodeRecord(field(entry, "published_question", entryPath), pinPath);
+        const pinPath = `${entryPath}.question_revision_tuple`;
+        const pin = decodeRecord(field(entry, "question_revision_tuple", entryPath), pinPath);
         requireOnlyFields(pin, pinPath, ["questionId", "revisionNumber"]);
         questionId(field(pin, "questionId", pinPath), `${pinPath}.questionId`);
         decodePositiveInteger(field(pin, "revisionNumber", pinPath), `${pinPath}.revisionNumber`);
@@ -193,13 +193,13 @@ function questionIds(input: unknown, path: string): string[] {
 function side(input: unknown, path: string): BlueprintComparisonSide {
   const row = decodeRecord(input, path);
   requireOnlyFields(row, path, [
-    "currentRevision",
+    "currentRevisionTuple",
     "names",
     "blueprintEditNumber",
     "modules",
     "assessments",
   ]);
-  blueprintRevisionTuple(field(row, "currentRevision", path), `${path}.currentRevision`);
+  blueprintRevisionTuple(field(row, "currentRevisionTuple", path), `${path}.currentRevisionTuple`);
   const namesPath = `${path}.names`;
   const names = decodeRecord(field(row, "names", path), namesPath);
   requireOnlyFields(names, namesPath, ["shortName", "longName"]);
@@ -299,7 +299,7 @@ export function decodeBlueprintComparisonView(
   ]);
   const left = side(field(record, "left", path), `${path}.left`);
   const right = side(field(record, "right", path), `${path}.right`);
-  if (left.currentRevision.blueprintCourseId === right.currentRevision.blueprintCourseId)
+  if (left.currentRevisionTuple.blueprintCourseId === right.currentRevisionTuple.blueprintCourseId)
     throw new DecodeError(path, "distinct compared Blueprint Courses");
   const leftIds = new Set(left.assessments.flatMap((assessment) => assessment.questionIds));
   const rightIds = new Set(right.assessments.flatMap((assessment) => assessment.questionIds));

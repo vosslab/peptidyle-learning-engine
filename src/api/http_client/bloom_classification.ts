@@ -68,7 +68,10 @@ export function createBloomClassificationCorrectionClient(
   basePath: string,
 ): BloomClassificationCorrectionClient {
   return {
-    correctQuestionBloom: async (questionRevisionTuple, request): Promise<QuestionBloomCorrectionReceipt> => {
+    correctQuestionBloom: async (
+      questionRevisionTuple,
+      request,
+    ): Promise<QuestionBloomCorrectionReceipt> => {
       const path = questionPath(questionRevisionTuple);
       const receipt = await post(
         fetchImplementation,

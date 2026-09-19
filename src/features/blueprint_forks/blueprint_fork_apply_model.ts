@@ -60,9 +60,8 @@ export function forkSelectionProblem(
   )
     return "Copy each source only once.";
   if (
-    new Set(
-      labels.flatMap((c) => (c.targetModuleId === null ? [] : [c.targetModuleId])),
-    ).size !== labels.filter((c) => c.targetModuleId !== null).length ||
+    new Set(labels.flatMap((c) => (c.targetModuleId === null ? [] : [c.targetModuleId]))).size !==
+      labels.filter((c) => c.targetModuleId !== null).length ||
     new Set(
       assessments.flatMap((c) => (c.targetAssessmentId === null ? [] : [c.targetAssessmentId])),
     ).size !== assessments.filter((c) => c.targetAssessmentId !== null).length
@@ -96,13 +95,9 @@ export function forkSelectionProblem(
     const module = row.module;
     if (
       module.kind === "existing"
-        ? !review.right.modules.some(
-            (m) => m.blueprintModuleId === module.targetModuleId,
-          )
+        ? !review.right.modules.some((m) => m.blueprintModuleId === module.targetModuleId)
         : !labels.some(
-            (c) =>
-              c.sourceModuleId === module.sourceModuleId &&
-              c.targetModuleId === null,
+            (c) => c.sourceModuleId === module.sourceModuleId && c.targetModuleId === null,
           )
     )
       return "Choose a valid existing module or select the new module's source label.";

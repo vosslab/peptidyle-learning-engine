@@ -105,11 +105,7 @@ function selection(value: unknown, path: string): BlueprintForkApplySelection {
       };
     });
   };
-  const sourceModuleLabels = copies(
-    "sourceModuleLabels",
-    "sourceModuleId",
-    "targetModuleId",
-  );
+  const sourceModuleLabels = copies("sourceModuleLabels", "sourceModuleId", "targetModuleId");
   const sourceAssessments = copies("sourceAssessments", "sourceAssessmentId", "targetAssessmentId");
   const layout = decodeNullable(
     field(record, "layout", path),

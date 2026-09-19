@@ -57,10 +57,7 @@ export function OrderingResponse(
   function rowId(id: ResponseItemId): string {
     return `${props.attemptId}-order-${id}`;
   }
-  function focusMovedItem(
-    id: ResponseItemId,
-    preferredDirection: "earlier" | "later",
-  ): void {
+  function focusMovedItem(id: ResponseItemId, preferredDirection: "earlier" | "later"): void {
     queueMicrotask(() => {
       const row = document.getElementById(rowId(id));
       const preferred = row?.querySelector<HTMLButtonElement>(

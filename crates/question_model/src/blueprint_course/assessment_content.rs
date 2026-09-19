@@ -57,7 +57,7 @@ impl BlueprintAssessmentDefaults {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ReusableFixedQuestionInput {
     /// Exact published Question Revision checked under destination authority.
-    pub published_question: QuestionRevisionTuple,
+    pub question_revision_tuple: QuestionRevisionTuple,
     /// Points copied into the future Fixed Question Assessment Entry.
     pub points_possible: AssessmentPointValue,
     /// Score treatment copied into the future Fixed Question Assessment Entry.

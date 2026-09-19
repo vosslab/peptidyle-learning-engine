@@ -150,7 +150,10 @@ export function decodeQuestionSummary(
     ),
   } satisfies QuestionSummary;
   if (decoded.questionRevisionTuple.questionId !== decoded.questionId) {
-    throw new DecodeError(`${path}.questionRevisionTuple.questionId`, "the Question Summary questionId");
+    throw new DecodeError(
+      `${path}.questionRevisionTuple.questionId`,
+      "the Question Summary questionId",
+    );
   }
   if (
     (decoded.backend === "ple" && decoded.questionFormat !== "pleQuestionJson") ||

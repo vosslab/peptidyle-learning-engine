@@ -117,7 +117,8 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
         !entries().some(
           (entry) =>
             entry.kind === "fixedQuestion" &&
-            questionRevisionKey(entry.questionRevisionTuple) === questionRevisionKey(candidate.questionRevisionTuple),
+            questionRevisionKey(entry.questionRevisionTuple) ===
+              questionRevisionKey(candidate.questionRevisionTuple),
         ),
     ),
   );
@@ -191,7 +192,9 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     }
   }
 
-  function description(questionRevisionTuple: AssessmentQuestionPickerEntry["questionRevisionTuple"]): string {
+  function description(
+    questionRevisionTuple: AssessmentQuestionPickerEntry["questionRevisionTuple"],
+  ): string {
     return descriptions().get(questionRevisionKey(questionRevisionTuple)) ?? "Published Question";
   }
 
@@ -300,7 +303,9 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     const unresolved: string[] = [];
     // ASVS 2.2.1: resolve IDs only against the available Published summaries, never invent pins.
     for (const id of ids) {
-      const matches = availableToAdd().filter((candidate) => candidate.questionRevisionTuple.questionId === id);
+      const matches = availableToAdd().filter(
+        (candidate) => candidate.questionRevisionTuple.questionId === id,
+      );
       if (matches.length === 1) candidates.push(matches[0]!);
       else unresolved.push(id);
     }

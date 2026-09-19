@@ -95,13 +95,13 @@ fn project_comparison(
 
 pub(super) fn comparison_side(
     inventory: BlueprintComparisonInventory,
-    current_revision: question_model::BlueprintRevisionTuple,
+    current_revision_tuple: question_model::BlueprintRevisionTuple,
     short_name: String,
     long_name: String,
     blueprint_edit_number: question_model::BlueprintEditNumber,
 ) -> BlueprintComparisonSide {
     BlueprintComparisonSide {
-        current_revision,
+        current_revision_tuple,
         names: BlueprintComparisonNames {
             short_name,
             long_name,

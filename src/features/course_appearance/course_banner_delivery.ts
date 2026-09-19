@@ -10,9 +10,7 @@ export function createCourseBannerUrl(
   bannerId: Accessor<CourseBannerId | null>,
   client: Pick<ApiClient, "fetchCourseBanner">,
 ): Accessor<string | undefined> {
-  const [delivery] = createResource(bannerId, (id) =>
-    client.fetchCourseBanner(id),
-  );
+  const [delivery] = createResource(bannerId, (id) => client.fetchCourseBanner(id));
   const [url, setUrl] = createSignal<string>();
 
   createEffect(() => {

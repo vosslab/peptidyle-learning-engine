@@ -147,9 +147,9 @@ test("Course-derived Blueprint creation sends only metadata and requires a new p
           long_name: "Molecular Biology",
           availability: "private",
           blueprint_edit_number: "1",
-          current_revision: { blueprintCourseId: blueprintRevisionTuple, revisionNumber: "1" },
+          current_revision_tuple: { blueprintCourseId: blueprintRevisionTuple, revisionNumber: "1" },
           read_access: "blueprint_course_owner",
-          fork_source: null,
+          fork_source_tuple: null,
           modules: [],
         }),
         {

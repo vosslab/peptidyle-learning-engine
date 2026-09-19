@@ -581,7 +581,9 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
         {(message) => (
           <p
             role="status"
-            aria-label={publishedQuestionId(state()) ? "Publication status" : "Private draft status"}
+            aria-label={
+              publishedQuestionId(state()) ? "Publication status" : "Private draft status"
+            }
           >
             {message()}
           </p>

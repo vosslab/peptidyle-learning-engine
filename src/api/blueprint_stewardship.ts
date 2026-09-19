@@ -26,7 +26,9 @@ export interface BlueprintPromotion {
 }
 
 export interface BlueprintStewardshipClient {
-  readonly getBlueprintStar: (blueprintCourseId: BlueprintCourseId) => Promise<BlueprintStarProjection>;
+  readonly getBlueprintStar: (
+    blueprintCourseId: BlueprintCourseId,
+  ) => Promise<BlueprintStarProjection>;
   readonly setBlueprintStar: (
     blueprintCourseId: BlueprintCourseId,
     starred: boolean,
@@ -34,7 +36,9 @@ export interface BlueprintStewardshipClient {
   readonly getBlueprintStarredInstructors: (
     blueprintCourseId: BlueprintCourseId,
   ) => Promise<readonly BlueprintStarredInstructor[]>;
-  readonly getBlueprintWatch: (blueprintCourseId: BlueprintCourseId) => Promise<BlueprintWatchProjection>;
+  readonly getBlueprintWatch: (
+    blueprintCourseId: BlueprintCourseId,
+  ) => Promise<BlueprintWatchProjection>;
   readonly setBlueprintWatch: (
     blueprintCourseId: BlueprintCourseId,
     watching: boolean,
@@ -43,7 +47,9 @@ export interface BlueprintStewardshipClient {
     blueprintCourseId: BlueprintCourseId,
     limit?: number,
   ) => Promise<readonly BlueprintWatchEvent[]>;
-  readonly getBlueprintPromotion: (blueprintCourseId: BlueprintCourseId) => Promise<BlueprintPromotion>;
+  readonly getBlueprintPromotion: (
+    blueprintCourseId: BlueprintCourseId,
+  ) => Promise<BlueprintPromotion>;
   readonly setBlueprintPromotion: (
     blueprintCourseId: BlueprintCourseId,
     promoted: boolean,

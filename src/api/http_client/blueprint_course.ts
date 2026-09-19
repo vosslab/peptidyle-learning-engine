@@ -229,7 +229,7 @@ function loadedBlueprintCourse(
 ): LoadedBlueprintCourse {
   return {
     blueprintCourse: body,
-    revisionEtag: requireRevisionEtag(response, body.current_revision.revisionNumber, path),
+    revisionEtag: requireRevisionEtag(response, body.current_revision_tuple.revisionNumber, path),
   };
 }
 
@@ -276,8 +276,8 @@ export function createBlueprintCourseClient(
       if (
         result.body.availability !== "private" ||
         result.body.read_access !== "blueprint_course_owner" ||
-        result.body.fork_source !== null ||
-        result.body.current_revision.revisionNumber !== "1"
+        result.body.fork_source_tuple !== null ||
+        result.body.current_revision_tuple.revisionNumber !== "1"
       )
         throw new ApiProtocolError(
           "Imported Blueprint Course must be an actor-owned Private root at Revision 1",
@@ -351,7 +351,9 @@ export function createBlueprintCourseClient(
       requireRevisionEtag(result.response, result.body.blueprintRevisionTuple.revisionNumber, path);
       return result.body;
     },
-    listKnownBlueprintForks: async (blueprintCourseId): Promise<readonly BlueprintKnownForkView[]> => {
+    listKnownBlueprintForks: async (
+      blueprintCourseId,
+    ): Promise<readonly BlueprintKnownForkView[]> => {
       const path = `${blueprintPath(blueprintCourseId)}/forks`;
       return (
         await blueprintJson(fetchImplementation, basePath, path, decodeKnownBlueprintForks, {
@@ -367,8 +369,8 @@ export function createBlueprintCourseClient(
         })
       ).body;
       if (
-        body.left.currentRevision.blueprintCourseId !== left ||
-        body.right.currentRevision.blueprintCourseId !== right
+        body.left.currentRevisionTuple.blueprintCourseId !== left ||
+        body.right.currentRevisionTuple.blueprintCourseId !== right
       )
         throw new ApiProtocolError("Blueprint comparison must identify the requested pair");
       return body;
@@ -464,7 +466,7 @@ export function createBlueprintCourseClient(
         ...result.body,
         revisionEtag: requireRevisionEtag(
           result.response,
-          result.body.blueprintCourse.current_revision.revisionNumber,
+          result.body.blueprintCourse.current_revision_tuple.revisionNumber,
           path,
         ),
       };
@@ -490,7 +492,11 @@ export function createBlueprintCourseClient(
       );
       return metadataTransition(result.body, result.response, path);
     },
-    renameBlueprintCourse: async (blueprintCourseId, names, etag): Promise<BlueprintMetadataTransition> => {
+    renameBlueprintCourse: async (
+      blueprintCourseId,
+      names,
+      etag,
+    ): Promise<BlueprintMetadataTransition> => {
       const path = `${blueprintPath(blueprintCourseId)}/metadata`;
       const result = await blueprintJson(
         fetchImplementation,
@@ -507,7 +513,10 @@ export function createBlueprintCourseClient(
       );
       return metadataTransition(result.body, result.response, path);
     },
-    publishBlueprintCourse: async (blueprintCourseId, etag): Promise<BlueprintMetadataTransition> => {
+    publishBlueprintCourse: async (
+      blueprintCourseId,
+      etag,
+    ): Promise<BlueprintMetadataTransition> => {
       const path = `${blueprintPath(blueprintCourseId)}/publish`;
       const result = await blueprintJson(
         fetchImplementation,
@@ -549,7 +558,10 @@ export function createBlueprintCourseClient(
       );
       return metadataTransition(result.body, result.response, path);
     },
-    restoreBlueprintCourse: async (blueprintCourseId, etag): Promise<BlueprintMetadataTransition> => {
+    restoreBlueprintCourse: async (
+      blueprintCourseId,
+      etag,
+    ): Promise<BlueprintMetadataTransition> => {
       const path = `${blueprintPath(blueprintCourseId)}/restore`;
       const result = await blueprintJson(
         fetchImplementation,

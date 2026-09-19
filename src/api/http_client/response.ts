@@ -606,8 +606,7 @@ export function createResponseClient(
         `/api/student-records/${encodedId(studentRecordId)}/assessment-activity-summary`,
         decodeStudentAssessmentProgress,
       ),
-    fetchCourseBanner: (bannerId) =>
-      fetchCourseBanner(fetchImplementation, basePath, bannerId),
+    fetchCourseBanner: (bannerId) => fetchCourseBanner(fetchImplementation, basePath, bannerId),
     assetUrl: (questionRevisionTuple, assetId) =>
       requestPath(
         basePath,

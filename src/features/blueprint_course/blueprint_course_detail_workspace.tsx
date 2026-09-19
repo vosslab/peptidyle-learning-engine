@@ -227,8 +227,8 @@ export function BlueprintCourseDetailWorkspace(
       setNotice({
         kind: "status",
         text: saved.changed
-          ? `Saved Blueprint Revision ${saved.blueprintCourse.current_revision.revisionNumber}.`
-          : `No content changed. Blueprint Revision ${saved.blueprintCourse.current_revision.revisionNumber} remains current.`,
+          ? `Saved Blueprint Revision ${saved.blueprintCourse.current_revision_tuple.revisionNumber}.`
+          : `No content changed. Blueprint Revision ${saved.blueprintCourse.current_revision_tuple.revisionNumber} remains current.`,
       });
       return true;
     } catch (error: unknown) {
@@ -535,7 +535,7 @@ export function BlueprintCourseDetailWorkspace(
                 <h1>{loaded().view.long_name}</h1>
                 <p class="page-lede">
                   Reusable course structure without Students, deadlines, or course delivery
-                  settings. Current Revision {loaded().view.current_revision.revisionNumber}.
+                  settings. Current Revision {loaded().view.current_revision_tuple.revisionNumber}.
                 </p>
               </header>
               <Show
@@ -820,7 +820,7 @@ export function BlueprintCourseDetailWorkspace(
               <BlueprintKnownForks
                 client={props.client}
                 blueprintCourseId={loaded().view.id}
-                sourceCurrentRevision={loaded().view.current_revision.revisionNumber}
+                sourceCurrentRevision={loaded().view.current_revision_tuple.revisionNumber}
                 hasUnsavedChanges={hasUnsavedForkChanges()}
                 onApplied={() => void load(hasUnsavedForkChanges(), true)}
               />

@@ -17,7 +17,8 @@ export function BlueprintForkCreate(props: BlueprintForkCreateProps): JSX.Elemen
   const [pending, setPending] = createSignal(false);
   const [error, setError] = createSignal("");
   let action:
-    { readonly blueprintCourseId: string; readonly revision: string; readonly key: string } | undefined;
+    | { readonly blueprintCourseId: string; readonly revision: string; readonly key: string }
+    | undefined;
   let disposed = false;
   onCleanup(() => {
     disposed = true;
@@ -31,7 +32,7 @@ export function BlueprintForkCreate(props: BlueprintForkCreateProps): JSX.Elemen
   async function createFork(): Promise<void> {
     if (pending() || !canFork()) return;
     const blueprintCourseId = props.source.id;
-    const revision = props.source.current_revision.revisionNumber;
+    const revision = props.source.current_revision_tuple.revisionNumber;
     setPending(true);
     setError("");
     try {
@@ -39,7 +40,11 @@ export function BlueprintForkCreate(props: BlueprintForkCreateProps): JSX.Elemen
       if (action?.blueprintCourseId !== blueprintCourseId || action.revision !== revision) {
         action = { blueprintCourseId, revision, key: crypto.randomUUID() };
       }
-      const result = await props.client.forkBlueprintCourse(blueprintCourseId, revision, action.key);
+      const result = await props.client.forkBlueprintCourse(
+        blueprintCourseId,
+        revision,
+        action.key,
+      );
       if (disposed) return;
       // ASVS 1.2.2: navigate only to a fixed local route with an encoded Blueprint Course ID.
       navigate(`/blueprint-courses/${encodeURIComponent(result.blueprintCourse.id)}`);
@@ -58,8 +63,8 @@ export function BlueprintForkCreate(props: BlueprintForkCreateProps): JSX.Elemen
     <Show when={canFork()}>
       <div class="blueprint-course-save-actions" aria-busy={pending()}>
         <p>
-          Fork Revision {props.source.current_revision.revisionNumber} into your own independent Private
-          Blueprint Course. Later source changes are not applied automatically.
+          Fork Revision {props.source.current_revision_tuple.revisionNumber} into your own independent
+          Private Blueprint Course. Later source changes are not applied automatically.
         </p>
         <button type="button" disabled={pending()} onClick={() => void createFork()}>
           {pending()

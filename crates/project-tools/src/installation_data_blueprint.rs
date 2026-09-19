@@ -201,7 +201,7 @@ fn validate_loaded_content(
             anyhow::bail!("Live Demo Blueprint entries must remain fixed Questions");
         };
         ensure!(
-            question_revision_tuple == question && &expected_fixed.published_question == question,
+            question_revision_tuple == question && &expected_fixed.question_revision_tuple == question,
             "Live Demo Blueprint Question pins differ from the reviewed Pilot publications"
         );
         ensure!(
@@ -240,7 +240,7 @@ fn live_demo_blueprint_input(
                     .into_iter()
                     .map(|question| {
                         BlueprintAssessmentEntryInput::Fixed(ReusableFixedQuestionInput {
-                            published_question: question,
+                            question_revision_tuple: question,
                             points_possible: AssessmentPointValue::from_whole(1),
                             scoring_rule: AssessmentEntryScoringRule::Normal,
                             question_attempt_limit: QuestionAttemptLimit { max_attempts: None },

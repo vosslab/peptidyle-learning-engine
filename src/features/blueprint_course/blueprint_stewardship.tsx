@@ -50,7 +50,10 @@ export function BlueprintStewardship(props: Props): JSX.Element {
     setFailed(false);
     try {
       if (kind === "star")
-        await props.client.setBlueprintStar(props.blueprintCourseId, !current.star.viewerHasStarred);
+        await props.client.setBlueprintStar(
+          props.blueprintCourseId,
+          !current.star.viewerHasStarred,
+        );
       else await props.client.setBlueprintWatch(props.blueprintCourseId, !current.watch.watching);
       // Refetch exact names and self-only activity after a successful explicit action.
       await refetch();

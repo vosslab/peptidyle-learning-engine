@@ -75,7 +75,7 @@ pub struct StoredBlueprintCourse {
     pub blueprint_edit_number: BlueprintEditNumber,
     pub current_revision: BlueprintRevision,
     /// Exact immutable ancestry, filtered by current source visibility.
-    pub fork_source: Option<BlueprintRevisionTuple>,
+    pub fork_source_tuple: Option<BlueprintRevisionTuple>,
     pub read_access: BlueprintCourseReadAccess,
     /// The exact current immutable Revision content.
     pub content: StoredBlueprintCourseContent,
@@ -350,7 +350,7 @@ impl StoredBlueprintAssessmentContent {
             .map(|entry| match entry {
                 question_model::BlueprintAssessmentEntryInput::Fixed(value) => {
                     Ok(StoredBlueprintAssessmentEntry::Fixed {
-                        question_revision_tuple: value.published_question,
+                        question_revision_tuple: value.question_revision_tuple,
                         points_possible: value.points_possible,
                         scoring_rule: value.scoring_rule,
                         question_attempt_limit: value.question_attempt_limit,
@@ -599,7 +599,7 @@ fn requested_question_revisions(
         .iter()
         .flat_map(|entry| match entry {
             question_model::BlueprintAssessmentEntryInput::Fixed(value) => {
-                vec![value.published_question.clone()]
+                vec![value.question_revision_tuple.clone()]
             }
             question_model::BlueprintAssessmentEntryInput::Pool(_) => Vec::new(),
         })

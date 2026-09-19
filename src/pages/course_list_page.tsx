@@ -25,7 +25,7 @@ import "./course_list_page.css";
 
 type AdoptableBlueprintCourse = Pick<
   BlueprintCourseSummaryView,
-  "id" | "long_name" | "availability" | "current_revision"
+  "id" | "long_name" | "availability" | "current_revision_tuple"
 >;
 
 function isAdoptableBlueprintCourse(
@@ -35,7 +35,7 @@ function isAdoptableBlueprintCourse(
 }
 
 function blueprintSourceValue(blueprint: AdoptableBlueprintCourse): string {
-  const revision = blueprint.current_revision;
+  const revision = blueprint.current_revision_tuple;
   return `${revision.blueprintCourseId}:${revision.revisionNumber}`;
 }
 
@@ -103,7 +103,7 @@ function BlueprintSourceSelect(props: {
         <For each={props.blueprints}>
           {(blueprint) => (
             <option value={blueprintSourceValue(blueprint)}>
-              {blueprint.long_name} · Revision {blueprint.current_revision.revisionNumber}
+              {blueprint.long_name} · Revision {blueprint.current_revision_tuple.revisionNumber}
             </option>
           )}
         </For>
@@ -230,7 +230,7 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
       source = {
         kind: "adopted",
         blueprintCourse: selected.id,
-        blueprintRevision: selected.current_revision.revisionNumber,
+        blueprintRevision: selected.current_revision_tuple.revisionNumber,
       };
     }
     if (

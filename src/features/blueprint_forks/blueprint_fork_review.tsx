@@ -43,14 +43,13 @@ export function BlueprintForkSource(props: {
 }): JSX.Element {
   const [comparing, setComparing] = createSignal(false);
   return (
-    <Show when={props.view.fork_source}>
+    <Show when={props.view.fork_source_tuple}>
       {(source) => (
         <section class="blueprint-forks">
           <h2>Fork source</h2>
           <p>
-            Forked from{" "}
-            <A href={coursePath(source().blueprintCourseId)}>source Blueprint Course</A>, Revision{" "}
-            {source().revisionNumber}. This fork develops independently.
+            Forked from <A href={coursePath(source().blueprintCourseId)}>source Blueprint Course</A>
+            , Revision {source().revisionNumber}. This fork develops independently.
           </p>
           <button
             type="button"
@@ -106,8 +105,8 @@ export function AssessmentSnapshot(props: {
           <h4>{snapshot().content.title}</h4>
           <p>{assessmentTypePresentation(snapshot().content.assessment_type).label}</p>
           <p>
-            Module: {forkModuleLabel(props.side, snapshot().blueprintModuleId)}; Assessment
-            position {snapshot().position + 1}.
+            Module: {forkModuleLabel(props.side, snapshot().blueprintModuleId)}; Assessment position{" "}
+            {snapshot().position + 1}.
           </p>
           <p class="blueprint-fork-instructions">
             {snapshot().content.instructions || "No instructions."}
@@ -125,8 +124,8 @@ export function AssessmentSnapshot(props: {
                     <Show when={entry.kind === "fixed" ? entry : undefined}>
                       {(fixed) => (
                         <p>
-                          Question {fixed().published_question.questionId}, Revision{" "}
-                          {fixed().published_question.revisionNumber}; {fixed().points_possible}{" "}
+                          Question {fixed().question_revision_tuple.questionId}, Revision{" "}
+                          {fixed().question_revision_tuple.revisionNumber}; {fixed().points_possible}{" "}
                           points.
                         </p>
                       )}
@@ -221,8 +220,8 @@ function Comparison(props: { readonly view: BlueprintComparisonView }): JSX.Elem
       </p>
       <p>
         Shared Question IDs relate Assessments, including splits and combinations. Assessment names
-        and local IDs do not establish identity. Question Revision pins and Pool membership
-        do not expose Question bodies; body differences are not determined here.
+        and local IDs do not establish identity. Question Revision pins and Pool membership do not
+        expose Question bodies; body differences are not determined here.
       </p>
       <h3>Question IDs</h3>
       <p>Shared: {props.view.sharedQuestionIds.join(", ") || "None"}.</p>
@@ -578,7 +577,7 @@ export function BlueprintForkReview(
                 !props.hasUnsavedChanges &&
                 loaded.target?.read_access === "blueprint_course_owner" &&
                 loaded.target.availability !== "archived" &&
-                loaded.target.fork_source?.blueprintCourseId ===
+                loaded.target.fork_source_tuple?.blueprintCourseId ===
                   loaded.comparison.left.currentRevision.blueprintCourseId
               }
               fallback={

@@ -241,7 +241,10 @@ export interface ApiClient
   /** Same-origin POST that authorizes, audits, and returns one normalized course banner. */
   readonly fetchCourseBanner: (bannerId: CourseBannerId) => Promise<Blob>;
   /** Exact immutable Question Revision asset redirect path; it never issues a capability. */
-  readonly assetUrl: (questionRevisionTuple: QuestionRevisionTuple, assetId: QuestionAssetId) => string;
+  readonly assetUrl: (
+    questionRevisionTuple: QuestionRevisionTuple,
+    assetId: QuestionAssetId,
+  ) => string;
   readonly validateResponseFormatOnServer: FormatValidator;
   readonly questionAttemptTimingDecisionOnServer: TimerEvaluator;
   readonly validateAssessmentConfigOnServer: CapabilityValidator;

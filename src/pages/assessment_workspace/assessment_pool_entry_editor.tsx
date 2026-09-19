@@ -33,7 +33,9 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
     );
   });
   const selectedCandidate = createMemo(() =>
-    candidates().find((candidate) => questionRevisionKey(candidate.questionRevisionTuple) === candidateKey()),
+    candidates().find(
+      (candidate) => questionRevisionKey(candidate.questionRevisionTuple) === candidateKey(),
+    ),
   );
 
   function submitSelectionCount(value: string): void {
@@ -120,7 +122,9 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
                         type="button"
                         disabled={index() === 0}
                         onClick={() => {
-                          const members = fork().members.map((current) => current.questionRevisionTuple);
+                          const members = fork().members.map(
+                            (current) => current.questionRevisionTuple,
+                          );
                           [members[index() - 1], members[index()]] = [
                             members[index()]!,
                             members[index() - 1]!,
@@ -134,7 +138,9 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
                         type="button"
                         disabled={index() === fork().members.length - 1}
                         onClick={() => {
-                          const members = fork().members.map((current) => current.questionRevisionTuple);
+                          const members = fork().members.map(
+                            (current) => current.questionRevisionTuple,
+                          );
                           [members[index()], members[index() + 1]] = [
                             members[index() + 1]!,
                             members[index()]!,

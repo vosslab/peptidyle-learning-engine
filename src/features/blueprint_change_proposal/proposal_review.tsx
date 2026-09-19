@@ -331,9 +331,8 @@ function DecisionSummary(props: {
       );
       if (copy)
         return (
-          source().modules.find(
-            (module) => module.blueprintModuleId === copy.sourceModuleId,
-          )?.label ?? key
+          source().modules.find((module) => module.blueprintModuleId === copy.sourceModuleId)
+            ?.label ?? key
         );
     }
     return (
@@ -377,17 +376,12 @@ function DecisionSummary(props: {
               {(copy) => (
                 <p>
                   Copy source module label{" "}
-                  {
-                    source().modules.find(
-                      (m) => m.blueprintModuleId === copy.sourceModuleId,
-                    )?.label
-                  }{" "}
+                  {source().modules.find((m) => m.blueprintModuleId === copy.sourceModuleId)?.label}{" "}
                   to{" "}
                   {copy.targetModuleId === null
                     ? "a new module"
-                    : target().modules.find(
-                        (m) => m.blueprintModuleId === copy.targetModuleId,
-                      )?.label}
+                    : target().modules.find((m) => m.blueprintModuleId === copy.targetModuleId)
+                        ?.label}
                   .
                 </p>
               )}
@@ -452,9 +446,8 @@ function AcceptedResult(props: {
       <h3>Accepted: exact committed target</h3>
       <p>
         Blueprint {props.value.target.blueprintCourseId}, Revision{" "}
-        {props.value.target.revisionNumber},
-        edit {props.value.targetBlueprintEditNumber}; accepted {props.value.acceptedAt}. Decision:{" "}
-        {props.value.decision.kind}.
+        {props.value.target.revisionNumber}, edit {props.value.targetBlueprintEditNumber}; accepted{" "}
+        {props.value.acceptedAt}. Decision: {props.value.decision.kind}.
       </p>
       <Show when={props.value.decision.kind === "selected" ? props.value.decision : undefined}>
         {(decision) => (
@@ -480,8 +473,7 @@ function AcceptedResult(props: {
       >
         {(copy) => (
           <p>
-            Source label {unitName("source", copy.sourceModuleId, true)} (
-            {copy.sourceModuleId}) to{" "}
+            Source label {unitName("source", copy.sourceModuleId, true)} ({copy.sourceModuleId}) to{" "}
             {copy.targetModuleId === null
               ? `new module (${props.value.newModules[copy.sourceModuleId] ?? "server-assigned"})`
               : `${unitName("target", copy.targetModuleId, true)} (${copy.targetModuleId})`}
@@ -551,7 +543,7 @@ function AcceptedResult(props: {
                       {(entry) => (
                         <li>
                           {entry.kind === "fixed"
-                            ? `Question ${entry.published_question.questionId}, Revision ${entry.published_question.revisionNumber}; ${entry.points_possible} points`
+                            ? `Question ${entry.question_revision_tuple.questionId}, Revision ${entry.question_revision_tuple.revisionNumber}; ${entry.points_possible} points`
                             : `Pool ${entry.question_pool_id}, Edit ${entry.question_pool_edit_number}; select ${entry.selection_count}; ${entry.points_per_item} points per item`}
                           <Settings value={entry} />
                         </li>

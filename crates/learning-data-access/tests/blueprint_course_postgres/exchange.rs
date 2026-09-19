@@ -105,14 +105,14 @@ pub(super) async fn assert_actual_role_round_trip(
                 match (source_entry, imported_entry) {
                     (
                         question_model::CanonicalBlueprintAssessmentEntry::Fixed {
-                            published_question: source_question,
+                            question_revision_tuple: source_question,
                             points_possible: source_points,
                             scoring_rule: source_scoring,
                             question_attempt_limit: source_limit,
                             question_attempt_time_limit: source_time_limit,
                         },
                         question_model::CanonicalBlueprintAssessmentEntry::Fixed {
-                            published_question: imported_question,
+                            question_revision_tuple: imported_question,
                             points_possible: imported_points,
                             scoring_rule: imported_scoring,
                             question_attempt_limit: imported_limit,

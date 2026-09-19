@@ -83,8 +83,12 @@ export function createBlueprintStewardshipClient(
         })
       ).body,
     getBlueprintStarredInstructors: async (blueprintCourseId) =>
-      (await request(path(blueprintCourseId, "starred-instructors"), decodeBlueprintStarredInstructors))
-        .body,
+      (
+        await request(
+          path(blueprintCourseId, "starred-instructors"),
+          decodeBlueprintStarredInstructors,
+        )
+      ).body,
     getBlueprintWatch: async (blueprintCourseId) =>
       (await request(path(blueprintCourseId, "watch"), decodeBlueprintWatch)).body,
     setBlueprintWatch: async (blueprintCourseId, watching) =>

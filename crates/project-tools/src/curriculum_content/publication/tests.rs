@@ -105,11 +105,11 @@ fn canonical_blueprint_uses_ordered_direct_fixed_questions() {
         unreachable!();
     };
     assert_eq!(
-        first_entry.published_question.question_id,
+        first_entry.question_revision_tuple.question_id,
         first.question_id
     );
     assert_eq!(
-        second_entry.published_question.question_id,
+        second_entry.question_revision_tuple.question_id,
         second.question_id
     );
 }

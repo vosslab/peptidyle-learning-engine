@@ -20,7 +20,8 @@ export function sameForkSnapshot(left: unknown, right: unknown): boolean {
 /** Module IDs are resolved only within their own Blueprint Course. */
 export function forkModuleLabel(side: BlueprintComparisonSide, blueprintModuleId: string): string {
   return (
-    side.modules.find((module) => module.blueprintModuleId === blueprintModuleId)?.label ?? blueprintModuleId
+    side.modules.find((module) => module.blueprintModuleId === blueprintModuleId)?.label ??
+    blueprintModuleId
   );
 }
 
@@ -44,12 +45,9 @@ export function assessmentDifferenceLabels(
     ],
     [
       "Module order",
-      leftSide.modules.find(
-        (item) => item.blueprintModuleId === left.blueprintModuleId,
-      )?.position,
-      rightSide.modules.find(
-        (item) => item.blueprintModuleId === right.blueprintModuleId,
-      )?.position,
+      leftSide.modules.find((item) => item.blueprintModuleId === left.blueprintModuleId)?.position,
+      rightSide.modules.find((item) => item.blueprintModuleId === right.blueprintModuleId)
+        ?.position,
     ],
     ["Assessment order", left.position, right.position],
     ["Title", left.content.title, right.content.title],

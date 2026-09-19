@@ -51,9 +51,9 @@ pub struct BlueprintKnownForkView {
     pub short_name: String,
     pub long_name: String,
     pub availability: question_model::BlueprintAvailability,
-    pub current_revision: question_model::BlueprintRevision,
-    /// Source Revision at fork creation, not a last-applied update marker.
-    pub source_revision: question_model::BlueprintRevision,
+    pub current_revision_number: question_model::BlueprintRevision,
+    /// Source Revision Number at fork creation, not a last-applied update marker.
+    pub source_revision_number: question_model::BlueprintRevision,
     pub owner_display_name: String,
 }
 
@@ -72,7 +72,7 @@ pub struct BlueprintComparisonView {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BlueprintComparisonSide {
-    pub current_revision: BlueprintRevisionTuple,
+    pub current_revision_tuple: BlueprintRevisionTuple,
     pub names: BlueprintComparisonNames,
     pub blueprint_edit_number: question_model::BlueprintEditNumber,
     pub modules: Vec<BlueprintComparisonModule>,

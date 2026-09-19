@@ -4,12 +4,7 @@ import type { QuestionBloomCorrectionReceipt } from "../../../generated/api/Ques
 import type { QuestionPoolBloomCorrectionReceipt } from "../../../generated/api/QuestionPoolBloomCorrectionReceipt";
 import { decodeBloomClassificationView } from "./bloom_classification";
 import { decodeRecord } from "../decoder";
-import {
-  decodeQuestionId,
-  decodeQuestionRevisionTuple,
-  field,
-  requireOnlyFields,
-} from "./shared";
+import { decodeQuestionId, decodeQuestionRevisionTuple, field, requireOnlyFields } from "./shared";
 
 export function decodeQuestionBloomCorrectionReceipt(
   value: unknown,

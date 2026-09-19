@@ -28,12 +28,12 @@ pub(super) async fn view_from_record(
         long_name: record.long_name,
         availability: record.availability,
         blueprint_edit_number: record.blueprint_edit_number,
-        current_revision: BlueprintRevisionTuple {
+        current_revision_tuple: BlueprintRevisionTuple {
             blueprint_course_id: record.id,
             revision: record.current_revision,
         },
         read_access: record.read_access,
-        fork_source: record.fork_source,
+        fork_source_tuple: record.fork_source_tuple,
         modules: content_modules(state, session, &record.content).await?,
     })
 }
@@ -49,7 +49,7 @@ pub(super) fn summary_view(
         long_name: record.long_name,
         availability: record.availability,
         blueprint_edit_number: record.blueprint_edit_number,
-        current_revision: BlueprintRevisionTuple {
+        current_revision_tuple: BlueprintRevisionTuple {
             blueprint_course_id: record.id,
             revision: record.current_revision,
         },

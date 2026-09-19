@@ -133,7 +133,7 @@ test("Blueprint Course creation requires separate short and long lineage names",
     entries: [
       {
         kind: "fixed",
-        published_question: { questionId: "AAAA-2BBB", revisionNumber: 1 },
+        question_revision_tuple: { questionId: "AAAA-2BBB", revisionNumber: 1 },
         points_possible: "1",
         scoring_rule: "normal",
       },

@@ -59,19 +59,15 @@ export function BlueprintSelectionEditor(props: ApplyProps): JSX.Element {
   const moduleLabel = (module: Layout["module"]): string => {
     if (module.kind === "newFromSource")
       return (
-        props.review.left.modules.find(
-          (m) => m.blueprintModuleId === module.sourceModuleId,
-        )?.label ?? "New module"
+        props.review.left.modules.find((m) => m.blueprintModuleId === module.sourceModuleId)
+          ?.label ?? "New module"
       );
     const copy = labels().find((c) => c.targetModuleId === module.targetModuleId);
     return (
       (copy
-        ? props.review.left.modules.find(
-            (m) => m.blueprintModuleId === copy.sourceModuleId,
-          )?.label
-        : props.review.right.modules.find(
-            (m) => m.blueprintModuleId === module.targetModuleId,
-          )?.label) ?? "Module"
+        ? props.review.left.modules.find((m) => m.blueprintModuleId === copy.sourceModuleId)?.label
+        : props.review.right.modules.find((m) => m.blueprintModuleId === module.targetModuleId)
+            ?.label) ?? "Module"
     );
   };
   const title = (entry: Layout["assessments"][number]): string => {
@@ -118,8 +114,7 @@ export function BlueprintSelectionEditor(props: ApplyProps): JSX.Element {
         : []),
     ]);
     const next = layout().filter(
-      (row) =>
-        !(row.module.kind === "newFromSource" && row.module.sourceModuleId === source),
+      (row) => !(row.module.kind === "newFromSource" && row.module.sourceModuleId === source),
     );
     if (value === "new")
       next.push({
@@ -178,22 +173,19 @@ export function BlueprintSelectionEditor(props: ApplyProps): JSX.Element {
         return;
       }
       if (!props.client) throw new Error("Fork client is unavailable.");
-      await props.client.applyBlueprintFork(
-        props.review.right.currentRevision.blueprintCourseId,
-        {
-          expectedSource: props.review.left.currentRevision,
-          expectedFork: props.review.right.currentRevision,
-          expectedSourceBlueprintEditNumber: props.review.left.blueprintEditNumber,
-          expectedForkBlueprintEditNumber: props.review.right.blueprintEditNumber,
-          sourceShortName: shortName(),
-          sourceLongName: longName(),
-          selection: {
-            sourceModuleLabels: labels(),
-            sourceAssessments: contents(),
-            layout: edited() ? layout() : null,
-          },
+      await props.client.applyBlueprintFork(props.review.right.currentRevision.blueprintCourseId, {
+        expectedSource: props.review.left.currentRevision,
+        expectedFork: props.review.right.currentRevision,
+        expectedSourceBlueprintEditNumber: props.review.left.blueprintEditNumber,
+        expectedForkBlueprintEditNumber: props.review.right.blueprintEditNumber,
+        sourceShortName: shortName(),
+        sourceLongName: longName(),
+        selection: {
+          sourceModuleLabels: labels(),
+          sourceAssessments: contents(),
+          layout: edited() ? layout() : null,
         },
-      );
+      });
       setLocked(true);
       setMessage("Selected changes saved. Reloading the fork and comparison...");
       props.onApplied();
@@ -286,21 +278,15 @@ export function BlueprintSelectionEditor(props: ApplyProps): JSX.Element {
                 value={
                   labels().find((c) => c.sourceModuleId === source.blueprintModuleId)
                     ?.targetModuleId ??
-                  (labels().some((c) => c.sourceModuleId === source.blueprintModuleId)
-                    ? "new"
-                    : "")
+                  (labels().some((c) => c.sourceModuleId === source.blueprintModuleId) ? "new" : "")
                 }
-                onChange={(e) =>
-                  chooseModule(source.blueprintModuleId, e.currentTarget.value)
-                }
+                onChange={(e) => chooseModule(source.blueprintModuleId, e.currentTarget.value)}
               >
                 <option value="">Do not copy</option>
                 <option value="new">Create new module</option>
                 <For each={props.review.right.modules}>
                   {(target) => (
-                    <option value={target.blueprintModuleId}>
-                      Replace label: {target.label}
-                    </option>
+                    <option value={target.blueprintModuleId}>Replace label: {target.label}</option>
                   )}
                 </For>
               </select>
@@ -450,8 +436,7 @@ export function BlueprintSelectionEditor(props: ApplyProps): JSX.Element {
             (m) =>
               !layout().some(
                 (r) =>
-                  r.module.kind === "existing" &&
-                  r.module.targetModuleId === m.blueprintModuleId,
+                  r.module.kind === "existing" && r.module.targetModuleId === m.blueprintModuleId,
               ),
           )}
         >

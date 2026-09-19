@@ -115,7 +115,10 @@ export function decodeStudentIssuedQuestion(value: unknown, path: string): Stude
     field(record, "questionRevisionTuple", path),
     `${path}.questionRevisionTuple`,
   );
-  requireOnlyFields(questionRevisionTuple, `${path}.questionRevisionTuple`, ["questionId", "revisionNumber"]);
+  requireOnlyFields(questionRevisionTuple, `${path}.questionRevisionTuple`, [
+    "questionId",
+    "revisionNumber",
+  ]);
   return {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
     assessmentAttempt: decodeIdentifier(

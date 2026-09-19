@@ -36,7 +36,11 @@ function requestMembers(input: CreateQuestionPoolInput): ReadonlyArray<QuestionR
   }
   const tuples = new Set<string>();
   return input.members.map((member, index) => {
-    const questionRevisionTuple = decodeQuestionRevisionTuple(member, `request.members[${index}]`, true);
+    const questionRevisionTuple = decodeQuestionRevisionTuple(
+      member,
+      `request.members[${index}]`,
+      true,
+    );
     const key = `${questionRevisionTuple.questionId}:${questionRevisionTuple.revisionNumber}`;
     if (tuples.has(key)) {
       throw new ApiProtocolError(

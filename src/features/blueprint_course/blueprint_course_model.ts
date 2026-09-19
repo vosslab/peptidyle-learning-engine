@@ -162,7 +162,7 @@ export function emptyBlueprintCourseContent(
 function fixedEntry(publishedQuestion: QuestionRevisionTuple): BlueprintAssessmentEntryInput {
   return {
     kind: "fixed",
-    published_question: publishedQuestion,
+    question_revision_tuple: publishedQuestion,
     points_possible: "1",
     scoring_rule: "normal",
     question_attempt_limit: { maxAttempts: null },
@@ -290,9 +290,9 @@ export function validateReusableContent(
     if (entry.kind === "fixed") {
       // ASVS 2.2.1: a fixed selection carries its complete immutable Revision identity.
       if (
-        !entry.published_question?.questionId ||
-        !Number.isSafeInteger(entry.published_question.revisionNumber) ||
-        entry.published_question.revisionNumber < 1
+        !entry.question_revision_tuple?.questionId ||
+        !Number.isSafeInteger(entry.question_revision_tuple.revisionNumber) ||
+        entry.question_revision_tuple.revisionNumber < 1
       ) {
         return { valid: false, message: "Choose a fixed Question with a published Revision." };
       }
@@ -395,7 +395,7 @@ function entryInputFromView(entry: BlueprintAssessmentEntryView): BlueprintAsses
   }
   return {
     kind: "fixed",
-    published_question: entry.question.question_revision_tuple,
+    question_revision_tuple: entry.question.question_revision_tuple,
     points_possible: entry.points_possible,
     scoring_rule: entry.scoring_rule,
     question_attempt_limit: entry.question_attempt_limit,

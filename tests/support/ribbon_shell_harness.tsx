@@ -122,7 +122,11 @@ function deferredCourseScopes(): DeferredCourseScopes {
     });
   }
 
-  return { release, requestCount: (courseInstanceId) => requests.get(courseInstanceId) ?? 0, waitForRelease };
+  return {
+    release,
+    requestCount: (courseInstanceId) => requests.get(courseInstanceId) ?? 0,
+    waitForRelease,
+  };
 }
 
 function presentationApi(deferredScopes?: DeferredCourseScopes): {

@@ -289,7 +289,8 @@ function selectedBlueprintAssessment(
   if (
     revision.blueprintRevisionTuple.blueprintCourseId !==
       source.blueprint_revision_tuple.blueprintCourseId ||
-    revision.blueprintRevisionTuple.revisionNumber !== source.blueprint_revision_tuple.revisionNumber
+    revision.blueprintRevisionTuple.revisionNumber !==
+      source.blueprint_revision_tuple.revisionNumber
   ) {
     throw new Error(
       "The selected Blueprint Revision did not resolve. Choose an Assessment from the Course's Blueprint Revision.",

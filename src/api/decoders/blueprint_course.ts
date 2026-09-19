@@ -151,7 +151,7 @@ function assessmentEntry(value: unknown, path: string): { kind: "fixed" | "pool"
   if (kind === "fixed") {
     requireOnlyFields(record, path, [
       "kind",
-      "published_question",
+      "question_revision_tuple",
       "points_possible",
       "scoring_rule",
       "question_attempt_limit",
@@ -159,8 +159,8 @@ function assessmentEntry(value: unknown, path: string): { kind: "fixed" | "pool"
     ]);
     // ASVS 1.5.2 and 2.2.1: accept the exact Tuple, never an ID-only fallback.
     decodeQuestionRevisionTuple(
-      field(record, "published_question", path),
-      `${path}.published_question`,
+      field(record, "question_revision_tuple", path),
+      `${path}.question_revision_tuple`,
     );
     pointValue(field(record, "points_possible", path), `${path}.points_possible`);
     decodeStringEnum(field(record, "scoring_rule", path), `${path}.scoring_rule`, [
@@ -543,7 +543,7 @@ function summary(value: unknown, path: string): BlueprintCourseSummaryView {
     "availability",
     "blueprint_edit_number",
     "classification",
-    "current_revision",
+    "current_revision_tuple",
     "read_access",
   ]);
   const totalAdoptions = decodeSafeInteger(
@@ -571,9 +571,9 @@ function summary(value: unknown, path: string): BlueprintCourseSummaryView {
       field(record, "blueprint_edit_number", path),
       `${path}.blueprint_edit_number`,
     ),
-    current_revision: blueprintRevisionTuple(
-      field(record, "current_revision", path),
-      `${path}.current_revision`,
+    current_revision_tuple: blueprintRevisionTuple(
+      field(record, "current_revision_tuple", path),
+      `${path}.current_revision_tuple`,
     ),
     read_access: decodeStringEnum(field(record, "read_access", path), `${path}.read_access`, [
       "blueprint_course_owner",
@@ -625,8 +625,8 @@ export function decodeBlueprintCourseView(value: unknown, path = "response"): Bl
     "availability",
     "blueprint_edit_number",
     "classification",
-    "current_revision",
-    "fork_source",
+    "current_revision_tuple",
+    "fork_source_tuple",
     "read_access",
     "modules",
   ]);
@@ -643,17 +643,17 @@ export function decodeBlueprintCourseView(value: unknown, path = "response"): Bl
       field(record, "blueprint_edit_number", path),
       `${path}.blueprint_edit_number`,
     ),
-    current_revision: blueprintRevisionTuple(
-      field(record, "current_revision", path),
-      `${path}.current_revision`,
+    current_revision_tuple: blueprintRevisionTuple(
+      field(record, "current_revision_tuple", path),
+      `${path}.current_revision_tuple`,
     ),
     read_access: decodeStringEnum(field(record, "read_access", path), `${path}.read_access`, [
       "blueprint_course_owner",
       "active_instructor",
     ]),
-    fork_source: decodeNullable(
-      field(record, "fork_source", path),
-      `${path}.fork_source`,
+    fork_source_tuple: decodeNullable(
+      field(record, "fork_source_tuple", path),
+      `${path}.fork_source_tuple`,
       blueprintRevisionTuple,
     ),
     modules: modules(field(record, "modules", path), `${path}.modules`),
@@ -742,7 +742,7 @@ function knownBlueprintFork(value: unknown, path: string): BlueprintKnownForkVie
     "shortName",
     "longName",
     "availability",
-    "currentRevision",
+    "currentRevisionTuple",
     "sourceRevision",
     "ownerDisplayName",
   ]);
@@ -762,7 +762,7 @@ function knownBlueprintFork(value: unknown, path: string): BlueprintKnownForkVie
     shortName: text(field(record, "shortName", path), `${path}.shortName`),
     longName: text(field(record, "longName", path), `${path}.longName`),
     availability: availability(field(record, "availability", path), `${path}.availability`),
-    currentRevision: revision(field(record, "currentRevision", path), `${path}.currentRevision`),
+    currentRevisionTuple: revision(field(record, "currentRevisionTuple", path), `${path}.currentRevisionTuple`),
     sourceRevision: revision(field(record, "sourceRevision", path), `${path}.sourceRevision`),
     ownerDisplayName,
   };

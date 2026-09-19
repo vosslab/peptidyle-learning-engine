@@ -69,7 +69,9 @@ export function SelectedAssessmentEntryIdentity(
           Entry {props.entryNumber} · {question.questionRevisionTuple.questionId} · Revision{" "}
           {question.questionRevisionTuple.revisionNumber}
         </h3>
-        <p class="assessment-editor-row-description">{props.description(question.questionRevisionTuple)}</p>
+        <p class="assessment-editor-row-description">
+          {props.description(question.questionRevisionTuple)}
+        </p>
         {bloomFacts(props.bloom)}
         <dl class="assessment-editor-row-facts">
           <div>
