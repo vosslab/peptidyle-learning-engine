@@ -403,7 +403,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Keep the teaching content central in authoring and inspection workflows, with metadata and
   supporting explanations arranged compactly around it.
 - Gradebook rows should identify Students by their Course roster names and Coursework by title,
-  with reference IDs as supporting information where useful.
+  with IDs as supporting information where useful.
 - The Instructor menu has **Courses**, **Questions**, and **Assessments** in one dense top bar.
 - Instructor Profile uses a generic user icon until the **Instructor** adds a Profile image.
 - All required ribbon choices remain visible even when their collection is empty.
@@ -706,12 +706,13 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - FERPA-sensitive Student data should not become ordinary logs, analytics, URLs, or long-lived browser storage.
 - Opaque IDs remain FERPA-sensitive when they link a Student to Course activity.
 
-### Human-facing reference IDs
+### Human-facing public IDs
 
-- Human-facing reference IDs should be short, opaque, and easy to communicate.
-- Human-facing reference IDs should not reveal creation order, counts, database keys, ownership, or other object metadata.
+- Here the public refers to vetted Instructor users and Sysadmins.
+- Human-facing public IDs should be short, opaque, and easy to communicate.
+- Human-facing public IDs should not reveal creation order, counts, database keys, ownership, or other object metadata.
 - A public ID is the one universal, canonical human-facing identifier for a PLE object that needs one.
-- Give an internal object a human-facing reference ID when a useful workflow needs it.
+- Give an internal object a human-facing public ID when a useful workflow needs it.
 - Useful human-facing ID workflows include display, search, communication, and support.
 - Store and use the exact same public ID in the database, Rust, JSON, URLs, object storage, hashes, logs, and browser UI.
 - Preserve the canonical ID exactly across system boundaries.
@@ -1438,7 +1439,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 - Assessments are organized by their Course and position within its ordered sequence.
 - Assessments contain an ordered sequence of Published Questions and Question Pools.
-- Published Questions stay references to the same Question ID and exact Revision.
+- Each Published Question in an Assessment is identified by its Question ID and exact Revision.
 - Question Pools are copied by forking when added to another Assessment.
 - A newly forked Question Pool initially contains the same Published Question IDs and exact Revisions
   as its source.
