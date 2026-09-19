@@ -16,7 +16,7 @@ import type { BlueprintComparisonSide } from "../../../generated/api/BlueprintCo
 import type { BlueprintRevision } from "../../../generated/api/BlueprintRevision";
 import type { BlueprintCourseClient } from "../../api/blueprint_course";
 import { assessmentTypePresentation } from "../../assessment_type_presentation";
-import { normalizeHumanEnteredPublicReference } from "../../question_id";
+import { normalizeHumanEnteredPublicId } from "../../question_id";
 import { BlueprintForkApply } from "./blueprint_fork_apply";
 import {
   assessmentDifferenceLabels,
@@ -76,7 +76,7 @@ export function BlueprintForkSource(props: {
 }
 
 function coursePath(reference: string): string {
-  // ASVS 1.2.2: only a local fixed route with an encoded Reference is constructed.
+  // ASVS 1.2.2: only a local fixed route with an encoded public ID is constructed.
   return `/blueprint-courses/${encodeURIComponent(reference)}`;
 }
 
@@ -319,14 +319,14 @@ function RelatedComparison(props: ForkProps): JSX.Element {
     <section class="blueprint-forks">
       <h2>Compare a related Blueprint Course</h2>
       <p>
-        Enter a visible Blueprint Course Reference in the same fork lineage. This Course is left;
-        the entered Course is right.
+        Enter a visible Blueprint Course ID in the same fork lineage. This Course is left; the
+        entered Course is right.
       </p>
       <form
         class="blueprint-related-comparison-form"
         onSubmit={(event) => {
           event.preventDefault();
-          const candidate = normalizeHumanEnteredPublicReference("blueprintCourse", reference());
+          const candidate = normalizeHumanEnteredPublicId("blueprintCourse", reference());
           if (candidate === null || candidate === props.reference) {
             setInvalid(true);
             input?.focus();
@@ -336,7 +336,7 @@ function RelatedComparison(props: ForkProps): JSX.Element {
           setSelected(candidate);
         }}
       >
-        <label for={inputId}>Related Blueprint Course Reference</label>
+        <label for={inputId}>Related Blueprint Course ID</label>
         <input
           id={inputId}
           ref={(element) => {
@@ -355,7 +355,7 @@ function RelatedComparison(props: ForkProps): JSX.Element {
       </form>
       <Show when={invalid()}>
         <p id={`${inputId}-error`} role="alert">
-          Enter a different Blueprint Course Reference in BPXXXXXXAN format.
+          Enter a different Blueprint Course ID in BPXXXXXXXZ format.
         </p>
       </Show>
       <Show when={selected()} keyed>

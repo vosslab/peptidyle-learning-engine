@@ -4,9 +4,9 @@ SET LOCAL ROLE ple_data_owner;
 
 
 
-CREATE TRIGGER blueprint_course_human_reference_is_minted
+CREATE TRIGGER blueprint_course_public_id_is_minted
 BEFORE INSERT ON ple_data.blueprint_course
-FOR EACH ROW EXECUTE FUNCTION ple_private.assign_human_reference('BP');
+FOR EACH ROW EXECUTE FUNCTION ple_private.assign_public_id('BP');
 
 CREATE FUNCTION ple_data.blueprint_content_question_pins(p_content jsonb)
 RETURNS TABLE (content_path text, published_question_id text, question_revision_number bigint)

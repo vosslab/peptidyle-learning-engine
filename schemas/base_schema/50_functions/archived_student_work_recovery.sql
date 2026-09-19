@@ -58,8 +58,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
                   jsonb_build_object('question_pool_id', pool.question_pool_id,
                       'question_pool_edit_number', pool.question_pool_edit_number,
                       'question_pool_member_position', selected.member_position,
-                      'selection_position', selected.selection_position,
-                      'selected_question_count', pool.selected_question_count) END,
+                      'selection_position', selected.selection_position) END,
               'attempt', CASE WHEN attempt.question_attempt_id IS NOT NULL THEN
                   jsonb_build_object('issued_at', attempt.issued_at,
                       'deadline_at', attempt.deadline_at, 'finalized_at', attempt.finalized_at,

@@ -22,10 +22,10 @@ NUMBER_PATTERN = re.compile(
 	r"pub const (QUESTION_ID_(?:IDENTIFIER_LENGTH|CANONICAL_LENGTH|"
 	r"CHECK_CHARACTER_INDEX|HYPHEN_INDEX)): usize = (\d+);"
 )
-PUBLIC_REFERENCE_LENGTH_PATTERN = re.compile(
+PUBLIC_ID_LENGTH_PATTERN = re.compile(
 	r"pub const PUBLIC_ID_RANDOM_LENGTH: usize = (\d+);"
 )
-PUBLIC_REFERENCE_PATTERN = re.compile(
+PUBLIC_ID_PATTERN = re.compile(
 	r'impl_public_id!\(\s*(\w+),\s*"([A-Z]+)",\s*"([A-Z]+)",\s*"[^"]+"\s*\);',
 	re.DOTALL,
 )
@@ -79,23 +79,23 @@ def rust_contract_values(
 	):
 		raise ValueError("Question ID Rust syntax facts are internally inconsistent")
 	public_route = (root / PUBLIC_ROUTE_CONTRACT_PATH).read_text(encoding="utf-8")
-	reference_length_match = PUBLIC_REFERENCE_LENGTH_PATTERN.search(public_route)
-	if reference_length_match is None:
+	id_length_match = PUBLIC_ID_LENGTH_PATTERN.search(public_route)
+	if id_length_match is None:
 		raise ValueError("public-route Rust contract must define one random-character length")
-	if int(reference_length_match.group(1)) != numbers["QUESTION_ID_IDENTIFIER_LENGTH"]:
+	if int(id_length_match.group(1)) != numbers["QUESTION_ID_IDENTIFIER_LENGTH"]:
 		raise ValueError("all approved public IDs must use the Question-ID random-character length")
-	references = PUBLIC_REFERENCE_PATTERN.findall(public_route)
-	required_references = [
-		("BlueprintCourseReference", "BP", "BP"),
-		("CourseInstanceReference", "CI", "CI"),
-		("AssessmentReference", "A", "A"),
-		("AccountReference", "U", "U"),
+	public_ids = PUBLIC_ID_PATTERN.findall(public_route)
+	required_ids = [
+		("BlueprintCourseId", "BP", "BP"),
+		("CourseInstanceId", "CI", "CI"),
+		("AssessmentId", "A", "A"),
+		("AccountId", "U", "U"),
 	]
-	if sorted(references) != sorted(required_references):
+	if sorted(public_ids) != sorted(required_ids):
 		raise ValueError("public-route Rust contract must define only approved checksum public IDs")
 	families = [
-		(reference.removesuffix("Reference")[0].lower() + reference.removesuffix("Reference")[1:], prefix)
-		for reference, prefix, _checksum_prefix in required_references
+		(name.removesuffix("Id")[0].lower() + name.removesuffix("Id")[1:], prefix)
+		for name, prefix, _checksum_prefix in required_ids
 	]
 	return alphabet_match.group(1), numbers, families
 
@@ -104,7 +104,7 @@ def rust_contract_values(
 
 
 def render_typescript(
-	alphabet: str, numbers: dict[str, int], reference_families: list[tuple[str, str]],
+	alphabet: str, numbers: dict[str, int], id_families: list[tuple[str, str]],
 ) -> str:
 	"""Render exact browser validation with the public one-block SHA-256 calculation."""
 	round_constants = ", ".join([
@@ -126,7 +126,7 @@ def render_typescript(
 		"0x90befffa", "0xa4506ceb", "0xbef9a3f7", "0xc67178f2",
 	])
 	family_lines = [
-		f"  {json.dumps(family)}: {json.dumps(prefix)}," for family, prefix in reference_families
+		f"  {json.dumps(family)}: {json.dumps(prefix)}," for family, prefix in id_families
 	]
 	return "\n".join([
 		OWNERSHIP_HEADER,
@@ -216,11 +216,11 @@ def render_typescript(
 		"}",
 		"",
 		"/** Exact prefixes for the only approved contiguous public-ID families. */",
-		"export const CANONICAL_PUBLIC_REFERENCE_FAMILIES = {",
+		"export const CANONICAL_PUBLIC_ID_FAMILIES = {",
 		*family_lines,
 		"} as const;",
-		"export type CanonicalPublicReferenceFamily =",
-		"  keyof typeof CANONICAL_PUBLIC_REFERENCE_FAMILIES;",
+		"export type CanonicalPublicIdFamily =",
+		"  keyof typeof CANONICAL_PUBLIC_ID_FAMILIES;",
 		"",
 		"/** Validate one already-canonical Question or Pool ID without changing it. */",
 		"export function isCanonicalQuestionId(value: string): boolean {",
@@ -249,11 +249,11 @@ def render_typescript(
 		"}",
 		"",
 		"/** Validate one exact contiguous public ID without changing it. */",
-		"export function isCanonicalPublicReference(",
-		"  family: CanonicalPublicReferenceFamily,",
+		"export function isCanonicalPublicId(",
+		"  family: CanonicalPublicIdFamily,",
 		"  value: string,",
 		"): boolean {",
-		"  const prefix = CANONICAL_PUBLIC_REFERENCE_FAMILIES[family];",
+		"  const prefix = CANONICAL_PUBLIC_ID_FAMILIES[family];",
 		"  if (!value.startsWith(prefix)) return false;",
 		"  const suffix = value.slice(prefix.length);",
 		"  if (",
@@ -267,11 +267,11 @@ def render_typescript(
 		"}",
 		"",
 		"/** Return the exact input only when it is one canonical checksum-valid public ID. */",
-		"export function validateCanonicalPublicReference(",
-		"  family: CanonicalPublicReferenceFamily,",
+		"export function validateCanonicalPublicId(",
+		"  family: CanonicalPublicIdFamily,",
 		"  value: string,",
 		"): string | null {",
-		"  return isCanonicalPublicReference(family, value) ? value : null;",
+		"  return isCanonicalPublicId(family, value) ? value : null;",
 		"}",
 		"",
 	])

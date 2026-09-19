@@ -49,7 +49,7 @@ import {
   decodeString,
   decodeStringEnum,
 } from "../decoder";
-import { validateCanonicalPublicReference } from "../../question_id";
+import { validateCanonicalPublicId } from "../../question_id";
 import { decodeStudentFeedbackReleaseRule } from "./assessment_policy";
 import { decodeQuestionAttemptLimit, decodeQuestionAttemptTimeLimit } from "./question_model";
 import {
@@ -333,7 +333,7 @@ function displayTimeZone(value: unknown, path: string): AccountTimeZone {
 
 export function decodeBlueprintCourseId(value: unknown, path: string): BlueprintCourseId {
   const decoded = decodeString(value, path);
-  if (validateCanonicalPublicReference("blueprintCourse", decoded) === null) {
+  if (validateCanonicalPublicId("blueprintCourse", decoded) === null) {
     throw new DecodeError(path, "a canonical Blueprint Course ID");
   }
   return decoded;

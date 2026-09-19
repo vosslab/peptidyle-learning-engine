@@ -541,7 +541,7 @@ test("deferred assessment-attempt summary retains only its linked current breadc
   );
 });
 
-test("course breadcrumbs omit their own leading public reference from resolved titles", () => {
+test("course breadcrumbs omit their own leading public ID from resolved titles", () => {
   const state = routeStateFor("courseAssessments");
   for (const courseLongName of [
     "Course CI7K3M2QAZ: Molecular Biology",

@@ -36,9 +36,9 @@ CREATE TRIGGER account_creation_records_active_state
 AFTER INSERT ON ple_private.account
 FOR EACH ROW EXECUTE FUNCTION ple_private.record_initial_account_state();
 
-CREATE TRIGGER account_human_reference_is_minted
+CREATE TRIGGER account_public_id_is_minted
 BEFORE INSERT ON ple_private.account
-FOR EACH ROW EXECUTE FUNCTION ple_private.assign_human_reference('U');
+FOR EACH ROW EXECUTE FUNCTION ple_private.assign_public_id('U');
 
 CREATE FUNCTION ple_private.reject_invalid_account_time_zone()
 RETURNS trigger LANGUAGE plpgsql

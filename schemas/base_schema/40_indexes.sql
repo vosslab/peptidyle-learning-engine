@@ -103,9 +103,6 @@ CREATE INDEX blueprint_course_watch_notification_recipient_idx
 
 SET LOCAL ROLE ple_data_owner;
 
-CREATE INDEX course_membership_event_current_lookup_idx
-    ON ple_data.course_membership_event (course_membership_id, occurred_at DESC, course_membership_event_id DESC);
-
 CREATE INDEX course_membership_account_course_idx ON ple_data.course_membership (account_id, course_instance_id);
 
 CREATE INDEX student_record_account_course_idx ON ple_data.student_record (student_account_id, course_instance_id);

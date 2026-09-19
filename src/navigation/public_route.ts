@@ -8,9 +8,9 @@ import type { AssessmentAttemptId } from "../../generated/api/AssessmentAttemptI
 import type { AuthoringWorkspaceReference } from "../../generated/api/AuthoringWorkspaceReference";
 import type { BlueprintCourseId } from "../../generated/api/BlueprintCourseId";
 import {
-  validateCanonicalPublicReference,
+  validateCanonicalPublicId,
   validateCanonicalQuestionIdSyntax,
-  type CanonicalPublicReferenceFamily,
+  type CanonicalPublicIdFamily,
 } from "../question_id";
 
 declare const routeReferenceBrand: unique symbol;
@@ -47,7 +47,7 @@ function parseNumeric<Kind extends string>(
     : null;
 }
 export function parseCourseInstanceId(value: string): CourseInstanceRouteReference | null {
-  return parseCanonicalPublicReference<"courseInstance">(value, "courseInstance");
+  return parseCanonicalPublicId<"courseInstance">(value, "courseInstance");
 }
 export function parseCourseMembershipReference(
   value: string,
@@ -55,7 +55,7 @@ export function parseCourseMembershipReference(
   return parseNumeric<"courseMembership">(value, "M");
 }
 export function parseAssessmentId(value: string): AssessmentRouteReference | null {
-  return parseCanonicalPublicReference<"assessment">(value, "assessment");
+  return parseCanonicalPublicId<"assessment">(value, "assessment");
 }
 export function parseAssessmentAttemptReference(
   value: string,
@@ -77,7 +77,7 @@ export function parseDraftQuestionId(value: string): DraftQuestionRouteId | null
   return parseUuid<"draftQuestion">(value);
 }
 export function parseBlueprintCourseId(value: string): BlueprintCourseRouteReference | null {
-  return parseCanonicalPublicReference<"blueprintCourse">(value, "blueprintCourse");
+  return parseCanonicalPublicId<"blueprintCourse">(value, "blueprintCourse");
 }
 
 /** Syntax only: the existing opaque Proposal UUID is never an authorization grant. */
@@ -88,11 +88,11 @@ export function parseBlueprintChangeProposalHandle(value: string): string | null
 }
 
 /** Parses one exact, checksum-valid public ID without reformatting it. */
-function parseCanonicalPublicReference<Kind extends string>(
+function parseCanonicalPublicId<Kind extends string>(
   value: string,
-  family: CanonicalPublicReferenceFamily,
+  family: CanonicalPublicIdFamily,
 ): BrandedRouteReference<Kind> | null {
-  const result = validateCanonicalPublicReference(family, value);
+  const result = validateCanonicalPublicId(family, value);
   return result === null ? null : (result as BrandedRouteReference<Kind>);
 }
 export function courseInstanceRouteReference(

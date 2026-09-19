@@ -29,8 +29,7 @@ async function discoverAssessmentReference(page) {
     .getByRole("link", { name: "Edit Assessment", exact: true })
     .getAttribute("href");
   const match = href?.match(/\/assessments\/(A[0-9A-HJKMNP-TV-Z]{8})\/questions$/u);
-  if (match?.[1] === undefined)
-    throw new Error("Live Demo Assessment lacks a canonical public reference");
+  if (match?.[1] === undefined) throw new Error("Live Demo Assessment lacks a canonical public ID");
   return match[1];
 }
 

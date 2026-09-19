@@ -543,7 +543,6 @@ Columns:
 | question_pool_id | ple_data.question_family_id | NOT NULL |
 | question_pool_edit_number | bigint | NOT NULL |
 | created_at | timestamptz | NOT NULL |
-| selected_question_count | integer | NOT NULL |
 
 Constraints:
 
@@ -551,7 +550,6 @@ Constraints:
 - UNIQUE (course_instance_id, question_pool_selection_id, assessment_attempt_id, assessment_entry_id)
 - UNIQUE (course_instance_id, assessment_attempt_id, assessment_entry_id)
 - CHECK question_pool_edit_number: `(question_pool_edit_number > 0)`
-- CHECK selected_question_count: `(selected_question_count > 0)`
 
 Foreign keys:
 
@@ -2860,7 +2858,6 @@ Indexes:
 
 - ple_data.course_membership_event_pkey UNIQUE (course_membership_event_id)
 - ple_data.course_membership_event_unique_0 UNIQUE (course_membership_id, occurred_at, course_membership_event_id)
-- course_membership_event_current_lookup_idx (course_membership_id, occurred_at, course_membership_event_id)
 
 ### ple_private.course_invitation
 

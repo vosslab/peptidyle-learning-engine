@@ -1,14 +1,16 @@
 // Browser Question ID syntax has one generated Rust-model authority.
 import {
-  validateCanonicalPublicReference,
+  CANONICAL_PUBLIC_ID_FAMILIES,
+  validateCanonicalPublicId,
   validateCanonicalQuestionIdSyntax,
-  type CanonicalPublicReferenceFamily,
+  type CanonicalPublicIdFamily,
 } from "../generated/api/QuestionIdSyntaxContract";
 
 export {
-  validateCanonicalPublicReference,
+  CANONICAL_PUBLIC_ID_FAMILIES,
+  validateCanonicalPublicId,
   validateCanonicalQuestionIdSyntax,
-  type CanonicalPublicReferenceFamily,
+  type CanonicalPublicIdFamily,
 } from "../generated/api/QuestionIdSyntaxContract";
 
 /**
@@ -33,16 +35,19 @@ export function normalizeHumanEnteredQuestionId(value: string): string | null {
 }
 
 /**
- * Accepts one human-entered contiguous public reference and returns its canonical form.
+ * Accepts one human-entered contiguous public ID and returns its canonical form.
  *
  * This is intentionally limited to text-entry controls. Server output, routes,
  * API decoders, storage, and copied values remain exact and strict.
  */
-export function normalizeHumanEnteredPublicReference(
-  family: CanonicalPublicReferenceFamily,
+export function normalizeHumanEnteredPublicId(
+  family: CanonicalPublicIdFamily,
   value: string,
 ): string | null {
   if (!/^[0-9A-Za-z]+$/u.test(value)) return null;
-  const normalized = value.toUpperCase().replace(/O/gu, "0").replace(/[IL]/gu, "1");
-  return validateCanonicalPublicReference(family, normalized);
+  const prefix = CANONICAL_PUBLIC_ID_FAMILIES[family];
+  const upper = value.toUpperCase();
+  if (!upper.startsWith(prefix)) return null;
+  const suffix = upper.slice(prefix.length).replace(/O/gu, "0").replace(/[IL]/gu, "1");
+  return validateCanonicalPublicId(family, prefix + suffix);
 }

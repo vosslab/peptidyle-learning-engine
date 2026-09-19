@@ -130,8 +130,12 @@ DECLARE selection_id uuid := CASE WHEN TG_OP = 'DELETE' THEN OLD.question_pool_s
 BEGIN
     IF EXISTS (SELECT 1 FROM ple_private.question_pool_selection AS selection
         WHERE selection.question_pool_selection_id = selection_id
-          AND selection.selected_question_count <> (SELECT count(*) FROM ple_private.question_pool_selected_item WHERE question_pool_selection_id = selection_id)) THEN
-        RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Question Pool Selection requires its exact selected Item count';
+          AND NOT EXISTS (
+              SELECT 1 FROM ple_private.question_pool_selected_item AS item
+               WHERE item.question_pool_selection_id = selection.question_pool_selection_id
+          )) THEN
+        RAISE EXCEPTION USING ERRCODE = '23514',
+            MESSAGE = 'Question Pool Selection requires selected Items';
     END IF;
     RETURN NULL;
 END $$;

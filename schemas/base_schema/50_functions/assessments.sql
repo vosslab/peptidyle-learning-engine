@@ -721,9 +721,9 @@ CREATE TRIGGER assessment_edit_is_exact
 BEFORE UPDATE ON ple_data.assessment
 FOR EACH ROW EXECUTE FUNCTION ple_data.enforce_assessment_edit();
 
-CREATE TRIGGER assessment_human_reference_is_minted
+CREATE TRIGGER assessment_public_id_is_minted
 BEFORE INSERT ON ple_data.assessment
-FOR EACH ROW EXECUTE FUNCTION ple_private.assign_human_reference('A');
+FOR EACH ROW EXECUTE FUNCTION ple_private.assign_public_id('A');
 
 CREATE TRIGGER assessment_question_pool_fork_requires_fork_provenance
 BEFORE INSERT OR UPDATE ON ple_data.assessment_question_pool_fork

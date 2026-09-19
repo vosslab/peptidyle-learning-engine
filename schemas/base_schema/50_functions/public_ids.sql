@@ -11,7 +11,7 @@ SET LOCAL ROLE ple_private_owner;
 -- without exposing creation order. UUID byte 6 has RFC 4122 version bits, so
 -- it is deliberately skipped; these seven source bytes each provide all five
 -- selected random bits.
-CREATE FUNCTION ple_private.crockford_reference_suffix()
+CREATE FUNCTION ple_private.crockford_id_suffix()
 RETURNS text LANGUAGE sql VOLATILE
 SET search_path = pg_catalog
 AS $$
@@ -111,7 +111,7 @@ $$;
 -- A caller-supplied canonical ID that is not a mint placeholder is reserved
 -- and kept so installation and Live Demo can store the same public ID the
 -- application already holds.
-CREATE FUNCTION ple_private.assign_human_reference()
+CREATE FUNCTION ple_private.assign_public_id()
 RETURNS trigger LANGUAGE plpgsql
 SET search_path = pg_catalog, ple_private
 AS $$
@@ -123,7 +123,7 @@ DECLARE
 BEGIN
     IF TG_NARGS <> 1 OR TG_ARGV[0] NOT IN ('BP', 'CI', 'A', 'U') THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
-            MESSAGE = 'Human-reference minting requires a supported ID prefix';
+            MESSAGE = 'Public-ID minting requires a supported ID prefix';
     END IF;
     object_kind := CASE TG_ARGV[0]
         WHEN 'BP' THEN 'blueprint_course'
@@ -150,7 +150,7 @@ BEGIN
         RETURN NEW;
     END IF;
     LOOP
-        candidate := TG_ARGV[0] || ple_private.crockford_reference_suffix();
+        candidate := TG_ARGV[0] || ple_private.crockford_id_suffix();
         candidate := candidate || ple_private.crockford_checksum_character(candidate);
         BEGIN
             PERFORM ple_private.reserve_public_id(candidate, object_kind);

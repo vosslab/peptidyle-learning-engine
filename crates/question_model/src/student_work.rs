@@ -124,12 +124,6 @@ pub struct QuestionPoolSelection {
     pub question_pool_edit_number: crate::QuestionPoolEditNumber,
     /// Database-authoritative time at which the server selected these entries.
     pub created_at: Timestamp,
-    /// Number of exact Question Pool Items selected for this Assessment Attempt.
-    ///
-    /// This repeats the selected Question Pool Item row cardinality so storage can reject an
-    /// incomplete Selection at transaction commit without consulting mutable
-    /// Assessment content.
-    pub selected_question_count: u32,
     /// Exact selected Question Pool Items in their frozen delivery order.
     pub selected_items: Vec<QuestionPoolSelectedItem>,
 }

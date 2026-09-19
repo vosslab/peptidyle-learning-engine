@@ -313,11 +313,10 @@ BEGIN
         END IF;
         INSERT INTO ple_private.question_pool_selection(
             course_instance_id, question_pool_selection_id, assessment_attempt_id, assessment_entry_id,
-            question_pool_id, question_pool_edit_number, created_at, selected_question_count
+            question_pool_id, question_pool_edit_number, created_at
         ) VALUES (
             assessment_row.course_instance_id, selection_id, p_assessment_attempt_id, selection_entry_id,
-            entry_row.question_pool_id, entry_row.question_pool_edit_number, now_value,
-            entry_row.selection_count
+            entry_row.question_pool_id, entry_row.question_pool_edit_number, now_value
         );
         INSERT INTO ple_private.question_pool_selected_item(
             course_instance_id, question_pool_selection_id, member_position, selection_position, published_question_id, revision_number

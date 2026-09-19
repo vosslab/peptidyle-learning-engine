@@ -77,7 +77,7 @@ function withCourseAppearance(
 }
 
 /**
- * Caches presentation data by canonical public reference, retaining separate
+ * Caches presentation data by canonical public ID, retaining separate
  * active-Attempt and summary views without fabricating an Attempt UUID.
  */
 export function createRouteScopeController(

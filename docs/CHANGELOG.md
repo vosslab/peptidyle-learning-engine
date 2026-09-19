@@ -10,6 +10,17 @@
 
 ### Fixes and Maintenance
 
+- Drop `course_membership_event_current_lookup_idx`; the UNIQUE btree on
+  `(course_membership_id, occurred_at, course_membership_event_id)` already
+  serves current-event lookup, including reverse `ORDER BY`. Drop stored
+  `question_pool_selection.selected_question_count`; item rows are the
+  authoritative Selection, archived recovery JSON no longer copies a
+  count, and the deferred trigger requires selected Items rather than a
+  copied cardinality. Gate:
+  `cargo test -p question_model --lib question_pool_selection_retains`,
+  `source source_me.sh && python3 devel/generate_schema_tables_doc.py &&
+  python3 schema_style/check_schema_style.py`.
+
 - Add referencing-side indexes in `40_indexes.sql` for every foreign key
   that was not already the leading columns of a PRIMARY KEY or UNIQUE
   constraint. `rule_14_unindexed_fk` is clean; there are no intentional
@@ -33,7 +44,12 @@
   Blueprint Course IDs use `*_blueprint_course_id`. Live Demo e2e and
   install scripts query `account_id` / `course_instance_id` /
   `assessment_id` / `blueprint_course_id` rather than `public_reference`.
-  Public-ID mint helpers live in `public_ids.sql`. Gate:
+  Public-ID mint helpers live in `public_ids.sql`
+  (`ple_private.assign_public_id`, `ple_private.crockford_id_suffix`).
+  Browser validators are `validateCanonicalPublicId` /
+  `normalizeHumanEnteredPublicId`. Human Guidance implementation
+  evidence cites `public_ids.sql`, `impl_public_id`, and public-ID
+  primary keys. Gate:
   `cargo test -p question_model --lib`,
   `cargo check -p learning-data-access -p server_core --offline --tests`,
   and `node --import tsx --test tests/test_question_pool_discovery_client.mjs
@@ -50,7 +66,7 @@
   --lib blueprint_course`.
 
 - Live Demo and bundled publisher Accounts insert the mint placeholder so
-  `ple_private.assign_human_reference` issues a random public ID. Email and
+  `ple_private.assign_public_id` issues a random public ID. Email and
   authoring workspace remain the stable lookup. After provision, the local
   stack records the minted persona IDs into the env file and recreates the
   API before Morgan TOTP. Gate: `tests/test_live_demo_target.py`.

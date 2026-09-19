@@ -49,7 +49,7 @@ try {
   const created = page.locator('section[aria-label="Instructor Accounts"] > .auth-panel').first();
   const reference = (await created.locator("h2").textContent())?.trim();
   if (!/^U[0-9A-HJKMNP-TV-Z]{8}$/u.test(reference ?? "")) {
-    throw new Error("created Instructor Account did not have a canonical public reference");
+    throw new Error("created Instructor Account did not have a canonical public ID");
   }
   await created.locator(`#deactivate-reason-${reference}`).fill("Live demo access review");
   await created.getByRole("button", { name: "Deactivate Instructor Account" }).click();

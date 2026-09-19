@@ -85,7 +85,7 @@ async function sysadminAccounts(runtime: ScenarioRuntime): Promise<void> {
     const newest = page.getByRole("article").first();
     const reference = (await newest.getByRole("heading", { level: 2 }).innerText()).trim();
     if (!isCanonicalAccountId(reference)) {
-      throw new Error("created Instructor Account lacks a canonical public reference");
+      throw new Error("created Instructor Account lacks a canonical public ID");
     }
     await reloadInstructorAccounts(page);
     let created = instructorAccount(page, reference);

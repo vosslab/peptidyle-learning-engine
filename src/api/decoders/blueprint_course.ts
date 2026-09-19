@@ -42,10 +42,7 @@ import {
   field,
   requireOnlyFields,
 } from "./shared";
-import {
-  validateCanonicalPublicReference,
-  validateCanonicalQuestionIdSyntax,
-} from "../../question_id";
+import { validateCanonicalPublicId, validateCanonicalQuestionIdSyntax } from "../../question_id";
 import { decodeCourseClassification } from "./course_classification";
 
 const MAX_PAGE_SIZE = 100;
@@ -64,7 +61,7 @@ export function text(value: unknown, path: string): string {
 
 function blueprintCourseId(value: unknown, path: string): BlueprintCourseId {
   const decoded = decodeString(value, path);
-  if (validateCanonicalPublicReference("blueprintCourse", decoded) === null) {
+  if (validateCanonicalPublicId("blueprintCourse", decoded) === null) {
     throw new DecodeError(path, "a canonical Blueprint Course ID");
   }
   return decoded;

@@ -104,7 +104,6 @@ fn question_pool_selection_retains_exact_entries_and_issued_question_link() {
         question_pool_id: question_pool_id.clone(),
         question_pool_edit_number,
         created_at: Timestamp::from_unix_millis(1_000),
-        selected_question_count: 1,
         selected_items: vec![QuestionPoolSelectedItem {
             question_pool_id: question_pool_id.clone(),
             question_pool_edit_number,

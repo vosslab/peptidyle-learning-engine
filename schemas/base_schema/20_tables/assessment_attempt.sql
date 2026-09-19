@@ -80,7 +80,6 @@ CREATE TABLE ple_private.question_pool_selection (
         REFERENCES ple_data.question_pool(question_pool_id),
     question_pool_edit_number bigint NOT NULL CHECK (question_pool_edit_number > 0),
     created_at timestamptz NOT NULL,
-    selected_question_count integer NOT NULL CHECK (selected_question_count > 0),
     PRIMARY KEY (course_instance_id, question_pool_selection_id),
     UNIQUE (course_instance_id, question_pool_selection_id, assessment_attempt_id, assessment_entry_id),
     UNIQUE (course_instance_id, assessment_attempt_id, assessment_entry_id),

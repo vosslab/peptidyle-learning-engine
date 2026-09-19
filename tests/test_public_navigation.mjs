@@ -24,7 +24,10 @@ import {
   resolveAssessmentAttemptIdentity,
   resolveWorkspaceRoute,
 } from "../src/navigation/resolved_route.ts";
-import { normalizeHumanEnteredQuestionId } from "../src/question_id.ts";
+import {
+  normalizeHumanEnteredPublicId,
+  normalizeHumanEnteredQuestionId,
+} from "../src/question_id.ts";
 
 test("human route references are canonical, typed, and bounded", () => {
   assert.equal(courseInstanceRouteReference("CIABCDEFGS"), "CIABCDEFGS");
@@ -87,6 +90,9 @@ test("human route references are canonical, typed, and bounded", () => {
   assert.equal(normalizeHumanEnteredQuestionId("7k3m79qp"), "7K3M-79QP");
   assert.equal(normalizeHumanEnteredQuestionId("O1OO-raIb"), "0100-RA1B");
   assert.equal(normalizeHumanEnteredQuestionId(" 7K3M79QP"), null);
+  assert.equal(normalizeHumanEnteredPublicId("courseInstance", "ciabcdefgs"), "CIABCDEFGS");
+  assert.equal(normalizeHumanEnteredPublicId("assessment", "aabcdefg8"), "AABCDEFG8");
+  assert.equal(normalizeHumanEnteredPublicId("courseInstance", "CIABCDEFGT"), null);
   assert.equal(parseQuestionRouteReference("P-50-v3"), null);
   assert.equal(parseQuestionRouteReference("7K3-M9QU"), null);
 });

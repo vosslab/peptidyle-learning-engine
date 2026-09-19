@@ -17,7 +17,7 @@ import type {
   CourseInstanceRouteReference,
 } from "../../navigation/public_route";
 import { parseAssessmentId, parseCourseInstanceId } from "../../navigation/public_route";
-import { validateCanonicalPublicReference } from "../../question_id";
+import { validateCanonicalPublicId } from "../../question_id";
 import type { CursorPage } from "../contracts";
 import {
   DecodeError,
@@ -80,22 +80,22 @@ const MAX_ASSIGNMENT_TITLE_UNICODE_SCALARS = 200;
 const MAX_COURSE_NAME_UNICODE_SCALARS = 200;
 
 export function decodeCourseInstanceId(value: unknown, path: string): CourseInstanceRouteReference {
-  if (typeof value !== "string") throw new DecodeError(path, "a CI reference");
-  const reference = parseCourseInstanceId(value);
-  if (reference === null) throw new DecodeError(path, "a CI reference");
-  return reference;
+  if (typeof value !== "string") throw new DecodeError(path, "a Course Instance ID");
+  const id = parseCourseInstanceId(value);
+  if (id === null) throw new DecodeError(path, "a Course Instance ID");
+  return id;
 }
 
 export function decodeAssessmentId(value: unknown, path: string): AssessmentRouteReference {
-  if (typeof value !== "string") throw new DecodeError(path, "an A reference");
-  const reference = parseAssessmentId(value);
-  if (reference === null) throw new DecodeError(path, "an A reference");
-  return reference;
+  if (typeof value !== "string") throw new DecodeError(path, "an Assessment ID");
+  const id = parseAssessmentId(value);
+  if (id === null) throw new DecodeError(path, "an Assessment ID");
+  return id;
 }
 
 export function decodeAccountId(value: unknown, path: string): AccountId {
   const decoded = decodeString(value, path);
-  if (validateCanonicalPublicReference("account", decoded) === null) {
+  if (validateCanonicalPublicId("account", decoded) === null) {
     throw new DecodeError(path, "a canonical Account ID");
   }
   return decoded;

@@ -2,9 +2,9 @@
 
 SET LOCAL ROLE ple_data_owner;
 
-CREATE TRIGGER course_instance_human_reference_is_minted
+CREATE TRIGGER course_instance_public_id_is_minted
 BEFORE INSERT ON ple_data.course_instance
-FOR EACH ROW EXECUTE FUNCTION ple_private.assign_human_reference('CI');
+FOR EACH ROW EXECUTE FUNCTION ple_private.assign_public_id('CI');
 
 CREATE FUNCTION ple_data.enforce_course_instance_retention_schedule()
 RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_data

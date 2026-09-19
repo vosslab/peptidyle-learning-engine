@@ -20,7 +20,7 @@ import {
   decodeSafeInteger,
   decodeString,
 } from "../decoder.ts";
-import { validateCanonicalPublicReference } from "../../question_id.ts";
+import { validateCanonicalPublicId } from "../../question_id.ts";
 
 const MAX_REASON_LENGTH = 1_000;
 const VETTING_REFERENCE_PATTERN =
@@ -42,15 +42,15 @@ function requireOnlyFields(
   }
 }
 
-/** The Sysadmin-only Account reference is opaque, not a public route identity. */
+/** The Sysadmin-only Account ID is opaque, not a public route identity. */
 export function isCanonicalAccountId(value: string): value is AccountId {
-  return validateCanonicalPublicReference("account", value) !== null;
+  return validateCanonicalPublicId("account", value) !== null;
 }
 
-function accountReference(value: unknown, path: string): AccountId {
+function accountId(value: unknown, path: string): AccountId {
   const decoded = decodeString(value, path);
   if (!isCanonicalAccountId(decoded)) {
-    throw new DecodeError(path, "a canonical Instructor Account public reference");
+    throw new DecodeError(path, "a canonical Instructor Account ID");
   }
   return decoded;
 }
@@ -75,7 +75,7 @@ function summary(value: unknown, path: string): InstructorAccountSummary {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["id", "state", "lastSuccessfulSignIn", "providedAvatarId"]);
   return {
-    id: accountReference(field(record, "id", path), `${path}.id`),
+    id: accountId(field(record, "id", path), `${path}.id`),
     state: accountState(field(record, "state", path), `${path}.state`),
     lastSuccessfulSignIn: decodeNullable(
       field(record, "lastSuccessfulSignIn", path),

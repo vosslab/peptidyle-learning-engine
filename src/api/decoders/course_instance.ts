@@ -35,10 +35,10 @@ function courseEditNumber(value: unknown, path: string): CourseEditNumber {
   return decoded;
 }
 
-function accountReference(value: unknown, path: string): AccountId {
+function accountId(value: unknown, path: string): AccountId {
   const decoded = decodeString(value, path);
   if (!isCanonicalAccountId(decoded)) {
-    throw new DecodeError(path, "a canonical Account public reference");
+    throw new DecodeError(path, "a canonical Account ID");
   }
   return decoded;
 }
@@ -156,7 +156,7 @@ export function decodeCreateCourseInstanceInput(
     term: decodeCourseTerm(field(record, "term", path), `${path}.term`),
     ...(assignedInstructor === undefined
       ? {}
-      : { assignedInstructor: accountReference(assignedInstructor, `${path}.assignedInstructor`) }),
+      : { assignedInstructor: accountId(assignedInstructor, `${path}.assignedInstructor`) }),
   } satisfies CreateCourseInstanceInput;
   return decoded;
 }
@@ -250,7 +250,7 @@ export function decodeCourseCreationInstructors(
     const instructor = decodeRecord(entry, entryPath);
     requireOnlyFields(instructor, entryPath, ["id"]);
     return {
-      id: accountReference(field(instructor, "id", entryPath), `${entryPath}.id`),
+      id: accountId(field(instructor, "id", entryPath), `${entryPath}.id`),
     };
   });
 }

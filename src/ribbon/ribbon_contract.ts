@@ -293,7 +293,7 @@ function isRoundTripFor(route: RouteContract, pathname: string): boolean {
 
 /**
  * Builds only a canonical declared PLE route. Unknown route IDs, surplus data,
- * URL syntax, malformed public references, and incomplete substitutions fail closed.
+ * URL syntax, malformed public IDs, and incomplete substitutions fail closed.
  */
 export function buildRoutePath<Route extends RouteId, Params extends DeclaredRibbonRouteParams>(
   routeId: Route,
@@ -474,9 +474,9 @@ function breadcrumbLinkItem(label: string, href: string): RibbonBreadcrumbModel 
 }
 
 /**
- * Breadcrumbs use the Course's human-readable title, not the public reference
+ * Breadcrumbs use the Course's human-readable title, not the public ID
  * sometimes prepended by legacy display projections. Only the resolved route's
- * own reference is eligible, so title text that merely resembles an ID remains
+ * own ID is eligible, so title text that merely resembles an ID remains
  * untouched.
  */
 function courseBreadcrumbLabel(
