@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 )]
 pub enum BlueprintHistoryEntryView {
     SavedRevision {
-        revision: question_model::BlueprintRevision,
+        revision_number: question_model::BlueprintRevision,
         saved_at: question_model::Timestamp,
     },
     MetadataChange {

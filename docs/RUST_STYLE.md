@@ -418,7 +418,7 @@ Ownership is the design surface, not an obstacle to route around.
   ([The Slice Type](https://doc.rust-lang.org/book/ch04-03-slices.html)).
 - The rules of references still bind everywhere: at any time you may have either one
   mutable reference or any number of immutable ones, and references must always be
-  valid ([references and borrowing](https://doc.rust-lang.org/book/ch04-02-references-and-borrowing.html)).
+  valid ([References and Borrowing](https://doc.rust-lang.org/book/ch04-02-references-and-borrowing.html)).
 - Reach for `clone()` deliberately, with a reason. A clone that exists only to escape
   a borrow error is a symptom, and the fix is usually to shorten the borrow, split the
   struct, or restructure the call. A clone that exists because two owners genuinely
@@ -426,14 +426,14 @@ Ownership is the design surface, not an obstacle to route around.
 - `Rc<T>` for shared ownership on one thread, `Arc<T>` across threads, and interior
   mutability (`RefCell<T>`, `Mutex<T>`) only when shared mutation is genuinely
   required
-  ([Rc, the reference-counted smart pointer](https://doc.rust-lang.org/book/ch15-04-rc.html),
+  ([Rc, the Reference Counted Smart Pointer](https://doc.rust-lang.org/book/ch15-04-rc.html),
   [RefCell and the Interior Mutability Pattern](https://doc.rust-lang.org/book/ch15-05-interior-mutability.html),
   [Shared-State Concurrency](https://doc.rust-lang.org/book/ch16-03-shared-state.html)).
   Each carries runtime cost and additional invariants, so make the ownership reason
   visible in the type or API.
 - Rely on lifetime elision for relationships the compiler already understands. The
   three elision rules cover the overwhelming majority of function signatures
-  ([validating references with lifetimes](https://doc.rust-lang.org/book/ch10-03-lifetime-syntax.html)).
+  ([Validating References with Lifetimes](https://doc.rust-lang.org/book/ch10-03-lifetime-syntax.html)).
   Write explicit lifetimes when a public signature relates returned or stored
   references to inputs, or when elision is ambiguous. Treat the annotation as a
   design statement about which value owns the data.
@@ -779,7 +779,7 @@ these should have a reason, because a derive cannot drift out of sync with the f
   `>=LATEST`, where `LATEST` is the stable version available at refresh time.
 - `Cargo.lock` resolves the current reviewed manifest and passes dependency security checks.
 
-## See also
+## References
 
 Every source cited here is freely readable online. Three carry most of the weight:
 

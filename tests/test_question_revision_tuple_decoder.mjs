@@ -22,6 +22,7 @@ test("Question Revision Tuple rejects leftover reference JSON", () => {
       decodeQuestionRevisionTuple({ ...TUPLE, reference: "ABCD-XEFG" }, "questionRevisionTuple"),
     DecodeError,
   );
+  assert.throws(() => decodeQuestionRevisionTuple(1, "questionRevisionTuple"), DecodeError);
 });
 
 test("Blueprint Revision Tuple decodes blueprintCourseId plus revisionNumber", () => {
@@ -81,4 +82,5 @@ test("Blueprint Revision Tuple rejects leftover reference and snake_case members
       ),
     DecodeError,
   );
+  assert.throws(() => blueprintRevisionTuple("1", "blueprintRevisionTuple"), DecodeError);
 });

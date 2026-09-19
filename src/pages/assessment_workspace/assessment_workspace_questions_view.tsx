@@ -186,7 +186,7 @@ export function AssessmentWorkspaceQuestionsView(
           <Show when={blueprintReview()}>
             {(review) => (
               <>
-                <h3>Review Blueprint Revision {review().sourceRevision}</h3>
+                <h3>Review Blueprint Revision {review().sourceRevisionNumber}</h3>
                 <p>
                   Apply replaces this Assessment's title, instructions, reusable settings, and
                   ordered Questions and Question Pools, including local customizations. Dates,

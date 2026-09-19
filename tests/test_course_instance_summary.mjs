@@ -106,9 +106,9 @@ test("Course creation accepts only the two current source wires", () => {
   assert.deepEqual(
     decodeCreateCourseInstanceInput({
       ...common,
-      source: { kind: "adopted", blueprintCourse: "BP6F2R8TA9", blueprintRevision: "2" },
+      source: { kind: "adopted", blueprintCourse: "BP6F2R8TA9", blueprintRevisionNumber: "2" },
     }).source,
-    { kind: "adopted", blueprintCourse: "BP6F2R8TA9", blueprintRevision: "2" },
+    { kind: "adopted", blueprintCourse: "BP6F2R8TA9", blueprintRevisionNumber: "2" },
   );
   assert.throws(
     () =>
@@ -123,6 +123,14 @@ test("Course creation accepts only the two current source wires", () => {
       decodeCreateCourseInstanceInput({
         ...common,
         source: { kind: "adopted", blueprint_course: "BP6F2R8TA9", blueprint_revision: 2 },
+      }),
+    DecodeError,
+  );
+  assert.throws(
+    () =>
+      decodeCreateCourseInstanceInput({
+        ...common,
+        source: { kind: "adopted", blueprintCourse: "BP6F2R8TA9", blueprintRevision: "2" },
       }),
     DecodeError,
   );

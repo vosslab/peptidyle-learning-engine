@@ -237,6 +237,9 @@ test("B1 Blueprint Course decoder exposes one current Revision and opaque metada
   const retired = structuredClone(blueprint());
   retired.draft = { edit_number: "7", modules: [] };
   assert.throws(() => decodeBlueprintCourseView(retired), DecodeError);
+  const numberUnderTuple = structuredClone(blueprint());
+  numberUnderTuple.current_revision_tuple = "1";
+  assert.throws(() => decodeBlueprintCourseView(numberUnderTuple), DecodeError);
 });
 
 // Protect optional discovery request shape; failure means repair request encoding, not normal discovery.

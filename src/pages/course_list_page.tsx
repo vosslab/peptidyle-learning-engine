@@ -230,7 +230,7 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
       source = {
         kind: "adopted",
         blueprintCourse: selected.id,
-        blueprintRevision: selected.current_revision_tuple.revisionNumber,
+        blueprintRevisionNumber: selected.current_revision_tuple.revisionNumber,
       };
     }
     if (

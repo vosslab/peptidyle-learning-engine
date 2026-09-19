@@ -11,7 +11,7 @@ import { DecodeError, decodePositiveInteger, decodeRecord, decodeStringEnum } fr
 import { decodeStudentFeedbackReleaseRule } from "./assessment_policy";
 import {
   assessmentType,
-  blueprintRevision,
+  blueprintRevisionNumber,
   decodeAssessmentActivityRules,
   decodeAssessmentInstructions,
   decodeLiveAssessmentWorkspace,
@@ -36,11 +36,11 @@ export function decodeApplyAssessmentBlueprintUpdateInput(
   path = "input",
 ): ApplyAssessmentBlueprintUpdateInput {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["expectedSourceRevision", "expectedEditNumber"]);
+  requireOnlyFields(record, path, ["expectedSourceRevisionNumber", "expectedEditNumber"]);
   return {
-    expectedSourceRevision: blueprintRevision(
-      field(record, "expectedSourceRevision", path),
-      `${path}.expectedSourceRevision`,
+    expectedSourceRevisionNumber: blueprintRevisionNumber(
+      field(record, "expectedSourceRevisionNumber", path),
+      `${path}.expectedSourceRevisionNumber`,
     ),
     expectedEditNumber: editNumber(
       field(record, "expectedEditNumber", path),
@@ -186,7 +186,7 @@ export function decodeAssessmentBlueprintUpdateReview(
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "assessment",
-    "sourceRevision",
+    "sourceRevisionNumber",
     "proposed",
     "cannotApplyReason",
   ]);
@@ -218,9 +218,9 @@ export function decodeAssessmentBlueprintUpdateReview(
     assessment,
     proposed,
     cannotApplyReason,
-    sourceRevision: blueprintRevision(
-      field(record, "sourceRevision", path),
-      `${path}.sourceRevision`,
+    sourceRevisionNumber: blueprintRevisionNumber(
+      field(record, "sourceRevisionNumber", path),
+      `${path}.sourceRevisionNumber`,
     ),
   };
 }

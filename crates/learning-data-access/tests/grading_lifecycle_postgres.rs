@@ -93,7 +93,7 @@ async fn seed_grading_graph(pool: &PgPool) {
     .await
     .expect("Published Question");
     sqlx::query(
-        "INSERT INTO ple_data.question_revision_tuple \
+        "INSERT INTO ple_data.question_revision \
          (published_question_id, revision_number, backend, question_type, published_at) \
          VALUES ($1, 1, 'ple', 'multipleChoice', clock_timestamp()) \
          ON CONFLICT (published_question_id, revision_number) DO NOTHING",

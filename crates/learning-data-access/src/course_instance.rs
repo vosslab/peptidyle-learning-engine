@@ -32,8 +32,8 @@ pub enum CourseInstanceCreationSource {
     Adopted {
         /// Exact reusable Blueprint Course source.
         blueprint_course: BlueprintCourseId,
-        /// Exact immutable Blueprint Revision source.
-        blueprint_revision: BlueprintRevision,
+        /// Exact immutable Blueprint Revision Number source.
+        blueprint_revision_number: BlueprintRevision,
     },
 }
 
@@ -121,10 +121,10 @@ pub struct CourseInstanceView {
 pub struct CourseInstanceBlueprintOrigin {
     /// Readable parent Blueprint public identity.
     pub id: BlueprintCourseId,
-    /// Immutable Revision originally adopted when the Course was created.
-    pub adopted_revision: BlueprintRevision,
+    /// Immutable Revision Number originally adopted when the Course was created.
+    pub adopted_revision_number: BlueprintRevision,
     /// Current readable source Revision, without applying any changes.
-    pub current_revision: BlueprintRevision,
+    pub current_revision_number: BlueprintRevision,
 }
 
 /// Safe active-Instructor selection identity for a Sysadmin creation request.
@@ -256,7 +256,7 @@ mod tests {
         let adopted = serde_json::json!({
             "kind": "adopted",
             "blueprintCourse": blueprint_course,
-            "blueprintRevision": "1"
+            "blueprintRevisionNumber": "1"
         });
         assert!(serde_json::from_value::<CourseInstanceCreationSource>(empty).is_ok());
         assert!(serde_json::from_value::<CourseInstanceCreationSource>(adopted).is_ok());
@@ -274,7 +274,17 @@ mod tests {
                 "kind": "adopted",
                 "blueprintCourse": question_model::BlueprintCourseId::from_random_identity("7K3M2QX")
                     .expect("canonical Blueprint Course ID"),
-                "blueprintRevision": "1",
+                "blueprintRevision": "1"
+            }))
+            .is_err(),
+            "leftover blueprintRevision is not accepted for a Revision Number"
+        );
+        assert!(
+            serde_json::from_value::<CourseInstanceCreationSource>(serde_json::json!({
+                "kind": "adopted",
+                "blueprintCourse": question_model::BlueprintCourseId::from_random_identity("7K3M2QX")
+                    .expect("canonical Blueprint Course ID"),
+                "blueprintRevisionNumber": "1",
                 "blueprint_course": question_model::BlueprintCourseId::from_random_identity("7K3M2QX")
                     .expect("canonical Blueprint Course ID")
             }))

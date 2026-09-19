@@ -18,7 +18,7 @@ export type CourseInstanceCreationSource =
   | {
       readonly kind: "adopted";
       readonly blueprintCourse: BlueprintCourseId;
-      readonly blueprintRevision: BlueprintRevision;
+      readonly blueprintRevisionNumber: BlueprintRevision;
     };
 
 /** Exact source and initial Course Term required to create one Course Instance. */
@@ -56,8 +56,8 @@ export interface CourseInstanceView {
   /** Original adoption provenance; null for Empty Courses or unreadable sources. */
   readonly blueprintOrigin: {
     readonly id: BlueprintCourseId;
-    readonly adoptedRevision: BlueprintRevision;
-    readonly currentRevision: BlueprintRevision;
+    readonly adoptedRevisionNumber: BlueprintRevision;
+    readonly currentRevisionNumber: BlueprintRevision;
   } | null;
 }
 

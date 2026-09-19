@@ -63,8 +63,8 @@ export function BlueprintForkCreate(props: BlueprintForkCreateProps): JSX.Elemen
     <Show when={canFork()}>
       <div class="blueprint-course-save-actions" aria-busy={pending()}>
         <p>
-          Fork Revision {props.source.current_revision_tuple.revisionNumber} into your own independent
-          Private Blueprint Course. Later source changes are not applied automatically.
+          Fork Revision {props.source.current_revision_tuple.revisionNumber} into your own
+          independent Private Blueprint Course. Later source changes are not applied automatically.
         </p>
         <button type="button" disabled={pending()} onClick={() => void createFork()}>
           {pending()

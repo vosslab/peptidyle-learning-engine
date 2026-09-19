@@ -24,16 +24,19 @@ pub(super) async fn creation_assessments(
     pool_id_issuer: Option<&dyn CourseInstancePoolIdIssuer>,
     bloom_receipts: &mut crate::PoolBloomPreparationReceipts,
 ) -> Result<Value, StoreError> {
-    let (blueprint_course, blueprint_revision) = match &input.source {
+    let (blueprint_course, blueprint_revision_number) = match &input.source {
         CourseInstanceCreationSource::Empty => return Ok(Value::Array(Vec::new())),
         CourseInstanceCreationSource::Adopted {
             blueprint_course,
-            blueprint_revision,
-        } => (blueprint_course, blueprint_revision),
+            blueprint_revision_number,
+        } => (blueprint_course, blueprint_revision_number),
     };
     let row = sqlx::query("SELECT * FROM ple_api.load_course_instance_blueprint($1, $2)")
         .bind(blueprint_course.as_string())
-        .bind(i64::try_from(blueprint_revision.value()).map_err(|_| invalid("Blueprint Revision"))?)
+        .bind(
+            i64::try_from(blueprint_revision_number.value())
+                .map_err(|_| invalid("Blueprint Revision"))?,
+        )
         .fetch_optional(&mut **transaction)
         .await
         .map_err(map_sqlx_error)?

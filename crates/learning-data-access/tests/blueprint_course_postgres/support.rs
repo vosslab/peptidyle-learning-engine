@@ -581,7 +581,7 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
         .await
         .expect("data fixture role");
     sqlx::query(
-        "INSERT INTO ple_data.question_revision_tuple (published_question_id, created_at) \
+        "INSERT INTO ple_data.published_question (published_question_id, created_at) \
          VALUES ($1, clock_timestamp())",
     )
     .bind(QUESTION)
@@ -589,7 +589,7 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
     .await
     .expect("Published Question");
     sqlx::query(
-        "INSERT INTO ple_data.question_revision_tuple \
+        "INSERT INTO ple_data.question_revision \
          (published_question_id, revision_number, backend, question_type, published_at) \
          VALUES ($1, 1, 'ple', 'multipleChoice', clock_timestamp())",
     )
@@ -645,7 +645,7 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
                  'object', $1\
              ), 'private-content', 'question-source', decode(repeat('b1', 32), 'hex'), \
              1, 'application/json', revision.published_at \
-           FROM ple_data.question_revision_tuple AS revision \
+           FROM ple_data.question_revision AS revision \
           WHERE revision.published_question_id = $2 AND revision.revision_number = 1",
     )
     .bind(id(0xb107))
@@ -658,7 +658,7 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
              published_question_id, revision_number, backend, question_format, \
              source_object_record_id, source_object_checksum, created_at\
          ) SELECT $1, 1, 'ple', 'pleQuestionJson', $2, repeat('b1', 32), revision.published_at \
-           FROM ple_data.question_revision_tuple AS revision \
+           FROM ple_data.question_revision AS revision \
           WHERE revision.published_question_id = $1 AND revision.revision_number = 1",
     )
     .bind(QUESTION)
@@ -671,7 +671,7 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
              published_question_id, revision_number, parent_revision_number, editor_account_id, \
              accepted_by_account_id, accepted_at, reason_for_edit\
          ) SELECT $1, 1, NULL, $2, $2, revision.published_at, 'Initial publication' \
-           FROM ple_data.question_revision_tuple AS revision \
+           FROM ple_data.question_revision AS revision \
           WHERE revision.published_question_id = $1 AND revision.revision_number = 1",
     )
     .bind(QUESTION)
@@ -704,7 +704,7 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
              question_ownership_event_id, published_question_id, owner_account_id, \
              recorded_by_account_id, event_kind, occurred_at\
          ) SELECT $1, $2, $3, $3, 'initial', revision.published_at \
-           FROM ple_data.question_revision_tuple AS revision \
+           FROM ple_data.question_revision AS revision \
           WHERE revision.published_question_id = $2 AND revision.revision_number = 1",
     )
     .bind(id(0xb108))
@@ -717,7 +717,7 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
         "INSERT INTO ple_data.question_publication_event (\
              event_id, published_question_id, revision_number, actor_account_id, occurred_at\
          ) SELECT $1, $2, 1, $3, revision.published_at \
-           FROM ple_data.question_revision_tuple AS revision \
+           FROM ple_data.question_revision AS revision \
           WHERE revision.published_question_id = $2 AND revision.revision_number = 1",
     )
     .bind(id(0xb109))
@@ -731,7 +731,7 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
              event_id, published_question_id, actor_account_id, availability, edit_number, \
              reason, occurred_at\
          ) SELECT $1, $2, $3, 'available', 1, NULL, revision.published_at \
-           FROM ple_data.question_revision_tuple AS revision \
+           FROM ple_data.question_revision AS revision \
           WHERE revision.published_question_id = $2 AND revision.revision_number = 1",
     )
     .bind(id(0xb10a))

@@ -131,16 +131,20 @@ export function decodeCreateCourseInstanceInput(
     requireOnlyFields(sourceRecord, sourcePath, ["kind"]);
     source = { kind };
   } else {
-    requireOnlyFields(sourceRecord, sourcePath, ["kind", "blueprintCourse", "blueprintRevision"]);
+    requireOnlyFields(sourceRecord, sourcePath, [
+      "kind",
+      "blueprintCourse",
+      "blueprintRevisionNumber",
+    ]);
     source = {
       kind,
       blueprintCourse: decodeBlueprintCourseId(
         field(sourceRecord, "blueprintCourse", sourcePath),
         `${sourcePath}.blueprintCourse`,
       ),
-      blueprintRevision: decodeBlueprintRevision(
-        field(sourceRecord, "blueprintRevision", sourcePath),
-        `${sourcePath}.blueprintRevision`,
+      blueprintRevisionNumber: decodeBlueprintRevision(
+        field(sourceRecord, "blueprintRevisionNumber", sourcePath),
+        `${sourcePath}.blueprintRevisionNumber`,
       ),
     };
   }
@@ -199,20 +203,22 @@ export function decodeCourseInstanceView(value: unknown, path = "response"): Cou
   if (originValue !== null) {
     const originPath = `${path}.blueprintOrigin`;
     const origin = decodeRecord(originValue, originPath);
-    requireOnlyFields(origin, originPath, ["id", "adoptedRevision", "currentRevision"]);
+    requireOnlyFields(origin, originPath, ["id", "adoptedRevisionNumber", "currentRevisionNumber"]);
     blueprintOrigin = {
       id: decodeBlueprintCourseId(field(origin, "id", originPath), `${originPath}.id`),
-      adoptedRevision: decodeBlueprintRevision(
-        field(origin, "adoptedRevision", originPath),
-        `${originPath}.adoptedRevision`,
+      adoptedRevisionNumber: decodeBlueprintRevision(
+        field(origin, "adoptedRevisionNumber", originPath),
+        `${originPath}.adoptedRevisionNumber`,
       ),
-      currentRevision: decodeBlueprintRevision(
-        field(origin, "currentRevision", originPath),
-        `${originPath}.currentRevision`,
+      currentRevisionNumber: decodeBlueprintRevision(
+        field(origin, "currentRevisionNumber", originPath),
+        `${originPath}.currentRevisionNumber`,
       ),
     };
     // ASVS 2.2.3: a current source head cannot precede its original adoption.
-    if (BigInt(blueprintOrigin.currentRevision) < BigInt(blueprintOrigin.adoptedRevision)) {
+    if (
+      BigInt(blueprintOrigin.currentRevisionNumber) < BigInt(blueprintOrigin.adoptedRevisionNumber)
+    ) {
       throw new DecodeError(originPath, "a current Revision at or after the adopted Revision");
     }
   }

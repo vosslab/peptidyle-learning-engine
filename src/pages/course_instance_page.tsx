@@ -659,10 +659,14 @@ export function CourseInstancePage(): JSX.Element {
                       <p data-blueprint-origin>
                         Adopted from Blueprint{" "}
                         <A href={`/blueprint-courses/${origin().id}`}>{origin().id}</A>, Revision{" "}
-                        {origin().adoptedRevision}; source now Revision {origin().currentRevision}.
+                        {origin().adoptedRevisionNumber}; source now Revision{" "}
+                        {origin().currentRevisionNumber}.
                       </p>
                       <Show
-                        when={BigInt(origin().currentRevision) > BigInt(origin().adoptedRevision)}
+                        when={
+                          BigInt(origin().currentRevisionNumber) >
+                          BigInt(origin().adoptedRevisionNumber)
+                        }
                       >
                         <p data-blueprint-revision-notice>Newer Blueprint Revision available</p>
                         <CourseBlueprintUpdateReviewList courseInstanceId={view().course.id} />

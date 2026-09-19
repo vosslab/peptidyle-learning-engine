@@ -79,7 +79,7 @@ pub struct BlueprintChangeProposalPageView {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BlueprintChangeProposalSideView {
-    pub revision: BlueprintRevisionTuple,
+    pub blueprint_revision_tuple: BlueprintRevisionTuple,
     pub blueprint_edit_number: BlueprintEditNumber,
     pub names: BlueprintComparisonNames,
     pub classification: question_model::CourseClassification,

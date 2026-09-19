@@ -33,7 +33,7 @@ export interface AssessmentBlueprintUpdateContent {
 
 export interface AssessmentBlueprintUpdateReview {
   readonly assessment: LiveAssessmentWorkspace;
-  readonly sourceRevision: BlueprintRevision;
+  readonly sourceRevisionNumber: BlueprintRevision;
   readonly proposed: AssessmentBlueprintUpdateContent | null;
   readonly cannotApplyReason: "retainedSourceMissing" | "assessmentTypeMismatch" | null;
 }
@@ -47,16 +47,16 @@ export interface CourseAssessmentBlueprintUpdateSummary {
   readonly cannotApplyReason: "retainedSourceMissing" | "assessmentTypeMismatch" | null;
 }
 
-/** Derived together from one parent Revision; adoptedRevision is the immutable creation pin. */
+/** Derived together from one parent Revision; adoptedRevisionNumber is the immutable creation pin. */
 export interface CourseBlueprintUpdateReview {
   readonly blueprintCourseId: BlueprintCourseId;
-  readonly adoptedRevision: BlueprintRevision;
-  readonly sourceRevision: BlueprintRevision;
+  readonly adoptedRevisionNumber: BlueprintRevision;
+  readonly sourceRevisionNumber: BlueprintRevision;
   readonly assessments: ReadonlyArray<CourseAssessmentBlueprintUpdateSummary>;
 }
 
 export interface ApplyAssessmentBlueprintUpdateInput {
-  readonly expectedSourceRevision: BlueprintRevision;
+  readonly expectedSourceRevisionNumber: BlueprintRevision;
   readonly expectedEditNumber: AssessmentEditNumber;
 }
 

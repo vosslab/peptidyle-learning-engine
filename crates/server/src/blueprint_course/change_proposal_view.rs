@@ -131,7 +131,7 @@ fn side(
         blueprint_edit_number,
     );
     BlueprintChangeProposalSideView {
-        revision,
+        blueprint_revision_tuple: revision,
         blueprint_edit_number,
         names: projected.names,
         classification,

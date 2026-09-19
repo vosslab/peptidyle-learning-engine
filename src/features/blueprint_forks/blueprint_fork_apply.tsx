@@ -173,19 +173,22 @@ export function BlueprintSelectionEditor(props: ApplyProps): JSX.Element {
         return;
       }
       if (!props.client) throw new Error("Fork client is unavailable.");
-      await props.client.applyBlueprintFork(props.review.right.currentRevision.blueprintCourseId, {
-        expectedSource: props.review.left.currentRevision,
-        expectedFork: props.review.right.currentRevision,
-        expectedSourceBlueprintEditNumber: props.review.left.blueprintEditNumber,
-        expectedForkBlueprintEditNumber: props.review.right.blueprintEditNumber,
-        sourceShortName: shortName(),
-        sourceLongName: longName(),
-        selection: {
-          sourceModuleLabels: labels(),
-          sourceAssessments: contents(),
-          layout: edited() ? layout() : null,
+      await props.client.applyBlueprintFork(
+        props.review.right.currentRevisionTuple.blueprintCourseId,
+        {
+          expectedSource: props.review.left.currentRevisionTuple,
+          expectedFork: props.review.right.currentRevisionTuple,
+          expectedSourceBlueprintEditNumber: props.review.left.blueprintEditNumber,
+          expectedForkBlueprintEditNumber: props.review.right.blueprintEditNumber,
+          sourceShortName: shortName(),
+          sourceLongName: longName(),
+          selection: {
+            sourceModuleLabels: labels(),
+            sourceAssessments: contents(),
+            layout: edited() ? layout() : null,
+          },
         },
-      });
+      );
       setLocked(true);
       setMessage("Selected changes saved. Reloading the fork and comparison...");
       props.onApplied();

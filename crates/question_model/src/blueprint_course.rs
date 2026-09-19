@@ -440,6 +440,23 @@ mod tests {
                 .expect("content round trips"),
             content
         );
+        let mut leftover = serde_json::to_value(&content).expect("content serializes");
+        leftover["entries"][0]["published_question"] =
+            leftover["entries"][0]["question_revision_tuple"].take();
+        leftover["entries"][0]
+            .as_object_mut()
+            .expect("fixed entry")
+            .remove("question_revision_tuple");
+        assert!(
+            serde_json::from_value::<BlueprintAssessmentContentInput>(leftover).is_err(),
+            "Tuple JSON is not accepted under leftover published_question"
+        );
+        let mut number_under_tuple = serde_json::to_value(&content).expect("content serializes");
+        number_under_tuple["entries"][0]["question_revision_tuple"] = serde_json::json!(1);
+        assert!(
+            serde_json::from_value::<BlueprintAssessmentContentInput>(number_under_tuple).is_err(),
+            "a lone Revision Number is not accepted under question_revision_tuple"
+        );
         let mut legacy_wire = serde_json::to_value(&content).expect("content serializes");
         let defaults = legacy_wire["defaults"]
             .as_object_mut()
@@ -537,6 +554,22 @@ mod tests {
         let wire = serde_json::to_value(view).expect("safe view serializes");
         assert_eq!(wire["id"], "BP7K3M2QXH");
         assert_eq!(wire["current_revision_tuple"]["revisionNumber"], "1");
+        let mut leftover = wire.clone();
+        leftover["current_revision"] = leftover["current_revision_tuple"].clone();
+        leftover
+            .as_object_mut()
+            .expect("view object")
+            .remove("current_revision_tuple");
+        assert!(
+            serde_json::from_value::<BlueprintCourseView>(leftover).is_err(),
+            "Tuple JSON is not accepted under leftover current_revision"
+        );
+        let mut number_under_tuple = wire.clone();
+        number_under_tuple["current_revision_tuple"] = serde_json::json!("1");
+        assert!(
+            serde_json::from_value::<BlueprintCourseView>(number_under_tuple).is_err(),
+            "a lone Revision Number is not accepted under current_revision_tuple"
+        );
         assert_eq!(
             wire["modules"][0]["assessments"][0]["content"]["entries"][0]["kind"],
             "fixed"

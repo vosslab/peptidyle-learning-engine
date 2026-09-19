@@ -83,11 +83,11 @@ export function CourseBlueprintUpdateReviewList(props: {
               <>
                 <p class="page-lede" data-blueprint-source-revision>
                   Source Blueprint {summary().blueprintCourseId}, Revision{" "}
-                  {summary().sourceRevision} under review.
+                  {summary().sourceRevisionNumber} under review.
                 </p>
                 <p class="instructor-list__metadata">
                   Review and approve changes separately for each Assessment. The original Course
-                  adoption remains Revision {summary().adoptedRevision}.
+                  adoption remains Revision {summary().adoptedRevisionNumber}.
                 </p>
                 <Show
                   when={summary().assessments.length > 0}

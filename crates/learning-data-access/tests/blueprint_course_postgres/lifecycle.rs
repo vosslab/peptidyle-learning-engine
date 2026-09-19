@@ -107,7 +107,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
                 },
                 source: CourseInstanceCreationSource::Adopted {
                     blueprint_course: blueprint_course_id.clone(),
-                    blueprint_revision: BlueprintRevision::new(1).expect("Revision 1"),
+                    blueprint_revision_number: BlueprintRevision::new(1).expect("Revision 1"),
                 },
                 short_name: "ADOPT".into(),
                 long_name: "Complete Blueprint adoption".into(),
@@ -131,7 +131,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
                 },
                 source: CourseInstanceCreationSource::Adopted {
                     blueprint_course: blueprint_course_id.clone(),
-                    blueprint_revision: BlueprintRevision::new(1).expect("Revision 1"),
+                    blueprint_revision_number: BlueprintRevision::new(1).expect("Revision 1"),
                 },
                 short_name: "ADOPT-2".into(),
                 long_name: "Independent Blueprint adoption".into(),
@@ -299,7 +299,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
                     },
                     source: CourseInstanceCreationSource::Adopted {
                         blueprint_course: blueprint_course_id.clone(),
-                        blueprint_revision: BlueprintRevision::INITIAL,
+                        blueprint_revision_number: BlueprintRevision::INITIAL,
                     },
                     short_name: "ARCH".into(),
                     long_name: "Archived Blueprint adoption denial".into(),

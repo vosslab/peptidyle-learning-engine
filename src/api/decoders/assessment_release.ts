@@ -146,7 +146,7 @@ export function decodeBlueprintCourseId(value: unknown, path: string): Blueprint
   return decoded;
 }
 
-export function blueprintRevision(value: unknown, path: string): BlueprintRevision {
+export function blueprintRevisionNumber(value: unknown, path: string): BlueprintRevision {
   const decoded = decodeString(value, path);
   if (!/^[1-9][0-9]*$/u.test(decoded) || BigInt(decoded) > 9_223_372_036_854_775_807n) {
     throw new DecodeError(path, "a positive Blueprint Revision");
@@ -171,9 +171,9 @@ function blueprintAssessmentSource(value: unknown, path: string): BlueprintAsses
         field(revision, "blueprintCourseId", `${path}.blueprint_revision`),
         `${path}.blueprint_revision_tuple.blueprintCourseId`,
       ),
-      revisionNumber: blueprintRevision(
+      revisionNumber: blueprintRevisionNumber(
         field(revision, "revisionNumber", `${path}.blueprint_revision`),
-        `${path}.blueprint_revision_tuple.revisionNumberNumber`,
+        `${path}.blueprint_revision_tuple.revisionNumber`,
       ),
     },
     blueprint_assessment_id: decodeIdentifier(

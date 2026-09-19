@@ -128,8 +128,9 @@ export function ProposalReview(props: {
                 <h4>{value().names.longName}</h4>
                 <p>
                   Short name: {value().names.shortName}. Blueprint{" "}
-                  {value().revision.blueprintCourseId}; frozen Revision{" "}
-                  {value().revision.revisionNumber}; edit {value().blueprintEditNumber}.
+                  {value().blueprintRevisionTuple.blueprintCourseId}; frozen Revision{" "}
+                  {value().blueprintRevisionTuple.revisionNumber}; edit{" "}
+                  {value().blueprintEditNumber}.
                 </p>
                 <p>Exact classification identities below use current vocabulary labels.</p>
                 <CourseClassificationSummary value={value().classification} />

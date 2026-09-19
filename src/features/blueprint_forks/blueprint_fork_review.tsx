@@ -125,8 +125,8 @@ export function AssessmentSnapshot(props: {
                       {(fixed) => (
                         <p>
                           Question {fixed().question_revision_tuple.questionId}, Revision{" "}
-                          {fixed().question_revision_tuple.revisionNumber}; {fixed().points_possible}{" "}
-                          points.
+                          {fixed().question_revision_tuple.revisionNumber};{" "}
+                          {fixed().points_possible} points.
                         </p>
                       )}
                     </Show>
@@ -182,13 +182,13 @@ function Comparison(props: { readonly view: BlueprintComparisonView }): JSX.Elem
           {(key) => (
             <section>
               <h3>{key === "left" ? "Left" : "Right"}: latest saved Revision</h3>
-              <A href={coursePath(props.view[key].currentRevision.blueprintCourseId)}>
+              <A href={coursePath(props.view[key].currentRevisionTuple.blueprintCourseId)}>
                 {props.view[key].names.longName}
               </A>
               <p>
                 {props.view[key].names.shortName};{" "}
-                {props.view[key].currentRevision.blueprintCourseId}; Revision{" "}
-                {props.view[key].currentRevision.revisionNumber}.
+                {props.view[key].currentRevisionTuple.blueprintCourseId}; Revision{" "}
+                {props.view[key].currentRevisionTuple.revisionNumber}.
               </p>
               <h4>Module structure in authored order</h4>
               <For each={props.view[key].modules} fallback={<p>No Modules.</p>}>
@@ -441,15 +441,17 @@ export function BlueprintKnownForks(
                       <h3>{fork.longName}</h3>
                       <p>
                         {fork.shortName}; {readableSettingName(fork.availability)}; fork Revision{" "}
-                        {fork.currentRevision}.
+                        {fork.currentRevisionNumber}.
                       </p>
-                      <p>Created from source Revision {fork.sourceRevision}.</p>
+                      <p>Created from source Revision {fork.sourceRevisionNumber}.</p>
                       <Show
-                        when={BigInt(props.sourceCurrentRevision) > BigInt(fork.sourceRevision)}
+                        when={
+                          BigInt(props.sourceCurrentRevision) > BigInt(fork.sourceRevisionNumber)
+                        }
                       >
                         <p>The source has Revisions since this fork was created.</p>
                       </Show>
-                      <Show when={BigInt(fork.currentRevision) > 1n}>
+                      <Show when={BigInt(fork.currentRevisionNumber) > 1n}>
                         <p>This fork has saved changes since it was created.</p>
                       </Show>
                       <p>Owning Instructor: {fork.ownerDisplayName}</p>
@@ -578,7 +580,7 @@ export function BlueprintForkReview(
                 loaded.target?.read_access === "blueprint_course_owner" &&
                 loaded.target.availability !== "archived" &&
                 loaded.target.fork_source_tuple?.blueprintCourseId ===
-                  loaded.comparison.left.currentRevision.blueprintCourseId
+                  loaded.comparison.left.currentRevisionTuple.blueprintCourseId
               }
               fallback={
                 <p role="status">

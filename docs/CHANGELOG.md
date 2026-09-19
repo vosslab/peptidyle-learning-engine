@@ -10,13 +10,52 @@
 
 ### Fixes and Maintenance
 
+- Lone Blueprint Revision Numbers on remaining browser contracts use a Number
+  suffix: history `revisionNumber`, Course Blueprint update
+  `adoptedRevisionNumber` / `sourceRevisionNumber`, Assessment Blueprint update
+  `sourceRevisionNumber` / `expectedSourceRevisionNumber`. Gate:
+  `cargo tsgen`, `npx tsc --noEmit -p tsconfig.json`,
+  `node --import tsx --test tests/test_blueprint_course_client.mjs`.
+
+- Course Instance adopted source JSON is `blueprintRevisionNumber`, and Course
+  origin `adoptedRevisionNumber` matches `currentRevisionNumber`. LDA postgres
+  seeds insert `published_question` and `question_revision`, not a Tuple-named
+  table. Tuple decoder and serde tests reject a lone Revision Number under a
+  Tuple field. Bloom preparation target kind is SQL `question_revision`. Gate:
+  `cargo test -p question_model --lib ordered_content_validation
+  revision_tuple`,
+  `cargo test -p learning-data-access --lib creation_source_accepts_only`,
+  `node --import tsx --test tests/test_question_revision_tuple_decoder.mjs
+  tests/test_blueprint_course_client.mjs tests/test_course_instance_summary.mjs`.
+
+- Final remaining-disagreement review of live SQL, Rust, TypeScript,
+  generated/api, Terminology Contract, and Human Guidance found no leftover
+  dual-meaning identity fields: Tuples stay under Tuple names, lone Revision
+  Numbers stay under Number names, Pools use Edit Number, and Assignment
+  appears only in Assessment Type names. Gate:
+  `source source_me.sh && ./launchers/run_fast_checks.sh`.
+
+- Name Tuple-valued Blueprint fields as Tuples: fixed-entry JSON is
+  `question_revision_tuple`, current Blueprint views use
+  `current_revision_tuple` / `fork_source_tuple`, comparison sides use
+  `currentRevisionTuple`, and Change Proposal sides use
+  `blueprintRevisionTuple`. Lone Revision Numbers use
+  `currentRevisionNumber` / `sourceRevisionNumber`. Leftover
+  `published_question` Tuple JSON is rejected. Gate:
+  `cargo test -p question_model --lib ordered_content_validation`,
+  `node --import tsx --test tests/test_question_revision_tuple_decoder.mjs
+  tests/test_blueprint_course_client.mjs`.
+
 - Rotate 2026-09-17 changelog history into [CHANGELOG-2026-09m.md](CHANGELOG-2026-09m.md) so the active changelog stays under the 1000-line source limit.
 
-- Add opt-in pytest disk budgets for the Rust `target/` build directory and
-  active Podman connection. The checks fail when `target/` physical usage
+- Add mandatory pytest disk budgets for the Rust `target/` build directory and
+  active Podman connection so routine testing cannot silently fill the
+  developer volume. The normal pytest lane fails when `target/` physical usage
   exceeds 10 GiB or the sum of Podman images, containers, and local volumes
-  exceeds 20.00 GB. A clean checkout without `target/` passes. Gate:
-  `source source_me.sh && python3 -m pytest tests/test_developer_storage_budget.py`.
+  exceeds 20.00 GB. A clean checkout without `target/` passes. The independent
+  checks can be propagated separately. Focused gate:
+  `source source_me.sh && python3 -m pytest tests/test_target_disk_budget.py
+  tests/test_podman_disk_budget.py`.
 
 - Finish remaining identity alignment for living UI copy, decoder
   errors, and route Path/store locals that still named an Id or Tuple as
@@ -255,7 +294,7 @@
   [NAMING_CONVENTIONS.md](NAMING_CONVENTIONS.md), and related lifecycle
   docs. Historical changelog and archive files are unchanged. Docs-only.
 - Synchronized shared style guides, tests, and repository support files from the starter template.
-
+- Synchronized shared style guides, tests, and repository support files from the starter template.
 ## 2026-09-18
 
 ### Additions and New Features

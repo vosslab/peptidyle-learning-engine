@@ -85,8 +85,8 @@ pub(super) async fn review_course(
     tx.commit().await.map_err(map_sqlx_error)?;
     Ok(CourseBlueprintUpdateReview {
         blueprint_course_id,
-        adopted_revision,
-        source_revision,
+        adopted_revision_number: adopted_revision,
+        source_revision_number: source_revision,
         assessments,
     })
 }
@@ -104,7 +104,7 @@ pub(super) async fn review(
     tx.commit().await.map_err(map_sqlx_error)?;
     Ok(AssessmentBlueprintUpdateReview {
         assessment,
-        source_revision: source.revision,
+        source_revision_number: source.revision,
         proposed,
         cannot_apply_reason: source.cannot_apply_reason,
     })
@@ -123,7 +123,7 @@ pub(super) async fn apply(
     // Course and Assessment locks before either qualified precondition is tested.
     let source = load_source(&mut tx, &course, &assessment).await?;
     let workspace = load_workspace(&mut tx, &course, &assessment).await?;
-    if source.revision != input.expected_source_revision
+    if source.revision != input.expected_source_revision_number
         || workspace.edit_number != input.expected_edit_number
     {
         return Err(StoreError::Conflict);
@@ -159,7 +159,7 @@ pub(super) async fn apply(
         .bind(course.as_string())
         .bind(assessment.as_string())
         .bind(integer(
-            input.expected_source_revision.value(),
+            input.expected_source_revision_number.value(),
             "Blueprint Revision",
         )?)
         .bind(integer(

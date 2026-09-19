@@ -201,7 +201,8 @@ fn validate_loaded_content(
             anyhow::bail!("Live Demo Blueprint entries must remain fixed Questions");
         };
         ensure!(
-            question_revision_tuple == question && &expected_fixed.question_revision_tuple == question,
+            question_revision_tuple == question
+                && &expected_fixed.question_revision_tuple == question,
             "Live Demo Blueprint Question pins differ from the reviewed Pilot publications"
         );
         ensure!(

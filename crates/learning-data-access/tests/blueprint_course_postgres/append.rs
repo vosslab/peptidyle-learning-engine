@@ -70,7 +70,7 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
                     } else {
                         CourseInstanceCreationSource::Adopted {
                             blueprint_course: blueprint.clone(),
-                            blueprint_revision: BlueprintRevision::INITIAL,
+                            blueprint_revision_number: BlueprintRevision::INITIAL,
                         }
                     },
                     short_name: format!("APPEND-{index}"),

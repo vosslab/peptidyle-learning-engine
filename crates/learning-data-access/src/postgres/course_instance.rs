@@ -217,12 +217,12 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
                 CourseInstanceCreationSource::Empty => ("empty", None, None),
                 CourseInstanceCreationSource::Adopted {
                     blueprint_course,
-                    blueprint_revision,
+                    blueprint_revision_number,
                 } => (
                     "adopted",
                     Some(blueprint_course.to_string()),
                     Some(
-                        i64::try_from(blueprint_revision.value())
+                        i64::try_from(blueprint_revision_number.value())
                             .map_err(|_| invalid("Blueprint Revision"))?,
                     ),
                 ),
@@ -441,8 +441,8 @@ fn decode_view(row: &sqlx::postgres::PgRow) -> Result<CourseInstanceView, StoreE
                 id: blueprint_course_id
                     .parse()
                     .map_err(|_| invalid("Blueprint Course ID"))?,
-                adopted_revision: revision(adopted)?,
-                current_revision: revision(current)?,
+                adopted_revision_number: revision(adopted)?,
+                current_revision_number: revision(current)?,
             })
         }
         _ => return Err(invalid("Blueprint origin")),

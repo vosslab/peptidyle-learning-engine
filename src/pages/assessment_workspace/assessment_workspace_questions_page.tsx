@@ -427,7 +427,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
         workspace.courseInstanceId,
         workspace.assessmentId,
         {
-          expectedSourceRevision: review.sourceRevision,
+          expectedSourceRevisionNumber: review.sourceRevisionNumber,
           expectedEditNumber: review.assessment.editNumber,
         },
       );

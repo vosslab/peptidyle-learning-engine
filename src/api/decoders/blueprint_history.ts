@@ -11,10 +11,13 @@ function entry(value: unknown, path: string): BlueprintHistoryEntryView {
   const record = decodeRecord(value, path);
   const kind = field(record, "kind", path);
   if (kind === "savedRevision") {
-    requireOnlyFields(record, path, ["kind", "revision", "savedAt"]);
+    requireOnlyFields(record, path, ["kind", "revisionNumber", "savedAt"]);
     return {
       kind,
-      revision: decodeBlueprintRevision(field(record, "revision", path), `${path}.revision`),
+      revisionNumber: decodeBlueprintRevision(
+        field(record, "revisionNumber", path),
+        `${path}.revisionNumber`,
+      ),
       savedAt: decodeTimestamp(field(record, "savedAt", path), `${path}.savedAt`),
     };
   }

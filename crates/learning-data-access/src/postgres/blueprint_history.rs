@@ -62,8 +62,10 @@ fn decode_entry(
         BlueprintHistoryKind::Revisions => {
             let number: i64 = row.try_get("revision_number").map_err(map_sqlx_error)?;
             Ok(BlueprintHistoryEntryView::SavedRevision {
-                revision: BlueprintRevision::new(u64::try_from(number).map_err(|_| invalid())?)
-                    .ok_or_else(invalid)?,
+                revision_number: BlueprintRevision::new(
+                    u64::try_from(number).map_err(|_| invalid())?,
+                )
+                .ok_or_else(invalid)?,
                 saved_at: recorded_at,
             })
         }

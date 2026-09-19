@@ -12,7 +12,7 @@ import {
   decodeRecord,
   decodeStringEnum,
 } from "../decoder";
-import { blueprintRevision } from "./assessment_release";
+import { blueprintRevisionNumber } from "./assessment_release";
 import { decodeBlueprintCourseId } from "./blueprint_course";
 import { decodeAssessmentId, decodeAssessmentTitle, field, requireOnlyFields } from "./shared";
 
@@ -61,17 +61,17 @@ export function decodeCourseBlueprintUpdateReview(
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "blueprintCourseId",
-    "adoptedRevision",
-    "sourceRevision",
+    "adoptedRevisionNumber",
+    "sourceRevisionNumber",
     "assessments",
   ]);
-  const adoptedRevision = blueprintRevision(
-    field(record, "adoptedRevision", path),
-    `${path}.adoptedRevision`,
+  const adoptedRevisionNumber = blueprintRevisionNumber(
+    field(record, "adoptedRevisionNumber", path),
+    `${path}.adoptedRevisionNumber`,
   );
-  const sourceRevision = blueprintRevision(
-    field(record, "sourceRevision", path),
-    `${path}.sourceRevision`,
+  const sourceRevisionNumber = blueprintRevisionNumber(
+    field(record, "sourceRevisionNumber", path),
+    `${path}.sourceRevisionNumber`,
   );
   const assessments = decodeArray(
     field(record, "assessments", path),
@@ -79,7 +79,7 @@ export function decodeCourseBlueprintUpdateReview(
     assessmentSummary,
   );
   if (
-    BigInt(sourceRevision) < BigInt(adoptedRevision) ||
+    BigInt(sourceRevisionNumber) < BigInt(adoptedRevisionNumber) ||
     new Set(assessments.map((row) => row.assessmentId)).size !== assessments.length
   ) {
     throw new DecodeError(path, "a current Revision and unique adopted Assessment correspondences");
@@ -89,8 +89,8 @@ export function decodeCourseBlueprintUpdateReview(
       field(record, "blueprintCourseId", path),
       `${path}.blueprintCourseId`,
     ),
-    adoptedRevision,
-    sourceRevision,
+    adoptedRevisionNumber,
+    sourceRevisionNumber,
     assessments,
   };
 }

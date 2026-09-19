@@ -109,8 +109,8 @@ function HistoryPanel(props: HistoryProps): JSX.Element {
     <section class="blueprint-course-inspection" aria-label="Blueprint history">
       <h2>Blueprint history</h2>
       <p>
-        Latest saved content: Revision {props.view.current_revision_tuple.revisionNumber}. History is
-        read-only; inspecting it does not replace your current content or local edits.
+        Latest saved content: Revision {props.view.current_revision_tuple.revisionNumber}. History
+        is read-only; inspecting it does not replace your current content or local edits.
       </p>
       <details onToggle={(event) => setRevisionOpen(event.currentTarget.open)}>
         <summary>Revision history</summary>
@@ -119,7 +119,7 @@ function HistoryPanel(props: HistoryProps): JSX.Element {
             client={props.client}
             blueprintCourseId={props.view.id}
             kind="revisions"
-            currentRevisionTuple={props.view.current_revision_tuple.revisionNumber}
+            currentRevisionNumber={props.view.current_revision_tuple.revisionNumber}
             onInspect={(number) => void inspect(number)}
           />
         </Show>
@@ -132,7 +132,7 @@ function HistoryPanel(props: HistoryProps): JSX.Element {
             client={props.client}
             blueprintCourseId={props.view.id}
             kind="metadata"
-            currentRevisionTuple={props.view.current_revision_tuple.revisionNumber}
+            currentRevisionNumber={props.view.current_revision_tuple.revisionNumber}
             onInspect={(number) => void inspect(number)}
           />
         </Show>
@@ -179,7 +179,7 @@ interface HistoryPageProps {
   readonly client: BlueprintCourseClient;
   readonly blueprintCourseId: string;
   readonly kind: "revisions" | "metadata";
-  readonly currentRevisionTuple: string;
+  readonly currentRevisionNumber: string;
   readonly onInspect: (revision: string) => void;
 }
 
@@ -253,8 +253,8 @@ function HistoryPage(props: HistoryPageProps): JSX.Element {
                 {(saved) => (
                   <>
                     <span>
-                      Revision {saved().revision}
-                      {saved().revision === props.currentRevisionTuple
+                      Revision {saved().revisionNumber}
+                      {saved().revisionNumber === props.currentRevisionNumber
                         ? " (latest saved)"
                         : " (historical)"}{" "}
                       - saved {recordedTime(saved().savedAt)}
@@ -262,9 +262,9 @@ function HistoryPage(props: HistoryPageProps): JSX.Element {
                     <button
                       type="button"
                       class="quiet-action"
-                      onClick={() => props.onInspect(saved().revision)}
+                      onClick={() => props.onInspect(saved().revisionNumber)}
                     >
-                      Inspect Revision {saved().revision}
+                      Inspect Revision {saved().revisionNumber}
                     </button>
                   </>
                 )}

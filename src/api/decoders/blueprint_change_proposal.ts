@@ -202,7 +202,7 @@ function side(
 } {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "revision",
+    "blueprintRevisionTuple",
     "blueprintEditNumber",
     "names",
     "classification",
@@ -210,7 +210,10 @@ function side(
     "assessments",
   ]);
   return {
-    revision: blueprintRevisionTuple(field(record, "revision", path), `${path}.revision`),
+    blueprintRevisionTuple: blueprintRevisionTuple(
+      field(record, "blueprintRevisionTuple", path),
+      `${path}.blueprintRevisionTuple`,
+    ),
     blueprintEditNumber: blueprintEditNumber(
       field(record, "blueprintEditNumber", path),
       `${path}.blueprintEditNumber`,
@@ -240,14 +243,14 @@ function comparison(value: unknown, path: string): BlueprintChangeProposalCompar
   const checked = decodeBlueprintComparisonView(
     {
       left: {
-        currentRevision: source.revision,
+        currentRevisionTuple: source.blueprintRevisionTuple,
         names: source.names,
         blueprintEditNumber: source.blueprintEditNumber,
         modules: source.modules,
         assessments: source.assessments,
       },
       right: {
-        currentRevision: target.revision,
+        currentRevisionTuple: target.blueprintRevisionTuple,
         names: target.names,
         blueprintEditNumber: target.blueprintEditNumber,
         modules: target.modules,

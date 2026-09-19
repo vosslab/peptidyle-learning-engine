@@ -158,7 +158,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> AccessFixture {
     .await
     .expect("Published Question");
     sqlx::query(
-        "INSERT INTO ple_data.question_revision_tuple \
+        "INSERT INTO ple_data.question_revision \
          (published_question_id, revision_number, backend, question_type, published_at) \
          VALUES ($1, 1, 'ple', 'multipleChoice', clock_timestamp())",
     )

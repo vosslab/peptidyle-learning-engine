@@ -765,5 +765,9 @@ mod tests {
             )
             .is_err()
         );
+        assert!(
+            serde_json::from_value::<QuestionRevisionTuple>(serde_json::json!(1)).is_err(),
+            "a lone Revision Number is not a Question Revision Tuple"
+        );
     }
 }
