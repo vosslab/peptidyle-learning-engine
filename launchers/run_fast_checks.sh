@@ -42,13 +42,17 @@ repo_root="$(git -C "$launcher_directory" rev-parse --show-toplevel)"
 cd "$repo_root"
 
 source source_me.sh
+echo "== check schema"
 ./devel/generate_schema_tables_doc.py
 ./schema_style/check_schema_style.py
 
+echo "== check rust"
 ./check_rust.sh
 
+echo "== check codebase"
 ./check_codebase.sh
 
-python3 -m pytest tests/
+echo "== pytest tests/"
+pytest tests/
 
 echo "PASS: offline aggregate checks passed."
