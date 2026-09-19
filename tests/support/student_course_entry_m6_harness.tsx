@@ -192,7 +192,9 @@ export function mountStudentCourseEntryM6Harness(
         if (item === undefined) throw new Error("Unknown harness Coursework");
         return Promise.resolve({
           decision: item.decision,
-          activeAssessmentAttempt: item.canResumeAssessmentAttempt ? "00000000-0000-0000-0000-000000000006" : null,
+          activeAssessmentAttempt: item.canResumeAssessmentAttempt
+            ? "00000000-0000-0000-0000-000000000006"
+            : null,
           title: item.title,
           assessmentType: item.assessmentType,
           questionCount: item.questionCount,

@@ -13,31 +13,28 @@ use question_model::{AssessmentId, AssessmentType, CourseInstanceId};
 use sqlx::Row;
 use uuid::Uuid;
 
-const INSTRUCTOR: u128 = 0xea01;
-const STUDENT: u128 = 0xea02;
 const STUDENT_SESSION: u128 = 0xea03;
-const NONMEMBER: u128 = 0xea04;
 const NONMEMBER_SESSION: u128 = 0xea05;
-const SYSADMIN: u128 = 0xea06;
 const SYSADMIN_SESSION: u128 = 0xea07;
-const COURSE: u128 = 0xeb01;
 const STUDENT_RECORD: u128 = 0xeb02;
 const STUDENT_MEMBERSHIP: u128 = 0xeb03;
 const INSTRUCTOR_MEMBERSHIP: u128 = 0xeb04;
-const OTHER_STUDENT: u128 = 0xeb05;
 const OTHER_STUDENT_RECORD: u128 = 0xeb06;
 const OTHER_STUDENT_MEMBERSHIP: u128 = 0xeb07;
 const OTHER_STUDENT_SESSION: u128 = 0xeb08;
-const OTHER_COURSE: u128 = 0xeb09;
 const OTHER_COURSE_STUDENT_RECORD: u128 = 0xeb0a;
 const OTHER_COURSE_STUDENT_MEMBERSHIP: u128 = 0xeb0b;
 const OTHER_COURSE_INSTRUCTOR_MEMBERSHIP: u128 = 0xeb0c;
-const BLUEPRINT: u128 = 0xec01;
 const BLUEPRINT_MODULE: u128 = 0xec02;
 const BLUEPRINT_ASSESSMENT: u128 = 0xec03;
-const ASSESSMENT: u128 = 0xed01;
 const ASSESSMENT_ENTRY: u128 = 0xed02;
 const OTHER_STUDENT_ACCOMMODATION: u128 = 0xed03;
+const PUBLISHED_QUESTION: &str = "BCDE-2FGH";
+
+struct AccessFixture {
+    course_id: String,
+    assessment_id: String,
+}
 
 fn id(value: u128) -> Uuid {
     Uuid::from_u128(value)
@@ -47,10 +44,21 @@ fn token(marker: u8) -> SessionTokenHash {
     SessionTokenHash::compute(&[marker; 32])
 }
 
+async fn mint_account(tx: &mut sqlx::Transaction<'_, sqlx::Postgres>, role: &str) -> String {
+    sqlx::query_scalar(
+        "INSERT INTO ple_private.account (account_id, product_role, created_at) \
+         VALUES ('U00000009', $1, clock_timestamp()) RETURNING account_id",
+    )
+    .bind(role)
+    .fetch_one(&mut **tx)
+    .await
+    .expect("minted Account")
+}
+
 async fn authenticated_student_record_ownership(
     application: &sqlx::postgres::PgPool,
     session_token: SessionTokenHash,
-    course_id: Uuid,
+    course_id: &str,
     student_record_id: Uuid,
 ) -> bool {
     let mut transaction = application.begin().await.expect("application transaction");
@@ -78,38 +86,34 @@ async fn authenticated_student_record_ownership(
     owns_record
 }
 
-async fn seed(admin: &sqlx::postgres::PgPool) {
+async fn seed(admin: &sqlx::postgres::PgPool) -> AccessFixture {
     let mut tx = admin.begin().await.expect("fixture transaction");
     sqlx::query("SET LOCAL ROLE ple_data_owner")
         .execute(&mut *tx)
         .await
         .expect("classification fixture owner");
-    sqlx::query("INSERT INTO ple_data.content_discipline (discipline_uuid, name) VALUES ('00000000-0000-0000-0000-00000000cc01', 'Course fixture discipline') ON CONFLICT (discipline_uuid) DO NOTHING").execute(&mut *tx).await.expect("explicit fixture Discipline");
+    sqlx::query(
+        "INSERT INTO ple_data.content_discipline (content_discipline_id, name) \
+         VALUES ('00000000-0000-0000-0000-00000000cc01', 'Course fixture discipline') \
+         ON CONFLICT (content_discipline_id) DO NOTHING",
+    )
+    .execute(&mut *tx)
+    .await
+    .expect("explicit fixture Discipline");
     sqlx::query("SET LOCAL ROLE ple_private_owner")
         .execute(&mut *tx)
         .await
         .expect("private fixture role");
-    sqlx::query(
-        "INSERT INTO ple_private.account (account_id, product_role, created_at) \
-         VALUES ($1, 'instructor', clock_timestamp()), \
-                ($2, 'student', clock_timestamp()), \
-                ($3, 'student', clock_timestamp()), \
-                ($4, 'student', clock_timestamp()), \
-                ($5, 'sysadmin', clock_timestamp())",
-    )
-    .bind(id(INSTRUCTOR))
-    .bind(id(STUDENT))
-    .bind(id(OTHER_STUDENT))
-    .bind(id(NONMEMBER))
-    .bind(id(SYSADMIN))
-    .execute(&mut *tx)
-    .await
-    .expect("fixture Accounts");
+    let instructor_id = mint_account(&mut tx, "instructor").await;
+    let student_id = mint_account(&mut tx, "student").await;
+    let other_student_id = mint_account(&mut tx, "student").await;
+    let nonmember_id = mint_account(&mut tx, "student").await;
+    let sysadmin_id = mint_account(&mut tx, "sysadmin").await;
     sqlx::query(
         "UPDATE ple_private.account_time_zone SET time_zone = 'America/Denver' \
          WHERE account_id = $1",
     )
-    .bind(id(STUDENT))
+    .bind(&student_id)
     .execute(&mut *tx)
     .await
     .expect("Student Account Time Zone");
@@ -126,16 +130,16 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
                  clock_timestamp() + interval '1 hour')",
     )
     .bind(id(STUDENT_SESSION))
-    .bind(id(STUDENT))
+    .bind(&student_id)
     .bind(token(0xe1).to_string())
     .bind(id(OTHER_STUDENT_SESSION))
-    .bind(id(OTHER_STUDENT))
+    .bind(&other_student_id)
     .bind(token(0xe2).to_string())
     .bind(id(NONMEMBER_SESSION))
-    .bind(id(NONMEMBER))
+    .bind(&nonmember_id)
     .bind(token(0xe3).to_string())
     .bind(id(SYSADMIN_SESSION))
-    .bind(id(SYSADMIN))
+    .bind(&sysadmin_id)
     .bind(token(0xe4).to_string())
     .execute(&mut *tx)
     .await
@@ -146,17 +150,19 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
         .await
         .expect("data fixture role");
     sqlx::query(
-        "INSERT INTO ple_data.published_question (question_id, created_at) \
-         VALUES ('BCDE-2FGH', clock_timestamp())",
+        "INSERT INTO ple_data.published_question (published_question_id, created_at) \
+         VALUES ($1, clock_timestamp())",
     )
+    .bind(PUBLISHED_QUESTION)
     .execute(&mut *tx)
     .await
     .expect("Published Question");
     sqlx::query(
         "INSERT INTO ple_data.question_revision \
-         (question_id, revision_number, backend, question_type, published_at) \
-         VALUES ('BCDE-2FGH', 1, 'ple', 'multipleChoice', clock_timestamp())",
+         (published_question_id, revision_number, backend, question_type, published_at) \
+         VALUES ($1, 1, 'ple', 'multipleChoice', clock_timestamp())",
     )
+    .bind(PUBLISHED_QUESTION)
     .execute(&mut *tx)
     .await
     .expect("Question Revision");
@@ -165,45 +171,46 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
         .execute(&mut *tx)
         .await
         .expect("API fixture role");
-    let blueprint_reference_number: i64 = sqlx::query_scalar(
+    let blueprint_id: String = sqlx::query_scalar(
         "INSERT INTO ple_data.blueprint_course \
-         (blueprint_id, owner_account_id, short_name, long_name, blueprint_edit_number, created_at, discipline_uuid, tags) \
-         VALUES ($1, $2, 'ACCESS', 'Assessment Access Blueprint', \
-                 '00000000-0000-0000-0000-00000000ec04', clock_timestamp(), '00000000-0000-0000-0000-00000000cc01', ARRAY[]::text[]) \
-         RETURNING reference_number",
+         (blueprint_course_id, owner_account_id, short_name, long_name, blueprint_edit_number, \
+          created_at, content_discipline_id, tags) \
+         VALUES ('BP0000000' || ple_private.crockford_checksum_character('BP0000000'), \
+                 $1, 'ACCESS', 'Assessment Access Blueprint', 1, clock_timestamp(), \
+                 '00000000-0000-0000-0000-00000000cc01', ARRAY[]::text[]) \
+         RETURNING blueprint_course_id",
     )
-    .bind(id(BLUEPRINT))
-    .bind(id(INSTRUCTOR))
+    .bind(&instructor_id)
     .fetch_one(&mut *tx)
     .await
     .expect("Blueprint Course");
     sqlx::query(
         "INSERT INTO ple_data.blueprint_course_revision \
-         (blueprint_course_reference_number, blueprint_revision_number, content, \
+         (blueprint_course_id, blueprint_revision_number, content, \
           content_checksum, saved_at) \
          VALUES ($1, 1, '{}'::jsonb, decode(repeat('0', 64), 'hex'), clock_timestamp())",
     )
-    .bind(blueprint_reference_number)
+    .bind(&blueprint_id)
     .execute(&mut *tx)
     .await
     .expect("Blueprint Revision");
     sqlx::query(
         "INSERT INTO ple_data.blueprint_revision_module \
-         (blueprint_course_reference_number, blueprint_revision_number, \
+         (blueprint_course_id, blueprint_revision_number, \
           blueprint_module_reference, module_position) VALUES ($1, 1, $2, 1)",
     )
-    .bind(blueprint_reference_number)
+    .bind(&blueprint_id)
     .bind(id(BLUEPRINT_MODULE))
     .execute(&mut *tx)
     .await
     .expect("Blueprint Module");
     sqlx::query(
         "INSERT INTO ple_data.blueprint_revision_assessment \
-         (blueprint_course_reference_number, blueprint_revision_number, \
+         (blueprint_course_id, blueprint_revision_number, \
           blueprint_module_reference, blueprint_assessment_reference, assessment_position) \
          VALUES ($1, 1, $2, $3, 1)",
     )
-    .bind(blueprint_reference_number)
+    .bind(&blueprint_id)
     .bind(id(BLUEPRINT_MODULE))
     .bind(id(BLUEPRINT_ASSESSMENT))
     .execute(&mut *tx)
@@ -211,123 +218,124 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
     .expect("Blueprint Assessment");
     sqlx::query(
         "INSERT INTO ple_data.blueprint_revision_event \
-         (blueprint_course_reference_number, blueprint_revision_number, actor_account_id, \
+         (blueprint_course_id, blueprint_revision_number, actor_account_id, \
           request_checksum, occurred_at) \
          VALUES ($1, 1, $2, decode(repeat('ec', 32), 'hex'), clock_timestamp())",
     )
-    .bind(blueprint_reference_number)
-    .bind(id(INSTRUCTOR))
+    .bind(&blueprint_id)
+    .bind(&instructor_id)
     .execute(&mut *tx)
     .await
     .expect("Blueprint Revision Event");
-    sqlx::query(
+    let course_id: String = sqlx::query_scalar(
         "INSERT INTO ple_data.course_instance \
-         (course_id, source_kind, blueprint_course_reference_number, \
-          blueprint_revision_number, assigned_instructor_account_id, assigned_instructor_role, \
-          course_short_name, course_long_name, term_starts_on, term_ends_on, created_at, discipline_uuid, tags) \
-         VALUES ($1, 'adopted', $2, 1, $3, 'instructor', 'ACCESS', \
-                 'Assessment Access Course', current_date, current_date + 1, clock_timestamp(), '00000000-0000-0000-0000-00000000cc01', ARRAY[]::text[])",
+         (course_instance_id, source_kind, blueprint_course_id, blueprint_revision_number, \
+          course_short_name, course_long_name, term_starts_on, term_ends_on, created_at, \
+          content_discipline_id, tags) \
+         VALUES ('CI0000000' || ple_private.crockford_checksum_character('CI0000000'), \
+                 'adopted', $1, 1, 'ACCESS', 'Assessment Access Course', \
+                 current_date, current_date + 1, clock_timestamp(), \
+                 '00000000-0000-0000-0000-00000000cc01', ARRAY[]::text[]) \
+         RETURNING course_instance_id",
     )
-    .bind(id(COURSE))
-    .bind(blueprint_reference_number)
-    .bind(id(INSTRUCTOR))
-    .execute(&mut *tx)
+    .bind(&blueprint_id)
+    .fetch_one(&mut *tx)
     .await
     .expect("Course Instance");
-    sqlx::query(
+    let other_course_id: String = sqlx::query_scalar(
         "INSERT INTO ple_data.course_instance \
-         (course_id, source_kind, blueprint_course_reference_number, \
-          blueprint_revision_number, assigned_instructor_account_id, assigned_instructor_role, \
-          course_short_name, course_long_name, term_starts_on, term_ends_on, created_at, discipline_uuid, tags) \
-         VALUES ($1, 'adopted', $2, 1, $3, 'instructor', 'ACCESS-OTHER', \
+         (course_instance_id, source_kind, blueprint_course_id, blueprint_revision_number, \
+          course_short_name, course_long_name, term_starts_on, term_ends_on, created_at, \
+          content_discipline_id, tags) \
+         VALUES ('CI0000001' || ple_private.crockford_checksum_character('CI0000001'), \
+                 'adopted', $1, 1, 'ACCESS-OTHER', \
                  'Other Course for exact Student Work scope', current_date, current_date + 1, \
-                 clock_timestamp(), '00000000-0000-0000-0000-00000000cc01', ARRAY[]::text[])",
+                 clock_timestamp(), '00000000-0000-0000-0000-00000000cc01', ARRAY[]::text[]) \
+         RETURNING course_instance_id",
     )
-    .bind(id(OTHER_COURSE))
-    .bind(blueprint_reference_number)
-    .bind(id(INSTRUCTOR))
-    .execute(&mut *tx)
+    .bind(&blueprint_id)
+    .fetch_one(&mut *tx)
     .await
     .expect("other Course Instance");
     sqlx::query(
         "INSERT INTO ple_data.course_membership \
-         (membership_id, course_id, account_id, role, student_record_id, joined_at) \
+         (course_membership_id, course_instance_id, account_id, role, student_record_id, joined_at) \
          VALUES ($1, $2, $3, 'instructor', NULL, clock_timestamp())",
     )
     .bind(id(INSTRUCTOR_MEMBERSHIP))
-    .bind(id(COURSE))
-    .bind(id(INSTRUCTOR))
+    .bind(&course_id)
+    .bind(&instructor_id)
     .execute(&mut *tx)
     .await
     .expect("Instructor Course Membership");
     sqlx::query(
         "INSERT INTO ple_data.course_membership \
-         (membership_id, course_id, account_id, role, student_record_id, joined_at) \
+         (course_membership_id, course_instance_id, account_id, role, student_record_id, joined_at) \
          VALUES ($1, $2, $3, 'instructor', NULL, clock_timestamp())",
     )
     .bind(id(OTHER_COURSE_INSTRUCTOR_MEMBERSHIP))
-    .bind(id(OTHER_COURSE))
-    .bind(id(INSTRUCTOR))
+    .bind(&other_course_id)
+    .bind(&instructor_id)
     .execute(&mut *tx)
     .await
     .expect("other Course Instructor Membership");
     sqlx::query(
         "INSERT INTO ple_data.student_record \
-         (student_record_id, course_id, student_account_id, created_at) \
+         (student_record_id, course_instance_id, student_account_id, created_at) \
          VALUES ($1, $2, $3, clock_timestamp()), \
                 ($4, $2, $5, clock_timestamp())",
     )
     .bind(id(STUDENT_RECORD))
-    .bind(id(COURSE))
-    .bind(id(STUDENT))
+    .bind(&course_id)
+    .bind(&student_id)
     .bind(id(OTHER_STUDENT_RECORD))
-    .bind(id(OTHER_STUDENT))
+    .bind(&other_student_id)
     .execute(&mut *tx)
     .await
     .expect("Student Record");
     sqlx::query(
         "INSERT INTO ple_data.student_record \
-         (student_record_id, course_id, student_account_id, created_at) \
+         (student_record_id, course_instance_id, student_account_id, created_at) \
          VALUES ($1, $2, $3, clock_timestamp())",
     )
     .bind(id(OTHER_COURSE_STUDENT_RECORD))
-    .bind(id(OTHER_COURSE))
-    .bind(id(STUDENT))
+    .bind(&other_course_id)
+    .bind(&student_id)
     .execute(&mut *tx)
     .await
     .expect("same Account other Course Student Record");
     sqlx::query(
         "INSERT INTO ple_data.course_membership \
-         (membership_id, course_id, account_id, role, student_record_id, joined_at) \
+         (course_membership_id, course_instance_id, account_id, role, student_record_id, joined_at) \
          VALUES ($1, $2, $3, 'student', $4, clock_timestamp())",
     )
     .bind(id(STUDENT_MEMBERSHIP))
-    .bind(id(COURSE))
-    .bind(id(STUDENT))
+    .bind(&course_id)
+    .bind(&student_id)
     .bind(id(STUDENT_RECORD))
     .execute(&mut *tx)
     .await
     .expect("Student Course Membership");
     sqlx::query(
         "INSERT INTO ple_data.course_membership \
-         (membership_id, course_id, account_id, role, student_record_id, joined_at) \
+         (course_membership_id, course_instance_id, account_id, role, student_record_id, joined_at) \
          VALUES ($1, $2, $3, 'student', $4, clock_timestamp())",
     )
     .bind(id(OTHER_STUDENT_MEMBERSHIP))
-    .bind(id(COURSE))
-    .bind(id(OTHER_STUDENT))
+    .bind(&course_id)
+    .bind(&other_student_id)
     .bind(id(OTHER_STUDENT_RECORD))
     .execute(&mut *tx)
     .await
     .expect("other Student Course Membership");
     sqlx::query(
         "INSERT INTO ple_data.course_membership \
-         (membership_id, course_id, account_id, role, student_record_id, joined_at) \
+         (course_membership_id, course_instance_id, account_id, role, student_record_id, joined_at) \
          VALUES ($1, $2, $3, 'student', $4, clock_timestamp())",
     )
     .bind(id(OTHER_COURSE_STUDENT_MEMBERSHIP))
-    .bind(id(OTHER_COURSE))
-    .bind(id(STUDENT))
+    .bind(&other_course_id)
+    .bind(&student_id)
     .bind(id(OTHER_COURSE_STUDENT_RECORD))
     .execute(&mut *tx)
     .await
@@ -337,64 +345,87 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
         .execute(&mut *tx)
         .await
         .expect("Assessment fixture role");
-    sqlx::query(
-        "INSERT INTO ple_data.assessment \
-         (assessment_id, course_id, origin_kind, source_blueprint_course_reference_number, \
-          source_blueprint_revision_number, source_blueprint_assessment_reference, created_at, \
-          updated_at, assessment_type, assessment_title, assessment_instructions, available_at, due_at, closes_at, \
-          assessment_attempt_time_limit_seconds, assessment_attempt_limit, late_work_rule, \
-          question_variation_rule, assessment_question_order_rule, feedback_score, \
-          feedback_per_item_correctness, feedback_submitted_response, \
-          feedback_question_answer, feedback_question_answer_explanation, \
-          feedback_class_statistics, assessment_status) \
-         VALUES ($1, $2, 'adopted', $3, 1, $4, clock_timestamp(), clock_timestamp(), 'regular_assignment', \
-                 'Server-owned Assessment Access', 'Read the policy before starting.', \
-                 clock_timestamp() + interval '1 hour', \
-                 clock_timestamp() + interval '2 hours', \
-                 clock_timestamp() + interval '3 hours', 600, 2, 'reject', \
-                 'new_variation', 'shuffled', 'after_submit', \
-                 'after_submit', 'after_submit', 'after_submit', 'after_submit', \
-                 'after_submit', 'released')",
+    let snapshot_id: Vec<u8> = sqlx::query_scalar(
+        "SELECT ple_private.ensure_assessment_policy_snapshot( \
+             'Server-owned Assessment Access', 'Read the policy before starting.', \
+             clock_timestamp() + interval '1 hour', \
+             clock_timestamp() + interval '2 hours', \
+             clock_timestamp() + interval '3 hours', \
+             600, 2, 'reject', 'new_variation', 'shuffled', \
+             'after_submit', 'after_submit', 'after_submit', \
+             'after_submit', 'after_submit', 'after_submit', \
+             'regular_assignment')",
     )
-    .bind(id(ASSESSMENT))
-    .bind(id(COURSE))
-    .bind(blueprint_reference_number)
+    .fetch_one(&mut *tx)
+    .await
+    .expect("Assessment policy snapshot");
+    let assessment_id: String = sqlx::query_scalar(
+        "INSERT INTO ple_data.assessment \
+         (assessment_id, course_instance_id, origin_kind, source_blueprint_course_id, \
+          source_blueprint_revision_number, source_blueprint_assessment_reference, created_at, \
+          updated_at, assessment_type, assessment_policy_snapshot_id, assessment_status) \
+         VALUES ('A0000000' || ple_private.crockford_checksum_character('A0000000'), \
+                 $1, 'adopted', $2, 1, $3, clock_timestamp(), clock_timestamp(), \
+                 'regular_assignment', $4, 'released') \
+         RETURNING assessment_id",
+    )
+    .bind(&course_id)
+    .bind(&blueprint_id)
     .bind(id(BLUEPRINT_ASSESSMENT))
-    .execute(&mut *tx)
+    .bind(&snapshot_id)
+    .fetch_one(&mut *tx)
     .await
     .expect("released Assessment");
     sqlx::query(
         "INSERT INTO ple_data.assessment_entry \
          (assessment_entry_id, assessment_id, authored_position, entry_kind, availability, \
-          scoring_rule, question_id, question_revision_number, points_possible) \
-         VALUES ($1, $2, 0, 'fixed_question', 'available', 'normal', 'BCDE-2FGH', 1, 2)",
+          scoring_rule) \
+         VALUES ($1, $2, 0, 'fixed_question', 'available', 'normal')",
     )
     .bind(id(ASSESSMENT_ENTRY))
-    .bind(id(ASSESSMENT))
+    .bind(&assessment_id)
     .execute(&mut *tx)
     .await
     .expect("Assessment Entry");
+    sqlx::query(
+        "INSERT INTO ple_data.assessment_entry_question \
+         (assessment_entry_id, assessment_id, published_question_id, question_revision_number, \
+          points_possible) \
+         VALUES ($1, $2, $3, 1, 2)",
+    )
+    .bind(id(ASSESSMENT_ENTRY))
+    .bind(&assessment_id)
+    .bind(PUBLISHED_QUESTION)
+    .execute(&mut *tx)
+    .await
+    .expect("Assessment Entry Question");
     sqlx::query("SET LOCAL ROLE ple_private_owner")
         .execute(&mut *tx)
         .await
         .expect("private accommodation role");
     sqlx::query(
         "INSERT INTO ple_private.student_assessment_accommodation( \
-             accommodation_id, student_record_id, assessment_id, available_at, due_at, \
-             closes_at, time_multiplier, assessment_attempt_limit, created_at \
+             accommodation_id, course_instance_id, student_record_id, assessment_id, \
+             available_at, due_at, closes_at, time_multiplier, assessment_attempt_limit, \
+             created_at \
          ) VALUES ( \
-             $1, $2, $3, clock_timestamp() - interval '1 hour', \
+             $1, $2, $3, $4, clock_timestamp() - interval '1 hour', \
              clock_timestamp() + interval '1 hour', clock_timestamp() + interval '2 hours', \
              1.5, 1, clock_timestamp() \
          )",
     )
     .bind(id(OTHER_STUDENT_ACCOMMODATION))
+    .bind(&course_id)
     .bind(id(OTHER_STUDENT_RECORD))
-    .bind(id(ASSESSMENT))
+    .bind(&assessment_id)
     .execute(&mut *tx)
     .await
     .expect("other Student accommodation");
     tx.commit().await.expect("fixture commit");
+    AccessFixture {
+        course_id,
+        assessment_id,
+    }
 }
 
 #[tokio::test]
@@ -403,30 +434,11 @@ async fn access_reader_projects_one_authoritative_decision_and_effective_policy(
     let runtime = acceptance_runtime::AcceptanceRuntime::load().expect("acceptance runtime");
     let migration_url = runtime.migration_url().expose();
     let admin = lazy_pool(migration_url).expect("migration pool");
-    seed(&admin).await;
-    let mut route_transaction = admin.begin().await.expect("route fixture transaction");
-    sqlx::query("SET LOCAL ROLE ple_data_owner")
-        .execute(&mut *route_transaction)
-        .await
-        .expect("route fixture role");
-    let (course_public_reference, assessment_public_reference): (String, String) = sqlx::query_as(
-        "SELECT course.public_reference, assessment.public_reference \
-         FROM ple_data.course_instance AS course \
-         JOIN ple_data.assessment AS assessment ON assessment.course_id = course.course_id \
-         WHERE course.course_id = $1 AND assessment.assessment_id = $2",
-    )
-    .bind(id(COURSE))
-    .bind(id(ASSESSMENT))
-    .fetch_one(&mut *route_transaction)
-    .await
-    .expect("generated Student Assessment route references");
-    route_transaction
-        .commit()
-        .await
-        .expect("route fixture commit");
+    let fixture = seed(&admin).await;
+    let course_public_reference = fixture.course_id.clone();
+    let assessment_public_reference = fixture.assessment_id.clone();
     let course = CourseInstanceId::new(&course_public_reference).expect("Course reference");
-    let assessment =
-        AssessmentId::new(&assessment_public_reference).expect("Assessment reference");
+    let assessment = AssessmentId::new(&assessment_public_reference).expect("Assessment reference");
 
     let application_url = std::env::var("DATABASE_URL").expect("application database URL");
     let application = lazy_pool(&application_url).expect("application pool");
@@ -436,7 +448,7 @@ async fn access_reader_projects_one_authoritative_decision_and_effective_policy(
         authenticated_student_record_ownership(
             &application,
             token(0xe1),
-            id(COURSE),
+            fixture.course_id.as_str(),
             id(STUDENT_RECORD),
         )
         .await,
@@ -446,7 +458,7 @@ async fn access_reader_projects_one_authoritative_decision_and_effective_policy(
         !authenticated_student_record_ownership(
             &application,
             token(0xe2),
-            id(COURSE),
+            fixture.course_id.as_str(),
             id(STUDENT_RECORD),
         )
         .await,
@@ -456,7 +468,7 @@ async fn access_reader_projects_one_authoritative_decision_and_effective_policy(
         !authenticated_student_record_ownership(
             &application,
             token(0xe3),
-            id(COURSE),
+            fixture.course_id.as_str(),
             id(STUDENT_RECORD),
         )
         .await,
@@ -466,7 +478,7 @@ async fn access_reader_projects_one_authoritative_decision_and_effective_policy(
         !authenticated_student_record_ownership(
             &application,
             token(0xe1),
-            id(COURSE),
+            fixture.course_id.as_str(),
             id(OTHER_COURSE_STUDENT_RECORD),
         )
         .await,
@@ -476,7 +488,7 @@ async fn access_reader_projects_one_authoritative_decision_and_effective_policy(
         !authenticated_student_record_ownership(
             &application,
             token(0xe4),
-            id(COURSE),
+            fixture.course_id.as_str(),
             id(STUDENT_RECORD),
         )
         .await,
@@ -484,7 +496,7 @@ async fn access_reader_projects_one_authoritative_decision_and_effective_policy(
     );
     let store = PostgresLiveAssessmentDeliveryStore::new(application.clone());
     let access = store
-        .live_assessment_access(token(0xe1), course.clone(), assessment)
+        .live_assessment_access(token(0xe1), course.clone(), assessment.clone())
         .await
         .expect("authorized Student Assessment Access");
     assert_eq!(
@@ -503,7 +515,7 @@ async fn access_reader_projects_one_authoritative_decision_and_effective_policy(
 
     let landing_store = PostgresLiveStudentCourseLandingStore::new(application.clone());
     let landing = landing_store
-        .list_released_live_student_assessments(token(0xe1), course)
+        .list_released_live_student_assessments(token(0xe1), course.clone())
         .await
         .expect("authorized Student Assessment landing");
     assert_eq!(landing.len(), 1, "scheduled Assessment remains visible");

@@ -176,7 +176,7 @@ function presentationApi(deferredScopes?: DeferredCourseScopes): {
           longName: `Course ${reference}`,
           classification: FIXTURE_CLASSIFICATION,
           lifecycleState: "active",
-          metadataEtag: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6e",
+          courseEditNumber: "1",
           theme: "grass",
           term: {
             startDate: "2026-01-12",

@@ -126,10 +126,10 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
                      'position', issued.issued_position + 1,
                      'questionId', issued.published_question_id,
                      'revisionNumber', issued.revision_number,
-                     'responseState', CASE question_attempt.question_attempt_state
-                         WHEN 'response_finalized' THEN 'submitted'
-                         ELSE 'closed'
-                     END
+                     'responseState', CASE WHEN EXISTS (
+                         SELECT 1 FROM ple_private.assessment_attempt_saved_response AS saved
+                          WHERE saved.question_attempt_id = question_attempt.question_attempt_id
+                     ) THEN 'submitted' ELSE 'closed' END
                  ) ORDER BY issued.issued_position), '[]'::jsonb) AS questions
             FROM ple_private.issued_question AS issued
             JOIN ple_private.question_attempt
@@ -139,24 +139,20 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
       CROSS JOIN LATERAL (
           SELECT count(*) > 0
                      AND bool_and(
-                         question_attempt.question_attempt_state = 'closed_unanswered'
+                         saved.question_attempt_id IS NULL
                          OR (
                              result.grading_result_id IS NOT NULL
-                             AND grading_state.grading_state = 'graded'
                              AND ple_api.has_automated_grading_receipt(
-                                 grading_state.question_response_grading_id,
                                  result.grading_result_id
                              )
                          )
                      ) AS grading_is_current,
                  CASE WHEN count(*) > 0
                            AND bool_and(
-                               question_attempt.question_attempt_state = 'closed_unanswered'
+                               saved.question_attempt_id IS NULL
                                OR (
                                    result.grading_result_id IS NOT NULL
-                                   AND grading_state.grading_state = 'graded'
                                    AND ple_api.has_automated_grading_receipt(
-                                       grading_state.question_response_grading_id,
                                        result.grading_result_id
                                    )
                                )
@@ -171,18 +167,23 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
             FROM ple_private.issued_question AS issued
             JOIN ple_private.question_attempt
               ON question_attempt.issued_question_id = issued.issued_question_id
-            LEFT JOIN ple_private.question_response AS submission
-              ON submission.question_attempt_id = question_attempt.question_attempt_id
-            LEFT JOIN ple_private.question_response_grading AS grading_state
-              ON grading_state.question_response_id = submission.question_response_id
+            LEFT JOIN ple_private.assessment_attempt_saved_response AS saved
+              ON saved.question_attempt_id = question_attempt.question_attempt_id
             LEFT JOIN ple_private.grading_result AS result
-              ON result.question_response_grading_id = grading_state.question_response_grading_id
-             AND result.question_response_id = submission.question_response_id
-             AND result.question_attempt_id = question_attempt.question_attempt_id
+              ON result.question_attempt_id = question_attempt.question_attempt_id
             JOIN ple_private.assessment_entry_snapshot AS snapshot
               ON snapshot.assessment_entry_snapshot_id = issued.assessment_entry_snapshot_id
             CROSS JOIN LATERAL ple_private.score_recorded_credit(
-                result.normalized_credit, snapshot.scoring_rule, snapshot.points
+                result.normalized_credit, snapshot.scoring_rule,
+                coalesce(
+                    (SELECT question.points_possible
+                       FROM ple_data.assessment_entry_question AS question
+                      WHERE question.assessment_entry_id = issued.assessment_entry_id),
+                    (SELECT pool.points_per_item
+                       FROM ple_data.assessment_entry_pool AS pool
+                      WHERE pool.assessment_entry_id = issued.assessment_entry_id),
+                    snapshot.points
+                )
             ) AS score
            WHERE issued.assessment_attempt_id = owned.assessment_attempt_id
       ) AS grading
@@ -295,8 +296,9 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
       JOIN ple_data.question_revision AS revision
         ON revision.published_question_id = issued.published_question_id
        AND revision.revision_number = issued.revision_number
-      LEFT JOIN ple_private.question_response AS submission
+      LEFT JOIN ple_private.assessment_attempt_saved_response AS submission
         ON submission.question_attempt_id = question_attempt.question_attempt_id
+       AND submission.finalized_at IS NOT NULL
       JOIN ple_private.question_attempt_presentation_binding AS presentation
         ON presentation.question_attempt_id = question_attempt.question_attempt_id
       LEFT JOIN ple_private.question_revision_source_binding AS binding

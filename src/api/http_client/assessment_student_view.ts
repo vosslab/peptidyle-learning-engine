@@ -7,22 +7,13 @@ import { validateCanonicalQuestionIdSyntax } from "../../../generated/api/Questi
 import type { AssessmentStudentViewClient } from "../assessment_student_view";
 import { decodeInstructorStudentView } from "../decoders/assessment_student_view";
 import { decodeStudentQuestionPresentation } from "../decoders/presentation_delivery";
-import {
-  parseAssessmentId,
-  parseCourseInstanceId,
-} from "../../navigation/public_route";
+import { parseAssessmentId, parseCourseInstanceId } from "../../navigation/public_route";
 import { ApiProtocolError, ApiRequestError, AssessmentConflictError } from "./error";
 import { requestPath, requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
 
-function assessmentStudentViewPath(
-  course: CourseInstanceId,
-  assessment: AssessmentId,
-): string {
-  if (
-    parseCourseInstanceId(course) === null ||
-    parseAssessmentId(assessment) === null
-  ) {
+function assessmentStudentViewPath(course: CourseInstanceId, assessment: AssessmentId): string {
+  if (parseCourseInstanceId(course) === null || parseAssessmentId(assessment) === null) {
     throw new ApiProtocolError("Student View route references must be canonical");
   }
   // ASVS 1.2.2 and 2.2.1: validate, then encode every dynamic path segment.

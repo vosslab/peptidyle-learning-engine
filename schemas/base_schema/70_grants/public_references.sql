@@ -14,10 +14,12 @@ REVOKE ALL ON FUNCTION ple_private.crockford_reference_suffix(),
     ple_private.assign_human_reference()
     FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_private.crockford_reference_suffix(),
+GRANT EXECUTE ON FUNCTION
     ple_private.crockford_checksum_character(text),
     ple_private.is_canonical_prefixed_public_id(text, text),
-    ple_private.is_canonical_question_family_id(text),
+    ple_private.is_canonical_question_family_id(text)
+    TO PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_private.crockford_reference_suffix(),
     ple_private.reserve_public_id(text, text),
     ple_private.reserve_public_id_from_trigger(),
     ple_private.assign_human_reference()

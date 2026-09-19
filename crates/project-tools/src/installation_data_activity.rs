@@ -17,8 +17,7 @@ use url::Url;
 
 use crate::installation_data::{
     LIVE_DEMO_ASSESSMENT_TITLE, LIVE_DEMO_AVERY_EMAIL, LIVE_DEMO_COURSE_LONG_NAME,
-    LIVE_DEMO_COURSE_SHORT_NAME, LIVE_DEMO_ELENA_EMAIL, LIVE_DEMO_JACK_EMAIL,
-    LIVE_DEMO_MARY_EMAIL,
+    LIVE_DEMO_COURSE_SHORT_NAME, LIVE_DEMO_ELENA_EMAIL, LIVE_DEMO_JACK_EMAIL, LIVE_DEMO_MARY_EMAIL,
 };
 
 #[path = "installation_data_activity_http.rs"]
@@ -422,8 +421,7 @@ async fn resolve_graph(api: &ProductApi, instructor: &TemporarySession) -> Resul
         courses.len() == 1,
         "Live Demo Course is missing or ambiguous"
     );
-    let course =
-        public_reference::<CourseInstanceId>(courses[0].get("reference"), "Course")?;
+    let course = public_reference::<CourseInstanceId>(courses[0].get("reference"), "Course")?;
 
     let assessments = expect_status(
         api.request(
@@ -669,11 +667,8 @@ async fn prepare_attempt(
                 .is_some_and(|items| items.len() == LIVE_DEMO_QUESTION_COUNT as usize),
         "Live Demo {student_name} Assessment Attempt is invalid"
     );
-    public_reference::<AssessmentAttemptId>(
-        object.get("assessmentAttempt"),
-        "Assessment Attempt",
-    )
-    .map(Some)
+    public_reference::<AssessmentAttemptId>(object.get("assessmentAttempt"), "Assessment Attempt")
+        .map(Some)
 }
 
 async fn save_responses(

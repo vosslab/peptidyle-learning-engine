@@ -9,7 +9,6 @@ import type { QuestionDetails } from "../../generated/api/QuestionDetails";
 import type { QuestionSearchPage } from "../../generated/api/QuestionSearchPage";
 import type { QuestionSearchRequest } from "../../generated/api/QuestionSearchRequest";
 import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
-import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { CourseAppearanceView } from "../../generated/api/CourseAppearanceView";
 import type { CourseThemeUpdate } from "../../generated/api/CourseThemeUpdate";
 import type { CourseBannerReference } from "../../generated/api/CourseBannerReference";
@@ -30,7 +29,6 @@ import type { CourseInvitationReference } from "../../generated/api/CourseInvita
 import type { CourseInvitationTerminalActionRequest } from "../../generated/api/CourseInvitationTerminalActionRequest";
 import type { PendingCourseInvitationsPage } from "../../generated/api/PendingCourseInvitationsPage";
 import type { CourseInvitationStatePrecondition } from "../../generated/api/CourseInvitationStatePrecondition";
-import type { AssessmentId } from "../../generated/api/AssessmentId";
 import type { CapabilityValidator, FormatValidator, TimerEvaluator } from "../wasm/index";
 import type {
   AssessmentEditorDetail,
@@ -173,9 +171,7 @@ export interface ApiClient
     update: CourseBannerUpdate,
   ) => Promise<CourseAppearanceView>;
   /** Removes only the current Course Banner. */
-  readonly removeCourseBanner: (
-    courseReference: CourseInstanceId,
-  ) => Promise<CourseAppearanceView>;
+  readonly removeCourseBanner: (courseReference: CourseInstanceId) => Promise<CourseAppearanceView>;
   readonly listAssessments: (
     courseId: CourseInstanceId,
     cursor?: string,

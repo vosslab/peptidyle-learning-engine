@@ -5,15 +5,13 @@ use std::num::NonZeroU32;
 use async_trait::async_trait;
 use question_model::{
     AccountTimeZone, AssessmentEditNumber, AssessmentEntryAvailability, AssessmentEntryId,
-    AssessmentEntryScoringRule, AssessmentInstructions, AssessmentPointValue,
-    AssessmentQuestionOrderRule, AssessmentId, AssessmentStatus, AssessmentTitle,
-    CourseInstanceId, DraftImathasQuestionBackendBinding, ImathasDeploymentReference,
-    ImathasItemReference, InstructorStudentViewDelivery, LateWorkRule, ObjectId,
-    PoolRevisionMemberReference, QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionId,
-    QuestionPoolAssessmentEntry, QuestionPoolRevisionNumber, QuestionPoolRevisionReference,
-    QuestionPoolSelectedItem, QuestionPoolSelectedQuestionOrder, QuestionPoolSelectionRule,
-    QuestionRevisionNumber, QuestionRevisionReference, SourceObjectChecksum, SourceObjectReference,
-    Timestamp,
+    AssessmentEntryScoringRule, AssessmentId, AssessmentInstructions, AssessmentPointValue,
+    AssessmentQuestionOrderRule, AssessmentStatus, AssessmentTitle, CourseInstanceId,
+    InstructorStudentViewDelivery, LateWorkRule, ObjectId, PoolRevisionMemberReference,
+    QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionId, QuestionPoolAssessmentEntry,
+    QuestionPoolRevisionNumber, QuestionPoolRevisionReference, QuestionPoolSelectedItem,
+    QuestionPoolSelectedQuestionOrder, QuestionPoolSelectionRule, QuestionRevisionNumber,
+    QuestionRevisionReference, SourceObjectChecksum, SourceObjectReference, Timestamp,
 };
 use sqlx::{Postgres, Row, Transaction};
 
@@ -331,47 +329,22 @@ fn source_from_row(
     let source_media_type = column(row, "source_media_type")?;
     let question_asset_renditions = ready_question_asset_renditions(row)?;
     let webwork_pg_path = optional_column(row, "webwork_pg_path")?;
-    let imathas_deployment = optional_column(row, "imathas_deployment_reference")?;
-    let imathas_item = optional_column(row, "imathas_item_reference")?;
-    match (
-        column::<String>(row, "backend")?.as_str(),
-        webwork_pg_path,
-        imathas_deployment,
-        imathas_item,
-    ) {
-        ("ple", None, None, None) => Ok(InstructorStudentViewSource::Ple {
+    match (column::<String>(row, "backend")?.as_str(), webwork_pg_path) {
+        ("ple", None) => Ok(InstructorStudentViewSource::Ple {
             question_revision,
             source_object_reference,
             source_object_checksum,
             source_media_type,
             question_asset_renditions,
         }),
-        ("webwork", Some(webwork_pg_path), None, None) => {
-            Ok(InstructorStudentViewSource::Webwork {
-                question_revision,
-                source_object_reference,
-                source_object_checksum,
-                source_media_type,
-                webwork_pg_path,
-                question_asset_renditions,
-            })
-        }
-        ("imathas", None, Some(deployment), Some(item)) => {
-            let deployment = ImathasDeploymentReference::new(deployment)
-                .map_err(|_| invalid("iMathAS deployment reference"))?;
-            let item =
-                ImathasItemReference::new(item).map_err(|_| invalid("iMathAS item reference"))?;
-            Ok(InstructorStudentViewSource::Imathas {
-                question_revision,
-                source_object_reference,
-                source_object_checksum,
-                source_media_type,
-                imathas_question_backend_binding: DraftImathasQuestionBackendBinding::new(
-                    deployment, item,
-                ),
-                question_asset_renditions,
-            })
-        }
+        ("webwork", Some(webwork_pg_path)) => Ok(InstructorStudentViewSource::Webwork {
+            question_revision,
+            source_object_reference,
+            source_object_checksum,
+            source_media_type,
+            webwork_pg_path,
+            question_asset_renditions,
+        }),
         _ => Err(invalid("Question Source Backend binding")),
     }
 }

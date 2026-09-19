@@ -62,3 +62,17 @@ GRANT EXECUTE ON FUNCTION ple_api.resolve_and_install_session(bytea),
     ple_api.consume_sysadmin_totp_attestation_into_session(uuid, bytea, bigint, uuid, bytea, bigint)
     TO ple_auth;
 
+SET LOCAL ROLE ple_private_owner;
+
+REVOKE ALL ON FUNCTION ple_private.sweep_expired_authentication_growth(timestamptz) FROM PUBLIC;
+
+GRANT EXECUTE ON FUNCTION ple_private.sweep_expired_authentication_growth(timestamptz)
+    TO ple_api_owner;
+
+SET LOCAL ROLE ple_api_owner;
+
+REVOKE ALL ON FUNCTION ple_api.sweep_expired_authentication_growth(timestamptz) FROM PUBLIC;
+
+GRANT EXECUTE ON FUNCTION ple_api.sweep_expired_authentication_growth(timestamptz)
+    TO ple_course_retention_executor;
+

@@ -18,33 +18,22 @@ BEGIN
             MESSAGE = 'Library Watch notification limit is invalid';
     END IF;
     WITH candidate AS (
-        SELECT event_id, target_kind, target_public_id, event_kind,
-               revision_number, forked_public_id, activity_id, occurred_at
+        SELECT event_id
           FROM ple_data.library_watch_event
          WHERE processed_at IS NULL
          ORDER BY occurred_at, event_id
          FOR UPDATE SKIP LOCKED LIMIT p_limit
     ), recipients AS (
-        SELECT candidate.*, snapshot.recipient_account_id
+        SELECT snapshot.library_watch_event_id, snapshot.recipient_account_id
           FROM candidate
           JOIN ple_data.library_watch_event_recipient AS snapshot
-            ON snapshot.event_id = candidate.event_id
-    ), inserted AS (
-        INSERT INTO ple_private.library_watch_notification(
-            recipient_account_id, event_id, target_kind, target_public_id, event_kind,
-            revision_number, forked_public_id, activity_id, occurred_at
-        )
-        SELECT recipient_account_id, event_id, target_kind, target_public_id, event_kind,
-               revision_number, forked_public_id, activity_id, occurred_at
-          FROM recipients
-        ON CONFLICT (recipient_account_id, event_id) DO NOTHING
-        RETURNING notification_id
+            ON snapshot.library_watch_event_id = candidate.event_id
     ), completed AS (
         UPDATE ple_data.library_watch_event AS event
            SET processed_at = pg_catalog.clock_timestamp()
           FROM candidate WHERE event.event_id = candidate.event_id
     )
-    SELECT count(*) INTO materialized FROM inserted;
+    SELECT count(*) INTO materialized FROM recipients;
     RETURN materialized;
 END
 $$;
@@ -57,7 +46,7 @@ CREATE FUNCTION ple_data.snapshot_library_watch_event_recipients()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data, ple_private AS $$
 BEGIN
-    INSERT INTO ple_data.library_watch_event_recipient(event_id, recipient_account_id)
+    INSERT INTO ple_data.library_watch_event_recipient(library_watch_event_id, recipient_account_id)
     SELECT NEW.event_id, watch.instructor_account_id
       FROM (
           SELECT question_watch.instructor_account_id
@@ -232,13 +221,15 @@ BEGIN
             MESSAGE = 'Library Watch inbox requires an active Instructor Account';
     END IF;
     RETURN QUERY
-    SELECT notification.target_kind, notification.target_public_id, notification.event_kind,
-           notification.revision_number, notification.forked_public_id,
-           notification.activity_id,
-           (EXTRACT(EPOCH FROM notification.occurred_at) * 1000)::bigint
-      FROM ple_private.library_watch_notification AS notification
-     WHERE notification.recipient_account_id = actor_id
-     ORDER BY notification.occurred_at DESC, notification.notification_id DESC
+    SELECT event.target_kind::text, event.target_public_id, event.event_kind::text,
+           event.revision_number::bigint, event.forked_public_id,
+           event.activity_id,
+           (EXTRACT(EPOCH FROM event.occurred_at) * 1000)::bigint
+      FROM ple_data.library_watch_event_recipient AS recipient
+      JOIN ple_data.library_watch_event AS event
+        ON event.event_id = recipient.library_watch_event_id
+     WHERE recipient.recipient_account_id = actor_id
+     ORDER BY event.occurred_at DESC, event.event_id DESC
      LIMIT p_limit;
 END
 $$;

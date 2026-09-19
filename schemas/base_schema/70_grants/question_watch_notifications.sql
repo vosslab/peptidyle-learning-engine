@@ -4,20 +4,7 @@ SET LOCAL ROLE ple_data_owner;
 
 REVOKE ALL ON TABLE ple_data.library_watch_event FROM PUBLIC;
 
-
--- The private notification projection has a foreign key to the immutable
--- outbox row, so grant this only after its table exists.
-GRANT REFERENCES ON ple_data.library_watch_event TO ple_private_owner;
-
 REVOKE ALL ON TABLE ple_data.library_watch_event_recipient FROM PUBLIC;
-
-SET LOCAL ROLE ple_private_owner;
-
-GRANT INSERT, SELECT ON ple_private.library_watch_notification TO ple_data_owner;
-
-REVOKE ALL ON TABLE ple_private.library_watch_notification FROM PUBLIC;
-
-SET LOCAL ROLE ple_data_owner;
 
 REVOKE ALL ON FUNCTION ple_api.materialize_library_watch_notifications(integer),
     ple_data.enqueue_question_watch_revision_event(),
@@ -42,4 +29,3 @@ REVOKE ALL ON FUNCTION ple_api.read_current_library_watch_notifications(integer)
 GRANT EXECUTE ON FUNCTION ple_api.read_current_library_watch_notifications(integer) TO ple_app;
 
 REVOKE CREATE ON SCHEMA ple_api FROM ple_data_owner;
-

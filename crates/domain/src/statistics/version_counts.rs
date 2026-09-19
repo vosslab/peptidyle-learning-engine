@@ -1,122 +1,239 @@
-//! Exact accepted-grade counts for one immutable Question Revision.
+//! Exact issued, blank, answered, and credit-sum counts for one Question Revision.
 //!
 //! This aggregate is deliberately separate from the cohort-based difficulty,
-//! timing, and discrimination rollup. It records one accepted graded Question
-//! Attempt at a time and carries no Account, Course, Student Record, response,
+//! timing, and discrimination rollup. It records one Issued Question at
+//! submission time and carries no Account, Course, Student Record, response,
 //! or receipt identity, so its persisted snapshot can survive record deletion.
 
-use std::collections::{BTreeMap, BTreeSet};
-
-use question_model::response::ResponseItemReference;
+use serde::{Deserialize, Serialize};
 
 use super::StatisticsError;
 
-/// One accepted graded Question Attempt reduced to global-count evidence.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct QuestionStatisticsObservation {
-    correct: bool,
-    eligible_choice_selections: BTreeSet<ResponseItemReference>,
+/// Credit scaled by 10^8 so 1.0 is `100_000_000`.
+const CREDIT_SCALE: u64 = 100_000_000;
+
+/// One Issued Question reduced to global-count evidence at submission.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum QuestionStatisticsObservation {
+    /// No saved response existed at submit.
+    Blank,
+    /// A graded saved response with normalized credit in `[0, 1]`.
+    Answered { credit_e8: u64 },
 }
 
 impl QuestionStatisticsObservation {
-    /// Builds one correctness result and its distinct selected eligible choices.
-    ///
-    /// The grading boundary supplies only choices that were eligible for this
-    /// exact Question Revision. Deduplication here makes the aggregate robust
-    /// against a malformed repeated selection at a storage boundary.
-    pub fn new(
-        correct: bool,
-        eligible_choice_selections: impl IntoIterator<Item = ResponseItemReference>,
-    ) -> Result<Self, StatisticsError> {
-        let selections = eligible_choice_selections
-            .into_iter()
-            .collect::<BTreeSet<_>>();
-        if selections.iter().any(|choice| choice.as_str().is_empty()) {
-            return Err(StatisticsError::InvalidChoiceIdentifier);
+    /// Builds a blank observation.
+    pub const fn blank() -> Self {
+        Self::Blank
+    }
+
+    /// Builds a graded observation. `credit_e8` is credit times 10^8.
+    pub fn answered(credit_e8: u64) -> Result<Self, StatisticsError> {
+        if credit_e8 > CREDIT_SCALE {
+            return Err(StatisticsError::InvalidCredit);
         }
-        Ok(Self {
-            correct,
-            eligible_choice_selections: selections,
-        })
+        Ok(Self::Answered { credit_e8 })
     }
 
-    /// Returns whether the accepted graded Question Attempt was correct.
-    pub const fn correct(&self) -> bool {
-        self.correct
+    /// Full-credit graded observation.
+    pub const fn correct() -> Self {
+        Self::Answered {
+            credit_e8: CREDIT_SCALE,
+        }
     }
 
-    /// Returns the selected eligible choices, sorted by their opaque ID.
-    pub fn eligible_choice_selections(&self) -> impl Iterator<Item = &ResponseItemReference> {
-        self.eligible_choice_selections.iter()
+    /// Zero-credit graded observation.
+    pub const fn incorrect() -> Self {
+        Self::Answered { credit_e8: 0 }
     }
 }
 
 /// Exact global counts for one immutable Question Revision.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub struct QuestionRevisionStatistics {
-    accepted_graded_attempt_count: u64,
+    issued_count: u64,
+    blank_count: u64,
+    answered_count: u64,
     correct_count: u64,
-    eligible_choice_selection_counts: BTreeMap<ResponseItemReference, u64>,
+    partial_count: u64,
+    incorrect_count: u64,
+    credit_sum_e8: u128,
+    credit_sum_sq_e8: u128,
 }
 
 impl QuestionRevisionStatistics {
-    /// Creates an aggregate with no accepted grades.
+    /// Creates an aggregate with no observations.
     pub const fn empty() -> Self {
         Self {
-            accepted_graded_attempt_count: 0,
+            issued_count: 0,
+            blank_count: 0,
+            answered_count: 0,
             correct_count: 0,
-            eligible_choice_selection_counts: BTreeMap::new(),
+            partial_count: 0,
+            incorrect_count: 0,
+            credit_sum_e8: 0,
+            credit_sum_sq_e8: 0,
         }
     }
 
-    /// Records one accepted graded Question Attempt exactly once at its caller's receipt boundary.
+    /// Records one Issued Question exactly once at its caller's receipt boundary.
     pub fn record(
         &mut self,
         observation: QuestionStatisticsObservation,
     ) -> Result<(), StatisticsError> {
-        let accepted_graded_attempt_count = self
-            .accepted_graded_attempt_count
+        let issued_count = self
+            .issued_count
             .checked_add(1)
             .ok_or(StatisticsError::CounterOverflow)?;
-        let correct_count = self
-            .correct_count
-            .checked_add(u64::from(observation.correct()))
-            .ok_or(StatisticsError::CounterOverflow)?;
-        let mut eligible_choice_selection_counts = self.eligible_choice_selection_counts.clone();
-        for choice in observation.eligible_choice_selections() {
-            let count = eligible_choice_selection_counts
-                .entry(choice.clone())
-                .or_default();
-            *count = count
-                .checked_add(1)
-                .ok_or(StatisticsError::CounterOverflow)?;
+        let mut next = self.clone();
+        next.issued_count = issued_count;
+        match observation {
+            QuestionStatisticsObservation::Blank => {
+                next.blank_count = self
+                    .blank_count
+                    .checked_add(1)
+                    .ok_or(StatisticsError::CounterOverflow)?;
+            }
+            QuestionStatisticsObservation::Answered { credit_e8 } => {
+                next.answered_count = self
+                    .answered_count
+                    .checked_add(1)
+                    .ok_or(StatisticsError::CounterOverflow)?;
+                if credit_e8 == CREDIT_SCALE {
+                    next.correct_count = self
+                        .correct_count
+                        .checked_add(1)
+                        .ok_or(StatisticsError::CounterOverflow)?;
+                } else if credit_e8 == 0 {
+                    next.incorrect_count = self
+                        .incorrect_count
+                        .checked_add(1)
+                        .ok_or(StatisticsError::CounterOverflow)?;
+                } else {
+                    next.partial_count = self
+                        .partial_count
+                        .checked_add(1)
+                        .ok_or(StatisticsError::CounterOverflow)?;
+                }
+                next.credit_sum_e8 = self
+                    .credit_sum_e8
+                    .checked_add(u128::from(credit_e8))
+                    .ok_or(StatisticsError::CounterOverflow)?;
+                let square = u128::from(credit_e8)
+                    .checked_mul(u128::from(credit_e8))
+                    .ok_or(StatisticsError::CounterOverflow)?
+                    / u128::from(CREDIT_SCALE);
+                next.credit_sum_sq_e8 = self
+                    .credit_sum_sq_e8
+                    .checked_add(square)
+                    .ok_or(StatisticsError::CounterOverflow)?;
+            }
         }
-        *self = Self {
-            accepted_graded_attempt_count,
-            correct_count,
-            eligible_choice_selection_counts,
-        };
+        *self = next;
         Ok(())
     }
 
-    /// Returns the number of accepted graded Question Attempts.
-    pub const fn accepted_graded_attempt_count(&self) -> u64 {
-        self.accepted_graded_attempt_count
+    /// Issued Question observations.
+    pub const fn issued_count(&self) -> u64 {
+        self.issued_count
     }
 
-    /// Returns the number of correct accepted grades.
+    /// Blank Issued Questions.
+    pub const fn blank_count(&self) -> u64 {
+        self.blank_count
+    }
+
+    /// Answered Issued Questions.
+    pub const fn answered_count(&self) -> u64 {
+        self.answered_count
+    }
+
+    /// Full-credit answered observations.
     pub const fn correct_count(&self) -> u64 {
         self.correct_count
     }
 
-    /// Returns choice-selection counts by opaque eligible choice ID.
-    pub fn eligible_choice_selection_counts(&self) -> &BTreeMap<ResponseItemReference, u64> {
-        &self.eligible_choice_selection_counts
+    /// Partial-credit answered observations.
+    pub const fn partial_count(&self) -> u64 {
+        self.partial_count
+    }
+
+    /// Zero-credit answered observations.
+    pub const fn incorrect_count(&self) -> u64 {
+        self.incorrect_count
+    }
+
+    /// Sum of normalized credit, scaled by 10^8.
+    pub const fn credit_sum_e8(&self) -> u128 {
+        self.credit_sum_e8
+    }
+
+    /// Sum of squared normalized credit, scaled by 10^8.
+    pub const fn credit_sum_sq_e8(&self) -> u128 {
+        self.credit_sum_sq_e8
     }
 }
 
 impl Default for QuestionRevisionStatistics {
     fn default() -> Self {
         Self::empty()
+    }
+}
+
+/// Pool-level issued count.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct QuestionPoolStatistics {
+    issued_count: u64,
+}
+
+impl QuestionPoolStatistics {
+    /// Empty pool issued count.
+    pub const fn empty() -> Self {
+        Self { issued_count: 0 }
+    }
+
+    /// Increments issued_count by one.
+    pub fn record_issue(&mut self) -> Result<(), StatisticsError> {
+        self.issued_count = self
+            .issued_count
+            .checked_add(1)
+            .ok_or(StatisticsError::CounterOverflow)?;
+        Ok(())
+    }
+
+    /// Issued count for this Pool.
+    pub const fn issued_count(&self) -> u64 {
+        self.issued_count
+    }
+}
+
+/// Selected count for one Pool member Published Question.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct QuestionPoolMemberStatistics {
+    selected_count: u64,
+}
+
+impl QuestionPoolMemberStatistics {
+    /// Empty member selected count.
+    pub const fn empty() -> Self {
+        Self { selected_count: 0 }
+    }
+
+    /// Increments selected_count by one.
+    pub fn record_selection(&mut self) -> Result<(), StatisticsError> {
+        self.selected_count = self
+            .selected_count
+            .checked_add(1)
+            .ok_or(StatisticsError::CounterOverflow)?;
+        Ok(())
+    }
+
+    /// Selected count for this member.
+    pub const fn selected_count(&self) -> u64 {
+        self.selected_count
     }
 }

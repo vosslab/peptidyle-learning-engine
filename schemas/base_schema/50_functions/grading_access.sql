@@ -42,7 +42,8 @@ SET search_path = pg_catalog, ple_data, ple_private AS $$
                      AND count(issued.issued_question_id) > 0
                      AND count(*) FILTER (
                          WHERE result.grading_result_id IS NOT NULL
-                            OR question_attempt.question_attempt_state = 'closed_unanswered'
+                            OR (question_attempt.finalized_at IS NOT NULL
+                                AND saved.question_attempt_id IS NULL)
                      ) = count(issued.issued_question_id)
                 THEN coalesce(sum(score.points_earned), 0)
                 END AS points_earned,
@@ -50,7 +51,8 @@ SET search_path = pg_catalog, ple_data, ple_private AS $$
                      AND count(issued.issued_question_id) > 0
                      AND count(*) FILTER (
                          WHERE result.grading_result_id IS NOT NULL
-                            OR question_attempt.question_attempt_state = 'closed_unanswered'
+                            OR (question_attempt.finalized_at IS NOT NULL
+                                AND saved.question_attempt_id IS NULL)
                      ) = count(issued.issued_question_id)
                 THEN coalesce(sum(ple_private.grade_contribution_points_possible(
                     assessment_attempt.assessment_type,
@@ -63,12 +65,23 @@ SET search_path = pg_catalog, ple_data, ple_private AS $$
             ON issued.assessment_attempt_id = assessment_attempt.assessment_attempt_id
           LEFT JOIN ple_private.question_attempt AS question_attempt
             ON question_attempt.issued_question_id = issued.issued_question_id
+          LEFT JOIN ple_private.assessment_attempt_saved_response AS saved
+            ON saved.question_attempt_id = question_attempt.question_attempt_id
           LEFT JOIN ple_private.grading_result AS result
             ON result.question_attempt_id = question_attempt.question_attempt_id
           LEFT JOIN ple_private.assessment_entry_snapshot AS snapshot
             ON snapshot.assessment_entry_snapshot_id = issued.assessment_entry_snapshot_id
           LEFT JOIN LATERAL ple_private.score_recorded_credit(
-              result.normalized_credit, snapshot.scoring_rule, snapshot.points
+              result.normalized_credit, snapshot.scoring_rule,
+              coalesce(
+                  (SELECT question.points_possible
+                     FROM ple_data.assessment_entry_question AS question
+                    WHERE question.assessment_entry_id = issued.assessment_entry_id),
+                  (SELECT pool.points_per_item
+                     FROM ple_data.assessment_entry_pool AS pool
+                    WHERE pool.assessment_entry_id = issued.assessment_entry_id),
+                  snapshot.points
+              )
           ) AS score ON snapshot.assessment_entry_snapshot_id IS NOT NULL
          GROUP BY assessment_attempt.assessment_attempt_id, assessment_attempt.started_at,
                   assessment_attempt.expires_at,
@@ -95,16 +108,13 @@ $$;
 SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.has_automated_grading_receipt(
-    p_question_response_grading_id uuid,
     p_grading_result_id uuid
 ) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_audit AS $$
-    SELECT p_question_response_grading_id IS NOT NULL
-       AND p_grading_result_id IS NOT NULL
+    SELECT p_grading_result_id IS NOT NULL
        AND EXISTS (
            SELECT 1 FROM ple_audit.automated_grading_receipt AS receipt
-            WHERE receipt.question_response_grading_id = p_question_response_grading_id
-              AND receipt.grading_result_id = p_grading_result_id
+            WHERE receipt.grading_result_id = p_grading_result_id
        )
 $$;
 

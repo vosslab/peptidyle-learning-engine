@@ -8,8 +8,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AssessmentEditNumber, AssessmentEntryId, AssessmentId, QuestionId,
-    QuestionPoolSelectionRule,
+    AssessmentEditNumber, AssessmentEntryId, AssessmentId, QuestionId, QuestionPoolSelectionRule,
 };
 
 /// Strict request body for an Instructor's one-off sample of a saved pool.

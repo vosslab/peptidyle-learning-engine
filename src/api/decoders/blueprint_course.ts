@@ -718,10 +718,7 @@ export function decodeRenameBlueprintCourseInput(
   return value as RenameBlueprintCourseInput;
 }
 
-export function decodeBlueprintCourseId(
-  value: unknown,
-  path = "reference",
-): BlueprintCourseId {
+export function decodeBlueprintCourseId(value: unknown, path = "reference"): BlueprintCourseId {
   return blueprintReference(value, path);
 }
 

@@ -12,6 +12,8 @@
 # Dependencies and installed package state.
 node_modules/
 package-lock.json
+
+# Third-party authored-content runtime (not PLE source).
 assets/author-content-dependencies/
 
 # Build outputs and bundler artifacts.

@@ -10,10 +10,10 @@ use async_trait::async_trait;
 use std::num::NonZeroU32;
 
 use question_model::{
-    AccountTimeZone, AssessmentActivityRules, AssessmentEditNumber, AssessmentEntry,
-    AssessmentInstructions, AssessmentOrigin, AssessmentId, AssessmentStatus,
-    AssessmentTitle, AssessmentType, CourseInstanceId, LateWorkRule, LocalDateAndTime,
-    QuestionRevisionReference, StudentFeedbackReleaseRule,
+    AccountTimeZone, AssessmentActivityRules, AssessmentEditNumber, AssessmentEntry, AssessmentId,
+    AssessmentInstructions, AssessmentOrigin, AssessmentStatus, AssessmentTitle, AssessmentType,
+    CourseInstanceId, LateWorkRule, LocalDateAndTime, QuestionRevisionReference,
+    StudentFeedbackReleaseRule,
 };
 use serde::{Deserialize, Serialize};
 

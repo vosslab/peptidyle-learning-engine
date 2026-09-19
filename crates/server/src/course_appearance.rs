@@ -34,8 +34,8 @@ use objects::{
 };
 use question_model::{
     CourseAppearanceView, CourseBannerReference, CourseBannerRendition, CourseBannerUpdate,
-    CourseBannerUploadReceipt, CourseBannerUploadReference, CourseInstanceId,
-    CourseThemeUpdate, ProductRole, Timestamp,
+    CourseBannerUploadReceipt, CourseBannerUploadReference, CourseInstanceId, CourseThemeUpdate,
+    ProductRole, Timestamp,
 };
 use uuid::Uuid;
 

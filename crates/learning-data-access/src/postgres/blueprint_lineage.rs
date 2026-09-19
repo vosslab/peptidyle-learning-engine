@@ -2,9 +2,9 @@
 
 use async_trait::async_trait;
 use question_model::{
-    BlueprintAssessmentId, BlueprintAvailability, BlueprintCourseId,
-    BlueprintEditNumber, BlueprintModuleReference, BlueprintRevision, BlueprintRevisionReference,
-    QuestionId, QuestionPoolRevisionReference, QuestionRevisionNumber, QuestionRevisionReference,
+    BlueprintAssessmentId, BlueprintAvailability, BlueprintCourseId, BlueprintEditNumber,
+    BlueprintModuleReference, BlueprintRevision, BlueprintRevisionReference, QuestionId,
+    QuestionPoolRevisionReference, QuestionRevisionNumber, QuestionRevisionReference,
     RequestChecksum, Timestamp,
 };
 use sqlx::{Postgres, Row, Transaction, types::Json};

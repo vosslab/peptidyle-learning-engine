@@ -22,8 +22,7 @@ GRANT EXECUTE ON FUNCTION ple_private.question_revision_has_source_binding(text,
 REVOKE ALL ON ALL TABLES IN SCHEMA ple_private FROM PUBLIC;
 
 REVOKE ALL ON FUNCTION ple_private.question_source_binding_fields_are_valid(
-    ple_data.question_backend, ple_data.question_format,
-    text, text, text, text, boolean),
+    ple_data.question_backend, ple_data.question_format, text),
     ple_private.reject_immutable_question_source_change(),
     ple_private.reject_draft_question_fork_source_change(),
     ple_private.validate_question_revision_source_binding(),

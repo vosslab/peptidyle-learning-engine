@@ -208,7 +208,7 @@ CREATE TABLE ple_data.blueprint_course_fork_receipt (
 );
 
 SET LOCAL ROLE ple_data_owner;
-COMMENT ON TABLE ple_data.blueprint_course IS 'role: current state, Stable reusable Blueprint Course lineage with names, availability, metadata ETag, and current Revision.';
+COMMENT ON TABLE ple_data.blueprint_course IS 'role: current state, Stable reusable Blueprint Course lineage with names, availability, Edit Number, and current Revision.';
 
 COMMENT ON TABLE ple_data.blueprint_course_revision IS 'role: revision, Immutable complete Blueprint Revision; exact references remain valid after later Saves or archive.';
 
@@ -295,7 +295,7 @@ CREATE TABLE ple_private.blueprint_course_watch_notification (
     blueprint_course_id ple_data.blueprint_course_id NOT NULL
         REFERENCES ple_data.blueprint_course(blueprint_course_id),
     event_kind ple_data.watch_notification_event_kind NOT NULL,
-    source_event_id bigint NOT NULL CHECK (source_event_id > 0),
+    source_event_id uuid NOT NULL,
     occurred_at timestamptz NOT NULL,
     UNIQUE (recipient_account_id, event_kind, source_event_id)
 );

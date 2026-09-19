@@ -74,11 +74,6 @@ ALTER TABLE ple_data.assessment_entry_pool
 
 SET LOCAL ROLE ple_private_owner;
 
-ALTER TABLE ple_private.question_response
-    ADD FOREIGN KEY (course_instance_id, assessment_submission_id)
-        REFERENCES ple_private.assessment_submission(course_instance_id, assessment_submission_id)
-        ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED;
-
 -- Late operations for immutable Question Revision public assets.  This module
 -- follows Jobs and retained presentation evidence; it owns the resulting
 -- publication transition and opaque resolver rather than a corrective layer.

@@ -77,16 +77,6 @@ CREATE TABLE ple_private.object_cleanup_manifest (
 
 SET LOCAL ROLE ple_audit_owner;
 
-CREATE TABLE ple_audit.object_delivery_access_event (
-    event_id uuid PRIMARY KEY,
-    object_delivery_id uuid NOT NULL REFERENCES ple_data.object_delivery,
-    account_id ple_data.account_id NOT NULL REFERENCES ple_private.account,
-    access_decision ple_data.access_decision NOT NULL,
-    accessed_at timestamptz NOT NULL,
-    UNIQUE (event_id, object_delivery_id)
-);
-
-
 CREATE TABLE ple_audit.object_storage_check_event (
     event_id uuid PRIMARY KEY,
     object_storage_check_id uuid NOT NULL REFERENCES ple_private.object_storage_check,
@@ -127,7 +117,6 @@ COMMENT ON TABLE ple_private.object_cleanup_manifest IS 'role: event, deleted by
 SET LOCAL ROLE ple_audit_owner;
 
 SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.object_delivery_access_event IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
 
 COMMENT ON TABLE ple_audit.object_storage_check_event IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
 
@@ -155,96 +144,6 @@ COMMENT ON TABLE ple_private.object_cleanup_manifest IS 'role: event, deleted by
 SET LOCAL ROLE ple_audit_owner;
 
 SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.object_delivery_access_event IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
-
-COMMENT ON TABLE ple_audit.object_storage_check_event IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
-
-COMMENT ON TABLE ple_audit.object_cleanup_receipt IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
-
-
-
-SET LOCAL ROLE ple_private_owner;
-
-SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.object_record IS 'role: current state, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
-
-SET LOCAL ROLE ple_data_owner;
-
-SET LOCAL ROLE ple_data_owner;
-COMMENT ON TABLE ple_data.object_delivery IS 'role: current state, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
-
-COMMENT ON TABLE ple_data.course_object_delivery IS 'role: current state, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
-
-SET LOCAL ROLE ple_private_owner;
-
-SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.object_storage_check IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
-
-COMMENT ON TABLE ple_private.object_cleanup_manifest IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
-
-SET LOCAL ROLE ple_audit_owner;
-
-SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.object_delivery_access_event IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
-
-COMMENT ON TABLE ple_audit.object_storage_check_event IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
-
-COMMENT ON TABLE ple_audit.object_cleanup_receipt IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
-
-
-SET LOCAL ROLE ple_audit_owner;
-
-SET LOCAL ROLE ple_private_owner;
-
-SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.object_record IS 'role: current state, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
-
-SET LOCAL ROLE ple_data_owner;
-
-SET LOCAL ROLE ple_data_owner;
-COMMENT ON TABLE ple_data.object_delivery IS 'role: current state, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
-
-COMMENT ON TABLE ple_data.course_object_delivery IS 'role: current state, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
-
-SET LOCAL ROLE ple_private_owner;
-
-SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.object_storage_check IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
-
-COMMENT ON TABLE ple_private.object_cleanup_manifest IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
-
-SET LOCAL ROLE ple_audit_owner;
-
-SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.object_delivery_access_event IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
-
-COMMENT ON TABLE ple_audit.object_storage_check_event IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
-
-COMMENT ON TABLE ple_audit.object_cleanup_receipt IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
-
-SET LOCAL ROLE ple_private_owner;
-
-SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.object_record IS 'role: current state, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
-
-SET LOCAL ROLE ple_data_owner;
-
-SET LOCAL ROLE ple_data_owner;
-COMMENT ON TABLE ple_data.object_delivery IS 'role: current state, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
-
-COMMENT ON TABLE ple_data.course_object_delivery IS 'role: current state, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
-
-SET LOCAL ROLE ple_private_owner;
-
-SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.object_storage_check IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
-
-COMMENT ON TABLE ple_private.object_cleanup_manifest IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
-
-SET LOCAL ROLE ple_audit_owner;
-
-SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.object_delivery_access_event IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
 
 COMMENT ON TABLE ple_audit.object_storage_check_event IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
 
@@ -274,7 +173,63 @@ COMMENT ON TABLE ple_private.object_cleanup_manifest IS 'role: event, deleted by
 SET LOCAL ROLE ple_audit_owner;
 
 SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.object_delivery_access_event IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
+
+COMMENT ON TABLE ple_audit.object_storage_check_event IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
+
+COMMENT ON TABLE ple_audit.object_cleanup_receipt IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
+
+
+SET LOCAL ROLE ple_audit_owner;
+
+SET LOCAL ROLE ple_private_owner;
+
+SET LOCAL ROLE ple_private_owner;
+COMMENT ON TABLE ple_private.object_record IS 'role: current state, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
+
+SET LOCAL ROLE ple_data_owner;
+
+SET LOCAL ROLE ple_data_owner;
+COMMENT ON TABLE ple_data.object_delivery IS 'role: current state, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
+
+COMMENT ON TABLE ple_data.course_object_delivery IS 'role: current state, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
+
+SET LOCAL ROLE ple_private_owner;
+
+SET LOCAL ROLE ple_private_owner;
+COMMENT ON TABLE ple_private.object_storage_check IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
+
+COMMENT ON TABLE ple_private.object_cleanup_manifest IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
+
+SET LOCAL ROLE ple_audit_owner;
+
+SET LOCAL ROLE ple_audit_owner;
+
+COMMENT ON TABLE ple_audit.object_storage_check_event IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
+
+COMMENT ON TABLE ple_audit.object_cleanup_receipt IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
+
+SET LOCAL ROLE ple_private_owner;
+
+SET LOCAL ROLE ple_private_owner;
+COMMENT ON TABLE ple_private.object_record IS 'role: current state, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
+
+SET LOCAL ROLE ple_data_owner;
+
+SET LOCAL ROLE ple_data_owner;
+COMMENT ON TABLE ple_data.object_delivery IS 'role: current state, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
+
+COMMENT ON TABLE ple_data.course_object_delivery IS 'role: current state, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
+
+SET LOCAL ROLE ple_private_owner;
+
+SET LOCAL ROLE ple_private_owner;
+COMMENT ON TABLE ple_private.object_storage_check IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
+
+COMMENT ON TABLE ple_private.object_cleanup_manifest IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
+
+SET LOCAL ROLE ple_audit_owner;
+
+SET LOCAL ROLE ple_audit_owner;
 
 COMMENT ON TABLE ple_audit.object_storage_check_event IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
 
@@ -304,35 +259,6 @@ COMMENT ON TABLE ple_private.object_cleanup_manifest IS 'role: event, deleted by
 SET LOCAL ROLE ple_audit_owner;
 
 SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.object_delivery_access_event IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
-
-COMMENT ON TABLE ple_audit.object_storage_check_event IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
-
-COMMENT ON TABLE ple_audit.object_cleanup_receipt IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
-
-SET LOCAL ROLE ple_private_owner;
-
-SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.object_record IS 'role: current state, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
-
-SET LOCAL ROLE ple_data_owner;
-
-SET LOCAL ROLE ple_data_owner;
-COMMENT ON TABLE ple_data.object_delivery IS 'role: current state, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
-
-COMMENT ON TABLE ple_data.course_object_delivery IS 'role: current state, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
-
-SET LOCAL ROLE ple_private_owner;
-
-SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.object_storage_check IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
-
-COMMENT ON TABLE ple_private.object_cleanup_manifest IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
-
-SET LOCAL ROLE ple_audit_owner;
-
-SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.object_delivery_access_event IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
 
 COMMENT ON TABLE ple_audit.object_storage_check_event IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
 
@@ -362,7 +288,62 @@ COMMENT ON TABLE ple_private.object_cleanup_manifest IS 'role: event, deleted by
 SET LOCAL ROLE ple_audit_owner;
 
 SET LOCAL ROLE ple_audit_owner;
-COMMENT ON TABLE ple_audit.object_delivery_access_event IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
+
+COMMENT ON TABLE ple_audit.object_storage_check_event IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
+
+COMMENT ON TABLE ple_audit.object_cleanup_receipt IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
+
+SET LOCAL ROLE ple_private_owner;
+
+SET LOCAL ROLE ple_private_owner;
+COMMENT ON TABLE ple_private.object_record IS 'role: current state, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
+
+SET LOCAL ROLE ple_data_owner;
+
+SET LOCAL ROLE ple_data_owner;
+COMMENT ON TABLE ple_data.object_delivery IS 'role: current state, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
+
+COMMENT ON TABLE ple_data.course_object_delivery IS 'role: current state, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
+
+SET LOCAL ROLE ple_private_owner;
+
+SET LOCAL ROLE ple_private_owner;
+COMMENT ON TABLE ple_private.object_storage_check IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
+
+COMMENT ON TABLE ple_private.object_cleanup_manifest IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
+
+SET LOCAL ROLE ple_audit_owner;
+
+SET LOCAL ROLE ple_audit_owner;
+
+COMMENT ON TABLE ple_audit.object_storage_check_event IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
+
+COMMENT ON TABLE ple_audit.object_cleanup_receipt IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
+
+
+
+SET LOCAL ROLE ple_private_owner;
+
+SET LOCAL ROLE ple_private_owner;
+COMMENT ON TABLE ple_private.object_record IS 'role: current state, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
+
+SET LOCAL ROLE ple_data_owner;
+
+SET LOCAL ROLE ple_data_owner;
+COMMENT ON TABLE ple_data.object_delivery IS 'role: current state, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
+
+COMMENT ON TABLE ple_data.course_object_delivery IS 'role: current state, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
+
+SET LOCAL ROLE ple_private_owner;
+
+SET LOCAL ROLE ple_private_owner;
+COMMENT ON TABLE ple_private.object_storage_check IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
+
+COMMENT ON TABLE ple_private.object_cleanup_manifest IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
+
+SET LOCAL ROLE ple_audit_owner;
+
+SET LOCAL ROLE ple_audit_owner;
 
 COMMENT ON TABLE ple_audit.object_storage_check_event IS 'role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.';
 

@@ -30,8 +30,10 @@ CREATE TABLE ple_private.course_retention_notification (
     UNIQUE (provider_idempotency_key),
     FOREIGN KEY (recipient_account_id, recipient_product_role)
         REFERENCES ple_private.account (account_id, product_role),
-    CHECK ((claimed_at IS NULL AND lease_expires_at IS NULL AND lease_token IS NULL)
-        OR (claimed_at IS NOT NULL AND lease_expires_at > claimed_at AND lease_token IS NOT NULL)),
+    CHECK (ple_private.work_lease_pair_is_valid(lease_token, lease_expires_at, created_at)),
+    CHECK ((claimed_at IS NULL) = (lease_token IS NULL)),
+    CHECK (claimed_at IS NULL OR claimed_at >= created_at),
+    CHECK (lease_expires_at IS NULL OR claimed_at IS NULL OR lease_expires_at > claimed_at),
     CHECK (provider_accepted_at IS NULL OR provider_accepted_at >= created_at),
     CHECK ((last_failure_at IS NULL AND last_failure_kind IS NULL)
         OR (last_failure_at IS NOT NULL AND last_failure_kind IS NOT NULL)),

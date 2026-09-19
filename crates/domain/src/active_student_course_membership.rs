@@ -1,6 +1,8 @@
 //! Pure active-membership gate for Student Assessment Access.
 
-use question_model::{AccountId, AssessmentId, CourseInstanceId, CourseMembershipId, StudentRecordId};
+use question_model::{
+    AccountId, AssessmentId, CourseInstanceId, CourseMembershipId, StudentRecordId,
+};
 
 /// Why the active-membership prerequisite for Assessment Access is absent.
 /// Reasons are internal and never a Student DTO.

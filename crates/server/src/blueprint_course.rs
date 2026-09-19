@@ -602,10 +602,25 @@ async fn content_modules(
             );
         }
     }
-    let questions =
-        crate::question_library::answer_free_question_search_results(&state.objects, entries)
-            .await
-            .map_err(|_| RouteLoadError::Unavailable)?;
+    let question_ids = entries
+        .iter()
+        .map(|entry| entry.question_revision.question_id.clone())
+        .collect::<Vec<_>>();
+    let evidence = crate::question_library::bulk_question_statistics(
+        &state.question_library,
+        session,
+        true,
+        &question_ids,
+    )
+    .await
+    .map_err(|_| RouteLoadError::Unavailable)?;
+    let questions = crate::question_library::answer_free_question_search_results(
+        &state.objects,
+        entries,
+        &evidence,
+    )
+    .await
+    .map_err(|_| RouteLoadError::Unavailable)?;
     content
         .modules
         .iter()

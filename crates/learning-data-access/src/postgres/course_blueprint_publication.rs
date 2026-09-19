@@ -5,9 +5,9 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use question_model::{
     AccountId, BlueprintAssessmentId, BlueprintCourseId, BlueprintEditNumber,
-    BlueprintModuleReference, BlueprintRevision, BlueprintRevisionReference,
-    CourseInstanceId, CreateBlueprintCourseReceipt, CreateBlueprintFromCourseInstanceInput,
-    RequestChecksum, Timestamp,
+    BlueprintModuleReference, BlueprintRevision, BlueprintRevisionReference, CourseInstanceId,
+    CreateBlueprintCourseReceipt, CreateBlueprintFromCourseInstanceInput, RequestChecksum,
+    Timestamp,
 };
 use serde::Deserialize;
 use serde_json::Value;
@@ -160,9 +160,7 @@ fn publication_content(
         .into_iter()
         .map(|assessment| {
             Ok(StoredBlueprintAssessment {
-                blueprint_assessment_reference: BlueprintAssessmentId::from_uuid(
-                    random_uuid()?,
-                ),
+                blueprint_assessment_reference: BlueprintAssessmentId::from_uuid(random_uuid()?),
                 content: assessment.content,
             })
         })

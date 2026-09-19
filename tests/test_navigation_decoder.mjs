@@ -8,14 +8,14 @@ test("navigation decoder accepts the exact Assessment Attempt route resolution",
   assert.deepEqual(
     decodeNavigationResolution({
       kind: "assessmentAttempt",
-      courseId: "00000000-0000-4000-8000-000000000001",
+      courseInstanceId: "00000000-0000-4000-8000-000000000001",
       assessmentId: "00000000-0000-4000-8000-000000000002",
       studentRecordId: "00000000-0000-4000-8000-000000000003",
       assessmentAttemptId: "00000000-0000-4000-8000-000000000004",
     }),
     {
       kind: "assessmentAttempt",
-      courseId: "00000000-0000-4000-8000-000000000001",
+      courseInstanceId: "00000000-0000-4000-8000-000000000001",
       assessmentId: "00000000-0000-4000-8000-000000000002",
       studentRecordId: "00000000-0000-4000-8000-000000000003",
       assessmentAttemptId: "00000000-0000-4000-8000-000000000004",

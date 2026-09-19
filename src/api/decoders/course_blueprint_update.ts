@@ -13,12 +13,7 @@ import {
   decodeStringEnum,
 } from "../decoder";
 import { blueprintCourseReference, blueprintRevision } from "./assessment_release";
-import {
-  decodeAssessmentId,
-  decodeAssessmentTitle,
-  field,
-  requireOnlyFields,
-} from "./shared";
+import { decodeAssessmentId, decodeAssessmentTitle, field, requireOnlyFields } from "./shared";
 
 function assessmentSummary(value: unknown, path: string): CourseAssessmentBlueprintUpdateSummary {
   const record = decodeRecord(value, path);

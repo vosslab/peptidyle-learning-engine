@@ -92,7 +92,7 @@ $$;
 CREATE FUNCTION ple_data.fan_out_blueprint_course_watch_notifications(
     p_reference_number text,
     p_event_kind text,
-    p_source_event_id bigint,
+    p_source_event_id uuid,
     p_occurred_at timestamptz
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data, ple_private AS $$
@@ -101,7 +101,7 @@ BEGIN
        
        OR p_event_kind IS NULL
        OR p_event_kind NOT IN ('revision', 'published', 'archived', 'restored')
-       OR p_source_event_id IS NULL OR p_source_event_id <= 0 OR p_occurred_at IS NULL THEN
+       OR p_source_event_id IS NULL OR p_occurred_at IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Blueprint Course Watch event is invalid';
     END IF;
@@ -109,7 +109,8 @@ BEGIN
         recipient_account_id, blueprint_course_id, event_kind,
         source_event_id, occurred_at
     )
-    SELECT watch.instructor_account_id, p_reference_number, p_event_kind,
+    SELECT watch.instructor_account_id, p_reference_number,
+           p_event_kind::ple_data.watch_notification_event_kind,
            p_source_event_id, p_occurred_at
       FROM ple_data.blueprint_course_watch AS watch
       JOIN ple_private.account AS account

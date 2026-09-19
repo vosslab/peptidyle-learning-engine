@@ -44,6 +44,11 @@ impl CourseRetentionStore for PostgresCourseRetentionStore {
     ) -> Result<Vec<CourseRetentionDueAction>, StoreError> {
         let mut transaction = self.begin().await?;
         // ASVS 1.2.4: the explicit instant remains a bound query value.
+        sqlx::query("SELECT ple_api.sweep_expired_authentication_growth(to_timestamp($1::double precision / 1000.0))")
+            .bind(evaluated_at.as_unix_millis())
+            .execute(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
         let rows = sqlx::query(
             "SELECT course_id, due_action, \
                     (extract(epoch FROM due_at) * 1000)::bigint AS due_at_millis, \

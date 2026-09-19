@@ -3,8 +3,7 @@
 use std::str::FromStr;
 
 use crate::{
-    AccountId, AssessmentId, BlueprintAssessmentId, BlueprintCourseId,
-    BlueprintRevision, Timestamp,
+    AccountId, AssessmentId, BlueprintAssessmentId, BlueprintCourseId, BlueprintRevision, Timestamp,
 };
 use serde::{Deserialize, Serialize};
 
@@ -187,8 +186,7 @@ mod tests {
 
     #[test]
     fn creation_receipt_identifies_revision_one() {
-        let blueprint =
-            BlueprintCourseId::new("BP7K3M2QXH").expect("valid Blueprint Course");
+        let blueprint = BlueprintCourseId::new("BP7K3M2QXH").expect("valid Blueprint Course");
         let receipt = CreateBlueprintCourseReceipt {
             blueprint_revision: BlueprintRevisionReference {
                 reference: blueprint.clone(),

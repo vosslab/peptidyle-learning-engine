@@ -49,10 +49,6 @@ CREATE POLICY object_cleanup_manifest_private_owner_access ON ple_private.object
 
 SET LOCAL ROLE ple_audit_owner;
 
-ALTER TABLE ple_audit.object_delivery_access_event ENABLE ROW LEVEL SECURITY;
-
-ALTER TABLE ple_audit.object_delivery_access_event FORCE ROW LEVEL SECURITY;
-
 ALTER TABLE ple_audit.object_storage_check_event ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE ple_audit.object_storage_check_event FORCE ROW LEVEL SECURITY;
@@ -60,9 +56,6 @@ ALTER TABLE ple_audit.object_storage_check_event FORCE ROW LEVEL SECURITY;
 ALTER TABLE ple_audit.object_cleanup_receipt ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE ple_audit.object_cleanup_receipt FORCE ROW LEVEL SECURITY;
-
-CREATE POLICY object_audit_owner_access ON ple_audit.object_delivery_access_event
-    FOR ALL TO ple_audit_owner USING (true) WITH CHECK (true);
 
 CREATE POLICY object_storage_check_event_audit_owner_access ON ple_audit.object_storage_check_event
     FOR ALL TO ple_audit_owner USING (true) WITH CHECK (true);

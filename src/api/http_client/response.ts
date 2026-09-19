@@ -8,7 +8,6 @@ import type { CourseThemeUpdate } from "../../../generated/api/CourseThemeUpdate
 import type { CourseBannerUpdate } from "../../../generated/api/CourseBannerUpdate";
 import type { CourseBannerUploadReceipt } from "../../../generated/api/CourseBannerUploadReceipt";
 import type { CourseInstanceId } from "../../../generated/api/CourseInstanceId";
-import type { CourseInstanceId } from "../../../generated/api/CourseInstanceId";
 import type { CourseBannerReference } from "../../../generated/api/CourseBannerReference";
 import type { StudentRecordId } from "../../../generated/api/StudentRecordId";
 import type { QuestionId } from "../../../generated/api/QuestionId";

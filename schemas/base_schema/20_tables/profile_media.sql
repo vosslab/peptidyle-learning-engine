@@ -115,8 +115,11 @@ CREATE TABLE ple_private.profile_image_work (
     object_record_id uuid NOT NULL REFERENCES ple_private.object_record,
     operation_kind ple_data.object_work_operation NOT NULL,
     state ple_data.lease_state NOT NULL,
+    lease_token uuid,
+    lease_expires_at timestamptz,
     created_at timestamptz NOT NULL,
     completed_at timestamptz,
+    CHECK (ple_private.work_lease_pair_is_valid(lease_token, lease_expires_at, created_at)),
     UNIQUE (profile_image_id, operation_kind),
     FOREIGN KEY (object_delivery_id, object_record_id)
         REFERENCES ple_data.profile_image_delivery (object_delivery_id, object_record_id)
@@ -136,6 +139,9 @@ SET LOCAL ROLE ple_private_owner;
 COMMENT ON TABLE ple_private.account_avatar IS 'role: current state, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
 
 COMMENT ON TABLE ple_private.profile_image_work IS 'role: event, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
+COMMENT ON COLUMN ple_private.profile_image_work.lease_token IS 'NULL means this optional fact is absent. Shared work-lease pair with lease_expires_at.';
+COMMENT ON COLUMN ple_private.profile_image_work.lease_expires_at IS 'NULL means this optional fact is absent. Shared work-lease pair with lease_token.';
+COMMENT ON COLUMN ple_private.profile_image_work.completed_at IS 'NULL means this optional fact is absent.';
 
 
 
@@ -152,6 +158,9 @@ SET LOCAL ROLE ple_private_owner;
 COMMENT ON TABLE ple_private.account_avatar IS 'role: current state, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
 
 COMMENT ON TABLE ple_private.profile_image_work IS 'role: event, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
+COMMENT ON COLUMN ple_private.profile_image_work.lease_token IS 'NULL means this optional fact is absent. Shared work-lease pair with lease_expires_at.';
+COMMENT ON COLUMN ple_private.profile_image_work.lease_expires_at IS 'NULL means this optional fact is absent. Shared work-lease pair with lease_token.';
+COMMENT ON COLUMN ple_private.profile_image_work.completed_at IS 'NULL means this optional fact is absent.';
 
 
 SET LOCAL ROLE ple_data_owner;
@@ -167,23 +176,9 @@ SET LOCAL ROLE ple_private_owner;
 COMMENT ON TABLE ple_private.account_avatar IS 'role: current state, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
 
 COMMENT ON TABLE ple_private.profile_image_work IS 'role: event, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
-
-
-
-SET LOCAL ROLE ple_data_owner;
-
-SET LOCAL ROLE ple_data_owner;
-COMMENT ON TABLE ple_data.profile_image_delivery IS 'role: current state, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
-
-COMMENT ON TABLE ple_data.provided_avatar IS 'role: vocabulary, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
-
-SET LOCAL ROLE ple_private_owner;
-
-SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.account_avatar IS 'role: current state, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
-
-COMMENT ON TABLE ple_private.profile_image_work IS 'role: event, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
-
+COMMENT ON COLUMN ple_private.profile_image_work.lease_token IS 'NULL means this optional fact is absent. Shared work-lease pair with lease_expires_at.';
+COMMENT ON COLUMN ple_private.profile_image_work.lease_expires_at IS 'NULL means this optional fact is absent. Shared work-lease pair with lease_token.';
+COMMENT ON COLUMN ple_private.profile_image_work.completed_at IS 'NULL means this optional fact is absent.';
 
 
 
@@ -200,6 +195,10 @@ SET LOCAL ROLE ple_private_owner;
 COMMENT ON TABLE ple_private.account_avatar IS 'role: current state, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
 
 COMMENT ON TABLE ple_private.profile_image_work IS 'role: event, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
+COMMENT ON COLUMN ple_private.profile_image_work.lease_token IS 'NULL means this optional fact is absent. Shared work-lease pair with lease_expires_at.';
+COMMENT ON COLUMN ple_private.profile_image_work.lease_expires_at IS 'NULL means this optional fact is absent. Shared work-lease pair with lease_token.';
+COMMENT ON COLUMN ple_private.profile_image_work.completed_at IS 'NULL means this optional fact is absent.';
+
 
 
 
@@ -216,6 +215,28 @@ SET LOCAL ROLE ple_private_owner;
 COMMENT ON TABLE ple_private.account_avatar IS 'role: current state, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
 
 COMMENT ON TABLE ple_private.profile_image_work IS 'role: event, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
+COMMENT ON COLUMN ple_private.profile_image_work.lease_token IS 'NULL means this optional fact is absent. Shared work-lease pair with lease_expires_at.';
+COMMENT ON COLUMN ple_private.profile_image_work.lease_expires_at IS 'NULL means this optional fact is absent. Shared work-lease pair with lease_token.';
+COMMENT ON COLUMN ple_private.profile_image_work.completed_at IS 'NULL means this optional fact is absent.';
+
+
+
+SET LOCAL ROLE ple_data_owner;
+
+SET LOCAL ROLE ple_data_owner;
+COMMENT ON TABLE ple_data.profile_image_delivery IS 'role: current state, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
+
+COMMENT ON TABLE ple_data.provided_avatar IS 'role: vocabulary, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
+
+SET LOCAL ROLE ple_private_owner;
+
+SET LOCAL ROLE ple_private_owner;
+COMMENT ON TABLE ple_private.account_avatar IS 'role: current state, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
+
+COMMENT ON TABLE ple_private.profile_image_work IS 'role: event, deleted by Account closure and object cleanup. HUMAN_GUIDANCE.md Account avatars.';
+COMMENT ON COLUMN ple_private.profile_image_work.lease_token IS 'NULL means this optional fact is absent. Shared work-lease pair with lease_expires_at.';
+COMMENT ON COLUMN ple_private.profile_image_work.lease_expires_at IS 'NULL means this optional fact is absent. Shared work-lease pair with lease_token.';
+COMMENT ON COLUMN ple_private.profile_image_work.completed_at IS 'NULL means this optional fact is absent.';
 
 SET LOCAL ROLE ple_private_owner;
 COMMENT ON COLUMN ple_private.account_avatar.provided_avatar_id IS 'NULL means this optional fact is absent.';

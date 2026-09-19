@@ -15,9 +15,7 @@ CREATE FUNCTION ple_private.load_instructor_student_view_source_binding(
     source_object_record_id uuid,
     source_object_checksum text,
     source_media_type text,
-    webwork_pg_path text,
-    imathas_deployment_reference text,
-    imathas_item_reference text
+    webwork_pg_path text
 )
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_private AS $$
@@ -25,9 +23,7 @@ SET search_path = pg_catalog, ple_private AS $$
            source.source_object_record_id,
            source.source_object_checksum,
            object_record.media_type,
-           source.webwork_pg_path,
-           source.imathas_deployment_reference,
-           source.imathas_item_reference
+           source.webwork_pg_path
       FROM ple_private.question_revision_source_binding AS source
       JOIN ple_private.object_record AS object_record
         ON object_record.object_record_id = source.source_object_record_id
@@ -70,8 +66,6 @@ CREATE FUNCTION ple_api.load_instructor_student_view_question_source(
     source_object_checksum text,
     source_media_type text,
     webwork_pg_path text,
-    imathas_deployment_reference text,
-    imathas_item_reference text,
     question_asset_renditions jsonb
 )
 LANGUAGE plpgsql STABLE SECURITY DEFINER
@@ -152,8 +146,6 @@ BEGIN
            source.source_object_checksum,
            source.source_media_type,
            source.webwork_pg_path,
-           source.imathas_deployment_reference,
-           source.imathas_item_reference,
            COALESCE((
                SELECT jsonb_agg(
                    jsonb_build_object(

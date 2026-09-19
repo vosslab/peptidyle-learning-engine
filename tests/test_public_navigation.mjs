@@ -6,8 +6,8 @@ import test from "node:test";
 import {
   assessmentRouteReference,
   courseInstanceRouteReference,
-  parseAssessmentReference,
-  parseCourseInstanceReference,
+  parseAssessmentId,
+  parseCourseInstanceId,
   parseQuestionRouteReference,
   parsePublicRouteReference,
   parseAssessmentAttemptReference,
@@ -49,8 +49,8 @@ test("human route references are canonical, typed, and bounded", () => {
     assert.equal(parsePublicRouteReference(reference), reference);
   }
   for (const [parser, valid, rejected] of [
-    [parseCourseInstanceReference, "CIABCDEFGS", ["C-1", "CIABCDEFG", "CIABCDEFGT"]],
-    [parseAssessmentReference, "AABCDEFG8", ["A-1", "AABCDEFG", "AABCDEFG9"]],
+    [parseCourseInstanceId, "CIABCDEFGS", ["C-1", "CIABCDEFG", "CIABCDEFGT"]],
+    [parseAssessmentId, "AABCDEFG8", ["A-1", "AABCDEFG", "AABCDEFG9"]],
     [
       parseAssessmentAttemptReference,
       "00000000-0000-0000-0000-00000000001e",
@@ -93,7 +93,7 @@ test("human route references are canonical, typed, and bounded", () => {
 
 test("route resolution recovers protected API identities without weakening reference kinds", async () => {
   const fixture = {
-    courseId: "course-id",
+    courseInstanceId: "course-id",
     assessment: { reference: "AABCDEFG8", id: "assessment-id" },
     assessmentAttempt: {
       reference: "00000000-0000-0000-0000-000000000001",
@@ -106,12 +106,12 @@ test("route resolution recovers protected API identities without weakening refer
       const values = {
         AABCDEFG8: {
           kind: "assessment",
-          courseId: fixture.courseId,
+          courseInstanceId: fixture.courseInstanceId,
           assessmentId: fixture.assessment.id,
         },
         "00000000-0000-0000-0000-000000000001": {
           kind: "assessmentAttempt",
-          courseId: fixture.courseId,
+          courseInstanceId: fixture.courseInstanceId,
           assessmentId: fixture.assessment.id,
           studentRecordId: "student-record-id",
           assessmentAttemptId: fixture.assessmentAttempt.id,
@@ -124,7 +124,7 @@ test("route resolution recovers protected API identities without weakening refer
 
   assert.deepEqual(await resolveAssessmentRoute(client, fixture.assessment.reference), {
     kind: "assessment",
-    courseId: fixture.courseId,
+    courseInstanceId: fixture.courseInstanceId,
     assessmentId: fixture.assessment.id,
   });
   assert.equal(
@@ -136,7 +136,7 @@ test("route resolution recovers protected API identities without weakening refer
     fixture.assessmentAttempt.reference,
   );
   assert.deepEqual(attemptIdentity, {
-    courseId: fixture.courseId,
+    courseInstanceId: fixture.courseInstanceId,
     assessmentId: fixture.assessment.id,
     assessmentAttemptId: fixture.assessmentAttempt.id,
   });

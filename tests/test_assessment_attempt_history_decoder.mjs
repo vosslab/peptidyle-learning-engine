@@ -45,7 +45,9 @@ test("backend answer review accepts only availability and derives its authorized
   for (const position of [0, -1, 1.5, Number.NaN, Number.MAX_SAFE_INTEGER + 1]) {
     assert.throws(() => backendAnswerReviewDocumentUrl(decoded.assessmentAttempt, position));
   }
-  assert.throws(() => backendAnswerReviewDocumentUrl("00000000-0000-0000-0000-00000000000c?reveal=1", 1));
+  assert.throws(() =>
+    backendAnswerReviewDocumentUrl("00000000-0000-0000-0000-00000000000c?reveal=1", 1),
+  );
 });
 
 function history() {

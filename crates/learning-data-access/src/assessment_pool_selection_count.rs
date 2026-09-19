@@ -4,8 +4,8 @@ use std::num::NonZeroU32;
 
 use async_trait::async_trait;
 use question_model::{
-    AssessmentEditNumber, AssessmentEntryId, AssessmentQuestionPoolSelectionCountReceipt,
-    AssessmentId, CourseInstanceId,
+    AssessmentEditNumber, AssessmentEntryId, AssessmentId,
+    AssessmentQuestionPoolSelectionCountReceipt, CourseInstanceId,
 };
 
 use crate::{SessionTokenHash, StoreError};

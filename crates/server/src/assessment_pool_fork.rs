@@ -18,8 +18,8 @@ use learning_data_access::{
     SessionTokenHash, StoreError, postgres::PostgresAssessmentPoolForkStore,
 };
 use question_model::{
-    AssessmentEditNumber, AssessmentEntryId, AssessmentEntryScoringRule, AssessmentPointValue,
-    AssessmentId, CourseInstanceId, ProductRole, QuestionId,
+    AssessmentEditNumber, AssessmentEntryId, AssessmentEntryScoringRule, AssessmentId,
+    AssessmentPointValue, CourseInstanceId, ProductRole, QuestionId,
     QuestionPoolSelectedQuestionOrder, QuestionRevisionNumber, QuestionRevisionReference,
 };
 use serde::{Deserialize, Serialize};

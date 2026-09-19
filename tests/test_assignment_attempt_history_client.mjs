@@ -35,7 +35,10 @@ test("selected Attempt history uses the exact same-origin no-store reader and st
   );
   const client = createHttpApiClient({ fetch: recordingFetch, basePath: "/live" });
 
-  assert.deepEqual(await client.getStudentAssessmentAttemptHistory("00000000-0000-0000-0000-00000000000c"), history());
+  assert.deepEqual(
+    await client.getStudentAssessmentAttemptHistory("00000000-0000-0000-0000-00000000000c"),
+    history(),
+  );
   assert.equal(
     requests[0]?.url,
     "https://client.example.test/live/api/assessment-attempts/00000000-0000-0000-0000-00000000000c/history",

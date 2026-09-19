@@ -142,7 +142,7 @@ CREATE FUNCTION ple_audit.record_course_instance_creation_event(
     p_assigned_instructor text, p_creator text,
     p_occurred_at timestamp with time zone
 )
-RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_audit
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_audit, ple_data
 AS $$
 BEGIN
     IF p_event_id IS NULL OR p_course_instance_id IS NULL
@@ -161,7 +161,7 @@ BEGIN
         blueprint_course_id, blueprint_revision_number,
         assigned_instructor_account_id, created_by_account_id, occurred_at
     ) VALUES (
-        p_event_id, p_course_instance_id, p_source_kind,
+        p_event_id, p_course_instance_id, p_source_kind::ple_data.course_source_kind,
         p_blueprint_reference, p_blueprint_revision,
         p_assigned_instructor, p_creator, p_occurred_at
     );

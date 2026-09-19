@@ -224,7 +224,7 @@ BEGIN
       FROM ple_data.course_instance AS course
      WHERE course.course_short_name = 'BCHM 301';
     IF course_id IS NULL THEN
-        created_at_value := clock_timestamp();
+        created_at_value := pg_catalog.transaction_timestamp();
         active_until_value := (
             (created_at_value AT TIME ZONE 'UTC') + interval '6 months'
         ) AT TIME ZONE 'UTC';
@@ -279,15 +279,15 @@ INSERT INTO ple_private.course_roster_profile (
     ('00000000-0000-0000-0000-000000000231',
      current_setting('ple.installation_live_demo_course_instance_id'),
      current_setting('ple.installation_live_demo_mary_account_id'),
-     'BIO301-MARY', 'Mary', clock_timestamp()),
+     'BIO301-MARY', 'Mary', pg_catalog.transaction_timestamp()),
     ('00000000-0000-0000-0000-000000000232',
      current_setting('ple.installation_live_demo_course_instance_id'),
      current_setting('ple.installation_live_demo_jack_account_id'),
-     'BIO301-JACK', 'Jack', clock_timestamp()),
+     'BIO301-JACK', 'Jack', pg_catalog.transaction_timestamp()),
     ('00000000-0000-0000-0000-000000000233',
      current_setting('ple.installation_live_demo_course_instance_id'),
      current_setting('ple.installation_live_demo_avery_account_id'),
-     'BIO301-AVERY', 'Avery', clock_timestamp())
+     'BIO301-AVERY', 'Avery', pg_catalog.transaction_timestamp())
 ON CONFLICT (course_roster_profile_id) DO NOTHING;
 
 INSERT INTO ple_private.course_invitation (
@@ -298,29 +298,29 @@ INSERT INTO ple_private.course_invitation (
      current_setting('ple.installation_live_demo_course_instance_id'),
      current_setting('ple.installation_live_demo_mary_account_id'),
      'student', current_setting('ple.installation_live_demo_elena_account_id'),
-     'instructor', clock_timestamp(), clock_timestamp() + interval '365 days'),
+     'instructor', pg_catalog.transaction_timestamp(), pg_catalog.transaction_timestamp() + interval '365 days'),
     ('00000000-0000-0000-0000-000000000242',
      current_setting('ple.installation_live_demo_course_instance_id'),
      current_setting('ple.installation_live_demo_jack_account_id'),
      'student', current_setting('ple.installation_live_demo_elena_account_id'),
-     'instructor', clock_timestamp(), clock_timestamp() + interval '365 days'),
+     'instructor', pg_catalog.transaction_timestamp(), pg_catalog.transaction_timestamp() + interval '365 days'),
     ('00000000-0000-0000-0000-000000000243',
      current_setting('ple.installation_live_demo_course_instance_id'),
      current_setting('ple.installation_live_demo_avery_account_id'),
      'student', current_setting('ple.installation_live_demo_elena_account_id'),
-     'instructor', clock_timestamp(), clock_timestamp() + interval '365 days')
+     'instructor', pg_catalog.transaction_timestamp(), pg_catalog.transaction_timestamp() + interval '365 days')
 ON CONFLICT (course_invitation_id) DO NOTHING;
 
 INSERT INTO ple_data.student_record (student_record_id, course_instance_id, student_account_id, created_at) VALUES
     ('00000000-0000-0000-0000-000000000251',
      current_setting('ple.installation_live_demo_course_instance_id'),
-     current_setting('ple.installation_live_demo_mary_account_id'), clock_timestamp()),
+     current_setting('ple.installation_live_demo_mary_account_id'), pg_catalog.transaction_timestamp()),
     ('00000000-0000-0000-0000-000000000252',
      current_setting('ple.installation_live_demo_course_instance_id'),
-     current_setting('ple.installation_live_demo_jack_account_id'), clock_timestamp()),
+     current_setting('ple.installation_live_demo_jack_account_id'), pg_catalog.transaction_timestamp()),
     ('00000000-0000-0000-0000-000000000253',
      current_setting('ple.installation_live_demo_course_instance_id'),
-     current_setting('ple.installation_live_demo_avery_account_id'), clock_timestamp())
+     current_setting('ple.installation_live_demo_avery_account_id'), pg_catalog.transaction_timestamp())
 ON CONFLICT (student_record_id) DO NOTHING;
 
 INSERT INTO ple_data.course_membership (
@@ -329,15 +329,15 @@ INSERT INTO ple_data.course_membership (
     ('00000000-0000-0000-0000-000000000261',
      current_setting('ple.installation_live_demo_course_instance_id'),
      current_setting('ple.installation_live_demo_mary_account_id'),
-     'student', '00000000-0000-0000-0000-000000000251', clock_timestamp()),
+     'student', '00000000-0000-0000-0000-000000000251', pg_catalog.transaction_timestamp()),
     ('00000000-0000-0000-0000-000000000262',
      current_setting('ple.installation_live_demo_course_instance_id'),
      current_setting('ple.installation_live_demo_jack_account_id'),
-     'student', '00000000-0000-0000-0000-000000000252', clock_timestamp()),
+     'student', '00000000-0000-0000-0000-000000000252', pg_catalog.transaction_timestamp()),
     ('00000000-0000-0000-0000-000000000263',
      current_setting('ple.installation_live_demo_course_instance_id'),
      current_setting('ple.installation_live_demo_avery_account_id'),
-     'student', '00000000-0000-0000-0000-000000000253', clock_timestamp())
+     'student', '00000000-0000-0000-0000-000000000253', pg_catalog.transaction_timestamp())
 ON CONFLICT (course_membership_id) DO NOTHING;
 
 SET LOCAL ROLE ple_data_owner;
@@ -356,12 +356,14 @@ BEGIN
     IF assessment_id_value IS NOT NULL
        AND (
            NOT EXISTS (
-               SELECT 1 FROM ple_data.assessment
-                WHERE assessment_id = assessment_id_value
-                  AND course_instance_id = course_id
-                  AND assessment_status = 'released'
-                  AND assessment_type = 'practice_question_assignment'
-                  AND assessment_title = 'Chapter 1 Pilot Practice'
+               SELECT 1 FROM ple_data.assessment AS assessment
+                JOIN ple_data.assessment_policy_snapshot AS policy
+                  ON policy.assessment_policy_snapshot_id = assessment.assessment_policy_snapshot_id
+                WHERE assessment.assessment_id = assessment_id_value
+                  AND assessment.course_instance_id = course_id
+                  AND assessment.assessment_status = 'released'
+                  AND assessment.assessment_type = 'practice_question_assignment'
+                  AND policy.assessment_title = 'Chapter 1 Pilot Practice'
            )
            OR (SELECT count(*) FROM ple_data.assessment_entry
                 WHERE assessment_id = assessment_id_value) <> 4
@@ -427,7 +429,7 @@ BEGIN
         course_id,
         'adopted',
         (SELECT blueprint_course_id FROM ple_data.course_instance WHERE course_instance_id = course_id),
-        1, expected_blueprint_assessment_reference, clock_timestamp(), clock_timestamp(),
+        1, expected_blueprint_assessment_reference, pg_catalog.transaction_timestamp(), pg_catalog.transaction_timestamp(),
         'practice_question_assignment',
         ple_private.ensure_assessment_policy_snapshot(
             'Chapter 1 Pilot Practice',
@@ -487,7 +489,7 @@ BEGIN
         new_assessment_id, transaction_timestamp(), true
     );
     UPDATE ple_data.assessment SET assessment_status = 'released',
-        assessment_edit_number = assessment_edit_number + 1, updated_at = clock_timestamp()
+        assessment_edit_number = assessment_edit_number + 1, updated_at = pg_catalog.transaction_timestamp()
      WHERE assessment_id = new_assessment_id;
     PERFORM ple_data.synchronize_course_assessment_deadline(course_id);
     PERFORM set_config(
@@ -504,13 +506,13 @@ INSERT INTO ple_private.course_invitation_event (
     course_invitation_event_id, course_invitation_id, event_kind, performed_by_account_id, occurred_at, reason
 ) VALUES
     ('00000000-0000-0000-0000-000000000291', '00000000-0000-0000-0000-000000000241', 'accepted',
-     current_setting('ple.installation_live_demo_mary_account_id'), clock_timestamp(),
+     current_setting('ple.installation_live_demo_mary_account_id'), pg_catalog.transaction_timestamp(),
      'student accepted Course Invitation'),
     ('00000000-0000-0000-0000-000000000292', '00000000-0000-0000-0000-000000000242', 'accepted',
-     current_setting('ple.installation_live_demo_jack_account_id'), clock_timestamp(),
+     current_setting('ple.installation_live_demo_jack_account_id'), pg_catalog.transaction_timestamp(),
      'student accepted Course Invitation'),
     ('00000000-0000-0000-0000-000000000293', '00000000-0000-0000-0000-000000000243', 'accepted',
-     current_setting('ple.installation_live_demo_avery_account_id'), clock_timestamp(),
+     current_setting('ple.installation_live_demo_avery_account_id'), pg_catalog.transaction_timestamp(),
      'student accepted Course Invitation')
 ON CONFLICT (course_invitation_event_id) DO NOTHING;
 
@@ -524,32 +526,32 @@ INSERT INTO ple_audit.course_roster_event (
      current_setting('ple.installation_live_demo_course_instance_id'),
      current_setting('ple.installation_live_demo_mary_account_id'),
      current_setting('ple.installation_live_demo_elena_account_id'),
-     'invitation_created', clock_timestamp()),
+     'invitation_created', pg_catalog.transaction_timestamp()),
     ('00000000-0000-0000-0000-000000000282',
      current_setting('ple.installation_live_demo_course_instance_id'),
      current_setting('ple.installation_live_demo_jack_account_id'),
      current_setting('ple.installation_live_demo_elena_account_id'),
-     'invitation_created', clock_timestamp()),
+     'invitation_created', pg_catalog.transaction_timestamp()),
     ('00000000-0000-0000-0000-000000000283',
      current_setting('ple.installation_live_demo_course_instance_id'),
      current_setting('ple.installation_live_demo_avery_account_id'),
      current_setting('ple.installation_live_demo_elena_account_id'),
-     'invitation_created', clock_timestamp()),
+     'invitation_created', pg_catalog.transaction_timestamp()),
     ('00000000-0000-0000-0000-000000000284',
      current_setting('ple.installation_live_demo_course_instance_id'),
      current_setting('ple.installation_live_demo_mary_account_id'),
      current_setting('ple.installation_live_demo_mary_account_id'),
-     'invitation_claimed', clock_timestamp()),
+     'invitation_claimed', pg_catalog.transaction_timestamp()),
     ('00000000-0000-0000-0000-000000000285',
      current_setting('ple.installation_live_demo_course_instance_id'),
      current_setting('ple.installation_live_demo_jack_account_id'),
      current_setting('ple.installation_live_demo_jack_account_id'),
-     'invitation_claimed', clock_timestamp()),
+     'invitation_claimed', pg_catalog.transaction_timestamp()),
     ('00000000-0000-0000-0000-000000000286',
      current_setting('ple.installation_live_demo_course_instance_id'),
      current_setting('ple.installation_live_demo_avery_account_id'),
      current_setting('ple.installation_live_demo_avery_account_id'),
-     'invitation_claimed', clock_timestamp())
+     'invitation_claimed', pg_catalog.transaction_timestamp())
 ON CONFLICT DO NOTHING;
 RESET ROLE;
 
@@ -568,7 +570,7 @@ BEGIN
             MESSAGE = 'Pilot publication session is not the supplied temporary Instructor session';
     END IF;
     UPDATE ple_private.authenticated_session
-       SET revoked_at = coalesce(revoked_at, clock_timestamp())
+       SET revoked_at = coalesce(revoked_at, pg_catalog.transaction_timestamp())
      WHERE authenticated_session.session_id = v_session_id;
 END
 $$;

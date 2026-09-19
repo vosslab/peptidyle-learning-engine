@@ -2,15 +2,17 @@
 
 //! Connected two-connection proofs for direct Assessment Attempt finalization.
 
+use std::sync::OnceLock;
 use std::time::Duration;
 
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use uuid::Uuid;
 
-const STUDENT_ACCOUNT: &str = "00000000-0000-0000-0000-00000000eb05";
-const STUDENT_RECORD: &str = "00000000-0000-0000-0000-00000000eb06";
-const BASE_ASSESSMENT: &str = "00000000-0000-0000-0000-00000000ed01";
-const BASE_ENTRY: &str = "00000000-0000-0000-0000-00000000ed02";
+const STUDENT_RECORD: &str = "00000000-0000-0000-0000-00000000f506";
+const PUBLISHED_QUESTION: &str = "BCDE-2FGH";
+
+static STUDENT_ACCOUNT_ID: OnceLock<String> = OnceLock::new();
+static COURSE_INSTANCE_ID: OnceLock<String> = OnceLock::new();
 
 async fn migration_pool() -> PgPool {
     let runtime = acceptance_runtime::AcceptanceRuntime::load().expect("acceptance runtime");
@@ -58,82 +60,211 @@ async fn set_student(tx: &mut sqlx::Transaction<'_, sqlx::Postgres>) -> Result<(
         .await
         .map_err(|error| format!("Student API role: {error}"))?;
     sqlx::query("SELECT set_config('ple.session_account_id', $1, true)")
-        .bind(STUDENT_ACCOUNT)
+        .bind(STUDENT_ACCOUNT_ID.get().expect("seeded Student Account"))
         .execute(&mut **tx)
         .await
         .map_err(|error| format!("Student session: {error}"))?;
     Ok(())
 }
 
+async fn seed_grading_graph(pool: &PgPool) {
+    if STUDENT_ACCOUNT_ID.get().is_some() {
+        return;
+    }
+    let mut tx = pool.begin().await.expect("grading seed transaction");
+    sqlx::query("SET LOCAL ROLE ple_data_owner")
+        .execute(&mut *tx)
+        .await
+        .expect("classification fixture owner");
+    sqlx::query(
+        "INSERT INTO ple_data.content_discipline (content_discipline_id, name) \
+         VALUES ('00000000-0000-0000-0000-00000000cc01', 'Course fixture discipline') \
+         ON CONFLICT (content_discipline_id) DO NOTHING",
+    )
+    .execute(&mut *tx)
+    .await
+    .expect("explicit fixture Discipline");
+    sqlx::query(
+        "INSERT INTO ple_data.published_question (published_question_id, created_at) \
+         VALUES ($1, clock_timestamp()) ON CONFLICT (published_question_id) DO NOTHING",
+    )
+    .bind(PUBLISHED_QUESTION)
+    .execute(&mut *tx)
+    .await
+    .expect("Published Question");
+    sqlx::query(
+        "INSERT INTO ple_data.question_revision \
+         (published_question_id, revision_number, backend, question_type, published_at) \
+         VALUES ($1, 1, 'ple', 'multipleChoice', clock_timestamp()) \
+         ON CONFLICT (published_question_id, revision_number) DO NOTHING",
+    )
+    .bind(PUBLISHED_QUESTION)
+    .execute(&mut *tx)
+    .await
+    .expect("Question Revision");
+    sqlx::query("SET LOCAL ROLE ple_private_owner")
+        .execute(&mut *tx)
+        .await
+        .expect("private fixture role");
+    let student_id: String = sqlx::query_scalar(
+        "INSERT INTO ple_private.account (account_id, product_role, created_at) \
+         VALUES ('U00000009', 'student', clock_timestamp()) RETURNING account_id",
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .expect("Student Account");
+    sqlx::query("SET LOCAL ROLE ple_api_owner")
+        .execute(&mut *tx)
+        .await
+        .expect("API fixture role");
+    let course_id: String = sqlx::query_scalar(
+        "INSERT INTO ple_data.course_instance \
+         (course_instance_id, source_kind, course_short_name, course_long_name, \
+          content_discipline_id, tags, term_starts_on, term_ends_on, created_at) \
+         VALUES ('CI0000000' || ple_private.crockford_checksum_character('CI0000000'), \
+                 'empty', 'GRADE', 'Grading lifecycle Course', \
+                 '00000000-0000-0000-0000-00000000cc01', ARRAY[]::text[], \
+                 current_date, current_date + 1, clock_timestamp()) \
+         RETURNING course_instance_id",
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .expect("Course Instance");
+    sqlx::query(
+        "INSERT INTO ple_data.student_record \
+         (student_record_id, course_instance_id, student_account_id, created_at) \
+         VALUES ($1, $2, $3, clock_timestamp())",
+    )
+    .bind(Uuid::parse_str(STUDENT_RECORD).unwrap())
+    .bind(&course_id)
+    .bind(&student_id)
+    .execute(&mut *tx)
+    .await
+    .expect("Student Record");
+    sqlx::query(
+        "INSERT INTO ple_data.course_membership \
+         (course_membership_id, course_instance_id, account_id, role, student_record_id, \
+          joined_at) VALUES ($1, $2, $3, 'student', $4, clock_timestamp())",
+    )
+    .bind(Uuid::from_u128(0xf507))
+    .bind(&course_id)
+    .bind(&student_id)
+    .bind(Uuid::parse_str(STUDENT_RECORD).unwrap())
+    .execute(&mut *tx)
+    .await
+    .expect("Student membership");
+    tx.commit().await.expect("grading seed commit");
+    STUDENT_ACCOUNT_ID
+        .set(student_id)
+        .expect("Student Account ID once");
+    COURSE_INSTANCE_ID
+        .set(course_id)
+        .expect("Course Instance ID once");
+}
+
+struct AttemptFixture {
+    attempt_id: Uuid,
+    assessment_id: String,
+}
+
 async fn make_attempt(
     pool: &PgPool,
-    assessment_id: Uuid,
     entry_id: Uuid,
     attempt_id: Uuid,
     issued_id: Uuid,
     question_attempt_id: Uuid,
-) -> Uuid {
+) -> AttemptFixture {
+    seed_grading_graph(pool).await;
+    let course_id = COURSE_INSTANCE_ID
+        .get()
+        .expect("seeded Course Instance")
+        .as_str();
     let mut tx = pool.begin().await.expect("fixture transaction");
     sqlx::query("SET LOCAL ROLE ple_data_owner")
         .execute(&mut *tx)
         .await
         .expect("data fixture role");
+    let snapshot_id: Vec<u8> = sqlx::query_scalar(
+        "SELECT ple_private.ensure_assessment_policy_snapshot( \
+             'Grading lifecycle Assessment', 'Answer the Question.', \
+             clock_timestamp() - interval '1 hour', \
+             clock_timestamp() + interval '1 hour', \
+             clock_timestamp() + interval '2 hours', \
+             60, 1, 'reject', 'reuse_variation', 'authored_order', \
+             'after_submit', 'after_submit', 'after_submit', \
+             'after_submit', 'after_submit', 'after_submit', \
+             'regular_assignment')",
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .expect("Assessment policy snapshot");
+    let assessment_id: String = sqlx::query_scalar(
+        "INSERT INTO ple_data.assessment \
+         (assessment_id, course_instance_id, origin_kind, created_at, updated_at, \
+          assessment_type, assessment_policy_snapshot_id, assessment_status) \
+         VALUES ('A0000000' || ple_private.crockford_checksum_character('A0000000'), \
+                 $1, 'direct', clock_timestamp(), clock_timestamp(), \
+                 'regular_assignment', $2, 'released') \
+         RETURNING assessment_id",
+    )
+    .bind(course_id)
+    .bind(&snapshot_id)
+    .fetch_one(&mut *tx)
+    .await
+    .expect("Assessment");
     sqlx::query(
-        "INSERT INTO ple_data.assessment (assessment_id, course_id, origin_kind, \
-         source_blueprint_course_reference_number, source_blueprint_revision_number, \
-         source_blueprint_assessment_reference, created_at, updated_at, assessment_type, assessment_title, \
-         assessment_instructions, available_at, due_at, closes_at, \
-         assessment_attempt_time_limit_seconds, assessment_attempt_limit, late_work_rule, \
-         question_variation_rule, \
-         \
-         assessment_question_order_rule, feedback_score, \
-         feedback_per_item_correctness, feedback_submitted_response, \
-         feedback_question_answer, feedback_question_answer_explanation, feedback_class_statistics, \
-         assessment_status) \
-         SELECT $1, course_id, origin_kind, source_blueprint_course_reference_number, \
-                source_blueprint_revision_number, source_blueprint_assessment_reference, \
-                clock_timestamp(), clock_timestamp(), assessment_type, assessment_title, assessment_instructions, \
-                clock_timestamp() - interval '1 hour', clock_timestamp() + interval '1 hour', \
-                clock_timestamp() + interval '2 hours', 60, 1, late_work_rule, \
-                question_variation_rule, \
-                \
-                assessment_question_order_rule, feedback_score, \
-                feedback_per_item_correctness, feedback_submitted_response, \
-                feedback_question_answer, feedback_question_answer_explanation, feedback_class_statistics, \
-                assessment_status FROM ple_data.assessment WHERE assessment_id = $2",
-    ).bind(assessment_id).bind(Uuid::parse_str(BASE_ASSESSMENT).unwrap())
-        .execute(&mut *tx).await.expect("cloned Assessment");
+        "INSERT INTO ple_data.assessment_entry \
+         (assessment_entry_id, assessment_id, authored_position, entry_kind, availability, \
+          scoring_rule) VALUES ($1, $2, 0, 'fixed_question', 'available', 'normal')",
+    )
+    .bind(entry_id)
+    .bind(&assessment_id)
+    .execute(&mut *tx)
+    .await
+    .expect("Assessment Entry");
     sqlx::query(
-        "INSERT INTO ple_data.assessment_entry (assessment_entry_id, assessment_id, authored_position, \
-         entry_kind, availability, scoring_rule, question_id, question_revision_number, points_possible) \
-         SELECT $1, $2, authored_position, entry_kind, availability, scoring_rule, question_id, \
-                question_revision_number, points_possible FROM ple_data.assessment_entry \
-          WHERE assessment_entry_id = $3",
-    ).bind(entry_id).bind(assessment_id).bind(Uuid::parse_str(BASE_ENTRY).unwrap())
-        .execute(&mut *tx).await.expect("cloned Entry");
+        "INSERT INTO ple_data.assessment_entry_question \
+         (assessment_entry_id, assessment_id, published_question_id, question_revision_number, \
+          points_possible) VALUES ($1, $2, $3, 1, 2)",
+    )
+    .bind(entry_id)
+    .bind(&assessment_id)
+    .bind(PUBLISHED_QUESTION)
+    .execute(&mut *tx)
+    .await
+    .expect("Assessment Entry Question");
     sqlx::query("SET LOCAL ROLE ple_private_owner")
         .execute(&mut *tx)
         .await
         .expect("private fixture role");
     sqlx::query(
-        "INSERT INTO ple_private.student_assessment_accommodation (accommodation_id, student_record_id, \
-         assessment_id, available_at, due_at, closes_at, time_multiplier, \
-         assessment_attempt_limit, created_at) VALUES ($1, $2, $3, clock_timestamp() - interval '1 hour', \
-         clock_timestamp() + interval '1 hour', clock_timestamp() + interval '2 hours', 1, 1, clock_timestamp())",
-    ).bind(Uuid::from_u128(assessment_id.as_u128() + 0x100)).bind(Uuid::parse_str(STUDENT_RECORD).unwrap()).bind(assessment_id)
-        .execute(&mut *tx).await.expect("Student accommodation");
+        "INSERT INTO ple_private.student_assessment_accommodation \
+         (accommodation_id, course_instance_id, student_record_id, assessment_id, \
+          available_at, due_at, closes_at, time_multiplier, assessment_attempt_limit, \
+          created_at) VALUES ($1, $2, $3, $4, clock_timestamp() - interval '1 hour', \
+          clock_timestamp() + interval '1 hour', clock_timestamp() + interval '2 hours', \
+          1, 1, clock_timestamp())",
+    )
+    .bind(Uuid::from_u128(entry_id.as_u128() + 0x100))
+    .bind(course_id)
+    .bind(Uuid::parse_str(STUDENT_RECORD).unwrap())
+    .bind(&assessment_id)
+    .execute(&mut *tx)
+    .await
+    .expect("Student accommodation");
     set_student(&mut tx).await.expect("Student API session");
     let started_attempt_id: Uuid = sqlx::query_scalar(
         "SELECT assessment_attempt_id FROM ple_api.start_assessment_attempt(\
          $1, $2, $3, '[]'::jsonb, jsonb_build_array(jsonb_build_object(\
          'issued_question_id', $4, 'assessment_entry_id', $5, 'issued_position', 0, \
-         'question_id', 'BCDEXFG0', 'revision_number', 1)))",
+         'published_question_id', $6, 'revision_number', 1)))",
     )
     .bind(attempt_id)
     .bind(Uuid::parse_str(STUDENT_RECORD).unwrap())
-    .bind(assessment_id)
+    .bind(&assessment_id)
     .bind(issued_id)
     .bind(entry_id)
+    .bind(PUBLISHED_QUESTION)
     .fetch_one(&mut *tx)
     .await
     .expect("start Attempt");
@@ -143,11 +274,13 @@ async fn make_attempt(
         .await
         .expect("question fixture role");
     sqlx::query(
-        "INSERT INTO ple_private.question_attempt (question_attempt_id, issued_question_id, \
-         issued_at, question_attempt_state, backend_name, backend_version, \
-         grader_name, grader_version, rendered_question_sha256, issued_capability) \
-         VALUES ($1, $2, clock_timestamp(), 'open', \
-         'ple', '1', 'ple', '1', decode(repeat('51', 32), 'hex'), 'not_applicable')",
+        "INSERT INTO ple_private.question_attempt (course_instance_id, question_attempt_id, issued_question_id, \
+         issued_at, delivery_toolchain_id, rendered_question_sha256) \
+         SELECT issued.course_instance_id, $1, $2, clock_timestamp(), \
+                ple_private.ensure_delivery_toolchain('ple', '1', NULL, NULL, 'ple', '1', 'not_applicable'), \
+                decode(repeat('51', 32), 'hex') \
+           FROM ple_private.issued_question AS issued \
+          WHERE issued.issued_question_id = $2",
     )
     .bind(question_attempt_id)
     .bind(issued_id)
@@ -162,7 +295,10 @@ async fn make_attempt(
         "fixture response reached saved work"
     );
     tx.commit().await.expect("committed fixture");
-    reference
+    AttemptFixture {
+        attempt_id: reference,
+        assessment_id,
+    }
 }
 
 async fn wait_for_lock<T: std::fmt::Debug>(
@@ -270,28 +406,27 @@ async fn wait_until_expired(
 #[ignore = "requires the disposable PostgreSQL 17 acceptance runtime"]
 async fn late_save_and_commit_recheck_the_clock_after_waiting_on_their_locks() {
     let pool = migration_pool().await;
-    let late_assessment = Uuid::from_u128(0xf5100000000000000000000000000001);
-    let commit_assessment = Uuid::from_u128(0xf5100000000000000000000000002);
     let late_attempt = Uuid::from_u128(0xf5200000000000000000000000000001);
     let commit_attempt = Uuid::from_u128(0xf5200000000000000000000000000002);
-    let late_reference = make_attempt(
+    let late_fixture = make_attempt(
         &pool,
-        late_assessment,
         Uuid::from_u128(0xf5300000000000000000000000000001),
         late_attempt,
         Uuid::from_u128(0xf5400000000000000000000000000001),
         Uuid::from_u128(0xf5500000000000000000000000000001),
     )
     .await;
-    let commit_reference = make_attempt(
+    let commit_fixture = make_attempt(
         &pool,
-        commit_assessment,
         Uuid::from_u128(0xf5300000000000000000000000000002),
         commit_attempt,
         Uuid::from_u128(0xf5400000000000000000000000000002),
         Uuid::from_u128(0xf5500000000000000000000000000002),
     )
     .await;
+    let late_reference = late_fixture.attempt_id;
+    let commit_reference = commit_fixture.attempt_id;
+    let commit_assessment = commit_fixture.assessment_id;
     let mut save_tx = pool.begin().await.expect("late save transaction");
     sqlx::query("SET LOCAL application_name = 'direct-finalization-late-save'")
         .execute(&mut *save_tx)
@@ -366,7 +501,7 @@ async fn late_save_and_commit_recheck_the_clock_after_waiting_on_their_locks() {
         .await
         .expect("root lock role");
     sqlx::query("SELECT ple_private.lock_assessment_for_student_work($1)")
-        .bind(commit_assessment)
+        .bind(&commit_assessment)
         .execute(&mut *root_lock)
         .await
         .expect("Assessment root lock");

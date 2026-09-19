@@ -2,9 +2,9 @@
 
 use async_trait::async_trait;
 use question_model::{
-    AccountId, BlueprintAvailability, BlueprintCourseId, BlueprintEditNumber,
-    BlueprintRevision, BlueprintRevisionReference, QuestionPoolRevisionReference,
-    QuestionRevisionReference, RequestChecksum, Timestamp,
+    AccountId, BlueprintAvailability, BlueprintCourseId, BlueprintEditNumber, BlueprintRevision,
+    BlueprintRevisionReference, QuestionPoolRevisionReference, QuestionRevisionReference,
+    RequestChecksum, Timestamp,
 };
 use std::collections::BTreeMap;
 

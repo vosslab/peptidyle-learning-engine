@@ -43,7 +43,7 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
     let initial = private.content.clone();
     transition_blueprint_availability(
         &url,
-        blueprint_number,
+        &blueprint_number,
         private.blueprint_edit_number.as_i64(),
         "public",
         None,
@@ -52,7 +52,7 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
     .expect("publish fixture before adoption");
     let term = near_now_term(&url).await;
     let mut daughter_numbers = Vec::new();
-    let mut empty_number = 0;
+    let mut empty_number = String::new();
     for index in 0..3 {
         let result = courses
             .create_course_instance(
@@ -82,13 +82,7 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
             )
             .await
             .expect("create append fixture Course");
-        let number: i64 = sqlx::query_scalar(
-            "SELECT reference_number FROM ple_data.course_instance WHERE public_reference = $1",
-        )
-        .bind(result.course.reference.as_string())
-        .fetch_one(&mut inspection)
-        .await
-        .expect("Course number");
+        let number = result.course.reference.as_string();
         if index == 2 {
             empty_number = number;
         } else {
@@ -97,9 +91,19 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
     }
     // A daughter owns its live title and release state independently of its source.
     sqlx::query(
-        "UPDATE ple_data.assessment SET assessment_title = 'Daughter customization', \
-        assessment_status = 'released' WHERE course_id IN \
-        (SELECT course_id FROM ple_data.course_instance WHERE reference_number = ANY($1))",
+        "UPDATE ple_data.assessment SET assessment_status = 'released', \
+         assessment_policy_snapshot_id = ple_private.ensure_assessment_policy_snapshot( \
+             'Daughter customization', snapshot.assessment_instructions, \
+             snapshot.available_at, snapshot.due_at, snapshot.closes_at, \
+             snapshot.assessment_attempt_time_limit_seconds, snapshot.assessment_attempt_limit, \
+             snapshot.late_work_rule, snapshot.question_variation_rule, \
+             snapshot.assessment_question_order_rule, snapshot.feedback_score, \
+             snapshot.feedback_per_item_correctness, snapshot.feedback_submitted_response, \
+             snapshot.feedback_question_answer, snapshot.feedback_question_answer_explanation, \
+             snapshot.feedback_class_statistics, assessment.assessment_type) \
+         FROM ple_data.assessment_policy_snapshot AS snapshot \
+        WHERE snapshot.assessment_policy_snapshot_id = assessment.assessment_policy_snapshot_id \
+          AND assessment.course_instance_id = ANY($1)",
     )
     .bind(&daughter_numbers)
     .execute(&mut inspection)
@@ -107,9 +111,9 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
     .expect("customize daughter fixture");
     sqlx::query(
         "UPDATE ple_data.course_instance SET course_lifecycle_state = 'inactive', \
-        course_became_inactive_at = clock_timestamp() WHERE reference_number = $1",
+        course_became_inactive_at = clock_timestamp() WHERE course_instance_id = $1",
     )
-    .bind(daughter_numbers[1])
+    .bind(&daughter_numbers[1])
     .execute(&mut inspection)
     .await
     .expect("Inactive daughter fixture");
@@ -119,44 +123,35 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
         .execute(&mut *student_fixture)
         .await
         .expect("daughter Student fixture role");
-    sqlx::query("INSERT INTO ple_data.student_record (student_record_id, course_id, student_account_id, created_at) \
-        SELECT $1, course_id, $2, clock_timestamp() FROM ple_data.course_instance WHERE reference_number = $3")
-        .bind(id(0xb220)).bind(id(0xb104)).bind(daughter_numbers[0])
+    sqlx::query("INSERT INTO ple_data.student_record (student_record_id, course_instance_id, student_account_id, created_at) \
+        SELECT $1, course_instance_id, $2, clock_timestamp() FROM ple_data.course_instance WHERE course_instance_id = $3")
+        .bind(id(0xb220)).bind(student_account_id()).bind(&daughter_numbers[0])
         .execute(&mut *student_fixture).await.expect("daughter Student record");
     student_fixture
         .commit()
         .await
         .expect("daughter Student fixture commit");
-    // ASVS 1.2.4: transport fixture data as bound JSON, not interpolated SQL.
-    let attempt_source: serde_json::Value = sqlx::query_scalar(
-        "SELECT to_jsonb(a) FROM ple_data.assessment a \
-         JOIN ple_data.course_instance c ON c.course_id = a.course_id WHERE c.reference_number = $1",
-    )
-    .bind(daughter_numbers[0])
-    .fetch_one(&mut inspection)
-    .await
-    .expect("daughter attempt source");
     let mut work_fixture = inspection.begin().await.expect("daughter Work fixture");
     sqlx::query("SET LOCAL ROLE ple_private_owner")
         .execute(&mut *work_fixture)
         .await
         .expect("daughter Work fixture role");
-    sqlx::query("INSERT INTO ple_private.assessment_attempt (assessment_attempt_id, student_record_id, \
-        assessment_id, assessment_attempt_number, started_at, assessment_title, assessment_instructions, \
-        assessment_attempt_time_limit_seconds, assessment_attempt_limit, late_work_rule, \
-        question_variation_rule, \
-        assessment_question_order_rule, \
-        feedback_score, feedback_per_item_correctness, feedback_submitted_response, feedback_question_answer, \
-        feedback_question_answer_explanation, feedback_class_statistics) \
-        SELECT $1, $2, a.assessment_id, 1, clock_timestamp(), a.assessment_title, a.assessment_instructions, \
-        a.assessment_attempt_time_limit_seconds, a.assessment_attempt_limit, a.late_work_rule, \
-        a.question_variation_rule, \
-        a.assessment_question_order_rule, \
-        a.feedback_score, a.feedback_per_item_correctness, a.feedback_submitted_response, a.feedback_question_answer, \
-        a.feedback_question_answer_explanation, a.feedback_class_statistics \
-        FROM jsonb_populate_record(NULL::ple_private.assessment_attempt, $3) a")
-        .bind(id(0xb221)).bind(id(0xb220)).bind(attempt_source)
-        .execute(&mut *work_fixture).await.expect("existing daughter StudentWork attempt");
+    sqlx::query(
+        "INSERT INTO ple_private.assessment_attempt ( \
+        course_instance_id, assessment_attempt_id, student_record_id, assessment_id, \
+        assessment_attempt_number, started_at, assessment_policy_snapshot_id) \
+        SELECT a.course_instance_id, $1, $2, a.assessment_id, 1, clock_timestamp(), \
+               a.assessment_policy_snapshot_id \
+          FROM ple_data.assessment a \
+         WHERE a.course_instance_id = $3 \
+         LIMIT 1",
+    )
+    .bind(id(0xb221))
+    .bind(id(0xb220))
+    .bind(&daughter_numbers[0])
+    .execute(&mut *work_fixture)
+    .await
+    .expect("existing daughter StudentWork attempt");
     work_fixture
         .commit()
         .await
@@ -204,13 +199,13 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
         BlueprintRevision::new(2).expect("Revision two")
     );
     for (course, independent) in [
-        (daughter_numbers[0], daughter_numbers[1]),
-        (daughter_numbers[1], daughter_numbers[0]),
+        (&daughter_numbers[0], &daughter_numbers[1]),
+        (&daughter_numbers[1], &daughter_numbers[0]),
     ] {
         blueprint_course_postgres_adoption::assert_append_projection(
             &mut inspection,
             course,
-            blueprint_number,
+            &blueprint_number,
             2,
             independent,
             1,
@@ -290,17 +285,17 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
         .await
         .expect("no-op Save");
     assert!(!no_op.changed);
-    let counts: Vec<(i64, i64)> = sqlx::query_as("SELECT c.reference_number, count(a.assessment_id) \
-        FROM ple_data.course_instance c LEFT JOIN ple_data.assessment a ON a.course_id = c.course_id \
-        WHERE c.reference_number = ANY($1) GROUP BY c.reference_number ORDER BY c.reference_number")
-        .bind(vec![daughter_numbers[0], daughter_numbers[1], empty_number])
+    let counts: Vec<(String, i64)> = sqlx::query_as("SELECT c.course_instance_id, count(a.assessment_id) \
+        FROM ple_data.course_instance c LEFT JOIN ple_data.assessment a ON a.course_instance_id = c.course_instance_id \
+        WHERE c.course_instance_id = ANY($1) GROUP BY c.course_instance_id ORDER BY c.course_instance_id")
+        .bind(vec![daughter_numbers[0].clone(), daughter_numbers[1].clone(), empty_number.clone()])
         .fetch_all(&mut inspection).await.expect("append counts after replay/no-op/stale");
     assert_eq!(
         counts,
         vec![
-            (daughter_numbers[0], 2),
-            (daughter_numbers[1], 2),
-            (empty_number, 0)
+            (daughter_numbers[0].clone(), 2),
+            (daughter_numbers[1].clone(), 2),
+            (empty_number.clone(), 0)
         ]
     );
     assert_eq!(
@@ -311,12 +306,12 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
     inspection.close().await.expect("append inspection close");
 }
 
-async fn old_daughter_rows(connection: &mut PgConnection, courses: &[i64]) -> serde_json::Value {
+async fn old_daughter_rows(connection: &mut PgConnection, courses: &[String]) -> serde_json::Value {
     let mut rows: serde_json::Value = sqlx::query_scalar("SELECT COALESCE(jsonb_agg(jsonb_build_object('assessment', to_jsonb(a), \
         'entries', (SELECT jsonb_agg(to_jsonb(e) ORDER BY e.authored_position) FROM ple_data.assessment_entry e \
         WHERE e.assessment_id = a.assessment_id)) ORDER BY a.assessment_id), '[]'::jsonb) \
-        FROM ple_data.assessment a JOIN ple_data.course_instance c ON c.course_id = a.course_id \
-        WHERE c.reference_number = ANY($1) AND a.source_blueprint_revision_number = 1")
+        FROM ple_data.assessment a JOIN ple_data.course_instance c ON c.course_instance_id = a.course_instance_id \
+        WHERE c.course_instance_id = ANY($1) AND a.source_blueprint_revision_number = 1")
         .bind(courses).fetch_one(&mut *connection).await.expect("unchanged daughter snapshot");
     let mut work = connection.begin().await.expect("daughter Work snapshot");
     sqlx::query("SET LOCAL ROLE ple_private_owner")
@@ -326,9 +321,7 @@ async fn old_daughter_rows(connection: &mut PgConnection, courses: &[i64]) -> se
     for row in rows.as_array_mut().expect("daughter snapshot array") {
         let assessment = row["assessment"]["assessment_id"]
             .as_str()
-            .expect("daughter Assessment ID")
-            .parse::<Uuid>()
-            .expect("daughter Assessment UUID");
+            .expect("daughter Assessment ID");
         row["attempts"] = sqlx::query_scalar::<_, Option<serde_json::Value>>(
             "SELECT jsonb_agg(to_jsonb(w) ORDER BY w.assessment_attempt_id) \
              FROM ple_private.assessment_attempt w WHERE w.assessment_id = $1",

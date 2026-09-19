@@ -85,9 +85,7 @@ impl std::fmt::Display for BlueprintComparisonError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter.write_str(match self {
             Self::DuplicateModuleReference => "Blueprint comparison repeats a module reference",
-            Self::DuplicateAssessmentId => {
-                "Blueprint comparison repeats an Assessment reference"
-            }
+            Self::DuplicateAssessmentId => "Blueprint comparison repeats an Assessment reference",
             Self::MissingPoolMembership => {
                 "Blueprint comparison lacks exact Pool Revision membership"
             }

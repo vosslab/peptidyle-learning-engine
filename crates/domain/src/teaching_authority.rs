@@ -6,8 +6,8 @@
 //! a direct membership.
 
 use question_model::{
-    AccountId, CourseInstanceId, CourseInvitation, CourseInvitationEventKind, CourseInvitationState,
-    CourseMembershipId, CourseMembershipRole, StudentRecordId, Timestamp,
+    AccountId, CourseInstanceId, CourseInvitation, CourseInvitationEventKind,
+    CourseInvitationState, CourseMembershipId, CourseMembershipRole, StudentRecordId, Timestamp,
 };
 
 /// Thirty calendar days expressed in the shared Unix-millisecond representation.
@@ -273,8 +273,8 @@ mod tests {
         let instructor_account = AccountId::from_debug_serial(3);
         let course = CourseInstanceId::from_debug_serial(2);
         let membership = CurrentInstructorCourseMembership {
-            course,
-            instructor_account,
+            course: course.clone(),
+            instructor_account: instructor_account.clone(),
             active: true,
         };
         assert_eq!(
@@ -297,7 +297,7 @@ mod tests {
         assert!(!current_course_instructor(
             Some(CurrentInstructorCourseMembership {
                 course: CourseInstanceId::from_debug_serial(4),
-                instructor_account,
+                instructor_account: instructor_account.clone(),
                 active: true,
             }),
             instructor_account,
@@ -311,7 +311,7 @@ mod tests {
         let course = CourseInstanceId::from_debug_serial(2);
         assert!(!current_course_instructor(
             Some(CurrentInstructorCourseMembership {
-                course,
+                course: course.clone(),
                 instructor_account: AccountId::from_debug_serial(4),
                 active: true,
             }),
@@ -326,8 +326,8 @@ mod tests {
         let course = CourseInstanceId::from_debug_serial(2);
         assert!(!current_course_instructor(
             Some(CurrentInstructorCourseMembership {
-                course,
-                instructor_account,
+                course: course.clone(),
+                instructor_account: instructor_account.clone(),
                 active: false,
             }),
             instructor_account,
@@ -339,11 +339,11 @@ mod tests {
     fn exact_student_record_is_permitted_and_other_student_is_denied() {
         let student_account = AccountId::from_debug_serial(3);
         let course = CourseInstanceId::from_debug_serial(2);
-        let membership = student_membership(student_account, course);
+        let membership = student_membership(&student_account, &course);
         assert!(student_owns_course_record(
-            Some(membership),
-            student_account,
-            course,
+            Some(membership.clone()),
+            student_account.clone(),
+            course.clone(),
             membership.student_record,
         ));
         assert!(!student_owns_course_record(
@@ -358,11 +358,11 @@ mod tests {
     fn renewed_student_membership_reuses_the_stable_course_record() {
         let student_account = AccountId::from_debug_serial(3);
         let course = CourseInstanceId::from_debug_serial(2);
-        let membership = student_membership(student_account, course);
+        let membership = student_membership(&student_account, &course);
         assert!(student_owns_course_record(
             Some(StudentCourseMembership {
                 membership: CourseMembershipId::from_uuid(id(7)),
-                ..membership
+                ..membership.clone()
             }),
             student_account,
             course,
@@ -374,11 +374,11 @@ mod tests {
     fn inactive_student_membership_cannot_authorize_course_record_access() {
         let student_account = AccountId::from_debug_serial(3);
         let course = CourseInstanceId::from_debug_serial(2);
-        let membership = student_membership(student_account, course);
+        let membership = student_membership(&student_account, &course);
         assert!(!student_owns_course_record(
             Some(StudentCourseMembership {
                 active: false,
-                ..membership
+                ..membership.clone()
             }),
             student_account,
             course,
@@ -390,11 +390,11 @@ mod tests {
     fn non_student_membership_cannot_authorize_course_record_access() {
         let student_account = AccountId::from_debug_serial(3);
         let course = CourseInstanceId::from_debug_serial(2);
-        let membership = student_membership(student_account, course);
+        let membership = student_membership(&student_account, &course);
         assert!(!student_owns_course_record(
             Some(StudentCourseMembership {
                 role: CourseMembershipRole::Instructor,
-                ..membership
+                ..membership.clone()
             }),
             student_account,
             course,
@@ -418,7 +418,7 @@ mod tests {
             terminal_event: Some(terminal_event(
                 &pending,
                 CourseInvitationEventKind::Accepted,
-                pending.target,
+                pending.target.clone(),
                 stamp(1_010),
             )),
             ..pending.clone()
@@ -444,7 +444,7 @@ mod tests {
             terminal_event: Some(terminal_event(
                 &pending,
                 CourseInvitationEventKind::Declined,
-                pending.target,
+                pending.target.clone(),
                 stamp(1_010),
             )),
             ..pending
@@ -470,7 +470,7 @@ mod tests {
             terminal_event: Some(CourseInvitationEvent {
                 invitation: CourseInvitationId::from_uuid(id(99)),
                 kind: CourseInvitationEventKind::Accepted,
-                performed_by: invitation.target,
+                performed_by: invitation.target.clone(),
                 occurred_at: stamp(1_010),
             }),
             ..invitation
@@ -506,7 +506,7 @@ mod tests {
                     if matches!(kind, CourseInvitationEventKind::Revoked) {
                         AccountId::from_debug_serial(9)
                     } else {
-                        pending.target
+                        pending.target.clone()
                     },
                     now,
                 )),
@@ -527,7 +527,7 @@ mod tests {
                     if matches!(kind, CourseInvitationEventKind::Revoked) {
                         AccountId::from_debug_serial(9)
                     } else {
-                        pending.target
+                        pending.target.clone()
                     },
                     stamp(1_011),
                 )),
@@ -549,10 +549,10 @@ mod tests {
             Err(CourseInvitationError::WrongTarget)
         );
         assert_eq!(
-            accept_course_invitation(&invitation, invitation.target, now,),
+            accept_course_invitation(&invitation, invitation.target.clone(), now,),
             Ok(CourseInvitationAcceptance {
-                course: invitation.course,
-                target: invitation.target,
+                course: invitation.course.clone(),
+                target: invitation.target.clone(),
                 accepted_at: now,
             })
         );
@@ -571,11 +571,14 @@ mod tests {
         assert_eq!(refuse_final_instructor_removal(2), Ok(()));
     }
 
-    fn student_membership(student_account: AccountId, course: CourseInstanceId) -> StudentCourseMembership {
+    fn student_membership(
+        student_account: &AccountId,
+        course: &CourseInstanceId,
+    ) -> StudentCourseMembership {
         StudentCourseMembership {
             membership: CourseMembershipId::from_uuid(id(6)),
-            course,
-            student_account,
+            course: course.clone(),
+            student_account: student_account.clone(),
             student_record: StudentRecordId::from_uuid(id(5)),
             role: CourseMembershipRole::Student,
             active: true,

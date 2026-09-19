@@ -22,19 +22,90 @@ function formatCount(value: number, singular: string): string {
   return `${wholeNumber.format(value)} ${value === 1 ? singular : `${singular}s`}`;
 }
 
-/** Renders the explicit unavailable state until a release service exists. */
-export function QuestionStatisticsPanel(_props: QuestionStatisticsPanelProps): JSX.Element {
+function formatRate(rate: number | undefined, observations: number): string {
+  if (rate === undefined) {
+    return `${wholeNumber.format(observations)} observations`;
+  }
+  return `${new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDigits: 1 }).format(rate)} (${wholeNumber.format(observations)})`;
+}
+
+function formatMean(mean: number | undefined, observations: number): string {
+  if (mean === undefined) {
+    return `${wholeNumber.format(observations)} observations`;
+  }
+  return `${mean.toFixed(2)} (${wholeNumber.format(observations)})`;
+}
+
+/** Renders Instructor-visible usage rates beside their observation counts. */
+export function QuestionStatisticsPanel(props: QuestionStatisticsPanelProps): JSX.Element {
   return (
-    <section
-      class="question-statistics-panel"
-      aria-labelledby="question-statistics-unavailable-heading"
+    <Show
+      when={props.evidence.state === "available" ? props.evidence : undefined}
+      fallback={
+        <section
+          class="question-statistics-panel"
+          aria-labelledby="question-statistics-unavailable-heading"
+        >
+          <h2 id="question-statistics-unavailable-heading">Learning evidence</h2>
+          <p>
+            Question Statistics are unavailable until shared learning measures can be shown. This
+            question remains ranked by relevance, so you can still open it and decide whether it
+            fits.
+          </p>
+        </section>
+      }
     >
-      <h2 id="question-statistics-unavailable-heading">Learning evidence</h2>
-      <p>
-        Question Statistics are unavailable until shared learning measures can be shown. This
-        question remains ranked by relevance, so you can still open it and decide whether it fits.
-      </p>
-    </section>
+      {(available) => (
+        <section class="question-statistics-panel" aria-labelledby="question-statistics-heading">
+          <h2 id="question-statistics-heading">Question usage</h2>
+          <p class="question-statistics-introduction">
+            Global, identity-free counts for this Question. Each rate is shown with the number of
+            observations used as its denominator.
+          </p>
+          <dl class="question-statistics-measures">
+            <div>
+              <dt>Blank rate</dt>
+              <dd>{formatRate(available().blank_rate, available().issued_count)}</dd>
+            </div>
+            <div>
+              <dt>Answered rate</dt>
+              <dd>{formatRate(available().answered_rate, available().issued_count)}</dd>
+            </div>
+            <div>
+              <dt>Correct rate</dt>
+              <dd>{formatRate(available().correct_rate, available().answered_count)}</dd>
+            </div>
+            <div>
+              <dt>Partial rate</dt>
+              <dd>{formatRate(available().partial_rate, available().answered_count)}</dd>
+            </div>
+            <div>
+              <dt>Incorrect rate</dt>
+              <dd>{formatRate(available().incorrect_rate, available().answered_count)}</dd>
+            </div>
+            <div>
+              <dt>Mean credit</dt>
+              <dd>{formatMean(available().mean_credit, available().answered_count)}</dd>
+            </div>
+          </dl>
+          <Show when={available().revisions}>
+            {(revisions) => (
+              <>
+                <h3>By revision</h3>
+                <For each={revisions()}>
+                  {(revision) => (
+                    <p>
+                      Revision {revision.revision_number}:{" "}
+                      {formatRate(revision.mean_credit, revision.answered_count)}
+                    </p>
+                  )}
+                </For>
+              </>
+            )}
+          </Show>
+        </section>
+      )}
+    </Show>
   );
 }
 

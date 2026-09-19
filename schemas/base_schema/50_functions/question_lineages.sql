@@ -4,9 +4,7 @@ SET LOCAL ROLE ple_private_owner;
 
 
 
--- Current admission policy is separate from the retained source vocabulary:
--- old iMathAS rows remain structurally readable, but no new production work
--- may use them until a later release changes this one predicate.
+-- Current admission policy is the production Question Backend vocabulary.
 CREATE FUNCTION ple_private.question_backend_is_supported_for_production(
     p_backend ple_data.question_backend
 )

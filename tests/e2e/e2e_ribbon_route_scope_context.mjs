@@ -190,7 +190,10 @@ test(
     app.navigate("/assessment-attempts/00000000-0000-0000-0000-000000000001");
     await nextTurn();
     assert.deepEqual(app.latest(), {
-      identity: { kind: "assessmentAttempt", assessmentAttemptReference: "00000000-0000-0000-0000-000000000001" },
+      identity: {
+        kind: "assessmentAttempt",
+        assessmentAttemptReference: "00000000-0000-0000-0000-000000000001",
+      },
       data: undefined,
     });
     assert.ok(fixture.attemptContexts.has("00000000-0000-0000-0000-000000000001"));
@@ -209,7 +212,10 @@ test(
 
 test("stable controller retains separate Attempt views", async () => {
   const fixture = createDeferredQueries();
-  const app = mountedController(fixture.queries, "/assessment-attempts/00000000-0000-0000-0000-000000000001");
+  const app = mountedController(
+    fixture.queries,
+    "/assessment-attempts/00000000-0000-0000-0000-000000000001",
+  );
   assert.ok(fixture.attemptContexts.has("00000000-0000-0000-0000-000000000001"));
   const context = assignmentAttemptContext("CI7K3M2QAZ");
   fixture.attemptContexts.get("00000000-0000-0000-0000-000000000001").resolve(context);

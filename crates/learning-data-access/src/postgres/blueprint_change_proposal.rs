@@ -7,9 +7,8 @@ use question_model::blueprint_course::{
     BlueprintForkApplyModuleLayout, BlueprintForkApplySelection,
 };
 use question_model::{
-    BlueprintAssessmentId, BlueprintCourseId, BlueprintEditNumber,
-    BlueprintModuleReference, BlueprintRevision, BlueprintRevisionReference,
-    CanonicalBlueprintCourse, Timestamp,
+    BlueprintAssessmentId, BlueprintCourseId, BlueprintEditNumber, BlueprintModuleReference,
+    BlueprintRevision, BlueprintRevisionReference, CanonicalBlueprintCourse, Timestamp,
 };
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -222,20 +221,17 @@ impl BlueprintChangeProposalStore for PostgresBlueprintCourseStore {
                 ))
             })
             .collect::<Result<BTreeMap<_, _>, StoreError>>()?;
-        let new_assessments =
-            selection
-                .source_assessments
-                .iter()
-                .filter(|copy| copy.target_assessment_reference.is_none())
-                .map(|copy| {
-                    Ok((
-                        copy.source_assessment_reference,
-                        BlueprintAssessmentId::from_uuid(
-                            super::blueprint_course::random_uuid()?,
-                        ),
-                    ))
-                })
-                .collect::<Result<BTreeMap<_, _>, StoreError>>()?;
+        let new_assessments = selection
+            .source_assessments
+            .iter()
+            .filter(|copy| copy.target_assessment_reference.is_none())
+            .map(|copy| {
+                Ok((
+                    copy.source_assessment_reference,
+                    BlueprintAssessmentId::from_uuid(super::blueprint_course::random_uuid()?),
+                ))
+            })
+            .collect::<Result<BTreeMap<_, _>, StoreError>>()?;
         let applied = question_model::blueprint_course::apply_blueprint_fork(
             &source.to_domain()?,
             &target.to_domain()?,

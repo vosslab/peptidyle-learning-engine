@@ -283,8 +283,8 @@ mod tests {
         StudentAssessmentAttemptHistoryCourse, StudentAssessmentAttemptHistoryQuestion,
     };
     use question_model::{
-        AssessmentId, AssessmentType, CourseInstanceId, CourseTheme, GradingResult,
-        QuestionId, QuestionRevisionNumber, QuestionRevisionReference, StudentFeedback,
+        AssessmentId, AssessmentType, CourseInstanceId, CourseTheme, GradingResult, QuestionId,
+        QuestionRevisionNumber, QuestionRevisionReference, StudentFeedback,
         StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming,
     };
 

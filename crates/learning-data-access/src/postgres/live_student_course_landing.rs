@@ -2,8 +2,7 @@
 
 use async_trait::async_trait;
 use question_model::{
-    AssessmentAttemptCompletion, AssessmentId, AssessmentType, CourseInstanceId,
-    CourseTerm,
+    AssessmentAttemptCompletion, AssessmentId, AssessmentType, CourseInstanceId, CourseTerm,
 };
 use sqlx::{Postgres, Row, Transaction};
 

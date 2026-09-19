@@ -286,14 +286,12 @@ BEGIN
         pg_catalog.to_timestamp(p_target_created_at_millis::double precision / 1000.0));
     INSERT INTO ple_private.draft_question_source_binding(
         draft_question_id, backend, question_format, question_type,
-        webwork_pg_path, imathas_deployment_reference, imathas_item_reference,
-        imathas_profile, source_object_record_id, source_object_checksum,
+        webwork_pg_path, source_object_record_id, source_object_checksum,
         created_at, updated_at
     ) VALUES (
         p_draft_question_uuid, source_revision.backend, source_binding.question_format,
         source_revision.question_type, source_binding.webwork_pg_path,
-        source_binding.imathas_deployment_reference, source_binding.imathas_item_reference,
-        source_binding.imathas_profile, p_target_object_id,
+        p_target_object_id,
         pg_catalog.encode(p_target_sha256, 'hex'), created_at, created_at);
     IF source_revision.question_type = 'hotspot' THEN
         INSERT INTO ple_private.object_record(

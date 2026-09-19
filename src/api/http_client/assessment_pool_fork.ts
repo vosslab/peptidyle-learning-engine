@@ -27,10 +27,7 @@ import {
 import { ApiProtocolError, ApiRequestError } from "./error";
 import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
-import {
-  parseAssessmentId,
-  parseCourseInstanceId,
-} from "../../navigation/public_route";
+import { parseAssessmentId, parseCourseInstanceId } from "../../navigation/public_route";
 import { validateCanonicalQuestionIdSyntax } from "../../../generated/api/QuestionIdSyntaxContract";
 
 /** A stale Assessment Pool command must reload its complete Assessment workspace. */
@@ -42,10 +39,7 @@ export class AssessmentPoolForkConflictError extends ApiRequestError {
 }
 
 function assessmentPath(course: CourseInstanceId, assessment: AssessmentId): string {
-  if (
-    parseCourseInstanceId(course) === null ||
-    parseAssessmentId(assessment) === null
-  ) {
+  if (parseCourseInstanceId(course) === null || parseAssessmentId(assessment) === null) {
     throw new ApiProtocolError("Assessment Pool route references must be canonical");
   }
   return `/api/course-instances/${encodeURIComponent(course)}/assessments/${encodeURIComponent(assessment)}`;

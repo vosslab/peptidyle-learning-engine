@@ -1,8 +1,6 @@
 //! Derived source review and one retained Assessment's explicit reusable-content update.
 
-use question_model::{
-    AssessmentId, BlueprintCourseId, BlueprintRevision, CourseInstanceId,
-};
+use question_model::{AssessmentId, BlueprintCourseId, BlueprintRevision, CourseInstanceId};
 use sqlx::{Postgres, Row, Transaction, types::Json};
 use uuid::Uuid;
 

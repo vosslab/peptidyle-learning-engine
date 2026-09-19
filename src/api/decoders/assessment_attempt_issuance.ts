@@ -13,12 +13,7 @@ import {
   decodeString,
   decodeStringEnum,
 } from "../decoder";
-import {
-  decodeAssessmentId,
-  decodeAssessmentTitle,
-  field,
-  requireOnlyFields,
-} from "./shared";
+import { decodeAssessmentId, decodeAssessmentTitle, field, requireOnlyFields } from "./shared";
 import { decodeIssuedQuestionPresentation } from "./presentation_delivery";
 import { parseAssessmentAttemptReference } from "../../navigation/public_route";
 import { decodeStudentAssessmentDecision } from "./student_assessment_decision";

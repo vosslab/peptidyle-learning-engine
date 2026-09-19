@@ -15,10 +15,7 @@ import {
 import { ApiProtocolError, ApiRequestError } from "./error";
 import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
-import {
-  parseAssessmentId,
-  parseCourseInstanceId,
-} from "../../navigation/public_route";
+import { parseAssessmentId, parseCourseInstanceId } from "../../navigation/public_route";
 
 function assessmentPath(course: CourseInstanceId, assessment: AssessmentId): string {
   if (parseCourseInstanceId(course) === null) {

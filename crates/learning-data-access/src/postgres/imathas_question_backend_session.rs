@@ -1,339 +1,52 @@
 //! PostgreSQL persistence for server-only iMathAS Question Backend Sessions.
 
 use async_trait::async_trait;
-use question_model::generation::QuestionSeed;
-use question_model::{AccountId, Timestamp};
-use sqlx::postgres::PgRow;
-use sqlx::{Postgres, Row, Transaction};
 
 use super::Pool;
-use super::connection::{map_sqlx_error, parse_account_id};
 use crate::{
-    ImathasLaunchBindingChecksum, ImathasQuestionBackendSession,
-    ImathasQuestionBackendSessionAuthentication, ImathasQuestionBackendSessionChallenge,
     ImathasQuestionBackendSessionCreate, ImathasQuestionBackendSessionReference,
-    ImathasQuestionBackendSessionRestoreExpectation, ImathasQuestionBackendSessionStorageParts,
-    ImathasQuestionBackendSessionStore, ImathasQuestionBackendStateCipher,
-    ImathasQuestionBackendStateKeyId, ImathasQuestionBackendStateKeyRing, ImathasResponseChecksum,
-    LoadedImathasQuestionBackendSession, SessionTokenHash, StoreError,
+    ImathasQuestionBackendSessionRestoreExpectation, ImathasQuestionBackendSessionStore,
+    ImathasQuestionBackendStateKeyRing, LoadedImathasQuestionBackendSession, SessionTokenHash,
+    StoreError,
 };
 
 /// PostgreSQL implementation of the durable iMathAS Question Backend Session boundary.
 #[derive(Clone)]
 pub struct PostgresImathasQuestionBackendSessionStore {
-    pool: Pool,
-    key_ring: std::sync::Arc<ImathasQuestionBackendStateKeyRing>,
+    _pool: Pool,
+    _key_ring: std::sync::Arc<ImathasQuestionBackendStateKeyRing>,
 }
 
 impl PostgresImathasQuestionBackendSessionStore {
     /// Binds an already-attested application pool and server-owned key ring.
     pub fn new(pool: Pool, key_ring: std::sync::Arc<ImathasQuestionBackendStateKeyRing>) -> Self {
-        Self { pool, key_ring }
+        Self {
+            _pool: pool,
+            _key_ring: key_ring,
+        }
     }
+}
 
-    async fn begin_authenticated_application_transaction(
-        &self,
-        token_hash: SessionTokenHash,
-    ) -> Result<(Transaction<'_, Postgres>, AccountId), StoreError> {
-        let mut transaction = self.pool.begin().await.map_err(map_sqlx_error)?;
-        sqlx::query("SET LOCAL ROLE ple_auth")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        let session = sqlx::query(
-            "SELECT account_id FROM ple_api.resolve_and_install_session(decode($1, 'hex'))",
-        )
-        .bind(token_hash.to_string())
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        let account = session
-            .map(|row| {
-                row.try_get("account_id")
-                    .map_err(map_sqlx_error)
-                    .and_then(parse_account_id)
-            })
-            .transpose()?
-            .ok_or(StoreError::Forbidden)?;
-        sqlx::query("SET LOCAL ROLE ple_app")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        Ok((transaction, account))
-    }
+fn unavailable() -> StoreError {
+    StoreError::Unavailable("iMathAS Question Backend Session store is unavailable".into())
 }
 
 #[async_trait]
 impl ImathasQuestionBackendSessionStore for PostgresImathasQuestionBackendSessionStore {
     async fn create_imathas_question_backend_session(
         &self,
-        session_token_hash: SessionTokenHash,
-        create: ImathasQuestionBackendSessionCreate,
+        _session_token_hash: SessionTokenHash,
+        _create: ImathasQuestionBackendSessionCreate,
     ) -> Result<ImathasQuestionBackendSessionReference, StoreError> {
-        let reference = ImathasQuestionBackendSessionReference::generate()?;
-        let create_parts = create.into_storage_parts(reference);
-        let session = create_parts.session;
-        let imathas_question_backend_state = create_parts.imathas_question_backend_state;
-        let parts = session.storage_parts();
-        let (mut transaction, resolved_account) = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
-        ensure_resolved_session_account(resolved_account, parts.account)?;
-        let cipher = ImathasQuestionBackendStateCipher::seal(
-            &self.key_ring,
-            &session,
-            &imathas_question_backend_state,
-        )?;
-        let persisted: uuid::Uuid = sqlx::query_scalar(
-            "SELECT ple_api.create_imathas_question_backend_session(\
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, decode($10, 'hex'), $11, $12::numeric, \
-                $13, $14, $15, convert_to($16, 'UTF8'), \
-                to_timestamp($17::double precision / 1000.0), to_timestamp($18::double precision / 1000.0), \
-                $19, $20, $21)",
-        )
-        .bind(parts.reference.as_uuid())
-        .bind(parts.course.as_str())
-        .bind(parts.assessment.as_str())
-        .bind(parts.grading_context.question_attempt().as_uuid())
-        .bind(parts.imathas_question_backend_binding.deployment_reference().as_str())
-        .bind(parts.imathas_question_backend_binding.item_reference().as_str())
-        .bind(parts.grading_context.question_revision().question_id.as_str())
-        .bind(i32::try_from(parts.grading_context.question_revision().revision_number.get()).map_err(|_| {
-            StoreError::InvalidRecord("Question Revision number exceeds PostgreSQL integer range".into())
-        })?)
-        .bind(parts.source_object.object.as_uuid())
-        .bind(parts.source_object_checksum.as_str())
-        .bind(parts.imathas_question_backend_binding.profile().as_str())
-        .bind(parts.grading_context.question_seed().value().to_string())
-        .bind(parts.imathas_launch_binding_checksum.as_str())
-        .bind(parts.response_checksum.as_bytes().to_vec())
-        .bind(parts.challenge.as_bytes().to_vec())
-        .bind(parts.authentication.as_str())
-        .bind(parts.issued_at.as_unix_millis())
-        .bind(parts.expires_at.as_unix_millis())
-        .bind(cipher.key_id().as_str())
-        .bind(cipher.nonce().to_vec())
-        .bind(cipher.ciphertext())
-        .fetch_one(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        if persisted != reference.as_uuid() {
-            return Err(StoreError::Unavailable(
-                "database returned an invalid iMathAS Question Backend Session reference".into(),
-            ));
-        }
-        transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(reference)
+        Err(unavailable())
     }
 
     async fn load_imathas_question_backend_session(
         &self,
-        session_token_hash: SessionTokenHash,
-        reference: ImathasQuestionBackendSessionReference,
-        expectation: ImathasQuestionBackendSessionRestoreExpectation,
+        _session_token_hash: SessionTokenHash,
+        _reference: ImathasQuestionBackendSessionReference,
+        _expectation: ImathasQuestionBackendSessionRestoreExpectation,
     ) -> Result<LoadedImathasQuestionBackendSession, StoreError> {
-        let (mut transaction, _) = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
-        let row = load_row(&mut transaction, reference, &expectation).await?;
-        let (session, cipher) =
-            decode_imathas_question_backend_session_row(&row, reference, &expectation)?;
-        let imathas_question_backend_state = cipher.open(&self.key_ring, &session)?;
-        transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(LoadedImathasQuestionBackendSession::from_storage_parts(
-            session,
-            imathas_question_backend_state,
-        ))
-    }
-}
-
-async fn load_row(
-    transaction: &mut Transaction<'_, Postgres>,
-    reference: ImathasQuestionBackendSessionReference,
-    expectation: &ImathasQuestionBackendSessionRestoreExpectation,
-) -> Result<PgRow, StoreError> {
-    sqlx::query(
-        "SELECT imathas_question_backend_session_id, imathas_item_reference, question_seed::text AS question_seed, \
-                imathas_profile, imathas_launch_binding_checksum, imathas_response_sha256, \
-                imathas_question_backend_session_challenge, convert_from(imathas_question_backend_session_authentication, 'UTF8') AS authentication, \
-                floor(extract(epoch FROM issued_at) * 1000)::bigint AS issued_at_millis, \
-                floor(extract(epoch FROM expires_at) * 1000)::bigint AS expires_at_millis, \
-                imathas_question_backend_state_key_id, imathas_question_backend_state_nonce, imathas_question_backend_state_ciphertext \
-         FROM ple_api.load_imathas_question_backend_session(\
-             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, decode($11, 'hex'), $12, \
-             $13::numeric, $14)",
-    )
-    .bind(reference.as_uuid())
-    .bind(expectation.storage_parts().account.as_str())
-    .bind(expectation.storage_parts().course.as_str())
-    .bind(expectation.storage_parts().assessment.as_str())
-    .bind(expectation.storage_parts().grading_context.question_attempt().as_uuid())
-    .bind(
-        expectation
-            .storage_parts()
-            .imathas_question_backend_binding
-            .deployment_reference()
-            .as_str(),
-    )
-    .bind(
-        expectation
-            .storage_parts()
-            .imathas_question_backend_binding
-            .item_reference()
-            .as_str(),
-    )
-    .bind(expectation.storage_parts().grading_context.question_revision().question_id.as_str())
-    .bind(i32::try_from(expectation.storage_parts().grading_context.question_revision().revision_number.get()).map_err(|_| {
-        StoreError::InvalidRecord("Question Revision number exceeds PostgreSQL integer range".into())
-    })?)
-    .bind(expectation.storage_parts().source_object.object.as_uuid())
-    .bind(expectation.storage_parts().source_object_checksum.as_str())
-    .bind(
-        expectation
-            .storage_parts()
-            .imathas_question_backend_binding
-            .profile()
-            .as_str(),
-    )
-    .bind(expectation.storage_parts().grading_context.question_seed().value().to_string())
-    .bind(expectation.storage_parts().imathas_launch_binding_checksum.as_str())
-    .fetch_one(&mut **transaction)
-    .await
-    .map_err(map_sqlx_error)
-}
-
-fn decode_imathas_question_backend_session_row(
-    row: &PgRow,
-    reference: ImathasQuestionBackendSessionReference,
-    expectation: &ImathasQuestionBackendSessionRestoreExpectation,
-) -> Result<
-    (
-        ImathasQuestionBackendSession,
-        ImathasQuestionBackendStateCipher,
-    ),
-    StoreError,
-> {
-    let stored_reference: uuid::Uuid = row
-        .try_get("imathas_question_backend_session_id")
-        .map_err(map_sqlx_error)?;
-    if stored_reference != reference.as_uuid() {
-        return Err(invalid_stored_session());
-    }
-    let imathas_item = question_model::ImathasItemReference::new(
-        row.try_get::<String, _>("imathas_item_reference")
-            .map_err(map_sqlx_error)?,
-    )
-    .map_err(|_| invalid_stored_session())?;
-    let restore = expectation.storage_parts();
-    if imathas_item != *restore.imathas_question_backend_binding.item_reference() {
-        return Err(invalid_stored_session());
-    }
-    let question_seed = row
-        .try_get::<String, _>("question_seed")
-        .map_err(map_sqlx_error)?
-        .parse::<u64>()
-        .map(QuestionSeed::new)
-        .map_err(|_| invalid_stored_session())?;
-    if question_seed != restore.grading_context.question_seed() {
-        return Err(invalid_stored_session());
-    }
-    let profile = question_model::ImathasProfile::new(
-        row.try_get::<String, _>("imathas_profile")
-            .map_err(map_sqlx_error)?,
-    )
-    .map_err(|_| invalid_stored_session())?;
-    let imathas_launch_binding_checksum = ImathasLaunchBindingChecksum::parse(
-        row.try_get::<String, _>("imathas_launch_binding_checksum")
-            .map_err(map_sqlx_error)?,
-    )
-    .map_err(|_| invalid_stored_session())?;
-    let response = fixed_bytes::<32>(row, "imathas_response_sha256")?;
-    let challenge = ImathasQuestionBackendSessionChallenge::from_storage_bytes(fixed_bytes::<32>(
-        row,
-        "imathas_question_backend_session_challenge",
-    )?)
-    .map_err(|_| invalid_stored_session())?;
-    let authentication = ImathasQuestionBackendSessionAuthentication::from_server_value(
-        row.try_get::<String, _>("authentication")
-            .map_err(map_sqlx_error)?,
-    )
-    .map_err(|_| invalid_stored_session())?;
-    let issued_at =
-        Timestamp::from_unix_millis(row.try_get("issued_at_millis").map_err(map_sqlx_error)?);
-    let expires_at =
-        Timestamp::from_unix_millis(row.try_get("expires_at_millis").map_err(map_sqlx_error)?);
-    let key_id = ImathasQuestionBackendStateKeyId::parse(
-        row.try_get::<String, _>("imathas_question_backend_state_key_id")
-            .map_err(map_sqlx_error)?,
-    )
-    .map_err(|_| invalid_stored_session())?;
-    let nonce = fixed_bytes::<24>(row, "imathas_question_backend_state_nonce")?;
-    let ciphertext: Vec<u8> = row
-        .try_get("imathas_question_backend_state_ciphertext")
-        .map_err(map_sqlx_error)?;
-    let parts = ImathasQuestionBackendSessionStorageParts {
-        reference,
-        account: restore.account,
-        course: restore.course,
-        assessment: restore.assessment,
-        grading_context: restore.grading_context,
-        imathas_question_backend_binding: question_model::ImathasQuestionBackendBinding::new(
-            restore
-                .imathas_question_backend_binding
-                .deployment_reference()
-                .clone(),
-            imathas_item,
-            profile,
-        ),
-        source_object: restore.source_object,
-        source_object_checksum: restore.source_object_checksum,
-        response_checksum: ImathasResponseChecksum::from_bytes(response),
-        challenge,
-        authentication,
-        imathas_launch_binding_checksum,
-        issued_at,
-        expires_at,
-    };
-    let session = ImathasQuestionBackendSession::from_row_parts(parts)
-        .map_err(|_| invalid_stored_session())?;
-    let cipher = ImathasQuestionBackendStateCipher::from_row_parts(key_id, nonce, ciphertext)
-        .map_err(|_| invalid_stored_session())?;
-    Ok((session, cipher))
-}
-
-fn fixed_bytes<const N: usize>(row: &PgRow, column: &str) -> Result<[u8; N], StoreError> {
-    let bytes: Vec<u8> = row.try_get(column).map_err(map_sqlx_error)?;
-    bytes.try_into().map_err(|_| invalid_stored_session())
-}
-
-fn invalid_stored_session() -> StoreError {
-    StoreError::Unavailable("stored iMathAS Question Backend Session is invalid".into())
-}
-
-fn ensure_resolved_session_account(
-    resolved_account: AccountId,
-    session_account: AccountId,
-) -> Result<(), StoreError> {
-    if resolved_account == session_account {
-        Ok(())
-    } else {
-        Err(StoreError::Forbidden)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn session_creation_refuses_an_account_other_than_the_resolved_session_account() {
-        let resolved = AccountId::from_debug_serial(1);
-        let different_session_account = AccountId::from_debug_serial(2);
-
-        assert_eq!(
-            ensure_resolved_session_account(resolved, different_session_account),
-            Err(StoreError::Forbidden)
-        );
-        assert_eq!(ensure_resolved_session_account(resolved, resolved), Ok(()));
+        Err(unavailable())
     }
 }

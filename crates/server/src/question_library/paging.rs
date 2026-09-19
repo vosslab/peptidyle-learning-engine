@@ -209,13 +209,13 @@ mod tests {
                 .expect("valid authorship"),
                 availability: QuestionAvailability::Available,
                 published_at: Timestamp::from_unix_millis(0),
-                bloom: question_model::BloomClassificationView {
+                bloom: Some(question_model::BloomClassificationView {
                     cognitive_process: question_model::BloomCognitiveProcess::Understand,
                     knowledge_dimension:
                         question_model::BloomKnowledgeDimension::ConceptualKnowledge,
                     classification_edit_number:
                         question_model::BloomClassificationEditNumber::INITIAL,
-                },
+                }),
             },
             prompt: Vec::new(),
             response_preview: None,
@@ -358,17 +358,39 @@ mod tests {
     #[test]
     fn bloom_query_facets_count_the_whole_match_beyond_the_first_page() {
         let mut first = entry("Alpha", "0000085");
-        first.summary.bloom.cognitive_process = question_model::BloomCognitiveProcess::Analyze;
+        first
+            .summary
+            .bloom
+            .as_mut()
+            .expect("bloom")
+            .cognitive_process = question_model::BloomCognitiveProcess::Analyze;
         let mut second = entry("Beta", "0000002");
-        second.summary.bloom.cognitive_process = question_model::BloomCognitiveProcess::Analyze;
+        second
+            .summary
+            .bloom
+            .as_mut()
+            .expect("bloom")
+            .cognitive_process = question_model::BloomCognitiveProcess::Analyze;
         let mut other_process = entry("Gamma", "0000024");
-        other_process.summary.bloom.cognitive_process =
-            question_model::BloomCognitiveProcess::Evaluate;
+        other_process
+            .summary
+            .bloom
+            .as_mut()
+            .expect("bloom")
+            .cognitive_process = question_model::BloomCognitiveProcess::Evaluate;
         let mut other_knowledge = entry("Delta", "0000042");
-        other_knowledge.summary.bloom.cognitive_process =
-            question_model::BloomCognitiveProcess::Analyze;
-        other_knowledge.summary.bloom.knowledge_dimension =
-            question_model::BloomKnowledgeDimension::ProceduralKnowledge;
+        other_knowledge
+            .summary
+            .bloom
+            .as_mut()
+            .expect("bloom")
+            .cognitive_process = question_model::BloomCognitiveProcess::Analyze;
+        other_knowledge
+            .summary
+            .bloom
+            .as_mut()
+            .expect("bloom")
+            .knowledge_dimension = question_model::BloomKnowledgeDimension::ProceduralKnowledge;
         let entries = [first, second, other_process, other_knowledge];
         let query = QuestionSearchRequest {
             bloom_cognitive_process: Some(question_model::BloomCognitiveProcess::Analyze),

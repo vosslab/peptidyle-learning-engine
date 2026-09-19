@@ -68,14 +68,6 @@ BEGIN
         MESSAGE = 'Grading evidence is immutable';
 END $$;
 
-CREATE TRIGGER question_response_grading_is_immutable
-BEFORE UPDATE ON ple_private.question_response_grading
-FOR EACH ROW EXECUTE FUNCTION ple_private.reject_grading_evidence_change();
-
-CREATE TRIGGER question_response_grading_delete_is_guarded
-BEFORE DELETE ON ple_private.question_response_grading
-FOR EACH ROW EXECUTE FUNCTION ple_private.reject_student_work_delete();
-
 CREATE TRIGGER grading_result_is_immutable
 BEFORE UPDATE ON ple_private.grading_result
 FOR EACH ROW EXECUTE FUNCTION ple_private.reject_grading_evidence_change();
@@ -112,28 +104,25 @@ SET LOCAL ROLE ple_private_owner;
 -- before the finalization transaction. The caller has already revalidated the
 -- saved-response snapshot and locked the Assessment root.
 CREATE FUNCTION ple_private.record_direct_automated_grading_result(
-    p_question_response_id uuid,
     p_question_attempt_id uuid,
     p_normalized_credit numeric,
     p_recorded_at timestamptz
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private, ple_audit AS $$
-DECLARE grading_id uuid := pg_catalog.gen_random_uuid();
 DECLARE result_id uuid := pg_catalog.gen_random_uuid();
 DECLARE receipt_id uuid := pg_catalog.gen_random_uuid();
 DECLARE calculated_checksum bytea;
 DECLARE course_id_value text;
 BEGIN
-    IF p_question_response_id IS NULL OR p_question_attempt_id IS NULL
+    IF p_question_attempt_id IS NULL
        OR p_normalized_credit IS NULL OR p_normalized_credit < 0
        OR p_normalized_credit > 1 OR p_recorded_at IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Direct automated grading facts are invalid';
     END IF;
-    SELECT submission.course_instance_id INTO course_id_value
-      FROM ple_private.question_response AS submission
-     WHERE submission.question_response_id = p_question_response_id
-       AND submission.question_attempt_id = p_question_attempt_id
+    SELECT attempt.course_instance_id INTO course_id_value
+      FROM ple_private.question_attempt AS attempt
+     WHERE attempt.question_attempt_id = p_question_attempt_id
      FOR KEY SHARE;
     IF NOT FOUND OR EXISTS (
         SELECT 1 FROM ple_private.grading_result AS result
@@ -142,34 +131,24 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Direct automated grading target is unavailable';
     END IF;
-    INSERT INTO ple_private.question_response_grading (
-        course_instance_id, question_response_grading_id, question_response_id, grading_state, created_at, completed_at
-    ) VALUES (
-        course_id_value, grading_id, p_question_response_id, 'graded', p_recorded_at, p_recorded_at
-    );
     INSERT INTO ple_private.grading_result (
-        course_instance_id, grading_result_id, question_response_id, question_response_grading_id,
-        question_attempt_id, normalized_credit, recorded_at
+        course_instance_id, grading_result_id, question_attempt_id, normalized_credit, recorded_at
     ) VALUES (
-        course_id_value, result_id, p_question_response_id, grading_id, p_question_attempt_id,
-        p_normalized_credit, p_recorded_at
+        course_id_value, result_id, p_question_attempt_id, p_normalized_credit, p_recorded_at
     );
     calculated_checksum := pg_catalog.sha256(
-        pg_catalog.convert_to('ple:automated-grading-receipt:v1', 'UTF8')
+        pg_catalog.convert_to('ple:automated-grading-receipt:v2', 'UTF8')
         || pg_catalog.uuid_send(receipt_id)
         || pg_catalog.uuid_send(result_id)
-        || pg_catalog.uuid_send(grading_id)
-        || pg_catalog.uuid_send(p_question_response_id)
         || pg_catalog.uuid_send(p_question_attempt_id)
         || pg_catalog.numeric_send(p_normalized_credit)
         || pg_catalog.int8send((extract(epoch FROM p_recorded_at) * 1000)::bigint)
     );
     INSERT INTO ple_audit.automated_grading_receipt (
-        automated_grading_receipt_id, course_instance_id, question_response_grading_id,
+        automated_grading_receipt_id, course_instance_id,
         grading_result_id, committed_at, automated_grading_receipt_checksum
     ) VALUES (
-        receipt_id, course_id_value, grading_id, result_id, p_recorded_at, calculated_checksum
+        receipt_id, course_id_value, result_id, p_recorded_at, calculated_checksum
     );
-    PERFORM ple_private.capture_question_statistics_observation(receipt_id, ARRAY[]::text[]);
 END $$;
 

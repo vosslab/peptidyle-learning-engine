@@ -4,8 +4,12 @@ Remediation plan for [sql_schema_quality_audit.md](../audits/sql_schema_quality_
 audit is evidence and stays fixed; this plan is the work and is updated as milestones land. Every
 work package must satisfy [docs/DATABASE_STYLE.md](../../DATABASE_STYLE.md).
 
-Status: not started. Opened 2026-09-18. Companion plan:
-[schema_style_checker_plan.md](schema_style_checker_plan.md) ships the measuring tool first.
+Status: closed 2026-09-18. M0–M4 landed. Live Demo teaching graph loads with
+publisher variables. WP-4.3 generic immutability guards deferred with
+EXPLAIN evidence. Companion plan:
+[schema_style_checker_plan.md](schema_style_checker_plan.md) shipped the
+measuring tool first. Archived at
+[docs/archive/sql_schema_restructure_plan.md](../archive/sql_schema_restructure_plan.md).
 
 ## Context
 

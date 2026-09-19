@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use question_model::{
-    AccountId, BlueprintAvailability, BlueprintCourseReadAccess, BlueprintCourseId,
+    AccountId, BlueprintAvailability, BlueprintCourseId, BlueprintCourseReadAccess,
     BlueprintEditNumber, BlueprintMetadataState, BlueprintRevision, BlueprintRevisionReference,
     CanonicalBlueprintCourse, CreateBlueprintCourseInput, CreateBlueprintCourseReceipt, QuestionId,
     QuestionPoolRevisionNumber, QuestionPoolRevisionReference, QuestionRevisionNumber,

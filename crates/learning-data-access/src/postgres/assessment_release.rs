@@ -3,15 +3,14 @@
 use async_trait::async_trait;
 use question_model::{
     AccountTimeZone, AssessmentAuthoredContentField, AssessmentEditNumber, AssessmentEntry,
-    AssessmentEntryAvailability, AssessmentEntryId, AssessmentEntryScoringRule,
-    AssessmentInstructions, AssessmentOrigin, AssessmentPointValue, AssessmentId,
-    AssessmentStatus, AssessmentTitle, AssessmentType, BlueprintAssessmentId,
-    BlueprintAssessmentSource, BlueprintCourseId, BlueprintRevision,
-    BlueprintRevisionReference, CourseInstanceId, CourseTerm, FixedQuestionAssessmentEntry,
-    LateWorkRule, LocalDateAndTime, QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionId,
-    QuestionPoolAssessmentEntry, QuestionPoolRevisionNumber, QuestionPoolRevisionReference,
-    QuestionPoolSelectedQuestionOrder, QuestionPoolSelectionRule, QuestionRevisionNumber,
-    QuestionRevisionReference, Timestamp,
+    AssessmentEntryAvailability, AssessmentEntryId, AssessmentEntryScoringRule, AssessmentId,
+    AssessmentInstructions, AssessmentOrigin, AssessmentPointValue, AssessmentStatus,
+    AssessmentTitle, AssessmentType, BlueprintAssessmentId, BlueprintAssessmentSource,
+    BlueprintCourseId, BlueprintRevision, BlueprintRevisionReference, CourseInstanceId, CourseTerm,
+    FixedQuestionAssessmentEntry, LateWorkRule, LocalDateAndTime, QuestionAttemptLimit,
+    QuestionAttemptTimeLimit, QuestionId, QuestionPoolAssessmentEntry, QuestionPoolRevisionNumber,
+    QuestionPoolRevisionReference, QuestionPoolSelectedQuestionOrder, QuestionPoolSelectionRule,
+    QuestionRevisionNumber, QuestionRevisionReference, Timestamp,
 };
 use sqlx::{Postgres, Row, Transaction};
 

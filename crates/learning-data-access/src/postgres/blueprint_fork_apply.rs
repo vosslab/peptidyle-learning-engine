@@ -2,8 +2,7 @@
 
 use question_model::blueprint_course::apply_blueprint_fork;
 use question_model::{
-    BlueprintAssessmentId, BlueprintModuleReference, RenameBlueprintCourseInput,
-    RequestChecksum,
+    BlueprintAssessmentId, BlueprintModuleReference, RenameBlueprintCourseInput, RequestChecksum,
 };
 use serde_json::Value;
 use sha2::{Digest, Sha256};

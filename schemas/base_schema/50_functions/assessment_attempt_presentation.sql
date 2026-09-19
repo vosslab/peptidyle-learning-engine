@@ -13,9 +13,11 @@ DECLARE question_attempt_backend text;
 DECLARE allowed_keys text[] := ARRAY['source', 'libraryIds'];
 BEGIN
     IF NEW.author_content IS NULL THEN RETURN NEW; END IF;
-    SELECT backend_name INTO question_attempt_backend
-      FROM ple_private.question_attempt
-     WHERE question_attempt_id = NEW.question_attempt_id;
+    SELECT toolchain.backend_name INTO question_attempt_backend
+      FROM ple_private.question_attempt AS attempt
+      JOIN ple_private.delivery_toolchain AS toolchain
+        ON toolchain.delivery_toolchain_id = attempt.delivery_toolchain_id
+     WHERE attempt.question_attempt_id = NEW.question_attempt_id;
     IF question_attempt_backend IS DISTINCT FROM 'ple'
        OR jsonb_typeof(NEW.author_content) <> 'object'
        OR NOT (NEW.author_content ? 'source' AND NEW.author_content ? 'libraryIds')
@@ -51,9 +53,11 @@ DECLARE capability text;
 DECLARE has_presentation boolean;
 DECLARE backend_document_value text;
 BEGIN
-    SELECT issued_capability INTO capability
-      FROM ple_private.question_attempt
-     WHERE question_attempt_id = question_attempt_id_value;
+    SELECT toolchain.issued_capability INTO capability
+      FROM ple_private.question_attempt AS attempt
+      JOIN ple_private.delivery_toolchain AS toolchain
+        ON toolchain.delivery_toolchain_id = attempt.delivery_toolchain_id
+     WHERE attempt.question_attempt_id = question_attempt_id_value;
     IF NOT FOUND THEN RETURN NULL; END IF;
     SELECT EXISTS (
         SELECT 1 FROM ple_private.question_attempt_presentation_binding
@@ -405,17 +409,19 @@ BEGIN
         END IF;
         INSERT INTO ple_private.question_attempt(
             course_instance_id, question_attempt_id, issued_question_id, question_seed, generated_parameter_sha256,
-            issued_at, deadline_at, question_attempt_state, backend_name, backend_version,
-            renderer_name, renderer_version, source_object_record_id, source_object_checksum,
-            grader_name, grader_version, rendered_question_sha256, issued_capability
+            issued_at, deadline_at, delivery_toolchain_id, source_object_record_id, source_object_checksum,
+            rendered_question_sha256
         ) VALUES (
             assessment_attempt_row.course_instance_id, item_question_attempt_id, issued_row.issued_question_id, issued_row.question_seed,
             item_parameter_hash, clock_timestamp(),
             CASE WHEN snapshot_row.question_attempt_time_limit_seconds IS NULL THEN NULL
                  ELSE clock_timestamp() + make_interval(secs => snapshot_row.question_attempt_time_limit_seconds + snapshot_row.question_attempt_grace_seconds) END,
-            'open', source_row.backend, item_backend_version, item_renderer_name, item_renderer_version,
+            ple_private.ensure_delivery_toolchain(
+                source_row.backend, item_backend_version, item_renderer_name, item_renderer_version,
+                item_grader_name, item_grader_version, item_capability::ple_data.issued_capability
+            ),
             source_row.source_object_record_id, decode(source_row.source_object_checksum, 'hex'),
-            item_grader_name, item_grader_version, decode(item_rendered_hash, 'hex'), item_capability
+            decode(item_rendered_hash, 'hex')
         );
         INSERT INTO ple_private.question_attempt_presentation_binding(
             course_instance_id, question_attempt_id, descriptor_version, presentation_nonce, presentation_checksum, presentation, author_content,
@@ -658,6 +664,8 @@ BEGIN
       FROM ple_private.issued_question AS issued
       JOIN ple_private.question_attempt AS question_attempt
         ON question_attempt.issued_question_id = issued.issued_question_id
+      JOIN ple_private.delivery_toolchain AS toolchain
+        ON toolchain.delivery_toolchain_id = question_attempt.delivery_toolchain_id
       JOIN ple_private.question_attempt_presentation_binding AS binding
         ON binding.question_attempt_id = question_attempt.question_attempt_id
       JOIN ple_private.question_revision_source_binding AS source
@@ -667,7 +675,7 @@ BEGIN
         ON response.question_attempt_id = question_attempt.question_attempt_id
      WHERE issued.assessment_attempt_id = assessment_attempt_id_value
        AND issued.issued_position = p_issued_position
-       AND question_attempt.issued_capability = 'webwork_presentation'
+       AND toolchain.issued_capability = 'webwork_presentation'
        AND source.backend = 'webwork'
        AND question_attempt.source_object_record_id IS NOT NULL
        AND question_attempt.source_object_checksum IS NOT NULL

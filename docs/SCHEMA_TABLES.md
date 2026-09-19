@@ -418,47 +418,6 @@ Indexes:
 - ple_data.assessment_question_pool_fork_unique_0 UNIQUE (question_pool_id)
 - ple_data.assessment_question_pool_fork_unique_1 UNIQUE (assessment_entry_id, assessment_id, question_pool_id)
 
-### ple_private.imathas_render_cache_entry
-
-- Role: current state
-- Comment: role: current state, deleted by Unrelease of Student Work; Assessment rows remain with the Course. HUMAN_GUIDANCE.md Assessments.
-
-Columns:
-
-| Name | Type | Null |
-| --- | --- | --- |
-| imathas_render_cache_entry_id | uuid | NOT NULL |
-| imathas_deployment_reference | text | NOT NULL |
-| published_question_id | ple_data.question_family_id | NOT NULL |
-| revision_number | integer | NOT NULL |
-| imathas_normalized_question_seed | integer | NOT NULL |
-| imathas_profile | text | NOT NULL |
-| source_payload_digest | bytea | NOT NULL |
-| encrypted_render_data | bytea | NOT NULL |
-| fetched_at | timestamptz | NOT NULL |
-| expires_at | timestamptz | NOT NULL |
-| updated_at | timestamptz | NOT NULL |
-
-Constraints:
-
-- PRIMARY KEY (imathas_render_cache_entry_id)
-- UNIQUE (imathas_deployment_reference, published_question_id, revision_number, imathas_normalized_question_seed, imathas_profile, source_payload_digest)
-- CHECK imathas_deployment_reference: `(imathas_deployment_reference ~ '^[A-Za-z0-9._-]{1,160}$')`
-- CHECK imathas_normalized_question_seed: `(imathas_normalized_question_seed BETWEEN 1 AND 9999)`
-- CHECK imathas_profile: `(imathas_profile ~ '^[A-Za-z0-9._-]{1,160}$')`
-- CHECK source_payload_digest: `(octet_length(source_payload_digest) = 32)`
-- CHECK encrypted_render_data: `(octet_length(encrypted_render_data) BETWEEN 1 AND 1048576)`
-- CHECK expires_at: `(expires_at > fetched_at)`
-
-Foreign keys:
-
-- (published_question_id, revision_number) -> ple_data.question_revision (published_question_id, revision_number)
-
-Indexes:
-
-- ple_private.imathas_render_cache_entry_pkey UNIQUE (imathas_render_cache_entry_id)
-- ple_private.imathas_render_cache_entry_unique_0 UNIQUE (imathas_deployment_reference, published_question_id, revision_number, imathas_normalized_question_seed, imathas_profile, source_payload_digest)
-
 ## 20_tables/assessment_attempt.sql
 
 ### ple_private.student_assessment_accommodation
@@ -548,6 +507,7 @@ Indexes:
 - ple_private.assessment_attempt_pkey UNIQUE (course_instance_id, assessment_attempt_id)
 - ple_private.assessment_attempt_unique_0 UNIQUE (course_instance_id, student_record_id, assessment_id, assessment_attempt_number)
 - assessment_attempt_student_assessment_lookup_idx (student_record_id, assessment_id, assessment_attempt_number)
+- assessment_attempt_assessment_id_idx (assessment_id, course_instance_id)
 - assessment_attempt_expiry_sweep_idx (expires_at, assessment_attempt_id) WHERE expires_at IS NOT NULL
 
 ### ple_private.question_pool_selection
@@ -703,6 +663,44 @@ Indexes:
 - ple_private.issued_question_pkey UNIQUE (course_instance_id, issued_question_id)
 - ple_private.issued_question_unique_0 UNIQUE (course_instance_id, assessment_attempt_id, issued_position)
 
+### ple_private.delivery_toolchain
+
+- Role: snapshot
+- Comment: role: snapshot, Shared immutable Question delivery toolchain; deleted by nothing. HUMAN_GUIDANCE.md Student Work.
+
+Columns:
+
+| Name | Type | Null |
+| --- | --- | --- |
+| delivery_toolchain_id | uuid | NOT NULL |
+| backend_name | ple_data.question_backend | NOT NULL |
+| backend_version | text | NOT NULL |
+| renderer_name | text | NULL |
+| renderer_version | text | NULL |
+| grader_name | text | NOT NULL |
+| grader_version | text | NOT NULL |
+| issued_capability | ple_data.issued_capability | NOT NULL |
+| created_at | timestamptz | NOT NULL |
+
+Constraints:
+
+- PRIMARY KEY (delivery_toolchain_id)
+- UNIQUE (backend_name, backend_version, renderer_name, renderer_version, grader_name, grader_version, issued_capability)
+- CHECK backend_version: `(char_length(btrim(backend_version)) BETWEEN 1 AND 100)`
+- CHECK renderer_name: `( renderer_name IS NULL OR char_length(btrim(renderer_name)) BETWEEN 1 AND 100 )`
+- CHECK renderer_version: `( renderer_version IS NULL OR char_length(btrim(renderer_version)) BETWEEN 1 AND 100 )`
+- CHECK grader_name: `(char_length(btrim(grader_name)) BETWEEN 1 AND 100)`
+- CHECK grader_version: `(char_length(btrim(grader_version)) BETWEEN 1 AND 100)`
+
+Foreign keys:
+
+- none
+
+Indexes:
+
+- ple_private.delivery_toolchain_pkey UNIQUE (delivery_toolchain_id)
+- ple_private.delivery_toolchain_unique_0 UNIQUE (backend_name, backend_version, renderer_name, renderer_version, grader_name, grader_version, issued_capability)
+
 ### ple_private.question_attempt
 
 - Role: student work
@@ -720,17 +718,10 @@ Columns:
 | issued_at | timestamptz | NOT NULL |
 | deadline_at | timestamptz | NULL |
 | finalized_at | timestamptz | NULL |
-| question_attempt_state | ple_data.question_attempt_state | NOT NULL |
-| backend_name | text | NOT NULL |
-| backend_version | text | NOT NULL |
-| renderer_name | text | NULL |
-| renderer_version | text | NULL |
+| delivery_toolchain_id | uuid | NOT NULL |
 | source_object_record_id | uuid | NULL |
 | source_object_checksum | bytea | NULL |
-| grader_name | text | NOT NULL |
-| grader_version | text | NOT NULL |
 | rendered_question_sha256 | bytea | NOT NULL |
-| issued_capability | ple_data.issued_capability | NOT NULL |
 
 Constraints:
 
@@ -738,15 +729,12 @@ Constraints:
 - UNIQUE (course_instance_id, issued_question_id)
 - CHECK question_seed: `(question_seed >= 0 AND question_seed <= 18446744073709551615)`
 - CHECK generated_parameter_sha256: `(generated_parameter_sha256 ~ '^[0-9a-f]{64}$')`
-- CHECK backend_name: `(char_length(btrim(backend_name)) BETWEEN 1 AND 100)`
-- CHECK backend_version: `(char_length(btrim(backend_version)) BETWEEN 1 AND 100)`
 - CHECK source_object_checksum: `(source_object_checksum IS NULL OR octet_length(source_object_checksum) = 32)`
-- CHECK grader_name: `(char_length(btrim(grader_name)) BETWEEN 1 AND 100)`
-- CHECK grader_version: `(char_length(btrim(grader_version)) BETWEEN 1 AND 100)`
 - CHECK rendered_question_sha256: `(octet_length(rendered_question_sha256) = 32)`
 
 Foreign keys:
 
+- (delivery_toolchain_id) -> ple_private.delivery_toolchain (delivery_toolchain_id)
 - (source_object_record_id) -> ple_private.object_record (object_record_id)
 - (course_instance_id, issued_question_id) -> ple_private.issued_question (course_instance_id, issued_question_id)
 
@@ -754,67 +742,6 @@ Indexes:
 
 - ple_private.question_attempt_pkey UNIQUE (course_instance_id, question_attempt_id)
 - ple_private.question_attempt_unique_0 UNIQUE (course_instance_id, issued_question_id)
-
-### ple_private.assessment_attempt_saved_response
-
-- Role: student work
-- Comment: role: student work, Private current response state before submission; root-owned by its Question Attempt.
-
-Columns:
-
-| Name | Type | Null |
-| --- | --- | --- |
-| course_instance_id | ple_data.course_instance_id | NOT NULL |
-| question_attempt_id | uuid | NOT NULL |
-| student_response | jsonb | NOT NULL |
-| saved_at | timestamptz | NOT NULL |
-
-Constraints:
-
-- PRIMARY KEY (course_instance_id, question_attempt_id)
-- CHECK student_response: `(jsonb_typeof(student_response) = 'object')`
-
-Foreign keys:
-
-- (course_instance_id, question_attempt_id) -> ple_private.question_attempt (course_instance_id, question_attempt_id)
-
-Indexes:
-
-- ple_private.assessment_attempt_saved_response_pkey UNIQUE (course_instance_id, question_attempt_id)
-
-### ple_private.question_response
-
-- Role: student work
-- Comment: role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.
-
-Columns:
-
-| Name | Type | Null |
-| --- | --- | --- |
-| course_instance_id | ple_data.course_instance_id | NOT NULL |
-| question_response_id | uuid | NOT NULL |
-| assessment_submission_id | uuid | NOT NULL |
-| question_attempt_id | uuid | NOT NULL |
-| finalized_at | timestamptz | NOT NULL |
-| student_response | jsonb | NOT NULL |
-
-Constraints:
-
-- PRIMARY KEY (course_instance_id, question_response_id)
-- UNIQUE (course_instance_id, question_attempt_id)
-- UNIQUE (course_instance_id, question_response_id, question_attempt_id)
-- CHECK student_response: `(jsonb_typeof(student_response) = 'object')`
-
-Foreign keys:
-
-- (course_instance_id, question_attempt_id) -> ple_private.question_attempt (course_instance_id, question_attempt_id)
-- (course_instance_id, assessment_submission_id) -> ple_private.assessment_submission (course_instance_id, assessment_submission_id)
-
-Indexes:
-
-- ple_private.question_response_pkey UNIQUE (course_instance_id, question_response_id)
-- ple_private.question_response_unique_0 UNIQUE (course_instance_id, question_attempt_id)
-- ple_private.question_response_unique_1 UNIQUE (course_instance_id, question_response_id, question_attempt_id)
 
 ### ple_private.assessment_submission
 
@@ -829,15 +756,12 @@ Columns:
 | assessment_submission_id | uuid | NOT NULL |
 | assessment_attempt_id | uuid | NOT NULL |
 | submitted_at | timestamptz | NOT NULL |
-| finalization_kind | ple_data.finalization_kind | NOT NULL |
 | authorized_by_account_id | ple_data.account_id | NULL |
-| receipt | jsonb | NOT NULL |
 
 Constraints:
 
 - PRIMARY KEY (course_instance_id, assessment_submission_id)
 - UNIQUE (course_instance_id, assessment_attempt_id)
-- CHECK receipt: `(jsonb_typeof(receipt) = 'object')`
 
 Foreign keys:
 
@@ -848,6 +772,36 @@ Indexes:
 
 - ple_private.assessment_submission_pkey UNIQUE (course_instance_id, assessment_submission_id)
 - ple_private.assessment_submission_unique_0 UNIQUE (course_instance_id, assessment_attempt_id)
+
+### ple_private.assessment_attempt_saved_response
+
+- Role: student work
+- Comment: role: student work, Private response bytes for one Question Attempt, finalized in place on submit; unanswered Issued Questions have no row.
+
+Columns:
+
+| Name | Type | Null |
+| --- | --- | --- |
+| course_instance_id | ple_data.course_instance_id | NOT NULL |
+| question_attempt_id | uuid | NOT NULL |
+| student_response | jsonb | NOT NULL |
+| saved_at | timestamptz | NOT NULL |
+| finalized_at | timestamptz | NULL |
+| assessment_submission_id | uuid | NULL |
+
+Constraints:
+
+- PRIMARY KEY (course_instance_id, question_attempt_id)
+- CHECK student_response: `(jsonb_typeof(student_response) = 'object')`
+
+Foreign keys:
+
+- (course_instance_id, question_attempt_id) -> ple_private.question_attempt (course_instance_id, question_attempt_id)
+- (course_instance_id, assessment_submission_id) -> ple_private.assessment_submission (course_instance_id, assessment_submission_id)
+
+Indexes:
+
+- ple_private.assessment_attempt_saved_response_pkey UNIQUE (course_instance_id, question_attempt_id)
 
 ### ple_private.question_attempt_presentation_binding
 
@@ -976,38 +930,6 @@ Indexes:
 
 - ple_private.question_attempt_presentation_asset_rendition_pkey UNIQUE (course_instance_id, question_attempt_presentation_asset_binding_id, asset_id)
 
-### ple_private.question_response_grading
-
-- Role: student work
-- Comment: role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.
-
-Columns:
-
-| Name | Type | Null |
-| --- | --- | --- |
-| course_instance_id | ple_data.course_instance_id | NOT NULL |
-| question_response_grading_id | uuid | NOT NULL |
-| question_response_id | uuid | NOT NULL |
-| grading_state | text | NOT NULL |
-| created_at | timestamptz | NOT NULL |
-| completed_at | timestamptz | NULL |
-
-Constraints:
-
-- PRIMARY KEY (course_instance_id, question_response_grading_id)
-- UNIQUE (course_instance_id, question_response_id)
-- UNIQUE (course_instance_id, question_response_grading_id, question_response_id)
-
-Foreign keys:
-
-- (course_instance_id, question_response_id) -> ple_private.question_response (course_instance_id, question_response_id)
-
-Indexes:
-
-- ple_private.question_response_grading_pkey UNIQUE (course_instance_id, question_response_grading_id)
-- ple_private.question_response_grading_unique_0 UNIQUE (course_instance_id, question_response_id)
-- ple_private.question_response_grading_unique_1 UNIQUE (course_instance_id, question_response_grading_id, question_response_id)
-
 ### ple_private.grading_result
 
 - Role: student work
@@ -1019,8 +941,6 @@ Columns:
 | --- | --- | --- |
 | course_instance_id | ple_data.course_instance_id | NOT NULL |
 | grading_result_id | uuid | NOT NULL |
-| question_response_id | uuid | NOT NULL |
-| question_response_grading_id | uuid | NOT NULL |
 | question_attempt_id | uuid | NOT NULL |
 | normalized_credit | numeric | NOT NULL |
 | recorded_at | timestamptz | NOT NULL |
@@ -1028,26 +948,17 @@ Columns:
 Constraints:
 
 - PRIMARY KEY (course_instance_id, grading_result_id)
-- UNIQUE (course_instance_id, question_response_id)
-- UNIQUE (course_instance_id, question_response_grading_id)
 - UNIQUE (course_instance_id, question_attempt_id)
-- UNIQUE (course_instance_id, question_response_grading_id, grading_result_id)
 - CHECK normalized_credit: `( normalized_credit >= 0 AND normalized_credit <= 1 )`
 
 Foreign keys:
 
-- (course_instance_id, question_response_id) -> ple_private.question_response (course_instance_id, question_response_id)
 - (course_instance_id, question_attempt_id) -> ple_private.question_attempt (course_instance_id, question_attempt_id)
-- (course_instance_id, question_response_id, question_attempt_id) -> ple_private.question_response (course_instance_id, question_response_id, question_attempt_id)
-- (course_instance_id, question_response_grading_id, question_response_id) -> ple_private.question_response_grading (course_instance_id, question_response_grading_id, question_response_id)
 
 Indexes:
 
 - ple_private.grading_result_pkey UNIQUE (course_instance_id, grading_result_id)
-- ple_private.grading_result_unique_0 UNIQUE (course_instance_id, question_response_id)
-- ple_private.grading_result_unique_1 UNIQUE (course_instance_id, question_response_grading_id)
-- ple_private.grading_result_unique_2 UNIQUE (course_instance_id, question_attempt_id)
-- ple_private.grading_result_unique_3 UNIQUE (course_instance_id, question_response_grading_id, grading_result_id)
+- ple_private.grading_result_unique_0 UNIQUE (course_instance_id, question_attempt_id)
 
 ### ple_audit.automated_grading_receipt
 
@@ -1060,7 +971,6 @@ Columns:
 | --- | --- | --- |
 | automated_grading_receipt_id | uuid | NOT NULL |
 | course_instance_id | ple_data.course_instance_id | NOT NULL |
-| question_response_grading_id | uuid | NOT NULL |
 | grading_result_id | uuid | NOT NULL |
 | committed_at | timestamptz | NOT NULL |
 | automated_grading_receipt_checksum | bytea | NOT NULL |
@@ -1073,82 +983,12 @@ Constraints:
 
 Foreign keys:
 
-- (course_instance_id, question_response_grading_id, grading_result_id) -> ple_private.grading_result (course_instance_id, question_response_grading_id, grading_result_id)
+- (course_instance_id, grading_result_id) -> ple_private.grading_result (course_instance_id, grading_result_id)
 
 Indexes:
 
 - ple_audit.automated_grading_receipt_pkey UNIQUE (automated_grading_receipt_id)
 - ple_audit.automated_grading_receipt_unique_0 UNIQUE (course_instance_id, grading_result_id)
-
-### ple_private.imathas_question_backend_session
-
-- Role: event
-- Comment: role: event, deleted by Unrelease of Student Work; Assessment rows remain with the Course. HUMAN_GUIDANCE.md Assessments.
-
-Columns:
-
-| Name | Type | Null |
-| --- | --- | --- |
-| imathas_question_backend_session_id | uuid | NOT NULL |
-| course_instance_id | ple_data.course_instance_id | NOT NULL |
-| assessment_id | ple_data.assessment_id | NOT NULL |
-| question_attempt_id | uuid | NOT NULL |
-| account_id | ple_data.account_id | NOT NULL |
-| imathas_deployment_reference | text | NOT NULL |
-| imathas_item_reference | text | NOT NULL |
-| published_question_id | ple_data.question_family_id | NOT NULL |
-| revision_number | integer | NOT NULL |
-| source_object_record_id | uuid | NOT NULL |
-| source_object_checksum | bytea | NOT NULL |
-| imathas_profile | text | NOT NULL |
-| question_seed | numeric(20, 0) | NOT NULL |
-| imathas_launch_binding_checksum | text | NOT NULL |
-| imathas_response_sha256 | bytea | NOT NULL |
-| imathas_question_backend_session_challenge | bytea | NOT NULL |
-| imathas_question_backend_session_authentication | bytea | NOT NULL |
-| issued_at | timestamptz | NOT NULL |
-| expires_at | timestamptz | NOT NULL |
-| revoked_at | timestamptz | NULL |
-| consumed_at | timestamptz | NULL |
-| activity_lease_token_sha256 | bytea | NULL |
-| activity_lease_expires_at | timestamptz | NULL |
-| imathas_question_backend_state_key_id | text | NOT NULL |
-| imathas_question_backend_state_nonce | bytea | NOT NULL |
-| imathas_question_backend_state_ciphertext | bytea | NOT NULL |
-
-Constraints:
-
-- PRIMARY KEY (imathas_question_backend_session_id)
-- UNIQUE (course_instance_id, question_attempt_id)
-- UNIQUE (imathas_question_backend_state_key_id, imathas_question_backend_state_nonce)
-- CHECK imathas_deployment_reference: `(imathas_deployment_reference ~ '^[A-Za-z0-9._-]{1,160}$')`
-- CHECK imathas_item_reference: `(octet_length(imathas_item_reference) BETWEEN 1 AND 128 AND imathas_item_reference ~ '^[A-Za-z0-9._-]+$')`
-- CHECK source_object_checksum: `(octet_length(source_object_checksum) = 32)`
-- CHECK imathas_profile: `(imathas_profile ~ '^[A-Za-z0-9._-]{1,160}$')`
-- CHECK question_seed: `(question_seed BETWEEN 0 AND 18446744073709551615)`
-- CHECK imathas_launch_binding_checksum: `(imathas_launch_binding_checksum ~ '^[0-9a-f]{64}$')`
-- CHECK imathas_response_sha256: `(octet_length(imathas_response_sha256) = 32)`
-- CHECK imathas_question_backend_session_challenge: `(octet_length(imathas_question_backend_session_challenge) = 32 AND imathas_question_backend_session_challenge <> decode(repeat('00', 32), 'hex'))`
-- CHECK imathas_question_backend_session_authentication: `(octet_length(imathas_question_backend_session_authentication) BETWEEN 3 AND 512 AND convert_from(imathas_question_backend_session_authentication, 'UTF8') ~ '^([0-9a-f]{2})+[.][0-9a-f]{64}$')`
-- CHECK expires_at: `(expires_at > issued_at)`
-- CHECK activity_lease_token_sha256: `(activity_lease_token_sha256 IS NULL OR octet_length(activity_lease_token_sha256) = 32)`
-- CHECK imathas_question_backend_state_key_id: `(imathas_question_backend_state_key_id ~ '^[A-Za-z0-9._:-]{1,160}$')`
-- CHECK imathas_question_backend_state_nonce: `(octet_length(imathas_question_backend_state_nonce) = 24)`
-- CHECK imathas_question_backend_state_ciphertext: `(octet_length(imathas_question_backend_state_ciphertext) BETWEEN 17 AND 65536)`
-
-Foreign keys:
-
-- (account_id) -> ple_private.account (account_id)
-- (assessment_id, course_instance_id) -> ple_data.assessment (assessment_id, course_instance_id)
-- (course_instance_id, question_attempt_id) -> ple_private.question_attempt (course_instance_id, question_attempt_id)
-- (published_question_id, revision_number) -> ple_data.question_revision (published_question_id, revision_number)
-
-Indexes:
-
-- ple_private.imathas_question_backend_session_pkey UNIQUE (imathas_question_backend_session_id)
-- ple_private.imathas_question_backend_session_unique_0 UNIQUE (course_instance_id, question_attempt_id)
-- ple_private.imathas_question_backend_session_unique_1 UNIQUE (imathas_question_backend_state_key_id, imathas_question_backend_state_nonce)
-- imathas_question_backend_session_active_lookup_idx (imathas_question_backend_session_id, account_id, expires_at) WHERE revoked_at IS NULL AND consumed_at IS NULL
 
 ## 20_tables/assessment_template.sql
 
@@ -1313,6 +1153,7 @@ Foreign keys:
 Indexes:
 
 - ple_private.authentication_rate_limit_pkey UNIQUE (scope, key_hash, window_started_at)
+- authentication_rate_limit_sweep_idx (window_started_at)
 
 ### ple_private.email_authentication_challenge
 
@@ -1352,6 +1193,8 @@ Indexes:
 - ple_private.email_authentication_challenge_pkey UNIQUE (challenge_id)
 - ple_private.email_authentication_challenge_unique_0 UNIQUE (token_hash)
 - email_authentication_challenge_active_token_idx (token_hash, expires_at) WHERE consumed_at IS NULL
+- email_authentication_challenge_expired_sweep_idx (expires_at) WHERE consumed_at IS NULL
+- email_authentication_challenge_consumed_sweep_idx (consumed_at) WHERE consumed_at IS NOT NULL
 
 ### ple_private.passkey_ceremony
 
@@ -1384,6 +1227,8 @@ Foreign keys:
 Indexes:
 
 - ple_private.passkey_ceremony_pkey UNIQUE (ceremony_id)
+- passkey_ceremony_expired_sweep_idx (expires_at) WHERE consumed_at IS NULL
+- passkey_ceremony_consumed_sweep_idx (consumed_at) WHERE consumed_at IS NOT NULL
 
 ### ple_private.passkey
 
@@ -1574,13 +1419,15 @@ Indexes:
 - ple_private.authenticated_session_pkey UNIQUE (session_id)
 - ple_private.authenticated_session_unique_0 UNIQUE (token_hash)
 - authenticated_session_active_account_idx (account_id, expires_at) WHERE revoked_at IS NULL
+- authenticated_session_expired_sweep_idx (expires_at) WHERE revoked_at IS NULL
+- authenticated_session_revoked_sweep_idx (revoked_at) WHERE revoked_at IS NOT NULL
 
 ## 20_tables/blueprint_course.sql
 
 ### ple_data.blueprint_course
 
 - Role: current state
-- Comment: role: current state, Stable reusable Blueprint Course lineage with names, availability, metadata ETag, and current Revision.
+- Comment: role: current state, Stable reusable Blueprint Course lineage with names, availability, Edit Number, and current Revision.
 
 Columns:
 
@@ -2092,14 +1939,13 @@ Columns:
 | recipient_account_id | ple_data.account_id | NOT NULL |
 | blueprint_course_id | ple_data.blueprint_course_id | NOT NULL |
 | event_kind | ple_data.watch_notification_event_kind | NOT NULL |
-| source_event_id | bigint | NOT NULL |
+| source_event_id | uuid | NOT NULL |
 | occurred_at | timestamptz | NOT NULL |
 
 Constraints:
 
 - PRIMARY KEY (notification_id)
 - UNIQUE (recipient_account_id, event_kind, source_event_id)
-- CHECK source_event_id: `(source_event_id > 0)`
 
 Foreign keys:
 
@@ -2775,6 +2621,8 @@ Columns:
 | operation_kind | ple_data.banner_work_operation | NOT NULL |
 | object_record_id | uuid | NOT NULL |
 | state | ple_data.lease_state | NOT NULL |
+| lease_token | uuid | NULL |
+| lease_expires_at | timestamptz | NULL |
 | course_banner_storage_subject_id | uuid | NULL |
 | object_delivery_id | uuid | NULL |
 | created_at | timestamptz | NOT NULL |
@@ -3272,45 +3120,7 @@ Foreign keys:
 Indexes:
 
 - ple_data.library_watch_event_recipient_pkey UNIQUE (library_watch_event_id, recipient_account_id)
-
-### ple_private.library_watch_notification
-
-- Role: event
-- Comment: role: event, deleted by Watch unsubscribe and event retention. HUMAN_GUIDANCE.md Library Watch.
-
-Columns:
-
-| Name | Type | Null |
-| --- | --- | --- |
-| notification_id | uuid | NOT NULL |
-| recipient_account_id | ple_data.account_id | NOT NULL |
-| library_watch_event_id | uuid | NOT NULL |
-| target_kind | ple_data.library_object_kind | NOT NULL |
-| target_public_id | text | NOT NULL |
-| event_kind | ple_data.library_watch_event_kind | NOT NULL |
-| revision_number | integer | NULL |
-| forked_public_id | text | NULL |
-| activity_id | uuid | NULL |
-| occurred_at | timestamptz | NOT NULL |
-
-Constraints:
-
-- PRIMARY KEY (notification_id)
-- UNIQUE (recipient_account_id, library_watch_event_id)
-- CHECK target_public_id: `( target_public_id ~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$' AND substr(target_public_id, 6, 1) = ple_private.crockford_checksum_character( substr(target_public_id, 1, 4) // substr(target_public_id, 7, 3) ) )`
-- CHECK revision_number: `(revision_number > 0)`
-- CHECK forked_public_id: `(forked_public_id IS NULL OR (forked_public_id ~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$' AND substr(forked_public_id, 6, 1) = ple_private.crockford_checksum_character( substr(forked_public_id, 1, 4) // substr(forked_public_id, 7, 3) )))`
-
-Foreign keys:
-
-- (recipient_account_id) -> ple_private.account (account_id)
-- (library_watch_event_id) -> ple_data.library_watch_event (event_id)
-
-Indexes:
-
-- ple_private.library_watch_notification_pkey UNIQUE (notification_id)
-- ple_private.library_watch_notification_unique_0 UNIQUE (recipient_account_id, library_watch_event_id)
-- library_watch_notification_recipient_idx (recipient_account_id, occurred_at, notification_id)
+- library_watch_event_recipient_account_idx (recipient_account_id, library_watch_event_id)
 
 ## 20_tables/object_record.sql
 
@@ -3472,36 +3282,6 @@ Indexes:
 
 - ple_private.object_cleanup_manifest_pkey UNIQUE (object_cleanup_manifest_id)
 - ple_private.object_cleanup_manifest_unique_0 UNIQUE (object_cleanup_manifest_id, permitted_disposition)
-
-### ple_audit.object_delivery_access_event
-
-- Role: event
-- Comment: role: event, deleted by object cleanup after the last delivery is gone. HUMAN_GUIDANCE.md Object storage.
-
-Columns:
-
-| Name | Type | Null |
-| --- | --- | --- |
-| event_id | uuid | NOT NULL |
-| object_delivery_id | uuid | NOT NULL |
-| account_id | ple_data.account_id | NOT NULL |
-| access_decision | ple_data.access_decision | NOT NULL |
-| accessed_at | timestamptz | NOT NULL |
-
-Constraints:
-
-- PRIMARY KEY (event_id)
-- UNIQUE (event_id, object_delivery_id)
-
-Foreign keys:
-
-- (object_delivery_id) -> ple_data.object_delivery (object_delivery_id)
-- (account_id) -> ple_private.account (account_id)
-
-Indexes:
-
-- ple_audit.object_delivery_access_event_pkey UNIQUE (event_id)
-- ple_audit.object_delivery_access_event_unique_0 UNIQUE (event_id, object_delivery_id)
 
 ### ple_audit.object_storage_check_event
 
@@ -3673,6 +3453,8 @@ Columns:
 | object_record_id | uuid | NOT NULL |
 | operation_kind | ple_data.object_work_operation | NOT NULL |
 | state | ple_data.lease_state | NOT NULL |
+| lease_token | uuid | NULL |
+| lease_expires_at | timestamptz | NULL |
 | created_at | timestamptz | NOT NULL |
 | completed_at | timestamptz | NULL |
 
@@ -4382,9 +4164,6 @@ Columns:
 | question_format | ple_data.question_format | NOT NULL |
 | question_type | ple_data.question_type | NOT NULL |
 | webwork_pg_path | text | NULL |
-| imathas_deployment_reference | text | NULL |
-| imathas_item_reference | text | NULL |
-| imathas_profile | text | NULL |
 | source_object_record_id | uuid | NOT NULL |
 | source_object_checksum | text | NOT NULL |
 | created_at | timestamptz | NOT NULL |
@@ -4419,9 +4198,6 @@ Columns:
 | backend | ple_data.question_backend | NOT NULL |
 | question_format | ple_data.question_format | NOT NULL |
 | webwork_pg_path | text | NULL |
-| imathas_deployment_reference | text | NULL |
-| imathas_item_reference | text | NULL |
-| imathas_profile | text | NULL |
 | source_object_record_id | uuid | NOT NULL |
 | source_object_checksum | text | NOT NULL |
 | created_at | timestamptz | NOT NULL |
@@ -4880,7 +4656,7 @@ Indexes:
 ### ple_data.question_revision_statistics
 
 - Role: aggregate
-- Comment: role: aggregate, authored identity-free accepted-grade and correct counts for one immutable Question Revision, retained after Course Student-record deletion.
+- Comment: role: aggregate, authored identity-free issued, blank, answered, outcome, and credit-sum counts for one immutable Question Revision, retained after Course Student-record deletion.
 
 Columns:
 
@@ -4888,8 +4664,14 @@ Columns:
 | --- | --- | --- |
 | published_question_id | ple_data.question_family_id | NOT NULL |
 | revision_number | integer | NOT NULL |
-| accepted_graded_attempt_count | bigint | NOT NULL |
+| issued_count | bigint | NOT NULL |
+| blank_count | bigint | NOT NULL |
+| answered_count | bigint | NOT NULL |
 | correct_count | bigint | NOT NULL |
+| partial_count | bigint | NOT NULL |
+| incorrect_count | bigint | NOT NULL |
+| credit_sum | numeric | NOT NULL |
+| credit_sum_sq | numeric | NOT NULL |
 | created_on | date | NOT NULL |
 | updated_on | date | NOT NULL |
 
@@ -4897,8 +4679,14 @@ Constraints:
 
 - PRIMARY KEY (published_question_id, revision_number)
 - CHECK revision_number: `(revision_number > 0)`
-- CHECK accepted_graded_attempt_count: `(accepted_graded_attempt_count >= 0)`
-- CHECK correct_count: `(correct_count BETWEEN 0 AND accepted_graded_attempt_count)`
+- CHECK issued_count: `(issued_count >= 0)`
+- CHECK blank_count: `(blank_count >= 0)`
+- CHECK answered_count: `(answered_count >= 0)`
+- CHECK correct_count: `(correct_count >= 0)`
+- CHECK partial_count: `(partial_count >= 0)`
+- CHECK incorrect_count: `(incorrect_count >= 0)`
+- CHECK credit_sum: `(credit_sum >= 0)`
+- CHECK credit_sum_sq: `(credit_sum_sq >= 0)`
 
 Foreign keys:
 
@@ -4908,96 +4696,94 @@ Indexes:
 
 - ple_data.question_revision_statistics_pkey UNIQUE (published_question_id, revision_number)
 
-### ple_data.question_revision_choice_statistics
+### ple_data.question_pool_statistics
 
 - Role: aggregate
-- Comment: role: aggregate, authored identity-free selected eligible-choice counts for one immutable Question Revision, retained after Course Student-record deletion.
+- Comment: role: aggregate, authored identity-free issued_count for one Question Pool, retained after Course Student-record deletion.
 
 Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
+| question_pool_id | ple_data.question_family_id | NOT NULL |
+| issued_count | bigint | NOT NULL |
+| created_on | date | NOT NULL |
+| updated_on | date | NOT NULL |
+
+Constraints:
+
+- PRIMARY KEY (question_pool_id)
+- CHECK issued_count: `(issued_count >= 0)`
+
+Foreign keys:
+
+- (question_pool_id) -> ple_data.question_pool (question_pool_id)
+
+Indexes:
+
+- ple_data.question_pool_statistics_pkey UNIQUE (question_pool_id)
+
+### ple_data.question_pool_member_statistics
+
+- Role: aggregate
+- Comment: role: aggregate, authored identity-free selected_count for one Pool member Published Question, removed with the Pool.
+
+Columns:
+
+| Name | Type | Null |
+| --- | --- | --- |
+| question_pool_id | ple_data.question_family_id | NOT NULL |
 | published_question_id | ple_data.question_family_id | NOT NULL |
-| revision_number | integer | NOT NULL |
-| choice_id | text | NOT NULL |
 | selected_count | bigint | NOT NULL |
 | created_on | date | NOT NULL |
 | updated_on | date | NOT NULL |
 
 Constraints:
 
-- PRIMARY KEY (published_question_id, revision_number, choice_id)
-- CHECK revision_number: `(revision_number > 0)`
-- CHECK choice_id: `( choice_id = btrim(choice_id) AND char_length(choice_id) BETWEEN 1 AND 256 )`
+- PRIMARY KEY (question_pool_id, published_question_id)
 - CHECK selected_count: `(selected_count >= 0)`
 
 Foreign keys:
 
-- (published_question_id, revision_number) -> ple_data.question_revision_statistics (published_question_id, revision_number)
+- (question_pool_id) -> ple_data.question_pool (question_pool_id)
+- (published_question_id) -> ple_data.published_question (published_question_id)
 
 Indexes:
 
-- ple_data.question_revision_choice_statistics_pkey UNIQUE (published_question_id, revision_number, choice_id)
+- ple_data.question_pool_member_statistics_pkey UNIQUE (question_pool_id, published_question_id)
 
 ### ple_private.question_statistics_observation_receipt
 
 - Role: event
-- Comment: role: event, Private exact-once accepted-grade observation gate, purged with underlying Student Work while anonymous aggregate counts remain.
+- Comment: role: event, Private exact-once Issued Question observation gate, purged with underlying Student Work while anonymous aggregate counts remain.
 
 Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| automated_grading_receipt_id | uuid | NOT NULL |
 | course_instance_id | ple_data.course_instance_id | NOT NULL |
-| question_attempt_id | uuid | NOT NULL |
+| issued_question_id | uuid | NOT NULL |
+| assessment_submission_id | uuid | NOT NULL |
 | published_question_id | ple_data.question_family_id | NOT NULL |
 | revision_number | integer | NOT NULL |
-| correct | boolean | NOT NULL |
 | observed_at | timestamptz | NOT NULL |
 
 Constraints:
 
-- PRIMARY KEY (automated_grading_receipt_id)
-- UNIQUE (course_instance_id, question_attempt_id)
+- PRIMARY KEY (course_instance_id, issued_question_id)
+- UNIQUE (course_instance_id, issued_question_id, assessment_submission_id)
 - CHECK revision_number: `(revision_number > 0)`
 
 Foreign keys:
 
-- (automated_grading_receipt_id) -> ple_audit.automated_grading_receipt (automated_grading_receipt_id)
-- (course_instance_id, question_attempt_id) -> ple_private.question_attempt (course_instance_id, question_attempt_id)
+- (course_instance_id, issued_question_id) -> ple_private.issued_question (course_instance_id, issued_question_id)
+- (course_instance_id, assessment_submission_id) -> ple_private.assessment_submission (course_instance_id, assessment_submission_id)
 - (published_question_id, revision_number) -> ple_data.question_revision (published_question_id, revision_number)
 
 Indexes:
 
-- ple_private.question_statistics_observation_receipt_pkey UNIQUE (automated_grading_receipt_id)
-- ple_private.question_statistics_observation_receipt_unique_0 UNIQUE (course_instance_id, question_attempt_id)
-
-### ple_private.question_statistics_observation_choice
-
-- Role: event
-- Comment: role: event, Normalized opaque eligible-choice evidence for one statistics observation.
-
-Columns:
-
-| Name | Type | Null |
-| --- | --- | --- |
-| question_statistics_observation_receipt_id | uuid | NOT NULL |
-| choice_id | text | NOT NULL |
-| created_at | timestamptz | NOT NULL |
-
-Constraints:
-
-- PRIMARY KEY (question_statistics_observation_receipt_id, choice_id)
-- CHECK choice_id: `( choice_id = btrim(choice_id) AND char_length(choice_id) BETWEEN 1 AND 256 )`
-
-Foreign keys:
-
-- (question_statistics_observation_receipt_id) -> ple_private.question_statistics_observation_receipt (automated_grading_receipt_id)
-
-Indexes:
-
-- ple_private.question_statistics_observation_choice_pkey UNIQUE (question_statistics_observation_receipt_id, choice_id)
+- ple_private.question_statistics_observation_receipt_pkey UNIQUE (course_instance_id, issued_question_id)
+- ple_private.question_statistics_observation_receipt_unique_0 UNIQUE (course_instance_id, issued_question_id, assessment_submission_id)
 
 ## 20_tables/support_repair.sql
 

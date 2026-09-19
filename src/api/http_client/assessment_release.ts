@@ -30,10 +30,7 @@ import { ApiProtocolError, ApiRequestError } from "./error";
 import { decodeCourseBlueprintUpdateReview } from "../decoders/course_blueprint_update";
 import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
-import {
-  parseAssessmentId,
-  parseCourseInstanceId,
-} from "../../navigation/public_route";
+import { parseAssessmentId, parseCourseInstanceId } from "../../navigation/public_route";
 
 export class LiveAssessmentWorkspaceConflictError extends ApiRequestError {
   public constructor(path: string) {

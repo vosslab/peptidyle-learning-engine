@@ -10,7 +10,6 @@ import type { AssessmentEntryScoringRule } from "../../../generated/api/Assessme
 import type { QuestionPoolAssessmentEntrySummary as QuestionPoolAssessmentEntry } from "../../../generated/api/QuestionPoolAssessmentEntrySummary";
 import type { QuestionPoolRevisionReference } from "../../../generated/api/QuestionPoolRevisionReference";
 import type { AssessmentSummary } from "../../../generated/api/AssessmentSummary";
-import type { QuestionStatistics } from "../../../generated/api/QuestionStatistics";
 import type { QuestionSearchResult } from "../../../generated/api/QuestionSearchResult";
 import type { CourseQuestionUse } from "../../../generated/api/CourseQuestionUse";
 import type { QuestionDetails } from "../../../generated/api/QuestionDetails";
@@ -71,8 +70,10 @@ import {
 } from "./question_model";
 import { decodeStudentFeedbackReleaseRule } from "./assessment_policy";
 import { decodeQuestionSearchFacets } from "./question_type_facets";
+import { decodeQuestionStatistics } from "./question_statistics";
 
 // Reuse the Question Library course import surface while course-term owns its decoding rules.
+export { decodeQuestionStatistics };
 export { decodeCourseTerm } from "./course_term";
 export { decodeStudentFeedbackReleaseRule } from "./assessment_policy";
 export {
@@ -175,13 +176,6 @@ export function decodeQuestionSummary(
  */
 export function isAvailablePleQuestionSummary(summary: QuestionSummary): boolean {
   return summary.backend === "ple" && summary.availability.availability === "available";
-}
-
-function decodeQuestionStatistics(value: unknown, path: string): QuestionStatistics {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["state"]);
-  const state = decodeStringEnum(field(record, "state", path), `${path}.state`, ["unavailable"]);
-  return { state };
 }
 
 export function decodeQuestionSearchResult(value: unknown, path: string): QuestionSearchResult {

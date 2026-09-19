@@ -125,15 +125,15 @@ fn course_banner_keys_bind_scope_classification_and_signing() {
     let upload_reference = CourseBannerUploadReference::from_uuid(Uuid::from_u128(3));
     let banner_reference = CourseBannerReference::from_uuid(Uuid::from_u128(4));
     let upload = ObjectAddress::CourseBannerUpload {
-        course,
+        course: course.clone(),
         upload: upload_reference,
     };
     let source = ObjectAddress::CourseBannerSource {
-        course,
+        course: course.clone(),
         banner: banner_reference,
     };
     let banner = ObjectAddress::CourseBannerRendition {
-        course,
+        course: course.clone(),
         banner: banner_reference,
         rendition: CourseBannerRendition::Banner,
     };
@@ -157,15 +157,15 @@ fn course_banner_keys_bind_scope_classification_and_signing() {
 fn banner_object_identity_changes_with_course_and_route_id() {
     let course = CourseInstanceId::from_debug_serial(2);
     let banner = CourseBannerReference::from_uuid(Uuid::from_u128(3));
-    let base = course_banner_source_object_id(course, banner);
+    let base = course_banner_source_object_id(&course, banner);
     assert_ne!(
         base,
-        course_banner_source_object_id(CourseInstanceId::from_debug_serial(12), banner)
+        course_banner_source_object_id(&CourseInstanceId::from_debug_serial(12), banner)
     );
     assert_ne!(
         base,
         course_banner_source_object_id(
-            course,
+            &course,
             CourseBannerReference::from_uuid(Uuid::from_u128(13))
         )
     );

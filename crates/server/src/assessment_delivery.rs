@@ -25,10 +25,10 @@ use objects::s3::S3ObjectStore;
 use question_model::presentation::build_question_presentation;
 use question_model::question_library::QuestionBackendInterface;
 use question_model::{
-    AssessmentAttemptId, AssessmentId, CourseInstanceId, ObjectId, ProductRole,
-    QuestionBackend, QuestionBackendCapabilities, QuestionPresentation,
-    QuestionPresentationChecksum, QuestionRevisionNumber, QuestionRevisionReference,
-    SourceObjectChecksum, SourceObjectReference, StudentResponse,
+    AssessmentAttemptId, AssessmentId, CourseInstanceId, ObjectId, ProductRole, QuestionBackend,
+    QuestionBackendCapabilities, QuestionPresentation, QuestionPresentationChecksum,
+    QuestionRevisionNumber, QuestionRevisionReference, SourceObjectChecksum, SourceObjectReference,
+    StudentResponse,
 };
 use serde::Serialize;
 

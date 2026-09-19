@@ -28,11 +28,10 @@ pub use assessment_content::{
     ReusableSelectionAvailability,
 };
 pub use blueprint_children::{
-    BlueprintAssessmentEditChoice, BlueprintAssessmentId,
-    BlueprintAssessmentReplacementInput, BlueprintChildIdError,
-    BlueprintCourseAssessmentContentView, BlueprintModuleEditChoice, BlueprintModuleReference,
-    BlueprintModuleReplacementInput, BlueprintModuleView, CreateBlueprintCourseInput,
-    CreateBlueprintFromCourseInstanceInput, CreateBlueprintModuleInput,
+    BlueprintAssessmentEditChoice, BlueprintAssessmentId, BlueprintAssessmentReplacementInput,
+    BlueprintChildIdError, BlueprintCourseAssessmentContentView, BlueprintModuleEditChoice,
+    BlueprintModuleReference, BlueprintModuleReplacementInput, BlueprintModuleView,
+    CreateBlueprintCourseInput, CreateBlueprintFromCourseInstanceInput, CreateBlueprintModuleInput,
     ReplaceBlueprintCourseContentInput,
 };
 pub use fork_apply::{
@@ -650,8 +649,7 @@ mod blueprint_course_tests {
     #[test]
     fn replacement_choices_are_explicit_strict_and_unique() {
         let blueprint_module_reference = BlueprintModuleReference::from_uuid(Uuid::from_u128(1));
-        let blueprint_assessment_reference =
-            BlueprintAssessmentId::from_uuid(Uuid::from_u128(2));
+        let blueprint_assessment_reference = BlueprintAssessmentId::from_uuid(Uuid::from_u128(2));
         assert!(
             "00000000000000000000000000000001"
                 .parse::<BlueprintModuleReference>()

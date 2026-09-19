@@ -27,11 +27,11 @@ use learning_data_access::{
 };
 use objects::s3::S3ObjectStore;
 use question_model::{
-    AssessmentEditNumber, AssessmentEntryAvailability, AssessmentQuestionOrderRule,
-    AssessmentId, CourseInstanceId, InstructorStudentView,
-    InstructorStudentViewEntry, InstructorStudentViewNotShownReason,
-    InstructorStudentViewQuestionReference, ProductRole, QuestionId,
-    QuestionPresentationResponseFormat, QuestionRevisionNumber, QuestionRevisionReference,
+    AssessmentEditNumber, AssessmentEntryAvailability, AssessmentId, AssessmentQuestionOrderRule,
+    CourseInstanceId, InstructorStudentView, InstructorStudentViewEntry,
+    InstructorStudentViewNotShownReason, InstructorStudentViewQuestionReference, ProductRole,
+    QuestionId, QuestionPresentationResponseFormat, QuestionRevisionNumber,
+    QuestionRevisionReference,
 };
 
 use crate::auth::{AuthError, resolve_session};
@@ -534,10 +534,7 @@ fn question_seed() -> Result<question_model::generation::QuestionSeed, ()> {
     ))
 }
 
-fn route_references(
-    course: &str,
-    assessment: &str,
-) -> Option<(CourseInstanceId, AssessmentId)> {
+fn route_references(course: &str, assessment: &str) -> Option<(CourseInstanceId, AssessmentId)> {
     Some((course.parse().ok()?, assessment.parse().ok()?))
 }
 
@@ -546,11 +543,7 @@ fn route_question_references(
     assessment: &str,
     question_id: &str,
     revision: u32,
-) -> Option<(
-    CourseInstanceId,
-    AssessmentId,
-    QuestionRevisionReference,
-)> {
+) -> Option<(CourseInstanceId, AssessmentId, QuestionRevisionReference)> {
     let (course, assessment) = route_references(course, assessment)?;
     let question_id = question_id.parse::<QuestionId>().ok()?;
     // ASVS 2.2.1/2: parse the exact checksum-bearing ID before any Question lookup.

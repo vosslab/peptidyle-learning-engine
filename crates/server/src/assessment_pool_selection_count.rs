@@ -18,8 +18,7 @@ use learning_data_access::{
     StoreError, postgres::PostgresAssessmentPoolSelectionCountStore,
 };
 use question_model::{
-    AssessmentEditNumber, AssessmentEntryId, AssessmentId, CourseInstanceId,
-    ProductRole,
+    AssessmentEditNumber, AssessmentEntryId, AssessmentId, CourseInstanceId, ProductRole,
 };
 use serde::Deserialize;
 use uuid::Uuid;

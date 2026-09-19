@@ -9,6 +9,7 @@ use question_model::{
     QuestionPoolLibrarySummary, QuestionPoolMetadata, QuestionPoolRevisionNumber,
     QuestionPoolRevisionReference, QuestionRevisionNumber, QuestionRevisionReference,
     QuestionSearchBloomCognitiveProcessFacet, QuestionSearchBloomKnowledgeDimensionFacet,
+    QuestionUsageTotals,
 };
 use sqlx::{Postgres, Row, Transaction};
 
@@ -258,6 +259,35 @@ impl QuestionPoolLibraryStore for PostgresQuestionPoolLibraryStore {
         };
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(result)
+    }
+}
+
+impl PostgresQuestionPoolLibraryStore {
+    /// Pool issued_count plus current-member all-Revision outcome rollup.
+    pub async fn load_question_pool_usage_statistics(
+        &self,
+        session_token_hash: SessionTokenHash,
+        question_pool_id: &QuestionId,
+    ) -> Result<(u64, QuestionUsageTotals), StoreError> {
+        let mut transaction = self.begin(session_token_hash).await?;
+        let row = sqlx::query(
+            "SELECT pool_issued_count, issued_count, blank_count, answered_count, \
+                    correct_count, partial_count, incorrect_count, credit_sum, credit_sum_sq \
+             FROM ple_api.read_question_pool_library_usage_statistics($1)",
+        )
+        .bind(question_pool_id.as_str())
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?
+        .ok_or(StoreError::NotFound)?;
+        let pool_issued_count = u64::try_from(
+            row.try_get::<i64, _>("pool_issued_count")
+                .map_err(map_sqlx_error)?,
+        )
+        .map_err(|_| invalid("Question Pool issued count"))?;
+        let totals = super::question_library::decode_usage_totals(&row)?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok((pool_issued_count, totals))
     }
 }
 

@@ -128,14 +128,6 @@ impl DraftQuestionSourceBindingStore for PostgresDraftQuestionSourceBindingStore
         input.validate()?;
         let question_format = wire_string(&input.question_format, "Question Format")?;
         let question_type = wire_string(&input.question_type, "Question Type")?;
-        let imathas_deployment_reference = input
-            .draft_imathas_question_backend_binding
-            .as_ref()
-            .map(|binding| binding.deployment_reference().as_str().to_owned());
-        let imathas_item_reference = input
-            .draft_imathas_question_backend_binding
-            .as_ref()
-            .map(|binding| binding.item_reference().as_str().to_owned());
 
         let mut transaction = self
             .begin_authenticated_application_transaction(session_token_hash)
@@ -146,7 +138,7 @@ impl DraftQuestionSourceBindingStore for PostgresDraftQuestionSourceBindingStore
         // transaction before it creates or confirms an immutable record.
         let committed_edit: i64 = sqlx::query_scalar(
             "SELECT ple_api.bind_draft_question_source(\
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12\
+                $1, $2, $3, $4, $5, $6, $7, $8, $9\
              )",
         )
         .bind(input.draft_question_uuid.as_uuid())
@@ -160,9 +152,6 @@ impl DraftQuestionSourceBindingStore for PostgresDraftQuestionSourceBindingStore
         .bind(question_format)
         .bind(question_type)
         .bind(input.webwork_pg_path)
-        .bind(imathas_deployment_reference)
-        .bind(imathas_item_reference)
-        .bind(Option::<String>::None)
         .bind(input.source_object_reference.object.as_uuid())
         .bind(input.source_object_checksum.as_str())
         .fetch_one(&mut *transaction)

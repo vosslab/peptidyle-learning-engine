@@ -2,8 +2,8 @@
 
 use question_model::generation::QuestionSeed;
 use question_model::{
-    CourseBannerReference, CourseBannerRendition, CourseBannerUploadReference, CourseInstanceId, ObjectId,
-    ProfileImageReference, QuestionAssetId, QuestionRevisionReference, WorkspaceId,
+    CourseBannerReference, CourseBannerRendition, CourseBannerUploadReference, CourseInstanceId,
+    ObjectId, ProfileImageReference, QuestionAssetId, QuestionRevisionReference, WorkspaceId,
     WorkspaceImportId,
 };
 use serde::{Deserialize, Serialize};
@@ -391,16 +391,16 @@ impl ObjectAddress {
             | Self::StudentRecord { object, .. }
             | Self::Temporary { object } => *object,
             Self::CourseBannerUpload { course, upload } => {
-                course_banner_upload_object_id(course.clone(), *upload)
+                course_banner_upload_object_id(course, *upload)
             }
             Self::CourseBannerSource { course, banner } => {
-                course_banner_source_object_id(course.clone(), *banner)
+                course_banner_source_object_id(course, *banner)
             }
             Self::CourseBannerRendition {
                 course,
                 banner,
                 rendition,
-            } => course_banner_rendition_object_id(course.clone(), *banner, *rendition),
+            } => course_banner_rendition_object_id(course, *banner, *rendition),
             Self::ProfileImage { object, .. } => *object,
         }
     }
@@ -473,7 +473,7 @@ impl ObjectAddress {
 
 /// Derives the immutable physical identity for one Course Banner Upload.
 pub fn course_banner_upload_object_id(
-    course: CourseInstanceId,
+    course: &CourseInstanceId,
     upload: CourseBannerUploadReference,
 ) -> ObjectId {
     domain_separated_object_id_from_parts(
@@ -485,7 +485,10 @@ pub fn course_banner_upload_object_id(
 }
 
 /// Derives the immutable physical identity for one promoted course banner.
-pub fn course_banner_source_object_id(course: CourseInstanceId, banner: CourseBannerReference) -> ObjectId {
+pub fn course_banner_source_object_id(
+    course: &CourseInstanceId,
+    banner: CourseBannerReference,
+) -> ObjectId {
     domain_separated_object_id_from_parts(
         b"ple:course-banner-source:v3\0",
         course.as_str().as_bytes(),
@@ -496,7 +499,7 @@ pub fn course_banner_source_object_id(course: CourseInstanceId, banner: CourseBa
 
 /// Derives the immutable physical identity for one normalized course-banner rendition.
 pub fn course_banner_rendition_object_id(
-    course: CourseInstanceId,
+    course: &CourseInstanceId,
     banner: CourseBannerReference,
     rendition: CourseBannerRendition,
 ) -> ObjectId {
@@ -524,18 +527,6 @@ fn domain_separated_object_id_from_parts(
     hasher.update(first);
     hasher.update(second);
     hasher.update(third);
-    let digest = hasher.finalize();
-    let mut object_uuid = [0_u8; 16];
-    object_uuid.copy_from_slice(&digest[..16]);
-    ObjectId::from_uuid(uuid::Uuid::from_bytes(object_uuid))
-}
-
-fn domain_separated_object_id(domain: &[u8], components: [uuid::Uuid; 3]) -> ObjectId {
-    let mut hasher = Sha256::new();
-    hasher.update(domain);
-    for component in components {
-        hasher.update(component.as_bytes());
-    }
     let digest = hasher.finalize();
     let mut object_uuid = [0_u8; 16];
     object_uuid.copy_from_slice(&digest[..16]);

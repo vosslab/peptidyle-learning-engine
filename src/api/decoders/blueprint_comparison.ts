@@ -237,15 +237,15 @@ function side(input: unknown, path: string): BlueprintComparisonSide {
     (assessmentValue, assessmentPath) => {
       const assessment = decodeRecord(assessmentValue, assessmentPath);
       requireOnlyFields(assessment, assessmentPath, [
-        "blueprintAssessmentId",
+        "blueprintAssessmentReference",
         "blueprintModuleReference",
         "position",
         "content",
         "questionIds",
       ]);
       const reference = stableReference(
-        field(assessment, "blueprintAssessmentId", assessmentPath),
-        `${assessmentPath}.blueprintAssessmentId`,
+        field(assessment, "blueprintAssessmentReference", assessmentPath),
+        `${assessmentPath}.blueprintAssessmentReference`,
       );
       if (assessments.has(reference))
         throw new DecodeError(assessmentPath, "unique side-local Assessment reference");
@@ -315,10 +315,10 @@ export function decodeBlueprintComparisonView(
     );
   const edges = new Set<string>();
   const leftAssessments = new Map(
-    left.assessments.map((assessment) => [assessment.blueprintAssessmentId, assessment]),
+    left.assessments.map((assessment) => [assessment.blueprintAssessmentReference, assessment]),
   );
   const rightAssessments = new Map(
-    right.assessments.map((assessment) => [assessment.blueprintAssessmentId, assessment]),
+    right.assessments.map((assessment) => [assessment.blueprintAssessmentReference, assessment]),
   );
   decodeBoundedArray(
     field(record, "assessmentRelationships", path),
@@ -327,17 +327,17 @@ export function decodeBlueprintComparisonView(
     (edgeValue, edgePath) => {
       const edge = decodeRecord(edgeValue, edgePath);
       requireOnlyFields(edge, edgePath, [
-        "leftAssessmentId",
-        "rightAssessmentId",
+        "leftAssessmentReference",
+        "rightAssessmentReference",
         "sharedQuestionIds",
       ]);
       const leftReference = stableReference(
-        field(edge, "leftAssessmentId", edgePath),
-        `${edgePath}.leftAssessmentId`,
+        field(edge, "leftAssessmentReference", edgePath),
+        `${edgePath}.leftAssessmentReference`,
       );
       const rightReference = stableReference(
-        field(edge, "rightAssessmentId", edgePath),
-        `${edgePath}.rightAssessmentId`,
+        field(edge, "rightAssessmentReference", edgePath),
+        `${edgePath}.rightAssessmentReference`,
       );
       const leftAssessment = leftAssessments.get(leftReference);
       const rightAssessment = rightAssessments.get(rightReference);

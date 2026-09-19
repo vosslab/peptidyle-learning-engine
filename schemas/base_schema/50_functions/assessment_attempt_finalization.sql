@@ -47,10 +47,10 @@ BEGIN
                WHERE submission.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id) THEN
         RETURN QUERY
         SELECT 'already_submitted', resolved_kind,
-               CASE WHEN bool_or(question_attempt.question_attempt_state <> 'closed_unanswered'
+               CASE WHEN bool_or(saved.question_attempt_id IS NOT NULL
                                   AND result.grading_result_id IS NULL)
                     THEN NULL ELSE coalesce(sum(score.points_earned), 0)::double precision END,
-               CASE WHEN bool_or(question_attempt.question_attempt_state <> 'closed_unanswered'
+               CASE WHEN bool_or(saved.question_attempt_id IS NOT NULL
                                   AND result.grading_result_id IS NULL)
                     THEN NULL ELSE coalesce(sum(score.points_possible), 0)::double precision END,
                NULL::uuid, NULL::bigint, NULL::text, NULL::integer, NULL::uuid,
@@ -58,12 +58,23 @@ BEGIN
           FROM ple_private.issued_question AS issued
           JOIN ple_private.question_attempt AS question_attempt
             ON question_attempt.issued_question_id = issued.issued_question_id
+          LEFT JOIN ple_private.assessment_attempt_saved_response AS saved
+            ON saved.question_attempt_id = question_attempt.question_attempt_id
           LEFT JOIN ple_private.grading_result AS result
             ON result.question_attempt_id = question_attempt.question_attempt_id
           JOIN ple_private.assessment_entry_snapshot AS snapshot
             ON snapshot.assessment_entry_snapshot_id = issued.assessment_entry_snapshot_id
           CROSS JOIN LATERAL ple_private.score_recorded_credit(
-              result.normalized_credit, snapshot.scoring_rule, snapshot.points
+              result.normalized_credit, snapshot.scoring_rule,
+              coalesce(
+                  (SELECT question.points_possible
+                     FROM ple_data.assessment_entry_question AS question
+                    WHERE question.assessment_entry_id = issued.assessment_entry_id),
+                  (SELECT pool.points_per_item
+                     FROM ple_data.assessment_entry_pool AS pool
+                    WHERE pool.assessment_entry_id = issued.assessment_entry_id),
+                  snapshot.points
+              )
           ) AS score
          WHERE issued.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id;
         RETURN;
@@ -86,10 +97,10 @@ BEGIN
     SELECT 'ready', resolved_kind, NULL::double precision,
            NULL::double precision, question_attempt.question_attempt_id,
            floor(extract(epoch FROM response.saved_at) * 1000)::bigint,
-           issued.published_question_id, issued.revision_number, source.source_object_record_id,
+           issued.published_question_id::text, issued.revision_number, source.source_object_record_id,
            source.source_object_checksum, question_attempt.question_seed,
            question_attempt.generated_parameter_sha256,
-           response.student_response, source.backend, source.webwork_pg_path
+           response.student_response, source.backend::text, source.webwork_pg_path
       FROM ple_private.issued_question AS issued
       JOIN ple_private.question_attempt AS question_attempt
         ON question_attempt.issued_question_id = issued.issued_question_id
@@ -247,7 +258,6 @@ DECLARE resolved_kind text;
 DECLARE accepted_count integer;
 DECLARE expected_count integer;
 DECLARE evaluation_row record;
-DECLARE question_response_id_value uuid;
 DECLARE assessment_submission_id_value uuid := pg_catalog.gen_random_uuid();
 BEGIN
     IF p_assessment_attempt_id IS NULL
@@ -279,21 +289,32 @@ BEGIN
     IF EXISTS (SELECT 1 FROM ple_private.assessment_submission AS submission
                WHERE submission.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id) THEN
         RETURN QUERY
-        SELECT CASE WHEN bool_or(question_attempt.question_attempt_state <> 'closed_unanswered'
+        SELECT CASE WHEN bool_or(saved.question_attempt_id IS NOT NULL
                                       AND result.grading_result_id IS NULL)
                          THEN NULL ELSE coalesce(sum(score.points_earned), 0)::double precision END,
-               CASE WHEN bool_or(question_attempt.question_attempt_state <> 'closed_unanswered'
+               CASE WHEN bool_or(saved.question_attempt_id IS NOT NULL
                                       AND result.grading_result_id IS NULL)
                          THEN NULL ELSE coalesce(sum(score.points_possible), 0)::double precision END
           FROM ple_private.issued_question AS issued
           JOIN ple_private.question_attempt AS question_attempt
             ON question_attempt.issued_question_id = issued.issued_question_id
+          LEFT JOIN ple_private.assessment_attempt_saved_response AS saved
+            ON saved.question_attempt_id = question_attempt.question_attempt_id
           LEFT JOIN ple_private.grading_result AS result
             ON result.question_attempt_id = question_attempt.question_attempt_id
           JOIN ple_private.assessment_entry_snapshot AS snapshot
             ON snapshot.assessment_entry_snapshot_id = issued.assessment_entry_snapshot_id
           CROSS JOIN LATERAL ple_private.score_recorded_credit(
-              result.normalized_credit, snapshot.scoring_rule, snapshot.points
+              result.normalized_credit, snapshot.scoring_rule,
+              coalesce(
+                  (SELECT question.points_possible
+                     FROM ple_data.assessment_entry_question AS question
+                    WHERE question.assessment_entry_id = issued.assessment_entry_id),
+                  (SELECT pool.points_per_item
+                     FROM ple_data.assessment_entry_pool AS pool
+                    WHERE pool.assessment_entry_id = issued.assessment_entry_id),
+                  snapshot.points
+              )
           ) AS score
          WHERE issued.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id;
         RETURN;
@@ -336,47 +357,50 @@ BEGIN
     END IF;
     INSERT INTO ple_private.assessment_submission(
         course_instance_id, assessment_submission_id, assessment_attempt_id, submitted_at,
-        finalization_kind, authorized_by_account_id, receipt
+        authorized_by_account_id
     ) VALUES (
-        assessment_attempt_row.course_instance_id, assessment_submission_id_value, assessment_attempt_row.assessment_attempt_id, now_value,
-        resolved_kind,
-        p_authorized_by_account_id,
-        jsonb_build_object('submissionState', 'submitted', 'finalizationKind', resolved_kind)
+        assessment_attempt_row.course_instance_id, assessment_submission_id_value,
+        assessment_attempt_row.assessment_attempt_id, now_value,
+        p_authorized_by_account_id
     );
     UPDATE ple_private.question_attempt AS question_attempt
-       SET question_attempt_state = CASE WHEN EXISTS (
-                   SELECT 1 FROM ple_private.assessment_attempt_saved_response AS response
-                    WHERE response.question_attempt_id = question_attempt.question_attempt_id
-               ) THEN 'response_finalized' ELSE 'closed_unanswered' END,
-           finalized_at = CASE WHEN EXISTS (
-                   SELECT 1 FROM ple_private.assessment_attempt_saved_response AS response
-                    WHERE response.question_attempt_id = question_attempt.question_attempt_id
-               ) THEN now_value ELSE NULL END
+       SET finalized_at = now_value
       FROM ple_private.issued_question AS issued
      WHERE question_attempt.issued_question_id = issued.issued_question_id
        AND issued.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id
-       AND question_attempt.question_attempt_state = 'open';
+       AND question_attempt.finalized_at IS NULL;
+    UPDATE ple_private.assessment_attempt_saved_response AS response
+       SET finalized_at = now_value,
+           assessment_submission_id = assessment_submission_id_value
+      FROM ple_private.question_attempt AS question_attempt
+      JOIN ple_private.issued_question AS issued
+        ON issued.issued_question_id = question_attempt.issued_question_id
+     WHERE response.question_attempt_id = question_attempt.question_attempt_id
+       AND issued.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id
+       AND response.finalized_at IS NULL;
     FOR evaluation_row IN SELECT * FROM jsonb_to_recordset(p_evaluations) AS submitted_evaluation(
         question_attempt_id uuid, saved_at_millis bigint, student_response jsonb,
         normalized_credit numeric
     ) LOOP
-        question_response_id_value := pg_catalog.gen_random_uuid();
-        INSERT INTO ple_private.question_response(
-            course_instance_id, question_response_id, assessment_submission_id, question_attempt_id, finalized_at, student_response
-        )
-        SELECT assessment_attempt_row.course_instance_id, question_response_id_value, assessment_submission_id_value, response.question_attempt_id, now_value,
-               response.student_response
-          FROM ple_private.assessment_attempt_saved_response AS response
-         WHERE response.question_attempt_id = evaluation_row.question_attempt_id;
-        IF NOT FOUND THEN
+        IF NOT EXISTS (
+            SELECT 1 FROM ple_private.assessment_attempt_saved_response AS response
+             WHERE response.question_attempt_id = evaluation_row.question_attempt_id
+               AND response.assessment_submission_id = assessment_submission_id_value
+        ) THEN
             RAISE EXCEPTION USING ERRCODE = '42501',
                 MESSAGE = 'Assessment Attempt saved responses changed';
         END IF;
         PERFORM ple_private.record_direct_automated_grading_result(
-            question_response_id_value, evaluation_row.question_attempt_id,
+            evaluation_row.question_attempt_id,
             evaluation_row.normalized_credit, now_value
         );
     END LOOP;
+    PERFORM ple_private.capture_issued_question_statistics_observation(
+        issued.course_instance_id, issued.issued_question_id,
+        assessment_submission_id_value, now_value
+    )
+      FROM ple_private.issued_question AS issued
+     WHERE issued.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id;
     RETURN QUERY
     SELECT coalesce(sum(score.points_earned), 0)::double precision,
            coalesce(sum(score.points_possible), 0)::double precision
@@ -388,7 +412,16 @@ BEGIN
       JOIN ple_private.assessment_entry_snapshot AS snapshot
         ON snapshot.assessment_entry_snapshot_id = issued.assessment_entry_snapshot_id
       CROSS JOIN LATERAL ple_private.score_recorded_credit(
-          result.normalized_credit, snapshot.scoring_rule, snapshot.points
+          result.normalized_credit, snapshot.scoring_rule,
+              coalesce(
+                  (SELECT question.points_possible
+                     FROM ple_data.assessment_entry_question AS question
+                    WHERE question.assessment_entry_id = issued.assessment_entry_id),
+                  (SELECT pool.points_per_item
+                     FROM ple_data.assessment_entry_pool AS pool
+                    WHERE pool.assessment_entry_id = issued.assessment_entry_id),
+                  snapshot.points
+              )
       ) AS score
      WHERE issued.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id;
 END $$;

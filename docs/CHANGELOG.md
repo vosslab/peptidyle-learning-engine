@@ -10,6 +10,87 @@
 
 ### Additions and New Features
 
+- Close-out gates: disposable `postgres:17` install plus Live Demo teaching
+  graph (publisher psql variables supplied; eight Pilot Question pins and a
+  public Blueprint so `live_demo.sql` loads). Connected Student Work oracles
+  `attempt_expiry_connected_oracle.sql` and `unrelease_connected_oracle.sql`
+  pass. M4 Unrelease purge `EXPLAIN` uses
+  `assessment_attempt_assessment_id_idx`. Domain CHECK helpers
+  `is_canonical_prefixed_public_id` are `EXECUTE` to `PUBLIC`. Gate:
+  `tests/_temp/run_m4_install_and_explain.py` and
+  `./schema_style/check_schema_style.py` twice.
+
+- WP-3.8 Library projection JSON: `QuestionStatistics` keeps `{state:"unavailable"}`
+  and adds Instructor `available` with snake_case counts and rates
+  (`issued_count`, `blank_count`, `answered_count`, outcome counts,
+  `credit_sum`, `credit_sum_sq`, omitted rates when the denominator is 0).
+  Bulk search uses the all-Revision rollup; Question detail adds `revisions`.
+  Pool detail `evidence` uses current members' all-Revision rollup (mean
+  credit weighted by `answered_count`) plus `pool_issued_count` from
+  `question_pool_statistics`. SQL:
+  `ple_api.read_question_library_usage_statistics`,
+  `read_question_library_revision_usage_statistics`,
+  `read_question_pool_library_usage_statistics`. Students never receive
+  these aggregates; Sysadmin Library reads stay unavailable. Gate:
+  `cargo test -p question_model --offline --lib question_library_statistics`
+  and `node --test tests/test_question_statistics_decoder.mjs`.
+
+- M4 WP-4.1, WP-4.2: Recorded `EXPLAIN (ANALYZE, BUFFERS)` for Unrelease
+  purge, FERPA purge, Student landing, gradebook, Watch feed, and Pool
+  difficulty (member join to `question_revision_statistics`) in
+  `{SCRATCH}/explain_baseline.log`. Live Demo teaching graph was not
+  loaded (publisher psql variables absent), so plans ran on an empty
+  Student Work catalog; execution times were sub-millisecond. FERPA
+  purge already uses `assessment_attempt_student_assessment_lookup_idx`;
+  gradebook uses the course-leading unique key. Unrelease
+  `DELETE ... WHERE assessment_id = ...` seq-scans `assessment_attempt`
+  because the PK leads with `course_instance_id`; added
+  `assessment_attempt_assessment_id_idx`. No cached Pool difficulty
+  column (empty-catalog join does not miss a latency budget). Remaining
+  advisory `rule_14` unindexed FKs deferred. WP-4.3 generic `to_jsonb`
+  immutability guards deferred: column-list `IS DISTINCT FROM OLD`
+  triggers remain on Student Work and Course lifecycle. Gate:
+  `tests/_temp/run_m4_install_and_explain.py` (install.sql, M2 probes
+  pass, M3 revision counters pass).
+
+- M3 WP-3.1, WP-3.2, WP-3.8 (WS-derived): Dropped `question_attempt_state`,
+  `finalization_kind`, `question_response`, `question_response_grading`,
+  submission `receipt`, and `ple_private.imathas_question_backend_session`.
+  Saved responses finalize in place (`finalized_at`,
+  `assessment_submission_id`). `grading_result` FKs
+  `(course_instance_id, question_attempt_id)` only; receipts FK that PK.
+  `ple_private.delivery_toolchain` holds the seven toolchain values;
+  `question_attempt.delivery_toolchain_id` is the NOT NULL FK. Library statistics
+  store `issued_count`, `blank_count`, `answered_count`, outcome buckets,
+  and credit sums; dropped choice statistics; added pool issued and member
+  selected counts. JSON field names stay the same except Library stats
+  (snake_case). Gate: `tests/_temp/m3_library_stats_probe.sql` and
+  `source source_me.sh && python3 devel/generate_schema_tables_doc.py &&
+  python3 schema_style/check_schema_style.py`. GRANT
+  `question_source_binding_fields_are_valid` now matches the three-argument
+  CREATE so disposable `postgres:17` `install.sql` succeeds.
+
+- M3 WP-3.4 to WP-3.7 (WS-fanout): Watch inbox JOINs
+  `library_watch_event_recipient` to `library_watch_event` (same JSON
+  columns; no `read_at`). Dropped `ple_private.library_watch_notification`,
+  `ple_private.imathas_render_cache_entry`, iMathAS source-binding columns
+  and enum labels (`question_backend`, `question_format`, `import_format`),
+  delivery SQL wrappers, and `ple_audit.object_delivery_access_event` plus
+  unused `ple_data.access_decision`. Postgres iMathAS session store returns
+  Unavailable. Shared work lease is `lease_token` plus `lease_expires_at`
+  with `ple_private.work_lease_pair_is_valid` on `job`,
+  `course_retention_notification`, `course_banner_work`, and
+  `profile_image_work` (banner/profile keep `lease_state` payload). Claim
+  stays per-worker. Workers still needed: public-asset job, FERPA notifier,
+  banner work, profile image work. Retention worker sweeps expired/revoked
+  `authenticated_session`, expired/consumed `email_authentication_challenge`
+  and `passkey_ceremony`, and old `authentication_rate_limit` windows after
+  a hardcoded 7-day grace (`ple_api.sweep_expired_authentication_growth`).
+  Partial sweep indexes sit on those predicates. `question_backend` is
+  `ple` and `webwork` only. Gate:
+  `source source_me.sh && python3 devel/generate_schema_tables_doc.py &&
+  python3 schema_style/check_schema_style.py`.
+
 - M2 WP-2.5 and WP-2.3: Question Pools are current state. Dropped
   `question_pool_revision`, `question_pool_revision_member`, and
   `question_pool_revision_bloom`. Members live in `question_pool_member`
@@ -294,6 +375,22 @@
 
 ### Fixes and Maintenance
 
+- Connected PostgreSQL fixture SQL in
+  `crates/learning-data-access/tests` now mints public IDs (`U`/`CI`/`A`/`BP`
+  via `RETURNING`) and uses the restructured columns:
+  `account_id` text, `course_instance_id`, `blueprint_course_id`,
+  `assessment_policy_snapshot_id`, `assessment_entry_question`,
+  `published_question_id`, `content_discipline_id`,
+  `course_membership_id`. Assessment Access keeps
+  `student_record_id` uuid `0xeb02` and `assessment_entry_id` uuid
+  `0xed02`. Gate: `cargo test -p learning-data-access --features postgres
+  --no-run --offline --locked`.
+
+- Public IDs (`AccountId`, `CourseInstanceId`, `AssessmentId`) wrap `String`
+  and are no longer `Copy`. Tests clone reused values at Course Banner saga,
+  Course Appearance, and iMathAS Question Backend call sites. Gate:
+  `source source_me.sh && cargo check --workspace --all-targets --locked --offline`.
+
 - Browser TypeScript uses Blueprint/Course Edit Number JSON fields
   (`blueprint_edit_number`, `blueprintEditNumber`, `courseEditNumber`) and
   quoted `"42"` ETags instead of retired `metadataEtag` UUID validators.
@@ -384,9 +481,19 @@
 - The schema audit gained finding 2.9: 43 of 146 tables have no timestamp column, including the
   current-state `assessment_template` and the Student Work row `issued_question`; plan work
   package WP-1.7 adds the creation instant required by `DATABASE_STYLE.md`.
+- Synchronized shared style guides, tests, and repository support files from the starter template.
 
 ### Developer Tests and Notes
 
+- M3 WP-3.3: `tests/e2e/attempt_expiry_connected_oracle.sql` and
+  `tests/e2e/unrelease_connected_oracle.sql` follow the current Student Work
+  schema (minted public IDs, policy snapshot, `published_question_id`,
+  `delivery_toolchain_id`, in-place saved-response finalization, observation
+  capture). Same intent as before: stale snapshot fence, 0.67 credit replay
+  1.34 then 2.01/3, attempt limit, landing, expired unanswered 0/3, Unrelease
+  reject/accept/repeat, and anonymous stats `issued_count=2`. Not rerun on
+  PostgreSQL here. Gate: review of the two oracles against `20_tables/` and
+  `50_functions/`.
 - WP-0.4/WP-0.5: `source source_me.sh && python3 devel/generate_schema_tables_doc.py`
   exits 0 and writes [SCHEMA_TABLES.md](SCHEMA_TABLES.md) (24 `20_tables/` sections,
   146 tables) and [../schemas/catalog_snapshot.json](../schemas/catalog_snapshot.json)

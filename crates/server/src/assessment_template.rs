@@ -17,8 +17,7 @@ use learning_data_access::{
 };
 use question_model::{
     AssessmentTemplate, AssessmentTemplateEditNumber, AssessmentTemplateId, AssessmentTemplateName,
-    AssessmentTemplateSettings, AssessmentTitle, AssessmentType, CourseInstanceId,
-    ProductRole,
+    AssessmentTemplateSettings, AssessmentTitle, AssessmentType, CourseInstanceId, ProductRole,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;

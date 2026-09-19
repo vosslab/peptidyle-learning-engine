@@ -112,10 +112,8 @@ pub struct BlueprintChangeProposalAcceptedView {
         question_model::BlueprintModuleReference,
         question_model::BlueprintModuleReference,
     >,
-    pub new_assessments: BTreeMap<
-        question_model::BlueprintAssessmentId,
-        question_model::BlueprintAssessmentId,
-    >,
+    pub new_assessments:
+        BTreeMap<question_model::BlueprintAssessmentId, question_model::BlueprintAssessmentId>,
     pub resulting_json: question_model::CanonicalBlueprintCourse,
 }
 

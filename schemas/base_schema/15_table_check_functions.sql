@@ -33,21 +33,23 @@ $$;
 CREATE FUNCTION ple_private.question_source_binding_fields_are_valid(
     p_backend ple_data.question_backend,
     p_question_format ple_data.question_format,
-    p_webwork_pg_path text,
-    p_imathas_deployment_reference text, p_imathas_item_reference text,
-    p_imathas_profile text, p_requires_profile boolean
+    p_webwork_pg_path text
 ) RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path = pg_catalog AS $$
     SELECT COALESCE(
         (p_backend = 'ple' AND p_question_format = 'pleQuestionJson'
-            AND p_webwork_pg_path IS NULL AND p_imathas_deployment_reference IS NULL
-            AND p_imathas_item_reference IS NULL AND p_imathas_profile IS NULL)
+            AND p_webwork_pg_path IS NULL)
         OR (p_backend = 'webwork' AND p_question_format IN ('webworkPg', 'webworkPgml')
-            AND p_webwork_pg_path IS NOT NULL AND p_imathas_deployment_reference IS NULL
-            AND p_imathas_item_reference IS NULL AND p_imathas_profile IS NULL)
-        OR (p_backend = 'imathas' AND p_question_format = 'imathas'
-            AND p_webwork_pg_path IS NULL AND p_imathas_deployment_reference IS NOT NULL
-            AND p_imathas_item_reference IS NOT NULL
-            AND (p_imathas_profile IS NOT NULL) = p_requires_profile), false)
+            AND p_webwork_pg_path IS NOT NULL), false)
+$$;
+
+CREATE FUNCTION ple_private.work_lease_pair_is_valid(
+    p_lease_token uuid,
+    p_lease_expires_at timestamptz,
+    p_anchor_at timestamptz
+) RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path = pg_catalog AS $$
+    SELECT (p_lease_token IS NULL AND p_lease_expires_at IS NULL)
+        OR (p_lease_token IS NOT NULL AND p_lease_expires_at IS NOT NULL
+            AND p_anchor_at IS NOT NULL AND p_lease_expires_at > p_anchor_at)
 $$;
 
 SET LOCAL ROLE ple_data_owner;
@@ -88,7 +90,7 @@ GRANT EXECUTE ON FUNCTION
     ple_private.account_time_zone_is_exact_iana(text),
     ple_private.assessment_template_name_is_valid(text),
     ple_private.question_source_binding_fields_are_valid(
-        ple_data.question_backend, ple_data.question_format,
-        text, text, text, text, boolean
-    )
+        ple_data.question_backend, ple_data.question_format, text
+    ),
+    ple_private.work_lease_pair_is_valid(uuid, timestamptz, timestamptz)
     TO ple_data_owner;

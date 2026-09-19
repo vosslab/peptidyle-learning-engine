@@ -57,7 +57,7 @@ Published Question
   +-- immutable Question Revisions
 
 Published Question Pool
-  +-- immutable Pool Revisions
+  +-- current member list with Edit Number CAS
 
 Blueprint Course (Private, Public, or Archived)
   +-- immutable changed-content Blueprint Revisions
@@ -66,9 +66,11 @@ Blueprint Course (Private, Public, or Archived)
       into daughter Course Instances as Unreleased Assessments
 ```
 
-Published Questions, published Question Pools, and Blueprint Courses have
-immutable Revision families. Edit Numbers on other current aggregates are
-concurrency controls.
+Published Questions and Blueprint Courses have immutable Revision families.
+Question Pools are current state: members live on the Pool row's Edit Number.
+Accounts, Course Instances, Assessments, and Blueprint Courses use the public
+ID as primary key. Edit Numbers on current aggregates are concurrency
+controls; HTTP ETags are those integers as decimal strings.
 
 ## Questions and Pools
 
@@ -84,15 +86,27 @@ Question source changes create immutable Question Revisions. Current metadata
 changes do not. Draft Questions remain private, mutable, unpublished, and
 unversioned.
 
-Question Pools use stable public identity plus immutable Pool Revisions.
-Assessment and Attempt records retain exact Question/Pool Revision evidence so
-later publication does not silently change Student Work.
+Question Pools use stable public identity plus a current member list. Saves
+CAS the Pool Edit Number; a no-op identical ordered list does not increment
+it. Assessment pool entries pin `question_pool_id` only. Student Work
+(`question_pool_selection`) stores Pool ID plus the Pool Edit Number at
+issue, and selected items keep exact Question Revision pins so later Pool
+edits do not silently change already-issued work.
 
-`question_pool_revision.created_in_transaction` is an internal `xid8` marker
-with default `pg_current_xact_id()`. It replaces a timestamp-based heuristic
-when a protected construction transaction must distinguish its newly created
-Pool Revisions from prior or concurrent committed rows. It is not a public
-Pool, Revision, Assessment, or browser/API field.
+`question_pool.created_in_transaction` is an internal `xid8` marker with
+default `pg_current_xact_id()`. It replaces a timestamp-based heuristic when
+a protected construction transaction must distinguish newly created Pools
+from prior or concurrent committed rows. It is not a public Pool, Assessment,
+or browser/API field.
+
+Frozen Assessment policy lives in content-addressed
+`ple_data.assessment_policy_snapshot`. Frozen Entry facts live in
+`ple_private.assessment_entry_snapshot`. Student Work primary keys lead with
+`course_instance_id`. Question Attempts reference
+`ple_private.delivery_toolchain` rather than copying toolchain strings.
+Saved responses finalize in place. Library usage statistics are identity-free
+counts on Question Revisions and Pool members; private observation receipts
+purge with Student Work.
 
 ## Blueprint Courses
 

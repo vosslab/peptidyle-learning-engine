@@ -228,13 +228,20 @@ impl ObjectStore for FaultObjectStore {
     }
 }
 
-fn prepared_fixture() -> (CourseInstanceId, CourseBannerReference, PreparedFixtureObjects) {
+fn prepared_fixture() -> (
+    CourseInstanceId,
+    CourseBannerReference,
+    PreparedFixtureObjects,
+) {
     let course = CourseInstanceId::from_debug_serial(71);
     let banner = CourseBannerReference::from_uuid(Uuid::from_u128(72));
     let addresses = [
-        ObjectAddress::CourseBannerSource { course, banner },
+        ObjectAddress::CourseBannerSource {
+            course: course.clone(),
+            banner,
+        },
         ObjectAddress::CourseBannerRendition {
-            course,
+            course: course.clone(),
             banner,
             rendition: CourseBannerRendition::Banner,
         },
@@ -389,7 +396,10 @@ async fn prepared_banner_completion_failure_stops_before_visibility_can_finalize
 async fn staged_put_failure_repairs_without_finalizing() {
     let course = CourseInstanceId::from_debug_serial(81);
     let upload = CourseBannerUploadReference::from_uuid(Uuid::from_u128(82));
-    let address = ObjectAddress::CourseBannerUpload { course, upload };
+    let address = ObjectAddress::CourseBannerUpload {
+        course: course.clone(),
+        upload,
+    };
     let bytes = b"stage".to_vec();
     let metadata = banner_metadata(&address, &bytes, "image/png".to_string(), 50, 10);
     let store = CompletionStore::default();
@@ -421,7 +431,10 @@ async fn staged_put_failure_repairs_without_finalizing() {
 async fn staged_finalize_failure_deletes_and_repairs() {
     let course = CourseInstanceId::from_debug_serial(83);
     let upload = CourseBannerUploadReference::from_uuid(Uuid::from_u128(84));
-    let address = ObjectAddress::CourseBannerUpload { course, upload };
+    let address = ObjectAddress::CourseBannerUpload {
+        course: course.clone(),
+        upload,
+    };
     let bytes = b"stage".to_vec();
     let metadata = banner_metadata(&address, &bytes, "image/png".to_string(), 50, 10);
     let store = CompletionStore {
@@ -454,7 +467,10 @@ async fn staged_finalize_failure_deletes_and_repairs() {
 async fn cleanup_confirms_only_a_successful_delete_and_repairs_a_failed_delete() {
     let course = CourseInstanceId::from_debug_serial(91);
     let banner = CourseBannerReference::from_uuid(Uuid::from_u128(92));
-    let address = ObjectAddress::CourseBannerSource { course, banner };
+    let address = ObjectAddress::CourseBannerSource {
+        course: course.clone(),
+        banner,
+    };
     let seed = MemoryObjectStore::default();
     seed.put(PutObject {
         address: address.clone(),
@@ -473,7 +489,7 @@ async fn cleanup_confirms_only_a_successful_delete_and_repairs_a_failed_delete()
         &store,
         &objects,
         SessionTokenHash::compute(b"cleanup"),
-        course,
+        course.clone(),
         Some(banner),
         &address,
         Uuid::from_u128(93),

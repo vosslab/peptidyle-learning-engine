@@ -7,8 +7,7 @@
 use async_trait::async_trait;
 use browser_api_contract::student_assessment_decision::StudentAssessmentDecisionSummary;
 use question_model::{
-    AssessmentAttemptCompletion, AssessmentId, AssessmentType, CourseInstanceId,
-    CourseTerm,
+    AssessmentAttemptCompletion, AssessmentId, AssessmentType, CourseInstanceId, CourseTerm,
 };
 use serde::Serialize;
 

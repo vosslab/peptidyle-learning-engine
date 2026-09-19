@@ -41,7 +41,10 @@ export interface ApplicationApi<Client extends ApiClient = ApiClient> {
     readonly courses: QueryFunction<[], CursorPage<CourseSummary>>;
     readonly questionSearch: QueryFunction<[QuestionSearchRequest], QuestionSearchPage>;
     readonly questionDetails: QueryFunction<[QuestionId], QuestionDetails>;
-    readonly assessments: QueryFunction<[CourseInstanceId], CursorPage<StudentAssessmentLandingSummary>>;
+    readonly assessments: QueryFunction<
+      [CourseInstanceId],
+      CursorPage<StudentAssessmentLandingSummary>
+    >;
     readonly assessment: QueryFunction<[AssessmentId], StudentAssessmentDetail>;
     readonly assessmentSummary: QueryFunction<[AssessmentId], StudentAssessmentProgress>;
     readonly courseScope: QueryFunction<[CourseInstanceRouteReference], CourseRouteView>;

@@ -67,7 +67,7 @@ enum Output {
         next_cursor: Option<String>,
     },
     Recover {
-        attempt: RecoveredAttempt,
+        attempt: Box<RecoveredAttempt>,
     },
 }
 
@@ -137,7 +137,9 @@ async fn recover(
             .recovery
             .recover_retained_work(session.session_hash, course, assessment_attempt)
             .await
-            .map(|attempt| Output::Recover { attempt }),
+            .map(|attempt| Output::Recover {
+                attempt: Box::new(attempt),
+            }),
     };
     // ASVS 14.2.2/16.5.1: no-store on every outcome and no SQL error reflection.
     match result {
@@ -149,10 +151,7 @@ async fn recover(
     }
 }
 
-fn decode_cursor(
-    cursor: &str,
-    course: &CourseInstanceId,
-) -> Result<AssessmentAttemptId, ()> {
+fn decode_cursor(cursor: &str, course: &CourseInstanceId) -> Result<AssessmentAttemptId, ()> {
     if cursor.len() > 80 {
         return Err(());
     }

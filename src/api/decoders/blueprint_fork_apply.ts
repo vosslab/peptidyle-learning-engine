@@ -46,10 +46,10 @@ function destination(value: unknown, path: string, module: boolean): Record<stri
     kind === "existing"
       ? module
         ? "targetModuleReference"
-        : "targetAssessmentId"
+        : "targetAssessmentReference"
       : module
         ? "sourceModuleReference"
-        : "sourceAssessmentId";
+        : "sourceAssessmentReference";
   requireOnlyFields(record, path, ["kind", name]);
   return { kind, [name]: decodeUuid(field(record, name, path), `${path}.${name}`) };
 }
@@ -140,8 +140,8 @@ export function decodeBlueprintForkApplyRequest(
       sourceAssessments: copies(
         field(selection, "sourceAssessments", selectionPath),
         `${selectionPath}.sourceAssessments`,
-        "sourceAssessmentId",
-        "targetAssessmentId",
+        "sourceAssessmentReference",
+        "targetAssessmentReference",
         MAX_ASSESSMENT_ORDERED_ENTRIES * MAX_ASSESSMENT_ORDERED_ENTRIES,
       ) as BlueprintForkApplyRequest["selection"]["sourceAssessments"],
       layout: layout as BlueprintForkApplyRequest["selection"]["layout"],

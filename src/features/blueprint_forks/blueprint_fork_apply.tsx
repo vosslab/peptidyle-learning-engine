@@ -78,19 +78,19 @@ export function BlueprintSelectionEditor(props: ApplyProps): JSX.Element {
     if (entry.kind === "newFromSource")
       return (
         props.review.left.assessments.find(
-          (a) => a.blueprintAssessmentId === entry.sourceAssessmentId,
+          (a) => a.blueprintAssessmentReference === entry.sourceAssessmentReference,
         )?.content.title ?? "New Assessment"
       );
     const copy = contents().find(
-      (c) => c.targetAssessmentId === entry.targetAssessmentId,
+      (c) => c.targetAssessmentReference === entry.targetAssessmentReference,
     );
     return (
       (copy
         ? props.review.left.assessments.find(
-            (a) => a.blueprintAssessmentId === copy.sourceAssessmentId,
+            (a) => a.blueprintAssessmentReference === copy.sourceAssessmentReference,
           )?.content.title
         : props.review.right.assessments.find(
-            (a) => a.blueprintAssessmentId === entry.targetAssessmentId,
+            (a) => a.blueprintAssessmentReference === entry.targetAssessmentReference,
           )?.content.title) ?? "Assessment"
     );
   };
@@ -133,12 +133,12 @@ export function BlueprintSelectionEditor(props: ApplyProps): JSX.Element {
   function chooseAssessment(source: string, value: string): void {
     props.proposalSelection?.onChanged?.();
     setContents([
-      ...contents().filter((c) => c.sourceAssessmentId !== source),
+      ...contents().filter((c) => c.sourceAssessmentReference !== source),
       ...(value
         ? [
             {
-              sourceAssessmentId: source,
-              targetAssessmentId: value === "new" ? null : value,
+              sourceAssessmentReference: source,
+              targetAssessmentReference: value === "new" ? null : value,
             },
           ]
         : []),
@@ -147,11 +147,11 @@ export function BlueprintSelectionEditor(props: ApplyProps): JSX.Element {
       value !== "new" &&
       layout().some((row) =>
         row.assessments.some(
-          (a) => a.kind === "newFromSource" && a.sourceAssessmentId === source,
+          (a) => a.kind === "newFromSource" && a.sourceAssessmentReference === source,
         ),
       )
     )
-      place({ kind: "newFromSource", sourceAssessmentId: source }, "");
+      place({ kind: "newFromSource", sourceAssessmentReference: source }, "");
   }
   function reset(): void {
     props.proposalSelection?.onChanged?.();
@@ -222,13 +222,13 @@ export function BlueprintSelectionEditor(props: ApplyProps): JSX.Element {
     [
       ...props.review.right.assessments.map((a) => ({
         kind: "existing" as const,
-        targetAssessmentId: a.blueprintAssessmentId,
+        targetAssessmentReference: a.blueprintAssessmentReference,
       })),
       ...contents()
-        .filter((c) => c.targetAssessmentId === null)
+        .filter((c) => c.targetAssessmentReference === null)
         .map((c) => ({
           kind: "newFromSource" as const,
-          sourceAssessmentId: c.sourceAssessmentId,
+          sourceAssessmentReference: c.sourceAssessmentReference,
         })),
     ].filter(
       (a) =>
@@ -316,16 +316,16 @@ export function BlueprintSelectionEditor(props: ApplyProps): JSX.Element {
               <select
                 value={
                   contents().find(
-                    (c) => c.sourceAssessmentId === source.blueprintAssessmentId,
-                  )?.targetAssessmentId ??
+                    (c) => c.sourceAssessmentReference === source.blueprintAssessmentReference,
+                  )?.targetAssessmentReference ??
                   (contents().some(
-                    (c) => c.sourceAssessmentId === source.blueprintAssessmentId,
+                    (c) => c.sourceAssessmentReference === source.blueprintAssessmentReference,
                   )
                     ? "new"
                     : "")
                 }
                 onChange={(e) =>
-                  chooseAssessment(source.blueprintAssessmentId, e.currentTarget.value)
+                  chooseAssessment(source.blueprintAssessmentReference, e.currentTarget.value)
                 }
               >
                 <option value="">Do not copy</option>
@@ -335,11 +335,11 @@ export function BlueprintSelectionEditor(props: ApplyProps): JSX.Element {
                     const shared = (): number =>
                       props.review.assessmentRelationships.find(
                         (r) =>
-                          r.leftAssessmentId === source.blueprintAssessmentId &&
-                          r.rightAssessmentId === target.blueprintAssessmentId,
+                          r.leftAssessmentReference === source.blueprintAssessmentReference &&
+                          r.rightAssessmentReference === target.blueprintAssessmentReference,
                       )?.sharedQuestionIds.length ?? 0;
                     return (
-                      <option value={target.blueprintAssessmentId}>
+                      <option value={target.blueprintAssessmentReference}>
                         Replace content: {target.content.title}
                         {shared() ? ` (${shared()} shared Questions; not identity)` : ""}
                       </option>

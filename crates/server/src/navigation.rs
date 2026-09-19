@@ -54,11 +54,9 @@ async fn resolve_course_navigation(
         .resolve_course_navigation(session_hash, reference)
         .await
     {
-        Ok(course_instance_id) => {
-            crate::auth::no_store(
-                Json(NavigationResolution::Course { course_instance_id }).into_response(),
-            )
-        }
+        Ok(course_instance_id) => crate::auth::no_store(
+            Json(NavigationResolution::Course { course_instance_id }).into_response(),
+        ),
         Err(error) => store_error_response(error),
     }
 }

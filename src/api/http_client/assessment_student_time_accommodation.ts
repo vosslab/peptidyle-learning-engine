@@ -9,10 +9,7 @@ import {
   decodeAccommodationEditNumber,
   decodeStudentTimeMultiplier,
 } from "../decoders/assessment_student_time_accommodation";
-import {
-  parseAssessmentId,
-  parseCourseInstanceId,
-} from "../../navigation/public_route";
+import { parseAssessmentId, parseCourseInstanceId } from "../../navigation/public_route";
 import { ApiProtocolError, ApiRequestError } from "./error";
 import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";

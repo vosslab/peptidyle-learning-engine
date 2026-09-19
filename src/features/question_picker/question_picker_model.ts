@@ -260,10 +260,10 @@ function reusableQuestionLibraryRow(item: {
   };
   readonly disciplineName: string;
   readonly disciplineIsRetired: boolean;
-  readonly evidence: { readonly state: "unavailable" };
+  readonly evidence: QuestionLibraryBrowseRow["evidence"];
 }): QuestionLibraryBrowseRow {
   const summary = item.summary;
-  const evidence = { state: "unavailable" as const };
+  const evidence = item.evidence;
   return {
     displayId: summary.questionId,
     questionRevision: summary.latestQuestionRevision,

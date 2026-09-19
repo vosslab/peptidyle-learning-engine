@@ -217,20 +217,10 @@ pub struct CourseInvitationReference(NonZeroU32);
 #[serde(try_from = "String", into = "String")]
 pub struct BlueprintCourseId(String);
 
-impl_public_reference!(
-    CourseInstanceId,
-    "CI",
-    "CI",
-    "Course Instance ID"
-);
+impl_public_reference!(CourseInstanceId, "CI", "CI", "Course Instance ID");
 impl_public_reference!(AssessmentId, "A", "A", "Assessment ID");
 impl_public_reference!(AccountId, "U", "U", "Account ID");
-impl_public_reference!(
-    BlueprintCourseId,
-    "BP",
-    "BP",
-    "Blueprint Course ID"
-);
+impl_public_reference!(BlueprintCourseId, "BP", "BP", "Blueprint Course ID");
 
 fn crockford_serial(mut serial: u128) -> String {
     let mut chars = [b'0'; 7];

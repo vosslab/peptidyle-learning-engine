@@ -27,7 +27,7 @@ SET LOCAL ROLE ple_private_owner;
 GRANT SELECT, DELETE ON TABLE ple_private.assessment_attempt TO ple_unrelease_executor;
 
 GRANT SELECT ON TABLE ple_private.issued_question, ple_private.question_attempt,
-    ple_private.question_response, ple_private.assessment_submission,
+    ple_private.assessment_attempt_saved_response, ple_private.assessment_submission,
     ple_private.grading_result
     TO ple_unrelease_executor;
 

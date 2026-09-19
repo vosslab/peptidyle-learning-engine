@@ -11,11 +11,6 @@ use question_model::{AccountId, CourseTerm};
 use sqlx::{Connection, PgConnection};
 use uuid::Uuid;
 
-const ASSIGNED_INSTRUCTOR: u128 = 0xc701;
-const CO_INSTRUCTOR: u128 = 0xc702;
-const TARGET_INSTRUCTOR: u128 = 0xc703;
-const NONMEMBER_INSTRUCTOR: u128 = 0xc704;
-const LIFETIME_INSTRUCTOR: u128 = 0xc741;
 const ASSIGNED_SESSION: u128 = 0xc711;
 const CO_INSTRUCTOR_SESSION: u128 = 0xc712;
 const NONMEMBER_SESSION: u128 = 0xc713;
@@ -52,25 +47,46 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> (AccountId, AccountId) {
         .execute(&mut *transaction)
         .await
         .expect("classification fixture owner");
-    sqlx::query("INSERT INTO ple_data.content_discipline (discipline_uuid, name) VALUES ('00000000-0000-0000-0000-00000000cc01', 'Course fixture discipline') ON CONFLICT (discipline_uuid) DO NOTHING").execute(&mut *transaction).await.expect("explicit fixture Discipline");
+    sqlx::query(
+        "INSERT INTO ple_data.content_discipline (content_discipline_id, name) \
+         VALUES ('00000000-0000-0000-0000-00000000cc01', 'Course fixture discipline') \
+         ON CONFLICT (content_discipline_id) DO NOTHING",
+    )
+    .execute(&mut *transaction)
+    .await
+    .expect("explicit fixture Discipline");
     sqlx::query("SET LOCAL ROLE ple_private_owner")
         .execute(&mut *transaction)
         .await
         .expect("private fixture role");
-    sqlx::query(
+    let assigned_id: String = sqlx::query_scalar(
         "INSERT INTO ple_private.account (account_id, product_role, created_at) \
-         VALUES ($1, 'instructor', clock_timestamp()), \
-                ($2, 'instructor', clock_timestamp()), \
-                ($3, 'instructor', clock_timestamp()), \
-                ($4, 'instructor', clock_timestamp())",
+         VALUES ('U00000009', 'instructor', clock_timestamp()) RETURNING account_id",
     )
-    .bind(id(ASSIGNED_INSTRUCTOR))
-    .bind(id(CO_INSTRUCTOR))
-    .bind(id(TARGET_INSTRUCTOR))
-    .bind(id(NONMEMBER_INSTRUCTOR))
-    .execute(&mut *transaction)
+    .fetch_one(&mut *transaction)
     .await
-    .expect("fixture Instructor Accounts");
+    .expect("assigned Instructor Account");
+    let co_instructor_id: String = sqlx::query_scalar(
+        "INSERT INTO ple_private.account (account_id, product_role, created_at) \
+         VALUES ('U00000009', 'instructor', clock_timestamp()) RETURNING account_id",
+    )
+    .fetch_one(&mut *transaction)
+    .await
+    .expect("co-Instructor Account");
+    let target_instructor_id: String = sqlx::query_scalar(
+        "INSERT INTO ple_private.account (account_id, product_role, created_at) \
+         VALUES ('U00000009', 'instructor', clock_timestamp()) RETURNING account_id",
+    )
+    .fetch_one(&mut *transaction)
+    .await
+    .expect("target Instructor Account");
+    let nonmember_id: String = sqlx::query_scalar(
+        "INSERT INTO ple_private.account (account_id, product_role, created_at) \
+         VALUES ('U00000009', 'instructor', clock_timestamp()) RETURNING account_id",
+    )
+    .fetch_one(&mut *transaction)
+    .await
+    .expect("nonmember Instructor Account");
     sqlx::query(
         "INSERT INTO ple_private.authenticated_session \
          (session_id, account_id, product_role, token_hash, created_at, expires_at) \
@@ -82,38 +98,21 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> (AccountId, AccountId) {
                  clock_timestamp() + interval '1 hour')",
     )
     .bind(id(ASSIGNED_SESSION))
-    .bind(id(ASSIGNED_INSTRUCTOR))
+    .bind(&assigned_id)
     .bind(token(0xc1).to_string())
     .bind(id(CO_INSTRUCTOR_SESSION))
-    .bind(id(CO_INSTRUCTOR))
+    .bind(&co_instructor_id)
     .bind(token(0xc2).to_string())
     .bind(id(NONMEMBER_SESSION))
-    .bind(id(NONMEMBER_INSTRUCTOR))
+    .bind(&nonmember_id)
     .bind(token(0xc3).to_string())
     .execute(&mut *transaction)
     .await
     .expect("fixture Instructor sessions");
-    let references: Vec<(Uuid, String)> = sqlx::query_as(
-        "SELECT account_id, public_reference FROM ple_private.account \
-         WHERE account_id IN ($1, $2) ORDER BY account_id",
-    )
-    .bind(id(CO_INSTRUCTOR))
-    .bind(id(TARGET_INSTRUCTOR))
-    .fetch_all(&mut *transaction)
-    .await
-    .expect("fixture Instructor references");
     transaction.commit().await.expect("fixture commit");
-
-    let reference_for = |account_id| {
-        let public_reference = references
-            .iter()
-            .find_map(|(found, reference)| (*found == account_id).then_some(reference))
-            .expect("fixture Account public reference");
-        AccountId::new(public_reference).expect("fixture Account reference")
-    };
     (
-        reference_for(id(CO_INSTRUCTOR)),
-        reference_for(id(TARGET_INSTRUCTOR)),
+        AccountId::new(co_instructor_id).expect("fixture Account reference"),
+        AccountId::new(target_instructor_id).expect("fixture Account reference"),
     )
 }
 
@@ -134,11 +133,12 @@ async fn malformed_empty_materialization_rejection(
         .await?;
     sqlx::query(
         "SELECT public_reference FROM ple_api.create_course_instance( \
-         $1, $2, $3, $4, 'empty', NULL, NULL, 'EMPTY-BAD', \
+         'CI0000000' || ple_private.crockford_checksum_character('CI0000000'), \
+         $1, $2, $3, 'empty', NULL, NULL, 'EMPTY-BAD', \
          'Rejected nonempty Empty Course', '2026-01-01'::date, '2026-05-01'::date, \
-         NULL, jsonb_build_array(jsonb_build_object('source', $5::text)), '00000000-0000-0000-0000-00000000cc01', NULL, NULL, NULL, ARRAY[]::text[])",
+         NULL, jsonb_build_array(jsonb_build_object('source', $4::text)), \
+         '00000000-0000-0000-0000-00000000cc01', NULL, NULL, NULL, ARRAY[]::text[])",
     )
-    .bind(id(0xc721))
     .bind(id(0xc722))
     .bind(id(0xc723))
     .bind(id(0xc724))
@@ -158,12 +158,11 @@ async fn seed_lifetime_instructor(admin: &sqlx::postgres::PgPool) {
         .execute(&mut *transaction)
         .await
         .expect("Active-lifetime private fixture role");
-    sqlx::query(
+    let lifetime_id: String = sqlx::query_scalar(
         "INSERT INTO ple_private.account (account_id, product_role, created_at) \
-         VALUES ($1, 'instructor', clock_timestamp())",
+         VALUES ('U00000009', 'instructor', clock_timestamp()) RETURNING account_id",
     )
-    .bind(id(LIFETIME_INSTRUCTOR))
-    .execute(&mut *transaction)
+    .fetch_one(&mut *transaction)
     .await
     .expect("Active-lifetime fixture Instructor Account");
     sqlx::query(
@@ -173,7 +172,7 @@ async fn seed_lifetime_instructor(admin: &sqlx::postgres::PgPool) {
                  clock_timestamp() + interval '1 hour')",
     )
     .bind(id(LIFETIME_SESSION))
-    .bind(id(LIFETIME_INSTRUCTOR))
+    .bind(&lifetime_id)
     .bind(token(0xc4).to_string())
     .execute(&mut *transaction)
     .await
@@ -202,13 +201,13 @@ async fn course_term_beyond_active_lifetime_rejection(
         .await?;
     sqlx::query(
         "SELECT public_reference FROM ple_api.create_course_instance( \
-         $1, $2, $3, $4, 'empty', NULL, NULL, 'TERM-BAD', \
+         'CI0000000' || ple_private.crockford_checksum_character('CI0000000'), \
+         $1, $2, $3, 'empty', NULL, NULL, 'TERM-BAD', \
          'Rejected Active lifetime extension', \
          (transaction_timestamp() AT TIME ZONE 'UTC')::date, \
          (((transaction_timestamp() AT TIME ZONE 'UTC') + interval '6 months')::date + 1), \
          NULL, '[]'::jsonb, '00000000-0000-0000-0000-00000000cc01', NULL, NULL, NULL, ARRAY[]::text[])",
     )
-    .bind(id(0xc731))
     .bind(id(0xc732))
     .bind(id(0xc733))
     .bind(id(0xc734))
@@ -264,13 +263,14 @@ async fn empty_course_has_no_initial_content_and_current_instructors_are_peers()
         .execute(&mut *provenance_inspection)
         .await
         .expect("Empty Course provenance fixture role");
-    let provenance: (String, Option<i64>, Option<i64>, i64) = sqlx::query_as(
-        "SELECT course.source_kind, course.blueprint_course_reference_number, \
+    let provenance: (String, Option<String>, Option<i64>, i64) = sqlx::query_as(
+        "SELECT course.source_kind, course.blueprint_course_id, \
                 course.blueprint_revision_number, count(assessment.assessment_id) \
            FROM ple_data.course_instance AS course \
-           LEFT JOIN ple_data.assessment AS assessment ON assessment.course_id = course.course_id \
-          WHERE course.public_reference = $1 \
-          GROUP BY course.source_kind, course.blueprint_course_reference_number, \
+           LEFT JOIN ple_data.assessment AS assessment \
+             ON assessment.course_instance_id = course.course_instance_id \
+          WHERE course.course_instance_id = $1 \
+          GROUP BY course.source_kind, course.blueprint_course_id, \
                    course.blueprint_revision_number",
     )
     .bind(course.as_string())
@@ -293,7 +293,7 @@ async fn empty_course_has_no_initial_content_and_current_instructors_are_peers()
         .expect("provenance mutation role");
     let provenance_error = sqlx::query(
         "UPDATE ple_data.course_instance SET source_kind = 'adopted' \
-         WHERE public_reference = $1",
+         WHERE course_instance_id = $1",
     )
     .bind(course.as_string())
     .execute(&mut *provenance_mutation)

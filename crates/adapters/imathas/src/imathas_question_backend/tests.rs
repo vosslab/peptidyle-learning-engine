@@ -44,10 +44,10 @@ mod launch_session_bridge {
     use objects::{ObjectAddress, ObjectStore, PutObject};
     use question_model::generation::QuestionSeed;
     use question_model::{
-        AccountId, AssessmentId, CourseInstanceId, ImathasDeploymentReference, ImathasItemReference,
-        ImathasProfile, ImathasQuestionBackendBinding, ObjectId, QuestionAttemptId, QuestionId,
-        QuestionRevisionNumber, QuestionRevisionReference, SourceObjectChecksum,
-        SourceObjectReference, Timestamp,
+        AccountId, AssessmentId, CourseInstanceId, ImathasDeploymentReference,
+        ImathasItemReference, ImathasProfile, ImathasQuestionBackendBinding, ObjectId,
+        QuestionAttemptId, QuestionId, QuestionRevisionNumber, QuestionRevisionReference,
+        SourceObjectChecksum, SourceObjectReference, Timestamp,
     };
     use sha2::{Digest, Sha256};
     use uuid::Uuid;
@@ -224,9 +224,9 @@ mod launch_session_bridge {
             .expect("key ring"),
             now(),
         );
-        store.install_authenticated_session(token, account);
+        store.install_authenticated_session(token, account.clone());
         store.install_active_student_authorization(
-            account,
+            account.clone(),
             CourseInstanceId::from_debug_serial(2),
             QuestionAttemptId::from_uuid(Uuid::from_u128(7)),
         );

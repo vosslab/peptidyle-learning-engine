@@ -3,10 +3,10 @@
 SET LOCAL ROLE ple_private_owner;
 
 REVOKE ALL ON FUNCTION ple_private.bind_draft_question_source(
-    uuid, bigint, uuid, text, text, text, text, text, text, text, uuid, text) FROM PUBLIC;
+    uuid, bigint, uuid, text, text, text, text, uuid, text) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION ple_private.bind_draft_question_source(
-    uuid, bigint, uuid, text, text, text, text, text, text, text, uuid, text) TO ple_api_owner;
+    uuid, bigint, uuid, text, text, text, text, uuid, text) TO ple_api_owner;
 
 REVOKE ALL ON FUNCTION ple_private.publish_question_revision(
     uuid, bigint, uuid, text, integer, uuid, jsonb, bytea, bigint, text, bigint, text, uuid, jsonb) FROM PUBLIC;
@@ -24,13 +24,13 @@ GRANT EXECUTE ON FUNCTION ple_api.current_session_account_is_authoring_workspace
     TO ple_app, ple_auth, ple_student, ple_data_owner, ple_private_owner;
 
 REVOKE ALL ON FUNCTION ple_api.bind_draft_question_source(
-    uuid, bigint, uuid, text, text, text, text, text, text, text, uuid, text) FROM PUBLIC;
+    uuid, bigint, uuid, text, text, text, text, uuid, text) FROM PUBLIC;
 
 REVOKE ALL ON FUNCTION ple_api.publish_question_revision(
     uuid, bigint, uuid, text, integer, uuid, jsonb, bytea, bigint, text, bigint, text, uuid, jsonb) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION ple_api.bind_draft_question_source(
-    uuid, bigint, uuid, text, text, text, text, text, text, text, uuid, text) TO ple_app;
+    uuid, bigint, uuid, text, text, text, text, uuid, text) TO ple_app;
 
 GRANT EXECUTE ON FUNCTION ple_api.publish_question_revision(
     uuid, bigint, uuid, text, integer, uuid, jsonb, bytea, bigint, text, bigint, text, uuid, jsonb) TO ple_app;

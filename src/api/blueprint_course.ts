@@ -98,9 +98,7 @@ export interface BlueprintCourseClient extends BlueprintStewardshipClient {
     promotedOnly?: boolean,
     classification?: BlueprintCourseClassificationSearch,
   ) => Promise<CursorPage<BlueprintCourseSummaryView>>;
-  readonly getBlueprintCourse: (
-    reference: BlueprintCourseId,
-  ) => Promise<LoadedBlueprintCourse>;
+  readonly getBlueprintCourse: (reference: BlueprintCourseId) => Promise<LoadedBlueprintCourse>;
   readonly createBlueprintCourse: (
     content: CreateBlueprintCourseInput,
     idempotencyKey: BlueprintIdempotencyKey,

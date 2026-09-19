@@ -70,16 +70,12 @@ CREATE TABLE ple_private.draft_question_source_binding (
     question_format ple_data.question_format NOT NULL,
     question_type ple_data.question_type NOT NULL,
     webwork_pg_path text,
-    imathas_deployment_reference text,
-    imathas_item_reference text,
-    imathas_profile text,
     source_object_record_id uuid NOT NULL,
     source_object_checksum text NOT NULL CHECK (source_object_checksum ~ '^[0-9a-f]{64}$'),
     created_at timestamptz NOT NULL,
     updated_at timestamptz NOT NULL CHECK (updated_at >= created_at),
     CHECK (ple_private.question_source_binding_fields_are_valid(
-        backend, question_format, webwork_pg_path, imathas_deployment_reference,
-        imathas_item_reference, imathas_profile, false))
+        backend, question_format, webwork_pg_path))
 );
 
 
@@ -89,9 +85,6 @@ CREATE TABLE ple_private.question_revision_source_binding (
     backend ple_data.question_backend NOT NULL,
     question_format ple_data.question_format NOT NULL,
     webwork_pg_path text,
-    imathas_deployment_reference text,
-    imathas_item_reference text,
-    imathas_profile text,
     source_object_record_id uuid NOT NULL,
     source_object_checksum text NOT NULL CHECK (source_object_checksum ~ '^[0-9a-f]{64}$'),
     created_at timestamptz NOT NULL,
@@ -99,8 +92,7 @@ CREATE TABLE ple_private.question_revision_source_binding (
     FOREIGN KEY (published_question_id, revision_number)
         REFERENCES ple_data.question_revision(published_question_id, revision_number),
     CHECK (ple_private.question_source_binding_fields_are_valid(
-        backend, question_format, webwork_pg_path, imathas_deployment_reference,
-        imathas_item_reference, imathas_profile, false))
+        backend, question_format, webwork_pg_path))
 );
 
 
@@ -362,12 +354,6 @@ SET LOCAL ROLE ple_private_owner;
 COMMENT ON COLUMN ple_private.authoring_workspace.revoked_at IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_private.draft_question_metadata.general_feedback IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_private.draft_question_source_binding.webwork_pg_path IS 'NULL means this optional fact is absent.';
-COMMENT ON COLUMN ple_private.draft_question_source_binding.imathas_deployment_reference IS 'NULL means this optional fact is absent.';
-COMMENT ON COLUMN ple_private.draft_question_source_binding.imathas_item_reference IS 'NULL means this optional fact is absent.';
-COMMENT ON COLUMN ple_private.draft_question_source_binding.imathas_profile IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_private.question_revision_source_binding.webwork_pg_path IS 'NULL means this optional fact is absent.';
-COMMENT ON COLUMN ple_private.question_revision_source_binding.imathas_deployment_reference IS 'NULL means this optional fact is absent.';
-COMMENT ON COLUMN ple_private.question_revision_source_binding.imathas_item_reference IS 'NULL means this optional fact is absent.';
-COMMENT ON COLUMN ple_private.question_revision_source_binding.imathas_profile IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_private.workspace_import.committed_at IS 'NULL means this optional fact is absent.';
 

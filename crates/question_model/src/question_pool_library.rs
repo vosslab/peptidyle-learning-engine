@@ -13,7 +13,7 @@ use crate::{
     AssessmentEditNumber, AssessmentEntryId, BloomClassificationView,
     QuestionPoolRevisionReference, QuestionRevisionReference,
     QuestionSearchBloomCognitiveProcessFacet, QuestionSearchBloomKnowledgeDimensionFacet,
-    ReusableQuestionView,
+    QuestionStatistics, ReusableQuestionView,
 };
 
 /// Current Pool lineage metadata, independent of immutable membership Revisions.
@@ -93,6 +93,8 @@ pub struct QuestionPoolRevisionView {
     pub bloom: Option<BloomClassificationView>,
     /// Members in their immutable Pool Revision order.
     pub members: Vec<QuestionPoolRevisionMemberView>,
+    /// Instructor-visible Pool issued_count plus current-member outcome rollup.
+    pub evidence: QuestionStatistics,
 }
 
 /// Assessment-owned Pool fork content for an Instructor Assessment editor.

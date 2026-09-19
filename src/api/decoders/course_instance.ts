@@ -25,12 +25,7 @@ import { decodeBlueprintCourseId, decodeBlueprintRevision } from "./blueprint_co
 import { isCanonicalAccountId } from "./instructor_account";
 import { decodeCourseTerm } from "./course_term";
 import { decodeCourseClassification } from "./course_classification";
-import {
-  decodeCourseInstanceId,
-  decodeCourseName,
-  field,
-  requireOnlyFields,
-} from "./shared";
+import { decodeCourseInstanceId, decodeCourseName, field, requireOnlyFields } from "./shared";
 
 function courseEditNumber(value: unknown, path: string): CourseEditNumber {
   const decoded = decodeString(value, path);

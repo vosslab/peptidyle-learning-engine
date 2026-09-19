@@ -3,8 +3,7 @@
 use std::str::FromStr;
 
 use question_model::{
-    AccountTimeZone, AssessmentAttemptId, AssessmentId, CourseInstanceId,
-    CourseTheme, Timestamp,
+    AccountTimeZone, AssessmentAttemptId, AssessmentId, CourseInstanceId, CourseTheme, Timestamp,
 };
 use sqlx::Row;
 

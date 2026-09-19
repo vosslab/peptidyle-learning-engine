@@ -4,7 +4,6 @@
 //! has installed the current session and confirmed the active Instructor
 //! boundary.  The route serializes only browser-safe Question Library values.
 
-use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use adapter_webwork::{
@@ -29,11 +28,9 @@ use learning_data_access::{
 use objects::{ResolvedQuestionSource, s3::S3ObjectStore};
 use question_model::{
     BloomClassificationCorrectionRequest, Capability, QuestionBackend, QuestionBackendCapabilities,
-    QuestionBloomCorrectionReceipt, QuestionDetails, QuestionDetailsPromptView, QuestionId,
-    QuestionLineageView, QuestionRevisionReference, QuestionSearchAuthorship,
-    QuestionSearchCourseUse, QuestionSearchPage, QuestionSearchRequest, QuestionSearchResult,
-    QuestionStatistics, QuestionSummary, QuestionUseDetails, QuestionUseSummary,
-    ReusableQuestionView, ReusableSelectionAvailability, normalized_question_search_group_value,
+    QuestionBloomCorrectionReceipt, QuestionId, QuestionLineageView, QuestionRevisionReference,
+    QuestionSearchAuthorship, QuestionSearchCourseUse, QuestionSearchPage, QuestionSearchRequest,
+    QuestionSearchResult, QuestionSummary, normalized_question_search_group_value,
 };
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
@@ -51,6 +48,12 @@ mod paging;
 mod query;
 mod search_query;
 mod shared_metadata;
+mod usage_statistics;
+
+pub(crate) use usage_statistics::{
+    answer_free_question_search_results, answer_free_reusable_question_view,
+    bulk_question_statistics, evidence_for,
+};
 
 #[derive(Clone)]
 struct QuestionLibraryRouteState {
@@ -132,7 +135,7 @@ async fn search_questions(
         Ok(query) => query,
         Err((status, message)) => return route_error(status, message),
     };
-    let session_hash = match library_reader_session_hash(&state, &headers).await {
+    let (session_hash, is_instructor) = match library_reader_session_hash(&state, &headers).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -175,6 +178,21 @@ async fn search_questions(
             );
         }
     };
+    let question_ids = items
+        .iter()
+        .map(|entry| entry.summary.question_id.clone())
+        .collect::<Vec<_>>();
+    let evidence = match usage_statistics::bulk_question_statistics(
+        &state.store,
+        session_hash,
+        is_instructor,
+        &question_ids,
+    )
+    .await
+    {
+        Ok(value) => value,
+        Err(response) => return response,
+    };
     let page = QuestionSearchPage {
         items: items
             .iter()
@@ -182,7 +200,7 @@ async fn search_questions(
                 summary: entry.summary.clone(),
                 discipline_name: entry.discipline.clone().unwrap_or_default(),
                 discipline_is_retired: entry.discipline_is_retired,
-                evidence: QuestionStatistics::Unavailable,
+                evidence: usage_statistics::evidence_for(&entry.summary.question_id, &evidence),
             })
             .collect(),
         next_cursor,
@@ -196,7 +214,7 @@ async fn resolve_question(
     headers: HeaderMap,
     Path(question_id): Path<String>,
 ) -> Response {
-    let session_hash = match library_reader_session_hash(&state, &headers).await {
+    let (session_hash, _) = match library_reader_session_hash(&state, &headers).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -230,7 +248,7 @@ async fn question_details(
     headers: HeaderMap,
     Path(question_id): Path<String>,
 ) -> Response {
-    let session_hash = match library_reader_session_hash(&state, &headers).await {
+    let (session_hash, is_instructor) = match library_reader_session_hash(&state, &headers).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -241,6 +259,7 @@ async fn question_details(
         Ok(None) => return concealed(),
         Err(error) => return store_error_response(error),
     };
+    let published_id = entry.question_revision.question_id.clone();
     let edit_number = entry.availability_edit_number;
     let resolved = match answer_free_question_library_entry(&state.objects, entry).await {
         Ok(resolved) => resolved,
@@ -251,7 +270,18 @@ async fn question_details(
             );
         }
     };
-    let detail = details_from_resolved(resolved);
+    let evidence = match usage_statistics::question_detail_statistics(
+        &state.store,
+        session_hash,
+        is_instructor,
+        &published_id,
+    )
+    .await
+    {
+        Ok(value) => value,
+        Err(response) => return response,
+    };
+    let detail = usage_statistics::details_from_resolved(resolved, evidence);
     question_response(Json(detail).into_response(), edit_number)
 }
 
@@ -263,7 +293,7 @@ async fn question_revision_details(
     headers: HeaderMap,
     Path((question_id, revision_number)): Path<(String, String)>,
 ) -> Response {
-    let session_hash = match library_reader_session_hash(&state, &headers).await {
+    let (session_hash, is_instructor) = match library_reader_session_hash(&state, &headers).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -279,12 +309,24 @@ async fn question_revision_details(
         Ok(entry) => entry,
         Err(error) => return store_error_response(error),
     };
+    let published_id = entry.question_revision.question_id.clone();
     let edit_number = entry.availability_edit_number;
     let resolved = match answer_free_question_library_entry(&state.objects, entry).await {
         Ok(resolved) => resolved,
         Err(()) => return unavailable(),
     };
-    let detail = details_from_resolved(resolved);
+    let evidence = match usage_statistics::question_detail_statistics(
+        &state.store,
+        session_hash,
+        is_instructor,
+        &published_id,
+    )
+    .await
+    {
+        Ok(value) => value,
+        Err(response) => return response,
+    };
+    let detail = usage_statistics::details_from_resolved(resolved, evidence);
     question_response(Json(detail).into_response(), edit_number)
 }
 
@@ -352,7 +394,7 @@ async fn question_revision_preview_document(
     headers: HeaderMap,
     Path((question_id, revision_number)): Path<(String, String)>,
 ) -> Response {
-    let session_hash = match library_reader_session_hash(&state, &headers).await {
+    let (session_hash, _) = match library_reader_session_hash(&state, &headers).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -507,30 +549,6 @@ fn expected_availability_edit_number(
     })
 }
 
-fn details_from_resolved(resolved: ResolvedQuestionLibraryEntry) -> QuestionDetails {
-    QuestionDetails {
-        summary: resolved.summary,
-        discipline_name: resolved.discipline.unwrap_or_default(),
-        subject_name: resolved.subject.unwrap_or_default(),
-        discipline_is_retired: resolved.discipline_is_retired,
-        prompt: QuestionDetailsPromptView::Static {
-            blocks: resolved.prompt,
-        },
-        response_preview: resolved.response_preview,
-        evidence: QuestionStatistics::Unavailable,
-        usage: QuestionUseDetails {
-            summary: QuestionUseSummary {
-                global_course_count: 0,
-                global_assessment_count: 0,
-                own_course_count: 0,
-                own_assessment_count: 0,
-            },
-            own_courses: Vec::new(),
-            own_courses_truncated: false,
-        },
-    }
-}
-
 /// Parses only a browser-supplied exact canonical ID. The shared model verifies
 /// syntax and checksum, and this route intentionally conceals invalid values.
 fn verified_question_id(value: &str) -> Option<QuestionId> {
@@ -595,7 +613,7 @@ async fn instructor_session_hash(
 async fn library_reader_session_hash(
     state: &QuestionLibraryRouteState,
     headers: &HeaderMap,
-) -> Result<SessionTokenHash, Box<Response>> {
+) -> Result<(SessionTokenHash, bool), Box<Response>> {
     let cookie_header = joined_cookie_header(headers);
     match resolve_session(state.sessions.as_ref(), cookie_header.as_deref()).await {
         Ok(session)
@@ -604,7 +622,10 @@ async fn library_reader_session_hash(
                 ProductRole::Instructor | ProductRole::Sysadmin
             ) =>
         {
-            Ok(session.session_hash)
+            Ok((
+                session.session_hash,
+                session.record.product_role == ProductRole::Instructor,
+            ))
         }
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
         Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(route_error(
@@ -623,7 +644,7 @@ fn joined_cookie_header(headers: &HeaderMap) -> Option<String> {
     (!values.is_empty()).then(|| values.join("; "))
 }
 
-struct ResolvedQuestionLibraryEntry {
+pub(super) struct ResolvedQuestionLibraryEntry {
     summary: QuestionSummary,
     prompt: Vec<question_model::QuestionContentBlock>,
     response_preview: Option<question_model::QuestionResponsePreview>,
@@ -648,54 +669,6 @@ async fn entries_to_summaries(
     Ok(summaries)
 }
 
-/// Resolves current answer-free Question Library rows for another Instructor
-/// content route. The input Store entries remain server-only because they
-/// contain the private source binding needed for verified PLE compilation.
-pub(crate) async fn answer_free_question_search_results(
-    objects: &S3ObjectStore,
-    entries: Vec<PublishedQuestionLibraryEntry>,
-) -> Result<BTreeMap<QuestionRevisionReference, QuestionSearchResult>, ()> {
-    let mut results = BTreeMap::new();
-    for entry in entries {
-        let question_revision = entry.question_revision.clone();
-        let resolved = answer_free_question_library_entry(objects, entry).await?;
-        results.insert(
-            question_revision,
-            QuestionSearchResult {
-                summary: resolved.summary,
-                discipline_name: resolved.discipline.unwrap_or_default(),
-                discipline_is_retired: resolved.discipline_is_retired,
-                evidence: QuestionStatistics::Unavailable,
-            },
-        );
-    }
-    Ok(results)
-}
-
-/// Reuses the exact answer-free Question Library projection for another
-/// Instructor content surface without exposing its private source binding.
-pub(crate) async fn answer_free_reusable_question_view(
-    objects: &S3ObjectStore,
-    entry: PublishedQuestionLibraryEntry,
-) -> Result<ReusableQuestionView, ()> {
-    let selection_availability = match entry.availability {
-        question_model::QuestionAvailability::Available => ReusableSelectionAvailability::Available,
-        question_model::QuestionAvailability::Archived => ReusableSelectionAvailability::Retained,
-    };
-    let reference = entry.question_revision.clone();
-    let resolved = answer_free_question_library_entry(objects, entry).await?;
-    Ok(ReusableQuestionView {
-        reference,
-        question_library: QuestionSearchResult {
-            summary: resolved.summary,
-            discipline_name: resolved.discipline.unwrap_or_default(),
-            discipline_is_retired: resolved.discipline_is_retired,
-            evidence: QuestionStatistics::Unavailable,
-        },
-        selection_availability,
-    })
-}
-
 async fn summary_from_entry(
     objects: &S3ObjectStore,
     entry: PublishedQuestionLibraryEntry,
@@ -708,7 +681,7 @@ async fn summary_from_entry(
 /// Produces the one browser-safe Question Library entry shape from the
 /// backend-owned source boundary. Private source bindings never cross this
 /// boundary into a summary or search result.
-async fn answer_free_question_library_entry(
+pub(super) async fn answer_free_question_library_entry(
     objects: &S3ObjectStore,
     entry: PublishedQuestionLibraryEntry,
 ) -> Result<ResolvedQuestionLibraryEntry, ()> {
@@ -929,7 +902,7 @@ fn matches_query(
         || entry.authored_by_current_account
 }
 
-fn store_error_response(error: StoreError) -> Response {
+pub(super) fn store_error_response(error: StoreError) -> Response {
     match error {
         StoreError::NotFound | StoreError::Forbidden => concealed(),
         StoreError::InvalidRecord(_) => route_error(

@@ -27,7 +27,7 @@ function courseSummary(lifecycleState = "active", theme = "forest") {
     reference: "CI6F2R8TA0",
     classification,
     lifecycleState,
-    metadataEtag: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6e",
+    courseEditNumber: "1",
     shortName: "Mol Bio",
     longName: "Molecular Biology",
     term: {
@@ -146,7 +146,7 @@ test("Course-derived Blueprint creation sends only metadata and requires a new p
           short_name: "Mol Bio",
           long_name: "Molecular Biology",
           availability: "private",
-          metadata_etag: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6d",
+          blueprint_edit_number: "1",
           current_revision: { reference: revisionReference, revision: "1" },
           read_access: "blueprint_course_owner",
           fork_source: null,

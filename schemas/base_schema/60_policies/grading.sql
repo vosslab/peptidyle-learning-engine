@@ -24,16 +24,9 @@ CREATE POLICY automated_grading_receipt_private_owner_read
 
 SET LOCAL ROLE ple_private_owner;
 
-ALTER TABLE ple_private.question_response_grading ENABLE ROW LEVEL SECURITY;
-
-ALTER TABLE ple_private.question_response_grading FORCE ROW LEVEL SECURITY;
-
 ALTER TABLE ple_private.grading_result ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE ple_private.grading_result FORCE ROW LEVEL SECURITY;
-
-CREATE POLICY question_response_grading_private_owner_access
-    ON ple_private.question_response_grading FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
 
 CREATE POLICY grading_result_private_owner_access
     ON ple_private.grading_result FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);

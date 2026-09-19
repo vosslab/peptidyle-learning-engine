@@ -64,12 +64,13 @@ BEGIN
       FROM ple_private.assessment_attempt
      WHERE assessment_id = assessment_row.assessment_id;
     SELECT count(*) INTO question_response_count
-      FROM ple_private.question_response AS submission
+      FROM ple_private.assessment_attempt_saved_response AS submission
       JOIN ple_private.question_attempt AS question_attempt
         ON question_attempt.question_attempt_id = submission.question_attempt_id
       JOIN ple_private.issued_question AS issued
         ON issued.issued_question_id = question_attempt.issued_question_id
-     WHERE issued.assessment_attempt_id IN (
+     WHERE submission.finalized_at IS NOT NULL
+       AND issued.assessment_attempt_id IN (
          SELECT assessment_attempt_id FROM ple_private.assessment_attempt
           WHERE assessment_id = assessment_row.assessment_id
      );
@@ -151,12 +152,13 @@ BEGIN
       FROM ple_private.assessment_attempt
      WHERE assessment_id = assessment_row.assessment_id;
     SELECT count(*) INTO question_response_count
-      FROM ple_private.question_response AS submission
+      FROM ple_private.assessment_attempt_saved_response AS submission
       JOIN ple_private.question_attempt AS question_attempt
         ON question_attempt.question_attempt_id = submission.question_attempt_id
       JOIN ple_private.issued_question AS issued
         ON issued.issued_question_id = question_attempt.issued_question_id
-     WHERE issued.assessment_attempt_id IN (
+     WHERE submission.finalized_at IS NOT NULL
+       AND issued.assessment_attempt_id IN (
          SELECT assessment_attempt_id FROM ple_private.assessment_attempt
           WHERE assessment_id = assessment_row.assessment_id
      );

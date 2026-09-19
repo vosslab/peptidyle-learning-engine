@@ -2,8 +2,8 @@
 
 use async_trait::async_trait;
 use question_model::{
-    AssessmentEditNumber, AssessmentEntryId, AssessmentEntryScoringRule, AssessmentPointValue,
-    AssessmentId, CourseInstanceId, QuestionId, QuestionPoolRevisionNumber,
+    AssessmentEditNumber, AssessmentEntryId, AssessmentEntryScoringRule, AssessmentId,
+    AssessmentPointValue, CourseInstanceId, QuestionId, QuestionPoolRevisionNumber,
     QuestionPoolRevisionReference, QuestionPoolSelectedQuestionOrder, QuestionRevisionReference,
 };
 use uuid::Uuid;

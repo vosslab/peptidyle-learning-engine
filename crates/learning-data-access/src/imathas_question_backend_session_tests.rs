@@ -39,9 +39,9 @@ fn facts(
     let digest = ImathasLaunchBindingChecksum::parse("c".repeat(64))
         .expect("iMathAS Launch Binding Checksum");
     let expectation = ImathasQuestionBackendSessionRestoreExpectation::new(
-        account,
-        course,
-        assessment,
+        account.clone(),
+        course.clone(),
+        assessment.clone(),
         grading_context.clone(),
         imathas_question_backend_binding.clone(),
         source.clone(),
@@ -159,7 +159,7 @@ fn authorize(
     token: SessionTokenHash,
     account: AccountId,
 ) {
-    store.install_authenticated_session(token, account);
+    store.install_authenticated_session(token, account.clone());
     store.install_active_student_authorization(
         account,
         CourseInstanceId::from_debug_serial(2),
@@ -173,7 +173,7 @@ async fn memory_oracle_restores_exact_backend_state() {
     let token = SessionTokenHash::compute(b"session");
     let store =
         MemoryImathasQuestionBackendSessionStore::new(ring(), Timestamp::from_unix_millis(20));
-    authorize(&store, token, account);
+    authorize(&store, token, account.clone());
     let (create, expectation) = facts(account);
     let reference = store
         .create_imathas_question_backend_session(token, create)
@@ -196,8 +196,8 @@ async fn memory_oracle_refuses_wrong_restore_context_and_revoked_student_authori
     let token = SessionTokenHash::compute(b"owner");
     let store =
         MemoryImathasQuestionBackendSessionStore::new(ring(), Timestamp::from_unix_millis(20));
-    authorize(&store, token, account);
-    let (create, expectation) = facts(account);
+    authorize(&store, token, account.clone());
+    let (create, expectation) = facts(account.clone());
     let reference = store
         .create_imathas_question_backend_session(token, create)
         .await
@@ -228,7 +228,7 @@ async fn memory_oracle_refuses_every_changed_imathas_question_backend_grading_co
     let token = SessionTokenHash::compute(b"owner");
     let store =
         MemoryImathasQuestionBackendSessionStore::new(ring(), Timestamp::from_unix_millis(20));
-    authorize(&store, token, account);
+    authorize(&store, token, account.clone());
     let (create, expectation) = facts(account);
     let reference = store
         .create_imathas_question_backend_session(token, create)

@@ -122,7 +122,10 @@ assert.notEqual(
   resolutionApi.queries.resolveAssessmentAttempt.keyFor(attemptTwo),
 );
 assert.match(resolutionApi.queries.courseScope.keyFor(courseOne), /CI7K3M2QAZ/u);
-assert.match(resolutionApi.queries.resolveAssessmentAttempt.keyFor(attemptOne), /00000000-0000-0000-0000-000000000001/u);
+assert.match(
+  resolutionApi.queries.resolveAssessmentAttempt.keyFor(attemptOne),
+  /00000000-0000-0000-0000-000000000001/u,
+);
 
 assert.deepEqual(await resolutionApi.queries.courseScope(courseOne), {
   summary: {
@@ -153,6 +156,8 @@ await assert.rejects(resolutionApi.queries.resolveAssessmentAttempt("R-01"), {
   message: "Assessment Attempt reference is invalid",
 });
 await assert.rejects(
-  resolutionApi.queries.resolveAssessmentAttempt(assessmentAttemptRouteReference("00000000-0000-0000-0000-000000000009")),
+  resolutionApi.queries.resolveAssessmentAttempt(
+    assessmentAttemptRouteReference("00000000-0000-0000-0000-000000000009"),
+  ),
   { message: "Assessment Attempt reference resolved to another resource" },
 );

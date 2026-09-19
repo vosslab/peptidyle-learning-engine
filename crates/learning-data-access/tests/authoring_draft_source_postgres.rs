@@ -55,18 +55,16 @@ fn source_record_with_id(
 }
 
 async fn seed_instructor(admin: &sqlx::postgres::PgPool, token: SessionTokenHash) {
-    let account_id = Uuid::from_u128(0xa701);
     let mut transaction = admin.begin().await.expect("fixture transaction");
     sqlx::query("SET LOCAL ROLE ple_private_owner")
         .execute(&mut *transaction)
         .await
         .expect("private fixture role");
-    sqlx::query(
+    let account_id: String = sqlx::query_scalar(
         "INSERT INTO ple_private.account (account_id, product_role, created_at) \
-         VALUES ($1, 'instructor', clock_timestamp())",
+         VALUES ('U00000009', 'instructor', clock_timestamp()) RETURNING account_id",
     )
-    .bind(account_id)
-    .execute(&mut *transaction)
+    .fetch_one(&mut *transaction)
     .await
     .expect("Instructor Account");
     sqlx::query(
@@ -76,7 +74,7 @@ async fn seed_instructor(admin: &sqlx::postgres::PgPool, token: SessionTokenHash
          clock_timestamp() + interval '1 hour')",
     )
     .bind(Uuid::from_u128(0xa702))
-    .bind(account_id)
+    .bind(&account_id)
     .bind(token.to_string())
     .execute(&mut *transaction)
     .await

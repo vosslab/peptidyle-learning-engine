@@ -16,8 +16,8 @@ use learning_data_access::{
     postgres::{PostgresLiveStudentCourseLandingStore, PostgresSessionStore},
 };
 use question_model::{
-    AssessmentAttemptCompletion, AssessmentId, AssessmentType, CourseInstanceId,
-    CourseTerm, ProductRole,
+    AssessmentAttemptCompletion, AssessmentId, AssessmentType, CourseInstanceId, CourseTerm,
+    ProductRole,
 };
 use serde::Serialize;
 

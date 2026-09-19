@@ -16,7 +16,7 @@ import {
 } from "../src/api/http_client.ts";
 
 const reference = "BP7K3M2QAF";
-const metadataEtag = "018f5e7d-01b6-7c14-8a0b-4bfef6390d6d";
+const blueprintEditNumber = "1";
 
 function response(body, headers = {}) {
   return new Response(JSON.stringify(body), {
@@ -115,23 +115,26 @@ test("Blueprint promotion uses only the Sysadmin endpoint and the exact current 
   const client = createHttpApiClient({
     fetch: async (input, init) => {
       requests.push(new Request(new URL(input.toString(), "https://ple.example"), init));
-      return response({ promoted: true, metadataEtag }, { etag: `"${metadataEtag}"` });
+      return response(
+        { promoted: true, blueprintEditNumber },
+        { etag: `"${blueprintEditNumber}"` },
+      );
     },
   });
   const loaded = await client.getBlueprintPromotion(reference);
-  assert.deepEqual(loaded, { promoted: true, metadataEtag: `"${metadataEtag}"` });
-  await client.setBlueprintPromotion(reference, false, loaded.metadataEtag);
+  assert.deepEqual(loaded, { promoted: true, blueprintEditNumber });
+  await client.setBlueprintPromotion(reference, false, loaded.blueprintEditNumber);
   assert.equal(
     new URL(requests[1].url).pathname,
     `/api/sysadmin/course-blueprints/${reference}/promotion`,
   );
-  assert.equal(requests[1].headers.get("if-match"), `"${metadataEtag}"`);
+  assert.equal(requests[1].headers.get("if-match"), `"${blueprintEditNumber}"`);
   assert.deepEqual(await requests[1].json(), { promoted: false });
 
   const mismatch = createHttpApiClient({
     fetch: async () =>
       response(
-        { promoted: true, metadataEtag },
+        { promoted: true, blueprintEditNumber },
         { etag: '"018f5e7d-01b6-7c14-8a0b-4bfef6390d6e"' },
       ),
   });
@@ -141,7 +144,7 @@ test("Blueprint promotion uses only the Sysadmin endpoint and the exact current 
       new Response(null, { status: 412, headers: { "cache-control": "no-store" } }),
   });
   await assert.rejects(
-    stale.setBlueprintPromotion(reference, true, loaded.metadataEtag),
+    stale.setBlueprintPromotion(reference, true, loaded.blueprintEditNumber),
     BlueprintCourseConflictError,
   );
 });

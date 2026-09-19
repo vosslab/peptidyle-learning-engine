@@ -3,7 +3,8 @@
 use async_trait::async_trait;
 use objects::{ObjectAddress, Sha256Checksum};
 use question_model::{
-    CourseBanner, CourseBannerReference, CourseBannerUpdate, CourseBannerUploadReference, CourseInstanceId,
+    CourseBanner, CourseBannerReference, CourseBannerUpdate, CourseBannerUploadReference,
+    CourseInstanceId,
 };
 
 use crate::{SessionTokenHash, StoreError};

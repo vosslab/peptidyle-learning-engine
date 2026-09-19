@@ -6,8 +6,8 @@ use question_model::{
     BloomKnowledgeDimension, MAX_BULK_QUESTION_METADATA_ITEMS, ObjectId,
     PublishedQuestionSharedMetadata, QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship,
     QuestionAvailability, QuestionAvailabilityEditNumber, QuestionBackend, QuestionId,
-    QuestionRevisionNumber, QuestionRevisionReference, QuestionType, SourceObjectChecksum,
-    SourceObjectReference, Tag, Timestamp,
+    QuestionRevisionNumber, QuestionRevisionReference, QuestionRevisionUsageStatistics,
+    QuestionType, QuestionUsageTotals, SourceObjectChecksum, SourceObjectReference, Tag, Timestamp,
 };
 use sqlx::{Postgres, Row, Transaction};
 
@@ -269,6 +269,76 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
 }
 
 impl PostgresQuestionLibraryStore {
+    /// All-Revision usage rollup for one page of Question Library IDs.
+    pub async fn load_question_usage_statistics(
+        &self,
+        session_token_hash: SessionTokenHash,
+        question_ids: &[QuestionId],
+    ) -> Result<Vec<(QuestionId, QuestionUsageTotals)>, StoreError> {
+        if question_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let mut transaction = self
+            .begin_authenticated_application_transaction(session_token_hash)
+            .await?;
+        let ids = question_ids
+            .iter()
+            .map(QuestionId::as_str)
+            .map(str::to_owned)
+            .collect::<Vec<_>>();
+        let rows = sqlx::query(
+            "SELECT published_question_id, issued_count, blank_count, answered_count, \
+                    correct_count, partial_count, incorrect_count, credit_sum, credit_sum_sq \
+             FROM ple_api.read_question_library_usage_statistics($1)",
+        )
+        .bind(&ids)
+        .fetch_all(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
+        let mut items = Vec::with_capacity(rows.len());
+        for row in &rows {
+            let question_id = row
+                .try_get::<String, _>("published_question_id")
+                .map_err(map_sqlx_error)?
+                .parse::<QuestionId>()
+                .map_err(|_| invalid("Question ID"))?;
+            items.push((question_id, decode_usage_totals(row)?));
+        }
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(items)
+    }
+
+    /// Per-Revision usage rows for one Question detail page.
+    pub async fn load_question_revision_usage_statistics(
+        &self,
+        session_token_hash: SessionTokenHash,
+        question_id: &QuestionId,
+    ) -> Result<Vec<QuestionRevisionUsageStatistics>, StoreError> {
+        let mut transaction = self
+            .begin_authenticated_application_transaction(session_token_hash)
+            .await?;
+        let rows = sqlx::query(
+            "SELECT revision_number, issued_count, blank_count, answered_count, \
+                    correct_count, partial_count, incorrect_count, credit_sum, credit_sum_sq \
+             FROM ple_api.read_question_library_revision_usage_statistics($1)",
+        )
+        .bind(question_id.as_str())
+        .fetch_all(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
+        let mut items = Vec::with_capacity(rows.len());
+        for row in &rows {
+            let revision_number: i32 = row.try_get("revision_number").map_err(map_sqlx_error)?;
+            let revision_number = u32::try_from(revision_number)
+                .ok()
+                .and_then(|value| QuestionRevisionNumber::new(value).ok())
+                .ok_or_else(|| invalid("Question Revision Number"))?;
+            items.push(decode_usage_totals(row)?.into_revision_statistics(revision_number));
+        }
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(items)
+    }
+
     async fn set_published_question_availability(
         &self,
         session_token_hash: SessionTokenHash,
@@ -494,6 +564,34 @@ fn availability_from_wire(value: &str) -> Result<QuestionAvailability, StoreErro
         "archived" => Ok(QuestionAvailability::Archived),
         _ => Err(invalid("Question Availability")),
     }
+}
+
+pub(crate) fn decode_usage_totals(
+    row: &sqlx::postgres::PgRow,
+) -> Result<QuestionUsageTotals, StoreError> {
+    Ok(QuestionUsageTotals {
+        issued_count: count_u64(row, "issued_count")?,
+        blank_count: count_u64(row, "blank_count")?,
+        answered_count: count_u64(row, "answered_count")?,
+        correct_count: count_u64(row, "correct_count")?,
+        partial_count: count_u64(row, "partial_count")?,
+        incorrect_count: count_u64(row, "incorrect_count")?,
+        credit_sum: numeric_f64(row, "credit_sum")?,
+        credit_sum_sq: numeric_f64(row, "credit_sum_sq")?,
+    })
+}
+
+fn count_u64(row: &sqlx::postgres::PgRow, column: &str) -> Result<u64, StoreError> {
+    u64::try_from(row.try_get::<i64, _>(column).map_err(map_sqlx_error)?)
+        .map_err(|_| invalid("Question usage count"))
+}
+
+fn numeric_f64(row: &sqlx::postgres::PgRow, column: &str) -> Result<f64, StoreError> {
+    row.try_get::<bigdecimal::BigDecimal, _>(column)
+        .map_err(map_sqlx_error)?
+        .to_string()
+        .parse::<f64>()
+        .map_err(|_| invalid("Question usage credit sum"))
 }
 
 fn invalid(field: &str) -> StoreError {

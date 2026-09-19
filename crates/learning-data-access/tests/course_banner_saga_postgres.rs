@@ -14,18 +14,12 @@ use objects::s3::{BucketNames, S3ObjectStore};
 use objects::{ObjectAddress, ObjectStore, PutObject, Sha256Checksum};
 use question_model::{
     CourseBannerAlternativeText, CourseBannerInformativeText, CourseBannerReference,
-    CourseBannerRendition, CourseBannerUpdate, CourseBannerUploadReference, CourseInstanceId, ObjectId,
-    Timestamp,
+    CourseBannerRendition, CourseBannerUpdate, CourseBannerUploadReference, CourseInstanceId,
+    ObjectId, Timestamp,
 };
 use sqlx::postgres::PgConnection;
 use sqlx::{Connection, Row};
 use uuid::Uuid;
-
-const INSTRUCTOR: u128 = 0xca01;
-const STUDENT: u128 = 0xca02;
-const FOREIGN: u128 = 0xca03;
-const COURSE: u128 = 0xcb01;
-const FOREIGN_COURSE: u128 = 0xcb02;
 
 fn id(value: u128) -> Uuid {
     Uuid::from_u128(value)
@@ -87,7 +81,26 @@ async fn set_inspection_role(connection: &mut PgConnection, role: &'static str) 
         .expect("inspection role");
 }
 
-async fn seed(admin: &sqlx::postgres::PgPool) {
+struct BannerFixture {
+    course_id: String,
+    foreign_course_id: String,
+}
+
+async fn mint_account(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    role: &str,
+) -> String {
+    sqlx::query_scalar(
+        "INSERT INTO ple_private.account (account_id, product_role, created_at) \
+         VALUES ('U00000009', $1, clock_timestamp()) RETURNING account_id",
+    )
+    .bind(role)
+    .fetch_one(&mut **transaction)
+    .await
+    .expect("account")
+}
+
+async fn seed(admin: &sqlx::postgres::PgPool) -> BannerFixture {
     // The oracle is deliberately deterministic: all capability decisions below
     // come through a normal session-bound PostgresCourseBannerStore.
     let mut transaction = admin.begin().await.expect("fixture transaction");
@@ -95,52 +108,128 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
         .execute(&mut *transaction)
         .await
         .expect("classification fixture owner");
-    sqlx::query("INSERT INTO ple_data.content_discipline (discipline_uuid, name) VALUES ('00000000-0000-0000-0000-00000000cc01', 'Course fixture discipline') ON CONFLICT (discipline_uuid) DO NOTHING").execute(&mut *transaction).await.expect("explicit fixture Discipline");
+    sqlx::query(
+        "INSERT INTO ple_data.content_discipline (content_discipline_id, name) \
+         VALUES ('00000000-0000-0000-0000-00000000cc01', 'Course fixture discipline') \
+         ON CONFLICT (content_discipline_id) DO NOTHING",
+    )
+    .execute(&mut *transaction)
+    .await
+    .expect("explicit fixture Discipline");
     sqlx::query("SET LOCAL ROLE ple_private_owner")
         .execute(&mut *transaction)
         .await
         .expect("private fixture role");
-    for (account, role) in [
-        (INSTRUCTOR, "instructor"),
-        (STUDENT, "student"),
-        (FOREIGN, "instructor"),
-    ] {
-        sqlx::query("INSERT INTO ple_private.account (account_id, product_role, created_at) VALUES ($1,$2,clock_timestamp())")
-            .bind(id(account)).bind(role).execute(&mut *transaction).await.expect("account");
-    }
+    let instructor_id = mint_account(&mut transaction, "instructor").await;
+    let student_id = mint_account(&mut transaction, "student").await;
+    let foreign_id = mint_account(&mut transaction, "instructor").await;
     sqlx::query("INSERT INTO ple_private.authenticated_session (session_id, account_id, product_role, token_hash, created_at, expires_at) VALUES ($1,$2,'instructor',decode($3,'hex'),clock_timestamp(),clock_timestamp()+interval '1 hour'),($4,$5,'student',decode($6,'hex'),clock_timestamp(),clock_timestamp()+interval '1 hour'),($7,$8,'instructor',decode($9,'hex'),clock_timestamp(),clock_timestamp()+interval '1 hour')")
-        .bind(id(0xcc01)).bind(id(INSTRUCTOR)).bind(token(1).to_string())
-        .bind(id(0xcc02)).bind(id(STUDENT)).bind(token(2).to_string())
-        .bind(id(0xcc03)).bind(id(FOREIGN)).bind(token(3).to_string())
+        .bind(id(0xcc01)).bind(&instructor_id).bind(token(1).to_string())
+        .bind(id(0xcc02)).bind(&student_id).bind(token(2).to_string())
+        .bind(id(0xcc03)).bind(&foreign_id).bind(token(3).to_string())
         .execute(&mut *transaction).await.expect("sessions");
     sqlx::query("INSERT INTO ple_private.authenticated_session (session_id, account_id, product_role, token_hash, created_at, expires_at) VALUES ($1,$2,'instructor',decode($3,'hex'),clock_timestamp()-interval '2 hours',clock_timestamp()-interval '1 hour')")
-        .bind(id(0xcc04)).bind(id(INSTRUCTOR)).bind(token(4).to_string())
+        .bind(id(0xcc04)).bind(&instructor_id).bind(token(4).to_string())
         .execute(&mut *transaction).await.expect("expired session");
     sqlx::query("SET LOCAL ROLE ple_api_owner")
         .execute(&mut *transaction)
         .await
         .expect("data fixture role");
-    sqlx::query("INSERT INTO ple_data.blueprint_course (blueprint_id, reference_number, owner_account_id, short_name, long_name, blueprint_edit_number, created_at, discipline_uuid, tags) OVERRIDING SYSTEM VALUE VALUES ($1,1,$2,'BANNER','Banner oracle', '00000000-0000-0000-0000-00000000cd02',clock_timestamp(), '00000000-0000-0000-0000-00000000cc01', ARRAY[]::text[])")
-        .bind(id(0xcd01)).bind(id(INSTRUCTOR)).execute(&mut *transaction).await.expect("blueprint");
-    sqlx::query("INSERT INTO ple_data.blueprint_course_revision (blueprint_course_reference_number, blueprint_revision_number, content, content_checksum, saved_at) VALUES (1,1,'{}',decode(repeat('00',32),'hex'),clock_timestamp())")
-        .execute(&mut *transaction).await.expect("revision");
-    sqlx::query("INSERT INTO ple_data.blueprint_revision_event (blueprint_course_reference_number, blueprint_revision_number, actor_account_id, request_checksum, occurred_at) VALUES (1,1,$1,decode(repeat('cd',32),'hex'),clock_timestamp())")
-        .bind(id(INSTRUCTOR)).execute(&mut *transaction).await.expect("revision event");
-    for (course, assigned) in [(COURSE, INSTRUCTOR), (FOREIGN_COURSE, FOREIGN)] {
-        sqlx::query("INSERT INTO ple_data.course_instance (course_id, source_kind, blueprint_course_reference_number, blueprint_revision_number, assigned_instructor_account_id, course_short_name, course_long_name, term_starts_on, term_ends_on, created_at, discipline_uuid, tags) VALUES ($1,'adopted',1,1,$2,'Banner','Banner course',current_date,current_date + 1,clock_timestamp(), '00000000-0000-0000-0000-00000000cc01', ARRAY[]::text[])")
-            .bind(id(course)).bind(id(assigned)).execute(&mut *transaction).await.expect("course");
-    }
-    sqlx::query("INSERT INTO ple_data.student_record (student_record_id, course_id, student_account_id, created_at) VALUES ($1,$2,$3,clock_timestamp())")
-        .bind(id(0xce10)).bind(id(COURSE)).bind(id(STUDENT)).execute(&mut *transaction).await.expect("Student Record");
-    for (membership, course, account, role) in [
-        (0xce01, COURSE, INSTRUCTOR, "instructor"),
-        (0xce02, COURSE, STUDENT, "student"),
-        (0xce03, FOREIGN_COURSE, FOREIGN, "instructor"),
-    ] {
-        sqlx::query("INSERT INTO ple_data.course_membership (membership_id, course_id, account_id, role, student_record_id, joined_at) VALUES ($1,$2,$3,$4,CASE WHEN $4='student' THEN $5 ELSE NULL END,clock_timestamp())")
-            .bind(id(membership)).bind(id(course)).bind(id(account)).bind(role).bind(id(0xce10)).execute(&mut *transaction).await.expect("membership");
-    }
+    let blueprint_id: String = sqlx::query_scalar(
+        "INSERT INTO ple_data.blueprint_course \
+         (blueprint_course_id, owner_account_id, short_name, long_name, blueprint_edit_number, \
+          created_at, content_discipline_id, tags) \
+         VALUES ('BP0000000' || ple_private.crockford_checksum_character('BP0000000'), \
+                 $1, 'BANNER', 'Banner oracle', 1, clock_timestamp(), \
+                 '00000000-0000-0000-0000-00000000cc01', ARRAY[]::text[]) \
+         RETURNING blueprint_course_id",
+    )
+    .bind(&instructor_id)
+    .fetch_one(&mut *transaction)
+    .await
+    .expect("blueprint");
+    sqlx::query(
+        "INSERT INTO ple_data.blueprint_course_revision \
+         (blueprint_course_id, blueprint_revision_number, content, content_checksum, saved_at) \
+         VALUES ($1, 1, '{}', decode(repeat('00', 32), 'hex'), clock_timestamp())",
+    )
+    .bind(&blueprint_id)
+    .execute(&mut *transaction)
+    .await
+    .expect("revision");
+    sqlx::query(
+        "INSERT INTO ple_data.blueprint_revision_event \
+         (blueprint_course_id, blueprint_revision_number, actor_account_id, request_checksum, \
+          occurred_at) VALUES ($1, 1, $2, decode(repeat('cd', 32), 'hex'), clock_timestamp())",
+    )
+    .bind(&blueprint_id)
+    .bind(&instructor_id)
+    .execute(&mut *transaction)
+    .await
+    .expect("revision event");
+    let course_id: String = sqlx::query_scalar(
+        "INSERT INTO ple_data.course_instance \
+         (course_instance_id, source_kind, blueprint_course_id, blueprint_revision_number, \
+          course_short_name, course_long_name, term_starts_on, term_ends_on, created_at, \
+          content_discipline_id, tags) \
+         VALUES ('CI0000000' || ple_private.crockford_checksum_character('CI0000000'), \
+                 'adopted', $1, 1, 'Banner', 'Banner course', current_date, current_date + 1, \
+                 clock_timestamp(), '00000000-0000-0000-0000-00000000cc01', ARRAY[]::text[]) \
+         RETURNING course_instance_id",
+    )
+    .bind(&blueprint_id)
+    .fetch_one(&mut *transaction)
+    .await
+    .expect("course");
+    let foreign_course_id: String = sqlx::query_scalar(
+        "INSERT INTO ple_data.course_instance \
+         (course_instance_id, source_kind, blueprint_course_id, blueprint_revision_number, \
+          course_short_name, course_long_name, term_starts_on, term_ends_on, created_at, \
+          content_discipline_id, tags) \
+         VALUES ('CI0000000' || ple_private.crockford_checksum_character('CI0000000'), \
+                 'adopted', $1, 1, 'Banner', 'Banner course', current_date, current_date + 1, \
+                 clock_timestamp(), '00000000-0000-0000-0000-00000000cc01', ARRAY[]::text[]) \
+         RETURNING course_instance_id",
+    )
+    .bind(&blueprint_id)
+    .fetch_one(&mut *transaction)
+    .await
+    .expect("foreign course");
+    sqlx::query(
+        "INSERT INTO ple_data.student_record \
+         (student_record_id, course_instance_id, student_account_id, created_at) \
+         VALUES ($1, $2, $3, clock_timestamp())",
+    )
+    .bind(id(0xce10))
+    .bind(&course_id)
+    .bind(&student_id)
+    .execute(&mut *transaction)
+    .await
+    .expect("Student Record");
+    sqlx::query(
+        "INSERT INTO ple_data.course_membership \
+         (course_membership_id, course_instance_id, account_id, role, student_record_id, joined_at) \
+         VALUES ($1, $2, $3, 'instructor', NULL, clock_timestamp()), \
+                ($4, $2, $5, 'student', $6, clock_timestamp()), \
+                ($7, $8, $9, 'instructor', NULL, clock_timestamp())",
+    )
+    .bind(id(0xce01))
+    .bind(&course_id)
+    .bind(&instructor_id)
+    .bind(id(0xce02))
+    .bind(&student_id)
+    .bind(id(0xce10))
+    .bind(id(0xce03))
+    .bind(&foreign_course_id)
+    .bind(&foreign_id)
+    .execute(&mut *transaction)
+    .await
+    .expect("membership");
     transaction.commit().await.expect("fixture commit");
+    BannerFixture {
+        course_id,
+        foreign_course_id,
+    }
 }
 
 #[tokio::test]
@@ -149,7 +238,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
     let runtime = acceptance_runtime::CourseAppearanceRuntime::load().expect("acceptance runtime");
     let migration_url = runtime.migration_url().expose();
     let admin = lazy_pool(migration_url).expect("migration pool");
-    seed(&admin).await;
+    let fixture = seed(&admin).await;
     let mut inspection = PgConnection::connect(migration_url)
         .await
         .expect("inspection connection");
@@ -167,8 +256,9 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
         }),
         BucketNames::default(),
     );
-    let course = CourseInstanceId::from_debug_serial(COURSE);
-    let foreign_course = CourseInstanceId::from_debug_serial(FOREIGN_COURSE);
+    let course = CourseInstanceId::new(&fixture.course_id).expect("Course reference");
+    let foreign_course =
+        CourseInstanceId::new(&fixture.foreign_course_id).expect("foreign Course reference");
     // Geometry belongs to the Course Banner production contract.  This saga
     // needs valid metadata to exercise persistence, not a second frozen copy
     // of a chosen pixel size or a resize policy.
@@ -180,7 +270,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
         .stage_course_banner_upload(
             token(1),
             StageCourseBannerUpload {
-                course,
+                course: course.clone(),
                 upload,
                 metadata: metadata(
                     upload_object,
@@ -201,7 +291,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
             .stage_course_banner_upload(
                 token(4),
                 StageCourseBannerUpload {
-                    course,
+                    course: course.clone(),
                     upload: CourseBannerUploadReference::from_uuid(id(0xcf04)),
                     metadata: metadata(
                         ObjectId::from_uuid(id(0xd004)),
@@ -234,7 +324,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
             .stage_course_banner_upload(
                 token(2),
                 StageCourseBannerUpload {
-                    course,
+                    course: course.clone(),
                     upload: CourseBannerUploadReference::from_uuid(id(0xcf02)),
                     metadata: metadata(
                         ObjectId::from_uuid(id(0xd002)),
@@ -257,7 +347,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
             .stage_course_banner_upload(
                 token(3),
                 StageCourseBannerUpload {
-                    course,
+                    course: course.clone(),
                     upload: CourseBannerUploadReference::from_uuid(id(0xcf03)),
                     metadata: metadata(
                         ObjectId::from_uuid(id(0xd003)),
@@ -283,16 +373,16 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
     )
     .await;
     store
-        .finalize_course_banner_upload_stage(token(1), course, upload)
+        .finalize_course_banner_upload_stage(token(1), course.clone(), upload)
         .await
         .expect("upload completion");
     let claimed = store
-        .read_staged_course_banner_upload(token(1), course, upload)
+        .read_staged_course_banner_upload(token(1), course.clone(), upload)
         .await
         .expect("exact account/course claim");
     assert!(
         store
-            .read_staged_course_banner_upload(token(2), course, upload)
+            .read_staged_course_banner_upload(token(2), course.clone(), upload)
             .await
             .is_err(),
         "Student cannot claim"
@@ -315,7 +405,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
         .prepare_course_banner_promotion(
             token(1),
             PrepareCourseBannerPromotion {
-                course,
+                course: course.clone(),
                 upload,
                 banner,
                 update: CourseBannerUpdate {
@@ -341,7 +431,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
         .expect("prepare promotion");
     assert!(
         store
-            .read_current_course_banner(token(1), course)
+            .read_current_course_banner(token(1), course.clone())
             .await
             .expect("read")
             .is_none(),
@@ -349,12 +439,12 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
     );
     put(&object_store, prepared.source.clone(), source, "image/png").await;
     store
-        .complete_prepared_course_banner_object(token(1), course, banner, source_id)
+        .complete_prepared_course_banner_object(token(1), course.clone(), banner, source_id)
         .await
         .expect("source completion");
     assert!(
         store
-            .finalize_course_banner_promotion(token(1), course, upload, banner)
+            .finalize_course_banner_promotion(token(1), course.clone(), upload, banner)
             .await
             .is_err(),
         "incomplete promotion never advances pointer"
@@ -367,17 +457,17 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
     )
     .await;
     store
-        .complete_prepared_course_banner_object(token(1), course, banner, rendition_id)
+        .complete_prepared_course_banner_object(token(1), course.clone(), banner, rendition_id)
         .await
         .expect("banner rendition completion");
     let finalized = store
-        .finalize_course_banner_promotion(token(1), course, upload, banner)
+        .finalize_course_banner_promotion(token(1), course.clone(), upload, banner)
         .await
         .expect("complete promotion");
     assert_eq!(finalized.banner.reference, banner);
     assert_eq!(
         store
-            .read_current_course_banner(token(2), course)
+            .read_current_course_banner(token(2), course.clone())
             .await
             .expect("Student aggregate")
             .expect("banner")
@@ -386,7 +476,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
     );
     assert!(
         store
-            .read_current_course_banner(token(3), course)
+            .read_current_course_banner(token(3), course.clone())
             .await
             .expect("foreign concealed read")
             .is_none(),
@@ -394,7 +484,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
     );
     assert!(
         store
-            .read_staged_course_banner_upload(token(1), course, upload)
+            .read_staged_course_banner_upload(token(1), course.clone(), upload)
             .await
             .is_err(),
         "a promoted upload is single-use"
@@ -408,7 +498,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
         .stage_course_banner_upload(
             token(1),
             StageCourseBannerUpload {
-                course,
+                course: course.clone(),
                 upload: replacement_upload,
                 metadata: metadata(
                     replacement_upload_id,
@@ -432,7 +522,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
     )
     .await;
     store
-        .finalize_course_banner_upload_stage(token(1), course, replacement_upload)
+        .finalize_course_banner_upload_stage(token(1), course.clone(), replacement_upload)
         .await
         .expect("complete replacement upload");
     let replacement_banner = CourseBannerReference::from_uuid(id(0xcf21));
@@ -444,7 +534,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
         .prepare_course_banner_promotion(
             token(1),
             PrepareCourseBannerPromotion {
-                course,
+                course: course.clone(),
                 upload: replacement_upload,
                 banner: replacement_banner,
                 update: CourseBannerUpdate {
@@ -479,7 +569,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
     store
         .complete_prepared_course_banner_object(
             token(1),
-            course,
+            course.clone(),
             replacement_banner,
             replacement_source_id,
         )
@@ -489,7 +579,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
         store
             .finalize_course_banner_promotion(
                 token(1),
-                course,
+                course.clone(),
                 replacement_upload,
                 replacement_banner
             )
@@ -499,7 +589,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
     );
     assert_eq!(
         store
-            .read_current_course_banner(token(2), course)
+            .read_current_course_banner(token(2), course.clone())
             .await
             .expect("Student old pointer")
             .expect("old banner")
@@ -516,19 +606,24 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
     store
         .complete_prepared_course_banner_object(
             token(1),
-            course,
+            course.clone(),
             replacement_banner,
             replacement_rendition_id,
         )
         .await
         .expect("complete replacement banner rendition");
     let replacement = store
-        .finalize_course_banner_promotion(token(1), course, replacement_upload, replacement_banner)
+        .finalize_course_banner_promotion(
+            token(1),
+            course.clone(),
+            replacement_upload,
+            replacement_banner,
+        )
         .await
         .expect("complete replacement");
     assert_eq!(
         store
-            .read_current_course_banner(token(2), course)
+            .read_current_course_banner(token(2), course.clone())
             .await
             .expect("Student replacement")
             .expect("replacement banner")
@@ -573,30 +668,32 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
     assert_eq!(verified_work_state, "completed");
 
     let removal = store
-        .prepare_course_banner_removal(token(1), course)
+        .prepare_course_banner_removal(token(1), course.clone())
         .await
         .expect("remove preparation");
     set_inspection_role(&mut inspection, "ple_data_owner").await;
-    let theme_before: String =
-        sqlx::query_scalar("SELECT course_theme FROM ple_data.course_instance WHERE course_id=$1")
-            .bind(course.as_str())
-            .fetch_one(&mut inspection)
-            .await
-            .expect("theme before remove");
+    let theme_before: String = sqlx::query_scalar(
+        "SELECT course_theme_id FROM ple_data.course_instance WHERE course_instance_id=$1",
+    )
+    .bind(course.as_str())
+    .fetch_one(&mut inspection)
+    .await
+    .expect("theme before remove");
     assert!(
         store
-            .read_current_course_banner(token(1), course)
+            .read_current_course_banner(token(1), course.clone())
             .await
             .expect("read")
             .is_none(),
         "remove clears pointer without theme mutation"
     );
-    let theme_after: String =
-        sqlx::query_scalar("SELECT course_theme FROM ple_data.course_instance WHERE course_id=$1")
-            .bind(course.as_str())
-            .fetch_one(&mut inspection)
-            .await
-            .expect("theme after remove");
+    let theme_after: String = sqlx::query_scalar(
+        "SELECT course_theme_id FROM ple_data.course_instance WHERE course_instance_id=$1",
+    )
+    .bind(course.as_str())
+    .fetch_one(&mut inspection)
+    .await
+    .expect("theme after remove");
     assert_eq!(
         theme_after, theme_before,
         "removing a banner never changes the independent Theme"

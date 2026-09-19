@@ -433,34 +433,29 @@ async fn publish_source(
         )
         .await
         .context("binding ordinary parameterized curriculum Draft source evidence")?;
-    NewQuestionLineagePublisher::new(
-        objects.clone(),
-        bindings.clone(),
-        *issuer,
-        None,
-    )
-    .publish(
-        session,
-        NewQuestionLineagePublicationCommand {
-            draft_question_uuid: draft.draft_question_uuid,
-            expected_draft_question_edit_number: bound_edit_number,
-            workspace,
-            question_authorship: authorship.clone(),
-            discipline_uuid: classification.discipline_uuid,
-            subject_uuid: classification.subject_uuid,
-            topic_uuid: classification.topic_uuid,
-            subtopic_uuid: classification.subtopic_uuid,
-            initial_shared_tags: Vec::new(),
-            question_license: license.clone(),
-            question_revision_reason: QuestionRevisionReason::new(
-                INITIAL_PUBLICATION_REASON.to_owned(),
-            )
-            .expect("fixed parameterized publication reason is valid"),
-        },
-        now(),
-    )
-    .await
-    .context("publishing ordinary parameterized curriculum Question lineage")
+    NewQuestionLineagePublisher::new(objects.clone(), bindings.clone(), *issuer, None)
+        .publish(
+            session,
+            NewQuestionLineagePublicationCommand {
+                draft_question_uuid: draft.draft_question_uuid,
+                expected_draft_question_edit_number: bound_edit_number,
+                workspace,
+                question_authorship: authorship.clone(),
+                discipline_uuid: classification.discipline_uuid,
+                subject_uuid: classification.subject_uuid,
+                topic_uuid: classification.topic_uuid,
+                subtopic_uuid: classification.subtopic_uuid,
+                initial_shared_tags: Vec::new(),
+                question_license: license.clone(),
+                question_revision_reason: QuestionRevisionReason::new(
+                    INITIAL_PUBLICATION_REASON.to_owned(),
+                )
+                .expect("fixed parameterized publication reason is valid"),
+            },
+            now(),
+        )
+        .await
+        .context("publishing ordinary parameterized curriculum Question lineage")
 }
 
 #[allow(clippy::too_many_arguments)]

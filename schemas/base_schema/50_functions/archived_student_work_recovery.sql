@@ -33,7 +33,9 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
            ),
            CASE WHEN submitted.assessment_submission_id IS NOT NULL THEN
                jsonb_build_object('submitted_at', submitted.submitted_at,
-                                  'finalization_kind', submitted.finalization_kind) END,
+                                  'finalization_kind',
+                                  ple_private.projected_finalization_kind(
+                                      submitted.authorized_by_account_id)) END,
            evidence.questions
       FROM ple_private.assessment_attempt AS work
       JOIN ple_data.assessment AS assessment ON assessment.assessment_id = work.assessment_id
@@ -61,18 +63,20 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
               'attempt', CASE WHEN attempt.question_attempt_id IS NOT NULL THEN
                   jsonb_build_object('issued_at', attempt.issued_at,
                       'deadline_at', attempt.deadline_at, 'finalized_at', attempt.finalized_at,
-                      'question_attempt_state', attempt.question_attempt_state) END,
+                      'question_attempt_state',
+                      ple_private.projected_question_attempt_state(
+                          attempt.finalized_at, saved.question_attempt_id IS NOT NULL)) END,
               'reproduction', CASE WHEN attempt.question_attempt_id IS NOT NULL THEN
-                  jsonb_build_object('backend_name', attempt.backend_name,
-                      'backend_version', attempt.backend_version,
-                      'renderer_name', attempt.renderer_name, 'renderer_version', attempt.renderer_version,
-                      'grader_name', attempt.grader_name, 'grader_version', attempt.grader_version,
+                  jsonb_build_object('backend_name', toolchain.backend_name,
+                      'backend_version', toolchain.backend_version,
+                      'renderer_name', toolchain.renderer_name, 'renderer_version', toolchain.renderer_version,
+                      'grader_name', toolchain.grader_name, 'grader_version', toolchain.grader_version,
                       'source_object_record_id', attempt.source_object_record_id,
                       'source_object_checksum', encode(attempt.source_object_checksum, 'hex'),
                       'question_seed', attempt.question_seed::text,
                       'generated_parameter_sha256', attempt.generated_parameter_sha256,
                       'rendered_question_sha256', encode(attempt.rendered_question_sha256, 'hex'),
-                      'issued_capability', attempt.issued_capability,
+                      'issued_capability', toolchain.issued_capability,
                       'webwork_pg_path', source.webwork_pg_path) END,
               'presentation', CASE WHEN presentation.question_attempt_id IS NOT NULL THEN
                   jsonb_build_object('descriptor_version', presentation.descriptor_version,
@@ -85,12 +89,12 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
                       'asset_renditions', assets.items) END,
               'saved_response', CASE WHEN saved.question_attempt_id IS NOT NULL THEN
                   jsonb_build_object('student_response', saved.student_response, 'saved_at', saved.saved_at) END,
-              'finalized_response', CASE WHEN response.question_response_id IS NOT NULL THEN
-                  jsonb_build_object('student_response', response.student_response,
-                                    'finalized_at', response.finalized_at) END,
-              'grading', CASE WHEN grading.question_response_grading_id IS NOT NULL THEN
-                  jsonb_build_object('grading_state', grading.grading_state,
-                      'created_at', grading.created_at, 'completed_at', grading.completed_at,
+              'finalized_response', CASE WHEN saved.finalized_at IS NOT NULL THEN
+                  jsonb_build_object('student_response', saved.student_response,
+                                    'finalized_at', saved.finalized_at) END,
+              'grading', CASE WHEN result.grading_result_id IS NOT NULL THEN
+                  jsonb_build_object('grading_state', 'graded',
+                      'created_at', result.recorded_at, 'completed_at', result.recorded_at,
                       'normalized_credit', result.normalized_credit, 'recorded_at', result.recorded_at) END
           ) ORDER BY issued.issued_position), '[]'::jsonb) AS questions
             FROM ple_private.issued_question AS issued
@@ -106,21 +110,16 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
              AND selected.published_question_id = issued.published_question_id
              AND selected.revision_number = issued.revision_number
             LEFT JOIN ple_private.question_attempt AS attempt ON attempt.issued_question_id = issued.issued_question_id
+            LEFT JOIN ple_private.delivery_toolchain AS toolchain
+              ON toolchain.delivery_toolchain_id = attempt.delivery_toolchain_id
             LEFT JOIN ple_private.question_revision_source_binding AS source
               ON source.published_question_id = issued.published_question_id AND source.revision_number = issued.revision_number
             LEFT JOIN ple_private.question_attempt_presentation_binding AS presentation
               ON presentation.question_attempt_id = attempt.question_attempt_id
             LEFT JOIN ple_private.assessment_attempt_saved_response AS saved
               ON saved.question_attempt_id = attempt.question_attempt_id
-            LEFT JOIN ple_private.question_response AS response
-              ON response.question_attempt_id = attempt.question_attempt_id
-             AND response.assessment_submission_id = submitted.assessment_submission_id
-            LEFT JOIN ple_private.question_response_grading AS grading
-              ON grading.question_response_id = response.question_response_id
             LEFT JOIN ple_private.grading_result AS result
-              ON result.question_response_grading_id = grading.question_response_grading_id
-             AND result.question_response_id = response.question_response_id
-             AND result.question_attempt_id = attempt.question_attempt_id
+              ON result.question_attempt_id = attempt.question_attempt_id
             CROSS JOIN LATERAL (
                 SELECT COALESCE(jsonb_agg(jsonb_build_object(
                     'presentation_response_item_reference', item.presentation_response_item_reference,

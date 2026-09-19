@@ -8,34 +8,50 @@ SET LOCAL ROLE ple_data_owner;
 -- it has no Student, Account, Course, Attempt, response, or grade identity.
 -- Private exact-once receipts are rooted in Student Work and disappear with it.
 -- Course retention and Unrelease leave anonymous totals unchanged; subsequent
--- accepted grades increment those totals without reconstructing private evidence.
+-- submissions increment those totals without reconstructing private evidence.
 CREATE TABLE ple_data.question_revision_statistics (
     published_question_id ple_data.question_family_id NOT NULL,
     revision_number integer NOT NULL CHECK (revision_number > 0),
-    accepted_graded_attempt_count bigint NOT NULL DEFAULT 0
-        CHECK (accepted_graded_attempt_count >= 0),
-    correct_count bigint NOT NULL DEFAULT 0
-        CHECK (correct_count BETWEEN 0 AND accepted_graded_attempt_count),
+    issued_count bigint NOT NULL DEFAULT 0 CHECK (issued_count >= 0),
+    blank_count bigint NOT NULL DEFAULT 0 CHECK (blank_count >= 0),
+    answered_count bigint NOT NULL DEFAULT 0 CHECK (answered_count >= 0),
+    correct_count bigint NOT NULL DEFAULT 0 CHECK (correct_count >= 0),
+    partial_count bigint NOT NULL DEFAULT 0 CHECK (partial_count >= 0),
+    incorrect_count bigint NOT NULL DEFAULT 0 CHECK (incorrect_count >= 0),
+    credit_sum numeric NOT NULL DEFAULT 0 CHECK (credit_sum >= 0),
+    credit_sum_sq numeric NOT NULL DEFAULT 0 CHECK (credit_sum_sq >= 0),
     created_on date NOT NULL DEFAULT CURRENT_DATE,
     updated_on date NOT NULL DEFAULT CURRENT_DATE,
-    CHECK (updated_on >= created_on),
     PRIMARY KEY (published_question_id, revision_number),
     FOREIGN KEY (published_question_id, revision_number)
-        REFERENCES ple_data.question_revision(published_question_id, revision_number)
+        REFERENCES ple_data.question_revision(published_question_id, revision_number),
+    CHECK (updated_on >= created_on),
+    CHECK (issued_count = blank_count + answered_count),
+    CHECK (answered_count = correct_count + partial_count + incorrect_count),
+    CHECK (credit_sum >= correct_count
+        AND credit_sum <= correct_count + partial_count),
+    CHECK (credit_sum_sq >= correct_count
+        AND credit_sum_sq <= correct_count + partial_count)
 );
 
-CREATE TABLE ple_data.question_revision_choice_statistics (
-    published_question_id ple_data.question_family_id NOT NULL,
-    revision_number integer NOT NULL CHECK (revision_number > 0),
-    choice_id text NOT NULL CHECK (
-        choice_id = btrim(choice_id) AND char_length(choice_id) BETWEEN 1 AND 256
-    ),
-    selected_count bigint NOT NULL CHECK (selected_count >= 0),
-    PRIMARY KEY (published_question_id, revision_number, choice_id),
-    FOREIGN KEY (published_question_id, revision_number)
-        REFERENCES ple_data.question_revision_statistics(published_question_id, revision_number),
+CREATE TABLE ple_data.question_pool_statistics (
+    question_pool_id ple_data.question_family_id PRIMARY KEY
+        REFERENCES ple_data.question_pool(question_pool_id),
+    issued_count bigint NOT NULL DEFAULT 0 CHECK (issued_count >= 0),
     created_on date NOT NULL DEFAULT CURRENT_DATE,
     updated_on date NOT NULL DEFAULT CURRENT_DATE,
+    CHECK (updated_on >= created_on)
+);
+
+CREATE TABLE ple_data.question_pool_member_statistics (
+    question_pool_id ple_data.question_family_id NOT NULL
+        REFERENCES ple_data.question_pool(question_pool_id),
+    published_question_id ple_data.question_family_id NOT NULL
+        REFERENCES ple_data.published_question(published_question_id),
+    selected_count bigint NOT NULL DEFAULT 0 CHECK (selected_count >= 0),
+    created_on date NOT NULL DEFAULT CURRENT_DATE,
+    updated_on date NOT NULL DEFAULT CURRENT_DATE,
+    PRIMARY KEY (question_pool_id, published_question_id),
     CHECK (updated_on >= created_on)
 );
 
@@ -43,62 +59,29 @@ CREATE TABLE ple_data.question_revision_choice_statistics (
 SET LOCAL ROLE ple_private_owner;
 
 CREATE TABLE ple_private.question_statistics_observation_receipt (
-    automated_grading_receipt_id uuid PRIMARY KEY
-        REFERENCES ple_audit.automated_grading_receipt(automated_grading_receipt_id)
-        ON DELETE CASCADE,
     course_instance_id ple_data.course_instance_id NOT NULL,
-    question_attempt_id uuid NOT NULL,
-    UNIQUE (course_instance_id, question_attempt_id),
-    FOREIGN KEY (course_instance_id, question_attempt_id)
-        REFERENCES ple_private.question_attempt(course_instance_id, question_attempt_id)
-        ON DELETE CASCADE,
+    issued_question_id uuid NOT NULL,
+    assessment_submission_id uuid NOT NULL,
     published_question_id ple_data.question_family_id NOT NULL,
     revision_number integer NOT NULL CHECK (revision_number > 0),
-    correct boolean NOT NULL,
     observed_at timestamptz NOT NULL,
+    PRIMARY KEY (course_instance_id, issued_question_id),
+    UNIQUE (course_instance_id, issued_question_id, assessment_submission_id),
+    FOREIGN KEY (course_instance_id, issued_question_id)
+        REFERENCES ple_private.issued_question(course_instance_id, issued_question_id)
+        ON DELETE CASCADE,
+    FOREIGN KEY (course_instance_id, assessment_submission_id)
+        REFERENCES ple_private.assessment_submission(course_instance_id, assessment_submission_id)
+        ON DELETE CASCADE,
     FOREIGN KEY (published_question_id, revision_number)
         REFERENCES ple_data.question_revision(published_question_id, revision_number)
 );
 
-CREATE TABLE ple_private.question_statistics_observation_choice (
-    question_statistics_observation_receipt_id uuid NOT NULL
-        REFERENCES ple_private.question_statistics_observation_receipt(automated_grading_receipt_id)
-        ON DELETE CASCADE,
-    choice_id text NOT NULL CHECK (
-        choice_id = btrim(choice_id) AND char_length(choice_id) BETWEEN 1 AND 256
-    ),
-    PRIMARY KEY (question_statistics_observation_receipt_id, choice_id),
-    created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
-);
-
 
 SET LOCAL ROLE ple_data_owner;
-
-SET LOCAL ROLE ple_data_owner;
-COMMENT ON TABLE ple_data.question_revision_statistics IS 'role: aggregate, authored identity-free accepted-grade and correct counts for one immutable Question Revision, retained after Course Student-record deletion.';
-
-COMMENT ON TABLE ple_data.question_revision_choice_statistics IS 'role: aggregate, authored identity-free selected eligible-choice counts for one immutable Question Revision, retained after Course Student-record deletion.';
+COMMENT ON TABLE ple_data.question_revision_statistics IS 'role: aggregate, authored identity-free issued, blank, answered, outcome, and credit-sum counts for one immutable Question Revision, retained after Course Student-record deletion.';
+COMMENT ON TABLE ple_data.question_pool_statistics IS 'role: aggregate, authored identity-free issued_count for one Question Pool, retained after Course Student-record deletion.';
+COMMENT ON TABLE ple_data.question_pool_member_statistics IS 'role: aggregate, authored identity-free selected_count for one Pool member Published Question, removed with the Pool.';
 
 SET LOCAL ROLE ple_private_owner;
-
-SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.question_statistics_observation_receipt IS 'role: event, Private exact-once accepted-grade observation gate, purged with underlying Student Work while anonymous aggregate counts remain.';
-
-COMMENT ON TABLE ple_private.question_statistics_observation_choice IS 'role: event, Normalized opaque eligible-choice evidence for one statistics observation.';
-
-
-
-SET LOCAL ROLE ple_data_owner;
-
-SET LOCAL ROLE ple_data_owner;
-COMMENT ON TABLE ple_data.question_revision_statistics IS 'role: aggregate, authored identity-free accepted-grade and correct counts for one immutable Question Revision, retained after Course Student-record deletion.';
-
-COMMENT ON TABLE ple_data.question_revision_choice_statistics IS 'role: aggregate, authored identity-free selected eligible-choice counts for one immutable Question Revision, retained after Course Student-record deletion.';
-
-SET LOCAL ROLE ple_private_owner;
-
-SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.question_statistics_observation_receipt IS 'role: event, Private exact-once accepted-grade observation gate, purged with underlying Student Work while anonymous aggregate counts remain.';
-
-COMMENT ON TABLE ple_private.question_statistics_observation_choice IS 'role: event, Normalized opaque eligible-choice evidence for one statistics observation.';
-
+COMMENT ON TABLE ple_private.question_statistics_observation_receipt IS 'role: event, Private exact-once Issued Question observation gate, purged with underlying Student Work while anonymous aggregate counts remain.';

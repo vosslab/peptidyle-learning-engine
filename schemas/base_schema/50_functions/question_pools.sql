@@ -211,7 +211,7 @@ BEGIN
        OR cardinality(p_member_question_ids) <> cardinality(p_member_revision_numbers)
        OR p_interchangeability_attested IS DISTINCT FROM true THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
-            MESSAGE = 'Question Pool member save requires metadata ETag, nonempty ordered members, and interchangeability attestation';
+            MESSAGE = 'Question Pool member save requires Edit Number, nonempty ordered members, and interchangeability attestation';
     END IF;
     IF NOT ple_api.current_session_account_is_instructor() THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
@@ -224,7 +224,7 @@ BEGIN
     END IF;
     IF pool_row.question_pool_edit_number <> p_expected_question_pool_edit_number THEN
         RAISE EXCEPTION USING ERRCODE = '40001',
-            MESSAGE = 'Question Pool metadata ETag is stale';
+            MESSAGE = 'Question Pool Edit Number is stale';
     END IF;
     SELECT array_agg(member.published_question_id ORDER BY member.member_position),
            array_agg(member.question_revision_number ORDER BY member.member_position)

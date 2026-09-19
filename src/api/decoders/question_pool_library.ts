@@ -23,7 +23,7 @@ import {
   decodeString,
   decodeUuid,
 } from "../decoder";
-import { decodeQuestionSearchResult } from "./question_library";
+import { decodeQuestionSearchResult, decodeQuestionStatistics } from "./question_library";
 import {
   BLOOM_COGNITIVE_PROCESSES,
   BLOOM_KNOWLEDGE_DIMENSIONS,
@@ -302,7 +302,13 @@ export function decodeQuestionPoolRevisionView(
   path = "response",
 ): QuestionPoolRevisionView {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["questionPoolRevision", "metadata", "bloom", "members"]);
+  requireOnlyFields(record, path, [
+    "questionPoolRevision",
+    "metadata",
+    "bloom",
+    "members",
+    "evidence",
+  ]);
   const members = decodeBoundedArray(
     field(record, "members", path),
     `${path}.members`,
@@ -332,5 +338,6 @@ export function decodeQuestionPoolRevisionView(
       decodeBloomClassificationView,
     ),
     members,
+    evidence: decodeQuestionStatistics(field(record, "evidence", path), `${path}.evidence`),
   };
 }

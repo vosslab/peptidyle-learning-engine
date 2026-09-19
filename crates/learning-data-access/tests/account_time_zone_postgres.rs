@@ -13,15 +13,10 @@ use question_model::{AccountTimeZone, CourseInstanceId};
 use sqlx::Row;
 use uuid::Uuid;
 
-const INSTRUCTOR: u128 = 0xee01;
-const EXISTING_STUDENT: u128 = 0xee02;
 const INSTRUCTOR_SESSION: u128 = 0xee03;
 const EXISTING_STUDENT_SESSION: u128 = 0xee04;
 const NEW_STUDENT_SESSION: u128 = 0xee05;
-const BLUEPRINT: u128 = 0xef01;
-const COURSE: u128 = 0xef02;
 const INSTRUCTOR_MEMBERSHIP: u128 = 0xef03;
-const REFERENCE_NUMBER: i64 = 920_002;
 
 fn id(value: u128) -> Uuid {
     Uuid::from_u128(value)
@@ -37,29 +32,40 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> CourseInstanceId {
         .execute(&mut *tx)
         .await
         .expect("classification fixture owner");
-    sqlx::query("INSERT INTO ple_data.content_discipline (discipline_uuid, name) VALUES ('00000000-0000-0000-0000-00000000cc01', 'Course fixture discipline') ON CONFLICT (discipline_uuid) DO NOTHING").execute(&mut *tx).await.expect("explicit fixture Discipline");
+    sqlx::query(
+        "INSERT INTO ple_data.content_discipline (content_discipline_id, name) \
+         VALUES ('00000000-0000-0000-0000-00000000cc01', 'Course fixture discipline') \
+         ON CONFLICT (content_discipline_id) DO NOTHING",
+    )
+    .execute(&mut *tx)
+    .await
+    .expect("explicit fixture Discipline");
     sqlx::query("SET LOCAL ROLE ple_private_owner")
         .execute(&mut *tx)
         .await
         .expect("private fixture role");
-    sqlx::query(
+    let instructor_id: String = sqlx::query_scalar(
         "INSERT INTO ple_private.account (account_id, product_role, created_at) \
-         VALUES ($1, 'instructor', clock_timestamp()), \
-                ($2, 'student', clock_timestamp())",
+         VALUES ('U00000009', 'instructor', clock_timestamp()) RETURNING account_id",
     )
-    .bind(id(INSTRUCTOR))
-    .bind(id(EXISTING_STUDENT))
-    .execute(&mut *tx)
+    .fetch_one(&mut *tx)
     .await
-    .expect("fixture Accounts");
+    .expect("Instructor Account");
+    let existing_student_id: String = sqlx::query_scalar(
+        "INSERT INTO ple_private.account (account_id, product_role, created_at) \
+         VALUES ('U00000009', 'student', clock_timestamp()) RETURNING account_id",
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .expect("existing Student Account");
     sqlx::query(
         "UPDATE ple_private.account_time_zone \
             SET time_zone = CASE account_id \
                 WHEN $1 THEN 'America/New_York' ELSE 'America/Denver' END \
           WHERE account_id IN ($1, $2)",
     )
-    .bind(id(INSTRUCTOR))
-    .bind(id(EXISTING_STUDENT))
+    .bind(&instructor_id)
+    .bind(&existing_student_id)
     .execute(&mut *tx)
     .await
     .expect("fixture Account time zones");
@@ -69,7 +75,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> CourseInstanceId {
          VALUES ($1, 'existing.student@example.edu', 'existing.student@example.edu', \
                  clock_timestamp(), clock_timestamp())",
     )
-    .bind(id(EXISTING_STUDENT))
+    .bind(&existing_student_id)
     .execute(&mut *tx)
     .await
     .expect("existing Student Authentication Email");
@@ -82,10 +88,10 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> CourseInstanceId {
                  clock_timestamp() + interval '1 hour')",
     )
     .bind(id(INSTRUCTOR_SESSION))
-    .bind(id(INSTRUCTOR))
+    .bind(&instructor_id)
     .bind(token(0xf1).to_string())
     .bind(id(EXISTING_STUDENT_SESSION))
-    .bind(id(EXISTING_STUDENT))
+    .bind(&existing_student_id)
     .bind(token(0xf2).to_string())
     .execute(&mut *tx)
     .await
@@ -95,78 +101,72 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> CourseInstanceId {
         .execute(&mut *tx)
         .await
         .expect("API fixture role");
-    sqlx::query(
+    let blueprint_id: String = sqlx::query_scalar(
         "INSERT INTO ple_data.blueprint_course \
-         (blueprint_id, reference_number, owner_account_id, short_name, long_name, \
-          blueprint_edit_number, created_at, discipline_uuid, tags) OVERRIDING SYSTEM VALUE \
-         VALUES ($1, $2, $3, 'ZONE', 'Student Time Zone Blueprint', \
-                 '00000000-0000-0000-0000-00000000ef04', clock_timestamp(), '00000000-0000-0000-0000-00000000cc01', ARRAY[]::text[])",
+         (blueprint_course_id, owner_account_id, short_name, long_name, \
+          blueprint_edit_number, created_at, content_discipline_id, tags) \
+         VALUES ('BP0000000' || ple_private.crockford_checksum_character('BP0000000'), \
+                 $1, 'ZONE', 'Student Time Zone Blueprint', 1, clock_timestamp(), \
+                 '00000000-0000-0000-0000-00000000cc01', ARRAY[]::text[]) \
+         RETURNING blueprint_course_id",
     )
-    .bind(id(BLUEPRINT))
-    .bind(REFERENCE_NUMBER)
-    .bind(id(INSTRUCTOR))
-    .execute(&mut *tx)
+    .bind(&instructor_id)
+    .fetch_one(&mut *tx)
     .await
     .expect("Blueprint Course");
     sqlx::query(
         "INSERT INTO ple_data.blueprint_course_revision \
-         (blueprint_course_reference_number, blueprint_revision_number, content, \
+         (blueprint_course_id, blueprint_revision_number, content, \
           content_checksum, saved_at) \
          VALUES ($1, 1, '{}'::jsonb, decode(repeat('0', 64), 'hex'), clock_timestamp())",
     )
-    .bind(REFERENCE_NUMBER)
+    .bind(&blueprint_id)
     .execute(&mut *tx)
     .await
     .expect("Blueprint Revision");
     sqlx::query(
         "INSERT INTO ple_data.blueprint_revision_event \
-         (blueprint_course_reference_number, blueprint_revision_number, actor_account_id, \
+         (blueprint_course_id, blueprint_revision_number, actor_account_id, \
           request_checksum, occurred_at) \
          VALUES ($1, 1, $2, decode(repeat('ef', 32), 'hex'), clock_timestamp())",
     )
-    .bind(REFERENCE_NUMBER)
-    .bind(id(INSTRUCTOR))
+    .bind(&blueprint_id)
+    .bind(&instructor_id)
     .execute(&mut *tx)
     .await
     .expect("Blueprint Revision Event");
-    sqlx::query(
+    let course_id: String = sqlx::query_scalar(
         "INSERT INTO ple_data.course_instance \
-         (course_id, reference_number, source_kind, blueprint_course_reference_number, \
-          blueprint_revision_number, assigned_instructor_account_id, assigned_instructor_role, \
-          course_short_name, course_long_name, term_starts_on, term_ends_on, created_at, discipline_uuid, tags) \
-         OVERRIDING SYSTEM VALUE \
-         VALUES ($1, $2, 'adopted', $2, 1, $3, 'instructor', 'ZONE', \
-                 'Student Time Zone Course', current_date, current_date + 1, clock_timestamp(), '00000000-0000-0000-0000-00000000cc01', ARRAY[]::text[])",
+         (course_instance_id, source_kind, blueprint_course_id, \
+          blueprint_revision_number, \
+          course_short_name, course_long_name, term_starts_on, term_ends_on, created_at, \
+          content_discipline_id, tags) \
+         VALUES ('CI0000000' || ple_private.crockford_checksum_character('CI0000000'), \
+                 'adopted', $1, 1, 'ZONE', \
+                 'Student Time Zone Course', current_date, current_date + 1, clock_timestamp(), \
+                 '00000000-0000-0000-0000-00000000cc01', ARRAY[]::text[]) \
+         RETURNING course_instance_id",
     )
-    .bind(id(COURSE))
-    .bind(REFERENCE_NUMBER)
-    .bind(id(INSTRUCTOR))
-    .execute(&mut *tx)
+    .bind(&blueprint_id)
+    .fetch_one(&mut *tx)
     .await
     .expect("Course Instance");
     sqlx::query(
         "INSERT INTO ple_data.course_membership \
-         (membership_id, course_id, account_id, role, student_record_id, joined_at) \
+         (course_membership_id, course_instance_id, account_id, role, student_record_id, joined_at) \
          VALUES ($1, $2, $3, 'instructor', NULL, clock_timestamp())",
     )
     .bind(id(INSTRUCTOR_MEMBERSHIP))
-    .bind(id(COURSE))
-    .bind(id(INSTRUCTOR))
+    .bind(&course_id)
+    .bind(&instructor_id)
     .execute(&mut *tx)
     .await
     .expect("Instructor Course Membership");
-    let public_reference: String = sqlx::query_scalar(
-        "SELECT public_reference FROM ple_data.course_instance WHERE course_id = $1",
-    )
-    .bind(id(COURSE))
-    .fetch_one(&mut *tx)
-    .await
-    .expect("Course public reference");
     tx.commit().await.expect("fixture commit");
-    CourseInstanceId::new(public_reference).expect("Course reference")
+    CourseInstanceId::new(course_id).expect("Course reference")
 }
 
-async fn new_student_id_and_session(admin: &sqlx::postgres::PgPool) -> Uuid {
+async fn new_student_id_and_session(admin: &sqlx::postgres::PgPool) -> String {
     let mut tx = admin
         .begin()
         .await
@@ -175,7 +175,7 @@ async fn new_student_id_and_session(admin: &sqlx::postgres::PgPool) -> Uuid {
         .execute(&mut *tx)
         .await
         .expect("private session role");
-    let account_id: Uuid = sqlx::query_scalar(
+    let account_id: String = sqlx::query_scalar(
         "SELECT account_id FROM ple_private.account_authentication_email \
          WHERE normalized_email = 'new.student@example.edu'",
     )
@@ -189,7 +189,7 @@ async fn new_student_id_and_session(admin: &sqlx::postgres::PgPool) -> Uuid {
                  clock_timestamp() + interval '1 hour')",
     )
     .bind(id(NEW_STUDENT_SESSION))
-    .bind(account_id)
+    .bind(&account_id)
     .bind(token(0xf3).to_string())
     .execute(&mut *tx)
     .await
@@ -198,7 +198,7 @@ async fn new_student_id_and_session(admin: &sqlx::postgres::PgPool) -> Uuid {
     account_id
 }
 
-async fn account_time_zone(admin: &sqlx::postgres::PgPool, account_id: Uuid) -> (String, bool) {
+async fn account_time_zone(admin: &sqlx::postgres::PgPool, account_id: &str) -> (String, bool) {
     let mut tx = admin.begin().await.expect("Account time-zone transaction");
     sqlx::query("SET LOCAL ROLE ple_private_owner")
         .execute(&mut *tx)
@@ -257,7 +257,7 @@ async fn invitation_acceptance_defaults_only_a_new_student_account_to_the_inviti
 
     let new_student = new_student_id_and_session(&admin).await;
     assert_eq!(
-        account_time_zone(&admin, new_student).await,
+        account_time_zone(&admin, &new_student).await,
         ("America/Chicago".to_string(), true),
         "new Student waits for the invitation default until acceptance"
     );
@@ -270,11 +270,18 @@ async fn invitation_acceptance_defaults_only_a_new_student_account_to_the_inviti
         .await
         .expect("existing Student invitation acceptance");
     assert_eq!(
-        account_time_zone(&admin, new_student).await,
+        account_time_zone(&admin, &new_student).await,
         ("America/New_York".to_string(), false)
     );
+    let existing_student: String = sqlx::query_scalar(
+        "SELECT account_id FROM ple_private.account_authentication_email \
+         WHERE normalized_email = 'existing.student@example.edu'",
+    )
+    .fetch_one(&admin)
+    .await
+    .expect("existing Student Account");
     assert_eq!(
-        account_time_zone(&admin, id(EXISTING_STUDENT)).await,
+        account_time_zone(&admin, &existing_student).await,
         ("America/Denver".to_string(), false),
         "an existing Student Account keeps its preference"
     );

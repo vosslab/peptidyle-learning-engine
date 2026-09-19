@@ -41,10 +41,8 @@ pub struct BlueprintChangeProposalAcceptedDecision {
         question_model::BlueprintModuleReference,
         question_model::BlueprintModuleReference,
     >,
-    pub new_assessments: BTreeMap<
-        question_model::BlueprintAssessmentId,
-        question_model::BlueprintAssessmentId,
-    >,
+    pub new_assessments:
+        BTreeMap<question_model::BlueprintAssessmentId, question_model::BlueprintAssessmentId>,
 }
 
 /// Exact accepted result, reconstructed from its immutable Revision/metadata pins.

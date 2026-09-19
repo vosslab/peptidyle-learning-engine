@@ -240,8 +240,9 @@ mod tests {
     };
     use chrono::TimeZone;
     use question_model::{
-        AccountId, AssessmentId, BaseAssessmentPolicy, CourseInstanceId, CourseMembershipId, CourseTerm,
-        LateWorkRule, StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming, StudentRecordId,
+        AccountId, AssessmentId, BaseAssessmentPolicy, CourseInstanceId, CourseMembershipId,
+        CourseTerm, LateWorkRule, StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming,
+        StudentRecordId,
     };
     use std::num::NonZeroU32;
     use uuid::Uuid;

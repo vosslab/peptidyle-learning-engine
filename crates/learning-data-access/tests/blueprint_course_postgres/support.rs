@@ -1,6 +1,20 @@
 //! Shared deterministic fixtures for the connected Blueprint Course oracle.
 
 use super::*;
+use std::sync::OnceLock;
+
+pub(super) static INSTRUCTOR_ACCOUNT_ID: OnceLock<String> = OnceLock::new();
+pub(super) static STUDENT_ACCOUNT_ID: OnceLock<String> = OnceLock::new();
+
+pub(super) fn instructor_account_id() -> &'static str {
+    INSTRUCTOR_ACCOUNT_ID
+        .get()
+        .expect("seeded Instructor Account")
+}
+
+pub(super) fn student_account_id() -> &'static str {
+    STUDENT_ACCOUNT_ID.get().expect("seeded Student Account")
+}
 
 pub(super) struct FixturePoolIdIssuer(pub(super) AtomicUsize);
 
@@ -45,23 +59,11 @@ pub(super) async fn authenticate_application_transaction(
         .expect("application role");
 }
 
-/// Numeric references are relational inspection facts, never application input.
+/// Public Blueprint Course ID used as the relational inspection key.
 pub(super) async fn blueprint_reference_number(
     public_reference: &question_model::BlueprintCourseId,
-) -> i64 {
-    let mut inspection = adoption_inspection_connection().await;
-    let reference = sqlx::query_scalar(
-        "SELECT reference_number FROM ple_data.blueprint_course WHERE public_reference = $1",
-    )
-    .bind(public_reference.as_string())
-    .fetch_one(&mut inspection)
-    .await
-    .expect("Blueprint relational identity");
-    inspection
-        .close()
-        .await
-        .expect("Blueprint inspection close");
-    reference
+) -> String {
+    public_reference.as_string()
 }
 
 pub(super) async fn adoption_inspection_connection() -> PgConnection {
@@ -77,21 +79,9 @@ pub(super) async fn adoption_inspection_connection() -> PgConnection {
     connection
 }
 
-/// Public commands use opaque IDs; numeric IDs belong only to relational inspection.
-pub(super) async fn blueprint_public_reference(reference: i64) -> String {
-    let mut inspection = adoption_inspection_connection().await;
-    let public_reference = sqlx::query_scalar(
-        "SELECT public_reference FROM ple_data.blueprint_course WHERE reference_number = $1",
-    )
-    .bind(reference)
-    .fetch_one(&mut inspection)
-    .await
-    .expect("Blueprint public identity");
-    inspection
-        .close()
-        .await
-        .expect("Blueprint inspection close");
-    public_reference
+/// Public commands use the minted Blueprint Course ID.
+pub(super) async fn blueprint_public_reference(reference: &str) -> String {
+    reference.to_owned()
 }
 
 /// Exact immutable member pins for one local Pool Revision.
@@ -100,15 +90,12 @@ pub(super) async fn question_pool_member_pins(
 ) -> Vec<(String, i32)> {
     let mut inspection = adoption_inspection_connection().await;
     let pins = sqlx::query_as(
-        "SELECT member.question_id, member.question_revision_number \
-           FROM ple_data.question_pool AS pool \
-           JOIN ple_data.question_pool_revision_member AS member \
-             ON member.question_pool_id = pool.question_pool_id \
-          WHERE pool.public_question_pool_id = $1 AND member.revision_number = $2 \
+        "SELECT member.published_question_id, member.question_revision_number \
+           FROM ple_data.question_pool_member AS member \
+          WHERE member.question_pool_id = $1 \
           ORDER BY member.member_position",
     )
     .bind(pool.question_pool_id.as_str())
-    .bind(pool.revision_number.get() as i64)
     .fetch_all(&mut inspection)
     .await
     .expect("Pool member pins");
@@ -124,7 +111,7 @@ pub(super) async fn question_pool_member_pins(
 pub(super) async fn assert_revision_checksum_mismatch(
     migration_url: &str,
     application_url: &str,
-    reference: i64,
+    reference: &str,
     blueprint_reference: question_model::BlueprintCourseId,
 ) {
     let tamper_pool = lazy_pool(application_url).expect("tamper application pool");
@@ -162,7 +149,7 @@ pub(super) async fn assert_revision_checksum_mismatch(
          SET content = jsonb_set(content, \
              '{modules,0,assessments,0,blueprint_assessment_reference}', \
              to_jsonb('00000000-0000-0000-0000-00000000b123'::text)) \
-         WHERE blueprint_course_reference_number = $1 AND blueprint_revision_number = 3",
+         WHERE blueprint_course_id = $1 AND blueprint_revision_number = 3",
     )
     .bind(reference)
     .execute(&mut *tamper)
@@ -202,7 +189,7 @@ pub(super) async fn assert_revision_checksum_mismatch(
 }
 
 /// Compare durable Blueprint state across denied commands, including receipts.
-pub(super) async fn blueprint_write_state(reference: i64) -> serde_json::Value {
+pub(super) async fn blueprint_write_state(reference: &str) -> serde_json::Value {
     let mut inspection = adoption_inspection_connection().await;
     // ASVS 1.2.4: fixture identity remains a bound parameter.
     sqlx::query_scalar(
@@ -210,17 +197,17 @@ pub(super) async fn blueprint_write_state(reference: i64) -> serde_json::Value {
             'metadata', to_jsonb(course), \
             'revisions', (SELECT jsonb_agg(to_jsonb(revision) ORDER BY blueprint_revision_number) \
                 FROM ple_data.blueprint_course_revision AS revision \
-                WHERE blueprint_course_reference_number = $1), \
+                WHERE blueprint_course_id = $1), \
             'revision_events', (SELECT jsonb_agg(to_jsonb(event) ORDER BY blueprint_revision_number) \
                 FROM ple_data.blueprint_revision_event AS event \
-                WHERE blueprint_course_reference_number = $1), \
+                WHERE blueprint_course_id = $1), \
             'metadata_events', (SELECT jsonb_agg(to_jsonb(event) ORDER BY occurred_at, blueprint_edit_number) \
                 FROM ple_data.blueprint_metadata_event AS event \
-                WHERE blueprint_course_reference_number = $1), \
+                WHERE blueprint_course_id = $1), \
             'save_receipts', (SELECT jsonb_agg(to_jsonb(receipt) ORDER BY request_checksum) \
                 FROM ple_data.blueprint_course_save_receipt AS receipt \
-                WHERE blueprint_course_reference_number = $1)) \
-         FROM ple_data.blueprint_course AS course WHERE reference_number = $1",
+                WHERE blueprint_course_id = $1)) \
+         FROM ple_data.blueprint_course AS course WHERE blueprint_course_id = $1",
     )
     .bind(reference)
     .fetch_one(&mut inspection)
@@ -230,7 +217,7 @@ pub(super) async fn blueprint_write_state(reference: i64) -> serde_json::Value {
 
 pub(super) async fn save(
     url: &str,
-    reference: i64,
+    reference: &str,
     expected_revision: i64,
     checksum: Vec<u8>,
     content: &StoredBlueprintCourseContent,
@@ -246,7 +233,8 @@ pub(super) async fn save(
         "SELECT resulting_blueprint_revision_number, changed \
          FROM ple_api.save_blueprint_course($1, $2, $3, $4, $5, \
              (SELECT COALESCE(jsonb_agg(jsonb_build_object( \
-                 'course_id', course_id, 'assessments', '[]'::jsonb)), '[]'::jsonb) \
+                 'course_instance_id', course_instance_id, 'assessments', '[]'::jsonb)), \
+                 '[]'::jsonb) \
                 FROM ple_api.list_blueprint_daughter_course_ids($1)))",
     )
     .bind(public_reference)
@@ -285,11 +273,11 @@ fn database_content_json(content: &StoredBlueprintCourseContent) -> serde_json::
 
 pub(super) async fn transition_blueprint_availability(
     url: &str,
-    reference: i64,
-    expected_edit_number: Uuid,
+    reference: &str,
+    expected_edit_number: i64,
     availability: &'static str,
     archive_confirmation_long_name: Option<&str>,
-) -> Result<(BlueprintAvailability, Uuid), sqlx::Error> {
+) -> Result<(BlueprintAvailability, i64), sqlx::Error> {
     let public_reference = blueprint_public_reference(reference).await;
     let mut connection = PgConnection::connect(url)
         .await
@@ -359,7 +347,7 @@ pub(super) fn error_code(error: &sqlx::Error) -> Option<String> {
 pub(super) async fn assert_immutable_child(
     connection: &mut PgConnection,
     sql: &'static str,
-    reference: i64,
+    reference: &str,
     revision: i64,
 ) {
     let error = sqlx::query(sql)
@@ -371,9 +359,7 @@ pub(super) async fn assert_immutable_child(
     assert_eq!(error_code(&error).as_deref(), Some("55000"));
 }
 
-pub(super) const INSTRUCTOR: u128 = 0xb100;
 pub(super) const SESSION: u128 = 0xb101;
-pub(super) const READER_INSTRUCTOR: u128 = 0xb102;
 pub(super) const READER_SESSION: u128 = 0xb103;
 pub(super) const QUESTION: &str = "ABCD-XEFG";
 pub(super) const QUESTION_POOL: &str = "7654-Z321";
@@ -536,62 +522,62 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
         .execute(&mut *transaction)
         .await
         .expect("classification fixture owner");
-    sqlx::query("INSERT INTO ple_data.content_discipline (discipline_uuid, name) VALUES ('00000000-0000-0000-0000-00000000cc01', 'Course fixture discipline') ON CONFLICT (discipline_uuid) DO NOTHING").execute(&mut *transaction).await.expect("explicit fixture Discipline");
+    sqlx::query(
+        "INSERT INTO ple_data.content_discipline (content_discipline_id, name) \
+         VALUES ('00000000-0000-0000-0000-00000000cc01', 'Course fixture discipline') \
+         ON CONFLICT (content_discipline_id) DO NOTHING",
+    )
+    .execute(&mut *transaction)
+    .await
+    .expect("explicit fixture Discipline");
     sqlx::query("SET LOCAL ROLE ple_private_owner")
         .execute(&mut *transaction)
         .await
         .expect("private fixture role");
-    for account in [INSTRUCTOR, READER_INSTRUCTOR] {
-        sqlx::query(
-            "INSERT INTO ple_private.account (account_id, product_role, created_at) \
-             VALUES ($1, 'instructor', clock_timestamp())",
-        )
-        .bind(id(account))
-        .execute(&mut *transaction)
-        .await
-        .expect("Instructor account");
-    }
-    sqlx::query(
+    let instructor_id: String = sqlx::query_scalar(
         "INSERT INTO ple_private.account (account_id, product_role, created_at) \
-         VALUES ($1, 'student', clock_timestamp())",
+         VALUES ('U00000009', 'instructor', clock_timestamp()) RETURNING account_id",
     )
-    .bind(id(0xb104))
-    .execute(&mut *transaction)
+    .fetch_one(&mut *transaction)
+    .await
+    .expect("Instructor account");
+    let reader_id: String = sqlx::query_scalar(
+        "INSERT INTO ple_private.account (account_id, product_role, created_at) \
+         VALUES ('U00000009', 'instructor', clock_timestamp()) RETURNING account_id",
+    )
+    .fetch_one(&mut *transaction)
+    .await
+    .expect("reader Instructor account");
+    let student_id: String = sqlx::query_scalar(
+        "INSERT INTO ple_private.account (account_id, product_role, created_at) \
+         VALUES ('U00000009', 'student', clock_timestamp()) RETURNING account_id",
+    )
+    .fetch_one(&mut *transaction)
     .await
     .expect("Student fixture");
-    for (session, account, token) in [
-        (SESSION, INSTRUCTOR, token()),
-        (READER_SESSION, READER_INSTRUCTOR, reader_token()),
-    ] {
-        sqlx::query(
-            "INSERT INTO ple_private.authenticated_session \
-             (session_id, account_id, product_role, token_hash, created_at, expires_at) \
-             VALUES ($1, $2, 'instructor', decode($3, 'hex'), clock_timestamp(), \
-                     clock_timestamp() + interval '1 hour')",
-        )
-        .bind(id(session))
-        .bind(id(account))
-        .bind(token.to_string())
-        .execute(&mut *transaction)
-        .await
-        .expect("Instructor session");
-    }
+    sqlx::query(
+        "INSERT INTO ple_private.authenticated_session \
+         (session_id, account_id, product_role, token_hash, created_at, expires_at) \
+         VALUES ($1, $2, 'instructor', decode($3, 'hex'), clock_timestamp(), \
+                 clock_timestamp() + interval '1 hour'), \
+                ($4, $5, 'instructor', decode($6, 'hex'), clock_timestamp(), \
+                 clock_timestamp() + interval '1 hour')",
+    )
+    .bind(id(SESSION))
+    .bind(&instructor_id)
+    .bind(token().to_string())
+    .bind(id(READER_SESSION))
+    .bind(&reader_id)
+    .bind(reader_token().to_string())
+    .execute(&mut *transaction)
+    .await
+    .expect("Instructor session");
     sqlx::query("SET LOCAL ROLE ple_data_owner")
         .execute(&mut *transaction)
         .await
         .expect("data fixture role");
     sqlx::query(
-        "SELECT setval(\
-             'ple_data.blueprint_course_reference_number_seq', \
-             GREATEST(COALESCE((SELECT max(reference_number) FROM ple_data.blueprint_course), 1), 1), \
-             true\
-         )",
-    )
-    .execute(&mut *transaction)
-    .await
-    .expect("Blueprint reference sequence follows fixed fixtures");
-    sqlx::query(
-        "INSERT INTO ple_data.published_question (question_id, created_at) \
+        "INSERT INTO ple_data.published_question (published_question_id, created_at) \
          VALUES ($1, clock_timestamp())",
     )
     .bind(QUESTION)
@@ -600,7 +586,7 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
     .expect("Published Question");
     sqlx::query(
         "INSERT INTO ple_data.question_revision \
-         (question_id, revision_number, backend, question_type, published_at) \
+         (published_question_id, revision_number, backend, question_type, published_at) \
          VALUES ($1, 1, 'ple', 'multipleChoice', clock_timestamp())",
     )
     .bind(QUESTION)
@@ -608,15 +594,16 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
     .await
     .expect("Question Revision");
     sqlx::query(
-        "INSERT INTO ple_data.content_subject (subject_uuid, name) \
-         VALUES ($1, 'Blueprint fixture Subject') ON CONFLICT (subject_uuid) DO NOTHING",
+        "INSERT INTO ple_data.content_subject (content_subject_id, name) \
+         VALUES ($1, 'Blueprint fixture Subject') ON CONFLICT (content_subject_id) DO NOTHING",
     )
     .bind(id(0xcc02))
     .execute(&mut *transaction)
     .await
     .expect("explicit fixture Subject");
     sqlx::query(
-        "INSERT INTO ple_data.content_subject_discipline (subject_uuid, discipline_uuid) \
+        "INSERT INTO ple_data.content_subject_discipline \
+         (content_subject_id, content_discipline_id) \
          VALUES ($1, $2) ON CONFLICT DO NOTHING",
     )
     .bind(id(0xcc02))
@@ -626,8 +613,8 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
     .expect("explicit fixture Subject Discipline association");
     sqlx::query(
         "INSERT INTO ple_data.published_question_metadata (\
-             question_id, question_title, question_description, language, \
-             discipline_uuid, subject_uuid, created_at, updated_at\
+             published_question_id, question_title, question_description, language, \
+             content_discipline_id, content_subject_id, created_at, updated_at\
          ) VALUES ($1, 'Blueprint fixture Question', 'Blueprint fixture Question description', \
                    'en', $2, $3, clock_timestamp(), clock_timestamp())",
     )
@@ -646,7 +633,7 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
         .expect("private Question publication fixture role");
     sqlx::query(
         "INSERT INTO ple_private.object_record (\
-             object_id, object_address, object_storage_area, object_data_class, \
+             object_record_id, object_address, object_storage_area, object_data_class, \
              sha256, size_bytes, media_type, created_at\
          ) SELECT $1, jsonb_build_object(\
                  'kind', 'questionSource', \
@@ -655,7 +642,7 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
              ), 'private-content', 'question-source', decode(repeat('b1', 32), 'hex'), \
              1, 'application/json', revision.published_at \
            FROM ple_data.question_revision AS revision \
-          WHERE revision.question_id = $2 AND revision.revision_number = 1",
+          WHERE revision.published_question_id = $2 AND revision.revision_number = 1",
     )
     .bind(id(0xb107))
     .bind(QUESTION)
@@ -664,11 +651,11 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
     .expect("exact Question source Object Record");
     sqlx::query(
         "INSERT INTO ple_private.question_revision_source_binding (\
-             question_id, revision_number, backend, question_format, source_object_id, \
-             source_object_checksum, created_at\
+             published_question_id, revision_number, backend, question_format, \
+             source_object_record_id, source_object_checksum, created_at\
          ) SELECT $1, 1, 'ple', 'pleQuestionJson', $2, repeat('b1', 32), revision.published_at \
            FROM ple_data.question_revision AS revision \
-          WHERE revision.question_id = $1 AND revision.revision_number = 1",
+          WHERE revision.published_question_id = $1 AND revision.revision_number = 1",
     )
     .bind(QUESTION)
     .bind(id(0xb107))
@@ -677,29 +664,31 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
     .expect("exact Question source binding");
     sqlx::query(
         "INSERT INTO ple_data.question_revision_acceptance (\
-             question_id, revision_number, parent_revision_number, editor_account_id, \
+             published_question_id, revision_number, parent_revision_number, editor_account_id, \
              accepted_by_account_id, accepted_at, reason_for_edit\
          ) SELECT $1, 1, NULL, $2, $2, revision.published_at, 'Initial publication' \
            FROM ple_data.question_revision AS revision \
-          WHERE revision.question_id = $1 AND revision.revision_number = 1",
+          WHERE revision.published_question_id = $1 AND revision.revision_number = 1",
     )
     .bind(QUESTION)
-    .bind(id(INSTRUCTOR))
+    .bind(&instructor_id)
     .execute(&mut *transaction)
     .await
     .expect("Question Revision acceptance");
     sqlx::query(
         "INSERT INTO ple_data.question_revision_authorship (\
-             question_id, revision_number, author_position, author_display_name, author_account_id\
+             published_question_id, revision_number, author_position, author_display_name, \
+             author_account_id\
          ) VALUES ($1, 1, 1, 'Blueprint fixture Instructor', $2)",
     )
     .bind(QUESTION)
-    .bind(id(INSTRUCTOR))
+    .bind(&instructor_id)
     .execute(&mut *transaction)
     .await
     .expect("Question Revision authorship");
     sqlx::query(
-        "INSERT INTO ple_data.question_revision_license (question_id, revision_number, spdx_expression) \
+        "INSERT INTO ple_data.question_revision_license \
+         (published_question_id, revision_number, spdx_expression) \
          VALUES ($1, 1, 'CC-BY-4.0')",
     )
     .bind(QUESTION)
@@ -708,41 +697,42 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
     .expect("Question Revision license");
     sqlx::query(
         "INSERT INTO ple_data.question_ownership_event (\
-             question_ownership_event_id, question_id, owner_account_id, recorded_by_account_id, \
-             event_kind, occurred_at\
+             question_ownership_event_id, published_question_id, owner_account_id, \
+             recorded_by_account_id, event_kind, occurred_at\
          ) SELECT $1, $2, $3, $3, 'initial', revision.published_at \
            FROM ple_data.question_revision AS revision \
-          WHERE revision.question_id = $2 AND revision.revision_number = 1",
+          WHERE revision.published_question_id = $2 AND revision.revision_number = 1",
     )
     .bind(id(0xb108))
     .bind(QUESTION)
-    .bind(id(INSTRUCTOR))
+    .bind(&instructor_id)
     .execute(&mut *transaction)
     .await
     .expect("initial Question ownership");
     sqlx::query(
         "INSERT INTO ple_data.question_publication_event (\
-             event_id, question_id, revision_number, actor_account_id, occurred_at\
+             event_id, published_question_id, revision_number, actor_account_id, occurred_at\
          ) SELECT $1, $2, 1, $3, revision.published_at \
            FROM ple_data.question_revision AS revision \
-          WHERE revision.question_id = $2 AND revision.revision_number = 1",
+          WHERE revision.published_question_id = $2 AND revision.revision_number = 1",
     )
     .bind(id(0xb109))
     .bind(QUESTION)
-    .bind(id(INSTRUCTOR))
+    .bind(&instructor_id)
     .execute(&mut *transaction)
     .await
     .expect("Question publication event");
     sqlx::query(
         "INSERT INTO ple_data.question_availability_event (\
-             event_id, question_id, actor_account_id, availability, edit_number, reason, occurred_at\
+             event_id, published_question_id, actor_account_id, availability, edit_number, \
+             reason, occurred_at\
          ) SELECT $1, $2, $3, 'available', 1, NULL, revision.published_at \
            FROM ple_data.question_revision AS revision \
-          WHERE revision.question_id = $2 AND revision.revision_number = 1",
+          WHERE revision.published_question_id = $2 AND revision.revision_number = 1",
     )
     .bind(id(0xb10a))
     .bind(QUESTION)
-    .bind(id(INSTRUCTOR))
+    .bind(&instructor_id)
     .execute(&mut *transaction)
     .await
     .expect("initial Question availability");
@@ -752,40 +742,38 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
         .expect("data Question Pool fixture role");
     sqlx::query(
         "INSERT INTO ple_data.question_pool (\
-             question_pool_id, public_question_pool_id, blueprint_edit_number, current_revision_number, created_at, \
-             title, description, discipline_uuid, subject_uuid\
-         ) SELECT $1, $2, $3, 1, clock_timestamp(), \
+             question_pool_id, question_pool_edit_number, created_at, \
+             title, description, content_discipline_id, content_subject_id, \
+             interchangeability_attested_by_account_id, interchangeability_attested_at\
+         ) SELECT $1, 1, clock_timestamp(), \
                   'Blueprint fixture Pool', 'Blueprint fixture Pool description', \
-                  metadata.discipline_uuid, metadata.subject_uuid \
-             FROM ple_data.published_question_metadata AS metadata WHERE metadata.question_id = $4",
+                  metadata.content_discipline_id, metadata.content_subject_id, \
+                  $2, clock_timestamp() \
+             FROM ple_data.published_question_metadata AS metadata \
+            WHERE metadata.published_question_id = $3",
     )
-    .bind(id(0xb105))
     .bind(QUESTION_POOL)
-    .bind(id(0xb106))
+    .bind(&instructor_id)
     .bind(QUESTION)
     .execute(&mut *transaction)
     .await
     .expect("Published Question Pool");
     sqlx::query(
-        "INSERT INTO ple_data.question_pool_revision (\
-             question_pool_id, revision_number, member_count, interchangeability_attested_by_account_id, \
-             interchangeability_attested_at, created_at\
-         ) VALUES ($1, 1, 1, $2, clock_timestamp(), clock_timestamp())",
+        "INSERT INTO ple_data.question_pool_member (\
+             question_pool_id, member_position, published_question_id, question_revision_number, \
+             created_at\
+         ) VALUES ($1, 1, $2, 1, clock_timestamp())",
     )
-    .bind(id(0xb105))
-    .bind(id(INSTRUCTOR))
-    .execute(&mut *transaction)
-    .await
-    .expect("Published Question Pool Revision");
-    sqlx::query(
-        "INSERT INTO ple_data.question_pool_revision_member (\
-             question_pool_id, revision_number, member_position, question_id, question_revision_number\
-         ) VALUES ($1, 1, 1, $2, 1)",
-    )
-    .bind(id(0xb105))
+    .bind(QUESTION_POOL)
     .bind(QUESTION)
     .execute(&mut *transaction)
     .await
     .expect("Published Question Pool member");
     transaction.commit().await.expect("fixture commit");
+    INSTRUCTOR_ACCOUNT_ID
+        .set(instructor_id)
+        .expect("Instructor Account ID once");
+    STUDENT_ACCOUNT_ID
+        .set(student_id)
+        .expect("Student Account ID once");
 }

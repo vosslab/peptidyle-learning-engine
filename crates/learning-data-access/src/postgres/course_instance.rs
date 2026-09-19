@@ -4,8 +4,8 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use question_model::{
-    AccountId, BlueprintRevision, CourseInstanceId, CourseMembershipRole,
-    CourseSummary, CourseTerm, CourseTheme,
+    AccountId, BlueprintRevision, CourseInstanceId, CourseMembershipRole, CourseSummary,
+    CourseTerm, CourseTheme,
 };
 use sqlx::{Postgres, Row, Transaction};
 

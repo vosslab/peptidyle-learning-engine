@@ -132,7 +132,10 @@ try {
         { cause: error },
       );
     });
-  assert.equal(await page.locator("[data-m6-location]").textContent(), "/assessment-attempts/00000000-0000-0000-0000-000000000006");
+  assert.equal(
+    await page.locator("[data-m6-location]").textContent(),
+    "/assessment-attempts/00000000-0000-0000-0000-000000000006",
+  );
 
   await page.goto(`${origin}/?mode=landing`);
   await page.getByRole("link", { name: "Review Bonus Assignment", exact: true }).focus();

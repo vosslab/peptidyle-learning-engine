@@ -9,8 +9,7 @@ SET LOCAL ROLE ple_private_owner;
 CREATE FUNCTION ple_private.bind_draft_question_source(
     p_draft_question_uuid uuid, p_expected_edit_number bigint, p_authoring_workspace_id uuid,
     p_backend text, p_question_format text, p_question_type text, p_webwork_pg_path text,
-    p_imathas_deployment_reference text, p_imathas_item_reference text,
-    p_imathas_profile text, p_source_object_id uuid, p_source_object_checksum text
+    p_source_object_id uuid, p_source_object_checksum text
 ) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
 DECLARE
@@ -42,28 +41,20 @@ BEGIN
     IF FOUND AND existing.backend = p_backend AND existing.question_format = p_question_format
        AND existing.question_type = p_question_type
        AND existing.webwork_pg_path IS NOT DISTINCT FROM p_webwork_pg_path
-       AND existing.imathas_deployment_reference IS NOT DISTINCT FROM p_imathas_deployment_reference
-       AND existing.imathas_item_reference IS NOT DISTINCT FROM p_imathas_item_reference
-       AND existing.imathas_profile IS NOT DISTINCT FROM p_imathas_profile
        AND existing.source_object_record_id = p_source_object_id
        AND existing.source_object_checksum = p_source_object_checksum THEN
         RETURN current_edit;
     END IF;
     INSERT INTO ple_private.draft_question_source_binding AS binding (
         draft_question_id, backend, question_format, question_type, webwork_pg_path,
-        imathas_deployment_reference, imathas_item_reference, imathas_profile,
         source_object_record_id, source_object_checksum, created_at, updated_at
     ) VALUES (
         p_draft_question_uuid, p_backend, p_question_format, p_question_type, p_webwork_pg_path,
-        p_imathas_deployment_reference, p_imathas_item_reference, p_imathas_profile,
         p_source_object_id, p_source_object_checksum, pg_catalog.clock_timestamp(), pg_catalog.clock_timestamp()
     ) ON CONFLICT (draft_question_id) DO UPDATE SET
         backend = EXCLUDED.backend, question_format = EXCLUDED.question_format,
         question_type = EXCLUDED.question_type,
         webwork_pg_path = EXCLUDED.webwork_pg_path,
-        imathas_deployment_reference = EXCLUDED.imathas_deployment_reference,
-        imathas_item_reference = EXCLUDED.imathas_item_reference,
-        imathas_profile = EXCLUDED.imathas_profile,
         source_object_record_id = EXCLUDED.source_object_record_id,
         source_object_checksum = EXCLUDED.source_object_checksum,
         updated_at = EXCLUDED.updated_at;
@@ -186,9 +177,6 @@ BEGIN
        AND binding.question_format = parent_binding.question_format
        AND binding.question_type = parent_revision.question_type
        AND binding.webwork_pg_path IS NOT DISTINCT FROM parent_binding.webwork_pg_path
-       AND binding.imathas_deployment_reference IS NOT DISTINCT FROM parent_binding.imathas_deployment_reference
-       AND binding.imathas_item_reference IS NOT DISTINCT FROM parent_binding.imathas_item_reference
-       AND binding.imathas_profile IS NOT DISTINCT FROM parent_binding.imathas_profile
        AND binding.source_object_checksum = parent_binding.source_object_checksum
        AND metadata.general_feedback IS NOT DISTINCT FROM parent_revision.general_feedback THEN
         RAISE EXCEPTION USING ERRCODE = 'PQR01',
@@ -218,11 +206,9 @@ BEGIN
         to_timestamp(p_target_created_at_millis::double precision / 1000.0));
     INSERT INTO ple_private.question_revision_source_binding(
         published_question_id, revision_number, backend, question_format, webwork_pg_path,
-        imathas_deployment_reference, imathas_item_reference, imathas_profile,
         source_object_record_id, source_object_checksum, created_at
     ) VALUES (p_published_question_id, next_revision_number, binding.backend, binding.question_format,
-        binding.webwork_pg_path, binding.imathas_deployment_reference,
-        binding.imathas_item_reference, binding.imathas_profile, p_target_object_id,
+        binding.webwork_pg_path, p_target_object_id,
         encode(p_target_sha256, 'hex'), published_at);
     INSERT INTO ple_data.question_revision_acceptance(
         published_question_id, revision_number, parent_revision_number, editor_account_id,
@@ -284,14 +270,13 @@ $$;
 CREATE FUNCTION ple_api.bind_draft_question_source(
     p_draft_question_uuid uuid, p_expected_edit_number bigint, p_authoring_workspace_id uuid,
     p_backend text, p_question_format text, p_question_type text, p_webwork_pg_path text,
-    p_imathas_deployment_reference text, p_imathas_item_reference text,
-    p_imathas_profile text, p_source_object_id uuid, p_source_object_checksum text
+    p_source_object_id uuid, p_source_object_checksum text
 ) RETURNS bigint LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private, ple_api AS $$
     SELECT ple_private.bind_draft_question_source(
         p_draft_question_uuid, p_expected_edit_number, p_authoring_workspace_id, p_backend,
-        p_question_format, p_question_type, p_webwork_pg_path, p_imathas_deployment_reference,
-        p_imathas_item_reference, p_imathas_profile, p_source_object_id, p_source_object_checksum)
+        p_question_format, p_question_type, p_webwork_pg_path, p_source_object_id,
+        p_source_object_checksum)
 $$;
 
 CREATE FUNCTION ple_api.publish_question_revision(
@@ -486,10 +471,8 @@ BEGIN
         to_timestamp(p_target_created_at_millis::double precision / 1000.0));
     INSERT INTO ple_private.question_revision_source_binding(
         published_question_id, revision_number, backend, question_format, webwork_pg_path,
-        imathas_deployment_reference, imathas_item_reference, imathas_profile,
         source_object_record_id, source_object_checksum, created_at
     ) VALUES (p_published_question_id, 1, binding.backend, binding.question_format, binding.webwork_pg_path,
-        binding.imathas_deployment_reference, binding.imathas_item_reference, binding.imathas_profile,
         p_target_object_id, encode(p_target_sha256, 'hex'), published_at);
     INSERT INTO ple_data.question_revision_acceptance(
         published_question_id, revision_number, parent_revision_number, editor_account_id,

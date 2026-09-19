@@ -108,10 +108,13 @@ CREATE TABLE ple_private.course_banner_work (
     operation_kind ple_data.banner_work_operation NOT NULL,
     object_record_id uuid NOT NULL,
     state ple_data.lease_state NOT NULL,
+    lease_token uuid,
+    lease_expires_at timestamptz,
     course_banner_storage_subject_id uuid REFERENCES ple_private.course_banner_storage_subject,
     object_delivery_id uuid REFERENCES ple_data.object_delivery,
     created_at timestamptz NOT NULL,
     completed_at timestamptz,
+    CHECK (ple_private.work_lease_pair_is_valid(lease_token, lease_expires_at, created_at)),
     CHECK ((course_banner_storage_subject_id IS NULL) <> (object_delivery_id IS NULL)),
     FOREIGN KEY (course_banner_storage_subject_id, object_record_id)
         REFERENCES ple_private.course_banner_storage_subject (course_banner_storage_subject_id, object_record_id),
@@ -151,6 +154,9 @@ COMMENT ON TABLE ple_private.course_banner_upload IS 'role: event, deleted by Co
 COMMENT ON TABLE ple_private.course_banner_storage_subject IS 'role: current state, deleted by Course delete and object cleanup. HUMAN_GUIDANCE.md Course appearance.';
 
 COMMENT ON TABLE ple_private.course_banner_work IS 'role: event, deleted by Course delete and object cleanup. HUMAN_GUIDANCE.md Course appearance.';
+COMMENT ON COLUMN ple_private.course_banner_work.lease_token IS 'NULL means this optional fact is absent. Shared work-lease pair with lease_expires_at.';
+COMMENT ON COLUMN ple_private.course_banner_work.lease_expires_at IS 'NULL means this optional fact is absent. Shared work-lease pair with lease_token.';
+COMMENT ON COLUMN ple_private.course_banner_work.completed_at IS 'NULL means this optional fact is absent.';
 
 COMMENT ON TABLE ple_private.course_banner_prepared_presentation IS 'role: event, deleted by Course delete and object cleanup. HUMAN_GUIDANCE.md Course appearance.';
 
@@ -173,6 +179,9 @@ COMMENT ON TABLE ple_private.course_banner_upload IS 'role: event, deleted by Co
 COMMENT ON TABLE ple_private.course_banner_storage_subject IS 'role: current state, deleted by Course delete and object cleanup. HUMAN_GUIDANCE.md Course appearance.';
 
 COMMENT ON TABLE ple_private.course_banner_work IS 'role: event, deleted by Course delete and object cleanup. HUMAN_GUIDANCE.md Course appearance.';
+COMMENT ON COLUMN ple_private.course_banner_work.lease_token IS 'NULL means this optional fact is absent. Shared work-lease pair with lease_expires_at.';
+COMMENT ON COLUMN ple_private.course_banner_work.lease_expires_at IS 'NULL means this optional fact is absent. Shared work-lease pair with lease_token.';
+COMMENT ON COLUMN ple_private.course_banner_work.completed_at IS 'NULL means this optional fact is absent.';
 
 COMMENT ON TABLE ple_private.course_banner_prepared_presentation IS 'role: event, deleted by Course delete and object cleanup. HUMAN_GUIDANCE.md Course appearance.';
 
@@ -196,6 +205,9 @@ COMMENT ON TABLE ple_private.course_banner_upload IS 'role: event, deleted by Co
 COMMENT ON TABLE ple_private.course_banner_storage_subject IS 'role: current state, deleted by Course delete and object cleanup. HUMAN_GUIDANCE.md Course appearance.';
 
 COMMENT ON TABLE ple_private.course_banner_work IS 'role: event, deleted by Course delete and object cleanup. HUMAN_GUIDANCE.md Course appearance.';
+COMMENT ON COLUMN ple_private.course_banner_work.lease_token IS 'NULL means this optional fact is absent. Shared work-lease pair with lease_expires_at.';
+COMMENT ON COLUMN ple_private.course_banner_work.lease_expires_at IS 'NULL means this optional fact is absent. Shared work-lease pair with lease_token.';
+COMMENT ON COLUMN ple_private.course_banner_work.completed_at IS 'NULL means this optional fact is absent.';
 
 COMMENT ON TABLE ple_private.course_banner_prepared_presentation IS 'role: event, deleted by Course delete and object cleanup. HUMAN_GUIDANCE.md Course appearance.';
 
@@ -218,6 +230,9 @@ COMMENT ON TABLE ple_private.course_banner_upload IS 'role: event, deleted by Co
 COMMENT ON TABLE ple_private.course_banner_storage_subject IS 'role: current state, deleted by Course delete and object cleanup. HUMAN_GUIDANCE.md Course appearance.';
 
 COMMENT ON TABLE ple_private.course_banner_work IS 'role: event, deleted by Course delete and object cleanup. HUMAN_GUIDANCE.md Course appearance.';
+COMMENT ON COLUMN ple_private.course_banner_work.lease_token IS 'NULL means this optional fact is absent. Shared work-lease pair with lease_expires_at.';
+COMMENT ON COLUMN ple_private.course_banner_work.lease_expires_at IS 'NULL means this optional fact is absent. Shared work-lease pair with lease_token.';
+COMMENT ON COLUMN ple_private.course_banner_work.completed_at IS 'NULL means this optional fact is absent.';
 
 COMMENT ON TABLE ple_private.course_banner_prepared_presentation IS 'role: event, deleted by Course delete and object cleanup. HUMAN_GUIDANCE.md Course appearance.';
 

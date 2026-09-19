@@ -12,10 +12,7 @@ import type {
 import { useApplicationApi } from "../api/application_api";
 import { useSessionBootstrap } from "../auth/session_context";
 import { courseThemeTokens } from "../features/course_appearance/course_theme_registry";
-import {
-  courseInstanceRouteReference,
-  parseBlueprintCourseId,
-} from "../navigation/public_route";
+import { courseInstanceRouteReference, parseBlueprintCourseId } from "../navigation/public_route";
 import { StudentCoursesPage } from "./student_courses_page";
 import {
   CourseClassificationFields,

@@ -16,5 +16,5 @@ GRANT SELECT, INSERT ON ple_audit.automated_grading_receipt TO ple_private_owner
 
 SET LOCAL ROLE ple_private_owner;
 
-REVOKE ALL ON TABLE ple_private.question_response_grading, ple_private.grading_result FROM PUBLIC;
+REVOKE ALL ON TABLE ple_private.grading_result FROM PUBLIC;
 

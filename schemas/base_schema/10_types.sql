@@ -41,10 +41,10 @@ CREATE TYPE ple_data.entry_availability AS ENUM (
     'available', 'retired'
 );
 CREATE TYPE ple_data.question_backend AS ENUM (
-    'ple', 'webwork', 'imathas'
+    'ple', 'webwork'
 );
 CREATE TYPE ple_data.question_format AS ENUM (
-    'pleQuestionJson', 'webworkPg', 'webworkPgml', 'imathas', 'qti'
+    'pleQuestionJson', 'webworkPg', 'webworkPgml', 'qti'
 );
 CREATE TYPE ple_data.question_type AS ENUM (
     'multipleChoice', 'multipleAnswer', 'fillInBlank', 'multipleFillInBlank',
@@ -118,9 +118,6 @@ CREATE TYPE ple_data.notice_state AS ENUM (
 CREATE TYPE ple_data.delivery_state AS ENUM (
     'available', 'pending', 'retired'
 );
-CREATE TYPE ple_data.access_decision AS ENUM (
-    'allowed', 'denied'
-);
 CREATE TYPE ple_data.cleanup_disposition AS ENUM (
     'already_absent', 'deleted', 'retained'
 );
@@ -134,7 +131,7 @@ CREATE TYPE ple_data.ownership_event_kind AS ENUM (
     'initial', 'transferred'
 );
 CREATE TYPE ple_data.import_format AS ENUM (
-    'pleQuestionJson', 'webworkPg', 'webworkPgml', 'qti', 'imathas'
+    'pleQuestionJson', 'webworkPg', 'webworkPgml', 'qti'
 );
 CREATE TYPE ple_data.import_state AS ENUM (
     'staged', 'committed'
@@ -164,15 +161,9 @@ CREATE TYPE ple_data.publication_state AS ENUM (
 CREATE TYPE ple_data.job_state AS ENUM (
     'ready', 'leased', 'completed'
 );
-CREATE TYPE ple_data.question_attempt_state AS ENUM (
-    'open', 'response_finalized', 'closed_unanswered'
-);
 CREATE TYPE ple_data.issued_capability AS ENUM (
     'question_presentation', 'ple_question_json_presentation',
     'webwork_presentation', 'not_applicable'
-);
-CREATE TYPE ple_data.finalization_kind AS ENUM (
-    'student', 'deadline'
 );
 CREATE TYPE ple_data.retention_action_kind AS ENUM (
     'warn_inactive', 'notify_archive'
@@ -234,7 +225,6 @@ GRANT USAGE ON TYPE
     ple_data.thread_state,
     ple_data.notice_state,
     ple_data.delivery_state,
-    ple_data.access_decision,
     ple_data.cleanup_disposition,
     ple_data.invitation_response,
     ple_data.roster_event_kind,
@@ -249,9 +239,7 @@ GRANT USAGE ON TYPE
     ple_data.alternative_kind,
     ple_data.publication_state,
     ple_data.job_state,
-    ple_data.question_attempt_state,
     ple_data.issued_capability,
-    ple_data.finalization_kind,
     ple_data.retention_action_kind,
     ple_data.retention_failure_kind,
     ple_data.repair_result,
@@ -314,7 +302,7 @@ GRANT EXECUTE ON FUNCTION
     ple_private.crockford_checksum_character(text),
     ple_private.is_canonical_prefixed_public_id(text, text),
     ple_private.is_canonical_question_family_id(text)
-    TO ple_data_owner, ple_audit_owner, ple_api_owner;
+    TO PUBLIC;
 
 SET LOCAL ROLE ple_data_owner;
 

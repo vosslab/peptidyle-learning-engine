@@ -1279,6 +1279,64 @@ evidence and state the target Human Guidance term or behavior nearby.
 **Why.** Pretending old implementation does not exist is inaccurate; treating
 it as product authority perpetuates it.
 
+### Public IDs are the only stored identity for public aggregates
+
+**Decision.** Account, Course Instance, Assessment, Blueprint Course, Published
+Question, and Question Pool primary keys are the public ID domains. There is
+no parallel UUID key and no `reference_number` or `public_reference` column.
+
+**Why.** Human Guidance names those public IDs; dual identity forced every
+reader to choose which key was real.
+
+**Consequence.** Rust and TypeScript wrappers are `AccountId`,
+`CourseInstanceId`, `AssessmentId`, and `BlueprintCourseId` over `String`.
+SQL keys follow DATABASE_STYLE (`published_question_id`,
+`course_instance_id`). HTTP ETags are the aggregate Edit Number as a decimal
+string. Assessment Attempts, Assessment Entries, and sessions stay UUID
+because they are not Human Guidance public IDs. Browser JSON still uses a
+`reference` field for those public IDs (and `CourseSummary` still emits both
+`id` and `reference` with the same `CourseInstanceId`) so the API contract
+stays unchanged except WP-3.8. SQL function result columns may alias
+`public_reference` to the public-ID PK for that same reason. There is no
+second stored key.
+
+### Frozen Assessment policy and Entry facts are content-addressed snapshots
+
+**Decision.** Equal Assessment policies share one
+`assessment_policy_snapshot` row (SHA-256 primary key). Equal Entry
+configurations share one `assessment_entry_snapshot`. Attempts pin those
+rows; later Assessment edits do not rewrite already-started work.
+
+**Why.** Copying title, instructions, and policy strings onto every Attempt
+multiplies the fastest-growing rows and cannot be made consistent later.
+
+**Consequence.** Score readers apply current Entry points to the frozen
+normalized credit. Scoring rules stay on the Entry snapshot.
+
+### Saved responses finalize in place
+
+**Decision.** There is no `question_response` copy and no
+`question_response_grading` wrapper. Submission sets `finalized_at` and
+`assessment_submission_id` on `assessment_attempt_saved_response`.
+
+**Why.** Finalized bytes were stored twice; derived state columns drifted
+from the facts that implied them.
+
+**Consequence.** Unanswered Issued Questions have no saved-response row.
+JSON may still project `question_attempt_state` and
+`question_response_count` from remaining facts.
+
+### Question Pools are current state
+
+**Decision.** Pools are not a Revision family. Members live in
+`question_pool_member`. Saves compare-and-swap the Pool Edit Number.
+
+**Why.** Human Guidance treats Pool membership as current authored state,
+not an immutable Revision history.
+
+**Consequence.** Student Work pins Question ID, Question Revision, Pool ID,
+and Pool Edit Number. Forks copy current members once.
+
 ## Unresolved decisions
 
 The complete Student Ribbon task layout and the complete Sysadmin Ribbon task

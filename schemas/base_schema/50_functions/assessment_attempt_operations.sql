@@ -250,9 +250,8 @@ BEGIN
        AND next_assessment_attempt_number > effective_assessment_attempt_limit THEN
         RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Assessment Attempt limit is reached';
     END IF;
-    IF assessment_row.course_instance_id IS DISTINCT FROM (
-        SELECT student.course_instance_id FROM ple_data.student_record AS student
-         WHERE student.student_record_id = p_student_record_id
+    IF NOT ple_data.student_assessment_has_course_scope(
+        p_student_record_id, p_assessment_id
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Assessment Attempt requires a Student and Assessment in one Course';
@@ -490,13 +489,13 @@ $$;
 
 CREATE FUNCTION ple_api.course_display_for_assessment_attempt(p_course_instance_id text)
 RETURNS TABLE (
-    course_reference_number text,
+    course_instance_id text,
     course_short_name text,
     course_long_name text,
     course_theme text
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
-    SELECT course.course_instance_id,
+    SELECT course.course_instance_id::text,
            course.course_short_name,
            course.course_long_name,
            course.course_theme_id
@@ -687,8 +686,8 @@ BEGIN
     END IF;
     RETURN QUERY
     SELECT assessment_attempt.assessment_attempt_id,
-           course.course_instance_id,
-           assessment.assessment_id,
+           course.course_instance_id::text,
+           assessment.assessment_id::text,
            assessment_attempt.assessment_attempt_number,
            policy.assessment_title,
            policy.assessment_instructions
@@ -751,7 +750,7 @@ BEGIN
        AND source.revision_number = issued.revision_number
      WHERE issued.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id
        AND issued.issued_position = p_issued_position
-       AND question_attempt.question_attempt_state = 'open'
+       AND question_attempt.finalized_at IS NULL
        AND ple_private.question_backend_is_supported_for_production(source.backend)
      FOR UPDATE OF question_attempt;
     IF NOT FOUND THEN
@@ -791,11 +790,12 @@ BEGIN
     assessment_attempt_row := ple_private.assert_current_student_assessment_attempt(p_assessment_attempt_id);
     RETURN QUERY
     SELECT assessment_attempt_row.assessment_attempt_id, count(*) OVER ()::integer,
-           min(issued.issued_position) FILTER (WHERE question_attempt.question_attempt_state = 'open'
+           min(issued.issued_position) FILTER (WHERE question_attempt.finalized_at IS NULL
                AND response.question_attempt_id IS NULL) OVER (),
            issued.issued_position,
-           CASE WHEN question_attempt.question_attempt_state = 'response_finalized' THEN 'submitted'
-                WHEN question_attempt.question_attempt_state = 'closed_unanswered' THEN 'closed'
+           CASE WHEN question_attempt.finalized_at IS NOT NULL
+                     AND response.question_attempt_id IS NOT NULL THEN 'submitted'
+                WHEN question_attempt.finalized_at IS NOT NULL THEN 'closed'
                 WHEN response.question_attempt_id IS NOT NULL THEN 'saved' ELSE 'unanswered' END
       FROM ple_private.issued_question AS issued
       JOIN ple_private.question_attempt ON question_attempt.issued_question_id = issued.issued_question_id
@@ -895,8 +895,10 @@ BEGIN
            issued.issued_position, issued.published_question_id, issued.revision_number,
            question_attempt.question_seed, question_attempt.generated_parameter_sha256,
            snapshot.question_attempt_limit, snapshot.question_attempt_time_limit_seconds,
-           snapshot.question_attempt_grace_seconds, question_attempt.question_attempt_state,
-           COALESCE(submission.student_response, response.student_response)
+           snapshot.question_attempt_grace_seconds,
+           ple_private.projected_question_attempt_state(
+               question_attempt.finalized_at, response.question_attempt_id IS NOT NULL),
+           response.student_response
       FROM ple_private.issued_question AS issued
       JOIN ple_private.assessment_entry_snapshot AS snapshot
         ON snapshot.assessment_entry_snapshot_id = issued.assessment_entry_snapshot_id
@@ -904,7 +906,6 @@ BEGIN
         ON policy.assessment_policy_snapshot_id = assessment_attempt_row.assessment_policy_snapshot_id
       JOIN ple_private.question_attempt ON question_attempt.issued_question_id = issued.issued_question_id
       LEFT JOIN ple_private.assessment_attempt_saved_response AS response ON response.question_attempt_id = question_attempt.question_attempt_id
-      LEFT JOIN ple_private.question_response AS submission ON submission.question_attempt_id = question_attempt.question_attempt_id
      WHERE issued.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id
      ORDER BY issued.issued_position;
 END $$;

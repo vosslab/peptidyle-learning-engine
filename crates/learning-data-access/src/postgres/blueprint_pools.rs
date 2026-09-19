@@ -3,9 +3,8 @@ use super::connection::map_sqlx_error;
 use crate::blueprint_course::StoredBlueprintAssessmentEntry;
 use crate::{CourseInstancePoolIdIssuer, StoreError, StoredBlueprintCourseContent};
 use question_model::{
-    BlueprintAssessmentId, BlueprintCourseId, BlueprintPoolInputChoice,
-    BlueprintRevision, QuestionPoolRevisionNumber, QuestionPoolRevisionReference,
-    QuestionRevisionReference,
+    BlueprintAssessmentId, BlueprintCourseId, BlueprintPoolInputChoice, BlueprintRevision,
+    QuestionPoolRevisionNumber, QuestionPoolRevisionReference, QuestionRevisionReference,
 };
 use sqlx::{Postgres, Row, Transaction};
 

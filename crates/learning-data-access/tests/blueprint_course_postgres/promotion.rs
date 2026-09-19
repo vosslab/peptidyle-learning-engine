@@ -37,16 +37,30 @@ pub(super) async fn promotion_boundary(
         .execute(&mut *transaction)
         .await
         .expect("private owner");
-    sqlx::query("INSERT INTO ple_private.account (account_id, product_role, created_at) VALUES ($1,'sysadmin',clock_timestamp())")
-        .bind(id(0xb105)).execute(&mut *transaction).await.expect("Sysadmin fixture");
-    for (session, account, role, token) in [
-        (0xb106, 0xb105, "sysadmin", sysadmin),
-        (0xb107, 0xb104, "student", student),
-    ] {
-        sqlx::query("INSERT INTO ple_private.authenticated_session (session_id,account_id,product_role,token_hash,created_at,expires_at) VALUES ($1,$2,$3,decode($4,'hex'),clock_timestamp(),clock_timestamp()+interval '1 hour')")
-            .bind(id(session)).bind(id(account)).bind(role).bind(token.to_string())
-            .execute(&mut *transaction).await.expect("promotion role session");
-    }
+    let sysadmin_id: String = sqlx::query_scalar(
+        "INSERT INTO ple_private.account (account_id, product_role, created_at) \
+         VALUES ('U00000009', 'sysadmin', clock_timestamp()) RETURNING account_id",
+    )
+    .fetch_one(&mut *transaction)
+    .await
+    .expect("Sysadmin fixture");
+    sqlx::query(
+        "INSERT INTO ple_private.authenticated_session \
+         (session_id, account_id, product_role, token_hash, created_at, expires_at) \
+         VALUES ($1, $2, 'sysadmin', decode($3, 'hex'), clock_timestamp(), \
+                 clock_timestamp() + interval '1 hour'), \
+                ($4, $5, 'student', decode($6, 'hex'), clock_timestamp(), \
+                 clock_timestamp() + interval '1 hour')",
+    )
+    .bind(id(0xb106))
+    .bind(&sysadmin_id)
+    .bind(sysadmin.to_string())
+    .bind(id(0xb107))
+    .bind(student_account_id())
+    .bind(student.to_string())
+    .execute(&mut *transaction)
+    .await
+    .expect("promotion role session");
     transaction.commit().await.expect("fixture commit");
     admin.close().await;
     let initial = store

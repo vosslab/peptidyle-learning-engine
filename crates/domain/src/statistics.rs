@@ -6,13 +6,16 @@
 
 mod version_counts;
 
-pub use version_counts::{QuestionRevisionStatistics, QuestionStatisticsObservation};
+pub use version_counts::{
+    QuestionPoolMemberStatistics, QuestionPoolStatistics, QuestionRevisionStatistics,
+    QuestionStatisticsObservation,
+};
 
 /// A rejected exact-count Question Statistics operation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StatisticsError {
-    /// An eligible choice ID cannot identify a selection count.
-    InvalidChoiceIdentifier,
+    /// Normalized credit is outside `[0, 1]` after 10^8 scaling.
+    InvalidCredit,
     /// An integer aggregate counter could not represent another contribution.
     CounterOverflow,
 }
@@ -20,9 +23,7 @@ pub enum StatisticsError {
 impl std::fmt::Display for StatisticsError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::InvalidChoiceIdentifier => {
-                formatter.write_str("statistics choice identifier must be nonempty")
-            }
+            Self::InvalidCredit => formatter.write_str("statistics credit must be between 0 and 1"),
             Self::CounterOverflow => formatter.write_str("statistics counter overflow"),
         }
     }

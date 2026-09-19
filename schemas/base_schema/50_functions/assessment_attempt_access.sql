@@ -27,7 +27,7 @@ LANGUAGE plpgsql IMMUTABLE SET search_path = pg_catalog AS $$
 BEGIN
     -- ASVS 2.2.1: reject values outside the closed stored-policy contract.
     IF p_assessment_status IS NULL
-       OR p_assessment_status NOT IN ('unreleased', 'released', 'closed', 'archived')
+       OR p_assessment_status NOT IN ('unreleased', 'released')
        OR p_late_work_rule IS NULL
        OR p_late_work_rule NOT IN ('accept', 'mark_late', 'reject')
        OR p_started_assessment_attempt_count IS NULL
@@ -132,7 +132,15 @@ BEGIN
                COALESCE(sum(ple_private.grade_contribution_points_possible(
                    assessment_row.assessment_type,
                    snapshot.scoring_rule,
+                   coalesce(
+                   (SELECT question.points_possible
+                      FROM ple_data.assessment_entry_question AS question
+                     WHERE question.assessment_entry_id = issued.assessment_entry_id),
+                   (SELECT pool.points_per_item
+                      FROM ple_data.assessment_entry_pool AS pool
+                     WHERE pool.assessment_entry_id = issued.assessment_entry_id),
                    snapshot.points
+               )
                )), 0)::double precision
           INTO question_count, points_possible
           FROM ple_private.issued_question AS issued

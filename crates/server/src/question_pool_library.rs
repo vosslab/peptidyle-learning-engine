@@ -23,7 +23,7 @@ use learning_data_access::{
 };
 use objects::s3::S3ObjectStore;
 use question_model::{
-    AssessmentEntryId, AssessmentQuestionPoolForkView, AssessmentId,
+    AssessmentEntryId, AssessmentId, AssessmentQuestionPoolForkView,
     BloomClassificationCorrectionRequest, BloomCognitiveProcess, BloomKnowledgeDimension,
     CourseInstanceId, ProductRole, QuestionId, QuestionPoolBloomCorrectionReceipt,
     QuestionPoolBloomFacets, QuestionPoolLibraryPage, QuestionPoolRevisionMemberView,
@@ -125,7 +125,7 @@ async fn list_pools(
         Ok(value) => value,
         Err(_) => return bad_request("Question Pool page size is invalid"),
     };
-    let token = match library_reader(&state, &headers).await {
+    let (token, _) = match library_reader(&state, &headers).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -203,7 +203,7 @@ async fn current_pool(
         Some(value) => value,
         None => return concealed(),
     };
-    let token = match library_reader(&state, &headers).await {
+    let (token, is_instructor) = match library_reader(&state, &headers).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -218,6 +218,7 @@ async fn current_pool(
     match revision_view(
         &state,
         token,
+        is_instructor,
         revision.question_pool_revision,
         revision.metadata,
         revision.bloom,
@@ -248,7 +249,7 @@ async fn exact_pool_revision(
         Some(value) => value,
         None => return concealed(),
     };
-    let token = match library_reader(&state, &headers).await {
+    let (token, is_instructor) = match library_reader(&state, &headers).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -269,6 +270,7 @@ async fn exact_pool_revision(
     match revision_view(
         &state,
         token,
+        is_instructor,
         revision.question_pool_revision,
         revision.metadata,
         revision.bloom,
@@ -370,7 +372,7 @@ async fn assessment_fork(
         Ok(value) => value,
         Err(error) => return store_error(error),
     };
-    let members = match revision_members(&state, token, record.members).await {
+    let members = match revision_members(&state, token, true, record.members).await {
         Ok(value) => value,
         Err(response) => return response,
     };
@@ -395,26 +397,65 @@ async fn assessment_fork(
 async fn revision_view(
     state: &RouteState,
     token: SessionTokenHash,
+    is_instructor: bool,
     question_pool_revision: question_model::QuestionPoolRevisionReference,
     metadata: question_model::QuestionPoolMetadata,
     bloom: Option<question_model::BloomClassificationView>,
     members: Vec<question_model::QuestionRevisionReference>,
 ) -> Result<QuestionPoolRevisionView, Response> {
-    let members = revision_members(state, token, members).await?;
+    let evidence = pool_evidence(
+        state,
+        token,
+        is_instructor,
+        &question_pool_revision.question_pool_id,
+    )
+    .await?;
+    let members = revision_members(state, token, is_instructor, members).await?;
     Ok(QuestionPoolRevisionView {
         metadata,
         question_pool_revision,
         bloom,
         members,
+        evidence,
     })
+}
+
+#[allow(clippy::result_large_err)]
+async fn pool_evidence(
+    state: &RouteState,
+    token: SessionTokenHash,
+    is_instructor: bool,
+    question_pool_id: &QuestionId,
+) -> Result<question_model::QuestionStatistics, Response> {
+    if !is_instructor {
+        return Ok(question_model::QuestionStatistics::Unavailable);
+    }
+    let (pool_issued_count, totals) = state
+        .pools
+        .load_question_pool_usage_statistics(token, question_pool_id)
+        .await
+        .map_err(store_error)?;
+    Ok(totals.into_available(None, Some(pool_issued_count)))
 }
 
 #[allow(clippy::result_large_err)]
 async fn revision_members(
     state: &RouteState,
     token: SessionTokenHash,
+    is_instructor: bool,
     members: Vec<question_model::QuestionRevisionReference>,
 ) -> Result<Vec<QuestionPoolRevisionMemberView>, Response> {
+    let question_ids = members
+        .iter()
+        .map(|member| member.question_id.clone())
+        .collect::<Vec<_>>();
+    let evidence = crate::question_library::bulk_question_statistics(
+        &state.questions,
+        token,
+        is_instructor,
+        &question_ids,
+    )
+    .await?;
     let mut views = Vec::with_capacity(members.len());
     for (position, member) in members.into_iter().enumerate() {
         let entry = state
@@ -422,7 +463,8 @@ async fn revision_members(
             .load_published_question_revision_library_entry(token, &member)
             .await
             .map_err(store_error)?;
-        let question = answer_free_reusable_question_view(&state.objects, entry)
+        let member_evidence = crate::question_library::evidence_for(&member.question_id, &evidence);
+        let question = answer_free_reusable_question_view(&state.objects, entry, member_evidence)
             .await
             .map_err(|_| unavailable())?;
         views.push(QuestionPoolRevisionMemberView {
@@ -623,7 +665,7 @@ async fn instructor(
 async fn library_reader(
     state: &RouteState,
     headers: &HeaderMap,
-) -> Result<SessionTokenHash, Box<Response>> {
+) -> Result<(SessionTokenHash, bool), Box<Response>> {
     let cookies = headers
         .get_all(COOKIE)
         .iter()
@@ -638,7 +680,10 @@ async fn library_reader(
                 ProductRole::Instructor | ProductRole::Sysadmin
             ) =>
         {
-            Ok(session.session_hash)
+            Ok((
+                session.session_hash,
+                session.record.product_role == ProductRole::Instructor,
+            ))
         }
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
         Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(unavailable())),

@@ -56,12 +56,14 @@ CREATE INDEX library_impact_notice_object_idx
 CREATE INDEX library_watch_event_pending_idx
     ON ple_data.library_watch_event(occurred_at, event_id) WHERE processed_at IS NULL;
 
-SET LOCAL ROLE ple_private_owner;
+SET LOCAL ROLE ple_data_owner;
 
-CREATE INDEX library_watch_notification_recipient_idx
-    ON ple_private.library_watch_notification(
-        recipient_account_id, occurred_at DESC, notification_id DESC
-    );
+-- Inbox reads filter by recipient and join to event; the composite PK leads
+-- with event_id, so this referencing-side index serves the Watch feed.
+CREATE INDEX library_watch_event_recipient_account_idx
+    ON ple_data.library_watch_event_recipient(recipient_account_id, library_watch_event_id);
+
+SET LOCAL ROLE ple_private_owner;
 
 CREATE UNIQUE INDEX object_storage_check_delivery_once
     ON ple_private.object_storage_check (object_delivery_id) WHERE object_delivery_id IS NOT NULL;
@@ -132,11 +134,15 @@ SET LOCAL ROLE ple_private_owner;
 CREATE INDEX assessment_attempt_student_assessment_lookup_idx
     ON ple_private.assessment_attempt(student_record_id, assessment_id, assessment_attempt_number DESC);
 
+-- Unrelease deletes Student Work by Assessment ID. The primary key leads with
+-- course_instance_id, so this referencing-side index matches that purge and
+-- covers the (assessment_id, course_instance_id) foreign key.
+CREATE INDEX assessment_attempt_assessment_id_idx
+    ON ple_private.assessment_attempt(assessment_id, course_instance_id);
+
 CREATE INDEX assessment_attempt_expiry_sweep_idx
     ON ple_private.assessment_attempt(expires_at, assessment_attempt_id)
     WHERE expires_at IS NOT NULL;
-
-CREATE INDEX imathas_question_backend_session_active_lookup_idx ON ple_private.imathas_question_backend_session(imathas_question_backend_session_id, account_id, expires_at) WHERE revoked_at IS NULL AND consumed_at IS NULL;
 
 CREATE INDEX job_ready_claim_idx ON ple_private.job(available_at, job_id)
     WHERE state = 'ready';
@@ -147,4 +153,33 @@ CREATE INDEX job_expired_lease_idx ON ple_private.job(lease_expires_at, job_id)
 CREATE INDEX course_retention_notification_claim_idx
     ON ple_private.course_retention_notification (due_at, notification_id)
     WHERE provider_accepted_at IS NULL;
+
+-- Authentication growth sweep (WP-3.7): 7-day grace after expiry, revoke, or
+-- consume. Partial indexes match those predicates.
+CREATE INDEX authenticated_session_expired_sweep_idx
+    ON ple_private.authenticated_session (expires_at)
+    WHERE revoked_at IS NULL;
+
+CREATE INDEX authenticated_session_revoked_sweep_idx
+    ON ple_private.authenticated_session (revoked_at)
+    WHERE revoked_at IS NOT NULL;
+
+CREATE INDEX email_authentication_challenge_expired_sweep_idx
+    ON ple_private.email_authentication_challenge (expires_at)
+    WHERE consumed_at IS NULL;
+
+CREATE INDEX email_authentication_challenge_consumed_sweep_idx
+    ON ple_private.email_authentication_challenge (consumed_at)
+    WHERE consumed_at IS NOT NULL;
+
+CREATE INDEX passkey_ceremony_expired_sweep_idx
+    ON ple_private.passkey_ceremony (expires_at)
+    WHERE consumed_at IS NULL;
+
+CREATE INDEX passkey_ceremony_consumed_sweep_idx
+    ON ple_private.passkey_ceremony (consumed_at)
+    WHERE consumed_at IS NOT NULL;
+
+CREATE INDEX authentication_rate_limit_sweep_idx
+    ON ple_private.authentication_rate_limit (window_started_at);
 

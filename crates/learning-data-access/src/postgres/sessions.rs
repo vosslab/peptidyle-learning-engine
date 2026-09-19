@@ -119,7 +119,7 @@ fn decode_session_row(row: &PgRow) -> Result<SessionRecord, StoreError> {
     Ok(SessionRecord {
         id: SessionId::from_uuid(session_id),
         token_hash,
-        account: account,
+        account,
         product_role: decode_product_role(&product_role)?,
         created_at: Timestamp::from_unix_millis(created_at_millis),
         expires_at: Timestamp::from_unix_millis(expires_at_millis),

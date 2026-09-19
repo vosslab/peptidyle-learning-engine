@@ -15,7 +15,7 @@ import { publishedQuestionFixture } from "./fixtures/published_question.ts";
 
 const { scope: _scope, ...questionSummary } = publishedQuestionFixture.publishedQuestion;
 const publishedQuestion = { ...questionSummary, questionFormat: "pleQuestionJson" };
-const metadataEtag = "018f5e7d-01b6-7c14-8a0b-4bfef6390d6d";
+const blueprintEditNumber = "1";
 const classification = {
   disciplineUuid: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6d",
   subjectUuid: null,
@@ -103,7 +103,7 @@ function blueprint(revision = "3") {
     short_name: "Biochemistry",
     long_name: "Biochemistry sequence",
     availability: "private",
-    metadata_etag: metadataEtag,
+    blueprint_edit_number: blueprintEditNumber,
     current_revision: { reference: "BP7K3M2QAF", revision },
     fork_source: null,
     read_access: "blueprint_course_owner",
@@ -167,7 +167,7 @@ function replacementInput() {
 
 test("Course classification metadata updates send explicit hierarchy with independent strong validators", async () => {
   const requests = [];
-  const nextEtag = "018f5e7d-01b6-7c14-8a0b-4bfef6390d6e";
+  const nextEtag = "2";
   const selected = { ...classification, tags: ["review"] };
   const client = createHttpApiClient({
     fetch: async (path, options) => {
@@ -178,24 +178,24 @@ test("Course classification metadata updates send explicit hierarchy with indepe
             long_name: "Biochemistry sequence",
             availability: "private",
             classification: selected,
-            metadata_etag: nextEtag,
+            blueprint_edit_number: nextEtag,
           }
-        : { classification: selected, metadataEtag: nextEtag, changed: true };
+        : { classification: selected, courseEditNumber: nextEtag, changed: true };
       return noStoreJson(body, `"${nextEtag}"`);
     },
   });
   const blueprintReceipt = await client.updateBlueprintCourseClassification(
     "BP7K3M2QAF",
     selected,
-    `"${metadataEtag}"`,
+    blueprintEditNumber,
   );
   const instanceReceipt = await client.updateCourseInstanceClassification(
     "CI6F2R8TA0",
     selected,
-    metadataEtag,
+    blueprintEditNumber,
   );
-  assert.equal(blueprintReceipt.metadataEtag, `"${nextEtag}"`);
-  assert.equal(instanceReceipt.metadataEtag, nextEtag);
+  assert.equal(blueprintReceipt.metadata.blueprint_edit_number, nextEtag);
+  assert.equal(instanceReceipt.courseEditNumber, nextEtag);
   assert.equal(instanceReceipt.changed, true);
   assert.deepEqual(
     requests.map(({ path }) => path),
@@ -206,7 +206,7 @@ test("Course classification metadata updates send explicit hierarchy with indepe
   );
   for (const { options } of requests) {
     assert.equal(options.method, "PUT");
-    assert.equal(options.headers["if-match"], `"${metadataEtag}"`);
+    assert.equal(options.headers["if-match"], `"${blueprintEditNumber}"`);
     assert.deepEqual(JSON.parse(options.body), selected);
   }
 });
@@ -224,7 +224,7 @@ function noStoreJson(value, etag, status = 200) {
 
 test("B1 Blueprint Course decoder exposes one current Revision and opaque metadata", () => {
   assert.equal(decodeBlueprintCourseView(blueprint()).current_revision.revision, "3");
-  assert.equal(decodeBlueprintCourseView(blueprint()).metadata_etag, metadataEtag);
+  assert.equal(decodeBlueprintCourseView(blueprint()).blueprint_edit_number, blueprintEditNumber);
   const missingType = structuredClone(blueprint());
   delete missingType.modules[0].assessments[0].content.assessment_type;
   assert.throws(() => decodeBlueprintCourseView(missingType), DecodeError);
@@ -295,7 +295,7 @@ test("Blueprint classification discovery encodes identity filters and rejects in
     crossDiscipline: false,
   };
   const filters = {
-    disciplineUuid: metadataEtag,
+    disciplineUuid: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6d",
     subjectUuid: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6e",
     topicUuid: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6f",
     subtopicUuid: "018f5e7d-01b6-7c14-8a0b-4bfef6390d70",
@@ -338,27 +338,27 @@ test("B1 client sends Revision and metadata validators to their separate routes"
     short_name: "Biochemistry",
     long_name: "Biochemistry sequence",
     availability: "private",
-    metadata_etag: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6f",
+    blueprint_edit_number: "1",
   };
   const publishedMetadata = {
     ...renamedMetadata,
     availability: "public",
-    metadata_etag: "018f5e7d-01b6-7c14-8a0b-4bfef6390d70",
+    blueprint_edit_number: "1",
   };
   const archivedMetadata = {
     ...publishedMetadata,
     availability: "archived",
-    metadata_etag: "018f5e7d-01b6-7c14-8a0b-4bfef6390d71",
+    blueprint_edit_number: "1",
   };
   const restoredMetadata = {
     ...archivedMetadata,
     availability: "public",
-    metadata_etag: "018f5e7d-01b6-7c14-8a0b-4bfef6390d72",
+    blueprint_edit_number: "1",
   };
   const privateMetadata = {
     ...restoredMetadata,
     availability: "private",
-    metadata_etag: "018f5e7d-01b6-7c14-8a0b-4bfef6390d73",
+    blueprint_edit_number: "1",
   };
   const client = createHttpApiClient({
     fetch: async (input, init) => {
@@ -366,15 +366,15 @@ test("B1 client sends Revision and metadata validators to their separate routes"
       requests.push(request.clone());
       const path = new URL(request.url).pathname;
       if (path.endsWith("/metadata"))
-        return noStoreJson(renamedMetadata, `"${renamedMetadata.metadata_etag}"`);
+        return noStoreJson(renamedMetadata, `"${renamedMetadata.blueprint_edit_number}"`);
       if (path.endsWith("/publish"))
-        return noStoreJson(publishedMetadata, `"${publishedMetadata.metadata_etag}"`);
+        return noStoreJson(publishedMetadata, `"${publishedMetadata.blueprint_edit_number}"`);
       if (path.endsWith("/archive"))
-        return noStoreJson(archivedMetadata, `"${archivedMetadata.metadata_etag}"`);
+        return noStoreJson(archivedMetadata, `"${archivedMetadata.blueprint_edit_number}"`);
       if (path.endsWith("/restore"))
-        return noStoreJson(restoredMetadata, `"${restoredMetadata.metadata_etag}"`);
+        return noStoreJson(restoredMetadata, `"${restoredMetadata.blueprint_edit_number}"`);
       if (path.endsWith("/return-to-private"))
-        return noStoreJson(privateMetadata, `"${privateMetadata.metadata_etag}"`);
+        return noStoreJson(privateMetadata, `"${privateMetadata.blueprint_edit_number}"`);
       if (path.endsWith("/revisions/3"))
         return noStoreJson({
           blueprintRevision: { reference: "BP7K3M2QAF", revision: "3" },
@@ -400,16 +400,19 @@ test("B1 client sends Revision and metadata validators to their separate routes"
   const renamed = await client.renameBlueprintCourse(
     "BP7K3M2QAF",
     { short_name: "Biochemistry", long_name: "Biochemistry sequence" },
-    `"${metadataEtag}"`,
+    blueprintEditNumber,
   );
-  const published = await client.publishBlueprintCourse("BP7K3M2QAF", renamed.metadataEtag);
+  const published = await client.publishBlueprintCourse("BP7K3M2QAF", renamed.blueprintEditNumber);
   const archived = await client.archiveBlueprintCourse(
     "BP7K3M2QAF",
     "Biochemistry sequence",
-    published.metadataEtag,
+    published.blueprintEditNumber,
   );
-  const restored = await client.restoreBlueprintCourse("BP7K3M2QAF", archived.metadataEtag);
-  const returned = await client.returnBlueprintCourseToPrivate("BP7K3M2QAF", restored.metadataEtag);
+  const restored = await client.restoreBlueprintCourse("BP7K3M2QAF", archived.blueprintEditNumber);
+  const returned = await client.returnBlueprintCourseToPrivate(
+    "BP7K3M2QAF",
+    restored.blueprintEditNumber,
+  );
   const revision = await client.getBlueprintRevision("BP7K3M2QAF", "3");
   assert.equal(current.blueprintCourse.modules[0].assessments[0].content.assessment_type, "exam");
   assert.equal(saved.changed, true);
@@ -582,7 +585,7 @@ test("B1 metadata decoder rejects non-opaque validators", () => {
         short_name: "Short",
         long_name: "Long",
         availability: "available",
-        metadata_etag: "7",
+        blueprint_edit_number: "7",
       }),
     DecodeError,
   );
@@ -599,7 +602,7 @@ test("Blueprint lifecycle metadata accepts only the generated public states", ()
         short_name: "Short",
         long_name: "Long",
         availability,
-        metadata_etag: metadataEtag,
+        blueprint_edit_number: blueprintEditNumber,
       }).availability,
       availability,
     );
@@ -611,7 +614,7 @@ test("Blueprint lifecycle metadata accepts only the generated public states", ()
         short_name: "Short",
         long_name: "Long",
         availability: "available",
-        metadata_etag: metadataEtag,
+        blueprint_edit_number: blueprintEditNumber,
       }),
     DecodeError,
   );

@@ -41,7 +41,7 @@ SET LOCAL ROLE ple_data_owner;
 GRANT EXECUTE ON FUNCTION ple_data.reject_blueprint_course_watch_notification_change()
     TO ple_private_owner;
 
-REVOKE ALL ON FUNCTION ple_data.fan_out_blueprint_course_watch_notifications(text, text, bigint, timestamptz),
+REVOKE ALL ON FUNCTION ple_data.fan_out_blueprint_course_watch_notifications(text, text, uuid, timestamptz),
     ple_data.enqueue_blueprint_course_watch_revision(),
     ple_data.enqueue_blueprint_course_watch_lifecycle_change(),
     ple_data.read_current_blueprint_course_star(text),

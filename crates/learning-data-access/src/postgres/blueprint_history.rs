@@ -2,9 +2,7 @@
 
 use async_trait::async_trait;
 use browser_api_contract::blueprint_course::BlueprintHistoryEntryView;
-use question_model::{
-    BlueprintAvailability, BlueprintCourseId, BlueprintRevision, Timestamp,
-};
+use question_model::{BlueprintAvailability, BlueprintCourseId, BlueprintRevision, Timestamp};
 use sqlx::Row;
 
 use super::{blueprint_course::PostgresBlueprintCourseStore, connection::map_sqlx_error};

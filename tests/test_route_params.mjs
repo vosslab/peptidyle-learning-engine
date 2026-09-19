@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { routeParams, routeScopeKey } from "../src/navigation/route_params.ts";
 import {
-  parseBlueprintCourseReference,
+  parseBlueprintCourseId,
   parsePublicRouteReference,
 } from "../src/navigation/public_route.ts";
 import { ROUTE_CONTRACT, routeContractForPathname } from "../src/route_contract.ts";
@@ -99,7 +99,7 @@ test("a structural declared route copy zips the selected canonical pattern", () 
 });
 
 test("Blueprint Course references use the shared public route parser", () => {
-  assert.equal(parseBlueprintCourseReference("BPABCDEFGJ"), "BPABCDEFGJ");
+  assert.equal(parseBlueprintCourseId("BPABCDEFGJ"), "BPABCDEFGJ");
   assert.equal(parsePublicRouteReference("BPABCDEFGJ"), "BPABCDEFGJ");
 });
 

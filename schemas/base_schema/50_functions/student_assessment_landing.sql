@@ -233,28 +233,21 @@ SET search_path = pg_catalog, ple_data, ple_private, ple_audit AS $$
                 SELECT count(DISTINCT question_attempt.question_attempt_id) = 1
                            AND (
                                coalesce(bool_and(
-                                   question_attempt.question_attempt_state = 'closed_unanswered'
+                                   question_attempt.finalized_at IS NOT NULL
+                                   AND saved.question_attempt_id IS NULL
                                ), false)
                                OR (
-                                   count(DISTINCT question_response.question_response_id) = 1
-                                   AND count(DISTINCT grading.question_response_grading_id) = 1
-                                   AND count(DISTINCT result.grading_result_id) = 1
+                                   count(DISTINCT result.grading_result_id) = 1
                                    AND count(DISTINCT receipt.automated_grading_receipt_id) = 1
-                                   AND coalesce(bool_and(grading.grading_state = 'graded'), false)
                                )
                            ) AS is_complete
                   FROM ple_private.question_attempt AS question_attempt
-                  LEFT JOIN ple_private.question_response AS question_response
-                    ON question_response.question_attempt_id = question_attempt.question_attempt_id
-                  LEFT JOIN ple_private.question_response_grading AS grading
-                    ON grading.question_response_id = question_response.question_response_id
+                  LEFT JOIN ple_private.assessment_attempt_saved_response AS saved
+                    ON saved.question_attempt_id = question_attempt.question_attempt_id
                   LEFT JOIN ple_private.grading_result AS result
-                    ON result.question_response_grading_id = grading.question_response_grading_id
-                   AND result.question_response_id = question_response.question_response_id
-                   AND result.question_attempt_id = question_attempt.question_attempt_id
+                    ON result.question_attempt_id = question_attempt.question_attempt_id
                   LEFT JOIN ple_audit.automated_grading_receipt AS receipt
-                    ON receipt.question_response_grading_id = grading.question_response_grading_id
-                   AND receipt.grading_result_id = result.grading_result_id
+                    ON receipt.grading_result_id = result.grading_result_id
                  WHERE question_attempt.issued_question_id = issued.issued_question_id
             ) AS chain ON true
            WHERE issued.assessment_attempt_id = assessment_attempt.assessment_attempt_id

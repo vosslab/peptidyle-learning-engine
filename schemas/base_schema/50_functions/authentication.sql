@@ -85,7 +85,7 @@ CREATE FUNCTION ple_private.create_authenticated_session(
 RETURNS TABLE (session_id uuid, token_hash bytea, account_id text, product_role text,
                created_at timestamp with time zone, expires_at timestamp with time zone)
 LANGUAGE plpgsql SECURITY DEFINER
-SET search_path = pg_catalog, ple_private
+SET search_path = pg_catalog, ple_private, ple_data
 AS $$
 DECLARE v_role text; v_now timestamptz := pg_catalog.transaction_timestamp();
 BEGIN
@@ -109,10 +109,10 @@ BEGIN
     END IF;
     RETURN QUERY INSERT INTO ple_private.authenticated_session (
         session_id, account_id, product_role, token_hash, created_at, expires_at
-    ) VALUES (p_session_id, p_account_id, v_role, p_token_hash, v_now,
+    ) VALUES (p_session_id, p_account_id, v_role::ple_data.product_role, p_token_hash, v_now,
               v_now + p_lifetime_seconds * interval '1 second')
     RETURNING authenticated_session.session_id, authenticated_session.token_hash,
-              authenticated_session.account_id, authenticated_session.product_role,
+              authenticated_session.account_id::text, authenticated_session.product_role::text,
               authenticated_session.created_at, authenticated_session.expires_at;
 END
 $$;
@@ -519,4 +519,57 @@ AS $$ SELECT * FROM ple_private.consume_sysadmin_totp_attestation_into_session(
     p_attestation_id, p_browser_binding_hash, p_totp_counter, p_session_id,
     p_token_hash, p_lifetime_seconds
 ) $$;
+
+SET LOCAL ROLE ple_private_owner;
+
+-- Hardcoded 7-day grace. Expired and revoked sessions, expired or consumed
+-- challenges and ceremonies, and old rate-limit windows are non-FERPA growth.
+CREATE FUNCTION ple_private.sweep_expired_authentication_growth(
+    p_evaluated_at timestamptz
+) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_private
+AS $$
+DECLARE
+    grace interval := INTERVAL '7 days';
+    cutoff timestamptz;
+    deleted integer := 0;
+    batch integer;
+BEGIN
+    IF p_evaluated_at IS NULL THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Authentication growth sweep requires an evaluation instant';
+    END IF;
+    cutoff := p_evaluated_at - grace;
+    DELETE FROM ple_private.authenticated_session
+     WHERE (revoked_at IS NOT NULL AND revoked_at <= cutoff)
+        OR expires_at <= cutoff;
+    GET DIAGNOSTICS batch = ROW_COUNT;
+    deleted := deleted + batch;
+    DELETE FROM ple_private.email_authentication_challenge
+     WHERE (consumed_at IS NOT NULL AND consumed_at <= cutoff)
+        OR expires_at <= cutoff;
+    GET DIAGNOSTICS batch = ROW_COUNT;
+    deleted := deleted + batch;
+    DELETE FROM ple_private.passkey_ceremony
+     WHERE (consumed_at IS NOT NULL AND consumed_at <= cutoff)
+        OR expires_at <= cutoff;
+    GET DIAGNOSTICS batch = ROW_COUNT;
+    deleted := deleted + batch;
+    DELETE FROM ple_private.authentication_rate_limit
+     WHERE window_started_at <= cutoff;
+    GET DIAGNOSTICS batch = ROW_COUNT;
+    deleted := deleted + batch;
+    RETURN deleted;
+END
+$$;
+
+SET LOCAL ROLE ple_api_owner;
+
+CREATE FUNCTION ple_api.sweep_expired_authentication_growth(
+    p_evaluated_at timestamptz
+) RETURNS integer
+LANGUAGE sql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_private
+AS $$ SELECT ple_private.sweep_expired_authentication_growth(p_evaluated_at) $$;
 

@@ -251,9 +251,8 @@ mod tests {
     #[test]
     fn creation_source_accepts_only_the_closed_browser_wire() {
         let empty = serde_json::json!({"kind": "empty"});
-        let blueprint_course =
-            question_model::BlueprintCourseId::from_random_identity("7K3M2QX")
-                .expect("canonical Blueprint Course reference");
+        let blueprint_course = question_model::BlueprintCourseId::from_random_identity("7K3M2QX")
+            .expect("canonical Blueprint Course reference");
         let adopted = serde_json::json!({
             "kind": "adopted",
             "blueprintCourse": blueprint_course,

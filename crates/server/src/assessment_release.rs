@@ -19,8 +19,7 @@ use learning_data_access::{
     postgres::{PostgresLiveAssessmentStore, PostgresSessionStore},
 };
 use question_model::{
-    AssessmentEditNumber, AssessmentId, AssessmentTitle, CourseInstanceId,
-    ProductRole,
+    AssessmentEditNumber, AssessmentId, AssessmentTitle, CourseInstanceId, ProductRole,
 };
 use serde::Deserialize;
 

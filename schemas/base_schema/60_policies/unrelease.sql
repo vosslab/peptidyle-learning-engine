@@ -38,8 +38,8 @@ CREATE POLICY question_attempt_unrelease_executor_read
     ON ple_private.question_attempt
     FOR SELECT TO ple_unrelease_executor USING (true);
 
-CREATE POLICY question_response_unrelease_executor_read
-    ON ple_private.question_response
+CREATE POLICY saved_response_unrelease_executor_read
+    ON ple_private.assessment_attempt_saved_response
     FOR SELECT TO ple_unrelease_executor USING (true);
 
 CREATE POLICY assessment_submission_unrelease_executor_read

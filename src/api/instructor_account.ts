@@ -53,7 +53,5 @@ export interface InstructorAccountClient {
     reference: AccountId,
     input: DeactivateInstructorAccountInput,
   ) => Promise<InstructorAccountSummary>;
-  readonly reactivateInstructorAccount: (
-    reference: AccountId,
-  ) => Promise<InstructorAccountSummary>;
+  readonly reactivateInstructorAccount: (reference: AccountId) => Promise<InstructorAccountSummary>;
 }

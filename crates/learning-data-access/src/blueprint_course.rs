@@ -7,8 +7,8 @@ use question_model::{
     AssessmentEntryScoringRule, AssessmentInstructions, AssessmentPointValue, AssessmentTitle,
     BlueprintAssessmentContent, BlueprintAssessmentContentInput, BlueprintAssessmentEditChoice,
     BlueprintAssessmentEntryContent, BlueprintAssessmentId, BlueprintAvailability,
-    BlueprintCourseContent, BlueprintCourseModuleContent, BlueprintCourseReadAccess,
-    BlueprintCourseId, BlueprintCourseValidationError, BlueprintEditNumber,
+    BlueprintCourseContent, BlueprintCourseId, BlueprintCourseModuleContent,
+    BlueprintCourseReadAccess, BlueprintCourseValidationError, BlueprintEditNumber,
     BlueprintMetadataState, BlueprintModuleEditChoice, BlueprintModuleReference,
     BlueprintQuestionPoolContent, BlueprintRevision, BlueprintRevisionContent,
     BlueprintRevisionReference, CanonicalBlueprintCourse, CreateBlueprintCourseInput,
@@ -330,9 +330,7 @@ impl StoredBlueprintCourseContent {
                 })
                 .map(|candidate| candidate.blueprint_assessment_reference)
                 .ok_or_else(|| invalid("retained Blueprint Assessment Reference"))?,
-            BlueprintAssessmentEditChoice::New => {
-                BlueprintAssessmentId::from_uuid(random_uuid()?)
-            }
+            BlueprintAssessmentEditChoice::New => BlueprintAssessmentId::from_uuid(random_uuid()?),
         };
         Ok(StoredBlueprintAssessment {
             blueprint_assessment_reference: reference,

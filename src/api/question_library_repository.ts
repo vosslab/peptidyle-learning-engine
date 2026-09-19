@@ -251,7 +251,7 @@ export function createQuestionLibraryRepository(
           authorNames: item.summary.authorship.authors.map((author) => author.displayName),
           capabilities: item.summary.capabilities,
           questionLicense: item.summary.metadata.questionLicense,
-          evidence: { state: "unavailable" as const },
+          evidence: item.evidence,
         })),
         nextCursor: page.nextCursor,
         aggregates: facets(page),

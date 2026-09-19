@@ -22,7 +22,7 @@ BEGIN
      WHERE email.normalized_email = 'elena.martinez@live-demo.invalid';
     IF elena IS NULL THEN
         INSERT INTO ple_private.account (account_id, product_role, created_at)
-        VALUES (placeholder, 'instructor', clock_timestamp())
+        VALUES (placeholder, 'instructor', pg_catalog.transaction_timestamp())
         RETURNING account_id INTO elena;
         INSERT INTO ple_private.account_authentication_email (
             account_id, normalized_email, delivery_email, verified_at, updated_at
@@ -37,7 +37,7 @@ BEGIN
      WHERE email.normalized_email = 'mary.okafor@biology.roosevelt.edu';
     IF mary IS NULL THEN
         INSERT INTO ple_private.account (account_id, product_role, created_at)
-        VALUES (placeholder, 'student', clock_timestamp())
+        VALUES (placeholder, 'student', pg_catalog.transaction_timestamp())
         RETURNING account_id INTO mary;
         INSERT INTO ple_private.account_authentication_email (
             account_id, normalized_email, delivery_email, verified_at, updated_at
@@ -52,7 +52,7 @@ BEGIN
      WHERE email.normalized_email = 'jack.nguyen@biology.roosevelt.edu';
     IF jack IS NULL THEN
         INSERT INTO ple_private.account (account_id, product_role, created_at)
-        VALUES (placeholder, 'student', clock_timestamp())
+        VALUES (placeholder, 'student', pg_catalog.transaction_timestamp())
         RETURNING account_id INTO jack;
         INSERT INTO ple_private.account_authentication_email (
             account_id, normalized_email, delivery_email, verified_at, updated_at
@@ -67,7 +67,7 @@ BEGIN
      WHERE email.normalized_email = 'avery.thompson@biology.roosevelt.edu';
     IF avery IS NULL THEN
         INSERT INTO ple_private.account (account_id, product_role, created_at)
-        VALUES (placeholder, 'student', clock_timestamp())
+        VALUES (placeholder, 'student', pg_catalog.transaction_timestamp())
         RETURNING account_id INTO avery;
         INSERT INTO ple_private.account_authentication_email (
             account_id, normalized_email, delivery_email, verified_at, updated_at
@@ -84,7 +84,7 @@ BEGIN
      LIMIT 1;
     IF sysadmin_id IS NULL THEN
         INSERT INTO ple_private.account (account_id, product_role, created_at)
-        VALUES (placeholder, 'sysadmin', clock_timestamp())
+        VALUES (placeholder, 'sysadmin', pg_catalog.transaction_timestamp())
         RETURNING account_id INTO sysadmin_id;
     END IF;
 
@@ -93,7 +93,7 @@ BEGIN
      WHERE email.normalized_email = 'priya.shah@live-demo.invalid';
     IF priya IS NULL THEN
         INSERT INTO ple_private.account (account_id, product_role, created_at)
-        VALUES (placeholder, 'instructor', clock_timestamp())
+        VALUES (placeholder, 'instructor', pg_catalog.transaction_timestamp())
         RETURNING account_id INTO priya;
         INSERT INTO ple_private.account_authentication_email (
             account_id, normalized_email, delivery_email, verified_at, updated_at
@@ -119,13 +119,13 @@ BEGIN
     INSERT INTO ple_private.authoring_workspace (
         authoring_workspace_id, owner_account_id, created_at
     ) VALUES (
-        '00000000-0000-0000-0000-000000000201', elena, clock_timestamp()
+        '00000000-0000-0000-0000-000000000201', elena, pg_catalog.transaction_timestamp()
     ) ON CONFLICT (authoring_workspace_id) DO NOTHING;
 
     INSERT INTO ple_private.authoring_workspace (
         authoring_workspace_id, owner_account_id, created_at
     ) VALUES (
-        '00000000-0000-0000-0000-000000000206', priya, clock_timestamp()
+        '00000000-0000-0000-0000-000000000206', priya, pg_catalog.transaction_timestamp()
     ) ON CONFLICT (authoring_workspace_id) DO NOTHING;
 END
 $$;

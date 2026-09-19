@@ -196,27 +196,6 @@ CREATE TABLE ple_data.assessment_question_pool_fork (
 );
 
 
-SET LOCAL ROLE ple_private_owner;
-
--- Private durable state for external Question-delivery backends.  The backend
--- keeps opaque state; an Issued Question and its Question Attempt remain the
--- authoritative reproducibility and Student Work evidence.
-CREATE TABLE ple_private.imathas_render_cache_entry (
-    imathas_render_cache_entry_id uuid PRIMARY KEY,
-    imathas_deployment_reference text NOT NULL CHECK (imathas_deployment_reference ~ '^[A-Za-z0-9._-]{1,160}$'),
-    published_question_id ple_data.question_family_id NOT NULL,
-    revision_number integer NOT NULL,
-    imathas_normalized_question_seed integer NOT NULL CHECK (imathas_normalized_question_seed BETWEEN 1 AND 9999),
-    imathas_profile text NOT NULL CHECK (imathas_profile ~ '^[A-Za-z0-9._-]{1,160}$'),
-    source_payload_digest bytea NOT NULL CHECK (octet_length(source_payload_digest) = 32),
-    encrypted_render_data bytea NOT NULL CHECK (octet_length(encrypted_render_data) BETWEEN 1 AND 1048576),
-    fetched_at timestamptz NOT NULL,
-    expires_at timestamptz NOT NULL CHECK (expires_at > fetched_at),
-    FOREIGN KEY (published_question_id, revision_number) REFERENCES ple_data.question_revision(published_question_id, revision_number),
-    UNIQUE (imathas_deployment_reference, published_question_id, revision_number, imathas_normalized_question_seed, imathas_profile, source_payload_digest),
-    updated_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
-);
-
 SET LOCAL ROLE ple_data_owner;
 COMMENT ON TABLE ple_data.assessment_policy_snapshot IS 'role: snapshot, deleted by nothing (shared, immutable). HUMAN_GUIDANCE.md Assessment Attempt snapshots.';
 COMMENT ON TABLE ple_data.assessment IS 'role: current state, Current Course Assessment aggregate with qualified Edit Number; released saves govern future Assessment Attempts.';
@@ -239,6 +218,4 @@ COMMENT ON COLUMN ple_data.assessment_entry.question_attempt_limit IS 'NULL mean
 COMMENT ON COLUMN ple_data.assessment_entry.question_attempt_time_limit_seconds IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.assessment_entry.question_attempt_grace_seconds IS 'NULL means this optional fact is absent.';
 
-SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.imathas_render_cache_entry IS 'role: current state, deleted by Unrelease of Student Work; Assessment rows remain with the Course. HUMAN_GUIDANCE.md Assessments.';
 

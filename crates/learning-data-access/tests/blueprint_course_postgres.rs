@@ -158,7 +158,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     ));
     let (availability, public_blueprint_edit_number) = transition_blueprint_availability(
         &application_url,
-        reference,
+        &reference,
         owner_private.blueprint_edit_number.as_i64(),
         "public",
         None,
@@ -227,7 +227,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         .expect("independently adopt the same Blueprint Revision");
     let public_to_private = transition_blueprint_availability(
         &application_url,
-        reference,
+        &reference,
         public_blueprint_edit_number,
         "private",
         None,
@@ -243,7 +243,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     assert_eq!(
         save(
             &application_url,
-            reference,
+            &reference,
             1,
             public_save_checksum.clone(),
             &revision_one
@@ -265,7 +265,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     // Regression: Archived writes must not succeed through receipt replay or
     // no-op shortcuts. Failure action: repair the locked lifecycle boundary,
     // preserving readable history and Public writes after restore.
-    let archived_write_state = blueprint_write_state(reference).await;
+    let archived_write_state = blueprint_write_state(&reference).await;
     let mut changed_archived_content = revision_one.clone();
     changed_archived_content.modules[0].label = "Denied Archived edit".to_owned();
     for (checksum, content) in [
@@ -273,7 +273,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         (request(0x1a), &revision_one),
         (request(0x1b), &changed_archived_content),
     ] {
-        let denied = save(&application_url, reference, 1, checksum, content)
+        let denied = save(&application_url, &reference, 1, checksum, content)
             .await
             .expect_err("Archived Save is denied");
         assert_eq!(
@@ -302,7 +302,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         );
     }
     assert_eq!(
-        blueprint_write_state(reference).await,
+        blueprint_write_state(&reference).await,
         archived_write_state,
         "denied Archived writes leave metadata, content, Revisions, events and receipts unchanged"
     );
@@ -399,9 +399,15 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         .expect("owner restores Archived Blueprint to Public");
     assert_eq!(restored.availability, BlueprintAvailability::Public);
     assert_eq!(
-        save(&application_url, reference, 1, request(0x1c), &revision_one)
-            .await
-            .expect("restored Public Blueprint accepts Save"),
+        save(
+            &application_url,
+            &reference,
+            1,
+            request(0x1c),
+            &revision_one
+        )
+        .await
+        .expect("restored Public Blueprint accepts Save"),
         (1, false)
     );
     let renamed = owner_store
@@ -418,26 +424,15 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         .expect("restored Public Blueprint accepts rename");
     assert_eq!(renamed.short_name, "RESTORED");
     let mut inspection = adoption_inspection_connection().await;
-    let adopted_course_reference_number: i64 = sqlx::query_scalar(
-        "SELECT reference_number FROM ple_data.course_instance WHERE public_reference = $1",
-    )
-    .bind(adopted.course.reference.as_string())
-    .fetch_one(&mut inspection)
-    .await
-    .expect("adopted Course relational identity");
-    let independently_adopted_course_reference_number: i64 = sqlx::query_scalar(
-        "SELECT reference_number FROM ple_data.course_instance WHERE public_reference = $1",
-    )
-    .bind(independently_adopted.course.reference.as_string())
-    .fetch_one(&mut inspection)
-    .await
-    .expect("independently adopted Course relational identity");
+    let adopted_course_reference_number = adopted.course.reference.as_string();
+    let independently_adopted_course_reference_number =
+        independently_adopted.course.reference.as_string();
     blueprint_course_postgres_adoption::assert_adoption_projection(
         &mut inspection,
-        adopted_course_reference_number,
-        reference,
+        &adopted_course_reference_number,
+        &reference,
         1,
-        independently_adopted_course_reference_number,
+        &independently_adopted_course_reference_number,
     )
     .await;
     let mut enrollment = inspection.begin().await.expect("enrollment fixture");
@@ -445,19 +440,13 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         .execute(&mut *enrollment)
         .await
         .expect("membership owner");
-    let course_id: Uuid = sqlx::query_scalar(
-        "SELECT course_id FROM ple_data.course_instance WHERE public_reference = $1",
-    )
-    .bind(adopted.course.reference.as_string())
-    .fetch_one(&mut *enrollment)
-    .await
-    .expect("adopted course identity");
-    sqlx::query("INSERT INTO ple_data.student_record (student_record_id, course_id, student_account_id, created_at) VALUES ($1,$2,$3,clock_timestamp())")
-        .bind(id(0xb105)).bind(course_id).bind(id(0xb104)).execute(&mut *enrollment).await.expect("Student Record");
+    let course_id = adopted.course.reference.as_string();
+    sqlx::query("INSERT INTO ple_data.student_record (student_record_id, course_instance_id, student_account_id, created_at) VALUES ($1,$2,$3,clock_timestamp())")
+        .bind(id(0xb105)).bind(&course_id).bind(student_account_id()).execute(&mut *enrollment).await.expect("Student Record");
     for episode in [0xb106, 0xb107] {
-        sqlx::query("INSERT INTO ple_data.course_membership (membership_id,course_id,account_id,role,student_record_id,joined_at) VALUES ($1,$2,$3,'student',$4,clock_timestamp())")
-            .bind(id(episode)).bind(course_id).bind(id(0xb104)).bind(id(0xb105)).execute(&mut *enrollment).await.expect("membership episode");
-        sqlx::query("INSERT INTO ple_data.course_membership_event (course_membership_event_id,membership_id,event_kind,occurred_at,reason) VALUES ($1,$2,'ended',clock_timestamp(),'verification departure')")
+        sqlx::query("INSERT INTO ple_data.course_membership (course_membership_id,course_instance_id,account_id,role,student_record_id,joined_at) VALUES ($1,$2,$3,'student',$4,clock_timestamp())")
+            .bind(id(episode)).bind(&course_id).bind(student_account_id()).bind(id(0xb105)).execute(&mut *enrollment).await.expect("membership episode");
+        sqlx::query("INSERT INTO ple_data.course_membership_event (course_membership_event_id,course_membership_id,event_kind,occurred_at,reason) VALUES ($1,$2,'ended',clock_timestamp(),'verification departure')")
             .bind(id(episode + 0x10)).bind(id(episode)).execute(&mut *enrollment).await.expect("ended membership");
     }
     enrollment
@@ -495,14 +484,14 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     let (left, right) = tokio::join!(
         save(
             &application_url,
-            reference,
+            &reference,
             1,
             request(0x12),
             &concurrent_left
         ),
         save(
             &application_url,
-            reference,
+            &reference,
             1,
             request(0x13),
             &concurrent_right
@@ -534,9 +523,9 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         .expect("inspection role");
     let revision_count: i64 = sqlx::query_scalar(
         "SELECT count(*) FROM ple_data.blueprint_course_revision \
-         WHERE blueprint_course_reference_number = $1",
+         WHERE blueprint_course_id = $1",
     )
-    .bind(reference)
+    .bind(&reference)
     .fetch_one(&mut inspection)
     .await
     .expect("Revision count");
@@ -547,7 +536,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
 
     let no_op = save(
         &application_url,
-        reference,
+        &reference,
         2,
         request(0x14),
         &current_content,
@@ -557,7 +546,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     assert_eq!(no_op, (2, false));
     let no_op_replay = save(
         &application_url,
-        reference,
+        &reference,
         2,
         request(0x14),
         &current_content,
@@ -625,7 +614,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     assert_eq!(moved, (3, true));
     let moved_replay = save(
         &application_url,
-        reference,
+        &reference,
         2,
         request(0x15),
         &moved_content,
@@ -638,12 +627,12 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     );
     let module_rows: Vec<Uuid> = sqlx::query_scalar(
         "SELECT blueprint_module_reference FROM ple_data.blueprint_revision_assessment \
-         WHERE blueprint_course_reference_number = $1 \
+         WHERE blueprint_course_id = $1 \
            AND blueprint_assessment_reference = $2 \
            AND blueprint_revision_number IN (2, 3) ORDER BY blueprint_revision_number",
     )
-    .bind(reference)
-    .bind(retained_assessment.as_str())
+    .bind(&reference)
+    .bind(retained_assessment.as_uuid())
     .fetch_all(&mut inspection)
     .await
     .expect("retained Assessment lineage");
@@ -654,16 +643,16 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     );
 
     let sealed_insert: &'static str = "INSERT INTO ple_data.blueprint_revision_module \
-        (blueprint_course_reference_number, blueprint_revision_number, blueprint_module_reference, module_position) \
+        (blueprint_course_id, blueprint_revision_number, blueprint_module_reference, module_position) \
         VALUES ($1, $2, '00000000-0000-0000-0000-00000000b122', 9)";
     let sealed_update = "UPDATE ple_data.blueprint_revision_assessment \
         SET assessment_position = assessment_position + 10 \
-        WHERE blueprint_course_reference_number = $1 AND blueprint_revision_number = $2";
+        WHERE blueprint_course_id = $1 AND blueprint_revision_number = $2";
     let sealed_delete = "DELETE FROM ple_data.blueprint_revision_question_pin \
-        WHERE blueprint_course_reference_number = $1 AND blueprint_revision_number = $2";
-    assert_immutable_child(&mut inspection, sealed_insert, reference, 3).await;
-    assert_immutable_child(&mut inspection, sealed_update, reference, 3).await;
-    assert_immutable_child(&mut inspection, sealed_delete, reference, 3).await;
+        WHERE blueprint_course_id = $1 AND blueprint_revision_number = $2";
+    assert_immutable_child(&mut inspection, sealed_insert, &reference, 3).await;
+    assert_immutable_child(&mut inspection, sealed_update, &reference, 3).await;
+    assert_immutable_child(&mut inspection, sealed_delete, &reference, 3).await;
 
     // These store operations are finished. Close their shared fixture pool
     // before the two direct application connections required by the head race;
@@ -695,15 +684,17 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         .fetch_one(&mut *holder)
         .await
         .expect("fixture holder backend PID");
-    sqlx::query("SELECT 1 FROM ple_data.blueprint_course WHERE reference_number = $1 FOR UPDATE")
-        .bind(reference)
-        .execute(&mut *holder)
-        .await
-        .expect("hold Blueprint head");
+    sqlx::query(
+        "SELECT 1 FROM ple_data.blueprint_course WHERE blueprint_course_id = $1 FOR UPDATE",
+    )
+    .bind(&reference)
+    .execute(&mut *holder)
+    .await
+    .expect("hold Blueprint head");
     let (save_pid_sender, save_pid_receiver) = oneshot::channel();
     let save_url = application_url.clone();
     let save_content = revision_four_content.clone();
-    let save_reference = blueprint_public_reference(reference).await;
+    let save_reference = blueprint_public_reference(&reference).await;
     let saver = tokio::spawn(async move {
         let mut connection = PgConnection::connect(&save_url)
             .await
@@ -719,7 +710,8 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
             "SELECT resulting_blueprint_revision_number, changed \
             FROM ple_api.save_blueprint_course($1, 3, $2, $3, $4, \
                 (SELECT COALESCE(jsonb_agg(jsonb_build_object( \
-                    'course_id', course_id, 'assessments', '[]'::jsonb)), '[]'::jsonb) \
+                    'course_instance_id', course_instance_id, 'assessments', '[]'::jsonb)), \
+                    '[]'::jsonb) \
                    FROM ple_api.list_blueprint_daughter_course_ids($1)))",
         )
         .bind(save_reference)
@@ -757,7 +749,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     );
     let (creator_pid_sender, creator_pid_receiver) = oneshot::channel();
     let create_url = application_url.clone();
-    let create_reference = blueprint_public_reference(reference).await;
+    let create_reference = blueprint_public_reference(&reference).await;
     let creator = tokio::spawn(async move {
         let mut connection = PgConnection::connect(&create_url)
             .await
@@ -771,7 +763,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         creator_pid_sender.send(pid).expect("creator PID receiver");
         sqlx::query(
             "SELECT public_reference FROM ple_api.create_course_instance(\
-             '00000000-0000-0000-0000-00000000b130', \
+             'CI0000000' || ple_private.crockford_checksum_character('CI0000000'), \
              '00000000-0000-0000-0000-00000000b131', \
              '00000000-0000-0000-0000-00000000b132', \
              '00000000-0000-0000-0000-00000000b133', \
@@ -827,10 +819,10 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         .to_vec();
     sqlx::query(
         "INSERT INTO ple_data.blueprint_course_revision \
-         (blueprint_course_reference_number, blueprint_revision_number, content, content_checksum, saved_at) \
+         (blueprint_course_id, blueprint_revision_number, content, content_checksum, saved_at) \
          VALUES ($1, 5, $2, $3, clock_timestamp())",
     )
-    .bind(reference)
+    .bind(&reference)
     .bind(&revision_five_json)
     .bind(&revision_five_checksum)
     .execute(&mut *construction)
@@ -838,10 +830,10 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     .expect("uncommitted Revision header");
     sqlx::query(
         "INSERT INTO ple_data.blueprint_revision_question_pin \
-         SELECT $1, 5, pins.content_path, pins.question_id, pins.question_revision_number \
+         SELECT $1, 5, pins.content_path, pins.published_question_id, pins.question_revision_number \
            FROM ple_data.blueprint_content_question_pins($2) AS pins",
     )
-    .bind(reference)
+    .bind(&reference)
     .bind(&revision_five_json)
     .execute(&mut *construction)
     .await
@@ -851,7 +843,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
          SELECT $1, 5, modules.blueprint_module_reference, modules.module_position \
            FROM ple_data.blueprint_content_modules($2) AS modules",
     )
-    .bind(reference)
+    .bind(&reference)
     .bind(&revision_five_json)
     .execute(&mut *construction)
     .await
@@ -862,24 +854,25 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
                 assessments.blueprint_assessment_reference, assessments.assessment_position \
            FROM ple_data.blueprint_content_assessments($2) AS assessments",
     )
-    .bind(reference)
+    .bind(&reference)
     .bind(&revision_five_json)
     .execute(&mut *construction)
     .await
     .expect("uncommitted Assessments");
     sqlx::query(
         "INSERT INTO ple_data.blueprint_revision_event \
-         (blueprint_course_reference_number, blueprint_revision_number, actor_account_id, request_checksum, occurred_at) \
+         (blueprint_course_id, blueprint_revision_number, actor_account_id, request_checksum, occurred_at) \
          VALUES ($1, 5, $2, $3, clock_timestamp())",
     )
-    .bind(reference)
-    .bind(id(INSTRUCTOR))
+    .bind(&reference)
+    .bind(instructor_account_id())
     .bind(request(0x17))
     .execute(&mut *construction)
     .await
     .expect("uncommitted Revision receipt");
 
     let competing_url = migration_url.to_owned();
+    let competing_reference = reference.clone();
     let mut competing_child = tokio::spawn(async move {
         let mut connection = PgConnection::connect(&competing_url)
             .await
@@ -890,10 +883,10 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
             .expect("competing role");
         sqlx::query(
             "INSERT INTO ple_data.blueprint_revision_module \
-             (blueprint_course_reference_number, blueprint_revision_number, blueprint_module_reference, module_position) \
+             (blueprint_course_id, blueprint_revision_number, blueprint_module_reference, module_position) \
              VALUES ($1, 5, '00000000-0000-0000-0000-00000000b140', 99)",
         )
-        .bind(reference)
+        .bind(&competing_reference)
         .execute(&mut connection)
         .await
     });
@@ -931,10 +924,10 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         .expect("final inspection role");
     let competing_rows: i64 = sqlx::query_scalar(
         "SELECT count(*) FROM ple_data.blueprint_revision_module \
-         WHERE blueprint_course_reference_number = $1 AND blueprint_revision_number = 5 \
+         WHERE blueprint_course_id = $1 AND blueprint_revision_number = 5 \
            AND blueprint_module_reference = '00000000-0000-0000-0000-00000000b140'",
     )
-    .bind(reference)
+    .bind(&reference)
     .fetch_one(&mut final_inspection)
     .await
     .expect("competing child inspection");
@@ -951,7 +944,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     assert_revision_checksum_mismatch(
         migration_url,
         &application_url,
-        reference,
+        &reference,
         blueprint_reference,
     )
     .await;

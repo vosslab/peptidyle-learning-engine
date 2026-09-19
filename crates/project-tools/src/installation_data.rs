@@ -11,7 +11,7 @@ use learning_data_access::{
     postgres::{PostgresBlueprintCourseStore, lazy_pool},
 };
 use question_model::{
-    BlueprintAvailability, BlueprintCourseReadAccess, BlueprintCourseId, WorkspaceId,
+    BlueprintAvailability, BlueprintCourseId, BlueprintCourseReadAccess, WorkspaceId,
 };
 use uuid::Uuid;
 

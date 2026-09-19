@@ -13,12 +13,7 @@ import {
   decodeRecord,
   decodeString,
 } from "../decoder";
-import {
-  field,
-  requireOnlyFields,
-  decodeCourseInstanceId,
-  decodeAssessmentId,
-} from "./shared";
+import { field, requireOnlyFields, decodeCourseInstanceId, decodeAssessmentId } from "./shared";
 import { parseAssessmentAttemptReference } from "../../navigation/public_route";
 
 const commonFields = [

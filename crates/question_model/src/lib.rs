@@ -75,6 +75,8 @@ pub mod question_content;
 /// Shared Question Library metadata, visibility, lineage, and browse projections.
 pub mod question_library;
 mod question_library_preview;
+/// Instructor-facing Question Library usage statistics JSON.
+pub mod question_library_statistics;
 pub use question_library_preview::{QuestionPreviewRegion, QuestionResponsePreview};
 pub mod question_license;
 /// Browser-safe reusable published Question Pool library read models.
@@ -254,15 +256,15 @@ pub use crate::question_library::{
     QUESTION_ID_IDENTIFIER_LENGTH, QuestionAvailability, QuestionAvailabilityEditNumber,
     QuestionAvailabilityEditNumberError, QuestionAvailabilityEvent, QuestionBackend,
     QuestionDetails, QuestionDetailsPromptView, QuestionId, QuestionLineageView,
-    QuestionRevisionReference, QuestionSearchAuthorFacet, QuestionSearchAuthorship,
-    QuestionSearchBackendFacet, QuestionSearchBloomCognitiveProcessFacet,
+    QuestionRevisionReference, QuestionRevisionUsageStatistics, QuestionSearchAuthorFacet,
+    QuestionSearchAuthorship, QuestionSearchBackendFacet, QuestionSearchBloomCognitiveProcessFacet,
     QuestionSearchBloomKnowledgeDimensionFacet, QuestionSearchCapabilityFacet,
     QuestionSearchCourseUse, QuestionSearchCourseUseFacet, QuestionSearchFacets,
     QuestionSearchFilter, QuestionSearchPage, QuestionSearchQuestionLicenseFacet,
     QuestionSearchRequest, QuestionSearchRequestError, QuestionSearchResult, QuestionSearchSort,
     QuestionSearchSubjectFacet, QuestionSearchTagFacet, QuestionSearchTopicFacet,
-    QuestionStatistics, QuestionSummary, QuestionTypeFacet, QuestionUseDetails, QuestionUseSummary,
-    normalized_question_search_group_value,
+    QuestionStatistics, QuestionSummary, QuestionTypeFacet, QuestionUsageTotals,
+    QuestionUseDetails, QuestionUseSummary, normalized_question_search_group_value,
 };
 pub use crate::question_license::QuestionLicense;
 pub use crate::question_pool_library::{
@@ -287,9 +289,9 @@ pub use crate::statistics::{ClassStatistics, DEFAULT_STATISTICS_MINIMUM_COHORT_S
 pub use crate::student_work::{
     AccommodationId, AssessmentAttempt, AssessmentAttemptCompletion, AssessmentAttemptEvidence,
     AssessmentAttemptId, AssessmentAttemptPolicySource, AssessmentAttemptPolicySources,
-    AssessmentEntryId, AssessmentGrade, AssessmentGradeScoreState,
-    AssessmentProgress, AssessmentProgressRecord, CourseMembershipId, GradingResult,
-    IssuedAttemptCapability, IssuedQuestion, IssuedQuestionId, QuestionAttempt, QuestionAttemptId,
+    AssessmentEntryId, AssessmentGrade, AssessmentGradeScoreState, AssessmentProgress,
+    AssessmentProgressRecord, CourseMembershipId, GradingResult, IssuedAttemptCapability,
+    IssuedQuestion, IssuedQuestionId, QuestionAttempt, QuestionAttemptId,
     QuestionAttemptReproductionDetails, QuestionAttemptState, QuestionAttemptTiming,
     QuestionBackendVersion, QuestionEvaluation, QuestionEvaluationError, QuestionGraderVersion,
     QuestionPoolSelectedItem, QuestionPoolSelection, QuestionPoolSelectionId,

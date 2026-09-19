@@ -11,6 +11,7 @@ import type { QuestionSearchAuthorship } from "../../generated/api/QuestionSearc
 import type { QuestionSearchSort } from "../../generated/api/QuestionSearchSort";
 import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
 import type { BloomClassificationView } from "../../generated/api/BloomClassificationView";
+import type { QuestionStatistics } from "../../generated/api/QuestionStatistics";
 import type { BloomCognitiveProcess } from "../../generated/api/BloomCognitiveProcess";
 import type { BloomKnowledgeDimension } from "../../generated/api/BloomKnowledgeDimension";
 import {
@@ -28,6 +29,7 @@ import {
   QUESTION_BACKENDS,
   decodeQuestionRevisionReference,
 } from "../api/decoders/shared";
+import { decodeQuestionStatistics } from "../api/decoders/question_library";
 import { decodeBloomClassificationView } from "../api/decoders/bloom_classification";
 
 /** A browser-safe current Question Library record. */
@@ -53,17 +55,13 @@ export interface QuestionLibraryBrowseRow {
   readonly capabilities: ReadonlyArray<string>;
   readonly questionLicense: string | null;
   /** Server-disclosed learning evidence for this exact immutable publication. */
-  readonly evidence: QuestionLibraryBrowseEvidence;
+  readonly evidence: QuestionStatistics;
 }
 
 /**
  * A presentation-ready, answer-free view of the server-owned discovery evidence.
- *
- * The browser intentionally receives no quality contribution. Until the
- * Question Statistics release boundary exists, availability stays explicitly
- * unavailable and neutral in relevance-ranked search.
  */
-export type QuestionLibraryBrowseEvidence = { readonly state: "unavailable" };
+export type QuestionLibraryBrowseEvidence = QuestionStatistics;
 
 /** Server-computed count for the exact active query; never derived from loaded rows. */
 export interface QuestionLibraryBrowseFacetAggregate {
@@ -405,11 +403,7 @@ function decodeRow(value: unknown, path: string): QuestionLibraryBrowseRow {
 }
 
 function decodeBrowseEvidence(value: unknown, path: string): QuestionLibraryBrowseEvidence {
-  if (!isRecord(value) || value["state"] !== "unavailable") {
-    throw new Error(`${path} has an unexpected shape`);
-  }
-  if (!hasExactKeys(value, ["state"])) throw new Error(`${path} has an unexpected shape`);
-  return { state: "unavailable" };
+  return decodeQuestionStatistics(value, path);
 }
 
 function decodeAggregate(value: unknown, path: string): QuestionLibraryBrowseFacetAggregate {

@@ -473,22 +473,9 @@ impl QuestionSummary {
     }
 }
 
-/// Current privacy-governed Question Statistics availability for one exact
-/// Question Revision.
-///
-/// The accepted-grade aggregate is retained privately. No Question Statistics
-/// release Store or Server Route currently establishes a safe available shape.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(
-    tag = "state",
-    rename_all = "camelCase",
-    rename_all_fields = "camelCase",
-    deny_unknown_fields
-)]
-pub enum QuestionStatistics {
-    /// No server-owned Question Statistics release is currently available.
-    Unavailable,
-}
+pub use crate::question_library_statistics::{
+    QuestionRevisionUsageStatistics, QuestionStatistics, QuestionUsageTotals,
+};
 
 /// One context-free search item. Search results contain immutable Question Library
 /// metadata and anonymous discovery evidence only.

@@ -187,6 +187,7 @@ test("Pool exact detail keeps its own assigned Bloom pair or a blank pair", () =
         },
       },
     ],
+    evidence: { state: "unavailable" },
   };
   assert.deepEqual(decodeQuestionPoolRevisionView(detail), detail);
   assert.equal(decodeQuestionPoolRevisionView({ ...detail, bloom: null }).bloom, null);
@@ -199,7 +200,7 @@ test("Assessment-owned Pool fork keeps its own assigned Bloom pair or a blank pa
   const fork = {
     assessmentEntryId: "00000000-0000-0000-0000-000000000011",
     questionPoolRevision: { questionPoolId: "3S8B-24DZ", revisionNumber: 4 },
-    poolMetadataEtag: "00000000-0000-0000-0000-000000000012",
+    questionPoolEditNumber: "1",
     selectionCount: 1,
     metadata,
     bloom,
