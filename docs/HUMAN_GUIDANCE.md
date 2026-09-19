@@ -769,8 +769,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
   it is owned by a parent (for example a Revision keyed by its lineage ID and Revision Number).
 - One value that is the canonical identity of one object is an Id.
 - Multiple values that together identify one exact object, state, or version are a Tuple.
-- A Published Question Revision Tuple is Question ID plus Question Revision Number.
-- A Blueprint Revision Tuple is Blueprint Course ID plus Blueprint Revision Number.
+- Tuple is the general cross-language concept for that composite identity, not a version-only suffix.
+- A Published Question Revision Tuple is one example: Question ID plus Question Revision Number.
+- A Blueprint Revision Tuple is another example: Blueprint Course ID plus Blueprint Revision Number.
 - Use Reference only for a genuine indirect, scoped, or external locator.
 - Do not name an Id or a Tuple as a Reference; "Reference" reads like a pointer, not a composite identity.
 - The hyphen is specific to Question IDs. Other public IDs use a prefix without a hyphen.
