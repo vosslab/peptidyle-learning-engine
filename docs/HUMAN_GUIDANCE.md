@@ -77,6 +77,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ### Codebase development rules
 
+- Use `source ./source_me.sh && ./launchers/run_fast_checks.sh` for a quicker compliance check
+- Use `source ./source_me.sh && ./launchers/all_test.sh` for a complete compliance check
+- Use `source ./source_me.sh && ./devel/capture_screenshots.sh` for UI work to capture fresh screenshots
 - Every source file should stay below 1000 lines. Split complete capabilities into focused modules.
 - PLE is pre-production with no users or durable production data. Fix the design directly;
   there is no legacy behavior to preserve.
