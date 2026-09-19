@@ -1057,7 +1057,7 @@ minimum source size.
 
 **Consequence.** `Hero` and `Card` renditions are removed directly from the
 preproduction model, object records, base schema, Store, server, and client.
-Each promotion mints a fresh opaque `CourseBannerReference`; the private
+Each promotion mints a fresh opaque `CourseBannerId`; the private
 rendition object identity is deterministically derived from the Course, that
 reference, and the sole `Banner` discriminator. The current banner is delivered
 only through one same-origin route with `no-store`; no caller selects an object

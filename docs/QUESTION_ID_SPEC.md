@@ -117,7 +117,7 @@ potentially committed evidence.
 
 One Question ID names one stable published lineage. A **Question Revision** names
 one immutable published meaning within that lineage and is identified by the
-exact `QuestionRevisionReference { question_id, revision_number }` pair. Its
+exact `QuestionRevisionTuple { question_id, revision_number }` pair. Its
 Question Revision Number is a positive monotonic integer assigned within that
 Question lineage. A draft has a private workspace identity, but no published
 Question ID or Question Revision Number.
@@ -131,7 +131,7 @@ meanings and [QUESTION_MODEL.md](QUESTION_MODEL.md) owns their typed model.
 ## Exact pins and evidence
 
 Every fixed Assessment entry and Question Pool item pins one exact
-`QuestionRevisionReference`. Current browser-safe `AssignmentSummary` entries expose a
+`QuestionRevisionTuple`. Current browser-safe `AssignmentSummary` entries expose a
 Question ID through legacy `FixedQuestionAssignmentEntrySummary` and
 `QuestionPoolItemSummary`, without exposing the server-owned exact-version
 reference. Those implementation type names do not preserve Assignment as the
@@ -140,7 +140,7 @@ Edit-Number-checked Assessment update may choose a newer Published Question Revi
 Publication, availability changes, correction processing, and background work
 preserve the Assessment's selected reference.
 
-Student Work retains that exact Question Revision Reference and selection
+Student Work retains that exact Question Revision Tuple and selection
 evidence. A backend that uses randomization retains its server-generated seed
 or opaque state; native PLE Question JSON is static and receives no random
 seed. The grading outcome resolves the same exact Revision. A Student receives
@@ -154,7 +154,7 @@ Question; Question Publication Validation returns its ordered Question
 Publication Issues. A Question Publication Event creates the first Question Revision
 in a new lineage. Current lineage metadata records whether the Published
 Question is Archived for ordinary browsing and new selection. Either condition
-preserves exact historical resolution through the same Question Revision Reference.
+preserves exact historical resolution through the same Question Revision Tuple.
 
 ## Display and entry
 
@@ -168,7 +168,7 @@ The implementation is complete when:
 
 - one visible `XXXX-ZXXX` ID names each stable published lineage;
 - each publication has an immutable Question Revision identified by one exact
-  Question Revision Reference;
+  Question Revision Tuple;
 - same-lineage publication advances the Question Revision Number and a separate lineage
   receives a new Question ID;
 - Assessments, Attempts, and evidence retain exact Revision pins;

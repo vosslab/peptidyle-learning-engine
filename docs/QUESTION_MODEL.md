@@ -17,7 +17,7 @@ Seven characters are cryptographically random identity, and the first character
 after the hyphen is an HMAC-derived check character. It detects mistyping but is
 not authorization.
 
-A Question Revision Reference combines that stable Question ID with a positive
+A Question Revision Tuple combines that stable Question ID with a positive
 Revision Number. It identifies one exact immutable source-bearing Revision.
 Internal UUIDs remain hidden implementation identities.
 

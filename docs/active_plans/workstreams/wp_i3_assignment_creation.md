@@ -12,7 +12,7 @@
 - Reuse the assignment editor with a create mode that starts with the Fall-pilot
   Mastery policy: AllCorrect, Highest, Unlimited, and NewSeeds.
 - Search only the Instructor-visible Question Library and retain exact immutable
-  Question Revision References in browser state and the strict creation payload.
+  Question Revision Tuples in browser state and the strict creation payload.
 
 ## Acceptance evidence
 

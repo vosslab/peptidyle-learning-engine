@@ -27,7 +27,7 @@ Bloom publication cutover, the separate installation-data provision command
 will include the Live Demo by default. It will first use the ordinary Pilot
 Question publisher to create the required published Question Revisions and
 their object bindings, then apply the database-owned Live Demo graph. The
-publisher will return exact Question Revision references to the SQL manifest;
+publisher will return exact Question Revision Tuples to the SQL manifest;
 the manifest will validate that mapping before it creates dependent records.
 `--without-live-demo` will leave the fictional Live Demo graph unprovisioned
 while retaining the shipped Genetics content.

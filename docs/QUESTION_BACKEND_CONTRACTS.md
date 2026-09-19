@@ -162,7 +162,7 @@ evidence rules; it does not inherit a dormant implementation claim.
 
 ## Retained evidence
 
-PLE retains only the exact source or Revision reference, Question/Pool selection,
+PLE retains only the exact source or Revision Tuple, Question/Pool selection,
 randomization value or opaque backend state, response, immutable credit
 fraction, and protected feedback needed to interpret Student Work.
 

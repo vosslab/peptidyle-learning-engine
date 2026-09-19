@@ -50,7 +50,8 @@ their owner's spelling.
 | Typed internal UUID | `Uuid` / `_uuid` | `AssessmentAttemptUuid`, `assessment_attempt_uuid` |
 | Public product ID | reviewed `Id` term | `CourseInstanceId` |
 | Immutable Revision number | `RevisionNumber` | `QuestionRevisionNumber` |
-| Immutable Revision reference | `RevisionReference` | `BlueprintRevisionReference` |
+| Multiple values that together identify one exact object, state, or version | `Tuple` | `QuestionRevisionTuple`, `BlueprintRevisionTuple` |
+| Genuine locator | `Reference` | `SourceObjectReference`, `ResponseItemReference`, `CourseBannerUploadReference` |
 | Current-state concurrency | `EditNumber` | `AssessmentEditNumber` |
 | Integrity value | `Checksum` | `ObjectChecksum` |
 | Bounded bearer value | `Token` | `WorkerLeaseToken` |
@@ -74,9 +75,9 @@ Question/Pool ID remains `QuestionId`/`PoolId` because ID is its product name.
 | Course relationship | `course_membership_id` UUID or precise Student/Instructor relationship name |
 | Student record | `student_record_id` UUID under one Course Instance |
 | Draft Question | `draft_question_id` UUID, optional `draft_question_edit_number` |
-| Published Question | `published_question_id` / `QuestionId` plus `QuestionRevisionReference` |
+| Published Question | `published_question_id` / `QuestionId` plus `QuestionRevisionTuple` |
 | Question Pool | `question_pool_id` / `PoolId` plus Pool member list and `question_pool_edit_number` |
-| Blueprint Course | `blueprint_course_id` / `BlueprintCourseId`, `BlueprintRevisionReference`, and current lifecycle |
+| Blueprint Course | `blueprint_course_id` / `BlueprintCourseId`, `BlueprintRevisionTuple`, and current lifecycle |
 | Course Instance | `course_instance_id` / `CourseInstanceId` with equal co-Instructor relationships |
 | Assessment | `assessment_id` / `AssessmentId`; Blueprint Assessment or Course Instance Assessment where scope matters |
 | Assessment Attempt | `assessment_attempt_id` UUID and current whole-submission state |

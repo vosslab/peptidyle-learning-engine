@@ -1587,13 +1587,13 @@ Columns:
 | --- | --- | --- |
 | blueprint_course_id | ple_data.blueprint_course_id | NOT NULL |
 | blueprint_revision_number | integer | NOT NULL |
-| blueprint_module_reference | uuid | NOT NULL |
+| blueprint_module_id | uuid | NOT NULL |
 | module_position | integer | NOT NULL |
 | created_at | timestamptz | NOT NULL |
 
 Constraints:
 
-- PRIMARY KEY (blueprint_course_id, blueprint_revision_number, blueprint_module_reference)
+- PRIMARY KEY (blueprint_course_id, blueprint_revision_number, blueprint_module_id)
 - UNIQUE (blueprint_course_id, blueprint_revision_number, module_position)
 - CHECK module_position: `(module_position BETWEEN 1 AND 1024)`
 
@@ -1603,7 +1603,7 @@ Foreign keys:
 
 Indexes:
 
-- ple_data.blueprint_revision_module_pkey UNIQUE (blueprint_course_id, blueprint_revision_number, blueprint_module_reference)
+- ple_data.blueprint_revision_module_pkey UNIQUE (blueprint_course_id, blueprint_revision_number, blueprint_module_id)
 - ple_data.blueprint_revision_module_unique_0 UNIQUE (blueprint_course_id, blueprint_revision_number, module_position)
 
 ### ple_data.blueprint_revision_assessment
@@ -1617,7 +1617,7 @@ Columns:
 | --- | --- | --- |
 | blueprint_course_id | ple_data.blueprint_course_id | NOT NULL |
 | blueprint_revision_number | integer | NOT NULL |
-| blueprint_module_reference | uuid | NOT NULL |
+| blueprint_module_id | uuid | NOT NULL |
 | blueprint_assessment_id | uuid | NOT NULL |
 | assessment_position | integer | NOT NULL |
 | created_at | timestamptz | NOT NULL |
@@ -1625,17 +1625,17 @@ Columns:
 Constraints:
 
 - PRIMARY KEY (blueprint_course_id, blueprint_revision_number, blueprint_assessment_id)
-- UNIQUE (blueprint_course_id, blueprint_revision_number, blueprint_module_reference, assessment_position)
+- UNIQUE (blueprint_course_id, blueprint_revision_number, blueprint_module_id, assessment_position)
 - CHECK assessment_position: `(assessment_position BETWEEN 1 AND 1024)`
 
 Foreign keys:
 
-- (blueprint_course_id, blueprint_revision_number, blueprint_module_reference) -> ple_data.blueprint_revision_module (blueprint_course_id, blueprint_revision_number, blueprint_module_reference)
+- (blueprint_course_id, blueprint_revision_number, blueprint_module_id) -> ple_data.blueprint_revision_module (blueprint_course_id, blueprint_revision_number, blueprint_module_id)
 
 Indexes:
 
 - ple_data.blueprint_revision_assessment_pkey UNIQUE (blueprint_course_id, blueprint_revision_number, blueprint_assessment_id)
-- ple_data.blueprint_revision_assessment_unique_0 UNIQUE (blueprint_course_id, blueprint_revision_number, blueprint_module_reference, assessment_position)
+- ple_data.blueprint_revision_assessment_unique_0 UNIQUE (blueprint_course_id, blueprint_revision_number, blueprint_module_id, assessment_position)
 
 ### ple_data.blueprint_revision_event
 

@@ -75,7 +75,7 @@ Question Pool store identity as the public ID primary key. There is no parallel
 UUID primary key for those objects. Browser JSON uses `id` (and nested
 `courseId` / `assessmentId`) for those public IDs. Assessment Attempts, entries,
 and sessions remain UUID with JSON field `id`. Content-addressed pairs such as
-`QuestionRevisionReference` keep that name; they are not a second stored object
+`QuestionRevisionTuple` keep that name; they are not a second stored object
 key.
 
 ## Assessment data flow

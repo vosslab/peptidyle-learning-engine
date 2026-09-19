@@ -26,6 +26,13 @@ Those documents must preserve the meanings established by Human Guidance.
 - A public ID is the one universal, canonical human-facing identifier for a PLE
   object that needs one. Store and use the exact same ID in the database, Rust,
   JSON, URLs, object storage, hashes, logs, and browser UI.
+- Use **Id** for one value that is the canonical identity of one object.
+- Use **Tuple** for multiple values that together identify one exact object,
+  state, or version. That is the general concept, not a version-only suffix.
+  Current examples are `QuestionRevisionTuple { questionId, revisionNumber }`
+  and `BlueprintRevisionTuple { blueprint_course_id, revision }`.
+- Use **Reference** only for a genuine indirect, scoped, or external locator.
+  Do not name an Id or a Tuple as a Reference.
 - Preserve the canonical ID exactly across system boundaries. Parsing,
   serialization, API transport, persistence, and display do not add, remove,
   reformat, or translate characters.

@@ -7,6 +7,10 @@ Assessments. Assignment appears only in the three Assessment Type names.
 ## Rules that apply everywhere
 
 - A durable ID names one thing.
+- One canonical identity value is an Id. Multiple values that together identify
+  one exact object, state, or version are a Tuple. Tuple is the general
+  concept; Question and Blueprint Revision Tuples are current examples. A
+  genuine indirect, scoped, or external locator is a Reference.
 - A checksum detects disagreement in otherwise valid data.
 - A public ID is the one universal, canonical human-facing identifier for a PLE
   object that needs one.
@@ -57,9 +61,11 @@ Course membership.
 | --- | --- |
 | Draft Question ID | One private, mutable, unpublished Draft Question |
 | Question ID | One stable Published Question lineage, in canonical form `XXXX-ZXXX` |
-| Question Revision Reference | One immutable Revision in a Published Question lineage |
+| Question Revision Tuple | One immutable Revision: Question ID plus Revision Number |
 | Question Pool ID | One published Pool in the shared `XXXX-ZXXX` namespace; membership is current state |
-| Blueprint Revision Reference | One immutable saved content state of a Blueprint Course |
+| Blueprint Module ID | Stable UUID lineage identity for one retained Blueprint Module |
+| Blueprint Assessment ID | Stable UUID lineage identity for one retained Blueprint Assessment |
+| Blueprint Revision Tuple | One immutable saved Blueprint content state: Blueprint Course ID plus Revision Number |
 | Assessment ID | One current Blueprint or Course Instance Assessment; not a revision family |
 | Assessment Attempt ID | One Student's occurrence of one Course Instance Assessment |
 | Object ID | One immutable stored object |
@@ -112,7 +118,7 @@ The lifecycle state belongs to the Blueprint lineage:
 
 Only the owner changes Blueprint lifecycle state. A Public Blueprint can return
 to Private only before any Course Instance has adopted it. Archived restores to
-Public. A Revision Reference remains exact regardless of later lifecycle
+Public. A Revision Tuple remains exact regardless of later lifecycle
 changes.
 
 Blueprints contain no Students, dates, time zones, or relative schedules.
@@ -164,7 +170,7 @@ audit identity for every ordinary action.
   identity.
 - A presentation token or checksum checks correspondence with server-held
   state; it never authenticates the Student.
-- Student-visible public IDs and Course/Assessment References are resolved only
+- Student-visible public IDs and Course/Assessment IDs are resolved only
   after authorization.
 
 ## Maintainer checklist

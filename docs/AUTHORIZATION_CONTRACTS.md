@@ -116,7 +116,7 @@ A Published Question may be discoverable or archived.
 A Blueprint Course is Private, Public, or Archived. Private is owner-only and
 cannot be adopted. Public is shared and adoptable. Archived remains visible to
 vetted Instructors through explicit historical discovery, can be forked, and
-cannot be adopted. Exact historical Revision References remain resolvable.
+cannot be adopted. Exact historical Revision Tuples remain resolvable.
 
 New Assessments and Blueprint Revision pins select exact available Question
 Revisions. A later Question publication, availability transition, correction,

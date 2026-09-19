@@ -10,6 +10,19 @@
 
 ### Fixes and Maintenance
 
+- Align remaining identity names on three suffixes: Id for one canonical
+  object identity, Tuple for a multi-value exact version, and Reference for a
+  genuine locator. Blueprint Module lineage is `blueprint_module_id` /
+  `BlueprintModuleId`. Public-ID and UUID route wrappers are `*RouteId`.
+  Question and Blueprint Revision pairs are `QuestionRevisionTuple` and
+  `BlueprintRevisionTuple`. Compact W-/M-/I-/R- namespaces are not used;
+  those objects keep UUID Ids. Course Banner identity is `CourseBannerId`.
+  Object/source locators and one-time upload handles stay Reference. Gate:
+  `cargo test -p question_model --lib blueprint_course`,
+  `node --import tsx --test tests/test_public_navigation.mjs
+  tests/test_route_params.mjs`, `cargo tools tsgen`,
+  `npx tsc --noEmit -p tsconfig.json`.
+
 - Drop leftover milestone prefixes from Ribbon Playwright evidence.
   `ribbon_m8_integration`, `ribbon_m9_responsive`, `ribbon_m9b_density`,
   and `ribbon_m10_shell` files are now `ribbon_integration`,

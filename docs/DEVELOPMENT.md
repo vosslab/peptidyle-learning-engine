@@ -135,7 +135,7 @@ first runs `apply`, which publishes the eight reviewed Pilot Questions through
 the ordinary publisher and applies the idempotent SQL manifest for the
 database-owned teaching graph. `provision` then uses the owning application
 paths for presentation, submission, grading, and other cross-system records.
-The manifest receives the publisher's exact Question Revision references.
+The manifest receives the publisher's exact Question Revision Tuples.
 
 The default local stack runs `provision` for a fresh database. Start with
 `--without-live-demo` to opt out before provisioning. Re-running `apply`
