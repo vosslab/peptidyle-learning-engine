@@ -47,6 +47,11 @@ if [ ! -d node_modules ]; then
 	exit 1
 fi
 
+if [ ! -f .prettierignore.local ]; then
+	echo "ERROR: .prettierignore.local missing." >&2
+	exit 1
+fi
+
 if [ ! -f package-lock.json ]; then
 	echo "WARN: package-lock.json missing; npm install will not produce a reproducible install." >&2
 fi
@@ -60,7 +65,8 @@ npx tsc --noEmit -p tsconfig.lint.json
 echo "==> lint"
 npx eslint --max-warnings 0 '**/*.{ts,tsx,mts,cts,js,mjs,cjs}'
 echo "==> format:check"
-npx prettier --check '**/*.{ts,tsx,mts,cts,js,mjs,cjs}'
+npx prettier --check --ignore-path .gitignore --ignore-path .prettierignore \
+	--ignore-path .prettierignore.local '**/*.{ts,tsx,mts,cts,js,mjs,cjs}'
 if compgen -G 'tests/test_*.mjs' >/dev/null; then
 	echo "==> test:node"
 	node --import tsx --test 'tests/test_*.mjs'

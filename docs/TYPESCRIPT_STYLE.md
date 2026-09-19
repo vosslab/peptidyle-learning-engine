@@ -255,8 +255,9 @@ Use inline setup first. For fixture cases, see `PYTEST_AUTHORING_GUIDE.md`.
 * `_temp*` scratch names and `dist_*/` private lane-build directories are excluded by ESLint, Playwright, Prettier, and repo hygiene discovery. Each collector owns its exclusion; gitignore alone does not prevent directory-globbing tools from collecting an untracked scratch file.
 * Prettier scope in this repo is JS, TypeScript, MJS, CJS, TSX, MTS, CTS only. JSON, YAML, Markdown, and Python files are explicitly NOT prettier-managed.
 * Indent is two spaces for every prettier-managed extension (prettier default; documented in propagated `.prettierrc`). This differs from the Python tabs rule in `docs/PYTHON_STYLE.md`; agents editing `.py` use tabs, agents editing `.ts`/`.mjs`/etc use two spaces. Do not over-generalize one language's rule to the other.
-* Auto-fix path when `./check_codebase.sh` step 4 (`format:check`) fails: run `npx prettier --write '**/*.{ts,tsx,mts,cts,js,mjs,cjs}'` (the `npm run format:write` alias mirrors this).
-* `.prettierignore` ships from the template and covers scratch names (`_temp*`), private lane builds (`dist_*/`), and noisy generated trees (`node_modules/`, `dist/`, `dist-single/`, `_site/`, `generated/`, `coverage/`, `playwright-report/`, `test-results/`, `blob-report/`, `package-lock.json`).
+* Auto-fix path when `./check_codebase.sh` step 4 (`format:check`) fails: run `npm run format:write`.
+* `.prettierignore` ships from the template and covers shared exclusions. Put repository-owned exclusions in `.prettierignore.local`, a consumer-owned file shipped once and never overwritten.
+* Every Prettier check and write command passes `.gitignore`, `.prettierignore`, and `.prettierignore.local` explicitly with repeated `--ignore-path` flags because naming an ignore path replaces Prettier's default ignore inputs.
 
 ### ESLint canonical rules
 
@@ -433,7 +434,7 @@ locally-installed form (`npx ...`) so the command works without a global install
 
 | npm alias | Direct command |
 | --- | --- |
-| `npm run format:write` | `npx prettier --write '**/*.{ts,tsx,mts,cts,js,mjs,cjs}'` |
+| `npm run format:write` | `npx prettier --write --ignore-path .gitignore --ignore-path .prettierignore --ignore-path .prettierignore.local '**/*.{ts,tsx,mts,cts,js,mjs,cjs}'` |
 | `npm run setup` | `./devel/setup_typescript.sh` |
 | `npm run setup:playwright` | `./devel/setup_playwright.sh` |
 
