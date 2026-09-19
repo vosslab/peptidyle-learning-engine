@@ -35,6 +35,7 @@
 - Use `source ./source_me.sh && ./devel/capture_screenshots.sh` for UI work to capture fresh screenshots
 - Complete one bounded task, pass its narrow gate, then update docs/CHANGELOG.md.
 - Run Python commands through `source source_me.sh && python3`.
+- Eval schema tables with `source source_me.sh && devel/generate_schema_tables_doc.py && schema_style/check_schema_style.py`
 
 ## Development principles
 
@@ -70,6 +71,7 @@
 
 ### Codebase development rules
 
+- Language-native casing is the right system: SQL stays account_id, Rust/TS types stay AccountId, JSON stays accountId.
 - PLE is pre-production with no users or durable production data. Fix the design directly;
   there is no legacy behavior to preserve.
 - Use the pre-production state to improve foundational schemas, contracts, and abstractions
