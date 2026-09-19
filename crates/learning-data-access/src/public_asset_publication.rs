@@ -2,7 +2,7 @@
 
 use async_trait::async_trait;
 use objects::Sha256Checksum;
-use question_model::{ObjectId, QuestionAssetId, QuestionRevisionReference};
+use question_model::{ObjectId, QuestionAssetId, QuestionRevisionTuple};
 use uuid::Uuid;
 
 use crate::StoreError;
@@ -14,7 +14,7 @@ use crate::StoreError;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ClaimedQuestionAssetPublication {
     pub job_id: Uuid,
-    pub question_revision: QuestionRevisionReference,
+    pub question_revision: QuestionRevisionTuple,
     pub asset_id: QuestionAssetId,
     pub source_object_id: ObjectId,
     pub source_checksum: Sha256Checksum,

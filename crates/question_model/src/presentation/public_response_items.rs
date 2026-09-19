@@ -8,7 +8,7 @@ use super::builder::{
     ResponseItemRole, pending_hotspot_region_geometry,
 };
 use super::model::{
-    PresentationResponseItemReference, PresentedResponseItemContent, QuestionAssetRendition,
+    PresentationResponseItemId, PresentedResponseItemContent, QuestionAssetRendition,
     QuestionPresentationResponseFormat,
 };
 use super::response_validation::validate_regions;
@@ -180,7 +180,7 @@ fn push_public_response_items<T: PresentedResponseItemContent>(
 
 fn push_public_item(
     target: &mut Vec<ResponseItemBinding>,
-    presentation_response_item_reference: PresentationResponseItemReference,
+    presentation_response_item_reference: PresentationResponseItemId,
     role: ResponseItemRole,
     content: Vec<QuestionContentBlock>,
     assets: &[QuestionAssetRendition],

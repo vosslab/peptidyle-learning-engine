@@ -8,7 +8,7 @@ use learning_data_access::{
 };
 use objects::s3::S3ObjectStore;
 use question_model::{
-    QuestionDetails, QuestionDetailsPromptView, QuestionId, QuestionRevisionReference,
+    QuestionDetails, QuestionDetailsPromptView, QuestionId, QuestionRevisionTuple,
     QuestionSearchResult, QuestionStatistics, QuestionUsageTotals, QuestionUseDetails,
     QuestionUseSummary, ReusableQuestionView, ReusableSelectionAvailability,
 };
@@ -21,7 +21,7 @@ pub(crate) async fn answer_free_question_search_results(
     objects: &S3ObjectStore,
     entries: Vec<PublishedQuestionLibraryEntry>,
     evidence_by_question: &BTreeMap<QuestionId, QuestionStatistics>,
-) -> Result<BTreeMap<QuestionRevisionReference, QuestionSearchResult>, ()> {
+) -> Result<BTreeMap<QuestionRevisionTuple, QuestionSearchResult>, ()> {
     let mut results = BTreeMap::new();
     for entry in entries {
         let question_id = entry.question_revision.question_id.clone();
@@ -44,10 +44,10 @@ pub(crate) async fn answer_free_reusable_question_view(
         question_model::QuestionAvailability::Available => ReusableSelectionAvailability::Available,
         question_model::QuestionAvailability::Archived => ReusableSelectionAvailability::Retained,
     };
-    let reference = entry.question_revision.clone();
+    let question_revision = entry.question_revision.clone();
     let resolved = answer_free_question_library_entry(objects, entry).await?;
     Ok(ReusableQuestionView {
-        reference,
+        question_revision,
         question_library: search_result(resolved, evidence),
         selection_availability,
     })

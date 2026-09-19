@@ -42,24 +42,24 @@ if any(word in serialized for word in ("student", "response", "answer", "grading
 ' "$1"
 }
 
-foreign_instructor_reference() {
+foreign_instructor_account_id() {
 	python3 -c '
 import json, re, sys
-value=json.loads(sys.argv[1]); reference=value.get("id")
+value=json.loads(sys.argv[1]); account_id=value.get("id")
 avatar=value.get("providedAvatarId")
-if set(value)!={"id","state","lastSuccessfulSignIn","providedAvatarId"} or not isinstance(reference,str) or not re.fullmatch(r"U[0-9A-HJKMNP-TV-Z]{8}",reference) or value.get("state")!="active" or value.get("lastSuccessfulSignIn") is not None or (avatar is not None and (not isinstance(avatar,str) or not avatar)):
+if set(value)!={"id","state","lastSuccessfulSignIn","providedAvatarId"} or not isinstance(account_id,str) or not re.fullmatch(r"U[0-9A-HJKMNP-TV-Z]{8}",account_id) or value.get("state")!="active" or value.get("lastSuccessfulSignIn") is not None or (avatar is not None and (not isinstance(avatar,str) or not avatar)):
     raise SystemExit("Foreign Instructor creation receipt is malformed")
-print(reference)
+print(account_id)
 ' "$1"
 }
 
-vetting_decision_reference() {
+vetting_decision_id() {
 	python3 -c '
 import json, re, sys
-value=json.loads(sys.argv[1]); reference=value.get("vettingDecisionReference")
-if set(value)!={"vettingDecisionReference"} or not isinstance(reference,str) or not re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}",reference):
+value=json.loads(sys.argv[1]); vetting_decision_id=value.get("vettingDecisionId")
+if set(value)!={"vettingDecisionId"} or not isinstance(vetting_decision_id,str) or not re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}",vetting_decision_id):
     raise SystemExit("Foreign Instructor vetting receipt is malformed")
-print(reference)
+print(vetting_decision_id)
 ' "$1"
 }
 
@@ -82,13 +82,13 @@ print(json.dumps(payload,separators=(",",":")))
 ' "$1" "$2"
 }
 
-foreign_course_reference() {
+foreign_course_instance_id() {
 	python3 -c '
 import json, re, sys
-value=json.loads(sys.argv[1]); course=value.get("course",{}); reference=course.get("id")
-if set(value)!={"course"} or not isinstance(reference,str) or not re.fullmatch(r"CI[0-9A-HJKMNP-TV-Z]{8}",reference):
+value=json.loads(sys.argv[1]); course=value.get("course",{}); course_instance_id=course.get("id")
+if set(value)!={"course"} or not isinstance(course_instance_id,str) or not re.fullmatch(r"CI[0-9A-HJKMNP-TV-Z]{8}",course_instance_id):
     raise SystemExit("Foreign Course Instance creation receipt is malformed")
-print(reference)
+print(course_instance_id)
 ' "$1"
 }
 
@@ -113,7 +113,7 @@ require_live_demo
 instructor_cookie="$(persona_cookie elenaInstructor)"
 student_cookie="$(persona_cookie maryStudent)"
 sysadmin_cookie="$(morgan_sysadmin_cookie)"
-course="$(new_course_reference "$instructor_cookie")"
+course="$(new_course_instance_id "$instructor_cookie")"
 path="/api/course-instances/$course/assessments"
 
 assert_concealed "$(request "$path")"
@@ -122,14 +122,14 @@ assert_concealed "$(request "$path" "$sysadmin_cookie")"
 
 created="$(request "$path" "$instructor_cookie" POST '{"assessmentType":"practice_question_assignment","title":"M10 released Assessment","instructions":"Release this Assessment for list evidence."}')"
 require_status "Released Assessment creation" "$created" 201
-read -r assessment initial_edit < <(workspace_reference_and_edit "$(response_body "$created")")
+read -r assessment initial_edit < <(workspace_id_and_edit_number "$(response_body "$created")")
 picker="$(request "/api/course-instances/$course/assessment-question-picker" "$instructor_cookie")"
 require_status "Assessment Question picker" "$picker" 200
-question_reference="$(picker_reference "$(response_body "$picker")")"
-payload="$(save_payload "$(response_body "$created")" "$question_reference" "M10 released Assessment")"
+question_revision_tuple="$(picker_question_revision_tuple "$(response_body "$picker")")"
+payload="$(save_payload "$(response_body "$created")" "$question_revision_tuple" "M10 released Assessment")"
 saved="$(request "/api/course-instances/$course/assessments/$assessment" "$instructor_cookie" PUT "$payload" "$initial_edit")"
 require_status "Released Assessment save" "$saved" 200
-read -r _ saved_edit < <(workspace_reference_and_edit "$(response_body "$saved")")
+read -r _ saved_edit < <(workspace_id_and_edit_number "$(response_body "$saved")")
 released="$(request "/api/course-instances/$course/assessments/$assessment/release" "$instructor_cookie" POST '' "$saved_edit")"
 require_status "Released Assessment release" "$released" 200
 
@@ -144,16 +144,16 @@ run_id="$(python3 -c 'import uuid; print(uuid.uuid4().hex[:12])')"
 foreign_email="m3-foreign-$run_id@live-demo.invalid"
 vetted="$(request '/api/instructor-identity-vetting-decisions' "$sysadmin_cookie" POST "{\"normalizedEmail\":\"$foreign_email\",\"verifiedInstructorDisplayName\":\"M3 Foreign Instructor\"}")"
 require_status "Foreign Instructor vetting" "$vetted" 201
-vetting_decision="$(vetting_decision_reference "$(response_body "$vetted")")"
-created_instructor="$(request '/api/instructor-accounts' "$sysadmin_cookie" POST "{\"normalizedEmail\":\"$foreign_email\",\"vettingDecisionReference\":\"$vetting_decision\"}")"
+vetting_decision="$(vetting_decision_id "$(response_body "$vetted")")"
+created_instructor="$(request '/api/instructor-accounts' "$sysadmin_cookie" POST "{\"normalizedEmail\":\"$foreign_email\",\"vettingDecisionId\":\"$vetting_decision\"}")"
 require_status "Foreign Instructor setup" "$created_instructor" 201
-foreign_instructor="$(foreign_instructor_reference "$(response_body "$created_instructor")")"
+foreign_instructor="$(foreign_instructor_account_id "$(response_body "$created_instructor")")"
 course_view="$(request "/api/course-instances/$course" "$instructor_cookie")"
 require_status "Assessment list fixture Course view" "$course_view" 200
 foreign_payload="$(foreign_course_payload "$(response_body "$course_view")" "$foreign_instructor")"
 created_course="$(request '/api/course-instances' "$sysadmin_cookie" POST "$foreign_payload")"
 require_status "Foreign Course setup" "$created_course" 201
-foreign_course="$(foreign_course_reference "$(response_body "$created_course")")"
+foreign_course="$(foreign_course_instance_id "$(response_body "$created_course")")"
 assert_concealed "$(request "/api/course-instances/$foreign_course/assessments" "$instructor_cookie")"
 
 echo "Course Assessment list: direct Instructor released/unreleased projection and exact 404 concealment complete"

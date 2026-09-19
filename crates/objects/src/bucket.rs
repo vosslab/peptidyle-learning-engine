@@ -2,9 +2,8 @@
 
 use question_model::generation::QuestionSeed;
 use question_model::{
-    CourseBannerReference, CourseBannerRendition, CourseBannerUploadReference, CourseInstanceId,
-    ObjectId, ProfileImageReference, QuestionAssetId, QuestionRevisionReference, WorkspaceId,
-    WorkspaceImportId,
+    CourseBannerId, CourseBannerRendition, CourseBannerUploadId, CourseInstanceId, ObjectId,
+    ProfileImageId, QuestionAssetId, QuestionRevisionTuple, WorkspaceId, WorkspaceImportId,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -127,7 +126,7 @@ pub enum ObjectAddress {
     /// An original source package for a published version.
     QuestionSource {
         /// Exact immutable Question Revision that owns the source.
-        question_revision: QuestionRevisionReference,
+        question_revision: QuestionRevisionTuple,
         /// Physical object-record identity.
         object: ObjectId,
     },
@@ -138,7 +137,7 @@ pub enum ObjectAddress {
     /// eligible for a signed delivery URL.
     PublishedImportArchive {
         /// Exact immutable Question Revision that owns the archive.
-        question_revision: QuestionRevisionReference,
+        question_revision: QuestionRevisionTuple,
         /// Import identity which produced this published version.
         import: WorkspaceImportId,
         /// Physical object-record identity.
@@ -147,7 +146,7 @@ pub enum ObjectAddress {
     /// A logical asset and its physical object for a published version.
     QuestionAsset {
         /// Exact immutable Question Revision that owns the asset.
-        question_revision: QuestionRevisionReference,
+        question_revision: QuestionRevisionTuple,
         /// Logical asset referenced by content.
         asset: QuestionAssetId,
         /// Physical object-record identity.
@@ -161,7 +160,7 @@ pub enum ObjectAddress {
     /// published content.
     RestrictedQuestionAsset {
         /// Exact immutable Question Revision that owns the asset.
-        question_revision: QuestionRevisionReference,
+        question_revision: QuestionRevisionTuple,
         /// Logical asset referenced by content.
         asset: QuestionAssetId,
         /// Physical object-record identity.
@@ -170,7 +169,7 @@ pub enum ObjectAddress {
     /// A deterministic rendered Question cached by exact Question Revision and Question Seed.
     QuestionRender {
         /// Exact immutable Question Revision that owns the rendered result.
-        question_revision: QuestionRevisionReference,
+        question_revision: QuestionRevisionTuple,
         /// Question Seed that fully determines the render.
         question_seed: QuestionSeed,
         /// Physical object-record identity.
@@ -184,28 +183,28 @@ pub enum ObjectAddress {
         /// Course whose authorized appearance flow created the upload.
         course: CourseInstanceId,
         /// Opaque upload reference returned to the authorized browser.
-        upload: CourseBannerUploadReference,
+        upload: CourseBannerUploadId,
     },
     /// Immutable verified private source retained for one Course Banner.
     CourseBannerSource {
         /// Course whose appearance may reference the banner.
         course: CourseInstanceId,
         /// Stable browser-safe banner delivery identity.
-        banner: CourseBannerReference,
+        banner: CourseBannerId,
     },
     /// Immutable normalized private delivery rendition for one Course Banner.
     CourseBannerRendition {
         /// Course whose appearance may reference the banner.
         course: CourseInstanceId,
         /// Stable browser-safe banner delivery identity.
-        banner: CourseBannerReference,
+        banner: CourseBannerId,
         /// Closed, server-owned rendition identity.
         rendition: CourseBannerRendition,
     },
     /// One normalized private rendition for a self-owned Account Profile image.
     ProfileImage {
         /// Opaque role-neutral image reference minted only by the server.
-        image: ProfileImageReference,
+        image: ProfileImageId,
         /// Physical object-record identity.
         object: ObjectId,
     },
@@ -406,7 +405,7 @@ impl ObjectAddress {
     }
 
     /// Exact Question Revision associated with content, when one exists.
-    pub fn question_revision(&self) -> Option<&QuestionRevisionReference> {
+    pub fn question_revision(&self) -> Option<&QuestionRevisionTuple> {
         match self {
             Self::QuestionSource {
                 question_revision, ..
@@ -438,7 +437,7 @@ impl ObjectAddress {
 
     /// Whether this semantic object may receive a direct delivery URL.
     ///
-    /// Workspace imports and published Source Object References remain private in the
+    /// Workspace imports and published Source Object IDs remain private in the
     /// private-content Object Storage Area. Source may
     /// contain answer keys or executable grading logic, so only trusted
     /// server-side adapters may read it. Generic Question Library or CDN URL issuance
@@ -459,7 +458,7 @@ impl ObjectAddress {
     /// immutable visibility.  Call this at publication time rather than
     /// reconstructing a key later from an untrusted route or browser value.
     pub fn published_question_asset(
-        question_revision: QuestionRevisionReference,
+        question_revision: QuestionRevisionTuple,
         asset: QuestionAssetId,
         object: ObjectId,
     ) -> Self {
@@ -474,7 +473,7 @@ impl ObjectAddress {
 /// Derives the immutable physical identity for one Course Banner Upload.
 pub fn course_banner_upload_object_id(
     course: &CourseInstanceId,
-    upload: CourseBannerUploadReference,
+    upload: CourseBannerUploadId,
 ) -> ObjectId {
     domain_separated_object_id_from_parts(
         b"ple:course-banner-upload:v3\0",
@@ -487,7 +486,7 @@ pub fn course_banner_upload_object_id(
 /// Derives the immutable physical identity for one promoted course banner.
 pub fn course_banner_source_object_id(
     course: &CourseInstanceId,
-    banner: CourseBannerReference,
+    banner: CourseBannerId,
 ) -> ObjectId {
     domain_separated_object_id_from_parts(
         b"ple:course-banner-source:v3\0",
@@ -500,7 +499,7 @@ pub fn course_banner_source_object_id(
 /// Derives the immutable physical identity for one normalized course-banner rendition.
 pub fn course_banner_rendition_object_id(
     course: &CourseInstanceId,
-    banner: CourseBannerReference,
+    banner: CourseBannerId,
     rendition: CourseBannerRendition,
 ) -> ObjectId {
     let rendition_uuid = match rendition {
@@ -564,7 +563,7 @@ pub fn workspace_qti_archive_object_id(
 /// Only the first 16 bytes of the final SHA-256 digest become the deterministic
 /// object UUID.
 pub fn published_import_archive_object_id(
-    question_revision: &QuestionRevisionReference,
+    question_revision: &QuestionRevisionTuple,
     import: WorkspaceImportId,
     archive_sha256: Sha256Checksum,
 ) -> ObjectId {

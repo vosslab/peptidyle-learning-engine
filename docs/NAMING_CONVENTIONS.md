@@ -50,8 +50,7 @@ their owner's spelling.
 | Typed internal UUID | `Uuid` / `_uuid` | `AssessmentAttemptUuid`, `assessment_attempt_uuid` |
 | Public product ID | reviewed `Id` term | `CourseInstanceId` |
 | Immutable Revision number | `RevisionNumber` | `QuestionRevisionNumber` |
-| Multiple values that together identify one exact object, state, or version | `Tuple` | `QuestionRevisionTuple`, `BlueprintRevisionTuple` |
-| Genuine locator | `Reference` | `SourceObjectReference`, `ResponseItemReference`, `CourseBannerUploadReference` |
+| Genuine pin or handle | `Reference` | `QuestionRevisionTuple`, `BlueprintRevisionTuple`, `CourseMembershipRouteId`, `AuthoringWorkspaceRouteId`, `ResponseItemId` |
 | Current-state concurrency | `EditNumber` | `AssessmentEditNumber` |
 | Integrity value | `Checksum` | `ObjectChecksum` |
 | Bounded bearer value | `Token` | `WorkerLeaseToken` |

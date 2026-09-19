@@ -1,14 +1,14 @@
 use std::collections::VecDeque;
 
 use crate::answer::{ResponseSelectionRule, TextResponseMatchRule};
-use crate::question_content::{QuestionAssetReference, QuestionContentBlock};
+use crate::question_content::{QuestionAssetTuple, QuestionContentBlock};
 use crate::question_variation::{NativeChoiceOrder, QuestionVariationPresentation};
 use crate::response::{
     HotspotRegion, MatchingChoice, MatchingPrompt, OrderingItem, QuestionChoice,
-    QuestionResponseFormat, ResponseItemReference, StudentHotspotSelection, StudentMatch,
+    QuestionResponseFormat, ResponseItemId, StudentHotspotSelection, StudentMatch,
     StudentResponse, StudentTextEntry, TextEntrySlot,
 };
-use crate::{QuestionAttemptId, QuestionRevisionNumber, QuestionRevisionReference};
+use crate::{QuestionAttemptId, QuestionRevisionNumber, QuestionRevisionTuple};
 
 use super::builder::{
     PresentationBuildError, QuestionPresentationNonceSource,
@@ -29,28 +29,28 @@ use super::{
 
 fn question_choice(id: &str, text: &str) -> QuestionChoice {
     QuestionChoice {
-        id: ResponseItemReference::new(id),
+        id: ResponseItemId::new(id),
         body: response_item_body(text),
     }
 }
 
 fn matching_prompt(id: &str, text: &str) -> MatchingPrompt {
     MatchingPrompt {
-        id: ResponseItemReference::new(id),
+        id: ResponseItemId::new(id),
         body: response_item_body(text),
     }
 }
 
 fn matching_choice(id: &str, text: &str) -> MatchingChoice {
     MatchingChoice {
-        id: ResponseItemReference::new(id),
+        id: ResponseItemId::new(id),
         body: response_item_body(text),
     }
 }
 
 fn ordering_item(id: &str, text: &str) -> OrderingItem {
     OrderingItem {
-        id: ResponseItemReference::new(id),
+        id: ResponseItemId::new(id),
         body: response_item_body(text),
     }
 }
@@ -64,7 +64,7 @@ fn response_item_body(text: &str) -> Vec<QuestionContentBlock> {
 fn fixture() -> QuestionVariationPresentation {
     QuestionVariationPresentation {
         variation: crate::QuestionVariation::from_question_revision_and_reproduction(
-            QuestionRevisionReference {
+            QuestionRevisionTuple {
                 question_id: "1234-H567".parse().expect("valid Question ID"),
                 revision_number: QuestionRevisionNumber::new(1).expect("positive version"),
             },
@@ -323,7 +323,7 @@ fn eight_colliding_presentations_fail_closed() {
 
     assert_eq!(
         error,
-        PresentationBuildError::PresentationResponseItemReferenceCollision
+        PresentationBuildError::PresentationResponseItemIdCollision
     );
     assert_eq!(source.calls, 8);
 }
@@ -412,9 +412,9 @@ fn nonce_randomized_native_choices_reproduce_the_issued_binding_order() {
     assert_eq!(
         issued_ids,
         vec![
-            ResponseItemReference::new("carboxyl"),
-            ResponseItemReference::new("amine"),
-            ResponseItemReference::new("hydroxyl"),
+            ResponseItemId::new("carboxyl"),
+            ResponseItemId::new("amine"),
+            ResponseItemId::new("hydroxyl"),
         ],
         "the fixed nonce produces the documented nonce-and-stable-ID rank order"
     );
@@ -458,7 +458,7 @@ fn presentation_for(response: QuestionResponseFormat) -> super::IssuedQuestionPr
 }
 
 fn hotspot_presentation() -> super::IssuedQuestionPresentation {
-    let question_asset = QuestionAssetReference {
+    let question_asset = QuestionAssetTuple {
         question_asset: crate::QuestionAssetId::from_uuid(uuid::Uuid::from_u128(1)),
         checksum: "a".repeat(64),
     };
@@ -467,7 +467,7 @@ fn hotspot_presentation() -> super::IssuedQuestionPresentation {
         surface: question_asset.clone(),
         description: "Cell diagram".to_owned(),
         regions: vec![HotspotRegion {
-            id: ResponseItemReference::new("nucleus"),
+            id: ResponseItemId::new("nucleus"),
             label: vec![QuestionContentBlock::Text {
                 markdown: "Nucleus".to_owned(),
             }],
@@ -492,8 +492,8 @@ fn hotspot_presentation() -> super::IssuedQuestionPresentation {
 fn presentation_response_item_reference(
     presentation: &super::IssuedQuestionPresentation,
     role: ResponseItemRole,
-) -> ResponseItemReference {
-    ResponseItemReference::new(
+) -> ResponseItemId {
+    ResponseItemId::new(
         presentation
             .item_bindings
             .iter()
@@ -505,7 +505,7 @@ fn presentation_response_item_reference(
 }
 
 #[test]
-fn presentation_response_item_translation_rewrites_every_response_item_identifier() {
+fn presentation_response_item_translation_rewrites_every_response_item_referenceentifier() {
     let multiple = presentation_for(QuestionResponseFormat::MultipleChoice {
         choices: vec![question_choice("a", "A"), question_choice("b", "B")],
         selection: ResponseSelectionRule::ExactlyOne,
@@ -520,13 +520,13 @@ fn presentation_response_item_translation_rewrites_every_response_item_identifie
         translate_presentation_response_item_references(&multiple_response, &multiple)
             .expect("choice response"),
         StudentResponse::MultipleChoice {
-            selected: vec![ResponseItemReference::new("a")],
+            selected: vec![ResponseItemId::new("a")],
         }
     );
 
     let blanks = presentation_for(QuestionResponseFormat::MultiBlank {
         blanks: vec![TextEntrySlot {
-            id: ResponseItemReference::new("slot-a"),
+            id: ResponseItemId::new("slot-a"),
             label: vec![QuestionContentBlock::Text {
                 markdown: "A".to_owned(),
             }],
@@ -545,7 +545,7 @@ fn presentation_response_item_translation_rewrites_every_response_item_identifie
             .expect("blank response"),
         StudentResponse::MultiBlank {
             answers: vec![StudentTextEntry {
-                slot: ResponseItemReference::new("slot-a"),
+                slot: ResponseItemId::new("slot-a"),
                 text: "value".to_owned(),
             }],
         }
@@ -572,8 +572,8 @@ fn presentation_response_item_translation_rewrites_every_response_item_identifie
             .expect("matching response"),
         StudentResponse::Matching {
             matches: vec![StudentMatch {
-                prompt: ResponseItemReference::new("prompt-a"),
-                choice: ResponseItemReference::new("choice-a"),
+                prompt: ResponseItemId::new("prompt-a"),
+                choice: ResponseItemId::new("choice-a"),
             }],
         }
     );
@@ -594,7 +594,7 @@ fn presentation_response_item_translation_rewrites_every_response_item_identifie
         translate_presentation_response_item_references(&ordering_response, &ordering)
             .expect("ordering response"),
         StudentResponse::Ordering {
-            order: vec![ResponseItemReference::new("first")],
+            order: vec![ResponseItemId::new("first")],
         }
     );
 
@@ -609,7 +609,7 @@ fn presentation_response_item_translation_rewrites_every_response_item_identifie
             .expect("hotspot response"),
         StudentResponse::Hotspot {
             selections: vec![StudentHotspotSelection {
-                region: ResponseItemReference::new("nucleus"),
+                region: ResponseItemId::new("nucleus"),
             }],
         }
     );
@@ -651,20 +651,20 @@ fn durable_response_projection_uses_only_issued_presentation_response_item_refer
         selection: ResponseSelectionRule::ExactlyOne,
     });
     assert!(matches!(
-        project_durable_response_to_presentation_response_item_references(&StudentResponse::MultipleChoice { selected: vec![ResponseItemReference::new("a")] }, &multiple),
+        project_durable_response_to_presentation_response_item_references(&StudentResponse::MultipleChoice { selected: vec![ResponseItemId::new("a")] }, &multiple),
         Ok(StudentResponseInspection::MultipleChoice { selected }) if selected == vec![multiple.item_bindings[0].presentation_response_item_reference.clone()]
     ));
 
     let blank = presentation_for(QuestionResponseFormat::MultiBlank {
         blanks: vec![TextEntrySlot {
-            id: ResponseItemReference::new("slot"),
+            id: ResponseItemId::new("slot"),
             label: vec![],
             match_mode: TextResponseMatchRule::Exact,
             max_length: 10,
         }],
     });
     assert!(matches!(
-        project_durable_response_to_presentation_response_item_references(&StudentResponse::MultiBlank { answers: vec![StudentTextEntry { slot: ResponseItemReference::new("slot"), text: "entered".into() }] }, &blank),
+        project_durable_response_to_presentation_response_item_references(&StudentResponse::MultiBlank { answers: vec![StudentTextEntry { slot: ResponseItemId::new("slot"), text: "entered".into() }] }, &blank),
         Ok(StudentResponseInspection::MultiBlank { answers }) if answers[0].text == "entered"
     ));
 
@@ -676,8 +676,8 @@ fn durable_response_projection_uses_only_issued_presentation_response_item_refer
         project_durable_response_to_presentation_response_item_references(
             &StudentResponse::Matching {
                 matches: vec![StudentMatch {
-                    prompt: ResponseItemReference::new("p"),
-                    choice: ResponseItemReference::new("c")
+                    prompt: ResponseItemId::new("p"),
+                    choice: ResponseItemId::new("c")
                 }]
             },
             &matching
@@ -690,7 +690,7 @@ fn durable_response_projection_uses_only_issued_presentation_response_item_refer
     assert!(matches!(
         project_durable_response_to_presentation_response_item_references(
             &StudentResponse::Ordering {
-                order: vec![ResponseItemReference::new("first")]
+                order: vec![ResponseItemId::new("first")]
             },
             &ordering
         ),
@@ -764,11 +764,11 @@ fn presentation_response_item_translation_rejects_malformed_unknown_duplicate_an
         selection: ResponseSelectionRule::ExactlyOne,
     });
     let response_for = |id| StudentResponse::MultipleChoice {
-        selected: vec![ResponseItemReference::new(id)],
+        selected: vec![ResponseItemId::new(id)],
     };
     assert_eq!(
         translate_presentation_response_item_references(&response_for("not-an-id"), &presentation),
-        Err(PresentationResponseItemTranslationError::MalformedPresentationResponseItemReference)
+        Err(PresentationResponseItemTranslationError::MalformedPresentationResponseItemId)
     );
 
     let unknown = (0_u16..=u16::MAX)
@@ -779,10 +779,10 @@ fn presentation_response_item_translation_rejects_malformed_unknown_duplicate_an
                 .iter()
                 .any(|binding| binding.presentation_response_item_reference.as_str() == id)
         })
-        .expect("unused Presentation Response Item Reference");
+        .expect("unused Presentation Response Item ID");
     assert_eq!(
         translate_presentation_response_item_references(&response_for(&unknown), &presentation),
-        Err(PresentationResponseItemTranslationError::UnknownPresentationResponseItemReference)
+        Err(PresentationResponseItemTranslationError::UnknownPresentationResponseItemId)
     );
 
     let mut duplicate = presentation.clone();
@@ -794,7 +794,7 @@ fn presentation_response_item_translation_rejects_malformed_unknown_duplicate_an
             &response_for(presentation.item_bindings[0].presentation_response_item_reference.as_str()),
             &duplicate,
         ),
-        Err(PresentationResponseItemTranslationError::DuplicatePresentationResponseItemReferenceBinding)
+        Err(PresentationResponseItemTranslationError::DuplicatePresentationResponseItemIdBinding)
     );
 
     let matching = presentation_for(QuestionResponseFormat::Matching {

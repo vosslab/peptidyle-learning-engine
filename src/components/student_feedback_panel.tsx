@@ -13,7 +13,7 @@ import {
 import type { QuestionContentBlock } from "../../generated/api/QuestionContentBlock";
 import type { StudentFeedback } from "../../generated/api/StudentFeedback";
 import type { AssessmentScoringState } from "../../generated/api/AssessmentScoringState";
-import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
+import type { QuestionRevisionTuple } from "../../generated/api/QuestionRevisionTuple";
 import { formatPointScore, formatScoreValue } from "../score_format";
 
 import { resolveSameOriginAssetUrl, type AssetUrlResolver } from "./question_renderer";
@@ -36,7 +36,7 @@ export type StudentFeedbackPresentation =
     };
 
 export interface StudentFeedbackPanelProps {
-  readonly questionRevision: QuestionRevisionReference;
+  readonly questionRevision: QuestionRevisionTuple;
   readonly disclosure: StudentFeedbackPresentation;
   /** A server-projected record of what the student submitted. */
   readonly studentResponse?: ReadonlyArray<QuestionContentBlock>;
@@ -86,7 +86,7 @@ function hasBlocks(blocks: ReadonlyArray<QuestionContentBlock> | undefined): boo
 
 function StudentFeedbackBlock(props: {
   readonly block: QuestionContentBlock;
-  readonly questionRevision: QuestionRevisionReference;
+  readonly questionRevision: QuestionRevisionTuple;
   readonly assetUrl: AssetUrlResolver;
 }): JSX.Element {
   switch (props.block.kind) {
@@ -151,7 +151,7 @@ function StudentFeedbackBlock(props: {
 /** Renders already server-approved teaching blocks without interpreting their meaning. */
 export function ContentBlockList(props: {
   readonly blocks: ReadonlyArray<QuestionContentBlock>;
-  readonly questionRevision: QuestionRevisionReference;
+  readonly questionRevision: QuestionRevisionTuple;
   readonly assetUrl: AssetUrlResolver;
 }): JSX.Element {
   return (
@@ -172,7 +172,7 @@ export function ContentBlockList(props: {
 function StudentFeedbackSection(props: {
   readonly title: string;
   readonly blocks: ReadonlyArray<QuestionContentBlock>;
-  readonly questionRevision: QuestionRevisionReference;
+  readonly questionRevision: QuestionRevisionTuple;
   readonly assetUrl: AssetUrlResolver;
 }): JSX.Element {
   return (

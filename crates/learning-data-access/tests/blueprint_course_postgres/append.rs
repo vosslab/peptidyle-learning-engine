@@ -160,7 +160,7 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
     let input = ReplaceBlueprintCourseContentInput {
         modules: vec![BlueprintModuleReplacementInput {
             choice: BlueprintModuleEditChoice::Retained {
-                blueprint_module_reference: initial.modules[0].blueprint_module_reference,
+                blueprint_module_id: initial.modules[0].blueprint_module_id,
             },
             label: "Module alpha".into(),
             assessments: vec![
@@ -250,7 +250,7 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
     let no_op_input = ReplaceBlueprintCourseContentInput {
         modules: vec![BlueprintModuleReplacementInput {
             choice: BlueprintModuleEditChoice::Retained {
-                blueprint_module_reference: head.content.modules[0].blueprint_module_reference,
+                blueprint_module_id: head.content.modules[0].blueprint_module_id,
             },
             label: "Module alpha".into(),
             assessments: head.content.modules[0]

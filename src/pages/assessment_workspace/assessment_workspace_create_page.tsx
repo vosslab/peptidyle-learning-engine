@@ -14,9 +14,9 @@ import type { LiveAssessmentWorkspaceResponse } from "../../api/assessment_relea
 import { useSessionBootstrap } from "../../auth/session_context";
 import { courseRouteView } from "../../features/course_appearance/course_theme_context";
 import {
-  assessmentRouteReference,
+  assessmentRouteId,
   parseCourseInstanceId,
-  type CourseInstanceRouteReference,
+  type CourseInstanceRouteId,
 } from "../../navigation/public_route";
 import { useRouteScopeData } from "../../ribbon/route_scope_context";
 
@@ -50,18 +50,18 @@ export function AssessmentWorkspaceCreatePage(): JSX.Element {
   let titleInput: HTMLInputElement | undefined;
   const course = (): ReturnType<typeof courseRouteView>["summary"] | undefined =>
     route()?.kind === "course" ? courseRouteView(route()!).summary : undefined;
-  const courseInstanceId = (): CourseInstanceRouteReference | null =>
+  const courseInstanceId = (): CourseInstanceRouteId | null =>
     parseCourseInstanceId(params["courseInstanceId"] ?? "");
   const mayCreate = (): boolean => {
     const currentSession = session.state();
     const currentCourse = course();
-    const reference = courseInstanceId();
+    const id = courseInstanceId();
     return (
       currentSession.kind === "authenticated" &&
       currentSession.session.account.productRole === "instructor" &&
       currentCourse?.role === "instructor" &&
-      reference !== null &&
-      currentCourse.id === reference
+      id !== null &&
+      currentCourse.id === id
     );
   };
   const selectedTemplate = (): AssessmentTemplate | undefined =>
@@ -79,8 +79,8 @@ export function AssessmentWorkspaceCreatePage(): JSX.Element {
 
   async function createAssessment(): Promise<void> {
     const currentCourse = course();
-    const reference = courseInstanceId();
-    if (currentCourse === undefined || reference === null || !mayCreate()) {
+    const id = courseInstanceId();
+    if (currentCourse === undefined || id === null || !mayCreate()) {
       setState("unavailable");
       return;
     }
@@ -101,10 +101,10 @@ export function AssessmentWorkspaceCreatePage(): JSX.Element {
     try {
       const created =
         creationMethod() === "template"
-          ? await createAssessmentFromTemplate(reference)
-          : await createManualAssessment(reference);
+          ? await createAssessmentFromTemplate(id)
+          : await createManualAssessment(id);
       navigate(
-        createdAssessmentQuestionsPath(reference, assessmentRouteReference(created.workspace.id)),
+        createdAssessmentQuestionsPath(id, assessmentRouteId(created.workspace.id)),
         {
           replace: true,
         },
@@ -121,13 +121,13 @@ export function AssessmentWorkspaceCreatePage(): JSX.Element {
   }
 
   async function createManualAssessment(
-    reference: CourseInstanceRouteReference,
+    courseInstanceId: CourseInstanceRouteId,
   ): Promise<LiveAssessmentWorkspaceResponse> {
     const selectedType = assessmentType();
     if (selectedType === undefined) {
       throw new Error("An Assessment Type is required for manual creation.");
     }
-    return applicationApi.client.createLiveAssessment(reference, {
+    return applicationApi.client.createLiveAssessment(courseInstanceId, {
       assessmentType: selectedType,
       title: title(),
       instructions: "",
@@ -135,13 +135,13 @@ export function AssessmentWorkspaceCreatePage(): JSX.Element {
   }
 
   async function createAssessmentFromTemplate(
-    reference: CourseInstanceRouteReference,
+    courseInstanceId: CourseInstanceRouteId,
   ): Promise<LiveAssessmentWorkspaceResponse> {
     const template = selectedTemplate();
     if (template === undefined) {
       throw new Error("An Assessment Template is required for Template creation.");
     }
-    return applicationApi.client.createAssessmentFromTemplate(reference, {
+    return applicationApi.client.createAssessmentFromTemplate(courseInstanceId, {
       templateId: template.id,
       title: title(),
     });

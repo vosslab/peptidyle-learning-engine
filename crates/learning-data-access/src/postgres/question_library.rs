@@ -6,8 +6,8 @@ use question_model::{
     BloomKnowledgeDimension, MAX_BULK_QUESTION_METADATA_ITEMS, ObjectId,
     PublishedQuestionSharedMetadata, QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship,
     QuestionAvailability, QuestionAvailabilityEditNumber, QuestionBackend, QuestionId,
-    QuestionRevisionNumber, QuestionRevisionReference, QuestionRevisionUsageStatistics,
-    QuestionType, QuestionUsageTotals, SourceObjectChecksum, SourceObjectReference, Tag, Timestamp,
+    QuestionRevisionNumber, QuestionRevisionTuple, QuestionRevisionUsageStatistics, QuestionType,
+    QuestionUsageTotals, SourceObjectChecksum, Tag, Timestamp,
 };
 use sqlx::{Postgres, Row, Transaction};
 
@@ -119,7 +119,7 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
     async fn load_published_question_revision_library_entry(
         &self,
         session_token_hash: SessionTokenHash,
-        question_revision: &QuestionRevisionReference,
+        question_revision: &QuestionRevisionTuple,
     ) -> Result<PublishedQuestionLibraryEntry, StoreError> {
         let mut transaction = self
             .begin_authenticated_application_transaction(session_token_hash)
@@ -156,7 +156,7 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
     async fn correct_question_revision_bloom(
         &self,
         session_token_hash: SessionTokenHash,
-        question_revision: &QuestionRevisionReference,
+        question_revision: &QuestionRevisionTuple,
         expected_edit_number: BloomClassificationEditNumber,
         cognitive_process: BloomCognitiveProcess,
         knowledge_dimension: BloomKnowledgeDimension,
@@ -425,7 +425,7 @@ fn decode_entry(row: &sqlx::postgres::PgRow) -> Result<PublishedQuestionLibraryE
     let published_at_millis: i64 = row.try_get("published_at_millis").map_err(map_sqlx_error)?;
     let shared_metadata = decode_shared_metadata(row)?;
     Ok(PublishedQuestionLibraryEntry {
-        question_revision: QuestionRevisionReference {
+        question_revision: QuestionRevisionTuple {
             question_id,
             revision_number,
         },
@@ -457,9 +457,7 @@ fn decode_entry(row: &sqlx::postgres::PgRow) -> Result<PublishedQuestionLibraryE
         question_license,
         availability,
         availability_edit_number,
-        source_object_reference: SourceObjectReference {
-            object: source_object_id,
-        },
+        source_object_id: source_object_id,
         source_object_checksum,
         source_media_type: row.try_get("source_media_type").map_err(map_sqlx_error)?,
         webwork_pg_path: row.try_get("webwork_pg_path").map_err(map_sqlx_error)?,

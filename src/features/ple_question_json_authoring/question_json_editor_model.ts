@@ -538,7 +538,7 @@ export function reorderChoices(
   return changed({ ...source, response: { ...source.response, choices } });
 }
 
-export function renameQuestionChoiceReference(
+export function renameQuestionChoiceId(
   source: PleQuestionJsonDocument,
   previousId: string,
   nextId: string,

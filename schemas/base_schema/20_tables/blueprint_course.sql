@@ -62,16 +62,16 @@ CREATE TABLE ple_data.blueprint_revision_question_pin (
 
 
 
--- Module and Assessment References are durable identities across Revisions.
+-- Module and Assessment IDs are durable identities across Revisions.
 -- Their positions and Module membership belong to each immutable Revision.
 CREATE TABLE ple_data.blueprint_revision_module (
     blueprint_course_id ple_data.blueprint_course_id NOT NULL,
     blueprint_revision_number integer NOT NULL,
-    blueprint_module_reference uuid NOT NULL,
+    blueprint_module_id uuid NOT NULL,
     module_position integer NOT NULL CHECK (module_position BETWEEN 1 AND 1024),
     PRIMARY KEY (
         blueprint_course_id, blueprint_revision_number,
-        blueprint_module_reference
+        blueprint_module_id
     ),
     FOREIGN KEY (blueprint_course_id, blueprint_revision_number)
         REFERENCES ple_data.blueprint_course_revision
@@ -84,7 +84,7 @@ CREATE TABLE ple_data.blueprint_revision_module (
 CREATE TABLE ple_data.blueprint_revision_assessment (
     blueprint_course_id ple_data.blueprint_course_id NOT NULL,
     blueprint_revision_number integer NOT NULL,
-    blueprint_module_reference uuid NOT NULL,
+    blueprint_module_id uuid NOT NULL,
     blueprint_assessment_id uuid NOT NULL,
     assessment_position integer NOT NULL CHECK (assessment_position BETWEEN 1 AND 1024),
     PRIMARY KEY (
@@ -93,14 +93,14 @@ CREATE TABLE ple_data.blueprint_revision_assessment (
     ),
     FOREIGN KEY (
         blueprint_course_id, blueprint_revision_number,
-        blueprint_module_reference
+        blueprint_module_id
     ) REFERENCES ple_data.blueprint_revision_module (
         blueprint_course_id, blueprint_revision_number,
-        blueprint_module_reference
+        blueprint_module_id
     ),
     UNIQUE (
         blueprint_course_id, blueprint_revision_number,
-        blueprint_module_reference, assessment_position
+        blueprint_module_id, assessment_position
     ),
     created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
 );

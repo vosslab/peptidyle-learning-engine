@@ -6,7 +6,7 @@
 
 use async_trait::async_trait;
 use objects::{ObjectAddress, ObjectDataClass, ObjectRecord, ObjectStorageArea};
-use question_model::{QuestionAssetId, QuestionRevisionReference, WorkspaceId};
+use question_model::{QuestionAssetId, QuestionRevisionTuple, WorkspaceId};
 use uuid::Uuid;
 
 use crate::{SessionTokenHash, StoreError};
@@ -15,7 +15,7 @@ use crate::{SessionTokenHash, StoreError};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ForkPublishedQuestionInput {
     /// Existing available immutable source Revision, resolved from the path.
-    pub source_question_revision: QuestionRevisionReference,
+    pub source_question_revision: QuestionRevisionTuple,
     /// Existing owner workspace resolved through the ordinary authoring Store.
     pub workspace: WorkspaceId,
     /// Opaque server persistence identity; it never crosses the browser boundary.
@@ -106,7 +106,7 @@ pub trait QuestionForkStore: Send + Sync {
     async fn load_published_question_fork_asset(
         &self,
         session_token_hash: SessionTokenHash,
-        question_revision: &QuestionRevisionReference,
+        question_revision: &QuestionRevisionTuple,
     ) -> Result<Option<PublishedQuestionForkAsset>, StoreError>;
 
     /// Creates or returns the actor/key's one private Draft fork atomically.

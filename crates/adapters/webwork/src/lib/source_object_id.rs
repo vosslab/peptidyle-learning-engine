@@ -1,7 +1,7 @@
 //! Trusted immutable PG-source resolution and binding checks.
 
 use objects::{ObjectStore, QuestionSourceResolutionError, ResolvedQuestionSource};
-use question_model::{QuestionRevisionReference, SourceObjectChecksum, SourceObjectReference};
+use question_model::{QuestionRevisionTuple, SourceObjectChecksum, ObjectId};
 
 use super::WebworkAdapterError;
 
@@ -19,14 +19,14 @@ pub struct ResolvedWebworkQuestionSource {
 /// Revision record.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WebworkQuestionSourceBinding {
-    question_revision: QuestionRevisionReference,
+    question_revision: QuestionRevisionTuple,
     pg_path: String,
 }
 
 impl WebworkQuestionSourceBinding {
     /// Creates the registered PG-path binding for one published source.
     pub fn new(
-        question_revision: QuestionRevisionReference,
+        question_revision: QuestionRevisionTuple,
         pg_path: String,
     ) -> Result<Self, WebworkAdapterError> {
         if pg_path.is_empty()
@@ -46,7 +46,7 @@ impl WebworkQuestionSourceBinding {
     }
 
     /// Exact immutable revision that registered this source.
-    pub fn question_revision(&self) -> &QuestionRevisionReference {
+    pub fn question_revision(&self) -> &QuestionRevisionTuple {
         &self.question_revision
     }
 
@@ -61,13 +61,13 @@ impl ResolvedWebworkQuestionSource {
     pub async fn resolve<S: ObjectStore>(
         store: &S,
         binding: WebworkQuestionSourceBinding,
-        source_object_reference: SourceObjectReference,
+        source_object_id: ObjectId,
         source_object_checksum: SourceObjectChecksum,
     ) -> Result<Self, WebworkAdapterError> {
         let resolved = ResolvedQuestionSource::resolve(
             store,
             binding.question_revision().clone(),
-            source_object_reference,
+            source_object_id,
             source_object_checksum,
         )
         .await
@@ -82,9 +82,9 @@ impl ResolvedWebworkQuestionSource {
         Ok(Self { resolved, binding })
     }
 
-    /// Immutable Source Object Reference carried into Question Attempt Reproduction Details.
-    pub fn source_object_reference(&self) -> &SourceObjectReference {
-        self.resolved.source_object_reference()
+    /// Immutable Source Object ID carried into Question Attempt Reproduction Details.
+    pub fn source_object_id(&self) -> &ObjectId {
+        self.resolved.source_object_id()
     }
 
     /// SHA-256 evidence for the immutable source object bytes.
@@ -93,7 +93,7 @@ impl ResolvedWebworkQuestionSource {
     }
 
     /// Exact immutable revision verified through the Question Source Object Address.
-    pub fn question_revision(&self) -> &QuestionRevisionReference {
+    pub fn question_revision(&self) -> &QuestionRevisionTuple {
         self.binding.question_revision()
     }
 

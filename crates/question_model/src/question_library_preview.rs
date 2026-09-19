@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::answer::ResponseSelectionRule;
-use crate::{QuestionAssetReference, QuestionContentBlock, QuestionResponseFormat};
+use crate::{QuestionAssetTuple, QuestionContentBlock, QuestionResponseFormat};
 
 /// Public geometry and label of an inert Hotspot preview region.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -44,7 +44,7 @@ pub enum QuestionResponsePreview {
         items: Vec<Vec<QuestionContentBlock>>,
     },
     Hotspot {
-        surface: QuestionAssetReference,
+        surface: QuestionAssetTuple,
         description: String,
         regions: Vec<QuestionPreviewRegion>,
         selection: ResponseSelectionRule,

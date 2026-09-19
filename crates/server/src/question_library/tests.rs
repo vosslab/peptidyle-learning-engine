@@ -30,7 +30,7 @@ impl QuestionLibraryStore for LookupCountingStore {
     async fn load_published_question_revision_library_entry(
         &self,
         _: SessionTokenHash,
-        _: &QuestionRevisionReference,
+        _: &QuestionRevisionTuple,
     ) -> Result<PublishedQuestionLibraryEntry, StoreError> {
         Err(StoreError::Unavailable(
             "not used by this contract".to_string(),
@@ -73,7 +73,7 @@ impl QuestionLibraryStore for LookupCountingStore {
     async fn correct_question_revision_bloom(
         &self,
         _: SessionTokenHash,
-        _: &QuestionRevisionReference,
+        _: &QuestionRevisionTuple,
         _: question_model::BloomClassificationEditNumber,
         _: BloomCognitiveProcess,
         _: BloomKnowledgeDimension,

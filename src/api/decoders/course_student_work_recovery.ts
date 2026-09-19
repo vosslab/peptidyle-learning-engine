@@ -14,7 +14,7 @@ import {
   decodeString,
 } from "../decoder";
 import { field, requireOnlyFields, decodeCourseInstanceId, decodeAssessmentId } from "./shared";
-import { parseAssessmentAttemptReference } from "../../navigation/public_route";
+import { parseAssessmentAttemptId } from "../../navigation/public_route";
 
 const commonFields = [
   "course",
@@ -46,7 +46,7 @@ function common(
 ): Omit<RecoverySummary, "submittedAt"> {
   const text = (key: string): string => decodeString(field(record, key, path), `${path}.${key}`);
   const assessmentAttempt = text("assessmentAttempt");
-  if (parseAssessmentAttemptReference(assessmentAttempt) === null)
+  if (parseAssessmentAttemptId(assessmentAttempt) === null)
     throw new DecodeError(`${path}.assessmentAttempt`, "an Assessment Attempt UUID");
   return {
     course: decodeCourseInstanceId(field(record, "course", path), `${path}.course`),

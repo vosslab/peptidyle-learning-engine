@@ -1,7 +1,7 @@
 //! Converts retained delivery asset evidence into renderer-safe bindings.
 
 use learning_data_access::{NativePleIssuanceSource, ReadyQuestionAssetRendition};
-use question_model::{QuestionAssetReference, QuestionAssetRendition};
+use question_model::{QuestionAssetTuple, QuestionAssetRendition};
 
 pub(crate) fn question_asset_renditions(
     source: &NativePleIssuanceSource,
@@ -15,7 +15,7 @@ pub(crate) fn question_asset_renditions_from_ready(
     renditions
         .iter()
         .map(|rendition| QuestionAssetRendition {
-            question_asset: QuestionAssetReference {
+            question_asset: QuestionAssetTuple {
                 question_asset: rendition.question_asset,
                 checksum: rendition.question_asset_checksum.clone(),
             },

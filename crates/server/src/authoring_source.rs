@@ -3,7 +3,7 @@
 use axum::{body::Bytes, http::StatusCode, response::Response};
 use learning_data_access::AuthoringDraft;
 use objects::{ObjectAddress, ObjectStore, PutObject, s3::S3ObjectStore};
-use question_model::{ObjectId, QuestionAssetReference, QuestionLicense, QuestionType, Tag};
+use question_model::{ObjectId, QuestionAssetTuple, QuestionLicense, QuestionType, Tag};
 
 use crate::authoring::{PLE_QUESTION_JSON_MEDIA_TYPE, now, private_error};
 
@@ -15,7 +15,7 @@ pub(crate) struct ValidatedSource {
     pub license: Option<QuestionLicense>,
     pub tags: Vec<Tag>,
     pub question_type: QuestionType,
-    pub hotspot_surface: Option<QuestionAssetReference>,
+    pub hotspot_surface: Option<QuestionAssetTuple>,
 }
 
 pub(crate) fn validated_source(bytes: &[u8]) -> Result<ValidatedSource, Box<Response>> {

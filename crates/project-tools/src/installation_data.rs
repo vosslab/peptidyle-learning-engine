@@ -210,7 +210,7 @@ fn publish_bundled_genetics(
         )
         .await
         .context("publishing the bundled Genetics Blueprint through the ordinary publisher")?;
-        let reference = BlueprintCourseId::new(receipt.blueprint_reference())
+        let reference = BlueprintCourseId::new(receipt.blueprint_course_id())
             .map_err(anyhow::Error::msg)
             .context("resolving the bundled Genetics Blueprint receipt")?;
         let database_url = required_environment("DATABASE_URL")?;

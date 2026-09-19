@@ -6,8 +6,8 @@ use sha2::{Digest, Sha256};
 use crate::{
     AssessmentEntryScoringRule, AssessmentInstructions, AssessmentPointValue, AssessmentTitle,
     BlueprintAssessmentDefaults, BlueprintAssessmentId, BlueprintCourseValidationError,
-    BlueprintModuleReference, MAX_ASSESSMENT_ORDERED_ENTRIES, QuestionAttemptLimit,
-    QuestionAttemptTimeLimit, QuestionRevisionReference, ReusablePoolView,
+    BlueprintModuleId, MAX_ASSESSMENT_ORDERED_ENTRIES, QuestionAttemptLimit,
+    QuestionAttemptTimeLimit, QuestionRevisionTuple, ReusablePoolView,
     validate_blueprint_course_title,
 };
 
@@ -125,14 +125,14 @@ impl BlueprintAssessmentContent {
 /// One validated labelled module in Blueprint Course Content.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BlueprintCourseModuleContent {
-    blueprint_module_reference: BlueprintModuleReference,
+    blueprint_module_id: BlueprintModuleId,
     label: String,
     assessments: Vec<BlueprintAssessmentContent>,
 }
 impl BlueprintCourseModuleContent {
     /// Validates a module label and its nonempty ordered assessments.
     pub fn new(
-        blueprint_module_reference: BlueprintModuleReference,
+        blueprint_module_id: BlueprintModuleId,
         label: String,
         assessments: Vec<BlueprintAssessmentContent>,
     ) -> Result<Self, BlueprintCourseValidationError> {
@@ -142,14 +142,14 @@ impl BlueprintCourseModuleContent {
             return Err(BlueprintCourseValidationError::InvalidModuleAssessmentCount);
         }
         Ok(Self {
-            blueprint_module_reference,
+            blueprint_module_id,
             label,
             assessments,
         })
     }
     /// Returns the stable Blueprint Module identity retained across Revisions.
-    pub fn blueprint_module_reference(&self) -> BlueprintModuleReference {
-        self.blueprint_module_reference
+    pub fn blueprint_module_id(&self) -> BlueprintModuleId {
+        self.blueprint_module_id
     }
     /// Returns the reusable module label.
     pub fn label(&self) -> &str {
@@ -188,7 +188,7 @@ pub enum BlueprintAssessmentEntryContent {
     /// One fixed immutable Question Revision and its scoring rule.
     Fixed {
         /// Exact immutable publication pin authorized for the destination.
-        reference: QuestionRevisionReference,
+        question_revision: QuestionRevisionTuple,
         /// Exact points copied into the destination assessment.
         points_possible: AssessmentPointValue,
         /// Scoring treatment copied into the destination assessment.
@@ -325,7 +325,7 @@ enum EncodedMeaning<'a> {
 #[derive(Serialize)]
 #[serde(rename_all = "snake_case")]
 struct EncodedModule<'a> {
-    blueprint_module_reference: BlueprintModuleReference,
+    blueprint_module_id: BlueprintModuleId,
     label: &'a str,
     assessments: Vec<EncodedAssessment<'a>>,
 }
@@ -345,7 +345,7 @@ struct EncodedAssessment<'a> {
 #[serde(tag = "kind", rename_all = "snake_case")]
 enum EncodedEntry<'a> {
     Fixed {
-        reference: &'a QuestionRevisionReference,
+        question_revision: &'a QuestionRevisionTuple,
         points_possible: AssessmentPointValue,
         scoring_rule: AssessmentEntryScoringRule,
         question_attempt_limit: &'a QuestionAttemptLimit,
@@ -373,7 +373,7 @@ fn deterministic_encoded_bytes(payload: &BlueprintRevisionContent) -> Vec<u8> {
                 .modules()
                 .iter()
                 .map(|module| EncodedModule {
-                    blueprint_module_reference: module.blueprint_module_reference(),
+                    blueprint_module_id: module.blueprint_module_id(),
                     label: module.label(),
                     assessments: module.assessments().iter().map(encode_assessment).collect(),
                 })
@@ -399,13 +399,13 @@ fn encode_assessment(assessment: &BlueprintAssessmentContent) -> EncodedAssessme
             .iter()
             .map(|entry| match entry {
                 BlueprintAssessmentEntryContent::Fixed {
-                    reference,
+                    question_revision,
                     points_possible,
                     scoring_rule,
                     question_attempt_limit,
                     question_attempt_time_limit,
                 } => EncodedEntry::Fixed {
-                    reference,
+                    question_revision,
                     points_possible: *points_possible,
                     scoring_rule: *scoring_rule,
                     question_attempt_limit,

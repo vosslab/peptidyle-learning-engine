@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use question_model::{
     AssessmentEntryId, BloomClassificationEditNumber, BloomClassificationView,
     BloomCognitiveProcess, BloomKnowledgeDimension, QuestionId, QuestionPoolEditNumber,
-    QuestionPoolLibrarySummary, QuestionPoolMetadata, QuestionRevisionReference,
+    QuestionPoolLibrarySummary, QuestionPoolMetadata, QuestionRevisionTuple,
     QuestionSearchBloomCognitiveProcessFacet, QuestionSearchBloomKnowledgeDimensionFacet,
 };
 use serde::Serialize;
@@ -83,7 +83,7 @@ pub struct PublishedQuestionPool {
     pub question_pool_id: QuestionId,
     pub question_pool_edit_number: QuestionPoolEditNumber,
     pub bloom: Option<BloomClassificationView>,
-    pub members: Vec<QuestionRevisionReference>,
+    pub members: Vec<QuestionRevisionTuple>,
 }
 
 /// Assessment-owned exact fork facts before answer-free Question projection.
@@ -95,7 +95,7 @@ pub struct AssessmentQuestionPoolForkRecord {
     pub question_pool_edit_number: QuestionPoolEditNumber,
     pub selection_count: std::num::NonZeroU32,
     pub bloom: Option<BloomClassificationView>,
-    pub members: Vec<QuestionRevisionReference>,
+    pub members: Vec<QuestionRevisionTuple>,
 }
 
 /// Store boundary for global Pool discovery and owned Assessment-fork reads.

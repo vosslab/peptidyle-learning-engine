@@ -22,7 +22,7 @@ esac
 readonly live_demo_course_long_name="Biochemistry 301: Proteins and Peptides"
 readonly live_demo_assessment_title="Chapter 1 Pilot Practice"
 
-live_demo_course_reference() {
+live_demo_course_instance_id() {
 	python3 -c '
 import json, re, sys
 value=json.loads(sys.argv[1]); long_name=sys.argv[2]
@@ -36,14 +36,14 @@ for item in value["items"]:
         matches.append(item)
 if len(matches) != 1:
     raise SystemExit("Live Demo Course is absent or duplicated")
-reference=matches[0].get("id")
-if not isinstance(reference, str) or re.fullmatch(r"CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}", reference) is None:
+course_instance_id=matches[0].get("id")
+if not isinstance(course_instance_id, str) or re.fullmatch(r"CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}", course_instance_id) is None:
     raise SystemExit("Live Demo Course lacks a canonical Course Instance ID")
-print(reference)
+print(course_instance_id)
 ' "$1" "$live_demo_course_long_name"
 }
 
-live_demo_assessment_reference() {
+live_demo_assessment_id() {
 	python3 -c '
 import json, re, sys
 items=json.loads(sys.argv[1]); title=sys.argv[2]
@@ -55,10 +55,10 @@ if len(matches) != 1:
 item=matches[0]
 if set(item) != {"id","assessmentType","title","dueAt","displayTimeZone","status","editNumber"}:
     raise SystemExit("Course Assessment list is not its current closed projection")
-reference=item["id"]
-if not isinstance(reference, str) or re.fullmatch(r"A[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}", reference) is None:
-    raise SystemExit("Live Demo Assessment lacks a canonical Course Instance ID")
-print(reference)
+assessment_id=item["id"]
+if not isinstance(assessment_id, str) or re.fullmatch(r"A[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}", assessment_id) is None:
+    raise SystemExit("Live Demo Assessment lacks a canonical Assessment ID")
+print(assessment_id)
 ' "$1" "$live_demo_assessment_title"
 }
 
@@ -66,9 +66,9 @@ assert_current_assessment() {
 	local response="$1" assessment="$2"
 	python3 -c '
 import json, sys
-items=json.loads(sys.argv[1]); reference=sys.argv[2]
+items=json.loads(sys.argv[1]); assessment_id=sys.argv[2]
 if not isinstance(items, list): raise SystemExit("Course Assessment list is malformed")
-matches=[item for item in items if isinstance(item, dict) and item.get("id") == reference]
+matches=[item for item in items if isinstance(item, dict) and item.get("id") == assessment_id]
 if len(matches) != 1: raise SystemExit("Live Demo Assessment is absent or duplicated")
 item=matches[0]
 if set(item) != {"id","assessmentType","title","dueAt","displayTimeZone","status","editNumber"}:
@@ -86,10 +86,10 @@ prove_state() {
 	instructor="$(persona_cookie elenaInstructor)"
 	courses="$(request '/api/course-instances' "$instructor")"
 	require_status "Instructor Course list" "$courses" 200
-	course="$(live_demo_course_reference "$(response_body "$courses")")"
+	course="$(live_demo_course_instance_id "$(response_body "$courses")")"
 	assessments="$(request "/api/course-instances/$course/assessments" "$instructor")"
 	require_status "Instructor Course Assessment list" "$assessments" 200
-	assessment="$(live_demo_assessment_reference "$(response_body "$assessments")")"
+	assessment="$(live_demo_assessment_id "$(response_body "$assessments")")"
 	assert_current_assessment "$assessments" "$assessment"
 	echo "Live Demo Course seed: ordinary Released Assessment is available"
 }
@@ -100,10 +100,10 @@ prove_authorization() {
 	instructor="$(persona_cookie elenaInstructor)"; mary="$(persona_cookie maryStudent)"; sysadmin="$(persona_cookie morganSysadmin)"
 	courses="$(request '/api/course-instances' "$instructor")"
 	require_status "Instructor Course list" "$courses" 200
-	course="$(live_demo_course_reference "$(response_body "$courses")")"
+	course="$(live_demo_course_instance_id "$(response_body "$courses")")"
 	assessments="$(request "/api/course-instances/$course/assessments" "$instructor")"
 	require_status "Instructor Course Assessment list" "$assessments" 200
-	assessment="$(live_demo_assessment_reference "$(response_body "$assessments")")"
+	assessment="$(live_demo_assessment_id "$(response_body "$assessments")")"
 	for path in \
 		"/api/course-instances/$course/assessments" \
 		"/api/course-instances/$course/assessments/$assessment" \

@@ -18,9 +18,9 @@ use super::{
 pub(super) async fn export(
     State(state): State<BlueprintCourseRouteState>,
     headers: HeaderMap,
-    Path(reference): Path<String>,
+    Path(blueprint_course_id): Path<String>,
 ) -> Response {
-    let reference = match parse_blueprint_course_id(&reference) {
+    let blueprint_course_id = match parse_blueprint_course_id(&blueprint_course_id) {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -30,7 +30,7 @@ pub(super) async fn export(
     };
     match state
         .blueprints
-        .export_blueprint_course(session, reference)
+        .export_blueprint_course(session, blueprint_course_id)
         .await
     {
         // ASVS 15.3.1: the canonical DTO is an allowlisted reusable-content

@@ -67,7 +67,7 @@ server writes the typed object, then calls the session-authorized registration
 capability with the exact Workspace Question Source Object Address and returned
 metadata. PostgreSQL derives Private Content and authoring-content classification
 from that address, accepts an identical retry, and rejects a changed address or
-immutable record. A Question Source stores that Source Object Reference and
+immutable record. A Question Source stores that Source Object ID and
 Source Object Checksum as its only source-data representation. Published source
 registration remains part of the separate Question Publication operation.
 The Draft Question Source Binding Store binds that byte evidence only to an
@@ -160,7 +160,7 @@ publication atomically:
 
 The dedicated publisher subsequently claims only that job kind, re-reads each
 pending record and its exact Question Revision-owned private source or asset, verifies
-the Source Object Reference and Source Object Checksum, and writes the final public key. It uses
+the Source Object ID and Source Object Checksum, and writes the final public key. It uses
 immutable creation semantics. A retry accepts an existing final key only when
 its exact record and checksum agree. Finally, a lease-conditional database
 function changes the complete batch from `Pending` to `Ready` and completes

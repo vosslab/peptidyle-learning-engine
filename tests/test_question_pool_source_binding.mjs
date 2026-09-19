@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { EMPTY_QUESTION_LIBRARY_BROWSE_QUERY } from "../src/pages/library_page_model.ts";
 import {
-  questionPoolMemberReferences,
+  questionPoolMemberTuples,
   questionPoolSourcePickerRepository,
 } from "../src/components/question_pool_create_model.ts";
 
@@ -46,7 +46,7 @@ function page(items, nextCursor) {
 
 test("source-bound Pool members keep the exact starting Revision first", async () => {
   const lookedUp = [];
-  const members = await questionPoolMemberReferences(
+  const members = await questionPoolMemberTuples(
     {
       questionIds: ["2R5X-E7YA"],
       questions: [

@@ -4,15 +4,15 @@
 //! contracts must expose only authorized, opaque course-scoped actions and use
 //! `deny_unknown_fields` on every browser-facing shape.
 
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{AccountId, CourseInstanceId, CourseMembershipId, CourseMembershipRole, Timestamp};
 
-/// Stable internal identifier for one target-bound Course Invitation.
+/// Stable identifier for one target-bound Course Invitation.
 ///
-/// It has no display implementation because it is never a user-facing
-/// Reference. Later HTTP contracts should use a course-scoped opaque action.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// The invitation is not a public Crockford ID. JSON and routes use this UUID.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct CourseInvitationId(Uuid);
 
 impl CourseInvitationId {
@@ -24,6 +24,22 @@ impl CourseInvitationId {
     /// Returns the identifier for storage and transaction lookup only.
     pub fn as_uuid(self) -> Uuid {
         self.0
+    }
+}
+
+impl std::fmt::Display for CourseInvitationId {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "{}", self.0)
+    }
+}
+
+impl std::str::FromStr for CourseInvitationId {
+    type Err = &'static str;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Uuid::parse_str(value)
+            .map(Self)
+            .map_err(|_| "Course Invitation ID must be a UUID")
     }
 }
 

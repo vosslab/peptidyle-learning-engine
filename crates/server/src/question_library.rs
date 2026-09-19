@@ -28,7 +28,7 @@ use learning_data_access::{
 use objects::s3::S3ObjectStore;
 use question_model::{
     BloomClassificationCorrectionRequest, QuestionBackend, QuestionBloomCorrectionReceipt,
-    QuestionId, QuestionLineageView, QuestionRevisionReference, QuestionSearchPage,
+    QuestionId, QuestionLineageView, QuestionRevisionTuple, QuestionSearchPage,
     QuestionSearchRequest, QuestionSearchResult,
 };
 use serde::{Deserialize, Serialize};
@@ -432,7 +432,7 @@ async fn question_revision_preview_document(
     let source = match ResolvedWebworkQuestionSource::resolve(
         &state.objects,
         binding,
-        entry.source_object_reference,
+        entry.source_object_id,
         entry.source_object_checksum,
     )
     .await
@@ -563,8 +563,8 @@ fn verified_question_id(value: &str) -> Option<QuestionId> {
 fn verified_question_revision(
     question_id: &str,
     revision_number: &str,
-) -> Option<QuestionRevisionReference> {
-    Some(QuestionRevisionReference {
+) -> Option<QuestionRevisionTuple> {
+    Some(QuestionRevisionTuple {
         question_id: verified_question_id(question_id)?,
         revision_number: revision_number
             .parse::<u32>()

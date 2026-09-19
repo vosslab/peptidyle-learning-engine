@@ -3,11 +3,11 @@
 import { createUniqueId, ErrorBoundary, For, onMount, type JSX } from "solid-js";
 import temml from "temml";
 
-import type { QuestionAssetReference } from "../../generated/api/QuestionAssetReference";
+import type { QuestionAssetTuple } from "../../generated/api/QuestionAssetTuple";
 import type { QuestionContentBlock } from "../../generated/api/QuestionContentBlock";
 import type { QuestionResponseFormat } from "../../generated/api/QuestionResponseFormat";
 import type { QuestionPresentation } from "../../generated/api/QuestionPresentation";
-import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
+import type { QuestionRevisionTuple } from "../../generated/api/QuestionRevisionTuple";
 
 import { QUESTION_RENDERER_STYLES } from "./question_renderer_styles";
 
@@ -97,14 +97,14 @@ type SafeMathMlElementNode = {
 type SanitizedMathMl = { readonly root: SafeMathMlElementNode };
 
 /** A narrow callback that closes over one exact Question Revision asset route. */
-export type AssetUrlResolver = (questionAsset: QuestionAssetReference) => URL;
+export type AssetUrlResolver = (questionAsset: QuestionAssetTuple) => URL;
 
 /**
  * The renderable Question Variation Presentation with the exact immutable identity required for
  * its asset URLs.
  */
 export interface QuestionVariationPresentation {
-  readonly questionRevision: QuestionRevisionReference;
+  readonly questionRevision: QuestionRevisionTuple;
   readonly prompt: ReadonlyArray<QuestionContentBlock>;
   readonly response: QuestionResponseFormat;
 }
@@ -118,7 +118,7 @@ export interface QuestionRendererProps {
 
 /** The semantic, answer-free prompt block surface shared by question views. */
 export interface QuestionPromptRendererProps {
-  readonly questionRevision: QuestionRevisionReference;
+  readonly questionRevision: QuestionRevisionTuple;
   readonly blocks: ReadonlyArray<QuestionContentBlock>;
   readonly assetUrl: AssetUrlResolver;
 }
@@ -244,8 +244,8 @@ function renderLatexToMathMl(latex: string): SanitizedMathMl {
 
 /** Refuse every route except the authorized exact Question Revision asset endpoint. */
 export function resolveSameOriginAssetUrl(
-  questionAsset: QuestionAssetReference,
-  questionRevision: QuestionRevisionReference,
+  questionAsset: QuestionAssetTuple,
+  questionRevision: QuestionRevisionTuple,
   resolver: AssetUrlResolver,
 ): string {
   const url = resolver(questionAsset);
@@ -308,7 +308,7 @@ function RenderedMath(props: {
 
 function QuestionContentBlockRenderer(props: {
   readonly block: QuestionContentBlock;
-  readonly questionRevision: QuestionRevisionReference;
+  readonly questionRevision: QuestionRevisionTuple;
   readonly assetUrl: AssetUrlResolver;
 }): JSX.Element {
   switch (props.block.kind) {

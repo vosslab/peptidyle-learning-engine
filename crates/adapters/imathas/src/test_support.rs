@@ -14,7 +14,7 @@ use question_model::QuestionContentBlock;
 use sha2::Sha256;
 
 use crate::imathas_question_backend::{
-    ImathasLaunchReference, ImathasQuestionBackend, ImathasQuestionBackendConfig,
+    ImathasLaunchId, ImathasQuestionBackend, ImathasQuestionBackendConfig,
     ImathasQuestionBackendSnapshot, ImathasQuestionBackendTransport, ImathasTransportFailure,
     ProtectedLaunchRequest, ProxyRequest, ProxyResponse, ResultTransportRequest,
     SnapshotTransportRequest,
@@ -183,7 +183,7 @@ pub enum RecordedImathasQuestionBackendTransportMode {
     /// A signed iMathAS response with an intentionally wrong exact binding.
     WrongSignedResult,
     /// A signed iMathAS response bound to a different iMathAS Item Reference.
-    WrongImathasItemReference,
+    WrongImathasItemId,
     /// A signed iMathAS response with a score outside the supported range.
     InvalidScore,
     /// A signed negative-zero score, which the canonical result rejects.
@@ -320,7 +320,7 @@ impl ImathasQuestionBackendTransport for RecordedImathasQuestionBackendTransport
             | RecordedImathasQuestionBackendTransportMode::ZeroScore
             | RecordedImathasQuestionBackendTransportMode::ResultUnavailable
             | RecordedImathasQuestionBackendTransportMode::WrongSignedResult
-            | RecordedImathasQuestionBackendTransportMode::WrongImathasItemReference
+            | RecordedImathasQuestionBackendTransportMode::WrongImathasItemId
             | RecordedImathasQuestionBackendTransportMode::InvalidScore
             | RecordedImathasQuestionBackendTransportMode::NegativeZeroScore
             | RecordedImathasQuestionBackendTransportMode::ExpiredSignedResult
@@ -359,7 +359,7 @@ impl ImathasQuestionBackendTransport for RecordedImathasQuestionBackendTransport
     async fn start_protected_launch(
         &self,
         request: ProtectedLaunchRequest,
-    ) -> Result<ImathasLaunchReference, ImathasTransportFailure> {
+    ) -> Result<ImathasLaunchId, ImathasTransportFailure> {
         self.launch_calls.fetch_add(1, Ordering::SeqCst);
         match self.mode {
             RecordedImathasQuestionBackendTransportMode::Available
@@ -367,7 +367,7 @@ impl ImathasQuestionBackendTransport for RecordedImathasQuestionBackendTransport
             | RecordedImathasQuestionBackendTransportMode::ZeroScore
             | RecordedImathasQuestionBackendTransportMode::ResultUnavailable
             | RecordedImathasQuestionBackendTransportMode::WrongSignedResult
-            | RecordedImathasQuestionBackendTransportMode::WrongImathasItemReference
+            | RecordedImathasQuestionBackendTransportMode::WrongImathasItemId
             | RecordedImathasQuestionBackendTransportMode::InvalidScore
             | RecordedImathasQuestionBackendTransportMode::NegativeZeroScore
             | RecordedImathasQuestionBackendTransportMode::ExpiredSignedResult
@@ -379,7 +379,7 @@ impl ImathasQuestionBackendTransport for RecordedImathasQuestionBackendTransport
             | RecordedImathasQuestionBackendTransportMode::SourceChanged => {
                 let claims = recorded_launch_claims(request.signed_launch_jwt())?;
                 *self.launch_claims.lock().expect("recorded launch claims") = Some(claims);
-                ImathasLaunchReference::from_server_handle("recorded-proxy-session")
+                ImathasLaunchId::from_server_handle("recorded-proxy-session")
             }
             RecordedImathasQuestionBackendTransportMode::Unavailable => {
                 Err(ImathasTransportFailure::Unavailable)
@@ -421,7 +421,7 @@ impl ImathasQuestionBackendTransport for RecordedImathasQuestionBackendTransport
                 claims.binding = "0".repeat(64);
                 Ok(recorded_result_token(&claims).into_bytes())
             }
-            RecordedImathasQuestionBackendTransportMode::WrongImathasItemReference => {
+            RecordedImathasQuestionBackendTransportMode::WrongImathasItemId => {
                 let mut claims = self
                     .launch_claims
                     .lock()
@@ -518,7 +518,7 @@ impl ImathasQuestionBackendTransport for RecordedImathasQuestionBackendTransport
             | RecordedImathasQuestionBackendTransportMode::ZeroScore
             | RecordedImathasQuestionBackendTransportMode::ResultUnavailable
             | RecordedImathasQuestionBackendTransportMode::WrongSignedResult
-            | RecordedImathasQuestionBackendTransportMode::WrongImathasItemReference
+            | RecordedImathasQuestionBackendTransportMode::WrongImathasItemId
             | RecordedImathasQuestionBackendTransportMode::InvalidScore
             | RecordedImathasQuestionBackendTransportMode::NegativeZeroScore
             | RecordedImathasQuestionBackendTransportMode::ExpiredSignedResult
@@ -628,9 +628,9 @@ mod tests {
         );
         assert_eq!(question_backend.snapshot_calls(), 0);
         let binding = question_model::DraftImathasQuestionBackendBinding::new(
-            question_model::ImathasDeploymentReference::new("recorded-imathas")
+            question_model::ImathasDeploymentId::new("recorded-imathas")
                 .expect("deployment"),
-            question_model::ImathasItemReference::new("item-17").expect("item"),
+            question_model::ImathasItemId::new("item-17").expect("item"),
         );
         let locator =
             ImathasQuestionLocation::from_draft_imathas_question_backend_binding(&binding);

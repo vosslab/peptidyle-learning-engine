@@ -384,7 +384,7 @@
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_history.sql` `read_student_assessment_attempt_history_response_sources` retains `question_id` and `revision_number`.
   - Evidence (test): `crates/question_model/src/student_work/model_tests.rs` `question_pool_selection_retains_exact_entries_and_issued_question_link` checks the exact issued linkage.
 - [x] Each member of a Question Pool is a **Published Question**.
-  - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `question_pool_member` stores each exact Published Question Revision Tuple.
+  - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `question_pool_member` stores each exact Question Revision Tuple.
 - [ ] Question Pools contain only **Published Questions**; Question Pools cannot be members of Question Pools.
   - Verification pending: Source-contributor audit must confirm only exact Published Question Revision members and no Pool-member input; broad runtime evidence remains pending.
 - [ ] Watching a Question Pool drives in-app notifications for new Revisions, forks, improvement

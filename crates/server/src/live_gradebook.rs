@@ -66,7 +66,7 @@ struct ExportQuery {
 async fn download_gradebook(
     State(state): State<RouteState>,
     headers: HeaderMap,
-    Path(reference): Path<String>,
+    Path(course_instance_id): Path<String>,
     query: Result<Query<ExportQuery>, QueryRejection>,
 ) -> Response {
     // ASVS 2.2.1: a required closed query rejects duplicate and unknown fields.
@@ -74,7 +74,7 @@ async fn download_gradebook(
         Ok(Query(query)) => query.format,
         Err(_) => return route_error(StatusCode::BAD_REQUEST, "Invalid Gradebook export format"),
     };
-    let course = match CourseInstanceId::from_str(&reference) {
+    let course = match CourseInstanceId::from_str(&course_instance_id) {
         Ok(value) => value,
         Err(_) => return concealed(),
     };
@@ -121,9 +121,9 @@ async fn download_gradebook(
 async fn read_gradebook(
     State(state): State<RouteState>,
     headers: HeaderMap,
-    Path(reference): Path<String>,
+    Path(course_instance_id): Path<String>,
 ) -> Response {
-    let course = match CourseInstanceId::from_str(&reference) {
+    let course = match CourseInstanceId::from_str(&course_instance_id) {
         Ok(value) => value,
         Err(_) => return concealed(),
     };

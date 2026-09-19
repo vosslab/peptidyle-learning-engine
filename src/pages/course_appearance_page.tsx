@@ -203,7 +203,7 @@ function AppearanceBannerEditor(props: {
   const [message, setMessage] = createSignal("");
   const saving = createMemo(() => saveState() === "saving");
   const savedBanner = createMemo(() => props.storedAppearance().banner);
-  const savedBannerReference = createMemo(() => props.storedAppearance().banner?.reference);
+  const savedBannerId = createMemo(() => props.storedAppearance().banner?.id);
   const usableAlternativeText = createMemo(() => alternativeText().trim());
   const canSave = createMemo(
     () =>
@@ -223,14 +223,14 @@ function AppearanceBannerEditor(props: {
     setBannerUrl(undefined);
   };
 
-  // Each saved reference owns its preview URLs; release old URLs and ignore late prior fetches.
+  // Each saved banner ID owns its preview URLs; release old URLs and ignore late prior fetches.
   createEffect(() => {
-    const reference = savedBannerReference();
+    const bannerId = savedBannerId();
     clearSavedPreviews();
-    if (reference === undefined) return;
+    if (bannerId === undefined) return;
     let active = true;
     void applicationApi.client
-      .fetchCourseBanner(reference)
+      .fetchCourseBanner(bannerId)
       .then((banner) => {
         if (!active) return;
         savedBannerUrl = URL.createObjectURL(banner);

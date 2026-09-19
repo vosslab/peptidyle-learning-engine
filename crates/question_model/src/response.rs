@@ -11,7 +11,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 
 use crate::answer::{NumericResponseTolerance, ResponseSelectionRule, TextResponseMatchRule};
-use crate::question_content::{QuestionAssetReference, QuestionContentBlock};
+use crate::question_content::{QuestionAssetTuple, QuestionContentBlock};
 
 /// The educational interaction a Question assesses.
 ///
@@ -163,16 +163,16 @@ pub(crate) mod backend_owned_payload {
 
 /// Identifies one response item within a Question Response Format.
 ///
-/// Response Item References are opaque strings assigned by the authoring
-/// backend. Grading compares the exact reference rather than displayed labels,
-/// so presentation ordering leaves a submitted response meaningful.
+/// Response Item IDs are opaque strings assigned by the authoring backend.
+/// Grading compares the exact ID rather than displayed labels, so presentation
+/// ordering leaves a submitted response meaningful.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct ResponseItemReference(String);
+pub struct ResponseItemId(String);
 
-impl ResponseItemReference {
+impl ResponseItemId {
     /// Wraps a backend-assigned identifier.
     pub fn new(value: impl Into<String>) -> Self {
-        ResponseItemReference(value.into())
+        ResponseItemId(value.into())
     }
 
     /// The identifier text.
@@ -186,7 +186,7 @@ impl ResponseItemReference {
 #[serde(rename_all = "camelCase")]
 pub struct QuestionChoice {
     /// Stable identifier, used by grading.
-    pub id: ResponseItemReference,
+    pub id: ResponseItemId,
     /// What the student sees, in render order.
     pub body: Vec<QuestionContentBlock>,
 }
@@ -195,7 +195,7 @@ pub struct QuestionChoice {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MatchingPrompt {
-    pub id: ResponseItemReference,
+    pub id: ResponseItemId,
     pub body: Vec<QuestionContentBlock>,
 }
 
@@ -203,7 +203,7 @@ pub struct MatchingPrompt {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MatchingChoice {
-    pub id: ResponseItemReference,
+    pub id: ResponseItemId,
     pub body: Vec<QuestionContentBlock>,
 }
 
@@ -211,7 +211,7 @@ pub struct MatchingChoice {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OrderingItem {
-    pub id: ResponseItemReference,
+    pub id: ResponseItemId,
     pub body: Vec<QuestionContentBlock>,
 }
 
@@ -220,7 +220,7 @@ pub struct OrderingItem {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TextEntrySlot {
     /// Stable semantic slot identifier.
-    pub id: ResponseItemReference,
+    pub id: ResponseItemId,
     /// Student-visible label or surrounding prompt fragment.
     pub label: Vec<QuestionContentBlock>,
     /// How the server compares this slot's text.
@@ -234,7 +234,7 @@ pub struct TextEntrySlot {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct StudentTextEntry {
     /// Slot being answered.
-    pub slot: ResponseItemReference,
+    pub slot: ResponseItemId,
     /// Student text before server-owned normalization.
     pub text: String,
 }
@@ -244,9 +244,9 @@ pub struct StudentTextEntry {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct StudentMatch {
     /// Prompt being matched.
-    pub prompt: ResponseItemReference,
+    pub prompt: ResponseItemId,
     /// Choice assigned to that prompt.
-    pub choice: ResponseItemReference,
+    pub choice: ResponseItemId,
 }
 
 /// One Hotspot Region selected by a Student.
@@ -258,7 +258,7 @@ pub struct StudentMatch {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct StudentHotspotSelection {
     /// Selected Hotspot Region reference.
-    pub region: ResponseItemReference,
+    pub region: ResponseItemId,
 }
 
 /// One public Hotspot Region and its accessible Student label.
@@ -266,7 +266,7 @@ pub struct StudentHotspotSelection {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct HotspotRegion {
     /// Stable semantic region identifier. Correctness remains server-only.
-    pub id: ResponseItemReference,
+    pub id: ResponseItemId,
     /// Nonvisual alternative used by the keyboard-first Question Response Control.
     pub label: Vec<QuestionContentBlock>,
     /// Left edge in normalized coordinates.
@@ -332,7 +332,7 @@ pub enum QuestionResponseFormat {
     /// One or more labeled regions selected on an image-backed surface.
     Hotspot {
         /// Immutable image used as the coordinate surface.
-        surface: QuestionAssetReference,
+        surface: QuestionAssetTuple,
         /// Text alternative describing the whole surface.
         description: String,
         /// Public Hotspot Regions; the correct region set remains private.
@@ -412,7 +412,7 @@ pub enum StudentResponse {
     /// Selected choices, identified rather than positional.
     MultipleChoice {
         /// Identifiers of the selected choices.
-        selected: Vec<ResponseItemReference>,
+        selected: Vec<ResponseItemId>,
     },
     /// Free text, as typed, before normalization.
     ShortText {
@@ -431,8 +431,8 @@ pub enum StudentResponse {
     },
     /// Items in the order the student arranged them.
     Ordering {
-        /// Response Item References, first to last.
-        order: Vec<ResponseItemReference>,
+        /// Response Item IDs, first to last.
+        order: Vec<ResponseItemId>,
     },
     /// Hotspot Regions selected on a hotspot surface.
     Hotspot {
@@ -464,8 +464,8 @@ mod tests {
     fn choice_identifiers_survive_a_round_trip() {
         let response = StudentResponse::MultipleChoice {
             selected: vec![
-                ResponseItemReference::new("b"),
-                ResponseItemReference::new("d"),
+                ResponseItemId::new("b"),
+                ResponseItemId::new("d"),
             ],
         };
         let json = serde_json::to_string(&response).expect("serialization should succeed");

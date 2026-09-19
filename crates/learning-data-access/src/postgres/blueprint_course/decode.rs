@@ -2,7 +2,7 @@
 
 use question_model::{
     BlueprintAvailability, BlueprintCourseId, BlueprintCourseReadAccess, BlueprintEditNumber,
-    BlueprintMetadataState, BlueprintRevision, BlueprintRevisionReference, Timestamp,
+    BlueprintMetadataState, BlueprintRevision, BlueprintRevisionTuple, Timestamp,
 };
 use serde_json::Value;
 use sqlx::Row;
@@ -55,7 +55,7 @@ pub(super) fn decode_course(
         .try_get("fork_source_revision_number")
         .map_err(map_sqlx_error)?;
     let fork_source = match (fork_source_blueprint_course_id, fork_source_revision) {
-        (Some(source), Some(number)) => Some(BlueprintRevisionReference {
+        (Some(source), Some(number)) => Some(BlueprintRevisionTuple {
             blueprint_course_id: reference(source)?,
             revision: revision(number)?,
         }),
@@ -152,9 +152,7 @@ pub(super) fn availability_value(value: String) -> Result<BlueprintAvailability,
 }
 
 pub(super) fn reference(value: String) -> Result<BlueprintCourseId, StoreError> {
-    value
-        .parse()
-        .map_err(|_| invalid("Blueprint Course Reference"))
+    value.parse().map_err(|_| invalid("Blueprint Course ID"))
 }
 pub(super) fn revision(value: i64) -> Result<BlueprintRevision, StoreError> {
     u64::try_from(value)

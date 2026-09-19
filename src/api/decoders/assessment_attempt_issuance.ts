@@ -15,7 +15,7 @@ import {
 } from "../decoder";
 import { decodeAssessmentId, decodeAssessmentTitle, field, requireOnlyFields } from "./shared";
 import { decodeIssuedQuestionPresentation } from "./presentation_delivery";
-import { parseAssessmentAttemptReference } from "../../navigation/public_route";
+import { parseAssessmentAttemptId } from "../../navigation/public_route";
 import { decodeStudentAssessmentDecision } from "./student_assessment_decision";
 
 const MAX_QUESTIONS = 25;
@@ -46,7 +46,7 @@ function priorAttempt(
   if (typeof reference !== "string") {
     throw new DecodeError(`${path}.assessmentAttempt`, "an Assessment Attempt UUID");
   }
-  const assessmentAttempt = parseAssessmentAttemptReference(reference);
+  const assessmentAttempt = parseAssessmentAttemptId(reference);
   if (assessmentAttempt === null) {
     throw new DecodeError(`${path}.assessmentAttempt`, "an Assessment Attempt UUID");
   }
@@ -106,7 +106,7 @@ export function decodeLiveAssessmentAccess(
         "an Assessment Attempt UUID or null",
       );
     }
-    activeAssessmentAttempt = parseAssessmentAttemptReference(activeAssessmentAttemptValue);
+    activeAssessmentAttempt = parseAssessmentAttemptId(activeAssessmentAttemptValue);
     if (activeAssessmentAttempt === null) {
       throw new DecodeError(
         `${path}.activeAssessmentAttempt`,
@@ -156,7 +156,7 @@ export function decodeLiveAssessmentAttempt(
   const assessmentAttemptValue = field(record, "assessmentAttempt", path);
   if (typeof assessmentAttemptValue !== "string")
     throw new DecodeError(`${path}.assessmentAttempt`, "an Assessment Attempt UUID");
-  const assessmentAttempt = parseAssessmentAttemptReference(assessmentAttemptValue);
+  const assessmentAttempt = parseAssessmentAttemptId(assessmentAttemptValue);
   if (assessmentAttempt === null)
     throw new DecodeError(`${path}.assessmentAttempt`, "an Assessment Attempt UUID");
   const questions = decodeArray(

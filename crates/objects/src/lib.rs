@@ -5,7 +5,7 @@
 //! No AWS SDK type appears in this contract.
 
 use async_trait::async_trait;
-use question_model::{ObjectId, QuestionRevisionReference, Timestamp};
+use question_model::{ObjectId, QuestionRevisionTuple, Timestamp};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use sha2::{Digest, Sha256};
 
@@ -137,7 +137,7 @@ pub struct ObjectRecord {
     /// Media type verified by the owning import or render path.
     pub media_type: String,
     /// Exact Question Revision associated with content, when one exists.
-    pub question_revision: Option<QuestionRevisionReference>,
+    pub question_revision: Option<QuestionRevisionTuple>,
     /// Server-supplied creation timestamp.
     pub created_at: Timestamp,
 }
@@ -228,7 +228,7 @@ pub trait ObjectStore: Send + Sync {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use question_model::{QuestionId, QuestionRevisionNumber, QuestionRevisionReference};
+    use question_model::{QuestionId, QuestionRevisionNumber, QuestionRevisionTuple};
     use uuid::Uuid;
 
     const DIGEST_BYTES: [u8; 32] = [
@@ -273,7 +273,7 @@ mod tests {
 
     #[test]
     fn object_record_json_shape_uses_canonical_hex_checksum() {
-        let question_revision = QuestionRevisionReference {
+        let question_revision = QuestionRevisionTuple {
             question_id: QuestionId::from_random_identifier("ABCDEFG")
                 .expect("canonical Question ID"),
             revision_number: QuestionRevisionNumber::new(2)

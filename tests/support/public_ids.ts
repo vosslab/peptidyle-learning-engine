@@ -1,10 +1,10 @@
 // public_ids.ts - human-facing Course Instance and Assessment public IDs.
 
-import { parsePublicRouteReference } from "../../src/navigation/public_route";
+import { parsePublicRouteId } from "../../src/navigation/public_route";
 
 function hasReferenceKind(value: unknown, prefix: "CI" | "A"): value is string {
   if (typeof value !== "string" || !value.startsWith(prefix)) return false;
-  return parsePublicRouteReference(value) !== null;
+  return parsePublicRouteId(value) !== null;
 }
 
 /** Validates the human-facing Course Instance ID copied from a route. */

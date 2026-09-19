@@ -10,7 +10,7 @@ import type { AssessmentEntryScoringRule } from "../../generated/api/AssessmentE
 import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { QuestionId } from "../../generated/api/QuestionId";
 import type { QuestionPoolSelectedQuestionOrder } from "../../generated/api/QuestionPoolSelectedQuestionOrder";
-import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
+import type { QuestionRevisionTuple } from "../../generated/api/QuestionRevisionTuple";
 
 /** Closed browser input for importing one reusable Pool into an Assessment-owned fork. */
 export interface ImportAssessmentQuestionPoolForkInput {
@@ -25,7 +25,7 @@ export interface ImportAssessmentQuestionPoolForkInput {
 /** Closed browser input for replacing current membership of an Assessment-owned Pool fork. */
 export interface AppendAssessmentQuestionPoolForkMembersInput {
   readonly expectedQuestionPoolEditNumber: string;
-  readonly members: ReadonlyArray<QuestionRevisionReference>;
+  readonly members: ReadonlyArray<QuestionRevisionTuple>;
   readonly interchangeabilityAttested: boolean;
 }
 

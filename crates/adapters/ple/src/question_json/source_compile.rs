@@ -6,10 +6,10 @@ use grading::AnswerKey;
 use question_model::answer::ResponseSelectionRule;
 use question_model::response::{
     HotspotRegion, MatchingChoice, MatchingPrompt, OrderingItem, QuestionChoice,
-    QuestionResponseFormat, ResponseItemReference, TextEntrySlot,
+    QuestionResponseFormat, ResponseItemId, TextEntrySlot,
 };
 use question_model::{
-    NativeChoiceOrder, QuestionAssetId, QuestionAssetReference, QuestionContentBlock,
+    NativeChoiceOrder, QuestionAssetId, QuestionAssetTuple, QuestionContentBlock,
 };
 use uuid::Uuid;
 
@@ -29,7 +29,7 @@ type CompiledResponse = (
     QuestionResponseFormat,
     NativeChoiceOrder,
     AnswerKey,
-    Vec<(ResponseItemReference, String)>,
+    Vec<(ResponseItemId, String)>,
     Vec<QuestionContentBlock>,
 );
 
@@ -78,7 +78,7 @@ pub(super) fn compile_response(
                 blanks: blanks
                     .iter()
                     .map(|blank| TextEntrySlot {
-                        id: ResponseItemReference::new(&blank.id),
+                        id: ResponseItemId::new(&blank.id),
                         label: markdown_blocks(&blank.label),
                         match_mode: blank.match_mode.into(),
                         max_length: blank.max_length,
@@ -89,7 +89,7 @@ pub(super) fn compile_response(
             AnswerKey::MultiBlank {
                 accepted: blanks
                     .iter()
-                    .map(|blank| (ResponseItemReference::new(&blank.id), blank.answers.clone()))
+                    .map(|blank| (ResponseItemId::new(&blank.id), blank.answers.clone()))
                     .collect(),
             },
             Vec::new(),
@@ -124,8 +124,8 @@ pub(super) fn compile_response(
                     .iter()
                     .map(|pair| {
                         (
-                            ResponseItemReference::new(&pair.prompt),
-                            ResponseItemReference::new(&pair.choice),
+                            ResponseItemId::new(&pair.prompt),
+                            ResponseItemId::new(&pair.choice),
                         )
                     })
                     .collect(),
@@ -144,7 +144,7 @@ pub(super) fn compile_response(
             AnswerKey::Ordering {
                 correct: correct_order
                     .iter()
-                    .map(ResponseItemReference::new)
+                    .map(ResponseItemId::new)
                     .collect(),
             },
             Vec::new(),
@@ -155,7 +155,7 @@ pub(super) fn compile_response(
             regions,
             correct_regions,
         } => {
-            let question_asset = QuestionAssetReference {
+            let question_asset = QuestionAssetTuple {
                 question_asset: QuestionAssetId::from_uuid(
                     Uuid::parse_str(&surface.question_asset).map_err(|_| {
                         PleQuestionJsonError::InvalidDocument(
@@ -179,7 +179,7 @@ pub(super) fn compile_response(
                 AnswerKey::Hotspot {
                     correct: correct_regions
                         .iter()
-                        .map(ResponseItemReference::new)
+                        .map(ResponseItemId::new)
                         .collect(),
                 },
                 Vec::new(),
@@ -204,7 +204,7 @@ fn compile_choices(
             choices: choices
                 .iter()
                 .map(|choice| QuestionChoice {
-                    id: ResponseItemReference::new(&choice.id),
+                    id: ResponseItemId::new(&choice.id),
                     body: markdown_blocks(&choice.text),
                 })
                 .collect(),
@@ -216,7 +216,7 @@ fn compile_choices(
             NativeChoiceOrder::Fixed
         },
         AnswerKey::MultipleChoice {
-            correct: correct.iter().map(ResponseItemReference::new).collect(),
+            correct: correct.iter().map(ResponseItemId::new).collect(),
         },
         choices
             .iter()
@@ -224,7 +224,7 @@ fn compile_choices(
                 choice
                     .feedback
                     .as_ref()
-                    .map(|feedback| (ResponseItemReference::new(&choice.id), feedback.clone()))
+                    .map(|feedback| (ResponseItemId::new(&choice.id), feedback.clone()))
             })
             .collect(),
         Vec::new(),
@@ -235,7 +235,7 @@ fn compile_matching_prompts(items: &[PleQuestionJsonMatchingPrompt]) -> Vec<Matc
     items
         .iter()
         .map(|item| MatchingPrompt {
-            id: ResponseItemReference::new(&item.id),
+            id: ResponseItemId::new(&item.id),
             body: markdown_blocks(&item.text),
         })
         .collect()
@@ -245,7 +245,7 @@ fn compile_matching_choices(items: &[PleQuestionJsonMatchingChoice]) -> Vec<Matc
     items
         .iter()
         .map(|item| MatchingChoice {
-            id: ResponseItemReference::new(&item.id),
+            id: ResponseItemId::new(&item.id),
             body: markdown_blocks(&item.text),
         })
         .collect()
@@ -255,7 +255,7 @@ fn compile_ordering_items(items: &[PleQuestionJsonOrderingItem]) -> Vec<Ordering
     items
         .iter()
         .map(|item| OrderingItem {
-            id: ResponseItemReference::new(&item.id),
+            id: ResponseItemId::new(&item.id),
             body: markdown_blocks(&item.text),
         })
         .collect()
@@ -263,7 +263,7 @@ fn compile_ordering_items(items: &[PleQuestionJsonOrderingItem]) -> Vec<Ordering
 
 fn compile_region(region: &PleQuestionJsonHotspotRegion) -> HotspotRegion {
     HotspotRegion {
-        id: ResponseItemReference::new(&region.id),
+        id: ResponseItemId::new(&region.id),
         label: markdown_blocks(&region.label),
         x: region.x,
         y: region.y,

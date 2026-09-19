@@ -14,7 +14,7 @@ pub(super) async fn grade<R: WebworkRenderer>(
     source: &ResolvedWebworkQuestionSource,
     response: &StudentResponse,
 ) -> Result<QuestionGradingOutcome, WebworkAdapterError> {
-    crate::source_object_reference::verify_source(source)?;
+    crate::source_object_id::verify_source(source)?;
     let StudentResponse::BackendOwned { payload } = response else {
         return Err(WebworkAdapterError::Renderer(
             crate::renderer_contract::RendererFailure::InvalidOutput(

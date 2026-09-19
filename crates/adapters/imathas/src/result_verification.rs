@@ -9,7 +9,7 @@
 
 use base64::Engine as _;
 use hmac::{Hmac, KeyInit, Mac};
-use question_model::{QuestionRevisionReference, Timestamp};
+use question_model::{QuestionRevisionTuple, Timestamp};
 use serde::Deserialize;
 use serde::de::IgnoredAny;
 use sha2::{Digest, Sha256};
@@ -151,7 +151,7 @@ impl ImathasGradingFailure {
 /// absent from this application record.
 #[derive(Clone, PartialEq, Eq)]
 pub struct ImathasRenderCacheEntry {
-    question_revision: QuestionRevisionReference,
+    question_revision: QuestionRevisionTuple,
     imathas_seed: u16,
     profile: String,
     payload_digest: String,
@@ -175,7 +175,7 @@ impl ImathasRenderCacheEntry {
     #[cfg(test)]
     #[allow(dead_code)]
     pub(crate) fn new(
-        question_revision: QuestionRevisionReference,
+        question_revision: QuestionRevisionTuple,
         imathas_seed: u16,
         profile: String,
         payload_digest: String,

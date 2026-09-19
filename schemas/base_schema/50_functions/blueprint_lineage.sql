@@ -366,7 +366,7 @@ BEGIN
        OR EXISTS (
            SELECT 1 FROM ple_data.blueprint_content_modules(p_content) AS child
            JOIN ple_data.blueprint_content_modules(v_source_revision.content) AS source
-             USING (blueprint_module_reference))
+             USING (blueprint_module_id))
        OR EXISTS (
            SELECT 1 FROM ple_data.blueprint_content_assessments(p_content) AS child
            JOIN ple_data.blueprint_content_assessments(v_source_revision.content) AS source
@@ -380,8 +380,8 @@ BEGIN
             WITH ORDINALITY AS modules(module, ordinality)
     LOOP
         v_child_module := p_content -> 'modules' -> (v_module_position - 1);
-        IF (v_child_module - 'blueprint_module_reference' - 'assessments') <>
-           (v_source_module - 'blueprint_module_reference' - 'assessments')
+        IF (v_child_module - 'blueprint_module_id' - 'assessments') <>
+           (v_source_module - 'blueprint_module_id' - 'assessments')
            OR jsonb_array_length(v_child_module -> 'assessments') <>
               jsonb_array_length(v_source_module -> 'assessments') THEN
             RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Blueprint fork content differs from source';
@@ -463,11 +463,11 @@ BEGIN
            pin.published_question_id, pin.question_revision_number
       FROM ple_data.blueprint_content_question_pins(p_content) AS pin;
     INSERT INTO ple_data.blueprint_revision_module
-    SELECT v_child_blueprint_course_id, v_child_revision, member.blueprint_module_reference,
+    SELECT v_child_blueprint_course_id, v_child_revision, member.blueprint_module_id,
            member.module_position
       FROM ple_data.blueprint_content_modules(p_content) AS member;
     INSERT INTO ple_data.blueprint_revision_assessment
-    SELECT v_child_blueprint_course_id, v_child_revision, member.blueprint_module_reference,
+    SELECT v_child_blueprint_course_id, v_child_revision, member.blueprint_module_id,
            member.blueprint_assessment_id, member.assessment_position
       FROM ple_data.blueprint_content_assessments(p_content) AS member;
     INSERT INTO ple_data.blueprint_revision_event (

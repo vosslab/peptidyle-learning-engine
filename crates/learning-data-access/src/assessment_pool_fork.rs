@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use question_model::{
     AssessmentEditNumber, AssessmentEntryId, AssessmentEntryScoringRule, AssessmentId,
     AssessmentPointValue, CourseInstanceId, QuestionId, QuestionPoolEditNumber,
-    QuestionPoolSelectedQuestionOrder, QuestionRevisionReference,
+    QuestionPoolSelectedQuestionOrder, QuestionRevisionTuple,
 };
 
 use crate::{SessionTokenHash, StoreError};
@@ -45,7 +45,7 @@ pub struct AppendAssessmentPoolForkMembersInput {
     pub assessment_entry: AssessmentEntryId,
     pub expected_assessment_edit_number: AssessmentEditNumber,
     pub expected_question_pool_edit_number: QuestionPoolEditNumber,
-    pub members: Vec<QuestionRevisionReference>,
+    pub members: Vec<QuestionRevisionTuple>,
     pub interchangeability_attested: bool,
 }
 

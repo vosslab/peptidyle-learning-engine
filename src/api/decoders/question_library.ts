@@ -49,7 +49,7 @@ import {
   decodeCourseName,
   decodeQuestionBackendCapabilities,
   decodeBoundedArray,
-  decodeQuestionRevisionReference,
+  decodeQuestionRevisionTuple,
   decodeQuestionAvailability,
   decodeQuestionTitle,
   decodeCourseInstanceId,
@@ -105,7 +105,7 @@ export function decodeQuestionSummary(
   }
   const decoded = {
     questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
-    questionRevision: decodeQuestionRevisionReference(
+    questionRevision: decodeQuestionRevisionTuple(
       field(record, "questionRevision", path),
       `${path}.questionRevision`,
       strict,

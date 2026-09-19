@@ -1,15 +1,15 @@
 use objects::{ObjectAddress, ObjectStore, PutObject, memory::MemoryObjectStore};
 use question_model::{
-    ObjectId, QuestionId, QuestionRevisionNumber, QuestionRevisionReference, SourceObjectChecksum,
-    SourceObjectReference, StudentResponse, Timestamp, response::ResponseItemReference,
+    ObjectId, QuestionId, QuestionRevisionNumber, QuestionRevisionTuple, SourceObjectChecksum,
+    StudentResponse, Timestamp, response::ResponseItemId,
 };
 use uuid::Uuid;
 
 use super::{PleQuestionBackend, ResolvedPleQuestionJsonSource};
 use crate::test_support::ple_question_json_single_choice_bytes;
 
-fn question_revision() -> QuestionRevisionReference {
-    QuestionRevisionReference {
+fn question_revision() -> QuestionRevisionTuple {
+    QuestionRevisionTuple {
         question_id: QuestionId::from_random_identifier("ABCDEFG").expect("Question ID"),
         revision_number: QuestionRevisionNumber::new(1).expect("revision number"),
     }
@@ -19,14 +19,12 @@ fn question_revision() -> QuestionRevisionReference {
 async fn resolved_question_json_issues_and_grades_from_its_exact_immutable_source() {
     let store = MemoryObjectStore::default();
     let question_revision = question_revision();
-    let source_object_reference = SourceObjectReference {
-        object: ObjectId::from_uuid(Uuid::from_u128(901)),
-    };
+    let source_object_id = ObjectId::from_uuid(Uuid::from_u128(901));
     let record = store
         .put(PutObject {
             address: ObjectAddress::QuestionSource {
                 question_revision: question_revision.clone(),
-                object: source_object_reference.object,
+                object: source_object_id,
             },
             bytes: ple_question_json_single_choice_bytes(),
             media_type: crate::question_json::PLE_QUESTION_JSON_MEDIA_TYPE.to_string(),
@@ -39,7 +37,7 @@ async fn resolved_question_json_issues_and_grades_from_its_exact_immutable_sourc
     let source = ResolvedPleQuestionJsonSource::resolve(
         &store,
         question_revision.clone(),
-        source_object_reference.clone(),
+        source_object_id.clone(),
         source_object_checksum.clone(),
     )
     .await
@@ -58,8 +56,8 @@ async fn resolved_question_json_issues_and_grades_from_its_exact_immutable_sourc
         question_model::generation::QuestionReproduction::Static
     );
     assert_eq!(
-        issued.reproduction_details.source_object_reference,
-        Some(source_object_reference)
+        issued.reproduction_details.source_object_id,
+        Some(source_object_id)
     );
     assert_eq!(
         issued.reproduction_details.source_object_checksum,
@@ -69,7 +67,7 @@ async fn resolved_question_json_issues_and_grades_from_its_exact_immutable_sourc
         .grade_question_json(
             &source,
             &StudentResponse::MultipleChoice {
-                selected: vec![ResponseItemReference::new("blue")],
+                selected: vec![ResponseItemId::new("blue")],
             },
         )
         .expect("source-derived answer should evaluate");

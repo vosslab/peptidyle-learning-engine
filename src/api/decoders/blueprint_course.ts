@@ -9,7 +9,7 @@ import type { BlueprintCourseSummaryView } from "../../../generated/api/Blueprin
 import type { BlueprintCourseView } from "../../../generated/api/BlueprintCourseView";
 import type { BlueprintCourseId } from "../../../generated/api/BlueprintCourseId";
 import type { BlueprintAvailability } from "../../../generated/api/BlueprintAvailability";
-import type { BlueprintRevisionReference } from "../../../generated/api/BlueprintRevisionReference";
+import type { BlueprintRevisionTuple } from "../../../generated/api/BlueprintRevisionTuple";
 import type { BlueprintRevisionView } from "../../../generated/api/BlueprintRevisionView";
 import type { BlueprintKnownForkView } from "../../../generated/api/BlueprintKnownForkView";
 import type { BlueprintModuleView } from "../../../generated/api/BlueprintModuleView";
@@ -38,7 +38,7 @@ import { decodeQuestionAttemptLimit, decodeQuestionAttemptTimeLimit } from "./qu
 import {
   decodeBoundedArray,
   decodeCursor,
-  decodeQuestionRevisionReference,
+  decodeQuestionRevisionTuple,
   field,
   requireOnlyFields,
 } from "./shared";
@@ -158,7 +158,7 @@ function assessmentEntry(value: unknown, path: string): { kind: "fixed" | "pool"
       "question_attempt_time_limit",
     ]);
     // ASVS 1.5.2 and 2.2.1: accept the exact reference, never an ID-only fallback.
-    decodeQuestionRevisionReference(
+    decodeQuestionRevisionTuple(
       field(record, "published_question", path),
       `${path}.published_question`,
     );
@@ -252,7 +252,7 @@ function authoringPool(value: unknown, path: string, selectionCount: number): vo
         memberPath,
         MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY,
         (item, itemPath) => {
-          const member = decodeQuestionRevisionReference(item, itemPath, true);
+          const member = decodeQuestionRevisionTuple(item, itemPath, true);
           if (member.revisionNumber > 4_294_967_295)
             throw new DecodeError(
               `${itemPath}.revisionNumber`,
@@ -356,7 +356,7 @@ function replacementChoice(value: unknown, path: string, referenceField: string)
 function replacementModule(value: unknown, path: string): unknown {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["choice", "label", "assessments"]);
-  replacementChoice(field(record, "choice", path), `${path}.choice`, "blueprint_module_reference");
+  replacementChoice(field(record, "choice", path), `${path}.choice`, "blueprint_module_id");
   text(field(record, "label", path), `${path}.label`);
   const assessments = decodeBoundedArray(
     field(record, "assessments", path),
@@ -397,8 +397,15 @@ export function decodeReplaceBlueprintCourseContentInput(
 
 function questionView(value: unknown, path: string): void {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["reference", "question_library", "selection_availability"]);
-  decodeQuestionRevisionReference(field(record, "reference", path), `${path}.reference`);
+  requireOnlyFields(record, path, [
+    "question_revision",
+    "question_library",
+    "selection_availability",
+  ]);
+  decodeQuestionRevisionTuple(
+    field(record, "question_revision", path),
+    `${path}.question_revision`,
+  );
   decodeQuestionSearchResult(field(record, "question_library", path), `${path}.question_library`);
   decodeStringEnum(
     field(record, "selection_availability", path),
@@ -513,7 +520,7 @@ export function blueprintEditNumber(value: unknown, path: string): BlueprintEdit
   return decoded;
 }
 
-export function revisionReference(value: unknown, path: string): BlueprintRevisionReference {
+export function blueprintRevisionTuple(value: unknown, path: string): BlueprintRevisionTuple {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["blueprint_course_id", "revision"]);
   return {
@@ -564,7 +571,7 @@ function summary(value: unknown, path: string): BlueprintCourseSummaryView {
       field(record, "blueprint_edit_number", path),
       `${path}.blueprint_edit_number`,
     ),
-    current_revision: revisionReference(
+    current_revision: blueprintRevisionTuple(
       field(record, "current_revision", path),
       `${path}.current_revision`,
     ),
@@ -582,10 +589,10 @@ function modules(value: unknown, path: string): Array<BlueprintModuleView> {
     MAX_ASSESSMENT_ORDERED_ENTRIES,
     (moduleValue, modulePath) => {
       const module = decodeRecord(moduleValue, modulePath);
-      requireOnlyFields(module, modulePath, ["blueprint_module_reference", "label", "assessments"]);
+      requireOnlyFields(module, modulePath, ["blueprint_module_id", "label", "assessments"]);
       decodeNonemptyString(
-        field(module, "blueprint_module_reference", modulePath),
-        `${modulePath}.blueprint_module_reference`,
+        field(module, "blueprint_module_id", modulePath),
+        `${modulePath}.blueprint_module_id`,
       );
       text(field(module, "label", modulePath), `${modulePath}.label`);
       decodeBoundedArray(
@@ -636,7 +643,7 @@ export function decodeBlueprintCourseView(value: unknown, path = "response"): Bl
       field(record, "blueprint_edit_number", path),
       `${path}.blueprint_edit_number`,
     ),
-    current_revision: revisionReference(
+    current_revision: blueprintRevisionTuple(
       field(record, "current_revision", path),
       `${path}.current_revision`,
     ),
@@ -647,7 +654,7 @@ export function decodeBlueprintCourseView(value: unknown, path = "response"): Bl
     fork_source: decodeNullable(
       field(record, "fork_source", path),
       `${path}.fork_source`,
-      revisionReference,
+      blueprintRevisionTuple,
     ),
     modules: modules(field(record, "modules", path), `${path}.modules`),
   };
@@ -660,7 +667,7 @@ export function decodeBlueprintRevisionView(
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["blueprintRevision", "modules"]);
   return {
-    blueprintRevision: revisionReference(
+    blueprintRevision: blueprintRevisionTuple(
       field(record, "blueprintRevision", path),
       `${path}.blueprintRevision`,
     ),

@@ -21,8 +21,8 @@ import { useApplicationApi } from "../../api/application_api";
 import {
   parseAssessmentId,
   parseCourseInstanceId,
-  type AssessmentRouteReference,
-  type CourseInstanceRouteReference,
+  type AssessmentRouteId,
+  type CourseInstanceRouteId,
 } from "../../navigation/public_route";
 import "./assessment_workspace_authoring.css";
 import { type AssessmentWorkspaceSection } from "./assessment_workspace_paths";
@@ -34,10 +34,10 @@ import "./assessment_workspace.css";
 import { useSetAssessmentTitleForPath } from "../../ribbon/route_scope_context";
 
 export interface AssessmentWorkspaceContextValue {
-  readonly courseInstanceId: CourseInstanceRouteReference;
+  readonly courseInstanceId: CourseInstanceRouteId;
   /** Shared direct resource and exact ETag for every child page. */
   readonly assessment: Accessor<LiveAssessmentWorkspaceResponse>;
-  readonly assessmentId: AssessmentRouteReference;
+  readonly assessmentId: AssessmentRouteId;
   readonly save: (input: SaveLiveAssessmentInput) => Promise<LiveAssessmentWorkspaceResponse>;
   readonly saveBaseAssessmentPolicy: (
     input: SaveBaseAssessmentPolicyInput,

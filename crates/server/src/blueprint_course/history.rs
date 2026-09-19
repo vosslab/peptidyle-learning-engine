@@ -58,14 +58,14 @@ struct HistoryCursor {
 pub(super) async fn list_history(
     State(state): State<BlueprintCourseRouteState>,
     headers: HeaderMap,
-    Path(reference): Path<String>,
+    Path(blueprint_course_id): Path<String>,
     query: Result<Query<HistoryQuery>, QueryRejection>,
 ) -> Response {
     let Query(query) = match query {
         Ok(value) => value,
         Err(_) => return route_error(StatusCode::BAD_REQUEST, "Blueprint history page is invalid"),
     };
-    let reference = match parse_blueprint_course_id(&reference) {
+    let blueprint_course_id = match parse_blueprint_course_id(&blueprint_course_id) {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -73,7 +73,7 @@ pub(super) async fn list_history(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let page = match page_request(&reference, &query) {
+    let page = match page_request(&blueprint_course_id, &query) {
         Some(value) => value,
         None => return route_error(StatusCode::BAD_REQUEST, "Blueprint history page is invalid"),
     };
@@ -81,12 +81,17 @@ pub(super) async fn list_history(
     // ASVS 8.2.1/2/3, 8.3.1/2: each page reattests ordinary current visibility.
     match state
         .blueprints
-        .list_blueprint_history(session, reference.clone(), query.kind.store_kind(), page)
+        .list_blueprint_history(
+            session,
+            blueprint_course_id.clone(),
+            query.kind.store_kind(),
+            page,
+        )
         .await
     {
         Ok(page) => {
             let next_cursor = match page.next_cursor {
-                Some(after) => match encode_cursor(reference, query.kind, size, after) {
+                Some(after) => match encode_cursor(blueprint_course_id, query.kind, size, after) {
                     Some(value) => Some(value),
                     None => return unavailable(),
                 },
@@ -105,7 +110,10 @@ pub(super) async fn list_history(
     }
 }
 
-fn page_request(reference: &BlueprintCourseId, query: &HistoryQuery) -> Option<PageRequest> {
+fn page_request(
+    blueprint_course_id: &BlueprintCourseId,
+    query: &HistoryQuery,
+) -> Option<PageRequest> {
     // ASVS 2.2.1/2/3: bound cursor size and bind the sequence/course/page limit.
     let size = PageSize::new(query.page_size.unwrap_or(50)).ok()?;
     let after = match query.cursor.as_ref() {
@@ -116,7 +124,7 @@ fn page_request(reference: &BlueprintCourseId, query: &HistoryQuery) -> Option<P
             let bytes = URL_SAFE_NO_PAD.decode(token).ok()?;
             let cursor: HistoryCursor = serde_json::from_slice(&bytes).ok()?;
             if cursor.version != 1
-                || cursor.blueprint_course_id != *reference
+                || cursor.blueprint_course_id != *blueprint_course_id
                 || cursor.kind != query.kind
                 || cursor.page_size != size.get()
                 || !valid_key(cursor.kind, &cursor.after)

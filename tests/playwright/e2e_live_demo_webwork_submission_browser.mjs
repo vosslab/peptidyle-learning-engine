@@ -8,8 +8,11 @@ import { chromium } from "playwright";
 import { liveDemoChromiumArgs } from "./helper_gateway_trust.mjs";
 
 const [port, attempt] = process.argv.slice(2);
-if (!/^[0-9]+$/u.test(port ?? "") || !/^R-[1-9][0-9]{0,9}$/u.test(attempt ?? "")) {
-  throw new Error("expected a gateway port and an Assessment Attempt reference");
+if (
+  !/^[0-9]+$/u.test(port ?? "") ||
+  !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u.test(attempt ?? "")
+) {
+  throw new Error("expected a gateway port and an Assessment Attempt ID");
 }
 
 const origin = `https://localhost:${port}`;

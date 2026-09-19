@@ -106,7 +106,7 @@ export function AssessmentSnapshot(props: {
           <h4>{snapshot().content.title}</h4>
           <p>{assessmentTypePresentation(snapshot().content.assessment_type).label}</p>
           <p>
-            Module: {forkModuleLabel(props.side, snapshot().blueprintModuleReference)}; Assessment
+            Module: {forkModuleLabel(props.side, snapshot().blueprintModuleId)}; Assessment
             position {snapshot().position + 1}.
           </p>
           <p class="blueprint-fork-instructions">
@@ -198,7 +198,7 @@ function Comparison(props: { readonly view: BlueprintComparisonView }): JSX.Elem
                     {module.position + 1}. {module.label} (
                     {
                       props.view[key].assessments.filter(
-                        (item) => item.blueprintModuleReference === module.blueprintModuleReference,
+                        (item) => item.blueprintModuleId === module.blueprintModuleId,
                       ).length
                     }{" "}
                     Assessments)

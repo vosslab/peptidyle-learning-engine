@@ -2,26 +2,25 @@
 
 use question_model::{
     AccountId, AssessmentId, CourseInstanceId, ImathasQuestionBackendBinding, SourceObjectChecksum,
-    SourceObjectReference, Timestamp,
+    ObjectId, Timestamp,
 };
 
 use super::{
     ImathasGradingContext, ImathasLaunchBindingChecksum, ImathasQuestionBackendSession,
     ImathasQuestionBackendSessionAuthentication, ImathasQuestionBackendSessionChallenge,
-    ImathasQuestionBackendSessionReference, ImathasQuestionBackendStatePlaintext,
-    ImathasResponseChecksum,
+    ImathasQuestionBackendSessionId, ImathasQuestionBackendStatePlaintext, ImathasResponseChecksum,
 };
 
 /// Exact server-only row facts used to create and reconstruct a Session.
 #[allow(dead_code)] // Used by the feature-gated PostgreSQL Store.
 pub(crate) struct ImathasQuestionBackendSessionStorageParts {
-    pub(crate) reference: ImathasQuestionBackendSessionReference,
+    pub(crate) session_id: ImathasQuestionBackendSessionId,
     pub(crate) account: AccountId,
     pub(crate) course: CourseInstanceId,
     pub(crate) assessment: AssessmentId,
     pub(crate) grading_context: ImathasGradingContext,
     pub(crate) imathas_question_backend_binding: ImathasQuestionBackendBinding,
-    pub(crate) source_object: SourceObjectReference,
+    pub(crate) source_object: ObjectId,
     pub(crate) source_object_checksum: SourceObjectChecksum,
     pub(crate) response_checksum: ImathasResponseChecksum,
     pub(crate) challenge: ImathasQuestionBackendSessionChallenge,
@@ -39,7 +38,7 @@ pub(crate) struct ImathasQuestionBackendSessionRestoreParts {
     pub(crate) assessment: AssessmentId,
     pub(crate) grading_context: ImathasGradingContext,
     pub(crate) imathas_question_backend_binding: ImathasQuestionBackendBinding,
-    pub(crate) source_object: SourceObjectReference,
+    pub(crate) source_object: ObjectId,
     pub(crate) source_object_checksum: SourceObjectChecksum,
     pub(crate) imathas_launch_binding_checksum: ImathasLaunchBindingChecksum,
     pub(crate) authentication: ImathasQuestionBackendSessionAuthentication,

@@ -10,8 +10,8 @@ import {
 import { decodePendingCourseInvitationsPage } from "../src/api/decoders/teaching_operations.ts";
 
 test("pending-invitation pagination keeps existing rows and excludes overlapping cursor rows", () => {
-  const first = [{ reference: "safe-one" }];
-  const next = [{ reference: "safe-one" }, { reference: "safe-two" }];
+  const first = [{ id: "safe-one" }];
+  const next = [{ id: "safe-one" }, { id: "safe-two" }];
 
   assert.deepEqual(appendPendingInvitationPage(first, next), [first[0], next[1]]);
 });

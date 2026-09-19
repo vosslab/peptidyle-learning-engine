@@ -14,8 +14,8 @@ import type { QuestionContentBlock } from "../../generated/api/QuestionContentBl
 import type { DraftImathasQuestionBackendBinding } from "../../generated/api/DraftImathasQuestionBackendBinding";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type { QuestionAttemptTimeLimit } from "../../generated/api/QuestionAttemptTimeLimit";
-import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
-import { decodeQuestionRevisionReference } from "../api/decoders/shared";
+import type { QuestionRevisionTuple } from "../../generated/api/QuestionRevisionTuple";
+import { decodeQuestionRevisionTuple } from "../api/decoders/shared";
 import { decodeKeyFreeDraftPreview } from "../api/decoders/question_model";
 import { decodeStudentResponseFormatCheck } from "../api/decoders/student_response_format_check";
 export type {
@@ -82,7 +82,7 @@ export type AssessmentAttemptRemainingDurationEvaluator = (
 ) => Promise<number | null>;
 
 export interface AssessmentQuestionConfig {
-  readonly question: QuestionRevisionReference;
+  readonly question: QuestionRevisionTuple;
   readonly questionBackendCapabilities: QuestionBackendCapabilities;
 }
 
@@ -92,7 +92,7 @@ export interface AssessmentConfig {
 }
 
 export interface CapabilityViolation {
-  readonly question: QuestionRevisionReference;
+  readonly question: QuestionRevisionTuple;
   readonly capability: Capability;
 }
 
@@ -309,7 +309,7 @@ function parseCapabilityViolations(json: string): ReadonlyArray<CapabilityViolat
       throw new Error("WASM capability violation must be an object");
     }
     return {
-      question: decodeQuestionRevisionReference(
+      question: decodeQuestionRevisionTuple(
         entry["question"],
         "capabilityViolation.question",
         true,

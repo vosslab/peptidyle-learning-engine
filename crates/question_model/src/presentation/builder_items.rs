@@ -3,7 +3,7 @@
 use crate::answer::ResponseSelectionRule;
 use crate::response::{
     MatchingChoice, MatchingPrompt, OrderingItem, QuestionChoice, QuestionResponseFormat,
-    ResponseItemReference,
+    ResponseItemId,
 };
 use crate::{AuthorContentPresentation, QuestionContentBlock, QuestionVariationPresentation};
 
@@ -127,11 +127,11 @@ pub(super) fn pending_items(
 
 /// Derives the issued choice order from the durable presentation nonce before bindings are minted.
 trait PresentedResponseItem {
-    fn id(&self) -> &ResponseItemReference;
+    fn id(&self) -> &ResponseItemId;
     fn body(&self) -> &[QuestionContentBlock];
 }
 impl PresentedResponseItem for QuestionChoice {
-    fn id(&self) -> &ResponseItemReference {
+    fn id(&self) -> &ResponseItemId {
         &self.id
     }
     fn body(&self) -> &[QuestionContentBlock] {
@@ -139,7 +139,7 @@ impl PresentedResponseItem for QuestionChoice {
     }
 }
 impl PresentedResponseItem for MatchingPrompt {
-    fn id(&self) -> &ResponseItemReference {
+    fn id(&self) -> &ResponseItemId {
         &self.id
     }
     fn body(&self) -> &[QuestionContentBlock] {
@@ -147,7 +147,7 @@ impl PresentedResponseItem for MatchingPrompt {
     }
 }
 impl PresentedResponseItem for MatchingChoice {
-    fn id(&self) -> &ResponseItemReference {
+    fn id(&self) -> &ResponseItemId {
         &self.id
     }
     fn body(&self) -> &[QuestionContentBlock] {
@@ -155,7 +155,7 @@ impl PresentedResponseItem for MatchingChoice {
     }
 }
 impl PresentedResponseItem for OrderingItem {
-    fn id(&self) -> &ResponseItemReference {
+    fn id(&self) -> &ResponseItemId {
         &self.id
     }
     fn body(&self) -> &[QuestionContentBlock] {
@@ -200,7 +200,7 @@ fn push_item(
     target.push(PendingResponseItem {
         role,
         ordinal,
-        response_item_reference: ResponseItemReference::new(response_item_reference),
+        response_item_reference: ResponseItemId::new(response_item_reference),
         basis: ResponseItemBasis {
             role,
             ordinal,

@@ -103,7 +103,7 @@ pub(super) fn project(
 
 fn selected_bodies<T: PresentedResponseItemContent>(
     items: &[T],
-    selected: &[question_model::presentation::PresentationResponseItemReference],
+    selected: &[question_model::presentation::PresentationResponseItemId],
 ) -> Option<Vec<QuestionContentBlock>> {
     selected
         .iter()
@@ -139,11 +139,11 @@ fn block_text(blocks: &[QuestionContentBlock]) -> String {
 mod tests {
     use super::*;
     use question_model::presentation::{
-        PresentationResponseItemReference, PresentedQuestionChoice,
+        PresentationResponseItemId, PresentedQuestionChoice,
     };
 
-    fn reference(value: &str) -> PresentationResponseItemReference {
-        PresentationResponseItemReference::parse(value).expect("valid presentation reference")
+    fn reference(value: &str) -> PresentationResponseItemId {
+        PresentationResponseItemId::parse(value).expect("valid presentation reference")
     }
 
     fn single_choice() -> QuestionPresentationResponseFormat {

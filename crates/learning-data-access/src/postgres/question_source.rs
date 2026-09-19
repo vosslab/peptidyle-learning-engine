@@ -152,7 +152,7 @@ impl DraftQuestionSourceBindingStore for PostgresDraftQuestionSourceBindingStore
         .bind(question_format)
         .bind(question_type)
         .bind(input.webwork_pg_path)
-        .bind(input.source_object_reference.object.as_uuid())
+        .bind(input.source_object_id.as_uuid())
         .bind(input.source_object_checksum.as_str())
         .fetch_one(&mut *transaction)
         .await
@@ -170,7 +170,7 @@ impl NewQuestionLineagePublicationStore for PostgresDraftQuestionSourceBindingSt
         &self,
         session_token_hash: SessionTokenHash,
         input: NewQuestionLineagePublicationInput,
-    ) -> Result<question_model::QuestionRevisionReference, NewQuestionLineagePublicationError> {
+    ) -> Result<question_model::QuestionRevisionTuple, NewQuestionLineagePublicationError> {
         input
             .validate()
             .map_err(NewQuestionLineagePublicationError::Store)?;
@@ -262,7 +262,7 @@ impl ExistingQuestionRevisionPublicationStore for PostgresDraftQuestionSourceBin
         &self,
         session_token_hash: SessionTokenHash,
         input: ExistingQuestionRevisionPublicationInput,
-    ) -> Result<question_model::QuestionRevisionReference, ExistingQuestionRevisionPublicationError>
+    ) -> Result<question_model::QuestionRevisionTuple, ExistingQuestionRevisionPublicationError>
     {
         input
             .validate()

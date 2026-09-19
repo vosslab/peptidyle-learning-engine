@@ -18,9 +18,9 @@ use super::{
 pub(super) async fn load_pool_members(
     State(state): State<BlueprintCourseRouteState>,
     headers: HeaderMap,
-    Path((reference, assessment, pool)): Path<(String, String, String)>,
+    Path((blueprint_course_id, assessment, pool)): Path<(String, String, String)>,
 ) -> Response {
-    let reference = match parse_blueprint_course_id(&reference) {
+    let blueprint_course_id = match parse_blueprint_course_id(&blueprint_course_id) {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -41,7 +41,7 @@ pub(super) async fn load_pool_members(
     // current Assessment membership; this is not an arbitrary Revision reader.
     match state
         .blueprints
-        .load_blueprint_pool_members(session, reference, assessment, pool)
+        .load_blueprint_pool_members(session, blueprint_course_id, assessment, pool)
         .await
     {
         Ok(value) => crate::auth::no_store(

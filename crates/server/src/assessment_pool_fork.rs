@@ -20,7 +20,7 @@ use learning_data_access::{
 use question_model::{
     AssessmentEditNumber, AssessmentEntryId, AssessmentEntryScoringRule, AssessmentId,
     AssessmentPointValue, CourseInstanceId, ProductRole, QuestionId, QuestionPoolEditNumber,
-    QuestionPoolSelectedQuestionOrder, QuestionRevisionNumber, QuestionRevisionReference,
+    QuestionPoolSelectedQuestionOrder, QuestionRevisionNumber, QuestionRevisionTuple,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -302,11 +302,11 @@ fn verified_question_id(raw: &str) -> Option<QuestionId> {
     raw.parse().ok()
 }
 
-fn verified_members(values: Vec<ForkMemberRequest>) -> Option<Vec<QuestionRevisionReference>> {
+fn verified_members(values: Vec<ForkMemberRequest>) -> Option<Vec<QuestionRevisionTuple>> {
     values
         .into_iter()
         .map(|member| {
-            Some(QuestionRevisionReference {
+            Some(QuestionRevisionTuple {
                 question_id: verified_question_id(&member.question_id)?,
                 revision_number: QuestionRevisionNumber::new(member.revision_number).ok()?,
             })

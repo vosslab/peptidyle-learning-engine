@@ -1,7 +1,7 @@
 // client.ts - the only API shape consumed by browser routes and components.
 
 import type { QuestionAssetId } from "../../generated/api/QuestionAssetId";
-import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
+import type { QuestionRevisionTuple } from "../../generated/api/QuestionRevisionTuple";
 import type { AssessmentId } from "../../generated/api/AssessmentId";
 import type { AssessmentAttempt } from "../../generated/api/AssessmentAttempt";
 import type { QuestionSummary } from "../../generated/api/QuestionSummary";
@@ -11,7 +11,7 @@ import type { QuestionSearchRequest } from "../../generated/api/QuestionSearchRe
 import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { CourseAppearanceView } from "../../generated/api/CourseAppearanceView";
 import type { CourseThemeUpdate } from "../../generated/api/CourseThemeUpdate";
-import type { CourseBannerReference } from "../../generated/api/CourseBannerReference";
+import type { CourseBannerId } from "../../generated/api/CourseBannerId";
 import type { CourseBannerUpdate } from "../../generated/api/CourseBannerUpdate";
 import type { CourseBannerUploadReceipt } from "../../generated/api/CourseBannerUploadReceipt";
 import type {
@@ -25,7 +25,7 @@ import type { QuestionId } from "../../generated/api/QuestionId";
 import type { QuestionAttemptId } from "../../generated/api/QuestionAttemptId";
 import type { AssessmentAttemptId } from "../../generated/api/AssessmentAttemptId";
 import type { StudentAssessmentProgress } from "../../generated/api/StudentAssessmentProgress";
-import type { CourseInvitationReference } from "../../generated/api/CourseInvitationReference";
+import type { CourseInvitationId } from "../../generated/api/CourseInvitationId";
 import type { CourseInvitationTerminalActionRequest } from "../../generated/api/CourseInvitationTerminalActionRequest";
 import type { PendingCourseInvitationsPage } from "../../generated/api/PendingCourseInvitationsPage";
 import type { CourseInvitationStatePrecondition } from "../../generated/api/CourseInvitationStatePrecondition";
@@ -45,7 +45,7 @@ import type {
 } from "./contracts";
 import type { NavigationResolution } from "../../generated/api/NavigationResolution";
 import type { QuestionPresentation } from "../../generated/api/QuestionPresentation";
-import type { PublicRouteReference } from "../navigation/public_route";
+import type { NavigationRouteId } from "../navigation/public_route";
 import type { LiveDemoClient } from "./live_demo";
 import type { BlueprintCourseClient } from "./blueprint_course";
 import type { BlueprintChangeProposalClient } from "./blueprint_change_proposal";
@@ -134,13 +134,13 @@ export interface ApiClient
     pageSize?: number,
   ) => Promise<PendingCourseInvitationsPage>;
   readonly respondToCourseInvitation: (
-    invitation: CourseInvitationReference,
+    invitation: CourseInvitationId,
     request: CourseInvitationTerminalActionRequest,
     statePrecondition: CourseInvitationStatePrecondition,
   ) => Promise<void>;
   readonly getSession: () => Promise<AuthenticatedSession>;
   /** Resolves a compact visible reference inside the current authorization boundary. */
-  readonly resolveNavigation: (reference: PublicRouteReference) => Promise<NavigationResolution>;
+  readonly resolveNavigation: (id: NavigationRouteId) => Promise<NavigationResolution>;
   /** Revokes the account credential for this browser. */
   readonly logout: () => Promise<void>;
   readonly listQuestions: (cursor?: string) => Promise<CursorPage<QuestionSummary>>;
@@ -239,12 +239,9 @@ export interface ApiClient
     studentRecordId: StudentRecordId,
   ) => Promise<StudentAssessmentProgress>;
   /** Same-origin POST that authorizes, audits, and returns one normalized course banner. */
-  readonly fetchCourseBanner: (bannerReference: CourseBannerReference) => Promise<Blob>;
+  readonly fetchCourseBanner: (bannerId: CourseBannerId) => Promise<Blob>;
   /** Exact immutable Question Revision asset redirect path; it never issues a capability. */
-  readonly assetUrl: (
-    questionRevision: QuestionRevisionReference,
-    assetId: QuestionAssetId,
-  ) => string;
+  readonly assetUrl: (questionRevision: QuestionRevisionTuple, assetId: QuestionAssetId) => string;
   readonly validateResponseFormatOnServer: FormatValidator;
   readonly questionAttemptTimingDecisionOnServer: TimerEvaluator;
   readonly validateAssessmentConfigOnServer: CapabilityValidator;

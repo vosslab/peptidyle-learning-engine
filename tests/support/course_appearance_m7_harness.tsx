@@ -100,7 +100,7 @@ export function mountCourseAppearanceM7Harness(
   const applicationApi = {
     client: {
       updateCourseTheme: (
-        _courseReference: CourseInstanceId,
+        _courseInstanceId: CourseInstanceId,
         update: { readonly theme: CourseAppearanceView["theme"] },
       ) => {
         saves += 1;
@@ -112,11 +112,11 @@ export function mountCourseAppearanceM7Harness(
         bannerUploads += 1;
         return Promise.resolve({ upload: "banner-upload" });
       },
-      setCourseBanner: (_courseReference: CourseInstanceId, update: CourseBannerUpdate) => {
+      setCourseBanner: (_courseInstanceId: CourseInstanceId, update: CourseBannerUpdate) => {
         bannerSets += 1;
         currentAppearance = {
           ...currentAppearance,
-          banner: { reference: "banner-current", alternativeText: update.alternativeText },
+          banner: { id: "banner-current", alternativeText: update.alternativeText },
         };
         return Promise.resolve(currentAppearance);
       },

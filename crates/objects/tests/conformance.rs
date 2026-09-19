@@ -6,9 +6,9 @@ use objects::{
     Sha256Checksum,
 };
 use question_model::{
-    CourseBannerReference, CourseBannerUploadReference, CourseInstanceId, ObjectId,
-    QuestionAssetId, QuestionId, QuestionRevisionNumber, QuestionRevisionReference, Timestamp,
-    WorkspaceId, WorkspaceImportId,
+    CourseBannerId, CourseBannerUploadId, CourseInstanceId, ObjectId, QuestionAssetId,
+    QuestionId, QuestionRevisionNumber, QuestionRevisionTuple, Timestamp, WorkspaceId,
+    WorkspaceImportId,
 };
 use uuid::Uuid;
 
@@ -16,8 +16,8 @@ fn id(value: u128) -> Uuid {
     Uuid::from_u128(value)
 }
 
-fn question_revision(revision_number: u32) -> QuestionRevisionReference {
-    QuestionRevisionReference {
+fn question_revision(revision_number: u32) -> QuestionRevisionTuple {
+    QuestionRevisionTuple {
         question_id: QuestionId::from_random_identifier("ABCDEFG").expect("Question ID"),
         revision_number: QuestionRevisionNumber::new(revision_number).expect("positive version"),
     }
@@ -141,7 +141,7 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
 
     let banner_upload_key = ObjectAddress::CourseBannerUpload {
         course: CourseInstanceId::from_debug_serial(51),
-        upload: CourseBannerUploadReference::from_uuid(id(52)),
+        upload: CourseBannerUploadId::from_uuid(id(52)),
     };
     let banner_upload_record = store
         .put(PutObject {
@@ -170,7 +170,7 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
 
     let course_banner_key = ObjectAddress::CourseBannerRendition {
         course: CourseInstanceId::from_debug_serial(51),
-        banner: CourseBannerReference::from_uuid(id(53)),
+        banner: CourseBannerId::from_uuid(id(53)),
         rendition: question_model::CourseBannerRendition::Banner,
     };
     let course_banner_record = store

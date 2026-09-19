@@ -63,7 +63,7 @@ function contentInput() {
 function modules() {
   return [
     {
-      blueprint_module_reference: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6d",
+      blueprint_module_id: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6d",
       label: "Week one",
       assessments: [
         {
@@ -74,7 +74,7 @@ function modules() {
               {
                 kind: "fixed",
                 question: {
-                  reference: publishedQuestion.questionRevision,
+                  question_revision: publishedQuestion.questionRevision,
                   question_library: {
                     summary: publishedQuestion,
                     disciplineName: "Biology",
@@ -148,7 +148,7 @@ function replacementInput() {
       {
         choice: {
           kind: "retained",
-          blueprint_module_reference: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6d",
+          blueprint_module_id: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6d",
         },
         label: "Week one",
         assessments: [

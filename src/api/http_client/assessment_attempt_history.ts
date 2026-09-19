@@ -1,7 +1,7 @@
 // Strict same-origin transport for one Student-owned completed Assessment Attempt.
 
 import type { AssessmentAttemptId } from "../../../generated/api/AssessmentAttemptId";
-import { parseAssessmentAttemptReference } from "../../navigation/public_route";
+import { parseAssessmentAttemptId } from "../../navigation/public_route";
 import type { ApiClient } from "../client";
 import type {
   StudentAssessmentAttemptHistory,
@@ -13,7 +13,7 @@ import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
 
 function historyPath(assessmentAttempt: AssessmentAttemptId): string {
-  if (parseAssessmentAttemptReference(assessmentAttempt) === null) {
+  if (parseAssessmentAttemptId(assessmentAttempt) === null) {
     throw new ApiProtocolError("Assessment Attempt ID must be a UUID");
   }
   return `/api/assessment-attempts/${encodeURIComponent(assessmentAttempt)}/history`;

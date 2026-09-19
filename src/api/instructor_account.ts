@@ -27,13 +27,13 @@ export interface CompleteInstructorIdentityVettingInput {
 
 /** Opaque receipt; it is never an Account identity or browser projection. */
 export interface InstructorIdentityVettingReceipt {
-  readonly vettingDecisionReference: string;
+  readonly vettingDecisionId: string;
 }
 
 /** Create input is sent once and is never reflected by any browser-safe DTO. */
 export interface CreateInstructorAccountInput {
   readonly normalizedEmail: string;
-  readonly vettingDecisionReference: string;
+  readonly vettingDecisionId: string;
 }
 
 export interface DeactivateInstructorAccountInput {

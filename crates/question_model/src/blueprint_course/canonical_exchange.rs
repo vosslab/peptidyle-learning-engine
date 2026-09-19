@@ -17,7 +17,7 @@ use crate::{
     BlueprintAssessmentEntryInput, BlueprintCourseContent, BlueprintCourseValidationError,
     BlueprintPoolInputChoice, CreateBlueprintCourseInput, CreateBlueprintModuleInput,
     QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionPoolSelectionRule,
-    QuestionRevisionReference, ReusableFixedQuestionInput, ReusablePoolInput,
+    QuestionRevisionTuple, ReusableFixedQuestionInput, ReusablePoolInput,
 };
 
 /// Deterministic current-metadata and reusable Blueprint Course projection.
@@ -221,7 +221,7 @@ pub enum CanonicalBlueprintAssessmentEntry {
     /// One exact immutable Published Question Revision.
     Fixed {
         #[serde(deserialize_with = "deserialize_question_revision_reference")]
-        published_question: QuestionRevisionReference,
+        published_question: QuestionRevisionTuple,
         points_possible: AssessmentPointValue,
         scoring_rule: AssessmentEntryScoringRule,
         question_attempt_limit: QuestionAttemptLimit,
@@ -244,7 +244,7 @@ pub enum CanonicalBlueprintAssessmentEntry {
 
 fn deserialize_question_revision_reference<'de, D>(
     deserializer: D,
-) -> Result<QuestionRevisionReference, D::Error>
+) -> Result<QuestionRevisionTuple, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
@@ -256,7 +256,7 @@ where
     }
 
     let reference = StrictReference::deserialize(deserializer)?;
-    Ok(QuestionRevisionReference {
+    Ok(QuestionRevisionTuple {
         question_id: reference.question_id,
         revision_number: reference.revision_number,
     })
@@ -368,13 +368,13 @@ impl From<&BlueprintAssessmentEntryContent> for CanonicalBlueprintAssessmentEntr
     fn from(entry: &BlueprintAssessmentEntryContent) -> Self {
         match entry {
             BlueprintAssessmentEntryContent::Fixed {
-                reference,
+                question_revision,
                 points_possible,
                 scoring_rule,
                 question_attempt_limit,
                 question_attempt_time_limit,
             } => Self::Fixed {
-                published_question: reference.clone(),
+                published_question: question_revision.clone(),
                 points_possible: *points_possible,
                 scoring_rule: *scoring_rule,
                 question_attempt_limit: *question_attempt_limit,
@@ -401,7 +401,7 @@ mod tests {
     use super::*;
     use crate::{
         AssessmentActivityRules, AssessmentTitle, BlueprintAssessmentContent,
-        BlueprintAssessmentId, BlueprintCourseModuleContent, BlueprintModuleReference,
+        BlueprintAssessmentId, BlueprintCourseModuleContent, BlueprintModuleId,
         BlueprintQuestionPoolContent, LateWorkRule, QuestionPoolEditNumber,
         QuestionPoolSelectedQuestionOrder, QuestionRevisionNumber, ReusablePoolView,
         StudentFeedbackReleaseRule,
@@ -413,7 +413,7 @@ mod tests {
         // Regression contract: import must preserve reusable meaning while
         // refusing transferred authority. On failure, repair this projection
         // or conversion; never admit owner or operational fields.
-        let fixed = QuestionRevisionReference {
+        let fixed = QuestionRevisionTuple {
             question_id: "7K3M-19QX".parse().expect("Question ID"),
             revision_number: QuestionRevisionNumber::new(2).expect("Question Revision"),
         };
@@ -428,7 +428,7 @@ mod tests {
         };
         let content = BlueprintCourseContent::new(vec![
             BlueprintCourseModuleContent::new(
-                BlueprintModuleReference::from_uuid(Uuid::from_u128(1)),
+                BlueprintModuleId::from_uuid(Uuid::from_u128(1)),
                 "Module 1".to_owned(),
                 vec![
                     BlueprintAssessmentContent::new(
@@ -439,7 +439,7 @@ mod tests {
                             .expect("instructions"),
                         vec![
                             BlueprintAssessmentEntryContent::Fixed {
-                                reference: fixed.clone(),
+                                question_revision: fixed.clone(),
                                 points_possible: AssessmentPointValue::from_whole(3),
                                 scoring_rule: AssessmentEntryScoringRule::Normal,
                                 question_attempt_limit: QuestionAttemptLimit {
@@ -546,7 +546,7 @@ mod tests {
         injected
             .pointer_mut("/modules/0/assessments/0/entries/0/published_question")
             .and_then(serde_json::Value::as_object_mut)
-            .expect("Question Revision reference")
+            .expect("Question Revision Tuple")
             .insert("owner".to_owned(), serde_json::json!("not accepted"));
         assert!(serde_json::from_value::<CanonicalBlueprintCourse>(injected).is_err());
     }

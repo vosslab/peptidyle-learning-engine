@@ -43,7 +43,7 @@ pub(super) fn presentation_evidence_from_row(
             .map_err(map_sqlx_error)?,
     )?;
     Ok(StudentAssessmentAttemptPresentationEvidence {
-        question_revision: question_model::QuestionRevisionReference {
+        question_revision: question_model::QuestionRevisionTuple {
             question_id,
             revision_number,
         },
@@ -74,7 +74,7 @@ fn decode_response_item_bindings(
     rows.into_iter()
         .map(|row| {
             let presentation_response_item_reference =
-                question_model::presentation::PresentationResponseItemReference::parse(
+                question_model::presentation::PresentationResponseItemId::parse(
                     row.presentation_response_item_reference,
                 )
                 .map_err(|_| {
@@ -89,7 +89,7 @@ fn decode_response_item_bindings(
             }
             Ok(question_model::presentation::DurableResponseItemBinding {
                 presentation_response_item_reference,
-                response_item_reference: question_model::response::ResponseItemReference::new(
+                response_item_reference: question_model::response::ResponseItemId::new(
                     row.response_item_reference,
                 ),
             })

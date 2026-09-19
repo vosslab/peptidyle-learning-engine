@@ -12,7 +12,7 @@ import type {
 import { useApplicationApi } from "../api/application_api";
 import { useSessionBootstrap } from "../auth/session_context";
 import { courseThemeTokens } from "../features/course_appearance/course_theme_registry";
-import { courseInstanceRouteReference, parseBlueprintCourseId } from "../navigation/public_route";
+import { courseInstanceRouteId, parseBlueprintCourseId } from "../navigation/public_route";
 import { StudentCoursesPage } from "./student_courses_page";
 import {
   CourseClassificationFields,
@@ -40,7 +40,7 @@ function blueprintSourceValue(blueprint: AdoptableBlueprintCourse): string {
 }
 
 function CourseInstanceRow(props: { readonly course: CourseInstanceSummary }): JSX.Element {
-  const reference = courseInstanceRouteReference(props.course.id);
+  const courseInstanceId = courseInstanceRouteId(props.course.id);
   const theme = courseThemeTokens(props.course.theme);
   return (
     <article
@@ -59,7 +59,11 @@ function CourseInstanceRow(props: { readonly course: CourseInstanceSummary }): J
         Theme: {theme.name}
       </p>
       <div class="instructor-list__actions">
-        <A class="primary-link" href={`/courses/${reference}`} id={`course-open-${reference}`}>
+        <A
+          class="primary-link"
+          href={`/courses/${courseInstanceId}`}
+          id={`course-open-${courseInstanceId}`}
+        >
           Open Course Instance
         </A>
       </div>
@@ -138,13 +142,13 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
   const [linkedBlueprint, { refetch: refetchLinkedBlueprint }] = createResource(
     () => {
       if (!isInstructor() || creationSource() !== "adopted") return false;
-      // ASVS 2.2.1: only canonical Blueprint references enter the exact-source request.
+      // ASVS 2.2.1: only canonical Blueprint Course IDs enter the exact-source request.
       return typeof searchParams.blueprint === "string"
         ? (parseBlueprintCourseId(searchParams.blueprint) ?? false)
         : false;
     },
-    async (reference) =>
-      (await applicationApi.client.getBlueprintCourse(reference)).blueprintCourse,
+    async (blueprintCourseId) =>
+      (await applicationApi.client.getBlueprintCourse(blueprintCourseId)).blueprintCourse,
   );
   const [createdCourses, setCreatedCourses] = createSignal<ReadonlyArray<CourseInstanceSummary>>(
     [],
@@ -267,9 +271,7 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
       setEndDate("");
       void refetchCourses();
       queueMicrotask(() =>
-        document
-          .getElementById(`course-open-${courseInstanceRouteReference(created.course.id)}`)
-          ?.focus(),
+        document.getElementById(`course-open-${courseInstanceRouteId(created.course.id)}`)?.focus(),
       );
     } catch (_error: unknown) {
       setCreationError("We could not create that Course Instance. Check the source and try again.");

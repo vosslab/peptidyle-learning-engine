@@ -3,8 +3,8 @@
 use async_trait::async_trait;
 use question_model::{
     BlueprintAssessmentId, BlueprintAvailability, BlueprintCourseId, BlueprintEditNumber,
-    BlueprintModuleReference, BlueprintRevision, BlueprintRevisionReference, QuestionId,
-    QuestionPoolEditNumber, QuestionRevisionNumber, QuestionRevisionReference, RequestChecksum,
+    BlueprintModuleId, BlueprintRevision, BlueprintRevisionTuple, QuestionId,
+    QuestionPoolEditNumber, QuestionRevisionNumber, QuestionRevisionTuple, RequestChecksum,
     Timestamp,
 };
 use sqlx::{Postgres, Row, Transaction, types::Json};
@@ -101,7 +101,7 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
             let owner_display_name: Option<String> =
                 row.try_get("owner_display_name").map_err(map_sqlx_error)?;
             forks.push(StoredKnownBlueprintFork {
-                id: blueprint_reference(
+                id: parse_blueprint_course_id(
                     row.try_get("blueprint_course_id").map_err(map_sqlx_error)?,
                 )?,
                 short_name: row.try_get("short_name").map_err(map_sqlx_error)?,
@@ -173,8 +173,8 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
             let Json(encoded): Json<serde_json::Value> =
                 row.try_get("content").map_err(map_sqlx_error)?;
             revisions.push(StoredBlueprintRevision {
-                reference: BlueprintRevisionReference {
-                    blueprint_course_id: blueprint_reference(
+                blueprint_revision: BlueprintRevisionTuple {
+                    blueprint_course_id: parse_blueprint_course_id(
                         row.try_get("blueprint_course_id").map_err(map_sqlx_error)?,
                     )?,
                     revision: blueprint_revision(
@@ -245,8 +245,7 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
                     .map_err(map_sqlx_error)?,
             )?;
             for module in &mut content.modules {
-                module.blueprint_module_reference =
-                    BlueprintModuleReference::from_uuid(random_uuid()?);
+                module.blueprint_module_id = BlueprintModuleId::from_uuid(random_uuid()?);
                 for assessment in &mut module.assessments {
                     assessment.blueprint_assessment_id =
                         BlueprintAssessmentId::from_uuid(random_uuid()?);
@@ -288,8 +287,8 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
             .map_err(map_sqlx_error)?;
         let accepted_at_millis: i64 = row.try_get("accepted_at_millis").map_err(map_sqlx_error)?;
         let receipt = ForkBlueprintCourseReceipt {
-            blueprint_revision: BlueprintRevisionReference {
-                blueprint_course_id: blueprint_reference(blueprint_course_id)?,
+            blueprint_revision: BlueprintRevisionTuple {
+                blueprint_course_id: parse_blueprint_course_id(blueprint_course_id)?,
                 revision: blueprint_revision(revision_number)?,
             },
             source,
@@ -309,10 +308,8 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
 pub(super) async fn load_pool_memberships(
     transaction: &mut Transaction<'_, Postgres>,
     revisions: &[StoredBlueprintRevision],
-) -> Result<
-    BTreeMap<(QuestionId, QuestionPoolEditNumber), Vec<QuestionRevisionReference>>,
-    StoreError,
-> {
+) -> Result<BTreeMap<(QuestionId, QuestionPoolEditNumber), Vec<QuestionRevisionTuple>>, StoreError>
+{
     let pins: BTreeSet<_> = revisions
         .iter()
         .flat_map(|revision| &revision.content.modules)
@@ -358,7 +355,7 @@ pub(super) async fn load_pool_memberships(
             {
                 return Err(invalid());
             }
-            let member = QuestionRevisionReference {
+            let member = QuestionRevisionTuple {
                 question_id: row
                     .try_get::<String, _>("published_question_id")
                     .map_err(map_sqlx_error)?
@@ -394,10 +391,10 @@ async fn current_actor(
     parse_account_id(row.try_get("account_id").map_err(map_sqlx_error)?)
 }
 
-fn blueprint_reference(value: String) -> Result<BlueprintCourseId, StoreError> {
+fn parse_blueprint_course_id(value: String) -> Result<BlueprintCourseId, StoreError> {
     value
         .parse()
-        .map_err(|_| StoreError::InvalidRecord("Blueprint reference is invalid".to_string()))
+        .map_err(|_| StoreError::InvalidRecord("Blueprint Course ID is invalid".to_string()))
 }
 
 fn blueprint_revision(value: i64) -> Result<BlueprintRevision, StoreError> {

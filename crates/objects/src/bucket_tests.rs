@@ -4,8 +4,8 @@ use super::*;
 use question_model::{QuestionId, QuestionRevisionNumber};
 use uuid::Uuid;
 
-fn question_revision(revision_number: u32) -> QuestionRevisionReference {
-    QuestionRevisionReference {
+fn question_revision(revision_number: u32) -> QuestionRevisionTuple {
+    QuestionRevisionTuple {
         question_id: QuestionId::from_random_identifier("ABCDEFG").expect("canonical Question ID"),
         revision_number: QuestionRevisionNumber::new(revision_number)
             .expect("positive Question Revision Number"),
@@ -108,7 +108,7 @@ fn only_immutable_question_assets_enter_the_public_delivery_domain() {
         },
         ObjectAddress::CourseBannerSource {
             course: CourseInstanceId::from_debug_serial(10),
-            banner: CourseBannerReference::from_uuid(Uuid::from_u128(11)),
+            banner: CourseBannerId::from_uuid(Uuid::from_u128(11)),
         },
     ] {
         assert_eq!(
@@ -122,8 +122,8 @@ fn only_immutable_question_assets_enter_the_public_delivery_domain() {
 #[test]
 fn course_banner_keys_bind_scope_classification_and_signing() {
     let course = CourseInstanceId::from_debug_serial(2);
-    let upload_reference = CourseBannerUploadReference::from_uuid(Uuid::from_u128(3));
-    let banner_reference = CourseBannerReference::from_uuid(Uuid::from_u128(4));
+    let upload_reference = CourseBannerUploadId::from_uuid(Uuid::from_u128(3));
+    let banner_reference = CourseBannerId::from_uuid(Uuid::from_u128(4));
     let upload = ObjectAddress::CourseBannerUpload {
         course: course.clone(),
         upload: upload_reference,
@@ -156,7 +156,7 @@ fn course_banner_keys_bind_scope_classification_and_signing() {
 #[test]
 fn banner_object_identity_changes_with_course_and_route_id() {
     let course = CourseInstanceId::from_debug_serial(2);
-    let banner = CourseBannerReference::from_uuid(Uuid::from_u128(3));
+    let banner = CourseBannerId::from_uuid(Uuid::from_u128(3));
     let base = course_banner_source_object_id(&course, banner);
     assert_ne!(
         base,
@@ -164,10 +164,7 @@ fn banner_object_identity_changes_with_course_and_route_id() {
     );
     assert_ne!(
         base,
-        course_banner_source_object_id(
-            &course,
-            CourseBannerReference::from_uuid(Uuid::from_u128(13))
-        )
+        course_banner_source_object_id(&course, CourseBannerId::from_uuid(Uuid::from_u128(13)))
     );
 }
 
@@ -175,7 +172,7 @@ fn banner_object_identity_changes_with_course_and_route_id() {
 fn banner_keys_round_trip_without_a_caller_supplied_object_id() {
     let key = ObjectAddress::CourseBannerRendition {
         course: CourseInstanceId::from_debug_serial(2),
-        banner: CourseBannerReference::from_uuid(Uuid::from_u128(3)),
+        banner: CourseBannerId::from_uuid(Uuid::from_u128(3)),
         rendition: CourseBannerRendition::Banner,
     };
     let encoded = serde_json::to_string(&key).expect("banner key should serialize");
@@ -190,7 +187,7 @@ fn banner_keys_round_trip_without_a_caller_supplied_object_id() {
 fn profile_images_have_one_private_typed_storage_identity() {
     // This preserves the object-store privacy boundary and exact physical
     // identity consumed by the self-only Profile-image delivery saga.
-    let image = ProfileImageReference::from_uuid(Uuid::from_u128(2));
+    let image = ProfileImageId::from_uuid(Uuid::from_u128(2));
     let object = ObjectId::from_uuid(Uuid::from_u128(3));
     let key = ObjectAddress::ProfileImage { image, object };
 
@@ -328,7 +325,7 @@ fn every_archive_identity_input_changes_the_object_id() {
     assert_ne!(
         base,
         published_import_archive_object_id(
-            &QuestionRevisionReference {
+            &QuestionRevisionTuple {
                 question_id: QuestionId::from_random_identifier("BCDEFGH")
                     .expect("canonical Question ID"),
                 revision_number: reference.revision_number,

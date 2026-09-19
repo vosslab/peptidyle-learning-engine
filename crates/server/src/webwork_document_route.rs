@@ -11,7 +11,7 @@ use learning_data_access::{
     LiveAssessmentDeliveryStore, QuestionIssuanceReproductionInput,
     StudentAssessmentAttemptHistoryEvidence, StudentAssessmentAttemptPresentationSource,
 };
-use question_model::{AssessmentAttemptId, QuestionRevisionReference};
+use question_model::{AssessmentAttemptId, QuestionRevisionTuple};
 
 use crate::assessment_delivery::{StateData, concealed, student};
 
@@ -122,7 +122,7 @@ pub(crate) async fn answer_review(
 fn permitted_answer_revision(
     evidence: &StudentAssessmentAttemptHistoryEvidence,
     position: u32,
-) -> Option<&QuestionRevisionReference> {
+) -> Option<&QuestionRevisionTuple> {
     if evidence.submitted_at.is_none()
         || !crate::assessment_delivery::history::history_decision(evidence).question_answer
     {
@@ -317,7 +317,7 @@ mod tests {
                 score: None,
                 questions: vec![StudentAssessmentAttemptHistoryQuestion {
                     position: 1,
-                    question_revision: QuestionRevisionReference {
+                    question_revision: QuestionRevisionTuple {
                         question_id: question_model::QuestionId::from_random_identifier("ABCDEF1")
                             .unwrap(),
                         revision_number: question_model::QuestionRevisionNumber::new(3).unwrap(),

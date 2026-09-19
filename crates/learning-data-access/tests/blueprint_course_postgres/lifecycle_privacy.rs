@@ -5,7 +5,7 @@ use super::*;
 pub(super) async fn assert_private_blueprint_is_owner_only(
     owner_store: &PostgresBlueprintCourseStore,
     reader_store: &PostgresBlueprintCourseStore,
-    blueprint_reference: &BlueprintCourseId,
+    blueprint_course_id: &BlueprintCourseId,
 ) {
     assert!(
         owner_store
@@ -14,7 +14,7 @@ pub(super) async fn assert_private_blueprint_is_owner_only(
             .expect("owner Private Blueprint list")
             .items
             .iter()
-            .any(|summary| summary.id == *blueprint_reference),
+            .any(|summary| summary.id == *blueprint_course_id),
         "owner's Private Blueprint remains in normal discovery"
     );
     assert!(
@@ -24,7 +24,7 @@ pub(super) async fn assert_private_blueprint_is_owner_only(
             .expect("non-owner discovery including Archived")
             .items
             .iter()
-            .all(|summary| summary.id != *blueprint_reference),
+            .all(|summary| summary.id != *blueprint_course_id),
         "including Archived never discloses another owner's Private Blueprint"
     );
     assert!(
@@ -34,12 +34,12 @@ pub(super) async fn assert_private_blueprint_is_owner_only(
             .expect("non-owner Private Blueprint list")
             .items
             .iter()
-            .all(|summary| summary.id != *blueprint_reference),
+            .all(|summary| summary.id != *blueprint_course_id),
         "Private Blueprint is absent from non-owner discovery"
     );
     assert!(matches!(
         reader_store
-            .load_blueprint_course(reader_token(), blueprint_reference.clone())
+            .load_blueprint_course(reader_token(), blueprint_course_id.clone())
             .await,
         Err(StoreError::NotFound)
     ));
@@ -47,8 +47,8 @@ pub(super) async fn assert_private_blueprint_is_owner_only(
         reader_store
             .load_blueprint_revision(
                 reader_token(),
-                question_model::BlueprintRevisionReference {
-                    blueprint_course_id: blueprint_reference.clone(),
+                question_model::BlueprintRevisionTuple {
+                    blueprint_course_id: blueprint_course_id.clone(),
                     revision: BlueprintRevision::INITIAL,
                 },
             )

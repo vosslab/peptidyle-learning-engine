@@ -2,21 +2,21 @@
 
 import { createEffect, createResource, createSignal, onCleanup, type Accessor } from "solid-js";
 
-import type { CourseBannerReference } from "../../../generated/api/CourseBannerReference";
+import type { CourseBannerId } from "../../../generated/api/CourseBannerId";
 import type { ApiClient } from "../../api/client";
 
 /** Creates one ephemeral object URL and revokes it on replacement, failure, or unmount. */
 export function createCourseBannerUrl(
-  bannerReference: Accessor<CourseBannerReference | null>,
+  bannerId: Accessor<CourseBannerId | null>,
   client: Pick<ApiClient, "fetchCourseBanner">,
 ): Accessor<string | undefined> {
-  const [delivery] = createResource(bannerReference, (reference) =>
+  const [delivery] = createResource(bannerId, (reference) =>
     client.fetchCourseBanner(reference),
   );
   const [url, setUrl] = createSignal<string>();
 
   createEffect(() => {
-    const selected = bannerReference();
+    const selected = bannerId();
     const blob = delivery();
     if (
       selected === null ||

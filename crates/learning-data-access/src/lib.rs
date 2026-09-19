@@ -76,8 +76,8 @@ mod support_capability;
 
 pub use account_avatar::{
     AccountAvatar, AccountAvatarGallery, AccountProfileImageDeleteWork,
-    FinalizedAccountProfileImage, PreparedAccountProfileImage, ProfileImageReference,
-    ProvidedAvatarId, SelectableProvidedAvatarId,
+    FinalizedAccountProfileImage, PreparedAccountProfileImage, ProfileImageId, ProvidedAvatarId,
+    SelectableProvidedAvatarId,
 };
 pub use account_time_zone::AccountTimeZoneStore;
 pub use assessment_attempt::{
@@ -197,13 +197,14 @@ pub use imathas_question_backend_session::{
     ImathasGradingContext, ImathasLaunchBindingChecksum, ImathasNormalizedScore,
     ImathasQuestionBackendLaunchPreparationValidation, ImathasQuestionBackendSession,
     ImathasQuestionBackendSessionAuthentication, ImathasQuestionBackendSessionChallenge,
-    ImathasQuestionBackendSessionCreate, ImathasQuestionBackendSessionPreparationContext,
-    ImathasQuestionBackendSessionReference, ImathasQuestionBackendSessionRestoreExpectation,
-    ImathasQuestionBackendSessionStore, ImathasQuestionBackendSessionValidation,
-    ImathasQuestionBackendStateCipher, ImathasQuestionBackendStateKeyId,
-    ImathasQuestionBackendStateKeyRing, ImathasQuestionBackendStatePlaintext,
-    ImathasResponseChecksum, ImathasResult, ImathasResultToken, ImathasResultTokenChecksum,
-    LoadedImathasQuestionBackendSession, MAX_IMATHAS_QUESTION_BACKEND_STATE_CIPHERTEXT_BYTES,
+    ImathasQuestionBackendSessionCreate, ImathasQuestionBackendSessionId,
+    ImathasQuestionBackendSessionPreparationContext,
+    ImathasQuestionBackendSessionRestoreExpectation, ImathasQuestionBackendSessionStore,
+    ImathasQuestionBackendSessionValidation, ImathasQuestionBackendStateCipher,
+    ImathasQuestionBackendStateKeyId, ImathasQuestionBackendStateKeyRing,
+    ImathasQuestionBackendStatePlaintext, ImathasResponseChecksum, ImathasResult,
+    ImathasResultToken, ImathasResultTokenChecksum, LoadedImathasQuestionBackendSession,
+    MAX_IMATHAS_QUESTION_BACKEND_STATE_CIPHERTEXT_BYTES,
     MAX_IMATHAS_QUESTION_BACKEND_STATE_PLAINTEXT_BYTES, MemoryImathasQuestionBackendSessionStore,
     derive_imathas_question_backend_evaluation,
 };
@@ -215,7 +216,7 @@ pub(crate) use imathas_question_backend_session::{
 pub use instructor_account::{
     CompleteInstructorIdentityVettingInput, CreateInstructorAccountInput,
     DeactivateInstructorAccountInput, InstructorAccountList, InstructorAccountState,
-    InstructorAccountStore, InstructorAccountSummary, InstructorIdentityVettingDecisionReference,
+    InstructorAccountStore, InstructorAccountSummary, InstructorIdentityVettingDecisionId,
 };
 pub use invitation_export::{
     InvitationExportStore, InvitationMailerExport, InvitationMailerRecipient,

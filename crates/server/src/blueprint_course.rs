@@ -27,7 +27,7 @@ use learning_data_access::{
 use objects::s3::S3ObjectStore;
 use question_model::{
     BlueprintCourseId, BlueprintCourseView, BlueprintEditNumber, BlueprintRevision,
-    BlueprintRevisionReference, CreateBlueprintCourseInput, RenameBlueprintCourseInput,
+    BlueprintRevisionTuple, CreateBlueprintCourseInput, RenameBlueprintCourseInput,
     ReplaceBlueprintCourseContentInput, RequestChecksum,
 };
 use serde::{Deserialize, Serialize};
@@ -191,9 +191,9 @@ struct ArchiveBlueprintRequest {
 async fn load_blueprint(
     State(state): State<BlueprintCourseRouteState>,
     headers: HeaderMap,
-    Path(reference): Path<String>,
+    Path(blueprint_course_id): Path<String>,
 ) -> Response {
-    let reference = match parse_blueprint_course_id(&reference) {
+    let blueprint_course_id = match parse_blueprint_course_id(&blueprint_course_id) {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -201,7 +201,7 @@ async fn load_blueprint(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    match load_view(&state, session, reference).await {
+    match load_view(&state, session, blueprint_course_id).await {
         Ok(view) => blueprint_response(StatusCode::OK, view),
         Err(RouteLoadError::Store(error)) => store_error_response(error),
         Err(RouteLoadError::Unavailable) => unavailable(),
@@ -211,10 +211,10 @@ async fn load_blueprint(
 async fn update_classification(
     State(state): State<BlueprintCourseRouteState>,
     headers: HeaderMap,
-    Path(reference): Path<String>,
+    Path(blueprint_course_id): Path<String>,
     Json(classification): Json<question_model::CourseClassification>,
 ) -> Response {
-    let reference = match parse_blueprint_course_id(&reference) {
+    let blueprint_course_id = match parse_blueprint_course_id(&blueprint_course_id) {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -228,7 +228,7 @@ async fn update_classification(
     };
     match state
         .blueprints
-        .update_blueprint_classification(session, reference, expected, classification)
+        .update_blueprint_classification(session, blueprint_course_id, expected, classification)
         .await
     {
         Ok(value) => metadata_response(value),
@@ -276,10 +276,10 @@ async fn create_blueprint(
 async fn save_blueprint(
     State(state): State<BlueprintCourseRouteState>,
     headers: HeaderMap,
-    Path(reference): Path<String>,
+    Path(blueprint_course_id): Path<String>,
     Json(input): Json<ReplaceBlueprintCourseContentInput>,
 ) -> Response {
-    let reference = match parse_blueprint_course_id(&reference) {
+    let blueprint_course_id = match parse_blueprint_course_id(&blueprint_course_id) {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -293,7 +293,7 @@ async fn save_blueprint(
     let checksum = match request_checksum(
         "save-blueprint-course",
         &headers,
-        &(reference.clone(), expected, &input),
+        &(blueprint_course_id.clone(), expected, &input),
     ) {
         Ok(value) => value,
         Err(response) => return *response,
@@ -306,7 +306,7 @@ async fn save_blueprint(
         .blueprints
         .save_blueprint_course(
             session,
-            reference.clone(),
+            blueprint_course_id.clone(),
             expected,
             checksum,
             input,
@@ -314,7 +314,7 @@ async fn save_blueprint(
         )
         .await
     {
-        Ok(receipt) => match load_view(&state, session, reference).await {
+        Ok(receipt) => match load_view(&state, session, blueprint_course_id).await {
             Ok(view) => blueprint_save_response(view, receipt.changed),
             Err(RouteLoadError::Store(error)) => store_error_response(error),
             Err(RouteLoadError::Unavailable) => unavailable(),
@@ -326,10 +326,10 @@ async fn save_blueprint(
 async fn rename_blueprint(
     State(state): State<BlueprintCourseRouteState>,
     headers: HeaderMap,
-    Path(reference): Path<String>,
+    Path(blueprint_course_id): Path<String>,
     Json(input): Json<RenameBlueprintCourseInput>,
 ) -> Response {
-    let reference = match parse_blueprint_course_id(&reference) {
+    let blueprint_course_id = match parse_blueprint_course_id(&blueprint_course_id) {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -343,7 +343,7 @@ async fn rename_blueprint(
     };
     match state
         .blueprints
-        .rename_blueprint_course(session, reference, expected, input)
+        .rename_blueprint_course(session, blueprint_course_id, expected, input)
         .await
     {
         Ok(value) => metadata_response(value),
@@ -354,9 +354,9 @@ async fn rename_blueprint(
 async fn load_revision(
     State(state): State<BlueprintCourseRouteState>,
     headers: HeaderMap,
-    Path((reference, revision)): Path<(String, String)>,
+    Path((blueprint_course_id, revision)): Path<(String, String)>,
 ) -> Response {
-    let reference = match parse_blueprint_course_id(&reference) {
+    let blueprint_course_id = match parse_blueprint_course_id(&blueprint_course_id) {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -368,8 +368,8 @@ async fn load_revision(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let blueprint_revision = BlueprintRevisionReference {
-        blueprint_course_id: reference,
+    let blueprint_revision = BlueprintRevisionTuple {
+        blueprint_course_id: blueprint_course_id,
         revision,
     };
     let record = match state
@@ -396,13 +396,13 @@ async fn load_revision(
 async fn archive_blueprint(
     State(state): State<BlueprintCourseRouteState>,
     headers: HeaderMap,
-    Path(reference): Path<String>,
+    Path(blueprint_course_id): Path<String>,
     Json(input): Json<ArchiveBlueprintRequest>,
 ) -> Response {
     transition_availability(
         &state,
         &headers,
-        reference,
+        blueprint_course_id,
         BlueprintLifecycleAction::Archive {
             confirmation_long_name: input.confirmation_long_name,
         },
@@ -412,12 +412,12 @@ async fn archive_blueprint(
 async fn publish_blueprint(
     State(state): State<BlueprintCourseRouteState>,
     headers: HeaderMap,
-    Path(reference): Path<String>,
+    Path(blueprint_course_id): Path<String>,
 ) -> Response {
     transition_availability(
         &state,
         &headers,
-        reference,
+        blueprint_course_id,
         BlueprintLifecycleAction::Publish,
     )
     .await
@@ -425,12 +425,12 @@ async fn publish_blueprint(
 async fn restore_blueprint(
     State(state): State<BlueprintCourseRouteState>,
     headers: HeaderMap,
-    Path(reference): Path<String>,
+    Path(blueprint_course_id): Path<String>,
 ) -> Response {
     transition_availability(
         &state,
         &headers,
-        reference,
+        blueprint_course_id,
         BlueprintLifecycleAction::Restore,
     )
     .await
@@ -438,12 +438,12 @@ async fn restore_blueprint(
 async fn return_blueprint_to_private(
     State(state): State<BlueprintCourseRouteState>,
     headers: HeaderMap,
-    Path(reference): Path<String>,
+    Path(blueprint_course_id): Path<String>,
 ) -> Response {
     transition_availability(
         &state,
         &headers,
-        reference,
+        blueprint_course_id,
         BlueprintLifecycleAction::ReturnToPrivate,
     )
     .await
@@ -466,7 +466,7 @@ async fn transition_availability(
     value: String,
     action: BlueprintLifecycleAction,
 ) -> Response {
-    let reference = match parse_blueprint_course_id(&value) {
+    let blueprint_course_id = match parse_blueprint_course_id(&value) {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -482,7 +482,7 @@ async fn transition_availability(
         BlueprintLifecycleAction::Publish => {
             state
                 .blueprints
-                .publish_blueprint(session, reference, expected)
+                .publish_blueprint(session, blueprint_course_id, expected)
                 .await
         }
         BlueprintLifecycleAction::Archive {
@@ -490,19 +490,24 @@ async fn transition_availability(
         } => {
             state
                 .blueprints
-                .archive_blueprint(session, reference, expected, &confirmation_long_name)
+                .archive_blueprint(
+                    session,
+                    blueprint_course_id,
+                    expected,
+                    &confirmation_long_name,
+                )
                 .await
         }
         BlueprintLifecycleAction::Restore => {
             state
                 .blueprints
-                .restore_blueprint(session, reference, expected)
+                .restore_blueprint(session, blueprint_course_id, expected)
                 .await
         }
         BlueprintLifecycleAction::ReturnToPrivate => {
             state
                 .blueprints
-                .return_blueprint_to_private(session, reference, expected)
+                .return_blueprint_to_private(session, blueprint_course_id, expected)
                 .await
         }
     };
@@ -636,7 +641,7 @@ mod tests {
     use crate::question_publication::{QuestionIdIssuer, RandomQuestionIdIssuer};
     use axum::http::{HeaderValue, StatusCode};
     use learning_data_access::StoreError;
-    use question_model::{QuestionId, QuestionRevisionReference, ReusableSelectionAvailability};
+    use question_model::{QuestionId, QuestionRevisionTuple, ReusableSelectionAvailability};
     use std::collections::BTreeMap;
     #[test]
     fn rejects_id_with_wrong_checksum() {
@@ -652,11 +657,11 @@ mod tests {
     #[test]
     fn retained_older_question_pin_uses_its_exact_revision_and_is_not_selectable() {
         let question_id = QuestionId::from_random_identifier("0000000").expect("Question ID");
-        let older = QuestionRevisionReference {
+        let older = QuestionRevisionTuple {
             question_id: question_id.clone(),
             revision_number: question_model::QuestionRevisionNumber::new(1).expect("revision one"),
         };
-        let current = QuestionRevisionReference {
+        let current = QuestionRevisionTuple {
             question_id: question_id.clone(),
             revision_number: question_model::QuestionRevisionNumber::new(2).expect("revision two"),
         };

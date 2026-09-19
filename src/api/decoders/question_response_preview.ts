@@ -12,7 +12,7 @@ import {
 } from "../decoder";
 import { field, kind, requireOnlyFields } from "./shared";
 import {
-  decodeQuestionAssetReference,
+  decodeQuestionAssetTuple,
   decodeQuestionContentBlock,
   decodeResponseSelectionRule,
 } from "./question_response_format";
@@ -93,7 +93,7 @@ export function decodeQuestionResponsePreview(
       requireOnlyFields(record, path, ["kind", "surface", "description", "regions", "selection"]);
       return {
         kind: responseKind,
-        surface: decodeQuestionAssetReference(
+        surface: decodeQuestionAssetTuple(
           field(record, "surface", path),
           `${path}.surface`,
           true,

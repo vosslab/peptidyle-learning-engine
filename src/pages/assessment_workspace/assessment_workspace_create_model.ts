@@ -1,8 +1,8 @@
 // assessment_workspace_create_model.ts - direct destination after persisted Assessment creation.
 
 import type {
-  AssessmentRouteReference,
-  CourseInstanceRouteReference,
+  AssessmentRouteId,
+  CourseInstanceRouteId,
 } from "../../navigation/public_route";
 import { isAssessmentType } from "../../assessment_type_presentation";
 import type { AssessmentType } from "../../../generated/api/AssessmentType";
@@ -11,8 +11,8 @@ import { assessmentWorkspacePath } from "./assessment_workspace_paths";
 
 /** A successful Assessment create always enters the Questions task for the new persisted draft. */
 export function createdAssessmentQuestionsPath(
-  courseInstanceId: CourseInstanceRouteReference,
-  assessmentId: AssessmentRouteReference,
+  courseInstanceId: CourseInstanceRouteId,
+  assessmentId: AssessmentRouteId,
 ): string {
   return assessmentWorkspacePath(courseInstanceId, assessmentId, "questions");
 }

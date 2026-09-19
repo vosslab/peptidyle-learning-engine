@@ -12,18 +12,18 @@ pub const MAX_IMATHAS_IDENTIFIER_BYTES: usize = 128;
 /// retain in a Question Backend binding.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ImathasQuestionBackendBindingError {
-    InvalidDeploymentReference,
-    InvalidItemReference,
+    InvalidDeploymentId,
+    InvalidItemId,
     InvalidProfile,
 }
 
 impl std::fmt::Display for ImathasQuestionBackendBindingError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::InvalidDeploymentReference => {
-                formatter.write_str("iMathAS deployment reference is invalid")
+            Self::InvalidDeploymentId => {
+                formatter.write_str("iMathAS deployment ID is invalid")
             }
-            Self::InvalidItemReference => formatter.write_str("iMathAS item reference is invalid"),
+            Self::InvalidItemId => formatter.write_str("iMathAS item ID is invalid"),
             Self::InvalidProfile => formatter.write_str("iMathAS profile is invalid"),
         }
     }
@@ -42,13 +42,13 @@ fn has_imathas_identifier_grammar(value: &str) -> bool {
 /// Opaque configured iMathAS deployment selector.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct ImathasDeploymentReference(String);
+pub struct ImathasDeploymentId(String);
 
-impl ImathasDeploymentReference {
+impl ImathasDeploymentId {
     pub fn new(value: impl Into<String>) -> Result<Self, ImathasQuestionBackendBindingError> {
         let value = value.into();
         if !has_imathas_identifier_grammar(&value) {
-            return Err(ImathasQuestionBackendBindingError::InvalidDeploymentReference);
+            return Err(ImathasQuestionBackendBindingError::InvalidDeploymentId);
         }
         Ok(Self(value))
     }
@@ -58,7 +58,7 @@ impl ImathasDeploymentReference {
     }
 }
 
-impl TryFrom<String> for ImathasDeploymentReference {
+impl TryFrom<String> for ImathasDeploymentId {
     type Error = ImathasQuestionBackendBindingError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
@@ -66,8 +66,8 @@ impl TryFrom<String> for ImathasDeploymentReference {
     }
 }
 
-impl From<ImathasDeploymentReference> for String {
-    fn from(value: ImathasDeploymentReference) -> Self {
+impl From<ImathasDeploymentId> for String {
+    fn from(value: ImathasDeploymentId) -> Self {
         value.0
     }
 }
@@ -75,13 +75,13 @@ impl From<ImathasDeploymentReference> for String {
 /// iMathAS-backend-local item selector.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct ImathasItemReference(String);
+pub struct ImathasItemId(String);
 
-impl ImathasItemReference {
+impl ImathasItemId {
     pub fn new(value: impl Into<String>) -> Result<Self, ImathasQuestionBackendBindingError> {
         let value = value.into();
         if !has_imathas_identifier_grammar(&value) || value.contains("..") {
-            return Err(ImathasQuestionBackendBindingError::InvalidItemReference);
+            return Err(ImathasQuestionBackendBindingError::InvalidItemId);
         }
         Ok(Self(value))
     }
@@ -91,7 +91,7 @@ impl ImathasItemReference {
     }
 }
 
-impl TryFrom<String> for ImathasItemReference {
+impl TryFrom<String> for ImathasItemId {
     type Error = ImathasQuestionBackendBindingError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
@@ -99,8 +99,8 @@ impl TryFrom<String> for ImathasItemReference {
     }
 }
 
-impl From<ImathasItemReference> for String {
-    fn from(value: ImathasItemReference) -> Self {
+impl From<ImathasItemId> for String {
+    fn from(value: ImathasItemId) -> Self {
         value.0
     }
 }
@@ -142,15 +142,15 @@ impl From<ImathasProfile> for String {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ImathasQuestionBackendBinding {
-    deployment_reference: ImathasDeploymentReference,
-    item_reference: ImathasItemReference,
+    deployment_reference: ImathasDeploymentId,
+    item_reference: ImathasItemId,
     profile: ImathasProfile,
 }
 
 impl ImathasQuestionBackendBinding {
     pub fn new(
-        deployment_reference: ImathasDeploymentReference,
-        item_reference: ImathasItemReference,
+        deployment_reference: ImathasDeploymentId,
+        item_reference: ImathasItemId,
         profile: ImathasProfile,
     ) -> Self {
         Self {
@@ -160,11 +160,11 @@ impl ImathasQuestionBackendBinding {
         }
     }
 
-    pub fn deployment_reference(&self) -> &ImathasDeploymentReference {
+    pub fn deployment_reference(&self) -> &ImathasDeploymentId {
         &self.deployment_reference
     }
 
-    pub fn item_reference(&self) -> &ImathasItemReference {
+    pub fn item_reference(&self) -> &ImathasItemId {
         &self.item_reference
     }
 
@@ -177,14 +177,14 @@ impl ImathasQuestionBackendBinding {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct DraftImathasQuestionBackendBinding {
-    deployment_reference: ImathasDeploymentReference,
-    item_reference: ImathasItemReference,
+    deployment_reference: ImathasDeploymentId,
+    item_reference: ImathasItemId,
 }
 
 impl DraftImathasQuestionBackendBinding {
     pub fn new(
-        deployment_reference: ImathasDeploymentReference,
-        item_reference: ImathasItemReference,
+        deployment_reference: ImathasDeploymentId,
+        item_reference: ImathasItemId,
     ) -> Self {
         Self {
             deployment_reference,
@@ -192,11 +192,11 @@ impl DraftImathasQuestionBackendBinding {
         }
     }
 
-    pub fn deployment_reference(&self) -> &ImathasDeploymentReference {
+    pub fn deployment_reference(&self) -> &ImathasDeploymentId {
         &self.deployment_reference
     }
 
-    pub fn item_reference(&self) -> &ImathasItemReference {
+    pub fn item_reference(&self) -> &ImathasItemId {
         &self.item_reference
     }
 }
@@ -228,8 +228,8 @@ mod tests {
     #[test]
     fn imathas_item_reference_refuses_path_traversal_segments() {
         assert_eq!(
-            ImathasItemReference::new("item..17"),
-            Err(ImathasQuestionBackendBindingError::InvalidItemReference)
+            ImathasItemId::new("item..17"),
+            Err(ImathasQuestionBackendBindingError::InvalidItemId)
         );
     }
 }

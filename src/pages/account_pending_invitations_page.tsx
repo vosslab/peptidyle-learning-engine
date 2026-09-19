@@ -106,7 +106,7 @@ export function AccountPendingInvitationsPage(): JSX.Element {
     setError(null);
     try {
       await runtime.client.respondToCourseInvitation(
-        response.invitation.reference,
+        response.invitation.id,
         { action: response.action },
         response.invitation.state_precondition,
       );

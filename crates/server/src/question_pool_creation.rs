@@ -2,7 +2,7 @@
 //!
 //! This route owns no Pool selection policy, backend behavior, Pool UI, or
 //! client-chosen identifier. It accepts deliberate Pool Title/Description,
-//! ordered exact Published Question Revision references, and the Instructor's
+//! ordered exact Question Revision Tuples, and the Instructor's
 //! interchangeability attestation; classification remains database-derived.
 
 use std::sync::Arc;
@@ -22,7 +22,7 @@ use learning_data_access::{
 };
 use question_model::{
     MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY, ProductRole, QuestionId, QuestionRevisionNumber,
-    QuestionRevisionReference,
+    QuestionRevisionTuple,
 };
 use serde::{Deserialize, Serialize};
 
@@ -187,14 +187,12 @@ async fn create_question_pool(State(state): State<RouteState>, request: Request)
     )
 }
 
-fn verified_members(
-    values: Vec<QuestionPoolMemberRequest>,
-) -> Option<Vec<QuestionRevisionReference>> {
+fn verified_members(values: Vec<QuestionPoolMemberRequest>) -> Option<Vec<QuestionRevisionTuple>> {
     let mut members = Vec::with_capacity(values.len());
     for value in values {
         let question_id = value.question_id.parse::<QuestionId>().ok()?;
         let revision_number = QuestionRevisionNumber::new(value.revision_number).ok()?;
-        members.push(QuestionRevisionReference {
+        members.push(QuestionRevisionTuple {
             question_id,
             revision_number,
         });

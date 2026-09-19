@@ -8,14 +8,14 @@ import {
   type RouteParams,
 } from "../navigation/route_params";
 import {
-  parseAssessmentAttemptReference,
+  parseAssessmentAttemptId,
   parseAssessmentId,
   parseBlueprintCourseId,
   parseBlueprintChangeProposalHandle,
   parseCourseInstanceId,
-  parseCourseMembershipReference,
+  parseCourseMembershipId,
   parseDraftQuestionId,
-  parseQuestionRouteReference,
+  parseQuestionRouteId,
 } from "../navigation/public_route";
 import {
   ROUTE_CONTRACT,
@@ -205,9 +205,9 @@ type RouteParamParser = (value: string) => string | null;
 const ROUTE_PARAM_PARSERS: Readonly<Record<RouteParamName, RouteParamParser>> = {
   courseInstanceId: parseCourseInstanceId,
   assessmentId: parseAssessmentId,
-  assessmentAttemptId: parseAssessmentAttemptReference,
-  membershipRef: parseCourseMembershipReference,
-  questionId: parseQuestionRouteReference,
+  assessmentAttemptId: parseAssessmentAttemptId,
+  membershipId: parseCourseMembershipId,
+  questionId: parseQuestionRouteId,
   draftQuestionId: parseDraftQuestionId,
   blueprintCourseId: parseBlueprintCourseId,
   proposalId: parseBlueprintChangeProposalHandle,

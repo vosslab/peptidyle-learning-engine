@@ -12,7 +12,7 @@ import {
 } from "./course_theme_context";
 import { COURSE_THEME_SCOPE_STYLES } from "./course_theme_scope_styles";
 import { courseThemeStyle, courseThemeTokens } from "./course_theme_registry";
-import { courseInstanceRouteReference } from "../../navigation/public_route";
+import { courseInstanceRouteId } from "../../navigation/public_route";
 
 export interface CourseThemeVariablesProps {
   readonly children: JSX.Element;
@@ -73,7 +73,7 @@ function appearanceFor(data: CourseThemeRouteData | undefined): CourseAppearance
  */
 export function CourseThemeVariables(props: CourseThemeVariablesProps): JSX.Element {
   const routeData = useRouteScopeData();
-  const currentCourseReference = createMemo(() => {
+  const currentCourseInstanceId = createMemo(() => {
     const data = routeData();
     return data === undefined ||
       data.kind === "assessmentAttempt" ||
@@ -88,19 +88,19 @@ export function CourseThemeVariables(props: CourseThemeVariablesProps): JSX.Elem
       setPresentationOverride(undefined);
       return;
     }
-    const courseInstanceId = currentCourseReference();
+    const courseInstanceId = currentCourseInstanceId();
     if (courseInstanceId === undefined) return;
     setPresentationOverride({ courseInstanceId, appearance });
   };
   const appearance = createMemo(() => {
     const override = presentationOverride();
-    if (override !== undefined && override.courseInstanceId === currentCourseReference())
+    if (override !== undefined && override.courseInstanceId === currentCourseInstanceId())
       return override.appearance;
     return appearanceFor(routeData());
   });
 
   createEffect(() => {
-    if (presentationOverride()?.courseInstanceId !== currentCourseReference())
+    if (presentationOverride()?.courseInstanceId !== currentCourseInstanceId())
       setPresentationOverride(undefined);
   });
 
@@ -112,12 +112,12 @@ export function CourseThemeVariables(props: CourseThemeVariablesProps): JSX.Elem
     const data = routeData();
     if (data === undefined) return undefined;
     if (data.kind === "assessmentAttempt") {
-      return courseInstanceRouteReference(data.context.course.id);
+      return courseInstanceRouteId(data.context.course.id);
     }
     if (data.kind === "assessmentAttemptHistory") {
-      return courseInstanceRouteReference(data.history.course.id);
+      return courseInstanceRouteId(data.history.course.id);
     }
-    return courseInstanceRouteReference(courseRouteView(data).summary.id);
+    return courseInstanceRouteId(courseRouteView(data).summary.id);
   });
 
   return (

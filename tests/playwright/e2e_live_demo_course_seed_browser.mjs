@@ -24,7 +24,7 @@ const assessmentTitle = "Chapter 1 Pilot Practice";
 const assessmentTypeLabel = "Regular Assignment";
 let assessmentId;
 
-async function discoverAssessmentReference(page) {
+async function discoverAssessmentId(page) {
   const href = await instructorAssessmentRow(page)
     .getByRole("link", { name: "Edit Assessment", exact: true })
     .getAttribute("href");
@@ -116,7 +116,7 @@ async function verifyElena(page) {
   const card = instructorAssessmentRow(page);
   await expect(card).toHaveCount(1);
   await expect(card.getByText(/Assessment 1 - Released/u)).toBeVisible();
-  assessmentId = await discoverAssessmentReference(page);
+  assessmentId = await discoverAssessmentId(page);
   await card.getByRole("link", { name: "Edit Assessment", exact: true }).click();
   await expect(page.locator('[data-route-surface="assessmentWorkspace"]')).toBeVisible();
   await expect(

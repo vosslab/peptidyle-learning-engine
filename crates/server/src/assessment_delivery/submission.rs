@@ -25,7 +25,7 @@ use super::{
     reproduce_selected_issued_presentation, student, submission_store_error,
 };
 use question_model::response::{
-    ResponseItemReference, StudentHotspotSelection, StudentMatch, StudentTextEntry,
+    ResponseItemId, StudentHotspotSelection, StudentMatch, StudentTextEntry,
 };
 
 #[derive(Deserialize)]
@@ -239,9 +239,9 @@ pub(super) fn restore_saved_response(
 }
 
 fn presentation_reference(
-    value: question_model::PresentationResponseItemReference,
-) -> ResponseItemReference {
-    ResponseItemReference::new(value.as_str())
+    value: question_model::PresentationResponseItemId,
+) -> ResponseItemId {
+    ResponseItemId::new(value.as_str())
 }
 
 fn invalid_response() -> Response {
@@ -257,7 +257,7 @@ mod tests {
     use question_model::answer::ResponseSelectionRule;
     use question_model::{
         NativeChoiceOrder, QuestionContentBlock, QuestionReproduction, QuestionRevisionNumber,
-        QuestionRevisionReference, QuestionVariation, QuestionVariationPresentation,
+        QuestionRevisionTuple, QuestionVariation, QuestionVariationPresentation,
         presentation::build_question_presentation,
         response::{QuestionChoice, QuestionResponseFormat},
     };
@@ -265,7 +265,7 @@ mod tests {
     fn issued_multiple_choice() -> IssuedQuestionPresentation {
         let presentation = QuestionVariationPresentation {
             variation: QuestionVariation::from_question_revision_and_reproduction(
-                QuestionRevisionReference {
+                QuestionRevisionTuple {
                     question_id: question_model::QuestionId::from_random_identifier("1234567")
                         .expect("question id"),
                     revision_number: QuestionRevisionNumber::new(1).expect("revision"),
@@ -278,7 +278,7 @@ mod tests {
             }],
             response: QuestionResponseFormat::MultipleChoice {
                 choices: vec![QuestionChoice {
-                    id: ResponseItemReference::new("durable-choice"),
+                    id: ResponseItemId::new("durable-choice"),
                     body: vec![QuestionContentBlock::Text {
                         markdown: "Choice".to_owned(),
                     }],
@@ -294,7 +294,7 @@ mod tests {
     fn issued_backend_owned() -> IssuedQuestionPresentation {
         let presentation = QuestionVariationPresentation {
             variation: QuestionVariation::from_question_revision_and_reproduction(
-                QuestionRevisionReference {
+                QuestionRevisionTuple {
                     question_id: question_model::QuestionId::from_random_identifier("1234567")
                         .expect("question id"),
                     revision_number: QuestionRevisionNumber::new(1).expect("revision"),
@@ -314,7 +314,7 @@ mod tests {
     fn restored_saved_response_uses_presentation_reference_not_durable_identifier() {
         let issued = issued_multiple_choice();
         let response = StudentResponse::MultipleChoice {
-            selected: vec![ResponseItemReference::new("durable-choice")],
+            selected: vec![ResponseItemId::new("durable-choice")],
         };
 
         let restored = restore_saved_response(&response, &issued).expect("restore response");

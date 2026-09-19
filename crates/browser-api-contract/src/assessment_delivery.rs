@@ -1,7 +1,7 @@
 //! Browser-safe projections for an active Student Assessment Attempt.
 
 use question_model::{
-    QuestionContentBlock, QuestionPresentationResponseFormat, QuestionRevisionReference,
+    QuestionContentBlock, QuestionPresentationResponseFormat, QuestionRevisionTuple,
 };
 use serde::{Deserialize, Serialize};
 
@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct StudentQuestionPresentation {
-    pub question_revision: QuestionRevisionReference,
+    pub question_revision: QuestionRevisionTuple,
     /// Optional integrity binding for separately served isolated author content.
     /// This is never raw source, a URL, or a browser capability.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -32,7 +32,7 @@ mod tests {
         let question_id =
             QuestionId::from_random_identifier("ABCDEFG").expect("canonical Question ID");
         let presentation = StudentQuestionPresentation {
-            question_revision: QuestionRevisionReference {
+            question_revision: QuestionRevisionTuple {
                 question_id: question_id.clone(),
                 revision_number: QuestionRevisionNumber::new(3).expect("revision"),
             },

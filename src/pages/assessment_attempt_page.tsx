@@ -32,7 +32,7 @@ import {
   type BackendOwnedCapture,
 } from "./assessment_attempt_finish";
 import { AssessmentAttemptResponseState } from "./assessment_attempt_response_state";
-import { assessmentAttemptRouteReference } from "../navigation/public_route";
+import { assessmentAttemptRouteId } from "../navigation/public_route";
 import {
   useRetryRouteScope,
   useRouteScopeData,
@@ -260,7 +260,7 @@ function AttemptExperience(props: {
       // ASVS 1.2.2, 2.3.1, 8.2.2-8.2.3: enter the server-authorized, field-redacted result
       // view only after this exact whole-Attempt submission is accepted.
       navigate(
-        `/assessment-attempts/${assessmentAttemptRouteReference(result.assessmentAttempt)}/summary`,
+        `/assessment-attempts/${assessmentAttemptRouteId(result.assessmentAttempt)}/summary`,
         { replace: true },
       );
     } catch (error: unknown) {

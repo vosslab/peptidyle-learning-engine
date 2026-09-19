@@ -1,7 +1,7 @@
 //! Browser-safe reusable BlueprintCourse assessments and answer-free views.
 //!
 //! A reusable content has no course, student, version, or server-private
-//! identity. Fixed entries carry exact public Question Revision references
+//! identity. Fixed entries carry exact public Question Revision Tuples
 //! checked under destination authority before persistence. Browser views keep the same ordered
 //! shape while substituting current answer-free Question Library discovery rows.
 
@@ -30,7 +30,7 @@ pub use assessment_content::{
 pub use blueprint_children::{
     BlueprintAssessmentEditChoice, BlueprintAssessmentId, BlueprintAssessmentReplacementInput,
     BlueprintChildIdError, BlueprintCourseAssessmentContentView, BlueprintModuleEditChoice,
-    BlueprintModuleReference, BlueprintModuleReplacementInput, BlueprintModuleView,
+    BlueprintModuleId, BlueprintModuleReplacementInput, BlueprintModuleView,
     CreateBlueprintCourseInput, CreateBlueprintFromCourseInstanceInput, CreateBlueprintModuleInput,
     ReplaceBlueprintCourseContentInput,
 };
@@ -169,7 +169,7 @@ pub struct BlueprintCourseSummaryView {
     /// Opaque validator for rename and availability actions.
     pub blueprint_edit_number: crate::BlueprintEditNumber,
     /// Exact current immutable reusable state.
-    pub current_revision: crate::BlueprintRevisionReference,
+    pub current_revision: crate::BlueprintRevisionTuple,
     /// Browser-safe classification for this returned Blueprint Course view.
     pub read_access: BlueprintCourseReadAccess,
     /// Lifetime Course Instances adopted from this Blueprint lineage, across Revisions.
@@ -195,11 +195,11 @@ pub struct BlueprintCourseView {
     /// Opaque validator for rename and availability actions.
     pub blueprint_edit_number: crate::BlueprintEditNumber,
     /// Exact current immutable reusable state.
-    pub current_revision: crate::BlueprintRevisionReference,
+    pub current_revision: crate::BlueprintRevisionTuple,
     /// Browser-safe classification for this returned Blueprint Course view.
     pub read_access: BlueprintCourseReadAccess,
     /// Exact fork origin; roots and hidden sources both return null.
-    pub fork_source: Option<crate::BlueprintRevisionReference>,
+    pub fork_source: Option<crate::BlueprintRevisionTuple>,
     /// Answer-free current Revision content.
     pub modules: Vec<BlueprintModuleView>,
 }
@@ -235,9 +235,9 @@ pub enum BlueprintCourseValidationError {
     AssessmentAttemptTimeLimitOutOfRange,
     /// A reusable attempt limit exceeds the ordinary assessment bound.
     AttemptLimitOutOfRange,
-    /// A replacement submitted the same retained Blueprint Module Reference more than once.
+    /// A replacement submitted the same retained Blueprint Module ID more than once.
     DuplicateRetainedBlueprintModuleChoice,
-    /// A replacement submitted the same retained Blueprint Assessment Reference more than once.
+    /// A replacement submitted the same retained Blueprint Assessment ID more than once.
     DuplicateRetainedBlueprintAssessmentChoice,
 }
 
@@ -271,10 +271,10 @@ impl std::fmt::Display for BlueprintCourseValidationError {
             }
             Self::AttemptLimitOutOfRange => "reusable attempt limit exceeds the supported range",
             Self::DuplicateRetainedBlueprintModuleChoice => {
-                "Blueprint Course replacement repeats a retained Blueprint Module Reference"
+                "Blueprint Course replacement repeats a retained Blueprint Module ID"
             }
             Self::DuplicateRetainedBlueprintAssessmentChoice => {
-                "Blueprint Course replacement repeats a retained Blueprint Assessment Reference"
+                "Blueprint Course replacement repeats a retained Blueprint Assessment ID"
             }
         })
     }
@@ -293,13 +293,13 @@ mod tests {
         QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship, QuestionAvailability,
         QuestionBackend, QuestionBackendCapabilities, QuestionFormat, QuestionId, QuestionLicense,
         QuestionMetadata, QuestionPoolEditNumber, QuestionPoolSelectionRule,
-        QuestionRevisionNumber, QuestionRevisionReference, QuestionSearchResult,
-        QuestionStatistics, QuestionSummary, QuestionType, StudentFeedbackReleaseRule, Timestamp,
+        QuestionRevisionNumber, QuestionRevisionTuple, QuestionSearchResult, QuestionStatistics,
+        QuestionSummary, QuestionType, StudentFeedbackReleaseRule, Timestamp,
     };
     use uuid::Uuid;
 
-    fn blueprint_module_reference() -> BlueprintModuleReference {
-        BlueprintModuleReference::from_uuid(Uuid::from_u128(1))
+    fn blueprint_module_id() -> BlueprintModuleId {
+        BlueprintModuleId::from_uuid(Uuid::from_u128(1))
     }
 
     fn blueprint_assessment_id() -> BlueprintAssessmentId {
@@ -331,7 +331,7 @@ mod tests {
                 .expect("valid instructions"),
             entries: vec![
                 BlueprintAssessmentEntryInput::Fixed(ReusableFixedQuestionInput {
-                    published_question: QuestionRevisionReference {
+                    published_question: QuestionRevisionTuple {
                         question_id: question_id(),
                         revision_number: QuestionRevisionNumber::new(1).expect("positive Revision"),
                     },
@@ -365,7 +365,7 @@ mod tests {
         QuestionSearchResult {
             summary: QuestionSummary {
                 question_id: question_id(),
-                question_revision: QuestionRevisionReference {
+                question_revision: QuestionRevisionTuple {
                     question_id: question_id(),
                     revision_number: QuestionRevisionNumber::new(1).expect("positive version"),
                 },
@@ -483,14 +483,14 @@ mod tests {
             long_name: "Biochemistry Blueprint".to_string(),
             availability: crate::BlueprintAvailability::Public,
             blueprint_edit_number: crate::BlueprintEditNumber::from_edit_number(42),
-            current_revision: crate::BlueprintRevisionReference {
+            current_revision: crate::BlueprintRevisionTuple {
                 blueprint_course_id: "BP7K3M2QXH".parse().expect("valid reference"),
                 revision: BlueprintRevision::INITIAL,
             },
             read_access: BlueprintCourseReadAccess::ActiveInstructor,
             fork_source: None,
             modules: vec![BlueprintModuleView {
-                blueprint_module_reference: blueprint_module_reference(),
+                blueprint_module_id: blueprint_module_id(),
                 label: "Week 1".to_string(),
                 assessments: vec![BlueprintCourseAssessmentContentView {
                     blueprint_assessment_id: blueprint_assessment_id(),
@@ -501,7 +501,7 @@ mod tests {
                         entries: vec![
                             BlueprintAssessmentEntryView::Fixed {
                                 question: ReusableQuestionView {
-                                    reference: discovery().summary.question_revision,
+                                    question_revision: discovery().summary.question_revision,
                                     question_library: discovery(),
                                     selection_availability:
                                         ReusableSelectionAvailability::Available,
@@ -578,7 +578,7 @@ mod blueprint_course_tests {
     use crate::{
         AssessmentActivityRules, AssessmentEntryScoringRule, AssessmentInstructions,
         AssessmentPointValue, LateWorkRule, QuestionAttemptLimit, QuestionAttemptTimeLimit,
-        QuestionRevisionNumber, QuestionRevisionReference, StudentFeedbackReleaseRule,
+        QuestionRevisionNumber, QuestionRevisionTuple, StudentFeedbackReleaseRule,
     };
     use uuid::Uuid;
 
@@ -602,7 +602,7 @@ mod blueprint_course_tests {
                     instructions: AssessmentInstructions::default(),
                     entries: vec![BlueprintAssessmentEntryInput::Fixed(
                         ReusableFixedQuestionInput {
-                            published_question: QuestionRevisionReference {
+                            published_question: QuestionRevisionTuple {
                                 question_id: "7K3M-19QX".parse().expect("QuestionId"),
                                 revision_number: QuestionRevisionNumber::new(1)
                                     .expect("positive Revision"),
@@ -631,7 +631,7 @@ mod blueprint_course_tests {
         let wire = serde_json::to_value(&input).expect("serializes");
         assert!(wire.get("modules").is_some());
         assert!(wire.to_string().contains("published_question"));
-        assert!(!wire.to_string().contains("QuestionRevisionReference"));
+        assert!(!wire.to_string().contains("QuestionRevisionTuple"));
         let mut forged = wire;
         forged["owner"] = serde_json::json!("U-1");
         assert!(serde_json::from_value::<CreateBlueprintCourseInput>(forged).is_err());
@@ -639,11 +639,11 @@ mod blueprint_course_tests {
 
     #[test]
     fn replacement_choices_are_explicit_strict_and_unique() {
-        let blueprint_module_reference = BlueprintModuleReference::from_uuid(Uuid::from_u128(1));
+        let blueprint_module_id = BlueprintModuleId::from_uuid(Uuid::from_u128(1));
         let blueprint_assessment_id = BlueprintAssessmentId::from_uuid(Uuid::from_u128(2));
         assert!(
             "00000000000000000000000000000001"
-                .parse::<BlueprintModuleReference>()
+                .parse::<BlueprintModuleId>()
                 .is_err()
         );
         assert!(
@@ -657,7 +657,7 @@ mod blueprint_course_tests {
             instructions: AssessmentInstructions::default(),
             entries: vec![BlueprintAssessmentEntryInput::Fixed(
                 ReusableFixedQuestionInput {
-                    published_question: QuestionRevisionReference {
+                    published_question: QuestionRevisionTuple {
                         question_id: "7K3M-19QX".parse().expect("QuestionId"),
                         revision_number: QuestionRevisionNumber::new(1).expect("positive Revision"),
                     },
@@ -681,7 +681,7 @@ mod blueprint_course_tests {
         let replacement = ReplaceBlueprintCourseContentInput {
             modules: vec![BlueprintModuleReplacementInput {
                 choice: BlueprintModuleEditChoice::Retained {
-                    blueprint_module_reference,
+                    blueprint_module_id,
                 },
                 label: "Week 1".to_owned(),
                 assessments: vec![
@@ -702,9 +702,23 @@ mod blueprint_course_tests {
         let wire = serde_json::to_value(&replacement).expect("serializes");
         assert_eq!(wire["modules"][0]["choice"]["kind"], "retained");
         assert_eq!(
+            wire["modules"][0]["choice"]["blueprint_module_id"],
+            blueprint_module_id.to_string()
+        );
+        assert_eq!(
+            wire["modules"][0]["assessments"][0]["choice"]["blueprint_assessment_id"],
+            blueprint_assessment_id.to_string()
+        );
+        assert_eq!(
             wire["modules"][0]["assessments"][1]["choice"]["kind"],
             "new"
         );
+        let retained = wire["modules"][0]["choice"]
+            .as_object()
+            .expect("retained choice object");
+        assert_eq!(retained.len(), 2);
+        assert!(retained.contains_key("kind"));
+        assert!(retained.contains_key("blueprint_module_id"));
         let mut forged = wire;
         forged["modules"][0]["choice"]["unexpected"] = serde_json::json!(true);
         assert!(serde_json::from_value::<ReplaceBlueprintCourseContentInput>(forged).is_err());
@@ -713,7 +727,7 @@ mod blueprint_course_tests {
             modules: vec![
                 BlueprintModuleReplacementInput {
                     choice: BlueprintModuleEditChoice::Retained {
-                        blueprint_module_reference,
+                        blueprint_module_id,
                     },
                     label: "Week 1".to_owned(),
                     assessments: vec![BlueprintAssessmentReplacementInput {
@@ -725,7 +739,7 @@ mod blueprint_course_tests {
                 },
                 BlueprintModuleReplacementInput {
                     choice: BlueprintModuleEditChoice::Retained {
-                        blueprint_module_reference,
+                        blueprint_module_id,
                     },
                     label: "Week 2".to_owned(),
                     assessments: vec![BlueprintAssessmentReplacementInput {

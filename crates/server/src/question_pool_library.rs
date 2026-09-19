@@ -376,7 +376,7 @@ async fn pool_members(
     state: &RouteState,
     token: SessionTokenHash,
     is_instructor: bool,
-    members: Vec<question_model::QuestionRevisionReference>,
+    members: Vec<question_model::QuestionRevisionTuple>,
 ) -> Result<Vec<QuestionPoolMemberView>, Response> {
     let question_ids = members
         .iter()

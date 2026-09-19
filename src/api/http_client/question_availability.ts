@@ -2,7 +2,7 @@
 
 import type { QuestionDetails } from "../../../generated/api/QuestionDetails";
 import type { QuestionId } from "../../../generated/api/QuestionId";
-import type { QuestionRevisionReference } from "../../../generated/api/QuestionRevisionReference";
+import type { QuestionRevisionTuple } from "../../../generated/api/QuestionRevisionTuple";
 import type { ApiClient } from "../client";
 import type {
   LoadedQuestionLineage,
@@ -23,7 +23,7 @@ function questionPath(questionId: QuestionId): string {
   return `/api/questions/by-id/${encodedId(questionId)}`;
 }
 
-function exactRevisionPath(reference: QuestionRevisionReference): string {
+function exactRevisionPath(reference: QuestionRevisionTuple): string {
   if (
     !Number.isSafeInteger(reference.revisionNumber) ||
     reference.revisionNumber < 1 ||
@@ -76,7 +76,7 @@ async function questionJson<T>(
 
 function sameQuestionRevision(
   detail: QuestionDetails,
-  reference: QuestionRevisionReference,
+  reference: QuestionRevisionTuple,
   path: string,
 ): QuestionDetails {
   const actual = detail.summary.questionRevision;

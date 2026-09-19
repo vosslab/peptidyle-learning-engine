@@ -13,7 +13,7 @@ use learning_data_access::{
 use objects::{ObjectAddress, ObjectDataClass, ObjectRecord, ObjectStorageArea, Sha256Checksum};
 use question_model::{
     ObjectId, QuestionBackend, QuestionFormat, QuestionType, SourceObjectChecksum,
-    SourceObjectReference, Timestamp, WorkspaceId,
+    Timestamp, WorkspaceId,
 };
 use uuid::Uuid;
 
@@ -224,9 +224,7 @@ async fn webwork_draft_creation_keeps_the_initial_source_binding_on_confirmation
         question_type: QuestionType::MultipleChoice,
         webwork_pg_path: Some("Library/Genetics/linked_traits.pg".to_owned()),
         draft_imathas_question_backend_binding: None,
-        source_object_reference: SourceObjectReference {
-            object: source_record.id,
-        },
+        source_object_id: source_record.id,
         source_object_checksum: SourceObjectChecksum::parse(source_record.sha256.to_string())
             .expect("source checksum"),
     };

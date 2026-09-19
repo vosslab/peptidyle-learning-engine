@@ -12,7 +12,7 @@ use std::num::NonZeroU32;
 use question_model::{
     AccountTimeZone, AssessmentActivityRules, AssessmentEditNumber, AssessmentEntry, AssessmentId,
     AssessmentInstructions, AssessmentOrigin, AssessmentStatus, AssessmentTitle, AssessmentType,
-    CourseInstanceId, LateWorkRule, LocalDateAndTime, QuestionRevisionReference,
+    CourseInstanceId, LateWorkRule, LocalDateAndTime, QuestionRevisionTuple,
     StudentFeedbackReleaseRule,
 };
 use serde::{Deserialize, Serialize};
@@ -79,7 +79,7 @@ pub struct AssessmentBlueprintUpdateContent {
 )]
 pub enum AssessmentBlueprintUpdateEntry {
     FixedQuestion {
-        reference: QuestionRevisionReference,
+        reference: QuestionRevisionTuple,
         points_possible: question_model::AssessmentPointValue,
         scoring_rule: question_model::AssessmentEntryScoringRule,
         question_attempt_limit: question_model::QuestionAttemptLimit,
@@ -218,7 +218,7 @@ impl SaveLiveAssessmentInput {
 #[serde(rename_all = "camelCase")]
 pub struct AssessmentQuestionPickerEntry {
     /// Exact currently accepted Question Revision that a new Entry will pin.
-    pub reference: QuestionRevisionReference,
+    pub question_revision: QuestionRevisionTuple,
     /// Answer-free Question description supplied by the current Question Library metadata.
     pub description: String,
     /// Exact Revision-owned Bloom Classification carried with the picker pin, when assigned.
@@ -230,7 +230,7 @@ pub struct AssessmentQuestionPickerEntry {
 #[serde(rename_all = "camelCase")]
 pub struct AuthoredAssessmentQuestion {
     /// Exact Question Revision retained by this current Assessment entry.
-    pub reference: QuestionRevisionReference,
+    pub question_revision: QuestionRevisionTuple,
     /// Answer-free Question description for Instructor review and Assessment Preview.
     pub description: String,
     /// Exact Revision-owned Bloom Classification carried with the retained pin, when assigned.
@@ -241,7 +241,7 @@ pub struct AuthoredAssessmentQuestion {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CourseAssessmentSummary {
-    /// Public Assessment Reference; internal Assessment identity remains server-side.
+    /// Public Assessment ID; internal Assessment identity remains server-side.
     pub id: AssessmentId,
     /// Fixed pedagogical purpose of this Assessment.
     pub assessment_type: AssessmentType,
@@ -313,7 +313,7 @@ where
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LiveAssessmentWorkspace {
-    /// Public Assessment Reference; internal Assessment identity remains server-side.
+    /// Public Assessment ID; internal Assessment identity remains server-side.
     pub id: AssessmentId,
     /// Exact compare-and-swap value for the current authored content.
     pub edit_number: AssessmentEditNumber,
@@ -491,7 +491,7 @@ mod tests {
             "entries": [{
                 "kind": "fixedQuestion",
                 "id": "00000000-0000-0000-0000-000000000001",
-                "reference": { "questionId": question_id, "revisionNumber": 1 },
+                "questionRevision": { "questionId": question_id, "revisionNumber": 1 },
                 "pointsPossible": "1",
                 "availability": "available",
                 "scoringRule": "normal",

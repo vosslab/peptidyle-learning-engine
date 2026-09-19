@@ -1,6 +1,6 @@
 // Strict browser decoder for the answer-free Student Response Format Check contract.
 
-import type { ResponseItemReference } from "../../../generated/api/ResponseItemReference";
+import type { ResponseItemId } from "../../../generated/api/ResponseItemId";
 import type { ResponseSelectionRule } from "../../../generated/api/ResponseSelectionRule";
 import {
   DecodeError,
@@ -20,8 +20,8 @@ export type StudentResponseFormatIssue =
       readonly expected: ResponseSelectionRule;
       readonly actual: number;
     }
-  | { readonly kind: "duplicateChoice"; readonly choice: ResponseItemReference }
-  | { readonly kind: "unknownChoice"; readonly choice: ResponseItemReference }
+  | { readonly kind: "duplicateChoice"; readonly choice: ResponseItemId }
+  | { readonly kind: "unknownChoice"; readonly choice: ResponseItemId }
   | {
       readonly kind: "textTooLong";
       readonly maxLength: number;
@@ -29,11 +29,11 @@ export type StudentResponseFormatIssue =
     }
   | { readonly kind: "blankSlotsMismatch" }
   | { readonly kind: "matchingPromptsMismatch" }
-  | { readonly kind: "duplicateMatchChoice"; readonly choice: ResponseItemReference }
-  | { readonly kind: "unknownMatchChoice"; readonly choice: ResponseItemReference }
+  | { readonly kind: "duplicateMatchChoice"; readonly choice: ResponseItemId }
+  | { readonly kind: "unknownMatchChoice"; readonly choice: ResponseItemId }
   | { readonly kind: "orderingItemsMismatch" }
-  | { readonly kind: "duplicateHotspotRegion"; readonly region: ResponseItemReference }
-  | { readonly kind: "unknownHotspotRegion"; readonly region: ResponseItemReference };
+  | { readonly kind: "duplicateHotspotRegion"; readonly region: ResponseItemId }
+  | { readonly kind: "unknownHotspotRegion"; readonly region: ResponseItemId };
 
 export interface StudentResponseFormatCheck {
   readonly issues: ReadonlyArray<StudentResponseFormatIssue>;

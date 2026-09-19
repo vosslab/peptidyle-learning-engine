@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::SafeImathasQuestionRender;
 use crate::imathas_question_backend::{
-    ImathasLaunchReference, ImathasQuestionBackendSnapshot, ImathasQuestionBackendTransport,
+    ImathasLaunchId, ImathasQuestionBackendSnapshot, ImathasQuestionBackendTransport,
     ImathasTransportFailure, ProtectedLaunchRequest, ProxyMethod, ProxyRequest, ProxyResponse,
     RenderTransportRequest, ResultTransportRequest, SnapshotTransportRequest,
 };
@@ -299,7 +299,7 @@ impl ImathasQuestionBackendTransport for HttpImathasQuestionBackendTransport {
     async fn start_protected_launch(
         &self,
         request: ProtectedLaunchRequest,
-    ) -> Result<ImathasLaunchReference, ImathasTransportFailure> {
+    ) -> Result<ImathasLaunchId, ImathasTransportFailure> {
         let response = self
             .request(reqwest::Method::POST, LAUNCH_PATH)?
             .json(&LaunchRequest {
@@ -317,7 +317,7 @@ impl ImathasQuestionBackendTransport for HttpImathasQuestionBackendTransport {
             .await?;
         let parsed: HandleResponse =
             serde_json::from_slice(&bytes).map_err(|_| ImathasTransportFailure::InvalidResponse)?;
-        ImathasLaunchReference::from_server_handle(parsed.handle)
+        ImathasLaunchId::from_server_handle(parsed.handle)
     }
     async fn fetch_signed_grade_get(
         &self,
@@ -505,9 +505,9 @@ mod tests {
     fn locator() -> crate::ImathasQuestionLocation {
         crate::ImathasQuestionLocation::from_draft_imathas_question_backend_binding(
             &question_model::DraftImathasQuestionBackendBinding::new(
-                question_model::ImathasDeploymentReference::new("self-hosted-imathas")
+                question_model::ImathasDeploymentId::new("self-hosted-imathas")
                     .expect("deployment"),
-                question_model::ImathasItemReference::new("17").expect("item"),
+                question_model::ImathasItemId::new("17").expect("item"),
             ),
         )
     }
@@ -586,7 +586,7 @@ mod tests {
                 .render_safe(RenderTransportRequest {
                     snapshot: b"{}",
                     deployment_reference: "self-hosted-imathas",
-                    question_revision: question_model::QuestionRevisionReference {
+                    question_revision: question_model::QuestionRevisionTuple {
                         question_id: question_model::QuestionId::from_random_identifier("ABCDEFG")
                             .expect("Question ID"),
                         revision_number: question_model::QuestionRevisionNumber::new(1)
@@ -611,7 +611,7 @@ mod tests {
             .unwrap();
         let binding = learning_data_access::ImathasGradingContext::new(
             question_model::QuestionAttemptId::from_uuid(uuid::Uuid::from_u128(2)),
-            question_model::QuestionRevisionReference {
+            question_model::QuestionRevisionTuple {
                 question_id: question_model::QuestionId::from_random_identifier("BCDEFGH")
                     .expect("Question ID"),
                 revision_number: question_model::QuestionRevisionNumber::new(4)

@@ -186,10 +186,10 @@ print(json.dumps({
 import json, re, sys
 value = json.load(open(sys.argv[1], encoding="utf-8"))
 course = value.get("course") if isinstance(value, dict) else None
-reference = course.get("id") if isinstance(course, dict) else None
-if not isinstance(reference, str) or re.fullmatch(r"CI[0-9A-HJKMNP-TV-Z]{8}", reference) is None:
+course_instance_id = course.get("id") if isinstance(course, dict) else None
+if not isinstance(course_instance_id, str) or re.fullmatch(r"CI[0-9A-HJKMNP-TV-Z]{8}", course_instance_id) is None:
 	raise SystemExit(1)
-print(reference)
+print(course_instance_id)
 ' "$body_path")"; then
 		echo "Course Instance creation did not return a canonical Course Instance ID" >&2
 		exit 1

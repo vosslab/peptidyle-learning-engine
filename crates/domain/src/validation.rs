@@ -12,7 +12,7 @@ use question_model::presentation::{
     QuestionPresentationResponseFormat,
 };
 use question_model::response::{
-    HotspotRegion, QuestionResponseFormat, ResponseItemReference, StudentResponse, TextEntrySlot,
+    HotspotRegion, QuestionResponseFormat, ResponseItemId, StudentResponse, TextEntrySlot,
 };
 use serde::{Deserialize, Serialize};
 
@@ -32,18 +32,18 @@ pub enum StudentResponseFormatIssue {
     SelectionCount {
         /// Response Selection Rule declared by the question.
         expected: ResponseSelectionRule,
-        /// Number of selected Response Item References in the submitted response.
+        /// Number of selected Response Item IDs in the submitted response.
         actual: u64,
     },
-    /// A selected Response Item Reference appears more than once in one response.
+    /// A selected Response Item ID appears more than once in one response.
     DuplicateChoice {
-        /// Repeated Response Item Reference.
-        choice: ResponseItemReference,
+        /// Repeated Response Item ID.
+        choice: ResponseItemId,
     },
-    /// A submitted Response Item Reference does not occur in the Question Revision.
+    /// A submitted Response Item ID does not occur in the Question Revision.
     UnknownChoice {
-        /// Unrecognized Response Item Reference.
-        choice: ResponseItemReference,
+        /// Unrecognized Response Item ID.
+        choice: ResponseItemId,
     },
     /// Short text exceeds the question's character limit.
     TextTooLong {
@@ -59,24 +59,24 @@ pub enum StudentResponseFormatIssue {
     /// A matching response repeats a choice where the Question Response Format requires a permutation.
     DuplicateMatchChoice {
         /// Reused Matching Choice reference.
-        choice: ResponseItemReference,
+        choice: ResponseItemId,
     },
     /// A matching response names a choice absent from the Question Response Format.
     UnknownMatchChoice {
         /// Unrecognized Matching Choice reference.
-        choice: ResponseItemReference,
+        choice: ResponseItemId,
     },
     /// An ordering response is not an exact permutation of the defined items.
     OrderingItemsMismatch,
     /// A Hotspot Region appears more than once in one response.
     DuplicateHotspotRegion {
         /// Repeated Hotspot Region reference.
-        region: ResponseItemReference,
+        region: ResponseItemId,
     },
     /// A Student Hotspot Selection names a region absent from the Question Response Format.
     UnknownHotspotRegion {
         /// Unrecognized Hotspot Region reference.
-        region: ResponseItemReference,
+        region: ResponseItemId,
     },
 }
 
@@ -138,9 +138,9 @@ pub fn validate_response_format(
             StudentResponse::Matching { matches },
         ) => validate_matching(prompts, choices, matches, &mut issues),
         (QuestionResponseFormat::Ordering { items }, StudentResponse::Ordering { order }) => {
-            let expected: BTreeSet<ResponseItemReference> =
+            let expected: BTreeSet<ResponseItemId> =
                 items.iter().map(|item| item.id.clone()).collect();
-            let actual: BTreeSet<ResponseItemReference> = order.iter().cloned().collect();
+            let actual: BTreeSet<ResponseItemId> = order.iter().cloned().collect();
             if expected.len() != items.len()
                 || actual.len() != order.len()
                 || order.len() != items.len()
@@ -226,11 +226,11 @@ pub fn validate_presentation_response_format(
             QuestionPresentationResponseFormat::Ordering { items },
             StudentResponse::Ordering { order },
         ) => {
-            let expected: BTreeSet<ResponseItemReference> = items
+            let expected: BTreeSet<ResponseItemId> = items
                 .iter()
-                .map(|item| ResponseItemReference::new(item.id.as_str()))
+                .map(|item| ResponseItemId::new(item.id.as_str()))
                 .collect();
-            let actual: BTreeSet<ResponseItemReference> = order.iter().cloned().collect();
+            let actual: BTreeSet<ResponseItemId> = order.iter().cloned().collect();
             if expected.len() != items.len()
                 || actual.len() != order.len()
                 || order.len() != items.len()
@@ -271,7 +271,7 @@ fn validate_presented_selection<T: PresentedResponseItemContent>(
     choices: &[T],
     minimum: u32,
     maximum: u32,
-    selected: &[ResponseItemReference],
+    selected: &[ResponseItemId],
     issues: &mut Vec<StudentResponseFormatIssue>,
 ) {
     let actual = count(selected.iter());
@@ -281,9 +281,9 @@ fn validate_presented_selection<T: PresentedResponseItemContent>(
             actual,
         });
     }
-    let available: BTreeSet<ResponseItemReference> = choices
+    let available: BTreeSet<ResponseItemId> = choices
         .iter()
-        .map(|choice| ResponseItemReference::new(choice.presentation_item_id().as_str()))
+        .map(|choice| ResponseItemId::new(choice.presentation_item_id().as_str()))
         .collect();
     let mut observed = BTreeSet::new();
     for choice in selected {
@@ -335,7 +335,7 @@ fn validate_presented_multi_blank(
 ) {
     let expected: BTreeSet<_> = blanks
         .iter()
-        .map(|blank| ResponseItemReference::new(blank.id.as_str()))
+        .map(|blank| ResponseItemId::new(blank.id.as_str()))
         .collect();
     let actual: BTreeSet<_> = answers.iter().map(|answer| answer.slot.clone()).collect();
     if expected.len() != blanks.len()
@@ -367,7 +367,7 @@ fn validate_presented_matching<
 ) {
     let expected_prompts: BTreeSet<_> = prompts
         .iter()
-        .map(|prompt| ResponseItemReference::new(prompt.presentation_item_id().as_str()))
+        .map(|prompt| ResponseItemId::new(prompt.presentation_item_id().as_str()))
         .collect();
     let actual_prompts: BTreeSet<_> = matches.iter().map(|pair| pair.prompt.clone()).collect();
     if expected_prompts.len() != prompts.len()
@@ -379,7 +379,7 @@ fn validate_presented_matching<
     }
     let available_choices: BTreeSet<_> = choices
         .iter()
-        .map(|choice| ResponseItemReference::new(choice.presentation_item_id().as_str()))
+        .map(|choice| ResponseItemId::new(choice.presentation_item_id().as_str()))
         .collect();
     let mut observed = BTreeSet::new();
     for pair in matches {
@@ -412,7 +412,7 @@ fn validate_presented_hotspot(
     }
     let available: BTreeSet<_> = regions
         .iter()
-        .map(|region| ResponseItemReference::new(region.id.as_str()))
+        .map(|region| ResponseItemId::new(region.id.as_str()))
         .collect();
     validate_hotspot_region_references(selections, &available, issues);
 }
@@ -491,7 +491,7 @@ fn validate_hotspot(
 
 fn validate_hotspot_region_references(
     selections: &[question_model::response::StudentHotspotSelection],
-    available: &BTreeSet<ResponseItemReference>,
+    available: &BTreeSet<ResponseItemId>,
     issues: &mut Vec<StudentResponseFormatIssue>,
 ) {
     let mut observed = BTreeSet::new();
@@ -532,7 +532,7 @@ fn validate_selection_count(
 fn validate_selection(
     choices: &[question_model::response::QuestionChoice],
     selection: ResponseSelectionRule,
-    selected: &[ResponseItemReference],
+    selected: &[ResponseItemId],
     issues: &mut Vec<StudentResponseFormatIssue>,
 ) {
     let actual = count(selected.iter());
@@ -549,7 +549,7 @@ fn validate_selection(
         });
     }
 
-    let available: BTreeSet<ResponseItemReference> =
+    let available: BTreeSet<ResponseItemId> =
         choices.iter().map(|choice| choice.id.clone()).collect();
     let mut observed = BTreeSet::new();
     for choice in selected {
@@ -582,28 +582,28 @@ mod tests {
 
     fn question_choice(id: &str) -> QuestionChoice {
         QuestionChoice {
-            id: ResponseItemReference::new(id),
+            id: ResponseItemId::new(id),
             body: Vec::new(),
         }
     }
 
     fn matching_prompt(id: &str) -> MatchingPrompt {
         MatchingPrompt {
-            id: ResponseItemReference::new(id),
+            id: ResponseItemId::new(id),
             body: Vec::new(),
         }
     }
 
     fn matching_choice(id: &str) -> MatchingChoice {
         MatchingChoice {
-            id: ResponseItemReference::new(id),
+            id: ResponseItemId::new(id),
             body: Vec::new(),
         }
     }
 
     fn ordering_item(id: &str) -> OrderingItem {
         OrderingItem {
-            id: ResponseItemReference::new(id),
+            id: ResponseItemId::new(id),
             body: Vec::new(),
         }
     }
@@ -649,9 +649,9 @@ mod tests {
         };
         let response = StudentResponse::MultipleChoice {
             selected: vec![
-                ResponseItemReference::new("b"),
-                ResponseItemReference::new("b"),
-                ResponseItemReference::new("z"),
+                ResponseItemId::new("b"),
+                ResponseItemId::new("b"),
+                ResponseItemId::new("z"),
             ],
         };
 
@@ -663,10 +663,10 @@ mod tests {
                     actual: 3,
                 },
                 StudentResponseFormatIssue::DuplicateChoice {
-                    choice: ResponseItemReference::new("b"),
+                    choice: ResponseItemId::new("b"),
                 },
                 StudentResponseFormatIssue::UnknownChoice {
-                    choice: ResponseItemReference::new("z"),
+                    choice: ResponseItemId::new("z"),
                 },
             ]
         );
@@ -713,8 +713,8 @@ mod tests {
         };
         let response = StudentResponse::Ordering {
             order: vec![
-                ResponseItemReference::new("first"),
-                ResponseItemReference::new("first"),
+                ResponseItemId::new("first"),
+                ResponseItemId::new("first"),
             ],
         };
 
@@ -729,13 +729,13 @@ mod tests {
         let multi_blank = QuestionResponseFormat::MultiBlank {
             blanks: vec![
                 TextEntrySlot {
-                    id: ResponseItemReference::new("first"),
+                    id: ResponseItemId::new("first"),
                     label: Vec::new(),
                     match_mode: TextResponseMatchRule::Normalized,
                     max_length: 4,
                 },
                 TextEntrySlot {
-                    id: ResponseItemReference::new("second"),
+                    id: ResponseItemId::new("second"),
                     label: Vec::new(),
                     match_mode: TextResponseMatchRule::Exact,
                     max_length: 4,
@@ -747,7 +747,7 @@ mod tests {
                 &multi_blank,
                 &StudentResponse::MultiBlank {
                     answers: vec![StudentTextEntry {
-                        slot: ResponseItemReference::new("first"),
+                        slot: ResponseItemId::new("first"),
                         text: "value".to_string(),
                     }],
                 },
@@ -766,12 +766,12 @@ mod tests {
                 &StudentResponse::Matching {
                     matches: vec![
                         StudentMatch {
-                            prompt: ResponseItemReference::new("dna"),
-                            choice: ResponseItemReference::new("deoxy"),
+                            prompt: ResponseItemId::new("dna"),
+                            choice: ResponseItemId::new("deoxy"),
                         },
                         StudentMatch {
-                            prompt: ResponseItemReference::new("dna"),
-                            choice: ResponseItemReference::new("deoxy"),
+                            prompt: ResponseItemId::new("dna"),
+                            choice: ResponseItemId::new("deoxy"),
                         },
                     ],
                 },
@@ -780,13 +780,13 @@ mod tests {
             vec![
                 StudentResponseFormatIssue::MatchingPromptsMismatch,
                 StudentResponseFormatIssue::DuplicateMatchChoice {
-                    choice: ResponseItemReference::new("deoxy"),
+                    choice: ResponseItemId::new("deoxy"),
                 },
             ]
         );
 
         let hotspot = QuestionResponseFormat::Hotspot {
-            surface: question_model::QuestionAssetReference {
+            surface: question_model::QuestionAssetTuple {
                 question_asset: question_model::QuestionAssetId::from_uuid(uuid::Uuid::from_u128(
                     1,
                 )),
@@ -794,7 +794,7 @@ mod tests {
             },
             description: "A diagram".to_string(),
             regions: vec![HotspotRegion {
-                id: ResponseItemReference::new("target"),
+                id: ResponseItemId::new("target"),
                 label: Vec::new(),
                 x: 1_000,
                 y: 1_000,
@@ -808,13 +808,13 @@ mod tests {
                 &hotspot,
                 &StudentResponse::Hotspot {
                     selections: vec![StudentHotspotSelection {
-                        region: ResponseItemReference::new("unknown"),
+                        region: ResponseItemId::new("unknown"),
                     }],
                 },
             )
             .issues,
             vec![StudentResponseFormatIssue::UnknownHotspotRegion {
-                region: ResponseItemReference::new("unknown"),
+                region: ResponseItemId::new("unknown"),
             }]
         );
     }

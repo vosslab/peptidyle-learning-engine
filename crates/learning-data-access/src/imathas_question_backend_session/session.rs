@@ -1,19 +1,19 @@
 use super::*;
 use question_model::{
     AccountId, AssessmentId, CourseInstanceId, ImathasQuestionBackendBinding, SourceObjectChecksum,
-    SourceObjectReference, Timestamp,
+    ObjectId, Timestamp,
 };
 
 #[derive(Clone, PartialEq)]
 
 pub struct ImathasQuestionBackendSession {
-    pub(crate) reference: ImathasQuestionBackendSessionReference,
+    pub(crate) session_id: ImathasQuestionBackendSessionId,
     pub(crate) account: AccountId,
     pub(crate) course: CourseInstanceId,
     pub(crate) assessment: AssessmentId,
     pub(crate) grading_context: ImathasGradingContext,
     pub(crate) imathas_question_backend_binding: ImathasQuestionBackendBinding,
-    pub(crate) source_object: SourceObjectReference,
+    pub(crate) source_object: ObjectId,
     pub(crate) source_object_checksum: SourceObjectChecksum,
     pub(crate) response_checksum: ImathasResponseChecksum,
     pub(crate) challenge: ImathasQuestionBackendSessionChallenge,
@@ -24,8 +24,8 @@ pub struct ImathasQuestionBackendSession {
 }
 
 impl ImathasQuestionBackendSession {
-    pub fn reference(&self) -> ImathasQuestionBackendSessionReference {
-        self.reference
+    pub fn session_id(&self) -> ImathasQuestionBackendSessionId {
+        self.session_id
     }
     pub fn account(&self) -> AccountId {
         self.account.clone()
@@ -40,7 +40,7 @@ impl ImathasQuestionBackendSession {
     #[allow(dead_code)] // Used by the feature-gated PostgreSQL Store.
     pub(crate) fn storage_parts(&self) -> ImathasQuestionBackendSessionStorageParts {
         ImathasQuestionBackendSessionStorageParts {
-            reference: self.reference,
+            session_id: self.session_id,
             account: self.account.clone(),
             course: self.course.clone(),
             assessment: self.assessment.clone(),
@@ -68,13 +68,13 @@ impl ImathasQuestionBackendSession {
     #[allow(dead_code)] // Used by the feature-gated PostgreSQL Store.
     #[allow(dead_code)] // Used by the feature-gated PostgreSQL Store.
     pub(crate) fn from_storage_parts(
-        reference: ImathasQuestionBackendSessionReference,
+        session_id: ImathasQuestionBackendSessionId,
         account: AccountId,
         course: CourseInstanceId,
         assessment: AssessmentId,
         grading_context: ImathasGradingContext,
         imathas_question_backend_binding: ImathasQuestionBackendBinding,
-        source_object: SourceObjectReference,
+        source_object: ObjectId,
         source_object_checksum: SourceObjectChecksum,
         response_checksum: ImathasResponseChecksum,
         challenge: ImathasQuestionBackendSessionChallenge,
@@ -89,7 +89,7 @@ impl ImathasQuestionBackendSession {
             ));
         }
         Ok(Self {
-            reference,
+            session_id,
             account,
             course,
             assessment,
@@ -111,7 +111,7 @@ impl ImathasQuestionBackendSession {
         parts: ImathasQuestionBackendSessionStorageParts,
     ) -> Result<Self, StoreError> {
         Self::from_storage_parts(
-            parts.reference,
+            parts.session_id,
             parts.account,
             parts.course,
             parts.assessment,
@@ -133,7 +133,7 @@ impl std::fmt::Debug for ImathasQuestionBackendSession {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
             .debug_struct("ImathasQuestionBackendSession")
-            .field("reference", &self.reference)
+            .field("session_id", &self.session_id)
             .field("account", &self.account)
             .field("course", &self.course)
             .field("assessment", &self.assessment)
@@ -158,7 +158,7 @@ pub struct ImathasQuestionBackendSessionRestoreExpectation {
     pub(crate) assessment: AssessmentId,
     pub(crate) grading_context: ImathasGradingContext,
     pub(crate) imathas_question_backend_binding: ImathasQuestionBackendBinding,
-    pub(crate) source_object: SourceObjectReference,
+    pub(crate) source_object: ObjectId,
     pub(crate) source_object_checksum: SourceObjectChecksum,
     pub(crate) imathas_launch_binding_checksum: ImathasLaunchBindingChecksum,
     pub(crate) authentication: ImathasQuestionBackendSessionAuthentication,
@@ -172,7 +172,7 @@ impl ImathasQuestionBackendSessionRestoreExpectation {
         assessment: AssessmentId,
         grading_context: ImathasGradingContext,
         imathas_question_backend_binding: ImathasQuestionBackendBinding,
-        source_object: SourceObjectReference,
+        source_object: ObjectId,
         source_object_checksum: SourceObjectChecksum,
         imathas_launch_binding_checksum: ImathasLaunchBindingChecksum,
         authentication: ImathasQuestionBackendSessionAuthentication,
@@ -223,7 +223,7 @@ impl ImathasQuestionBackendSessionRestoreExpectation {
 pub struct ImathasQuestionBackendSessionValidation {
     pub grading_context: ImathasGradingContext,
     pub imathas_question_backend_binding: ImathasQuestionBackendBinding,
-    pub source_object: SourceObjectReference,
+    pub source_object: ObjectId,
     pub source_object_checksum: SourceObjectChecksum,
     pub response_checksum: ImathasResponseChecksum,
     pub challenge: ImathasQuestionBackendSessionChallenge,
@@ -266,7 +266,7 @@ pub struct ImathasQuestionBackendSessionCreate {
     pub(crate) assessment: AssessmentId,
     pub(crate) grading_context: ImathasGradingContext,
     pub(crate) imathas_question_backend_binding: ImathasQuestionBackendBinding,
-    pub(crate) source_object: SourceObjectReference,
+    pub(crate) source_object: ObjectId,
     pub(crate) source_object_checksum: SourceObjectChecksum,
     pub(crate) response_checksum: ImathasResponseChecksum,
     pub(crate) challenge: ImathasQuestionBackendSessionChallenge,
@@ -285,7 +285,7 @@ impl ImathasQuestionBackendSessionCreate {
         assessment: AssessmentId,
         grading_context: ImathasGradingContext,
         imathas_question_backend_binding: ImathasQuestionBackendBinding,
-        source_object: SourceObjectReference,
+        source_object: ObjectId,
         source_object_checksum: SourceObjectChecksum,
         response_checksum: ImathasResponseChecksum,
         challenge: ImathasQuestionBackendSessionChallenge,
@@ -320,13 +320,13 @@ impl ImathasQuestionBackendSessionCreate {
 
     pub(crate) fn into_session(
         self,
-        reference: ImathasQuestionBackendSessionReference,
+        session_id: ImathasQuestionBackendSessionId,
     ) -> (
         ImathasQuestionBackendSession,
         ImathasQuestionBackendStatePlaintext,
     ) {
         let session = ImathasQuestionBackendSession {
-            reference,
+            session_id,
             account: self.account.clone(),
             course: self.course.clone(),
             assessment: self.assessment.clone(),
@@ -347,9 +347,9 @@ impl ImathasQuestionBackendSessionCreate {
     #[allow(dead_code)] // Used by the feature-gated PostgreSQL Store.
     pub(crate) fn into_storage_parts(
         self,
-        reference: ImathasQuestionBackendSessionReference,
+        session_id: ImathasQuestionBackendSessionId,
     ) -> ImathasQuestionBackendSessionCreateParts {
-        let (session, imathas_question_backend_state) = self.into_session(reference);
+        let (session, imathas_question_backend_state) = self.into_session(session_id);
         ImathasQuestionBackendSessionCreateParts {
             session,
             imathas_question_backend_state,

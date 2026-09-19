@@ -2,7 +2,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::question_content::{QuestionAssetReference, QuestionContentBlock};
+use crate::question_content::{QuestionAssetTuple, QuestionContentBlock};
 use crate::question_variation::QuestionVariationPresentation;
 use crate::response::QuestionResponseFormat;
 
@@ -94,7 +94,7 @@ pub(super) fn content_assets(
 }
 
 pub(super) fn question_asset_rendition<'a>(
-    reference: &QuestionAssetReference,
+    reference: &QuestionAssetTuple,
     bindings: &'a [QuestionAssetRendition],
 ) -> Result<&'a QuestionAssetRendition, PresentationBuildError> {
     bindings
@@ -206,8 +206,8 @@ struct AssetRefKey {
     checksum: String,
 }
 
-impl From<&QuestionAssetReference> for AssetRefKey {
-    fn from(value: &QuestionAssetReference) -> Self {
+impl From<&QuestionAssetTuple> for AssetRefKey {
+    fn from(value: &QuestionAssetTuple) -> Self {
         Self {
             question_asset: value.question_asset,
             checksum: value.checksum.clone(),

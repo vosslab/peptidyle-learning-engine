@@ -1,6 +1,6 @@
 // Strict Student Question Attempt View decoding and key-free Question Response Control translation.
 
-import type { QuestionAssetReference } from "../../../generated/api/QuestionAssetReference";
+import type { QuestionAssetTuple } from "../../../generated/api/QuestionAssetTuple";
 import type { QuestionPresentation } from "../../../generated/api/QuestionPresentation";
 import type { PresentedMatchingChoice } from "../../../generated/api/PresentedMatchingChoice";
 import type { PresentedMatchingPrompt } from "../../../generated/api/PresentedMatchingPrompt";
@@ -23,7 +23,7 @@ import {
   decodeBoundedArray,
   decodeQuestionTitle,
   decodeIdentifier,
-  decodeQuestionRevisionReference,
+  decodeQuestionRevisionTuple,
   decodeSha256,
   field,
   kind,
@@ -46,10 +46,10 @@ const PRESENTATION_RESPONSE_ITEM_REFERENCE = /^[0-9a-f]{4}$/u;
 const PRESENTATION_NONCE = /^[0-9a-f]{32}$/u;
 type PresentedResponseItemFields = Pick<PresentedQuestionChoice, "id" | "body">;
 
-function presentationResponseItemReference(value: unknown, path: string): string {
+function presentationResponseItemId(value: unknown, path: string): string {
   const decoded = decodeString(value, path);
   if (!PRESENTATION_RESPONSE_ITEM_REFERENCE.test(decoded)) {
-    throw new DecodeError(path, "a four-character lowercase Presentation Response Item Reference");
+    throw new DecodeError(path, "a four-character lowercase Presentation Response Item ID");
   }
   return decoded;
 }
@@ -58,7 +58,7 @@ function presentedResponseItemFields(value: unknown, path: string): PresentedRes
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["id", "body"]);
   return {
-    id: presentationResponseItemReference(field(record, "id", path), `${path}.id`),
+    id: presentationResponseItemId(field(record, "id", path), `${path}.id`),
     body: decodeBoundedArray(field(record, "body", path), `${path}.body`, 32, (block, blockPath) =>
       decodeQuestionContentBlock(block, blockPath, true),
     ),
@@ -102,7 +102,7 @@ function presentedTextEntrySlot(value: unknown, path: string): PresentedTextEntr
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["id", "label", "maxCharacters"]);
   return {
-    id: presentationResponseItemReference(field(record, "id", path), `${path}.id`),
+    id: presentationResponseItemId(field(record, "id", path), `${path}.id`),
     label: decodeBoundedArray(
       field(record, "label", path),
       `${path}.label`,
@@ -133,7 +133,7 @@ function presentedHotspotRegion(value: unknown, path: string): PresentedHotspotR
     throw new DecodeError(path, "a rectangle within the normalized 10000 by 10000 surface");
   }
   return {
-    id: presentationResponseItemReference(field(record, "id", path), `${path}.id`),
+    id: presentationResponseItemId(field(record, "id", path), `${path}.id`),
     label: decodeBoundedArray(
       field(record, "label", path),
       `${path}.label`,
@@ -147,7 +147,7 @@ function presentedHotspotRegion(value: unknown, path: string): PresentedHotspotR
   };
 }
 
-function questionAssetReference(value: unknown, path: string): QuestionAssetReference {
+function questionAssetTuple(value: unknown, path: string): QuestionAssetTuple {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["questionAsset", "checksum"]);
   return {
@@ -300,11 +300,11 @@ function issuedQuestionResponseFormat(
       return {
         kind: "hotspot",
         surface: {
-          id: presentationResponseItemReference(
+          id: presentationResponseItemId(
             field(surfaceRecord, "id", surfacePath),
             `${surfacePath}.id`,
           ),
-          questionAsset: questionAssetReference(
+          questionAsset: questionAssetTuple(
             field(surfaceRecord, "questionAsset", surfacePath),
             `${surfacePath}.questionAsset`,
           ),
@@ -342,7 +342,7 @@ export function decodeIssuedQuestionPresentation(
     throw new DecodeError(`${path}.presentationNonce`, "32 lowercase hexadecimal characters");
   }
   const presentation = {
-    questionRevision: decodeQuestionRevisionReference(
+    questionRevision: decodeQuestionRevisionTuple(
       field(record, "questionRevision", path),
       `${path}.questionRevision`,
       true,
@@ -384,7 +384,7 @@ export function decodeStudentQuestionPresentation(
     "response",
   ]);
   return {
-    questionRevision: decodeQuestionRevisionReference(
+    questionRevision: decodeQuestionRevisionTuple(
       field(record, "questionRevision", path),
       `${path}.questionRevision`,
       true,

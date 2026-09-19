@@ -17,7 +17,7 @@ adapter, not for defining a new student Question Type. The shared public contrac
 - Deliver an answer-free Question Presentation for a PLE-native Question. A backend-owned Question
   instead delivers its exact attempt-bound document through the generic document route. Neither
   path puts source bytes, credentials, correct answers, or private feedback in a browser request.
-- Accept an immutable, verified Source Object Reference at issue time and retain only the protected
+- Accept an immutable, verified Source Object ID at issue time and retain only the protected
   backend state and exact Revision evidence needed to interpret the response. A browser request
   never chooses an endpoint, source path, source bytes, Question Seed, iMathAS Profile, or renderer
   identity.
@@ -53,14 +53,14 @@ needed to interpret Student Work, and iterate it deterministically.
 
 Use the following sequence for a question-agnostic adapter.
 
-1. Store one immutable Question Source and bind it through its Source Object Reference to the
+1. Store one immutable Question Source and bind it through its Source Object ID to the
    owning Draft Question or Question Revision. Record the Question Backend separately,
    with only its exact backend-specific reference when one is required, such as a WeBWorK PG Path
    or `ImathasQuestionBackendBinding`. Keep credentials and mutable locations outside the stored
    relationship. QTI package and item references belong to Workspace Import evidence; an accepted
    QTI item becomes PLE Question JSON before this Question Source boundary.
 2. At import or publication, preserve the exact source in typed object storage with its SHA-256,
-   media type, Question License, Source Object Reference and Source Object Checksum, immutable
+   media type, Question License, Source Object ID and Source Object Checksum, immutable
    Question Revision binding, and any required assets.
    Source archives are private and non-signable. Do not reconstruct source identity from a title or
    display label.

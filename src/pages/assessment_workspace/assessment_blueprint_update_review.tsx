@@ -4,7 +4,7 @@ import type {
   AssessmentBlueprintUpdateEntry,
   LiveAssessmentWorkspace,
 } from "../../api/assessment_release";
-import type { QuestionRevisionReference } from "../../../generated/api/QuestionRevisionReference";
+import type { QuestionRevisionTuple } from "../../../generated/api/QuestionRevisionTuple";
 import type { AssessmentEntryAvailability } from "../../../generated/api/AssessmentEntryAvailability";
 import { assessmentTypePresentation } from "../../assessment_type_presentation";
 import {
@@ -36,7 +36,7 @@ export function AssessmentEntrySummary(props: {
   readonly entry: AssessmentBlueprintUpdateEntry & {
     readonly availability?: AssessmentEntryAvailability;
   };
-  readonly description: (reference: QuestionRevisionReference) => string;
+  readonly description: (reference: QuestionRevisionTuple) => string;
   readonly poolRole?: "assessmentOwned" | "librarySource";
 }): JSX.Element {
   const timeLimit = (): string =>
@@ -47,8 +47,8 @@ export function AssessmentEntrySummary(props: {
     <>
       {props.entry.kind === "fixedQuestion" ? (
         <>
-          <strong>{props.entry.reference.questionId}</strong> * Revision{" "}
-          {props.entry.reference.revisionNumber}: {props.description(props.entry.reference)};{" "}
+          <strong>{props.entry.questionRevision.questionId}</strong> * Revision{" "}
+          {props.entry.questionRevision.revisionNumber}: {props.description(props.entry.questionRevision)};{" "}
           {props.entry.pointsPossible} points
         </>
       ) : (
@@ -97,7 +97,7 @@ function settingCopy(value: string): string {
 export function AssessmentBlueprintContentSummary(props: {
   readonly heading: string;
   readonly content: AssessmentBlueprintUpdateContent;
-  readonly description: (reference: QuestionRevisionReference) => string;
+  readonly description: (reference: QuestionRevisionTuple) => string;
   readonly poolRole: "assessmentOwned" | "librarySource";
 }): JSX.Element {
   const defaults = (): AssessmentBlueprintUpdateContent["defaults"] => props.content.defaults;

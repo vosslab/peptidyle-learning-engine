@@ -2,7 +2,7 @@
 
 use async_trait::async_trait;
 use objects::Sha256Checksum;
-use question_model::{ObjectId, QuestionAssetId, QuestionRevisionReference};
+use question_model::{ObjectId, QuestionAssetId, QuestionRevisionTuple};
 use sqlx::{Postgres, Row, Transaction};
 
 use super::{Pool, connection::map_sqlx_error};
@@ -51,7 +51,7 @@ impl QuestionAssetDeliveryStore for PostgresQuestionAssetDeliveryStore {
     async fn resolve_ready_question_asset_delivery(
         &self,
         token: SessionTokenHash,
-        question_revision: QuestionRevisionReference,
+        question_revision: QuestionRevisionTuple,
         asset_id: QuestionAssetId,
     ) -> Result<ReadyQuestionAssetDelivery, StoreError> {
         let mut transaction = self.begin(token).await?;

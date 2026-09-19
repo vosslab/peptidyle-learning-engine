@@ -4,7 +4,7 @@ import { For, Show, createMemo, createSignal, type JSX } from "solid-js";
 
 import type { AssessmentEntry } from "../../../generated/api/AssessmentEntry";
 import type { AssessmentQuestionPoolForkView } from "../../../generated/api/AssessmentQuestionPoolForkView";
-import type { QuestionRevisionReference } from "../../../generated/api/QuestionRevisionReference";
+import type { QuestionRevisionTuple } from "../../../generated/api/QuestionRevisionTuple";
 import type { AssessmentQuestionPickerEntry } from "../../api/assessment_release";
 import { questionRevisionKey } from "./assessment_workspace_questions_model";
 import { CourseClassificationSummary } from "../../components/course_classification_summary";
@@ -17,7 +17,7 @@ export interface AssessmentPoolEntryEditorProps {
   readonly mutationsEnabled: boolean;
   readonly busy: boolean;
   readonly onSelectionCount: (selectionCount: number) => void;
-  readonly onReplaceMembers: (members: ReadonlyArray<QuestionRevisionReference>) => void;
+  readonly onReplaceMembers: (members: ReadonlyArray<QuestionRevisionTuple>) => void;
 }
 
 /** Renders exact immutable fork members and only the two permitted Assessment-owned mutations. */
@@ -29,11 +29,11 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
       props.fork?.members.map((member) => questionRevisionKey(member.questionRevision)) ?? [],
     );
     return props.availableQuestions.filter(
-      (candidate) => !existing.has(questionRevisionKey(candidate.reference)),
+      (candidate) => !existing.has(questionRevisionKey(candidate.questionRevision)),
     );
   });
   const selectedCandidate = createMemo(() =>
-    candidates().find((candidate) => questionRevisionKey(candidate.reference) === candidateKey()),
+    candidates().find((candidate) => questionRevisionKey(candidate.questionRevision) === candidateKey()),
   );
 
   function submitSelectionCount(value: string): void {
@@ -54,13 +54,13 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
     if (candidate === undefined || !attested() || !props.mutationsEnabled || props.busy) return;
     props.onReplaceMembers([
       ...(props.fork?.members.map((member) => member.questionRevision) ?? []),
-      candidate.reference,
+      candidate.questionRevision,
     ]);
     setCandidateKey("");
     setAttested(false);
   }
 
-  function replaceMembers(members: ReadonlyArray<QuestionRevisionReference>): void {
+  function replaceMembers(members: ReadonlyArray<QuestionRevisionTuple>): void {
     if (!attested() || !props.mutationsEnabled || props.busy) return;
     props.onReplaceMembers(members);
     setAttested(false);
@@ -194,9 +194,9 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
                   <option value="">Choose a Question</option>
                   <For each={candidates()}>
                     {(candidate) => (
-                      <option value={questionRevisionKey(candidate.reference)}>
-                        {candidate.reference.questionId} Revision{" "}
-                        {candidate.reference.revisionNumber}: {candidate.description}
+                      <option value={questionRevisionKey(candidate.questionRevision)}>
+                        {candidate.questionRevision.questionId} Revision{" "}
+                        {candidate.questionRevision.revisionNumber}: {candidate.description}
                       </option>
                     )}
                   </For>

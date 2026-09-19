@@ -284,8 +284,8 @@ mod tests {
     };
     use question_model::{
         AssessmentId, AssessmentType, CourseInstanceId, CourseTheme, GradingResult, QuestionId,
-        QuestionRevisionNumber, QuestionRevisionReference, StudentFeedback,
-        StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming,
+        QuestionRevisionNumber, QuestionRevisionTuple, StudentFeedback, StudentFeedbackReleaseRule,
+        StudentFeedbackReleaseTiming,
     };
 
     fn evidence() -> StudentAssessmentAttemptHistoryEvidence {
@@ -307,7 +307,7 @@ mod tests {
                 score: None,
                 questions: vec![StudentAssessmentAttemptHistoryQuestion {
                     position: 1,
-                    question_revision: QuestionRevisionReference {
+                    question_revision: QuestionRevisionTuple {
                         question_id: QuestionId::from_random_identifier("ABCDEF1")
                             .expect("Question ID"),
                         revision_number: QuestionRevisionNumber::new(3)

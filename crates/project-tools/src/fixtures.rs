@@ -12,8 +12,8 @@ use std::path::{Component, Path, PathBuf};
 use anyhow::{Context, Result, bail, ensure};
 use question_model::{
     AssessmentAttempt, AssessmentGrade, AssessmentProgressRecord, AssessmentSummary,
-    GradebookSummaryRow, IssuedQuestion, QuestionAttempt, QuestionRevisionReference,
-    QuestionSummary, SourceObjectChecksum, SourceObjectReference, StudentRecordId,
+    GradebookSummaryRow, IssuedQuestion, QuestionAttempt, QuestionRevisionTuple, QuestionSummary,
+    SourceObjectChecksum, ObjectId, StudentRecordId,
 };
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
@@ -43,7 +43,7 @@ struct FixtureAsset {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct StoredFixtureSet {
-    source_object_reference: SourceObjectReference,
+    source_object_id: ObjectId,
     source_object_checksum: SourceObjectChecksum,
     question_summary: QuestionSummary,
     assets: Vec<FixtureAsset>,
@@ -155,9 +155,9 @@ fn validate_fixture_set(fixture_dir: &Path, fixture_set: &StoredFixtureSet) -> R
         ensure!(
             attempt
                 .reproduction_details
-                .source_object_reference
+                .source_object_id
                 .as_ref()
-                == Some(&fixture_set.source_object_reference)
+                == Some(&fixture_set.source_object_id)
                 && attempt.reproduction_details.source_object_checksum.as_ref()
                     == Some(&fixture_set.source_object_checksum),
             "Question Attempt reproduction must retain the fixture source identity"
@@ -175,7 +175,7 @@ fn validate_fixture_set(fixture_dir: &Path, fixture_set: &StoredFixtureSet) -> R
 
     ensure!(
         fixture_set.question_summary.question_revision
-            == QuestionRevisionReference {
+            == QuestionRevisionTuple {
                 question_id: fixture_set.question_summary.question_id.clone(),
                 revision_number: fixture_set
                     .question_summary

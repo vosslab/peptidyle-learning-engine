@@ -14,7 +14,7 @@ import {
 
 import type { InstructorStudentView } from "../../../generated/api/InstructorStudentView";
 import type { InstructorStudentViewEntry } from "../../../generated/api/InstructorStudentViewEntry";
-import type { InstructorStudentViewQuestionReference } from "../../../generated/api/InstructorStudentViewQuestionReference";
+import type { InstructorStudentViewQuestion } from "../../../generated/api/InstructorStudentViewQuestion";
 import type { StudentQuestionPresentation } from "../../../generated/api/StudentQuestionPresentation";
 import { useApplicationApi } from "../../api/application_api";
 import { ApiRequestError, AssessmentConflictError } from "../../api/http_client";
@@ -33,7 +33,7 @@ import {
 import { assessmentWorkspacePath } from "./assessment_workspace_paths";
 import { useAssessmentWorkspace } from "./assessment_workspace_live_page";
 
-interface StudentViewQuestion extends InstructorStudentViewQuestionReference {
+interface StudentViewQuestion extends InstructorStudentViewQuestion {
   readonly authoredPosition: number;
 }
 

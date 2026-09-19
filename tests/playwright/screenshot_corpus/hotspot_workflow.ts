@@ -13,7 +13,10 @@ async function navigateQuestion(
   action: () => Promise<unknown>,
 ): Promise<StudentAssessmentAttemptPresentation> {
   const route = new URL(page.url());
-  const attempt = /^\/assessment-attempts\/(R-[1-9][0-9]*)$/u.exec(route.pathname)?.[1];
+  const attempt =
+    /^\/assessment-attempts\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/u.exec(
+      route.pathname,
+    )?.[1];
   if (attempt === undefined)
     throw new Error("Student navigation requires an Assessment Attempt route.");
   const delivered = page.waitForResponse((response) => {

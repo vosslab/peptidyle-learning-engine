@@ -2,7 +2,7 @@
 
 import type { QuestionDetails } from "../../generated/api/QuestionDetails";
 import type { QuestionId } from "../../generated/api/QuestionId";
-import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
+import type { QuestionRevisionTuple } from "../../generated/api/QuestionRevisionTuple";
 import { decodeQuestionLibraryBrowsePage } from "../pages/library_page_model";
 import type { QuestionLibraryBrowseRepository } from "../pages/library_page_model";
 import { validateCanonicalQuestionIdSyntax } from "../question_id";
@@ -12,7 +12,7 @@ import type {
 } from "../features/question_picker/question_picker_model";
 
 export interface QuestionPoolStartingQuestion {
-  readonly questionRevision: QuestionRevisionReference;
+  readonly questionRevision: QuestionRevisionTuple;
   readonly questionTitle: string;
   readonly disciplineName: string;
   readonly subjectName: string;
@@ -28,7 +28,7 @@ function canonicalQuestionId(value: string): QuestionId {
 
 function exactStartingRevision(
   startingQuestion: QuestionPoolStartingQuestion,
-): QuestionRevisionReference {
+): QuestionRevisionTuple {
   const questionId = canonicalQuestionId(startingQuestion.questionRevision.questionId);
   const revisionNumber = startingQuestion.questionRevision.revisionNumber;
   if (!Number.isSafeInteger(revisionNumber) || revisionNumber < 1) {
@@ -41,7 +41,7 @@ async function latestSelectedRevisions(
   selection: QuestionPickerSelection,
   getQuestionDetails: (questionId: QuestionId) => Promise<QuestionDetails>,
   startingQuestion?: QuestionPoolStartingQuestion,
-): Promise<ReadonlyArray<QuestionRevisionReference>> {
+): Promise<ReadonlyArray<QuestionRevisionTuple>> {
   return await Promise.all(
     selection.questions.map(async (selected) => {
       const questionId = canonicalQuestionId(selected.questionId);
@@ -66,11 +66,11 @@ async function latestSelectedRevisions(
 }
 
 /** Pins the exact starting Revision first, then resolves additional current selections in order. */
-export async function questionPoolMemberReferences(
+export async function questionPoolMemberTuples(
   selection: QuestionPickerSelection,
   getQuestionDetails: (questionId: QuestionId) => Promise<QuestionDetails>,
   startingQuestion?: QuestionPoolStartingQuestion,
-): Promise<ReadonlyArray<QuestionRevisionReference>> {
+): Promise<ReadonlyArray<QuestionRevisionTuple>> {
   const additional = await latestSelectedRevisions(selection, getQuestionDetails, startingQuestion);
   if (startingQuestion === undefined) return additional;
   return [exactStartingRevision(startingQuestion), ...additional];

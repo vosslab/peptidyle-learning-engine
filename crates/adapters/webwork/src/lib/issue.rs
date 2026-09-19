@@ -13,7 +13,7 @@ use sha2::{Digest, Sha256};
 use crate::renderer_contract::{
     RenderRequest, RenderedWebworkQuestion, RendererFailure, ResumeRenderRequest, WebworkRenderer,
 };
-use crate::source_object_reference::ResolvedWebworkQuestionSource;
+use crate::source_object_id::ResolvedWebworkQuestionSource;
 
 pub const ADAPTER_ID: &str = "webwork-adapter";
 pub const ADAPTER_VERSION: &str = "1";
@@ -144,7 +144,7 @@ impl<R: WebworkRenderer> WebworkAdapter<R> {
         question_seed: QuestionSeed,
         source: &ResolvedWebworkQuestionSource,
     ) -> Result<Vec<u8>, WebworkAdapterError> {
-        crate::source_object_reference::verify_source(source)?;
+        crate::source_object_id::verify_source(source)?;
         let rendered = self
             .renderer
             .render_answer_review(RenderRequest {
@@ -170,7 +170,7 @@ impl<R: WebworkRenderer> WebworkAdapter<R> {
         question_seed: QuestionSeed,
         source: &ResolvedWebworkQuestionSource,
     ) -> Result<RenderedWebworkQuestion, WebworkAdapterError> {
-        crate::source_object_reference::verify_source(source)?;
+        crate::source_object_id::verify_source(source)?;
         let rendered = self
             .renderer
             .render(RenderRequest {
@@ -212,7 +212,7 @@ impl<R: WebworkRenderer> WebworkAdapter<R> {
         source: &ResolvedWebworkQuestionSource,
         response: &StudentResponse,
     ) -> Result<Vec<u8>, WebworkAdapterError> {
-        crate::source_object_reference::verify_source(source)?;
+        crate::source_object_id::verify_source(source)?;
         let StudentResponse::BackendOwned { payload } = response else {
             return Err(WebworkAdapterError::Renderer(
                 RendererFailure::InvalidOutput("WeBWorK requires a backend-owned response".into()),
@@ -264,7 +264,7 @@ fn issued(
         reproduction_details: QuestionAttemptReproductionDetails {
             backend: backend_version(ADAPTER_ID, ADAPTER_VERSION),
             renderer_version: Some(renderer_version),
-            source_object_reference: Some(source.source_object_reference().clone()),
+            source_object_id: Some(source.source_object_id().clone()),
             source_object_checksum: Some(source.source_object_checksum().clone()),
             asset_objects: Vec::new(),
             grader,

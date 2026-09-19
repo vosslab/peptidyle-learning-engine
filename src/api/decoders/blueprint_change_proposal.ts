@@ -22,7 +22,7 @@ import {
   decodeCanonicalBlueprintCourse,
   decodeBlueprintComparisonView,
 } from "./blueprint_comparison";
-import { blueprintEditNumber, revisionReference, text } from "./blueprint_course";
+import { blueprintEditNumber, blueprintRevisionTuple, text } from "./blueprint_course";
 import { decodeCourseClassification } from "./course_classification";
 import { decodeCursorPage, decodeTimestamp, field, requireOnlyFields } from "./shared";
 
@@ -57,7 +57,7 @@ function summary(value: unknown, path: string): BlueprintChangeProposalSummaryVi
       requireOnlyFields(row, itemPath, ["acceptedAt", "target", "targetBlueprintEditNumber"]);
       return {
         acceptedAt: decodeTimestamp(field(row, "acceptedAt", itemPath), `${itemPath}.acceptedAt`),
-        target: revisionReference(field(row, "target", itemPath), `${itemPath}.target`),
+        target: blueprintRevisionTuple(field(row, "target", itemPath), `${itemPath}.target`),
         targetBlueprintEditNumber: blueprintEditNumber(
           field(row, "targetBlueprintEditNumber", itemPath),
           `${itemPath}.targetBlueprintEditNumber`,
@@ -68,13 +68,13 @@ function summary(value: unknown, path: string): BlueprintChangeProposalSummaryVi
   return {
     proposalId: decodeUuid(field(record, "proposalId", path), `${path}.proposalId`),
     createdAt: decodeTimestamp(field(record, "createdAt", path), `${path}.createdAt`),
-    source: revisionReference(field(record, "source", path), `${path}.source`),
+    source: blueprintRevisionTuple(field(record, "source", path), `${path}.source`),
     sourceBlueprintEditNumber: blueprintEditNumber(
       field(record, "sourceBlueprintEditNumber", path),
       `${path}.sourceBlueprintEditNumber`,
     ),
     sourceNames: names(field(record, "sourceNames", path), `${path}.sourceNames`),
-    target: revisionReference(field(record, "target", path), `${path}.target`),
+    target: blueprintRevisionTuple(field(record, "target", path), `${path}.target`),
     targetBlueprintEditNumber: blueprintEditNumber(
       field(record, "targetBlueprintEditNumber", path),
       `${path}.targetBlueprintEditNumber`,
@@ -107,8 +107,8 @@ function selection(value: unknown, path: string): BlueprintForkApplySelection {
   };
   const sourceModuleLabels = copies(
     "sourceModuleLabels",
-    "sourceModuleReference",
-    "targetModuleReference",
+    "sourceModuleId",
+    "targetModuleId",
   );
   const sourceAssessments = copies("sourceAssessments", "sourceAssessmentId", "targetAssessmentId");
   const layout = decodeNullable(
@@ -131,11 +131,11 @@ function selection(value: unknown, path: string): BlueprintForkApplySelection {
           const key =
             kind === "existing"
               ? module
-                ? "targetModuleReference"
+                ? "targetModuleId"
                 : "targetAssessmentId"
               : kind === "newFromSource"
                 ? module
-                  ? "sourceModuleReference"
+                  ? "sourceModuleId"
                   : "sourceAssessmentId"
                 : null;
           if (key === null) throw new DecodeError(destinationPath, "an explicit destination kind");
@@ -214,7 +214,7 @@ function side(
     "assessments",
   ]);
   return {
-    revision: revisionReference(field(record, "revision", path), `${path}.revision`),
+    revision: blueprintRevisionTuple(field(record, "revision", path), `${path}.revision`),
     blueprintEditNumber: blueprintEditNumber(
       field(record, "blueprintEditNumber", path),
       `${path}.blueprintEditNumber`,
@@ -288,7 +288,7 @@ function accepted(value: unknown, path: string): BlueprintChangeProposalAccepted
   ]);
   return {
     acceptedAt: decodeTimestamp(field(record, "acceptedAt", path), `${path}.acceptedAt`),
-    target: revisionReference(field(record, "target", path), `${path}.target`),
+    target: blueprintRevisionTuple(field(record, "target", path), `${path}.target`),
     targetBlueprintEditNumber: blueprintEditNumber(
       field(record, "targetBlueprintEditNumber", path),
       `${path}.targetBlueprintEditNumber`,
@@ -327,12 +327,12 @@ export function decodeBlueprintChangeProposalCreateRequest(
     "targetBlueprintEditNumber",
   ]);
   return {
-    source: revisionReference(field(record, "source", path), `${path}.source`),
+    source: blueprintRevisionTuple(field(record, "source", path), `${path}.source`),
     sourceBlueprintEditNumber: blueprintEditNumber(
       field(record, "sourceBlueprintEditNumber", path),
       `${path}.sourceBlueprintEditNumber`,
     ),
-    target: revisionReference(field(record, "target", path), `${path}.target`),
+    target: blueprintRevisionTuple(field(record, "target", path), `${path}.target`),
     targetBlueprintEditNumber: blueprintEditNumber(
       field(record, "targetBlueprintEditNumber", path),
       `${path}.targetBlueprintEditNumber`,
@@ -351,7 +351,7 @@ export function decodeBlueprintChangeProposalAcceptanceRequest(
     "decision",
   ]);
   return {
-    expectedTarget: revisionReference(
+    expectedTarget: blueprintRevisionTuple(
       field(record, "expectedTarget", path),
       `${path}.expectedTarget`,
     ),

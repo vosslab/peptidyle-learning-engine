@@ -2,7 +2,7 @@
 
 use async_trait::async_trait;
 use objects::{ObjectAddress, Sha256Checksum};
-pub use question_model::ProfileImageReference;
+pub use question_model::ProfileImageId;
 use question_model::{ObjectId, avatar_catalog_generated::PROVIDED_AVATAR_CATALOG};
 use serde::Serialize;
 use uuid::Uuid;
@@ -91,14 +91,14 @@ pub enum AccountAvatar {
     /// A PLE-provided avatar; this is the only selection available to Students.
     Provided(ProvidedAvatarId),
     /// A finalized self-owned Profile image; only Instructor and Sysadmin flows can create it.
-    ProfileImage(ProfileImageReference),
+    ProfileImage(ProfileImageId),
 }
 
 /// A prepared object-store put for the authenticated Account's next Profile image.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PreparedAccountProfileImage {
     pub work_id: Uuid,
-    pub reference: ProfileImageReference,
+    pub profile_image_id: ProfileImageId,
     pub object_id: ObjectId,
 }
 
@@ -107,7 +107,7 @@ impl PreparedAccountProfileImage {
     #[must_use]
     pub fn object_address(&self) -> ObjectAddress {
         ObjectAddress::ProfileImage {
-            image: self.reference,
+            image: self.profile_image_id,
             object: self.object_id,
         }
     }
@@ -117,7 +117,7 @@ impl PreparedAccountProfileImage {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AccountProfileImageDeleteWork {
     pub work_id: Uuid,
-    pub reference: ProfileImageReference,
+    pub profile_image_id: ProfileImageId,
     pub object_id: ObjectId,
 }
 
@@ -126,7 +126,7 @@ impl AccountProfileImageDeleteWork {
     #[must_use]
     pub fn object_address(&self) -> ObjectAddress {
         ObjectAddress::ProfileImage {
-            image: self.reference,
+            image: self.profile_image_id,
             object: self.object_id,
         }
     }
@@ -135,7 +135,7 @@ impl AccountProfileImageDeleteWork {
 /// The visible Profile image replacement and any retired self-owned cleanup work.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FinalizedAccountProfileImage {
-    pub reference: ProfileImageReference,
+    pub profile_image_id: ProfileImageId,
     pub object_id: ObjectId,
     pub retired: Option<AccountProfileImageDeleteWork>,
 }
@@ -145,7 +145,7 @@ impl FinalizedAccountProfileImage {
     #[must_use]
     pub fn object_address(&self) -> ObjectAddress {
         ObjectAddress::ProfileImage {
-            image: self.reference,
+            image: self.profile_image_id,
             object: self.object_id,
         }
     }
@@ -173,7 +173,7 @@ pub trait AccountAvatarGallery: Send + Sync {
     async fn prepare_account_profile_image(
         &self,
         token: SessionTokenHash,
-        reference: ProfileImageReference,
+        profile_image_id: ProfileImageId,
         object_id: ObjectId,
         sha256: Sha256Checksum,
         byte_length: u64,
@@ -226,6 +226,6 @@ pub trait AccountAvatarGallery: Send + Sync {
     async fn resolve_current_account_profile_image(
         &self,
         token: SessionTokenHash,
-        reference: ProfileImageReference,
+        profile_image_id: ProfileImageId,
     ) -> Result<ObjectId, StoreError>;
 }

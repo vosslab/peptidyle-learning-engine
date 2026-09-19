@@ -39,7 +39,7 @@ function browserIssuedQuestion(
 }
 
 export const publishedQuestionFixture = {
-  sourceObjectReference: fixtureSet.sourceObjectReference,
+  sourceObjectId: fixtureSet.sourceObjectId,
   sourceObjectChecksum: fixtureSet.sourceObjectChecksum,
   publishedQuestion: fixtureSet.questionSummary,
   course: fixtureSet.course,

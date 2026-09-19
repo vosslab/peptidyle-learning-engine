@@ -2,9 +2,7 @@
 
 use async_trait::async_trait;
 use objects::Sha256Checksum;
-use question_model::{
-    ObjectId, QuestionAssetId, QuestionRevisionNumber, QuestionRevisionReference,
-};
+use question_model::{ObjectId, QuestionAssetId, QuestionRevisionNumber, QuestionRevisionTuple};
 use sqlx::{Row, Transaction};
 use uuid::Uuid;
 
@@ -89,7 +87,7 @@ fn decode_claim(row: sqlx::postgres::PgRow) -> Result<ClaimedQuestionAssetPublic
         .map_err(map_sqlx_error)?;
     Ok(ClaimedQuestionAssetPublication {
         job_id: row.try_get("job_id").map_err(map_sqlx_error)?,
-        question_revision: QuestionRevisionReference {
+        question_revision: QuestionRevisionTuple {
             question_id: row
                 .try_get::<String, _>("question_id")
                 .map_err(map_sqlx_error)?

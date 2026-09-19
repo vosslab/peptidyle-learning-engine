@@ -8,14 +8,14 @@ use sqlx::{Connection, PgConnection, Row};
 pub(super) async fn assert_adoption_projection(
     audit_inspection: &mut PgConnection,
     course_id: &str,
-    blueprint_reference: &str,
+    blueprint_course_id: &str,
     blueprint_revision: i64,
     independent_course_id: &str,
 ) {
     assert_projection(
         audit_inspection,
         course_id,
-        blueprint_reference,
+        blueprint_course_id,
         blueprint_revision,
         independent_course_id,
         false,
@@ -47,7 +47,7 @@ pub(super) async fn assert_append_projection(
 async fn assert_projection(
     audit_inspection: &mut PgConnection,
     course_id: &str,
-    blueprint_reference: &str,
+    blueprint_course_id: &str,
     blueprint_revision: i64,
     independent_course_id: &str,
     appended_only: bool,
@@ -66,7 +66,7 @@ async fn assert_projection(
         "SELECT content FROM ple_data.blueprint_course_revision \
          WHERE blueprint_course_id = $1 AND blueprint_revision_number = $2",
     )
-    .bind(blueprint_reference)
+    .bind(blueprint_course_id)
     .bind(blueprint_revision)
     .fetch_one(&mut *inspection)
     .await
@@ -75,7 +75,7 @@ async fn assert_projection(
         "SELECT blueprint_assessment_id::text FROM ple_data.blueprint_revision_assessment \
          WHERE blueprint_course_id = $1 AND blueprint_revision_number < $2",
     )
-    .bind(blueprint_reference)
+    .bind(blueprint_course_id)
     .bind(blueprint_revision)
     .fetch_all(&mut *inspection)
     .await
@@ -89,7 +89,7 @@ async fn assert_projection(
          WHERE course.course_instance_id = $1",
     )
     .bind(course_id)
-    .bind(blueprint_reference)
+    .bind(blueprint_course_id)
     .bind(adoption_revision)
     .fetch_one(&mut *inspection)
     .await
@@ -265,7 +265,7 @@ SELECT COALESCE((SELECT matches FROM policy_matches), false) AS policy_matches,
 "#,
     )
     .bind(course_id)
-    .bind(blueprint_reference)
+    .bind(blueprint_course_id)
     .bind(blueprint_revision)
     .bind(independent_course_id)
     .bind(appended_only)
@@ -308,7 +308,7 @@ SELECT COALESCE((SELECT matches FROM policy_matches), false) AS policy_matches,
            AND blueprint_course_id = $2 AND blueprint_revision_number = $3",
     )
     .bind(course_id)
-    .bind(blueprint_reference)
+    .bind(blueprint_course_id)
     .bind(adoption_revision)
     .fetch_one(&mut *audit_transaction)
     .await

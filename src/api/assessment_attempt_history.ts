@@ -6,13 +6,13 @@ import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { CourseTheme } from "../../generated/api/CourseTheme";
 import type { QuestionContentBlock } from "../../generated/api/QuestionContentBlock";
 import type { StudentFeedback } from "../../generated/api/StudentFeedback";
-import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
+import type { QuestionRevisionTuple } from "../../generated/api/QuestionRevisionTuple";
 import { parseAssessmentAttemptId } from "../navigation/public_route";
 
 export interface StudentAssessmentAttemptHistoryQuestion extends StudentFeedback {
   readonly position: number;
   /** Exact immutable Question Revision identity required for disclosed asset delivery. */
-  readonly questionRevision: QuestionRevisionReference;
+  readonly questionRevision: QuestionRevisionTuple;
   readonly responseState: "submitted" | "closed";
   /** Readable recorded response, independently released from grading. */
   readonly response?: ReadonlyArray<QuestionContentBlock>;
@@ -25,11 +25,11 @@ export function backendAnswerReviewDocumentUrl(
   assessmentAttempt: AssessmentAttemptId,
   position: number,
 ): string {
-  const reference = parseAssessmentAttemptId(assessmentAttempt);
-  if (reference === null || !Number.isSafeInteger(position) || position < 1) {
+  const assessmentAttemptId = parseAssessmentAttemptId(assessmentAttempt);
+  if (assessmentAttemptId === null || !Number.isSafeInteger(position) || position < 1) {
     throw new Error("Invalid completed Assessment Attempt position");
   }
-  return `/api/assessment-attempts/${reference}/questions/${position}/answer-review-document`;
+  return `/api/assessment-attempts/${assessmentAttemptId}/questions/${position}/answer-review-document`;
 }
 
 /** A no-store selected-history projection with protected fields omitted. */

@@ -1,4 +1,4 @@
-//! Construction of globally collision-free Presentation Response Item References.
+//! Construction of globally collision-free Presentation Response Item IDs.
 
 #[path = "builder_items.rs"]
 mod builder_items;
@@ -10,7 +10,7 @@ use std::collections::BTreeSet;
 
 use sha2::{Digest, Sha256};
 
-use crate::response::ResponseItemReference;
+use crate::response::ResponseItemId;
 use crate::{
     AuthorContentPresentation, QuestionContentBlock, QuestionReproduction,
     QuestionVariationPresentation,
@@ -22,7 +22,7 @@ use super::codec::{
     QuestionPresentationChecksum, crc16_ccitt_false, descriptor_bytes, item_basis_bytes,
 };
 use super::model::{
-    PresentationResponseItemReference, QuestionAssetRendition, QuestionPresentation,
+    PresentationResponseItemId, QuestionAssetRendition, QuestionPresentation,
     QuestionPresentationNonce, QuestionPresentationResponseFormat,
 };
 use super::public_response_items::public_item_bindings;
@@ -56,11 +56,11 @@ impl ResponseItemRole {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResponseItemBinding {
-    pub presentation_response_item_reference: PresentationResponseItemReference,
+    pub presentation_response_item_reference: PresentationResponseItemId,
     pub role: ResponseItemRole,
     pub ordinal: u32,
     /// Exact authored Response Item for issued bindings; absent during public verification.
-    pub response_item_reference: Option<ResponseItemReference>,
+    pub response_item_reference: Option<ResponseItemId>,
     pub(super) basis: ResponseItemBasis,
 }
 
@@ -72,8 +72,8 @@ pub struct ResponseItemBinding {
 /// meaningful after source content is unavailable.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DurableResponseItemBinding {
-    pub presentation_response_item_reference: PresentationResponseItemReference,
-    pub response_item_reference: ResponseItemReference,
+    pub presentation_response_item_reference: PresentationResponseItemId,
+    pub response_item_reference: ResponseItemId,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct ResponseItemBasis {
@@ -101,7 +101,7 @@ pub(super) struct PendingHotspotRegionGeometry {
 struct PendingResponseItem {
     role: ResponseItemRole,
     ordinal: u32,
-    response_item_reference: ResponseItemReference,
+    response_item_reference: ResponseItemId,
     basis: ResponseItemBasis,
 }
 
@@ -124,7 +124,7 @@ pub enum PresentationBuildError {
     RandomnessUnavailable,
     InvalidPublicContent(&'static str),
     TooManyItems,
-    PresentationResponseItemReferenceCollision,
+    PresentationResponseItemIdCollision,
     DescriptorEncoding(&'static str),
 }
 
@@ -136,8 +136,8 @@ impl std::fmt::Display for PresentationBuildError {
             }
             Self::InvalidPublicContent(message) => formatter.write_str(message),
             Self::TooManyItems => formatter.write_str("presentation contains more than 32 items"),
-            Self::PresentationResponseItemReferenceCollision => formatter
-                .write_str("could not mint globally unique Presentation Response Item References"),
+            Self::PresentationResponseItemIdCollision => formatter
+                .write_str("could not mint globally unique Presentation Response Item IDs"),
             Self::DescriptorEncoding(message) => formatter.write_str(message),
         }
     }
@@ -188,7 +188,7 @@ impl QuestionPresentationNonceSource for PersistedNonceSource {
     fn next_nonce(&mut self) -> Result<[u8; 16], PresentationBuildError> {
         self.0
             .take()
-            .ok_or(PresentationBuildError::PresentationResponseItemReferenceCollision)
+            .ok_or(PresentationBuildError::PresentationResponseItemIdCollision)
     }
 }
 
@@ -295,7 +295,7 @@ pub fn rebuild_question_presentation_with_reproduction_and_author_content(
         .collect();
     if unique.len() != item_bindings.len() {
         return Err(PresentationBuildError::InvalidPublicContent(
-            "presentation repeats a Presentation Response Item Reference",
+            "presentation repeats a Presentation Response Item ID",
         ));
     }
     let mut presentation = IssuedQuestionPresentation {
@@ -435,7 +435,7 @@ where
                 &basis_bytes,
             )?;
             let presentation_response_item_reference =
-                PresentationResponseItemReference::from_crc(hasher(&input));
+                PresentationResponseItemId::from_crc(hasher(&input));
             if !used.insert(presentation_response_item_reference.clone()) {
                 collision = true;
                 break;
@@ -464,7 +464,7 @@ where
         presentation.checksum = QuestionPresentationChecksum::compute(&bytes);
         return Ok(presentation);
     }
-    Err(PresentationBuildError::PresentationResponseItemReferenceCollision)
+    Err(PresentationBuildError::PresentationResponseItemIdCollision)
 }
 fn presentation_response_item_reference_input(
     presentation: &QuestionVariationPresentation,

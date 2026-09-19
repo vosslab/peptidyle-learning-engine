@@ -11,7 +11,7 @@ use crate::{
     AssessmentPointValue, LateWorkRule, MAX_ASSESSMENT_ATTEMPT_LIMIT,
     MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS, MAX_ASSESSMENT_ORDERED_ENTRIES,
     QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionId, QuestionPoolEditNumber,
-    QuestionPoolSelectionRule, QuestionRevisionReference, QuestionSearchResult,
+    QuestionPoolSelectionRule, QuestionRevisionTuple, QuestionSearchResult,
     StudentFeedbackReleaseRule,
 };
 
@@ -57,7 +57,7 @@ impl BlueprintAssessmentDefaults {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ReusableFixedQuestionInput {
     /// Exact published Question Revision checked under destination authority.
-    pub published_question: QuestionRevisionReference,
+    pub published_question: QuestionRevisionTuple,
     /// Points copied into the future Fixed Question Assessment Entry.
     pub points_possible: AssessmentPointValue,
     /// Score treatment copied into the future Fixed Question Assessment Entry.
@@ -84,7 +84,7 @@ pub enum BlueprintPoolInputChoice {
         question_pool_edit_number: QuestionPoolEditNumber,
         /// Null preserves members; an ordered list replaces current Pool membership.
         #[serde(deserialize_with = "deserialize_blueprint_pool_members")]
-        members: Option<Vec<QuestionRevisionReference>>,
+        members: Option<Vec<QuestionRevisionTuple>>,
         /// Explicit interchangeability review for newly submitted member content.
         #[serde(rename = "interchangeabilityAttested")]
         interchangeability_attested: bool,
@@ -93,11 +93,11 @@ pub enum BlueprintPoolInputChoice {
 
 fn deserialize_blueprint_pool_members<'de, D>(
     deserializer: D,
-) -> Result<Option<Vec<QuestionRevisionReference>>, D::Error>
+) -> Result<Option<Vec<QuestionRevisionTuple>>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    Option::<Vec<QuestionRevisionReference>>::deserialize(deserializer)
+    Option::<Vec<QuestionRevisionTuple>>::deserialize(deserializer)
 }
 
 /// One Question Pool Assessment Entry with an explicit ownership operation.
@@ -225,7 +225,7 @@ pub enum ReusableSelectionAvailability {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ReusableQuestionView {
     /// Exact stored published Question Revision; never inferred from a library head.
-    pub reference: QuestionRevisionReference,
+    pub question_revision: QuestionRevisionTuple,
     /// Public Question Library metadata and disclosed evidence for the stored Revision.
     pub question_library: QuestionSearchResult,
     /// Whether the stored exact member remains selectable for a new copy.

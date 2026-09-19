@@ -181,9 +181,9 @@ impl std::fmt::Debug for ImathasQuestionBackendSnapshot {
 
 /// Opaque iMathAS-proxy handle. It must be a server-held identifier, never a
 /// URL, browser capability, JWT, credential, or iMathAS session cookie.
-pub struct ImathasLaunchReference(String);
+pub struct ImathasLaunchId(String);
 
-impl ImathasLaunchReference {
+impl ImathasLaunchId {
     /// Wraps an adapter/private-proxy generated opaque handle.
     pub fn from_server_handle(value: impl Into<String>) -> Result<Self, ImathasTransportFailure> {
         let value = value.into();
@@ -204,9 +204,9 @@ impl ImathasLaunchReference {
     }
 }
 
-impl std::fmt::Debug for ImathasLaunchReference {
+impl std::fmt::Debug for ImathasLaunchId {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str("ImathasLaunchReference(REDACTED)")
+        formatter.write_str("ImathasLaunchId(REDACTED)")
     }
 }
 
@@ -228,7 +228,7 @@ impl<'a> SnapshotTransportRequest<'a> {
 pub struct RenderTransportRequest<'a> {
     pub(crate) snapshot: &'a [u8],
     pub(crate) deployment_reference: &'a str,
-    pub(crate) question_revision: question_model::QuestionRevisionReference,
+    pub(crate) question_revision: question_model::QuestionRevisionTuple,
     pub(crate) question_seed: QuestionSeed,
 }
 impl<'a> RenderTransportRequest<'a> {
@@ -238,7 +238,7 @@ impl<'a> RenderTransportRequest<'a> {
     pub fn deployment_reference(&self) -> &'a str {
         self.deployment_reference
     }
-    pub fn question_revision(&self) -> &question_model::QuestionRevisionReference {
+    pub fn question_revision(&self) -> &question_model::QuestionRevisionTuple {
         &self.question_revision
     }
     pub fn question_seed(&self) -> QuestionSeed {
@@ -290,7 +290,7 @@ impl ProtectedLaunchRequest {
 
 /// Server-only request for an already-created iMathAS proxy session.
 pub struct ResultTransportRequest<'a> {
-    pub(crate) handle: &'a ImathasLaunchReference,
+    pub(crate) handle: &'a ImathasLaunchId,
     pub(crate) launch_session_authentication: &'a str,
     pub(crate) deployment_reference: &'a str,
 }
@@ -308,12 +308,12 @@ pub enum ProxyMethod {
 /// A private request bound to one restored opaque iMathAS handle. Server
 /// routes cannot select an arbitrary upstream path or forward browser headers.
 pub struct ProxyRequest<'a> {
-    pub(crate) handle: &'a ImathasLaunchReference,
+    pub(crate) handle: &'a ImathasLaunchId,
     pub(crate) method: ProxyMethod,
     pub(crate) body: &'a [u8],
 }
 impl<'a> ProxyRequest<'a> {
-    fn activity_get(handle: &'a ImathasLaunchReference) -> Self {
+    fn activity_get(handle: &'a ImathasLaunchId) -> Self {
         Self {
             handle,
             method: ProxyMethod::Get,
@@ -321,7 +321,7 @@ impl<'a> ProxyRequest<'a> {
         }
     }
     fn activity_post(
-        handle: &'a ImathasLaunchReference,
+        handle: &'a ImathasLaunchId,
         body: &'a [u8],
     ) -> Result<Self, ImathasTransportFailure> {
         if body.is_empty() || body.len() > MAX_PROXY_BODY_BYTES {
@@ -340,7 +340,7 @@ impl<'a> ProxyRequest<'a> {
         self.body
     }
     #[allow(dead_code)]
-    pub(crate) fn handle(&self) -> &ImathasLaunchReference {
+    pub(crate) fn handle(&self) -> &ImathasLaunchId {
         self.handle
     }
 }
@@ -375,7 +375,7 @@ impl<'a> ResultTransportRequest<'a> {
         self.deployment_reference
     }
     #[allow(dead_code)]
-    pub(crate) fn handle(&self) -> &ImathasLaunchReference {
+    pub(crate) fn handle(&self) -> &ImathasLaunchId {
         self.handle
     }
     #[allow(dead_code)]
@@ -400,7 +400,7 @@ pub trait ImathasQuestionBackendTransport: Send + Sync {
     async fn start_protected_launch(
         &self,
         request: ProtectedLaunchRequest,
-    ) -> Result<ImathasLaunchReference, ImathasTransportFailure>;
+    ) -> Result<ImathasLaunchId, ImathasTransportFailure>;
     /// Retrieves a signed grade using a safe, idempotent HTTP GET only.
     /// Implementations must not dispatch an iMathAS mutation from this method.
     async fn fetch_signed_grade_get(
@@ -462,7 +462,7 @@ impl<T: ImathasQuestionBackendTransport> ImathasQuestionBackend<T> {
         }
         let grading_context = &validation.grading_context;
         if validation.imathas_question_backend_binding != *source.binding()
-            || validation.source_object != *source.source_object_reference()
+            || validation.source_object != *source.source_object_id()
             || validation.source_object_checksum != *source.source_object_checksum()
             || grading_context.question_revision() != source.question_revision()
             || validation.expires_at <= now

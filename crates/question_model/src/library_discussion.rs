@@ -21,7 +21,7 @@ pub enum LibraryObjectKind {
 /// A stable Library Object lineage, distinct from a particular Revision.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct LibraryObjectReference {
+pub struct LibraryObjectTuple {
     pub kind: LibraryObjectKind,
     pub public_id: QuestionId,
 }
@@ -38,14 +38,14 @@ pub struct LibraryObjectReference {
 )]
 pub enum LibraryStewardshipEvent {
     /// An improvement thread was created or received a retained post.
-    ImprovementThreadActivity { object: LibraryObjectReference },
+    ImprovementThreadActivity { object: LibraryObjectTuple },
     /// An owner-maintained impact notice was created, changed, or cancelled.
-    ImpactNotice { object: LibraryObjectReference },
+    ImpactNotice { object: LibraryObjectTuple },
 }
 
 impl LibraryStewardshipEvent {
     /// The stable Library Object lineage affected by this activity.
-    pub fn object(&self) -> &LibraryObjectReference {
+    pub fn object(&self) -> &LibraryObjectTuple {
         match self {
             Self::ImprovementThreadActivity { object } | Self::ImpactNotice { object } => object,
         }

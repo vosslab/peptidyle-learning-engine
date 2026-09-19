@@ -2,7 +2,7 @@
 
 import { createSignal, For, type JSX } from "solid-js";
 
-import type { ResponseItemReference } from "../../../generated/api/ResponseItemReference";
+import type { ResponseItemId } from "../../../generated/api/ResponseItemId";
 import type { OrderingItem } from "../../../generated/api/OrderingItem";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
 
@@ -17,10 +17,10 @@ import {
 } from "./common";
 
 function moveItem(
-  order: ReadonlyArray<ResponseItemReference>,
+  order: ReadonlyArray<ResponseItemId>,
   from: number,
   to: number,
-): ReadonlyArray<ResponseItemReference> {
+): ReadonlyArray<ResponseItemId> {
   const next = [...order];
   const movedOrderingItem = next[from];
   if (movedOrderingItem === undefined || to < 0 || to >= next.length) return order;
@@ -31,7 +31,7 @@ function moveItem(
 
 function orderingItemById(
   items: ReadonlyArray<OrderingItem>,
-  id: ResponseItemReference,
+  id: ResponseItemId,
 ): OrderingItem | undefined {
   return items.find((item) => item.id === id);
 }
@@ -42,7 +42,7 @@ export function OrderingResponse(
   const initialOrder =
     (props.initialResponse?.kind === "ordering" ? props.initialResponse.order : undefined) ??
     props.responseFormat.items.map((item) => item.id);
-  const [order, setOrder] = createSignal<ReadonlyArray<ResponseItemReference>>(initialOrder);
+  const [order, setOrder] = createSignal<ReadonlyArray<ResponseItemId>>(initialOrder);
   let firstMoveControl!: HTMLButtonElement;
   const [movementAnnouncement, setMovementAnnouncement] = createSignal("");
   const controller = createResponseController(props, {
@@ -50,15 +50,15 @@ export function OrderingResponse(
     order: [...initialOrder],
   });
   const response = (): StudentResponse => ({ kind: "ordering", order: [...order()] });
-  function update(next: ReadonlyArray<ResponseItemReference>): void {
+  function update(next: ReadonlyArray<ResponseItemId>): void {
     setOrder(next);
     void controller.edit({ kind: "ordering", order: [...next] });
   }
-  function rowId(id: ResponseItemReference): string {
+  function rowId(id: ResponseItemId): string {
     return `${props.attemptId}-order-${id}`;
   }
   function focusMovedItem(
-    id: ResponseItemReference,
+    id: ResponseItemId,
     preferredDirection: "earlier" | "later",
   ): void {
     queueMicrotask(() => {
@@ -71,7 +71,7 @@ export function OrderingResponse(
     });
   }
   function moveOrderItem(
-    id: ResponseItemReference,
+    id: ResponseItemId,
     from: number,
     to: number,
     preferredDirection: "earlier" | "later",
@@ -85,7 +85,7 @@ export function OrderingResponse(
     );
     focusMovedItem(id, preferredDirection);
   }
-  function handleOrderArrow(event: KeyboardEvent, id: ResponseItemReference, index: number): void {
+  function handleOrderArrow(event: KeyboardEvent, id: ResponseItemId, index: number): void {
     if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
     const direction = event.key === "ArrowUp" ? "earlier" : "later";
     const nextIndex = index + (direction === "earlier" ? -1 : 1);

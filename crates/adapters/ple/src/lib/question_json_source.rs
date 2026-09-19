@@ -6,8 +6,8 @@ use objects::{ObjectStore, ResolvedQuestionSource};
 use question_model::generation::QuestionReproduction;
 use question_model::{
     GradingResult, QuestionAttemptReproductionDetails, QuestionBackendVersion,
-    QuestionGraderVersion, QuestionRevisionReference, QuestionVariation,
-    QuestionVariationPresentation, SourceObjectChecksum, SourceObjectReference, StudentResponse,
+    QuestionGraderVersion, QuestionRevisionTuple, QuestionVariation, QuestionVariationPresentation,
+    SourceObjectChecksum, ObjectId, StudentResponse,
 };
 use sha2::{Digest, Sha256};
 
@@ -20,7 +20,7 @@ use crate::{
     PleQuestionBackend, PleQuestionBackendError,
 };
 
-/// Verified PLE source bytes and their exact immutable Question Revision reference.
+/// Verified PLE source bytes and their exact immutable Question Revision Tuple.
 #[derive(Clone)]
 pub struct ResolvedPleQuestionJsonSource {
     source: ResolvedQuestionSource,
@@ -31,14 +31,14 @@ impl ResolvedPleQuestionJsonSource {
     /// Resolves, parses, and compiles the source attached to this exact revision.
     pub async fn resolve<S: ObjectStore>(
         store: &S,
-        question_revision: QuestionRevisionReference,
-        source_object_reference: SourceObjectReference,
+        question_revision: QuestionRevisionTuple,
+        source_object_id: ObjectId,
         source_object_checksum: SourceObjectChecksum,
     ) -> Result<Self, PleQuestionBackendError> {
         let source = ResolvedQuestionSource::resolve(
             store,
             question_revision,
-            source_object_reference,
+            source_object_id,
             source_object_checksum,
         )
         .await
@@ -56,11 +56,11 @@ impl ResolvedPleQuestionJsonSource {
         Ok(Self { source, compiled })
     }
 
-    pub fn question_revision(&self) -> &QuestionRevisionReference {
+    pub fn question_revision(&self) -> &QuestionRevisionTuple {
         self.source.question_revision()
     }
-    pub fn source_object_reference(&self) -> &SourceObjectReference {
-        self.source.source_object_reference()
+    pub fn source_object_id(&self) -> &ObjectId {
+        self.source.source_object_id()
     }
     pub fn source_object_checksum(&self) -> &SourceObjectChecksum {
         self.source.source_object_checksum()
@@ -101,7 +101,7 @@ impl PleQuestionBackend {
                     version: ADAPTER_VERSION.to_string(),
                 },
                 renderer_version: None,
-                source_object_reference: Some(source.source_object_reference().clone()),
+                source_object_id: Some(source.source_object_id().clone()),
                 source_object_checksum: Some(source.source_object_checksum().clone()),
                 asset_objects: Vec::new(),
                 grader: QuestionGraderVersion {
@@ -113,7 +113,7 @@ impl PleQuestionBackend {
         })
     }
 
-    /// Grades from the same verified source and exact attempted revision reference.
+    /// Grades from the same verified source and exact attempted Revision Tuple.
     pub fn grade_question_json(
         &self,
         source: &ResolvedPleQuestionJsonSource,

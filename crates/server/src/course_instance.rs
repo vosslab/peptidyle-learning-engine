@@ -123,9 +123,9 @@ async fn create_course_instance(
 async fn load_course_instance(
     State(state): State<CourseInstanceRouteState>,
     headers: HeaderMap,
-    Path(reference): Path<String>,
+    Path(course_instance_id): Path<String>,
 ) -> Response {
-    let reference = match CourseInstanceId::from_str(&reference) {
+    let course_instance_id = match CourseInstanceId::from_str(&course_instance_id) {
         Ok(value) => value,
         Err(_) => return concealed(),
     };
@@ -135,7 +135,7 @@ async fn load_course_instance(
     };
     match state
         .courses
-        .load_course_instance(session_hash, reference)
+        .load_course_instance(session_hash, course_instance_id)
         .await
     {
         Ok(view) => crate::auth::no_store(Json(view).into_response()),
@@ -146,9 +146,9 @@ async fn load_course_instance(
 async fn read_course_summary(
     State(state): State<CourseInstanceRouteState>,
     headers: HeaderMap,
-    Path(reference): Path<String>,
+    Path(course_instance_id): Path<String>,
 ) -> Response {
-    let reference = match CourseInstanceId::from_str(&reference) {
+    let course_instance_id = match CourseInstanceId::from_str(&course_instance_id) {
         Ok(value) => value,
         Err(_) => return concealed(),
     };
@@ -157,11 +157,11 @@ async fn read_course_summary(
         Err(response) => return *response,
     };
     // ASVS 2.2.1, 8.2.2, and 8.3.1: the positively validated public
-    // reference is resolved only through this session's current active Course
+    // Course Instance ID is resolved only through this session's current active Course
     // Membership. The resulting private Course ID never enters the response.
     let course = match state
         .courses
-        .resolve_course_navigation(session_hash, reference)
+        .resolve_course_navigation(session_hash, course_instance_id)
         .await
     {
         Ok(value) => value,
@@ -190,10 +190,10 @@ async fn read_course_summary(
 async fn update_classification(
     State(state): State<CourseInstanceRouteState>,
     headers: HeaderMap,
-    Path(reference): Path<String>,
+    Path(course_instance_id): Path<String>,
     Json(classification): Json<question_model::CourseClassification>,
 ) -> Response {
-    let reference = match reference.parse::<CourseInstanceId>() {
+    let course_instance_id = match course_instance_id.parse::<CourseInstanceId>() {
         Ok(value) => value,
         Err(_) => return concealed(),
     };
@@ -217,7 +217,7 @@ async fn update_classification(
     };
     match state
         .courses
-        .update_course_classification(session, reference, expected, classification)
+        .update_course_classification(session, course_instance_id, expected, classification)
         .await
     {
         Ok(value) => {

@@ -56,7 +56,7 @@ pub const MAX_QUESTION_ID_COUNT: u64 = 100_000_000;
 pub const MAX_BULK_QUESTION_METADATA_ITEMS: usize = 1000;
 
 /// One stable, non-sequential human-facing identity for a Published Question
-/// lineage. [`QuestionRevisionReference`] pairs it with a positive revision
+/// lineage. [`QuestionRevisionTuple`] pairs it with a positive revision
 /// number to identify one immutable Question Revision.
 ///
 /// `XXXX-ZXXX` is the one canonical value at every boundary. The hyphen and
@@ -160,7 +160,7 @@ impl From<QuestionId> for String {
 /// grading, replay, and audit.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct QuestionRevisionReference {
+pub struct QuestionRevisionTuple {
     /// Stable Question lineage.
     pub question_id: QuestionId,
     /// Exact immutable version within that Question lineage.
@@ -220,7 +220,7 @@ impl QuestionAvailability {
         matches!(self, Self::Available)
     }
 
-    /// Whether an existing exact Question Revision Reference remains resolvable
+    /// Whether an existing exact Question Revision Tuple remains resolvable
     /// for an authorized read.
     ///
     /// Availability controls discovery and new selection; it does not erase
@@ -415,7 +415,7 @@ pub struct QuestionSummary {
     pub question_id: QuestionId,
     /// Current accepted Revision for ordinary routes, or the exact resolved
     /// Revision for an exact-detail route. Independent of selection availability.
-    pub question_revision: QuestionRevisionReference,
+    pub question_revision: QuestionRevisionTuple,
     /// Question Backend, without private backend fields or Question Source data.
     pub backend: QuestionBackend,
     /// Immutable reviewed source representation, for Instructor identification
@@ -665,7 +665,7 @@ mod tests {
         let detail = QuestionDetails {
             summary: QuestionSummary {
                 question_id: "ABCD-XEFG".parse().expect("fixture Question ID parses"),
-                question_revision: QuestionRevisionReference {
+                question_revision: QuestionRevisionTuple {
                     question_id: "ABCD-XEFG".parse().expect("fixture Question ID parses"),
                     revision_number: QuestionRevisionNumber::new(1).expect("positive version"),
                 },

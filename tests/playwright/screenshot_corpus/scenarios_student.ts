@@ -309,7 +309,9 @@ async function studentAssignmentAttempt(runtime: ScenarioRuntime): Promise<void>
         const url = new URL(request.url());
         return (
           url.origin === runtime.entryUrl.origin &&
-          /^\/api\/assessment-attempts\/R-[1-9][0-9]{0,9}\/context$/u.test(url.pathname)
+          /^\/api\/assessment-attempts\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/context$/u.test(
+            url.pathname,
+          )
         );
       },
     });

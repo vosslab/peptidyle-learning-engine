@@ -4,10 +4,9 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use question_model::{
-    AccountId, BlueprintAssessmentId, BlueprintCourseId, BlueprintEditNumber,
-    BlueprintModuleReference, BlueprintRevision, BlueprintRevisionReference, CourseInstanceId,
-    CreateBlueprintCourseReceipt, CreateBlueprintFromCourseInstanceInput, RequestChecksum,
-    Timestamp,
+    AccountId, BlueprintAssessmentId, BlueprintCourseId, BlueprintEditNumber, BlueprintModuleId,
+    BlueprintRevision, BlueprintRevisionTuple, CourseInstanceId, CreateBlueprintCourseReceipt,
+    CreateBlueprintFromCourseInstanceInput, RequestChecksum, Timestamp,
 };
 use serde::Deserialize;
 use serde_json::Value;
@@ -167,7 +166,7 @@ fn publication_content(
         .collect::<Result<Vec<_>, StoreError>>()?;
     Ok(StoredBlueprintCourseContent {
         modules: vec![StoredBlueprintModule {
-            blueprint_module_reference: BlueprintModuleReference::from_uuid(random_uuid()?),
+            blueprint_module_id: BlueprintModuleId::from_uuid(random_uuid()?),
             label: "Assessments".to_string(),
             assessments,
         }],
@@ -183,7 +182,7 @@ fn decode_receipt(
         .try_get::<String, _>("blueprint_course_id")
         .map_err(map_sqlx_error)?
         .parse::<BlueprintCourseId>()
-        .map_err(|_| invalid("Blueprint Course Reference"))?;
+        .map_err(|_| invalid("Blueprint Course ID"))?;
     let revision = u64::try_from(
         row.try_get::<i64, _>("blueprint_revision_number")
             .map_err(map_sqlx_error)?,
@@ -192,7 +191,7 @@ fn decode_receipt(
     .and_then(BlueprintRevision::new)
     .ok_or_else(|| invalid("Blueprint Revision"))?;
     Ok(CreateBlueprintCourseReceipt {
-        blueprint_revision: BlueprintRevisionReference {
+        blueprint_revision: BlueprintRevisionTuple {
             blueprint_course_id: reference,
             revision,
         },

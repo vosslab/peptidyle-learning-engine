@@ -3,8 +3,7 @@
 use async_trait::async_trait;
 use objects::{ObjectAddress, Sha256Checksum};
 use question_model::{
-    CourseBanner, CourseBannerReference, CourseBannerUpdate, CourseBannerUploadReference,
-    CourseInstanceId,
+    CourseBanner, CourseBannerId, CourseBannerUpdate, CourseBannerUploadId, CourseInstanceId,
 };
 
 use crate::{SessionTokenHash, StoreError};
@@ -13,7 +12,7 @@ use crate::{SessionTokenHash, StoreError};
 /// Account binding.  It contains no object-store path.
 #[derive(Debug, Clone)]
 pub struct ClaimedCourseBannerUpload {
-    pub upload: CourseBannerUploadReference,
+    pub upload: CourseBannerUploadId,
     /// The immutable, typed temporary address.  This deliberately is not an
     /// ObjectRecord: the database cannot truthfully invent an object-store
     /// creation timestamp before the external put succeeds.
@@ -57,7 +56,7 @@ pub struct StagedCourseBannerUpload {
 /// addresses and opaque work identities; it never derives a storage path.
 #[derive(Debug, Clone)]
 pub struct PreparedCourseBannerPromotion {
-    pub banner: CourseBannerReference,
+    pub banner: CourseBannerId,
     pub source: ObjectAddress,
     pub rendition: ObjectAddress,
     pub source_put_work_id: uuid::Uuid,
@@ -68,7 +67,7 @@ pub struct PreparedCourseBannerPromotion {
 #[derive(Debug, Clone)]
 pub struct StageCourseBannerUpload {
     pub course: CourseInstanceId,
-    pub upload: CourseBannerUploadReference,
+    pub upload: CourseBannerUploadId,
     pub metadata: CourseBannerObjectMetadata,
     pub width: u32,
     pub height: u32,
@@ -79,8 +78,8 @@ pub struct StageCourseBannerUpload {
 #[derive(Debug, Clone)]
 pub struct PrepareCourseBannerPromotion {
     pub course: CourseInstanceId,
-    pub upload: CourseBannerUploadReference,
-    pub banner: CourseBannerReference,
+    pub upload: CourseBannerUploadId,
+    pub banner: CourseBannerId,
     pub update: CourseBannerUpdate,
     pub source: CourseBannerObjectMetadata,
     /// The one server-owned 5:1 delivery rendition.  Source bytes remain
@@ -91,7 +90,7 @@ pub struct PrepareCourseBannerPromotion {
 /// Retired current banner objects that must be deleted or placed in repair.
 #[derive(Debug, Clone)]
 pub struct PreparedCourseBannerRemoval {
-    pub banner: CourseBannerReference,
+    pub banner: CourseBannerId,
     pub source: ObjectAddress,
     pub rendition: ObjectAddress,
     pub source_put_work_id: uuid::Uuid,
@@ -146,7 +145,7 @@ pub trait CourseBannerStore: Send + Sync {
         &self,
         session_token_hash: SessionTokenHash,
         course: CourseInstanceId,
-        upload: CourseBannerUploadReference,
+        upload: CourseBannerUploadId,
     ) -> Result<(), StoreError>;
 
     /// Creates a hidden source, one fixed banner-rendition delivery, and all
@@ -163,7 +162,7 @@ pub trait CourseBannerStore: Send + Sync {
         &self,
         session_token_hash: SessionTokenHash,
         course: CourseInstanceId,
-        banner: CourseBannerReference,
+        banner: CourseBannerId,
         object_id: question_model::ObjectId,
     ) -> Result<(), StoreError>;
 
@@ -173,7 +172,7 @@ pub trait CourseBannerStore: Send + Sync {
         &self,
         session_token_hash: SessionTokenHash,
         course: CourseInstanceId,
-        banner: Option<CourseBannerReference>,
+        banner: Option<CourseBannerId>,
         object_id: question_model::ObjectId,
     ) -> Result<(), StoreError>;
 
@@ -206,8 +205,8 @@ pub trait CourseBannerStore: Send + Sync {
         &self,
         session_token_hash: SessionTokenHash,
         course: CourseInstanceId,
-        upload: CourseBannerUploadReference,
-        banner: CourseBannerReference,
+        upload: CourseBannerUploadId,
+        banner: CourseBannerId,
     ) -> Result<FinalizedCourseBannerPromotion, StoreError>;
     async fn read_current_course_banner(
         &self,
@@ -219,7 +218,7 @@ pub trait CourseBannerStore: Send + Sync {
     async fn resolve_current_course_banner(
         &self,
         session_token_hash: SessionTokenHash,
-        banner: CourseBannerReference,
+        banner: CourseBannerId,
     ) -> Result<CourseInstanceId, StoreError>;
 
     /// Reads a still-live, completed upload for the exact current Instructor.
@@ -229,7 +228,7 @@ pub trait CourseBannerStore: Send + Sync {
         &self,
         session_token_hash: SessionTokenHash,
         course: CourseInstanceId,
-        upload: CourseBannerUploadReference,
+        upload: CourseBannerUploadId,
     ) -> Result<ClaimedCourseBannerUpload, StoreError>;
 
     /// Clears the current pointer and retires both deliveries before returning

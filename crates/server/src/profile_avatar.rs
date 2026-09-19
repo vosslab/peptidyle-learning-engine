@@ -23,7 +23,7 @@ use objects::{
     image_validation::{MAX_STILL_IMAGE_BYTES, ProfileImageCrop, normalized_profile_image_webp},
     s3::S3ObjectStore,
 };
-use question_model::{ObjectId, ProductRole, ProfileImageReference, Timestamp};
+use question_model::{ObjectId, ProductRole, ProfileImageId, Timestamp};
 use uuid::Uuid;
 
 use crate::auth::{AuthError, resolve_session};
@@ -79,7 +79,7 @@ enum AvatarChoice {
     },
     ProfileImage {
         #[serde(rename = "profileImageId")]
-        profile_image_id: ProfileImageReference,
+        profile_image_id: ProfileImageId,
     },
 }
 
@@ -197,17 +197,17 @@ async fn replace_profile_image(State(state): State<RouteState>, request: Request
         Err(error) => return route_error(StatusCode::UNPROCESSABLE_ENTITY, error.user_message()),
         _ => return route_error(StatusCode::UNPROCESSABLE_ENTITY, "Profile image is invalid"),
     };
-    let reference = ProfileImageReference::generate();
+    let profile_image_id = ProfileImageId::generate();
     let object = ObjectId::from_uuid(Uuid::now_v7());
     let address = ObjectAddress::ProfileImage {
-        image: reference,
+        image: profile_image_id,
         object,
     };
     let checksum = Sha256Checksum::compute(&image);
     let length = u64::try_from(image.len()).unwrap_or(u64::MAX);
     let prepared = match state
         .avatars
-        .prepare_account_profile_image(session.token, reference, object, checksum, length)
+        .prepare_account_profile_image(session.token, profile_image_id, object, checksum, length)
         .await
     {
         Ok(prepared) => prepared,
@@ -256,7 +256,7 @@ async fn replace_profile_image(State(state): State<RouteState>, request: Request
             crate::auth::no_store(
                 Json(CurrentAvatar {
                     avatar: Some(AvatarChoice::ProfileImage {
-                        profile_image_id: finalized.reference,
+                        profile_image_id: finalized.profile_image_id,
                     }),
                 })
                 .into_response(),
@@ -287,7 +287,7 @@ async fn cleanup_profile_image(
     work: AccountProfileImageDeleteWork,
 ) {
     let address = ObjectAddress::ProfileImage {
-        image: work.reference,
+        image: work.profile_image_id,
         object: work.object_id,
     };
     match state.objects.delete(&address).await {
@@ -343,7 +343,7 @@ async fn deliver_profile_image(
     headers: HeaderMap,
 ) -> Response {
     let reference = match Uuid::parse_str(&image) {
-        Ok(value) => ProfileImageReference::from_uuid(value),
+        Ok(value) => ProfileImageId::from_uuid(value),
         Err(_) => return concealed(),
     };
     let session = match self_session(&state, &headers).await {

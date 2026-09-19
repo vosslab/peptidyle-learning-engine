@@ -46,31 +46,31 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         replay.blueprint_revision, created.blueprint_revision,
         "create request replay returns its original Revision"
     );
-    let blueprint_reference = created.blueprint_revision.blueprint_course_id;
-    let reference = blueprint_course_id_text(&blueprint_reference).await;
+    let blueprint_course_id = created.blueprint_revision.blueprint_course_id;
+    let reference = blueprint_course_id_text(&blueprint_course_id).await;
     let reader_store = PostgresBlueprintCourseStore::new(application_pool.clone());
-    promotion_boundary(&owner_store, blueprint_reference.clone()).await;
+    promotion_boundary(&owner_store, blueprint_course_id.clone()).await;
     // Regression: a refactor could disclose Private immutable content or let
     // an adoption hide its source. These owner/non-owner lifecycle rules are
     // deliberate product and authorization contracts, so this connected
     // acceptance oracle earns permanent coverage. Failure action: repair the
     // lifecycle/persistence predicate; do not loosen this contract.
     let owner_private = owner_store
-        .load_blueprint_course(token(), blueprint_reference.clone())
+        .load_blueprint_course(token(), blueprint_course_id.clone())
         .await
         .expect("owner reads a new Private Blueprint");
     assert_eq!(owner_private.availability, BlueprintAvailability::Private);
     let revision_one = owner_private.content.clone();
     blueprint_course_postgres_exchange::assert_actual_role_round_trip(
         &owner_store,
-        blueprint_reference.clone(),
+        blueprint_course_id.clone(),
         &owner_private,
     )
     .await;
     privacy::assert_private_blueprint_is_owner_only(
         &owner_store,
         &reader_store,
-        &blueprint_reference,
+        &blueprint_course_id,
     )
     .await;
     let (availability, public_blueprint_edit_number) = transition_blueprint_availability(
@@ -85,7 +85,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     assert_eq!(availability, BlueprintAvailability::Public);
     assert_eq!(
         reader_store
-            .load_blueprint_course(reader_token(), blueprint_reference.clone())
+            .load_blueprint_course(reader_token(), blueprint_course_id.clone())
             .await
             .expect("Public Blueprint is readable by another Instructor")
             .availability,
@@ -106,7 +106,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
                     tags: Vec::new(),
                 },
                 source: CourseInstanceCreationSource::Adopted {
-                    blueprint_course: blueprint_reference.clone(),
+                    blueprint_course: blueprint_course_id.clone(),
                     blueprint_revision: BlueprintRevision::new(1).expect("Revision 1"),
                 },
                 short_name: "ADOPT".into(),
@@ -130,7 +130,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
                     tags: Vec::new(),
                 },
                 source: CourseInstanceCreationSource::Adopted {
-                    blueprint_course: blueprint_reference.clone(),
+                    blueprint_course: blueprint_course_id.clone(),
                     blueprint_revision: BlueprintRevision::new(1).expect("Revision 1"),
                 },
                 short_name: "ADOPT-2".into(),
@@ -153,7 +153,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     .expect_err("adopted Public Blueprint remains Public");
     assert_eq!(error_code(&public_to_private).as_deref(), Some("55000"));
     let owner_public = owner_store
-        .load_blueprint_course(token(), blueprint_reference.clone())
+        .load_blueprint_course(token(), blueprint_course_id.clone())
         .await
         .expect("owner reads adopted Public Blueprint");
     let public_save_checksum = request(0x19);
@@ -172,7 +172,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     let archived = owner_store
         .archive_blueprint(
             token(),
-            blueprint_reference.clone(),
+            blueprint_course_id.clone(),
             owner_public.blueprint_edit_number,
             "Revision acceptance Blueprint",
         )
@@ -205,7 +205,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
                 owner_store
                     .rename_blueprint_course(
                         token(),
-                        blueprint_reference.clone(),
+                        blueprint_course_id.clone(),
                         archived.blueprint_edit_number,
                         RenameBlueprintCourseInput {
                             short_name: short_name.to_owned(),
@@ -225,7 +225,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     );
     assert_eq!(
         reader_store
-            .load_blueprint_course(reader_token(), blueprint_reference.clone())
+            .load_blueprint_course(reader_token(), blueprint_course_id.clone())
             .await
             .expect("Archived Blueprint stays readable by another Instructor")
             .availability,
@@ -238,7 +238,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
             .expect("ordinary Public discovery after archive")
             .items
             .iter()
-            .all(|summary| summary.id != blueprint_reference),
+            .all(|summary| summary.id != blueprint_course_id),
         "Archived Blueprint leaves ordinary discovery"
     );
     assert!(
@@ -248,7 +248,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
             .expect("owner normal discovery after archive")
             .items
             .iter()
-            .all(|summary| summary.id != blueprint_reference),
+            .all(|summary| summary.id != blueprint_course_id),
         "even an owner's Archived Blueprint leaves normal discovery"
     );
     for session in [token(), reader_token()] {
@@ -259,7 +259,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
                 .expect("explicit Archived discovery")
                 .items
                 .iter()
-                .any(|summary| summary.id == blueprint_reference),
+                .any(|summary| summary.id == blueprint_course_id),
             "Instructors can explicitly include Archived Blueprint history"
         );
     }
@@ -267,8 +267,8 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         reader_store
             .load_blueprint_revision(
                 reader_token(),
-                question_model::BlueprintRevisionReference {
-                    blueprint_course_id: blueprint_reference.clone(),
+                question_model::BlueprintRevisionTuple {
+                    blueprint_course_id: blueprint_course_id.clone(),
                     revision: BlueprintRevision::INITIAL,
                 },
             )
@@ -292,7 +292,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
                         tags: Vec::new()
                     },
                     source: CourseInstanceCreationSource::Adopted {
-                        blueprint_course: blueprint_reference.clone(),
+                        blueprint_course: blueprint_course_id.clone(),
                         blueprint_revision: BlueprintRevision::INITIAL,
                     },
                     short_name: "ARCH".into(),
@@ -309,7 +309,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     let restored = owner_store
         .restore_blueprint(
             token(),
-            blueprint_reference.clone(),
+            blueprint_course_id.clone(),
             archived.blueprint_edit_number,
         )
         .await
@@ -330,7 +330,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     let renamed = owner_store
         .rename_blueprint_course(
             token(),
-            blueprint_reference.clone(),
+            blueprint_course_id.clone(),
             restored.blueprint_edit_number,
             RenameBlueprintCourseInput {
                 short_name: "RESTORED".to_owned(),
@@ -378,7 +378,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     let reader_summary = reader_list
         .items
         .iter()
-        .find(|summary| summary.id == blueprint_reference)
+        .find(|summary| summary.id == blueprint_course_id)
         .expect("Available Blueprint is discoverable by a non-owner Instructor");
     assert_eq!(
         reader_summary.read_access,
@@ -387,7 +387,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     assert_eq!(reader_summary.total_adoptions, 2);
     assert_eq!(reader_summary.total_students_ever_enrolled, 1);
     let reader_view = reader_store
-        .load_blueprint_course(reader_token(), blueprint_reference.clone())
+        .load_blueprint_course(reader_token(), blueprint_course_id.clone())
         .await
         .expect("non-owner Instructor Blueprint load");
     assert_eq!(
@@ -475,12 +475,12 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     );
 
     let retained_assessment = current_content.modules[0].assessments[0].blueprint_assessment_id;
-    let retained_module = current_content.modules[0].blueprint_module_reference;
+    let retained_module = current_content.modules[0].blueprint_module_id;
     let moved_input = ReplaceBlueprintCourseContentInput {
         modules: vec![
             BlueprintModuleReplacementInput {
                 choice: BlueprintModuleEditChoice::Retained {
-                    blueprint_module_reference: retained_module,
+                    blueprint_module_id: retained_module,
                 },
                 label: "Module alpha".to_owned(),
                 assessments: vec![BlueprintAssessmentReplacementInput {
@@ -508,7 +508,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     let moved_receipt = append_store
         .save_blueprint_course(
             token(),
-            blueprint_reference.clone(),
+            blueprint_course_id.clone(),
             BlueprintRevision::new(2).expect("Revision two"),
             question_model::RequestChecksum::from_bytes([0x15; 32]),
             moved_input,
@@ -541,7 +541,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         "changed Save replay returns its original receipt"
     );
     let module_rows: Vec<Uuid> = sqlx::query_scalar(
-        "SELECT blueprint_module_reference FROM ple_data.blueprint_revision_assessment \
+        "SELECT blueprint_module_id FROM ple_data.blueprint_revision_assessment \
          WHERE blueprint_course_id = $1 \
            AND blueprint_assessment_id = $2 \
            AND blueprint_revision_number IN (2, 3) ORDER BY blueprint_revision_number",
@@ -558,7 +558,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     );
 
     let sealed_insert: &'static str = "INSERT INTO ple_data.blueprint_revision_module \
-        (blueprint_course_id, blueprint_revision_number, blueprint_module_reference, module_position) \
+        (blueprint_course_id, blueprint_revision_number, blueprint_module_id, module_position) \
         VALUES ($1, $2, '00000000-0000-0000-0000-00000000b122', 9)";
     let sealed_update = "UPDATE ple_data.blueprint_revision_assessment \
         SET assessment_position = assessment_position + 10 \
@@ -755,7 +755,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     .expect("uncommitted Question pins");
     sqlx::query(
         "INSERT INTO ple_data.blueprint_revision_module \
-         SELECT $1, 5, modules.blueprint_module_reference, modules.module_position \
+         SELECT $1, 5, modules.blueprint_module_id, modules.module_position \
            FROM ple_data.blueprint_content_modules($2) AS modules",
     )
     .bind(&reference)
@@ -765,7 +765,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     .expect("uncommitted Modules");
     sqlx::query(
         "INSERT INTO ple_data.blueprint_revision_assessment \
-         SELECT $1, 5, assessments.blueprint_module_reference, \
+         SELECT $1, 5, assessments.blueprint_module_id, \
                 assessments.blueprint_assessment_id, assessments.assessment_position \
            FROM ple_data.blueprint_content_assessments($2) AS assessments",
     )
@@ -798,7 +798,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
             .expect("competing role");
         sqlx::query(
             "INSERT INTO ple_data.blueprint_revision_module \
-             (blueprint_course_id, blueprint_revision_number, blueprint_module_reference, module_position) \
+             (blueprint_course_id, blueprint_revision_number, blueprint_module_id, module_position) \
              VALUES ($1, 5, '00000000-0000-0000-0000-00000000b140', 99)",
         )
         .bind(&competing_reference)
@@ -840,7 +840,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     let competing_rows: i64 = sqlx::query_scalar(
         "SELECT count(*) FROM ple_data.blueprint_revision_module \
          WHERE blueprint_course_id = $1 AND blueprint_revision_number = 5 \
-           AND blueprint_module_reference = '00000000-0000-0000-0000-00000000b140'",
+           AND blueprint_module_id = '00000000-0000-0000-0000-00000000b140'",
     )
     .bind(&reference)
     .fetch_one(&mut final_inspection)
@@ -860,7 +860,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         migration_url,
         &application_url,
         &reference,
-        blueprint_reference,
+        blueprint_course_id,
     )
     .await;
 }

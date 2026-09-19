@@ -2,7 +2,7 @@
 
 import type { QuestionDetails } from "../../generated/api/QuestionDetails";
 import type { QuestionId } from "../../generated/api/QuestionId";
-import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
+import type { QuestionRevisionTuple } from "../../generated/api/QuestionRevisionTuple";
 import type { QuestionSummary } from "../../generated/api/QuestionSummary";
 
 export type QuestionAvailabilityEtag = string;
@@ -23,9 +23,9 @@ export type LoadedQuestionLineage = {
 /** Instructor Question lineage administration and exact immutable revision reads. */
 export interface QuestionAvailabilityClient {
   readonly getQuestionLineage: (questionId: QuestionId) => Promise<LoadedQuestionLineage>;
-  readonly getQuestionRevision: (reference: QuestionRevisionReference) => Promise<QuestionDetails>;
+  readonly getQuestionRevision: (reference: QuestionRevisionTuple) => Promise<QuestionDetails>;
   /** Same-origin, answer-free WeBWorK preview for one exact immutable Revision. */
-  readonly questionRevisionPreviewDocumentUrl: (reference: QuestionRevisionReference) => string;
+  readonly questionRevisionPreviewDocumentUrl: (reference: QuestionRevisionTuple) => string;
   readonly archiveQuestion: (
     questionId: QuestionId,
     confirmationTitle: string,

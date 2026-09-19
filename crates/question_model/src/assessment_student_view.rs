@@ -11,7 +11,7 @@ use serde::Serialize;
 
 use crate::{
     AccountTimeZone, AssessmentEditNumber, AssessmentInstructions, AssessmentStatus,
-    AssessmentTitle, LateWorkRule, QuestionRevisionReference, Timestamp,
+    AssessmentTitle, LateWorkRule, QuestionRevisionTuple, Timestamp,
 };
 
 /// Answer-free, non-mutating Instructor Student View manifest for one current Assessment.
@@ -70,8 +70,8 @@ pub enum InstructorStudentViewEntry {
     Presented {
         /// Zero-based position in the current authored Assessment Entry order.
         authored_position: u32,
-        /// Public exact Question locators in their projected preview order.
-        questions: Vec<InstructorStudentViewQuestionReference>,
+        /// Presented Questions in their projected preview order.
+        questions: Vec<InstructorStudentViewQuestion>,
     },
     /// One current authored entry excluded from Student delivery.
     NotShown {
@@ -81,13 +81,13 @@ pub enum InstructorStudentViewEntry {
     },
 }
 
-/// Public exact locator for one separately loaded answer-free Question presentation.
+/// One presented Question in Instructor Student View: position plus its Question Revision Tuple.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct InstructorStudentViewQuestionReference {
+pub struct InstructorStudentViewQuestion {
     /// One-based position in the flattened presented-Question sequence.
     pub position: NonZeroU32,
-    pub question_revision: QuestionRevisionReference,
+    pub question_revision: QuestionRevisionTuple,
 }
 
 /// Closed Student-safe reason that an authored entry is not shown.
@@ -103,8 +103,8 @@ mod tests {
     use super::*;
     use crate::{QuestionId, QuestionRevisionNumber};
 
-    fn question_revision() -> QuestionRevisionReference {
-        QuestionRevisionReference {
+    fn question_revision() -> QuestionRevisionTuple {
+        QuestionRevisionTuple {
             question_id: "0000-T00N".parse::<QuestionId>().expect("Question ID"),
             revision_number: QuestionRevisionNumber::new(1).expect("Question Revision"),
         }
@@ -115,7 +115,7 @@ mod tests {
         let question_id = "0000-T00N".parse::<QuestionId>().expect("Question ID");
         let entry = InstructorStudentViewEntry::Presented {
             authored_position: 0,
-            questions: vec![InstructorStudentViewQuestionReference {
+            questions: vec![InstructorStudentViewQuestion {
                 position: NonZeroU32::new(1).expect("positive position"),
                 question_revision: question_revision(),
             }],

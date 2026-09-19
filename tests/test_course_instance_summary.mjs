@@ -134,7 +134,7 @@ test("Course creation accepts only the two current source wires", () => {
 
 test("Course-derived Blueprint creation sends only metadata and requires a new private root", async () => {
   const requests = [];
-  let revisionReference = "BP7K3M2QAF";
+  let blueprintRevisionTuple = "BP7K3M2QAF";
   const client = createHttpApiClient({
     fetch: async (input, init) => {
       const request = new Request(new URL(input.toString(), "https://ple.example"), init);
@@ -147,7 +147,7 @@ test("Course-derived Blueprint creation sends only metadata and requires a new p
           long_name: "Molecular Biology",
           availability: "private",
           blueprint_edit_number: "1",
-          current_revision: { blueprint_course_id: revisionReference, revision: "1" },
+          current_revision: { blueprint_course_id: blueprintRevisionTuple, revision: "1" },
           read_access: "blueprint_course_owner",
           fork_source: null,
           modules: [],
@@ -177,7 +177,7 @@ test("Course-derived Blueprint creation sends only metadata and requires a new p
     () => decodeCreateBlueprintFromCourseInstanceInput({ ...input, modules: [] }),
     DecodeError,
   );
-  revisionReference = "BP6F2R8TA9";
+  blueprintRevisionTuple = "BP6F2R8TA9";
   await assert.rejects(
     client.createBlueprintFromCourseInstance("CI6F2R8TA0", input, "create-8"),
     ApiProtocolError,

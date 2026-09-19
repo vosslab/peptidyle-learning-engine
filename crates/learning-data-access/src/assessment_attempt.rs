@@ -10,7 +10,7 @@ use std::collections::BTreeSet;
 use async_trait::async_trait;
 use question_model::{
     AssessmentAttemptId, AssessmentEntryId, AssessmentId, QuestionBackend, QuestionId,
-    QuestionPoolEditNumber, QuestionPoolSelectedItem, QuestionRevisionReference, StudentRecordId,
+    QuestionPoolEditNumber, QuestionPoolSelectedItem, QuestionRevisionTuple, StudentRecordId,
 };
 
 use crate::{SessionTokenHash, StoreError};
@@ -35,7 +35,7 @@ pub enum PreparedIssuedQuestion {
         /// Exact fixed Assessment Entry.
         assessment_entry: AssessmentEntryId,
         /// Exact pinned Question Revision.
-        reference: QuestionRevisionReference,
+        question_revision: QuestionRevisionTuple,
         /// Authoritative backend of the pinned revision.
         backend: QuestionBackend,
     },
@@ -48,7 +48,7 @@ pub enum PreparedIssuedQuestion {
         /// Zero-based Pool member position at selection.
         member_position: u32,
         /// Exact pinned Question Revision.
-        reference: QuestionRevisionReference,
+        question_revision: QuestionRevisionTuple,
         /// Authoritative backend of the pinned revision.
         backend: QuestionBackend,
     },
@@ -141,11 +141,11 @@ impl AssessmentAttemptStart {
                             PreparedIssuedQuestion::QuestionPoolItem {
                                 assessment_entry,
                                 member_position,
-                                reference,
+                                question_revision,
                                 ..
                             } if assessment_entry == &selection.question_pool_assessment_entry
                                 && member_position == &selected_item.member_position
-                                && reference == &selected_item.reference
+                                && question_revision == &selected_item.question_revision
                         )
                     })
                     .count();
@@ -190,8 +190,8 @@ mod tests {
 
     use super::*;
 
-    fn reference() -> QuestionRevisionReference {
-        QuestionRevisionReference {
+    fn question_revision() -> QuestionRevisionTuple {
+        QuestionRevisionTuple {
             question_id: "1234-H567".parse::<QuestionId>().expect("Question ID"),
             revision_number: QuestionRevisionNumber::new(1).expect("positive revision"),
         }
@@ -210,7 +210,7 @@ mod tests {
             question_pool_id: pool_id(),
             question_pool_edit_number: pool_edit_number(),
             member_position,
-            reference: reference(),
+            question_revision: question_revision(),
         }
     }
 
@@ -230,7 +230,7 @@ mod tests {
                 assessment_entry: entry,
                 question_pool_selection_index: 0,
                 member_position: 5,
-                reference: reference(),
+                question_revision: question_revision(),
                 backend: QuestionBackend::Ple,
             }],
         };
@@ -257,7 +257,7 @@ mod tests {
                 assessment_entry: entry,
                 question_pool_selection_index: 0,
                 member_position: 4,
-                reference: reference(),
+                question_revision: question_revision(),
                 backend: QuestionBackend::Ple,
             }],
         };
@@ -277,7 +277,7 @@ mod tests {
             question_pool_selections: Vec::new(),
             issued_questions: vec![PreparedIssuedQuestion::FixedQuestion {
                 assessment_entry: AssessmentEntryId::from_uuid(Uuid::from_u128(3)),
-                reference: reference(),
+                question_revision: question_revision(),
                 backend: QuestionBackend::Imathas,
             }],
         };

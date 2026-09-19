@@ -6,7 +6,7 @@ import { decodeBloomClassificationView } from "./bloom_classification";
 import { decodeRecord } from "../decoder";
 import {
   decodeQuestionId,
-  decodeQuestionRevisionReference,
+  decodeQuestionRevisionTuple,
   field,
   requireOnlyFields,
 } from "./shared";
@@ -18,7 +18,7 @@ export function decodeQuestionBloomCorrectionReceipt(
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["questionRevision", "bloom"]);
   return {
-    questionRevision: decodeQuestionRevisionReference(
+    questionRevision: decodeQuestionRevisionTuple(
       field(record, "questionRevision", path),
       `${path}.questionRevision`,
     ),

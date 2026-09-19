@@ -9,7 +9,7 @@ import {
 } from "../decoders/course_student_work_recovery";
 import {
   parseCourseInstanceId,
-  parseAssessmentAttemptReference,
+  parseAssessmentAttemptId,
 } from "../../navigation/public_route";
 import { ApiProtocolError, ApiRequestError } from "./error";
 import { requestSameOrigin, type ApiFetch } from "./request";
@@ -46,7 +46,7 @@ export function createCourseStudentWorkRecoveryClient(
       return selection;
     },
     async recoverArchivedStudentWork(course, assessmentAttempt): Promise<RecoveredAttempt> {
-      if (parseAssessmentAttemptReference(assessmentAttempt) === null)
+      if (parseAssessmentAttemptId(assessmentAttempt) === null)
         throw new ApiProtocolError("Attempt reference must be canonical");
       const attempt = decodeRecoveredAttempt(
         await request(course, { action: "recover", assessmentAttempt }),

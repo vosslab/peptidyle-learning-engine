@@ -55,7 +55,7 @@ export interface PleQuestionJsonEditorWorkspaceProps {
   readonly subjectUuid: Accessor<string | null>;
   readonly topicUuid: Accessor<string | null>;
   readonly subtopicUuid: Accessor<string | null>;
-  readonly publishedReference: Accessor<string | null>;
+  readonly publishedQuestionId: Accessor<string | null>;
   readonly publishedSummary: Accessor<QuestionSummary | undefined>;
   readonly hotspotDraftAsset: () => PleQuestionJsonPreviewProps["hotspotDraftAsset"];
   readonly instructorAnswerCheck: (
@@ -378,7 +378,7 @@ export function PleQuestionJsonEditorWorkspace(
           </div>
         )}
       </Show>
-      <Show when={props.publishedReference()}>
+      <Show when={props.publishedQuestionId()}>
         {(reference) => (
           <section class="editor-panel" role="status">
             <h2>Published</h2>

@@ -15,6 +15,7 @@ import {
   decodeSafeInteger,
   decodeString,
   decodeStringEnum,
+  decodeUuid,
 } from "../decoder";
 import {
   decodeBoundedArray,
@@ -24,7 +25,6 @@ import {
   requireOnlyFields,
 } from "./shared";
 
-const MAX_ROUTE_REFERENCE = 2_147_483_647;
 const INVITATION_STATES = ["pending", "expired", "accepted", "declined", "revoked"] as const;
 
 function closed(
@@ -44,17 +44,6 @@ function boundedTrimmedText(value: unknown, path: string, maximum: number): stri
     throw new DecodeError(path, `trimmed nonblank text no longer than ${maximum} Unicode scalars`);
   }
   return text;
-}
-
-function reference(value: unknown, path: string, prefix: string): string {
-  const parsed = decodeString(value, path);
-  const pattern = new RegExp(`^${prefix}-[1-9][0-9]{0,9}$`, "u");
-  if (!pattern.test(parsed)) throw new DecodeError(path, `a ${prefix}- prefixed route reference`);
-  const number = Number(parsed.slice(prefix.length + 1));
-  if (!Number.isSafeInteger(number) || number > MAX_ROUTE_REFERENCE) {
-    throw new DecodeError(path, "a positive 31-bit route reference");
-  }
-  return parsed;
 }
 
 function canonicalPositivePostgresBigint(value: unknown, path: string): string {
@@ -220,14 +209,14 @@ export function decodePendingCourseInvitationsPage(
       MAX_TEACHING_PAGE_SIZE,
       (entry, entryPath) => {
         const invitation = closed(entry, entryPath, [
-          "reference",
+          "id",
           "courseLabel",
           "state",
           "expiresAt",
           "state_precondition",
         ]);
         return {
-          reference: reference(invitation.id, `${entryPath}.reference`, "CI"),
+          id: decodeUuid(invitation.id, `${entryPath}.id`),
           courseLabel: boundedTrimmedText(
             invitation.courseLabel,
             `${entryPath}.courseLabel`,

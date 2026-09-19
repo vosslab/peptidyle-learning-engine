@@ -59,13 +59,13 @@ $$;
 
 CREATE FUNCTION ple_data.blueprint_content_assessments(p_content jsonb)
 RETURNS TABLE (
-    blueprint_module_reference uuid, blueprint_assessment_id uuid,
+    blueprint_module_id uuid, blueprint_assessment_id uuid,
     module_position integer, assessment_position integer
 )
 LANGUAGE sql IMMUTABLE STRICT
 SET search_path = pg_catalog, ple_data
 AS $$
-    SELECT (module_row.module ->> 'blueprint_module_reference')::uuid,
+    SELECT (module_row.module ->> 'blueprint_module_id')::uuid,
            (assessment_row.assessment ->> 'blueprint_assessment_id')::uuid,
            module_row.module_ordinality::integer,
            assessment_row.assessment_ordinality::integer
@@ -76,11 +76,11 @@ AS $$
 $$;
 
 CREATE FUNCTION ple_data.blueprint_content_modules(p_content jsonb)
-RETURNS TABLE (blueprint_module_reference uuid, module_position integer)
+RETURNS TABLE (blueprint_module_id uuid, module_position integer)
 LANGUAGE sql IMMUTABLE STRICT
 SET search_path = pg_catalog, ple_data
 AS $$
-    SELECT (module_row.module ->> 'blueprint_module_reference')::uuid,
+    SELECT (module_row.module ->> 'blueprint_module_id')::uuid,
            module_row.module_ordinality::integer
       FROM pg_catalog.jsonb_array_elements(p_content -> 'modules')
              WITH ORDINALITY AS module_row(module, module_ordinality)
@@ -129,8 +129,8 @@ BEGIN
     END IF;
     FOR module_value IN SELECT value FROM jsonb_array_elements(p_content -> 'modules') LOOP
         IF NOT ple_data.blueprint_content_has_exact_keys(
-            module_value, ARRAY['blueprint_module_reference', 'label', 'assessments']
-        ) OR jsonb_typeof(module_value -> 'blueprint_module_reference') <> 'string'
+            module_value, ARRAY['blueprint_module_id', 'label', 'assessments']
+        ) OR jsonb_typeof(module_value -> 'blueprint_module_id') <> 'string'
           OR jsonb_typeof(module_value -> 'label') <> 'string'
           OR jsonb_typeof(module_value -> 'assessments') <> 'array'
           OR jsonb_array_length(module_value -> 'assessments') NOT BETWEEN 1 AND 1024 THEN
@@ -254,7 +254,7 @@ BEGIN
            SELECT 1
              FROM jsonb_array_elements(p_content -> 'modules') AS module_row(module)
             WHERE jsonb_typeof(module_row.module) <> 'object'
-               OR module_row.module ->> 'blueprint_module_reference' IS NULL
+               OR module_row.module ->> 'blueprint_module_id' IS NULL
                OR module_row.module ->> 'label' IS NULL
                OR module_row.module ->> 'label' <> btrim(module_row.module ->> 'label')
                OR char_length(module_row.module ->> 'label') NOT BETWEEN 1 AND 500
@@ -262,7 +262,7 @@ BEGIN
                OR jsonb_array_length(module_row.module -> 'assessments') NOT BETWEEN 1 AND 1024
        )
        OR (SELECT count(*) FROM ple_data.blueprint_content_modules(p_content))
-          <> (SELECT count(DISTINCT blueprint_module_reference)
+          <> (SELECT count(DISTINCT blueprint_module_id)
                 FROM ple_data.blueprint_content_modules(p_content))
        OR EXISTS (
            SELECT 1

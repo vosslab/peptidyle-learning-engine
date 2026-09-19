@@ -20,15 +20,15 @@ case "${1:-}" in
 esac
 
 assert_workspace() {
-	local response="$1" expected_status="$2" expected_reference="$3"
+	local response="$1" expected_status="$2" expected_question_revision_tuple="$3"
 	python3 -c '
 import json, sys
-value=json.loads(sys.argv[1]); status=sys.argv[2]; reference=json.loads(sys.argv[3])
-required={"reference","editNumber","status","origin","assessmentType","title","instructions","dueAt","availableAt","closesAt","lateWorkRule","assessmentAttemptTimeLimitSeconds","attemptLimit","activityRules","studentFeedbackReleaseRule","displayTimeZone","entries","questions"}
+value=json.loads(sys.argv[1]); status=sys.argv[2]; question_revision=json.loads(sys.argv[3])
+required={"id","editNumber","status","origin","assessmentType","title","instructions","dueAt","availableAt","closesAt","lateWorkRule","assessmentAttemptTimeLimitSeconds","attemptLimit","activityRules","studentFeedbackReleaseRule","displayTimeZone","entries","questions"}
 if set(value) != required or value["status"] != status: raise SystemExit("workspace projection is not current and closed")
-if status == "unreleased" and value["questions"] and value["questions"][0].get("reference") != reference:
+if status == "unreleased" and value["questions"] and value["questions"][0].get("questionRevision") != question_revision:
     raise SystemExit("workspace did not retain the exact Question Revision pin")
-' "$(response_body "$response")" "$expected_status" "$expected_reference"
+' "$(response_body "$response")" "$expected_status" "$expected_question_revision_tuple"
 }
 
 assert_unrelease_impact() {
@@ -46,13 +46,13 @@ if any(not isinstance(value[key], int) or value[key] != 0 for key in ("attemptCo
 }
 
 assert_unreleased_response() {
-	local response="$1" expected_title="$2" previous_edit="$3" expected_reference="$4"
+	local response="$1" expected_title="$2" previous_edit="$3" expected_question_revision_tuple="$4"
 	python3 -c '
 import json, sys
-value=json.loads(sys.argv[1]); title=sys.argv[2]; previous_edit=sys.argv[3]; reference=json.loads(sys.argv[4])
+value=json.loads(sys.argv[1]); title=sys.argv[2]; previous_edit=sys.argv[3]; question_revision=json.loads(sys.argv[4])
 if set(value) != {"assessment", "deleted"}: raise SystemExit("Unrelease response is not a closed receipt")
 assignment=value["assessment"]; deleted=value["deleted"]
-workspace={"reference","editNumber","status","origin","assessmentType","title","instructions","dueAt","availableAt","closesAt","lateWorkRule","assessmentAttemptTimeLimitSeconds","attemptLimit","activityRules","studentFeedbackReleaseRule","displayTimeZone","entries","questions"}
+workspace={"id","editNumber","status","origin","assessmentType","title","instructions","dueAt","availableAt","closesAt","lateWorkRule","assessmentAttemptTimeLimitSeconds","attemptLimit","activityRules","studentFeedbackReleaseRule","displayTimeZone","entries","questions"}
 impact={"confirmationTitle","editNumber","attemptCount","submissionCount","gradeCount"}
 if set(assignment) != workspace or set(deleted) != impact:
     raise SystemExit("Unrelease receipt contains an obsolete Assessment projection")
@@ -60,38 +60,38 @@ if assignment["status"] != "unreleased" or assignment["title"] != title:
     raise SystemExit("Unrelease did not return the current Unreleased Assessment")
 if not isinstance(assignment["editNumber"], str) or int(assignment["editNumber"]) != int(previous_edit) + 1:
     raise SystemExit("Unrelease did not advance the Assessment Edit Number")
-if assignment["questions"] and assignment["questions"][0].get("reference") != reference:
+if assignment["questions"] and assignment["questions"][0].get("questionRevision") != question_revision:
     raise SystemExit("Unrelease lost the retained Question Revision pin")
 if (deleted["confirmationTitle"] != title or deleted["editNumber"] != assignment["editNumber"]
     or any(not isinstance(deleted[key], int) or deleted[key] != 0 for key in ("attemptCount", "submissionCount", "gradeCount"))):
     raise SystemExit("Unrelease deletion receipt is not the expected redacted aggregate")
-' "$(response_body "$response")" "$expected_title" "$previous_edit" "$expected_reference"
+' "$(response_body "$response")" "$expected_title" "$previous_edit" "$expected_question_revision_tuple"
 }
 
 prove_service() {
-	local instructor student sysadmin course picker question_reference created assignment initial_edit payload saved saved_edit stale validation released released_edit impact unreleased
+	local instructor student sysadmin course picker question_revision_tuple created assignment initial_edit payload saved saved_edit stale validation released released_edit impact unreleased
 	instructor="$(persona_cookie elenaInstructor)"
 	student="$(persona_cookie maryStudent)"
 	sysadmin="$(persona_cookie morganSysadmin)"
-	course="$(new_course_reference "$instructor")"
+	course="$(new_course_instance_id "$instructor")"
 
 	assert_concealed "$(request "/api/course-instances/$course/assessments")"
 	assert_concealed "$(request "/api/course-instances/$course/assessments" "$student")"
 	assert_concealed "$(request "/api/course-instances/$course/assessments" "$sysadmin")"
 	created="$(request "/api/course-instances/$course/assessments" "$instructor" POST '{"assessmentType":"practice_question_assignment","title":"Current Assignment","instructions":"Use the selected Question."}')"
 	require_status "Assessment creation" "$created" 201
-	read -r assignment initial_edit < <(workspace_reference_and_edit "$(response_body "$created")")
+	read -r assignment initial_edit < <(workspace_id_and_edit_number "$(response_body "$created")")
 	assert_workspace "$created" unreleased '{}'
 
 	picker="$(request "/api/course-instances/$course/assessment-question-picker" "$instructor")"
 	require_status "Assessment Question picker" "$picker" 200
-	question_reference="$(picker_reference "$(response_body "$picker")")"
-	payload="$(save_payload "$(response_body "$created")" "$question_reference" "Current Assignment")"
+	question_revision_tuple="$(picker_question_revision_tuple "$(response_body "$picker")")"
+	payload="$(save_payload "$(response_body "$created")" "$question_revision_tuple" "Current Assignment")"
 	saved="$(request "/api/course-instances/$course/assessments/$assignment" "$instructor" PUT "$payload" "$initial_edit")"
 	require_status "Assessment save" "$saved" 200
-	read -r _ saved_edit < <(workspace_reference_and_edit "$(response_body "$saved")")
+	read -r _ saved_edit < <(workspace_id_and_edit_number "$(response_body "$saved")")
 	[ "$saved_edit" != "$initial_edit" ] || { echo "Assessment save did not advance its Edit Number" >&2; exit 1; }
-	assert_workspace "$saved" unreleased "$question_reference"
+	assert_workspace "$saved" unreleased "$question_revision_tuple"
 
 	stale="$(request "/api/course-instances/$course/assessments/$assignment" "$instructor" PUT "$payload" "$initial_edit")"
 	require_status "Stale Assessment save" "$stale" 412
@@ -100,14 +100,14 @@ prove_service() {
 	python3 -c 'import json,sys; value=json.loads(sys.argv[1]); assert value == {"canRelease": True, "issues": []}, value' "$(response_body "$validation")"
 	released="$(request "/api/course-instances/$course/assessments/$assignment/release" "$instructor" POST '' "$saved_edit")"
 	require_status "Assessment release" "$released" 200
-	assert_workspace "$released" released "$question_reference"
-	read -r _ released_edit < <(workspace_reference_and_edit "$(response_body "$released")")
+	assert_workspace "$released" released "$question_revision_tuple"
+	read -r _ released_edit < <(workspace_id_and_edit_number "$(response_body "$released")")
 	impact="$(request "/api/course-instances/$course/assessments/$assignment/unrelease-impact" "$instructor")"
 	require_status "Assessment Unrelease impact" "$impact" 200
 	assert_unrelease_impact "$impact" "Current Assignment" "$released_edit"
 	unreleased="$(request "/api/course-instances/$course/assessments/$assignment/unrelease" "$instructor" POST '{"confirmationTitle":"Current Assignment"}' "$released_edit")"
 	require_status "Assessment Unrelease" "$unreleased" 200
-	assert_unreleased_response "$unreleased" "Current Assignment" "$released_edit" "$question_reference"
+	assert_unreleased_response "$unreleased" "Current Assignment" "$released_edit" "$question_revision_tuple"
 	echo "Assessment release: current aggregate, exact Question Revision pin, CAS, release, and Unrelease receipt passed"
 }
 

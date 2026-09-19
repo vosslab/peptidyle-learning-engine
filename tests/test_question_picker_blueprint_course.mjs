@@ -29,7 +29,7 @@ function content() {
       {
         kind: "fixed",
         question: {
-          reference: { questionId: "7K3M-79QP", revisionNumber: 3 },
+          question_revision: { questionId: "7K3M-79QP", revisionNumber: 3 },
           question_library: questionLibraryEntry("7K3M-79QP", "First fixed", 3),
           selection_availability: "available",
         },
@@ -48,7 +48,7 @@ function content() {
       {
         kind: "fixed",
         question: {
-          reference: { questionId: "4T9C-C5EW", revisionNumber: 5 },
+          question_revision: { questionId: "4T9C-C5EW", revisionNumber: 5 },
           question_library: questionLibraryEntry("4T9C-C5EW", "Final fixed", 5),
           selection_availability: "available",
         },
@@ -75,7 +75,7 @@ function revision(revisionNumber = "2") {
     blueprintRevision: { blueprint_course_id: "BP7K3MX9AA", revision: revisionNumber },
     modules: [
       {
-        blueprint_module_reference: "module-7",
+        blueprint_module_id: "module-7",
         label: "Module 1",
         assessments: [
           { blueprint_assessment_id: "00000000-0000-0000-0000-000000000007", content: content() },

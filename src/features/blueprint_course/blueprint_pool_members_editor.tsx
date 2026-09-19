@@ -3,7 +3,7 @@
 import { For, Show, createEffect, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 
 import type { BlueprintAssessmentEntryInput } from "../../../generated/api/BlueprintAssessmentEntryInput";
-import type { QuestionRevisionReference } from "../../../generated/api/QuestionRevisionReference";
+import type { QuestionRevisionTuple } from "../../../generated/api/QuestionRevisionTuple";
 import type { BlueprintCourseClient } from "../../api/blueprint_course";
 import { MAX_REUSABLE_ENTRIES } from "./blueprint_course_model";
 import {
@@ -33,7 +33,7 @@ export function BlueprintPoolMembersEditor(props: BlueprintPoolMembersEditorProp
   const initialPool = structuredClone(props.entry.pool);
   const questionPoolId = initialPool.question_pool_id;
   const questionPoolEditNumber = initialPool.question_pool_edit_number;
-  const [members, setMembers] = createSignal<QuestionRevisionReference[]>();
+  const [members, setMembers] = createSignal<QuestionRevisionTuple[]>();
   const [error, setError] = createSignal("");
   const [pickerOpen, setPickerOpen] = createSignal(false);
   let trigger: HTMLButtonElement | undefined;
@@ -87,7 +87,7 @@ export function BlueprintPoolMembersEditor(props: BlueprintPoolMembersEditorProp
     void loadMembers();
   });
 
-  function changeMembers(next: QuestionRevisionReference[], attested = false): void {
+  function changeMembers(next: QuestionRevisionTuple[], attested = false): void {
     setError("");
     setMembers(next);
     props.onChange(
@@ -111,7 +111,7 @@ export function BlueprintPoolMembersEditor(props: BlueprintPoolMembersEditorProp
       const reference = question.row.questionRevision;
       if (!reference) {
         setError(
-          "A selected Question has no exact Revision Reference. No members were added; refresh the Question Picker and try again.",
+          "A selected Question has no exact Revision Tuple. No members were added; refresh the Question Picker and try again.",
         );
         setPickerOpen(false);
         return;
@@ -138,7 +138,7 @@ export function BlueprintPoolMembersEditor(props: BlueprintPoolMembersEditorProp
         Question Pool {questionPoolId}, Edit {questionPoolEditNumber}
       </h4>
       <p>
-        Members are exact Question Revision References, in authored order. This edit changes only
+        Members are exact Question Revision Tuples, in authored order. This edit changes only
         this Blueprint Assessment-owned Pool, not its source or adopted Course Instances.
       </p>
       <Show when={error()}>

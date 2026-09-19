@@ -44,19 +44,19 @@ async fn sysadmin_session_hash(
 pub(super) async fn load_promotion(
     State(state): State<BlueprintCourseRouteState>,
     headers: HeaderMap,
-    Path(reference): Path<String>,
+    Path(blueprint_course_id): Path<String>,
 ) -> Response {
     let session = match sysadmin_session_hash(&state, &headers).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let reference = match reference.parse::<BlueprintCourseId>() {
+    let blueprint_course_id = match blueprint_course_id.parse::<BlueprintCourseId>() {
         Ok(value) => value,
         Err(_) => return concealed(),
     };
     match state
         .blueprints
-        .load_blueprint_promotion(session, reference)
+        .load_blueprint_promotion(session, blueprint_course_id)
         .await
     {
         Ok(value) => promotion_response(value),
@@ -67,14 +67,14 @@ pub(super) async fn load_promotion(
 pub(super) async fn set_promotion(
     State(state): State<BlueprintCourseRouteState>,
     headers: HeaderMap,
-    Path(reference): Path<String>,
+    Path(blueprint_course_id): Path<String>,
     input: Result<Json<PromotionInput>, JsonRejection>,
 ) -> Response {
     let session = match sysadmin_session_hash(&state, &headers).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let reference = match reference.parse::<BlueprintCourseId>() {
+    let blueprint_course_id = match blueprint_course_id.parse::<BlueprintCourseId>() {
         Ok(value) => value,
         Err(_) => return concealed(),
     };
@@ -88,7 +88,7 @@ pub(super) async fn set_promotion(
     };
     match state
         .blueprints
-        .set_blueprint_promotion(session, reference, expected, input.promoted)
+        .set_blueprint_promotion(session, blueprint_course_id, expected, input.promoted)
         .await
     {
         Ok(value) => promotion_response(value),

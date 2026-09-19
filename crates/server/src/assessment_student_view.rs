@@ -29,9 +29,8 @@ use objects::s3::S3ObjectStore;
 use question_model::{
     AssessmentEditNumber, AssessmentEntryAvailability, AssessmentId, AssessmentQuestionOrderRule,
     CourseInstanceId, InstructorStudentView, InstructorStudentViewEntry,
-    InstructorStudentViewNotShownReason, InstructorStudentViewQuestionReference, ProductRole,
-    QuestionId, QuestionPresentationResponseFormat, QuestionRevisionNumber,
-    QuestionRevisionReference,
+    InstructorStudentViewNotShownReason, InstructorStudentViewQuestion, ProductRole,
+    QuestionId, QuestionPresentationResponseFormat, QuestionRevisionNumber, QuestionRevisionTuple,
 };
 
 use crate::auth::{AuthError, resolve_session};
@@ -50,7 +49,7 @@ struct StateData {
 enum PendingEntry {
     Presented {
         authored_position: u32,
-        questions: Vec<QuestionRevisionReference>,
+        questions: Vec<QuestionRevisionTuple>,
     },
     NotShown {
         authored_position: u32,
@@ -253,14 +252,17 @@ fn project_manifest(
                 members,
             } => {
                 for member in &members {
-                    verified_revision(&member.reference)?;
+                    verified_revision(&member.question_revision)?;
                 }
                 let selected =
                     select_question_pool_items(&assessment_entry, &members, selection_entropy()?)
                         .map_err(|_| ())?;
                 PendingEntry::Presented {
                     authored_position,
-                    questions: selected.into_iter().map(|item| item.reference).collect(),
+                    questions: selected
+                        .into_iter()
+                        .map(|item| item.question_revision)
+                        .collect(),
                 }
             }
         };
@@ -284,7 +286,7 @@ fn project_manifest(
                     .into_iter()
                     .enumerate()
                     .map(|(question_index, question_revision)| {
-                        Ok(InstructorStudentViewQuestionReference {
+                        Ok(InstructorStudentViewQuestion {
                             position: NonZeroU32::new(positions[entry_index][question_index])
                                 .ok_or(())?,
                             question_revision,
@@ -361,12 +363,12 @@ fn random_index(bound: usize) -> Result<usize, ()> {
 async fn answer_free_presentation(
     state: &StateData,
     source: InstructorStudentViewSource,
-    expected: &QuestionRevisionReference,
+    expected: &QuestionRevisionTuple,
 ) -> Result<StudentQuestionPresentation, ()> {
     match source {
         InstructorStudentViewSource::Ple {
             question_revision,
-            source_object_reference,
+            source_object_id,
             source_object_checksum,
             source_media_type,
             question_asset_renditions,
@@ -379,7 +381,7 @@ async fn answer_free_presentation(
             let resolved = ResolvedPleQuestionJsonSource::resolve(
                 &state.objects,
                 question_revision.clone(),
-                source_object_reference,
+                source_object_id,
                 source_object_checksum,
             )
             .await
@@ -401,7 +403,7 @@ async fn answer_free_presentation(
         }
         InstructorStudentViewSource::Webwork {
             question_revision,
-            source_object_reference,
+            source_object_id,
             source_object_checksum,
             source_media_type,
             webwork_pg_path,
@@ -416,7 +418,7 @@ async fn answer_free_presentation(
             ResolvedWebworkQuestionSource::resolve(
                 &state.objects,
                 binding,
-                source_object_reference,
+                source_object_id,
                 source_object_checksum,
             )
             .await
@@ -438,12 +440,12 @@ async fn answer_free_presentation(
 async fn answer_free_document(
     state: &StateData,
     source: InstructorStudentViewSource,
-    expected: &QuestionRevisionReference,
+    expected: &QuestionRevisionTuple,
 ) -> Response {
     match source {
         InstructorStudentViewSource::Ple {
             question_revision,
-            source_object_reference,
+            source_object_id,
             source_object_checksum,
             source_media_type,
             ..
@@ -456,7 +458,7 @@ async fn answer_free_document(
             let resolved = match ResolvedPleQuestionJsonSource::resolve(
                 &state.objects,
                 question_revision,
-                source_object_reference,
+                source_object_id,
                 source_object_checksum,
             )
             .await
@@ -475,7 +477,7 @@ async fn answer_free_document(
         }
         InstructorStudentViewSource::Webwork {
             question_revision,
-            source_object_reference,
+            source_object_id,
             source_object_checksum,
             source_media_type,
             webwork_pg_path,
@@ -493,7 +495,7 @@ async fn answer_free_document(
             let resolved = match ResolvedWebworkQuestionSource::resolve(
                 &state.objects,
                 binding,
-                source_object_reference,
+                source_object_id,
                 source_object_checksum,
             )
             .await
@@ -543,21 +545,21 @@ fn route_question_references(
     assessment: &str,
     question_id: &str,
     revision: u32,
-) -> Option<(CourseInstanceId, AssessmentId, QuestionRevisionReference)> {
+) -> Option<(CourseInstanceId, AssessmentId, QuestionRevisionTuple)> {
     let (course, assessment) = route_references(course, assessment)?;
     let question_id = question_id.parse::<QuestionId>().ok()?;
     // ASVS 2.2.1/2: parse the exact checksum-bearing ID before any Question lookup.
     Some((
         course,
         assessment,
-        QuestionRevisionReference {
+        QuestionRevisionTuple {
             question_id,
             revision_number: QuestionRevisionNumber::new(revision).ok()?,
         },
     ))
 }
 
-fn verified_revision(revision: &QuestionRevisionReference) -> Result<(), ()> {
+fn verified_revision(revision: &QuestionRevisionTuple) -> Result<(), ()> {
     revision
         .question_id
         .as_str()

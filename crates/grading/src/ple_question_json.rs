@@ -7,7 +7,7 @@ use std::collections::HashSet;
 
 use domain::validation::StudentResponseFormatIssue;
 use question_model::response::{
-    QuestionResponseFormat, QuestionType, ResponseItemReference, StudentResponse,
+    QuestionResponseFormat, QuestionType, ResponseItemId, StudentResponse,
 };
 use question_model::{
     QuestionAnswer, QuestionAnswerExplanation, QuestionEvaluation, QuestionFeedback,
@@ -144,7 +144,7 @@ impl PleQuestionJsonPrivateGrading {
         question_type: QuestionType,
         response_format: &QuestionResponseFormat,
         answer_key: AnswerKey,
-        choice_feedback: Vec<(ResponseItemReference, String)>,
+        choice_feedback: Vec<(ResponseItemId, String)>,
         correct_feedback: Option<String>,
         incorrect_feedback: Option<String>,
     ) -> Result<Self, PleQuestionJsonError> {
@@ -317,7 +317,7 @@ impl PleQuestionJsonPrivateGrading {
         if self
             .choice_feedback
             .iter()
-            .any(|feedback| !available.contains(&ResponseItemReference::new(&feedback.choice)))
+            .any(|feedback| !available.contains(&ResponseItemId::new(&feedback.choice)))
         {
             return Err(PleQuestionJsonError::PublicContentChecksumMismatch);
         }

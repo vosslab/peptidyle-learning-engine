@@ -34,13 +34,13 @@ psql_admin() {
 
 psql_admin < "$repository_root/tests/e2e/unrelease_connected_oracle.sql"
 
-race_assessment_reference="$(psql_admin -qAt -c "SELECT assessment.assessment_id FROM ple_data.assessment AS assessment JOIN ple_data.assessment_policy_snapshot AS policy ON policy.assessment_policy_snapshot_id = assessment.assessment_policy_snapshot_id WHERE policy.assessment_title = 'Unrelease lock race'")"
-race_course_reference="$(psql_admin -qAt -c "SELECT course_instance_id FROM ple_data.course_instance WHERE course_short_name = 'UNR-1'")"
+race_assessment_id="$(psql_admin -qAt -c "SELECT assessment.assessment_id FROM ple_data.assessment AS assessment JOIN ple_data.assessment_policy_snapshot AS policy ON policy.assessment_policy_snapshot_id = assessment.assessment_policy_snapshot_id WHERE policy.assessment_title = 'Unrelease lock race'")"
+race_course_instance_id="$(psql_admin -qAt -c "SELECT course_instance_id FROM ple_data.course_instance WHERE course_short_name = 'UNR-1'")"
 # ASVS 1.2.4, 2.2.1: the exact canonical alphabet excludes SQL metacharacters
 # before the fixture references enter the lock, transition, and wait queries.
-if [[ ! "$race_assessment_reference" =~ ^A[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}$ ]] \
-	|| [[ ! "$race_course_reference" =~ ^CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}$ ]]; then
-	echo "Unrelease connected acceptance: race public reference is invalid" >&2
+if [[ ! "$race_assessment_id" =~ ^A[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}$ ]] \
+	|| [[ ! "$race_course_instance_id" =~ ^CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}$ ]]; then
+	echo "Unrelease connected acceptance: race public ID is invalid" >&2
 	exit 1
 fi
 
@@ -56,7 +56,7 @@ mkfifo "$race_workspace/release_locker"
 	printf '%s\n' \
 		'BEGIN;' \
 		'SET LOCAL ROLE ple_data_owner;' \
-		"SELECT 1 FROM ple_data.assessment WHERE assessment_id = '$race_assessment_reference' FOR UPDATE;" \
+		"SELECT 1 FROM ple_data.assessment WHERE assessment_id = '$race_assessment_id' FOR UPDATE;" \
 		"SELECT 'race_lock_held';"
 	# The parent writes this FIFO only after it has observed Unrelease waiting on
 	# the Assessment row.  That makes release a causal step, not a timed guess.
@@ -82,10 +82,10 @@ BEGIN;
 SET LOCAL ROLE ple_app;
 SELECT set_config('ple.session_account_id', membership.account_id, true)
   FROM ple_data.course_membership AS membership
- WHERE membership.course_instance_id = '$race_course_reference'
+ WHERE membership.course_instance_id = '$race_course_instance_id'
    AND membership.role = 'instructor'
  LIMIT 1 \g /dev/null
-SELECT * FROM ple_api.unrelease_assessment('$race_course_reference', '$race_assessment_reference', 1, 'Unrelease lock race');
+SELECT * FROM ple_api.unrelease_assessment('$race_course_instance_id', '$race_assessment_id', 1, 'Unrelease lock race');
 COMMIT;
 SQL
 } >"$race_workspace/unrelease.out" 2>"$race_workspace/unrelease.err" &
@@ -94,7 +94,7 @@ unrelease_pid=$!
 waited=0
 for _ in $(seq 1 30); do
 	if psql_admin -qAt \
-		-c "SELECT count(*) FROM pg_catalog.pg_stat_activity WHERE query LIKE '%unrelease_assessment(''$race_course_reference'', ''$race_assessment_reference''%' AND wait_event_type = 'Lock'" \
+		-c "SELECT count(*) FROM pg_catalog.pg_stat_activity WHERE query LIKE '%unrelease_assessment(''$race_course_instance_id'', ''$race_assessment_id''%' AND wait_event_type = 'Lock'" \
 		| grep -qx '1'; then
 		waited=1
 		break
@@ -109,7 +109,7 @@ fi
 printf 'release\n' > "$race_workspace/release_locker"
 wait "$locker_pid"
 wait "$unrelease_pid"
-grep -qx "$race_assessment_reference|Unrelease lock race|unreleased|2|0|0|0|0" "$race_workspace/unrelease.out" || {
+grep -qx "$race_assessment_id|Unrelease lock race|unreleased|2|0|0|0|0" "$race_workspace/unrelease.out" || {
 	echo "Unrelease connected acceptance: lock-race Unrelease receipt is invalid" >&2
 	cat "$race_workspace/unrelease.err" >&2
 	exit 1
@@ -120,7 +120,7 @@ BEGIN;
 SET LOCAL ROLE ple_app;
 SELECT set_config('ple.session_account_id', membership.account_id, true)
   FROM ple_data.course_membership AS membership
- WHERE membership.course_instance_id = '$race_course_reference'
+ WHERE membership.course_instance_id = '$race_course_instance_id'
    AND membership.role = 'student'
  LIMIT 1;
 DO \$\$
@@ -128,7 +128,7 @@ BEGIN
     PERFORM * FROM ple_api.start_assessment_attempt(
         '50000000-0000-0000-0000-000000000003',
         '30000000-0000-0000-0000-000000000002',
-        '$race_assessment_reference',
+        '$race_assessment_id',
         '[]'::jsonb,
         '[{"issued_question_id":"50000000-0000-0000-0000-000000000013","assessment_entry_id":"40000000-0000-0000-0000-000000000013","issued_position":0,"published_question_id":"ABCD-XEFG","revision_number":1}]'::jsonb
     );
@@ -141,7 +141,7 @@ DO \$\$
 BEGIN
     IF EXISTS (
         SELECT 1 FROM ple_private.assessment_attempt
-        WHERE assessment_id = '$race_assessment_reference'
+        WHERE assessment_id = '$race_assessment_id'
     ) THEN
         RAISE EXCEPTION 'Student Work survived the Unrelease lock race';
     END IF;

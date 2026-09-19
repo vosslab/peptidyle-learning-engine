@@ -98,7 +98,7 @@ assert_concealed() {
 	fi
 }
 
-new_course_reference() {
+new_course_instance_id() {
 	local instructor_cookie before after
 	instructor_cookie="$1"
 	before="$(request '/api/course-instances' "$instructor_cookie")"
@@ -158,7 +158,7 @@ if states.get("m9-seeded") != "activeStudent" or states.get("m9-created") != "in
 }
 
 assert_database_evidence() {
-	local course_reference="$1"
+	local course_instance_id="$1"
 	local postgres output sql
 	postgres="$(service_id postgres)"
 	sql="DO \$\$
@@ -167,7 +167,7 @@ DECLARE
     v_student_account_id text;
 BEGIN
     SELECT course_instance_id INTO v_course_instance_id FROM ple_data.course_instance
-     WHERE course_instance_id = '${course_reference}';
+     WHERE course_instance_id = '${course_instance_id}';
     SELECT profile.student_account_id INTO v_student_account_id
       FROM ple_private.course_roster_profile AS profile
      WHERE profile.course_instance_id = v_course_instance_id AND profile.roster_id = 'm9-seeded';
@@ -199,47 +199,47 @@ SELECT 'course_roster_authority';"
 }
 
 prove_import() {
-	local instructor_cookie student_cookie course_reference initial imported imported_again claimed listed revoked
+	local instructor_cookie student_cookie course_instance_id initial imported imported_again claimed listed revoked
 	instructor_cookie="$(persona_cookie elenaInstructor)"
 	student_cookie="$(persona_cookie maryStudent)"
-	course_reference="$(new_course_reference "$instructor_cookie")"
-	assert_concealed "$(request "/api/course-instances/$course_reference/roster")"
-	assert_concealed "$(request "/api/course-instances/$course_reference/roster" "$student_cookie")"
-	initial="$(request "/api/course-instances/$course_reference/roster" "$instructor_cookie")"
+	course_instance_id="$(new_course_instance_id "$instructor_cookie")"
+	assert_concealed "$(request "/api/course-instances/$course_instance_id/roster")"
+	assert_concealed "$(request "/api/course-instances/$course_instance_id/roster" "$student_cookie")"
+	initial="$(request "/api/course-instances/$course_instance_id/roster" "$instructor_cookie")"
 	if [ "$(response_status "$initial")" != "200" ] || [ "$(response_body "$initial")" != "[]" ]; then
 		echo "Course Roster did not begin empty for its exact Course Instance" >&2
 		exit 1
 	fi
-	imported="$(request "/api/course-instances/$course_reference/roster" "$instructor_cookie" POST '{"entries":[{"email":"mary.okafor@biology.roosevelt.edu","rosterId":"m9-seeded","rosterName":"Synthetic Seeded Student"},{"email":"m9-created@biology.roosevelt.edu","rosterId":"m9-created","rosterName":"Synthetic Created Student"}]}')"
+	imported="$(request "/api/course-instances/$course_instance_id/roster" "$instructor_cookie" POST '{"entries":[{"email":"mary.okafor@biology.roosevelt.edu","rosterId":"m9-seeded","rosterName":"Synthetic Seeded Student"},{"email":"m9-created@biology.roosevelt.edu","rosterId":"m9-created","rosterName":"Synthetic Created Student"}]}')"
 	if [ "$(response_status "$imported")" != "201" ]; then
 		echo "Instructor could not commit Course Roster Import" >&2
 		exit 1
 	fi
 	assert_import_projection "$(response_body "$imported")"
-	imported_again="$(request "/api/course-instances/$course_reference/roster" "$instructor_cookie" POST '{"entries":[{"email":"mary.okafor@biology.roosevelt.edu","rosterId":"m9-seeded","rosterName":"Synthetic Seeded Student"},{"email":"m9-created@biology.roosevelt.edu","rosterId":"m9-created","rosterName":"Synthetic Created Student"}]}')"
+	imported_again="$(request "/api/course-instances/$course_instance_id/roster" "$instructor_cookie" POST '{"entries":[{"email":"mary.okafor@biology.roosevelt.edu","rosterId":"m9-seeded","rosterName":"Synthetic Seeded Student"},{"email":"m9-created@biology.roosevelt.edu","rosterId":"m9-created","rosterName":"Synthetic Created Student"}]}')"
 	if [ "$(response_status "$imported_again")" != "201" ]; then
 		echo "Course Roster Import was not idempotent" >&2
 		exit 1
 	fi
 	assert_import_projection "$(response_body "$imported_again")"
-	claimed="$(request "/api/course-instances/$course_reference/roster/claim" "$student_cookie" POST '{}')"
+	claimed="$(request "/api/course-instances/$course_instance_id/roster/claim" "$student_cookie" POST '{}')"
 	if [ "$(response_status "$claimed")" != "200" ] || [ "$(response_body "$claimed")" != '{"activeStudentMembership":true}' ]; then
 		echo "Authenticated Student could not claim the exact Course Invitation" >&2
 		exit 1
 	fi
-	listed="$(request "/api/course-instances/$course_reference/roster" "$instructor_cookie")"
+	listed="$(request "/api/course-instances/$course_instance_id/roster" "$instructor_cookie")"
 	if [ "$(response_status "$listed")" != "200" ]; then
 		echo "Instructor could not load the authorized Course Roster" >&2
 		exit 1
 	fi
 	assert_active_projection "$(response_body "$listed")"
-	revoked="$(request "/api/course-instances/$course_reference/roster/m9-seeded/revoke" "$instructor_cookie" POST '{}')"
+	revoked="$(request "/api/course-instances/$course_instance_id/roster/m9-seeded/revoke" "$instructor_cookie" POST '{}')"
 	if [ "$(response_status "$revoked")" != "204" ]; then
 		echo "Instructor could not revoke exact Student course access" >&2
 		exit 1
 	fi
-	assert_concealed "$(request "/api/course-instances/$course_reference/roster/claim" "$student_cookie" POST '{}')"
-	assert_database_evidence "$course_reference"
+	assert_concealed "$(request "/api/course-instances/$course_instance_id/roster/claim" "$student_cookie" POST '{}')"
+	assert_database_evidence "$course_instance_id"
 	echo "Course Roster authority: idempotent import, exact Student Record claim, and immediate revocation complete"
 }
 

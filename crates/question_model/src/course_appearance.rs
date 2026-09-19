@@ -145,18 +145,18 @@ macro_rules! impl_banner_route_id {
 ///
 /// This is a browser-safe delivery identity, not an object-store key.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct CourseBannerReference(Uuid);
+pub struct CourseBannerId(Uuid);
 
-impl_banner_route_id!(CourseBannerReference);
+impl_banner_route_id!(CourseBannerId);
 
-/// Opaque reference returned after an authorized Course Banner Upload.
+/// Opaque ID returned after an authorized Course Banner Upload.
 ///
 /// The server binds it to the course, Account, and expiry before accepting
 /// it in a Course Banner promotion. It reveals no physical storage identity.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct CourseBannerUploadReference(Uuid);
+pub struct CourseBannerUploadId(Uuid);
 
-impl_banner_route_id!(CourseBannerUploadReference);
+impl_banner_route_id!(CourseBannerUploadId);
 
 /// The single server-owned Course Banner rendition.
 ///
@@ -245,8 +245,8 @@ pub enum CourseBannerAlternativeText {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct CourseBanner {
-    /// Opaque reference resolved only through the same-origin asset route.
-    pub reference: CourseBannerReference,
+    /// Same-origin Course Banner ID resolved through the asset route.
+    pub id: CourseBannerId,
     /// Explicit decorative or informative treatment.
     pub alternative_text: CourseBannerAlternativeText,
 }
@@ -256,7 +256,7 @@ pub struct CourseBanner {
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct CourseBannerUploadReceipt {
     /// Opaque upload accepted by a later atomic appearance update.
-    pub upload: CourseBannerUploadReference,
+    pub upload: CourseBannerUploadId,
 }
 
 /// Strict request that promotes one already-authorized Course Banner Upload.
@@ -264,7 +264,7 @@ pub struct CourseBannerUploadReceipt {
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct CourseBannerUpdate {
     /// Opaque upload staged by this same Account for this same Course.
-    pub upload: CourseBannerUploadReference,
+    pub upload: CourseBannerUploadId,
     /// Explicit accessibility treatment stored with the promoted banner.
     pub alternative_text: CourseBannerAlternativeText,
 }
@@ -340,7 +340,7 @@ mod tests {
         let appearance = CourseAppearanceView {
             theme: CourseTheme::Ocean,
             banner: Some(CourseBanner {
-                reference: CourseBannerReference::from_uuid(Uuid::from_u128(7)),
+                id: CourseBannerId::from_uuid(Uuid::from_u128(7)),
                 alternative_text: CourseBannerAlternativeText::Decorative,
             }),
         };
@@ -350,14 +350,25 @@ mod tests {
             serde_json::json!({
                 "theme": "ocean",
                 "banner": {
-                    "reference": "00000000-0000-0000-0000-000000000007",
+                    "id": "00000000-0000-0000-0000-000000000007",
                     "alternativeText": { "kind": "decorative" }
                 }
             })
         );
-        assert!(
+        assert_eq!(
             serde_json::from_value::<CourseBanner>(serde_json::json!({
                 "id": "00000000-0000-0000-0000-000000000007",
+                "alternativeText": { "kind": "decorative" }
+            }))
+            .expect("Course Banner reader JSON uses id"),
+            CourseBanner {
+                id: CourseBannerId::from_uuid(Uuid::from_u128(7)),
+                alternative_text: CourseBannerAlternativeText::Decorative,
+            }
+        );
+        assert!(
+            serde_json::from_value::<CourseBanner>(serde_json::json!({
+                "reference": "00000000-0000-0000-0000-000000000007",
                 "alternativeText": { "kind": "decorative" }
             }))
             .is_err()
@@ -374,9 +385,9 @@ mod tests {
     }
 
     #[test]
-    fn upload_receipt_exposes_only_the_route_bound_reference() {
+    fn upload_receipt_exposes_only_the_route_bound_id() {
         let receipt = CourseBannerUploadReceipt {
-            upload: CourseBannerUploadReference::from_uuid(Uuid::from_u128(8)),
+            upload: CourseBannerUploadId::from_uuid(Uuid::from_u128(8)),
         };
         assert_eq!(
             serde_json::to_value(receipt).expect("upload receipt should serialize"),

@@ -350,12 +350,12 @@ BEGIN
          WHERE blueprint_course_id = v_target.blueprint_course_id
            AND blueprint_revision_number = p_expected_revision;
         INSERT INTO ple_data.blueprint_revision_module
-        SELECT v_target.blueprint_course_id, v_result_revision, blueprint_module_reference,
+        SELECT v_target.blueprint_course_id, v_result_revision, blueprint_module_id,
                module_position FROM ple_data.blueprint_revision_module
          WHERE blueprint_course_id = v_target.blueprint_course_id
            AND blueprint_revision_number = p_expected_revision;
         INSERT INTO ple_data.blueprint_revision_assessment
-        SELECT v_target.blueprint_course_id, v_result_revision, blueprint_module_reference,
+        SELECT v_target.blueprint_course_id, v_result_revision, blueprint_module_id,
                blueprint_assessment_id, assessment_position
           FROM ple_data.blueprint_revision_assessment
          WHERE blueprint_course_id = v_target.blueprint_course_id

@@ -9,8 +9,8 @@ use learning_data_access::{
 use question_model::{
     BlueprintAssessmentContentView, BlueprintAssessmentEntryView,
     BlueprintCourseAssessmentContentView, BlueprintCourseSummaryView, BlueprintCourseView,
-    BlueprintModuleView, BlueprintRevisionReference, CreateBlueprintCourseInput, QuestionId,
-    QuestionRevisionReference, QuestionSearchResult, ReplaceBlueprintCourseContentInput,
+    BlueprintModuleView, BlueprintRevisionTuple, CreateBlueprintCourseInput, QuestionId,
+    QuestionRevisionTuple, QuestionSearchResult, ReplaceBlueprintCourseContentInput,
     ReusablePoolView, ReusableQuestionView, ReusableSelectionAvailability,
 };
 
@@ -28,7 +28,7 @@ pub(super) async fn view_from_record(
         long_name: record.long_name,
         availability: record.availability,
         blueprint_edit_number: record.blueprint_edit_number,
-        current_revision: BlueprintRevisionReference {
+        current_revision: BlueprintRevisionTuple {
             blueprint_course_id: record.id,
             revision: record.current_revision,
         },
@@ -49,7 +49,7 @@ pub(super) fn summary_view(
         long_name: record.long_name,
         availability: record.availability,
         blueprint_edit_number: record.blueprint_edit_number,
-        current_revision: BlueprintRevisionReference {
+        current_revision: BlueprintRevisionTuple {
             blueprint_course_id: record.id,
             revision: record.current_revision,
         },
@@ -116,7 +116,7 @@ pub(super) async fn content_modules(
         .iter()
         .map(|module| {
             Ok(BlueprintModuleView {
-                blueprint_module_reference: module.blueprint_module_reference,
+                blueprint_module_id: module.blueprint_module_id,
                 label: module.label.clone(),
                 assessments: module
                     .assessments
@@ -139,7 +139,7 @@ pub(super) async fn content_modules(
 
 fn content_question_revisions(
     content: &StoredBlueprintCourseContent,
-) -> Vec<question_model::QuestionRevisionReference> {
+) -> Vec<question_model::QuestionRevisionTuple> {
     content
         .modules
         .iter()
@@ -156,8 +156,8 @@ fn content_question_revisions(
 }
 fn assessment_content_view(
     content: &StoredBlueprintAssessmentContent,
-    questions: &BTreeMap<QuestionRevisionReference, QuestionSearchResult>,
-    current_question_revisions: &BTreeMap<QuestionId, QuestionRevisionReference>,
+    questions: &BTreeMap<QuestionRevisionTuple, QuestionSearchResult>,
+    current_question_revisions: &BTreeMap<QuestionId, QuestionRevisionTuple>,
 ) -> Result<BlueprintAssessmentContentView, RouteLoadError> {
     let entries = content
         .entries
@@ -210,34 +210,37 @@ fn assessment_content_view(
     })
 }
 fn question_view(
-    reference: &question_model::QuestionRevisionReference,
-    questions: &BTreeMap<QuestionRevisionReference, QuestionSearchResult>,
-    current_question_revisions: &BTreeMap<QuestionId, QuestionRevisionReference>,
+    question_revision: &question_model::QuestionRevisionTuple,
+    questions: &BTreeMap<QuestionRevisionTuple, QuestionSearchResult>,
+    current_question_revisions: &BTreeMap<QuestionId, QuestionRevisionTuple>,
 ) -> Result<ReusableQuestionView, RouteLoadError> {
     Ok(ReusableQuestionView {
-        reference: reference.clone(),
-        question_library: question_search_result(reference, questions)?,
-        selection_availability: selection_availability(reference, current_question_revisions),
+        question_revision: question_revision.clone(),
+        question_library: question_search_result(question_revision, questions)?,
+        selection_availability: selection_availability(
+            question_revision,
+            current_question_revisions,
+        ),
     })
 }
 fn question_search_result(
-    reference: &question_model::QuestionRevisionReference,
-    questions: &BTreeMap<QuestionRevisionReference, QuestionSearchResult>,
+    question_revision: &question_model::QuestionRevisionTuple,
+    questions: &BTreeMap<QuestionRevisionTuple, QuestionSearchResult>,
 ) -> Result<QuestionSearchResult, RouteLoadError> {
-    exact_revision_value(reference, questions)
+    exact_revision_value(question_revision, questions)
         .cloned()
         .ok_or(RouteLoadError::Unavailable)
 }
 
 pub(super) fn exact_revision_value<'a, T>(
-    reference: &QuestionRevisionReference,
-    values: &'a BTreeMap<QuestionRevisionReference, T>,
+    reference: &QuestionRevisionTuple,
+    values: &'a BTreeMap<QuestionRevisionTuple, T>,
 ) -> Option<&'a T> {
     values.get(reference)
 }
 pub(super) fn selection_availability(
-    reference: &question_model::QuestionRevisionReference,
-    current_question_revisions: &BTreeMap<QuestionId, QuestionRevisionReference>,
+    reference: &question_model::QuestionRevisionTuple,
+    current_question_revisions: &BTreeMap<QuestionId, QuestionRevisionTuple>,
 ) -> ReusableSelectionAvailability {
     if current_question_revisions.get(&reference.question_id) == Some(reference) {
         ReusableSelectionAvailability::Available

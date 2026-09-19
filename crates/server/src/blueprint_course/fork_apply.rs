@@ -19,10 +19,10 @@ use super::{
 pub(super) async fn apply_fork_update(
     State(state): State<BlueprintCourseRouteState>,
     headers: HeaderMap,
-    Path(reference): Path<String>,
+    Path(blueprint_course_id): Path<String>,
     payload: Result<Json<BlueprintForkApplyRequest>, JsonRejection>,
 ) -> Response {
-    let reference = match parse_blueprint_course_id(&reference) {
+    let blueprint_course_id = match parse_blueprint_course_id(&blueprint_course_id) {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -37,11 +37,8 @@ pub(super) async fn apply_fork_update(
         Ok(value) => value,
         Err(error) => return route_error(error.status(), "Blueprint fork update is invalid"),
     };
-    if request.expected_fork.blueprint_course_id != reference {
-        return route_error(
-            StatusCode::BAD_REQUEST,
-            "Blueprint fork reference does not match",
-        );
+    if request.expected_fork.blueprint_course_id != blueprint_course_id {
+        return route_error(StatusCode::BAD_REQUEST, "Blueprint fork ID does not match");
     }
     let result = match state
         .blueprints

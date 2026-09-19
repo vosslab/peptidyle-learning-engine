@@ -5,7 +5,7 @@
 
 use async_trait::async_trait;
 use objects::Sha256Checksum;
-use question_model::{BloomClassification, QuestionRevisionReference};
+use question_model::{BloomClassification, QuestionRevisionTuple};
 use uuid::Uuid;
 
 use crate::StoreError;
@@ -64,7 +64,7 @@ pub enum BloomPreparationCandidate {
         /// Exact candidate Pool Description.
         description: String,
         /// Ordered exact Published Question Revision members.
-        members: Vec<QuestionRevisionReference>,
+        members: Vec<QuestionRevisionTuple>,
     },
 }
 

@@ -12,7 +12,7 @@ use crate::question_tag::Tag;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct QuestionAssetReference {
+pub struct QuestionAssetTuple {
     pub question_asset: QuestionAssetId,
     pub checksum: String,
 }
@@ -32,7 +32,7 @@ pub enum QuestionContentBlock {
         description: String,
     },
     Image {
-        question_asset: QuestionAssetReference,
+        question_asset: QuestionAssetTuple,
         description: String,
     },
     Code {
@@ -138,7 +138,6 @@ impl QuestionMetadata {
 pub struct DraftQuestionSummary {
     pub draft_question: uuid::Uuid,
     pub workspace: WorkspaceId,
-    pub authoring_workspace: crate::AuthoringWorkspaceReference,
     pub question_title: String,
     pub question_backend: crate::question_library::QuestionBackend,
 }

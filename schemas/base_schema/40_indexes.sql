@@ -538,8 +538,8 @@ CREATE INDEX blueprint_course_watch_notification_blueprint_course_id_fk_idx
 CREATE INDEX course_banner_storage_subject_course_instance_i_c9e745db_fk_idx
     ON ple_private.course_banner_storage_subject (course_instance_id, course_banner_id);
 
-CREATE INDEX course_banner_storage_subject_course_banner_upload_id_fk_idx
-    ON ple_private.course_banner_storage_subject (course_banner_upload_id);
+CREATE INDEX course_banner_storage_subject_course_banner_upload_reference_fk_idx
+    ON ple_private.course_banner_storage_subject (course_banner_upload_reference);
 
 CREATE INDEX course_banner_upload_account_id_fk_idx
     ON ple_private.course_banner_upload (account_id);

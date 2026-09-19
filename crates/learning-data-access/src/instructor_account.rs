@@ -55,15 +55,15 @@ pub struct CreateInstructorAccountInput {
     ///
     /// The Store derives the approving Sysadmin from the authenticated session;
     /// this opaque reference only binds that completed decision to the candidate.
-    pub vetting_decision_reference: InstructorIdentityVettingDecisionReference,
+    pub vetting_decision_id: InstructorIdentityVettingDecisionId,
 }
 
 /// Opaque durable reference to an immutable completed Instructor identity check.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct InstructorIdentityVettingDecisionReference(Uuid);
+pub struct InstructorIdentityVettingDecisionId(Uuid);
 
-impl InstructorIdentityVettingDecisionReference {
+impl InstructorIdentityVettingDecisionId {
     /// Reconstitutes the private audit identity returned by the trusted Store.
     pub fn from_uuid(value: Uuid) -> Self {
         Self(value)
@@ -154,7 +154,7 @@ pub trait InstructorAccountStore: Send + Sync {
         &self,
         session_token_hash: SessionTokenHash,
         input: CompleteInstructorIdentityVettingInput,
-    ) -> Result<InstructorIdentityVettingDecisionReference, StoreError>;
+    ) -> Result<InstructorIdentityVettingDecisionId, StoreError>;
 
     /// Lists browser-safe rows with only the authenticated Sysadmin's display zone.
     async fn list_instructor_accounts(

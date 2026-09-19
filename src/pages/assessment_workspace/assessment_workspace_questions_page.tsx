@@ -69,20 +69,20 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
   const descriptions = createMemo(() => {
     const known = new Map<string, string>();
     for (const question of workspace.assessment().workspace.questions)
-      known.set(questionRevisionKey(question.reference), question.description);
+      known.set(questionRevisionKey(question.questionRevision), question.description);
     for (const question of available())
-      known.set(questionRevisionKey(question.reference), question.description);
+      known.set(questionRevisionKey(question.questionRevision), question.description);
     return known;
   });
   const fixedBlooms = createMemo(() => {
     const known = new Map<string, BloomClassificationView>();
     for (const question of workspace.assessment().workspace.questions) {
       if (question.bloom !== null)
-        known.set(questionRevisionKey(question.reference), question.bloom);
+        known.set(questionRevisionKey(question.questionRevision), question.bloom);
     }
     for (const question of available()) {
       if (question.bloom !== null)
-        known.set(questionRevisionKey(question.reference), question.bloom);
+        known.set(questionRevisionKey(question.questionRevision), question.bloom);
     }
     return known;
   });
@@ -91,7 +91,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     for (const entry of entries()) {
       const bloom =
         entry.kind === "fixedQuestion"
-          ? fixedBlooms().get(questionRevisionKey(entry.reference))
+          ? fixedBlooms().get(questionRevisionKey(entry.questionRevision))
           : poolForks().get(entry.id)?.bloom;
       if (bloom !== undefined && bloom !== null) known.set(entry.id, bloom);
     }
@@ -117,7 +117,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
         !entries().some(
           (entry) =>
             entry.kind === "fixedQuestion" &&
-            questionRevisionKey(entry.reference) === questionRevisionKey(candidate.reference),
+            questionRevisionKey(entry.questionRevision) === questionRevisionKey(candidate.questionRevision),
         ),
     ),
   );
@@ -191,7 +191,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     }
   }
 
-  function description(reference: AssessmentQuestionPickerEntry["reference"]): string {
+  function description(reference: AssessmentQuestionPickerEntry["questionRevision"]): string {
     return descriptions().get(questionRevisionKey(reference)) ?? "Published Question";
   }
 
@@ -300,7 +300,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     const unresolved: string[] = [];
     // ASVS 2.2.1: resolve IDs only against the available Published summaries, never invent pins.
     for (const id of ids) {
-      const matches = availableToAdd().filter((candidate) => candidate.reference.questionId === id);
+      const matches = availableToAdd().filter((candidate) => candidate.questionRevision.questionId === id);
       if (matches.length === 1) candidates.push(matches[0]!);
       else unresolved.push(id);
     }
@@ -496,7 +496,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
 
   async function replacePoolMembers(
     entry: Extract<AssessmentEntry, { readonly kind: "questionPool" }>,
-    members: ReadonlyArray<AssessmentQuestionPickerEntry["reference"]>,
+    members: ReadonlyArray<AssessmentQuestionPickerEntry["questionRevision"]>,
   ): Promise<void> {
     const fork = poolForks().get(entry.id);
     if (dirty() || needsReload() || fork === undefined) return;

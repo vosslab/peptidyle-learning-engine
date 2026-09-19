@@ -37,7 +37,7 @@ pub use question_backend::{
     QuestionBackend, SafeImathasQuestionRender, SupportedImathasProfile,
 };
 pub use question_model::{
-    DraftImathasQuestionBackendBinding, ImathasDeploymentReference, ImathasItemReference,
+    DraftImathasQuestionBackendBinding, ImathasDeploymentId, ImathasItemId,
     ImathasProfile, ImathasQuestionBackendBinding,
 };
 
@@ -61,8 +61,8 @@ use question_model::QuestionContentBlock;
 use question_model::generation::QuestionSeed;
 #[cfg(test)]
 use question_model::{
-    ObjectId, QuestionAttemptId, QuestionId, QuestionRevisionNumber, QuestionRevisionReference,
-    SourceObjectChecksum, SourceObjectReference, Timestamp,
+    ObjectId, QuestionAttemptId, QuestionId, QuestionRevisionNumber, QuestionRevisionTuple,
+    SourceObjectChecksum, Timestamp,
 };
 #[cfg(test)]
 use uuid::Uuid;

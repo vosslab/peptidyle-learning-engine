@@ -1,6 +1,6 @@
 //! Strict browser/server contracts for the non-mutating Student View Scenario preview plane.
 //!
-//! A route request owns any `M-` Course Membership Reference. The Store resolves and discards
+//! A route request owns any `M-` Course Membership ID. The Store resolves and discards
 //! that Reference before returning the owned [`StudentViewScenario`]. That value is
 //! immutable, self-contained, and identity-free; later preview evaluation only
 //! borrows it and returns an owned closed Student View Scenario.
@@ -9,8 +9,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     AccommodationAdjustmentView, AccommodationApplicationRuleView, AssessmentEditNumber,
-    AssessmentId, CourseMembershipReference, LateWorkRule, LocalDateAndTime,
-    MAX_ASSESSMENT_ATTEMPT_LIMIT, MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS, TeachingDisplayLabel,
+    AssessmentId, CourseMembershipId, LateWorkRule, LocalDateAndTime, MAX_ASSESSMENT_ATTEMPT_LIMIT,
+    MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS, TeachingDisplayLabel,
 };
 
 /// Zone-free Instructor wall-clock input. The authorized Account zone resolves it at the boundary.
@@ -41,7 +41,7 @@ pub struct HypotheticalStudentViewScenarioModifiers {
     pub adjustment: AccommodationAdjustmentView,
 }
 
-/// Request-bound selected-Student Course Membership Reference used only to construct an
+/// Request-bound selected-Student Course Membership ID used only to construct an
 /// identity-free Student View Scenario.
 ///
 /// The returned scenario deliberately has no corresponding field.
@@ -51,7 +51,7 @@ pub struct SelectedStudentViewScenarioRequest {
     pub assessment: AssessmentId,
     pub edit_number: AssessmentEditNumber,
     pub selected_moment: PreviewSelectedMoment,
-    pub selected_student_membership: CourseMembershipReference,
+    pub selected_student_membership: CourseMembershipId,
 }
 
 /// Closed, sanitized Assessment Policy Source kind labels. These never carry a membership or person Reference.
@@ -327,13 +327,13 @@ pub enum ActiveStudentCourseMembershipDenialReason {
 )]
 pub enum InstructorPreviewScheduleRow {
     Granted {
-        membership: CourseMembershipReference,
+        membership: CourseMembershipId,
         display: TeachingDisplayLabel,
         active_student_course_membership: ActiveStudentCourseMembershipGrantReason,
         effective_assessment_policy: EffectiveAssessmentPolicyView,
     },
     Denied {
-        membership: CourseMembershipReference,
+        membership: CourseMembershipId,
         display: TeachingDisplayLabel,
         reason: ActiveStudentCourseMembershipDenialReason,
     },

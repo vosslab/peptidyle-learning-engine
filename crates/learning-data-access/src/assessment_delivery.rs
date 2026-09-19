@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use browser_api_contract::student_assessment_decision::StudentAssessmentDecisionSummary;
 use question_model::{
     AssessmentAttemptId, AssessmentId, AssessmentType, CourseInstanceId, CourseTheme,
-    GradingResult, QuestionAssetId, QuestionAttemptId, QuestionId, QuestionRevisionReference,
+    GradingResult, QuestionAssetId, QuestionAttemptId, QuestionId, QuestionRevisionTuple,
     StudentAssessmentAttemptProgress, StudentFeedback, StudentFeedbackReleaseRule, StudentResponse,
     Timestamp,
 };
@@ -108,7 +108,7 @@ pub struct StudentAssessmentAttemptHistoryQuestion {
     /// This history projection never resolves a current Question or Assessment
     /// entry: its revision identity is part of the durable Student Work
     /// evidence that makes old presentations and their assets interpretable.
-    pub question_revision: QuestionRevisionReference,
+    pub question_revision: QuestionRevisionTuple,
     pub response_state: LiveAssessmentPreviousAttemptState,
     /// Readable submitted response, released independently from all grading
     /// and feedback fields. Omitted when withheld or exact reproduction fails.
@@ -385,7 +385,7 @@ pub struct NativeAssessmentIssuanceBatch {
 /// input for selected-presentation and saved-response interpretation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StudentAssessmentAttemptPresentationEvidence {
-    pub question_revision: QuestionRevisionReference,
+    pub question_revision: QuestionRevisionTuple,
     /// Static or seeded reproduction facts. These never cross the HTTP seam.
     pub reproduction: question_model::QuestionReproduction,
     pub presentation_nonce: String,

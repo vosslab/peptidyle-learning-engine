@@ -15,15 +15,14 @@ import {
   decodeRecord,
   decodeStringEnum,
 } from "../decoder";
-import { decodeCourseName, field, requireOnlyFields } from "./shared";
 import {
-  type AssessmentAttemptRouteReference,
-  type AssessmentRouteReference,
-  type CourseInstanceRouteReference,
-  parseAssessmentAttemptReference,
-  parseAssessmentId,
-  parseCourseInstanceId,
-} from "../../navigation/public_route";
+  decodeAssessmentId,
+  decodeCourseInstanceId,
+  decodeCourseName,
+  field,
+  requireOnlyFields,
+} from "./shared";
+import { type AssessmentAttemptRouteId, parseAssessmentAttemptId } from "../../navigation/public_route";
 import { COURSE_THEME_VALUES } from "../../../generated/api/CourseTheme";
 import { decodeAccountTimeZone } from "./student_assessment_decision";
 import { decodeStudentQuestionPresentation } from "./presentation_delivery";
@@ -35,27 +34,13 @@ function state(value: unknown, path: string): StudentAssessmentAttemptResponseSt
   throw new DecodeError(path, "an answer-free response state");
 }
 
-function decodeAssessmentAttemptReference(
+function decodeAssessmentAttemptId(
   value: unknown,
   path: string,
-): AssessmentAttemptRouteReference {
+): AssessmentAttemptRouteId {
   if (typeof value !== "string") throw new DecodeError(path, "an Assessment Attempt UUID");
-  const parsed = parseAssessmentAttemptReference(value);
+  const parsed = parseAssessmentAttemptId(value);
   if (parsed === null) throw new DecodeError(path, "an Assessment Attempt UUID");
-  return parsed;
-}
-
-function decodeCourseReference(value: unknown, path: string): CourseInstanceRouteReference {
-  if (typeof value !== "string") throw new DecodeError(path, "a Course CI reference");
-  const parsed = parseCourseInstanceId(value);
-  if (parsed === null) throw new DecodeError(path, "a Course CI reference");
-  return parsed;
-}
-
-function decodeAssessmentId(value: unknown, path: string): AssessmentRouteReference {
-  if (typeof value !== "string") throw new DecodeError(path, "an Assessment A reference");
-  const parsed = parseAssessmentId(value);
-  if (parsed === null) throw new DecodeError(path, "an Assessment A reference");
   return parsed;
 }
 
@@ -81,7 +66,7 @@ export function decodeStudentAssessmentAttemptContext(
   const remaining = field(record, "timerRemainingMilliseconds", path);
   const expiresAt = field(record, "expiresAt", path);
   return {
-    assessmentAttempt: decodeAssessmentAttemptReference(
+    assessmentAttempt: decodeAssessmentAttemptId(
       field(record, "assessmentAttempt", path),
       `${path}.assessmentAttempt`,
     ),
@@ -99,7 +84,7 @@ export function decodeStudentAssessmentAttemptContext(
         ? null
         : decodeNonnegativeInteger(remaining, `${path}.timerRemainingMilliseconds`),
     course: {
-      id: decodeCourseReference(field(course, "id", `${path}.course`), `${path}.course.id`),
+      id: decodeCourseInstanceId(field(course, "id", `${path}.course`), `${path}.course.id`),
       shortName: decodeCourseName(
         field(course, "shortName", `${path}.course`),
         `${path}.course.shortName`,
@@ -170,7 +155,7 @@ export function decodeStudentAssessmentAttemptProgress(
     throw new DecodeError(`${path}.positions`, "each 1-based issued position exactly once");
   if (recommendedPosition !== null && recommendedPosition > questionCount)
     throw new DecodeError(`${path}.recommendedPosition`, "an issued position or null");
-  const assessmentAttempt = decodeAssessmentAttemptReference(
+  const assessmentAttempt = decodeAssessmentAttemptId(
     field(record, "assessmentAttempt", path),
     `${path}.assessmentAttempt`,
   );
@@ -205,7 +190,7 @@ export function decodeStudentAssessmentAttemptResponseSaveAcknowledgement(
   if (responseState !== "saved")
     throw new DecodeError(`${path}.responseState`, 'the durable response state "saved"');
   return {
-    assessmentAttempt: decodeAssessmentAttemptReference(
+    assessmentAttempt: decodeAssessmentAttemptId(
       field(record, "assessmentAttempt", path),
       `${path}.assessmentAttempt`,
     ),
@@ -227,7 +212,7 @@ export function decodeStudentAssessmentAttemptSubmissionResult(
       'the Assessment Attempt submission state "submitted"',
     );
   return {
-    assessmentAttempt: decodeAssessmentAttemptReference(
+    assessmentAttempt: decodeAssessmentAttemptId(
       field(record, "assessmentAttempt", path),
       `${path}.assessmentAttempt`,
     ),

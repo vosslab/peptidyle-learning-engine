@@ -40,9 +40,9 @@ function decodeCourseBannerAlternativeText(
 
 function decodeCourseBanner(value: unknown, path: string): CourseBanner {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["reference", "alternativeText"]);
+  requireOnlyFields(record, path, ["id", "alternativeText"]);
   return {
-    reference: decodeUuid(field(record, "reference", path), `${path}.reference`),
+    id: decodeUuid(field(record, "id", path), `${path}.id`),
     alternativeText: decodeCourseBannerAlternativeText(
       field(record, "alternativeText", path),
       `${path}.alternativeText`,

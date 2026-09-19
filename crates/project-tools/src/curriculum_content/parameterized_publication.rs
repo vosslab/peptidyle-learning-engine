@@ -21,8 +21,8 @@ use learning_data_access::{
 use objects::{ObjectAddress, ObjectStore, PutObject};
 use question_model::{
     ObjectId, QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship, QuestionBackend,
-    QuestionFormat, QuestionLicense, QuestionRevisionReason, QuestionRevisionReference,
-    QuestionType, SourceObjectChecksum, SourceObjectReference, Timestamp, WorkspaceId,
+    QuestionFormat, QuestionLicense, QuestionRevisionReason, QuestionRevisionTuple, QuestionType,
+    SourceObjectChecksum, Timestamp, WorkspaceId,
 };
 use server_core::question_publication::{
     NewQuestionLineagePublicationCommand, NewQuestionLineagePublisher, RandomQuestionIdIssuer,
@@ -249,7 +249,7 @@ struct PreparedSource {
 
 struct AdmittedSource {
     prepared: PreparedSource,
-    existing: Option<QuestionRevisionReference>,
+    existing: Option<QuestionRevisionTuple>,
     resumable_draft: Option<AuthoringDraft>,
 }
 
@@ -349,7 +349,7 @@ fn existing_publication(
     context: &SourceContext,
     authorship: &QuestionAuthorship,
     license: &QuestionLicense,
-) -> Result<Option<QuestionRevisionReference>> {
+) -> Result<Option<QuestionRevisionTuple>> {
     let matches = entries
         .get(&source.pg_sha256)
         .map(Vec::as_slice)
@@ -395,7 +395,7 @@ async fn publish_source(
     bindings: &PostgresDraftQuestionSourceBindingStore,
     objects: &objects::s3::S3ObjectStore,
     issuer: &RandomQuestionIdIssuer,
-) -> Result<QuestionRevisionReference> {
+) -> Result<QuestionRevisionTuple> {
     let draft = matching_or_new_draft(
         session,
         workspace,
@@ -425,9 +425,7 @@ async fn publish_source(
                 question_type: context.question_type,
                 webwork_pg_path: Some(source.webwork_pg_path.clone()),
                 draft_imathas_question_backend_binding: None,
-                source_object_reference: SourceObjectReference {
-                    object: draft.source_record.id,
-                },
+                source_object_id: draft.source_record.id,
                 source_object_checksum: checksum,
             },
         )
@@ -568,13 +566,13 @@ struct ReceiptSource {
     webwork_pg_path: String,
     canonical_author_source_url: String,
     canonical_author_source_checksum: String,
-    question_revision: QuestionRevisionReference,
+    question_revision: QuestionRevisionTuple,
 }
 
 impl Receipt {
     /// Returns the immutable Question Revision produced for each admitted
     /// source so the fresh publisher can construct direct Fixed entries.
-    pub(crate) fn question_revisions(&self) -> BTreeMap<String, QuestionRevisionReference> {
+    pub(crate) fn question_revisions(&self) -> BTreeMap<String, QuestionRevisionTuple> {
         self.sources
             .iter()
             .map(|source| (source.source_id.clone(), source.question_revision.clone()))
@@ -583,7 +581,7 @@ impl Receipt {
 
     fn new(
         manifest: &Manifest,
-        published: BTreeMap<String, QuestionRevisionReference>,
+        published: BTreeMap<String, QuestionRevisionTuple>,
     ) -> Result<Self> {
         let sources = manifest
             .parameterized_sources

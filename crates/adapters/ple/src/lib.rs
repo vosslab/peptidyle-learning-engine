@@ -1,7 +1,7 @@
 //! First-party PLE Question JSON backend.
 //!
 //! PLE executes the exact immutable JSON source registered for one Question
-//! Revision Reference. It never reconstructs a generic Question Revision or
+//! Revision Tuple. It never reconstructs a generic Question Revision or
 //! Draft Question Content from that source.
 
 use question_model::{
@@ -34,9 +34,9 @@ pub const GRADING_VERSION: &str = "1";
 
 /// Trusted server-side relationship between one PLE asset and immutable object bytes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct QuestionAssetObjectReference {
+pub struct QuestionAssetObjectTuple {
     pub question_asset: question_model::QuestionAssetId,
-    pub object_reference: ObjectId,
+    pub object_id: ObjectId,
 }
 
 /// Key-free PLE Issued Question returned at Question Attempt issue time.

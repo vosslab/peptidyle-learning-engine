@@ -9,9 +9,7 @@ use sqlx::{Postgres, Row, Transaction, types::Json};
 
 use super::{
     Pool,
-    assessment_release::{
-        assessment_reference, decode_workspace, schedule_context, workspace_rows,
-    },
+    assessment_release::{decode_workspace, schedule_context, workspace_rows},
     connection::map_sqlx_error,
 };
 use crate::{
@@ -172,26 +170,26 @@ impl AssessmentTemplateStore for PostgresAssessmentTemplateStore {
         course: CourseInstanceId,
         input: CreateAssessmentFromTemplateInput,
     ) -> Result<LiveAssessmentWorkspace, StoreError> {
-        let assessment_id = crate::random_uuid::random_uuid_v4(|_| {
+        let minted_assessment_uuid = crate::random_uuid::random_uuid_v4(|_| {
             StoreError::Unavailable("Assessment UUID randomness unavailable".to_owned())
         })?;
         let mut transaction = self.begin(session_token_hash).await?;
         // ASVS 1.2.4, 2.3.3, and 8.2.2: the one bound procedure authorizes
         // both source Template and destination Course before copying by value.
-        let reference = sqlx::query_scalar::<_, String>(
+        let assessment_id = sqlx::query_scalar::<_, String>(
             "SELECT assessment_id \
              FROM ple_api.create_assessment_from_template($1, $2, $3, $4)",
         )
-        .bind(assessment_id)
+        .bind(minted_assessment_uuid)
         .bind(course.as_string())
         .bind(input.template_id.as_uuid())
         .bind(input.title.as_str())
         .fetch_one(&mut *transaction)
         .await
         .map_err(map_sqlx_error)
-        .and_then(assessment_reference)?;
+        .and_then(super::assessment_release::assessment_id)?;
         let context = schedule_context(&mut transaction, &course).await?;
-        let rows = workspace_rows(&mut transaction, &course, &reference).await?;
+        let rows = workspace_rows(&mut transaction, &course, &assessment_id).await?;
         let assessment = decode_workspace(&rows, &context)?.ok_or(StoreError::NotFound)?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(assessment)

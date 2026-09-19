@@ -2,7 +2,7 @@
 
 import { createSignal, For, type JSX } from "solid-js";
 
-import type { ResponseItemReference } from "../../../generated/api/ResponseItemReference";
+import type { ResponseItemId } from "../../../generated/api/ResponseItemId";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
 
 import { handleQuestionResponseControlKeyDown } from "./keyboard";
@@ -36,7 +36,7 @@ function initialMatches(
       ? props.initialResponse.matches.map((pair) => [pair.prompt, pair.choice])
       : [],
   );
-  const assignedChoices = new Set<ResponseItemReference>();
+  const assignedChoices = new Set<ResponseItemId>();
   return props.responseFormat.prompts.map((prompt) => {
     const choice = restored.get(prompt.id) ?? "";
     const available = props.responseFormat.choices.some((candidate) => candidate.id === choice);
@@ -54,35 +54,35 @@ export function MatchingResponse(
 ): JSX.Element {
   const initial = initialMatches(props);
   const [matches, setMatches] = createSignal<ReadonlyArray<StudentMatch>>(initial);
-  const [pendingChoice, setPendingChoice] = createSignal<ResponseItemReference>("");
+  const [pendingChoice, setPendingChoice] = createSignal<ResponseItemId>("");
   const [announcement, setAnnouncement] = createSignal("");
   let bank!: HTMLDivElement;
   // A drop must originate from this bank, not arbitrary external drag data.
-  let draggedChoice: ResponseItemReference = "";
+  let draggedChoice: ResponseItemId = "";
   const response = (): StudentResponse => matchingResponseFromSlots(matches());
   const controller = createResponseController(props, response());
   const reuseChoices = (): boolean => choicesMayBeReused(props.responseFormat);
 
-  function assignedChoice(prompt: ResponseItemReference): ResponseItemReference {
+  function assignedChoice(prompt: ResponseItemId): ResponseItemId {
     return matches().find((match) => match.prompt === prompt)?.choice ?? "";
   }
-  function choiceText(choice: ResponseItemReference): string {
+  function choiceText(choice: ResponseItemId): string {
     const item = props.responseFormat.choices.find((candidate) => candidate.id === choice);
     return item === undefined ? "" : textFromBlocks(item.body);
   }
-  function usageCount(choice: ResponseItemReference): number {
+  function usageCount(choice: ResponseItemId): number {
     return matches().filter((match) => match.choice === choice).length;
   }
-  function unavailable(choice: ResponseItemReference): boolean {
+  function unavailable(choice: ResponseItemId): boolean {
     return !reuseChoices() && usageCount(choice) > 0;
   }
-  function select(choice: ResponseItemReference): void {
+  function select(choice: ResponseItemId): void {
     if (controller.locked() || unavailable(choice)) return;
     setPendingChoice(choice);
     setAnnouncement("");
   }
 
-  function update(prompt: ResponseItemReference, choice: ResponseItemReference): void {
+  function update(prompt: ResponseItemId, choice: ResponseItemId): void {
     // ASVS 2.2.1: constrain all assignment paths to the public format and its reuse rule.
     if (controller.locked()) return;
     if (!props.responseFormat.prompts.some((candidate) => candidate.id === prompt)) return;
@@ -102,7 +102,7 @@ export function MatchingResponse(
     const promptText = item === undefined ? "" : textFromBlocks(item.body);
     setAnnouncement(choice === "" ? `Cleared ${promptText}.` : `Assigned to ${promptText}.`);
   }
-  function assignPending(prompt: ResponseItemReference): void {
+  function assignPending(prompt: ResponseItemId): void {
     if (controller.locked()) return;
     if (pendingChoice() === "") {
       setAnnouncement("Select a choice from the bank first.");

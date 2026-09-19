@@ -21,7 +21,7 @@ import {
 import type { QuestionDetails } from "../../generated/api/QuestionDetails";
 import type { QuestionId } from "../../generated/api/QuestionId";
 import type { QuestionRevisionNumber } from "../../generated/api/QuestionRevisionNumber";
-import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
+import type { QuestionRevisionTuple } from "../../generated/api/QuestionRevisionTuple";
 import type { BloomClassificationView } from "../../generated/api/BloomClassificationView";
 import { useApplicationApi } from "../api/application_api";
 import { useSessionBootstrap } from "../auth/session_context";
@@ -43,7 +43,7 @@ import { LibraryDiscussionPanel } from "../components/library_discussion_panel";
 import { QuestionStarControl } from "../components/question_star_control";
 import { QuestionPromptRenderer } from "../components/question_renderer";
 import { QuestionResponsePreviewControl } from "../components/question_response_preview";
-import { parseQuestionRouteReference } from "../navigation/public_route";
+import { parseQuestionRouteId } from "../navigation/public_route";
 import {
   parseQuestionLibraryReturnToken,
   questionLibraryReturnPath,
@@ -69,12 +69,12 @@ type ArchiveNotice = {
 
 const QUESTION_REVISION_QUERY_PARAMETER = "revision";
 
-function QuestionForkControl(props: { readonly source: QuestionRevisionReference }): JSX.Element {
+function QuestionForkControl(props: { readonly source: QuestionRevisionTuple }): JSX.Element {
   const applicationApi = useApplicationApi();
   const navigate = useNavigate();
   const [forking, setForking] = createSignal(false);
   const [error, setError] = createSignal("");
-  let action: { readonly source: QuestionRevisionReference; readonly key: string } | undefined;
+  let action: { readonly source: QuestionRevisionTuple; readonly key: string } | undefined;
   let disposed = false;
   onCleanup(() => {
     disposed = true;
@@ -447,7 +447,7 @@ export function QuestionDetailPage(): JSX.Element {
   let correctionTarget = "";
   const detail = createAsync((): Promise<QuestionDetails> => {
     const questionId = params["questionId"];
-    if (questionId === undefined || parseQuestionRouteReference(questionId) === null) {
+    if (questionId === undefined || parseQuestionRouteId(questionId) === null) {
       throw new Error("The Question ID address is incomplete.");
     }
     const revisionNumber = questionRevisionFromSearch(location.search);

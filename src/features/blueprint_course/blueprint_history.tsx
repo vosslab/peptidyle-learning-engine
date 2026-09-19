@@ -348,7 +348,7 @@ function RevisionContent(props: { readonly revision: BlueprintRevisionView }): J
                 {(entry) => (
                   <li>
                     {entry.kind === "fixed"
-                      ? `Fixed Question ${entry.question.reference.questionId}, Revision ${entry.question.reference.revisionNumber}; ${entry.points_possible} points`
+                      ? `Fixed Question ${entry.question.question_revision.questionId}, Revision ${entry.question.question_revision.revisionNumber}; ${entry.points_possible} points`
                       : `Question Pool ${entry.question_pool_id}, Edit ${entry.question_pool_edit_number}; select ${entry.selection_count}; ${entry.points_per_item} points per Question`}{" "}
                     - scoring {entry.scoring_rule}; Question Attempt limit{" "}
                     {entry.question_attempt_limit.maxAttempts ?? "unlimited"}; time limit{" "}

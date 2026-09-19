@@ -31,7 +31,7 @@ pub use codec::{
     verify_question_presentation,
 };
 pub use model::{
-    PresentationResponseItemReference, PresentedHotspotRegion, PresentedHotspotSurface,
+    PresentationResponseItemId, PresentedHotspotRegion, PresentedHotspotSurface,
     PresentedMatchingChoice, PresentedMatchingPrompt, PresentedOrderingItem,
     PresentedQuestionChoice, PresentedResponseItemContent, PresentedTextEntrySlot,
     QuestionAssetRendition, QuestionPresentation, QuestionPresentationNonce,

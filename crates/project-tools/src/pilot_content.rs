@@ -8,7 +8,7 @@ use adapter_ple::question_json::PleQuestionJsonDocument;
 use anyhow::{Context, Result, bail};
 use question_model::QuestionFormat;
 use question_model::response::{
-    QuestionType, ResponseItemReference, StudentMatch, StudentResponse,
+    QuestionType, ResponseItemId, StudentMatch, StudentResponse,
 };
 use serde::Deserialize;
 use serde_json::Value;
@@ -690,10 +690,10 @@ fn source_responses(
                 })?;
             Ok((
                 StudentResponse::MultipleChoice {
-                    selected: vec![ResponseItemReference::new(correct)],
+                    selected: vec![ResponseItemId::new(correct)],
                 },
                 StudentResponse::MultipleChoice {
-                    selected: vec![ResponseItemReference::new(wrong)],
+                    selected: vec![ResponseItemId::new(wrong)],
                 },
             ))
         }
@@ -726,8 +726,8 @@ fn student_match(value: &Value) -> Result<StudentMatch> {
         .as_object()
         .ok_or_else(|| anyhow::anyhow!("PLE Question JSON match is not an object"))?;
     Ok(StudentMatch {
-        prompt: ResponseItemReference::new(string_field(record, "prompt")?),
-        choice: ResponseItemReference::new(string_field(record, "choice")?),
+        prompt: ResponseItemId::new(string_field(record, "prompt")?),
+        choice: ResponseItemId::new(string_field(record, "choice")?),
     })
 }
 

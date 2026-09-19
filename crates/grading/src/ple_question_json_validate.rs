@@ -6,7 +6,7 @@ use question_model::QuestionContentBlock;
 use question_model::QuestionEvaluation;
 use question_model::answer::ResponseSelectionRule;
 use question_model::response::{
-    QuestionResponseFormat, QuestionType, ResponseItemReference, StudentResponse,
+    QuestionResponseFormat, QuestionType, ResponseItemId, StudentResponse,
 };
 
 use crate::AnswerKey;
@@ -295,12 +295,12 @@ fn normalize_text(value: &str) -> String {
 }
 
 trait SelectableResponseItem {
-    fn id(&self) -> &question_model::response::ResponseItemReference;
+    fn id(&self) -> &question_model::response::ResponseItemId;
     fn body(&self) -> &[QuestionContentBlock];
 }
 
 impl SelectableResponseItem for question_model::response::QuestionChoice {
-    fn id(&self) -> &question_model::response::ResponseItemReference {
+    fn id(&self) -> &question_model::response::ResponseItemId {
         &self.id
     }
     fn body(&self) -> &[QuestionContentBlock] {
@@ -309,7 +309,7 @@ impl SelectableResponseItem for question_model::response::QuestionChoice {
 }
 
 impl SelectableResponseItem for question_model::response::MatchingPrompt {
-    fn id(&self) -> &question_model::response::ResponseItemReference {
+    fn id(&self) -> &question_model::response::ResponseItemId {
         &self.id
     }
     fn body(&self) -> &[QuestionContentBlock] {
@@ -318,7 +318,7 @@ impl SelectableResponseItem for question_model::response::MatchingPrompt {
 }
 
 impl SelectableResponseItem for question_model::response::MatchingChoice {
-    fn id(&self) -> &question_model::response::ResponseItemReference {
+    fn id(&self) -> &question_model::response::ResponseItemId {
         &self.id
     }
     fn body(&self) -> &[QuestionContentBlock] {
@@ -327,7 +327,7 @@ impl SelectableResponseItem for question_model::response::MatchingChoice {
 }
 
 impl SelectableResponseItem for question_model::response::OrderingItem {
-    fn id(&self) -> &question_model::response::ResponseItemReference {
+    fn id(&self) -> &question_model::response::ResponseItemId {
         &self.id
     }
     fn body(&self) -> &[QuestionContentBlock] {
@@ -453,7 +453,7 @@ pub(super) fn validate_key_against_response(
     }
 }
 
-pub(super) fn selectable_ids(response: &QuestionResponseFormat) -> BTreeSet<ResponseItemReference> {
+pub(super) fn selectable_ids(response: &QuestionResponseFormat) -> BTreeSet<ResponseItemId> {
     match response {
         QuestionResponseFormat::MultipleChoice { choices, .. } => {
             choices.iter().map(|choice| choice.id.clone()).collect()

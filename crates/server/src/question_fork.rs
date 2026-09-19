@@ -32,7 +32,7 @@ use objects::{
 };
 use question_model::{
     ObjectId, ProductRole, QuestionBackend, QuestionId, QuestionResponseFormat,
-    QuestionRevisionNumber, QuestionRevisionReference, QuestionType,
+    QuestionRevisionNumber, QuestionRevisionTuple, QuestionType,
 };
 use serde::Serialize;
 use uuid::Uuid;
@@ -132,7 +132,7 @@ async fn fork_published_question(
     let source = match ResolvedQuestionSource::resolve(
         &state.objects,
         source_question_revision.clone(),
-        library_entry.source_object_reference.clone(),
+        library_entry.source_object_id.clone(),
         library_entry.source_object_checksum.clone(),
     )
     .await
@@ -243,7 +243,7 @@ async fn load_hotspot_asset(
     state: &RouteState,
     session: SessionTokenHash,
     entry: &PublishedQuestionLibraryEntry,
-    revision: &QuestionRevisionReference,
+    revision: &QuestionRevisionTuple,
     source: &[u8],
 ) -> Result<Option<VerifiedForkHotspotAsset>, Box<Response>> {
     if entry.question_type != QuestionType::Hotspot {
@@ -347,16 +347,13 @@ async fn cleanup_replayed_candidates(
     }
 }
 
-fn canonical_source(
-    question_id: String,
-    revision_number: String,
-) -> Option<QuestionRevisionReference> {
+fn canonical_source(question_id: String, revision_number: String) -> Option<QuestionRevisionTuple> {
     let question_id = question_id.parse::<QuestionId>().ok()?;
     let revision_number = revision_number
         .parse::<u32>()
         .ok()
         .and_then(|value| QuestionRevisionNumber::new(value).ok())?;
-    Some(QuestionRevisionReference {
+    Some(QuestionRevisionTuple {
         question_id,
         revision_number,
     })

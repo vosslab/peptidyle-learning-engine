@@ -182,7 +182,7 @@ The implementation is complete when:
 - [IDENTITY_CONTRACTS.md](IDENTITY_CONTRACTS.md) defines internal record
   identifiers, relationship scopes, and human-facing references.
 - [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) defines Question
-  Attempt, Presentation Response Item Reference, and presentation-consistency values.
+  Attempt, Presentation Response Item ID, and presentation-consistency values.
 - [QUESTION_MODEL.md](QUESTION_MODEL.md) defines the answer-free question model,
   Question Library browser results, semantic changes, and correction boundary.
 - [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md) defines Account,

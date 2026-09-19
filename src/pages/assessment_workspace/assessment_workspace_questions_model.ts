@@ -3,7 +3,7 @@
 import type { AssessmentEntry } from "../../../generated/api/AssessmentEntry";
 import type { AssessmentEntryId } from "../../../generated/api/AssessmentEntryId";
 import type { AssessmentPointValue } from "../../../generated/api/AssessmentPointValue";
-import type { QuestionRevisionReference } from "../../../generated/api/QuestionRevisionReference";
+import type { QuestionRevisionTuple } from "../../../generated/api/QuestionRevisionTuple";
 import type { BloomClassificationView } from "../../../generated/api/BloomClassificationView";
 import type {
   AssessmentQuestionPickerEntry,
@@ -64,7 +64,7 @@ export function withFixedQuestionPointValues(
 }
 
 /** A stable, exact identity used when comparing pinned Question Revisions. */
-export function questionRevisionKey(reference: QuestionRevisionReference): string {
+export function questionRevisionKey(reference: QuestionRevisionTuple): string {
   return `${reference.questionId}:${reference.revisionNumber}`;
 }
 
@@ -74,10 +74,11 @@ export function appendAvailableFixedQuestion(
   picker: AssessmentQuestionPickerEntry,
   entryId: AssessmentEntryId,
 ): ReadonlyArray<AssessmentEntry> {
-  const key = questionRevisionKey(picker.reference);
+  const key = questionRevisionKey(picker.questionRevision);
   if (
     entries.some(
-      (entry) => entry.kind === "fixedQuestion" && questionRevisionKey(entry.reference) === key,
+      (entry) =>
+        entry.kind === "fixedQuestion" && questionRevisionKey(entry.questionRevision) === key,
     )
   )
     return entries;
@@ -86,7 +87,7 @@ export function appendAvailableFixedQuestion(
     {
       kind: "fixedQuestion",
       id: entryId,
-      reference: picker.reference,
+      questionRevision: picker.questionRevision,
       pointsPossible: "1",
       availability: "available",
       scoringRule: "normal",

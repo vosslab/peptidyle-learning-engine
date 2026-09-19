@@ -13,8 +13,8 @@ use objects::minio::{EndpointConfig, client};
 use objects::s3::{BucketNames, S3ObjectStore};
 use objects::{ObjectAddress, ObjectStore, PutObject, Sha256Checksum};
 use question_model::{
-    CourseBannerAlternativeText, CourseBannerInformativeText, CourseBannerReference,
-    CourseBannerRendition, CourseBannerUpdate, CourseBannerUploadReference, CourseInstanceId,
+    CourseBannerAlternativeText, CourseBannerId, CourseBannerInformativeText,
+    CourseBannerRendition, CourseBannerUpdate, CourseBannerUploadId, CourseInstanceId,
     ObjectId, Timestamp,
 };
 use sqlx::postgres::PgConnection;
@@ -263,7 +263,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
     // needs valid metadata to exercise persistence, not a second frozen copy
     // of a chosen pixel size or a resize policy.
     let (banner_width, banner_height) = CourseBannerRendition::Banner.dimensions();
-    let upload = CourseBannerUploadReference::from_uuid(id(0xcf01));
+    let upload = CourseBannerUploadId::from_uuid(id(0xcf01));
     let upload_bytes = b"source-banner";
     let upload_object = ObjectId::from_uuid(id(0xd001));
     let staged = store
@@ -292,7 +292,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
                 token(4),
                 StageCourseBannerUpload {
                     course: course.clone(),
-                    upload: CourseBannerUploadReference::from_uuid(id(0xcf04)),
+                    upload: CourseBannerUploadId::from_uuid(id(0xcf04)),
                     metadata: metadata(
                         ObjectId::from_uuid(id(0xd004)),
                         upload_bytes,
@@ -325,7 +325,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
                 token(2),
                 StageCourseBannerUpload {
                     course: course.clone(),
-                    upload: CourseBannerUploadReference::from_uuid(id(0xcf02)),
+                    upload: CourseBannerUploadId::from_uuid(id(0xcf02)),
                     metadata: metadata(
                         ObjectId::from_uuid(id(0xd002)),
                         upload_bytes,
@@ -348,7 +348,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
                 token(3),
                 StageCourseBannerUpload {
                     course: course.clone(),
-                    upload: CourseBannerUploadReference::from_uuid(id(0xcf03)),
+                    upload: CourseBannerUploadId::from_uuid(id(0xcf03)),
                     metadata: metadata(
                         ObjectId::from_uuid(id(0xd003)),
                         upload_bytes,
@@ -395,7 +395,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
         "foreign course cannot claim"
     );
 
-    let banner = CourseBannerReference::from_uuid(id(0xcf10));
+    let banner = CourseBannerId::from_uuid(id(0xcf10));
     let source = b"source-banner".to_vec();
     let rendition = webp(banner_width, banner_height, 7);
     let rendition_checksum = Sha256Checksum::compute(&rendition);
@@ -464,14 +464,14 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
         .finalize_course_banner_promotion(token(1), course.clone(), upload, banner)
         .await
         .expect("complete promotion");
-    assert_eq!(finalized.banner.reference, banner);
+    assert_eq!(finalized.banner.id, banner);
     assert_eq!(
         store
             .read_current_course_banner(token(2), course.clone())
             .await
             .expect("Student aggregate")
             .expect("banner")
-            .reference,
+            .id,
         banner
     );
     assert!(
@@ -492,7 +492,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
 
     // A replacement has its own upload and work.  Its incomplete preparation
     // must not disturb the first, already-visible current banner.
-    let replacement_upload = CourseBannerUploadReference::from_uuid(id(0xcf20));
+    let replacement_upload = CourseBannerUploadId::from_uuid(id(0xcf20));
     let replacement_upload_id = ObjectId::from_uuid(id(0xd020));
     let replacement_staged = store
         .stage_course_banner_upload(
@@ -525,7 +525,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
         .finalize_course_banner_upload_stage(token(1), course.clone(), replacement_upload)
         .await
         .expect("complete replacement upload");
-    let replacement_banner = CourseBannerReference::from_uuid(id(0xcf21));
+    let replacement_banner = CourseBannerId::from_uuid(id(0xcf21));
     let replacement_source_id = ObjectId::from_uuid(id(0xd021));
     let replacement_rendition_id = ObjectId::from_uuid(id(0xd022));
     let replacement_source = upload_bytes.to_vec();
@@ -593,7 +593,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
             .await
             .expect("Student old pointer")
             .expect("old banner")
-            .reference,
+            .id,
         banner
     );
     put(
@@ -627,7 +627,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
             .await
             .expect("Student replacement")
             .expect("replacement banner")
-            .reference,
+            .id,
         replacement_banner
     );
     let retired = replacement

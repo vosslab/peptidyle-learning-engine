@@ -8,7 +8,7 @@ use crate::{ImathasQuestionBackendSessionStore, SessionTokenHash, StoreError};
 
 use super::{
     IMATHAS_QUESTION_BACKEND_STATE_NONCE_BYTES, ImathasQuestionBackendSession,
-    ImathasQuestionBackendSessionCreate, ImathasQuestionBackendSessionReference,
+    ImathasQuestionBackendSessionCreate, ImathasQuestionBackendSessionId,
     ImathasQuestionBackendSessionRestoreExpectation, ImathasQuestionBackendStateCipher,
     ImathasQuestionBackendStateKeyId, ImathasQuestionBackendStateKeyRing,
     LoadedImathasQuestionBackendSession,
@@ -27,8 +27,7 @@ struct MemoryState {
     now: Timestamp,
     authenticated_accounts: BTreeMap<SessionTokenHash, AccountId>,
     active_student_authorizations: BTreeSet<(AccountId, CourseInstanceId, QuestionAttemptId)>,
-    records:
-        BTreeMap<ImathasQuestionBackendSessionReference, MemoryImathasQuestionBackendSessionRecord>,
+    records: BTreeMap<ImathasQuestionBackendSessionId, MemoryImathasQuestionBackendSessionRecord>,
     used_nonces: BTreeSet<(
         ImathasQuestionBackendStateKeyId,
         [u8; IMATHAS_QUESTION_BACKEND_STATE_NONCE_BYTES],
@@ -120,7 +119,7 @@ impl ImathasQuestionBackendSessionStore for MemoryImathasQuestionBackendSessionS
         &self,
         token: SessionTokenHash,
         create: ImathasQuestionBackendSessionCreate,
-    ) -> Result<ImathasQuestionBackendSessionReference, StoreError> {
+    ) -> Result<ImathasQuestionBackendSessionId, StoreError> {
         let mut state = self.state.lock().map_err(|_| {
             StoreError::Unavailable(
                 "memory iMathAS Question Backend Session store lock unavailable".into(),
@@ -136,7 +135,7 @@ impl ImathasQuestionBackendSessionStore for MemoryImathasQuestionBackendSessionS
         if create.issued_at > state.now || create.expires_at <= state.now {
             return Err(StoreError::Conflict);
         }
-        let reference = ImathasQuestionBackendSessionReference::generate()?;
+        let reference = ImathasQuestionBackendSessionId::generate()?;
         let (session, plaintext) = create.into_session(reference);
         let cipher = ImathasQuestionBackendStateCipher::seal(&self.key_ring, &session, &plaintext)?;
         if !state
@@ -155,7 +154,7 @@ impl ImathasQuestionBackendSessionStore for MemoryImathasQuestionBackendSessionS
     async fn load_imathas_question_backend_session(
         &self,
         token: SessionTokenHash,
-        reference: ImathasQuestionBackendSessionReference,
+        reference: ImathasQuestionBackendSessionId,
         expectation: ImathasQuestionBackendSessionRestoreExpectation,
     ) -> Result<LoadedImathasQuestionBackendSession, StoreError> {
         let state = self.state.lock().map_err(|_| {

@@ -743,7 +743,7 @@ of identifiable Course records.
 
 Implementation identifiers such as a saved-response row name underlying
 records; they do not imply a per-Question Student submission action. Legacy
-names such as `AssignmentId`, `Id`, `metadata_etag`, or `Available`
+names such as `AssignmentId`, `Id`, `<retired-term-replace-me>`, or `Available`
 must not define current product meaning. Technical terms such as jobs,
 generations, and receipts belong to their implementation boundaries. Use
 precise identifiers when documenting source evidence, with the product meaning

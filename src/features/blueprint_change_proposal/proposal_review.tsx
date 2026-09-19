@@ -142,7 +142,7 @@ export function ProposalReview(props: {
                       <For
                         each={value()
                           .assessments.filter(
-                            (a) => a.blueprintModuleReference === module.blueprintModuleReference,
+                            (a) => a.blueprintModuleId === module.blueprintModuleId,
                           )
                           .sort((a, b) => a.position - b.position)}
                       >
@@ -327,18 +327,18 @@ function DecisionSummary(props: {
   function moduleName(key: string): string {
     if (props.decision.kind === "selected" && key.startsWith("existing:")) {
       const copy = props.decision.selection.sourceModuleLabels.find(
-        (item) => key === "existing:" + item.targetModuleReference,
+        (item) => key === "existing:" + item.targetModuleId,
       );
       if (copy)
         return (
           source().modules.find(
-            (module) => module.blueprintModuleReference === copy.sourceModuleReference,
+            (module) => module.blueprintModuleId === copy.sourceModuleId,
           )?.label ?? key
         );
     }
     return (
       [...source().modules, ...target().modules].find((m) =>
-        key.endsWith(":" + m.blueprintModuleReference),
+        key.endsWith(":" + m.blueprintModuleId),
       )?.label ?? key
     );
   }
@@ -379,14 +379,14 @@ function DecisionSummary(props: {
                   Copy source module label{" "}
                   {
                     source().modules.find(
-                      (m) => m.blueprintModuleReference === copy.sourceModuleReference,
+                      (m) => m.blueprintModuleId === copy.sourceModuleId,
                     )?.label
                   }{" "}
                   to{" "}
-                  {copy.targetModuleReference === null
+                  {copy.targetModuleId === null
                     ? "a new module"
                     : target().modules.find(
-                        (m) => m.blueprintModuleReference === copy.targetModuleReference,
+                        (m) => m.blueprintModuleId === copy.targetModuleId,
                       )?.label}
                   .
                 </p>
@@ -443,7 +443,7 @@ function AcceptedResult(props: {
   function unitName(side: "source" | "target", reference: string, module: boolean): string {
     const inventory = props.detail.comparison[side];
     return module
-      ? (inventory.modules.find((m) => m.blueprintModuleReference === reference)?.label ?? "Module")
+      ? (inventory.modules.find((m) => m.blueprintModuleId === reference)?.label ?? "Module")
       : (inventory.assessments.find((a) => a.blueprintAssessmentId === reference)?.content.title ??
           "Assessment");
   }
@@ -479,11 +479,11 @@ function AcceptedResult(props: {
       >
         {(copy) => (
           <p>
-            Source label {unitName("source", copy.sourceModuleReference, true)} (
-            {copy.sourceModuleReference}) to{" "}
-            {copy.targetModuleReference === null
-              ? `new module (${props.value.newModules[copy.sourceModuleReference] ?? "server-assigned"})`
-              : `${unitName("target", copy.targetModuleReference, true)} (${copy.targetModuleReference})`}
+            Source label {unitName("source", copy.sourceModuleId, true)} (
+            {copy.sourceModuleId}) to{" "}
+            {copy.targetModuleId === null
+              ? `new module (${props.value.newModules[copy.sourceModuleId] ?? "server-assigned"})`
+              : `${unitName("target", copy.targetModuleId, true)} (${copy.targetModuleId})`}
             .
           </p>
         )}
@@ -512,8 +512,8 @@ function AcceptedResult(props: {
                 {(row) => (
                   <li>
                     {row.module.kind === "existing"
-                      ? `${unitName("target", row.module.targetModuleReference, true)} (${row.module.targetModuleReference})`
-                      : `${unitName("source", row.module.sourceModuleReference, true)} (new: ${props.value.newModules[row.module.sourceModuleReference] ?? row.module.sourceModuleReference})`}
+                      ? `${unitName("target", row.module.targetModuleId, true)} (${row.module.targetModuleId})`
+                      : `${unitName("source", row.module.sourceModuleId, true)} (new: ${props.value.newModules[row.module.sourceModuleId] ?? row.module.sourceModuleId})`}
                     <ol>
                       <For each={row.assessments}>
                         {(entry) => (

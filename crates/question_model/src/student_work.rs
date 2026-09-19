@@ -28,7 +28,7 @@ pub use attempt_evidence::{
 pub use grading::{GradingResult, QuestionEvaluation, QuestionEvaluationError, RecordedCredit};
 pub use source_object_checksum::{SourceObjectChecksum, SourceObjectChecksumError};
 
-use crate::QuestionRevisionReference;
+use crate::QuestionRevisionTuple;
 use crate::assessment::{AssessmentEntryScoringRule, AssessmentPointValue};
 use crate::generation::{QuestionReproduction, QuestionSourceSelection};
 use crate::identity::ObjectId;
@@ -104,7 +104,7 @@ pub struct QuestionPoolSelectedItem {
     /// Zero-based position in that Pool's member list at selection.
     pub member_position: u32,
     /// Exact Published Question Revision delivered to the Student.
-    pub reference: QuestionRevisionReference,
+    pub question_revision: QuestionRevisionTuple,
 }
 
 /// Immutable Question Pool result for one Assessment Attempt and one Question Pool Assessment Entry.
@@ -144,7 +144,7 @@ pub struct IssuedQuestion {
     /// Expanded zero-based delivery order inside this Assessment Attempt.
     pub issued_position: u32,
     /// Exact immutable Question Library version selected for delivery.
-    pub reference: QuestionRevisionReference,
+    pub question_revision: QuestionRevisionTuple,
     /// Pre-render static or seeded source selection. A complete reproduction
     /// descriptor begins only after rendering records its parameter checksum.
     pub source_selection: QuestionSourceSelection,
@@ -249,15 +249,6 @@ pub struct QuestionRendererVersion {
     pub version: String,
 }
 
-/// Source Object Reference captured for a reproducible Question Attempt.
-#[doc(hidden)]
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SourceObjectReference {
-    /// Immutable Object Record containing the source bytes.
-    pub object: ObjectId,
-}
-
 /// Versions and object identities required to reproduce one Question Attempt.
 #[doc(hidden)]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -268,7 +259,7 @@ pub struct QuestionAttemptReproductionDetails {
     /// Renderer used to produce the typed Question Content Blocks, when the backend has one.
     pub renderer_version: Option<QuestionRendererVersion>,
     /// Exact source object, when the backend stores source bytes.
-    pub source_object_reference: Option<SourceObjectReference>,
+    pub source_object_id: Option<ObjectId>,
     /// SHA-256 integrity evidence for the exact source object.
     pub source_object_checksum: Option<SourceObjectChecksum>,
     /// Objects referenced by the rendered question.

@@ -14,13 +14,13 @@ import {
   decodeAssessmentTitle,
   decodeCourseInstanceId,
   decodeCourseName,
-  decodeQuestionRevisionReference,
+  decodeQuestionRevisionTuple,
   field,
   requireOnlyFields,
 } from "./shared";
 import { COURSE_THEME_VALUES } from "../../../generated/api/CourseTheme";
 import { decodeStringEnum } from "../decoder";
-import { parseAssessmentAttemptReference } from "../../navigation/public_route";
+import { parseAssessmentAttemptId } from "../../navigation/public_route";
 import { decodeQuestionContentBlock } from "./question_response_format";
 import { decodeStudentFeedback } from "./question_delivery";
 
@@ -49,7 +49,7 @@ export function decodeStudentAssessmentAttemptHistory(
   const reference = field(record, "assessmentAttempt", path);
   if (typeof reference !== "string")
     throw new DecodeError(`${path}.assessmentAttempt`, "an Assessment Attempt UUID");
-  const assessmentAttempt = parseAssessmentAttemptReference(reference);
+  const assessmentAttempt = parseAssessmentAttemptId(reference);
   if (assessmentAttempt === null)
     throw new DecodeError(`${path}.assessmentAttempt`, "an Assessment Attempt UUID");
   const assessment = decodeRecord(field(record, "assessment", path), `${path}.assessment`);
@@ -147,7 +147,7 @@ export function decodeStudentAssessmentAttemptHistory(
             field(item, "position", questionPath),
             `${questionPath}.position`,
           ),
-          questionRevision: decodeQuestionRevisionReference(
+          questionRevision: decodeQuestionRevisionTuple(
             field(item, "questionRevision", questionPath),
             `${questionPath}.questionRevision`,
             true,

@@ -1,6 +1,6 @@
 //! Browser-safe response projections for immutable Blueprint Revisions.
 
-use question_model::{BlueprintCourseView, BlueprintModuleView, BlueprintRevisionReference};
+use question_model::{BlueprintCourseView, BlueprintModuleView, BlueprintRevisionTuple};
 use serde::{Deserialize, Serialize};
 
 /// A saved Revision or an exact recorded metadata state, without actor identities.
@@ -39,7 +39,7 @@ pub struct BlueprintHistoryPageView {
 pub struct BlueprintPoolMembersView {
     pub question_pool_id: question_model::QuestionId,
     pub question_pool_edit_number: question_model::QuestionPoolEditNumber,
-    pub members: Vec<question_model::QuestionRevisionReference>,
+    pub members: Vec<question_model::QuestionRevisionTuple>,
 }
 
 /// One readable direct fork and its verified owning Instructor display name.
@@ -72,7 +72,7 @@ pub struct BlueprintComparisonView {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BlueprintComparisonSide {
-    pub current_revision: BlueprintRevisionReference,
+    pub current_revision: BlueprintRevisionTuple,
     pub names: BlueprintComparisonNames,
     pub blueprint_edit_number: question_model::BlueprintEditNumber,
     pub modules: Vec<BlueprintComparisonModule>,
@@ -90,7 +90,7 @@ pub struct BlueprintComparisonNames {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BlueprintComparisonModule {
-    pub blueprint_module_reference: question_model::BlueprintModuleReference,
+    pub blueprint_module_id: question_model::BlueprintModuleId,
     pub label: String,
     pub position: usize,
 }
@@ -107,20 +107,20 @@ pub struct BlueprintComparisonAssessmentRelationship {
 #[serde(rename_all = "camelCase")]
 pub struct BlueprintComparisonAssessment {
     pub blueprint_assessment_id: question_model::BlueprintAssessmentId,
-    pub blueprint_module_reference: question_model::BlueprintModuleReference,
+    pub blueprint_module_id: question_model::BlueprintModuleId,
     pub position: usize,
     pub content: question_model::CanonicalBlueprintAssessment,
     pub question_ids: Vec<question_model::QuestionId>,
 }
 
-/// Answer-free immutable content resolved by its exact Blueprint Revision Reference.
+/// Answer-free immutable content resolved by its exact Blueprint Revision Tuple.
 ///
 /// The reference identifies one saved Revision independently of lineage names
 /// and availability.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BlueprintRevisionView {
-    pub blueprint_revision: BlueprintRevisionReference,
+    pub blueprint_revision: BlueprintRevisionTuple,
     pub modules: Vec<BlueprintModuleView>,
 }
 
@@ -136,8 +136,8 @@ pub struct BlueprintCourseSaveResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BlueprintForkApplyRequest {
-    pub expected_source: BlueprintRevisionReference,
-    pub expected_fork: BlueprintRevisionReference,
+    pub expected_source: BlueprintRevisionTuple,
+    pub expected_fork: BlueprintRevisionTuple,
     pub expected_source_blueprint_edit_number: question_model::BlueprintEditNumber,
     pub expected_fork_blueprint_edit_number: question_model::BlueprintEditNumber,
     pub source_short_name: bool,
@@ -149,7 +149,7 @@ pub struct BlueprintForkApplyRequest {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BlueprintForkApplyResponse {
-    pub blueprint_revision: BlueprintRevisionReference,
+    pub blueprint_revision: BlueprintRevisionTuple,
     pub changed: bool,
     pub metadata: question_model::BlueprintMetadataState,
 }
@@ -162,7 +162,7 @@ mod tests {
     #[test]
     fn revision_view_keeps_the_exact_immutable_reference() {
         let view = BlueprintRevisionView {
-            blueprint_revision: BlueprintRevisionReference {
+            blueprint_revision: BlueprintRevisionTuple {
                 blueprint_course_id: "BPABCDEFGJ"
                     .parse::<BlueprintCourseId>()
                     .expect("reference"),

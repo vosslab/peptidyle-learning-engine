@@ -23,7 +23,7 @@ const PARAMETER_VALUES = {
   courseInstanceId: "CI7K3M2QAZ",
   assessmentId: "A9D2RX5AF",
   assessmentAttemptId: "00000000-0000-0000-0000-000000000001",
-  membershipRef: "M-1",
+  membershipId: "00000000-0000-0000-0000-00000000000b",
   questionId: "7K3M-79QP",
   draftQuestionId: "0198e000-0000-7000-8000-000000000001",
   blueprintCourseId: "BP7K3M2QAF",
@@ -462,7 +462,7 @@ test("breadcrumb trails are canonical route projections with one current termina
   const malformed = ROUTE_CONTRACT.find((route) => route.id === "courseAppearance");
   assert.ok(malformed);
   const invalid = deriveRibbonModel(
-    { route: malformed, params: { courseInstanceId: "C-1/not-a-reference" } },
+    { route: malformed, params: { courseInstanceId: "C-1/not-an-id" } },
     { productRole: "instructor" },
     labels,
   );

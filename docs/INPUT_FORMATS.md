@@ -51,7 +51,7 @@ ordinary PLE Question Backend later produces the answer-free Question Presentati
 
 ## Private server source
 
-PLE can publish a private immutable PG or PGML Question Source through a Source Object Reference to the configured external
+PLE can publish a private immutable PG or PGML Question Source through a Source Object ID to the configured external
 `webwork-pg-renderer`. The author declares the educational Question Type on the Published Question
 Revision; PLE uses that immutable metadata for labeling and discovery, never by inspecting renderer
 controls. The server sends source bytes, source path, seed, display and embed policy, PLE origin,

@@ -3,17 +3,17 @@
 import type { AccountTimeZone } from "../../generated/api/AccountTimeZone";
 import type { CourseInvitationStateView } from "../../generated/api/CourseInvitationStateView";
 
-interface ReferenceRow {
-  readonly reference: string;
+interface InvitationRow {
+  readonly id: string;
 }
 
 /** Appends one cursor page without duplicating a stable server row. */
-export function appendPendingInvitationPage<T extends ReferenceRow>(
+export function appendPendingInvitationPage<T extends InvitationRow>(
   current: ReadonlyArray<T>,
   next: ReadonlyArray<T>,
 ): ReadonlyArray<T> {
-  const existing = new Set(current.map((row) => row.reference));
-  return [...current, ...next.filter((row) => !existing.has(row.reference))];
+  const existing = new Set(current.map((row) => row.id));
+  return [...current, ...next.filter((row) => !existing.has(row.id))];
 }
 
 export function invitationStateLabel(state: CourseInvitationStateView): string {

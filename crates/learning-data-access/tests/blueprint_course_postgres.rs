@@ -22,7 +22,7 @@ use question_model::{
     BlueprintAssessmentReplacementInput, BlueprintAvailability, BlueprintCourseId,
     BlueprintModuleEditChoice, BlueprintModuleReplacementInput, BlueprintRevision,
     CreateBlueprintCourseInput, CreateBlueprintModuleInput, LateWorkRule, QuestionAttemptLimit,
-    QuestionAttemptTimeLimit, QuestionId, QuestionRevisionNumber, QuestionRevisionReference,
+    QuestionAttemptTimeLimit, QuestionId, QuestionRevisionNumber, QuestionRevisionTuple,
     RenameBlueprintCourseInput, ReplaceBlueprintCourseContentInput, RequestChecksum,
     ReusableFixedQuestionInput, StudentFeedbackReleaseRule,
 };

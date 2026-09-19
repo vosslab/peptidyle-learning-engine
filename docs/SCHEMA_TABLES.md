@@ -2610,7 +2610,7 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
-| course_banner_upload_id | uuid | NOT NULL |
+| course_banner_upload_reference | uuid | NOT NULL |
 | course_instance_id | ple_data.course_instance_id | NOT NULL |
 | account_id | ple_data.account_id | NOT NULL |
 | object_record_id | uuid | NOT NULL |
@@ -2625,7 +2625,7 @@ Columns:
 
 Constraints:
 
-- PRIMARY KEY (course_banner_upload_id)
+- PRIMARY KEY (course_banner_upload_reference)
 - UNIQUE (object_record_id)
 - CHECK byte_length: `(byte_length BETWEEN 1 AND 8388608)`
 - CHECK sha256: `(octet_length(sha256) = 32)`
@@ -2640,7 +2640,7 @@ Foreign keys:
 
 Indexes:
 
-- ple_private.course_banner_upload_pkey UNIQUE (course_banner_upload_id)
+- ple_private.course_banner_upload_pkey UNIQUE (course_banner_upload_reference)
 - ple_private.course_banner_upload_unique_0 UNIQUE (object_record_id)
 - course_banner_upload_account_id_fk_idx (account_id)
 - course_banner_upload_course_instance_id_fk_idx (course_instance_id)
@@ -2657,7 +2657,7 @@ Columns:
 | course_banner_storage_subject_id | uuid | NOT NULL |
 | subject_kind | ple_data.banner_subject_kind | NOT NULL |
 | course_instance_id | ple_data.course_instance_id | NOT NULL |
-| course_banner_upload_id | uuid | NULL |
+| course_banner_upload_reference | uuid | NULL |
 | course_banner_id | uuid | NULL |
 | object_record_id | uuid | NOT NULL |
 | expected_sha256 | bytea | NOT NULL |
@@ -2678,7 +2678,7 @@ Constraints:
 Foreign keys:
 
 - (course_instance_id) -> ple_data.course_instance (course_instance_id)
-- (course_banner_upload_id) -> ple_private.course_banner_upload (course_banner_upload_id)
+- (course_banner_upload_reference) -> ple_private.course_banner_upload (course_banner_upload_reference)
 - (object_record_id) -> ple_private.object_record (object_record_id)
 - (course_instance_id, course_banner_id) -> ple_data.course_banner (course_instance_id, course_banner_id)
 
@@ -2688,7 +2688,7 @@ Indexes:
 - ple_private.course_banner_storage_subject_unique_0 UNIQUE (object_record_id)
 - ple_private.course_banner_storage_subject_unique_1 UNIQUE (course_banner_storage_subject_id, object_record_id)
 - course_banner_storage_subject_course_instance_i_c9e745db_fk_idx (course_instance_id, course_banner_id)
-- course_banner_storage_subject_course_banner_upload_id_fk_idx (course_banner_upload_id)
+- course_banner_storage_subject_course_banner_upload_reference_fk_idx (course_banner_upload_reference)
 
 ### ple_private.course_banner_work
 

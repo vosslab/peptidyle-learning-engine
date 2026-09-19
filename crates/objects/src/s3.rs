@@ -514,12 +514,12 @@ mod tests {
     use super::*;
     use crate::ObjectDataClass;
     use question_model::{
-        ObjectId, QuestionAssetId, QuestionId, QuestionRevisionNumber, QuestionRevisionReference,
+        ObjectId, QuestionAssetId, QuestionId, QuestionRevisionNumber, QuestionRevisionTuple,
     };
     use uuid::Uuid;
 
-    fn question_revision() -> QuestionRevisionReference {
-        QuestionRevisionReference {
+    fn question_revision() -> QuestionRevisionTuple {
+        QuestionRevisionTuple {
             question_id: QuestionId::from_random_identifier("ABCDEFG").expect("Question ID"),
             revision_number: QuestionRevisionNumber::new(2).expect("positive version"),
         }

@@ -8,7 +8,7 @@ import type { CourseThemeUpdate } from "../../../generated/api/CourseThemeUpdate
 import type { CourseBannerUpdate } from "../../../generated/api/CourseBannerUpdate";
 import type { CourseBannerUploadReceipt } from "../../../generated/api/CourseBannerUploadReceipt";
 import type { CourseInstanceId } from "../../../generated/api/CourseInstanceId";
-import type { CourseBannerReference } from "../../../generated/api/CourseBannerReference";
+import type { CourseBannerId } from "../../../generated/api/CourseBannerId";
 import type { StudentRecordId } from "../../../generated/api/StudentRecordId";
 import type { QuestionId } from "../../../generated/api/QuestionId";
 import type { QuestionAttemptId } from "../../../generated/api/QuestionAttemptId";
@@ -69,9 +69,9 @@ const MAX_COURSE_BANNER_DELIVERY_BYTES = 2 * 1_024 * 1_024;
 async function fetchCourseBanner(
   fetchImplementation: ApiFetch,
   basePath: string,
-  bannerReference: CourseBannerReference,
+  bannerId: CourseBannerId,
 ): Promise<Blob> {
-  const path = `/api/course-banners/${encodedId(bannerReference)}/delivery`;
+  const path = `/api/course-banners/${encodedId(bannerId)}/delivery`;
   const response = await fetchImplementation(requestPath(basePath, path), {
     method: "POST",
     headers: { accept: "image/webp" },
@@ -471,11 +471,11 @@ export function createResponseClient(
       replaceProfileAvatarImage(fetchImplementation, basePath, image, crop),
     fetchProfileAvatarImage: (reference) =>
       fetchProfileAvatarImage(fetchImplementation, basePath, reference),
-    resolveNavigation: (reference) =>
+    resolveNavigation: (id) =>
       requestJson(
         fetchImplementation,
         basePath,
-        `/api/navigation/${encodedId(reference)}`,
+        `/api/navigation/${encodedId(id)}`,
         decodeNavigationResolution,
       ),
     listQuestions: (cursor) =>
@@ -606,8 +606,8 @@ export function createResponseClient(
         `/api/student-records/${encodedId(studentRecordId)}/assessment-activity-summary`,
         decodeStudentAssessmentProgress,
       ),
-    fetchCourseBanner: (bannerReference) =>
-      fetchCourseBanner(fetchImplementation, basePath, bannerReference),
+    fetchCourseBanner: (bannerId) =>
+      fetchCourseBanner(fetchImplementation, basePath, bannerId),
     assetUrl: (questionRevision, assetId) =>
       requestPath(
         basePath,

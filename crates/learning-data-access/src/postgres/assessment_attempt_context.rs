@@ -45,7 +45,7 @@ impl PostgresLiveAssessmentDeliveryStore {
                     .map_err(map_sqlx_error)?,
                 "Assessment Attempt number",
             )?,
-            course: course_reference(row.try_get("course_instance_id").map_err(map_sqlx_error)?)?,
+            course: course_instance_id(row.try_get("course_instance_id").map_err(map_sqlx_error)?)?,
             course_short_name: name(
                 row.try_get("course_short_name").map_err(map_sqlx_error)?,
                 "Course short name",
@@ -59,9 +59,7 @@ impl PostgresLiveAssessmentDeliveryStore {
                     .map_err(map_sqlx_error)?,
             )
             .map_err(|_| StoreError::InvalidRecord("Course theme is invalid".to_string()))?,
-            assessment: assessment_reference(
-                row.try_get("assessment_id").map_err(map_sqlx_error)?,
-            )?,
+            assessment: assessment_id(row.try_get("assessment_id").map_err(map_sqlx_error)?)?,
             assessment_title: nonempty(
                 row.try_get("assessment_title").map_err(map_sqlx_error)?,
                 "Assessment title",
@@ -99,12 +97,12 @@ fn positive(value: i32, label: &str) -> Result<u32, StoreError> {
         .ok_or_else(|| StoreError::InvalidRecord(format!("{label} is invalid")))
 }
 
-fn course_reference(value: String) -> Result<CourseInstanceId, StoreError> {
+fn course_instance_id(value: String) -> Result<CourseInstanceId, StoreError> {
     CourseInstanceId::new(value)
         .map_err(|_| StoreError::InvalidRecord("Course reference is invalid".to_string()))
 }
 
-fn assessment_reference(value: String) -> Result<AssessmentId, StoreError> {
+fn assessment_id(value: String) -> Result<AssessmentId, StoreError> {
     AssessmentId::new(value)
         .map_err(|_| StoreError::InvalidRecord("Assessment reference is invalid".to_string()))
 }

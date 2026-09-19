@@ -47,7 +47,7 @@ pub struct ImathasQuestionBackendStateKeyId(String);
 
 impl ImathasQuestionBackendStateKeyId {
     pub fn parse(value: impl Into<String>) -> Result<Self, StoreError> {
-        question_model::ImathasDeploymentReference::new(value)
+        question_model::ImathasDeploymentId::new(value)
             .map(String::from)
             .map(Self)
             .map_err(|_| {
@@ -304,7 +304,7 @@ pub(super) fn imathas_question_backend_state_aad(
 ) -> Vec<u8> {
     let mut aad = vec![IMATHAS_QUESTION_BACKEND_STATE_AAD_VERSION];
     for value in [
-        session.reference.as_uuid().as_bytes().as_slice(),
+        session.session_id.as_uuid().as_bytes().as_slice(),
         session.account.as_str().as_bytes(),
         session.course.as_str().as_bytes(),
         session.assessment.as_str().as_bytes(),
@@ -336,7 +336,7 @@ pub(super) fn imathas_question_backend_state_aad(
             .item_reference()
             .as_str()
             .as_bytes(),
-        session.source_object.object.as_uuid().as_bytes().as_slice(),
+        session.source_object.as_uuid().as_bytes().as_slice(),
         session.source_object_checksum.as_str().as_bytes(),
         session
             .imathas_question_backend_binding

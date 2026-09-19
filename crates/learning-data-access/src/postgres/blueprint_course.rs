@@ -6,9 +6,9 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use question_model::{
     AccountId, BlueprintCourseId, BlueprintEditNumber, BlueprintMetadataState, BlueprintRevision,
-    BlueprintRevisionReference, CanonicalBlueprintCourse, CreateBlueprintCourseInput,
+    BlueprintRevisionTuple, CanonicalBlueprintCourse, CreateBlueprintCourseInput,
     CreateBlueprintCourseReceipt, QuestionId, QuestionPoolEditNumber, QuestionRevisionNumber,
-    QuestionRevisionReference, RenameBlueprintCourseInput, ReplaceBlueprintCourseContentInput,
+    QuestionRevisionTuple, RenameBlueprintCourseInput, ReplaceBlueprintCourseContentInput,
     RequestChecksum, SaveBlueprintCourseReceipt,
 };
 use serde_json::{Value, json};
@@ -136,7 +136,7 @@ impl PostgresBlueprintCourseStore {
         .await
         .map_err(map_sqlx_error)?;
         let receipt = SaveBlueprintCourseReceipt {
-            blueprint_revision: BlueprintRevisionReference {
+            blueprint_revision: BlueprintRevisionTuple {
                 blueprint_course_id: reference_value,
                 revision: revision(
                     row.try_get("resulting_blueprint_revision_number")
@@ -238,7 +238,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         let members = rows
             .into_iter()
             .map(|row| {
-                Ok(QuestionRevisionReference {
+                Ok(QuestionRevisionTuple {
                     question_id: row
                         .try_get::<String, _>("question_id")
                         .map_err(map_sqlx_error)?
@@ -301,7 +301,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
     async fn load_blueprint_revision(
         &self,
         session: SessionTokenHash,
-        id: BlueprintRevisionReference,
+        id: BlueprintRevisionTuple,
     ) -> Result<StoredBlueprintRevision, StoreError> {
         let mut transaction = self
             .begin_authenticated_application_transaction(session)
@@ -321,7 +321,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         )?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(StoredBlueprintRevision {
-            reference: id,
+            blueprint_revision: id,
             content,
         })
     }
@@ -407,7 +407,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
                 .map_err(map_sqlx_error)?
         {
             let receipt = CreateBlueprintCourseReceipt {
-                blueprint_revision: BlueprintRevisionReference {
+                blueprint_revision: BlueprintRevisionTuple {
                     blueprint_course_id: reference(
                         row.try_get("blueprint_course_id").map_err(map_sqlx_error)?,
                     )?,
@@ -458,7 +458,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         .map_err(map_sqlx_error)?;
         let blueprint = reference(row.try_get("blueprint_course_id").map_err(map_sqlx_error)?)?;
         let receipt = CreateBlueprintCourseReceipt {
-            blueprint_revision: BlueprintRevisionReference {
+            blueprint_revision: BlueprintRevisionTuple {
                 blueprint_course_id: blueprint,
                 revision: revision(
                     row.try_get("blueprint_revision_number")
@@ -522,7 +522,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
             .map_err(map_sqlx_error)?
         {
             let receipt = SaveBlueprintCourseReceipt {
-                blueprint_revision: BlueprintRevisionReference {
+                blueprint_revision: BlueprintRevisionTuple {
                     blueprint_course_id: reference_value,
                     revision: revision(row.try_get("revision_number").map_err(map_sqlx_error)?)?,
                 },
@@ -736,7 +736,7 @@ pub(super) async fn current_actor(
 /// expected Blueprint Revision may survive an archived Question lineage.
 async fn validate_question_references(
     transaction: &mut Transaction<'_, Postgres>,
-    requested: Vec<QuestionRevisionReference>,
+    requested: Vec<QuestionRevisionTuple>,
     prior: Option<&StoredBlueprintCourseContent>,
 ) -> Result<(), StoreError> {
     let retained = prior

@@ -2,7 +2,7 @@
 
 import type { ApiClient } from "../client";
 import { DecodeError, decodeRecord, decodeUuid } from "../decoder";
-import { decodeQuestionRevisionReference, field, requireOnlyFields } from "../decoders/shared";
+import { decodeQuestionRevisionTuple, field, requireOnlyFields } from "../decoders/shared";
 import type {
   ForkedPublishedQuestion,
   QuestionForkClient,
@@ -16,7 +16,7 @@ import { boundedResponseJson, requireNoStore } from "./response";
 const MAX_QUESTION_REVISION_NUMBER = 4_294_967_295;
 
 function exactForkPath(source: Parameters<QuestionForkClient["forkPublishedQuestion"]>[0]): string {
-  const reference = decodeQuestionRevisionReference(source, "request.source", true);
+  const reference = decodeQuestionRevisionTuple(source, "request.source", true);
   if (reference.revisionNumber > MAX_QUESTION_REVISION_NUMBER) {
     throw new ApiProtocolError("Question Revision number must be one positive u32");
   }

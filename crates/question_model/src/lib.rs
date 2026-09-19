@@ -128,7 +128,7 @@ pub use crate::assessment_student_time_accommodation::{
 };
 pub use crate::assessment_student_view::{
     InstructorStudentView, InstructorStudentViewDelivery, InstructorStudentViewEntry,
-    InstructorStudentViewNotShownReason, InstructorStudentViewQuestionReference,
+    InstructorStudentViewNotShownReason, InstructorStudentViewQuestion,
 };
 pub use crate::assessment_template::{
     AssessmentTemplate, AssessmentTemplateEditNumber, AssessmentTemplateEditNumberError,
@@ -159,7 +159,7 @@ pub use crate::blueprint_course::{
     BlueprintAssessmentId, BlueprintAssessmentReplacementInput, BlueprintChildIdError,
     BlueprintCourseAssessmentContentView, BlueprintCourseReadAccess, BlueprintCourseSummaryView,
     BlueprintCourseTitleError, BlueprintCourseValidationError, BlueprintCourseView,
-    BlueprintModuleEditChoice, BlueprintModuleReference, BlueprintModuleReplacementInput,
+    BlueprintModuleEditChoice, BlueprintModuleId, BlueprintModuleReplacementInput,
     BlueprintModuleView, BlueprintPoolInputChoice, BlueprintRevision, CreateBlueprintCourseInput,
     CreateBlueprintFromCourseInstanceInput, CreateBlueprintModuleInput,
     MAX_BLUEPRINT_COURSE_TITLE_UNICODE_SCALARS, ReplaceBlueprintCourseContentInput,
@@ -178,9 +178,9 @@ pub use crate::course::{
     StudentAssessmentLandingSummary, StudentLateWorkStatus,
 };
 pub use crate::course_appearance::{
-    CourseAppearanceView, CourseBanner, CourseBannerAlternativeText, CourseBannerInformativeText,
-    CourseBannerReference, CourseBannerRendition, CourseBannerUpdate, CourseBannerUploadReceipt,
-    CourseBannerUploadReference, CourseTheme, CourseThemeUpdate,
+    CourseAppearanceView, CourseBanner, CourseBannerAlternativeText, CourseBannerId,
+    CourseBannerInformativeText, CourseBannerRendition, CourseBannerUpdate,
+    CourseBannerUploadReceipt, CourseBannerUploadId, CourseTheme, CourseThemeUpdate,
 };
 pub use crate::course_term::{
     CourseDate, CourseDateError, CourseTerm, CourseTermError, CourseTermFailureCode,
@@ -195,13 +195,13 @@ pub use crate::identity::{
     ObjectId, QuestionAssetId, QuestionRevisionNumber, WorkspaceId, WorkspaceImportId,
 };
 pub use crate::library_discussion::{
-    LibraryObjectKind, LibraryObjectReference, LibraryStewardshipEvent,
+    LibraryObjectKind, LibraryObjectTuple, LibraryStewardshipEvent,
 };
 pub use crate::pool_preview::{
     QuestionPoolPreview, QuestionPoolPreviewItem, QuestionPoolPreviewRequest,
 };
 pub use crate::presentation::{
-    PresentationResponseItemReference, PresentedHotspotRegion, PresentedHotspotSurface,
+    PresentationResponseItemId, PresentedHotspotRegion, PresentedHotspotSurface,
     PresentedMatchingChoice, PresentedMatchingPrompt, PresentedOrderingItem,
     PresentedQuestionChoice, PresentedResponseItemContent, PresentedTextEntrySlot,
     QuestionAssetRendition, QuestionPresentation, QuestionPresentationBinding,
@@ -223,24 +223,23 @@ pub use crate::preview_plane::{
     PreviewTimeField, SelectedStudentViewScenarioRequest, StudentFeedbackReleaseView,
     StudentViewScenario, StudentViewScenarioAdmission, StudentViewScenarioOrigin,
 };
-pub use crate::profile_image::ProfileImageReference;
+pub use crate::profile_image::ProfileImageId;
 pub use crate::public_route::{
-    AssessmentAttemptReference, AssessmentId, AuthoringWorkspaceReference, BlueprintCourseId,
-    CourseInstanceId, CourseInvitationReference, CourseMembershipReference, NavigationResolution,
+    AssessmentId, BlueprintCourseId, CourseInstanceId, NavigationResolution,
     RESERVED_REFERENCE_PREFIXES,
 };
 pub use crate::question_authorship::{
     QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship, QuestionAuthorshipError,
 };
 pub use crate::question_backend_fields::{
-    DraftImathasQuestionBackendBinding, ImathasDeploymentReference, ImathasItemReference,
+    DraftImathasQuestionBackendBinding, ImathasDeploymentId, ImathasItemId,
     ImathasProfile, ImathasQuestionBackendBinding, ImathasQuestionBackendBindingError,
     MAX_IMATHAS_IDENTIFIER_BYTES, QuestionBackendFieldsError,
 };
 pub use crate::question_citation::{QuestionCitation, QuestionCitationError};
 pub use crate::question_content::{
     DraftQuestionSummary, MAX_QUESTION_DESCRIPTION_UNICODE_SCALARS,
-    MAX_QUESTION_TITLE_UNICODE_SCALARS, QuestionAssetReference, QuestionContentBlock,
+    MAX_QUESTION_TITLE_UNICODE_SCALARS, QuestionAssetTuple, QuestionContentBlock,
     QuestionDescriptionError, QuestionFormat, QuestionMetadata, QuestionTitleError,
     validate_question_description, validate_question_title,
 };
@@ -255,7 +254,7 @@ pub use crate::question_library::{
     QUESTION_ID_IDENTIFIER_LENGTH, QuestionAvailability, QuestionAvailabilityEditNumber,
     QuestionAvailabilityEditNumberError, QuestionAvailabilityEvent, QuestionBackend,
     QuestionDetails, QuestionDetailsPromptView, QuestionId, QuestionLineageView,
-    QuestionRevisionReference, QuestionRevisionUsageStatistics, QuestionSearchAuthorFacet,
+    QuestionRevisionTuple, QuestionRevisionUsageStatistics, QuestionSearchAuthorFacet,
     QuestionSearchAuthorship, QuestionSearchBackendFacet, QuestionSearchBloomCognitiveProcessFacet,
     QuestionSearchBloomKnowledgeDimensionFacet, QuestionSearchCapabilityFacet,
     QuestionSearchCourseUse, QuestionSearchCourseUseFacet, QuestionSearchFacets,
@@ -295,7 +294,7 @@ pub use crate::student_work::{
     QuestionBackendVersion, QuestionEvaluation, QuestionEvaluationError, QuestionGraderVersion,
     QuestionPoolSelectedItem, QuestionPoolSelection, QuestionPoolSelectionId,
     QuestionRendererVersion, QuestionResponse, QuestionResponseId, RecordedCredit,
-    SourceObjectChecksum, SourceObjectChecksumError, SourceObjectReference,
+    SourceObjectChecksum, SourceObjectChecksumError,
     StudentAssessmentAttemptPosition, StudentAssessmentAttemptProgress,
     StudentAssessmentAttemptResponseState, StudentAssessmentGrade, StudentAssessmentProgress,
     StudentQuestionAttemptView, StudentRecordId, Timestamp,

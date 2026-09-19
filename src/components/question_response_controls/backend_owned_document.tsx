@@ -3,7 +3,7 @@
 import { createSignal, onCleanup, onMount, Show, type JSX } from "solid-js";
 
 import type { AssessmentAttemptId } from "../../../generated/api/AssessmentAttemptId";
-import { parseAssessmentAttemptReference } from "../../navigation/public_route";
+import { parseAssessmentAttemptId } from "../../navigation/public_route";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
 import type { QuestionResponseControlBaseProps } from "./common";
 import { handleQuestionResponseControlKeyDown } from "./keyboard";
@@ -97,7 +97,7 @@ export function backendOwnedDocumentPath(
   assessmentAttempt: AssessmentAttemptId,
   position: number,
 ): string | null {
-  if (parseAssessmentAttemptReference(assessmentAttempt) === null) return null;
+  if (parseAssessmentAttemptId(assessmentAttempt) === null) return null;
   if (!Number.isSafeInteger(position) || position < 1 || position > 2_147_483_647) return null;
   return `/api/assessment-attempts/${encodeURIComponent(assessmentAttempt)}/questions/${position}/document`;
 }

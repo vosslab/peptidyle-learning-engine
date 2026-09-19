@@ -49,7 +49,7 @@ import {
   decodeCursorPage,
   decodeIdentifier,
   decodeAssessmentTitle,
-  decodeQuestionRevisionReference,
+  decodeQuestionRevisionTuple,
   decodeTimestamp,
   field,
   requireOnlyFields,
@@ -108,11 +108,14 @@ export function decodeStudentIssuedQuestion(value: unknown, path: string): Stude
     "assessmentEntry",
     "assessmentContentEntryIndex",
     "issuedPosition",
-    "reference",
+    "questionRevision",
     "questionStatisticsEligibility",
   ]);
-  const reference = decodeRecord(field(record, "reference", path), `${path}.reference`);
-  requireOnlyFields(reference, `${path}.reference`, ["questionId", "revisionNumber"]);
+  const questionRevision = decodeRecord(
+    field(record, "questionRevision", path),
+    `${path}.questionRevision`,
+  );
+  requireOnlyFields(questionRevision, `${path}.questionRevision`, ["questionId", "revisionNumber"]);
   return {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
     assessmentAttempt: decodeIdentifier(
@@ -131,7 +134,11 @@ export function decodeStudentIssuedQuestion(value: unknown, path: string): Stude
       field(record, "issuedPosition", path),
       `${path}.issuedPosition`,
     ),
-    reference: decodeQuestionRevisionReference(reference, `${path}.reference`, true),
+    questionRevision: decodeQuestionRevisionTuple(
+      questionRevision,
+      `${path}.questionRevision`,
+      true,
+    ),
     questionStatisticsEligibility: decodeBoolean(
       field(record, "questionStatisticsEligibility", path),
       `${path}.questionStatisticsEligibility`,
@@ -728,7 +735,7 @@ export function decodeQuestionAttemptTimingDecision(
 function decodeCapabilityViolation(value: unknown, path: string): CapabilityViolation {
   const record = decodeRecord(value, path);
   const decoded = {
-    question: decodeQuestionRevisionReference(
+    question: decodeQuestionRevisionTuple(
       field(record, "question", path),
       `${path}.question`,
       true,

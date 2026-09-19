@@ -10,8 +10,8 @@ use question_model::{
     BloomClassificationEditNumber, BloomClassificationView, BloomCognitiveProcess,
     BloomKnowledgeDimension, PublishedQuestionSharedMetadata, QuestionAuthorship,
     QuestionAvailability, QuestionAvailabilityEditNumber, QuestionBackend, QuestionFormat,
-    QuestionId, QuestionLicense, QuestionRevisionReference, QuestionType, SourceObjectChecksum,
-    SourceObjectReference, Timestamp,
+    QuestionId, QuestionLicense, QuestionRevisionTuple, QuestionType, SourceObjectChecksum,
+    ObjectId, Timestamp,
 };
 
 use crate::{SessionTokenHash, StoreError};
@@ -20,7 +20,7 @@ use crate::{SessionTokenHash, StoreError};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PublishedQuestionLibraryEntry {
     /// Stable Published Question and latest accepted Question Revision.
-    pub question_revision: QuestionRevisionReference,
+    pub question_revision: QuestionRevisionTuple,
     /// The exact backend that must interpret the immutable source.
     pub backend: QuestionBackend,
     /// Immutable reviewed source representation. This is browser-safe metadata,
@@ -64,7 +64,7 @@ pub struct PublishedQuestionLibraryEntry {
     /// Qualified current availability state of the stable Question lineage.
     pub availability_edit_number: QuestionAvailabilityEditNumber,
     /// Private immutable Object Record locator; server use only.
-    pub source_object_reference: SourceObjectReference,
+    pub source_object_id: ObjectId,
     /// Checksum required before the server accepts private source bytes.
     pub source_object_checksum: SourceObjectChecksum,
     /// Source media type required before backend parsing.
@@ -117,7 +117,7 @@ pub trait QuestionLibraryStore: Send + Sync {
     async fn load_published_question_revision_library_entry(
         &self,
         session_token_hash: SessionTokenHash,
-        question_revision: &QuestionRevisionReference,
+        question_revision: &QuestionRevisionTuple,
     ) -> Result<PublishedQuestionLibraryEntry, StoreError>;
 
     /// Corrects both Bloom dimensions for one exact Revision through the
@@ -126,7 +126,7 @@ pub trait QuestionLibraryStore: Send + Sync {
     async fn correct_question_revision_bloom(
         &self,
         session_token_hash: SessionTokenHash,
-        question_revision: &QuestionRevisionReference,
+        question_revision: &QuestionRevisionTuple,
         expected_edit_number: BloomClassificationEditNumber,
         cognitive_process: BloomCognitiveProcess,
         knowledge_dimension: BloomKnowledgeDimension,

@@ -4,7 +4,7 @@
 //! accepts a deliberately small QTI subset using an XML event parser: DTDs,
 //! entity declarations, malformed nesting, and duplicate attributes fail
 //! before any model is made.  Asset bytes leave this module only in an
-//! immutable worker handoff; student-visible questions contain `QuestionAssetReference`s,
+//! immutable worker handoff; student-visible questions contain `QuestionAssetTuple`s,
 //! never archive paths or an Answer Key.
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -13,9 +13,9 @@ use crate::profiles::NormalizedQtiItemFingerprint;
 use objects::Sha256Checksum;
 use objects::image_validation::verify_still_image;
 use question_model::answer::ResponseSelectionRule;
-use question_model::response::{QuestionChoice, ResponseItemReference};
+use question_model::response::{QuestionChoice, ResponseItemId};
 use question_model::{QuestionAssetId, QuestionResponseFormat};
-use question_model::{QuestionAssetReference, QuestionContentBlock};
+use question_model::{QuestionAssetTuple, QuestionContentBlock};
 use uuid::Uuid;
 
 const MANIFEST_PATH: &str = "imsmanifest.xml";
@@ -23,7 +23,7 @@ const MANIFEST_PATH: &str = "imsmanifest.xml";
 use crate::archive::{BoundedArchiveEntries, read_bounded_archive, validate_relative_reference};
 use crate::model::{ArchivedQtiPackage, QtiImportAnswerBinding};
 pub use crate::model::{
-    ImportedQtiPackage, ImportedQtiQuestion, QtiAssetObject, QtiAssetReferenceError,
+    ImportedQtiPackage, ImportedQtiQuestion, QtiAssetObject, QtiAssetError,
     QtiImportError, QtiImportLimits, QtiItemImportResult, QtiItemImportStatus, QtiManifest,
     QtiResource, UnsupportedFeature, qti_question_asset_checksums,
 };
@@ -100,7 +100,7 @@ impl QtiImporter {
                     });
                     continue;
                 }
-                return Err(QtiImportError::MissingReferencedEntry { path: href.into() });
+                return Err(QtiImportError::MissingLinkedEntry { path: href.into() });
             };
             if !qti_item {
                 continue;
@@ -215,7 +215,7 @@ impl QtiImporter {
 fn normalized_item_fingerprints(
     path: &str,
     question: &ImportedQtiQuestion,
-    correct: &ResponseItemReference,
+    correct: &ResponseItemId,
 ) -> Result<(NormalizedQtiItemFingerprint, Sha256Checksum), QtiImportError> {
     let presentation =
         serde_json::to_vec(&(&question.prompt, &question.response)).map_err(|_| {
@@ -323,7 +323,7 @@ fn parse_single_choice_item(
     root: &XmlNode,
     entries: &BoundedArchiveEntries,
     assets: &mut BTreeMap<String, QtiAssetObject>,
-) -> Result<(ImportedQtiQuestion, ResponseItemReference), UnsupportedFeature> {
+) -> Result<(ImportedQtiQuestion, ResponseItemId), UnsupportedFeature> {
     if root.name() != "assessmentItem" {
         return Err(unsupported(
             path,
@@ -415,7 +415,7 @@ fn parse_single_choice_item(
             ));
         }
         choices.push(QuestionChoice {
-            id: ResponseItemReference::new(id),
+            id: ResponseItemId::new(id),
             body,
         });
     }
@@ -435,7 +435,7 @@ fn parse_single_choice_item(
                 selection: ResponseSelectionRule::ExactlyOne,
             },
         },
-        ResponseItemReference::new(correct),
+        ResponseItemId::new(correct),
     ))
 }
 fn required_attr(node: &XmlNode, name: &str) -> Option<String> {
@@ -524,7 +524,7 @@ fn image_block(
         .entry(path.clone())
         .or_insert_with(|| asset_object(path.clone(), bytes.to_vec(), media_type.to_string()));
     Ok(QuestionContentBlock::Image {
-        question_asset: QuestionAssetReference {
+        question_asset: QuestionAssetTuple {
             question_asset: asset.asset,
             checksum: asset.sha256.clone(),
         },

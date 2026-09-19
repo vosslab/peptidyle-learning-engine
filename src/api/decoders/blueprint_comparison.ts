@@ -22,16 +22,16 @@ import {
   defaults,
   pointValue,
   questionId,
-  revisionReference,
+  blueprintRevisionTuple,
   selectionRule,
   text,
 } from "./blueprint_course";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 
-function stableReference(value: unknown, path: string): string {
+function stableId(value: unknown, path: string): string {
   const decoded = decodeString(value, path);
-  if (!UUID.test(decoded)) throw new DecodeError(path, "a canonical stable reference UUID");
+  if (!UUID.test(decoded)) throw new DecodeError(path, "a canonical UUID");
   return decoded;
 }
 
@@ -199,7 +199,7 @@ function side(input: unknown, path: string): BlueprintComparisonSide {
     "modules",
     "assessments",
   ]);
-  revisionReference(field(row, "currentRevision", path), `${path}.currentRevision`);
+  blueprintRevisionTuple(field(row, "currentRevision", path), `${path}.currentRevision`);
   const namesPath = `${path}.names`;
   const names = decodeRecord(field(row, "names", path), namesPath);
   requireOnlyFields(names, namesPath, ["shortName", "longName"]);
@@ -213,18 +213,17 @@ function side(input: unknown, path: string): BlueprintComparisonSide {
     MAX_ASSESSMENT_ORDERED_ENTRIES,
     (moduleValue, modulePath) => {
       const module = decodeRecord(moduleValue, modulePath);
-      requireOnlyFields(module, modulePath, ["blueprintModuleReference", "position", "label"]);
-      const reference = stableReference(
-        field(module, "blueprintModuleReference", modulePath),
-        `${modulePath}.blueprintModuleReference`,
+      requireOnlyFields(module, modulePath, ["blueprintModuleId", "position", "label"]);
+      const moduleId = stableId(
+        field(module, "blueprintModuleId", modulePath),
+        `${modulePath}.blueprintModuleId`,
       );
-      if (modules.has(reference))
-        throw new DecodeError(modulePath, "unique side-local Module reference");
+      if (modules.has(moduleId)) throw new DecodeError(modulePath, "unique side-local Module ID");
       if (
         position(field(module, "position", modulePath), `${modulePath}.position`) !== modules.size
       )
         throw new DecodeError(modulePath, "Modules in contiguous authored order");
-      modules.add(reference);
+      modules.add(moduleId);
       text(field(module, "label", modulePath), `${modulePath}.label`);
       return moduleValue;
     },
@@ -239,21 +238,21 @@ function side(input: unknown, path: string): BlueprintComparisonSide {
       const assessment = decodeRecord(assessmentValue, assessmentPath);
       requireOnlyFields(assessment, assessmentPath, [
         "blueprintAssessmentId",
-        "blueprintModuleReference",
+        "blueprintModuleId",
         "position",
         "content",
         "questionIds",
       ]);
-      const reference = stableReference(
+      const assessmentId = stableId(
         field(assessment, "blueprintAssessmentId", assessmentPath),
         `${assessmentPath}.blueprintAssessmentId`,
       );
-      if (assessments.has(reference))
-        throw new DecodeError(assessmentPath, "unique side-local Assessment reference");
-      assessments.add(reference);
-      const module = stableReference(
-        field(assessment, "blueprintModuleReference", assessmentPath),
-        `${assessmentPath}.blueprintModuleReference`,
+      if (assessments.has(assessmentId))
+        throw new DecodeError(assessmentPath, "unique side-local Assessment ID");
+      assessments.add(assessmentId);
+      const module = stableId(
+        field(assessment, "blueprintModuleId", assessmentPath),
+        `${assessmentPath}.blueprintModuleId`,
       );
       if (!modules.has(module))
         throw new DecodeError(assessmentPath, "an existing side-local Module");
@@ -332,19 +331,19 @@ export function decodeBlueprintComparisonView(
         "rightAssessmentId",
         "sharedQuestionIds",
       ]);
-      const leftReference = stableReference(
+      const leftAssessmentId = stableId(
         field(edge, "leftAssessmentId", edgePath),
         `${edgePath}.leftAssessmentId`,
       );
-      const rightReference = stableReference(
+      const rightAssessmentId = stableId(
         field(edge, "rightAssessmentId", edgePath),
         `${edgePath}.rightAssessmentId`,
       );
-      const leftAssessment = leftAssessments.get(leftReference);
-      const rightAssessment = rightAssessments.get(rightReference);
+      const leftAssessment = leftAssessments.get(leftAssessmentId);
+      const rightAssessment = rightAssessments.get(rightAssessmentId);
       if (!leftAssessment || !rightAssessment)
-        throw new DecodeError(edgePath, "Assessment references belonging to the indicated sides");
-      const key = `${leftReference}:${rightReference}`;
+        throw new DecodeError(edgePath, "Assessment IDs belonging to the indicated sides");
+      const key = `${leftAssessmentId}:${rightAssessmentId}`;
       if (edges.has(key)) throw new DecodeError(edgePath, "a unique relationship");
       edges.add(key);
       const rightQuestionIds = new Set(rightAssessment.questionIds);

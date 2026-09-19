@@ -116,15 +116,15 @@ test("unknown theme IDs fail closed instead of selecting a default", () => {
 });
 
 test("course banners preserve their closed decorative or informative treatment", () => {
-  const bannerReference = "00000000-0000-0000-0000-000000000007";
+  const bannerId = "00000000-0000-0000-0000-000000000007";
   const decorative = decodeCourseAppearanceView({
     theme: "grass",
-    banner: { reference: bannerReference, alternativeText: { kind: "decorative" } },
+    banner: { id: bannerId, alternativeText: { kind: "decorative" } },
   });
   const informative = decodeCourseAppearanceView({
     theme: "grass",
     banner: {
-      reference: bannerReference,
+      reference: bannerId,
       alternativeText: { kind: "informative", text: "Forest canopy" },
     },
   });
@@ -142,14 +142,14 @@ test("course banners preserve their closed decorative or informative treatment",
     assert.throws(() =>
       decodeCourseAppearanceView({
         theme: "grass",
-        banner: { reference: bannerReference, alternativeText },
+        banner: { id: bannerId, alternativeText },
       }),
     );
   }
   assert.throws(() =>
     decodeCourseAppearanceView({
       theme: "grass",
-      banner: { id: bannerReference, alternativeText: { kind: "decorative" } },
+      banner: { id: bannerId, alternativeText: { kind: "decorative" } },
     }),
   );
 });

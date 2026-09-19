@@ -11,8 +11,8 @@ use axum::{
 };
 use learning_data_access::{
     CompleteInstructorIdentityVettingInput, CreateInstructorAccountInput,
-    DeactivateInstructorAccountInput, InstructorAccountStore,
-    InstructorIdentityVettingDecisionReference, SessionTokenHash, StoreError,
+    DeactivateInstructorAccountInput, InstructorAccountStore, InstructorIdentityVettingDecisionId,
+    SessionTokenHash, StoreError,
     postgres::{PostgresInstructorAccountStore, PostgresSessionStore},
 };
 use question_model::{AccountId, ProductRole};
@@ -100,11 +100,11 @@ async fn complete_instructor_identity_vetting(
         .complete_instructor_identity_vetting(token, input)
         .await
     {
-        Ok(vetting_decision_reference) => crate::auth::no_store(
+        Ok(vetting_decision_id) => crate::auth::no_store(
             (
                 StatusCode::CREATED,
                 Json(InstructorIdentityVettingReceipt {
-                    vetting_decision_reference,
+                    vetting_decision_id,
                 }),
             )
                 .into_response(),
@@ -117,16 +117,16 @@ async fn complete_instructor_identity_vetting(
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct InstructorIdentityVettingReceipt {
-    vetting_decision_reference: InstructorIdentityVettingDecisionReference,
+    vetting_decision_id: InstructorIdentityVettingDecisionId,
 }
 
 async fn deactivate_instructor_account(
     State(state): State<InstructorAccountRouteState>,
     headers: HeaderMap,
-    Path(reference): Path<String>,
+    Path(account_id): Path<String>,
     Json(input): Json<DeactivateInstructorAccountInput>,
 ) -> Response {
-    let reference = match AccountId::from_str(&reference) {
+    let account_id = match AccountId::from_str(&account_id) {
         Ok(value) => value,
         Err(_) => return concealed(),
     };
@@ -136,7 +136,7 @@ async fn deactivate_instructor_account(
     };
     match state
         .accounts
-        .deactivate_instructor_account(token, reference, input)
+        .deactivate_instructor_account(token, account_id, input)
         .await
     {
         Ok(account) => crate::auth::no_store(Json(account).into_response()),
@@ -147,9 +147,9 @@ async fn deactivate_instructor_account(
 async fn reactivate_instructor_account(
     State(state): State<InstructorAccountRouteState>,
     headers: HeaderMap,
-    Path(reference): Path<String>,
+    Path(account_id): Path<String>,
 ) -> Response {
-    let reference = match AccountId::from_str(&reference) {
+    let account_id = match AccountId::from_str(&account_id) {
         Ok(value) => value,
         Err(_) => return concealed(),
     };
@@ -159,7 +159,7 @@ async fn reactivate_instructor_account(
     };
     match state
         .accounts
-        .reactivate_instructor_account(token, reference)
+        .reactivate_instructor_account(token, account_id)
         .await
     {
         Ok(account) => crate::auth::no_store(Json(account).into_response()),

@@ -66,14 +66,14 @@ fn project_comparison(
     Ok(BlueprintComparisonView {
         left: comparison_side(
             comparison.left,
-            sources.left.reference,
+            sources.left.blueprint_revision,
             sources.left_short_name,
             sources.left_long_name,
             sources.left_blueprint_edit_number,
         ),
         right: comparison_side(
             comparison.right,
-            sources.right.reference,
+            sources.right.blueprint_revision,
             sources.right_short_name,
             sources.right_long_name,
             sources.right_blueprint_edit_number,
@@ -95,7 +95,7 @@ fn project_comparison(
 
 pub(super) fn comparison_side(
     inventory: BlueprintComparisonInventory,
-    current_revision: question_model::BlueprintRevisionReference,
+    current_revision: question_model::BlueprintRevisionTuple,
     short_name: String,
     long_name: String,
     blueprint_edit_number: question_model::BlueprintEditNumber,
@@ -111,7 +111,7 @@ pub(super) fn comparison_side(
             .modules
             .into_iter()
             .map(|row| BlueprintComparisonModule {
-                blueprint_module_reference: row.blueprint_module_reference,
+                blueprint_module_id: row.blueprint_module_id,
                 position: row.position,
                 label: row.label,
             })
@@ -121,7 +121,7 @@ pub(super) fn comparison_side(
             .into_iter()
             .map(|row| BlueprintComparisonAssessment {
                 blueprint_assessment_id: row.blueprint_assessment_id,
-                blueprint_module_reference: row.blueprint_module_reference,
+                blueprint_module_id: row.blueprint_module_id,
                 position: row.position,
                 content: row.content,
                 question_ids: row.question_ids,

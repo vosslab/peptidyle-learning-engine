@@ -84,11 +84,11 @@ BEGIN
       FROM ple_data.blueprint_content_question_pins(p_content) AS pins;
     INSERT INTO ple_data.blueprint_revision_module
     SELECT v_blueprint_course_id, blueprint_revision_number,
-           modules.blueprint_module_reference, modules.module_position
+           modules.blueprint_module_id, modules.module_position
       FROM ple_data.blueprint_content_modules(p_content) AS modules;
     INSERT INTO ple_data.blueprint_revision_assessment
     SELECT v_blueprint_course_id, blueprint_revision_number,
-           assessments.blueprint_module_reference,
+           assessments.blueprint_module_id,
            assessments.blueprint_assessment_id, assessments.assessment_position
       FROM ple_data.blueprint_content_assessments(p_content) AS assessments;
     INSERT INTO ple_data.blueprint_revision_event (
@@ -218,11 +218,11 @@ BEGIN
           FROM ple_data.blueprint_content_question_pins(p_content) AS pins;
         INSERT INTO ple_data.blueprint_revision_module
         SELECT v_blueprint_course_id, resulting_blueprint_revision_number,
-               modules.blueprint_module_reference, modules.module_position
+               modules.blueprint_module_id, modules.module_position
           FROM ple_data.blueprint_content_modules(p_content) AS modules;
         INSERT INTO ple_data.blueprint_revision_assessment
         SELECT v_blueprint_course_id, resulting_blueprint_revision_number,
-               assessments.blueprint_module_reference,
+               assessments.blueprint_module_id,
                assessments.blueprint_assessment_id, assessments.assessment_position
           FROM ple_data.blueprint_content_assessments(p_content) AS assessments;
         INSERT INTO ple_data.blueprint_revision_event (

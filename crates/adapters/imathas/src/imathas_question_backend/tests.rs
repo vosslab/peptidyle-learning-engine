@@ -1,11 +1,11 @@
 use learning_data_access::ImathasQuestionBackendStatePlaintext;
 
-use super::{ImathasLaunchReference, ImathasLaunchState};
+use super::{ImathasLaunchId, ImathasLaunchState};
 
 #[test]
 fn imathas_launch_state_is_strict_versioned_and_redacted() {
     let state = ImathasLaunchState::from_launch_handle(
-        ImathasLaunchReference::from_server_handle("imathas-handle_1").unwrap(),
+        ImathasLaunchId::from_server_handle("imathas-handle_1").unwrap(),
     );
     let plaintext = state.encode().unwrap();
     assert_eq!(format!("{state:?}"), "ImathasLaunchState(REDACTED)");
@@ -44,10 +44,10 @@ mod launch_session_bridge {
     use objects::{ObjectAddress, ObjectStore, PutObject};
     use question_model::generation::QuestionSeed;
     use question_model::{
-        AccountId, AssessmentId, CourseInstanceId, ImathasDeploymentReference,
-        ImathasItemReference, ImathasProfile, ImathasQuestionBackendBinding, ObjectId,
-        QuestionAttemptId, QuestionId, QuestionRevisionNumber, QuestionRevisionReference,
-        SourceObjectChecksum, SourceObjectReference, Timestamp,
+        AccountId, AssessmentId, CourseInstanceId, ImathasDeploymentId,
+        ImathasItemId, ImathasProfile, ImathasQuestionBackendBinding, ObjectId,
+        QuestionAttemptId, QuestionId, QuestionRevisionNumber, QuestionRevisionTuple,
+        SourceObjectChecksum, Timestamp,
     };
     use sha2::{Digest, Sha256};
     use uuid::Uuid;
@@ -73,15 +73,15 @@ mod launch_session_bridge {
 
     fn imathas_binding() -> ImathasQuestionBackendBinding {
         ImathasQuestionBackendBinding::new(
-            ImathasDeploymentReference::new("self-hosted-imathas").expect("deployment"),
-            ImathasItemReference::new("item17").expect("item"),
+            ImathasDeploymentId::new("self-hosted-imathas").expect("deployment"),
+            ImathasItemId::new("item17").expect("item"),
             ImathasProfile::new(crate::result_verification::IMATHAS_GRADING_PROFILE_ID)
                 .expect("profile"),
         )
     }
 
-    fn question() -> QuestionRevisionReference {
-        QuestionRevisionReference {
+    fn question() -> QuestionRevisionTuple {
+        QuestionRevisionTuple {
             question_id: QuestionId::from_random_identifier("ABCDEFG").expect("question ID"),
             revision_number: QuestionRevisionNumber::new(2).expect("revision"),
         }
@@ -90,9 +90,9 @@ mod launch_session_bridge {
     async fn source(
         store: &MemoryObjectStore,
     ) -> (
-        QuestionRevisionReference,
+        QuestionRevisionTuple,
         ResolvedImathasQuestionSource,
-        SourceObjectReference,
+        ObjectId,
     ) {
         let question = question();
         let object = ObjectId::from_uuid(Uuid::from_u128(4));
@@ -108,7 +108,7 @@ mod launch_session_bridge {
             })
             .await
             .expect("fixture source");
-        let artifact = SourceObjectReference { object };
+        let artifact = object;
         let resolved = ResolvedImathasQuestionSource::resolve(
             store,
             question.clone(),
@@ -122,9 +122,9 @@ mod launch_session_bridge {
     }
 
     fn context(
-        question: &QuestionRevisionReference,
+        question: &QuestionRevisionTuple,
         source: &ResolvedImathasQuestionSource,
-        artifact: &SourceObjectReference,
+        artifact: &ObjectId,
     ) -> ImathasQuestionBackendSessionPreparationContext {
         let revision = question.clone();
         let grading_context = learning_data_access::ImathasGradingContext::new(
@@ -340,7 +340,7 @@ mod launch_session_bridge {
         expired.expires_at = now();
         let mut wrong_deployment = validation.clone();
         wrong_deployment.imathas_question_backend_binding = ImathasQuestionBackendBinding::new(
-            ImathasDeploymentReference::new("wrong-imathas").expect("deployment"),
+            ImathasDeploymentId::new("wrong-imathas").expect("deployment"),
             wrong_deployment
                 .imathas_question_backend_binding
                 .item_reference()
@@ -368,7 +368,7 @@ mod launch_session_bridge {
                 .imathas_question_backend_binding
                 .deployment_reference()
                 .clone(),
-            ImathasItemReference::new("wrong-item").expect("item"),
+            ImathasItemId::new("wrong-item").expect("item"),
             wrong_item
                 .imathas_question_backend_binding
                 .profile()
@@ -386,7 +386,7 @@ mod launch_session_bridge {
         let mut wrong_question_id = validation.clone();
         wrong_question_id.grading_context = learning_data_access::ImathasGradingContext::new(
             wrong_question_id.grading_context.question_attempt(),
-            QuestionRevisionReference {
+            QuestionRevisionTuple {
                 question_id: QuestionId::from_random_identifier("BCDEFGH").expect("Question ID"),
                 revision_number: wrong_question_id
                     .grading_context
@@ -398,7 +398,7 @@ mod launch_session_bridge {
         let mut wrong_revision = validation.clone();
         wrong_revision.grading_context = learning_data_access::ImathasGradingContext::new(
             wrong_revision.grading_context.question_attempt(),
-            QuestionRevisionReference {
+            QuestionRevisionTuple {
                 question_id: wrong_revision
                     .grading_context
                     .question_revision()
@@ -472,7 +472,7 @@ mod launch_session_bridge {
         for mutator in [
             |validation: &mut learning_data_access::ImathasQuestionBackendLaunchPreparationValidation| {
                 validation.imathas_question_backend_binding = ImathasQuestionBackendBinding::new(
-                    ImathasDeploymentReference::new("wrong-imathas").expect("deployment"),
+                    ImathasDeploymentId::new("wrong-imathas").expect("deployment"),
                     validation
                         .imathas_question_backend_binding
                         .item_reference()
@@ -484,9 +484,7 @@ mod launch_session_bridge {
                 )
             },
             |validation: &mut learning_data_access::ImathasQuestionBackendLaunchPreparationValidation| {
-                validation.source_object = SourceObjectReference {
-                    object: ObjectId::from_uuid(Uuid::from_u128(99)),
-                }
+                validation.source_object = ObjectId::from_uuid(Uuid::from_u128(99));
             },
             |validation: &mut learning_data_access::ImathasQuestionBackendLaunchPreparationValidation| {
                 validation.source_object_checksum =
@@ -515,7 +513,7 @@ mod launch_session_bridge {
             |validation: &mut learning_data_access::ImathasQuestionBackendLaunchPreparationValidation| {
                 validation.grading_context = learning_data_access::ImathasGradingContext::new(
                     validation.grading_context.question_attempt(),
-                    QuestionRevisionReference {
+                    QuestionRevisionTuple {
                         question_id: QuestionId::from_random_identifier("BCDEFGH")
                             .expect("Question ID"),
                         revision_number: validation
@@ -529,7 +527,7 @@ mod launch_session_bridge {
             |validation: &mut learning_data_access::ImathasQuestionBackendLaunchPreparationValidation| {
                 validation.grading_context = learning_data_access::ImathasGradingContext::new(
                     validation.grading_context.question_attempt(),
-                    QuestionRevisionReference {
+                    QuestionRevisionTuple {
                         question_id: validation
                             .grading_context
                             .question_revision()
@@ -602,7 +600,7 @@ mod launch_session_bridge {
 
         for mode in [
             RecordedImathasQuestionBackendTransportMode::WrongSignedResult,
-            RecordedImathasQuestionBackendTransportMode::WrongImathasItemReference,
+            RecordedImathasQuestionBackendTransportMode::WrongImathasItemId,
             RecordedImathasQuestionBackendTransportMode::InvalidScore,
             RecordedImathasQuestionBackendTransportMode::NegativeZeroScore,
             RecordedImathasQuestionBackendTransportMode::ExpiredSignedResult,
@@ -640,7 +638,7 @@ mod launch_session_bridge {
                 RecordedImathasQuestionBackendTransportMode::WrongSignedResult => {
                     ImathasAdapterError::VerificationRefused
                 }
-                RecordedImathasQuestionBackendTransportMode::WrongImathasItemReference
+                RecordedImathasQuestionBackendTransportMode::WrongImathasItemId
                 | RecordedImathasQuestionBackendTransportMode::InvalidScore
                 | RecordedImathasQuestionBackendTransportMode::NegativeZeroScore
                 | RecordedImathasQuestionBackendTransportMode::WrongAlgorithm

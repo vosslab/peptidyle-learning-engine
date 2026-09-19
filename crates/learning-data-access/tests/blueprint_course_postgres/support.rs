@@ -120,7 +120,7 @@ pub(super) async fn assert_revision_checksum_mismatch(
     let before_tamper = tamper_store
         .load_blueprint_revision(
             token(),
-            question_model::BlueprintRevisionReference {
+            question_model::BlueprintRevisionTuple {
                 blueprint_course_id: blueprint_course_id.clone(),
                 revision: exact_revision,
             },
@@ -173,7 +173,7 @@ pub(super) async fn assert_revision_checksum_mismatch(
         tamper_store
             .load_blueprint_revision(
                 token(),
-                question_model::BlueprintRevisionReference {
+                question_model::BlueprintRevisionTuple {
                     blueprint_course_id: blueprint_course_id.clone(),
                     revision: exact_revision,
                 },
@@ -432,7 +432,7 @@ pub(super) fn content_input(title: &str) -> CreateBlueprintCourseInput {
                         },
                     }),
                     BlueprintAssessmentEntryInput::Fixed(ReusableFixedQuestionInput {
-                        published_question: QuestionRevisionReference {
+                        published_question: QuestionRevisionTuple {
                             question_id: question_id(),
                             revision_number: QuestionRevisionNumber::new(1)
                                 .expect("fixture Question Revision"),

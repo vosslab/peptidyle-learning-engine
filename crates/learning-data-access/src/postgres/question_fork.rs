@@ -2,9 +2,7 @@
 
 use async_trait::async_trait;
 use objects::{ObjectAddress, ObjectDataClass, ObjectRecord, ObjectStorageArea, Sha256Checksum};
-use question_model::{
-    ObjectId, QuestionAssetId, QuestionRevisionReference, Timestamp, WorkspaceId,
-};
+use question_model::{ObjectId, QuestionAssetId, QuestionRevisionTuple, Timestamp, WorkspaceId};
 use sqlx::{Postgres, Row, Transaction, types::Json};
 
 use super::{Pool, connection::map_sqlx_error};
@@ -57,7 +55,7 @@ impl QuestionForkStore for PostgresQuestionForkStore {
     async fn load_published_question_fork_asset(
         &self,
         session_token_hash: SessionTokenHash,
-        question_revision: &QuestionRevisionReference,
+        question_revision: &QuestionRevisionTuple,
     ) -> Result<Option<PublishedQuestionForkAsset>, StoreError> {
         let revision_number =
             i32::try_from(question_revision.revision_number.get()).map_err(|_| {
@@ -145,7 +143,7 @@ impl QuestionForkStore for PostgresQuestionForkStore {
 
 fn decode_fork_asset(
     row: &sqlx::postgres::PgRow,
-    revision: &QuestionRevisionReference,
+    revision: &QuestionRevisionTuple,
 ) -> Result<PublishedQuestionForkAsset, StoreError> {
     let object_id = ObjectId::from_uuid(row.try_get("object_id").map_err(map_sqlx_error)?);
     let asset_id = QuestionAssetId::from_uuid(row.try_get("asset_id").map_err(map_sqlx_error)?);

@@ -62,7 +62,7 @@ impl std::error::Error for QuestionPoolSelectionError {}
 /// Membership is sampled without replacement. Question Pool Order restores the
 /// current member order after membership selection; Random Order
 /// keeps the sampled order. The returned values carry exact Question
-/// Revision References and are suitable for a server-held Question Pool
+/// Revision Tuples and are suitable for a server-held Question Pool
 /// Selection record.
 pub fn select_question_pool_items(
     question_pool: &QuestionPoolAssessmentEntry,
@@ -126,7 +126,7 @@ mod tests {
         AssessmentEntryAvailability, AssessmentEntryId, AssessmentEntryScoringRule,
         AssessmentPointValue, QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionId,
         QuestionPoolEditNumber, QuestionPoolSelectionRule, QuestionRevisionNumber,
-        QuestionRevisionReference,
+        QuestionRevisionTuple,
     };
     use uuid::Uuid;
 
@@ -137,7 +137,7 @@ mod tests {
             question_pool_id: QuestionId::from_random_identifier("7K3M9QP").expect("Pool ID"),
             question_pool_edit_number: QuestionPoolEditNumber::new(1).expect("edit number"),
             member_position: number,
-            reference: QuestionRevisionReference {
+            question_revision: QuestionRevisionTuple {
                 question_id: QuestionId::from_random_identifier(format!("7K3M9Q{number}"))
                     .expect("valid Question ID"),
                 revision_number: QuestionRevisionNumber::new(1).expect("positive version"),

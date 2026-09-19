@@ -70,16 +70,16 @@ provided_avatar() {
     podman exec "$postgres" sh -lc 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "SELECT provided_avatar_id FROM ple_data.provided_avatar ORDER BY provided_avatar_id LIMIT 1"' |
         rg -x '[a-z][a-z0-9-]{0,63}' || fail "fixture has no closed provided avatar"
 }
-image_reference() {
+image_id() {
     python3 -c '
 import json, re, sys
 value=json.loads(sys.argv[1]); avatar=value.get("avatar")
 if set(value) != {"avatar"} or not isinstance(avatar, dict) or set(avatar) != {"kind","profileImageId"}:
     raise SystemExit("Profile-image response has an invalid public shape")
-reference=avatar["profileImageId"]
-if avatar["kind"] != "profileImage" or not isinstance(reference,str) or not re.fullmatch(r"[0-9a-f-]{36}", reference):
-    raise SystemExit("Profile-image response lacks an opaque image reference")
-print(reference)
+profile_image_id=avatar["profileImageId"]
+if avatar["kind"] != "profileImage" or not isinstance(profile_image_id,str) or not re.fullmatch(r"[0-9a-f-]{36}", profile_image_id):
+    raise SystemExit("Profile-image response lacks an opaque Profile Image ID")
+print(profile_image_id)
 ' "$1"
 }
 assert_exact_record() {
@@ -135,19 +135,19 @@ require_status "Undersized Profile-image upload" "$small_upload" 422
 prepare_image
 
 first_upload="$(upload "$instructor_cookie")"; require_status "Instructor image upload" "$first_upload" 200
-first_image="$(image_reference "$(body "$first_upload")")"
+first_image="$(image_id "$(body "$first_upload")")"
 assert_exact_record 'Elena Rivera' "$first_image"
 instructor_delivery="$(request "/api/profile/avatar/profile-images/$first_image/delivery" "$instructor_cookie" POST '{}')"
 require_status "Instructor self delivery" "$instructor_delivery" 200
 concealed "$(request "/api/profile/avatar/profile-images/$first_image/delivery" "$sysadmin_cookie" POST '{}')"
 
 second_upload="$(upload "$instructor_cookie")"; require_status "Instructor replacement upload" "$second_upload" 200
-second_image="$(image_reference "$(body "$second_upload")")"
-[ "$first_image" != "$second_image" ] || fail "replacement reused an image reference"
+second_image="$(image_id "$(body "$second_upload")")"
+[ "$first_image" != "$second_image" ] || fail "replacement reused a Profile Image ID"
 assert_retired_exact_cleanup "$first_image"
 
 sysadmin_upload="$(upload "$sysadmin_cookie")"; require_status "Sysadmin image upload" "$sysadmin_upload" 200
-sysadmin_image="$(image_reference "$(body "$sysadmin_upload")")"
+sysadmin_image="$(image_id "$(body "$sysadmin_upload")")"
 sysadmin_delivery="$(request "/api/profile/avatar/profile-images/$sysadmin_image/delivery" "$sysadmin_cookie" POST '{}')"
 require_status "Sysadmin self delivery" "$sysadmin_delivery" 200
 concealed "$(request '/api/instructor-profile/thumbnail' "$instructor_cookie")"

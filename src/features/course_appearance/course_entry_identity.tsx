@@ -51,7 +51,7 @@ export function CourseEntryIdentity(): JSX.Element {
     const data = routeData();
     return data === undefined ? null : courseRouteView(data).appearance.banner;
   };
-  const deliveryUrl = createCourseBannerUrl(() => banner()?.reference ?? null, runtime.client);
+  const deliveryUrl = createCourseBannerUrl(() => banner()?.id ?? null, runtime.client);
   return (
     <Show when={routeData()} keyed>
       {(data) => {

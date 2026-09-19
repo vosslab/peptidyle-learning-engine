@@ -8,8 +8,8 @@ use question_model::generation::QuestionSeed;
 use question_model::{
     DraftImathasQuestionBackendBinding, ImathasQuestionBackendBinding,
     QuestionAttemptReproductionDetails, QuestionRendererVersion, QuestionReproduction,
-    QuestionRevisionReference, QuestionVariationPresentation, SourceObjectChecksum,
-    SourceObjectReference, Timestamp,
+    QuestionRevisionTuple, QuestionVariationPresentation, SourceObjectChecksum,
+    ObjectId, Timestamp,
 };
 use sha2::{Digest, Sha256};
 
@@ -44,15 +44,15 @@ impl ResolvedImathasQuestionSource {
     /// Resolves an iMathAS Question Source from its exact immutable object.
     pub async fn resolve<S: ObjectStore>(
         store: &S,
-        question_revision: QuestionRevisionReference,
+        question_revision: QuestionRevisionTuple,
         binding: ImathasQuestionBackendBinding,
-        source_object_reference: SourceObjectReference,
+        source_object_id: ObjectId,
         source_object_checksum: SourceObjectChecksum,
     ) -> Result<Self, ImathasAdapterError> {
         let resolved = ResolvedQuestionSource::resolve(
             store,
             question_revision,
-            source_object_reference,
+            source_object_id,
             source_object_checksum,
         )
         .await
@@ -60,12 +60,12 @@ impl ResolvedImathasQuestionSource {
         Ok(Self { resolved, binding })
     }
 
-    pub fn source_object_reference(&self) -> &SourceObjectReference {
-        self.resolved.source_object_reference()
+    pub fn source_object_id(&self) -> &ObjectId {
+        self.resolved.source_object_id()
     }
 
     /// Exact Question Revision that owns the immutable iMathAS snapshot.
-    pub fn question_revision(&self) -> &QuestionRevisionReference {
+    pub fn question_revision(&self) -> &QuestionRevisionTuple {
         self.resolved.question_revision()
     }
 
@@ -165,7 +165,7 @@ impl<S: ObjectStore, P: QuestionBackend> ImathasAdapter<S, P> {
     /// version/seed requests are served from immutable cache storage.
     pub async fn issue(
         &self,
-        question_revision: &QuestionRevisionReference,
+        question_revision: &QuestionRevisionTuple,
         seed: QuestionSeed,
         source: &ResolvedImathasQuestionSource,
         created_at: Timestamp,
@@ -194,7 +194,7 @@ impl<S: ObjectStore, P: QuestionBackend> ImathasAdapter<S, P> {
         let safe = Self::validate_safe_render(safe)?;
         let record = CachedRender {
             schema: 1,
-            source: source.source_object_reference().clone(),
+            source: source.source_object_id().clone(),
             source_object_checksum: source.source_object_checksum().clone(),
             binding: source.binding.clone(),
             presentation: QuestionVariationPresentation {
@@ -244,7 +244,7 @@ impl<S: ObjectStore, P: QuestionBackend> ImathasAdapter<S, P> {
     /// Title and Prompt defined by [`crate::SafeImathasQuestionRender`].
     pub async fn preview(
         &self,
-        question_revision: &QuestionRevisionReference,
+        question_revision: &QuestionRevisionTuple,
         seed: QuestionSeed,
         source: &ResolvedImathasQuestionSource,
     ) -> Result<crate::SafeImathasQuestionRender, ImathasAdapterError> {
@@ -264,7 +264,7 @@ impl<S: ObjectStore, P: QuestionBackend> ImathasAdapter<S, P> {
 
     fn verify_render_source(
         &self,
-        question_revision: &QuestionRevisionReference,
+        question_revision: &QuestionRevisionTuple,
         source: &ResolvedImathasQuestionSource,
     ) -> Result<(), ImathasAdapterError> {
         // ASVS 2.2.1 and 2.2.2: enforce the revision binding and configured profile at the
@@ -316,7 +316,7 @@ impl<S: ObjectStore, P: QuestionBackend> ImathasAdapter<S, P> {
                     name: "imathas-profile".to_string(),
                     version: source.binding.profile().as_str().to_owned(),
                 }),
-                source_object_reference: Some(source.source_object_reference().clone()),
+                source_object_id: Some(source.source_object_id().clone()),
                 source_object_checksum: Some(source.source_object_checksum().clone()),
                 asset_objects: Vec::new(),
                 grader: grader_version(GRADING_ID, GRADING_VERSION),

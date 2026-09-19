@@ -71,12 +71,12 @@ persona_cookie() {
 	printf '%s\n' "$cookie"
 }
 
-new_course_reference() {
-	local instructor_cookie="$1" authority_output reference listed
+new_course_instance_id() {
+	local instructor_cookie="$1" authority_output course_instance_id listed
 	authority_output="$(bash "$repository_root/tests/e2e/e2e_live_demo_course_instance.sh" --authority)"
-	reference="$(printf '%s\n' "$authority_output" | sed -n 's/^Course Instance support fixture: //p' | tail -n 1)"
-	printf '%s\n' "$reference" | rg -q '^CI[0-9A-HJKMNP-TV-Z]{8}$' || {
-		echo "Course Instance fixture lacks a canonical public reference" >&2
+	course_instance_id="$(printf '%s\n' "$authority_output" | sed -n 's/^Course Instance support fixture: //p' | tail -n 1)"
+	printf '%s\n' "$course_instance_id" | rg -q '^CI[0-9A-HJKMNP-TV-Z]{8}$' || {
+		echo "Course Instance fixture lacks a canonical public ID" >&2
 		exit 1
 	}
 	listed="$(request '/api/course-instances' "$instructor_cookie")"
@@ -84,31 +84,31 @@ new_course_reference() {
 	python3 -c '
 import json, sys
 items=json.loads(sys.argv[1]).get("items", [])
-reference=sys.argv[2]
-if not any(isinstance(item,dict) and item.get("id")==reference for item in items):
+course_instance_id=sys.argv[2]
+if not any(isinstance(item,dict) and item.get("id")==course_instance_id for item in items):
     raise SystemExit("Course Instance fixture is absent from the Instructor list")
-' "$(response_body "$listed")" "$reference"
-	printf '%s\n' "$reference"
+' "$(response_body "$listed")" "$course_instance_id"
+	printf '%s\n' "$course_instance_id"
 }
 
-picker_reference() {
+picker_question_revision_tuple() {
 	python3 -c '
 import json, re, sys
 items=json.loads(sys.argv[1])
 if not isinstance(items, list) or not items: raise SystemExit("Question picker is empty")
 item=items[0]
-if not isinstance(item, dict) or set(item) != {"reference", "description"}: raise SystemExit("Question picker is malformed")
-reference=item["reference"]
-if (not isinstance(reference, dict) or set(reference) != {"questionId", "revisionNumber"}
-    or not isinstance(reference["questionId"], str)
-    or re.fullmatch(r"[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}", reference["questionId"]) is None
-    or not isinstance(reference["revisionNumber"], int) or reference["revisionNumber"] < 1):
-    raise SystemExit("Question picker lacks an exact Question Revision")
-print(json.dumps(reference, separators=(",", ":")))
+if not isinstance(item, dict) or not {"questionRevision", "description"}.issubset(item): raise SystemExit("Question picker is malformed")
+question_revision=item["questionRevision"]
+if (not isinstance(question_revision, dict) or set(question_revision) != {"questionId", "revisionNumber"}
+    or not isinstance(question_revision["questionId"], str)
+    or re.fullmatch(r"[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}", question_revision["questionId"]) is None
+    or not isinstance(question_revision["revisionNumber"], int) or question_revision["revisionNumber"] < 1):
+    raise SystemExit("Question picker lacks an exact Question Revision Tuple")
+print(json.dumps(question_revision, separators=(",", ":")))
 ' "$1"
 }
 
-workspace_reference_and_edit() {
+workspace_id_and_edit_number() {
 	python3 -c '
 import json, re, sys
 value=json.loads(sys.argv[1])
@@ -120,10 +120,10 @@ print(value["id"], value["editNumber"])
 }
 
 save_payload() {
-	local workspace="$1" question_reference="$2" title="$3"
+	local workspace="$1" question_revision_tuple="$2" title="$3"
 	python3 -c '
 import json, sys, uuid
-workspace=json.loads(sys.argv[1]); reference=json.loads(sys.argv[2]); title=sys.argv[3]
+workspace=json.loads(sys.argv[1]); question_revision=json.loads(sys.argv[2]); title=sys.argv[3]
 required={"title","instructions","dueAt","availableAt","closesAt","lateWorkRule","assessmentAttemptTimeLimitSeconds","attemptLimit","activityRules","studentFeedbackReleaseRule"}
 if not required.issubset(workspace): raise SystemExit("workspace is missing current editable state")
 payload={key: workspace[key] for key in required}
@@ -131,12 +131,12 @@ payload["title"]=title
 payload["dueAt"]="2026-12-01T23:59:00.000"
 payload["assessmentAttemptTimeLimitSeconds"]=300
 payload["entries"]=[{
-  "kind":"fixedQuestion", "id":str(uuid.uuid4()), "reference":reference,
+  "kind":"fixedQuestion", "id":str(uuid.uuid4()), "questionRevision":question_revision,
   "pointsPossible":"1", "availability":"available", "scoringRule":"normal",
   "questionAttemptLimit":{"maxAttempts":None}, "questionAttemptTimeLimit":{"kind":"unlimited"},
 }]
 print(json.dumps(payload, separators=(",", ":")))
-' "$workspace" "$question_reference" "$title"
+' "$workspace" "$question_revision_tuple" "$title"
 }
 
 retitle_payload() {
@@ -161,17 +161,17 @@ claim_student_record() {
 }
 
 assert_started() {
-	local response="$1" resumed="$2" title="$3" exact_reference="$4"
+	local response="$1" resumed="$2" title="$3" exact_question_revision_tuple="$4"
 	python3 -c '
 import json, re, sys
-value=json.loads(sys.argv[1]); expected_resumed=sys.argv[2] == "true"; title=sys.argv[3]; reference=json.loads(sys.argv[4])
+value=json.loads(sys.argv[1]); expected_resumed=sys.argv[2] == "true"; title=sys.argv[3]; question_revision=json.loads(sys.argv[4])
 required={"assessmentAttempt","assessment","attemptNumber","resumed","title","instructions","questions"}
 if set(value) != required or value["resumed"] is not expected_resumed or value["title"] != title:
     raise SystemExit("Assignment start did not preserve its retained evidence")
-if not re.fullmatch(r"R-[1-9][0-9]{0,9}", value["assessmentAttempt"]): raise SystemExit("Attempt identity is malformed")
+if not re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", value["assessmentAttempt"]): raise SystemExit("Attempt identity is malformed")
 if not isinstance(value["questions"], list) or len(value["questions"]) != 1: raise SystemExit("Attempt lacks one issued Question")
 question=value["questions"][0]
-if question.get("questionRevision") != reference: raise SystemExit("Issued Question lost its exact Question Revision pin")
+if question.get("questionRevision") != question_revision: raise SystemExit("Issued Question lost its exact Question Revision pin")
 forbidden={"answer","answerKey","studentRecord","assignmentAttemptId","questionAttemptId","checksum","reproduction"}
 def scan(item):
     if isinstance(item, dict):
@@ -180,5 +180,5 @@ def scan(item):
     elif isinstance(item, list):
         for child in item: scan(child)
 scan(value)
-' "$(response_body "$response")" "$resumed" "$title" "$exact_reference"
+' "$(response_body "$response")" "$resumed" "$title" "$exact_question_revision_tuple"
 }

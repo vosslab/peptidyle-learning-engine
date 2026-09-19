@@ -103,7 +103,7 @@ async fn review_course_blueprint_update(
     headers: HeaderMap,
     Path(course): Path<String>,
 ) -> Response {
-    let course = match course_reference(&course) {
+    let course = match course_instance_id(&course) {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -197,7 +197,7 @@ async fn list_assessments(
     headers: HeaderMap,
     Path(course): Path<String>,
 ) -> Response {
-    let course = match course_reference(&course) {
+    let course = match course_instance_id(&course) {
         Ok(v) => v,
         Err(r) => return *r,
     };
@@ -222,7 +222,7 @@ async fn list_picker(
     headers: HeaderMap,
     Path(course): Path<String>,
 ) -> Response {
-    let course = match course_reference(&course) {
+    let course = match course_instance_id(&course) {
         Ok(v) => v,
         Err(r) => return *r,
     };
@@ -246,7 +246,7 @@ async fn create_assessment(
     Path(course): Path<String>,
     Json(input): Json<CreateLiveAssessmentInput>,
 ) -> Response {
-    let course = match course_reference(&course) {
+    let course = match course_instance_id(&course) {
         Ok(v) => v,
         Err(r) => return *r,
     };
@@ -509,7 +509,7 @@ fn unreleased_response(value: &learning_data_access::UnreleasedLiveAssessment) -
     response
 }
 
-fn course_reference(value: &str) -> Result<CourseInstanceId, Box<Response>> {
+fn course_instance_id(value: &str) -> Result<CourseInstanceId, Box<Response>> {
     CourseInstanceId::from_str(value).map_err(|_| Box::new(concealed()))
 }
 fn refs(
@@ -517,7 +517,7 @@ fn refs(
     assessment_value: &str,
 ) -> Result<(CourseInstanceId, AssessmentId), Box<Response>> {
     Ok((
-        course_reference(course_value)?,
+        course_instance_id(course_value)?,
         AssessmentId::from_str(assessment_value).map_err(|_| Box::new(concealed()))?,
     ))
 }

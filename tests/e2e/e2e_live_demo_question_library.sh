@@ -167,7 +167,7 @@ for item in items:
     if not isinstance(summary, dict):
         raise SystemExit("Question Library search omitted a Question summary")
     identifier = summary.get("questionId")
-    revision = summary.get("latestQuestionRevision")
+    revision = summary.get("questionRevision")
     metadata = summary.get("metadata")
     availability = summary.get("availability")
     if (not isinstance(identifier, str) or question_id.fullmatch(identifier) is None
@@ -190,7 +190,7 @@ for forbidden in ("correctChoice", "correctAnswer", "studentResponse", "sourceOb
         raise SystemExit("Question Library search exposed a protected field")
 print(
     ple_item["questionId"],
-    ple_item["latestQuestionRevision"]["revisionNumber"],
+    ple_item["questionRevision"]["revisionNumber"],
     ple_item["metadata"]["questionTitle"],
     sep="\t",
 )
@@ -300,7 +300,7 @@ payload = json.loads(sys.argv[1])
 expected_id = sys.argv[2]
 expected_revision = int(sys.argv[3])
 summary = payload.get("summary", {})
-revision = summary.get("latestQuestionRevision", {}) if isinstance(summary, dict) else {}
+revision = summary.get("questionRevision", {}) if isinstance(summary, dict) else {}
 if (summary.get("questionId") != expected_id
     or revision.get("questionId") != expected_id
     or revision.get("revisionNumber") != expected_revision):

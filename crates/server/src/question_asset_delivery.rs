@@ -20,7 +20,7 @@ use learning_data_access::{
 };
 use objects::ObjectAddress;
 use question_model::{
-    ProductRole, QuestionAssetId, QuestionId, QuestionRevisionNumber, QuestionRevisionReference,
+    ProductRole, QuestionAssetId, QuestionId, QuestionRevisionNumber, QuestionRevisionTuple,
 };
 use url::Url;
 use uuid::Uuid;
@@ -118,13 +118,13 @@ async fn get_public_question_asset(
 fn verified_question_revision(
     question_id: &str,
     revision_number: &str,
-) -> Option<QuestionRevisionReference> {
+) -> Option<QuestionRevisionTuple> {
     let question_id = question_id.parse::<QuestionId>().ok()?;
     let revision_value = revision_number.parse::<u32>().ok()?;
     if revision_value.to_string() != revision_number {
         return None;
     }
-    Some(QuestionRevisionReference {
+    Some(QuestionRevisionTuple {
         question_id,
         revision_number: QuestionRevisionNumber::new(revision_value).ok()?,
     })
@@ -199,13 +199,13 @@ fn cookie(headers: &HeaderMap) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use objects::Sha256Checksum;
-    use question_model::{ObjectId, QuestionId, QuestionRevisionNumber, QuestionRevisionReference};
+    use question_model::{ObjectId, QuestionId, QuestionRevisionNumber, QuestionRevisionTuple};
 
     use super::*;
 
     fn rendition() -> ReadyQuestionAssetDelivery {
         ReadyQuestionAssetDelivery {
-            question_revision: QuestionRevisionReference {
+            question_revision: QuestionRevisionTuple {
                 question_id: QuestionId::from_random_identifier("ABCDEFG").expect("Question ID"),
                 revision_number: QuestionRevisionNumber::new(1).expect("revision"),
             },

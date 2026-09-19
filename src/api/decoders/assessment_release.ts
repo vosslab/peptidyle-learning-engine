@@ -57,7 +57,7 @@ import {
   decodeIdentifier,
   decodeQuestionDescription,
   decodeQuestionId,
-  decodeQuestionRevisionReference,
+  decodeQuestionRevisionTuple,
   field,
   requireOnlyFields,
 } from "./shared";
@@ -213,7 +213,7 @@ function assessmentEntry(value: unknown, path: string): AssessmentEntry {
     requireOnlyFields(record, path, [
       "kind",
       "id",
-      "reference",
+      "questionRevision",
       "pointsPossible",
       "availability",
       "scoringRule",
@@ -223,9 +223,9 @@ function assessmentEntry(value: unknown, path: string): AssessmentEntry {
     return {
       kind,
       id: decodeIdentifier(field(record, "id", path), `${path}.id`),
-      reference: decodeQuestionRevisionReference(
-        field(record, "reference", path),
-        `${path}.id`,
+      questionRevision: decodeQuestionRevisionTuple(
+        field(record, "questionRevision", path),
+        `${path}.questionRevision`,
         true,
       ),
       pointsPossible: pointValue(field(record, "pointsPossible", path), `${path}.pointsPossible`),
@@ -313,11 +313,11 @@ function entries(value: unknown, path: string): ReadonlyArray<AssessmentEntry> {
 
 function pickerEntry(value: unknown, path: string): AssessmentQuestionPickerEntry {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["reference", "description", "bloom"]);
+  requireOnlyFields(record, path, ["questionRevision", "description", "bloom"]);
   return {
-    reference: decodeQuestionRevisionReference(
-      field(record, "reference", path),
-      `${path}.id`,
+    questionRevision: decodeQuestionRevisionTuple(
+      field(record, "questionRevision", path),
+      `${path}.questionRevision`,
       true,
     ),
     description: decodeQuestionDescription(

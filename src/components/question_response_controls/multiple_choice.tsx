@@ -2,7 +2,7 @@
 
 import { createSignal, For, type JSX } from "solid-js";
 
-import type { ResponseItemReference } from "../../../generated/api/ResponseItemReference";
+import type { ResponseItemId } from "../../../generated/api/ResponseItemId";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
 
 import { handleQuestionResponseControlKeyDown } from "../question_response_controls/keyboard";
@@ -56,7 +56,7 @@ function multipleAnswerProgress(
 export function MultipleChoiceResponse(props: MultipleChoiceResponseProps): JSX.Element {
   const restored =
     props.initialResponse?.kind === "multipleChoice" ? props.initialResponse.selected : [];
-  const [selected, setSelected] = createSignal<ReadonlyArray<ResponseItemReference>>(restored);
+  const [selected, setSelected] = createSignal<ReadonlyArray<ResponseItemId>>(restored);
   let firstChoice!: HTMLInputElement;
   const controller = createResponseController(props, {
     kind: "multipleChoice",
@@ -65,7 +65,7 @@ export function MultipleChoiceResponse(props: MultipleChoiceResponseProps): JSX.
   const response = (): StudentResponse => ({ kind: "multipleChoice", selected: [...selected()] });
   const progress = (): string | null =>
     multipleAnswerProgress(props.responseFormat, selected().length);
-  function choose(choice: ResponseItemReference): void {
+  function choose(choice: ResponseItemId): void {
     if (controller.locked()) return;
     const next =
       props.responseFormat.kind === "singleChoice" ||

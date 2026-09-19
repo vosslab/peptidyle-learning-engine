@@ -4,7 +4,7 @@ use hmac::{Hmac, KeyInit, Mac};
 use learning_data_access::ImathasQuestionBackendStatePlaintext;
 use sha2::Sha256;
 
-use super::{ImathasAdapterError, ImathasLaunchReference};
+use super::{ImathasAdapterError, ImathasLaunchId};
 use crate::cache::hex;
 
 const IMATHAS_LAUNCH_STATE_VERSION: u8 = 1;
@@ -13,11 +13,11 @@ const MAX_IMATHAS_LAUNCH_HANDLE_BYTES: usize = 128;
 /// Bounded, versioned, server-only iMathAS state stored inside LDA AEAD
 /// plaintext. It deliberately contains only the iMathAS proxy handle.
 pub struct ImathasLaunchState {
-    handle: ImathasLaunchReference,
+    handle: ImathasLaunchId,
 }
 
 impl ImathasLaunchState {
-    pub fn from_launch_handle(handle: ImathasLaunchReference) -> Self {
+    pub fn from_launch_handle(handle: ImathasLaunchId) -> Self {
         Self { handle }
     }
 
@@ -54,13 +54,13 @@ impl ImathasLaunchState {
         let handle = std::str::from_utf8(handle)
             .map_err(|_| ImathasAdapterError::InvalidImathasQuestionBackendSessionAuthentication)?;
         Ok(Self {
-            handle: ImathasLaunchReference::from_server_handle(handle).map_err(|_| {
+            handle: ImathasLaunchId::from_server_handle(handle).map_err(|_| {
                 ImathasAdapterError::InvalidImathasQuestionBackendSessionAuthentication
             })?,
         })
     }
 
-    pub(crate) fn handle(&self) -> &ImathasLaunchReference {
+    pub(crate) fn handle(&self) -> &ImathasLaunchId {
         &self.handle
     }
 }

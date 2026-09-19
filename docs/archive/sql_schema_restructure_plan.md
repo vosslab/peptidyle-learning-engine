@@ -53,7 +53,7 @@ preserves the redundancy and adds a second thing to audit.
 - Introduce content-addressed Assessment policy and entry snapshots; remove per-row copies.
 - Remove derived and duplicated Student Work columns and the grading wrapper table.
 - Unify identity, revision-number width, and checksum types; remove retired lifecycle values,
-  the assigned-Instructor column, `metadata_etag`, and constant columns.
+  the assigned-Instructor column, `<retired-term-replace-me>`, and constant columns.
 - Collapse notification fan-out, remove iMathAS scaffolding, share one lease shape.
 - Update the Rust data-access readers and projections each change touches.
 - Add referencing-side indexes and generic immutability guards where measured.
@@ -95,7 +95,7 @@ dependent milestone starts, and record it in `docs/DESIGN_DECISIONS.md` at close
    `uuid` (Blueprints: from `reference_number bigint`) to the public-ID domain. Every
    `reference_number` column is dropped; a reader found in `crates/` or `schemas/` is rewritten to
    the public ID, not preserved.
-3. `metadata_etag` becomes an Edit Number; change-proposal FKs re-key to `(reference, edit_number)`.
+3. `<retired-term-replace-me>` becomes an Edit Number; change-proposal FKs re-key to `(reference, edit_number)`.
 4. Finalized responses are finalized in place; `question_response` is removed.
 5. iMathAS tables, columns, and enum values are removed.
 6. Course themes stay a reference table; every other closed vocabulary becomes an enum.
@@ -163,7 +163,7 @@ dependent milestone starts, and record it in `docs/DESIGN_DECISIONS.md` at close
   and bounded-name domains; every `text CHECK (IN ...)` replaced; the five uuid-keyed public
   aggregates and their children re-keyed to the public ID; `revision_number` `integer` everywhere; `source_object_checksum` `bytea`
   everywhere; `assessment_status` without `closed`/`archived`; `assigned_instructor_*` removed;
-  `metadata_etag` replaced; non-carrier constant columns removed; every table has a creation
+  `<retired-term-replace-me>` replaced; non-carrier constant columns removed; every table has a creation
   instant (43 lack one today); Rust mappings updated.
 - Workstreams: WS-types, WS-identity. They overlap on `20_tables/assessment.sql`,
   `blueprint_course.sql`, `course_instance.sql`; WS-types lands first on those three files.
@@ -415,7 +415,7 @@ dependent milestone starts, and record it in `docs/DESIGN_DECISIONS.md` at close
   its public-ID domain; every FK to it targets that column; no `reference_number` column remains;
   Published Questions unchanged; `public_id_reservation` still guarantees global uniqueness;
   seed loads; the canonical public-ID e2e proofs pass.
-- Obvious follow-ons: WP-1.6 (`metadata_etag` FKs re-key at the same time).
+- Obvious follow-ons: WP-1.6 (`<retired-term-replace-me>` FKs re-key at the same time).
 
 ### Work package: WP-1.5 unify widths and checksum types
 
@@ -429,8 +429,8 @@ dependent milestone starts, and record it in `docs/DESIGN_DECISIONS.md` at close
 
 - Owner: schema coder.
 - Touch points: `20_tables/assessment.sql` (`assessment_status`), `course_instance.sql`
-  (`assigned_instructor_*`, `metadata_etag`), `blueprint_course.sql`, `question_pool.sql`
-  (`metadata_etag`), change-proposal tables, constant columns listed in audit 1.6.
+  (`assigned_instructor_*`, `<retired-term-replace-me>`), `blueprint_course.sql`, `question_pool.sql`
+  (`<retired-term-replace-me>`), change-proposal tables, constant columns listed in audit 1.6.
 - Depends on: WP-1.4.
 - Acceptance criteria: no `closed`/`archived` Assessment value; Course authority is
   `course_membership` only; one concurrency token repo-wide; constant columns gone except role

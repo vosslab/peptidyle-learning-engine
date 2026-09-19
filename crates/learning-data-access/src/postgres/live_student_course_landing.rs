@@ -137,7 +137,7 @@ fn decode_course(
     row: &sqlx::postgres::PgRow,
 ) -> Result<LiveStudentCourseLandingSummary, StoreError> {
     Ok(LiveStudentCourseLandingSummary {
-        course: course_reference(row.try_get("course_instance_id").map_err(map_sqlx_error)?)?,
+        course: course_instance_id(row.try_get("course_instance_id").map_err(map_sqlx_error)?)?,
         short_name: name(
             row.try_get("course_short_name").map_err(map_sqlx_error)?,
             "Course short name",
@@ -202,7 +202,7 @@ fn decode_assessment(
         return Err(invalid("Assessment progress"));
     }
     Ok(LiveStudentAssessmentLandingSummary {
-        assessment: assessment_reference(row.try_get("assessment_id").map_err(map_sqlx_error)?)?,
+        assessment: assessment_id(row.try_get("assessment_id").map_err(map_sqlx_error)?)?,
         title: row.try_get("assessment_title").map_err(map_sqlx_error)?,
         assessment_type,
         decision,
@@ -232,7 +232,7 @@ fn decode_invitation(
     let term =
         CourseTerm::from_parts(&start_date, &end_date).map_err(|_| invalid("Course term"))?;
     Ok(LiveStudentCourseInvitationSummary {
-        course: course_reference(row.try_get("course_instance_id").map_err(map_sqlx_error)?)?,
+        course: course_instance_id(row.try_get("course_instance_id").map_err(map_sqlx_error)?)?,
         short_name: name(
             row.try_get("course_short_name").map_err(map_sqlx_error)?,
             "Course short name",
@@ -275,11 +275,11 @@ fn name(value: String, label: &str) -> Result<String, StoreError> {
         .ok_or_else(|| invalid(label))
 }
 
-fn course_reference(value: String) -> Result<CourseInstanceId, StoreError> {
+fn course_instance_id(value: String) -> Result<CourseInstanceId, StoreError> {
     CourseInstanceId::new(value).map_err(|_| invalid("Course Instance reference"))
 }
 
-fn assessment_reference(value: String) -> Result<AssessmentId, StoreError> {
+fn assessment_id(value: String) -> Result<AssessmentId, StoreError> {
     AssessmentId::new(value)
         .map_err(|_| StoreError::InvalidRecord("Assessment reference is invalid".to_string()))
 }

@@ -19,8 +19,8 @@ use objects::{
     image_validation::{normalized_course_banner_webp, verify_course_banner_still_image},
 };
 use question_model::{
-    CourseAppearanceView, CourseBannerReference, CourseBannerRendition, CourseBannerUpdate,
-    CourseBannerUploadReceipt, CourseBannerUploadReference, CourseInstanceId,
+    CourseAppearanceView, CourseBannerId, CourseBannerRendition, CourseBannerUpdate,
+    CourseBannerUploadReceipt, CourseBannerUploadId, CourseInstanceId,
 };
 use uuid::Uuid;
 
@@ -68,7 +68,7 @@ pub(super) async fn stage_banner_upload(
         Ok(value) => value,
         Err(_) => return route_error(StatusCode::UNPROCESSABLE_ENTITY, "Course Banner is invalid"),
     };
-    let upload = CourseBannerUploadReference::generate();
+    let upload = CourseBannerUploadId::generate();
     let media_type = verified.media_type.canonical_media_type().to_string();
     let address = ObjectAddress::CourseBannerUpload {
         course: course.clone(),
@@ -176,7 +176,7 @@ pub(super) async fn promote_banner(
             );
         }
     };
-    let banner = CourseBannerReference::generate();
+    let banner = CourseBannerId::generate();
     let source_address = ObjectAddress::CourseBannerSource {
         course: course.clone(),
         banner,
@@ -344,7 +344,7 @@ pub(super) async fn deliver_banner(
     let Ok(banner) = Uuid::parse_str(&banner) else {
         return concealed();
     };
-    let banner = CourseBannerReference::from_uuid(banner);
+    let banner = CourseBannerId::from_uuid(banner);
     let token = match authenticated_session_hash(&state, &headers).await {
         Ok(value) => value,
         Err(response) => return *response,
@@ -447,7 +447,7 @@ async fn mark_repair(
     state: &RouteState,
     token: SessionTokenHash,
     course: CourseInstanceId,
-    banner: Option<CourseBannerReference>,
+    banner: Option<CourseBannerId>,
     object_id: question_model::ObjectId,
 ) {
     let _ = state
@@ -460,7 +460,7 @@ async fn compensate_prepared(
     state: &RouteState,
     token: SessionTokenHash,
     course: CourseInstanceId,
-    banner: CourseBannerReference,
+    banner: CourseBannerId,
     objects: &[(&ObjectAddress, Vec<u8>, CourseBannerObjectMetadata, Uuid)],
 ) {
     for (address, _, _, put_work_id) in objects {
@@ -485,7 +485,7 @@ pub(crate) async fn write_prepared_objects<S: CourseBannerStore, O: ObjectStore>
     objects: &O,
     token: SessionTokenHash,
     course: CourseInstanceId,
-    banner: CourseBannerReference,
+    banner: CourseBannerId,
     prepared: &[(&ObjectAddress, Vec<u8>, CourseBannerObjectMetadata, Uuid)],
 ) -> Result<(), ()> {
     for (address, bytes, metadata, _) in prepared {
@@ -520,7 +520,7 @@ pub(crate) async fn finalize_staged_upload<S: CourseBannerStore, O: ObjectStore>
     objects: &O,
     token: SessionTokenHash,
     course: CourseInstanceId,
-    upload: CourseBannerUploadReference,
+    upload: CourseBannerUploadId,
     put_work_id: Uuid,
     address: &ObjectAddress,
     bytes: Vec<u8>,
@@ -611,7 +611,7 @@ async fn cleanup_address(
     state: &RouteState,
     token: SessionTokenHash,
     course: CourseInstanceId,
-    banner: Option<CourseBannerReference>,
+    banner: Option<CourseBannerId>,
     address: &ObjectAddress,
     put_work_id: Uuid,
 ) {
@@ -633,7 +633,7 @@ pub(crate) async fn cleanup_address_with<S: CourseBannerStore, O: ObjectStore>(
     objects: &O,
     token: SessionTokenHash,
     _course: CourseInstanceId,
-    _banner: Option<CourseBannerReference>,
+    _banner: Option<CourseBannerId>,
     address: &ObjectAddress,
     put_work_id: Uuid,
 ) {

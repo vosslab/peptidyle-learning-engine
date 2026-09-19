@@ -60,17 +60,17 @@ export function BlueprintSelectionEditor(props: ApplyProps): JSX.Element {
     if (module.kind === "newFromSource")
       return (
         props.review.left.modules.find(
-          (m) => m.blueprintModuleReference === module.sourceModuleReference,
+          (m) => m.blueprintModuleId === module.sourceModuleId,
         )?.label ?? "New module"
       );
-    const copy = labels().find((c) => c.targetModuleReference === module.targetModuleReference);
+    const copy = labels().find((c) => c.targetModuleId === module.targetModuleId);
     return (
       (copy
         ? props.review.left.modules.find(
-            (m) => m.blueprintModuleReference === copy.sourceModuleReference,
+            (m) => m.blueprintModuleId === copy.sourceModuleId,
           )?.label
         : props.review.right.modules.find(
-            (m) => m.blueprintModuleReference === module.targetModuleReference,
+            (m) => m.blueprintModuleId === module.targetModuleId,
           )?.label) ?? "Module"
     );
   };
@@ -112,18 +112,18 @@ export function BlueprintSelectionEditor(props: ApplyProps): JSX.Element {
   function chooseModule(source: string, value: string): void {
     props.proposalSelection?.onChanged?.();
     setLabels([
-      ...labels().filter((c) => c.sourceModuleReference !== source),
+      ...labels().filter((c) => c.sourceModuleId !== source),
       ...(value
-        ? [{ sourceModuleReference: source, targetModuleReference: value === "new" ? null : value }]
+        ? [{ sourceModuleId: source, targetModuleId: value === "new" ? null : value }]
         : []),
     ]);
     const next = layout().filter(
       (row) =>
-        !(row.module.kind === "newFromSource" && row.module.sourceModuleReference === source),
+        !(row.module.kind === "newFromSource" && row.module.sourceModuleId === source),
     );
     if (value === "new")
       next.push({
-        module: { kind: "newFromSource", sourceModuleReference: source },
+        module: { kind: "newFromSource", sourceModuleId: source },
         assessments: [],
       });
     if (next.length !== layout().length || value === "new") edit(next);
@@ -284,21 +284,21 @@ export function BlueprintSelectionEditor(props: ApplyProps): JSX.Element {
               Source module label: {source.label}
               <select
                 value={
-                  labels().find((c) => c.sourceModuleReference === source.blueprintModuleReference)
-                    ?.targetModuleReference ??
-                  (labels().some((c) => c.sourceModuleReference === source.blueprintModuleReference)
+                  labels().find((c) => c.sourceModuleId === source.blueprintModuleId)
+                    ?.targetModuleId ??
+                  (labels().some((c) => c.sourceModuleId === source.blueprintModuleId)
                     ? "new"
                     : "")
                 }
                 onChange={(e) =>
-                  chooseModule(source.blueprintModuleReference, e.currentTarget.value)
+                  chooseModule(source.blueprintModuleId, e.currentTarget.value)
                 }
               >
                 <option value="">Do not copy</option>
                 <option value="new">Create new module</option>
                 <For each={props.review.right.modules}>
                   {(target) => (
-                    <option value={target.blueprintModuleReference}>
+                    <option value={target.blueprintModuleId}>
                       Replace label: {target.label}
                     </option>
                   )}
@@ -451,7 +451,7 @@ export function BlueprintSelectionEditor(props: ApplyProps): JSX.Element {
               !layout().some(
                 (r) =>
                   r.module.kind === "existing" &&
-                  r.module.targetModuleReference === m.blueprintModuleReference,
+                  r.module.targetModuleId === m.blueprintModuleId,
               ),
           )}
         >
@@ -462,7 +462,7 @@ export function BlueprintSelectionEditor(props: ApplyProps): JSX.Element {
                 edit([
                   ...layout(),
                   {
-                    module: { kind: "existing", targetModuleReference: m.blueprintModuleReference },
+                    module: { kind: "existing", targetModuleId: m.blueprintModuleId },
                     assessments: [],
                   },
                 ])

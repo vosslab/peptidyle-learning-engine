@@ -8,7 +8,7 @@ use std::collections::BTreeSet;
 
 use async_trait::async_trait;
 use question_model::{
-    MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY, QuestionId, QuestionRevisionReference,
+    MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY, QuestionId, QuestionRevisionTuple,
 };
 
 use crate::{SessionTokenHash, StoreError};
@@ -22,7 +22,7 @@ pub struct CreateQuestionPoolInput {
     /// Fresh checksum-valid public Pool identity minted by the server issuer.
     pub question_pool_id: QuestionId,
     /// Ordered exact Published Question Revision pins.
-    pub members: Vec<QuestionRevisionReference>,
+    pub members: Vec<QuestionRevisionTuple>,
     /// The Instructor affirms that these Questions are interchangeable.
     pub interchangeability_attested: bool,
 }

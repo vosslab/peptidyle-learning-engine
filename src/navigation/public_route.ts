@@ -2,10 +2,10 @@
 
 import type { AssessmentId } from "../../generated/api/AssessmentId";
 import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
-import type { CourseMembershipReference } from "../../generated/api/CourseMembershipReference";
+import type { CourseMembershipId } from "../../generated/api/CourseMembershipId";
 import type { QuestionId } from "../../generated/api/QuestionId";
 import type { AssessmentAttemptId } from "../../generated/api/AssessmentAttemptId";
-import type { AuthoringWorkspaceReference } from "../../generated/api/AuthoringWorkspaceReference";
+import type { WorkspaceId } from "../../generated/api/WorkspaceId";
 import type { BlueprintCourseId } from "../../generated/api/BlueprintCourseId";
 import {
   validateCanonicalPublicId,
@@ -13,71 +13,57 @@ import {
   type CanonicalPublicIdFamily,
 } from "../question_id";
 
-declare const routeReferenceBrand: unique symbol;
-type BrandedRouteReference<Kind extends string> = string & { readonly [routeReferenceBrand]: Kind };
-export type CourseInstanceRouteReference = CourseInstanceId &
-  BrandedRouteReference<"courseInstance">;
-export type CourseMembershipRouteReference = CourseMembershipReference &
-  BrandedRouteReference<"courseMembership">;
-export type AssessmentRouteReference = AssessmentId & BrandedRouteReference<"assessment">;
-export type AssessmentAttemptRouteReference = AssessmentAttemptId &
-  BrandedRouteReference<"assessmentAttempt">;
-export type AuthoringWorkspaceRouteReference = AuthoringWorkspaceReference &
-  BrandedRouteReference<"authoringWorkspace">;
+declare const routeIdBrand: unique symbol;
+type BrandedRouteId<Kind extends string> = string & { readonly [routeIdBrand]: Kind };
+export type CourseInstanceRouteId = CourseInstanceId & BrandedRouteId<"courseInstance">;
+export type CourseMembershipRouteId = CourseMembershipId &
+  BrandedRouteId<"courseMembership">;
+export type AssessmentRouteId = AssessmentId & BrandedRouteId<"assessment">;
+export type AssessmentAttemptRouteId = AssessmentAttemptId &
+  BrandedRouteId<"assessmentAttempt">;
+export type AuthoringWorkspaceRouteId = WorkspaceId &
+  BrandedRouteId<"authoringWorkspace">;
 /** Private Draft UUID accepted only in the authorized authoring route. */
-export type DraftQuestionRouteId = BrandedRouteReference<"draftQuestion">;
-export type BlueprintCourseRouteReference = BlueprintCourseId &
-  BrandedRouteReference<"blueprintCourse">;
-export type QuestionRouteReference = BrandedRouteReference<"question">;
-export type PublicRouteReference =
-  | AssessmentAttemptRouteReference
-  | CourseInstanceRouteReference
-  | AssessmentRouteReference
-  | AuthoringWorkspaceRouteReference
-  | BlueprintCourseRouteReference;
-
-function parseNumeric<Kind extends string>(
-  value: string,
-  prefix: string,
-): BrandedRouteReference<Kind> | null {
-  if (!new RegExp(`^${prefix}-[1-9][0-9]{0,9}$`, "u").test(value)) return null;
-  const number = Number(value.slice(prefix.length + 1));
-  return Number.isSafeInteger(number) && number <= 2_147_483_647
-    ? (value as BrandedRouteReference<Kind>)
-    : null;
-}
-export function parseCourseInstanceId(value: string): CourseInstanceRouteReference | null {
+export type DraftQuestionRouteId = BrandedRouteId<"draftQuestion">;
+export type BlueprintCourseRouteId = BlueprintCourseId & BrandedRouteId<"blueprintCourse">;
+export type QuestionRouteId = BrandedRouteId<"question">;
+export type PublicRouteId =
+  AssessmentAttemptRouteId | CourseInstanceRouteId | AssessmentRouteId | BlueprintCourseRouteId;
+export type NavigationRouteId = PublicRouteId | AuthoringWorkspaceRouteId;
+export function parseCourseInstanceId(value: string): CourseInstanceRouteId | null {
   return parseCanonicalPublicId<"courseInstance">(value, "courseInstance");
 }
-export function parseCourseMembershipReference(
+export function parseCourseMembershipId(
   value: string,
-): CourseMembershipRouteReference | null {
-  return parseNumeric<"courseMembership">(value, "M");
+): CourseMembershipRouteId | null {
+  return parseUuid<"courseMembership">(value);
 }
-export function parseAssessmentId(value: string): AssessmentRouteReference | null {
+export function parseAssessmentId(value: string): AssessmentRouteId | null {
   return parseCanonicalPublicId<"assessment">(value, "assessment");
 }
-export function parseAssessmentAttemptReference(
-  value: string,
-): AssessmentAttemptRouteReference | null {
+export function parseAssessmentAttemptId(value: string): AssessmentAttemptRouteId | null {
   return parseUuid<"assessmentAttempt">(value);
 }
-export const parseAssessmentAttemptId = parseAssessmentAttemptReference;
-export function parseAuthoringWorkspaceReference(
+export function parseAuthoringWorkspaceId(
   value: string,
-): AuthoringWorkspaceRouteReference | null {
-  return parseNumeric<"authoringWorkspace">(value, "W");
+): AuthoringWorkspaceRouteId | null {
+  return parseUuid<"authoringWorkspace">(value);
 }
-function parseUuid<Kind extends string>(value: string): BrandedRouteReference<Kind> | null {
+function parseUuid<Kind extends string>(value: string): BrandedRouteId<Kind> | null {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u.test(value)
-    ? (value as BrandedRouteReference<Kind>)
+    ? (value as BrandedRouteId<Kind>)
     : null;
 }
 export function parseDraftQuestionId(value: string): DraftQuestionRouteId | null {
   return parseUuid<"draftQuestion">(value);
 }
-export function parseBlueprintCourseId(value: string): BlueprintCourseRouteReference | null {
+export function parseBlueprintCourseId(value: string): BlueprintCourseRouteId | null {
   return parseCanonicalPublicId<"blueprintCourse">(value, "blueprintCourse");
+}
+export function blueprintCourseRouteId(value: BlueprintCourseId): BlueprintCourseRouteId {
+  const result = parseBlueprintCourseId(value);
+  if (result === null) throw new Error("invalid Blueprint Course ID");
+  return result;
 }
 
 /** Syntax only: the existing opaque Proposal UUID is never an authorization grant. */
@@ -91,41 +77,37 @@ export function parseBlueprintChangeProposalHandle(value: string): string | null
 function parseCanonicalPublicId<Kind extends string>(
   value: string,
   family: CanonicalPublicIdFamily,
-): BrandedRouteReference<Kind> | null {
+): BrandedRouteId<Kind> | null {
   const result = validateCanonicalPublicId(family, value);
-  return result === null ? null : (result as BrandedRouteReference<Kind>);
+  return result === null ? null : (result as BrandedRouteId<Kind>);
 }
-export function courseInstanceRouteReference(
-  value: CourseInstanceId,
-): CourseInstanceRouteReference {
+export function courseInstanceRouteId(value: CourseInstanceId): CourseInstanceRouteId {
   const result = parseCourseInstanceId(value);
-  if (result === null) throw new Error("invalid Course Instance Reference");
+  if (result === null) throw new Error("invalid Course Instance ID");
   return result;
 }
-export function assessmentRouteReference(value: AssessmentId): AssessmentRouteReference {
+export function assessmentRouteId(value: AssessmentId): AssessmentRouteId {
   const result = parseAssessmentId(value);
-  if (result === null) throw new Error("invalid assessment reference");
+  if (result === null) throw new Error("invalid Assessment ID");
   return result;
 }
-export function courseMembershipRouteReference(
-  value: CourseMembershipReference,
-): CourseMembershipRouteReference {
-  const result = parseCourseMembershipReference(value);
-  if (result === null) throw new Error("invalid course membership reference");
+export function courseMembershipRouteId(
+  value: CourseMembershipId,
+): CourseMembershipRouteId {
+  const result = parseCourseMembershipId(value);
+  if (result === null) throw new Error("invalid Course Membership ID");
   return result;
 }
-export function assessmentAttemptRouteReference(
-  value: AssessmentAttemptId,
-): AssessmentAttemptRouteReference {
-  const result = parseAssessmentAttemptReference(value);
-  if (result === null) throw new Error("invalid Assessment Attempt reference");
+export function assessmentAttemptRouteId(value: AssessmentAttemptId): AssessmentAttemptRouteId {
+  const result = parseAssessmentAttemptId(value);
+  if (result === null) throw new Error("invalid Assessment Attempt ID");
   return result;
 }
-export function authoringWorkspaceRouteReference(
-  value: AuthoringWorkspaceReference,
-): AuthoringWorkspaceRouteReference {
-  const result = parseAuthoringWorkspaceReference(value);
-  if (result === null) throw new Error("invalid Authoring Workspace Reference");
+export function authoringWorkspaceRouteId(
+  value: WorkspaceId,
+): AuthoringWorkspaceRouteId {
+  const result = parseAuthoringWorkspaceId(value);
+  if (result === null) throw new Error("invalid Authoring Workspace ID");
   return result;
 }
 export function draftQuestionRouteId(value: string): DraftQuestionRouteId {
@@ -133,21 +115,20 @@ export function draftQuestionRouteId(value: string): DraftQuestionRouteId {
   if (result === null) throw new Error("invalid private Draft UUID");
   return result;
 }
-export function parsePublicRouteReference(value: string): PublicRouteReference | null {
+export function parsePublicRouteId(value: string): PublicRouteId | null {
   return (
     parseCourseInstanceId(value) ??
     parseAssessmentId(value) ??
-    parseAssessmentAttemptReference(value) ??
-    parseAuthoringWorkspaceReference(value) ??
+    parseAssessmentAttemptId(value) ??
     parseBlueprintCourseId(value)
   );
 }
-export function questionRouteReference(questionId: QuestionId): QuestionRouteReference {
-  const result = parseQuestionRouteReference(questionId);
+export function questionRouteId(questionId: QuestionId): QuestionRouteId {
+  const result = parseQuestionRouteId(questionId);
   if (result === null) throw new Error("question ID must use Crockford Base32");
   return result;
 }
-export function parseQuestionRouteReference(value: string): QuestionRouteReference | null {
+export function parseQuestionRouteId(value: string): QuestionRouteId | null {
   const result = validateCanonicalQuestionIdSyntax(value);
-  return result === null ? null : (result as QuestionRouteReference);
+  return result === null ? null : (result as QuestionRouteId);
 }

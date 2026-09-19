@@ -8,7 +8,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::question_library::{QuestionId, QuestionRevisionReference};
+use crate::question_library::{QuestionId, QuestionRevisionTuple};
 
 /// A browser-safe stewardship activity concerning a Published Question.
 ///
@@ -23,11 +23,11 @@ use crate::question_library::{QuestionId, QuestionRevisionReference};
 )]
 pub enum QuestionStewardshipEvent {
     /// A new immutable revision joined the Question's published lineage.
-    RevisionPublished { revision: QuestionRevisionReference },
+    RevisionPublished { revision: QuestionRevisionTuple },
     /// A published fork records its distinct Question lineage and source.
     ForkPublished {
         source_question: QuestionId,
-        fork: QuestionRevisionReference,
+        fork: QuestionRevisionTuple,
     },
     /// An improvement thread has activity for the named Question lineage.
     ImprovementThreadActivity { question: QuestionId },

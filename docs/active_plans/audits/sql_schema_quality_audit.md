@@ -239,7 +239,7 @@ so that each FK can pin the parent is a known PostgreSQL idiom, and vocabulary c
 ### 1.9 Blueprint metadata event duplicates the current row (source)
 
 `ple_data.blueprint_metadata_event` (blueprints.sql:159) stores name, classification 4-tuple,
-tags, availability, and `metadata_etag` per metadata change, while `blueprint_course` stores the
+tags, availability, and `<retired-term-replace-me>` per metadata change, while `blueprint_course` stores the
 same current values. The current row is exactly the latest event. Either the current table
 projects from the event log (a view or a `current_metadata_event_id` FK) or the log keeps only
 the changed fields. Same shape for `course_instance` vs `ple_audit.course_instance_creation_event`
@@ -274,9 +274,9 @@ width. `source_object_checksum` is `text` hex in the source-binding tables
 
 HUMAN_GUIDANCE.md:836 says "Mutable working state uses a monotonic sequential Edit Number when
 needed for concurrency." The schema uses `*_edit_number bigint` on most aggregates **and**
-`metadata_etag uuid` on six tables (`course_instance`, `blueprint_course`, `question_pool`,
+`<retired-term-replace-me> uuid` on six tables (`course_instance`, `blueprint_course`, `question_pool`,
 `blueprint_metadata_event`, and the change-proposal pair, which carry FKs to
-`(reference_number, metadata_etag)`). Two tokens for one purpose. Replace `metadata_etag` with an
+`(reference_number, <retired-term-replace-me>)`). Two tokens for one purpose. Replace `<retired-term-replace-me>` with an
 edit number, or record the etag decision in `docs/DESIGN_DECISIONS.md` if random tokens are
 required to defeat guessable CAS values.
 

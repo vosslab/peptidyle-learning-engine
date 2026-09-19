@@ -9,11 +9,11 @@ use question_model::{
     BlueprintAssessmentEntryContent, BlueprintAssessmentId, BlueprintAvailability,
     BlueprintCourseContent, BlueprintCourseId, BlueprintCourseModuleContent,
     BlueprintCourseReadAccess, BlueprintCourseValidationError, BlueprintEditNumber,
-    BlueprintMetadataState, BlueprintModuleEditChoice, BlueprintModuleReference,
+    BlueprintMetadataState, BlueprintModuleEditChoice, BlueprintModuleId,
     BlueprintQuestionPoolContent, BlueprintRevision, BlueprintRevisionContent,
-    BlueprintRevisionReference, CanonicalBlueprintCourse, CreateBlueprintCourseInput,
+    BlueprintRevisionTuple, CanonicalBlueprintCourse, CreateBlueprintCourseInput,
     CreateBlueprintCourseReceipt, QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionId,
-    QuestionPoolSelectionRule, QuestionRevisionReference, RenameBlueprintCourseInput,
+    QuestionPoolSelectionRule, QuestionRevisionTuple, RenameBlueprintCourseInput,
     ReplaceBlueprintCourseContentInput, RequestChecksum, ReusablePoolView,
     SaveBlueprintCourseReceipt,
 };
@@ -48,8 +48,8 @@ pub struct StoredBlueprintPromotion {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ApplyBlueprintForkInput {
-    pub expected_source: BlueprintRevisionReference,
-    pub expected_fork: BlueprintRevisionReference,
+    pub expected_source: BlueprintRevisionTuple,
+    pub expected_fork: BlueprintRevisionTuple,
     pub expected_source_blueprint_edit_number: BlueprintEditNumber,
     pub expected_fork_blueprint_edit_number: BlueprintEditNumber,
     pub source_short_name: bool,
@@ -75,7 +75,7 @@ pub struct StoredBlueprintCourse {
     pub blueprint_edit_number: BlueprintEditNumber,
     pub current_revision: BlueprintRevision,
     /// Exact immutable ancestry, filtered by current source visibility.
-    pub fork_source: Option<BlueprintRevisionReference>,
+    pub fork_source: Option<BlueprintRevisionTuple>,
     pub read_access: BlueprintCourseReadAccess,
     /// The exact current immutable Revision content.
     pub content: StoredBlueprintCourseContent,
@@ -101,7 +101,7 @@ pub struct StoredBlueprintCourseSummary {
 /// Exact immutable Blueprint Revision content, including after lineage archive.
 #[derive(Debug, Clone, PartialEq)]
 pub struct StoredBlueprintRevision {
-    pub reference: BlueprintRevisionReference,
+    pub blueprint_revision: BlueprintRevisionTuple,
     pub content: StoredBlueprintCourseContent,
 }
 
@@ -116,7 +116,7 @@ pub struct StoredBlueprintCourseContent {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct StoredBlueprintModule {
-    pub blueprint_module_reference: BlueprintModuleReference,
+    pub blueprint_module_id: BlueprintModuleId,
     pub label: String,
     pub assessments: Vec<StoredBlueprintAssessment>,
 }
@@ -140,12 +140,12 @@ pub struct StoredBlueprintAssessmentContent {
     pub defaults: question_model::BlueprintAssessmentDefaults,
 }
 
-/// Stored entry retaining exact immutable Question Revision references.
+/// Stored entry retaining exact immutable Question Revision Tuples.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum StoredBlueprintAssessmentEntry {
     Fixed {
-        question_revision: QuestionRevisionReference,
+        question_revision: QuestionRevisionTuple,
         points_possible: AssessmentPointValue,
         scoring_rule: AssessmentEntryScoringRule,
         question_attempt_limit: QuestionAttemptLimit,
@@ -190,7 +190,7 @@ impl StoredBlueprintCourseContent {
                     })
                     .collect::<Result<Vec<_>, StoreError>>()?;
                 Ok(StoredBlueprintModule {
-                    blueprint_module_reference: BlueprintModuleReference::from_uuid(random_uuid()?),
+                    blueprint_module_id: BlueprintModuleId::from_uuid(random_uuid()?),
                     label: module.label,
                     assessments,
                 })
@@ -212,20 +212,16 @@ impl StoredBlueprintCourseContent {
             .modules
             .into_iter()
             .map(|module| {
-                let module_reference = match module.choice {
+                let module_id = match module.choice {
                     BlueprintModuleEditChoice::Retained {
-                        blueprint_module_reference,
+                        blueprint_module_id,
                     } => prior
                         .modules
                         .iter()
-                        .find(|candidate| {
-                            candidate.blueprint_module_reference == blueprint_module_reference
-                        })
-                        .map(|candidate| candidate.blueprint_module_reference)
-                        .ok_or_else(|| invalid("retained Blueprint Module Reference"))?,
-                    BlueprintModuleEditChoice::New => {
-                        BlueprintModuleReference::from_uuid(random_uuid()?)
-                    }
+                        .find(|candidate| candidate.blueprint_module_id == blueprint_module_id)
+                        .map(|candidate| candidate.blueprint_module_id)
+                        .ok_or_else(|| invalid("retained Blueprint Module ID"))?,
+                    BlueprintModuleEditChoice::New => BlueprintModuleId::from_uuid(random_uuid()?),
                 };
                 let assessments = module
                     .assessments
@@ -235,7 +231,7 @@ impl StoredBlueprintCourseContent {
                     })
                     .collect::<Result<Vec<_>, StoreError>>()?;
                 Ok(StoredBlueprintModule {
-                    blueprint_module_reference: module_reference,
+                    blueprint_module_id: module_id,
                     label: module.label,
                     assessments,
                 })
@@ -248,7 +244,7 @@ impl StoredBlueprintCourseContent {
 
     pub fn requested_question_revisions_from_create(
         input: &CreateBlueprintCourseInput,
-    ) -> Vec<QuestionRevisionReference> {
+    ) -> Vec<QuestionRevisionTuple> {
         input
             .modules
             .iter()
@@ -259,7 +255,7 @@ impl StoredBlueprintCourseContent {
 
     pub fn requested_question_revisions_from_replace(
         input: &ReplaceBlueprintCourseContentInput,
-    ) -> Vec<QuestionRevisionReference> {
+    ) -> Vec<QuestionRevisionTuple> {
         input
             .modules
             .iter()
@@ -305,7 +301,7 @@ impl StoredBlueprintCourseContent {
                     .map(StoredBlueprintAssessment::to_domain)
                     .collect::<Result<Vec<_>, StoreError>>()?;
                 BlueprintCourseModuleContent::new(
-                    module.blueprint_module_reference,
+                    module.blueprint_module_id,
                     module.label.clone(),
                     assessments,
                 )
@@ -329,7 +325,7 @@ impl StoredBlueprintCourseContent {
                 .flat_map(|module| module.assessments.iter())
                 .find(|candidate| candidate.blueprint_assessment_id == blueprint_assessment_id)
                 .map(|candidate| candidate.blueprint_assessment_id)
-                .ok_or_else(|| invalid("retained Blueprint Assessment Reference"))?,
+                .ok_or_else(|| invalid("retained Blueprint Assessment ID"))?,
             BlueprintAssessmentEditChoice::New => BlueprintAssessmentId::from_uuid(random_uuid()?),
         };
         Ok(StoredBlueprintAssessment {
@@ -417,7 +413,7 @@ impl StoredBlueprintAssessmentContent {
                     question_attempt_limit,
                     question_attempt_time_limit,
                 } => Ok(BlueprintAssessmentEntryContent::Fixed {
-                    reference: question_revision.clone(),
+                    question_revision: question_revision.clone(),
                     points_possible: *points_possible,
                     scoring_rule: *scoring_rule,
                     question_attempt_limit: *question_attempt_limit,
@@ -471,7 +467,7 @@ impl StoredBlueprintAssessment {
 pub struct StoredBlueprintPoolMembers {
     pub question_pool_id: question_model::QuestionId,
     pub question_pool_edit_number: question_model::QuestionPoolEditNumber,
-    pub members: Vec<QuestionRevisionReference>,
+    pub members: Vec<QuestionRevisionTuple>,
 }
 
 #[async_trait]
@@ -525,7 +521,7 @@ pub trait BlueprintCourseStore: Send + Sync {
     async fn load_blueprint_revision(
         &self,
         session: SessionTokenHash,
-        reference: BlueprintRevisionReference,
+        reference: BlueprintRevisionTuple,
     ) -> Result<StoredBlueprintRevision, StoreError>;
     /// Reads the current authorized Blueprint as complete reusable exchange data.
     async fn export_blueprint_course(
@@ -597,7 +593,7 @@ pub trait BlueprintCourseStore: Send + Sync {
 
 fn requested_question_revisions(
     input: &BlueprintAssessmentContentInput,
-) -> Vec<QuestionRevisionReference> {
+) -> Vec<QuestionRevisionTuple> {
     input
         .entries
         .iter()
@@ -654,7 +650,7 @@ mod tests {
     fn content(assessment_identity: u128) -> StoredBlueprintCourseContent {
         StoredBlueprintCourseContent {
             modules: vec![StoredBlueprintModule {
-                blueprint_module_reference: BlueprintModuleReference::from_uuid(Uuid::from_u128(1)),
+                blueprint_module_id: BlueprintModuleId::from_uuid(Uuid::from_u128(1)),
                 label: "Module".to_string(),
                 assessments: vec![StoredBlueprintAssessment {
                     blueprint_assessment_id: BlueprintAssessmentId::from_uuid(Uuid::from_u128(
@@ -665,7 +661,7 @@ mod tests {
                         title: "Assessment".to_string(),
                         instructions: AssessmentInstructions::default(),
                         entries: vec![StoredBlueprintAssessmentEntry::Fixed {
-                            question_revision: QuestionRevisionReference {
+                            question_revision: QuestionRevisionTuple {
                                 question_id: "7K3M-19QX".parse().expect("Question ID"),
                                 revision_number: question_model::QuestionRevisionNumber::new(1)
                                     .expect("revision"),

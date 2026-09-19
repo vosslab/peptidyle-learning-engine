@@ -1,6 +1,6 @@
 // Browser-safe content and Question Response Format decoders.
 
-import type { QuestionAssetReference } from "../../../generated/api/QuestionAssetReference";
+import type { QuestionAssetTuple } from "../../../generated/api/QuestionAssetTuple";
 import type { QuestionContentBlock } from "../../../generated/api/QuestionContentBlock";
 import type { NumericResponseTolerance } from "../../../generated/api/NumericResponseTolerance";
 import type { QuestionResponseFormat } from "../../../generated/api/QuestionResponseFormat";
@@ -20,17 +20,17 @@ import {
 } from "../decoder";
 import { decodeIdentifier, decodeSha256, field, kind, requireOnlyFields } from "./shared";
 
-export function decodeQuestionAssetReference(
+export function decodeQuestionAssetTuple(
   value: unknown,
   path: string,
   strict = false,
-): QuestionAssetReference {
+): QuestionAssetTuple {
   const record = decodeRecord(value, path);
   if (strict) requireOnlyFields(record, path, ["questionAsset", "checksum"]);
   return {
     questionAsset: decodeIdentifier(field(record, "questionAsset", path), `${path}.questionAsset`),
     checksum: decodeSha256(field(record, "checksum", path), `${path}.checksum`),
-  } satisfies QuestionAssetReference;
+  } satisfies QuestionAssetTuple;
 }
 
 export function decodeQuestionContentBlock(
@@ -61,7 +61,7 @@ export function decodeQuestionContentBlock(
       if (strict) requireOnlyFields(record, path, ["kind", "questionAsset", "description"]);
       return {
         kind: block,
-        questionAsset: decodeQuestionAssetReference(
+        questionAsset: decodeQuestionAssetTuple(
           field(record, "questionAsset", path),
           `${path}.questionAsset`,
           strict,
@@ -314,7 +314,7 @@ export function decodeQuestionResponseFormat(
         requireOnlyFields(record, path, ["kind", "surface", "description", "regions", "selection"]);
       return {
         kind: response,
-        surface: decodeQuestionAssetReference(
+        surface: decodeQuestionAssetTuple(
           field(record, "surface", path),
           `${path}.surface`,
           strict,

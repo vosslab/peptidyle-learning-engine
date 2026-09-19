@@ -25,9 +25,7 @@ pub use super::assessment_workspace_connection::PostgresLiveAssessmentStore;
 #[path = "assessment_release_decode.rs"]
 mod assessment_release_decode;
 use assessment_release_decode::*;
-pub(in crate::postgres) use assessment_release_decode::{
-    assessment_reference, invalid, late_work_rule,
-};
+pub(in crate::postgres) use assessment_release_decode::{assessment_id, invalid, late_work_rule};
 
 #[async_trait]
 impl LiveAssessmentStore for PostgresLiveAssessmentStore {
@@ -94,13 +92,13 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
             .iter()
             .map(|row| {
                 Ok(DueSoonAssessmentSummary {
-                    course_id: course_reference(
+                    course_id: course_instance_id(
                         row.try_get("course_instance_id").map_err(map_sqlx_error)?,
                     )?,
                     course_long_name: course_name(
                         row.try_get("course_long_name").map_err(map_sqlx_error)?,
                     )?,
-                    assessment_id: assessment_reference(
+                    assessment_id: assessment_id(
                         row.try_get("assessment_id").map_err(map_sqlx_error)?,
                     )?,
                     assessment_type: assessment_type(
@@ -145,9 +143,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
             .iter()
             .map(|row| {
                 Ok(CourseAssessmentSummary {
-                    id: assessment_reference(
-                        row.try_get("assessment_id").map_err(map_sqlx_error)?,
-                    )?,
+                    id: assessment_id(row.try_get("assessment_id").map_err(map_sqlx_error)?)?,
                     assessment_type: assessment_type(
                         row.try_get("assessment_type").map_err(map_sqlx_error)?,
                     )?,
@@ -190,7 +186,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
             .iter()
             .map(|row| {
                 Ok(AssessmentQuestionPickerEntry {
-                    reference: question_revision_reference(
+                    question_revision: question_revision_reference(
                         row.try_get("question_id").map_err(map_sqlx_error)?,
                         row.try_get("question_revision_number")
                             .map_err(map_sqlx_error)?,
@@ -222,8 +218,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
             .fetch_one(&mut *tx)
             .await
             .map_err(map_sqlx_error)?;
-        let assessment =
-            assessment_reference(row.try_get("assessment_id").map_err(map_sqlx_error)?)?;
+        let assessment = assessment_id(row.try_get("assessment_id").map_err(map_sqlx_error)?)?;
         let context = schedule_context(&mut tx, &course).await?;
         let rows = workspace_rows(&mut tx, &course, &assessment).await?;
         let result = decode_workspace(&rows, &context)?.ok_or(StoreError::NotFound)?;
@@ -360,7 +355,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
             .transpose()
             .map_err(|_| invalid("Due at"))?;
         let result = CourseAssessmentSummary {
-            id: assessment_reference(row.try_get("assessment_id").map_err(map_sqlx_error)?)?,
+            id: assessment_id(row.try_get("assessment_id").map_err(map_sqlx_error)?)?,
             assessment_type: assessment_type(
                 row.try_get("assessment_type").map_err(map_sqlx_error)?,
             )?,
@@ -631,7 +626,7 @@ pub(super) fn decode_workspace(
                 .flatten()
                 .map(|id| {
                     Ok(AuthoredAssessmentQuestion {
-                        reference: question_revision_reference(
+                        question_revision: question_revision_reference(
                             id,
                             row.try_get("question_revision_number")
                                 .map_err(map_sqlx_error)?,
@@ -645,7 +640,7 @@ pub(super) fn decode_workspace(
         })
         .collect::<Result<Vec<_>, StoreError>>()?;
     Ok(Some(LiveAssessmentWorkspace {
-        id: assessment_reference(first.try_get("assessment_id").map_err(map_sqlx_error)?)?,
+        id: assessment_id(first.try_get("assessment_id").map_err(map_sqlx_error)?)?,
         edit_number: edit(
             first
                 .try_get("assessment_edit_number")

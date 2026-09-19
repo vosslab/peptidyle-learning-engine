@@ -72,7 +72,7 @@ postgres_scalar() {
         sh "$sql"
 }
 
-course_reference() {
+course_id() {
     python3 -c 'import json,re,sys
 items=json.loads(sys.argv[1]).get("items",[])
 values=[x.get("id") for x in items if isinstance(x,dict)]
@@ -90,7 +90,7 @@ student_cookie="$(persona_cookie maryStudent)"
 sysadmin_cookie="$(persona_cookie morganSysadmin)"
 courses="$(request '/api/course-instances' "$instructor_cookie")"
 [ "$(status "$courses")" = 200 ] || { echo "Instructor could not load Course Instances" >&2; exit 1; }
-course="$(course_reference "$(body "$courses")")"
+course="$(course_id "$(body "$courses")")"
 path="/api/course-instances/$course/gradebook"
 
 concealed "$(request "$path")"
@@ -102,17 +102,17 @@ received="$(request "$path" "$instructor_cookie")"
 [ "$(status "$received")" = 200 ] || { echo "Current Course Instructor could not read Gradebook" >&2; exit 1; }
 python3 -c 'import json,math,re,sys
 value=json.loads(sys.argv[1]); course=sys.argv[2]
-if set(value)!={"courseReference","studentWork"} or value["courseReference"]!=course:
+if set(value)!={"courseId","studentWork"} or value["courseId"]!=course:
     raise SystemExit("Gradebook projection is not closed to its requested Course")
 rows=value["studentWork"]
 if not isinstance(rows,list) or not rows:
     raise SystemExit("Gradebook projection lacks active Student Work")
 for row in rows:
-    if set(row)!={"rosterId","rosterName","assessmentReference","assessmentTitle","assessmentAttemptCompletion","expiredSubmitting","score"}:
+    if set(row)!={"rosterId","rosterName","assessmentId","assessmentTitle","assessmentAttemptCompletion","expiredSubmitting","score"}:
         raise SystemExit("Gradebook projection exposed an unapproved field")
     if not isinstance(row["rosterId"],str) or not re.fullmatch(r"[A-Za-z0-9._-]{1,64}",row["rosterId"]):
         raise SystemExit("Gradebook roster projection is invalid")
-    if not isinstance(row["assessmentReference"],str) or not re.fullmatch(r"A[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}",row["assessmentReference"]):
+    if not isinstance(row["assessmentId"],str) or not re.fullmatch(r"A[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}",row["assessmentId"]):
         raise SystemExit("Gradebook Assessment projection is invalid")
     if not isinstance(row["assessmentTitle"],str) or not row["assessmentTitle"].strip() or len(row["assessmentTitle"])>200:
         raise SystemExit("Gradebook Coursework title projection is invalid")

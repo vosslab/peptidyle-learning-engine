@@ -2,7 +2,7 @@
 
 import type { AssessmentId } from "../../../generated/api/AssessmentId";
 import type { CourseInstanceId } from "../../../generated/api/CourseInstanceId";
-import type { QuestionRevisionReference } from "../../../generated/api/QuestionRevisionReference";
+import type { QuestionRevisionTuple } from "../../../generated/api/QuestionRevisionTuple";
 import { validateCanonicalQuestionIdSyntax } from "../../../generated/api/QuestionIdSyntaxContract";
 import type { AssessmentStudentViewClient } from "../assessment_student_view";
 import { decodeInstructorStudentView } from "../decoders/assessment_student_view";
@@ -24,7 +24,7 @@ function questionPath(
   course: CourseInstanceId,
   assessment: AssessmentId,
   authoredPosition: number,
-  questionRevision: QuestionRevisionReference,
+  questionRevision: QuestionRevisionTuple,
 ): string {
   const base = assessmentStudentViewPath(course, assessment);
   const questionId = validateCanonicalQuestionIdSyntax(questionRevision.questionId);
@@ -57,8 +57,8 @@ function requireMatchingEtag(response: Response, editNumber: string, path: strin
 }
 
 function sameQuestionRevision(
-  received: QuestionRevisionReference,
-  expected: QuestionRevisionReference,
+  received: QuestionRevisionTuple,
+  expected: QuestionRevisionTuple,
 ): boolean {
   return (
     received.questionId === expected.questionId &&
@@ -88,7 +88,7 @@ async function presentationRequest(
   course: CourseInstanceId,
   assessment: AssessmentId,
   authoredPosition: number,
-  questionRevision: QuestionRevisionReference,
+  questionRevision: QuestionRevisionTuple,
   editNumber: string,
 ): ReturnType<AssessmentStudentViewClient["getInstructorStudentViewQuestion"]> {
   const path = `${questionPath(course, assessment, authoredPosition, questionRevision)}/presentation`;

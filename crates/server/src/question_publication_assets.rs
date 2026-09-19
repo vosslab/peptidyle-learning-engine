@@ -6,7 +6,7 @@ use learning_data_access::{
 };
 use objects::{ObjectAddress, ObjectStore, PutObject};
 use question_model::{
-    ObjectId, QuestionResponseFormat, QuestionRevisionReference, Timestamp, WorkspaceId,
+    ObjectId, QuestionResponseFormat, QuestionRevisionTuple, Timestamp, WorkspaceId,
 };
 use uuid::Uuid;
 
@@ -67,7 +67,7 @@ fn invalid_source() -> QuestionPublicationError {
 pub(crate) async fn prepare_hotspot_asset<O: ObjectStore>(
     objects: &O,
     asset: Option<&(OwnedDraftQuestionAsset, Bytes)>,
-    revision: &QuestionRevisionReference,
+    revision: &QuestionRevisionTuple,
     stored_at: Timestamp,
 ) -> Result<Option<PreparedQuestionAssetPublication>, QuestionPublicationError> {
     let Some((asset, bytes)) = asset else {

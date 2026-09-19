@@ -6,7 +6,7 @@ import { DecodeError, decodePositiveInteger, decodeRecord } from "../decoder";
 import {
   decodeBoundedArray,
   decodeQuestionId,
-  decodeQuestionRevisionReference,
+  decodeQuestionRevisionTuple,
   field,
   requireOnlyFields,
 } from "./shared";
@@ -30,7 +30,7 @@ export function decodeBlueprintPoolMembersView(
     field(record, "members", path),
     `${path}.members`,
     MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY,
-    (member, memberPath) => decodeQuestionRevisionReference(member, memberPath, true),
+    (member, memberPath) => decodeQuestionRevisionTuple(member, memberPath, true),
   );
   if (
     members.length === 0 ||

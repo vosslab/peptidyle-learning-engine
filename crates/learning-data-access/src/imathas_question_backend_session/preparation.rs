@@ -1,7 +1,7 @@
 use super::*;
 use question_model::{
     AccountId, AssessmentId, CourseInstanceId, ImathasQuestionBackendBinding, SourceObjectChecksum,
-    SourceObjectReference, Timestamp,
+    ObjectId, Timestamp,
 };
 
 /// Server-only pre-imathas_question_backend-launch facts for one iMathAS Question Backend Session.
@@ -11,7 +11,7 @@ pub struct ImathasQuestionBackendSessionPreparationContext {
     assessment: AssessmentId,
     grading_context: ImathasGradingContext,
     imathas_question_backend_binding: ImathasQuestionBackendBinding,
-    source_object: SourceObjectReference,
+    source_object: ObjectId,
     source_object_checksum: SourceObjectChecksum,
     response_checksum: ImathasResponseChecksum,
     challenge: ImathasQuestionBackendSessionChallenge,
@@ -25,7 +25,7 @@ pub struct ImathasQuestionBackendSessionPreparationContext {
 pub struct ImathasQuestionBackendLaunchPreparationValidation {
     pub grading_context: ImathasGradingContext,
     pub imathas_question_backend_binding: ImathasQuestionBackendBinding,
-    pub source_object: SourceObjectReference,
+    pub source_object: ObjectId,
     pub source_object_checksum: SourceObjectChecksum,
     pub response_checksum: ImathasResponseChecksum,
     pub challenge: ImathasQuestionBackendSessionChallenge,
@@ -41,7 +41,7 @@ impl ImathasQuestionBackendSessionPreparationContext {
         assessment: AssessmentId,
         grading_context: ImathasGradingContext,
         imathas_question_backend_binding: ImathasQuestionBackendBinding,
-        source_object: SourceObjectReference,
+        source_object: ObjectId,
         source_object_checksum: SourceObjectChecksum,
         response_checksum: ImathasResponseChecksum,
         challenge: ImathasQuestionBackendSessionChallenge,

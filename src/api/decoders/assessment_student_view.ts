@@ -3,7 +3,7 @@
 import type { InstructorStudentView } from "../../../generated/api/InstructorStudentView";
 import type { InstructorStudentViewDelivery } from "../../../generated/api/InstructorStudentViewDelivery";
 import type { InstructorStudentViewEntry } from "../../../generated/api/InstructorStudentViewEntry";
-import type { InstructorStudentViewQuestionReference } from "../../../generated/api/InstructorStudentViewQuestionReference";
+import type { InstructorStudentViewQuestion } from "../../../generated/api/InstructorStudentViewQuestion";
 import { MAX_ASSESSMENT_ORDERED_ENTRIES } from "../../../generated/api/MAX_ASSESSMENT_ORDERED_ENTRIES";
 import { MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY } from "../../../generated/api/MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY";
 import {
@@ -18,7 +18,7 @@ import {
 import {
   decodeAssessmentTitle,
   decodeBoundedArray,
-  decodeQuestionRevisionReference,
+  decodeQuestionRevisionTuple,
   decodeTimestamp,
   field,
   requireOnlyFields,
@@ -87,15 +87,15 @@ function decodeDelivery(value: unknown, path: string): InstructorStudentViewDeli
   };
 }
 
-function decodeQuestionReference(
+function decodeInstructorStudentViewQuestion(
   value: unknown,
   path: string,
-): InstructorStudentViewQuestionReference {
+): InstructorStudentViewQuestion {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["position", "questionRevision"]);
   return {
     position: decodePositiveInteger(field(record, "position", path), `${path}.position`),
-    questionRevision: decodeQuestionRevisionReference(
+    questionRevision: decodeQuestionRevisionTuple(
       field(record, "questionRevision", path),
       `${path}.questionRevision`,
       true,
@@ -116,7 +116,7 @@ function decodeEntry(value: unknown, path: string): InstructorStudentViewEntry {
       field(record, "questions", path),
       `${path}.questions`,
       MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY,
-      decodeQuestionReference,
+      decodeInstructorStudentViewQuestion,
     );
     if (questions.length === 0) {
       throw new DecodeError(`${path}.questions`, "one or more presented Questions");

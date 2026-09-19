@@ -13,8 +13,8 @@ mod storage_parts;
 pub use identifiers::{
     ImathasGradingContext, ImathasLaunchBindingChecksum, ImathasNormalizedScore,
     ImathasQuestionBackendSessionAuthentication, ImathasQuestionBackendSessionChallenge,
-    ImathasQuestionBackendSessionReference, ImathasResponseChecksum, ImathasResult,
-    ImathasResultToken, ImathasResultTokenChecksum, derive_imathas_question_backend_evaluation,
+    ImathasQuestionBackendSessionId, ImathasResponseChecksum, ImathasResult, ImathasResultToken,
+    ImathasResultTokenChecksum, derive_imathas_question_backend_evaluation,
 };
 pub use memory::MemoryImathasQuestionBackendSessionStore;
 pub use preparation::{
@@ -48,11 +48,11 @@ pub trait ImathasQuestionBackendSessionStore: Send + Sync {
         &self,
         session_token_hash: SessionTokenHash,
         create: ImathasQuestionBackendSessionCreate,
-    ) -> Result<ImathasQuestionBackendSessionReference, StoreError>;
+    ) -> Result<ImathasQuestionBackendSessionId, StoreError>;
     async fn load_imathas_question_backend_session(
         &self,
         session_token_hash: SessionTokenHash,
-        reference: ImathasQuestionBackendSessionReference,
+        reference: ImathasQuestionBackendSessionId,
         expectation: ImathasQuestionBackendSessionRestoreExpectation,
     ) -> Result<LoadedImathasQuestionBackendSession, StoreError>;
 }

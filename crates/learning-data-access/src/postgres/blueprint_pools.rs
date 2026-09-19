@@ -4,7 +4,7 @@ use crate::blueprint_course::StoredBlueprintAssessmentEntry;
 use crate::{CourseInstancePoolIdIssuer, StoreError, StoredBlueprintCourseContent};
 use question_model::{
     BlueprintAssessmentId, BlueprintCourseId, BlueprintPoolInputChoice, BlueprintRevision,
-    QuestionPoolEditNumber, QuestionRevisionReference,
+    QuestionPoolEditNumber, QuestionRevisionTuple,
 };
 use sqlx::{Postgres, Row, Transaction};
 
@@ -179,7 +179,7 @@ pub(super) async fn members(
     question_pool_id: &question_model::QuestionId,
     question_pool_edit_number: QuestionPoolEditNumber,
     write: Option<BlueprintRevision>,
-) -> Result<Vec<QuestionRevisionReference>, StoreError> {
+) -> Result<Vec<QuestionRevisionTuple>, StoreError> {
     let rows = sqlx::query("SELECT * FROM ple_api.blueprint_pool_members($1,$2,$3,$4,$5,$6)")
         .bind(blueprint_course_id.as_string())
         .bind(assessment.as_uuid())
@@ -192,7 +192,7 @@ pub(super) async fn members(
         .map_err(map_sqlx_error)?;
     rows.into_iter()
         .map(|row| {
-            Ok(QuestionRevisionReference {
+            Ok(QuestionRevisionTuple {
                 question_id: row
                     .try_get::<String, _>("question_id")
                     .map_err(map_sqlx_error)?

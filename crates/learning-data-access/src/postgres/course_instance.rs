@@ -282,7 +282,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
                     course_edit_number: question_model::CourseEditNumber::from_edit_number(
                         row.try_get("course_edit_number").map_err(map_sqlx_error)?,
                     ),
-                    id: course_reference(
+                    id: course_instance_id(
                         row.try_get("course_instance_id").map_err(map_sqlx_error)?,
                     )?,
                     short_name: row.try_get("short_name").map_err(map_sqlx_error)?,
@@ -388,7 +388,7 @@ fn decode_summary(row: &sqlx::postgres::PgRow) -> Result<CourseInstanceSummary, 
         course_edit_number: question_model::CourseEditNumber::from_edit_number(
             row.try_get("course_edit_number").map_err(map_sqlx_error)?,
         ),
-        id: course_reference(row.try_get("course_instance_id").map_err(map_sqlx_error)?)?,
+        id: course_instance_id(row.try_get("course_instance_id").map_err(map_sqlx_error)?)?,
         short_name: row.try_get("short_name").map_err(map_sqlx_error)?,
         long_name: row.try_get("long_name").map_err(map_sqlx_error)?,
         term: term(
@@ -440,7 +440,7 @@ fn decode_view(row: &sqlx::postgres::PgRow) -> Result<CourseInstanceView, StoreE
             Some(CourseInstanceBlueprintOrigin {
                 id: reference
                     .parse()
-                    .map_err(|_| invalid("Blueprint Course Reference"))?,
+                    .map_err(|_| invalid("Blueprint Course ID"))?,
                 adopted_revision: revision(adopted)?,
                 current_revision: revision(current)?,
             })
@@ -455,12 +455,12 @@ fn decode_view(row: &sqlx::postgres::PgRow) -> Result<CourseInstanceView, StoreE
     })
 }
 
-fn course_reference(value: String) -> Result<CourseInstanceId, StoreError> {
-    CourseInstanceId::new(value).map_err(|_| invalid("Course Instance Reference"))
+fn course_instance_id(value: String) -> Result<CourseInstanceId, StoreError> {
+    CourseInstanceId::new(value).map_err(|_| invalid("Course Instance ID"))
 }
 
 fn account_reference(value: String) -> Result<AccountId, StoreError> {
-    AccountId::new(value).map_err(|_| invalid("Account Reference"))
+    AccountId::new(value).map_err(|_| invalid("Account ID"))
 }
 
 fn term(start_date: String, end_date: String) -> Result<CourseTerm, StoreError> {

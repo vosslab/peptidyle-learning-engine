@@ -32,7 +32,7 @@ import {
   decodeBoundedArray,
   decodeCursor,
   decodeQuestionId,
-  decodeQuestionRevisionReference,
+  decodeQuestionRevisionTuple,
   field,
   requireOnlyFields,
 } from "./shared";
@@ -222,11 +222,15 @@ function decodeQuestionPoolBloomFacets(value: unknown, path: string): QuestionPo
 
 function decodeReusableQuestionView(value: unknown, path: string): ReusableQuestionView {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["reference", "question_library", "selection_availability"]);
+  requireOnlyFields(record, path, [
+    "question_revision",
+    "question_library",
+    "selection_availability",
+  ]);
   return {
-    reference: decodeQuestionRevisionReference(
-      field(record, "reference", path),
-      `${path}.reference`,
+    question_revision: decodeQuestionRevisionTuple(
+      field(record, "question_revision", path),
+      `${path}.question_revision`,
     ),
     question_library: decodeQuestionSearchResult(
       field(record, "question_library", path),
@@ -249,7 +253,7 @@ export function decodeQuestionPoolMemberView(value: unknown, path: string): Ques
       field(record, "memberPosition", path),
       `${path}.memberPosition`,
     ),
-    questionRevision: decodeQuestionRevisionReference(
+    questionRevision: decodeQuestionRevisionTuple(
       field(record, "questionRevision", path),
       `${path}.questionRevision`,
       true,

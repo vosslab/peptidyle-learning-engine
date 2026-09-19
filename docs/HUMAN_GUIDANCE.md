@@ -774,8 +774,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - One value that identifies one object is an Id, such as a Public ID or UUID.
 - Multiple values that together identify one exact object, state, or version are a Tuple.
 - Tuple is the general cross-language term and suffix for a composite identity made from multiple values.
-- A Published Question Revision Reference is one example: Question ID plus Question Revision Number.
-- A Blueprint Revision Reference is another example: Blueprint Course ID plus Blueprint Revision Number.
+- A Question Revision Tuple is one example: Question ID plus Question Revision Number.
+- A Blueprint Revision Tuple is another example: Blueprint Course ID plus Blueprint Revision Number.
 - Use Reference for a genuine indirect, scoped, or external locator.
 - Do not name an Id or a Tuple as a Reference; "Reference" reads like a pointer, not a composite identity.
 - Use the simplest term that accurately describes what the value represents.

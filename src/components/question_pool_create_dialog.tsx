@@ -15,7 +15,7 @@ import {
   type QuestionPickerSelection,
 } from "../features/question_picker";
 import {
-  questionPoolMemberReferences,
+  questionPoolMemberTuples,
   questionPoolSourcePickerRepository,
   type QuestionPoolStartingQuestion,
 } from "./question_pool_create_model";
@@ -107,7 +107,7 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
     setState("creating");
     setError(undefined);
     try {
-      const members = await questionPoolMemberReferences(
+      const members = await questionPoolMemberTuples(
         selected,
         props.getQuestionDetails,
         props.startingQuestion,

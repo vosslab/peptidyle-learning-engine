@@ -196,7 +196,7 @@ $$;
 
 
 -- Pool-member selection is immutable Student Work evidence.  The start
--- operation writes the exact C353 QuestionRevisionReferences in the same
+-- operation writes the exact C353 QuestionRevisionTuples in the same
 -- transaction as its Assessment Attempt; this read accepts only an opaque Assessment Attempt route
 -- reference and derives the owning Student from the installed session.
 -- ASVS 2.2.1, 2.2.2, 2.3.1: do not accept a browser-selected Student,

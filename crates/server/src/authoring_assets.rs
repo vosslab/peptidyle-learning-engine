@@ -18,7 +18,7 @@ use objects::{
     ObjectAddress, ObjectStore, PutObject, Sha256Checksum,
     image_validation::{MAX_STILL_IMAGE_BYTES, verify_still_image},
 };
-use question_model::{ObjectId, QuestionAssetId, QuestionAssetReference};
+use question_model::{ObjectId, QuestionAssetId, QuestionAssetTuple};
 use serde::Serialize;
 
 use crate::authoring::{
@@ -170,7 +170,7 @@ pub(crate) async fn require_surface<S: AuthoringAssetsStore + ?Sized>(
     store: &S,
     session_hash: SessionTokenHash,
     draft_question_uuid: learning_data_access::DraftQuestionUuid,
-    surface: &QuestionAssetReference,
+    surface: &QuestionAssetTuple,
 ) -> Result<OwnedDraftQuestionAsset, StoreError> {
     let asset = store
         .load_draft_question_asset(session_hash, draft_question_uuid, surface.question_asset)

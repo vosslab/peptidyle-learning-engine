@@ -13,7 +13,7 @@ pub mod profiles;
 mod xml;
 
 pub use crate::parser::{
-    ImportedQtiPackage, ImportedQtiQuestion, QtiAssetObject, QtiAssetReferenceError,
+    ImportedQtiPackage, ImportedQtiQuestion, QtiAssetObject, QtiAssetError,
     QtiImportError, QtiImportLimits, QtiImporter, QtiItemImportResult, QtiItemImportStatus,
     QtiManifest, QtiResource, UnsupportedFeature, qti_question_asset_checksums,
 };

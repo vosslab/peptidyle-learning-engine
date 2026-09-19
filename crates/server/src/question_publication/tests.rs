@@ -77,7 +77,7 @@ impl NewQuestionLineagePublicationStore for RecordingPublicationStore {
         &self,
         _session_token_hash: SessionTokenHash,
         input: NewQuestionLineagePublicationInput,
-    ) -> Result<QuestionRevisionReference, NewQuestionLineagePublicationError> {
+    ) -> Result<QuestionRevisionTuple, NewQuestionLineagePublicationError> {
         let result = input.question_revision();
         self.publications
             .lock()
@@ -108,7 +108,7 @@ impl NewQuestionLineagePublicationStore for ScriptedPublicationStore {
         &self,
         _session_token_hash: SessionTokenHash,
         input: NewQuestionLineagePublicationInput,
-    ) -> Result<QuestionRevisionReference, NewQuestionLineagePublicationError> {
+    ) -> Result<QuestionRevisionTuple, NewQuestionLineagePublicationError> {
         let result = input.question_revision();
         self.publications
             .lock()
@@ -148,7 +148,7 @@ impl ExistingQuestionRevisionPublicationStore for ExistingRevisionRecordingStore
         &self,
         _session_token_hash: SessionTokenHash,
         input: ExistingQuestionRevisionPublicationInput,
-    ) -> Result<QuestionRevisionReference, ExistingQuestionRevisionPublicationError> {
+    ) -> Result<QuestionRevisionTuple, ExistingQuestionRevisionPublicationError> {
         let revision = input
             .question_revision()
             .map_err(ExistingQuestionRevisionPublicationError::Store)?;
@@ -285,7 +285,7 @@ fn existing_command(workspace: WorkspaceId) -> ExistingQuestionRevisionPublicati
         expected_draft_question_edit_number: DraftQuestionEditNumber::new(3)
             .expect("positive Draft Question Edit Number"),
         workspace,
-        parent_question_revision: QuestionRevisionReference {
+        parent_question_revision: QuestionRevisionTuple {
             question_id: fixed_question_id("0000000"),
             revision_number: QuestionRevisionNumber::new(1)
                 .expect("positive Question Revision Number"),

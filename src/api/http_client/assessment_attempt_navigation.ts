@@ -1,5 +1,5 @@
 import type { AssessmentAttemptId } from "../../../generated/api/AssessmentAttemptId";
-import { parseAssessmentAttemptReference } from "../../navigation/public_route";
+import { parseAssessmentAttemptId } from "../../navigation/public_route";
 import type { ApiClient } from "../client";
 import type {
   StudentAssessmentAttemptContext,
@@ -21,7 +21,7 @@ import { requestPath, requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
 
 function attemptPath(value: AssessmentAttemptId): string {
-  if (parseAssessmentAttemptReference(value) === null)
+  if (parseAssessmentAttemptId(value) === null)
     throw new ApiProtocolError("Assessment Attempt ID must be a UUID");
   return `/api/assessment-attempts/${encodeURIComponent(value)}`;
 }

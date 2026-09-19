@@ -12,8 +12,8 @@ use objects::{ObjectAddress, ObjectDataClass, ObjectRecord, ObjectStorageArea};
 use question_model::{
     DraftImathasQuestionBackendBinding, ObjectId, QuestionAssetId, QuestionAuthorship,
     QuestionBackend, QuestionFormat, QuestionId, QuestionLicense, QuestionRevisionNumber,
-    QuestionRevisionReason, QuestionRevisionReference, QuestionType, SourceObjectChecksum,
-    SourceObjectReference, Tag, WorkspaceId,
+    QuestionRevisionReason, QuestionRevisionTuple, QuestionType, SourceObjectChecksum,
+    Tag, WorkspaceId,
 };
 use uuid::Uuid;
 
@@ -78,7 +78,7 @@ pub struct DraftQuestionSourceBindingInput {
     /// iMathAS Deployment and Item References for an iMathAS Question Backend only.
     pub draft_imathas_question_backend_binding: Option<DraftImathasQuestionBackendBinding>,
     /// Immutable Object Record identifying the Question Source bytes.
-    pub source_object_reference: SourceObjectReference,
+    pub source_object_id: ObjectId,
     /// SHA-256 verification value for those exact bytes.
     pub source_object_checksum: SourceObjectChecksum,
 }
@@ -173,7 +173,7 @@ pub struct PreparedQuestionAssetPublication {
 }
 
 impl PreparedQuestionAssetPublication {
-    pub fn validate(&self, revision: &QuestionRevisionReference) -> Result<(), StoreError> {
+    pub fn validate(&self, revision: &QuestionRevisionTuple) -> Result<(), StoreError> {
         let record = &self.restricted_source_record;
         let expected = ObjectAddress::RestrictedQuestionAsset {
             question_revision: revision.clone(),
@@ -235,8 +235,8 @@ pub struct NewQuestionLineagePublicationInput {
 
 impl NewQuestionLineagePublicationInput {
     /// Exact first Question Revision created by this publication.
-    pub fn question_revision(&self) -> QuestionRevisionReference {
-        QuestionRevisionReference {
+    pub fn question_revision(&self) -> QuestionRevisionTuple {
+        QuestionRevisionTuple {
             question_id: self.question_id.clone(),
             revision_number: QuestionRevisionNumber::new(1)
                 .expect("first Question Revision Number is positive"),
@@ -311,7 +311,7 @@ pub trait NewQuestionLineagePublicationStore: Send + Sync {
         &self,
         session_token_hash: SessionTokenHash,
         input: NewQuestionLineagePublicationInput,
-    ) -> Result<QuestionRevisionReference, NewQuestionLineagePublicationError>;
+    ) -> Result<QuestionRevisionTuple, NewQuestionLineagePublicationError>;
 }
 
 /// Result of registering one first Question Revision after its immutable
@@ -346,7 +346,7 @@ pub struct ExistingQuestionRevisionPublicationInput {
     /// Authoring Workspace that owns the Draft Question.
     pub workspace: WorkspaceId,
     /// Exact immutable parent revision selected for this moderate edit.
-    pub parent_question_revision: QuestionRevisionReference,
+    pub parent_question_revision: QuestionRevisionTuple,
     /// Verified immutable target object created by the bytes-first copy.
     pub question_source_object_record: ObjectRecord,
     /// Reviewed reason for accepting this revision. PostgreSQL copies the
@@ -371,7 +371,7 @@ pub enum ExistingQuestionRevisionPublicationError {
 
 impl ExistingQuestionRevisionPublicationInput {
     /// Returns the exact successor revision owned by this publication.
-    pub fn question_revision(&self) -> Result<QuestionRevisionReference, StoreError> {
+    pub fn question_revision(&self) -> Result<QuestionRevisionTuple, StoreError> {
         let revision_number = self
             .parent_question_revision
             .revision_number
@@ -383,7 +383,7 @@ impl ExistingQuestionRevisionPublicationInput {
                     "Question Revision Number cannot advance further".to_string(),
                 )
             })?;
-        Ok(QuestionRevisionReference {
+        Ok(QuestionRevisionTuple {
             question_id: self.parent_question_revision.question_id.clone(),
             revision_number,
         })
@@ -434,7 +434,7 @@ pub trait ExistingQuestionRevisionPublicationStore: Send + Sync {
         &self,
         session_token_hash: SessionTokenHash,
         input: ExistingQuestionRevisionPublicationInput,
-    ) -> Result<QuestionRevisionReference, ExistingQuestionRevisionPublicationError>;
+    ) -> Result<QuestionRevisionTuple, ExistingQuestionRevisionPublicationError>;
 }
 
 #[cfg(test)]
@@ -457,9 +457,7 @@ mod tests {
             question_type: QuestionType::MultipleChoice,
             webwork_pg_path: None,
             draft_imathas_question_backend_binding: None,
-            source_object_reference: SourceObjectReference {
-                object: ObjectId::from_uuid(Uuid::from_u128(3)),
-            },
+            source_object_id: ObjectId::from_uuid(Uuid::from_u128(3)),
             source_object_checksum: SourceObjectChecksum::parse("a".repeat(64))
                 .expect("canonical source checksum"),
         }
@@ -487,9 +485,9 @@ mod tests {
         deferred_imathas.question_format = QuestionFormat::Imathas;
         deferred_imathas.draft_imathas_question_backend_binding =
             Some(question_model::DraftImathasQuestionBackendBinding::new(
-                question_model::ImathasDeploymentReference::new("deferred")
+                question_model::ImathasDeploymentId::new("deferred")
                     .expect("deployment reference"),
-                question_model::ImathasItemReference::new("item").expect("item reference"),
+                question_model::ImathasItemId::new("item").expect("item reference"),
             ));
         assert!(matches!(
             deferred_imathas.validate(),
@@ -517,7 +515,7 @@ mod tests {
     fn publication_input() -> NewQuestionLineagePublicationInput {
         let question_id =
             QuestionId::from_random_identifier("ABCDEFG").expect("canonical Question ID");
-        let question_revision = QuestionRevisionReference {
+        let question_revision = QuestionRevisionTuple {
             question_id: question_id.clone(),
             revision_number: QuestionRevisionNumber::new(1)
                 .expect("positive Question Revision Number"),
@@ -630,12 +628,12 @@ mod tests {
     fn same_lineage_publication_requires_the_immediate_successor_object() {
         let question_id =
             QuestionId::from_random_identifier("ABCDEFG").expect("canonical Question ID");
-        let parent_question_revision = QuestionRevisionReference {
+        let parent_question_revision = QuestionRevisionTuple {
             question_id,
             revision_number: QuestionRevisionNumber::new(1)
                 .expect("positive Question Revision Number"),
         };
-        let successor = QuestionRevisionReference {
+        let successor = QuestionRevisionTuple {
             question_id: parent_question_revision.question_id.clone(),
             revision_number: QuestionRevisionNumber::new(2)
                 .expect("positive Question Revision Number"),
@@ -659,7 +657,7 @@ mod tests {
                 sha256: Sha256Checksum::compute(b"complete Question Source"),
                 size_bytes: 24,
                 media_type: "application/json".to_string(),
-                question_revision: Some(QuestionRevisionReference {
+                question_revision: Some(QuestionRevisionTuple {
                     question_id: QuestionId::from_random_identifier("ABCDEFG")
                         .expect("canonical Question ID"),
                     revision_number: QuestionRevisionNumber::new(2)

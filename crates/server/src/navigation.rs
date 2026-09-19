@@ -1,4 +1,4 @@
-//! Authorized public Course-reference navigation resolution.
+//! Authorized public Course Instance ID navigation resolution.
 
 use std::{str::FromStr, sync::Arc};
 
@@ -23,7 +23,7 @@ struct NavigationRouteState {
     courses: PostgresCourseInstanceStore,
 }
 
-/// Registers the exact public Course-reference resolver.
+/// Registers the exact public Course Instance ID resolver.
 pub fn navigation_router(
     sessions: Arc<PostgresSessionStore>,
     courses: PostgresCourseInstanceStore,
@@ -39,9 +39,9 @@ pub fn navigation_router(
 async fn resolve_course_navigation(
     State(state): State<NavigationRouteState>,
     headers: HeaderMap,
-    Path(reference): Path<String>,
+    Path(course_instance_id): Path<String>,
 ) -> Response {
-    let reference = match CourseInstanceId::from_str(&reference) {
+    let course_instance_id = match CourseInstanceId::from_str(&course_instance_id) {
         Ok(value) => value,
         Err(_) => return concealed(),
     };
@@ -51,7 +51,7 @@ async fn resolve_course_navigation(
     };
     match state
         .courses
-        .resolve_course_navigation(session_hash, reference)
+        .resolve_course_navigation(session_hash, course_instance_id)
         .await
     {
         Ok(course_instance_id) => crate::auth::no_store(

@@ -8,7 +8,7 @@ import { decodeBoundedArray, field, requireOnlyFields } from "./shared";
 import {
   blueprintEditNumber,
   decodeBlueprintMetadataState,
-  revisionReference,
+  blueprintRevisionTuple,
 } from "./blueprint_course";
 
 function copies(
@@ -45,10 +45,10 @@ function destination(value: unknown, path: string, module: boolean): Record<stri
   const name =
     kind === "existing"
       ? module
-        ? "targetModuleReference"
+        ? "targetModuleId"
         : "targetAssessmentId"
       : module
-        ? "sourceModuleReference"
+        ? "sourceModuleId"
         : "sourceAssessmentId";
   requireOnlyFields(record, path, ["kind", name]);
   return { kind, [name]: decodeUuid(field(record, name, path), `${path}.${name}`) };
@@ -112,11 +112,11 @@ export function decodeBlueprintForkApplyRequest(
     },
   );
   return {
-    expectedSource: revisionReference(
+    expectedSource: blueprintRevisionTuple(
       field(record, "expectedSource", path),
       `${path}.expectedSource`,
     ),
-    expectedFork: revisionReference(field(record, "expectedFork", path), `${path}.expectedFork`),
+    expectedFork: blueprintRevisionTuple(field(record, "expectedFork", path), `${path}.expectedFork`),
     expectedSourceBlueprintEditNumber: blueprintEditNumber(
       field(record, "expectedSourceBlueprintEditNumber", path),
       `${path}.expectedSourceBlueprintEditNumber`,
@@ -134,8 +134,8 @@ export function decodeBlueprintForkApplyRequest(
       sourceModuleLabels: copies(
         field(selection, "sourceModuleLabels", selectionPath),
         `${selectionPath}.sourceModuleLabels`,
-        "sourceModuleReference",
-        "targetModuleReference",
+        "sourceModuleId",
+        "targetModuleId",
       ) as BlueprintForkApplyRequest["selection"]["sourceModuleLabels"],
       sourceAssessments: copies(
         field(selection, "sourceAssessments", selectionPath),
@@ -157,7 +157,7 @@ export function decodeBlueprintForkApplyResponse(
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["blueprintRevision", "changed", "metadata"]);
   return {
-    blueprintRevision: revisionReference(
+    blueprintRevision: blueprintRevisionTuple(
       field(record, "blueprintRevision", path),
       `${path}.blueprintRevision`,
     ),

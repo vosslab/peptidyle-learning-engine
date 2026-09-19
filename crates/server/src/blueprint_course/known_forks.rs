@@ -17,9 +17,9 @@ use super::{
 pub(super) async fn list_known_forks(
     State(state): State<BlueprintCourseRouteState>,
     headers: HeaderMap,
-    Path(reference): Path<String>,
+    Path(blueprint_course_id): Path<String>,
 ) -> Response {
-    let reference = match parse_blueprint_course_id(&reference) {
+    let blueprint_course_id = match parse_blueprint_course_id(&blueprint_course_id) {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -31,7 +31,7 @@ pub(super) async fn list_known_forks(
     // visibility, including Private children hidden from the source owner.
     match state
         .lineage
-        .list_known_blueprint_forks(session, reference)
+        .list_known_blueprint_forks(session, blueprint_course_id)
         .await
     {
         Ok(forks) => {

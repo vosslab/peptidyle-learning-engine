@@ -2,7 +2,7 @@
 
 import { createSignal, For, Show, type JSX } from "solid-js";
 
-import type { ResponseItemReference } from "../../../generated/api/ResponseItemReference";
+import type { ResponseItemId } from "../../../generated/api/ResponseItemId";
 import type { StudentHotspotSelection } from "../../../generated/api/StudentHotspotSelection";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
 import type { HotspotRegion } from "../../../generated/api/HotspotRegion";
@@ -96,7 +96,7 @@ export function HotspotResponse(
   const restored =
     props.initialResponse?.kind === "hotspot" ? props.initialResponse.selections : [];
   const restoredIds = restored.map((selection) => selection.region);
-  const [selected, setSelected] = createSignal<ReadonlyArray<ResponseItemReference>>(restoredIds);
+  const [selected, setSelected] = createSignal<ReadonlyArray<ResponseItemId>>(restoredIds);
   const regions = (): ReadonlyArray<HotspotRegion> =>
     "regions" in props.responseFormat
       ? props.responseFormat.regions
@@ -112,7 +112,7 @@ export function HotspotResponse(
   const controller = createResponseController(props, response());
   const required = selectionCount(props.responseFormat);
   const progress = (): string | null => selectionProgress(props.responseFormat, selected().length);
-  function choose(id: ResponseItemReference): void {
+  function choose(id: ResponseItemId): void {
     if (controller.locked()) return;
     const next =
       required === 1

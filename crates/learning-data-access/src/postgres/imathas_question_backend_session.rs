@@ -4,7 +4,7 @@ use async_trait::async_trait;
 
 use super::Pool;
 use crate::{
-    ImathasQuestionBackendSessionCreate, ImathasQuestionBackendSessionReference,
+    ImathasQuestionBackendSessionCreate, ImathasQuestionBackendSessionId,
     ImathasQuestionBackendSessionRestoreExpectation, ImathasQuestionBackendSessionStore,
     ImathasQuestionBackendStateKeyRing, LoadedImathasQuestionBackendSession, SessionTokenHash,
     StoreError,
@@ -37,14 +37,14 @@ impl ImathasQuestionBackendSessionStore for PostgresImathasQuestionBackendSessio
         &self,
         _session_token_hash: SessionTokenHash,
         _create: ImathasQuestionBackendSessionCreate,
-    ) -> Result<ImathasQuestionBackendSessionReference, StoreError> {
+    ) -> Result<ImathasQuestionBackendSessionId, StoreError> {
         Err(unavailable())
     }
 
     async fn load_imathas_question_backend_session(
         &self,
         _session_token_hash: SessionTokenHash,
-        _reference: ImathasQuestionBackendSessionReference,
+        _reference: ImathasQuestionBackendSessionId,
         _expectation: ImathasQuestionBackendSessionRestoreExpectation,
     ) -> Result<LoadedImathasQuestionBackendSession, StoreError> {
         Err(unavailable())

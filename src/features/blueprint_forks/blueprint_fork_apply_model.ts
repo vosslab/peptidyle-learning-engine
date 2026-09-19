@@ -7,10 +7,10 @@ export function destinationKey(value: Layout["module"] | Layout["assessments"][n
   return (
     value.kind +
     ":" +
-    ("targetModuleReference" in value
-      ? value.targetModuleReference
-      : "sourceModuleReference" in value
-        ? value.sourceModuleReference
+    ("targetModuleId" in value
+      ? value.targetModuleId
+      : "sourceModuleId" in value
+        ? value.sourceModuleId
         : "targetAssessmentId" in value
           ? value.targetAssessmentId
           : value.sourceAssessmentId)
@@ -20,9 +20,9 @@ export function currentForkLayout(review: BlueprintComparisonView): Layout[] {
   return [...review.right.modules]
     .sort((a, b) => a.position - b.position)
     .map((module) => ({
-      module: { kind: "existing", targetModuleReference: module.blueprintModuleReference },
+      module: { kind: "existing", targetModuleId: module.blueprintModuleId },
       assessments: review.right.assessments
-        .filter((a) => a.blueprintModuleReference === module.blueprintModuleReference)
+        .filter((a) => a.blueprintModuleId === module.blueprintModuleId)
         .sort((a, b) => a.position - b.position)
         .map((a) => ({
           kind: "existing",
@@ -55,14 +55,14 @@ export function forkSelectionProblem(
   if (new Set(modules).size !== modules.length || new Set(entries).size !== entries.length)
     return "Each destination may appear only once.";
   if (
-    new Set(labels.map((c) => c.sourceModuleReference)).size !== labels.length ||
+    new Set(labels.map((c) => c.sourceModuleId)).size !== labels.length ||
     new Set(assessments.map((c) => c.sourceAssessmentId)).size !== assessments.length
   )
     return "Copy each source only once.";
   if (
     new Set(
-      labels.flatMap((c) => (c.targetModuleReference === null ? [] : [c.targetModuleReference])),
-    ).size !== labels.filter((c) => c.targetModuleReference !== null).length ||
+      labels.flatMap((c) => (c.targetModuleId === null ? [] : [c.targetModuleId])),
+    ).size !== labels.filter((c) => c.targetModuleId !== null).length ||
     new Set(
       assessments.flatMap((c) => (c.targetAssessmentId === null ? [] : [c.targetAssessmentId])),
     ).size !== assessments.filter((c) => c.targetAssessmentId !== null).length
@@ -70,12 +70,12 @@ export function forkSelectionProblem(
     return "Choose a different target for each source copy.";
   for (const copy of labels)
     if (
-      !review.left.modules.some((m) => m.blueprintModuleReference === copy.sourceModuleReference) ||
+      !review.left.modules.some((m) => m.blueprintModuleId === copy.sourceModuleId) ||
       !modules.includes(
         destinationKey(
-          copy.targetModuleReference === null
-            ? { kind: "newFromSource", sourceModuleReference: copy.sourceModuleReference }
-            : { kind: "existing", targetModuleReference: copy.targetModuleReference },
+          copy.targetModuleId === null
+            ? { kind: "newFromSource", sourceModuleId: copy.sourceModuleId }
+            : { kind: "existing", targetModuleId: copy.targetModuleId },
         ),
       )
     )
@@ -97,12 +97,12 @@ export function forkSelectionProblem(
     if (
       module.kind === "existing"
         ? !review.right.modules.some(
-            (m) => m.blueprintModuleReference === module.targetModuleReference,
+            (m) => m.blueprintModuleId === module.targetModuleId,
           )
         : !labels.some(
             (c) =>
-              c.sourceModuleReference === module.sourceModuleReference &&
-              c.targetModuleReference === null,
+              c.sourceModuleId === module.sourceModuleId &&
+              c.targetModuleId === null,
           )
     )
       return "Choose a valid existing module or select the new module's source label.";

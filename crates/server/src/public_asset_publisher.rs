@@ -240,7 +240,7 @@ mod tests {
     use learning_data_access::{PublicAssetPublicationStore, StoreError};
     use objects::memory::MemoryObjectStore;
     use question_model::{
-        ObjectId, QuestionAssetId, QuestionId, QuestionRevisionNumber, QuestionRevisionReference,
+        ObjectId, QuestionAssetId, QuestionId, QuestionRevisionNumber, QuestionRevisionTuple,
     };
 
     use super::*;
@@ -339,7 +339,7 @@ mod tests {
     #[tokio::test]
     async fn publisher_copies_only_its_claimed_restricted_asset_to_the_fixed_public_address() {
         let objects = MemoryObjectStore::default();
-        let question_revision = QuestionRevisionReference {
+        let question_revision = QuestionRevisionTuple {
             question_id: QuestionId::from_random_identifier("ABCDEFG").expect("question ID"),
             revision_number: QuestionRevisionNumber::new(1).expect("revision number"),
         };

@@ -189,11 +189,11 @@ impl PleQuestionJsonDocument {
     /// Reference substituted for the private workspace image reference.
     ///
     /// The returned source remains answer-bearing and canonical, so the
-    /// published Source Object Reference, PLE Question JSON public content, and server-only key can
+    /// published Source Object ID, PLE Question JSON public content, and server-only key can
     /// all be derived from one immutable version-scoped source document.
     pub fn with_hotspot_surface_asset(
         &self,
-        question_asset: question_model::QuestionAssetReference,
+        question_asset: question_model::QuestionAssetTuple,
     ) -> Result<Self, PleQuestionJsonError> {
         Ok(Self(self.0.with_hotspot_surface_asset(question_asset)?))
     }

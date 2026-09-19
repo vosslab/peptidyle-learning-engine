@@ -7,8 +7,8 @@ use question_model::blueprint_course::{
     BlueprintForkApplyModuleLayout, BlueprintForkApplySelection,
 };
 use question_model::{
-    BlueprintAssessmentId, BlueprintCourseId, BlueprintEditNumber, BlueprintModuleReference,
-    BlueprintRevision, BlueprintRevisionReference, CanonicalBlueprintCourse, Timestamp,
+    BlueprintAssessmentId, BlueprintCourseId, BlueprintEditNumber, BlueprintModuleId,
+    BlueprintRevision, BlueprintRevisionTuple, CanonicalBlueprintCourse, Timestamp,
 };
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -213,11 +213,11 @@ impl BlueprintChangeProposalStore for PostgresBlueprintCourseStore {
         let new_modules = selection
             .source_module_labels
             .iter()
-            .filter(|copy| copy.target_module_reference.is_none())
+            .filter(|copy| copy.target_module_id.is_none())
             .map(|copy| {
                 Ok((
-                    copy.source_module_reference,
-                    BlueprintModuleReference::from_uuid(super::blueprint_course::random_uuid()?),
+                    copy.source_module_id,
+                    BlueprintModuleId::from_uuid(super::blueprint_course::random_uuid()?),
                 ))
             })
             .collect::<Result<BTreeMap<_, _>, StoreError>>()?;
@@ -282,7 +282,7 @@ impl BlueprintChangeProposalStore for PostgresBlueprintCourseStore {
                     if copied_assessments.contains_key(&assessment.blueprint_assessment_id) {
                         let mut copied = StoredBlueprintCourseContent {
                             modules: vec![StoredBlueprintModule {
-                                blueprint_module_reference: module.blueprint_module_reference,
+                                blueprint_module_id: module.blueprint_module_id,
                                 label: module.label.clone(),
                                 assessments: vec![assessment.clone()],
                             }],
@@ -369,8 +369,8 @@ fn entire_selection(source: &StoredBlueprintCourseContent) -> BlueprintForkApply
             .modules
             .iter()
             .map(|module| BlueprintForkApplyModuleLabelCopy {
-                source_module_reference: module.blueprint_module_reference,
-                target_module_reference: None,
+                source_module_id: module.blueprint_module_id,
+                target_module_id: None,
             })
             .collect(),
         source_assessments: source
@@ -388,7 +388,7 @@ fn entire_selection(source: &StoredBlueprintCourseContent) -> BlueprintForkApply
                 .iter()
                 .map(|module| BlueprintForkApplyModuleLayout {
                     module: BlueprintForkApplyModuleDestination::NewFromSource {
-                        source_module_reference: module.blueprint_module_reference,
+                        source_module_id: module.blueprint_module_id,
                     },
                     assessments: module
                         .assessments
@@ -430,7 +430,7 @@ fn selected_stored_content(
             assessments.push(stored);
         }
         modules.push(StoredBlueprintModule {
-            blueprint_module_reference: module.blueprint_module_reference(),
+            blueprint_module_id: module.blueprint_module_id(),
             label: module.label().to_owned(),
             assessments,
         });
@@ -543,11 +543,11 @@ async fn read_sources_in_transaction(
     };
     let revisions = [
         StoredBlueprintRevision {
-            reference: proposal.source.clone(),
+            blueprint_revision: proposal.source.clone(),
             content: source_content,
         },
         StoredBlueprintRevision {
-            reference: proposal.target.clone(),
+            blueprint_revision: proposal.target.clone(),
             content: target_content,
         },
     ];
@@ -583,10 +583,10 @@ fn canonical_content(
     ))
 }
 
-fn reference(row: &sqlx::postgres::PgRow) -> Result<BlueprintRevisionReference, StoreError> {
+fn reference(row: &sqlx::postgres::PgRow) -> Result<BlueprintRevisionTuple, StoreError> {
     let reference: String = row.try_get("blueprint_course_id").map_err(map_sqlx_error)?;
     let revision: i64 = row.try_get("revision_number").map_err(map_sqlx_error)?;
-    Ok(BlueprintRevisionReference {
+    Ok(BlueprintRevisionTuple {
         blueprint_course_id: reference
             .parse::<BlueprintCourseId>()
             .map_err(|_| invalid())?,
@@ -610,7 +610,7 @@ fn proposal_summary(
         (None, None, None) => None,
         (Some(at), Some(revision), Some(etag)) => Some(BlueprintChangeProposalAcceptedSummary {
             accepted_at: Timestamp::from_unix_millis(at),
-            target: BlueprintRevisionReference {
+            target: BlueprintRevisionTuple {
                 blueprint_course_id: target.blueprint_course_id.clone(),
                 revision: BlueprintRevision::new(u64::try_from(revision).map_err(|_| invalid())?)
                     .ok_or_else(invalid)?,
@@ -647,10 +647,10 @@ fn summary_reference(
     row: &sqlx::postgres::PgRow,
     name: &str,
     number: &str,
-) -> Result<BlueprintRevisionReference, StoreError> {
+) -> Result<BlueprintRevisionTuple, StoreError> {
     let value: String = row.try_get(name).map_err(map_sqlx_error)?;
     let revision: i64 = row.try_get(number).map_err(map_sqlx_error)?;
-    Ok(BlueprintRevisionReference {
+    Ok(BlueprintRevisionTuple {
         blueprint_course_id: value.parse().map_err(|_| invalid())?,
         revision: BlueprintRevision::new(u64::try_from(revision).map_err(|_| invalid())?)
             .ok_or_else(invalid)?,

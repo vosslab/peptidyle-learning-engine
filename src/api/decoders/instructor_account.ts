@@ -23,7 +23,7 @@ import {
 import { validateCanonicalPublicId } from "../../question_id.ts";
 
 const MAX_REASON_LENGTH = 1_000;
-const VETTING_REFERENCE_PATTERN =
+const VETTING_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 
 function field(record: Record<string, unknown>, key: string, path: string): unknown {
@@ -132,15 +132,15 @@ export function decodeInstructorIdentityVettingReceipt(
   path = "response",
 ): InstructorIdentityVettingReceipt {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["vettingDecisionReference"]);
-  const vettingDecisionReference = decodeString(
-    field(record, "vettingDecisionReference", path),
-    `${path}.vettingDecisionReference`,
+  requireOnlyFields(record, path, ["vettingDecisionId"]);
+  const vettingDecisionId = decodeString(
+    field(record, "vettingDecisionId", path),
+    `${path}.vettingDecisionId`,
   );
-  if (!VETTING_REFERENCE_PATTERN.test(vettingDecisionReference)) {
-    throw new DecodeError(`${path}.vettingDecisionReference`, "an opaque vetting decision receipt");
+  if (!VETTING_ID_PATTERN.test(vettingDecisionId)) {
+    throw new DecodeError(`${path}.vettingDecisionId`, "an opaque vetting decision receipt");
   }
-  return { vettingDecisionReference };
+  return { vettingDecisionId };
 }
 
 export function decodeCompleteInstructorIdentityVettingInput(
@@ -187,7 +187,7 @@ export function decodeCreateInstructorAccountInput(
   path = "request",
 ): CreateInstructorAccountInput {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["normalizedEmail", "vettingDecisionReference"]);
+  requireOnlyFields(record, path, ["normalizedEmail", "vettingDecisionId"]);
   const normalizedEmail = decodeString(
     field(record, "normalizedEmail", path),
     `${path}.normalizedEmail`,
@@ -202,14 +202,14 @@ export function decodeCreateInstructorAccountInput(
       "a trimmed lowercase normalized email within its bound",
     );
   }
-  const vettingDecisionReference = decodeString(
-    field(record, "vettingDecisionReference", path),
-    `${path}.vettingDecisionReference`,
+  const vettingDecisionId = decodeString(
+    field(record, "vettingDecisionId", path),
+    `${path}.vettingDecisionId`,
   );
-  if (!VETTING_REFERENCE_PATTERN.test(vettingDecisionReference)) {
-    throw new DecodeError(`${path}.vettingDecisionReference`, "an opaque vetting decision receipt");
+  if (!VETTING_ID_PATTERN.test(vettingDecisionId)) {
+    throw new DecodeError(`${path}.vettingDecisionId`, "an opaque vetting decision receipt");
   }
-  return { normalizedEmail, vettingDecisionReference };
+  return { normalizedEmail, vettingDecisionId };
 }
 
 export function decodeDeactivateInstructorAccountInput(

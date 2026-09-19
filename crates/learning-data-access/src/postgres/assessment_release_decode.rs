@@ -5,11 +5,11 @@ use question_model::{
     AssessmentEntryAvailability, AssessmentEntryId, AssessmentEntryScoringRule, AssessmentId,
     AssessmentInstructions, AssessmentOrigin, AssessmentPointValue, AssessmentStatus,
     AssessmentTitle, AssessmentType, BlueprintAssessmentId, BlueprintAssessmentSource,
-    BlueprintCourseId, BlueprintRevision, BlueprintRevisionReference, CourseInstanceId,
+    BlueprintCourseId, BlueprintRevision, BlueprintRevisionTuple, CourseInstanceId,
     FixedQuestionAssessmentEntry, LateWorkRule, LocalDateAndTime, QuestionAttemptLimit,
     QuestionAttemptTimeLimit, QuestionId, QuestionPoolAssessmentEntry, QuestionPoolEditNumber,
     QuestionPoolSelectedQuestionOrder, QuestionPoolSelectionRule, QuestionRevisionNumber,
-    QuestionRevisionReference, Timestamp,
+    QuestionRevisionTuple, Timestamp,
 };
 use sqlx::Row;
 
@@ -24,8 +24,8 @@ pub(super) fn question_id(value: String) -> Result<QuestionId, StoreError> {
 pub(super) fn question_revision_reference(
     question: String,
     revision: i32,
-) -> Result<QuestionRevisionReference, StoreError> {
-    Ok(QuestionRevisionReference {
+) -> Result<QuestionRevisionTuple, StoreError> {
+    Ok(QuestionRevisionTuple {
         question_id: question_id(question)?,
         revision_number: QuestionRevisionNumber::new(
             u32::try_from(revision).map_err(|_| invalid("Question Revision Number"))?,
@@ -45,7 +45,7 @@ pub(super) fn decode_entries(rows: &[sqlx::postgres::PgRow]) -> Result<Vec<Asses
         let policy = question_policy(row)?;
         if kind == "fixed_question" {
             entries.push(AssessmentEntry::FixedQuestion(FixedQuestionAssessmentEntry {
-                id, reference: row_reference(row)?, points_possible: point_value(row, "points_possible")?, availability, scoring_rule,
+                id, question_revision: row_reference(row)?, points_possible: point_value(row, "points_possible")?, availability, scoring_rule,
                 question_attempt_limit: policy.0, question_attempt_time_limit: policy.1,
             })); index += 1; continue;
         }
@@ -77,7 +77,7 @@ pub(super) fn decode_entries(rows: &[sqlx::postgres::PgRow]) -> Result<Vec<Asses
     Ok(entries)
 }
 #[rustfmt::skip]
-pub(super) fn row_reference(row: &sqlx::postgres::PgRow) -> Result<QuestionRevisionReference, StoreError> {
+pub(super) fn row_reference(row: &sqlx::postgres::PgRow) -> Result<QuestionRevisionTuple, StoreError> {
     question_revision_reference(row.try_get("question_id").map_err(map_sqlx_error)?, row.try_get("question_revision_number").map_err(map_sqlx_error)?)
 }
 
@@ -139,7 +139,7 @@ pub(super) fn assessment_origin(
                 .ok_or_else(|| invalid("Assessment Origin"))?;
             Ok(AssessmentOrigin::Adopted {
                 source: BlueprintAssessmentSource::new(
-                    BlueprintRevisionReference {
+                    BlueprintRevisionTuple {
                         blueprint_course_id: course_id,
                         revision,
                     },
@@ -170,11 +170,11 @@ pub(super) fn local_timestamp_from_row(
         })
         .transpose()
 }
-pub(in crate::postgres) fn assessment_reference(value: String) -> Result<AssessmentId, StoreError> {
-    AssessmentId::new(value).map_err(|_| invalid("Assessment Reference"))
+pub(in crate::postgres) fn assessment_id(value: String) -> Result<AssessmentId, StoreError> {
+    AssessmentId::new(value).map_err(|_| invalid("Assessment ID"))
 }
-pub(super) fn course_reference(value: String) -> Result<CourseInstanceId, StoreError> {
-    CourseInstanceId::new(value).map_err(|_| invalid("Course Instance Reference"))
+pub(super) fn course_instance_id(value: String) -> Result<CourseInstanceId, StoreError> {
+    CourseInstanceId::new(value).map_err(|_| invalid("Course Instance ID"))
 }
 pub(super) fn course_name(value: String) -> Result<String, StoreError> {
     if value.is_empty() || value != value.trim() || value.chars().count() > 200 {

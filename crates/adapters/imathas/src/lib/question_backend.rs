@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use question_model::QuestionContentBlock;
 use question_model::generation::QuestionSeed;
 use question_model::{
-    ImathasDeploymentReference, ImathasItemReference, ImathasProfile, QuestionRevisionReference,
+    ImathasDeploymentId, ImathasItemId, ImathasProfile, QuestionRevisionTuple,
 };
 
 use crate::{ImathasAdapterError, ImathasQuestionBackendFailure, VerifiedImathasResult};
@@ -66,8 +66,8 @@ impl SupportedImathasProfile {
 /// It contains no source bytes, endpoint, or credential.
 #[derive(Clone, PartialEq, Eq)]
 pub struct ImathasQuestionLocation {
-    deployment_reference: ImathasDeploymentReference,
-    item: ImathasItemReference,
+    deployment_reference: ImathasDeploymentId,
+    item: ImathasItemId,
 }
 
 impl ImathasQuestionLocation {
@@ -82,12 +82,12 @@ impl ImathasQuestionLocation {
     }
 
     /// Opaque deployment configuration selector.
-    pub fn deployment_reference(&self) -> &ImathasDeploymentReference {
+    pub fn deployment_reference(&self) -> &ImathasDeploymentId {
         &self.deployment_reference
     }
 
     /// iMathAS-backend-local item reference.
-    pub fn item_reference(&self) -> &ImathasItemReference {
+    pub fn item_reference(&self) -> &ImathasItemId {
         &self.item
     }
 }
@@ -182,7 +182,7 @@ pub struct ImathasRenderRequest<'a> {
     /// Pinned source profile.
     pub profile: &'a str,
     /// Exact immutable Question Revision.
-    pub question_revision: QuestionRevisionReference,
+    pub question_revision: QuestionRevisionTuple,
     /// Deterministic Question Seed.
     pub question_seed: QuestionSeed,
 }

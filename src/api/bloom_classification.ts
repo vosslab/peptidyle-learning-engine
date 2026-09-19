@@ -4,11 +4,11 @@ import type { BloomClassificationCorrectionRequest } from "../../generated/api/B
 import type { QuestionBloomCorrectionReceipt } from "../../generated/api/QuestionBloomCorrectionReceipt";
 import type { QuestionPoolBloomCorrectionReceipt } from "../../generated/api/QuestionPoolBloomCorrectionReceipt";
 import type { QuestionId } from "../../generated/api/QuestionId";
-import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
+import type { QuestionRevisionTuple } from "../../generated/api/QuestionRevisionTuple";
 
 export interface BloomClassificationCorrectionClient {
   readonly correctQuestionBloom: (
-    reference: QuestionRevisionReference,
+    reference: QuestionRevisionTuple,
     request: BloomClassificationCorrectionRequest,
   ) => Promise<QuestionBloomCorrectionReceipt>;
   readonly correctQuestionPoolBloom: (

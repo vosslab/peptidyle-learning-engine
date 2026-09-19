@@ -4,7 +4,7 @@ import type { BloomClassificationCorrectionRequest } from "../../../generated/ap
 import type { QuestionBloomCorrectionReceipt } from "../../../generated/api/QuestionBloomCorrectionReceipt";
 import type { QuestionPoolBloomCorrectionReceipt } from "../../../generated/api/QuestionPoolBloomCorrectionReceipt";
 import type { QuestionId } from "../../../generated/api/QuestionId";
-import type { QuestionRevisionReference } from "../../../generated/api/QuestionRevisionReference";
+import type { QuestionRevisionTuple } from "../../../generated/api/QuestionRevisionTuple";
 import { validateCanonicalQuestionIdSyntax } from "../../../generated/api/QuestionIdSyntaxContract";
 import type { BloomClassificationCorrectionClient } from "../bloom_classification";
 import { decodeBloomClassificationCorrectionRequest } from "../decoders/bloom_classification";
@@ -24,7 +24,7 @@ function canonicalQuestionId(value: string, label: string): string {
   return canonical;
 }
 
-function questionPath(reference: QuestionRevisionReference): string {
+function questionPath(reference: QuestionRevisionTuple): string {
   const questionId = canonicalQuestionId(reference.questionId, "Question ID");
   if (
     !Number.isSafeInteger(reference.revisionNumber) ||

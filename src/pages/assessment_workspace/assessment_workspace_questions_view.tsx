@@ -7,7 +7,7 @@ import type { AssessmentEntry } from "../../../generated/api/AssessmentEntry";
 import type { AssessmentEntryId } from "../../../generated/api/AssessmentEntryId";
 import type { AssessmentQuestionPoolForkView } from "../../../generated/api/AssessmentQuestionPoolForkView";
 import type { QuestionPoolLibrarySummary } from "../../../generated/api/QuestionPoolLibrarySummary";
-import type { QuestionRevisionReference } from "../../../generated/api/QuestionRevisionReference";
+import type { QuestionRevisionTuple } from "../../../generated/api/QuestionRevisionTuple";
 import type { BloomClassificationView } from "../../../generated/api/BloomClassificationView";
 import type {
   AssessmentQuestionPickerEntry,
@@ -46,7 +46,7 @@ export interface AssessmentWorkspaceQuestionsViewArgs {
   readonly entries: Accessor<ReadonlyArray<AssessmentEntry>>;
   readonly bloomSortUnavailableReason: Accessor<string | undefined>;
   readonly sortByBloomClassification: () => void;
-  readonly description: (reference: AssessmentQuestionPickerEntry["reference"]) => string;
+  readonly description: (reference: AssessmentQuestionPickerEntry["questionRevision"]) => string;
   readonly entryBlooms: Accessor<ReadonlyMap<AssessmentEntryId, BloomClassificationView>>;
   readonly move: (index: number, offset: -1 | 1) => void;
   readonly remove: (index: number) => void;
@@ -59,7 +59,7 @@ export interface AssessmentWorkspaceQuestionsViewArgs {
   ) => Promise<void>;
   readonly replacePoolMembers: (
     entry: Extract<AssessmentEntry, { readonly kind: "questionPool" }>,
-    members: ReadonlyArray<QuestionRevisionReference>,
+    members: ReadonlyArray<QuestionRevisionTuple>,
   ) => Promise<void>;
   readonly availableToAdd: Accessor<ReadonlyArray<AssessmentQuestionPickerEntry>>;
   readonly remainingQuestionCapacity: Accessor<number>;
@@ -81,7 +81,7 @@ export interface AssessmentWorkspaceQuestionsViewArgs {
   readonly importPool: () => Promise<void>;
 }
 
-function questionRevisionInspectionPath(reference: QuestionRevisionReference): string {
+function questionRevisionInspectionPath(reference: QuestionRevisionTuple): string {
   // ASVS 1.2.2: encode the displayed Question identity before placing it in a route path.
   return `/library/${encodeURIComponent(reference.questionId)}?revision=${reference.revisionNumber}`;
 }
@@ -407,9 +407,9 @@ export function AssessmentWorkspaceQuestionsView(
             <For each={availableToAdd()}>
               {(candidate) => (
                 <li>
-                  <strong>{candidate.reference.questionId}</strong> * Revision{" "}
-                  {candidate.reference.revisionNumber}: {candidate.description}{" "}
-                  <A href={questionRevisionInspectionPath(candidate.reference)}>Inspect</A>{" "}
+                  <strong>{candidate.questionRevision.questionId}</strong> * Revision{" "}
+                  {candidate.questionRevision.revisionNumber}: {candidate.description}{" "}
+                  <A href={questionRevisionInspectionPath(candidate.questionRevision)}>Inspect</A>{" "}
                   <Show when={candidate.bloom}>
                     {(bloom) => (
                       <span>

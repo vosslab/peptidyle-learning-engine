@@ -1,12 +1,12 @@
 use anyhow::{Context, Result};
-use question_model::{QuestionBackend, QuestionRevisionReference, QuestionType};
+use question_model::{QuestionBackend, QuestionRevisionTuple, QuestionType};
 
 use super::{Manifest, SourceRevisions};
 
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Receipt {
-    pub(super) blueprint_reference: String,
+    pub(super) blueprint_course_id: String,
     pub(super) blueprint_revision: u64,
     pub(super) source_repository: String,
     pub(super) source_revision: String,
@@ -31,12 +31,12 @@ pub(super) struct ReceiptQuestion {
     pub(super) backend: QuestionBackend,
     pub(super) question_type: QuestionType,
     pub(super) webwork_pg_path: String,
-    pub(super) question_revision: QuestionRevisionReference,
+    pub(super) question_revision: QuestionRevisionTuple,
 }
 
 impl Receipt {
-    pub(crate) fn blueprint_reference(&self) -> &str {
-        &self.blueprint_reference
+    pub(crate) fn blueprint_course_id(&self) -> &str {
+        &self.blueprint_course_id
     }
 
     pub(crate) fn installation_summary(&self) -> String {
@@ -47,7 +47,7 @@ impl Receipt {
             .sum::<usize>();
         format!(
             "Genetics Blueprint {} revision {}: {} topics, {} canonical Questions",
-            self.blueprint_reference,
+            self.blueprint_course_id,
             self.blueprint_revision,
             self.topics.len(),
             question_count
@@ -102,7 +102,7 @@ impl Receipt {
             })
             .collect::<Result<Vec<_>>>()?;
         Ok(Self {
-            blueprint_reference: reference,
+            blueprint_course_id: reference,
             blueprint_revision: revision,
             source_repository: manifest.course.source_repository.clone(),
             source_revision: manifest.course.source_revision.clone(),

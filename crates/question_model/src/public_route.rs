@@ -4,17 +4,13 @@
 //! authenticated course membership boundary before using its internal identity.
 
 use serde::{Deserialize, Serialize};
-use std::num::NonZeroU32;
 
 use crate::question_library::{QUESTION_ID_ALPHABET, public_id_checksum_character};
 use crate::{AssessmentAttemptId, StudentRecordId, WorkspaceId};
 
-/// Largest route number that remains compact and lossless in every product layer.
-pub const MAX_PUBLIC_ROUTE_NUMBER: u32 = i32::MAX as u32;
-
-/// Prefixes reserved by the route grammar.
-pub const RESERVED_REFERENCE_PREFIXES: &[&str] =
-    &["R", "W", "G", "U", "M", "I", "QC", "QS", "BP", "CI", "A"];
+/// Prefixes reserved by the public-ID grammar. Compact hyphenated locators are
+/// not public IDs; the hyphen is specific to Question IDs.
+pub const RESERVED_REFERENCE_PREFIXES: &[&str] = &["G", "U", "QC", "QS", "BP", "CI", "A"];
 
 /// Every public ID includes seven server-random Crockford characters and one
 /// public SHA-256 checksum character.
@@ -123,92 +119,16 @@ macro_rules! impl_public_id {
     };
 }
 
-macro_rules! impl_numeric_reference {
-    ($name:ident, $prefix:literal, $description:literal) => {
-        impl $name {
-            /// Builds one typed reference from its positive database identity.
-            pub fn new(value: u64) -> Option<Self> {
-                u32::try_from(value)
-                    .ok()
-                    .filter(|value| *value <= MAX_PUBLIC_ROUTE_NUMBER)
-                    .and_then(NonZeroU32::new)
-                    .map(Self)
-            }
-
-            /// Returns the positive database scalar, for persistence only.
-            pub fn number(self) -> u32 {
-                self.0.get()
-            }
-        }
-
-        impl std::fmt::Display for $name {
-            fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                write!(formatter, concat!($prefix, "-{}"), self.number())
-            }
-        }
-
-        impl std::str::FromStr for $name {
-            type Err = &'static str;
-
-            fn from_str(value: &str) -> Result<Self, Self::Err> {
-                let Some(digits) = value.strip_prefix(concat!($prefix, "-")) else {
-                    return Err(concat!($description, " must look like ", $prefix, "-123"));
-                };
-                if digits.is_empty()
-                    || digits.len() > 10
-                    || digits.starts_with('0')
-                    || !digits.bytes().all(|byte| byte.is_ascii_digit())
-                {
-                    return Err(concat!($description, " must look like ", $prefix, "-123"));
-                }
-                digits
-                    .parse::<u64>()
-                    .ok()
-                    .and_then(Self::new)
-                    .ok_or(concat!($description, " must be a positive 31-bit value"))
-            }
-        }
-
-        impl TryFrom<String> for $name {
-            type Error = &'static str;
-
-            fn try_from(value: String) -> Result<Self, Self::Error> {
-                value.parse()
-            }
-        }
-
-        impl From<$name> for String {
-            fn from(value: $name) -> Self {
-                value.to_string()
-            }
-        }
-    };
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct CourseInstanceId(String);
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct AssessmentId(String);
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(try_from = "String", into = "String")]
-pub struct AssessmentAttemptReference(NonZeroU32);
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(try_from = "String", into = "String")]
-pub struct AuthoringWorkspaceReference(NonZeroU32);
 /// An authorized Account ID for an existing platform account. It carries neither email nor authority.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct AccountId(String);
-/// An authorized Course Membership Reference for one course-membership episode.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(try_from = "String", into = "String")]
-pub struct CourseMembershipReference(NonZeroU32);
-/// An authorized Course Invitation Reference for one target-bound Course Invitation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(try_from = "String", into = "String")]
-pub struct CourseInvitationReference(NonZeroU32);
 /// An authorized Blueprint Course ID for one reusable Blueprint Course.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
@@ -227,27 +147,6 @@ fn crockford_serial(mut serial: u128) -> String {
     }
     String::from_utf8(chars.to_vec()).expect("Crockford alphabet is ASCII")
 }
-
-impl_numeric_reference!(
-    AssessmentAttemptReference,
-    "R",
-    "Assessment Attempt reference"
-);
-impl_numeric_reference!(
-    AuthoringWorkspaceReference,
-    "W",
-    "Authoring Workspace reference"
-);
-impl_numeric_reference!(
-    CourseMembershipReference,
-    "M",
-    "course-membership reference"
-);
-impl_numeric_reference!(
-    CourseInvitationReference,
-    "I",
-    "Course Invitation reference"
-);
 
 /// One authorized navigation target. IDs remain transport details after Store authorization.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

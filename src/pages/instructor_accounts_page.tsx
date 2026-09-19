@@ -43,8 +43,8 @@ export function InstructorAccountsPage(): JSX.Element {
   );
   const [email, setEmail] = createSignal("");
   const [verifiedInstructorDisplayName, setVerifiedInstructorDisplayName] = createSignal("");
-  const [reasonByReference, setReasonByReference] = createSignal<Record<string, string>>({});
-  const [busyReference, setBusyReference] = createSignal<string | null>(null);
+  const [reasonByAccountId, setReasonByAccountId] = createSignal<Record<string, string>>({});
+  const [busyAccountId, setBusyAccountId] = createSignal<string | null>(null);
   const [creating, setCreating] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const [announcement, setAnnouncement] = createSignal("");
@@ -62,8 +62,8 @@ export function InstructorAccountsPage(): JSX.Element {
     );
   }
 
-  function setReason(reference: string, reason: string): void {
-    setReasonByReference((current) => ({ ...current, [reference]: reason }));
+  function setReason(accountId: string, reason: string): void {
+    setReasonByAccountId((current) => ({ ...current, [accountId]: reason }));
   }
 
   async function createAccount(event: SubmitEvent): Promise<void> {
@@ -95,7 +95,7 @@ export function InstructorAccountsPage(): JSX.Element {
       });
       const created = await runtime.client.createInstructorAccount({
         normalizedEmail,
-        vettingDecisionReference: vetting.vettingDecisionReference,
+        vettingDecisionId: vetting.vettingDecisionId,
       });
       mutate((current) => {
         if (current === undefined) return current;
@@ -116,12 +116,12 @@ export function InstructorAccountsPage(): JSX.Element {
   }
 
   async function deactivate(account: InstructorAccountSummary): Promise<void> {
-    const reason = reasonByReference()[account.id] ?? "";
+    const reason = reasonByAccountId()[account.id] ?? "";
     if (reason.length === 0 || reason.length > 1000 || reason !== reason.trim()) {
       setError("Enter a trimmed deactivation reason within 1,000 characters.");
       return;
     }
-    setBusyReference(account.id);
+    setBusyAccountId(account.id);
     setError(null);
     try {
       updateAccount(await runtime.client.deactivateInstructorAccount(account.id, { reason }));
@@ -130,12 +130,12 @@ export function InstructorAccountsPage(): JSX.Element {
     } catch {
       setError(failureCopy());
     } finally {
-      setBusyReference(null);
+      setBusyAccountId(null);
     }
   }
 
   async function reactivate(account: InstructorAccountSummary): Promise<void> {
-    setBusyReference(account.id);
+    setBusyAccountId(account.id);
     setError(null);
     try {
       updateAccount(await runtime.client.reactivateInstructorAccount(account.id));
@@ -143,7 +143,7 @@ export function InstructorAccountsPage(): JSX.Element {
     } catch {
       setError(failureCopy());
     } finally {
-      setBusyReference(null);
+      setBusyAccountId(null);
     }
   }
 
@@ -255,7 +255,7 @@ export function InstructorAccountsPage(): JSX.Element {
                           id={`deactivate-reason-${account.id}`}
                           name={`deactivationReason-${account.id}`}
                           type="text"
-                          value={reasonByReference()[account.id] ?? ""}
+                          value={reasonByAccountId()[account.id] ?? ""}
                           onInput={(event) => setReason(account.id, event.currentTarget.value)}
                           maxlength={1000}
                           required
@@ -264,10 +264,10 @@ export function InstructorAccountsPage(): JSX.Element {
                       <button
                         class="quiet-action"
                         type="button"
-                        disabled={busyReference() === account.id}
+                        disabled={busyAccountId() === account.id}
                         onClick={() => void deactivate(account)}
                       >
-                        {busyReference() === account.id
+                        {busyAccountId() === account.id
                           ? "Updating..."
                           : "Deactivate Instructor Account"}
                       </button>
@@ -276,10 +276,10 @@ export function InstructorAccountsPage(): JSX.Element {
                       <button
                         class="primary-action"
                         type="button"
-                        disabled={busyReference() === account.id}
+                        disabled={busyAccountId() === account.id}
                         onClick={() => void reactivate(account)}
                       >
-                        {busyReference() === account.id
+                        {busyAccountId() === account.id
                           ? "Updating..."
                           : "Reactivate Instructor Account"}
                       </button>

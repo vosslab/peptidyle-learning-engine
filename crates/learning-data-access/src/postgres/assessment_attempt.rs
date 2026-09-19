@@ -3,7 +3,7 @@
 use async_trait::async_trait;
 use question_model::{
     AssessmentAttemptId, IssuedQuestionId, QuestionBackend, QuestionPoolSelectionId,
-    QuestionRevisionReference,
+    QuestionRevisionTuple,
 };
 use serde_json::{Value, json};
 use sqlx::{Postgres, Row, Transaction};
@@ -170,19 +170,19 @@ fn storage_issued_questions(
                 _,
                 Option<QuestionPoolSelectionId>,
                 _,
-                &QuestionRevisionReference,
+                &QuestionRevisionTuple,
                 &QuestionBackend,
             ) = match question {
                 PreparedIssuedQuestion::FixedQuestion {
                     assessment_entry,
-                    reference,
+                    question_revision,
                     backend,
-                } => (*assessment_entry, None, None, reference, backend),
+                } => (*assessment_entry, None, None, question_revision, backend),
                 PreparedIssuedQuestion::QuestionPoolItem {
                     assessment_entry,
                     question_pool_selection_index,
                     member_position,
-                    reference,
+                    question_revision,
                     backend,
                 } => (
                     *assessment_entry,
@@ -193,7 +193,7 @@ fn storage_issued_questions(
                         )
                     })?),
                     Some(*member_position),
-                    reference,
+                    question_revision,
                     backend,
                 ),
             };
@@ -274,7 +274,7 @@ mod tests {
             question_pool_selections: Vec::new(),
             issued_questions: vec![PreparedIssuedQuestion::FixedQuestion {
                 assessment_entry,
-                reference: QuestionRevisionReference {
+                question_revision: QuestionRevisionTuple {
                     question_id: "1234-H567".parse::<QuestionId>().expect("Question ID"),
                     revision_number: QuestionRevisionNumber::new(1).expect("revision number"),
                 },
@@ -311,7 +311,7 @@ mod tests {
             question_pool_selections: Vec::new(),
             issued_questions: vec![PreparedIssuedQuestion::FixedQuestion {
                 assessment_entry,
-                reference: QuestionRevisionReference {
+                question_revision: QuestionRevisionTuple {
                     question_id: "1234-H567".parse::<QuestionId>().expect("Question ID"),
                     revision_number: QuestionRevisionNumber::new(1).expect("revision number"),
                 },

@@ -18,11 +18,11 @@ import { assessmentTypePresentation } from "../assessment_type_presentation";
 import { useApplicationApi } from "../api/application_api";
 import { StudentAssessmentStartFacts } from "../components/student_assessment_presentation";
 import {
-  assessmentAttemptRouteReference,
+  assessmentAttemptRouteId,
   parseAssessmentId,
   parseCourseInstanceId,
-  type AssessmentRouteReference,
-  type CourseInstanceRouteReference,
+  type AssessmentRouteId,
+  type CourseInstanceRouteId,
 } from "../navigation/public_route";
 import { RibbonIcon } from "../ribbon/ribbon_icon";
 
@@ -37,9 +37,9 @@ export function AssessmentOverviewPage(): JSX.Element {
   onCleanup(() => {
     disposed = true;
   });
-  const course = (): CourseInstanceRouteReference | null =>
+  const course = (): CourseInstanceRouteId | null =>
     parseCourseInstanceId(params["courseInstanceId"] ?? "");
-  const assessment = (): AssessmentRouteReference | null =>
+  const assessment = (): AssessmentRouteId | null =>
     parseAssessmentId(params["assessmentId"] ?? "");
   const access = createAsync(() => {
     const courseInstanceId = course();
@@ -51,7 +51,7 @@ export function AssessmentOverviewPage(): JSX.Element {
     const activeAttempt = access()?.activeAssessmentAttempt;
     return activeAttempt === null || activeAttempt === undefined
       ? null
-      : assessmentAttemptRouteReference(activeAttempt);
+      : assessmentAttemptRouteId(activeAttempt);
   });
   createEffect(
     on(activeAttemptReference, (activeReference) => {
@@ -83,8 +83,8 @@ export function AssessmentOverviewPage(): JSX.Element {
       // ASVS 2.3.1: finish authorized same-Attempt issuance before reading progress.
       const attempt = await runtime.client.startLiveAssessment(courseInstanceId, assessmentId);
       if (!requestIsCurrent()) return;
-      const attemptReference = assessmentAttemptRouteReference(attempt.assessmentAttempt);
-      navigate(`/assessment-attempts/${attemptReference}`, { replace: true });
+      const assessmentAttemptId = assessmentAttemptRouteId(attempt.assessmentAttempt);
+      navigate(`/assessment-attempts/${assessmentAttemptId}`, { replace: true });
     } catch (_error: unknown) {
       if (!requestIsCurrent()) return;
       setStartError(
@@ -172,7 +172,7 @@ export function AssessmentOverviewPage(): JSX.Element {
                     {(attempt) => (
                       <li>
                         <A
-                          href={`/assessment-attempts/${assessmentAttemptRouteReference(attempt.assessmentAttempt)}/summary`}
+                          href={`/assessment-attempts/${assessmentAttemptRouteId(attempt.assessmentAttempt)}/summary`}
                         >
                           Attempt {attempt.attemptNumber}
                         </A>

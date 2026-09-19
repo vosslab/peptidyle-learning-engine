@@ -5,7 +5,7 @@ use objects::{ObjectAddress, ObjectStore, PutObject, Sha256Checksum};
 use question_model::generation::QuestionSeed;
 use question_model::{
     BackendOwnedLifecycleState, ObjectId, QuestionEvaluation, QuestionId, QuestionRendererVersion,
-    QuestionRevisionNumber, QuestionRevisionReference, SourceObjectChecksum, SourceObjectReference,
+    QuestionRevisionNumber, QuestionRevisionTuple, SourceObjectChecksum,
     StudentResponse, Timestamp,
 };
 use uuid::Uuid;
@@ -21,8 +21,8 @@ const SOURCE: &[u8] =
 const DOCUMENT: &[u8] = b"<!doctype html><form><input name=AnSwEr0001></form>";
 const PAYLOAD: &[u8] = br#"[["AnSwEr0001","student value"],["hidden","1"]]"#;
 
-fn question_revision() -> QuestionRevisionReference {
-    QuestionRevisionReference {
+fn question_revision() -> QuestionRevisionTuple {
+    QuestionRevisionTuple {
         question_id: QuestionId::from_random_identifier("ABCDEFG").expect("Question ID"),
         revision_number: QuestionRevisionNumber::new(2).expect("positive version"),
     }
@@ -152,9 +152,7 @@ async fn source(store: &MemoryObjectStore) -> ResolvedWebworkQuestionSource {
     let binding =
         WebworkQuestionSourceBinding::new(question_revision(), "Library/opaque.pg".to_string())
             .expect("fixed path is valid");
-    let source_object_reference = SourceObjectReference {
-        object: ObjectId::from_uuid(Uuid::from_u128(4)),
-    };
+    let source_object_id = ObjectId::from_uuid(Uuid::from_u128(4));
     let source_object_checksum =
         SourceObjectChecksum::parse(Sha256Checksum::compute(SOURCE).to_string())
             .expect("checksum is canonical");
@@ -162,7 +160,7 @@ async fn source(store: &MemoryObjectStore) -> ResolvedWebworkQuestionSource {
         .put(PutObject {
             address: ObjectAddress::QuestionSource {
                 question_revision: binding.question_revision().clone(),
-                object: source_object_reference.object,
+                object: source_object_id,
             },
             bytes: SOURCE.to_vec(),
             media_type: "text/x-wework-pg".to_string(),
@@ -173,7 +171,7 @@ async fn source(store: &MemoryObjectStore) -> ResolvedWebworkQuestionSource {
     ResolvedWebworkQuestionSource::resolve(
         store,
         binding,
-        source_object_reference,
+        source_object_id,
         source_object_checksum,
     )
     .await

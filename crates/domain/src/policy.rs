@@ -2,13 +2,13 @@
 
 use std::collections::BTreeSet;
 
-use question_model::{Capability, QuestionBackendCapabilities, QuestionRevisionReference};
+use question_model::{Capability, QuestionBackendCapabilities, QuestionRevisionTuple};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AssessmentQuestionConfig {
-    pub question: QuestionRevisionReference,
+    pub question: QuestionRevisionTuple,
     pub question_backend_capabilities: QuestionBackendCapabilities,
 }
 
@@ -23,7 +23,7 @@ pub struct AssessmentConfig {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Violation {
-    pub question: QuestionRevisionReference,
+    pub question: QuestionRevisionTuple,
     pub capability: Capability,
 }
 

@@ -124,7 +124,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> (CourseInstanceId, AssessmentId
     .expect("Blueprint Revision");
     sqlx::query(
         "INSERT INTO ple_data.blueprint_revision_module \
-         (blueprint_course_id, blueprint_revision_number, blueprint_module_reference, \
+         (blueprint_course_id, blueprint_revision_number, blueprint_module_id, \
           module_position) VALUES ($1, 1, $2, 1)",
     )
     .bind(&blueprint_id)
@@ -134,7 +134,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> (CourseInstanceId, AssessmentId
     .expect("Blueprint Module");
     sqlx::query(
         "INSERT INTO ple_data.blueprint_revision_assessment \
-         (blueprint_course_id, blueprint_revision_number, blueprint_module_reference, \
+         (blueprint_course_id, blueprint_revision_number, blueprint_module_id, \
           blueprint_assessment_id, assessment_position) VALUES ($1, 1, $2, $3, 1)",
     )
     .bind(&blueprint_id)

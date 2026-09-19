@@ -6,7 +6,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use question_model::response::ResponseItemReference;
+use question_model::response::ResponseItemId;
 use serde::{Deserialize, Serialize};
 
 /// Answer Key for one Question Revision.
@@ -29,7 +29,7 @@ pub enum AnswerKey {
     /// Correct selection identifiers.
     MultipleChoice {
         /// Exact correct set; order is irrelevant.
-        correct: BTreeSet<ResponseItemReference>,
+        correct: BTreeSet<ResponseItemId>,
     },
     /// Accepted short-text values before the public match mode is applied.
     ShortText {
@@ -39,22 +39,22 @@ pub enum AnswerKey {
     /// Accepted values for every named multi-blank slot.
     MultiBlank {
         /// Slot identifier to accepted answer forms.
-        accepted: BTreeMap<ResponseItemReference, Vec<String>>,
+        accepted: BTreeMap<ResponseItemId, Vec<String>>,
     },
     /// Correct prompt-to-choice matching.
     Matching {
         /// Prompt identifier to correct choice identifier.
-        correct: BTreeMap<ResponseItemReference, ResponseItemReference>,
+        correct: BTreeMap<ResponseItemId, ResponseItemId>,
     },
     /// Correct ordering of item identifiers.
     Ordering {
         /// Expected identifiers from first to last.
-        correct: Vec<ResponseItemReference>,
+        correct: Vec<ResponseItemId>,
     },
     /// Correct Hotspot Regions on a hotspot surface.
     Hotspot {
         /// Exact correct region set; geometry remains in the public Question Response Format.
-        correct: BTreeSet<ResponseItemReference>,
+        correct: BTreeSet<ResponseItemId>,
     },
 }
 
@@ -65,7 +65,7 @@ mod tests {
     #[test]
     fn answer_values_serialize_only_inside_the_server_crate() {
         let key = AnswerKey::MultipleChoice {
-            correct: BTreeSet::from([ResponseItemReference::new("peptide-bond")]),
+            correct: BTreeSet::from([ResponseItemId::new("peptide-bond")]),
         };
 
         assert_eq!(

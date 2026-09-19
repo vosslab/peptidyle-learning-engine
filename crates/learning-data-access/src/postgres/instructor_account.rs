@@ -8,7 +8,7 @@ use super::{Pool, connection::map_sqlx_error};
 use crate::{
     CompleteInstructorIdentityVettingInput, CreateInstructorAccountInput,
     DeactivateInstructorAccountInput, InstructorAccountList, InstructorAccountState,
-    InstructorAccountStore, InstructorAccountSummary, InstructorIdentityVettingDecisionReference,
+    InstructorAccountStore, InstructorAccountSummary, InstructorIdentityVettingDecisionId,
     ProvidedAvatarId, SessionTokenHash, StoreError,
 };
 
@@ -57,7 +57,7 @@ impl InstructorAccountStore for PostgresInstructorAccountStore {
         &self,
         token: SessionTokenHash,
         input: CompleteInstructorIdentityVettingInput,
-    ) -> Result<InstructorIdentityVettingDecisionReference, StoreError> {
+    ) -> Result<InstructorIdentityVettingDecisionId, StoreError> {
         input.validate()?;
         let mut tx = self.begin(token).await?;
         // ASVS 8.2.1 and 8.3.1: PostgreSQL derives the active Sysadmin from
@@ -70,9 +70,7 @@ impl InstructorAccountStore for PostgresInstructorAccountStore {
                 .await
                 .map_err(map_sqlx_error)?;
         tx.commit().await.map_err(map_sqlx_error)?;
-        Ok(InstructorIdentityVettingDecisionReference::from_uuid(
-            decision_id,
-        ))
+        Ok(InstructorIdentityVettingDecisionId::from_uuid(decision_id))
     }
 
     async fn list_instructor_accounts(
@@ -127,7 +125,7 @@ impl InstructorAccountStore for PostgresInstructorAccountStore {
              FROM ple_api.create_instructor_account($1, $2)",
         )
         .bind(input.normalized_email)
-        .bind(input.vetting_decision_reference.as_uuid())
+        .bind(input.vetting_decision_id.as_uuid())
         .fetch_one(&mut *tx)
         .await
         .map_err(map_sqlx_error)?;

@@ -22,8 +22,8 @@ fn config() -> HttpWebworkRendererConfig {
 }
 
 fn request() -> RenderRequest<'static> {
-    static QUESTION_REVISION: LazyLock<question_model::QuestionRevisionReference> =
-        LazyLock::new(|| question_model::QuestionRevisionReference {
+    static QUESTION_REVISION: LazyLock<question_model::QuestionRevisionTuple> =
+        LazyLock::new(|| question_model::QuestionRevisionTuple {
             question_id: question_model::QuestionId::from_random_identifier("ABCDEFG")
                 .expect("fixed Question ID is valid"),
             revision_number: question_model::QuestionRevisionNumber::new(1)
@@ -143,7 +143,7 @@ fn response_pairs_refuse_noncanonical_and_server_owned_names() {
 /// Prevents transport configuration from drifting away from the generic embed and deployment boundary.
 fn protocol_uses_embed_format_and_deployment_owned_urls() {
     let settings = config();
-    let revision = question_model::QuestionRevisionReference {
+    let revision = question_model::QuestionRevisionTuple {
         question_id: question_model::QuestionId::from_random_identifier("ABCDEFG").unwrap(),
         revision_number: question_model::QuestionRevisionNumber::new(1).unwrap(),
     };

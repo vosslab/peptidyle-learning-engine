@@ -15,7 +15,7 @@ use question_model::answer::{NumericResponseTolerance, TextResponseMatchRule};
 use question_model::question_citation::QuestionCitation;
 use question_model::question_license::QuestionLicense;
 use question_model::response::QuestionType;
-use question_model::{QuestionAssetReference, QuestionHint, QuestionMetadata};
+use question_model::{QuestionAssetTuple, QuestionHint, QuestionMetadata};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
@@ -276,7 +276,7 @@ impl PleQuestionJsonDocumentBody {
 
     pub(super) fn with_hotspot_surface_asset(
         &self,
-        question_asset: QuestionAssetReference,
+        question_asset: QuestionAssetTuple,
     ) -> Result<Self, PleQuestionJsonError> {
         let mut published = self.clone();
         let PleQuestionJsonResponse::Hotspot { surface, .. } = &mut published.response else {

@@ -7,10 +7,7 @@ import "./course_roster_page.css";
 
 import { parseRosterImportRows } from "./roster_import_template";
 import { useApplicationApi } from "../api/application_api";
-import {
-  type CourseInstanceRouteReference,
-  parseCourseInstanceId,
-} from "../navigation/public_route";
+import { type CourseInstanceRouteId, parseCourseInstanceId } from "../navigation/public_route";
 
 function stateLabel(state: "invitationPending" | "activeStudent"): string {
   return state === "activeStudent" ? "Active Student" : "Invitation pending";
@@ -22,10 +19,10 @@ type RosterFeedback = Readonly<{ kind: "success" | "error"; text: string }>;
 export function CourseRosterPage(): JSX.Element {
   const applicationApi = useApplicationApi();
   const params = useParams();
-  const reference = (): CourseInstanceRouteReference | null =>
+  const courseInstanceId = (): CourseInstanceRouteId | null =>
     parseCourseInstanceId(params["courseInstanceId"] ?? "");
-  const [roster, { refetch }] = createResource(reference, async (course) => {
-    if (course === null) throw new Error("Course Instance reference is invalid");
+  const [roster, { refetch }] = createResource(courseInstanceId, async (course) => {
+    if (course === null) throw new Error("Course Instance ID is invalid");
     return applicationApi.client.getLiveCourseRoster(course);
   });
   const [importText, setImportText] = createSignal("");
@@ -36,7 +33,7 @@ export function CourseRosterPage(): JSX.Element {
   let rosterImport: HTMLTextAreaElement | undefined;
 
   createEffect(() => {
-    reference();
+    courseInstanceId();
     // ASVS 14.3.1/14.3.3: transient FERPA drafts never follow another Course or enter storage.
     setImportText("");
     setMessage(undefined);
@@ -45,7 +42,7 @@ export function CourseRosterPage(): JSX.Element {
 
   async function importRoster(event: SubmitEvent): Promise<void> {
     event.preventDefault();
-    const course = reference();
+    const course = courseInstanceId();
     if (course === null) return;
     setBusy(true);
     setMessage(undefined);
@@ -53,7 +50,7 @@ export function CourseRosterPage(): JSX.Element {
     try {
       const entries = parseRosterImportRows(importText());
       await applicationApi.client.importLiveCourseRoster(course, { entries });
-      if (reference() !== course) return;
+      if (courseInstanceId() !== course) return;
       setImportText("");
       setToolMessage({
         kind: "success",
@@ -61,7 +58,7 @@ export function CourseRosterPage(): JSX.Element {
       });
       await refetch();
     } catch (error) {
-      if (reference() !== course) return;
+      if (courseInstanceId() !== course) return;
       setToolMessage({
         kind: "error",
         text:
@@ -76,7 +73,7 @@ export function CourseRosterPage(): JSX.Element {
   }
 
   async function revoke(rosterId: string): Promise<void> {
-    const course = reference();
+    const course = courseInstanceId();
     if (course === null) return;
     setBusy(true);
     setMessage(undefined);
@@ -99,7 +96,7 @@ export function CourseRosterPage(): JSX.Element {
   }
 
   async function downloadPendingInvitations(): Promise<void> {
-    const course = reference();
+    const course = courseInstanceId();
     if (course === null) return;
     setBusy(true);
     setMessage(undefined);

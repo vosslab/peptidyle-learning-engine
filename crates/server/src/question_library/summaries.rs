@@ -118,7 +118,7 @@ async fn resolved_ple_question(
     let source = ResolvedQuestionSource::resolve(
         objects,
         entry.question_revision.clone(),
-        entry.source_object_reference.clone(),
+        entry.source_object_id.clone(),
         entry.source_object_checksum.clone(),
     )
     .await

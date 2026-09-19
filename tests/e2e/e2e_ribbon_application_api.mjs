@@ -8,8 +8,8 @@ import {
 } from "../support/ribbon_test_support.ts";
 import { createHttpApiClient } from "../../src/api/http_client.ts";
 import {
-  assessmentAttemptRouteReference,
-  courseInstanceRouteReference,
+  assessmentAttemptRouteId,
+  courseInstanceRouteId,
 } from "../../src/navigation/public_route.ts";
 
 // The router's browser entry only needs this history surface while query identities are created.
@@ -57,7 +57,7 @@ const resolvingClient = createHttpApiClient({
     const pathname = typeof input === "string" ? input : new URL(input.url).pathname;
     const responseByPath = {
       "/api/course-instances/CI7K3M2QAZ/summary": {
-        reference: "CI7K3M2QAZ",
+        id: "CI7K3M2QAZ",
         shortName: "BIO 301",
         longName: "Molecular Biology",
         term: { startDate: "2026-01-12", endDate: "2026-05-08" },
@@ -65,7 +65,7 @@ const resolvingClient = createHttpApiClient({
       },
       "/api/course-instances/CI7K3M2QAZ/appearance": { theme: "grass", banner: null },
       "/api/course-instances/CI4W8QF9AD/summary": {
-        reference: "CI4W8QF9AD",
+        id: "CI4W8QF9AD",
         shortName: "BIO 302",
         longName: "Genetics",
         term: { startDate: "2026-08-24", endDate: "2026-12-11" },
@@ -96,10 +96,10 @@ const resolvingClient = createHttpApiClient({
   },
 });
 const resolutionApi = createApplicationApi(resolvingClient);
-const courseOne = courseInstanceRouteReference("CI7K3M2QAZ");
-const courseTwo = courseInstanceRouteReference("CI4W8QF9AD");
-const attemptOne = assessmentAttemptRouteReference("00000000-0000-0000-0000-000000000001");
-const attemptTwo = assessmentAttemptRouteReference("00000000-0000-0000-0000-000000000002");
+const courseOne = courseInstanceRouteId("CI7K3M2QAZ");
+const courseTwo = courseInstanceRouteId("CI4W8QF9AD");
+const attemptOne = assessmentAttemptRouteId("00000000-0000-0000-0000-000000000001");
+const attemptTwo = assessmentAttemptRouteId("00000000-0000-0000-0000-000000000002");
 
 assert.equal(
   resolutionApi.queries.courseScope.keyFor(courseOne),
@@ -129,7 +129,7 @@ assert.match(
 
 assert.deepEqual(await resolutionApi.queries.courseScope(courseOne), {
   summary: {
-    reference: "CI7K3M2QAZ",
+    id: "CI7K3M2QAZ",
     shortName: "BIO 301",
     longName: "Molecular Biology",
     term: { startDate: "2026-01-12", endDate: "2026-05-08" },
@@ -144,7 +144,7 @@ assert.deepEqual(await resolutionApi.queries.resolveAssessmentAttempt(attemptOne
 });
 assert.deepEqual(await resolutionApi.queries.courseScope(courseTwo), {
   summary: {
-    reference: "CI4W8QF9AD",
+    id: "CI4W8QF9AD",
     shortName: "BIO 302",
     longName: "Genetics",
     term: { startDate: "2026-08-24", endDate: "2026-12-11" },
@@ -157,7 +157,7 @@ await assert.rejects(resolutionApi.queries.resolveAssessmentAttempt("R-01"), {
 });
 await assert.rejects(
   resolutionApi.queries.resolveAssessmentAttempt(
-    assessmentAttemptRouteReference("00000000-0000-0000-0000-000000000009"),
+    assessmentAttemptRouteId("00000000-0000-0000-0000-000000000009"),
   ),
   { message: "Assessment Attempt reference resolved to another resource" },
 );

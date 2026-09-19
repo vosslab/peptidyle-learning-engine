@@ -12,14 +12,14 @@ use super::{
 };
 use crate::MAX_ASSESSMENT_ORDERED_ENTRIES;
 
-/// Opaque stable reference for one retained Blueprint Module in a Blueprint Course lineage.
+/// Opaque stable identity for one retained Blueprint Module in a Blueprint Course lineage.
 ///
-/// It is an answer-free edit token, not a route Reference or human-facing label.
+/// It is an answer-free edit token, not a route handle or human-facing label.
 /// The server allocates it when a module first enters a BlueprintCourse and
 /// validates retained ownership when the complete tree is replaced.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct BlueprintModuleReference(Uuid);
+pub struct BlueprintModuleId(Uuid);
 
 /// Opaque stable identity for one retained assessment in a BlueprintCourse lineage.
 ///
@@ -82,16 +82,16 @@ macro_rules! impl_blueprint_child_id {
     };
 }
 
-impl_blueprint_child_id!(BlueprintModuleReference);
+impl_blueprint_child_id!(BlueprintModuleId);
 impl_blueprint_child_id!(BlueprintAssessmentId);
 
-/// A browser-supplied Blueprint child Reference was not a canonical UUID string.
+/// A browser-supplied Blueprint child identity was not a canonical UUID string.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BlueprintChildIdError;
 
 impl std::fmt::Display for BlueprintChildIdError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str("Blueprint child Reference must be a canonical UUID string")
+        formatter.write_str("Blueprint child identity must be a canonical UUID string")
     }
 }
 
@@ -99,7 +99,7 @@ impl std::error::Error for BlueprintChildIdError {}
 
 /// One labelled module in a new BlueprintCourse submitted in authored order.
 ///
-/// Creation deliberately carries no child References. The server allocates them
+/// Creation deliberately carries no child identities. The server allocates them
 /// only after it accepts the complete tree.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
@@ -192,7 +192,7 @@ impl CreateBlueprintCourseInput {
 pub enum BlueprintModuleEditChoice {
     /// Keep this exact module lineage from the expected head revision.
     Retained {
-        blueprint_module_reference: BlueprintModuleReference,
+        blueprint_module_id: BlueprintModuleId,
     },
     /// Add a module and let the server allocate its stable identity.
     New,
@@ -200,11 +200,11 @@ pub enum BlueprintModuleEditChoice {
 
 impl BlueprintModuleEditChoice {
     /// Returns the retained identity, if this edit preserves an existing node.
-    pub fn retained_reference(self) -> Option<BlueprintModuleReference> {
+    pub fn retained_id(self) -> Option<BlueprintModuleId> {
         match self {
             Self::Retained {
-                blueprint_module_reference,
-            } => Some(blueprint_module_reference),
+                blueprint_module_id,
+            } => Some(blueprint_module_id),
             Self::New => None,
         }
     }
@@ -223,8 +223,8 @@ pub enum BlueprintAssessmentEditChoice {
 }
 
 impl BlueprintAssessmentEditChoice {
-    /// Returns the retained Blueprint Assessment Reference, if this edit preserves the lineage.
-    pub fn retained_reference(self) -> Option<BlueprintAssessmentId> {
+    /// Returns the retained Blueprint Assessment ID, if this edit preserves the lineage.
+    pub fn retained_id(self) -> Option<BlueprintAssessmentId> {
         match self {
             Self::Retained {
                 blueprint_assessment_id,
@@ -265,7 +265,7 @@ pub struct ReplaceBlueprintCourseContentInput {
 }
 
 impl ReplaceBlueprintCourseContentInput {
-    /// Validates complete tree meaning and rejects duplicate retained References.
+    /// Validates complete tree meaning and rejects duplicate retained identities.
     pub fn validate(&self) -> Result<(), BlueprintCourseValidationError> {
         if self.modules.is_empty() || self.modules.len() > MAX_ASSESSMENT_ORDERED_ENTRIES {
             return Err(BlueprintCourseValidationError::InvalidModuleCount);
@@ -273,8 +273,8 @@ impl ReplaceBlueprintCourseContentInput {
         let mut retained_modules = BTreeSet::new();
         let mut retained_assessments = BTreeSet::new();
         for module in &self.modules {
-            if let Some(module_reference) = module.choice.retained_reference()
-                && !retained_modules.insert(module_reference)
+            if let Some(module_id) = module.choice.retained_id()
+                && !retained_modules.insert(module_id)
             {
                 return Err(BlueprintCourseValidationError::DuplicateRetainedBlueprintModuleChoice);
             }
@@ -286,8 +286,8 @@ impl ReplaceBlueprintCourseContentInput {
                 return Err(BlueprintCourseValidationError::InvalidModuleAssessmentCount);
             }
             for assessment in &module.assessments {
-                if let Some(assessment_reference) = assessment.choice.retained_reference()
-                    && !retained_assessments.insert(assessment_reference)
+                if let Some(assessment_id) = assessment.choice.retained_id()
+                    && !retained_assessments.insert(assessment_id)
                 {
                     return Err(
                         BlueprintCourseValidationError::DuplicateRetainedBlueprintAssessmentChoice,
@@ -300,11 +300,11 @@ impl ReplaceBlueprintCourseContentInput {
     }
 }
 
-/// One answer-free Blueprint Assessment with its stable Blueprint Assessment Reference.
+/// One answer-free Blueprint Assessment with its stable Blueprint Assessment ID.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct BlueprintCourseAssessmentContentView {
-    /// Stable opaque Blueprint Assessment Reference retained by an edit of this Assessment.
+    /// Stable opaque Blueprint Assessment ID retained by an edit of this Assessment.
     pub blueprint_assessment_id: BlueprintAssessmentId,
     /// Current answer-free assessment meaning.
     pub content: BlueprintAssessmentContentView,
@@ -314,8 +314,8 @@ pub struct BlueprintCourseAssessmentContentView {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct BlueprintModuleView {
-    /// Stable opaque Blueprint Module Reference retained by an edit of this module.
-    pub blueprint_module_reference: BlueprintModuleReference,
+    /// Stable opaque Blueprint Module ID retained by an edit of this module.
+    pub blueprint_module_id: BlueprintModuleId,
     /// Week or module label visible to active Instructor readers.
     pub label: String,
     /// Blueprint Assessments in retained aggregate-owned order.

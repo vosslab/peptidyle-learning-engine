@@ -6,7 +6,7 @@ use axum::{
     response::Response,
 };
 use learning_data_access::{BlueprintForkSource, BlueprintLineageStore};
-use question_model::{BlueprintRevision, BlueprintRevisionReference};
+use question_model::{BlueprintRevision, BlueprintRevisionTuple};
 
 use super::{
     BlueprintCourseRouteState, RouteLoadError, blueprint_response, concealed,
@@ -20,9 +20,9 @@ use super::{
 pub(super) async fn fork_blueprint(
     State(state): State<BlueprintCourseRouteState>,
     headers: HeaderMap,
-    Path((reference, revision)): Path<(String, String)>,
+    Path((blueprint_course_id, revision)): Path<(String, String)>,
 ) -> Response {
-    let reference = match parse_blueprint_course_id(&reference) {
+    let blueprint_course_id = match parse_blueprint_course_id(&blueprint_course_id) {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -33,7 +33,7 @@ pub(super) async fn fork_blueprint(
     let checksum = match request_checksum(
         "fork-blueprint-course",
         &headers,
-        &(reference.clone(), revision),
+        &(blueprint_course_id.clone(), revision),
     ) {
         Ok(value) => value,
         Err(response) => return *response,
@@ -47,8 +47,8 @@ pub(super) async fn fork_blueprint(
         .fork_blueprint_course(
             session,
             BlueprintForkSource {
-                blueprint_revision: BlueprintRevisionReference {
-                    blueprint_course_id: reference,
+                blueprint_revision: BlueprintRevisionTuple {
+                    blueprint_course_id: blueprint_course_id,
                     revision,
                 },
             },

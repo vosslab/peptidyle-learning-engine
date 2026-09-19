@@ -8,10 +8,10 @@ use uuid::Uuid;
 /// It names neither an Account nor an object-storage path.  Authorization and
 /// ownership remain server- and persistence-derived.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct ProfileImageReference(Uuid);
+pub struct ProfileImageId(Uuid);
 
-impl ProfileImageReference {
-    /// Rebuilds a trusted persistence reference.
+impl ProfileImageId {
+    /// Rebuilds a trusted persistence identity.
     #[must_use]
     pub const fn from_uuid(value: Uuid) -> Self {
         Self(value)
@@ -31,7 +31,7 @@ impl ProfileImageReference {
     }
 }
 
-impl std::fmt::Display for ProfileImageReference {
+impl std::fmt::Display for ProfileImageId {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(formatter, "{}", self.0)
     }

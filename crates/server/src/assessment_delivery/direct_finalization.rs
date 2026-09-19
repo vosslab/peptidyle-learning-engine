@@ -15,8 +15,8 @@ use learning_data_access::{
 };
 use objects::s3::S3ObjectStore;
 use question_model::{
-    ObjectId, QuestionReproduction, QuestionRevisionNumber, QuestionRevisionReference,
-    SourceObjectChecksum, SourceObjectReference,
+    ObjectId, QuestionReproduction, QuestionRevisionNumber, QuestionRevisionTuple,
+    SourceObjectChecksum,
 };
 use uuid::Uuid;
 
@@ -47,16 +47,14 @@ async fn evaluate_one(
     webwork: &WebworkAdapter<HttpWebworkRenderer>,
     response: &StudentAssessmentAttemptFinalizationSource,
 ) -> Result<f64, StoreError> {
-    let revision = QuestionRevisionReference {
+    let revision = QuestionRevisionTuple {
         question_id: response.question_id.clone(),
         revision_number: QuestionRevisionNumber::new(response.revision_number)
             .map_err(|_| finalization_unavailable())?,
     };
     let source_object_id =
         Uuid::parse_str(&response.source_object_id).map_err(|_| finalization_unavailable())?;
-    let source = SourceObjectReference {
-        object: ObjectId::from_uuid(source_object_id),
-    };
+    let source = ObjectId::from_uuid(source_object_id);
     let checksum = SourceObjectChecksum::parse(response.source_object_checksum.clone())
         .map_err(|_| finalization_unavailable())?;
     match &response.backend {

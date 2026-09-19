@@ -11,7 +11,7 @@ use crate::{
 };
 use question_model::{
     AssessmentAttemptId, AssessmentId, AssessmentType, CourseInstanceId, CourseTheme,
-    GradingResult, QuestionId, QuestionRevisionNumber, QuestionRevisionReference, StudentFeedback,
+    GradingResult, QuestionId, QuestionRevisionNumber, QuestionRevisionTuple, StudentFeedback,
     StudentFeedbackReleaseRule, Timestamp,
 };
 use serde::Deserialize;
@@ -55,9 +55,8 @@ pub(super) async fn read(
     .await
     .map_err(map_sqlx_error)?
     .ok_or(StoreError::NotFound)?;
-    let assessment_reference_value: String =
-        row.try_get("assessment_id").map_err(map_sqlx_error)?;
-    let assessment = AssessmentId::new(assessment_reference_value)
+    let assessment_id_value: String = row.try_get("assessment_id").map_err(map_sqlx_error)?;
+    let assessment = AssessmentId::new(assessment_id_value)
         .map_err(|_| StoreError::InvalidRecord("Assessment reference is invalid".to_string()))?;
     let attempt_number = u32::try_from(
         row.try_get::<i32, _>("assessment_attempt_number")
@@ -91,7 +90,7 @@ pub(super) async fn read(
         assessment_attempt,
         attempt_number,
         course: StudentAssessmentAttemptHistoryCourse {
-            id: course_reference(row.try_get("course_instance_id").map_err(map_sqlx_error)?)?,
+            id: course_instance_id(row.try_get("course_instance_id").map_err(map_sqlx_error)?)?,
             short_name: name(
                 row.try_get("course_short_name").map_err(map_sqlx_error)?,
                 "Course short name",
@@ -138,7 +137,7 @@ pub(super) async fn read(
     Ok(result)
 }
 
-fn course_reference(value: String) -> Result<CourseInstanceId, StoreError> {
+fn course_instance_id(value: String) -> Result<CourseInstanceId, StoreError> {
     CourseInstanceId::new(value)
         .map_err(|_| StoreError::InvalidRecord("Course reference is invalid".to_string()))
 }
@@ -180,7 +179,7 @@ fn decode_question(
     let position = public_issued_position(question.position)?;
     Ok(StudentAssessmentAttemptHistoryQuestion {
         position,
-        question_revision: QuestionRevisionReference {
+        question_revision: QuestionRevisionTuple {
             question_id,
             revision_number,
         },

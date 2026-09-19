@@ -1,10 +1,9 @@
 use super::*;
 use question_model::generation::QuestionSeed;
 use question_model::{
-    AccountId, AssessmentId, CourseInstanceId, ImathasDeploymentReference, ImathasItemReference,
+    AccountId, AssessmentId, CourseInstanceId, ImathasDeploymentId, ImathasItemId,
     ImathasProfile, ImathasQuestionBackendBinding, ObjectId, QuestionAttemptId, QuestionId,
-    QuestionRevisionNumber, QuestionRevisionReference, SourceObjectChecksum, SourceObjectReference,
-    Timestamp,
+    QuestionRevisionNumber, QuestionRevisionTuple, SourceObjectChecksum, Timestamp,
 };
 use uuid::Uuid;
 fn facts(
@@ -16,18 +15,16 @@ fn facts(
     let course = CourseInstanceId::from_debug_serial(2);
     let assessment = AssessmentId::from_debug_serial(3);
     let attempt = QuestionAttemptId::from_uuid(Uuid::from_u128(4));
-    let revision = QuestionRevisionReference {
+    let revision = QuestionRevisionTuple {
         question_id: "1234-H567".parse::<QuestionId>().expect("question ID"),
         revision_number: QuestionRevisionNumber::new(1).expect("revision"),
     };
     let imathas_question_backend_binding = ImathasQuestionBackendBinding::new(
-        ImathasDeploymentReference::new("imathas").expect("deployment"),
-        ImathasItemReference::new("item-1").expect("item"),
+        ImathasDeploymentId::new("imathas").expect("deployment"),
+        ImathasItemId::new("item-1").expect("item"),
         ImathasProfile::new("imathas_remote_grading_v1").expect("profile"),
     );
-    let source = SourceObjectReference {
-        object: ObjectId::from_uuid(Uuid::from_u128(5)),
-    };
+    let source = ObjectId::from_uuid(Uuid::from_u128(5));
     let checksum = SourceObjectChecksum::parse("a".repeat(64)).expect("checksum");
     let seed = QuestionSeed::new(7);
     let grading_context = ImathasGradingContext::new(attempt, revision.clone(), seed);
@@ -94,7 +91,7 @@ fn ring() -> ImathasQuestionBackendStateKeyRing {
 fn grading_context_authentication_payload_v1_has_the_locked_row_530_bytes() {
     let context = ImathasGradingContext::new(
         QuestionAttemptId::from_uuid(Uuid::from_u128(4)),
-        QuestionRevisionReference {
+        QuestionRevisionTuple {
             question_id: "1234-H567".parse::<QuestionId>().expect("question ID"),
             revision_number: QuestionRevisionNumber::new(1).expect("revision"),
         },
@@ -235,7 +232,7 @@ async fn memory_oracle_refuses_every_changed_imathas_question_backend_grading_co
         .await
         .expect("create");
 
-    let replacement_revision = QuestionRevisionReference {
+    let replacement_revision = QuestionRevisionTuple {
         question_id: "1234-0568".parse::<QuestionId>().expect("question ID"),
         revision_number: QuestionRevisionNumber::new(2).expect("revision"),
     };
@@ -273,7 +270,7 @@ async fn memory_oracle_refuses_every_changed_imathas_question_backend_grading_co
 fn session_validity_interval_starts_at_issue_time() {
     let account = AccountId::from_debug_serial(1);
     let (create, _) = facts(account);
-    let (session, _) = create.into_session(ImathasQuestionBackendSessionReference::from_uuid(
+    let (session, _) = create.into_session(ImathasQuestionBackendSessionId::from_uuid(
         Uuid::from_u128(99),
     ));
 
@@ -290,11 +287,11 @@ fn session_validity_interval_starts_at_issue_time() {
 
 #[test]
 fn imathas_item_reference_uses_the_question_model_contract() {
-    assert!(ImathasItemReference::new("a".repeat(128)).is_ok());
-    assert!(ImathasItemReference::new("a".repeat(129)).is_err());
-    assert!(ImathasItemReference::new("item-1").is_ok());
-    assert!(ImathasItemReference::new("item:1").is_err());
-    assert!(ImathasItemReference::new("item..1").is_err());
+    assert!(ImathasItemId::new("a".repeat(128)).is_ok());
+    assert!(ImathasItemId::new("a".repeat(129)).is_err());
+    assert!(ImathasItemId::new("item-1").is_ok());
+    assert!(ImathasItemId::new("item:1").is_err());
+    assert!(ImathasItemId::new("item..1").is_err());
 }
 
 struct FixedNonce([u8; IMATHAS_QUESTION_BACKEND_STATE_NONCE_BYTES]);
@@ -312,9 +309,9 @@ impl ImathasQuestionBackendStateNonceSource for FixedNonce {
 fn cipher_binds_every_immutable_fact_with_deterministic_nonces_and_redaction() {
     let account = AccountId::from_debug_serial(1);
     let (create, _) = facts(account);
-    let (session, plaintext) = create.into_session(
-        ImathasQuestionBackendSessionReference::from_uuid(Uuid::from_u128(7)),
-    );
+    let (session, plaintext) = create.into_session(ImathasQuestionBackendSessionId::from_uuid(
+        Uuid::from_u128(7),
+    ));
     let key_ring = ring();
     let source = FixedNonce([9; IMATHAS_QUESTION_BACKEND_STATE_NONCE_BYTES]);
     let cipher = ImathasQuestionBackendStateCipher::seal_with_nonce_source(
@@ -348,7 +345,7 @@ fn cipher_binds_every_immutable_fact_with_deterministic_nonces_and_redaction() {
 fn encrypted_state_aad_uses_the_canonical_question_id() {
     let account = AccountId::from_debug_serial(1);
     let (create, _) = facts(account);
-    let (session, _) = create.into_session(ImathasQuestionBackendSessionReference::from_uuid(
+    let (session, _) = create.into_session(ImathasQuestionBackendSessionId::from_uuid(
         Uuid::from_u128(7),
     ));
 

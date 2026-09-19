@@ -11,8 +11,8 @@ use question_model::{
     AccountTimeZone, AssessmentEditNumber, AssessmentEntryAvailability, AssessmentId,
     AssessmentInstructions, AssessmentQuestionOrderRule, AssessmentStatus, AssessmentTitle,
     CourseInstanceId, DraftImathasQuestionBackendBinding, InstructorStudentViewDelivery,
-    QuestionPoolAssessmentEntry, QuestionPoolSelectedItem, QuestionRevisionReference,
-    SourceObjectChecksum, SourceObjectReference,
+    QuestionPoolAssessmentEntry, QuestionPoolSelectedItem, QuestionRevisionTuple,
+    SourceObjectChecksum, ObjectId,
 };
 
 use crate::{ReadyQuestionAssetRendition, SessionTokenHash, StoreError};
@@ -42,7 +42,7 @@ pub enum InstructorStudentViewSnapshotEntry {
         /// Zero-based position in the current authored Assessment Entry order.
         authored_position: u32,
         availability: AssessmentEntryAvailability,
-        question_revision: QuestionRevisionReference,
+        question_revision: QuestionRevisionTuple,
     },
     /// One Assessment-owned Pool with members in current Pool order.
     Pool {
@@ -63,16 +63,16 @@ pub enum InstructorStudentViewSnapshotEntry {
 pub enum InstructorStudentViewSource {
     /// Native PLE Question JSON source and ready public asset renditions.
     Ple {
-        question_revision: QuestionRevisionReference,
-        source_object_reference: SourceObjectReference,
+        question_revision: QuestionRevisionTuple,
+        source_object_id: ObjectId,
         source_object_checksum: SourceObjectChecksum,
         source_media_type: String,
         question_asset_renditions: Vec<ReadyQuestionAssetRendition>,
     },
     /// WeBWorK PG/PGML source and its canonical registered path.
     Webwork {
-        question_revision: QuestionRevisionReference,
-        source_object_reference: SourceObjectReference,
+        question_revision: QuestionRevisionTuple,
+        source_object_id: ObjectId,
         source_object_checksum: SourceObjectChecksum,
         source_media_type: String,
         webwork_pg_path: String,
@@ -80,8 +80,8 @@ pub enum InstructorStudentViewSource {
     },
     /// iMathAS immutable launch binding; no backend source bytes cross this seam.
     Imathas {
-        question_revision: QuestionRevisionReference,
-        source_object_reference: SourceObjectReference,
+        question_revision: QuestionRevisionTuple,
+        source_object_id: ObjectId,
         source_object_checksum: SourceObjectChecksum,
         source_media_type: String,
         /// Immutable source-bound deployment and item. The adapter resolves
@@ -118,6 +118,6 @@ pub trait InstructorStudentViewStore: Send + Sync {
         assessment: AssessmentId,
         expected_edit_number: AssessmentEditNumber,
         authored_position: u32,
-        question_revision: QuestionRevisionReference,
+        question_revision: QuestionRevisionTuple,
     ) -> Result<InstructorStudentViewSource, StoreError>;
 }

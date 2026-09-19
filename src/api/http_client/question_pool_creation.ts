@@ -1,12 +1,12 @@
 // Strict same-origin transport for one server-issued Published Question Pool.
 
 import { MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY } from "../../../generated/api/MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY";
-import type { QuestionRevisionReference } from "../../../generated/api/QuestionRevisionReference";
+import type { QuestionRevisionTuple } from "../../../generated/api/QuestionRevisionTuple";
 import type { ApiClient } from "../client";
 import { DecodeError, decodePositiveInteger, decodeRecord } from "../decoder";
 import {
   decodeQuestionId,
-  decodeQuestionRevisionReference,
+  decodeQuestionRevisionTuple,
   field,
   requireOnlyFields,
 } from "../decoders/shared";
@@ -22,7 +22,7 @@ import { decodeQuestionPoolText } from "../decoders/question_pool_library";
 
 const CREATE_QUESTION_POOL_PATH = "/api/question-pools";
 
-function requestMembers(input: CreateQuestionPoolInput): ReadonlyArray<QuestionRevisionReference> {
+function requestMembers(input: CreateQuestionPoolInput): ReadonlyArray<QuestionRevisionTuple> {
   if (input.interchangeabilityAttested !== true) {
     throw new ApiProtocolError("Question Pool creation requires interchangeability attestation");
   }
@@ -36,7 +36,7 @@ function requestMembers(input: CreateQuestionPoolInput): ReadonlyArray<QuestionR
   }
   const references = new Set<string>();
   return input.members.map((member, index) => {
-    const reference = decodeQuestionRevisionReference(member, `request.members[${index}]`, true);
+    const reference = decodeQuestionRevisionTuple(member, `request.members[${index}]`, true);
     const key = `${reference.questionId}:${reference.revisionNumber}`;
     if (references.has(key)) {
       throw new ApiProtocolError(

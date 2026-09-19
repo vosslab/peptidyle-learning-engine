@@ -1,14 +1,14 @@
 use objects::Sha256Checksum;
 use question_model::generation::QuestionSeed;
-use question_model::{QuestionAttemptId, QuestionEvaluation, QuestionRevisionReference};
+use question_model::{QuestionAttemptId, QuestionEvaluation, QuestionRevisionTuple};
 use uuid::Uuid;
 
 use crate::StoreError;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ImathasQuestionBackendSessionReference(Uuid);
+pub struct ImathasQuestionBackendSessionId(Uuid);
 
-impl ImathasQuestionBackendSessionReference {
+impl ImathasQuestionBackendSessionId {
     pub fn generate() -> Result<Self, StoreError> {
         crate::random_uuid::random_uuid_v4(|_| {
             StoreError::Unavailable(
@@ -285,14 +285,14 @@ impl std::fmt::Debug for ImathasQuestionBackendSessionAuthentication {
 #[derive(Clone, PartialEq, Eq)]
 pub struct ImathasGradingContext {
     question_attempt: QuestionAttemptId,
-    question_revision: QuestionRevisionReference,
+    question_revision: QuestionRevisionTuple,
     pub(crate) question_seed: QuestionSeed,
 }
 
 impl ImathasGradingContext {
     pub fn new(
         question_attempt: QuestionAttemptId,
-        question_revision: QuestionRevisionReference,
+        question_revision: QuestionRevisionTuple,
         question_seed: QuestionSeed,
     ) -> Self {
         Self {
@@ -306,7 +306,7 @@ impl ImathasGradingContext {
         self.question_attempt
     }
 
-    pub fn question_revision(&self) -> &QuestionRevisionReference {
+    pub fn question_revision(&self) -> &QuestionRevisionTuple {
         &self.question_revision
     }
 

@@ -29,9 +29,7 @@ use learning_data_access::{
     },
 };
 use objects::s3::S3ObjectStore;
-use question_model::{
-    QuestionFormat, QuestionRevisionReason, QuestionRevisionReference, Timestamp,
-};
+use question_model::{QuestionFormat, QuestionRevisionReason, QuestionRevisionTuple, Timestamp};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -176,7 +174,7 @@ struct PublishRevisionDraftRequest {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct PublishedRevisionDraftResponse {
-    question_revision: QuestionRevisionReference,
+    question_revision: QuestionRevisionTuple,
 }
 
 async fn list_drafts(State(state): State<AuthoringRouteState>, headers: HeaderMap) -> Response {
@@ -784,7 +782,7 @@ mod tests {
 
         assert_eq!(
             existing_parent_question_revision(question_id.to_string(), 1),
-            Ok(QuestionRevisionReference {
+            Ok(QuestionRevisionTuple {
                 question_id: question_id.clone(),
                 revision_number: QuestionRevisionNumber::new(1)
                     .expect("positive Question Revision Number"),

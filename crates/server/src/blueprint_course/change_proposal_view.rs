@@ -118,7 +118,7 @@ pub(super) fn detail(
 
 fn side(
     inventory: BlueprintComparisonInventory,
-    revision: question_model::BlueprintRevisionReference,
+    revision: question_model::BlueprintRevisionTuple,
     blueprint_edit_number: question_model::BlueprintEditNumber,
     names: BlueprintComparisonNames,
     classification: question_model::CourseClassification,

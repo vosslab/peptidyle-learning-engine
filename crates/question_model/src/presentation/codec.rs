@@ -1,15 +1,15 @@
-//! Normative binary descriptor and Presentation Response Item Reference codecs.
+//! Normative binary descriptor and Presentation Response Item ID codecs.
 
 use sha2::{Digest, Sha256};
 
 use crate::QuestionReproduction;
-use crate::question_content::{QuestionAssetReference, QuestionContentBlock};
+use crate::question_content::{QuestionAssetTuple, QuestionContentBlock};
 
 use super::builder::{
     IssuedQuestionPresentation, PresentationBuildError, ResponseItemBasis, ResponseItemRole,
 };
 use super::model::{
-    PresentationResponseItemReference, PresentedResponseItemContent, QuestionAssetRendition,
+    PresentationResponseItemId, PresentedResponseItemContent, QuestionAssetRendition,
     QuestionPresentationResponseFormat, QuestionPresentationToken,
 };
 
@@ -303,7 +303,7 @@ impl Encoder {
 
     fn asset_ref(
         &mut self,
-        question_asset: &QuestionAssetReference,
+        question_asset: &QuestionAssetTuple,
     ) -> Result<(), PresentationBuildError> {
         self.raw(question_asset.question_asset.as_uuid().as_bytes());
         self.checksum(&question_asset.checksum)
@@ -492,7 +492,7 @@ impl Encoder {
 }
 
 fn ordinal_for(
-    id: &PresentationResponseItemReference,
+    id: &PresentationResponseItemId,
     presentation: &IssuedQuestionPresentation,
     role: ResponseItemRole,
 ) -> Result<u32, PresentationBuildError> {
@@ -502,6 +502,6 @@ fn ordinal_for(
         .find(|item| item.presentation_response_item_reference == *id && item.role == role)
         .map(|item| item.ordinal)
         .ok_or(PresentationBuildError::DescriptorEncoding(
-            "Question Response Format refers to an unknown Presentation Response Item Reference",
+            "Question Response Format refers to an unknown Presentation Response Item ID",
         ))
 }

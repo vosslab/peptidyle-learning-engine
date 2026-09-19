@@ -4,7 +4,7 @@ use crate::blueprint_course::{
     BlueprintComparisonAssessment, BlueprintComparisonAssessmentRelationship,
     BlueprintComparisonModule, BlueprintComparisonNames,
 };
-use question_model::{BlueprintEditNumber, BlueprintRevisionReference, Timestamp};
+use question_model::{BlueprintEditNumber, BlueprintRevisionTuple, Timestamp};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -12,9 +12,9 @@ use std::collections::BTreeMap;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BlueprintChangeProposalCreateRequest {
-    pub source: BlueprintRevisionReference,
+    pub source: BlueprintRevisionTuple,
     pub source_blueprint_edit_number: BlueprintEditNumber,
-    pub target: BlueprintRevisionReference,
+    pub target: BlueprintRevisionTuple,
     pub target_blueprint_edit_number: BlueprintEditNumber,
 }
 
@@ -39,7 +39,7 @@ pub enum BlueprintChangeProposalDecisionView {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BlueprintChangeProposalAcceptanceRequest {
-    pub expected_target: BlueprintRevisionReference,
+    pub expected_target: BlueprintRevisionTuple,
     pub expected_target_blueprint_edit_number: BlueprintEditNumber,
     pub decision: BlueprintChangeProposalDecisionView,
 }
@@ -48,7 +48,7 @@ pub struct BlueprintChangeProposalAcceptanceRequest {
 #[serde(rename_all = "camelCase")]
 pub struct BlueprintChangeProposalAcceptedSummaryView {
     pub accepted_at: Timestamp,
-    pub target: BlueprintRevisionReference,
+    pub target: BlueprintRevisionTuple,
     pub target_blueprint_edit_number: BlueprintEditNumber,
 }
 
@@ -58,10 +58,10 @@ pub struct BlueprintChangeProposalAcceptedSummaryView {
 pub struct BlueprintChangeProposalSummaryView {
     pub proposal_id: String,
     pub created_at: Timestamp,
-    pub source: BlueprintRevisionReference,
+    pub source: BlueprintRevisionTuple,
     pub source_blueprint_edit_number: BlueprintEditNumber,
     pub source_names: BlueprintComparisonNames,
-    pub target: BlueprintRevisionReference,
+    pub target: BlueprintRevisionTuple,
     pub target_blueprint_edit_number: BlueprintEditNumber,
     pub target_names: BlueprintComparisonNames,
     pub target_is_stale: bool,
@@ -79,7 +79,7 @@ pub struct BlueprintChangeProposalPageView {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BlueprintChangeProposalSideView {
-    pub revision: BlueprintRevisionReference,
+    pub revision: BlueprintRevisionTuple,
     pub blueprint_edit_number: BlueprintEditNumber,
     pub names: BlueprintComparisonNames,
     pub classification: question_model::CourseClassification,
@@ -104,14 +104,11 @@ pub struct BlueprintChangeProposalComparisonView {
 #[serde(rename_all = "camelCase")]
 pub struct BlueprintChangeProposalAcceptedView {
     pub accepted_at: Timestamp,
-    pub target: BlueprintRevisionReference,
+    pub target: BlueprintRevisionTuple,
     pub target_blueprint_edit_number: BlueprintEditNumber,
     pub decision: BlueprintChangeProposalDecisionView,
     pub applied_selection: question_model::blueprint_course::BlueprintForkApplySelection,
-    pub new_modules: BTreeMap<
-        question_model::BlueprintModuleReference,
-        question_model::BlueprintModuleReference,
-    >,
+    pub new_modules: BTreeMap<question_model::BlueprintModuleId, question_model::BlueprintModuleId>,
     pub new_assessments:
         BTreeMap<question_model::BlueprintAssessmentId, question_model::BlueprintAssessmentId>,
     pub resulting_json: question_model::CanonicalBlueprintCourse,

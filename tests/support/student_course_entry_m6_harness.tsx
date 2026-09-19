@@ -21,8 +21,8 @@ import type { CourseClassification } from "../../generated/api/CourseClassificat
 import type { StudentAssessmentAttemptContext } from "../../src/api/assessment_attempt_navigation";
 import type { StudentAssessmentAttemptHistory } from "../../src/api/assessment_attempt_history";
 import type {
-  CourseInstanceRouteReference,
-  AssessmentAttemptRouteReference,
+  CourseInstanceRouteId,
+  AssessmentAttemptRouteId,
 } from "../../src/navigation/public_route";
 
 type StudentCourseEntryCase = "zero" | "one" | "choose" | "many" | "landing";
@@ -215,7 +215,7 @@ export function mountStudentCourseEntryM6Harness(
     },
     queries: {
       courseScope: query(
-        (_reference: CourseInstanceRouteReference): Promise<CourseRouteView> =>
+        (_reference: CourseInstanceRouteId): Promise<CourseRouteView> =>
           Promise.resolve({
             summary: {
               id: COURSE_ONE.id,
@@ -230,7 +230,7 @@ export function mountStudentCourseEntryM6Harness(
         "m6-course-scope",
       ),
       assessmentAttemptScope: query(
-        (_reference: AssessmentAttemptRouteReference): Promise<StudentAssessmentAttemptContext> =>
+        (_reference: AssessmentAttemptRouteId): Promise<StudentAssessmentAttemptContext> =>
           Promise.resolve({
             assessmentAttempt: "00000000-0000-0000-0000-000000000006",
             attemptNumber: ASSESSMENT.assessmentAttemptNumber ?? 1,
@@ -243,7 +243,7 @@ export function mountStudentCourseEntryM6Harness(
         "m6-attempt-scope",
       ),
       assessmentAttemptHistory: query(
-        (_reference: AssessmentAttemptRouteReference): Promise<StudentAssessmentAttemptHistory> =>
+        (_reference: AssessmentAttemptRouteId): Promise<StudentAssessmentAttemptHistory> =>
           Promise.resolve({
             assessmentAttempt: "00000000-0000-0000-0000-000000000005",
             attemptNumber: 1,

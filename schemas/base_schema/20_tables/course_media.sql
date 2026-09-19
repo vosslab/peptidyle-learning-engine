@@ -60,7 +60,7 @@ CREATE TABLE ple_data.course_banner_delivery (
 SET LOCAL ROLE ple_private_owner;
 
 CREATE TABLE ple_private.course_banner_upload (
-    course_banner_upload_id uuid PRIMARY KEY,
+    course_banner_upload_reference uuid PRIMARY KEY,
     course_instance_id ple_data.course_instance_id NOT NULL REFERENCES ple_data.course_instance,
     account_id ple_data.account_id NOT NULL REFERENCES ple_private.account,
     object_record_id uuid NOT NULL UNIQUE REFERENCES ple_private.object_record,
@@ -81,7 +81,7 @@ CREATE TABLE ple_private.course_banner_storage_subject (
     course_banner_storage_subject_id uuid PRIMARY KEY,
     subject_kind ple_data.banner_subject_kind NOT NULL,
     course_instance_id ple_data.course_instance_id NOT NULL REFERENCES ple_data.course_instance,
-    course_banner_upload_id uuid REFERENCES ple_private.course_banner_upload,
+    course_banner_upload_reference uuid REFERENCES ple_private.course_banner_upload,
     course_banner_id uuid,
     object_record_id uuid NOT NULL UNIQUE REFERENCES ple_private.object_record,
     expected_sha256 bytea NOT NULL CHECK (octet_length(expected_sha256) = 32),
@@ -89,9 +89,9 @@ CREATE TABLE ple_private.course_banner_storage_subject (
     expected_media_type ple_data.media_type NOT NULL,
     storage_area ple_data.object_storage_area NOT NULL,
     UNIQUE (course_banner_storage_subject_id, object_record_id),
-    CHECK ((subject_kind = 'upload' AND course_banner_upload_id IS NOT NULL
+    CHECK ((subject_kind = 'upload' AND course_banner_upload_reference IS NOT NULL
             AND course_banner_id IS NULL AND storage_area = 'temp-processing')
-        OR (subject_kind = 'source' AND course_banner_upload_id IS NULL
+        OR (subject_kind = 'source' AND course_banner_upload_reference IS NULL
             AND course_banner_id IS NOT NULL AND storage_area = 'private-content')),
     FOREIGN KEY (course_instance_id, course_banner_id) REFERENCES ple_data.course_banner,
     created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp(),
@@ -238,7 +238,7 @@ COMMENT ON TABLE ple_private.course_banner_prepared_presentation IS 'role: event
 
 SET LOCAL ROLE ple_private_owner;
 COMMENT ON COLUMN ple_private.course_banner_upload.promoted_at IS 'NULL means this optional fact is absent.';
-COMMENT ON COLUMN ple_private.course_banner_storage_subject.course_banner_upload_id IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_private.course_banner_storage_subject.course_banner_upload_reference IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_private.course_banner_storage_subject.course_banner_id IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_private.course_banner_work.course_banner_id IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_private.course_banner_work.course_banner_storage_subject_id IS 'NULL means this optional fact is absent.';

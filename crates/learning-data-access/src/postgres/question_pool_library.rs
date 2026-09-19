@@ -7,7 +7,7 @@ use question_model::{
     AssessmentEntryId, AssessmentId, BloomClassificationEditNumber, BloomClassificationView,
     BloomCognitiveProcess, BloomKnowledgeDimension, CourseInstanceId, QuestionId,
     QuestionPoolEditNumber, QuestionPoolLibrarySummary, QuestionPoolMetadata,
-    QuestionRevisionNumber, QuestionRevisionReference, QuestionSearchBloomCognitiveProcessFacet,
+    QuestionRevisionNumber, QuestionRevisionTuple, QuestionSearchBloomCognitiveProcessFacet,
     QuestionSearchBloomKnowledgeDimensionFacet, QuestionUsageTotals,
 };
 use sqlx::{Postgres, Row, Transaction};
@@ -341,7 +341,7 @@ fn decode_member_rows(
     rows: &[sqlx::postgres::PgRow],
     pool_id: &QuestionId,
     edit_number: QuestionPoolEditNumber,
-) -> Result<Vec<QuestionRevisionReference>, StoreError> {
+) -> Result<Vec<QuestionRevisionTuple>, StoreError> {
     let metadata = rows.first().map(decode_metadata).transpose()?;
     let bloom = rows.first().map(decode_bloom).transpose()?.flatten();
     rows.iter()
@@ -367,7 +367,7 @@ fn decode_member_rows(
             .ok()
             .and_then(|value| QuestionRevisionNumber::new(value).ok())
             .ok_or_else(|| invalid("Question Revision"))?;
-            Ok(QuestionRevisionReference {
+            Ok(QuestionRevisionTuple {
                 question_id,
                 revision_number: question_revision,
             })

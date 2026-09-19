@@ -5,7 +5,7 @@ import { createResource, For, Show, type JSX } from "solid-js";
 
 import type { DueSoonAssessmentSummary, LiveAssessmentStatus } from "../api/assessment_release";
 import { useApplicationApi } from "../api/application_api";
-import { assessmentRouteReference, courseInstanceRouteReference } from "../navigation/public_route";
+import { assessmentRouteId, courseInstanceRouteId } from "../navigation/public_route";
 
 import "./assessments_due_soon_page.css";
 
@@ -34,8 +34,8 @@ function DueSoonAssessmentRow(props: {
   readonly assessment: DueSoonAssessmentSummary;
   readonly displayTimeZone: string;
 }): JSX.Element {
-  const courseInstanceId = courseInstanceRouteReference(props.assessment.courseId);
-  const assessmentId = assessmentRouteReference(props.assessment.assessmentId);
+  const courseInstanceId = courseInstanceRouteId(props.assessment.courseId);
+  const assessmentId = assessmentRouteId(props.assessment.assessmentId);
   const assessmentPath = `/instructor/courses/${courseInstanceId}/assessments/${assessmentId}`;
 
   return (

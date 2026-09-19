@@ -145,7 +145,7 @@ print(value)
 ' "$(response_body "$response")" "$key" "$name"
 }
 
-draft_reference=""
+draft_question_id=""
 draft_edit=""
 instructor_cookie=""
 published_question_id=""
@@ -168,38 +168,38 @@ prove_draft() {
 		exit 1
 	fi
 	body="$(response_body "$created")"
-	read -r draft_reference draft_edit < <(python3 -c '
+	read -r draft_question_id draft_edit < <(python3 -c '
 import json, re, sys
 value = json.loads(sys.argv[1])
-reference = value.get("draftQuestion")
+draft_question_id = value.get("draftQuestion")
 edit = value.get("editNumber")
-if not isinstance(reference, str) or not re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", reference):
+if not isinstance(draft_question_id, str) or not re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", draft_question_id):
     raise SystemExit("Draft Question creation did not return a canonical private Draft UUID")
 if not isinstance(edit, int) or edit <= 0:
     raise SystemExit("Draft Question creation did not return a positive Edit Number")
 if any(key in value for key in ("workspaceId", "objectAddress", "sourceObject")):
     raise SystemExit("Draft Question creation exposed a server-only source fact")
-print(reference, edit)
+print(draft_question_id, edit)
 ' "$body")
-	source="$(request "/api/authoring/drafts/$draft_reference/source" "$instructor_cookie")"
+	source="$(request "/api/authoring/drafts/$draft_question_id/source" "$instructor_cookie")"
 	if [ "$(response_status "$source")" != "200" ]; then
 		echo "Instructor could not load the private Draft Question source" >&2
 		exit 1
 	fi
-	anonymous_source="$(request "/api/authoring/drafts/$draft_reference/source")"
-	student_source="$(request "/api/authoring/drafts/$draft_reference/source" "$student_cookie")"
+	anonymous_source="$(request "/api/authoring/drafts/$draft_question_id/source")"
+	student_source="$(request "/api/authoring/drafts/$draft_question_id/source" "$student_cookie")"
 	assert_concealed "$anonymous_source"
 	assert_concealed "$student_source"
 	if [ "$(response_body "$anonymous_source")" != "$(response_body "$student_source")" ]; then
 		echo "private Draft Question source concealment differs" >&2
 		exit 1
 	fi
-	saved="$(request "/api/authoring/drafts/$draft_reference/source" "$instructor_cookie" PUT "$(source_payload)" 'application/vnd.peptidyle.question+json' "\"$draft_edit\"")"
+	saved="$(request "/api/authoring/drafts/$draft_question_id/source" "$instructor_cookie" PUT "$(source_payload)" 'application/vnd.peptidyle.question+json' "\"$draft_edit\"")"
 	if [ "$(response_status "$saved")" != "204" ]; then
 		echo "Instructor could not save the private Draft Question" >&2
 		exit 1
 	fi
-	stale="$(request "/api/authoring/drafts/$draft_reference/source" "$instructor_cookie" PUT "$(source_payload)" 'application/vnd.peptidyle.question+json' "\"$draft_edit\"")"
+	stale="$(request "/api/authoring/drafts/$draft_question_id/source" "$instructor_cookie" PUT "$(source_payload)" 'application/vnd.peptidyle.question+json' "\"$draft_edit\"")"
 	if [ "$(response_status "$stale")" != "412" ]; then
 		echo "stale Draft Question Edit Number did not return Precondition Failed" >&2
 		exit 1
@@ -225,7 +225,7 @@ for forbidden in ("workspaceId", "objectAddress", "sourceObject", "sourceChecksu
 
 prove_publish() {
 	local published library discipline_uuid subject_uuid request_body
-	if [ -z "$draft_reference" ]; then prove_draft; fi
+	if [ -z "$draft_question_id" ]; then prove_draft; fi
 	discipline_uuid="$(classification_uuid '/api/content-classification/disciplines' disciplines Biology)"
 	subject_uuid="$(classification_uuid "/api/content-classification/subjects?disciplineUuid=$discipline_uuid" subjects Genetics)"
 	# ASVS 1.2.3: serialize selected identities as JSON data rather than shell interpolation.
@@ -236,7 +236,7 @@ print(json.dumps({
     "disciplineUuid": sys.argv[1], "subjectUuid": sys.argv[2],
 }, separators=(",", ":")))
 ' "$discipline_uuid" "$subject_uuid")"
-	published="$(request "/api/authoring/drafts/$draft_reference/publish" "$instructor_cookie" POST "$request_body" 'application/json' "\"$draft_edit\"")"
+	published="$(request "/api/authoring/drafts/$draft_question_id/publish" "$instructor_cookie" POST "$request_body" 'application/json' "\"$draft_edit\"")"
 	if [ "$(response_status "$published")" != "200" ]; then
 		echo "Instructor could not publish the saved Draft Question" >&2
 		exit 1
@@ -273,7 +273,7 @@ for forbidden in ("draftQuestion", "draftQuestionUuid", "workspaceId", "objectAd
 }
 
 prove_successor_revision() {
-	local created body successor_reference successor_edit published request_body
+	local created body successor_draft_question_id successor_edit published request_body
 	if [ -z "$published_question_id" ]; then prove_publish; fi
 	created="$(request '/api/authoring/drafts' "$instructor_cookie" POST "$(source_payload)" 'application/vnd.peptidyle.question+json')"
 	if [ "$(response_status "$created")" != "201" ]; then
@@ -281,18 +281,18 @@ prove_successor_revision() {
 		exit 1
 	fi
 	body="$(response_body "$created")"
-	read -r successor_reference successor_edit < <(python3 -c '
+	read -r successor_draft_question_id successor_edit < <(python3 -c '
 import json, re, sys
 value = json.loads(sys.argv[1])
-reference = value.get("draftQuestion")
+successor_draft_question_id = value.get("draftQuestion")
 edit = value.get("editNumber")
-if not isinstance(reference, str) or not re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", reference):
+if not isinstance(successor_draft_question_id, str) or not re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", successor_draft_question_id):
     raise SystemExit("Successor Draft Question creation did not return its private UUID")
 if not isinstance(edit, int) or edit <= 0:
     raise SystemExit("Successor Draft Question creation did not return a positive Edit Number")
-print(reference, edit)
+print(successor_draft_question_id, edit)
 ' "$body")
-	if [ "$successor_reference" = "$draft_reference" ]; then
+	if [ "$successor_draft_question_id" = "$draft_question_id" ]; then
 		echo "Successor Draft Question creation reused the original private Draft UUID" >&2
 		exit 1
 	fi
@@ -304,7 +304,7 @@ print(json.dumps({
     "reasonForEdit": "Live Demo successor publication",
 }, separators=(",", ":")))
 ' "$published_question_id")"
-	published="$(request "/api/authoring/drafts/$successor_reference/publish-revision" "$instructor_cookie" POST "$request_body" 'application/json' "\"$successor_edit\"")"
+	published="$(request "/api/authoring/drafts/$successor_draft_question_id/publish-revision" "$instructor_cookie" POST "$request_body" 'application/json' "\"$successor_edit\"")"
 	if [ "$(response_status "$published")" != "200" ]; then
 		echo "Instructor could not publish the successor Question Revision (HTTP $(response_status "$published"))" >&2
 		exit 1

@@ -26,10 +26,10 @@ request() { local gateway port; gateway="$(service_id gateway)"; port="$(gateway
 persona_cookie() { local gateway port headers cookie; gateway="$(service_id gateway)"; port="$(gateway_port)"; headers="$(podman exec "$gateway" curl --silent --show-error --insecure --max-time 12 --dump-header - --output /dev/null --header "Host: localhost:$port" --header "Origin: https://localhost:$port" --header 'Content-Type: application/json' --request POST --data "{\"persona\":\"$1\"}" 'https://localhost:8080/api/auth/live-demo/accounts')"; cookie="$(printf '%s\n' "$headers" | sed -n 's/^set-cookie: \([^;]*\).*/\1/Ip' | head -n 1)"; [ -n "$cookie" ] || { echo "seeded demo did not issue an Authenticated Session" >&2; exit 1; }; printf '%s\n' "$cookie"; }
 status() { printf '%s' "${1##*$'\n'}"; }; body() { printf '%s' "${1%$'\n'*}"; }
 concealed() { [ "$(status "$1")" = 404 ] || { echo "Support capability authority was not concealed (${2:-unnamed scope}, HTTP $(status "$1"))" >&2; exit 1; }; }
-course_reference() { python3 -c 'import json,re,sys; values=[x.get("id") for x in json.loads(sys.argv[1]).get("items",[]) if isinstance(x,dict)]; reference=sys.argv[2]
-if not re.fullmatch(r"CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}",reference) or values.count(reference)!=1: raise SystemExit("Owned Course Instance identity is invalid or absent")
-print(reference)' "$1" "$2"; }
-sysadmin_reference() { local postgres; postgres="$(service_id postgres)"; podman exec "$postgres" sh -lc 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "SELECT account_id FROM ple_private.account WHERE product_role = '\''sysadmin'\'' ORDER BY account_id LIMIT 1"' | python3 -c 'import re,sys; value=sys.stdin.read().strip();
+course_id() { python3 -c 'import json,re,sys; values=[x.get("id") for x in json.loads(sys.argv[1]).get("items",[]) if isinstance(x,dict)]; course_id=sys.argv[2]
+if not re.fullmatch(r"CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}",course_id) or values.count(course_id)!=1: raise SystemExit("Owned Course Instance identity is invalid or absent")
+print(course_id)' "$1" "$2"; }
+sysadmin_id() { local postgres; postgres="$(service_id postgres)"; podman exec "$postgres" sh -lc 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "SELECT account_id FROM ple_private.account WHERE product_role = '\''sysadmin'\'' ORDER BY account_id LIMIT 1"' | python3 -c 'import re,sys; value=sys.stdin.read().strip();
 if not re.fullmatch(r"U[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}",value): raise SystemExit("Sysadmin identity is invalid")
 print(value)'; }
 prove_issue() {
@@ -46,7 +46,7 @@ sysadmin_cookie="$(
 course_evidence="$(bash "$repository_root/tests/e2e/e2e_live_demo_course_instance.sh" --authority)"
 owned_course="$(printf '%s\n' "$course_evidence" | sed -n 's/^Course Instance support fixture: //p')"
 course_response="$(request '/api/course-instances' "$instructor_cookie")"; [ "$(status "$course_response")" = 200 ] || { echo "Instructor could not load Course Instances" >&2; exit 1; }
-course="$(course_reference "$(body "$course_response")" "$owned_course")"; sysadmin="$(sysadmin_reference)"
+course="$(course_id "$(body "$course_response")" "$owned_course")"; sysadmin="$(sysadmin_id)"
 imported="$(request "/api/course-instances/$course/roster" "$instructor_cookie" POST '{"entries":[{"email":"m17.support@biology.roosevelt.edu","rosterId":"m17-support","rosterName":"Synthetic Support Student"},{"email":"m18.support@biology.roosevelt.edu","rosterId":"m18-support","rosterName":"Synthetic Support Student"}]}')"
 [ "$(status "$imported")" = 201 ] || { echo "Instructor could not prepare the named Student support record" >&2; exit 1; }
 # A Sysadmin's platform authority never implies membership-based Course roster
@@ -57,16 +57,16 @@ concealed "$(request "/api/course-instances/$course/roster" "$sysadmin_cookie")"
 # content repair remain future work, not authority-free receipt scaffolding.
 repair_path='/api/support-repair-capabilities'
 for denied_cookie in '' "$student_cookie" "$sysadmin_cookie"; do
-    concealed "$(request "$repair_path" "$denied_cookie" POST "{\"sysadminReference\":\"$sysadmin\",\"resourceClass\":\"student\",\"resourceReference\":\"course-instance/$course/roster/m17-support\",\"purpose\":\"Correct a roster mismatch\"}")" 'non-Instructor issuance'
+    concealed "$(request "$repair_path" "$denied_cookie" POST "{\"sysadminId\":\"$sysadmin\",\"resourceClass\":\"student\",\"resourceReference\":\"course-instance/$course/roster/m17-support\",\"purpose\":\"Correct a roster mismatch\"}")" 'non-Instructor issuance'
 done
 issue_repair() {
     local resource_class="$1" resource_reference="$2" purpose="$3" repair_response
-    repair_response="$(request "$repair_path" "$instructor_cookie" POST "{\"sysadminReference\":\"$sysadmin\",\"resourceClass\":\"$resource_class\",\"resourceReference\":\"$resource_reference\",\"purpose\":\"$purpose\"}")"
+    repair_response="$(request "$repair_path" "$instructor_cookie" POST "{\"sysadminId\":\"$sysadmin\",\"resourceClass\":\"$resource_class\",\"resourceReference\":\"$resource_reference\",\"purpose\":\"$purpose\"}")"
     [ "$(status "$repair_response")" = 201 ] || { echo "Instructor could not issue $resource_class repair capability" >&2; exit 1; }
     python3 -c 'import json,re,sys,time
-x=json.loads(sys.argv[1]); expected={"capabilityId","sysadminReference","resourceClass","resourceReference","purpose","expiresAt","revokedAt"}
+x=json.loads(sys.argv[1]); expected={"capabilityId","sysadminId","resourceClass","resourceReference","purpose","expiresAt","revokedAt"}
 if set(x)!=expected: raise SystemExit("Support repair receipt field boundary is invalid")
-if x["sysadminReference"]!=sys.argv[2] or x["resourceClass"]!=sys.argv[3] or x["resourceReference"]!=sys.argv[4] or x["purpose"]!=sys.argv[5]: raise SystemExit("Support repair receipt contents are invalid")
+if x["sysadminId"]!=sys.argv[2] or x["resourceClass"]!=sys.argv[3] or x["resourceReference"]!=sys.argv[4] or x["purpose"]!=sys.argv[5]: raise SystemExit("Support repair receipt contents are invalid")
 remaining=x["expiresAt"]-int(time.time()*1000)
 if not isinstance(x["expiresAt"],int) or not 3540000 <= remaining <= 3660000 or x["revokedAt"] is not None or not re.fullmatch(r"[0-9a-f-]{36}",x["capabilityId"]): raise SystemExit("Support repair receipt lifecycle is invalid")
 print(x["capabilityId"])' "$(body "$repair_response")" "$sysadmin" "$resource_class" "$resource_reference" "$purpose"
@@ -74,11 +74,11 @@ print(x["capabilityId"])' "$(body "$repair_response")" "$sysadmin" "$resource_cl
 student_reference="course-instance/$course/roster/m17-support"
 student_repair="$(issue_repair student "$student_reference" 'Correct a student roster mismatch')"
 for unsupported in course content; do
-    rejected="$(request "$repair_path" "$instructor_cookie" POST "{\"sysadminReference\":\"$sysadmin\",\"resourceClass\":\"$unsupported\",\"resourceReference\":\"$course\",\"purpose\":\"Unsupported repair\"}")"
+    rejected="$(request "$repair_path" "$instructor_cookie" POST "{\"sysadminId\":\"$sysadmin\",\"resourceClass\":\"$unsupported\",\"resourceReference\":\"$course\",\"purpose\":\"Unsupported repair\"}")"
     [ "$(status "$rejected")" = 422 ] || { echo "Unsupported support class accepted" >&2; exit 1; }
 done
 for invalid_scope in "$sysadmin" "course-instance/$course/roster/missing-profile" "$student_reference/extra"; do
-    concealed "$(request "$repair_path" "$instructor_cookie" POST "{\"sysadminReference\":\"$sysadmin\",\"resourceClass\":\"student\",\"resourceReference\":\"$invalid_scope\",\"purpose\":\"Invalid repair scope\"}")" 'invalid exact record scope'
+    concealed "$(request "$repair_path" "$instructor_cookie" POST "{\"sysadminId\":\"$sysadmin\",\"resourceClass\":\"student\",\"resourceReference\":\"$invalid_scope\",\"purpose\":\"Invalid repair scope\"}")" 'invalid exact record scope'
 done
 repair_record_path() { printf '%s' "$repair_path/$1/course-instances/$course/roster/m17-support"; }
 # C26 permits exactly the named Student record. A Course-class capability,
@@ -137,7 +137,7 @@ SQL
 )"
 [[ "$authority_course" =~ ^CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}$ ]] || { echo "Support authority fixture Course identity invalid" >&2; exit 1; }
 authority_scope="course-instance/$authority_course/roster/m17-support"
-concealed "$(request "$repair_path" "$instructor_cookie" POST "{\"sysadminReference\":\"$sysadmin\",\"resourceClass\":\"student\",\"resourceReference\":\"$authority_scope\",\"purpose\":\"Unrelated global Instructor denial\"}")"
+concealed "$(request "$repair_path" "$instructor_cookie" POST "{\"sysadminId\":\"$sysadmin\",\"resourceClass\":\"student\",\"resourceReference\":\"$authority_scope\",\"purpose\":\"Unrelated global Instructor denial\"}")"
 support_sql -v capability="$student_repair" -v course="$authority_course" <<'SQL'
 INSERT INTO ple_data.course_membership(course_membership_id,course_instance_id,account_id,role,joined_at)
 SELECT gen_random_uuid(),:'course',issuer_account_id,'instructor',clock_timestamp()

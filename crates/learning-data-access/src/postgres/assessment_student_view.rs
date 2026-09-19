@@ -10,8 +10,7 @@ use question_model::{
     InstructorStudentViewDelivery, LateWorkRule, ObjectId, QuestionAttemptLimit,
     QuestionAttemptTimeLimit, QuestionId, QuestionPoolAssessmentEntry, QuestionPoolEditNumber,
     QuestionPoolSelectedItem, QuestionPoolSelectedQuestionOrder, QuestionPoolSelectionRule,
-    QuestionRevisionNumber, QuestionRevisionReference, SourceObjectChecksum, SourceObjectReference,
-    Timestamp,
+    QuestionRevisionNumber, QuestionRevisionTuple, SourceObjectChecksum, Timestamp,
 };
 use sqlx::{Postgres, Row, Transaction};
 
@@ -131,7 +130,7 @@ impl InstructorStudentViewStore for PostgresInstructorStudentViewStore {
         assessment: AssessmentId,
         expected_edit_number: AssessmentEditNumber,
         authored_position: u32,
-        question_revision: QuestionRevisionReference,
+        question_revision: QuestionRevisionTuple,
     ) -> Result<InstructorStudentViewSource, StoreError> {
         let mut transaction = self.begin_read_only(session_token_hash).await?;
         let authored_position = i32::try_from(authored_position)
@@ -247,7 +246,7 @@ fn snapshot_entries(
                         question_pool_id: expected_pool_id.clone(),
                         question_pool_edit_number: expected_pool_edit_number,
                         member_position,
-                        reference: question_revision(member_row)?,
+                        question_revision: question_revision(member_row)?,
                     });
                     index += 1;
                 }
@@ -317,11 +316,9 @@ fn pool_assessment_entry(
 
 fn source_from_row(
     row: &sqlx::postgres::PgRow,
-    question_revision: QuestionRevisionReference,
+    question_revision: QuestionRevisionTuple,
 ) -> Result<InstructorStudentViewSource, StoreError> {
-    let source_object_reference = SourceObjectReference {
-        object: ObjectId::from_uuid(column(row, "source_object_id")?),
-    };
+    let source_object_id = ObjectId::from_uuid(column(row, "source_object_id")?);
     let source_object_checksum =
         SourceObjectChecksum::parse(column::<String>(row, "source_object_checksum")?)
             .map_err(|_| invalid("Question Source Object checksum"))?;
@@ -331,14 +328,14 @@ fn source_from_row(
     match (column::<String>(row, "backend")?.as_str(), webwork_pg_path) {
         ("ple", None) => Ok(InstructorStudentViewSource::Ple {
             question_revision,
-            source_object_reference,
+            source_object_id,
             source_object_checksum,
             source_media_type,
             question_asset_renditions,
         }),
         ("webwork", Some(webwork_pg_path)) => Ok(InstructorStudentViewSource::Webwork {
             question_revision,
-            source_object_reference,
+            source_object_id,
             source_object_checksum,
             source_media_type,
             webwork_pg_path,
@@ -399,7 +396,7 @@ fn entry_scoring_rule(
     }
 }
 
-fn question_revision(row: &sqlx::postgres::PgRow) -> Result<QuestionRevisionReference, StoreError> {
+fn question_revision(row: &sqlx::postgres::PgRow) -> Result<QuestionRevisionTuple, StoreError> {
     let question_id = column::<String>(row, "question_id")?
         .parse::<QuestionId>()
         .map_err(|_| invalid("Question ID"))?;
@@ -409,7 +406,7 @@ fn question_revision(row: &sqlx::postgres::PgRow) -> Result<QuestionRevisionRefe
         "Question Revision Number",
     )?)
     .map_err(|_| invalid("Question Revision Number"))?;
-    Ok(QuestionRevisionReference {
+    Ok(QuestionRevisionTuple {
         question_id,
         revision_number,
     })

@@ -7,14 +7,14 @@ import type { Capability } from "../../../generated/api/Capability";
 import type { QuestionAvailability } from "../../../generated/api/QuestionAvailability";
 import type { QuestionLicense } from "../../../generated/api/QuestionLicense";
 import type { QuestionCitation } from "../../../generated/api/QuestionCitation";
-import type { QuestionRevisionReference } from "../../../generated/api/QuestionRevisionReference";
+import type { QuestionRevisionTuple } from "../../../generated/api/QuestionRevisionTuple";
 import type { QuestionBackend } from "../../../generated/api/QuestionBackend";
 import type { AccountId } from "../../../generated/api/AccountId";
 import type { QuestionId } from "../../../generated/api/QuestionId";
 import type { QuestionMetadata } from "../../../generated/api/QuestionMetadata";
 import type {
-  AssessmentRouteReference,
-  CourseInstanceRouteReference,
+  AssessmentRouteId,
+  CourseInstanceRouteId,
 } from "../../navigation/public_route";
 import { parseAssessmentId, parseCourseInstanceId } from "../../navigation/public_route";
 import { validateCanonicalPublicId } from "../../question_id";
@@ -79,14 +79,14 @@ export const MAX_PUBLICATION_SEMANTIC_ENTRIES = 100;
 const MAX_ASSIGNMENT_TITLE_UNICODE_SCALARS = 200;
 const MAX_COURSE_NAME_UNICODE_SCALARS = 200;
 
-export function decodeCourseInstanceId(value: unknown, path: string): CourseInstanceRouteReference {
+export function decodeCourseInstanceId(value: unknown, path: string): CourseInstanceRouteId {
   if (typeof value !== "string") throw new DecodeError(path, "a Course Instance ID");
   const id = parseCourseInstanceId(value);
   if (id === null) throw new DecodeError(path, "a Course Instance ID");
   return id;
 }
 
-export function decodeAssessmentId(value: unknown, path: string): AssessmentRouteReference {
+export function decodeAssessmentId(value: unknown, path: string): AssessmentRouteId {
   if (typeof value !== "string") throw new DecodeError(path, "an Assessment ID");
   const id = parseAssessmentId(value);
   if (id === null) throw new DecodeError(path, "an Assessment ID");
@@ -288,11 +288,11 @@ export function decodeQuestionBackendCapabilities(
   return decodeArray(value, path, decodeCapability);
 }
 
-export function decodeQuestionRevisionReference(
+export function decodeQuestionRevisionTuple(
   value: unknown,
   path: string,
   strict = false,
-): QuestionRevisionReference {
+): QuestionRevisionTuple {
   const record = decodeRecord(value, path);
   if (strict) requireOnlyFields(record, path, ["questionId", "revisionNumber"]);
   const decoded = {
@@ -301,7 +301,7 @@ export function decodeQuestionRevisionReference(
       field(record, "revisionNumber", path),
       `${path}.revisionNumber`,
     ),
-  } satisfies QuestionRevisionReference;
+  } satisfies QuestionRevisionTuple;
   return decoded;
 }
 

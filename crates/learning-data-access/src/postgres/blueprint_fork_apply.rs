@@ -2,7 +2,7 @@
 
 use question_model::blueprint_course::apply_blueprint_fork;
 use question_model::{
-    BlueprintAssessmentId, BlueprintModuleReference, RenameBlueprintCourseInput, RequestChecksum,
+    BlueprintAssessmentId, BlueprintModuleId, RenameBlueprintCourseInput, RequestChecksum,
 };
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -66,11 +66,11 @@ impl PostgresBlueprintCourseStore {
         // copies allocate IDs, after authorization, locks, and all four CAS checks.
         let mut new_modules = BTreeMap::new();
         for copy in &input.selection.source_module_labels {
-            if copy.target_module_reference.is_none()
+            if copy.target_module_id.is_none()
                 && new_modules
                     .insert(
-                        copy.source_module_reference,
-                        BlueprintModuleReference::from_uuid(random_uuid()?),
+                        copy.source_module_id,
+                        BlueprintModuleId::from_uuid(random_uuid()?),
                     )
                     .is_some()
             {
@@ -134,7 +134,7 @@ impl PostgresBlueprintCourseStore {
                 assessments.push(stored);
             }
             modules.push(StoredBlueprintModule {
-                blueprint_module_reference: module.blueprint_module_reference(),
+                blueprint_module_id: module.blueprint_module_id(),
                 label: module.label().to_owned(),
                 assessments,
             });
@@ -158,7 +158,7 @@ impl PostgresBlueprintCourseStore {
                     if copied_assessments.contains_key(&assessment.blueprint_assessment_id) {
                         let mut copied = StoredBlueprintCourseContent {
                             modules: vec![StoredBlueprintModule {
-                                blueprint_module_reference: module.blueprint_module_reference,
+                                blueprint_module_id: module.blueprint_module_id,
                                 label: module.label.clone(),
                                 assessments: vec![assessment.clone()],
                             }],

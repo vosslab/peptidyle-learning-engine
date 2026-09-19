@@ -1,6 +1,6 @@
 //! Authenticated Instructor stewardship state for one Blueprint Course lineage.
 //!
-//! A Blueprint Course Reference, rather than a Revision reference, is the
+//! A Blueprint Course Reference, rather than a Revision Tuple, is the
 //! durable identity. The closed store surface exposes only the caller's own
 //! Star and private Watch state, the approved Star aggregate, and the
 //! caller's own immutable Watch-event records.

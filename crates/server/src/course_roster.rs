@@ -49,9 +49,9 @@ pub fn course_roster_router(
 async fn list_course_roster(
     State(state): State<CourseRosterRouteState>,
     headers: HeaderMap,
-    Path(reference): Path<String>,
+    Path(raw_course_instance_id): Path<String>,
 ) -> Response {
-    let course = match course_reference(&reference) {
+    let course = match course_instance_id(&raw_course_instance_id) {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -70,10 +70,10 @@ async fn list_course_roster(
 async fn import_course_roster(
     State(state): State<CourseRosterRouteState>,
     headers: HeaderMap,
-    Path(reference): Path<String>,
+    Path(raw_course_instance_id): Path<String>,
     Json(input): Json<CourseRosterImportInput>,
 ) -> Response {
-    let course = match course_reference(&reference) {
+    let course = match course_instance_id(&raw_course_instance_id) {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -96,9 +96,9 @@ async fn import_course_roster(
 async fn claim_course_invitation(
     State(state): State<CourseRosterRouteState>,
     headers: HeaderMap,
-    Path(reference): Path<String>,
+    Path(raw_course_instance_id): Path<String>,
 ) -> Response {
-    let course = match course_reference(&reference) {
+    let course = match course_instance_id(&raw_course_instance_id) {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -120,9 +120,9 @@ async fn claim_course_invitation(
 async fn revoke_course_roster_entry(
     State(state): State<CourseRosterRouteState>,
     headers: HeaderMap,
-    Path((reference, roster_id)): Path<(String, String)>,
+    Path((raw_course_instance_id, roster_id)): Path<(String, String)>,
 ) -> Response {
-    let course = match course_reference(&reference) {
+    let course = match course_instance_id(&raw_course_instance_id) {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -142,7 +142,7 @@ async fn revoke_course_roster_entry(
     }
 }
 
-fn course_reference(value: &str) -> Result<CourseInstanceId, Box<Response>> {
+fn course_instance_id(value: &str) -> Result<CourseInstanceId, Box<Response>> {
     CourseInstanceId::from_str(value).map_err(|_| Box::new(concealed()))
 }
 

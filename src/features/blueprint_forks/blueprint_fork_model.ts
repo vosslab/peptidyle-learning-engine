@@ -20,7 +20,7 @@ export function sameForkSnapshot(left: unknown, right: unknown): boolean {
 /** Module references are resolved only within their own Blueprint Course. */
 export function forkModuleLabel(side: BlueprintComparisonSide, reference: string): string {
   return (
-    side.modules.find((module) => module.blueprintModuleReference === reference)?.label ?? reference
+    side.modules.find((module) => module.blueprintModuleId === reference)?.label ?? reference
   );
 }
 
@@ -39,16 +39,16 @@ export function assessmentDifferenceLabels(
   const fields: ReadonlyArray<readonly [string, unknown, unknown]> = [
     [
       "Module label",
-      forkModuleLabel(leftSide, left.blueprintModuleReference),
-      forkModuleLabel(rightSide, right.blueprintModuleReference),
+      forkModuleLabel(leftSide, left.blueprintModuleId),
+      forkModuleLabel(rightSide, right.blueprintModuleId),
     ],
     [
       "Module order",
       leftSide.modules.find(
-        (item) => item.blueprintModuleReference === left.blueprintModuleReference,
+        (item) => item.blueprintModuleId === left.blueprintModuleId,
       )?.position,
       rightSide.modules.find(
-        (item) => item.blueprintModuleReference === right.blueprintModuleReference,
+        (item) => item.blueprintModuleId === right.blueprintModuleId,
       )?.position,
     ],
     ["Assessment order", left.position, right.position],

@@ -3,17 +3,17 @@
 use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 
-use crate::QuestionRevisionReference;
+use crate::QuestionRevisionTuple;
 use crate::course_appearance::CourseTheme;
-use crate::question_content::{QuestionAssetReference, QuestionContentBlock};
+use crate::question_content::{QuestionAssetTuple, QuestionContentBlock};
 use crate::student_work::{AssessmentId, CourseInstanceId, QuestionAttemptId, Timestamp};
 
 /// Four-lowercase-hex identifier for one object in one issued presentation.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct PresentationResponseItemReference(String);
+pub struct PresentationResponseItemId(String);
 
-impl PresentationResponseItemReference {
+impl PresentationResponseItemId {
     /// Parses the exact browser wire spelling.
     pub fn parse(value: impl Into<String>) -> Result<Self, &'static str> {
         let value = value.into();
@@ -25,7 +25,7 @@ impl PresentationResponseItemReference {
             Ok(Self(value))
         } else {
             Err(
-                "Presentation Response Item Reference must be four lowercase hexadecimal characters",
+                "Presentation Response Item ID must be four lowercase hexadecimal characters",
             )
         }
     }
@@ -41,11 +41,11 @@ impl PresentationResponseItemReference {
     }
 
     pub(crate) fn as_u16(&self) -> u16 {
-        u16::from_str_radix(&self.0, 16).expect("validated Presentation Response Item Reference")
+        u16::from_str_radix(&self.0, 16).expect("validated Presentation Response Item ID")
     }
 }
 
-impl TryFrom<String> for PresentationResponseItemReference {
+impl TryFrom<String> for PresentationResponseItemId {
     type Error = &'static str;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
@@ -53,8 +53,8 @@ impl TryFrom<String> for PresentationResponseItemReference {
     }
 }
 
-impl From<PresentationResponseItemReference> for String {
-    fn from(value: PresentationResponseItemReference) -> Self {
+impl From<PresentationResponseItemId> for String {
+    fn from(value: PresentationResponseItemId) -> Self {
         value.0
     }
 }
@@ -172,7 +172,7 @@ impl From<QuestionPresentationToken> for String {
 pub struct QuestionAssetRendition {
     /// Exact authored Question Asset selected for this rendering. This reference
     /// identifies content but grants no storage or download authority.
-    pub question_asset: QuestionAssetReference,
+    pub question_asset: QuestionAssetTuple,
     /// Checksum of the public rendition selected for this rendering.
     pub rendition_checksum: String,
     /// Intrinsic width of the selected public rendition, when known.
@@ -185,7 +185,7 @@ pub struct QuestionAssetRendition {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PresentedQuestionChoice {
-    pub id: PresentationResponseItemReference,
+    pub id: PresentationResponseItemId,
     pub body: Vec<QuestionContentBlock>,
 }
 
@@ -193,7 +193,7 @@ pub struct PresentedQuestionChoice {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PresentedMatchingPrompt {
-    pub id: PresentationResponseItemReference,
+    pub id: PresentationResponseItemId,
     pub body: Vec<QuestionContentBlock>,
 }
 
@@ -201,7 +201,7 @@ pub struct PresentedMatchingPrompt {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PresentedMatchingChoice {
-    pub id: PresentationResponseItemReference,
+    pub id: PresentationResponseItemId,
     pub body: Vec<QuestionContentBlock>,
 }
 
@@ -209,20 +209,20 @@ pub struct PresentedMatchingChoice {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PresentedOrderingItem {
-    pub id: PresentationResponseItemReference,
+    pub id: PresentationResponseItemId,
     pub body: Vec<QuestionContentBlock>,
 }
 
 /// Shared descriptor and asset access for exact public response-item records.
 pub trait PresentedResponseItemContent {
-    fn presentation_item_id(&self) -> &PresentationResponseItemReference;
+    fn presentation_item_id(&self) -> &PresentationResponseItemId;
     fn presentation_item_body(&self) -> &[QuestionContentBlock];
 }
 
 macro_rules! presented_response_item {
     ($record:ty) => {
         impl PresentedResponseItemContent for $record {
-            fn presentation_item_id(&self) -> &PresentationResponseItemReference {
+            fn presentation_item_id(&self) -> &PresentationResponseItemId {
                 &self.id
             }
 
@@ -242,7 +242,7 @@ presented_response_item!(PresentedOrderingItem);
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PresentedTextEntrySlot {
-    pub id: PresentationResponseItemReference,
+    pub id: PresentationResponseItemId,
     pub label: Vec<QuestionContentBlock>,
     pub max_characters: u32,
 }
@@ -252,7 +252,7 @@ pub struct PresentedTextEntrySlot {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PresentedHotspotRegion {
     /// Presentation-scoped identifier for this selectable region.
-    pub id: PresentationResponseItemReference,
+    pub id: PresentationResponseItemId,
     pub label: Vec<QuestionContentBlock>,
     pub x: u16,
     pub y: u16,
@@ -264,8 +264,8 @@ pub struct PresentedHotspotRegion {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PresentedHotspotSurface {
-    pub id: PresentationResponseItemReference,
-    pub question_asset: QuestionAssetReference,
+    pub id: PresentationResponseItemId,
+    pub question_asset: QuestionAssetTuple,
     pub description: String,
     pub regions: Vec<PresentedHotspotRegion>,
 }
@@ -319,7 +319,7 @@ pub enum QuestionPresentationResponseFormat {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionPresentation {
-    pub question_revision: QuestionRevisionReference,
+    pub question_revision: QuestionRevisionTuple,
     /// PLE-generated randomness used only to bind presentation-scoped
     /// response-item references and authored choice order. This is not source
     /// or author-JavaScript generation input.

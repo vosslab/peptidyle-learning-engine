@@ -12,7 +12,7 @@ import type { BlueprintAssessmentEntryView } from "../../../generated/api/Bluepr
 import type { AssessmentType } from "../../../generated/api/AssessmentType";
 import type { QuestionId } from "../../../generated/api/QuestionId";
 import type { QuestionPoolEditNumber } from "../../../generated/api/QuestionPoolEditNumber";
-import type { QuestionRevisionReference } from "../../../generated/api/QuestionRevisionReference";
+import type { QuestionRevisionTuple } from "../../../generated/api/QuestionRevisionTuple";
 import type { QuestionPickerSelection } from "../question_picker";
 
 export const MAX_REUSABLE_ENTRIES = 1024;
@@ -159,7 +159,7 @@ export function emptyBlueprintCourseContent(
   };
 }
 
-function fixedEntry(publishedQuestion: QuestionRevisionReference): BlueprintAssessmentEntryInput {
+function fixedEntry(publishedQuestion: QuestionRevisionTuple): BlueprintAssessmentEntryInput {
   return {
     kind: "fixed",
     published_question: publishedQuestion,
@@ -395,7 +395,7 @@ function entryInputFromView(entry: BlueprintAssessmentEntryView): BlueprintAsses
   }
   return {
     kind: "fixed",
-    published_question: entry.question.reference,
+    published_question: entry.question.question_revision,
     points_possible: entry.points_possible,
     scoring_rule: entry.scoring_rule,
     question_attempt_limit: entry.question_attempt_limit,
@@ -423,7 +423,7 @@ export function replacementContentFromBlueprintModules(
     modules: modules.map((module) => ({
       choice: {
         kind: "retained",
-        blueprint_module_reference: module.blueprint_module_reference,
+        blueprint_module_id: module.blueprint_module_id,
       },
       label: module.label,
       assessments: module.assessments.map((assessment) => ({

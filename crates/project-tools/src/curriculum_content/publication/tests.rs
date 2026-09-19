@@ -1,8 +1,8 @@
 use super::*;
 use question_model::{QuestionId, QuestionRevisionNumber};
 
-fn reference(question_id: &str, revision_number: u32) -> QuestionRevisionReference {
-    QuestionRevisionReference {
+fn reference(question_id: &str, revision_number: u32) -> QuestionRevisionTuple {
+    QuestionRevisionTuple {
         question_id: question_id
             .parse::<QuestionId>()
             .expect("valid Question ID"),

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize, de};
 
-/// SHA-256 integrity evidence for bytes named by a Source Object Reference.
+/// SHA-256 integrity evidence for bytes named by a Source Object ID.
 ///
 /// Construction and deserialization accept only canonical lowercase hexadecimal
 /// SHA-256 values (ASVS 1.5.2, 2.2.1).

@@ -69,7 +69,7 @@ impl CourseGradebookStore for PostgresCourseGradebookStore {
         let Some(first) = rows.first() else {
             return Err(StoreError::NotFound);
         };
-        let returned_course = course_reference(
+        let returned_course = course_instance_id(
             first
                 .try_get("course_instance_id")
                 .map_err(map_sqlx_error)?,
@@ -97,8 +97,7 @@ fn decode_row(
     let Some(roster_id) = row.try_get("roster_id").map_err(map_sqlx_error)? else {
         return Ok(None);
     };
-    let assessment_reference =
-        assessment_reference(row.try_get("assessment_id").map_err(map_sqlx_error)?)?;
+    let assessment_id = assessment_id(row.try_get("assessment_id").map_err(map_sqlx_error)?)?;
     let roster_name: String = row.try_get("roster_name").map_err(map_sqlx_error)?;
     if roster_name.trim().is_empty()
         || roster_name != roster_name.trim()
@@ -146,7 +145,7 @@ fn decode_row(
     Ok(Some(CourseGradebookStudentWork {
         roster_id,
         roster_name,
-        assessment_id: assessment_reference,
+        assessment_id,
         assessment_title,
         assessment_attempt_completion,
         expired_submitting,
@@ -154,12 +153,12 @@ fn decode_row(
     }))
 }
 
-fn course_reference(value: String) -> Result<CourseInstanceId, StoreError> {
-    CourseInstanceId::new(value).map_err(|_| invalid("Course Reference"))
+fn course_instance_id(value: String) -> Result<CourseInstanceId, StoreError> {
+    CourseInstanceId::new(value).map_err(|_| invalid("Course Instance ID"))
 }
 
-fn assessment_reference(value: String) -> Result<AssessmentId, StoreError> {
-    AssessmentId::new(value).map_err(|_| invalid("Assessment Reference"))
+fn assessment_id(value: String) -> Result<AssessmentId, StoreError> {
+    AssessmentId::new(value).map_err(|_| invalid("Assessment ID"))
 }
 
 fn finite_nonnegative(value: f64, label: &str) -> Result<f64, StoreError> {

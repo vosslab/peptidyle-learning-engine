@@ -173,8 +173,8 @@ mod tests {
     use question_model::{
         QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship, QuestionAvailability,
         QuestionBackend, QuestionBackendCapabilities, QuestionLicense, QuestionMetadata,
-        QuestionRevisionNumber, QuestionRevisionReference, QuestionSummary, QuestionType,
-        Timestamp, validate_question_title,
+        QuestionRevisionNumber, QuestionRevisionTuple, QuestionSummary, QuestionType, Timestamp,
+        validate_question_title,
     };
 
     fn test_question_id(identifier: &str) -> QuestionId {
@@ -186,7 +186,7 @@ mod tests {
         ResolvedQuestionLibraryEntry {
             summary: QuestionSummary {
                 question_id: question_id.clone(),
-                question_revision: QuestionRevisionReference {
+                question_revision: QuestionRevisionTuple {
                     question_id,
                     revision_number: QuestionRevisionNumber::new(1).expect("positive revision"),
                 },

@@ -90,11 +90,11 @@ if set(value)!={"theme","banner"} or value.get("theme") != expected or value.get
 assert_course_summary() {
 	python3 -c '
 import json, re, sys
-value=json.loads(sys.argv[1]); reference, role=sys.argv[2:]
-if set(value)!={"reference","shortName","longName","term","role"}:
+value=json.loads(sys.argv[1]); course_instance_id, role=sys.argv[2:]
+if set(value)!={"classification","id","shortName","longName","term","role"}:
     raise SystemExit("Course Summary response is not closed")
-if value.get("id") != reference or value.get("role") != role:
-    raise SystemExit("Course Summary did not retain exact reference and caller membership role")
+if value.get("id") != course_instance_id or value.get("role") != role:
+    raise SystemExit("Course Summary did not retain exact Course Instance ID and caller membership role")
 for key in ("shortName", "longName"):
     if not isinstance(value.get(key),str) or not value[key].strip():
         raise SystemExit(f"Course Summary {key} is invalid")
@@ -110,7 +110,7 @@ assert_same_course_summary_identity() {
 	python3 -c '
 import json, sys
 left=json.loads(sys.argv[1]); right=json.loads(sys.argv[2])
-for key in ("reference","shortName","longName","term"):
+for key in ("id","shortName","longName","term","classification"):
     if left.get(key) != right.get(key):
         raise SystemExit("Instructor and enrolled Student Course Summaries differ")
 ' "$1" "$2"
@@ -170,7 +170,7 @@ restore_original_theme_on_exit() {
 	exit "$cleanup_status"
 }
 
-course_reference() {
+course_instance_id() {
 	python3 -c '
 import json, re, sys
 value=json.loads(sys.argv[1]); long_name=sys.argv[2]
@@ -179,17 +179,17 @@ if not isinstance(value,dict) or set(value)!={"items","nextCursor"} or value["ne
 matches=[item for item in value["items"] if isinstance(item,dict) and item.get("longName")==long_name]
 if len(matches)!=1 or set(matches[0])!={"id","shortName","longName","term","theme"}:
     raise SystemExit("Live Demo Course is absent, duplicated, or malformed")
-reference=matches[0]["id"]
-if not isinstance(reference,str) or not re.fullmatch(r"CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}",reference):
+course_instance_id=matches[0]["id"]
+if not isinstance(course_instance_id,str) or not re.fullmatch(r"CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}",course_instance_id):
     raise SystemExit("Live Demo Course has no canonical Course Instance ID")
-print(reference)
+print(course_instance_id)
 ' "$1" "$live_demo_course_long_name"
 }
 
 course_uuid() {
-	local reference="$1" postgres sql output
+	local course_instance_id="$1" postgres sql output
 	postgres="$(service_id postgres)"
-	sql="SELECT course_instance_id FROM ple_data.course_instance WHERE course_instance_id = '$reference';"
+	sql="SELECT course_instance_id FROM ple_data.course_instance WHERE course_instance_id = '$course_instance_id';"
 	output="$(podman exec "$postgres" sh -lc 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "$1"' sh "$sql")"
 	[ "$(printf '%s\n' "$output" | sed '/^$/d' | wc -l | tr -d '[:space:]')" = "1" ] ||
 		fail "could not resolve exactly one internal Course identity for accepted setup"
@@ -206,7 +206,7 @@ find_foreign_course_uuid() {
 	printf '%s\n' "$output"
 }
 
-foreign_course_reference() {
+foreign_course_instance_id() {
 	local course="$1" postgres sql output
 	postgres="$(service_id postgres)"
 	sql="SELECT course_instance_id FROM ple_data.course_instance WHERE course_instance_id = '$course';"
@@ -253,14 +253,14 @@ if [ -z "$foreign_course" ]; then
 	foreign_course="$(find_foreign_course_uuid)"
 	[ -n "$foreign_course" ] || fail "foreign-Instructor Course prerequisite was not persisted"
 fi
-foreign_reference="$(foreign_course_reference "$foreign_course")"
+foreign_course_id="$(foreign_course_instance_id "$foreign_course")"
 
 instructor_cookie="$(persona_cookie elenaInstructor)"
 student_cookie="$(persona_cookie maryStudent)"
 sysadmin_cookie="$(persona_cookie morganSysadmin)"
 course_list="$(request '/api/course-instances' "$instructor_cookie")"
 assert_no_store "$course_list" 200
-course_instance_id="$(course_reference "$(body "$course_list")")"
+course_instance_id="$(course_instance_id "$(body "$course_list")")"
 course="$(course_uuid "$course_instance_id")"
 trap restore_original_theme_on_exit EXIT
 inactive_member_cookie="$(synthetic_concealed_cookie inactive_member "$course")"
@@ -295,7 +295,7 @@ fi
 
 anonymous="$(request "$path")"
 sysadmin="$(request "$path" "$sysadmin_cookie")"
-foreign="$(request "/api/course-instances/$foreign_reference/appearance" "$instructor_cookie")"
+foreign="$(request "/api/course-instances/$foreign_course_id/appearance" "$instructor_cookie")"
 blueprint="$(request "/api/course-instances/BP7K3M2QAF/appearance" "$instructor_cookie")"
 assert_no_store "$anonymous" 404
 assert_no_store "$sysadmin" 404
@@ -308,7 +308,7 @@ assert_no_store "$blueprint" 404
 
 summary_anonymous="$(request "$summary_path")"
 summary_sysadmin="$(request "$summary_path" "$sysadmin_cookie")"
-summary_foreign="$(request "/api/course-instances/$foreign_reference/summary" "$instructor_cookie")"
+summary_foreign="$(request "/api/course-instances/$foreign_course_id/summary" "$instructor_cookie")"
 summary_inactive_member="$(request "$summary_path" "$inactive_member_cookie")"
 assert_no_store "$summary_anonymous" 404
 assert_no_store "$summary_sysadmin" 404

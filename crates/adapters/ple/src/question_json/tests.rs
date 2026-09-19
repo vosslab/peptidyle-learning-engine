@@ -1,5 +1,5 @@
-use question_model::response::{QuestionResponseFormat, ResponseItemReference, StudentResponse};
-use question_model::{GradingResult, QuestionAssetId, QuestionAssetReference};
+use question_model::response::{QuestionResponseFormat, ResponseItemId, StudentResponse};
+use question_model::{GradingResult, QuestionAssetId, QuestionAssetTuple};
 use uuid::Uuid;
 
 use super::{PLE_QUESTION_JSON_MEDIA_TYPE, PleQuestionJsonDocument, PleQuestionJsonError};
@@ -22,7 +22,7 @@ fn source_compiles_private_evaluation_from_its_exact_content() {
             compiled.presentation().question_type(),
             compiled.presentation().response(),
             &StudentResponse::MultipleChoice {
-                selected: vec![ResponseItemReference::new("blue")],
+                selected: vec![ResponseItemId::new("blue")],
             },
         )
         .expect("correct response evaluates");
@@ -40,7 +40,7 @@ fn recorded_teaching_projection_uses_recorded_outcome_without_regrading() {
     let document = PleQuestionJsonDocument::parse(SINGLE_CHOICE_SOURCE).expect("source parses");
     let compiled = document.compile().expect("source compiles");
     let response = StudentResponse::MultipleChoice {
-        selected: vec![ResponseItemReference::new("blue")],
+        selected: vec![ResponseItemId::new("blue")],
     };
 
     let content = compiled
@@ -73,7 +73,7 @@ fn teaching_projection_keeps_selected_choice_feedback_without_an_outcome() {
     let document = PleQuestionJsonDocument::parse(SINGLE_CHOICE_SOURCE).expect("source parses");
     let compiled = document.compile().expect("source compiles");
     let response = StudentResponse::MultipleChoice {
-        selected: vec![ResponseItemReference::new("blue")],
+        selected: vec![ResponseItemId::new("blue")],
     };
 
     let content = compiled
@@ -147,7 +147,7 @@ fn source_checksum_refuses_a_substituted_presentation() {
             compiled.presentation().question_type(),
             compiled.presentation().response(),
             &StudentResponse::MultipleChoice {
-                selected: vec![ResponseItemReference::new("blue")]
+                selected: vec![ResponseItemId::new("blue")]
             },
         ),
         Err(PleQuestionJsonError::PublicContentChecksumMismatch)
@@ -220,7 +220,7 @@ fn hotspot_publication_retargets_the_complete_question_asset_reference() {
         },
         "language": "en"
     }"#;
-    let replacement = QuestionAssetReference {
+    let replacement = QuestionAssetTuple {
         question_asset: QuestionAssetId::from_uuid(Uuid::from_u128(2)),
         checksum: "b".repeat(64),
     };

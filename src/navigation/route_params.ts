@@ -1,16 +1,16 @@
 // Declared route parameter extraction and syntax-only Ribbon scope identity.
 
 import {
-  parseAssessmentAttemptReference,
+  parseAssessmentAttemptId,
   parseAssessmentId,
   parseBlueprintCourseId,
   parseBlueprintChangeProposalHandle,
   parseCourseInstanceId,
-  parseCourseMembershipReference,
+  parseCourseMembershipId,
   parseDraftQuestionId,
-  parseQuestionRouteReference,
-  type AssessmentAttemptRouteReference,
-  type CourseInstanceRouteReference,
+  parseQuestionRouteId,
+  type AssessmentAttemptRouteId,
+  type CourseInstanceRouteId,
 } from "./public_route";
 import { routeContractForPathname, type RibbonScope, type RouteContract } from "../route_contract";
 
@@ -20,7 +20,7 @@ export type RouteParamName =
   | "courseInstanceId"
   | "assessmentId"
   | "assessmentAttemptId"
-  | "membershipRef"
+  | "membershipId"
   | "questionId"
   | "draftQuestionId"
   | "blueprintCourseId"
@@ -36,11 +36,11 @@ export type RouteScopeKey =
   | { readonly kind: "product" }
   | {
       readonly kind: "courseInstance";
-      readonly courseInstanceId: CourseInstanceRouteReference;
+      readonly courseInstanceId: CourseInstanceRouteId;
     }
   | {
       readonly kind: "assessmentAttempt";
-      readonly assessmentAttemptId: AssessmentAttemptRouteReference;
+      readonly assessmentAttemptId: AssessmentAttemptRouteId;
     }
   | {
       readonly kind: "invalid";
@@ -52,9 +52,9 @@ type RouteParamParser = (value: string) => string | null;
 const ROUTE_PARAM_PARSERS: Readonly<Record<RouteParamName, RouteParamParser>> = {
   courseInstanceId: parseCourseInstanceId,
   assessmentId: parseAssessmentId,
-  assessmentAttemptId: parseAssessmentAttemptReference,
-  membershipRef: parseCourseMembershipReference,
-  questionId: parseQuestionRouteReference,
+  assessmentAttemptId: parseAssessmentAttemptId,
+  membershipId: parseCourseMembershipId,
+  questionId: parseQuestionRouteId,
   draftQuestionId: parseDraftQuestionId,
   blueprintCourseId: parseBlueprintCourseId,
   proposalId: parseBlueprintChangeProposalHandle,
@@ -128,9 +128,9 @@ export function routeScopeKey(pathname: string): RouteScopeKey {
     return { kind: "courseInstance", courseInstanceId: parsedCourseInstanceId };
   }
 
-  const attemptReference = params.assessmentAttemptId;
-  const parsedAttemptReference =
-    attemptReference === undefined ? null : parseAssessmentAttemptReference(attemptReference);
-  if (parsedAttemptReference === null) return invalidScope(scope);
-  return { kind: "assessmentAttempt", assessmentAttemptId: parsedAttemptReference };
+  const assessmentAttemptId = params.assessmentAttemptId;
+  const parsedAssessmentAttemptId =
+    assessmentAttemptId === undefined ? null : parseAssessmentAttemptId(assessmentAttemptId);
+  if (parsedAssessmentAttemptId === null) return invalidScope(scope);
+  return { kind: "assessmentAttempt", assessmentAttemptId: parsedAssessmentAttemptId };
 }

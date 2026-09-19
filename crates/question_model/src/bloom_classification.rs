@@ -8,7 +8,7 @@ use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
-use crate::QuestionRevisionReference;
+use crate::QuestionRevisionTuple;
 
 /// Cognitive work required for full credit on the exact classified Revision.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -251,7 +251,7 @@ pub struct BloomClassificationCorrectionRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionBloomCorrectionReceipt {
-    pub question_revision: QuestionRevisionReference,
+    pub question_revision: QuestionRevisionTuple,
     pub bloom: BloomClassificationView,
 }
 

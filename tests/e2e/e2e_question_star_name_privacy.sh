@@ -172,10 +172,10 @@ podman exec "$postgres_name" psql -X -v ON_ERROR_STOP=1 -U postgres -d "$databas
 email="c853-${$}@example.edu"
 vetted="$(request POST /api/instructor-identity-vetting-decisions "$sysadmin_cookie" "{\"normalizedEmail\":\"$email\",\"verifiedInstructorDisplayName\":\"C853 Verified Instructor\"}")"
 require_status "Instructor identity vetting" "$vetted" 201
-vetting_reference="$(python3 -c 'import json, re, sys; value=json.loads(sys.argv[1]); assert set(value)=={"vettingDecisionReference"}; reference=value["vettingDecisionReference"]; assert re.fullmatch(r"[0-9a-f-]{36}", reference); print(reference)' "$(body "$vetted")")"
+vetting_decision_id="$(python3 -c 'import json, re, sys; value=json.loads(sys.argv[1]); assert set(value)=={"vettingDecisionId"}; vetting_decision_id=value["vettingDecisionId"]; assert re.fullmatch(r"[0-9a-f-]{36}", vetting_decision_id); print(vetting_decision_id)' "$(body "$vetted")")"
 
 # C18: the vetted identity becomes the active Instructor Account that acts.
-created="$(request POST /api/instructor-accounts "$sysadmin_cookie" "{\"normalizedEmail\":\"$email\",\"vettingDecisionReference\":\"$vetting_reference\"}")"
+created="$(request POST /api/instructor-accounts "$sysadmin_cookie" "{\"normalizedEmail\":\"$email\",\"vettingDecisionId\":\"$vetting_decision_id\"}")"
 require_status "Instructor Account creation" "$created" 201
 active_account_id="$(podman exec "$postgres_name" psql -XAt -U postgres -d "$database" -c "SELECT account_id FROM ple_private.account_authentication_email WHERE normalized_email = '$email'")"
 [[ "$active_account_id" =~ ^[0-9a-f-]{36}$ ]] || fail "C18 did not create one Instructor Account"

@@ -13,7 +13,7 @@ use question_model::{
     AssessmentEntryScoringRule, BlueprintAssessmentEntryInput, BlueprintAvailability,
     BlueprintRevision, CreateBlueprintCourseInput, QuestionAttemptLimit, QuestionAttemptTimeLimit,
     QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship, QuestionBackend,
-    QuestionLicense, QuestionRevisionReference, RequestChecksum, WorkspaceId,
+    QuestionLicense, QuestionRevisionTuple, RequestChecksum, WorkspaceId,
 };
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
@@ -29,7 +29,7 @@ pub(crate) use receipt::Receipt;
 const SESSION_HASH_ENV: &str = "PLE_CURRICULUM_PUBLICATION_SESSION_TOKEN_HASH";
 const WORKSPACE_ENV: &str = "PLE_CURRICULUM_PUBLICATION_WORKSPACE_ID";
 
-type SourceRevisions = BTreeMap<String, QuestionRevisionReference>;
+type SourceRevisions = BTreeMap<String, QuestionRevisionTuple>;
 type PublishedIndex = BTreeMap<String, Vec<PublishedQuestionLibraryEntry>>;
 
 pub(crate) fn publish(manifest: Manifest) -> Result<()> {

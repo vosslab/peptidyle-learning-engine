@@ -795,7 +795,7 @@ mod tests {
         let details = serde_json::json!({
             "backend": { "name": "ple", "version": "test" },
             "rendererVersion": null,
-            "sourceObjectReference": null,
+            "sourceObjectId": null,
             "sourceObjectChecksum": null,
             "assetObjects": [],
             "grader": { "name": "ple", "version": "test" },

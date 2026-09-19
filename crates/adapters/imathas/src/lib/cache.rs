@@ -6,8 +6,8 @@ use objects::ObjectAddress;
 use question_model::generation::QuestionSeed;
 use question_model::{
     ImathasQuestionBackendBinding, ObjectId, QuestionBackendVersion, QuestionGraderVersion,
-    QuestionReproduction, QuestionRevisionReference, QuestionVariationPresentation,
-    SourceObjectChecksum, SourceObjectReference,
+    QuestionReproduction, QuestionRevisionTuple, QuestionVariationPresentation,
+    SourceObjectChecksum,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -19,7 +19,7 @@ use crate::{ImathasAdapterError, ResolvedImathasQuestionSource};
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(super) struct CachedRender {
     pub(super) schema: u8,
-    pub(super) source: SourceObjectReference,
+    pub(super) source: ObjectId,
     pub(super) source_object_checksum: SourceObjectChecksum,
     pub(super) binding: ImathasQuestionBackendBinding,
     pub(super) presentation: QuestionVariationPresentation,
@@ -31,7 +31,7 @@ pub(super) fn decode_cache(bytes: &[u8]) -> Result<CachedRender, ImathasAdapterE
 
 pub(super) fn validate_cache(
     cached: &CachedRender,
-    question_revision: &QuestionRevisionReference,
+    question_revision: &QuestionRevisionTuple,
     question_seed: QuestionSeed,
     source: &ResolvedImathasQuestionSource,
 ) -> Result<(), ImathasAdapterError> {
@@ -44,7 +44,7 @@ pub(super) fn validate_cache(
         return Err(ImathasAdapterError::InvalidCache);
     };
     if cached.schema != 1
-        || cached.source != *source.source_object_reference()
+        || cached.source != *source.source_object_id()
         || cached.source_object_checksum != *source.source_object_checksum()
         || cached.binding != source.binding
         || cached.presentation.variation.question_revision != *question_revision
@@ -62,7 +62,7 @@ pub(super) fn validate_cache(
 }
 
 pub(super) fn verify_binding(
-    question_revision: &QuestionRevisionReference,
+    question_revision: &QuestionRevisionTuple,
     source: &ResolvedImathasQuestionSource,
 ) -> Result<(), ImathasAdapterError> {
     if source.question_revision() == question_revision {
@@ -73,7 +73,7 @@ pub(super) fn verify_binding(
 }
 
 pub(super) fn render_key(
-    question_revision: &QuestionRevisionReference,
+    question_revision: &QuestionRevisionTuple,
     question_seed: QuestionSeed,
 ) -> ObjectAddress {
     ObjectAddress::QuestionRender {
@@ -84,7 +84,7 @@ pub(super) fn render_key(
 }
 
 fn deterministic_id(
-    question_revision: &QuestionRevisionReference,
+    question_revision: &QuestionRevisionTuple,
     question_seed: QuestionSeed,
 ) -> ObjectId {
     let mut hash = Sha256::new();

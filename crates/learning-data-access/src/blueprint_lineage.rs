@@ -3,7 +3,7 @@
 use async_trait::async_trait;
 use question_model::{
     AccountId, BlueprintAvailability, BlueprintCourseId, BlueprintEditNumber, BlueprintRevision,
-    BlueprintRevisionReference, QuestionId, QuestionPoolEditNumber, QuestionRevisionReference,
+    BlueprintRevisionTuple, QuestionId, QuestionPoolEditNumber, QuestionRevisionTuple,
     RequestChecksum, Timestamp,
 };
 use std::collections::BTreeMap;
@@ -37,19 +37,19 @@ pub struct BlueprintComparisonSources {
     pub left_blueprint_edit_number: BlueprintEditNumber,
     pub right_blueprint_edit_number: BlueprintEditNumber,
     pub pool_memberships:
-        BTreeMap<(QuestionId, QuestionPoolEditNumber), Vec<QuestionRevisionReference>>,
+        BTreeMap<(QuestionId, QuestionPoolEditNumber), Vec<QuestionRevisionTuple>>,
 }
 
 /// Immutable source fact retained by a forked Blueprint lineage.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlueprintForkSource {
-    pub blueprint_revision: BlueprintRevisionReference,
+    pub blueprint_revision: BlueprintRevisionTuple,
 }
 
 /// Receipt for an idempotent fork creating an actor-owned Private child.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ForkBlueprintCourseReceipt {
-    pub blueprint_revision: BlueprintRevisionReference,
+    pub blueprint_revision: BlueprintRevisionTuple,
     pub source: BlueprintForkSource,
     pub blueprint_edit_number: BlueprintEditNumber,
     pub actor: AccountId,

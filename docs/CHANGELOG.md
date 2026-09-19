@@ -10,14 +10,14 @@
 
 ### Fixes and Maintenance
 
-- Align remaining identity names on three suffixes: Id for one canonical
-  object identity, Tuple for a multi-value exact version, and Reference for a
-  genuine locator. Blueprint Module lineage is `blueprint_module_id` /
-  `BlueprintModuleId`. Public-ID and UUID route wrappers are `*RouteId`.
-  Question and Blueprint Revision pairs are `QuestionRevisionTuple` and
-  `BlueprintRevisionTuple`. Compact W-/M-/I-/R- namespaces are not used;
-  those objects keep UUID Ids. Course Banner identity is `CourseBannerId`.
-  Object/source locators and one-time upload handles stay Reference. Gate:
+- Align remaining identity names: Id for one canonical object identity,
+  Reference for genuinely distinct pins and handles. Blueprint Module
+  lineage is `blueprint_module_id` / `BlueprintModuleId`. Public-ID route
+  wrappers are `*RouteId`. Question and Blueprint Revision pins are
+  `QuestionRevisionTuple` and `BlueprintRevisionTuple`. Compact-handle
+  route types are Reference names around UUID Ids. Response-item,
+  presentation-item, and banner-upload pins are Reference. Gradebook and
+  support JSON use `courseId` / `assessmentId` / `sysadminId`. Gate:
   `cargo test -p question_model --lib blueprint_course`,
   `node --import tsx --test tests/test_public_navigation.mjs
   tests/test_route_params.mjs`, `cargo tools tsgen`,
@@ -485,7 +485,7 @@
   and generic immutability guards), eight workstreams with parallel-readiness stated per
   milestone, 28 one-owner work packages numbered in dependency order, six resolved decisions so execution needs no further
   human input (feedback rules frozen in the Attempt snapshot, the public ID as primary key
-  wherever one exists, Edit Numbers replace `metadata_etag`, responses finalized in place,
+  wherever one exists, Edit Numbers replace `<retired-term-replace-me>`, responses finalized in place,
   iMathAS removed, course themes stay a reference table), gates, risk register, and patch plan. The audit now holds
   evidence only and points to the plan.
 
@@ -911,7 +911,7 @@
   Library Watch notifications store each event three times; 17 constant columns exist, of which
   the role-typed ones are legitimate composite-FK carriers and should become an enum rather than
   be removed. It also records Human Guidance misalignments (dead `closed`/`archived` Assessment
-  states, a privileged `assigned_instructor` Course column, `metadata_etag` beside Edit Numbers,
+  states, a privileged `assigned_instructor` Course column, `<retired-term-replace-me>` beside Edit Numbers,
   installed iMathAS scaffolding, four aggregate identity conventions) and proposes six bounded fix
   packages with a target snapshot structure. A source census (39 table-bearing files, 36 of them
   also holding functions; 57% of lines in function bodies; 32 catalog comments for 146 tables;

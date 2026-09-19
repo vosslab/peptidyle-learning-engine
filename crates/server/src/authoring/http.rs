@@ -12,7 +12,7 @@ use learning_data_access::{
 };
 use question_model::{
     QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship, QuestionId,
-    QuestionRevisionNumber, QuestionRevisionReference,
+    QuestionRevisionNumber, QuestionRevisionTuple,
 };
 use uuid::Uuid;
 
@@ -22,10 +22,10 @@ use crate::auth::{AuthError, resolve_session};
 pub(super) fn existing_parent_question_revision(
     question_id: String,
     parent_revision_number: u32,
-) -> Result<QuestionRevisionReference, ()> {
+) -> Result<QuestionRevisionTuple, ()> {
     let question_id = question_id.parse::<QuestionId>().map_err(|_| ())?;
     let revision_number = QuestionRevisionNumber::new(parent_revision_number).map_err(|_| ())?;
-    Ok(QuestionRevisionReference {
+    Ok(QuestionRevisionTuple {
         question_id,
         revision_number,
     })

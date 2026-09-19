@@ -16,8 +16,8 @@ use learning_data_access::{
 use objects::{ObjectAddress, ObjectStore, PutObject};
 use question_model::{
     ObjectId, QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship, QuestionBackend,
-    QuestionLicense, QuestionRevisionReason, QuestionRevisionReference, QuestionType,
-    SourceObjectChecksum, SourceObjectReference, Timestamp, WorkspaceId,
+    QuestionLicense, QuestionRevisionReason, QuestionRevisionTuple, QuestionType,
+    SourceObjectChecksum, Timestamp, WorkspaceId,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -37,7 +37,7 @@ const INITIAL_PUBLICATION_REASON: &str = "Initial publication from Authoring Wor
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct PublishedPilotQuestion {
     source_sha256: String,
-    question_revision: QuestionRevisionReference,
+    question_revision: QuestionRevisionTuple,
 }
 
 /// Publishes the fixed reviewed Pilot inventory through the ordinary Authoring
@@ -101,7 +101,7 @@ pub(crate) fn validate_publication_mapping_json(value: &str) -> Result<()> {
 /// the complete mapping still validates every published Pilot source first.
 pub(crate) fn validated_ple_question_json_revisions(
     value: &str,
-) -> Result<Vec<QuestionRevisionReference>> {
+) -> Result<Vec<QuestionRevisionTuple>> {
     let mut mapping = validated_publication_mapping(value)?;
     let revisions = publication_plan()?
         .questions
@@ -237,9 +237,7 @@ async fn publish_plan(
                     question_type: question_type(question.question_type),
                     webwork_pg_path: question.webwork_pg_path.clone(),
                     draft_imathas_question_backend_binding: None,
-                    source_object_reference: SourceObjectReference {
-                        object: draft.source_record.id,
-                    },
+                    source_object_id: draft.source_record.id,
                     source_object_checksum: checksum,
                 },
             )
@@ -310,7 +308,7 @@ fn existing_publication(
     question: &PublicationSource,
     authorship: &QuestionAuthorship,
     license: &QuestionLicense,
-) -> Result<Option<QuestionRevisionReference>> {
+) -> Result<Option<QuestionRevisionTuple>> {
     let matching = entries
         .iter()
         .filter(|entry| entry.source_object_checksum.as_str() == question.source_sha256)

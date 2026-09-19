@@ -17,8 +17,8 @@ use learning_data_access::{
 use objects::{ObjectAddress, ObjectStore, ObjectStoreError, PutObject};
 use question_model::{
     ObjectId, QUESTION_ID_ALPHABET, QUESTION_ID_IDENTIFIER_LENGTH, QuestionAuthorship, QuestionId,
-    QuestionLicense, QuestionRevisionNumber, QuestionRevisionReason, QuestionRevisionReference,
-    Tag, Timestamp, WorkspaceId,
+    QuestionLicense, QuestionRevisionNumber, QuestionRevisionReason, QuestionRevisionTuple, Tag,
+    Timestamp, WorkspaceId,
 };
 use uuid::Uuid;
 
@@ -112,7 +112,7 @@ pub struct ExistingQuestionRevisionPublicationCommand {
     /// Authoring Workspace that owns the Draft Question.
     pub workspace: WorkspaceId,
     /// Exact current immutable revision the Instructor is editing from.
-    pub parent_question_revision: QuestionRevisionReference,
+    pub parent_question_revision: QuestionRevisionTuple,
     /// Reviewed reason for accepting the successor. The database copies the
     /// parent revision's immutable authorship and compatible license.
     pub question_revision_reason: QuestionRevisionReason,
@@ -198,7 +198,7 @@ where
         session_token_hash: SessionTokenHash,
         command: NewQuestionLineagePublicationCommand,
         stored_at: Timestamp,
-    ) -> Result<QuestionRevisionReference, QuestionPublicationError> {
+    ) -> Result<QuestionRevisionTuple, QuestionPublicationError> {
         NewQuestionLineagePublicationInput::validate_initial_shared_tags(
             &command.initial_shared_tags,
         )
@@ -239,7 +239,7 @@ where
                 .question_id_issuer
                 .issue_question_id()
                 .map_err(QuestionPublicationError::QuestionIdIssuance)?;
-            let revision = QuestionRevisionReference {
+            let revision = QuestionRevisionTuple {
                 question_id: question_id.clone(),
                 revision_number: QuestionRevisionNumber::new(1)
                     .expect("first Question Revision Number is positive"),
@@ -358,7 +358,7 @@ where
         session_token_hash: SessionTokenHash,
         command: ExistingQuestionRevisionPublicationCommand,
         stored_at: Timestamp,
-    ) -> Result<QuestionRevisionReference, QuestionPublicationError> {
+    ) -> Result<QuestionRevisionTuple, QuestionPublicationError> {
         let successor_revision = successor_revision(&command.parent_question_revision)
             .map_err(QuestionPublicationError::Store)?;
         let publication_source = self
@@ -455,8 +455,8 @@ where
 }
 
 fn successor_revision(
-    parent_question_revision: &QuestionRevisionReference,
-) -> Result<QuestionRevisionReference, StoreError> {
+    parent_question_revision: &QuestionRevisionTuple,
+) -> Result<QuestionRevisionTuple, StoreError> {
     let revision_number = parent_question_revision
         .revision_number
         .get()
@@ -465,7 +465,7 @@ fn successor_revision(
         .ok_or_else(|| {
             StoreError::InvalidRecord("Question Revision Number cannot advance further".to_string())
         })?;
-    Ok(QuestionRevisionReference {
+    Ok(QuestionRevisionTuple {
         question_id: parent_question_revision.question_id.clone(),
         revision_number,
     })

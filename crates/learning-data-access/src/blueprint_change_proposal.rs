@@ -2,7 +2,7 @@
 
 use async_trait::async_trait;
 use question_model::{
-    AccountId, BlueprintEditNumber, BlueprintRevisionReference, CanonicalBlueprintCourse, Timestamp,
+    AccountId, BlueprintEditNumber, BlueprintRevisionTuple, CanonicalBlueprintCourse, Timestamp,
 };
 
 use crate::{Page, PageRequest, SessionTokenHash, StoreError, StoredBlueprintRevision};
@@ -26,7 +26,7 @@ pub enum BlueprintChangeProposalDecision {
 #[derive(Debug, Clone)]
 pub struct AcceptBlueprintChangeProposalInput {
     pub proposal_id: uuid::Uuid,
-    pub expected_target: BlueprintRevisionReference,
+    pub expected_target: BlueprintRevisionTuple,
     pub expected_target_blueprint_edit_number: BlueprintEditNumber,
     pub decision: BlueprintChangeProposalDecision,
 }
@@ -37,10 +37,7 @@ pub struct AcceptBlueprintChangeProposalInput {
 pub struct BlueprintChangeProposalAcceptedDecision {
     pub decision: BlueprintChangeProposalDecision,
     pub applied_selection: question_model::blueprint_course::BlueprintForkApplySelection,
-    pub new_modules: BTreeMap<
-        question_model::BlueprintModuleReference,
-        question_model::BlueprintModuleReference,
-    >,
+    pub new_modules: BTreeMap<question_model::BlueprintModuleId, question_model::BlueprintModuleId>,
     pub new_assessments:
         BTreeMap<question_model::BlueprintAssessmentId, question_model::BlueprintAssessmentId>,
 }
@@ -51,7 +48,7 @@ pub struct AcceptedBlueprintChangeProposal {
     pub proposal_id: uuid::Uuid,
     pub actor: AccountId,
     pub accepted_at: Timestamp,
-    pub target: BlueprintRevisionReference,
+    pub target: BlueprintRevisionTuple,
     pub target_blueprint_edit_number: BlueprintEditNumber,
     pub decision: BlueprintChangeProposalAcceptedDecision,
     pub resulting_json: CanonicalBlueprintCourse,
@@ -60,9 +57,9 @@ pub struct AcceptedBlueprintChangeProposal {
 /// Exact reviewed content and independent lineage metadata; no client JSON input.
 #[derive(Debug, Clone)]
 pub struct CreateBlueprintChangeProposalInput {
-    pub source: BlueprintRevisionReference,
+    pub source: BlueprintRevisionTuple,
     pub source_blueprint_edit_number: BlueprintEditNumber,
-    pub target: BlueprintRevisionReference,
+    pub target: BlueprintRevisionTuple,
     pub target_blueprint_edit_number: BlueprintEditNumber,
 }
 
@@ -72,9 +69,9 @@ pub struct StoredBlueprintChangeProposal {
     pub proposal_id: uuid::Uuid,
     pub proposer: AccountId,
     pub created_at: Timestamp,
-    pub source: BlueprintRevisionReference,
+    pub source: BlueprintRevisionTuple,
     pub source_blueprint_edit_number: BlueprintEditNumber,
-    pub target: BlueprintRevisionReference,
+    pub target: BlueprintRevisionTuple,
     pub target_blueprint_edit_number: BlueprintEditNumber,
     pub proposed_json: CanonicalBlueprintCourse,
     pub target_comparison_json: CanonicalBlueprintCourse,
@@ -94,11 +91,11 @@ pub enum BlueprintChangeProposalListScope {
 pub struct BlueprintChangeProposalSummary {
     pub proposal_id: uuid::Uuid,
     pub created_at: Timestamp,
-    pub source: BlueprintRevisionReference,
+    pub source: BlueprintRevisionTuple,
     pub source_blueprint_edit_number: BlueprintEditNumber,
     pub source_short_name: String,
     pub source_long_name: String,
-    pub target: BlueprintRevisionReference,
+    pub target: BlueprintRevisionTuple,
     pub target_blueprint_edit_number: BlueprintEditNumber,
     pub target_short_name: String,
     pub target_long_name: String,
@@ -109,7 +106,7 @@ pub struct BlueprintChangeProposalSummary {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlueprintChangeProposalAcceptedSummary {
     pub accepted_at: Timestamp,
-    pub target: BlueprintRevisionReference,
+    pub target: BlueprintRevisionTuple,
     pub target_blueprint_edit_number: BlueprintEditNumber,
 }
 
@@ -124,7 +121,7 @@ pub struct BlueprintChangeProposalReview {
             question_model::QuestionId,
             question_model::QuestionPoolEditNumber,
         ),
-        Vec<question_model::QuestionRevisionReference>,
+        Vec<question_model::QuestionRevisionTuple>,
     >,
     pub can_accept: bool,
     pub accepted: Option<AcceptedBlueprintChangeProposal>,

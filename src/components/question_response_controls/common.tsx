@@ -16,7 +16,7 @@ import type {
 } from "../../api/decoders/student_response_format_check";
 import type { ResponseFormatValidator } from "../../wasm/index";
 import type { AssetUrlResolver } from "../question_renderer";
-import type { QuestionRevisionReference } from "../../../generated/api/QuestionRevisionReference";
+import type { QuestionRevisionTuple } from "../../../generated/api/QuestionRevisionTuple";
 import type { DraftQuestionRouteId } from "../../navigation/public_route";
 
 export type ResponseFormat = QuestionResponseFormat | QuestionPresentationResponseFormat;
@@ -75,7 +75,7 @@ export interface StudentWorkRouteScope {
 export interface QuestionResponseControlBaseProps {
   readonly attemptId: string;
   /** Exact publication identity and authorized resolver for image-backed controls. */
-  readonly questionRevision?: QuestionRevisionReference;
+  readonly questionRevision?: QuestionRevisionTuple;
   readonly assetUrl?: AssetUrlResolver;
   /** Authorized private Draft route; local author preview only. */
   readonly hotspotDraftAsset?: {

@@ -180,9 +180,9 @@ impl From<BlueprintCourseWatchEvent> for WatchEventResponse {
 async fn read_star(
     State(state): State<RouteState>,
     headers: HeaderMap,
-    Path(raw_reference): Path<String>,
+    Path(raw_blueprint_course_id): Path<String>,
 ) -> Response {
-    let reference = match blueprint_reference(&raw_reference) {
+    let blueprint_course_id = match blueprint_course_id(&raw_blueprint_course_id) {
         Some(value) => value,
         None => return concealed(),
     };
@@ -192,7 +192,7 @@ async fn read_star(
     };
     match state
         .stewardship
-        .blueprint_course_star_projection(session, reference)
+        .blueprint_course_star_projection(session, blueprint_course_id)
         .await
     {
         Ok(projection) => {
@@ -204,10 +204,10 @@ async fn read_star(
 
 async fn set_star(
     State(state): State<RouteState>,
-    Path(raw_reference): Path<String>,
+    Path(raw_blueprint_course_id): Path<String>,
     request: Request,
 ) -> Response {
-    let reference = match blueprint_reference(&raw_reference) {
+    let blueprint_course_id = match blueprint_course_id(&raw_blueprint_course_id) {
         Some(value) => value,
         None => return concealed(),
     };
@@ -221,7 +221,7 @@ async fn set_star(
     };
     match state
         .stewardship
-        .set_current_blueprint_course_star_projection(session, reference, input.starred)
+        .set_current_blueprint_course_star_projection(session, blueprint_course_id, input.starred)
         .await
     {
         Ok(projection) => {
@@ -234,9 +234,9 @@ async fn set_star(
 async fn read_starred_instructors(
     State(state): State<RouteState>,
     headers: HeaderMap,
-    Path(raw_reference): Path<String>,
+    Path(raw_blueprint_course_id): Path<String>,
 ) -> Response {
-    let reference = match blueprint_reference(&raw_reference) {
+    let blueprint_course_id = match blueprint_course_id(&raw_blueprint_course_id) {
         Some(value) => value,
         None => return concealed(),
     };
@@ -246,7 +246,7 @@ async fn read_starred_instructors(
     };
     match state
         .stewardship
-        .blueprint_course_starred_instructors(session, reference)
+        .blueprint_course_starred_instructors(session, blueprint_course_id)
         .await
     {
         Ok(starred_instructors) => crate::auth::no_store(
@@ -262,9 +262,9 @@ async fn read_starred_instructors(
 async fn read_watch(
     State(state): State<RouteState>,
     headers: HeaderMap,
-    Path(raw_reference): Path<String>,
+    Path(raw_blueprint_course_id): Path<String>,
 ) -> Response {
-    let reference = match blueprint_reference(&raw_reference) {
+    let blueprint_course_id = match blueprint_course_id(&raw_blueprint_course_id) {
         Some(value) => value,
         None => return concealed(),
     };
@@ -274,7 +274,7 @@ async fn read_watch(
     };
     match state
         .stewardship
-        .blueprint_course_watch_projection(session, reference)
+        .blueprint_course_watch_projection(session, blueprint_course_id)
         .await
     {
         Ok(projection) => {
@@ -286,10 +286,10 @@ async fn read_watch(
 
 async fn set_watch(
     State(state): State<RouteState>,
-    Path(raw_reference): Path<String>,
+    Path(raw_blueprint_course_id): Path<String>,
     request: Request,
 ) -> Response {
-    let reference = match blueprint_reference(&raw_reference) {
+    let blueprint_course_id = match blueprint_course_id(&raw_blueprint_course_id) {
         Some(value) => value,
         None => return concealed(),
     };
@@ -303,7 +303,7 @@ async fn set_watch(
     };
     match state
         .stewardship
-        .set_current_blueprint_course_watch_projection(session, reference, input.watching)
+        .set_current_blueprint_course_watch_projection(session, blueprint_course_id, input.watching)
         .await
     {
         Ok(projection) => {
@@ -316,10 +316,10 @@ async fn set_watch(
 async fn read_watch_events(
     State(state): State<RouteState>,
     headers: HeaderMap,
-    Path(raw_reference): Path<String>,
+    Path(raw_blueprint_course_id): Path<String>,
     Query(query): Query<WatchEventsQuery>,
 ) -> Response {
-    let reference = match blueprint_reference(&raw_reference) {
+    let blueprint_course_id = match blueprint_course_id(&raw_blueprint_course_id) {
         Some(value) => value,
         None => return concealed(),
     };
@@ -336,7 +336,7 @@ async fn read_watch_events(
     };
     match state
         .stewardship
-        .blueprint_course_watch_events(session, reference, limit)
+        .blueprint_course_watch_events(session, blueprint_course_id, limit)
         .await
     {
         Ok(events) => crate::auth::no_store(
@@ -350,8 +350,8 @@ async fn read_watch_events(
 }
 
 /// ASVS 2.2.1--2.2.2: parsing occurs before Store access and admits only the
-/// exact canonical Blueprint Course reference shape.
-fn blueprint_reference(value: &str) -> Option<BlueprintCourseId> {
+/// exact canonical Blueprint Course ID shape.
+fn blueprint_course_id(value: &str) -> Option<BlueprintCourseId> {
     value.parse().ok()
 }
 

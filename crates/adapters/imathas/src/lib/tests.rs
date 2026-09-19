@@ -39,7 +39,7 @@ impl ObjectStore for NoAccessObjectStore {
 
 #[derive(Clone)]
 struct ExpectedPreviewBackend {
-    question_revision: QuestionRevisionReference,
+    question_revision: QuestionRevisionTuple,
     question_seed: QuestionSeed,
 }
 
@@ -89,7 +89,7 @@ struct RecordedImathasQuestionBackend {
 #[derive(Clone, Copy)]
 enum Mismatch {
     Attempt,
-    QuestionRevisionReference,
+    QuestionRevisionTuple,
     Version,
     QuestionSeed,
     LaunchSessionAuthentication,
@@ -152,10 +152,10 @@ impl QuestionBackend for RecordedImathasQuestionBackend {
                     verdict.grading_context.question_seed(),
                 )
             }
-            Some(Mismatch::QuestionRevisionReference) => {
+            Some(Mismatch::QuestionRevisionTuple) => {
                 verdict.grading_context = learning_data_access::ImathasGradingContext::new(
                     verdict.grading_context.question_attempt(),
-                    QuestionRevisionReference {
+                    QuestionRevisionTuple {
                         question_id: QuestionId::from_random_identifier("BCDEFGH")
                             .expect("Question ID"),
                         revision_number: verdict
@@ -169,7 +169,7 @@ impl QuestionBackend for RecordedImathasQuestionBackend {
             Some(Mismatch::Version) => {
                 verdict.grading_context = learning_data_access::ImathasGradingContext::new(
                     verdict.grading_context.question_attempt(),
-                    QuestionRevisionReference {
+                    QuestionRevisionTuple {
                         question_id: verdict
                             .grading_context
                             .question_revision()
@@ -218,16 +218,16 @@ fn profile() -> SupportedImathasProfile {
 
 fn binding() -> ImathasQuestionBackendBinding {
     ImathasQuestionBackendBinding::new(
-        ImathasDeploymentReference::new("recorded-imathas").expect("recorded deployment"),
-        ImathasItemReference::new("item-17").expect("recorded item"),
+        ImathasDeploymentId::new("recorded-imathas").expect("recorded deployment"),
+        ImathasItemId::new("item-17").expect("recorded item"),
         ImathasProfile::new("recorded-v1").expect("recorded profile"),
     )
 }
 
 fn draft_binding() -> DraftImathasQuestionBackendBinding {
     DraftImathasQuestionBackendBinding::new(
-        ImathasDeploymentReference::new("recorded-imathas").expect("recorded deployment"),
-        ImathasItemReference::new("item-17").expect("recorded item"),
+        ImathasDeploymentId::new("recorded-imathas").expect("recorded deployment"),
+        ImathasItemId::new("item-17").expect("recorded item"),
     )
 }
 
@@ -240,8 +240,8 @@ fn question_backend() -> RecordedImathasQuestionBackend {
     }
 }
 
-fn question() -> QuestionRevisionReference {
-    QuestionRevisionReference {
+fn question() -> QuestionRevisionTuple {
+    QuestionRevisionTuple {
         question_id: QuestionId::from_random_identifier("ABCDEFG").expect("Question ID"),
         revision_number: QuestionRevisionNumber::new(2).expect("positive version"),
     }
@@ -250,9 +250,9 @@ fn question() -> QuestionRevisionReference {
 async fn stored_source(
     store: &MemoryObjectStore,
 ) -> (
-    QuestionRevisionReference,
+    QuestionRevisionTuple,
     ResolvedImathasQuestionSource,
-    SourceObjectReference,
+    ObjectId,
 ) {
     let snapshot = ObjectId::from_uuid(Uuid::from_u128(4));
     let question = question();
@@ -268,7 +268,7 @@ async fn stored_source(
         })
         .await
         .unwrap();
-    let artifact = SourceObjectReference { object: snapshot };
+    let artifact = snapshot;
     let source = ResolvedImathasQuestionSource::resolve(
         store,
         question.clone(),
@@ -322,7 +322,7 @@ async fn student_view_preview_is_answer_free_no_write_and_fail_closed() {
         }]
     );
 
-    let wrong_question = QuestionRevisionReference {
+    let wrong_question = QuestionRevisionTuple {
         question_id: QuestionId::from_random_identifier("BCDEFGH").expect("Question ID"),
         revision_number: question.revision_number,
     };
@@ -412,13 +412,13 @@ async fn wrong_locator_binding_and_outage_refuse_without_fabricating_incorrectne
     let (question, source, _) = stored_source(&store).await;
     let mut changed_source = source.clone();
     changed_source.binding = ImathasQuestionBackendBinding::new(
-        ImathasDeploymentReference::new("different-imathas").expect("different deployment"),
-        ImathasItemReference::new("item-17").expect("recorded item"),
+        ImathasDeploymentId::new("different-imathas").expect("different deployment"),
+        ImathasItemId::new("item-17").expect("recorded item"),
         ImathasProfile::new("recorded-v1").expect("recorded profile"),
     );
     assert_eq!(
         verify_binding(
-            &QuestionRevisionReference {
+            &QuestionRevisionTuple {
                 question_id: QuestionId::from_random_identifier("BCDEFGH").expect("Question ID"),
                 revision_number: question.revision_number,
             },
@@ -472,7 +472,7 @@ async fn every_verified_grade_binding_dimension_and_restored_handle_is_checked()
     let (question, source, _) = stored_source(&store).await;
     for mismatch in [
         Mismatch::Attempt,
-        Mismatch::QuestionRevisionReference,
+        Mismatch::QuestionRevisionTuple,
         Mismatch::Version,
         Mismatch::QuestionSeed,
         Mismatch::LaunchSessionAuthentication,
@@ -565,7 +565,7 @@ fn grading_context_dimensions_change_hmac_and_imathas_launch_binding_checksum() 
         ),
         learning_data_access::ImathasGradingContext::new(
             baseline.question_attempt(),
-            QuestionRevisionReference {
+            QuestionRevisionTuple {
                 question_id: QuestionId::from_random_identifier("BCDEFGH").unwrap(),
                 revision_number: baseline.question_revision().revision_number,
             },
@@ -573,7 +573,7 @@ fn grading_context_dimensions_change_hmac_and_imathas_launch_binding_checksum() 
         ),
         learning_data_access::ImathasGradingContext::new(
             baseline.question_attempt(),
-            QuestionRevisionReference {
+            QuestionRevisionTuple {
                 question_id: baseline.question_revision().question_id.clone(),
                 revision_number: QuestionRevisionNumber::new(99).unwrap(),
             },
@@ -681,7 +681,7 @@ async fn concurrent_replicas_reuse_the_winning_immutable_render() {
 }
 
 fn grading_context(
-    question: &QuestionRevisionReference,
+    question: &QuestionRevisionTuple,
     question_seed: QuestionSeed,
 ) -> learning_data_access::ImathasGradingContext {
     learning_data_access::ImathasGradingContext::new(

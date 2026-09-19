@@ -12,7 +12,7 @@ use std::str::FromStr;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    CourseInvitationReference, LocalDateAndTime, MAX_ASSESSMENT_ATTEMPT_LIMIT,
+    CourseInvitationId, LocalDateAndTime, MAX_ASSESSMENT_ATTEMPT_LIMIT,
     MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS, Timestamp,
 };
 
@@ -262,7 +262,7 @@ pub struct AccommodationAdjustmentView {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PendingCourseInvitationView {
-    pub reference: CourseInvitationReference,
+    pub id: CourseInvitationId,
     pub course_label: TeachingDisplayLabel,
     pub state: CourseInvitationStateView,
     pub expires_at: Timestamp,
@@ -354,7 +354,7 @@ mod tests {
     #[test]
     fn pending_invitation_serializes_server_owned_expiry_without_inviter() {
         let row = PendingCourseInvitationView {
-            reference: "I-4".parse().unwrap(),
+            id: "00000000-0000-0000-0000-000000000004".parse().unwrap(),
             course_label: TeachingDisplayLabel::try_from("Biochemistry".to_owned()).unwrap(),
             state: CourseInvitationStateView::Pending,
             expires_at: Timestamp::from_unix_millis(2_592_000_000),

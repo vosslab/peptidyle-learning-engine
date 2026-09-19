@@ -11,8 +11,7 @@ use question_model::{
     AssessmentPointValue, BlueprintAssessmentContentInput, BlueprintAssessmentDefaults,
     BlueprintAssessmentEntryInput, BlueprintAvailability, BlueprintRevision,
     CreateBlueprintCourseInput, CreateBlueprintModuleInput, LateWorkRule, QuestionAttemptLimit,
-    QuestionAttemptTimeLimit, QuestionRevisionReference, RequestChecksum,
-    ReusableFixedQuestionInput,
+    QuestionAttemptTimeLimit, QuestionRevisionTuple, RequestChecksum, ReusableFixedQuestionInput,
 };
 
 use crate::{
@@ -31,7 +30,7 @@ const LIVE_DEMO_BLUEPRINT_REQUEST_CHECKSUM: RequestChecksum = RequestChecksum::f
 ]);
 
 /// Store-generated references consumed by the dependent Live Demo SQL graph.
-pub(crate) struct LiveDemoBlueprintManifestReferences {
+pub(crate) struct LiveDemoBlueprintManifestIds {
     pub(crate) blueprint_course_id: String,
     pub(crate) assessment_id: String,
 }
@@ -44,7 +43,7 @@ pub(crate) struct LiveDemoBlueprintManifestReferences {
 pub(crate) fn create_live_demo_blueprint(
     session: SessionTokenHash,
     publications: &str,
-) -> Result<LiveDemoBlueprintManifestReferences> {
+) -> Result<LiveDemoBlueprintManifestIds> {
     let questions = pilot_content::validated_ple_question_json_revisions(publications)
         .context("resolving the reviewed PLE Question JSON Pilot publications")?;
     let runtime = tokio::runtime::Builder::new_current_thread()
@@ -112,7 +111,7 @@ pub(crate) fn create_live_demo_blueprint(
                 && blueprint.long_name == LIVE_DEMO_COURSE_LONG_NAME,
             "Live Demo Blueprint lineage names differ from the fixed course names"
         );
-        let assessment_reference = validate_loaded_content(&blueprint.content, &input, &questions)?;
+        let assessment_id = validate_loaded_content(&blueprint.content, &input, &questions)?;
         ensure!(
             blueprint.classification == classification,
             "Live Demo Blueprint classification conflicts with the authored Course"
@@ -138,9 +137,9 @@ pub(crate) fn create_live_demo_blueprint(
             blueprint.availability == BlueprintAvailability::Public,
             "Live Demo Blueprint is not Public before Course adoption"
         );
-        Ok(LiveDemoBlueprintManifestReferences {
+        Ok(LiveDemoBlueprintManifestIds {
             blueprint_course_id: receipt.blueprint_revision.blueprint_course_id.to_string(),
-            assessment_id: assessment_reference.to_string(),
+            assessment_id: assessment_id.to_string(),
         })
     })
 }
@@ -151,7 +150,7 @@ pub(crate) fn create_live_demo_blueprint(
 fn validate_loaded_content(
     content: &StoredBlueprintCourseContent,
     expected: &CreateBlueprintCourseInput,
-    questions: &[QuestionRevisionReference],
+    questions: &[QuestionRevisionTuple],
 ) -> Result<question_model::BlueprintAssessmentId> {
     ensure!(
         content.modules.len() == 1 && expected.modules.len() == 1,
@@ -214,7 +213,7 @@ fn validate_loaded_content(
 }
 
 fn live_demo_blueprint_input(
-    questions: Vec<QuestionRevisionReference>,
+    questions: Vec<QuestionRevisionTuple>,
     classification: question_model::CourseClassification,
 ) -> Result<CreateBlueprintCourseInput> {
     ensure!(
@@ -268,11 +267,11 @@ mod tests {
     use learning_data_access::{
         StoredBlueprintAssessment, StoredBlueprintAssessmentContent, StoredBlueprintModule,
     };
-    use question_model::{BlueprintAssessmentId, BlueprintModuleReference};
+    use question_model::{BlueprintAssessmentId, BlueprintModuleId};
     use uuid::Uuid;
 
-    fn question(number: u8) -> QuestionRevisionReference {
-        QuestionRevisionReference {
+    fn question(number: u8) -> QuestionRevisionTuple {
+        QuestionRevisionTuple {
             question_id: question_model::QuestionId::from_random_identifier(format!(
                 "ABCDEF{number}"
             ))
@@ -324,12 +323,12 @@ mod tests {
 
     fn stored_content(
         input: &CreateBlueprintCourseInput,
-        questions: &[QuestionRevisionReference],
+        questions: &[QuestionRevisionTuple],
     ) -> StoredBlueprintCourseContent {
         let assessment = &input.modules[0].assessments[0];
         StoredBlueprintCourseContent {
             modules: vec![StoredBlueprintModule {
-                blueprint_module_reference: BlueprintModuleReference::from_uuid(Uuid::from_u128(1)),
+                blueprint_module_id: BlueprintModuleId::from_uuid(Uuid::from_u128(1)),
                 label: input.modules[0].label.clone(),
                 assessments: vec![StoredBlueprintAssessment {
                     blueprint_assessment_id: BlueprintAssessmentId::from_uuid(Uuid::from_u128(2)),

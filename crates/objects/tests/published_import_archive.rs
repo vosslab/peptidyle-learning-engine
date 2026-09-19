@@ -14,8 +14,8 @@ use objects::{
     Sha256Checksum, published_import_archive_object_id,
 };
 use question_model::{
-    ObjectId, QuestionId, QuestionRevisionNumber, QuestionRevisionReference, Timestamp,
-    WorkspaceId, WorkspaceImportId,
+    ObjectId, QuestionId, QuestionRevisionNumber, QuestionRevisionTuple, Timestamp, WorkspaceId,
+    WorkspaceImportId,
 };
 use uuid::Uuid;
 
@@ -23,8 +23,8 @@ fn id(value: u128) -> Uuid {
     Uuid::from_u128(value)
 }
 
-fn question_revision(revision_number: u32) -> QuestionRevisionReference {
-    QuestionRevisionReference {
+fn question_revision(revision_number: u32) -> QuestionRevisionTuple {
+    QuestionRevisionTuple {
         question_id: QuestionId::from_random_identifier("ABCDEFG").expect("Question ID"),
         revision_number: QuestionRevisionNumber::new(revision_number).expect("positive version"),
     }

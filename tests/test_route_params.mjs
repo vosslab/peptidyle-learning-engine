@@ -3,8 +3,13 @@ import test from "node:test";
 
 import { routeParams, routeScopeKey } from "../src/navigation/route_params.ts";
 import {
+  assessmentAttemptRouteId,
+  assessmentRouteId,
+  blueprintCourseRouteId,
+  courseInstanceRouteId,
   parseBlueprintCourseId,
-  parsePublicRouteReference,
+  parsePublicRouteId,
+  questionRouteId,
 } from "../src/navigation/public_route.ts";
 import { ROUTE_CONTRACT, routeContractForPathname } from "../src/route_contract.ts";
 
@@ -100,9 +105,17 @@ test("a structural declared route copy zips the selected canonical pattern", () 
   });
 });
 
-test("Blueprint Course references use the shared public route parser", () => {
+test("Blueprint Course IDs use the shared public route parser", () => {
   assert.equal(parseBlueprintCourseId("BPABCDEFGJ"), "BPABCDEFGJ");
-  assert.equal(parsePublicRouteReference("BPABCDEFGJ"), "BPABCDEFGJ");
+  assert.equal(blueprintCourseRouteId("BPABCDEFGJ"), "BPABCDEFGJ");
+  assert.equal(parsePublicRouteId("BPABCDEFGJ"), "BPABCDEFGJ");
+  assert.equal(courseInstanceRouteId("CIABCDEFGS"), "CIABCDEFGS");
+  assert.equal(assessmentRouteId("AABCDEFG8"), "AABCDEFG8");
+  assert.equal(questionRouteId("7K3M-79QP"), "7K3M-79QP");
+  assert.equal(
+    assessmentAttemptRouteId("00000000-0000-0000-0000-000000000001"),
+    "00000000-0000-0000-0000-000000000001",
+  );
 });
 
 test("route-shape hostility fails closed and never supplies partial parameters", () => {

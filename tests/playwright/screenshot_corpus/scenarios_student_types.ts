@@ -324,7 +324,9 @@ async function readQuestion(
     const url = new URL(response.url());
     return (
       url.origin === new URL(page.url()).origin &&
-      /^\/api\/assessment-attempts\/R-[1-9][0-9]*\/student-question$/u.test(url.pathname) &&
+      /^\/api\/assessment-attempts\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/student-question$/u.test(
+        url.pathname,
+      ) &&
       response.status() === 200
     );
   });

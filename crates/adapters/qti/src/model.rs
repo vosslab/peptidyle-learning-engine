@@ -4,7 +4,7 @@ use crate::profiles::NormalizedQtiItemFingerprint;
 use question_model::QuestionAssetId;
 use question_model::QuestionContentBlock;
 use question_model::QuestionResponseFormat;
-use question_model::response::ResponseItemReference;
+use question_model::response::ResponseItemId;
 use serde::{Deserialize, Serialize};
 
 /// Hard resource limits enforced before extraction or XML parsing.
@@ -154,7 +154,7 @@ pub struct ImportedQtiQuestion {
 /// the same logical asset cannot name two different immutable byte strings.
 pub fn qti_question_asset_checksums(
     question: &ImportedQtiQuestion,
-) -> Result<BTreeMap<QuestionAssetId, String>, QtiAssetReferenceError> {
+) -> Result<BTreeMap<QuestionAssetId, String>, QtiAssetError> {
     let mut response_blocks: Vec<&QuestionContentBlock> = Vec::new();
     let mut assets = BTreeMap::new();
     match &question.response {
@@ -190,14 +190,14 @@ pub fn qti_question_asset_checksums(
             )
             && previous != question_asset.checksum
         {
-            return Err(QtiAssetReferenceError::ConflictingChecksum);
+            return Err(QtiAssetError::ConflictingChecksum);
         }
     }
     Ok(assets)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum QtiAssetReferenceError {
+pub enum QtiAssetError {
     ConflictingChecksum,
 }
 
@@ -206,7 +206,7 @@ pub enum QtiAssetReferenceError {
 /// Answer Key.
 #[derive(Clone, PartialEq, Eq)]
 pub(crate) struct QtiImportAnswerBinding {
-    pub(crate) choices_by_item: BTreeMap<String, ResponseItemReference>,
+    pub(crate) choices_by_item: BTreeMap<String, ResponseItemId>,
 }
 
 /// Result of a validated import. The import answer binding and original bytes
@@ -273,7 +273,7 @@ impl ImportedQtiPackage {
     /// Returns the private correct-choice mapping only to the server import
     /// worker so it can write the grader-owned record. No browser projection,
     /// generated type, or Debug implementation receives this association.
-    pub fn worker_correct_choice(&self, item_id: &str) -> Option<ResponseItemReference> {
+    pub fn worker_correct_choice(&self, item_id: &str) -> Option<ResponseItemId> {
         self.answer_binding.choices_by_item.get(item_id).cloned()
     }
 }
@@ -285,7 +285,7 @@ pub enum QtiImportError {
     UnsafeEntry { path: String, reason: String },
     MissingManifest,
     InvalidXml { path: String, reason: String },
-    MissingReferencedEntry { path: String },
+    MissingLinkedEntry { path: String },
     UnsupportedMedia { path: String, reason: String },
 }
 
@@ -301,7 +301,7 @@ impl std::fmt::Display for QtiImportError {
             }
             Self::MissingManifest => write!(f, "QTI package has no imsmanifest.xml"),
             Self::InvalidXml { path, reason } => write!(f, "invalid QTI XML in `{path}`: {reason}"),
-            Self::MissingReferencedEntry { path } => {
+            Self::MissingLinkedEntry { path } => {
                 write!(f, "QTI manifest references missing entry `{path}`")
             }
             Self::UnsupportedMedia { path, reason } => {

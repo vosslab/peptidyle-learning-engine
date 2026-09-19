@@ -52,7 +52,7 @@ function errorMessage(state: PleQuestionJsonEditorState): string | null {
   return state.kind === "error" ? state.message : null;
 }
 
-function publishedReference(state: PleQuestionJsonEditorState): string | null {
+function publishedQuestionId(state: PleQuestionJsonEditorState): string | null {
   return state.kind === "published" ? state.reference : null;
 }
 
@@ -566,13 +566,13 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
       <style>{PLE_QUESTION_JSON_EDITOR_STYLES}</style>
       <header>
         <p class="eyebrow">
-          {publishedReference(state()) ? "Publication complete" : "Private instructor authoring"}
+          {publishedQuestionId(state()) ? "Publication complete" : "Private instructor authoring"}
         </p>
         <h1 ref={(node) => (heading = node)} tabindex="-1">
-          {publishedReference(state()) ? "Question published" : "PLE Question JSON"}
+          {publishedQuestionId(state()) ? "Question published" : "PLE Question JSON"}
         </h1>
         <p>
-          {publishedReference(state())
+          {publishedQuestionId(state())
             ? "Your authoring work is complete. This confirmation identifies the Question now available in the Question Library."
             : "Build a clear student question, save it privately, then review and publish it when it is ready."}
         </p>
@@ -581,7 +581,7 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
         {(message) => (
           <p
             role="status"
-            aria-label={publishedReference(state()) ? "Publication status" : "Private draft status"}
+            aria-label={publishedQuestionId(state()) ? "Publication status" : "Private draft status"}
           >
             {message()}
           </p>
@@ -628,7 +628,7 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
         subjectUuid={subjectUuid}
         topicUuid={topicUuid}
         subtopicUuid={subtopicUuid}
-        publishedReference={() => publishedReference(state())}
+        publishedQuestionId={() => publishedQuestionId(state())}
         publishedSummary={publishedSummary}
         hotspotDraftAsset={hotspotDraftAsset}
         instructorAnswerCheck={(draft) => answerCheck(draft) ?? undefined}
