@@ -82,14 +82,15 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
   there is no legacy behavior to preserve.
 - Use the pre-production state to improve foundational schemas, contracts, and abstractions
   whenever that produces a stronger long-term system.
-- Use SQL directly to create the initial PostgreSQL database.
+- Use SQL directly to create the initial PostgreSQL database structure. Insertions have more flexibility.
 - Before production, edit the main database design directly as the design changes.
 - After production, update existing databases without rebuilding them from scratch.
 - Use readable `snake_case` whenever possible; see [NAMING_CONVENTIONS.md](/docs/NAMING_CONVENTIONS.md) for details.
 - Adaptability should be a focus so the software can evolve as requirements and insights change.
 - Cargo, Node, and PyPI dependencies should use the latest versions to include security fixes.
 - If an interface is measured as too slow, consider moving the slow code to Rust/WebAssembly.
-- Do not create or leave placeholder database tables, states, APIs, workers, or compatibility scaffolding before the feature has an approved product design.
+- All fields, identifiers, domain concepts, and terminology in the PostgreSQL database structure, Rust code,
+  TypeScript code, JSON/API contracts, Terminology Contract, and Human Guidance are in alignment.
 
 ### PLE development rules
 
