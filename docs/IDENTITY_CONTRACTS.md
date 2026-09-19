@@ -14,11 +14,12 @@ evidence, not a second product vocabulary.
 - A public ID remains its exact canonical string in PostgreSQL, Rust, JSON,
   URLs, object storage, hashes, logs, and browser UI; no boundary translates,
   reformats, strips, reconstructs, or derives it.
-- Internal UUIDs remain internal. An object may retain an internal UUID primary
-  key alongside a public ID, but the UUID never substitutes for or appears as
-  the public identity.
-- Published Questions, published Question Pools, and Blueprint Courses have
-  immutable Revision families.
+- Internal UUIDs remain internal. An object with a public ID uses that public
+  ID as its primary key. There is no parallel UUID key beside a public ID.
+  JSON for those objects is `id` (or nested `courseId` / `assessmentId`); there
+  is no parallel `reference` property.
+- Published Questions and Blueprint Courses have immutable Revision families.
+  Question Pools are current state with an Edit Number.
 
 ## Account and relationship identities
 
@@ -58,8 +59,7 @@ Course membership.
 | Draft Question ID | One private, mutable, unpublished Draft Question |
 | Question ID | One stable Published Question lineage, in canonical form `XXXX-ZXXX` |
 | Question Revision Reference | One immutable Revision in a Published Question lineage |
-| Question Pool ID | One stable published Pool lineage in the shared `XXXX-ZXXX` namespace |
-| Pool Revision Reference | One immutable Revision of a Question Pool |
+| Question Pool ID | One published Pool in the shared `XXXX-ZXXX` namespace; membership is current state |
 | Blueprint Revision Reference | One immutable saved content state of a Blueprint Course |
 | Assessment ID | One current Blueprint or Course Instance Assessment; not a revision family |
 | Assessment Attempt ID | One Student's occurrence of one Course Instance Assessment |
@@ -92,9 +92,10 @@ Published Question metadata and immutable Question Revision content are
 separate. A source change creates a Question Revision. A compatible metadata
 edit does not create a Revision. A substantive fork creates a new Question ID.
 
-Question Pools follow the same stable-lineage plus immutable-Revision pattern.
-An Assessment records exact Question or Pool Revision evidence so later
-publication cannot silently alter existing Student Work.
+Question Pools are current authored state. A membership change compare-and-swaps
+the Pool Edit Number; it does not append a Pool Revision. Student Work pins
+Question ID, Question Revision, Pool ID, and Pool Edit Number so later Pool
+edits cannot silently alter existing Attempts.
 
 ## Blueprint identities and lifecycle
 

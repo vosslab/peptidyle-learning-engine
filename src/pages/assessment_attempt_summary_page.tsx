@@ -168,7 +168,7 @@ function AssessmentAttemptHistoryContent(props: {
       </section>
       <A
         class="quiet-link"
-        href={`/courses/${props.history.course.reference}/assessments/${props.history.assessment.reference}`}
+        href={`/courses/${props.history.course.id}/assessments/${props.history.assessment.id}`}
       >
         Return to {props.history.assessment.title}
       </A>

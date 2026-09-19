@@ -32,7 +32,7 @@ pub(super) async fn create(
         Ok(value) => value,
         Err(_) => return invalid_request(),
     };
-    if reference != input.target.reference {
+    if reference != input.target.blueprint_course_id {
         return invalid_request();
     }
     let session = match instructor_session_hash(&state, &headers).await {

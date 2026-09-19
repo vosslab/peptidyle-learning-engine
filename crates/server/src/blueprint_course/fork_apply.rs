@@ -37,7 +37,7 @@ pub(super) async fn apply_fork_update(
         Ok(value) => value,
         Err(error) => return route_error(error.status(), "Blueprint fork update is invalid"),
     };
-    if request.expected_fork.reference != reference {
+    if request.expected_fork.blueprint_course_id != reference {
         return route_error(
             StatusCode::BAD_REQUEST,
             "Blueprint fork reference does not match",

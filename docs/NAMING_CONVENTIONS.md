@@ -32,7 +32,7 @@ not generic `assignment`.
 | TypeScript functions, locals, signals, ordinary props | `lowerCamelCase` | `saveAssessment` |
 | PLE-owned serialized fields | Serde-owned `snake_case` | `assessment_type` |
 | TypeScript types and components | `UpperCamelCase` | `AssessmentPropertiesEditor` |
-| Python modules, functions, locals | `snake_case` | `assessment_reference` |
+| Python modules, functions, locals | `snake_case` | `assessment_id` |
 | Python classes | `UpperCamelCase` | `ScenarioReceipt` |
 | PostgreSQL identifiers | unquoted `snake_case` | `assessment_id` |
 | Static URL segments and CSS classes | lowercase kebab case | `assessment-templates` |
@@ -56,10 +56,9 @@ their owner's spelling.
 | Bounded bearer value | `Token` | `WorkerLeaseToken` |
 | One-time correspondence value | `Nonce` | `PresentationNonce` |
 
-Use `Revision` only for Published Questions, published Question Pools, and
-Blueprint Courses. An Edit
-Number, event, receipt, snapshot, job generation, or current state is not a
-Revision.
+Use `Revision` only for Published Questions and Blueprint Courses. Question
+Pools, Assessments, and Course Instances are current state. An Edit Number,
+event, receipt, snapshot, job generation, or current state is not a Revision.
 
 Use `Uuid` only when the physical value is a UUID. A public ID is the one
 universal, canonical human-facing identifier for a PLE object that needs one.

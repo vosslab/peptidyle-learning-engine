@@ -207,7 +207,7 @@ def main() -> None:
 	file_lines = format_report(findings, findings, notes, True)
 	write_report(FINDINGS_PATH, file_lines)
 	print("wrote " + FINDINGS_PATH, file=sys.stderr)
-	if blocking:
+	if findings:
 		sys.exit(1)
 	sys.exit(0)
 

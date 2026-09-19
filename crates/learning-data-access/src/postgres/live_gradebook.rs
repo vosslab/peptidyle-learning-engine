@@ -85,7 +85,7 @@ impl CourseGradebookStore for PostgresCourseGradebookStore {
             .collect::<Result<Vec<_>, _>>()?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(CourseGradebook {
-            course_reference: returned_course,
+            course_id: returned_course,
             student_work,
         })
     }
@@ -148,7 +148,7 @@ fn decode_row(
     Ok(Some(CourseGradebookStudentWork {
         roster_id,
         roster_name,
-        assessment_reference,
+        assessment_id: assessment_reference,
         assessment_title,
         assessment_attempt_completion,
         expired_submitting,

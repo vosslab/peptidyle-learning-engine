@@ -140,7 +140,7 @@ export function ProposalTargetTools(props: {
   let sourceLoad = 0;
   let targetGeneration = 0;
   createEffect(() => {
-    const reference = props.target.reference;
+    const reference = props.target.id;
     void reference;
     ++targetGeneration;
     ++sourceLoad;
@@ -200,7 +200,7 @@ export function ProposalTargetTools(props: {
     const target = props.target;
     setBusy(true);
     try {
-      const result = await props.client.createBlueprintChangeProposal(target.reference, {
+      const result = await props.client.createBlueprintChangeProposal(target.id, {
         source: source.current_revision,
         sourceBlueprintEditNumber: source.blueprint_edit_number,
         target: target.current_revision,
@@ -226,7 +226,7 @@ export function ProposalTargetTools(props: {
   return (
     <section class="blueprint-proposal">
       <A href="/blueprint-change-proposals">My Change Proposals across targets</A>
-      <ProposalRecords client={props.client} target={props.target.reference} />
+      <ProposalRecords client={props.client} target={props.target.id} />
       <Show
         when={
           props.target.read_access !== "blueprint_course_owner" &&
@@ -255,19 +255,19 @@ export function ProposalTargetTools(props: {
               Saved source Blueprint
               <select
                 disabled={busy()}
-                value={selected()?.reference ?? ""}
+                value={selected()?.id ?? ""}
                 onChange={(e) => void choose(e.currentTarget.value)}
               >
                 <option value="">Choose a source</option>
                 <For
                   each={sources().filter(
                     (source) =>
-                      source.reference !== props.target.reference &&
+                      source.id !== props.target.id &&
                       source.availability !== "archived",
                   )}
                 >
                   {(source) => (
-                    <option value={source.reference}>
+                    <option value={source.id}>
                       {source.long_name} ({source.short_name}; {source.availability}; Revision{" "}
                       {source.current_revision.revision})
                     </option>

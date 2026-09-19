@@ -117,13 +117,13 @@ function CreateBlueprintFromCourseInstance(props: {
     setMessage("");
     try {
       const result = await applicationApi.client.createBlueprintFromCourseInstance(
-        props.course.reference,
+        props.course.id,
         input,
         creationAction.key,
       );
       creationAction = undefined;
       if (dialog?.open) dialog.close();
-      navigate(`/blueprint-courses/${encodeURIComponent(result.blueprintCourse.reference)}`);
+      navigate(`/blueprint-courses/${encodeURIComponent(result.blueprintCourse.id)}`);
     } catch (error: unknown) {
       setMessage(
         error instanceof ApiRequestError && error.status === 401
@@ -301,7 +301,7 @@ function AssessmentRow(props: {
     try {
       const saved = await applicationApi.client.saveLiveAssessmentInline(
         props.courseReference,
-        assessment().reference,
+        assessment().id,
         { title: title(), dueAt },
         assessment().editNumber,
       );
@@ -326,7 +326,7 @@ function AssessmentRow(props: {
     try {
       const latest = (
         await applicationApi.client.listCourseAssessments(props.courseReference)
-      ).find((candidate) => candidate.reference === assessment().reference);
+      ).find((candidate) => candidate.id === assessment().id);
       if (latest === undefined) throw new Error("Current Assessment was not returned");
       setAssessment(latest);
       setNeedsRefresh(false);
@@ -355,7 +355,7 @@ function AssessmentRow(props: {
           Assessment {props.position} - {assessmentStatusLabel(assessment().status)}
         </p>
         <h3>{assessment().title}</h3>
-        <p class="instructor-list__metadata">Assessment {assessment().reference}</p>
+        <p class="instructor-list__metadata">Assessment {assessment().id}</p>
         <p class="instructor-list__metadata">
           Due: {formatLocalDueDateAndTime(assessment().dueAt)} ({assessment().displayTimeZone})
         </p>
@@ -364,7 +364,7 @@ function AssessmentRow(props: {
         <A
           ref={(element) => (assessmentQuestionsLink = element)}
           class="quiet-link"
-          href={assessmentQuestionsPath(props.courseReference, assessment().reference)}
+          href={assessmentQuestionsPath(props.courseReference, assessment().id)}
         >
           Edit Assessment
         </A>
@@ -526,7 +526,7 @@ export function CourseInstancePage(): JSX.Element {
         {(view) => (
           <>
             <header class="course-instance-page__identity">
-              <p class="eyebrow">Course Instance · {view().course.reference}</p>
+              <p class="eyebrow">Course Instance · {view().course.id}</p>
               <h1>{view().course.longName}</h1>
             </header>
             <section
@@ -544,7 +544,7 @@ export function CourseInstancePage(): JSX.Element {
                 </div>
                 <A
                   class="primary-link"
-                  href={`/instructor/courses/${view().course.reference}/assessments/new`}
+                  href={`/instructor/courses/${view().course.id}/assessments/new`}
                 >
                   Create Assessment
                 </A>
@@ -575,7 +575,7 @@ export function CourseInstancePage(): JSX.Element {
                   <For each={assessments()}>
                     {(assessment, index) => (
                       <AssessmentRow
-                        courseReference={view().course.reference}
+                        courseReference={view().course.id}
                         assessment={assessment}
                         position={index() + 1}
                       />
@@ -624,7 +624,7 @@ export function CourseInstancePage(): JSX.Element {
                     canEdit
                     save={async (classification, editNumber) => {
                       const saved = await applicationApi.client.updateCourseInstanceClassification(
-                        view().course.reference,
+                        view().course.id,
                         classification,
                         editNumber,
                       );
@@ -639,7 +639,7 @@ export function CourseInstancePage(): JSX.Element {
                     }}
                     reload={async () => {
                       const current = await applicationApi.client.getCourseInstance(
-                        view().course.reference,
+                        view().course.id,
                       );
                       mutateCourse(current);
                       return {
@@ -658,8 +658,8 @@ export function CourseInstancePage(): JSX.Element {
                       <h3 id="blueprint-source-heading">Blueprint source</h3>
                       <p data-blueprint-origin>
                         Adopted from Blueprint{" "}
-                        <A href={`/blueprint-courses/${origin().reference}`}>
-                          {origin().reference}
+                        <A href={`/blueprint-courses/${origin().id}`}>
+                          {origin().id}
                         </A>
                         , Revision {origin().adoptedRevision}; source now Revision{" "}
                         {origin().currentRevision}.
@@ -669,7 +669,7 @@ export function CourseInstancePage(): JSX.Element {
                       >
                         <p data-blueprint-revision-notice>Newer Blueprint Revision available</p>
                         <CourseBlueprintUpdateReviewList
-                          courseReference={view().course.reference}
+                          courseReference={view().course.id}
                         />
                       </Show>
                     </section>
@@ -684,13 +684,13 @@ export function CourseInstancePage(): JSX.Element {
                 <nav class="course-instance-page__actions" aria-label="Course actions">
                   <A
                     class="quiet-link"
-                    href={`/instructor/courses/${view().course.reference}/students`}
+                    href={`/instructor/courses/${view().course.id}/students`}
                   >
                     Open Students
                   </A>
                   <A
                     class="quiet-link"
-                    href={`/instructor/courses/${view().course.reference}/appearance`}
+                    href={`/instructor/courses/${view().course.id}/appearance`}
                   >
                     Appearance
                   </A>
@@ -719,7 +719,7 @@ export function CourseInstancePage(): JSX.Element {
                   >
                     {(settings) => (
                       <CourseStudentWorkRecovery
-                        course={view().course.reference}
+                        course={view().course.id}
                         client={applicationApi.client}
                         displayTimeZone={settings().timeZone}
                       />

@@ -62,22 +62,23 @@ teaching language ambiguous.
 **Consequence.** This is a coordinated preproduction base-schema cutover, not
 a compatibility migration: do not add SQL compatibility views, dual DTOs,
 dual import shapes, dual API shapes, or a mixed-nomenclature reader. Preserve
-existing public `A-` references, UUID values, and the five Assessment Type
-enum values. A failed preproduction rollout rolls back the whole deployment and
-its resettable preproduction database together; it never leaves a partially
-renamed public boundary.
+existing public `AXXXXXXXZ` Assessment IDs, Attempt UUIDs, and the five
+Assessment Type enum values. A failed preproduction rollout rolls back the
+whole deployment and its resettable preproduction database together; it never
+leaves a partially renamed public boundary.
 
-Canonical JSON names are `assessment`, `assessmentReference`,
-`assessmentAttempt`, `assessmentEntry`, `assessmentStatus`, Blueprint
-JSON `assessments`, and `blueprint_assessment_reference`; canonical decoders
-accept only those names. There is no runtime legacy Blueprint import. A one-time,
-offline developer export-transform-import may assist the preproduction
-rebuild, but a fresh installation is canonical from the start.
+Canonical JSON names are `assessment`, `id` or nested `assessmentId` /
+`courseId` for those public IDs, `assessmentAttempt`, `assessmentEntry`,
+`assessmentStatus`, Blueprint JSON `assessments`, and
+`blueprint_assessment_reference`; canonical decoders accept only those names.
+There is no parallel `reference` property and no runtime legacy Blueprint
+import. A one-time, offline developer export-transform-import may assist the
+preproduction rebuild, but a fresh installation is canonical from the start.
 
 There is no legacy browser redirect or API compatibility layer. The
 preproduction rebuild uses the canonical Assessment routes directly.
 
-Use ignored `tests/_temp/` checks to prove the coordinated rebuild. Retain a
+Use focused connected tests to prove the coordinated rebuild. Retain a
 permanent test only when it protects an intentionally stable external contract,
 such as the canonical path or a preserved public identity, and it meets every
 criterion in `PYTEST_STYLE.md`; otherwise remove the check at plan closeout. A
@@ -134,12 +135,13 @@ completed migration.
 
 Only after per-family source acceptance, representative deterministic
 rendering/grading, and the expected-current Blueprint Revision CAS may PLE move
-current catalog placements. A Pool Revision changes only to remove redundant
-generated variants; it retains any intentionally pooled distinct algorithmic
-Questions. PLE then Archives replaced static Question and redundant
+current catalog placements. A Pool membership edit changes only to remove
+redundant generated variants; it retains any intentionally pooled distinct
+algorithmic Questions. PLE then Archives replaced static Question and redundant
 Pool lineages through ordinary availability and removes generated source copies.
-Exact immutable Question/Pool Revisions, Blueprint pins, and Student Work remain
-resolvable. PLE never deletes, repurposes, or raw-SQL-rewrites history.
+Exact immutable Question Revisions, Blueprint pins, Pool IDs, Pool Edit Numbers,
+and Student Work remain resolvable. PLE never deletes, repurposes, or
+raw-SQL-rewrites history.
 
 **Why.** Algorithmic practice needs one reproducible source and ordinary
 publication without changing previously delivered or pinned content. Pool
@@ -483,37 +485,14 @@ generation and validation contract. UUIDs remain internal.
 Pool creation uses this same server-held allocator: a browser never supplies a
 Pool ID, and the typed server command retries only a database uniqueness
 collision with a newly issued canonical ID. Pool schema owns the exact canonical
-ID and immutable sequential Revision storage, but it does not become an
+ID and current membership storage, but it does not become an
 unrouted ID issuer. The create route is the only path that combines the active
 Instructor authorization, allocator, and atomic Pool creation operation.
 
 ### Question Pools are published revisioned content
 
-**Decision.** A Question Pool has a stable public identity and immutable Pool
-Revisions. Each Pool Revision has a nonempty ordered distinct list of exact
-Published Question Revision references and the creating Instructor's
-interchangeability attestation. An Assessment records the exact Pool Revision
-and selected Question evidence used for an Attempt. Pool membership is backend
-neutral; it never changes a Question backend's own randomization behavior.
-
-**Why.** Reuse and random selection must remain explainable after later edits,
-while pinned Question Revisions preserve the content that the Instructor
-reviewed.
-
-**Consequence.** A Pool change appends a Revision under Pool metadata ETag/CAS;
-it never silently rewrites an Assessment or existing Student Work. Pool creation
-is an active-Instructor server command that mints its public ID and creates
-Revision 1 atomically; browser input contains only bounded member references
-and the attestation. Human Guidance does not say whether a selected-count
-belongs to a Pool Revision, an Assessment Pool entry, or an allowed Assessment
-override. No selection-count schema, API, or default is approved until that
-exact product question is answered; then the chosen source and its validation
-must be retained with the exact Pool/Question Revision evidence.
-
-**Owner.** [CONTRACTS.md](CONTRACTS.md)'s Question Pool boundary; C312, C313,
-and C885-C887 implement reusable Pool content, while C904 is the product decision
-that gates selection work in the active
-[Human Guidance implementation compliance plan](active_plans/active/human_guidance_implementation_compliance_plan.md).
+**Superseded.** Human Guidance treats Pool membership as current authored
+state. See [Question Pools are current state](#question-pools-are-current-state).
 
 ### Question Backends own Question behavior
 
@@ -946,7 +925,7 @@ Instructor's home LMS; it is not LMS synchronization.
 
 ### Evidence is minimal and purpose-bound
 
-**Decision.** Retain exact Question/Pool Revision selection, backend state
+**Decision.** Retain exact Question Revision, Pool ID, and Pool Edit Number selection, backend state
 needed to interpret the response, the response, immutable credit fraction, and
 disclosure state.
 
@@ -1291,14 +1270,13 @@ reader to choose which key was real.
 **Consequence.** Rust and TypeScript wrappers are `AccountId`,
 `CourseInstanceId`, `AssessmentId`, and `BlueprintCourseId` over `String`.
 SQL keys follow DATABASE_STYLE (`published_question_id`,
-`course_instance_id`). HTTP ETags are the aggregate Edit Number as a decimal
-string. Assessment Attempts, Assessment Entries, and sessions stay UUID
-because they are not Human Guidance public IDs. Browser JSON still uses a
-`reference` field for those public IDs (and `CourseSummary` still emits both
-`id` and `reference` with the same `CourseInstanceId`) so the API contract
-stays unchanged except WP-3.8. SQL function result columns may alias
-`public_reference` to the public-ID PK for that same reason. There is no
-second stored key.
+`course_instance_id`). JSON fields for those objects are `id` (or
+`courseId` / `assessmentId` when nested). There is no parallel `reference`
+property and no SQL `public_reference` alias. HTTP ETags are the aggregate
+Edit Number as a decimal string. Assessment Attempts, Assessment Entries,
+and sessions stay UUID because they are not Human Guidance public IDs; their
+JSON field is also `id`. PLE is pre-production, so this cutover edits the
+contract directly.
 
 ### Frozen Assessment policy and Entry facts are content-addressed snapshots
 

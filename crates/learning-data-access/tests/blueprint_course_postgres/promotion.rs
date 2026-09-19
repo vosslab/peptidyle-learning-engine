@@ -101,7 +101,7 @@ pub(super) async fn promotion_boundary(
             .expect("unpromoted filtering")
             .items
             .iter()
-            .all(|item| item.reference != reference)
+            .all(|item| item.id != reference)
     );
     let promoted = store
         .set_blueprint_promotion(
@@ -147,7 +147,7 @@ pub(super) async fn promotion_boundary(
             .expect("owner promoted filtering")
             .items
             .iter()
-            .any(|item| item.reference == reference)
+            .any(|item| item.id == reference)
     );
     assert!(
         store
@@ -156,7 +156,7 @@ pub(super) async fn promotion_boundary(
             .expect("promotion does not expose Private lineage")
             .items
             .iter()
-            .all(|item| item.reference != reference)
+            .all(|item| item.id != reference)
     );
     assert_eq!(
         store

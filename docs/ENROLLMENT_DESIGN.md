@@ -88,7 +88,7 @@ Course Instance.
 
 ## Student Work
 
-An Assessment Attempt and its selected Question/Pool Revision evidence, saved
+An Assessment Attempt and its selected Question Revision, Pool ID, and Pool Edit Number evidence, saved
 responses, whole-Assessment submission state, credit fractions, scores, and
 feedback belong to the Student record in the Course.
 

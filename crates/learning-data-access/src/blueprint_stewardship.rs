@@ -60,14 +60,14 @@ pub trait BlueprintStewardshipStore: Send + Sync {
     async fn blueprint_course_star_projection(
         &self,
         session_token_hash: SessionTokenHash,
-        blueprint_course_reference: BlueprintCourseId,
+        blueprint_course_id: BlueprintCourseId,
     ) -> Result<BlueprintCourseStarProjection, StoreError>;
 
     /// Sets only the caller's Star state, then reads the closed Star projection.
     async fn set_current_blueprint_course_star_projection(
         &self,
         session_token_hash: SessionTokenHash,
-        blueprint_course_reference: BlueprintCourseId,
+        blueprint_course_id: BlueprintCourseId,
         starred: bool,
     ) -> Result<BlueprintCourseStarProjection, StoreError>;
 
@@ -77,21 +77,21 @@ pub trait BlueprintStewardshipStore: Send + Sync {
     async fn blueprint_course_starred_instructors(
         &self,
         session_token_hash: SessionTokenHash,
-        blueprint_course_reference: BlueprintCourseId,
+        blueprint_course_id: BlueprintCourseId,
     ) -> Result<Vec<BlueprintCourseStarredInstructor>, StoreError>;
 
     /// Reads only the caller's private Watch state.
     async fn blueprint_course_watch_projection(
         &self,
         session_token_hash: SessionTokenHash,
-        blueprint_course_reference: BlueprintCourseId,
+        blueprint_course_id: BlueprintCourseId,
     ) -> Result<BlueprintCourseWatchProjection, StoreError>;
 
     /// Sets only the caller's private Watch state, then reads it.
     async fn set_current_blueprint_course_watch_projection(
         &self,
         session_token_hash: SessionTokenHash,
-        blueprint_course_reference: BlueprintCourseId,
+        blueprint_course_id: BlueprintCourseId,
         watching: bool,
     ) -> Result<BlueprintCourseWatchProjection, StoreError>;
 
@@ -101,7 +101,7 @@ pub trait BlueprintStewardshipStore: Send + Sync {
     async fn blueprint_course_watch_events(
         &self,
         session_token_hash: SessionTokenHash,
-        blueprint_course_reference: BlueprintCourseId,
+        blueprint_course_id: BlueprintCourseId,
         limit: u16,
     ) -> Result<Vec<BlueprintCourseWatchEvent>, StoreError>;
 }

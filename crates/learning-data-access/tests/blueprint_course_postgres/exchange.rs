@@ -24,7 +24,7 @@ pub(super) async fn assert_actual_role_round_trip(
         .await
         .expect("owner imports canonical reusable Blueprint content");
     assert_ne!(
-        imported.blueprint_revision.reference, blueprint_reference,
+        imported.blueprint_revision.blueprint_course_id, blueprint_reference,
         "canonical import creates a distinct local Blueprint lineage"
     );
     assert_eq!(
@@ -33,7 +33,10 @@ pub(super) async fn assert_actual_role_round_trip(
         "canonical import starts the new lineage at Revision 1"
     );
     let imported_private = store
-        .load_blueprint_course(token(), imported.blueprint_revision.reference.clone())
+        .load_blueprint_course(
+            token(),
+            imported.blueprint_revision.blueprint_course_id.clone(),
+        )
         .await
         .expect("owner reads imported Private Blueprint");
     assert_eq!(
@@ -55,7 +58,10 @@ pub(super) async fn assert_actual_role_round_trip(
         owner_private.classification
     );
     let reexported = store
-        .export_blueprint_course(token(), imported.blueprint_revision.reference.clone())
+        .export_blueprint_course(
+            token(),
+            imported.blueprint_revision.blueprint_course_id.clone(),
+        )
         .await
         .expect("owner exports imported reusable Blueprint content");
     assert_eq!(reexported.metadata(), exported.metadata());

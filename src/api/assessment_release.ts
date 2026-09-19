@@ -63,7 +63,7 @@ export interface ApplyAssessmentBlueprintUpdateInput {
 export type LiveAssessmentStatus = "unreleased" | "released" | "closed" | "archived";
 
 export interface CourseAssessmentSummary {
-  readonly reference: AssessmentId;
+  readonly id: AssessmentId;
   readonly assessmentType: AssessmentType;
   readonly title: string;
   readonly dueAt: LocalDateAndTime | null;
@@ -112,7 +112,7 @@ export interface AuthoredAssessmentQuestion {
 }
 
 export interface LiveAssessmentWorkspace {
-  readonly reference: AssessmentId;
+  readonly id: AssessmentId;
   readonly editNumber: AssessmentEditNumber;
   readonly status: LiveAssessmentStatus;
   /** Trusted server-derived direct or adopted origin; create requests never send it. */

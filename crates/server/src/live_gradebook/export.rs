@@ -39,7 +39,7 @@ impl Format {
 const COLUMNS: [&str; 7] = [
     "roster_id",
     "roster_name",
-    "assessment_reference",
+    "assessment_id",
     "assessment_title",
     "status",
     "points_earned",
@@ -53,9 +53,9 @@ pub(super) fn encode(gradebook: &CourseGradebook, format: Format) -> anyhow::Res
             .as_bytes()
             .cmp(right.roster_id.as_bytes())
             .then_with(|| {
-                left.assessment_reference
+                left.assessment_id
                     .to_string()
-                    .cmp(&right.assessment_reference.to_string())
+                    .cmp(&right.assessment_id.to_string())
             })
     });
     // ASVS 1.1.2/1.2.10: escape at the final output boundary using the CSV writer.
@@ -78,7 +78,7 @@ pub(super) fn encode(gradebook: &CourseGradebook, format: Format) -> anyhow::Res
         let cells = [
             spreadsheet_text(&row.roster_id),
             spreadsheet_text(&row.roster_name),
-            Cow::Owned(row.assessment_reference.to_string()),
+            Cow::Owned(row.assessment_id.to_string()),
             spreadsheet_text(&row.assessment_title),
             Cow::Borrowed(status),
             Cow::Owned(earned),

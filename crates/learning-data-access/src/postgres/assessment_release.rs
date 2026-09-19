@@ -94,14 +94,14 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
             .iter()
             .map(|row| {
                 Ok(DueSoonAssessmentSummary {
-                    course_reference: course_reference(
+                    course_id: course_reference(
                         row.try_get("course_reference_number")
                             .map_err(map_sqlx_error)?,
                     )?,
                     course_long_name: course_name(
                         row.try_get("course_long_name").map_err(map_sqlx_error)?,
                     )?,
-                    assessment_reference: assessment_reference(
+                    assessment_id: assessment_reference(
                         row.try_get("assessment_reference_number")
                             .map_err(map_sqlx_error)?,
                     )?,
@@ -147,7 +147,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
             .iter()
             .map(|row| {
                 Ok(CourseAssessmentSummary {
-                    reference: assessment_reference(
+                    id: assessment_reference(
                         row.try_get("assessment_reference_number")
                             .map_err(map_sqlx_error)?,
                     )?,
@@ -365,7 +365,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
             .transpose()
             .map_err(|_| invalid("Due at"))?;
         let result = CourseAssessmentSummary {
-            reference: assessment_reference(
+            id: assessment_reference(
                 row.try_get("assessment_reference_number")
                     .map_err(map_sqlx_error)?,
             )?,
@@ -653,7 +653,7 @@ pub(super) fn decode_workspace(
         })
         .collect::<Result<Vec<_>, StoreError>>()?;
     Ok(Some(LiveAssessmentWorkspace {
-        reference: assessment_reference(
+        id: assessment_reference(
             first
                 .try_get("assessment_reference_number")
                 .map_err(map_sqlx_error)?,
@@ -814,25 +814,20 @@ fn selected_question_order_from_row(value: String) -> Result<QuestionPoolSelecte
 fn assessment_origin(row: &sqlx::postgres::PgRow) -> Result<AssessmentOrigin, StoreError> {
     // ASVS 2.2.1 and 2.2.3: accept only the two complete persisted origin shapes.
     let kind: String = row.try_get("origin_kind").map_err(map_sqlx_error)?;
-    let course_reference: Option<String> = row
-        .try_get("source_blueprint_course_reference_number")
+    let course_id: Option<String> = row
+        .try_get("source_blueprint_course_id_number")
         .map_err(map_sqlx_error)?;
     let revision: Option<i64> = row
         .try_get("source_blueprint_revision_number")
         .map_err(map_sqlx_error)?;
-    let assessment_reference: Option<uuid::Uuid> = row
-        .try_get("source_blueprint_assessment_reference")
+    let assessment_id: Option<uuid::Uuid> = row
+        .try_get("source_blueprint_assessment_id")
         .map_err(map_sqlx_error)?;
-    match (
-        kind.as_str(),
-        course_reference,
-        revision,
-        assessment_reference,
-    ) {
+    match (kind.as_str(), course_id, revision, assessment_id) {
         ("direct", None, None, None) => Ok(AssessmentOrigin::Direct),
-        ("adopted", Some(course_reference), Some(revision), Some(assessment_reference)) => {
-            let course_reference = BlueprintCourseId::new(course_reference)
-                .map_err(|_| invalid("Assessment Origin"))?;
+        ("adopted", Some(course_id), Some(revision), Some(assessment_id)) => {
+            let course_id =
+                BlueprintCourseId::new(course_id).map_err(|_| invalid("Assessment Origin"))?;
             let revision = u64::try_from(revision)
                 .ok()
                 .and_then(BlueprintRevision::new)
@@ -840,10 +835,10 @@ fn assessment_origin(row: &sqlx::postgres::PgRow) -> Result<AssessmentOrigin, St
             Ok(AssessmentOrigin::Adopted {
                 source: BlueprintAssessmentSource::new(
                     BlueprintRevisionReference {
-                        reference: course_reference,
+                        blueprint_course_id: course_id,
                         revision,
                     },
-                    BlueprintAssessmentId::from_uuid(assessment_reference),
+                    BlueprintAssessmentId::from_uuid(assessment_id),
                 ),
             })
         }

@@ -46,10 +46,10 @@ pub struct BlueprintForkApplyModuleLabelCopy {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BlueprintForkApplyAssessmentCopy {
     /// Assessment in the readable current source.
-    pub source_assessment_reference: BlueprintAssessmentId,
+    pub source_assessment_id: BlueprintAssessmentId,
     /// Existing target-local Assessment; null explicitly requests a new copy.
     #[serde(deserialize_with = "deserialize_explicit_target")]
-    pub target_assessment_reference: Option<BlueprintAssessmentId>,
+    pub target_assessment_id: Option<BlueprintAssessmentId>,
 }
 
 // ASVS 1.5.2: a missing target is not the explicit null new-copy choice.
@@ -94,12 +94,12 @@ pub enum BlueprintForkApplyAssessmentDestination {
     /// Retains a target-local Assessment ID.
     Existing {
         /// Assessment already in the target.
-        target_assessment_reference: BlueprintAssessmentId,
+        target_assessment_id: BlueprintAssessmentId,
     },
     /// Allocates a fresh target-local ID for selected complete source content.
     NewFromSource {
         /// Source Assessment selected for copying.
-        source_assessment_reference: BlueprintAssessmentId,
+        source_assessment_id: BlueprintAssessmentId,
     },
 }
 
@@ -182,7 +182,7 @@ impl<'a> ContentIndex<'a> {
             for assessment in module.assessments() {
                 if index
                     .assessments
-                    .insert(assessment.blueprint_assessment_reference(), assessment)
+                    .insert(assessment.blueprint_assessment_id(), assessment)
                     .is_some()
                 {
                     return Err(BlueprintForkApplyError::DuplicateAssessmentId);
@@ -259,27 +259,27 @@ pub fn apply_blueprint_fork(
         }
     }
     for copy in &selection.source_assessments {
-        if !assessment_sources.insert(copy.source_assessment_reference) {
+        if !assessment_sources.insert(copy.source_assessment_id) {
             return Err(BlueprintForkApplyError::DuplicateAssessmentId);
         }
         if !source_index
             .assessments
-            .contains_key(&copy.source_assessment_reference)
+            .contains_key(&copy.source_assessment_id)
         {
             return Err(BlueprintForkApplyError::UnknownAssessmentId);
         }
-        if let Some(reference) = copy.target_assessment_reference {
+        if let Some(reference) = copy.target_assessment_id {
             if !target_index.assessments.contains_key(&reference) {
                 return Err(BlueprintForkApplyError::UnknownAssessmentId);
             }
             if assessment_copies
-                .insert(reference, copy.source_assessment_reference)
+                .insert(reference, copy.source_assessment_id)
                 .is_some()
             {
                 return Err(BlueprintForkApplyError::DuplicateAssessmentId);
             }
         } else {
-            new_assessment_sources.insert(copy.source_assessment_reference);
+            new_assessment_sources.insert(copy.source_assessment_id);
         }
     }
     if selection.layout.is_none()
@@ -322,8 +322,7 @@ pub fn apply_blueprint_fork(
                     .iter()
                     .map(
                         |assessment| BlueprintForkApplyAssessmentDestination::Existing {
-                            target_assessment_reference: assessment
-                                .blueprint_assessment_reference(),
+                            target_assessment_id: assessment.blueprint_assessment_id(),
                         },
                     )
                     .collect(),
@@ -364,27 +363,24 @@ pub fn apply_blueprint_fork(
         for destination in &row.assessments {
             let (reference, content) = match *destination {
                 BlueprintForkApplyAssessmentDestination::Existing {
-                    target_assessment_reference,
+                    target_assessment_id,
                 } => {
                     let original = target_index
                         .assessments
-                        .get(&target_assessment_reference)
+                        .get(&target_assessment_id)
                         .ok_or(BlueprintForkApplyError::UnknownAssessmentId)?;
                     let content = assessment_copies
-                        .get(&target_assessment_reference)
+                        .get(&target_assessment_id)
                         .map_or(*original, |source| source_index.assessments[source]);
-                    (target_assessment_reference, content)
+                    (target_assessment_id, content)
                 }
                 BlueprintForkApplyAssessmentDestination::NewFromSource {
-                    source_assessment_reference,
+                    source_assessment_id,
                 } => {
                     let reference = *new_assessments
-                        .get(&source_assessment_reference)
+                        .get(&source_assessment_id)
                         .ok_or(BlueprintForkApplyError::MissingSourceAssessmentSelection)?;
-                    (
-                        reference,
-                        source_index.assessments[&source_assessment_reference],
-                    )
+                    (reference, source_index.assessments[&source_assessment_id])
                 }
             };
             if !destination_assessments.insert(reference) {

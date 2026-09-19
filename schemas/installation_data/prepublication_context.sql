@@ -1,4 +1,4 @@
--- Fixed fictional identities plus the temporary ordinary Instructor context
+-- Fictional identities plus the temporary ordinary Instructor context
 -- used by the Pilot publisher.  The caller supplies only a new opaque session
 -- hash and UUID; browser credentials never enter this manifest.
 -- Account primary keys are server-minted public IDs. Email is the stable
@@ -15,14 +15,14 @@ DECLARE
     sysadmin_id ple_data.account_id;
     priya ple_data.account_id;
     decision uuid;
-    placeholder constant text := 'U00000009';
+    account_placeholder constant text := 'U00000009';
 BEGIN
     SELECT email.account_id INTO elena
       FROM ple_private.account_authentication_email AS email
      WHERE email.normalized_email = 'elena.martinez@live-demo.invalid';
     IF elena IS NULL THEN
         INSERT INTO ple_private.account (account_id, product_role, created_at)
-        VALUES (placeholder, 'instructor', pg_catalog.transaction_timestamp())
+        VALUES (account_placeholder, 'instructor', pg_catalog.transaction_timestamp())
         RETURNING account_id INTO elena;
         INSERT INTO ple_private.account_authentication_email (
             account_id, normalized_email, delivery_email, verified_at, updated_at
@@ -37,7 +37,7 @@ BEGIN
      WHERE email.normalized_email = 'mary.okafor@biology.roosevelt.edu';
     IF mary IS NULL THEN
         INSERT INTO ple_private.account (account_id, product_role, created_at)
-        VALUES (placeholder, 'student', pg_catalog.transaction_timestamp())
+        VALUES (account_placeholder, 'student', pg_catalog.transaction_timestamp())
         RETURNING account_id INTO mary;
         INSERT INTO ple_private.account_authentication_email (
             account_id, normalized_email, delivery_email, verified_at, updated_at
@@ -52,7 +52,7 @@ BEGIN
      WHERE email.normalized_email = 'jack.nguyen@biology.roosevelt.edu';
     IF jack IS NULL THEN
         INSERT INTO ple_private.account (account_id, product_role, created_at)
-        VALUES (placeholder, 'student', pg_catalog.transaction_timestamp())
+        VALUES (account_placeholder, 'student', pg_catalog.transaction_timestamp())
         RETURNING account_id INTO jack;
         INSERT INTO ple_private.account_authentication_email (
             account_id, normalized_email, delivery_email, verified_at, updated_at
@@ -67,7 +67,7 @@ BEGIN
      WHERE email.normalized_email = 'avery.thompson@biology.roosevelt.edu';
     IF avery IS NULL THEN
         INSERT INTO ple_private.account (account_id, product_role, created_at)
-        VALUES (placeholder, 'student', pg_catalog.transaction_timestamp())
+        VALUES (account_placeholder, 'student', pg_catalog.transaction_timestamp())
         RETURNING account_id INTO avery;
         INSERT INTO ple_private.account_authentication_email (
             account_id, normalized_email, delivery_email, verified_at, updated_at
@@ -77,15 +77,31 @@ BEGIN
         );
     END IF;
 
-    SELECT account.account_id INTO sysadmin_id
-      FROM ple_private.account AS account
-     WHERE account.product_role = 'sysadmin'
-     ORDER BY account.created_at, account.account_id
-     LIMIT 1;
+    SELECT email.account_id INTO sysadmin_id
+      FROM ple_private.account_authentication_email AS email
+     WHERE email.normalized_email = 'morgan.delgado@live-demo.invalid';
+    IF sysadmin_id IS NULL THEN
+        SELECT account.account_id INTO sysadmin_id
+          FROM ple_private.account AS account
+         WHERE account.product_role = 'sysadmin'
+         ORDER BY account.created_at, account.account_id
+         LIMIT 1;
+    END IF;
     IF sysadmin_id IS NULL THEN
         INSERT INTO ple_private.account (account_id, product_role, created_at)
-        VALUES (placeholder, 'sysadmin', pg_catalog.transaction_timestamp())
+        VALUES (account_placeholder, 'sysadmin', pg_catalog.transaction_timestamp())
         RETURNING account_id INTO sysadmin_id;
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM ple_private.account_authentication_email AS email
+         WHERE email.normalized_email = 'morgan.delgado@live-demo.invalid'
+    ) THEN
+        INSERT INTO ple_private.account_authentication_email (
+            account_id, normalized_email, delivery_email, verified_at, updated_at
+        ) VALUES (
+            sysadmin_id, 'morgan.delgado@live-demo.invalid',
+            'morgan.delgado@live-demo.invalid', clock_timestamp(), clock_timestamp()
+        );
     END IF;
 
     SELECT email.account_id INTO priya
@@ -93,7 +109,7 @@ BEGIN
      WHERE email.normalized_email = 'priya.shah@live-demo.invalid';
     IF priya IS NULL THEN
         INSERT INTO ple_private.account (account_id, product_role, created_at)
-        VALUES (placeholder, 'instructor', pg_catalog.transaction_timestamp())
+        VALUES (account_placeholder, 'instructor', pg_catalog.transaction_timestamp())
         RETURNING account_id INTO priya;
         INSERT INTO ple_private.account_authentication_email (
             account_id, normalized_email, delivery_email, verified_at, updated_at

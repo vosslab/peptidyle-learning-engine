@@ -13,7 +13,7 @@ export function StudentCourseInvitationPage(): JSX.Element {
   }
   const [invitation] = createResource(course, async (reference) => {
     const invitations = await runtime.client.listPendingLiveStudentCourseInvitations();
-    return invitations.find((candidate) => candidate.reference === reference) ?? null;
+    return invitations.find((candidate) => candidate.id === reference) ?? null;
   });
   const [busy, setBusy] = createSignal(false);
   const [message, setMessage] = createSignal("");

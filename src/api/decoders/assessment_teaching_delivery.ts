@@ -27,11 +27,10 @@ export function decodeStudentAssessmentLandingSummary(
 ): StudentAssessmentLandingSummary {
   const record = decodeRecord(value, path);
   if (strict) {
-    requireOnlyFields(record, path, ["id", "reference", "title"]);
+    requireOnlyFields(record, path, ["id", "title"]);
   }
   return {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
-    reference: decodeAssessmentId(field(record, "reference", path), `${path}.reference`),
     title: decodeNonemptyString(field(record, "title", path), `${path}.title`),
   } satisfies StudentAssessmentLandingSummary;
 }
@@ -190,7 +189,6 @@ export function decodeStudentAssessmentDetail(
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "id",
-    "reference",
     "title",
     "instructions",
     "display_time_zone",
@@ -244,7 +242,6 @@ export function decodeStudentAssessmentDetail(
   };
   return {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
-    reference: decodeAssessmentId(field(record, "reference", path), `${path}.reference`),
     title: decodeNonemptyString(field(record, "title", path), `${path}.title`),
     instructions: decodeInstructions(field(record, "instructions", path), `${path}.instructions`),
     display_time_zone: decodeNonemptyString(

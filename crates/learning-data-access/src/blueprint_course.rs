@@ -67,7 +67,7 @@ pub struct ApplyBlueprintForkResult {
 #[derive(Debug, Clone, PartialEq)]
 pub struct StoredBlueprintCourse {
     pub classification: question_model::CourseClassification,
-    pub reference: BlueprintCourseId,
+    pub id: BlueprintCourseId,
     pub short_name: String,
     pub long_name: String,
     pub availability: BlueprintAvailability,
@@ -84,7 +84,7 @@ pub struct StoredBlueprintCourse {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StoredBlueprintCourseSummary {
     pub classification: question_model::CourseClassification,
-    pub reference: BlueprintCourseId,
+    pub id: BlueprintCourseId,
     pub short_name: String,
     pub long_name: String,
     pub availability: BlueprintAvailability,
@@ -124,7 +124,7 @@ pub struct StoredBlueprintModule {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct StoredBlueprintAssessment {
-    pub blueprint_assessment_reference: BlueprintAssessmentId,
+    pub blueprint_assessment_id: BlueprintAssessmentId,
     pub content: StoredBlueprintAssessmentContent,
 }
 
@@ -177,8 +177,8 @@ impl StoredBlueprintCourseContent {
                     .into_iter()
                     .map(|content| {
                         Ok(StoredBlueprintAssessment {
-                            blueprint_assessment_reference: BlueprintAssessmentId::from_uuid(
-                                random_uuid()?,
+                            blueprint_assessment_id: BlueprintAssessmentId::from_uuid(
+                                random_uuid()?
                             ),
                             content: StoredBlueprintAssessmentContent::from_input(
                                 content,
@@ -320,20 +320,18 @@ impl StoredBlueprintCourseContent {
     ) -> Result<StoredBlueprintAssessment, StoreError> {
         let reference = match assessment.choice {
             BlueprintAssessmentEditChoice::Retained {
-                blueprint_assessment_reference,
+                blueprint_assessment_id,
             } => prior
                 .modules
                 .iter()
                 .flat_map(|module| module.assessments.iter())
-                .find(|candidate| {
-                    candidate.blueprint_assessment_reference == blueprint_assessment_reference
-                })
-                .map(|candidate| candidate.blueprint_assessment_reference)
+                .find(|candidate| candidate.blueprint_assessment_id == blueprint_assessment_id)
+                .map(|candidate| candidate.blueprint_assessment_id)
                 .ok_or_else(|| invalid("retained Blueprint Assessment Reference"))?,
             BlueprintAssessmentEditChoice::New => BlueprintAssessmentId::from_uuid(random_uuid()?),
         };
         Ok(StoredBlueprintAssessment {
-            blueprint_assessment_reference: reference,
+            blueprint_assessment_id: reference,
             content: StoredBlueprintAssessmentContent::from_input(
                 assessment.content,
                 pool_revisions,
@@ -393,7 +391,7 @@ impl StoredBlueprintAssessmentContent {
 
     fn to_domain(
         &self,
-        blueprint_assessment_reference: BlueprintAssessmentId,
+        blueprint_assessment_id: BlueprintAssessmentId,
     ) -> Result<BlueprintAssessmentContent, StoreError> {
         let entries = self
             .entries
@@ -435,7 +433,7 @@ impl StoredBlueprintAssessmentContent {
             })
             .collect::<Result<Vec<_>, StoreError>>()?;
         BlueprintAssessmentContent::new(
-            blueprint_assessment_reference,
+            blueprint_assessment_id,
             self.assessment_type,
             AssessmentTitle::try_new(self.title.clone())
                 .map_err(|_| invalid("Blueprint Assessment title"))?,
@@ -449,7 +447,7 @@ impl StoredBlueprintAssessmentContent {
 
 impl StoredBlueprintAssessment {
     fn to_domain(&self) -> Result<BlueprintAssessmentContent, StoreError> {
-        self.content.to_domain(self.blueprint_assessment_reference)
+        self.content.to_domain(self.blueprint_assessment_id)
     }
 }
 
@@ -644,9 +642,9 @@ mod tests {
                 blueprint_module_reference: BlueprintModuleReference::from_uuid(Uuid::from_u128(1)),
                 label: "Module".to_string(),
                 assessments: vec![StoredBlueprintAssessment {
-                    blueprint_assessment_reference: BlueprintAssessmentId::from_uuid(
-                        Uuid::from_u128(assessment_identity),
-                    ),
+                    blueprint_assessment_id: BlueprintAssessmentId::from_uuid(Uuid::from_u128(
+                        assessment_identity,
+                    )),
                     content: StoredBlueprintAssessmentContent {
                         assessment_type: question_model::AssessmentType::RegularAssignment,
                         title: "Assessment".to_string(),

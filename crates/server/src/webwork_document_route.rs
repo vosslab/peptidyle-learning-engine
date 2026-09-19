@@ -304,13 +304,13 @@ mod tests {
                 assessment_attempt: AssessmentAttemptId::from_uuid(uuid::Uuid::from_u128(12)),
                 attempt_number: 1,
                 course: StudentAssessmentAttemptHistoryCourse {
-                    reference: "CIABCDEFGS".parse().unwrap(),
+                    id: "CIABCDEFGS".parse().unwrap(),
                     short_name: "Course".into(),
                     long_name: "Course".into(),
                     theme: question_model::CourseTheme::Forest,
                 },
                 assessment: StudentAssessmentAttemptHistoryAssessment {
-                    reference: "AABCDEFG8".parse().unwrap(),
+                    id: "AABCDEFG8".parse().unwrap(),
                     title: "Practice".into(),
                 },
                 state: LiveAssessmentPreviousAttemptState::Submitted,

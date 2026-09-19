@@ -294,13 +294,13 @@ mod tests {
                 assessment_attempt: AssessmentAttemptId::from_uuid(uuid::Uuid::from_u128(12)),
                 attempt_number: 2,
                 course: StudentAssessmentAttemptHistoryCourse {
-                    reference: CourseInstanceId::new("CIABCDEFGS").expect("valid reference"),
+                    id: CourseInstanceId::new("CIABCDEFGS").expect("valid Course Instance ID"),
                     short_name: "Mol Bio".to_string(),
                     long_name: "Molecular biology".to_string(),
                     theme: CourseTheme::Forest,
                 },
                 assessment: StudentAssessmentAttemptHistoryAssessment {
-                    reference: AssessmentId::new("AABCDEFG8").expect("valid reference"),
+                    id: AssessmentId::new("AABCDEFG8").expect("valid Assessment ID"),
                     title: "Protein folding practice".to_string(),
                 },
                 state: LiveAssessmentPreviousAttemptState::Submitted,

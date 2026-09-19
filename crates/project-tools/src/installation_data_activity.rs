@@ -399,7 +399,7 @@ async fn resolve_graph(api: &ProductApi, instructor: &TemporarySession) -> Resul
                     "classification",
                     "lifecycleState",
                     "courseEditNumber",
-                    "reference",
+                    "id",
                     "shortName",
                     "longName",
                     "term",
@@ -421,7 +421,7 @@ async fn resolve_graph(api: &ProductApi, instructor: &TemporarySession) -> Resul
         courses.len() == 1,
         "Live Demo Course is missing or ambiguous"
     );
-    let course = public_reference::<CourseInstanceId>(courses[0].get("reference"), "Course")?;
+    let course = public_id::<CourseInstanceId>(courses[0].get("id"), "Course")?;
 
     let assessments = expect_status(
         api.request(
@@ -444,7 +444,7 @@ async fn resolve_graph(api: &ProductApi, instructor: &TemporarySession) -> Resul
             let object = closed_object(
                 item,
                 &[
-                    "reference",
+                    "id",
                     "assessmentType",
                     "title",
                     "dueAt",
@@ -469,7 +469,7 @@ async fn resolve_graph(api: &ProductApi, instructor: &TemporarySession) -> Resul
         "Live Demo Assessment is missing or ambiguous"
     );
     let assessment =
-        public_reference::<AssessmentId>(assessments[0].get("reference"), "Assessment")?;
+        public_id::<AssessmentId>(assessments[0].get("id"), "Assessment")?;
     Ok(DemoGraph { course, assessment })
 }
 
@@ -497,7 +497,7 @@ async fn student_attempt_state(
             let object = closed_object_with_optional(
                 item,
                 &[
-                    "reference",
+                    "id",
                     "title",
                     "assessmentType",
                     "decision",
@@ -512,7 +512,7 @@ async fn student_attempt_state(
                 "Student Assessment",
             )
             .ok()?;
-            (object.get("reference")?.as_str() == Some(graph.assessment.as_str())).then_some(object)
+            (object.get("id")?.as_str() == Some(graph.assessment.as_str())).then_some(object)
         })
         .collect::<Vec<_>>();
     ensure!(
@@ -667,7 +667,7 @@ async fn prepare_attempt(
                 .is_some_and(|items| items.len() == LIVE_DEMO_QUESTION_COUNT as usize),
         "Live Demo {student_name} Assessment Attempt is invalid"
     );
-    public_reference::<AssessmentAttemptId>(object.get("assessmentAttempt"), "Assessment Attempt")
+    public_id::<AssessmentAttemptId>(object.get("assessmentAttempt"), "Assessment Attempt")
         .map(Some)
 }
 
@@ -888,14 +888,14 @@ fn closed_object_with_optional<'a>(
     Ok(object)
 }
 
-fn public_reference<Reference>(value: Option<&Value>, label: &'static str) -> Result<String>
+fn public_id<Reference>(value: Option<&Value>, label: &'static str) -> Result<String>
 where
     Reference: std::str::FromStr,
 {
     // ASVS 2.2.1: validate each API projection with its canonical domain parser.
     let value = value
         .and_then(Value::as_str)
-        .context("Live Demo public reference is invalid")?;
+        .context("Live Demo public ID is invalid")?;
     value
         .parse::<Reference>()
         .map_err(|_| anyhow::anyhow!("Live Demo {label} reference is invalid"))?;

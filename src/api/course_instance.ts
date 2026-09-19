@@ -41,7 +41,7 @@ export interface CourseInstanceSummary {
   /** Stored activity state; it is not inferred from dates or retention state. */
   readonly lifecycleState: CourseInstanceLifecycleState;
   readonly courseEditNumber: CourseEditNumber;
-  readonly reference: CourseInstanceId;
+  readonly id: CourseInstanceId;
   readonly shortName: string;
   readonly longName: string;
   readonly term: CourseTerm;
@@ -55,7 +55,7 @@ export interface CourseInstanceView {
   readonly activeInstructorCount: number;
   /** Original adoption provenance; null for Empty Courses or unreadable sources. */
   readonly blueprintOrigin: {
-    readonly reference: BlueprintCourseId;
+    readonly id: BlueprintCourseId;
     readonly adoptedRevision: BlueprintRevision;
     readonly currentRevision: BlueprintRevision;
   } | null;
@@ -63,7 +63,7 @@ export interface CourseInstanceView {
 
 /** Explicit Sysadmin selection target; it carries no email or course authority. */
 export interface CourseCreationInstructor {
-  readonly reference: AccountId;
+  readonly id: AccountId;
 }
 
 /** Creation receipt that does not imply creator Course access. */

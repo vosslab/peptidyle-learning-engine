@@ -11,7 +11,7 @@ use learning_data_access::{
     postgres::{PostgresBlueprintCourseStore, lazy_pool},
 };
 use question_model::{
-    BlueprintAvailability, BlueprintCourseId, BlueprintCourseReadAccess, WorkspaceId,
+    AssessmentId, BlueprintAvailability, BlueprintCourseId, BlueprintCourseReadAccess, WorkspaceId,
 };
 use uuid::Uuid;
 
@@ -76,8 +76,8 @@ fn run_command(command: InstallationDataCommand) -> Result<()> {
     .context("provisioning the declared bundled content vocabulary")?;
     match command {
         InstallationDataCommand::Apply => {
-            // Preserve the long-standing Live Demo identifiers on a default
-            // installation before adding the reusable bundled Blueprint.
+            // Install the Live Demo graph on a default installation before
+            // adding the reusable bundled Blueprint. Public IDs are minted.
             apply_live_demo()?;
             apply_bundled_genetics()
         }
@@ -129,11 +129,8 @@ fn apply_live_demo() -> Result<()> {
         crate::installation_data_blueprint::create_live_demo_blueprint(token_hash, &publications)
             .context("creating the ordinary Live Demo Blueprint Course")?;
     ensure!(
-        Uuid::parse_str(&live_demo_blueprint.assessment_reference)
-            .is_ok_and(
-                |value| value.hyphenated().to_string() == live_demo_blueprint.assessment_reference
-            ),
-        "Live Demo Blueprint Store receipt is not a canonical Assessment reference"
+        AssessmentId::new(live_demo_blueprint.assessment_id.clone()).is_ok(),
+        "Live Demo Blueprint Store receipt is not a canonical Assessment ID"
     );
     run_manifest(
         &migration_database_url,
@@ -146,8 +143,8 @@ fn apply_live_demo() -> Result<()> {
                 live_demo_blueprint.blueprint_public_reference,
             ),
             (
-                "live_demo_blueprint_assessment_reference",
-                live_demo_blueprint.assessment_reference,
+                "live_demo_blueprint_assessment_id",
+                live_demo_blueprint.assessment_id,
             ),
         ]),
     )?;
@@ -496,7 +493,7 @@ mod tests {
                     "BPABCDEFGJ".to_string(),
                 ),
                 (
-                    "live_demo_blueprint_assessment_reference",
+                    "live_demo_blueprint_assessment_id",
                     "00000000-0000-0000-0000-000000000012".to_string(),
                 ),
             ]),
@@ -506,7 +503,7 @@ mod tests {
         assert!(script.contains("\\set pilot_question_publications"));
         assert!(script.contains("\\set live_demo_blueprint_public_reference 'BPABCDEFGJ'"));
         assert!(script.contains(
-            "\\set live_demo_blueprint_assessment_reference '00000000-0000-0000-0000-000000000012'"
+            "\\set live_demo_blueprint_assessment_id '00000000-0000-0000-0000-000000000012'"
         ));
         assert!(script.ends_with("\\ir /opt/ple/schemas/installation_data/install.sql\n"));
     }

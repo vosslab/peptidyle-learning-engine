@@ -83,7 +83,7 @@ pub struct StudentAssessmentAttemptHistory {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StudentAssessmentAttemptHistoryCourse {
-    pub reference: CourseInstanceId,
+    pub id: CourseInstanceId,
     pub short_name: String,
     pub long_name: String,
     pub theme: CourseTheme,
@@ -93,7 +93,7 @@ pub struct StudentAssessmentAttemptHistoryCourse {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StudentAssessmentAttemptHistoryAssessment {
-    pub reference: AssessmentId,
+    pub id: AssessmentId,
     pub title: String,
 }
 

@@ -201,7 +201,7 @@ export function createRouteScopeController(
       if (
         entry.state !== "resolved" ||
         entry.data.kind === "assessmentAttempt" ||
-        courseRouteView(entry.data).summary.reference !== courseReference
+        courseRouteView(entry.data).summary.id !== courseReference
       )
         continue;
       entries.set(key, { state: "resolved", data: withCourseAppearance(entry.data, appearance) });

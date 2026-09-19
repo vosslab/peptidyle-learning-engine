@@ -470,11 +470,11 @@ export function CourseAppearancePage(): JSX.Element {
               <p>Choose the palette and banner used throughout this Course Instance.</p>
             </header>
             <AppearanceThemeEditor
-              courseReference={summary.reference}
+              courseReference={summary.id}
               storedAppearance={appearance}
             />
             <AppearanceBannerEditor
-              courseReference={summary.reference}
+              courseReference={summary.id}
               courseLongName={summary.longName}
               storedAppearance={appearance}
             />

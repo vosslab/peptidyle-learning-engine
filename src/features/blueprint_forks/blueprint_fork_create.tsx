@@ -30,19 +30,19 @@ export function BlueprintForkCreate(props: BlueprintForkCreateProps): JSX.Elemen
 
   async function createFork(): Promise<void> {
     if (pending() || !canFork()) return;
-    const reference = props.source.reference;
+    const reference = props.source.id;
     const revision = props.source.current_revision.revision;
     setPending(true);
     setError("");
     try {
       // ASVS 2.3.1: uncertain retries retain this operation's key and exact source Revision.
-      if (action?.reference !== reference || action.revision !== revision) {
+      if (action?.id !== reference || action.revision !== revision) {
         action = { reference, revision, key: crypto.randomUUID() };
       }
       const result = await props.client.forkBlueprintCourse(reference, revision, action.key);
       if (disposed) return;
       // ASVS 1.2.2: navigate only to a fixed local route with an encoded reference.
-      navigate(`/blueprint-courses/${encodeURIComponent(result.blueprintCourse.reference)}`);
+      navigate(`/blueprint-courses/${encodeURIComponent(result.blueprintCourse.id)}`);
     } catch {
       // ASVS 16.5.1: do not display transport internals or response bodies.
       if (!disposed)

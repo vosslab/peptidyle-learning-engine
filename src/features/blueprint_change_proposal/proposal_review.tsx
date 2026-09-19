@@ -127,7 +127,7 @@ export function ProposalReview(props: {
                 <h3>{side === "source" ? "Proposed source" : "Before: comparison target"}</h3>
                 <h4>{value().names.longName}</h4>
                 <p>
-                  Short name: {value().names.shortName}. Blueprint {value().revision.reference};
+                  Short name: {value().names.shortName}. Blueprint {value().revision.blueprint_course_id};
                   frozen Revision {value().revision.revision}; edit {value().blueprintEditNumber}.
                 </p>
                 <p>Exact classification identities below use current vocabulary labels.</p>
@@ -159,9 +159,9 @@ export function ProposalReview(props: {
                               each={props.detail.comparison.assessmentRelationships.filter(
                                 (edge) =>
                                   (side === "source"
-                                    ? edge.leftAssessmentReference
-                                    : edge.rightAssessmentReference) ===
-                                  assessment.blueprintAssessmentReference,
+                                    ? edge.leftAssessmentId
+                                    : edge.rightAssessmentId) ===
+                                  assessment.blueprintAssessmentId,
                               )}
                               fallback={<p>No shared-Question relationship (unmatched).</p>}
                             >
@@ -172,10 +172,10 @@ export function ProposalReview(props: {
                                       side === "source" ? "target" : "source"
                                     ].assessments.find(
                                       (a) =>
-                                        a.blueprintAssessmentReference ===
+                                        a.blueprintAssessmentId ===
                                         (side === "source"
-                                          ? edge.rightAssessmentReference
-                                          : edge.leftAssessmentReference),
+                                          ? edge.rightAssessmentId
+                                          : edge.leftAssessmentId),
                                     )?.content.title
                                   }
                                   : shared Questions {edge.sharedQuestionIds.join(", ")}.
@@ -344,19 +344,19 @@ function DecisionSummary(props: {
   function assessmentName(key: string): string {
     if (props.decision.kind === "selected" && key.startsWith("existing:")) {
       const copy = props.decision.selection.sourceAssessments.find(
-        (item) => key === "existing:" + item.targetAssessmentReference,
+        (item) => key === "existing:" + item.targetAssessmentId,
       );
       if (copy)
         return (
           source().assessments.find(
             (assessment) =>
-              assessment.blueprintAssessmentReference === copy.sourceAssessmentReference,
+              assessment.blueprintAssessmentId === copy.sourceAssessmentId,
           )?.content.title ?? key
         );
     }
     return (
       [...source().assessments, ...target().assessments].find((a) =>
-        key.endsWith(":" + a.blueprintAssessmentReference),
+        key.endsWith(":" + a.blueprintAssessmentId),
       )?.content.title ?? key
     );
   }
@@ -398,14 +398,14 @@ function DecisionSummary(props: {
                   Copy complete source Assessment{" "}
                   {
                     source().assessments.find(
-                      (a) => a.blueprintAssessmentReference === copy.sourceAssessmentReference,
+                      (a) => a.blueprintAssessmentId === copy.sourceAssessmentId,
                     )?.content.title
                   }{" "}
                   to{" "}
-                  {copy.targetAssessmentReference === null
+                  {copy.targetAssessmentId === null
                     ? "a new Assessment"
                     : target().assessments.find(
-                        (a) => a.blueprintAssessmentReference === copy.targetAssessmentReference,
+                        (a) => a.blueprintAssessmentId === copy.targetAssessmentId,
                       )?.content.title}
                   .
                 </p>
@@ -444,14 +444,14 @@ function AcceptedResult(props: {
     const inventory = props.detail.comparison[side];
     return module
       ? (inventory.modules.find((m) => m.blueprintModuleReference === reference)?.label ?? "Module")
-      : (inventory.assessments.find((a) => a.blueprintAssessmentReference === reference)?.content
+      : (inventory.assessments.find((a) => a.blueprintAssessmentId === reference)?.content
           .title ?? "Assessment");
   }
   return (
     <section aria-label="Committed acceptance result">
       <h3>Accepted: exact committed target</h3>
       <p>
-        Blueprint {props.value.target.reference}, Revision {props.value.target.revision}, edit{" "}
+        Blueprint {props.value.target.blueprint_course_id}, Revision {props.value.target.revision}, edit{" "}
         {props.value.targetBlueprintEditNumber}; accepted {props.value.acceptedAt}. Decision:{" "}
         {props.value.decision.kind}.
       </p>
@@ -494,11 +494,11 @@ function AcceptedResult(props: {
       >
         {(copy) => (
           <p>
-            Complete source Assessment {unitName("source", copy.sourceAssessmentReference, false)} (
-            {copy.sourceAssessmentReference}) to{" "}
-            {copy.targetAssessmentReference === null
-              ? `new Assessment (${props.value.newAssessments[copy.sourceAssessmentReference] ?? "server-assigned"})`
-              : `${unitName("target", copy.targetAssessmentReference, false)} (${copy.targetAssessmentReference})`}
+            Complete source Assessment {unitName("source", copy.sourceAssessmentId, false)} (
+            {copy.sourceAssessmentId}) to{" "}
+            {copy.targetAssessmentId === null
+              ? `new Assessment (${props.value.newAssessments[copy.sourceAssessmentId] ?? "server-assigned"})`
+              : `${unitName("target", copy.targetAssessmentId, false)} (${copy.targetAssessmentId})`}
             .
           </p>
         )}
@@ -519,8 +519,8 @@ function AcceptedResult(props: {
                         {(entry) => (
                           <li>
                             {entry.kind === "existing"
-                              ? `${unitName("target", entry.targetAssessmentReference, false)} (${entry.targetAssessmentReference})`
-                              : `${unitName("source", entry.sourceAssessmentReference, false)} (new: ${props.value.newAssessments[entry.sourceAssessmentReference] ?? entry.sourceAssessmentReference})`}
+                              ? `${unitName("target", entry.targetAssessmentId, false)} (${entry.targetAssessmentId})`
+                              : `${unitName("source", entry.sourceAssessmentId, false)} (new: ${props.value.newAssessments[entry.sourceAssessmentId] ?? entry.sourceAssessmentId})`}
                           </li>
                         )}
                       </For>

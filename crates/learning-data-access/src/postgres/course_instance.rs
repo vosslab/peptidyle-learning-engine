@@ -79,7 +79,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
     async fn update_course_classification(
         &self,
         session_token_hash: SessionTokenHash,
-        reference: CourseInstanceId,
+        id: CourseInstanceId,
         expected_edit_number: question_model::CourseEditNumber,
         classification: question_model::CourseClassification,
     ) -> Result<crate::course_instance::CourseClassificationUpdate, StoreError> {
@@ -91,7 +91,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
             .await?;
         let row =
             sqlx::query("SELECT * FROM ple_api.update_course_classification($1,$2,$3,$4,$5,$6,$7)")
-                .bind(reference.as_string())
+                .bind(id.as_string())
                 .bind(expected_edit_number.as_i64())
                 .bind(classification.discipline_uuid)
                 .bind(classification.subject_uuid)
@@ -116,7 +116,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
     async fn resolve_course_navigation(
         &self,
         session_token_hash: SessionTokenHash,
-        reference: CourseInstanceId,
+        id: CourseInstanceId,
     ) -> Result<CourseInstanceId, StoreError> {
         let mut transaction = self
             .begin_authenticated_application_transaction(session_token_hash)
@@ -124,7 +124,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         // ASVS 1.2.3, 8.2.2, and 8.3.1: the procedure resolves an opaque
         // reference only after binding it to the installed active membership.
         let row = sqlx::query("SELECT course_id FROM ple_api.resolve_course_navigation($1)")
-            .bind(reference.as_string())
+            .bind(id.as_string())
             .fetch_optional(&mut *transaction)
             .await
             .map_err(map_sqlx_error)?;
@@ -282,9 +282,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
                     course_edit_number: question_model::CourseEditNumber::from_edit_number(
                         row.try_get("course_edit_number").map_err(map_sqlx_error)?,
                     ),
-                    reference: course_reference(
-                        row.try_get("public_reference").map_err(map_sqlx_error)?,
-                    )?,
+                    id: course_reference(row.try_get("public_reference").map_err(map_sqlx_error)?)?,
                     short_name: row.try_get("short_name").map_err(map_sqlx_error)?,
                     long_name: row.try_get("long_name").map_err(map_sqlx_error)?,
                     term: term(
@@ -328,7 +326,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
     async fn load_course_instance(
         &self,
         session_token_hash: SessionTokenHash,
-        reference: CourseInstanceId,
+        id: CourseInstanceId,
     ) -> Result<CourseInstanceView, StoreError> {
         let mut transaction = self
             .begin_authenticated_application_transaction(session_token_hash)
@@ -341,7 +339,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
              active_instructor_count, blueprint_reference, adopted_blueprint_revision, \
              current_blueprint_revision FROM ple_api.load_course_instance($1)",
         )
-        .bind(reference.as_string())
+        .bind(id.as_string())
         .fetch_optional(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
@@ -369,7 +367,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
             .iter()
             .map(|row| {
                 Ok(CourseCreationInstructor {
-                    reference: account_reference(
+                    id: account_reference(
                         row.try_get("public_reference").map_err(map_sqlx_error)?,
                     )?,
                 })
@@ -390,7 +388,7 @@ fn decode_summary(row: &sqlx::postgres::PgRow) -> Result<CourseInstanceSummary, 
         course_edit_number: question_model::CourseEditNumber::from_edit_number(
             row.try_get("course_edit_number").map_err(map_sqlx_error)?,
         ),
-        reference: course_reference(row.try_get("public_reference").map_err(map_sqlx_error)?)?,
+        id: course_reference(row.try_get("public_reference").map_err(map_sqlx_error)?)?,
         short_name: row.try_get("short_name").map_err(map_sqlx_error)?,
         long_name: row.try_get("long_name").map_err(map_sqlx_error)?,
         term: term(
@@ -406,8 +404,7 @@ fn decode_course_summary(row: &sqlx::postgres::PgRow) -> Result<CourseSummary, S
     let stored_membership_role: String = row.try_get("membership_role").map_err(map_sqlx_error)?;
     Ok(CourseSummary {
         classification: super::blueprint_course::decode_classification(row)?,
-        id: course.clone(),
-        reference: course,
+        id: course,
         short_name: row.try_get("short_name").map_err(map_sqlx_error)?,
         long_name: row.try_get("long_name").map_err(map_sqlx_error)?,
         term: term(
@@ -441,7 +438,7 @@ fn decode_view(row: &sqlx::postgres::PgRow) -> Result<CourseInstanceView, StoreE
                     .ok_or_else(|| invalid("Blueprint Revision"))
             };
             Some(CourseInstanceBlueprintOrigin {
-                reference: reference
+                id: reference
                     .parse()
                     .map_err(|_| invalid("Blueprint Course Reference"))?,
                 adopted_revision: revision(adopted)?,

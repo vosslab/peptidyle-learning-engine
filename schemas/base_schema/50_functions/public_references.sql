@@ -107,13 +107,19 @@ $$;
 
 
 
--- The trigger replaces caller input, including a colliding default, so every
--- emitted prefixed ID is server-minted and reserved before its object insert.
+-- Mint placeholders pass the domain CHECK, then this trigger replaces them.
+-- A caller-supplied canonical ID that is not a mint placeholder is reserved
+-- and kept so installation and Live Demo can store the same public ID the
+-- application already holds.
 CREATE FUNCTION ple_private.assign_human_reference()
 RETURNS trigger LANGUAGE plpgsql
 SET search_path = pg_catalog, ple_private
 AS $$
-DECLARE candidate text; object_kind text;
+DECLARE
+    candidate text;
+    object_kind text;
+    supplied text;
+    mint_placeholder text;
 BEGIN
     IF TG_NARGS <> 1 OR TG_ARGV[0] NOT IN ('BP', 'CI', 'A', 'U') THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
@@ -125,6 +131,24 @@ BEGIN
         WHEN 'A' THEN 'assessment'
         WHEN 'U' THEN 'account'
     END;
+    supplied := CASE TG_ARGV[0]
+        WHEN 'U' THEN NEW.account_id
+        WHEN 'CI' THEN NEW.course_instance_id
+        WHEN 'BP' THEN NEW.blueprint_course_id
+        WHEN 'A' THEN NEW.assessment_id
+    END;
+    mint_placeholder := CASE TG_ARGV[0]
+        WHEN 'U' THEN 'U00000009'
+        WHEN 'CI' THEN 'CI0000000Y'
+        WHEN 'A' THEN 'A0000000A'
+        WHEN 'BP' THEN 'BP0000000C'
+    END;
+    IF supplied IS NOT NULL
+       AND supplied IS DISTINCT FROM mint_placeholder
+       AND ple_private.is_canonical_prefixed_public_id(supplied, TG_ARGV[0]) THEN
+        PERFORM ple_private.reserve_public_id(supplied, object_kind);
+        RETURN NEW;
+    END IF;
     LOOP
         candidate := TG_ARGV[0] || ple_private.crockford_reference_suffix();
         candidate := candidate || ple_private.crockford_checksum_character(candidate);

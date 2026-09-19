@@ -1,6 +1,6 @@
 //! Student-authorized Course and released Assessment landing projections.
 //!
-//! The landing boundary exposes only public Course and Assessment references
+//! The landing boundary exposes only public Course and Assessment IDs
 //! with learner-facing titles. PostgreSQL derives the current active Student
 //! Account and exact active Student Course Membership before it projects them.
 
@@ -25,7 +25,7 @@ pub struct LiveAssessmentGradeContribution {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LiveStudentCourseLandingSummary {
-    /// Public Course Instance reference, never an internal Course identity.
+    /// Public Course Instance ID.
     pub course: CourseInstanceId,
     /// Compact Course Instance name for constrained navigation.
     pub short_name: String,
@@ -40,7 +40,7 @@ pub struct LiveStudentCourseLandingSummary {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LiveStudentCourseInvitationSummary {
-    /// Public Course Instance reference, never an invitation or Account identity.
+    /// Public Course Instance ID, never an invitation or Account identity.
     pub course: CourseInstanceId,
     /// Compact Course Instance name for constrained navigation.
     pub short_name: String,
@@ -56,7 +56,7 @@ pub struct LiveStudentCourseInvitationSummary {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LiveStudentAssessmentLandingSummary {
-    /// Public Assessment reference, never an internal Assessment identity.
+    /// Public Assessment ID.
     pub assessment: AssessmentId,
     /// Student-facing released Assessment title.
     pub title: String,

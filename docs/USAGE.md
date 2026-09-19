@@ -173,7 +173,7 @@ source source_me.sh && ./devel/generate_schema_tables_doc.py && ./schema_style/c
 `-j`/`--snapshot` still selects an explicit snapshot path. Omit the snapshot
 file (and `-j`) for a source-only run.
 
-Reports mechanical rules from docs/DATABASE_STYLE.md against schemas/base_schema/ (override with -s/--source-dir). Default stdout is one count, tab, rule_##_title line per rule with findings (two-digit numbers), skip notes, and N findings in M rules only. One finding line per violation (rule_##_title, location, message, source file:line) is written to output/schema_style_findings.txt. -v/--verbose also prints those finding lines to stdout. -r/--report includes advisory findings (rule_14_unindexed_fk, and rule_layout only when 20_tables/ is absent) in verbose stdout and the findings file without changing the exit code. -j/--snapshot reads a catalog snapshot; -d/--database reads a live database. Exit 1 on blocking findings, 0 if clean.
+Reports mechanical rules from docs/DATABASE_STYLE.md against schemas/base_schema/ (override with -s/--source-dir). Default stdout is one count, tab, rule_##_title line per rule with findings (two-digit numbers), skip notes, and N findings in M rules only. One finding line per violation (rule_##_title, location, message, source file:line) is written to output/schema_style_findings.txt. -v/--verbose also prints those finding lines to stdout. -r/--report includes advisory findings (rule_14_unindexed_fk, and rule_layout only when 20_tables/ is absent) in verbose stdout. -j/--snapshot reads a catalog snapshot; -d/--database reads a live database. Exit 1 on any findings, 0 if clean.
 
 ## Course retention intervals
 

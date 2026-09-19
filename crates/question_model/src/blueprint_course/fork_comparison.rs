@@ -21,7 +21,7 @@ pub struct BlueprintComparisonModule {
 #[derive(Debug, Clone, PartialEq)]
 pub struct BlueprintComparisonAssessment {
     /// Side-local Assessment handle, not matching evidence.
-    pub blueprint_assessment_reference: BlueprintAssessmentId,
+    pub blueprint_assessment_id: BlueprintAssessmentId,
     /// Side-local containing module handle.
     pub blueprint_module_reference: BlueprintModuleReference,
     /// Zero-based authored position within its module.
@@ -45,9 +45,9 @@ pub struct BlueprintComparisonInventory {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlueprintAssessmentRelationship {
     /// Assessment handle in the left inventory.
-    pub left_assessment_reference: BlueprintAssessmentId,
+    pub left_assessment_id: BlueprintAssessmentId,
     /// Assessment handle in the right inventory.
-    pub right_assessment_reference: BlueprintAssessmentId,
+    pub right_assessment_id: BlueprintAssessmentId,
     /// Sorted unique Question IDs shared by this pair.
     pub shared_question_ids: Vec<QuestionId>,
 }
@@ -131,8 +131,8 @@ pub fn compare_blueprint_courses(
                 .collect();
             if !shared_question_ids.is_empty() {
                 relationships.push(BlueprintAssessmentRelationship {
-                    left_assessment_reference: left_assessment.blueprint_assessment_reference,
-                    right_assessment_reference: right_assessment.blueprint_assessment_reference,
+                    left_assessment_id: left_assessment.blueprint_assessment_id,
+                    right_assessment_id: right_assessment.blueprint_assessment_id,
                     shared_question_ids,
                 });
             }
@@ -169,7 +169,7 @@ fn inventory(
             label: module.label().to_owned(),
         });
         for (position, assessment) in module.assessments().iter().enumerate() {
-            let assessment_reference = assessment.blueprint_assessment_reference();
+            let assessment_reference = assessment.blueprint_assessment_id();
             if !assessment_references.insert(assessment_reference) {
                 return Err(BlueprintComparisonError::DuplicateAssessmentId);
             }
@@ -198,7 +198,7 @@ fn inventory(
                 }
             }
             inventory.assessments.push(BlueprintComparisonAssessment {
-                blueprint_assessment_reference: assessment_reference,
+                blueprint_assessment_id: assessment_reference,
                 blueprint_module_reference: module_reference,
                 position,
                 content: CanonicalBlueprintAssessment::from(assessment),

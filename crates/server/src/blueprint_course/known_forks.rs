@@ -44,7 +44,7 @@ pub(super) async fn list_known_forks(
 
 fn fork_view(fork: StoredKnownBlueprintFork) -> BlueprintKnownForkView {
     BlueprintKnownForkView {
-        reference: fork.reference,
+        id: fork.id,
         short_name: fork.short_name,
         long_name: fork.long_name,
         availability: fork.availability,

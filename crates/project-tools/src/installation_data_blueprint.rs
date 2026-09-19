@@ -33,7 +33,7 @@ const LIVE_DEMO_BLUEPRINT_REQUEST_CHECKSUM: RequestChecksum = RequestChecksum::f
 /// Store-generated references consumed by the dependent Live Demo SQL graph.
 pub(crate) struct LiveDemoBlueprintManifestReferences {
     pub(crate) blueprint_public_reference: String,
-    pub(crate) assessment_reference: String,
+    pub(crate) assessment_id: String,
 }
 
 /// Creates, or replays, and publishes the immutable Revision 1 used by the Live Demo.
@@ -90,7 +90,10 @@ pub(crate) fn create_live_demo_blueprint(
             "Live Demo Blueprint creation did not return Revision 1"
         );
         let blueprint = store
-            .load_blueprint_course(session, receipt.blueprint_revision.reference.clone())
+            .load_blueprint_course(
+                session,
+                receipt.blueprint_revision.blueprint_course_id.clone(),
+            )
             .await
             .context("reloading the ordinary Live Demo Blueprint Course")?;
         ensure!(
@@ -118,14 +121,17 @@ pub(crate) fn create_live_demo_blueprint(
             store
                 .publish_blueprint(
                     session,
-                    receipt.blueprint_revision.reference.clone(),
+                    receipt.blueprint_revision.blueprint_course_id.clone(),
                     blueprint.blueprint_edit_number,
                 )
                 .await
                 .context("publishing the ordinary Live Demo Blueprint Course")?;
         }
         let blueprint = store
-            .load_blueprint_course(session, receipt.blueprint_revision.reference.clone())
+            .load_blueprint_course(
+                session,
+                receipt.blueprint_revision.blueprint_course_id.clone(),
+            )
             .await
             .context("reloading the published Live Demo Blueprint Course")?;
         ensure!(
@@ -133,8 +139,8 @@ pub(crate) fn create_live_demo_blueprint(
             "Live Demo Blueprint is not Public before Course adoption"
         );
         Ok(LiveDemoBlueprintManifestReferences {
-            blueprint_public_reference: receipt.blueprint_revision.reference.to_string(),
-            assessment_reference: assessment_reference.to_string(),
+            blueprint_public_reference: receipt.blueprint_revision.blueprint_course_id.to_string(),
+            assessment_id: assessment_reference.to_string(),
         })
     })
 }
@@ -204,7 +210,7 @@ fn validate_loaded_content(
             "Live Demo Blueprint Question policy differs from the fixed definition"
         );
     }
-    Ok(actual_assessment.blueprint_assessment_reference)
+    Ok(actual_assessment.blueprint_assessment_id)
 }
 
 fn live_demo_blueprint_input(
@@ -326,9 +332,7 @@ mod tests {
                 blueprint_module_reference: BlueprintModuleReference::from_uuid(Uuid::from_u128(1)),
                 label: input.modules[0].label.clone(),
                 assessments: vec![StoredBlueprintAssessment {
-                    blueprint_assessment_reference: BlueprintAssessmentId::from_uuid(
-                        Uuid::from_u128(2),
-                    ),
+                    blueprint_assessment_id: BlueprintAssessmentId::from_uuid(Uuid::from_u128(2)),
                     content: StoredBlueprintAssessmentContent {
                         assessment_type: assessment.assessment_type,
                         title: assessment.title.clone(),

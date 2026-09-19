@@ -59,7 +59,6 @@
       "tags": []
     },
     "id": "CI000001AE",
-    "reference": "CI000001AE",
     "shortName": "BIOC 301",
     "longName": "BIOC 301: Biochemistry",
     "term": {
@@ -70,7 +69,6 @@
   },
   "assessment": {
     "id": "A000001AT",
-    "reference": "A000001AT",
     "courseId": "CI000001AE",
     "title": "Peptide bond mastery",
     "entries": [
@@ -115,7 +113,6 @@
   "assessment_attempts": [
     {
       "id": "0198e000-0000-7000-8000-000000000020",
-      "reference": "0198e000-0000-7000-8000-000000000020",
       "studentRecord": "0198e000-0000-7000-8000-000000000007",
       "assessment": "A000001AT",
       "evidence": {
@@ -154,7 +151,7 @@
     },
     {
       "id": "0198e000-0000-7000-8000-000000000021",
-      "reference": "0198e000-0000-7000-8000-000000000021",
+
       "studentRecord": "0198e000-0000-7000-8000-000000000007",
       "assessment": "A000001AT",
       "evidence": {
@@ -193,7 +190,7 @@
     },
     {
       "id": "0198e000-0000-7000-8000-000000000022",
-      "reference": "0198e000-0000-7000-8000-000000000022",
+
       "studentRecord": "0198e000-0000-7000-8000-000000000007",
       "assessment": "A000001AT",
       "evidence": {
@@ -232,7 +229,7 @@
     },
     {
       "id": "0198e000-0000-7000-8000-000000000023",
-      "reference": "0198e000-0000-7000-8000-000000000023",
+
       "studentRecord": "0198e000-0000-7000-8000-000000000007",
       "assessment": "A000001AT",
       "evidence": {

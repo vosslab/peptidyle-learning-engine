@@ -19,12 +19,16 @@ and `Cache-Control: no-store`. The server stores only a hash of the opaque,
 host-only, Secure, HttpOnly, `SameSite=Lax` session cookie. Unsafe requests
 require the canonical same-origin `Origin` and reject ambiguous cookies.
 
-An opaque public reference locates a candidate only; session-derived authority
+An opaque public ID locates a candidate only; session-derived authority
 and the stored relationship decide access. Concealed resources, malformed
-opaque references, and callers outside the applicable relationship receive the
+opaque IDs, and callers outside the applicable relationship receive the
 same no-store `404`. Browser decoders accept only their closed response shapes.
 Responses never expose private object locations or checksums, source bytes,
 answer keys, raw renderer or grader data, credentials, or internal database IDs.
+Account, Course Instance, Assessment, Blueprint Course, Attempt, and similar
+objects emit JSON `id` (or nested `courseId` / `assessmentId`). Path parameters
+still named `*Reference` and routes that still say `assignment` are
+implementation names for those same IDs, not a second identity.
 
 An `If-Match` header carries one quoted qualified Edit Number. A missing
 precondition is `428`; an invalid header is `400`; a stale competing write is
@@ -50,41 +54,43 @@ Question availability belongs to the stable lineage; publishing another
 Published, non-archived Question lineages. Existing exact references remain resolvable.
 
 Active Instructors and Sysadmins receive answer-free Question and Pool Library
-read projections. Each carries its exact Revision's required two-value Bloom
-Classification and independent classification Edit Number. The legacy
+read projections. A Question projection carries its exact Revision's required
+two-value Bloom Classification and independent classification Edit Number. A
+Pool projection carries the current Pool's own pair and classification Edit
+Number; member Question pairs never substitute. The legacy
 `latestQuestionRevision` field identifies the exact resolved Revision on an
-exact Question-detail route. `GET /api/question-pools`,
-`GET /api/question-pools/{questionPoolId}`, and
-`GET /api/question-pools/{questionPoolId}/revisions/{revisionNumber}` provide
-current and exact Pool reads. The exact Pool route uses the requested Pool
-Revision and retains current Pool lineage metadata under its separate contract;
-member pairs never substitute for its own Bloom Classification.
+exact Question-detail route. `GET /api/question-pools` and
+`GET /api/question-pools/{questionPoolId}` are the product Pool reads. The
+server still also exposes
+`GET /api/question-pools/{questionPoolId}/revisions/{revisionNumber}`; that
+path is an implementation gap, not a Pool Revision family.
 
 Pool discovery accepts optional exact `bloom_cognitive_process` and
 `bloom_knowledge_dimension` query parameters. Each combines with every other applied Pool
 predicate. The opaque continuation is bound to both values, and the response carries all six
 Cognitive Process counts plus all four Knowledge Dimension counts from the complete filtered Pool
 set, including zeros and an empty page. Page position affects only `items`; the counts and rows come
-from the same authorized filtered SQL relation. These predicates and counts use the Pool Revision's
+from the same authorized filtered SQL relation. These predicates and counts use the current Pool's
 own pair, never a member Question's pair.
 
-The corresponding Pool correction route is
+The corresponding Pool correction route is still implemented as
 `POST /api/question-pools/{questionPoolId}/revisions/{revisionNumber}/bloom`.
-Both correction routes accept only the complete `cognitiveProcess`,
-`knowledgeDimension`, and `expectedClassificationEditNumber` command. The
-classification Edit Number is the pair's CAS precondition, not a content
-Revision or a lineage token. Either route first checks a stale expected number
-and returns `412`; only a current request may then return an unchanged pair
-without advancing it. A changed pair advances its classification Edit Number
-once. Active vetted Instructor authority is based on current exact Library read
-access, not target ownership. Sysadmins retain the read projection but cannot
-use either correction route.
+That `/revisions/` segment is the same implementation gap; Bloom lives on the
+current Pool, not a Pool Revision. Both Question and Pool correction routes
+accept only the complete `cognitiveProcess`, `knowledgeDimension`, and
+`expectedClassificationEditNumber` command. The classification Edit Number is
+the pair's CAS precondition, not a content Revision or a lineage token. Either
+route first checks a stale expected number and returns `412`; only a current
+request may then return an unchanged pair without advancing it. A changed pair
+advances its classification Edit Number once. Active vetted Instructor
+authority is based on current exact Library read access, not target ownership.
+Sysadmins retain the read projection but cannot use either correction route.
 
 The client does not retry or merge a `412`. It reloads only the same exact
-Question or Pool Revision, retains the Instructor's draft pair for comparison,
-and requires an explicit later Save. Corrections do not create a Question or
-Pool content Revision, change Pool member pins, or alter retained Assessment or
-Student Work evidence.
+Question Revision or current Pool, retains the Instructor's draft pair for
+comparison, and requires an explicit later Save. Corrections do not create a
+Question content Revision, change Pool member pins, or alter retained
+Assessment or Student Work evidence.
 
 `GET /api/questions/search` accepts optional exact `bloom_cognitive_process` and
 `bloom_knowledge_dimension` filters. Each is independent and combines with every
@@ -257,14 +263,14 @@ The file has exactly these seven columns in this order:
 | --- | --- |
 | `roster_id` | Course-local roster ID |
 | `roster_name` | Instructor-provided roster label |
-| `assessment_reference` | Canonical Assessment reference |
+| `assessment_id` | Canonical Assessment ID |
 | `assessment_title` | Assessment title |
 | `status` | `not_started`, `in_progress`, `expired_submitting`, or `submitted` |
 | `points_earned` | Selected submitted Attempt's earned points, or blank |
 | `points_possible` | Selected submitted Attempt's possible points, or blank |
 
 There is one row per active Student and released Assessment, including no-Attempt rows, sorted by
-exact `roster_id` then canonical `assessment_reference` in ascending ASCII byte order. An empty
+exact `roster_id` then canonical `assessment_id` in ascending ASCII byte order. An empty
 authorized Course produces the header alone. No Attempt maps to `not_started`; an unsubmitted
 Attempt maps to `in_progress` or, with the expiry flag, `expired_submitting`; a completed Attempt
 maps to `submitted`, including when its score is absent. Both point cells are blank when no score

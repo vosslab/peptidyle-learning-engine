@@ -14,7 +14,12 @@ BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM ple_private.authenticated_session
          WHERE authenticated_session.session_id = v_session_id
-           AND authenticated_session.account_id = '00000000-0000-0000-0000-000000000106'
+           AND authenticated_session.account_id = (
+                   SELECT workspace.owner_account_id
+                     FROM ple_private.authoring_workspace AS workspace
+                    WHERE workspace.authoring_workspace_id
+                          = '00000000-0000-0000-0000-000000000202'::uuid
+               )
            AND authenticated_session.product_role = 'instructor'
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '22023',

@@ -278,7 +278,6 @@ export function decodeAssessmentAttempt(value: unknown, path = "response"): Asse
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "id",
-    "reference",
     "studentRecord",
     "assessment",
     "evidence",
@@ -289,10 +288,6 @@ export function decodeAssessmentAttempt(value: unknown, path = "response"): Asse
   ]);
   const decoded = {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
-    reference: decodeAssessmentAttemptReference(
-      field(record, "reference", path),
-      `${path}.reference`,
-    ),
     studentRecord: decodeIdentifier(field(record, "studentRecord", path), `${path}.studentRecord`),
     assessment: decodeIdentifier(field(record, "assessment", path), `${path}.assessment`),
     evidence: decodeAssessmentAttemptEvidence(field(record, "evidence", path), `${path}.evidence`),

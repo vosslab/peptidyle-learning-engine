@@ -34,8 +34,6 @@ pub struct CourseSummary {
     pub classification: crate::CourseClassification,
     /// Course Instance ID (`CIXXXXXXXZ`).
     pub id: CourseInstanceId,
-    /// Same Course Instance ID on the legacy JSON `reference` field.
-    pub reference: CourseInstanceId,
     /// Compact Course Instance name for constrained navigation.
     pub short_name: String,
     /// Descriptive Course Instance name for headings and breadcrumbs.
@@ -55,8 +53,8 @@ pub struct CourseSummary {
 pub struct CourseInstanceRouteSummary {
     /// Current independently selected Course classification.
     pub classification: crate::CourseClassification,
-    /// Stable Course Instance Reference used in application navigation.
-    pub reference: CourseInstanceId,
+    /// Course Instance ID used in application navigation.
+    pub id: CourseInstanceId,
     /// Compact Course Instance name for constrained navigation.
     pub short_name: String,
     /// Descriptive Course Instance name for headings and breadcrumbs.
@@ -135,10 +133,8 @@ pub enum AssessmentEntrySummary {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AssessmentSummary {
-    /// Durable assessment identity.
+    /// Assessment ID (`AXXXXXXXZ`).
     pub id: AssessmentId,
-    /// Stable Assessment Reference used in application navigation.
-    pub reference: AssessmentId,
     /// Course that owns this assessment.
     pub course_id: CourseInstanceId,
     /// Human-facing assessment title.
@@ -180,10 +176,8 @@ pub struct AssessmentOverview {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct StudentAssessmentLandingSummary {
-    /// Durable assessment identity scoped by the authenticated route.
+    /// Assessment ID scoped by the authenticated route.
     pub id: AssessmentId,
-    /// Stable Assessment Reference used in application navigation.
-    pub reference: AssessmentId,
     /// Human-facing assessment title.
     pub title: AssessmentTitle,
 }
@@ -231,10 +225,8 @@ pub struct StudentAssessmentDelivery {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct StudentAssessmentDetail {
-    /// Durable assessment identity scoped by the authenticated route.
+    /// Assessment ID scoped by the authenticated route.
     pub id: AssessmentId,
-    /// Stable Assessment Reference used in application navigation.
-    pub reference: AssessmentId,
     /// Human-facing assessment title.
     pub title: AssessmentTitle,
     /// Validated Student-facing plain-text instructions.
@@ -251,7 +243,6 @@ impl From<AssessmentSummary> for StudentAssessmentLandingSummary {
     fn from(assessment: AssessmentSummary) -> Self {
         Self {
             id: assessment.id,
-            reference: assessment.reference,
             title: assessment.title,
         }
     }
@@ -268,7 +259,6 @@ impl StudentAssessmentDetail {
     ) -> Self {
         Self {
             id: assessment.id,
-            reference: assessment.reference,
             title: landing.title,
             instructions: landing.instructions,
             display_time_zone,
@@ -318,7 +308,7 @@ mod tests {
     fn rust_names_serialize_as_lower_camel_course_contracts() {
         let assessment = AssessmentSummary {
             id: AssessmentId::from_debug_serial(1),
-            reference: crate::AssessmentId::new("A7K3M2QXF").expect("valid reference"),
+
             course_id: CourseInstanceId::from_debug_serial(3),
             title: assessment_title("Peptide bonds"),
             entries: vec![AssessmentEntrySummary::FixedQuestion(
@@ -353,7 +343,7 @@ mod tests {
 
         let student = StudentAssessmentLandingSummary::from(AssessmentSummary {
             id: AssessmentId::from_debug_serial(1),
-            reference: crate::AssessmentId::new("A7K3M2QXF").expect("valid reference"),
+
             course_id: CourseInstanceId::from_debug_serial(3),
             title: assessment_title("Peptide bonds"),
             entries: Vec::new(),
@@ -372,7 +362,7 @@ mod tests {
     fn student_detail_owns_instructions_and_server_resolved_delivery() {
         let assessment = AssessmentSummary {
             id: AssessmentId::from_debug_serial(1),
-            reference: crate::AssessmentId::new("A7K3M2QXF").expect("valid reference"),
+
             course_id: CourseInstanceId::from_debug_serial(3),
             title: assessment_title("Peptide bonds"),
             entries: Vec::new(),
@@ -410,7 +400,6 @@ mod tests {
         assert!(
             serde_json::from_value::<StudentAssessmentDetail>(serde_json::json!({
                 "id": detail.id,
-                "reference": detail.reference,
                 "title": detail.title,
                 "instructions": "Read the legend.",
                 "display_time_zone": "America/New_York",

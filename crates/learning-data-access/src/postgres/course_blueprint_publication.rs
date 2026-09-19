@@ -160,7 +160,7 @@ fn publication_content(
         .into_iter()
         .map(|assessment| {
             Ok(StoredBlueprintAssessment {
-                blueprint_assessment_reference: BlueprintAssessmentId::from_uuid(random_uuid()?),
+                blueprint_assessment_id: BlueprintAssessmentId::from_uuid(random_uuid()?),
                 content: assessment.content,
             })
         })
@@ -193,7 +193,7 @@ fn decode_receipt(
     .ok_or_else(|| invalid("Blueprint Revision"))?;
     Ok(CreateBlueprintCourseReceipt {
         blueprint_revision: BlueprintRevisionReference {
-            reference,
+            blueprint_course_id: reference,
             revision,
         },
         blueprint_edit_number: BlueprintEditNumber::from_edit_number(

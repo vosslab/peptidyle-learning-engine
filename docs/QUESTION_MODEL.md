@@ -55,19 +55,20 @@ remediation manifest, or public regrading workflow.
 ## Question Pools
 
 A Question Pool is an independently reusable published object with its own
-public `AAAA-ZBBB` ID and immutable Pool Revisions. It has no Draft state.
+public `XXXX-ZXXX` ID. Membership is current state with an Edit Number. It has
+no Draft state and no Pool Revision family.
 
 Importing a Pool into a new Assessment automatically forks it for that
-Assessment. The fork preserves Published Questions by public ID and can change
-without mutating the source Pool.
+Assessment. The fork copies current members once and can change without
+mutating the source Pool.
 
 Starting an Attempt makes fresh Pool selections. Returning to the same Attempt
-preserves its selections. Student Work keeps the exact Pool Revision and
-Published Question Revision delivered.
+preserves its selections. Student Work keeps the Question ID, Question
+Revision, Pool ID, and Pool Edit Number delivered.
 
 ## Bloom classification
 
-One exact Published Question Revision or Question Pool Revision has two independent
+One exact Published Question Revision or one Question Pool has two independent
 Bloom dimensions. The Cognitive Process is one of Remember, Understand, Apply,
 Analyze, Evaluate, or Create. The Knowledge Dimension is one of Factual Knowledge,
 Conceptual Knowledge, Procedural Knowledge, or Metacognitive Knowledge. Their ordered
@@ -78,7 +79,7 @@ or highest member classification. [BLOOM_TAXONOMY_GUIDE.md](BLOOM_TAXONOMY_GUIDE
 owns teaching interpretation.
 
 Dedicated SQL relations attach a non-null checked pair to the exact composite
-Question or Pool Revision key. A separate positive classification Edit Number starts
+Question Revision key or to the Pool ID. A separate positive classification Edit Number starts
 at 1. Active Instructors with current exact Library read access can correct either
 or both dimensions by supplying the complete pair and expected classification Edit
 Number. Keeping the unchanged dimension in that pair does not couple their meanings.
@@ -92,11 +93,11 @@ It validates storage values, not semantic correctness or model origin. AI initia
 assignment during publication and required classification before Library entry remain
 the product contract, not completed runtime behavior. Current Question and Pool
 Library reads project the required pair and its independent Edit Number for the exact
-Revision requested, including the exact Pool Revision route. A Question summary's
+Question Revision or current Pool requested. A Question summary's
 legacy `latestQuestionRevision` field carries that exact requested Revision on an
 exact-detail route; it does not trigger a second latest-Revision lookup.
 
-The B2 source boundary corrects the exact Question or Pool Revision through its
+The B2 source boundary corrects the exact Question Revision or Question Pool through its
 dedicated `/bloom` route. An active vetted Instructor sends the complete pair and
 expected classification Edit Number; authority comes from current exact Library
 read access, not ownership. The pair is locked and checked for staleness before
@@ -114,7 +115,7 @@ six Cognitive Process values and four Knowledge Dimension values, including zero
 empty result.
 
 Question Pool discovery applies the same two independent optional exact values to the current
-Pool Revision's own classification. Both values are part of the Pool cursor's normalized query
+Pool's own classification. Both values are part of the Pool cursor's normalized query
 binding. PostgreSQL applies every Pool-owned predicate before its page limit and returns the page
 with complete six-plus-four matching-set counts from that one filtered relation. Counts therefore
 remain available for an empty page and never derive from loaded rows or member Questions. Returning
@@ -132,14 +133,15 @@ or provider is selected.
 ## Assessment selection and Student Work
 
 An Assessment contains ordered positions, each holding a Published Question or
-Question Pool. The Assessment records exact Revision evidence. A new Question
-or Pool Revision never advances an Assessment implicitly.
+Question Pool. The Assessment records exact Question Revision evidence and, for a Pool, the
+Pool ID and Pool Edit Number. A new Question Revision or later Pool membership
+edit never advances an Assessment implicitly.
 
 An Assessment Attempt retains:
 
 - the Assessment position;
 - exact Question Revision;
-- exact Pool Revision and selected Question when applicable;
+- Pool ID, Pool Edit Number, and selected Question when applicable;
 - backend-native randomization or opaque state when applicable;
 - the saved response and its whole-Attempt finalization evidence;
 - immutable credit fraction and protected feedback; and

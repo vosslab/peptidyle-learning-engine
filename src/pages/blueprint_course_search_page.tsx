@@ -304,9 +304,9 @@ export function PublicBlueprintSearchPage(props: PublicBlueprintSearchPageProps)
                       {/* ASVS 1.2.1, 1.2.2: text nodes and encoded internal identities, never raw HTML. */}
                       <h3>
                         <A
-                          href={`/blueprint-courses/${encodeURIComponent(course.reference)}`}
-                          ref={(element) => resultLinks.set(`name:${course.reference}`, element)}
-                          onClick={(event) => saveReturn(event, `name:${course.reference}`)}
+                          href={`/blueprint-courses/${encodeURIComponent(course.id)}`}
+                          ref={(element) => resultLinks.set(`name:${course.id}`, element)}
+                          onClick={(event) => saveReturn(event, `name:${course.id}`)}
                         >
                           {course.long_name}
                         </A>
@@ -323,10 +323,10 @@ export function PublicBlueprintSearchPage(props: PublicBlueprintSearchPageProps)
                     <div class="instructor-list__actions">
                       <A
                         class="secondary-action"
-                        href={`/blueprint-courses/${encodeURIComponent(course.reference)}`}
+                        href={`/blueprint-courses/${encodeURIComponent(course.id)}`}
                         aria-label={`Open ${course.long_name}`}
-                        ref={(element) => resultLinks.set(`open:${course.reference}`, element)}
-                        onClick={(event) => saveReturn(event, `open:${course.reference}`)}
+                        ref={(element) => resultLinks.set(`open:${course.id}`, element)}
+                        onClick={(event) => saveReturn(event, `open:${course.id}`)}
                       >
                         Open Blueprint
                       </A>

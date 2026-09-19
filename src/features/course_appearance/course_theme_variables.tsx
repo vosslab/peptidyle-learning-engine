@@ -79,7 +79,7 @@ export function CourseThemeVariables(props: CourseThemeVariablesProps): JSX.Elem
       data.kind === "assessmentAttempt" ||
       data.kind === "assessmentAttemptHistory"
       ? undefined
-      : courseRouteView(data).summary.reference;
+      : courseRouteView(data).summary.id;
   });
   const [presentationOverride, setPresentationOverride] =
     createSignal<CourseThemePresentationOverride>();
@@ -112,12 +112,12 @@ export function CourseThemeVariables(props: CourseThemeVariablesProps): JSX.Elem
     const data = routeData();
     if (data === undefined) return undefined;
     if (data.kind === "assessmentAttempt") {
-      return courseInstanceRouteReference(data.context.course.reference);
+      return courseInstanceRouteReference(data.context.course.id);
     }
     if (data.kind === "assessmentAttemptHistory") {
-      return courseInstanceRouteReference(data.history.course.reference);
+      return courseInstanceRouteReference(data.history.course.id);
     }
-    return courseInstanceRouteReference(courseRouteView(data).summary.reference);
+    return courseInstanceRouteReference(courseRouteView(data).summary.id);
   });
 
   return (

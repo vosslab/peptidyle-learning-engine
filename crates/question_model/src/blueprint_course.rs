@@ -159,7 +159,7 @@ pub struct BlueprintCourseSummaryView {
     /// Independently editable current classification.
     pub classification: crate::CourseClassification,
     /// Blueprint Course Reference resolved under current read authority.
-    pub reference: BlueprintCourseId,
+    pub id: BlueprintCourseId,
     /// Compact stable-lineage name for constrained navigation.
     pub short_name: String,
     /// Descriptive stable-lineage name for headings and listings.
@@ -185,7 +185,7 @@ pub struct BlueprintCourseView {
     /// Independently editable current classification.
     pub classification: crate::CourseClassification,
     /// Blueprint Course Reference resolved for this returned read view.
-    pub reference: BlueprintCourseId,
+    pub id: BlueprintCourseId,
     /// Compact stable-lineage name for constrained navigation.
     pub short_name: String,
     /// Descriptive stable-lineage name for headings and listings.
@@ -303,7 +303,7 @@ mod tests {
         BlueprintModuleReference::from_uuid(Uuid::from_u128(1))
     }
 
-    fn blueprint_assessment_reference() -> BlueprintAssessmentId {
+    fn blueprint_assessment_id() -> BlueprintAssessmentId {
         BlueprintAssessmentId::from_uuid(Uuid::from_u128(2))
     }
 
@@ -481,13 +481,13 @@ mod tests {
                 subtopic_uuid: None,
                 tags: Vec::new(),
             },
-            reference: "BP7K3M2QXH".parse().expect("valid reference"),
+            id: "BP7K3M2QXH".parse().expect("valid Blueprint Course ID"),
             short_name: "Biochemistry".to_string(),
             long_name: "Biochemistry Blueprint".to_string(),
             availability: crate::BlueprintAvailability::Public,
             blueprint_edit_number: crate::BlueprintEditNumber::from_edit_number(42),
             current_revision: crate::BlueprintRevisionReference {
-                reference: "BP7K3M2QXH".parse().expect("valid reference"),
+                blueprint_course_id: "BP7K3M2QXH".parse().expect("valid reference"),
                 revision: BlueprintRevision::INITIAL,
             },
             read_access: BlueprintCourseReadAccess::ActiveInstructor,
@@ -496,7 +496,7 @@ mod tests {
                 blueprint_module_reference: blueprint_module_reference(),
                 label: "Week 1".to_string(),
                 assessments: vec![BlueprintCourseAssessmentContentView {
-                    blueprint_assessment_reference: blueprint_assessment_reference(),
+                    blueprint_assessment_id: blueprint_assessment_id(),
                     content: BlueprintAssessmentContentView {
                         assessment_type: crate::AssessmentType::PracticeQuestionAssignment,
                         title: "Protein structure practice".to_string(),
@@ -538,7 +538,7 @@ mod tests {
             }],
         };
         let wire = serde_json::to_value(view).expect("safe view serializes");
-        assert_eq!(wire["reference"], "BP7K3M2QXH");
+        assert_eq!(wire["id"], "BP7K3M2QXH");
         assert_eq!(wire["current_revision"]["revision"], "1");
         assert_eq!(
             wire["modules"][0]["assessments"][0]["content"]["entries"][0]["kind"],
@@ -549,9 +549,9 @@ mod tests {
                 .is_some()
         );
         assert_eq!(
-            wire.pointer("/modules/0/assessments/0/blueprint_assessment_reference"),
+            wire.pointer("/modules/0/assessments/0/blueprint_assessment_id"),
             Some(&serde_json::Value::String(
-                blueprint_assessment_reference().to_string(),
+                blueprint_assessment_id().to_string(),
             ))
         );
         assert!(
@@ -649,7 +649,7 @@ mod blueprint_course_tests {
     #[test]
     fn replacement_choices_are_explicit_strict_and_unique() {
         let blueprint_module_reference = BlueprintModuleReference::from_uuid(Uuid::from_u128(1));
-        let blueprint_assessment_reference = BlueprintAssessmentId::from_uuid(Uuid::from_u128(2));
+        let blueprint_assessment_id = BlueprintAssessmentId::from_uuid(Uuid::from_u128(2));
         assert!(
             "00000000000000000000000000000001"
                 .parse::<BlueprintModuleReference>()
@@ -696,7 +696,7 @@ mod blueprint_course_tests {
                 assessments: vec![
                     BlueprintAssessmentReplacementInput {
                         choice: BlueprintAssessmentEditChoice::Retained {
-                            blueprint_assessment_reference,
+                            blueprint_assessment_id,
                         },
                         content: content.clone(),
                     },
@@ -727,7 +727,7 @@ mod blueprint_course_tests {
                     label: "Week 1".to_owned(),
                     assessments: vec![BlueprintAssessmentReplacementInput {
                         choice: BlueprintAssessmentEditChoice::Retained {
-                            blueprint_assessment_reference,
+                            blueprint_assessment_id,
                         },
                         content: content.clone(),
                     }],

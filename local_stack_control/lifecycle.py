@@ -30,19 +30,11 @@ import local_stack_control.live_demo_gateway
 import local_stack_control.live_demo_seed
 
 
-LOCAL_INSTRUCTOR_ACCOUNT_ID = local_stack_control.live_demo_seed.SEEDED_ACCOUNTS[0].account_id
-LOCAL_MARY_ACCOUNT_ID = local_stack_control.live_demo_seed.SEEDED_ACCOUNTS[1].account_id
-LOCAL_JACK_ACCOUNT_ID = local_stack_control.live_demo_seed.SEEDED_ACCOUNTS[2].account_id
-LOCAL_APPROVAL_CANDIDATE_ACCOUNT_ID = local_stack_control.live_demo_seed.SEEDED_ACCOUNTS[3].account_id
-LOCAL_MORGAN_SYSADMIN_ACCOUNT_ID = local_stack_control.live_demo_seed.SEEDED_ACCOUNTS[4].account_id
-LOCAL_PRIYA_INSTRUCTOR_ACCOUNT_ID = local_stack_control.live_demo_seed.SEEDED_ACCOUNTS[5].account_id
 MIGRATION_DATABASE_OWNER = local_stack_control.lifecycle_database.MIGRATION_DATABASE_OWNER
 MIGRATION_ROLE = local_stack_control.lifecycle_database.MIGRATION_ROLE
 LIVE_DEMO_PERSONA_SETTINGS = tuple(
 	account.setting for account in local_stack_control.live_demo_seed.SEEDED_ACCOUNTS
 )
-LIVE_DEMO_COURSE_ID = "00000000-0000-0000-0000-000000000220"
-BUNDLED_GENETICS_PUBLISHER_ACCOUNT_ID = "00000000-0000-0000-0000-000000000106"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -158,14 +150,6 @@ def configure_default_environment(
 		"PLE_PUBLISHER_S3_ACCESS_KEY_ID": secrets.token_hex(16),
 		"PLE_PUBLISHER_S3_SECRET_ACCESS_KEY": secrets.token_hex(32),
 	}
-	defaults.update({
-		"PLE_LIVE_DEMO_ELENA_INSTRUCTOR_ACCOUNT_ID": LOCAL_INSTRUCTOR_ACCOUNT_ID,
-		"PLE_LIVE_DEMO_PRIYA_INSTRUCTOR_ACCOUNT_ID": LOCAL_PRIYA_INSTRUCTOR_ACCOUNT_ID,
-		"PLE_LIVE_DEMO_MARY_STUDENT_ACCOUNT_ID": LOCAL_MARY_ACCOUNT_ID,
-		"PLE_LIVE_DEMO_JACK_STUDENT_ACCOUNT_ID": LOCAL_JACK_ACCOUNT_ID,
-		"PLE_LIVE_DEMO_AVERY_STUDENT_ACCOUNT_ID": LOCAL_APPROVAL_CANDIDATE_ACCOUNT_ID,
-		"PLE_LIVE_DEMO_MORGAN_SYSADMIN_ACCOUNT_ID": LOCAL_MORGAN_SYSADMIN_ACCOUNT_ID,
-	})
 	changed = False
 	for name, value in defaults.items():
 		if values.get(name, "") in ("", "change-me-before-first-run", "openwebwork-webwork2"):
@@ -264,13 +248,6 @@ def validate_static(target: local_stack_control.models.ComposeTarget) -> dict[st
 		"PLE_WEBWORK_SESSION_JWT_SECRET",
 		"PLE_WEBWORK_RENDERER_VERSION_FILE",
 	)
-	if local_stack_control.live_demo_gateway.is_tls_target(target):
-		required = required + (
-			"PLE_LIVE_DEMO_ELENA_INSTRUCTOR_ACCOUNT_ID", "PLE_LIVE_DEMO_MARY_STUDENT_ACCOUNT_ID",
-			"PLE_LIVE_DEMO_PRIYA_INSTRUCTOR_ACCOUNT_ID",
-			"PLE_LIVE_DEMO_JACK_STUDENT_ACCOUNT_ID", "PLE_LIVE_DEMO_AVERY_STUDENT_ACCOUNT_ID",
-			"PLE_LIVE_DEMO_MORGAN_SYSADMIN_ACCOUNT_ID",
-		)
 	require_values(values, required)
 	for name in (
 		"PLE_POSTGRES_IMAGE_SHA256", "PLE_MINIO_IMAGE_SHA256", "PLE_MINIO_MC_IMAGE_SHA256",
@@ -436,6 +413,15 @@ def _start_lifecycle(
 		provision_ready_installation_data(
 			target, runner, without_live_demo=options.without_live_demo
 		)
+		if retains_live_demo_persona_configuration(target, options):
+			report_step("recording minted Live Demo Account IDs")
+			record_live_demo_persona_account_ids(target, runner)
+			compose_run(
+				selected,
+				runner,
+				["up", "-d", "--force-recreate", "--no-deps", "api"],
+			)
+			wait_for_complete_ready(target, runner, options)
 	if retains_live_demo_persona_configuration(target, options):
 		report_step("provisioning the local sysadmin TOTP authenticator")
 		provision_local_sysadmin_totp(target, runner)
@@ -828,6 +814,42 @@ def provision_ready_installation_data(
 
 
 #============================================
+def record_live_demo_persona_account_ids(
+	target: LifecycleTarget,
+	runner: local_stack_control.process.CommandRunner,
+) -> None:
+	"""Write server-minted persona Account IDs after installation-data provision."""
+	selected = target_of(target)
+	local_stack_control.env_file.require_mutation_env_file(selected.env_file)
+	result = runner.run(
+		local_stack_control.compose.compose_argv(
+			selected,
+			[
+				"--profile", "migration", "run", "--rm", "--no-deps",
+				"--entrypoint", "/bin/sh", "database-migrator", "-ec",
+				local_stack_control.live_demo_seed.seeded_account_id_query_script(),
+			],
+		),
+		child_environment(selected),
+		selected.repo_root,
+	)
+	private_values = local_stack_control.disposable_stack_adapter.private_environment_values(
+		selected.env_file
+	)
+	require_command(result, "Live Demo Account ID recording", private_values)
+	try:
+		minted = local_stack_control.live_demo_seed.parse_seeded_account_id_report(
+			result.stdout
+		)
+	except ValueError as error:
+		raise local_stack_control.models.ControllerError(str(error)) from error
+	values = local_stack_control.env_file.env_settings(selected.env_file)
+	values.update(minted)
+	content = "".join(f"{name}={value}\n" for name, value in values.items()).encode("utf-8")
+	local_stack_control.private_files.write_atomic_file(selected.env_file, content, 0o600)
+
+
+#============================================
 def provision_local_sysadmin_totp(
 	target: LifecycleTarget,
 	runner: local_stack_control.process.CommandRunner,
@@ -856,7 +878,8 @@ def require_bundled_genetics_without_live_demo(
 	"""Prove the shipped Blueprint remains while the optional Demo root is absent."""
 	selected = target_of(target)
 	script = local_stack_control.live_demo_seed.bundled_without_demo_oracle_script(
-		BUNDLED_GENETICS_PUBLISHER_ACCOUNT_ID, LIVE_DEMO_COURSE_ID
+		local_stack_control.live_demo_seed.EXAMPLE_CONTENT_WORKSPACE_ID,
+		local_stack_control.live_demo_seed.LIVE_DEMO_COURSE_SHORT_NAME,
 	)
 	result = runner.run(
 		local_stack_control.compose.compose_argv(

@@ -193,7 +193,7 @@ async fn load_source(
         .and_then(BlueprintRevision::new)
         .ok_or_else(|| invalid("Blueprint Revision"))?;
     let reference: Uuid = row
-        .try_get("source_assessment_reference")
+        .try_get("source_assessment_id")
         .map_err(map_sqlx_error)?;
     let Json(content): Json<StoredBlueprintCourseContent> =
         row.try_get("content").map_err(map_sqlx_error)?;
@@ -216,7 +216,7 @@ async fn load_source(
         .modules
         .into_iter()
         .flat_map(|module| module.assessments)
-        .find(|member| member.blueprint_assessment_reference.as_uuid() == reference);
+        .find(|member| member.blueprint_assessment_id.as_uuid() == reference);
     if member.is_none()
         != (cannot_apply_reason
             == Some(AssessmentBlueprintUpdateCannotApplyReason::RetainedSourceMissing))

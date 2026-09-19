@@ -58,7 +58,7 @@ export function BlueprintCoursesWorkspace(props: BlueprintCoursesWorkspaceProps)
       return (
         popularity ||
         left.long_name.localeCompare(right.long_name) ||
-        left.reference.localeCompare(right.reference)
+        left.id.localeCompare(right.id)
       );
     });
   const [notice, setNotice] = createSignal<Notice>({
@@ -216,7 +216,7 @@ export function BlueprintCoursesWorkspace(props: BlueprintCoursesWorkspaceProps)
                 <For each={sortedCourses()}>
                   {(course) => (
                     <li>
-                      <A href={referencePath(course.reference)}>
+                      <A href={referencePath(course.id)}>
                         <strong>{course.long_name}</strong>
                         <span>
                           {course.total_adoptions.toLocaleString()} adoptions ·{" "}

@@ -6,7 +6,7 @@ export type InstructorAccountState = "active" | "deactivated" | "closed";
 
 /** The only Instructor Account fields available to the browser. */
 export interface InstructorAccountSummary {
-  readonly reference: AccountId;
+  readonly id: AccountId;
   readonly state: InstructorAccountState;
   readonly lastSuccessfulSignIn: number | null;
   /** Static cross-account projection only; null also conceals private Profile images. */

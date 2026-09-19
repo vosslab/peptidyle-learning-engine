@@ -46,7 +46,7 @@ pub struct BlueprintPoolMembersView {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BlueprintKnownForkView {
-    pub reference: question_model::BlueprintCourseId,
+    pub id: question_model::BlueprintCourseId,
     pub short_name: String,
     pub long_name: String,
     pub availability: question_model::BlueprintAvailability,
@@ -97,15 +97,15 @@ pub struct BlueprintComparisonModule {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BlueprintComparisonAssessmentRelationship {
-    pub left_assessment_reference: question_model::BlueprintAssessmentId,
-    pub right_assessment_reference: question_model::BlueprintAssessmentId,
+    pub left_assessment_id: question_model::BlueprintAssessmentId,
+    pub right_assessment_id: question_model::BlueprintAssessmentId,
     pub shared_question_ids: Vec<question_model::QuestionId>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BlueprintComparisonAssessment {
-    pub blueprint_assessment_reference: question_model::BlueprintAssessmentId,
+    pub blueprint_assessment_id: question_model::BlueprintAssessmentId,
     pub blueprint_module_reference: question_model::BlueprintModuleReference,
     pub position: usize,
     pub content: question_model::CanonicalBlueprintAssessment,
@@ -162,7 +162,7 @@ mod tests {
     fn revision_view_keeps_the_exact_immutable_reference() {
         let view = BlueprintRevisionView {
             blueprint_revision: BlueprintRevisionReference {
-                reference: "BPABCDEFGJ"
+                blueprint_course_id: "BPABCDEFGJ"
                     .parse::<BlueprintCourseId>()
                     .expect("reference"),
                 revision: BlueprintRevision::new(3).expect("revision"),

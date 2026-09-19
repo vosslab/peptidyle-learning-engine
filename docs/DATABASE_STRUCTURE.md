@@ -1,10 +1,11 @@
 # Database structure
 
 This document maps the canonical PostgreSQL structure to the target product in
-[HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md). The checked-in schema still contains
-some legacy `assignment`, `available`, response-finalization, and worker
-identifiers. Those names describe implementation gaps; they are not alternate
-product decisions.
+[HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md). Assessment Type enum labels still use
+`regular_assignment`, `practice_question_assignment`, and `bonus_assignment`
+because those are the three named Assessment Types. Remaining `available`
+lifecycle labels on Published Questions are a migration gap, not a second
+product model.
 
 Table shape rules (types, identity, snapshots, constraints, indexes, and the
 "is my table well designed" checklist) live in [DATABASE_STYLE.md](DATABASE_STYLE.md).
@@ -12,10 +13,11 @@ Table shape rules (types, identity, snapshots, constraints, indexes, and the
 ## One canonical structural build
 
 [schemas/base_schema/install.sql](../schemas/base_schema/install.sql) is the
-ordered fresh-install manifest. Each included module owns its current tables,
-constraints, indexes, functions, row-level-security policies, and grants. A
-cross-domain relationship belongs in the cross-domain module rather than a
-late corrective layer.
+ordered fresh-install manifest. Source is layered by kind: roles and types,
+then [20_tables/](../schemas/base_schema/20_tables/), then constraints,
+indexes, [50_functions/](../schemas/base_schema/50_functions/), policies, and
+grants. Cross-file foreign keys live in
+[30_constraints.sql](../schemas/base_schema/30_constraints.sql).
 
 Before the first approved production deployment, structural corrections change
 the owning base module and are verified from a clean database. After that
@@ -46,7 +48,7 @@ Global Account (one immutable Product Role)
   |           +-- Student records
   |           +-- Course Instance Assessments
   |                 +-- Assessment Attempts
-  |                       +-- selected Question/Pool Revision evidence
+  |                       +-- selected Question Revision, Pool ID, and Pool Edit Number
   |                       +-- saved responses
   |                       +-- whole-Attempt submission state
   |                       +-- immutable credit fractions
@@ -152,23 +154,21 @@ Assessment Type, instructions, timing, Attempt policy, feedback policy, ordered
 Questions/Pool selections, and point values. Its lifecycle is Unreleased or
 Released. Closed and Archived Assessment rows are not target lifecycle states.
 
-Current schema objects named `assignment*` implement parts of this aggregate
-but do not preserve Assignment as the generic product term. They require a
-separate code/schema migration.
+The generic teaching object is stored as `ple_data.assessment`. Assignment
+appears only inside the three Assessment Type names.
 
 ## Student Work
 
 An Assessment Attempt is the Student Work root. It retains the exact Student,
-Course, Assessment, timing, Question or Pool Revision selections, backend state
+Course, Assessment, timing, Question Revision and Pool Edit Number selections, backend state
 needed to interpret responses, saved responses, whole-Attempt submission state,
 immutable credit fractions, and protected feedback.
 
 A complete response is replaceable while the Attempt is open. Submitting the
 whole Assessment Attempt finalizes all saved responses together. Positions
 without a complete saved response remain visibly unanswered, contribute zero,
-and count as incorrect without backend evaluation. An internal
-`question_response` row stores finalized-response evidence under the Assessment
-submission; it does not define another Student action or lifecycle.
+and count as incorrect without backend evaluation. Saved responses finalize in place on
+`assessment_attempt_saved_response`; there is no separate response-copy table.
 
 Scores are derived from immutable credit fractions and current Assessment
 Question point values. The highest submitted Assessment Attempt score is used.

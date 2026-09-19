@@ -80,7 +80,7 @@ function AssessmentCard(props: {
       </section>
       <A
         class="primary-link"
-        href={`/courses/${props.course.reference}/assessments/${props.assessment.reference}`}
+        href={`/courses/${props.course.id}/assessments/${props.assessment.id}`}
       >
         {display().actionVerb} {typePresentation().label}
       </A>
@@ -102,7 +102,7 @@ export function StudentCourseLandingPage(): JSX.Element {
   const course = createMemo(() => {
     const reference = courseReference();
     if (reference === null) return undefined;
-    return courses()?.find((candidate) => candidate.reference === reference);
+    return courses()?.find((candidate) => candidate.id === reference);
   });
   // ASVS V2.2.2/2.3.1: the server projects Student membership; this view makes no access decision.
   async function loadAssessments(

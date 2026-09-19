@@ -216,7 +216,7 @@ impl BlueprintModuleEditChoice {
 pub enum BlueprintAssessmentEditChoice {
     /// Keep this exact assessment lineage from the expected head revision.
     Retained {
-        blueprint_assessment_reference: BlueprintAssessmentId,
+        blueprint_assessment_id: BlueprintAssessmentId,
     },
     /// Add an assessment and let the server allocate its stable identity.
     New,
@@ -227,8 +227,8 @@ impl BlueprintAssessmentEditChoice {
     pub fn retained_reference(self) -> Option<BlueprintAssessmentId> {
         match self {
             Self::Retained {
-                blueprint_assessment_reference,
-            } => Some(blueprint_assessment_reference),
+                blueprint_assessment_id,
+            } => Some(blueprint_assessment_id),
             Self::New => None,
         }
     }
@@ -305,7 +305,7 @@ impl ReplaceBlueprintCourseContentInput {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct BlueprintCourseAssessmentContentView {
     /// Stable opaque Blueprint Assessment Reference retained by an edit of this Assessment.
-    pub blueprint_assessment_reference: BlueprintAssessmentId,
+    pub blueprint_assessment_id: BlueprintAssessmentId,
     /// Current answer-free assessment meaning.
     pub content: BlueprintAssessmentContentView,
 }

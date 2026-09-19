@@ -407,7 +407,6 @@ export function decodeCourseSummary(value: unknown, path = "response"): CourseSu
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "id",
-    "reference",
     "shortName",
     "longName",
     "term",
@@ -420,7 +419,6 @@ export function decodeCourseSummary(value: unknown, path = "response"): CourseSu
       `${path}.classification`,
     ),
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
-    reference: decodeCourseInstanceId(field(record, "reference", path), `${path}.reference`),
     shortName: decodeCourseName(field(record, "shortName", path), `${path}.shortName`),
     longName: decodeCourseName(field(record, "longName", path), `${path}.longName`),
     term: decodeCourseTerm(field(record, "term", path), `${path}.term`),
@@ -750,7 +748,6 @@ export function decodeAssessmentSummary(
   if (strict) {
     requireOnlyFields(record, path, [
       "id",
-      "reference",
       "courseId",
       "title",
       "entries",
@@ -760,7 +757,6 @@ export function decodeAssessmentSummary(
   }
   const decoded = {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
-    reference: decodeAssessmentId(field(record, "reference", path), `${path}.reference`),
     courseId: decodeIdentifier(field(record, "courseId", path), `${path}.courseId`),
     title: decodeNonemptyString(field(record, "title", path), `${path}.title`),
     entries: decodeArray(field(record, "entries", path), `${path}.entries`, decodeAssessmentEntry),

@@ -142,7 +142,7 @@ function blueprintUpdateEntry(value: unknown, path: string): AssessmentBlueprint
       ...settings,
       reference: decodeQuestionRevisionReference(
         field(record, "reference", path),
-        `${path}.reference`,
+        `${path}.id`,
         true,
       ),
       pointsPossible: pointValue(field(record, "pointsPossible", path), `${path}.pointsPossible`),
@@ -346,26 +346,26 @@ export function blueprintRevision(value: unknown, path: string): BlueprintRevisi
 
 function blueprintAssessmentSource(value: unknown, path: string): BlueprintAssessmentSource {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["blueprint_revision", "blueprint_assessment_reference"]);
+  requireOnlyFields(record, path, ["blueprint_revision", "blueprint_assessment_id"]);
   const revision = decodeRecord(
     field(record, "blueprint_revision", path),
     `${path}.blueprint_revision`,
   );
-  requireOnlyFields(revision, `${path}.blueprint_revision`, ["reference", "revision"]);
+  requireOnlyFields(revision, `${path}.blueprint_revision`, ["blueprint_course_id", "revision"]);
   return {
     blueprint_revision: {
-      reference: blueprintCourseReference(
-        field(revision, "reference", `${path}.blueprint_revision`),
-        `${path}.blueprint_revision.reference`,
+      blueprint_course_id: blueprintCourseReference(
+        field(revision, "blueprint_course_id", `${path}.blueprint_revision`),
+        `${path}.blueprint_revision.blueprint_course_id`,
       ),
       revision: blueprintRevision(
         field(revision, "revision", `${path}.blueprint_revision`),
         `${path}.blueprint_revision.revision`,
       ),
     },
-    blueprint_assessment_reference: decodeIdentifier(
-      field(record, "blueprint_assessment_reference", path),
-      `${path}.blueprint_assessment_reference`,
+    blueprint_assessment_id: decodeIdentifier(
+      field(record, "blueprint_assessment_id", path),
+      `${path}.blueprint_assessment_id`,
     ),
   };
 }
@@ -433,7 +433,7 @@ function assessmentEntry(value: unknown, path: string): AssessmentEntry {
       id: decodeIdentifier(field(record, "id", path), `${path}.id`),
       reference: decodeQuestionRevisionReference(
         field(record, "reference", path),
-        `${path}.reference`,
+        `${path}.id`,
         true,
       ),
       pointsPossible: pointValue(field(record, "pointsPossible", path), `${path}.pointsPossible`),
@@ -520,7 +520,7 @@ function pickerEntry(value: unknown, path: string): AssessmentQuestionPickerEntr
   return {
     reference: decodeQuestionRevisionReference(
       field(record, "reference", path),
-      `${path}.reference`,
+      `${path}.id`,
       true,
     ),
     description: decodeQuestionDescription(
@@ -550,7 +550,7 @@ function assessmentType(value: unknown, path: string): AssessmentType {
 function courseAssessmentSummary(value: unknown, path: string): CourseAssessmentSummary {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "reference",
+    "id",
     "assessmentType",
     "title",
     "dueAt",
@@ -559,7 +559,7 @@ function courseAssessmentSummary(value: unknown, path: string): CourseAssessment
     "editNumber",
   ]);
   return {
-    reference: decodeAssessmentId(field(record, "reference", path), `${path}.reference`),
+    id: decodeAssessmentId(field(record, "id", path), `${path}.id`),
     assessmentType: assessmentType(field(record, "assessmentType", path), `${path}.assessmentType`),
     title: decodeAssessmentTitle(field(record, "title", path), `${path}.title`),
     dueAt: localDateAndTime(field(record, "dueAt", path), `${path}.dueAt`),
@@ -769,7 +769,7 @@ export function decodeLiveAssessmentWorkspace(
   // ASVS 1.5.2: untrusted transport JSON is allowlisted before UI use.
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "reference",
+    "id",
     "editNumber",
     "status",
     "origin",
@@ -789,7 +789,7 @@ export function decodeLiveAssessmentWorkspace(
     "questions",
   ]);
   return {
-    reference: decodeAssessmentId(field(record, "reference", path), `${path}.reference`),
+    id: decodeAssessmentId(field(record, "id", path), `${path}.id`),
     editNumber: editNumber(field(record, "editNumber", path), `${path}.editNumber`),
     status: status(field(record, "status", path), `${path}.status`),
     origin: assessmentOrigin(field(record, "origin", path), `${path}.origin`),

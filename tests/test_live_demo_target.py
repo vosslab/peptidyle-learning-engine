@@ -7,6 +7,7 @@ import pytest
 import local_stack_control.compose
 import local_stack_control.disposable_stack_adapter
 import local_stack_control.env_file
+import local_stack_control.live_demo_seed
 import local_stack_control.live_demo_target
 import local_stack_control.models
 import local_stack_control.private_files
@@ -163,8 +164,8 @@ def test_writer_emits_fixed_production_auth_manifest(
 	assert len(values["PLE_PUBLISHER_S3_SECRET_ACCESS_KEY"]) == 64
 	assert values["PLE_PUBLISHER_S3_ACCESS_KEY_ID"] != values["MINIO_ROOT_USER"]
 	assert not any(name.startswith("PLE_WEBAUTHN_") for name in values)
-	assert {
-		name: values[name]
+	assert all(
+		name not in values
 		for name in (
 			"PLE_LIVE_DEMO_ELENA_INSTRUCTOR_ACCOUNT_ID",
 			"PLE_LIVE_DEMO_PRIYA_INSTRUCTOR_ACCOUNT_ID",
@@ -173,19 +174,46 @@ def test_writer_emits_fixed_production_auth_manifest(
 			"PLE_LIVE_DEMO_AVERY_STUDENT_ACCOUNT_ID",
 			"PLE_LIVE_DEMO_MORGAN_SYSADMIN_ACCOUNT_ID",
 		)
-	} == {
-		"PLE_LIVE_DEMO_ELENA_INSTRUCTOR_ACCOUNT_ID": "00000000-0000-0000-0000-000000000101",
-		"PLE_LIVE_DEMO_PRIYA_INSTRUCTOR_ACCOUNT_ID": "00000000-0000-0000-0000-000000000107",
-		"PLE_LIVE_DEMO_MARY_STUDENT_ACCOUNT_ID": "00000000-0000-0000-0000-000000000102",
-		"PLE_LIVE_DEMO_JACK_STUDENT_ACCOUNT_ID": "00000000-0000-0000-0000-000000000103",
-		"PLE_LIVE_DEMO_AVERY_STUDENT_ACCOUNT_ID": "00000000-0000-0000-0000-000000000104",
-		"PLE_LIVE_DEMO_MORGAN_SYSADMIN_ACCOUNT_ID": "00000000-0000-0000-0000-000000000105",
-	}
+	)
 	assert "PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_HOST_FILE" not in values
 	assert all(
 		name not in values
 		for name in local_stack_control.live_demo_target.FORBIDDEN_LOCAL_AUTH_SETTINGS
 	)
+
+
+#============================================
+def test_minted_persona_report_accepts_canonical_account_ids() -> None:
+	"""The recorder keeps only minted public IDs, never the placeholder."""
+	report = "\n".join(
+		(
+			"PLE_LIVE_DEMO_ELENA_INSTRUCTOR_ACCOUNT_ID=U0000035E",
+			"PLE_LIVE_DEMO_MARY_STUDENT_ACCOUNT_ID=U0000036V",
+			"PLE_LIVE_DEMO_JACK_STUDENT_ACCOUNT_ID=U00000370",
+			"PLE_LIVE_DEMO_AVERY_STUDENT_ACCOUNT_ID=U0000038K",
+			"PLE_LIVE_DEMO_MORGAN_SYSADMIN_ACCOUNT_ID=U0000039E",
+			"PLE_LIVE_DEMO_PRIYA_INSTRUCTOR_ACCOUNT_ID=U000003BX",
+		)
+	)
+	parsed = local_stack_control.live_demo_seed.parse_seeded_account_id_report(report)
+	assert parsed["PLE_LIVE_DEMO_ELENA_INSTRUCTOR_ACCOUNT_ID"] == "U0000035E"
+
+
+#============================================
+def test_minted_persona_report_rejects_the_mint_placeholder() -> None:
+	"""A leftover placeholder is not a successful mint."""
+	report = "\n".join(
+		(
+			"PLE_LIVE_DEMO_ELENA_INSTRUCTOR_ACCOUNT_ID=U00000009",
+			"PLE_LIVE_DEMO_MARY_STUDENT_ACCOUNT_ID=U0000036V",
+			"PLE_LIVE_DEMO_JACK_STUDENT_ACCOUNT_ID=U00000370",
+			"PLE_LIVE_DEMO_AVERY_STUDENT_ACCOUNT_ID=U0000038K",
+			"PLE_LIVE_DEMO_MORGAN_SYSADMIN_ACCOUNT_ID=U0000039E",
+			"PLE_LIVE_DEMO_PRIYA_INSTRUCTOR_ACCOUNT_ID=U000003BX",
+		)
+	)
+	with pytest.raises(ValueError, match="placeholder"):
+		local_stack_control.live_demo_seed.parse_seeded_account_id_report(report)
 
 
 #============================================

@@ -48,7 +48,7 @@ export function BlueprintForkSource(props: {
         <section class="blueprint-forks">
           <h2>Fork source</h2>
           <p>
-            Forked from <A href={coursePath(source().reference)}>source Blueprint Course</A>,
+            Forked from <A href={coursePath(source().id)}>source Blueprint Course</A>,
             Revision {source().revision}. This fork develops independently.
           </p>
           <button
@@ -62,8 +62,8 @@ export function BlueprintForkSource(props: {
           <Show when={comparing()}>
             <BlueprintForkReview
               client={props.client}
-              reference={props.view.reference}
-              leftReference={source().reference}
+              reference={props.view.id}
+              leftReference={source().id}
               hasUnsavedChanges={props.hasUnsavedChanges}
               onApplied={props.onApplied}
             />
@@ -165,14 +165,14 @@ function Comparison(props: { readonly view: BlueprintComparisonView }): JSX.Elem
     side: BlueprintComparisonSide,
     reference: string,
   ): BlueprintComparisonSide["assessments"][number] | undefined =>
-    side.assessments.find((item) => item.blueprintAssessmentReference === reference);
+    side.assessments.find((item) => item.blueprintAssessmentId === reference);
   const sideOnly = (side: "left" | "right"): BlueprintComparisonSide["assessments"] =>
     props.view[side].assessments.filter(
       (item) =>
         !props.view.assessmentRelationships.some(
           (edge) =>
-            (side === "left" ? edge.leftAssessmentReference : edge.rightAssessmentReference) ===
-            item.blueprintAssessmentReference,
+            (side === "left" ? edge.leftAssessmentId : edge.rightAssessmentId) ===
+            item.blueprintAssessmentId,
         ),
     );
   return (
@@ -182,11 +182,11 @@ function Comparison(props: { readonly view: BlueprintComparisonView }): JSX.Elem
           {(key) => (
             <section>
               <h3>{key === "left" ? "Left" : "Right"}: latest saved Revision</h3>
-              <A href={coursePath(props.view[key].currentRevision.reference)}>
+              <A href={coursePath(props.view[key].currentRevision.blueprint_course_id)}>
                 {props.view[key].names.longName}
               </A>
               <p>
-                {props.view[key].names.shortName}; {props.view[key].currentRevision.reference};
+                {props.view[key].names.shortName}; {props.view[key].currentRevision.blueprint_course_id};
                 Revision {props.view[key].currentRevision.revision}.
               </p>
               <h4>Module structure in authored order</h4>
@@ -240,13 +240,13 @@ function Comparison(props: { readonly view: BlueprintComparisonView }): JSX.Elem
         {(edge) => (
           <details class="blueprint-fork-item">
             <summary>
-              {assessment(props.view.left, edge.leftAssessmentReference)?.content.title} compared
-              with {assessment(props.view.right, edge.rightAssessmentReference)?.content.title}
+              {assessment(props.view.left, edge.leftAssessmentId)?.content.title} compared
+              with {assessment(props.view.right, edge.rightAssessmentId)?.content.title}
             </summary>
             <p>Shared Question IDs: {edge.sharedQuestionIds.join(", ")}.</p>
-            <Show when={assessment(props.view.left, edge.leftAssessmentReference)}>
+            <Show when={assessment(props.view.left, edge.leftAssessmentId)}>
               {(left) => (
-                <Show when={assessment(props.view.right, edge.rightAssessmentReference)}>
+                <Show when={assessment(props.view.right, edge.rightAssessmentId)}>
                   {(right) => (
                     <p>
                       {assessmentDifferenceLabels(
@@ -264,14 +264,14 @@ function Comparison(props: { readonly view: BlueprintComparisonView }): JSX.Elem
               <section>
                 <h4>Left Assessment</h4>
                 <AssessmentSnapshot
-                  snapshot={assessment(props.view.left, edge.leftAssessmentReference)}
+                  snapshot={assessment(props.view.left, edge.leftAssessmentId)}
                   side={props.view.left}
                 />
               </section>
               <section>
                 <h4>Right Assessment</h4>
                 <AssessmentSnapshot
-                  snapshot={assessment(props.view.right, edge.rightAssessmentReference)}
+                  snapshot={assessment(props.view.right, edge.rightAssessmentId)}
                   side={props.view.right}
                 />
               </section>
@@ -452,7 +452,7 @@ export function BlueprintKnownForks(
                     </div>
                     <A
                       class="quiet-link"
-                      href={coursePath(fork.reference)}
+                      href={coursePath(fork.id)}
                       aria-label={`Open fork: ${fork.longName}`}
                     >
                       Open fork
@@ -461,11 +461,11 @@ export function BlueprintKnownForks(
                       class="quiet-action"
                       type="button"
                       aria-label={`Compare fork with source: ${fork.longName}`}
-                      aria-expanded={selectedFork() === fork.reference}
-                      aria-controls={selectedFork() === fork.reference ? comparisonId : undefined}
+                      aria-expanded={selectedFork() === fork.id}
+                      aria-controls={selectedFork() === fork.id ? comparisonId : undefined}
                       onClick={(event) => {
                         comparisonTrigger = event.currentTarget;
-                        setSelectedFork(fork.reference);
+                        setSelectedFork(fork.id);
                       }}
                     >
                       Compare with source
@@ -510,7 +510,7 @@ export function BlueprintForkReview(
 ): JSX.Element {
   let heading: HTMLHeadingElement | undefined;
   const uniqueId = createUniqueId();
-  const reviewId = (): string => props.id ?? uniqueId;
+  const reviewId = (): string => props.reference ?? uniqueId;
   onMount(() => heading?.focus());
   // Reactive pair owns this request; pending hides stale data when either Reference changes.
   const [review, { refetch }] = createResource(
@@ -573,8 +573,8 @@ export function BlueprintForkReview(
                 !props.hasUnsavedChanges &&
                 loaded.target?.read_access === "blueprint_course_owner" &&
                 loaded.target.availability !== "archived" &&
-                loaded.target.fork_source?.reference ===
-                  loaded.comparison.left.currentRevision.reference
+                loaded.target.fork_source?.id ===
+                  loaded.comparison.left.currentRevision.blueprint_course_id
               }
               fallback={
                 <p role="status">

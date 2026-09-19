@@ -87,7 +87,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         replay.blueprint_revision, created.blueprint_revision,
         "create request replay returns its original Revision"
     );
-    let blueprint_reference = created.blueprint_revision.reference;
+    let blueprint_reference = created.blueprint_revision.blueprint_course_id;
     let reference = blueprint_reference_number(&blueprint_reference).await;
     let reader_store = PostgresBlueprintCourseStore::new(application_pool.clone());
     promotion_boundary(&owner_store, blueprint_reference.clone()).await;
@@ -115,7 +115,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
             .expect("owner Private Blueprint list")
             .items
             .iter()
-            .any(|summary| summary.reference == blueprint_reference),
+            .any(|summary| summary.id == blueprint_reference),
         "owner's Private Blueprint remains in normal discovery"
     );
     assert!(
@@ -125,7 +125,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
             .expect("non-owner discovery including Archived")
             .items
             .iter()
-            .all(|summary| summary.reference != blueprint_reference),
+            .all(|summary| summary.id != blueprint_reference),
         "including Archived never discloses another owner's Private Blueprint"
     );
     assert!(
@@ -135,7 +135,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
             .expect("non-owner Private Blueprint list")
             .items
             .iter()
-            .all(|summary| summary.reference != blueprint_reference),
+            .all(|summary| summary.id != blueprint_reference),
         "Private Blueprint is absent from non-owner discovery"
     );
     assert!(matches!(
@@ -149,7 +149,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
             .load_blueprint_revision(
                 reader_token(),
                 question_model::BlueprintRevisionReference {
-                    reference: blueprint_reference.clone(),
+                    blueprint_course_id: blueprint_reference.clone(),
                     revision: BlueprintRevision::INITIAL,
                 },
             )
@@ -321,7 +321,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
             .expect("ordinary Public discovery after archive")
             .items
             .iter()
-            .all(|summary| summary.reference != blueprint_reference),
+            .all(|summary| summary.id != blueprint_reference),
         "Archived Blueprint leaves ordinary discovery"
     );
     assert!(
@@ -331,7 +331,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
             .expect("owner normal discovery after archive")
             .items
             .iter()
-            .all(|summary| summary.reference != blueprint_reference),
+            .all(|summary| summary.id != blueprint_reference),
         "even an owner's Archived Blueprint leaves normal discovery"
     );
     for session in [token(), reader_token()] {
@@ -342,7 +342,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
                 .expect("explicit Archived discovery")
                 .items
                 .iter()
-                .any(|summary| summary.reference == blueprint_reference),
+                .any(|summary| summary.id == blueprint_reference),
             "Instructors can explicitly include Archived Blueprint history"
         );
     }
@@ -351,7 +351,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
             .load_blueprint_revision(
                 reader_token(),
                 question_model::BlueprintRevisionReference {
-                    reference: blueprint_reference.clone(),
+                    blueprint_course_id: blueprint_reference.clone(),
                     revision: BlueprintRevision::INITIAL,
                 },
             )
@@ -424,9 +424,8 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         .expect("restored Public Blueprint accepts rename");
     assert_eq!(renamed.short_name, "RESTORED");
     let mut inspection = adoption_inspection_connection().await;
-    let adopted_course_reference_number = adopted.course.reference.as_string();
-    let independently_adopted_course_reference_number =
-        independently_adopted.course.reference.as_string();
+    let adopted_course_reference_number = adopted.course.id.as_string();
+    let independently_adopted_course_reference_number = independently_adopted.course.id.as_string();
     blueprint_course_postgres_adoption::assert_adoption_projection(
         &mut inspection,
         &adopted_course_reference_number,
@@ -440,7 +439,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         .execute(&mut *enrollment)
         .await
         .expect("membership owner");
-    let course_id = adopted.course.reference.as_string();
+    let course_id = adopted.course.id.as_string();
     sqlx::query("INSERT INTO ple_data.student_record (student_record_id, course_instance_id, student_account_id, created_at) VALUES ($1,$2,$3,clock_timestamp())")
         .bind(id(0xb105)).bind(&course_id).bind(student_account_id()).execute(&mut *enrollment).await.expect("Student Record");
     for episode in [0xb106, 0xb107] {
@@ -462,7 +461,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     let reader_summary = reader_list
         .items
         .iter()
-        .find(|summary| summary.reference == blueprint_reference)
+        .find(|summary| summary.id == blueprint_reference)
         .expect("Available Blueprint is discoverable by a non-owner Instructor");
     assert_eq!(
         reader_summary.read_access,
@@ -558,8 +557,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         "Save replay returns its original receipt"
     );
 
-    let retained_assessment =
-        current_content.modules[0].assessments[0].blueprint_assessment_reference;
+    let retained_assessment = current_content.modules[0].assessments[0].blueprint_assessment_id;
     let retained_module = current_content.modules[0].blueprint_module_reference;
     let moved_input = ReplaceBlueprintCourseContentInput {
         modules: vec![
@@ -578,7 +576,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
                 label: "Module beta".to_owned(),
                 assessments: vec![BlueprintAssessmentReplacementInput {
                     choice: BlueprintAssessmentEditChoice::Retained {
-                        blueprint_assessment_reference: retained_assessment,
+                        blueprint_assessment_id: retained_assessment,
                     },
                     content: retained_assessment_input(
                         &current_content.modules[0].assessments[0].content,
@@ -628,7 +626,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     let module_rows: Vec<Uuid> = sqlx::query_scalar(
         "SELECT blueprint_module_reference FROM ple_data.blueprint_revision_assessment \
          WHERE blueprint_course_id = $1 \
-           AND blueprint_assessment_reference = $2 \
+           AND blueprint_assessment_id = $2 \
            AND blueprint_revision_number IN (2, 3) ORDER BY blueprint_revision_number",
     )
     .bind(&reference)
@@ -851,7 +849,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     sqlx::query(
         "INSERT INTO ple_data.blueprint_revision_assessment \
          SELECT $1, 5, assessments.blueprint_module_reference, \
-                assessments.blueprint_assessment_reference, assessments.assessment_position \
+                assessments.blueprint_assessment_id, assessments.assessment_position \
            FROM ple_data.blueprint_content_assessments($2) AS assessments",
     )
     .bind(&reference)

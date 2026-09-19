@@ -48,7 +48,7 @@ The idempotent SQL installation-data layer owns the facts for which PostgreSQL
 owns the complete invariant. It creates the same ordinary data graph on a
 fresh installation:
 
-- fixed fictional Accounts and their ordinary roles;
+- fictional Accounts and their ordinary roles, with server-minted public IDs;
 - subject organization;
 - a Blueprint Course, its save-created Blueprint Revision, and exact
   Question Revision pins;

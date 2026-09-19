@@ -61,7 +61,7 @@ export function AssessmentWorkspaceCreatePage(): JSX.Element {
       currentSession.session.account.productRole === "instructor" &&
       currentCourse?.role === "instructor" &&
       reference !== null &&
-      currentCourse.reference === reference
+      currentCourse.id === reference
     );
   };
   const selectedTemplate = (): AssessmentTemplate | undefined =>

@@ -227,7 +227,7 @@ export function decodePendingCourseInvitationsPage(
           "state_precondition",
         ]);
         return {
-          reference: reference(invitation.reference, `${entryPath}.reference`, "CI"),
+          reference: reference(invitation.id, `${entryPath}.reference`, "CI"),
           courseLabel: boundedTrimmedText(
             invitation.courseLabel,
             `${entryPath}.courseLabel`,

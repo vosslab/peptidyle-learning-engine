@@ -736,16 +736,18 @@ of identifiable Course records.
 
 ## Implementation-only vocabulary
 
-Implementation identifiers such as `QuestionResponse` name underlying records;
-they do not imply a per-Question Student submission action. Legacy names such
-as `AssignmentId`, `Reference ID`, `AccountId`, `CourseInstanceId` as a second
-name for Course Instance ID, `metadata_etag`, or `Available` must not define
-current product meaning. Technical terms such as jobs, generations, and
-receipts belong to their implementation boundaries. Use precise identifiers
-when documenting source evidence, with the product meaning or gap nearby;
-internal names create no additional product workflow or lifecycle state.
+Implementation identifiers such as a saved-response row name underlying
+records; they do not imply a per-Question Student submission action. Legacy
+names such as `AssignmentId`, `Reference ID`, `metadata_etag`, or `Available`
+must not define current product meaning. Technical terms such as jobs,
+generations, and receipts belong to their implementation boundaries. Use
+precise identifiers when documenting source evidence, with the product meaning
+or gap nearby; internal names create no additional product workflow or
+lifecycle state.
 
-Rust, TypeScript, SQL, and JSON use the same public-ID names as this contract:
-`AccountId`, `CourseInstanceId`, `AssessmentId`, `BlueprintCourseId`,
-`QuestionId`, and Pool ID (`question_pool_id`). Do not keep a parallel
-`*Reference` type or a UUID primary key beside a public ID.
+Rust, TypeScript, SQL, and JSON use the same public-ID type names as this
+contract: `AccountId`, `CourseInstanceId`, `AssessmentId`,
+`BlueprintCourseId`, `QuestionId`, and Pool ID (`question_pool_id`). SQL
+primary keys and JSON `id` fields are those public IDs. Do not keep a
+parallel UUID primary key, a `reference` JSON field, or a
+`public_reference` SQL alias beside a public ID.

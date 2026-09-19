@@ -135,7 +135,7 @@ API replicas share all correctness state:
 
 - Session tokens are opaque, HttpOnly values. PostgreSQL stores their hashes,
   expiry, and revocation, so a session and its revocation work on every replica.
-- Attempts, timing, immutable Question/Pool Revision References, saved
+- Attempts, timing, Question Revision pins, Pool ID and Pool Edit Number when applicable, saved
   responses, whole-Assessment submission state, credit fractions, and required
   evidence are PostgreSQL records.
 - Object identity, checksum, bucket policy, and signed delivery remain

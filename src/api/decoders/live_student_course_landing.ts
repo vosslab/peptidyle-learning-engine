@@ -31,16 +31,16 @@ import {
 import { decodeStudentAssessmentDecision } from "./student_assessment_decision";
 import { decodeCourseTerm } from "./course_term";
 
-const ASSIGNMENT_ATTEMPT_COMPLETIONS = [
+const ASSESSMENT_ATTEMPT_COMPLETIONS = [
   "inProgress",
   "completed",
 ] as const satisfies ReadonlyArray<AssessmentAttemptCompletion>;
 
 function decodeCourseSummary(value: unknown, path: string): LiveStudentCourseLandingSummary {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["reference", "shortName", "longName"]);
+  requireOnlyFields(record, path, ["id", "shortName", "longName"]);
   return {
-    reference: decodeCourseInstanceId(field(record, "reference", path), `${path}.reference`),
+    id: decodeCourseInstanceId(field(record, "id", path), `${path}.id`),
     shortName: decodeCourseName(field(record, "shortName", path), `${path}.shortName`),
     longName: decodeCourseName(field(record, "longName", path), `${path}.longName`),
   };
@@ -50,7 +50,7 @@ function decodeInvitationSummary(value: unknown, path: string): LiveStudentCours
   const record = decodeRecord(value, path);
   // ASVS 1.5.2/8.2.3: this closed projection contains no private identity fields.
   requireOnlyFields(record, path, [
-    "reference",
+    "id",
     "shortName",
     "longName",
     "instructorDisplayName",
@@ -69,7 +69,7 @@ function decodeInvitationSummary(value: unknown, path: string): LiveStudentCours
     throw new DecodeError(`${path}.instructorDisplayName`, "one verified Instructor display name");
   }
   return {
-    reference: decodeCourseInstanceId(field(record, "reference", path), `${path}.reference`),
+    id: decodeCourseInstanceId(field(record, "id", path), `${path}.id`),
     shortName: decodeCourseName(field(record, "shortName", path), `${path}.shortName`),
     longName: decodeCourseName(field(record, "longName", path), `${path}.longName`),
     instructorDisplayName,
@@ -104,7 +104,7 @@ function decodeAssessmentSummary(
 ): LiveStudentAssessmentLandingSummary {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "reference",
+    "id",
     "title",
     "assessmentType",
     "decision",
@@ -125,7 +125,7 @@ function decodeAssessmentSummary(
     field(record, "assessmentAttemptCompletion", path),
     `${path}.assessmentAttemptCompletion`,
     (candidate, candidatePath) =>
-      decodeStringEnum(candidate, candidatePath, ASSIGNMENT_ATTEMPT_COMPLETIONS),
+      decodeStringEnum(candidate, candidatePath, ASSESSMENT_ATTEMPT_COMPLETIONS),
   );
   const gradedQuestionCount = decodeNonnegativeInteger(
     field(record, "gradedQuestionCount", path),
@@ -157,7 +157,7 @@ function decodeAssessmentSummary(
     throw new DecodeError(path, "internally consistent self-only Assessment progress");
   }
   return {
-    reference: decodeAssessmentId(field(record, "reference", path), `${path}.reference`),
+    id: decodeAssessmentId(field(record, "id", path), `${path}.id`),
     title: decodeAssessmentTitle(field(record, "title", path), `${path}.title`),
     assessmentType: decodeStringEnum(
       field(record, "assessmentType", path),

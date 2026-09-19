@@ -27,7 +27,6 @@ export function decodeAssessmentEditorDetail(
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "id",
-    "reference",
     "courseId",
     "title",
     "entries",
@@ -59,7 +58,6 @@ export function decodeAssessmentEditorDetail(
   assertAssessmentAvailabilityMatchesStatus(assessmentStatus, assessmentAvailability, path);
   const decoded = {
     id: summary.id,
-    reference: summary.reference,
     courseId: summary.courseId,
     title: summary.title,
     entries: summary.entries,

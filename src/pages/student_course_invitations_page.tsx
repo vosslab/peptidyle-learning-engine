@@ -19,7 +19,7 @@ function InvitationCard(props: {
         {" to "}
         <time dateTime={props.invitation.term.endDate}>{props.invitation.term.endDate}</time>
       </p>
-      <A class="primary-link" href={`/courses/${props.invitation.reference}/invitation`}>
+      <A class="primary-link" href={`/courses/${props.invitation.id}/invitation`}>
         Review invitation
       </A>
     </article>

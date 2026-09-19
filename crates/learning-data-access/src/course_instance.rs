@@ -79,8 +79,8 @@ pub struct CourseInstanceSummary {
     /// Stored Course activity state; it is independent of Student-data retention.
     pub lifecycle_state: CourseInstanceLifecycleState,
     pub course_edit_number: question_model::CourseEditNumber,
-    /// Public C-reference only; internal Course IDs never enter this route.
-    pub reference: CourseInstanceId,
+    /// Public Course Instance ID; internal UUIDs never enter this route.
+    pub id: CourseInstanceId,
     /// Compact Course Instance name for constrained navigation.
     pub short_name: String,
     /// Descriptive Course Instance name for headings and breadcrumbs.
@@ -120,7 +120,7 @@ pub struct CourseInstanceView {
 #[serde(rename_all = "camelCase")]
 pub struct CourseInstanceBlueprintOrigin {
     /// Readable parent Blueprint public identity.
-    pub reference: BlueprintCourseId,
+    pub id: BlueprintCourseId,
     /// Immutable Revision originally adopted when the Course was created.
     pub adopted_revision: BlueprintRevision,
     /// Current readable source Revision, without applying any changes.
@@ -132,7 +132,7 @@ pub struct CourseInstanceBlueprintOrigin {
 #[serde(rename_all = "camelCase")]
 pub struct CourseCreationInstructor {
     /// Public Account reference carries neither email nor authority.
-    pub reference: AccountId,
+    pub id: AccountId,
 }
 
 /// Creation receipt that does not imply the creator has Course access.

@@ -7,17 +7,17 @@ use sqlx::{Connection, PgConnection, Row};
 /// teaching-data integrity contract. If it fails, repair adoption persistence.
 pub(super) async fn assert_adoption_projection(
     audit_inspection: &mut PgConnection,
-    course_reference: &str,
+    course_id: &str,
     blueprint_reference: &str,
     blueprint_revision: i64,
-    independent_course_reference: &str,
+    independent_course_id: &str,
 ) {
     assert_projection(
         audit_inspection,
-        course_reference,
+        course_id,
         blueprint_reference,
         blueprint_revision,
-        independent_course_reference,
+        independent_course_id,
         false,
         blueprint_revision,
     )
@@ -46,10 +46,10 @@ pub(super) async fn assert_append_projection(
 
 async fn assert_projection(
     audit_inspection: &mut PgConnection,
-    course_reference: &str,
+    course_id: &str,
     blueprint_reference: &str,
     blueprint_revision: i64,
-    independent_course_reference: &str,
+    independent_course_id: &str,
     appended_only: bool,
     adoption_revision: i64,
 ) {
@@ -72,7 +72,7 @@ async fn assert_projection(
     .await
     .expect("sealed Blueprint source exists");
     let prior_sources: Vec<String> = sqlx::query_scalar(
-        "SELECT blueprint_assessment_reference::text FROM ple_data.blueprint_revision_assessment \
+        "SELECT blueprint_assessment_id::text FROM ple_data.blueprint_revision_assessment \
          WHERE blueprint_course_id = $1 AND blueprint_revision_number < $2",
     )
     .bind(blueprint_reference)
@@ -88,7 +88,7 @@ async fn assert_projection(
          FROM ple_data.course_instance course JOIN ple_data.course_origin origin ON origin.course_instance_id = course.course_instance_id \
          WHERE course.course_instance_id = $1",
     )
-    .bind(course_reference)
+    .bind(course_id)
     .bind(blueprint_reference)
     .bind(adoption_revision)
     .fetch_one(&mut *inspection)
@@ -105,11 +105,11 @@ async fn assert_projection(
     let row = sqlx::query(
         r#"
 WITH source_assessment AS (
-    SELECT assessment_row.assessment ->> 'blueprint_assessment_reference' AS source,
+    SELECT assessment_row.assessment ->> 'blueprint_assessment_id' AS source,
            assessment_row.assessment -> 'content' AS content
       FROM jsonb_array_elements($6::jsonb -> 'modules') AS module_row(module)
       CROSS JOIN LATERAL jsonb_array_elements(module_row.module -> 'assessments') AS assessment_row(assessment)
-     WHERE NOT $5 OR NOT ((assessment_row.assessment ->> 'blueprint_assessment_reference') = ANY($7::text[]))
+     WHERE NOT $5 OR NOT ((assessment_row.assessment ->> 'blueprint_assessment_id') = ANY($7::text[]))
 ), target_assessment AS (
     SELECT assessment.*
       FROM ple_data.assessment AS assessment
@@ -123,7 +123,7 @@ WITH source_assessment AS (
            AND target.origin_kind = 'adopted'
            AND target.source_blueprint_course_id = $2
            AND target.source_blueprint_revision_number = $3
-           AND target.source_blueprint_assessment_reference::text = source.source
+           AND target.source_blueprint_assessment_id::text = source.source
            AND target.assessment_type = source.content ->> 'assessment_type'
            AND snapshot.assessment_title = source.content ->> 'title'
            AND snapshot.assessment_instructions = source.content ->> 'instructions'
@@ -149,7 +149,7 @@ WITH source_assessment AS (
            AND snapshot.feedback_class_statistics = source.content #>> '{defaults,student_feedback_release_rule,class_statistics}'
        ) AS matches
       FROM source_assessment AS source
-      JOIN target_assessment AS target ON target.source_blueprint_assessment_reference::text = source.source
+      JOIN target_assessment AS target ON target.source_blueprint_assessment_id::text = source.source
       JOIN ple_data.assessment_policy_snapshot AS snapshot
         ON snapshot.assessment_policy_snapshot_id = target.assessment_policy_snapshot_id
 ), source_entries AS (
@@ -178,7 +178,7 @@ WITH source_assessment AS (
                (source.entry #>> '{question_attempt_time_limit,graceSeconds}')::integer
        ) AS matches
       FROM source_entries AS source
-      JOIN target_assessment AS target ON target.source_blueprint_assessment_reference::text = source.source
+      JOIN target_assessment AS target ON target.source_blueprint_assessment_id::text = source.source
       JOIN ple_data.assessment_entry AS entry
         ON entry.assessment_id = target.assessment_id AND entry.authored_position = source.position
       JOIN ple_data.assessment_entry_question AS question
@@ -230,7 +230,7 @@ WITH source_assessment AS (
            )
        ) AS matches
       FROM source_entries AS source
-      JOIN target_assessment AS target ON target.source_blueprint_assessment_reference::text = source.source
+      JOIN target_assessment AS target ON target.source_blueprint_assessment_id::text = source.source
       JOIN ple_data.assessment_entry AS entry
         ON entry.assessment_id = target.assessment_id AND entry.authored_position = source.position
       LEFT JOIN ple_data.assessment_entry_pool AS pool
@@ -257,17 +257,17 @@ WITH source_assessment AS (
 SELECT COALESCE((SELECT matches FROM policy_matches), false) AS policy_matches,
        (SELECT jsonb_agg(jsonb_build_object('source', source.content, 'target', to_jsonb(target)))
           FROM source_assessment source JOIN target_assessment target
-            ON target.source_blueprint_assessment_reference::text = source.source) AS policy_projection,
+            ON target.source_blueprint_assessment_id::text = source.source) AS policy_projection,
        COALESCE((SELECT matches FROM entry_count_matches), false) AS entry_count_matches,
        COALESCE((SELECT matches FROM fixed_entries_match), false) AS fixed_entries_match,
        COALESCE((SELECT matches FROM pool_forks_match), false) AS pool_forks_match,
        COALESCE((SELECT matches FROM independent_pool_forks), false) AS independent_pool_forks
 "#,
     )
-    .bind(course_reference)
+    .bind(course_id)
     .bind(blueprint_reference)
     .bind(blueprint_revision)
-    .bind(independent_course_reference)
+    .bind(independent_course_id)
     .bind(appended_only)
     .bind(source_content)
     .bind(prior_sources)
@@ -307,7 +307,7 @@ SELECT COALESCE((SELECT matches FROM policy_matches), false) AS policy_matches,
          WHERE course_instance_id = $1 AND source_kind = 'adopted' \
            AND blueprint_course_id = $2 AND blueprint_revision_number = $3",
     )
-    .bind(course_reference)
+    .bind(course_id)
     .bind(blueprint_reference)
     .bind(adoption_revision)
     .fetch_one(&mut *audit_transaction)

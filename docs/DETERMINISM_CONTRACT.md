@@ -7,9 +7,9 @@ general historical replay system. Product intent comes from
 ## Core rule
 
 An open Assessment Attempt must keep the exact Published Question Revision and,
-for a Pool, the exact Pool Revision and selected Published Question Revision
-delivered to the Student. It also keeps the randomization value or opaque
-Question Backend state required to resume and interpret the response.
+for a Pool, the Pool ID, Pool Edit Number, and selected Published Question
+Revision delivered to the Student. It also keeps the randomization value or
+opaque Question Backend state required to resume and interpret the response.
 
 This does not mean every new Attempt receives the same variant. A new Attempt
 may use new server-owned randomization according to Assessment settings.
@@ -21,7 +21,7 @@ Resuming the same Attempt uses its retained values.
 | --- | --- | --- | --- |
 | Native static render | Exact Question Revision and authored answer-choice-order setting | Same answer-free static native presentation | Native Question Backend |
 | Backend-owned render | Exact source plus backend-owned state | Opaque presentation and state sufficient for the backend to resume/interpret | Selected Question Backend |
-| Assessment selection | Exact Assessment position and Question/Pool Revision | Fixed Question selection for that Attempt | PLE server and Store |
+| Assessment selection | Exact Assessment position, Question Revision, and Pool Edit Number when applicable | Fixed Question selection for that Attempt | PLE server and Store |
 | Response save | Authenticated open Attempt, position, and complete response | One replaceable saved response | PLE server and Store |
 | Whole submission | Exact Attempt and saved responses | One submitted Attempt with all saved responses finalized together | PLE server and Store |
 
@@ -31,9 +31,9 @@ authorize a record, protect transport, or decide a grade.
 ## Revision identity
 
 Question ID identifies a stable Published Question lineage. Question Revision
-Reference identifies exact immutable source. Pool Revision Reference identifies
-exact immutable Pool membership. These are the content identities retained in
-Student Work.
+Reference identifies exact immutable source. Pool ID plus Pool Edit Number
+identifies the Pool membership at selection time. These are the content
+identities retained in Student Work.
 
 Current implementation may store `QuestionAttemptReproductionDetails`, renderer
 versions, rendered-document digests, or presentation tokens. Preserve a field

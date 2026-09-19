@@ -55,7 +55,7 @@ struct CourseListResponse {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct CourseSummary {
-    reference: CourseInstanceId,
+    id: CourseInstanceId,
     short_name: String,
     long_name: String,
 }
@@ -68,7 +68,7 @@ struct CourseInvitationListResponse {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct CourseInvitationSummary {
-    reference: CourseInstanceId,
+    id: CourseInstanceId,
     short_name: String,
     long_name: String,
     instructor_display_name: String,
@@ -78,7 +78,7 @@ struct CourseInvitationSummary {
 impl From<LiveStudentCourseInvitationSummary> for CourseInvitationSummary {
     fn from(invitation: LiveStudentCourseInvitationSummary) -> Self {
         Self {
-            reference: invitation.course,
+            id: invitation.course,
             short_name: invitation.short_name,
             long_name: invitation.long_name,
             instructor_display_name: invitation.instructor_display_name,
@@ -95,7 +95,7 @@ struct AssessmentListResponse {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct AssessmentSummary {
-    reference: AssessmentId,
+    id: AssessmentId,
     title: String,
     assessment_type: AssessmentType,
     decision: StudentAssessmentDecisionSummary,
@@ -120,7 +120,7 @@ async fn list_courses(State(state): State<RouteState>, headers: HeaderMap) -> Re
                 courses: courses
                     .into_iter()
                     .map(|course| CourseSummary {
-                        reference: course.course,
+                        id: course.course,
                         short_name: course.short_name,
                         long_name: course.long_name,
                     })
@@ -185,7 +185,7 @@ async fn list_assessments(
                 assessments: assessments
                     .into_iter()
                     .map(|assessment| AssessmentSummary {
-                        reference: assessment.assessment,
+                        id: assessment.assessment,
                         title: assessment.title,
                         assessment_type: assessment.assessment_type,
                         decision: assessment.decision,
@@ -297,7 +297,7 @@ mod tests {
         assert_eq!(
             projection,
             json!({
-                "reference": "CI6F2R8TA0",
+                "id": "CI6F2R8TA0",
                 "shortName": "Mol Bio",
                 "longName": "Molecular Biology",
                 "instructorDisplayName": "Elena Voss",

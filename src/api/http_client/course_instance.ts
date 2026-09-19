@@ -105,7 +105,7 @@ export function createCourseInstanceClient(
         blueprintCourse.availability !== "private" ||
         blueprintCourse.read_access !== "blueprint_course_owner" ||
         blueprintCourse.fork_source !== null ||
-        blueprintCourse.current_revision.reference !== blueprintCourse.reference ||
+        blueprintCourse.current_revision.blueprint_course_id !== blueprintCourse.id ||
         blueprintCourse.current_revision.revision !== "1"
       ) {
         throw new ApiProtocolError(

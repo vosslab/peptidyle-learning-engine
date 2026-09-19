@@ -778,12 +778,11 @@ def policy_usage_text() -> str:
 		"source file:line) is written to output/schema_style_findings.txt. "
 		"-v/--verbose also prints those finding lines to stdout. "
 		"-r/--report includes advisory findings (rule_14_unindexed_fk, and "
-		"rule_layout only when 20_tables/ is absent) in verbose stdout and "
-		"the findings file without changing the exit code. "
+		"rule_layout only when 20_tables/ is absent) in verbose stdout. "
 		"-j/--snapshot reads a catalog snapshot (default "
 		"schemas/catalog_snapshot.json when that file exists); "
 		"-d/--database reads a live database. Snapshot and database runs "
-		"apply Tier 3 rules. Exit 1 on blocking findings, 0 if clean."
+		"apply Tier 3 rules. Exit 1 on any findings, 0 if clean."
 	)
 	return text
 

@@ -10,7 +10,7 @@ function CourseCard(props: { readonly course: LiveStudentCourseLandingSummary })
   return (
     <article class="course-card">
       <h2>{props.course.longName}</h2>
-      <A class="primary-link" href={`/student/courses/${props.course.reference}`}>
+      <A class="primary-link" href={`/student/courses/${props.course.id}`}>
         Open assigned work
       </A>
     </article>
@@ -30,7 +30,7 @@ export function StudentCoursesPage(): JSX.Element {
     if (choosingCourses() || currentCourses?.length !== 1) return;
     const currentCourse = currentCourses[0];
     if (currentCourse === undefined) return;
-    navigate(`/student/courses/${currentCourse.reference}`, { replace: true });
+    navigate(`/student/courses/${currentCourse.id}`, { replace: true });
   });
 
   return (

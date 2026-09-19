@@ -14,7 +14,7 @@ use crate::{SessionTokenHash, StoreError, StoredBlueprintRevision};
 /// Private children of another Instructor never appear, including to the source owner.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StoredKnownBlueprintFork {
-    pub reference: BlueprintCourseId,
+    pub id: BlueprintCourseId,
     pub short_name: String,
     pub long_name: String,
     pub availability: BlueprintAvailability,

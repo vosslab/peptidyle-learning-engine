@@ -98,7 +98,7 @@ export function createApplicationApi<Client extends ApiClient>(
           client.getCourseInstanceRouteSummary(reference),
           client.getCourseAppearanceView(reference),
         ]);
-        if (summary.reference !== reference) {
+        if (summary.id !== reference) {
           throw new Error("Course scope response does not match the requested course");
         }
         return { summary, appearance };

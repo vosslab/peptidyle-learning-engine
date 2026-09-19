@@ -9,14 +9,14 @@ import type { StudentAssessmentDecisionSummary } from "../../generated/api/Stude
 
 /** One current Student-visible Course Instance, without membership or progress details. */
 export interface LiveStudentCourseLandingSummary {
-  readonly reference: CourseInstanceId;
+  readonly id: CourseInstanceId;
   readonly shortName: string;
   readonly longName: string;
 }
 
 /** One pending Student Course Invitation, without invitation or membership details. */
 export interface LiveStudentCourseInvitationSummary {
-  readonly reference: CourseInstanceId;
+  readonly id: CourseInstanceId;
   readonly shortName: string;
   readonly longName: string;
   readonly instructorDisplayName: string;
@@ -25,7 +25,7 @@ export interface LiveStudentCourseInvitationSummary {
 
 /** One current Student-visible Assessment with self-only, answer-free progress. */
 export interface LiveStudentAssessmentLandingSummary {
-  readonly reference: AssessmentId;
+  readonly id: AssessmentId;
   readonly title: string;
   readonly assessmentType: AssessmentType;
   readonly decision: StudentAssessmentDecisionSummary;

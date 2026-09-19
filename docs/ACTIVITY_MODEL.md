@@ -6,9 +6,10 @@ This document applies the current Assessment and Student Work model from
 
 PLE separates current teaching configuration from retained Student Work. A
 Course Instance Assessment is one current aggregate. An Assessment Attempt is
-one occurrence of that Assessment for one Student. Published Questions,
-published Question Pools, and Blueprint Courses have immutable Revisions;
-Student Work merely retains their exact evidence.
+one occurrence of that Assessment for one Student. Published Questions and Blueprint Courses have immutable Revisions. Question
+Pools are current membership with an Edit Number. Student Work retains the
+exact Question Revision and, when the Question came from a Pool, Pool ID plus
+Pool Edit Number.
 
 ## Assessment current state
 
@@ -29,7 +30,7 @@ An Assessment is Unreleased or Released. Release is explicit. A deadline may
 make a released Assessment unavailable for new work without adding Closed or
 Archived lifecycle states. Accepted edits govern future behavior and current
 score calculations as described below; they do not silently replace the exact
-Question or Pool Revision already selected for an open Attempt.
+Question Revision or Pool Edit Number already selected for an open Attempt.
 
 An Assessment copied from a Blueprint Assessment may retain the exact Blueprint
 Revision and stable Blueprint Assessment reference as provenance. This does not
@@ -40,7 +41,7 @@ create an Assessment Revision or prevent later Course-local editing.
 Each ordered Assessment position uses either:
 
 - one exact Published Question Revision; or
-- a Question Pool selection with an exact Pool Revision and selection count.
+- a Question Pool selection with the current Pool membership, Pool Edit Number, and selection count.
 
 Starting an Attempt records the exact Questions selected from a Pool and the
 backend state needed to render them. Later Question or Pool publication does not
@@ -52,7 +53,7 @@ change an existing Attempt.
 | --- | --- |
 | Student record | One global Student Account's FERPA-protected data in one Course Instance |
 | Assessment Attempt | One occurrence of an Assessment for that Student |
-| Question selection | Exact Question or Pool Revision evidence and fixed position |
+| Question selection | Exact Question Revision, Pool ID and Pool Edit Number when applicable, and fixed position |
 | Backend state | Opaque state needed to render and interpret that selected Question |
 | Saved response | The Student's replaceable complete response while the Attempt is open |
 | Finalized response evidence | The saved response retained as part of the submitted whole Assessment Attempt |
@@ -68,7 +69,7 @@ An Attempt retains only what is needed to interpret Student Work correctly:
 
 - the Student, Course, Assessment, Attempt number, and timestamps;
 - the fixed Assessment timing that applies to that Attempt;
-- the exact Question or Pool Revision selections;
+- the exact Question Revision and Pool Edit Number selections;
 - randomization seed or opaque backend state;
 - the Student's saved response and its whole-Attempt finalization evidence;
 - the immutable credit fraction returned by each backend; and

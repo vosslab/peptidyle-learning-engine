@@ -52,7 +52,7 @@ read-only support access does not confer Instructor authoring or Library
 mutation authority.
 
 An active vetted Instructor with current exact Library read access may correct
-the complete Bloom pair on that exact Question or Pool Revision. This is Library
+the complete Bloom pair on that exact Question Revision or Question Pool. This is Library
 authority, not author, founder, or Pool-owner authority. A Sysadmin has no
 Bloom-correction authority; the read projection does not widen into either
 correction route.
@@ -82,7 +82,7 @@ existing Attempt.
 An Attempt retains the effective title, instructions, availability, timing,
 policy, and qualified adjustment source needed to interpret its own work. An
 Issued Question retains its Assessment position, exact Question Revision,
-Question Pool Revision and selection when applicable, point value, and the
+Question Pool ID and Pool Edit Number when applicable, point value, and the
 backend-owned state needed to resume or interpret the interaction. Readers use
 that retained evidence for existing Student Work.
 
@@ -110,7 +110,8 @@ Student Work.
 
 ## Published Questions, Question Pools, and Blueprint Courses
 
-Question Revisions, Pool Revisions, and Blueprint Revisions are immutable.
+Question Revisions and Blueprint Revisions are immutable. Question Pools are
+current membership with an Edit Number.
 A Published Question may be discoverable or archived.
 A Blueprint Course is Private, Public, or Archived. Private is owner-only and
 cannot be adopted. Public is shared and adoptable. Archived remains visible to

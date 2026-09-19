@@ -364,7 +364,7 @@ function replacementModule(value: unknown, path: string): unknown {
       replacementChoice(
         field(content, "choice", contentPath),
         `${contentPath}.choice`,
-        "blueprint_assessment_reference",
+        "blueprint_assessment_id",
       );
       assessmentContent(field(content, "content", contentPath), `${contentPath}.content`);
       return contentValue;
@@ -513,9 +513,12 @@ export function blueprintEditNumber(value: unknown, path: string): BlueprintEdit
 
 export function revisionReference(value: unknown, path: string): BlueprintRevisionReference {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["reference", "revision"]);
+  requireOnlyFields(record, path, ["blueprint_course_id", "revision"]);
   return {
-    reference: blueprintReference(field(record, "reference", path), `${path}.reference`),
+    blueprint_course_id: blueprintReference(
+      field(record, "blueprint_course_id", path),
+      `${path}.blueprint_course_id`,
+    ),
     revision: revision(field(record, "revision", path), `${path}.revision`),
   };
 }
@@ -525,7 +528,7 @@ function summary(value: unknown, path: string): BlueprintCourseSummaryView {
   requireOnlyFields(record, path, [
     "total_adoptions",
     "total_students_ever_enrolled",
-    "reference",
+    "id",
     "short_name",
     "long_name",
     "availability",
@@ -551,7 +554,7 @@ function summary(value: unknown, path: string): BlueprintCourseSummaryView {
       `${path}.classification`,
     ),
     total_students_ever_enrolled: totalStudents,
-    reference: blueprintReference(field(record, "reference", path), `${path}.reference`),
+    id: blueprintReference(field(record, "id", path), `${path}.id`),
     short_name: text(field(record, "short_name", path), `${path}.short_name`),
     long_name: text(field(record, "long_name", path), `${path}.long_name`),
     availability: availability(field(record, "availability", path), `${path}.availability`),
@@ -589,10 +592,10 @@ function modules(value: unknown, path: string): Array<BlueprintModuleView> {
         MAX_ASSESSMENT_ORDERED_ENTRIES,
         (contentValue, contentPath) => {
           const content = decodeRecord(contentValue, contentPath);
-          requireOnlyFields(content, contentPath, ["blueprint_assessment_reference", "content"]);
+          requireOnlyFields(content, contentPath, ["blueprint_assessment_id", "content"]);
           decodeNonemptyString(
-            field(content, "blueprint_assessment_reference", contentPath),
-            `${contentPath}.blueprint_assessment_reference`,
+            field(content, "blueprint_assessment_id", contentPath),
+            `${contentPath}.blueprint_assessment_id`,
           );
           contentView(field(content, "content", contentPath), `${contentPath}.content`);
           return contentValue;
@@ -607,7 +610,7 @@ function modules(value: unknown, path: string): Array<BlueprintModuleView> {
 export function decodeBlueprintCourseView(value: unknown, path = "response"): BlueprintCourseView {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "reference",
+    "id",
     "short_name",
     "long_name",
     "availability",
@@ -619,7 +622,7 @@ export function decodeBlueprintCourseView(value: unknown, path = "response"): Bl
     "modules",
   ]);
   return {
-    reference: blueprintReference(field(record, "reference", path), `${path}.reference`),
+    id: blueprintReference(field(record, "id", path), `${path}.id`),
     classification: decodeCourseClassification(
       field(record, "classification", path),
       `${path}.classification`,
@@ -726,7 +729,7 @@ function knownBlueprintFork(value: unknown, path: string): BlueprintKnownForkVie
   const record = decodeRecord(value, path);
   // ASVS 2.2.1, 8.2.3: reject substitute identities and hidden-child metadata.
   requireOnlyFields(record, path, [
-    "reference",
+    "id",
     "shortName",
     "longName",
     "availability",
@@ -746,7 +749,7 @@ function knownBlueprintFork(value: unknown, path: string): BlueprintKnownForkVie
     throw new DecodeError(`${path}.ownerDisplayName`, "one verified Instructor display name");
   }
   return {
-    reference: blueprintReference(field(record, "reference", path), `${path}.reference`),
+    id: blueprintReference(field(record, "id", path), `${path}.id`),
     shortName: text(field(record, "shortName", path), `${path}.shortName`),
     longName: text(field(record, "longName", path), `${path}.longName`),
     availability: availability(field(record, "availability", path), `${path}.availability`),

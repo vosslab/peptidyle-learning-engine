@@ -36,7 +36,7 @@ impl SupportRepairResourceClass {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct IssueSupportRepairCapabilityInput {
-    pub sysadmin_reference: AccountId,
+    pub sysadmin_id: AccountId,
     pub resource_class: SupportRepairResourceClass,
     pub resource_reference: String,
     pub purpose: String,
@@ -64,7 +64,7 @@ impl IssueSupportRepairCapabilityInput {
 #[serde(rename_all = "camelCase")]
 pub struct SupportRepairCapabilityReceipt {
     pub capability_id: Uuid,
-    pub sysadmin_reference: AccountId,
+    pub sysadmin_id: AccountId,
     pub resource_class: SupportRepairResourceClass,
     pub resource_reference: String,
     pub purpose: String,
@@ -120,8 +120,7 @@ mod tests {
 
     fn input(reference: &str, purpose: &str) -> IssueSupportRepairCapabilityInput {
         IssueSupportRepairCapabilityInput {
-            sysadmin_reference: AccountId::from_random_identity("7K3M2QX")
-                .expect("valid reference"),
+            sysadmin_id: AccountId::from_random_identity("7K3M2QX").expect("valid reference"),
             resource_class: SupportRepairResourceClass::Student,
             resource_reference: reference.to_owned(),
             purpose: purpose.to_owned(),

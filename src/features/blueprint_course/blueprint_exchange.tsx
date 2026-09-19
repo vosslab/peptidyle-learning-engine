@@ -110,7 +110,7 @@ export function BlueprintCourseImport(props: {
       const result = await props.client.importBlueprintCourse(exchange, importAction.key);
       importAction = undefined;
       close();
-      navigate(detailPath(result.blueprintCourse.reference));
+      navigate(detailPath(result.blueprintCourse.id));
     } catch (error: unknown) {
       if (error instanceof ApiRequestError && error.status === 401) {
         setRetry(false);

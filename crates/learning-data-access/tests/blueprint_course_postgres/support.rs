@@ -121,7 +121,7 @@ pub(super) async fn assert_revision_checksum_mismatch(
         .load_blueprint_revision(
             token(),
             question_model::BlueprintRevisionReference {
-                reference: blueprint_reference.clone(),
+                blueprint_course_id: blueprint_reference.clone(),
                 revision: exact_revision,
             },
         )
@@ -147,7 +147,7 @@ pub(super) async fn assert_revision_checksum_mismatch(
     let tampered = sqlx::query(
         "UPDATE ple_data.blueprint_course_revision \
          SET content = jsonb_set(content, \
-             '{modules,0,assessments,0,blueprint_assessment_reference}', \
+             '{modules,0,assessments,0,blueprint_assessment_id}', \
              to_jsonb('00000000-0000-0000-0000-00000000b123'::text)) \
          WHERE blueprint_course_id = $1 AND blueprint_revision_number = 3",
     )
@@ -174,7 +174,7 @@ pub(super) async fn assert_revision_checksum_mismatch(
             .load_blueprint_revision(
                 token(),
                 question_model::BlueprintRevisionReference {
-                    reference: blueprint_reference,
+                    blueprint_course_id: blueprint_reference,
                     revision: exact_revision,
                 },
             )

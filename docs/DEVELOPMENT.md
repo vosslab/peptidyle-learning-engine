@@ -340,7 +340,8 @@ For fast iteration before that final live-stack gate, run its complete offline s
 source source_me.sh && ./launchers/run_fast_checks.sh
 ```
 
-This runs the Rust, TypeScript/Node, and Python aggregate checks. It deliberately does not replace
+This regenerates the schema tables doc, fails on any schema-style finding, then
+runs the Rust, TypeScript/Node, and Python aggregate checks. It deliberately does not replace
 the final aggregate because it starts no PostgreSQL, object-store, renderer, or browser acceptance
 environment.
 

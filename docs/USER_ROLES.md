@@ -101,7 +101,8 @@ instructor** or **Teaching Team member** for exact course authority. Use
 capability** for its restricted database role. A workspace owner is an access
 relationship, not a fourth Product Role.
 
-Published **Question Revisions**, published **Question Pool Revisions**, and
-**Blueprint Revisions** are the product Revision concepts. Assessment and
-Course Instance configuration are current state; existing Student Work relies
-on retained Attempt and Issued Question evidence.
+Published **Question Revisions** and **Blueprint Revisions** are the product
+Revision concepts. Question Pools, Assessments, and Course Instance
+configuration are current state. Existing Student Work relies on retained
+Attempt evidence: Question ID, Question Revision, and, when the Question came
+from a Pool, Pool ID plus Pool Edit Number.

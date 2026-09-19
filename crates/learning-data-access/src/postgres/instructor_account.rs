@@ -141,20 +141,20 @@ impl InstructorAccountStore for PostgresInstructorAccountStore {
     async fn deactivate_instructor_account(
         &self,
         token: SessionTokenHash,
-        reference: AccountId,
+        id: AccountId,
         input: DeactivateInstructorAccountInput,
     ) -> Result<InstructorAccountSummary, StoreError> {
         input.validate()?;
-        self.change_state(token, reference, "deactivated", Some(input.reason))
+        self.change_state(token, id, "deactivated", Some(input.reason))
             .await
     }
 
     async fn reactivate_instructor_account(
         &self,
         token: SessionTokenHash,
-        reference: AccountId,
+        id: AccountId,
     ) -> Result<InstructorAccountSummary, StoreError> {
-        self.change_state(token, reference, "active", None).await
+        self.change_state(token, id, "active", None).await
     }
 }
 
@@ -162,7 +162,7 @@ impl PostgresInstructorAccountStore {
     async fn change_state(
         &self,
         token: SessionTokenHash,
-        reference: AccountId,
+        id: AccountId,
         state: &'static str,
         reason: Option<String>,
     ) -> Result<InstructorAccountSummary, StoreError> {
@@ -171,7 +171,7 @@ impl PostgresInstructorAccountStore {
             "SELECT public_reference \
              FROM ple_api.change_instructor_account_state($1, $2, $3)",
         )
-        .bind(reference.as_string())
+        .bind(id.as_string())
         .bind(state)
         .bind(reason)
         .fetch_optional(&mut *tx)
@@ -230,7 +230,7 @@ fn decode_summary(row: &sqlx::postgres::PgRow) -> Result<InstructorAccountSummar
         .map(ProvidedAvatarId::parse)
         .transpose()?;
     Ok(InstructorAccountSummary {
-        reference,
+        id: reference,
         state,
         last_successful_sign_in,
         provided_avatar_id,

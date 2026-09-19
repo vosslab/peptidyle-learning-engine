@@ -27,7 +27,7 @@ PLE separates reusable teaching content from its delivery in a particular Course
 - Set Assessment content and Properties separately: Question order and points, Attempts, timing,
   availability, and permitted feedback.
 - Let Students save responses, resume an open Attempt, and submit the whole Attempt, while
-  retained work identifies the exact Question and Pool Revisions delivered.
+  retained work identifies the exact Question Revision and, when the Question came from a Pool, the Pool ID and Pool Edit Number delivered.
 
 Regular Assignments default to repeated practice with unlimited Attempts. Practice Question
 Assignments provide focused review and show correct answers after whole-Attempt submission.

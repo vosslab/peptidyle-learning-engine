@@ -25,7 +25,7 @@ import "./course_list_page.css";
 
 type AdoptableBlueprintCourse = Pick<
   BlueprintCourseSummaryView,
-  "reference" | "long_name" | "availability" | "current_revision"
+  "id" | "long_name" | "availability" | "current_revision"
 >;
 
 function isAdoptableBlueprintCourse(
@@ -36,11 +36,11 @@ function isAdoptableBlueprintCourse(
 
 function blueprintSourceValue(blueprint: AdoptableBlueprintCourse): string {
   const revision = blueprint.current_revision;
-  return `${revision.reference}:${revision.revision}`;
+  return `${revision.blueprint_course_id}:${revision.revision}`;
 }
 
 function CourseInstanceRow(props: { readonly course: CourseInstanceSummary }): JSX.Element {
-  const reference = courseInstanceRouteReference(props.course.reference);
+  const reference = courseInstanceRouteReference(props.course.id);
   const theme = courseThemeTokens(props.course.theme);
   return (
     <article
@@ -74,9 +74,9 @@ function coursesForMode(
   listedCourses: ReadonlyArray<CourseInstanceSummary> | undefined,
   mode: CourseListMode,
 ): ReadonlyArray<CourseInstanceSummary> {
-  const listedReferences = new Set(listedCourses?.map((course) => course.reference) ?? []);
+  const listedReferences = new Set(listedCourses?.map((course) => course.id) ?? []);
   const localOnlyCourses = createdCourses.filter(
-    (course) => !listedReferences.has(course.reference),
+    (course) => !listedReferences.has(course.id),
   );
   const combinedCourses = [...localOnlyCourses, ...(listedCourses ?? [])];
   return combinedCourses.filter((course) => course.lifecycleState === mode);
@@ -197,8 +197,8 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
     const seen = new Set<string>();
     return [...(linked ? [linked] : []), ...(chosen ? [chosen] : []), ...page].filter(
       (blueprint) => {
-        if (!isAdoptableBlueprintCourse(blueprint) || seen.has(blueprint.reference)) return false;
-        seen.add(blueprint.reference);
+        if (!isAdoptableBlueprintCourse(blueprint) || seen.has(blueprint.id)) return false;
+        seen.add(blueprint.id);
         return true;
       },
     );
@@ -227,7 +227,7 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
       }
       source = {
         kind: "adopted",
-        blueprintCourse: selected.reference,
+        blueprintCourse: selected.id,
         blueprintRevision: selected.current_revision.revision,
       };
     }
@@ -270,7 +270,7 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
       void refetchCourses();
       queueMicrotask(() =>
         document
-          .getElementById(`course-open-${courseInstanceRouteReference(created.course.reference)}`)
+          .getElementById(`course-open-${courseInstanceRouteReference(created.course.id)}`)
           ?.focus(),
       );
     } catch (_error: unknown) {

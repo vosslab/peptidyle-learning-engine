@@ -86,8 +86,6 @@ impl Default for AssessmentAttemptPolicySources {
 pub struct AssessmentAttempt {
     /// Durable Assessment Attempt identity.
     pub id: AssessmentAttemptId,
-    /// Assessment Attempt identity used in application navigation.
-    pub reference: AssessmentAttemptId,
     /// Student Record that owns this Assessment Attempt.
     pub student_record: StudentRecordId,
     /// Assessment that this Student Record attempts.

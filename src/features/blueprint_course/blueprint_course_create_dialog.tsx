@@ -127,7 +127,7 @@ export function BlueprintCourseCreateDialog(props: BlueprintCourseCreateDialogPr
       // The local working state is now persisted as Revision 1, so its guard
       // must not intercept this component's own successful redirect.
       setDirty(false);
-      navigate(detailPath(result.value.blueprintCourse.reference));
+      navigate(detailPath(result.value.blueprintCourse.id));
     } catch (error: unknown) {
       const text =
         error instanceof Error

@@ -103,8 +103,8 @@ pub(super) fn detail(
                 .relationships
                 .into_iter()
                 .map(|row| BlueprintComparisonAssessmentRelationship {
-                    left_assessment_reference: row.left_assessment_reference,
-                    right_assessment_reference: row.right_assessment_reference,
+                    left_assessment_id: row.left_assessment_id,
+                    right_assessment_id: row.right_assessment_id,
                     shared_question_ids: row.shared_question_ids,
                 })
                 .collect(),

@@ -260,7 +260,13 @@ async fn create_blueprint(
         Ok(value) => value,
         Err(error) => return store_error_response(error),
     };
-    match load_view(&state, session, receipt.blueprint_revision.reference).await {
+    match load_view(
+        &state,
+        session,
+        receipt.blueprint_revision.blueprint_course_id,
+    )
+    .await
+    {
         Ok(view) => blueprint_response(StatusCode::CREATED, view),
         Err(RouteLoadError::Store(error)) => store_error_response(error),
         Err(RouteLoadError::Unavailable) => unavailable(),
@@ -363,7 +369,7 @@ async fn load_revision(
         Err(response) => return *response,
     };
     let blueprint_revision = BlueprintRevisionReference {
-        reference,
+        blueprint_course_id: reference,
         revision,
     };
     let record = match state
@@ -533,13 +539,13 @@ async fn view_from_record(
 ) -> Result<BlueprintCourseView, RouteLoadError> {
     Ok(BlueprintCourseView {
         classification: record.classification,
-        reference: record.reference.clone(),
+        id: record.id.clone(),
         short_name: record.short_name,
         long_name: record.long_name,
         availability: record.availability,
         blueprint_edit_number: record.blueprint_edit_number,
         current_revision: BlueprintRevisionReference {
-            reference: record.reference,
+            blueprint_course_id: record.id,
             revision: record.current_revision,
         },
         read_access: record.read_access,
@@ -554,13 +560,13 @@ fn summary_view(
         classification: record.classification,
         total_adoptions: record.total_adoptions,
         total_students_ever_enrolled: record.total_students_ever_enrolled,
-        reference: record.reference.clone(),
+        id: record.id.clone(),
         short_name: record.short_name,
         long_name: record.long_name,
         availability: record.availability,
         blueprint_edit_number: record.blueprint_edit_number,
         current_revision: BlueprintRevisionReference {
-            reference: record.reference,
+            blueprint_course_id: record.id,
             revision: record.current_revision,
         },
         read_access: record.read_access,
@@ -633,8 +639,7 @@ async fn content_modules(
                     .iter()
                     .map(|assessment| {
                         Ok(BlueprintCourseAssessmentContentView {
-                            blueprint_assessment_reference: assessment
-                                .blueprint_assessment_reference,
+                            blueprint_assessment_id: assessment.blueprint_assessment_id,
                             content: assessment_content_view(
                                 &assessment.content,
                                 &questions,

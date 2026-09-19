@@ -60,7 +60,7 @@ Attempt.
 The selected Question presentation contains only what the Student interface
 needs:
 
-- the exact published Question or Pool Revision evidence;
+- the exact published Question Revision and, when the Question came from a Pool, Pool ID plus Pool Edit Number;
 - opaque Question Backend state needed to preserve the interaction;
 - ordered prompt content and authorized asset references;
 - public input constraints; and

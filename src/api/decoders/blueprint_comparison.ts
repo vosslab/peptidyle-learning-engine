@@ -237,15 +237,15 @@ function side(input: unknown, path: string): BlueprintComparisonSide {
     (assessmentValue, assessmentPath) => {
       const assessment = decodeRecord(assessmentValue, assessmentPath);
       requireOnlyFields(assessment, assessmentPath, [
-        "blueprintAssessmentReference",
+        "blueprintAssessmentId",
         "blueprintModuleReference",
         "position",
         "content",
         "questionIds",
       ]);
       const reference = stableReference(
-        field(assessment, "blueprintAssessmentReference", assessmentPath),
-        `${assessmentPath}.blueprintAssessmentReference`,
+        field(assessment, "blueprintAssessmentId", assessmentPath),
+        `${assessmentPath}.blueprintAssessmentId`,
       );
       if (assessments.has(reference))
         throw new DecodeError(assessmentPath, "unique side-local Assessment reference");
@@ -299,7 +299,7 @@ export function decodeBlueprintComparisonView(
   ]);
   const left = side(field(record, "left", path), `${path}.left`);
   const right = side(field(record, "right", path), `${path}.right`);
-  if (left.currentRevision.reference === right.currentRevision.reference)
+  if (left.currentRevision.blueprint_course_id === right.currentRevision.blueprint_course_id)
     throw new DecodeError(path, "distinct compared Blueprint Courses");
   const leftIds = new Set(left.assessments.flatMap((assessment) => assessment.questionIds));
   const rightIds = new Set(right.assessments.flatMap((assessment) => assessment.questionIds));
@@ -315,10 +315,10 @@ export function decodeBlueprintComparisonView(
     );
   const edges = new Set<string>();
   const leftAssessments = new Map(
-    left.assessments.map((assessment) => [assessment.blueprintAssessmentReference, assessment]),
+    left.assessments.map((assessment) => [assessment.blueprintAssessmentId, assessment]),
   );
   const rightAssessments = new Map(
-    right.assessments.map((assessment) => [assessment.blueprintAssessmentReference, assessment]),
+    right.assessments.map((assessment) => [assessment.blueprintAssessmentId, assessment]),
   );
   decodeBoundedArray(
     field(record, "assessmentRelationships", path),
@@ -327,17 +327,17 @@ export function decodeBlueprintComparisonView(
     (edgeValue, edgePath) => {
       const edge = decodeRecord(edgeValue, edgePath);
       requireOnlyFields(edge, edgePath, [
-        "leftAssessmentReference",
-        "rightAssessmentReference",
+        "leftAssessmentId",
+        "rightAssessmentId",
         "sharedQuestionIds",
       ]);
       const leftReference = stableReference(
-        field(edge, "leftAssessmentReference", edgePath),
-        `${edgePath}.leftAssessmentReference`,
+        field(edge, "leftAssessmentId", edgePath),
+        `${edgePath}.leftAssessmentId`,
       );
       const rightReference = stableReference(
-        field(edge, "rightAssessmentReference", edgePath),
-        `${edgePath}.rightAssessmentReference`,
+        field(edge, "rightAssessmentId", edgePath),
+        `${edgePath}.rightAssessmentId`,
       );
       const leftAssessment = leftAssessments.get(leftReference);
       const rightAssessment = rightAssessments.get(rightReference);

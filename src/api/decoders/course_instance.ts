@@ -46,7 +46,7 @@ function accountReference(value: unknown, path: string): AccountId {
 function summary(value: unknown, path: string): CourseInstanceSummary {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "reference",
+    "id",
     "shortName",
     "longName",
     "term",
@@ -69,7 +69,7 @@ function summary(value: unknown, path: string): CourseInstanceSummary {
       field(record, "courseEditNumber", path),
       `${path}.courseEditNumber`,
     ),
-    reference: decodeCourseInstanceId(field(record, "reference", path), `${path}.reference`),
+    id: decodeCourseInstanceId(field(record, "id", path), `${path}.id`),
     shortName: decodeCourseName(field(record, "shortName", path), `${path}.shortName`),
     longName: decodeCourseName(field(record, "longName", path), `${path}.longName`),
     term: decodeCourseTerm(field(record, "term", path), `${path}.term`),
@@ -85,7 +85,7 @@ export function decodeCourseInstanceRouteSummary(
   // ASVS 1.5.2 and 2.2.1: accept only the generated public response shape.
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "reference",
+    "id",
     "shortName",
     "longName",
     "term",
@@ -97,7 +97,7 @@ export function decodeCourseInstanceRouteSummary(
       field(record, "classification", path),
       `${path}.classification`,
     ),
-    reference: decodeCourseInstanceId(field(record, "reference", path), `${path}.reference`),
+    id: decodeCourseInstanceId(field(record, "id", path), `${path}.id`),
     shortName: decodeCourseName(field(record, "shortName", path), `${path}.shortName`),
     longName: decodeCourseName(field(record, "longName", path), `${path}.longName`),
     term: decodeCourseTerm(field(record, "term", path), `${path}.term`),
@@ -199,11 +199,11 @@ export function decodeCourseInstanceView(value: unknown, path = "response"): Cou
   if (originValue !== null) {
     const originPath = `${path}.blueprintOrigin`;
     const origin = decodeRecord(originValue, originPath);
-    requireOnlyFields(origin, originPath, ["reference", "adoptedRevision", "currentRevision"]);
+    requireOnlyFields(origin, originPath, ["id", "adoptedRevision", "currentRevision"]);
     blueprintOrigin = {
-      reference: decodeBlueprintCourseId(
-        field(origin, "reference", originPath),
-        `${originPath}.reference`,
+      id: decodeBlueprintCourseId(
+        field(origin, "id", originPath),
+        `${originPath}.id`,
       ),
       adoptedRevision: decodeBlueprintRevision(
         field(origin, "adoptedRevision", originPath),
@@ -251,11 +251,11 @@ export function decodeCourseCreationInstructors(
   }
   return decodeArray(field(record, "items", path), `${path}.items`, (entry, entryPath) => {
     const instructor = decodeRecord(entry, entryPath);
-    requireOnlyFields(instructor, entryPath, ["reference"]);
+    requireOnlyFields(instructor, entryPath, ["id"]);
     return {
-      reference: accountReference(
-        field(instructor, "reference", entryPath),
-        `${entryPath}.reference`,
+      id: accountReference(
+        field(instructor, "id", entryPath),
+        `${entryPath}.id`,
       ),
     };
   });

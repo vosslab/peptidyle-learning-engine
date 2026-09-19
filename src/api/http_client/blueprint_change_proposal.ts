@@ -68,7 +68,7 @@ export function createBlueprintChangeProposalClient(
       request,
     ): Promise<BlueprintChangeProposalDetailView> => {
       const body = decodeBlueprintChangeProposalCreateRequest(request);
-      if (body.target.reference !== target)
+      if (body.target.blueprint_course_id !== target)
         throw new ApiProtocolError(
           "Blueprint Change Proposal body target must match its path target",
         );

@@ -103,7 +103,7 @@ pub(crate) async fn publish_with_context(
         validate_loaded_content(&retained.content, &input, &manifest, &existing_revisions)
             .context("same-name Genetics Blueprint conflicts with the canonical fresh catalog")?;
         return Receipt::new(
-            retained.reference.to_string(),
+            retained.id.to_string(),
             retained.current_revision.value(),
             &manifest,
             &existing_revisions,
@@ -181,7 +181,7 @@ async fn matching_blueprint(
         "ordinary Blueprint Course has a partial Genetics catalog name collision"
     );
     store
-        .load_blueprint_course(session, summary.reference.clone())
+        .load_blueprint_course(session, summary.id.clone())
         .await
         .context("loading same-name Genetics Blueprint before publication")
         .map(Some)
@@ -271,7 +271,10 @@ async fn create_blueprint(
         "canonical Genetics Blueprint creation did not return Revision 1"
     );
     let loaded = store
-        .load_blueprint_course(session, receipt.blueprint_revision.reference.clone())
+        .load_blueprint_course(
+            session,
+            receipt.blueprint_revision.blueprint_course_id.clone(),
+        )
         .await
         .context("reloading canonical Genetics Blueprint Course")?;
     ensure!(
@@ -283,7 +286,7 @@ async fn create_blueprint(
         loaded.classification == input.classification,
         "created Genetics Blueprint classification differs from authored metadata"
     );
-    Ok((loaded.reference, loaded.current_revision))
+    Ok((loaded.id, loaded.current_revision))
 }
 
 fn validate_loaded_content(

@@ -81,8 +81,8 @@ fn project_comparison(
             .relationships
             .into_iter()
             .map(|row| BlueprintComparisonAssessmentRelationship {
-                left_assessment_reference: row.left_assessment_reference,
-                right_assessment_reference: row.right_assessment_reference,
+                left_assessment_id: row.left_assessment_id,
+                right_assessment_id: row.right_assessment_id,
                 shared_question_ids: row.shared_question_ids,
             })
             .collect(),
@@ -119,7 +119,7 @@ pub(super) fn comparison_side(
             .assessments
             .into_iter()
             .map(|row| BlueprintComparisonAssessment {
-                blueprint_assessment_reference: row.blueprint_assessment_reference,
+                blueprint_assessment_id: row.blueprint_assessment_id,
                 blueprint_module_reference: row.blueprint_module_reference,
                 position: row.position,
                 content: row.content,

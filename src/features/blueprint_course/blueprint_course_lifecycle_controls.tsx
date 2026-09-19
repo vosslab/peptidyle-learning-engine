@@ -36,7 +36,7 @@ export function BlueprintCourseLifecycleControls(
           <A
             class="primary-link"
             // ASVS 1.2.2: Encode the Blueprint reference in its query-parameter context.
-            href={`${productRoleHomePath("instructor")}?blueprint=${encodeURIComponent(props.view.reference)}#create-course-instance`}
+            href={`${productRoleHomePath("instructor")}?blueprint=${encodeURIComponent(props.view.id)}#create-course-instance`}
           >
             Create Course Instance from this Blueprint
           </A>

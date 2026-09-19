@@ -34,7 +34,7 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
         )
         .await
         .expect("owner creates append fixture Blueprint through the application Store");
-    let blueprint = created.blueprint_revision.reference;
+    let blueprint = created.blueprint_revision.blueprint_course_id;
     let blueprint_number = blueprint_reference_number(&blueprint).await;
     let private = store
         .load_blueprint_course(token(), blueprint.clone())
@@ -82,7 +82,7 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
             )
             .await
             .expect("create append fixture Course");
-        let number = result.course.reference.as_string();
+        let number = result.course.id.as_string();
         if index == 2 {
             empty_number = number;
         } else {
@@ -166,8 +166,8 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
             assessments: vec![
                 BlueprintAssessmentReplacementInput {
                     choice: BlueprintAssessmentEditChoice::Retained {
-                        blueprint_assessment_reference: initial.modules[0].assessments[0]
-                            .blueprint_assessment_reference,
+                        blueprint_assessment_id: initial.modules[0].assessments[0]
+                            .blueprint_assessment_id,
                     },
                     content: retained_assessment_input(
                         &initial.modules[0].assessments[0].content,
@@ -259,7 +259,7 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
                 .enumerate()
                 .map(|(index, assessment)| BlueprintAssessmentReplacementInput {
                     choice: BlueprintAssessmentEditChoice::Retained {
-                        blueprint_assessment_reference: assessment.blueprint_assessment_reference,
+                        blueprint_assessment_id: assessment.blueprint_assessment_id,
                     },
                     content: retained_assessment_input(
                         &assessment.content,

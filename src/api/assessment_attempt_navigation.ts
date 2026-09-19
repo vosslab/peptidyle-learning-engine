@@ -27,13 +27,13 @@ export interface StudentAssessmentAttemptContext {
   readonly expiresAt: number | null;
   readonly timerRemainingMilliseconds: number | null;
   readonly course: {
-    readonly reference: CourseInstanceId;
+    readonly id: CourseInstanceId;
     readonly shortName: string;
     readonly longName: string;
     readonly theme: CourseTheme;
   };
   readonly assessment: {
-    readonly reference: AssessmentId;
+    readonly id: AssessmentId;
     readonly title: string;
   };
 }

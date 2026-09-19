@@ -57,7 +57,8 @@ Pools.
 Yes. Instructors control the allowed number of Assessment Attempts. Regular
 Assignments default to unlimited Attempts, and Students may practice toward a
 perfect score when settings allow it. Each Attempt retains its own exact
-Question/Pool Revision evidence and Student Work.
+Question Revision and, when the Question came from a Pool, Pool ID plus Pool
+Edit Number, as Student Work.
 
 When several Attempts are submitted, the highest Assessment Attempt score is
 the Student's Assessment score.

@@ -211,7 +211,7 @@ export function BlueprintCourseDetailWorkspace(
     setSaving(true);
     try {
       const saved = await props.client.saveBlueprintCourse(
-        loaded.view.reference,
+        loaded.view.id,
         loaded.content,
         loaded.revisionEtag,
         crypto.randomUUID(),
@@ -300,7 +300,7 @@ export function BlueprintCourseDetailWorkspace(
     setMetadataSaving(true);
     try {
       const metadata = await props.client.renameBlueprintCourse(
-        loaded.view.reference,
+        loaded.view.id,
         { short_name: shortName(), long_name: longName() },
         loaded.view.blueprint_edit_number,
       );
@@ -343,7 +343,7 @@ export function BlueprintCourseDetailWorkspace(
     setMetadataSaving(true);
     try {
       const metadata = await props.client.archiveBlueprintCourse(
-        loaded.view.reference,
+        loaded.view.id,
         archiveConfirmation(),
         loaded.view.blueprint_edit_number,
       );
@@ -380,7 +380,7 @@ export function BlueprintCourseDetailWorkspace(
     setMetadataSaving(true);
     try {
       const metadata = await props.client.restoreBlueprintCourse(
-        loaded.view.reference,
+        loaded.view.id,
         loaded.view.blueprint_edit_number,
       );
       applyMetadata(metadata);
@@ -420,7 +420,7 @@ export function BlueprintCourseDetailWorkspace(
     try {
       applyMetadata(
         await props.client.publishBlueprintCourse(
-          loaded.view.reference,
+          loaded.view.id,
           loaded.view.blueprint_edit_number,
         ),
       );
@@ -451,7 +451,7 @@ export function BlueprintCourseDetailWorkspace(
     try {
       applyMetadata(
         await props.client.returnBlueprintCourseToPrivate(
-          loaded.view.reference,
+          loaded.view.id,
           loaded.view.blueprint_edit_number,
         ),
       );
@@ -475,9 +475,9 @@ export function BlueprintCourseDetailWorkspace(
     if (loaded === undefined) return;
     setMetadataSaving(true);
     try {
-      const result = await props.client.getBlueprintCourse(loaded.view.reference);
+      const result = await props.client.getBlueprintCourse(loaded.view.id);
       const prior = current();
-      if (prior === undefined || prior.view.reference !== result.blueprintCourse.reference) return;
+      if (prior === undefined || prior.view.id !== result.blueprintCourse.id) return;
       setCurrent({
         ...prior,
         view: {
@@ -544,7 +544,7 @@ export function BlueprintCourseDetailWorkspace(
                   loaded().view.availability === "archived"
                 }
               >
-                <BlueprintStewardship client={props.client} reference={loaded().view.reference} />
+                <BlueprintStewardship client={props.client} reference={loaded().view.id} />
               </Show>
               <CourseClassificationEditor
                 value={loaded().view.classification}
@@ -557,7 +557,7 @@ export function BlueprintCourseDetailWorkspace(
                 }
                 save={async (classification, editNumber) => {
                   const transition = await props.client.updateBlueprintCourseClassification(
-                    loaded().view.reference,
+                    loaded().view.id,
                     classification,
                     editNumber,
                   );
@@ -565,7 +565,7 @@ export function BlueprintCourseDetailWorkspace(
                   applyMetadataState(transition);
                 }}
                 reload={async () => {
-                  const latest = await props.client.getBlueprintCourse(loaded().view.reference);
+                  const latest = await props.client.getBlueprintCourse(loaded().view.id);
                   const prior = current();
                   if (prior !== undefined)
                     setCurrent({
@@ -778,7 +778,7 @@ export function BlueprintCourseDetailWorkspace(
                                       selection.assessmentIndex
                                     ]?.choice;
                                   return choice?.kind === "retained"
-                                    ? choice.blueprint_assessment_reference
+                                    ? choice.blueprint_assessment_id
                                     : undefined;
                                 })()}
                                 editable={
@@ -806,7 +806,7 @@ export function BlueprintCourseDetailWorkspace(
                 </div>
               </section>
               <BlueprintHistory client={props.client} view={loaded().view} />
-              <BlueprintCourseExport client={props.client} reference={loaded().view.reference} />
+              <BlueprintCourseExport client={props.client} reference={loaded().view.id} />
               <BlueprintForkCreate client={props.client} source={loaded().view} />
               <Show when={props.proposalClient}>
                 {(client) => <ProposalTargetTools client={client()} target={loaded().view} />}
@@ -819,7 +819,7 @@ export function BlueprintCourseDetailWorkspace(
               />
               <BlueprintKnownForks
                 client={props.client}
-                reference={loaded().view.reference}
+                reference={loaded().view.id}
                 sourceCurrentRevision={loaded().view.current_revision.revision}
                 hasUnsavedChanges={hasUnsavedForkChanges()}
                 onApplied={() => void load(hasUnsavedForkChanges(), true)}

@@ -39,10 +39,10 @@ impl PostgresBlueprintCourseStore {
         let rows = sqlx::query(
             "SELECT * FROM ple_api.load_blueprint_fork_apply_sources($1, $2, $3, $4, $5, $6)",
         )
-        .bind(input.expected_source.reference.as_string())
+        .bind(input.expected_source.blueprint_course_id.as_string())
         .bind(i64::try_from(input.expected_source.revision.value()).map_err(|_| invalid())?)
         .bind(input.expected_source_blueprint_edit_number.as_i64())
-        .bind(input.expected_fork.reference.as_string())
+        .bind(input.expected_fork.blueprint_course_id.as_string())
         .bind(i64::try_from(input.expected_fork.revision.value()).map_err(|_| invalid())?)
         .bind(input.expected_fork_blueprint_edit_number.as_i64())
         .fetch_all(&mut *transaction)
@@ -79,10 +79,10 @@ impl PostgresBlueprintCourseStore {
         }
         let mut new_assessments = BTreeMap::new();
         for copy in &input.selection.source_assessments {
-            if copy.target_assessment_reference.is_none()
+            if copy.target_assessment_id.is_none()
                 && new_assessments
                     .insert(
-                        copy.source_assessment_reference,
+                        copy.source_assessment_id,
                         BlueprintAssessmentId::from_uuid(random_uuid()?),
                     )
                     .is_some()
@@ -101,15 +101,11 @@ impl PostgresBlueprintCourseStore {
         let mut copied_assessments = BTreeMap::new();
         for copy in &input.selection.source_assessments {
             let target_reference = copy
-                .target_assessment_reference
-                .or_else(|| {
-                    new_assessments
-                        .get(&copy.source_assessment_reference)
-                        .copied()
-                })
+                .target_assessment_id
+                .or_else(|| new_assessments.get(&copy.source_assessment_id).copied())
                 .ok_or_else(invalid)?;
             if copied_assessments
-                .insert(target_reference, copy.source_assessment_reference)
+                .insert(target_reference, copy.source_assessment_id)
                 .is_some()
             {
                 return Err(invalid());
@@ -120,7 +116,7 @@ impl PostgresBlueprintCourseStore {
         for module in applied.modules() {
             let mut assessments = Vec::new();
             for assessment in module.assessments() {
-                let target_reference = assessment.blueprint_assessment_reference();
+                let target_reference = assessment.blueprint_assessment_id();
                 let (tree, stored_reference) =
                     if let Some(source_reference) = copied_assessments.get(&target_reference) {
                         (source, *source_reference)
@@ -131,10 +127,10 @@ impl PostgresBlueprintCourseStore {
                     .modules
                     .iter()
                     .flat_map(|module| &module.assessments)
-                    .find(|stored| stored.blueprint_assessment_reference == stored_reference)
+                    .find(|stored| stored.blueprint_assessment_id == stored_reference)
                     .ok_or_else(invalid)?
                     .clone();
-                stored.blueprint_assessment_reference = target_reference;
+                stored.blueprint_assessment_id = target_reference;
                 assessments.push(stored);
             }
             modules.push(StoredBlueprintModule {
@@ -150,7 +146,7 @@ impl PostgresBlueprintCourseStore {
         // Only explicit source copies import fresh Assessment-owned Pools;
         // untouched target Assessments keep their exact existing Pool pins.
         let replay = sqlx::query("SELECT * FROM ple_api.blueprint_pool_write_receipt($1,$2)")
-            .bind(input.expected_fork.reference.as_string())
+            .bind(input.expected_fork.blueprint_course_id.as_string())
             .bind(checksum.into_bytes().to_vec())
             .fetch_optional(&mut *transaction)
             .await
@@ -159,7 +155,7 @@ impl PostgresBlueprintCourseStore {
         if !replay {
             for module in &mut content.modules {
                 for assessment in &mut module.assessments {
-                    if copied_assessments.contains_key(&assessment.blueprint_assessment_reference) {
+                    if copied_assessments.contains_key(&assessment.blueprint_assessment_id) {
                         let mut copied = StoredBlueprintCourseContent {
                             modules: vec![StoredBlueprintModule {
                                 blueprint_module_reference: module.blueprint_module_reference,
@@ -181,7 +177,7 @@ impl PostgresBlueprintCourseStore {
         }
         let daughters =
             sqlx::query("SELECT course_id FROM ple_api.list_blueprint_daughter_course_ids($1)")
-                .bind(input.expected_fork.reference.as_string())
+                .bind(input.expected_fork.blueprint_course_id.as_string())
                 .fetch_all(&mut *transaction)
                 .await
                 .map_err(map_sqlx_error)?;
@@ -189,7 +185,7 @@ impl PostgresBlueprintCourseStore {
         let save = self
             .save_trusted_content(
                 &mut transaction,
-                input.expected_fork.reference.clone(),
+                input.expected_fork.blueprint_course_id.clone(),
                 input.expected_fork.revision,
                 checksum,
                 actor,
@@ -206,7 +202,7 @@ impl PostgresBlueprintCourseStore {
         let metadata = self
             .rename_in_transaction(
                 &mut transaction,
-                input.expected_fork.reference.clone(),
+                input.expected_fork.blueprint_course_id.clone(),
                 input.expected_fork_blueprint_edit_number,
                 RenameBlueprintCourseInput {
                     short_name,

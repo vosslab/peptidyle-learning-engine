@@ -65,7 +65,7 @@ impl BlueprintRevisionContent {
 /// One validated Blueprint Assessment with trusted immutable question pins.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BlueprintAssessmentContent {
-    blueprint_assessment_reference: BlueprintAssessmentId,
+    blueprint_assessment_id: BlueprintAssessmentId,
     assessment_type: crate::AssessmentType,
     title: AssessmentTitle,
     instructions: AssessmentInstructions,
@@ -75,7 +75,7 @@ pub struct BlueprintAssessmentContent {
 impl BlueprintAssessmentContent {
     /// Validates all Blueprint Assessment meaning before constructing a baseline.
     pub fn new(
-        blueprint_assessment_reference: BlueprintAssessmentId,
+        blueprint_assessment_id: BlueprintAssessmentId,
         assessment_type: crate::AssessmentType,
         title: AssessmentTitle,
         instructions: AssessmentInstructions,
@@ -87,7 +87,7 @@ impl BlueprintAssessmentContent {
         }
         defaults.validate()?;
         Ok(Self {
-            blueprint_assessment_reference,
+            blueprint_assessment_id,
             assessment_type,
             title,
             instructions,
@@ -96,8 +96,8 @@ impl BlueprintAssessmentContent {
         })
     }
     /// Returns the stable Blueprint Assessment identity retained across Revisions.
-    pub fn blueprint_assessment_reference(&self) -> BlueprintAssessmentId {
-        self.blueprint_assessment_reference
+    pub fn blueprint_assessment_id(&self) -> BlueprintAssessmentId {
+        self.blueprint_assessment_id
     }
     /// Returns the fixed pedagogical purpose retained across Blueprint Revisions.
     pub fn assessment_type(&self) -> crate::AssessmentType {
@@ -333,7 +333,7 @@ struct EncodedModule<'a> {
 #[derive(Serialize)]
 #[serde(rename_all = "snake_case")]
 struct EncodedAssessment<'a> {
-    blueprint_assessment_reference: BlueprintAssessmentId,
+    blueprint_assessment_id: BlueprintAssessmentId,
     assessment_type: crate::AssessmentType,
     title: &'a str,
     instructions: &'a AssessmentInstructions,
@@ -389,7 +389,7 @@ fn deterministic_encoded_bytes(payload: &BlueprintRevisionContent) -> Vec<u8> {
 
 fn encode_assessment(assessment: &BlueprintAssessmentContent) -> EncodedAssessment<'_> {
     EncodedAssessment {
-        blueprint_assessment_reference: assessment.blueprint_assessment_reference(),
+        blueprint_assessment_id: assessment.blueprint_assessment_id(),
         assessment_type: assessment.assessment_type(),
         title: assessment.title(),
         instructions: assessment.instructions(),

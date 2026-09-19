@@ -3,7 +3,7 @@
 This guide translates the Iowa State University Center for Excellence in Learning and Teaching
 (CELT) Bloom's Taxonomy guide into the Bloom classification used by PLE. It helps Instructors
 understand and correct the AI-assigned cognitive classification of one exact Published Question
-Revision or Question Pool Revision.
+Revision or Question Pool.
 
 [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md#content-and-delivery-relationships) owns the
 canonical names. [QUESTION_MODEL.md](QUESTION_MODEL.md#bloom-classification) owns the classification
@@ -18,7 +18,7 @@ the cognitive work students should perform, and track objectives across courses 
 PLE applies that purpose narrowly to Questions and Question Pools:
 
 - Classify the work required for full credit on one exact Question Revision or the intended work of
-  one exact Question Pool Revision.
+  one Question Pool.
 - Search the Question Library by either dimension or by their intersection.
 - Review the balance of cognitive work across an Assessment or Course.
 - Keep intended cognitive demand separate from observed Question Difficulty.
@@ -62,7 +62,7 @@ order is Cognitive Process first (Remember through Create), then Knowledge Dimen
 through Metacognitive). Entries with the same pair retain their immediately prior relative order.
 
 A fixed Question Entry uses the pair on its exact pinned Question Revision. A Question Pool Entry
-uses the pair on the exact Assessment-owned fork Pool Revision. Do not substitute the reusable
+uses the pair on the Assessment-owned fork Pool. Do not substitute the reusable
 source Pool's current pair or infer a Pool pair from its members. Sorting changes only the pending
 Assessment Entry sequence; the ordinary Assessment Save and its Edit Number CAS persist it.
 
@@ -182,15 +182,16 @@ learning.
 
 ## AI assignment and correction
 
-Before a Published Question Revision or Question Pool Revision enters the Question Library, AI
+Before a Published Question Revision or Question Pool enters the Question Library, AI
 assigns its initial Cognitive Process Dimension and Knowledge Dimension values as part of
 publication. Both values are required for Library entry; an unassigned Question or Pool is not
 discoverable in the Library.
 
 An Instructor can later edit either value when teaching context or expert judgment supports a
-different pair. The correction targets the same exact Question or Pool Revision. It changes
-classification metadata while retaining the other value and without creating a new immutable
-Revision or changing Question content, Pool member pins, or Question Reason for Edit history.
+different pair. The correction targets the same exact Question Revision or Question Pool. It
+changes classification metadata while retaining the other value and without creating a new
+immutable Question Revision or changing Question content, Pool member pins, or Question Reason
+for Edit history.
 
 This guide defines the expected result and timing. A separate AI integration plan will select the
 model execution environment, protected Question inputs, scheduling, concurrent work claims, retry
@@ -252,7 +253,7 @@ color does not represent correctness, Question Difficulty, point value, or maste
 - [ ] Expected prior learning and course context support the selected cognitive process.
 - [ ] The classification remains separate from Question Difficulty and Question Type.
 - [ ] Every color-coded presentation also displays both dimension labels.
-- [ ] An Instructor can edit either assigned value later without creating a Question or Pool Revision.
+- [ ] An Instructor can edit either assigned value later without creating a Question Revision or advancing the Pool Edit Number.
 - [ ] Assessment sorting uses the exact fixed or Assessment-owned Pool pair, guide order, and a
   stable prior-position tie-break.
 

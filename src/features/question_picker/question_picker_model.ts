@@ -287,7 +287,7 @@ function selectedBlueprintAssessment(
   ReturnType<BlueprintCourseClient["getBlueprintRevision"]>
 >["modules"][number]["assessments"][number] {
   if (
-    revision.blueprintRevision.reference !== source.blueprint_revision.reference ||
+    revision.blueprintRevision.blueprint_course_id !== source.blueprint_revision.blueprint_course_id ||
     revision.blueprintRevision.revision !== source.blueprint_revision.revision
   ) {
     throw new Error(
@@ -297,7 +297,7 @@ function selectedBlueprintAssessment(
   for (const module of revision.modules) {
     const content = module.assessments.find(
       (assessment) =>
-        assessment.blueprint_assessment_reference === source.blueprint_assessment_reference,
+        assessment.blueprint_assessment_id === source.blueprint_assessment_id,
     );
     if (content !== undefined) return content;
   }
@@ -342,7 +342,7 @@ export function blueprintCourseQuestionPickerRepository(
       if (request.source.kind === "blueprintCourseAssessment") {
         const source = request.source.source;
         const revision = await client.getBlueprintRevision(
-          source.blueprint_revision.reference,
+          source.blueprint_revision.blueprint_course_id,
           source.blueprint_revision.revision,
         );
         rows = contentRows(selectedBlueprintAssessment(source, revision).content);

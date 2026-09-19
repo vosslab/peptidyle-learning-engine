@@ -321,7 +321,7 @@ export function createBlueprintCourseClient(
         decodeBlueprintCourseView,
         { method: "POST", idempotencyKey: requestKey, expectedStatus: 201 },
       );
-      if (result.body.reference === reference || result.body.availability !== "private") {
+      if (result.body.id === reference || result.body.availability !== "private") {
         throw new ApiProtocolError(
           "Blueprint fork response must identify an independent Private Blueprint Course",
         );
@@ -331,7 +331,7 @@ export function createBlueprintCourseClient(
     applyBlueprintFork: async (reference, request): Promise<BlueprintForkApplyResponse> => {
       const path = `${blueprintPath(reference)}/fork-update`;
       const body = decodeBlueprintForkApplyRequest(request);
-      if (body.expectedFork.reference !== reference)
+      if (body.expectedFork.id !== reference)
         throw new ApiProtocolError("Blueprint fork update must target its expected fork reference");
       const result = await blueprintJson(
         fetchImplementation,
@@ -344,7 +344,7 @@ export function createBlueprintCourseClient(
           expectedStatus: 200,
         },
       );
-      if (result.body.blueprintRevision.reference !== reference)
+      if (result.body.blueprintRevision.blueprint_course_id !== reference)
         throw new ApiProtocolError(
           "Blueprint fork update response must identify the requested fork",
         );
@@ -367,8 +367,8 @@ export function createBlueprintCourseClient(
         })
       ).body;
       if (
-        body.left.currentRevision.reference !== left ||
-        body.right.currentRevision.reference !== right
+        body.left.currentRevision.blueprint_course_id !== left ||
+        body.right.currentRevision.blueprint_course_id !== right
       )
         throw new ApiProtocolError("Blueprint comparison must identify the requested pair");
       return body;

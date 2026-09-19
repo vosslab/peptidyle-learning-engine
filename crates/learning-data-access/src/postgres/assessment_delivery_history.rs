@@ -92,7 +92,7 @@ pub(super) async fn read(
         assessment_attempt,
         attempt_number,
         course: StudentAssessmentAttemptHistoryCourse {
-            reference: course_reference(
+            id: course_reference(
                 row.try_get("course_reference_number")
                     .map_err(map_sqlx_error)?,
             )?,
@@ -111,7 +111,7 @@ pub(super) async fn read(
             .map_err(|_| StoreError::InvalidRecord("Course theme is invalid".to_string()))?,
         },
         assessment: StudentAssessmentAttemptHistoryAssessment {
-            reference: assessment,
+            id: assessment,
             title: row.try_get("assessment_title").map_err(map_sqlx_error)?,
         },
         state,

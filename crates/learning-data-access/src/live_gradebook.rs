@@ -13,7 +13,7 @@ pub struct CourseGradebookStudentWork {
     pub roster_id: String,
     /// Instructor-provided, exact-Course roster label.
     pub roster_name: String,
-    pub assessment_reference: question_model::AssessmentId,
+    pub assessment_id: question_model::AssessmentId,
     pub assessment_title: String,
     pub assessment_attempt_completion: Option<question_model::AssessmentAttemptCompletion>,
     /// Derived only from server time and durable submission evidence.
@@ -28,7 +28,7 @@ pub struct CourseGradebookStudentWork {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CourseGradebook {
-    pub course_reference: CourseInstanceId,
+    pub course_id: CourseInstanceId,
     pub student_work: Vec<CourseGradebookStudentWork>,
 }
 

@@ -75,9 +75,9 @@ export function decodeStudentAssessmentAttemptContext(
     "assessment",
   ]);
   const course = decodeRecord(field(record, "course", path), `${path}.course`);
-  requireOnlyFields(course, `${path}.course`, ["reference", "shortName", "longName", "theme"]);
+  requireOnlyFields(course, `${path}.course`, ["id", "shortName", "longName", "theme"]);
   const assessment = decodeRecord(field(record, "assessment", path), `${path}.assessment`);
-  requireOnlyFields(assessment, `${path}.assessment`, ["reference", "title"]);
+  requireOnlyFields(assessment, `${path}.assessment`, ["id", "title"]);
   const remaining = field(record, "timerRemainingMilliseconds", path);
   const expiresAt = field(record, "expiresAt", path);
   return {
@@ -99,9 +99,9 @@ export function decodeStudentAssessmentAttemptContext(
         ? null
         : decodeNonnegativeInteger(remaining, `${path}.timerRemainingMilliseconds`),
     course: {
-      reference: decodeCourseReference(
-        field(course, "reference", `${path}.course`),
-        `${path}.course.reference`,
+      id: decodeCourseReference(
+        field(course, "id", `${path}.course`),
+        `${path}.course.id`,
       ),
       shortName: decodeCourseName(
         field(course, "shortName", `${path}.course`),
@@ -118,9 +118,9 @@ export function decodeStudentAssessmentAttemptContext(
       ),
     },
     assessment: {
-      reference: decodeAssessmentId(
-        field(assessment, "reference", `${path}.assessment`),
-        `${path}.assessment.reference`,
+      id: decodeAssessmentId(
+        field(assessment, "id", `${path}.assessment`),
+        `${path}.assessment.id`,
       ),
       title: decodeNonemptyString(
         field(assessment, "title", `${path}.assessment`),

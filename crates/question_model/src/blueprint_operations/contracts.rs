@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct BlueprintRevisionReference {
-    pub reference: BlueprintCourseId,
+    pub blueprint_course_id: BlueprintCourseId,
     pub revision: BlueprintRevision,
 }
 
@@ -20,17 +20,17 @@ pub struct BlueprintRevisionReference {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct BlueprintAssessmentSource {
     pub blueprint_revision: BlueprintRevisionReference,
-    pub blueprint_assessment_reference: BlueprintAssessmentId,
+    pub blueprint_assessment_id: BlueprintAssessmentId,
 }
 
 impl BlueprintAssessmentSource {
     pub const fn new(
         blueprint_revision: BlueprintRevisionReference,
-        blueprint_assessment_reference: BlueprintAssessmentId,
+        blueprint_assessment_id: BlueprintAssessmentId,
     ) -> Self {
         Self {
             blueprint_revision,
-            blueprint_assessment_reference,
+            blueprint_assessment_id,
         }
     }
 }
@@ -189,7 +189,7 @@ mod tests {
         let blueprint = BlueprintCourseId::new("BP7K3M2QXH").expect("valid Blueprint Course");
         let receipt = CreateBlueprintCourseReceipt {
             blueprint_revision: BlueprintRevisionReference {
-                reference: blueprint.clone(),
+                blueprint_course_id: blueprint.clone(),
                 revision: BlueprintRevision::INITIAL,
             },
             blueprint_edit_number: BlueprintEditNumber::from_edit_number(13),
@@ -198,7 +198,7 @@ mod tests {
             accepted_at: Timestamp::from_unix_millis(16),
         };
 
-        assert_eq!(receipt.blueprint_revision.reference, blueprint);
+        assert_eq!(receipt.blueprint_revision.blueprint_course_id, blueprint);
         assert_eq!(
             receipt.blueprint_revision.revision,
             BlueprintRevision::INITIAL

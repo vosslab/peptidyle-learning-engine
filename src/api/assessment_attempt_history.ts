@@ -37,13 +37,13 @@ export interface StudentAssessmentAttemptHistory {
   readonly assessmentAttempt: AssessmentAttemptId;
   readonly attemptNumber: number;
   readonly course: {
-    readonly reference: CourseInstanceId;
+    readonly id: CourseInstanceId;
     readonly shortName: string;
     readonly longName: string;
     readonly theme: CourseTheme;
   };
   readonly assessment: {
-    readonly reference: AssessmentId;
+    readonly id: AssessmentId;
     readonly title: string;
   };
   readonly state: "submitted" | "closed";

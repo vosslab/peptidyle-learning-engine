@@ -65,7 +65,7 @@ struct StudentAssessmentAttemptContextResponse {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct StudentAssessmentAttemptCourseContext {
-    reference: CourseInstanceId,
+    id: CourseInstanceId,
     short_name: String,
     long_name: String,
     theme: question_model::CourseTheme,
@@ -74,7 +74,7 @@ struct StudentAssessmentAttemptCourseContext {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct StudentAssessmentAttemptAssessmentContext {
-    reference: AssessmentId,
+    id: AssessmentId,
     title: String,
 }
 
@@ -89,13 +89,13 @@ impl From<learning_data_access::StudentAssessmentAttemptContext>
             expires_at: value.expires_at,
             timer_remaining_milliseconds: value.timer_remaining_milliseconds,
             course: StudentAssessmentAttemptCourseContext {
-                reference: value.course,
+                id: value.course,
                 short_name: value.course_short_name,
                 long_name: value.course_long_name,
                 theme: value.course_theme,
             },
             assessment: StudentAssessmentAttemptAssessmentContext {
-                reference: value.assessment,
+                id: value.assessment,
                 title: value.assessment_title,
             },
         }

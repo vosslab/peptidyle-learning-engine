@@ -23,7 +23,7 @@ saved responses, and wall-clock deadline.
 | --- | --- |
 | Course Instance Assessment | Current Type, Questions/Pools, point values, Attempt limit, timing, and disclosure settings |
 | Assessment Attempt | One Student's occurrence of that Assessment |
-| Selected Question evidence | Exact Question/Pool Revision and randomization/backend state |
+| Selected Question evidence | Exact Question Revision, Pool ID and Pool Edit Number when applicable, and randomization/backend state |
 | Saved response | Replaceable complete response while the Attempt is open |
 | Finalized response evidence | Saved response retained with the submitted whole Assessment Attempt |
 | Credit outcome | Immutable fraction returned by the Question Backend |
@@ -63,7 +63,7 @@ being sent to the Question Backend.
 
 A new Attempt may choose new randomized variants or Pool selections according
 to Assessment settings. An existing Attempt never changes its delivered
-Question/Pool Revision evidence.
+Question Revision or Pool Edit Number evidence.
 
 ## Scoring
 

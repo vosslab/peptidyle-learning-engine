@@ -175,7 +175,7 @@ async fn read_course_summary(
         Ok(summary) => crate::auth::no_store(
             Json(CourseInstanceRouteSummary {
                 classification: summary.classification,
-                reference: summary.reference,
+                id: summary.id,
                 short_name: summary.short_name,
                 long_name: summary.long_name,
                 term: summary.term,

@@ -32,7 +32,7 @@ Backend from authenticated context and stored relationships.
 | Course relationship | Stored Course membership or Blueprint ownership | Only the relationship needed for the current page | [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md) |
 | Draft Question | Authorized Instructor workspace; mutable and unpublished | Bounded Instructor result only | [QUESTION_MODEL.md](QUESTION_MODEL.md) |
 | Published Question | Stable identity plus immutable Question Revisions | Answer-free render and permitted metadata | [QUESTION_MODEL.md](QUESTION_MODEL.md) |
-| Question Pool | Stable identity plus immutable Pool Revisions | Published discovery data and Assessment selection evidence | [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) |
+| Question Pool | Stable identity plus current membership on an Edit Number | Published discovery data and Assessment selection evidence | [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) |
 | Blueprint Course | Stable identity plus immutable changed-content Revisions | Visibility follows Private, Public, or Archived state | [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) |
 | Canonical Blueprint JSON | Complete Blueprint comparison and exchange representation; not primary persistence | Authorized import, export, comparison, and proposal review only | [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) |
 | Course Instance Assessment | Current Course configuration; no Assessment Revision family | Instructor editor or Student Coursework projection | [ASSESSMENT_LIFECYCLE.md](ASSESSMENT_LIFECYCLE.md) |
@@ -69,7 +69,7 @@ remains authoritative.
 
 ## Evidence and retention
 
-Retain only evidence needed to identify the exact Question or Pool revision,
+Retain only evidence needed to identify the exact Question Revision, Pool ID, and Pool Edit Number,
 the Assessment selection, backend state needed to interpret the response, the
 saved response, immutable credit fraction, and disclosure state. Human Guidance
 does not require rendered-page snapshots, software-version snapshots, a public

@@ -418,7 +418,7 @@ export function replacementContentFromBlueprintModules(
       assessments: module.assessments.map((assessment) => ({
         choice: {
           kind: "retained",
-          blueprint_assessment_reference: assessment.blueprint_assessment_reference,
+          blueprint_assessment_id: assessment.blueprint_assessment_id,
         },
         content: reusableContentInputFromView(assessment.content),
       })),

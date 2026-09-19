@@ -65,7 +65,7 @@ still stored once.
 ### Row-multiplying tables stay narrow
 
 Tables whose row count is Students x Assessments x Questions x Attempts (Issued Question, Question
-Attempt, Question Response, notification fan-out) keep to this budget:
+Attempt, saved response, notification fan-out) keep to this budget:
 
 - ids, enums, numbers, and one `timestamptz` per event that happened on that row;
 - free text lives on the parent;
@@ -248,22 +248,24 @@ first, then by domain:
 
 ```text
 schemas/base_schema/
-  install.sql               ordered \ir manifest
-  00_roles.sql              cluster roles and schema ownership
-  10_types.sql              every enum and domain, one definition each
-  20_tables/<domain>.sql    CREATE TABLE with inline NOT NULL, CHECK, FK, UNIQUE; COMMENT ON
-  30_constraints.sql        late and circular foreign keys (the ALTER TABLE ... ADD FOREIGN KEY)
-  40_indexes.sql            every explicit index, each with its justification comment
-  50_functions/<domain>.sql functions, procedures, trigger functions, and CREATE TRIGGER
-  60_policies.sql           ENABLE / FORCE ROW LEVEL SECURITY and every CREATE POLICY
-  70_grants.sql             GRANT and REVOKE
+  install.sql                      ordered \\ir manifest
+  00_roles.sql                     cluster roles and schema ownership
+  10_types.sql                     every enum and domain, one definition each
+  15_table_check_functions.sql     IMMUTABLE helpers used by table CHECKs
+  20_tables/<domain>.sql           CREATE TABLE with inline NOT NULL, CHECK, FK, UNIQUE; COMMENT ON
+  22_reference_grants.sql          REFERENCES grants needed before late FKs
+  30_constraints.sql               late and circular foreign keys
+  40_indexes.sql                   every explicit index, each with its justification comment
+  50_functions/<domain>.sql        functions, procedures, trigger functions, and CREATE TRIGGER
+  60_policies.sql                  include of 60_policies/<domain>.sql
+  70_grants.sql                    include of 70_grants/<domain>.sql
 ```
 
 Rules for `20_tables/`:
 
 - One file per aggregate, named for the root concept (`assessment_attempt.sql` holds every
   Student Work table: Attempt, Pool selection, Issued Question, Question Attempt, saved
-  response, Question Response, submission). A child table lives with its owner.
+  response, submission). A child table lives with its owner.
 - Inside a file, tables appear in dependency order, root first. Each table's `COMMENT ON TABLE`
   begins with its role tag (`role: current state`, `role: revision`, `role: event`,
   `role: snapshot`, `role: student work`, `role: aggregate`, `role: vocabulary`), then states
@@ -287,14 +289,12 @@ lists, clocks, unindexed FKs). Role-tag rules and catalog-only identity/immutabi
 rules join once comments and `schemas/catalog_snapshot.json` (or `--database`) exist, using
 the role tag that begins every table comment
 (`role: current state | revision | event | snapshot | student work | aggregate | vocabulary`).
-`npx schemalint` runs against the same disposable database whenever the snapshot is
-regenerated, with its seven built-in rules as an independent confirmation of casing, singular
-names, `text`, `timestamptz`, `jsonb`, identity columns, and primary keys.
-
 Gate: the schema audit is complete when this layout is in place, every table has a tagged
-catalog comment, `docs/SCHEMA_TABLES.md` and the snapshot are regenerated, the checker exits clean, and
-a fresh install passes. Review accepts a new table when it sits in `20_tables/` with a tagged
-comment and the checker is clean.
+catalog comment, `docs/SCHEMA_TABLES.md` and the snapshot are regenerated, the checker exits
+0 with no findings, and a fresh install passes. Review accepts a new table when it
+sits in `20_tables/` with a tagged comment and the checker is clean.
+`rule_14_unindexed_fk` still reports unindexed foreign keys until a measured
+index lands; those findings fail the checker.
 
 ## Partition readiness
 

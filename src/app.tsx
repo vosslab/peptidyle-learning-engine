@@ -77,8 +77,8 @@ export function ribbonParamsFor(
       : { course: routeData.history.course, assessment: routeData.history.assessment };
   return Object.freeze({
     ...params,
-    courseRef: assessmentContext.course.reference,
-    assessmentRef: assessmentContext.assessment.reference,
+    courseRef: assessmentContext.course.id,
+    assessmentRef: assessmentContext.assessment.id,
   });
 }
 

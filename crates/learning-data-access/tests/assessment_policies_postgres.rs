@@ -135,7 +135,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> (CourseInstanceId, AssessmentId
     sqlx::query(
         "INSERT INTO ple_data.blueprint_revision_assessment \
          (blueprint_course_id, blueprint_revision_number, blueprint_module_reference, \
-          blueprint_assessment_reference, assessment_position) VALUES ($1, 1, $2, $3, 1)",
+          blueprint_assessment_id, assessment_position) VALUES ($1, 1, $2, $3, 1)",
     )
     .bind(&blueprint_id)
     .bind(id(MODULE))
@@ -197,7 +197,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> (CourseInstanceId, AssessmentId
     let assessment_id: String = sqlx::query_scalar(
         "INSERT INTO ple_data.assessment \
          (assessment_id, course_instance_id, origin_kind, source_blueprint_course_id, \
-          source_blueprint_revision_number, source_blueprint_assessment_reference, \
+          source_blueprint_revision_number, source_blueprint_assessment_id, \
           created_at, updated_at, assessment_type, assessment_policy_snapshot_id) \
          VALUES ('A0000000' || ple_private.crockford_checksum_character('A0000000'), \
                  $1, 'adopted', $2, 1, $3, clock_timestamp(), clock_timestamp(), \

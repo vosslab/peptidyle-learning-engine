@@ -112,8 +112,8 @@ function selection(value: unknown, path: string): BlueprintForkApplySelection {
   );
   const sourceAssessments = copies(
     "sourceAssessments",
-    "sourceAssessmentReference",
-    "targetAssessmentReference",
+    "sourceAssessmentId",
+    "targetAssessmentId",
   );
   const layout = decodeNullable(
     field(record, "layout", path),
@@ -136,11 +136,11 @@ function selection(value: unknown, path: string): BlueprintForkApplySelection {
             kind === "existing"
               ? module
                 ? "targetModuleReference"
-                : "targetAssessmentReference"
+                : "targetAssessmentId"
               : kind === "newFromSource"
                 ? module
                   ? "sourceModuleReference"
-                  : "sourceAssessmentReference"
+                  : "sourceAssessmentId"
                 : null;
           if (key === null) throw new DecodeError(destinationPath, "an explicit destination kind");
           requireOnlyFields(destination, destinationPath, ["kind", key]);

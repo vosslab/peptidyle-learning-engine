@@ -48,7 +48,7 @@ pub(super) async fn fork_blueprint(
             session,
             BlueprintForkSource {
                 blueprint_revision: BlueprintRevisionReference {
-                    reference,
+                    blueprint_course_id: reference,
                     revision,
                 },
             },
@@ -60,7 +60,13 @@ pub(super) async fn fork_blueprint(
         Ok(value) => value,
         Err(error) => return store_error_response(error),
     };
-    match load_view(&state, session, receipt.blueprint_revision.reference).await {
+    match load_view(
+        &state,
+        session,
+        receipt.blueprint_revision.blueprint_course_id,
+    )
+    .await
+    {
         Ok(view) => blueprint_response(StatusCode::CREATED, view),
         Err(RouteLoadError::Store(error)) => store_error_response(error),
         Err(RouteLoadError::Unavailable) => unavailable(),

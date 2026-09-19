@@ -100,7 +100,7 @@ pub(super) fn reusable_assessment_projection(
         });
     }
     Ok(json!({
-        "source": assessment.blueprint_assessment_reference,
+        "source": assessment.blueprint_assessment_id,
         "values": values,
         "entries": entries,
     }))

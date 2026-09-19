@@ -101,9 +101,7 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
             let owner_display_name: Option<String> =
                 row.try_get("owner_display_name").map_err(map_sqlx_error)?;
             forks.push(StoredKnownBlueprintFork {
-                reference: blueprint_reference(
-                    row.try_get("public_reference").map_err(map_sqlx_error)?,
-                )?,
+                id: blueprint_reference(row.try_get("public_reference").map_err(map_sqlx_error)?)?,
                 short_name: row.try_get("short_name").map_err(map_sqlx_error)?,
                 long_name: row.try_get("long_name").map_err(map_sqlx_error)?,
                 availability: match availability.as_str() {
@@ -174,7 +172,7 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
                 row.try_get("content").map_err(map_sqlx_error)?;
             revisions.push(StoredBlueprintRevision {
                 reference: BlueprintRevisionReference {
-                    reference: blueprint_reference(
+                    blueprint_course_id: blueprint_reference(
                         row.try_get("public_reference").map_err(map_sqlx_error)?,
                     )?,
                     revision: blueprint_revision(
@@ -229,7 +227,7 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
         let snapshot = sqlx::query(
             "SELECT content, content_checksum FROM ple_api.load_blueprint_fork_source($1, $2, $3)",
         )
-        .bind(source.blueprint_revision.reference.as_string())
+        .bind(source.blueprint_revision.blueprint_course_id.as_string())
         .bind(source_revision_number)
         .bind(request_checksum.into_bytes().to_vec())
         .fetch_one(&mut *transaction)
@@ -248,7 +246,7 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
                 module.blueprint_module_reference =
                     BlueprintModuleReference::from_uuid(random_uuid()?);
                 for assessment in &mut module.assessments {
-                    assessment.blueprint_assessment_reference =
+                    assessment.blueprint_assessment_id =
                         BlueprintAssessmentId::from_uuid(random_uuid()?);
                 }
             }
@@ -273,7 +271,7 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
              FROM ple_api.fork_blueprint_course($1, $2, $3, $4, $5, $6)",
         )
         .bind(random_uuid()?)
-        .bind(source.blueprint_revision.reference.as_string())
+        .bind(source.blueprint_revision.blueprint_course_id.as_string())
         .bind(source_revision_number)
         .bind(request_checksum.into_bytes().to_vec())
         .bind(child_content)
@@ -288,7 +286,7 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
         let accepted_at_millis: i64 = row.try_get("accepted_at_millis").map_err(map_sqlx_error)?;
         let receipt = ForkBlueprintCourseReceipt {
             blueprint_revision: BlueprintRevisionReference {
-                reference: blueprint_reference(public_reference)?,
+                blueprint_course_id: blueprint_reference(public_reference)?,
                 revision: blueprint_revision(revision_number)?,
             },
             source,

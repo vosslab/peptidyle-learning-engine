@@ -244,7 +244,7 @@ async fn empty_course_has_no_initial_content_and_current_instructors_are_peers()
         .create_course_instance(token(0xc1), empty_course_input(), Default::default())
         .await
         .expect("Empty Course creation");
-    let course = created.course.reference;
+    let course = created.course.id;
     let workspace = store
         .load_course_instance(token(0xc1), course.clone())
         .await

@@ -134,10 +134,10 @@ impl BlueprintChangeProposalStore for PostgresBlueprintCourseStore {
         let proposal_id: uuid::Uuid = sqlx::query_scalar(
             "SELECT ple_api.create_blueprint_change_proposal($1, $2, $3, $4, $5, $6)",
         )
-        .bind(input.source.reference.as_string())
+        .bind(input.source.blueprint_course_id.as_string())
         .bind(revision_number(input.source.revision)?)
         .bind(input.source_blueprint_edit_number.as_i64())
-        .bind(input.target.reference.as_string())
+        .bind(input.target.blueprint_course_id.as_string())
         .bind(revision_number(input.target.revision)?)
         .bind(input.target_blueprint_edit_number.as_i64())
         .fetch_one(&mut *transaction)
@@ -177,7 +177,7 @@ impl BlueprintChangeProposalStore for PostgresBlueprintCourseStore {
         // interpreting selection or allocating any persistent Pool children.
         sqlx::query("SELECT ple_api.lock_blueprint_change_proposal_acceptance($1,$2,$3,$4)")
             .bind(input.proposal_id)
-            .bind(input.expected_target.reference.as_string())
+            .bind(input.expected_target.blueprint_course_id.as_string())
             .bind(revision_number(input.expected_target.revision)?)
             .bind(input.expected_target_blueprint_edit_number.as_i64())
             .execute(&mut *transaction)
@@ -224,10 +224,10 @@ impl BlueprintChangeProposalStore for PostgresBlueprintCourseStore {
         let new_assessments = selection
             .source_assessments
             .iter()
-            .filter(|copy| copy.target_assessment_reference.is_none())
+            .filter(|copy| copy.target_assessment_id.is_none())
             .map(|copy| {
                 Ok((
-                    copy.source_assessment_reference,
+                    copy.source_assessment_id,
                     BlueprintAssessmentId::from_uuid(super::blueprint_course::random_uuid()?),
                 ))
             })
@@ -264,14 +264,10 @@ impl BlueprintChangeProposalStore for PostgresBlueprintCourseStore {
             .iter()
             .map(|copy| {
                 Ok((
-                    copy.target_assessment_reference
-                        .or_else(|| {
-                            new_assessments
-                                .get(&copy.source_assessment_reference)
-                                .copied()
-                        })
+                    copy.target_assessment_id
+                        .or_else(|| new_assessments.get(&copy.source_assessment_id).copied())
                         .ok_or_else(invalid)?,
-                    copy.source_assessment_reference,
+                    copy.source_assessment_id,
                 ))
             })
             .collect::<Result<BTreeMap<_, _>, StoreError>>()?;
@@ -283,7 +279,7 @@ impl BlueprintChangeProposalStore for PostgresBlueprintCourseStore {
         if content_changed {
             for module in &mut content.modules {
                 for assessment in &mut module.assessments {
-                    if copied_assessments.contains_key(&assessment.blueprint_assessment_reference) {
+                    if copied_assessments.contains_key(&assessment.blueprint_assessment_id) {
                         let mut copied = StoredBlueprintCourseContent {
                             modules: vec![StoredBlueprintModule {
                                 blueprint_module_reference: module.blueprint_module_reference,
@@ -327,7 +323,7 @@ impl BlueprintChangeProposalStore for PostgresBlueprintCourseStore {
             "SELECT ple_api.finalize_blueprint_change_proposal_acceptance($1,$2,$3,$4,$5,$6,$7,$8)",
         )
         .bind(input.proposal_id)
-        .bind(input.expected_target.reference.as_string())
+        .bind(input.expected_target.blueprint_course_id.as_string())
         .bind(revision_number(input.expected_target.revision)?)
         .bind(input.expected_target_blueprint_edit_number.as_i64())
         .bind(Json(encoded_evidence))
@@ -382,8 +378,8 @@ fn entire_selection(source: &StoredBlueprintCourseContent) -> BlueprintForkApply
             .iter()
             .flat_map(|module| &module.assessments)
             .map(|assessment| BlueprintForkApplyAssessmentCopy {
-                source_assessment_reference: assessment.blueprint_assessment_reference,
-                target_assessment_reference: None,
+                source_assessment_id: assessment.blueprint_assessment_id,
+                target_assessment_id: None,
             })
             .collect(),
         layout: Some(
@@ -399,8 +395,7 @@ fn entire_selection(source: &StoredBlueprintCourseContent) -> BlueprintForkApply
                         .iter()
                         .map(
                             |assessment| BlueprintForkApplyAssessmentDestination::NewFromSource {
-                                source_assessment_reference: assessment
-                                    .blueprint_assessment_reference,
+                                source_assessment_id: assessment.blueprint_assessment_id,
                             },
                         )
                         .collect(),
@@ -420,7 +415,7 @@ fn selected_stored_content(
     for module in applied.modules() {
         let mut assessments = Vec::new();
         for assessment in module.assessments() {
-            let reference = assessment.blueprint_assessment_reference();
+            let reference = assessment.blueprint_assessment_id();
             let (tree, original) = copied
                 .get(&reference)
                 .map_or((target, reference), |reference| (source, *reference));
@@ -428,10 +423,10 @@ fn selected_stored_content(
                 .modules
                 .iter()
                 .flat_map(|module| &module.assessments)
-                .find(|assessment| assessment.blueprint_assessment_reference == original)
+                .find(|assessment| assessment.blueprint_assessment_id == original)
                 .ok_or_else(invalid)?
                 .clone();
-            stored.blueprint_assessment_reference = reference;
+            stored.blueprint_assessment_id = reference;
             assessments.push(stored);
         }
         modules.push(StoredBlueprintModule {
@@ -592,7 +587,7 @@ fn reference(row: &sqlx::postgres::PgRow) -> Result<BlueprintRevisionReference, 
     let reference: String = row.try_get("public_reference").map_err(map_sqlx_error)?;
     let revision: i64 = row.try_get("revision_number").map_err(map_sqlx_error)?;
     Ok(BlueprintRevisionReference {
-        reference: reference
+        blueprint_course_id: reference
             .parse::<BlueprintCourseId>()
             .map_err(|_| invalid())?,
         revision: BlueprintRevision::new(u64::try_from(revision).map_err(|_| invalid())?)
@@ -616,7 +611,7 @@ fn proposal_summary(
         (Some(at), Some(revision), Some(etag)) => Some(BlueprintChangeProposalAcceptedSummary {
             accepted_at: Timestamp::from_unix_millis(at),
             target: BlueprintRevisionReference {
-                reference: target.reference.clone(),
+                blueprint_course_id: target.blueprint_course_id.clone(),
                 revision: BlueprintRevision::new(u64::try_from(revision).map_err(|_| invalid())?)
                     .ok_or_else(invalid)?,
             },
@@ -656,7 +651,7 @@ fn summary_reference(
     let value: String = row.try_get(name).map_err(map_sqlx_error)?;
     let revision: i64 = row.try_get(number).map_err(map_sqlx_error)?;
     Ok(BlueprintRevisionReference {
-        reference: value.parse().map_err(|_| invalid())?,
+        blueprint_course_id: value.parse().map_err(|_| invalid())?,
         revision: BlueprintRevision::new(u64::try_from(revision).map_err(|_| invalid())?)
             .ok_or_else(invalid)?,
     })

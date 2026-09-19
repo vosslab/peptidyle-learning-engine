@@ -23,9 +23,9 @@ Draft Question
 
 The browser can request an answer-free presentation and propose a Student
 response. It cannot choose the Student, Course, Assessment, Question Revision,
-Pool Revision, Question Backend, backend state, score, feedback policy, or
-retention action. The server derives those facts from authenticated context and
-stored relationships.
+Pool ID, Pool Edit Number, Question Backend, backend state, score, feedback
+policy, or retention action. The server derives those facts from authenticated
+context and stored relationships.
 
 ## Related identities and owners
 
@@ -34,15 +34,15 @@ stored relationships.
 | Draft Question | Instructor authoring workspace; private, mutable, and unpublished | Draft Question UUID and Edit Number |
 | Published Question | Shared Question Library lineage | Public Question ID `AAAA-ZBBB` |
 | Question Revision | Immutable Question source | Question ID and Revision Number |
-| Question Pool | Published reusable collection | Public Pool ID and immutable Pool Revision |
+| Question Pool | Published reusable collection | Public Pool ID and current membership Edit Number |
 | Blueprint Assessment | Blueprint Course content | Blueprint Course and Blueprint Revision |
 | Course Instance Assessment | One Course Instance's current configuration | Course and Assessment ID |
 | Student Work | The Student's FERPA-protected Course record | Student, Assessment Attempt, and saved response identities |
 
-Published Questions, published Question Pools, and Blueprint Courses have
-immutable Revisions. Draft Questions, Course Instances, Assessments, Attempts,
-and Student Work use current state plus concurrency controls; an Edit Number is
-not historical content.
+Published Questions and Blueprint Courses have immutable Revisions. Draft
+Questions, Question Pools, Course Instances, Assessments, Attempts, and Student
+Work use current state plus concurrency controls; an Edit Number is not
+historical content.
 
 ## Author and publish Questions
 
@@ -61,10 +61,11 @@ Published content is independent of the Draft Question workspace. Draft cleanup
 must not make a Published Question or Revision incomplete.
 
 Question Pools are also published reusable objects with stable public identity
-and immutable Pool Revisions. An Assessment records the exact Question or Pool
-Revision evidence needed to explain its selection. Importing a Pool into an
-Assessment creates Course-local composition; later Pool changes do not silently
-rewrite that Assessment.
+and current membership on an Edit Number. An Assessment records the exact
+Question Revision, and when it selects from a Pool, the Pool ID and Pool Edit
+Number, needed to explain its selection. Importing a Pool into an Assessment
+creates Course-local composition; later Pool changes do not silently rewrite
+that Assessment.
 
 ## Build and release an Assessment
 
@@ -109,8 +110,8 @@ own IANA time zone. Changing a display zone never shifts a stored deadline.
 
 An Instructor may order the current Assessment Entries by their Bloom
 Classification. A fixed Question Entry uses its exact pinned Question
-Revision's pair. A Question Pool Entry uses its Assessment-owned fork's exact
-Pool Revision pair; it does not use the reusable source Pool's current pair or
+Revision's pair. A Question Pool Entry uses its Assessment-owned fork's current
+Bloom pair; it does not use the reusable source Pool's current pair or
 derive a pair from Pool members.
 
 The order is Cognitive Process first (Remember, Understand, Apply, Analyze,
@@ -118,8 +119,7 @@ Evaluate, Create), Knowledge Dimension second (Factual, Conceptual,
 Procedural, Metacognitive), then the Entry's immediately prior position. The
 last key makes equal classifications stable. Sorting changes only the pending
 Entry sequence. It neither changes an Entry's identity, pin, Pool membership,
-selection count, points, or other settings nor creates a new Question or Pool
-Revision.
+selection count, points, or other settings nor creates a new Question Revision or Pool membership Edit.
 
 The sort control remains unavailable when the complete exact pair for any
 Entry cannot be read. It explains whether the missing pair is fixed or
@@ -146,7 +146,7 @@ Assessment Attempt score is the Student's Assessment score.
 
 ## Select, render, and navigate Questions
 
-Starting an Attempt fixes the Question or Pool Revision evidence and the
+Starting an Attempt fixes the Question Revision, Pool ID, and Pool Edit Number evidence and the
 backend-specific state needed for each Assessment position. Randomization uses
 the retained state; resuming an Attempt does not silently choose a newer
 Revision or different Question.

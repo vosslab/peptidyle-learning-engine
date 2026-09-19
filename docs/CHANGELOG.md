@@ -6,9 +6,61 @@
 
 > September 16 entries are archived in [CHANGELOG-2026-09l.md](CHANGELOG-2026-09l.md).
 
+## 2026-09-19
+
+### Fixes and Maintenance
+
+- Align Student Course landing, invitation, Assessment list, and Attempt
+  context JSON public-ID fields to `id`. Live Demo activity provisioning
+  reads those `id` fields. Human Guidance now states that a Pool fork
+  starts at Edit Number 1, not Revision 1. Gate: `cargo test -p server
+  --lib live_student_course_landing` and `cargo test -p question_model
+  --lib blueprint_course`.
+
+- Live Demo and bundled publisher Accounts insert the mint placeholder so
+  `ple_private.assign_human_reference` issues a random public ID. Email and
+  authoring workspace remain the stable lookup. After provision, the local
+  stack records the minted persona IDs into the env file and recreates the
+  API before Morgan TOTP. Gate: `tests/test_live_demo_target.py`.
+
+- `launchers/run_fast_checks.sh` regenerates schema tables docs and runs
+  `schema_style/check_schema_style.py` first. The checker now exits 1 on
+  any finding, including `rule_14_unindexed_fk`.
+  `launchers/all_test.sh` uses the same schema gate. Docs-only plus launcher
+  and checker exit policy.
+
+- Refresh living identity and architecture docs against Human Guidance: Question
+  Pools are current membership with an Edit Number, public IDs are the only
+  stored identity and JSON `id`, and saved responses finalize in place.
+  Touched [CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md),
+  [FILE_STRUCTURE.md](FILE_STRUCTURE.md),
+  [IDENTITY_CONTRACTS.md](IDENTITY_CONTRACTS.md),
+  [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md),
+  [QUESTION_MODEL.md](QUESTION_MODEL.md),
+  [CONTRACTS.md](CONTRACTS.md),
+  [API_CONTRACTS.md](API_CONTRACTS.md),
+  [DATA_CONTRACTS.md](DATA_CONTRACTS.md),
+  [ASSESSMENT_LIFECYCLE.md](ASSESSMENT_LIFECYCLE.md),
+  [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md),
+  [BLOOM_TAXONOMY_GUIDE.md](BLOOM_TAXONOMY_GUIDE.md),
+  [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md),
+  [NAMING_CONVENTIONS.md](NAMING_CONVENTIONS.md), and related lifecycle
+  docs. Historical changelog and archive files are unchanged. Docs-only.
+
 ## 2026-09-18
 
 ### Additions and New Features
+
+- Pre-production identity cutover: public-ID JSON fields are `id`, not a
+  parallel `reference` property. Dual `id`+`reference` is gone from
+  Course, Assessment, Attempt, and Blueprint views. Gate:
+  `cargo tsgen` and `./launchers/run_fast_checks.sh`.
+
+- Live Demo and bundled publisher Account IDs are public `UXXXXXXXZ`
+  values (`U0000035E` and kin). The public-ID mint trigger keeps a
+  supplied canonical ID and only replaces the mint placeholders
+  `U00000009`, `CI0000000Y`, `A0000000A`, and `BP0000000C`. Gate:
+  `tests/test_live_demo_target.py`.
 
 - Student Work API grants start as `ple_private_owner` so REVOKE/GRANT on
   `ple_private` SECURITY DEFINER functions apply. Replica durability counts

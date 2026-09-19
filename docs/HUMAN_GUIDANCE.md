@@ -879,7 +879,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - A Revision Number identifies a specific immutable Revision stored by PLE.
 - A new Revision keeps the same Published Question ID.
 - Forking a Published Question or Question Pool creates a new public ID.
-- A fork starts at Revision 1 under its new ID.
+- A Published Question fork starts at Revision 1 under its new ID.
+- A Question Pool fork starts at Edit Number 1 under its new ID; Pools have no Revision family.
 - Student Work records the exact Assessment Attempt and Published Question Revision delivered to the Student.
 - Student Work records the Student's responses and the grading outcome returned by the Question Backend.
 - For a Question served from a Question Pool, Student Work pins all four: the Published Question
@@ -1101,7 +1102,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Grading and historical evidence follow the exact Published Question Revision delivered to the Student.
 - Each member of a Question Pool is a **Published Question**.
 - Question Pools contain only **Published Questions**; Question Pools cannot be members of Question Pools.
-- Watching a Question Pool drives in-app notifications for new Revisions, forks, improvement
+- Watching a Question Pool drives in-app notifications for membership edits, forks, improvement
   threads, and impact notices.
 
 #### Question Pool metadata
@@ -1189,8 +1190,10 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Vetted **Instructors** can see the star count and which vetted **Instructors** starred a Published
   Question or Question Pool.
 - Watch means subscription.
-- Watching a Published Question or Question Pool drives in-app notifications for new Revisions,
-  forks, improvement threads, and impact notices.
+- Watching a Published Question drives in-app notifications for new Revisions, forks, improvement
+  threads, and impact notices.
+- Watching a Question Pool drives in-app notifications for membership edits, forks, improvement
+  threads, and impact notices.
 - An **Instructor's** watch list remains private.
 - **Students** and anonymous users do not receive **Instructor** identity lists or watch information.
 

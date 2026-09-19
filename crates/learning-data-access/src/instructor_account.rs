@@ -25,7 +25,7 @@ pub enum InstructorAccountState {
 #[serde(rename_all = "camelCase")]
 pub struct InstructorAccountSummary {
     /// Canonical opaque Account Reference.
-    pub reference: AccountId,
+    pub id: AccountId,
     /// Current Account State derived from the immutable event history.
     pub state: InstructorAccountState,
     /// Most recent successful credential verification/session creation, if any.

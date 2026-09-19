@@ -44,7 +44,7 @@ pub struct CourseBlueprintUpdateReview {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CourseAssessmentBlueprintUpdateSummary {
-    pub assessment_reference: AssessmentId,
+    pub assessment_id: AssessmentId,
     pub title: AssessmentTitle,
     pub assessment_type: AssessmentType,
     pub matches_source: bool,
@@ -241,7 +241,7 @@ pub struct AuthoredAssessmentQuestion {
 #[serde(rename_all = "camelCase")]
 pub struct CourseAssessmentSummary {
     /// Public Assessment Reference; internal Assessment identity remains server-side.
-    pub reference: AssessmentId,
+    pub id: AssessmentId,
     /// Fixed pedagogical purpose of this Assessment.
     pub assessment_type: AssessmentType,
     /// Current Instructor-authored Assessment Title.
@@ -261,11 +261,11 @@ pub struct CourseAssessmentSummary {
 #[serde(rename_all = "camelCase")]
 pub struct DueSoonAssessmentSummary {
     /// Public Course Instance reference; internal Course identity remains server-side.
-    pub course_reference: CourseInstanceId,
+    pub course_id: CourseInstanceId,
     /// Descriptive Course Instance name for cross-Course lists.
     pub course_long_name: String,
     /// Public Assessment reference; internal Assessment identity remains server-side.
-    pub assessment_reference: AssessmentId,
+    pub assessment_id: AssessmentId,
     /// Fixed pedagogical purpose of this Assessment.
     pub assessment_type: AssessmentType,
     /// Current Instructor-authored Assessment title.
@@ -313,7 +313,7 @@ where
 #[serde(rename_all = "camelCase")]
 pub struct LiveAssessmentWorkspace {
     /// Public Assessment Reference; internal Assessment identity remains server-side.
-    pub reference: AssessmentId,
+    pub id: AssessmentId,
     /// Exact compare-and-swap value for the current authored content.
     pub edit_number: AssessmentEditNumber,
     /// Stable Assessment lifecycle, separate from future Assessment Access.

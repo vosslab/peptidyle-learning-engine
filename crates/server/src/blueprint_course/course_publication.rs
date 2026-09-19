@@ -41,7 +41,13 @@ pub(super) async fn create(
         Ok(value) => value,
         Err(error) => return store_error_response(error),
     };
-    match load_view(&state, session, receipt.blueprint_revision.reference).await {
+    match load_view(
+        &state,
+        session,
+        receipt.blueprint_revision.blueprint_course_id,
+    )
+    .await
+    {
         Ok(view) => blueprint_response(StatusCode::CREATED, view),
         Err(RouteLoadError::Store(error)) => store_error_response(error),
         Err(RouteLoadError::Unavailable) => unavailable(),

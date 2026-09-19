@@ -39,7 +39,6 @@ fn assessment_attempt_retains_interpretation_evidence() {
         crate::AssessmentQuestionVariationRule::ReuseVariation;
     let mut attempt = AssessmentAttempt {
         id: AssessmentAttemptId::from_uuid(Uuid::from_u128(1)),
-        reference: AssessmentAttemptId::from_uuid(Uuid::from_u128(1)),
         student_record: StudentRecordId::from_uuid(Uuid::from_u128(2)),
         assessment: AssessmentId::from_debug_serial(3),
         evidence,

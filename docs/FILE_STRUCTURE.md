@@ -1,13 +1,12 @@
 # File structure
 
-[HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) owns product meaning. Paths containing
-`assignment`, `available`, grading-job, or response-finalization names locate
-current legacy implementation; their descriptions below use the target product
-model and do not make those path names canonical.
+[HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) owns product meaning. Assignment appears
+only in the three Assessment Type names. Generic teaching objects are
+Assessments (`ple_data.assessment`).
 
-This map identifies the owning location for current PLE behavior. The design boundaries are in
-[CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md); product meaning is in
-[TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md).
+This map identifies the owning location for current PLE behavior. The design
+boundaries are in [CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md); product meaning
+is in [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md).
 
 ## Top-level layout
 
@@ -26,6 +25,7 @@ This map identifies the owning location for current PLE behavior. The design bou
 +- devel/                   Maintainer commands
 +- launchers/               Contributor and Live Demo entry points
 +- tools/                   Standalone repository utilities
++- schema_style/            PostgreSQL schema-style checker
 +- Cargo.toml               Rust workspace manifest
 +- package.json             TypeScript and browser tooling manifest
 +- build.sh                 Product build entry point
@@ -37,7 +37,7 @@ This map identifies the owning location for current PLE behavior. The design bou
 `OTHER_REPOS/` contains reference snapshots. It is not a product source, runtime, or import path.
 The reviewed local WeBWorK renderer is the sibling
 `../webwork-pg-renderer/` checkout, built by Podman through
-`local_stack_control/renderer.py`; it is deliberately outside PLE's product
+[renderer.py](../local_stack_control/renderer.py); it is deliberately outside PLE's product
 tree.
 
 ## Schema and data
@@ -46,65 +46,70 @@ tree.
 schemas/
 +- base_schema/
 |  +- install.sql                    Ordered, DDL-only PostgreSQL 17 manifest
-|  +- foundation_roles.sql            Validates bootstrap roles; creates schemas, grants, and common foundations
-|  +- accounts.sql                    Account records and account-state facts
-|  +- authentication.sql              Sessions and authentication support
-|  +- authorization.sql               Course and authoring authority relationships
-|  +- question_*.sql                  Question lineages, stewardship, authoring, assets, and their operations
-|  +- object_records.sql              Typed object-record ownership
-|  +- blueprints.sql                  Blueprint lineage, save-created Revisions, and availability
-|  +- course_blueprint_adoption.sql   Complete atomic Public Blueprint adoption into Course Instance Assessments
-|  +- course_blueprint_publication.sql Atomic reusable Course structure copy into a distinct sourced Private Blueprint
-|  +- assessment_blueprint_updates.sql Derived retained-Assessment review and explicit reusable-content update
-|  +- course_*.sql                    Course terms, membership, roster, operations, and media
-|  +- profile_media.sql               Instructor profile-media ownership
-|  +- assignments.sql                 Legacy-named current Assessment state and exact Question/Pool pins
-|  +- assignment_operations.sql       Legacy-named Assessment release and current-state operations
-|  +- attempt_*.sql                   Attempt, retained evidence, interaction, presentation, access, operations, and history
-|  +- delivery_*.sql                  Question delivery and backend bindings
-|  +- jobs.sql                        Short-lived leased execution records
-|  +- grading.sql                     Submission records and private grading state transitions
-|  +- grading_access.sql              Restricted grading readers, Gradebook, and worker wrappers
-|  +- student_assignment_landing.sql  Legacy-named Student Coursework/Assessment landing readers
-|  +- statistics.sql                  Question Revision observation and statistic records
-|  +- corrections.sql                 Forced Question Correction evidence
-|  +- unrelease.sql                   Atomic Assessment Unrelease and Student Work deletion
-|  +- cross_domain_constraints.sql    Relationships spanning domain modules
-|  `- api_compatibility.sql           Restricted application-facing schema projection
+|  +- 00_roles.sql                   Bootstrap roles and schemas
+|  +- 10_types.sql                   Enums and public-ID domains
+|  +- 15_table_check_functions.sql   Domain CHECK helpers
+|  +- 20_tables/                     CREATE TABLE and COMMENT ON only
+|  +- 22_reference_grants.sql        REFERENCES grants
+|  +- 30_constraints.sql             Cross-file foreign keys
+|  +- 40_indexes.sql                 Secondary indexes
+|  +- 50_functions/                  SQL functions and triggers
+|  +- 60_policies.sql                RLS enablement; includes 60_policies/
+|  +- 60_policies/                   Row-level security policies
+|  +- 70_grants.sql                  Privileges; includes 70_grants/
+|  `- 70_grants/                     EXECUTE and table privileges
 +- installation_data/
 |  +- prepublication_context.sql      Temporary publication context
+|  +- bundled_curriculum_context.sql  Bundled publisher Account and workspace
+|  +- content_vocabulary.sql          Shared Discipline and Subject vocabulary
 |  +- install.sql                     Data-only Live Demo manifest
 |  +- live_demo.sql                   Ordinary teaching graph
-|  `- live_demo_oracle.sql            Convergence and completeness checks
+|  +- live_demo_oracle.sql            Convergence and completeness checks
+|  `- revoke_example_content_session.sql  Publisher session teardown
 `- migrations/
    `- .gitkeep                        Reserved SQLx forward-migration directory
 ```
 
-[schemas/base_schema/README.md](../schemas/base_schema/README.md) defines the editable
-pre-production and frozen-production boundary. Base modules own final structural state directly.
-`schemas/installation_data/README.md` defines the separate data phase. Its
-`provision` command creates complete ordinary Live Demo product data; `apply`
-is the narrower database-owned graph. Before the production freeze, structural
-corrections belong in the owning base module; afterward, forward-only SQLx
-migrations belong in `schemas/migrations/`. SQLx configuration belongs to
-[crates/learning-data-access/sqlx.toml](../crates/learning-data-access/sqlx.toml).
+[20_tables/](../schemas/base_schema/20_tables/) holds every `CREATE TABLE`,
+including [assessment.sql](../schemas/base_schema/20_tables/assessment.sql),
+[assessment_attempt.sql](../schemas/base_schema/20_tables/assessment_attempt.sql)
+(saved responses finalize in place on `assessment_attempt_saved_response`),
+[question_pool.sql](../schemas/base_schema/20_tables/question_pool.sql)
+(current Pool plus Edit Number; no Pool Revision family),
+[published_question.sql](../schemas/base_schema/20_tables/published_question.sql),
+[account.sql](../schemas/base_schema/20_tables/account.sql),
+[course_instance.sql](../schemas/base_schema/20_tables/course_instance.sql),
+and [blueprint_course.sql](../schemas/base_schema/20_tables/blueprint_course.sql).
+Account, Course Instance, Assessment, Blueprint Course, Published Question, and
+Question Pool use the public ID as the only stored identity.
+
+[schemas/base_schema/README.md](../schemas/base_schema/README.md) defines the
+editable pre-production and frozen-production boundary. Base layers own final
+structural state directly.
+[schemas/installation_data/README.md](../schemas/installation_data/README.md)
+defines the separate data phase. Its `provision` command creates complete
+ordinary Live Demo product data; `apply` is the narrower database-owned graph.
+Before the production freeze, structural corrections belong in the owning base
+layer; afterward, forward-only SQLx migrations belong in
+[schemas/migrations/](../schemas/migrations/). SQLx configuration belongs to
+[sqlx.toml](../crates/learning-data-access/sqlx.toml).
 
 ## Rust workspace
 
-| Path                                                            | Purpose                                                                                                                                         |
-| --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| [crates/question_model/](../crates/question_model/)             | Shared product concepts: Question IDs/Revisions, Pool Revisions, Blueprint Revisions, current Assessments, and retained Student Work evidence. |
-| [crates/domain/](../crates/domain/)                             | Pure validation, timing, policy, scoring, disclosure, and generation behavior.                                                                  |
-| [crates/grading/](../crates/grading/)                           | Server-only answer-bearing checkers.                                                                                                            |
-| [crates/learning-data-access/](../crates/learning-data-access/) | Store traits, PostgreSQL implementations, SQLx forward-migration ledger support, and schema verification.                                       |
-| [crates/server/](../crates/server/)                             | Axum HTTP routes, authentication, authorization, and service composition.                                                                       |
-| [crates/browser-api-contract/](../crates/browser-api-contract/) | Browser-safe Rust contract roots for TypeScript generation.                                                                                     |
-| [crates/adapters/](../crates/adapters/)                         | PLE, WeBWorK, iMathAS, and QTI backend or import adapters.                                                                                      |
-| [crates/objects/](../crates/objects/)                           | Object-address, checksum, image, and object-store ownership.                                                                                    |
-| [crates/wasm/](../crates/wasm/)                                 | Answer-free Rust-to-browser WebAssembly facade.                                                                                                 |
-| [crates/export/](../crates/export/)                             | PDF and DOCX export models and writers.                                                                                                         |
-| [crates/project-tools/](../crates/project-tools/)               | TypeScript generation, database lifecycle commands, Pilot publication, and installation-data tooling.                                           |
-| [crates/acceptance-runtime/](../crates/acceptance-runtime/)     | Disposable acceptance database connection handoff.                                                                                              |
+| Path | Purpose |
+| --- | --- |
+| [crates/question_model/](../crates/question_model/) | Shared product concepts: Question IDs and Revisions, current Question Pools with Edit Number, Blueprint Revisions, current Assessments, and retained Student Work evidence. |
+| [crates/domain/](../crates/domain/) | Pure validation, timing, policy, scoring, disclosure, and generation behavior. |
+| [crates/grading/](../crates/grading/) | Server-only answer-bearing checkers. |
+| [crates/learning-data-access/](../crates/learning-data-access/) | Store traits, PostgreSQL implementations, SQLx forward-migration ledger support, and schema verification. |
+| [crates/server/](../crates/server/) | Axum HTTP routes, authentication, authorization, and service composition. |
+| [crates/browser-api-contract/](../crates/browser-api-contract/) | Browser-safe Rust contract roots for TypeScript generation. |
+| [crates/adapters/](../crates/adapters/) | PLE, WeBWorK, iMathAS, and QTI backend or import adapters. |
+| [crates/objects/](../crates/objects/) | Object-address, checksum, image, and object-store ownership. |
+| [crates/wasm/](../crates/wasm/) | Answer-free Rust-to-browser WebAssembly facade. |
+| [crates/export/](../crates/export/) | PDF and DOCX export models and writers. |
+| [crates/project-tools/](../crates/project-tools/) | TypeScript generation, database lifecycle commands, Pilot publication, and installation-data tooling. |
+| [crates/acceptance-runtime/](../crates/acceptance-runtime/) | Disposable acceptance database connection handoff. |
 
 The Course Blueprint update review is split deliberately: its public Store types live in
 [assessment_release.rs](../crates/learning-data-access/src/assessment_release.rs), its PostgreSQL
@@ -125,10 +130,10 @@ backend-owned response and presentation types belong in
 [crates/learning-data-access/](../crates/learning-data-access/) owns immutable
 `backend_document` persistence and the authorized document read seam.
 
-The database command front door is [crates/project-tools/src/database.rs](../crates/project-tools/src/database.rs):
+The database command front door is [database.rs](../crates/project-tools/src/database.rs):
 `cargo tools database initialize`, `migrate`, and `verify`. The implementation coordinator is
-[crates/project-tools/src/database_coordinator.rs](../crates/project-tools/src/database_coordinator.rs).
-Installation data is owned by [crates/project-tools/src/installation_data.rs](../crates/project-tools/src/installation_data.rs).
+[database_coordinator.rs](../crates/project-tools/src/database_coordinator.rs).
+Installation data is owned by [installation_data.rs](../crates/project-tools/src/installation_data.rs).
 
 ## Browser application
 
@@ -141,14 +146,16 @@ src/
 |                               Generic iframe host and opaque form-pair capture
 +- features/
 |  +- blueprint_course/         Blueprint Revision editing and explicit Save UI
+|  +- blueprint_change_proposal/ Blueprint Course Change Proposal UI
+|  +- blueprint_forks/          Blueprint fork review and apply UI
 |  +- question_picker/          Published, non-archived Question selection UI
-|  +- question_curation/        Question Library discovery and availability UI
 |  +- question_attempt/         Student Attempt interactions
 |  +- course_appearance/        Authorized course appearance UI
-|  `- instructor_profile/       Instructor profile UI
+|  +- ple_question_json_authoring/ Native PLE Question JSON editor
+|  `- profile_avatar/           Provided avatar and profile-image UI
 +- pages/
-|  +- assignment_workspace/     Legacy-named Assessment edit, release, and Unrelease UI
-|  +- assignment_access/        Legacy-named Student Coursework/Assessment entry UI
+|  +- assessment_workspace/     Assessment edit, release, and Unrelease UI
+|  `- assignment_access/        Unused leftover helper; not Student Coursework UI
 +- ribbon/                      Capability-aware navigation catalog and rendering
 +- styles/                      Browser-wide styles and local font declarations
 +- wasm/                        Browser bridge modules
@@ -165,7 +172,9 @@ existing Assessment release client rather than a separate update client.
 
 [src/api/decoders/](../src/api/decoders/) is the runtime DTO boundary. Generated declarations in
 `generated/api/` are derivative; modify their Rust source and regenerate rather
-than editing them.
+than editing them. Public-ID JSON fields are `id`; some Pool wire types still
+use `questionPoolRevision` / `revisionNumber` (see
+[CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md) known gaps).
 
 `src/public/ple_bridge.js` is copied into the browser build. Same-origin Student
 documents transport an entire backend-owned form as ordered string pairs; opaque
@@ -178,6 +187,8 @@ selectors.
 ```text
 containers/
 +- Containerfile.api             API image
++- Containerfile.gateway         Gateway image
++- Caddyfile                     Local TLS reverse proxy
 `- compose.yaml                  Local Compose services
 
 local_stack_control/
@@ -235,7 +246,7 @@ connected and browser evidence are not substitutes for deterministic contract te
 
 ## Where to add work
 
-- Put a schema correction in its owning [schemas/base_schema/](../schemas/base_schema/) module
+- Put a schema correction in its owning [schemas/base_schema/](../schemas/base_schema/) layer
   while the base remains editable; later structural evolution belongs in
   [schemas/migrations/](../schemas/migrations/).
 - Put database-owned installation records in `schemas/installation_data/`.

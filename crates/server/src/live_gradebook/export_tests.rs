@@ -11,7 +11,7 @@ fn row(roster_id: &str) -> CourseGradebookStudentWork {
     CourseGradebookStudentWork {
         roster_id: roster_id.to_owned(),
         roster_name: "Synthetic Student".to_owned(),
-        assessment_reference: "A7K3M2QAS".parse().unwrap(),
+        assessment_id: "A7K3M2QAS".parse().unwrap(),
         assessment_title: "Protein structure".to_owned(),
         assessment_attempt_completion: None,
         expired_submitting: false,
@@ -21,7 +21,7 @@ fn row(roster_id: &str) -> CourseGradebookStudentWork {
 
 fn gradebook(student_work: Vec<CourseGradebookStudentWork>) -> CourseGradebook {
     CourseGradebook {
-        course_reference: "CI7K3M2QAZ".parse().unwrap(),
+        course_id: "CI7K3M2QAZ".parse().unwrap(),
         student_work,
     }
 }
@@ -42,7 +42,7 @@ fn records(gradebook: &CourseGradebook, format: Format) -> Vec<Vec<String>> {
 #[test]
 fn point_exports_preserve_states_points_order_and_empty_courses() {
     let mut submitted = row("01");
-    submitted.assessment_reference = "AABCDEFG8".parse().unwrap();
+    submitted.assessment_id = "AABCDEFG8".parse().unwrap();
     submitted.assessment_attempt_completion = Some(Completed);
     submitted.score = Some(LiveAssessmentAttemptScore {
         points_earned: 0.0,
@@ -83,7 +83,7 @@ fn point_exports_preserve_states_points_order_and_empty_courses() {
             [
                 "roster_id",
                 "roster_name",
-                "assessment_reference",
+                "assessment_id",
                 "assessment_title",
                 "status",
                 "points_earned",

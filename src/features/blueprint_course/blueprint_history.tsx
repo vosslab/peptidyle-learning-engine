@@ -56,7 +56,7 @@ function historicalAssessmentDefaultDuration(content: BlueprintAssessmentContent
 export function BlueprintHistory(props: HistoryProps): JSX.Element {
   const identity = createMemo(
     () =>
-      `${props.view.reference}:${props.view.current_revision.revision}:${props.view.blueprint_edit_number}`,
+      `${props.view.id}:${props.view.current_revision.revision}:${props.view.blueprint_edit_number}`,
   );
   return (
     <Show when={identity()} keyed>
@@ -82,10 +82,10 @@ function HistoryPanel(props: HistoryProps): JSX.Element {
     setError(undefined);
     setBusy(true);
     try {
-      const result = await props.client.getBlueprintRevision(props.view.reference, number);
+      const result = await props.client.getBlueprintRevision(props.view.id, number);
       if (currentRequest !== request) return;
       if (
-        result.blueprintRevision.reference !== props.view.reference ||
+        result.blueprintRevision.blueprint_course_id !== props.view.id ||
         result.blueprintRevision.revision !== number
       )
         throw new Error("Unexpected Blueprint Revision");
@@ -117,7 +117,7 @@ function HistoryPanel(props: HistoryProps): JSX.Element {
         <Show when={revisionOpen()}>
           <HistoryPage
             client={props.client}
-            reference={props.view.reference}
+            reference={props.view.id}
             kind="revisions"
             currentRevision={props.view.current_revision.revision}
             onInspect={(number) => void inspect(number)}
@@ -130,7 +130,7 @@ function HistoryPanel(props: HistoryProps): JSX.Element {
           <p>Recorded names and availability are separate from saved content Revisions.</p>
           <HistoryPage
             client={props.client}
-            reference={props.view.reference}
+            reference={props.view.id}
             kind="metadata"
             currentRevision={props.view.current_revision.revision}
             onInspect={(number) => void inspect(number)}
@@ -200,7 +200,7 @@ function HistoryPage(props: HistoryPageProps): JSX.Element {
     setItems([]);
     setNextCursor(null);
     try {
-      const page = await props.client.listBlueprintHistory(props.reference, props.kind, cursor, 50);
+      const page = await props.client.listBlueprintHistory(props.id, props.kind, cursor, 50);
       if (currentRequest !== request) return;
       setItems(page.items);
       setNextCursor(page.nextCursor);

@@ -59,7 +59,7 @@ impl SupportRepairCapabilityStore for PostgresSupportCapabilityStore {
         input.validate()?;
         let mut tx = self.begin(token).await?;
         let row = sqlx::query("SELECT capability_id, sysadmin_public_reference, resource_class, resource_reference, purpose, expires_at_millis, revoked_at_millis FROM ple_api.issue_support_repair_capability($1, $2, $3, $4, $5)")
-            .bind(input.sysadmin_reference.as_string())
+            .bind(input.sysadmin_id.as_string())
             .bind(input.resource_class.database_name())
             .bind(&input.resource_reference).bind(&input.purpose).bind(random_uuid()?)
             .fetch_optional(&mut *tx).await.map_err(map_sqlx_error)?
@@ -167,7 +167,7 @@ fn decode_repair(
     .map_err(|_| invalid("Sysadmin Reference"))?;
     Ok(SupportRepairCapabilityReceipt {
         capability_id: row.try_get("capability_id").map_err(map_sqlx_error)?,
-        sysadmin_reference: reference,
+        sysadmin_id: reference,
         resource_class: decode_resource_class(
             row.try_get("resource_class").map_err(map_sqlx_error)?,
         )?,
