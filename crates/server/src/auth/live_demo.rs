@@ -612,7 +612,7 @@ mod tests {
             .expect("body");
         assert_eq!(
             body,
-            r#"{"authenticated":true,"account":{"id":"00000000-0000-0000-0000-000000000002","productRole":"student"}}"#
+            r#"{"authenticated":true,"account":{"id":"U0000002G","productRole":"student"}}"#
         );
     }
 }

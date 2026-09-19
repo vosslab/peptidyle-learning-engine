@@ -370,8 +370,8 @@ Current HG requires one global Discipline -> Subject -> Topic -> Subtopic vocabu
 and Library Objects, not Assessments. Courses require Discipline and may have Subject; Library
 Objects require both. Subjects may belong to multiple Disciplines; Topics and Subtopics each have
 one parent. The independently accepted prerequisite now includes
-[`content_classification.sql`](../../../../schemas/base_schema/content_classification.sql) and
-[`content_classification_operations.sql`](../../../../schemas/base_schema/content_classification_operations.sql):
+`content_classification.sql` and
+`content_classification_operations.sql`:
 four global UUID vocabulary tables, a global case-insensitive Subject-name index, composite
 Subject-Discipline identity and foreign keys, mandatory Topic/Subtopic parent foreign keys,
 owner-only `FORCE ROW LEVEL SECURITY`, and no direct runtime DML grants.

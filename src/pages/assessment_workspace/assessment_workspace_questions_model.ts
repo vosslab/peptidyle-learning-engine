@@ -11,6 +11,16 @@ import type {
   SaveLiveAssessmentInput,
 } from "../../api/assessment_release";
 
+export type QuestionEditDirtyEvent =
+  "title" | "move" | "sort" | "remove" | "add" | "saveSucceeded" | "saveFailed";
+
+/** Keeps the leave guard active until the current structural edit was persisted successfully. */
+export function nextQuestionEditDirty(current: boolean, event: QuestionEditDirtyEvent): boolean {
+  if (event === "saveSucceeded") return false;
+  if (event === "saveFailed") return current;
+  return true;
+}
+
 /** Builds the closed full-Assessment save payload without dropping unedited fields. */
 export function questionSaveInput(
   current: LiveAssessmentWorkspace,

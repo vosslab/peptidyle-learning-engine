@@ -58,7 +58,7 @@
       "subtopicUuid": null,
       "tags": []
     },
-    "id": "0198e000-0000-7000-8000-000000000014",
+    "id": "CI000001AE",
     "reference": "CI000001AE",
     "shortName": "BIOC 301",
     "longName": "BIOC 301: Biochemistry",
@@ -69,9 +69,9 @@
     "role": "student"
   },
   "assessment": {
-    "id": "0198e000-0000-7000-8000-000000000006",
+    "id": "A000001AT",
     "reference": "A000001AT",
-    "courseId": "0198e000-0000-7000-8000-000000000014",
+    "courseId": "CI000001AE",
     "title": "Peptide bond mastery",
     "entries": [
       {
@@ -115,9 +115,9 @@
   "assessment_attempts": [
     {
       "id": "0198e000-0000-7000-8000-000000000020",
-      "reference": "R-1",
+      "reference": "0198e000-0000-7000-8000-000000000020",
       "studentRecord": "0198e000-0000-7000-8000-000000000007",
-      "assessment": "0198e000-0000-7000-8000-000000000006",
+      "assessment": "A000001AT",
       "evidence": {
         "title": "Peptide bond mastery",
         "instructions": "",
@@ -154,9 +154,9 @@
     },
     {
       "id": "0198e000-0000-7000-8000-000000000021",
-      "reference": "R-2",
+      "reference": "0198e000-0000-7000-8000-000000000021",
       "studentRecord": "0198e000-0000-7000-8000-000000000007",
-      "assessment": "0198e000-0000-7000-8000-000000000006",
+      "assessment": "A000001AT",
       "evidence": {
         "title": "Peptide bond mastery",
         "instructions": "",
@@ -193,9 +193,9 @@
     },
     {
       "id": "0198e000-0000-7000-8000-000000000022",
-      "reference": "R-3",
+      "reference": "0198e000-0000-7000-8000-000000000022",
       "studentRecord": "0198e000-0000-7000-8000-000000000007",
-      "assessment": "0198e000-0000-7000-8000-000000000006",
+      "assessment": "A000001AT",
       "evidence": {
         "title": "Peptide bond mastery",
         "instructions": "",
@@ -232,9 +232,9 @@
     },
     {
       "id": "0198e000-0000-7000-8000-000000000023",
-      "reference": "R-4",
+      "reference": "0198e000-0000-7000-8000-000000000023",
       "studentRecord": "0198e000-0000-7000-8000-000000000007",
-      "assessment": "0198e000-0000-7000-8000-000000000006",
+      "assessment": "A000001AT",
       "evidence": {
         "title": "Peptide bond mastery",
         "instructions": "",
@@ -563,7 +563,7 @@
   ],
   "assessmentGrade": {
     "student_record": "0198e000-0000-7000-8000-000000000007",
-    "assessment": "0198e000-0000-7000-8000-000000000006",
+    "assessment": "A000001AT",
     "first_completed_at": 1786000001300,
     "current_assessment_attempt": "0198e000-0000-7000-8000-000000000021",
     "current_score": 1,
@@ -574,21 +574,21 @@
   },
   "assessmentProgress": {
     "student_record": "0198e000-0000-7000-8000-000000000007",
-    "assessment": "0198e000-0000-7000-8000-000000000006",
+    "assessment": "A000001AT",
     "completed_assessment_attempt_count": 3,
     "total_question_attempts": 4,
     "last_activity_at": 1786000004100
   },
   "gradebook": [
     {
-      "course_id": "0198e000-0000-7000-8000-000000000014",
+      "course_id": "CI000001AE",
       "student_record_id": "0198e000-0000-7000-8000-000000000007",
       "student_name": "Jordan Student",
-      "assessment_id": "0198e000-0000-7000-8000-000000000006",
+      "assessment_id": "A000001AT",
       "assessment_title": "Peptide bond mastery",
       "assessment_grade": {
         "student_record": "0198e000-0000-7000-8000-000000000007",
-        "assessment": "0198e000-0000-7000-8000-000000000006",
+        "assessment": "A000001AT",
         "first_completed_at": 1786000001300,
         "current_assessment_attempt": "0198e000-0000-7000-8000-000000000021",
         "current_score": 1,
@@ -599,7 +599,7 @@
       },
       "assessment_progress": {
         "student_record": "0198e000-0000-7000-8000-000000000007",
-        "assessment": "0198e000-0000-7000-8000-000000000006",
+        "assessment": "A000001AT",
         "completed_assessment_attempt_count": 3,
         "total_question_attempts": 4,
         "last_activity_at": 1786000004100

@@ -934,15 +934,12 @@ mod tests {
         assert_eq!(first, replay);
         assert_ne!(first, deliberate_later);
 
-        headers.insert(
-            IF_MATCH,
-            HeaderValue::from_static("\"00000000-0000-0000-0000-000000000007\""),
-        );
+        headers.insert(IF_MATCH, HeaderValue::from_static("\"7\""));
         assert_eq!(
             expected_edit_number(&headers)
-                .expect("metadata ETag")
+                .expect("metadata Edit Number")
                 .to_string(),
-            "00000000-0000-0000-0000-000000000007"
+            "7"
         );
     }
 

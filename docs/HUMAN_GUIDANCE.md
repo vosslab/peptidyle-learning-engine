@@ -763,11 +763,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - An object without a public ID uses a native UUID primary key, or a composite natural key when
   it is owned by a parent (for example a Revision keyed by its lineage ID and Revision Number).
 - Internal UUIDs never substitute for or appear as public identities.
-- Every table has one creation clock on every row: a full-precision `timestamptz` where the
-  server enforces, orders, or audits (Student Work, sessions, events, Courses, Accounts), and a
-  `date` for authored content (Published Questions, Question Pools, Blueprint Courses, their
-  Revisions, Draft Questions, usage statistics).
-- Table shape follows [DATABASE_STYLE.md](/docs/DATABASE_STYLE.md).
+- Table shape and clocks follow [DATABASE_STYLE.md](/docs/DATABASE_STYLE.md).
 
 ### Content classification
 
@@ -838,8 +834,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Student Work includes Assessment Attempts, saved Question responses, grading outcomes, and the evidence needed to interpret that work after an Attempt is submitted.
 - Student Work is an umbrella term; the underlying records retain their own identities and purposes.
 - Student retention removes identifiable Student evidence and leaves Question usage statistics
-  unchanged. Question statistics are stored per Revision and displayed as a Question-level
-  rollup by default; see "Question Library object usage statistics".
+  unchanged.
 
 ### Course retention and lifecycle
 
@@ -1163,47 +1158,13 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
   Pool.
 - Aggregate statistics contain counts and sums, never Student Attempts or identifiable Student
   records.
-- Every Published Question Revision keeps one global usage statistic so Instructors can judge
-  how often a Question is used and how hard it is.
-- The statistic is six counters and two sums: `issued_count`, `blank_count`, `answered_count`,
-  `correct_count` (full credit), `partial_count`, `incorrect_count` (zero credit), `credit_sum`,
-  and `credit_sum_sq` (the sum of squared credit fractions). Mean and standard deviation of
-  credit derive from the sums; sorting Questions in bulk uses them.
-- Every counter increments when the Assessment Attempt is submitted, so an Attempt that is
-  Unreleased or deleted before submission contributes nothing. `issued_count = blank_count +
-  answered_count` and `answered_count = correct_count + partial_count + incorrect_count`.
-- A blank Question is one submitted with no saved response. It counts as blank, separately from
-  incorrect, and is never sent to a Question Backend.
-- Every Attempt counts as one observation, including practice Attempts after full credit.
-- The statistic records the exact Revision, the outcome class, the credit fraction, and the
-  calendar date of the most recent increment (`updated_on`), and nothing else: no Course,
-  Student, Account, Attempt, roster, time of day, point value, timing, ordering, seed, selected
-  choice, or response text. Day granularity on a global counter identifies no one.
-- The per-observation receipt that makes each increment exactly-once is Student Work and is
-  purged with the Attempt. The aggregate is global content and survives Unrelease and Student
-  data deletion unchanged; PLE never rebuilds it from Student Work.
-- Each Question Pool keeps two stored counters that membership changes do not invalidate: an
-  `issued_count` for the Pool, and a `selected_count` per member Published Question (how often
-  that member was drawn from this Pool). A member's `selected_count` row is removed with the
-  member and starts at zero if the member is re-added.
-- A member Question's outcomes count in that Question Revision's own statistic, never in a
-  Pool-level copy.
-- A Question Pool's difficulty (mean and standard deviation of credit) is derived when read from
-  its current members' Question statistics, so removing or adding a member changes it with no
-  stored value to update. Search and sorting compute it from the member join; a cached value on
-  the Pool row is a measured exception, never the default.
-- Storage is per Revision; display is per Question. Every bulk view (Library lists, search
-  results, Assessment editors) shows the rollup across all Revisions of a Question; the Question
-  detail page is the one place that adds the per-Revision breakdown.
-- The Question Library shows every rate beside its observation count.
-- Students see Course-scoped class statistics through the Assessment feedback policy; those are
-  protected Student Work projections and are purged with the Course.
-- [FERPA_DATA_POLICY.md](/docs/FERPA_DATA_POLICY.md) "Question Library object usage statistics" and
-  [DATABASE_STYLE.md](/docs/DATABASE_STYLE.md) "Every table has a clock" carry the same rule.
+- Instructors should be able to judge how often a Question is used and how hard it is.
 - Removing Student names alone does not make statistics anonymous.
 - Shared statistics should be shown only when individual Students cannot reasonably be identified
   from the aggregate.
 - Course-specific analysis remains FERPA-sensitive when individual Students could be inferred.
+- Schema and increment rules live in [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) and
+  [FERPA_DATA_POLICY.md](/docs/FERPA_DATA_POLICY.md).
 
 #### Question Library Bloom classification metadata
 

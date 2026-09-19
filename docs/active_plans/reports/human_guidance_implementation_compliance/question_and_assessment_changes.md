@@ -363,7 +363,7 @@ The authoritative exhaustive record is the
   full pedagogical-purpose behavior, so the broad defaults row remains open.
 
 - C510 is closed. The production Gradebook and Student landing both use
-  `schemas/base_schema/grading_access.sql` `read_assessment_gradebook_evidence` to select the
+  `schemas/base_schema/50_functions/grading_access.sql` `read_assessment_gradebook_evidence` to select the
   highest grading-complete submitted Attempt; latest-Attempt progress remains separate. The stale
   configurable grade-rule enum, model field, SQL columns, and editor choices were removed from the
   production boundary. Accepted independent fresh PostgreSQL 17 lifecycle evidence recorded

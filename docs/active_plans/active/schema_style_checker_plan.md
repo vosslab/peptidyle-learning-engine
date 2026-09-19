@@ -1,8 +1,8 @@
 # Plan: schema style checker
 
 A Python maintainer tool, `schema_style/check_schema_style.py`, that reports every mechanical rule in
-[docs/DATABASE_STYLE.md](../../DATABASE_STYLE.md) against the SQL source today and against the
-installed catalog once [sql_schema_restructure_plan.md](sql_schema_restructure_plan.md) lands its
+[DATABASE_STYLE.md](../../DATABASE_STYLE.md) against the SQL source today and against the
+installed catalog once [sql_schema_restructure_plan.md](../../archive/sql_schema_restructure_plan.md) lands its
 layout. The two plans are separate: this one ships a tool; that one changes tables. The tool
 lands first so every restructure patch watches its finding counts fall.
 

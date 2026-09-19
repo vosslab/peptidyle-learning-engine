@@ -48,14 +48,15 @@ LIVE_DEMO_MANIFEST_KEYS = (*MANIFEST_KEYS, "PROFILE")
 CONTAINER_ID_PREFIX_PATTERN = re.compile(r"^[a-f0-9]{12}$")
 POSTGRESQL_ATTEMPT_COUNT_QUERIES = (
 	"SELECT count(*) FROM ple_private.question_attempt WHERE question_attempt_id = :'attempt_id'::uuid",
-	"SELECT count(*) FROM ple_private.question_response WHERE question_attempt_id = :'attempt_id'::uuid",
-	"SELECT count(*) FROM ple_private.question_response_grading AS grading "
-	"JOIN ple_private.question_response AS submission ON submission.question_response_id = grading.question_response_id "
-	"WHERE submission.question_attempt_id = :'attempt_id'::uuid",
+	"SELECT count(*) FROM ple_private.assessment_attempt_saved_response WHERE question_attempt_id = :'attempt_id'::uuid",
 	"SELECT count(*) FROM ple_private.grading_result WHERE question_attempt_id = :'attempt_id'::uuid",
 	"SELECT count(*) FROM ple_audit.automated_grading_receipt AS receipt "
 	"JOIN ple_private.grading_result AS result ON result.grading_result_id = receipt.grading_result_id "
 	"WHERE result.question_attempt_id = :'attempt_id'::uuid",
+)
+POSTGRESQL_ATTEMPT_COUNT_RESULT_PATTERN = re.compile(
+	r"[0-9]{1,10}"
+	+ r"(?:\|[0-9]{1,10})" * (len(POSTGRESQL_ATTEMPT_COUNT_QUERIES) - 1)
 )
 EVIDENCE_LOG_TAIL_LINES = 5_000
 EVIDENCE_LOG_MAX_CHARACTERS = 1_000_000

@@ -43,7 +43,7 @@ independently found this violation of independent saves.
 
 Upload staging persists an object and work record, but expiry is checked only when attempting
 promotion in the canonical
-[course_media.sql](../../../schemas/base_schema/course_media.sql) module.
+`course_media.sql` module.
 No executable worker consumes expired, unpromoted upload work. A client that stages successfully and
 then abandons promotion leaves the temporary object indefinitely. The accepted
 [course_appearance_banner_storage_and_sizing.md](../decisions/course_appearance_banner_storage_and_sizing.md)

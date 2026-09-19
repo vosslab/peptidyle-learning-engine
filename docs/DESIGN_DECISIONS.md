@@ -1337,6 +1337,63 @@ not an immutable Revision history.
 **Consequence.** Student Work pins Question ID, Question Revision, Pool ID,
 and Pool Edit Number. Forks copy current members once.
 
+### Library usage statistics are retained counters, not reconstructions
+
+**Decision.** Each Published Question Revision stores `issued_count`,
+`blank_count`, `answered_count`, `correct_count` (full credit),
+`partial_count`, `incorrect_count` (zero credit), `credit_sum`, and
+`credit_sum_sq`. Mean and standard deviation of credit derive from the
+sums. A Question Pool stores `issued_count` and a per-member
+`selected_count`. Difficulty is computed from current members' Question
+statistics when read. Storage is per Revision; bulk Library views show
+the rollup across Revisions, and the Question detail page adds the
+per-Revision breakdown.
+
+**Why.** Human Guidance asks for privacy-safe counts so Instructors can
+judge how often a Question is used and how hard it is. Rebuilding
+aggregates from Student Work receipts would shrink historical totals when
+Attempts are Unreleased or FERPA-purged. A cached Pool difficulty column
+would need membership-triggered rewrites.
+
+**Consequence.** Counters increment at Assessment Attempt submission, so
+an Unreleased or deleted in-progress Attempt contributes nothing.
+`issued_count = blank_count + answered_count` and
+`answered_count = correct_count + partial_count + incorrect_count`. A
+blank Question is submitted with no saved response and is never sent to a
+Question Backend. Every Attempt counts as one observation, including
+practice Attempts after full credit. The increment receipt is Student
+Work and is purged with the Attempt; the aggregate survives and is never
+rebuilt from Student Work. The statistic records Revision, outcome class,
+credit fraction, and `updated_on` only. A member's `selected_count` is
+removed with the member and starts at zero if the member is re-added.
+Member outcomes count in that Question Revision's own statistic, never in
+a Pool-level copy. Instructors see each rate beside its observation
+count. Students see Course-scoped class statistics through the Assessment
+feedback policy; those projections are Student Work and are purged with
+the Course. [FERPA_DATA_POLICY.md](FERPA_DATA_POLICY.md) lists the
+collected facts.
+
+**Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) "Question Library object
+usage statistics"; schema in `schemas/base_schema/20_tables/statistics.sql`.
+
+### Creation clocks are `timestamptz` for enforcement and `date` for authored content
+
+**Decision.** Student Work, sessions, events, Courses, and Accounts use a
+full-precision `timestamptz` creation clock. Published Questions, Question
+Pools, Blueprint Courses, their Revisions, Draft Questions, and usage
+statistics use a `date`.
+
+**Why.** Ordering and audit need sub-day precision. Authored content and
+global counters must not store a time of day that could identify a
+Student.
+
+**Consequence.** [DATABASE_STYLE.md](DATABASE_STYLE.md) "Every table has a
+clock" is the mechanical check. Domain CHECK helpers run as the current
+user, so their `EXECUTE` grant is `PUBLIC`.
+
+**Owner.** [DATABASE_STYLE.md](DATABASE_STYLE.md) "Every table has a
+clock".
+
 ## Unresolved decisions
 
 The complete Student Ribbon task layout and the complete Sysadmin Ribbon task

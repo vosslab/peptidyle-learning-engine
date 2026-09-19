@@ -1,15 +1,14 @@
 # Plan: SQL base schema restructure
 
-Remediation plan for [sql_schema_quality_audit.md](../audits/sql_schema_quality_audit.md). The
+Remediation plan for [sql_schema_quality_audit.md](../active_plans/audits/sql_schema_quality_audit.md). The
 audit is evidence and stays fixed; this plan is the work and is updated as milestones land. Every
-work package must satisfy [docs/DATABASE_STYLE.md](../../DATABASE_STYLE.md).
+work package must satisfy [DATABASE_STYLE.md](../DATABASE_STYLE.md).
 
-Status: closed 2026-09-18. M0–M4 landed. Live Demo teaching graph loads with
+Status: closed 2026-09-18. M0-M4 landed. Live Demo teaching graph loads with
 publisher variables. WP-4.3 generic immutability guards deferred with
 EXPLAIN evidence. Companion plan:
-[schema_style_checker_plan.md](schema_style_checker_plan.md) shipped the
-measuring tool first. Archived at
-[docs/archive/sql_schema_restructure_plan.md](../archive/sql_schema_restructure_plan.md).
+[schema_style_checker_plan.md](../active_plans/active/schema_style_checker_plan.md) shipped the
+measuring tool first. Archived at `docs/archive/sql_schema_restructure_plan.md`
 
 ## Context
 
@@ -357,7 +356,7 @@ dependent milestone starts, and record it in `docs/DESIGN_DECISIONS.md` at close
 
 - Owner: tooling coder.
 - Touch points: `schema_style/check_schema_style.py` and `schema_style/schema_catalog_lib.py`, which
-  [schema_style_checker_plan.md](schema_style_checker_plan.md) ships against the current source
+  [schema_style_checker_plan.md](../active_plans/active/schema_style_checker_plan.md) ships against the current source
   (Tier 1 now); this work package extends that tool with Tier 2 rules and snapshot input.
   `schemas/catalog_snapshot.json` from WP-0.4.
 - Depends on: WP-0.4; the checker plan's Tier 1 delivery.

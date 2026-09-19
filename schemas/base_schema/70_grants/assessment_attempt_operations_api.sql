@@ -1,5 +1,7 @@
 -- Privileges from assessment_attempt_operations_api.sql.
 
+SET LOCAL ROLE ple_private_owner;
+
 REVOKE ALL ON FUNCTION ple_private.lock_assessment_for_student_work(text),
     ple_private.assert_current_student_assessment_attempt(uuid),
     ple_private.assessment_attempt_start_gate(uuid, text),

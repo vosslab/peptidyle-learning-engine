@@ -1,16 +1,16 @@
 The worst confirmed repetitions are:
 
-1. Watch notifications duplicate the entire parent event for every recipient - target, object ID, event kind, revision, activity, and timestamp - even though each row already stores event_id. The notification should retain only recipient + event identity and join the event. This is multiplicative fan-out. See schemas/base_schema/question_watch_notifications.sql:69.
+1. Watch notifications duplicate the entire parent event for every recipient - target, object ID, event kind, revision, activity, and timestamp - even though each row already stores event_id. The notification should retain only recipient + event identity and join the event. This is multiplicative fan-out. See schemas/base_schema/50_functions/question_watch_notifications.sql:69.
 
-2. Every Assessment Attempt repeats nine policy strings: late-work, variation, ordering, and six feedback-release fields. Snapshotting the policy is correct, but repeating nine strings per attempt is not. Attempts should reference one immutable policy/configuration row whose closed values use enums. See schemas/base_schema/assessment_attempts.sql:50.
+2. Every Assessment Attempt repeats nine policy strings: late-work, variation, ordering, and six feedback-release fields. Snapshotting the policy is correct, but repeating nine strings per attempt is not. Attempts should reference one immutable policy/configuration row whose closed values use enums. See schemas/base_schema/50_functions/assessment_attempts.sql:50.
 
-3. question_response_grading.grading_state is always exactly graded. It stores no information and should disappear, likely along with the unnecessary one-to-one wrapper table. See schemas/base_schema/grading.sql:7.
+3. question_response_grading.grading_state is always exactly graded. It stores no information and should disappear, likely along with the unnecessary one-to-one wrapper table. See schemas/base_schema/50_functions/grading.sql:7.
 
-4. assessment_submission.finalization_kind is derivable from authorized_by_account_id, while its JSON receipt repeats both that kind and constant submitted state. Those duplicates should be removed and projected when needed. See schemas/base_schema/assessment_attempt_interaction.sql:53.
+4. assessment_submission.finalization_kind is derivable from authorized_by_account_id, while its JSON receipt repeats both that kind and constant submitted state. Those duplicates should be removed and projected when needed. See schemas/base_schema/50_functions/assessment_attempt_interaction.sql:53.
 
-5. question_attempt_state duplicates facts already represented by Question Response existence, Assessment Submission existence, and timestamps. It should be derived instead of stored for every Question Attempt. See schemas/base_schema/assessment_attempt_interaction.sql:5.
+5. question_attempt_state duplicates facts already represented by Question Response existence, Assessment Submission existence, and timestamps. It should be derived instead of stored for every Question Attempt. See schemas/base_schema/50_functions/assessment_attempt_interaction.sql:5.
 
-6. issued_question.scoring_rule repeats one of four strings for every issued Question. Its snapshot is legitimate, but its representation should be a shared enum or part of an immutable entry-policy reference. See schemas/base_schema/assessment_attempts.sql:111.
+6. issued_question.scoring_rule repeats one of four strings for every issued Question. Its snapshot is legitimate, but its representation should be a shared enum or part of an immutable entry-policy reference. See schemas/base_schema/50_functions/assessment_attempts.sql:111.
 
 There are also many smaller closed-text fields - roles, states, event kinds, backends, availability, MIME types, and object kinds. Those deserve native enums when genuinely closed. Single-value columns such as fixed roles, job kinds, and rendition kinds should often be removed entirely because they encode no information.
 

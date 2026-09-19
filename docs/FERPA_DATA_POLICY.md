@@ -70,7 +70,7 @@ PLE keeps one global, version-first usage statistic per Published Question Revis
 Instructors can judge a Question's difficulty in the Library. This section states exactly what
 that statistic collects, stores, and shows. The schema shape lives in
 [DATABASE_STYLE.md](DATABASE_STYLE.md) ("Every table has a clock") and
-`schemas/base_schema/statistics.sql`.
+`schemas/base_schema/20_tables/statistics.sql`.
 
 Collected once per Issued Question when its Assessment Attempt is submitted (an Attempt that is
 Unreleased or deleted before submission contributes nothing):

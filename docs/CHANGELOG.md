@@ -10,6 +10,23 @@
 
 ### Additions and New Features
 
+- Student Work API grants start as `ple_private_owner` so REVOKE/GRANT on
+  `ple_private` SECURITY DEFINER functions apply. Replica durability counts
+  `assessment_attempt_saved_response` instead of dropped `question_response`
+  tables. The replica count validator accepts one integer per query, not a
+  fixed five-field row. The stored Question fixture set uses public Course
+  Instance and Assessment IDs for `cargo tools fixtures`. Live Demo composition tests
+  use public Account IDs. Markdown schema links follow the layered
+  `schemas/base_schema/` layout; gitignored `catalog_snapshot.json` is not
+  a browsable link. Course Banner HTTP lives in
+  `crates/server/src/course_appearance/banner.rs`. The Assessment Question
+  Editor view lives in
+  `assessment_workspace_questions_view.tsx`. Clock type and Library
+  statistic increment rules moved from Human Guidance into
+  [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md). Gate:
+  `tests/test_disposable_stack_replica_adapter.py` and
+  `./launchers/run_fast_checks.sh`.
+
 - Close-out gates: disposable `postgres:17` install plus Live Demo teaching
   graph (publisher psql variables supplied; eight Pilot Question pins and a
   public Blueprint so `live_demo.sql` loads). Connected Student Work oracles
@@ -264,7 +281,7 @@
 - Added `devel/generate_schema_tables_doc.py` (WP-0.4): reads the schema catalog
   through `schema_style.schema_catalog_lib` from `schemas/base_schema/` or
   `-d`/`--database`, and writes [SCHEMA_TABLES.md](SCHEMA_TABLES.md) plus
-  [../schemas/catalog_snapshot.json](../schemas/catalog_snapshot.json). One
+  `catalog_snapshot.json`. One
   Markdown section per `20_tables/*.sql` file when that directory exists,
   otherwise one section per source file that contains `CREATE TABLE`. Each table
   lists qualified name, role tag, columns, constraints, foreign keys, indexes,
@@ -273,7 +290,7 @@
   in [USAGE.md](USAGE.md).
 
 - Added the SQL base schema restructure plan
-  ([sql_schema_restructure_plan.md](active_plans/active/sql_schema_restructure_plan.md)) in the
+  ([sql_schema_restructure_plan.md](archive/sql_schema_restructure_plan.md)) in the
   `blueprint-plan-drafter` multi-workstream form: five milestones (M0 layered layout and catalog
   comments, M1 types and identity, M2 snapshots, M3 derived data and fan-out, M4 measured indexes
   and generic immutability guards), eight workstreams with parallel-readiness stated per
@@ -496,7 +513,7 @@
   `50_functions/`.
 - WP-0.4/WP-0.5: `source source_me.sh && python3 devel/generate_schema_tables_doc.py`
   exits 0 and writes [SCHEMA_TABLES.md](SCHEMA_TABLES.md) (24 `20_tables/` sections,
-  146 tables) and [../schemas/catalog_snapshot.json](../schemas/catalog_snapshot.json)
+  146 tables) and `catalog_snapshot.json`
   (146 tables, 282 indexes, 3 enums, all 146 tables tagged).
   `python3 -m pyflakes devel/generate_schema_tables_doc.py schema_style/*.py` exits 0.
   `source source_me.sh && ./schema_style/check_schema_style.py` exits 0 with

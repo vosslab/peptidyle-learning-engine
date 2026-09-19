@@ -264,7 +264,7 @@ stewardship can remain separate future capabilities.
 - [ ] Preserve authored content across normal restart and prove backup/restore on the intended
       persistent deployment before relying on it as the only copy.
 
-The staged banner lifecycle in [course_media.sql](../../schemas/base_schema/course_media.sql)
+The staged banner lifecycle in `course_media.sql`
 has expiry checks, but no executable expired-upload cleanup consumer was found in the inspected
 worker composition. Request-time cleanup is not the same as reclaiming abandoned uploads.
 

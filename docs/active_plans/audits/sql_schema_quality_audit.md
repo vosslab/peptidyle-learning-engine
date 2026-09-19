@@ -1,12 +1,12 @@
 # SQL schema quality and efficiency audit
 
 Read-only audit of the canonical PostgreSQL 17 base schema under
-[schemas/base_schema/](../../../schemas/base_schema/), installed from
-[schemas/base_schema/install.sql](../../../schemas/base_schema/install.sql). It extends the
+`base_schema`, installed from
+[install.sql](../../../schemas/base_schema/install.sql). It extends the
 findings the human recorded in
 [database_repetition_audit.md](database_repetition_audit.md) and checks each structural
-recommendation against [docs/HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) and
-[docs/DATABASE_STRUCTURE.md](../../DATABASE_STRUCTURE.md).
+recommendation against [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) and
+[DATABASE_STRUCTURE.md](../../DATABASE_STRUCTURE.md).
 
 Audit date: 2026-09-17. Working copy: `main` at `9156ee17` plus the uncommitted UI audit; no SQL
 files were modified. No code changed.
@@ -435,7 +435,7 @@ layout. Reaching it is milestone M0 of the plan and is the completion gate for t
 ## Part 3: remediation
 
 The fixes for every finding above are planned in
-[sql_schema_restructure_plan.md](../active/sql_schema_restructure_plan.md) as milestones M0
+[sql_schema_restructure_plan.md](../../archive/sql_schema_restructure_plan.md) as milestones M0
 (layered layout and catalog comments), M1 (types and identity), M2 (snapshots), M3 (derived data
 and fan-out), and M4 (measured indexes and generic immutability guards). Package letters used in
 the findings map as: package 0 = M0, A and D = M1, B = M2, C and E = M3, F = M4. This audit does
@@ -462,8 +462,8 @@ Not established here:
 - Runtime index usage. A fresh install has zero scan counters; the 166 unindexed edges are
   candidates until `EXPLAIN` on seeded data says otherwise (package F).
 - Authorization semantics of the 495 `SECURITY DEFINER` routines and 290 policies; see
-  [docs/DATABASE_AUTHORIZATION.md](../../DATABASE_AUTHORIZATION.md) and
-  [tests/e2e/database_baseline_security_catalog.sql](../../../tests/e2e/database_baseline_security_catalog.sql).
+  [DATABASE_AUTHORIZATION.md](../../DATABASE_AUTHORIZATION.md) and
+  [database_baseline_security_catalog.sql](../../../tests/e2e/database_baseline_security_catalog.sql).
 - Application readers of the columns proposed for removal in 1.3. A source grep found two:
   `crates/learning-data-access/src/archived_student_work_recovery.rs:106-141` projects
   `finalization_kind`, `question_attempt_state`, and `grading_state` into the recovery record, and

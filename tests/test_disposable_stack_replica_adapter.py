@@ -10,6 +10,16 @@ import local_stack_control.disposable_stack_command
 import local_stack_control.process
 
 
+def replica_count_width() -> int:
+	"""The replica count row has one integer per current Student Work query."""
+	return len(local_stack_control.disposable_stack_adapter.POSTGRESQL_ATTEMPT_COUNT_QUERIES)
+
+
+def replica_count_row(fill: str = "1") -> str:
+	"""Build one valid replica count row for the current query tuple."""
+	return "|".join([fill] * replica_count_width())
+
+
 class CountRunner(local_stack_control.process.CommandRunner):
 	"""Capture the one bounded count command without invoking an engine."""
 
@@ -172,10 +182,12 @@ def test_replica_count_command_uses_profile_scoped_parameters(
 	assert f"attempt_id={attempt}" in argv
 	assert attempt not in sql
 	assert ":'attempt_id'::uuid" in sql
-	assert "ple_private.question_response" in sql
-	assert "ple_private.question_response_grading" in sql
+	assert "ple_private.assessment_attempt_saved_response" in sql
+	assert "ple_private.question_response" not in sql
+	assert "ple_private.question_response_grading" not in sql
 	assert "ple_private.grading_result" in sql
 	assert "ple_audit.automated_grading_receipt" in sql
+	assert sql.count("SELECT count(*)") == replica_count_width()
 	assert "submission_idempotency" not in sql
 	assert environment["COMPOSE_PROJECT_NAME"] == "ple-live-demo-browser"
 
@@ -220,14 +232,15 @@ def test_postgresql_count_cli_rejects_generic_sql_or_compose_tail() -> None:
 
 
 #============================================
-def test_postgresql_count_cli_emits_only_the_five_counts(
+def test_postgresql_count_cli_emits_only_the_query_counts(
 	tmp_path: pathlib.Path,
 	monkeypatch: pytest.MonkeyPatch,
 	capsys: pytest.CaptureFixture[str],
 ) -> None:
 	"""A successful adapter call forwards one exact bounded count row and nothing else."""
 	target = fixed_replica_target(tmp_path)
-	runner = CountRunner("1|1|1|1|1\n")
+	row = replica_count_row()
+	runner = CountRunner(f"{row}\n")
 	monkeypatch.setattr(
 		local_stack_control.disposable_stack_adapter,
 		"require_current_resource_capability",
@@ -238,7 +251,7 @@ def test_postgresql_count_cli_emits_only_the_five_counts(
 		target,
 		"00000000-0000-4000-8000-000000000200",
 	)
-	assert result == 0 and capsys.readouterr().out == "1|1|1|1|1\n"
+	assert result == 0 and capsys.readouterr().out == f"{row}\n"
 	assert len(runner.calls) == 1
 	assert runner.calls[0][1] is not None
 
@@ -248,18 +261,21 @@ def test_postgresql_count_cli_rejects_malformed_result(
 	tmp_path: pathlib.Path,
 	monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-	"""The bounded child rejects count output that is not exactly five integers."""
+	"""The bounded child rejects count output that is not one integer per query."""
 	target = fixed_replica_target(tmp_path)
 	monkeypatch.setattr(
 		local_stack_control.disposable_stack_adapter,
 		"require_current_resource_capability",
 		lambda selected_runner, disposable: None,
 	)
-	with pytest.raises(
-		local_stack_control.models.ControllerError, match="invalid result"
-	):
-		local_stack_control.disposable_stack_command.run_postgresql_count(
-			CountRunner("1|1|1|1"),
-			target,
-			"00000000-0000-4000-8000-000000000200",
-		)
+	too_short = "|".join(["1"] * (replica_count_width() - 1))
+	too_long = "|".join(["1"] * (replica_count_width() + 1))
+	for malformed in (too_short, too_long):
+		with pytest.raises(
+			local_stack_control.models.ControllerError, match="invalid result"
+		):
+			local_stack_control.disposable_stack_command.run_postgresql_count(
+				CountRunner(malformed),
+				target,
+				"00000000-0000-4000-8000-000000000200",
+			)

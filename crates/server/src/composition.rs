@@ -812,7 +812,7 @@ mod tests {
         let values = BTreeMap::from([
             (
                 "PLE_LIVE_DEMO_ELENA_INSTRUCTOR_ACCOUNT_ID",
-                uuid::Uuid::from_u128(1).to_string(),
+                account(1).as_string(),
             ),
             (
                 "PLE_LIVE_DEMO_MARY_STUDENT_ACCOUNT_ID",
@@ -820,7 +820,7 @@ mod tests {
             ),
             (
                 "PLE_LIVE_DEMO_MORGAN_SYSADMIN_ACCOUNT_ID",
-                uuid::Uuid::from_u128(2).to_string(),
+                account(2).as_string(),
             ),
         ]);
 

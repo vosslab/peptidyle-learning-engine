@@ -151,7 +151,7 @@ Reads `schemas/base_schema/` (override with `-s`/`--source-dir`) or a live
 database (`-d`/`--database`) through
 [../schema_style/schema_catalog_lib.py](../schema_style/schema_catalog_lib.py)
 and writes [SCHEMA_TABLES.md](SCHEMA_TABLES.md) (`-o`/`--output`) plus
-[../schemas/catalog_snapshot.json](../schemas/catalog_snapshot.json)
+`schemas/catalog_snapshot.json`
 (`-j`/`--snapshot`). One Markdown section per `20_tables/*.sql` file when that
 directory exists, otherwise one section per source file that contains
 `CREATE TABLE`. Each table lists its qualified name, role tag, columns, types,

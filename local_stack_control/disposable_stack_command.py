@@ -2,7 +2,6 @@
 
 import argparse
 import pathlib
-import re
 import shlex
 import sys
 
@@ -279,7 +278,7 @@ def run_postgresql_count(
 	disposable: local_stack_control.models.DisposableComposeTarget,
 	attempt_id: str,
 ) -> int:
-	"""Run and emit only the replica profile's five bounded durability counts."""
+	"""Run and emit only the replica profile's bounded durability counts."""
 	local_stack_control.disposable_stack_adapter.require_current_resource_capability(runner, disposable)
 	argv, environment, sql = local_stack_control.disposable_stack_adapter.postgresql_count_command(
 		disposable, attempt_id
@@ -290,7 +289,12 @@ def run_postgresql_count(
 			"bounded PostgreSQL count did not complete"
 		)
 	counts = result.stdout.strip()
-	if re.fullmatch(r"[0-9]{1,10}(?:\|[0-9]{1,10}){4}", counts) is None:
+	if (
+		local_stack_control.disposable_stack_adapter.POSTGRESQL_ATTEMPT_COUNT_RESULT_PATTERN.fullmatch(
+			counts
+		)
+		is None
+	):
 		raise local_stack_control.models.ControllerError(
 			"bounded PostgreSQL count returned an invalid result"
 		)

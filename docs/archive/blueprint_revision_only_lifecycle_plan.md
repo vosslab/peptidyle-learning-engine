@@ -15,13 +15,13 @@ Blueprint Revision and never reads mutable Blueprint working state.
 
 Current evidence confirms that this is a direct pre-production redesign:
 
-- `schemas/base_schema/blueprints.sql` stores one mutable Draft aggregate beside the immutable
+- `schemas/base_schema/50_functions/blueprints.sql` stores one mutable Draft aggregate beside the immutable
   Revision aggregate and implements separate create, save, and publish functions.
 - `crates/server/src/blueprint_course.rs` exposes `/draft` and `/publish` routes with a Draft Edit
   Number ETag.
 - `src/features/blueprint_course/blueprint_course_workspace.tsx` already keeps unsaved edits in
   browser state, but its Save and Publish actions establish two persistence boundaries.
-- `schemas/base_schema/course_operations.sql` already creates Course Instances from an exact
+- `schemas/base_schema/50_functions/course_operations.sql` already creates Course Instances from an exact
   caller-supplied Blueprint Revision.
 
 ## Objectives
@@ -145,7 +145,7 @@ then current-source verification supplies the generated and SQL edges that Graph
 
 | Boundary      | Mapped and verified owners                                                                                                                                                                                                                                                                                                                                                                                    |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Persistence   | `schemas/base_schema/blueprints.sql`, Blueprint installation data, and exact Course Instance foreign keys in `schemas/base_schema/course_operations.sql`                                                                                                                                                                                                                                                      |
+| Persistence   | `schemas/base_schema/50_functions/blueprints.sql`, Blueprint installation data, and exact Course Instance foreign keys in `schemas/base_schema/50_functions/course_operations.sql`                                                                                                                                                                                                                                                      |
 | Rust/domain   | `crates/question_model/src/blueprint_course.rs`, `crates/question_model/src/blueprint_course/`, `crates/question_model/src/blueprint_operations.rs`, `crates/question_model/src/blueprint_operations/`, `crates/question_model/src/lib.rs`, Blueprint and Course Instance learning-data-access owners and PostgreSQL adapters, their server routes, and `crates/browser-api-contract/src/blueprint_course.rs` |
 | Browser       | Blueprint API contract/client/decoder, `blueprint_course_model.ts`, `blueprint_course_creation.ts`, create dialog, workspace, feature exports, Blueprint live pages, Course list, Assignment source repository, and Course Instance Revision selection                                                                                                                                                        |
 | Evidence/docs | Blueprint client/model/UI tests, Blueprint and Course Instance service journeys, affected browser journeys, installation-data oracle, and every current durable doc found by the scoped Blueprint Draft terminology sweep                                                                                                                                                                                     |
@@ -317,7 +317,7 @@ Revision 1 atomically. None creates a Blueprint Draft.
 - Work packages: WP-D1, WP-D2.
 - Needs: the resolved model and current base-schema evidence.
 - Provides: atomic functions and row shapes for the Rust Store.
-- Review boundary, when modifying the repository: `schemas/base_schema/blueprints.sql`, Course
+- Review boundary, when modifying the repository: `schemas/base_schema/50_functions/blueprints.sql`, Course
   Instance foreign keys, and Blueprint installation-data ownership.
 
 ### Workstream WS-R: Rust and HTTP contract
@@ -356,7 +356,7 @@ Revision 1 atomically. None creates a Blueprint Draft.
 ### Work package WP-D1: Replace Draft tables with Revision-only storage
 
 - Owner: PostgreSQL implementation owner.
-- Touch points: `schemas/base_schema/blueprints.sql`, `schemas/base_schema/course_operations.sql`.
+- Touch points: `schemas/base_schema/50_functions/blueprints.sql`, `schemas/base_schema/50_functions/course_operations.sql`.
 - Depends on: none.
 - Acceptance criteria:
   - The lineage points to its exact current Revision and owns Blueprint short name, long name,
@@ -569,7 +569,7 @@ Revision 1 atomically. None creates a Blueprint Draft.
 
 ## Migration and compatibility policy
 
-PLE is pre-production. Change `schemas/base_schema/blueprints.sql` and other owning base modules
+PLE is pre-production. Change `schemas/base_schema/50_functions/blueprints.sql` and other owning base modules
 directly. Add no forward migration, compatibility view, legacy route, fallback reader, dual write,
 or create-then-drop transition. Rebuild disposable databases and installation data from the
 canonical base.

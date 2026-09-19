@@ -12,7 +12,6 @@ use learning_data_access::{
 };
 use question_model::{AccountId, ProductRole, Timestamp};
 use tower::ServiceExt;
-use uuid::Uuid;
 
 fn account() -> AccountId {
     AccountId::from_debug_serial(2)

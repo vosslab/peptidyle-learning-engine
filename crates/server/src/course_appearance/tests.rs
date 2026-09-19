@@ -1,12 +1,25 @@
+use super::banner::{
+    banner_metadata, cleanup_address_with, finalize_staged_upload, write_prepared_objects,
+};
 use super::*;
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
+use axum::http::{HeaderMap, StatusCode};
 use learning_data_access::{
-    ClaimedCourseBannerUpload, PrepareCourseBannerPromotion, PreparedCourseBannerPromotion,
-    PreparedCourseBannerRemoval, StageCourseBannerUpload,
+    ClaimedCourseBannerUpload, CourseBannerObjectMetadata, FinalizedCourseBannerPromotion,
+    PrepareCourseBannerPromotion, PreparedCourseBannerPromotion, PreparedCourseBannerRemoval,
+    StageCourseBannerUpload,
 };
-use objects::{ObjectStoreError, SignedUrl, memory::MemoryObjectStore};
+use objects::{
+    ObjectAddress, ObjectRecord, ObjectStore, ObjectStoreError, PutObject, Sha256Checksum,
+    SignedUrl, memory::MemoryObjectStore,
+};
+use question_model::{
+    CourseBannerReference, CourseBannerRendition, CourseBannerUploadReference, CourseInstanceId,
+    Timestamp,
+};
+use uuid::Uuid;
 
 #[derive(Clone, Default)]
 struct CompletionStore {

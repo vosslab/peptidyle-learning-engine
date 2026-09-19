@@ -1,8 +1,9 @@
-// Browser-facing Question Details for the approved cross-layer Question fixture.
+// Browser names for the cargo-tools stored Question fixture set.
 //
-// The stored JSON remains the single source for Question, Course, Assessment,
-// and attempt data. This module only supplies browser test names for the same
-// current contracts; it never carries a second serialized copy.
+// `published_question/fixture_set.json` and its assets are product data for
+// `cargo tools fixtures`, which loads them through production domain types.
+// Tests that need that same stored Question may import this module; they must
+// not treat it as a convenience dump for unrelated IDs.
 
 import fixtureSet from "./published_question/fixture_set.json" with { type: "json" };
 

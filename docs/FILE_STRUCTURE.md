@@ -111,7 +111,7 @@ The Course Blueprint update review is split deliberately: its public Store types
 transaction lives in
 [assessment_blueprint_update.rs](../crates/learning-data-access/src/postgres/assessment_blueprint_update.rs),
 and the matching base-schema boundary is
-[assessment_blueprint_updates.sql](../schemas/base_schema/assessment_blueprint_updates.sql). Its lazy
+[assessment_blueprint_updates.sql](../schemas/base_schema/50_functions/assessment_blueprint_updates.sql). Its lazy
 Course summary lives in [course_blueprint_update_review.tsx](../src/pages/course_blueprint_update_review.tsx)
 and lists adopted Assessment correspondences only. It introduces no persisted offer, receipt,
 comparison baseline, new update table, or whole-Course lifecycle module.

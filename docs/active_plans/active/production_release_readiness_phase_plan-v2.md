@@ -297,7 +297,7 @@ HUMAN_GUIDANCE asks Student Work to retain. Store or recompute derived scores on
 Gradebook read is too slow, and that has to be shown, not assumed.
 
 Today the stored result is a yes/no `correct` flag plus `points_earned` and `points_possible`
-frozen at grading time (`schemas/base_schema/grading.sql`). 2.5 changes that: store the credit
+frozen at grading time (`schemas/base_schema/50_functions/grading.sql`). 2.5 changes that: store the credit
 fraction as the immutable outcome; derive points from the assignment's current value. WeBWorK
 partial credit maps straight onto the fraction.
 

@@ -192,8 +192,8 @@ failure, read-only status, and Gradebook work that does not depend on Instructor
 ### Work package: WP-RST2 Restore the one-operation grading state machine
 
 - Owner: primary implementation agent with PostgreSQL review.
-- Touch points: `schemas/base_schema/jobs.sql`, `schemas/base_schema/grading.sql`,
-  `schemas/base_schema/grading_access.sql`, `schemas/base_schema/install.sql`, and the baseline
+- Touch points: `schemas/base_schema/20_tables/jobs.sql`, `schemas/base_schema/50_functions/grading.sql`,
+  `schemas/base_schema/50_functions/grading_access.sql`, `schemas/base_schema/install.sql`, and the baseline
   security catalog.
 - Depends on: WP-RST1.
 - Acceptance criteria: `failed -> ready` generation-bump and
