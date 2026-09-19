@@ -8,10 +8,10 @@
 use async_trait::async_trait;
 use question_model::{
     BloomClassificationEditNumber, BloomClassificationView, BloomCognitiveProcess,
-    BloomKnowledgeDimension, PublishedQuestionSharedMetadata, QuestionAuthorship,
+    BloomKnowledgeDimension, ObjectId, PublishedQuestionSharedMetadata, QuestionAuthorship,
     QuestionAvailability, QuestionAvailabilityEditNumber, QuestionBackend, QuestionFormat,
     QuestionId, QuestionLicense, QuestionRevisionTuple, QuestionType, SourceObjectChecksum,
-    ObjectId, Timestamp,
+    Timestamp,
 };
 
 use crate::{SessionTokenHash, StoreError};

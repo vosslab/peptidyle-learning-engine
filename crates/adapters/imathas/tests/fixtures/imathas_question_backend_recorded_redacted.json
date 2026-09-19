@@ -1,6 +1,6 @@
 {
   "profile": "imathas_remote_grading_v1",
-  "deploymentReference": "self-hosted-imathas",
+  "deploymentId": "self-hosted-imathas",
   "snapshot": {
     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     "objectId": "redacted",

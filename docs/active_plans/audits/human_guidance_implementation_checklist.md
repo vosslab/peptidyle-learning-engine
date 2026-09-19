@@ -3010,7 +3010,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
   Schemes, or Course percentage calculations.
   - Mismatch: Absence of every prohibited model was not verified.
 - [ ] For the pilot, grade export uses CSV or TSV only and exports point-based Assessment scores.
-  - Evidence (source): `crates/server/src/live_gradebook/export.rs` `COLUMNS` fixes the seven exported fields as `roster_id`, `roster_name`, `assessment_reference`, `assessment_title`, `status`, `points_earned`, and `points_possible`; `encode` produces quoted CSV or TSV from the authorized Gradebook projection only.
+  - Evidence (source): `crates/server/src/live_gradebook/export.rs` `COLUMNS` fixes the seven exported fields as `roster_id`, `roster_name`, `assessment_id`, `assessment_title`, `status`, `points_earned`, and `points_possible`; `encode` produces quoted CSV or TSV from the authorized Gradebook projection only.
   - Evidence (source): `crates/server/src/live_gradebook.rs` `download_gradebook` exposes the closed CSV/TSV download route, while `src/api/http_client/live_gradebook.ts` `downloadCourseGradebook` and `src/pages/gradebook_page.tsx` `GradebookCoursePage` consume its protected attachment contract.
   - Verification pending: independent review accepted the bounded source implementation. An actual-role route proof and canonical-browser acceptance of both downloads, including exact bytes and header-only export, remain required before this bullet can be verified.
 - [ ] The Instructor handles Course-level weighting or percentage calculations in the home LMS.

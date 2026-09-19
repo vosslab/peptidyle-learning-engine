@@ -439,7 +439,7 @@ not a runtime API or another contract owner.
 - Rust and PostgreSQL own domain truth; browser code decodes and renders the
   authorized, answer-free projection it receives.
 - Question and Blueprint provenance always uses an exact Revision
-  Reference. Current Course and Assessment configuration uses current state
+  Tuple. Current Course and Assessment configuration uses current state
   with its qualified Edit Number where concurrent writers need one.
 - Student Work is independently interpretable from its retained evidence.
 - Lists are bounded and cursor-based. Browser transport is same-origin and

@@ -26,7 +26,7 @@ import {
 } from "../navigation/public_route";
 import { RibbonIcon } from "../ribbon/ribbon_icon";
 
-/** Public Course and Assessment References locate the view; the server re-authorizes each response. */
+/** Public Course Instance and Assessment IDs locate the view; the server re-authorizes each response. */
 export function AssessmentOverviewPage(): JSX.Element {
   const runtime = useApplicationApi();
   const navigate = useNavigate();
@@ -47,16 +47,16 @@ export function AssessmentOverviewPage(): JSX.Element {
     if (courseInstanceId === null || assessmentId === null) return Promise.resolve(undefined);
     return runtime.client.getLiveAssessmentAccess(courseInstanceId, assessmentId);
   });
-  const activeAttemptReference = createMemo(() => {
+  const activeAttemptId = createMemo(() => {
     const activeAttempt = access()?.activeAssessmentAttempt;
     return activeAttempt === null || activeAttempt === undefined
       ? null
       : assessmentAttemptRouteId(activeAttempt);
   });
   createEffect(
-    on(activeAttemptReference, (activeReference) => {
-      // Only a changed active Reference triggers automatic Resume, never busy/error updates.
-      if (activeReference !== null) void startAssessment();
+    on(activeAttemptId, (attemptId) => {
+      // Only a changed active Assessment Attempt ID triggers automatic Resume, never busy/error updates.
+      if (attemptId !== null) void startAssessment();
     }),
   );
 

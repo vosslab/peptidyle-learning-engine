@@ -182,7 +182,7 @@ pub enum RecordedImathasQuestionBackendTransportMode {
     ResultUnavailable,
     /// A signed iMathAS response with an intentionally wrong exact binding.
     WrongSignedResult,
-    /// A signed iMathAS response bound to a different iMathAS Item Reference.
+    /// A signed iMathAS response bound to a different iMathAS Item ID.
     WrongImathasItemId,
     /// A signed iMathAS response with a score outside the supported range.
     InvalidScore,
@@ -628,8 +628,7 @@ mod tests {
         );
         assert_eq!(question_backend.snapshot_calls(), 0);
         let binding = question_model::DraftImathasQuestionBackendBinding::new(
-            question_model::ImathasDeploymentId::new("recorded-imathas")
-                .expect("deployment"),
+            question_model::ImathasDeploymentId::new("recorded-imathas").expect("deployment"),
             question_model::ImathasItemId::new("item-17").expect("item"),
         );
         let locator =

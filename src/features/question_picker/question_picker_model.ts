@@ -19,7 +19,7 @@ import {
 /** The largest selection any current D2 consumer can request. */
 export const MAX_QUESTION_PICKER_SELECTION_CAP = 1024;
 
-/** Stable browser References for one retained Course Instance Assessment. */
+/** Stable browser IDs for one retained Course Instance Assessment. */
 export interface RetainedAssessmentId {
   readonly course: string;
   readonly assessment: string;

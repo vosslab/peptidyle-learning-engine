@@ -12,8 +12,8 @@ use learning_data_access::{
 };
 use objects::{ObjectAddress, ObjectDataClass, ObjectRecord, ObjectStorageArea, Sha256Checksum};
 use question_model::{
-    ObjectId, QuestionBackend, QuestionFormat, QuestionType, SourceObjectChecksum,
-    Timestamp, WorkspaceId,
+    ObjectId, QuestionBackend, QuestionFormat, QuestionType, SourceObjectChecksum, Timestamp,
+    WorkspaceId,
 };
 use uuid::Uuid;
 

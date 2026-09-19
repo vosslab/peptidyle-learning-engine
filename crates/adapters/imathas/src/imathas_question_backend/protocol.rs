@@ -7,7 +7,7 @@ use crate::ImathasAdapterError;
 
 pub(super) fn signed_launch_jwt(
     secret: &[u8],
-    item_reference: &str,
+    item_id: &str,
     imathas_seed: u16,
     expiry_millis: i64,
     challenge: &str,
@@ -18,7 +18,7 @@ pub(super) fn signed_launch_jwt(
         .and_then(|value| value.checked_div(1_000))
         .ok_or(ImathasAdapterError::InvalidImathasQuestionBackendSessionAuthentication)?;
     let payload = serde_json::json!({
-        "id": item_reference,
+        "id": item_id,
         "seed": imathas_seed,
         "exp": exp,
         "ple_launch_challenge": challenge,

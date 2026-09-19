@@ -121,9 +121,9 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
               ON result.question_attempt_id = attempt.question_attempt_id
             CROSS JOIN LATERAL (
                 SELECT COALESCE(jsonb_agg(jsonb_build_object(
-                    'presentation_response_item_reference', item.presentation_response_item_reference,
-                    'response_item_reference', item.response_item_reference
-                ) ORDER BY item.presentation_response_item_reference), '[]'::jsonb) AS items
+                    'presentation_response_item_id', item.presentation_response_item_id,
+                    'response_item_id', item.response_item_id
+                ) ORDER BY item.presentation_response_item_id), '[]'::jsonb) AS items
                   FROM ple_private.question_attempt_response_item_binding AS item
                  WHERE item.question_attempt_presentation_binding_id
                        = attempt.question_attempt_id

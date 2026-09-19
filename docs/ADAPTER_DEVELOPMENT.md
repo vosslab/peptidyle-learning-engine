@@ -69,7 +69,7 @@ Use the following sequence for a question-agnostic adapter.
    document for the selected Assessment Attempt position. The generic model never interprets a
    backend document or imposes universal Answer Key or Question Grading Input records.
 4. Implement `issue` with the trusted Question ID, Question Revision Number, Source Object
-   Reference, and a Question Seed only for a backend that uses one. It returns an answer-free
+   ID, and a Question Seed only for a backend that uses one. It returns an answer-free
    `QuestionPresentation` or opaque backend document plus only the protected backend state needed
    to resume and interpret the response.
 5. Implement `grade` at the server boundary. Validate the persisted issued state and use the
@@ -101,7 +101,7 @@ Question Revision rather than changing historical output. The cross-target rules
 in [DETERMINISM_CONTRACT.md](DETERMINISM_CONTRACT.md).
 
 Where an adapter uses a render cache, cache only a validated browser-safe render plus the Source
-Object Reference, Source Object Checksum, and Question Renderer Version that identify its source,
+Object ID, Source Object Checksum, and Question Renderer Version that identify its source,
 implementation, and Question Presentation identity. Cache keys and bytes exclude installation
 identity, Answer Key data, credentials, raw backend responses, browser submissions, and upstream
 session state. The current WeBWorK adapter intentionally has no render cache: it issues one exact

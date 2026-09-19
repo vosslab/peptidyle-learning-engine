@@ -211,13 +211,13 @@ fn map_error(error: reqwest::Error) -> ImathasTransportFailure {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct SnapshotRequest<'a> {
-    deployment_reference: &'a str,
-    item_reference: &'a str,
+    deployment_id: &'a str,
+    item_id: &'a str,
 }
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct RenderRequest<'a> {
-    deployment_reference: &'a str,
+    deployment_id: &'a str,
     snapshot_base64: String,
     version: String,
     seed: u64,
@@ -225,8 +225,8 @@ struct RenderRequest<'a> {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct LaunchRequest<'a> {
-    deployment_reference: &'a str,
-    item_reference: &'a str,
+    deployment_id: &'a str,
+    item_id: &'a str,
     imathas_seed: u16,
     /// `sourceDigest` is the fixed private transport spelling, not PLE domain vocabulary.
     #[serde(rename = "sourceDigest")]
@@ -254,8 +254,8 @@ impl ImathasQuestionBackendTransport for HttpImathasQuestionBackendTransport {
         let response = self
             .request(reqwest::Method::POST, SNAPSHOT_PATH)?
             .json(&SnapshotRequest {
-                deployment_reference: request.deployment_reference(),
-                item_reference: request.item_reference(),
+                deployment_id: request.deployment_id(),
+                item_id: request.item_id(),
             })
             .send()
             .await
@@ -279,7 +279,7 @@ impl ImathasQuestionBackendTransport for HttpImathasQuestionBackendTransport {
         let response = self
             .request(reqwest::Method::POST, RENDER_PATH)?
             .json(&RenderRequest {
-                deployment_reference: request.deployment_reference(),
+                deployment_id: request.deployment_id(),
                 snapshot_base64: base64::engine::general_purpose::STANDARD
                     .encode(request.snapshot()),
                 version: request.question_revision().revision_number.to_string(),
@@ -303,8 +303,8 @@ impl ImathasQuestionBackendTransport for HttpImathasQuestionBackendTransport {
         let response = self
             .request(reqwest::Method::POST, LAUNCH_PATH)?
             .json(&LaunchRequest {
-                deployment_reference: request.deployment_reference(),
-                item_reference: request.item_reference(),
+                deployment_id: request.deployment_id(),
+                item_id: request.item_id(),
                 imathas_seed: request.imathas_seed(),
                 source_object_checksum: request.source_object_checksum(),
                 signed_launch_jwt: request.signed_launch_jwt(),
@@ -455,8 +455,8 @@ mod tests {
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase", deny_unknown_fields)]
     struct RecordedLaunchRequest {
-        deployment_reference: String,
-        item_reference: String,
+        deployment_id: String,
+        item_id: String,
         imathas_seed: u16,
         #[serde(rename = "sourceDigest")]
         source_object_checksum: String,
@@ -464,8 +464,8 @@ mod tests {
     }
 
     async fn launch(Json(request): Json<RecordedLaunchRequest>) -> impl IntoResponse {
-        assert_eq!(request.deployment_reference, "self-hosted-imathas");
-        assert_eq!(request.item_reference, "17");
+        assert_eq!(request.deployment_id, "self-hosted-imathas");
+        assert_eq!(request.item_id, "17");
         assert_eq!(request.imathas_seed, 7);
         assert_eq!(request.source_object_checksum, "a".repeat(64));
         assert_eq!(request.signed_launch_jwt, "protected.jwt.value");
@@ -527,7 +527,7 @@ mod tests {
         let transport = HttpImathasQuestionBackendTransport::new(config).unwrap();
         let request = SnapshotTransportRequest {
             locator: &locator(),
-            deployment_reference: "self-hosted-imathas",
+            deployment_id: "self-hosted-imathas",
         };
         let snapshot = transport.fetch_snapshot(request).await.unwrap();
         assert_eq!(snapshot.bytes(), br#"{"recorded":true}"#);
@@ -536,7 +536,7 @@ mod tests {
             let error = transport
                 .fetch_snapshot(SnapshotTransportRequest {
                     locator: &locator(),
-                    deployment_reference: "self-hosted-imathas",
+                    deployment_id: "self-hosted-imathas",
                 })
                 .await
                 .unwrap_err();
@@ -548,7 +548,7 @@ mod tests {
             transport
                 .fetch_snapshot(SnapshotTransportRequest {
                     locator: &locator(),
-                    deployment_reference: "self-hosted-imathas"
+                    deployment_id: "self-hosted-imathas"
                 })
                 .await
                 .unwrap_err(),
@@ -585,7 +585,7 @@ mod tests {
             transport
                 .render_safe(RenderTransportRequest {
                     snapshot: b"{}",
-                    deployment_reference: "self-hosted-imathas",
+                    deployment_id: "self-hosted-imathas",
                     question_revision: question_model::QuestionRevisionTuple {
                         question_id: question_model::QuestionId::from_random_identifier("ABCDEFG")
                             .expect("Question ID"),
@@ -601,8 +601,8 @@ mod tests {
         );
         let handle = transport
             .start_protected_launch(ProtectedLaunchRequest {
-                deployment_reference: "self-hosted-imathas".into(),
-                item_reference: "17".into(),
+                deployment_id: "self-hosted-imathas".into(),
+                item_id: "17".into(),
                 imathas_seed: 7,
                 source_object_checksum: "a".repeat(64),
                 signed_launch_jwt: "protected.jwt.value".into(),
@@ -628,7 +628,7 @@ mod tests {
                 .fetch_signed_grade_get(ResultTransportRequest {
                     handle: &handle,
                     launch_session_authentication: launch_session_authentication.as_str(),
-                    deployment_reference: "self-hosted-imathas"
+                    deployment_id: "self-hosted-imathas"
                 })
                 .await
                 .unwrap(),
@@ -679,7 +679,7 @@ mod tests {
         let error = timeout
             .fetch_snapshot(SnapshotTransportRequest {
                 locator: &locator(),
-                deployment_reference: "self-hosted-imathas",
+                deployment_id: "self-hosted-imathas",
             })
             .await
             .unwrap_err();
@@ -698,7 +698,7 @@ mod tests {
             refused
                 .fetch_snapshot(SnapshotTransportRequest {
                     locator: &locator(),
-                    deployment_reference: "self-hosted-imathas"
+                    deployment_id: "self-hosted-imathas"
                 })
                 .await
                 .unwrap_err(),

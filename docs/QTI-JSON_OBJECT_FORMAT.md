@@ -96,7 +96,7 @@ capability stays separate from the PLE Question JSON source contract until that
 migration lands.
 
 The current format supports one image-bearing source shape: the HOTSPOT
-`surface` binds an exact Question Asset Reference, checksum, and accessible
+`surface` binds an exact Question Asset Tuple, checksum, and accessible
 description. Prompt, choice, Hint, Feedback, Answer, and Answer Explanation
 fields currently accept text content rather than file paths or browser URLs.
 Their future image or file support uses explicit Question Hint Asset, Question
@@ -133,7 +133,7 @@ The eight exact response shapes are:
 Choice, prompt, blank, ordering-item, and region identifiers use the same
 stable identifier grammar. They identify semantics, not
 display positions. The server may later project attempt-specific Presentation Response Item
-References at the Student wire boundary without changing these durable source IDs.
+IDs at the Student wire boundary without changing these durable source IDs.
 
 For example, a matching question is:
 

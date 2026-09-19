@@ -213,7 +213,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
                 &mut attempt_bloom_receipts,
             )
             .await?;
-            let (source_kind, blueprint_reference, blueprint_revision) = match &input.source {
+            let (source_kind, blueprint_course_id, blueprint_revision) = match &input.source {
                 CourseInstanceCreationSource::Empty => ("empty", None, None),
                 CourseInstanceCreationSource::Adopted {
                     blueprint_course,
@@ -240,7 +240,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         .bind(random_uuid()?)
         .bind(random_uuid()?)
         .bind(source_kind)
-        .bind(blueprint_reference)
+        .bind(blueprint_course_id)
         .bind(blueprint_revision)
         .bind(&input.short_name)
         .bind(&input.long_name)
@@ -250,7 +250,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
             input
                 .assigned_instructor
                 .as_ref()
-                .map(|reference| reference.as_string()),
+                .map(|account_id| account_id.as_string()),
         )
         .bind(assessments)
         .bind(input.classification.discipline_uuid)
@@ -419,7 +419,7 @@ fn decode_view(row: &sqlx::postgres::PgRow) -> Result<CourseInstanceView, StoreE
     let active_instructor_count: i64 = row
         .try_get("active_instructor_count")
         .map_err(map_sqlx_error)?;
-    let blueprint_reference: Option<String> =
+    let blueprint_course_id: Option<String> =
         row.try_get("blueprint_course_id").map_err(map_sqlx_error)?;
     let adopted_revision: Option<i64> = row
         .try_get("adopted_blueprint_revision")
@@ -428,9 +428,9 @@ fn decode_view(row: &sqlx::postgres::PgRow) -> Result<CourseInstanceView, StoreE
         .try_get("current_blueprint_revision")
         .map_err(map_sqlx_error)?;
     // ASVS 2.2.3: the nullable projection is all-or-nothing and revisions remain ordered.
-    let blueprint_origin = match (blueprint_reference, adopted_revision, current_revision) {
+    let blueprint_origin = match (blueprint_course_id, adopted_revision, current_revision) {
         (None, None, None) => None,
-        (Some(reference), Some(adopted), Some(current)) if current >= adopted => {
+        (Some(blueprint_course_id), Some(adopted), Some(current)) if current >= adopted => {
             let revision = |value| {
                 u64::try_from(value)
                     .ok()
@@ -438,7 +438,7 @@ fn decode_view(row: &sqlx::postgres::PgRow) -> Result<CourseInstanceView, StoreE
                     .ok_or_else(|| invalid("Blueprint Revision"))
             };
             Some(CourseInstanceBlueprintOrigin {
-                id: reference
+                id: blueprint_course_id
                     .parse()
                     .map_err(|_| invalid("Blueprint Course ID"))?,
                 adopted_revision: revision(adopted)?,

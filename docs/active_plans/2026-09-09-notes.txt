@@ -153,7 +153,7 @@ For these assignments:
 * Matching questions are worth 2 points.
 * Multiple-choice questions are worth 1 point.
 
-# Blackboard Ultra Assignment Settings Reference
+# Blackboard Ultra Assignment Settings
 
 These are the options currently available in Blackboard Ultra. I am documenting them as a reference for thinking about PLE Assignment Settings.
 

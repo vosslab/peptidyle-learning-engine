@@ -70,7 +70,7 @@ Assessment Entry sequence; the ordinary Assessment Save and its Edit Number CAS 
 
 The Cognitive Process Dimension uses six closed values.
 
-| Value      | Full-credit performance                                   | Reference hue |
+| Value      | Full-credit performance                                   | Swatch hue |
 | ---------- | --------------------------------------------------------- | ------------- |
 | Remember   | Retrieve relevant knowledge                               | Blue          |
 | Understand | Construct meaning from presented or recalled knowledge    | Green         |
@@ -226,7 +226,7 @@ from being mistaken for Question Difficulty.
 CELT's three-dimensional guide assigns one hue family to each Cognitive Process column. PLE uses
 the following sampled anchors as design references:
 
-| Cognitive process | Hue          | Reference anchor |
+| Cognitive process | Hue          | Anchor swatch |
 | ----------------- | ------------ | ---------------- |
 | Remember          | Blue         | `#64A4D9`        |
 | Understand        | Green        | `#A2D4B4`        |

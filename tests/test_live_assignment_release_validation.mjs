@@ -184,7 +184,7 @@ test("Assessment creation accepts only Type, title, and instructions", () => {
   assert.throws(() =>
     decodeCreateLiveAssessmentInput({
       ...input,
-      blueprintAssessmentReference: "00000000-0000-0000-0000-000000000011",
+      blueprintAssessmentId: "00000000-0000-0000-0000-000000000011",
     }),
   );
   assert.throws(() => decodeCreateLiveAssessmentInput({ ...input, origin: { kind: "direct" } }));

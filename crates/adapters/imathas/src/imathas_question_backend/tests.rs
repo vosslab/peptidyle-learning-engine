@@ -44,10 +44,9 @@ mod launch_session_bridge {
     use objects::{ObjectAddress, ObjectStore, PutObject};
     use question_model::generation::QuestionSeed;
     use question_model::{
-        AccountId, AssessmentId, CourseInstanceId, ImathasDeploymentId,
-        ImathasItemId, ImathasProfile, ImathasQuestionBackendBinding, ObjectId,
-        QuestionAttemptId, QuestionId, QuestionRevisionNumber, QuestionRevisionTuple,
-        SourceObjectChecksum, Timestamp,
+        AccountId, AssessmentId, CourseInstanceId, ImathasDeploymentId, ImathasItemId,
+        ImathasProfile, ImathasQuestionBackendBinding, ObjectId, QuestionAttemptId, QuestionId,
+        QuestionRevisionNumber, QuestionRevisionTuple, SourceObjectChecksum, Timestamp,
     };
     use sha2::{Digest, Sha256};
     use uuid::Uuid;
@@ -176,7 +175,7 @@ mod launch_session_bridge {
             r#"{{"id":"{}","score":{score},"ple_launch_challenge":"{}","ple_binding":"{}"}}"#,
             validation
                 .imathas_question_backend_binding
-                .item_reference()
+                .item_id()
                 .as_str(),
             codec.encode(validation.challenge.as_bytes()),
             validation.imathas_launch_binding_checksum.as_str(),
@@ -231,7 +230,7 @@ mod launch_session_bridge {
             QuestionAttemptId::from_uuid(Uuid::from_u128(7)),
         );
         let digest = preparation.imathas_launch_binding_checksum().clone();
-        let reference = store
+        let session_id = store
             .create_imathas_question_backend_session(
                 token,
                 context
@@ -259,7 +258,7 @@ mod launch_session_bridge {
         let loaded = store
             .load_imathas_question_backend_session(
                 token,
-                reference,
+                session_id,
                 initial_restore_expectation.clone(),
             )
             .await
@@ -343,7 +342,7 @@ mod launch_session_bridge {
             ImathasDeploymentId::new("wrong-imathas").expect("deployment"),
             wrong_deployment
                 .imathas_question_backend_binding
-                .item_reference()
+                .item_id()
                 .clone(),
             wrong_deployment
                 .imathas_question_backend_binding
@@ -354,11 +353,11 @@ mod launch_session_bridge {
         wrong_profile.imathas_question_backend_binding = ImathasQuestionBackendBinding::new(
             wrong_profile
                 .imathas_question_backend_binding
-                .deployment_reference()
+                .deployment_id()
                 .clone(),
             wrong_profile
                 .imathas_question_backend_binding
-                .item_reference()
+                .item_id()
                 .clone(),
             ImathasProfile::new("wrong-profile").expect("profile"),
         );
@@ -366,7 +365,7 @@ mod launch_session_bridge {
         wrong_item.imathas_question_backend_binding = ImathasQuestionBackendBinding::new(
             wrong_item
                 .imathas_question_backend_binding
-                .deployment_reference()
+                .deployment_id()
                 .clone(),
             ImathasItemId::new("wrong-item").expect("item"),
             wrong_item
@@ -475,7 +474,7 @@ mod launch_session_bridge {
                     ImathasDeploymentId::new("wrong-imathas").expect("deployment"),
                     validation
                         .imathas_question_backend_binding
-                        .item_reference()
+                        .item_id()
                         .clone(),
                     validation
                         .imathas_question_backend_binding
@@ -494,11 +493,11 @@ mod launch_session_bridge {
                 validation.imathas_question_backend_binding = ImathasQuestionBackendBinding::new(
                     validation
                         .imathas_question_backend_binding
-                        .deployment_reference()
+                        .deployment_id()
                         .clone(),
                     validation
                         .imathas_question_backend_binding
-                        .item_reference()
+                        .item_id()
                         .clone(),
                     ImathasProfile::new("wrong-profile").expect("profile"),
                 )

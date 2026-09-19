@@ -6,10 +6,9 @@ use objects::{ObjectStore, ObjectStoreError, PutObject, ResolvedQuestionSource};
 use question_model::capability::{Capability, QuestionBackendCapabilities};
 use question_model::generation::QuestionSeed;
 use question_model::{
-    DraftImathasQuestionBackendBinding, ImathasQuestionBackendBinding,
+    DraftImathasQuestionBackendBinding, ImathasQuestionBackendBinding, ObjectId,
     QuestionAttemptReproductionDetails, QuestionRendererVersion, QuestionReproduction,
-    QuestionRevisionTuple, QuestionVariationPresentation, SourceObjectChecksum,
-    ObjectId, Timestamp,
+    QuestionRevisionTuple, QuestionVariationPresentation, SourceObjectChecksum, Timestamp,
 };
 use sha2::{Digest, Sha256};
 
@@ -363,8 +362,8 @@ where
     S: ObjectStore,
     T: imathas_question_backend::ImathasQuestionBackendTransport,
 {
-    pub fn imathas_question_backend_deployment_reference(&self) -> &str {
-        self.question_backend.deployment_reference()
+    pub fn imathas_question_backend_deployment_id(&self) -> &str {
+        self.question_backend.deployment_id()
     }
     pub fn imathas_question_backend_launch_lifetime_millis(&self) -> u32 {
         self.question_backend.launch_lifetime_millis()

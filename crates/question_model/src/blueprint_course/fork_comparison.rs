@@ -172,7 +172,9 @@ fn inventory(
             let mut question_ids = BTreeSet::new();
             for entry in assessment.entries() {
                 match entry {
-                    BlueprintAssessmentEntryContent::Fixed { question_revision, .. } => {
+                    BlueprintAssessmentEntryContent::Fixed {
+                        question_revision, ..
+                    } => {
                         question_ids.insert(question_revision.question_id.clone());
                     }
                     BlueprintAssessmentEntryContent::Pool(pool) => {

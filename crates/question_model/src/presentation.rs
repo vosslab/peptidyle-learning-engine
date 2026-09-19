@@ -42,9 +42,9 @@ pub use model::{
 pub use response_translation::{
     InspectedImathasQuestionBackendState, InspectedMatchPair, InspectedTextEntry,
     PresentationResponseItemTranslationError, StudentResponseInspection,
-    project_durable_response_to_presentation_response_item_references,
-    project_presentation_response_item_references_for_inspection,
-    translate_presentation_response_item_references,
+    project_durable_response_to_presentation_response_item_ids,
+    project_presentation_response_item_ids_for_inspection,
+    translate_presentation_response_item_ids,
 };
 
 #[cfg(test)]

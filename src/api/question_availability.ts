@@ -23,9 +23,9 @@ export type LoadedQuestionLineage = {
 /** Instructor Question lineage administration and exact immutable revision reads. */
 export interface QuestionAvailabilityClient {
   readonly getQuestionLineage: (questionId: QuestionId) => Promise<LoadedQuestionLineage>;
-  readonly getQuestionRevision: (reference: QuestionRevisionTuple) => Promise<QuestionDetails>;
+  readonly getQuestionRevision: (questionRevision: QuestionRevisionTuple) => Promise<QuestionDetails>;
   /** Same-origin, answer-free WeBWorK preview for one exact immutable Revision. */
-  readonly questionRevisionPreviewDocumentUrl: (reference: QuestionRevisionTuple) => string;
+  readonly questionRevisionPreviewDocumentUrl: (questionRevision: QuestionRevisionTuple) => string;
   readonly archiveQuestion: (
     questionId: QuestionId,
     confirmationTitle: string,

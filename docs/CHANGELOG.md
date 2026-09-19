@@ -10,17 +10,27 @@
 
 ### Fixes and Maintenance
 
-- Align remaining identity names: Id for one canonical object identity,
-  Reference for genuinely distinct pins and handles. Blueprint Module
-  lineage is `blueprint_module_id` / `BlueprintModuleId`. Public-ID route
-  wrappers are `*RouteId`. Question and Blueprint Revision pins are
-  `QuestionRevisionTuple` and `BlueprintRevisionTuple`. Compact-handle
-  route types are Reference names around UUID Ids. Response-item,
-  presentation-item, and banner-upload pins are Reference. Gradebook and
-  support JSON use `courseId` / `assessmentId` / `sysadminId`. Gate:
-  `cargo test -p question_model --lib blueprint_course`,
-  `node --import tsx --test tests/test_public_navigation.mjs
-  tests/test_route_params.mjs`, `cargo tools tsgen`,
+- Align identity names with Human Guidance. One canonical object identity
+  is an Id (`CourseInstanceId`, `ResponseItemId`, `CourseBannerUploadId`,
+  `ImathasDeploymentId`). Multiple values that together identify one exact
+  object, state, or version are a Tuple (`QuestionRevisionTuple`
+  `{questionId, revisionNumber}`, `BlueprintRevisionTuple` Blueprint
+  Course ID plus Revision Number, `QuestionAssetTuple` asset ID plus
+  checksum). Route wrappers are `*RouteId`. Course Banner Upload storage
+  uses `course_banner_upload_id`. Presentation response-item
+  bindings use `presentation_response_item_id` and `response_item_id`.
+  Issued Question JSON is
+  `questionRevision`, not `reference`. Leftover identity JSON
+  `assessmentReference` / `blueprintAssessmentReference` is `assessmentId` /
+  `blueprintAssessmentId`. Support repair keeps scoped `resourceReference`.
+  Install inserts still mint public
+  Question IDs; `tests/fixtures/published_question/fixture_set.json` is
+  offline type-loading evidence, not frozen install identity. Reference
+  remains only a genuine indirect, scoped, or external locator. Gate:
+  `cargo test -p question_model --lib revision_tuple`,
+  `node --import tsx --test tests/test_question_revision_tuple_decoder.mjs
+  tests/test_public_navigation.mjs tests/test_route_params.mjs`,
+  `cargo tools fixtures --check`, `cargo tsgen`,
   `npx tsc --noEmit -p tsconfig.json`.
 
 - Drop leftover milestone prefixes from Ribbon Playwright evidence.

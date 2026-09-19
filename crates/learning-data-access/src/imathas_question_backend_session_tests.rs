@@ -1,9 +1,9 @@
 use super::*;
 use question_model::generation::QuestionSeed;
 use question_model::{
-    AccountId, AssessmentId, CourseInstanceId, ImathasDeploymentId, ImathasItemId,
-    ImathasProfile, ImathasQuestionBackendBinding, ObjectId, QuestionAttemptId, QuestionId,
-    QuestionRevisionNumber, QuestionRevisionTuple, SourceObjectChecksum, Timestamp,
+    AccountId, AssessmentId, CourseInstanceId, ImathasDeploymentId, ImathasItemId, ImathasProfile,
+    ImathasQuestionBackendBinding, ObjectId, QuestionAttemptId, QuestionId, QuestionRevisionNumber,
+    QuestionRevisionTuple, SourceObjectChecksum, Timestamp,
 };
 use uuid::Uuid;
 fn facts(
@@ -172,13 +172,13 @@ async fn memory_oracle_restores_exact_backend_state() {
         MemoryImathasQuestionBackendSessionStore::new(ring(), Timestamp::from_unix_millis(20));
     authorize(&store, token, account.clone());
     let (create, expectation) = facts(account);
-    let reference = store
+    let session_id = store
         .create_imathas_question_backend_session(token, create)
         .await
         .expect("create");
     assert_eq!(
         store
-            .load_imathas_question_backend_session(token, reference, expectation)
+            .load_imathas_question_backend_session(token, session_id, expectation)
             .await
             .expect("load")
             .imathas_question_backend_state()
@@ -195,14 +195,14 @@ async fn memory_oracle_refuses_wrong_restore_context_and_revoked_student_authori
         MemoryImathasQuestionBackendSessionStore::new(ring(), Timestamp::from_unix_millis(20));
     authorize(&store, token, account.clone());
     let (create, expectation) = facts(account.clone());
-    let reference = store
+    let session_id = store
         .create_imathas_question_backend_session(token, create)
         .await
         .expect("create");
     let (_, wrong) = facts(AccountId::from_debug_serial(99));
     assert_eq!(
         store
-            .load_imathas_question_backend_session(token, reference, wrong)
+            .load_imathas_question_backend_session(token, session_id, wrong)
             .await,
         Err(StoreError::Forbidden)
     );
@@ -213,7 +213,7 @@ async fn memory_oracle_refuses_wrong_restore_context_and_revoked_student_authori
     );
     assert_eq!(
         store
-            .load_imathas_question_backend_session(token, reference, expectation)
+            .load_imathas_question_backend_session(token, session_id, expectation)
             .await,
         Err(StoreError::Forbidden)
     );
@@ -227,7 +227,7 @@ async fn memory_oracle_refuses_every_changed_imathas_question_backend_grading_co
         MemoryImathasQuestionBackendSessionStore::new(ring(), Timestamp::from_unix_millis(20));
     authorize(&store, token, account.clone());
     let (create, expectation) = facts(account);
-    let reference = store
+    let session_id = store
         .create_imathas_question_backend_session(token, create)
         .await
         .expect("create");
@@ -259,7 +259,7 @@ async fn memory_oracle_refuses_every_changed_imathas_question_backend_grading_co
         wrong.grading_context = grading_context;
         assert_eq!(
             store
-                .load_imathas_question_backend_session(token, reference, wrong)
+                .load_imathas_question_backend_session(token, session_id, wrong)
                 .await,
             Err(StoreError::Forbidden)
         );
@@ -286,7 +286,7 @@ fn session_validity_interval_starts_at_issue_time() {
 }
 
 #[test]
-fn imathas_item_reference_uses_the_question_model_contract() {
+fn imathas_item_id_uses_the_question_model_contract() {
     assert!(ImathasItemId::new("a".repeat(128)).is_ok());
     assert!(ImathasItemId::new("a".repeat(129)).is_err());
     assert!(ImathasItemId::new("item-1").is_ok());

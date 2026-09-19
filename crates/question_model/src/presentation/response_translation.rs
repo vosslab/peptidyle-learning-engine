@@ -159,11 +159,11 @@ impl std::fmt::Display for PresentationResponseItemTranslationError {
             Self::UnknownPresentationResponseItemId => {
                 formatter.write_str("Presentation Response Item ID is unknown")
             }
-            Self::DuplicatePresentationResponseItemIdBinding => formatter
-                .write_str("Presentation Response Item ID has duplicate issued bindings"),
-            Self::WrongResponseItemRole => formatter.write_str(
-                "Presentation Response Item ID has the wrong issued Response Item Role",
-            ),
+            Self::DuplicatePresentationResponseItemIdBinding => {
+                formatter.write_str("Presentation Response Item ID has duplicate issued bindings")
+            }
+            Self::WrongResponseItemRole => formatter
+                .write_str("Presentation Response Item ID has the wrong issued Response Item Role"),
         }
     }
 }
@@ -175,19 +175,18 @@ impl std::error::Error for PresentationResponseItemTranslationError {}
 /// Only identifier-bearing Question Response Formats are rewritten. Scalar
 /// response formats preserve their values exactly. The function intentionally exposes
 /// no durable mapping or serializable wire type.
-pub fn translate_presentation_response_item_references(
+pub fn translate_presentation_response_item_ids(
     response: &StudentResponse,
     presentation: &IssuedQuestionPresentation,
 ) -> Result<StudentResponse, PresentationResponseItemTranslationError> {
-    let response_item_reference = |id: &ResponseItemId, role| {
-        translated_response_item_reference(id, role, presentation)
-    };
+    let response_item_id =
+        |id: &ResponseItemId, role| translated_response_item_id(id, role, presentation);
 
     match response {
         StudentResponse::MultipleChoice { selected } => Ok(StudentResponse::MultipleChoice {
             selected: selected
                 .iter()
-                .map(|id| response_item_reference(id, ResponseItemRole::QuestionChoice))
+                .map(|id| response_item_id(id, ResponseItemRole::QuestionChoice))
                 .collect::<Result<_, _>>()?,
         }),
         StudentResponse::MultiBlank { answers } => Ok(StudentResponse::MultiBlank {
@@ -195,10 +194,7 @@ pub fn translate_presentation_response_item_references(
                 .iter()
                 .map(|answer| {
                     Ok(StudentTextEntry {
-                        slot: response_item_reference(
-                            &answer.slot,
-                            ResponseItemRole::TextEntrySlot,
-                        )?,
+                        slot: response_item_id(&answer.slot, ResponseItemRole::TextEntrySlot)?,
                         text: answer.text.clone(),
                     })
                 })
@@ -209,14 +205,8 @@ pub fn translate_presentation_response_item_references(
                 .iter()
                 .map(|pair| {
                     Ok(StudentMatch {
-                        prompt: response_item_reference(
-                            &pair.prompt,
-                            ResponseItemRole::MatchingPrompt,
-                        )?,
-                        choice: response_item_reference(
-                            &pair.choice,
-                            ResponseItemRole::MatchingChoice,
-                        )?,
+                        prompt: response_item_id(&pair.prompt, ResponseItemRole::MatchingPrompt)?,
+                        choice: response_item_id(&pair.choice, ResponseItemRole::MatchingChoice)?,
                     })
                 })
                 .collect::<Result<_, _>>()?,
@@ -224,7 +214,7 @@ pub fn translate_presentation_response_item_references(
         StudentResponse::Ordering { order } => Ok(StudentResponse::Ordering {
             order: order
                 .iter()
-                .map(|id| response_item_reference(id, ResponseItemRole::OrderingItem))
+                .map(|id| response_item_id(id, ResponseItemRole::OrderingItem))
                 .collect::<Result<_, _>>()?,
         }),
         StudentResponse::Numeric { value } => Ok(StudentResponse::Numeric { value: *value }),
@@ -236,7 +226,7 @@ pub fn translate_presentation_response_item_references(
                 .iter()
                 .map(|selection| {
                     Ok(StudentHotspotSelection {
-                        region: response_item_reference(
+                        region: response_item_id(
                             &selection.region,
                             ResponseItemRole::HotspotRegion,
                         )?,
@@ -259,13 +249,12 @@ pub fn translate_presentation_response_item_references(
 /// The inverse mapping is intentionally available only at the trusted
 /// inspection boundary. It is pure and does not reveal Answer Keys, Question
 /// Feedback, Question Answer Explanations, or Question Grading Input.
-pub fn project_durable_response_to_presentation_response_item_references(
+pub fn project_durable_response_to_presentation_response_item_ids(
     response: &StudentResponse,
     presentation: &IssuedQuestionPresentation,
 ) -> Result<StudentResponseInspection, PresentationResponseItemTranslationError> {
-    let presentation_response_item_reference = |id: &ResponseItemId, role| {
-        presentation_response_item_reference(id, role, presentation)
-    };
+    let presentation_response_item_id =
+        |id: &ResponseItemId, role| presentation_response_item_id(id, role, presentation);
     match response {
         StudentResponse::Numeric { value } => {
             Ok(StudentResponseInspection::Numeric { value: *value })
@@ -274,9 +263,7 @@ pub fn project_durable_response_to_presentation_response_item_references(
             Ok(StudentResponseInspection::MultipleChoice {
                 selected: selected
                     .iter()
-                    .map(|id| {
-                        presentation_response_item_reference(id, ResponseItemRole::QuestionChoice)
-                    })
+                    .map(|id| presentation_response_item_id(id, ResponseItemRole::QuestionChoice))
                     .collect::<Result<_, _>>()?,
             })
         }
@@ -288,7 +275,7 @@ pub fn project_durable_response_to_presentation_response_item_references(
                 .iter()
                 .map(|answer| {
                     Ok(InspectedTextEntry {
-                        slot: presentation_response_item_reference(
+                        slot: presentation_response_item_id(
                             &answer.slot,
                             ResponseItemRole::TextEntrySlot,
                         )?,
@@ -302,11 +289,11 @@ pub fn project_durable_response_to_presentation_response_item_references(
                 .iter()
                 .map(|pair| {
                     Ok(InspectedMatchPair {
-                        prompt: presentation_response_item_reference(
+                        prompt: presentation_response_item_id(
                             &pair.prompt,
                             ResponseItemRole::MatchingPrompt,
                         )?,
-                        choice: presentation_response_item_reference(
+                        choice: presentation_response_item_id(
                             &pair.choice,
                             ResponseItemRole::MatchingChoice,
                         )?,
@@ -317,14 +304,14 @@ pub fn project_durable_response_to_presentation_response_item_references(
         StudentResponse::Ordering { order } => Ok(StudentResponseInspection::Ordering {
             order: order
                 .iter()
-                .map(|id| presentation_response_item_reference(id, ResponseItemRole::OrderingItem))
+                .map(|id| presentation_response_item_id(id, ResponseItemRole::OrderingItem))
                 .collect::<Result<_, _>>()?,
         }),
         StudentResponse::Hotspot { selections } => Ok(StudentResponseInspection::Hotspot {
             selected_regions: selections
                 .iter()
                 .map(|selection| {
-                    presentation_response_item_reference(
+                    presentation_response_item_id(
                         &selection.region,
                         ResponseItemRole::HotspotRegion,
                     )
@@ -349,13 +336,12 @@ pub fn project_durable_response_to_presentation_response_item_references(
 /// inspection boundary validates each identifier against the reconstructed
 /// public issue and retains that exact Presentation Response Item ID. Reconstructed
 /// browser-safe presentations intentionally contain no durable identifiers.
-pub fn project_presentation_response_item_references_for_inspection(
+pub fn project_presentation_response_item_ids_for_inspection(
     response: &StudentResponse,
     presentation: &IssuedQuestionPresentation,
 ) -> Result<StudentResponseInspection, PresentationResponseItemTranslationError> {
-    let presentation_response_item_reference = |id: &ResponseItemId, role| {
-        verified_presentation_response_item_reference(id, role, presentation)
-    };
+    let presentation_response_item_id =
+        |id: &ResponseItemId, role| verified_presentation_response_item_id(id, role, presentation);
     match response {
         StudentResponse::Numeric { value } => {
             Ok(StudentResponseInspection::Numeric { value: *value })
@@ -364,9 +350,7 @@ pub fn project_presentation_response_item_references_for_inspection(
             Ok(StudentResponseInspection::MultipleChoice {
                 selected: selected
                     .iter()
-                    .map(|id| {
-                        presentation_response_item_reference(id, ResponseItemRole::QuestionChoice)
-                    })
+                    .map(|id| presentation_response_item_id(id, ResponseItemRole::QuestionChoice))
                     .collect::<Result<_, _>>()?,
             })
         }
@@ -378,7 +362,7 @@ pub fn project_presentation_response_item_references_for_inspection(
                 .iter()
                 .map(|answer| {
                     Ok(InspectedTextEntry {
-                        slot: presentation_response_item_reference(
+                        slot: presentation_response_item_id(
                             &answer.slot,
                             ResponseItemRole::TextEntrySlot,
                         )?,
@@ -392,11 +376,11 @@ pub fn project_presentation_response_item_references_for_inspection(
                 .iter()
                 .map(|pair| {
                     Ok(InspectedMatchPair {
-                        prompt: presentation_response_item_reference(
+                        prompt: presentation_response_item_id(
                             &pair.prompt,
                             ResponseItemRole::MatchingPrompt,
                         )?,
-                        choice: presentation_response_item_reference(
+                        choice: presentation_response_item_id(
                             &pair.choice,
                             ResponseItemRole::MatchingChoice,
                         )?,
@@ -407,14 +391,14 @@ pub fn project_presentation_response_item_references_for_inspection(
         StudentResponse::Ordering { order } => Ok(StudentResponseInspection::Ordering {
             order: order
                 .iter()
-                .map(|id| presentation_response_item_reference(id, ResponseItemRole::OrderingItem))
+                .map(|id| presentation_response_item_id(id, ResponseItemRole::OrderingItem))
                 .collect::<Result<_, _>>()?,
         }),
         StudentResponse::Hotspot { selections } => Ok(StudentResponseInspection::Hotspot {
             selected_regions: selections
                 .iter()
                 .map(|selection| {
-                    presentation_response_item_reference(
+                    presentation_response_item_id(
                         &selection.region,
                         ResponseItemRole::HotspotRegion,
                     )
@@ -432,25 +416,25 @@ pub fn project_presentation_response_item_references_for_inspection(
     }
 }
 
-fn translated_response_item_reference(
+fn translated_response_item_id(
     id: &ResponseItemId,
     expected_role: ResponseItemRole,
     presentation: &IssuedQuestionPresentation,
 ) -> Result<ResponseItemId, PresentationResponseItemTranslationError> {
     presentation_response_item_binding(id, expected_role, presentation)?
-        .response_item_reference
+        .response_item_id
         .clone()
         .ok_or(PresentationResponseItemTranslationError::UnknownPresentationResponseItemId)
 }
 
-fn verified_presentation_response_item_reference(
+fn verified_presentation_response_item_id(
     id: &ResponseItemId,
     expected_role: ResponseItemRole,
     presentation: &IssuedQuestionPresentation,
 ) -> Result<PresentationResponseItemId, PresentationResponseItemTranslationError> {
     Ok(
         presentation_response_item_binding(id, expected_role, presentation)?
-            .presentation_response_item_reference
+            .presentation_response_item_id
             .clone(),
     )
 }
@@ -460,18 +444,21 @@ fn presentation_response_item_binding<'a>(
     expected_role: ResponseItemRole,
     presentation: &'a IssuedQuestionPresentation,
 ) -> Result<&'a super::ResponseItemBinding, PresentationResponseItemTranslationError> {
-    let presentation_response_item_reference =
+    let presentation_response_item_id =
         PresentationResponseItemId::parse(id.as_str()).map_err(|_| {
             PresentationResponseItemTranslationError::MalformedPresentationResponseItemId
         })?;
-    let mut bindings = presentation.item_bindings.iter().filter(|binding| {
-        binding.presentation_response_item_reference == presentation_response_item_reference
-    });
-    let binding = bindings.next().ok_or(
-        PresentationResponseItemTranslationError::UnknownPresentationResponseItemId,
-    )?;
+    let mut bindings = presentation
+        .item_bindings
+        .iter()
+        .filter(|binding| binding.presentation_response_item_id == presentation_response_item_id);
+    let binding = bindings
+        .next()
+        .ok_or(PresentationResponseItemTranslationError::UnknownPresentationResponseItemId)?;
     if bindings.next().is_some() {
-        return Err(PresentationResponseItemTranslationError::DuplicatePresentationResponseItemIdBinding);
+        return Err(
+            PresentationResponseItemTranslationError::DuplicatePresentationResponseItemIdBinding,
+        );
     }
     if binding.role != expected_role {
         return Err(PresentationResponseItemTranslationError::WrongResponseItemRole);
@@ -479,7 +466,7 @@ fn presentation_response_item_binding<'a>(
     Ok(binding)
 }
 
-fn presentation_response_item_reference(
+fn presentation_response_item_id(
     durable: &ResponseItemId,
     expected_role: ResponseItemRole,
     presentation: &IssuedQuestionPresentation,
@@ -487,15 +474,17 @@ fn presentation_response_item_reference(
     let mut bindings = presentation
         .item_bindings
         .iter()
-        .filter(|binding| binding.response_item_reference.as_ref() == Some(durable));
-    let binding = bindings.next().ok_or(
-        PresentationResponseItemTranslationError::UnknownPresentationResponseItemId,
-    )?;
+        .filter(|binding| binding.response_item_id.as_ref() == Some(durable));
+    let binding = bindings
+        .next()
+        .ok_or(PresentationResponseItemTranslationError::UnknownPresentationResponseItemId)?;
     if bindings.next().is_some() {
-        return Err(PresentationResponseItemTranslationError::DuplicatePresentationResponseItemIdBinding);
+        return Err(
+            PresentationResponseItemTranslationError::DuplicatePresentationResponseItemIdBinding,
+        );
     }
     if binding.role != expected_role {
         return Err(PresentationResponseItemTranslationError::WrongResponseItemRole);
     }
-    Ok(binding.presentation_response_item_reference.clone())
+    Ok(binding.presentation_response_item_id.clone())
 }

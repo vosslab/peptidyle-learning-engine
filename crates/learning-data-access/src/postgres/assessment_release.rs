@@ -129,7 +129,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
     ) -> Result<Vec<CourseAssessmentSummary>, StoreError> {
         let mut tx = self.begin(token).await?;
         let context = schedule_context(&mut tx, &course).await?;
-        // ASVS 1.2.3 and 8.2.2: bind the public Course Reference and let the
+        // ASVS 1.2.3 and 8.2.2: bind the public Course ID and let the
         // session-authorized database function enforce the exact Course owner.
         let rows = sqlx::query(
             "SELECT assessment_id, assessment_type, assessment_title, due_at_millis, assessment_status, \

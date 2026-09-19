@@ -184,13 +184,13 @@ fn push_choices<T: PresentedResponseItem>(
 fn push_item(
     target: &mut Vec<PendingResponseItem>,
     role: ResponseItemRole,
-    response_item_reference: &str,
+    response_item_id: &str,
     content: Vec<QuestionContentBlock>,
     assets: &[QuestionAssetRendition],
     hotspot_dimensions: Option<(u32, u32)>,
     hotspot_regions: Vec<PendingHotspotRegionGeometry>,
 ) -> Result<(), PresentationBuildError> {
-    if response_item_reference.is_empty() {
+    if response_item_id.is_empty() {
         return Err(PresentationBuildError::InvalidPublicContent(
             "presentation item has an empty durable identity",
         ));
@@ -200,7 +200,7 @@ fn push_item(
     target.push(PendingResponseItem {
         role,
         ordinal,
-        response_item_reference: ResponseItemId::new(response_item_reference),
+        response_item_id: ResponseItemId::new(response_item_id),
         basis: ResponseItemBasis {
             role,
             ordinal,
@@ -224,7 +224,7 @@ pub(super) fn public_presentation(
         by_role(role)
             .map(|binding| {
                 (
-                    binding.presentation_response_item_reference.clone(),
+                    binding.presentation_response_item_id.clone(),
                     binding.basis.content.clone(),
                 )
             })
@@ -271,7 +271,7 @@ pub(super) fn public_presentation(
                     .iter()
                     .zip(text_entry_bindings)
                     .map(|(blank, binding)| PresentedTextEntrySlot {
-                        id: binding.presentation_response_item_reference.clone(),
+                        id: binding.presentation_response_item_id.clone(),
                         label: blank.label.clone(),
                         max_characters: blank.max_length,
                     })
@@ -329,14 +329,14 @@ pub(super) fn public_presentation(
             }
             QuestionPresentationResponseFormat::Hotspot {
                 surface: PresentedHotspotSurface {
-                    id: surface.presentation_response_item_reference.clone(),
+                    id: surface.presentation_response_item_id.clone(),
                     question_asset: question_asset.clone(),
                     description: description.clone(),
                     regions: regions
                         .iter()
                         .zip(hotspot_region_bindings)
                         .map(|(region, binding)| PresentedHotspotRegion {
-                            id: binding.presentation_response_item_reference.clone(),
+                            id: binding.presentation_response_item_id.clone(),
                             label: region.label.clone(),
                             x: region.x,
                             y: region.y,

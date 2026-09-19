@@ -376,34 +376,34 @@ BEGIN
             SELECT 1
               FROM jsonb_array_elements(item_response_item_bindings) AS supplied(value)
              WHERE jsonb_typeof(supplied.value) <> 'object'
-                OR NOT (supplied.value ? 'presentation_response_item_reference'
-                    AND supplied.value ? 'response_item_reference')
+                OR NOT (supplied.value ? 'presentation_response_item_id'
+                    AND supplied.value ? 'response_item_id')
                 OR EXISTS (
                     SELECT 1 FROM jsonb_object_keys(
                         CASE WHEN jsonb_typeof(supplied.value) = 'object'
                              THEN supplied.value ELSE '{}'::jsonb END
                     ) AS key
-                     WHERE key NOT IN ('presentation_response_item_reference', 'response_item_reference')
+                     WHERE key NOT IN ('presentation_response_item_id', 'response_item_id')
                 )
         ) OR EXISTS (
             SELECT 1
               FROM jsonb_to_recordset(item_response_item_bindings) AS supplied(
-                  presentation_response_item_reference text, response_item_reference text
+                  presentation_response_item_id text, response_item_id text
               )
-             WHERE supplied.presentation_response_item_reference !~ '^[0-9a-f]{4}$'
-                OR char_length(btrim(supplied.response_item_reference)) = 0
+             WHERE supplied.presentation_response_item_id !~ '^[0-9a-f]{4}$'
+                OR char_length(btrim(supplied.response_item_id)) = 0
         ) OR EXISTS (
             SELECT 1
               FROM jsonb_to_recordset(item_response_item_bindings) AS supplied(
-                  presentation_response_item_reference text, response_item_reference text
+                  presentation_response_item_id text, response_item_id text
               )
-             GROUP BY supplied.presentation_response_item_reference HAVING count(*) <> 1
+             GROUP BY supplied.presentation_response_item_id HAVING count(*) <> 1
         ) OR EXISTS (
             SELECT 1
               FROM jsonb_to_recordset(item_response_item_bindings) AS supplied(
-                  presentation_response_item_reference text, response_item_reference text
+                  presentation_response_item_id text, response_item_id text
               )
-             GROUP BY supplied.response_item_reference HAVING count(*) <> 1
+             GROUP BY supplied.response_item_id HAVING count(*) <> 1
         ) THEN
             RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Question presentation response-item bindings are invalid';
         END IF;
@@ -431,12 +431,12 @@ BEGIN
             item_backend_document
         );
         INSERT INTO ple_private.question_attempt_response_item_binding(
-            course_instance_id, question_attempt_presentation_binding_id, presentation_response_item_reference, response_item_reference
+            course_instance_id, question_attempt_presentation_binding_id, presentation_response_item_id, response_item_id
         )
-        SELECT assessment_attempt_row.course_instance_id, item_question_attempt_id, supplied.presentation_response_item_reference,
-               supplied.response_item_reference
+        SELECT assessment_attempt_row.course_instance_id, item_question_attempt_id, supplied.presentation_response_item_id,
+               supplied.response_item_id
           FROM jsonb_to_recordset(item_response_item_bindings) AS supplied(
-              presentation_response_item_reference text, response_item_reference text
+              presentation_response_item_id text, response_item_id text
           );
         IF item ? 'question_assets' AND jsonb_typeof(item -> 'question_assets') <> 'array' THEN
             RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Question presentation assets are invalid';
@@ -530,9 +530,9 @@ BEGIN
         ON rendition.question_attempt_id = question_attempt.question_attempt_id
       LEFT JOIN LATERAL (
           SELECT jsonb_agg(jsonb_build_object(
-              'presentation_response_item_reference', response_item.presentation_response_item_reference,
-              'response_item_reference', response_item.response_item_reference
-          ) ORDER BY response_item.presentation_response_item_reference) AS response_item_bindings
+              'presentation_response_item_id', response_item.presentation_response_item_id,
+              'response_item_id', response_item.response_item_id
+          ) ORDER BY response_item.presentation_response_item_id) AS response_item_bindings
             FROM ple_private.question_attempt_response_item_binding AS response_item
            WHERE response_item.question_attempt_id = question_attempt.question_attempt_id
       ) AS response_item_bindings ON true
@@ -601,9 +601,9 @@ BEGIN
       LEFT JOIN ple_private.question_attempt_presentation_asset_rendition AS rendition ON rendition.question_attempt_presentation_asset_binding_id = question_attempt.question_attempt_id
       LEFT JOIN LATERAL (
           SELECT jsonb_agg(jsonb_build_object(
-              'presentation_response_item_reference', response_item.presentation_response_item_reference,
-              'response_item_reference', response_item.response_item_reference
-          ) ORDER BY response_item.presentation_response_item_reference) AS response_item_bindings
+              'presentation_response_item_id', response_item.presentation_response_item_id,
+              'response_item_id', response_item.response_item_id
+          ) ORDER BY response_item.presentation_response_item_id) AS response_item_bindings
             FROM ple_private.question_attempt_response_item_binding AS response_item
            WHERE response_item.question_attempt_id = question_attempt.question_attempt_id
       ) AS response_item_bindings ON true

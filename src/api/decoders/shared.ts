@@ -291,10 +291,10 @@ export function decodeQuestionBackendCapabilities(
 export function decodeQuestionRevisionTuple(
   value: unknown,
   path: string,
-  strict = false,
+  _strict = false,
 ): QuestionRevisionTuple {
   const record = decodeRecord(value, path);
-  if (strict) requireOnlyFields(record, path, ["questionId", "revisionNumber"]);
+  requireOnlyFields(record, path, ["questionId", "revisionNumber"]);
   const decoded = {
     questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
     revisionNumber: decodePositiveQuestionRevisionNumber(

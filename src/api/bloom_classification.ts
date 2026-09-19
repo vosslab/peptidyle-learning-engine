@@ -8,7 +8,7 @@ import type { QuestionRevisionTuple } from "../../generated/api/QuestionRevision
 
 export interface BloomClassificationCorrectionClient {
   readonly correctQuestionBloom: (
-    reference: QuestionRevisionTuple,
+    questionRevision: QuestionRevisionTuple,
     request: BloomClassificationCorrectionRequest,
   ) => Promise<QuestionBloomCorrectionReceipt>;
   readonly correctQuestionPoolBloom: (

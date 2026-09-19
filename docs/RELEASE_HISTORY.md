@@ -12,7 +12,7 @@ remains governed by [ROADMAP.md](ROADMAP.md) and [TEST_EVIDENCE_MODEL.md](TEST_E
 
 ### Highlights
 
-- Completed a direct PLE terminology convergence across Question Source, Question Asset Reference,
+- Completed a direct PLE terminology convergence across Question Source, Question Asset Tuple,
   Question Revision, Blueprint Course, Assignment, and publication contracts without retaining
   compatibility readers or duplicate product concepts.
 - Added the server-only new-lineage Question Publication Store and coordinator. It verifies the

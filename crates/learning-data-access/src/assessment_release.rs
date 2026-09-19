@@ -79,7 +79,7 @@ pub struct AssessmentBlueprintUpdateContent {
 )]
 pub enum AssessmentBlueprintUpdateEntry {
     FixedQuestion {
-        reference: QuestionRevisionTuple,
+        question_revision: QuestionRevisionTuple,
         points_possible: question_model::AssessmentPointValue,
         scoring_rule: question_model::AssessmentEntryScoringRule,
         question_attempt_limit: question_model::QuestionAttemptLimit,

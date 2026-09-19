@@ -463,10 +463,7 @@ mod tests {
     #[test]
     fn choice_identifiers_survive_a_round_trip() {
         let response = StudentResponse::MultipleChoice {
-            selected: vec![
-                ResponseItemId::new("b"),
-                ResponseItemId::new("d"),
-            ],
+            selected: vec![ResponseItemId::new("b"), ResponseItemId::new("d")],
         };
         let json = serde_json::to_string(&response).expect("serialization should succeed");
         let restored: StudentResponse =

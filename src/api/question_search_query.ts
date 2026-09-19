@@ -281,8 +281,9 @@ export function questionSearchPath(query: QuestionSearchRequest): string {
 }
 
 /** Serializes one exact canonical Question ID after local checksum validation. */
-export function questionReferencePath(displayReference: string): string {
-  const reference = validateCanonicalQuestionIdSyntax(displayReference);
-  if (reference === null) throw new Error("Question ID must use canonical Crockford entry syntax");
-  return `/api/questions/by-id/${encodeURIComponent(reference)}`;
+export function questionIdPath(questionId: string): string {
+  const canonicalQuestionId = validateCanonicalQuestionIdSyntax(questionId);
+  if (canonicalQuestionId === null)
+    throw new Error("Question ID must use canonical Crockford entry syntax");
+  return `/api/questions/by-id/${encodeURIComponent(canonicalQuestionId)}`;
 }

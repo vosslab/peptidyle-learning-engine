@@ -24,9 +24,7 @@ impl PresentationResponseItemId {
         {
             Ok(Self(value))
         } else {
-            Err(
-                "Presentation Response Item ID must be four lowercase hexadecimal characters",
-            )
+            Err("Presentation Response Item ID must be four lowercase hexadecimal characters")
         }
     }
 

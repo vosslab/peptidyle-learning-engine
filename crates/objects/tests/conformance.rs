@@ -6,9 +6,8 @@ use objects::{
     Sha256Checksum,
 };
 use question_model::{
-    CourseBannerId, CourseBannerUploadId, CourseInstanceId, ObjectId, QuestionAssetId,
-    QuestionId, QuestionRevisionNumber, QuestionRevisionTuple, Timestamp, WorkspaceId,
-    WorkspaceImportId,
+    CourseBannerId, CourseBannerUploadId, CourseInstanceId, ObjectId, QuestionAssetId, QuestionId,
+    QuestionRevisionNumber, QuestionRevisionTuple, Timestamp, WorkspaceId, WorkspaceImportId,
 };
 use uuid::Uuid;
 

@@ -23,7 +23,7 @@ pub const MAX_ASSESSMENT_TEMPLATE_NAME_UNICODE_SCALARS: usize =
 /// Private server-generated identity for one Assessment Template.
 ///
 /// This UUID is an authenticated private-API identity, not a human-facing
-/// public Reference.
+/// public ID.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct AssessmentTemplateId(Uuid);
 

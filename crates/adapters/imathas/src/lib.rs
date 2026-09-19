@@ -1,6 +1,6 @@
 //! Isolated iMathAS Question Backend adapter.
 //!
-//! An iMathAS Deployment Reference is deployment configuration selected by an
+//! An iMathAS Deployment ID is deployment configuration selected by an
 //! opaque key. This
 //! crate never accepts author-supplied endpoints or browser Answer Keys,
 //! Question Feedback, Question Answer Explanations, or Question Grading Input.
@@ -37,8 +37,8 @@ pub use question_backend::{
     QuestionBackend, SafeImathasQuestionRender, SupportedImathasProfile,
 };
 pub use question_model::{
-    DraftImathasQuestionBackendBinding, ImathasDeploymentId, ImathasItemId,
-    ImathasProfile, ImathasQuestionBackendBinding,
+    DraftImathasQuestionBackendBinding, ImathasDeploymentId, ImathasItemId, ImathasProfile,
+    ImathasQuestionBackendBinding,
 };
 
 pub(crate) use cache::{constant_time_eq, hex, verify_binding};

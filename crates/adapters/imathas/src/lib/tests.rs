@@ -103,8 +103,8 @@ impl QuestionBackend for RecordedImathasQuestionBackend {
         &self,
         locator: &ImathasQuestionLocation,
     ) -> Result<(Vec<u8>, SupportedImathasProfile), ImathasQuestionBackendFailure> {
-        assert_eq!(locator.deployment_reference().as_str(), "recorded-imathas");
-        assert_eq!(locator.item_reference().as_str(), "item-17");
+        assert_eq!(locator.deployment_id().as_str(), "recorded-imathas");
+        assert_eq!(locator.item_id().as_str(), "item-17");
         Ok((b"{\"recorded\":true}".to_vec(), profile()))
     }
 

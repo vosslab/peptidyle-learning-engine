@@ -99,7 +99,7 @@ Before adding a datum:
   do not enter persistent browser storage.
 - Answer-free immutable content may be cached only under an exact safe key.
   Cache state never authorizes, grades, submits, or extends an Attempt.
-- Public References, presentation checksums, and signed delivery URLs remain
+- Public IDs, presentation checksums, and signed delivery URLs remain
   selectors or bounded delivery results, not durable authority.
 - Logs and traces omit responses, grades, correct answers, credentials,
   provider tokens, private source, raw object URLs, and Student-linked payloads.

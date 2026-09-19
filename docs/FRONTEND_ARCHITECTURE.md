@@ -17,7 +17,7 @@ src/route_contract.ts and src/routes.ts
 ```
 
 Route Product Role checks control presentation only. Every request repeats
-authorization on the server. An opaque route Reference locates a candidate; it
+authorization on the server. An opaque route ID locates a candidate; it
 never grants access.
 
 Generated TypeScript reflects Rust wire contracts. Authored decoders reject

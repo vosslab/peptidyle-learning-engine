@@ -46,7 +46,7 @@ function assertFixturePathsHaveValidScope(): void {
   }
 }
 
-const COURSE_REFERENCE: Readonly<Record<EvidenceCase, string>> = {
+const COURSE_INSTANCE_ID: Readonly<Record<EvidenceCase, string>> = {
   policies: "CI7K3M2QAZ",
   studentView: "CI4W8QF9AD",
   workspace: "CI2N7H5XAH",
@@ -60,12 +60,12 @@ const FIXTURE_CLASSIFICATION = {
   tags: [],
 } satisfies CourseClassification;
 
-function instructorCourse(reference: string): CourseRouteView {
+function instructorCourse(courseInstanceId: string): CourseRouteView {
   return {
     summary: {
-      id: reference,
-      shortName: `Course ${reference}`,
-      longName: `Deferred content evidence course ${reference}`,
+      id: courseInstanceId,
+      shortName: `Course ${courseInstanceId}`,
+      longName: `Deferred content evidence course ${courseInstanceId}`,
       classification: FIXTURE_CLASSIFICATION,
       term: { startDate: "2026-01-12", endDate: "2026-05-08" },
       role: "instructor",
@@ -104,9 +104,9 @@ export function mountRibbonDeferredContentHarness(target: HTMLElement): Deferred
   const history = createMemoryHistory();
   const counts = new Map<EvidenceCase, Map<string, number>>();
   const releases = new Map<EvidenceCase, () => void>();
-  const scopeCaseByCourseReference = new Map<string, EvidenceCase>(
-    Object.entries(COURSE_REFERENCE).map(([caseName, reference]) => [
-      reference,
+  const scopeCaseByCourseId = new Map<string, EvidenceCase>(
+    Object.entries(COURSE_INSTANCE_ID).map(([caseName, courseInstanceId]) => [
+      courseInstanceId,
       caseName as EvidenceCase,
     ]),
   );
@@ -144,7 +144,7 @@ export function mountRibbonDeferredContentHarness(target: HTMLElement): Deferred
             if (reference.startsWith("A")) {
               return Promise.resolve({
                 kind: "assessment",
-                courseId: `course-${COURSE_REFERENCE[activeTransportCase()]}`,
+                courseId: `course-${COURSE_INSTANCE_ID[activeTransportCase()]}`,
                 assessmentId: `assessment-${reference}`,
               });
             }
@@ -174,13 +174,13 @@ export function mountRibbonDeferredContentHarness(target: HTMLElement): Deferred
       Promise.reject(new Error("unused")),
     ),
     courseScope: queryFunction("course-scope", (courseInstanceId: string) => {
-      const caseName = scopeCaseByCourseReference.get(courseInstanceId);
+      const caseName = scopeCaseByCourseId.get(courseInstanceId);
       if (caseName === undefined)
         return Promise.reject(
           new Error(`Deferred-content course scope requested for unexpected ${courseInstanceId}`),
         );
       increment(caseName, "scopeCourse");
-      return deferred(caseName).then(() => instructorCourse(COURSE_REFERENCE[caseName]));
+      return deferred(caseName).then(() => instructorCourse(COURSE_INSTANCE_ID[caseName]));
     }),
   };
   const applicationApi = { client, queries } as unknown as ApplicationApi<OrdinaryBrowserApiClient>;

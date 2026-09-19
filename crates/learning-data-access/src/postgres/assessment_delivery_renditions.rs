@@ -40,8 +40,8 @@ pub(super) fn presentation_payloads<'a>(
             "presentation_checksum": checksum,
             "presentation": presentation,
             "response_item_bindings": response_item_bindings.iter().map(|binding| serde_json::json!({
-                "presentation_response_item_reference": binding.presentation_response_item_reference.as_str(),
-                "response_item_reference": binding.response_item_reference.as_str(),
+                "presentation_response_item_id": binding.presentation_response_item_id.as_str(),
+                "response_item_id": binding.response_item_id.as_str(),
             })).collect::<Vec<_>>(),
             "question_assets": assets.iter().map(|asset| serde_json::json!({
                 "asset_id": asset.question_asset.as_uuid(),

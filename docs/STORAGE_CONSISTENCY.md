@@ -9,14 +9,14 @@ compatibility alias, dual key, or parallel product model.
 
 ## Authority and vocabulary
 
-An **object** is immutable bytes and its server-created `ObjectRecord`. A **reference** is durable database state that makes that object relevant to the Question Library, course, or student record. A **delivery** is a separately authorized route mapping from an opaque ID to one exact record.
+An **object** is immutable bytes and its server-created `ObjectRecord`. A **database locator** is durable database state that makes that object relevant to the Question Library, course, or student record. A **delivery** is a separately authorized route mapping from an opaque ID to one exact record.
 
-| State                                | Meaning                    | Required treatment                                           |
-| ------------------------------------ | -------------------------- | ------------------------------------------------------------ |
-| Reference and SHA-256-verified bytes | Healthy                    | Deliver only under its typed delivery policy.                |
-| Bytes without reference              | Orphan                     | Never deliver. Preserve for Object Storage Check quarantine. |
-| Reference without bytes              | Broken reference           | Fail closed, alert, and preserve database evidence.          |
-| Reference with wrong bytes/checksum  | Corruption or substitution | Fail closed; do not replace it with a near match.            |
+| State                                      | Meaning                    | Required treatment                                           |
+| ------------------------------------------ | -------------------------- | ------------------------------------------------------------ |
+| Object record and SHA-256-verified bytes   | Healthy                    | Deliver only under its typed delivery policy.                |
+| Bytes without a database locator           | Orphan                     | Never deliver. Preserve for Object Storage Check quarantine. |
+| Object record without bytes                | Broken locator             | Fail closed, alert, and preserve database evidence.          |
+| Object record with wrong bytes/checksum    | Corruption or substitution | Fail closed; do not replace it with a near match.            |
 
 The database is authoritative for intended existence and visibility. The object store is authoritative
 for whether the exact bytes exist. Neither a bucket listing nor a successfully fetched object creates
@@ -35,7 +35,7 @@ For private Question Source bytes, protected artifacts, and non-public immutable
 derive typed key and identity
   -> write immutable bytes and compute/record SHA-256
   -> validate returned record against the expected typed binding
-  -> commit the database reference
+  -> commit the database locator
   -> authorize delivery only from committed database state
 ```
 

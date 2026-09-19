@@ -76,7 +76,7 @@ not parse ZIP/XML, choose a conversion result, or persist QTI Import Checksums. 
 must require a reviewed accepted item and a clean visible draft before conversion and refetch.
 
 Each route has an error boundary through the app shell so a screen failure leaves navigation usable.
-Reference slices must show loading, error/recovery, empty where applicable, and ready states rather
+Documented slices must show loading, error/recovery, empty where applicable, and ready states rather
 than treating a resource as always resolved.
 
 ## Question Response Control state
@@ -134,7 +134,7 @@ forced RLS; see `docs/DATABASE_AUTHORIZATION.md#row-level-security` and
 
 ## Reactivity verification
 
-Reference-slice tests must prove observable behavior rather than only construction:
+Slice tests must prove observable behavior rather than only construction:
 
 - changing one selected response updates its control and live status without recreating the Question Response Control;
 - `<For>` keeps identity for choices, draft rows, and QTI report items;

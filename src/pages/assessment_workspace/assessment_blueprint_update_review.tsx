@@ -36,7 +36,7 @@ export function AssessmentEntrySummary(props: {
   readonly entry: AssessmentBlueprintUpdateEntry & {
     readonly availability?: AssessmentEntryAvailability;
   };
-  readonly description: (reference: QuestionRevisionTuple) => string;
+  readonly description: (questionRevision: QuestionRevisionTuple) => string;
   readonly poolRole?: "assessmentOwned" | "librarySource";
 }): JSX.Element {
   const timeLimit = (): string =>
@@ -97,7 +97,7 @@ function settingCopy(value: string): string {
 export function AssessmentBlueprintContentSummary(props: {
   readonly heading: string;
   readonly content: AssessmentBlueprintUpdateContent;
-  readonly description: (reference: QuestionRevisionTuple) => string;
+  readonly description: (questionRevision: QuestionRevisionTuple) => string;
   readonly poolRole: "assessmentOwned" | "librarySource";
 }): JSX.Element {
   const defaults = (): AssessmentBlueprintUpdateContent["defaults"] => props.content.defaults;

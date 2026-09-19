@@ -122,19 +122,19 @@ fn only_immutable_question_assets_enter_the_public_delivery_domain() {
 #[test]
 fn course_banner_keys_bind_scope_classification_and_signing() {
     let course = CourseInstanceId::from_debug_serial(2);
-    let upload_reference = CourseBannerUploadId::from_uuid(Uuid::from_u128(3));
-    let banner_reference = CourseBannerId::from_uuid(Uuid::from_u128(4));
+    let upload_id = CourseBannerUploadId::from_uuid(Uuid::from_u128(3));
+    let banner_id = CourseBannerId::from_uuid(Uuid::from_u128(4));
     let upload = ObjectAddress::CourseBannerUpload {
         course: course.clone(),
-        upload: upload_reference,
+        upload: upload_id,
     };
     let source = ObjectAddress::CourseBannerSource {
         course: course.clone(),
-        banner: banner_reference,
+        banner: banner_id,
     };
     let banner = ObjectAddress::CourseBannerRendition {
         course: course.clone(),
-        banner: banner_reference,
+        banner: banner_id,
         rendition: CourseBannerRendition::Banner,
     };
 
@@ -147,9 +147,9 @@ fn course_banner_keys_bind_scope_classification_and_signing() {
     assert_eq!(banner.storage_area(), ObjectStorageArea::PrivateContent);
     assert!(banner.may_issue_signed_url());
     assert!(upload.path().contains(&course.to_string()));
-    assert!(upload.path().contains(&upload_reference.to_string()));
+    assert!(upload.path().contains(&upload_id.to_string()));
     assert!(banner.path().contains(&course.to_string()));
-    assert!(banner.path().contains(&banner_reference.to_string()));
+    assert!(banner.path().contains(&banner_id.to_string()));
     assert_ne!(upload.object_id(), banner.object_id());
 }
 

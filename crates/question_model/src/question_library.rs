@@ -159,7 +159,7 @@ impl From<QuestionId> for String {
 /// Exact immutable Question Revision identity used by storage, delivery,
 /// grading, replay, and audit.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionRevisionTuple {
     /// Stable Question lineage.
     pub question_id: QuestionId,
@@ -515,7 +515,7 @@ pub struct QuestionUseSummary {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CourseQuestionUse {
-    /// Authorized Course Instance Reference; it is never authority by itself.
+    /// Authorized Course Instance ID; it is never authority by itself.
     pub course: CourseInstanceId,
     /// Current course title visible to the requesting instructor.
     pub title: String,
@@ -733,6 +733,37 @@ mod tests {
             serde_json::to_value(QuestionStatistics::Unavailable)
                 .expect("unavailable Question Statistics serialize"),
             serde_json::json!({ "state": "unavailable" })
+        );
+    }
+
+    #[test]
+    fn question_revision_tuple_round_trips_camel_case_members() {
+        let tuple = QuestionRevisionTuple {
+            question_id: "ABCD-XEFG".parse().expect("fixture Question ID parses"),
+            revision_number: QuestionRevisionNumber::new(1).expect("positive version"),
+        };
+        let json = serde_json::to_value(&tuple).expect("tuple serializes");
+        assert_eq!(json["questionId"], "ABCD-XEFG");
+        assert_eq!(json["revisionNumber"], 1);
+        assert!(json.get("reference").is_none());
+        let decoded: QuestionRevisionTuple =
+            serde_json::from_value(json).expect("tuple deserializes from its members");
+        assert_eq!(decoded, tuple);
+    }
+
+    #[test]
+    fn question_revision_tuple_rejects_legacy_reference_json() {
+        assert!(
+            serde_json::from_str::<QuestionRevisionTuple>(
+                r#"{"reference":{"questionId":"ABCD-XEFG","revisionNumber":1}}"#
+            )
+            .is_err()
+        );
+        assert!(
+            serde_json::from_str::<QuestionRevisionTuple>(
+                r#"{"questionId":"ABCD-XEFG","revisionNumber":1,"reference":"ABCD-XEFG"}"#
+            )
+            .is_err()
         );
     }
 }

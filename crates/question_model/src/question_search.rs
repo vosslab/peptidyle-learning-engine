@@ -75,7 +75,7 @@ pub enum QuestionSearchSort {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionSearchAuthorFacet {
-    /// Exact reviewed Question Author display value, never an Account Reference.
+    /// Exact reviewed Question Author display value, never an Account ID.
     pub author_name: String,
     /// Number of matching discoverable publications in the query snapshot.
     pub count: u64,

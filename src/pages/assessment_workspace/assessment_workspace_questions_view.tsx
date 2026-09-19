@@ -81,9 +81,9 @@ export interface AssessmentWorkspaceQuestionsViewArgs {
   readonly importPool: () => Promise<void>;
 }
 
-function questionRevisionInspectionPath(reference: QuestionRevisionTuple): string {
+function questionRevisionInspectionPath(questionRevision: QuestionRevisionTuple): string {
   // ASVS 1.2.2: encode the displayed Question identity before placing it in a route path.
-  return `/library/${encodeURIComponent(reference.questionId)}?revision=${reference.revisionNumber}`;
+  return `/library/${encodeURIComponent(questionRevision.questionId)}?revision=${questionRevision.revisionNumber}`;
 }
 
 function questionPoolEntry(

@@ -76,7 +76,7 @@ impl CourseGradebookStore for PostgresCourseGradebookStore {
         )?;
         if returned_course != course {
             return Err(StoreError::InvalidRecord(
-                "database returned a different Course Reference".to_string(),
+                "database returned a different Course ID".to_string(),
             ));
         }
         let student_work = rows

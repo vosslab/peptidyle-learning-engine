@@ -1,6 +1,6 @@
 //! Trusted resolution of immutable Question Source bytes.
 
-use question_model::{QuestionRevisionTuple, SourceObjectChecksum, ObjectId};
+use question_model::{ObjectId, QuestionRevisionTuple, SourceObjectChecksum};
 
 use crate::{ObjectAddress, ObjectStore, ObjectStoreError};
 

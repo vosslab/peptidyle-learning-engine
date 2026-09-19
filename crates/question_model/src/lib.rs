@@ -179,8 +179,8 @@ pub use crate::course::{
 };
 pub use crate::course_appearance::{
     CourseAppearanceView, CourseBanner, CourseBannerAlternativeText, CourseBannerId,
-    CourseBannerInformativeText, CourseBannerRendition, CourseBannerUpdate,
-    CourseBannerUploadReceipt, CourseBannerUploadId, CourseTheme, CourseThemeUpdate,
+    CourseBannerInformativeText, CourseBannerRendition, CourseBannerUpdate, CourseBannerUploadId,
+    CourseBannerUploadReceipt, CourseTheme, CourseThemeUpdate,
 };
 pub use crate::course_term::{
     CourseDate, CourseDateError, CourseTerm, CourseTermError, CourseTermFailureCode,
@@ -232,8 +232,8 @@ pub use crate::question_authorship::{
     QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship, QuestionAuthorshipError,
 };
 pub use crate::question_backend_fields::{
-    DraftImathasQuestionBackendBinding, ImathasDeploymentId, ImathasItemId,
-    ImathasProfile, ImathasQuestionBackendBinding, ImathasQuestionBackendBindingError,
+    DraftImathasQuestionBackendBinding, ImathasDeploymentId, ImathasItemId, ImathasProfile,
+    ImathasQuestionBackendBinding, ImathasQuestionBackendBindingError,
     MAX_IMATHAS_IDENTIFIER_BYTES, QuestionBackendFieldsError,
 };
 pub use crate::question_citation::{QuestionCitation, QuestionCitationError};
@@ -294,10 +294,10 @@ pub use crate::student_work::{
     QuestionBackendVersion, QuestionEvaluation, QuestionEvaluationError, QuestionGraderVersion,
     QuestionPoolSelectedItem, QuestionPoolSelection, QuestionPoolSelectionId,
     QuestionRendererVersion, QuestionResponse, QuestionResponseId, RecordedCredit,
-    SourceObjectChecksum, SourceObjectChecksumError,
-    StudentAssessmentAttemptPosition, StudentAssessmentAttemptProgress,
-    StudentAssessmentAttemptResponseState, StudentAssessmentGrade, StudentAssessmentProgress,
-    StudentQuestionAttemptView, StudentRecordId, Timestamp,
+    SourceObjectChecksum, SourceObjectChecksumError, StudentAssessmentAttemptPosition,
+    StudentAssessmentAttemptProgress, StudentAssessmentAttemptResponseState,
+    StudentAssessmentGrade, StudentAssessmentProgress, StudentQuestionAttemptView, StudentRecordId,
+    Timestamp,
 };
 pub use crate::teaching_authority::{
     CourseInvitation, CourseInvitationEvent, CourseInvitationEventKind, CourseInvitationId,

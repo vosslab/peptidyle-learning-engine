@@ -14,8 +14,8 @@ use question_model::{
     AssessmentAttemptId, StudentResponse,
     presentation::{
         IssuedQuestionPresentation, StudentResponseInspection,
-        project_durable_response_to_presentation_response_item_references,
-        translate_presentation_response_item_references,
+        project_durable_response_to_presentation_response_item_ids,
+        translate_presentation_response_item_ids,
     },
 };
 use serde::{Deserialize, Serialize};
@@ -77,7 +77,7 @@ pub(super) async fn save_selected_response(
     {
         return invalid_response();
     }
-    let response = match translate_presentation_response_item_references(&request.response, &issued)
+    let response = match translate_presentation_response_item_ids(&request.response, &issued)
     {
         Ok(value) => value,
         Err(_) => return invalid_response(),
@@ -192,7 +192,7 @@ pub(super) fn restore_saved_response(
     presentation: &IssuedQuestionPresentation,
 ) -> Result<StudentResponse, ()> {
     let inspection =
-        project_durable_response_to_presentation_response_item_references(response, presentation)
+        project_durable_response_to_presentation_response_item_ids(response, presentation)
             .map_err(|_| ())?;
     Ok(match inspection {
         StudentResponseInspection::Numeric { value } => StudentResponse::Numeric { value },

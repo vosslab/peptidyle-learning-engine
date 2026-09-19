@@ -1,8 +1,8 @@
 //! Crate-private PostgreSQL row bindings for iMathAS Question Backend Sessions.
 
 use question_model::{
-    AccountId, AssessmentId, CourseInstanceId, ImathasQuestionBackendBinding, SourceObjectChecksum,
-    ObjectId, Timestamp,
+    AccountId, AssessmentId, CourseInstanceId, ImathasQuestionBackendBinding, ObjectId,
+    SourceObjectChecksum, Timestamp,
 };
 
 use super::{

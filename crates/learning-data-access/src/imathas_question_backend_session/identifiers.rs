@@ -12,7 +12,7 @@ impl ImathasQuestionBackendSessionId {
     pub fn generate() -> Result<Self, StoreError> {
         crate::random_uuid::random_uuid_v4(|_| {
             StoreError::Unavailable(
-                "iMathAS Question Backend Session Reference randomness unavailable".into(),
+                "iMathAS Question Backend Session ID randomness unavailable".into(),
             )
         })
         .map(Self)

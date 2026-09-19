@@ -1,4 +1,4 @@
-// Narrow Sysadmin control for the existing reference-addressed promotion endpoint.
+// Narrow Sysadmin control for the existing Blueprint Course ID promotion endpoint.
 import { Show, createSignal, type JSX } from "solid-js";
 import type {
   BlueprintPromotion as Promotion,
@@ -13,9 +13,9 @@ interface Props {
 
 /** Mounted only in the Sysadmin home; the server independently enforces Sysadmin authorization. */
 export function BlueprintPromotion(props: Props): JSX.Element {
-  const [reference, setReference] = createSignal("");
+  const [blueprintCourseId, setBlueprintCourseId] = createSignal("");
   const [loaded, setLoaded] = createSignal<{
-    readonly reference: string;
+    readonly blueprintCourseId: string;
     readonly promotion: Promotion;
   }>();
   const [busy, setBusy] = createSignal(false);
@@ -27,19 +27,22 @@ export function BlueprintPromotion(props: Props): JSX.Element {
     setLoaded(undefined);
     setNotice("");
     setFailed(false);
-    const parsed = parseBlueprintCourseId(reference());
+    const parsed = parseBlueprintCourseId(blueprintCourseId());
     if (parsed === null) {
       setFailed(true);
-      setNotice("Enter a valid Blueprint Course reference, such as BP7K3M2QAF.");
+      setNotice("Enter a valid Blueprint Course ID, such as BP7K3M2QAF.");
       return;
     }
     setBusy(true);
     try {
-      setLoaded({ reference: parsed, promotion: await props.client.getBlueprintPromotion(parsed) });
+      setLoaded({
+        blueprintCourseId: parsed,
+        promotion: await props.client.getBlueprintPromotion(parsed),
+      });
     } catch {
       setFailed(true);
       setNotice(
-        "Blueprint promotion could not load. Check the reference and your session, then try again.",
+        "Blueprint promotion could not load. Check the Blueprint Course ID and your session, then try again.",
       );
     } finally {
       setBusy(false);
@@ -54,11 +57,11 @@ export function BlueprintPromotion(props: Props): JSX.Element {
     setFailed(false);
     try {
       const promotion = await props.client.setBlueprintPromotion(
-        current.reference,
+        current.blueprintCourseId,
         !current.promotion.promoted,
         current.promotion.blueprintEditNumber,
       );
-      setLoaded({ reference: current.reference, promotion });
+      setLoaded({ blueprintCourseId: current.blueprintCourseId, promotion });
       setNotice(
         promotion.promoted
           ? "Blueprint Course is now Promoted."
@@ -87,14 +90,14 @@ export function BlueprintPromotion(props: Props): JSX.Element {
           void load();
         }}
       >
-        <label for="blueprint-promotion-reference">Blueprint Course reference</label>
+        <label for="blueprint-promotion-id">Blueprint Course ID</label>
         <input
-          id="blueprint-promotion-reference"
-          value={reference()}
+          id="blueprint-promotion-id"
+          value={blueprintCourseId()}
           placeholder="BP7K3M2QAF"
           disabled={busy()}
           onInput={(event) => {
-            setReference(event.currentTarget.value);
+            setBlueprintCourseId(event.currentTarget.value);
             setLoaded(undefined);
             setNotice("");
           }}
@@ -107,7 +110,8 @@ export function BlueprintPromotion(props: Props): JSX.Element {
         {(current) => (
           <>
             <p>
-              {current().reference}: {current().promotion.promoted ? "Promoted" : "Not Promoted"}
+              {current().blueprintCourseId}:{" "}
+              {current().promotion.promoted ? "Promoted" : "Not Promoted"}
             </p>
             <button
               type="button"

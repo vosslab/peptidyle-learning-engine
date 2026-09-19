@@ -288,10 +288,10 @@ CREATE TABLE ple_private.question_attempt_presentation_binding (
 CREATE TABLE ple_private.question_attempt_response_item_binding (
     course_instance_id ple_data.course_instance_id NOT NULL,
     question_attempt_presentation_binding_id uuid NOT NULL,
-    presentation_response_item_reference text NOT NULL CHECK (presentation_response_item_reference ~ '^[0-9a-f]{4}$'),
-    response_item_reference text NOT NULL CHECK (char_length(btrim(response_item_reference)) > 0),
-    PRIMARY KEY (course_instance_id, question_attempt_presentation_binding_id, presentation_response_item_reference),
-    UNIQUE (course_instance_id, question_attempt_presentation_binding_id, response_item_reference),
+    presentation_response_item_id text NOT NULL CHECK (presentation_response_item_id ~ '^[0-9a-f]{4}$'),
+    response_item_id text NOT NULL CHECK (char_length(btrim(response_item_id)) > 0),
+    PRIMARY KEY (course_instance_id, question_attempt_presentation_binding_id, presentation_response_item_id),
+    UNIQUE (course_instance_id, question_attempt_presentation_binding_id, response_item_id),
     FOREIGN KEY (course_instance_id, question_attempt_presentation_binding_id)
         REFERENCES ple_private.question_attempt_presentation_binding(course_instance_id, question_attempt_id)
         ON DELETE CASCADE,

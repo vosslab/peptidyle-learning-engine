@@ -56,15 +56,15 @@ impl ResponseItemRole {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResponseItemBinding {
-    pub presentation_response_item_reference: PresentationResponseItemId,
+    pub presentation_response_item_id: PresentationResponseItemId,
     pub role: ResponseItemRole,
     pub ordinal: u32,
     /// Exact authored Response Item for issued bindings; absent during public verification.
-    pub response_item_reference: Option<ResponseItemId>,
+    pub response_item_id: Option<ResponseItemId>,
     pub(super) basis: ResponseItemBasis,
 }
 
-/// One retained link from a browser-scoped response item reference to the
+/// One retained link from a browser-scoped response item ID to the
 /// durable authored response item it denotes.
 ///
 /// The public descriptor can deterministically rebuild the left side.  The
@@ -72,8 +72,8 @@ pub struct ResponseItemBinding {
 /// meaningful after source content is unavailable.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DurableResponseItemBinding {
-    pub presentation_response_item_reference: PresentationResponseItemId,
-    pub response_item_reference: ResponseItemId,
+    pub presentation_response_item_id: PresentationResponseItemId,
+    pub response_item_id: ResponseItemId,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct ResponseItemBasis {
@@ -101,7 +101,7 @@ pub(super) struct PendingHotspotRegionGeometry {
 struct PendingResponseItem {
     role: ResponseItemRole,
     ordinal: u32,
-    response_item_reference: ResponseItemId,
+    response_item_id: ResponseItemId,
     basis: ResponseItemBasis,
 }
 
@@ -136,8 +136,9 @@ impl std::fmt::Display for PresentationBuildError {
             }
             Self::InvalidPublicContent(message) => formatter.write_str(message),
             Self::TooManyItems => formatter.write_str("presentation contains more than 32 items"),
-            Self::PresentationResponseItemIdCollision => formatter
-                .write_str("could not mint globally unique Presentation Response Item IDs"),
+            Self::PresentationResponseItemIdCollision => {
+                formatter.write_str("could not mint globally unique Presentation Response Item IDs")
+            }
             Self::DescriptorEncoding(message) => formatter.write_str(message),
         }
     }
@@ -291,7 +292,7 @@ pub fn rebuild_question_presentation_with_reproduction_and_author_content(
     }
     let unique: BTreeSet<_> = item_bindings
         .iter()
-        .map(|item| item.presentation_response_item_reference.clone())
+        .map(|item| item.presentation_response_item_id.clone())
         .collect();
     if unique.len() != item_bindings.len() {
         return Err(PresentationBuildError::InvalidPublicContent(
@@ -321,13 +322,11 @@ pub fn extract_durable_response_item_bindings(
         .iter()
         .map(|binding| {
             binding
-                .response_item_reference
+                .response_item_id
                 .clone()
-                .map(|response_item_reference| DurableResponseItemBinding {
-                    presentation_response_item_reference: binding
-                        .presentation_response_item_reference
-                        .clone(),
-                    response_item_reference,
+                .map(|response_item_id| DurableResponseItemBinding {
+                    presentation_response_item_id: binding.presentation_response_item_id.clone(),
+                    response_item_id,
                 })
                 .ok_or(PresentationBuildError::InvalidPublicContent(
                     "issued presentation lacks a durable response-item binding",
@@ -343,32 +342,32 @@ pub fn rebind_durable_response_item_bindings(
     mut presentation: IssuedQuestionPresentation,
     bindings: &[DurableResponseItemBinding],
 ) -> Result<IssuedQuestionPresentation, PresentationBuildError> {
-    let public_references: BTreeSet<_> = presentation
+    let public_ids: BTreeSet<_> = presentation
         .item_bindings
         .iter()
-        .map(|binding| binding.presentation_response_item_reference.clone())
+        .map(|binding| binding.presentation_response_item_id.clone())
         .collect();
-    if public_references.len() != presentation.item_bindings.len()
+    if public_ids.len() != presentation.item_bindings.len()
         || bindings.len() != presentation.item_bindings.len()
     {
         return Err(PresentationBuildError::InvalidPublicContent(
             "retained response-item bindings do not exactly cover the presentation",
         ));
     }
-    let retained_references: BTreeSet<_> = bindings
+    let retained_ids: BTreeSet<_> = bindings
         .iter()
-        .map(|binding| binding.presentation_response_item_reference.clone())
+        .map(|binding| binding.presentation_response_item_id.clone())
         .collect();
-    let durable_references: BTreeSet<_> = bindings
+    let durable_ids: BTreeSet<_> = bindings
         .iter()
-        .map(|binding| binding.response_item_reference.clone())
+        .map(|binding| binding.response_item_id.clone())
         .collect();
-    if retained_references.len() != bindings.len()
-        || durable_references.len() != bindings.len()
-        || retained_references != public_references
+    if retained_ids.len() != bindings.len()
+        || durable_ids.len() != bindings.len()
+        || retained_ids != public_ids
         || bindings
             .iter()
-            .any(|binding| binding.response_item_reference.as_str().is_empty())
+            .any(|binding| binding.response_item_id.as_str().is_empty())
     {
         return Err(PresentationBuildError::InvalidPublicContent(
             "retained response-item bindings are invalid",
@@ -378,13 +377,12 @@ pub fn rebind_durable_response_item_bindings(
         let binding = bindings
             .iter()
             .find(|binding| {
-                binding.presentation_response_item_reference
-                    == item.presentation_response_item_reference
+                binding.presentation_response_item_id == item.presentation_response_item_id
             })
             .ok_or(PresentationBuildError::InvalidPublicContent(
                 "retained response-item bindings do not exactly cover the presentation",
             ))?;
-        item.response_item_reference = Some(binding.response_item_reference.clone());
+        item.response_item_id = Some(binding.response_item_id.clone());
     }
     Ok(presentation)
 }
@@ -428,23 +426,19 @@ where
         let mut collision = false;
         for item in &pending {
             let basis_bytes = item_basis_bytes(&item.basis)?;
-            let input = presentation_response_item_reference_input(
-                presentation,
-                nonce,
-                item,
-                &basis_bytes,
-            )?;
-            let presentation_response_item_reference =
+            let input =
+                presentation_response_item_id_input(presentation, nonce, item, &basis_bytes)?;
+            let presentation_response_item_id =
                 PresentationResponseItemId::from_crc(hasher(&input));
-            if !used.insert(presentation_response_item_reference.clone()) {
+            if !used.insert(presentation_response_item_id.clone()) {
                 collision = true;
                 break;
             }
             bindings.push(ResponseItemBinding {
-                presentation_response_item_reference,
+                presentation_response_item_id,
                 role: item.role,
                 ordinal: item.ordinal,
-                response_item_reference: Some(item.response_item_reference.clone()),
+                response_item_id: Some(item.response_item_id.clone()),
                 basis: item.basis.clone(),
             });
         }
@@ -466,7 +460,7 @@ where
     }
     Err(PresentationBuildError::PresentationResponseItemIdCollision)
 }
-fn presentation_response_item_reference_input(
+fn presentation_response_item_id_input(
     presentation: &QuestionVariationPresentation,
     nonce: QuestionPresentationNonce,
     item: &PendingResponseItem,
@@ -504,7 +498,7 @@ fn presentation_response_item_reference_input(
     }
     bytes.push(item.role.tag());
     bytes.extend_from_slice(&item.ordinal.to_be_bytes());
-    push_bytes(&mut bytes, item.response_item_reference.as_str().as_bytes())?;
+    push_bytes(&mut bytes, item.response_item_id.as_str().as_bytes())?;
     bytes.extend_from_slice(&Sha256::digest(basis_bytes));
     Ok(bytes)
 }

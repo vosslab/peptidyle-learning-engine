@@ -1,7 +1,7 @@
 use super::*;
 use question_model::{
-    AccountId, AssessmentId, CourseInstanceId, ImathasQuestionBackendBinding, SourceObjectChecksum,
-    ObjectId, Timestamp,
+    AccountId, AssessmentId, CourseInstanceId, ImathasQuestionBackendBinding, ObjectId,
+    SourceObjectChecksum, Timestamp,
 };
 
 #[derive(Clone, PartialEq)]

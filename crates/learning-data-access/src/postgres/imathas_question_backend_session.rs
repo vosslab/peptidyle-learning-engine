@@ -44,7 +44,7 @@ impl ImathasQuestionBackendSessionStore for PostgresImathasQuestionBackendSessio
     async fn load_imathas_question_backend_session(
         &self,
         _session_token_hash: SessionTokenHash,
-        _reference: ImathasQuestionBackendSessionId,
+        _session_id: ImathasQuestionBackendSessionId,
         _expectation: ImathasQuestionBackendSessionRestoreExpectation,
     ) -> Result<LoadedImathasQuestionBackendSession, StoreError> {
         Err(unavailable())

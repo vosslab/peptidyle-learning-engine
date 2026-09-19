@@ -819,7 +819,7 @@ export function BlueprintCourseDetailWorkspace(
               />
               <BlueprintKnownForks
                 client={props.client}
-                reference={loaded().view.id}
+                blueprintCourseId={loaded().view.id}
                 sourceCurrentRevision={loaded().view.current_revision.revision}
                 hasUnsavedChanges={hasUnsavedForkChanges()}
                 onApplied={() => void load(hasUnsavedForkChanges(), true)}

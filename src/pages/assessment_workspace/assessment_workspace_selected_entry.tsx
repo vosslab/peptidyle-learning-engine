@@ -37,7 +37,7 @@ function assessmentEntryScoringRuleLabel(scoringRule: AssessmentEntry["scoringRu
 export interface SelectedAssessmentEntryIdentityProps {
   readonly entry: AssessmentEntry;
   readonly entryNumber: number;
-  readonly description: (reference: QuestionRevisionTuple) => string;
+  readonly description: (questionRevision: QuestionRevisionTuple) => string;
   readonly bloom: BloomClassificationView | undefined;
 }
 

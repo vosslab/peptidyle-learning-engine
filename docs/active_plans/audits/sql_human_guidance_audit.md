@@ -256,7 +256,7 @@ one Revision per identity. The requested Revision matched ten receipts.
 | Rows rejected by filter | 129,990 | 0 |
 | Shared buffers | 1,478 hits | 10 hits, 2 reads |
 | Execution time | 3.906 ms | 0.040 ms |
-| Aggregate result | Reference result | Equal in both EXCEPT directions |
+| Aggregate result | Expected result | Equal in both EXCEPT directions |
 
 The temporary candidate was:
 

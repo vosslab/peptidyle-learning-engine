@@ -191,8 +191,8 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     }
   }
 
-  function description(reference: AssessmentQuestionPickerEntry["questionRevision"]): string {
-    return descriptions().get(questionRevisionKey(reference)) ?? "Published Question";
+  function description(questionRevision: AssessmentQuestionPickerEntry["questionRevision"]): string {
+    return descriptions().get(questionRevisionKey(questionRevision)) ?? "Published Question";
   }
 
   function move(index: number, offset: -1 | 1): void {

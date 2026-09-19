@@ -37,7 +37,7 @@ pub fn normalize_imathas_seed(ple_seed: question_model::generation::QuestionSeed
 /// question.  It intentionally contains no host, URL, credential, or JWT.
 #[derive(Clone, PartialEq, Eq)]
 pub struct ImathasGradingProfile {
-    deployment_reference: String,
+    deployment_id: String,
     frozen_execution_target: bool,
     source_object_checksum_revalidation: bool,
     grading_enabled: bool,
@@ -47,7 +47,7 @@ impl std::fmt::Debug for ImathasGradingProfile {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
             .debug_struct("ImathasGradingProfile")
-            .field("deployment_reference", &self.deployment_reference)
+            .field("deployment_id", &self.deployment_id)
             .field("frozen_execution_target", &self.frozen_execution_target)
             .field(
                 "source_object_checksum_revalidation",
@@ -63,19 +63,19 @@ impl ImathasGradingProfile {
     /// where the operator guarantees a frozen execution target and
     /// revalidates its Source Object Checksum at every launch.
     pub fn grading_deployment(
-        deployment_reference: impl Into<String>,
+        deployment_id: impl Into<String>,
         frozen_execution_target: bool,
         source_object_checksum_revalidation: bool,
     ) -> Result<Self, ImathasGradingFailure> {
-        let deployment_reference = deployment_reference.into();
-        if !valid_deployment_reference(&deployment_reference)
+        let deployment_id = deployment_id.into();
+        if !valid_deployment_id(&deployment_id)
             || !frozen_execution_target
             || !source_object_checksum_revalidation
         {
             return Err(ImathasGradingFailure::UnsupportedProfile);
         }
         Ok(Self {
-            deployment_reference,
+            deployment_id,
             frozen_execution_target,
             source_object_checksum_revalidation,
             grading_enabled: true,
@@ -85,9 +85,9 @@ impl ImathasGradingProfile {
     /// An unverified hosted MyOpenMath deployment has no confirmed immutable execution target
     /// or iMathAS Question Backend Session authentication contract, so grading is
     /// unavailable. A separate ungraded practice display is outside this module.
-    pub fn unverified_myopenmath_hosted(deployment_reference: impl Into<String>) -> Self {
+    pub fn unverified_myopenmath_hosted(deployment_id: impl Into<String>) -> Self {
         Self {
-            deployment_reference: deployment_reference.into(),
+            deployment_id: deployment_id.into(),
             frozen_execution_target: false,
             source_object_checksum_revalidation: false,
             grading_enabled: false,
@@ -95,8 +95,8 @@ impl ImathasGradingProfile {
     }
 
     /// The opaque deployment selector used to bind this grading profile to one iMathAS deployment.
-    pub fn deployment_reference(&self) -> &str {
-        &self.deployment_reference
+    pub fn deployment_id(&self) -> &str {
+        &self.deployment_id
     }
 
     /// Whether this deployment may expose `serverGrading` for this profile.
@@ -248,9 +248,9 @@ impl ImathasResultVerifier {
         if !self.profile.allows_grading()
             || validation
                 .imathas_question_backend_binding
-                .deployment_reference()
+                .deployment_id()
                 .as_str()
-                != self.profile.deployment_reference()
+                != self.profile.deployment_id()
             || validation
                 .imathas_question_backend_binding
                 .profile()
@@ -268,7 +268,7 @@ impl ImathasResultVerifier {
         if claims.question_id
             != validation
                 .imathas_question_backend_binding
-                .item_reference()
+                .item_id()
                 .as_str()
         {
             return Err(ImathasGradingFailure::WrongQuestion);
@@ -439,7 +439,7 @@ fn verify_hs256(token: &str, secret: &[u8]) -> Result<VerifiedClaims, ImathasGra
     })
 }
 
-pub(crate) fn valid_deployment_reference(value: &str) -> bool {
+pub(crate) fn valid_deployment_id(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 128
         && value
@@ -469,7 +469,7 @@ fn valid_launch_challenge(value: &str) -> bool {
 
 pub(crate) fn imathas_launch_binding_checksum(
     grading_context: &learning_data_access::ImathasGradingContext,
-    imathas_item_reference: &str,
+    imathas_item_id: &str,
     source_object_checksum: &str,
     imathas_seed: u16,
     launch_session_authentication: &str,
@@ -494,7 +494,7 @@ pub(crate) fn imathas_launch_binding_checksum(
     digest.update(grading_context.question_seed().value().to_be_bytes());
     digest.update(imathas_seed.to_be_bytes());
     digest.update(IMATHAS_GRADING_PROFILE_ID.as_bytes());
-    digest.update(imathas_item_reference.as_bytes());
+    digest.update(imathas_item_id.as_bytes());
     digest.update(source_object_checksum.as_bytes());
     digest.update(launch_session_authentication.as_bytes());
     crate::hex(digest.finalize().as_slice())

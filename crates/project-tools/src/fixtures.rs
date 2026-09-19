@@ -1,9 +1,9 @@
 //! Validation for stored Question fixture evidence.
 //!
-//! Question content is data. The tracked JSON and asset files are the fixture
-//! authority; this module loads them through production domain types and
-//! validates their relationships. Executable source never authors or rewrites
-//! the Question represented by that stored data.
+//! Question content is data. This module loads tracked offline Question
+//! evidence through production domain types and validates relationships.
+//! It is not the installation publisher. Install inserts mint public
+//! Question IDs; this file does not freeze those identities.
 
 use std::collections::BTreeSet;
 use std::fs;
@@ -12,8 +12,8 @@ use std::path::{Component, Path, PathBuf};
 use anyhow::{Context, Result, bail, ensure};
 use question_model::{
     AssessmentAttempt, AssessmentGrade, AssessmentProgressRecord, AssessmentSummary,
-    GradebookSummaryRow, IssuedQuestion, QuestionAttempt, QuestionRevisionTuple, QuestionSummary,
-    SourceObjectChecksum, ObjectId, StudentRecordId,
+    GradebookSummaryRow, IssuedQuestion, ObjectId, QuestionAttempt, QuestionRevisionTuple,
+    QuestionSummary, SourceObjectChecksum, StudentRecordId,
 };
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
@@ -153,10 +153,7 @@ fn validate_fixture_set(fixture_dir: &Path, fixture_set: &StoredFixtureSet) -> R
             "Question Attempt references an absent Issued Question"
         );
         ensure!(
-            attempt
-                .reproduction_details
-                .source_object_id
-                .as_ref()
+            attempt.reproduction_details.source_object_id.as_ref()
                 == Some(&fixture_set.source_object_id)
                 && attempt.reproduction_details.source_object_checksum.as_ref()
                     == Some(&fixture_set.source_object_checksum),

@@ -21,7 +21,7 @@ pub(super) async fn retrieve_and_verify<T: ImathasQuestionBackendTransport>(
         .fetch_signed_grade_get(ResultTransportRequest {
             handle: imathas_launch_state.handle(),
             launch_session_authentication: validation.authentication.as_str(),
-            deployment_reference: config.profile.deployment_reference(),
+            deployment_id: config.profile.deployment_id(),
         })
         .await
         .map_err(map_transport)?;

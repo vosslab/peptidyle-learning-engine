@@ -14,8 +14,8 @@ use objects::s3::{BucketNames, S3ObjectStore};
 use objects::{ObjectAddress, ObjectStore, PutObject, Sha256Checksum};
 use question_model::{
     CourseBannerAlternativeText, CourseBannerId, CourseBannerInformativeText,
-    CourseBannerRendition, CourseBannerUpdate, CourseBannerUploadId, CourseInstanceId,
-    ObjectId, Timestamp,
+    CourseBannerRendition, CourseBannerUpdate, CourseBannerUploadId, CourseInstanceId, ObjectId,
+    Timestamp,
 };
 use sqlx::postgres::PgConnection;
 use sqlx::{Connection, Row};

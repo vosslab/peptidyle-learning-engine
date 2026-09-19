@@ -42,7 +42,7 @@ test("an issued iMathAS Question Backend Question Presentation accepts only its 
     () =>
       decodeIssuedQuestionPresentation({
         ...presentation,
-        imathasQuestionBackendBinding: { itemReference: "secret" },
+        imathasQuestionBackendBinding: { itemId: "secret" },
       }),
     DecodeError,
   );

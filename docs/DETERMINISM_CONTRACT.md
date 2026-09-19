@@ -31,7 +31,7 @@ authorize a record, protect transport, or decide a grade.
 ## Revision identity
 
 Question ID identifies a stable Published Question lineage. Question Revision
-Reference identifies exact immutable source. Pool ID plus Pool Edit Number
+Tuple identifies exact immutable source. Pool ID plus Pool Edit Number
 identifies the Pool membership at selection time. These are the content
 identities retained in Student Work.
 

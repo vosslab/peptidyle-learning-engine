@@ -64,8 +64,8 @@ export function withFixedQuestionPointValues(
 }
 
 /** A stable, exact identity used when comparing pinned Question Revisions. */
-export function questionRevisionKey(reference: QuestionRevisionTuple): string {
-  return `${reference.questionId}:${reference.revisionNumber}`;
+export function questionRevisionKey(questionRevision: QuestionRevisionTuple): string {
+  return `${questionRevision.questionId}:${questionRevision.revisionNumber}`;
 }
 
 /** Appends an Available picker row as a new fixed Entry without altering existing Entry objects. */

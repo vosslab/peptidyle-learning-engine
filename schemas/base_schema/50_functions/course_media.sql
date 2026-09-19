@@ -127,12 +127,12 @@ BEGIN
         RETURN NULL;
     END IF;
     INSERT INTO ple_private.course_banner_upload
-        (course_banner_upload_reference, course_instance_id, account_id, object_record_id, canonical_media_type, byte_length,
+        (course_banner_upload_id, course_instance_id, account_id, object_record_id, canonical_media_type, byte_length,
          sha256, width, height, expires_at, created_at)
     VALUES (p_upload_id, p_course_instance_id, account_id, p_object_record_id, p_media_type, p_byte_length,
         p_sha256, p_width, p_height, to_timestamp(p_expires_millis / 1000.0), clock_timestamp());
     INSERT INTO ple_private.course_banner_storage_subject
-        (course_banner_storage_subject_id, subject_kind, course_instance_id, course_banner_upload_reference,
+        (course_banner_storage_subject_id, subject_kind, course_instance_id, course_banner_upload_id,
          object_record_id, expected_sha256, expected_size_bytes, expected_media_type, storage_area)
     VALUES (subject_id, 'upload', p_course_instance_id, p_upload_id, p_object_record_id, p_sha256,
         p_byte_length, p_media_type, 'temp-processing');
@@ -149,10 +149,10 @@ RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, 
 BEGIN
     UPDATE ple_private.course_banner_work AS work SET state = 'completed', completed_at = clock_timestamp()
       FROM ple_private.course_banner_upload AS upload
-     WHERE upload.course_banner_upload_reference = p_upload_id AND upload.course_instance_id = p_course_instance_id
+     WHERE upload.course_banner_upload_id = p_upload_id AND upload.course_instance_id = p_course_instance_id
        AND upload.account_id = ple_api.current_session_account_id()
        AND work.course_banner_storage_subject_id IN (SELECT course_banner_storage_subject_id
-           FROM ple_private.course_banner_storage_subject WHERE course_banner_upload_reference = upload.course_banner_upload_reference)
+           FROM ple_private.course_banner_storage_subject WHERE course_banner_upload_id = upload.course_banner_upload_id)
        AND work.operation_kind = 'put-upload' AND work.state = 'pending'
        AND ple_api.current_session_account_is_course_instructor(p_course_instance_id);
     RETURN FOUND;
@@ -165,9 +165,9 @@ LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private
     SELECT upload.object_record_id, upload.sha256, upload.byte_length, upload.canonical_media_type,
            upload.width, upload.height, work.course_banner_work_id
       FROM ple_private.course_banner_upload upload
-      JOIN ple_private.course_banner_storage_subject subject ON subject.course_banner_upload_reference = upload.course_banner_upload_reference
+      JOIN ple_private.course_banner_storage_subject subject ON subject.course_banner_upload_id = upload.course_banner_upload_id
       JOIN ple_private.course_banner_work work ON work.course_banner_storage_subject_id = subject.course_banner_storage_subject_id
-     WHERE upload.course_instance_id = p_course_instance_id AND upload.course_banner_upload_reference = p_upload_id
+     WHERE upload.course_instance_id = p_course_instance_id AND upload.course_banner_upload_id = p_upload_id
        AND upload.account_id = ple_api.current_session_account_id() AND upload.promoted_at IS NULL
        AND upload.expires_at > clock_timestamp() AND work.operation_kind = 'put-upload'
        AND work.state = 'completed' AND ple_api.current_session_account_is_course_instructor(p_course_instance_id)
@@ -187,7 +187,7 @@ DECLARE upload ple_private.course_banner_upload%ROWTYPE; source_subject uuid := 
 BEGIN
     IF NOT ple_api.current_session_account_is_course_instructor(p_course_instance_id) THEN RETURN; END IF;
     SELECT * INTO upload FROM ple_private.course_banner_upload
-     WHERE course_banner_upload_reference = p_upload_id AND course_instance_id = p_course_instance_id
+     WHERE course_banner_upload_id = p_upload_id AND course_instance_id = p_course_instance_id
        AND account_id = ple_api.current_session_account_id() AND promoted_at IS NULL
        AND expires_at > clock_timestamp() FOR UPDATE;
     IF NOT FOUND OR p_source_sha256 <> upload.sha256 OR p_source_size <> upload.byte_length
@@ -336,14 +336,14 @@ BEGIN
        AND presentation.course_banner_id = p_banner_id;
     UPDATE ple_data.object_delivery SET delivery_state = 'available' WHERE object_delivery_id IN (SELECT object_delivery_id FROM ple_data.course_banner_delivery WHERE course_instance_id = p_course_instance_id AND course_banner_id = p_banner_id);
     UPDATE ple_data.course_instance SET current_course_banner_id = p_banner_id, course_banner_alternative_kind = kind, course_banner_alternative_text = alt_text WHERE course_instance_id = p_course_instance_id;
-    UPDATE ple_private.course_banner_upload SET promoted_at = clock_timestamp() WHERE course_banner_upload_reference = p_upload_id AND promoted_at IS NULL;
+    UPDATE ple_private.course_banner_upload SET promoted_at = clock_timestamp() WHERE course_banner_upload_id = p_upload_id AND promoted_at IS NULL;
     IF old_banner IS NOT NULL THEN UPDATE ple_data.object_delivery SET delivery_state = 'retired' WHERE object_delivery_id IN (SELECT object_delivery_id FROM ple_data.course_banner_delivery WHERE course_instance_id = p_course_instance_id AND course_banner_id = old_banner); END IF;
     RETURN QUERY SELECT kind, alt_text, old_banner,
       (SELECT work.course_banner_work_id
          FROM ple_private.course_banner_work AS work
          JOIN ple_private.course_banner_storage_subject AS subject
            ON subject.course_banner_storage_subject_id = work.course_banner_storage_subject_id
-        WHERE subject.course_banner_upload_reference = p_upload_id
+        WHERE subject.course_banner_upload_id = p_upload_id
           AND work.operation_kind = 'put-upload'),
       (SELECT work.course_banner_work_id
          FROM ple_private.course_banner_work AS work

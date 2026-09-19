@@ -320,9 +320,9 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
       ) AS asset_renditions ON true
       LEFT JOIN LATERAL (
           SELECT jsonb_agg(jsonb_build_object(
-              'presentation_response_item_reference', response_item.presentation_response_item_reference,
-              'response_item_reference', response_item.response_item_reference
-          ) ORDER BY response_item.presentation_response_item_reference) AS response_item_bindings
+              'presentation_response_item_id', response_item.presentation_response_item_id,
+              'response_item_id', response_item.response_item_id
+          ) ORDER BY response_item.presentation_response_item_id) AS response_item_bindings
             FROM ple_private.question_attempt_response_item_binding AS response_item
            WHERE response_item.question_attempt_presentation_binding_id
                  = question_attempt.question_attempt_id

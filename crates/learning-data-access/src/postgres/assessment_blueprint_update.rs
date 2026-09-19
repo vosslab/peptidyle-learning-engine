@@ -192,7 +192,7 @@ async fn load_source(
         .ok()
         .and_then(BlueprintRevision::new)
         .ok_or_else(|| invalid("Blueprint Revision"))?;
-    let reference: Uuid = row
+    let source_assessment_id: Uuid = row
         .try_get("source_assessment_id")
         .map_err(map_sqlx_error)?;
     let Json(content): Json<StoredBlueprintCourseContent> =
@@ -216,7 +216,7 @@ async fn load_source(
         .modules
         .into_iter()
         .flat_map(|module| module.assessments)
-        .find(|member| member.blueprint_assessment_id.as_uuid() == reference);
+        .find(|member| member.blueprint_assessment_id.as_uuid() == source_assessment_id);
     if member.is_none()
         != (cannot_apply_reason
             == Some(AssessmentBlueprintUpdateCannotApplyReason::RetainedSourceMissing))
@@ -258,7 +258,7 @@ fn public_content(member: &StoredBlueprintAssessment) -> AssessmentBlueprintUpda
                     question_attempt_limit,
                     question_attempt_time_limit,
                 } => AssessmentBlueprintUpdateEntry::FixedQuestion {
-                    reference: question_revision.clone(),
+                    question_revision: question_revision.clone(),
                     points_possible: *points_possible,
                     scoring_rule: *scoring_rule,
                     question_attempt_limit: *question_attempt_limit,

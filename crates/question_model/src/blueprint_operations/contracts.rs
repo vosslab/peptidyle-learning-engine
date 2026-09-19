@@ -204,4 +204,36 @@ mod tests {
             BlueprintRevision::INITIAL
         );
     }
+
+    #[test]
+    fn blueprint_revision_tuple_round_trips_course_id_and_revision_number() {
+        let tuple = BlueprintRevisionTuple {
+            blueprint_course_id: BlueprintCourseId::new("BP7K3M2QXH")
+                .expect("valid Blueprint Course"),
+            revision: BlueprintRevision::INITIAL,
+        };
+        let json = serde_json::to_value(&tuple).expect("tuple serializes");
+        assert_eq!(json["blueprint_course_id"], "BP7K3M2QXH");
+        assert_eq!(json["revision"], "1");
+        assert!(json.get("reference").is_none());
+        let decoded: BlueprintRevisionTuple =
+            serde_json::from_value(json).expect("tuple deserializes from its members");
+        assert_eq!(decoded, tuple);
+    }
+
+    #[test]
+    fn blueprint_revision_tuple_rejects_legacy_reference_json() {
+        assert!(
+            serde_json::from_str::<BlueprintRevisionTuple>(
+                r#"{"reference":{"blueprint_course_id":"BP7K3M2QXH","revision":"1"}}"#
+            )
+            .is_err()
+        );
+        assert!(
+            serde_json::from_str::<BlueprintRevisionTuple>(
+                r#"{"blueprint_course_id":"BP7K3M2QXH","revision":"1","reference":"BP7K3M2QXH"}"#
+            )
+            .is_err()
+        );
+    }
 }

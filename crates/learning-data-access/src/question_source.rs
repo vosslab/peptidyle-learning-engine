@@ -12,8 +12,8 @@ use objects::{ObjectAddress, ObjectDataClass, ObjectRecord, ObjectStorageArea};
 use question_model::{
     DraftImathasQuestionBackendBinding, ObjectId, QuestionAssetId, QuestionAuthorship,
     QuestionBackend, QuestionFormat, QuestionId, QuestionLicense, QuestionRevisionNumber,
-    QuestionRevisionReason, QuestionRevisionTuple, QuestionType, SourceObjectChecksum,
-    Tag, WorkspaceId,
+    QuestionRevisionReason, QuestionRevisionTuple, QuestionType, SourceObjectChecksum, Tag,
+    WorkspaceId,
 };
 use uuid::Uuid;
 
@@ -75,7 +75,7 @@ pub struct DraftQuestionSourceBindingInput {
     pub question_type: QuestionType,
     /// WeBWorK PG Path for a WeBWorK Question Backend only.
     pub webwork_pg_path: Option<String>,
-    /// iMathAS Deployment and Item References for an iMathAS Question Backend only.
+    /// iMathAS Deployment and Item IDs for an iMathAS Question Backend only.
     pub draft_imathas_question_backend_binding: Option<DraftImathasQuestionBackendBinding>,
     /// Immutable Object Record identifying the Question Source bytes.
     pub source_object_id: ObjectId,
@@ -485,8 +485,7 @@ mod tests {
         deferred_imathas.question_format = QuestionFormat::Imathas;
         deferred_imathas.draft_imathas_question_backend_binding =
             Some(question_model::DraftImathasQuestionBackendBinding::new(
-                question_model::ImathasDeploymentId::new("deferred")
-                    .expect("deployment reference"),
+                question_model::ImathasDeploymentId::new("deferred").expect("deployment reference"),
                 question_model::ImathasItemId::new("item").expect("item reference"),
             ));
         assert!(matches!(

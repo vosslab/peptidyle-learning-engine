@@ -14,7 +14,7 @@ Account plus the exact stored relationship required by the operation.
 
 Each Account has one immutable Product Role: Student, Instructor, or Sysadmin.
 Course relationships supply Course authority. Product Role, object possession,
-or a visible Reference never substitutes for that relationship.
+or a visible ID never substitutes for that relationship.
 
 ## Authorization boundaries
 

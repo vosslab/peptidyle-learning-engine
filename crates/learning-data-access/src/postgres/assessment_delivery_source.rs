@@ -59,8 +59,8 @@ pub(super) fn presentation_evidence_from_row(
 
 #[derive(serde::Deserialize)]
 struct ResponseItemBindingRow {
-    presentation_response_item_reference: String,
-    response_item_reference: String,
+    presentation_response_item_id: String,
+    response_item_id: String,
 }
 
 fn decode_response_item_bindings(
@@ -73,24 +73,24 @@ fn decode_response_item_bindings(
     })?;
     rows.into_iter()
         .map(|row| {
-            let presentation_response_item_reference =
+            let presentation_response_item_id =
                 question_model::presentation::PresentationResponseItemId::parse(
-                    row.presentation_response_item_reference,
+                    row.presentation_response_item_id,
                 )
                 .map_err(|_| {
                     StoreError::InvalidRecord(
                         "Question presentation response-item bindings are invalid".to_string(),
                     )
                 })?;
-            if row.response_item_reference.trim().is_empty() {
+            if row.response_item_id.trim().is_empty() {
                 return Err(StoreError::InvalidRecord(
                     "Question presentation response-item bindings are invalid".to_string(),
                 ));
             }
             Ok(question_model::presentation::DurableResponseItemBinding {
-                presentation_response_item_reference,
-                response_item_reference: question_model::response::ResponseItemId::new(
-                    row.response_item_reference,
+                presentation_response_item_id,
+                response_item_id: question_model::response::ResponseItemId::new(
+                    row.response_item_id,
                 ),
             })
         })

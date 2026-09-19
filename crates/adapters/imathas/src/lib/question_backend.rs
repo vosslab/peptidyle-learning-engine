@@ -3,16 +3,14 @@
 use async_trait::async_trait;
 use question_model::QuestionContentBlock;
 use question_model::generation::QuestionSeed;
-use question_model::{
-    ImathasDeploymentId, ImathasItemId, ImathasProfile, QuestionRevisionTuple,
-};
+use question_model::{ImathasDeploymentId, ImathasItemId, ImathasProfile, QuestionRevisionTuple};
 
 use crate::{ImathasAdapterError, ImathasQuestionBackendFailure, VerifiedImathasResult};
 
 /// An iMathAS deployment's publication-safe integration profile.
 ///
 /// No endpoint, credential, accepted origin, or launch protocol is carried in
-/// this value. Those belong to its iMathAS Deployment Reference.
+/// this value. Those belong to its iMathAS Deployment ID.
 #[derive(Clone, PartialEq, Eq)]
 pub struct SupportedImathasProfile {
     pub(crate) profile: ImathasProfile,
@@ -61,12 +59,12 @@ impl SupportedImathasProfile {
     }
 }
 
-/// The configured iMathAS Deployment Reference and iMathAS Item Reference used
+/// The configured iMathAS Deployment ID and iMathAS Item ID used
 /// to retrieve a Draft Question snapshot.
 /// It contains no source bytes, endpoint, or credential.
 #[derive(Clone, PartialEq, Eq)]
 pub struct ImathasQuestionLocation {
-    deployment_reference: ImathasDeploymentId,
+    deployment_id: ImathasDeploymentId,
     item: ImathasItemId,
 }
 
@@ -76,18 +74,18 @@ impl ImathasQuestionLocation {
         binding: &question_model::DraftImathasQuestionBackendBinding,
     ) -> Self {
         Self {
-            deployment_reference: binding.deployment_reference().clone(),
-            item: binding.item_reference().clone(),
+            deployment_id: binding.deployment_id().clone(),
+            item: binding.item_id().clone(),
         }
     }
 
     /// Opaque deployment configuration selector.
-    pub fn deployment_reference(&self) -> &ImathasDeploymentId {
-        &self.deployment_reference
+    pub fn deployment_id(&self) -> &ImathasDeploymentId {
+        &self.deployment_id
     }
 
     /// iMathAS-backend-local item reference.
-    pub fn item_reference(&self) -> &ImathasItemId {
+    pub fn item_id(&self) -> &ImathasItemId {
         &self.item
     }
 }

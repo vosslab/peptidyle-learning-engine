@@ -29,7 +29,7 @@ import "./blueprint_fork_review.css";
 
 interface ForkProps {
   readonly client: BlueprintCourseClient;
-  readonly reference: string;
+  readonly blueprintCourseId: string;
   readonly onApplied?: () => void;
   readonly hasUnsavedChanges?: boolean;
 }
@@ -63,8 +63,8 @@ export function BlueprintForkSource(props: {
           <Show when={comparing()}>
             <BlueprintForkReview
               client={props.client}
-              reference={props.view.id}
-              leftReference={source().blueprint_course_id}
+              blueprintCourseId={props.view.id}
+              leftBlueprintCourseId={source().blueprint_course_id}
               hasUnsavedChanges={props.hasUnsavedChanges}
               onApplied={props.onApplied}
             />
@@ -311,7 +311,7 @@ function Comparison(props: { readonly view: BlueprintComparisonView }): JSX.Elem
 function RelatedComparison(props: ForkProps): JSX.Element {
   const inputId = createUniqueId();
   const comparisonId = createUniqueId();
-  const [reference, setReference] = createSignal("");
+  const [relatedBlueprintCourseId, setRelatedBlueprintCourseId] = createSignal("");
   const [selected, setSelected] = createSignal<string>();
   const [invalid, setInvalid] = createSignal(false);
   let input: HTMLInputElement | undefined;
@@ -326,8 +326,11 @@ function RelatedComparison(props: ForkProps): JSX.Element {
         class="blueprint-related-comparison-form"
         onSubmit={(event) => {
           event.preventDefault();
-          const candidate = normalizeHumanEnteredPublicId("blueprintCourse", reference());
-          if (candidate === null || candidate === props.reference) {
+          const candidate = normalizeHumanEnteredPublicId(
+            "blueprintCourse",
+            relatedBlueprintCourseId(),
+          );
+          if (candidate === null || candidate === props.blueprintCourseId) {
             setInvalid(true);
             input?.focus();
             return;
@@ -342,12 +345,12 @@ function RelatedComparison(props: ForkProps): JSX.Element {
           ref={(element) => {
             input = element;
           }}
-          value={reference()}
+          value={relatedBlueprintCourseId()}
           maxlength={8}
           required
           aria-invalid={invalid()}
           aria-describedby={invalid() ? `${inputId}-error` : undefined}
-          onInput={(event) => setReference(event.currentTarget.value)}
+          onInput={(event) => setRelatedBlueprintCourseId(event.currentTarget.value)}
         />
         <button type="submit" aria-controls={selected() ? comparisonId : undefined}>
           Compare latest Revisions
@@ -373,8 +376,8 @@ function RelatedComparison(props: ForkProps): JSX.Element {
             </button>
             <BlueprintForkReview
               client={props.client}
-              leftReference={props.reference}
-              reference={right}
+              leftBlueprintCourseId={props.blueprintCourseId}
+              blueprintCourseId={right}
               id={comparisonId}
               hasUnsavedChanges={props.hasUnsavedChanges}
               onApplied={props.onApplied}
@@ -394,10 +397,10 @@ export function BlueprintKnownForks(
   const comparisonId = createUniqueId();
   let comparisonTrigger: HTMLButtonElement | undefined;
   const [forks, { refetch }] = createResource(
-    () => props.reference,
-    async (reference) => {
+    () => props.blueprintCourseId,
+    async (blueprintCourseId) => {
       try {
-        return await props.client.listKnownBlueprintForks(reference);
+        return await props.client.listKnownBlueprintForks(blueprintCourseId);
       } catch {
         return null;
       } // ASVS 16.5.1: access loss and unavailable source share a neutral state.
@@ -411,7 +414,7 @@ export function BlueprintKnownForks(
     >
       <RelatedComparison
         client={props.client}
-        reference={props.reference}
+        blueprintCourseId={props.blueprintCourseId}
         hasUnsavedChanges={props.hasUnsavedChanges}
         onApplied={props.onApplied}
       />
@@ -480,7 +483,7 @@ export function BlueprintKnownForks(
         )}
       </Show>
       <Show when={selectedFork()} keyed>
-        {(reference) => (
+        {(forkId) => (
           <>
             <button
               class="quiet-action"
@@ -494,8 +497,8 @@ export function BlueprintKnownForks(
             </button>
             <BlueprintForkReview
               client={props.client}
-              reference={reference}
-              leftReference={props.reference}
+              blueprintCourseId={forkId}
+              leftBlueprintCourseId={props.blueprintCourseId}
               id={comparisonId}
               hasUnsavedChanges={props.hasUnsavedChanges}
               onApplied={props.onApplied}
@@ -508,15 +511,15 @@ export function BlueprintKnownForks(
 }
 
 export function BlueprintForkReview(
-  props: ForkProps & { readonly leftReference: string; readonly id?: string },
+  props: ForkProps & { readonly leftBlueprintCourseId: string; readonly id?: string },
 ): JSX.Element {
   let heading: HTMLHeadingElement | undefined;
   const uniqueId = createUniqueId();
-  const reviewId = (): string => props.reference ?? uniqueId;
+  const reviewId = (): string => props.blueprintCourseId ?? uniqueId;
   onMount(() => heading?.focus());
-  // Reactive pair owns this request; pending hides stale data when either Reference changes.
+  // Reactive pair owns this request; pending hides stale data when either Blueprint Course ID changes.
   const [review, { refetch }] = createResource(
-    () => ({ left: props.leftReference, right: props.reference }),
+    () => ({ left: props.leftBlueprintCourseId, right: props.blueprintCourseId }),
     async (pair) => {
       try {
         const [comparison, target] = await Promise.all([

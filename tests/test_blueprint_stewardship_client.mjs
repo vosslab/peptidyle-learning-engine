@@ -34,7 +34,6 @@ test("Blueprint Stars preserve exact verified names and reject substitute identi
   for (const forbidden of [
     "email",
     "accountId",
-    "accountReference",
     "profileUrl",
     "avatar",
     "watching",

@@ -52,7 +52,7 @@ pub trait ImathasQuestionBackendSessionStore: Send + Sync {
     async fn load_imathas_question_backend_session(
         &self,
         session_token_hash: SessionTokenHash,
-        reference: ImathasQuestionBackendSessionId,
+        session_id: ImathasQuestionBackendSessionId,
         expectation: ImathasQuestionBackendSessionRestoreExpectation,
     ) -> Result<LoadedImathasQuestionBackendSession, StoreError>;
 }

@@ -380,17 +380,17 @@ fn closed_object_with_optional<'a>(
     Ok(object)
 }
 
-fn public_id<Reference>(value: Option<&Value>, label: &'static str) -> Result<String>
+fn public_id<Id>(value: Option<&Value>, label: &'static str) -> Result<String>
 where
-    Reference: std::str::FromStr,
+    Id: std::str::FromStr,
 {
     // ASVS 2.2.1: validate each API projection with its canonical domain parser.
     let value = value
         .and_then(Value::as_str)
         .context("Live Demo public ID is invalid")?;
     value
-        .parse::<Reference>()
-        .map_err(|_| anyhow::anyhow!("Live Demo {label} reference is invalid"))?;
+        .parse::<Id>()
+        .map_err(|_| anyhow::anyhow!("Live Demo {label} ID is invalid"))?;
     Ok(value.to_owned())
 }
 

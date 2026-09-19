@@ -1,9 +1,9 @@
 // Browser names for the cargo-tools stored Question fixture set.
 //
-// `published_question/fixture_set.json` and its assets are product data for
-// `cargo tools fixtures`, which loads them through production domain types.
-// Tests that need that same stored Question may import this module; they must
-// not treat it as a convenience dump for unrelated IDs.
+// `published_question/fixture_set.json` is offline type-loading evidence for
+// `cargo tools fixtures --check`. It is not Live Demo or installation data.
+// Install inserts mint public Question IDs; the checksum-valid example ID in
+// that file is not a frozen install identity.
 
 import fixtureSet from "./published_question/fixture_set.json" with { type: "json" };
 

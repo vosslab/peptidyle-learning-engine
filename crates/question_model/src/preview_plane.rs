@@ -1,7 +1,7 @@
 //! Strict browser/server contracts for the non-mutating Student View Scenario preview plane.
 //!
 //! A route request owns any `M-` Course Membership ID. The Store resolves and discards
-//! that Reference before returning the owned [`StudentViewScenario`]. That value is
+//! that ID before returning the owned [`StudentViewScenario`]. That value is
 //! immutable, self-contained, and identity-free; later preview evaluation only
 //! borrows it and returns an owned closed Student View Scenario.
 
@@ -54,7 +54,7 @@ pub struct SelectedStudentViewScenarioRequest {
     pub selected_student_membership: CourseMembershipId,
 }
 
-/// Closed, sanitized Assessment Policy Source kind labels. These never carry a membership or person Reference.
+/// Closed, sanitized Assessment Policy Source kind labels. These never carry a membership or person ID.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AssessmentPolicySourceKind {

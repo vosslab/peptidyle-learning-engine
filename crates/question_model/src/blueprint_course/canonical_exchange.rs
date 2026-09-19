@@ -250,15 +250,15 @@ where
 {
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase", deny_unknown_fields)]
-    struct StrictReference {
+    struct StrictQuestionRevisionTuple {
         question_id: crate::QuestionId,
         revision_number: crate::QuestionRevisionNumber,
     }
 
-    let reference = StrictReference::deserialize(deserializer)?;
+    let tuple = StrictQuestionRevisionTuple::deserialize(deserializer)?;
     Ok(QuestionRevisionTuple {
-        question_id: reference.question_id,
-        revision_number: reference.revision_number,
+        question_id: tuple.question_id,
+        revision_number: tuple.revision_number,
     })
 }
 

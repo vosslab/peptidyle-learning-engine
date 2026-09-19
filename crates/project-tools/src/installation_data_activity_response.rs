@@ -100,7 +100,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn response_derivation_uses_only_presented_response_item_references() {
+    fn response_derivation_uses_only_presented_response_item_ids() {
         let single_choice = json!({
             "kind": "singleChoice",
             "choices": [{"id": "choice-1", "body": []}]

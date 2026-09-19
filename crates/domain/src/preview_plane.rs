@@ -1,6 +1,6 @@
 //! Pure composition of active Student Course Membership, Assessment policy, and Student Feedback disclosure.
 //!
-//! The Store owns route References and authorization. It resolves them, discards all
+//! The Store owns route IDs and authorization. It resolves them, discards all
 //! identity-bearing values, owns the resulting `StudentViewScenario`, and passes this
 //! module only the already-resolved Active Student Course Membership and Effective
 //! Assessment Policy facts. Evaluation borrows those facts

@@ -240,7 +240,7 @@ fn project_response(
     let Some(response) = response else {
         return;
     };
-    let Ok(response) = question_model::presentation::project_durable_response_to_presentation_response_item_references(
+    let Ok(response) = question_model::presentation::project_durable_response_to_presentation_response_item_ids(
         &response,
         presentation,
     ) else {

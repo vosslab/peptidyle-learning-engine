@@ -10,9 +10,9 @@ use async_trait::async_trait;
 use question_model::{
     AccountTimeZone, AssessmentEditNumber, AssessmentEntryAvailability, AssessmentId,
     AssessmentInstructions, AssessmentQuestionOrderRule, AssessmentStatus, AssessmentTitle,
-    CourseInstanceId, DraftImathasQuestionBackendBinding, InstructorStudentViewDelivery,
+    CourseInstanceId, DraftImathasQuestionBackendBinding, InstructorStudentViewDelivery, ObjectId,
     QuestionPoolAssessmentEntry, QuestionPoolSelectedItem, QuestionRevisionTuple,
-    SourceObjectChecksum, ObjectId,
+    SourceObjectChecksum,
 };
 
 use crate::{ReadyQuestionAssetRendition, SessionTokenHash, StoreError};

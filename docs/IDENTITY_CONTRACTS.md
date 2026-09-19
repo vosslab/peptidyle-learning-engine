@@ -7,9 +7,10 @@ Assessments. Assignment appears only in the three Assessment Type names.
 ## Rules that apply everywhere
 
 - A durable ID names one thing.
-- One canonical identity value is an Id. Genuinely distinct pins and handles
-  are a Reference, including Question and Blueprint Revision pins, compact-handle
-  route types, and object, source, and response-item pins.
+- One canonical identity value is an Id. Multiple values that together identify
+  one exact object, state, or version are a Tuple, including Question and
+  Blueprint Revision Tuples. Reference is only a genuine indirect, scoped, or
+  external locator; do not name an Id or a Tuple as a Reference.
 - A checksum detects disagreement in otherwise valid data.
 - A public ID is the one universal, canonical human-facing identifier for a PLE
   object that needs one.
@@ -117,7 +118,7 @@ The lifecycle state belongs to the Blueprint lineage:
 
 Only the owner changes Blueprint lifecycle state. A Public Blueprint can return
 to Private only before any Course Instance has adopted it. Archived restores to
-Public. A Revision Reference remains exact regardless of later lifecycle
+Public. A Revision Tuple remains exact regardless of later lifecycle
 changes.
 
 Blueprints contain no Students, dates, time zones, or relative schedules.

@@ -147,7 +147,7 @@ export interface ApiClient
   /** Searches Question Library metadata with server-computed facets. */
   readonly searchQuestionLibrary: (query: QuestionSearchRequest) => Promise<QuestionSearchPage>;
   /** Resolves one copyable Instructor-facing ID to its exact answer-free Question Summary. */
-  readonly resolveQuestion: (displayReference: string) => Promise<QuestionSummary>;
+  readonly resolveQuestion: (questionId: string) => Promise<QuestionSummary>;
   /** Gets the safe immutable Question Details View, never a complete Question Revision. */
   readonly getQuestionDetails: (questionId: QuestionId) => Promise<QuestionDetails>;
   readonly listCourses: (cursor?: string) => Promise<CursorPage<CourseSummary>>;

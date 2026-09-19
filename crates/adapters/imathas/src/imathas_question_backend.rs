@@ -50,7 +50,7 @@ impl std::fmt::Debug for ImathasQuestionBackendConfig {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
             .debug_struct("ImathasQuestionBackendConfig")
-            .field("deployment_reference", &self.profile.deployment_reference())
+            .field("deployment_id", &self.profile.deployment_id())
             .field("profile", &IMATHAS_GRADING_PROFILE_ID)
             .field("authentication_codec", &self.authentication_codec)
             .field("launch_signing_secret", &"REDACTED")
@@ -114,7 +114,7 @@ impl ImathasQuestionBackendConfig {
     /// Returns the exact validated render profile selected by this deployment configuration.
     ///
     /// The value contains no endpoint or credential. Callers must still require the source's
-    /// Deployment Reference to match the configuration before composing a published render
+    /// Deployment ID to match the configuration before composing a published render
     /// binding.
     pub fn supported_profile(&self) -> SupportedImathasProfile {
         // Construction has already frozen these compatibility claims.
@@ -213,21 +213,21 @@ impl std::fmt::Debug for ImathasLaunchId {
 /// Server-only request sent to a transport's authorized snapshot operation.
 pub struct SnapshotTransportRequest<'a> {
     pub(crate) locator: &'a ImathasQuestionLocation,
-    pub(crate) deployment_reference: &'a str,
+    pub(crate) deployment_id: &'a str,
 }
 impl<'a> SnapshotTransportRequest<'a> {
-    pub fn deployment_reference(&self) -> &'a str {
-        self.deployment_reference
+    pub fn deployment_id(&self) -> &'a str {
+        self.deployment_id
     }
-    pub fn item_reference(&self) -> &'a str {
-        self.locator.item_reference().as_str()
+    pub fn item_id(&self) -> &'a str {
+        self.locator.item_id().as_str()
     }
 }
 
 /// Server-only immutable safe-render request. The snapshot remains private.
 pub struct RenderTransportRequest<'a> {
     pub(crate) snapshot: &'a [u8],
-    pub(crate) deployment_reference: &'a str,
+    pub(crate) deployment_id: &'a str,
     pub(crate) question_revision: question_model::QuestionRevisionTuple,
     pub(crate) question_seed: QuestionSeed,
 }
@@ -235,8 +235,8 @@ impl<'a> RenderTransportRequest<'a> {
     pub fn snapshot(&self) -> &'a [u8] {
         self.snapshot
     }
-    pub fn deployment_reference(&self) -> &'a str {
-        self.deployment_reference
+    pub fn deployment_id(&self) -> &'a str {
+        self.deployment_id
     }
     pub fn question_revision(&self) -> &question_model::QuestionRevisionTuple {
         &self.question_revision
@@ -250,8 +250,8 @@ impl<'a> RenderTransportRequest<'a> {
 /// public token getter: only an adapter-owned private transport can forward it
 /// through the constrained server proxy.
 pub struct ProtectedLaunchRequest {
-    pub(crate) deployment_reference: String,
-    pub(crate) item_reference: String,
+    pub(crate) deployment_id: String,
+    pub(crate) item_id: String,
     pub(crate) imathas_seed: u16,
     pub(crate) source_object_checksum: String,
     pub(crate) signed_launch_jwt: String,
@@ -260,8 +260,8 @@ impl std::fmt::Debug for ProtectedLaunchRequest {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
             .debug_struct("ProtectedLaunchRequest")
-            .field("deployment_reference", &self.deployment_reference)
-            .field("item_reference", &self.item_reference)
+            .field("deployment_id", &self.deployment_id)
+            .field("item_id", &self.item_id)
             .field("imathas_seed", &self.imathas_seed)
             .field("source_object_checksum", &"REDACTED")
             .field("signed_launch_jwt", &"REDACTED")
@@ -269,11 +269,11 @@ impl std::fmt::Debug for ProtectedLaunchRequest {
     }
 }
 impl ProtectedLaunchRequest {
-    pub fn deployment_reference(&self) -> &str {
-        &self.deployment_reference
+    pub fn deployment_id(&self) -> &str {
+        &self.deployment_id
     }
-    pub fn item_reference(&self) -> &str {
-        &self.item_reference
+    pub fn item_id(&self) -> &str {
+        &self.item_id
     }
     pub fn imathas_seed(&self) -> u16 {
         self.imathas_seed
@@ -292,7 +292,7 @@ impl ProtectedLaunchRequest {
 pub struct ResultTransportRequest<'a> {
     pub(crate) handle: &'a ImathasLaunchId,
     pub(crate) launch_session_authentication: &'a str,
-    pub(crate) deployment_reference: &'a str,
+    pub(crate) deployment_id: &'a str,
 }
 
 /// The only iMathAS-facing browser-proxy operation. There is deliberately no
@@ -371,8 +371,8 @@ impl std::fmt::Debug for ProxyResponse {
     }
 }
 impl<'a> ResultTransportRequest<'a> {
-    pub fn deployment_reference(&self) -> &'a str {
-        self.deployment_reference
+    pub fn deployment_id(&self) -> &'a str {
+        self.deployment_id
     }
     #[allow(dead_code)]
     pub(crate) fn handle(&self) -> &ImathasLaunchId {
@@ -441,8 +441,8 @@ impl<T: ImathasQuestionBackendTransport> ImathasQuestionBackend<T> {
     pub fn launch_lifetime_millis(&self) -> u32 {
         self.config.launch_ttl_millis as u32
     }
-    pub fn deployment_reference(&self) -> &str {
-        self.config.profile.deployment_reference()
+    pub fn deployment_id(&self) -> &str {
+        self.config.profile.deployment_id()
     }
 
     /// Starts the iMathAS launch and returns only LDA-ready iMathAS bytes.
@@ -452,9 +452,7 @@ impl<T: ImathasQuestionBackendTransport> ImathasQuestionBackend<T> {
         validation: &learning_data_access::ImathasQuestionBackendLaunchPreparationValidation,
         now: Timestamp,
     ) -> Result<ImathasLaunchPreparation, ImathasAdapterError> {
-        if source.binding().deployment_reference().as_str()
-            != self.config.profile.deployment_reference()
-        {
+        if source.binding().deployment_id().as_str() != self.config.profile.deployment_id() {
             return Err(ImathasAdapterError::UnsupportedProfile);
         }
         if source.binding().profile().as_str() != IMATHAS_GRADING_PROFILE_ID {
@@ -482,7 +480,7 @@ impl<T: ImathasQuestionBackendTransport> ImathasQuestionBackend<T> {
         let imathas_seed = normalize_imathas_seed(grading_context.question_seed());
         let binding_checksum = imathas_launch_binding_checksum(
             grading_context,
-            source.binding().item_reference().as_str(),
+            source.binding().item_id().as_str(),
             source.source_object_checksum().as_str(),
             imathas_seed,
             validation.authentication.as_str(),
@@ -493,8 +491,8 @@ impl<T: ImathasQuestionBackendTransport> ImathasQuestionBackend<T> {
                     ImathasAdapterError::InvalidImathasQuestionBackendSessionAuthentication
                 })?;
         let draft_binding = DraftImathasQuestionBackendBinding::new(
-            source.binding().deployment_reference().clone(),
-            source.binding().item_reference().clone(),
+            source.binding().deployment_id().clone(),
+            source.binding().item_id().clone(),
         );
         let locator =
             ImathasQuestionLocation::from_draft_imathas_question_backend_binding(&draft_binding);
@@ -502,7 +500,7 @@ impl<T: ImathasQuestionBackendTransport> ImathasQuestionBackend<T> {
             .transport
             .fetch_snapshot(SnapshotTransportRequest {
                 locator: &locator,
-                deployment_reference: self.config.profile.deployment_reference(),
+                deployment_id: self.config.profile.deployment_id(),
             })
             .await
             .map_err(map_transport)?;
@@ -513,13 +511,13 @@ impl<T: ImathasQuestionBackendTransport> ImathasQuestionBackend<T> {
             return Err(ImathasAdapterError::SourceChecksumMismatch);
         }
         let protected = ProtectedLaunchRequest {
-            deployment_reference: self.config.profile.deployment_reference().to_owned(),
-            item_reference: source.binding().item_reference().as_str().to_owned(),
+            deployment_id: self.config.profile.deployment_id().to_owned(),
+            item_id: source.binding().item_id().as_str().to_owned(),
             imathas_seed,
             source_object_checksum: source.source_object_checksum().to_string(),
             signed_launch_jwt: protocol::signed_launch_jwt(
                 &self.config.launch_signing_secret,
-                source.binding().item_reference().as_str(),
+                source.binding().item_id().as_str(),
                 imathas_seed,
                 validation.expires_at.as_unix_millis(),
                 &base64::engine::general_purpose::URL_SAFE_NO_PAD
@@ -599,14 +597,14 @@ impl<T: ImathasQuestionBackendTransport> QuestionBackend for ImathasQuestionBack
         &self,
         locator: &ImathasQuestionLocation,
     ) -> Result<(Vec<u8>, SupportedImathasProfile), ImathasQuestionBackendFailure> {
-        if locator.deployment_reference().as_str() != self.config.profile.deployment_reference() {
+        if locator.deployment_id().as_str() != self.config.profile.deployment_id() {
             return Err(ImathasQuestionBackendFailure::UnsupportedProfile);
         }
         let snapshot = self
             .transport
             .fetch_snapshot(SnapshotTransportRequest {
                 locator,
-                deployment_reference: self.config.profile.deployment_reference(),
+                deployment_id: self.config.profile.deployment_id(),
             })
             .await
             .map_err(ImathasQuestionBackendFailure::from)?;
@@ -628,7 +626,7 @@ impl<T: ImathasQuestionBackendTransport> QuestionBackend for ImathasQuestionBack
         self.transport
             .render_safe(RenderTransportRequest {
                 snapshot: request.snapshot,
-                deployment_reference: self.config.profile.deployment_reference(),
+                deployment_id: self.config.profile.deployment_id(),
                 question_revision: request.question_revision,
                 question_seed: request.question_seed,
             })
@@ -679,9 +677,9 @@ fn validate_loaded_imathas_launch_state(
 ) -> Result<(), ImathasAdapterError> {
     if validation
         .imathas_question_backend_binding
-        .deployment_reference()
+        .deployment_id()
         .as_str()
-        != config.profile.deployment_reference()
+        != config.profile.deployment_id()
         || validation
             .imathas_question_backend_binding
             .profile()
@@ -690,7 +688,7 @@ fn validate_loaded_imathas_launch_state(
         || validation.expires_at <= now
         || validation
             .imathas_question_backend_binding
-            .item_reference()
+            .item_id()
             .as_str()
             .is_empty()
         || validation.source_object_checksum.as_str().len() != 64
@@ -714,7 +712,7 @@ fn validate_loaded_imathas_launch_state(
         grading_context,
         validation
             .imathas_question_backend_binding
-            .item_reference()
+            .item_id()
             .as_str(),
         validation.source_object_checksum.as_str(),
         normalize_imathas_seed(grading_context.question_seed()),

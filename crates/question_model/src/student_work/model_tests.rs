@@ -267,7 +267,7 @@ fn reproduction_details_serialize_role_specific_versions() {
             version: "1".to_string(),
         },
         renderer_version: None,
-        source_object_id: Some(ObjectId::from_uuid(Uuid::from_u128(7)),),
+        source_object_id: Some(ObjectId::from_uuid(Uuid::from_u128(7))),
         source_object_checksum: Some(
             SourceObjectChecksum::parse("a".repeat(64)).expect("canonical checksum"),
         ),

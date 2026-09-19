@@ -158,8 +158,8 @@ pub(crate) struct RetainedPresentation {
 
 #[derive(Deserialize, Serialize)]
 struct ResponseItemBinding {
-    presentation_response_item_reference: String,
-    response_item_reference: String,
+    presentation_response_item_id: String,
+    response_item_id: String,
 }
 #[derive(Deserialize, Serialize)]
 struct AssetRendition {

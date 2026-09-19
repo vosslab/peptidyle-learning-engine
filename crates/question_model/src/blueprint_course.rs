@@ -158,7 +158,7 @@ pub enum BlueprintCourseReadAccess {
 pub struct BlueprintCourseSummaryView {
     /// Independently editable current classification.
     pub classification: crate::CourseClassification,
-    /// Blueprint Course Reference resolved under current read authority.
+    /// Blueprint Course ID resolved under current read authority.
     pub id: BlueprintCourseId,
     /// Compact stable-lineage name for constrained navigation.
     pub short_name: String,
@@ -184,7 +184,7 @@ pub struct BlueprintCourseSummaryView {
 pub struct BlueprintCourseView {
     /// Independently editable current classification.
     pub classification: crate::CourseClassification,
-    /// Blueprint Course Reference resolved for this returned read view.
+    /// Blueprint Course ID resolved for this returned read view.
     pub id: BlueprintCourseId,
     /// Compact stable-lineage name for constrained navigation.
     pub short_name: String,

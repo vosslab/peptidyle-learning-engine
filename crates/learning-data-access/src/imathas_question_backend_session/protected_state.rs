@@ -328,12 +328,12 @@ pub(super) fn imathas_question_backend_state_aad(
             .to_be_bytes(),
         session
             .imathas_question_backend_binding
-            .deployment_reference()
+            .deployment_id()
             .as_str()
             .as_bytes(),
         session
             .imathas_question_backend_binding
-            .item_reference()
+            .item_id()
             .as_str()
             .as_bytes(),
         session.source_object.as_uuid().as_bytes().as_slice(),

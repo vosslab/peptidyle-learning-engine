@@ -7,9 +7,7 @@ use std::path::{Component, Path, PathBuf};
 use adapter_ple::question_json::PleQuestionJsonDocument;
 use anyhow::{Context, Result, bail};
 use question_model::QuestionFormat;
-use question_model::response::{
-    QuestionType, ResponseItemId, StudentMatch, StudentResponse,
-};
+use question_model::response::{QuestionType, ResponseItemId, StudentMatch, StudentResponse};
 use serde::Deserialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};

@@ -180,7 +180,7 @@ fn push_public_response_items<T: PresentedResponseItemContent>(
 
 fn push_public_item(
     target: &mut Vec<ResponseItemBinding>,
-    presentation_response_item_reference: PresentationResponseItemId,
+    presentation_response_item_id: PresentationResponseItemId,
     role: ResponseItemRole,
     content: Vec<QuestionContentBlock>,
     assets: &[QuestionAssetRendition],
@@ -190,10 +190,10 @@ fn push_public_item(
     let ordinal = u32::try_from(target.len()).map_err(|_| PresentationBuildError::TooManyItems)?;
     let item_assets = content_assets(&content, assets)?;
     target.push(ResponseItemBinding {
-        presentation_response_item_reference,
+        presentation_response_item_id,
         role,
         ordinal,
-        response_item_reference: None,
+        response_item_id: None,
         basis: ResponseItemBasis {
             role,
             ordinal,

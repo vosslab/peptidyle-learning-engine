@@ -20,7 +20,7 @@ import type {
 } from "../profile_avatar";
 import type { ProfileSettings, UpdateAccountSettingsInput } from "../profile_settings";
 import type { StudentQuestionAttempt } from "../contracts";
-import { questionReferencePath, questionSearchPath } from "../question_search_query";
+import { questionIdPath, questionSearchPath } from "../question_search_query";
 import {
   decodeStudentAssessmentPage,
   decodeAssessmentAttempt,
@@ -492,8 +492,8 @@ export function createResponseClient(
         questionSearchPath(query),
         decodeQuestionSearchPage,
       ),
-    resolveQuestion: (displayReference: string): Promise<QuestionSummary> => {
-      const path = questionReferencePath(displayReference);
+    resolveQuestion: (questionId: string): Promise<QuestionSummary> => {
+      const path = questionIdPath(questionId);
       return requestJson(fetchImplementation, basePath, path, decodeQuestionLineageView).then(
         (lineage) => lineage.summary,
       );

@@ -105,7 +105,7 @@ pub fn descriptor_bytes(
     encoder.question_response_format(&presentation.presentation.response, presentation)?;
     encoder.u32_len(presentation.item_bindings.len())?;
     for item in &presentation.item_bindings {
-        encoder.u16(item.presentation_response_item_reference.as_u16());
+        encoder.u16(item.presentation_response_item_id.as_u16());
         let basis = item_basis_bytes(&item.basis)?;
         encoder.bytes(&basis)?;
     }
@@ -499,7 +499,7 @@ fn ordinal_for(
     presentation
         .item_bindings
         .iter()
-        .find(|item| item.presentation_response_item_reference == *id && item.role == role)
+        .find(|item| item.presentation_response_item_id == *id && item.role == role)
         .map(|item| item.ordinal)
         .ok_or(PresentationBuildError::DescriptorEncoding(
             "Question Response Format refers to an unknown Presentation Response Item ID",

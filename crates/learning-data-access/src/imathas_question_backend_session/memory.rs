@@ -135,8 +135,8 @@ impl ImathasQuestionBackendSessionStore for MemoryImathasQuestionBackendSessionS
         if create.issued_at > state.now || create.expires_at <= state.now {
             return Err(StoreError::Conflict);
         }
-        let reference = ImathasQuestionBackendSessionId::generate()?;
-        let (session, plaintext) = create.into_session(reference);
+        let session_id = ImathasQuestionBackendSessionId::generate()?;
+        let (session, plaintext) = create.into_session(session_id);
         let cipher = ImathasQuestionBackendStateCipher::seal(&self.key_ring, &session, &plaintext)?;
         if !state
             .used_nonces
@@ -145,16 +145,16 @@ impl ImathasQuestionBackendSessionStore for MemoryImathasQuestionBackendSessionS
             return Err(StoreError::Conflict);
         }
         state.records.insert(
-            reference,
+            session_id,
             MemoryImathasQuestionBackendSessionRecord { session, cipher },
         );
-        Ok(reference)
+        Ok(session_id)
     }
 
     async fn load_imathas_question_backend_session(
         &self,
         token: SessionTokenHash,
-        reference: ImathasQuestionBackendSessionId,
+        session_id: ImathasQuestionBackendSessionId,
         expectation: ImathasQuestionBackendSessionRestoreExpectation,
     ) -> Result<LoadedImathasQuestionBackendSession, StoreError> {
         let state = self.state.lock().map_err(|_| {
@@ -162,7 +162,7 @@ impl ImathasQuestionBackendSessionStore for MemoryImathasQuestionBackendSessionS
                 "memory iMathAS Question Backend Session store lock unavailable".into(),
             )
         })?;
-        let record = state.records.get(&reference).ok_or(StoreError::NotFound)?;
+        let record = state.records.get(&session_id).ok_or(StoreError::NotFound)?;
         let session = &record.session;
         Self::authorize(
             &state,

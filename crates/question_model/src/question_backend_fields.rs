@@ -20,9 +20,7 @@ pub enum ImathasQuestionBackendBindingError {
 impl std::fmt::Display for ImathasQuestionBackendBindingError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::InvalidDeploymentId => {
-                formatter.write_str("iMathAS deployment ID is invalid")
-            }
+            Self::InvalidDeploymentId => formatter.write_str("iMathAS deployment ID is invalid"),
             Self::InvalidItemId => formatter.write_str("iMathAS item ID is invalid"),
             Self::InvalidProfile => formatter.write_str("iMathAS profile is invalid"),
         }
@@ -142,30 +140,30 @@ impl From<ImathasProfile> for String {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ImathasQuestionBackendBinding {
-    deployment_reference: ImathasDeploymentId,
-    item_reference: ImathasItemId,
+    deployment_id: ImathasDeploymentId,
+    item_id: ImathasItemId,
     profile: ImathasProfile,
 }
 
 impl ImathasQuestionBackendBinding {
     pub fn new(
-        deployment_reference: ImathasDeploymentId,
-        item_reference: ImathasItemId,
+        deployment_id: ImathasDeploymentId,
+        item_id: ImathasItemId,
         profile: ImathasProfile,
     ) -> Self {
         Self {
-            deployment_reference,
-            item_reference,
+            deployment_id,
+            item_id,
             profile,
         }
     }
 
-    pub fn deployment_reference(&self) -> &ImathasDeploymentId {
-        &self.deployment_reference
+    pub fn deployment_id(&self) -> &ImathasDeploymentId {
+        &self.deployment_id
     }
 
-    pub fn item_reference(&self) -> &ImathasItemId {
-        &self.item_reference
+    pub fn item_id(&self) -> &ImathasItemId {
+        &self.item_id
     }
 
     pub fn profile(&self) -> &ImathasProfile {
@@ -177,27 +175,24 @@ impl ImathasQuestionBackendBinding {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct DraftImathasQuestionBackendBinding {
-    deployment_reference: ImathasDeploymentId,
-    item_reference: ImathasItemId,
+    deployment_id: ImathasDeploymentId,
+    item_id: ImathasItemId,
 }
 
 impl DraftImathasQuestionBackendBinding {
-    pub fn new(
-        deployment_reference: ImathasDeploymentId,
-        item_reference: ImathasItemId,
-    ) -> Self {
+    pub fn new(deployment_id: ImathasDeploymentId, item_id: ImathasItemId) -> Self {
         Self {
-            deployment_reference,
-            item_reference,
+            deployment_id,
+            item_id,
         }
     }
 
-    pub fn deployment_reference(&self) -> &ImathasDeploymentId {
-        &self.deployment_reference
+    pub fn deployment_id(&self) -> &ImathasDeploymentId {
+        &self.deployment_id
     }
 
-    pub fn item_reference(&self) -> &ImathasItemId {
-        &self.item_reference
+    pub fn item_id(&self) -> &ImathasItemId {
+        &self.item_id
     }
 }
 
@@ -226,7 +221,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn imathas_item_reference_refuses_path_traversal_segments() {
+    fn imathas_item_id_refuses_path_traversal_segments() {
         assert_eq!(
             ImathasItemId::new("item..17"),
             Err(ImathasQuestionBackendBindingError::InvalidItemId)
