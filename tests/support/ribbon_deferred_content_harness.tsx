@@ -139,13 +139,13 @@ export function mountRibbonDeferredContentHarness(target: HTMLElement): Deferred
           return () => Promise.resolve({ avatar: null });
         }
         if (property === "resolveNavigation") {
-          return (reference: string) => {
+          return (id: string) => {
             increment(activeTransportCase(), "resolveNavigation");
-            if (reference.startsWith("A")) {
+            if (id.startsWith("A")) {
               return Promise.resolve({
                 kind: "assessment",
                 courseId: `course-${COURSE_INSTANCE_ID[activeTransportCase()]}`,
-                assessmentId: `assessment-${reference}`,
+                assessmentId: `assessment-${id}`,
               });
             }
             return undefined;

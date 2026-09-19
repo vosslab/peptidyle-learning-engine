@@ -184,8 +184,8 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
                     {(starting) => (
                       <li>
                         <strong>{starting().questionTitle}</strong> (
-                        {starting().questionRevision.questionId}, Revision{" "}
-                        {starting().questionRevision.revisionNumber})
+                        {starting().questionRevisionTuple.questionId}, Revision{" "}
+                        {starting().questionRevisionTuple.revisionNumber})
                       </li>
                     )}
                   </Show>

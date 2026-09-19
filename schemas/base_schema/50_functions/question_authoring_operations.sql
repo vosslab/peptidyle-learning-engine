@@ -197,7 +197,7 @@ BEGIN
        OR p_target_media_type IS DISTINCT FROM source_record.media_type
        OR source_record.object_address IS DISTINCT FROM pg_catalog.jsonb_build_object(
            'kind', 'questionSource',
-           'questionRevision', pg_catalog.jsonb_build_object(
+           'questionRevisionTuple', pg_catalog.jsonb_build_object(
                'questionId', p_source_question_id,
                'revisionNumber', p_source_revision_number),
            'object', source_binding.source_object_record_id)
@@ -228,7 +228,7 @@ BEGIN
            AND publication.revision_number = p_source_revision_number
            AND record.object_address = pg_catalog.jsonb_build_object(
                'kind', 'restrictedQuestionAsset',
-               'questionRevision', pg_catalog.jsonb_build_object(
+               'questionRevisionTuple', pg_catalog.jsonb_build_object(
                    'questionId', p_source_question_id,
                    'revisionNumber', p_source_revision_number),
                'asset', publication.asset_id,

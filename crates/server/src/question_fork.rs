@@ -117,13 +117,13 @@ async fn fork_published_question(
             );
         }
     };
-    let source_question_revision = match canonical_source(question_id, revision_number) {
+    let source_question_revision_tuple = match canonical_source(question_id, revision_number) {
         Some(value) => value,
         None => return concealed(),
     };
     let library_entry = match state
         .library
-        .load_published_question_revision_library_entry(session, &source_question_revision)
+        .load_published_question_revision_library_entry(session, &source_question_revision_tuple)
         .await
     {
         Ok(value) => value,
@@ -131,7 +131,7 @@ async fn fork_published_question(
     };
     let source = match ResolvedQuestionSource::resolve(
         &state.objects,
-        source_question_revision.clone(),
+        source_question_revision_tuple.clone(),
         library_entry.source_object_id.clone(),
         library_entry.source_object_checksum.clone(),
     )
@@ -152,7 +152,7 @@ async fn fork_published_question(
         &state,
         session,
         &library_entry,
-        &source_question_revision,
+        &source_question_revision_tuple,
         source.bytes(),
     )
     .await
@@ -199,7 +199,7 @@ async fn fork_published_question(
         .as_ref()
         .map(|asset| asset.target_record.address.clone());
     let input = ForkPublishedQuestionInput {
-        source_question_revision: source_question_revision.clone(),
+        source_question_revision_tuple: source_question_revision_tuple.clone(),
         workspace,
         proposed_draft_question_id,
         target_source_record,

@@ -102,7 +102,7 @@ fn grading_context_authentication_payload_v1_has_the_locked_row_530_bytes() {
         QuestionAttemptId::from_uuid(Uuid::from_u128(4))
     );
     assert_eq!(
-        context.question_revision().question_id.to_string(),
+        context.question_revision_tuple().question_id.to_string(),
         "1234-H567"
     );
     assert_eq!(context.question_seed(), QuestionSeed::new(7));
@@ -239,7 +239,10 @@ async fn memory_oracle_refuses_every_changed_imathas_question_backend_grading_co
     let contexts = [
         ImathasGradingContext::new(
             QuestionAttemptId::from_uuid(Uuid::from_u128(40)),
-            expectation.grading_context.question_revision().clone(),
+            expectation
+                .grading_context
+                .question_revision_tuple()
+                .clone(),
             expectation.grading_context.question_seed(),
         ),
         ImathasGradingContext::new(
@@ -249,7 +252,10 @@ async fn memory_oracle_refuses_every_changed_imathas_question_backend_grading_co
         ),
         ImathasGradingContext::new(
             expectation.grading_context.question_attempt(),
-            expectation.grading_context.question_revision().clone(),
+            expectation
+                .grading_context
+                .question_revision_tuple()
+                .clone(),
             QuestionSeed::new(70),
         ),
     ];

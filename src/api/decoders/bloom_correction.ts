@@ -16,11 +16,11 @@ export function decodeQuestionBloomCorrectionReceipt(
   path: string,
 ): QuestionBloomCorrectionReceipt {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["questionRevision", "bloom"]);
+  requireOnlyFields(record, path, ["questionRevisionTuple", "bloom"]);
   return {
-    questionRevision: decodeQuestionRevisionTuple(
-      field(record, "questionRevision", path),
-      `${path}.questionRevision`,
+    questionRevisionTuple: decodeQuestionRevisionTuple(
+      field(record, "questionRevisionTuple", path),
+      `${path}.questionRevisionTuple`,
     ),
     bloom: decodeBloomClassificationView(field(record, "bloom", path), `${path}.bloom`),
   };

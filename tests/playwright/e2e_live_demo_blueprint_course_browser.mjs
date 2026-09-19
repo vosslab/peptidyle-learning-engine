@@ -24,8 +24,8 @@ const context = await browser.newContext();
 const page = await context.newPage();
 const createPath = /^\/api\/course-blueprints$/u;
 
-function blueprintSavePath(reference) {
-  return new RegExp(`^/api/course-blueprints/${reference}$`, "u");
+function blueprintSavePath(blueprintCourseId) {
+  return new RegExp(`^/api/course-blueprints/${blueprintCourseId}$`, "u");
 }
 
 async function openAssignmentEditor(target) {
@@ -187,13 +187,13 @@ try {
     await discoveryContext.close();
   }
 
-  const reference = page.url().match(/\/blueprint-courses\/(BP-[1-9][0-9]*)$/u)?.[1];
-  if (reference === undefined)
-    throw new Error("Blueprint Course route did not expose its reference");
-  const savePath = blueprintSavePath(reference);
-  const metadataPath = new RegExp(`^/api/course-blueprints/${reference}/metadata$`, "u");
-  const archivePath = new RegExp(`^/api/course-blueprints/${reference}/archive$`, "u");
-  const restorePath = new RegExp(`^/api/course-blueprints/${reference}/restore$`, "u");
+  const blueprintCourseId = page.url().match(/\/blueprint-courses\/(BP-[1-9][0-9]*)$/u)?.[1];
+  if (blueprintCourseId === undefined)
+    throw new Error("Blueprint Course route did not expose its ID");
+  const savePath = blueprintSavePath(blueprintCourseId);
+  const metadataPath = new RegExp(`^/api/course-blueprints/${blueprintCourseId}/metadata$`, "u");
+  const archivePath = new RegExp(`^/api/course-blueprints/${blueprintCourseId}/archive$`, "u");
+  const restorePath = new RegExp(`^/api/course-blueprints/${blueprintCourseId}/restore$`, "u");
   await openAssignmentEditor(page);
   const save = page.getByRole("button", { name: "Save Blueprint Course", exact: true });
   if (!(await save.isDisabled())) throw new Error("Save was enabled for clean Revision 1 content");
@@ -368,7 +368,7 @@ try {
   await page.getByRole("link", { name: renamedLongName }).waitFor();
 
   await page.goForward();
-  await page.waitForURL(new RegExp(`/blueprint-courses/${reference}$`, "u"));
+  await page.waitForURL(new RegExp(`/blueprint-courses/${blueprintCourseId}$`, "u"));
   await openAssignmentEditor(page);
   await assignmentTitle.fill(`Reload guard ${runId}`);
   await expectBeforeUnload(page, () => page.reload({ waitUntil: "domcontentloaded" }));

@@ -39,8 +39,7 @@ async function loadDecisionDetailsForSsr() {
 
 test("Student detail adapts available entries and Question Pool selections without exposing source identities", () => {
   const presentation = toStudentAssessmentPresentationData({
-    id: "assessment-1",
-    reference: "A7K3M2QAS",
+    id: "A7K3M2QAS",
     title: "Protein structure",
     instructions: "Use your notes.",
     display_time_zone: "America/New_York",

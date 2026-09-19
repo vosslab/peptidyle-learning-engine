@@ -365,7 +365,7 @@ mod tests {
         QuestionSearchResult {
             summary: QuestionSummary {
                 question_id: question_id(),
-                question_revision: QuestionRevisionTuple {
+                question_revision_tuple: QuestionRevisionTuple {
                     question_id: question_id(),
                     revision_number: QuestionRevisionNumber::new(1).expect("positive version"),
                 },
@@ -403,7 +403,7 @@ mod tests {
 
     #[test]
     fn curriculum_references_round_trip_as_compact_wire_values() {
-        let blueprint: BlueprintCourseId = "BP7K3M2QXH".parse().expect("valid reference");
+        let blueprint: BlueprintCourseId = "BP7K3M2QXH".parse().expect("valid Blueprint Course ID");
         assert_eq!(
             serde_json::to_value(blueprint).expect("serializes"),
             "BP7K3M2QXH"
@@ -484,7 +484,7 @@ mod tests {
             availability: crate::BlueprintAvailability::Public,
             blueprint_edit_number: crate::BlueprintEditNumber::from_edit_number(42),
             current_revision: crate::BlueprintRevisionTuple {
-                blueprint_course_id: "BP7K3M2QXH".parse().expect("valid reference"),
+                blueprint_course_id: "BP7K3M2QXH".parse().expect("valid Blueprint Course ID"),
                 revision: BlueprintRevision::INITIAL,
             },
             read_access: BlueprintCourseReadAccess::ActiveInstructor,
@@ -501,7 +501,9 @@ mod tests {
                         entries: vec![
                             BlueprintAssessmentEntryView::Fixed {
                                 question: ReusableQuestionView {
-                                    question_revision: discovery().summary.question_revision,
+                                    question_revision_tuple: discovery()
+                                        .summary
+                                        .question_revision_tuple,
                                     question_library: discovery(),
                                     selection_availability:
                                         ReusableSelectionAvailability::Available,

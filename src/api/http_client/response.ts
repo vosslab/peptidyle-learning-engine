@@ -608,10 +608,10 @@ export function createResponseClient(
       ),
     fetchCourseBanner: (bannerId) =>
       fetchCourseBanner(fetchImplementation, basePath, bannerId),
-    assetUrl: (questionRevision, assetId) =>
+    assetUrl: (questionRevisionTuple, assetId) =>
       requestPath(
         basePath,
-        `/api/questions/${encodedId(questionRevision.questionId)}/revisions/${questionRevision.revisionNumber}/assets/${encodedId(assetId)}`,
+        `/api/questions/${encodedId(questionRevisionTuple.questionId)}/revisions/${questionRevisionTuple.revisionNumber}/assets/${encodedId(assetId)}`,
       ),
   };
 }

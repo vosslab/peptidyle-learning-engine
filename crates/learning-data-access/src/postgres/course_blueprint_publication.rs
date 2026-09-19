@@ -178,7 +178,7 @@ fn decode_receipt(
     actor: AccountId,
     request_checksum: RequestChecksum,
 ) -> Result<CreateBlueprintCourseReceipt, StoreError> {
-    let reference = row
+    let blueprint_course_id = row
         .try_get::<String, _>("blueprint_course_id")
         .map_err(map_sqlx_error)?
         .parse::<BlueprintCourseId>()
@@ -191,8 +191,8 @@ fn decode_receipt(
     .and_then(BlueprintRevision::new)
     .ok_or_else(|| invalid("Blueprint Revision"))?;
     Ok(CreateBlueprintCourseReceipt {
-        blueprint_revision: BlueprintRevisionTuple {
-            blueprint_course_id: reference,
+        blueprint_revision_tuple: BlueprintRevisionTuple {
+            blueprint_course_id: blueprint_course_id,
             revision,
         },
         blueprint_edit_number: BlueprintEditNumber::from_edit_number(

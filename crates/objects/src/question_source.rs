@@ -7,7 +7,7 @@ use crate::{ObjectAddress, ObjectStore, ObjectStoreError};
 /// Immutable Question Source bytes resolved from the exact typed Object Address.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResolvedQuestionSource {
-    question_revision: QuestionRevisionTuple,
+    question_revision_tuple: QuestionRevisionTuple,
     source_object_id: ObjectId,
     source_object_checksum: SourceObjectChecksum,
     media_type: String,
@@ -18,12 +18,12 @@ impl ResolvedQuestionSource {
     /// Reads one trusted immutable Question Source and verifies every stored fact.
     pub async fn resolve<S: ObjectStore>(
         store: &S,
-        question_revision: QuestionRevisionTuple,
+        question_revision_tuple: QuestionRevisionTuple,
         source_object_id: ObjectId,
         source_object_checksum: SourceObjectChecksum,
     ) -> Result<Self, QuestionSourceResolutionError> {
         let expected_address = ObjectAddress::QuestionSource {
-            question_revision: question_revision.clone(),
+            question_revision_tuple: question_revision_tuple.clone(),
             object: source_object_id,
         };
         let stored = store
@@ -32,13 +32,13 @@ impl ResolvedQuestionSource {
             .map_err(QuestionSourceResolutionError::ObjectStore)?;
         if stored.record.address != expected_address
             || stored.record.id != source_object_id
-            || stored.record.question_revision != Some(question_revision.clone())
+            || stored.record.question_revision_tuple != Some(question_revision_tuple.clone())
             || stored.record.sha256.to_string() != source_object_checksum.as_str()
         {
             return Err(QuestionSourceResolutionError::UntrustedObjectRecord);
         }
         Ok(Self {
-            question_revision,
+            question_revision_tuple,
             source_object_id,
             source_object_checksum,
             media_type: stored.record.media_type,
@@ -47,8 +47,8 @@ impl ResolvedQuestionSource {
     }
 
     /// Exact Question Revision that owns these source bytes.
-    pub fn question_revision(&self) -> &QuestionRevisionTuple {
-        &self.question_revision
+    pub fn question_revision_tuple(&self) -> &QuestionRevisionTuple {
+        &self.question_revision_tuple
     }
 
     /// Immutable Object Record that identifies these source bytes.
@@ -101,7 +101,7 @@ mod tests {
 
     use super::*;
 
-    fn question_revision() -> QuestionRevisionTuple {
+    fn question_revision_tuple() -> QuestionRevisionTuple {
         QuestionRevisionTuple {
             question_id: QuestionId::from_random_identifier("ABCDEFG").expect("valid Question ID"),
             revision_number: QuestionRevisionNumber::new(1).expect("positive revision"),
@@ -111,13 +111,13 @@ mod tests {
     #[tokio::test]
     async fn resolve_returns_only_the_exact_immutable_question_source() {
         let store = MemoryObjectStore::default();
-        let question_revision = question_revision();
+        let question_revision_tuple = question_revision_tuple();
         let source_object_id = ObjectId::from_uuid(Uuid::from_u128(9));
         let bytes = br#"{\"format\":\"pleQuestionJson\"}"#.to_vec();
         let record = store
             .put(PutObject {
                 address: ObjectAddress::QuestionSource {
-                    question_revision: question_revision.clone(),
+                    question_revision_tuple: question_revision_tuple.clone(),
                     object: source_object_id,
                 },
                 bytes: bytes.clone(),
@@ -131,14 +131,14 @@ mod tests {
 
         let resolved = ResolvedQuestionSource::resolve(
             &store,
-            question_revision.clone(),
+            question_revision_tuple.clone(),
             source_object_id.clone(),
             source_object_checksum.clone(),
         )
         .await
         .expect("matching source should resolve");
 
-        assert_eq!(resolved.question_revision(), &question_revision);
+        assert_eq!(resolved.question_revision_tuple(), &question_revision_tuple);
         assert_eq!(resolved.source_object_id(), &source_object_id);
         assert_eq!(resolved.source_object_checksum(), &source_object_checksum);
         assert_eq!(
@@ -151,12 +151,12 @@ mod tests {
     #[tokio::test]
     async fn resolve_refuses_a_mismatched_source_checksum() {
         let store = MemoryObjectStore::default();
-        let question_revision = question_revision();
+        let question_revision_tuple = question_revision_tuple();
         let source_object_id = ObjectId::from_uuid(Uuid::from_u128(10));
         store
             .put(PutObject {
                 address: ObjectAddress::QuestionSource {
-                    question_revision: question_revision.clone(),
+                    question_revision_tuple: question_revision_tuple.clone(),
                     object: source_object_id,
                 },
                 bytes: b"trusted bytes".to_vec(),
@@ -169,7 +169,7 @@ mod tests {
         assert_eq!(
             ResolvedQuestionSource::resolve(
                 &store,
-                question_revision,
+                question_revision_tuple,
                 source_object_id,
                 SourceObjectChecksum::parse("a".repeat(64)).expect("canonical checksum"),
             )

@@ -200,7 +200,7 @@ impl WebworkRenderer for HttpWebworkRenderer {
         let render_request = RenderRequest {
             pg_source: request.pg_source,
             pg_path: request.pg_path,
-            question_revision: request.question_revision,
+            question_revision_tuple: request.question_revision_tuple,
             seed: request.seed,
         };
         validate_render_request(render_request)?;
@@ -243,7 +243,7 @@ impl WebworkRenderer for HttpWebworkRenderer {
         validate_render_request(RenderRequest {
             pg_source: request.pg_source,
             pg_path: request.pg_path,
-            question_revision: request.question_revision,
+            question_revision_tuple: request.question_revision_tuple,
             seed: request.seed,
         })?;
         if request.lifecycle_state.as_deref().is_some() {
@@ -253,7 +253,7 @@ impl WebworkRenderer for HttpWebworkRenderer {
             RenderRequest {
                 pg_source: request.pg_source,
                 pg_path: request.pg_path,
-                question_revision: request.question_revision,
+                question_revision_tuple: request.question_revision_tuple,
                 seed: request.seed,
             },
             &self.settings.ple_origin,

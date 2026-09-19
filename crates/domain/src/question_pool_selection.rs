@@ -137,7 +137,7 @@ mod tests {
             question_pool_id: QuestionId::from_random_identifier("7K3M9QP").expect("Pool ID"),
             question_pool_edit_number: QuestionPoolEditNumber::new(1).expect("edit number"),
             member_position: number,
-            question_revision: QuestionRevisionTuple {
+            question_revision_tuple: QuestionRevisionTuple {
                 question_id: QuestionId::from_random_identifier(format!("7K3M9Q{number}"))
                     .expect("valid Question ID"),
                 revision_number: QuestionRevisionNumber::new(1).expect("positive version"),

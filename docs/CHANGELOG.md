@@ -10,6 +10,57 @@
 
 ### Fixes and Maintenance
 
+- Finish remaining identity alignment for living UI copy, decoder
+  errors, and route Path/store locals that still named an Id or Tuple as
+  a Reference. Tuple-valued JSON fields are `questionRevisionTuple` and
+  `blueprintRevisionTuple`. Course Instance fixtures use
+  `COURSE_INSTANCE_ID`. QTI package locators are paths. Remaining living
+  `reference` hits are leftover-rejection, SQL `REFERENCES`, English
+  prose, Playwright “Reference images”, or living-doc term definitions.
+  Gate:
+  `cargo test -p question_model --lib revision_tuple`,
+  `cargo test -p objects --lib object_record_json_shape`,
+  `cargo test -p browser-api-contract --lib selected_presentation`,
+  `node --import tsx --test tests/test_question_revision_tuple_decoder.mjs
+  tests/test_question_pool_metadata.mjs
+  tests/test_question_picker_blueprint_course.mjs
+  tests/test_course_appearance_view_client.mjs
+  tests/test_course_summary_client.mjs
+  tests/test_route_params.mjs`,
+  `cargo tsgen`, `npx tsc --noEmit -p tsconfig.json`.
+
+- Name Tuple-valued JSON fields `questionRevisionTuple` and
+  `blueprintRevisionTuple`, including object-address JSON in SQL, Live Demo
+  publication mapping, and generated browser types. Leftover `reference`
+  locals, parameters, comments, and test keys that held an Id or Tuple now
+  use Id, Tuple, or Path names, including `blueprint_course_id` store
+  parameters, route Path locals, and `COURSE_INSTANCE_ID` fixtures. QTI
+  package locators are paths. Gate:
+  `cargo test -p question_model --lib revision_tuple`,
+  `cargo test -p objects --lib object_record_json_shape`,
+  `cargo test -p browser-api-contract --lib selected_presentation`,
+  `node --import tsx --test tests/test_question_revision_tuple_decoder.mjs
+  tests/test_question_pool_metadata.mjs
+  tests/test_question_picker_blueprint_course.mjs`,
+  `cargo tsgen`, `npx tsc --noEmit -p tsconfig.json`.
+
+- Finish remaining identity contract shape. Blueprint Revision Tuple JSON
+  is `{blueprintCourseId, revisionNumber}` everywhere on current contracts,
+  matching Question Revision Tuple `{questionId, revisionNumber}`. Leftover
+  SQL/Rust holders `read_active_student_assessment_attempt_reference`,
+  `import_assessment_question_pool_fork_for_reference`,
+  `question_revision_reference`, and `row_reference` are Id/Tuple names.
+  Support repair locators are `resource_path` / `resourcePath`. Import
+  item locators are `source_item_key`. Naming Conventions now states JSON
+  identity and Tuple members are camelCase. Gate:
+  `cargo test -p question_model --lib revision_tuple`,
+  `node --import tsx --test tests/test_question_revision_tuple_decoder.mjs
+  tests/test_blueprint_course_client.mjs
+  tests/test_live_assignment_release_validation.mjs`,
+  `cargo tsgen`, `npx tsc --noEmit -p tsconfig.json`,
+  `python3 devel/generate_schema_tables_doc.py &&
+  python3 schema_style/check_schema_style.py`.
+
 - Align identity names with Human Guidance. One canonical object identity
   is an Id (`CourseInstanceId`, `ResponseItemId`, `CourseBannerUploadId`,
   `ImathasDeploymentId`). Multiple values that together identify one exact

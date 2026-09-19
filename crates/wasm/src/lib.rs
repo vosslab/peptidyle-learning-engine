@@ -242,7 +242,7 @@ mod tests {
     #[test]
     fn presentation_verification_uses_the_rust_descriptor_codec() {
         let presentation = r#"{
-            "questionRevision":{"questionId":"ABCD-XEFG","revisionNumber":1},
+            "questionRevisionTuple":{"questionId":"ABCD-XEFG","revisionNumber":1},
             "presentationNonce":"11111111111111111111111111111111",
             "questionTitle":"Peptide bond",
             "prompt":[{"kind":"text","markdown":"Which group forms the peptide bond?"}],

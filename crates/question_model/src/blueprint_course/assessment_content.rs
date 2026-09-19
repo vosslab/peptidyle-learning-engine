@@ -225,7 +225,7 @@ pub enum ReusableSelectionAvailability {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ReusableQuestionView {
     /// Exact stored published Question Revision; never inferred from a library head.
-    pub question_revision: QuestionRevisionTuple,
+    pub question_revision_tuple: QuestionRevisionTuple,
     /// Public Question Library metadata and disclosed evidence for the stored Revision.
     pub question_library: QuestionSearchResult,
     /// Whether the stored exact member remains selectable for a new copy.

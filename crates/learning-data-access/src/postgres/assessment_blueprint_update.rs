@@ -252,13 +252,13 @@ fn public_content(member: &StoredBlueprintAssessment) -> AssessmentBlueprintUpda
             .iter()
             .map(|entry| match entry {
                 StoredBlueprintAssessmentEntry::Fixed {
-                    question_revision,
+                    question_revision_tuple,
                     points_possible,
                     scoring_rule,
                     question_attempt_limit,
                     question_attempt_time_limit,
                 } => AssessmentBlueprintUpdateEntry::FixedQuestion {
-                    question_revision: question_revision.clone(),
+                    question_revision_tuple: question_revision_tuple.clone(),
                     points_possible: *points_possible,
                     scoring_rule: *scoring_rule,
                     question_attempt_limit: *question_attempt_limit,

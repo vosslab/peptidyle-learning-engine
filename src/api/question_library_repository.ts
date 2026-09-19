@@ -241,7 +241,7 @@ export function createQuestionLibraryRepository(
       return {
         items: page.items.map((item) => ({
           displayId: item.summary.questionId,
-          questionRevision: item.summary.questionRevision,
+          questionRevisionTuple: item.summary.questionRevisionTuple,
           questionTitle: item.summary.metadata.questionTitle,
           summary: item.summary.metadata.questionDescription,
           bloom: item.summary.bloom,

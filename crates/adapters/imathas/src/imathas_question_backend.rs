@@ -228,7 +228,7 @@ impl<'a> SnapshotTransportRequest<'a> {
 pub struct RenderTransportRequest<'a> {
     pub(crate) snapshot: &'a [u8],
     pub(crate) deployment_id: &'a str,
-    pub(crate) question_revision: question_model::QuestionRevisionTuple,
+    pub(crate) question_revision_tuple: question_model::QuestionRevisionTuple,
     pub(crate) question_seed: QuestionSeed,
 }
 impl<'a> RenderTransportRequest<'a> {
@@ -238,8 +238,8 @@ impl<'a> RenderTransportRequest<'a> {
     pub fn deployment_id(&self) -> &'a str {
         self.deployment_id
     }
-    pub fn question_revision(&self) -> &question_model::QuestionRevisionTuple {
-        &self.question_revision
+    pub fn question_revision_tuple(&self) -> &question_model::QuestionRevisionTuple {
+        &self.question_revision_tuple
     }
     pub fn question_seed(&self) -> QuestionSeed {
         self.question_seed
@@ -462,7 +462,7 @@ impl<T: ImathasQuestionBackendTransport> ImathasQuestionBackend<T> {
         if validation.imathas_question_backend_binding != *source.binding()
             || validation.source_object != *source.source_object_id()
             || validation.source_object_checksum != *source.source_object_checksum()
-            || grading_context.question_revision() != source.question_revision()
+            || grading_context.question_revision_tuple() != source.question_revision_tuple()
             || validation.expires_at <= now
             || validation
                 .challenge
@@ -627,7 +627,7 @@ impl<T: ImathasQuestionBackendTransport> QuestionBackend for ImathasQuestionBack
             .render_safe(RenderTransportRequest {
                 snapshot: request.snapshot,
                 deployment_id: self.config.profile.deployment_id(),
-                question_revision: request.question_revision,
+                question_revision_tuple: request.question_revision_tuple,
                 question_seed: request.question_seed,
             })
             .await

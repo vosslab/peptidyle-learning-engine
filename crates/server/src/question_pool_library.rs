@@ -402,7 +402,7 @@ async fn pool_members(
             .map_err(|_| unavailable())?;
         views.push(QuestionPoolMemberView {
             member_position: u32::try_from(position).map_err(|_| unavailable())?,
-            question_revision: member,
+            question_revision_tuple: member,
             question,
         });
     }

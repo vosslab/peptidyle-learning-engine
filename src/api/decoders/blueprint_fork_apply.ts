@@ -33,7 +33,7 @@ function copies(
   const sources = result.map((r) => r[sourceField]),
     targets = result.map((r) => r[targetField]).filter((r) => r !== null);
   if (new Set(sources).size !== sources.length || new Set(targets).size !== targets.length)
-    throw new DecodeError(path, "unique source and non-null target references");
+    throw new DecodeError(path, "unique source and non-null target IDs");
   return result;
 }
 
@@ -107,7 +107,7 @@ export function decodeBlueprintForkApplyRequest(
         new Set(modules).size !== modules.length ||
         new Set(assessments).size !== assessments.length
       )
-        throw new DecodeError(inputPath, "globally unique module and Assessment references");
+        throw new DecodeError(inputPath, "globally unique module and Assessment IDs");
       return rows;
     },
   );
@@ -155,11 +155,11 @@ export function decodeBlueprintForkApplyResponse(
   path = "response",
 ): BlueprintForkApplyResponse {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["blueprintRevision", "changed", "metadata"]);
+  requireOnlyFields(record, path, ["blueprintRevisionTuple", "changed", "metadata"]);
   return {
-    blueprintRevision: blueprintRevisionTuple(
-      field(record, "blueprintRevision", path),
-      `${path}.blueprintRevision`,
+    blueprintRevisionTuple: blueprintRevisionTuple(
+      field(record, "blueprintRevisionTuple", path),
+      `${path}.blueprintRevisionTuple`,
     ),
     changed: decodeBoolean(field(record, "changed", path), `${path}.changed`),
     metadata: decodeBlueprintMetadataState(field(record, "metadata", path), `${path}.metadata`),

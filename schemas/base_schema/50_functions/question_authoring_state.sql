@@ -118,7 +118,7 @@ SET search_path = pg_catalog, ple_private AS $$
 DECLARE expected_address jsonb;
 BEGIN
     expected_address := jsonb_build_object('kind', 'questionSource',
-        'questionRevision', jsonb_build_object('questionId', NEW.published_question_id,
+        'questionRevisionTuple', jsonb_build_object('questionId', NEW.published_question_id,
             'revisionNumber', NEW.revision_number), 'object', NEW.source_object_record_id);
     IF NOT EXISTS (SELECT 1 FROM ple_private.object_record AS record
         WHERE record.object_record_id = NEW.source_object_record_id

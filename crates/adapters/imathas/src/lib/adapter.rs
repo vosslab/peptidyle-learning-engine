@@ -43,14 +43,14 @@ impl ResolvedImathasQuestionSource {
     /// Resolves an iMathAS Question Source from its exact immutable object.
     pub async fn resolve<S: ObjectStore>(
         store: &S,
-        question_revision: QuestionRevisionTuple,
+        question_revision_tuple: QuestionRevisionTuple,
         binding: ImathasQuestionBackendBinding,
         source_object_id: ObjectId,
         source_object_checksum: SourceObjectChecksum,
     ) -> Result<Self, ImathasAdapterError> {
         let resolved = ResolvedQuestionSource::resolve(
             store,
-            question_revision,
+            question_revision_tuple,
             source_object_id,
             source_object_checksum,
         )
@@ -64,8 +64,8 @@ impl ResolvedImathasQuestionSource {
     }
 
     /// Exact Question Revision that owns the immutable iMathAS snapshot.
-    pub fn question_revision(&self) -> &QuestionRevisionTuple {
-        self.resolved.question_revision()
+    pub fn question_revision_tuple(&self) -> &QuestionRevisionTuple {
+        self.resolved.question_revision_tuple()
     }
 
     /// SHA-256 evidence for the immutable source bytes.
@@ -164,17 +164,17 @@ impl<S: ObjectStore, P: QuestionBackend> ImathasAdapter<S, P> {
     /// version/seed requests are served from immutable cache storage.
     pub async fn issue(
         &self,
-        question_revision: &QuestionRevisionTuple,
+        question_revision_tuple: &QuestionRevisionTuple,
         seed: QuestionSeed,
         source: &ResolvedImathasQuestionSource,
         created_at: Timestamp,
     ) -> Result<ImathasIssuedAttempt, ImathasAdapterError> {
-        self.verify_render_source(question_revision, source)?;
-        let key = render_key(question_revision, seed);
+        self.verify_render_source(question_revision_tuple, source)?;
+        let key = render_key(question_revision_tuple, seed);
         match self.store.get(&key).await {
             Ok(stored) => {
                 let cached = decode_cache(&stored.bytes)?;
-                validate_cache(&cached, question_revision, seed, source)?;
+                validate_cache(&cached, question_revision_tuple, seed, source)?;
                 return self.issued(cached, source, true);
             }
             Err(ObjectStoreError::NotFound) => {}
@@ -185,7 +185,7 @@ impl<S: ObjectStore, P: QuestionBackend> ImathasAdapter<S, P> {
             .render(ImathasRenderRequest {
                 snapshot: source.bytes(),
                 profile: source.binding.profile().as_str(),
-                question_revision: question_revision.clone(),
+                question_revision_tuple: question_revision_tuple.clone(),
                 question_seed: seed,
             })
             .await
@@ -199,7 +199,7 @@ impl<S: ObjectStore, P: QuestionBackend> ImathasAdapter<S, P> {
             presentation: QuestionVariationPresentation {
                 variation:
                     question_model::QuestionVariation::from_question_revision_and_question_seed(
-                        question_revision.clone(),
+                        question_revision_tuple.clone(),
                         seed,
                         parameter_hash(seed),
                     ),
@@ -210,7 +210,7 @@ impl<S: ObjectStore, P: QuestionBackend> ImathasAdapter<S, P> {
                 author_content: None,
             },
         };
-        validate_cache(&record, question_revision, seed, source)?;
+        validate_cache(&record, question_revision_tuple, seed, source)?;
         let bytes = serde_json::to_vec(&record).map_err(|_| ImathasAdapterError::InvalidCache)?;
         match self
             .store
@@ -230,7 +230,7 @@ impl<S: ObjectStore, P: QuestionBackend> ImathasAdapter<S, P> {
                     .await
                     .map_err(ImathasAdapterError::ObjectStore)?;
                 let cached = decode_cache(&stored.bytes)?;
-                validate_cache(&cached, question_revision, seed, source)?;
+                validate_cache(&cached, question_revision_tuple, seed, source)?;
                 self.issued(cached, source, true)
             }
             Err(error) => Err(ImathasAdapterError::ObjectStore(error)),
@@ -243,17 +243,17 @@ impl<S: ObjectStore, P: QuestionBackend> ImathasAdapter<S, P> {
     /// Title and Prompt defined by [`crate::SafeImathasQuestionRender`].
     pub async fn preview(
         &self,
-        question_revision: &QuestionRevisionTuple,
+        question_revision_tuple: &QuestionRevisionTuple,
         seed: QuestionSeed,
         source: &ResolvedImathasQuestionSource,
     ) -> Result<crate::SafeImathasQuestionRender, ImathasAdapterError> {
-        self.verify_render_source(question_revision, source)?;
+        self.verify_render_source(question_revision_tuple, source)?;
         let safe = self
             .question_backend
             .render(ImathasRenderRequest {
                 snapshot: source.bytes(),
                 profile: source.binding.profile().as_str(),
-                question_revision: question_revision.clone(),
+                question_revision_tuple: question_revision_tuple.clone(),
                 question_seed: seed,
             })
             .await
@@ -263,12 +263,12 @@ impl<S: ObjectStore, P: QuestionBackend> ImathasAdapter<S, P> {
 
     fn verify_render_source(
         &self,
-        question_revision: &QuestionRevisionTuple,
+        question_revision_tuple: &QuestionRevisionTuple,
         source: &ResolvedImathasQuestionSource,
     ) -> Result<(), ImathasAdapterError> {
         // ASVS 2.2.1 and 2.2.2: enforce the revision binding and configured profile at the
         // trusted adapter boundary before archived source reaches the backend renderer.
-        verify_binding(question_revision, source)?;
+        verify_binding(question_revision_tuple, source)?;
         if !self.profiles.contains(source.binding.profile()) {
             return Err(ImathasAdapterError::UnsupportedProfile);
         }
@@ -333,7 +333,7 @@ impl<S: ObjectStore, P: QuestionBackend> ImathasAdapter<S, P> {
         grading_context: &learning_data_access::ImathasGradingContext,
         launch_session_authentication: &learning_data_access::ImathasQuestionBackendSessionAuthentication,
     ) -> Result<VerifiedImathasResult, ImathasAdapterError> {
-        if grading_context.question_revision() != source.question_revision() {
+        if grading_context.question_revision_tuple() != source.question_revision_tuple() {
             return Err(ImathasAdapterError::VerificationRefused);
         }
         let verdict = self

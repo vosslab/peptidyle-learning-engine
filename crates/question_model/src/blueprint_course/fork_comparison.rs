@@ -72,9 +72,9 @@ pub struct BlueprintComparison {
 /// Cannot retain all side-local handles or resolve trusted exact Pool members.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BlueprintComparisonError {
-    /// A module reference repeats within one side.
+    /// A module ID repeats within one side.
     DuplicateModuleId,
-    /// An Assessment reference repeats within one side.
+    /// An Assessment ID repeats within one side.
     DuplicateAssessmentId,
     /// A referenced Pool has no supplied membership.
     MissingPoolMembership,
@@ -173,9 +173,10 @@ fn inventory(
             for entry in assessment.entries() {
                 match entry {
                     BlueprintAssessmentEntryContent::Fixed {
-                        question_revision, ..
+                        question_revision_tuple,
+                        ..
                     } => {
-                        question_ids.insert(question_revision.question_id.clone());
+                        question_ids.insert(question_revision_tuple.question_id.clone());
                     }
                     BlueprintAssessmentEntryContent::Pool(pool) => {
                         let members = pool_memberships

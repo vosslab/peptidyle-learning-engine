@@ -137,7 +137,7 @@ pub struct ObjectRecord {
     /// Media type verified by the owning import or render path.
     pub media_type: String,
     /// Exact Question Revision associated with content, when one exists.
-    pub question_revision: Option<QuestionRevisionTuple>,
+    pub question_revision_tuple: Option<QuestionRevisionTuple>,
     /// Server-supplied creation timestamp.
     pub created_at: Timestamp,
 }
@@ -273,7 +273,7 @@ mod tests {
 
     #[test]
     fn object_record_json_shape_uses_canonical_hex_checksum() {
-        let question_revision = QuestionRevisionTuple {
+        let question_revision_tuple = QuestionRevisionTuple {
             question_id: QuestionId::from_random_identifier("ABCDEFG")
                 .expect("canonical Question ID"),
             revision_number: QuestionRevisionNumber::new(2)
@@ -285,13 +285,13 @@ mod tests {
             storage_area: ObjectStorageArea::PrivateContent,
             data_class: ObjectDataClass::QuestionSource,
             address: ObjectAddress::QuestionSource {
-                question_revision: question_revision.clone(),
+                question_revision_tuple: question_revision_tuple.clone(),
                 object,
             },
             sha256: Sha256Checksum::from_bytes(DIGEST_BYTES),
             size_bytes: 123,
             media_type: "application/zip".to_string(),
-            question_revision: Some(question_revision),
+            question_revision_tuple: Some(question_revision_tuple),
             created_at: Timestamp::from_unix_millis(1_000),
         };
         let encoded = serde_json::to_string(&record).expect("object record should serialize");
@@ -303,13 +303,13 @@ mod tests {
                 "\"storageArea\":\"private-content\",",
                 "\"dataClass\":\"question-source\",",
                 "\"address\":{\"kind\":\"questionSource\",",
-                "\"questionRevision\":{\"questionId\":\"ABCD-XEFG\",\"revisionNumber\":2},",
+                "\"questionRevisionTuple\":{\"questionId\":\"ABCD-XEFG\",\"revisionNumber\":2},",
                 "\"object\":\"00000000-0000-0000-0000-000000000003\"},",
                 "\"sha256\":\"000102030405060708090a0b0c0d0e0f",
                 "101112131415161718191a1b1c1d1e1f\",",
                 "\"sizeBytes\":123,",
                 "\"mediaType\":\"application/zip\",",
-                "\"questionRevision\":{\"questionId\":\"ABCD-XEFG\",\"revisionNumber\":2},",
+                "\"questionRevisionTuple\":{\"questionId\":\"ABCD-XEFG\",\"revisionNumber\":2},",
                 "\"createdAt\":1000}"
             )
         );

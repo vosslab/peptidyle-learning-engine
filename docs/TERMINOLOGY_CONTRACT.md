@@ -755,4 +755,6 @@ uses its ordinary casing: SQL `account_id`, Rust/TypeScript type
 `AccountId`, Rust field `account_id`, JSON `id` or nested `accountId`.
 Do not keep a parallel UUID primary key, a `reference` JSON field for a
 public ID, or a `public_reference` SQL alias beside a public ID. Composite
-Question Revision Tuples remain `{questionId, revisionNumber}`.
+Question Revision Tuple JSON is the field `questionRevisionTuple` with members
+`{questionId, revisionNumber}`. Blueprint Revision Tuple JSON is the field
+`blueprintRevisionTuple` with members `{blueprintCourseId, revisionNumber}`.

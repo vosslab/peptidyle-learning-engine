@@ -77,7 +77,7 @@ pub(crate) async fn prepare_hotspot_asset<O: ObjectStore>(
     let record = objects
         .put(PutObject {
             address: ObjectAddress::RestrictedQuestionAsset {
-                question_revision: revision.clone(),
+                question_revision_tuple: revision.clone(),
                 asset: asset.asset_id,
                 object: ObjectId::generate(),
             },

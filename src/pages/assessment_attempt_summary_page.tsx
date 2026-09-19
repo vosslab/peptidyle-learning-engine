@@ -19,7 +19,7 @@ import {
 function ReleasedBlocks(props: {
   readonly title: string;
   readonly blocks: ReadonlyArray<QuestionContentBlock> | undefined;
-  readonly questionRevision: StudentAssessmentAttemptHistory["questions"][number]["questionRevision"];
+  readonly questionRevisionTuple: StudentAssessmentAttemptHistory["questions"][number]["questionRevisionTuple"];
   readonly assetUrl: Parameters<typeof ContentBlockList>[0]["assetUrl"];
 }): JSX.Element {
   return (
@@ -29,7 +29,7 @@ function ReleasedBlocks(props: {
           <h4>{props.title}</h4>
           <ContentBlockList
             blocks={blocks()}
-            questionRevision={props.questionRevision}
+            questionRevisionTuple={props.questionRevisionTuple}
             assetUrl={props.assetUrl}
           />
         </section>
@@ -44,11 +44,11 @@ function AssessmentAttemptHistoryContent(props: {
   const applicationApi = useApplicationApi();
   const retry = useRetryRouteScope();
   function assetUrlForQuestion(
-    questionRevision: StudentAssessmentAttemptHistory["questions"][number]["questionRevision"],
+    questionRevisionTuple: StudentAssessmentAttemptHistory["questions"][number]["questionRevisionTuple"],
   ): Parameters<typeof ContentBlockList>[0]["assetUrl"] {
     return (asset) =>
       new URL(
-        applicationApi.client.assetUrl(questionRevision, asset.questionAsset),
+        applicationApi.client.assetUrl(questionRevisionTuple, asset.questionAsset),
         window.location.origin,
       );
   }
@@ -103,8 +103,8 @@ function AssessmentAttemptHistoryContent(props: {
                     {(response) => (
                       <ContentBlockList
                         blocks={response()}
-                        questionRevision={question.questionRevision}
-                        assetUrl={assetUrlForQuestion(question.questionRevision)}
+                        questionRevisionTuple={question.questionRevisionTuple}
+                        assetUrl={assetUrlForQuestion(question.questionRevisionTuple)}
                       />
                     )}
                   </Show>
@@ -113,38 +113,38 @@ function AssessmentAttemptHistoryContent(props: {
               <ReleasedBlocks
                 title="Feedback"
                 blocks={question.choiceFeedback}
-                questionRevision={question.questionRevision}
-                assetUrl={assetUrlForQuestion(question.questionRevision)}
+                questionRevisionTuple={question.questionRevisionTuple}
+                assetUrl={assetUrlForQuestion(question.questionRevisionTuple)}
               />
               <ReleasedBlocks
                 title="Feedback"
                 blocks={question.correctFeedback}
-                questionRevision={question.questionRevision}
-                assetUrl={assetUrlForQuestion(question.questionRevision)}
+                questionRevisionTuple={question.questionRevisionTuple}
+                assetUrl={assetUrlForQuestion(question.questionRevisionTuple)}
               />
               <ReleasedBlocks
                 title="Feedback"
                 blocks={question.incorrectFeedback}
-                questionRevision={question.questionRevision}
-                assetUrl={assetUrlForQuestion(question.questionRevision)}
+                questionRevisionTuple={question.questionRevisionTuple}
+                assetUrl={assetUrlForQuestion(question.questionRevisionTuple)}
               />
               <ReleasedBlocks
                 title="General feedback"
                 blocks={question.generalFeedback}
-                questionRevision={question.questionRevision}
-                assetUrl={assetUrlForQuestion(question.questionRevision)}
+                questionRevisionTuple={question.questionRevisionTuple}
+                assetUrl={assetUrlForQuestion(question.questionRevisionTuple)}
               />
               <ReleasedBlocks
                 title="Correct answer"
                 blocks={question.questionAnswer}
-                questionRevision={question.questionRevision}
-                assetUrl={assetUrlForQuestion(question.questionRevision)}
+                questionRevisionTuple={question.questionRevisionTuple}
+                assetUrl={assetUrlForQuestion(question.questionRevisionTuple)}
               />
               <ReleasedBlocks
                 title="Answer explanation"
                 blocks={question.questionAnswerExplanation}
-                questionRevision={question.questionRevision}
-                assetUrl={assetUrlForQuestion(question.questionRevision)}
+                questionRevisionTuple={question.questionRevisionTuple}
+                assetUrl={assetUrlForQuestion(question.questionRevisionTuple)}
               />
               <Show when={question.backendAnswerReview === "available"}>
                 <section class="attempt-summary__disclosure">

@@ -47,7 +47,7 @@ export interface AssessmentWorkspaceQuestionsViewArgs {
   readonly bloomSortUnavailableReason: Accessor<string | undefined>;
   readonly sortByBloomClassification: () => void;
   readonly description: (
-    questionRevision: AssessmentQuestionPickerEntry["questionRevision"],
+    questionRevisionTuple: AssessmentQuestionPickerEntry["questionRevisionTuple"],
   ) => string;
   readonly entryBlooms: Accessor<ReadonlyMap<AssessmentEntryId, BloomClassificationView>>;
   readonly move: (index: number, offset: -1 | 1) => void;
@@ -83,9 +83,9 @@ export interface AssessmentWorkspaceQuestionsViewArgs {
   readonly importPool: () => Promise<void>;
 }
 
-function questionRevisionInspectionPath(questionRevision: QuestionRevisionTuple): string {
+function questionRevisionInspectionPath(questionRevisionTuple: QuestionRevisionTuple): string {
   // ASVS 1.2.2: encode the displayed Question identity before placing it in a route path.
-  return `/library/${encodeURIComponent(questionRevision.questionId)}?revision=${questionRevision.revisionNumber}`;
+  return `/library/${encodeURIComponent(questionRevisionTuple.questionId)}?revision=${questionRevisionTuple.revisionNumber}`;
 }
 
 function questionPoolEntry(
@@ -409,9 +409,9 @@ export function AssessmentWorkspaceQuestionsView(
             <For each={availableToAdd()}>
               {(candidate) => (
                 <li>
-                  <strong>{candidate.questionRevision.questionId}</strong> * Revision{" "}
-                  {candidate.questionRevision.revisionNumber}: {candidate.description}{" "}
-                  <A href={questionRevisionInspectionPath(candidate.questionRevision)}>Inspect</A>{" "}
+                  <strong>{candidate.questionRevisionTuple.questionId}</strong> * Revision{" "}
+                  {candidate.questionRevisionTuple.revisionNumber}: {candidate.description}{" "}
+                  <A href={questionRevisionInspectionPath(candidate.questionRevisionTuple)}>Inspect</A>{" "}
                   <Show when={candidate.bloom}>
                     {(bloom) => (
                       <span>

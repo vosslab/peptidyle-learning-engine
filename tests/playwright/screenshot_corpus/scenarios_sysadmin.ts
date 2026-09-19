@@ -45,10 +45,10 @@ async function openInstructorAccounts(page: Page): Promise<void> {
     .waitFor({ state: "hidden" });
 }
 
-function instructorAccount(page: Page, reference: string): Locator {
+function instructorAccount(page: Page, accountId: string): Locator {
   return page
     .getByRole("article")
-    .filter({ has: page.getByRole("heading", { name: reference, exact: true }) });
+    .filter({ has: page.getByRole("heading", { name: accountId, exact: true }) });
 }
 
 async function reloadInstructorAccounts(page: Page): Promise<void> {
@@ -83,12 +83,12 @@ async function sysadminAccounts(runtime: ScenarioRuntime): Promise<void> {
     await page.getByRole("button", { name: "Create Instructor Account", exact: true }).click();
     await page.getByText("Instructor Account created.", { exact: true }).waitFor();
     const newest = page.getByRole("article").first();
-    const reference = (await newest.getByRole("heading", { level: 2 }).innerText()).trim();
-    if (!isCanonicalAccountId(reference)) {
+    const accountId = (await newest.getByRole("heading", { level: 2 }).innerText()).trim();
+    if (!isCanonicalAccountId(accountId)) {
       throw new Error("created Instructor Account lacks a canonical public ID");
     }
     await reloadInstructorAccounts(page);
-    let created = instructorAccount(page, reference);
+    let created = instructorAccount(page, accountId);
     await created.waitFor();
     await captureCheckpoint(runtime, scenario, "account_created", session);
     await created.getByLabel("Deactivation reason").fill("Screenshot corpus lifecycle review");
@@ -97,7 +97,7 @@ async function sysadminAccounts(runtime: ScenarioRuntime): Promise<void> {
       .click();
     await created.getByText("State: Deactivated", { exact: true }).waitFor();
     await reloadInstructorAccounts(page);
-    created = instructorAccount(page, reference);
+    created = instructorAccount(page, accountId);
     await created.getByText("State: Deactivated", { exact: true }).waitFor();
     await captureCheckpoint(runtime, scenario, "account_deactivated", session);
     await created
@@ -105,7 +105,7 @@ async function sysadminAccounts(runtime: ScenarioRuntime): Promise<void> {
       .click();
     await created.getByText("State: Active", { exact: true }).waitFor();
     await reloadInstructorAccounts(page);
-    created = instructorAccount(page, reference);
+    created = instructorAccount(page, accountId);
     await created.getByText("State: Active", { exact: true }).waitFor();
   } finally {
     await runtime.close(session);

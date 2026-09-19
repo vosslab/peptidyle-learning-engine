@@ -139,7 +139,7 @@ export interface ApiClient
     statePrecondition: CourseInvitationStatePrecondition,
   ) => Promise<void>;
   readonly getSession: () => Promise<AuthenticatedSession>;
-  /** Resolves a compact visible reference inside the current authorization boundary. */
+  /** Resolves a compact visible ID inside the current authorization boundary. */
   readonly resolveNavigation: (id: NavigationRouteId) => Promise<NavigationResolution>;
   /** Revokes the account credential for this browser. */
   readonly logout: () => Promise<void>;
@@ -241,7 +241,7 @@ export interface ApiClient
   /** Same-origin POST that authorizes, audits, and returns one normalized course banner. */
   readonly fetchCourseBanner: (bannerId: CourseBannerId) => Promise<Blob>;
   /** Exact immutable Question Revision asset redirect path; it never issues a capability. */
-  readonly assetUrl: (questionRevision: QuestionRevisionTuple, assetId: QuestionAssetId) => string;
+  readonly assetUrl: (questionRevisionTuple: QuestionRevisionTuple, assetId: QuestionAssetId) => string;
   readonly validateResponseFormatOnServer: FormatValidator;
   readonly questionAttemptTimingDecisionOnServer: TimerEvaluator;
   readonly validateAssessmentConfigOnServer: CapabilityValidator;

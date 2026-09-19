@@ -38,11 +38,11 @@ test("Bloom correction posts one complete exact-Revision CAS command", async () 
     if (String(input).includes("/question-pools/")) {
       return jsonResponse({ questionPoolId: poolId, bloom });
     }
-    return jsonResponse({ questionRevision: question, bloom });
+    return jsonResponse({ questionRevisionTuple: question, bloom });
   }, "/ple");
 
   assert.deepEqual(await client.correctQuestionBloom(question, request), {
-    questionRevision: question,
+    questionRevisionTuple: question,
     bloom,
   });
   assert.deepEqual(await client.correctQuestionPoolBloom(poolId, request), {
@@ -77,8 +77,8 @@ test("Bloom correction surfaces stale state once and never retries", async () =>
 
 test("Bloom correction rejects response target drift and open receipts", async () => {
   const responses = [
-    { questionRevision: { ...question, revisionNumber: 4 }, bloom },
-    { questionRevision: question, bloom, actor: "Instructor" },
+    { questionRevisionTuple: { ...question, revisionNumber: 4 }, bloom },
+    { questionRevisionTuple: question, bloom, actor: "Instructor" },
   ];
   const client = createBloomClassificationCorrectionClient(
     async () => jsonResponse(responses.shift()),

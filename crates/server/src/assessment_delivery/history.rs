@@ -240,10 +240,12 @@ fn project_response(
     let Some(response) = response else {
         return;
     };
-    let Ok(response) = question_model::presentation::project_durable_response_to_presentation_response_item_ids(
-        &response,
-        presentation,
-    ) else {
+    let Ok(response) =
+        question_model::presentation::project_durable_response_to_presentation_response_item_ids(
+            &response,
+            presentation,
+        )
+    else {
         return;
     };
     let Some(response) =
@@ -307,7 +309,7 @@ mod tests {
                 score: None,
                 questions: vec![StudentAssessmentAttemptHistoryQuestion {
                     position: 1,
-                    question_revision: QuestionRevisionTuple {
+                    question_revision_tuple: QuestionRevisionTuple {
                         question_id: QuestionId::from_random_identifier("ABCDEF1")
                             .expect("Question ID"),
                         revision_number: QuestionRevisionNumber::new(3)
@@ -397,15 +399,17 @@ mod tests {
     #[test]
     fn history_wire_keeps_the_exact_issued_question_revision() {
         let evidence = evidence();
-        let expected = evidence.history.questions[0].question_revision.clone();
+        let expected = evidence.history.questions[0]
+            .question_revision_tuple
+            .clone();
         let wire = serde_json::to_value(project_history(&evidence)).expect("history serializes");
 
         assert_eq!(
-            wire["questions"][0]["questionRevision"]["questionId"],
+            wire["questions"][0]["questionRevisionTuple"]["questionId"],
             expected.question_id.to_string()
         );
         assert_eq!(
-            wire["questions"][0]["questionRevision"]["revisionNumber"],
+            wire["questions"][0]["questionRevisionTuple"]["revisionNumber"],
             expected.revision_number.get()
         );
         assert!(wire["questions"][0].get("backendAnswerReview").is_none());

@@ -31,7 +31,7 @@ pub(super) struct ReceiptQuestion {
     pub(super) backend: QuestionBackend,
     pub(super) question_type: QuestionType,
     pub(super) webwork_pg_path: String,
-    pub(super) question_revision: QuestionRevisionTuple,
+    pub(super) question_revision_tuple: QuestionRevisionTuple,
 }
 
 impl Receipt {
@@ -55,7 +55,7 @@ impl Receipt {
     }
 
     pub(super) fn new(
-        reference: String,
+        blueprint_course_id: String,
         revision: u64,
         manifest: &Manifest,
         revisions: &SourceRevisions,
@@ -76,7 +76,7 @@ impl Receipt {
                         let source = sources.get(source_id.as_str()).with_context(|| {
                             format!("curriculum receipt is missing source {source_id}")
                         })?;
-                        let question_revision =
+                        let question_revision_tuple =
                             revisions.get(source_id).cloned().with_context(|| {
                                 format!("curriculum receipt is missing revision for {source_id}")
                             })?;
@@ -90,7 +90,7 @@ impl Receipt {
                                 source.question_type,
                             ),
                             webwork_pg_path: source.webwork_pg_path.clone(),
-                            question_revision,
+                            question_revision_tuple,
                         })
                     })
                     .collect::<Result<Vec<_>>>()?;
@@ -102,7 +102,7 @@ impl Receipt {
             })
             .collect::<Result<Vec<_>>>()?;
         Ok(Self {
-            blueprint_course_id: reference,
+            blueprint_course_id,
             blueprint_revision: revision,
             source_repository: manifest.course.source_repository.clone(),
             source_revision: manifest.course.source_revision.clone(),

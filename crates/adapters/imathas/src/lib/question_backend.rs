@@ -84,7 +84,7 @@ impl ImathasQuestionLocation {
         &self.deployment_id
     }
 
-    /// iMathAS-backend-local item reference.
+    /// iMathAS-backend-local item ID.
     pub fn item_id(&self) -> &ImathasItemId {
         &self.item
     }
@@ -180,7 +180,7 @@ pub struct ImathasRenderRequest<'a> {
     /// Pinned source profile.
     pub profile: &'a str,
     /// Exact immutable Question Revision.
-    pub question_revision: QuestionRevisionTuple,
+    pub question_revision_tuple: QuestionRevisionTuple,
     /// Deterministic Question Seed.
     pub question_seed: QuestionSeed,
 }

@@ -34,7 +34,7 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
         )
         .await
         .expect("owner creates append fixture Blueprint through the application Store");
-    let blueprint = created.blueprint_revision.blueprint_course_id;
+    let blueprint = created.blueprint_revision_tuple.blueprint_course_id;
     let blueprint_number = blueprint_course_id_text(&blueprint).await;
     let private = store
         .load_blueprint_course(token(), blueprint.clone())
@@ -195,7 +195,7 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
         .expect("normal Store Save appends new Assessment");
     assert!(receipt.changed);
     assert_eq!(
-        receipt.blueprint_revision.revision,
+        receipt.blueprint_revision_tuple.revision,
         BlueprintRevision::new(2).expect("Revision two")
     );
     for (course, independent) in [
@@ -244,7 +244,7 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
         "stale Save rejected"
     );
     let head = store
-        .load_blueprint_revision(token(), receipt.blueprint_revision.clone())
+        .load_blueprint_revision(token(), receipt.blueprint_revision_tuple.clone())
         .await
         .expect("sealed new Revision");
     let no_op_input = ReplaceBlueprintCourseContentInput {
@@ -277,7 +277,7 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
         .save_blueprint_course(
             token(),
             blueprint,
-            receipt.blueprint_revision.revision,
+            receipt.blueprint_revision_tuple.revision,
             question_model::RequestChecksum::from_bytes([0x64; 32]),
             no_op_input,
             Default::default(),

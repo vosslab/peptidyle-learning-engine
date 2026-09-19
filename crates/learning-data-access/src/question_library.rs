@@ -20,7 +20,7 @@ use crate::{SessionTokenHash, StoreError};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PublishedQuestionLibraryEntry {
     /// Stable Published Question and latest accepted Question Revision.
-    pub question_revision: QuestionRevisionTuple,
+    pub question_revision_tuple: QuestionRevisionTuple,
     /// The exact backend that must interpret the immutable source.
     pub backend: QuestionBackend,
     /// Immutable reviewed source representation. This is browser-safe metadata,
@@ -30,7 +30,7 @@ pub struct PublishedQuestionLibraryEntry {
     pub question_type: QuestionType,
     /// Database-authoritative publication time.
     pub published_at: Timestamp,
-    /// Exact Bloom Classification for `question_revision`, when assigned.
+    /// Exact Bloom Classification for `question_revision_tuple`, when assigned.
     pub bloom: Option<BloomClassificationView>,
     /// Current shared Published Question title.
     pub question_title: String,
@@ -117,7 +117,7 @@ pub trait QuestionLibraryStore: Send + Sync {
     async fn load_published_question_revision_library_entry(
         &self,
         session_token_hash: SessionTokenHash,
-        question_revision: &QuestionRevisionTuple,
+        question_revision_tuple: &QuestionRevisionTuple,
     ) -> Result<PublishedQuestionLibraryEntry, StoreError>;
 
     /// Corrects both Bloom dimensions for one exact Revision through the
@@ -126,7 +126,7 @@ pub trait QuestionLibraryStore: Send + Sync {
     async fn correct_question_revision_bloom(
         &self,
         session_token_hash: SessionTokenHash,
-        question_revision: &QuestionRevisionTuple,
+        question_revision_tuple: &QuestionRevisionTuple,
         expected_edit_number: BloomClassificationEditNumber,
         cognitive_process: BloomCognitiveProcess,
         knowledge_dimension: BloomKnowledgeDimension,

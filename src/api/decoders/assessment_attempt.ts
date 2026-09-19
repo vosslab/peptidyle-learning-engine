@@ -108,14 +108,14 @@ export function decodeStudentIssuedQuestion(value: unknown, path: string): Stude
     "assessmentEntry",
     "assessmentContentEntryIndex",
     "issuedPosition",
-    "questionRevision",
+    "questionRevisionTuple",
     "questionStatisticsEligibility",
   ]);
-  const questionRevision = decodeRecord(
-    field(record, "questionRevision", path),
-    `${path}.questionRevision`,
+  const questionRevisionTuple = decodeRecord(
+    field(record, "questionRevisionTuple", path),
+    `${path}.questionRevisionTuple`,
   );
-  requireOnlyFields(questionRevision, `${path}.questionRevision`, ["questionId", "revisionNumber"]);
+  requireOnlyFields(questionRevisionTuple, `${path}.questionRevisionTuple`, ["questionId", "revisionNumber"]);
   return {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
     assessmentAttempt: decodeIdentifier(
@@ -134,9 +134,9 @@ export function decodeStudentIssuedQuestion(value: unknown, path: string): Stude
       field(record, "issuedPosition", path),
       `${path}.issuedPosition`,
     ),
-    questionRevision: decodeQuestionRevisionTuple(
-      questionRevision,
-      `${path}.questionRevision`,
+    questionRevisionTuple: decodeQuestionRevisionTuple(
+      questionRevisionTuple,
+      `${path}.questionRevisionTuple`,
       true,
     ),
     questionStatisticsEligibility: decodeBoolean(

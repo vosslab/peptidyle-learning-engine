@@ -163,7 +163,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> CourseInstanceId {
     .await
     .expect("Instructor Course Membership");
     tx.commit().await.expect("fixture commit");
-    CourseInstanceId::new(course_id).expect("Course reference")
+    CourseInstanceId::new(course_id).expect("Course Instance ID")
 }
 
 async fn new_student_id_and_session(admin: &sqlx::postgres::PgPool) -> String {

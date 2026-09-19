@@ -60,7 +60,7 @@ function blueprintUpdateEntry(value: unknown, path: string): AssessmentBlueprint
     record,
     path,
     kind === "fixedQuestion"
-      ? [...sharedFields, "questionRevision", "pointsPossible"]
+      ? [...sharedFields, "questionRevisionTuple", "pointsPossible"]
       : [
           ...sharedFields,
           "questionPoolId",
@@ -92,9 +92,9 @@ function blueprintUpdateEntry(value: unknown, path: string): AssessmentBlueprint
     return {
       kind,
       ...settings,
-      questionRevision: decodeQuestionRevisionTuple(
-        field(record, "questionRevision", path),
-        `${path}.questionRevision`,
+      questionRevisionTuple: decodeQuestionRevisionTuple(
+        field(record, "questionRevisionTuple", path),
+        `${path}.questionRevisionTuple`,
         true,
       ),
       pointsPossible: pointValue(field(record, "pointsPossible", path), `${path}.pointsPossible`),

@@ -95,7 +95,7 @@ impl SupportRepairCapabilityStore for PostgresSupportCapabilityStore {
             || resource_path.chars().any(char::is_control)
         {
             return Err(StoreError::InvalidRecord(
-                "Support resource reference is invalid".to_string(),
+                "Support resource path is invalid".to_string(),
             ));
         }
         let mut tx = self.begin(token).await?;
@@ -160,14 +160,14 @@ fn invalid(label: &str) -> StoreError {
 fn decode_repair(
     row: &sqlx::postgres::PgRow,
 ) -> Result<SupportRepairCapabilityReceipt, StoreError> {
-    let reference = AccountId::new(
+    let sysadmin_id = AccountId::new(
         row.try_get::<String, _>("sysadmin_account_id")
             .map_err(map_sqlx_error)?,
     )
     .map_err(|_| invalid("Sysadmin Account ID"))?;
     Ok(SupportRepairCapabilityReceipt {
         capability_id: row.try_get("capability_id").map_err(map_sqlx_error)?,
-        sysadmin_id: reference,
+        sysadmin_id: sysadmin_id,
         resource_class: decode_resource_class(
             row.try_get("resource_class").map_err(map_sqlx_error)?,
         )?,

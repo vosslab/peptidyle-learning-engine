@@ -82,7 +82,7 @@ INSERT INTO ple_private.object_record (
     'e3000000-0000-0000-0000-000000000001',
     jsonb_build_object(
         'kind', 'questionSource',
-        'questionRevision', jsonb_build_object(
+        'questionRevisionTuple', jsonb_build_object(
             'questionId', current_setting('ple.test_direct_question_id'),
             'revisionNumber', 1
         ),

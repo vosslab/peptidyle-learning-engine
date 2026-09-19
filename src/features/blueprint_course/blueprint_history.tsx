@@ -85,8 +85,8 @@ function HistoryPanel(props: HistoryProps): JSX.Element {
       const result = await props.client.getBlueprintRevision(props.view.id, number);
       if (currentRequest !== request) return;
       if (
-        result.blueprintRevision.blueprintCourseId !== props.view.id ||
-        result.blueprintRevision.revisionNumber !== number
+        result.blueprintRevisionTuple.blueprintCourseId !== props.view.id ||
+        result.blueprintRevisionTuple.revisionNumber !== number
       )
         throw new Error("Unexpected Blueprint Revision");
       setRevision(result);
@@ -348,7 +348,7 @@ function RevisionContent(props: { readonly revision: BlueprintRevisionView }): J
                 {(entry) => (
                   <li>
                     {entry.kind === "fixed"
-                      ? `Fixed Question ${entry.question.question_revision.questionId}, Revision ${entry.question.question_revision.revisionNumber}; ${entry.points_possible} points`
+                      ? `Fixed Question ${entry.question.question_revision_tuple.questionId}, Revision ${entry.question.question_revision_tuple.revisionNumber}; ${entry.points_possible} points`
                       : `Question Pool ${entry.question_pool_id}, Edit ${entry.question_pool_edit_number}; select ${entry.selection_count}; ${entry.points_per_item} points per Question`}{" "}
                     - scoring {entry.scoring_rule}; Question Attempt limit{" "}
                     {entry.question_attempt_limit.maxAttempts ?? "unlimited"}; time limit{" "}

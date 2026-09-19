@@ -96,7 +96,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
                assessment.course_instance_id, assessment_attempt.student_record_id
            )
            -- ASVS 2.3.1: archive is an ordered retention transition.  Once
-           -- it occurs, an otherwise-owned Assessment Attempt reference is not a path
+           -- it occurs, an otherwise-owned Assessment Attempt ID is not a path
            -- back into ordinary Student history.
            AND ple_api.course_student_work_is_ordinarily_visible(assessment.course_instance_id)
     )

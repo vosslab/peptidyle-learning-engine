@@ -168,7 +168,7 @@ impl From<QuestionPresentationToken> for String {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionAssetRendition {
-    /// Exact authored Question Asset selected for this rendering. This reference
+    /// Exact authored Question Asset selected for this rendering. This Tuple
     /// identifies content but grants no storage or download authority.
     pub question_asset: QuestionAssetTuple,
     /// Checksum of the public rendition selected for this rendering.
@@ -317,9 +317,9 @@ pub enum QuestionPresentationResponseFormat {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionPresentation {
-    pub question_revision: QuestionRevisionTuple,
+    pub question_revision_tuple: QuestionRevisionTuple,
     /// PLE-generated randomness used only to bind presentation-scoped
-    /// response-item references and authored choice order. This is not source
+    /// response-item IDs and authored choice order. This is not source
     /// or author-JavaScript generation input.
     pub presentation_nonce: QuestionPresentationNonce,
     /// Optional public digest of separately retained isolated author content.

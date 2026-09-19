@@ -93,7 +93,7 @@ impl std::error::Error for RendererFailure {}
 ///
 /// Implementations must enforce request deadline, CPU, and memory limits at
 /// the renderer boundary.  The renderer is given an immutable source object
-/// reference by the trusted server; neither browser requests nor database
+/// ID by the trusted server; neither browser requests nor database
 /// credentials cross this trait.
 #[async_trait]
 pub trait WebworkRenderer: Send + Sync {
@@ -138,7 +138,7 @@ pub struct RenderRequest<'a> {
     /// OPL-style PG location retained for renderer diagnostics.
     pub pg_path: &'a str,
     /// Exact immutable Question Revision selected by the server.
-    pub question_revision: &'a question_model::QuestionRevisionTuple,
+    pub question_revision_tuple: &'a question_model::QuestionRevisionTuple,
     /// Deterministic attempt seed.
     pub seed: u64,
 }
@@ -155,7 +155,7 @@ pub struct ResumeRenderRequest<'a> {
     /// OPL-style PG location retained for renderer diagnostics.
     pub pg_path: &'a str,
     /// Exact immutable Question Revision selected by the server.
-    pub question_revision: &'a question_model::QuestionRevisionTuple,
+    pub question_revision_tuple: &'a question_model::QuestionRevisionTuple,
     /// Deterministic attempt seed.
     pub seed: u64,
     /// Canonical bounded JSON `[name, value]` pairs captured from the backend document.
@@ -170,7 +170,7 @@ pub struct GradeRequest<'a> {
     /// OPL-style PG location retained for renderer diagnostics.
     pub pg_path: &'a str,
     /// Exact immutable Question Revision selected by the server.
-    pub question_revision: &'a question_model::QuestionRevisionTuple,
+    pub question_revision_tuple: &'a question_model::QuestionRevisionTuple,
     /// Deterministic attempt seed.
     pub seed: u64,
     /// Canonical bounded JSON `[name, value]` pairs from the backend document.

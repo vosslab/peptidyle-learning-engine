@@ -49,7 +49,7 @@ fn source_record_with_id(
         sha256: Sha256Checksum::compute(SOURCE_BYTES),
         size_bytes: SOURCE_BYTES.len() as u64,
         media_type: media_type.to_owned(),
-        question_revision: None,
+        question_revision_tuple: None,
         created_at: timestamp(),
     }
 }

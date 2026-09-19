@@ -49,7 +49,7 @@ export interface CourseRouteView {
 /**
  * The instructor-only editable Instructor Assessment Authored Content Local.
  *
- * This intentionally carries immutable published references rather than
+ * This intentionally carries immutable published Tuples rather than
  * complete Question Revisions: authoring an assessment never transfers question
  * source, capability declarations, keys, grading, or student-feedback policy
  * into the editor transport.
@@ -67,7 +67,7 @@ export interface AssessmentEditorDetail extends AssessmentSummary {
   readonly revision: string;
 }
 
-/** Authorized resolution of one compact reference to a browser API identity. */
+/** Authorized resolution of one compact route ID to a browser API identity. */
 export type { NavigationResolution };
 
 /** One safe Question Library display fact returned from a server-owned Question Pool Preview. */
@@ -76,7 +76,7 @@ export interface QuestionPoolPreviewItem {
   readonly questionTitle: string;
 }
 
-/** Strict browser request for one saved Question Pool by its Assessment Entry reference. */
+/** Strict browser request for one saved Question Pool by its Assessment Entry ID. */
 export interface QuestionPoolPreviewRequest {
   readonly assessmentEntryId: string;
 }
@@ -176,7 +176,7 @@ export interface StudentIssuedQuestion {
   readonly assessmentEntry: AssessmentEntryId;
   readonly assessmentContentEntryIndex: number;
   readonly issuedPosition: number;
-  readonly questionRevision: QuestionRevisionTuple;
+  readonly questionRevisionTuple: QuestionRevisionTuple;
   readonly questionStatisticsEligibility: boolean;
 }
 

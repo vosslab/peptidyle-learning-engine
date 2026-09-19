@@ -8,11 +8,11 @@ import { createHttpApiClient } from "../src/api/http_client.ts";
 import { ApiProtocolError } from "../src/api/http_client/error.ts";
 import { createRecordingFetch } from "./http_client_test_support.mjs";
 
-const COURSE_REFERENCE = "CI7K3M2QAZ";
+const COURSE_INSTANCE_ID = "CI7K3M2QAZ";
 
 function courseSummary() {
   return {
-    id: COURSE_REFERENCE,
+    id: COURSE_INSTANCE_ID,
     shortName: "BIOL 351/451-20",
     longName: "Genetics",
     term: { startDate: "2026-01-01", endDate: "2026-05-01" },
@@ -39,16 +39,16 @@ test("Course Instance route summary client requests the exact no-store member re
   );
   const client = createHttpApiClient({ fetch: recordingFetch, basePath: "/live" });
 
-  assert.deepEqual(await client.getCourseInstanceRouteSummary(COURSE_REFERENCE), courseSummary());
+  assert.deepEqual(await client.getCourseInstanceRouteSummary(COURSE_INSTANCE_ID), courseSummary());
   assert.equal(
     requests[0].url,
-    `https://client.example.test/live/api/course-instances/${COURSE_REFERENCE}/summary`,
+    `https://client.example.test/live/api/course-instances/${COURSE_INSTANCE_ID}/summary`,
   );
   assert.equal(requests[0].cache, "no-store");
   assert.equal(requests[0].credentials, "same-origin");
 });
 
-test("Course Instance route summary rejects noncanonical references before dispatch", () => {
+test("Course Instance route summary rejects noncanonical IDs before dispatch", () => {
   const { recordingFetch, requests } = createRecordingFetch(async () =>
     Promise.reject(new Error("must not dispatch")),
   );
@@ -72,6 +72,6 @@ test("Course Instance route summary decoder rejects UUID and nonmembership respo
           },
         }),
     });
-    await assert.rejects(client.getCourseInstanceRouteSummary(COURSE_REFERENCE), DecodeError);
+    await assert.rejects(client.getCourseInstanceRouteSummary(COURSE_INSTANCE_ID), DecodeError);
   }
 });

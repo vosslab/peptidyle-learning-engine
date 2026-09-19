@@ -24,11 +24,11 @@ pub(crate) async fn answer_free_question_search_results(
 ) -> Result<BTreeMap<QuestionRevisionTuple, QuestionSearchResult>, ()> {
     let mut results = BTreeMap::new();
     for entry in entries {
-        let question_id = entry.question_revision.question_id.clone();
-        let question_revision = entry.question_revision.clone();
+        let question_id = entry.question_revision_tuple.question_id.clone();
+        let question_revision_tuple = entry.question_revision_tuple.clone();
         let resolved = answer_free_question_library_entry(objects, entry).await?;
         results.insert(
-            question_revision,
+            question_revision_tuple,
             search_result(resolved, evidence_for(&question_id, evidence_by_question)),
         );
     }
@@ -44,10 +44,10 @@ pub(crate) async fn answer_free_reusable_question_view(
         question_model::QuestionAvailability::Available => ReusableSelectionAvailability::Available,
         question_model::QuestionAvailability::Archived => ReusableSelectionAvailability::Retained,
     };
-    let question_revision = entry.question_revision.clone();
+    let question_revision_tuple = entry.question_revision_tuple.clone();
     let resolved = answer_free_question_library_entry(objects, entry).await?;
     Ok(ReusableQuestionView {
-        question_revision,
+        question_revision_tuple,
         question_library: search_result(resolved, evidence),
         selection_availability,
     })

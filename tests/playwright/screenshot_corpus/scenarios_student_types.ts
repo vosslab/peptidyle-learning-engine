@@ -270,7 +270,7 @@ async function prepare(runtime: ScenarioRuntime): Promise<ReadonlyMap<string, Ex
     const idsToAdd: string[] = [];
     for (const { summary } of selected) {
       // Exact discovered ID + immutable Revision, not a first-row or title-only guess.
-      const identity = `${summary.questionId} * Revision ${summary.questionRevision.revisionNumber}:`;
+      const identity = `${summary.questionId} * Revision ${summary.questionRevisionTuple.revisionNumber}:`;
       const row = available.getByRole("listitem").filter({ hasText: identity });
       await row.first().waitFor();
       if ((await row.count()) !== 1)
@@ -307,7 +307,7 @@ async function prepare(runtime: ScenarioRuntime): Promise<ReadonlyMap<string, Ex
     await page.getByText(/^Assessment released\. Current edit number: [1-9][0-9]*\.$/u).waitFor();
     return new Map(
       selected.map(({ example, summary }) => [
-        `${summary.questionId}:${summary.questionRevision.revisionNumber}`,
+        `${summary.questionId}:${summary.questionRevisionTuple.revisionNumber}`,
         example,
       ]),
     );
@@ -424,7 +424,7 @@ async function captureTypes(runtime: ScenarioRuntime): Promise<void> {
         await page
           .getByText(`Question ${position} of ${EXPECTED_QUESTION_COUNT}`, { exact: true })
           .waitFor();
-        const pin = question.presentation.questionRevision;
+        const pin = question.presentation.questionRevisionTuple;
         const example = provenance.get(`${pin.questionId}:${pin.revisionNumber}`);
         if (example === undefined || covered.has(example.slug))
           throw new Error(

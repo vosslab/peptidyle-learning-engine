@@ -138,7 +138,7 @@ async fn list_pending_invitations(State(state): State<RouteState>, headers: Head
         Err(response) => return *response,
     };
     // ASVS 2.2.2: the trusted persistence boundary derives the current Student
-    // and returns only the public Course reference, names, verified Instructor
+    // and returns only the public Course Instance ID, names, verified Instructor
     // display name, and Course term.
     match state
         .landing
@@ -286,7 +286,7 @@ mod tests {
     #[test]
     fn pending_invitation_projects_only_pre_acceptance_course_context() {
         let invitation = LiveStudentCourseInvitationSummary {
-            course: CourseInstanceId::new("CI6F2R8TA0").expect("canonical Course reference"),
+            course: CourseInstanceId::new("CI6F2R8TA0").expect("canonical Course Instance ID"),
             short_name: "Mol Bio".into(),
             long_name: "Molecular Biology".into(),
             instructor_display_name: "Elena Voss".into(),

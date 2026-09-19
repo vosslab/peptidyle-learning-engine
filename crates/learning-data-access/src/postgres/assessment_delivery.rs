@@ -128,7 +128,7 @@ async fn read_committed_assessment_attempt(
             .try_get::<String, _>("assessment_id")
             .map_err(map_sqlx_error)?,
     )
-    .map_err(|_| StoreError::InvalidRecord("Assessment reference is invalid".to_string()))?;
+    .map_err(|_| StoreError::InvalidRecord("Assessment ID is invalid".to_string()))?;
     let questions = rows
         .iter()
         .map(|row| {

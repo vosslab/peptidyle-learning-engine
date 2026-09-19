@@ -87,7 +87,7 @@ fn decode_claim(row: sqlx::postgres::PgRow) -> Result<ClaimedQuestionAssetPublic
         .map_err(map_sqlx_error)?;
     Ok(ClaimedQuestionAssetPublication {
         job_id: row.try_get("job_id").map_err(map_sqlx_error)?,
-        question_revision: QuestionRevisionTuple {
+        question_revision_tuple: QuestionRevisionTuple {
             question_id: row
                 .try_get::<String, _>("question_id")
                 .map_err(map_sqlx_error)?

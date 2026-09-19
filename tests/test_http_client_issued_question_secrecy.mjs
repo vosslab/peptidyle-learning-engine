@@ -21,7 +21,7 @@ function clientWithIssuedQuestion(mutator) {
         issuedQuestionWireFixture(
           attempt,
           publishedQuestionFixture.publishedQuestion,
-          publishedQuestionFixture.issuedQuestions.at(-1).reference,
+          publishedQuestionFixture.issuedQuestions.at(-1).questionRevisionTuple,
         ),
       );
       mutator(issued);
@@ -138,7 +138,7 @@ test("issued-question transport rejects server-only data from a Question Present
       path: "response.prompt[0].arbitrary",
     },
     {
-      name: "image asset reference",
+      name: "image asset Tuple",
       mutate: (presentation) => {
         presentation.prompt = [
           {

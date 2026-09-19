@@ -37,7 +37,7 @@ function assessmentEntryScoringRuleLabel(scoringRule: AssessmentEntry["scoringRu
 export interface SelectedAssessmentEntryIdentityProps {
   readonly entry: AssessmentEntry;
   readonly entryNumber: number;
-  readonly description: (questionRevision: QuestionRevisionTuple) => string;
+  readonly description: (questionRevisionTuple: QuestionRevisionTuple) => string;
   readonly bloom: BloomClassificationView | undefined;
 }
 
@@ -66,10 +66,10 @@ export function SelectedAssessmentEntryIdentity(
     return (
       <>
         <h3>
-          Entry {props.entryNumber} · {question.questionRevision.questionId} · Revision{" "}
-          {question.questionRevision.revisionNumber}
+          Entry {props.entryNumber} · {question.questionRevisionTuple.questionId} · Revision{" "}
+          {question.questionRevisionTuple.revisionNumber}
         </h3>
-        <p class="assessment-editor-row-description">{props.description(question.questionRevision)}</p>
+        <p class="assessment-editor-row-description">{props.description(question.questionRevisionTuple)}</p>
         {bloomFacts(props.bloom)}
         <dl class="assessment-editor-row-facts">
           <div>

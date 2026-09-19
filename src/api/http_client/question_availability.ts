@@ -23,15 +23,15 @@ function questionPath(questionId: QuestionId): string {
   return `/api/questions/by-id/${encodedId(questionId)}`;
 }
 
-function exactRevisionPath(questionRevision: QuestionRevisionTuple): string {
+function exactRevisionPath(questionRevisionTuple: QuestionRevisionTuple): string {
   if (
-    !Number.isSafeInteger(questionRevision.revisionNumber) ||
-    questionRevision.revisionNumber < 1 ||
-    questionRevision.revisionNumber > 4_294_967_295
+    !Number.isSafeInteger(questionRevisionTuple.revisionNumber) ||
+    questionRevisionTuple.revisionNumber < 1 ||
+    questionRevisionTuple.revisionNumber > 4_294_967_295
   ) {
     throw new ApiProtocolError("Question Revision number must be one positive u32");
   }
-  return `${questionPath(questionRevision.questionId)}/revisions/${encodeURIComponent(String(questionRevision.revisionNumber))}`;
+  return `${questionPath(questionRevisionTuple.questionId)}/revisions/${encodeURIComponent(String(questionRevisionTuple.revisionNumber))}`;
 }
 
 function parseStrongEtag(value: string, path: string): QuestionAvailabilityEtag {
@@ -76,13 +76,13 @@ async function questionJson<T>(
 
 function sameQuestionRevision(
   detail: QuestionDetails,
-  questionRevision: QuestionRevisionTuple,
+  questionRevisionTuple: QuestionRevisionTuple,
   path: string,
 ): QuestionDetails {
-  const actual = detail.summary.questionRevision;
+  const actual = detail.summary.questionRevisionTuple;
   if (
-    actual.questionId !== questionRevision.questionId ||
-    actual.revisionNumber !== questionRevision.revisionNumber
+    actual.questionId !== questionRevisionTuple.questionId ||
+    actual.revisionNumber !== questionRevisionTuple.revisionNumber
   ) {
     throw new ApiProtocolError(`API response ${path} does not match its exact Question Revision`);
   }
@@ -121,13 +121,13 @@ export function createQuestionAvailabilityClient(
       }
       return { summary, viewerMayArchive, availabilityEtag: responseEtag(result.response, path) };
     },
-    getQuestionRevision: async (questionRevision): Promise<QuestionDetails> => {
-      const path = exactRevisionPath(questionRevision);
+    getQuestionRevision: async (questionRevisionTuple): Promise<QuestionDetails> => {
+      const path = exactRevisionPath(questionRevisionTuple);
       const result = await questionJson(fetchImplementation, basePath, path, decodeQuestionDetails);
-      return sameQuestionRevision(result.body, questionRevision, path);
+      return sameQuestionRevision(result.body, questionRevisionTuple, path);
     },
-    questionRevisionPreviewDocumentUrl: (questionRevision) =>
-      requestPath(basePath, `${exactRevisionPath(questionRevision)}/preview-document`),
+    questionRevisionPreviewDocumentUrl: (questionRevisionTuple) =>
+      requestPath(basePath, `${exactRevisionPath(questionRevisionTuple)}/preview-document`),
     archiveQuestion: async (
       questionId,
       confirmationTitle,

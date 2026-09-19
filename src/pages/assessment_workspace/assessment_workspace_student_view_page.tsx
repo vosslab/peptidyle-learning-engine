@@ -222,7 +222,7 @@ function NativeQuestionPreview(props: {
         <div inert aria-disabled="true">
           <QuestionPresentationResponseControl
             attemptId={`student-view-${props.position}`}
-            questionRevision={props.presentation.questionRevision}
+            questionRevisionTuple={props.presentation.questionRevisionTuple}
             assetUrl={props.assetUrl}
             mode="formatOnly"
             responseFormat={props.presentation.response}
@@ -274,7 +274,7 @@ export function AssessmentWorkspaceStudentViewPage(): JSX.Element {
         workspace.courseInstanceId,
         workspace.assessmentId,
         question.authoredPosition,
-        question.questionRevision,
+        question.questionRevisionTuple,
         currentManifest.editNumber,
       );
     },
@@ -417,7 +417,7 @@ export function AssessmentWorkspaceStudentViewPage(): JSX.Element {
                                   assetUrl={(asset) =>
                                     new URL(
                                       applicationApi.client.assetUrl(
-                                        readyPresentation().questionRevision,
+                                        readyPresentation().questionRevisionTuple,
                                         asset.questionAsset,
                                       ),
                                       globalThis.location.origin,
@@ -432,7 +432,7 @@ export function AssessmentWorkspaceStudentViewPage(): JSX.Element {
                                   workspace.courseInstanceId,
                                   workspace.assessmentId,
                                   question.authoredPosition,
-                                  question.questionRevision,
+                                  question.questionRevisionTuple,
                                   readyManifest().editNumber,
                                 )}
                               />

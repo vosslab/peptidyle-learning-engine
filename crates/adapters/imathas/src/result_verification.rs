@@ -151,7 +151,7 @@ impl ImathasGradingFailure {
 /// absent from this application record.
 #[derive(Clone, PartialEq, Eq)]
 pub struct ImathasRenderCacheEntry {
-    question_revision: QuestionRevisionTuple,
+    question_revision_tuple: QuestionRevisionTuple,
     imathas_seed: u16,
     profile: String,
     payload_digest: String,
@@ -162,7 +162,7 @@ impl std::fmt::Debug for ImathasRenderCacheEntry {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
             .debug_struct("ImathasRenderCacheEntry")
-            .field("question_revision", &self.question_revision)
+            .field("question_revision_tuple", &self.question_revision_tuple)
             .field("imathas_seed", &self.imathas_seed)
             .field("profile", &self.profile)
             .field("payload_digest", &"REDACTED")
@@ -175,14 +175,14 @@ impl ImathasRenderCacheEntry {
     #[cfg(test)]
     #[allow(dead_code)]
     pub(crate) fn new(
-        question_revision: QuestionRevisionTuple,
+        question_revision_tuple: QuestionRevisionTuple,
         imathas_seed: u16,
         profile: String,
         payload_digest: String,
         expires_at: Timestamp,
     ) -> Self {
         Self {
-            question_revision,
+            question_revision_tuple,
             imathas_seed,
             profile,
             payload_digest,
@@ -479,14 +479,14 @@ pub(crate) fn imathas_launch_binding_checksum(
     digest.update(grading_context.question_attempt().as_uuid().as_bytes());
     digest.update(
         grading_context
-            .question_revision()
+            .question_revision_tuple()
             .question_id
             .to_string()
             .as_bytes(),
     );
     digest.update(
         grading_context
-            .question_revision()
+            .question_revision_tuple()
             .revision_number
             .get()
             .to_be_bytes(),

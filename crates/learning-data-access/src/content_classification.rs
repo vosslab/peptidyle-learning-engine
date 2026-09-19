@@ -44,10 +44,10 @@ pub trait ContentClassificationStore: Send + Sync {
     ) -> Result<Vec<ContentClassificationItem>, StoreError>;
 }
 
-/// All-status Discipline discovery for filters and existing-reference resolution.
+/// All-status Discipline discovery for filters and existing-ID resolution.
 #[async_trait]
 pub trait ContentDisciplineDiscoveryStore: Send + Sync {
-    /// Lists active and retired Disciplines for discovery and exact references.
+    /// Lists active and retired Disciplines for discovery and exact IDs.
     async fn list_disciplines_including_retired(
         &self,
         token: SessionTokenHash,

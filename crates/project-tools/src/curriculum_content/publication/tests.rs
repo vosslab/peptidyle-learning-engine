@@ -144,12 +144,13 @@ fn exact_replay_rejects_semantic_drift() {
         question_model::AssessmentType::RegularAssignment;
     assert!(validate_loaded_content(&wrong_type, &input, &manifest, &revisions).is_err());
     let StoredBlueprintAssessmentEntry::Fixed {
-        question_revision, ..
+        question_revision_tuple,
+        ..
     } = &mut stored.modules[0].assessments[0].content.entries[0]
     else {
         unreachable!();
     };
-    question_revision.revision_number =
+    question_revision_tuple.revision_number =
         QuestionRevisionNumber::new(2).expect("positive Question Revision Number");
     assert!(validate_loaded_content(&stored, &input, &manifest, &revisions).is_err());
 }

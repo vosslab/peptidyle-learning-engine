@@ -57,7 +57,7 @@ Active Instructors and Sysadmins receive answer-free Question and Pool Library
 read projections. A Question projection carries its exact Revision's required
 two-value Bloom Classification and independent classification Edit Number. A
 Pool projection carries the current Pool's own pair and classification Edit
-Number; member Question pairs never substitute. The `questionRevision` field identifies the exact resolved Revision on an
+Number; member Question pairs never substitute. The `questionRevisionTuple` field identifies the exact resolved Revision on an
 exact Question-detail route. `GET /api/question-pools` and
 `GET /api/question-pools/{questionPoolId}` are the product Pool reads. JSON
 carries sibling `questionPoolId` and `questionPoolEditNumber` fields; there

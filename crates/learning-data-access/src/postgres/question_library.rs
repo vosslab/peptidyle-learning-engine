@@ -119,7 +119,7 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
     async fn load_published_question_revision_library_entry(
         &self,
         session_token_hash: SessionTokenHash,
-        question_revision: &QuestionRevisionTuple,
+        question_revision_tuple: &QuestionRevisionTuple,
     ) -> Result<PublishedQuestionLibraryEntry, StoreError> {
         let mut transaction = self
             .begin_authenticated_application_transaction(session_token_hash)
@@ -133,9 +133,9 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
              LEFT JOIN LATERAL ple_api.list_content_subtopics(q.topic_uuid) st ON st.subtopic_uuid = q.subtopic_uuid \
              JOIN LATERAL ple_api.list_content_subjects(q.discipline_uuid) s ON s.subject_uuid = q.subject_uuid \
              LEFT JOIN LATERAL ple_api.list_content_topics(q.subject_uuid) t ON t.topic_uuid = q.topic_uuid")
-            .bind(question_revision.question_id.as_str())
+            .bind(question_revision_tuple.question_id.as_str())
             .bind(
-                i32::try_from(question_revision.revision_number.get())
+                i32::try_from(question_revision_tuple.revision_number.get())
                     .map_err(|_| invalid("Question Revision Number"))?,
             )
             .fetch_optional(&mut *transaction)
@@ -146,7 +146,7 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
             .map(decode_entry)
             .transpose()?
             .ok_or(StoreError::NotFound)?;
-        if entry.question_revision != *question_revision {
+        if entry.question_revision_tuple != *question_revision_tuple {
             return Err(invalid("Question Library exact revision"));
         }
         transaction.commit().await.map_err(map_sqlx_error)?;
@@ -156,7 +156,7 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
     async fn correct_question_revision_bloom(
         &self,
         session_token_hash: SessionTokenHash,
-        question_revision: &QuestionRevisionTuple,
+        question_revision_tuple: &QuestionRevisionTuple,
         expected_edit_number: BloomClassificationEditNumber,
         cognitive_process: BloomCognitiveProcess,
         knowledge_dimension: BloomKnowledgeDimension,
@@ -172,9 +172,9 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
                     classification_edit_number AS bloom_classification_edit_number \
              FROM ple_api.correct_question_revision_bloom($1, $2, $3, $4, $5)",
         )
-        .bind(question_revision.question_id.as_str())
+        .bind(question_revision_tuple.question_id.as_str())
         .bind(
-            i32::try_from(question_revision.revision_number.get())
+            i32::try_from(question_revision_tuple.revision_number.get())
                 .map_err(|_| invalid("Question Revision Number"))?,
         )
         .bind(expected_edit_number.value() as i64)
@@ -425,7 +425,7 @@ fn decode_entry(row: &sqlx::postgres::PgRow) -> Result<PublishedQuestionLibraryE
     let published_at_millis: i64 = row.try_get("published_at_millis").map_err(map_sqlx_error)?;
     let shared_metadata = decode_shared_metadata(row)?;
     Ok(PublishedQuestionLibraryEntry {
-        question_revision: QuestionRevisionTuple {
+        question_revision_tuple: QuestionRevisionTuple {
             question_id,
             revision_number,
         },

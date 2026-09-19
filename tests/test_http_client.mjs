@@ -29,7 +29,7 @@ test("asset URLs require and retain the exact Question Revision identity", () =>
 
 test("an issued iMathAS Question Backend Question Presentation accepts only its public marker", () => {
   const presentation = {
-    questionRevision: { questionId: "7K3M-79QP", revisionNumber: 1 },
+    questionRevisionTuple: { questionId: "7K3M-79QP", revisionNumber: 1 },
     presentationNonce: "0123456789abcdef0123456789abcdef",
     questionTitle: "iMathAS Question Backend practice item",
     prompt: [],

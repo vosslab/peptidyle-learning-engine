@@ -76,7 +76,7 @@ pub struct QuestionPoolMemberView {
     /// Zero-based position in the Pool's current member list.
     pub member_position: u32,
     /// Exact immutable Question Revision at this position.
-    pub question_revision: QuestionRevisionTuple,
+    pub question_revision_tuple: QuestionRevisionTuple,
     /// Answer-free reusable Question projection for the exact member.
     pub question: ReusableQuestionView,
 }

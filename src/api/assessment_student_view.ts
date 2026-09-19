@@ -17,14 +17,14 @@ export interface AssessmentStudentViewClient {
     course: CourseInstanceId,
     assessment: AssessmentId,
     authoredPosition: number,
-    questionRevision: QuestionRevisionTuple,
+    questionRevisionTuple: QuestionRevisionTuple,
     editNumber: AssessmentEditNumber,
   ) => Promise<StudentQuestionPresentation>;
   readonly instructorStudentViewQuestionDocumentUrl: (
     course: CourseInstanceId,
     assessment: AssessmentId,
     authoredPosition: number,
-    questionRevision: QuestionRevisionTuple,
+    questionRevisionTuple: QuestionRevisionTuple,
     editNumber: AssessmentEditNumber,
   ) => string;
 }

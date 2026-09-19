@@ -169,7 +169,7 @@ impl AccountAvatarGallery for PostgresAccountAvatarGallery {
     async fn prepare_account_profile_image(
         &self,
         token: SessionTokenHash,
-        reference: ProfileImageId,
+        profile_image_id: ProfileImageId,
         object_id: ObjectId,
         sha256: Sha256Checksum,
         byte_length: u64,
@@ -181,7 +181,7 @@ impl AccountAvatarGallery for PostgresAccountAvatarGallery {
             "SELECT work_id, profile_image_id, object_id \
              FROM ple_api.prepare_account_profile_image($1,$2,$3,$4)",
         )
-        .bind(reference.as_uuid())
+        .bind(profile_image_id.as_uuid())
         .bind(object_id.as_uuid())
         .bind(sha256.as_bytes().to_vec())
         .bind(byte_length)
@@ -190,7 +190,7 @@ impl AccountAvatarGallery for PostgresAccountAvatarGallery {
         .map_err(map_sqlx_error)?
         .ok_or(StoreError::NotFound)?;
         let work_id = row.try_get("work_id").map_err(map_sqlx_error)?;
-        let reference = row
+        let profile_image_id = row
             .try_get("profile_image_id")
             .map(ProfileImageId::from_uuid)
             .map_err(map_sqlx_error)?;
@@ -201,7 +201,7 @@ impl AccountAvatarGallery for PostgresAccountAvatarGallery {
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(PreparedAccountProfileImage {
             work_id,
-            profile_image_id: reference,
+            profile_image_id: profile_image_id,
             object_id,
         })
     }
@@ -240,7 +240,7 @@ impl AccountAvatarGallery for PostgresAccountAvatarGallery {
         .map_err(map_sqlx_error)?
         .ok_or(StoreError::NotFound)?;
         let work_id = row.try_get("delete_work_id").map_err(map_sqlx_error)?;
-        let reference = row
+        let profile_image_id = row
             .try_get("profile_image_id")
             .map(ProfileImageId::from_uuid)
             .map_err(map_sqlx_error)?;
@@ -251,7 +251,7 @@ impl AccountAvatarGallery for PostgresAccountAvatarGallery {
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(AccountProfileImageDeleteWork {
             work_id,
-            profile_image_id: reference,
+            profile_image_id: profile_image_id,
             object_id,
         })
     }
@@ -321,7 +321,7 @@ impl AccountAvatarGallery for PostgresAccountAvatarGallery {
         .await
         .map_err(map_sqlx_error)?
         .ok_or(StoreError::NotFound)?;
-        let reference = row
+        let profile_image_id = row
             .try_get("profile_image_id")
             .map(ProfileImageId::from_uuid)
             .map_err(map_sqlx_error)?;
@@ -337,10 +337,10 @@ impl AccountAvatarGallery for PostgresAccountAvatarGallery {
             row.try_get::<Option<Uuid>, _>("retired_object_id")
                 .map_err(map_sqlx_error)?,
         ) {
-            (Some(work_id), Some(reference), Some(object_id)) => {
+            (Some(work_id), Some(profile_image_id), Some(object_id)) => {
                 Some(AccountProfileImageDeleteWork {
                     work_id,
-                    profile_image_id: ProfileImageId::from_uuid(reference),
+                    profile_image_id: ProfileImageId::from_uuid(profile_image_id),
                     object_id: ObjectId::from_uuid(object_id),
                 })
             }
@@ -353,7 +353,7 @@ impl AccountAvatarGallery for PostgresAccountAvatarGallery {
         };
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(FinalizedAccountProfileImage {
-            profile_image_id: reference,
+            profile_image_id: profile_image_id,
             object_id,
             retired,
         })
@@ -362,13 +362,13 @@ impl AccountAvatarGallery for PostgresAccountAvatarGallery {
     async fn resolve_current_account_profile_image(
         &self,
         token: SessionTokenHash,
-        reference: ProfileImageId,
+        profile_image_id: ProfileImageId,
     ) -> Result<ObjectId, StoreError> {
         let mut tx = self.begin(token).await?;
         let object_id = sqlx::query_scalar::<_, Option<Uuid>>(
             "SELECT ple_api.resolve_current_account_profile_image($1)",
         )
-        .bind(reference.as_uuid())
+        .bind(profile_image_id.as_uuid())
         .fetch_one(&mut *tx)
         .await
         .map_err(map_sqlx_error)?

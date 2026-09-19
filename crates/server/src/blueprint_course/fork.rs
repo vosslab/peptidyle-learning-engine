@@ -47,7 +47,7 @@ pub(super) async fn fork_blueprint(
         .fork_blueprint_course(
             session,
             BlueprintForkSource {
-                blueprint_revision: BlueprintRevisionTuple {
+                blueprint_revision_tuple: BlueprintRevisionTuple {
                     blueprint_course_id: blueprint_course_id,
                     revision,
                 },
@@ -63,7 +63,7 @@ pub(super) async fn fork_blueprint(
     match load_view(
         &state,
         session,
-        receipt.blueprint_revision.blueprint_course_id,
+        receipt.blueprint_revision_tuple.blueprint_course_id,
     )
     .await
     {

@@ -180,7 +180,7 @@ BEGIN
 
     expected_public_address := jsonb_build_object(
         'kind', 'questionAsset',
-        'questionRevision', jsonb_build_object(
+        'questionRevisionTuple', jsonb_build_object(
             'questionId', publication.published_question_id,
             'revisionNumber', publication.revision_number),
         'asset', publication.asset_id, 'object', publication.public_object_id);

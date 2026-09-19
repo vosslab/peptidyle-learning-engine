@@ -36,11 +36,11 @@ export type StudentFeedbackPresentation =
     };
 
 export interface StudentFeedbackPanelProps {
-  readonly questionRevision: QuestionRevisionTuple;
+  readonly questionRevisionTuple: QuestionRevisionTuple;
   readonly disclosure: StudentFeedbackPresentation;
   /** A server-projected record of what the student submitted. */
   readonly studentResponse?: ReadonlyArray<QuestionContentBlock>;
-  /** Resolves logical, public asset references without exposing storage locations. */
+  /** Resolves logical, public asset Tuples without exposing storage locations. */
   readonly assetUrl: AssetUrlResolver;
   /** Omit on read-only history surfaces so static Student Feedback adds no no-op tab stop. */
   readonly onAdvance?: () => void;
@@ -86,7 +86,7 @@ function hasBlocks(blocks: ReadonlyArray<QuestionContentBlock> | undefined): boo
 
 function StudentFeedbackBlock(props: {
   readonly block: QuestionContentBlock;
-  readonly questionRevision: QuestionRevisionTuple;
+  readonly questionRevisionTuple: QuestionRevisionTuple;
   readonly assetUrl: AssetUrlResolver;
 }): JSX.Element {
   switch (props.block.kind) {
@@ -107,7 +107,7 @@ function StudentFeedbackBlock(props: {
             class="student-feedback-panel__image"
             src={resolveSameOriginAssetUrl(
               props.block.questionAsset,
-              props.questionRevision,
+              props.questionRevisionTuple,
               props.assetUrl,
             )}
             alt={props.block.description}
@@ -151,7 +151,7 @@ function StudentFeedbackBlock(props: {
 /** Renders already server-approved teaching blocks without interpreting their meaning. */
 export function ContentBlockList(props: {
   readonly blocks: ReadonlyArray<QuestionContentBlock>;
-  readonly questionRevision: QuestionRevisionTuple;
+  readonly questionRevisionTuple: QuestionRevisionTuple;
   readonly assetUrl: AssetUrlResolver;
 }): JSX.Element {
   return (
@@ -160,7 +160,7 @@ export function ContentBlockList(props: {
         {(block) => (
           <StudentFeedbackBlock
             block={block}
-            questionRevision={props.questionRevision}
+            questionRevisionTuple={props.questionRevisionTuple}
             assetUrl={props.assetUrl}
           />
         )}
@@ -172,7 +172,7 @@ export function ContentBlockList(props: {
 function StudentFeedbackSection(props: {
   readonly title: string;
   readonly blocks: ReadonlyArray<QuestionContentBlock>;
-  readonly questionRevision: QuestionRevisionTuple;
+  readonly questionRevisionTuple: QuestionRevisionTuple;
   readonly assetUrl: AssetUrlResolver;
 }): JSX.Element {
   return (
@@ -180,7 +180,7 @@ function StudentFeedbackSection(props: {
       <h3>{props.title}</h3>
       <ContentBlockList
         blocks={props.blocks}
-        questionRevision={props.questionRevision}
+        questionRevisionTuple={props.questionRevisionTuple}
         assetUrl={props.assetUrl}
       />
     </section>
@@ -262,7 +262,7 @@ export function StudentFeedbackPanel(props: StudentFeedbackPanelProps): JSX.Elem
         <StudentFeedbackSection
           title="Your response"
           blocks={response()}
-          questionRevision={props.questionRevision}
+          questionRevisionTuple={props.questionRevisionTuple}
           assetUrl={props.assetUrl}
         />
       </Show>
@@ -298,7 +298,7 @@ export function StudentFeedbackPanel(props: StudentFeedbackPanelProps): JSX.Elem
               <StudentFeedbackSection
                 title="Choice Feedback"
                 blocks={released().choiceFeedback ?? []}
-                questionRevision={props.questionRevision}
+                questionRevisionTuple={props.questionRevisionTuple}
                 assetUrl={props.assetUrl}
               />
             </Show>
@@ -306,7 +306,7 @@ export function StudentFeedbackPanel(props: StudentFeedbackPanelProps): JSX.Elem
               <StudentFeedbackSection
                 title="Correct Feedback"
                 blocks={released().correctFeedback ?? []}
-                questionRevision={props.questionRevision}
+                questionRevisionTuple={props.questionRevisionTuple}
                 assetUrl={props.assetUrl}
               />
             </Show>
@@ -314,7 +314,7 @@ export function StudentFeedbackPanel(props: StudentFeedbackPanelProps): JSX.Elem
               <StudentFeedbackSection
                 title="Incorrect Feedback"
                 blocks={released().incorrectFeedback ?? []}
-                questionRevision={props.questionRevision}
+                questionRevisionTuple={props.questionRevisionTuple}
                 assetUrl={props.assetUrl}
               />
             </Show>
@@ -322,7 +322,7 @@ export function StudentFeedbackPanel(props: StudentFeedbackPanelProps): JSX.Elem
               <StudentFeedbackSection
                 title="General Feedback"
                 blocks={released().generalFeedback ?? []}
-                questionRevision={props.questionRevision}
+                questionRevisionTuple={props.questionRevisionTuple}
                 assetUrl={props.assetUrl}
               />
             </Show>
@@ -330,7 +330,7 @@ export function StudentFeedbackPanel(props: StudentFeedbackPanelProps): JSX.Elem
               <StudentFeedbackSection
                 title="Question Answer"
                 blocks={released().questionAnswer ?? []}
-                questionRevision={props.questionRevision}
+                questionRevisionTuple={props.questionRevisionTuple}
                 assetUrl={props.assetUrl}
               />
             </Show>
@@ -338,7 +338,7 @@ export function StudentFeedbackPanel(props: StudentFeedbackPanelProps): JSX.Elem
               <StudentFeedbackSection
                 title="Answer Explanation"
                 blocks={released().questionAnswerExplanation ?? []}
-                questionRevision={props.questionRevision}
+                questionRevisionTuple={props.questionRevisionTuple}
                 assetUrl={props.assetUrl}
               />
             </Show>

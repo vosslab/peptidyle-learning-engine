@@ -3,7 +3,7 @@
   "sourceObjectChecksum": "4fbc6e9435cac34fa8de49c799dafbf2dae14090878a35dcc0e34e9f1eaecd4e",
   "questionSummary": {
     "questionId": "7K3M-79QP",
-    "questionRevision": {
+    "questionRevisionTuple": {
       "questionId": "7K3M-79QP",
       "revisionNumber": 1
     },
@@ -272,7 +272,7 @@
       "assessmentEntry": "0198e000-0000-7000-8000-000000000017",
       "assessmentContentEntryIndex": 0,
       "issuedPosition": 0,
-      "questionRevision": {
+      "questionRevisionTuple": {
         "questionId": "7K3M-79QP",
         "revisionNumber": 1
       },
@@ -301,7 +301,7 @@
       "assessmentEntry": "0198e000-0000-7000-8000-000000000017",
       "assessmentContentEntryIndex": 0,
       "issuedPosition": 0,
-      "questionRevision": {
+      "questionRevisionTuple": {
         "questionId": "7K3M-79QP",
         "revisionNumber": 1
       },
@@ -330,7 +330,7 @@
       "assessmentEntry": "0198e000-0000-7000-8000-000000000017",
       "assessmentContentEntryIndex": 0,
       "issuedPosition": 0,
-      "questionRevision": {
+      "questionRevisionTuple": {
         "questionId": "7K3M-79QP",
         "revisionNumber": 1
       },
@@ -359,7 +359,7 @@
       "assessmentEntry": "0198e000-0000-7000-8000-000000000017",
       "assessmentContentEntryIndex": 0,
       "issuedPosition": 0,
-      "questionRevision": {
+      "questionRevisionTuple": {
         "questionId": "7K3M-79QP",
         "revisionNumber": 1
       },

@@ -36,15 +36,15 @@ function requestMembers(input: CreateQuestionPoolInput): ReadonlyArray<QuestionR
   }
   const tuples = new Set<string>();
   return input.members.map((member, index) => {
-    const questionRevision = decodeQuestionRevisionTuple(member, `request.members[${index}]`, true);
-    const key = `${questionRevision.questionId}:${questionRevision.revisionNumber}`;
+    const questionRevisionTuple = decodeQuestionRevisionTuple(member, `request.members[${index}]`, true);
+    const key = `${questionRevisionTuple.questionId}:${questionRevisionTuple.revisionNumber}`;
     if (tuples.has(key)) {
       throw new ApiProtocolError(
         "Question Pool creation cannot include an exact revision more than once",
       );
     }
     tuples.add(key);
-    return questionRevision;
+    return questionRevisionTuple;
   });
 }
 

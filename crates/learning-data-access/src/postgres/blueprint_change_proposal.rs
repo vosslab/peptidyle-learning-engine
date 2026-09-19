@@ -55,8 +55,8 @@ impl BlueprintChangeProposalStore for PostgresBlueprintCourseStore {
         };
         let (target, mine) = match scope {
             BlueprintChangeProposalListScope::Mine => (None, true),
-            BlueprintChangeProposalListScope::Target(reference) => {
-                (Some(reference.as_string()), false)
+            BlueprintChangeProposalListScope::Target(blueprint_assessment_id) => {
+                (Some(blueprint_assessment_id.as_string()), false)
             }
         };
         // ASVS 1.2.4, 8.2.2/3, 8.3.2: bounded participant SQL reauthorizes every page.
@@ -415,10 +415,12 @@ fn selected_stored_content(
     for module in applied.modules() {
         let mut assessments = Vec::new();
         for assessment in module.assessments() {
-            let reference = assessment.blueprint_assessment_id();
+            let blueprint_assessment_id = assessment.blueprint_assessment_id();
             let (tree, original) = copied
-                .get(&reference)
-                .map_or((target, reference), |reference| (source, *reference));
+                .get(&blueprint_assessment_id)
+                .map_or((target, blueprint_assessment_id), |source_assessment_id| {
+                    (source, *source_assessment_id)
+                });
             let mut stored = tree
                 .modules
                 .iter()
@@ -426,7 +428,7 @@ fn selected_stored_content(
                 .find(|assessment| assessment.blueprint_assessment_id == original)
                 .ok_or_else(invalid)?
                 .clone();
-            stored.blueprint_assessment_id = reference;
+            stored.blueprint_assessment_id = blueprint_assessment_id;
             assessments.push(stored);
         }
         modules.push(StoredBlueprintModule {
@@ -543,11 +545,11 @@ async fn read_sources_in_transaction(
     };
     let revisions = [
         StoredBlueprintRevision {
-            blueprint_revision: proposal.source.clone(),
+            blueprint_revision_tuple: proposal.source.clone(),
             content: source_content,
         },
         StoredBlueprintRevision {
-            blueprint_revision: proposal.target.clone(),
+            blueprint_revision_tuple: proposal.target.clone(),
             content: target_content,
         },
     ];

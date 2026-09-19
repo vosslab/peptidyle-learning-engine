@@ -5,7 +5,7 @@ import { liveDemoChromiumArgs } from "./helper_gateway_trust.mjs";
 
 const [port, course] = process.argv.slice(2);
 if (!/^[0-9]+$/u.test(port ?? "") || !/^CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}$/u.test(course ?? "")) {
-  throw new Error("expected the fixed HTTPS gateway port and a Course Instance reference");
+  throw new Error("expected the fixed HTTPS gateway port and a Course Instance ID");
 }
 
 const origin = `https://localhost:${port}`;

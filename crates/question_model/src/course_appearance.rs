@@ -141,7 +141,7 @@ macro_rules! impl_banner_route_id {
     };
 }
 
-/// Stable same-origin reference for the current course banner.
+/// Stable same-origin ID for the current course banner.
 ///
 /// This is a browser-safe delivery identity, not an object-store key.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]

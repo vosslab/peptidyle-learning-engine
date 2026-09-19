@@ -37,7 +37,7 @@ export interface QuestionLibraryBrowseRow {
   /** Copy/paste identity used by instructors and the browser deduplication key. */
   readonly displayId: string;
   /** Exact immutable revision selected by this browse result. */
-  readonly questionRevision: QuestionRevisionTuple;
+  readonly questionRevisionTuple: QuestionRevisionTuple;
   readonly questionTitle: string;
   readonly summary: string;
   /** Exact Revision-owned Bloom pair and its independent correction precondition, when assigned. */
@@ -351,7 +351,7 @@ function decodeRow(value: unknown, path: string): QuestionLibraryBrowseRow {
       "displayId",
       "questionLicense",
       "questionFormat",
-      "questionRevision",
+      "questionRevisionTuple",
       "summary",
       "bloom",
       "questionTitle",
@@ -372,17 +372,17 @@ function decodeRow(value: unknown, path: string): QuestionLibraryBrowseRow {
   if (typeof disciplineIsRetired !== "boolean") {
     throw new Error(`${path}.disciplineIsRetired must be boolean`);
   }
-  const questionRevision = decodeQuestionRevisionTuple(
-    value["questionRevision"],
-    `${path}.questionRevision`,
+  const questionRevisionTuple = decodeQuestionRevisionTuple(
+    value["questionRevisionTuple"],
+    `${path}.questionRevisionTuple`,
     true,
   );
-  if (questionRevision.questionId !== displayId) {
-    throw new Error(`${path}.questionRevision.questionId must match displayId`);
+  if (questionRevisionTuple.questionId !== displayId) {
+    throw new Error(`${path}.questionRevisionTuple.questionId must match displayId`);
   }
   return {
     displayId,
-    questionRevision,
+    questionRevisionTuple,
     questionTitle: boundedText(value["questionTitle"], `${path}.questionTitle`),
     summary: boundedText(value["summary"], `${path}.summary`, MAX_SUMMARY_LENGTH),
     bloom:

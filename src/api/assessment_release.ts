@@ -99,14 +99,14 @@ export interface SaveLiveAssessmentInlineInput {
 
 export interface AssessmentQuestionPickerEntry {
   /** Exact current Question Revision chosen by this picker row. */
-  readonly questionRevision: QuestionRevisionTuple;
+  readonly questionRevisionTuple: QuestionRevisionTuple;
   readonly description: string;
   readonly bloom: BloomClassificationView | null;
 }
 
 /** Answer-free exact Question Revision pin shown in the Instructor workspace. */
 export interface AuthoredAssessmentQuestion {
-  readonly questionRevision: QuestionRevisionTuple;
+  readonly questionRevisionTuple: QuestionRevisionTuple;
   readonly description: string;
   readonly bloom: BloomClassificationView | null;
 }

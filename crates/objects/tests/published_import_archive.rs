@@ -23,7 +23,7 @@ fn id(value: u128) -> Uuid {
     Uuid::from_u128(value)
 }
 
-fn question_revision(revision_number: u32) -> QuestionRevisionTuple {
+fn question_revision_tuple(revision_number: u32) -> QuestionRevisionTuple {
     QuestionRevisionTuple {
         question_id: QuestionId::from_random_identifier("ABCDEFG").expect("Question ID"),
         revision_number: QuestionRevisionNumber::new(revision_number).expect("positive version"),
@@ -48,7 +48,7 @@ async fn published_import_archive_candidate_is_deterministic_non_signable_and_ex
     let store = MemoryObjectStore::default();
     let workspace = WorkspaceId::from_uuid(id(2));
     let import = WorkspaceImportId::from_uuid(id(3));
-    let question_revision = question_revision(5);
+    let question_revision_tuple = question_revision_tuple(5);
     let archive_bytes = b"verified QTI archive bytes".to_vec();
     let workspace_key = ObjectAddress::WorkspaceImportSource {
         workspace,
@@ -75,13 +75,13 @@ async fn published_import_archive_candidate_is_deterministic_non_signable_and_ex
     assert_eq!(verified_workspace_archive.bytes, archive_bytes);
 
     let archive_object = published_import_archive_object_id(
-        &question_revision,
+        &question_revision_tuple,
         import,
         verified_workspace_archive.record.sha256,
     );
     let candidate = PutObject {
         address: ObjectAddress::PublishedImportArchive {
-            question_revision: question_revision.clone(),
+            question_revision_tuple: question_revision_tuple.clone(),
             import,
             object: archive_object,
         },
@@ -97,7 +97,7 @@ async fn published_import_archive_candidate_is_deterministic_non_signable_and_ex
         .expect("first immutable archive candidate should be stored");
     assert_eq!(
         first_record.id,
-        published_import_archive_object_id(&question_revision, import, first_record.sha256),
+        published_import_archive_object_id(&question_revision_tuple, import, first_record.sha256),
         "the candidate object identity must be derived from its complete typed identity"
     );
     assert_eq!(first_record.storage_area, ObjectStorageArea::PrivateContent);

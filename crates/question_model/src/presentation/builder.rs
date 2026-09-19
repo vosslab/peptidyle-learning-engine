@@ -466,13 +466,13 @@ fn presentation_response_item_id_input(
     item: &PendingResponseItem,
     basis_bytes: &[u8],
 ) -> Result<Vec<u8>, PresentationBuildError> {
-    let mut bytes = b"ple:presentation-response-item-reference:v1\0".to_vec();
+    let mut bytes = b"ple:presentation-response-item-id:v1\0".to_vec();
     bytes.extend_from_slice(&nonce.as_bytes());
     push_bytes(
         &mut bytes,
         presentation
             .variation
-            .question_revision
+            .question_revision_tuple
             .question_id
             .to_string()
             .as_bytes(),
@@ -480,7 +480,7 @@ fn presentation_response_item_id_input(
     bytes.extend_from_slice(
         &presentation
             .variation
-            .question_revision
+            .question_revision_tuple
             .revision_number
             .get()
             .to_be_bytes(),

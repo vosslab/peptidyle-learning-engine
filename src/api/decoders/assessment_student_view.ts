@@ -92,12 +92,12 @@ function decodeInstructorStudentViewQuestion(
   path: string,
 ): InstructorStudentViewQuestion {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["position", "questionRevision"]);
+  requireOnlyFields(record, path, ["position", "questionRevisionTuple"]);
   return {
     position: decodePositiveInteger(field(record, "position", path), `${path}.position`),
-    questionRevision: decodeQuestionRevisionTuple(
-      field(record, "questionRevision", path),
-      `${path}.questionRevision`,
+    questionRevisionTuple: decodeQuestionRevisionTuple(
+      field(record, "questionRevisionTuple", path),
+      `${path}.questionRevisionTuple`,
       true,
     ),
   };

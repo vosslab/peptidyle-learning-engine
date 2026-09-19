@@ -81,7 +81,7 @@ pub enum CourseInvitationEventKind {
 /// authoritative time.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CourseInvitation {
-    /// Internal storage identity, never a visible reference.
+    /// Internal storage identity, never a visible ID.
     pub id: CourseInvitationId,
     /// Exact course that can receive one ordinary Instructor Course Membership.
     pub course: CourseInstanceId,

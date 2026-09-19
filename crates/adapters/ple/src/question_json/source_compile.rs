@@ -142,10 +142,7 @@ pub(super) fn compile_response(
             },
             NativeChoiceOrder::Fixed,
             AnswerKey::Ordering {
-                correct: correct_order
-                    .iter()
-                    .map(ResponseItemId::new)
-                    .collect(),
+                correct: correct_order.iter().map(ResponseItemId::new).collect(),
             },
             Vec::new(),
             Vec::new(),
@@ -177,10 +174,7 @@ pub(super) fn compile_response(
                 },
                 NativeChoiceOrder::Fixed,
                 AnswerKey::Hotspot {
-                    correct: correct_regions
-                        .iter()
-                        .map(ResponseItemId::new)
-                        .collect(),
+                    correct: correct_regions.iter().map(ResponseItemId::new).collect(),
                 },
                 Vec::new(),
                 vec![QuestionContentBlock::Image {

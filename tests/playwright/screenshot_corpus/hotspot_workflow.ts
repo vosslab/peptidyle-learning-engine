@@ -52,7 +52,7 @@ async function waitForDeliveredQuestionControl(
   await waitForQuestionControl(page, question.position);
   const response = question.presentation.response;
   if (response.kind !== "hotspot") return;
-  const pin = question.presentation.questionRevision;
+  const pin = question.presentation.questionRevisionTuple;
   const assetPath = `/api/questions/${encodeURIComponent(pin.questionId)}/revisions/${pin.revisionNumber}/assets/${encodeURIComponent(response.surface.questionAsset.questionAsset)}`;
   const assetUrl = new URL(assetPath, page.url()).href;
   const control = page.locator("section.question-response-control");
@@ -171,7 +171,7 @@ export async function exerciseHotspot(page: Page, input: "pointer" | "keyboard")
     }
   }
   if (position === undefined) throw new Error("The released Assessment did not deliver HOTSPOT.");
-  const pin = question.presentation.questionRevision;
+  const pin = question.presentation.questionRevisionTuple;
   const control = page.locator("section.question-response-control");
   const image = control.getByRole("img", { name: DESCRIPTION, exact: true });
   await image.waitFor();
@@ -196,7 +196,7 @@ export async function exerciseHotspot(page: Page, input: "pointer" | "keyboard")
     // Reload may recommend another unanswered position; return through ordinary navigation.
     if (position === undefined) throw new Error("Missing HOTSPOT position after reload.");
     const restored = await returnToQuestion(page, position);
-    const restoredPin = restored.presentation.questionRevision;
+    const restoredPin = restored.presentation.questionRevisionTuple;
     if (
       restored.presentation.response.kind !== "hotspot" ||
       restoredPin.questionId !== pin.questionId ||

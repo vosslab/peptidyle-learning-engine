@@ -58,24 +58,24 @@ pub enum StudentResponseFormatIssue {
     MatchingPromptsMismatch,
     /// A matching response repeats a choice where the Question Response Format requires a permutation.
     DuplicateMatchChoice {
-        /// Reused Matching Choice reference.
+        /// Reused Matching Choice ID.
         choice: ResponseItemId,
     },
     /// A matching response names a choice absent from the Question Response Format.
     UnknownMatchChoice {
-        /// Unrecognized Matching Choice reference.
+        /// Unrecognized Matching Choice ID.
         choice: ResponseItemId,
     },
     /// An ordering response is not an exact permutation of the defined items.
     OrderingItemsMismatch,
     /// A Hotspot Region appears more than once in one response.
     DuplicateHotspotRegion {
-        /// Repeated Hotspot Region reference.
+        /// Repeated Hotspot Region ID.
         region: ResponseItemId,
     },
     /// A Student Hotspot Selection names a region absent from the Question Response Format.
     UnknownHotspotRegion {
-        /// Unrecognized Hotspot Region reference.
+        /// Unrecognized Hotspot Region ID.
         region: ResponseItemId,
     },
 }

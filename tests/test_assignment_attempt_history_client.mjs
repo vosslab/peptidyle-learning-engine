@@ -19,7 +19,7 @@ function history() {
     questions: [
       {
         position: 1,
-        questionRevision: { questionId: "7K3M-79QP", revisionNumber: 2 },
+        questionRevisionTuple: { questionId: "7K3M-79QP", revisionNumber: 2 },
         responseState: "submitted",
       },
     ],
@@ -48,7 +48,7 @@ test("selected Attempt history uses the exact same-origin no-store reader and st
   assert.equal(requests[0]?.cache, "no-store");
 });
 
-test("selected Attempt history rejects invalid references before transport", async () => {
+test("selected Attempt history rejects invalid IDs before transport", async () => {
   const client = createHttpApiClient({
     fetch: async () => {
       throw new Error("transport must not run");

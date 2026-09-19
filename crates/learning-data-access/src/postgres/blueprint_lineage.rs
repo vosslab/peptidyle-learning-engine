@@ -173,7 +173,7 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
             let Json(encoded): Json<serde_json::Value> =
                 row.try_get("content").map_err(map_sqlx_error)?;
             revisions.push(StoredBlueprintRevision {
-                blueprint_revision: BlueprintRevisionTuple {
+                blueprint_revision_tuple: BlueprintRevisionTuple {
                     blueprint_course_id: parse_blueprint_course_id(
                         row.try_get("blueprint_course_id").map_err(map_sqlx_error)?,
                     )?,
@@ -222,14 +222,20 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
     ) -> Result<ForkBlueprintCourseReceipt, StoreError> {
         let mut transaction = self.begin(session).await?;
         let actor = current_actor(&mut transaction).await?;
-        let source_revision_number = i64::try_from(source.blueprint_revision.revision.value())
-            .map_err(|_| StoreError::InvalidRecord("Blueprint Revision is invalid".into()))?;
+        let source_revision_number =
+            i64::try_from(source.blueprint_revision_tuple.revision.value())
+                .map_err(|_| StoreError::InvalidRecord("Blueprint Revision is invalid".into()))?;
         // Source authorization and lifecycle stay locked through the write. The
         // existing request receipt takes priority over re-reading its source.
         let snapshot = sqlx::query(
             "SELECT content, content_checksum FROM ple_api.load_blueprint_fork_source($1, $2, $3)",
         )
-        .bind(source.blueprint_revision.blueprint_course_id.as_string())
+        .bind(
+            source
+                .blueprint_revision_tuple
+                .blueprint_course_id
+                .as_string(),
+        )
         .bind(source_revision_number)
         .bind(request_checksum.into_bytes().to_vec())
         .fetch_one(&mut *transaction)
@@ -272,7 +278,12 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
              FROM ple_api.fork_blueprint_course($1, $2, $3, $4, $5, $6)",
         )
         .bind(random_uuid()?)
-        .bind(source.blueprint_revision.blueprint_course_id.as_string())
+        .bind(
+            source
+                .blueprint_revision_tuple
+                .blueprint_course_id
+                .as_string(),
+        )
         .bind(source_revision_number)
         .bind(request_checksum.into_bytes().to_vec())
         .bind(child_content)
@@ -287,7 +298,7 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
             .map_err(map_sqlx_error)?;
         let accepted_at_millis: i64 = row.try_get("accepted_at_millis").map_err(map_sqlx_error)?;
         let receipt = ForkBlueprintCourseReceipt {
-            blueprint_revision: BlueprintRevisionTuple {
+            blueprint_revision_tuple: BlueprintRevisionTuple {
                 blueprint_course_id: parse_blueprint_course_id(blueprint_course_id)?,
                 revision: blueprint_revision(revision_number)?,
             },

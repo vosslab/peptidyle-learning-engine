@@ -104,7 +104,7 @@ export type AssetUrlResolver = (questionAsset: QuestionAssetTuple) => URL;
  * its asset URLs.
  */
 export interface QuestionVariationPresentation {
-  readonly questionRevision: QuestionRevisionTuple;
+  readonly questionRevisionTuple: QuestionRevisionTuple;
   readonly prompt: ReadonlyArray<QuestionContentBlock>;
   readonly response: QuestionResponseFormat;
 }
@@ -118,7 +118,7 @@ export interface QuestionRendererProps {
 
 /** The semantic, answer-free prompt block surface shared by question views. */
 export interface QuestionPromptRendererProps {
-  readonly questionRevision: QuestionRevisionTuple;
+  readonly questionRevisionTuple: QuestionRevisionTuple;
   readonly blocks: ReadonlyArray<QuestionContentBlock>;
   readonly assetUrl: AssetUrlResolver;
 }
@@ -245,11 +245,11 @@ function renderLatexToMathMl(latex: string): SanitizedMathMl {
 /** Refuse every route except the authorized exact Question Revision asset endpoint. */
 export function resolveSameOriginAssetUrl(
   questionAsset: QuestionAssetTuple,
-  questionRevision: QuestionRevisionTuple,
+  questionRevisionTuple: QuestionRevisionTuple,
   resolver: AssetUrlResolver,
 ): string {
   const url = resolver(questionAsset);
-  const expectedPath = `/api/questions/${encodeURIComponent(questionRevision.questionId)}/revisions/${questionRevision.revisionNumber}/assets/${encodeURIComponent(questionAsset.questionAsset)}`;
+  const expectedPath = `/api/questions/${encodeURIComponent(questionRevisionTuple.questionId)}/revisions/${questionRevisionTuple.revisionNumber}/assets/${encodeURIComponent(questionAsset.questionAsset)}`;
   if (
     url.origin !== globalThis.location.origin ||
     url.pathname !== expectedPath ||
@@ -308,7 +308,7 @@ function RenderedMath(props: {
 
 function QuestionContentBlockRenderer(props: {
   readonly block: QuestionContentBlock;
-  readonly questionRevision: QuestionRevisionTuple;
+  readonly questionRevisionTuple: QuestionRevisionTuple;
   readonly assetUrl: AssetUrlResolver;
 }): JSX.Element {
   switch (props.block.kind) {
@@ -332,7 +332,7 @@ function QuestionContentBlockRenderer(props: {
             class="question-renderer__image"
             src={resolveSameOriginAssetUrl(
               props.block.questionAsset,
-              props.questionRevision,
+              props.questionRevisionTuple,
               props.assetUrl,
             )}
             alt={description}
@@ -411,7 +411,7 @@ export function QuestionPromptRenderer(props: QuestionPromptRendererProps): JSX.
         {(block) => (
           <QuestionContentBlockRenderer
             block={block}
-            questionRevision={props.questionRevision}
+            questionRevisionTuple={props.questionRevisionTuple}
             assetUrl={props.assetUrl}
           />
         )}
@@ -427,7 +427,7 @@ function QuestionContent(props: QuestionRendererProps): JSX.Element {
         <h2 id="question-prompt-heading">Question</h2>
         <QuestionPromptRenderer
           blocks={props.presentation.prompt}
-          questionRevision={props.presentation.questionRevision}
+          questionRevisionTuple={props.presentation.questionRevisionTuple}
           assetUrl={props.assetUrl}
         />
       </div>
@@ -455,14 +455,14 @@ export function QuestionRenderer(props: QuestionRendererProps): JSX.Element {
 /** Renders the prompt from one issued Student Question Presentation without projecting its format. */
 export function QuestionPresentationRenderer(props: {
   /** The exact publication identity authorizes every prompt asset. */
-  readonly presentation: Pick<QuestionPresentation, "prompt" | "questionRevision">;
+  readonly presentation: Pick<QuestionPresentation, "prompt" | "questionRevisionTuple">;
   readonly assetUrl: AssetUrlResolver;
   readonly onRetry?: () => void;
 }): JSX.Element {
   return (
     <QuestionPromptRenderer
       blocks={props.presentation.prompt}
-      questionRevision={props.presentation.questionRevision}
+      questionRevisionTuple={props.presentation.questionRevisionTuple}
       assetUrl={props.assetUrl}
     />
   );

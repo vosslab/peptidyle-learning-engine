@@ -12,7 +12,7 @@ import type {
 } from "../features/question_picker/question_picker_model";
 
 export interface QuestionPoolStartingQuestion {
-  readonly questionRevision: QuestionRevisionTuple;
+  readonly questionRevisionTuple: QuestionRevisionTuple;
   readonly questionTitle: string;
   readonly disciplineName: string;
   readonly subjectName: string;
@@ -29,8 +29,8 @@ function canonicalQuestionId(value: string): QuestionId {
 function exactStartingRevision(
   startingQuestion: QuestionPoolStartingQuestion,
 ): QuestionRevisionTuple {
-  const questionId = canonicalQuestionId(startingQuestion.questionRevision.questionId);
-  const revisionNumber = startingQuestion.questionRevision.revisionNumber;
+  const questionId = canonicalQuestionId(startingQuestion.questionRevisionTuple.questionId);
+  const revisionNumber = startingQuestion.questionRevisionTuple.revisionNumber;
   if (!Number.isSafeInteger(revisionNumber) || revisionNumber < 1) {
     throw new Error("The starting Question Revision is no longer valid.");
   }
@@ -45,12 +45,12 @@ async function latestSelectedRevisions(
   return await Promise.all(
     selection.questions.map(async (selected) => {
       const questionId = canonicalQuestionId(selected.questionId);
-      if (questionId === startingQuestion?.questionRevision.questionId) {
+      if (questionId === startingQuestion?.questionRevisionTuple.questionId) {
         throw new Error("The starting Question is already fixed at the first Pool position.");
       }
       const detail = await getQuestionDetails(questionId);
-      const questionRevision = detail.summary.questionRevision;
-      if (questionRevision.questionId !== questionId) {
+      const questionRevisionTuple = detail.summary.questionRevisionTuple;
+      if (questionRevisionTuple.questionId !== questionId) {
         throw new Error("The selected Question did not resolve to its current published Revision.");
       }
       if (
@@ -60,7 +60,7 @@ async function latestSelectedRevisions(
       ) {
         throw new Error("Every Pool Question must share the starting Discipline and Subject.");
       }
-      return questionRevision;
+      return questionRevisionTuple;
     }),
   );
 }
@@ -106,7 +106,7 @@ export function questionPoolSourcePickerRepository(
         const items = page.items.filter(
           (row) =>
             row.disciplineName === startingQuestion.disciplineName &&
-            row.displayId !== startingQuestion.questionRevision.questionId,
+            row.displayId !== startingQuestion.questionRevisionTuple.questionId,
         );
         if (items.length > 0 || page.nextCursor === null) {
           return { ...page, items };

@@ -1,4 +1,4 @@
-// Stable browser contract for active authoring choices and retired discovery references.
+// Stable browser contract for active authoring choices and retired discovery IDs.
 
 import assert from "node:assert/strict";
 import test from "node:test";

@@ -31,7 +31,7 @@ pub(super) fn decode_cache(bytes: &[u8]) -> Result<CachedRender, ImathasAdapterE
 
 pub(super) fn validate_cache(
     cached: &CachedRender,
-    question_revision: &QuestionRevisionTuple,
+    question_revision_tuple: &QuestionRevisionTuple,
     question_seed: QuestionSeed,
     source: &ResolvedImathasQuestionSource,
 ) -> Result<(), ImathasAdapterError> {
@@ -47,7 +47,7 @@ pub(super) fn validate_cache(
         || cached.source != *source.source_object_id()
         || cached.source_object_checksum != *source.source_object_checksum()
         || cached.binding != source.binding
-        || cached.presentation.variation.question_revision != *question_revision
+        || cached.presentation.variation.question_revision_tuple != *question_revision_tuple
         || *cached_seed != question_seed
         || *generated_parameter_sha256 != parameter_hash(question_seed)
         || question_model::validate_question_title(&cached.presentation.question_title).is_err()
@@ -62,10 +62,10 @@ pub(super) fn validate_cache(
 }
 
 pub(super) fn verify_binding(
-    question_revision: &QuestionRevisionTuple,
+    question_revision_tuple: &QuestionRevisionTuple,
     source: &ResolvedImathasQuestionSource,
 ) -> Result<(), ImathasAdapterError> {
-    if source.question_revision() == question_revision {
+    if source.question_revision_tuple() == question_revision_tuple {
         Ok(())
     } else {
         Err(ImathasAdapterError::SourceDoesNotMatchQuestion)
@@ -73,24 +73,24 @@ pub(super) fn verify_binding(
 }
 
 pub(super) fn render_key(
-    question_revision: &QuestionRevisionTuple,
+    question_revision_tuple: &QuestionRevisionTuple,
     question_seed: QuestionSeed,
 ) -> ObjectAddress {
     ObjectAddress::QuestionRender {
-        question_revision: question_revision.clone(),
+        question_revision_tuple: question_revision_tuple.clone(),
         question_seed,
-        object: deterministic_id(question_revision, question_seed),
+        object: deterministic_id(question_revision_tuple, question_seed),
     }
 }
 
 fn deterministic_id(
-    question_revision: &QuestionRevisionTuple,
+    question_revision_tuple: &QuestionRevisionTuple,
     question_seed: QuestionSeed,
 ) -> ObjectId {
     let mut hash = Sha256::new();
     hash.update(b"peptidyle:imathas:render-cache:v1");
-    hash.update(question_revision.question_id.to_string().as_bytes());
-    hash.update(question_revision.revision_number.get().to_be_bytes());
+    hash.update(question_revision_tuple.question_id.to_string().as_bytes());
+    hash.update(question_revision_tuple.revision_number.get().to_be_bytes());
     hash.update(question_seed.value().to_be_bytes());
     let digest = hash.finalize();
     let mut bytes = [0; 16];

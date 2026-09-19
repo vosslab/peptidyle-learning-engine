@@ -38,7 +38,9 @@ pub(crate) async fn answer_review(
         AssessmentAttemptId::from_str(&assessment_attempt),
         position.parse::<u32>(),
     ) {
-        (Ok(reference), Ok(position)) if position > 0 => (reference, position),
+        (Ok(assessment_attempt_id), Ok(position)) if position > 0 => {
+            (assessment_attempt_id, position)
+        }
         _ => return concealed(),
     };
     let token = match student(&state, &parts.headers).await {
@@ -133,7 +135,7 @@ fn permitted_answer_revision(
         .questions
         .iter()
         .find(|question| question.position == position)
-        .map(|question| &question.question_revision)
+        .map(|question| &question.question_revision_tuple)
 }
 
 fn answer_review_unavailable() -> Response {
@@ -317,7 +319,7 @@ mod tests {
                 score: None,
                 questions: vec![StudentAssessmentAttemptHistoryQuestion {
                     position: 1,
-                    question_revision: QuestionRevisionTuple {
+                    question_revision_tuple: QuestionRevisionTuple {
                         question_id: question_model::QuestionId::from_random_identifier("ABCDEF1")
                             .unwrap(),
                         revision_number: question_model::QuestionRevisionNumber::new(3).unwrap(),

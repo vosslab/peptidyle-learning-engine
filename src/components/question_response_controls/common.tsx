@@ -75,7 +75,7 @@ export interface StudentWorkRouteScope {
 export interface QuestionResponseControlBaseProps {
   readonly attemptId: string;
   /** Exact publication identity and authorized resolver for image-backed controls. */
-  readonly questionRevision?: QuestionRevisionTuple;
+  readonly questionRevisionTuple?: QuestionRevisionTuple;
   readonly assetUrl?: AssetUrlResolver;
   /** Authorized private Draft route; local author preview only. */
   readonly hotspotDraftAsset?: {
@@ -103,7 +103,7 @@ export interface QuestionResponseControlBaseProps {
   /** Exact navigation scope required to activate an iMathAS Question Backend response. */
   readonly studentWorkRoute?: StudentWorkRouteScope;
   readonly beginImathasQuestionBackendLaunch?: () => Promise<ImathasQuestionBackendLaunch>;
-  /** Current authorized lifecycle reference for a backend-owned document route. */
+  /** Current authorized lifecycle ID for a backend-owned document route. */
   readonly assessmentAttempt?: AssessmentAttemptId;
   /** Current 1-based position for a backend-owned document route. */
   readonly position?: number;

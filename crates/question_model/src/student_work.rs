@@ -104,7 +104,7 @@ pub struct QuestionPoolSelectedItem {
     /// Zero-based position in that Pool's member list at selection.
     pub member_position: u32,
     /// Exact Published Question Revision delivered to the Student.
-    pub question_revision: QuestionRevisionTuple,
+    pub question_revision_tuple: QuestionRevisionTuple,
 }
 
 /// Immutable Question Pool result for one Assessment Attempt and one Question Pool Assessment Entry.
@@ -144,7 +144,7 @@ pub struct IssuedQuestion {
     /// Expanded zero-based delivery order inside this Assessment Attempt.
     pub issued_position: u32,
     /// Exact immutable Question Library version selected for delivery.
-    pub question_revision: QuestionRevisionTuple,
+    pub question_revision_tuple: QuestionRevisionTuple,
     /// Pre-render static or seeded source selection. A complete reproduction
     /// descriptor begins only after rendering records its parameter checksum.
     pub source_selection: QuestionSourceSelection,

@@ -393,7 +393,7 @@ export function PleQuestionJsonEditorWorkspace(
                     <strong>Question ID:</strong> <code>{summary.questionId}</code>
                   </p>
                   <p>
-                    <strong>Published Revision:</strong> {summary.questionRevision.revisionNumber}
+                    <strong>Published Revision:</strong> {summary.questionRevisionTuple.revisionNumber}
                   </p>
                   <p>
                     <strong>Published to:</strong> Question Library

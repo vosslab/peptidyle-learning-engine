@@ -55,17 +55,17 @@ impl QuestionForkStore for PostgresQuestionForkStore {
     async fn load_published_question_fork_asset(
         &self,
         session_token_hash: SessionTokenHash,
-        question_revision: &QuestionRevisionTuple,
+        question_revision_tuple: &QuestionRevisionTuple,
     ) -> Result<Option<PublishedQuestionForkAsset>, StoreError> {
-        let revision_number =
-            i32::try_from(question_revision.revision_number.get()).map_err(|_| {
+        let revision_number = i32::try_from(question_revision_tuple.revision_number.get())
+            .map_err(|_| {
                 StoreError::InvalidRecord(
                     "Question Fork Revision Number exceeds PostgreSQL integer".to_owned(),
                 )
             })?;
         let mut transaction = self.begin(session_token_hash).await?;
         let rows = sqlx::query("SELECT * FROM ple_api.load_question_fork_asset($1, $2)")
-            .bind(question_revision.question_id.as_str())
+            .bind(question_revision_tuple.question_id.as_str())
             .bind(revision_number)
             .fetch_all(&mut *transaction)
             .await
@@ -77,7 +77,7 @@ impl QuestionForkStore for PostgresQuestionForkStore {
         }
         let asset = rows
             .first()
-            .map(|row| decode_fork_asset(row, question_revision))
+            .map(|row| decode_fork_asset(row, question_revision_tuple))
             .transpose()?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(asset)
@@ -89,12 +89,14 @@ impl QuestionForkStore for PostgresQuestionForkStore {
         input: ForkPublishedQuestionInput,
     ) -> Result<ForkedPublishedQuestionDraft, StoreError> {
         input.validate()?;
-        let source_revision_number =
-            i32::try_from(input.source_question_revision.revision_number.get()).map_err(|_| {
-                StoreError::InvalidRecord(
-                    "Question Fork Revision Number exceeds PostgreSQL integer".to_owned(),
-                )
-            })?;
+        let source_revision_number = i32::try_from(
+            input.source_question_revision_tuple.revision_number.get(),
+        )
+        .map_err(|_| {
+            StoreError::InvalidRecord(
+                "Question Fork Revision Number exceeds PostgreSQL integer".to_owned(),
+            )
+        })?;
         let target = &input.target_source_record;
         let target_address = serde_json::to_value(&target.address).map_err(|_| {
             StoreError::InvalidRecord("Question Fork target address cannot be encoded".to_owned())
@@ -113,7 +115,7 @@ impl QuestionForkStore for PostgresQuestionForkStore {
         )
         .bind(input.workspace.as_uuid())
         .bind(input.proposed_draft_question_id)
-        .bind(input.source_question_revision.question_id.as_str())
+        .bind(input.source_question_revision_tuple.question_id.as_str())
         .bind(source_revision_number)
         .bind(input.idempotency_key)
         .bind(target.id.as_uuid())
@@ -174,11 +176,11 @@ fn decode_fork_asset(
         sha256: Sha256Checksum::from_bytes(checksum),
         size_bytes,
         media_type: row.try_get("media_type").map_err(map_sqlx_error)?,
-        question_revision: Some(revision.clone()),
+        question_revision_tuple: Some(revision.clone()),
         created_at: Timestamp::from_unix_millis(created_at_millis),
     };
     let expected_address = ObjectAddress::RestrictedQuestionAsset {
-        question_revision: revision.clone(),
+        question_revision_tuple: revision.clone(),
         asset: asset_id,
         object: object_id,
     };

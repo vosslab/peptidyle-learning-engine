@@ -26,14 +26,14 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
   const [attested, setAttested] = createSignal(false);
   const candidates = createMemo(() => {
     const existing = new Set(
-      props.fork?.members.map((member) => questionRevisionKey(member.questionRevision)) ?? [],
+      props.fork?.members.map((member) => questionRevisionKey(member.questionRevisionTuple)) ?? [],
     );
     return props.availableQuestions.filter(
-      (candidate) => !existing.has(questionRevisionKey(candidate.questionRevision)),
+      (candidate) => !existing.has(questionRevisionKey(candidate.questionRevisionTuple)),
     );
   });
   const selectedCandidate = createMemo(() =>
-    candidates().find((candidate) => questionRevisionKey(candidate.questionRevision) === candidateKey()),
+    candidates().find((candidate) => questionRevisionKey(candidate.questionRevisionTuple) === candidateKey()),
   );
 
   function submitSelectionCount(value: string): void {
@@ -53,8 +53,8 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
     const candidate = selectedCandidate();
     if (candidate === undefined || !attested() || !props.mutationsEnabled || props.busy) return;
     props.onReplaceMembers([
-      ...(props.fork?.members.map((member) => member.questionRevision) ?? []),
-      candidate.questionRevision,
+      ...(props.fork?.members.map((member) => member.questionRevisionTuple) ?? []),
+      candidate.questionRevisionTuple,
     ]);
     setCandidateKey("");
     setAttested(false);
@@ -111,8 +111,8 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
               <For each={fork().members}>
                 {(member, index) => (
                   <li>
-                    <strong>{member.questionRevision.questionId}</strong> Revision{" "}
-                    {member.questionRevision.revisionNumber}:{" "}
+                    <strong>{member.questionRevisionTuple.questionId}</strong> Revision{" "}
+                    {member.questionRevisionTuple.revisionNumber}:{" "}
                     {member.question.question_library.summary.metadata.questionTitle}
                     <fieldset disabled={!props.mutationsEnabled || props.busy || !attested()}>
                       <legend>Membership order</legend>
@@ -120,7 +120,7 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
                         type="button"
                         disabled={index() === 0}
                         onClick={() => {
-                          const members = fork().members.map((current) => current.questionRevision);
+                          const members = fork().members.map((current) => current.questionRevisionTuple);
                           [members[index() - 1], members[index()]] = [
                             members[index()]!,
                             members[index() - 1]!,
@@ -134,7 +134,7 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
                         type="button"
                         disabled={index() === fork().members.length - 1}
                         onClick={() => {
-                          const members = fork().members.map((current) => current.questionRevision);
+                          const members = fork().members.map((current) => current.questionRevisionTuple);
                           [members[index()], members[index() + 1]] = [
                             members[index() + 1]!,
                             members[index()]!,
@@ -151,7 +151,7 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
                           replaceMembers(
                             fork()
                               .members.filter((_current, currentIndex) => currentIndex !== index())
-                              .map((current) => current.questionRevision),
+                              .map((current) => current.questionRevisionTuple),
                           )
                         }
                       >
@@ -194,9 +194,9 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
                   <option value="">Choose a Question</option>
                   <For each={candidates()}>
                     {(candidate) => (
-                      <option value={questionRevisionKey(candidate.questionRevision)}>
-                        {candidate.questionRevision.questionId} Revision{" "}
-                        {candidate.questionRevision.revisionNumber}: {candidate.description}
+                      <option value={questionRevisionKey(candidate.questionRevisionTuple)}>
+                        {candidate.questionRevisionTuple.questionId} Revision{" "}
+                        {candidate.questionRevisionTuple.revisionNumber}: {candidate.description}
                       </option>
                     )}
                   </For>

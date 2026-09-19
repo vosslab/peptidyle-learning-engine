@@ -263,7 +263,7 @@ async fn create_blueprint(
     match load_view(
         &state,
         session,
-        receipt.blueprint_revision.blueprint_course_id,
+        receipt.blueprint_revision_tuple.blueprint_course_id,
     )
     .await
     {
@@ -368,13 +368,13 @@ async fn load_revision(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let blueprint_revision = BlueprintRevisionTuple {
+    let blueprint_revision_tuple = BlueprintRevisionTuple {
         blueprint_course_id: blueprint_course_id,
         revision,
     };
     let record = match state
         .blueprints
-        .load_blueprint_revision(session, blueprint_revision.clone())
+        .load_blueprint_revision(session, blueprint_revision_tuple.clone())
         .await
     {
         Ok(value) => value,
@@ -383,7 +383,7 @@ async fn load_revision(
     match content_modules(&state, session, &record.content).await {
         Ok(modules) => crate::auth::no_store(
             Json(BlueprintRevisionView {
-                blueprint_revision,
+                blueprint_revision_tuple,
                 modules,
             })
             .into_response(),

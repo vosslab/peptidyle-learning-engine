@@ -44,7 +44,7 @@ function catalogControl<Id extends RibbonDestinationId>(id: Id): RibbonCatalogCo
 }
 
 /**
- * `backToAssessments` needs a source course reference that an attempt-only
+ * `backToAssessments` needs a source Course Instance ID that an attempt-only
  * fixture does not own. Future entries have no backing route. Every other
  * catalog route must build here, so catalog drift fails at fixture creation.
  */

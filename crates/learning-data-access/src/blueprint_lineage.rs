@@ -43,13 +43,13 @@ pub struct BlueprintComparisonSources {
 /// Immutable source fact retained by a forked Blueprint lineage.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlueprintForkSource {
-    pub blueprint_revision: BlueprintRevisionTuple,
+    pub blueprint_revision_tuple: BlueprintRevisionTuple,
 }
 
 /// Receipt for an idempotent fork creating an actor-owned Private child.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ForkBlueprintCourseReceipt {
-    pub blueprint_revision: BlueprintRevisionTuple,
+    pub blueprint_revision_tuple: BlueprintRevisionTuple,
     pub source: BlueprintForkSource,
     pub blueprint_edit_number: BlueprintEditNumber,
     pub actor: AccountId,

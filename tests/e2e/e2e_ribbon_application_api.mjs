@@ -153,11 +153,11 @@ assert.deepEqual(await resolutionApi.queries.courseScope(courseTwo), {
   appearance: { theme: "forest", banner: null },
 });
 await assert.rejects(resolutionApi.queries.resolveAssessmentAttempt("R-01"), {
-  message: "Assessment Attempt reference is invalid",
+  message: "Assessment Attempt ID is invalid",
 });
 await assert.rejects(
   resolutionApi.queries.resolveAssessmentAttempt(
     assessmentAttemptRouteId("00000000-0000-0000-0000-000000000009"),
   ),
-  { message: "Assessment Attempt reference resolved to another resource" },
+  { message: "Assessment Attempt ID resolved to another resource" },
 );

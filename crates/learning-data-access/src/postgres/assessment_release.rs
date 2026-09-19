@@ -186,7 +186,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
             .iter()
             .map(|row| {
                 Ok(AssessmentQuestionPickerEntry {
-                    question_revision: question_revision_reference(
+                    question_revision_tuple: question_revision_tuple(
                         row.try_get("question_id").map_err(map_sqlx_error)?,
                         row.try_get("question_revision_number")
                             .map_err(map_sqlx_error)?,
@@ -626,7 +626,7 @@ pub(super) fn decode_workspace(
                 .flatten()
                 .map(|id| {
                     Ok(AuthoredAssessmentQuestion {
-                        question_revision: question_revision_reference(
+                        question_revision_tuple: question_revision_tuple(
                             id,
                             row.try_get("question_revision_number")
                                 .map_err(map_sqlx_error)?,

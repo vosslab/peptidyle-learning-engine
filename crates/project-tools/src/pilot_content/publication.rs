@@ -32,12 +32,12 @@ const PILOT_PUBLICATION_SESSION_HASH_ENV: &str = "PLE_PILOT_PUBLICATION_SESSION_
 const PILOT_PUBLICATION_WORKSPACE_ENV: &str = "PLE_PILOT_PUBLICATION_WORKSPACE_ID";
 const INITIAL_PUBLICATION_REASON: &str = "Initial publication from Authoring Workspace";
 
-/// One non-secret exact reference handed to the next installation stage.
+/// One non-secret exact Tuple handed to the next installation stage.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct PublishedPilotQuestion {
     source_sha256: String,
-    question_revision: QuestionRevisionTuple,
+    question_revision_tuple: QuestionRevisionTuple,
 }
 
 /// Publishes the fixed reviewed Pilot inventory through the ordinary Authoring
@@ -110,7 +110,7 @@ pub(crate) fn validated_ple_question_json_revisions(
         .map(|question| {
             mapping
                 .remove(&question.slug)
-                .map(|published| published.question_revision)
+                .map(|published| published.question_revision_tuple)
                 .with_context(|| format!("Pilot publication mapping lacks {}", question.slug))
         })
         .collect::<Result<Vec<_>>>()?;
@@ -140,7 +140,7 @@ fn validated_publication_mapping(value: &str) -> Result<BTreeMap<String, Publish
             source.slug
         );
         ensure!(
-            published.question_revision.revision_number.get() > 0,
+            published.question_revision_tuple.revision_number.get() > 0,
             "Pilot publication mapping revision is invalid for {}",
             source.slug
         );
@@ -206,7 +206,7 @@ async fn publish_plan(
                 question.slug,
                 PublishedPilotQuestion {
                     source_sha256: question.source_sha256,
-                    question_revision: revision,
+                    question_revision_tuple: revision,
                 },
             );
             continue;
@@ -276,7 +276,7 @@ async fn publish_plan(
             question.slug,
             PublishedPilotQuestion {
                 source_sha256: question.source_sha256,
-                question_revision: revision,
+                question_revision_tuple: revision,
             },
         );
     }
@@ -337,7 +337,7 @@ fn existing_publication(
             question.slug
         );
     }
-    Ok(Some(entry.question_revision.clone()))
+    Ok(Some(entry.question_revision_tuple.clone()))
 }
 
 async fn matching_or_new_draft(

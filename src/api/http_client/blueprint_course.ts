@@ -344,11 +344,11 @@ export function createBlueprintCourseClient(
           expectedStatus: 200,
         },
       );
-      if (result.body.blueprintRevision.blueprintCourseId !== blueprintCourseId)
+      if (result.body.blueprintRevisionTuple.blueprintCourseId !== blueprintCourseId)
         throw new ApiProtocolError(
           "Blueprint fork update response must identify the requested fork",
         );
-      requireRevisionEtag(result.response, result.body.blueprintRevision.revisionNumber, path);
+      requireRevisionEtag(result.response, result.body.blueprintRevisionTuple.revisionNumber, path);
       return result.body;
     },
     listKnownBlueprintForks: async (blueprintCourseId): Promise<readonly BlueprintKnownForkView[]> => {

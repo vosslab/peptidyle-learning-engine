@@ -215,7 +215,7 @@ export function mountStudentCourseEntryM6Harness(
     },
     queries: {
       courseScope: query(
-        (_reference: CourseInstanceRouteId): Promise<CourseRouteView> =>
+        (_courseInstanceId: CourseInstanceRouteId): Promise<CourseRouteView> =>
           Promise.resolve({
             summary: {
               id: COURSE_ONE.id,
@@ -230,7 +230,7 @@ export function mountStudentCourseEntryM6Harness(
         "m6-course-scope",
       ),
       assessmentAttemptScope: query(
-        (_reference: AssessmentAttemptRouteId): Promise<StudentAssessmentAttemptContext> =>
+        (_attemptId: AssessmentAttemptRouteId): Promise<StudentAssessmentAttemptContext> =>
           Promise.resolve({
             assessmentAttempt: "00000000-0000-0000-0000-000000000006",
             attemptNumber: ASSESSMENT.assessmentAttemptNumber ?? 1,
@@ -243,7 +243,7 @@ export function mountStudentCourseEntryM6Harness(
         "m6-attempt-scope",
       ),
       assessmentAttemptHistory: query(
-        (_reference: AssessmentAttemptRouteId): Promise<StudentAssessmentAttemptHistory> =>
+        (_attemptId: AssessmentAttemptRouteId): Promise<StudentAssessmentAttemptHistory> =>
           Promise.resolve({
             assessmentAttempt: "00000000-0000-0000-0000-000000000005",
             attemptNumber: 1,

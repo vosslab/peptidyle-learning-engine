@@ -221,7 +221,7 @@ function Comparison(props: { readonly view: BlueprintComparisonView }): JSX.Elem
       </p>
       <p>
         Shared Question IDs relate Assessments, including splits and combinations. Assessment names
-        and local references do not establish identity. Question Revision pins and Pool membership
+        and local IDs do not establish identity. Question Revision pins and Pool membership
         do not expose Question bodies; body differences are not determined here.
       </p>
       <h3>Question IDs</h3>

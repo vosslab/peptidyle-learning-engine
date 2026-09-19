@@ -195,7 +195,7 @@ fn external_image_resource_is_distinguishable_from_nonvisual_resources() {
 }
 
 #[test]
-fn hotspot_publication_retargets_the_complete_question_asset_reference() {
+fn hotspot_publication_retargets_the_complete_question_asset_tuple() {
     let source = br#"{
         "format": "pleQuestionJson",
         "questionTitle": "Locate the active site",
@@ -228,7 +228,7 @@ fn hotspot_publication_retargets_the_complete_question_asset_reference() {
     let document = PleQuestionJsonDocument::parse(source).expect("hotspot source parses");
     let published = document
         .with_hotspot_surface_asset(replacement.clone())
-        .expect("hotspot asset reference retargets");
+        .expect("hotspot asset tuple retargets");
     let compiled = published.compile().expect("retargeted source compiles");
 
     let QuestionResponseFormat::Hotspot { surface, .. } = compiled.presentation().response() else {

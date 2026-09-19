@@ -15,7 +15,7 @@ import { CourseThemeVariables } from "../../src/features/course_appearance/cours
 import { CourseAppearancePage } from "../../src/pages/course_appearance_page";
 import { RouteScopeProvider } from "../../src/ribbon/route_scope_context";
 
-const COURSE_REFERENCE: CourseInstanceId = "CI7K3M2QAZ";
+const COURSE_INSTANCE_ID: CourseInstanceId = "CI7K3M2QAZ";
 const COURSE_PATH = "/instructor/courses/CI7K3M2QAZ/appearance";
 const FIXTURE_CLASSIFICATION = {
   disciplineUuid: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6d",
@@ -28,7 +28,7 @@ const FIXTURE_CLASSIFICATION = {
 function initialCourse(): CourseRouteView {
   return {
     summary: {
-      id: COURSE_REFERENCE,
+      id: COURSE_INSTANCE_ID,
       shortName: "BCHM 301",
       longName: "Biochemistry 301: Proteins and Peptides",
       classification: FIXTURE_CLASSIFICATION,

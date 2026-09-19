@@ -60,7 +60,7 @@ export function hotspotRegionStyle(
 export function resolveHotspotImageUrl(
   props: Pick<
     QuestionResponseControlBodyProps<HotspotResponseFormat>,
-    "responseFormat" | "questionRevision" | "assetUrl" | "hotspotDraftAsset" | "mode"
+    "responseFormat" | "questionRevisionTuple" | "assetUrl" | "hotspotDraftAsset" | "mode"
   >,
 ): string | undefined {
   const asset =
@@ -68,8 +68,8 @@ export function resolveHotspotImageUrl(
       ? props.responseFormat.surface
       : props.responseFormat.surface.questionAsset;
   // ASVS 1.2.2: reuse the exact same-origin asset boundary, never author-provided URLs.
-  if (props.questionRevision !== undefined && props.assetUrl !== undefined) {
-    return resolveSameOriginAssetUrl(asset, props.questionRevision, props.assetUrl);
+  if (props.questionRevisionTuple !== undefined && props.assetUrl !== undefined) {
+    return resolveSameOriginAssetUrl(asset, props.questionRevisionTuple, props.assetUrl);
   }
   const draft = props.hotspotDraftAsset;
   if (props.mode !== "formatOnly" || draft === undefined) return undefined;

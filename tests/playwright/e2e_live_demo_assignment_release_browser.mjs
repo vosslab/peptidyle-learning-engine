@@ -289,7 +289,7 @@ try {
     /^\/instructor\/courses\/(CI[0-9A-HJKMNP-TV-Z]{8})\/assessments\//u,
   )?.[1];
   if (courseInstanceId === undefined)
-    throw new Error("the Assessment workspace lacked a Course reference");
+    throw new Error("the Assessment workspace lacked a Course Instance ID");
   if ((await page.getByLabel(assessmentDurationOverrideLabel).inputValue()) !== "30") {
     throw new Error("the autosaved time limit did not persist after reload");
   }

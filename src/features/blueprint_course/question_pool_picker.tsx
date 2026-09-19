@@ -247,8 +247,8 @@ export function QuestionPoolPicker(props: QuestionPoolPickerProps): JSX.Element 
                             {member.question.question_library.summary.metadata.questionTitle}
                           </strong>
                           <span>
-                            {member.questionRevision.questionId}, Revision{" "}
-                            {member.questionRevision.revisionNumber}
+                            {member.questionRevisionTuple.questionId}, Revision{" "}
+                            {member.questionRevisionTuple.revisionNumber}
                           </span>
                         </li>
                       )}

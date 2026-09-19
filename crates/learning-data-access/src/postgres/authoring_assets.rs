@@ -119,7 +119,7 @@ impl AuthoringAssetsStore for PostgresAuthoringAssetsStore {
             )
             .map_err(|_| invalid())?,
             media_type: row.try_get("media_type").map_err(map_sqlx_error)?,
-            question_revision: None,
+            question_revision_tuple: None,
             created_at: Timestamp::from_unix_millis(
                 row.try_get("created_at_millis").map_err(map_sqlx_error)?,
             ),

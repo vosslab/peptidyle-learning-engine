@@ -108,7 +108,7 @@ pub struct StudentAssessmentAttemptHistoryQuestion {
     /// This history projection never resolves a current Question or Assessment
     /// entry: its revision identity is part of the durable Student Work
     /// evidence that makes old presentations and their assets interpretable.
-    pub question_revision: QuestionRevisionTuple,
+    pub question_revision_tuple: QuestionRevisionTuple,
     pub response_state: LiveAssessmentPreviousAttemptState,
     /// Readable submitted response, released independently from all grading
     /// and feedback fields. Omitted when withheld or exact reproduction fails.
@@ -385,7 +385,7 @@ pub struct NativeAssessmentIssuanceBatch {
 /// input for selected-presentation and saved-response interpretation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StudentAssessmentAttemptPresentationEvidence {
-    pub question_revision: QuestionRevisionTuple,
+    pub question_revision_tuple: QuestionRevisionTuple,
     /// Static or seeded reproduction facts. These never cross the HTTP seam.
     pub reproduction: question_model::QuestionReproduction,
     pub presentation_nonce: String,
@@ -566,7 +566,7 @@ pub trait LiveAssessmentDeliveryStore: Send + Sync {
 
     /// Saves one canonical Student response for an active, owned issued position.
     ///
-    /// The server validates and translates presentation references before this
+    /// The server validates and translates presentation IDs before this
     /// boundary. PostgreSQL serializes this write with finalization.
     async fn save_student_assessment_attempt_response(
         &self,

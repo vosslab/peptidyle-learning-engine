@@ -210,7 +210,7 @@ pub struct QuestionSearchRequest {
     pub question_licenses: Vec<QuestionLicense>,
     /// Whether a current Account-visible course use is required.
     ///
-    /// This closed filter carries no course reference, title, or identity.
+    /// This closed filter carries no Course Instance ID, title, or identity.
     pub used_in_my_courses: QuestionSearchCourseUse,
     /// Whether immutable publication authorship by the current Account is required.
     ///

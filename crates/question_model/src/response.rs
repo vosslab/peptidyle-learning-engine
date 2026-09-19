@@ -251,13 +251,13 @@ pub struct StudentMatch {
 
 /// One Hotspot Region selected by a Student.
 ///
-/// The reference identifies the selected region; authored region geometry
+/// The ID identifies the selected region; authored region geometry
 /// belongs exclusively to the Question Response Format. This keeps a Student
 /// Response independent of the surface shape and display layout.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct StudentHotspotSelection {
-    /// Selected Hotspot Region reference.
+    /// Selected Hotspot Region ID.
     pub region: ResponseItemId,
 }
 

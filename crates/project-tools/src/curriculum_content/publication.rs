@@ -120,10 +120,10 @@ pub(crate) async fn publish_with_context(
     .context("publishing canonical Genetics Questions")?;
     let revisions = publication.question_revisions();
     let input = blueprint_input(&manifest, &revisions, classification)?;
-    let (reference, revision) =
+    let (blueprint_course_id, revision) =
         create_blueprint(session, &input, &manifest, &revisions, &blueprints).await?;
     Receipt::new(
-        reference.to_string(),
+        blueprint_course_id.to_string(),
         revision.value(),
         &manifest,
         &revisions,
@@ -221,7 +221,10 @@ fn existing_source_revisions(
         ensure_source_entry_compatible(entry, source, authorship, license)?;
         ensure!(
             revisions
-                .insert(source.source_id.clone(), entry.question_revision.clone())
+                .insert(
+                    source.source_id.clone(),
+                    entry.question_revision_tuple.clone()
+                )
                 .is_none(),
             "canonical source identity is duplicated: {}",
             source.source_id
@@ -267,13 +270,13 @@ async fn create_blueprint(
         .await
         .context("creating canonical Genetics Blueprint Course")?;
     ensure!(
-        receipt.blueprint_revision.revision == BlueprintRevision::INITIAL,
+        receipt.blueprint_revision_tuple.revision == BlueprintRevision::INITIAL,
         "canonical Genetics Blueprint creation did not return Revision 1"
     );
     let loaded = store
         .load_blueprint_course(
             session,
-            receipt.blueprint_revision.blueprint_course_id.clone(),
+            receipt.blueprint_revision_tuple.blueprint_course_id.clone(),
         )
         .await
         .context("reloading canonical Genetics Blueprint Course")?;
@@ -331,7 +334,7 @@ fn validate_loaded_content(
         {
             let (
                 StoredBlueprintAssessmentEntry::Fixed {
-                    question_revision,
+                    question_revision_tuple,
                     points_possible,
                     scoring_rule,
                     question_attempt_limit,
@@ -346,8 +349,8 @@ fn validate_loaded_content(
                 format!("canonical Genetics revision is missing for source {source_id}")
             })?;
             ensure!(
-                question_revision == expected_revision
-                    && question_revision == &expected_fixed.published_question
+                question_revision_tuple == expected_revision
+                    && question_revision_tuple == &expected_fixed.published_question
                     && points_possible == &expected_fixed.points_possible
                     && scoring_rule == &AssessmentEntryScoringRule::Normal
                     && scoring_rule == &expected_fixed.scoring_rule

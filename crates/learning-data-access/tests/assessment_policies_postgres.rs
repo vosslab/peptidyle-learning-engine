@@ -87,7 +87,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> (CourseInstanceId, AssessmentId
     .await
     .expect("published Question");
     sqlx::query(
-        "INSERT INTO ple_data.question_revision \
+        "INSERT INTO ple_data.question_revision_tuple \
          (published_question_id, revision_number, backend, question_type, published_at) \
          VALUES ($1, 1, 'ple', 'multipleChoice', clock_timestamp())",
     )
@@ -234,8 +234,8 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> (CourseInstanceId, AssessmentId
     .expect("Assessment Entry Question");
     tx.commit().await.expect("fixture commit");
     (
-        CourseInstanceId::new(course_id).expect("Course reference"),
-        AssessmentId::new(assessment_id).expect("Assessment reference"),
+        CourseInstanceId::new(course_id).expect("Course Instance ID"),
+        AssessmentId::new(assessment_id).expect("Assessment ID"),
     )
 }
 

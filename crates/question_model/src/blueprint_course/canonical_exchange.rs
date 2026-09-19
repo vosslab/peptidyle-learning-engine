@@ -220,7 +220,7 @@ impl CanonicalBlueprintAssessment {
 pub enum CanonicalBlueprintAssessmentEntry {
     /// One exact immutable Published Question Revision.
     Fixed {
-        #[serde(deserialize_with = "deserialize_question_revision_reference")]
+        #[serde(deserialize_with = "deserialize_question_revision_tuple")]
         published_question: QuestionRevisionTuple,
         points_possible: AssessmentPointValue,
         scoring_rule: AssessmentEntryScoringRule,
@@ -242,7 +242,7 @@ pub enum CanonicalBlueprintAssessmentEntry {
     },
 }
 
-fn deserialize_question_revision_reference<'de, D>(
+fn deserialize_question_revision_tuple<'de, D>(
     deserializer: D,
 ) -> Result<QuestionRevisionTuple, D::Error>
 where
@@ -368,13 +368,13 @@ impl From<&BlueprintAssessmentEntryContent> for CanonicalBlueprintAssessmentEntr
     fn from(entry: &BlueprintAssessmentEntryContent) -> Self {
         match entry {
             BlueprintAssessmentEntryContent::Fixed {
-                question_revision,
+                question_revision_tuple,
                 points_possible,
                 scoring_rule,
                 question_attempt_limit,
                 question_attempt_time_limit,
             } => Self::Fixed {
-                published_question: question_revision.clone(),
+                published_question: question_revision_tuple.clone(),
                 points_possible: *points_possible,
                 scoring_rule: *scoring_rule,
                 question_attempt_limit: *question_attempt_limit,
@@ -439,7 +439,7 @@ mod tests {
                             .expect("instructions"),
                         vec![
                             BlueprintAssessmentEntryContent::Fixed {
-                                question_revision: fixed.clone(),
+                                question_revision_tuple: fixed.clone(),
                                 points_possible: AssessmentPointValue::from_whole(3),
                                 scoring_rule: AssessmentEntryScoringRule::Normal,
                                 question_attempt_limit: QuestionAttemptLimit {

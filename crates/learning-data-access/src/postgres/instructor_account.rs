@@ -203,7 +203,7 @@ async fn summary_for_account(
 }
 
 fn decode_summary(row: &sqlx::postgres::PgRow) -> Result<InstructorAccountSummary, StoreError> {
-    let reference = AccountId::new(
+    let account_id = AccountId::new(
         row.try_get::<String, _>("account_id")
             .map_err(map_sqlx_error)?,
     )
@@ -228,7 +228,7 @@ fn decode_summary(row: &sqlx::postgres::PgRow) -> Result<InstructorAccountSummar
         .map(ProvidedAvatarId::parse)
         .transpose()?;
     Ok(InstructorAccountSummary {
-        id: reference,
+        id: account_id,
         state,
         last_successful_sign_in,
         provided_avatar_id,

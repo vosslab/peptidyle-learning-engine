@@ -93,7 +93,7 @@ async fn seed_grading_graph(pool: &PgPool) {
     .await
     .expect("Published Question");
     sqlx::query(
-        "INSERT INTO ple_data.question_revision \
+        "INSERT INTO ple_data.question_revision_tuple \
          (published_question_id, revision_number, backend, question_type, published_at) \
          VALUES ($1, 1, 'ple', 'multipleChoice', clock_timestamp()) \
          ON CONFLICT (published_question_id, revision_number) DO NOTHING",
@@ -268,7 +268,7 @@ async fn make_attempt(
     .fetch_one(&mut *tx)
     .await
     .expect("start Attempt");
-    let reference = started_attempt_id;
+    let attempt_id = started_attempt_id;
     sqlx::query("SET LOCAL ROLE ple_private_owner")
         .execute(&mut *tx)
         .await
@@ -289,14 +289,14 @@ async fn make_attempt(
     .expect("Question Attempt");
     set_student(&mut tx).await.expect("Student save session");
     let initial_state: String = sqlx::query_scalar("SELECT response_state FROM ple_api.save_student_assessment_attempt_response($1, 1, '{\"kind\":\"shortText\",\"text\":\"saved\"}'::jsonb)")
-        .bind(reference).fetch_one(&mut *tx).await.expect("initial saved response");
+        .bind(attempt_id).fetch_one(&mut *tx).await.expect("initial saved response");
     assert_eq!(
         initial_state, "saved",
         "fixture response reached saved work"
     );
     tx.commit().await.expect("committed fixture");
     AttemptFixture {
-        attempt_id: reference,
+        attempt_id: attempt_id,
         assessment_id,
     }
 }
@@ -424,8 +424,8 @@ async fn late_save_and_commit_recheck_the_clock_after_waiting_on_their_locks() {
         Uuid::from_u128(0xf5500000000000000000000000000002),
     )
     .await;
-    let late_reference = late_fixture.attempt_id;
-    let commit_reference = commit_fixture.attempt_id;
+    let late_attempt_id = late_fixture.attempt_id;
+    let commit_attempt_id = commit_fixture.attempt_id;
     let commit_assessment = commit_fixture.assessment_id;
     let mut save_tx = pool.begin().await.expect("late save transaction");
     sqlx::query("SET LOCAL application_name = 'direct-finalization-late-save'")
@@ -458,7 +458,7 @@ async fn late_save_and_commit_recheck_the_clock_after_waiting_on_their_locks() {
     let mut save = tokio::spawn(async move {
         let mut tx = save_tx;
         let state: String = sqlx::query_scalar("SELECT response_state FROM ple_api.save_student_assessment_attempt_response($1, 1, '{\"kind\":\"shortText\",\"text\":\"late\"}'::jsonb)")
-            .bind(late_reference)
+            .bind(late_attempt_id)
             .fetch_one(&mut *tx)
             .await
             .map_err(|error| format!("late save request: {error}"))?;
@@ -520,7 +520,7 @@ async fn late_save_and_commit_recheck_the_clock_after_waiting_on_their_locks() {
                   WHERE prepared.preparation_state = 'ready'\
              ))",
         )
-        .bind(commit_reference)
+        .bind(commit_attempt_id)
         .execute(&mut *tx)
         .await;
         let sqlstate = match result {

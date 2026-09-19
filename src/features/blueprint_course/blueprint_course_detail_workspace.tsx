@@ -112,7 +112,7 @@ export function BlueprintCourseDetailWorkspace(
   async function load(keepLocalContent: boolean, keepVisible = false): Promise<void> {
     if (parseBlueprintCourseId(props.blueprintCourseId) === null) {
       setState("error");
-      setNotice({ kind: "alert", text: "This Blueprint Course reference is invalid." });
+      setNotice({ kind: "alert", text: "This Blueprint Course ID is invalid." });
       return;
     }
     setRefreshFailed(false);

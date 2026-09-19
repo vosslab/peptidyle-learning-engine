@@ -115,12 +115,12 @@ pub struct BlueprintComparisonAssessment {
 
 /// Answer-free immutable content resolved by its exact Blueprint Revision Tuple.
 ///
-/// The reference identifies one saved Revision independently of lineage names
+/// The Tuple identifies one saved Revision independently of lineage names
 /// and availability.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BlueprintRevisionView {
-    pub blueprint_revision: BlueprintRevisionTuple,
+    pub blueprint_revision_tuple: BlueprintRevisionTuple,
     pub modules: Vec<BlueprintModuleView>,
 }
 
@@ -132,7 +132,7 @@ pub struct BlueprintCourseSaveResponse {
     pub changed: bool,
 }
 
-/// Reviewed references and explicit choices, never client-supplied source content.
+/// Reviewed IDs and explicit choices, never client-supplied source content.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BlueprintForkApplyRequest {
@@ -149,7 +149,7 @@ pub struct BlueprintForkApplyRequest {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BlueprintForkApplyResponse {
-    pub blueprint_revision: BlueprintRevisionTuple,
+    pub blueprint_revision_tuple: BlueprintRevisionTuple,
     pub changed: bool,
     pub metadata: question_model::BlueprintMetadataState,
 }
@@ -160,18 +160,18 @@ mod tests {
     use question_model::{BlueprintCourseId, BlueprintRevision};
 
     #[test]
-    fn revision_view_keeps_the_exact_immutable_reference() {
+    fn revision_view_keeps_the_exact_immutable_tuple() {
         let view = BlueprintRevisionView {
-            blueprint_revision: BlueprintRevisionTuple {
+            blueprint_revision_tuple: BlueprintRevisionTuple {
                 blueprint_course_id: "BPABCDEFGJ"
                     .parse::<BlueprintCourseId>()
-                    .expect("reference"),
+                    .expect("Blueprint Course ID"),
                 revision: BlueprintRevision::new(3).expect("revision"),
             },
             modules: Vec::new(),
         };
 
         let wire = serde_json::to_value(view).expect("view serializes");
-        assert_eq!(wire["blueprintRevision"]["revision"], "3");
+        assert_eq!(wire["blueprintRevisionTuple"]["revisionNumber"], "3");
     }
 }

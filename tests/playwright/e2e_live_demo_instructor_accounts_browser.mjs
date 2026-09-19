@@ -47,11 +47,11 @@ try {
   await page.getByRole("button", { name: "Create Instructor Account" }).click();
   await page.getByText("Instructor Account created.").waitFor();
   const created = page.locator('section[aria-label="Instructor Accounts"] > .auth-panel').first();
-  const reference = (await created.locator("h2").textContent())?.trim();
-  if (!/^U[0-9A-HJKMNP-TV-Z]{8}$/u.test(reference ?? "")) {
+  const accountId = (await created.locator("h2").textContent())?.trim();
+  if (!/^U[0-9A-HJKMNP-TV-Z]{8}$/u.test(accountId ?? "")) {
     throw new Error("created Instructor Account did not have a canonical public ID");
   }
-  await created.locator(`#deactivate-reason-${reference}`).fill("Live demo access review");
+  await created.locator(`#deactivate-reason-${accountId}`).fill("Live demo access review");
   await created.getByRole("button", { name: "Deactivate Instructor Account" }).click();
   await created.getByText("State: Deactivated").waitFor();
   await created.getByRole("button", { name: "Reactivate Instructor Account" }).click();

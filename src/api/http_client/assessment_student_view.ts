@@ -14,7 +14,7 @@ import { boundedResponseJson, requireNoStore } from "./response";
 
 function assessmentStudentViewPath(course: CourseInstanceId, assessment: AssessmentId): string {
   if (parseCourseInstanceId(course) === null || parseAssessmentId(assessment) === null) {
-    throw new ApiProtocolError("Student View route references must be canonical");
+    throw new ApiProtocolError("Student View route IDs must be canonical");
   }
   // ASVS 1.2.2 and 2.2.1: validate, then encode every dynamic path segment.
   return `/api/course-instances/${encodeURIComponent(course)}/assessments/${encodeURIComponent(assessment)}/student-view`;
@@ -24,23 +24,23 @@ function questionPath(
   course: CourseInstanceId,
   assessment: AssessmentId,
   authoredPosition: number,
-  questionRevision: QuestionRevisionTuple,
+  questionRevisionTuple: QuestionRevisionTuple,
 ): string {
   const base = assessmentStudentViewPath(course, assessment);
-  const questionId = validateCanonicalQuestionIdSyntax(questionRevision.questionId);
+  const questionId = validateCanonicalQuestionIdSyntax(questionRevisionTuple.questionId);
   if (
     !Number.isSafeInteger(authoredPosition) ||
     authoredPosition < 0 ||
     authoredPosition > 2_147_483_647 ||
     questionId === null ||
-    questionId !== questionRevision.questionId ||
-    !Number.isSafeInteger(questionRevision.revisionNumber) ||
-    questionRevision.revisionNumber < 1 ||
-    questionRevision.revisionNumber > 2_147_483_647
+    questionId !== questionRevisionTuple.questionId ||
+    !Number.isSafeInteger(questionRevisionTuple.revisionNumber) ||
+    questionRevisionTuple.revisionNumber < 1 ||
+    questionRevisionTuple.revisionNumber > 2_147_483_647
   ) {
     throw new ApiProtocolError("Student View Question locator must be canonical and bounded");
   }
-  return `${base}/entries/${authoredPosition}/questions/${encodeURIComponent(questionId)}/revisions/${questionRevision.revisionNumber}`;
+  return `${base}/entries/${authoredPosition}/questions/${encodeURIComponent(questionId)}/revisions/${questionRevisionTuple.revisionNumber}`;
 }
 
 function quotedEditNumber(editNumber: string, path: string): string {
@@ -88,10 +88,10 @@ async function presentationRequest(
   course: CourseInstanceId,
   assessment: AssessmentId,
   authoredPosition: number,
-  questionRevision: QuestionRevisionTuple,
+  questionRevisionTuple: QuestionRevisionTuple,
   editNumber: string,
 ): ReturnType<AssessmentStudentViewClient["getInstructorStudentViewQuestion"]> {
-  const path = `${questionPath(course, assessment, authoredPosition, questionRevision)}/presentation`;
+  const path = `${questionPath(course, assessment, authoredPosition, questionRevisionTuple)}/presentation`;
   const response = await requestSameOrigin(fetchImplementation, basePath, path, {
     headers: { "if-match": quotedEditNumber(editNumber, path) },
   });
@@ -101,7 +101,7 @@ async function presentationRequest(
   }
   if (!response.ok) throw new ApiRequestError(response.status, path);
   const presentation = decodeStudentQuestionPresentation(await boundedResponseJson(response, path));
-  if (!sameQuestionRevision(presentation.questionRevision, questionRevision)) {
+  if (!sameQuestionRevision(presentation.questionRevisionTuple, questionRevisionTuple)) {
     throw new ApiProtocolError(
       `API response ${path} does not match the requested Question Revision`,
     );
@@ -122,7 +122,7 @@ export function createAssessmentStudentViewClient(
       course,
       assessment,
       authoredPosition,
-      questionRevision,
+      questionRevisionTuple,
       editNumber,
     ) =>
       presentationRequest(
@@ -131,17 +131,17 @@ export function createAssessmentStudentViewClient(
         course,
         assessment,
         authoredPosition,
-        questionRevision,
+        questionRevisionTuple,
         editNumber,
       ),
     instructorStudentViewQuestionDocumentUrl: (
       course,
       assessment,
       authoredPosition,
-      questionRevision,
+      questionRevisionTuple,
       editNumber,
     ): string => {
-      const path = `${questionPath(course, assessment, authoredPosition, questionRevision)}/document`;
+      const path = `${questionPath(course, assessment, authoredPosition, questionRevisionTuple)}/document`;
       const query = new URLSearchParams({ editNumber });
       quotedEditNumber(editNumber, path);
       return requestPath(basePath, `${path}?${query.toString()}`);

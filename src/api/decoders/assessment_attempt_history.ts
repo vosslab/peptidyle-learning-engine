@@ -98,7 +98,7 @@ export function decodeStudentAssessmentAttemptHistory(
         const item = decodeRecord(question, questionPath);
         requireOnlyFields(item, questionPath, [
           "position",
-          "questionRevision",
+          "questionRevisionTuple",
           "responseState",
           "response",
           "backendAnswerReview",
@@ -147,9 +147,9 @@ export function decodeStudentAssessmentAttemptHistory(
             field(item, "position", questionPath),
             `${questionPath}.position`,
           ),
-          questionRevision: decodeQuestionRevisionTuple(
-            field(item, "questionRevision", questionPath),
-            `${questionPath}.questionRevision`,
+          questionRevisionTuple: decodeQuestionRevisionTuple(
+            field(item, "questionRevisionTuple", questionPath),
+            `${questionPath}.questionRevisionTuple`,
             true,
           ),
           responseState: state(

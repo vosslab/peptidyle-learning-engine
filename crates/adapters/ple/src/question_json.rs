@@ -186,7 +186,7 @@ impl PleQuestionJsonDocument {
     }
 
     /// Returns a publication-only HOTSPOT source with the exact Question Asset
-    /// Tuple substituted for the private workspace image reference.
+    /// Tuple substituted for the private workspace image ID.
     ///
     /// The returned source remains answer-bearing and canonical, so the
     /// published Source Object ID, PLE Question JSON public content, and server-only key can

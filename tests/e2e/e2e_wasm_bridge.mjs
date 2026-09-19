@@ -167,7 +167,7 @@ const capabilityViolations = JSON.parse(
     JSON.stringify({
       questions: [
         {
-          question: fixture.questionSummary.questionRevision,
+          question: fixture.questionSummary.questionRevisionTuple,
           questionBackendCapabilities: [],
         },
       ],
@@ -204,7 +204,7 @@ assert.deepEqual(draftPreview, {
 });
 
 const presentation = {
-  questionRevision: { questionId: "ABCD-XEFG", revisionNumber: 1 },
+  questionRevisionTuple: { questionId: "ABCD-XEFG", revisionNumber: 1 },
   presentationNonce: "11111111111111111111111111111111",
   questionTitle: "Peptide bond",
   prompt: [{ kind: "text", markdown: "Which group forms the peptide bond?" }],

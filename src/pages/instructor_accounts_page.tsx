@@ -157,7 +157,7 @@ export function InstructorAccountsPage(): JSX.Element {
       <h1 id="instructor-accounts-heading">Instructor Accounts</h1>
       <p class="page-lede">
         Create and manage Instructor Account access. This workspace intentionally lists only an
-        account reference, state, and last successful sign-in.
+        Account ID, state, and last successful sign-in.
       </p>
       <p class="sr-only" role="status" aria-live="polite">
         {announcement()}

@@ -48,7 +48,7 @@ pub struct AssessmentQuestionAnalysis {
     pub course: CourseInstanceId,
     pub assessment: AssessmentId,
     pub assessment_entry: AssessmentEntryId,
-    pub question_revision: QuestionRevisionTuple,
+    pub question_revision_tuple: QuestionRevisionTuple,
     pub scoring_generation: ScoringGeneration,
     pub analyzed_at: Timestamp,
     pub graded_attempt_count: u32,

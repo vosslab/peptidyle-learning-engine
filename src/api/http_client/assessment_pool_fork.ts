@@ -40,7 +40,7 @@ export class AssessmentPoolForkConflictError extends ApiRequestError {
 
 function assessmentPath(course: CourseInstanceId, assessment: AssessmentId): string {
   if (parseCourseInstanceId(course) === null || parseAssessmentId(assessment) === null) {
-    throw new ApiProtocolError("Assessment Pool route references must be canonical");
+    throw new ApiProtocolError("Assessment Pool route IDs must be canonical");
   }
   return `/api/course-instances/${encodeURIComponent(course)}/assessments/${encodeURIComponent(assessment)}`;
 }

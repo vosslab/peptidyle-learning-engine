@@ -171,7 +171,7 @@ async fn student_question(
         Ok(value) => value,
         Err(value) => return store_error(value),
     };
-    let question_revision = source.question_revision.clone();
+    let question_revision_tuple = source.question_revision_tuple.clone();
     let issued = match reproduce_selected_issued_presentation(source) {
         Ok(value) => value,
         Err(StartError::Store(value)) => return store_error(value),
@@ -202,7 +202,7 @@ async fn student_question(
         Json(SelectedPresentationResponse {
             position: query.position,
             presentation: StudentQuestionPresentation {
-                question_revision,
+                question_revision_tuple,
                 author_content_digest: issued.presentation.author_content_digest,
                 prompt: issued.presentation.prompt,
                 response: issued.presentation.response,
@@ -234,7 +234,7 @@ pub(super) fn reproduce_selected_issued_presentation(
         (Some(expected), Some(author_content)) if expected == author_content.digest() => {}
         _ => return Err(StartError::Invalid),
     }
-    if presentation.question_revision != evidence.question_revision
+    if presentation.question_revision_tuple != evidence.question_revision_tuple
         || presentation.presentation_nonce.to_hex() != evidence.presentation_nonce
     {
         return Err(StartError::Invalid);
@@ -362,8 +362,9 @@ async fn issue_native_assessment_batch(
             .into_iter()
             .zip(&attempt.questions)
             .map(|(evidence, issued)| {
-                if evidence.question_revision.question_id != issued.question_id
-                    || evidence.question_revision.revision_number.get() != issued.revision_number
+                if evidence.question_revision_tuple.question_id != issued.question_id
+                    || evidence.question_revision_tuple.revision_number.get()
+                        != issued.revision_number
                     || evidence.reproduction != issued.reproduction
                     || evidence.presentation_nonce != issued.presentation_nonce
                     || evidence.presentation_checksum != issued.presentation_checksum
@@ -430,8 +431,8 @@ async fn rebuild_committed_attempt_presentations(
             )
             .await
             .map_err(StartError::Store)?;
-        if evidence.question_revision.question_id != issued.question_id
-            || evidence.question_revision.revision_number.get() != issued.revision_number
+        if evidence.question_revision_tuple.question_id != issued.question_id
+            || evidence.question_revision_tuple.revision_number.get() != issued.revision_number
             || evidence.reproduction != issued.reproduction
             || evidence.presentation_nonce != issued.presentation_nonce
             || evidence.presentation_checksum != issued.presentation_checksum
@@ -591,14 +592,9 @@ pub(super) async fn resolve_source(
     };
     let checksum = SourceObjectChecksum::parse(source.source_object_checksum.clone())
         .map_err(|_| StartError::Invalid)?;
-    ResolvedPleQuestionJsonSource::resolve(
-        objects,
-        revision,
-        ObjectId::from_uuid(object),
-        checksum,
-    )
-    .await
-    .map_err(|_| StartError::Unavailable)
+    ResolvedPleQuestionJsonSource::resolve(objects, revision, ObjectId::from_uuid(object), checksum)
+        .await
+        .map_err(|_| StartError::Unavailable)
 }
 
 // Route handlers return this response immediately; boxing it would add an

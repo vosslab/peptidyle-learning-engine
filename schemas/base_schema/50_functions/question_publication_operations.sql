@@ -183,7 +183,7 @@ BEGIN
             MESSAGE = 'Question Revision Publication content does not differ from its parent Revision';
     END IF;
     expected_address := jsonb_build_object('kind', 'questionSource',
-        'questionRevision', jsonb_build_object('questionId', p_published_question_id,
+        'questionRevisionTuple', jsonb_build_object('questionId', p_published_question_id,
             'revisionNumber', next_revision_number), 'object', p_target_object_id);
     IF p_target_object_address IS DISTINCT FROM expected_address
        OR p_target_sha256 IS DISTINCT FROM source_record.sha256
@@ -440,7 +440,7 @@ BEGIN
     SELECT * INTO STRICT source_record FROM ple_private.object_record
      WHERE object_record_id = binding.source_object_record_id;
     expected_address := jsonb_build_object('kind', 'questionSource',
-        'questionRevision', jsonb_build_object('questionId', p_published_question_id, 'revisionNumber', 1),
+        'questionRevisionTuple', jsonb_build_object('questionId', p_published_question_id, 'revisionNumber', 1),
         'object', p_target_object_id);
     IF p_target_object_address IS DISTINCT FROM expected_address
        OR p_target_sha256 IS DISTINCT FROM source_record.sha256

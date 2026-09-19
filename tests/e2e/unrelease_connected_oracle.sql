@@ -67,7 +67,7 @@ INSERT INTO ple_private.object_record (
     '20000000-0000-0000-0000-000000000010',
     jsonb_build_object(
         'kind', 'questionSource',
-        'questionRevision', jsonb_build_object(
+        'questionRevisionTuple', jsonb_build_object(
             'questionId', :'question_id',
             'revisionNumber', 1
         ),

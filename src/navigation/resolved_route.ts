@@ -1,4 +1,4 @@
-// One strict resolution boundary between visible route references and internal API identities.
+// One strict resolution boundary between visible route IDs and internal API identities.
 
 import type { AssessmentId } from "../../generated/api/AssessmentId";
 import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";

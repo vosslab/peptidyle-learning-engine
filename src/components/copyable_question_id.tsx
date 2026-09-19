@@ -9,12 +9,12 @@ export interface CopyableQuestionIdProps {
   readonly displayId: string;
   /**
    * Library rows already display the Question title as their heading. Other
-   * callers retain the detailed reference presentation by default.
+   * callers retain the detailed ID presentation by default.
    */
   readonly presentation?: "detailed" | "compact";
 }
 export function CopyableQuestionId(props: CopyableQuestionIdProps): JSX.Element {
-  // ASVS V2.2.1: display and copy only the allowlisted public Question-reference syntax.
+  // ASVS V2.2.1: display and copy only the allowlisted public Question ID syntax.
   const questionId = validateCanonicalQuestionIdSyntax(props.displayId);
   const [status, setStatus] = createSignal("");
   async function copy(): Promise<void> {

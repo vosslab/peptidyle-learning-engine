@@ -14,7 +14,7 @@ export function QuestionResponsePreviewControl(
   const content = (blocks: ReadonlyArray<QuestionContentBlock>): JSX.Element => (
     <QuestionPromptRenderer
       blocks={blocks}
-      questionRevision={props.questionRevision}
+      questionRevisionTuple={props.questionRevisionTuple}
       assetUrl={props.assetUrl}
     />
   );

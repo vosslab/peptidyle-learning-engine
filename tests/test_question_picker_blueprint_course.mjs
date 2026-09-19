@@ -12,7 +12,7 @@ function questionLibraryEntry(questionId, questionTitle, revisionNumber) {
     summary: {
       ...publishedQuestion,
       questionId,
-      questionRevision: { questionId, revisionNumber },
+      questionRevisionTuple: { questionId, revisionNumber },
       metadata: { ...publishedQuestion.metadata, questionTitle },
     },
     disciplineName: "Biology",
@@ -29,7 +29,7 @@ function content() {
       {
         kind: "fixed",
         question: {
-          question_revision: { questionId: "7K3M-79QP", revisionNumber: 3 },
+          question_revision_tuple: { questionId: "7K3M-79QP", revisionNumber: 3 },
           question_library: questionLibraryEntry("7K3M-79QP", "First fixed", 3),
           selection_availability: "available",
         },
@@ -48,7 +48,7 @@ function content() {
       {
         kind: "fixed",
         question: {
-          question_revision: { questionId: "4T9C-C5EW", revisionNumber: 5 },
+          question_revision_tuple: { questionId: "4T9C-C5EW", revisionNumber: 5 },
           question_library: questionLibraryEntry("4T9C-C5EW", "Final fixed", 5),
           selection_availability: "available",
         },
@@ -72,7 +72,7 @@ const query = {
 
 function revision(revisionNumber = "2") {
   return {
-    blueprintRevision: { blueprintCourseId: "BP7K3MX9AA", revisionNumber: revisionNumber },
+    blueprintRevisionTuple: { blueprintCourseId: "BP7K3MX9AA", revisionNumber: revisionNumber },
     modules: [
       {
         blueprint_module_id: "module-7",
@@ -88,8 +88,8 @@ function revision(revisionNumber = "2") {
 test("Blueprint Assessment picker presents fixed Questions in authored order", async () => {
   const resolved = [];
   const source = blueprintCourseQuestionPickerRepository({
-    getBlueprintRevision: async (reference, revisionNumber) => {
-      resolved.push({ reference, revisionNumber });
+    getBlueprintRevision: async (blueprintCourseId, revisionNumber) => {
+      resolved.push({ blueprintCourseId, revisionNumber });
       return revision();
     },
   });
@@ -97,7 +97,7 @@ test("Blueprint Assessment picker presents fixed Questions in authored order", a
     source: {
       kind: "blueprintCourseAssessment",
       source: {
-        blueprint_revision: { blueprintCourseId: "BP7K3MX9AA", revisionNumber: "2" },
+        blueprint_revision_tuple: { blueprintCourseId: "BP7K3MX9AA", revisionNumber: "2" },
         blueprint_assessment_id: "00000000-0000-0000-0000-000000000007",
       },
       label: "Blueprint Assessment",
@@ -111,13 +111,13 @@ test("Blueprint Assessment picker presents fixed Questions in authored order", a
     ["7K3M-79QP", "4T9C-C5EW"],
   );
   assert.deepEqual(
-    result.items.map((row) => row.questionRevision),
+    result.items.map((row) => row.questionRevisionTuple),
     [
       { questionId: "7K3M-79QP", revisionNumber: 3 },
       { questionId: "4T9C-C5EW", revisionNumber: 5 },
     ],
   );
-  assert.deepEqual(resolved, [{ reference: "BP7K3MX9AA", revisionNumber: "2" }]);
+  assert.deepEqual(resolved, [{ blueprintCourseId: "BP7K3MX9AA", revisionNumber: "2" }]);
 });
 
 test("Blueprint Assessment picker refuses a Blueprint Course revision that changed before access", async () => {
@@ -129,7 +129,7 @@ test("Blueprint Assessment picker refuses a Blueprint Course revision that chang
       source: {
         kind: "blueprintCourseAssessment",
         source: {
-          blueprint_revision: { blueprintCourseId: "BP7K3MX9AA", revisionNumber: "2" },
+          blueprint_revision_tuple: { blueprintCourseId: "BP7K3MX9AA", revisionNumber: "2" },
           blueprint_assessment_id: "00000000-0000-0000-0000-000000000007",
         },
         label: "Stale Blueprint Assessment",

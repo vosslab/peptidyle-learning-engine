@@ -15,7 +15,7 @@ use crate::{SessionTokenHash, StoreError};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ForkPublishedQuestionInput {
     /// Existing available immutable source Revision, resolved from the path.
-    pub source_question_revision: QuestionRevisionTuple,
+    pub source_question_revision_tuple: QuestionRevisionTuple,
     /// Existing owner workspace resolved through the ordinary authoring Store.
     pub workspace: WorkspaceId,
     /// Opaque server persistence identity; it never crosses the browser boundary.
@@ -57,7 +57,7 @@ impl ForkPublishedQuestionInput {
             })
             || source.storage_area != ObjectStorageArea::PrivateContent
             || source.data_class != ObjectDataClass::AuthoringContent
-            || source.question_revision.is_some()
+            || source.question_revision_tuple.is_some()
         {
             return Err(StoreError::InvalidRecord(
                 "Question Fork target source is not owned by its workspace".to_owned(),
@@ -74,7 +74,7 @@ impl ForkPublishedQuestionInput {
                 })
                 || record.storage_area != ObjectStorageArea::PrivateContent
                 || record.data_class != ObjectDataClass::AuthoringContent
-                || record.question_revision.is_some()
+                || record.question_revision_tuple.is_some()
             {
                 return Err(StoreError::InvalidRecord(
                     "Question Fork target asset is not owned by its Draft".to_owned(),
@@ -106,7 +106,7 @@ pub trait QuestionForkStore: Send + Sync {
     async fn load_published_question_fork_asset(
         &self,
         session_token_hash: SessionTokenHash,
-        question_revision: &QuestionRevisionTuple,
+        question_revision_tuple: &QuestionRevisionTuple,
     ) -> Result<Option<PublishedQuestionForkAsset>, StoreError>;
 
     /// Creates or returns the actor/key's one private Draft fork atomically.

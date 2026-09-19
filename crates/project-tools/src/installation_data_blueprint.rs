@@ -29,7 +29,7 @@ const LIVE_DEMO_BLUEPRINT_REQUEST_CHECKSUM: RequestChecksum = RequestChecksum::f
     0x02, 0xc8, 0x9c, 0xb7, 0xd5, 0x55, 0x26, 0x9f, 0x94, 0xfc, 0x45, 0x3a, 0x1c, 0xbe, 0x0f, 0x6c,
 ]);
 
-/// Store-generated references consumed by the dependent Live Demo SQL graph.
+/// Store-generated IDs consumed by the dependent Live Demo SQL graph.
 pub(crate) struct LiveDemoBlueprintManifestIds {
     pub(crate) blueprint_course_id: String,
     pub(crate) assessment_id: String,
@@ -85,13 +85,13 @@ pub(crate) fn create_live_demo_blueprint(
             .await
             .context("creating the ordinary Live Demo Blueprint Course")?;
         ensure!(
-            receipt.blueprint_revision.revision == BlueprintRevision::INITIAL,
+            receipt.blueprint_revision_tuple.revision == BlueprintRevision::INITIAL,
             "Live Demo Blueprint creation did not return Revision 1"
         );
         let blueprint = store
             .load_blueprint_course(
                 session,
-                receipt.blueprint_revision.blueprint_course_id.clone(),
+                receipt.blueprint_revision_tuple.blueprint_course_id.clone(),
             )
             .await
             .context("reloading the ordinary Live Demo Blueprint Course")?;
@@ -120,7 +120,7 @@ pub(crate) fn create_live_demo_blueprint(
             store
                 .publish_blueprint(
                     session,
-                    receipt.blueprint_revision.blueprint_course_id.clone(),
+                    receipt.blueprint_revision_tuple.blueprint_course_id.clone(),
                     blueprint.blueprint_edit_number,
                 )
                 .await
@@ -129,7 +129,7 @@ pub(crate) fn create_live_demo_blueprint(
         let blueprint = store
             .load_blueprint_course(
                 session,
-                receipt.blueprint_revision.blueprint_course_id.clone(),
+                receipt.blueprint_revision_tuple.blueprint_course_id.clone(),
             )
             .await
             .context("reloading the published Live Demo Blueprint Course")?;
@@ -138,7 +138,10 @@ pub(crate) fn create_live_demo_blueprint(
             "Live Demo Blueprint is not Public before Course adoption"
         );
         Ok(LiveDemoBlueprintManifestIds {
-            blueprint_course_id: receipt.blueprint_revision.blueprint_course_id.to_string(),
+            blueprint_course_id: receipt
+                .blueprint_revision_tuple
+                .blueprint_course_id
+                .to_string(),
             assessment_id: assessment_id.to_string(),
         })
     })
@@ -186,7 +189,7 @@ fn validate_loaded_content(
     {
         let (
             StoredBlueprintAssessmentEntry::Fixed {
-                question_revision,
+                question_revision_tuple,
                 points_possible: actual_points,
                 scoring_rule: actual_scoring,
                 question_attempt_limit: actual_attempt_limit,
@@ -198,7 +201,7 @@ fn validate_loaded_content(
             anyhow::bail!("Live Demo Blueprint entries must remain fixed Questions");
         };
         ensure!(
-            question_revision == question && &expected_fixed.published_question == question,
+            question_revision_tuple == question && &expected_fixed.published_question == question,
             "Live Demo Blueprint Question pins differ from the reviewed Pilot publications"
         );
         ensure!(
@@ -343,7 +346,7 @@ mod tests {
                             .map(|(entry, question)| match entry {
                                 BlueprintAssessmentEntryInput::Fixed(fixed) => {
                                     StoredBlueprintAssessmentEntry::Fixed {
-                                        question_revision: question.clone(),
+                                        question_revision_tuple: question.clone(),
                                         points_possible: fixed.points_possible,
                                         scoring_rule: fixed.scoring_rule,
                                         question_attempt_limit: fixed.question_attempt_limit,

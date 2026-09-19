@@ -49,7 +49,7 @@ pub(super) struct RouteState {
 
 /// Registers the browser-safe current Course Appearance reader.
 ///
-/// Each route resolves its canonical Course Instance reference through the
+/// Each route resolves its canonical Course Instance course_instance_id through the
 /// installed session before the Appearance Stores repeat exact Course
 /// Membership authorization for the requested operation.
 pub fn course_appearance_router(
@@ -96,7 +96,7 @@ async fn update_theme(
     Path(course): Path<String>,
     request: Request,
 ) -> Response {
-    let reference = match CourseInstanceId::from_str(&course) {
+    let course_instance_id = match CourseInstanceId::from_str(&course) {
         Ok(value) => value,
         Err(_) => return concealed(),
     };
@@ -104,7 +104,7 @@ async fn update_theme(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let course = match resolve_course(&state, session_hash, reference).await {
+    let course = match resolve_course(&state, session_hash, course_instance_id).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -170,7 +170,7 @@ async fn read_appearance(
     headers: HeaderMap,
     Path(course): Path<String>,
 ) -> Response {
-    let reference = match CourseInstanceId::from_str(&course) {
+    let course_instance_id = match CourseInstanceId::from_str(&course) {
         Ok(value) => value,
         // ASVS 1.2.3 and 8.2.2: malformed identities receive the same
         // no-store concealment response as an authenticated nonmember.
@@ -180,7 +180,7 @@ async fn read_appearance(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let course = match resolve_course(&state, session_hash, reference).await {
+    let course = match resolve_course(&state, session_hash, course_instance_id).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -220,7 +220,7 @@ pub(super) async fn resolve_course(
     course_instance_id: CourseInstanceId,
 ) -> Result<CourseInstanceId, Box<Response>> {
     // ASVS 2.2.1, 8.2.2, and 8.3.1: the route accepts only a canonical public
-    // Course Instance reference, then resolves its private ID through the
+    // Course Instance course_instance_id, then resolves its private ID through the
     // current session's active Course Membership before any Appearance read or
     // mutation. Each Appearance Store repeats its operation-specific check.
     state

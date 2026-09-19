@@ -34,7 +34,7 @@ import { decodeQuestionContentBlock } from "./question_response_format";
 /** Renderable Student fields from a server-selected, pinned presentation. */
 export interface StudentQuestionPresentation {
   /** Exact immutable Question Revision identity required for every prompt asset. */
-  readonly questionRevision: QuestionPresentation["questionRevision"];
+  readonly questionRevisionTuple: QuestionPresentation["questionRevisionTuple"];
   /** Optional digest for isolated author content; never raw source or a URL. */
   readonly authorContentDigest?: string;
   readonly prompt: QuestionPresentation["prompt"];
@@ -42,13 +42,13 @@ export interface StudentQuestionPresentation {
 }
 
 const MAX_PRESENTED_ITEMS = 32;
-const PRESENTATION_RESPONSE_ITEM_REFERENCE = /^[0-9a-f]{4}$/u;
+const PRESENTATION_RESPONSE_ITEM_ID = /^[0-9a-f]{4}$/u;
 const PRESENTATION_NONCE = /^[0-9a-f]{32}$/u;
 type PresentedResponseItemFields = Pick<PresentedQuestionChoice, "id" | "body">;
 
 function presentationResponseItemId(value: unknown, path: string): string {
   const decoded = decodeString(value, path);
-  if (!PRESENTATION_RESPONSE_ITEM_REFERENCE.test(decoded)) {
+  if (!PRESENTATION_RESPONSE_ITEM_ID.test(decoded)) {
     throw new DecodeError(path, "a four-character lowercase Presentation Response Item ID");
   }
   return decoded;
@@ -330,7 +330,7 @@ export function decodeIssuedQuestionPresentation(
 ): QuestionPresentation {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "questionRevision",
+    "questionRevisionTuple",
     "presentationNonce",
     "authorContentDigest",
     "questionTitle",
@@ -342,9 +342,9 @@ export function decodeIssuedQuestionPresentation(
     throw new DecodeError(`${path}.presentationNonce`, "32 lowercase hexadecimal characters");
   }
   const presentation = {
-    questionRevision: decodeQuestionRevisionTuple(
-      field(record, "questionRevision", path),
-      `${path}.questionRevision`,
+    questionRevisionTuple: decodeQuestionRevisionTuple(
+      field(record, "questionRevisionTuple", path),
+      `${path}.questionRevisionTuple`,
       true,
     ),
     presentationNonce: nonce,
@@ -378,15 +378,15 @@ export function decodeStudentQuestionPresentation(
 ): StudentQuestionPresentation {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "questionRevision",
+    "questionRevisionTuple",
     "authorContentDigest",
     "prompt",
     "response",
   ]);
   return {
-    questionRevision: decodeQuestionRevisionTuple(
-      field(record, "questionRevision", path),
-      `${path}.questionRevision`,
+    questionRevisionTuple: decodeQuestionRevisionTuple(
+      field(record, "questionRevisionTuple", path),
+      `${path}.questionRevisionTuple`,
       true,
     ),
     ...(record.authorContentDigest === undefined

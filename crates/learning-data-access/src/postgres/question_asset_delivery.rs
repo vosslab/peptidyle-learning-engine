@@ -51,7 +51,7 @@ impl QuestionAssetDeliveryStore for PostgresQuestionAssetDeliveryStore {
     async fn resolve_ready_question_asset_delivery(
         &self,
         token: SessionTokenHash,
-        question_revision: QuestionRevisionTuple,
+        question_revision_tuple: QuestionRevisionTuple,
         asset_id: QuestionAssetId,
     ) -> Result<ReadyQuestionAssetDelivery, StoreError> {
         let mut transaction = self.begin(token).await?;
@@ -59,9 +59,9 @@ impl QuestionAssetDeliveryStore for PostgresQuestionAssetDeliveryStore {
             "SELECT public_object_id, rendition_checksum \
              FROM ple_api.resolve_ready_question_asset($1, $2, $3)",
         )
-        .bind(question_revision.question_id.as_str())
+        .bind(question_revision_tuple.question_id.as_str())
         .bind(
-            i32::try_from(question_revision.revision_number.get()).map_err(|_| {
+            i32::try_from(question_revision_tuple.revision_number.get()).map_err(|_| {
                 StoreError::InvalidRecord("Question Revision number is invalid".to_string())
             })?,
         )
@@ -78,7 +78,7 @@ impl QuestionAssetDeliveryStore for PostgresQuestionAssetDeliveryStore {
                 StoreError::InvalidRecord("Question Asset checksum is invalid".to_string())
             })?;
         let value = ReadyQuestionAssetDelivery {
-            question_revision,
+            question_revision_tuple,
             asset_id,
             public_object_id: ObjectId::from_uuid(
                 row.try_get("public_object_id").map_err(map_sqlx_error)?,

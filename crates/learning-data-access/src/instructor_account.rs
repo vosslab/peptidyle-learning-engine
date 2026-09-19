@@ -54,11 +54,11 @@ pub struct CreateInstructorAccountInput {
     /// Immutable completed identity check for this exact normalized email.
     ///
     /// The Store derives the approving Sysadmin from the authenticated session;
-    /// this opaque reference only binds that completed decision to the candidate.
+    /// this opaque ID only binds that completed decision to the candidate.
     pub vetting_decision_id: InstructorIdentityVettingDecisionId,
 }
 
-/// Opaque durable reference to an immutable completed Instructor identity check.
+/// Opaque durable ID for an immutable completed Instructor identity check.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct InstructorIdentityVettingDecisionId(Uuid);

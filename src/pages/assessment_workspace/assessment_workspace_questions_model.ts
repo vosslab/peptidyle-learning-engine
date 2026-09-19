@@ -64,8 +64,8 @@ export function withFixedQuestionPointValues(
 }
 
 /** A stable, exact identity used when comparing pinned Question Revisions. */
-export function questionRevisionKey(questionRevision: QuestionRevisionTuple): string {
-  return `${questionRevision.questionId}:${questionRevision.revisionNumber}`;
+export function questionRevisionKey(questionRevisionTuple: QuestionRevisionTuple): string {
+  return `${questionRevisionTuple.questionId}:${questionRevisionTuple.revisionNumber}`;
 }
 
 /** Appends an Available picker row as a new fixed Entry without altering existing Entry objects. */
@@ -74,11 +74,11 @@ export function appendAvailableFixedQuestion(
   picker: AssessmentQuestionPickerEntry,
   entryId: AssessmentEntryId,
 ): ReadonlyArray<AssessmentEntry> {
-  const key = questionRevisionKey(picker.questionRevision);
+  const key = questionRevisionKey(picker.questionRevisionTuple);
   if (
     entries.some(
       (entry) =>
-        entry.kind === "fixedQuestion" && questionRevisionKey(entry.questionRevision) === key,
+        entry.kind === "fixedQuestion" && questionRevisionKey(entry.questionRevisionTuple) === key,
     )
   )
     return entries;
@@ -87,7 +87,7 @@ export function appendAvailableFixedQuestion(
     {
       kind: "fixedQuestion",
       id: entryId,
-      questionRevision: picker.questionRevision,
+      questionRevisionTuple: picker.questionRevisionTuple,
       pointsPossible: "1",
       availability: "available",
       scoringRule: "normal",

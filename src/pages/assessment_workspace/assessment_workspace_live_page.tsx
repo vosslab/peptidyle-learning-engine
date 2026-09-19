@@ -167,7 +167,7 @@ export interface AssessmentWorkspaceLivePageProps {
   readonly section: AssessmentWorkspaceSection;
 }
 
-/** Resolves public references, proves the exact course relationship, then loads one workspace detail. */
+/** Resolves public IDs, proves the exact course relationship, then loads one workspace detail. */
 function AssessmentWorkspaceLiveContent(props: AssessmentWorkspaceLivePageProps): JSX.Element {
   const applicationApi = useApplicationApi();
   const location = useLocation();

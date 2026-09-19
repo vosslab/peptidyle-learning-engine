@@ -174,7 +174,7 @@ struct PublishRevisionDraftRequest {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct PublishedRevisionDraftResponse {
-    question_revision: QuestionRevisionTuple,
+    question_revision_tuple: QuestionRevisionTuple,
 }
 
 async fn list_drafts(State(state): State<AuthoringRouteState>, headers: HeaderMap) -> Response {
@@ -666,7 +666,7 @@ async fn publish_revision_draft(
         Ok(number) => number,
         Err(response) => return *response,
     };
-    let parent_question_revision = match existing_parent_question_revision(
+    let parent_question_revision_tuple = match existing_parent_question_revision(
         request.question_id,
         request.parent_revision_number,
     ) {
@@ -733,15 +733,18 @@ async fn publish_revision_draft(
                 draft_question_uuid: draft.draft_question_uuid,
                 expected_draft_question_edit_number: expected_edit_number,
                 workspace: draft.workspace,
-                parent_question_revision,
+                parent_question_revision_tuple,
                 question_revision_reason: revision_reason,
             },
             now(),
         )
         .await
     {
-        Ok(question_revision) => crate::auth::no_store(
-            Json(PublishedRevisionDraftResponse { question_revision }).into_response(),
+        Ok(question_revision_tuple) => crate::auth::no_store(
+            Json(PublishedRevisionDraftResponse {
+                question_revision_tuple,
+            })
+            .into_response(),
         ),
         Err(error) => publication_error(error),
     }

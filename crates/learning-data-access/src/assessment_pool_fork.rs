@@ -28,7 +28,7 @@ pub struct ImportAssessmentPoolForkInput {
     pub scoring_rule: AssessmentEntryScoringRule,
 }
 
-/// Immutable fork reference created and associated in one transaction.
+/// Immutable fork identity created and associated in one transaction.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ImportedAssessmentPoolFork {
     pub assessment_entry: AssessmentEntryId,
@@ -39,7 +39,7 @@ pub struct ImportedAssessmentPoolFork {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AppendAssessmentPoolForkMembersInput {
-    /// Opaque route references; no browser supplies an internal Assessment ID.
+    /// Opaque route IDs; no browser supplies an internal Assessment ID.
     pub course: CourseInstanceId,
     pub assessment: AssessmentId,
     pub assessment_entry: AssessmentEntryId,

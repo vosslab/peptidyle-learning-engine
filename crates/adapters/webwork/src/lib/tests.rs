@@ -5,8 +5,8 @@ use objects::{ObjectAddress, ObjectStore, PutObject, Sha256Checksum};
 use question_model::generation::QuestionSeed;
 use question_model::{
     BackendOwnedLifecycleState, ObjectId, QuestionEvaluation, QuestionId, QuestionRendererVersion,
-    QuestionRevisionNumber, QuestionRevisionTuple, SourceObjectChecksum,
-    StudentResponse, Timestamp,
+    QuestionRevisionNumber, QuestionRevisionTuple, SourceObjectChecksum, StudentResponse,
+    Timestamp,
 };
 use uuid::Uuid;
 
@@ -21,7 +21,7 @@ const SOURCE: &[u8] =
 const DOCUMENT: &[u8] = b"<!doctype html><form><input name=AnSwEr0001></form>";
 const PAYLOAD: &[u8] = br#"[["AnSwEr0001","student value"],["hidden","1"]]"#;
 
-fn question_revision() -> QuestionRevisionTuple {
+fn question_revision_tuple() -> QuestionRevisionTuple {
     QuestionRevisionTuple {
         question_id: QuestionId::from_random_identifier("ABCDEFG").expect("Question ID"),
         revision_number: QuestionRevisionNumber::new(2).expect("positive version"),
@@ -45,7 +45,7 @@ impl WebworkRenderer for RecordedRenderer {
         request: RenderRequest<'_>,
     ) -> Result<RenderedWebworkQuestion, RendererFailure> {
         assert_eq!(request.seed, 17);
-        assert_eq!(request.question_revision, &question_revision());
+        assert_eq!(request.question_revision_tuple, &question_revision_tuple());
         self.render(request).await
     }
 
@@ -149,9 +149,11 @@ impl WebworkRenderer for NativeResponseRejectingRenderer {
 }
 
 async fn source(store: &MemoryObjectStore) -> ResolvedWebworkQuestionSource {
-    let binding =
-        WebworkQuestionSourceBinding::new(question_revision(), "Library/opaque.pg".to_string())
-            .expect("fixed path is valid");
+    let binding = WebworkQuestionSourceBinding::new(
+        question_revision_tuple(),
+        "Library/opaque.pg".to_string(),
+    )
+    .expect("fixed path is valid");
     let source_object_id = ObjectId::from_uuid(Uuid::from_u128(4));
     let source_object_checksum =
         SourceObjectChecksum::parse(Sha256Checksum::compute(SOURCE).to_string())
@@ -159,7 +161,7 @@ async fn source(store: &MemoryObjectStore) -> ResolvedWebworkQuestionSource {
     store
         .put(PutObject {
             address: ObjectAddress::QuestionSource {
-                question_revision: binding.question_revision().clone(),
+                question_revision_tuple: binding.question_revision_tuple().clone(),
                 object: source_object_id,
             },
             bytes: SOURCE.to_vec(),
@@ -168,14 +170,9 @@ async fn source(store: &MemoryObjectStore) -> ResolvedWebworkQuestionSource {
         })
         .await
         .expect("source stores under immutable key");
-    ResolvedWebworkQuestionSource::resolve(
-        store,
-        binding,
-        source_object_id,
-        source_object_checksum,
-    )
-    .await
-    .expect("source resolves through trusted storage")
+    ResolvedWebworkQuestionSource::resolve(store, binding, source_object_id, source_object_checksum)
+        .await
+        .expect("source resolves through trusted storage")
 }
 
 #[tokio::test]

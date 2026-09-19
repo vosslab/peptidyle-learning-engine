@@ -30,7 +30,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         .await
         .expect("owner creates a new Blueprint through the application Store");
     assert_eq!(
-        created.blueprint_revision.revision,
+        created.blueprint_revision_tuple.revision,
         BlueprintRevision::INITIAL
     );
     let replay = owner_store
@@ -43,11 +43,11 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         .await
         .expect("create request replay");
     assert_eq!(
-        replay.blueprint_revision, created.blueprint_revision,
+        replay.blueprint_revision_tuple, created.blueprint_revision_tuple,
         "create request replay returns its original Revision"
     );
-    let blueprint_course_id = created.blueprint_revision.blueprint_course_id;
-    let reference = blueprint_course_id_text(&blueprint_course_id).await;
+    let blueprint_course_id = created.blueprint_revision_tuple.blueprint_course_id;
+    let blueprint_course_id_sql = blueprint_course_id_text(&blueprint_course_id).await;
     let reader_store = PostgresBlueprintCourseStore::new(application_pool.clone());
     promotion_boundary(&owner_store, blueprint_course_id.clone()).await;
     // Regression: a refactor could disclose Private immutable content or let
@@ -75,7 +75,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     .await;
     let (availability, public_blueprint_edit_number) = transition_blueprint_availability(
         &application_url,
-        &reference,
+        &blueprint_course_id_sql,
         owner_private.blueprint_edit_number.as_i64(),
         "public",
         None,
@@ -144,7 +144,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         .expect("independently adopt the same Blueprint Revision");
     let public_to_private = transition_blueprint_availability(
         &application_url,
-        &reference,
+        &blueprint_course_id_sql,
         public_blueprint_edit_number,
         "private",
         None,
@@ -160,7 +160,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     assert_eq!(
         save(
             &application_url,
-            &reference,
+            &blueprint_course_id_sql,
             1,
             public_save_checksum.clone(),
             &revision_one
@@ -182,7 +182,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     // Regression: Archived writes must not succeed through receipt replay or
     // no-op shortcuts. Failure action: repair the locked lifecycle boundary,
     // preserving readable history and Public writes after restore.
-    let archived_write_state = blueprint_write_state(&reference).await;
+    let archived_write_state = blueprint_write_state(&blueprint_course_id_sql).await;
     let mut changed_archived_content = revision_one.clone();
     changed_archived_content.modules[0].label = "Denied Archived edit".to_owned();
     for (checksum, content) in [
@@ -190,9 +190,15 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         (request(0x1a), &revision_one),
         (request(0x1b), &changed_archived_content),
     ] {
-        let denied = save(&application_url, &reference, 1, checksum, content)
-            .await
-            .expect_err("Archived Save is denied");
+        let denied = save(
+            &application_url,
+            &blueprint_course_id_sql,
+            1,
+            checksum,
+            content,
+        )
+        .await
+        .expect_err("Archived Save is denied");
         assert_eq!(
             error_code(&denied).as_deref(),
             Some("55000"),
@@ -219,7 +225,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         );
     }
     assert_eq!(
-        blueprint_write_state(&reference).await,
+        blueprint_write_state(&blueprint_course_id_sql).await,
         archived_write_state,
         "denied Archived writes leave metadata, content, Revisions, events and receipts unchanged"
     );
@@ -318,7 +324,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     assert_eq!(
         save(
             &application_url,
-            &reference,
+            &blueprint_course_id_sql,
             1,
             request(0x1c),
             &revision_one
@@ -346,7 +352,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     blueprint_course_postgres_adoption::assert_adoption_projection(
         &mut inspection,
         &adopted_course_instance_id,
-        &reference,
+        &blueprint_course_id_sql,
         1,
         &independently_adopted_course_instance_id,
     )
@@ -400,14 +406,14 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     let (left, right) = tokio::join!(
         save(
             &application_url,
-            &reference,
+            &blueprint_course_id_sql,
             1,
             request(0x12),
             &concurrent_left
         ),
         save(
             &application_url,
-            &reference,
+            &blueprint_course_id_sql,
             1,
             request(0x13),
             &concurrent_right
@@ -441,7 +447,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         "SELECT count(*) FROM ple_data.blueprint_course_revision \
          WHERE blueprint_course_id = $1",
     )
-    .bind(&reference)
+    .bind(&blueprint_course_id_sql)
     .fetch_one(&mut inspection)
     .await
     .expect("Revision count");
@@ -452,7 +458,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
 
     let no_op = save(
         &application_url,
-        &reference,
+        &blueprint_course_id_sql,
         2,
         request(0x14),
         &current_content,
@@ -462,7 +468,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     assert_eq!(no_op, (2, false));
     let no_op_replay = save(
         &application_url,
-        &reference,
+        &blueprint_course_id_sql,
         2,
         request(0x14),
         &current_content,
@@ -517,19 +523,19 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         .await
         .expect("Save moving retained Assessment and materializing a new daughter Assessment");
     assert_eq!(
-        moved_receipt.blueprint_revision.revision,
+        moved_receipt.blueprint_revision_tuple.revision,
         BlueprintRevision::new(3).expect("Revision three")
     );
     let moved = (3, moved_receipt.changed);
     let moved_content = append_store
-        .load_blueprint_revision(token(), moved_receipt.blueprint_revision)
+        .load_blueprint_revision(token(), moved_receipt.blueprint_revision_tuple)
         .await
         .expect("sealed moved content")
         .content;
     assert_eq!(moved, (3, true));
     let moved_replay = save(
         &application_url,
-        &reference,
+        &blueprint_course_id_sql,
         2,
         request(0x15),
         &moved_content,
@@ -546,7 +552,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
            AND blueprint_assessment_id = $2 \
            AND blueprint_revision_number IN (2, 3) ORDER BY blueprint_revision_number",
     )
-    .bind(&reference)
+    .bind(&blueprint_course_id_sql)
     .bind(retained_assessment.as_uuid())
     .fetch_all(&mut inspection)
     .await
@@ -565,9 +571,9 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         WHERE blueprint_course_id = $1 AND blueprint_revision_number = $2";
     let sealed_delete = "DELETE FROM ple_data.blueprint_revision_question_pin \
         WHERE blueprint_course_id = $1 AND blueprint_revision_number = $2";
-    assert_immutable_child(&mut inspection, sealed_insert, &reference, 3).await;
-    assert_immutable_child(&mut inspection, sealed_update, &reference, 3).await;
-    assert_immutable_child(&mut inspection, sealed_delete, &reference, 3).await;
+    assert_immutable_child(&mut inspection, sealed_insert, &blueprint_course_id_sql, 3).await;
+    assert_immutable_child(&mut inspection, sealed_update, &blueprint_course_id_sql, 3).await;
+    assert_immutable_child(&mut inspection, sealed_delete, &blueprint_course_id_sql, 3).await;
 
     // These store operations are finished. Close their shared fixture pool
     // before the two direct application connections required by the head race;
@@ -602,14 +608,15 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     sqlx::query(
         "SELECT 1 FROM ple_data.blueprint_course WHERE blueprint_course_id = $1 FOR UPDATE",
     )
-    .bind(&reference)
+    .bind(&blueprint_course_id_sql)
     .execute(&mut *holder)
     .await
     .expect("hold Blueprint head");
     let (save_pid_sender, save_pid_receiver) = oneshot::channel();
     let save_url = application_url.clone();
     let save_content = revision_four_content.clone();
-    let save_reference = blueprint_course_id_text_from_str(&reference).await;
+    let save_blueprint_course_id =
+        blueprint_course_id_text_from_str(&blueprint_course_id_sql).await;
     let saver = tokio::spawn(async move {
         let mut connection = PgConnection::connect(&save_url)
             .await
@@ -629,7 +636,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
                     '[]'::jsonb) \
                    FROM ple_api.list_blueprint_daughter_course_ids($1)))",
         )
-        .bind(save_reference)
+        .bind(save_blueprint_course_id)
         .bind(request(0x16))
         .bind(serde_json::to_value(&save_content).expect("content JSON"))
         .bind(
@@ -664,7 +671,8 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     );
     let (creator_pid_sender, creator_pid_receiver) = oneshot::channel();
     let create_url = application_url.clone();
-    let create_reference = blueprint_course_id_text_from_str(&reference).await;
+    let create_blueprint_course_id =
+        blueprint_course_id_text_from_str(&blueprint_course_id_sql).await;
     let creator = tokio::spawn(async move {
         let mut connection = PgConnection::connect(&create_url)
             .await
@@ -685,7 +693,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
              'adopted', $1, 3, 'RACE-C', 'Concurrent head Course', \
              current_date, current_date + 1, NULL, '[]'::jsonb, '00000000-0000-0000-0000-00000000cc01', NULL, NULL, NULL, ARRAY[]::text[])",
         )
-        .bind(create_reference)
+        .bind(create_blueprint_course_id)
         .fetch_one(&mut *transaction)
         .await
     });
@@ -737,7 +745,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
          (blueprint_course_id, blueprint_revision_number, content, content_checksum, saved_at) \
          VALUES ($1, 5, $2, $3, clock_timestamp())",
     )
-    .bind(&reference)
+    .bind(&blueprint_course_id_sql)
     .bind(&revision_five_json)
     .bind(&revision_five_checksum)
     .execute(&mut *construction)
@@ -748,7 +756,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
          SELECT $1, 5, pins.content_path, pins.published_question_id, pins.question_revision_number \
            FROM ple_data.blueprint_content_question_pins($2) AS pins",
     )
-    .bind(&reference)
+    .bind(&blueprint_course_id_sql)
     .bind(&revision_five_json)
     .execute(&mut *construction)
     .await
@@ -758,7 +766,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
          SELECT $1, 5, modules.blueprint_module_id, modules.module_position \
            FROM ple_data.blueprint_content_modules($2) AS modules",
     )
-    .bind(&reference)
+    .bind(&blueprint_course_id_sql)
     .bind(&revision_five_json)
     .execute(&mut *construction)
     .await
@@ -769,7 +777,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
                 assessments.blueprint_assessment_id, assessments.assessment_position \
            FROM ple_data.blueprint_content_assessments($2) AS assessments",
     )
-    .bind(&reference)
+    .bind(&blueprint_course_id_sql)
     .bind(&revision_five_json)
     .execute(&mut *construction)
     .await
@@ -779,7 +787,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
          (blueprint_course_id, blueprint_revision_number, actor_account_id, request_checksum, occurred_at) \
          VALUES ($1, 5, $2, $3, clock_timestamp())",
     )
-    .bind(&reference)
+    .bind(&blueprint_course_id_sql)
     .bind(instructor_account_id())
     .bind(request(0x17))
     .execute(&mut *construction)
@@ -787,7 +795,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     .expect("uncommitted Revision receipt");
 
     let competing_url = migration_url.to_owned();
-    let competing_reference = reference.clone();
+    let competing_blueprint_course_id = blueprint_course_id_sql.clone();
     let mut competing_child = tokio::spawn(async move {
         let mut connection = PgConnection::connect(&competing_url)
             .await
@@ -801,7 +809,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
              (blueprint_course_id, blueprint_revision_number, blueprint_module_id, module_position) \
              VALUES ($1, 5, '00000000-0000-0000-0000-00000000b140', 99)",
         )
-        .bind(&competing_reference)
+        .bind(&competing_blueprint_course_id)
         .execute(&mut connection)
         .await
     });
@@ -842,7 +850,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
          WHERE blueprint_course_id = $1 AND blueprint_revision_number = 5 \
            AND blueprint_module_id = '00000000-0000-0000-0000-00000000b140'",
     )
-    .bind(&reference)
+    .bind(&blueprint_course_id_sql)
     .fetch_one(&mut final_inspection)
     .await
     .expect("competing child inspection");
@@ -859,7 +867,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     assert_revision_checksum_mismatch(
         migration_url,
         &application_url,
-        &reference,
+        &blueprint_course_id_sql,
         blueprint_course_id,
     )
     .await;

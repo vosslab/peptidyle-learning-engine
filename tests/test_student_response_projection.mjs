@@ -4,7 +4,7 @@ import test from "node:test";
 import { projectStudentResponse } from "../src/features/question_attempt/student_response.ts";
 
 const presentation = {
-  questionRevision: {
+  questionRevisionTuple: {
     questionId: "ABC1-J234",
     revisionNumber: 1,
   },

@@ -28,7 +28,7 @@ impl BoundedArchiveEntries {
     }
 }
 
-/// Refuses absolute, ambiguous, and traversal-bearing package references.
+/// Refuses absolute, ambiguous, and traversal-bearing package paths.
 ///
 /// Callers use this after extracting an XML attribute, before treating it as
 /// an archive member name.
@@ -41,7 +41,7 @@ pub(crate) fn validate_relative_path(path: &str) -> Result<(), String> {
             .split('/')
             .any(|part| part.is_empty() || part == "." || part == "..")
     {
-        Err("reference must be a nonempty relative slash-separated path without traversal".into())
+        Err("path must be a nonempty relative slash-separated path without traversal".into())
     } else {
         Ok(())
     }

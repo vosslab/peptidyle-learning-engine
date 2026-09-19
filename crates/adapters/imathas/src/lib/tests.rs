@@ -39,7 +39,7 @@ impl ObjectStore for NoAccessObjectStore {
 
 #[derive(Clone)]
 struct ExpectedPreviewBackend {
-    question_revision: QuestionRevisionTuple,
+    question_revision_tuple: QuestionRevisionTuple,
     question_seed: QuestionSeed,
 }
 
@@ -60,7 +60,10 @@ impl QuestionBackend for ExpectedPreviewBackend {
     ) -> Result<SafeImathasQuestionRender, ImathasQuestionBackendFailure> {
         assert_eq!(request.snapshot, b"{\"recorded\":true}");
         assert_eq!(request.profile, "recorded-v1");
-        assert_eq!(request.question_revision, self.question_revision);
+        assert_eq!(
+            request.question_revision_tuple,
+            self.question_revision_tuple
+        );
         assert_eq!(request.question_seed, self.question_seed);
         Ok(SafeImathasQuestionRender {
             question_title: "Previewed iMathAS question".into(),
@@ -148,7 +151,7 @@ impl QuestionBackend for RecordedImathasQuestionBackend {
             Some(Mismatch::Attempt) => {
                 verdict.grading_context = learning_data_access::ImathasGradingContext::new(
                     QuestionAttemptId::from_uuid(Uuid::from_u128(99)),
-                    verdict.grading_context.question_revision().clone(),
+                    verdict.grading_context.question_revision_tuple().clone(),
                     verdict.grading_context.question_seed(),
                 )
             }
@@ -160,7 +163,7 @@ impl QuestionBackend for RecordedImathasQuestionBackend {
                             .expect("Question ID"),
                         revision_number: verdict
                             .grading_context
-                            .question_revision()
+                            .question_revision_tuple()
                             .revision_number,
                     },
                     verdict.grading_context.question_seed(),
@@ -172,7 +175,7 @@ impl QuestionBackend for RecordedImathasQuestionBackend {
                     QuestionRevisionTuple {
                         question_id: verdict
                             .grading_context
-                            .question_revision()
+                            .question_revision_tuple()
                             .question_id
                             .clone(),
                         revision_number: QuestionRevisionNumber::new(99).expect("positive version"),
@@ -183,7 +186,7 @@ impl QuestionBackend for RecordedImathasQuestionBackend {
             Some(Mismatch::QuestionSeed) => {
                 verdict.grading_context = learning_data_access::ImathasGradingContext::new(
                     verdict.grading_context.question_attempt(),
-                    verdict.grading_context.question_revision().clone(),
+                    verdict.grading_context.question_revision_tuple().clone(),
                     QuestionSeed::new(99),
                 )
             }
@@ -259,7 +262,7 @@ async fn stored_source(
     let object = store
         .put(PutObject {
             address: ObjectAddress::QuestionSource {
-                question_revision: question.clone(),
+                question_revision_tuple: question.clone(),
                 object: snapshot,
             },
             bytes: b"{\"recorded\":true}".to_vec(),
@@ -307,7 +310,7 @@ async fn student_view_preview_is_answer_free_no_write_and_fail_closed() {
     let adapter = ImathasAdapter::new(
         NoAccessObjectStore,
         ExpectedPreviewBackend {
-            question_revision: question.clone(),
+            question_revision_tuple: question.clone(),
             question_seed: seed,
         },
         [profile()],
@@ -337,7 +340,7 @@ async fn student_view_preview_is_answer_free_no_write_and_fail_closed() {
     let unsupported = ImathasAdapter::new(
         NoAccessObjectStore,
         ExpectedPreviewBackend {
-            question_revision: question.clone(),
+            question_revision_tuple: question.clone(),
             question_seed: seed,
         },
         [],
@@ -533,7 +536,7 @@ async fn every_verified_grade_binding_dimension_and_restored_handle_is_checked()
         codec.authenticate_for_lda(
             &learning_data_access::ImathasGradingContext::new(
                 binding.question_attempt(),
-                binding.question_revision().clone(),
+                binding.question_revision_tuple().clone(),
                 QuestionSeed::new(18),
             ),
             &challenge
@@ -560,28 +563,28 @@ fn grading_context_dimensions_change_hmac_and_imathas_launch_binding_checksum() 
     let alternatives = [
         learning_data_access::ImathasGradingContext::new(
             QuestionAttemptId::from_uuid(Uuid::from_u128(99)),
-            baseline.question_revision().clone(),
+            baseline.question_revision_tuple().clone(),
             baseline.question_seed(),
         ),
         learning_data_access::ImathasGradingContext::new(
             baseline.question_attempt(),
             QuestionRevisionTuple {
                 question_id: QuestionId::from_random_identifier("BCDEFGH").unwrap(),
-                revision_number: baseline.question_revision().revision_number,
+                revision_number: baseline.question_revision_tuple().revision_number,
             },
             baseline.question_seed(),
         ),
         learning_data_access::ImathasGradingContext::new(
             baseline.question_attempt(),
             QuestionRevisionTuple {
-                question_id: baseline.question_revision().question_id.clone(),
+                question_id: baseline.question_revision_tuple().question_id.clone(),
                 revision_number: QuestionRevisionNumber::new(99).unwrap(),
             },
             baseline.question_seed(),
         ),
         learning_data_access::ImathasGradingContext::new(
             baseline.question_attempt(),
-            baseline.question_revision().clone(),
+            baseline.question_revision_tuple().clone(),
             QuestionSeed::new(99),
         ),
     ];

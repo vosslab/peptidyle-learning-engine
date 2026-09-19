@@ -43,7 +43,7 @@ pub(super) fn presentation_evidence_from_row(
             .map_err(map_sqlx_error)?,
     )?;
     Ok(StudentAssessmentAttemptPresentationEvidence {
-        question_revision: question_model::QuestionRevisionTuple {
+        question_revision_tuple: question_model::QuestionRevisionTuple {
             question_id,
             revision_number,
         },

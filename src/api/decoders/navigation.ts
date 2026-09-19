@@ -9,7 +9,7 @@ import {
   requireOnlyFields,
 } from "./shared";
 
-/** Strict decoder for the authenticated public-reference lookup boundary. */
+/** Strict decoder for the authenticated public-ID lookup boundary. */
 export function decodeNavigationResolution(
   value: unknown,
   path = "response",

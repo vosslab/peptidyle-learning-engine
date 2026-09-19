@@ -9,7 +9,7 @@ import {
 
 function presentation(response) {
   return {
-    questionRevision: { questionId: "7K3M-79QP", revisionNumber: 1 },
+    questionRevisionTuple: { questionId: "7K3M-79QP", revisionNumber: 1 },
     presentationNonce: "0123456789abcdef0123456789abcdef",
     questionTitle: "Question",
     prompt: [],
@@ -71,7 +71,7 @@ test("Question Presentation rejects legacy native reproduction fields", () => {
 
 test("selected Student Question Presentation retains its exact Question Revision", () => {
   const selected = {
-    questionRevision: { questionId: "7K3M-79QP", revisionNumber: 2 },
+    questionRevisionTuple: { questionId: "7K3M-79QP", revisionNumber: 2 },
     prompt: [],
     response: { kind: "fillIn", maxCharacters: 10 },
   };

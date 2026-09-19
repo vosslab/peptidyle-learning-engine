@@ -89,8 +89,8 @@ impl From<AccountAvatar> for AvatarChoice {
             AccountAvatar::Provided(id) => Self::Provided {
                 provided_avatar_id: id.to_string(),
             },
-            AccountAvatar::ProfileImage(reference) => Self::ProfileImage {
-                profile_image_id: reference,
+            AccountAvatar::ProfileImage(profile_image_id) => Self::ProfileImage {
+                profile_image_id: profile_image_id,
             },
         }
     }
@@ -342,7 +342,7 @@ async fn deliver_profile_image(
     Path(image): Path<String>,
     headers: HeaderMap,
 ) -> Response {
-    let reference = match Uuid::parse_str(&image) {
+    let profile_image_id = match Uuid::parse_str(&image) {
         Ok(value) => ProfileImageId::from_uuid(value),
         Err(_) => return concealed(),
     };
@@ -358,7 +358,7 @@ async fn deliver_profile_image(
     }
     let object = match state
         .avatars
-        .resolve_current_account_profile_image(session.token, reference)
+        .resolve_current_account_profile_image(session.token, profile_image_id)
         .await
     {
         Ok(object) => object,
@@ -368,7 +368,7 @@ async fn deliver_profile_image(
         Err(error) => return store_error_response(error),
     };
     let address = ObjectAddress::ProfileImage {
-        image: reference,
+        image: profile_image_id,
         object,
     };
     let stored = match state.objects.get(&address).await {

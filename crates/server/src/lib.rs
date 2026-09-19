@@ -65,7 +65,7 @@ mod library_search_terms;
 mod library_watch_notification;
 pub(crate) mod live_gradebook;
 pub(crate) mod live_student_course_landing;
-/// Authorized public Course-reference navigation route.
+/// Authorized public Course ID navigation route.
 pub(crate) mod navigation;
 /// Authenticated role-neutral self-only Account avatar routes.
 pub(crate) mod profile_avatar;

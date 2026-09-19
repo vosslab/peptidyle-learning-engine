@@ -108,16 +108,16 @@ export function BlueprintPoolMembersEditor(props: BlueprintPoolMembersEditorProp
   function addQuestions(selection: QuestionPickerSelection): void {
     const next = [...(members() ?? [])];
     for (const question of selection.questions) {
-      const questionRevision = question.row.questionRevision;
-      if (!questionRevision) {
+      const questionRevisionTuple = question.row.questionRevisionTuple;
+      if (!questionRevisionTuple) {
         setError(
           "A selected Question has no exact Revision Tuple. No members were added; refresh the Question Picker and try again.",
         );
         setPickerOpen(false);
         return;
       }
-      if (!next.some((member) => member.questionId === questionRevision.questionId))
-        next.push(questionRevision);
+      if (!next.some((member) => member.questionId === questionRevisionTuple.questionId))
+        next.push(questionRevisionTuple);
     }
     setPickerOpen(false);
     changeMembers(next);

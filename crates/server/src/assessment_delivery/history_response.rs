@@ -7,8 +7,8 @@ use question_model::{
     },
 };
 
-/// Produces readable public blocks only when every submitted response reference
-/// resolves in the exact reproduced presentation. Unknown references fail closed
+/// Produces readable public blocks only when every submitted response-item ID
+/// resolves in the exact reproduced presentation. Unknown IDs fail closed
 /// rather than exposing an opaque identifier or guessing at authored content.
 pub(super) fn project(
     response: StudentResponseInspection,
@@ -138,9 +138,7 @@ fn block_text(blocks: &[QuestionContentBlock]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use question_model::presentation::{
-        PresentationResponseItemId, PresentedQuestionChoice,
-    };
+    use question_model::presentation::{PresentationResponseItemId, PresentedQuestionChoice};
 
     fn presentation_item_id(value: &str) -> PresentationResponseItemId {
         PresentationResponseItemId::parse(value).expect("valid Presentation Response Item ID")

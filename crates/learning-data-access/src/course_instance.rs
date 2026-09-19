@@ -131,7 +131,7 @@ pub struct CourseInstanceBlueprintOrigin {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CourseCreationInstructor {
-    /// Public Account reference carries neither email nor authority.
+    /// Public Account ID carries neither email nor authority.
     pub id: AccountId,
 }
 
@@ -162,7 +162,7 @@ pub trait CourseInstanceStore: Send + Sync {
         expected_edit_number: question_model::CourseEditNumber,
         classification: question_model::CourseClassification,
     ) -> Result<CourseClassificationUpdate, StoreError>;
-    /// Resolves one public Course reference only for the current active Course Member.
+    /// Resolves one public Course Instance ID only for the current active Course Member.
     async fn resolve_course_navigation(
         &self,
         session_token_hash: SessionTokenHash,
@@ -252,7 +252,7 @@ mod tests {
     fn creation_source_accepts_only_the_closed_browser_wire() {
         let empty = serde_json::json!({"kind": "empty"});
         let blueprint_course = question_model::BlueprintCourseId::from_random_identity("7K3M2QX")
-            .expect("canonical Blueprint Course reference");
+            .expect("canonical Blueprint Course ID");
         let adopted = serde_json::json!({
             "kind": "adopted",
             "blueprintCourse": blueprint_course,
@@ -264,7 +264,7 @@ mod tests {
             serde_json::from_value::<CourseInstanceCreationSource>(serde_json::json!({
                 "kind": "adopted",
                 "blueprint_course": question_model::BlueprintCourseId::from_random_identity("7K3M2QX")
-                    .expect("canonical Blueprint Course reference"),
+                    .expect("canonical Blueprint Course ID"),
                 "blueprint_revision": "1"
             }))
             .is_err()
@@ -273,10 +273,10 @@ mod tests {
             serde_json::from_value::<CourseInstanceCreationSource>(serde_json::json!({
                 "kind": "adopted",
                 "blueprintCourse": question_model::BlueprintCourseId::from_random_identity("7K3M2QX")
-                    .expect("canonical Blueprint Course reference"),
+                    .expect("canonical Blueprint Course ID"),
                 "blueprintRevision": "1",
                 "blueprint_course": question_model::BlueprintCourseId::from_random_identity("7K3M2QX")
-                    .expect("canonical Blueprint Course reference")
+                    .expect("canonical Blueprint Course ID")
             }))
             .is_err()
         );

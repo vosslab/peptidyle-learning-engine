@@ -158,7 +158,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> AccessFixture {
     .await
     .expect("Published Question");
     sqlx::query(
-        "INSERT INTO ple_data.question_revision \
+        "INSERT INTO ple_data.question_revision_tuple \
          (published_question_id, revision_number, backend, question_type, published_at) \
          VALUES ($1, 1, 'ple', 'multipleChoice', clock_timestamp())",
     )
@@ -437,8 +437,8 @@ async fn access_reader_projects_one_authoritative_decision_and_effective_policy(
     let fixture = seed(&admin).await;
     let course_instance_id = fixture.course_id.clone();
     let assessment_id = fixture.assessment_id.clone();
-    let course = CourseInstanceId::new(&course_instance_id).expect("Course reference");
-    let assessment = AssessmentId::new(&assessment_id).expect("Assessment reference");
+    let course = CourseInstanceId::new(&course_instance_id).expect("Course Instance ID");
+    let assessment = AssessmentId::new(&assessment_id).expect("Assessment ID");
 
     let application_url = std::env::var("DATABASE_URL").expect("application database URL");
     let application = lazy_pool(&application_url).expect("application pool");

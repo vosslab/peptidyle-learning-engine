@@ -31,7 +31,7 @@ FOR EACH ROW EXECUTE FUNCTION ple_private.reject_question_asset_publication_chan
 CREATE FUNCTION ple_private.validate_question_asset_publication()
 RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_data, ple_private AS $$
 DECLARE source_address jsonb := jsonb_build_object('kind','restrictedQuestionAsset',
-    'questionRevision',jsonb_build_object('questionId',NEW.published_question_id,'revisionNumber',NEW.revision_number),
+    'questionRevisionTuple',jsonb_build_object('questionId',NEW.published_question_id,'revisionNumber',NEW.revision_number),
     'asset',NEW.asset_id,'object',NEW.source_object_record_id);
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM ple_private.object_record record WHERE record.object_record_id=NEW.source_object_record_id
@@ -134,7 +134,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
        AND publication.revision_number = p_revision_number
        AND record.object_address = pg_catalog.jsonb_build_object(
            'kind', 'restrictedQuestionAsset',
-           'questionRevision', pg_catalog.jsonb_build_object(
+           'questionRevisionTuple', pg_catalog.jsonb_build_object(
                'questionId', p_published_question_id, 'revisionNumber', p_revision_number),
            'asset', publication.asset_id, 'object', publication.source_object_record_id)
        AND record.object_storage_area = 'private-content'

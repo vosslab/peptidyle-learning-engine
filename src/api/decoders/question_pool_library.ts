@@ -223,14 +223,14 @@ function decodeQuestionPoolBloomFacets(value: unknown, path: string): QuestionPo
 function decodeReusableQuestionView(value: unknown, path: string): ReusableQuestionView {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "question_revision",
+    "question_revision_tuple",
     "question_library",
     "selection_availability",
   ]);
   return {
-    question_revision: decodeQuestionRevisionTuple(
-      field(record, "question_revision", path),
-      `${path}.question_revision`,
+    question_revision_tuple: decodeQuestionRevisionTuple(
+      field(record, "question_revision_tuple", path),
+      `${path}.question_revision_tuple`,
     ),
     question_library: decodeQuestionSearchResult(
       field(record, "question_library", path),
@@ -247,15 +247,15 @@ function decodeReusableQuestionView(value: unknown, path: string): ReusableQuest
 /** Strictly decodes one ordered exact member for Pool and Assessment-fork readers. */
 export function decodeQuestionPoolMemberView(value: unknown, path: string): QuestionPoolMemberView {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["memberPosition", "questionRevision", "question"]);
+  requireOnlyFields(record, path, ["memberPosition", "questionRevisionTuple", "question"]);
   return {
     memberPosition: decodeNonnegativeInteger(
       field(record, "memberPosition", path),
       `${path}.memberPosition`,
     ),
-    questionRevision: decodeQuestionRevisionTuple(
-      field(record, "questionRevision", path),
-      `${path}.questionRevision`,
+    questionRevisionTuple: decodeQuestionRevisionTuple(
+      field(record, "questionRevisionTuple", path),
+      `${path}.questionRevisionTuple`,
       true,
     ),
     question: decodeReusableQuestionView(field(record, "question", path), `${path}.question`),

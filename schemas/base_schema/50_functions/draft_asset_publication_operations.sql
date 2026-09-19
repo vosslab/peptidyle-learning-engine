@@ -60,7 +60,7 @@ BEGIN
     END IF;
     SELECT * INTO STRICT record FROM ple_private.object_record WHERE object_record_id = draft_asset.source_object_record_id;
     expected_address := jsonb_build_object('kind','restrictedQuestionAsset',
-        'questionRevision',jsonb_build_object('questionId',p_published_question_id,'revisionNumber',p_revision),
+        'questionRevisionTuple',jsonb_build_object('questionId',p_published_question_id,'revisionNumber',p_revision),
         'asset',v_asset_id,'object',source_id);
     IF p_asset->'sourceObjectAddress' IS DISTINCT FROM expected_address
        OR record.sha256 IS DISTINCT FROM checksum OR record.size_bytes IS DISTINCT FROM v_byte_length

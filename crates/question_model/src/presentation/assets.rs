@@ -78,12 +78,12 @@ pub(super) fn content_assets(
     collect_assets(content, &mut referenced);
     referenced
         .iter()
-        .map(|reference| {
+        .map(|asset_key| {
             bindings
                 .iter()
                 .find(|binding| {
-                    binding.question_asset.question_asset == reference.question_asset
-                        && binding.question_asset.checksum == reference.checksum
+                    binding.question_asset.question_asset == asset_key.question_asset
+                        && binding.question_asset.checksum == asset_key.checksum
                 })
                 .cloned()
                 .ok_or(PresentationBuildError::InvalidPublicContent(
@@ -94,14 +94,14 @@ pub(super) fn content_assets(
 }
 
 pub(super) fn question_asset_rendition<'a>(
-    reference: &QuestionAssetTuple,
+    question_asset_tuple: &QuestionAssetTuple,
     bindings: &'a [QuestionAssetRendition],
 ) -> Result<&'a QuestionAssetRendition, PresentationBuildError> {
     bindings
         .iter()
         .find(|binding| {
-            binding.question_asset.question_asset == reference.question_asset
-                && binding.question_asset.checksum == reference.checksum
+            binding.question_asset.question_asset == question_asset_tuple.question_asset
+                && binding.question_asset.checksum == question_asset_tuple.checksum
         })
         .ok_or(PresentationBuildError::InvalidPublicContent(
             "presentation asset binding is missing or mismatched",
@@ -128,11 +128,11 @@ fn validate_asset_refs(
             ));
         }
     }
-    for reference in referenced {
-        let binding = by_id.get(&reference.question_asset).ok_or(
+    for asset_key in referenced {
+        let binding = by_id.get(&asset_key.question_asset).ok_or(
             PresentationBuildError::InvalidPublicContent("presentation asset binding is missing"),
         )?;
-        if binding.question_asset.checksum != reference.checksum {
+        if binding.question_asset.checksum != asset_key.checksum {
             return Err(PresentationBuildError::InvalidPublicContent(
                 "presentation asset checksum does not match the question",
             ));

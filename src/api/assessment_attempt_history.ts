@@ -12,7 +12,7 @@ import { parseAssessmentAttemptId } from "../navigation/public_route";
 export interface StudentAssessmentAttemptHistoryQuestion extends StudentFeedback {
   readonly position: number;
   /** Exact immutable Question Revision identity required for disclosed asset delivery. */
-  readonly questionRevision: QuestionRevisionTuple;
+  readonly questionRevisionTuple: QuestionRevisionTuple;
   readonly responseState: "submitted" | "closed";
   /** Readable recorded response, independently released from grading. */
   readonly response?: ReadonlyArray<QuestionContentBlock>;

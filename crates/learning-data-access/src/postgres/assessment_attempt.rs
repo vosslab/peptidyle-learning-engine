@@ -164,7 +164,7 @@ fn storage_issued_questions(
                 assessment_entry,
                 question_pool_selection,
                 pool_member,
-                reference,
+                question_revision_tuple,
                 backend,
             ): (
                 _,
@@ -175,14 +175,14 @@ fn storage_issued_questions(
             ) = match question {
                 PreparedIssuedQuestion::FixedQuestion {
                     assessment_entry,
-                    question_revision,
+                    question_revision_tuple,
                     backend,
-                } => (*assessment_entry, None, None, question_revision, backend),
+                } => (*assessment_entry, None, None, question_revision_tuple, backend),
                 PreparedIssuedQuestion::QuestionPoolItem {
                     assessment_entry,
                     question_pool_selection_index,
                     member_position,
-                    question_revision,
+                    question_revision_tuple,
                     backend,
                 } => (
                     *assessment_entry,
@@ -193,7 +193,7 @@ fn storage_issued_questions(
                         )
                     })?),
                     Some(*member_position),
-                    question_revision,
+                    question_revision_tuple,
                     backend,
                 ),
             };
@@ -242,8 +242,8 @@ fn storage_issued_questions(
                 "issued_question_id": issued_question.as_uuid(),
                 "assessment_entry_id": assessment_entry.as_uuid(),
                 "issued_position": position,
-                "question_id": reference.question_id.as_str(),
-                "revision_number": reference.revision_number.get(),
+                "question_id": question_revision_tuple.question_id.as_str(),
+                "revision_number": question_revision_tuple.revision_number.get(),
                 "question_pool_selection_id": question_pool_selection.map(|selection| selection.as_uuid()),
                 "question_pool_member_position": pool_member.map(|member_position| {
                     i32::try_from(member_position + 1)
@@ -274,7 +274,7 @@ mod tests {
             question_pool_selections: Vec::new(),
             issued_questions: vec![PreparedIssuedQuestion::FixedQuestion {
                 assessment_entry,
-                question_revision: QuestionRevisionTuple {
+                question_revision_tuple: QuestionRevisionTuple {
                     question_id: "1234-H567".parse::<QuestionId>().expect("Question ID"),
                     revision_number: QuestionRevisionNumber::new(1).expect("revision number"),
                 },
@@ -311,7 +311,7 @@ mod tests {
             question_pool_selections: Vec::new(),
             issued_questions: vec![PreparedIssuedQuestion::FixedQuestion {
                 assessment_entry,
-                question_revision: QuestionRevisionTuple {
+                question_revision_tuple: QuestionRevisionTuple {
                     question_id: "1234-H567".parse::<QuestionId>().expect("Question ID"),
                     revision_number: QuestionRevisionNumber::new(1).expect("revision number"),
                 },

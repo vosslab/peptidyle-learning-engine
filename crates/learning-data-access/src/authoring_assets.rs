@@ -39,7 +39,7 @@ impl RegisterDraftQuestionAssetInput {
             || *object != self.source_record.id
             || self.source_record.storage_area != ObjectStorageArea::PrivateContent
             || self.source_record.data_class != ObjectDataClass::AuthoringContent
-            || self.source_record.question_revision.is_some()
+            || self.source_record.question_revision_tuple.is_some()
         {
             return Err(StoreError::InvalidRecord(
                 "Draft asset identity is incoherent".into(),
@@ -118,7 +118,7 @@ mod tests {
                 sha256: Sha256Checksum::compute(b"verified original raster"),
                 size_bytes: 24,
                 media_type: "image/png".into(),
-                question_revision: None,
+                question_revision_tuple: None,
                 created_at: Timestamp::from_unix_millis(1000),
             },
             intrinsic_width: 10,

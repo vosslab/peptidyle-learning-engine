@@ -43,7 +43,7 @@ impl BloomPreparationTargetKind {
     /// Returns the exact PostgreSQL target-kind value.
     pub const fn as_str(self) -> &'static str {
         match self {
-            Self::QuestionRevision => "question_revision",
+            Self::QuestionRevision => "question_revision_tuple",
             Self::QuestionPool => "question_pool",
         }
     }
@@ -105,7 +105,7 @@ mod tests {
     fn target_kind_values_match_the_sql_contract() {
         assert_eq!(
             BloomPreparationTargetKind::QuestionRevision.as_str(),
-            "question_revision"
+            "question_revision_tuple"
         );
         assert_eq!(
             BloomPreparationTargetKind::QuestionPool.as_str(),

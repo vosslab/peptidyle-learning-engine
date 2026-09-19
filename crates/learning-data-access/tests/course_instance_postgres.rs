@@ -111,8 +111,8 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> (AccountId, AccountId) {
     .expect("fixture Instructor sessions");
     transaction.commit().await.expect("fixture commit");
     (
-        AccountId::new(co_instructor_id).expect("fixture Account reference"),
-        AccountId::new(target_instructor_id).expect("fixture Account reference"),
+        AccountId::new(co_instructor_id).expect("fixture Account ID"),
+        AccountId::new(target_instructor_id).expect("fixture Account ID"),
     )
 }
 

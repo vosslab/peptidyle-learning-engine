@@ -156,9 +156,9 @@ export function blueprintRevision(value: unknown, path: string): BlueprintRevisi
 
 function blueprintAssessmentSource(value: unknown, path: string): BlueprintAssessmentSource {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["blueprint_revision", "blueprint_assessment_id"]);
+  requireOnlyFields(record, path, ["blueprint_revision_tuple", "blueprint_assessment_id"]);
   const revision = decodeRecord(
-    field(record, "blueprint_revision", path),
+    field(record, "blueprint_revision_tuple", path),
     `${path}.blueprint_revision`,
   );
   requireOnlyFields(revision, `${path}.blueprint_revision`, [
@@ -166,14 +166,14 @@ function blueprintAssessmentSource(value: unknown, path: string): BlueprintAsses
     "revisionNumber",
   ]);
   return {
-    blueprint_revision: {
+    blueprint_revision_tuple: {
       blueprintCourseId: decodeBlueprintCourseId(
         field(revision, "blueprintCourseId", `${path}.blueprint_revision`),
-        `${path}.blueprint_revision.blueprintCourseId`,
+        `${path}.blueprint_revision_tuple.blueprintCourseId`,
       ),
       revisionNumber: blueprintRevision(
         field(revision, "revisionNumber", `${path}.blueprint_revision`),
-        `${path}.blueprint_revision.revisionNumberNumber`,
+        `${path}.blueprint_revision_tuple.revisionNumberNumber`,
       ),
     },
     blueprint_assessment_id: decodeIdentifier(
@@ -216,7 +216,7 @@ function assessmentEntry(value: unknown, path: string): AssessmentEntry {
     requireOnlyFields(record, path, [
       "kind",
       "id",
-      "questionRevision",
+      "questionRevisionTuple",
       "pointsPossible",
       "availability",
       "scoringRule",
@@ -226,9 +226,9 @@ function assessmentEntry(value: unknown, path: string): AssessmentEntry {
     return {
       kind,
       id: decodeIdentifier(field(record, "id", path), `${path}.id`),
-      questionRevision: decodeQuestionRevisionTuple(
-        field(record, "questionRevision", path),
-        `${path}.questionRevision`,
+      questionRevisionTuple: decodeQuestionRevisionTuple(
+        field(record, "questionRevisionTuple", path),
+        `${path}.questionRevisionTuple`,
         true,
       ),
       pointsPossible: pointValue(field(record, "pointsPossible", path), `${path}.pointsPossible`),
@@ -316,11 +316,11 @@ function entries(value: unknown, path: string): ReadonlyArray<AssessmentEntry> {
 
 function pickerEntry(value: unknown, path: string): AssessmentQuestionPickerEntry {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["questionRevision", "description", "bloom"]);
+  requireOnlyFields(record, path, ["questionRevisionTuple", "description", "bloom"]);
   return {
-    questionRevision: decodeQuestionRevisionTuple(
-      field(record, "questionRevision", path),
-      `${path}.questionRevision`,
+    questionRevisionTuple: decodeQuestionRevisionTuple(
+      field(record, "questionRevisionTuple", path),
+      `${path}.questionRevisionTuple`,
       true,
     ),
     description: decodeQuestionDescription(

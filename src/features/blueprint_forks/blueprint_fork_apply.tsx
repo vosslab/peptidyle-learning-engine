@@ -348,7 +348,7 @@ export function BlueprintSelectionEditor(props: ApplyProps): JSX.Element {
         </For>
         <p>
           Complete content copies Questions and Pools according to the server's copy rules; new
-          destination references are assigned by the server.
+          destination IDs are assigned by the server.
         </p>
         <h4>Complete destination layout</h4>
         <p>

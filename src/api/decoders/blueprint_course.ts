@@ -157,7 +157,7 @@ function assessmentEntry(value: unknown, path: string): { kind: "fixed" | "pool"
       "question_attempt_limit",
       "question_attempt_time_limit",
     ]);
-    // ASVS 1.5.2 and 2.2.1: accept the exact reference, never an ID-only fallback.
+    // ASVS 1.5.2 and 2.2.1: accept the exact Tuple, never an ID-only fallback.
     decodeQuestionRevisionTuple(
       field(record, "published_question", path),
       `${path}.published_question`,
@@ -344,13 +344,13 @@ export function decodeCreateBlueprintCourseInput(
   return value as CreateBlueprintCourseInput;
 }
 
-// ASVS 1.5.2, 2.2.1, and 2.2.2: accept only the exact retained-reference-or-New shape.
-function replacementChoice(value: unknown, path: string, referenceField: string): void {
+// ASVS 1.5.2, 2.2.1, and 2.2.2: accept only the exact retained-ID-or-New shape.
+function replacementChoice(value: unknown, path: string, identityField: string): void {
   const record = decodeRecord(value, path);
   const kind = decodeStringEnum(field(record, "kind", path), `${path}.kind`, ["retained", "new"]);
-  requireOnlyFields(record, path, kind === "new" ? ["kind"] : ["kind", referenceField]);
+  requireOnlyFields(record, path, kind === "new" ? ["kind"] : ["kind", identityField]);
   if (kind === "retained")
-    decodeNonemptyString(field(record, referenceField, path), `${path}.${referenceField}`);
+    decodeNonemptyString(field(record, identityField, path), `${path}.${identityField}`);
 }
 
 function replacementModule(value: unknown, path: string): unknown {
@@ -398,13 +398,13 @@ export function decodeReplaceBlueprintCourseContentInput(
 function questionView(value: unknown, path: string): void {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "question_revision",
+    "question_revision_tuple",
     "question_library",
     "selection_availability",
   ]);
   decodeQuestionRevisionTuple(
-    field(record, "question_revision", path),
-    `${path}.question_revision`,
+    field(record, "question_revision_tuple", path),
+    `${path}.question_revision_tuple`,
   );
   decodeQuestionSearchResult(field(record, "question_library", path), `${path}.question_library`);
   decodeStringEnum(
@@ -665,11 +665,11 @@ export function decodeBlueprintRevisionView(
   path = "response",
 ): BlueprintRevisionView {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["blueprintRevision", "modules"]);
+  requireOnlyFields(record, path, ["blueprintRevisionTuple", "modules"]);
   return {
-    blueprintRevision: blueprintRevisionTuple(
-      field(record, "blueprintRevision", path),
-      `${path}.blueprintRevision`,
+    blueprintRevisionTuple: blueprintRevisionTuple(
+      field(record, "blueprintRevisionTuple", path),
+      `${path}.blueprintRevisionTuple`,
     ),
     modules: modules(field(record, "modules", path), `${path}.modules`),
   };

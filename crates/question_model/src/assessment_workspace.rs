@@ -1,7 +1,7 @@
 //! Strict browser contracts for the Instructor assessment workspace.
 //!
 //! These types describe request intent and publication validation only. The
-//! server resolves question references, Account-local times, and authority
+//! server resolves Question Revision Tuples, Account-local times, and authority
 //! before it changes the authoritative current Assessment.
 
 use serde::{Deserialize, Serialize};

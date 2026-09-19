@@ -33,7 +33,7 @@ function contentInput() {
     entries: [
       {
         kind: "fixed",
-        published_question: publishedQuestion.questionRevision,
+        published_question: publishedQuestion.questionRevisionTuple,
         points_possible: "2",
         scoring_rule: "normal",
         question_attempt_limit: { maxAttempts: null },
@@ -74,7 +74,7 @@ function modules() {
               {
                 kind: "fixed",
                 question: {
-                  question_revision: publishedQuestion.questionRevision,
+                  question_revision_tuple: publishedQuestion.questionRevisionTuple,
                   question_library: {
                     summary: publishedQuestion,
                     disciplineName: "Biology",
@@ -377,7 +377,7 @@ test("B1 client sends Revision and metadata validators to their separate routes"
         return noStoreJson(privateMetadata, `"${privateMetadata.blueprint_edit_number}"`);
       if (path.endsWith("/revisions/3"))
         return noStoreJson({
-          blueprintRevision: { blueprintCourseId: "BP7K3M2QAF", revisionNumber: "3" },
+          blueprintRevisionTuple: { blueprintCourseId: "BP7K3M2QAF", revisionNumber: "3" },
           modules: modules(),
         });
       if (request.method === "GET" && path.endsWith("BP7K3M2QAF"))
@@ -419,7 +419,7 @@ test("B1 client sends Revision and metadata validators to their separate routes"
   assert.equal(saved.blueprintCourse.modules[0].assessments[0].content.assessment_type, "exam");
   assert.equal(saved.revisionEtag, '"4"');
   assert.equal(returned.metadata.availability, "private");
-  assert.equal(revision.blueprintRevision.revisionNumber, "3");
+  assert.equal(revision.blueprintRevisionTuple.revisionNumber, "3");
   const save = requests.find(
     (request) => request.method === "PUT" && request.url.endsWith("BP7K3M2QAF"),
   );

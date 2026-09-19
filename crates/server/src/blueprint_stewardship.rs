@@ -2,7 +2,7 @@
 //!
 //! This surface deliberately separates public Star aggregate facts from the
 //! caller's private Watch state. It exposes no Account identity, email,
-//! reference, avatar, or another Instructor's Watch state.
+//! ID, avatar, or another Instructor's Watch state.
 
 use std::sync::Arc;
 

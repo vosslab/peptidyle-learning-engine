@@ -35,7 +35,7 @@ pub(super) struct SavedResponseRequest {
 }
 
 /// Saves one response selected by a public Assessment Attempt and fixed
-/// position. The durable record receives only canonical references recovered
+/// position. The durable record receives only canonical IDs recovered
 /// from the exact issued presentation.
 pub(super) async fn save_selected_response(
     State(state): State<StateData>,
@@ -77,8 +77,7 @@ pub(super) async fn save_selected_response(
     {
         return invalid_response();
     }
-    let response = match translate_presentation_response_item_ids(&request.response, &issued)
-    {
+    let response = match translate_presentation_response_item_ids(&request.response, &issued) {
         Ok(value) => value,
         Err(_) => return invalid_response(),
     };
@@ -238,9 +237,7 @@ pub(super) fn restore_saved_response(
     })
 }
 
-fn presentation_item_id(
-    value: question_model::PresentationResponseItemId,
-) -> ResponseItemId {
+fn presentation_item_id(value: question_model::PresentationResponseItemId) -> ResponseItemId {
     ResponseItemId::new(value.as_str())
 }
 

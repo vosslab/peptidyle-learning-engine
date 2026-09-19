@@ -24,16 +24,16 @@ function canonicalQuestionId(value: string, label: string): string {
   return canonical;
 }
 
-function questionPath(questionRevision: QuestionRevisionTuple): string {
-  const questionId = canonicalQuestionId(questionRevision.questionId, "Question ID");
+function questionPath(questionRevisionTuple: QuestionRevisionTuple): string {
+  const questionId = canonicalQuestionId(questionRevisionTuple.questionId, "Question ID");
   if (
-    !Number.isSafeInteger(questionRevision.revisionNumber) ||
-    questionRevision.revisionNumber < 1 ||
-    questionRevision.revisionNumber > 4_294_967_295
+    !Number.isSafeInteger(questionRevisionTuple.revisionNumber) ||
+    questionRevisionTuple.revisionNumber < 1 ||
+    questionRevisionTuple.revisionNumber > 4_294_967_295
   ) {
     throw new ApiProtocolError("Question Revision Number must be a positive u32 integer");
   }
-  return `/api/questions/by-id/${encodedId(questionId)}/revisions/${questionRevision.revisionNumber}/bloom`;
+  return `/api/questions/by-id/${encodedId(questionId)}/revisions/${questionRevisionTuple.revisionNumber}/bloom`;
 }
 
 function poolPath(questionPoolId: QuestionId): string {
@@ -68,8 +68,8 @@ export function createBloomClassificationCorrectionClient(
   basePath: string,
 ): BloomClassificationCorrectionClient {
   return {
-    correctQuestionBloom: async (questionRevision, request): Promise<QuestionBloomCorrectionReceipt> => {
-      const path = questionPath(questionRevision);
+    correctQuestionBloom: async (questionRevisionTuple, request): Promise<QuestionBloomCorrectionReceipt> => {
+      const path = questionPath(questionRevisionTuple);
       const receipt = await post(
         fetchImplementation,
         basePath,
@@ -78,8 +78,8 @@ export function createBloomClassificationCorrectionClient(
         decodeQuestionBloomCorrectionReceipt,
       );
       if (
-        receipt.questionRevision.questionId !== questionRevision.questionId ||
-        receipt.questionRevision.revisionNumber !== questionRevision.revisionNumber
+        receipt.questionRevisionTuple.questionId !== questionRevisionTuple.questionId ||
+        receipt.questionRevisionTuple.revisionNumber !== questionRevisionTuple.revisionNumber
       ) {
         throw new ApiProtocolError("Bloom correction receipt does not match its Question Revision");
       }

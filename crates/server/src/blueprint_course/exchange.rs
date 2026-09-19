@@ -69,7 +69,7 @@ pub(super) async fn import(
     match load_view(
         &state,
         session,
-        receipt.blueprint_revision.blueprint_course_id,
+        receipt.blueprint_revision_tuple.blueprint_course_id,
     )
     .await
     {

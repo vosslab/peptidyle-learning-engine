@@ -29,8 +29,8 @@ use objects::s3::S3ObjectStore;
 use question_model::{
     AssessmentEditNumber, AssessmentEntryAvailability, AssessmentId, AssessmentQuestionOrderRule,
     CourseInstanceId, InstructorStudentView, InstructorStudentViewEntry,
-    InstructorStudentViewNotShownReason, InstructorStudentViewQuestion, ProductRole,
-    QuestionId, QuestionPresentationResponseFormat, QuestionRevisionNumber, QuestionRevisionTuple,
+    InstructorStudentViewNotShownReason, InstructorStudentViewQuestion, ProductRole, QuestionId,
+    QuestionPresentationResponseFormat, QuestionRevisionNumber, QuestionRevisionTuple,
 };
 
 use crate::auth::{AuthError, resolve_session};
@@ -132,7 +132,7 @@ async fn presentation(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let Some((course, assessment, question_revision)) =
+    let Some((course, assessment, question_revision_tuple)) =
         route_question_ids(&course, &assessment, &question_id, revision)
     else {
         return concealed();
@@ -149,14 +149,14 @@ async fn presentation(
             assessment,
             expected,
             authored_position,
-            question_revision.clone(),
+            question_revision_tuple.clone(),
         )
         .await
     {
         Ok(value) => value,
         Err(error) => return store_error(error),
     };
-    let response = match answer_free_presentation(&state, source, &question_revision).await {
+    let response = match answer_free_presentation(&state, source, &question_revision_tuple).await {
         Ok(value) => Json(value).into_response(),
         Err(()) => return unavailable(),
     };
@@ -179,7 +179,7 @@ async fn document(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let Some((course, assessment, question_revision)) =
+    let Some((course, assessment, question_revision_tuple)) =
         route_question_ids(&course, &assessment, &question_id, revision)
     else {
         return concealed();
@@ -196,14 +196,14 @@ async fn document(
             assessment,
             expected,
             authored_position,
-            question_revision.clone(),
+            question_revision_tuple.clone(),
         )
         .await
     {
         Ok(value) => value,
         Err(error) => return store_error(error),
     };
-    answer_free_document(&state, source, &question_revision).await
+    answer_free_document(&state, source, &question_revision_tuple).await
 }
 
 fn project_manifest(
@@ -237,12 +237,12 @@ fn project_manifest(
             InstructorStudentViewSnapshotEntry::Fixed {
                 authored_position,
                 availability: AssessmentEntryAvailability::Available,
-                question_revision,
+                question_revision_tuple,
             } => {
-                verified_revision(&question_revision)?;
+                verified_revision(&question_revision_tuple)?;
                 PendingEntry::Presented {
                     authored_position,
-                    questions: vec![question_revision],
+                    questions: vec![question_revision_tuple],
                 }
             }
             InstructorStudentViewSnapshotEntry::Pool {
@@ -252,7 +252,7 @@ fn project_manifest(
                 members,
             } => {
                 for member in &members {
-                    verified_revision(&member.question_revision)?;
+                    verified_revision(&member.question_revision_tuple)?;
                 }
                 let selected =
                     select_question_pool_items(&assessment_entry, &members, selection_entropy()?)
@@ -261,7 +261,7 @@ fn project_manifest(
                     authored_position,
                     questions: selected
                         .into_iter()
-                        .map(|item| item.question_revision)
+                        .map(|item| item.question_revision_tuple)
                         .collect(),
                 }
             }
@@ -285,11 +285,11 @@ fn project_manifest(
                 questions: questions
                     .into_iter()
                     .enumerate()
-                    .map(|(question_index, question_revision)| {
+                    .map(|(question_index, question_revision_tuple)| {
                         Ok(InstructorStudentViewQuestion {
                             position: NonZeroU32::new(positions[entry_index][question_index])
                                 .ok_or(())?,
-                            question_revision,
+                            question_revision_tuple,
                         })
                     })
                     .collect::<Result<Vec<_>, ()>>()?,
@@ -367,20 +367,20 @@ async fn answer_free_presentation(
 ) -> Result<StudentQuestionPresentation, ()> {
     match source {
         InstructorStudentViewSource::Ple {
-            question_revision,
+            question_revision_tuple,
             source_object_id,
             source_object_checksum,
             source_media_type,
             question_asset_renditions,
         } => {
-            if &question_revision != expected
+            if &question_revision_tuple != expected
                 || source_media_type != adapter_ple::question_json::PLE_QUESTION_JSON_MEDIA_TYPE
             {
                 return Err(());
             }
             let resolved = ResolvedPleQuestionJsonSource::resolve(
                 &state.objects,
-                question_revision.clone(),
+                question_revision_tuple.clone(),
                 source_object_id,
                 source_object_checksum,
             )
@@ -395,25 +395,27 @@ async fn answer_free_presentation(
             )
             .map_err(|_| ())?;
             Ok(StudentQuestionPresentation {
-                question_revision,
+                question_revision_tuple,
                 author_content_digest: built.presentation.author_content_digest,
                 prompt: built.presentation.prompt,
                 response: built.presentation.response,
             })
         }
         InstructorStudentViewSource::Webwork {
-            question_revision,
+            question_revision_tuple,
             source_object_id,
             source_object_checksum,
             source_media_type,
             webwork_pg_path,
             ..
         } => {
-            if &question_revision != expected || source_media_type != WEBWORK_SOURCE_MEDIA_TYPE {
+            if &question_revision_tuple != expected
+                || source_media_type != WEBWORK_SOURCE_MEDIA_TYPE
+            {
                 return Err(());
             }
             let binding =
-                WebworkQuestionSourceBinding::new(question_revision.clone(), webwork_pg_path)
+                WebworkQuestionSourceBinding::new(question_revision_tuple.clone(), webwork_pg_path)
                     .map_err(|_| ())?;
             ResolvedWebworkQuestionSource::resolve(
                 &state.objects,
@@ -424,7 +426,7 @@ async fn answer_free_presentation(
             .await
             .map_err(|_| ())?;
             Ok(StudentQuestionPresentation {
-                question_revision,
+                question_revision_tuple,
                 author_content_digest: None,
                 prompt: Vec::new(),
                 response: QuestionPresentationResponseFormat::BackendOwned {},
@@ -444,20 +446,20 @@ async fn answer_free_document(
 ) -> Response {
     match source {
         InstructorStudentViewSource::Ple {
-            question_revision,
+            question_revision_tuple,
             source_object_id,
             source_object_checksum,
             source_media_type,
             ..
         } => {
-            if &question_revision != expected
+            if &question_revision_tuple != expected
                 || source_media_type != adapter_ple::question_json::PLE_QUESTION_JSON_MEDIA_TYPE
             {
                 return unavailable();
             }
             let resolved = match ResolvedPleQuestionJsonSource::resolve(
                 &state.objects,
-                question_revision,
+                question_revision_tuple,
                 source_object_id,
                 source_object_checksum,
             )
@@ -476,22 +478,25 @@ async fn answer_free_document(
             )
         }
         InstructorStudentViewSource::Webwork {
-            question_revision,
+            question_revision_tuple,
             source_object_id,
             source_object_checksum,
             source_media_type,
             webwork_pg_path,
             ..
         } => {
-            if &question_revision != expected || source_media_type != WEBWORK_SOURCE_MEDIA_TYPE {
+            if &question_revision_tuple != expected
+                || source_media_type != WEBWORK_SOURCE_MEDIA_TYPE
+            {
                 return unavailable();
             }
-            let binding =
-                match WebworkQuestionSourceBinding::new(question_revision.clone(), webwork_pg_path)
-                {
-                    Ok(value) => value,
-                    Err(_) => return unavailable(),
-                };
+            let binding = match WebworkQuestionSourceBinding::new(
+                question_revision_tuple.clone(),
+                webwork_pg_path,
+            ) {
+                Ok(value) => value,
+                Err(_) => return unavailable(),
+            };
             let resolved = match ResolvedWebworkQuestionSource::resolve(
                 &state.objects,
                 binding,

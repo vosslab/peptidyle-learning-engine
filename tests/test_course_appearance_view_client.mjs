@@ -7,7 +7,7 @@ import { DecodeError } from "../src/api/decoder.ts";
 import { ApiProtocolError, createHttpApiClient } from "../src/api/http_client.ts";
 import { createRecordingFetch } from "./http_client_test_support.mjs";
 
-const COURSE_REFERENCE = "CI7K3M2QAZ";
+const COURSE_INSTANCE_ID = "CI7K3M2QAZ";
 
 function appearanceView() {
   return { theme: "grass", banner: null };
@@ -31,12 +31,12 @@ test("Course Appearance View client requests the exact no-store reader", async (
   );
   const client = createHttpApiClient({ fetch: recordingFetch, basePath: "/live" });
 
-  const appearance = await client.getCourseAppearanceView(COURSE_REFERENCE);
+  const appearance = await client.getCourseAppearanceView(COURSE_INSTANCE_ID);
 
   assert.deepEqual(appearance, appearanceView());
   assert.equal(
     requests[0].url,
-    `https://client.example.test/live/api/course-instances/${COURSE_REFERENCE}/appearance`,
+    `https://client.example.test/live/api/course-instances/${COURSE_INSTANCE_ID}/appearance`,
   );
   assert.equal(requests[0].method, "GET");
   assert.equal(requests[0].cache, "no-store");
@@ -50,12 +50,12 @@ test("Course Appearance Theme client validates and saves the independent theme u
   );
   const client = createHttpApiClient({ fetch: recordingFetch, basePath: "/live" });
 
-  const appearance = await client.updateCourseTheme(COURSE_REFERENCE, { theme: "forest" });
+  const appearance = await client.updateCourseTheme(COURSE_INSTANCE_ID, { theme: "forest" });
 
   assert.deepEqual(appearance, { theme: "forest", banner: null });
   assert.equal(
     requests[0].url,
-    `https://client.example.test/live/api/course-instances/${COURSE_REFERENCE}/appearance`,
+    `https://client.example.test/live/api/course-instances/${COURSE_INSTANCE_ID}/appearance`,
   );
   assert.equal(requests[0].method, "PUT");
   assert.equal(requests[0].cache, "no-store");
@@ -66,18 +66,18 @@ test("Course Appearance Theme client validates and saves the independent theme u
 
 test("Course Appearance Theme client retains the complete banner view returned after a theme save", async () => {
   const banner = {
-    reference: "00000000-0000-0000-0000-000000000007",
+    id: "00000000-0000-0000-0000-000000000007",
     alternativeText: { kind: "decorative" },
   };
   const client = appearanceClient(appearanceResponse({ theme: "forest", banner }));
 
-  assert.deepEqual(await client.updateCourseTheme(COURSE_REFERENCE, { theme: "forest" }), {
+  assert.deepEqual(await client.updateCourseTheme(COURSE_INSTANCE_ID, { theme: "forest" }), {
     theme: "forest",
     banner,
   });
 });
 
-test("Course Appearance client refuses non-Course-Instance references before dispatch", async () => {
+test("Course Appearance client refuses non-Course-Instance IDs before dispatch", async () => {
   const { recordingFetch, requests } = createRecordingFetch(async () =>
     appearanceResponse(appearanceView()),
   );
@@ -94,7 +94,7 @@ test("Course Appearance Theme client refuses an unknown theme before dispatch", 
   const client = createHttpApiClient({ fetch: recordingFetch });
 
   await assert.rejects(
-    client.updateCourseTheme(COURSE_REFERENCE, { theme: "unreviewed" }),
+    client.updateCourseTheme(COURSE_INSTANCE_ID, { theme: "unreviewed" }),
     DecodeError,
   );
   assert.equal(requests.length, 0);
@@ -103,19 +103,19 @@ test("Course Appearance Theme client refuses an unknown theme before dispatch", 
 test("Course Appearance View client rejects surplus and retired reader properties", async () => {
   const surplusView = { ...appearanceView(), privateAppearanceField: "must-not-be-accepted" };
   await assert.rejects(
-    appearanceClient(appearanceResponse(surplusView)).getCourseAppearanceView(COURSE_REFERENCE),
+    appearanceClient(appearanceResponse(surplusView)).getCourseAppearanceView(COURSE_INSTANCE_ID),
     DecodeError,
   );
 
   const retiredBanner = {
     ...appearanceView(),
     banner: {
-      id: "00000000-0000-0000-0000-000000000007",
+      reference: "00000000-0000-0000-0000-000000000007",
       alternativeText: { kind: "decorative" },
     },
   };
   await assert.rejects(
-    appearanceClient(appearanceResponse(retiredBanner)).getCourseAppearanceView(COURSE_REFERENCE),
+    appearanceClient(appearanceResponse(retiredBanner)).getCourseAppearanceView(COURSE_INSTANCE_ID),
     DecodeError,
   );
 });

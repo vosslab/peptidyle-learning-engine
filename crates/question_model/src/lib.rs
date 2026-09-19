@@ -226,7 +226,7 @@ pub use crate::preview_plane::{
 pub use crate::profile_image::ProfileImageId;
 pub use crate::public_route::{
     AssessmentId, BlueprintCourseId, CourseInstanceId, NavigationResolution,
-    RESERVED_REFERENCE_PREFIXES,
+    RESERVED_PUBLIC_ID_PREFIXES,
 };
 pub use crate::question_authorship::{
     QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship, QuestionAuthorshipError,

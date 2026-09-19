@@ -77,7 +77,7 @@ impl InstructorStudentViewStore for PostgresInstructorStudentViewStore {
         assessment: AssessmentId,
     ) -> Result<InstructorStudentViewSnapshot, StoreError> {
         let mut transaction = self.begin_read_only(session_token_hash).await?;
-        // ASVS 1.2.4 and 8.2.2: opaque references are bound parameters and the
+        // ASVS 1.2.4 and 8.2.2: opaque IDs are bound parameters and the
         // definer function rechecks the current direct Course Instructor relationship.
         let rows = sqlx::query("SELECT * FROM ple_api.load_assessment_workspace_rows($1, $2)")
             .bind(course.as_string())
@@ -130,14 +130,14 @@ impl InstructorStudentViewStore for PostgresInstructorStudentViewStore {
         assessment: AssessmentId,
         expected_edit_number: AssessmentEditNumber,
         authored_position: u32,
-        question_revision: QuestionRevisionTuple,
+        question_revision_tuple: QuestionRevisionTuple,
     ) -> Result<InstructorStudentViewSource, StoreError> {
         let mut transaction = self.begin_read_only(session_token_hash).await?;
         let authored_position = i32::try_from(authored_position)
             .map_err(|_| invalid("Assessment authored position"))?;
         let expected_edit_number = i64::try_from(expected_edit_number.value())
             .map_err(|_| invalid("Assessment Edit Number"))?;
-        let revision_number = i32::try_from(question_revision.revision_number.get())
+        let revision_number = i32::try_from(question_revision_tuple.revision_number.get())
             .map_err(|_| invalid("Question Revision Number"))?;
         // ASVS 1.2.4, 2.2.2, and 8.3.1: the typed definer boundary validates
         // the full current manifest precondition and exact authored source pin.
@@ -149,12 +149,12 @@ impl InstructorStudentViewStore for PostgresInstructorStudentViewStore {
         .bind(assessment.as_string())
         .bind(expected_edit_number)
         .bind(authored_position)
-        .bind(question_revision.question_id.as_str())
+        .bind(question_revision_tuple.question_id.as_str())
         .bind(revision_number)
         .fetch_one(&mut *transaction)
         .await
         .map_err(map_student_view_source_error)?;
-        let source = source_from_row(&row, question_revision)?;
+        let source = source_from_row(&row, question_revision_tuple)?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(source)
     }
@@ -208,7 +208,7 @@ fn snapshot_entries(
                 entries.push(InstructorStudentViewSnapshotEntry::Fixed {
                     authored_position,
                     availability,
-                    question_revision: question_revision(row)?,
+                    question_revision_tuple: question_revision_tuple(row)?,
                 });
                 index += 1;
             }
@@ -246,7 +246,7 @@ fn snapshot_entries(
                         question_pool_id: expected_pool_id.clone(),
                         question_pool_edit_number: expected_pool_edit_number,
                         member_position,
-                        question_revision: question_revision(member_row)?,
+                        question_revision_tuple: question_revision_tuple(member_row)?,
                     });
                     index += 1;
                 }
@@ -316,7 +316,7 @@ fn pool_assessment_entry(
 
 fn source_from_row(
     row: &sqlx::postgres::PgRow,
-    question_revision: QuestionRevisionTuple,
+    question_revision_tuple: QuestionRevisionTuple,
 ) -> Result<InstructorStudentViewSource, StoreError> {
     let source_object_id = ObjectId::from_uuid(column(row, "source_object_id")?);
     let source_object_checksum =
@@ -327,14 +327,14 @@ fn source_from_row(
     let webwork_pg_path = optional_column(row, "webwork_pg_path")?;
     match (column::<String>(row, "backend")?.as_str(), webwork_pg_path) {
         ("ple", None) => Ok(InstructorStudentViewSource::Ple {
-            question_revision,
+            question_revision_tuple,
             source_object_id,
             source_object_checksum,
             source_media_type,
             question_asset_renditions,
         }),
         ("webwork", Some(webwork_pg_path)) => Ok(InstructorStudentViewSource::Webwork {
-            question_revision,
+            question_revision_tuple,
             source_object_id,
             source_object_checksum,
             source_media_type,
@@ -396,7 +396,9 @@ fn entry_scoring_rule(
     }
 }
 
-fn question_revision(row: &sqlx::postgres::PgRow) -> Result<QuestionRevisionTuple, StoreError> {
+fn question_revision_tuple(
+    row: &sqlx::postgres::PgRow,
+) -> Result<QuestionRevisionTuple, StoreError> {
     let question_id = column::<String>(row, "question_id")?
         .parse::<QuestionId>()
         .map_err(|_| invalid("Question ID"))?;

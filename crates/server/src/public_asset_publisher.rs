@@ -123,7 +123,7 @@ async fn publish_claim<O: ObjectStore>(
     publication: &ClaimedQuestionAssetPublication,
 ) -> Result<()> {
     let source_address = ObjectAddress::RestrictedQuestionAsset {
-        question_revision: publication.question_revision.clone(),
+        question_revision_tuple: publication.question_revision_tuple.clone(),
         asset: publication.asset_id,
         object: publication.source_object_id,
     };
@@ -146,7 +146,7 @@ async fn publish_claim<O: ObjectStore>(
     }
 
     let public_address = ObjectAddress::QuestionAsset {
-        question_revision: publication.question_revision.clone(),
+        question_revision_tuple: publication.question_revision_tuple.clone(),
         asset: publication.asset_id,
         object: publication.public_object_id,
     };
@@ -339,7 +339,7 @@ mod tests {
     #[tokio::test]
     async fn publisher_copies_only_its_claimed_restricted_asset_to_the_fixed_public_address() {
         let objects = MemoryObjectStore::default();
-        let question_revision = QuestionRevisionTuple {
+        let question_revision_tuple = QuestionRevisionTuple {
             question_id: QuestionId::from_random_identifier("ABCDEFG").expect("question ID"),
             revision_number: QuestionRevisionNumber::new(1).expect("revision number"),
         };
@@ -348,7 +348,7 @@ mod tests {
         let public_object_id = ObjectId::from_uuid(Uuid::from_u128(3));
         let bytes = png();
         let source_address = ObjectAddress::RestrictedQuestionAsset {
-            question_revision: question_revision.clone(),
+            question_revision_tuple: question_revision_tuple.clone(),
             asset: asset_id,
             object: source_object_id,
         };
@@ -363,7 +363,7 @@ mod tests {
             .expect("restricted source");
         let publication = ClaimedQuestionAssetPublication {
             job_id: Uuid::from_u128(4),
-            question_revision: question_revision.clone(),
+            question_revision_tuple: question_revision_tuple.clone(),
             asset_id,
             source_object_id,
             source_checksum: source_record.sha256,
@@ -382,7 +382,7 @@ mod tests {
 
         assert!(publish_one(&store, &objects).await.expect("publisher run"));
         let public_address = ObjectAddress::QuestionAsset {
-            question_revision,
+            question_revision_tuple,
             asset: asset_id,
             object: public_object_id,
         };

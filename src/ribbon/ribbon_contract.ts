@@ -506,7 +506,7 @@ function breadcrumbsFor(
   const homeHref = productRoleHomePath(productRole);
   const home = breadcrumbLinkItem("Home", homeHref);
   const currentHref = canonicalPathForRouteState(routeState);
-  // A malformed declared route must never surface a reference-shaped label or
+  // A malformed declared route must never surface an ID-shaped label or
   // a guessed ancestor. The known role home remains reachable while scope resolves.
   if (currentHref === undefined) return Object.freeze([home]);
   const breadcrumbCurrent = (label: string): RibbonBreadcrumbModel =>

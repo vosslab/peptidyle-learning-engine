@@ -79,7 +79,7 @@ fn publication_mapping_rejects_a_checksum_that_is_not_the_canonical_source() {
             question.slug.clone(),
             serde_json::json!({
                 "sourceSha256": question.source_sha256,
-                "questionRevision": {
+                "questionRevisionTuple": {
                     "questionId": FIXTURE_QUESTION_IDS[index],
                     "revisionNumber": 1,
                 },
@@ -111,7 +111,7 @@ fn validated_mapping_selects_the_four_ple_question_json_revisions_in_plan_order(
                 question.slug.clone(),
                 serde_json::json!({
                     "sourceSha256": question.source_sha256,
-                    "questionRevision": {
+                    "questionRevisionTuple": {
                     "questionId": FIXTURE_QUESTION_IDS[index],
                         "revisionNumber": 1,
                     },

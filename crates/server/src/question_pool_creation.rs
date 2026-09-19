@@ -41,7 +41,7 @@ struct RouteState {
     question_id_issuer: Arc<dyn QuestionPoolIdIssuer>,
 }
 
-/// Trusted issuance capability for Pool references.
+/// Trusted issuance capability for Pool IDs.
 ///
 /// Production supplies the stateless random issuer. Keeping this capability at
 /// the server boundary lets an isolated proof force the otherwise improbable

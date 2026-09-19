@@ -19,7 +19,7 @@ function selection(...questionIds) {
     questionIds,
     questions: questionIds.map((questionId) => ({
       questionId,
-      row: { questionRevision: { questionId, revisionNumber: 1 } },
+      row: { questionRevisionTuple: { questionId, revisionNumber: 1 } },
     })),
   };
 }

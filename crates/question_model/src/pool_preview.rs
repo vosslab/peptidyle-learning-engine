@@ -60,7 +60,7 @@ mod tests {
         );
         let question_id: QuestionId = "ABCD-QEF1".parse().expect("canonical question ID");
         let result = QuestionPoolPreview {
-            assessment: "A7K3M2QXF".parse().expect("assessment reference"),
+            assessment: "A7K3M2QXF".parse().expect("Assessment ID"),
             edit_number: "3".parse().expect("edit number"),
             assessment_entry_id: serde_json::from_value(serde_json::json!(
                 "0198e000-0000-7000-8000-000000000017"

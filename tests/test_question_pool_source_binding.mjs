@@ -8,7 +8,7 @@ import {
 } from "../src/components/question_pool_create_model.ts";
 
 const startingQuestion = {
-  questionRevision: { questionId: "7K3M-79QP", revisionNumber: 2 },
+  questionRevisionTuple: { questionId: "7K3M-79QP", revisionNumber: 2 },
   questionTitle: "Starting Question",
   disciplineName: "Biology",
   subjectName: "Genetics",
@@ -17,7 +17,7 @@ const startingQuestion = {
 function row(displayId, disciplineName, questionTitle = "Question") {
   return {
     displayId,
-    questionRevision: { questionId: displayId, revisionNumber: 1 },
+    questionRevisionTuple: { questionId: displayId, revisionNumber: 1 },
     questionTitle,
     summary: "Answer-free summary.",
     bloom: {
@@ -59,7 +59,7 @@ test("source-bound Pool members keep the exact starting Revision first", async (
     async (questionId) => {
       lookedUp.push(questionId);
       return {
-        summary: { questionRevision: { questionId, revisionNumber: 5 } },
+        summary: { questionRevisionTuple: { questionId, revisionNumber: 5 } },
         disciplineName: "Biology",
         subjectName: "Genetics",
       };

@@ -377,7 +377,7 @@ fn existing_publication(
         "ordinary Question provenance conflicts with parameterized source {}",
         source.source_id
     );
-    Ok(Some(entry.question_revision.clone()))
+    Ok(Some(entry.question_revision_tuple.clone()))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -543,7 +543,7 @@ fn required_environment(name: &str) -> Result<String> {
 }
 
 /// Receipt deliberately contains source pins and ordinary immutable Question
-/// references only.  It does not imply a Pool, Blueprint, or archive change.
+/// Revision Tuples only.  It does not imply a Pool, Blueprint, or archive change.
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Receipt {
@@ -566,7 +566,7 @@ struct ReceiptSource {
     webwork_pg_path: String,
     canonical_author_source_url: String,
     canonical_author_source_checksum: String,
-    question_revision: QuestionRevisionTuple,
+    question_revision_tuple: QuestionRevisionTuple,
 }
 
 impl Receipt {
@@ -575,7 +575,12 @@ impl Receipt {
     pub(crate) fn question_revisions(&self) -> BTreeMap<String, QuestionRevisionTuple> {
         self.sources
             .iter()
-            .map(|source| (source.source_id.clone(), source.question_revision.clone()))
+            .map(|source| {
+                (
+                    source.source_id.clone(),
+                    source.question_revision_tuple.clone(),
+                )
+            })
             .collect()
     }
 
@@ -587,7 +592,7 @@ impl Receipt {
             .parameterized_sources
             .iter()
             .map(|source| {
-                let question_revision =
+                let question_revision_tuple =
                     published.get(&source.source_id).cloned().with_context(|| {
                         format!(
                             "parameterized receipt is missing source {}",
@@ -606,7 +611,7 @@ impl Receipt {
                     webwork_pg_path: source.webwork_pg_path.clone(),
                     canonical_author_source_url: source.canonical_author_source_url.clone(),
                     canonical_author_source_checksum: source.canonical_author_source_sha256.clone(),
-                    question_revision,
+                    question_revision_tuple,
                 })
             })
             .collect::<Result<Vec<_>>>()?;

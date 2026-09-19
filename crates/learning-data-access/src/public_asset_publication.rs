@@ -14,7 +14,7 @@ use crate::StoreError;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ClaimedQuestionAssetPublication {
     pub job_id: Uuid,
-    pub question_revision: QuestionRevisionTuple,
+    pub question_revision_tuple: QuestionRevisionTuple,
     pub asset_id: QuestionAssetId,
     pub source_object_id: ObjectId,
     pub source_checksum: Sha256Checksum,

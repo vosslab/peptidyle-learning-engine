@@ -2,7 +2,7 @@
 
 import type { QuestionId } from "../../generated/api/QuestionId";
 
-/** One immutable vetted public name, never an Account or Profile reference. */
+/** One immutable vetted public name, never an Account or Profile ID. */
 export interface QuestionPoolStarredInstructor {
   readonly displayName: string;
 }

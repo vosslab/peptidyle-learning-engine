@@ -264,7 +264,7 @@ async fn question_details(
         Ok(None) => return concealed(),
         Err(error) => return store_error_response(error),
     };
-    let published_id = entry.question_revision.question_id.clone();
+    let published_id = entry.question_revision_tuple.question_id.clone();
     let edit_number = entry.availability_edit_number;
     let resolved = match answer_free_question_library_entry(&state.objects, entry).await {
         Ok(resolved) => resolved,
@@ -302,19 +302,19 @@ async fn question_revision_details(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let reference = match verified_question_revision(&question_id, &revision_number) {
-        Some(reference) => reference,
+    let question_revision_tuple = match verified_question_revision(&question_id, &revision_number) {
+        Some(question_revision_tuple) => question_revision_tuple,
         None => return concealed(),
     };
     let entry = match state
         .store
-        .load_published_question_revision_library_entry(session_hash, &reference)
+        .load_published_question_revision_library_entry(session_hash, &question_revision_tuple)
         .await
     {
         Ok(entry) => entry,
         Err(error) => return store_error_response(error),
     };
-    let published_id = entry.question_revision.question_id.clone();
+    let published_id = entry.question_revision_tuple.question_id.clone();
     let edit_number = entry.availability_edit_number;
     let resolved = match answer_free_question_library_entry(&state.objects, entry).await {
         Ok(resolved) => resolved,
@@ -341,8 +341,8 @@ async fn correct_question_revision_bloom(
     Path((question_id, revision_number)): Path<(String, String)>,
     payload: Result<Json<BloomClassificationCorrectionRequest>, JsonRejection>,
 ) -> Response {
-    let reference = match verified_question_revision(&question_id, &revision_number) {
-        Some(reference) => reference,
+    let question_revision_tuple = match verified_question_revision(&question_id, &revision_number) {
+        Some(question_revision_tuple) => question_revision_tuple,
         None => return concealed(),
     };
     // ASVS 8.2.1/8.3.1: only an active vetted Instructor reaches correction;
@@ -365,7 +365,7 @@ async fn correct_question_revision_bloom(
         .store
         .correct_question_revision_bloom(
             session_hash,
-            &reference,
+            &question_revision_tuple,
             request.expected_classification_edit_number,
             request.cognitive_process,
             request.knowledge_dimension,
@@ -383,7 +383,7 @@ async fn correct_question_revision_bloom(
     };
     crate::auth::no_store(
         Json(QuestionBloomCorrectionReceipt {
-            question_revision: reference,
+            question_revision_tuple: question_revision_tuple,
             bloom,
         })
         .into_response(),
@@ -403,13 +403,13 @@ async fn question_revision_preview_document(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let reference = match verified_question_revision(&question_id, &revision_number) {
-        Some(reference) => reference,
+    let question_revision_tuple = match verified_question_revision(&question_id, &revision_number) {
+        Some(question_revision_tuple) => question_revision_tuple,
         None => return concealed(),
     };
     let entry = match state
         .store
-        .load_published_question_revision_library_entry(session_hash, &reference)
+        .load_published_question_revision_library_entry(session_hash, &question_revision_tuple)
         .await
     {
         Ok(entry) => entry,
@@ -424,11 +424,13 @@ async fn question_revision_preview_document(
     let Some(webwork_pg_path) = entry.webwork_pg_path else {
         return unavailable();
     };
-    let binding =
-        match WebworkQuestionSourceBinding::new(entry.question_revision.clone(), webwork_pg_path) {
-            Ok(binding) => binding,
-            Err(_) => return unavailable(),
-        };
+    let binding = match WebworkQuestionSourceBinding::new(
+        entry.question_revision_tuple.clone(),
+        webwork_pg_path,
+    ) {
+        Ok(binding) => binding,
+        Err(_) => return unavailable(),
+    };
     let source = match ResolvedWebworkQuestionSource::resolve(
         &state.objects,
         binding,

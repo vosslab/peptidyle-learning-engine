@@ -99,12 +99,12 @@ fn positive(value: i32, label: &str) -> Result<u32, StoreError> {
 
 fn course_instance_id(value: String) -> Result<CourseInstanceId, StoreError> {
     CourseInstanceId::new(value)
-        .map_err(|_| StoreError::InvalidRecord("Course reference is invalid".to_string()))
+        .map_err(|_| StoreError::InvalidRecord("Course ID is invalid".to_string()))
 }
 
 fn assessment_id(value: String) -> Result<AssessmentId, StoreError> {
     AssessmentId::new(value)
-        .map_err(|_| StoreError::InvalidRecord("Assessment reference is invalid".to_string()))
+        .map_err(|_| StoreError::InvalidRecord("Assessment ID is invalid".to_string()))
 }
 
 fn name(value: String, label: &str) -> Result<String, StoreError> {

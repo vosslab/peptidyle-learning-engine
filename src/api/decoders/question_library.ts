@@ -91,7 +91,7 @@ export function decodeQuestionSummary(
   if (strict) {
     requireOnlyFields(record, path, [
       "questionId",
-      "questionRevision",
+      "questionRevisionTuple",
       "backend",
       "questionFormat",
       "questionType",
@@ -105,9 +105,9 @@ export function decodeQuestionSummary(
   }
   const decoded = {
     questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
-    questionRevision: decodeQuestionRevisionTuple(
-      field(record, "questionRevision", path),
-      `${path}.questionRevision`,
+    questionRevisionTuple: decodeQuestionRevisionTuple(
+      field(record, "questionRevisionTuple", path),
+      `${path}.questionRevisionTuple`,
       strict,
     ),
     backend: decodeStringEnum(field(record, "backend", path), `${path}.backend`, [
@@ -149,8 +149,8 @@ export function decodeQuestionSummary(
       decodeBloomClassificationView,
     ),
   } satisfies QuestionSummary;
-  if (decoded.questionRevision.questionId !== decoded.questionId) {
-    throw new DecodeError(`${path}.questionRevision.questionId`, "the Question Summary questionId");
+  if (decoded.questionRevisionTuple.questionId !== decoded.questionId) {
+    throw new DecodeError(`${path}.questionRevisionTuple.questionId`, "the Question Summary questionId");
   }
   if (
     (decoded.backend === "ple" && decoded.questionFormat !== "pleQuestionJson") ||
@@ -255,7 +255,7 @@ function decodeQuestionUseDetails(value: unknown, path: string): QuestionUseDeta
   const seenCourses = new Set<string>();
   for (const courseUsage of ownCourses) {
     if (seenCourses.has(courseUsage.course)) {
-      throw new DecodeError(`${path}.ownCourses`, "unique course references");
+      throw new DecodeError(`${path}.ownCourses`, "unique course IDs");
     }
     seenCourses.add(courseUsage.course);
   }

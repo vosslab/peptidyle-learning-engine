@@ -21,7 +21,7 @@ pub(super) fn question_id(value: String) -> Result<QuestionId, StoreError> {
     value.parse().map_err(|_| invalid("Question ID"))
 }
 
-pub(super) fn question_revision_reference(
+pub(super) fn question_revision_tuple(
     question: String,
     revision: i32,
 ) -> Result<QuestionRevisionTuple, StoreError> {
@@ -45,7 +45,7 @@ pub(super) fn decode_entries(rows: &[sqlx::postgres::PgRow]) -> Result<Vec<Asses
         let policy = question_policy(row)?;
         if kind == "fixed_question" {
             entries.push(AssessmentEntry::FixedQuestion(FixedQuestionAssessmentEntry {
-                id, question_revision: row_reference(row)?, points_possible: point_value(row, "points_possible")?, availability, scoring_rule,
+                id, question_revision_tuple: row_question_revision_tuple(row)?, points_possible: point_value(row, "points_possible")?, availability, scoring_rule,
                 question_attempt_limit: policy.0, question_attempt_time_limit: policy.1,
             })); index += 1; continue;
         }
@@ -77,8 +77,8 @@ pub(super) fn decode_entries(rows: &[sqlx::postgres::PgRow]) -> Result<Vec<Asses
     Ok(entries)
 }
 #[rustfmt::skip]
-pub(super) fn row_reference(row: &sqlx::postgres::PgRow) -> Result<QuestionRevisionTuple, StoreError> {
-    question_revision_reference(row.try_get("question_id").map_err(map_sqlx_error)?, row.try_get("question_revision_number").map_err(map_sqlx_error)?)
+pub(super) fn row_question_revision_tuple(row: &sqlx::postgres::PgRow) -> Result<QuestionRevisionTuple, StoreError> {
+    question_revision_tuple(row.try_get("question_id").map_err(map_sqlx_error)?, row.try_get("question_revision_number").map_err(map_sqlx_error)?)
 }
 
 #[rustfmt::skip]

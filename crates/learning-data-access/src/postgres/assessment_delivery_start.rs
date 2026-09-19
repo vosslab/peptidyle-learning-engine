@@ -138,7 +138,7 @@ fn current_attempt_start_from_rows(
                 authored_position,
                 PreparedIssuedQuestion::FixedQuestion {
                     assessment_entry: entry,
-                    question_revision: row_question_revision(
+                    question_revision_tuple: row_question_revision(
                         &row,
                         "fixed_question_id",
                         "fixed_revision_number",
@@ -178,7 +178,7 @@ fn current_attempt_start_from_rows(
                     question_pool_id: pool.question_pool_id.clone(),
                     question_pool_edit_number: pool.question_pool_edit_number,
                     member_position,
-                    question_revision: row_question_revision(
+                    question_revision_tuple: row_question_revision(
                         &row,
                         "pool_question_id",
                         "pool_question_revision_number",
@@ -215,7 +215,7 @@ fn current_attempt_start_from_rows(
                     assessment_entry: pool.id,
                     question_pool_selection_index: index,
                     member_position: item.member_position,
-                    question_revision: item.question_revision.clone(),
+                    question_revision_tuple: item.question_revision_tuple.clone(),
                     backend,
                 },
             ));
@@ -398,7 +398,7 @@ mod tests {
             question_pool_id: pool_id(),
             question_pool_edit_number: pool_edit_number(),
             member_position: value,
-            question_revision: QuestionRevisionTuple {
+            question_revision_tuple: QuestionRevisionTuple {
                 question_id: "0000-4000".parse::<QuestionId>().expect("question ID"),
                 revision_number: QuestionRevisionNumber::new(1).expect("revision"),
             },

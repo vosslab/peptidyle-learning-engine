@@ -360,7 +360,7 @@ fn decode_member_rows(
                 return Err(invalid("Question Pool member order"));
             }
             let question_id = decode_question_id(row, "published_question_id")?;
-            let question_revision = u32::try_from(
+            let question_revision_tuple = u32::try_from(
                 row.try_get::<i32, _>("question_revision_number")
                     .map_err(map_sqlx_error)?,
             )
@@ -369,7 +369,7 @@ fn decode_member_rows(
             .ok_or_else(|| invalid("Question Revision"))?;
             Ok(QuestionRevisionTuple {
                 question_id,
-                revision_number: question_revision,
+                revision_number: question_revision_tuple,
             })
         })
         .collect()

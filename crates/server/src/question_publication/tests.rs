@@ -78,7 +78,7 @@ impl NewQuestionLineagePublicationStore for RecordingPublicationStore {
         _session_token_hash: SessionTokenHash,
         input: NewQuestionLineagePublicationInput,
     ) -> Result<QuestionRevisionTuple, NewQuestionLineagePublicationError> {
-        let result = input.question_revision();
+        let result = input.question_revision_tuple();
         self.publications
             .lock()
             .expect("publication capture lock")
@@ -109,7 +109,7 @@ impl NewQuestionLineagePublicationStore for ScriptedPublicationStore {
         _session_token_hash: SessionTokenHash,
         input: NewQuestionLineagePublicationInput,
     ) -> Result<QuestionRevisionTuple, NewQuestionLineagePublicationError> {
-        let result = input.question_revision();
+        let result = input.question_revision_tuple();
         self.publications
             .lock()
             .expect("publication capture lock")
@@ -150,7 +150,7 @@ impl ExistingQuestionRevisionPublicationStore for ExistingRevisionRecordingStore
         input: ExistingQuestionRevisionPublicationInput,
     ) -> Result<QuestionRevisionTuple, ExistingQuestionRevisionPublicationError> {
         let revision = input
-            .question_revision()
+            .question_revision_tuple()
             .map_err(ExistingQuestionRevisionPublicationError::Store)?;
         self.publications
             .lock()
@@ -285,7 +285,7 @@ fn existing_command(workspace: WorkspaceId) -> ExistingQuestionRevisionPublicati
         expected_draft_question_edit_number: DraftQuestionEditNumber::new(3)
             .expect("positive Draft Question Edit Number"),
         workspace,
-        parent_question_revision: QuestionRevisionTuple {
+        parent_question_revision_tuple: QuestionRevisionTuple {
             question_id: fixed_question_id("0000000"),
             revision_number: QuestionRevisionNumber::new(1)
                 .expect("positive Question Revision Number"),
@@ -343,7 +343,7 @@ async fn publication_copies_verified_source_before_committing_its_exact_revision
         .await
         .expect("published source object");
 
-    assert_eq!(input.question_revision(), published);
+    assert_eq!(input.question_revision_tuple(), published);
     assert_eq!(stored.bytes, b"complete Question Source");
 }
 
@@ -530,11 +530,11 @@ async fn exhausted_question_id_collisions_leave_no_unregistered_publication_obje
             PUBLICATION_IDENTITY_ATTEMPTS,
         ),
     );
-    let candidate_references: Vec<&str> = candidates.iter().map(String::as_str).collect();
+    let candidate_ids: Vec<&str> = candidates.iter().map(String::as_str).collect();
     let publisher = NewQuestionLineagePublisher::new(
         object_store.clone(),
         publication_store,
-        fixed_issuer(&candidate_references),
+        fixed_issuer(&candidate_ids),
         None,
     );
 
@@ -594,7 +594,7 @@ async fn same_lineage_publication_copies_to_the_exact_successor_revision() {
         .expect("captured publication");
     assert_eq!(
         published,
-        input.question_revision().expect("successor revision")
+        input.question_revision_tuple().expect("successor revision")
     );
     assert_eq!(published.revision_number.get(), 2);
     assert_eq!(

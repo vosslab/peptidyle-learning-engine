@@ -15,7 +15,7 @@ fn id(value: u128) -> Uuid {
     Uuid::from_u128(value)
 }
 
-fn question_revision(revision_number: u32) -> QuestionRevisionTuple {
+fn question_revision_tuple(revision_number: u32) -> QuestionRevisionTuple {
     QuestionRevisionTuple {
         question_id: QuestionId::from_random_identifier("ABCDEFG").expect("Question ID"),
         revision_number: QuestionRevisionNumber::new(revision_number).expect("positive version"),
@@ -24,7 +24,7 @@ fn question_revision(revision_number: u32) -> QuestionRevisionTuple {
 
 async fn exercise_object_store(store: &dyn ObjectStore) {
     let key = ObjectAddress::QuestionSource {
-        question_revision: question_revision(2),
+        question_revision_tuple: question_revision_tuple(2),
         object: ObjectId::from_uuid(id(3)),
     };
     let request = PutObject {
@@ -52,7 +52,7 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         "answer-bearing source must remain server-only"
     );
     let archive_key = ObjectAddress::PublishedImportArchive {
-        question_revision: question_revision(42),
+        question_revision_tuple: question_revision_tuple(42),
         import: WorkspaceImportId::from_uuid(id(43)),
         object: ObjectId::from_uuid(id(44)),
     };
@@ -73,7 +73,7 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         "published import evidence must remain server-only"
     );
     let asset_key = ObjectAddress::QuestionAsset {
-        question_revision: question_revision(2),
+        question_revision_tuple: question_revision_tuple(2),
         asset: QuestionAssetId::from_uuid(id(13)),
         object: ObjectId::from_uuid(id(14)),
     };
@@ -225,7 +225,7 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
             .expect("workspace import put should succeed");
         assert_eq!(record.storage_area, ObjectStorageArea::PrivateContent);
         assert_eq!(record.data_class, ObjectDataClass::AuthoringContent);
-        assert_eq!(record.question_revision, None);
+        assert_eq!(record.question_revision_tuple, None);
         assert_eq!(
             store
                 .signed_url(&key, Timestamp::from_unix_millis(2_000))
@@ -238,7 +238,7 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         (
             record.sha256,
             record.storage_area,
-            record.question_revision,
+            record.question_revision_tuple,
             record.size_bytes,
             stored.bytes,
             signed.expires_at,
@@ -248,7 +248,7 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         (
             Sha256Checksum::compute(b"published source"),
             ObjectStorageArea::PrivateContent,
-            Some(question_revision(2)),
+            Some(question_revision_tuple(2)),
             16,
             b"published source".to_vec(),
             Timestamp::from_unix_millis(3_602_000),
@@ -321,7 +321,7 @@ fn workspace_object_paths_bind_workspace_and_import_identity() {
     assert_ne!(source, other_workspace);
     assert_ne!(source.path(), other_workspace.path());
     assert_eq!(source.storage_area(), ObjectStorageArea::PrivateContent);
-    assert_eq!(source.question_revision(), None);
+    assert_eq!(source.question_revision_tuple(), None);
     assert!(source.path().starts_with("workspaces/"));
     assert!(!source.path().starts_with("problems/"));
 }
@@ -338,7 +338,7 @@ fn workspace_question_source_key_has_stable_workspace_path_and_is_private_source
         "workspace question source path should encode the workspace id"
     );
     assert_eq!(source.storage_area(), ObjectStorageArea::PrivateContent);
-    assert_eq!(source.question_revision(), None);
+    assert_eq!(source.question_revision_tuple(), None);
     assert!(!source.path().contains("imports"));
 }
 

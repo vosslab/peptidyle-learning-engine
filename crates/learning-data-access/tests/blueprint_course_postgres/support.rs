@@ -111,7 +111,7 @@ pub(super) async fn question_pool_member_pins(
 pub(super) async fn assert_revision_checksum_mismatch(
     migration_url: &str,
     application_url: &str,
-    reference: &str,
+    blueprint_course_id_sql: &str,
     blueprint_course_id: question_model::BlueprintCourseId,
 ) {
     let tamper_pool = lazy_pool(application_url).expect("tamper application pool");
@@ -151,7 +151,7 @@ pub(super) async fn assert_revision_checksum_mismatch(
              to_jsonb('00000000-0000-0000-0000-00000000b123'::text)) \
          WHERE blueprint_course_id = $1 AND blueprint_revision_number = 3",
     )
-    .bind(reference)
+    .bind(blueprint_course_id_sql)
     .execute(&mut *tamper)
     .await
     .expect("controlled identity tamper");
@@ -189,7 +189,7 @@ pub(super) async fn assert_revision_checksum_mismatch(
 }
 
 /// Compare durable Blueprint state across denied commands, including receipts.
-pub(super) async fn blueprint_write_state(reference: &str) -> serde_json::Value {
+pub(super) async fn blueprint_write_state(blueprint_course_id_sql: &str) -> serde_json::Value {
     let mut inspection = adoption_inspection_connection().await;
     // ASVS 1.2.4: fixture identity remains a bound parameter.
     sqlx::query_scalar(
@@ -209,7 +209,7 @@ pub(super) async fn blueprint_write_state(reference: &str) -> serde_json::Value 
                 WHERE blueprint_course_id = $1)) \
          FROM ple_data.blueprint_course AS course WHERE blueprint_course_id = $1",
     )
-    .bind(reference)
+    .bind(blueprint_course_id_sql)
     .fetch_one(&mut inspection)
     .await
     .expect("Blueprint durable write state")
@@ -217,12 +217,12 @@ pub(super) async fn blueprint_write_state(reference: &str) -> serde_json::Value 
 
 pub(super) async fn save(
     url: &str,
-    reference: &str,
+    blueprint_course_id_sql: &str,
     expected_revision: i64,
     checksum: Vec<u8>,
     content: &StoredBlueprintCourseContent,
 ) -> Result<(i64, bool), sqlx::Error> {
-    let blueprint_course_id = blueprint_course_id_text_from_str(reference).await;
+    let blueprint_course_id = blueprint_course_id_text_from_str(blueprint_course_id_sql).await;
     let encoded_content = database_content_json(content);
     let mut connection = PgConnection::connect(url)
         .await
@@ -273,12 +273,12 @@ fn database_content_json(content: &StoredBlueprintCourseContent) -> serde_json::
 
 pub(super) async fn transition_blueprint_availability(
     url: &str,
-    reference: &str,
+    blueprint_course_id_sql: &str,
     expected_edit_number: i64,
     availability: &'static str,
     archive_confirmation_long_name: Option<&str>,
 ) -> Result<(BlueprintAvailability, i64), sqlx::Error> {
-    let blueprint_course_id = blueprint_course_id_text_from_str(reference).await;
+    let blueprint_course_id = blueprint_course_id_text_from_str(blueprint_course_id_sql).await;
     let mut connection = PgConnection::connect(url)
         .await
         .expect("Blueprint lifecycle application connection");
@@ -347,11 +347,11 @@ pub(super) fn error_code(error: &sqlx::Error) -> Option<String> {
 pub(super) async fn assert_immutable_child(
     connection: &mut PgConnection,
     sql: &'static str,
-    reference: &str,
+    blueprint_course_id_sql: &str,
     revision: i64,
 ) {
     let error = sqlx::query(sql)
-        .bind(reference)
+        .bind(blueprint_course_id_sql)
         .bind(revision)
         .execute(&mut *connection)
         .await
@@ -589,7 +589,7 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
     .await
     .expect("Published Question");
     sqlx::query(
-        "INSERT INTO ple_data.question_revision \
+        "INSERT INTO ple_data.question_revision_tuple \
          (published_question_id, revision_number, backend, question_type, published_at) \
          VALUES ($1, 1, 'ple', 'multipleChoice', clock_timestamp())",
     )
@@ -641,11 +641,11 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
              sha256, size_bytes, media_type, created_at\
          ) SELECT $1, jsonb_build_object(\
                  'kind', 'questionSource', \
-                 'questionRevision', jsonb_build_object('questionId', $2, 'revisionNumber', 1), \
+                 'questionRevisionTuple', jsonb_build_object('questionId', $2, 'revisionNumber', 1), \
                  'object', $1\
              ), 'private-content', 'question-source', decode(repeat('b1', 32), 'hex'), \
              1, 'application/json', revision.published_at \
-           FROM ple_data.question_revision AS revision \
+           FROM ple_data.question_revision_tuple AS revision \
           WHERE revision.published_question_id = $2 AND revision.revision_number = 1",
     )
     .bind(id(0xb107))
@@ -658,7 +658,7 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
              published_question_id, revision_number, backend, question_format, \
              source_object_record_id, source_object_checksum, created_at\
          ) SELECT $1, 1, 'ple', 'pleQuestionJson', $2, repeat('b1', 32), revision.published_at \
-           FROM ple_data.question_revision AS revision \
+           FROM ple_data.question_revision_tuple AS revision \
           WHERE revision.published_question_id = $1 AND revision.revision_number = 1",
     )
     .bind(QUESTION)
@@ -671,7 +671,7 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
              published_question_id, revision_number, parent_revision_number, editor_account_id, \
              accepted_by_account_id, accepted_at, reason_for_edit\
          ) SELECT $1, 1, NULL, $2, $2, revision.published_at, 'Initial publication' \
-           FROM ple_data.question_revision AS revision \
+           FROM ple_data.question_revision_tuple AS revision \
           WHERE revision.published_question_id = $1 AND revision.revision_number = 1",
     )
     .bind(QUESTION)
@@ -704,7 +704,7 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
              question_ownership_event_id, published_question_id, owner_account_id, \
              recorded_by_account_id, event_kind, occurred_at\
          ) SELECT $1, $2, $3, $3, 'initial', revision.published_at \
-           FROM ple_data.question_revision AS revision \
+           FROM ple_data.question_revision_tuple AS revision \
           WHERE revision.published_question_id = $2 AND revision.revision_number = 1",
     )
     .bind(id(0xb108))
@@ -717,7 +717,7 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
         "INSERT INTO ple_data.question_publication_event (\
              event_id, published_question_id, revision_number, actor_account_id, occurred_at\
          ) SELECT $1, $2, 1, $3, revision.published_at \
-           FROM ple_data.question_revision AS revision \
+           FROM ple_data.question_revision_tuple AS revision \
           WHERE revision.published_question_id = $2 AND revision.revision_number = 1",
     )
     .bind(id(0xb109))
@@ -731,7 +731,7 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
              event_id, published_question_id, actor_account_id, availability, edit_number, \
              reason, occurred_at\
          ) SELECT $1, $2, $3, 'available', 1, NULL, revision.published_at \
-           FROM ple_data.question_revision AS revision \
+           FROM ple_data.question_revision_tuple AS revision \
           WHERE revision.published_question_id = $2 AND revision.revision_number = 1",
     )
     .bind(id(0xb10a))

@@ -27,7 +27,7 @@ pub(super) async fn grade<R: WebworkRenderer>(
         .grade(GradeRequest {
             pg_source: source.pg_source(),
             pg_path: source.pg_path(),
-            question_revision: source.question_revision(),
+            question_revision_tuple: source.question_revision_tuple(),
             seed: seed.value(),
             response_payload: payload,
             lifecycle_state: &lifecycle_state,

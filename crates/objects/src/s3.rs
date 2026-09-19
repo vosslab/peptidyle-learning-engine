@@ -268,7 +268,7 @@ impl ObjectStore for S3ObjectStore {
             sha256: Sha256Checksum::compute(&request.bytes),
             size_bytes,
             media_type: request.media_type,
-            question_revision: request.address.question_revision().cloned(),
+            question_revision_tuple: request.address.question_revision_tuple().cloned(),
             created_at: request.created_at,
         };
         let encoded_record = encode_record(&record)?;
@@ -423,7 +423,7 @@ fn decode_record(
         || record.id != key.object_id()
         || record.storage_area != key.storage_area()
         || record.data_class != key.data_class()
-        || record.question_revision != key.question_revision().cloned()
+        || record.question_revision_tuple != key.question_revision_tuple().cloned()
     {
         return Err(unavailable_metadata("semantic key does not match record"));
     }
@@ -518,7 +518,7 @@ mod tests {
     };
     use uuid::Uuid;
 
-    fn question_revision() -> QuestionRevisionTuple {
+    fn question_revision_tuple() -> QuestionRevisionTuple {
         QuestionRevisionTuple {
             question_id: QuestionId::from_random_identifier("ABCDEFG").expect("Question ID"),
             revision_number: QuestionRevisionNumber::new(2).expect("positive version"),
@@ -527,7 +527,7 @@ mod tests {
 
     fn record() -> ObjectRecord {
         let key = ObjectAddress::QuestionSource {
-            question_revision: question_revision(),
+            question_revision_tuple: question_revision_tuple(),
             object: ObjectId::from_uuid(Uuid::from_u128(3)),
         };
         ObjectRecord {
@@ -538,14 +538,14 @@ mod tests {
             sha256: Sha256Checksum::compute(b"source"),
             size_bytes: 6,
             media_type: "application/zip".to_string(),
-            question_revision: Some(question_revision()),
+            question_revision_tuple: Some(question_revision_tuple()),
             created_at: Timestamp::from_unix_millis(1_000),
         }
     }
 
     fn public_asset_key() -> ObjectAddress {
         ObjectAddress::QuestionAsset {
-            question_revision: question_revision(),
+            question_revision_tuple: question_revision_tuple(),
             asset: QuestionAssetId::from_uuid(Uuid::from_u128(3)),
             object: ObjectId::from_uuid(Uuid::from_u128(4)),
         }

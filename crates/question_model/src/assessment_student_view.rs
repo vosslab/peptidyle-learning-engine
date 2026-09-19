@@ -87,7 +87,7 @@ pub enum InstructorStudentViewEntry {
 pub struct InstructorStudentViewQuestion {
     /// One-based position in the flattened presented-Question sequence.
     pub position: NonZeroU32,
-    pub question_revision: QuestionRevisionTuple,
+    pub question_revision_tuple: QuestionRevisionTuple,
 }
 
 /// Closed Student-safe reason that an authored entry is not shown.
@@ -103,7 +103,7 @@ mod tests {
     use super::*;
     use crate::{QuestionId, QuestionRevisionNumber};
 
-    fn question_revision() -> QuestionRevisionTuple {
+    fn question_revision_tuple() -> QuestionRevisionTuple {
         QuestionRevisionTuple {
             question_id: "0000-T00N".parse::<QuestionId>().expect("Question ID"),
             revision_number: QuestionRevisionNumber::new(1).expect("Question Revision"),
@@ -117,7 +117,7 @@ mod tests {
             authored_position: 0,
             questions: vec![InstructorStudentViewQuestion {
                 position: NonZeroU32::new(1).expect("positive position"),
-                question_revision: question_revision(),
+                question_revision_tuple: question_revision_tuple(),
             }],
         };
         assert_eq!(
@@ -127,7 +127,7 @@ mod tests {
                 "authoredPosition": 0,
                 "questions": [{
                     "position": 1,
-                    "questionRevision": {
+                    "questionRevisionTuple": {
                         "questionId": question_id.to_string(),
                         "revisionNumber": 1
                     }

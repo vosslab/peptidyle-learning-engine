@@ -415,7 +415,7 @@ pub struct QuestionSummary {
     pub question_id: QuestionId,
     /// Current accepted Revision for ordinary routes, or the exact resolved
     /// Revision for an exact-detail route. Independent of selection availability.
-    pub question_revision: QuestionRevisionTuple,
+    pub question_revision_tuple: QuestionRevisionTuple,
     /// Question Backend, without private backend fields or Question Source data.
     pub backend: QuestionBackend,
     /// Immutable reviewed source representation, for Instructor identification
@@ -665,7 +665,7 @@ mod tests {
         let detail = QuestionDetails {
             summary: QuestionSummary {
                 question_id: "ABCD-XEFG".parse().expect("fixture Question ID parses"),
-                question_revision: QuestionRevisionTuple {
+                question_revision_tuple: QuestionRevisionTuple {
                     question_id: "ABCD-XEFG".parse().expect("fixture Question ID parses"),
                     revision_number: QuestionRevisionNumber::new(1).expect("positive version"),
                 },

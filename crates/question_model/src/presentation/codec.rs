@@ -86,14 +86,14 @@ pub fn descriptor_bytes(
     encoder.string(
         &presentation
             .presentation
-            .question_revision
+            .question_revision_tuple
             .question_id
             .to_string(),
     )?;
     encoder.u32(
         presentation
             .presentation
-            .question_revision
+            .question_revision_tuple
             .revision_number
             .get(),
     );

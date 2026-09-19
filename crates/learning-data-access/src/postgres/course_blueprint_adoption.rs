@@ -161,7 +161,7 @@ fn fixed_entry_json(
 ) -> Result<Value, StoreError> {
     match entry {
         StoredBlueprintAssessmentEntry::Fixed {
-            question_revision,
+            question_revision_tuple,
             points_possible,
             scoring_rule,
             question_attempt_limit,
@@ -171,8 +171,8 @@ fn fixed_entry_json(
             Ok(
                 json!({"authoredPosition": i32::try_from(position).map_err(|_| invalid("Assessment Entry position"))?,
                 "kind": "fixed_question", "availability": "available",
-                "questionId": question_revision.question_id.as_str(),
-                "revisionNumber": question_revision.revision_number.get(),
+                "questionId": question_revision_tuple.question_id.as_str(),
+                "revisionNumber": question_revision_tuple.revision_number.get(),
                 "pointsPossible": points_possible.to_string(),
                 "scoringRule": pool_scoring_rule(*scoring_rule),
                 "questionAttemptLimit": question_attempt_limit.max_attempts,

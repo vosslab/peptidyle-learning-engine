@@ -54,7 +54,7 @@ export interface ApplicationApi<Client extends ApiClient = ApiClient> {
       [AssessmentAttemptRouteId],
       StudentAssessmentAttemptContext
     >;
-    /** Public-reference keyed attempt scope identity; not an authorization result. */
+    /** Public-ID keyed attempt scope identity; not an authorization result. */
     readonly resolveAssessmentAttempt: QueryFunction<
       [AssessmentAttemptRouteId],
       ResolvedAssessmentAttemptIdentity

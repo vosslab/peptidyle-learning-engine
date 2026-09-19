@@ -400,7 +400,7 @@ pub struct FixedQuestionAssessmentEntry {
     /// Stable identity preserved across point and order changes.
     pub id: AssessmentEntryId,
     /// Exact immutable Question Library content pinned by this Fixed Question Assessment Entry.
-    pub question_revision: QuestionRevisionTuple,
+    pub question_revision_tuple: QuestionRevisionTuple,
     /// Current assessment-authored points.
     pub points_possible: AssessmentPointValue,
     /// Whether future Assessment Attempts may receive this Assessment Entry.

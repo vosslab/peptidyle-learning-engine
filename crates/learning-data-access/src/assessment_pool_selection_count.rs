@@ -13,9 +13,9 @@ use crate::{SessionTokenHash, StoreError};
 /// Closed input for one optimistic-concurrency Pool selection-count change.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AssessmentPoolSelectionCountInput {
-    /// Opaque Course reference from the canonical route.
+    /// Opaque Course Instance ID from the canonical route.
     pub course: CourseInstanceId,
-    /// Opaque Assessment reference from the canonical route.
+    /// Opaque Assessment ID from the canonical route.
     pub assessment: AssessmentId,
     /// Stable Assessment Entry selected by the route.
     pub assessment_entry: AssessmentEntryId,

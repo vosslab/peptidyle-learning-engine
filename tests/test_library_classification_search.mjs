@@ -45,7 +45,7 @@ function query() {
 function row() {
   return {
     displayId: "7K3M-79QP",
-    questionRevision: { questionId: "7K3M-79QP", revisionNumber: 1 },
+    questionRevisionTuple: { questionId: "7K3M-79QP", revisionNumber: 1 },
     questionTitle: "Cell division",
     summary: "Answer-free summary",
     bloom: {

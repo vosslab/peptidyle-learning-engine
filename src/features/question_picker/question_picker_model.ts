@@ -247,7 +247,7 @@ function pickerPageOffset(cursor: string | null): number {
 function reusableQuestionLibraryRow(item: {
   readonly summary: {
     readonly questionId: string;
-    readonly questionRevision: QuestionLibraryBrowseRow["questionRevision"];
+    readonly questionRevisionTuple: QuestionLibraryBrowseRow["questionRevisionTuple"];
     readonly questionFormat: QuestionFormat;
     readonly metadata: {
       readonly questionTitle: string;
@@ -266,7 +266,7 @@ function reusableQuestionLibraryRow(item: {
   const evidence = item.evidence;
   return {
     displayId: summary.questionId,
-    questionRevision: summary.questionRevision,
+    questionRevisionTuple: summary.questionRevisionTuple,
     questionTitle: summary.metadata.questionTitle,
     summary: summary.metadata.questionDescription,
     bloom: summary.bloom,
@@ -287,9 +287,9 @@ function selectedBlueprintAssessment(
   ReturnType<BlueprintCourseClient["getBlueprintRevision"]>
 >["modules"][number]["assessments"][number] {
   if (
-    revision.blueprintRevision.blueprintCourseId !==
-      source.blueprint_revision.blueprintCourseId ||
-    revision.blueprintRevision.revisionNumber !== source.blueprint_revision.revisionNumber
+    revision.blueprintRevisionTuple.blueprintCourseId !==
+      source.blueprint_revision_tuple.blueprintCourseId ||
+    revision.blueprintRevisionTuple.revisionNumber !== source.blueprint_revision_tuple.revisionNumber
   ) {
     throw new Error(
       "The selected Blueprint Revision did not resolve. Choose an Assessment from the Course's Blueprint Revision.",
@@ -342,8 +342,8 @@ export function blueprintCourseQuestionPickerRepository(
       if (request.source.kind === "blueprintCourseAssessment") {
         const source = request.source.source;
         const revision = await client.getBlueprintRevision(
-          source.blueprint_revision.blueprintCourseId,
-          source.blueprint_revision.revisionNumber,
+          source.blueprint_revision_tuple.blueprintCourseId,
+          source.blueprint_revision_tuple.revisionNumber,
         );
         rows = contentRows(selectedBlueprintAssessment(source, revision).content);
       } else {

@@ -164,8 +164,8 @@ WITH source_assessment AS (
     SELECT count(*) = count(*) FILTER (WHERE entry.entry_kind = 'fixed_question')
        AND bool_and(
            entry.availability = 'available'
-           AND question.published_question_id = source.entry #>> '{question_revision,questionId}'
-           AND question.question_revision_number = (source.entry #>> '{question_revision,revisionNumber}')::integer
+           AND question.published_question_id = source.entry #>> '{question_revision_tuple,questionId}'
+           AND question.question_revision_number = (source.entry #>> '{question_revision_tuple,revisionNumber}')::integer
            AND question.points_possible::text = source.entry ->> 'points_possible'
            AND entry.scoring_rule = CASE source.entry ->> 'scoring_rule'
                WHEN 'normal' THEN 'normal' WHEN 'fullCredit' THEN 'full_credit'

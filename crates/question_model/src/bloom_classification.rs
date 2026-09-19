@@ -251,7 +251,7 @@ pub struct BloomClassificationCorrectionRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionBloomCorrectionReceipt {
-    pub question_revision: QuestionRevisionTuple,
+    pub question_revision_tuple: QuestionRevisionTuple,
     pub bloom: BloomClassificationView,
 }
 

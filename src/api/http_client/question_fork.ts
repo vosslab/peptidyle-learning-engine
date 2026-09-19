@@ -16,11 +16,11 @@ import { boundedResponseJson, requireNoStore } from "./response";
 const MAX_QUESTION_REVISION_NUMBER = 4_294_967_295;
 
 function exactForkPath(source: Parameters<QuestionForkClient["forkPublishedQuestion"]>[0]): string {
-  const questionRevision = decodeQuestionRevisionTuple(source, "request.source", true);
-  if (questionRevision.revisionNumber > MAX_QUESTION_REVISION_NUMBER) {
+  const questionRevisionTuple = decodeQuestionRevisionTuple(source, "request.source", true);
+  if (questionRevisionTuple.revisionNumber > MAX_QUESTION_REVISION_NUMBER) {
     throw new ApiProtocolError("Question Revision number must be one positive u32");
   }
-  return `/api/questions/by-id/${encodeURIComponent(questionRevision.questionId)}/revisions/${encodeURIComponent(String(questionRevision.revisionNumber))}/fork`;
+  return `/api/questions/by-id/${encodeURIComponent(questionRevisionTuple.questionId)}/revisions/${encodeURIComponent(String(questionRevisionTuple.revisionNumber))}/fork`;
 }
 
 function idempotencyKey(value: QuestionForkIdempotencyKey, path: string): string {

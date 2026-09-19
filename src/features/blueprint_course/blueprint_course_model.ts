@@ -199,7 +199,7 @@ export function appendPickedFixedEntries(
     ...content,
     entries: [
       ...content.entries,
-      ...selection.questions.map((question) => fixedEntry(question.row.questionRevision)),
+      ...selection.questions.map((question) => fixedEntry(question.row.questionRevisionTuple)),
     ],
   };
 }
@@ -395,7 +395,7 @@ function entryInputFromView(entry: BlueprintAssessmentEntryView): BlueprintAsses
   }
   return {
     kind: "fixed",
-    published_question: entry.question.question_revision,
+    published_question: entry.question.question_revision_tuple,
     points_possible: entry.points_possible,
     scoring_rule: entry.scoring_rule,
     question_attempt_limit: entry.question_attempt_limit,

@@ -81,7 +81,7 @@ async fn get_public_question_asset(
     headers: HeaderMap,
     Path((question_id, revision_number, asset_id)): Path<(String, String, String)>,
 ) -> Response {
-    let question_revision = match verified_question_revision(&question_id, &revision_number) {
+    let question_revision_tuple = match verified_question_revision(&question_id, &revision_number) {
         Some(value) => value,
         None => return concealed(),
     };
@@ -95,7 +95,7 @@ async fn get_public_question_asset(
     };
     let rendition = match state
         .store
-        .resolve_ready_question_asset_delivery(session_hash, question_revision, asset_id)
+        .resolve_ready_question_asset_delivery(session_hash, question_revision_tuple, asset_id)
         .await
     {
         Ok(value) => value,
@@ -114,7 +114,7 @@ async fn get_public_question_asset(
 ///
 /// The shared model parses the exact checksum-bearing ID before this
 /// authorization-sensitive Store lookup (ASVS 2.2.1 and 2.2.2). Invalid and
-/// unauthorized references share the opaque response below.
+/// unauthorized Tuples share the opaque response below.
 fn verified_question_revision(
     question_id: &str,
     revision_number: &str,
@@ -153,7 +153,7 @@ fn redirect_response(
     rendition: &ReadyQuestionAssetDelivery,
 ) -> Result<Response, ()> {
     let address = ObjectAddress::QuestionAsset {
-        question_revision: rendition.question_revision.clone(),
+        question_revision_tuple: rendition.question_revision_tuple.clone(),
         asset: rendition.asset_id,
         object: rendition.public_object_id,
     };
@@ -205,7 +205,7 @@ mod tests {
 
     fn rendition() -> ReadyQuestionAssetDelivery {
         ReadyQuestionAssetDelivery {
-            question_revision: QuestionRevisionTuple {
+            question_revision_tuple: QuestionRevisionTuple {
                 question_id: QuestionId::from_random_identifier("ABCDEFG").expect("Question ID"),
                 revision_number: QuestionRevisionNumber::new(1).expect("revision"),
             },
@@ -247,10 +247,10 @@ mod tests {
 
     #[test]
     fn asset_route_requires_a_verified_exact_question_revision() {
-        let reference = verified_question_revision("0000-4000", "1")
+        let question_revision_tuple = verified_question_revision("0000-4000", "1")
             .expect("documented checksum vector and positive revision");
-        assert_eq!(reference.question_id.to_string(), "0000-4000");
-        assert_eq!(reference.revision_number.get(), 1);
+        assert_eq!(question_revision_tuple.question_id.to_string(), "0000-4000");
+        assert_eq!(question_revision_tuple.revision_number.get(), 1);
 
         for (question_id, revision_number) in [
             ("0000-5000", "1"),

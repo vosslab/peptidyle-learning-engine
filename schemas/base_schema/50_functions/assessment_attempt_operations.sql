@@ -57,7 +57,7 @@ BEGIN
     END IF;
     -- Normal Student Work ends at the Course retention boundary.  Archived
     -- evidence remains reachable only through the separate retention-executor
-    -- capability; an owned Assessment Attempt reference is never an ordinary read or
+    -- capability; an owned Assessment Attempt ID is never an ordinary read or
     -- mutator bypass after archive or deletion.  Keep this beside the
     -- ownership assertion because every current-Assessment Attempt operation shares it.
     SELECT assessment.course_instance_id INTO course_id_value

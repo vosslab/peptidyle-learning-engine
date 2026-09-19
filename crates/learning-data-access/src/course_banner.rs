@@ -214,7 +214,7 @@ pub trait CourseBannerStore: Send + Sync {
         course: CourseInstanceId,
     ) -> Result<Option<CourseBanner>, StoreError>;
 
-    /// Resolves an opaque current banner reference only for an active member.
+    /// Resolves an opaque current banner ID only for an active member.
     async fn resolve_current_course_banner(
         &self,
         session_token_hash: SessionTokenHash,

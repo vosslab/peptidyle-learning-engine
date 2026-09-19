@@ -30,7 +30,7 @@ function routeById(id) {
 // Permanent contract: these are the external Assessment routes users and
 // support staff can communicate. A regression could silently restore generic
 // Assignment navigation or make the canonical Properties task unaddressable.
-test("canonical Assessment routes extract opaque references and reject the retired generic path", () => {
+test("canonical Assessment routes extract opaque IDs and reject the retired generic path", () => {
   const routeCases = [
     [
       "assessmentOverview",

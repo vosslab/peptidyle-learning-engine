@@ -119,7 +119,7 @@ export type PleQuestionJsonNumericResponseTolerance =
   | { readonly kind: "relative"; readonly fraction: number }
   | { readonly kind: "significantFigures"; readonly digits: number };
 
-/** Immutable object reference and accessible description for a hotspot surface. */
+/** Immutable Question Asset Tuple and accessible description for a hotspot surface. */
 export type PleQuestionJsonHotspotSurface = {
   readonly questionAsset: string;
   readonly checksum: string;

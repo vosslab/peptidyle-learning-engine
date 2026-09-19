@@ -20,7 +20,7 @@ use objects::{
 };
 use question_model::{
     CourseAppearanceView, CourseBannerId, CourseBannerRendition, CourseBannerUpdate,
-    CourseBannerUploadReceipt, CourseBannerUploadId, CourseInstanceId,
+    CourseBannerUploadId, CourseBannerUploadReceipt, CourseInstanceId,
 };
 use uuid::Uuid;
 
@@ -34,7 +34,7 @@ pub(super) async fn stage_banner_upload(
     Path(course): Path<String>,
     request: Request,
 ) -> Response {
-    let reference = match CourseInstanceId::from_str(&course) {
+    let course_instance_id = match CourseInstanceId::from_str(&course) {
         Ok(value) => value,
         Err(_) => return concealed(),
     };
@@ -42,7 +42,7 @@ pub(super) async fn stage_banner_upload(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let course = match resolve_course(&state, token, reference).await {
+    let course = match resolve_course(&state, token, course_instance_id).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -124,7 +124,7 @@ pub(super) async fn promote_banner(
     Path(course): Path<String>,
     request: Request,
 ) -> Response {
-    let reference = match CourseInstanceId::from_str(&course) {
+    let course_instance_id = match CourseInstanceId::from_str(&course) {
         Ok(value) => value,
         Err(_) => return concealed(),
     };
@@ -132,7 +132,7 @@ pub(super) async fn promote_banner(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let course = match resolve_course(&state, token, reference).await {
+    let course = match resolve_course(&state, token, course_instance_id).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -302,7 +302,7 @@ pub(super) async fn remove_banner(
     Path(course): Path<String>,
     headers: HeaderMap,
 ) -> Response {
-    let reference = match CourseInstanceId::from_str(&course) {
+    let course_instance_id = match CourseInstanceId::from_str(&course) {
         Ok(value) => value,
         Err(_) => return concealed(),
     };
@@ -310,7 +310,7 @@ pub(super) async fn remove_banner(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let course = match resolve_course(&state, token, reference).await {
+    let course = match resolve_course(&state, token, course_instance_id).await {
         Ok(value) => value,
         Err(response) => return *response,
     };

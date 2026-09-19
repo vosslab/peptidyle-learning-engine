@@ -187,7 +187,7 @@ impl PreviewResolvedPolicy {
     }
 }
 
-/// Prior Assessment Attempt fact; it is a count, not an attempt or receipt reference.
+/// Prior Assessment Attempt fact; it is a count, not an Attempt ID or receipt.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(try_from = "u32", into = "u32")]
 pub struct PreviewPriorAssessmentAttemptCount(u32);
@@ -513,7 +513,7 @@ mod direct_preview_tests {
     fn student_view_scenario_serializes_without_membership_or_group_facts() {
         let student_view_scenario = StudentViewScenario::new(
             StudentViewScenarioOrigin::Hypothetical,
-            AssessmentId::new("A7K3M2QXF").expect("assessment reference"),
+            AssessmentId::new("A7K3M2QXF").expect("Assessment ID"),
             "1".parse().expect("edit number"),
             PreviewSelectedMoment {
                 value: LocalDateAndTime::parse("2026-08-20T09:00:00.000").expect("moment"),

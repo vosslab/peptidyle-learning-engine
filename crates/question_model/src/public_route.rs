@@ -1,6 +1,6 @@
-//! Human-facing typed route references.
+//! Human-facing typed public IDs used in routes.
 //!
-//! These strings locate records; they are never authority.  The server resolves one inside the
+//! These strings identify records; they are never authority.  The server resolves one inside the
 //! authenticated course membership boundary before using its internal identity.
 
 use serde::{Deserialize, Serialize};
@@ -10,7 +10,7 @@ use crate::{AssessmentAttemptId, StudentRecordId, WorkspaceId};
 
 /// Prefixes reserved by the public-ID grammar. Compact hyphenated locators are
 /// not public IDs; the hyphen is specific to Question IDs.
-pub const RESERVED_REFERENCE_PREFIXES: &[&str] = &["G", "U", "QC", "QS", "BP", "CI", "A"];
+pub const RESERVED_PUBLIC_ID_PREFIXES: &[&str] = &["G", "U", "QC", "QS", "BP", "CI", "A"];
 
 /// Every public ID includes seven server-random Crockford characters and one
 /// public SHA-256 checksum character.
@@ -19,12 +19,12 @@ pub const PUBLIC_ID_RANDOM_LENGTH: usize = 7;
 macro_rules! impl_public_id {
     ($name:ident, $wire_prefix:literal, $checksum_prefix:literal, $description:literal) => {
         impl $name {
-            /// Validates the exact canonical reference returned by a data boundary.
+            /// Validates the exact canonical public ID returned by a data boundary.
             pub fn new(value: impl AsRef<str>) -> Result<Self, &'static str> {
                 value.as_ref().parse()
             }
 
-            /// Mints a reference from seven server-random Crockford characters.
+            /// Mints a public ID from seven server-random Crockford characters.
             ///
             /// ASVS V2.1.1 and V2.2.1: callers must use a cryptographically
             /// secure source for the supplied random characters.
@@ -246,6 +246,6 @@ mod tests {
                 .to_string(),
             "UABCDEFGM"
         );
-        assert!(!RESERVED_REFERENCE_PREFIXES.contains(&"AC"));
+        assert!(!RESERVED_PUBLIC_ID_PREFIXES.contains(&"AC"));
     }
 }

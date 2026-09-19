@@ -30,7 +30,8 @@ not generic `assignment`.
 | Rust modules, functions, fields, locals | `snake_case` | `assessment_attempt` |
 | Rust types, traits, enum variants | `UpperCamelCase` | `AssessmentAttempt` |
 | TypeScript functions, locals, signals, ordinary props | `lowerCamelCase` | `saveAssessment` |
-| PLE-owned serialized fields | Serde-owned `snake_case` | `assessment_type` |
+| PLE-owned JSON identity and Tuple members | camelCase | `accountId`, `courseId`, `{questionId, revisionNumber}`, `{blueprintCourseId, revisionNumber}` |
+| Other PLE-owned serialized fields | language-native at the owning boundary | SQL `assessment_type`; JSON may still use `snake_case` on non-identity Blueprint views |
 | TypeScript types and components | `UpperCamelCase` | `AssessmentPropertiesEditor` |
 | Python modules, functions, locals | `snake_case` | `assessment_id` |
 | Python classes | `UpperCamelCase` | `ScenarioReceipt` |
@@ -50,7 +51,7 @@ their owner's spelling.
 | Typed internal UUID | `Uuid` / `_uuid` | `AssessmentAttemptUuid`, `assessment_attempt_uuid` |
 | Public product ID | reviewed `Id` term | `CourseInstanceId` |
 | Immutable Revision number | `RevisionNumber` | `QuestionRevisionNumber` |
-| Composite exact identity | `Tuple` | `QuestionRevisionTuple`, `BlueprintRevisionTuple`, `QuestionAssetTuple` |
+| Composite exact identity | `Tuple` | `QuestionRevisionTuple`, `BlueprintRevisionTuple`, `QuestionAssetTuple`; JSON fields `questionRevisionTuple` / `blueprintRevisionTuple` |
 | Genuine indirect, scoped, or external locator | `Reference` | Use only when a simpler Id, Tuple, path, key, handle, or token is inaccurate |
 | Current-state concurrency | `EditNumber` | `AssessmentEditNumber` |
 | Integrity value | `Checksum` | `ObjectChecksum` |

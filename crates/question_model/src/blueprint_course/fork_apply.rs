@@ -137,7 +137,7 @@ impl std::fmt::Display for BlueprintForkApplyError {
                 formatter.write_str("Blueprint apply has an unknown module ID")
             }
             Self::UnknownAssessmentId => {
-                formatter.write_str("Blueprint apply has an unknown Assessment reference")
+                formatter.write_str("Blueprint apply has an unknown Assessment ID")
             }
             Self::MissingSourceModuleLabelSelection => formatter.write_str(
                 "Blueprint apply requires an explicit source label for a source-only module",
@@ -239,12 +239,12 @@ pub fn apply_blueprint_fork(
         if !source_index.modules.contains_key(&copy.source_module_id) {
             return Err(BlueprintForkApplyError::UnknownModuleId);
         }
-        if let Some(reference) = copy.target_module_id {
-            if !target_index.modules.contains_key(&reference) {
+        if let Some(target_module_id) = copy.target_module_id {
+            if !target_index.modules.contains_key(&target_module_id) {
                 return Err(BlueprintForkApplyError::UnknownModuleId);
             }
             if module_copies
-                .insert(reference, copy.source_module_id)
+                .insert(target_module_id, copy.source_module_id)
                 .is_some()
             {
                 return Err(BlueprintForkApplyError::DuplicateModuleId);
@@ -263,12 +263,12 @@ pub fn apply_blueprint_fork(
         {
             return Err(BlueprintForkApplyError::UnknownAssessmentId);
         }
-        if let Some(reference) = copy.target_assessment_id {
-            if !target_index.assessments.contains_key(&reference) {
+        if let Some(target_assessment_id) = copy.target_assessment_id {
+            if !target_index.assessments.contains_key(&target_assessment_id) {
                 return Err(BlueprintForkApplyError::UnknownAssessmentId);
             }
             if assessment_copies
-                .insert(reference, copy.source_assessment_id)
+                .insert(target_assessment_id, copy.source_assessment_id)
                 .is_some()
             {
                 return Err(BlueprintForkApplyError::DuplicateAssessmentId);
@@ -329,7 +329,7 @@ pub fn apply_blueprint_fork(
     let mut destination_assessments = BTreeSet::new();
     let mut modules = Vec::new();
     for row in layout {
-        let (reference, label_module) = match row.module {
+        let (destination_module_id, label_module) = match row.module {
             BlueprintForkApplyModuleDestination::Existing { target_module_id } => {
                 let original = target_index
                     .modules
@@ -341,18 +341,21 @@ pub fn apply_blueprint_fork(
                 (target_module_id, module)
             }
             BlueprintForkApplyModuleDestination::NewFromSource { source_module_id } => {
-                let reference = *new_modules
+                let destination_module_id = *new_modules
                     .get(&source_module_id)
                     .ok_or(BlueprintForkApplyError::MissingSourceModuleLabelSelection)?;
-                (reference, source_index.modules[&source_module_id])
+                (
+                    destination_module_id,
+                    source_index.modules[&source_module_id],
+                )
             }
         };
-        if !destination_modules.insert(reference) {
+        if !destination_modules.insert(destination_module_id) {
             return Err(BlueprintForkApplyError::DuplicateModuleId);
         }
         let mut assessments = Vec::new();
         for destination in &row.assessments {
-            let (reference, content) = match *destination {
+            let (destination_assessment_id, content) = match *destination {
                 BlueprintForkApplyAssessmentDestination::Existing {
                     target_assessment_id,
                 } => {
@@ -368,18 +371,21 @@ pub fn apply_blueprint_fork(
                 BlueprintForkApplyAssessmentDestination::NewFromSource {
                     source_assessment_id,
                 } => {
-                    let reference = *new_assessments
+                    let destination_assessment_id = *new_assessments
                         .get(&source_assessment_id)
                         .ok_or(BlueprintForkApplyError::MissingSourceAssessmentSelection)?;
-                    (reference, source_index.assessments[&source_assessment_id])
+                    (
+                        destination_assessment_id,
+                        source_index.assessments[&source_assessment_id],
+                    )
                 }
             };
-            if !destination_assessments.insert(reference) {
+            if !destination_assessments.insert(destination_assessment_id) {
                 return Err(BlueprintForkApplyError::DuplicateAssessmentId);
             }
             assessments.push(
                 BlueprintAssessmentContent::new(
-                    reference,
+                    destination_assessment_id,
                     content.assessment_type(),
                     crate::AssessmentTitle::try_new(content.title().to_owned()).map_err(|_| {
                         BlueprintForkApplyError::InvalidContent(
@@ -395,7 +401,7 @@ pub fn apply_blueprint_fork(
         }
         modules.push(
             BlueprintCourseModuleContent::new(
-                reference,
+                destination_module_id,
                 label_module.label().to_owned(),
                 assessments,
             )

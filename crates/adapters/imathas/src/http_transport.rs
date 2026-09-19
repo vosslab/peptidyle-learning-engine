@@ -282,7 +282,10 @@ impl ImathasQuestionBackendTransport for HttpImathasQuestionBackendTransport {
                 deployment_id: request.deployment_id(),
                 snapshot_base64: base64::engine::general_purpose::STANDARD
                     .encode(request.snapshot()),
-                version: request.question_revision().revision_number.to_string(),
+                version: request
+                    .question_revision_tuple()
+                    .revision_number
+                    .to_string(),
                 seed: request.question_seed().value(),
             })
             .send()
@@ -586,7 +589,7 @@ mod tests {
                 .render_safe(RenderTransportRequest {
                     snapshot: b"{}",
                     deployment_id: "self-hosted-imathas",
-                    question_revision: question_model::QuestionRevisionTuple {
+                    question_revision_tuple: question_model::QuestionRevisionTuple {
                         question_id: question_model::QuestionId::from_random_identifier("ABCDEFG")
                             .expect("Question ID"),
                         revision_number: question_model::QuestionRevisionNumber::new(1)

@@ -276,10 +276,10 @@ fn name(value: String, label: &str) -> Result<String, StoreError> {
 }
 
 fn course_instance_id(value: String) -> Result<CourseInstanceId, StoreError> {
-    CourseInstanceId::new(value).map_err(|_| invalid("Course Instance reference"))
+    CourseInstanceId::new(value).map_err(|_| invalid("Course Instance ID"))
 }
 
 fn assessment_id(value: String) -> Result<AssessmentId, StoreError> {
     AssessmentId::new(value)
-        .map_err(|_| StoreError::InvalidRecord("Assessment reference is invalid".to_string()))
+        .map_err(|_| StoreError::InvalidRecord("Assessment ID is invalid".to_string()))
 }

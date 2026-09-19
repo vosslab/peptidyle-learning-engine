@@ -159,7 +159,7 @@ function GradebookCoursePage(props: { readonly course: CourseInstanceId }): JSX.
   );
 }
 
-/** Loads the server-authorized Gradebook for the exact Course Instance route reference. */
+/** Loads the server-authorized Gradebook for the exact Course Instance route ID. */
 export function GradebookPage(): JSX.Element {
   const params = useParams();
   // ASVS 2.2.1/8.3.1: validate the locator here; the server retains authorization.

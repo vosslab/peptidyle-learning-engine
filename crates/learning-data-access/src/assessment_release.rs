@@ -79,7 +79,7 @@ pub struct AssessmentBlueprintUpdateContent {
 )]
 pub enum AssessmentBlueprintUpdateEntry {
     FixedQuestion {
-        question_revision: QuestionRevisionTuple,
+        question_revision_tuple: QuestionRevisionTuple,
         points_possible: question_model::AssessmentPointValue,
         scoring_rule: question_model::AssessmentEntryScoringRule,
         question_attempt_limit: question_model::QuestionAttemptLimit,
@@ -218,7 +218,7 @@ impl SaveLiveAssessmentInput {
 #[serde(rename_all = "camelCase")]
 pub struct AssessmentQuestionPickerEntry {
     /// Exact currently accepted Question Revision that a new Entry will pin.
-    pub question_revision: QuestionRevisionTuple,
+    pub question_revision_tuple: QuestionRevisionTuple,
     /// Answer-free Question description supplied by the current Question Library metadata.
     pub description: String,
     /// Exact Revision-owned Bloom Classification carried with the picker pin, when assigned.
@@ -230,7 +230,7 @@ pub struct AssessmentQuestionPickerEntry {
 #[serde(rename_all = "camelCase")]
 pub struct AuthoredAssessmentQuestion {
     /// Exact Question Revision retained by this current Assessment entry.
-    pub question_revision: QuestionRevisionTuple,
+    pub question_revision_tuple: QuestionRevisionTuple,
     /// Answer-free Question description for Instructor review and Assessment Preview.
     pub description: String,
     /// Exact Revision-owned Bloom Classification carried with the retained pin, when assigned.
@@ -261,11 +261,11 @@ pub struct CourseAssessmentSummary {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DueSoonAssessmentSummary {
-    /// Public Course Instance reference; internal Course identity remains server-side.
+    /// Public Course Instance ID; internal Course identity remains server-side.
     pub course_id: CourseInstanceId,
     /// Descriptive Course Instance name for cross-Course lists.
     pub course_long_name: String,
-    /// Public Assessment reference; internal Assessment identity remains server-side.
+    /// Public Assessment ID; internal Assessment identity remains server-side.
     pub assessment_id: AssessmentId,
     /// Fixed pedagogical purpose of this Assessment.
     pub assessment_type: AssessmentType,
@@ -491,7 +491,7 @@ mod tests {
             "entries": [{
                 "kind": "fixedQuestion",
                 "id": "00000000-0000-0000-0000-000000000001",
-                "questionRevision": { "questionId": question_id, "revisionNumber": 1 },
+                "questionRevisionTuple": { "questionId": question_id, "revisionNumber": 1 },
                 "pointsPossible": "1",
                 "availability": "available",
                 "scoringRule": "normal",

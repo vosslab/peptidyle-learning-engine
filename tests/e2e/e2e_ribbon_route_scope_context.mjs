@@ -235,7 +235,7 @@ test("stable controller retains separate Attempt views", async () => {
   app.dispose();
 });
 
-test("active Student Attempt retry replaces only its rejected R-reference context request", async () => {
+test("active Student Attempt retry replaces only its rejected Attempt ID context request", async () => {
   const attempts = [];
   const app = mountedController(
     {

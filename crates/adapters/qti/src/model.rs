@@ -150,7 +150,7 @@ pub struct ImportedQtiQuestion {
 }
 
 /// Returns each logical item asset with the checksum embedded in its public
-/// QTI presentation reference. Conflicting duplicate references are invalid:
+/// QTI presentation asset Tuple. Conflicting duplicate Tuples are invalid:
 /// the same logical asset cannot name two different immutable byte strings.
 pub fn qti_question_asset_checksums(
     question: &ImportedQtiQuestion,

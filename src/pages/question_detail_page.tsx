@@ -177,7 +177,7 @@ function QuestionPoolFromQuestionControl(props: { readonly detail: QuestionDetai
         questionLibrary={questionLibrary}
         getQuestionDetails={applicationApi.client.getQuestionDetails}
         startingQuestion={{
-          questionRevision: props.detail.summary.questionRevision,
+          questionRevisionTuple: props.detail.summary.questionRevisionTuple,
           questionTitle: props.detail.summary.metadata.questionTitle,
           disciplineName: props.detail.disciplineName,
           subjectName: props.detail.subjectName,
@@ -461,9 +461,9 @@ export function QuestionDetailPage(): JSX.Element {
       .then((summary) => applicationApi.queries.questionDetails(summary.questionId));
   });
   createEffect(() => {
-    const questionRevision = detail()?.summary.questionRevision;
-    if (questionRevision === undefined) return;
-    const key = `${questionRevision.questionId}:${questionRevision.revisionNumber}`;
+    const questionRevisionTuple = detail()?.summary.questionRevisionTuple;
+    if (questionRevisionTuple === undefined) return;
+    const key = `${questionRevisionTuple.questionId}:${questionRevisionTuple.revisionNumber}`;
     if (key === correctionTarget) return;
     correctionTarget = key;
     setCorrectedBloom(undefined);
@@ -503,11 +503,11 @@ export function QuestionDetailPage(): JSX.Element {
                   fallback={
                     <QuestionPromptRenderer
                       blocks={record().prompt.blocks}
-                      questionRevision={record().summary.questionRevision}
+                      questionRevisionTuple={record().summary.questionRevisionTuple}
                       assetUrl={(asset) =>
                         new URL(
                           applicationApi.client.assetUrl(
-                            record().summary.questionRevision,
+                            record().summary.questionRevisionTuple,
                             asset.questionAsset,
                           ),
                           window.location.origin,
@@ -519,9 +519,9 @@ export function QuestionDetailPage(): JSX.Element {
                   <OpaqueWebworkPreviewFrame
                     class="question-library-webwork-preview"
                     src={applicationApi.client.questionRevisionPreviewDocumentUrl(
-                      record().summary.questionRevision,
+                      record().summary.questionRevisionTuple,
                     )}
-                    title={`Generated example for ${record().summary.metadata.questionTitle}, Revision ${record().summary.questionRevision.revisionNumber}`}
+                    title={`Generated example for ${record().summary.metadata.questionTitle}, Revision ${record().summary.questionRevisionTuple.revisionNumber}`}
                   />
                 </Show>
               </section>
@@ -529,11 +529,11 @@ export function QuestionDetailPage(): JSX.Element {
                 {(preview) => (
                   <QuestionResponsePreviewControl
                     preview={preview()}
-                    questionRevision={record().summary.questionRevision}
+                    questionRevisionTuple={record().summary.questionRevisionTuple}
                     assetUrl={(asset) =>
                       new URL(
                         applicationApi.client.assetUrl(
-                          record().summary.questionRevision,
+                          record().summary.questionRevisionTuple,
                           asset.questionAsset,
                         ),
                         window.location.origin,
@@ -581,7 +581,7 @@ export function QuestionDetailPage(): JSX.Element {
                   </Show>
                   <div>
                     <dt>Revision</dt>
-                    <dd>{record().summary.questionRevision.revisionNumber}</dd>
+                    <dd>{record().summary.questionRevisionTuple.revisionNumber}</dd>
                   </div>
                   <Show when={correctedBloom() ?? record().summary.bloom}>
                     {(bloom) => (
@@ -600,16 +600,16 @@ export function QuestionDetailPage(): JSX.Element {
                       <BloomClassificationEditor
                         targetName="Question"
                         contentMarkerKind="Revision"
-                        contentMarkerNumber={record().summary.questionRevision.revisionNumber}
+                        contentMarkerNumber={record().summary.questionRevisionTuple.revisionNumber}
                         bloom={bloom()}
                         save={(request) =>
                           applicationApi.client
-                            .correctQuestionBloom(record().summary.questionRevision, request)
+                            .correctQuestionBloom(record().summary.questionRevisionTuple, request)
                             .then((receipt) => receipt.bloom)
                         }
                         loadCurrent={() =>
                           applicationApi.client
-                            .getQuestionRevision(record().summary.questionRevision)
+                            .getQuestionRevision(record().summary.questionRevisionTuple)
                             .then((loaded) => {
                               if (loaded.summary.bloom === null) {
                                 throw new Error("Bloom Classification is not assigned.");
@@ -659,7 +659,7 @@ export function QuestionDetailPage(): JSX.Element {
                   renderAvailableAction={() => (
                     <>
                       <QuestionPoolFromQuestionControl detail={record()} />
-                      <QuestionForkControl source={record().summary.questionRevision} />
+                      <QuestionForkControl source={record().summary.questionRevisionTuple} />
                     </>
                   )}
                 />

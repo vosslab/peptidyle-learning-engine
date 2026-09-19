@@ -41,7 +41,7 @@ pub(super) async fn read(
     assessment_attempt: AssessmentAttemptId,
 ) -> Result<StudentAssessmentAttemptHistoryEvidence, StoreError> {
     let mut tx = store.begin(token).await?;
-    // ASVS 8.2.2 and 8.3.1: the parameter is only a public reference; the
+    // ASVS 8.2.2 and 8.3.1: the parameter is only a public ID; the
     // SECURITY DEFINER reader re-checks exact Student ownership and membership.
     let row = sqlx::query(
         "SELECT course_instance_id, course_short_name, course_long_name, course_theme, \
@@ -57,7 +57,7 @@ pub(super) async fn read(
     .ok_or(StoreError::NotFound)?;
     let assessment_id_value: String = row.try_get("assessment_id").map_err(map_sqlx_error)?;
     let assessment = AssessmentId::new(assessment_id_value)
-        .map_err(|_| StoreError::InvalidRecord("Assessment reference is invalid".to_string()))?;
+        .map_err(|_| StoreError::InvalidRecord("Assessment ID is invalid".to_string()))?;
     let attempt_number = u32::try_from(
         row.try_get::<i32, _>("assessment_attempt_number")
             .map_err(map_sqlx_error)?,
@@ -139,7 +139,7 @@ pub(super) async fn read(
 
 fn course_instance_id(value: String) -> Result<CourseInstanceId, StoreError> {
     CourseInstanceId::new(value)
-        .map_err(|_| StoreError::InvalidRecord("Course reference is invalid".to_string()))
+        .map_err(|_| StoreError::InvalidRecord("Course ID is invalid".to_string()))
 }
 
 fn name(value: String, label: &str) -> Result<String, StoreError> {
@@ -179,7 +179,7 @@ fn decode_question(
     let position = public_issued_position(question.position)?;
     Ok(StudentAssessmentAttemptHistoryQuestion {
         position,
-        question_revision: QuestionRevisionTuple {
+        question_revision_tuple: QuestionRevisionTuple {
             question_id,
             revision_number,
         },
@@ -257,10 +257,10 @@ mod tests {
         .expect("retained issued Question evidence is valid");
 
         assert_eq!(
-            question.question_revision.question_id.to_string(),
+            question.question_revision_tuple.question_id.to_string(),
             question_id()
         );
-        assert_eq!(question.question_revision.revision_number.get(), 3);
+        assert_eq!(question.question_revision_tuple.revision_number.get(), 3);
     }
 
     #[test]

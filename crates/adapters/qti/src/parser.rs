@@ -504,12 +504,12 @@ fn image_block(
         .ok_or_else(|| {
             unsupported(
                 item_path,
-                "missing-media-reference",
+                "missing-media-path",
                 "img needs src or data attribute",
             )
         })?;
     let path = resolve_asset_path(item_path, raw)
-        .map_err(|detail| unsupported(item_path, "unsafe-media-reference", &detail))?;
+        .map_err(|detail| unsupported(item_path, "unsafe-media-path", &detail))?;
     let bytes = entries.get(&path).ok_or_else(|| {
         unsupported(
             item_path,
@@ -556,7 +556,7 @@ fn resolve_asset_path(item_path: &str, raw: &str) -> Result<String, String> {
         || raw.contains('\\')
         || raw.contains('\0')
     {
-        return Err("media reference must be a package-relative path".into());
+        return Err("media path must be a package-relative path".into());
     }
     let mut parts: Vec<&str> = if raw.starts_with("assets/") {
         Vec::new()
@@ -567,10 +567,10 @@ fn resolve_asset_path(item_path: &str, raw: &str) -> Result<String, String> {
     };
     for part in raw.split('/') {
         match part {
-            "" | "." => return Err("media reference has an empty or ambiguous component".into()),
+            "" | "." => return Err("media path has an empty or ambiguous component".into()),
             ".." => {
                 if parts.pop().is_none() {
-                    return Err("media reference escapes the package root".into());
+                    return Err("media path escapes the package root".into());
                 }
             }
             component => parts.push(component),
@@ -579,7 +579,7 @@ fn resolve_asset_path(item_path: &str, raw: &str) -> Result<String, String> {
     let joined = parts.join("/");
     validate_relative_path(&joined)?;
     if !joined.starts_with("assets/") {
-        return Err("media reference must resolve under assets/".into());
+        return Err("media path must resolve under assets/".into());
     }
     Ok(joined)
 }

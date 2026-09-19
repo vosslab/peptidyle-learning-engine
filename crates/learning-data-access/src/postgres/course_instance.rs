@@ -122,7 +122,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
         // ASVS 1.2.3, 8.2.2, and 8.3.1: the procedure resolves an opaque
-        // reference only after binding it to the installed active membership.
+        // ID only after binding it to the installed active membership.
         let row = sqlx::query("SELECT course_id FROM ple_api.resolve_course_navigation($1)")
             .bind(id.as_string())
             .fetch_optional(&mut *transaction)
@@ -369,7 +369,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
             .iter()
             .map(|row| {
                 Ok(CourseCreationInstructor {
-                    id: account_reference(row.try_get("account_id").map_err(map_sqlx_error)?)?,
+                    id: account_id(row.try_get("account_id").map_err(map_sqlx_error)?)?,
                 })
             })
             .collect::<Result<Vec<_>, StoreError>>()?;
@@ -459,7 +459,7 @@ fn course_instance_id(value: String) -> Result<CourseInstanceId, StoreError> {
     CourseInstanceId::new(value).map_err(|_| invalid("Course Instance ID"))
 }
 
-fn account_reference(value: String) -> Result<AccountId, StoreError> {
+fn account_id(value: String) -> Result<AccountId, StoreError> {
     AccountId::new(value).map_err(|_| invalid("Account ID"))
 }
 

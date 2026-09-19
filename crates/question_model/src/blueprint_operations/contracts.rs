@@ -20,17 +20,17 @@ pub struct BlueprintRevisionTuple {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct BlueprintAssessmentSource {
-    pub blueprint_revision: BlueprintRevisionTuple,
+    pub blueprint_revision_tuple: BlueprintRevisionTuple,
     pub blueprint_assessment_id: BlueprintAssessmentId,
 }
 
 impl BlueprintAssessmentSource {
     pub const fn new(
-        blueprint_revision: BlueprintRevisionTuple,
+        blueprint_revision_tuple: BlueprintRevisionTuple,
         blueprint_assessment_id: BlueprintAssessmentId,
     ) -> Self {
         Self {
-            blueprint_revision,
+            blueprint_revision_tuple,
             blueprint_assessment_id,
         }
     }
@@ -143,7 +143,7 @@ pub struct BlueprintMetadataState {
 /// Durable receipt for atomic lineage and Revision 1 creation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CreateBlueprintCourseReceipt {
-    pub blueprint_revision: BlueprintRevisionTuple,
+    pub blueprint_revision_tuple: BlueprintRevisionTuple,
     pub blueprint_edit_number: BlueprintEditNumber,
     pub actor: AccountId,
     pub request_checksum: RequestChecksum,
@@ -153,7 +153,7 @@ pub struct CreateBlueprintCourseReceipt {
 /// Durable receipt for a changed or canonical no-op Save.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SaveBlueprintCourseReceipt {
-    pub blueprint_revision: BlueprintRevisionTuple,
+    pub blueprint_revision_tuple: BlueprintRevisionTuple,
     pub changed: bool,
     pub actor: AccountId,
     pub request_checksum: RequestChecksum,
@@ -189,7 +189,7 @@ mod tests {
     fn creation_receipt_identifies_revision_one() {
         let blueprint = BlueprintCourseId::new("BP7K3M2QXH").expect("valid Blueprint Course");
         let receipt = CreateBlueprintCourseReceipt {
-            blueprint_revision: BlueprintRevisionTuple {
+            blueprint_revision_tuple: BlueprintRevisionTuple {
                 blueprint_course_id: blueprint.clone(),
                 revision: BlueprintRevision::INITIAL,
             },
@@ -199,9 +199,12 @@ mod tests {
             accepted_at: Timestamp::from_unix_millis(16),
         };
 
-        assert_eq!(receipt.blueprint_revision.blueprint_course_id, blueprint);
         assert_eq!(
-            receipt.blueprint_revision.revision,
+            receipt.blueprint_revision_tuple.blueprint_course_id,
+            blueprint
+        );
+        assert_eq!(
+            receipt.blueprint_revision_tuple.revision,
             BlueprintRevision::INITIAL
         );
     }

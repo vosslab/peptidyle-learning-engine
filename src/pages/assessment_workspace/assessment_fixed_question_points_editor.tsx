@@ -161,7 +161,7 @@ export function AssessmentFixedQuestionPointsEditor(
                 const value = (): string => draft()[entry.id] ?? "";
                 return (
                   <label class="assessment-editor-field" for={inputId}>
-                    Question {entry.questionRevision.questionId} Revision {entry.questionRevision.revisionNumber}
+                    Question {entry.questionRevisionTuple.questionId} Revision {entry.questionRevisionTuple.revisionNumber}
                     <input
                       id={inputId}
                       inputmode="decimal"

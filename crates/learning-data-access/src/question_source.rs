@@ -176,14 +176,14 @@ impl PreparedQuestionAssetPublication {
     pub fn validate(&self, revision: &QuestionRevisionTuple) -> Result<(), StoreError> {
         let record = &self.restricted_source_record;
         let expected = ObjectAddress::RestrictedQuestionAsset {
-            question_revision: revision.clone(),
+            question_revision_tuple: revision.clone(),
             asset: self.asset_id,
             object: record.id,
         };
         if record.address != expected
             || record.storage_area != ObjectStorageArea::PrivateContent
             || record.data_class != ObjectDataClass::QuestionAsset
-            || record.question_revision.as_ref() != Some(revision)
+            || record.question_revision_tuple.as_ref() != Some(revision)
             || record.id == self.public_object_id
         {
             return Err(StoreError::InvalidRecord(
@@ -235,7 +235,7 @@ pub struct NewQuestionLineagePublicationInput {
 
 impl NewQuestionLineagePublicationInput {
     /// Exact first Question Revision created by this publication.
-    pub fn question_revision(&self) -> QuestionRevisionTuple {
+    pub fn question_revision_tuple(&self) -> QuestionRevisionTuple {
         QuestionRevisionTuple {
             question_id: self.question_id.clone(),
             revision_number: QuestionRevisionNumber::new(1)
@@ -246,12 +246,12 @@ impl NewQuestionLineagePublicationInput {
     /// Refuses target object or acceptance facts that do not match this publication.
     pub fn validate(&self) -> Result<(), StoreError> {
         Self::validate_initial_shared_tags(&self.initial_shared_tags)?;
-        let expected_revision = self.question_revision();
+        let expected_revision = self.question_revision_tuple();
         if let Some(asset) = &self.hotspot_asset {
             asset.validate(&expected_revision)?;
         }
         let ObjectAddress::QuestionSource {
-            question_revision,
+            question_revision_tuple,
             object,
         } = &self.question_source_object_record.address
         else {
@@ -259,13 +259,13 @@ impl NewQuestionLineagePublicationInput {
                 "Question Publication requires a Question Source Object Address".to_string(),
             ));
         };
-        if question_revision != &expected_revision
+        if question_revision_tuple != &expected_revision
             || *object != self.question_source_object_record.id
             || self.question_source_object_record.storage_area != ObjectStorageArea::PrivateContent
             || self.question_source_object_record.data_class != ObjectDataClass::QuestionSource
             || self
                 .question_source_object_record
-                .question_revision
+                .question_revision_tuple
                 .as_ref()
                 != Some(&expected_revision)
         {
@@ -346,7 +346,7 @@ pub struct ExistingQuestionRevisionPublicationInput {
     /// Authoring Workspace that owns the Draft Question.
     pub workspace: WorkspaceId,
     /// Exact immutable parent revision selected for this moderate edit.
-    pub parent_question_revision: QuestionRevisionTuple,
+    pub parent_question_revision_tuple: QuestionRevisionTuple,
     /// Verified immutable target object created by the bytes-first copy.
     pub question_source_object_record: ObjectRecord,
     /// Reviewed reason for accepting this revision. PostgreSQL copies the
@@ -371,9 +371,9 @@ pub enum ExistingQuestionRevisionPublicationError {
 
 impl ExistingQuestionRevisionPublicationInput {
     /// Returns the exact successor revision owned by this publication.
-    pub fn question_revision(&self) -> Result<QuestionRevisionTuple, StoreError> {
+    pub fn question_revision_tuple(&self) -> Result<QuestionRevisionTuple, StoreError> {
         let revision_number = self
-            .parent_question_revision
+            .parent_question_revision_tuple
             .revision_number
             .get()
             .checked_add(1)
@@ -384,19 +384,19 @@ impl ExistingQuestionRevisionPublicationInput {
                 )
             })?;
         Ok(QuestionRevisionTuple {
-            question_id: self.parent_question_revision.question_id.clone(),
+            question_id: self.parent_question_revision_tuple.question_id.clone(),
             revision_number,
         })
     }
 
     /// Refuses a target object that is not owned by the exact successor.
     pub fn validate(&self) -> Result<(), StoreError> {
-        let expected_revision = self.question_revision()?;
+        let expected_revision = self.question_revision_tuple()?;
         if let Some(asset) = &self.hotspot_asset {
             asset.validate(&expected_revision)?;
         }
         let ObjectAddress::QuestionSource {
-            question_revision,
+            question_revision_tuple,
             object,
         } = &self.question_source_object_record.address
         else {
@@ -405,13 +405,13 @@ impl ExistingQuestionRevisionPublicationInput {
                     .to_string(),
             ));
         };
-        if question_revision != &expected_revision
+        if question_revision_tuple != &expected_revision
             || *object != self.question_source_object_record.id
             || self.question_source_object_record.storage_area != ObjectStorageArea::PrivateContent
             || self.question_source_object_record.data_class != ObjectDataClass::QuestionSource
             || self
                 .question_source_object_record
-                .question_revision
+                .question_revision_tuple
                 .as_ref()
                 != Some(&expected_revision)
         {
@@ -485,8 +485,8 @@ mod tests {
         deferred_imathas.question_format = QuestionFormat::Imathas;
         deferred_imathas.draft_imathas_question_backend_binding =
             Some(question_model::DraftImathasQuestionBackendBinding::new(
-                question_model::ImathasDeploymentId::new("deferred").expect("deployment reference"),
-                question_model::ImathasItemId::new("item").expect("item reference"),
+                question_model::ImathasDeploymentId::new("deferred").expect("deployment ID"),
+                question_model::ImathasItemId::new("item").expect("item ID"),
             ));
         assert!(matches!(
             deferred_imathas.validate(),
@@ -514,7 +514,7 @@ mod tests {
     fn publication_input() -> NewQuestionLineagePublicationInput {
         let question_id =
             QuestionId::from_random_identifier("ABCDEFG").expect("canonical Question ID");
-        let question_revision = QuestionRevisionTuple {
+        let question_revision_tuple = QuestionRevisionTuple {
             question_id: question_id.clone(),
             revision_number: QuestionRevisionNumber::new(1)
                 .expect("positive Question Revision Number"),
@@ -532,13 +532,13 @@ mod tests {
                 storage_area: ObjectStorageArea::PrivateContent,
                 data_class: ObjectDataClass::QuestionSource,
                 address: ObjectAddress::QuestionSource {
-                    question_revision: question_revision.clone(),
+                    question_revision_tuple: question_revision_tuple.clone(),
                     object,
                 },
                 sha256: Sha256Checksum::compute(b"complete Question Source"),
                 size_bytes: 24,
                 media_type: "application/json".to_string(),
-                question_revision: Some(question_revision),
+                question_revision_tuple: Some(question_revision_tuple),
                 created_at: Timestamp::from_unix_millis(1_000),
             },
             question_authorship: QuestionAuthorship::new(vec![QuestionAuthor {
@@ -582,13 +582,13 @@ mod tests {
     #[test]
     fn prepared_raster_cannot_be_reused_for_another_revision_or_public_source() {
         let publication = publication_input();
-        let revision = publication.question_revision();
+        let revision = publication.question_revision_tuple();
         let asset_id = QuestionAssetId::from_uuid(Uuid::from_u128(20));
         let object = ObjectId::from_uuid(Uuid::from_u128(21));
         let mut record = publication.question_source_object_record;
         record.id = object;
         record.address = ObjectAddress::RestrictedQuestionAsset {
-            question_revision: revision.clone(),
+            question_revision_tuple: revision.clone(),
             asset: asset_id,
             object,
         };
@@ -627,13 +627,13 @@ mod tests {
     fn same_lineage_publication_requires_the_immediate_successor_object() {
         let question_id =
             QuestionId::from_random_identifier("ABCDEFG").expect("canonical Question ID");
-        let parent_question_revision = QuestionRevisionTuple {
+        let parent_question_revision_tuple = QuestionRevisionTuple {
             question_id,
             revision_number: QuestionRevisionNumber::new(1)
                 .expect("positive Question Revision Number"),
         };
         let successor = QuestionRevisionTuple {
-            question_id: parent_question_revision.question_id.clone(),
+            question_id: parent_question_revision_tuple.question_id.clone(),
             revision_number: QuestionRevisionNumber::new(2)
                 .expect("positive Question Revision Number"),
         };
@@ -644,19 +644,19 @@ mod tests {
             expected_draft_question_edit_number: DraftQuestionEditNumber::new(2)
                 .expect("positive Draft Question Edit Number"),
             workspace: WorkspaceId::from_uuid(Uuid::from_u128(2)),
-            parent_question_revision,
+            parent_question_revision_tuple,
             question_source_object_record: ObjectRecord {
                 id: object,
                 storage_area: ObjectStorageArea::PrivateContent,
                 data_class: ObjectDataClass::QuestionSource,
                 address: ObjectAddress::QuestionSource {
-                    question_revision: successor,
+                    question_revision_tuple: successor,
                     object,
                 },
                 sha256: Sha256Checksum::compute(b"complete Question Source"),
                 size_bytes: 24,
                 media_type: "application/json".to_string(),
-                question_revision: Some(QuestionRevisionTuple {
+                question_revision_tuple: Some(QuestionRevisionTuple {
                     question_id: QuestionId::from_random_identifier("ABCDEFG")
                         .expect("canonical Question ID"),
                     revision_number: QuestionRevisionNumber::new(2)
@@ -673,8 +673,9 @@ mod tests {
         assert_eq!(input.validate(), Ok(()));
 
         let mut wrong_target = input;
-        wrong_target.question_source_object_record.question_revision =
-            Some(wrong_target.parent_question_revision.clone());
+        wrong_target
+            .question_source_object_record
+            .question_revision_tuple = Some(wrong_target.parent_question_revision_tuple.clone());
         assert!(matches!(
             wrong_target.validate(),
             Err(StoreError::InvalidRecord(_))

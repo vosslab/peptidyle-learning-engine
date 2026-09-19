@@ -32,7 +32,7 @@ fn request() -> RenderRequest<'static> {
     RenderRequest {
         pg_source: b"DOCUMENT();",
         pg_path: "Library/opaque.pg",
-        question_revision: &QUESTION_REVISION,
+        question_revision_tuple: &QUESTION_REVISION,
         seed: 7,
     }
 }
@@ -151,7 +151,7 @@ fn protocol_uses_embed_format_and_deployment_owned_urls() {
         RenderRequest {
             pg_source: b"DOCUMENT();",
             pg_path: "Library/a.pg",
-            question_revision: &revision,
+            question_revision_tuple: &revision,
             seed: 7,
         },
         &settings.ple_origin,
@@ -395,7 +395,7 @@ async fn grade_forwards_ordered_pairs_once_with_trusted_fields() {
             .grade(GradeRequest {
                 pg_source: request.pg_source,
                 pg_path: request.pg_path,
-                question_revision: request.question_revision,
+                question_revision_tuple: request.question_revision_tuple,
                 seed: request.seed,
                 response_payload:
                     br#"[["AnSwEr0001","A"],["AnSwEr0001","B"],["ordinary","value"]]"#,

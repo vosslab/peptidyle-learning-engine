@@ -210,7 +210,7 @@ fn publish_bundled_genetics(
         )
         .await
         .context("publishing the bundled Genetics Blueprint through the ordinary publisher")?;
-        let reference = BlueprintCourseId::new(receipt.blueprint_course_id())
+        let blueprint_course_id = BlueprintCourseId::new(receipt.blueprint_course_id())
             .map_err(anyhow::Error::msg)
             .context("resolving the bundled Genetics Blueprint receipt")?;
         let database_url = required_environment("DATABASE_URL")?;
@@ -218,7 +218,7 @@ fn publish_bundled_genetics(
             .context("bundled Genetics Blueprint database URL is invalid")?;
         let store = PostgresBlueprintCourseStore::new(pool);
         let blueprint = store
-            .load_blueprint_course(session, reference.clone())
+            .load_blueprint_course(session, blueprint_course_id.clone())
             .await
             .context("loading the retained bundled Genetics Blueprint")?;
         // ASVS 8.2.2, 2.3.1: only the installation publisher's validated
@@ -236,12 +236,16 @@ fn publish_bundled_genetics(
         );
         if blueprint.availability == BlueprintAvailability::Private {
             store
-                .publish_blueprint(session, reference.clone(), blueprint.blueprint_edit_number)
+                .publish_blueprint(
+                    session,
+                    blueprint_course_id.clone(),
+                    blueprint.blueprint_edit_number,
+                )
                 .await
                 .context("making the bundled Genetics example Blueprint Public")?;
         }
         let published = store
-            .load_blueprint_course(session, reference)
+            .load_blueprint_course(session, blueprint_course_id)
             .await
             .context("reloading the Public bundled Genetics Blueprint")?;
         ensure!(
@@ -486,7 +490,7 @@ mod tests {
                 ),
                 (
                     "pilot_question_publications",
-                    r#"{"pilot":{"sourceSha256":"abc","questionRevision":{"questionId":"ABC1-J234","revisionNumber":1}}}"#.to_string(),
+                    r#"{"pilot":{"sourceSha256":"abc","questionRevisionTuple":{"questionId":"ABC1-J234","revisionNumber":1}}}"#.to_string(),
                 ),
                 (
                     "live_demo_blueprint_course_id",

@@ -34,7 +34,7 @@ pub(super) async fn student_context(
         .student_assessment_attempt_context(token, assessment_attempt)
         .await
     {
-        // ASVS 2.2.1/2.2.2 and 4.1.1: the typed route reference is validated
+        // ASVS 2.2.1/2.2.2 and 4.1.1: the typed route ID is validated
         // before the trusted store boundary; only its minimal projection is JSON.
         Ok(value) => crate::auth::no_store(
             Json(StudentAssessmentAttemptContextResponse::from(value)).into_response(),

@@ -5,9 +5,9 @@ use std::fmt::Write as _;
 use objects::{ObjectStore, ResolvedQuestionSource};
 use question_model::generation::QuestionReproduction;
 use question_model::{
-    GradingResult, QuestionAttemptReproductionDetails, QuestionBackendVersion,
+    GradingResult, ObjectId, QuestionAttemptReproductionDetails, QuestionBackendVersion,
     QuestionGraderVersion, QuestionRevisionTuple, QuestionVariation, QuestionVariationPresentation,
-    SourceObjectChecksum, ObjectId, StudentResponse,
+    SourceObjectChecksum, StudentResponse,
 };
 use sha2::{Digest, Sha256};
 
@@ -31,13 +31,13 @@ impl ResolvedPleQuestionJsonSource {
     /// Resolves, parses, and compiles the source attached to this exact revision.
     pub async fn resolve<S: ObjectStore>(
         store: &S,
-        question_revision: QuestionRevisionTuple,
+        question_revision_tuple: QuestionRevisionTuple,
         source_object_id: ObjectId,
         source_object_checksum: SourceObjectChecksum,
     ) -> Result<Self, PleQuestionBackendError> {
         let source = ResolvedQuestionSource::resolve(
             store,
-            question_revision,
+            question_revision_tuple,
             source_object_id,
             source_object_checksum,
         )
@@ -56,8 +56,8 @@ impl ResolvedPleQuestionJsonSource {
         Ok(Self { source, compiled })
     }
 
-    pub fn question_revision(&self) -> &QuestionRevisionTuple {
-        self.source.question_revision()
+    pub fn question_revision_tuple(&self) -> &QuestionRevisionTuple {
+        self.source.question_revision_tuple()
     }
     pub fn source_object_id(&self) -> &ObjectId {
         self.source.source_object_id()
@@ -156,7 +156,7 @@ impl PleQuestionBackend {
 fn presentation(source: &ResolvedPleQuestionJsonSource) -> QuestionVariationPresentation {
     QuestionVariationPresentation {
         variation: QuestionVariation::from_question_revision_and_reproduction(
-            source.question_revision().clone(),
+            source.question_revision_tuple().clone(),
             QuestionReproduction::Static,
         ),
         question_title: source.compiled.presentation().question_title().to_string(),

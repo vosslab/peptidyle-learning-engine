@@ -101,7 +101,7 @@ pub struct StoredBlueprintCourseSummary {
 /// Exact immutable Blueprint Revision content, including after lineage archive.
 #[derive(Debug, Clone, PartialEq)]
 pub struct StoredBlueprintRevision {
-    pub blueprint_revision: BlueprintRevisionTuple,
+    pub blueprint_revision_tuple: BlueprintRevisionTuple,
     pub content: StoredBlueprintCourseContent,
 }
 
@@ -145,7 +145,7 @@ pub struct StoredBlueprintAssessmentContent {
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum StoredBlueprintAssessmentEntry {
     Fixed {
-        question_revision: QuestionRevisionTuple,
+        question_revision_tuple: QuestionRevisionTuple,
         points_possible: AssessmentPointValue,
         scoring_rule: AssessmentEntryScoringRule,
         question_attempt_limit: QuestionAttemptLimit,
@@ -316,7 +316,7 @@ impl StoredBlueprintCourseContent {
         prior: &StoredBlueprintCourseContent,
         pool_edit_numbers: &BTreeMap<QuestionId, question_model::QuestionPoolEditNumber>,
     ) -> Result<StoredBlueprintAssessment, StoreError> {
-        let reference = match assessment.choice {
+        let blueprint_assessment_id = match assessment.choice {
             BlueprintAssessmentEditChoice::Retained {
                 blueprint_assessment_id,
             } => prior
@@ -329,7 +329,7 @@ impl StoredBlueprintCourseContent {
             BlueprintAssessmentEditChoice::New => BlueprintAssessmentId::from_uuid(random_uuid()?),
         };
         Ok(StoredBlueprintAssessment {
-            blueprint_assessment_id: reference,
+            blueprint_assessment_id: blueprint_assessment_id,
             content: StoredBlueprintAssessmentContent::from_input(
                 assessment.content,
                 pool_edit_numbers,
@@ -350,7 +350,7 @@ impl StoredBlueprintAssessmentContent {
             .map(|entry| match entry {
                 question_model::BlueprintAssessmentEntryInput::Fixed(value) => {
                     Ok(StoredBlueprintAssessmentEntry::Fixed {
-                        question_revision: value.published_question,
+                        question_revision_tuple: value.published_question,
                         points_possible: value.points_possible,
                         scoring_rule: value.scoring_rule,
                         question_attempt_limit: value.question_attempt_limit,
@@ -407,13 +407,13 @@ impl StoredBlueprintAssessmentContent {
             .iter()
             .map(|entry| match entry {
                 StoredBlueprintAssessmentEntry::Fixed {
-                    question_revision,
+                    question_revision_tuple,
                     points_possible,
                     scoring_rule,
                     question_attempt_limit,
                     question_attempt_time_limit,
                 } => Ok(BlueprintAssessmentEntryContent::Fixed {
-                    question_revision: question_revision.clone(),
+                    question_revision_tuple: question_revision_tuple.clone(),
                     points_possible: *points_possible,
                     scoring_rule: *scoring_rule,
                     question_attempt_limit: *question_attempt_limit,
@@ -521,7 +521,7 @@ pub trait BlueprintCourseStore: Send + Sync {
     async fn load_blueprint_revision(
         &self,
         session: SessionTokenHash,
-        reference: BlueprintRevisionTuple,
+        blueprint_revision_tuple: BlueprintRevisionTuple,
     ) -> Result<StoredBlueprintRevision, StoreError>;
     /// Reads the current authorized Blueprint as complete reusable exchange data.
     async fn export_blueprint_course(
@@ -661,7 +661,7 @@ mod tests {
                         title: "Assessment".to_string(),
                         instructions: AssessmentInstructions::default(),
                         entries: vec![StoredBlueprintAssessmentEntry::Fixed {
-                            question_revision: QuestionRevisionTuple {
+                            question_revision_tuple: QuestionRevisionTuple {
                                 question_id: "7K3M-19QX".parse().expect("Question ID"),
                                 revision_number: question_model::QuestionRevisionNumber::new(1)
                                     .expect("revision"),

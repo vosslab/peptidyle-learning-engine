@@ -150,7 +150,7 @@ mod tests {
             assessment_entry: AssessmentEntryId::from_uuid(Uuid::from_u128(3)),
             assessment_content_entry_index: 0,
             issued_position: 0,
-            question_revision: QuestionRevisionTuple {
+            question_revision_tuple: QuestionRevisionTuple {
                 question_id: QuestionId::from_random_identifier("ABCDEFG").expect("question ID"),
                 revision_number: QuestionRevisionNumber::new(1).expect("revision"),
             },

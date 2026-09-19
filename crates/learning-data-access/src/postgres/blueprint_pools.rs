@@ -87,10 +87,11 @@ pub(super) async fn materialize_authoring_pools(
                     if !old.content.entries.iter().any(|entry| matches!(entry,
                         StoredBlueprintAssessmentEntry::Pool { question_pool_id: id, .. } if id == question_pool_id))
                         || !seen.insert(question_pool_id.clone()) { return Err(StoreError::Forbidden); }
-                    let (reference, revision) = context.as_ref().ok_or(StoreError::Forbidden)?;
+                    let (blueprint_course_id, revision) =
+                        context.as_ref().ok_or(StoreError::Forbidden)?;
                     members(
                         transaction,
-                        reference,
+                        blueprint_course_id,
                         assessment.blueprint_assessment_id,
                         question_pool_id,
                         *question_pool_edit_number,
@@ -129,11 +130,11 @@ pub(super) async fn materialize_authoring_pools(
                         interchangeability_attested,
                     } => {
                         if let Some(replacement) = replacement {
-                            let (reference, revision) =
+                            let (blueprint_course_id, revision) =
                                 context.as_ref().ok_or(StoreError::Forbidden)?;
                             let old = members(
                                 transaction,
-                                reference,
+                                blueprint_course_id,
                                 assessment.blueprint_assessment_id,
                                 &question_pool_id,
                                 question_pool_edit_number,
@@ -150,7 +151,7 @@ pub(super) async fn materialize_authoring_pools(
                                     .map(|q| q.revision_number.get() as i32)
                                     .collect();
                                 let row = sqlx::query("SELECT ple_api.append_blueprint_pool_members($1,$2,$3,$4,$5,$6,$7,$8) AS question_pool_edit_number")
-                                    .bind(reference.as_string()).bind(assessment.blueprint_assessment_id.as_uuid())
+                                    .bind(blueprint_course_id.as_string()).bind(assessment.blueprint_assessment_id.as_uuid())
                                     .bind(revision.value() as i64).bind(question_pool_id.as_str())
                                     .bind(question_pool_edit_number.get() as i64).bind(ids).bind(revisions).bind(interchangeability_attested)
                                     .fetch_one(&mut **transaction).await.map_err(map_sqlx_error)?;

@@ -13,7 +13,7 @@ use crate::{DraftQuestionEditNumber, DraftQuestionUuid, SessionTokenHash, StoreE
 /// Server-only resolved state for one private Draft Question.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AuthoringDraft {
-    /// Private transport and persistence identity; never display this as a public reference.
+    /// Private transport and persistence identity; never display this as a public ID.
     pub draft_question_uuid: DraftQuestionUuid,
     /// Trusted private workspace identity; never serialize this to a browser.
     pub workspace: WorkspaceId,

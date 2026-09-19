@@ -8,7 +8,7 @@ use uuid::Uuid;
 use super::{PleQuestionBackend, ResolvedPleQuestionJsonSource};
 use crate::test_support::ple_question_json_single_choice_bytes;
 
-fn question_revision() -> QuestionRevisionTuple {
+fn question_revision_tuple() -> QuestionRevisionTuple {
     QuestionRevisionTuple {
         question_id: QuestionId::from_random_identifier("ABCDEFG").expect("Question ID"),
         revision_number: QuestionRevisionNumber::new(1).expect("revision number"),
@@ -18,12 +18,12 @@ fn question_revision() -> QuestionRevisionTuple {
 #[tokio::test]
 async fn resolved_question_json_issues_and_grades_from_its_exact_immutable_source() {
     let store = MemoryObjectStore::default();
-    let question_revision = question_revision();
+    let question_revision_tuple = question_revision_tuple();
     let source_object_id = ObjectId::from_uuid(Uuid::from_u128(901));
     let record = store
         .put(PutObject {
             address: ObjectAddress::QuestionSource {
-                question_revision: question_revision.clone(),
+                question_revision_tuple: question_revision_tuple.clone(),
                 object: source_object_id,
             },
             bytes: ple_question_json_single_choice_bytes(),
@@ -36,7 +36,7 @@ async fn resolved_question_json_issues_and_grades_from_its_exact_immutable_sourc
         SourceObjectChecksum::parse(record.sha256.to_string()).expect("canonical checksum");
     let source = ResolvedPleQuestionJsonSource::resolve(
         &store,
-        question_revision.clone(),
+        question_revision_tuple.clone(),
         source_object_id.clone(),
         source_object_checksum.clone(),
     )
@@ -46,10 +46,10 @@ async fn resolved_question_json_issues_and_grades_from_its_exact_immutable_sourc
         .issue_question_json(&source)
         .expect("source should issue");
 
-    assert_eq!(source.question_revision(), &question_revision);
+    assert_eq!(source.question_revision_tuple(), &question_revision_tuple);
     assert_eq!(
-        issued.presentation.variation.question_revision,
-        question_revision
+        issued.presentation.variation.question_revision_tuple,
+        question_revision_tuple
     );
     assert_eq!(
         issued.presentation.variation.reproduction,

@@ -188,7 +188,7 @@ pub enum BlueprintAssessmentEntryContent {
     /// One fixed immutable Question Revision and its scoring rule.
     Fixed {
         /// Exact immutable publication pin authorized for the destination.
-        question_revision: QuestionRevisionTuple,
+        question_revision_tuple: QuestionRevisionTuple,
         /// Exact points copied into the destination assessment.
         points_possible: AssessmentPointValue,
         /// Scoring treatment copied into the destination assessment.
@@ -345,7 +345,7 @@ struct EncodedAssessment<'a> {
 #[serde(tag = "kind", rename_all = "snake_case")]
 enum EncodedEntry<'a> {
     Fixed {
-        question_revision: &'a QuestionRevisionTuple,
+        question_revision_tuple: &'a QuestionRevisionTuple,
         points_possible: AssessmentPointValue,
         scoring_rule: AssessmentEntryScoringRule,
         question_attempt_limit: &'a QuestionAttemptLimit,
@@ -399,13 +399,13 @@ fn encode_assessment(assessment: &BlueprintAssessmentContent) -> EncodedAssessme
             .iter()
             .map(|entry| match entry {
                 BlueprintAssessmentEntryContent::Fixed {
-                    question_revision,
+                    question_revision_tuple,
                     points_possible,
                     scoring_rule,
                     question_attempt_limit,
                     question_attempt_time_limit,
                 } => EncodedEntry::Fixed {
-                    question_revision,
+                    question_revision_tuple,
                     points_possible: *points_possible,
                     scoring_rule: *scoring_rule,
                     question_attempt_limit,

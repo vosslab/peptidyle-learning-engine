@@ -171,12 +171,12 @@ fn validate_fixture_set(fixture_dir: &Path, fixture_set: &StoredFixtureSet) -> R
     }
 
     ensure!(
-        fixture_set.question_summary.question_revision
+        fixture_set.question_summary.question_revision_tuple
             == QuestionRevisionTuple {
                 question_id: fixture_set.question_summary.question_id.clone(),
                 revision_number: fixture_set
                     .question_summary
-                    .question_revision
+                    .question_revision_tuple
                     .revision_number,
             },
         "Question Summary Latest Question Revision must name its Question lineage"

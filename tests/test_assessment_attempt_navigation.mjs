@@ -184,7 +184,7 @@ test("selected presentation accepts only the exact existing public presentation 
   const presentation = {
     position: 1,
     presentation: {
-      questionRevision: { questionId: "7K3M-79QP", revisionNumber: 2 },
+      questionRevisionTuple: { questionId: "7K3M-79QP", revisionNumber: 2 },
       prompt: [],
       response: { kind: "fillIn", maxCharacters: 10 },
     },
@@ -380,7 +380,7 @@ test("Student Assessment Attempt GET projections match their request", async () 
         noStoreJson({
           position: 2,
           presentation: {
-            questionRevision: { questionId: "7K3M-79QP", revisionNumber: 2 },
+            questionRevisionTuple: { questionId: "7K3M-79QP", revisionNumber: 2 },
             prompt: [],
             response: { kind: "fillIn", maxCharacters: 10 },
           },

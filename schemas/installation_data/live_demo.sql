@@ -50,8 +50,8 @@ BEGIN
     WITH input AS (
         SELECT publication.key AS slug,
                publication.value ->> 'sourceSha256' AS source_checksum,
-               publication.value -> 'questionRevision' ->> 'questionId' AS published_question_id,
-               (publication.value -> 'questionRevision' ->> 'revisionNumber')::integer AS revision_number
+               publication.value -> 'questionRevisionTuple' ->> 'questionId' AS published_question_id,
+               (publication.value -> 'questionRevisionTuple' ->> 'revisionNumber')::integer AS revision_number
           FROM jsonb_each(
               current_setting('ple.installation_pilot_question_publications')::jsonb
           ) AS publication(key, value)
@@ -369,8 +369,8 @@ BEGIN
                 WHERE assessment_id = assessment_id_value) <> 4
            OR EXISTS (
                WITH input AS (
-                   SELECT value -> 'questionRevision' ->> 'questionId' AS published_question_id,
-                          (value -> 'questionRevision' ->> 'revisionNumber')::integer AS revision_number,
+                   SELECT value -> 'questionRevisionTuple' ->> 'questionId' AS published_question_id,
+                          (value -> 'questionRevisionTuple' ->> 'revisionNumber')::integer AS revision_number,
                           row_number() OVER (ORDER BY array_position(ARRAY[
                               'genetics-disorders-ple-question-json-mc', 'genetics-disorders-ple-question-json-matching',
                               'biochemistry-functional-groups-ple-question-json-mc', 'biochemistry-functional-groups-ple-question-json-matching'
@@ -452,8 +452,8 @@ BEGIN
            'fixed_question', 'normal'
       FROM (
           SELECT publication.key AS slug,
-                 publication.value -> 'questionRevision' ->> 'questionId' AS published_question_id,
-                 (publication.value -> 'questionRevision' ->> 'revisionNumber')::integer AS revision_number,
+                 publication.value -> 'questionRevisionTuple' ->> 'questionId' AS published_question_id,
+                 (publication.value -> 'questionRevisionTuple' ->> 'revisionNumber')::integer AS revision_number,
                  row_number() OVER (ORDER BY array_position(ARRAY[
                      'genetics-disorders-ple-question-json-mc', 'genetics-disorders-ple-question-json-matching',
                      'biochemistry-functional-groups-ple-question-json-mc', 'biochemistry-functional-groups-ple-question-json-matching'
@@ -472,8 +472,8 @@ BEGIN
            new_assessment_id, input.published_question_id, input.revision_number, 1
       FROM (
           SELECT publication.key AS slug,
-                 publication.value -> 'questionRevision' ->> 'questionId' AS published_question_id,
-                 (publication.value -> 'questionRevision' ->> 'revisionNumber')::integer AS revision_number,
+                 publication.value -> 'questionRevisionTuple' ->> 'questionId' AS published_question_id,
+                 (publication.value -> 'questionRevisionTuple' ->> 'revisionNumber')::integer AS revision_number,
                  row_number() OVER (ORDER BY array_position(ARRAY[
                      'genetics-disorders-ple-question-json-mc', 'genetics-disorders-ple-question-json-matching',
                      'biochemistry-functional-groups-ple-question-json-mc', 'biochemistry-functional-groups-ple-question-json-matching'

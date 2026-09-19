@@ -66,14 +66,14 @@ fn project_comparison(
     Ok(BlueprintComparisonView {
         left: comparison_side(
             comparison.left,
-            sources.left.blueprint_revision,
+            sources.left.blueprint_revision_tuple,
             sources.left_short_name,
             sources.left_long_name,
             sources.left_blueprint_edit_number,
         ),
         right: comparison_side(
             comparison.right,
-            sources.right.blueprint_revision,
+            sources.right.blueprint_revision_tuple,
             sources.right_short_name,
             sources.right_long_name,
             sources.right_blueprint_edit_number,

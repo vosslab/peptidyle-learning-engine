@@ -58,7 +58,7 @@ function ribbonLabelsFor(
 /**
  * Adds the public Assessment context already resolved for the active Attempt
  * screen. Pending and rejected scopes retain only their URL-declared Attempt
- * reference, so dependent Ribbon controls stay unavailable.
+ * ID, so dependent Ribbon controls stay unavailable.
  */
 export function ribbonParamsFor(
   route: RouteContract,

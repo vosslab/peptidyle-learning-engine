@@ -57,9 +57,9 @@ function queryFunction<Arguments extends ReadonlyArray<unknown>, Result>(
 }
 
 interface DeferredCourseScopes {
-  readonly release: (reference: string) => void;
-  readonly requestCount: (reference: string) => number;
-  readonly waitForRelease: (reference: string) => Promise<void>;
+  readonly release: (courseInstanceId: string) => void;
+  readonly requestCount: (courseInstanceId: string) => number;
+  readonly waitForRelease: (courseInstanceId: string) => Promise<void>;
 }
 
 interface DeferredSession {
@@ -168,14 +168,14 @@ function presentationApi(deferredScopes?: DeferredCourseScopes): {
     listBlueprintCourses: (): Promise<CursorPage<BlueprintCourseSummaryView>> =>
       Promise.resolve({ items: [], nextCursor: null }),
     getCourseInstance: (
-      reference: CourseInstanceView["course"]["id"],
+      courseInstanceId: CourseInstanceView["course"]["id"],
     ): Promise<CourseInstanceView> => {
       courseInstanceQueries += 1;
       return Promise.resolve({
         course: {
-          id: reference,
-          shortName: `Course ${reference}`,
-          longName: `Course ${reference}`,
+          id: courseInstanceId,
+          shortName: `Course ${courseInstanceId}`,
+          longName: `Course ${courseInstanceId}`,
           classification: FIXTURE_CLASSIFICATION,
           lifecycleState: "active",
           courseEditNumber: "1",
@@ -254,14 +254,14 @@ function withSelectedTaskControl(
 }
 
 function courseFixture(
-  reference: string,
+  courseInstanceId: string,
   selectedTab: "assessments" | "students" | "gradebook" = "assessments",
   taskRowReserved = false,
 ): RibbonModel {
   const source = M6_RIBBON_FIXTURES.courseInstructor;
   return {
     ...source,
-    context: { ...source.context, scopeLabel: `Course ${reference}` },
+    context: { ...source.context, scopeLabel: `Course ${courseInstanceId}` },
     tabs: withSelectedControl(source.tabs, selectedTab),
     taskAreas: taskRowReserved
       ? withSelectedTaskControl(source.taskAreas, "assessmentOverview")

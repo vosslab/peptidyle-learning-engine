@@ -28,11 +28,11 @@ pub(super) async fn create(
     Path(target): Path<String>,
     Json(input): Json<BlueprintChangeProposalCreateRequest>,
 ) -> Response {
-    let reference = match target.parse::<question_model::BlueprintCourseId>() {
+    let blueprint_course_id = match target.parse::<question_model::BlueprintCourseId>() {
         Ok(value) => value,
         Err(_) => return invalid_request(),
     };
-    if reference != input.target.blueprint_course_id {
+    if blueprint_course_id != input.target.blueprint_course_id {
         return invalid_request();
     }
     let session = match instructor_session_hash(&state, &headers).await {
@@ -258,7 +258,9 @@ fn scope_fields(
 ) -> (Option<question_model::BlueprintCourseId>, bool) {
     match scope {
         BlueprintChangeProposalListScope::Mine => (None, true),
-        BlueprintChangeProposalListScope::Target(reference) => (Some(reference.clone()), false),
+        BlueprintChangeProposalListScope::Target(blueprint_course_id) => {
+            (Some(blueprint_course_id.clone()), false)
+        }
     }
 }
 

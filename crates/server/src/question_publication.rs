@@ -112,7 +112,7 @@ pub struct ExistingQuestionRevisionPublicationCommand {
     /// Authoring Workspace that owns the Draft Question.
     pub workspace: WorkspaceId,
     /// Exact current immutable revision the Instructor is editing from.
-    pub parent_question_revision: QuestionRevisionTuple,
+    pub parent_question_revision_tuple: QuestionRevisionTuple,
     /// Reviewed reason for accepting the successor. The database copies the
     /// parent revision's immutable authorship and compatible license.
     pub question_revision_reason: QuestionRevisionReason,
@@ -245,7 +245,7 @@ where
                     .expect("first Question Revision Number is positive"),
             };
             let target_address = ObjectAddress::QuestionSource {
-                question_revision: revision.clone(),
+                question_revision_tuple: revision.clone(),
                 object: ObjectId::generate(),
             };
             // ASVS 5.3.2, 8.2.2, 14.2.4, and 15.4.2: typed server-created
@@ -296,7 +296,7 @@ where
                 .publish_new_question_lineage(session_token_hash, input)
                 .await
             {
-                Ok(reference) => return Ok(reference),
+                Ok(question_revision_tuple) => return Ok(question_revision_tuple),
                 // PostgreSQL returns IdentityCollision only after its locked
                 // allocation check (with the primary key retained as a legacy
                 // backstop). That conclusive rollback leaves this request's
@@ -359,7 +359,7 @@ where
         command: ExistingQuestionRevisionPublicationCommand,
         stored_at: Timestamp,
     ) -> Result<QuestionRevisionTuple, QuestionPublicationError> {
-        let successor_revision = successor_revision(&command.parent_question_revision)
+        let successor_revision = successor_revision(&command.parent_question_revision_tuple)
             .map_err(QuestionPublicationError::Store)?;
         let publication_source = self
             .publication_store
@@ -393,7 +393,7 @@ where
         )
         .await?;
         let target_address = ObjectAddress::QuestionSource {
-            question_revision: successor_revision.clone(),
+            question_revision_tuple: successor_revision.clone(),
             object: ObjectId::generate(),
         };
         let target_record = self
@@ -421,7 +421,7 @@ where
             draft_question_uuid: command.draft_question_uuid,
             expected_draft_question_edit_number: command.expected_draft_question_edit_number,
             workspace: command.workspace,
-            parent_question_revision: command.parent_question_revision,
+            parent_question_revision_tuple: command.parent_question_revision_tuple,
             question_source_object_record: target_record,
             hotspot_asset: prepared_asset,
             question_revision_reason: command.question_revision_reason,
@@ -455,9 +455,9 @@ where
 }
 
 fn successor_revision(
-    parent_question_revision: &QuestionRevisionTuple,
+    parent_question_revision_tuple: &QuestionRevisionTuple,
 ) -> Result<QuestionRevisionTuple, StoreError> {
-    let revision_number = parent_question_revision
+    let revision_number = parent_question_revision_tuple
         .revision_number
         .get()
         .checked_add(1)
@@ -466,7 +466,7 @@ fn successor_revision(
             StoreError::InvalidRecord("Question Revision Number cannot advance further".to_string())
         })?;
     Ok(QuestionRevisionTuple {
-        question_id: parent_question_revision.question_id.clone(),
+        question_id: parent_question_revision_tuple.question_id.clone(),
         revision_number,
     })
 }

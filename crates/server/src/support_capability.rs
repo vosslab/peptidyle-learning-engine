@@ -50,13 +50,13 @@ pub fn support_capability_router(
 async fn read_repair_roster_entry(
     State(state): State<RouteState>,
     headers: HeaderMap,
-    Path((capability_id, reference, roster_id)): Path<(String, String, String)>,
+    Path((capability_id, course_instance_id, roster_id)): Path<(String, String, String)>,
 ) -> Response {
     let capability_id = match Uuid::parse_str(&capability_id) {
         Ok(value) => value,
         Err(_) => return concealed(),
     };
-    let course = match CourseInstanceId::from_str(&reference) {
+    let course = match CourseInstanceId::from_str(&course_instance_id) {
         Ok(value) => value,
         Err(_) => return concealed(),
     };

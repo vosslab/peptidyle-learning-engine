@@ -111,7 +111,7 @@ export function ProposalReview(props: {
       </p>
       <p>
         Shared Question IDs relate Assessments, including splits and combinations. Titles and local
-        references do not match content automatically. Question bodies and answers are not exposed.
+        IDs do not match content automatically. Question bodies and answers are not exposed.
       </p>
       <p>
         Shared Questions: {props.detail.comparison.sharedQuestionIds.join(", ") || "none"}. Source
@@ -565,7 +565,7 @@ function AcceptedResult(props: {
         )}
       </For>
       <details>
-        <summary>Committed new-reference mappings</summary>
+        <summary>Committed new-ID mappings</summary>
         <For each={Object.entries(props.value.newModules)}>
           {([source, target]) => (
             <p>

@@ -256,9 +256,9 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
         }),
         BucketNames::default(),
     );
-    let course = CourseInstanceId::new(&fixture.course_id).expect("Course reference");
+    let course = CourseInstanceId::new(&fixture.course_id).expect("Course Instance ID");
     let foreign_course =
-        CourseInstanceId::new(&fixture.foreign_course_id).expect("foreign Course reference");
+        CourseInstanceId::new(&fixture.foreign_course_id).expect("foreign Course Instance ID");
     // Geometry belongs to the Course Banner production contract.  This saga
     // needs valid metadata to exercise persistence, not a second frozen copy
     // of a chosen pixel size or a resize policy.

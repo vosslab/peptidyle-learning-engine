@@ -115,7 +115,7 @@ pub enum NativeChoiceOrder {
 #[serde(rename_all = "camelCase")]
 pub struct QuestionVariation {
     /// Exact immutable Question Revision that produced this presentation.
-    pub question_revision: QuestionRevisionTuple,
+    pub question_revision_tuple: QuestionRevisionTuple,
     /// Explicit static or seeded reproduction facts for this variation.
     pub reproduction: QuestionReproduction,
 }
@@ -123,23 +123,23 @@ pub struct QuestionVariation {
 impl QuestionVariation {
     /// Records the exact facts that reproduce an issued Question Variation.
     pub fn from_question_revision_and_reproduction(
-        question_revision: QuestionRevisionTuple,
+        question_revision_tuple: QuestionRevisionTuple,
         reproduction: QuestionReproduction,
     ) -> Self {
         Self {
-            question_revision,
+            question_revision_tuple,
             reproduction,
         }
     }
 
     /// Records a seeded generated variation.
     pub fn from_question_revision_and_question_seed(
-        question_revision: QuestionRevisionTuple,
+        question_revision_tuple: QuestionRevisionTuple,
         question_seed: QuestionSeed,
         generated_parameter_sha256: String,
     ) -> Self {
         Self::from_question_revision_and_reproduction(
-            question_revision,
+            question_revision_tuple,
             QuestionReproduction::Seeded {
                 question_seed,
                 generated_parameter_sha256,

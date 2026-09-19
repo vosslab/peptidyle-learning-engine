@@ -202,7 +202,7 @@ try {
   assert.equal(
     await currentCase.locator("[data-course-instance-id]").count(),
     0,
-    "unresolved current-source harness course scope has no fabricated course theme reference",
+    "unresolved current-source harness course scope has no fabricated course theme ID",
   );
   assert.equal(
     await page.evaluate(() => window.ribbonShell.scopeRequestCount("CI7K3M2QAZ")),
@@ -286,7 +286,7 @@ try {
   assert.equal(
     await courseInstance.locator(".course-instance-page__identity .eyebrow").textContent(),
     "Course Instance · CI7K3M2QAZ",
-    "the Course Instance surface owns its exact public-reference eyebrow",
+    "the Course Instance surface owns its exact public-ID eyebrow",
   );
   assert.equal(
     await courseInstance.getByRole("heading", { name: "Course CI7K3M2QAZ", level: 1 }).count(),
@@ -462,7 +462,7 @@ try {
       label: undefined,
       controls: [],
     },
-    "a malformed Course reference keeps the declared data-free Course Instance Ribbon",
+    "a malformed Course Instance ID keeps the declared data-free Course Instance Ribbon",
   );
 
   await page.evaluate(() => window.ribbonShell.currentNavigate("/assessment-attempts/R-0"));
@@ -482,7 +482,7 @@ try {
       label: undefined,
       controls: [],
     },
-    "a malformed Assessment Attempt reference keeps the declared data-free Attempt Ribbon",
+    "a malformed Assessment Attempt ID keeps the declared data-free Attempt Ribbon",
   );
 
   await page.evaluate(() =>

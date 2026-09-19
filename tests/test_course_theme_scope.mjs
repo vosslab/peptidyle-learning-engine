@@ -124,7 +124,7 @@ test("course banners preserve their closed decorative or informative treatment",
   const informative = decodeCourseAppearanceView({
     theme: "grass",
     banner: {
-      reference: bannerId,
+      id: bannerId,
       alternativeText: { kind: "informative", text: "Forest canopy" },
     },
   });
@@ -149,7 +149,7 @@ test("course banners preserve their closed decorative or informative treatment",
   assert.throws(() =>
     decodeCourseAppearanceView({
       theme: "grass",
-      banner: { id: bannerId, alternativeText: { kind: "decorative" } },
+      banner: { reference: bannerId, alternativeText: { kind: "decorative" } },
     }),
   );
 });

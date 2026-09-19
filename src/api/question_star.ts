@@ -11,7 +11,7 @@ export interface QuestionStarredInstructor {
  * Active-Instructor Star facts for one Published Question.
  *
  * The names are the complete server projection. This contract deliberately
- * carries no Profile route, avatar, email, Account reference, Course, or
+ * carries no Profile route, avatar, email, Account ID, Course, or
  * Watch state from which the browser could reconstruct another identity.
  */
 export interface QuestionStarProjection {

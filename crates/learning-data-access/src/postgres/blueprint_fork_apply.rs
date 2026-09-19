@@ -100,12 +100,12 @@ impl PostgresBlueprintCourseStore {
         .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
         let mut copied_assessments = BTreeMap::new();
         for copy in &input.selection.source_assessments {
-            let target_reference = copy
+            let target_assessment_id = copy
                 .target_assessment_id
                 .or_else(|| new_assessments.get(&copy.source_assessment_id).copied())
                 .ok_or_else(invalid)?;
             if copied_assessments
-                .insert(target_reference, copy.source_assessment_id)
+                .insert(target_assessment_id, copy.source_assessment_id)
                 .is_some()
             {
                 return Err(invalid());
@@ -116,21 +116,22 @@ impl PostgresBlueprintCourseStore {
         for module in applied.modules() {
             let mut assessments = Vec::new();
             for assessment in module.assessments() {
-                let target_reference = assessment.blueprint_assessment_id();
-                let (tree, stored_reference) =
-                    if let Some(source_reference) = copied_assessments.get(&target_reference) {
-                        (source, *source_reference)
-                    } else {
-                        (fork, target_reference)
-                    };
+                let target_assessment_id = assessment.blueprint_assessment_id();
+                let (tree, stored_assessment_id) = if let Some(source_assessment_id) =
+                    copied_assessments.get(&target_assessment_id)
+                {
+                    (source, *source_assessment_id)
+                } else {
+                    (fork, target_assessment_id)
+                };
                 let mut stored = tree
                     .modules
                     .iter()
                     .flat_map(|module| &module.assessments)
-                    .find(|stored| stored.blueprint_assessment_id == stored_reference)
+                    .find(|stored| stored.blueprint_assessment_id == stored_assessment_id)
                     .ok_or_else(invalid)?
                     .clone();
-                stored.blueprint_assessment_id = target_reference;
+                stored.blueprint_assessment_id = target_assessment_id;
                 assessments.push(stored);
             }
             modules.push(StoredBlueprintModule {

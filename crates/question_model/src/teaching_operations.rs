@@ -1,6 +1,6 @@
 //! Strict browser/server contracts for teaching operations.
 //!
-//! The types here use only human route references and display labels.  They
+//! The types here use only human route IDs and display labels.  They
 //! deliberately exclude external-affiliation IDs, UUIDs, email, policy inputs, jobs, object
 //! keys, recipient lists, Answer Key facts, and clock authority. A server maps
 //! its authorized Store/domain result into these values after resolving Active Student
