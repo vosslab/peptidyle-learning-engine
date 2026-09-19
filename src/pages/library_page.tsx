@@ -1,10 +1,8 @@
 // library_page.tsx - injected Question Library browse surface; route wiring follows the server contract.
 
-import { A, useLocation, useNavigate, useSearchParams } from "@solidjs/router";
+import { useLocation, useNavigate, useSearchParams } from "@solidjs/router";
 import { For, Show, createEffect, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 
-import { CopyableQuestionId } from "../components/copyable_question_id";
-import { BloomClassificationText } from "../components/bloom_classification";
 import { LibraryBloomDiscovery } from "../components/library_bloom_discovery";
 import { QuestionBulkMetadataEditor } from "../components/question_bulk_metadata_editor";
 import { QuestionPoolCreateDialog } from "../components/question_pool_create_dialog";
@@ -23,17 +21,15 @@ import type {
 import type { QuestionPoolCreationClient } from "../api/question_pool_creation";
 import { questionLibraryBulkSelectionRequest } from "../api/question_library_repository";
 import { useSessionBootstrap } from "../auth/session_context";
-import { buildRoutePath } from "../ribbon/ribbon_contract";
 import "./library_page.css";
 import { LibraryBrowseControls } from "./library_browse_controls";
+import { LibraryBrowseRows } from "./library_browse_rows";
 import {
   backendLabel,
   hasCanonicalPoolDeepLink,
-  questionLink,
   questionTypeLabel,
   RetainedSelectOption,
   selectedQuestionLibrarySort,
-  webworkFormatLabel,
 } from "./library_page_helpers";
 import { LibraryClassificationSearch } from "../components/library_classification_search";
 import {
@@ -49,7 +45,6 @@ import {
   clampQuestionLibraryReturnScrollTop,
   createQuestionLibraryReturnToken,
   parseQuestionLibraryReturnToken,
-  questionLibraryBrowseVirtualWindow,
   questionLibraryReturnPath,
   saveQuestionLibraryReturnState,
   takeQuestionLibraryReturnState,
@@ -65,8 +60,6 @@ import {
 /* Each virtual row reserves room for a Question Title, two-line summary, and Question Authors.
  * Keep this fallback aligned with --ple-question-library-row-block-size in src/style.css. */
 const FALLBACK_ROW_HEIGHT_PX = 112;
-const OVERSCAN_ROWS = 5;
-const DRAFT_QUESTIONS_PATH = buildRoutePath("questionDrafts", {});
 
 export interface LibraryPageProps {
   readonly mode: "search" | "browse";
@@ -155,10 +148,6 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
     void session.reset(handoffQuery);
   });
 
-  const ready = (): Extract<QuestionLibraryBrowseState, { readonly kind: "ready" }> | undefined => {
-    const current = state();
-    return current.kind === "ready" ? current : undefined;
-  };
   const aggregates = (): ReadonlyArray<QuestionLibraryBrowseFacetAggregate> => {
     const current = state();
     return current.aggregates;
@@ -202,18 +191,6 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
     }
     return current.facetTruncation;
   };
-  const virtualWindow = (): Readonly<{
-    readonly offset: number;
-    readonly rows: ReadonlyArray<QuestionLibraryBrowseRow>;
-  }> =>
-    questionLibraryBrowseVirtualWindow(
-      displayedRows(),
-      scrollTop(),
-      viewportHeight(),
-      rowHeightPx(),
-      OVERSCAN_ROWS,
-    );
-
   function changeQuery(change: Partial<QuestionLibraryBrowseQuery>): void {
     if (invalidLinkOptions()) return;
     if (selectedIds().size > 0) {
@@ -307,22 +284,6 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
     setSelectedIds(new Set<string>());
     setSelectionNotice(null);
     void session.reset(query());
-  }
-
-  function handleScroll(event: Event): void {
-    const target = event.currentTarget;
-    if (!(target instanceof HTMLDivElement)) {
-      return;
-    }
-    setScrollTop(target.scrollTop);
-    setViewportHeight(target.clientHeight);
-    const current = ready();
-    if (
-      current !== undefined &&
-      target.scrollTop + target.clientHeight >= target.scrollHeight - rowHeightPx() * 3
-    ) {
-      void session.loadNext();
-    }
   }
 
   function returnTokenFor(row: QuestionLibraryBrowseRow): string {
@@ -768,218 +729,83 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
             </label>
           </div>
         </Show>
-        <Show when={mayMutateLibrary && (displayedRows().length > 0 || selectedIds().size > 0)}>
-          <section class="question-library-bulk-toolbar" aria-label="Bulk Question actions">
-            <p aria-live="polite">
-              <strong>{selectedIds().size} selected</strong> from {displayedRows().length} loaded
-              Questions
+        <LibraryBrowseRows
+          mayMutateLibrary={mayMutateLibrary}
+          displayedRows={displayedRows}
+          selectedIds={selectedIds}
+          editorBusy={editorBusy}
+          browseState={state}
+          scrollTop={scrollTop}
+          viewportHeight={viewportHeight}
+          rowHeightPx={rowHeightPx}
+          setLibraryWindow={setLibraryWindow}
+          onScroll={(nextScrollTop, nextViewportHeight) => {
+            setScrollTop(nextScrollTop);
+            setViewportHeight(nextViewportHeight);
+          }}
+          onNeedMore={() => void session.loadNext()}
+          onRetry={() => void session.retry()}
+          onUpdateSelection={updateSelection}
+          onSelectLoaded={selectLoadedQuestions}
+          onClearSelection={clearSelection}
+          onOpenMetadataEditor={() => void openMetadataEditor()}
+          returnTokenFor={returnTokenFor}
+          onSaveReturnState={saveReturnState}
+        >
+          <Show when={mayMutateLibrary && questionPoolCreateOpen()}>
+            <div class="question-pool-create-host">
+              <QuestionPoolCreateDialog
+                questionPoolClient={props.questionPoolClient}
+                questionLibrary={props.repository}
+                getQuestionDetails={props.getQuestionDetails}
+                onTaskPhaseChange={setQuestionPoolTaskActive}
+                onClose={() => {
+                  setQuestionPoolTaskActive(false);
+                  setQuestionPoolCreateOpen(false);
+                }}
+              />
+            </div>
+          </Show>
+          <Show when={selectionNotice()}>{(notice) => <p role="status">{notice()}</p>}</Show>
+          <Show when={editorLoading()}>
+            <p class="loading-state" role="status">
+              Reading current metadata for all selected Questions...
             </p>
-            <div>
+          </Show>
+          <Show when={mayMutateLibrary && editorLoadError()}>
+            <section class="route-error" role="alert">
+              <h2>Current metadata could not be loaded</h2>
+              <p>Your selection is preserved. Retry the read before editing.</p>
               <button
-                type="button"
-                class="quiet-action"
-                disabled={editorBusy() || displayedRows().length === 0}
-                onClick={selectLoadedQuestions}
-              >
-                Select loaded Questions
-              </button>
-              <button
-                type="button"
-                class="quiet-action"
-                disabled={editorBusy() || selectedIds().size === 0}
-                onClick={clearSelection}
-              >
-                Clear selection
-              </button>
-              <button
-                type="button"
                 class="primary-action"
-                disabled={editorBusy() || selectedIds().size === 0}
+                type="button"
                 onClick={() => void openMetadataEditor()}
               >
-                Edit shared metadata
+                Retry current metadata
               </button>
-            </div>
-            <p class="question-library-bulk-help">
-              Select loaded Questions affects only results fetched into this browser, never every
-              Question in the library. Each bulk update is limited to{" "}
-              {MAX_BULK_QUESTION_METADATA_ITEMS}.
-            </p>
-          </section>
-        </Show>
-        <Show when={mayMutateLibrary && questionPoolCreateOpen()}>
-          <div class="question-pool-create-host">
-            <QuestionPoolCreateDialog
-              questionPoolClient={props.questionPoolClient}
-              questionLibrary={props.repository}
-              getQuestionDetails={props.getQuestionDetails}
-              onTaskPhaseChange={setQuestionPoolTaskActive}
-              onClose={() => {
-                setQuestionPoolTaskActive(false);
-                setQuestionPoolCreateOpen(false);
-              }}
-            />
-          </div>
-        </Show>
-        <Show when={selectionNotice()}>{(notice) => <p role="status">{notice()}</p>}</Show>
-        <Show when={editorLoading()}>
-          <p class="loading-state" role="status">
-            Reading current metadata for all selected Questions...
-          </p>
-        </Show>
-        <Show when={mayMutateLibrary && editorLoadError()}>
-          <section class="route-error" role="alert">
-            <h2>Current metadata could not be loaded</h2>
-            <p>Your selection is preserved. Retry the read before editing.</p>
-            <button class="primary-action" type="button" onClick={() => void openMetadataEditor()}>
-              Retry current metadata
-            </button>
-          </section>
-        </Show>
-        <Show when={mayMutateLibrary && editorMetadata()}>
-          {(metadata) => (
-            <QuestionBulkMetadataEditor
-              client={props.metadataClient}
-              classificationClient={props.classificationClient}
-              initialMetadata={metadata()}
-              onBusyChange={setEditorBusy}
-              onCancel={() => setEditorMetadata(null)}
-              onSuccess={metadataUpdateSucceeded}
-            />
-          )}
-        </Show>
-        <Show when={updateResults()}>
-          {(results) => (
-            <section class="question-library-bulk-success" role="status">
-              <h2>Updated shared metadata for {results().length} Questions</h2>
-              <p>The selection was cleared and the current library search is refreshing.</p>
             </section>
-          )}
-        </Show>
-        <Show when={state().kind === "error"}>
-          <section class="route-error" role="alert">
-            <h2>The library could not load</h2>
-            <p>Your filters are still here. Check the connection and try again.</p>
-            <button class="primary-action" type="button" onClick={() => void session.retry()}>
-              Try again
-            </button>
-          </section>
-        </Show>
-        <Show when={state().kind === "empty"}>
-          <section class="empty-state" aria-label="No matching published questions">
-            <h2>No published questions match these filters</h2>
-            <p>Use the global Question Library to find and reuse published Questions.</p>
-            <p>Try a shorter search or choose a broader topic.</p>
-            <Show when={DRAFT_QUESTIONS_PATH}>
-              {(path) => (
-                <A class="primary-action" href={path()} children="Create a Draft Question" />
-              )}
-            </Show>
-          </section>
-        </Show>
-        <Show when={displayedRows().length > 0}>
-          <div
-            class="question-library-window"
-            role="region"
-            aria-label="Published questions"
-            tabIndex={0}
-            ref={setLibraryWindow}
-            onScroll={handleScroll}
-            style={`--ple-question-library-loaded-block-size:${displayedRows().length * rowHeightPx()}px`}
-          >
-            <div
-              style={{
-                height: `${displayedRows().length * rowHeightPx()}px`,
-                position: "relative",
-              }}
-            >
-              <div
-                class="question-library-window-slice"
-                style={{ top: `${virtualWindow().offset}px` }}
-              >
-                <For each={virtualWindow().rows}>
-                  {(row) => (
-                    <article class="question-library-row" style={{ height: `${rowHeightPx()}px` }}>
-                      <Show when={mayMutateLibrary}>
-                        <label class="question-library-row-selection">
-                          <input
-                            type="checkbox"
-                            checked={selectedIds().has(row.displayId)}
-                            disabled={
-                              editorBusy() ||
-                              (!selectedIds().has(row.displayId) &&
-                                selectedIds().size >= MAX_BULK_QUESTION_METADATA_ITEMS)
-                            }
-                            onChange={(event) =>
-                              updateSelection(row.displayId, event.currentTarget.checked)
-                            }
-                          />
-                          <span class="sr-only">Select {row.questionTitle}</span>
-                        </label>
-                      </Show>
-                      <h2>{row.questionTitle}</h2>
-                      <p class="question-library-row-summary">{row.summary}</p>
-                      <Show when={row.bloom}>
-                        {(bloom) => (
-                          <p class="question-library-row-bloom">
-                            <BloomClassificationText bloom={bloom()} />
-                          </p>
-                        )}
-                      </Show>
-                      <p class="question-library-row-authors" aria-label="Question Authors">
-                        Authors: {row.authorNames.join(", ")}
-                        <span>
-                          {" "}
-                          · Discipline: {row.disciplineName}
-                          <Show when={row.disciplineIsRetired}> (retired)</Show>
-                        </span>
-                        <Show when={webworkFormatLabel(row.questionFormat)}>
-                          {(format) => <> · Format: {format()}</>}
-                        </Show>
-                      </p>
-                      <CopyableQuestionId
-                        questionTitle={row.questionTitle}
-                        displayId={row.displayId}
-                        presentation="compact"
-                      />
-                      <A
-                        class="quiet-link"
-                        href={questionLink(row, returnTokenFor(row))}
-                        onClick={(event) => {
-                          if (
-                            event.button !== 0 ||
-                            event.metaKey ||
-                            event.ctrlKey ||
-                            event.shiftKey ||
-                            event.altKey
-                          ) {
-                            return;
-                          }
-                          const token = new URL(event.currentTarget.href).searchParams.get(
-                            QUESTION_LIBRARY_RETURN_TOKEN_PARAMETER,
-                          );
-                          if (token !== null) saveReturnState(token);
-                        }}
-                      >
-                        Open question
-                      </A>
-                    </article>
-                  )}
-                </For>
-              </div>
-            </div>
-            <Show when={state().kind === "loading"}>
-              <p class="loading-state" role="status">
-                Loading more published questions...
-              </p>
-            </Show>
-          </div>
-        </Show>
-        <Show when={state().kind === "loading" && displayedRows().length === 0}>
-          <p class="loading-state" role="status">
-            Loading published questions...
-          </p>
-        </Show>
+          </Show>
+          <Show when={mayMutateLibrary && editorMetadata()}>
+            {(metadata) => (
+              <QuestionBulkMetadataEditor
+                client={props.metadataClient}
+                classificationClient={props.classificationClient}
+                initialMetadata={metadata()}
+                onBusyChange={setEditorBusy}
+                onCancel={() => setEditorMetadata(null)}
+                onSuccess={metadataUpdateSucceeded}
+              />
+            )}
+          </Show>
+          <Show when={updateResults()}>
+            {(results) => (
+              <section class="question-library-bulk-success" role="status">
+                <h2>Updated shared metadata for {results().length} Questions</h2>
+                <p>The selection was cleared and the current library search is refreshing.</p>
+              </section>
+            )}
+          </Show>
+        </LibraryBrowseRows>
       </Show>
     </section>
   );

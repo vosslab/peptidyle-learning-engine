@@ -10,8 +10,8 @@ use learning_data_access::BlueprintCourseStore;
 use question_model::{CanonicalBlueprintAssessmentEntry, CanonicalBlueprintCourse};
 
 use super::{
-    BlueprintCourseRouteState, RouteLoadError, instructor_session_hash, load_view, parse_reference,
-    request_checksum,
+    BlueprintCourseRouteState, RouteLoadError, instructor_session_hash, load_view,
+    parse_blueprint_course_id, request_checksum,
     responses::{blueprint_response, concealed, store_error_response, unavailable},
 };
 
@@ -20,7 +20,7 @@ pub(super) async fn export(
     headers: HeaderMap,
     Path(reference): Path<String>,
 ) -> Response {
-    let reference = match parse_reference(&reference) {
+    let reference = match parse_blueprint_course_id(&reference) {
         Ok(value) => value,
         Err(response) => return *response,
     };

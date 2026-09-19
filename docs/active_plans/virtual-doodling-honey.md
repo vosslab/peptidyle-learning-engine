@@ -110,7 +110,7 @@ Verified in source during planning:
 - `/` is the role-aware Product Course index (2026-09-08 changelog entry), and `ContentError`
   already sends users there, so it is the correct brand destination for every Product Role.
 - `.ple-app-ribbon` links are plain `<a href>` (`src/ribbon/app_ribbon.tsx:99-118`), and
-  `tests/playwright/ribbon_m10_shell_evidence.mjs` proves the shell survives their activation.
+  `tests/playwright/ribbon_shell_evidence.mjs` proves the shell survives their activation.
 - The `tests/playwright/ribbon_*_evidence.mjs` scripts are bare node scripts driving
   `page.setContent` over SSR fixtures. No stack, no credentials, no gate invokes them.
 
@@ -407,7 +407,7 @@ region.
     stays in the accessibility tree.
   - `.ple-app-ribbon__product-name` and its atlas rule are removed. Planning found no test or
     contract reader.
-  - `ribbon_geometry_evidence.mjs` and `ribbon_m9_responsive_evidence.mjs` pass; both now sweep the
+  - `ribbon_geometry_evidence.mjs` and `ribbon_responsive_evidence.mjs` pass; both now sweep the
     brand anchor (`geometry:131` uses `document.querySelectorAll("a, button")`; `m9:76` uses
     `row.querySelectorAll("a,button")` and asserts `height >= 44` on touch profiles).
   - A new assertion proves exactly one element in the Ribbon carries the product wordmark.
@@ -499,9 +499,9 @@ region.
   node tests/playwright/shell_frame_height_evidence.mjs
   node tests/playwright/ribbon_style_ownership_evidence.mjs
   node tests/playwright/ribbon_geometry_evidence.mjs
-  node tests/playwright/ribbon_m9_responsive_evidence.mjs
-  node tests/playwright/ribbon_m9b_density_evidence.mjs
-  node tests/playwright/ribbon_m10_shell_evidence.mjs
+  node tests/playwright/ribbon_responsive_evidence.mjs
+  node tests/playwright/ribbon_density_evidence.mjs
+  node tests/playwright/ribbon_shell_evidence.mjs
   node tests/playwright/ribbon_deferred_content_evidence.mjs
   node tests/e2e/e2e_ribbon_app_component.mjs
   node tests/e2e/e2e_ribbon_production_styles.mjs

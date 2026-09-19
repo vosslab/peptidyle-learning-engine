@@ -177,7 +177,7 @@ function QuestionPoolFromQuestionControl(props: { readonly detail: QuestionDetai
         questionLibrary={questionLibrary}
         getQuestionDetails={applicationApi.client.getQuestionDetails}
         startingQuestion={{
-          questionRevision: props.detail.summary.latestQuestionRevision,
+          questionRevision: props.detail.summary.questionRevision,
           questionTitle: props.detail.summary.metadata.questionTitle,
           disciplineName: props.detail.disciplineName,
           subjectName: props.detail.subjectName,
@@ -446,25 +446,22 @@ export function QuestionDetailPage(): JSX.Element {
   const [correctedBloom, setCorrectedBloom] = createSignal<BloomClassificationView>();
   let correctionTarget = "";
   const detail = createAsync((): Promise<QuestionDetails> => {
-    const questionReference = params["questionRef"];
-    if (
-      questionReference === undefined ||
-      parseQuestionRouteReference(questionReference) === null
-    ) {
+    const questionId = params["questionId"];
+    if (questionId === undefined || parseQuestionRouteReference(questionId) === null) {
       throw new Error("The Question ID address is incomplete.");
     }
     const revisionNumber = questionRevisionFromSearch(location.search);
     if (revisionNumber !== undefined)
       return applicationApi.client.getQuestionRevision({
-        questionId: questionReference,
+        questionId: questionId,
         revisionNumber,
       });
     return applicationApi.client
-      .resolveQuestion(questionReference)
+      .resolveQuestion(questionId)
       .then((summary) => applicationApi.queries.questionDetails(summary.questionId));
   });
   createEffect(() => {
-    const reference = detail()?.summary.latestQuestionRevision;
+    const reference = detail()?.summary.questionRevision;
     if (reference === undefined) return;
     const key = `${reference.questionId}:${reference.revisionNumber}`;
     if (key === correctionTarget) return;
@@ -506,11 +503,11 @@ export function QuestionDetailPage(): JSX.Element {
                   fallback={
                     <QuestionPromptRenderer
                       blocks={record().prompt.blocks}
-                      questionRevision={record().summary.latestQuestionRevision}
+                      questionRevision={record().summary.questionRevision}
                       assetUrl={(asset) =>
                         new URL(
                           applicationApi.client.assetUrl(
-                            record().summary.latestQuestionRevision,
+                            record().summary.questionRevision,
                             asset.questionAsset,
                           ),
                           window.location.origin,
@@ -522,9 +519,9 @@ export function QuestionDetailPage(): JSX.Element {
                   <OpaqueWebworkPreviewFrame
                     class="question-library-webwork-preview"
                     src={applicationApi.client.questionRevisionPreviewDocumentUrl(
-                      record().summary.latestQuestionRevision,
+                      record().summary.questionRevision,
                     )}
-                    title={`Generated example for ${record().summary.metadata.questionTitle}, Revision ${record().summary.latestQuestionRevision.revisionNumber}`}
+                    title={`Generated example for ${record().summary.metadata.questionTitle}, Revision ${record().summary.questionRevision.revisionNumber}`}
                   />
                 </Show>
               </section>
@@ -532,11 +529,11 @@ export function QuestionDetailPage(): JSX.Element {
                 {(preview) => (
                   <QuestionResponsePreviewControl
                     preview={preview()}
-                    questionRevision={record().summary.latestQuestionRevision}
+                    questionRevision={record().summary.questionRevision}
                     assetUrl={(asset) =>
                       new URL(
                         applicationApi.client.assetUrl(
-                          record().summary.latestQuestionRevision,
+                          record().summary.questionRevision,
                           asset.questionAsset,
                         ),
                         window.location.origin,
@@ -584,7 +581,7 @@ export function QuestionDetailPage(): JSX.Element {
                   </Show>
                   <div>
                     <dt>Revision</dt>
-                    <dd>{record().summary.latestQuestionRevision.revisionNumber}</dd>
+                    <dd>{record().summary.questionRevision.revisionNumber}</dd>
                   </div>
                   <Show when={correctedBloom() ?? record().summary.bloom}>
                     {(bloom) => (
@@ -603,16 +600,16 @@ export function QuestionDetailPage(): JSX.Element {
                       <BloomClassificationEditor
                         targetName="Question"
                         contentMarkerKind="Revision"
-                        contentMarkerNumber={record().summary.latestQuestionRevision.revisionNumber}
+                        contentMarkerNumber={record().summary.questionRevision.revisionNumber}
                         bloom={bloom()}
                         save={(request) =>
                           applicationApi.client
-                            .correctQuestionBloom(record().summary.latestQuestionRevision, request)
+                            .correctQuestionBloom(record().summary.questionRevision, request)
                             .then((receipt) => receipt.bloom)
                         }
                         loadCurrent={() =>
                           applicationApi.client
-                            .getQuestionRevision(record().summary.latestQuestionRevision)
+                            .getQuestionRevision(record().summary.questionRevision)
                             .then((loaded) => {
                               if (loaded.summary.bloom === null) {
                                 throw new Error("Bloom Classification is not assigned.");
@@ -662,7 +659,7 @@ export function QuestionDetailPage(): JSX.Element {
                   renderAvailableAction={() => (
                     <>
                       <QuestionPoolFromQuestionControl detail={record()} />
-                      <QuestionForkControl source={record().summary.latestQuestionRevision} />
+                      <QuestionForkControl source={record().summary.questionRevision} />
                     </>
                   )}
                 />

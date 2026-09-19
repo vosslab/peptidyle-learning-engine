@@ -38,14 +38,14 @@ export function AssessmentOverviewPage(): JSX.Element {
     disposed = true;
   });
   const course = (): CourseInstanceRouteReference | null =>
-    parseCourseInstanceId(params["courseRef"] ?? "");
+    parseCourseInstanceId(params["courseInstanceId"] ?? "");
   const assessment = (): AssessmentRouteReference | null =>
-    parseAssessmentId(params["assessmentRef"] ?? "");
+    parseAssessmentId(params["assessmentId"] ?? "");
   const access = createAsync(() => {
-    const courseReference = course();
-    const assessmentReference = assessment();
-    if (courseReference === null || assessmentReference === null) return Promise.resolve(undefined);
-    return runtime.client.getLiveAssessmentAccess(courseReference, assessmentReference);
+    const courseInstanceId = course();
+    const assessmentId = assessment();
+    if (courseInstanceId === null || assessmentId === null) return Promise.resolve(undefined);
+    return runtime.client.getLiveAssessmentAccess(courseInstanceId, assessmentId);
   });
   const activeAttemptReference = createMemo(() => {
     const activeAttempt = access()?.activeAssessmentAttempt;
@@ -61,14 +61,14 @@ export function AssessmentOverviewPage(): JSX.Element {
   );
 
   async function startAssessment(): Promise<void> {
-    const courseReference = course();
-    const assessmentReference = assessment();
+    const courseInstanceId = course();
+    const assessmentId = assessment();
     const assessmentType = access()?.assessmentType;
     const activeAttempt = access()?.activeAssessmentAttempt;
     const resuming = activeAttempt !== null && activeAttempt !== undefined;
     if (
-      courseReference === null ||
-      assessmentReference === null ||
+      courseInstanceId === null ||
+      assessmentId === null ||
       assessmentType === undefined ||
       disposed ||
       starting()
@@ -78,13 +78,10 @@ export function AssessmentOverviewPage(): JSX.Element {
     setStarting(true);
     setStartError(undefined);
     const requestIsCurrent = (): boolean =>
-      !disposed && course() === courseReference && assessment() === assessmentReference;
+      !disposed && course() === courseInstanceId && assessment() === assessmentId;
     try {
       // ASVS 2.3.1: finish authorized same-Attempt issuance before reading progress.
-      const attempt = await runtime.client.startLiveAssessment(
-        courseReference,
-        assessmentReference,
-      );
+      const attempt = await runtime.client.startLiveAssessment(courseInstanceId, assessmentId);
       if (!requestIsCurrent()) return;
       const attemptReference = assessmentAttemptRouteReference(attempt.assessmentAttempt);
       navigate(`/assessment-attempts/${attemptReference}`, { replace: true });

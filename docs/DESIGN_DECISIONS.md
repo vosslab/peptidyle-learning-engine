@@ -35,9 +35,10 @@ Quiz and Exam complete the five current Types.
 **Why.** A single generic noun keeps course content, attempts, navigation, and
 data relationships understandable while Types communicate teaching purpose.
 
-**Consequence.** Current `assignment` code, schema, route, and DTO names are
-implementation gaps. They must not cause new documentation or UI to reintroduce
-Assignment as the generic object.
+**Consequence.** Schema, Store/server contracts, HTTP routes, DTOs, and
+browser paths use Assessment as the generic object. Assignment remains only
+in Regular Assignment, Practice Question Assignment, and Bonus Assignment.
+New documentation and UI must not reintroduce Assignment as the generic object.
 
 ### DD-A9-01: Assessment terminology uses a direct preproduction cutover
 
@@ -45,10 +46,10 @@ Assignment as the generic object.
 `assignment` identifier to Assessment directly: model and schema names, Store
 and server contracts, routes, DTOs, API and Blueprint JSON. Canonical browser
 families are `/assessments/due-soon`,
-`/courses/:courseRef/assessments/:assessmentRef`,
-`/instructor/courses/:courseRef/assessments/new`,
-`/instructor/courses/:courseRef/assessments/:assessmentRef/{questions,properties,student-view,delivery-check}`,
-and `/assessment-attempts/:assessmentAttemptRef`. Canonical API families are
+`/courses/:courseInstanceId/assessments/:assessmentId`,
+`/instructor/courses/:courseInstanceId/assessments/new`,
+`/instructor/courses/:courseInstanceId/assessments/:assessmentId/{questions,properties,student-view,delivery-check}`,
+and `/assessment-attempts/:assessmentAttemptId`. Canonical API families are
 `/api/assessments/due-soon`, `/api/course-instances/{course}/assessments...`,
 and `/api/assessment-attempts/{assessmentAttempt}...`. Public configuration is
 called Assessment Properties, not policies. Assignment remains only in the

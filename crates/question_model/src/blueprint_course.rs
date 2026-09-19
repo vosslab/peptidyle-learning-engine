@@ -365,7 +365,7 @@ mod tests {
         QuestionSearchResult {
             summary: QuestionSummary {
                 question_id: question_id(),
-                latest_question_revision: QuestionRevisionReference {
+                question_revision: QuestionRevisionReference {
                     question_id: question_id(),
                     revision_number: QuestionRevisionNumber::new(1).expect("positive version"),
                 },
@@ -501,7 +501,7 @@ mod tests {
                         entries: vec![
                             BlueprintAssessmentEntryView::Fixed {
                                 question: ReusableQuestionView {
-                                    reference: discovery().summary.latest_question_revision,
+                                    reference: discovery().summary.question_revision,
                                     question_library: discovery(),
                                     selection_availability:
                                         ReusableSelectionAvailability::Available,

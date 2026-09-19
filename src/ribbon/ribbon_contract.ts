@@ -203,13 +203,13 @@ function accountControlsFor(productRole: ProductRole): ReadonlyArray<RibbonConte
 type RouteParamParser = (value: string) => string | null;
 
 const ROUTE_PARAM_PARSERS: Readonly<Record<RouteParamName, RouteParamParser>> = {
-  courseRef: parseCourseInstanceId,
-  assessmentRef: parseAssessmentId,
-  assessmentAttemptRef: parseAssessmentAttemptReference,
+  courseInstanceId: parseCourseInstanceId,
+  assessmentId: parseAssessmentId,
+  assessmentAttemptId: parseAssessmentAttemptReference,
   membershipRef: parseCourseMembershipReference,
-  questionRef: parseQuestionRouteReference,
+  questionId: parseQuestionRouteReference,
   draftQuestionId: parseDraftQuestionId,
-  blueprintCourseRef: parseBlueprintCourseId,
+  blueprintCourseId: parseBlueprintCourseId,
   proposalId: parseBlueprintChangeProposalHandle,
 };
 
@@ -481,15 +481,15 @@ function breadcrumbLinkItem(label: string, href: string): RibbonBreadcrumbModel 
  */
 function courseBreadcrumbLabel(
   courseLongName: string | undefined,
-  courseReference: string | undefined,
+  courseInstanceId: string | undefined,
 ): string {
-  if (courseLongName === undefined || courseReference === undefined)
+  if (courseLongName === undefined || courseInstanceId === undefined)
     return courseLongName ?? "Course";
   const prefixes = [
-    `Course ${courseReference}:`,
-    `Course ${courseReference} -`,
-    `${courseReference}:`,
-    `${courseReference} -`,
+    `Course ${courseInstanceId}:`,
+    `Course ${courseInstanceId} -`,
+    `${courseInstanceId}:`,
+    `${courseInstanceId} -`,
   ];
   const prefix = prefixes.find((candidate) => courseLongName.startsWith(candidate));
   if (prefix === undefined) return courseLongName;
@@ -515,16 +515,19 @@ function breadcrumbsFor(
   const library = breadcrumbLink("library");
   const drafts = breadcrumbLink("questionDrafts");
   const blueprints = breadcrumbLink("blueprintCourses");
-  const courseParams = { courseRef: routeState.params.courseRef };
+  const courseParams = { courseInstanceId: routeState.params.courseInstanceId };
   const courseAssessments = breadcrumbLink("courseAssessments", courseParams);
   const studentCourse = breadcrumbLink("studentCourseLanding", courseParams);
   const assessmentParams = {
-    courseRef: routeState.params.courseRef,
-    assessmentRef: routeState.params.assessmentRef,
+    courseInstanceId: routeState.params.courseInstanceId,
+    assessmentId: routeState.params.assessmentId,
   };
   const instructorAssessment = breadcrumbLink("assessmentWorkspaceOverview", assessmentParams);
   const studentAssessment = breadcrumbLink("assessmentOverview", assessmentParams);
-  const courseLabel = courseBreadcrumbLabel(labels.courseLongName, routeState.params.courseRef);
+  const courseLabel = courseBreadcrumbLabel(
+    labels.courseLongName,
+    routeState.params.courseInstanceId,
+  );
   const assessmentLabel = labels.assessmentTitle ?? "Assessment";
   const studentAssessmentAccessLabel = labels.assessmentTitle ?? "Before you start";
 

@@ -285,10 +285,10 @@ try {
 
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.getByRole("heading", { name: "Assessment Properties Editor", exact: true }).waitFor();
-  const courseReference = new URL(page.url()).pathname.match(
+  const courseInstanceId = new URL(page.url()).pathname.match(
     /^\/instructor\/courses\/(CI[0-9A-HJKMNP-TV-Z]{8})\/assessments\//u,
   )?.[1];
-  if (courseReference === undefined)
+  if (courseInstanceId === undefined)
     throw new Error("the Assessment workspace lacked a Course reference");
   if ((await page.getByLabel(assessmentDurationOverrideLabel).inputValue()) !== "30") {
     throw new Error("the autosaved time limit did not persist after reload");
@@ -340,8 +340,8 @@ try {
   await page.getByRole("heading", { name: courseLongName, exact: true }).waitFor();
   await assertRibbonTaskCurrent(ribbonTabs, "assessments", "Course Assessments");
   for (const unsupportedPath of [
-    `/instructor/courses/${courseReference}/grade-settings`,
-    `/instructor/courses/${courseReference}/teaching-operations`,
+    `/instructor/courses/${courseInstanceId}/grade-settings`,
+    `/instructor/courses/${courseInstanceId}/teaching-operations`,
   ]) {
     await page.goto(`${origin}${unsupportedPath}`, { waitUntil: "domcontentloaded" });
     await page.locator('[data-route-surface="notFound"]').waitFor();

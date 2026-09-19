@@ -66,9 +66,9 @@ CREATE FUNCTION ple_private.read_student_assessment_attempt_history(
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
     WITH owned_assessment_attempt AS (
-        SELECT assessment_attempt.assessment_attempt_id, assessment_attempt.assessment_id,
+        SELECT assessment_attempt.assessment_attempt_id,
                assessment.course_instance_id,
-               assessment.assessment_id AS assessment_id,
+               assessment.assessment_id,
                policy.assessment_title,
                assessment.assessment_type,
                assessment_attempt.assessment_attempt_number,

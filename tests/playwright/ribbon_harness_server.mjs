@@ -1,4 +1,4 @@
-// Compiled-harness startup helpers shared by M10 shell evidence.
+// Compiled-harness startup helpers shared by shell evidence.
 
 import { once } from "node:events";
 import { createServer } from "node:http";
@@ -9,13 +9,13 @@ function formatBootstrapDiagnostics(pageErrors, consoleErrors) {
   return `Application-shell harness bootstrap failed: ${summary}`;
 }
 
-export async function mountRibbonM10Harness(page, bundle, pageErrors, consoleErrors) {
+export async function mountRibbonHarness(page, bundle, pageErrors, consoleErrors) {
   try {
     await page.addScriptTag({ content: Buffer.from(bundle.javascript).toString("utf8") });
     await page.waitForFunction(
       () =>
-        "PleRibbonM10Harness" in window &&
-        typeof window.PleRibbonM10Harness.mountRibbonM10ShellHarness === "function",
+        "PleRibbonShellHarness" in window &&
+        typeof window.PleRibbonShellHarness.mountRibbonShellHarness === "function",
       undefined,
       { timeout: 5_000 },
     );
@@ -23,9 +23,9 @@ export async function mountRibbonM10Harness(page, bundle, pageErrors, consoleErr
       const target = document.querySelector("#root");
       if (!(target instanceof HTMLElement))
         throw new Error("Application-shell harness root is missing.");
-      window.ribbonM10 = window.PleRibbonM10Harness.mountRibbonM10ShellHarness(target);
+      window.ribbonShell = window.PleRibbonShellHarness.mountRibbonShellHarness(target);
     });
-    await page.waitForFunction(() => "ribbonM10" in window, undefined, { timeout: 5_000 });
+    await page.waitForFunction(() => "ribbonShell" in window, undefined, { timeout: 5_000 });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`${formatBootstrapDiagnostics(pageErrors, consoleErrors)}; ${message}`, {

@@ -1,36 +1,25 @@
 // question_json_editor_page.tsx - private instructor surface for ple-question-json authoring.
 
-import { For, Show, batch, createEffect, createSignal, onMount, type JSX } from "solid-js";
+import { Show, batch, createEffect, createSignal, onMount, type JSX } from "solid-js";
 
 import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
 import { parseReviewedQuestionAuthorship } from "../../api/question_authorship";
-import { ContentClassificationSelect } from "../../components/content_classification_select";
-import { PleQuestionJsonFeedbackFields } from "./question_json_feedback_fields";
-import { PleQuestionJsonHintField } from "./question_json_hint_field";
 import {
   initialPleQuestionJsonEditorState,
   reducePleQuestionJsonEditor,
   reorderChoices,
-  setPleQuestionJsonPrompt,
-  setPleQuestionJsonQuestionTitle,
-  setLanguage,
-  setQuestionDescription,
-  setQuestionCitation,
-  setQuestionLicense,
-  setQuestionHint,
-  setOutcomeFeedback,
-  setTags,
   validatePleQuestionJsonSource,
   type PleQuestionJsonEditorAction,
   type PleQuestionJsonEditorState,
 } from "./question_json_editor_model";
 import { PLE_QUESTION_JSON_EDITOR_STYLES } from "./question_json_editor_styles";
-import { PleQuestionJsonMetadataFields } from "./question_json_metadata_fields";
 import { parseNumericLiteral } from "./question_json_numeric_model";
-import { pleQuestionJsonPublicPreview } from "./question_json_public_preview";
-import { PleQuestionJsonPreview, type PleQuestionJsonPreviewProps } from "./question_json_preview";
-import { PleQuestionJsonResponseFields } from "./question_json_response_fields";
+import type { PleQuestionJsonPreviewProps } from "./question_json_preview";
 import type { PleQuestionJsonEditorPageProps } from "./question_json_editor_types";
+import {
+  PleQuestionJsonEditorWorkspace,
+  type PleQuestionJsonPublishReview,
+} from "./question_json_editor_workspace";
 import { PleQuestionJsonStaleConflictError } from "./question_json_repository";
 import { PleQuestionJsonConflictError } from "./question_json_client";
 import { setPleQuestionJsonHotspotAsset } from "./question_json_hotspot_model";
@@ -43,12 +32,7 @@ export type {
   PleQuestionJsonEditorPageProps,
 } from "./question_json_editor_types";
 
-type Review = {
-  readonly revision: string;
-  readonly baseQuestion: "newQuestion";
-  readonly questionTitle: string;
-  readonly changed: ReadonlyArray<string>;
-};
+type Review = PleQuestionJsonPublishReview;
 
 function authorSafeMessage(error: unknown, fallback: string): string {
   if (error instanceof Error && error.message.length > 0 && error.message.length < 240) {
@@ -624,321 +608,59 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
           </button>
         </section>
       </Show>
-      <Show when={source()}>
-        {(_draft) => (
-          <div class="editor-grid">
-            <section class="editor-panel">
-              <label class="ple-question-json-authoring__field">
-                <span>Question Title</span>
-                <input
-                  value={currentSource().questionTitle}
-                  disabled={isLocked()}
-                  aria-invalid={errors()["questionTitle"] !== undefined}
-                  onInput={(event) =>
-                    applyEdit(
-                      setPleQuestionJsonQuestionTitle(currentSource(), event.currentTarget.value),
-                    )
-                  }
-                />
-              </label>
-              <label class="ple-question-json-authoring__field">
-                <span>Student-facing prompt</span>
-                <textarea
-                  value={currentSource().prompt}
-                  disabled={isLocked()}
-                  aria-invalid={errors()["prompt"] !== undefined}
-                  onInput={(event) =>
-                    applyEdit(setPleQuestionJsonPrompt(currentSource(), event.currentTarget.value))
-                  }
-                />
-              </label>
-              <PleQuestionJsonResponseFields
-                source={currentSource}
-                fieldErrors={errors()}
-                disabled={isLocked()}
-                numericAnswerLiteral={numericAnswerLiteral}
-                onNumericAnswerLiteralChange={updateNumericAnswerLiteral}
-                onEdit={applyEdit}
-                onMoveChoice={moveChoice}
-                onStatus={setStatus}
-                selectedKind={() => currentSource().response.kind}
-                onHotspotPendingChange={setHotspotPending}
-                hotspotPending={hotspotPending}
-                onHotspotLiteralValidityChange={setHotspotLiteralsValid}
-                onUpload={uploadAsset}
-                assetPreviewPath={(asset) =>
-                  asset === ""
-                    ? ""
-                    : (props.assetClient?.assetPreviewPath(props.draftQuestion, asset) ?? "")
-                }
-              />
-              <PleQuestionJsonHintField
-                value={currentSource().questionHint}
-                fieldErrors={errors()}
-                disabled={isLocked()}
-                onChange={(questionHint) =>
-                  applyEdit(setQuestionHint(currentSource(), questionHint))
-                }
-              />
-              <PleQuestionJsonFeedbackFields
-                value={currentSource().feedback}
-                fieldErrors={errors()}
-                disabled={isLocked()}
-                onChange={(patch) =>
-                  applyEdit(
-                    setOutcomeFeedback(currentSource(), {
-                      ...currentSource().feedback,
-                      ...patch,
-                    }),
-                  )
-                }
-              />
-              <fieldset>
-                <legend>General Feedback</legend>
-                <p class="ple-question-json-authoring__help">
-                  PLE-managed general feedback is separate from this Question's source and from
-                  transient feedback generated by a Question Backend during an interaction.
-                </p>
-                <label class="ple-question-json-authoring__field">
-                  <span>General Feedback (optional)</span>
-                  <textarea
-                    value={generalFeedback() ?? ""}
-                    disabled={!canEditGeneralFeedback()}
-                    aria-describedby="ple-question-json-general-feedback-help"
-                    onInput={(event) =>
-                      setGeneralFeedback(
-                        event.currentTarget.value.trim() === "" ? null : event.currentTarget.value,
-                      )
-                    }
-                  />
-                  <span
-                    id="ple-question-json-general-feedback-help"
-                    class="ple-question-json-authoring__help"
-                  >
-                    Save the Question source first when it has local edits. This text is not backend
-                    source or captured backend feedback.
-                  </span>
-                </label>
-                <button
-                  type="button"
-                  class="quiet-action"
-                  disabled={!canEditGeneralFeedback() || !hasUnsavedGeneralFeedback()}
-                  onClick={() => void saveGeneralFeedback()}
-                >
-                  {generalFeedbackSaving() ? "Saving general feedback..." : "Save general feedback"}
-                </button>
-              </fieldset>
-              <PleQuestionJsonMetadataFields
-                questionDescription={currentSource().questionDescription}
-                tags={currentSource().tags}
-                questionLicense={currentSource().questionLicense}
-                questionCitation={currentSource().questionCitation}
-                language={currentSource().language}
-                fieldErrors={errors()}
-                disabled={isLocked()}
-                onQuestionDescriptionChange={(questionDescription) =>
-                  applyEdit(setQuestionDescription(currentSource(), questionDescription))
-                }
-                onTagsChange={(tags) => applyEdit(setTags(currentSource(), tags))}
-                onQuestionLicenseChange={(questionLicense) =>
-                  applyEdit(setQuestionLicense(currentSource(), questionLicense))
-                }
-                onQuestionCitationChange={(questionCitation) =>
-                  applyEdit(setQuestionCitation(currentSource(), questionCitation))
-                }
-                onLanguageChange={(language) => applyEdit(setLanguage(currentSource(), language))}
-              />
-              <div class="editor-actions">
-                <button
-                  type="button"
-                  class="primary-action"
-                  disabled={!canSave() || isLocked()}
-                  onClick={() => void save()}
-                >
-                  Save private draft
-                </button>
-                <button
-                  type="button"
-                  class="quiet-action"
-                  disabled={!isSaved() || isLocked()}
-                  onClick={inspectInstructorAnswer}
-                >
-                  Check instructor answer
-                </button>
-              </div>
-            </section>
-            <aside class="editor-preview">
-              <section class="editor-panel">
-                <For each={[currentSource()]}>
-                  {(draft) => (
-                    <PleQuestionJsonPreview
-                      preview={pleQuestionJsonPublicPreview(draft)}
-                      hotspotDraftAsset={hotspotDraftAsset()}
-                      validator={props.responseValidator}
-                      instructorAnswerCheck={
-                        showInstructorCheck() && isSaved()
-                          ? (answerCheck(draft) ?? undefined)
-                          : undefined
-                      }
-                    />
-                  )}
-                </For>
-              </section>
-              <section class="editor-panel" aria-labelledby="ple-question-json-publish-heading">
-                <h2 id="ple-question-json-publish-heading">Publish review</h2>
-                <p>Review the saved content before publishing a new Question ID.</p>
-                <Show when={review() === null}>
-                  <button
-                    type="button"
-                    class="primary-action"
-                    disabled={!isSaved() || isLocked()}
-                    onClick={() => void openPublishReview()}
-                  >
-                    Review publication changes
-                  </button>
-                </Show>
-                <Show when={review()}>
-                  {(activeReview) => (
-                    <div class="ple-question-json-authoring__review">
-                      <p>
-                        <strong>Question:</strong> {activeReview().questionTitle}
-                      </p>
-                      <p>
-                        This publication creates a new Question ID. Existing assessments keep their
-                        assigned questions until an instructor deliberately replaces an item.
-                      </p>
-                      <h3>Changed sections</h3>
-                      <ul>
-                        <For each={activeReview().changed}>{(section) => <li>{section}</li>}</For>
-                      </ul>
-                      <label class="ple-question-json-authoring__field">
-                        <span>Question Authors</span>
-                        <textarea
-                          ref={(element) => {
-                            authorshipInput = element;
-                          }}
-                          value={authorshipText()}
-                          onInput={(event) => setAuthorshipText(event.currentTarget.value)}
-                          aria-describedby="ple-question-json-authorship-help"
-                          disabled={isLocked()}
-                        />
-                        <span
-                          id="ple-question-json-authorship-help"
-                          class="ple-question-json-authoring__help"
-                        >
-                          Enter one to sixteen distinct names, one per line. This reviewed text, not
-                          account information, is published with the question.
-                        </span>
-                      </label>
-                      <div class="publication-classification-fields">
-                        <ContentClassificationSelect
-                          label="Discipline"
-                          required
-                          value={disciplineUuid()}
-                          disabled={isLocked()}
-                          load={() => props.classificationClient.listDisciplinesIncludingRetired()}
-                          onChange={(uuid) =>
-                            batch(() => {
-                              setDisciplineUuid(uuid);
-                              setSubjectUuid(null);
-                              setTopicUuid(null);
-                              setSubtopicUuid(null);
-                            })
-                          }
-                        />
-                        <ContentClassificationSelect
-                          label="Subject"
-                          required
-                          value={subjectUuid()}
-                          parentUuid={disciplineUuid()}
-                          disabled={isLocked()}
-                          load={(uuid) => props.classificationClient.listSubjects(uuid)}
-                          onChange={(uuid) =>
-                            batch(() => {
-                              setSubjectUuid(uuid);
-                              setTopicUuid(null);
-                              setSubtopicUuid(null);
-                            })
-                          }
-                        />
-                        <ContentClassificationSelect
-                          label="Topic"
-                          value={topicUuid()}
-                          parentUuid={subjectUuid()}
-                          disabled={isLocked()}
-                          load={(uuid) => props.classificationClient.listTopics(uuid)}
-                          onChange={(uuid) =>
-                            batch(() => {
-                              setTopicUuid(uuid);
-                              setSubtopicUuid(null);
-                            })
-                          }
-                        />
-                        <ContentClassificationSelect
-                          label="Subtopic"
-                          value={subtopicUuid()}
-                          parentUuid={topicUuid()}
-                          disabled={isLocked()}
-                          load={(uuid) => props.classificationClient.listSubtopics(uuid)}
-                          onChange={setSubtopicUuid}
-                        />
-                      </div>
-                      <p>Confirming publishes this saved private draft with a new Question ID.</p>
-                      <button
-                        type="button"
-                        class="primary-action"
-                        disabled={
-                          !isSaved() ||
-                          isLocked() ||
-                          disciplineUuid() === null ||
-                          subjectUuid() === null
-                        }
-                        onClick={() => void publish()}
-                      >
-                        Confirm and publish
-                      </button>
-                    </div>
-                  )}
-                </Show>
-              </section>
-            </aside>
-          </div>
-        )}
-      </Show>
-      <Show when={publishedReference(state())}>
-        {(reference) => (
-          <section class="editor-panel" role="status">
-            <h2>Published</h2>
-            <Show when={publishedSummary()} keyed>
-              {(summary) => (
-                <>
-                  {/* ASVS 1.2.1: server-validated Question Library fields render as Solid text, not HTML. */}
-                  <p>
-                    <strong>Question:</strong> {summary.metadata.questionTitle}
-                  </p>
-                  <p>
-                    <strong>Question ID:</strong> <code>{summary.questionId}</code>
-                  </p>
-                  <p>
-                    <strong>Published Revision:</strong>{" "}
-                    {summary.latestQuestionRevision.revisionNumber}
-                  </p>
-                  <p>
-                    <strong>Published to:</strong> Question Library
-                  </p>
-                  <p>
-                    <strong>Authors:</strong>{" "}
-                    {summary.authorship.authors.map((author) => author.displayName).join(", ")}
-                  </p>
-                </>
-              )}
-            </Show>
-            <a class="primary-action" href={reference()}>
-              Open published Question
-            </a>
-          </section>
-        )}
-      </Show>
+      <PleQuestionJsonEditorWorkspace
+        source={source}
+        currentSource={currentSource}
+        errors={errors}
+        isLocked={isLocked}
+        canSave={canSave}
+        isSaved={isSaved}
+        canEditGeneralFeedback={canEditGeneralFeedback}
+        hasUnsavedGeneralFeedback={hasUnsavedGeneralFeedback}
+        numericAnswerLiteral={numericAnswerLiteral}
+        hotspotPending={hotspotPending}
+        generalFeedback={generalFeedback}
+        generalFeedbackSaving={generalFeedbackSaving}
+        showInstructorCheck={showInstructorCheck}
+        review={review}
+        authorshipText={authorshipText}
+        disciplineUuid={disciplineUuid}
+        subjectUuid={subjectUuid}
+        topicUuid={topicUuid}
+        subtopicUuid={subtopicUuid}
+        publishedReference={() => publishedReference(state())}
+        publishedSummary={publishedSummary}
+        hotspotDraftAsset={hotspotDraftAsset}
+        instructorAnswerCheck={(draft) => answerCheck(draft) ?? undefined}
+        classificationClient={props.classificationClient}
+        responseValidator={props.responseValidator}
+        assetPreviewPath={(asset) =>
+          asset === ""
+            ? ""
+            : (props.assetClient?.assetPreviewPath(props.draftQuestion, asset) ?? "")
+        }
+        onEdit={applyEdit}
+        onNumericAnswerLiteralChange={updateNumericAnswerLiteral}
+        onMoveChoice={moveChoice}
+        onStatus={setStatus}
+        onHotspotPendingChange={setHotspotPending}
+        onHotspotLiteralValidityChange={setHotspotLiteralsValid}
+        onUpload={uploadAsset}
+        onGeneralFeedbackChange={setGeneralFeedback}
+        onSaveGeneralFeedback={() => void saveGeneralFeedback()}
+        onSave={() => void save()}
+        onInspectInstructorAnswer={inspectInstructorAnswer}
+        onOpenPublishReview={openPublishReview}
+        onAuthorshipTextChange={setAuthorshipText}
+        onAuthorshipInput={(element) => {
+          authorshipInput = element;
+        }}
+        onDisciplineChange={setDisciplineUuid}
+        onSubjectChange={setSubjectUuid}
+        onTopicChange={setTopicUuid}
+        onSubtopicChange={setSubtopicUuid}
+        onPublish={() => void publish()}
+      />
     </main>
   );
 }

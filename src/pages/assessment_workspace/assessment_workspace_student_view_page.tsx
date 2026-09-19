@@ -244,8 +244,8 @@ export function AssessmentWorkspaceStudentViewPage(): JSX.Element {
     async (): Promise<LoadResult<InstructorStudentView>> => {
       try {
         const value = await applicationApi.client.getInstructorStudentView(
-          workspace.courseReference,
-          workspace.assessmentReference,
+          workspace.courseInstanceId,
+          workspace.assessmentId,
         );
         return { kind: "ready", value };
       } catch (error: unknown) {
@@ -271,8 +271,8 @@ export function AssessmentWorkspaceStudentViewPage(): JSX.Element {
       const currentManifest = manifest();
       if (currentManifest === undefined) throw new Error("Student View manifest is unavailable");
       return applicationApi.client.getInstructorStudentViewQuestion(
-        workspace.courseReference,
-        workspace.assessmentReference,
+        workspace.courseInstanceId,
+        workspace.assessmentId,
         question.authoredPosition,
         question.questionRevision,
         currentManifest.editNumber,
@@ -297,10 +297,7 @@ export function AssessmentWorkspaceStudentViewPage(): JSX.Element {
     void refetchPresentation();
   }
 
-  const workspacePath = assessmentWorkspacePath(
-    workspace.courseReference,
-    workspace.assessmentReference,
-  );
+  const workspacePath = assessmentWorkspacePath(workspace.courseInstanceId, workspace.assessmentId);
 
   return (
     <section class="assessment-workspace-student-view" aria-label="Student View">
@@ -432,8 +429,8 @@ export function AssessmentWorkspaceStudentViewPage(): JSX.Element {
                               <PreviewDocument
                                 position={question.position}
                                 src={applicationApi.client.instructorStudentViewQuestionDocumentUrl(
-                                  workspace.courseReference,
-                                  workspace.assessmentReference,
+                                  workspace.courseInstanceId,
+                                  workspace.assessmentId,
                                   question.authoredPosition,
                                   question.questionRevision,
                                   readyManifest().editNumber,

@@ -6,6 +6,7 @@ import pytest
 
 import local_stack_control.disposable_stack_command
 import local_stack_control.disposable_stack_adapter
+import local_stack_control.disposable_stack_cleanup
 import local_stack_control.models
 import local_stack_control.process
 import local_stack_control.readiness_faults
@@ -129,7 +130,7 @@ def test_gateway_outage_plan_is_closed_to_one_running_labelled_gateway(
 	selected = disposable(tmp_path)
 	before = snapshot((container("gateway-id", "gateway", True), container("api-id", "api", True)))
 
-	plan = local_stack_control.disposable_stack_adapter.declared_outage_stop_plan(selected, before)
+	plan = local_stack_control.disposable_stack_cleanup.declared_outage_stop_plan(selected, before)
 
 	assert plan.service == "gateway"
 	assert plan.argv[-2:] == ("stop", "gateway")
@@ -249,7 +250,7 @@ def test_gateway_outage_rejects_unavailable_ambiguous_or_foreign_selection(
 ) -> None:
 	"""Gateway selection rejects unavailable, duplicate, and foreign labelled resources."""
 	with pytest.raises(local_stack_control.models.ControllerError):
-		local_stack_control.disposable_stack_adapter.declared_outage_stop_plan(disposable(tmp_path), before)
+		local_stack_control.disposable_stack_cleanup.declared_outage_stop_plan(disposable(tmp_path), before)
 
 
 #============================================
@@ -259,7 +260,7 @@ def test_gateway_outage_postcondition_rejects_persistent_or_unrelated_change(
 	"""Stopping the gateway cannot alter labelled persistence or another service."""
 	selected = disposable(tmp_path)
 	before = snapshot((container("gateway-id", "gateway", True), container("api-id", "api", True)))
-	plan = local_stack_control.disposable_stack_adapter.declared_outage_stop_plan(selected, before)
+	plan = local_stack_control.disposable_stack_cleanup.declared_outage_stop_plan(selected, before)
 	after_persistent_change = snapshot(
 		(container("gateway-id", "gateway", False), container("api-id", "api", True)),
 		(local_stack_control.models.VolumeResource("other-volume", before.project),),
@@ -269,11 +270,11 @@ def test_gateway_outage_postcondition_rejects_persistent_or_unrelated_change(
 	)
 
 	with pytest.raises(local_stack_control.models.ControllerError):
-		local_stack_control.disposable_stack_adapter.require_declared_outage_stopped(
+		local_stack_control.disposable_stack_cleanup.require_declared_outage_stopped(
 			selected, before, after_persistent_change, plan
 		)
 	with pytest.raises(local_stack_control.models.ControllerError):
-		local_stack_control.disposable_stack_adapter.require_declared_outage_stopped(
+		local_stack_control.disposable_stack_cleanup.require_declared_outage_stopped(
 			selected, before, after_unrelated_change, plan
 		)
 
@@ -283,11 +284,11 @@ def test_gateway_outage_postcondition_rejects_a_replaced_gateway(tmp_path: pathl
 	"""A stop proof remains bound to the exact gateway selected before mutation."""
 	selected = disposable(tmp_path)
 	before = snapshot((container("gateway-id", "gateway", True),))
-	plan = local_stack_control.disposable_stack_adapter.declared_outage_stop_plan(selected, before)
+	plan = local_stack_control.disposable_stack_cleanup.declared_outage_stop_plan(selected, before)
 	after = snapshot((container("replacement-id", "gateway", False),))
 
 	with pytest.raises(local_stack_control.models.ControllerError):
-		local_stack_control.disposable_stack_adapter.require_declared_outage_stopped(selected, before, after, plan)
+		local_stack_control.disposable_stack_cleanup.require_declared_outage_stopped(selected, before, after, plan)
 
 
 #============================================
@@ -356,10 +357,10 @@ def test_gateway_outage_postcondition_rejects_duplicate_missing_or_restarted_gat
 	"""Post-stop proof requires one selected gateway to remain stopped."""
 	selected = disposable(tmp_path)
 	before = snapshot((container("gateway-id", "gateway", True),))
-	plan = local_stack_control.disposable_stack_adapter.declared_outage_stop_plan(selected, before)
+	plan = local_stack_control.disposable_stack_cleanup.declared_outage_stop_plan(selected, before)
 
 	with pytest.raises(local_stack_control.models.ControllerError):
-		local_stack_control.disposable_stack_adapter.require_declared_outage_stopped(selected, before, after, plan)
+		local_stack_control.disposable_stack_cleanup.require_declared_outage_stopped(selected, before, after, plan)
 
 
 #============================================
@@ -375,7 +376,7 @@ def test_gateway_outage_postcondition_rejects_a_forged_plan(tmp_path: pathlib.Pa
 	)
 
 	with pytest.raises(local_stack_control.models.ControllerError):
-		local_stack_control.disposable_stack_adapter.require_declared_outage_stopped(selected, before, after, forged)
+		local_stack_control.disposable_stack_cleanup.require_declared_outage_stopped(selected, before, after, forged)
 
 
 #============================================
@@ -388,7 +389,7 @@ def test_gateway_outage_postcondition_rejects_a_forged_preselection(tmp_path: pa
 	forged = local_stack_control.models.ServiceStopPlan(before.project, "gateway", tuple(argv))
 
 	with pytest.raises(local_stack_control.models.ControllerError):
-		local_stack_control.disposable_stack_adapter.require_declared_outage_stopped(selected, before, after, forged)
+		local_stack_control.disposable_stack_cleanup.require_declared_outage_stopped(selected, before, after, forged)
 
 
 #============================================
@@ -441,7 +442,7 @@ def test_gateway_outage_boundary_reinvents_and_proves_the_stopped_gateway(
 		lambda unused_runner, unused_disposable: next(values),
 	)
 
-	completed = local_stack_control.disposable_stack_adapter.stop_declared_outage_service(runner, selected)
+	completed = local_stack_control.disposable_stack_cleanup.stop_declared_outage_service(runner, selected)
 
 	assert completed == local_stack_control.models.DeclaredOutageStop(before.project, "gateway")
 	assert runner.streamed[0][-2:] == ("stop", "gateway")
@@ -535,7 +536,7 @@ def test_gateway_outage_boundary_rejects_invalid_ownership_or_topology_before_mu
 	)
 
 	with pytest.raises(local_stack_control.models.ControllerError):
-		local_stack_control.disposable_stack_adapter.stop_declared_outage_service(runner, selected)
+		local_stack_control.disposable_stack_cleanup.stop_declared_outage_service(runner, selected)
 	assert runner.streamed == []
 
 

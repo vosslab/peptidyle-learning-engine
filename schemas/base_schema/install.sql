@@ -90,6 +90,7 @@
 \ir 50_functions/assessment_attempt_interaction.sql
 \ir 50_functions/assessment_attempt_presentation.sql
 \ir 50_functions/assessment_attempt_operations.sql
+\ir 50_functions/assessment_attempt_start.sql
 \ir 50_functions/assessment_attempt_finalization.sql
 \ir 50_functions/assessment_attempt_operations_api.sql
 \ir 50_functions/assessment_student_time_accommodation.sql

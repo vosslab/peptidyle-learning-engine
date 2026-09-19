@@ -23,7 +23,10 @@ import {
 const { COURSE_THEME_OPTIONS } =
   await import("../../src/features/course_appearance/course_theme_registry.ts");
 
-const globalCss = readFileSync(new URL("../../src/style.css", import.meta.url), "utf8");
+const globalCss = [
+  readFileSync(new URL("../../src/style.css", import.meta.url), "utf8"),
+  readFileSync(new URL("../../src/style_responsive.css", import.meta.url), "utf8"),
+].join("\n");
 const accessibilityCss = readFileSync(
   new URL("../../src/styles/accessibility.css", import.meta.url),
   "utf8",

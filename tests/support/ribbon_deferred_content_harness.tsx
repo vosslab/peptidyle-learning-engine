@@ -173,11 +173,11 @@ export function mountRibbonDeferredContentHarness(target: HTMLElement): Deferred
     assessmentSummary: queryFunction("assessment-summary", () =>
       Promise.reject(new Error("unused")),
     ),
-    courseScope: queryFunction("course-scope", (courseReference: string) => {
-      const caseName = scopeCaseByCourseReference.get(courseReference);
+    courseScope: queryFunction("course-scope", (courseInstanceId: string) => {
+      const caseName = scopeCaseByCourseReference.get(courseInstanceId);
       if (caseName === undefined)
         return Promise.reject(
-          new Error(`Deferred-content course scope requested for unexpected ${courseReference}`),
+          new Error(`Deferred-content course scope requested for unexpected ${courseInstanceId}`),
         );
       increment(caseName, "scopeCourse");
       return deferred(caseName).then(() => instructorCourse(COURSE_REFERENCE[caseName]));

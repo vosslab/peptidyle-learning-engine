@@ -10,5 +10,5 @@ export interface BlueprintCoursesWorkspaceProps {
 }
 
 export interface BlueprintCourseDetailWorkspaceProps extends BlueprintCoursesWorkspaceProps {
-  readonly blueprintCourseRef: string;
+  readonly blueprintCourseId: string;
 }

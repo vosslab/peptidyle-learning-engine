@@ -44,6 +44,7 @@ const wasmWebDir = path.join(repoRoot, "dist_wasm", "web");
 const STATIC_STYLESHEETS = [
   "styles/browser_fonts.css",
   "style.css",
+  "style_responsive.css",
   "styles/product_role.css",
   "styles/accessibility.css",
   "styles/ple_embed.css",

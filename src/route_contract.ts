@@ -204,14 +204,14 @@ export const ROUTE_CONTRACT = [
   },
   {
     id: "studentCourseInvitation",
-    path: "/courses/:courseRef/invitation",
+    path: "/courses/:courseInstanceId/invitation",
     surface: "Student Course Invitation acceptance",
     requiredProductRoles: ["student"],
     ribbon: { scope: "product", contentLayout: "reading" },
   },
   {
     id: "studentCourseLanding",
-    path: "/student/courses/:courseRef",
+    path: "/student/courses/:courseInstanceId",
     surface: "Student answer-free Course Instance and released Assessment landing",
     requiredProductRoles: ["student"],
     ribbon: { scope: "courseInstance", tab: "studentAssessments", contentLayout: "reading" },
@@ -233,14 +233,14 @@ export const ROUTE_CONTRACT = [
   },
   {
     id: "courseAssessments",
-    path: "/courses/:courseRef",
+    path: "/courses/:courseInstanceId",
     surface: "Course Instance Teaching Team, roster, and Assessment delivery workspace",
     requiredProductRoles: ["instructor"],
     ribbon: { scope: "courseInstance", tab: "assessments", contentLayout: "reading" },
   },
   {
     id: "assessmentOverview",
-    path: "/courses/:courseRef/assessments/:assessmentRef",
+    path: "/courses/:courseInstanceId/assessments/:assessmentId",
     surface: "Student Assessment Access",
     // ASVS 8.3.1: client admission targets the separately role-gated Student landing route;
     // the server remains the authorization boundary for the exact Student Record.
@@ -249,7 +249,7 @@ export const ROUTE_CONTRACT = [
   },
   {
     id: "assessmentAttempt",
-    path: "/assessment-attempts/:assessmentAttemptRef",
+    path: "/assessment-attempts/:assessmentAttemptId",
     surface: "One-question-at-a-time attempt loop",
     requiredProductRoles: ["student"],
     ribbon: {
@@ -261,7 +261,7 @@ export const ROUTE_CONTRACT = [
   },
   {
     id: "assessmentAttemptSummary",
-    path: "/assessment-attempts/:assessmentAttemptRef/summary",
+    path: "/assessment-attempts/:assessmentAttemptId/summary",
     surface: "Assessment Attempt result and practice re-entry",
     requiredProductRoles: ["student"],
     ribbon: {
@@ -309,7 +309,7 @@ export const ROUTE_CONTRACT = [
   },
   {
     id: "questionDetail",
-    path: "/library/:questionRef",
+    path: "/library/:questionId",
     surface: "Published question detail",
     requiredProductRoles: ["instructor", "sysadmin"],
     ribbon: {
@@ -370,7 +370,7 @@ export const ROUTE_CONTRACT = [
   },
   {
     id: "blueprintCourseDetail",
-    path: "/blueprint-courses/:blueprintCourseRef",
+    path: "/blueprint-courses/:blueprintCourseId",
     surface: "Blueprint Course inspection and editor",
     requiredProductRoles: ["instructor"],
     ribbon: {
@@ -406,14 +406,14 @@ export const ROUTE_CONTRACT = [
   },
   {
     id: "assessmentCreate",
-    path: "/instructor/courses/:courseRef/assessments/new",
+    path: "/instructor/courses/:courseInstanceId/assessments/new",
     surface: "Create persisted Assessment and enter Questions",
     requiredProductRoles: ["instructor"],
     ribbon: { scope: "courseInstance", tab: "assessments", contentLayout: "reading" },
   },
   {
     id: "assessmentWorkspaceOverview",
-    path: "/instructor/courses/:courseRef/assessments/:assessmentRef",
+    path: "/instructor/courses/:courseInstanceId/assessments/:assessmentId",
     surface: "Instructor assessment workspace overview",
     requiredProductRoles: ["instructor"],
     ribbon: {
@@ -425,7 +425,7 @@ export const ROUTE_CONTRACT = [
   },
   {
     id: "assessmentWorkspaceQuestions",
-    path: "/instructor/courses/:courseRef/assessments/:assessmentRef/questions",
+    path: "/instructor/courses/:courseInstanceId/assessments/:assessmentId/questions",
     surface: "Instructor assessment questions workspace",
     requiredProductRoles: ["instructor"],
     ribbon: {
@@ -437,7 +437,7 @@ export const ROUTE_CONTRACT = [
   },
   {
     id: "assessmentWorkspacePolicies",
-    path: "/instructor/courses/:courseRef/assessments/:assessmentRef/properties",
+    path: "/instructor/courses/:courseInstanceId/assessments/:assessmentId/properties",
     surface: "Instructor Assessment Properties workspace",
     requiredProductRoles: ["instructor"],
     ribbon: {
@@ -449,7 +449,7 @@ export const ROUTE_CONTRACT = [
   },
   {
     id: "assessmentWorkspaceStudentView",
-    path: "/instructor/courses/:courseRef/assessments/:assessmentRef/student-view",
+    path: "/instructor/courses/:courseInstanceId/assessments/:assessmentId/student-view",
     surface: "Instructor assessment Student view",
     requiredProductRoles: ["instructor"],
     ribbon: {
@@ -461,14 +461,14 @@ export const ROUTE_CONTRACT = [
   },
   {
     id: "gradebook",
-    path: "/instructor/courses/:courseRef/gradebook",
+    path: "/instructor/courses/:courseInstanceId/gradebook",
     surface: "Answer-free Gradebook evidence",
     requiredProductRoles: ["instructor"],
     ribbon: { scope: "courseInstance", tab: "gradebook", contentLayout: "fullWidth" },
   },
   {
     id: "courseAppearance",
-    path: "/instructor/courses/:courseRef/appearance",
+    path: "/instructor/courses/:courseInstanceId/appearance",
     surface: "Instructor Course Appearance",
     requiredProductRoles: ["instructor"],
     ribbon: {
@@ -480,7 +480,7 @@ export const ROUTE_CONTRACT = [
   },
   {
     id: "courseRoster",
-    path: "/instructor/courses/:courseRef/students",
+    path: "/instructor/courses/:courseInstanceId/students",
     surface: "Course roster, invitations, and import",
     requiredProductRoles: ["instructor"],
     ribbon: { scope: "courseInstance", tab: "students", contentLayout: "fullWidth" },

@@ -15,7 +15,7 @@ use question_model::BlueprintCourseId;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    BlueprintCourseRouteState, instructor_session_hash, parse_reference, route_error,
+    BlueprintCourseRouteState, instructor_session_hash, parse_blueprint_course_id, route_error,
     store_error_response, unavailable,
 };
 
@@ -65,7 +65,7 @@ pub(super) async fn list_history(
         Ok(value) => value,
         Err(_) => return route_error(StatusCode::BAD_REQUEST, "Blueprint history page is invalid"),
     };
-    let reference = match parse_reference(&reference) {
+    let reference = match parse_blueprint_course_id(&reference) {
         Ok(value) => value,
         Err(response) => return *response,
     };

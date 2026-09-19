@@ -57,7 +57,7 @@ export function AssessmentStudentTimeAccommodations(props: {
     setRosterLoading(true);
     setMessage("");
     try {
-      const value = await api.getLiveCourseRoster(workspace.courseReference);
+      const value = await api.getLiveCourseRoster(workspace.courseInstanceId);
       if (request !== rosterRequestNumber) return;
       setRoster(value.filter((entry) => entry.state === "activeStudent"));
       setRosterLoaded(true);
@@ -81,8 +81,8 @@ export function AssessmentStudentTimeAccommodations(props: {
     setBusy(true);
     try {
       const value = await api.getAssessmentStudentTimeAccommodation(
-        workspace.courseReference,
-        workspace.assessmentReference,
+        workspace.courseInstanceId,
+        workspace.assessmentId,
         rosterId,
       );
       if (request === requestNumber && student() === rosterId) accept(value);
@@ -105,8 +105,8 @@ export function AssessmentStudentTimeAccommodations(props: {
     setMessage("");
     try {
       const value = await api.saveAssessmentStudentTimeAccommodation(
-        workspace.courseReference,
-        workspace.assessmentReference,
+        workspace.courseInstanceId,
+        workspace.assessmentId,
         rosterId,
         { timeMultiplier, expectedEditNumber: current.editNumber },
       );

@@ -1,4 +1,4 @@
-// ribbon_m9_responsive_harness.tsx - real DOM seam for responsive Ribbon evidence.
+// ribbon_responsive_harness.tsx - real DOM seam for responsive Ribbon evidence.
 
 import { createSignal } from "solid-js";
 import { render } from "solid-js/web";
@@ -33,7 +33,7 @@ function selectTask(model: RibbonModel, taskId: RibbonDestinationId): RibbonMode
   };
 }
 
-export interface RibbonM9ResponsiveHarness {
+export interface RibbonResponsiveHarness {
   readonly dispose: () => void;
   readonly setRoleHome: (productRole: ProductRole) => void;
   readonly selectTask: (taskId: RibbonDestinationId) => void;
@@ -42,7 +42,7 @@ export interface RibbonM9ResponsiveHarness {
 }
 
 /** Mounts the compiled Ribbon without an application, session, or route runtime. */
-export function mountRibbonM9ResponsiveHarness(target: HTMLElement): RibbonM9ResponsiveHarness {
+export function mountRibbonResponsiveHarness(target: HTMLElement): RibbonResponsiveHarness {
   const [model, setModel] = createSignal<RibbonModel>(M6_RIBBON_FIXTURES.courseInstructor);
   // The corpus contexts emulate reduced motion; make that shell-owned user
   // preference explicit rather than letting a static fixture silently test

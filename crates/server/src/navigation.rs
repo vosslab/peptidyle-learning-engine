@@ -30,7 +30,7 @@ pub fn navigation_router(
 ) -> Router {
     Router::new()
         .route(
-            "/api/navigation/{reference}",
+            "/api/navigation/{course_instance_id}",
             get(resolve_course_navigation),
         )
         .with_state(NavigationRouteState { sessions, courses })

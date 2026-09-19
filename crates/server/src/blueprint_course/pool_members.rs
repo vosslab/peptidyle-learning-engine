@@ -11,7 +11,7 @@ use learning_data_access::BlueprintCourseStore;
 use question_model::{BlueprintAssessmentId, QuestionId};
 
 use super::{
-    BlueprintCourseRouteState, concealed, instructor_session_hash, parse_reference,
+    BlueprintCourseRouteState, concealed, instructor_session_hash, parse_blueprint_course_id,
     store_error_response,
 };
 
@@ -20,7 +20,7 @@ pub(super) async fn load_pool_members(
     headers: HeaderMap,
     Path((reference, assessment, pool)): Path<(String, String, String)>,
 ) -> Response {
-    let reference = match parse_reference(&reference) {
+    let reference = match parse_blueprint_course_id(&reference) {
         Ok(value) => value,
         Err(response) => return *response,
     };

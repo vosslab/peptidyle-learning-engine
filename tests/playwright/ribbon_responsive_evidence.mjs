@@ -9,14 +9,17 @@ import {
   RIBBON_RESPONSIVE_PROFILES,
   SYSADMIN_DESKTOP_CONTEXT_OPTIONS,
 } from "./ui_corpus_manifest.ts";
-import { bundleRibbonM9ResponsiveHarness } from "../support/ribbon_m9_responsive_loader.ts";
+import { bundleRibbonResponsiveHarness } from "../support/ribbon_responsive_loader.ts";
 
-const globalCss = readFileSync(new URL("../../src/style.css", import.meta.url), "utf8");
+const globalCss = [
+  readFileSync(new URL("../../src/style.css", import.meta.url), "utf8"),
+  readFileSync(new URL("../../src/style_responsive.css", import.meta.url), "utf8"),
+].join("\n");
 const accessibilityCss = readFileSync(
   new URL("../../src/styles/accessibility.css", import.meta.url),
   "utf8",
 );
-const bundle = await bundleRibbonM9ResponsiveHarness();
+const bundle = await bundleRibbonResponsiveHarness();
 const bundleUrl = `data:text/javascript;base64,${Buffer.from(bundle.javascript).toString(
   "base64",
 )}`;
@@ -27,8 +30,8 @@ const markup = [
   "\nhtml,body{margin:0;min-inline-size:0}.m9-root{min-inline-size:0}</style>",
   '</head><body><div id="root" class="m9-root"></div>',
   '<script type="module">',
-  `import { mountRibbonM9ResponsiveHarness } from "${bundleUrl}";`,
-  'window.ribbonM9 = mountRibbonM9ResponsiveHarness(document.querySelector("#root"));',
+  `import { mountRibbonResponsiveHarness } from "${bundleUrl}";`,
+  'window.ribbonResponsive = mountRibbonResponsiveHarness(document.querySelector("#root"));',
   "</script></body></html>",
 ].join("");
 
@@ -170,8 +173,8 @@ async function assertSysadminDesktopRibbon(browser) {
     const pageErrors = [];
     page.on("pageerror", (error) => pageErrors.push(error.message));
     await page.setContent(markup);
-    await page.waitForFunction(() => "ribbonM9" in window);
-    await page.evaluate(() => window.ribbonM9.setRoleHome("sysadmin"));
+    await page.waitForFunction(() => "ribbonResponsive" in window);
+    await page.evaluate(() => window.ribbonResponsive.setRoleHome("sysadmin"));
     await flush(page);
 
     const evidence = await ribbonEvidence(page, "sysadmin_desktop");
@@ -489,11 +492,11 @@ async function restoreSelectedTabVisibility(page) {
     );
     if (!(alternative instanceof HTMLElement) || alternative.dataset.ribbonControl === undefined)
       return;
-    window.ribbonM9.selectTab(alternative.dataset.ribbonControl);
+    window.ribbonResponsive.selectTab(alternative.dataset.ribbonControl);
   }, selectedId);
   await flush(page);
   await page.evaluate(
-    (currentSelectedId) => window.ribbonM9.selectTab(currentSelectedId),
+    (currentSelectedId) => window.ribbonResponsive.selectTab(currentSelectedId),
     selectedId,
   );
   await flush(page);
@@ -501,7 +504,7 @@ async function restoreSelectedTabVisibility(page) {
 
 async function assertRoleHomeTabRoundTrips(page, profile) {
   for (const productRole of ["instructor", "student", "sysadmin"]) {
-    await page.evaluate((role) => window.ribbonM9.setRoleHome(role), productRole);
+    await page.evaluate((role) => window.ribbonResponsive.setRoleHome(role), productRole);
     await flush(page);
     await restoreSelectedTabVisibility(page);
     await assertEveryTabReachable(page, `${profile}:${productRole}-home`);
@@ -521,11 +524,11 @@ async function restoreSelectedTaskVisibility(page) {
     );
     if (!(alternative instanceof HTMLElement) || alternative.dataset.ribbonControl === undefined)
       return;
-    window.ribbonM9.selectTask(alternative.dataset.ribbonControl);
+    window.ribbonResponsive.selectTask(alternative.dataset.ribbonControl);
   }, selectedId);
   await flush(page);
   await page.evaluate(
-    (currentSelectedId) => window.ribbonM9.selectTask(currentSelectedId),
+    (currentSelectedId) => window.ribbonResponsive.selectTask(currentSelectedId),
     selectedId,
   );
   await flush(page);
@@ -534,8 +537,8 @@ async function restoreSelectedTaskVisibility(page) {
 async function assertLateSelectedTaskAutoReveal(page, profile) {
   await page.evaluate(() => {
     document.documentElement.style.fontSize = "200%";
-    window.ribbonM9.setFixture("productInstructor");
-    window.ribbonM9.selectTask("searchQuestionLibrary");
+    window.ribbonResponsive.setFixture("productInstructor");
+    window.ribbonResponsive.selectTask("searchQuestionLibrary");
   });
   await flush(page);
 
@@ -690,7 +693,7 @@ try {
   });
   const contextCuePage = await contextCueContext.newPage();
   await contextCuePage.setContent(markup);
-  await contextCuePage.waitForFunction(() => "ribbonM9" in window);
+  await contextCuePage.waitForFunction(() => "ribbonResponsive" in window);
   await flush(contextCuePage);
   await assertContextCueBlend(contextCuePage, "narrow_phone:author-colors");
   await contextCueContext.close();
@@ -701,7 +704,7 @@ try {
     const pageErrors = [];
     page.on("pageerror", (error) => pageErrors.push(error.message));
     await page.setContent(markup);
-    await page.waitForFunction(() => "ribbonM9" in window);
+    await page.waitForFunction(() => "ribbonResponsive" in window);
     await flush(page);
 
     const baseline = await ribbonEvidence(page, profile.id);
@@ -718,10 +721,10 @@ try {
     await restoreSelectedTabVisibility(page);
     await restoreSelectedTaskVisibility(page);
     await assertRoleHomeTabRoundTrips(page, profile.id);
-    await page.evaluate(() => window.ribbonM9.setFixture("courseInstructor"));
+    await page.evaluate(() => window.ribbonResponsive.setFixture("courseInstructor"));
     await flush(page);
 
-    await page.evaluate(() => window.ribbonM9.setFixture("longCourse"));
+    await page.evaluate(() => window.ribbonResponsive.setFixture("longCourse"));
     await flush(page);
     const longTitle = await ribbonEvidence(page, profile.id);
     assertResponsiveRows(longTitle, `${profile.id}:long-title`, declaredWidth);
@@ -759,7 +762,7 @@ try {
       await assertLateSelectedTaskAutoReveal(page, "narrow_phone:200-percent-text");
     }
 
-    await page.evaluate(() => window.ribbonM9.setFixture("courseStudent"));
+    await page.evaluate(() => window.ribbonResponsive.setFixture("courseStudent"));
     await flush(page);
     const taskless = await ribbonEvidence(page, `${profile.id}:taskless`);
     assert.equal(taskless.taskRow, "absent", `${profile.id}: taskless route declares no Task Row`);
@@ -767,7 +770,7 @@ try {
     await assertPinnedOverflowCues(page, `${profile.id}:taskless`);
     await assertEveryTabReachable(page, `${profile.id}:taskless`);
 
-    await page.evaluate(() => window.ribbonM9.setFixture("courseInstructor"));
+    await page.evaluate(() => window.ribbonResponsive.setFixture("courseInstructor"));
     await flush(page);
     const taskfulAgain = await ribbonEvidence(page, `${profile.id}:taskful-again`);
     assert.equal(
@@ -782,8 +785,8 @@ try {
       const unhandled = [];
       const recordUnhandled = (event) => unhandled.push(String(event.reason));
       window.addEventListener("unhandledrejection", recordUnhandled);
-      window.ribbonM9.setFixture("longCourse");
-      window.ribbonM9.dispose();
+      window.ribbonResponsive.setFixture("longCourse");
+      window.ribbonResponsive.dispose();
       await new Promise((resolve) => queueMicrotask(resolve));
       await new Promise((resolve) => requestAnimationFrame(() => resolve()));
       window.removeEventListener("unhandledrejection", recordUnhandled);

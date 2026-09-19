@@ -70,7 +70,7 @@ export interface BlueprintCourseClient extends BlueprintStewardshipClient {
   ) => Promise<BlueprintHistoryPageView>;
   readonly getBlueprintPoolMembers: (
     reference: BlueprintCourseId,
-    assessmentReference: BlueprintAssessmentId,
+    assessmentId: BlueprintAssessmentId,
     poolId: QuestionId,
   ) => Promise<BlueprintPoolMembersView>;
   readonly forkBlueprintCourse: (

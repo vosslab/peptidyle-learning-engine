@@ -91,7 +91,7 @@ export function decodeQuestionSummary(
   if (strict) {
     requireOnlyFields(record, path, [
       "questionId",
-      "latestQuestionRevision",
+      "questionRevision",
       "backend",
       "questionFormat",
       "questionType",
@@ -105,9 +105,9 @@ export function decodeQuestionSummary(
   }
   const decoded = {
     questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
-    latestQuestionRevision: decodeQuestionRevisionReference(
-      field(record, "latestQuestionRevision", path),
-      `${path}.latestQuestionRevision`,
+    questionRevision: decodeQuestionRevisionReference(
+      field(record, "questionRevision", path),
+      `${path}.questionRevision`,
       strict,
     ),
     backend: decodeStringEnum(field(record, "backend", path), `${path}.backend`, [
@@ -149,11 +149,8 @@ export function decodeQuestionSummary(
       decodeBloomClassificationView,
     ),
   } satisfies QuestionSummary;
-  if (decoded.latestQuestionRevision.questionId !== decoded.questionId) {
-    throw new DecodeError(
-      `${path}.latestQuestionRevision.questionId`,
-      "the Question Summary questionId",
-    );
+  if (decoded.questionRevision.questionId !== decoded.questionId) {
+    throw new DecodeError(`${path}.questionRevision.questionId`, "the Question Summary questionId");
   }
   if (
     (decoded.backend === "ple" && decoded.questionFormat !== "pleQuestionJson") ||

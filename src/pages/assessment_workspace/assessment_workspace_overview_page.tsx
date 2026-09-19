@@ -10,7 +10,7 @@ export function AssessmentWorkspaceOverviewPage(): JSX.Element {
   const assessment = (): ReturnType<typeof workspace.assessment>["workspace"] =>
     workspace.assessment().workspace;
   const path = (section?: "questions" | "policies"): string =>
-    assessmentWorkspacePath(workspace.courseReference, workspace.assessmentReference, section);
+    assessmentWorkspacePath(workspace.courseInstanceId, workspace.assessmentId, section);
 
   return (
     <section class="assessment-workspace-overview" aria-labelledby="assessment-workspace-heading">

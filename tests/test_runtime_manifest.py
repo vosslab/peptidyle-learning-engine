@@ -7,6 +7,7 @@ import stat
 import pytest
 
 import local_stack_control.disposable_stack_adapter
+import local_stack_control.disposable_stack_cleanup
 import local_stack_control.env_file
 import local_stack_control.models
 import local_stack_control.runtime_manifest
@@ -223,7 +224,7 @@ def test_compose_command_revalidates_its_admin_password_source(tmp_path: pathlib
 	runtime.admin_password_path.write_text("y" * 32 + "\n", encoding="ascii")
 	runtime.admin_password_path.chmod(0o600)
 	with pytest.raises(local_stack_control.models.ControllerError, match="postgres admin password"):
-		local_stack_control.disposable_stack_adapter.compose_command(disposable, ["up", "-d", "postgres"])
+		local_stack_control.disposable_stack_cleanup.compose_command(disposable, ["up", "-d", "postgres"])
 
 
 #============================================

@@ -65,7 +65,7 @@ function ThemePalettePreview(props: { readonly theme: CourseTheme }): JSX.Elemen
 }
 
 function AppearanceThemeEditor(props: {
-  readonly courseReference: CourseInstanceId;
+  readonly courseInstanceId: CourseInstanceId;
   readonly storedAppearance: () => CourseAppearanceView;
 }): JSX.Element {
   const applicationApi = useApplicationApi();
@@ -99,10 +99,10 @@ function AppearanceThemeEditor(props: {
     setSaveState("saving");
     setMessage("");
     try {
-      const saved = await applicationApi.client.updateCourseTheme(props.courseReference, {
+      const saved = await applicationApi.client.updateCourseTheme(props.courseInstanceId, {
         theme: selectedTheme(),
       });
-      replaceCourseAppearance(props.courseReference, saved);
+      replaceCourseAppearance(props.courseInstanceId, saved);
       presentAppearance?.(undefined);
       setSelectedTheme(saved.theme);
       setThemeDraftDirty(false);
@@ -185,7 +185,7 @@ function BannerImage(props: {
 }
 
 function AppearanceBannerEditor(props: {
-  readonly courseReference: CourseInstanceId;
+  readonly courseInstanceId: CourseInstanceId;
   readonly courseLongName: string;
   readonly storedAppearance: () => CourseAppearanceView;
 }): JSX.Element {
@@ -267,12 +267,12 @@ function AppearanceBannerEditor(props: {
     setSaveState("saving");
     setMessage("");
     try {
-      const receipt = await applicationApi.client.uploadCourseBanner(props.courseReference, image);
-      const saved = await applicationApi.client.setCourseBanner(props.courseReference, {
+      const receipt = await applicationApi.client.uploadCourseBanner(props.courseInstanceId, image);
+      const saved = await applicationApi.client.setCourseBanner(props.courseInstanceId, {
         upload: receipt.upload,
         alternativeText: selectedAlternativeText(),
       });
-      replaceCourseAppearance(props.courseReference, saved);
+      replaceCourseAppearance(props.courseInstanceId, saved);
       clearLocalPreview();
       setFile(undefined);
       if (fileInput !== undefined) fileInput.value = "";
@@ -288,8 +288,8 @@ function AppearanceBannerEditor(props: {
     setSaveState("saving");
     setMessage("");
     try {
-      const saved = await applicationApi.client.removeCourseBanner(props.courseReference);
-      replaceCourseAppearance(props.courseReference, saved);
+      const saved = await applicationApi.client.removeCourseBanner(props.courseInstanceId);
+      replaceCourseAppearance(props.courseInstanceId, saved);
       setSaveState("saved");
       setMessage("Banner removed.");
     } catch {
@@ -469,9 +469,9 @@ export function CourseAppearancePage(): JSX.Element {
               <h1>Course Appearance</h1>
               <p>Choose the palette and banner used throughout this Course Instance.</p>
             </header>
-            <AppearanceThemeEditor courseReference={summary.id} storedAppearance={appearance} />
+            <AppearanceThemeEditor courseInstanceId={summary.id} storedAppearance={appearance} />
             <AppearanceBannerEditor
-              courseReference={summary.id}
+              courseInstanceId={summary.id}
               courseLongName={summary.longName}
               storedAppearance={appearance}
             />

@@ -263,9 +263,9 @@ export function mountStudentCourseEntryM6Harness(
         <MemoryRouter history={history} root={HarnessRoot}>
           <Route path="/" component={StudentCoursesPage} />
           <Route path="/student" component={StudentCoursesPage} />
-          <Route path="/student/courses/:courseRef" component={StudentCourseLandingPage} />
+          <Route path="/student/courses/:courseInstanceId" component={StudentCourseLandingPage} />
           <Route
-            path="/courses/:courseRef/assessments/:assessmentRef"
+            path="/courses/:courseInstanceId/assessments/:assessmentId"
             component={AssessmentOverviewPage}
           />
           <Route

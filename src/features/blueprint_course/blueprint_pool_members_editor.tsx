@@ -17,8 +17,8 @@ type PoolEntry = Extract<BlueprintAssessmentEntryInput, { kind: "pool" }>;
 
 export interface BlueprintPoolMembersEditorProps {
   readonly entry: PoolEntry;
-  readonly blueprintRef: string;
-  readonly assessmentRef: string;
+  readonly blueprintCourseId: string;
+  readonly assessmentId: string;
   readonly client: BlueprintCourseClient;
   readonly editable: boolean;
   readonly pickerRepository: QuestionPickerSourceRepository;
@@ -55,8 +55,8 @@ export function BlueprintPoolMembersEditor(props: BlueprintPoolMembersEditorProp
   async function loadMembers(): Promise<void> {
     try {
       const result = await props.client.getBlueprintPoolMembers(
-        props.blueprintRef,
-        props.assessmentRef,
+        props.blueprintCourseId,
+        props.assessmentId,
         questionPoolId,
       );
       if (disposed) return;

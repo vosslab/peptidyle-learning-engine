@@ -37,8 +37,8 @@ export interface BlueprintAssessmentContentEditorProps {
   readonly content: BlueprintAssessmentContentInput;
   /** Saved server view used only to present current Pool ID and Edit Number. */
   readonly savedContent?: BlueprintAssessmentContentView;
-  readonly blueprintRef?: string;
-  readonly retainedAssessmentRef?: string;
+  readonly blueprintCourseId?: string;
+  readonly retainedAssessmentId?: string;
   readonly blueprintClient?: BlueprintCourseClient;
   readonly editable: boolean;
   readonly pickerRepository: QuestionPickerSourceRepository;
@@ -323,8 +323,8 @@ export function BlueprintAssessmentContentEditor(
                         when={
                           entry.kind === "pool" &&
                           entry.pool.kind === "retained" &&
-                          props.retainedAssessmentRef &&
-                          props.blueprintRef &&
+                          props.retainedAssessmentId &&
+                          props.blueprintCourseId &&
                           props.blueprintClient
                         }
                         fallback={
@@ -405,8 +405,8 @@ export function BlueprintAssessmentContentEditor(
                     when={
                       selected().kind === "pool" &&
                       props.blueprintClient &&
-                      props.blueprintRef &&
-                      props.retainedAssessmentRef
+                      props.blueprintCourseId &&
+                      props.retainedAssessmentId
                     }
                   >
                     <BlueprintPoolMembersEditor
@@ -416,8 +416,8 @@ export function BlueprintAssessmentContentEditor(
                           { kind: "pool" }
                         >
                       }
-                      blueprintRef={props.blueprintRef!}
-                      assessmentRef={props.retainedAssessmentRef!}
+                      blueprintCourseId={props.blueprintCourseId!}
+                      assessmentId={props.retainedAssessmentId!}
                       client={props.blueprintClient!}
                       editable={props.editable}
                       pickerRepository={props.pickerRepository}

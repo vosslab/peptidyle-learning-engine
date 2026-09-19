@@ -38,11 +38,11 @@ function isAssessmentAttemptSummary(pathname: string): boolean {
 function scopeCacheKey(scope: RouteScopeKey, pathname: string): string | undefined {
   switch (scope.kind) {
     case "courseInstance":
-      return `course:${scope.courseReference}`;
+      return `course:${scope.courseInstanceId}`;
     case "assessmentAttempt":
       return (
         `${isAssessmentAttemptSummary(pathname) ? "attempt-summary" : "attempt-screen"}:` +
-        scope.assessmentAttemptReference
+        scope.assessmentAttemptId
       );
     case "product":
     case "invalid":
@@ -110,18 +110,18 @@ export function createRouteScopeController(
     switch (scope.kind) {
       case "courseInstance":
         request = queries
-          .courseScope(scope.courseReference)
+          .courseScope(scope.courseInstanceId)
           .then((course) => ({ kind: "course", course }));
         break;
       case "assessmentAttempt":
         if (!isAssessmentAttemptSummary(pathnameForScope)) {
-          request = assessmentAttemptScope(scope.assessmentAttemptReference).then(
+          request = assessmentAttemptScope(scope.assessmentAttemptId).then(
             (context) => ({ kind: "assessmentAttempt", context }) as const,
           );
           break;
         }
         request = queries
-          .assessmentAttemptHistory(scope.assessmentAttemptReference)
+          .assessmentAttemptHistory(scope.assessmentAttemptId)
           .then((history) => ({ kind: "assessmentAttemptHistory", history }) as const);
         break;
       case "product":
@@ -180,7 +180,7 @@ export function createRouteScopeController(
         break;
       case "assessmentAttempt":
         if (!isAssessmentAttemptSummary(pathnameForScope)) {
-          assessmentAttemptScopes.delete(scope.assessmentAttemptReference);
+          assessmentAttemptScopes.delete(scope.assessmentAttemptId);
         }
         break;
       case "product":
@@ -193,7 +193,7 @@ export function createRouteScopeController(
   };
 
   const replaceCourseAppearance: ReplaceCourseAppearance = (
-    courseReference: CourseInstanceId,
+    courseInstanceId: CourseInstanceId,
     appearance: CourseAppearanceView,
   ): void => {
     let changed = false;
@@ -201,7 +201,7 @@ export function createRouteScopeController(
       if (
         entry.state !== "resolved" ||
         entry.data.kind === "assessmentAttempt" ||
-        courseRouteView(entry.data).summary.id !== courseReference
+        courseRouteView(entry.data).summary.id !== courseInstanceId
       )
         continue;
       entries.set(key, { state: "resolved", data: withCourseAppearance(entry.data, appearance) });

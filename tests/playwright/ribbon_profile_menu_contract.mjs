@@ -12,22 +12,25 @@ import { readFileSync } from "node:fs";
 
 import { chromium } from "playwright";
 
-import { bundleRibbonM9ResponsiveHarness } from "../support/ribbon_m9_responsive_loader.ts";
+import { bundleRibbonResponsiveHarness } from "../support/ribbon_responsive_loader.ts";
 
-const globalCss = readFileSync(new URL("../../src/style.css", import.meta.url), "utf8");
+const globalCss = [
+  readFileSync(new URL("../../src/style.css", import.meta.url), "utf8"),
+  readFileSync(new URL("../../src/style_responsive.css", import.meta.url), "utf8"),
+].join("\n");
 const accessibilityCss = readFileSync(
   new URL("../../src/styles/accessibility.css", import.meta.url),
   "utf8",
 );
-const bundle = await bundleRibbonM9ResponsiveHarness();
+const bundle = await bundleRibbonResponsiveHarness();
 const bundleUrl = `data:text/javascript;base64,${Buffer.from(bundle.javascript).toString("base64")}`;
 const markup = [
   "<!doctype html><html><head>",
   `<style>${globalCss}\n${accessibilityCss}\n${bundle.stylesheet}</style>`,
   '</head><body><div id="root"></div><button id="outside">Outside</button>',
   '<script type="module">',
-  `import { mountRibbonM9ResponsiveHarness } from "${bundleUrl}";`,
-  'window.ribbonM9 = mountRibbonM9ResponsiveHarness(document.querySelector("#root"));',
+  `import { mountRibbonResponsiveHarness } from "${bundleUrl}";`,
+  'window.ribbonResponsive = mountRibbonResponsiveHarness(document.querySelector("#root"));',
   "</script></body></html>",
 ].join("");
 
@@ -40,7 +43,7 @@ const browser = await chromium.launch({ headless: true });
 try {
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   await page.setContent(markup);
-  await page.waitForFunction(() => "ribbonM9" in window);
+  await page.waitForFunction(() => "ribbonResponsive" in window);
   await page.evaluate(() => {
     window.profileMenuSignOutActions = 0;
     document.addEventListener("ple-ribbon-action", (event) => {
@@ -62,7 +65,7 @@ try {
 
   assert.equal(await page.getByRole("button", { name: "Sign out", exact: true }).count(), 0);
   for (const role of ["student", "instructor", "sysadmin"]) {
-    await page.evaluate((productRole) => window.ribbonM9.setRoleHome(productRole), role);
+    await page.evaluate((productRole) => window.ribbonResponsive.setRoleHome(productRole), role);
     await flush(page);
     await profile.click();
     await menu.waitFor({ state: "visible" });
@@ -75,7 +78,7 @@ try {
     await page.keyboard.press("Escape");
   }
 
-  await page.evaluate(() => window.ribbonM9.setRoleHome("instructor"));
+  await page.evaluate(() => window.ribbonResponsive.setRoleHome("instructor"));
   await flush(page);
   await profile.focus();
   await page.keyboard.press("ArrowDown");

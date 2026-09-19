@@ -532,8 +532,8 @@ export function AssessmentWorkspaceQuestionsView(
         <A
           class="quiet-link"
           href={assessmentWorkspacePath(
-            workspace.courseReference,
-            workspace.assessmentReference,
+            workspace.courseInstanceId,
+            workspace.assessmentId,
             "policies",
           )}
         >

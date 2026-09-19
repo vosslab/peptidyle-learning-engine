@@ -12,7 +12,7 @@ function questionLibraryEntry(questionId, questionTitle, revisionNumber) {
     summary: {
       ...publishedQuestion,
       questionId,
-      latestQuestionRevision: { questionId, revisionNumber },
+      questionRevision: { questionId, revisionNumber },
       metadata: { ...publishedQuestion.metadata, questionTitle },
     },
     disciplineName: "Biology",

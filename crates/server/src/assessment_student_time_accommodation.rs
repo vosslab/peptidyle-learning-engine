@@ -28,7 +28,7 @@ pub fn assessment_student_time_accommodation_router(
     store: PostgresAssessmentStudentTimeAccommodationStore,
 ) -> Router {
     Router::new().route(
-        "/api/course-instances/{course}/assessments/{assessment}/student-time-accommodations/{roster_id}",
+        "/api/course-instances/{course_instance_id}/assessments/{assessment_id}/student-time-accommodations/{roster_id}",
         get(read).put(save),
     ).with_state(RouteState { sessions, store })
 }

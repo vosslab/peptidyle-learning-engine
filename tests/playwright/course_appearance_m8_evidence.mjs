@@ -12,6 +12,7 @@ import { bundleCourseAppearanceM7Harness } from "../support/course_appearance_m7
 const bundle = await bundleCourseAppearanceM7Harness();
 const css = [
   readFileSync(new URL("../../src/style.css", import.meta.url), "utf8"),
+  readFileSync(new URL("../../src/style_responsive.css", import.meta.url), "utf8"),
   readFileSync(new URL("../../src/styles/accessibility.css", import.meta.url), "utf8"),
 ].join("\n");
 const server = createServer((request, response) => {

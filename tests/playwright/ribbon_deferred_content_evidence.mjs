@@ -13,6 +13,7 @@ import { bundleRibbonDeferredContentHarness } from "../support/ribbon_deferred_c
 
 const css = [
   readFileSync(new URL("../../src/style.css", import.meta.url), "utf8"),
+  readFileSync(new URL("../../src/style_responsive.css", import.meta.url), "utf8"),
   readFileSync(new URL("../../src/styles/accessibility.css", import.meta.url), "utf8"),
 ].join("\n");
 const bundle = await bundleRibbonDeferredContentHarness();

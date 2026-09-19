@@ -168,7 +168,7 @@ test("Pool list requires complete ordered whole-result Bloom counts", () => {
 });
 
 test("Pool exact detail keeps its own assigned Bloom pair or a blank pair", () => {
-  const questionRevision = publishedQuestionFixture.publishedQuestion.latestQuestionRevision;
+  const questionRevision = publishedQuestionFixture.publishedQuestion.questionRevision;
   const detail = {
     questionPoolId: "3S8B-24DZ",
     questionPoolEditNumber: 4,
@@ -199,7 +199,7 @@ test("Pool exact detail keeps its own assigned Bloom pair or a blank pair", () =
 });
 
 test("Assessment-owned Pool fork keeps its own assigned Bloom pair or a blank pair", () => {
-  const questionRevision = publishedQuestionFixture.publishedQuestion.latestQuestionRevision;
+  const questionRevision = publishedQuestionFixture.publishedQuestion.questionRevision;
   const fork = {
     assessmentEntryId: "00000000-0000-0000-0000-000000000011",
     questionPoolId: "3S8B-24DZ",

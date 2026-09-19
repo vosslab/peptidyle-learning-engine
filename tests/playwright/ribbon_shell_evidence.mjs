@@ -1,153 +1,25 @@
-// ribbon_m10_shell_evidence.mjs - compiled-harness application-shell structural evidence.
+// ribbon_shell_evidence.mjs - compiled-harness application-shell structural evidence.
 // This exercises current source composition in a controlled browser fixture; it
 // does not build dist/ or replace real-stack browser acceptance.
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 
-import { chromium } from "playwright";
+import { assertDenseTopBarKeyboardTraversal } from "./ribbon_dense_top_bar_keyboard.mjs";
+import { assertNarrowRoutedShell } from "./ribbon_narrow_routed_shell.mjs";
+import {
+  assertBreadcrumbPreludeStyle,
+  assertOneStableRibbon,
+  caseLocator,
+  flush,
+  openRibbonShellEvidencePage,
+  waitForPath,
+} from "./ribbon_shell_helpers.mjs";
 
-import { bundleRibbonM10ShellHarness } from "../support/ribbon_m10_shell_loader.ts";
-import { assertDenseTopBarKeyboardTraversal } from "./ribbon_m10_dense_top_bar_keyboard.mjs";
-import { mountRibbonM10Harness, startHarnessServer } from "./ribbon_m10_harness_server.mjs";
-import { assertNarrowRoutedShell } from "./ribbon_m10_narrow_routed_shell.mjs";
-
-const globalCss = readFileSync(new URL("../../src/style.css", import.meta.url), "utf8");
-const accessibilityCss = readFileSync(
-  new URL("../../src/styles/accessibility.css", import.meta.url),
-  "utf8",
-);
-const bundle = await bundleRibbonM10ShellHarness();
-const markup = [
-  "<!doctype html><html><head><style>",
-  globalCss,
-  accessibilityCss,
-  bundle.stylesheet,
-  'html,body{margin:0;min-inline-size:0}</style></head><body><div id="root"></div></body></html>',
-].join("\n");
-
-const harnessServer = await startHarnessServer(markup);
-
-async function flush(page) {
-  await page.evaluate(() => new Promise((resolve) => queueMicrotask(resolve)));
-  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
-}
-
-function caseLocator(page, evidenceCase) {
-  return page.locator(`[data-m10-case="${evidenceCase}"]`);
-}
-
-async function assertBreadcrumbPreludeStyle(prelude, profile) {
-  const style = await prelude.evaluate((element) => {
-    const computed = getComputedStyle(element);
-    const trail = element.querySelector("ol");
-    if (!(trail instanceof HTMLElement)) throw new Error("breadcrumb trail is missing");
-    return {
-      backgroundColor: computed.backgroundColor,
-      paddingInlineStart: computed.paddingInlineStart,
-      paddingInlineEnd: computed.paddingInlineEnd,
-      trailGap: getComputedStyle(trail).gap,
-    };
-  });
-  assert.notEqual(
-    style.backgroundColor,
-    "rgba(0, 0, 0, 0)",
-    `${profile} breadcrumb prelude has a resolved nontransparent surface`,
-  );
-  assert.deepEqual(
-    {
-      paddingInlineStart: style.paddingInlineStart,
-      paddingInlineEnd: style.paddingInlineEnd,
-      trailGap: style.trailGap,
-    },
-    {
-      paddingInlineStart: profile === "narrow" ? "4px" : "16px",
-      paddingInlineEnd: profile === "narrow" ? "4px" : "16px",
-      trailGap: profile === "narrow" ? "4px" : "8px",
-    },
-    `${profile} breadcrumb prelude applies shared spacing tokens`,
-  );
-}
-
-async function waitForPath(page, evidenceCase, pathname) {
-  if (evidenceCase === "current-production") {
-    await page.waitForFunction(
-      (expectedPath) => window.ribbonM10.currentPathname() === expectedPath,
-      pathname,
-      { timeout: 3_000 },
-    );
-    await flush(page);
-    return;
-  }
-  const evidenceCaseLocator = caseLocator(page, evidenceCase);
-  try {
-    await evidenceCaseLocator
-      .locator("[data-current-path]")
-      .waitFor({ state: "attached", timeout: 3_000 });
-  } catch (error) {
-    const visibleText = await evidenceCaseLocator.innerText().catch(() => "case root missing");
-    throw new Error(
-      `${evidenceCase} did not mount its compiled-harness content boundary at ${pathname}: ` +
-        visibleText,
-      { cause: error },
-    );
-  }
-  await page.waitForFunction(
-    ({ evidenceCase: expectedCase, pathname: expectedPath }) =>
-      document
-        .querySelector(`[data-m10-case="${expectedCase}"] [data-current-path]`)
-        ?.getAttribute("data-current-path") === expectedPath,
-    { evidenceCase, pathname },
-    { timeout: 3_000 },
-  );
-  await flush(page);
-}
-
-async function assertOneStableRibbon(page, evidenceCase, initialRibbon, expectedTaskRowReserved) {
-  const evidence = await caseLocator(page, evidenceCase).evaluate(
-    (root, initial) => ({
-      sameRibbon: root.querySelector(".ple-app-ribbon") === initial,
-      roots: root.querySelectorAll(".ple-app-ribbon").length,
-      shellGrids: root.querySelectorAll(".ple-ribbon-shell-grid").length,
-      landmarks: root.querySelectorAll('[aria-label="PLE application Ribbon"]').length,
-      tabs: root.querySelectorAll('nav[aria-label="Ribbon tabs"]').length,
-      tasks: root.querySelectorAll('nav[aria-label="Ribbon tasks"]').length,
-      ribbonTaskRow: root.querySelector(".ple-app-ribbon")?.getAttribute("data-ribbon-task-row"),
-      frameTaskRow: root.querySelector(".ple-shell-frame")?.getAttribute("data-ribbon-task-row"),
-      legacyCourse: root.querySelectorAll('nav[aria-label="Course management"]').length,
-      legacyPrimary: root.querySelectorAll('nav[aria-label="Primary navigation"]').length,
-    }),
-    initialRibbon,
-  );
-  const expectedTaskRow = expectedTaskRowReserved ? "reserved" : "absent";
-  assert.deepEqual(evidence, {
-    sameRibbon: true,
-    roots: 1,
-    shellGrids: 1,
-    landmarks: 1,
-    tabs: 1,
-    tasks: expectedTaskRowReserved ? 1 : 0,
-    ribbonTaskRow: expectedTaskRow,
-    frameTaskRow: expectedTaskRow,
-    legacyCourse: 0,
-    legacyPrimary: 0,
-  });
-}
-
-const browser = await chromium.launch({ headless: true });
+const { browser, page, harnessServer, pageErrors, consoleErrors } =
+  await openRibbonShellEvidencePage();
 try {
-  const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-  const pageErrors = [];
-  const consoleErrors = [];
-  page.on("pageerror", (error) => pageErrors.push(error.message));
-  page.on("console", (message) => {
-    if (message.type() === "error") consoleErrors.push(message.text());
-  });
-  await page.goto(harnessServer.evidenceUrl);
-  await mountRibbonM10Harness(page, bundle, pageErrors, consoleErrors);
-
   // Case A: current-source App composition with its router, routes, and providers.
-  await page.evaluate(() => window.ribbonM10.currentNavigate("/"));
+  await page.evaluate(() => window.ribbonShell.currentNavigate("/"));
   await waitForPath(page, "current-production", "/");
   const currentCase = caseLocator(page, "current-production");
   await currentCase.locator(".site-header").waitFor({ state: "visible" });
@@ -166,7 +38,7 @@ try {
     1,
     "the synthetic loading surface retains the sign-out live region",
   );
-  await page.evaluate(() => window.ribbonM10.releaseSession());
+  await page.evaluate(() => window.ribbonShell.releaseSession());
   await currentCase.locator(".ple-app-ribbon").waitFor({ state: "visible" });
   assert.equal(
     await currentCase.locator(".ple-shell-frame.ple-ribbon-shell-grid").count(),
@@ -284,11 +156,11 @@ try {
   ];
   await assertDenseTopBarKeyboardTraversal(page, productKeyboardOrder);
   await currentCase.screenshot({
-    path: "/private/tmp/ple_ribbon_m10_current_production_empty.png",
+    path: "/private/tmp/ple_ribbon_shell_current_production_empty.png",
     fullPage: true,
   });
 
-  await page.evaluate(() => window.ribbonM10.currentNavigate("/courses/CI7K3M2QAZ"));
+  await page.evaluate(() => window.ribbonShell.currentNavigate("/courses/CI7K3M2QAZ"));
   await waitForPath(page, "current-production", "/courses/CI7K3M2QAZ");
   await assertOneStableRibbon(page, "current-production", currentRibbon, false);
   const deferredBreadcrumb = currentCase.locator(".ple-shell__breadcrumb-prelude");
@@ -328,35 +200,35 @@ try {
     "unresolved current-source harness course scope has no fabricated course label",
   );
   assert.equal(
-    await currentCase.locator("[data-course-reference]").count(),
+    await currentCase.locator("[data-course-instance-id]").count(),
     0,
     "unresolved current-source harness course scope has no fabricated course theme reference",
   );
   assert.equal(
-    await page.evaluate(() => window.ribbonM10.scopeRequestCount("CI7K3M2QAZ")),
+    await page.evaluate(() => window.ribbonShell.scopeRequestCount("CI7K3M2QAZ")),
     1,
     "the current-source scope controller starts exactly one deferred CI7K3M2QAZ request",
   );
   const courseInstance = currentCase.locator('[data-route-surface="courseInstance"]');
   await courseInstance.waitFor({ state: "visible" });
   assert.equal(
-    await page.evaluate(() => window.ribbonM10.courseInstanceQueryCount()),
+    await page.evaluate(() => window.ribbonShell.courseInstanceQueryCount()),
     1,
     "the current Course Instance surface resolves its exact direct-route identity once",
   );
   assert.equal(
-    await page.evaluate(() => window.ribbonM10.assessmentQueryCount()),
+    await page.evaluate(() => window.ribbonShell.assessmentQueryCount()),
     1,
     "the current Course Instance surface requests its direct-route Assessment list once",
   );
   await assertOneStableRibbon(page, "current-production", currentRibbon, false);
-  await page.evaluate(() => window.ribbonM10.releaseCourseScope("CI7K3M2QAZ"));
+  await page.evaluate(() => window.ribbonShell.releaseCourseScope("CI7K3M2QAZ"));
   await currentCase.locator(".ple-app-ribbon__course-scope-label").waitFor({ state: "visible" });
   await page.waitForFunction(
     () =>
       document
-        .querySelector('[data-m10-case="current-production"] [data-course-reference]')
-        ?.getAttribute("data-course-reference") === "CI7K3M2QAZ",
+        .querySelector('[data-ribbon-case="current-production"] [data-course-instance-id]')
+        ?.getAttribute("data-course-instance-id") === "CI7K3M2QAZ",
     undefined,
     { timeout: 3_000 },
   );
@@ -402,12 +274,12 @@ try {
       "without remounting Ribbon",
   );
   assert.equal(
-    await page.evaluate(() => window.ribbonM10.assessmentQueryCount()),
+    await page.evaluate(() => window.ribbonShell.assessmentQueryCount()),
     1,
     "route-scope label release does not restart the direct Course Assessment query",
   );
   assert.equal(
-    await page.evaluate(() => window.ribbonM10.courseInstanceQueryCount()),
+    await page.evaluate(() => window.ribbonShell.courseInstanceQueryCount()),
     1,
     "route-scope label release does not restart the direct Course Instance query",
   );
@@ -511,8 +383,8 @@ try {
     "neutral evidence capture leaves the skip link unfocused and offscreen",
   );
   const courseCaptureReadiness = await page.evaluate(() => {
-    const currentCaseRoot = document.querySelector('[data-m10-case="current-production"]');
-    const fixtureCaseRoot = document.querySelector('[data-m10-case="fixture-shell"]');
+    const currentCaseRoot = document.querySelector('[data-ribbon-case="current-production"]');
+    const fixtureCaseRoot = document.querySelector('[data-ribbon-case="fixture-shell"]');
     const mainContent = currentCaseRoot?.querySelector("#main-content");
     const skipLink = currentCaseRoot?.querySelector(".skip-link");
     if (
@@ -573,7 +445,7 @@ try {
   await page.setViewportSize({ width: 1280, height: 800 });
   await flush(page);
 
-  await page.evaluate(() => window.ribbonM10.currentNavigate("/courses/CI7K3M2"));
+  await page.evaluate(() => window.ribbonShell.currentNavigate("/courses/CI7K3M2"));
   await waitForPath(page, "current-production", "/courses/CI7K3M2");
   await assertOneStableRibbon(page, "current-production", currentRibbon, false);
   assert.deepEqual(
@@ -593,7 +465,7 @@ try {
     "a malformed Course reference keeps the declared data-free Course Instance Ribbon",
   );
 
-  await page.evaluate(() => window.ribbonM10.currentNavigate("/assessment-attempts/R-0"));
+  await page.evaluate(() => window.ribbonShell.currentNavigate("/assessment-attempts/R-0"));
   await waitForPath(page, "current-production", "/assessment-attempts/R-0");
   await assertOneStableRibbon(page, "current-production", currentRibbon, true);
   assert.deepEqual(
@@ -614,7 +486,7 @@ try {
   );
 
   await page.evaluate(() =>
-    window.ribbonM10.currentNavigate("/instructor/courses/CI7K3M2QAZ/students"),
+    window.ribbonShell.currentNavigate("/instructor/courses/CI7K3M2QAZ/students"),
   );
   await waitForPath(page, "current-production", "/instructor/courses/CI7K3M2QAZ/students");
   currentRibbon = await currentCase.locator(".ple-app-ribbon").elementHandle();
@@ -632,7 +504,10 @@ try {
     ["/assessment-attempts/00000000-0000-0000-0000-000000000001", true],
     ["/courses/CI7K3M2QAZ", false],
   ]) {
-    await page.evaluate((nextPathname) => window.ribbonM10.currentNavigate(nextPathname), pathname);
+    await page.evaluate(
+      (nextPathname) => window.ribbonShell.currentNavigate(nextPathname),
+      pathname,
+    );
     await waitForPath(page, "current-production", pathname);
     try {
       await assertOneStableRibbon(page, "current-production", currentRibbon, taskRowReserved);
@@ -657,7 +532,7 @@ try {
     "current-source App harness skip link focuses the one post-Ribbon content target",
   );
 
-  await page.evaluate(() => window.ribbonM10.currentNavigate("/sign-in"));
+  await page.evaluate(() => window.ribbonShell.currentNavigate("/sign-in"));
   await waitForPath(page, "current-production", "/sign-in");
   assert.equal(
     await currentCase.locator(".ple-app-ribbon").count(),
@@ -684,7 +559,7 @@ try {
     1,
     "the no-Ribbon sign-in surface retains the sign-out live region",
   );
-  await page.evaluate(() => window.ribbonM10.currentNavigate("/not-a-route"));
+  await page.evaluate(() => window.ribbonShell.currentNavigate("/not-a-route"));
   await waitForPath(page, "current-production", "/not-a-route");
   assert.equal(
     await currentCase.locator(".ple-app-ribbon").count(),
@@ -697,7 +572,7 @@ try {
     "unknown routes reserve no phantom Ribbon row",
   );
 
-  await page.evaluate(() => window.ribbonM10.currentNavigate("/instructor"));
+  await page.evaluate(() => window.ribbonShell.currentNavigate("/instructor"));
   await waitForPath(page, "current-production", "/instructor");
   await currentCase.getByRole("button", { name: "Profile" }).click();
   await currentCase.getByRole("menuitem", { name: "Sign out" }).click();
@@ -712,7 +587,7 @@ try {
     0,
     "sign-out removes the Ribbon grid before public sign-in",
   );
-  await page.evaluate(() => window.ribbonM10.currentNavigate("/courses/CI7K3M2QAZ"));
+  await page.evaluate(() => window.ribbonShell.currentNavigate("/courses/CI7K3M2QAZ"));
   await waitForPath(page, "current-production", "/courses/CI7K3M2QAZ");
   await currentCase.getByRole("heading", { name: "You are signed out" }).waitFor({
     state: "visible",
@@ -736,7 +611,7 @@ try {
   // Case B: ApplicationShell with an explicit structural model fixture.
   // Only one MemoryRouter may own document-level anchor interception at a
   // time. The current-source case is complete before fixture clicks begin.
-  await page.evaluate(() => window.ribbonM10.disposeCurrent());
+  await page.evaluate(() => window.ribbonShell.disposeCurrent());
   const fixtureCase = caseLocator(page, "fixture-shell");
   await waitForPath(page, "fixture-shell", "/");
   await fixtureCase.locator(".ple-app-ribbon").waitFor({ state: "visible" });
@@ -803,7 +678,7 @@ try {
   ];
   for (const transition of fixtureTransitions) {
     await page.evaluate(
-      (nextPathname) => window.ribbonM10.fixtureNavigate(nextPathname),
+      (nextPathname) => window.ribbonShell.fixtureNavigate(nextPathname),
       transition.pathname,
     );
     await waitForPath(page, "fixture-shell", transition.pathname);
@@ -843,9 +718,11 @@ try {
     }
   }
 
-  await page.evaluate(() => window.ribbonM10.fixtureNavigate("/courses/CI7K3M2QAZ"));
+  await page.evaluate(() => window.ribbonShell.fixtureNavigate("/courses/CI7K3M2QAZ"));
   await waitForPath(page, "fixture-shell", "/courses/CI7K3M2QAZ");
-  await fixtureCase.locator('[data-course-reference="CI7K3M2QAZ"]').waitFor({ state: "attached" });
+  await fixtureCase
+    .locator('[data-course-instance-id="CI7K3M2QAZ"]')
+    .waitFor({ state: "attached" });
   const fixtureThemeScope = fixtureCase.locator(".course-theme-scope");
   assert.equal(
     await fixtureThemeScope.getAttribute("data-course-theme"),
@@ -863,8 +740,8 @@ try {
   });
   await assertOneStableRibbon(page, "fixture-shell", fixtureRibbon, false);
 
-  await page.evaluate(() => window.ribbonM10.throwFixtureContent(true));
-  await page.evaluate(() => window.ribbonM10.fixtureNavigate("/courses/CI4W8QF9AD"));
+  await page.evaluate(() => window.ribbonShell.throwFixtureContent(true));
+  await page.evaluate(() => window.ribbonShell.fixtureNavigate("/courses/CI4W8QF9AD"));
   await fixtureCase.getByRole("alert").waitFor({ state: "visible" });
   await assertOneStableRibbon(page, "fixture-shell", fixtureRibbon, false);
 
@@ -872,20 +749,20 @@ try {
   await tab.waitFor({ state: "visible" });
   await tab.click();
   assert.equal(
-    await page.evaluate(() => window.ribbonM10.fixturePathname()),
+    await page.evaluate(() => window.ribbonShell.fixturePathname()),
     "/courses/CI7K3M2QAZ",
     "visible Tab activation changes the controlled content route while its error remains contained",
   );
   await assertOneStableRibbon(page, "fixture-shell", fixtureRibbon, false);
   await page.evaluate(() =>
-    window.ribbonM10.fixtureNavigate("/instructor/courses/CI7K3M2QAZ/assessments/A9D2RX5AF"),
+    window.ribbonShell.fixtureNavigate("/instructor/courses/CI7K3M2QAZ/assessments/A9D2RX5AF"),
   );
   await page.waitForFunction(
     () =>
-      window.ribbonM10.fixturePathname() ===
+      window.ribbonShell.fixturePathname() ===
         "/instructor/courses/CI7K3M2QAZ/assessments/A9D2RX5AF" &&
       document.querySelector(
-        '[data-m10-case="fixture-shell"] [data-ribbon-task-row="reserved"]',
+        '[data-ribbon-case="fixture-shell"] [data-ribbon-task-row="reserved"]',
       ) !== null,
   );
   await flush(page);
@@ -895,20 +772,20 @@ try {
   await task.focus();
   await page.keyboard.press("Enter");
   assert.equal(
-    await page.evaluate(() => window.ribbonM10.fixturePathname()),
+    await page.evaluate(() => window.ribbonShell.fixturePathname()),
     "/instructor/courses/CI7K3M2QAZ/assessments/A9D2RX5AF/questions",
     "keyboard Task activation changes the controlled content route while its " +
       "error remains contained",
   );
   await assertOneStableRibbon(page, "fixture-shell", fixtureRibbon, true);
   await fixtureCase.screenshot({
-    path: "/private/tmp/ple_ribbon_m10_fixture_shell.png",
+    path: "/private/tmp/ple_ribbon_shell_fixture_shell.png",
     fullPage: true,
   });
 
-  await page.evaluate(() => window.ribbonM10.throwFixtureContent(false));
+  await page.evaluate(() => window.ribbonShell.throwFixtureContent(false));
   await fixtureCase.getByRole("button", { name: "Try this page again" }).click();
-  await fixtureCase.locator("[data-m10-fixture-content]").waitFor({ state: "visible" });
+  await fixtureCase.locator("[data-ribbon-fixture-content]").waitFor({ state: "visible" });
   await assertOneStableRibbon(page, "fixture-shell", fixtureRibbon, true);
 
   await fixtureCase.evaluate((root) => {
@@ -921,7 +798,7 @@ try {
   });
   await flush(page);
   assert.equal(
-    await page.evaluate(() => window.ribbonM10.signOutActions()),
+    await page.evaluate(() => window.ribbonShell.signOutActions()),
     0,
     "invalid custom action is ignored",
   );
@@ -935,7 +812,7 @@ try {
   });
   await flush(page);
   assert.equal(
-    await page.evaluate(() => window.ribbonM10.signOutActions()),
+    await page.evaluate(() => window.ribbonShell.signOutActions()),
     1,
     "valid closed action is handled once",
   );
@@ -946,7 +823,7 @@ try {
   await fixtureMenu.getByRole("menuitem", { name: "Sign out" }).click();
   await flush(page);
   assert.equal(
-    await page.evaluate(() => window.ribbonM10.signOutActions()),
+    await page.evaluate(() => window.ribbonShell.signOutActions()),
     2,
     "fixture click reaches the controlled sign-out callback once",
   );

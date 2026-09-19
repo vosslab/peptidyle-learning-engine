@@ -20,7 +20,10 @@ import {
   loadRibbonDesignFixtureForSsr,
 } from "../support/ribbon_design_fixture_loader.ts";
 
-const globalCss = readFileSync(new URL("../../src/style.css", import.meta.url), "utf8");
+const globalCss = [
+  readFileSync(new URL("../../src/style.css", import.meta.url), "utf8"),
+  readFileSync(new URL("../../src/style_responsive.css", import.meta.url), "utf8"),
+].join("\n");
 const accessibilityCss = readFileSync(
   new URL("../../src/styles/accessibility.css", import.meta.url),
   "utf8",
@@ -46,7 +49,7 @@ const documentMarkup = [
   stylesheetMarkup,
   `</head><body>${markup}</body></html>`,
 ].join("");
-const outputDirectory = mkdtempSync(join(tmpdir(), "ple_ribbon_m9b_density_"));
+const outputDirectory = mkdtempSync(join(tmpdir(), "ple_ribbon_density_"));
 
 const FIELDSTATION_INSTRUCTOR =
   '[data-ribbon-treatment="fieldstation"] ' +

@@ -16,17 +16,17 @@ const ASSIGNMENT_WORKSPACE_SECTION_SEGMENTS = {
 
 /** The one route owner for starting a persisted Assessment and its Assessment. */
 export function assessmentWorkspaceCreatePath(
-  courseReference: CourseInstanceRouteReference,
+  courseInstanceId: CourseInstanceRouteReference,
 ): string {
-  return `/instructor/courses/${courseReference}/assessments/new`;
+  return `/instructor/courses/${courseInstanceId}/assessments/new`;
 }
 
 export function assessmentWorkspacePath(
-  courseReference: CourseInstanceRouteReference,
-  assessmentReference: AssessmentRouteReference,
+  courseInstanceId: CourseInstanceRouteReference,
+  assessmentId: AssessmentRouteReference,
   section?: AssessmentWorkspaceSection,
 ): string {
-  const base = `/instructor/courses/${courseReference}/assessments/${assessmentReference}`;
+  const base = `/instructor/courses/${courseInstanceId}/assessments/${assessmentId}`;
   const segment = ASSIGNMENT_WORKSPACE_SECTION_SEGMENTS[section ?? "overview"];
   return segment.length === 0 ? base : `${base}/${segment}`;
 }

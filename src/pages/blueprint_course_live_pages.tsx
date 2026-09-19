@@ -51,7 +51,7 @@ export function BlueprintCoursesLivePage(): JSX.Element {
   );
 }
 
-/** `/blueprint-courses/:blueprintCourseRef`: live Blueprint Course editor and inspection workspace. */
+/** `/blueprint-courses/:blueprintCourseId`: live Blueprint Course editor and inspection workspace. */
 export function BlueprintCourseDetailLivePage(): JSX.Element {
   const composition = useBlueprintCourseRouteComposition();
   const params = useParams();
@@ -61,7 +61,7 @@ export function BlueprintCourseDetailLivePage(): JSX.Element {
       proposalClient={composition.client}
       pickerRepository={composition.pickerRepository}
       pickerSources={composition.pickerSources}
-      blueprintCourseRef={params["blueprintCourseRef"] ?? ""}
+      blueprintCourseId={params["blueprintCourseId"] ?? ""}
     />
   );
 }

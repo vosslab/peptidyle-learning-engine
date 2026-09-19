@@ -164,7 +164,7 @@ export function GradebookPage(): JSX.Element {
   const params = useParams();
   // ASVS 2.2.1/8.3.1: validate the locator here; the server retains authorization.
   const course = (): ReturnType<typeof parseCourseInstanceId> =>
-    parseCourseInstanceId(params["courseRef"] ?? "");
+    parseCourseInstanceId(params["courseInstanceId"] ?? "");
   return (
     <Show
       when={course()}

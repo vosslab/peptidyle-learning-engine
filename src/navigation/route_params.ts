@@ -17,13 +17,13 @@ import { routeContractForPathname, type RibbonScope, type RouteContract } from "
 export type DeclaredRouteScope = RibbonScope;
 
 export type RouteParamName =
-  | "courseRef"
-  | "assessmentRef"
-  | "assessmentAttemptRef"
+  | "courseInstanceId"
+  | "assessmentId"
+  | "assessmentAttemptId"
   | "membershipRef"
-  | "questionRef"
+  | "questionId"
   | "draftQuestionId"
-  | "blueprintCourseRef"
+  | "blueprintCourseId"
   | "proposalId";
 
 /**
@@ -36,11 +36,11 @@ export type RouteScopeKey =
   | { readonly kind: "product" }
   | {
       readonly kind: "courseInstance";
-      readonly courseReference: CourseInstanceRouteReference;
+      readonly courseInstanceId: CourseInstanceRouteReference;
     }
   | {
       readonly kind: "assessmentAttempt";
-      readonly assessmentAttemptReference: AssessmentAttemptRouteReference;
+      readonly assessmentAttemptId: AssessmentAttemptRouteReference;
     }
   | {
       readonly kind: "invalid";
@@ -50,13 +50,13 @@ export type RouteScopeKey =
 type RouteParamParser = (value: string) => string | null;
 
 const ROUTE_PARAM_PARSERS: Readonly<Record<RouteParamName, RouteParamParser>> = {
-  courseRef: parseCourseInstanceId,
-  assessmentRef: parseAssessmentId,
-  assessmentAttemptRef: parseAssessmentAttemptReference,
+  courseInstanceId: parseCourseInstanceId,
+  assessmentId: parseAssessmentId,
+  assessmentAttemptId: parseAssessmentAttemptReference,
   membershipRef: parseCourseMembershipReference,
-  questionRef: parseQuestionRouteReference,
+  questionId: parseQuestionRouteReference,
   draftQuestionId: parseDraftQuestionId,
-  blueprintCourseRef: parseBlueprintCourseId,
+  blueprintCourseId: parseBlueprintCourseId,
   proposalId: parseBlueprintChangeProposalHandle,
 };
 
@@ -121,16 +121,16 @@ export function routeScopeKey(pathname: string): RouteScopeKey {
 
   if (scope === "product") return { kind: "product" };
   if (scope === "courseInstance") {
-    const courseReference = params.courseRef;
-    const parsedCourseReference =
-      courseReference === undefined ? null : parseCourseInstanceId(courseReference);
-    if (parsedCourseReference === null) return invalidScope(scope);
-    return { kind: "courseInstance", courseReference: parsedCourseReference };
+    const courseInstanceId = params.courseInstanceId;
+    const parsedCourseInstanceId =
+      courseInstanceId === undefined ? null : parseCourseInstanceId(courseInstanceId);
+    if (parsedCourseInstanceId === null) return invalidScope(scope);
+    return { kind: "courseInstance", courseInstanceId: parsedCourseInstanceId };
   }
 
-  const attemptReference = params.assessmentAttemptRef;
+  const attemptReference = params.assessmentAttemptId;
   const parsedAttemptReference =
     attemptReference === undefined ? null : parseAssessmentAttemptReference(attemptReference);
   if (parsedAttemptReference === null) return invalidScope(scope);
-  return { kind: "assessmentAttempt", assessmentAttemptReference: parsedAttemptReference };
+  return { kind: "assessmentAttempt", assessmentAttemptId: parsedAttemptReference };
 }

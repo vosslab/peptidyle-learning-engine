@@ -212,7 +212,6 @@ export function createRequestClient(
     saveAssessmentContent: (
       courseId,
       assessmentId,
-      _assessmentReference,
       input: AssessmentContentInput,
       assessmentEtag,
     ): ReturnType<ApiClient["saveAssessmentContent"]> => {

@@ -1,9 +1,8 @@
 # Identity contracts
 
 This document maps PLE identities to the current product model in
-[HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md). A current database or route name may
-still contain `assignment` or another superseded term; that is implementation
-evidence, not a second product vocabulary.
+[HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md). Generic teaching objects are
+Assessments. Assignment appears only in the three Assessment Type names.
 
 ## Rules that apply everywhere
 

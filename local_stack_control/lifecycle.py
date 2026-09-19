@@ -7,8 +7,10 @@ import collections.abc
 import secrets
 
 import local_stack_control.compose
-import local_stack_control.disposable_stack_adapter
+import local_stack_control.disposable_stack_cleanup
 import local_stack_control.discovery
+import local_stack_control.lifecycle_provision
+import local_stack_control.lifecycle_renderer
 import local_stack_control.env_file
 import local_stack_control.image_cleanup
 import local_stack_control.lifecycle_validation
@@ -75,6 +77,34 @@ compose_run = local_stack_control.lifecycle_commands.compose_run
 report_step = local_stack_control.lifecycle_commands.report_step
 require_command = local_stack_control.lifecycle_commands.require_command
 validate_compose = local_stack_control.lifecycle_commands.validate_compose
+renderer_readiness_report = local_stack_control.lifecycle_renderer.renderer_readiness_report
+wait_for_renderer_ready = local_stack_control.lifecycle_renderer.wait_for_renderer_ready
+attest_renderer = local_stack_control.lifecycle_renderer.attest_renderer
+probe_renderer = local_stack_control.lifecycle_renderer.probe_renderer
+require_attested_running_renderer = (
+	local_stack_control.lifecycle_renderer.require_attested_running_renderer
+)
+require_running_renderer = local_stack_control.lifecycle_renderer.require_running_renderer
+question_renderer_version_directory = (
+	local_stack_control.lifecycle_renderer.question_renderer_version_directory
+)
+write_question_renderer_version = (
+	local_stack_control.lifecycle_renderer.write_question_renderer_version
+)
+require_question_renderer_version = (
+	local_stack_control.lifecycle_renderer.require_question_renderer_version
+)
+provision_ready_installation_data = (
+	local_stack_control.lifecycle_provision.provision_ready_installation_data
+)
+record_live_demo_persona_account_ids = (
+	local_stack_control.lifecycle_provision.record_live_demo_persona_account_ids
+)
+provision_local_sysadmin_totp = (
+	local_stack_control.lifecycle_provision.provision_local_sysadmin_totp
+)
+
+
 #============================================
 def target_of(
 	target: local_stack_control.models.ComposeTarget | local_stack_control.models.DisposableComposeTarget,
@@ -572,62 +602,6 @@ def wait_for_postgres(target: local_stack_control.models.ComposeTarget, runner: 
 
 
 #============================================
-def renderer_readiness_report(
-	report: local_stack_control.models.StatusReport,
-	oci_id: str,
-) -> local_stack_control.models.StatusReport:
-	"""Classify only the selected renderer before API or gateway recreation."""
-	containers = tuple(
-		item for item in report.snapshot.containers if item.service == "webwork-renderer"
-	)
-	if len(containers) != 1:
-		raise local_stack_control.models.ControllerError(
-			"renderer service is missing or ambiguous"
-		)
-	container = containers[0]
-	if container.state == "exited":
-		raise local_stack_control.models.ControllerError(
-			"renderer exited before readiness; retained stack resources are available for diagnostics"
-		)
-	if container.image_id != oci_id:
-		raise local_stack_control.models.ControllerError(
-			"running renderer does not match the selected OCI configuration"
-		)
-	if not container.running or container.health != "healthy":
-		return dataclasses.replace(
-			report,
-			ok=False,
-			state="starting",
-			message="renderer is starting",
-		)
-	local_stack_control.renderer.require_running_renderer(report, oci_id)
-	return dataclasses.replace(report, ok=True, state="ready", message="renderer is ready")
-
-
-#============================================
-def wait_for_renderer_ready(
-	target: local_stack_control.models.ComposeTarget,
-	runner: local_stack_control.process.CommandRunner,
-	options: LifecycleOptions,
-	oci_id: str,
-	*,
-	read_status: StatusRead | None = None,
-	poll_ready: ReadinessPoll = local_stack_control.lifecycle_wait.poll_ready,
-) -> None:
-	"""Await the one selected healthy renderer before its behavior is probed."""
-	status_reader = read_status
-	if status_reader is None:
-		def status_reader() -> local_stack_control.models.StatusReport:
-			return status_report(target, runner)
-
-	def read_report() -> local_stack_control.models.StatusReport:
-		report = status_reader()
-		return renderer_readiness_report(report, oci_id)
-
-	poll_ready(read_report, options.timeout_seconds)
-
-
-#============================================
 def synchronize_database(
 	target: local_stack_control.models.ComposeTarget
 	| local_stack_control.models.DisposableComposeTarget,
@@ -646,7 +620,7 @@ def synchronize_database(
 	environment["PGPASSWORD"] = password
 	argv = local_stack_control.compose.compose_argv(selected, ["exec", "-T", "postgres", "psql", "-v", "ON_ERROR_STOP=1", "-U", values["POSTGRES_USER"], "-d", values["POSTGRES_DB"]])
 	sql = postgres_role_sql(values["POSTGRES_USER"], password)
-	private_values = local_stack_control.disposable_stack_adapter.private_environment_values(
+	private_values = local_stack_control.disposable_stack_cleanup.private_environment_values(
 		selected.env_file
 	)
 	def read_report() -> local_stack_control.models.StatusReport:
@@ -694,61 +668,6 @@ database_url = local_stack_control.lifecycle_migrations.database_url
 
 
 #============================================
-def attest_renderer(target: local_stack_control.models.ComposeTarget, runner: local_stack_control.process.CommandRunner, repo_root: pathlib.Path, values: dict[str, str], oci_id: str) -> None:
-	"""Prove renderer identity and behavior before replacing its private attestation."""
-	require_running_renderer(target, runner, oci_id)
-	probe_renderer(target, runner, repo_root, oci_id)
-	write_question_renderer_version(target, values, oci_id)
-
-
-#============================================
-def probe_renderer(target: local_stack_control.models.ComposeTarget, runner: local_stack_control.process.CommandRunner, repo_root: pathlib.Path, oci_id: str) -> None:
-	"""Exercise the exact selected renderer through its label-resolved container."""
-	container = local_stack_control.renderer.require_running_renderer(status_report(target, runner), oci_id)
-	probe = (repo_root / "containers/webwork/probe_render_api.sh").read_text(encoding="utf-8")
-	result = runner.run(["podman", "exec", "-i", container.id, "bash", "-s", "--", "--exercise"], {name: value for name, value in child_environment(target).items() if name in ("PATH", "HOME")}, repo_root, probe)
-	require_command(result, "renderer render and grade probe")
-
-
-#============================================
-def require_attested_running_renderer(target: local_stack_control.models.ComposeTarget, runner: local_stack_control.process.CommandRunner, values: dict[str, str], oci_id: str) -> None:
-	"""Require the running renderer and its private preexisting OCI attestation."""
-	require_running_renderer(target, runner, oci_id)
-	require_question_renderer_version(target, values, oci_id)
-
-
-#============================================
-def require_running_renderer(target: local_stack_control.models.ComposeTarget, runner: local_stack_control.process.CommandRunner, oci_id: str) -> None:
-	"""Require the single selected renderer to be healthy and image-matched."""
-	local_stack_control.renderer.require_running_renderer(status_report(target, runner), oci_id)
-
-
-#============================================
-def question_renderer_version_directory(target: local_stack_control.models.ComposeTarget, values: dict[str, str]) -> pathlib.Path:
-	"""Resolve the fixed private Question Renderer Version directory."""
-	version_path = absolute_value_path(target.repo_root, values["PLE_WEBWORK_RENDERER_VERSION_FILE"])
-	if version_path.name != local_stack_control.renderer.QUESTION_RENDERER_VERSION_NAME:
-		raise local_stack_control.models.ControllerError("selected Question Renderer Version path has an invalid name")
-	return version_path.parent
-
-
-#============================================
-def write_question_renderer_version(target: local_stack_control.models.ComposeTarget, values: dict[str, str], oci_id: str) -> None:
-	"""Record the exact Question Renderer Version after a successful probe."""
-	version = local_stack_control.models.QuestionRendererVersion(values["PLE_WEBWORK_RENDERER_IMAGE"], oci_id)
-	local_stack_control.renderer.write_question_renderer_version(question_renderer_version_directory(target, values), version)
-
-
-#============================================
-def require_question_renderer_version(target: local_stack_control.models.ComposeTarget, values: dict[str, str], oci_id: str) -> None:
-	"""Require the current Question Renderer Version before renderer recovery."""
-	local_stack_control.renderer.require_question_renderer_version(
-		question_renderer_version_directory(target, values), oci_id
-	)
-
-
-#============================================
-#============================================
 def run_api_initializers(target: local_stack_control.models.ComposeTarget, runner: local_stack_control.process.CommandRunner, options: LifecycleOptions) -> None:
 	"""Refresh API-owned initializers before recreating API-owned stateless services."""
 	for service in ("identity-secret-init",):
@@ -787,91 +706,6 @@ def retains_live_demo_persona_configuration(
 
 
 #============================================
-def provision_ready_installation_data(
-	target: LifecycleTarget,
-	runner: local_stack_control.process.CommandRunner,
-	*,
-	without_live_demo: bool,
-) -> None:
-	"""Run canonical bundled-content provisioning after application readiness."""
-	selected = target_of(target)
-	command = [
-		"--profile", "migration", "run", "--rm", "--no-deps",
-		"database-migrator", "installation-data", "provision",
-	]
-	if without_live_demo:
-		command.append("--without-live-demo")
-	result = runner.run(
-		local_stack_control.compose.compose_argv(
-			selected, command,
-		),
-		child_environment(selected),
-		selected.repo_root,
-	)
-	private_values = local_stack_control.disposable_stack_adapter.private_environment_values(
-		selected.env_file
-	)
-	require_command(result, "Installation content provisioning", private_values)
-
-
-#============================================
-def record_live_demo_persona_account_ids(
-	target: LifecycleTarget,
-	runner: local_stack_control.process.CommandRunner,
-) -> None:
-	"""Write server-minted persona Account IDs after installation-data provision."""
-	selected = target_of(target)
-	local_stack_control.env_file.require_mutation_env_file(selected.env_file)
-	result = runner.run(
-		local_stack_control.compose.compose_argv(
-			selected,
-			[
-				"--profile", "migration", "run", "--rm", "--no-deps",
-				"--entrypoint", "/bin/sh", "database-migrator", "-ec",
-				local_stack_control.live_demo_seed.seeded_account_id_query_script(),
-			],
-		),
-		child_environment(selected),
-		selected.repo_root,
-	)
-	private_values = local_stack_control.disposable_stack_adapter.private_environment_values(
-		selected.env_file
-	)
-	require_command(result, "Live Demo Account ID recording", private_values)
-	try:
-		minted = local_stack_control.live_demo_seed.parse_seeded_account_id_report(
-			result.stdout
-		)
-	except ValueError as error:
-		raise local_stack_control.models.ControllerError(str(error)) from error
-	values = local_stack_control.env_file.env_settings(selected.env_file)
-	values.update(minted)
-	content = "".join(f"{name}={value}\n" for name, value in values.items()).encode("utf-8")
-	local_stack_control.private_files.write_atomic_file(selected.env_file, content, 0o600)
-
-
-#============================================
-def provision_local_sysadmin_totp(
-	target: LifecycleTarget,
-	runner: local_stack_control.process.CommandRunner,
-) -> None:
-	"""Run the non-listening Morgan seed wrapper after Account installation."""
-	selected = target_of(target)
-	result = runner.run(
-		local_stack_control.compose.compose_argv(
-			selected,
-			["run", "--rm", "--no-deps", "api", "--provision-local-sysadmin-totp"],
-		),
-		child_environment(selected),
-		selected.repo_root,
-	)
-	private_values = local_stack_control.disposable_stack_adapter.private_environment_values(
-		selected.env_file
-	)
-	require_command(result, "Local Sysadmin TOTP provisioning", private_values)
-
-
-#============================================
 def require_bundled_genetics_without_live_demo(
 	target: LifecycleTarget,
 	runner: local_stack_control.process.CommandRunner,
@@ -893,7 +727,7 @@ def require_bundled_genetics_without_live_demo(
 		child_environment(selected),
 		selected.repo_root,
 	)
-	private_values = local_stack_control.disposable_stack_adapter.private_environment_values(
+	private_values = local_stack_control.disposable_stack_cleanup.private_environment_values(
 		selected.env_file
 	)
 	require_command(result, "Bundled Genetics without Live Demo oracle", private_values)

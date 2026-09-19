@@ -270,7 +270,7 @@ async function prepare(runtime: ScenarioRuntime): Promise<ReadonlyMap<string, Ex
     const idsToAdd: string[] = [];
     for (const { summary } of selected) {
       // Exact discovered ID + immutable Revision, not a first-row or title-only guess.
-      const identity = `${summary.questionId} * Revision ${summary.latestQuestionRevision.revisionNumber}:`;
+      const identity = `${summary.questionId} * Revision ${summary.questionRevision.revisionNumber}:`;
       const row = available.getByRole("listitem").filter({ hasText: identity });
       await row.first().waitFor();
       if ((await row.count()) !== 1)
@@ -307,7 +307,7 @@ async function prepare(runtime: ScenarioRuntime): Promise<ReadonlyMap<string, Ex
     await page.getByText(/^Assessment released\. Current edit number: [1-9][0-9]*\.$/u).waitFor();
     return new Map(
       selected.map(({ example, summary }) => [
-        `${summary.questionId}:${summary.latestQuestionRevision.revisionNumber}`,
+        `${summary.questionId}:${summary.questionRevision.revisionNumber}`,
         example,
       ]),
     );

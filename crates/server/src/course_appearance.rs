@@ -61,15 +61,15 @@ pub fn course_appearance_router(
 ) -> Router {
     Router::new()
         .route(
-            "/api/course-instances/{course}/appearance",
+            "/api/course-instances/{course_instance_id}/appearance",
             get(read_appearance).put(update_theme),
         )
         .route(
-            "/api/course-instances/{course}/appearance/banner-uploads",
+            "/api/course-instances/{course_instance_id}/appearance/banner-uploads",
             post(stage_banner_upload),
         )
         .route(
-            "/api/course-instances/{course}/appearance/banner",
+            "/api/course-instances/{course_instance_id}/appearance/banner",
             axum::routing::put(promote_banner).delete(remove_banner),
         )
         .route(

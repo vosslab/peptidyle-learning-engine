@@ -12,7 +12,7 @@ use browser_api_contract::blueprint_course::{
 use learning_data_access::{ApplyBlueprintForkInput, BlueprintCourseStore};
 
 use super::{
-    BlueprintCourseRouteState, instructor_session_hash, parse_reference, route_error,
+    BlueprintCourseRouteState, instructor_session_hash, parse_blueprint_course_id, route_error,
     store_error_response, unavailable,
 };
 
@@ -22,7 +22,7 @@ pub(super) async fn apply_fork_update(
     Path(reference): Path<String>,
     payload: Result<Json<BlueprintForkApplyRequest>, JsonRejection>,
 ) -> Response {
-    let reference = match parse_reference(&reference) {
+    let reference = match parse_blueprint_course_id(&reference) {
         Ok(value) => value,
         Err(response) => return *response,
     };

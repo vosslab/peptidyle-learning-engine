@@ -4,7 +4,7 @@ import pathlib
 import secrets
 
 import local_stack_control.compose
-import local_stack_control.disposable_stack_adapter
+import local_stack_control.disposable_stack_cleanup
 import local_stack_control.env_file
 import local_stack_control.lifecycle_commands
 import local_stack_control.lifecycle_database
@@ -78,7 +78,7 @@ def run_database_command(
 		environment,
 		target.repo_root,
 	)
-	private_values = local_stack_control.disposable_stack_adapter.private_environment_values(
+	private_values = local_stack_control.disposable_stack_cleanup.private_environment_values(
 		target.env_file
 	)
 	if migration_url is not None:
@@ -116,7 +116,7 @@ def build_database_migrator(
 		local_stack_control.lifecycle_commands.child_environment(target),
 		target.repo_root,
 	)
-	private_values = local_stack_control.disposable_stack_adapter.private_environment_values(
+	private_values = local_stack_control.disposable_stack_cleanup.private_environment_values(
 		target.env_file
 	)
 	local_stack_control.lifecycle_commands.require_command(

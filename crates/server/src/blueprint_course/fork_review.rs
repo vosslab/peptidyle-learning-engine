@@ -15,7 +15,8 @@ use learning_data_access::{BlueprintComparisonSources, BlueprintLineageStore, St
 use question_model::blueprint_course::{BlueprintComparisonInventory, compare_blueprint_courses};
 
 use super::{
-    BlueprintCourseRouteState, instructor_session_hash, parse_reference, store_error_response,
+    BlueprintCourseRouteState, instructor_session_hash, parse_blueprint_course_id,
+    store_error_response,
 };
 
 pub(super) async fn load_comparison(
@@ -24,11 +25,11 @@ pub(super) async fn load_comparison(
     Path((left, right)): Path<(String, String)>,
 ) -> Response {
     // ASVS 2.2.1, 2.2.2: validate both identifiers at the trusted boundary.
-    let left = match parse_reference(&left) {
+    let left = match parse_blueprint_course_id(&left) {
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let right = match parse_reference(&right) {
+    let right = match parse_blueprint_course_id(&right) {
         Ok(value) => value,
         Err(response) => return *response,
     };

@@ -7,7 +7,7 @@ import { RIBBON_TASK_CATALOG, TAB_CATALOG } from "../src/ribbon/ribbon_catalog.t
 const CATALOG = [...TAB_CATALOG, ...RIBBON_TASK_CATALOG];
 
 function paramsInPath(path) {
-  return [...path.matchAll(/:([A-Za-z]+Ref)/g)].map((match) => match[1]);
+  return [...path.matchAll(/:([A-Za-z][A-Za-z0-9]*)/g)].map((match) => match[1]);
 }
 
 test("catalog route destinations name declared routes and their complete parameter boundary", () => {

@@ -30,15 +30,15 @@ pub fn course_roster_router(
 ) -> Router {
     Router::new()
         .route(
-            "/api/course-instances/{reference}/roster",
+            "/api/course-instances/{course_instance_id}/roster",
             get(list_course_roster).post(import_course_roster),
         )
         .route(
-            "/api/course-instances/{reference}/roster/claim",
+            "/api/course-instances/{course_instance_id}/roster/claim",
             post(claim_course_invitation),
         )
         .route(
-            "/api/course-instances/{reference}/roster/{roster_id}/revoke",
+            "/api/course-instances/{course_instance_id}/roster/{roster_id}/revoke",
             post(revoke_course_roster_entry),
         )
         .with_state(CourseRosterRouteState { sessions, roster })

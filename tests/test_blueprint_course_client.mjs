@@ -33,7 +33,7 @@ function contentInput() {
     entries: [
       {
         kind: "fixed",
-        published_question: publishedQuestion.latestQuestionRevision,
+        published_question: publishedQuestion.questionRevision,
         points_possible: "2",
         scoring_rule: "normal",
         question_attempt_limit: { maxAttempts: null },
@@ -74,7 +74,7 @@ function modules() {
               {
                 kind: "fixed",
                 question: {
-                  reference: publishedQuestion.latestQuestionRevision,
+                  reference: publishedQuestion.questionRevision,
                   question_library: {
                     summary: publishedQuestion,
                     disciplineName: "Biology",

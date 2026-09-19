@@ -167,7 +167,7 @@ const capabilityViolations = JSON.parse(
     JSON.stringify({
       questions: [
         {
-          question: fixture.questionSummary.latestQuestionRevision,
+          question: fixture.questionSummary.questionRevision,
           questionBackendCapabilities: [],
         },
       ],

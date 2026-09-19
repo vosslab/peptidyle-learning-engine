@@ -1,0 +1,283 @@
+/* app_ribbon_density.css - phone density, overflow cues, and reduced-motion Ribbon composition. */
+
+/* Legacy non-Student phone density and bounded task-control overflow. */
+@media (max-width: 24rem) {
+  .ple-app-ribbon__link--standard,
+  .ple-app-ribbon__link--compact {
+    gap: var(--ple-ribbon-space-tight);
+    padding-inline: var(--ple-ribbon-space-tight);
+    font-size: 0.64rem;
+  }
+
+  .ple-app-ribbon__link .ple-app-ribbon__icon {
+    inline-size: 0.75em;
+    block-size: 0.75em;
+  }
+
+  /* At enlarged text, one long selected Task can exceed its cue-safe
+     scrollport. Keep its icon-and-text control inside that usable width so
+     the selection reveal has a complete target rather than an unresolvable
+     clipped edge. */
+  .ple-app-ribbon__tasks .ple-app-ribbon__link {
+    max-inline-size: calc(100dvw - var(--ple-ribbon-space-cue) - var(--ple-ribbon-space-cue) - 1px);
+  }
+
+  .ple-app-ribbon__tasks .ple-app-ribbon__control-label {
+    min-inline-size: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* Touch profiles change only the declared profile token; catalog role and
+   priority remain absent from the visual cascade. */
+@media (pointer: coarse) {
+  :root {
+    --ple-ribbon-top-block-size: 3.25rem;
+    --ple-ribbon-task-block-size: 2.75rem;
+  }
+
+  .ple-app-ribbon {
+    --ple-ribbon-space-row: var(--ple-space-2);
+    --ple-ribbon-space-inline: var(--ple-space-2);
+  }
+
+  .ple-app-ribbon__link,
+  .ple-app-ribbon__brand,
+  .ple-app-ribbon__profile {
+    min-block-size: 2.75rem;
+    min-inline-size: 2.75rem;
+    padding-block: var(--ple-ribbon-space-tight);
+  }
+
+  .ple-app-ribbon__context-identity,
+  .ple-app-ribbon__context-details {
+    gap: var(--ple-ribbon-space-tight);
+  }
+
+  .ple-app-ribbon__context-details {
+    font-size: 0.82rem;
+  }
+}
+
+@media (forced-colors: active) {
+  .ple-app-ribbon {
+    background-image: none;
+    border-block-end-color: ButtonText;
+    box-shadow: none;
+  }
+
+  .ple-app-ribbon__top-bar,
+  .ple-app-ribbon__tasks {
+    background-image: none;
+    box-shadow: none;
+  }
+
+  .ple-app-ribbon__context-identity,
+  .ple-app-ribbon__context-details > span + span,
+  .ple-app-ribbon__profile {
+    border-color: ButtonText;
+  }
+
+  .ple-app-ribbon__course-scope-label::before {
+    background: Highlight;
+  }
+
+  /* Gradients are deliberately suppressed by forced-colors mode. Keep the
+     overflow state discoverable with a directional system-color marker that
+     is independent of the author palette. */
+  .ple-app-ribbon__overflow-cue[data-ribbon-overflow-active="true"] {
+    display: grid;
+    inline-size: max(1.25rem, var(--ple-ribbon-space-cue));
+    place-items: center;
+    border-inline: 1px solid ButtonText;
+    background: Canvas;
+    color: ButtonText;
+    forced-color-adjust: none;
+  }
+
+  .ple-app-ribbon__overflow-cue[data-ribbon-overflow-active="true"]::before {
+    font-size: 1.125rem;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .ple-app-ribbon__overflow-cue--start[data-ribbon-overflow-active="true"]::before {
+    content: "\2039";
+  }
+
+  .ple-app-ribbon__overflow-cue--end[data-ribbon-overflow-active="true"]::before {
+    content: "\203a";
+  }
+
+  .ple-app-ribbon__tabs .ple-app-ribbon__link[aria-current="page"] {
+    color: ButtonText;
+    background: Canvas;
+    font-weight: 800;
+    outline: 1px solid Highlight;
+  }
+
+  .ple-app-ribbon__tabs .ple-app-ribbon__link[aria-current="page"]::after {
+    background: Highlight;
+  }
+
+  .ple-app-ribbon__tasks .ple-app-ribbon__link[aria-current="page"] {
+    /* Keep the chosen task as a system-paired text/background control. The
+       underline and contrasting border retain selected identity when color is
+       unavailable, while the explicit adjustment prevents a blank remap. */
+    color: HighlightText;
+    border: 1px solid HighlightText;
+    background-color: Highlight;
+    background-image: none;
+    outline: 1px solid ButtonText;
+    outline-offset: 1px;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    forced-color-adjust: none;
+  }
+
+  .ple-app-ribbon__task-area + .ple-app-ribbon__task-area {
+    border-inline-start-color: ButtonText;
+  }
+
+  .ple-app-ribbon__link--unavailable {
+    border-color: GrayText;
+    color: GrayText;
+  }
+
+  .ple-app-ribbon__link:focus-visible,
+  .ple-app-ribbon__brand:focus-visible,
+  .ple-app-ribbon__profile:focus-visible,
+  .ple-app-ribbon__profile-menu-item:focus-visible {
+    outline-color: Highlight;
+    outline-offset: var(--ple-ribbon-space-tight);
+  }
+
+  .ple-app-ribbon__link:focus-visible::before,
+  .ple-app-ribbon__brand:focus-visible::before,
+  .ple-app-ribbon__profile:focus-visible::before,
+  .ple-app-ribbon__profile-menu-item:focus-visible::before {
+    border-color: ButtonText;
+  }
+}
+
+/* The shell's content prelude is deliberately outside the Ribbon grid. Its
+ * stable height lets a deferred authorized title resolve without moving any
+ * Ribbon control or changing the route-content origin. */
+.ple-shell__breadcrumb-prelude {
+  display: flex;
+  align-items: center;
+  block-size: var(--ple-control-min-height);
+  min-inline-size: 0;
+  padding-inline: var(--ple-ribbon-space-inline);
+  border-block-end: 1px solid var(--ple-border);
+  background: var(--ple-ribbon-context-surface);
+  color: var(--ple-muted);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.ple-shell__breadcrumb-prelude nav {
+  min-inline-size: 0;
+  overflow: hidden;
+}
+
+.ple-shell__breadcrumb-prelude ol {
+  display: flex;
+  gap: var(--ple-ribbon-space-control);
+  align-items: center;
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  white-space: nowrap;
+}
+
+.ple-shell__breadcrumb-prelude li {
+  display: flex;
+  flex: 0 1 auto;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ple-shell__breadcrumb-prelude li + li::before {
+  flex: 0 0 auto;
+  margin-inline-end: var(--ple-ribbon-space-control);
+  content: "/";
+}
+
+.ple-shell__breadcrumb-prelude a,
+.ple-shell__breadcrumb-prelude span {
+  display: block;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* At a phone width with enlarged text, retain the root's recognizable name
+   and allocate every remaining inline pixel to the current location. Longer
+   trails stay within the same clipped shell prelude. */
+@media (max-width: 24rem) {
+  .ple-shell__breadcrumb-prelude {
+    padding-inline: var(--ple-ribbon-space-tight);
+    font-size: 0.68rem;
+  }
+
+  .ple-shell__breadcrumb-prelude ol {
+    inline-size: 100%;
+    gap: var(--ple-ribbon-space-tight);
+  }
+
+  .ple-shell__breadcrumb-prelude nav {
+    flex: 1 0 100%;
+    inline-size: 100%;
+  }
+
+  .ple-shell__breadcrumb-prelude li:first-child {
+    flex: 0 0 7ch;
+  }
+
+  .ple-shell__breadcrumb-prelude li:last-child {
+    flex: 1 1 auto;
+  }
+
+  .ple-shell__breadcrumb-prelude li + li::before {
+    margin-inline-end: var(--ple-ribbon-space-tight);
+  }
+}
+
+/* Full labels stay reachable for every role without changing the row height. */
+.ple-shell__breadcrumb-prelude nav {
+  flex: 1 1 0;
+  inline-size: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+
+.ple-shell__breadcrumb-prelude ol {
+  inline-size: max-content;
+}
+
+.ple-shell__breadcrumb-prelude li,
+.ple-shell__breadcrumb-prelude li:first-child,
+.ple-shell__breadcrumb-prelude li:last-child {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+.ple-shell__breadcrumb-prelude a,
+.ple-shell__breadcrumb-prelude span {
+  overflow: visible;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ple-app-ribbon,
+  .ple-app-ribbon * {
+    animation: none;
+    scroll-behavior: auto;
+    transition: none;
+  }
+}

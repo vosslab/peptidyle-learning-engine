@@ -5,7 +5,7 @@ import shlex
 import pathlib
 
 import local_stack_control.compose
-import local_stack_control.disposable_stack_adapter
+import local_stack_control.disposable_stack_cleanup
 import local_stack_control.lifecycle_diagnostics
 import local_stack_control.models
 import local_stack_control.process
@@ -63,7 +63,7 @@ def validate_compose(
 		child_environment(target),
 		repo_root,
 	)
-	private_values = local_stack_control.disposable_stack_adapter.private_environment_values(
+	private_values = local_stack_control.disposable_stack_cleanup.private_environment_values(
 		target.env_file
 	)
 	require_command(result, "Compose configuration validation", private_values)
@@ -83,7 +83,7 @@ def compose_run(
 		child_environment(target),
 		target.repo_root,
 	)
-	private_values = local_stack_control.disposable_stack_adapter.private_environment_values(
+	private_values = local_stack_control.disposable_stack_cleanup.private_environment_values(
 		target.env_file
 	)
 	require_command(result, "selected Compose operation", private_values)

@@ -23,7 +23,7 @@ export function CourseRosterPage(): JSX.Element {
   const applicationApi = useApplicationApi();
   const params = useParams();
   const reference = (): CourseInstanceRouteReference | null =>
-    parseCourseInstanceId(params["courseRef"] ?? "");
+    parseCourseInstanceId(params["courseInstanceId"] ?? "");
   const [roster, { refetch }] = createResource(reference, async (course) => {
     if (course === null) throw new Error("Course Instance reference is invalid");
     return applicationApi.client.getLiveCourseRoster(course);

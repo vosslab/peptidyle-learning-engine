@@ -1,4 +1,4 @@
-// ribbon_m8_integration_harness.tsx - real DOM mount seam for Ribbon interaction evidence.
+// ribbon_integration_harness.tsx - real DOM mount seam for Ribbon interaction evidence.
 
 import { createSignal } from "solid-js";
 import { render } from "solid-js/web";
@@ -18,7 +18,7 @@ function selectTab(model: RibbonModel, tabId: RibbonTabId): RibbonModel {
   };
 }
 
-export interface RibbonM8IntegrationHarness {
+export interface RibbonIntegrationHarness {
   readonly dispose: () => void;
   readonly setReducedMotion: (value: boolean) => void;
   readonly setRoutingInFlight: (value: boolean) => void;
@@ -26,7 +26,7 @@ export interface RibbonM8IntegrationHarness {
 }
 
 /** Mounts the real AppRibbon with only shell inputs exposed to browser evidence. */
-export function mountRibbonM8IntegrationHarness(target: HTMLElement): RibbonM8IntegrationHarness {
+export function mountRibbonIntegrationHarness(target: HTMLElement): RibbonIntegrationHarness {
   const [model, setModel] = createSignal<RibbonModel>(M6_RIBBON_FIXTURES.courseInstructor);
   const [routingInFlight, setRoutingInFlight] = createSignal(false);
   const [reducedMotion, setReducedMotion] = createSignal(false);

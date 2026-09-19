@@ -19,6 +19,7 @@ import { appRoutes, notFoundRoute } from "./routes";
 // entry imports browser-only styles so shared component modules remain usable
 // by the offline Node fast lane.
 import "./ribbon/app_ribbon.css";
+import "./ribbon/app_ribbon_density.css";
 import "./components/student_assessment_presentation.css";
 import "./features/profile_avatar/provided_avatar_picker.css";
 import "./features/profile_avatar/staff_avatar_settings.css";

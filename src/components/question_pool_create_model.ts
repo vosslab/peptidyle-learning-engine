@@ -49,7 +49,7 @@ async function latestSelectedRevisions(
         throw new Error("The starting Question is already fixed at the first Pool position.");
       }
       const detail = await getQuestionDetails(questionId);
-      const reference = detail.summary.latestQuestionRevision;
+      const reference = detail.summary.questionRevision;
       if (reference.questionId !== questionId) {
         throw new Error("The selected Question did not resolve to its current published Revision.");
       }

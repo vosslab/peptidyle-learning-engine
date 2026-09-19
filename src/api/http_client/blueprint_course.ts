@@ -375,10 +375,10 @@ export function createBlueprintCourseClient(
     },
     getBlueprintPoolMembers: async (
       reference,
-      assessmentReference,
+      assessmentId,
       poolId,
     ): Promise<BlueprintPoolMembersView> => {
-      const assessment = decodeUuid(assessmentReference, "assessmentReference");
+      const assessment = decodeUuid(assessmentId, "assessmentId");
       const pool = decodeQuestionId(poolId, "poolId");
       const path = `${blueprintPath(reference)}/assessments/${encodeURIComponent(assessment)}/pools/${encodeURIComponent(pool)}/members`;
       const body = (

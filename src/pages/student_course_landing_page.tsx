@@ -92,15 +92,15 @@ function AssessmentCard(props: {
 export function StudentCourseLandingPage(): JSX.Element {
   const applicationApi = useApplicationApi();
   const params = useParams();
-  function courseReference(): ReturnType<typeof parseCourseInstanceId> {
-    return parseCourseInstanceId(params["courseRef"] ?? "");
+  function courseInstanceId(): ReturnType<typeof parseCourseInstanceId> {
+    return parseCourseInstanceId(params["courseInstanceId"] ?? "");
   }
   async function loadCourses(): Promise<ReadonlyArray<LiveStudentCourseLandingSummary>> {
     return applicationApi.client.listLiveStudentCourses();
   }
   const [courses] = createResource(loadCourses);
   const course = createMemo(() => {
-    const reference = courseReference();
+    const reference = courseInstanceId();
     if (reference === null) return undefined;
     return courses()?.find((candidate) => candidate.id === reference);
   });
@@ -113,7 +113,7 @@ export function StudentCourseLandingPage(): JSX.Element {
   const [assessments] = createResource(course, loadAssessments);
   function unavailable(): boolean {
     return (
-      courseReference() === null || courses.error !== undefined || assessments.error !== undefined
+      courseInstanceId() === null || courses.error !== undefined || assessments.error !== undefined
     );
   }
 

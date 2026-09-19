@@ -63,7 +63,7 @@ pub fn question_pool_library_router(
             post(correct_pool_bloom),
         )
         .route(
-            "/api/course-instances/{course}/assessments/{assessment}/question-pool-forks/{entry}",
+            "/api/course-instances/{course_instance_id}/assessments/{assessment_id}/question-pool-forks/{entry}",
             get(assessment_fork),
         )
         .with_state(RouteState {

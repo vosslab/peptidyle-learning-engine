@@ -153,12 +153,12 @@ export async function boundedResponseJson(
   return decodeJson(text, path);
 }
 
-function courseAppearanceViewPath(courseReference: CourseInstanceId): string {
-  if (parseCourseInstanceId(courseReference) === null) {
+function courseAppearanceViewPath(courseInstanceId: CourseInstanceId): string {
+  if (parseCourseInstanceId(courseInstanceId) === null) {
     throw new ApiProtocolError("Course Instance reference must be canonical");
   }
   // ASVS 1.2.2 and 2.2.1: positively validate, then path-encode route input.
-  return `/api/course-instances/${encodeURIComponent(courseReference)}/appearance`;
+  return `/api/course-instances/${encodeURIComponent(courseInstanceId)}/appearance`;
 }
 
 async function profileSettings(
@@ -321,9 +321,9 @@ async function fetchProfileAvatarImage(
 async function courseAppearanceView(
   fetchImplementation: ApiFetch,
   basePath: string,
-  courseReference: CourseInstanceId,
+  courseInstanceId: CourseInstanceId,
 ): Promise<CourseAppearanceView> {
-  const path = courseAppearanceViewPath(courseReference);
+  const path = courseAppearanceViewPath(courseInstanceId);
   const response = await fetchImplementation(requestPath(basePath, path), {
     headers: { accept: "application/json" },
     credentials: "same-origin",
@@ -336,10 +336,10 @@ async function courseAppearanceView(
 async function updateCourseTheme(
   fetchImplementation: ApiFetch,
   basePath: string,
-  courseReference: CourseInstanceId,
+  courseInstanceId: CourseInstanceId,
   update: CourseThemeUpdate,
 ): Promise<CourseAppearanceView> {
-  const path = courseAppearanceViewPath(courseReference);
+  const path = courseAppearanceViewPath(courseInstanceId);
   // Decode at the browser boundary before dispatch so an unknown theme is
   // refused locally and can never silently become the default palette.
   const request = decodeCourseThemeUpdate(update, "request");
@@ -358,10 +358,10 @@ async function updateCourseTheme(
 async function uploadCourseBanner(
   fetchImplementation: ApiFetch,
   basePath: string,
-  courseReference: CourseInstanceId,
+  courseInstanceId: CourseInstanceId,
   image: Blob,
 ): Promise<CourseBannerUploadReceipt> {
-  const path = `${courseAppearanceViewPath(courseReference)}/banner-uploads`;
+  const path = `${courseAppearanceViewPath(courseInstanceId)}/banner-uploads`;
   const response = await fetchImplementation(requestPath(basePath, path), {
     method: "POST",
     headers: { accept: "application/json", "content-type": "application/octet-stream" },
@@ -377,10 +377,10 @@ async function uploadCourseBanner(
 async function setCourseBanner(
   fetchImplementation: ApiFetch,
   basePath: string,
-  courseReference: CourseInstanceId,
+  courseInstanceId: CourseInstanceId,
   update: CourseBannerUpdate,
 ): Promise<CourseAppearanceView> {
-  const path = `${courseAppearanceViewPath(courseReference)}/banner`;
+  const path = `${courseAppearanceViewPath(courseInstanceId)}/banner`;
   const request = decodeCourseBannerUpdate(update, "request");
   const response = await fetchImplementation(requestPath(basePath, path), {
     method: "PUT",
@@ -397,9 +397,9 @@ async function setCourseBanner(
 async function removeCourseBanner(
   fetchImplementation: ApiFetch,
   basePath: string,
-  courseReference: CourseInstanceId,
+  courseInstanceId: CourseInstanceId,
 ): Promise<CourseAppearanceView> {
-  const path = `${courseAppearanceViewPath(courseReference)}/banner`;
+  const path = `${courseAppearanceViewPath(courseInstanceId)}/banner`;
   const response = await fetchImplementation(requestPath(basePath, path), {
     method: "DELETE",
     headers: { accept: "application/json" },
@@ -506,16 +506,16 @@ export function createResponseClient(
         cursorPath("/api/courses", cursor),
         decodeCoursePage,
       ),
-    getCourseAppearanceView: (courseReference) =>
-      courseAppearanceView(fetchImplementation, basePath, courseReference),
-    updateCourseTheme: (courseReference, update) =>
-      updateCourseTheme(fetchImplementation, basePath, courseReference, update),
-    uploadCourseBanner: (courseReference, image) =>
-      uploadCourseBanner(fetchImplementation, basePath, courseReference, image),
-    setCourseBanner: (courseReference, update) =>
-      setCourseBanner(fetchImplementation, basePath, courseReference, update),
-    removeCourseBanner: (courseReference) =>
-      removeCourseBanner(fetchImplementation, basePath, courseReference),
+    getCourseAppearanceView: (courseInstanceId) =>
+      courseAppearanceView(fetchImplementation, basePath, courseInstanceId),
+    updateCourseTheme: (courseInstanceId, update) =>
+      updateCourseTheme(fetchImplementation, basePath, courseInstanceId, update),
+    uploadCourseBanner: (courseInstanceId, image) =>
+      uploadCourseBanner(fetchImplementation, basePath, courseInstanceId, image),
+    setCourseBanner: (courseInstanceId, update) =>
+      setCourseBanner(fetchImplementation, basePath, courseInstanceId, update),
+    removeCourseBanner: (courseInstanceId) =>
+      removeCourseBanner(fetchImplementation, basePath, courseInstanceId),
     listAssessments: (courseId, cursor) =>
       requestJson(
         fetchImplementation,

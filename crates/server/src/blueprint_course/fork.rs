@@ -10,8 +10,8 @@ use question_model::{BlueprintRevision, BlueprintRevisionReference};
 
 use super::{
     BlueprintCourseRouteState, RouteLoadError, blueprint_response, concealed,
-    instructor_session_hash, load_view, parse_reference, request_checksum, store_error_response,
-    unavailable,
+    instructor_session_hash, load_view, parse_blueprint_course_id, request_checksum,
+    store_error_response, unavailable,
 };
 
 /// Forks one immutable Public or Archived source Revision. The Store derives
@@ -22,7 +22,7 @@ pub(super) async fn fork_blueprint(
     headers: HeaderMap,
     Path((reference, revision)): Path<(String, String)>,
 ) -> Response {
-    let reference = match parse_reference(&reference) {
+    let reference = match parse_blueprint_course_id(&reference) {
         Ok(value) => value,
         Err(response) => return *response,
     };

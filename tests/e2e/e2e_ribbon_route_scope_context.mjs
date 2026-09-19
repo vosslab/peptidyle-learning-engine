@@ -123,7 +123,7 @@ test("controller begins the direct Course Instance scope read before any consume
   const app = mountedController(fixture.queries, "/courses/CI7K3M2QAZ");
   assert.deepEqual(app.controller.identity(), {
     kind: "courseInstance",
-    courseReference: "CI7K3M2QAZ",
+    courseInstanceId: "CI7K3M2QAZ",
   });
   assert.ok(fixture.courseViews.has("CI7K3M2QAZ"));
   const course = courseRouteData("CI7K3M2QAZ");
@@ -166,20 +166,20 @@ test(
     const app = mountRouteScopeProviderHarness(applicationApi, "/courses/CI7K3M2QAZ");
     await nextTurn();
     assert.deepEqual(app.latest(), {
-      identity: { kind: "courseInstance", courseReference: "CI7K3M2QAZ" },
+      identity: { kind: "courseInstance", courseInstanceId: "CI7K3M2QAZ" },
       data: undefined,
     });
     const courseOne = courseRouteData("CI7K3M2QAZ");
     fixture.courseViews.get("CI7K3M2QAZ").resolve(courseOne);
     await nextTurn();
     assert.deepEqual(app.latest(), {
-      identity: { kind: "courseInstance", courseReference: "CI7K3M2QAZ" },
+      identity: { kind: "courseInstance", courseInstanceId: "CI7K3M2QAZ" },
       data: { kind: "course", course: courseOne },
     });
     app.navigate("/courses/CI4W8QF9AD");
     await nextTurn();
     assert.deepEqual(app.latest(), {
-      identity: { kind: "courseInstance", courseReference: "CI4W8QF9AD" },
+      identity: { kind: "courseInstance", courseInstanceId: "CI4W8QF9AD" },
       data: undefined,
     });
     app.navigate("/courses/CI7K3M2QAZ");
@@ -192,7 +192,7 @@ test(
     assert.deepEqual(app.latest(), {
       identity: {
         kind: "assessmentAttempt",
-        assessmentAttemptReference: "00000000-0000-0000-0000-000000000001",
+        assessmentAttemptId: "00000000-0000-0000-0000-000000000001",
       },
       data: undefined,
     });

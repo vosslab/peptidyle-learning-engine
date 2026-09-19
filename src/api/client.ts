@@ -153,25 +153,27 @@ export interface ApiClient
   readonly listCourses: (cursor?: string) => Promise<CursorPage<CourseSummary>>;
   /** Gets only the authorized current Course Appearance View. */
   readonly getCourseAppearanceView: (
-    courseReference: CourseInstanceId,
+    courseInstanceId: CourseInstanceId,
   ) => Promise<CourseAppearanceView>;
   /** Saves one independent Course Theme and returns the current aggregate appearance. */
   readonly updateCourseTheme: (
-    courseReference: CourseInstanceId,
+    courseInstanceId: CourseInstanceId,
     update: CourseThemeUpdate,
   ) => Promise<CourseAppearanceView>;
   /** Stages raw verified banner bytes for this exact Instructor and Course. */
   readonly uploadCourseBanner: (
-    courseReference: CourseInstanceId,
+    courseInstanceId: CourseInstanceId,
     image: Blob,
   ) => Promise<CourseBannerUploadReceipt>;
   /** Promotes one staged banner independently of the Course Theme. */
   readonly setCourseBanner: (
-    courseReference: CourseInstanceId,
+    courseInstanceId: CourseInstanceId,
     update: CourseBannerUpdate,
   ) => Promise<CourseAppearanceView>;
   /** Removes only the current Course Banner. */
-  readonly removeCourseBanner: (courseReference: CourseInstanceId) => Promise<CourseAppearanceView>;
+  readonly removeCourseBanner: (
+    courseInstanceId: CourseInstanceId,
+  ) => Promise<CourseAppearanceView>;
   readonly listAssessments: (
     courseId: CourseInstanceId,
     cursor?: string,
@@ -194,7 +196,6 @@ export interface ApiClient
   readonly saveAssessmentContent: (
     courseId: CourseInstanceId,
     assessmentId: AssessmentId,
-    assessmentReference: AssessmentId,
     input: AssessmentContentInput,
     assessmentEtag: string,
   ) => Promise<AssessmentEditorDetail>;

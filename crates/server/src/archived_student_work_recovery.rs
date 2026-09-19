@@ -29,7 +29,7 @@ pub fn archived_student_work_recovery_router(
 ) -> Router {
     Router::new()
         .route(
-            "/api/course-instances/{course}/student-work/recovery",
+            "/api/course-instances/{course_instance_id}/student-work/recovery",
             post(recover),
         )
         .with_state(RouteState { sessions, recovery })

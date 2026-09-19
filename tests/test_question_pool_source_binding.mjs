@@ -59,7 +59,7 @@ test("source-bound Pool members keep the exact starting Revision first", async (
     async (questionId) => {
       lookedUp.push(questionId);
       return {
-        summary: { latestQuestionRevision: { questionId, revisionNumber: 5 } },
+        summary: { questionRevision: { questionId, revisionNumber: 5 } },
         disciplineName: "Biology",
         subjectName: "Genetics",
       };

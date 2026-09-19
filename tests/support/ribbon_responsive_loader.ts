@@ -1,19 +1,19 @@
-// ribbon_m9_responsive_loader.ts - compiles the real responsive Ribbon harness.
+// ribbon_responsive_loader.ts - compiles the real responsive Ribbon harness.
 
 import { build } from "esbuild";
 import { solidPlugin } from "esbuild-plugin-solid";
 
-export interface RibbonM9ResponsiveBundle {
+export interface RibbonResponsiveBundle {
   readonly javascript: Uint8Array;
   readonly stylesheet: string;
 }
 
-export async function bundleRibbonM9ResponsiveHarness(): Promise<RibbonM9ResponsiveBundle> {
+export async function bundleRibbonResponsiveHarness(): Promise<RibbonResponsiveBundle> {
   const result = await build({
     bundle: true,
-    entryPoints: [new URL("./ribbon_m9_responsive_harness.tsx", import.meta.url).pathname],
+    entryPoints: [new URL("./ribbon_responsive_harness.tsx", import.meta.url).pathname],
     format: "esm",
-    outfile: "ribbon_m9_responsive_harness.js",
+    outfile: "ribbon_responsive_harness.js",
     platform: "browser",
     plugins: [solidPlugin({ solid: { generate: "dom", hydratable: false } })],
     write: false,

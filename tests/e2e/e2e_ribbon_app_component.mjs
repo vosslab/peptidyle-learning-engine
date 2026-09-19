@@ -19,9 +19,9 @@ const catalogById = new Map(
   [...TAB_CATALOG, ...RIBBON_TASK_CATALOG].map((control) => [control.id, control]),
 );
 const fixtureParams = {
-  courseRef: "CI7K3M2QAZ",
-  assessmentRef: "A9D2RX5AF",
-  assessmentAttemptRef: "00000000-0000-0000-0000-000000000001",
+  courseInstanceId: "CI7K3M2QAZ",
+  assessmentId: "A9D2RX5AF",
+  assessmentAttemptId: "00000000-0000-0000-0000-000000000001",
 };
 const topologyRowsTestName = [
   "AppRibbon preserves every row reserved by declared topology",
@@ -327,7 +327,10 @@ test(catalogPresentationTestName, async () => {
     );
   }
 
-  const source = readFileSync(new URL("../../src/ribbon/app_ribbon.css", import.meta.url), "utf8");
+  const source = [
+    readFileSync(new URL("../../src/ribbon/app_ribbon.css", import.meta.url), "utf8"),
+    readFileSync(new URL("../../src/ribbon/app_ribbon_density.css", import.meta.url), "utf8"),
+  ].join("\n");
   for (const alias of [
     "--ple-ribbon-space-tight",
     "--ple-ribbon-space-control",

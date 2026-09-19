@@ -48,48 +48,48 @@ pub fn assessment_release_router(
 ) -> Router {
     Router::new()
         .route(
-            "/api/course-instances/{course}/assessment-question-picker",
+            "/api/course-instances/{course_instance_id}/assessment-question-picker",
             get(list_picker),
         )
         .route(
-            "/api/course-instances/{course}/assessments",
+            "/api/course-instances/{course_instance_id}/assessments",
             get(list_assessments).post(create_assessment),
         )
         .route("/api/assessments/due-soon", get(list_assessments_due_soon))
         .route(
-            "/api/course-instances/{course}/blueprint-update-review",
+            "/api/course-instances/{course_instance_id}/blueprint-update-review",
             get(review_course_blueprint_update),
         )
         .route(
-            "/api/course-instances/{course}/assessments/{assessment}",
+            "/api/course-instances/{course_instance_id}/assessments/{assessment_id}",
             get(load_assessment).put(save_assessment),
         )
         .route(
-            "/api/course-instances/{course}/assessments/{assessment}/blueprint-update",
+            "/api/course-instances/{course_instance_id}/assessments/{assessment_id}/blueprint-update",
             get(review_blueprint_update).post(apply_blueprint_update),
         )
         .route(
-            "/api/course-instances/{course}/assessments/{assessment}/inline",
+            "/api/course-instances/{course_instance_id}/assessments/{assessment_id}/inline",
             put(save_assessment_inline),
         )
         .route(
-            "/api/course-instances/{course}/assessments/{assessment}/policies",
+            "/api/course-instances/{course_instance_id}/assessments/{assessment_id}/policies",
             put(save_base_assessment_policy),
         )
         .route(
-            "/api/course-instances/{course}/assessments/{assessment}/release-validation",
+            "/api/course-instances/{course_instance_id}/assessments/{assessment_id}/release-validation",
             get(validate_release),
         )
         .route(
-            "/api/course-instances/{course}/assessments/{assessment}/release",
+            "/api/course-instances/{course_instance_id}/assessments/{assessment_id}/release",
             post(release_assessment),
         )
         .route(
-            "/api/course-instances/{course}/assessments/{assessment}/unrelease-impact",
+            "/api/course-instances/{course_instance_id}/assessments/{assessment_id}/unrelease-impact",
             get(unrelease_impact),
         )
         .route(
-            "/api/course-instances/{course}/assessments/{assessment}/unrelease",
+            "/api/course-instances/{course_instance_id}/assessments/{assessment_id}/unrelease",
             post(unrelease_assessment),
         )
         .with_state(StateData {

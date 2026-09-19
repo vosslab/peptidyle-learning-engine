@@ -110,7 +110,7 @@ export function BlueprintCourseDetailWorkspace(
     );
   };
   async function load(keepLocalContent: boolean, keepVisible = false): Promise<void> {
-    if (parseBlueprintCourseId(props.blueprintCourseRef) === null) {
+    if (parseBlueprintCourseId(props.blueprintCourseId) === null) {
       setState("error");
       setNotice({ kind: "alert", text: "This Blueprint Course reference is invalid." });
       return;
@@ -118,7 +118,7 @@ export function BlueprintCourseDetailWorkspace(
     setRefreshFailed(false);
     if (!keepVisible) setState("loading");
     try {
-      const result = await props.client.getBlueprintCourse(props.blueprintCourseRef);
+      const result = await props.client.getBlueprintCourse(props.blueprintCourseId);
       const prior = current();
       const savedContent = replacementContentFromBlueprintModules(result.blueprintCourse.modules);
       const preserveContent = keepLocalContent || (keepVisible && dirty());
@@ -770,9 +770,9 @@ export function BlueprintCourseDetailWorkspace(
                             <section class="blueprint-course-content-card">
                               <BlueprintAssessmentContentEditor
                                 content={assessmentContent()}
-                                blueprintRef={props.blueprintCourseRef}
+                                blueprintCourseId={props.blueprintCourseId}
                                 blueprintClient={props.client}
-                                retainedAssessmentRef={((): string | undefined => {
+                                retainedAssessmentId={((): string | undefined => {
                                   const choice =
                                     current()?.content.modules[selection.moduleIndex]?.assessments[
                                       selection.assessmentIndex

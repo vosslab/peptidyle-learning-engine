@@ -70,13 +70,13 @@ const ALL_CATALOG_CONTROLS: ReadonlyArray<RibbonCatalogControl<RibbonDestination
 ];
 
 const CANONICAL_PARAMS = {
-  courseRef: "CI7K3M2QAZ",
-  assessmentRef: "A9D2RX5AF",
-  assessmentAttemptRef: "00000000-0000-0000-0000-000000000001",
+  courseInstanceId: "CI7K3M2QAZ",
+  assessmentId: "A9D2RX5AF",
+  assessmentAttemptId: "00000000-0000-0000-0000-000000000001",
   membershipRef: "M-1",
-  questionRef: "7K3M-79QP",
+  questionId: "7K3M-79QP",
   draftQuestionId: "0198e000-0000-7000-8000-000000000001",
-  blueprintCourseRef: "BP7K3M2QAF",
+  blueprintCourseId: "BP7K3M2QAF",
   proposalId: "e3396265-6653-4c65-bc9b-8d869c142d87",
 } as const satisfies Readonly<Record<RouteParamName, string>>;
 

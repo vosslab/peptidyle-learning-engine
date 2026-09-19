@@ -22,7 +22,7 @@ const origin = "https://localhost:" + port;
 const courseLongName = "Biochemistry 301: Proteins and Peptides";
 const assessmentTitle = "Chapter 1 Pilot Practice";
 const assessmentTypeLabel = "Regular Assignment";
-let assessmentReference;
+let assessmentId;
 
 async function discoverAssessmentReference(page) {
   const href = await instructorAssessmentRow(page)
@@ -77,8 +77,8 @@ async function expectRosterRow(page, rosterId) {
 async function expectGradebookRow(page, rosterId, progress, score) {
   const row = page.getByRole("row").filter({ has: page.getByText(rosterId, { exact: true }) });
   await expect(row).toHaveCount(1);
-  if (assessmentReference === undefined) throw new Error("Live Demo Assessment was not discovered");
-  await expect(row.getByText(assessmentReference, { exact: true })).toBeVisible();
+  if (assessmentId === undefined) throw new Error("Live Demo Assessment was not discovered");
+  await expect(row.getByText(assessmentId, { exact: true })).toBeVisible();
   await expect(row.getByText(progress, { exact: true })).toBeVisible();
   await expect(row.getByText(score, { exact: true })).toBeVisible();
 }
@@ -116,7 +116,7 @@ async function verifyElena(page) {
   const card = instructorAssessmentRow(page);
   await expect(card).toHaveCount(1);
   await expect(card.getByText(/Assessment 1 - Released/u)).toBeVisible();
-  assessmentReference = await discoverAssessmentReference(page);
+  assessmentId = await discoverAssessmentReference(page);
   await card.getByRole("link", { name: "Edit Assessment", exact: true }).click();
   await expect(page.locator('[data-route-surface="assessmentWorkspace"]')).toBeVisible();
   await expect(

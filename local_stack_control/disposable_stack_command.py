@@ -7,6 +7,7 @@ import sys
 
 import local_stack_control.compose
 import local_stack_control.disposable_stack_adapter
+import local_stack_control.disposable_stack_cleanup
 import local_stack_control.discovery
 import local_stack_control.models
 import local_stack_control.process
@@ -112,7 +113,7 @@ def require_empty_post_cleanup(
 		disposable.target.repo_root,
 		disposable.target.project,
 	)
-	local_stack_control.disposable_stack_adapter.require_empty_post_cleanup_snapshot(snapshot)
+	local_stack_control.disposable_stack_cleanup.require_empty_post_cleanup_snapshot(snapshot)
 
 
 #============================================
@@ -121,7 +122,7 @@ def remove_owned_project_images(
 	disposable: local_stack_control.models.DisposableComposeTarget,
 ) -> int:
 	"""Remove only policy-derived project image tags after cleanup proof."""
-	for image in local_stack_control.disposable_stack_adapter.owned_project_images(disposable):
+	for image in local_stack_control.disposable_stack_cleanup.owned_project_images(disposable):
 		exists = runner.run(["podman", "image", "exists", image], cwd=disposable.target.repo_root)
 		if exists.returncode == 1:
 			continue
@@ -145,17 +146,17 @@ def run_diagnostics(
 ) -> int:
 	"""Print bounded, redacted status and logs for the replica owner."""
 	environment = local_stack_control.disposable_stack_adapter.compose_environment(disposable)
-	commands = local_stack_control.disposable_stack_adapter.diagnostic_commands(disposable, services)
+	commands = local_stack_control.disposable_stack_cleanup.diagnostic_commands(disposable, services)
 	outputs: list[str] = []
 	ok = True
 	for argv in commands:
 		result = runner.run(argv, environment, disposable.target.repo_root)
 		ok = ok and result.ok()
 		outputs.extend((result.stdout, result.stderr))
-	private_values = local_stack_control.disposable_stack_adapter.private_environment_values(
+	private_values = local_stack_control.disposable_stack_cleanup.private_environment_values(
 		disposable.target.env_file
 	)
-	print(local_stack_control.disposable_stack_adapter.redact_diagnostics("\n".join(outputs), private_values))
+	print(local_stack_control.disposable_stack_cleanup.redact_diagnostics("\n".join(outputs), private_values))
 	return 0 if ok else 1
 
 
@@ -166,7 +167,7 @@ def print_launch_failure_evidence(
 ) -> None:
 	"""Print redacted service state and log tails on stderr before a failed launch is purged."""
 	environment = local_stack_control.disposable_stack_adapter.compose_environment(disposable)
-	private_values = local_stack_control.disposable_stack_adapter.private_environment_values(
+	private_values = local_stack_control.disposable_stack_cleanup.private_environment_values(
 		disposable.target.env_file
 	)
 	commands = (
@@ -178,7 +179,7 @@ def print_launch_failure_evidence(
 	print("Launch failure evidence (redacted; the stack is purged next):", file=sys.stderr)
 	for argv in commands:
 		result = runner.run(argv, environment, disposable.target.repo_root)
-		text = local_stack_control.disposable_stack_adapter.redact_diagnostics(
+		text = local_stack_control.disposable_stack_cleanup.redact_diagnostics(
 			result.stdout + "\n" + result.stderr, private_values
 		)
 		print(text, file=sys.stderr, flush=True)
@@ -190,7 +191,7 @@ def compose_failure_diagnostics(
 	private_values: tuple[str, ...],
 ) -> str:
 	"""Return the bounded redacted receipt for one failed closed Compose call."""
-	return local_stack_control.disposable_stack_adapter.redact_diagnostics(
+	return local_stack_control.disposable_stack_cleanup.redact_diagnostics(
 		"\n".join((result.stdout, result.stderr)), private_values
 	)
 
@@ -210,18 +211,18 @@ def read_evidence_logs(
 ) -> int:
 	"""Read the policy-selected service logs through one redacted bounded action."""
 	snapshot = local_stack_control.disposable_stack_adapter.require_current_resource_capability(runner, disposable)
-	argv, environment = local_stack_control.disposable_stack_adapter.evidence_log_command(
+	argv, environment = local_stack_control.disposable_stack_cleanup.evidence_log_command(
 		disposable, receipt_claim, snapshot
 	)
 	result = runner.run(argv, environment, disposable.target.repo_root)
-	private_values = local_stack_control.disposable_stack_adapter.private_environment_values(
+	private_values = local_stack_control.disposable_stack_cleanup.private_environment_values(
 		disposable.target.env_file
 	)
 	sys.stdout.write(
-		local_stack_control.disposable_stack_adapter.redact_evidence_logs(result.stdout, private_values)
+		local_stack_control.disposable_stack_cleanup.redact_evidence_logs(result.stdout, private_values)
 	)
 	sys.stderr.write(
-		local_stack_control.disposable_stack_adapter.redact_evidence_logs(result.stderr, private_values)
+		local_stack_control.disposable_stack_cleanup.redact_evidence_logs(result.stderr, private_values)
 	)
 	return result.returncode
 
@@ -239,8 +240,8 @@ def stop_replica_instance(
 		disposable.target.repo_root,
 		disposable.target.project,
 	)
-	local_stack_control.disposable_stack_adapter.require_capability_snapshot(disposable, before)
-	container = local_stack_control.disposable_stack_adapter.replica_stop_container(
+	local_stack_control.disposable_stack_cleanup.require_capability_snapshot(disposable, before)
+	container = local_stack_control.disposable_stack_cleanup.replica_stop_container(
 		disposable,
 		before,
 		service,
@@ -268,7 +269,7 @@ def stop_replica_instance(
 		raise local_stack_control.models.ControllerError(
 			"replica stop changed labelled persistent resource scope"
 		)
-	local_stack_control.disposable_stack_adapter.require_replica_stopped(disposable, after, container.id)
+	local_stack_control.disposable_stack_cleanup.require_replica_stopped(disposable, after, container.id)
 	return 0
 
 
@@ -280,7 +281,7 @@ def run_postgresql_count(
 ) -> int:
 	"""Run and emit only the replica profile's bounded durability counts."""
 	local_stack_control.disposable_stack_adapter.require_current_resource_capability(runner, disposable)
-	argv, environment, sql = local_stack_control.disposable_stack_adapter.postgresql_count_command(
+	argv, environment, sql = local_stack_control.disposable_stack_cleanup.postgresql_count_command(
 		disposable, attempt_id
 	)
 	result = runner.run(argv, environment, disposable.target.repo_root, sql)
@@ -290,7 +291,7 @@ def run_postgresql_count(
 		)
 	counts = result.stdout.strip()
 	if (
-		local_stack_control.disposable_stack_adapter.POSTGRESQL_ATTEMPT_COUNT_RESULT_PATTERN.fullmatch(
+		local_stack_control.disposable_stack_cleanup.POSTGRESQL_ATTEMPT_COUNT_RESULT_PATTERN.fullmatch(
 			counts
 		)
 		is None
@@ -356,8 +357,8 @@ def change_webwork_renderer(
 	after = local_stack_control.disposable_stack_adapter.require_current_resource_capability(runner, disposable)
 	changed = tuple(item for item in after.containers if item.service == service)
 	if (
-		local_stack_control.disposable_stack_adapter.persistent_scope(before)
-		!= local_stack_control.disposable_stack_adapter.persistent_scope(after)
+		local_stack_control.disposable_stack_cleanup.persistent_scope(before)
+		!= local_stack_control.disposable_stack_cleanup.persistent_scope(after)
 		or unrelated_renderer_scope(before, service) != unrelated_renderer_scope(after, service)
 		or len(changed) != 1
 		or changed[0].running != replace
@@ -381,7 +382,7 @@ def main() -> None:
 		disposable = local_stack_control.disposable_stack_adapter.disposable_target(runner, root, manifest)
 		if args.action == "compose":
 			local_stack_control.disposable_stack_adapter.require_mutating_capability(runner, disposable)
-			argv, environment = local_stack_control.disposable_stack_adapter.compose_command(
+			argv, environment = local_stack_control.disposable_stack_cleanup.compose_command(
 				disposable,
 				args.arguments,
 			)
@@ -389,7 +390,7 @@ def main() -> None:
 			if result.ok():
 				write_compose_success_output(result)
 			else:
-				private_values = local_stack_control.disposable_stack_adapter.private_environment_values(
+				private_values = local_stack_control.disposable_stack_cleanup.private_environment_values(
 					disposable.target.env_file
 				)
 				diagnostic = compose_failure_diagnostics(result, private_values)
@@ -447,7 +448,7 @@ def main() -> None:
 			print(f"Disposable stack ready: {result.gateway_url}")
 			raise SystemExit(0)
 		if args.action == "stop-outage-service":
-			completed = local_stack_control.disposable_stack_adapter.stop_declared_outage_service(runner, disposable)
+			completed = local_stack_control.disposable_stack_cleanup.stop_declared_outage_service(runner, disposable)
 			print(f"Disposable outage stopped: {completed.service}")
 			raise SystemExit(0)
 		if args.action == "stop-worker":
@@ -503,7 +504,7 @@ def main() -> None:
 			print(f"Disposable cleanup: project {disposable.target.project} is already empty")
 			result = remove_owned_project_images(runner, disposable)
 			raise SystemExit(result)
-		plan = local_stack_control.disposable_stack_adapter.cleanup_plan(runner, disposable)
+		plan = local_stack_control.disposable_stack_cleanup.cleanup_plan(runner, disposable)
 		print_cleanup_preview(plan)
 		environment = local_stack_control.disposable_stack_adapter.compose_environment(disposable)
 		result = runner.stream(list(plan.argv), environment, root)

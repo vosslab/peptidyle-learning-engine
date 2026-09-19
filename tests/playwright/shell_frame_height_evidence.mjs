@@ -14,7 +14,10 @@ import { chromium } from "playwright";
 import { bundledAppRibbonCss, loadAppRibbonForSsr } from "../support/ribbon_component_ssr.ts";
 import { M6_RIBBON_FIXTURES } from "../support/ribbon_model_fixtures.ts";
 
-const globalCss = readFileSync(new URL("../../src/style.css", import.meta.url), "utf8");
+const globalCss = [
+  readFileSync(new URL("../../src/style.css", import.meta.url), "utf8"),
+  readFileSync(new URL("../../src/style_responsive.css", import.meta.url), "utf8"),
+].join("\n");
 const accessibilityCss = readFileSync(
   new URL("../../src/styles/accessibility.css", import.meta.url),
   "utf8",

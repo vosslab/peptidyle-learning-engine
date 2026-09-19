@@ -50,12 +50,12 @@ export function AssessmentWorkspaceCreatePage(): JSX.Element {
   let titleInput: HTMLInputElement | undefined;
   const course = (): ReturnType<typeof courseRouteView>["summary"] | undefined =>
     route()?.kind === "course" ? courseRouteView(route()!).summary : undefined;
-  const courseReference = (): CourseInstanceRouteReference | null =>
-    parseCourseInstanceId(params["courseRef"] ?? "");
+  const courseInstanceId = (): CourseInstanceRouteReference | null =>
+    parseCourseInstanceId(params["courseInstanceId"] ?? "");
   const mayCreate = (): boolean => {
     const currentSession = session.state();
     const currentCourse = course();
-    const reference = courseReference();
+    const reference = courseInstanceId();
     return (
       currentSession.kind === "authenticated" &&
       currentSession.session.account.productRole === "instructor" &&
@@ -79,7 +79,7 @@ export function AssessmentWorkspaceCreatePage(): JSX.Element {
 
   async function createAssessment(): Promise<void> {
     const currentCourse = course();
-    const reference = courseReference();
+    const reference = courseInstanceId();
     if (currentCourse === undefined || reference === null || !mayCreate()) {
       setState("unavailable");
       return;
@@ -325,7 +325,7 @@ export function AssessmentWorkspaceCreatePage(): JSX.Element {
             </button>
             <A
               class="quiet-link"
-              href={`/courses/${courseReference()!}`}
+              href={`/courses/${courseInstanceId()!}`}
               aria-disabled={state() === "saving"}
               onClick={(event) => {
                 if (state() === "saving") event.preventDefault();

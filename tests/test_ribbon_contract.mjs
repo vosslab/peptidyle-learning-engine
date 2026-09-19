@@ -20,13 +20,13 @@ import { M6_RIBBON_FIXTURES } from "./support/ribbon_model_fixtures.ts";
 const PRODUCT_ROLES = ["student", "instructor", "sysadmin"];
 const LABELS = {};
 const PARAMETER_VALUES = {
-  courseRef: "CI7K3M2QAZ",
-  assessmentRef: "A9D2RX5AF",
-  assessmentAttemptRef: "00000000-0000-0000-0000-000000000001",
+  courseInstanceId: "CI7K3M2QAZ",
+  assessmentId: "A9D2RX5AF",
+  assessmentAttemptId: "00000000-0000-0000-0000-000000000001",
   membershipRef: "M-1",
-  questionRef: "7K3M-79QP",
+  questionId: "7K3M-79QP",
   draftQuestionId: "0198e000-0000-7000-8000-000000000001",
-  blueprintCourseRef: "BP7K3M2QAF",
+  blueprintCourseId: "BP7K3M2QAF",
   proposalId: "e3396265-6653-4c65-bc9b-8d869c142d87",
 };
 const CATALOG = [...TAB_CATALOG, ...RIBBON_TASK_CATALOG];
@@ -69,14 +69,14 @@ test("route construction fails closed for incomplete, surplus, and malformed inp
   assert.equal(buildRoutePath("unknown", {}), undefined);
   assert.equal(buildRoutePath("courseAssessments", {}), undefined);
   assert.equal(
-    buildRoutePath("courseAssessments", { courseRef: "CI7K3M2QAZ", extra: "x" }),
+    buildRoutePath("courseAssessments", { courseInstanceId: "CI7K3M2QAZ", extra: "x" }),
     undefined,
   );
   assert.equal(
-    buildRoutePath("courseAssessments", { courseRef: "CI7K3M2QAZ/gradebook" }),
+    buildRoutePath("courseAssessments", { courseInstanceId: "CI7K3M2QAZ/gradebook" }),
     undefined,
   );
-  assert.equal(buildRoutePath("questionDetail", { questionRef: "7K3%2FM9QP" }), undefined);
+  assert.equal(buildRoutePath("questionDetail", { questionId: "7K3%2FM9QP" }), undefined);
 });
 
 test("derived Ribbon controls are immutable model-owned descriptors", () => {
@@ -432,7 +432,11 @@ test("breadcrumb trails are canonical route projections with one current termina
       routeId === "assessmentAttempt" || routeId === "assessmentAttemptSummary"
         ? {
             ...routeState,
-            params: { ...routeState.params, courseRef: "CI7K3M2QAZ", assessmentRef: "A9D2RX5AF" },
+            params: {
+              ...routeState.params,
+              courseInstanceId: "CI7K3M2QAZ",
+              assessmentId: "A9D2RX5AF",
+            },
           }
         : routeState,
       { productRole: "instructor" },
@@ -458,7 +462,7 @@ test("breadcrumb trails are canonical route projections with one current termina
   const malformed = ROUTE_CONTRACT.find((route) => route.id === "courseAppearance");
   assert.ok(malformed);
   const invalid = deriveRibbonModel(
-    { route: malformed, params: { courseRef: "C-1/not-a-reference" } },
+    { route: malformed, params: { courseInstanceId: "C-1/not-a-reference" } },
     { productRole: "instructor" },
     labels,
   );
@@ -525,7 +529,7 @@ test("deferred scope labels retain a linked human-readable current breadcrumb", 
 
 test("deferred assessment-attempt summary retains only its linked current breadcrumb", () => {
   const state = routeStateFor("assessmentAttemptSummary");
-  assert.deepEqual(Object.keys(state.params), ["assessmentAttemptRef"]);
+  assert.deepEqual(Object.keys(state.params), ["assessmentAttemptId"]);
   const model = deriveRibbonModel(state, { productRole: "student" }, LABELS);
   assert.deepEqual(model.breadcrumbs, [
     { label: "Home", href: "/student", current: false },
@@ -565,8 +569,8 @@ test("every signed-in route reserves linked breadcrumbs rooted at its role home"
           ...state,
           params: {
             ...state.params,
-            courseRef: PARAMETER_VALUES.courseRef,
-            assessmentRef: PARAMETER_VALUES.assessmentRef,
+            courseInstanceId: PARAMETER_VALUES.courseInstanceId,
+            assessmentId: PARAMETER_VALUES.assessmentId,
           },
         },
         { productRole },

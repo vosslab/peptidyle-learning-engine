@@ -79,7 +79,7 @@ function sameQuestionRevision(
   reference: QuestionRevisionReference,
   path: string,
 ): QuestionDetails {
-  const actual = detail.summary.latestQuestionRevision;
+  const actual = detail.summary.questionRevision;
   if (
     actual.questionId !== reference.questionId ||
     actual.revisionNumber !== reference.revisionNumber

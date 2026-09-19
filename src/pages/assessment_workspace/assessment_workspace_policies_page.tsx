@@ -331,8 +331,8 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
     setReleaseValidation(undefined);
     try {
       const validation = await applicationApi.client.validateLiveAssessmentRelease(
-        workspace.courseReference,
-        workspace.assessmentReference,
+        workspace.courseInstanceId,
+        workspace.assessmentId,
       );
       setReleaseValidation(validation);
       setMessage(
@@ -377,8 +377,8 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
     if (workspace.assessment().workspace.status !== "released") return;
     try {
       const impact = await applicationApi.client.getLiveAssessmentUnreleaseImpact(
-        workspace.courseReference,
-        workspace.assessmentReference,
+        workspace.courseInstanceId,
+        workspace.assessmentId,
       );
       setUnreleaseImpact(impact);
     } catch (error: unknown) {
@@ -441,8 +441,8 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
     if (instructionSaveTimer !== undefined) window.clearTimeout(instructionSaveTimer);
   });
   const questionsPath = assessmentWorkspacePath(
-    workspace.courseReference,
-    workspace.assessmentReference,
+    workspace.courseInstanceId,
+    workspace.assessmentId,
     "questions",
   );
   return (
@@ -784,7 +784,7 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
           </A>
           <A
             class="quiet-link"
-            href={`${assessmentWorkspacePath(workspace.courseReference, workspace.assessmentReference)}/student-view`}
+            href={`${assessmentWorkspacePath(workspace.courseInstanceId, workspace.assessmentId)}/student-view`}
           >
             Open Student View
           </A>

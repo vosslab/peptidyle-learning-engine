@@ -186,7 +186,7 @@ mod tests {
         ResolvedQuestionLibraryEntry {
             summary: QuestionSummary {
                 question_id: question_id.clone(),
-                latest_question_revision: QuestionRevisionReference {
+                question_revision: QuestionRevisionReference {
                     question_id,
                     revision_number: QuestionRevisionNumber::new(1).expect("positive revision"),
                 },

@@ -206,7 +206,8 @@ test("Course classification requires a Discipline, permits absent Subject, and h
 test("dense Instructor rows remain scoped away from Student cards and product theme scope", () => {
   const courseList = readFileSync("src/pages/course_list_page.tsx", "utf8");
   const courseWorkspace = readFileSync("src/pages/course_instance_page.tsx", "utf8");
-  const styles = readFileSync("src/style.css", "utf8");
+  const styles =
+    readFileSync("src/style.css", "utf8") + readFileSync("src/style_responsive.css", "utf8");
 
   assert.match(courseList, /class="instructor-list__row instructor-list__row--course"/u);
   assert.match(courseList, /Theme: \{theme\.name\}/u);

@@ -12,6 +12,7 @@ import local_stack_control.acceptance_profile_owner
 import local_stack_control.browser_suite_lease
 import local_stack_control.compose
 import local_stack_control.disposable_stack_adapter
+import local_stack_control.disposable_stack_cleanup
 import local_stack_control.env_file
 import local_stack_control.image_cleanup
 import local_stack_control.lifecycle_commands
@@ -124,7 +125,7 @@ def _run_oracle_with_image_lease(repository_root: pathlib.Path, workspace: pathl
 	disposable = local_stack_control.disposable_stack_adapter.disposable_target(
 		runner, repository_root, manifest
 	)
-	private_values = local_stack_control.disposable_stack_adapter.private_environment_values(
+	private_values = local_stack_control.disposable_stack_cleanup.private_environment_values(
 		disposable.target.env_file
 	)
 	admin_password = _password_from_private_url(runtime.admin_url_path, "ple_e2e_migrator")
@@ -138,7 +139,7 @@ def _run_oracle_with_image_lease(repository_root: pathlib.Path, workspace: pathl
 		return result.stdout
 
 	def compose_command(arguments: list[str]) -> tuple[list[str], dict[str, str]]:
-		argv, environment = local_stack_control.disposable_stack_adapter.compose_command(
+		argv, environment = local_stack_control.disposable_stack_cleanup.compose_command(
 			disposable, arguments
 		)
 		environment[local_stack_control.lifecycle_migrations.MIGRATION_URL_SETTING] = migration_url

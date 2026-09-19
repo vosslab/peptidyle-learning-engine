@@ -72,11 +72,11 @@ pub fn assessment_delivery_router(
 ) -> Router {
     Router::new()
         .route(
-            "/api/course-instances/{course}/assessments/{assessment}/access",
+            "/api/course-instances/{course_instance_id}/assessments/{assessment_id}/access",
             get(access),
         )
         .route(
-            "/api/course-instances/{course}/assessments/{assessment}/start",
+            "/api/course-instances/{course_instance_id}/assessments/{assessment_id}/start",
             post(start),
         )
         .route(

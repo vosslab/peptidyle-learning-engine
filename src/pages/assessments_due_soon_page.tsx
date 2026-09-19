@@ -34,9 +34,9 @@ function DueSoonAssessmentRow(props: {
   readonly assessment: DueSoonAssessmentSummary;
   readonly displayTimeZone: string;
 }): JSX.Element {
-  const courseReference = courseInstanceRouteReference(props.assessment.courseId);
-  const assessmentReference = assessmentRouteReference(props.assessment.assessmentId);
-  const assessmentPath = `/instructor/courses/${courseReference}/assessments/${assessmentReference}`;
+  const courseInstanceId = courseInstanceRouteReference(props.assessment.courseId);
+  const assessmentId = assessmentRouteReference(props.assessment.assessmentId);
+  const assessmentPath = `/instructor/courses/${courseInstanceId}/assessments/${assessmentId}`;
 
   return (
     <li class="instructor-list__row assessments-due-soon__row">
@@ -48,7 +48,7 @@ function DueSoonAssessmentRow(props: {
           <A href={assessmentPath}>{props.assessment.assessmentTitle}</A>
         </h2>
         <p class="instructor-list__metadata">
-          Course: <A href={`/courses/${courseReference}`}>{props.assessment.courseLongName}</A>
+          Course: <A href={`/courses/${courseInstanceId}`}>{props.assessment.courseLongName}</A>
         </p>
       </div>
       <p class="assessments-due-soon__due">

@@ -47,7 +47,7 @@ pub fn assessment_template_router(
             get(read_template).put(save_template),
         )
         .route(
-            "/api/course-instances/{course}/assessments/from-template",
+            "/api/course-instances/{course_instance_id}/assessments/from-template",
             post(create_assessment_from_template),
         )
         .with_state(RouteState {

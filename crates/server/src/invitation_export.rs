@@ -32,7 +32,7 @@ pub fn invitation_export_router(
 ) -> Router {
     Router::new()
         .route(
-            "/api/course-instances/{course}/invitation-export",
+            "/api/course-instances/{course_instance_id}/invitation-export",
             get(download_pending_invitations),
         )
         .with_state(StateData {

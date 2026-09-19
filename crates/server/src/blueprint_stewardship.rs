@@ -42,19 +42,19 @@ pub fn blueprint_stewardship_router(
 ) -> Router {
     Router::new()
         .route(
-            "/api/course-blueprints/{reference}/stewardship/star",
+            "/api/course-blueprints/{blueprint_course_id}/stewardship/star",
             get(read_star).put(set_star),
         )
         .route(
-            "/api/course-blueprints/{reference}/stewardship/starred-instructors",
+            "/api/course-blueprints/{blueprint_course_id}/stewardship/starred-instructors",
             get(read_starred_instructors),
         )
         .route(
-            "/api/course-blueprints/{reference}/stewardship/watch",
+            "/api/course-blueprints/{blueprint_course_id}/stewardship/watch",
             get(read_watch).put(set_watch),
         )
         .route(
-            "/api/course-blueprints/{reference}/stewardship/watch-events",
+            "/api/course-blueprints/{blueprint_course_id}/stewardship/watch-events",
             get(read_watch_events),
         )
         .with_state(RouteState {

@@ -327,7 +327,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [x] Design Instructor and **Sysadmin** workflows for laptop browsers, using a 1280 by 800 viewport
       as the layout target.
   - Evidence (source): `tests/playwright/ui_corpus_manifest.ts` `RIBBON_RESPONSIVE_PROFILES` and `SYSADMIN_DESKTOP_CONTEXT_OPTIONS` declare 1280 by 800 desktop contexts for both staff roles.
-  - Evidence (test): `tests/playwright/ribbon_m9_responsive_evidence.mjs` `assertResponsiveRows` verifies the Instructor desktop shell and `assertSysadminDesktopRibbon` verifies the Sysadmin Ribbon has no overflow with Instructor Accounts and Scoped Support visible.
+  - Evidence (test): `tests/playwright/ribbon_responsive_evidence.mjs` `assertResponsiveRows` verifies the Instructor desktop shell and `assertSysadminDesktopRibbon` verifies the Sysadmin Ribbon has no overflow with Instructor Accounts and Scoped Support visible.
   - Evidence (source): `src/pages/role_home_pages.tsx` `SysadminHomePage` presents the backed Instructor Accounts and Scoped Support operations reached by the checked Sysadmin desktop model.
   - Decision: retained viewport-target evidence supports this equivalent design-target rewrite, not whole-product usability or all staff workflows.
 - [x] PLE often presents large collections where users need to find a few relevant items.
@@ -449,11 +449,11 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [x] The top Ribbon is the persistent navigation area for signed-in PLE pages.
   - Evidence (source): `src/application_shell.tsx` `ApplicationShell` renders `AppRibbon` inside the persistent shell.
 - [x] The Ribbon should remain in the same location and use the same overall structure while navigating.
-  - Evidence (test): `tests/playwright/ribbon_m9_responsive_evidence.mjs` `assertResponsiveRows` verifies declared Ribbon rows across route-model changes.
+  - Evidence (test): `tests/playwright/ribbon_responsive_evidence.mjs` `assertResponsiveRows` verifies declared Ribbon rows across route-model changes.
 - [x] Navigation choices should remain in predictable locations as users move between related pages.
   - Evidence (source): `src/ribbon/ribbon_catalog.ts` `TAB_CATALOG` and `RIBBON_TASK_CATALOG` own fixed navigation identities.
 - [x] Changing a Ribbon selection changes the content below the Ribbon without moving the main content area up or down.
-  - Evidence (test): `tests/playwright/ribbon_m9_responsive_evidence.mjs` `assertResponsiveRows` and the `application data does not move the content origin` assertion verify the content origin.
+  - Evidence (test): `tests/playwright/ribbon_responsive_evidence.mjs` `assertResponsiveRows` and the `application data does not move the content origin` assertion verify the content origin.
 - [x] Ribbon rows should keep their space when needed so changing selections does not make the content area jump.
   - Evidence (test): `tests/playwright/ribbon_geometry_evidence.mjs` `chromeAboveContent` verifies reserved row tokens and shell track geometry.
 - [x] Page actions should appear near the content they affect rather than changing the Ribbon layout.
@@ -471,7 +471,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [x] All signed-in users share the same top-left logo/account and top-right profile bar layout.
   - Evidence (source): `src/ribbon/app_ribbon.tsx` `AppRibbon` renders the shared leading `ple-app-ribbon__context-identity` logo/account block and shared trailing `ple-app-ribbon__profile-endcap` Profile control for every role model; `src/ribbon/app_ribbon.css` `ple-app-ribbon__profile-endcap` pins the Profile control at the inline end, while Student narrow rules adapt only the middle navigation arrangement.
 - [x] The top bar remains in a consistent location as users navigate.
-  - Evidence (test): `tests/playwright/ribbon_m9_responsive_evidence.mjs` `assertResponsiveRows` measures the persistent top row across model changes.
+  - Evidence (test): `tests/playwright/ribbon_responsive_evidence.mjs` `assertResponsiveRows` measures the persistent top row across model changes.
 - [x] The PLE logo and product name appear at the upper left and link to the user's home dashboard.
   - Evidence (source): `src/ribbon/app_ribbon.tsx` `ple-app-ribbon__brand` is the leading `href="/"` Peptidyle home link.
 - [x] Each Product Role has its own home dashboard and navigation.
@@ -548,7 +548,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [x] Course and Assessment breadcrumbs preserve the current Course context.
   - Evidence (source): `src/ribbon/route_scope_controller.ts` `createRouteScopeController` resolves route labels while retaining course scope.
 - [x] Keeping the breadcrumb row in place prevents the main content from moving up or down as breadcrumb depth changes.
-  - Evidence (test): `tests/playwright/ribbon_m10_shell_evidence.mjs` `label resolution preserves the reserved breadcrumb-prelude geometry` verifies stable shell geometry through deferred resolution.
+  - Evidence (test): `tests/playwright/ribbon_shell_evidence.mjs` `label resolution preserves the reserved breadcrumb-prelude geometry` verifies stable shell geometry through deferred resolution.
 - [x] See **Ribbon and page layout** for the overall page-position rules.
   - Evidence (source): `src/ribbon/app_ribbon.css` `.ple-shell__breadcrumb-prelude` documents and implements the shell-owned stable prelude.
 

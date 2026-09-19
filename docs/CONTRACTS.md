@@ -4,9 +4,9 @@ This register names the target product boundaries of the Peptidyle Learning
 Engine. [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) is the product authority and
 [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) defines the terms used here.
 The linked base-schema and source paths are implementation evidence, not product
-authority. Some retain pre-compliance `assignment` and Blueprint `available`
-identifiers; those names record implementation gaps and do not supersede this
-contract.
+authority. Generic teaching objects are Assessments. Assignment appears only in
+the three Assessment Type names. Blueprint lifecycle states are Private, Public,
+and Archived.
 
 ## Contract rule
 
@@ -41,8 +41,8 @@ never both.
 Blueprint Course `BPXXXXXXXZ`, Course Instance `CIXXXXXXXZ`, Assessment `AXXXXXXXZ`,
 and Account `UXXXXXXXZ` references use seven random Crockford Base32 characters
 plus embedded checksum `Z`; `Z` is a calculated placeholder, not a literal.
-Internal, non-user-facing objects use native UUID identifiers; a public
-reference exists only for a human-facing workflow that needs it.
+Internal, non-user-facing objects use native UUID identifiers; a public ID
+exists only for a human-facing workflow that needs it.
 
 The application has one installation and global Accounts. There is no
 institution tenancy boundary. Course, Assessment, Student Work, worker, and

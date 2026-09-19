@@ -1,4 +1,4 @@
-// ribbon_m10_shell_harness.tsx - current-source App composition for compiled-harness evidence.
+// ribbon_shell_harness.tsx - current-source App composition for compiled-harness evidence.
 
 import { createSignal, type JSX } from "solid-js";
 import { render } from "solid-js/web";
@@ -218,7 +218,7 @@ function instructorCourseRouteData(reference: string): CourseRouteView {
   return { ...course, summary: { ...course.summary, role: "instructor" as const } };
 }
 
-export interface RibbonM10ShellHarness {
+export interface RibbonShellHarness {
   readonly dispose: () => void;
   readonly disposeCurrent: () => void;
   readonly currentNavigate: (pathname: string) => void;
@@ -331,9 +331,9 @@ function FixtureContent(props: {
 
   if (props.shouldThrow()) throw new Error("Shell fixture content sentinel failure");
   return (
-    <section class="page" data-m10-fixture-content={props.pathname}>
+    <section class="page" data-ribbon-fixture-content={props.pathname}>
       Fixture content
-      <button type="button" data-m10-theme-swap onClick={presentOceanTheme}>
+      <button type="button" data-ribbon-theme-swap onClick={presentOceanTheme}>
         Present Ocean course theme
       </button>
     </section>
@@ -345,7 +345,7 @@ function FixtureContent(props: {
  * the second uses only ApplicationShell's explicit model seam for structural
  * navigation/error evidence and never changes route admission.
  */
-export function mountRibbonM10ShellHarness(target: HTMLElement): RibbonM10ShellHarness {
+export function mountRibbonShellHarness(target: HTMLElement): RibbonShellHarness {
   const currentHistory = createMemoryHistory();
   const fixtureHistory = createMemoryHistory();
   const [fixtureShouldThrow, setFixtureShouldThrow] = createSignal(false);

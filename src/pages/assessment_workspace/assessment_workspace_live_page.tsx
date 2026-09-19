@@ -34,10 +34,10 @@ import "./assessment_workspace.css";
 import { useSetAssessmentTitleForPath } from "../../ribbon/route_scope_context";
 
 export interface AssessmentWorkspaceContextValue {
-  readonly courseReference: CourseInstanceRouteReference;
+  readonly courseInstanceId: CourseInstanceRouteReference;
   /** Shared direct resource and exact ETag for every child page. */
   readonly assessment: Accessor<LiveAssessmentWorkspaceResponse>;
-  readonly assessmentReference: AssessmentRouteReference;
+  readonly assessmentId: AssessmentRouteReference;
   readonly save: (input: SaveLiveAssessmentInput) => Promise<LiveAssessmentWorkspaceResponse>;
   readonly saveBaseAssessmentPolicy: (
     input: SaveBaseAssessmentPolicyInput,
@@ -184,16 +184,16 @@ function AssessmentWorkspaceLiveContent(props: AssessmentWorkspaceLivePageProps)
   async function load(): Promise<void> {
     const pathname = location.pathname;
     setState("loading");
-    const courseReference = parseCourseInstanceId(params["courseRef"] ?? "");
-    const assessmentReference = parseAssessmentId(params["assessmentRef"] ?? "");
-    if (courseReference === null || assessmentReference === null) {
+    const courseInstanceId = parseCourseInstanceId(params["courseInstanceId"] ?? "");
+    const assessmentId = parseAssessmentId(params["assessmentId"] ?? "");
+    if (courseInstanceId === null || assessmentId === null) {
       setState("unavailable");
       return;
     }
     try {
       const assessment = await applicationApi.client.getLiveAssessmentWorkspace(
-        courseReference,
-        assessmentReference,
+        courseInstanceId,
+        assessmentId,
       );
       if (location.pathname !== pathname) return;
       const [currentAssessment, setCurrentAssessment] = createSignal(assessment);
@@ -203,8 +203,8 @@ function AssessmentWorkspaceLiveContent(props: AssessmentWorkspaceLivePageProps)
       };
       const reloadAssessment = async (): Promise<LiveAssessmentWorkspaceResponse> => {
         const latest = await applicationApi.client.getLiveAssessmentWorkspace(
-          courseReference,
-          assessmentReference,
+          courseInstanceId,
+          assessmentId,
         );
         replaceCurrentAssessment(latest);
         return latest;
@@ -213,8 +213,8 @@ function AssessmentWorkspaceLiveContent(props: AssessmentWorkspaceLivePageProps)
         input: SaveLiveAssessmentInput,
       ): Promise<LiveAssessmentWorkspaceResponse> => {
         const saved = await applicationApi.client.saveLiveAssessment(
-          courseReference,
-          assessmentReference,
+          courseInstanceId,
+          assessmentId,
           input,
           currentAssessment().etag,
         );
@@ -225,8 +225,8 @@ function AssessmentWorkspaceLiveContent(props: AssessmentWorkspaceLivePageProps)
         input: SaveBaseAssessmentPolicyInput,
       ): Promise<LiveAssessmentWorkspaceResponse> => {
         const saved = await applicationApi.client.saveBaseAssessmentPolicy(
-          courseReference,
-          assessmentReference,
+          courseInstanceId,
+          assessmentId,
           input,
           currentAssessment().etag,
         );
@@ -235,8 +235,8 @@ function AssessmentWorkspaceLiveContent(props: AssessmentWorkspaceLivePageProps)
       };
       const release = async (etag: string): Promise<LiveAssessmentWorkspaceResponse> => {
         const released = await applicationApi.client.releaseLiveAssessment(
-          courseReference,
-          assessmentReference,
+          courseInstanceId,
+          assessmentId,
           etag,
         );
         replaceCurrentAssessment(released);
@@ -244,8 +244,8 @@ function AssessmentWorkspaceLiveContent(props: AssessmentWorkspaceLivePageProps)
       };
       const unrelease = async (confirmationTitle: string): Promise<UnreleasedLiveAssessment> => {
         const result = await applicationApi.client.unreleaseLiveAssessment(
-          courseReference,
-          assessmentReference,
+          courseInstanceId,
+          assessmentId,
           confirmationTitle,
           currentAssessment().etag,
         );
@@ -253,9 +253,9 @@ function AssessmentWorkspaceLiveContent(props: AssessmentWorkspaceLivePageProps)
         return result.result;
       };
       setWorkspace({
-        courseReference,
+        courseInstanceId,
         assessment: currentAssessment,
-        assessmentReference,
+        assessmentId,
         release,
         unrelease,
         save,

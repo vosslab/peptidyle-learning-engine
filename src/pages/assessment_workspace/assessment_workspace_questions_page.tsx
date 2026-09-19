@@ -137,7 +137,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
   async function loadAvailable(): Promise<void> {
     try {
       const [questions, pools] = await Promise.all([
-        applicationApi.client.listLiveAssessmentQuestionPicker(workspace.courseReference),
+        applicationApi.client.listLiveAssessmentQuestionPicker(workspace.courseInstanceId),
         applicationApi.client.listQuestionPools(),
       ]);
       setAvailable(questions);
@@ -173,8 +173,8 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
             [
               entry.id,
               await applicationApi.client.getAssessmentQuestionPoolFork(
-                workspace.courseReference,
-                workspace.assessmentReference,
+                workspace.courseInstanceId,
+                workspace.assessmentId,
                 entry.id,
               ),
             ] as const,
@@ -389,8 +389,8 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     setMessage("Loading Blueprint update review...");
     try {
       const review = await applicationApi.client.getAssessmentBlueprintUpdateReview(
-        workspace.courseReference,
-        workspace.assessmentReference,
+        workspace.courseInstanceId,
+        workspace.assessmentId,
       );
       setBlueprintReview(review);
       setMessage(
@@ -419,8 +419,8 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     try {
       // ASVS 2.3.1: apply only the source Revision and saved Edit Number explicitly reviewed.
       await applicationApi.client.applyAssessmentBlueprintUpdate(
-        workspace.courseReference,
-        workspace.assessmentReference,
+        workspace.courseInstanceId,
+        workspace.assessmentId,
         {
           expectedSourceRevision: review.sourceRevision,
           expectedEditNumber: review.assessment.editNumber,
@@ -474,8 +474,8 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     setBusy(true);
     try {
       await applicationApi.client.updateAssessmentQuestionPoolSelectionCount(
-        workspace.courseReference,
-        workspace.assessmentReference,
+        workspace.courseInstanceId,
+        workspace.assessmentId,
         entry.id,
         selectionCount,
         workspace.assessment().etag,
@@ -503,8 +503,8 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     setBusy(true);
     try {
       await applicationApi.client.appendAssessmentQuestionPoolForkMembers(
-        workspace.courseReference,
-        workspace.assessmentReference,
+        workspace.courseInstanceId,
+        workspace.assessmentId,
         entry.id,
         {
           expectedQuestionPoolEditNumber: String(fork.questionPoolEditNumber),
@@ -543,8 +543,8 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     setBusy(true);
     try {
       await applicationApi.client.importAssessmentQuestionPoolFork(
-        workspace.courseReference,
-        workspace.assessmentReference,
+        workspace.courseInstanceId,
+        workspace.assessmentId,
         {
           sourceQuestionPoolId: source.questionPoolId,
           authoredPosition: entries().length,

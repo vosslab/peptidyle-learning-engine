@@ -1,6 +1,5 @@
 //! PostgreSQL adapter for Student Assessment Access and initial issue.
 use super::{Pool, connection::map_sqlx_error};
-use crate::assessment_delivery::ReadyQuestionAssetRendition;
 use crate::{
     IssuedQuestionPresentation, LiveAssessmentAccess, LiveAssessmentAttempt,
     LiveAssessmentDeliveryStore, NativeAssessmentIssuanceBatch, NativePleIssuanceSource,
@@ -25,6 +24,12 @@ pub(super) use super::assessment_delivery_source::{
     issuance_reproduction_from_row, ready_question_asset_renditions, reproduction_from_row,
     source_from_row,
 };
+#[path = "assessment_delivery_renditions.rs"]
+mod assessment_delivery_renditions;
+use assessment_delivery_renditions::{
+    current_ready_question_asset_renditions, presentation_payloads,
+};
+
 /// PostgreSQL Store for the Student delivery boundary.
 #[derive(Clone)]
 pub struct PostgresLiveAssessmentDeliveryStore {
@@ -161,127 +166,6 @@ async fn read_committed_assessment_attempt(
             .map_err(map_sqlx_error)?,
         questions,
     })
-}
-
-fn presentation_payloads<'a>(
-    values: impl Iterator<
-        Item = (
-            &'a String,
-            &'a question_model::QuestionReproduction,
-            &'a serde_json::Value,
-            &'a serde_json::Value,
-            &'a String,
-            &'a String,
-            Option<&'a question_model::AuthorContentPresentation>,
-            &'a [ReadyQuestionAssetRendition],
-            &'a str,
-            Option<&'a String>,
-            &'a [question_model::presentation::DurableResponseItemBinding],
-        ),
-    >,
-) -> Result<serde_json::Value, StoreError> {
-    values.map(|(issued_question_id, reproduction, details, presentation, nonce, checksum, author_content, assets, issued_capability, backend_document, response_item_bindings)| {
-        let details: question_model::QuestionAttemptReproductionDetails = serde_json::from_value(details.clone())
-            .map_err(|_| StoreError::InvalidRecord("Question reproduction details are invalid".to_string()))?;
-        let mut payload = serde_json::json!({
-            "question_attempt_id": crate::random_uuid::random_uuid_v4(|error| StoreError::Unavailable(format!("Question Attempt ID randomness unavailable: {error}")))?,
-            "issued_question_id": issued_question_id,
-            "backend_version": details.backend.version,
-            "renderer_name": details.renderer_version.as_ref().map(|renderer| renderer.name.as_str()),
-            "renderer_version": details.renderer_version.as_ref().map(|renderer| renderer.version.as_str()),
-            "grader_name": details.grader.name,
-            "grader_version": details.grader.version,
-            "rendered_question_sha256": details.rendered_question_sha256,
-            "issued_capability": issued_capability,
-            "presentation_nonce": nonce,
-            "presentation_checksum": checksum,
-            "presentation": presentation,
-            "response_item_bindings": response_item_bindings.iter().map(|binding| serde_json::json!({
-                "presentation_response_item_reference": binding.presentation_response_item_reference.as_str(),
-                "response_item_reference": binding.response_item_reference.as_str(),
-            })).collect::<Vec<_>>(),
-            "question_assets": assets.iter().map(|asset| serde_json::json!({
-                "asset_id": asset.question_asset.as_uuid(),
-                "question_asset_checksum": asset.question_asset_checksum,
-                "rendition_checksum": asset.rendition_checksum,
-                "intrinsic_width": asset.intrinsic_width,
-                "intrinsic_height": asset.intrinsic_height,
-            })).collect::<Vec<_>>(),
-        });
-        if let Some(author_content) = author_content {
-            payload["author_content"] = serde_json::to_value(author_content).map_err(|_| {
-                StoreError::InvalidRecord("Author content evidence is invalid".to_string())
-            })?;
-        }
-        match reproduction {
-            question_model::QuestionReproduction::Static => {
-                payload["question_seed"] = serde_json::Value::Null;
-                payload["generated_parameter_sha256"] = serde_json::Value::Null;
-            }
-            question_model::QuestionReproduction::Seeded {
-                question_seed,
-                generated_parameter_sha256,
-            } => {
-                payload["question_seed"] = serde_json::json!(question_seed.value());
-                payload["generated_parameter_sha256"] =
-                    serde_json::Value::String(generated_parameter_sha256.clone());
-            }
-        }
-        if let Some(backend_document) = backend_document {
-            payload["backend_document"] = serde_json::Value::String(backend_document.clone());
-        }
-        Ok(payload)
-    }).collect::<Result<Vec<_>, StoreError>>().map(serde_json::Value::Array)
-}
-
-async fn current_ready_question_asset_renditions(
-    tx: &mut Transaction<'_, Postgres>,
-    question_id: &str,
-    revision_number: u32,
-) -> Result<Vec<ReadyQuestionAssetRendition>, StoreError> {
-    let rows = sqlx::query(
-        "SELECT asset_id::text, question_asset_checksum, rendition_checksum, intrinsic_width, intrinsic_height \
-         FROM ple_api.select_ready_question_asset_renditions($1, $2)",
-    )
-    .bind(question_id)
-    .bind(i32::try_from(revision_number).map_err(|_| {
-        StoreError::InvalidRecord("Question Revision number is invalid".to_string())
-    })?)
-    .fetch_all(&mut **tx)
-    .await
-    .map_err(map_sqlx_error)?;
-    rows.into_iter()
-        .map(|row| {
-            let asset_id = row
-                .try_get::<String, _>("asset_id")
-                .map_err(map_sqlx_error)?;
-            Ok(ReadyQuestionAssetRendition {
-                question_asset: uuid::Uuid::parse_str(&asset_id)
-                    .map(question_model::QuestionAssetId::from_uuid)
-                    .map_err(|_| {
-                        StoreError::InvalidRecord("Question Asset ID is invalid".to_string())
-                    })?,
-                question_asset_checksum: row
-                    .try_get("question_asset_checksum")
-                    .map_err(map_sqlx_error)?,
-                rendition_checksum: row.try_get("rendition_checksum").map_err(map_sqlx_error)?,
-                intrinsic_width: u32::try_from(
-                    row.try_get::<i32, _>("intrinsic_width")
-                        .map_err(map_sqlx_error)?,
-                )
-                .map_err(|_| {
-                    StoreError::InvalidRecord("Question Asset width is invalid".to_string())
-                })?,
-                intrinsic_height: u32::try_from(
-                    row.try_get::<i32, _>("intrinsic_height")
-                        .map_err(map_sqlx_error)?,
-                )
-                .map_err(|_| {
-                    StoreError::InvalidRecord("Question Asset height is invalid".to_string())
-                })?,
-            })
-        })
-        .collect()
 }
 
 #[async_trait]

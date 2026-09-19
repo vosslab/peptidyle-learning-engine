@@ -375,7 +375,7 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Blueprint update projections are invalid';
     END IF;
     SELECT COALESCE(jsonb_agg(jsonb_build_object(
-        'assessmentReference', destination.assessment_id,
+        'assessmentId', destination.assessment_id,
         'title', policy.assessment_title,
         'assessmentType', destination.assessment_type,
         'cannotApplyReason', CASE

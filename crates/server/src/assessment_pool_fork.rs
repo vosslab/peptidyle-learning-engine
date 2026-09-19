@@ -57,11 +57,11 @@ pub(crate) fn assessment_pool_fork_router_with_store(
 ) -> Router {
     Router::new()
         .route(
-            "/api/course-instances/{course}/assessments/{assessment}/question-pool-forks",
+            "/api/course-instances/{course_instance_id}/assessments/{assessment_id}/question-pool-forks",
             post(import_fork),
         )
         .route(
-            "/api/course-instances/{course}/assessments/{assessment}/question-pool-forks/{entry}",
+            "/api/course-instances/{course_instance_id}/assessments/{assessment_id}/question-pool-forks/{entry}",
             put(append_fork_revision),
         )
         .with_state(RouteState {

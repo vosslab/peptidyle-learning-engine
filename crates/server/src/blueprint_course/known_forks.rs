@@ -10,7 +10,8 @@ use browser_api_contract::blueprint_course::BlueprintKnownForkView;
 use learning_data_access::{BlueprintLineageStore, StoredKnownBlueprintFork};
 
 use super::{
-    BlueprintCourseRouteState, instructor_session_hash, parse_reference, store_error_response,
+    BlueprintCourseRouteState, instructor_session_hash, parse_blueprint_course_id,
+    store_error_response,
 };
 
 pub(super) async fn list_known_forks(
@@ -18,7 +19,7 @@ pub(super) async fn list_known_forks(
     headers: HeaderMap,
     Path(reference): Path<String>,
 ) -> Response {
-    let reference = match parse_reference(&reference) {
+    let reference = match parse_blueprint_course_id(&reference) {
         Ok(value) => value,
         Err(response) => return *response,
     };

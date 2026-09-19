@@ -9,7 +9,7 @@ export function StudentCourseInvitationPage(): JSX.Element {
   const runtime = useApplicationApi();
   const params = useParams();
   function course(): ReturnType<typeof parseCourseInstanceId> {
-    return parseCourseInstanceId(params["courseRef"] ?? "");
+    return parseCourseInstanceId(params["courseInstanceId"] ?? "");
   }
   const [invitation] = createResource(course, async (reference) => {
     const invitations = await runtime.client.listPendingLiveStudentCourseInvitations();

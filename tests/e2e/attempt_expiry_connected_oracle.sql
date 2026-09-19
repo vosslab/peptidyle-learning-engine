@@ -419,7 +419,7 @@ BEGIN
         RAISE EXCEPTION 'Gradebook fixture Instructor lacks Course authority';
     END IF;
     SELECT coalesce(jsonb_agg(jsonb_build_object(
-               'assessmentReference', gradebook.assessment_id,
+               'assessmentId', gradebook.assessment_id,
                'completion', gradebook.assessment_attempt_completion,
                'pointsEarned', gradebook.points_earned,
                'pointsPossible', gradebook.points_possible

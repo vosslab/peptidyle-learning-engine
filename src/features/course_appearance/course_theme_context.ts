@@ -40,6 +40,6 @@ export function useCourseThemePresentation(): CourseThemePresentation | undefine
 
 /** Replaces a saved Course Appearance in the presentation cache for its Course. */
 export type ReplaceCourseAppearance = (
-  courseReference: CourseInstanceId,
+  courseInstanceId: CourseInstanceId,
   appearance: CourseAppearanceView,
 ) => void;

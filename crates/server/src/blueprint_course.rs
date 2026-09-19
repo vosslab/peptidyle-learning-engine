@@ -3,7 +3,7 @@
 //! Browser Question IDs are checksum-validated before Store resolution. The Store
 //! alone resolves the exact immutable Question Revision pins.
 
-use std::{collections::BTreeMap, sync::Arc};
+use std::sync::Arc;
 
 use axum::{
     Json, Router,
@@ -17,9 +17,7 @@ use axum::{
 };
 use browser_api_contract::blueprint_course::BlueprintRevisionView;
 use learning_data_access::{
-    BlueprintCourseStore, QuestionLibraryStore, SessionTokenHash, StoreError,
-    StoredBlueprintAssessmentContent, StoredBlueprintAssessmentEntry, StoredBlueprintCourse,
-    StoredBlueprintCourseContent,
+    BlueprintCourseStore, SessionTokenHash, StoreError,
     postgres::{
         PostgresBlueprintCourseStore, PostgresBlueprintLineageStore,
         PostgresCourseBlueprintPublicationStore, PostgresQuestionLibraryStore,
@@ -28,12 +26,9 @@ use learning_data_access::{
 };
 use objects::s3::S3ObjectStore;
 use question_model::{
-    BlueprintAssessmentContentView, BlueprintAssessmentEntryView,
-    BlueprintCourseAssessmentContentView, BlueprintCourseId, BlueprintCourseSummaryView,
-    BlueprintCourseView, BlueprintEditNumber, BlueprintModuleView, BlueprintRevision,
-    BlueprintRevisionReference, CreateBlueprintCourseInput, QuestionId, QuestionRevisionReference,
-    QuestionSearchResult, RenameBlueprintCourseInput, ReplaceBlueprintCourseContentInput,
-    RequestChecksum, ReusablePoolView, ReusableQuestionView, ReusableSelectionAvailability,
+    BlueprintCourseId, BlueprintCourseView, BlueprintEditNumber, BlueprintRevision,
+    BlueprintRevisionReference, CreateBlueprintCourseInput, RenameBlueprintCourseInput,
+    ReplaceBlueprintCourseContentInput, RequestChecksum,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -53,10 +48,15 @@ mod list;
 mod pool_members;
 mod promotion;
 mod responses;
+mod views;
 
 use responses::{
     blueprint_response, blueprint_save_response, concealed, metadata_response, route_error,
     store_error_response, unavailable,
+};
+use views::{
+    content_modules, summary_view, valid_create_question_ids, valid_replace_question_ids,
+    view_from_record,
 };
 
 use fork::fork_blueprint;
@@ -84,7 +84,7 @@ pub fn blueprint_course_router(
 ) -> Router {
     Router::new()
         .route(
-            "/api/course-blueprints/{reference}/change-proposals",
+            "/api/course-blueprints/{blueprint_course_id}/change-proposals",
             get(change_proposals::list_target).post(change_proposals::create),
         )
         .route(
@@ -100,7 +100,7 @@ pub fn blueprint_course_router(
             post(change_proposals::accept),
         )
         .route(
-            "/api/sysadmin/course-blueprints/{reference}/promotion",
+            "/api/sysadmin/course-blueprints/{blueprint_course_id}/promotion",
             get(promotion::load_promotion).put(promotion::set_promotion),
         )
         .route(
@@ -108,16 +108,16 @@ pub fn blueprint_course_router(
             get(list::list_blueprints).post(create_blueprint),
         )
         .route(
-            "/api/course-instances/{course}/course-blueprints",
+            "/api/course-instances/{course_instance_id}/course-blueprints",
             post(course_publication::create),
         )
         .route("/api/course-blueprints/import", post(exchange::import))
         .route(
-            "/api/course-blueprints/{reference}",
+            "/api/course-blueprints/{blueprint_course_id}",
             get(load_blueprint).put(save_blueprint),
         )
         .route(
-            "/api/course-blueprints/{reference}/export",
+            "/api/course-blueprints/{blueprint_course_id}/export",
             get(exchange::export),
         )
         .route(
@@ -125,51 +125,51 @@ pub fn blueprint_course_router(
             get(fork_review::load_comparison),
         )
         .route(
-            "/api/course-blueprints/{reference}/fork-update",
+            "/api/course-blueprints/{blueprint_course_id}/fork-update",
             post(fork_apply::apply_fork_update),
         )
         .route(
-            "/api/course-blueprints/{reference}/forks",
+            "/api/course-blueprints/{blueprint_course_id}/forks",
             get(known_forks::list_known_forks),
         )
         .route(
-            "/api/course-blueprints/{reference}/history",
+            "/api/course-blueprints/{blueprint_course_id}/history",
             get(history::list_history),
         )
         .route(
-            "/api/course-blueprints/{reference}/assessments/{assessment}/pools/{pool}/members",
+            "/api/course-blueprints/{blueprint_course_id}/assessments/{assessment_id}/pools/{pool}/members",
             get(pool_members::load_pool_members),
         )
         .route(
-            "/api/course-blueprints/{reference}/metadata",
+            "/api/course-blueprints/{blueprint_course_id}/metadata",
             put(rename_blueprint),
         )
         .route(
-            "/api/course-blueprints/{reference}/classification",
+            "/api/course-blueprints/{blueprint_course_id}/classification",
             put(update_classification),
         )
         .route(
-            "/api/course-blueprints/{reference}/publish",
+            "/api/course-blueprints/{blueprint_course_id}/publish",
             post(publish_blueprint),
         )
         .route(
-            "/api/course-blueprints/{reference}/revisions/{revision}",
+            "/api/course-blueprints/{blueprint_course_id}/revisions/{revision}",
             get(load_revision),
         )
         .route(
-            "/api/course-blueprints/{reference}/revisions/{revision}/fork",
+            "/api/course-blueprints/{blueprint_course_id}/revisions/{revision}/fork",
             post(fork_blueprint),
         )
         .route(
-            "/api/course-blueprints/{reference}/archive",
+            "/api/course-blueprints/{blueprint_course_id}/archive",
             post(archive_blueprint),
         )
         .route(
-            "/api/course-blueprints/{reference}/restore",
+            "/api/course-blueprints/{blueprint_course_id}/restore",
             post(restore_blueprint),
         )
         .route(
-            "/api/course-blueprints/{reference}/return-to-private",
+            "/api/course-blueprints/{blueprint_course_id}/return-to-private",
             post(return_blueprint_to_private),
         )
         .with_state(BlueprintCourseRouteState {
@@ -193,7 +193,7 @@ async fn load_blueprint(
     headers: HeaderMap,
     Path(reference): Path<String>,
 ) -> Response {
-    let reference = match parse_reference(&reference) {
+    let reference = match parse_blueprint_course_id(&reference) {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -214,7 +214,7 @@ async fn update_classification(
     Path(reference): Path<String>,
     Json(classification): Json<question_model::CourseClassification>,
 ) -> Response {
-    let reference = match parse_reference(&reference) {
+    let reference = match parse_blueprint_course_id(&reference) {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -279,7 +279,7 @@ async fn save_blueprint(
     Path(reference): Path<String>,
     Json(input): Json<ReplaceBlueprintCourseContentInput>,
 ) -> Response {
-    let reference = match parse_reference(&reference) {
+    let reference = match parse_blueprint_course_id(&reference) {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -329,7 +329,7 @@ async fn rename_blueprint(
     Path(reference): Path<String>,
     Json(input): Json<RenameBlueprintCourseInput>,
 ) -> Response {
-    let reference = match parse_reference(&reference) {
+    let reference = match parse_blueprint_course_id(&reference) {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -356,7 +356,7 @@ async fn load_revision(
     headers: HeaderMap,
     Path((reference, revision)): Path<(String, String)>,
 ) -> Response {
-    let reference = match parse_reference(&reference) {
+    let reference = match parse_blueprint_course_id(&reference) {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -466,7 +466,7 @@ async fn transition_availability(
     value: String,
     action: BlueprintLifecycleAction,
 ) -> Response {
-    let reference = match parse_reference(&value) {
+    let reference = match parse_blueprint_course_id(&value) {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -532,262 +532,8 @@ pub(super) async fn load_view(
     )
     .await
 }
-async fn view_from_record(
-    state: &BlueprintCourseRouteState,
-    session: SessionTokenHash,
-    record: StoredBlueprintCourse,
-) -> Result<BlueprintCourseView, RouteLoadError> {
-    Ok(BlueprintCourseView {
-        classification: record.classification,
-        id: record.id.clone(),
-        short_name: record.short_name,
-        long_name: record.long_name,
-        availability: record.availability,
-        blueprint_edit_number: record.blueprint_edit_number,
-        current_revision: BlueprintRevisionReference {
-            blueprint_course_id: record.id,
-            revision: record.current_revision,
-        },
-        read_access: record.read_access,
-        fork_source: record.fork_source,
-        modules: content_modules(state, session, &record.content).await?,
-    })
-}
-fn summary_view(
-    record: learning_data_access::StoredBlueprintCourseSummary,
-) -> BlueprintCourseSummaryView {
-    BlueprintCourseSummaryView {
-        classification: record.classification,
-        total_adoptions: record.total_adoptions,
-        total_students_ever_enrolled: record.total_students_ever_enrolled,
-        id: record.id.clone(),
-        short_name: record.short_name,
-        long_name: record.long_name,
-        availability: record.availability,
-        blueprint_edit_number: record.blueprint_edit_number,
-        current_revision: BlueprintRevisionReference {
-            blueprint_course_id: record.id,
-            revision: record.current_revision,
-        },
-        read_access: record.read_access,
-    }
-}
-async fn content_modules(
-    state: &BlueprintCourseRouteState,
-    session: SessionTokenHash,
-    content: &StoredBlueprintCourseContent,
-) -> Result<Vec<BlueprintModuleView>, RouteLoadError> {
-    let mut entries = state
-        .question_library
-        .list_published_question_library_entries(session)
-        .await
-        .map_err(RouteLoadError::Store)?;
-    let current_question_revisions = entries
-        .iter()
-        .map(|entry| {
-            (
-                entry.question_revision.question_id.clone(),
-                entry.question_revision.clone(),
-            )
-        })
-        .collect::<BTreeMap<_, _>>();
-    // Discovery excludes archived lineages.  Retained Blueprint pins use the
-    // exact historical Store path so an archive never breaks immutable
-    // Blueprint Revision interpretation.
-    for reference in content_question_revisions(content) {
-        if !entries
-            .iter()
-            .any(|entry| entry.question_revision == reference)
-        {
-            entries.push(
-                state
-                    .question_library
-                    .load_published_question_revision_library_entry(session, &reference)
-                    .await
-                    .map_err(RouteLoadError::Store)?,
-            );
-        }
-    }
-    let question_ids = entries
-        .iter()
-        .map(|entry| entry.question_revision.question_id.clone())
-        .collect::<Vec<_>>();
-    let evidence = crate::question_library::bulk_question_statistics(
-        &state.question_library,
-        session,
-        true,
-        &question_ids,
-    )
-    .await
-    .map_err(|_| RouteLoadError::Unavailable)?;
-    let questions = crate::question_library::answer_free_question_search_results(
-        &state.objects,
-        entries,
-        &evidence,
-    )
-    .await
-    .map_err(|_| RouteLoadError::Unavailable)?;
-    content
-        .modules
-        .iter()
-        .map(|module| {
-            Ok(BlueprintModuleView {
-                blueprint_module_reference: module.blueprint_module_reference,
-                label: module.label.clone(),
-                assessments: module
-                    .assessments
-                    .iter()
-                    .map(|assessment| {
-                        Ok(BlueprintCourseAssessmentContentView {
-                            blueprint_assessment_id: assessment.blueprint_assessment_id,
-                            content: assessment_content_view(
-                                &assessment.content,
-                                &questions,
-                                &current_question_revisions,
-                            )?,
-                        })
-                    })
-                    .collect::<Result<Vec<_>, RouteLoadError>>()?,
-            })
-        })
-        .collect()
-}
 
-fn content_question_revisions(
-    content: &StoredBlueprintCourseContent,
-) -> Vec<question_model::QuestionRevisionReference> {
-    content
-        .modules
-        .iter()
-        .flat_map(|module| module.assessments.iter())
-        .flat_map(|assessment| assessment.content.entries.iter())
-        .filter_map(|entry| match entry {
-            StoredBlueprintAssessmentEntry::Fixed {
-                question_revision, ..
-            } => Some(question_revision),
-            StoredBlueprintAssessmentEntry::Pool { .. } => None,
-        })
-        .cloned()
-        .collect()
-}
-fn assessment_content_view(
-    content: &StoredBlueprintAssessmentContent,
-    questions: &BTreeMap<QuestionRevisionReference, QuestionSearchResult>,
-    current_question_revisions: &BTreeMap<QuestionId, QuestionRevisionReference>,
-) -> Result<BlueprintAssessmentContentView, RouteLoadError> {
-    let entries = content
-        .entries
-        .iter()
-        .map(|entry| match entry {
-            StoredBlueprintAssessmentEntry::Fixed {
-                question_revision,
-                points_possible,
-                scoring_rule,
-                question_attempt_limit,
-                question_attempt_time_limit,
-            } => Ok(BlueprintAssessmentEntryView::Fixed {
-                question: Box::new(question_view(
-                    question_revision,
-                    questions,
-                    current_question_revisions,
-                )?),
-                points_possible: *points_possible,
-                scoring_rule: *scoring_rule,
-                question_attempt_limit: *question_attempt_limit,
-                question_attempt_time_limit: *question_attempt_time_limit,
-            }),
-            StoredBlueprintAssessmentEntry::Pool {
-                question_pool_id,
-                question_pool_edit_number,
-                selection_count,
-                points_per_item,
-                scoring_rule,
-                selection_rule,
-                question_attempt_limit,
-                question_attempt_time_limit,
-            } => Ok(BlueprintAssessmentEntryView::Pool(ReusablePoolView {
-                question_pool_id: question_pool_id.clone(),
-                question_pool_edit_number: *question_pool_edit_number,
-                selection_count: *selection_count,
-                points_per_item: *points_per_item,
-                scoring_rule: *scoring_rule,
-                selection_rule: *selection_rule,
-                question_attempt_limit: *question_attempt_limit,
-                question_attempt_time_limit: *question_attempt_time_limit,
-            })),
-        })
-        .collect::<Result<Vec<_>, RouteLoadError>>()?;
-    Ok(BlueprintAssessmentContentView {
-        assessment_type: content.assessment_type,
-        title: content.title.clone(),
-        instructions: content.instructions.clone(),
-        entries,
-        defaults: content.defaults.clone(),
-    })
-}
-fn question_view(
-    reference: &question_model::QuestionRevisionReference,
-    questions: &BTreeMap<QuestionRevisionReference, QuestionSearchResult>,
-    current_question_revisions: &BTreeMap<QuestionId, QuestionRevisionReference>,
-) -> Result<ReusableQuestionView, RouteLoadError> {
-    Ok(ReusableQuestionView {
-        reference: reference.clone(),
-        question_library: question_search_result(reference, questions)?,
-        selection_availability: selection_availability(reference, current_question_revisions),
-    })
-}
-fn question_search_result(
-    reference: &question_model::QuestionRevisionReference,
-    questions: &BTreeMap<QuestionRevisionReference, QuestionSearchResult>,
-) -> Result<QuestionSearchResult, RouteLoadError> {
-    exact_revision_value(reference, questions)
-        .cloned()
-        .ok_or(RouteLoadError::Unavailable)
-}
-
-fn exact_revision_value<'a, T>(
-    reference: &QuestionRevisionReference,
-    values: &'a BTreeMap<QuestionRevisionReference, T>,
-) -> Option<&'a T> {
-    values.get(reference)
-}
-fn selection_availability(
-    reference: &question_model::QuestionRevisionReference,
-    current_question_revisions: &BTreeMap<QuestionId, QuestionRevisionReference>,
-) -> ReusableSelectionAvailability {
-    if current_question_revisions.get(&reference.question_id) == Some(reference) {
-        ReusableSelectionAvailability::Available
-    } else {
-        ReusableSelectionAvailability::Retained
-    }
-}
-
-// ASVS 2.2.1/2.2.2: reject a syntactically plausible but deployment-invalid ID
-// before a persistence resolver can disclose whether a Question exists.
-fn valid_create_question_ids(input: &CreateBlueprintCourseInput) -> bool {
-    input
-        .modules
-        .iter()
-        .flat_map(|module| module.assessments.iter())
-        .all(valid_assessment_question_ids)
-}
-fn valid_replace_question_ids(input: &ReplaceBlueprintCourseContentInput) -> bool {
-    input
-        .modules
-        .iter()
-        .flat_map(|module| module.assessments.iter())
-        .all(|assessment| valid_assessment_question_ids(&assessment.content))
-}
-fn valid_assessment_question_ids(input: &question_model::BlueprintAssessmentContentInput) -> bool {
-    input.entries.iter().all(|entry| match entry {
-        question_model::BlueprintAssessmentEntryInput::Fixed(_) => true,
-        // ASVS 2.2.1/2.2.2: validate the exact Pool and any newly authored
-        // member Question IDs before the Store resolves private state.
-        question_model::BlueprintAssessmentEntryInput::Pool(_) => true,
-    })
-}
-
-pub(super) fn parse_reference(value: &str) -> Result<BlueprintCourseId, Box<Response>> {
+pub(super) fn parse_blueprint_course_id(value: &str) -> Result<BlueprintCourseId, Box<Response>> {
     value.parse().map_err(|_| Box::new(concealed()))
 }
 fn quoted_if_match(headers: &HeaderMap) -> Result<&str, Box<Response>> {
@@ -890,6 +636,8 @@ mod tests {
     use crate::question_publication::{QuestionIdIssuer, RandomQuestionIdIssuer};
     use axum::http::{HeaderValue, StatusCode};
     use learning_data_access::StoreError;
+    use question_model::{QuestionId, QuestionRevisionReference, ReusableSelectionAvailability};
+    use std::collections::BTreeMap;
     #[test]
     fn rejects_id_with_wrong_checksum() {
         let issuer = RandomQuestionIdIssuer::new();
@@ -915,9 +663,9 @@ mod tests {
         let values = BTreeMap::from([(older.clone(), "older"), (current.clone(), "current")]);
         let current_revisions = BTreeMap::from([(question_id, current)]);
 
-        assert_eq!(exact_revision_value(&older, &values), Some(&"older"));
+        assert_eq!(views::exact_revision_value(&older, &values), Some(&"older"));
         assert_eq!(
-            selection_availability(&older, &current_revisions),
+            views::selection_availability(&older, &current_revisions),
             ReusableSelectionAvailability::Retained
         );
     }

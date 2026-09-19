@@ -39,8 +39,8 @@ function assessmentStatusLabel(status: LiveAssessmentStatus): string {
   }
 }
 
-function assessmentQuestionsPath(courseReference: string, assessmentReference: string): string {
-  return `/instructor/courses/${courseReference}/assessments/${assessmentReference}/questions`;
+function assessmentQuestionsPath(courseInstanceId: string, assessmentId: string): string {
+  return `/instructor/courses/${courseInstanceId}/assessments/${assessmentId}/questions`;
 }
 
 function formatLocalDueDateAndTime(value: string | null): string {
@@ -227,7 +227,7 @@ function CreateBlueprintFromCourseInstance(props: {
 }
 
 function AssessmentRow(props: {
-  readonly courseReference: string;
+  readonly courseInstanceId: string;
   readonly assessment: CourseAssessmentSummary;
   readonly position: number;
 }): JSX.Element {
@@ -300,7 +300,7 @@ function AssessmentRow(props: {
     setMessage("");
     try {
       const saved = await applicationApi.client.saveLiveAssessmentInline(
-        props.courseReference,
+        props.courseInstanceId,
         assessment().id,
         { title: title(), dueAt },
         assessment().editNumber,
@@ -325,7 +325,7 @@ function AssessmentRow(props: {
     setMessage("");
     try {
       const latest = (
-        await applicationApi.client.listCourseAssessments(props.courseReference)
+        await applicationApi.client.listCourseAssessments(props.courseInstanceId)
       ).find((candidate) => candidate.id === assessment().id);
       if (latest === undefined) throw new Error("Current Assessment was not returned");
       setAssessment(latest);
@@ -364,7 +364,7 @@ function AssessmentRow(props: {
         <A
           ref={(element) => (assessmentQuestionsLink = element)}
           class="quiet-link"
-          href={assessmentQuestionsPath(props.courseReference, assessment().id)}
+          href={assessmentQuestionsPath(props.courseInstanceId, assessment().id)}
         >
           Edit Assessment
         </A>
@@ -489,13 +489,13 @@ function AssessmentRow(props: {
 export function CourseInstancePage(): JSX.Element {
   const applicationApi = useApplicationApi();
   const params = useParams();
-  function courseReference(): ReturnType<typeof parseCourseInstanceId> {
-    return parseCourseInstanceId(params["courseRef"] ?? "");
+  function courseInstanceId(): ReturnType<typeof parseCourseInstanceId> {
+    return parseCourseInstanceId(params["courseInstanceId"] ?? "");
   }
-  const [course, { mutate: mutateCourse }] = createResource(courseReference, async (reference) =>
+  const [course, { mutate: mutateCourse }] = createResource(courseInstanceId, async (reference) =>
     applicationApi.client.getCourseInstance(reference),
   );
-  const [assessments] = createResource(courseReference, async (reference) =>
+  const [assessments] = createResource(courseInstanceId, async (reference) =>
     applicationApi.client.listCourseAssessments(reference),
   );
   const [profile, { refetch: refetchProfile }] = createResource(() =>
@@ -575,7 +575,7 @@ export function CourseInstancePage(): JSX.Element {
                   <For each={assessments()}>
                     {(assessment, index) => (
                       <AssessmentRow
-                        courseReference={view().course.id}
+                        courseInstanceId={view().course.id}
                         assessment={assessment}
                         position={index() + 1}
                       />
@@ -665,7 +665,7 @@ export function CourseInstancePage(): JSX.Element {
                         when={BigInt(origin().currentRevision) > BigInt(origin().adoptedRevision)}
                       >
                         <p data-blueprint-revision-notice>Newer Blueprint Revision available</p>
-                        <CourseBlueprintUpdateReviewList courseReference={view().course.id} />
+                        <CourseBlueprintUpdateReviewList courseInstanceId={view().course.id} />
                       </Show>
                     </section>
                   )}

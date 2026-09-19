@@ -10,6 +10,82 @@
 
 ### Fixes and Maintenance
 
+- Drop leftover milestone prefixes from Ribbon Playwright evidence.
+  `ribbon_m8_integration`, `ribbon_m9_responsive`, `ribbon_m9b_density`,
+  and `ribbon_m10_shell` files are now `ribbon_integration`,
+  `ribbon_responsive`, `ribbon_density`, and `ribbon_shell`, with the
+  matching harness helpers renamed. Gate:
+  `git mv tests/playwright/ribbon_m*.mjs`.
+
+- Align remaining identity names with Human Guidance: HTTP path
+  parameters use `course_instance_id` / `assessment_id` /
+  `blueprint_course_id` / `account_id` instead of `{reference}`;
+  Question Summary JSON is `questionRevision`; browser route params
+  are `:courseInstanceId` / `:assessmentId` / `:questionId` /
+  `:blueprintCourseId`. Living API and identity contracts no longer
+  describe leftover `/assignments` routes as current. Gate:
+  `cargo tools tsgen`, `cargo check -p question_model -p server_core
+  --offline --tests`, `npx tsc --noEmit -p tsconfig.json`,
+  `node --import tsx --test tests/test_route_params.mjs
+  tests/test_ribbon_contract.mjs
+  tests/test_question_summary_latest_revision_decoder.mjs`.
+
+- Split source files that were at or above the 900-line warning: shared
+  responsive composition in `src/style_responsive.css`, Ribbon phone density
+  in `src/ribbon/app_ribbon_density.css`, Assessment Blueprint update
+  decoding in `src/api/decoders/assessment_blueprint_update.ts`, Question
+  Library virtual rows in `src/pages/library_browse_rows.tsx`, and the PLE
+  Question JSON editor workspace in
+  `src/features/ple_question_json_authoring/question_json_editor_workspace.tsx`.
+  Gate: `source source_me.sh && python3 -m pytest
+  tests/test_source_file_line_limit.py -q --tb=no -W default`.
+
+- Split four over-900-line Python local-stack modules under 850 lines:
+  renderer wait/attestation and installation-data provision from
+  `lifecycle.py`, disposable cleanup/outage/redaction helpers from
+  `disposable_stack_adapter.py`, and the matching unit-test files.
+  `lifecycle.py` remains the public facade. Gate:
+  `source source_me.sh && python3 -m pytest
+  tests/test_source_file_line_limit.py tests/test_local_stack_control.py
+  tests/test_local_stack_lifecycle.py
+  tests/test_local_stack_control_cleanup.py
+  tests/test_local_stack_lifecycle_restart.py -q`.
+
+- Split four over-900-line `server_core` files under 850 lines: Authoring
+  HTTP helpers, Blueprint Course view builders, Live Demo plus env
+  composition, and Question Library summaries. Routers and route handlers
+  stay in the original modules. Gate: `cargo fmt -p server_core`,
+  `cargo check -p server_core --offline --tests`,
+  `source source_me.sh && python3 -m pytest
+  tests/test_source_file_line_limit.py -q`.
+
+- Split four over-900-line Rust files under 850 lines: PLE Question JSON
+  source compile/validate helpers, PLE Question JSON grading validate
+  helpers, presentation builder item assembly, and Live Demo activity
+  converge. Public compile, shape, build, and provision entry points stay
+  in the original modules. Gate: `cargo check -p adapter_ple --offline
+  --tests`, `cargo check -p grading --offline --tests`, `cargo check -p
+  question_model --offline --lib`, `cargo check -p project-tools
+  --offline --tests`, `source source_me.sh && python3 -m pytest
+  tests/test_source_file_line_limit.py -q`.
+
+- Split four over-900-line files under 850 lines: Assessment Attempt
+  start SQL, changelog day-block parsing, Ribbon M10 shell evidence
+  helpers, and remaining PLE Question JSON type codec tests. Start
+  functions load after lock/assert helpers. Gate:
+  `source source_me.sh && python3 -m pytest
+  tests/test_source_file_line_limit.py -q` and
+  `node --import tsx --test tests/test_ple_question_json_authoring.mjs
+  tests/test_ple_question_json_authoring_types.mjs`.
+
+- Split four over-900-line `learning-data-access` files under 850 lines:
+  Assessment delivery renditions, Assessment release decode helpers,
+  Blueprint Course decode helpers, and the Blueprint lifecycle connected
+  oracle. Owner-only Private discovery assertions live in
+  `lifecycle_privacy.rs`. Gate:
+  `cargo check -p learning-data-access --features postgres --tests`,
+  `python3 -m pytest tests/test_source_file_line_limit.py -q`.
+
 - Drop `course_membership_event_current_lookup_idx`; the UNIQUE btree on
   `(course_membership_id, occurred_at, course_membership_event_id)` already
   serves current-event lookup, including reverse `ORDER BY`. Drop stored

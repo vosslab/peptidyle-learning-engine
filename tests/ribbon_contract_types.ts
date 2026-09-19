@@ -12,7 +12,7 @@ import {
 const route = ROUTE_CONTRACT.find((candidate) => candidate.id === "courseAssessments");
 if (route === undefined)
   throw new Error("Course Assessments route is required by the Ribbon contract.");
-const params = { courseRef: "CI7K3M2QAZ" } as const;
+const params = { courseInstanceId: "CI7K3M2QAZ" } as const;
 const routeState = { route, params } satisfies RibbonRouteState;
 const viewerIdentity = { productRole: "instructor" } satisfies RibbonViewerIdentity;
 const contextLabels = {} satisfies RibbonContextLabels;
@@ -53,7 +53,7 @@ const routeStateWithResource = { route, params, scopeResource: { courseId: "1" }
 // @ts-expect-error Route state is exact and cannot carry a resource.
 deriveRibbonModel(routeStateWithResource, viewerIdentity, contextLabels);
 
-const paramsWithProjection = { courseRef: "CI7K3M2QAZ", courseProjection: { id: "1" } };
+const paramsWithProjection = { courseInstanceId: "CI7K3M2QAZ", courseProjection: { id: "1" } };
 const routeStateWithProjection = { route, params: paramsWithProjection };
 // @ts-expect-error Declared parameters are exact strings, not a projection carrier.
 deriveRibbonModel(routeStateWithProjection, viewerIdentity, contextLabels);
@@ -62,6 +62,6 @@ const routeIdFromUntrustedText: string = "courseAssessments";
 // @ts-expect-error The normal route builder accepts a declared RouteId, not arbitrary text.
 buildRoutePath(routeIdFromUntrustedText, params);
 
-const paramsWithSessionData = { courseRef: "CI7K3M2QAZ", sessionData: { token: "secret" } };
+const paramsWithSessionData = { courseInstanceId: "CI7K3M2QAZ", sessionData: { token: "secret" } };
 // @ts-expect-error The normal route builder rejects variable extra route data.
 buildRoutePath("courseAssessments", paramsWithSessionData);

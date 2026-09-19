@@ -12,6 +12,7 @@ import local_stack_control.acceptance_profile_owner
 import local_stack_control.browser_suite_lease
 import local_stack_control.compose
 import local_stack_control.disposable_stack_adapter
+import local_stack_control.disposable_stack_cleanup
 import local_stack_control.env_file
 import local_stack_control.image_cleanup
 import local_stack_control.lifecycle_commands
@@ -147,7 +148,7 @@ def _run_oracle_with_image_lease(repository_root: pathlib.Path, workspace: pathl
 	local_stack_control.image_cleanup.remove_obsolete_images_before_build(runner, repository_root)
 	disposable = _baseline_target(repository_root, workspace, runner)
 	compose_environment = local_stack_control.disposable_stack_adapter.compose_environment(disposable)
-	private_values = local_stack_control.disposable_stack_adapter.private_environment_values(
+	private_values = local_stack_control.disposable_stack_cleanup.private_environment_values(
 		disposable.target.env_file
 	)
 	admin_password = _password_from_private_url(runtime.admin_url_path, "ple_e2e_migrator")
@@ -161,7 +162,7 @@ def _run_oracle_with_image_lease(repository_root: pathlib.Path, workspace: pathl
 	private_values = private_values + (migration_url,)
 
 	def compose(arguments: list[str], description: str, stdin: str | None = None) -> str:
-		argv, environment = local_stack_control.disposable_stack_adapter.compose_command(
+		argv, environment = local_stack_control.disposable_stack_cleanup.compose_command(
 			disposable, arguments
 		)
 		return _require_command(
@@ -170,7 +171,7 @@ def _run_oracle_with_image_lease(repository_root: pathlib.Path, workspace: pathl
 
 	compose(["up", "-d", "postgres"], "database baseline PostgreSQL startup")
 	for _ in range(30):
-		ready_argv, ready_environment = local_stack_control.disposable_stack_adapter.compose_command(
+		ready_argv, ready_environment = local_stack_control.disposable_stack_cleanup.compose_command(
 			disposable,
 			["exec", "-T", "postgres", "pg_isready", "-U", "ple_e2e_migrator", "-d", "postgres"],
 		)
@@ -183,7 +184,7 @@ def _run_oracle_with_image_lease(repository_root: pathlib.Path, workspace: pathl
 
 	admin_environment = dict(compose_environment)
 	admin_environment["PGPASSWORD"] = admin_password
-	create_database_argv, _ = local_stack_control.disposable_stack_adapter.compose_command(
+	create_database_argv, _ = local_stack_control.disposable_stack_cleanup.compose_command(
 		disposable,
 		["exec", "-T", "postgres", "psql", "-X", "-v", "ON_ERROR_STOP=1", "-U", "ple_e2e_migrator", "-d", "postgres"],
 	)
@@ -196,7 +197,7 @@ def _run_oracle_with_image_lease(repository_root: pathlib.Path, workspace: pathl
 		private_values + (admin_password, migrator_password),
 		"CREATE DATABASE ple_e2e_baseline;\n",
 	)
-	bootstrap_argv, _ = local_stack_control.disposable_stack_adapter.compose_command(
+	bootstrap_argv, _ = local_stack_control.disposable_stack_cleanup.compose_command(
 		disposable,
 		["exec", "-T", "postgres", "psql", "-X", "-v", "ON_ERROR_STOP=1", "-U", "ple_e2e_migrator", "-d", "ple_e2e_baseline"],
 	)
@@ -222,7 +223,7 @@ def _run_oracle_with_image_lease(repository_root: pathlib.Path, workspace: pathl
 		"CREATE TABLE public.ple_baseline_unrelated_structure (identifier integer);\n",
 	)
 	contaminated_initialize_argv, contaminated_initialize_environment = (
-		local_stack_control.disposable_stack_adapter.compose_command(
+		local_stack_control.disposable_stack_cleanup.compose_command(
 			disposable,
 			[
 				"--profile", "migration", "run", "--rm", "--no-deps",
@@ -367,7 +368,7 @@ def _run_oracle_with_image_lease(repository_root: pathlib.Path, workspace: pathl
 	)
 	migrator_environment = dict(compose_environment)
 	migrator_environment["PGPASSWORD"] = migrator_password
-	security_argv, _ = local_stack_control.disposable_stack_adapter.compose_command(
+	security_argv, _ = local_stack_control.disposable_stack_cleanup.compose_command(
 		disposable,
 		["exec", "-T", "postgres", "psql", "-X", "-v", "ON_ERROR_STOP=1", "-U", "ple_migrator", "-d", "ple_e2e_baseline"],
 	)
@@ -401,7 +402,7 @@ def _run_oracle_with_image_lease(repository_root: pathlib.Path, workspace: pathl
 		"direct Assessment Attempt finalization PostgreSQL acceptance",
 		private_values + (admin_password, migrator_password, service_urls[0]),
 	)
-	owned_snapshot = local_stack_control.disposable_stack_adapter.require_current_resource_capability(
+	owned_snapshot = local_stack_control.disposable_stack_cleanup.require_current_resource_capability(
 		runner, disposable
 	)
 	postgres_container = _postgres_container_id(disposable, owned_snapshot)

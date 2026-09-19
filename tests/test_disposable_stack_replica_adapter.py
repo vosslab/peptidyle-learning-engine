@@ -5,6 +5,7 @@ import pathlib
 import pytest
 
 import local_stack_control.disposable_stack_adapter
+import local_stack_control.disposable_stack_cleanup
 import local_stack_control.models
 import local_stack_control.disposable_stack_command
 import local_stack_control.process
@@ -12,7 +13,7 @@ import local_stack_control.process
 
 def replica_count_width() -> int:
 	"""The replica count row has one integer per current Student Work query."""
-	return len(local_stack_control.disposable_stack_adapter.POSTGRESQL_ATTEMPT_COUNT_QUERIES)
+	return len(local_stack_control.disposable_stack_cleanup.POSTGRESQL_ATTEMPT_COUNT_QUERIES)
 
 
 def replica_count_row(fill: str = "1") -> str:
@@ -118,7 +119,7 @@ def test_fixed_replica_profile_refuses_stopping_the_only_api_instance(
 	)
 
 	with pytest.raises(local_stack_control.models.ControllerError):
-		local_stack_control.disposable_stack_adapter.replica_stop_container(
+		local_stack_control.disposable_stack_cleanup.replica_stop_container(
 			fixed_replica_target(tmp_path), snapshot, "api", "0123456789ab"
 		)
 
@@ -126,7 +127,7 @@ def test_fixed_replica_profile_refuses_stopping_the_only_api_instance(
 #============================================
 def test_replica_diagnostics_redact_private_values() -> None:
 	"""Captured diagnostics cannot return an env secret or URL credential."""
-	redacted = local_stack_control.disposable_stack_adapter.redact_diagnostics(
+	redacted = local_stack_control.disposable_stack_cleanup.redact_diagnostics(
 		"private-value postgres://user:password@postgres/database",
 		("private-value",),
 	)
@@ -176,7 +177,7 @@ def test_replica_count_command_uses_profile_scoped_parameters(
 ) -> None:
 	"""The closed child capability binds scoped UUIDs without interpolating them into SQL."""
 	attempt = "00000000-0000-4000-8000-000000000200"
-	argv, environment, sql = local_stack_control.disposable_stack_adapter.postgresql_count_command(
+	argv, environment, sql = local_stack_control.disposable_stack_cleanup.postgresql_count_command(
 		fixed_replica_target(tmp_path), attempt
 	)
 	assert f"attempt_id={attempt}" in argv
@@ -201,7 +202,7 @@ def test_postgresql_count_rejects_other_fixed_profiles(
 	with pytest.raises(
 		local_stack_control.models.ControllerError, match="fixed replica profile"
 	):
-		local_stack_control.disposable_stack_adapter.postgresql_count_command(
+		local_stack_control.disposable_stack_cleanup.postgresql_count_command(
 			target,
 			"00000000-0000-4000-8000-000000000200",
 		)
@@ -211,7 +212,7 @@ def test_postgresql_count_rejects_other_fixed_profiles(
 def test_postgresql_count_rejects_non_lowercase_uuid(tmp_path: pathlib.Path) -> None:
 	"""A SQL metavariable cannot carry arbitrary text or alternate UUID spelling."""
 	with pytest.raises(local_stack_control.models.ControllerError, match="lowercase UUID"):
-		local_stack_control.disposable_stack_adapter.postgresql_count_command(
+		local_stack_control.disposable_stack_cleanup.postgresql_count_command(
 			fixed_replica_target(tmp_path),
 			"00000000-0000-4000-8000-000000000200'::uuid; SELECT 1; --",
 		)

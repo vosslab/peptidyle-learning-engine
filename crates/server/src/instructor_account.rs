@@ -41,11 +41,11 @@ pub fn instructor_account_router(
             post(complete_instructor_identity_vetting),
         )
         .route(
-            "/api/instructor-accounts/{reference}/deactivate",
+            "/api/instructor-accounts/{account_id}/deactivate",
             post(deactivate_instructor_account),
         )
         .route(
-            "/api/instructor-accounts/{reference}/reactivate",
+            "/api/instructor-accounts/{account_id}/reactivate",
             post(reactivate_instructor_account),
         )
         .with_state(InstructorAccountRouteState { sessions, accounts })

@@ -5,7 +5,7 @@ import pathlib
 import pytest
 
 import local_stack_control.lifecycle_commands
-import local_stack_control.disposable_stack_adapter
+import local_stack_control.disposable_stack_cleanup
 import local_stack_control.models
 import local_stack_control.process
 
@@ -55,7 +55,7 @@ def test_compose_run_reports_its_step_on_stderr_before_running(
 	)
 	monkeypatch.setattr(local_stack_control.lifecycle_commands, "child_environment", lambda *args: {})
 	monkeypatch.setattr(
-		local_stack_control.disposable_stack_adapter, "private_environment_values", lambda *args: ()
+		local_stack_control.disposable_stack_cleanup, "private_environment_values", lambda *args: ()
 	)
 	runner = RecordingRunner()
 	local_stack_control.lifecycle_commands.compose_run(target, runner, ["up", "-d", "postgres"])

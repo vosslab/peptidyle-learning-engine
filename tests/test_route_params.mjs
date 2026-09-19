@@ -8,12 +8,12 @@ import {
 } from "../src/navigation/public_route.ts";
 import { ROUTE_CONTRACT, routeContractForPathname } from "../src/route_contract.ts";
 
-function courseKey(courseReference) {
-  return { kind: "courseInstance", courseReference };
+function courseKey(courseInstanceId) {
+  return { kind: "courseInstance", courseInstanceId };
 }
 
-function attemptKey(assessmentAttemptReference) {
-  return { kind: "assessmentAttempt", assessmentAttemptReference };
+function attemptKey(assessmentAttemptId) {
+  return { kind: "assessmentAttempt", assessmentAttemptId };
 }
 
 function routeById(id) {
@@ -30,19 +30,19 @@ test("canonical Assessment routes extract opaque references and reject the retir
     [
       "assessmentOverview",
       "/courses/CIABCDEFGS/assessments/AABCDEFG8",
-      { courseRef: "CIABCDEFGS", assessmentRef: "AABCDEFG8" },
+      { courseInstanceId: "CIABCDEFGS", assessmentId: "AABCDEFG8" },
       courseKey("CIABCDEFGS"),
     ],
     [
       "assessmentWorkspacePolicies",
       "/instructor/courses/CIABCDEFGS/assessments/AABCDEFG8/properties",
-      { courseRef: "CIABCDEFGS", assessmentRef: "AABCDEFG8" },
+      { courseInstanceId: "CIABCDEFGS", assessmentId: "AABCDEFG8" },
       courseKey("CIABCDEFGS"),
     ],
     [
       "assessmentAttempt",
       "/assessment-attempts/00000000-0000-0000-0000-000000000001",
-      { assessmentAttemptRef: "00000000-0000-0000-0000-000000000001" },
+      { assessmentAttemptId: "00000000-0000-0000-0000-000000000001" },
       attemptKey("00000000-0000-0000-0000-000000000001"),
     ],
   ];
@@ -95,7 +95,9 @@ test("static declared routes use an empty record rather than a mismatch", () => 
 test("a structural declared route copy zips the selected canonical pattern", () => {
   const courseAssessments = routeById("courseAssessments");
   const copiedRoute = { ...courseAssessments };
-  assert.deepEqual(routeParams(copiedRoute, "/courses/CIABCDEFGS"), { courseRef: "CIABCDEFGS" });
+  assert.deepEqual(routeParams(copiedRoute, "/courses/CIABCDEFGS"), {
+    courseInstanceId: "CIABCDEFGS",
+  });
 });
 
 test("Blueprint Course references use the shared public route parser", () => {
@@ -121,7 +123,7 @@ test("route-shape hostility fails closed and never supplies partial parameters",
   }
 
   assert.deepEqual(routeParams(courseRoute, "/courses/CI%2FABCDEFGS"), {
-    courseRef: "CI%2FABCDEFGS",
+    courseInstanceId: "CI%2FABCDEFGS",
   });
   assert.deepEqual(routeScopeKey("/courses/CI%2FABCDEFGS"), {
     kind: "invalid",

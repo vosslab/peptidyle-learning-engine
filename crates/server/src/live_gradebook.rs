@@ -40,11 +40,11 @@ pub fn live_gradebook_router(
 ) -> Router {
     Router::new()
         .route(
-            "/api/course-instances/{reference}/gradebook",
+            "/api/course-instances/{course_instance_id}/gradebook",
             get(read_gradebook),
         )
         .route(
-            "/api/course-instances/{reference}/gradebook/export",
+            "/api/course-instances/{course_instance_id}/gradebook/export",
             get(download_gradebook),
         )
         // ASVS 14.3.2: include extractor and method rejections in no-store handling.

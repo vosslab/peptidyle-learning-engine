@@ -6,6 +6,7 @@ import pytest
 
 import local_stack_control.compose
 import local_stack_control.disposable_stack_adapter
+import local_stack_control.disposable_stack_cleanup
 import local_stack_control.env_file
 import local_stack_control.live_demo_seed
 import local_stack_control.live_demo_target
@@ -234,7 +235,7 @@ def test_replica_application_image_exactly_matches_cleanup_authority(
 		tmp_path / "profile",
 		local_stack_control.models.LiveDemoProfile.REPLICA_RESTART,
 	)
-	images = local_stack_control.disposable_stack_adapter.owned_project_images(replica)
+	images = local_stack_control.disposable_stack_cleanup.owned_project_images(replica)
 	assert values["PLE_APPLICATION_IMAGE"] == images[0]
 	assert images[0] == local_stack_control.models.LIVE_DEMO_REPLICA_APPLICATION_IMAGE
 
@@ -263,7 +264,7 @@ def test_non_replica_targets_retain_shared_application_image_behavior(
 	values = local_stack_control.env_file.env_settings(target.environment_path)
 	selected = disposable_profile(tmp_path / "profile", profile)
 	assert "PLE_APPLICATION_IMAGE" not in values
-	assert local_stack_control.disposable_stack_adapter.owned_project_images(selected) == (
+	assert local_stack_control.disposable_stack_cleanup.owned_project_images(selected) == (
 		"localhost/ple-live-demo-browser_gateway:latest",
 	)
 
@@ -328,17 +329,17 @@ def test_selected_adapter_actions_follow_the_closed_profile(tmp_path: pathlib.Pa
 	browser = disposable_profile(
 		tmp_path / "browser", local_stack_control.models.LiveDemoProfile.BROWSER
 	)
-	assert local_stack_control.disposable_stack_adapter.evidence_log_service(
+	assert local_stack_control.disposable_stack_cleanup.evidence_log_service(
 		webwork, "renderer_delivery"
 	) == "api"
-	status, logs = local_stack_control.disposable_stack_adapter.diagnostic_commands(
+	status, logs = local_stack_control.disposable_stack_cleanup.diagnostic_commands(
 		replica, ("api", "gateway")
 	)
 	assert status[-1] == "ps" and logs[-2:] == ["api", "gateway"]
 	with pytest.raises(local_stack_control.models.ControllerError, match="diagnostics"):
-		local_stack_control.disposable_stack_adapter.diagnostic_commands(browser, ("api",))
+		local_stack_control.disposable_stack_cleanup.diagnostic_commands(browser, ("api",))
 	with pytest.raises(local_stack_control.models.ControllerError, match="requested evidence"):
-		local_stack_control.disposable_stack_adapter.evidence_log_service(replica, "renderer_delivery")
+		local_stack_control.disposable_stack_cleanup.evidence_log_service(replica, "renderer_delivery")
 
 
 #============================================
@@ -356,7 +357,7 @@ def test_webwork_profile_has_only_its_exact_renderer_outage_authority(
 	argv, _environment = local_stack_control.disposable_stack_adapter.outage_stop_command(webwork)
 	assert argv[-2:] == ["stop", "webwork-renderer"]
 	with pytest.raises(local_stack_control.models.ControllerError, match="generic Compose"):
-		local_stack_control.disposable_stack_adapter.compose_command(webwork, ["ps"])
+		local_stack_control.disposable_stack_cleanup.compose_command(webwork, ["ps"])
 	with pytest.raises(local_stack_control.models.ControllerError, match="service outage"):
 		local_stack_control.disposable_stack_adapter.outage_service(replica)
 

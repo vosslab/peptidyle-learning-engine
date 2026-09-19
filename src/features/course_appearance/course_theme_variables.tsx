@@ -19,7 +19,7 @@ export interface CourseThemeVariablesProps {
 }
 
 interface CourseThemePresentationOverride {
-  readonly courseReference: CourseInstanceId;
+  readonly courseInstanceId: CourseInstanceId;
   readonly appearance: CourseAppearanceView;
 }
 
@@ -88,19 +88,19 @@ export function CourseThemeVariables(props: CourseThemeVariablesProps): JSX.Elem
       setPresentationOverride(undefined);
       return;
     }
-    const courseReference = currentCourseReference();
-    if (courseReference === undefined) return;
-    setPresentationOverride({ courseReference, appearance });
+    const courseInstanceId = currentCourseReference();
+    if (courseInstanceId === undefined) return;
+    setPresentationOverride({ courseInstanceId, appearance });
   };
   const appearance = createMemo(() => {
     const override = presentationOverride();
-    if (override !== undefined && override.courseReference === currentCourseReference())
+    if (override !== undefined && override.courseInstanceId === currentCourseReference())
       return override.appearance;
     return appearanceFor(routeData());
   });
 
   createEffect(() => {
-    if (presentationOverride()?.courseReference !== currentCourseReference())
+    if (presentationOverride()?.courseInstanceId !== currentCourseReference())
       setPresentationOverride(undefined);
   });
 
@@ -108,7 +108,7 @@ export function CourseThemeVariables(props: CourseThemeVariablesProps): JSX.Elem
     const current = appearance();
     return current === undefined ? undefined : courseThemeStyle(courseThemeTokens(current.theme));
   });
-  const courseReference = createMemo(() => {
+  const courseInstanceId = createMemo(() => {
     const data = routeData();
     if (data === undefined) return undefined;
     if (data.kind === "assessmentAttempt") {
@@ -127,7 +127,7 @@ export function CourseThemeVariables(props: CourseThemeVariablesProps): JSX.Elem
       <div
         class="course-theme-scope"
         data-course-theme={appearance()?.theme}
-        data-course-reference={courseReference()}
+        data-course-instance-id={courseInstanceId()}
         style={themeStyle()}
       >
         {props.children}

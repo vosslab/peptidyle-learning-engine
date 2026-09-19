@@ -69,15 +69,15 @@ pub fn assessment_student_view_router(
     // read-only capability; no preview mutation route exists.
     Router::new()
         .route(
-            "/api/course-instances/{course}/assessments/{assessment}/student-view",
+            "/api/course-instances/{course_instance_id}/assessments/{assessment_id}/student-view",
             get(manifest),
         )
         .route(
-            "/api/course-instances/{course}/assessments/{assessment}/student-view/entries/{authored_position}/questions/{question_id}/revisions/{revision}/presentation",
+            "/api/course-instances/{course_instance_id}/assessments/{assessment_id}/student-view/entries/{authored_position}/questions/{question_id}/revisions/{revision}/presentation",
             get(presentation),
         )
         .route(
-            "/api/course-instances/{course}/assessments/{assessment}/student-view/entries/{authored_position}/questions/{question_id}/revisions/{revision}/document",
+            "/api/course-instances/{course_instance_id}/assessments/{assessment_id}/student-view/entries/{authored_position}/questions/{question_id}/revisions/{revision}/document",
             get(document),
         )
         .with_state(StateData {

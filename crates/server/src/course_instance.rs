@@ -56,15 +56,15 @@ pub fn course_instance_router(
             get(list_course_instances).post(create_course_instance),
         )
         .route(
-            "/api/course-instances/{reference}",
+            "/api/course-instances/{course_instance_id}",
             get(load_course_instance),
         )
         .route(
-            "/api/course-instances/{reference}/summary",
+            "/api/course-instances/{course_instance_id}/summary",
             get(read_course_summary),
         )
         .route(
-            "/api/course-instances/{reference}/classification",
+            "/api/course-instances/{course_instance_id}/classification",
             put(update_classification),
         )
         .route(

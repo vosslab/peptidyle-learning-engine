@@ -41,7 +41,7 @@ pub fn live_student_course_landing_router(
             get(list_pending_invitations),
         )
         .route(
-            "/api/course-instances/{course}/assessment-landing",
+            "/api/course-instances/{course_instance_id}/assessment-landing",
             get(list_assessments),
         )
         .with_state(RouteState { sessions, landing })

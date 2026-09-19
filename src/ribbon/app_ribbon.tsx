@@ -13,6 +13,7 @@ import {
 } from "solid-js";
 
 import "./app_ribbon.css";
+import "./app_ribbon_density.css";
 
 import type {
   RibbonActionDescriptor,

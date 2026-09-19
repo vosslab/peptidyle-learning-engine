@@ -6,6 +6,7 @@ import hashlib
 import pytest
 
 import local_stack_control.disposable_stack_adapter
+import local_stack_control.disposable_stack_cleanup
 import local_stack_control.models
 
 
@@ -72,7 +73,7 @@ def test_resource_capability_rejects_missing_or_foreign_digest(
 	)
 
 	with pytest.raises(local_stack_control.models.ControllerError, match="do not all carry"):
-		local_stack_control.disposable_stack_adapter.require_capability_snapshot(disposable, snapshot)
+		local_stack_control.disposable_stack_cleanup.require_capability_snapshot(disposable, snapshot)
 
 
 #============================================

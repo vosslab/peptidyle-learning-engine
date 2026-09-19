@@ -38,7 +38,7 @@ pub fn support_capability_router(
             post(revoke_repair),
         )
         .route(
-            "/api/support-repair-capabilities/{capability_id}/course-instances/{reference}/roster/{roster_id}",
+            "/api/support-repair-capabilities/{capability_id}/course-instances/{course_instance_id}/roster/{roster_id}",
             get(read_repair_roster_entry),
         )
         .with_state(RouteState { sessions, support })

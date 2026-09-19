@@ -11,10 +11,10 @@ import { assessmentWorkspacePath } from "./assessment_workspace_paths";
 
 /** A successful Assessment create always enters the Questions task for the new persisted draft. */
 export function createdAssessmentQuestionsPath(
-  courseReference: CourseInstanceRouteReference,
-  assessmentReference: AssessmentRouteReference,
+  courseInstanceId: CourseInstanceRouteReference,
+  assessmentId: AssessmentRouteReference,
 ): string {
-  return assessmentWorkspacePath(courseReference, assessmentReference, "questions");
+  return assessmentWorkspacePath(courseInstanceId, assessmentId, "questions");
 }
 
 /** Keeps transport details outside the visible draft-creation recovery path. */

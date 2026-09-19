@@ -5,14 +5,17 @@ import { readFileSync } from "node:fs";
 
 import { chromium } from "playwright";
 
-import { bundleRibbonM8IntegrationHarness } from "../support/ribbon_m8_integration_loader.ts";
+import { bundleRibbonIntegrationHarness } from "../support/ribbon_integration_loader.ts";
 
-const globalCss = readFileSync(new URL("../../src/style.css", import.meta.url), "utf8");
+const globalCss = [
+  readFileSync(new URL("../../src/style.css", import.meta.url), "utf8"),
+  readFileSync(new URL("../../src/style_responsive.css", import.meta.url), "utf8"),
+].join("\n");
 const accessibilityCss = readFileSync(
   new URL("../../src/styles/accessibility.css", import.meta.url),
   "utf8",
 );
-const bundle = await bundleRibbonM8IntegrationHarness();
+const bundle = await bundleRibbonIntegrationHarness();
 const bundleBase64 = Buffer.from(bundle.javascript).toString("base64");
 const bundleUrl = `data:text/javascript;base64,${bundleBase64}`;
 const markup = [
@@ -24,8 +27,8 @@ const markup = [
   bundle.stylesheet,
   "\nhtml,body{margin:0}.m8-root{inline-size:6rem}</style></head><body>",
   '<div id="root" class="m8-root"></div><script type="module">',
-  `import { mountRibbonM8IntegrationHarness } from "${bundleUrl}";`,
-  'window.ribbonM8 = mountRibbonM8IntegrationHarness(document.querySelector("#root"));',
+  `import { mountRibbonIntegrationHarness } from "${bundleUrl}";`,
+  'window.ribbonIntegration = mountRibbonIntegrationHarness(document.querySelector("#root"));',
   'document.addEventListener("click", event => event.preventDefault());',
   "window.scrollCalls = [];",
   "HTMLElement.prototype.scrollIntoView = function(options) {",
@@ -47,11 +50,11 @@ try {
   const pageErrors = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
   await page.setContent(markup);
-  await page.waitForFunction(() => "ribbonM8" in window);
+  await page.waitForFunction(() => "ribbonIntegration" in window);
   await flush(page);
 
   const evidence = await page.evaluate(async () => {
-    const harness = window.ribbonM8;
+    const harness = window.ribbonIntegration;
     const selected = () => document.querySelector('[aria-current="page"]');
     const link = (id) => {
       const element = document.querySelector(`[data-ribbon-control="${id}"]`);
@@ -211,7 +214,7 @@ try {
     if (!(students instanceof HTMLAnchorElement))
       throw new Error("missing pending-hover evidence link");
     students.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-    window.ribbonM8.setRoutingInFlight(true);
+    window.ribbonIntegration.setRoutingInFlight(true);
   });
   await page.hover('[data-ribbon-control="students"]');
   const pendingHoverAndFocus = await page.evaluate(() => {
@@ -241,15 +244,15 @@ try {
     "none",
     "pending inset cue persists while hovered and focused",
   );
-  await page.evaluate(() => window.ribbonM8.setRoutingInFlight(false));
+  await page.evaluate(() => window.ribbonIntegration.setRoutingInFlight(false));
   const disposal = await page.evaluate(async () => {
     const unhandled = [];
     const recordUnhandled = (event) => unhandled.push(String(event.reason));
     window.addEventListener("unhandledrejection", recordUnhandled);
     window.scrollCalls.length = 0;
     document.querySelector("#root").style.inlineSize = "6rem";
-    window.ribbonM8.selectTab("teachingOperations");
-    window.ribbonM8.dispose();
+    window.ribbonIntegration.selectTab("teachingOperations");
+    window.ribbonIntegration.dispose();
     await new Promise((resolve) => queueMicrotask(resolve));
     await new Promise((resolve) => queueMicrotask(resolve));
     window.removeEventListener("unhandledrejection", recordUnhandled);

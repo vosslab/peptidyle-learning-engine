@@ -20,12 +20,12 @@ function updateLabel(assessment: CourseAssessmentBlueprintUpdateSummary): string
 
 /** Read-only discovery; each Assessment's editor loads its own current detailed review. */
 export function CourseBlueprintUpdateReviewList(props: {
-  readonly courseReference: CourseInstanceId;
+  readonly courseInstanceId: CourseInstanceId;
 }): JSX.Element {
   const applicationApi = useApplicationApi();
   const [opened, setOpened] = createSignal(false);
   const [review, { refetch }] = createResource(
-    () => (opened() ? props.courseReference : false),
+    () => (opened() ? props.courseInstanceId : false),
     async (reference): Promise<CourseBlueprintUpdateReview | null> => {
       try {
         return await applicationApi.client.getCourseBlueprintUpdateReview(reference);
@@ -117,7 +117,7 @@ export function CourseBlueprintUpdateReviewList(props: {
                             <A
                               class="quiet-link"
                               aria-label={`Review this Assessment: ${assessment.title}`}
-                              href={`/instructor/courses/${props.courseReference}/assessments/${assessment.assessmentId}/questions`}
+                              href={`/instructor/courses/${props.courseInstanceId}/assessments/${assessment.assessmentId}/questions`}
                             >
                               Review this Assessment
                             </A>
