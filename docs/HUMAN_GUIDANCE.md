@@ -77,6 +77,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ### Codebase development rules
 
+- Language-native casing is the right system: SQL stays account_id, Rust/TS types stay AccountId, JSON stays accountId.
 - Use `source ./source_me.sh && ./launchers/run_fast_checks.sh` for a quicker compliance check
 - Use `source ./source_me.sh && ./launchers/all_test.sh` for a complete compliance check
 - Use `source ./source_me.sh && ./devel/capture_screenshots.sh` for UI work to capture fresh screenshots
