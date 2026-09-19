@@ -414,7 +414,7 @@ fn validate_presented_hotspot(
         .iter()
         .map(|region| ResponseItemId::new(region.id.as_str()))
         .collect();
-    validate_hotspot_region_references(selections, &available, issues);
+    validate_hotspot_region_ids(selections, &available, issues);
 }
 
 fn validate_multi_blank(
@@ -486,10 +486,10 @@ fn validate_hotspot(
 ) {
     validate_selection_count(selection, selections.len(), issues);
     let available: BTreeSet<_> = regions.iter().map(|region| region.id.clone()).collect();
-    validate_hotspot_region_references(selections, &available, issues);
+    validate_hotspot_region_ids(selections, &available, issues);
 }
 
-fn validate_hotspot_region_references(
+fn validate_hotspot_region_ids(
     selections: &[question_model::response::StudentHotspotSelection],
     available: &BTreeSet<ResponseItemId>,
     issues: &mut Vec<StudentResponseFormatIssue>,
@@ -712,10 +712,7 @@ mod tests {
             items: vec![ordering_item("first"), ordering_item("second")],
         };
         let response = StudentResponse::Ordering {
-            order: vec![
-                ResponseItemId::new("first"),
-                ResponseItemId::new("first"),
-            ],
+            order: vec![ResponseItemId::new("first"), ResponseItemId::new("first")],
         };
 
         assert_eq!(

@@ -74,7 +74,7 @@ impl AssessmentPoolForkStore for PostgresAssessmentPoolForkStore {
             .map_err(|_| invalid("Question Pool points per item"))?;
         let mut transaction = self.begin(session_token_hash).await?;
         let row = sqlx::query(
-            "SELECT * FROM ple_api.import_assessment_question_pool_fork_for_reference(\
+            "SELECT * FROM ple_api.import_assessment_question_pool_fork_for_ids(\
              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
         )
         .bind(input.course.as_string())

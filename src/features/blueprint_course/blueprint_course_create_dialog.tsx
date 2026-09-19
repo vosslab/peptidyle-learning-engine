@@ -35,8 +35,8 @@ export interface BlueprintCourseCreateDialogProps {
   readonly onFailure: (text: string) => void;
 }
 
-function detailPath(reference: string): string {
-  return `/blueprint-courses/${encodeURIComponent(reference)}`;
+function detailPath(blueprintCourseId: string): string {
+  return `/blueprint-courses/${encodeURIComponent(blueprintCourseId)}`;
 }
 
 /** Keeps incomplete Blueprint Course working state in the browser until it has reusable content. */

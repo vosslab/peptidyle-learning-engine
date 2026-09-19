@@ -9,9 +9,10 @@ use serde::{Deserialize, Serialize};
 
 /// One exact Blueprint Course and immutable Blueprint Revision pair.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BlueprintRevisionTuple {
     pub blueprint_course_id: BlueprintCourseId,
+    #[serde(rename = "revisionNumber")]
     pub revision: BlueprintRevision,
 }
 
@@ -213,9 +214,10 @@ mod tests {
             revision: BlueprintRevision::INITIAL,
         };
         let json = serde_json::to_value(&tuple).expect("tuple serializes");
-        assert_eq!(json["blueprint_course_id"], "BP7K3M2QXH");
-        assert_eq!(json["revision"], "1");
+        assert_eq!(json["blueprintCourseId"], "BP7K3M2QXH");
+        assert_eq!(json["revisionNumber"], "1");
         assert!(json.get("reference").is_none());
+        assert!(json.get("blueprint_course_id").is_none());
         let decoded: BlueprintRevisionTuple =
             serde_json::from_value(json).expect("tuple deserializes from its members");
         assert_eq!(decoded, tuple);
@@ -225,13 +227,19 @@ mod tests {
     fn blueprint_revision_tuple_rejects_legacy_reference_json() {
         assert!(
             serde_json::from_str::<BlueprintRevisionTuple>(
-                r#"{"reference":{"blueprint_course_id":"BP7K3M2QXH","revision":"1"}}"#
+                r#"{"reference":{"blueprintCourseId":"BP7K3M2QXH","revisionNumber":"1"}}"#
             )
             .is_err()
         );
         assert!(
             serde_json::from_str::<BlueprintRevisionTuple>(
-                r#"{"blueprint_course_id":"BP7K3M2QXH","revision":"1","reference":"BP7K3M2QXH"}"#
+                r#"{"blueprintCourseId":"BP7K3M2QXH","revisionNumber":"1","reference":"BP7K3M2QXH"}"#
+            )
+            .is_err()
+        );
+        assert!(
+            serde_json::from_str::<BlueprintRevisionTuple>(
+                r#"{"blueprint_course_id":"BP7K3M2QXH","revision":"1"}"#
             )
             .is_err()
         );

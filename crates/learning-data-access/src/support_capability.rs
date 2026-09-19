@@ -38,14 +38,14 @@ impl SupportRepairResourceClass {
 pub struct IssueSupportRepairCapabilityInput {
     pub sysadmin_id: AccountId,
     pub resource_class: SupportRepairResourceClass,
-    pub resource_reference: String,
+    pub resource_path: String,
     pub purpose: String,
 }
 
 impl IssueSupportRepairCapabilityInput {
     pub fn validate(&self) -> Result<(), StoreError> {
         for (label, value, maximum) in [
-            ("Support resource reference", &self.resource_reference, 512),
+            ("Support resource path", &self.resource_path, 512),
             ("Support purpose", &self.purpose, 1_000),
         ] {
             if value != value.trim()
@@ -66,7 +66,7 @@ pub struct SupportRepairCapabilityReceipt {
     pub capability_id: Uuid,
     pub sysadmin_id: AccountId,
     pub resource_class: SupportRepairResourceClass,
-    pub resource_reference: String,
+    pub resource_path: String,
     pub purpose: String,
     pub expires_at: Timestamp,
     pub revoked_at: Option<Timestamp>,
@@ -80,7 +80,7 @@ pub struct SupportRepairCapabilityUseReceipt {
     pub audit_event_id: Uuid,
     pub capability_id: Uuid,
     pub resource_class: SupportRepairResourceClass,
-    pub resource_reference: String,
+    pub resource_path: String,
     pub used_at: Timestamp,
 }
 
@@ -101,7 +101,7 @@ pub trait SupportRepairCapabilityStore: Send + Sync {
         token: SessionTokenHash,
         capability_id: Uuid,
         resource_class: SupportRepairResourceClass,
-        resource_reference: String,
+        resource_path: String,
     ) -> Result<SupportRepairCapabilityUseReceipt, StoreError>;
     /// Reads one named roster record for an active, exact-course repair
     /// capability.  This is deliberately not a generic or list reader.
@@ -118,11 +118,11 @@ pub trait SupportRepairCapabilityStore: Send + Sync {
 mod tests {
     use super::*;
 
-    fn input(reference: &str, purpose: &str) -> IssueSupportRepairCapabilityInput {
+    fn input(resource_path: &str, purpose: &str) -> IssueSupportRepairCapabilityInput {
         IssueSupportRepairCapabilityInput {
-            sysadmin_id: AccountId::from_random_identity("7K3M2QX").expect("valid reference"),
+            sysadmin_id: AccountId::from_random_identity("7K3M2QX").expect("valid Account ID"),
             resource_class: SupportRepairResourceClass::Student,
-            resource_reference: reference.to_owned(),
+            resource_path: resource_path.to_owned(),
             purpose: purpose.to_owned(),
         }
     }

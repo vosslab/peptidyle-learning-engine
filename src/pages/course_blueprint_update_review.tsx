@@ -26,9 +26,9 @@ export function CourseBlueprintUpdateReviewList(props: {
   const [opened, setOpened] = createSignal(false);
   const [review, { refetch }] = createResource(
     () => (opened() ? props.courseInstanceId : false),
-    async (reference): Promise<CourseBlueprintUpdateReview | null> => {
+    async (courseInstanceId): Promise<CourseBlueprintUpdateReview | null> => {
       try {
-        return await applicationApi.client.getCourseBlueprintUpdateReview(reference);
+        return await applicationApi.client.getCourseBlueprintUpdateReview(courseInstanceId);
       } catch {
         // Access loss and unavailable parents share one non-enumerating recovery state.
         return null;

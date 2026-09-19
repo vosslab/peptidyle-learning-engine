@@ -100,10 +100,11 @@ export function ProposalRecords(props: {
                     </A>
                   </h3>
                   <p>
-                    Source {item.sourceNames.shortName}, Revision {item.source.revision}; comparison
-                    target {item.targetNames.shortName}, Revision {item.target.revision}.{" "}
+                    Source {item.sourceNames.shortName}, Revision {item.source.revisionNumber};
+                    comparison target {item.targetNames.shortName}, Revision{" "}
+                    {item.target.revisionNumber}.{" "}
                     {item.accepted
-                      ? `Accepted target Revision ${item.accepted.target.revision}`
+                      ? `Accepted target Revision ${item.accepted.target.revisionNumber}`
                       : item.targetIsStale
                         ? "Older target basis; acceptance unavailable"
                         : "Proposed"}
@@ -140,8 +141,7 @@ export function ProposalTargetTools(props: {
   let sourceLoad = 0;
   let targetGeneration = 0;
   createEffect(() => {
-    const reference = props.target.id;
-    void reference;
+    void props.target.id;
     ++targetGeneration;
     ++sourceLoad;
     setOpen(false);
@@ -170,14 +170,14 @@ export function ProposalTargetTools(props: {
       if (generation === targetGeneration) setBusy(false);
     }
   }
-  async function choose(reference: string): Promise<void> {
+  async function choose(blueprintCourseId: string): Promise<void> {
     const generation = ++sourceLoad;
     setSelected(undefined);
     setMessage("");
-    if (!reference) return;
+    if (!blueprintCourseId) return;
     setBusy(true);
     try {
-      const result = await props.client.getBlueprintCourse(reference);
+      const result = await props.client.getBlueprintCourse(blueprintCourseId);
       if (generation === sourceLoad) setSelected(result.blueprintCourse);
     } catch {
       if (generation === sourceLoad)
@@ -267,7 +267,7 @@ export function ProposalTargetTools(props: {
                   {(source) => (
                     <option value={source.id}>
                       {source.long_name} ({source.short_name}; {source.availability}; Revision{" "}
-                      {source.current_revision.revision})
+                      {source.current_revision.revisionNumber})
                     </option>
                   )}
                 </For>
@@ -285,9 +285,9 @@ export function ProposalTargetTools(props: {
                 <>
                   <h4>{source().long_name}</h4>
                   <p>
-                    Source {source().short_name}, Revision {source().current_revision.revision},
+                    Source {source().short_name}, Revision {source().current_revision.revisionNumber},
                     edit {source().blueprint_edit_number}; target {props.target.long_name}, Revision{" "}
-                    {props.target.current_revision.revision}, edit{" "}
+                    {props.target.current_revision.revisionNumber}, edit{" "}
                     {props.target.blueprint_edit_number}.
                   </p>
                   <CourseClassificationSummary value={source().classification} />

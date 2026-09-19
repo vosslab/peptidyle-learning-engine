@@ -56,7 +56,7 @@ function historicalAssessmentDefaultDuration(content: BlueprintAssessmentContent
 export function BlueprintHistory(props: HistoryProps): JSX.Element {
   const identity = createMemo(
     () =>
-      `${props.view.id}:${props.view.current_revision.revision}:${props.view.blueprint_edit_number}`,
+      `${props.view.id}:${props.view.current_revision.revisionNumber}:${props.view.blueprint_edit_number}`,
   );
   return (
     <Show when={identity()} keyed>
@@ -85,8 +85,8 @@ function HistoryPanel(props: HistoryProps): JSX.Element {
       const result = await props.client.getBlueprintRevision(props.view.id, number);
       if (currentRequest !== request) return;
       if (
-        result.blueprintRevision.blueprint_course_id !== props.view.id ||
-        result.blueprintRevision.revision !== number
+        result.blueprintRevision.blueprintCourseId !== props.view.id ||
+        result.blueprintRevision.revisionNumber !== number
       )
         throw new Error("Unexpected Blueprint Revision");
       setRevision(result);
@@ -109,7 +109,7 @@ function HistoryPanel(props: HistoryProps): JSX.Element {
     <section class="blueprint-course-inspection" aria-label="Blueprint history">
       <h2>Blueprint history</h2>
       <p>
-        Latest saved content: Revision {props.view.current_revision.revision}. History is read-only;
+        Latest saved content: Revision {props.view.current_revision.revisionNumber}. History is read-only;
         inspecting it does not replace your current content or local edits.
       </p>
       <details onToggle={(event) => setRevisionOpen(event.currentTarget.open)}>
@@ -117,9 +117,9 @@ function HistoryPanel(props: HistoryProps): JSX.Element {
         <Show when={revisionOpen()}>
           <HistoryPage
             client={props.client}
-            reference={props.view.id}
+            blueprintCourseId={props.view.id}
             kind="revisions"
-            currentRevision={props.view.current_revision.revision}
+            currentRevision={props.view.current_revision.revisionNumber}
             onInspect={(number) => void inspect(number)}
           />
         </Show>
@@ -130,9 +130,9 @@ function HistoryPanel(props: HistoryProps): JSX.Element {
           <p>Recorded names and availability are separate from saved content Revisions.</p>
           <HistoryPage
             client={props.client}
-            reference={props.view.id}
+            blueprintCourseId={props.view.id}
             kind="metadata"
-            currentRevision={props.view.current_revision.revision}
+            currentRevision={props.view.current_revision.revisionNumber}
             onInspect={(number) => void inspect(number)}
           />
         </Show>
@@ -144,7 +144,7 @@ function HistoryPanel(props: HistoryProps): JSX.Element {
             aria-label={`Read-only Blueprint Revision ${number()}`}
           >
             <h3>
-              {number() === props.view.current_revision.revision ? "Latest saved" : "Historical"}{" "}
+              {number() === props.view.current_revision.revisionNumber ? "Latest saved" : "Historical"}{" "}
               Revision {number()} - read-only
             </h3>
             <button type="button" class="quiet-action" onClick={closeInspection}>
@@ -175,7 +175,7 @@ function HistoryPanel(props: HistoryProps): JSX.Element {
 
 interface HistoryPageProps {
   readonly client: BlueprintCourseClient;
-  readonly reference: string;
+  readonly blueprintCourseId: string;
   readonly kind: "revisions" | "metadata";
   readonly currentRevision: string;
   readonly onInspect: (revision: string) => void;
@@ -200,7 +200,7 @@ function HistoryPage(props: HistoryPageProps): JSX.Element {
     setItems([]);
     setNextCursor(null);
     try {
-      const page = await props.client.listBlueprintHistory(props.reference, props.kind, cursor, 50);
+      const page = await props.client.listBlueprintHistory(props.blueprintCourseId, props.kind, cursor, 50);
       if (currentRequest !== request) return;
       setItems(page.items);
       setNextCursor(page.nextCursor);

@@ -64,8 +64,8 @@ export function StaffAvatarSettings(props: StaffAvatarSettingsProps): JSX.Elemen
     const current = props.avatar();
     return current?.avatar?.kind === "profileImage" ? current.avatar.profileImageId : undefined;
   };
-  const [image] = createResource(profileImageId, (reference) =>
-    props.client.fetchProfileAvatarImage(reference),
+  const [image] = createResource(profileImageId, (id) =>
+    props.client.fetchProfileAvatarImage(id),
   );
 
   function clearImageUrl(): void {

@@ -103,26 +103,26 @@ function deferredCourseScopes(): DeferredCourseScopes {
   const requests = new Map<string, number>();
   const releases = new Map<string, () => void>();
 
-  function release(reference: string): void {
-    const resolve = releases.get(reference);
+  function release(courseInstanceId: string): void {
+    const resolve = releases.get(courseInstanceId);
     if (resolve === undefined) {
       throw new Error(
-        `Application-shell evidence cannot release an unrequested course scope: ${reference}.`,
+        `Application-shell evidence cannot release an unrequested course scope: ${courseInstanceId}.`,
       );
     }
-    releases.delete(reference);
+    releases.delete(courseInstanceId);
     resolve();
   }
 
-  function waitForRelease(reference: string): Promise<void> {
-    requests.set(reference, (requests.get(reference) ?? 0) + 1);
-    if (reference !== "CI7K3M2QAZ") return Promise.resolve();
+  function waitForRelease(courseInstanceId: string): Promise<void> {
+    requests.set(courseInstanceId, (requests.get(courseInstanceId) ?? 0) + 1);
+    if (courseInstanceId !== "CI7K3M2QAZ") return Promise.resolve();
     return new Promise((resolve) => {
-      releases.set(reference, resolve);
+      releases.set(courseInstanceId, resolve);
     });
   }
 
-  return { release, requestCount: (reference) => requests.get(reference) ?? 0, waitForRelease };
+  return { release, requestCount: (courseInstanceId) => requests.get(courseInstanceId) ?? 0, waitForRelease };
 }
 
 function presentationApi(deferredScopes?: DeferredCourseScopes): {
@@ -142,14 +142,16 @@ function presentationApi(deferredScopes?: DeferredCourseScopes): {
       assessmentQueries += 1;
       return Promise.resolve(assessments);
     }),
-    resolveCourse: queryFunction("resolve-course", (reference: string) =>
-      Promise.resolve({ courseId: `course-${reference}` }),
+    resolveCourse: queryFunction("resolve-course", (courseInstanceId: string) =>
+      Promise.resolve({ courseId: `course-${courseInstanceId}` }),
     ),
     courseScope: queryFunction("course-scope", (courseId: string) => {
-      const reference = courseId.replace("course-", "");
+      const courseInstanceId = courseId.replace("course-", "");
       const released =
-        deferredScopes === undefined ? Promise.resolve() : deferredScopes.waitForRelease(reference);
-      return released.then(() => instructorCourseRouteData(reference));
+        deferredScopes === undefined
+          ? Promise.resolve()
+          : deferredScopes.waitForRelease(courseInstanceId);
+      return released.then(() => instructorCourseRouteData(courseInstanceId));
     }),
     assessmentAttemptScope: queryFunction("assessment-attempt-scope", () =>
       Promise.resolve(assignmentAttemptContext("CI7K3M2QAZ")),
@@ -213,8 +215,8 @@ function instructorSession(): AuthenticatedSession {
 }
 
 /** The controlled current-source course page is an instructor-owned Course Instance surface. */
-function instructorCourseRouteData(reference: string): CourseRouteView {
-  const course = courseRouteData(reference);
+function instructorCourseRouteData(courseInstanceId: string): CourseRouteView {
+  const course = courseRouteData(courseInstanceId);
   return { ...course, summary: { ...course.summary, role: "instructor" as const } };
 }
 
@@ -225,11 +227,11 @@ export interface RibbonShellHarness {
   readonly currentPathname: () => string;
   readonly fixtureNavigate: (pathname: string) => void;
   readonly fixturePathname: () => string;
-  readonly scopeRequestCount: (reference: string) => number;
+  readonly scopeRequestCount: (courseInstanceId: string) => number;
   readonly assessmentQueryCount: () => number;
   readonly courseInstanceQueryCount: () => number;
   readonly releaseSession: () => void;
-  readonly releaseCourseScope: (reference: string) => void;
+  readonly releaseCourseScope: (courseInstanceId: string) => void;
   readonly throwFixtureContent: (value: boolean) => void;
   readonly signOutActions: () => number;
 }

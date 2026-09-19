@@ -8,7 +8,7 @@ import "./blueprint_stewardship.css";
 
 interface Props {
   readonly client: BlueprintStewardshipClient;
-  readonly reference: string;
+  readonly blueprintCourseId: string;
 }
 
 function eventLabel(kind: BlueprintWatchEvent["kind"]): string {
@@ -30,13 +30,13 @@ export function BlueprintStewardship(props: Props): JSX.Element {
   const [notice, setNotice] = createSignal("");
   const [failed, setFailed] = createSignal(false);
   const [state, { refetch }] = createResource(
-    () => props.reference,
-    async (reference) => {
+    () => props.blueprintCourseId,
+    async (blueprintCourseId) => {
       const [star, instructors, watch, events] = await Promise.all([
-        props.client.getBlueprintStar(reference),
-        props.client.getBlueprintStarredInstructors(reference),
-        props.client.getBlueprintWatch(reference),
-        props.client.getBlueprintWatchEvents(reference),
+        props.client.getBlueprintStar(blueprintCourseId),
+        props.client.getBlueprintStarredInstructors(blueprintCourseId),
+        props.client.getBlueprintWatch(blueprintCourseId),
+        props.client.getBlueprintWatchEvents(blueprintCourseId),
       ]);
       return { star, instructors, watch, events };
     },
@@ -50,8 +50,8 @@ export function BlueprintStewardship(props: Props): JSX.Element {
     setFailed(false);
     try {
       if (kind === "star")
-        await props.client.setBlueprintStar(props.reference, !current.star.viewerHasStarred);
-      else await props.client.setBlueprintWatch(props.reference, !current.watch.watching);
+        await props.client.setBlueprintStar(props.blueprintCourseId, !current.star.viewerHasStarred);
+      else await props.client.setBlueprintWatch(props.blueprintCourseId, !current.watch.watching);
       // Refetch exact names and self-only activity after a successful explicit action.
       await refetch();
       setNotice(

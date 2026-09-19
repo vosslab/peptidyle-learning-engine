@@ -10,14 +10,14 @@ import { ApiRequestError } from "../../api/http_client";
 
 const EXPORT_FILENAME = "ple-blueprint-course.json";
 
-function detailPath(reference: string): string {
-  return `/blueprint-courses/${encodeURIComponent(reference)}`;
+function detailPath(blueprintCourseId: string): string {
+  return `/blueprint-courses/${encodeURIComponent(blueprintCourseId)}`;
 }
 
 /** Downloads only the server's current canonical reusable-structure projection. */
 export function BlueprintCourseExport(props: {
   readonly client: BlueprintCourseClient;
-  readonly reference: BlueprintCourseId;
+  readonly blueprintCourseId: BlueprintCourseId;
 }): JSX.Element {
   const [busy, setBusy] = createSignal(false);
   const [message, setMessage] = createSignal("");
@@ -29,7 +29,7 @@ export function BlueprintCourseExport(props: {
     setMessage("");
     setFailed(false);
     try {
-      const exchange = await props.client.exportBlueprintCourse(props.reference);
+      const exchange = await props.client.exportBlueprintCourse(props.blueprintCourseId);
       const url = URL.createObjectURL(
         new Blob([`${JSON.stringify(exchange, undefined, 2)}\n`], { type: "application/json" }),
       );

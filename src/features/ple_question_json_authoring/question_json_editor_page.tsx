@@ -53,7 +53,7 @@ function errorMessage(state: PleQuestionJsonEditorState): string | null {
 }
 
 function publishedQuestionId(state: PleQuestionJsonEditorState): string | null {
-  return state.kind === "published" ? state.reference : null;
+  return state.kind === "published" ? state.libraryPath : null;
 }
 
 function fieldErrors(source: PleQuestionJsonDocument | null): Readonly<Record<string, string>> {
@@ -525,7 +525,7 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
       setPublishedSummary(summary);
       transition({
         kind: "publishSucceeded",
-        reference: `/library/${encodeURIComponent(summary.questionId)}`,
+        libraryPath: `/library/${encodeURIComponent(summary.questionId)}`,
       });
       setStatus("Publication complete. Open the published Question to inspect it.");
       requestAnimationFrame(() => heading?.focus());

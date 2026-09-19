@@ -37,7 +37,7 @@ export type PleQuestionJsonEditorState =
   | { readonly kind: "reloading"; readonly localSource: PleQuestionJsonDocument }
   | (WorkingState & { readonly kind: "publishReview"; readonly review: string })
   | (WorkingState & { readonly kind: "publishing"; readonly review: string })
-  | (WorkingState & { readonly kind: "published"; readonly reference: string })
+  | (WorkingState & { readonly kind: "published"; readonly libraryPath: string })
   | {
       readonly kind: "error";
       readonly message: string;
@@ -61,7 +61,7 @@ export type PleQuestionJsonEditorAction =
   | { readonly kind: "reloadFailed"; readonly message: string }
   | { readonly kind: "reviewOpened"; readonly review: string }
   | { readonly kind: "publishStarted" }
-  | { readonly kind: "publishSucceeded"; readonly reference: string }
+  | { readonly kind: "publishSucceeded"; readonly libraryPath: string }
   | { readonly kind: "publishFailed"; readonly message: string }
   | { readonly kind: "instructorPreviewLoaded"; readonly preview: PleQuestionJsonInstructorPreview }
   | { readonly kind: "dismissError" };
@@ -175,7 +175,7 @@ export function reducePleQuestionJsonEditor(
     return state;
   }
   if (action.kind === "publishSucceeded") {
-    return { ...state, kind: "published", reference: action.reference };
+    return { ...state, kind: "published", libraryPath: action.libraryPath };
   }
   if (action.kind === "publishFailed") {
     return editorError(

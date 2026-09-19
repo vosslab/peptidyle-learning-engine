@@ -68,7 +68,7 @@ pub(super) async fn read(
         ));
     }
     let active_assessment_attempt =
-        PostgresLiveAssessmentDeliveryStore::optional_active_attempt_reference(
+        PostgresLiveAssessmentDeliveryStore::optional_active_attempt_id(
             &mut tx, course, assessment,
         )
         .await?;

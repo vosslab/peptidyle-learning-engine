@@ -19,10 +19,12 @@
   checksum). Route wrappers are `*RouteId`. Course Banner Upload storage
   uses `course_banner_upload_id`. Presentation response-item
   bindings use `presentation_response_item_id` and `response_item_id`.
+  TypeScript API and UI helpers take `courseInstanceId`, `blueprintCourseId`,
+  and `accountId` instead of `reference` for those identities.
   Issued Question JSON is
   `questionRevision`, not `reference`. Leftover identity JSON
   `assessmentReference` / `blueprintAssessmentReference` is `assessmentId` /
-  `blueprintAssessmentId`. Support repair keeps scoped `resourceReference`.
+  `blueprintAssessmentId`. Support repair keeps scoped `resourcePath`.
   Install inserts still mint public
   Question IDs; `tests/fixtures/published_question/fixture_set.json` is
   offline type-loading evidence, not frozen install identity. Reference

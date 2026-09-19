@@ -11,7 +11,7 @@ import { parseCourseInstanceId } from "../../navigation/public_route";
 
 function gradebookPath(course: CourseInstanceId): string {
   if (parseCourseInstanceId(course) === null) {
-    throw new ApiProtocolError("Course Instance reference must be canonical");
+    throw new ApiProtocolError("Course Instance ID must be canonical");
   }
   return `/api/course-instances/${encodeURIComponent(course)}/gradebook`;
 }

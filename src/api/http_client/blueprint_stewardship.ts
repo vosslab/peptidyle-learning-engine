@@ -49,17 +49,17 @@ export function createBlueprintStewardshipClient(
     return { body: decoder(await boundedResponseJson(response, path)), response };
   }
 
-  function path(reference: string, suffix: string): string {
-    return `/api/course-blueprints/${blueprintCoursePath(reference)}/stewardship/${suffix}`;
+  function path(blueprintCourseId: string, suffix: string): string {
+    return `/api/course-blueprints/${blueprintCoursePath(blueprintCourseId)}/stewardship/${suffix}`;
   }
 
   async function promotion(
-    reference: string,
+    blueprintCourseId: string,
     promoted?: boolean,
     etag?: string,
   ): Promise<BlueprintPromotion> {
     const result = await request(
-      `/api/sysadmin/course-blueprints/${blueprintCoursePath(reference)}/promotion`,
+      `/api/sysadmin/course-blueprints/${blueprintCoursePath(blueprintCourseId)}/promotion`,
       decodeBlueprintPromotion,
       promoted === undefined ? undefined : { promoted: decodeBoolean(promoted, "promoted") },
       etag,
@@ -74,41 +74,41 @@ export function createBlueprintStewardshipClient(
   }
 
   return {
-    getBlueprintStar: async (reference) =>
-      (await request(path(reference, "star"), decodeBlueprintStar)).body,
-    setBlueprintStar: async (reference, starred) =>
+    getBlueprintStar: async (blueprintCourseId) =>
+      (await request(path(blueprintCourseId, "star"), decodeBlueprintStar)).body,
+    setBlueprintStar: async (blueprintCourseId, starred) =>
       (
-        await request(path(reference, "star"), decodeBlueprintStar, {
+        await request(path(blueprintCourseId, "star"), decodeBlueprintStar, {
           starred: decodeBoolean(starred, "starred"),
         })
       ).body,
-    getBlueprintStarredInstructors: async (reference) =>
-      (await request(path(reference, "starred-instructors"), decodeBlueprintStarredInstructors))
+    getBlueprintStarredInstructors: async (blueprintCourseId) =>
+      (await request(path(blueprintCourseId, "starred-instructors"), decodeBlueprintStarredInstructors))
         .body,
-    getBlueprintWatch: async (reference) =>
-      (await request(path(reference, "watch"), decodeBlueprintWatch)).body,
-    setBlueprintWatch: async (reference, watching) =>
+    getBlueprintWatch: async (blueprintCourseId) =>
+      (await request(path(blueprintCourseId, "watch"), decodeBlueprintWatch)).body,
+    setBlueprintWatch: async (blueprintCourseId, watching) =>
       (
-        await request(path(reference, "watch"), decodeBlueprintWatch, {
+        await request(path(blueprintCourseId, "watch"), decodeBlueprintWatch, {
           watching: decodeBoolean(watching, "watching"),
         })
       ).body,
     getBlueprintWatchEvents: async (
-      reference,
+      blueprintCourseId,
       limit = 25,
     ): Promise<readonly BlueprintWatchEvent[]> => {
       if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100)
         throw new ApiProtocolError("Blueprint Watch event limit must be from 1 through 100");
       const result = await request(
-        `${path(reference, "watch-events")}?${new URLSearchParams({ limit: String(limit) })}`,
+        `${path(blueprintCourseId, "watch-events")}?${new URLSearchParams({ limit: String(limit) })}`,
         decodeBlueprintWatchEvents,
       );
       if (result.body.length > limit)
         throw new ApiProtocolError("Blueprint Watch events exceed requested limit");
       return result.body;
     },
-    getBlueprintPromotion: (reference) => promotion(reference),
-    setBlueprintPromotion: (reference, promoted, etag) =>
-      promotion(reference, decodeBoolean(promoted, "promoted"), etag),
+    getBlueprintPromotion: (blueprintCourseId) => promotion(blueprintCourseId),
+    setBlueprintPromotion: (blueprintCourseId, promoted, etag) =>
+      promotion(blueprintCourseId, decodeBoolean(promoted, "promoted"), etag),
   };
 }

@@ -287,9 +287,9 @@ function selectedBlueprintAssessment(
   ReturnType<BlueprintCourseClient["getBlueprintRevision"]>
 >["modules"][number]["assessments"][number] {
   if (
-    revision.blueprintRevision.blueprint_course_id !==
-      source.blueprint_revision.blueprint_course_id ||
-    revision.blueprintRevision.revision !== source.blueprint_revision.revision
+    revision.blueprintRevision.blueprintCourseId !==
+      source.blueprint_revision.blueprintCourseId ||
+    revision.blueprintRevision.revisionNumber !== source.blueprint_revision.revisionNumber
   ) {
     throw new Error(
       "The selected Blueprint Revision did not resolve. Choose an Assessment from the Course's Blueprint Revision.",
@@ -342,8 +342,8 @@ export function blueprintCourseQuestionPickerRepository(
       if (request.source.kind === "blueprintCourseAssessment") {
         const source = request.source.source;
         const revision = await client.getBlueprintRevision(
-          source.blueprint_revision.blueprint_course_id,
-          source.blueprint_revision.revision,
+          source.blueprint_revision.blueprintCourseId,
+          source.blueprint_revision.revisionNumber,
         );
         rows = contentRows(selectedBlueprintAssessment(source, revision).content);
       } else {

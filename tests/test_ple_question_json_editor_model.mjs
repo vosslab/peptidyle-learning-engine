@@ -53,7 +53,7 @@ test("editor only follows valid load, edit, save, and publish transitions", () =
   assert.equal(publishing.kind, "publishing");
   const published = reducePleQuestionJsonEditor(publishing, {
     kind: "publishSucceeded",
-    reference: "v1",
+    libraryPath: "v1",
   });
   assert.equal(published.kind, "published");
   assert.equal(

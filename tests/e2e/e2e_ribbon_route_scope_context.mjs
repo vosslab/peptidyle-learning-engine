@@ -62,17 +62,17 @@ function createDeferredQueries() {
     attemptContexts,
     histories,
     queries: {
-      resolveAssignmentAttempt(reference) {
-        return deferred(attemptResolvers, reference, "Attempt resolution").promise;
+      resolveAssignmentAttempt(assessmentAttemptId) {
+        return deferred(attemptResolvers, assessmentAttemptId, "Attempt resolution").promise;
       },
-      courseScope(reference) {
-        return deferred(courseViews, reference, "Course scope").promise;
+      courseScope(courseInstanceId) {
+        return deferred(courseViews, courseInstanceId, "Course scope").promise;
       },
-      assessmentAttemptScope(reference) {
-        return deferred(attemptContexts, reference, "Attempt context").promise;
+      assessmentAttemptScope(assessmentAttemptId) {
+        return deferred(attemptContexts, assessmentAttemptId, "Attempt context").promise;
       },
-      assessmentAttemptHistory(reference) {
-        return deferred(histories, reference, "Attempt history").promise;
+      assessmentAttemptHistory(assessmentAttemptId) {
+        return deferred(histories, assessmentAttemptId, "Attempt history").promise;
       },
     },
   };

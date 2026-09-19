@@ -161,16 +161,19 @@ function blueprintAssessmentSource(value: unknown, path: string): BlueprintAsses
     field(record, "blueprint_revision", path),
     `${path}.blueprint_revision`,
   );
-  requireOnlyFields(revision, `${path}.blueprint_revision`, ["blueprint_course_id", "revision"]);
+  requireOnlyFields(revision, `${path}.blueprint_revision`, [
+    "blueprintCourseId",
+    "revisionNumber",
+  ]);
   return {
     blueprint_revision: {
-      blueprint_course_id: decodeBlueprintCourseId(
-        field(revision, "blueprint_course_id", `${path}.blueprint_revision`),
-        `${path}.blueprint_revision.blueprint_course_id`,
+      blueprintCourseId: decodeBlueprintCourseId(
+        field(revision, "blueprintCourseId", `${path}.blueprint_revision`),
+        `${path}.blueprint_revision.blueprintCourseId`,
       ),
-      revision: blueprintRevision(
-        field(revision, "revision", `${path}.blueprint_revision`),
-        `${path}.blueprint_revision.revision`,
+      revisionNumber: blueprintRevision(
+        field(revision, "revisionNumber", `${path}.blueprint_revision`),
+        `${path}.blueprint_revision.revisionNumberNumber`,
       ),
     },
     blueprint_assessment_id: decodeIdentifier(

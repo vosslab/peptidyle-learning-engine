@@ -32,7 +32,7 @@ impl BoundedArchiveEntries {
 ///
 /// Callers use this after extracting an XML attribute, before treating it as
 /// an archive member name.
-pub(crate) fn validate_relative_reference(path: &str) -> Result<(), String> {
+pub(crate) fn validate_relative_path(path: &str) -> Result<(), String> {
     if path.is_empty()
         || path.starts_with('/')
         || path.contains('\\')

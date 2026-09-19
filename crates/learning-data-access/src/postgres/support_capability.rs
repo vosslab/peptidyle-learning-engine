@@ -58,10 +58,10 @@ impl SupportRepairCapabilityStore for PostgresSupportCapabilityStore {
     ) -> Result<SupportRepairCapabilityReceipt, StoreError> {
         input.validate()?;
         let mut tx = self.begin(token).await?;
-        let row = sqlx::query("SELECT capability_id, sysadmin_account_id, resource_class, resource_reference, purpose, expires_at_millis, revoked_at_millis FROM ple_api.issue_support_repair_capability($1, $2, $3, $4, $5)")
+        let row = sqlx::query("SELECT capability_id, sysadmin_account_id, resource_class, resource_path, purpose, expires_at_millis, revoked_at_millis FROM ple_api.issue_support_repair_capability($1, $2, $3, $4, $5)")
             .bind(input.sysadmin_id.as_string())
             .bind(input.resource_class.database_name())
-            .bind(&input.resource_reference).bind(&input.purpose).bind(random_uuid()?)
+            .bind(&input.resource_path).bind(&input.purpose).bind(random_uuid()?)
             .fetch_optional(&mut *tx).await.map_err(map_sqlx_error)?
             .ok_or(StoreError::NotFound)?;
         let receipt = decode_repair(&row)?;
@@ -75,7 +75,7 @@ impl SupportRepairCapabilityStore for PostgresSupportCapabilityStore {
         capability_id: Uuid,
     ) -> Result<SupportRepairCapabilityReceipt, StoreError> {
         let mut tx = self.begin(token).await?;
-        let row = sqlx::query("SELECT capability_id, sysadmin_account_id, resource_class, resource_reference, purpose, expires_at_millis, revoked_at_millis FROM ple_api.revoke_support_repair_capability($1)")
+        let row = sqlx::query("SELECT capability_id, sysadmin_account_id, resource_class, resource_path, purpose, expires_at_millis, revoked_at_millis FROM ple_api.revoke_support_repair_capability($1)")
             .bind(capability_id).fetch_optional(&mut *tx).await.map_err(map_sqlx_error)?
             .ok_or(StoreError::NotFound)?;
         let receipt = decode_repair(&row)?;
@@ -88,19 +88,19 @@ impl SupportRepairCapabilityStore for PostgresSupportCapabilityStore {
         token: SessionTokenHash,
         capability_id: Uuid,
         resource_class: SupportRepairResourceClass,
-        resource_reference: String,
+        resource_path: String,
     ) -> Result<SupportRepairCapabilityUseReceipt, StoreError> {
-        if resource_reference != resource_reference.trim()
-            || !(1..=512).contains(&resource_reference.chars().count())
-            || resource_reference.chars().any(char::is_control)
+        if resource_path != resource_path.trim()
+            || !(1..=512).contains(&resource_path.chars().count())
+            || resource_path.chars().any(char::is_control)
         {
             return Err(StoreError::InvalidRecord(
                 "Support resource reference is invalid".to_string(),
             ));
         }
         let mut tx = self.begin(token).await?;
-        let row = sqlx::query("SELECT audit_event_id, capability_id, resource_class, resource_reference, used_at_millis FROM ple_api.record_support_repair_capability_use($1, $2, $3)")
-            .bind(capability_id).bind(resource_class.database_name()).bind(&resource_reference)
+        let row = sqlx::query("SELECT audit_event_id, capability_id, resource_class, resource_path, used_at_millis FROM ple_api.record_support_repair_capability_use($1, $2, $3)")
+            .bind(capability_id).bind(resource_class.database_name()).bind(&resource_path)
             .fetch_optional(&mut *tx).await.map_err(map_sqlx_error)?
             .ok_or(StoreError::NotFound)?;
         let receipt = SupportRepairCapabilityUseReceipt {
@@ -109,7 +109,7 @@ impl SupportRepairCapabilityStore for PostgresSupportCapabilityStore {
             resource_class: decode_resource_class(
                 row.try_get("resource_class").map_err(map_sqlx_error)?,
             )?,
-            resource_reference: row.try_get("resource_reference").map_err(map_sqlx_error)?,
+            resource_path: row.try_get("resource_path").map_err(map_sqlx_error)?,
             used_at: Timestamp::from_unix_millis(
                 row.try_get("used_at_millis").map_err(map_sqlx_error)?,
             ),
@@ -171,7 +171,7 @@ fn decode_repair(
         resource_class: decode_resource_class(
             row.try_get("resource_class").map_err(map_sqlx_error)?,
         )?,
-        resource_reference: row.try_get("resource_reference").map_err(map_sqlx_error)?,
+        resource_path: row.try_get("resource_path").map_err(map_sqlx_error)?,
         purpose: row.try_get("purpose").map_err(map_sqlx_error)?,
         expires_at: Timestamp::from_unix_millis(
             row.try_get("expires_at_millis").map_err(map_sqlx_error)?,

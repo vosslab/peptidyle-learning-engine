@@ -299,7 +299,7 @@ export function decodeBlueprintComparisonView(
   ]);
   const left = side(field(record, "left", path), `${path}.left`);
   const right = side(field(record, "right", path), `${path}.right`);
-  if (left.currentRevision.blueprint_course_id === right.currentRevision.blueprint_course_id)
+  if (left.currentRevision.blueprintCourseId === right.currentRevision.blueprintCourseId)
     throw new DecodeError(path, "distinct compared Blueprint Courses");
   const leftIds = new Set(left.assessments.flatMap((assessment) => assessment.questionIds));
   const rightIds = new Set(right.assessments.flatMap((assessment) => assessment.questionIds));

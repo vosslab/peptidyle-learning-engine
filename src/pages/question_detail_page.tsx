@@ -461,9 +461,9 @@ export function QuestionDetailPage(): JSX.Element {
       .then((summary) => applicationApi.queries.questionDetails(summary.questionId));
   });
   createEffect(() => {
-    const reference = detail()?.summary.questionRevision;
-    if (reference === undefined) return;
-    const key = `${reference.questionId}:${reference.revisionNumber}`;
+    const questionRevision = detail()?.summary.questionRevision;
+    if (questionRevision === undefined) return;
+    const key = `${questionRevision.questionId}:${questionRevision.revisionNumber}`;
     if (key === correctionTarget) return;
     correctionTarget = key;
     setCorrectedBloom(undefined);

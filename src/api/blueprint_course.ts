@@ -50,7 +50,7 @@ export interface BlueprintMetadataTransition {
 export interface BlueprintCourseClient extends BlueprintStewardshipClient {
   /** Exports the current reusable structure without ownership or delivery state. */
   readonly exportBlueprintCourse: (
-    reference: BlueprintCourseId,
+    blueprintCourseId: BlueprintCourseId,
   ) => Promise<CanonicalBlueprintCourse>;
   /** Creates an independent Private Blueprint Course from validated reusable structure. */
   readonly importBlueprintCourse: (
@@ -58,32 +58,32 @@ export interface BlueprintCourseClient extends BlueprintStewardshipClient {
     idempotencyKey: BlueprintIdempotencyKey,
   ) => Promise<LoadedBlueprintCourse>;
   readonly updateBlueprintCourseClassification: (
-    reference: BlueprintCourseId,
+    blueprintCourseId: BlueprintCourseId,
     classification: CourseClassification,
     etag: BlueprintEditNumber,
   ) => Promise<BlueprintMetadataTransition>;
   readonly listBlueprintHistory: (
-    reference: BlueprintCourseId,
+    blueprintCourseId: BlueprintCourseId,
     kind?: "revisions" | "metadata",
     cursor?: string,
     pageSize?: number,
   ) => Promise<BlueprintHistoryPageView>;
   readonly getBlueprintPoolMembers: (
-    reference: BlueprintCourseId,
+    blueprintCourseId: BlueprintCourseId,
     assessmentId: BlueprintAssessmentId,
     poolId: QuestionId,
   ) => Promise<BlueprintPoolMembersView>;
   readonly forkBlueprintCourse: (
-    reference: BlueprintCourseId,
+    blueprintCourseId: BlueprintCourseId,
     revision: string,
     idempotencyKey: BlueprintIdempotencyKey,
   ) => Promise<LoadedBlueprintCourse>;
   readonly applyBlueprintFork: (
-    reference: BlueprintCourseId,
+    blueprintCourseId: BlueprintCourseId,
     request: BlueprintForkApplyRequest,
   ) => Promise<BlueprintForkApplyResponse>;
   readonly listKnownBlueprintForks: (
-    reference: BlueprintCourseId,
+    blueprintCourseId: BlueprintCourseId,
   ) => Promise<readonly BlueprintKnownForkView[]>;
   readonly getBlueprintComparison: (
     left: BlueprintCourseId,
@@ -98,41 +98,41 @@ export interface BlueprintCourseClient extends BlueprintStewardshipClient {
     promotedOnly?: boolean,
     classification?: BlueprintCourseClassificationSearch,
   ) => Promise<CursorPage<BlueprintCourseSummaryView>>;
-  readonly getBlueprintCourse: (reference: BlueprintCourseId) => Promise<LoadedBlueprintCourse>;
+  readonly getBlueprintCourse: (blueprintCourseId: BlueprintCourseId) => Promise<LoadedBlueprintCourse>;
   readonly createBlueprintCourse: (
     content: CreateBlueprintCourseInput,
     idempotencyKey: BlueprintIdempotencyKey,
   ) => Promise<LoadedBlueprintCourse>;
   readonly saveBlueprintCourse: (
-    reference: BlueprintCourseId,
+    blueprintCourseId: BlueprintCourseId,
     content: ReplaceBlueprintCourseContentInput,
     etag: BlueprintRevisionEtag,
     idempotencyKey: BlueprintIdempotencyKey,
   ) => Promise<BlueprintCourseSaveResponse & { readonly revisionEtag: BlueprintRevisionEtag }>;
   readonly renameBlueprintCourse: (
-    reference: BlueprintCourseId,
+    blueprintCourseId: BlueprintCourseId,
     names: RenameBlueprintCourseInput,
     etag: BlueprintEditNumber,
   ) => Promise<BlueprintMetadataTransition>;
   readonly publishBlueprintCourse: (
-    reference: BlueprintCourseId,
+    blueprintCourseId: BlueprintCourseId,
     etag: BlueprintEditNumber,
   ) => Promise<BlueprintMetadataTransition>;
   readonly getBlueprintRevision: (
-    reference: BlueprintCourseId,
+    blueprintCourseId: BlueprintCourseId,
     revision: string,
   ) => Promise<BlueprintRevisionView>;
   readonly archiveBlueprintCourse: (
-    reference: BlueprintCourseId,
+    blueprintCourseId: BlueprintCourseId,
     confirmationLongName: string,
     etag: BlueprintEditNumber,
   ) => Promise<BlueprintMetadataTransition>;
   readonly restoreBlueprintCourse: (
-    reference: BlueprintCourseId,
+    blueprintCourseId: BlueprintCourseId,
     etag: BlueprintEditNumber,
   ) => Promise<BlueprintMetadataTransition>;
   readonly returnBlueprintCourseToPrivate: (
-    reference: BlueprintCourseId,
+    blueprintCourseId: BlueprintCourseId,
     etag: BlueprintEditNumber,
   ) => Promise<BlueprintMetadataTransition>;
 }

@@ -46,7 +46,9 @@ export interface AssessmentWorkspaceQuestionsViewArgs {
   readonly entries: Accessor<ReadonlyArray<AssessmentEntry>>;
   readonly bloomSortUnavailableReason: Accessor<string | undefined>;
   readonly sortByBloomClassification: () => void;
-  readonly description: (reference: AssessmentQuestionPickerEntry["questionRevision"]) => string;
+  readonly description: (
+    questionRevision: AssessmentQuestionPickerEntry["questionRevision"],
+  ) => string;
   readonly entryBlooms: Accessor<ReadonlyMap<AssessmentEntryId, BloomClassificationView>>;
   readonly move: (index: number, offset: -1 | 1) => void;
   readonly remove: (index: number) => void;

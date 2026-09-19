@@ -46,10 +46,10 @@ export function decodeStudentAssessmentAttemptHistory(
     "score",
     "questions",
   ]);
-  const reference = field(record, "assessmentAttempt", path);
-  if (typeof reference !== "string")
+  const assessmentAttemptValue = field(record, "assessmentAttempt", path);
+  if (typeof assessmentAttemptValue !== "string")
     throw new DecodeError(`${path}.assessmentAttempt`, "an Assessment Attempt UUID");
-  const assessmentAttempt = parseAssessmentAttemptId(reference);
+  const assessmentAttempt = parseAssessmentAttemptId(assessmentAttemptValue);
   if (assessmentAttempt === null)
     throw new DecodeError(`${path}.assessmentAttempt`, "an Assessment Attempt UUID");
   const assessment = decodeRecord(field(record, "assessment", path), `${path}.assessment`);

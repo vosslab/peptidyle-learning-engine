@@ -82,12 +82,12 @@ export interface CreatedBlueprintFromCourseInstance {
 export interface CourseInstanceClient {
   /** Creates a new private Blueprint from one Course Instance's reusable structure. */
   readonly createBlueprintFromCourseInstance: (
-    reference: CourseInstanceId,
+    courseInstanceId: CourseInstanceId,
     input: CreateBlueprintFromCourseInstanceInput,
     idempotencyKey: string,
   ) => Promise<CreatedBlueprintFromCourseInstance>;
   readonly updateCourseInstanceClassification: (
-    reference: CourseInstanceId,
+    courseInstanceId: CourseInstanceId,
     classification: CourseClassification,
     courseEditNumber: CourseEditNumber,
   ) => Promise<{
@@ -99,10 +99,10 @@ export interface CourseInstanceClient {
   readonly createCourseInstance: (
     input: CreateCourseInstanceInput,
   ) => Promise<CreatedCourseInstance>;
-  readonly getCourseInstance: (reference: CourseInstanceId) => Promise<CourseInstanceView>;
+  readonly getCourseInstance: (courseInstanceId: CourseInstanceId) => Promise<CourseInstanceView>;
   /** Reads the closed member-safe identity used by Course Instance routes. */
   readonly getCourseInstanceRouteSummary: (
-    reference: CourseInstanceId,
+    courseInstanceId: CourseInstanceId,
   ) => Promise<CourseInstanceRouteSummary>;
   readonly listCourseCreationInstructors: () => Promise<ReadonlyArray<CourseCreationInstructor>>;
 }

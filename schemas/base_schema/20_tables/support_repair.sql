@@ -12,10 +12,10 @@ CREATE TABLE ple_private.support_repair_capability (
     sysadmin_role ple_data.product_role NOT NULL DEFAULT 'sysadmin',
     issuer_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account (account_id),
     resource_class text NOT NULL DEFAULT 'student',
-    resource_reference text NOT NULL CHECK (
-        resource_reference = btrim(resource_reference)
-        AND char_length(resource_reference) BETWEEN 1 AND 512
-        AND resource_reference !~ '[[:cntrl:]]'
+    resource_path text NOT NULL CHECK (
+        resource_path = btrim(resource_path)
+        AND char_length(resource_path) BETWEEN 1 AND 512
+        AND resource_path !~ '[[:cntrl:]]'
     ),
     purpose text NOT NULL CHECK (purpose = btrim(purpose) AND char_length(purpose) BETWEEN 1 AND 1000
         AND purpose !~ '[[:cntrl:]]'),
@@ -37,8 +37,8 @@ CREATE TABLE ple_audit.support_repair_capability_event (
     sysadmin_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account (account_id),
     issuer_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account (account_id),
     resource_class text NOT NULL DEFAULT 'student',
-    resource_reference text NOT NULL CHECK (resource_reference = btrim(resource_reference)
-        AND char_length(resource_reference) BETWEEN 1 AND 512 AND resource_reference !~ '[[:cntrl:]]'),
+    resource_path text NOT NULL CHECK (resource_path = btrim(resource_path)
+        AND char_length(resource_path) BETWEEN 1 AND 512 AND resource_path !~ '[[:cntrl:]]'),
     purpose text NOT NULL CHECK (purpose = btrim(purpose) AND char_length(purpose) BETWEEN 1 AND 1000
         AND purpose !~ '[[:cntrl:]]'),
     result ple_data.repair_result NOT NULL,

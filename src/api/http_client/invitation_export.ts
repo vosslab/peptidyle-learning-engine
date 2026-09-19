@@ -13,7 +13,7 @@ const MAX_INVITATION_EXPORT_BYTES = 1_048_576;
 
 function invitationExportPath(course: CourseInstanceId): string {
   if (parseCourseInstanceId(course) === null) {
-    throw new ApiProtocolError("Course Instance reference must be canonical");
+    throw new ApiProtocolError("Course Instance ID must be canonical");
   }
   return `/api/course-instances/${encodeURIComponent(course)}/invitation-export`;
 }

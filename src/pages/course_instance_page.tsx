@@ -492,11 +492,11 @@ export function CourseInstancePage(): JSX.Element {
   function courseInstanceId(): ReturnType<typeof parseCourseInstanceId> {
     return parseCourseInstanceId(params["courseInstanceId"] ?? "");
   }
-  const [course, { mutate: mutateCourse }] = createResource(courseInstanceId, async (reference) =>
-    applicationApi.client.getCourseInstance(reference),
+  const [course, { mutate: mutateCourse }] = createResource(courseInstanceId, async (id) =>
+    applicationApi.client.getCourseInstance(id),
   );
-  const [assessments] = createResource(courseInstanceId, async (reference) =>
-    applicationApi.client.listCourseAssessments(reference),
+  const [assessments] = createResource(courseInstanceId, async (id) =>
+    applicationApi.client.listCourseAssessments(id),
   );
   const [profile, { refetch: refetchProfile }] = createResource(() =>
     applicationApi.client.getProfile(),

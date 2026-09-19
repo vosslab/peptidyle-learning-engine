@@ -179,7 +179,7 @@ export function BlueprintSelectionEditor(props: ApplyProps): JSX.Element {
       }
       if (!props.client) throw new Error("Fork client is unavailable.");
       await props.client.applyBlueprintFork(
-        props.review.right.currentRevision.blueprint_course_id,
+        props.review.right.currentRevision.blueprintCourseId,
         {
           expectedSource: props.review.left.currentRevision,
           expectedFork: props.review.right.currentRevision,

@@ -34,17 +34,17 @@ function requestMembers(input: CreateQuestionPoolInput): ReadonlyArray<QuestionR
       "Question Pool creation requires a bounded nonempty Question selection",
     );
   }
-  const references = new Set<string>();
+  const tuples = new Set<string>();
   return input.members.map((member, index) => {
-    const reference = decodeQuestionRevisionTuple(member, `request.members[${index}]`, true);
-    const key = `${reference.questionId}:${reference.revisionNumber}`;
-    if (references.has(key)) {
+    const questionRevision = decodeQuestionRevisionTuple(member, `request.members[${index}]`, true);
+    const key = `${questionRevision.questionId}:${questionRevision.revisionNumber}`;
+    if (tuples.has(key)) {
       throw new ApiProtocolError(
         "Question Pool creation cannot include an exact revision more than once",
       );
     }
-    references.add(key);
-    return reference;
+    tuples.add(key);
+    return questionRevision;
   });
 }
 

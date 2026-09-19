@@ -208,9 +208,9 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
 $$;
 
 -- Public-route wrapper: the application resolves an authorized Course and
--- Assessment by their opaque references inside this definer boundary.  It
+-- Assessment by their public IDs inside this definer boundary.  It
 -- never receives or accepts an internal Assessment UUID from the browser.
-CREATE FUNCTION ple_api.import_assessment_question_pool_fork_for_reference(
+CREATE FUNCTION ple_api.import_assessment_question_pool_fork_for_ids(
     p_course_instance_id text,
     p_assessment_id text,
     p_assessment_entry_id uuid,

@@ -128,8 +128,8 @@ export function ProposalReview(props: {
                 <h4>{value().names.longName}</h4>
                 <p>
                   Short name: {value().names.shortName}. Blueprint{" "}
-                  {value().revision.blueprint_course_id}; frozen Revision{" "}
-                  {value().revision.revision}; edit {value().blueprintEditNumber}.
+                  {value().revision.blueprintCourseId}; frozen Revision{" "}
+                  {value().revision.revisionNumber}; edit {value().blueprintEditNumber}.
                 </p>
                 <p>Exact classification identities below use current vocabulary labels.</p>
                 <CourseClassificationSummary value={value().classification} />
@@ -440,18 +440,19 @@ function AcceptedResult(props: {
   readonly value: BlueprintChangeProposalAcceptedView;
   readonly detail: BlueprintChangeProposalDetailView;
 }): JSX.Element {
-  function unitName(side: "source" | "target", reference: string, module: boolean): string {
+  function unitName(side: "source" | "target", unitId: string, module: boolean): string {
     const inventory = props.detail.comparison[side];
     return module
-      ? (inventory.modules.find((m) => m.blueprintModuleId === reference)?.label ?? "Module")
-      : (inventory.assessments.find((a) => a.blueprintAssessmentId === reference)?.content.title ??
+      ? (inventory.modules.find((m) => m.blueprintModuleId === unitId)?.label ?? "Module")
+      : (inventory.assessments.find((a) => a.blueprintAssessmentId === unitId)?.content.title ??
           "Assessment");
   }
   return (
     <section aria-label="Committed acceptance result">
       <h3>Accepted: exact committed target</h3>
       <p>
-        Blueprint {props.value.target.blueprint_course_id}, Revision {props.value.target.revision},
+        Blueprint {props.value.target.blueprintCourseId}, Revision{" "}
+        {props.value.target.revisionNumber},
         edit {props.value.targetBlueprintEditNumber}; accepted {props.value.acceptedAt}. Decision:{" "}
         {props.value.decision.kind}.
       </p>

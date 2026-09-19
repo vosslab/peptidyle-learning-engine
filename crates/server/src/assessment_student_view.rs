@@ -93,7 +93,7 @@ async fn manifest(
     headers: HeaderMap,
     Path((course, assessment)): Path<(String, String)>,
 ) -> Response {
-    let (course, assessment) = match route_references(&course, &assessment) {
+    let (course, assessment) = match route_ids(&course, &assessment) {
         Some(value) => value,
         None => return concealed(),
     };
@@ -133,7 +133,7 @@ async fn presentation(
         Err(response) => return *response,
     };
     let Some((course, assessment, question_revision)) =
-        route_question_references(&course, &assessment, &question_id, revision)
+        route_question_ids(&course, &assessment, &question_id, revision)
     else {
         return concealed();
     };
@@ -180,7 +180,7 @@ async fn document(
         Err(response) => return *response,
     };
     let Some((course, assessment, question_revision)) =
-        route_question_references(&course, &assessment, &question_id, revision)
+        route_question_ids(&course, &assessment, &question_id, revision)
     else {
         return concealed();
     };
@@ -536,17 +536,17 @@ fn question_seed() -> Result<question_model::generation::QuestionSeed, ()> {
     ))
 }
 
-fn route_references(course: &str, assessment: &str) -> Option<(CourseInstanceId, AssessmentId)> {
+fn route_ids(course: &str, assessment: &str) -> Option<(CourseInstanceId, AssessmentId)> {
     Some((course.parse().ok()?, assessment.parse().ok()?))
 }
 
-fn route_question_references(
+fn route_question_ids(
     course: &str,
     assessment: &str,
     question_id: &str,
     revision: u32,
 ) -> Option<(CourseInstanceId, AssessmentId, QuestionRevisionTuple)> {
-    let (course, assessment) = route_references(course, assessment)?;
+    let (course, assessment) = route_ids(course, assessment)?;
     let question_id = question_id.parse::<QuestionId>().ok()?;
     // ASVS 2.2.1/2: parse the exact checksum-bearing ID before any Question lookup.
     Some((

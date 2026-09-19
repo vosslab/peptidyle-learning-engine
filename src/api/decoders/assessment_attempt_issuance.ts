@@ -42,11 +42,11 @@ function priorAttempt(
   const record = decodeRecord(value, path);
   const allowed = ["assessmentAttempt", "attemptNumber", "state", "score"];
   requireOnlyFields(record, path, allowed);
-  const reference = field(record, "assessmentAttempt", path);
-  if (typeof reference !== "string") {
+  const assessmentAttemptValue = field(record, "assessmentAttempt", path);
+  if (typeof assessmentAttemptValue !== "string") {
     throw new DecodeError(`${path}.assessmentAttempt`, "an Assessment Attempt UUID");
   }
-  const assessmentAttempt = parseAssessmentAttemptId(reference);
+  const assessmentAttempt = parseAssessmentAttemptId(assessmentAttemptValue);
   if (assessmentAttempt === null) {
     throw new DecodeError(`${path}.assessmentAttempt`, "an Assessment Attempt UUID");
   }

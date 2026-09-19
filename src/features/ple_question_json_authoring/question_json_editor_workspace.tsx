@@ -379,7 +379,7 @@ export function PleQuestionJsonEditorWorkspace(
         )}
       </Show>
       <Show when={props.publishedQuestionId()}>
-        {(reference) => (
+        {(libraryPath) => (
           <section class="editor-panel" role="status">
             <h2>Published</h2>
             <Show when={props.publishedSummary()} keyed>
@@ -405,7 +405,7 @@ export function PleQuestionJsonEditorWorkspace(
                 </>
               )}
             </Show>
-            <a class="primary-action" href={reference()}>
+            <a class="primary-action" href={libraryPath()}>
               Open published Question
             </a>
           </section>

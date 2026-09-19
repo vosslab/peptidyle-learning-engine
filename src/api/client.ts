@@ -128,7 +128,7 @@ export interface ApiClient
     crop: ProfileImageCropInput,
   ) => Promise<ProfileAvatarView>;
   /** Fetches the authenticated Account's current protected profile-image rendition. */
-  readonly fetchProfileAvatarImage: (reference: string) => Promise<Blob>;
+  readonly fetchProfileAvatarImage: (profileImageId: string) => Promise<Blob>;
   readonly listPendingCourseInvitations: (
     cursor?: string,
     pageSize?: number,

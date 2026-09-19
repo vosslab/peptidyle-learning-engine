@@ -16,11 +16,11 @@ import { ApiProtocolError, ApiRequestError } from "./error";
 import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
 
-function accountPath(reference: AccountId): string {
-  if (!isCanonicalAccountId(reference)) {
-    throw new ApiProtocolError("Instructor Account reference must be canonical");
+function accountPath(accountId: AccountId): string {
+  if (!isCanonicalAccountId(accountId)) {
+    throw new ApiProtocolError("Instructor Account ID must be canonical");
   }
-  return `/api/instructor-accounts/${encodeURIComponent(reference)}`;
+  return `/api/instructor-accounts/${encodeURIComponent(accountId)}`;
 }
 
 async function instructorAccountJson<T>(
@@ -79,19 +79,19 @@ export function createInstructorAccountClient(
         decodeInstructorAccount,
         { method: "POST", body: decodeCreateInstructorAccountInput(input), status: 201 },
       ),
-    deactivateInstructorAccount: (reference, input) =>
+    deactivateInstructorAccount: (accountId, input) =>
       instructorAccountJson(
         fetchImplementation,
         basePath,
-        `${accountPath(reference)}/deactivate`,
+        `${accountPath(accountId)}/deactivate`,
         decodeInstructorAccount,
         { method: "POST", body: decodeDeactivateInstructorAccountInput(input), status: 200 },
       ),
-    reactivateInstructorAccount: (reference) =>
+    reactivateInstructorAccount: (accountId) =>
       instructorAccountJson(
         fetchImplementation,
         basePath,
-        `${accountPath(reference)}/reactivate`,
+        `${accountPath(accountId)}/reactivate`,
         decodeInstructorAccount,
         { method: "POST", status: 200 },
       ),

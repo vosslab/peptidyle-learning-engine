@@ -27,7 +27,7 @@ function createdWorkspace(
   origin = {
     kind: "adopted",
     source: {
-      blueprint_revision: { blueprint_course_id: "BP7K3M2QAF", revision: "1" },
+      blueprint_revision: { blueprintCourseId: "BP7K3M2QAF", revisionNumber: "1" },
       blueprint_assessment_id: "00000000-0000-0000-0000-000000000011",
     },
   },
@@ -193,7 +193,7 @@ test("Assessment creation accepts only Type, title, and instructions", () => {
 test("current adopted Assessment workspace retains exact origin and normalized fixed Question Revision pins with sibling Pool fields", () => {
   const workspace = decodeLiveAssessmentWorkspace(createdWorkspace());
   assert.equal(workspace.origin.kind, "adopted");
-  assert.equal(workspace.origin.source.blueprint_revision.blueprint_course_id, "BP7K3M2QAF");
+  assert.equal(workspace.origin.source.blueprint_revision.blueprintCourseId, "BP7K3M2QAF");
   assert.equal(workspace.entries[0].kind, "fixedQuestion");
   assert.equal(workspace.entries[1].kind, "questionPool");
   assert.equal(workspace.entries[1].questionPoolId, "2R5X-E7YA");
@@ -233,7 +233,7 @@ test("current direct Assessment workspace accepts only the closed tagged origin"
     decodeLiveAssessmentWorkspace({
       ...withoutOrigin,
       source: {
-        blueprint_revision: { blueprint_course_id: "BP7K3M2QAF", revision: "1" },
+        blueprint_revision: { blueprintCourseId: "BP7K3M2QAF", revisionNumber: "1" },
         blueprint_assessment_id: "00000000-0000-0000-0000-000000000011",
       },
     }),

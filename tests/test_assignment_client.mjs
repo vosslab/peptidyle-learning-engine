@@ -20,7 +20,7 @@ function savedPolicyWorkspace() {
     origin: {
       kind: "adopted",
       source: {
-        blueprint_revision: { blueprint_course_id: "BP7K3M2QAF", revision: "1" },
+        blueprint_revision: { blueprintCourseId: "BP7K3M2QAF", revisionNumber: "1" },
         blueprint_assessment_id: "00000000-0000-0000-0000-000000000011",
       },
     },

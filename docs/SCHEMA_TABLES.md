@@ -4398,7 +4398,7 @@ Columns:
 | --- | --- | --- |
 | authoring_workspace_id | uuid | NOT NULL |
 | import_id | uuid | NOT NULL |
-| source_item_reference | text | NOT NULL |
+| source_item_key | text | NOT NULL |
 | item_result | ple_data.import_item_result | NOT NULL |
 | format_item_data | jsonb | NOT NULL |
 | format_item_data_sha256 | text | NOT NULL |
@@ -4406,8 +4406,8 @@ Columns:
 
 Constraints:
 
-- PRIMARY KEY (authoring_workspace_id, import_id, source_item_reference)
-- CHECK source_item_reference: `( char_length(btrim(source_item_reference)) BETWEEN 1 AND 500 )`
+- PRIMARY KEY (authoring_workspace_id, import_id, source_item_key)
+- CHECK source_item_key: `( char_length(btrim(source_item_key)) BETWEEN 1 AND 500 )`
 - CHECK format_item_data: `(jsonb_typeof(format_item_data) = 'object')`
 - CHECK format_item_data_sha256: `(format_item_data_sha256 ~ '^[0-9a-f]{64}$')`
 
@@ -4417,7 +4417,7 @@ Foreign keys:
 
 Indexes:
 
-- ple_private.workspace_import_item_result_pkey UNIQUE (authoring_workspace_id, import_id, source_item_reference)
+- ple_private.workspace_import_item_result_pkey UNIQUE (authoring_workspace_id, import_id, source_item_key)
 
 ### ple_private.draft_question_fork_source
 
@@ -4953,7 +4953,7 @@ Columns:
 | sysadmin_role | ple_data.product_role | NOT NULL |
 | issuer_account_id | ple_data.account_id | NOT NULL |
 | resource_class | text | NOT NULL |
-| resource_reference | text | NOT NULL |
+| resource_path | text | NOT NULL |
 | purpose | text | NOT NULL |
 | issued_at | timestamp with time zone | NOT NULL |
 | expires_at | timestamp with time zone | NOT NULL |
@@ -4963,7 +4963,7 @@ Columns:
 Constraints:
 
 - PRIMARY KEY (support_repair_capability_id)
-- CHECK resource_reference: `( resource_reference = btrim(resource_reference) AND char_length(resource_reference) BETWEEN 1 AND 512 AND resource_reference !~ '[[:cntrl:]]' )`
+- CHECK resource_path: `( resource_path = btrim(resource_path) AND char_length(resource_path) BETWEEN 1 AND 512 AND resource_path !~ '[[:cntrl:]]' )`
 - CHECK purpose: `(purpose = btrim(purpose) AND char_length(purpose) BETWEEN 1 AND 1000 AND purpose !~ '[[:cntrl:]]')`
 - CHECK expires_at: `(expires_at > issued_at)`
 
@@ -4993,7 +4993,7 @@ Columns:
 | sysadmin_account_id | ple_data.account_id | NOT NULL |
 | issuer_account_id | ple_data.account_id | NOT NULL |
 | resource_class | text | NOT NULL |
-| resource_reference | text | NOT NULL |
+| resource_path | text | NOT NULL |
 | purpose | text | NOT NULL |
 | result | ple_data.repair_result | NOT NULL |
 | occurred_at | timestamp with time zone | NOT NULL |
@@ -5001,7 +5001,7 @@ Columns:
 Constraints:
 
 - PRIMARY KEY (event_id)
-- CHECK resource_reference: `(resource_reference = btrim(resource_reference) AND char_length(resource_reference) BETWEEN 1 AND 512 AND resource_reference !~ '[[:cntrl:]]')`
+- CHECK resource_path: `(resource_path = btrim(resource_path) AND char_length(resource_path) BETWEEN 1 AND 512 AND resource_path !~ '[[:cntrl:]]')`
 - CHECK purpose: `(purpose = btrim(purpose) AND char_length(purpose) BETWEEN 1 AND 1000 AND purpose !~ '[[:cntrl:]]')`
 
 Foreign keys:

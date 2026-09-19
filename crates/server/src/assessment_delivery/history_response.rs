@@ -142,14 +142,14 @@ mod tests {
         PresentationResponseItemId, PresentedQuestionChoice,
     };
 
-    fn reference(value: &str) -> PresentationResponseItemId {
-        PresentationResponseItemId::parse(value).expect("valid presentation reference")
+    fn presentation_item_id(value: &str) -> PresentationResponseItemId {
+        PresentationResponseItemId::parse(value).expect("valid Presentation Response Item ID")
     }
 
     fn single_choice() -> QuestionPresentationResponseFormat {
         QuestionPresentationResponseFormat::SingleChoice {
             choices: vec![PresentedQuestionChoice {
-                id: reference("a101"),
+                id: presentation_item_id("a101"),
                 body: text("Readable selected answer".to_string()),
             }],
         }
@@ -158,7 +158,7 @@ mod tests {
     #[test]
     fn selected_pinned_choice_becomes_readable_content_without_feedback() {
         let response = StudentResponseInspection::MultipleChoice {
-            selected: vec![reference("a101")],
+            selected: vec![presentation_item_id("a101")],
         };
 
         assert_eq!(
@@ -170,7 +170,7 @@ mod tests {
     #[test]
     fn unmatched_reference_omits_response_instead_of_disclosing_opaque_identifier() {
         let response = StudentResponseInspection::MultipleChoice {
-            selected: vec![reference("beef")],
+            selected: vec![presentation_item_id("beef")],
         };
 
         assert_eq!(project(response, &single_choice()), None);

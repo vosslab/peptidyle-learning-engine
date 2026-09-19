@@ -67,14 +67,14 @@ impl PostgresLiveAssessmentDeliveryStore {
         Ok(tx)
     }
 
-    pub(super) async fn optional_active_attempt_reference(
+    pub(super) async fn optional_active_attempt_id(
         tx: &mut Transaction<'_, Postgres>,
         course: CourseInstanceId,
         assessment: AssessmentId,
     ) -> Result<Option<AssessmentAttemptId>, StoreError> {
         let row = sqlx::query(
             "SELECT assessment_attempt_id \
-             FROM ple_api.read_active_student_assessment_attempt_reference($1, $2)",
+             FROM ple_api.read_active_student_assessment_attempt_id($1, $2)",
         )
         .bind(course.as_string())
         .bind(assessment.as_string())

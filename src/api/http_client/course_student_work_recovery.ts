@@ -21,7 +21,7 @@ export function createCourseStudentWorkRecoveryClient(
 ): CourseStudentWorkRecoveryClient {
   async function request(course: string, body: unknown): Promise<unknown> {
     if (parseCourseInstanceId(course) === null)
-      throw new ApiProtocolError("Course reference must be canonical");
+      throw new ApiProtocolError("Course Instance ID must be canonical");
     // ASVS 14.2.1, 14.3.2: selection cursor and Attempt are POST body only; no cache.
     const path = `/api/course-instances/${encodeURIComponent(course)}/student-work/recovery`;
     const response = await requestSameOrigin(fetchImplementation, basePath, path, {
@@ -47,7 +47,7 @@ export function createCourseStudentWorkRecoveryClient(
     },
     async recoverArchivedStudentWork(course, assessmentAttempt): Promise<RecoveredAttempt> {
       if (parseAssessmentAttemptId(assessmentAttempt) === null)
-        throw new ApiProtocolError("Attempt reference must be canonical");
+        throw new ApiProtocolError("Assessment Attempt ID must be canonical");
       const attempt = decodeRecoveredAttempt(
         await request(course, { action: "recover", assessmentAttempt }),
       );

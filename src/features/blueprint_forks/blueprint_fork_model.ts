@@ -17,10 +17,10 @@ export function sameForkSnapshot(left: unknown, right: unknown): boolean {
   return canonical(left) === canonical(right);
 }
 
-/** Module references are resolved only within their own Blueprint Course. */
-export function forkModuleLabel(side: BlueprintComparisonSide, reference: string): string {
+/** Module IDs are resolved only within their own Blueprint Course. */
+export function forkModuleLabel(side: BlueprintComparisonSide, blueprintModuleId: string): string {
   return (
-    side.modules.find((module) => module.blueprintModuleId === reference)?.label ?? reference
+    side.modules.find((module) => module.blueprintModuleId === blueprintModuleId)?.label ?? blueprintModuleId
   );
 }
 
@@ -29,7 +29,7 @@ export function readableSettingName(value: string): string {
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
-/** Shared Questions relate Assessments; neither names nor local references imply identity. */
+/** Shared Questions relate Assessments; neither names nor local labels imply identity. */
 export function assessmentDifferenceLabels(
   left: BlueprintComparisonSide["assessments"][number],
   right: BlueprintComparisonSide["assessments"][number],

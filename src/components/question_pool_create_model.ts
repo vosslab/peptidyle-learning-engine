@@ -49,8 +49,8 @@ async function latestSelectedRevisions(
         throw new Error("The starting Question is already fixed at the first Pool position.");
       }
       const detail = await getQuestionDetails(questionId);
-      const reference = detail.summary.questionRevision;
-      if (reference.questionId !== questionId) {
+      const questionRevision = detail.summary.questionRevision;
+      if (questionRevision.questionId !== questionId) {
         throw new Error("The selected Question did not resolve to its current published Revision.");
       }
       if (
@@ -60,7 +60,7 @@ async function latestSelectedRevisions(
       ) {
         throw new Error("Every Pool Question must share the starting Discipline and Subject.");
       }
-      return reference;
+      return questionRevision;
     }),
   );
 }

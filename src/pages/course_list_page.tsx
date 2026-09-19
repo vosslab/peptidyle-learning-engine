@@ -36,7 +36,7 @@ function isAdoptableBlueprintCourse(
 
 function blueprintSourceValue(blueprint: AdoptableBlueprintCourse): string {
   const revision = blueprint.current_revision;
-  return `${revision.blueprint_course_id}:${revision.revision}`;
+  return `${revision.blueprintCourseId}:${revision.revisionNumber}`;
 }
 
 function CourseInstanceRow(props: { readonly course: CourseInstanceSummary }): JSX.Element {
@@ -103,7 +103,7 @@ function BlueprintSourceSelect(props: {
         <For each={props.blueprints}>
           {(blueprint) => (
             <option value={blueprintSourceValue(blueprint)}>
-              {blueprint.long_name} · Revision {blueprint.current_revision.revision}
+              {blueprint.long_name} · Revision {blueprint.current_revision.revisionNumber}
             </option>
           )}
         </For>
@@ -230,7 +230,7 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
       source = {
         kind: "adopted",
         blueprintCourse: selected.id,
-        blueprintRevision: selected.current_revision.revision,
+        blueprintRevision: selected.current_revision.revisionNumber,
       };
     }
     if (

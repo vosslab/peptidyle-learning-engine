@@ -408,7 +408,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         {
             let receipt = CreateBlueprintCourseReceipt {
                 blueprint_revision: BlueprintRevisionTuple {
-                    blueprint_course_id: reference(
+                    blueprint_course_id: blueprint_course_id(
                         row.try_get("blueprint_course_id").map_err(map_sqlx_error)?,
                     )?,
                     revision: revision(row.try_get("revision_number").map_err(map_sqlx_error)?)?,
@@ -424,7 +424,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
             transaction.commit().await.map_err(map_sqlx_error)?;
             return Ok(receipt);
         }
-        validate_question_references(&mut transaction, requested, None).await?;
+        validate_question_revision_tuples(&mut transaction, requested, None).await?;
         let mut content = StoredBlueprintCourseContent::from_create(input, &BTreeMap::new())?;
         super::blueprint_pools::materialize_authoring_pools(
             &mut transaction,
@@ -456,7 +456,8 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         .fetch_one(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
-        let blueprint = reference(row.try_get("blueprint_course_id").map_err(map_sqlx_error)?)?;
+        let blueprint =
+            blueprint_course_id(row.try_get("blueprint_course_id").map_err(map_sqlx_error)?)?;
         let receipt = CreateBlueprintCourseReceipt {
             blueprint_revision: BlueprintRevisionTuple {
                 blueprint_course_id: blueprint,
@@ -547,7 +548,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
                 .await?;
         let requested =
             StoredBlueprintCourseContent::requested_question_revisions_from_replace(&input);
-        validate_question_references(&mut transaction, requested, Some(&prior)).await?;
+        validate_question_revision_tuples(&mut transaction, requested, Some(&prior)).await?;
         let mut content =
             StoredBlueprintCourseContent::from_replace(input, &prior, &BTreeMap::new())?;
         super::blueprint_pools::materialize_authoring_pools(
@@ -734,7 +735,7 @@ pub(super) async fn current_actor(
 /// Validate each submitted immutable Question pin without replacing it with a
 /// latest or retained-by-ID Revision. Only exact pins already owned by the
 /// expected Blueprint Revision may survive an archived Question lineage.
-async fn validate_question_references(
+async fn validate_question_revision_tuples(
     transaction: &mut Transaction<'_, Postgres>,
     requested: Vec<QuestionRevisionTuple>,
     prior: Option<&StoredBlueprintCourseContent>,

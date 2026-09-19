@@ -104,7 +104,7 @@ function blueprint(revision = "3") {
     long_name: "Biochemistry sequence",
     availability: "private",
     blueprint_edit_number: blueprintEditNumber,
-    current_revision: { blueprint_course_id: "BP7K3M2QAF", revision },
+    current_revision: { blueprintCourseId: "BP7K3M2QAF", revisionNumber: revision },
     fork_source: null,
     read_access: "blueprint_course_owner",
     modules: modules(),
@@ -223,7 +223,7 @@ function noStoreJson(value, etag, status = 200) {
 }
 
 test("B1 Blueprint Course decoder exposes one current Revision and opaque metadata", () => {
-  assert.equal(decodeBlueprintCourseView(blueprint()).current_revision.revision, "3");
+  assert.equal(decodeBlueprintCourseView(blueprint()).current_revision.revisionNumber, "3");
   assert.equal(decodeBlueprintCourseView(blueprint()).blueprint_edit_number, blueprintEditNumber);
   const missingType = structuredClone(blueprint());
   delete missingType.modules[0].assessments[0].content.assessment_type;
@@ -377,7 +377,7 @@ test("B1 client sends Revision and metadata validators to their separate routes"
         return noStoreJson(privateMetadata, `"${privateMetadata.blueprint_edit_number}"`);
       if (path.endsWith("/revisions/3"))
         return noStoreJson({
-          blueprintRevision: { blueprint_course_id: "BP7K3M2QAF", revision: "3" },
+          blueprintRevision: { blueprintCourseId: "BP7K3M2QAF", revisionNumber: "3" },
           modules: modules(),
         });
       if (request.method === "GET" && path.endsWith("BP7K3M2QAF"))
@@ -419,7 +419,7 @@ test("B1 client sends Revision and metadata validators to their separate routes"
   assert.equal(saved.blueprintCourse.modules[0].assessments[0].content.assessment_type, "exam");
   assert.equal(saved.revisionEtag, '"4"');
   assert.equal(returned.metadata.availability, "private");
-  assert.equal(revision.blueprintRevision.revision, "3");
+  assert.equal(revision.blueprintRevision.revisionNumber, "3");
   const save = requests.find(
     (request) => request.method === "PUT" && request.url.endsWith("BP7K3M2QAF"),
   );
@@ -501,15 +501,15 @@ test("Canonical Blueprint import rejects a receipt that is not a new actor-owned
   const malformedReceipts = [
     { availability: "public" },
     { read_access: "active_instructor" },
-    { fork_source: { blueprint_course_id: "BP7K3M2QAF", revision: "1" } },
-    { current_revision: { blueprint_course_id: "BP7K3M2RAW", revision: "2" } },
+    { fork_source: { blueprintCourseId: "BP7K3M2QAF", revisionNumber: "1" } },
+    { current_revision: { blueprintCourseId: "BP7K3M2RAW", revisionNumber: "2" } },
   ];
 
   for (const changes of malformedReceipts) {
     const receipt = { ...blueprint("1"), id: "BP7K3M2RAW", ...changes };
     const client = createHttpApiClient({
       fetch: () =>
-        Promise.resolve(noStoreJson(receipt, `"${receipt.current_revision.revision}"`, 201)),
+        Promise.resolve(noStoreJson(receipt, `"${receipt.current_revision.revisionNumber}"`, 201)),
     });
     await assert.rejects(
       client.importBlueprintCourse(exchange, crypto.randomUUID()),

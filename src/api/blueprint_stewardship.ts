@@ -26,26 +26,26 @@ export interface BlueprintPromotion {
 }
 
 export interface BlueprintStewardshipClient {
-  readonly getBlueprintStar: (reference: BlueprintCourseId) => Promise<BlueprintStarProjection>;
+  readonly getBlueprintStar: (blueprintCourseId: BlueprintCourseId) => Promise<BlueprintStarProjection>;
   readonly setBlueprintStar: (
-    reference: BlueprintCourseId,
+    blueprintCourseId: BlueprintCourseId,
     starred: boolean,
   ) => Promise<BlueprintStarProjection>;
   readonly getBlueprintStarredInstructors: (
-    reference: BlueprintCourseId,
+    blueprintCourseId: BlueprintCourseId,
   ) => Promise<readonly BlueprintStarredInstructor[]>;
-  readonly getBlueprintWatch: (reference: BlueprintCourseId) => Promise<BlueprintWatchProjection>;
+  readonly getBlueprintWatch: (blueprintCourseId: BlueprintCourseId) => Promise<BlueprintWatchProjection>;
   readonly setBlueprintWatch: (
-    reference: BlueprintCourseId,
+    blueprintCourseId: BlueprintCourseId,
     watching: boolean,
   ) => Promise<BlueprintWatchProjection>;
   readonly getBlueprintWatchEvents: (
-    reference: BlueprintCourseId,
+    blueprintCourseId: BlueprintCourseId,
     limit?: number,
   ) => Promise<readonly BlueprintWatchEvent[]>;
-  readonly getBlueprintPromotion: (reference: BlueprintCourseId) => Promise<BlueprintPromotion>;
+  readonly getBlueprintPromotion: (blueprintCourseId: BlueprintCourseId) => Promise<BlueprintPromotion>;
   readonly setBlueprintPromotion: (
-    reference: BlueprintCourseId,
+    blueprintCourseId: BlueprintCourseId,
     promoted: boolean,
     blueprintEditNumber: BlueprintEditNumber,
   ) => Promise<BlueprintPromotion>;

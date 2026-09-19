@@ -72,7 +72,7 @@ const query = {
 
 function revision(revisionNumber = "2") {
   return {
-    blueprintRevision: { blueprint_course_id: "BP7K3MX9AA", revision: revisionNumber },
+    blueprintRevision: { blueprintCourseId: "BP7K3MX9AA", revisionNumber: revisionNumber },
     modules: [
       {
         blueprint_module_id: "module-7",
@@ -97,7 +97,7 @@ test("Blueprint Assessment picker presents fixed Questions in authored order", a
     source: {
       kind: "blueprintCourseAssessment",
       source: {
-        blueprint_revision: { blueprint_course_id: "BP7K3MX9AA", revision: "2" },
+        blueprint_revision: { blueprintCourseId: "BP7K3MX9AA", revisionNumber: "2" },
         blueprint_assessment_id: "00000000-0000-0000-0000-000000000007",
       },
       label: "Blueprint Assessment",
@@ -129,7 +129,7 @@ test("Blueprint Assessment picker refuses a Blueprint Course revision that chang
       source: {
         kind: "blueprintCourseAssessment",
         source: {
-          blueprint_revision: { blueprint_course_id: "BP7K3MX9AA", revision: "2" },
+          blueprint_revision: { blueprintCourseId: "BP7K3MX9AA", revisionNumber: "2" },
           blueprint_assessment_id: "00000000-0000-0000-0000-000000000007",
         },
         label: "Stale Blueprint Assessment",

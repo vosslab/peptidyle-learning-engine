@@ -21,8 +21,8 @@ interface Notice {
   readonly text: string;
 }
 
-function referencePath(reference: string): string {
-  return `/blueprint-courses/${encodeURIComponent(reference)}`;
+function blueprintCoursePath(blueprintCourseId: string): string {
+  return `/blueprint-courses/${encodeURIComponent(blueprintCourseId)}`;
 }
 
 function errorMessage(error: unknown, fallback: string): string {
@@ -216,7 +216,7 @@ export function BlueprintCoursesWorkspace(props: BlueprintCoursesWorkspaceProps)
                 <For each={sortedCourses()}>
                   {(course) => (
                     <li>
-                      <A href={referencePath(course.id)}>
+                      <A href={blueprintCoursePath(course.id)}>
                         <strong>{course.long_name}</strong>
                         <span>
                           {course.total_adoptions.toLocaleString()} adoptions ·{" "}
@@ -227,7 +227,7 @@ export function BlueprintCoursesWorkspace(props: BlueprintCoursesWorkspaceProps)
                           {course.read_access === "blueprint_course_owner"
                             ? "You are the Blueprint Course Owner."
                             : "Inspect its reusable modules."}{" "}
-                          Current Blueprint Revision {course.current_revision.revision}.
+                          Current Blueprint Revision {course.current_revision.revisionNumber}.
                         </span>
                       </A>
                       <CourseClassificationSummary value={course.classification} />

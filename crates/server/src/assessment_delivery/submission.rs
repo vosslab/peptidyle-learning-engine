@@ -197,14 +197,14 @@ pub(super) fn restore_saved_response(
     Ok(match inspection {
         StudentResponseInspection::Numeric { value } => StudentResponse::Numeric { value },
         StudentResponseInspection::MultipleChoice { selected } => StudentResponse::MultipleChoice {
-            selected: selected.into_iter().map(presentation_reference).collect(),
+            selected: selected.into_iter().map(presentation_item_id).collect(),
         },
         StudentResponseInspection::ShortText { text } => StudentResponse::ShortText { text },
         StudentResponseInspection::MultiBlank { answers } => StudentResponse::MultiBlank {
             answers: answers
                 .into_iter()
                 .map(|answer| StudentTextEntry {
-                    slot: presentation_reference(answer.slot),
+                    slot: presentation_item_id(answer.slot),
                     text: answer.text,
                 })
                 .collect(),
@@ -213,19 +213,19 @@ pub(super) fn restore_saved_response(
             matches: matches
                 .into_iter()
                 .map(|pair| StudentMatch {
-                    prompt: presentation_reference(pair.prompt),
-                    choice: presentation_reference(pair.choice),
+                    prompt: presentation_item_id(pair.prompt),
+                    choice: presentation_item_id(pair.choice),
                 })
                 .collect(),
         },
         StudentResponseInspection::Ordering { order } => StudentResponse::Ordering {
-            order: order.into_iter().map(presentation_reference).collect(),
+            order: order.into_iter().map(presentation_item_id).collect(),
         },
         StudentResponseInspection::Hotspot { selected_regions } => StudentResponse::Hotspot {
             selections: selected_regions
                 .into_iter()
                 .map(|region| StudentHotspotSelection {
-                    region: presentation_reference(region),
+                    region: presentation_item_id(region),
                 })
                 .collect(),
         },
@@ -238,7 +238,7 @@ pub(super) fn restore_saved_response(
     })
 }
 
-fn presentation_reference(
+fn presentation_item_id(
     value: question_model::PresentationResponseItemId,
 ) -> ResponseItemId {
     ResponseItemId::new(value.as_str())
@@ -311,7 +311,7 @@ mod tests {
     }
 
     #[test]
-    fn restored_saved_response_uses_presentation_reference_not_durable_identifier() {
+    fn restored_saved_response_uses_presentation_item_id_not_durable_identifier() {
         let issued = issued_multiple_choice();
         let response = StudentResponse::MultipleChoice {
             selected: vec![ResponseItemId::new("durable-choice")],

@@ -227,8 +227,8 @@ export function BlueprintCourseDetailWorkspace(
       setNotice({
         kind: "status",
         text: saved.changed
-          ? `Saved Blueprint Revision ${saved.blueprintCourse.current_revision.revision}.`
-          : `No content changed. Blueprint Revision ${saved.blueprintCourse.current_revision.revision} remains current.`,
+          ? `Saved Blueprint Revision ${saved.blueprintCourse.current_revision.revisionNumber}.`
+          : `No content changed. Blueprint Revision ${saved.blueprintCourse.current_revision.revisionNumber} remains current.`,
       });
       return true;
     } catch (error: unknown) {
@@ -535,7 +535,7 @@ export function BlueprintCourseDetailWorkspace(
                 <h1>{loaded().view.long_name}</h1>
                 <p class="page-lede">
                   Reusable course structure without Students, deadlines, or course delivery
-                  settings. Current Revision {loaded().view.current_revision.revision}.
+                  settings. Current Revision {loaded().view.current_revision.revisionNumber}.
                 </p>
               </header>
               <Show
@@ -544,7 +544,7 @@ export function BlueprintCourseDetailWorkspace(
                   loaded().view.availability === "archived"
                 }
               >
-                <BlueprintStewardship client={props.client} reference={loaded().view.id} />
+                <BlueprintStewardship client={props.client} blueprintCourseId={loaded().view.id} />
               </Show>
               <CourseClassificationEditor
                 value={loaded().view.classification}
@@ -806,7 +806,7 @@ export function BlueprintCourseDetailWorkspace(
                 </div>
               </section>
               <BlueprintHistory client={props.client} view={loaded().view} />
-              <BlueprintCourseExport client={props.client} reference={loaded().view.id} />
+              <BlueprintCourseExport client={props.client} blueprintCourseId={loaded().view.id} />
               <BlueprintForkCreate client={props.client} source={loaded().view} />
               <Show when={props.proposalClient}>
                 {(client) => <ProposalTargetTools client={client()} target={loaded().view} />}
@@ -820,7 +820,7 @@ export function BlueprintCourseDetailWorkspace(
               <BlueprintKnownForks
                 client={props.client}
                 blueprintCourseId={loaded().view.id}
-                sourceCurrentRevision={loaded().view.current_revision.revision}
+                sourceCurrentRevision={loaded().view.current_revision.revisionNumber}
                 hasUnsavedChanges={hasUnsavedForkChanges()}
                 onApplied={() => void load(hasUnsavedForkChanges(), true)}
               />

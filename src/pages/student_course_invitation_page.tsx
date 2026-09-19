@@ -11,9 +11,9 @@ export function StudentCourseInvitationPage(): JSX.Element {
   function course(): ReturnType<typeof parseCourseInstanceId> {
     return parseCourseInstanceId(params["courseInstanceId"] ?? "");
   }
-  const [invitation] = createResource(course, async (reference) => {
+  const [invitation] = createResource(course, async (courseInstanceId) => {
     const invitations = await runtime.client.listPendingLiveStudentCourseInvitations();
-    return invitations.find((candidate) => candidate.id === reference) ?? null;
+    return invitations.find((candidate) => candidate.id === courseInstanceId) ?? null;
   });
   const [busy, setBusy] = createSignal(false);
   const [message, setMessage] = createSignal("");
@@ -33,13 +33,13 @@ export function StudentCourseInvitationPage(): JSX.Element {
   });
 
   async function claim(): Promise<void> {
-    const reference = course();
+    const courseInstanceId = course();
     if (
-      reference === null ||
+      courseInstanceId === null ||
       busy() ||
       invitation.loading ||
       invitation.error !== undefined ||
-      invitation()?.id !== reference
+      invitation()?.id !== courseInstanceId
     )
       return;
     const generation = ++claimGeneration;
@@ -47,16 +47,16 @@ export function StudentCourseInvitationPage(): JSX.Element {
     setMessage("");
     setAcceptedCourse(null);
     try {
-      const result = await runtime.client.claimLiveCourseInvitation(reference);
-      if (generation !== claimGeneration || course() !== reference) return;
-      setAcceptedCourse(result.activeStudentMembership ? reference : null);
+      const result = await runtime.client.claimLiveCourseInvitation(courseInstanceId);
+      if (generation !== claimGeneration || course() !== courseInstanceId) return;
+      setAcceptedCourse(result.activeStudentMembership ? courseInstanceId : null);
       setMessage(
         result.activeStudentMembership
           ? "Invitation accepted."
           : "Invitation could not be accepted.",
       );
     } catch {
-      if (generation !== claimGeneration || course() !== reference) return;
+      if (generation !== claimGeneration || course() !== courseInstanceId) return;
       setMessage("This invitation could not be accepted.");
     } finally {
       if (generation === claimGeneration) setBusy(false);
@@ -121,12 +121,12 @@ export function StudentCourseInvitationPage(): JSX.Element {
           </>
         }
       >
-        {(reference) => (
+        {(courseInstanceId) => (
           <>
             <h1>You joined this course</h1>
             <p role="status">Invitation accepted.</p>
             <p>You can now open the course and assigned work.</p>
-            <A class="primary-link" href={`/student/courses/${reference()}`}>
+            <A class="primary-link" href={`/student/courses/${courseInstanceId()}`}>
               Open course
             </A>
           </>

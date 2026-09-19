@@ -20,12 +20,12 @@ use uuid::Uuid;
 
 const MANIFEST_PATH: &str = "imsmanifest.xml";
 
-use crate::archive::{BoundedArchiveEntries, read_bounded_archive, validate_relative_reference};
+use crate::archive::{BoundedArchiveEntries, read_bounded_archive, validate_relative_path};
 use crate::model::{ArchivedQtiPackage, QtiImportAnswerBinding};
 pub use crate::model::{
-    ImportedQtiPackage, ImportedQtiQuestion, QtiAssetObject, QtiAssetError,
-    QtiImportError, QtiImportLimits, QtiItemImportResult, QtiItemImportStatus, QtiManifest,
-    QtiResource, UnsupportedFeature, qti_question_asset_checksums,
+    ImportedQtiPackage, ImportedQtiQuestion, QtiAssetError, QtiAssetObject, QtiImportError,
+    QtiImportLimits, QtiItemImportResult, QtiItemImportStatus, QtiManifest, QtiResource,
+    UnsupportedFeature, qti_question_asset_checksums,
 };
 use crate::xml::{XmlNode, parse_xml};
 
@@ -78,7 +78,7 @@ impl QtiImporter {
                 }
                 continue;
             };
-            validate_relative_reference(href).map_err(|reason| QtiImportError::InvalidXml {
+            validate_relative_path(href).map_err(|reason| QtiImportError::InvalidXml {
                 path: MANIFEST_PATH.into(),
                 reason,
             })?;
@@ -577,7 +577,7 @@ fn resolve_asset_path(item_path: &str, raw: &str) -> Result<String, String> {
         }
     }
     let joined = parts.join("/");
-    validate_relative_reference(&joined)?;
+    validate_relative_path(&joined)?;
     if !joined.starts_with("assets/") {
         return Err("media reference must resolve under assets/".into());
     }

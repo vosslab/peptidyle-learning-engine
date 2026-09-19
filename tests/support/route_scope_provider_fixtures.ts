@@ -14,12 +14,12 @@ const FIXTURE_CLASSIFICATION = {
   tags: [],
 } satisfies CourseClassification;
 
-export function courseRouteData(reference: string): CourseRouteView {
+export function courseRouteData(courseInstanceId: string): CourseRouteView {
   return {
     summary: {
-      id: reference,
-      shortName: `CRS ${reference}`,
-      longName: `Course ${reference}: Molecular Biology`,
+      id: courseInstanceId,
+      shortName: `CRS ${courseInstanceId}`,
+      longName: `Course ${courseInstanceId}: Molecular Biology`,
       classification: FIXTURE_CLASSIFICATION,
       term: { startDate: "2026-01-12", endDate: "2026-05-08" },
       role: "student",
@@ -29,7 +29,7 @@ export function courseRouteData(reference: string): CourseRouteView {
 }
 
 /** UUID-free display context for the live Student Assessment Attempt route. */
-export function assignmentAttemptContext(reference: string): StudentAssessmentAttemptContext {
+export function assignmentAttemptContext(courseInstanceId: string): StudentAssessmentAttemptContext {
   return {
     assessmentAttempt: "00000000-0000-0000-0000-000000000001",
     attemptNumber: 1,
@@ -37,9 +37,9 @@ export function assignmentAttemptContext(reference: string): StudentAssessmentAt
     expiresAt: 1_768_507_200_000,
     timerRemainingMilliseconds: 1_800_000,
     course: {
-      id: reference,
-      shortName: `CRS ${reference}`,
-      longName: `Course ${reference}: Molecular Biology`,
+      id: courseInstanceId,
+      shortName: `CRS ${courseInstanceId}`,
+      longName: `Course ${courseInstanceId}: Molecular Biology`,
       theme: "grass",
     },
     assessment: { id: "A9D2RX5AF", title: "Assessment one" },
@@ -47,14 +47,14 @@ export function assignmentAttemptContext(reference: string): StudentAssessmentAt
 }
 
 /** Complete direct-consumer record for an Attempt history route. */
-export function assignmentAttemptHistoryData(reference: string): StudentAssessmentAttemptHistory {
+export function assignmentAttemptHistoryData(courseInstanceId: string): StudentAssessmentAttemptHistory {
   return {
     assessmentAttempt: "00000000-0000-0000-0000-000000000001",
     attemptNumber: 1,
     course: {
-      id: reference,
-      shortName: `CRS ${reference}`,
-      longName: `Course ${reference}: Molecular Biology`,
+      id: courseInstanceId,
+      shortName: `CRS ${courseInstanceId}`,
+      longName: `Course ${courseInstanceId}: Molecular Biology`,
       theme: "grass",
     },
     assessment: { id: "A9D2RX5AF", title: "Assessment one" },

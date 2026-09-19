@@ -116,14 +116,14 @@ CREATE TABLE ple_private.workspace_import (
 CREATE TABLE ple_private.workspace_import_item_result (
     authoring_workspace_id uuid NOT NULL,
     import_id uuid NOT NULL,
-    source_item_reference text NOT NULL CHECK (
-        char_length(btrim(source_item_reference)) BETWEEN 1 AND 500
+    source_item_key text NOT NULL CHECK (
+        char_length(btrim(source_item_key)) BETWEEN 1 AND 500
     ),
     item_result ple_data.import_item_result NOT NULL,
     format_item_data jsonb NOT NULL CHECK (jsonb_typeof(format_item_data) = 'object'),
     format_item_data_sha256 text NOT NULL CHECK (format_item_data_sha256 ~ '^[0-9a-f]{64}$'),
     recorded_at timestamptz NOT NULL,
-    PRIMARY KEY (authoring_workspace_id, import_id, source_item_reference),
+    PRIMARY KEY (authoring_workspace_id, import_id, source_item_key),
     FOREIGN KEY (authoring_workspace_id, import_id)
         REFERENCES ple_private.workspace_import(authoring_workspace_id, import_id) ON DELETE CASCADE
 );

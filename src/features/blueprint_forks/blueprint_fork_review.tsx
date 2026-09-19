@@ -49,8 +49,8 @@ export function BlueprintForkSource(props: {
           <h2>Fork source</h2>
           <p>
             Forked from{" "}
-            <A href={coursePath(source().blueprint_course_id)}>source Blueprint Course</A>, Revision{" "}
-            {source().revision}. This fork develops independently.
+            <A href={coursePath(source().blueprintCourseId)}>source Blueprint Course</A>, Revision{" "}
+            {source().revisionNumber}. This fork develops independently.
           </p>
           <button
             type="button"
@@ -64,7 +64,7 @@ export function BlueprintForkSource(props: {
             <BlueprintForkReview
               client={props.client}
               blueprintCourseId={props.view.id}
-              leftBlueprintCourseId={source().blueprint_course_id}
+              leftBlueprintCourseId={source().blueprintCourseId}
               hasUnsavedChanges={props.hasUnsavedChanges}
               onApplied={props.onApplied}
             />
@@ -75,9 +75,9 @@ export function BlueprintForkSource(props: {
   );
 }
 
-function coursePath(reference: string): string {
+function coursePath(blueprintCourseId: string): string {
   // ASVS 1.2.2: only a local fixed route with an encoded public ID is constructed.
-  return `/blueprint-courses/${encodeURIComponent(reference)}`;
+  return `/blueprint-courses/${encodeURIComponent(blueprintCourseId)}`;
 }
 
 export function Settings(props: { readonly value: unknown }): JSX.Element {
@@ -164,9 +164,9 @@ export function AssessmentSnapshot(props: {
 function Comparison(props: { readonly view: BlueprintComparisonView }): JSX.Element {
   const assessment = (
     side: BlueprintComparisonSide,
-    reference: string,
+    blueprintAssessmentId: string,
   ): BlueprintComparisonSide["assessments"][number] | undefined =>
-    side.assessments.find((item) => item.blueprintAssessmentId === reference);
+    side.assessments.find((item) => item.blueprintAssessmentId === blueprintAssessmentId);
   const sideOnly = (side: "left" | "right"): BlueprintComparisonSide["assessments"] =>
     props.view[side].assessments.filter(
       (item) =>
@@ -183,13 +183,13 @@ function Comparison(props: { readonly view: BlueprintComparisonView }): JSX.Elem
           {(key) => (
             <section>
               <h3>{key === "left" ? "Left" : "Right"}: latest saved Revision</h3>
-              <A href={coursePath(props.view[key].currentRevision.blueprint_course_id)}>
+              <A href={coursePath(props.view[key].currentRevision.blueprintCourseId)}>
                 {props.view[key].names.longName}
               </A>
               <p>
                 {props.view[key].names.shortName};{" "}
-                {props.view[key].currentRevision.blueprint_course_id}; Revision{" "}
-                {props.view[key].currentRevision.revision}.
+                {props.view[key].currentRevision.blueprintCourseId}; Revision{" "}
+                {props.view[key].currentRevision.revisionNumber}.
               </p>
               <h4>Module structure in authored order</h4>
               <For each={props.view[key].modules} fallback={<p>No Modules.</p>}>
@@ -578,8 +578,8 @@ export function BlueprintForkReview(
                 !props.hasUnsavedChanges &&
                 loaded.target?.read_access === "blueprint_course_owner" &&
                 loaded.target.availability !== "archived" &&
-                loaded.target.fork_source?.blueprint_course_id ===
-                  loaded.comparison.left.currentRevision.blueprint_course_id
+                loaded.target.fork_source?.blueprintCourseId ===
+                  loaded.comparison.left.currentRevision.blueprintCourseId
               }
               fallback={
                 <p role="status">

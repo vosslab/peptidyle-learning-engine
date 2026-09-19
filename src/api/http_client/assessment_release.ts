@@ -41,14 +41,14 @@ export class LiveAssessmentWorkspaceConflictError extends ApiRequestError {
 
 function coursePath(course: CourseInstanceId): string {
   if (parseCourseInstanceId(course) === null) {
-    throw new ApiProtocolError("Course Instance reference must be canonical");
+    throw new ApiProtocolError("Course Instance ID must be canonical");
   }
   return `/api/course-instances/${encodeURIComponent(course)}`;
 }
 
 function assessmentPath(course: CourseInstanceId, assessment: AssessmentId): string {
   if (parseAssessmentId(assessment) === null) {
-    throw new ApiProtocolError("Assessment reference must be canonical");
+    throw new ApiProtocolError("Assessment ID must be canonical");
   }
   return `${coursePath(course)}/assessments/${encodeURIComponent(assessment)}`;
 }

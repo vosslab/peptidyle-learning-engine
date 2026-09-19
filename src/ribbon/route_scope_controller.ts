@@ -94,12 +94,12 @@ export function createRouteScopeController(
   >();
 
   const assessmentAttemptScope = (
-    reference: Parameters<RouteScopeQueries["assessmentAttemptScope"]>[0],
+    assessmentAttemptId: Parameters<RouteScopeQueries["assessmentAttemptScope"]>[0],
   ): ReturnType<RouteScopeQueries["assessmentAttemptScope"]> => {
-    const cached = assessmentAttemptScopes.get(reference);
+    const cached = assessmentAttemptScopes.get(assessmentAttemptId);
     if (cached !== undefined) return cached;
-    const request = queries.assessmentAttemptScope(reference);
-    assessmentAttemptScopes.set(reference, request);
+    const request = queries.assessmentAttemptScope(assessmentAttemptId);
+    assessmentAttemptScopes.set(assessmentAttemptId, request);
     return request;
   };
 

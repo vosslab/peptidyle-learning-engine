@@ -229,7 +229,7 @@ function loadedBlueprintCourse(
 ): LoadedBlueprintCourse {
   return {
     blueprintCourse: body,
-    revisionEtag: requireRevisionEtag(response, body.current_revision.revision, path),
+    revisionEtag: requireRevisionEtag(response, body.current_revision.revisionNumber, path),
   };
 }
 
@@ -249,8 +249,8 @@ export function createBlueprintCourseClient(
 ): Pick<ApiClient, keyof BlueprintCourseClient> {
   return {
     ...createBlueprintStewardshipClient(fetchImplementation, basePath),
-    exportBlueprintCourse: async (reference): Promise<CanonicalBlueprintCourse> => {
-      const path = `${blueprintPath(reference)}/export`;
+    exportBlueprintCourse: async (blueprintCourseId): Promise<CanonicalBlueprintCourse> => {
+      const path = `${blueprintPath(blueprintCourseId)}/export`;
       return (
         await blueprintJson(fetchImplementation, basePath, path, decodeCanonicalBlueprintCourse, {
           expectedStatus: 200,
@@ -277,7 +277,7 @@ export function createBlueprintCourseClient(
         result.body.availability !== "private" ||
         result.body.read_access !== "blueprint_course_owner" ||
         result.body.fork_source !== null ||
-        result.body.current_revision.revision !== "1"
+        result.body.current_revision.revisionNumber !== "1"
       )
         throw new ApiProtocolError(
           "Imported Blueprint Course must be an actor-owned Private root at Revision 1",
@@ -285,14 +285,14 @@ export function createBlueprintCourseClient(
       return loadedBlueprintCourse(result.body, result.response, path);
     },
     listBlueprintHistory: async (
-      reference,
+      blueprintCourseId,
       kind = "revisions",
       cursor,
       pageSize = 50,
     ): Promise<BlueprintHistoryPageView> => {
       if (kind !== "revisions" && kind !== "metadata")
         throw new ApiProtocolError("Blueprint history kind must be revisions or metadata");
-      const path = `${pagePath(`${blueprintPath(reference)}/history`, cursor === undefined ? undefined : decodeCursor(cursor, "cursor"), pageSize, false)}&kind=${kind}`;
+      const path = `${pagePath(`${blueprintPath(blueprintCourseId)}/history`, cursor === undefined ? undefined : decodeCursor(cursor, "cursor"), pageSize, false)}&kind=${kind}`;
       const body = (
         await blueprintJson(fetchImplementation, basePath, path, decodeBlueprintHistoryPageView, {
           expectedStatus: 200,
@@ -308,12 +308,12 @@ export function createBlueprintCourseClient(
       return body;
     },
     forkBlueprintCourse: async (
-      reference,
+      blueprintCourseId,
       revision,
       requestKey,
     ): Promise<LoadedBlueprintCourse> => {
       // ASVS 1.2.2, 2.2.1: validate and encode the exact immutable source identity.
-      const path = `${blueprintPath(reference)}/revisions/${encodeURIComponent(decodeBlueprintRevision(revision, "revision"))}/fork`;
+      const path = `${blueprintPath(blueprintCourseId)}/revisions/${encodeURIComponent(decodeBlueprintRevision(revision, "revision"))}/fork`;
       const result = await blueprintJson(
         fetchImplementation,
         basePath,
@@ -321,18 +321,18 @@ export function createBlueprintCourseClient(
         decodeBlueprintCourseView,
         { method: "POST", idempotencyKey: requestKey, expectedStatus: 201 },
       );
-      if (result.body.id === reference || result.body.availability !== "private") {
+      if (result.body.id === blueprintCourseId || result.body.availability !== "private") {
         throw new ApiProtocolError(
           "Blueprint fork response must identify an independent Private Blueprint Course",
         );
       }
       return loadedBlueprintCourse(result.body, result.response, path);
     },
-    applyBlueprintFork: async (reference, request): Promise<BlueprintForkApplyResponse> => {
-      const path = `${blueprintPath(reference)}/fork-update`;
+    applyBlueprintFork: async (blueprintCourseId, request): Promise<BlueprintForkApplyResponse> => {
+      const path = `${blueprintPath(blueprintCourseId)}/fork-update`;
       const body = decodeBlueprintForkApplyRequest(request);
-      if (body.expectedFork.blueprint_course_id !== reference)
-        throw new ApiProtocolError("Blueprint fork update must target its expected fork reference");
+      if (body.expectedFork.blueprintCourseId !== blueprintCourseId)
+        throw new ApiProtocolError("Blueprint fork update must target its expected fork ID");
       const result = await blueprintJson(
         fetchImplementation,
         basePath,
@@ -344,15 +344,15 @@ export function createBlueprintCourseClient(
           expectedStatus: 200,
         },
       );
-      if (result.body.blueprintRevision.blueprint_course_id !== reference)
+      if (result.body.blueprintRevision.blueprintCourseId !== blueprintCourseId)
         throw new ApiProtocolError(
           "Blueprint fork update response must identify the requested fork",
         );
-      requireRevisionEtag(result.response, result.body.blueprintRevision.revision, path);
+      requireRevisionEtag(result.response, result.body.blueprintRevision.revisionNumber, path);
       return result.body;
     },
-    listKnownBlueprintForks: async (reference): Promise<readonly BlueprintKnownForkView[]> => {
-      const path = `${blueprintPath(reference)}/forks`;
+    listKnownBlueprintForks: async (blueprintCourseId): Promise<readonly BlueprintKnownForkView[]> => {
+      const path = `${blueprintPath(blueprintCourseId)}/forks`;
       return (
         await blueprintJson(fetchImplementation, basePath, path, decodeKnownBlueprintForks, {
           expectedStatus: 200,
@@ -367,20 +367,20 @@ export function createBlueprintCourseClient(
         })
       ).body;
       if (
-        body.left.currentRevision.blueprint_course_id !== left ||
-        body.right.currentRevision.blueprint_course_id !== right
+        body.left.currentRevision.blueprintCourseId !== left ||
+        body.right.currentRevision.blueprintCourseId !== right
       )
         throw new ApiProtocolError("Blueprint comparison must identify the requested pair");
       return body;
     },
     getBlueprintPoolMembers: async (
-      reference,
+      blueprintCourseId,
       assessmentId,
       poolId,
     ): Promise<BlueprintPoolMembersView> => {
       const assessment = decodeUuid(assessmentId, "assessmentId");
       const pool = decodeQuestionId(poolId, "poolId");
-      const path = `${blueprintPath(reference)}/assessments/${encodeURIComponent(assessment)}/pools/${encodeURIComponent(pool)}/members`;
+      const path = `${blueprintPath(blueprintCourseId)}/assessments/${encodeURIComponent(assessment)}/pools/${encodeURIComponent(pool)}/members`;
       const body = (
         await blueprintJson(fetchImplementation, basePath, path, decodeBlueprintPoolMembersView, {
           expectedStatus: 200,
@@ -413,8 +413,8 @@ export function createBlueprintCourseClient(
       return (await blueprintJson(fetchImplementation, basePath, path, decodeBlueprintCoursePage))
         .body;
     },
-    getBlueprintCourse: async (reference): Promise<LoadedBlueprintCourse> => {
-      const path = blueprintPath(reference);
+    getBlueprintCourse: async (blueprintCourseId): Promise<LoadedBlueprintCourse> => {
+      const path = blueprintPath(blueprintCourseId);
       const result = await blueprintJson(
         fetchImplementation,
         basePath,
@@ -440,12 +440,12 @@ export function createBlueprintCourseClient(
       return loadedBlueprintCourse(result.body, result.response, path);
     },
     saveBlueprintCourse: async (
-      reference,
+      blueprintCourseId,
       content,
       etag,
       requestKey,
     ): Promise<BlueprintCourseSaveResponse & { readonly revisionEtag: BlueprintRevisionEtag }> => {
-      const path = blueprintPath(reference);
+      const path = blueprintPath(blueprintCourseId);
       const result = await blueprintJson(
         fetchImplementation,
         basePath,
@@ -464,17 +464,17 @@ export function createBlueprintCourseClient(
         ...result.body,
         revisionEtag: requireRevisionEtag(
           result.response,
-          result.body.blueprintCourse.current_revision.revision,
+          result.body.blueprintCourse.current_revision.revisionNumber,
           path,
         ),
       };
     },
     updateBlueprintCourseClassification: async (
-      reference,
+      blueprintCourseId,
       classification,
       etag,
     ): Promise<BlueprintMetadataTransition> => {
-      const path = `${blueprintPath(reference)}/classification`;
+      const path = `${blueprintPath(blueprintCourseId)}/classification`;
       const result = await blueprintJson(
         fetchImplementation,
         basePath,
@@ -490,8 +490,8 @@ export function createBlueprintCourseClient(
       );
       return metadataTransition(result.body, result.response, path);
     },
-    renameBlueprintCourse: async (reference, names, etag): Promise<BlueprintMetadataTransition> => {
-      const path = `${blueprintPath(reference)}/metadata`;
+    renameBlueprintCourse: async (blueprintCourseId, names, etag): Promise<BlueprintMetadataTransition> => {
+      const path = `${blueprintPath(blueprintCourseId)}/metadata`;
       const result = await blueprintJson(
         fetchImplementation,
         basePath,
@@ -507,8 +507,8 @@ export function createBlueprintCourseClient(
       );
       return metadataTransition(result.body, result.response, path);
     },
-    publishBlueprintCourse: async (reference, etag): Promise<BlueprintMetadataTransition> => {
-      const path = `${blueprintPath(reference)}/publish`;
+    publishBlueprintCourse: async (blueprintCourseId, etag): Promise<BlueprintMetadataTransition> => {
+      const path = `${blueprintPath(blueprintCourseId)}/publish`;
       const result = await blueprintJson(
         fetchImplementation,
         basePath,
@@ -523,17 +523,17 @@ export function createBlueprintCourseClient(
       );
       return metadataTransition(result.body, result.response, path);
     },
-    getBlueprintRevision: async (reference, revision): Promise<BlueprintRevisionView> => {
-      const path = `${blueprintPath(reference)}/revisions/${encodeURIComponent(decodeBlueprintRevision(revision, "revision"))}`;
+    getBlueprintRevision: async (blueprintCourseId, revision): Promise<BlueprintRevisionView> => {
+      const path = `${blueprintPath(blueprintCourseId)}/revisions/${encodeURIComponent(decodeBlueprintRevision(revision, "revision"))}`;
       return (await blueprintJson(fetchImplementation, basePath, path, decodeBlueprintRevisionView))
         .body;
     },
     archiveBlueprintCourse: async (
-      reference,
+      blueprintCourseId,
       confirmationLongName,
       etag,
     ): Promise<BlueprintMetadataTransition> => {
-      const path = `${blueprintPath(reference)}/archive`;
+      const path = `${blueprintPath(blueprintCourseId)}/archive`;
       const result = await blueprintJson(
         fetchImplementation,
         basePath,
@@ -549,8 +549,8 @@ export function createBlueprintCourseClient(
       );
       return metadataTransition(result.body, result.response, path);
     },
-    restoreBlueprintCourse: async (reference, etag): Promise<BlueprintMetadataTransition> => {
-      const path = `${blueprintPath(reference)}/restore`;
+    restoreBlueprintCourse: async (blueprintCourseId, etag): Promise<BlueprintMetadataTransition> => {
+      const path = `${blueprintPath(blueprintCourseId)}/restore`;
       const result = await blueprintJson(
         fetchImplementation,
         basePath,
@@ -566,10 +566,10 @@ export function createBlueprintCourseClient(
       return metadataTransition(result.body, result.response, path);
     },
     returnBlueprintCourseToPrivate: async (
-      reference,
+      blueprintCourseId,
       etag,
     ): Promise<BlueprintMetadataTransition> => {
-      const path = `${blueprintPath(reference)}/return-to-private`;
+      const path = `${blueprintPath(blueprintCourseId)}/return-to-private`;
       const result = await blueprintJson(
         fetchImplementation,
         basePath,

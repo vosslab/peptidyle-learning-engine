@@ -462,7 +462,7 @@ async fn read_accepted_in_transaction(
         accepted_at: Timestamp::from_unix_millis(
             row.try_get("accepted_at_ms").map_err(map_sqlx_error)?,
         ),
-        target: reference(&row)?,
+        target: blueprint_revision_tuple(&row)?,
         target_blueprint_edit_number: BlueprintEditNumber::from_edit_number(
             row.try_get("blueprint_edit_number")
                 .map_err(map_sqlx_error)?,
@@ -525,13 +525,13 @@ async fn read_sources_in_transaction(
         created_at: Timestamp::from_unix_millis(
             source.try_get("created_at_ms").map_err(map_sqlx_error)?,
         ),
-        source: reference(source)?,
+        source: blueprint_revision_tuple(source)?,
         source_blueprint_edit_number: BlueprintEditNumber::from_edit_number(
             source
                 .try_get("blueprint_edit_number")
                 .map_err(map_sqlx_error)?,
         ),
-        target: reference(target)?,
+        target: blueprint_revision_tuple(target)?,
         target_blueprint_edit_number: BlueprintEditNumber::from_edit_number(
             target
                 .try_get("blueprint_edit_number")
@@ -583,11 +583,13 @@ fn canonical_content(
     ))
 }
 
-fn reference(row: &sqlx::postgres::PgRow) -> Result<BlueprintRevisionTuple, StoreError> {
-    let reference: String = row.try_get("blueprint_course_id").map_err(map_sqlx_error)?;
+fn blueprint_revision_tuple(
+    row: &sqlx::postgres::PgRow,
+) -> Result<BlueprintRevisionTuple, StoreError> {
+    let blueprint_course_id: String = row.try_get("blueprint_course_id").map_err(map_sqlx_error)?;
     let revision: i64 = row.try_get("revision_number").map_err(map_sqlx_error)?;
     Ok(BlueprintRevisionTuple {
-        blueprint_course_id: reference
+        blueprint_course_id: blueprint_course_id
             .parse::<BlueprintCourseId>()
             .map_err(|_| invalid())?,
         revision: BlueprintRevision::new(u64::try_from(revision).map_err(|_| invalid())?)
@@ -598,7 +600,7 @@ fn reference(row: &sqlx::postgres::PgRow) -> Result<BlueprintRevisionTuple, Stor
 fn proposal_summary(
     row: &sqlx::postgres::PgRow,
 ) -> Result<BlueprintChangeProposalSummary, StoreError> {
-    let target = summary_reference(row, "target_blueprint_course_id", "target_revision_number")?;
+    let target = summary_tuple(row, "target_blueprint_course_id", "target_revision_number")?;
     let accepted_at: Option<i64> = row.try_get("accepted_at_ms").map_err(map_sqlx_error)?;
     let accepted_revision: Option<i64> = row
         .try_get("accepted_target_revision_number")
@@ -624,7 +626,7 @@ fn proposal_summary(
         created_at: Timestamp::from_unix_millis(
             row.try_get("created_at_ms").map_err(map_sqlx_error)?,
         ),
-        source: summary_reference(row, "source_blueprint_course_id", "source_revision_number")?,
+        source: summary_tuple(row, "source_blueprint_course_id", "source_revision_number")?,
         source_blueprint_edit_number: BlueprintEditNumber::from_edit_number(
             row.try_get("source_blueprint_edit_number")
                 .map_err(map_sqlx_error)?,
@@ -643,7 +645,7 @@ fn proposal_summary(
     })
 }
 
-fn summary_reference(
+fn summary_tuple(
     row: &sqlx::postgres::PgRow,
     name: &str,
     number: &str,

@@ -29,7 +29,7 @@ pub(super) fn decode_summary(
                 .map_err(map_sqlx_error)?,
         )
         .map_err(|_| invalid("Blueprint enrollment count"))?,
-        id: reference(row.try_get("blueprint_course_id").map_err(map_sqlx_error)?)?,
+        id: blueprint_course_id(row.try_get("blueprint_course_id").map_err(map_sqlx_error)?)?,
         short_name: row.try_get("short_name").map_err(map_sqlx_error)?,
         long_name: row.try_get("long_name").map_err(map_sqlx_error)?,
         availability: availability_value(row.try_get("availability").map_err(map_sqlx_error)?)?,
@@ -56,7 +56,7 @@ pub(super) fn decode_course(
         .map_err(map_sqlx_error)?;
     let fork_source = match (fork_source_blueprint_course_id, fork_source_revision) {
         (Some(source), Some(number)) => Some(BlueprintRevisionTuple {
-            blueprint_course_id: reference(source)?,
+            blueprint_course_id: blueprint_course_id(source)?,
             revision: revision(number)?,
         }),
         (None, None) => None,
@@ -70,7 +70,7 @@ pub(super) fn decode_course(
     )?;
     Ok(StoredBlueprintCourse {
         classification: decode_classification(row)?,
-        id: reference(row.try_get("blueprint_course_id").map_err(map_sqlx_error)?)?,
+        id: blueprint_course_id(row.try_get("blueprint_course_id").map_err(map_sqlx_error)?)?,
         short_name: row.try_get("short_name").map_err(map_sqlx_error)?,
         long_name: row.try_get("long_name").map_err(map_sqlx_error)?,
         availability: availability_value(row.try_get("availability").map_err(map_sqlx_error)?)?,
@@ -151,7 +151,7 @@ pub(super) fn availability_value(value: String) -> Result<BlueprintAvailability,
     }
 }
 
-pub(super) fn reference(value: String) -> Result<BlueprintCourseId, StoreError> {
+pub(super) fn blueprint_course_id(value: String) -> Result<BlueprintCourseId, StoreError> {
     value.parse().map_err(|_| invalid("Blueprint Course ID"))
 }
 pub(super) fn revision(value: i64) -> Result<BlueprintRevision, StoreError> {

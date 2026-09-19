@@ -522,13 +522,13 @@ export function blueprintEditNumber(value: unknown, path: string): BlueprintEdit
 
 export function blueprintRevisionTuple(value: unknown, path: string): BlueprintRevisionTuple {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["blueprint_course_id", "revision"]);
+  requireOnlyFields(record, path, ["blueprintCourseId", "revisionNumber"]);
   return {
-    blueprint_course_id: blueprintCourseId(
-      field(record, "blueprint_course_id", path),
-      `${path}.blueprint_course_id`,
+    blueprintCourseId: blueprintCourseId(
+      field(record, "blueprintCourseId", path),
+      `${path}.blueprintCourseId`,
     ),
-    revision: revision(field(record, "revision", path), `${path}.revision`),
+    revisionNumber: revision(field(record, "revisionNumber", path), `${path}.revisionNumber`),
   };
 }
 

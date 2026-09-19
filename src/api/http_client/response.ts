@@ -155,7 +155,7 @@ export async function boundedResponseJson(
 
 function courseAppearanceViewPath(courseInstanceId: CourseInstanceId): string {
   if (parseCourseInstanceId(courseInstanceId) === null) {
-    throw new ApiProtocolError("Course Instance reference must be canonical");
+    throw new ApiProtocolError("Course Instance ID must be canonical");
   }
   // ASVS 1.2.2 and 2.2.1: positively validate, then path-encode route input.
   return `/api/course-instances/${encodeURIComponent(courseInstanceId)}/appearance`;
@@ -277,9 +277,9 @@ const MAX_PROFILE_AVATAR_IMAGE_DELIVERY_BYTES = 2 * 1_024 * 1_024;
 async function fetchProfileAvatarImage(
   fetchImplementation: ApiFetch,
   basePath: string,
-  reference: string,
+  profileImageId: string,
 ): Promise<Blob> {
-  const path = `/api/profile/avatar/profile-images/${encodedId(reference)}/delivery`;
+  const path = `/api/profile/avatar/profile-images/${encodedId(profileImageId)}/delivery`;
   const response = await fetchImplementation(requestPath(basePath, path), {
     method: "POST",
     headers: { accept: "image/webp" },
@@ -469,8 +469,8 @@ export function createResponseClient(
       selectProvidedProfileAvatar(fetchImplementation, basePath, input),
     replaceProfileAvatarImage: (image, crop) =>
       replaceProfileAvatarImage(fetchImplementation, basePath, image, crop),
-    fetchProfileAvatarImage: (reference) =>
-      fetchProfileAvatarImage(fetchImplementation, basePath, reference),
+    fetchProfileAvatarImage: (profileImageId) =>
+      fetchProfileAvatarImage(fetchImplementation, basePath, profileImageId),
     resolveNavigation: (id) =>
       requestJson(
         fetchImplementation,

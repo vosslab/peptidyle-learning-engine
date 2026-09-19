@@ -100,9 +100,9 @@ export function StudentCourseLandingPage(): JSX.Element {
   }
   const [courses] = createResource(loadCourses);
   const course = createMemo(() => {
-    const reference = courseInstanceId();
-    if (reference === null) return undefined;
-    return courses()?.find((candidate) => candidate.id === reference);
+    const id = courseInstanceId();
+    if (id === null) return undefined;
+    return courses()?.find((candidate) => candidate.id === id);
   });
   // ASVS V2.2.2/2.3.1: the server projects Student membership; this view makes no access decision.
   async function loadAssessments(

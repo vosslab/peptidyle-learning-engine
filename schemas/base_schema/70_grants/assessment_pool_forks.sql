@@ -18,9 +18,9 @@ REVOKE ALL ON FUNCTION ple_api.import_assessment_question_pool_fork(text, uuid, 
 
 GRANT EXECUTE ON FUNCTION ple_api.import_assessment_question_pool_fork(text, uuid, bigint, text, text, integer, integer, numeric, text, text) TO ple_app;
 
-REVOKE ALL ON FUNCTION ple_api.import_assessment_question_pool_fork_for_reference(text, text, uuid, bigint, text, text, integer, integer, numeric, text, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_api.import_assessment_question_pool_fork_for_ids(text, text, uuid, bigint, text, text, integer, integer, numeric, text, text) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_api.import_assessment_question_pool_fork_for_reference(text, text, uuid, bigint, text, text, integer, integer, numeric, text, text) TO ple_app;
+GRANT EXECUTE ON FUNCTION ple_api.import_assessment_question_pool_fork_for_ids(text, text, uuid, bigint, text, text, integer, integer, numeric, text, text) TO ple_app;
 
 REVOKE ALL ON FUNCTION ple_api.read_assessment_question_pool_fork(text, text, uuid) FROM PUBLIC;
 

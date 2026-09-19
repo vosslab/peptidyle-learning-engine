@@ -19,10 +19,10 @@ import { parseAssessmentId, parseCourseInstanceId } from "../../navigation/publi
 
 function assessmentPath(course: CourseInstanceId, assessment: AssessmentId): string {
   if (parseCourseInstanceId(course) === null) {
-    throw new ApiProtocolError("Course Instance reference must be canonical");
+    throw new ApiProtocolError("Course Instance ID must be canonical");
   }
   if (parseAssessmentId(assessment) === null) {
-    throw new ApiProtocolError("Assessment reference must be canonical");
+    throw new ApiProtocolError("Assessment ID must be canonical");
   }
   return `/api/course-instances/${encodeURIComponent(course)}/assessments/${encodeURIComponent(assessment)}`;
 }

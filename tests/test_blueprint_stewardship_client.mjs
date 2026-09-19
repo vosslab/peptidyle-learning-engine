@@ -15,7 +15,7 @@ import {
   BlueprintCourseConflictError,
 } from "../src/api/http_client.ts";
 
-const reference = "BP7K3M2QAF";
+const blueprintCourseId = "BP7K3M2QAF";
 const blueprintEditNumber = "1";
 
 function response(body, headers = {}) {
@@ -81,19 +81,19 @@ test("Blueprint Star and Watch changes remain explicit separate same-origin acti
       return response({ events: [{ kind: "archived", occurredAt: 1750000000000 }] });
     },
   });
-  assert.deepEqual(await client.getBlueprintStar(reference), {
+  assert.deepEqual(await client.getBlueprintStar(blueprintCourseId), {
     starCount: 1,
     viewerHasStarred: true,
   });
-  assert.deepEqual(await client.getBlueprintStarredInstructors(reference), [
+  assert.deepEqual(await client.getBlueprintStarredInstructors(blueprintCourseId), [
     { displayName: "Dr. Rivera" },
   ]);
-  assert.deepEqual(await client.getBlueprintWatch(reference), { watching: true });
-  assert.deepEqual(await client.getBlueprintWatchEvents(reference), [
+  assert.deepEqual(await client.getBlueprintWatch(blueprintCourseId), { watching: true });
+  assert.deepEqual(await client.getBlueprintWatchEvents(blueprintCourseId), [
     { kind: "archived", occurredAt: 1750000000000 },
   ]);
-  await client.setBlueprintStar(reference, false);
-  await client.setBlueprintWatch(reference, false);
+  await client.setBlueprintStar(blueprintCourseId, false);
+  await client.setBlueprintWatch(blueprintCourseId, false);
   assert.equal(requests.length, 6);
   assert.ok(requests.every((request) => request.credentials === "same-origin"));
   assert.deepEqual(
@@ -102,7 +102,7 @@ test("Blueprint Star and Watch changes remain explicit separate same-origin acti
   );
   assert.equal(
     new URL(requests[0].url).pathname,
-    `/api/course-blueprints/${reference}/stewardship/star`,
+    `/api/course-blueprints/${blueprintCourseId}/stewardship/star`,
   );
   assert.deepEqual(await requests[4].json(), { starred: false });
   assert.deepEqual(await requests[5].json(), { watching: false });
@@ -120,12 +120,12 @@ test("Blueprint promotion uses only the Sysadmin endpoint and the exact current 
       );
     },
   });
-  const loaded = await client.getBlueprintPromotion(reference);
+  const loaded = await client.getBlueprintPromotion(blueprintCourseId);
   assert.deepEqual(loaded, { promoted: true, blueprintEditNumber });
-  await client.setBlueprintPromotion(reference, false, loaded.blueprintEditNumber);
+  await client.setBlueprintPromotion(blueprintCourseId, false, loaded.blueprintEditNumber);
   assert.equal(
     new URL(requests[1].url).pathname,
-    `/api/sysadmin/course-blueprints/${reference}/promotion`,
+    `/api/sysadmin/course-blueprints/${blueprintCourseId}/promotion`,
   );
   assert.equal(requests[1].headers.get("if-match"), `"${blueprintEditNumber}"`);
   assert.deepEqual(await requests[1].json(), { promoted: false });
@@ -137,13 +137,13 @@ test("Blueprint promotion uses only the Sysadmin endpoint and the exact current 
         { etag: '"018f5e7d-01b6-7c14-8a0b-4bfef6390d6e"' },
       ),
   });
-  await assert.rejects(mismatch.getBlueprintPromotion(reference), ApiProtocolError);
+  await assert.rejects(mismatch.getBlueprintPromotion(blueprintCourseId), ApiProtocolError);
   const stale = createHttpApiClient({
     fetch: async () =>
       new Response(null, { status: 412, headers: { "cache-control": "no-store" } }),
   });
   await assert.rejects(
-    stale.setBlueprintPromotion(reference, true, loaded.blueprintEditNumber),
+    stale.setBlueprintPromotion(blueprintCourseId, true, loaded.blueprintEditNumber),
     BlueprintCourseConflictError,
   );
 });
@@ -157,20 +157,20 @@ test("Blueprint stewardship rejects invalid commands before dispatch and conceal
     },
   });
   await assert.rejects(client.getBlueprintStar("BP-invalid"), DecodeError);
-  await assert.rejects(client.setBlueprintStar(reference, "true"), DecodeError);
-  await assert.rejects(client.setBlueprintWatch(reference, 1), DecodeError);
-  await assert.rejects(client.getBlueprintWatchEvents(reference, 101), ApiProtocolError);
+  await assert.rejects(client.setBlueprintStar(blueprintCourseId, "true"), DecodeError);
+  await assert.rejects(client.setBlueprintWatch(blueprintCourseId, 1), DecodeError);
+  await assert.rejects(client.getBlueprintWatchEvents(blueprintCourseId, 101), ApiProtocolError);
   assert.equal(calls, 0);
   await assert.rejects(
-    client.getBlueprintStar(reference),
+    client.getBlueprintStar(blueprintCourseId),
     (error) => error instanceof ApiRequestError && error.status === 404,
   );
   await assert.rejects(
-    client.getBlueprintPromotion(reference),
+    client.getBlueprintPromotion(blueprintCourseId),
     (error) => error instanceof ApiRequestError && error.status === 404,
   );
   const cached = createHttpApiClient({
     fetch: async () => response({ watching: true }, { "cache-control": "public" }),
   });
-  await assert.rejects(cached.getBlueprintWatch(reference), ApiProtocolError);
+  await assert.rejects(cached.getBlueprintWatch(blueprintCourseId), ApiProtocolError);
 });

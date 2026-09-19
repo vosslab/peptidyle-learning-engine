@@ -410,7 +410,7 @@ CREATE FUNCTION ple_api.read_course_roster_entry_repair_support(
 RETURNS TABLE(roster_id text, state text)
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_audit, ple_data, ple_private AS $$
-DECLARE course text; student text; canonical_reference text;
+DECLARE course text; student text; canonical_resource_path text;
 BEGIN
     IF p_capability_id IS NULL
        OR p_course_instance_id IS NULL
@@ -431,11 +431,11 @@ BEGIN
     IF NOT FOUND THEN
         RETURN;
     END IF;
-    canonical_reference := format(
+    canonical_resource_path := format(
         'course-instance/%s/roster/%s', p_course_instance_id, p_roster_id
     );
     PERFORM ple_api.record_support_repair_capability_use(
-        p_capability_id, 'student', canonical_reference
+        p_capability_id, 'student', canonical_resource_path
     );
     IF NOT FOUND THEN
         RETURN;

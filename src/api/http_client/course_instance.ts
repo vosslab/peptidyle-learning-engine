@@ -39,12 +39,12 @@ function idempotencyKey(value: string, path: string): string {
   return value;
 }
 
-export function courseInstancePath(reference: CourseInstanceId): string {
-  if (parseCourseInstanceId(reference) === null) {
-    throw new ApiProtocolError("Course Instance reference must be canonical");
+export function courseInstancePath(courseInstanceId: CourseInstanceId): string {
+  if (parseCourseInstanceId(courseInstanceId) === null) {
+    throw new ApiProtocolError("Course Instance ID must be canonical");
   }
   // ASVS 1.2.2 and 2.2.1: positively validate, then path-encode route input.
-  return `/api/course-instances/${encodeURIComponent(reference)}`;
+  return `/api/course-instances/${encodeURIComponent(courseInstanceId)}`;
 }
 
 async function courseInstanceJson<T>(
@@ -77,11 +77,11 @@ export function createCourseInstanceClient(
 ): Pick<ApiClient, keyof CourseInstanceClient> {
   return {
     createBlueprintFromCourseInstance: async (
-      reference,
+      courseInstanceId,
       input,
       requestKey,
     ): Promise<Awaited<ReturnType<CourseInstanceClient["createBlueprintFromCourseInstance"]>>> => {
-      const path = `${courseInstancePath(reference)}/course-blueprints`;
+      const path = `${courseInstancePath(courseInstanceId)}/course-blueprints`;
       const response = await requestSameOrigin(fetchImplementation, basePath, path, {
         method: "POST",
         body: decodeCreateBlueprintFromCourseInstanceInput(input),
@@ -96,7 +96,7 @@ export function createCourseInstanceClient(
         "response",
       );
       const revisionEtag = response.headers.get("etag");
-      if (revisionEtag !== `"${blueprintCourse.current_revision.revision}"`) {
+      if (revisionEtag !== `"${blueprintCourse.current_revision.revisionNumber}"`) {
         throw new ApiProtocolError(
           `API response ${path} ETag must match its current Blueprint Revision`,
         );
@@ -105,8 +105,8 @@ export function createCourseInstanceClient(
         blueprintCourse.availability !== "private" ||
         blueprintCourse.read_access !== "blueprint_course_owner" ||
         blueprintCourse.fork_source !== null ||
-        blueprintCourse.current_revision.blueprint_course_id !== blueprintCourse.id ||
-        blueprintCourse.current_revision.revision !== "1"
+        blueprintCourse.current_revision.blueprintCourseId !== blueprintCourse.id ||
+        blueprintCourse.current_revision.revisionNumber !== "1"
       ) {
         throw new ApiProtocolError(
           "Course-derived Blueprint must be an actor-owned Private root at Revision 1",
@@ -115,11 +115,11 @@ export function createCourseInstanceClient(
       return { blueprintCourse, revisionEtag };
     },
     updateCourseInstanceClassification: async (
-      reference,
+      courseInstanceId,
       classification,
       courseEditNumber,
     ): Promise<Awaited<ReturnType<CourseInstanceClient["updateCourseInstanceClassification"]>>> => {
-      const path = `${courseInstancePath(reference)}/classification`;
+      const path = `${courseInstancePath(courseInstanceId)}/classification`;
       const validator = decodeString(courseEditNumber, "courseEditNumber");
       if (!/^[1-9][0-9]*$/u.test(validator) || BigInt(validator) > 9_223_372_036_854_775_807n) {
         throw new ApiProtocolError("Course If-Match must be a positive Course Edit Number");
@@ -177,18 +177,18 @@ export function createCourseInstanceClient(
           status: 201,
         },
       ),
-    getCourseInstance: (reference) =>
+    getCourseInstance: (courseInstanceId) =>
       courseInstanceJson(
         fetchImplementation,
         basePath,
-        courseInstancePath(reference),
+        courseInstancePath(courseInstanceId),
         decodeCourseInstanceView,
       ),
-    getCourseInstanceRouteSummary: (reference) =>
+    getCourseInstanceRouteSummary: (courseInstanceId) =>
       courseInstanceJson(
         fetchImplementation,
         basePath,
-        `${courseInstancePath(reference)}/summary`,
+        `${courseInstancePath(courseInstanceId)}/summary`,
         decodeCourseInstanceRouteSummary,
       ),
     listCourseCreationInstructors: () =>
