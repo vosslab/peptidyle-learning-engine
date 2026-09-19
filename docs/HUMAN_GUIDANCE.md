@@ -767,6 +767,14 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
   foreign key to it.
 - An object without a public ID uses a native UUID primary key, or a composite natural key when
   it is owned by a parent (for example a Revision keyed by its lineage ID and Revision Number).
+- One value that is the canonical identity of one object is an Id.
+- Multiple values that together identify one exact object, state, or version are a Tuple.
+- A Published Question Revision Tuple is Question ID plus Question Revision Number.
+- A Blueprint Revision Tuple is Blueprint Course ID plus Blueprint Revision Number.
+- Use Reference only for a genuine indirect, scoped, or external locator.
+- Do not name an Id or a Tuple as a Reference; "Reference" reads like a pointer, not a composite identity.
+- The hyphen is specific to Question IDs. Other public IDs use a prefix without a hyphen.
+- An object without a public ID uses its UUID Id in routes and JSON. Do not add a second compact locator namespace such as W-, M-, I-, or R-.
 - Internal UUIDs never substitute for or appear as public identities.
 - Table shape and clocks follow [DATABASE_STYLE.md](/docs/DATABASE_STYLE.md).
 
