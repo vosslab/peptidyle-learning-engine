@@ -74,7 +74,7 @@ impl ImathasQuestionBackendSessionPreparationContext {
         ImathasQuestionBackendLaunchPreparationValidation {
             grading_context: self.grading_context.clone(),
             imathas_question_backend_binding: self.imathas_question_backend_binding.clone(),
-            source_object: self.source_object.clone(),
+            source_object: self.source_object,
             source_object_checksum: self.source_object_checksum.clone(),
             response_checksum: self.response_checksum,
             challenge: self.challenge.clone(),

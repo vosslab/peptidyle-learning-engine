@@ -296,7 +296,7 @@ async fn make_attempt(
     );
     tx.commit().await.expect("committed fixture");
     AttemptFixture {
-        attempt_id: attempt_id,
+        attempt_id,
         assessment_id,
     }
 }

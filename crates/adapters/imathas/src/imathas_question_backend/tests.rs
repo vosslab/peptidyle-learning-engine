@@ -112,7 +112,7 @@ mod launch_session_bridge {
             store,
             question.clone(),
             imathas_binding(),
-            artifact.clone(),
+            artifact,
             SourceObjectChecksum::parse(receipt.sha256.to_string()).expect("checksum"),
         )
         .await
@@ -143,7 +143,7 @@ mod launch_session_bridge {
             AssessmentId::from_debug_serial(3),
             grading_context,
             imathas_question_backend_binding,
-            artifact.clone(),
+            *artifact,
             source.source_object_checksum().clone(),
             ImathasResponseChecksum::from_bytes([4; 32]),
             challenge,
@@ -250,7 +250,7 @@ mod launch_session_bridge {
                 QuestionSeed::new(11),
             ),
             imathas_question_backend_binding,
-            artifact.clone(),
+            artifact,
             source.source_object_checksum().clone(),
             digest,
             expected_authentication,

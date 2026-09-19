@@ -536,7 +536,7 @@ mod tests {
         };
         let wire = serde_json::to_value(view).expect("safe view serializes");
         assert_eq!(wire["id"], "BP7K3M2QXH");
-        assert_eq!(wire["current_revision"]["revision"], "1");
+        assert_eq!(wire["current_revision"]["revisionNumber"], "1");
         assert_eq!(
             wire["modules"][0]["assessments"][0]["content"]["entries"][0]["kind"],
             "fixed"

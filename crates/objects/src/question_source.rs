@@ -132,7 +132,7 @@ mod tests {
         let resolved = ResolvedQuestionSource::resolve(
             &store,
             question_revision_tuple.clone(),
-            source_object_id.clone(),
+            source_object_id,
             source_object_checksum.clone(),
         )
         .await

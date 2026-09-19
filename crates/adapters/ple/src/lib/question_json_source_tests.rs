@@ -37,7 +37,7 @@ async fn resolved_question_json_issues_and_grades_from_its_exact_immutable_sourc
     let source = ResolvedPleQuestionJsonSource::resolve(
         &store,
         question_revision_tuple.clone(),
-        source_object_id.clone(),
+        source_object_id,
         source_object_checksum.clone(),
     )
     .await

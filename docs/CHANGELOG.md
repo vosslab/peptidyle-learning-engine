@@ -10,6 +10,12 @@
 
 ### Fixes and Maintenance
 
+- Add opt-in pytest disk budgets for the Rust `target/` build directory and
+  active Podman connection. The checks fail when `target/` physical usage
+  exceeds 10 GiB or the sum of Podman images, containers, and local volumes
+  exceeds 20.00 GB. A clean checkout without `target/` passes. Gate:
+  `source source_me.sh && python3 -m pytest tests/test_developer_storage_budget.py`.
+
 - Finish remaining identity alignment for living UI copy, decoder
   errors, and route Path/store locals that still named an Id or Tuple as
   a Reference. Tuple-valued JSON fields are `questionRevisionTuple` and

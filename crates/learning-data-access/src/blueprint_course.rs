@@ -329,7 +329,7 @@ impl StoredBlueprintCourseContent {
             BlueprintAssessmentEditChoice::New => BlueprintAssessmentId::from_uuid(random_uuid()?),
         };
         Ok(StoredBlueprintAssessment {
-            blueprint_assessment_id: blueprint_assessment_id,
+            blueprint_assessment_id,
             content: StoredBlueprintAssessmentContent::from_input(
                 assessment.content,
                 pool_edit_numbers,

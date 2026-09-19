@@ -28,12 +28,15 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 
 # Exclude operational and opt-in tiers from pytest collection. The checkout
-# disk budget is a developer-capacity check for one-time cleanup, not product
-# behavior or release acceptance. tests/playwright/
+# and developer storage budgets are capacity checks for one-time cleanup, not
+# product behavior or release acceptance. tests/playwright/
 # holds browser-driven tests, tests/e2e/ holds generic whole-system runners,
 # and tests/e2e/ owns generic whole-system orchestration. They run outside pytest -- see
 # docs/PLAYWRIGHT_USAGE.md and docs/E2E_TESTS.md.
-collect_ignore = ["e2e", "playwright", "test_checkout_disk_budget.py"]
+collect_ignore = [
+	"e2e",
+	"playwright",
+]
 
 
 # REPO_HYGIENE_FILTERS is the repo-local hygiene-exclusion registry (Layer 2).

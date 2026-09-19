@@ -284,7 +284,7 @@ fn reproduction_details_serialize_role_specific_versions() {
     assert!(wire.get("grader").is_some());
     assert_eq!(
         wire["sourceObjectId"],
-        serde_json::json!({ "object": "00000000-0000-0000-0000-000000000007" })
+        serde_json::json!("00000000-0000-0000-0000-000000000007")
     );
     assert_eq!(
         wire["sourceObjectChecksum"],

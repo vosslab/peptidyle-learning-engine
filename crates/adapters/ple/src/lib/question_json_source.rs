@@ -101,7 +101,7 @@ impl PleQuestionBackend {
                     version: ADAPTER_VERSION.to_string(),
                 },
                 renderer_version: None,
-                source_object_id: Some(source.source_object_id().clone()),
+                source_object_id: Some(*source.source_object_id()),
                 source_object_checksum: Some(source.source_object_checksum().clone()),
                 asset_objects: Vec::new(),
                 grader: QuestionGraderVersion {

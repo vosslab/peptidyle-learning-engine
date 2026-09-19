@@ -201,7 +201,7 @@ impl AccountAvatarGallery for PostgresAccountAvatarGallery {
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(PreparedAccountProfileImage {
             work_id,
-            profile_image_id: profile_image_id,
+            profile_image_id,
             object_id,
         })
     }
@@ -251,7 +251,7 @@ impl AccountAvatarGallery for PostgresAccountAvatarGallery {
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(AccountProfileImageDeleteWork {
             work_id,
-            profile_image_id: profile_image_id,
+            profile_image_id,
             object_id,
         })
     }
@@ -353,7 +353,7 @@ impl AccountAvatarGallery for PostgresAccountAvatarGallery {
         };
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(FinalizedAccountProfileImage {
-            profile_image_id: profile_image_id,
+            profile_image_id,
             object_id,
             retired,
         })

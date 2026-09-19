@@ -369,7 +369,7 @@ async fn load_revision(
         Err(response) => return *response,
     };
     let blueprint_revision_tuple = BlueprintRevisionTuple {
-        blueprint_course_id: blueprint_course_id,
+        blueprint_course_id,
         revision,
     };
     let record = match state

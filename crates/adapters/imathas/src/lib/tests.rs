@@ -276,7 +276,7 @@ async fn stored_source(
         store,
         question.clone(),
         binding(),
-        artifact.clone(),
+        artifact,
         SourceObjectChecksum::parse(object.sha256.to_string())
             .expect("stored checksum is canonical"),
     )

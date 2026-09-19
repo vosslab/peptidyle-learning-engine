@@ -137,7 +137,7 @@ impl PostgresBlueprintCourseStore {
         .map_err(map_sqlx_error)?;
         let receipt = SaveBlueprintCourseReceipt {
             blueprint_revision_tuple: BlueprintRevisionTuple {
-                blueprint_course_id: blueprint_course_id,
+                blueprint_course_id,
                 revision: revision(
                     row.try_get("resulting_blueprint_revision_number")
                         .map_err(map_sqlx_error)?,
@@ -524,7 +524,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         {
             let receipt = SaveBlueprintCourseReceipt {
                 blueprint_revision_tuple: BlueprintRevisionTuple {
-                    blueprint_course_id: blueprint_course_id,
+                    blueprint_course_id,
                     revision: revision(row.try_get("revision_number").map_err(map_sqlx_error)?)?,
                 },
                 changed: row.try_get("changed").map_err(map_sqlx_error)?,

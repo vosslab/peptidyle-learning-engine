@@ -383,7 +383,7 @@ async fn correct_question_revision_bloom(
     };
     crate::auth::no_store(
         Json(QuestionBloomCorrectionReceipt {
-            question_revision_tuple: question_revision_tuple,
+            question_revision_tuple,
             bloom,
         })
         .into_response(),

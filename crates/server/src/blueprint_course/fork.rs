@@ -48,7 +48,7 @@ pub(super) async fn fork_blueprint(
             session,
             BlueprintForkSource {
                 blueprint_revision_tuple: BlueprintRevisionTuple {
-                    blueprint_course_id: blueprint_course_id,
+                    blueprint_course_id,
                     revision,
                 },
             },

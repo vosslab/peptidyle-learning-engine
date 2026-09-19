@@ -132,7 +132,7 @@ async fn fork_published_question(
     let source = match ResolvedQuestionSource::resolve(
         &state.objects,
         source_question_revision_tuple.clone(),
-        library_entry.source_object_id.clone(),
+        library_entry.source_object_id,
         library_entry.source_object_checksum.clone(),
     )
     .await

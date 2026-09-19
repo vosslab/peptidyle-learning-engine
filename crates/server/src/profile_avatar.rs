@@ -89,9 +89,9 @@ impl From<AccountAvatar> for AvatarChoice {
             AccountAvatar::Provided(id) => Self::Provided {
                 provided_avatar_id: id.to_string(),
             },
-            AccountAvatar::ProfileImage(profile_image_id) => Self::ProfileImage {
-                profile_image_id: profile_image_id,
-            },
+            AccountAvatar::ProfileImage(profile_image_id) => {
+                Self::ProfileImage { profile_image_id }
+            }
         }
     }
 }

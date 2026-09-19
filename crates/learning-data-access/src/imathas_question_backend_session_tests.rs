@@ -41,7 +41,7 @@ fn facts(
         assessment.clone(),
         grading_context.clone(),
         imathas_question_backend_binding.clone(),
-        source.clone(),
+        source,
         checksum.clone(),
         digest.clone(),
         authentication.clone(),

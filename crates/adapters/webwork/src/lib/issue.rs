@@ -264,7 +264,7 @@ fn issued(
         reproduction_details: QuestionAttemptReproductionDetails {
             backend: backend_version(ADAPTER_ID, ADAPTER_VERSION),
             renderer_version: Some(renderer_version),
-            source_object_id: Some(source.source_object_id().clone()),
+            source_object_id: Some(*source.source_object_id()),
             source_object_checksum: Some(source.source_object_checksum().clone()),
             asset_objects: Vec::new(),
             grader,

@@ -193,7 +193,7 @@ impl<S: ObjectStore, P: QuestionBackend> ImathasAdapter<S, P> {
         let safe = Self::validate_safe_render(safe)?;
         let record = CachedRender {
             schema: 1,
-            source: source.source_object_id().clone(),
+            source: *source.source_object_id(),
             source_object_checksum: source.source_object_checksum().clone(),
             binding: source.binding.clone(),
             presentation: QuestionVariationPresentation {
@@ -315,7 +315,7 @@ impl<S: ObjectStore, P: QuestionBackend> ImathasAdapter<S, P> {
                     name: "imathas-profile".to_string(),
                     version: source.binding.profile().as_str().to_owned(),
                 }),
-                source_object_id: Some(source.source_object_id().clone()),
+                source_object_id: Some(*source.source_object_id()),
                 source_object_checksum: Some(source.source_object_checksum().clone()),
                 asset_objects: Vec::new(),
                 grader: grader_version(GRADING_ID, GRADING_VERSION),

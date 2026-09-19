@@ -167,7 +167,7 @@ fn decode_repair(
     .map_err(|_| invalid("Sysadmin Account ID"))?;
     Ok(SupportRepairCapabilityReceipt {
         capability_id: row.try_get("capability_id").map_err(map_sqlx_error)?,
-        sysadmin_id: sysadmin_id,
+        sysadmin_id,
         resource_class: decode_resource_class(
             row.try_get("resource_class").map_err(map_sqlx_error)?,
         )?,

@@ -192,7 +192,7 @@ fn decode_receipt(
     .ok_or_else(|| invalid("Blueprint Revision"))?;
     Ok(CreateBlueprintCourseReceipt {
         blueprint_revision_tuple: BlueprintRevisionTuple {
-            blueprint_course_id: blueprint_course_id,
+            blueprint_course_id,
             revision,
         },
         blueprint_edit_number: BlueprintEditNumber::from_edit_number(
