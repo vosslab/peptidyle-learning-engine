@@ -27,12 +27,10 @@ Those documents must preserve the meanings established by Human Guidance.
   object that needs one. Store and use the exact same ID in the database, Rust,
   JSON, URLs, object storage, hashes, logs, and browser UI.
 - Use **Id** for one value that is the canonical identity of one object.
-- Use **Tuple** for multiple values that together identify one exact object,
-  state, or version. That is the general concept, not a version-only suffix.
-  Current examples are `QuestionRevisionTuple { questionId, revisionNumber }`
-  and `BlueprintRevisionTuple { blueprint_course_id, revision }`.
+- Use **Tuple** for multiple values that together identify one exact object, state, or version.
+  Current examples are `QuestionRevisionTuple { questionId, revisionNumber }` and
+  `BlueprintRevisionTuple { blueprintCourseId, revisionNumber }`.
 - Use **Reference** only for a genuine indirect, scoped, or external locator.
-  Do not name an Id or a Tuple as a Reference.
 - Preserve the canonical ID exactly across system boundaries. Parsing,
   serialization, API transport, persistence, and display do not add, remove,
   reformat, or translate characters.
@@ -458,7 +456,7 @@ that no longer apply cleanly must not be silently applied against it.
 exchange representation for Blueprint Course content. It is not the primary
 persistence model and contains no Student or Course Instance delivery data.
 It includes Blueprint metadata and ordered Assessments, their reusable settings,
-and ordered Published Question and Pool references. Export/import must reproduce
+and ordered Published Question and Question Pool entries. Export/import must reproduce
 the same complete Course content and structure.
 
 **Starred Blueprint Course** is a visible Instructor endorsement; vetted
@@ -745,7 +743,7 @@ of identifiable Course records.
 
 Implementation identifiers such as a saved-response row name underlying
 records; they do not imply a per-Question Student submission action. Legacy
-names such as `AssignmentId`, `Reference ID`, `metadata_etag`, or `Available`
+names such as `AssignmentId`, `Id`, `metadata_etag`, or `Available`
 must not define current product meaning. Technical terms such as jobs,
 generations, and receipts belong to their implementation boundaries. Use
 precise identifiers when documenting source evidence, with the product meaning
@@ -757,4 +755,4 @@ uses its ordinary casing: SQL `account_id`, Rust/TypeScript type
 `AccountId`, Rust field `account_id`, JSON `id` or nested `accountId`.
 Do not keep a parallel UUID primary key, a `reference` JSON field for a
 public ID, or a `public_reference` SQL alias beside a public ID. Composite
-Question Revision pins remain `{questionId, revisionNumber}`.
+Question Revision Tuples remain `{questionId, revisionNumber}`.
