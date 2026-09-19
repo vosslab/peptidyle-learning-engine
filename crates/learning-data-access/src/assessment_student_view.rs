@@ -44,7 +44,7 @@ pub enum InstructorStudentViewSnapshotEntry {
         availability: AssessmentEntryAvailability,
         question_revision: QuestionRevisionReference,
     },
-    /// One exact Assessment-owned Pool Revision with members in immutable Pool order.
+    /// One Assessment-owned Pool with members in current Pool order.
     Pool {
         /// Zero-based position in the current authored Assessment Entry order.
         authored_position: u32,
@@ -110,7 +110,7 @@ pub trait InstructorStudentViewStore: Send + Sync {
     ///
     /// The expected Edit Number is the manifest precondition. Implementations
     /// return a source only when the Question Revision is the exact fixed entry
-    /// or a member of the exact Pool Revision at `authored_position`.
+    /// or a member of the Assessment-owned Pool at `authored_position`.
     async fn load_instructor_student_view_question_source(
         &self,
         session_token_hash: SessionTokenHash,

@@ -58,7 +58,7 @@ function GradebookEvidence(props: { readonly gradebook: CourseGradebook }): JSX.
                   <td>
                     {/* ASVS 1.2.1: JSX renders the Course title as text, never markup. */}
                     <div>{work.assessmentTitle}</div>
-                    <small>{work.assessmentReference}</small>
+                    <small>{work.assessmentId}</small>
                   </td>
                   <td>{progressLabel(work.assessmentAttemptCompletion)}</td>
                   <td>{scoreLabel(work)}</td>

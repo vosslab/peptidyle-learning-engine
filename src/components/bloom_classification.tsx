@@ -30,12 +30,14 @@ type Notice = {
 
 export interface BloomClassificationEditorProps {
   readonly targetName: "Question" | "Question Pool";
-  readonly revisionNumber: number;
+  /** Question Revision Number, or current Pool Edit Number. */
+  readonly contentMarkerKind: "Revision" | "Edit";
+  readonly contentMarkerNumber: number;
   readonly bloom: BloomClassificationView;
   readonly save: (
     request: BloomClassificationCorrectionRequest,
   ) => Promise<BloomClassificationView>;
-  /** Reloads the same exact Revision after a 412; it never resolves current/latest instead. */
+  /** Reloads the same exact Question Revision or current Pool after a 412. */
   readonly loadCurrent: () => Promise<BloomClassificationView>;
   readonly onCurrent?: (bloom: BloomClassificationView) => void;
   readonly onConflictCurrent?: (bloom: BloomClassificationView) => void;
@@ -176,8 +178,8 @@ export function BloomClassificationEditor(props: BloomClassificationEditorProps)
     >
       <h2>Bloom Classification</h2>
       <p class="bloom-classification-editor__target">
-        {props.targetName} Revision {props.revisionNumber} | Classification Edit Number:{" "}
-        {current().classificationEditNumber}
+        {props.targetName} {props.contentMarkerKind} {props.contentMarkerNumber} | Classification
+        Edit Number: {current().classificationEditNumber}
       </p>
       <p>
         <BloomClassificationText bloom={current()} />

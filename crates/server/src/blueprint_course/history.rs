@@ -49,7 +49,7 @@ pub(super) struct HistoryQuery {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct HistoryCursor {
     version: u8,
-    reference: BlueprintCourseId,
+    blueprint_course_id: BlueprintCourseId,
     kind: HistoryKind,
     page_size: u16,
     after: String,
@@ -116,7 +116,7 @@ fn page_request(reference: &BlueprintCourseId, query: &HistoryQuery) -> Option<P
             let bytes = URL_SAFE_NO_PAD.decode(token).ok()?;
             let cursor: HistoryCursor = serde_json::from_slice(&bytes).ok()?;
             if cursor.version != 1
-                || cursor.reference != *reference
+                || cursor.blueprint_course_id != *reference
                 || cursor.kind != query.kind
                 || cursor.page_size != size.get()
                 || !valid_key(cursor.kind, &cursor.after)
@@ -146,14 +146,14 @@ fn valid_key(kind: HistoryKind, key: &str) -> bool {
 }
 
 fn encode_cursor(
-    reference: BlueprintCourseId,
+    blueprint_course_id: BlueprintCourseId,
     kind: HistoryKind,
     page_size: u16,
     after: Cursor,
 ) -> Option<String> {
     let cursor = HistoryCursor {
         version: 1,
-        reference,
+        blueprint_course_id,
         kind,
         page_size,
         after: after.as_str().to_owned(),

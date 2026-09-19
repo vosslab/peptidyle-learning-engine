@@ -24,7 +24,7 @@ pub enum InstructorAccountState {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InstructorAccountSummary {
-    /// Canonical opaque Account Reference.
+    /// Canonical Account ID.
     pub id: AccountId,
     /// Current Account State derived from the immutable event history.
     pub state: InstructorAccountState,
@@ -173,7 +173,7 @@ pub trait InstructorAccountStore: Send + Sync {
     async fn deactivate_instructor_account(
         &self,
         session_token_hash: SessionTokenHash,
-        reference: AccountId,
+        account_id: AccountId,
         input: DeactivateInstructorAccountInput,
     ) -> Result<InstructorAccountSummary, StoreError>;
 
@@ -181,6 +181,6 @@ pub trait InstructorAccountStore: Send + Sync {
     async fn reactivate_instructor_account(
         &self,
         session_token_hash: SessionTokenHash,
-        reference: AccountId,
+        account_id: AccountId,
     ) -> Result<InstructorAccountSummary, StoreError>;
 }

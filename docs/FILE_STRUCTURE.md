@@ -172,9 +172,10 @@ existing Assessment release client rather than a separate update client.
 
 [src/api/decoders/](../src/api/decoders/) is the runtime DTO boundary. Generated declarations in
 `generated/api/` are derivative; modify their Rust source and regenerate rather
-than editing them. Public-ID JSON fields are `id`; some Pool wire types still
-use `questionPoolRevision` / `revisionNumber` (see
-[CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md) known gaps).
+than editing them. Public-ID JSON fields are `id`. Question Pools use sibling
+`questionPoolId` and `questionPoolEditNumber` (or snake_case
+`question_pool_id` / `question_pool_edit_number` on Blueprint stored content).
+Question Revision pins remain `{questionId, revisionNumber}`.
 
 `src/public/ple_bridge.js` is copied into the browser build. Same-origin Student
 documents transport an entire backend-owned form as ordered string pairs; opaque

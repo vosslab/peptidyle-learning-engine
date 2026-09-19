@@ -166,12 +166,12 @@ function presentationApi(deferredScopes?: DeferredCourseScopes): {
     listBlueprintCourses: (): Promise<CursorPage<BlueprintCourseSummaryView>> =>
       Promise.resolve({ items: [], nextCursor: null }),
     getCourseInstance: (
-      reference: CourseInstanceView["course"]["reference"],
+      reference: CourseInstanceView["course"]["id"],
     ): Promise<CourseInstanceView> => {
       courseInstanceQueries += 1;
       return Promise.resolve({
         course: {
-          reference,
+          id: reference,
           shortName: `Course ${reference}`,
           longName: `Course ${reference}`,
           classification: FIXTURE_CLASSIFICATION,

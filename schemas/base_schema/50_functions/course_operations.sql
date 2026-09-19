@@ -19,21 +19,21 @@ AS $$
  RETURNING course_theme_id AS course_theme
 $$;
 
-CREATE FUNCTION ple_api.resolve_course_navigation(p_public_reference text)
+CREATE FUNCTION ple_api.resolve_course_navigation(p_course_instance_id text)
 RETURNS TABLE(course_instance_id text) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data
 AS $$
     SELECT course_instance_id FROM ple_data.course_instance
-     WHERE course_instance_id = p_public_reference
+     WHERE course_instance_id = p_course_instance_id
        AND ple_api.current_session_account_is_course_member(course_instance_id)
 $$;
 
 CREATE FUNCTION ple_api.read_course_summary(p_course_instance_id text)
-RETURNS TABLE(course_instance_id text, public_reference text, short_name text, long_name text,
+RETURNS TABLE(course_instance_id text, short_name text, long_name text,
               term_starts_on date, term_ends_on date, membership_role text,
               content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid, content_subtopic_id uuid, tags text[])
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data AS $$
-    SELECT course.course_instance_id, course.course_instance_id, course.course_short_name, course.course_long_name,
+    SELECT course.course_instance_id, course.course_short_name, course.course_long_name,
            course.term_starts_on, course.term_ends_on, membership.role,
            course.content_discipline_id, course.content_subject_id, course.content_topic_id, course.content_subtopic_id, course.tags
       FROM ple_data.course_instance AS course
@@ -47,20 +47,18 @@ $$;
 
 CREATE FUNCTION ple_api.create_course_instance(
     p_course_instance_id text, p_origin_id uuid, p_membership_id uuid, p_event_id uuid,
-    p_source_kind text, p_blueprint_reference text, p_blueprint_revision bigint,
+    p_source_kind text, p_blueprint_course_id text, p_blueprint_revision bigint,
     p_short_name text, p_long_name text, p_term_start date, p_term_end date,
-    p_assigned_instructor_reference text, p_assessments jsonb,
+    p_assigned_instructor_account_id text, p_assessments jsonb,
     p_discipline uuid, p_subject uuid, p_topic uuid, p_subtopic uuid, p_tags text[]
 )
-RETURNS TABLE(public_reference text, short_name text, long_name text, term_starts_on date,
+RETURNS TABLE(course_instance_id text, short_name text, long_name text, term_starts_on date,
               term_ends_on date, content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid,
               content_subtopic_id uuid, tags text[], course_edit_number bigint, course_lifecycle_state text)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
 DECLARE
     actor text;
     assigned text;
-    course_reference_number text;
-    course_public_reference text;
     now_at timestamptz;
     blueprint ple_data.blueprint_course%ROWTYPE;
     expected_sources uuid[];
@@ -69,9 +67,9 @@ BEGIN
     IF p_course_instance_id IS NULL OR p_origin_id IS NULL OR p_membership_id IS NULL OR p_event_id IS NULL
        OR p_source_kind IS NULL OR p_source_kind NOT IN ('empty', 'adopted')
        OR (p_source_kind = 'empty'
-           AND (p_blueprint_reference IS NOT NULL OR p_blueprint_revision IS NOT NULL))
+           AND (p_blueprint_course_id IS NOT NULL OR p_blueprint_revision IS NOT NULL))
        OR (p_source_kind = 'adopted'
-           AND (p_blueprint_reference IS NULL OR p_blueprint_revision IS NULL
+           AND (p_blueprint_course_id IS NULL OR p_blueprint_revision IS NULL
                 OR p_blueprint_revision <= 0))
        OR p_short_name IS NULL OR p_short_name <> btrim(p_short_name)
        OR char_length(p_short_name) NOT BETWEEN 1 AND 200
@@ -83,17 +81,17 @@ BEGIN
     actor := ple_api.current_session_account_id();
     IF ple_api.current_session_account_is_instructor() THEN
         assigned := actor;
-        IF p_assigned_instructor_reference IS NOT NULL AND NOT EXISTS (
+        IF p_assigned_instructor_account_id IS NOT NULL AND NOT EXISTS (
             SELECT 1 FROM ple_private.account AS account
              WHERE account.account_id = actor
-               AND account.account_id = p_assigned_instructor_reference
+               AND account.account_id = p_assigned_instructor_account_id
         ) THEN
             RAISE EXCEPTION USING ERRCODE = '42501',
                 MESSAGE = 'an Instructor may create a Course Instance only for self';
         END IF;
     ELSIF ple_api.current_session_account_is_sysadmin() THEN
         SELECT account.account_id INTO assigned FROM ple_private.account AS account
-         WHERE account.account_id = p_assigned_instructor_reference
+         WHERE account.account_id = p_assigned_instructor_account_id
            AND account.product_role = 'instructor';
         IF NOT FOUND THEN
             RAISE EXCEPTION USING ERRCODE = '22023',
@@ -125,7 +123,7 @@ BEGIN
         -- Save and archive before comparing the submitted Revision with the head.
         SELECT source_blueprint.* INTO blueprint
           FROM ple_data.blueprint_course AS source_blueprint
-         WHERE source_blueprint.blueprint_course_id = p_blueprint_reference
+         WHERE source_blueprint.blueprint_course_id = p_blueprint_course_id
          FOR UPDATE OF source_blueprint;
         IF NOT FOUND OR blueprint.availability <> 'public' THEN
             RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Course Instance source is unavailable';
@@ -134,7 +132,7 @@ BEGIN
             RAISE EXCEPTION USING ERRCODE = '40001',
                 MESSAGE = 'Blueprint Revision precondition is stale';
         END IF;
-        SELECT array_agg(source.blueprint_assessment_reference ORDER BY source.blueprint_assessment_reference)
+        SELECT array_agg(source.blueprint_assessment_id ORDER BY source.blueprint_assessment_id)
           INTO expected_sources FROM ple_data.blueprint_revision_assessment AS source
          WHERE source.blueprint_course_id = blueprint.blueprint_course_id
            AND source.blueprint_revision_number = p_blueprint_revision;
@@ -168,8 +166,7 @@ BEGIN
         ((now_at AT TIME ZONE 'UTC') + INTERVAL '6 months') AT TIME ZONE 'UTC',
         ((now_at AT TIME ZONE 'UTC') + INTERVAL '6 months') AT TIME ZONE 'UTC',
         p_discipline, p_subject, p_topic, p_subtopic, p_tags
-    ) RETURNING ple_data.course_instance.course_instance_id, ple_data.course_instance.course_instance_id
-      INTO course_reference_number, course_public_reference;
+    );
     INSERT INTO ple_data.course_origin (
         course_origin_id, course_instance_id, source_kind, blueprint_course_id,
         blueprint_revision_number, source_course_instance_id, created_at
@@ -199,7 +196,7 @@ $$;
 -- A current Instructor may extend only that Course's teaching team.  The
 -- assigned Instructor is historical accountability, never an authority rank.
 CREATE FUNCTION ple_api.add_course_instructor(
-    p_membership_id uuid, p_course_reference text, p_instructor_reference text
+    p_membership_id uuid, p_course_instance_id text, p_instructor_account_id text
 )
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
@@ -207,13 +204,13 @@ DECLARE
     course text;
     instructor text;
 BEGIN
-    IF p_membership_id IS NULL OR p_course_reference IS NULL OR p_instructor_reference IS NULL THEN
+    IF p_membership_id IS NULL OR p_course_instance_id IS NULL OR p_instructor_account_id IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Course Instructor membership arguments are invalid';
     END IF;
     SELECT course_instance_id INTO course
       FROM ple_data.course_instance
-     WHERE course_instance_id = p_course_reference;
+     WHERE course_instance_id = p_course_instance_id;
     IF NOT FOUND OR NOT ple_api.current_session_account_is_course_instructor(course) THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Course Instructor membership is unavailable';
@@ -227,7 +224,7 @@ BEGIN
            ORDER BY event.occurred_at DESC, event.event_id DESC
            LIMIT 1
       ) AS state_event ON state_event.state = 'active'
-     WHERE account.account_id = p_instructor_reference
+     WHERE account.account_id = p_instructor_account_id
        AND account.product_role = 'instructor';
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
@@ -242,7 +239,7 @@ END
 $$;
 
 CREATE FUNCTION ple_api.list_course_instances()
-RETURNS TABLE(public_reference text, short_name text, long_name text, term_starts_on date,
+RETURNS TABLE(course_instance_id text, short_name text, long_name text, term_starts_on date,
               term_ends_on date, course_theme text, content_discipline_id uuid, content_subject_id uuid,
               content_topic_id uuid, content_subtopic_id uuid, tags text[], course_edit_number bigint,
               course_lifecycle_state text)
@@ -261,10 +258,10 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_
      ORDER BY course.course_long_name, course.course_instance_id
 $$;
 
-CREATE FUNCTION ple_api.load_course_instance(p_reference text)
-RETURNS TABLE(public_reference text, short_name text, long_name text, term_starts_on date,
+CREATE FUNCTION ple_api.load_course_instance(p_course_instance_id text)
+RETURNS TABLE(course_instance_id text, short_name text, long_name text, term_starts_on date,
               term_ends_on date, course_theme text,
-              active_instructor_count bigint, blueprint_reference text,
+              active_instructor_count bigint, blueprint_course_id text,
               adopted_blueprint_revision bigint, current_blueprint_revision bigint,
               content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid, content_subtopic_id uuid,
               tags text[], course_edit_number bigint, course_lifecycle_state text)
@@ -274,8 +271,8 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_
            (SELECT count(*) FROM ple_data.course_membership AS teammate
              WHERE teammate.course_instance_id = course.course_instance_id AND teammate.role = 'instructor'
                AND ple_data.course_membership_is_active(teammate.course_membership_id)),
-           readable_blueprint.public_reference,
-           CASE WHEN readable_blueprint.public_reference IS NOT NULL
+           readable_blueprint.blueprint_course_id,
+           CASE WHEN readable_blueprint.blueprint_course_id IS NOT NULL
                 THEN course.blueprint_revision_number END,
            readable_blueprint.current_blueprint_revision_number,
            course.content_discipline_id, course.content_subject_id, course.content_topic_id,
@@ -292,12 +289,12 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_
        AND membership.account_id = ple_api.current_session_account_id()
        AND membership.role = 'instructor'
        AND ple_data.course_membership_is_active(membership.course_membership_id)
-     WHERE course.course_instance_id = p_reference
+     WHERE course.course_instance_id = p_course_instance_id
        AND ple_api.current_session_account_is_instructor()
 $$;
 
 CREATE FUNCTION ple_api.update_course_classification(
-    p_reference text, p_expected_course_edit_number bigint,
+    p_course_instance_id text, p_expected_course_edit_number bigint,
     p_discipline uuid, p_subject uuid, p_topic uuid, p_subtopic uuid, p_tags text[]
 )
 RETURNS TABLE(course_edit_number bigint, changed boolean)
@@ -308,7 +305,7 @@ DECLARE
 BEGIN
     -- ASVS 8.2.1/8.2.2: every current co-Instructor has equal scoped authority.
     SELECT course.* INTO v_course FROM ple_data.course_instance AS course
-     WHERE course.course_instance_id = p_reference
+     WHERE course.course_instance_id = p_course_instance_id
        AND ple_api.current_session_account_is_course_instructor(course.course_instance_id)
      FOR UPDATE;
     IF NOT FOUND THEN
@@ -339,21 +336,21 @@ END
 $$;
 
 CREATE FUNCTION ple_api.list_course_creation_instructors()
-RETURNS TABLE(public_reference text) LANGUAGE sql STABLE SECURITY DEFINER
+RETURNS TABLE(account_id text) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private
 AS $$
-    SELECT account_id AS public_reference FROM ple_private.account
+    SELECT account_id FROM ple_private.account
      WHERE product_role = 'instructor' AND ple_api.current_session_account_is_sysadmin()
      ORDER BY account_id
 $$;
 
-CREATE FUNCTION ple_api.list_course_roster(p_reference text)
+CREATE FUNCTION ple_api.list_course_roster(p_course_instance_id text)
 RETURNS TABLE(roster_id text, roster_name text, state text)
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE selected_course text; retention_state text;
 BEGIN
     SELECT course_instance_id INTO selected_course FROM ple_data.course_instance
-     WHERE course_instance_id = p_reference;
+     WHERE course_instance_id = p_course_instance_id;
     IF NOT FOUND OR NOT ple_api.current_session_account_is_course_instructor(selected_course) THEN
         RETURN;
     END IF;
@@ -373,7 +370,7 @@ BEGIN
            ) THEN 'active_student' ELSE 'invitation_pending' END
       FROM ple_data.course_instance AS course
       JOIN ple_private.course_roster_profile AS profile ON profile.course_instance_id = course.course_instance_id
-     WHERE course.course_instance_id = p_reference
+     WHERE course.course_instance_id = p_course_instance_id
        AND (
            EXISTS (
                SELECT 1 FROM ple_data.course_membership AS membership
@@ -408,7 +405,7 @@ $$;
 -- revocation and writes the immutable `used` receipt in this same transaction;
 -- this operation never writes a Course membership or Account role.
 CREATE FUNCTION ple_api.read_course_roster_entry_repair_support(
-    p_capability_id uuid, p_course_public_reference text, p_roster_id text
+    p_capability_id uuid, p_course_instance_id text, p_roster_id text
 )
 RETURNS TABLE(roster_id text, state text)
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER
@@ -416,14 +413,14 @@ SET search_path = pg_catalog, ple_api, ple_audit, ple_data, ple_private AS $$
 DECLARE course text; student text; canonical_reference text;
 BEGIN
     IF p_capability_id IS NULL
-       OR p_course_public_reference IS NULL
+       OR p_course_instance_id IS NULL
        OR p_roster_id IS NULL OR p_roster_id !~ '^[A-Za-z0-9._-]+$'
        OR NOT ple_api.current_session_account_has_platform_administration() THEN
         RETURN;
     END IF;
     SELECT course_instance.course_instance_id INTO course
       FROM ple_data.course_instance AS course_instance
-     WHERE course_instance.course_instance_id = p_course_public_reference;
+     WHERE course_instance.course_instance_id = p_course_instance_id;
     IF NOT FOUND THEN
         RETURN;
     END IF;
@@ -435,7 +432,7 @@ BEGIN
         RETURN;
     END IF;
     canonical_reference := format(
-        'course-instance/%s/roster/%s', p_course_public_reference, p_roster_id
+        'course-instance/%s/roster/%s', p_course_instance_id, p_roster_id
     );
     PERFORM ple_api.record_support_repair_capability_use(
         p_capability_id, 'student', canonical_reference
@@ -474,7 +471,7 @@ END
 $$;
 
 CREATE FUNCTION ple_api.list_live_student_course_landing()
-RETURNS TABLE(course_public_reference text, course_short_name text, course_long_name text)
+RETURNS TABLE(course_instance_id text, course_short_name text, course_long_name text)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
     SELECT course.course_instance_id, course.course_short_name, course.course_long_name
       FROM ple_private.account AS account
@@ -496,7 +493,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_
 $$;
 
 CREATE FUNCTION ple_api.list_pending_student_course_invitations()
-RETURNS TABLE(course_public_reference text, course_short_name text, course_long_name text,
+RETURNS TABLE(course_instance_id text, course_short_name text, course_long_name text,
               instructor_display_name text, term_starts_on date, term_ends_on date)
 LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
     -- ASVS 8.2.2/8.2.3/14.2.6: self-only invitations reveal the assigned
@@ -543,20 +540,20 @@ LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path = pg_catalog, ple_api, pl
 $$;
 
 CREATE FUNCTION ple_api.export_pending_course_invitations(
-    p_course_public_reference text
+    p_course_instance_id text
 )
 RETURNS TABLE(roster_email text, roster_id text)
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE v_course_id text;
 BEGIN
-    IF p_course_public_reference IS NULL THEN
+    IF p_course_instance_id IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Invitation export arguments are invalid';
     END IF;
     SELECT course.course_instance_id INTO v_course_id
       FROM ple_data.course_instance AS course
-     WHERE course.course_instance_id = p_course_public_reference;
+     WHERE course.course_instance_id = p_course_instance_id;
     IF NOT FOUND OR NOT ple_api.current_session_account_is_course_instructor(v_course_id) THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Invitation export requires a current Instructor Course Membership';
@@ -596,20 +593,20 @@ END
 $$;
 
 CREATE FUNCTION ple_api.load_invitation_export_course(
-    p_course_public_reference text
+    p_course_instance_id text
 )
 RETURNS TABLE(course_name text)
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
 DECLARE v_course_id text;
 BEGIN
-    IF p_course_public_reference IS NULL THEN
+    IF p_course_instance_id IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Invitation export arguments are invalid';
     END IF;
     SELECT course.course_instance_id INTO v_course_id
       FROM ple_data.course_instance AS course
-     WHERE course.course_instance_id = p_course_public_reference;
+     WHERE course.course_instance_id = p_course_instance_id;
     IF NOT FOUND OR NOT ple_api.current_session_account_is_course_instructor(v_course_id) THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Invitation export requires a current Instructor Course Membership';
@@ -622,20 +619,20 @@ END
 $$;
 
 CREATE FUNCTION ple_api.import_course_roster(
-    p_reference text, p_normalized text[], p_delivery text[], p_roster text[], p_names text[]
+    p_course_instance_id text, p_normalized text[], p_delivery text[], p_roster text[], p_names text[]
 )
 RETURNS TABLE(roster_id text, roster_name text, state text)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
 DECLARE course text; actor text; student text; item integer; now_at timestamptz;
     retention_state text;
 BEGIN
-    IF p_reference IS NULL OR coalesce(cardinality(p_normalized), 0) NOT BETWEEN 1 AND 50
+    IF p_course_instance_id IS NULL OR coalesce(cardinality(p_normalized), 0) NOT BETWEEN 1 AND 50
        OR cardinality(p_normalized) IS DISTINCT FROM cardinality(p_delivery)
        OR cardinality(p_normalized) IS DISTINCT FROM cardinality(p_roster)
        OR cardinality(p_normalized) IS DISTINCT FROM cardinality(p_names) THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Course Roster Import arguments are invalid';
     END IF;
-    SELECT course_instance_id INTO course FROM ple_data.course_instance WHERE course_instance_id = p_reference;
+    SELECT course_instance_id INTO course FROM ple_data.course_instance WHERE course_instance_id = p_course_instance_id;
     IF NOT FOUND OR NOT ple_api.current_session_account_is_course_instructor(course) THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Course Roster Import requires a current Instructor Course Membership';
@@ -720,7 +717,7 @@ END
 $$;
 
 CREATE FUNCTION ple_api.claim_course_invitation(
-    p_student_record uuid, p_membership uuid, p_event uuid, p_reference text
+    p_student_record uuid, p_membership uuid, p_event uuid, p_course_instance_id text
 )
 RETURNS TABLE(active_student_membership boolean)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
@@ -728,7 +725,7 @@ DECLARE course text; student text; invitation uuid; inviter text; existing_recor
     retention_state text;
 BEGIN
     student := ple_api.current_session_account_id();
-    SELECT course_instance_id INTO course FROM ple_data.course_instance WHERE course_instance_id = p_reference;
+    SELECT course_instance_id INTO course FROM ple_data.course_instance WHERE course_instance_id = p_course_instance_id;
     IF NOT FOUND OR student IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Course Invitation is unavailable';
     END IF;
@@ -794,13 +791,13 @@ END
 $$;
 
 CREATE FUNCTION ple_api.revoke_course_roster_entry(
-    p_event uuid, p_reference text, p_roster_id text
+    p_event uuid, p_course_instance_id text, p_roster_id text
 )
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
 DECLARE course text; student text; membership uuid; invitation uuid; actor text; now_at timestamptz;
 BEGIN
-    SELECT course_instance_id INTO course FROM ple_data.course_instance WHERE course_instance_id = p_reference;
+    SELECT course_instance_id INTO course FROM ple_data.course_instance WHERE course_instance_id = p_course_instance_id;
     IF NOT FOUND OR NOT ple_api.current_session_account_is_course_instructor(course) THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Course roster entry is unavailable';
     END IF;

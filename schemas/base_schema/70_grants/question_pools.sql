@@ -23,18 +23,18 @@ REVOKE ALL ON FUNCTION ple_data.save_question_pool_members(text, bigint, text[],
 
 REVOKE ALL ON FUNCTION ple_data.construct_question_pool_fork(text, text) FROM PUBLIC;
 
-REVOKE ALL ON FUNCTION ple_data.fork_question_pool_revision_for_course_adoption(text, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_data.fork_question_pool_for_course_adoption(text, text) FROM PUBLIC;
 
-REVOKE ALL ON FUNCTION ple_data.fork_question_pool_revision(text, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_data.fork_question_pool(text, text) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION ple_data.create_question_pool(text, text[], integer[], boolean, text, text) TO ple_api_owner;
 
 GRANT EXECUTE ON FUNCTION ple_data.save_question_pool_members(text, bigint, text[], integer[], boolean)
     TO ple_api_owner;
 
-GRANT EXECUTE ON FUNCTION ple_data.fork_question_pool_revision(text, text) TO ple_api_owner;
+GRANT EXECUTE ON FUNCTION ple_data.fork_question_pool(text, text) TO ple_api_owner;
 
-GRANT EXECUTE ON FUNCTION ple_data.fork_question_pool_revision_for_course_adoption(text, text) TO ple_api_owner;
+GRANT EXECUTE ON FUNCTION ple_data.fork_question_pool_for_course_adoption(text, text) TO ple_api_owner;
 
 SET LOCAL ROLE ple_api_owner;
 

@@ -179,7 +179,7 @@ impl AssessmentTemplateStore for PostgresAssessmentTemplateStore {
         // ASVS 1.2.4, 2.3.3, and 8.2.2: the one bound procedure authorizes
         // both source Template and destination Course before copying by value.
         let reference = sqlx::query_scalar::<_, String>(
-            "SELECT assessment_reference_number \
+            "SELECT assessment_id \
              FROM ple_api.create_assessment_from_template($1, $2, $3, $4)",
         )
         .bind(assessment_id)

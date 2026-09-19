@@ -25,7 +25,6 @@ use question_model::{
     QuestionRevisionReference,
 };
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 use crate::{
     auth::{AuthError, resolve_session},
@@ -107,12 +106,12 @@ struct CreateQuestionPoolRequest {
     interchangeability_attested: bool,
 }
 
-/// Answer-free confirmation of a created immutable first Pool Revision.
+/// Answer-free confirmation of a created Question Pool.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct CreatedQuestionPoolResponse {
     question_pool_id: String,
-    revision_number: u64,
+    question_pool_edit_number: u64,
 }
 
 async fn create_question_pool(State(state): State<RouteState>, request: Request) -> Response {
@@ -146,7 +145,7 @@ async fn create_question_pool(State(state): State<RouteState>, request: Request)
     }
 
     for _ in 0..QUESTION_POOL_IDENTITY_ATTEMPTS {
-        let public_question_pool_id = match state.question_id_issuer.issue_question_pool_id() {
+        let question_pool_id = match state.question_id_issuer.issue_question_pool_id() {
             Ok(value) => value,
             Err(_) => {
                 return route_error(
@@ -158,8 +157,7 @@ async fn create_question_pool(State(state): State<RouteState>, request: Request)
         let input = CreateQuestionPoolInput {
             title: request.title.clone(),
             description: request.description.clone(),
-            question_pool_id: Uuid::now_v7(),
-            public_question_pool_id,
+            question_pool_id,
             members: members.clone(),
             interchangeability_attested: true,
         };
@@ -172,8 +170,8 @@ async fn create_question_pool(State(state): State<RouteState>, request: Request)
                     (
                         StatusCode::CREATED,
                         Json(CreatedQuestionPoolResponse {
-                            question_pool_id: created.public_question_pool_id.to_string(),
-                            revision_number: created.revision_number,
+                            question_pool_id: created.question_pool_id.to_string(),
+                            question_pool_edit_number: created.edit_number,
                         }),
                     )
                         .into_response(),

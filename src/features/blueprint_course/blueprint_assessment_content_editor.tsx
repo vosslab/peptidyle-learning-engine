@@ -35,7 +35,7 @@ import { BlueprintAssessmentFeedbackFields } from "./blueprint_assessment_feedba
 
 export interface BlueprintAssessmentContentEditorProps {
   readonly content: BlueprintAssessmentContentInput;
-  /** Saved server view used only to present exact immutable Pool Revision pins. */
+  /** Saved server view used only to present current Pool ID and Edit Number. */
   readonly savedContent?: BlueprintAssessmentContentView;
   readonly blueprintRef?: string;
   readonly retainedAssessmentRef?: string;
@@ -60,8 +60,7 @@ function entrySummary(
     const revision = entry.published_question;
     return `Fixed Question ${revision.questionId}, Revision ${revision.revisionNumber}`;
   }
-  const revision = entry.pool.questionPoolRevision;
-  return `Question Pool ${revision.questionPoolId}, Revision ${revision.revisionNumber}: select ${entry.selection_count}`;
+  return `Question Pool ${entry.pool.question_pool_id}, Edit ${entry.pool.question_pool_edit_number}: select ${entry.selection_count}`;
 }
 
 function lateWorkRuleFromValue(
@@ -173,8 +172,8 @@ export function BlueprintAssessmentContentEditor(
   function confirmQuestionPool(selection: QuestionPoolPickerSelection): void {
     setPoolPickerOpen(false);
     props.onChange(
-      appendPickedPool(props.content, selection.questionPoolRevision),
-      `Added Question Pool ${selection.questionPoolRevision.questionPoolId}, Revision ${selection.questionPoolRevision.revisionNumber}, with ${plural(selection.memberCount, "published member")}. Set its selection count or save the Blueprint Course.`,
+      appendPickedPool(props.content, selection.questionPoolId, selection.questionPoolEditNumber),
+      `Added Question Pool ${selection.questionPoolId}, Edit ${selection.questionPoolEditNumber}, with ${plural(selection.memberCount, "published member")}. Set its selection count or save the Blueprint Course.`,
     );
   }
 
@@ -313,7 +312,7 @@ export function BlueprintAssessmentContentEditor(
                                 index(),
                                 selectionCount,
                               ),
-                              "Question Pool selection count updated. The server validates it against the selected Pool Revision.",
+                              "Question Pool selection count updated. The server validates it against current Pool membership.",
                             );
                           }}
                         />
@@ -339,8 +338,7 @@ export function BlueprintAssessmentContentEditor(
                           type="button"
                           class="quiet-action"
                           onClick={() => {
-                            if (entry.kind === "pool")
-                              setMemberPoolId(entry.pool.questionPoolRevision.questionPoolId);
+                            if (entry.kind === "pool") setMemberPoolId(entry.pool.question_pool_id);
                           }}
                         >
                           {props.editable ? "Edit Pool members" : "View Pool members"}
@@ -398,7 +396,7 @@ export function BlueprintAssessmentContentEditor(
                 (candidate) =>
                   candidate.kind === "pool" &&
                   candidate.pool.kind === "retained" &&
-                  candidate.pool.questionPoolRevision.questionPoolId === poolId,
+                  candidate.pool.question_pool_id === poolId,
               );
             return (
               <Show when={entry()}>
@@ -438,7 +436,7 @@ export function BlueprintAssessmentContentEditor(
                             entries: props.content.entries.map((candidate) =>
                               candidate.kind === "pool" &&
                               candidate.pool.kind === "retained" &&
-                              candidate.pool.questionPoolRevision.questionPoolId === poolId
+                              candidate.pool.question_pool_id === poolId
                                 ? { ...candidate, pool }
                                 : candidate,
                             ),

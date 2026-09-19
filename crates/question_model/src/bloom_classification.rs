@@ -1,4 +1,4 @@
-//! Closed Bloom classification values for exact Question and Pool Revisions.
+//! Closed Bloom classification values for Question Revisions and current Question Pools.
 //!
 //! The classification is one ordered pair of independent dimensions. It is
 //! projected to authorized browsers with its independent correction precondition.
@@ -8,7 +8,7 @@ use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{QuestionPoolRevisionReference, QuestionRevisionReference};
+use crate::QuestionRevisionReference;
 
 /// Cognitive work required for full credit on the exact classified Revision.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -255,11 +255,11 @@ pub struct QuestionBloomCorrectionReceipt {
     pub bloom: BloomClassificationView,
 }
 
-/// Committed Pool classification and the exact immutable target it belongs to.
+/// Committed Pool classification for the current Question Pool.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionPoolBloomCorrectionReceipt {
-    pub question_pool_revision: QuestionPoolRevisionReference,
+    pub question_pool_id: crate::QuestionId,
     pub bloom: BloomClassificationView,
 }
 

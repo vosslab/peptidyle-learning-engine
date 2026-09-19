@@ -132,7 +132,7 @@ async fn malformed_empty_materialization_rejection(
         .execute(&mut *transaction)
         .await?;
     sqlx::query(
-        "SELECT public_reference FROM ple_api.create_course_instance( \
+        "SELECT course_instance_id FROM ple_api.create_course_instance( \
          'CI0000000' || ple_private.crockford_checksum_character('CI0000000'), \
          $1, $2, $3, 'empty', NULL, NULL, 'EMPTY-BAD', \
          'Rejected nonempty Empty Course', '2026-01-01'::date, '2026-05-01'::date, \
@@ -200,7 +200,7 @@ async fn course_term_beyond_active_lifetime_rejection(
         .execute(&mut *transaction)
         .await?;
     sqlx::query(
-        "SELECT public_reference FROM ple_api.create_course_instance( \
+        "SELECT course_instance_id FROM ple_api.create_course_instance( \
          'CI0000000' || ple_private.crockford_checksum_character('CI0000000'), \
          $1, $2, $3, 'empty', NULL, NULL, 'TERM-BAD', \
          'Rejected Active lifetime extension', \

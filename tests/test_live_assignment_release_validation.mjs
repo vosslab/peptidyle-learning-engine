@@ -27,13 +27,13 @@ function createdWorkspace(
   origin = {
     kind: "adopted",
     source: {
-      blueprint_revision: { reference: "BP7K3M2QAF", revision: "1" },
-      blueprint_assessment_reference: "00000000-0000-0000-0000-000000000011",
+      blueprint_revision: { blueprint_course_id: "BP7K3M2QAF", revision: "1" },
+      blueprint_assessment_id: "00000000-0000-0000-0000-000000000011",
     },
   },
 ) {
   return {
-    reference: assessment,
+    id: assessment,
     editNumber: "1",
     status: "unreleased",
     assessmentType,
@@ -73,7 +73,8 @@ function createdWorkspace(
       {
         kind: "questionPool",
         id: "00000000-0000-0000-0000-000000000002",
-        questionPoolRevision: { questionPoolId: "2R5X-E7YA", revisionNumber: 2 },
+        questionPoolId: "2R5X-E7YA",
+        questionPoolEditNumber: 2,
         availability: "available",
         scoringRule: "normal",
         selectionCount: 1,
@@ -189,13 +190,13 @@ test("Assessment creation accepts only Type, title, and instructions", () => {
   assert.throws(() => decodeCreateLiveAssessmentInput({ ...input, origin: { kind: "direct" } }));
 });
 
-test("current adopted Assessment workspace retains exact origin and normalized fixed and pool pins", () => {
+test("current adopted Assessment workspace retains exact origin and normalized fixed Question Revision pins with sibling Pool fields", () => {
   const workspace = decodeLiveAssessmentWorkspace(createdWorkspace());
   assert.equal(workspace.origin.kind, "adopted");
-  assert.equal(workspace.origin.source.blueprint_revision.reference, "BP7K3M2QAF");
+  assert.equal(workspace.origin.source.blueprint_revision.blueprint_course_id, "BP7K3M2QAF");
   assert.equal(workspace.entries[0].kind, "fixedQuestion");
   assert.equal(workspace.entries[1].kind, "questionPool");
-  assert.equal(workspace.entries[1].questionPoolRevision.questionPoolId, "2R5X-E7YA");
+  assert.equal(workspace.entries[1].questionPoolId, "2R5X-E7YA");
   assert.deepEqual(workspace.questions[0].bloom, bloom);
   assert.throws(() => decodeLiveAssessmentWorkspace({ ...createdWorkspace(), revisionNumber: 1 }));
   const missingBloom = createdWorkspace();
@@ -232,8 +233,8 @@ test("current direct Assessment workspace accepts only the closed tagged origin"
     decodeLiveAssessmentWorkspace({
       ...withoutOrigin,
       source: {
-        blueprint_revision: { reference: "BP7K3M2QAF", revision: "1" },
-        blueprint_assessment_reference: "00000000-0000-0000-0000-000000000011",
+        blueprint_revision: { blueprint_course_id: "BP7K3M2QAF", revision: "1" },
+        blueprint_assessment_id: "00000000-0000-0000-0000-000000000011",
       },
     }),
   );

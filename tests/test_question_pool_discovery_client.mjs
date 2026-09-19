@@ -122,7 +122,7 @@ test("Pool search bounds reject invalid text and Tags before dispatch", async ()
   assert.equal(dispatched, false);
 });
 
-test("Pool exact detail uses the requested canonical Revision route", async () => {
+test("Pool exact detail uses the current Pool ID route", async () => {
   const requests = [];
   const client = createQuestionPoolLibraryClient({
     fetch: async (input) => {
@@ -133,13 +133,6 @@ test("Pool exact detail uses the requested canonical Revision route", async () =
       });
     },
   });
-  await assert.rejects(
-    client.getQuestionPoolRevision({ questionPoolId: "3S8B-24DZ", revisionNumber: 4 }),
-  );
-  assert.equal(requests[0]?.pathname, "/api/question-pools/3S8B-24DZ/revisions/4");
-
-  await assert.rejects(
-    client.getQuestionPoolRevision({ questionPoolId: "3S8B-24DZ", revisionNumber: 0 }),
-  );
-  assert.equal(requests.length, 1);
+  await assert.rejects(client.getQuestionPool("3S8B-24DZ"));
+  assert.equal(requests[0]?.pathname, "/api/question-pools/3S8B-24DZ");
 });

@@ -122,12 +122,12 @@ $$;
 -- An Instructor's course gradebook combines current released Assessment
 -- aggregates with the chosen Assessment Attempt's immutable issue/submission/grading
 -- evidence.  It contains neither responses nor Question content.
-CREATE FUNCTION ple_api.read_course_gradebook(p_course_public_reference text)
+CREATE FUNCTION ple_api.read_course_gradebook(p_course_instance_id text)
 RETURNS TABLE (
-    course_public_reference text,
+    course_instance_id text,
     roster_id text,
     roster_name text,
-    assessment_reference_number text,
+    assessment_id text,
     assessment_title text,
     assessment_attempt_completion text,
     expired_submitting boolean,
@@ -138,7 +138,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
     WITH course AS (
         SELECT instance.course_instance_id
           FROM ple_data.course_instance AS instance
-         WHERE instance.course_instance_id = p_course_public_reference
+         WHERE instance.course_instance_id = p_course_instance_id
            -- Ordinary Instructor gradebook reads end with normal Student
            -- Work visibility. Retention's protected pre-delete capability is
            -- intentionally separate and does not reuse this projection.
@@ -171,10 +171,10 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
             ON policy.assessment_policy_snapshot_id = assessment.assessment_policy_snapshot_id
          GROUP BY assessment.assessment_id, policy.assessment_title
     ), gradebook AS (
-        SELECT course.course_instance_id AS course_public_reference,
+        SELECT course.course_instance_id AS course_instance_id,
                student.roster_id,
                student.roster_name,
-               assessment.assessment_id AS assessment_reference_number,
+               assessment.assessment_id AS assessment_id,
                assessment.assessment_title,
                evidence.assessment_attempt_completion,
                coalesce(evidence.expired_submitting, false) AS expired_submitting,
@@ -187,7 +187,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
               student.student_record_id, assessment.assessment_id
           ) AS evidence ON true
     )
-    SELECT course_public_reference, roster_id, roster_name, assessment_reference_number, assessment_title,
+    SELECT course_instance_id, roster_id, roster_name, assessment_id, assessment_title,
            assessment_attempt_completion, expired_submitting, points_earned, points_possible
       FROM gradebook
     UNION ALL
@@ -195,6 +195,6 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
            NULL::double precision, NULL::double precision
       FROM course
      WHERE NOT EXISTS (SELECT 1 FROM gradebook)
-     ORDER BY roster_id NULLS FIRST, assessment_reference_number NULLS FIRST
+     ORDER BY roster_id NULLS FIRST, assessment_id NULLS FIRST
 $$;
 

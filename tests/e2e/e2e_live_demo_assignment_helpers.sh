@@ -85,7 +85,7 @@ new_course_reference() {
 import json, sys
 items=json.loads(sys.argv[1]).get("items", [])
 reference=sys.argv[2]
-if not any(isinstance(item,dict) and item.get("reference")==reference for item in items):
+if not any(isinstance(item,dict) and item.get("id")==reference for item in items):
     raise SystemExit("Course Instance fixture is absent from the Instructor list")
 ' "$(response_body "$listed")" "$reference"
 	printf '%s\n' "$reference"
@@ -112,10 +112,10 @@ workspace_reference_and_edit() {
 	python3 -c '
 import json, re, sys
 value=json.loads(sys.argv[1])
-if (not isinstance(value, dict) or not re.fullmatch(r"A[0-9A-HJKMNP-TV-Z]{8}", value.get("reference", ""))
+if (not isinstance(value, dict) or not re.fullmatch(r"A[0-9A-HJKMNP-TV-Z]{8}", value.get("id", ""))
     or not isinstance(value.get("editNumber"), str) or not value["editNumber"].isdigit()):
-    raise SystemExit("Assignment workspace lacks a reference and Edit Number")
-print(value["reference"], value["editNumber"])
+    raise SystemExit("Assessment workspace lacks an Assessment ID and Edit Number")
+print(value["id"], value["editNumber"])
 ' "$1"
 }
 

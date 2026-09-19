@@ -35,8 +35,8 @@ try {
     projection === null ||
     typeof projection !== "object" ||
     Array.isArray(projection) ||
-    Object.keys(projection).sort().join(",") !== "courseReference,studentWork" ||
-    projection.courseReference !== course ||
+    Object.keys(projection).sort().join(",") !== "courseId,studentWork" ||
+    projection.courseId !== course ||
     !Array.isArray(projection.studentWork) ||
     projection.studentWork.length === 0
   ) {
@@ -48,7 +48,7 @@ try {
     typeof first !== "object" ||
     Array.isArray(first) ||
     Object.keys(first).sort().join(",") !==
-      "assessmentAttemptCompletion,assessmentReference,assessmentTitle,expiredSubmitting,rosterId,rosterName,score"
+      "assessmentAttemptCompletion,assessmentId,assessmentTitle,expiredSubmitting,rosterId,rosterName,score"
   ) {
     throw new Error("Gradebook browser received non-answer-free Student Work evidence");
   }
@@ -59,11 +59,7 @@ try {
   await evidence.getByText(first.rosterId, { exact: true }).waitFor();
   await evidence.getByText(first.rosterName, { exact: true }).first().waitFor();
   await evidence.getByText(first.assessmentTitle, { exact: true }).first().waitFor();
-  await evidence
-    .locator("small")
-    .getByText(first.assessmentReference, { exact: true })
-    .first()
-    .waitFor();
+  await evidence.locator("small").getByText(first.assessmentId, { exact: true }).first().waitFor();
   const rendered = (await evidence.textContent()) ?? "";
   if (/student response|answer key|source content|grader internals/i.test(rendered)) {
     throw new Error("Gradebook browser rendered non-answer-free evidence");

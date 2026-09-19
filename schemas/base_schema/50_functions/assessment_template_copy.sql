@@ -7,7 +7,7 @@ SET LOCAL ROLE ple_data_owner;
 -- neither aggregate retains the other's identity.
 CREATE FUNCTION ple_data.create_assessment_from_template_values(
     p_assessment_id text,
-    p_course_reference_number text,
+    p_course_instance_id text,
     p_assessment_type text,
     p_title text,
     p_instructions text,
@@ -23,7 +23,7 @@ CREATE FUNCTION ple_data.create_assessment_from_template_values(
     p_feedback_question_answer_explanation text,
     p_feedback_class_statistics text
 ) RETURNS TABLE (
-    assessment_reference_number text,
+    assessment_id text,
     assessment_edit_number bigint,
     assessment_status text,
     assessment_title text,
@@ -40,7 +40,7 @@ BEGIN
     SELECT * INTO created
       FROM ple_data.create_assessment(
         p_assessment_id,
-        p_course_reference_number,
+        p_course_instance_id,
         p_assessment_type,
         p_title,
         p_instructions
@@ -64,7 +64,7 @@ BEGIN
        SET assessment_policy_snapshot_id = snapshot_id
      WHERE assessment.assessment_id = p_assessment_id;
 
-    assessment_reference_number := created.assessment_public_reference;
+    assessment_id := created.assessment_id;
     assessment_edit_number := created.assessment_edit_number;
     assessment_status := created.assessment_status;
     assessment_title := created.assessment_title;
@@ -77,11 +77,11 @@ SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.create_assessment_from_template(
     p_assessment_id text,
-    p_course_reference_number text,
+    p_course_instance_id text,
     p_assessment_template_id uuid,
     p_title text
 ) RETURNS TABLE (
-    assessment_reference_number text,
+    assessment_id text,
     assessment_edit_number bigint,
     assessment_status text,
     assessment_title text,
@@ -90,7 +90,7 @@ CREATE FUNCTION ple_api.create_assessment_from_template(
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
-    course_reference_number text;
+    course_instance_id text;
     template ple_private.assessment_template%ROWTYPE;
     policy ple_data.assessment_policy_snapshot%ROWTYPE;
 BEGIN
@@ -115,9 +115,9 @@ BEGIN
       FROM ple_data.assessment_policy_snapshot
      WHERE assessment_policy_snapshot_id = template.assessment_policy_snapshot_id;
 
-    SELECT course.course_instance_id INTO course_reference_number
+    SELECT course.course_instance_id INTO course_instance_id
       FROM ple_data.course_instance AS course
-     WHERE course.course_instance_id = p_course_reference_number;
+     WHERE course.course_instance_id = p_course_instance_id;
 
     -- ASVS 1.2.4 and 2.2.2: every input is a typed procedure parameter.
     -- Canonical direct creation repeats destination Course authorization.
@@ -125,7 +125,7 @@ BEGIN
     SELECT created.*
       FROM ple_data.create_assessment_from_template_values(
         p_assessment_id,
-        course_reference_number,
+        course_instance_id,
         template.assessment_type,
         p_title,
         policy.assessment_instructions,

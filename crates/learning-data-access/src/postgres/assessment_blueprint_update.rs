@@ -39,12 +39,12 @@ pub(super) async fn review_course(
         .await
         .map_err(update_error)?
         .ok_or(StoreError::NotFound)?;
-    let blueprint_reference: String = source
-        .try_get("blueprint_reference")
+    let blueprint_course_id: String = source
+        .try_get("blueprint_course_id")
         .map_err(map_sqlx_error)?;
-    let blueprint_reference = blueprint_reference
+    let blueprint_course_id = blueprint_course_id
         .parse::<BlueprintCourseId>()
-        .map_err(|_| invalid("Blueprint Course Reference"))?;
+        .map_err(|_| invalid("Blueprint Course ID"))?;
     let revision = |field: &str| -> Result<BlueprintRevision, StoreError> {
         let value: i64 = source.try_get(field).map_err(map_sqlx_error)?;
         u64::try_from(value)
@@ -84,7 +84,7 @@ pub(super) async fn review_course(
     }
     tx.commit().await.map_err(map_sqlx_error)?;
     Ok(CourseBlueprintUpdateReview {
-        blueprint_reference,
+        blueprint_course_id,
         adopted_revision,
         source_revision,
         assessments,
@@ -265,7 +265,8 @@ fn public_content(member: &StoredBlueprintAssessment) -> AssessmentBlueprintUpda
                     question_attempt_time_limit: *question_attempt_time_limit,
                 },
                 StoredBlueprintAssessmentEntry::Pool {
-                    question_pool_revision,
+                    question_pool_id,
+                    question_pool_edit_number,
                     selection_count,
                     points_per_item,
                     scoring_rule,
@@ -273,7 +274,8 @@ fn public_content(member: &StoredBlueprintAssessment) -> AssessmentBlueprintUpda
                     question_attempt_limit,
                     question_attempt_time_limit,
                 } => AssessmentBlueprintUpdateEntry::QuestionPool {
-                    question_pool_revision: question_pool_revision.clone(),
+                    question_pool_id: question_pool_id.clone(),
+                    question_pool_edit_number: *question_pool_edit_number,
                     selection_count: *selection_count,
                     points_per_item: *points_per_item,
                     scoring_rule: *scoring_rule,

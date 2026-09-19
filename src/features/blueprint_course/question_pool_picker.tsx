@@ -3,8 +3,9 @@
 import { For, Match, Show, Switch, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 
 import type { QuestionPoolLibrarySummary } from "../../../generated/api/QuestionPoolLibrarySummary";
-import type { QuestionPoolRevisionView } from "../../../generated/api/QuestionPoolRevisionView";
-import type { QuestionPoolRevisionReference } from "../../../generated/api/QuestionPoolRevisionReference";
+import type { QuestionPoolView } from "../../../generated/api/QuestionPoolView";
+import type { QuestionId } from "../../../generated/api/QuestionId";
+import type { QuestionPoolEditNumber } from "../../../generated/api/QuestionPoolEditNumber";
 import type { QuestionPoolLibraryClient } from "../../api/question_pool_library";
 import "./question_pool_picker.css";
 import { CourseClassificationSummary } from "../../components/course_classification_summary";
@@ -12,7 +13,8 @@ import { CourseClassificationSummary } from "../../components/course_classificat
 type LoadState = "loading" | "ready" | "empty" | "error";
 
 export interface QuestionPoolPickerSelection {
-  readonly questionPoolRevision: QuestionPoolRevisionReference;
+  readonly questionPoolId: QuestionId;
+  readonly questionPoolEditNumber: QuestionPoolEditNumber;
   readonly memberCount: number;
 }
 
@@ -24,18 +26,17 @@ export interface QuestionPoolPickerProps {
 }
 
 function poolLabel(summary: QuestionPoolLibrarySummary): string {
-  const revision = summary.questionPoolRevision;
-  return `${summary.metadata.title} (${revision.questionPoolId}, Revision ${revision.revisionNumber})`;
+  return `${summary.metadata.title} (${summary.questionPoolId}, Edit ${summary.questionPoolEditNumber})`;
 }
 
-/** One dialog that selects a published Pool lineage and previews its current exact Revision. */
+/** One dialog that selects a published Pool and previews its current membership. */
 export function QuestionPoolPicker(props: QuestionPoolPickerProps): JSX.Element {
   const [state, setState] = createSignal<LoadState>("loading");
   const [items, setItems] = createSignal<ReadonlyArray<QuestionPoolLibrarySummary>>([]);
   const [cursor, setCursor] = createSignal<string | null>(null);
   const [loadingMore, setLoadingMore] = createSignal(false);
   const [selected, setSelected] = createSignal<QuestionPoolLibrarySummary>();
-  const [detail, setDetail] = createSignal<QuestionPoolRevisionView>();
+  const [detail, setDetail] = createSignal<QuestionPoolView>();
   const [detailState, setDetailState] = createSignal<LoadState>("empty");
   const [message, setMessage] = createSignal("Loading published Question Pools.");
   const [messageIsError, setMessageIsError] = createSignal(false);
@@ -67,7 +68,7 @@ export function QuestionPoolPicker(props: QuestionPoolPickerProps): JSX.Element 
       setMessage(
         nextItems.length === 0
           ? "No published Question Pools are available."
-          : "Choose one published Question Pool to inspect its exact current Revision.",
+          : "Choose one published Question Pool to inspect its current membership.",
       );
       setMessageIsError(false);
     } catch {
@@ -87,27 +88,20 @@ export function QuestionPoolPicker(props: QuestionPoolPickerProps): JSX.Element 
     setMessage(`Loading ${poolLabel(summary)}.`);
     setMessageIsError(false);
     try {
-      const loaded = await props.client.getQuestionPool(
-        summary.questionPoolRevision.questionPoolId,
-      );
+      const loaded = await props.client.getQuestionPool(summary.questionPoolId);
       if (request !== detailRequest) return;
       if (
-        loaded.questionPoolRevision.questionPoolId !==
-          summary.questionPoolRevision.questionPoolId ||
-        loaded.questionPoolRevision.revisionNumber !== summary.questionPoolRevision.revisionNumber
+        loaded.questionPoolId !== summary.questionPoolId ||
+        loaded.questionPoolEditNumber !== summary.questionPoolEditNumber
       ) {
         setDetailState("error");
-        setMessage(
-          "That Question Pool has a newer Revision. Reload the Pool list and choose its exact Revision again.",
-        );
+        setMessage("That Question Pool changed. Reload the Pool list and choose it again.");
         setMessageIsError(true);
         return;
       }
       setDetail(loaded);
       setDetailState("ready");
-      setMessage(
-        `Selected ${loaded.questionPoolRevision.questionPoolId}, Revision ${loaded.questionPoolRevision.revisionNumber}.`,
-      );
+      setMessage(`Selected ${loaded.questionPoolId}, Edit ${loaded.questionPoolEditNumber}.`);
       setMessageIsError(false);
     } catch {
       if (request !== detailRequest) return;
@@ -121,14 +115,15 @@ export function QuestionPoolPicker(props: QuestionPoolPickerProps): JSX.Element 
     const choice = selected();
     const loaded = detail();
     if (choice === undefined || loaded === undefined || detailState() !== "ready") {
-      setMessage("Choose a Question Pool and wait for its current Revision to load.");
+      setMessage("Choose a Question Pool and wait for its current membership to load.");
       setMessageIsError(true);
       return;
     }
     if (dialog.open) dialog.close();
     props.trigger?.focus();
     props.onConfirm({
-      questionPoolRevision: choice.questionPoolRevision,
+      questionPoolId: choice.questionPoolId,
+      questionPoolEditNumber: choice.questionPoolEditNumber,
       memberCount: choice.memberCount,
     });
   }
@@ -159,7 +154,7 @@ export function QuestionPoolPicker(props: QuestionPoolPickerProps): JSX.Element 
           <h2 id="question-pool-picker-heading">Choose a published Question Pool</h2>
           <p id="question-pool-picker-instructions">
             Select an existing Pool by its Title and inspect its Description. Saving the Blueprint
-            records the exact Pool Revision resolved by the server.
+            records the current Pool membership resolved by the server.
           </p>
         </div>
         <button class="quiet-action" type="button" onClick={cancel}>
@@ -195,19 +190,15 @@ export function QuestionPoolPicker(props: QuestionPoolPickerProps): JSX.Element 
                         <input
                           type="radio"
                           name="question-pool"
-                          checked={
-                            selected()?.questionPoolRevision.questionPoolId ===
-                            item.questionPoolRevision.questionPoolId
-                          }
+                          checked={selected()?.questionPoolId === item.questionPoolId}
                           onInput={() => void selectPool(item)}
                         />
                         <span>
                           <strong>{item.metadata.title}</strong>
                           <small>{item.metadata.description}</small>
                           <small>
-                            {item.questionPoolRevision.questionPoolId}, Revision{" "}
-                            {item.questionPoolRevision.revisionNumber}; {item.memberCount}{" "}
-                            {item.memberCount === 1 ? "member" : "members"}
+                            {item.questionPoolId}, Edit {item.questionPoolEditNumber};{" "}
+                            {item.memberCount} {item.memberCount === 1 ? "member" : "members"}
                           </small>
                         </span>
                       </label>
@@ -231,7 +222,7 @@ export function QuestionPoolPicker(props: QuestionPoolPickerProps): JSX.Element 
               <h3 id="question-pool-detail-heading">Pool members</h3>
               <Switch>
                 <Match when={detailState() === "loading"}>
-                  <p>Loading exact Pool Revision...</p>
+                  <p>Loading current Pool membership...</p>
                 </Match>
                 <Match when={detailState() === "error"}>
                   <button

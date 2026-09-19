@@ -80,7 +80,8 @@ pub(super) fn reusable_assessment_projection(
         entries.push(match entry {
             StoredBlueprintAssessmentEntry::Fixed { .. } => fixed_entry_json(position, entry)?,
             StoredBlueprintAssessmentEntry::Pool {
-                question_pool_revision,
+                question_pool_id,
+                question_pool_edit_number,
                 selection_count,
                 points_per_item,
                 scoring_rule,
@@ -89,7 +90,8 @@ pub(super) fn reusable_assessment_projection(
                 question_attempt_time_limit,
             } => pool_entry_json(
                 position,
-                question_pool_revision,
+                question_pool_id,
+                *question_pool_edit_number,
                 *selection_count,
                 points_per_item,
                 *scoring_rule,
@@ -125,8 +127,7 @@ pub(super) fn materialize_assessment(
                     "Question Pool fork identity issuer is unavailable".to_string(),
                 )
             })?;
-            entry["forkQuestionPoolId"] = json!(random_uuid()?.to_string());
-            entry["forkPublicQuestionPoolId"] = json!(issuer.issue_question_pool_id()?.as_str());
+            entry["forkQuestionPoolId"] = json!(issuer.issue_question_pool_id()?.as_str());
         }
     }
     Ok(member)
@@ -185,7 +186,8 @@ fn fixed_entry_json(
 #[allow(clippy::too_many_arguments)]
 fn pool_entry_json(
     position: usize,
-    source: &question_model::QuestionPoolRevisionReference,
+    source_question_pool_id: &question_model::QuestionId,
+    question_pool_edit_number: question_model::QuestionPoolEditNumber,
     selection_count: std::num::NonZeroU32,
     points_per_item: &question_model::AssessmentPointValue,
     scoring_rule: question_model::AssessmentEntryScoringRule,
@@ -199,8 +201,8 @@ fn pool_entry_json(
         "authoredPosition": position,
         "kind": "question_pool",
         "availability": "available",
-        "sourceQuestionPoolId": source.question_pool_id.as_str(),
-        "sourceQuestionPoolRevisionNumber": source.revision_number.get(),
+        "sourceQuestionPoolId": source_question_pool_id.as_str(),
+        "sourceQuestionPoolEditNumber": question_pool_edit_number.get(),
         "selectionCount": selection_count.get(),
         "pointsPerItem": points_per_item.to_string(),
         "scoringRule": pool_scoring_rule(scoring_rule),

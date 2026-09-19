@@ -99,10 +99,7 @@ export function decodeStudentAssessmentAttemptContext(
         ? null
         : decodeNonnegativeInteger(remaining, `${path}.timerRemainingMilliseconds`),
     course: {
-      id: decodeCourseReference(
-        field(course, "id", `${path}.course`),
-        `${path}.course.id`,
-      ),
+      id: decodeCourseReference(field(course, "id", `${path}.course`), `${path}.course.id`),
       shortName: decodeCourseName(
         field(course, "shortName", `${path}.course`),
         `${path}.course.shortName`,

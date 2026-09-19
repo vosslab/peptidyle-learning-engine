@@ -58,12 +58,16 @@ impl ArchivedStudentWorkRecoveryStore for PostgresArchivedStudentWorkRecoverySto
         let mut tx = self.begin(session).await?;
         // ASVS 1.2.4/8.3.1: parameterized protected wrapper repeats exact authority.
         let rows = sqlx::query(
-            "SELECT course_reference_number, roster_id, assessment_reference_number, assessment_title, \
+            "SELECT course_instance_id, roster_id, assessment_id, assessment_title, \
              assessment_attempt_id, assessment_attempt_number, started_at::text, \
              submitted_at::text, student_data_archived_at::text, delete_due_at::text \
              FROM ple_api.select_archived_assessment_attempts_for_recovery($1,$2,101)",
-        ).bind(course.as_string()).bind(after.map(|id| id.as_uuid()))
-            .fetch_all(&mut *tx).await.map_err(map_sqlx_error)?;
+        )
+        .bind(course.as_string())
+        .bind(after.map(|id| id.as_uuid()))
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(map_sqlx_error)?;
         let result = rows.iter().map(summary).collect::<Result<Vec<_>, _>>()?;
         if result.iter().any(|r| r.course != course) {
             return Err(invalid());
@@ -82,7 +86,7 @@ impl ArchivedStudentWorkRecoveryStore for PostgresArchivedStudentWorkRecoverySto
         let mut tx = self.begin(session).await?;
         // Explicit columns exclude internal Student Record UUID and all Account fields.
         let row = sqlx::query(
-            "SELECT course_reference_number, roster_id, assessment_reference_number, \
+            "SELECT course_instance_id, roster_id, assessment_id, \
              assessment_attempt_id, assessment_attempt_number, started_at::text, \
              expires_at::text, student_data_archived_at::text, delete_due_at::text, \
              attempt_facts, submission, questions \
@@ -98,11 +102,11 @@ impl ArchivedStudentWorkRecoveryStore for PostgresArchivedStudentWorkRecoverySto
         let submission: Option<Submission> = document(&row, "submission")?;
         let questions: Vec<RetainedQuestion> = document(&row, "questions")?;
         let mut result = RecoveredAttempt {
-            course: get::<String>(&row, "course_reference_number")?
+            course: get::<String>(&row, "course_instance_id")?
                 .parse()
                 .map_err(|_| invalid())?,
             roster_id: get(&row, "roster_id")?,
-            assessment: get::<String>(&row, "assessment_reference_number")?
+            assessment: get::<String>(&row, "assessment_id")?
                 .parse()
                 .map_err(|_| invalid())?,
             assessment_attempt: assessment_attempt_id(&row)?,
@@ -182,11 +186,11 @@ struct ResponseEvidence<'a> {
 
 fn summary(row: &PgRow) -> Result<RecoverySummary, StoreError> {
     Ok(RecoverySummary {
-        course: get::<String>(row, "course_reference_number")?
+        course: get::<String>(row, "course_instance_id")?
             .parse()
             .map_err(|_| invalid())?,
         roster_id: get(row, "roster_id")?,
-        assessment: get::<String>(row, "assessment_reference_number")?
+        assessment: get::<String>(row, "assessment_id")?
             .parse()
             .map_err(|_| invalid())?,
         assessment_title: get(row, "assessment_title")?,

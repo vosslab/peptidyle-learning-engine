@@ -60,10 +60,10 @@ Pool projection carries the current Pool's own pair and classification Edit
 Number; member Question pairs never substitute. The legacy
 `latestQuestionRevision` field identifies the exact resolved Revision on an
 exact Question-detail route. `GET /api/question-pools` and
-`GET /api/question-pools/{questionPoolId}` are the product Pool reads. The
-server still also exposes
-`GET /api/question-pools/{questionPoolId}/revisions/{revisionNumber}`; that
-path is an implementation gap, not a Pool Revision family.
+`GET /api/question-pools/{questionPoolId}` are the product Pool reads. JSON
+carries sibling `questionPoolId` and `questionPoolEditNumber` fields; there
+is no Pool Pin wrapper. Exact immutable Question Revision pins remain
+`{ questionId, revisionNumber }`.
 
 Pool discovery accepts optional exact `bloom_cognitive_process` and
 `bloom_knowledge_dimension` query parameters. Each combines with every other applied Pool
@@ -73,10 +73,9 @@ set, including zeros and an empty page. Page position affects only `items`; the 
 from the same authorized filtered SQL relation. These predicates and counts use the current Pool's
 own pair, never a member Question's pair.
 
-The corresponding Pool correction route is still implemented as
-`POST /api/question-pools/{questionPoolId}/revisions/{revisionNumber}/bloom`.
-That `/revisions/` segment is the same implementation gap; Bloom lives on the
-current Pool, not a Pool Revision. Both Question and Pool correction routes
+The corresponding Pool correction route is
+`POST /api/question-pools/{questionPoolId}/bloom`. Bloom lives on the
+current Pool. Both Question and Pool correction routes
 accept only the complete `cognitiveProcess`, `knowledgeDimension`, and
 `expectedClassificationEditNumber` command. The classification Edit Number is
 the pair's CAS precondition, not a content Revision or a lineage token. Either
@@ -89,7 +88,7 @@ Sysadmins retain the read projection but cannot use either correction route.
 The client does not retry or merge a `412`. It reloads only the same exact
 Question Revision or current Pool, retains the Instructor's draft pair for
 comparison, and requires an explicit later Save. Corrections do not create a
-Question content Revision, change Pool member pins, or alter retained
+Question content Revision, change Pool member Question Revision pins, or alter retained
 Assessment or Student Work evidence.
 
 `GET /api/questions/search` accepts optional exact `bloom_cognitive_process` and

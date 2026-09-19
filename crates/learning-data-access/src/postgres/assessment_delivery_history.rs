@@ -44,8 +44,8 @@ pub(super) async fn read(
     // ASVS 8.2.2 and 8.3.1: the parameter is only a public reference; the
     // SECURITY DEFINER reader re-checks exact Student ownership and membership.
     let row = sqlx::query(
-        "SELECT course_reference_number, course_short_name, course_long_name, course_theme, \
-         assessment_reference_number, assessment_title, assessment_type, assessment_attempt_number, state, questions, \
+        "SELECT course_instance_id, course_short_name, course_long_name, course_theme, \
+         assessment_id, assessment_title, assessment_type, assessment_attempt_number, state, questions, \
          feedback_rule, due_at_millis, closes_at_millis, submitted_at_millis, evaluated_at_millis, \
          all_students_completed, grading_is_current, grading_results \
          FROM ple_api.read_student_assessment_attempt_history($1)",
@@ -55,9 +55,8 @@ pub(super) async fn read(
     .await
     .map_err(map_sqlx_error)?
     .ok_or(StoreError::NotFound)?;
-    let assessment_reference_value: String = row
-        .try_get("assessment_reference_number")
-        .map_err(map_sqlx_error)?;
+    let assessment_reference_value: String =
+        row.try_get("assessment_id").map_err(map_sqlx_error)?;
     let assessment = AssessmentId::new(assessment_reference_value)
         .map_err(|_| StoreError::InvalidRecord("Assessment reference is invalid".to_string()))?;
     let attempt_number = u32::try_from(
@@ -92,10 +91,7 @@ pub(super) async fn read(
         assessment_attempt,
         attempt_number,
         course: StudentAssessmentAttemptHistoryCourse {
-            id: course_reference(
-                row.try_get("course_reference_number")
-                    .map_err(map_sqlx_error)?,
-            )?,
+            id: course_reference(row.try_get("course_instance_id").map_err(map_sqlx_error)?)?,
             short_name: name(
                 row.try_get("course_short_name").map_err(map_sqlx_error)?,
                 "Course short name",

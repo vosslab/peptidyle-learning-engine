@@ -93,7 +93,7 @@ import json, re, sys
 value=json.loads(sys.argv[1]); reference, role=sys.argv[2:]
 if set(value)!={"reference","shortName","longName","term","role"}:
     raise SystemExit("Course Summary response is not closed")
-if value.get("reference") != reference or value.get("role") != role:
+if value.get("id") != reference or value.get("role") != role:
     raise SystemExit("Course Summary did not retain exact reference and caller membership role")
 for key in ("shortName", "longName"):
     if not isinstance(value.get(key),str) or not value[key].strip():
@@ -177,11 +177,11 @@ value=json.loads(sys.argv[1]); long_name=sys.argv[2]
 if not isinstance(value,dict) or set(value)!={"items","nextCursor"} or value["nextCursor"] is not None or not isinstance(value["items"],list):
     raise SystemExit("Course list is not the closed current projection")
 matches=[item for item in value["items"] if isinstance(item,dict) and item.get("longName")==long_name]
-if len(matches)!=1 or set(matches[0])!={"reference","shortName","longName","term","theme"}:
+if len(matches)!=1 or set(matches[0])!={"id","shortName","longName","term","theme"}:
     raise SystemExit("Live Demo Course is absent, duplicated, or malformed")
-reference=matches[0]["reference"]
+reference=matches[0]["id"]
 if not isinstance(reference,str) or not re.fullmatch(r"CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}",reference):
-    raise SystemExit("Live Demo Course has no canonical public reference")
+    raise SystemExit("Live Demo Course has no canonical Course Instance ID")
 print(reference)
 ' "$1" "$live_demo_course_long_name"
 }
@@ -189,7 +189,7 @@ print(reference)
 course_uuid() {
 	local reference="$1" postgres sql output
 	postgres="$(service_id postgres)"
-	sql="SELECT course_id FROM ple_data.course_instance WHERE public_reference = '$reference';"
+	sql="SELECT course_instance_id FROM ple_data.course_instance WHERE course_instance_id = '$reference';"
 	output="$(podman exec "$postgres" sh -lc 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "$1"' sh "$sql")"
 	[ "$(printf '%s\n' "$output" | sed '/^$/d' | wc -l | tr -d '[:space:]')" = "1" ] ||
 		fail "could not resolve exactly one internal Course identity for accepted setup"
@@ -199,7 +199,7 @@ course_uuid() {
 find_foreign_course_uuid() {
 	local postgres sql output
 	postgres="$(service_id postgres)"
-	sql="SELECT course.course_id FROM ple_data.course_instance AS course WHERE course.course_short_name = 'Foreign course' AND course.course_long_name = 'Foreign Instructor Course' AND NOT EXISTS (SELECT 1 FROM ple_data.course_membership AS membership JOIN ple_private.account_authentication_email AS email ON email.account_id = membership.account_id WHERE membership.course_id = course.course_id AND email.normalized_email = 'elena.rivera@live-demo.invalid' AND ple_data.course_membership_is_active(membership.membership_id)) ORDER BY course.reference_number DESC LIMIT 1;"
+	sql="SELECT course.course_instance_id FROM ple_data.course_instance AS course WHERE course.course_short_name = 'Foreign course' AND course.course_long_name = 'Foreign Instructor Course' AND NOT EXISTS (SELECT 1 FROM ple_data.course_membership AS membership JOIN ple_private.account_authentication_email AS email ON email.account_id = membership.account_id WHERE membership.course_instance_id = course.course_instance_id AND email.normalized_email = 'elena.rivera@live-demo.invalid' AND ple_data.course_membership_is_active(membership.course_membership_id)) ORDER BY course.course_instance_id DESC LIMIT 1;"
 	output="$(podman exec "$postgres" sh -lc 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "$1"' sh "$sql")"
 	[ "$(printf '%s\n' "$output" | sed '/^$/d' | wc -l | tr -d '[:space:]')" -le "1" ] ||
 		fail "foreign-Instructor Course discovery was ambiguous"
@@ -209,27 +209,36 @@ find_foreign_course_uuid() {
 foreign_course_reference() {
 	local course="$1" postgres sql output
 	postgres="$(service_id postgres)"
-	sql="SELECT public_reference FROM ple_data.course_instance WHERE course_id = '$course';"
+	sql="SELECT course_instance_id FROM ple_data.course_instance WHERE course_instance_id = '$course';"
 	output="$(podman exec "$postgres" sh -lc 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "$1"' sh "$sql")"
 	[ "$(printf '%s\n' "$output" | sed '/^$/d' | wc -l | tr -d '[:space:]')" = "1" ] ||
-		fail "could not resolve exactly one foreign Course reference"
+		fail "could not resolve exactly one foreign Course Instance ID"
 	printf '%s\n' "$output"
 }
 
 synthetic_concealed_cookie() {
-	local kind="$1" course="$2" postgres account_id membership_id session_id token_pair token token_hash inactive_membership_end_event_id sql
+	local kind="$1" course="$2" postgres membership_id session_id token_pair token token_hash inactive_membership_end_event_id
 	case "$kind" in
 		inactive_member)
-			read -r account_id membership_id inactive_membership_end_event_id <<<"$(python3 -c 'import uuid; print(uuid.uuid4(), uuid.uuid4(), uuid.uuid4())')"
+			read -r membership_id inactive_membership_end_event_id <<<"$(python3 -c 'import uuid; print(uuid.uuid4(), uuid.uuid4())')"
 			;;
 		*) fail "unknown synthetic concealed persona" ;;
 	esac
-	token_pair="$(python3 -c 'import base64, hashlib, secrets, uuid; raw=secrets.token_bytes(32); print(base64.urlsafe_b64encode(raw).decode().rstrip("="), hashlib.sha256(raw).hexdigest(), uuid.uuid4(), uuid.uuid4())')"
-	read -r token token_hash session_id _ <<<"$token_pair"
+	token_pair="$(python3 -c 'import base64, hashlib, secrets, uuid; raw=secrets.token_bytes(32); print(base64.urlsafe_b64encode(raw).decode().rstrip("="), hashlib.sha256(raw).hexdigest(), uuid.uuid4())')"
+	read -r token token_hash session_id <<<"$token_pair"
 	postgres="$(service_id postgres)"
-	sql="INSERT INTO ple_private.account (account_id, product_role, created_at) VALUES ('$account_id', 'instructor', pg_catalog.clock_timestamp()) ON CONFLICT (account_id) DO NOTHING; INSERT INTO ple_data.course_membership (membership_id, course_id, account_id, role, joined_at, student_record_id) VALUES ('$membership_id', '$course', '$account_id', 'instructor', pg_catalog.clock_timestamp(), NULL) ON CONFLICT (membership_id) DO NOTHING; INSERT INTO ple_data.course_membership_event (course_membership_event_id, membership_id, event_kind, occurred_at, reason) VALUES ('$inactive_membership_end_event_id', '$membership_id', 'ended', pg_catalog.clock_timestamp(), 'disposable Course Summary refusal fixture');"
-	sql="$sql INSERT INTO ple_private.authenticated_session (session_id, account_id, product_role, token_hash, created_at, expires_at) VALUES ('$session_id', '$account_id', 'instructor', decode('$token_hash', 'hex'), pg_catalog.clock_timestamp(), '2100-01-01 00:00:00+00') ON CONFLICT (token_hash) DO NOTHING;"
-	podman exec "$postgres" sh -lc 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "$1"' sh "$sql" >/dev/null
+	podman exec -i "$postgres" sh -lc 'exec psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' >/dev/null <<SQL
+INSERT INTO ple_private.account (account_id, product_role, created_at)
+VALUES ('U00000009', 'instructor', pg_catalog.clock_timestamp())
+RETURNING account_id AS minted_account_id \\gset
+INSERT INTO ple_data.course_membership (course_membership_id, course_instance_id, account_id, role, joined_at)
+VALUES ('$membership_id', '$course', :'minted_account_id', 'instructor', pg_catalog.clock_timestamp());
+INSERT INTO ple_data.course_membership_event (course_membership_event_id, course_membership_id, event_kind, occurred_at, reason)
+VALUES ('$inactive_membership_end_event_id', '$membership_id', 'ended', pg_catalog.clock_timestamp(), 'disposable Course Summary refusal fixture');
+INSERT INTO ple_private.authenticated_session (session_id, account_id, product_role, token_hash, created_at, expires_at)
+VALUES ('$session_id', :'minted_account_id', 'instructor', decode('$token_hash', 'hex'), pg_catalog.clock_timestamp(), '2100-01-01 00:00:00+00')
+ON CONFLICT (token_hash) DO NOTHING;
+SQL
 	printf '__Host-ple_session=%s\n' "$token"
 }
 
@@ -251,13 +260,13 @@ student_cookie="$(persona_cookie maryStudent)"
 sysadmin_cookie="$(persona_cookie morganSysadmin)"
 course_list="$(request '/api/course-instances' "$instructor_cookie")"
 assert_no_store "$course_list" 200
-course_public_reference="$(course_reference "$(body "$course_list")")"
-course="$(course_uuid "$course_public_reference")"
+course_instance_id="$(course_reference "$(body "$course_list")")"
+course="$(course_uuid "$course_instance_id")"
 trap restore_original_theme_on_exit EXIT
 inactive_member_cookie="$(synthetic_concealed_cookie inactive_member "$course")"
-path="/api/course-instances/$course_public_reference/appearance"
-summary_path="/api/course-instances/$course_public_reference/summary"
-course_instance_path="/api/course-instances/$course_public_reference"
+path="/api/course-instances/$course_instance_id/appearance"
+summary_path="/api/course-instances/$course_instance_id/summary"
+course_instance_path="/api/course-instances/$course_instance_id"
 
 instructor_course_instance="$(request "$course_instance_path" "$instructor_cookie")"
 student_course_instance="$(request "$course_instance_path" "$student_cookie")"
@@ -268,8 +277,8 @@ instructor_summary="$(request "$summary_path" "$instructor_cookie")"
 student_summary="$(request "$summary_path" "$student_cookie")"
 assert_no_store "$instructor_summary" 200
 assert_no_store "$student_summary" 200
-assert_course_summary "$(body "$instructor_summary")" "$course_public_reference" instructor
-assert_course_summary "$(body "$student_summary")" "$course_public_reference" student
+assert_course_summary "$(body "$instructor_summary")" "$course_instance_id" instructor
+assert_course_summary "$(body "$student_summary")" "$course_instance_id" student
 assert_same_course_summary_identity "$(body "$instructor_summary")" "$(body "$student_summary")"
 
 instructor_read="$(request "$path" "$instructor_cookie")"

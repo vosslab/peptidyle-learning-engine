@@ -1,4 +1,4 @@
--- Functions, triggers, and views from public_references.sql.
+-- Functions, triggers, and views from public_ids.sql.
 
 SET LOCAL ROLE ple_private_owner;
 

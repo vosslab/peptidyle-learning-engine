@@ -107,10 +107,10 @@ SET LOCAL ROLE ple_api_owner;
 
 -- The application supplies only canonical Course/Assessment references, the
 -- stable Entry UUID, the expected Assessment Edit Number, and a positive
--- count.  Pool identity, Pool Revision, and exact member count stay derived.
+-- count.  Pool identity, Pool Edit Number, and exact member count stay derived.
 CREATE FUNCTION ple_api.update_assessment_question_pool_selection_count(
-    p_course_reference text,
-    p_assessment_reference text,
+    p_course_instance_id text,
+    p_assessment_id text,
     p_assessment_entry_id uuid,
     p_expected_assessment_edit_number bigint,
     p_selection_count integer
@@ -125,8 +125,8 @@ DECLARE assessment_id_value text;
 BEGIN
     -- ASVS 1.2.4 and 2.2.1: values remain typed parameters, and the public
     -- references use the same closed canonical shapes as their stored rows.
-    IF NOT ple_private.is_canonical_prefixed_public_id(p_course_reference, 'CI')
-       OR NOT ple_private.is_canonical_prefixed_public_id(p_assessment_reference, 'A') THEN
+    IF NOT ple_private.is_canonical_prefixed_public_id(p_course_instance_id, 'CI')
+       OR NOT ple_private.is_canonical_prefixed_public_id(p_assessment_id, 'A') THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Assessment Question Pool selection count change is invalid';
     END IF;
@@ -134,8 +134,8 @@ BEGIN
     SELECT assessment.assessment_id INTO assessment_id_value
       FROM ple_data.course_instance AS course
       JOIN ple_data.assessment AS assessment ON assessment.course_instance_id = course.course_instance_id
-     WHERE course.course_instance_id = p_course_reference
-       AND assessment.assessment_id = p_assessment_reference
+     WHERE course.course_instance_id = p_course_instance_id
+       AND assessment.assessment_id = p_assessment_id
        AND ple_api.current_session_account_is_instructor()
        AND ple_api.current_session_account_is_course_instructor(course.course_instance_id);
     IF NOT FOUND THEN

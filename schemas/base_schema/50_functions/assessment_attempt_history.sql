@@ -57,7 +57,7 @@ $$;
 CREATE FUNCTION ple_private.read_student_assessment_attempt_history(
     p_assessment_attempt_id uuid
 ) RETURNS TABLE (
-    course_instance_id text, assessment_reference_number text, assessment_title text, assessment_type text,
+    course_instance_id text, assessment_id text, assessment_title text, assessment_type text,
     assessment_attempt_number integer,
     state text, questions jsonb, feedback_rule jsonb, due_at_millis bigint,
     closes_at_millis bigint, submitted_at_millis bigint, evaluated_at_millis bigint,
@@ -68,7 +68,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
     WITH owned_assessment_attempt AS (
         SELECT assessment_attempt.assessment_attempt_id, assessment_attempt.assessment_id,
                assessment.course_instance_id,
-               assessment.assessment_id AS assessment_reference_number,
+               assessment.assessment_id AS assessment_id,
                policy.assessment_title,
                assessment.assessment_type,
                assessment_attempt.assessment_attempt_number,
@@ -101,7 +101,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
            AND ple_api.course_student_work_is_ordinarily_visible(assessment.course_instance_id)
     )
     SELECT owned.course_instance_id,
-           owned.assessment_reference_number,
+           owned.assessment_id,
            owned.assessment_title,
            owned.assessment_type,
            owned.assessment_attempt_number,
@@ -194,8 +194,8 @@ SET LOCAL ROLE ple_api_owner;
 CREATE FUNCTION ple_api.read_student_assessment_attempt_history(
     p_assessment_attempt_id uuid
 ) RETURNS TABLE (
-    course_reference_number text, course_short_name text, course_long_name text, course_theme text,
-    assessment_reference_number text, assessment_title text, assessment_type text,
+    course_instance_id text, course_short_name text, course_long_name text, course_theme text,
+    assessment_id text, assessment_title text, assessment_type text,
     assessment_attempt_number integer,
     state text, questions jsonb, feedback_rule jsonb, due_at_millis bigint,
     closes_at_millis bigint, submitted_at_millis bigint, evaluated_at_millis bigint,
@@ -207,7 +207,7 @@ SET search_path = pg_catalog, ple_data, ple_private AS $$
            course.course_short_name,
            course.course_long_name,
            course.course_theme_id AS course_theme,
-           history.assessment_reference_number,
+           history.assessment_id,
            history.assessment_title,
            history.assessment_type,
            history.assessment_attempt_number,

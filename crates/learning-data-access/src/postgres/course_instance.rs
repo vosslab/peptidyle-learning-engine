@@ -151,7 +151,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         // ASVS 1.2.3, 8.2.2, and 8.3.1: the SECURITY DEFINER procedure binds
         // this opaque Course ID to the installed session's active membership.
         let row = sqlx::query(
-            "SELECT course_id, public_reference, short_name, long_name, term_starts_on::text AS term_starts_on, \
+            "SELECT course_id, course_instance_id, short_name, long_name, term_starts_on::text AS term_starts_on, \
              term_ends_on::text AS term_ends_on, membership_role, discipline_uuid, subject_uuid, topic_uuid, subtopic_uuid, tags \
              FROM ple_api.read_course_summary($1)",
         )
@@ -176,7 +176,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
         let rows = sqlx::query(
-            "SELECT public_reference, short_name, long_name, term_starts_on::text AS term_starts_on, \
+            "SELECT course_instance_id, short_name, long_name, term_starts_on::text AS term_starts_on, \
              term_ends_on::text AS term_ends_on, course_theme, course_lifecycle_state, course_edit_number, \
              content_discipline_id AS discipline_uuid, content_subject_id AS subject_uuid, \
              content_topic_id AS topic_uuid, content_subtopic_id AS subtopic_uuid, tags \
@@ -228,7 +228,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
                 ),
             };
             let row = sqlx::query(
-            "SELECT public_reference, short_name, long_name, term_starts_on::text AS term_starts_on, \
+            "SELECT course_instance_id, short_name, long_name, term_starts_on::text AS term_starts_on, \
              term_ends_on::text AS term_ends_on, course_lifecycle_state, course_edit_number, \
              content_discipline_id AS discipline_uuid, content_subject_id AS subject_uuid, \
              content_topic_id AS topic_uuid, content_subtopic_id AS subtopic_uuid, tags \
@@ -282,7 +282,9 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
                     course_edit_number: question_model::CourseEditNumber::from_edit_number(
                         row.try_get("course_edit_number").map_err(map_sqlx_error)?,
                     ),
-                    id: course_reference(row.try_get("public_reference").map_err(map_sqlx_error)?)?,
+                    id: course_reference(
+                        row.try_get("course_instance_id").map_err(map_sqlx_error)?,
+                    )?,
                     short_name: row.try_get("short_name").map_err(map_sqlx_error)?,
                     long_name: row.try_get("long_name").map_err(map_sqlx_error)?,
                     term: term(
@@ -332,11 +334,11 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
         let row = sqlx::query(
-            "SELECT public_reference, short_name, long_name, term_starts_on::text AS term_starts_on, \
+            "SELECT course_instance_id, short_name, long_name, term_starts_on::text AS term_starts_on, \
              term_ends_on::text AS term_ends_on, course_theme, course_lifecycle_state, course_edit_number, \
              content_discipline_id AS discipline_uuid, content_subject_id AS subject_uuid, \
              content_topic_id AS topic_uuid, content_subtopic_id AS subtopic_uuid, tags, \
-             active_instructor_count, blueprint_reference, adopted_blueprint_revision, \
+             active_instructor_count, blueprint_course_id, adopted_blueprint_revision, \
              current_blueprint_revision FROM ple_api.load_course_instance($1)",
         )
         .bind(id.as_string())
@@ -367,9 +369,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
             .iter()
             .map(|row| {
                 Ok(CourseCreationInstructor {
-                    id: account_reference(
-                        row.try_get("public_reference").map_err(map_sqlx_error)?,
-                    )?,
+                    id: account_reference(row.try_get("account_id").map_err(map_sqlx_error)?)?,
                 })
             })
             .collect::<Result<Vec<_>, StoreError>>()?;
@@ -388,7 +388,7 @@ fn decode_summary(row: &sqlx::postgres::PgRow) -> Result<CourseInstanceSummary, 
         course_edit_number: question_model::CourseEditNumber::from_edit_number(
             row.try_get("course_edit_number").map_err(map_sqlx_error)?,
         ),
-        id: course_reference(row.try_get("public_reference").map_err(map_sqlx_error)?)?,
+        id: course_reference(row.try_get("course_instance_id").map_err(map_sqlx_error)?)?,
         short_name: row.try_get("short_name").map_err(map_sqlx_error)?,
         long_name: row.try_get("long_name").map_err(map_sqlx_error)?,
         term: term(
@@ -400,7 +400,7 @@ fn decode_summary(row: &sqlx::postgres::PgRow) -> Result<CourseInstanceSummary, 
 }
 
 fn decode_course_summary(row: &sqlx::postgres::PgRow) -> Result<CourseSummary, StoreError> {
-    let course = parse_course_id(row.try_get("public_reference").map_err(map_sqlx_error)?)?;
+    let course = parse_course_id(row.try_get("course_instance_id").map_err(map_sqlx_error)?)?;
     let stored_membership_role: String = row.try_get("membership_role").map_err(map_sqlx_error)?;
     Ok(CourseSummary {
         classification: super::blueprint_course::decode_classification(row)?,
@@ -420,7 +420,7 @@ fn decode_view(row: &sqlx::postgres::PgRow) -> Result<CourseInstanceView, StoreE
         .try_get("active_instructor_count")
         .map_err(map_sqlx_error)?;
     let blueprint_reference: Option<String> =
-        row.try_get("blueprint_reference").map_err(map_sqlx_error)?;
+        row.try_get("blueprint_course_id").map_err(map_sqlx_error)?;
     let adopted_revision: Option<i64> = row
         .try_get("adopted_blueprint_revision")
         .map_err(map_sqlx_error)?;

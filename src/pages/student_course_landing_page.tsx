@@ -108,7 +108,7 @@ export function StudentCourseLandingPage(): JSX.Element {
   async function loadAssessments(
     current: LiveStudentCourseLandingSummary,
   ): Promise<ReadonlyArray<LiveStudentAssessmentLandingSummary>> {
-    return applicationApi.client.listLiveStudentAssessments(current.reference);
+    return applicationApi.client.listLiveStudentAssessments(current.id);
   }
   const [assessments] = createResource(course, loadAssessments);
   function unavailable(): boolean {

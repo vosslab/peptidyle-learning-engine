@@ -58,7 +58,7 @@ impl SupportRepairCapabilityStore for PostgresSupportCapabilityStore {
     ) -> Result<SupportRepairCapabilityReceipt, StoreError> {
         input.validate()?;
         let mut tx = self.begin(token).await?;
-        let row = sqlx::query("SELECT capability_id, sysadmin_public_reference, resource_class, resource_reference, purpose, expires_at_millis, revoked_at_millis FROM ple_api.issue_support_repair_capability($1, $2, $3, $4, $5)")
+        let row = sqlx::query("SELECT capability_id, sysadmin_account_id, resource_class, resource_reference, purpose, expires_at_millis, revoked_at_millis FROM ple_api.issue_support_repair_capability($1, $2, $3, $4, $5)")
             .bind(input.sysadmin_id.as_string())
             .bind(input.resource_class.database_name())
             .bind(&input.resource_reference).bind(&input.purpose).bind(random_uuid()?)
@@ -75,7 +75,7 @@ impl SupportRepairCapabilityStore for PostgresSupportCapabilityStore {
         capability_id: Uuid,
     ) -> Result<SupportRepairCapabilityReceipt, StoreError> {
         let mut tx = self.begin(token).await?;
-        let row = sqlx::query("SELECT capability_id, sysadmin_public_reference, resource_class, resource_reference, purpose, expires_at_millis, revoked_at_millis FROM ple_api.revoke_support_repair_capability($1)")
+        let row = sqlx::query("SELECT capability_id, sysadmin_account_id, resource_class, resource_reference, purpose, expires_at_millis, revoked_at_millis FROM ple_api.revoke_support_repair_capability($1)")
             .bind(capability_id).fetch_optional(&mut *tx).await.map_err(map_sqlx_error)?
             .ok_or(StoreError::NotFound)?;
         let receipt = decode_repair(&row)?;
@@ -161,7 +161,7 @@ fn decode_repair(
     row: &sqlx::postgres::PgRow,
 ) -> Result<SupportRepairCapabilityReceipt, StoreError> {
     let reference = AccountId::new(
-        row.try_get::<String, _>("sysadmin_public_reference")
+        row.try_get::<String, _>("sysadmin_account_id")
             .map_err(map_sqlx_error)?,
     )
     .map_err(|_| invalid("Sysadmin Reference"))?;

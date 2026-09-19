@@ -35,7 +35,7 @@
 \ir 22_reference_grants.sql
 \ir 30_constraints.sql
 \ir 40_indexes.sql
-\ir 50_functions/public_references.sql
+\ir 50_functions/public_ids.sql
 \ir 50_functions/accounts.sql
 \ir 50_functions/authentication.sql
 \ir 50_functions/authorization.sql

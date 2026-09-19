@@ -292,10 +292,9 @@ mod tests {
         AssessmentPointValue, LateWorkRule, QuestionAttemptLimit, QuestionAttemptTimeLimit,
         QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship, QuestionAvailability,
         QuestionBackend, QuestionBackendCapabilities, QuestionFormat, QuestionId, QuestionLicense,
-        QuestionMetadata, QuestionPoolRevisionNumber, QuestionPoolRevisionReference,
-        QuestionPoolSelectionRule, QuestionRevisionNumber, QuestionRevisionReference,
-        QuestionSearchResult, QuestionStatistics, QuestionSummary, QuestionType,
-        StudentFeedbackReleaseRule, Timestamp,
+        QuestionMetadata, QuestionPoolEditNumber, QuestionPoolSelectionRule,
+        QuestionRevisionNumber, QuestionRevisionReference, QuestionSearchResult,
+        QuestionStatistics, QuestionSummary, QuestionType, StudentFeedbackReleaseRule, Timestamp,
     };
     use uuid::Uuid;
 
@@ -343,11 +342,9 @@ mod tests {
                 }),
                 BlueprintAssessmentEntryInput::Pool(ReusablePoolInput {
                     pool: BlueprintPoolInputChoice::Import {
-                        question_pool_revision: QuestionPoolRevisionReference {
-                            question_pool_id: "12A4-TBCZ".parse().expect("valid Pool ID"),
-                            revision_number: QuestionPoolRevisionNumber::new(1)
-                                .expect("valid Pool Revision"),
-                        },
+                        question_pool_id: "12A4-TBCZ".parse().expect("valid Pool ID"),
+                        question_pool_edit_number: QuestionPoolEditNumber::new(1)
+                            .expect("valid Pool Edit Number"),
                     },
                     selection_count: NonZeroU32::new(1).expect("positive count"),
                     points_per_item: AssessmentPointValue::from_whole(2),
@@ -516,11 +513,9 @@ mod tests {
                                 question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
                             },
                             BlueprintAssessmentEntryView::Pool(ReusablePoolView {
-                                question_pool_revision: QuestionPoolRevisionReference {
-                                    question_pool_id: "12A4-TBCZ".parse().expect("Pool ID"),
-                                    revision_number: QuestionPoolRevisionNumber::new(1)
-                                        .expect("Pool Revision"),
-                                },
+                                question_pool_id: "12A4-TBCZ".parse().expect("Pool ID"),
+                                question_pool_edit_number: QuestionPoolEditNumber::new(1)
+                                    .expect("Pool Edit Number"),
                                 selection_count: NonZeroU32::new(1).expect("positive count"),
                                 points_per_item: AssessmentPointValue::from_whole(2),
                                 scoring_rule: AssessmentEntryScoringRule::Normal,
@@ -563,15 +558,11 @@ mod tests {
             "pool"
         );
         assert_eq!(
-            wire.pointer(
-                "/modules/0/assessments/0/content/entries/1/question_pool_revision/questionPoolId"
-            ),
+            wire.pointer("/modules/0/assessments/0/content/entries/1/question_pool_id"),
             Some(&serde_json::Value::String("12A4-TBCZ".to_string()))
         );
         assert_eq!(
-            wire.pointer(
-                "/modules/0/assessments/0/content/entries/1/question_pool_revision/revisionNumber"
-            ),
+            wire.pointer("/modules/0/assessments/0/content/entries/1/question_pool_edit_number"),
             Some(&serde_json::Value::Number(1.into()))
         );
         assert!(

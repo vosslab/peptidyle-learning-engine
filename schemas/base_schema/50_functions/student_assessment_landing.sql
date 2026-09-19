@@ -17,7 +17,7 @@ CREATE FUNCTION ple_private.read_student_released_assessment_landing_evidence(
     p_student_record_id uuid,
     p_now timestamptz
 ) RETURNS TABLE (
-    assessment_reference_number text,
+    assessment_id text,
     assessment_title text,
     assessment_type text,
     start_decision text,
@@ -267,9 +267,9 @@ SET LOCAL ROLE ple_api_owner;
 -- delegates evidence reads.  A failed lookup is indistinguishable from a
 -- foreign Course.
 CREATE FUNCTION ple_api.list_released_live_student_assessments(
-    p_course_public_reference text
+    p_course_instance_id text
 ) RETURNS TABLE (
-    assessment_reference_number text,
+    assessment_id text,
     assessment_title text,
     assessment_type text,
     start_decision text,
@@ -296,7 +296,7 @@ DECLARE
     student_record_id_value uuid;
     evaluation_time timestamptz := pg_catalog.statement_timestamp();
 BEGIN
-    IF p_course_public_reference IS NULL THEN
+    IF p_course_instance_id IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Course is unavailable';
     END IF;
 
@@ -323,7 +323,7 @@ BEGIN
        AND student.student_account_id = account.account_id
      WHERE account.account_id = ple_api.current_session_account_id()
        AND account.product_role = 'student'
-       AND course.course_instance_id = p_course_public_reference;
+       AND course.course_instance_id = p_course_instance_id;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Course is unavailable';
     END IF;

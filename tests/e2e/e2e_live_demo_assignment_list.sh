@@ -19,10 +19,10 @@ if not isinstance(items,list):
     raise SystemExit("Course Assessment list is not an array")
 observed={}
 for item in items:
-    if not isinstance(item,dict) or set(item)!={"reference","assessmentType","title","dueAt","displayTimeZone","status","editNumber"}:
+    if not isinstance(item,dict) or set(item)!={"id","assessmentType","title","dueAt","displayTimeZone","status","editNumber"}:
         raise SystemExit("Course Assessment list is not a closed current projection")
-    if not isinstance(item["reference"],str) or not re.fullmatch(r"A[0-9A-HJKMNP-TV-Z]{8}",item["reference"]):
-        raise SystemExit("Course Assessment list lacks a canonical public Assessment reference")
+    if not isinstance(item["id"],str) or not re.fullmatch(r"A[0-9A-HJKMNP-TV-Z]{8}",item["id"]):
+        raise SystemExit("Course Assessment list lacks a canonical Assessment ID")
     if item["assessmentType"] not in {"practice_question_assignment","regular_assignment","quiz","exam"}:
         raise SystemExit("Course Assessment list contains an invalid Assessment Type")
     if item["status"] not in {"unreleased","released","closed","archived"}:
@@ -45,9 +45,9 @@ if any(word in serialized for word in ("student", "response", "answer", "grading
 foreign_instructor_reference() {
 	python3 -c '
 import json, re, sys
-value=json.loads(sys.argv[1]); reference=value.get("reference")
+value=json.loads(sys.argv[1]); reference=value.get("id")
 avatar=value.get("providedAvatarId")
-if set(value)!={"reference","state","lastSuccessfulSignIn","providedAvatarId"} or not isinstance(reference,str) or not re.fullmatch(r"U[0-9A-HJKMNP-TV-Z]{8}",reference) or value.get("state")!="active" or value.get("lastSuccessfulSignIn") is not None or (avatar is not None and (not isinstance(avatar,str) or not avatar)):
+if set(value)!={"id","state","lastSuccessfulSignIn","providedAvatarId"} or not isinstance(reference,str) or not re.fullmatch(r"U[0-9A-HJKMNP-TV-Z]{8}",reference) or value.get("state")!="active" or value.get("lastSuccessfulSignIn") is not None or (avatar is not None and (not isinstance(avatar,str) or not avatar)):
     raise SystemExit("Foreign Instructor creation receipt is malformed")
 print(reference)
 ' "$1"
@@ -85,7 +85,7 @@ print(json.dumps(payload,separators=(",",":")))
 foreign_course_reference() {
 	python3 -c '
 import json, re, sys
-value=json.loads(sys.argv[1]); course=value.get("course",{}); reference=course.get("reference")
+value=json.loads(sys.argv[1]); course=value.get("course",{}); reference=course.get("id")
 if set(value)!={"course"} or not isinstance(reference,str) or not re.fullmatch(r"CI[0-9A-HJKMNP-TV-Z]{8}",reference):
     raise SystemExit("Foreign Course Instance creation receipt is malformed")
 print(reference)

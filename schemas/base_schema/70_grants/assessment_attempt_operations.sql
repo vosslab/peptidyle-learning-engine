@@ -13,9 +13,9 @@ REVOKE ALL ON FUNCTION ple_api.current_session_student_record_id(text) FROM PUBL
 
 GRANT EXECUTE ON FUNCTION ple_api.current_session_student_record_id(text) TO ple_private_owner;
 
-REVOKE ALL ON FUNCTION ple_api.course_reference_number_for_assessment_attempt(text),
+REVOKE ALL ON FUNCTION ple_api.course_instance_id_for_assessment_attempt(text),
     ple_api.course_display_for_assessment_attempt(text) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_api.course_reference_number_for_assessment_attempt(text),
+GRANT EXECUTE ON FUNCTION ple_api.course_instance_id_for_assessment_attempt(text),
     ple_api.course_display_for_assessment_attempt(text) TO ple_private_owner;
 

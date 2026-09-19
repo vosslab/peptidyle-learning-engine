@@ -113,7 +113,7 @@ FOR EACH ROW EXECUTE FUNCTION ple_private.record_initial_account_avatar();
 -- Profile-image choices both project as NULL, never as an image reference.
 CREATE FUNCTION ple_private.list_instructor_account_avatar_summaries()
 RETURNS TABLE (
-    public_reference text,
+    account_id text,
     state text,
     last_successful_sign_in timestamp with time zone,
     provided_avatar_id text
@@ -140,7 +140,7 @@ SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.list_instructor_account_avatar_summaries()
 RETURNS TABLE (
-    public_reference text,
+    account_id text,
     state text,
     last_successful_sign_in timestamp with time zone,
     provided_avatar_id text

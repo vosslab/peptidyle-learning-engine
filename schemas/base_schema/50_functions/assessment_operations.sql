@@ -5,9 +5,9 @@ SET LOCAL ROLE ple_api_owner;
 -- Assessment API operations expose one current aggregate.  The relations and
 -- guarded mutations live in assessments.sql; this module owns only the
 -- session-authorized projections and API delegates.
-CREATE FUNCTION ple_api.list_course_assessments(p_course_reference_number text)
+CREATE FUNCTION ple_api.list_course_assessments(p_course_instance_id text)
 RETURNS TABLE (
-    assessment_reference_number text,
+    assessment_id text,
     assessment_type text,
     assessment_title text,
     due_at_millis bigint,
@@ -27,16 +27,16 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
       JOIN ple_data.assessment AS assessment ON assessment.course_instance_id = course.course_instance_id
       JOIN ple_data.assessment_policy_snapshot AS policy
         ON policy.assessment_policy_snapshot_id = assessment.assessment_policy_snapshot_id
-     WHERE course.course_instance_id = p_course_reference_number
+     WHERE course.course_instance_id = p_course_instance_id
        AND ple_api.current_session_account_is_course_instructor(course.course_instance_id)
      ORDER BY policy.due_at NULLS LAST, assessment.assessment_id
 $$;
 
 CREATE FUNCTION ple_api.list_assessments_due_soon()
 RETURNS TABLE (
-    course_reference_number text,
+    course_instance_id text,
     course_long_name text,
-    assessment_reference_number text,
+    assessment_id text,
     assessment_type text,
     assessment_title text,
     assessment_status text,
@@ -69,7 +69,7 @@ $$;
 -- Discovery returns one exact currently accepted Revision for every Available
 -- Question lineage.  Assessment saves carry this Revision number, so a later
 -- publication cannot silently change a selected Question.
-CREATE FUNCTION ple_api.list_assessment_question_picker(p_course_reference_number text)
+CREATE FUNCTION ple_api.list_assessment_question_picker(p_course_instance_id text)
 RETURNS TABLE (
     published_question_id text,
     question_revision_number integer,
@@ -105,7 +105,7 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
       JOIN LATERAL ple_private.question_library_entries(
           lineage.published_question_id, accepted.revision_number, true
       ) AS bloom ON true
-     WHERE course.course_instance_id = p_course_reference_number
+     WHERE course.course_instance_id = p_course_instance_id
        AND ple_api.current_session_account_is_course_instructor(course.course_instance_id)
        AND lineage.availability = 'available'
        AND ple_private.question_backend_is_supported_for_production(revision.backend)
@@ -118,17 +118,17 @@ $$;
 -- It resolves the exact pinned revision even after its lineage is Archived;
 -- only ordinary picker discovery filters archived lineages.
 CREATE FUNCTION ple_api.load_assessment_workspace_rows(
-    p_course_reference_number text,
-    p_assessment_reference_number text
+    p_course_instance_id text,
+    p_assessment_id text
 )
 RETURNS TABLE (
-    assessment_reference_number text,
+    assessment_id text,
     assessment_edit_number bigint,
     assessment_status text,
     origin_kind text,
     source_blueprint_course_id text,
     source_blueprint_revision_number bigint,
-    source_blueprint_assessment_reference uuid,
+    source_blueprint_assessment_id uuid,
     assessment_type text,
     assessment_title text,
     assessment_instructions text,
@@ -159,7 +159,6 @@ RETURNS TABLE (
     question_attempt_time_limit_seconds integer,
     question_attempt_grace_seconds integer,
     question_pool_id text,
-    question_pool_public_id text,
     question_pool_edit_number bigint,
     member_position integer,
     published_question_id text,
@@ -178,7 +177,7 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
            assessment.origin_kind,
            blueprint.blueprint_course_id,
            assessment.source_blueprint_revision_number,
-           assessment.source_blueprint_assessment_reference,
+           assessment.source_blueprint_assessment_id,
            assessment.assessment_type,
            policy.assessment_title,
            policy.assessment_instructions,
@@ -212,7 +211,6 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
            entry.question_attempt_time_limit_seconds,
            entry.question_attempt_grace_seconds,
            pool_entry.question_pool_id,
-           pool.question_pool_id,
            pool.question_pool_edit_number,
            item.member_position,
            COALESCE(item.published_question_id, question.published_question_id),
@@ -246,15 +244,15 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
           COALESCE(item.question_revision_number, question.question_revision_number, 0),
           false
       ) AS question_bloom ON true
-     WHERE course.course_instance_id = p_course_reference_number
-       AND assessment.assessment_id = p_assessment_reference_number
+     WHERE course.course_instance_id = p_course_instance_id
+       AND assessment.assessment_id = p_assessment_id
        AND ple_api.current_session_account_is_course_instructor(course.course_instance_id)
      ORDER BY entry.authored_position NULLS LAST, item.member_position NULLS LAST
 $$;
 
 CREATE FUNCTION ple_api.validate_assessment_release(
-    p_course_reference_number text,
-    p_assessment_reference_number text
+    p_course_instance_id text,
+    p_assessment_id text
 )
 RETURNS TABLE (issue text)
 LANGUAGE plpgsql STABLE SECURITY DEFINER
@@ -267,8 +265,8 @@ BEGIN
       INTO assessment_id_value, assessment_status_value
       FROM ple_data.course_instance AS course
       JOIN ple_data.assessment AS assessment ON assessment.course_instance_id = course.course_instance_id
-     WHERE course.course_instance_id = p_course_reference_number
-       AND assessment.assessment_id = p_assessment_reference_number
+     WHERE course.course_instance_id = p_course_instance_id
+       AND assessment.assessment_id = p_assessment_id
        AND ple_api.current_session_account_is_course_instructor(course.course_instance_id);
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable';
@@ -287,13 +285,13 @@ $$;
 
 CREATE FUNCTION ple_api.create_assessment(
     p_assessment_id text,
-    p_course_reference_number text,
+    p_course_instance_id text,
     p_assessment_type text,
     p_title text,
     p_instructions text
 )
 RETURNS TABLE (
-    assessment_reference_number text,
+    assessment_id text,
     assessment_edit_number bigint,
     assessment_status text,
     assessment_title text,
@@ -301,26 +299,26 @@ RETURNS TABLE (
 )
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
-    SELECT result.assessment_public_reference, result.assessment_edit_number,
+    SELECT result.assessment_id, result.assessment_edit_number,
            result.assessment_status, result.assessment_title, result.assessment_instructions
       FROM ple_data.create_assessment(
         p_assessment_id,
         (SELECT course.course_instance_id FROM ple_data.course_instance AS course
-          WHERE course.course_instance_id = p_course_reference_number),
+          WHERE course.course_instance_id = p_course_instance_id),
         p_assessment_type,
         p_title, p_instructions
     ) AS result
 $$;
 
 CREATE FUNCTION ple_api.save_assessment(
-    p_course_reference_number text,
-    p_assessment_reference_number text,
+    p_course_instance_id text,
+    p_assessment_id text,
     p_expected_edit_number bigint,
     p_values jsonb,
     p_entries jsonb
 )
 RETURNS TABLE (
-    assessment_reference_number text,
+    assessment_id text,
     assessment_edit_number bigint,
     assessment_status text,
     assessment_title text,
@@ -332,25 +330,25 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
            result.assessment_status, result.assessment_title, result.assessment_instructions
       FROM ple_data.save_assessment(
         (SELECT course.course_instance_id FROM ple_data.course_instance AS course
-          WHERE course.course_instance_id = p_course_reference_number),
+          WHERE course.course_instance_id = p_course_instance_id),
         (SELECT assessment.assessment_id FROM ple_data.course_instance AS course
           JOIN ple_data.assessment ON assessment.course_instance_id = course.course_instance_id
-         WHERE course.course_instance_id = p_course_reference_number
-           AND assessment.assessment_id = p_assessment_reference_number), p_expected_edit_number,
+         WHERE course.course_instance_id = p_course_instance_id
+           AND assessment.assessment_id = p_assessment_id), p_expected_edit_number,
         p_values, p_entries
     ) AS result
-      JOIN ple_data.assessment ON assessment.assessment_id = result.assessment_reference_number
+      JOIN ple_data.assessment ON assessment.assessment_id = result.assessment_id
 $$;
 
 CREATE FUNCTION ple_api.save_assessment_inline(
-    p_course_reference_number text,
-    p_assessment_reference_number text,
+    p_course_instance_id text,
+    p_assessment_id text,
     p_expected_edit_number bigint,
     p_title text,
     p_due_at timestamptz
 )
 RETURNS TABLE (
-    assessment_reference_number text,
+    assessment_id text,
     assessment_type text,
     assessment_title text,
     due_at_millis bigint,
@@ -364,21 +362,21 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
            result.assessment_status, result.assessment_edit_number
       FROM ple_data.save_assessment_inline(
         (SELECT course.course_instance_id FROM ple_data.course_instance AS course
-          WHERE course.course_instance_id = p_course_reference_number),
+          WHERE course.course_instance_id = p_course_instance_id),
         (SELECT assessment.assessment_id FROM ple_data.course_instance AS course
           JOIN ple_data.assessment ON assessment.course_instance_id = course.course_instance_id
-         WHERE course.course_instance_id = p_course_reference_number
-           AND assessment.assessment_id = p_assessment_reference_number), p_expected_edit_number,
+         WHERE course.course_instance_id = p_course_instance_id
+           AND assessment.assessment_id = p_assessment_id), p_expected_edit_number,
         p_title, p_due_at
     ) AS result
-      JOIN ple_data.assessment ON assessment.assessment_id = result.assessment_reference_number
+      JOIN ple_data.assessment ON assessment.assessment_id = result.assessment_id
 $$;
 
 CREATE FUNCTION ple_api.save_assessment_policies(
-    p_course_reference_number text, p_assessment_reference_number text,
+    p_course_instance_id text, p_assessment_id text,
     p_expected_edit_number bigint, p_policies jsonb
 ) RETURNS TABLE (
-    assessment_reference_number text, assessment_edit_number bigint,
+    assessment_id text, assessment_edit_number bigint,
     assessment_status text, assessment_title text, assessment_instructions text
 )
 LANGUAGE sql SECURITY DEFINER
@@ -387,22 +385,22 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
            result.assessment_status, result.assessment_title, result.assessment_instructions
       FROM ple_data.save_assessment_policies(
         (SELECT course.course_instance_id FROM ple_data.course_instance AS course
-          WHERE course.course_instance_id = p_course_reference_number),
+          WHERE course.course_instance_id = p_course_instance_id),
         (SELECT assessment.assessment_id FROM ple_data.course_instance AS course
           JOIN ple_data.assessment ON assessment.course_instance_id = course.course_instance_id
-         WHERE course.course_instance_id = p_course_reference_number
-           AND assessment.assessment_id = p_assessment_reference_number),
+         WHERE course.course_instance_id = p_course_instance_id
+           AND assessment.assessment_id = p_assessment_id),
         p_expected_edit_number, p_policies) AS result
-      JOIN ple_data.assessment ON assessment.assessment_id = result.assessment_reference_number
+      JOIN ple_data.assessment ON assessment.assessment_id = result.assessment_id
 $$;
 
 CREATE FUNCTION ple_api.release_assessment(
-    p_course_reference_number text,
-    p_assessment_reference_number text,
+    p_course_instance_id text,
+    p_assessment_id text,
     p_expected_edit_number bigint
 )
 RETURNS TABLE (
-    assessment_reference_number text,
+    assessment_id text,
     assessment_title text,
     assessment_status text,
     assessment_edit_number bigint
@@ -413,13 +411,13 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
            result.assessment_status, result.assessment_edit_number
       FROM ple_data.release_assessment(
         (SELECT course.course_instance_id FROM ple_data.course_instance AS course
-          WHERE course.course_instance_id = p_course_reference_number),
+          WHERE course.course_instance_id = p_course_instance_id),
         (SELECT assessment.assessment_id FROM ple_data.course_instance AS course
           JOIN ple_data.assessment ON assessment.course_instance_id = course.course_instance_id
-         WHERE course.course_instance_id = p_course_reference_number
-           AND assessment.assessment_id = p_assessment_reference_number),
+         WHERE course.course_instance_id = p_course_instance_id
+           AND assessment.assessment_id = p_assessment_id),
         p_expected_edit_number
     ) AS result
-      JOIN ple_data.assessment ON assessment.assessment_id = result.assessment_reference_number
+      JOIN ple_data.assessment ON assessment.assessment_id = result.assessment_id
 $$;
 

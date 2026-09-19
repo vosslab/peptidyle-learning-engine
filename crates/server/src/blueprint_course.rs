@@ -519,14 +519,14 @@ pub(super) enum RouteLoadError {
 pub(super) async fn load_view(
     state: &BlueprintCourseRouteState,
     session: SessionTokenHash,
-    reference: BlueprintCourseId,
+    blueprint_course_id: BlueprintCourseId,
 ) -> Result<BlueprintCourseView, RouteLoadError> {
     view_from_record(
         state,
         session,
         state
             .blueprints
-            .load_blueprint_course(session, reference)
+            .load_blueprint_course(session, blueprint_course_id)
             .await
             .map_err(RouteLoadError::Store)?,
     )
@@ -697,7 +697,8 @@ fn assessment_content_view(
                 question_attempt_time_limit: *question_attempt_time_limit,
             }),
             StoredBlueprintAssessmentEntry::Pool {
-                question_pool_revision,
+                question_pool_id,
+                question_pool_edit_number,
                 selection_count,
                 points_per_item,
                 scoring_rule,
@@ -705,7 +706,8 @@ fn assessment_content_view(
                 question_attempt_limit,
                 question_attempt_time_limit,
             } => Ok(BlueprintAssessmentEntryView::Pool(ReusablePoolView {
-                question_pool_revision: question_pool_revision.clone(),
+                question_pool_id: question_pool_id.clone(),
+                question_pool_edit_number: *question_pool_edit_number,
                 selection_count: *selection_count,
                 points_per_item: *points_per_item,
                 scoring_rule: *scoring_rule,

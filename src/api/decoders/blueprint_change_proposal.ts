@@ -110,11 +110,7 @@ function selection(value: unknown, path: string): BlueprintForkApplySelection {
     "sourceModuleReference",
     "targetModuleReference",
   );
-  const sourceAssessments = copies(
-    "sourceAssessments",
-    "sourceAssessmentId",
-    "targetAssessmentId",
-  );
+  const sourceAssessments = copies("sourceAssessments", "sourceAssessmentId", "targetAssessmentId");
   const layout = decodeNullable(
     field(record, "layout", path),
     `${path}.layout`,

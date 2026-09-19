@@ -53,12 +53,12 @@ test("Assessment Attempt context retains one strict server expiry and display zo
     expiresAt: 1_768_507_200_000,
     timerRemainingMilliseconds: 15_000,
     course: {
-      reference: "CI7K3M2QAZ",
+      id: "CI7K3M2QAZ",
       shortName: "BCHM 301",
       longName: "Biochemistry 301: Proteins and Peptides",
       theme: "grass",
     },
-    assessment: { reference: "A7K3M2QAS", title: "Peptide structure practice" },
+    assessment: { id: "A7K3M2QAS", title: "Peptide structure practice" },
   };
   assert.deepEqual(decodeStudentAssessmentAttemptContext(context), context);
   assert.throws(() => decodeStudentAssessmentAttemptContext({ ...context, expiresAt: -1 }));

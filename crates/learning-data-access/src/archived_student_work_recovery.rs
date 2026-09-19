@@ -122,7 +122,7 @@ pub(crate) struct Delivery {
 #[derive(Deserialize, Serialize)]
 pub(crate) struct PoolSelection {
     question_pool_id: String,
-    question_pool_revision_number: u32,
+    question_pool_edit_number: u32,
     question_pool_member_position: u32,
     selection_position: u32,
     selected_question_count: u32,

@@ -87,9 +87,9 @@ impl BloomReceiptPreparer for PostgresBloomClassificationPreparationStore {
                             "Question Revision Number exceeds PostgreSQL integer".to_owned(),
                         ))
                     })?;
-                // Preserve vector order: the SQL fingerprint binds the exact Pool Revision order.
+                // Preserve vector order: the SQL fingerprint binds current Pool membership order.
                 sqlx::query(
-                    "SELECT ple_api.prepare_question_pool_revision_bloom_classification(\
+                    "SELECT ple_api.prepare_question_pool_bloom_classification(\
                      $1, $2, $3, $4, $5, $6, $7)",
                 )
                 .bind(receipt_id)

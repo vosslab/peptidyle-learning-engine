@@ -55,12 +55,12 @@ function history() {
     assessmentAttempt: "00000000-0000-0000-0000-00000000000c",
     attemptNumber: 2,
     course: {
-      reference: "CI7K3M2QAZ",
+      id: "CI7K3M2QAZ",
       shortName: "Mol Bio",
       longName: "Molecular biology",
       theme: "forest",
     },
-    assessment: { reference: "A7K3M2QAS", title: "Protein folding practice" },
+    assessment: { id: "A7K3M2QAS", title: "Protein folding practice" },
     state: "submitted",
     questions: [
       {
@@ -117,7 +117,7 @@ test("selected history rejects a Course context outside the established route co
       decodeStudentAssessmentAttemptHistory({
         ...history(),
         course: {
-          reference: "CI7K3M2QAZ",
+          id: "CI7K3M2QAZ",
           shortName: "Mol Bio",
           longName: "Molecular biology",
           theme: "unknown",

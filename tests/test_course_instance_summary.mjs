@@ -24,7 +24,7 @@ const classification = {
 
 function courseSummary(lifecycleState = "active", theme = "forest") {
   return {
-    reference: "CI6F2R8TA0",
+    id: "CI6F2R8TA0",
     classification,
     lifecycleState,
     courseEditNumber: "1",
@@ -142,12 +142,12 @@ test("Course-derived Blueprint creation sends only metadata and requires a new p
       return new Response(
         JSON.stringify({
           classification,
-          reference: "BP7K3M2QAF",
+          id: "BP7K3M2QAF",
           short_name: "Mol Bio",
           long_name: "Molecular Biology",
           availability: "private",
           blueprint_edit_number: "1",
-          current_revision: { reference: revisionReference, revision: "1" },
+          current_revision: { blueprint_course_id: revisionReference, revision: "1" },
           read_access: "blueprint_course_owner",
           fork_source: null,
           modules: [],
@@ -165,7 +165,7 @@ test("Course-derived Blueprint creation sends only metadata and requires a new p
   });
   const input = { classification, shortName: "Mol Bio", longName: "Molecular Biology" };
   const created = await client.createBlueprintFromCourseInstance("CI6F2R8TA0", input, "create-7");
-  assert.equal(created.blueprintCourse.reference, "BP7K3M2QAF");
+  assert.equal(created.blueprintCourse.id, "BP7K3M2QAF");
   assert.equal(created.revisionEtag, '"1"');
   assert.equal(requests.length, 1);
   const [request] = requests;

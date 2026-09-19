@@ -17,7 +17,7 @@ const FIXTURE_CLASSIFICATION = {
 export function courseRouteData(reference: string): CourseRouteView {
   return {
     summary: {
-      reference,
+      id: reference,
       shortName: `CRS ${reference}`,
       longName: `Course ${reference}: Molecular Biology`,
       classification: FIXTURE_CLASSIFICATION,
@@ -37,12 +37,12 @@ export function assignmentAttemptContext(reference: string): StudentAssessmentAt
     expiresAt: 1_768_507_200_000,
     timerRemainingMilliseconds: 1_800_000,
     course: {
-      reference,
+      id: reference,
       shortName: `CRS ${reference}`,
       longName: `Course ${reference}: Molecular Biology`,
       theme: "grass",
     },
-    assessment: { reference: "A9D2RX5AF", title: "Assessment one" },
+    assessment: { id: "A9D2RX5AF", title: "Assessment one" },
   } satisfies StudentAssessmentAttemptContext;
 }
 
@@ -52,12 +52,12 @@ export function assignmentAttemptHistoryData(reference: string): StudentAssessme
     assessmentAttempt: "00000000-0000-0000-0000-000000000001",
     attemptNumber: 1,
     course: {
-      reference,
+      id: reference,
       shortName: `CRS ${reference}`,
       longName: `Course ${reference}: Molecular Biology`,
       theme: "grass",
     },
-    assessment: { reference: "A9D2RX5AF", title: "Assessment one" },
+    assessment: { id: "A9D2RX5AF", title: "Assessment one" },
     state: "submitted",
     questions: [],
   } satisfies StudentAssessmentAttemptHistory;

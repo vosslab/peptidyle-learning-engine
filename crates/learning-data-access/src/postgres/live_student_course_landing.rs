@@ -61,7 +61,7 @@ impl LiveStudentCourseLandingStore for PostgresLiveStudentCourseLandingStore {
     ) -> Result<Vec<LiveStudentCourseLandingSummary>, StoreError> {
         let mut transaction = self.begin(session_token_hash).await?;
         let rows = sqlx::query(
-            "SELECT course_public_reference, course_short_name, course_long_name \
+            "SELECT course_instance_id, course_short_name, course_long_name \
              FROM ple_api.list_live_student_course_landing()",
         )
         .fetch_all(&mut *transaction)
@@ -81,7 +81,7 @@ impl LiveStudentCourseLandingStore for PostgresLiveStudentCourseLandingStore {
     ) -> Result<Vec<LiveStudentCourseInvitationSummary>, StoreError> {
         let mut transaction = self.begin(session_token_hash).await?;
         let rows = sqlx::query(
-            "SELECT course_public_reference, course_short_name, course_long_name, \
+            "SELECT course_instance_id, course_short_name, course_long_name, \
              instructor_display_name, term_starts_on::text AS term_starts_on, \
              term_ends_on::text AS term_ends_on \
              FROM ple_api.list_pending_student_course_invitations()",
@@ -104,7 +104,7 @@ impl LiveStudentCourseLandingStore for PostgresLiveStudentCourseLandingStore {
     ) -> Result<Vec<LiveStudentAssessmentLandingSummary>, StoreError> {
         let mut transaction = self.begin(session_token_hash).await?;
         let rows = sqlx::query(
-            "SELECT assessment_reference_number, assessment_title, assessment_type, start_decision, \
+            "SELECT assessment_id, assessment_title, assessment_type, start_decision, \
              time_limit_seconds, assessment_attempt_limit AS attempt_limit, \
              late_work_rule, display_time_zone, \
              CASE WHEN available_at IS NULL THEN NULL ELSE \
@@ -137,10 +137,7 @@ fn decode_course(
     row: &sqlx::postgres::PgRow,
 ) -> Result<LiveStudentCourseLandingSummary, StoreError> {
     Ok(LiveStudentCourseLandingSummary {
-        course: course_reference(
-            row.try_get("course_public_reference")
-                .map_err(map_sqlx_error)?,
-        )?,
+        course: course_reference(row.try_get("course_instance_id").map_err(map_sqlx_error)?)?,
         short_name: name(
             row.try_get("course_short_name").map_err(map_sqlx_error)?,
             "Course short name",
@@ -205,10 +202,7 @@ fn decode_assessment(
         return Err(invalid("Assessment progress"));
     }
     Ok(LiveStudentAssessmentLandingSummary {
-        assessment: assessment_reference(
-            row.try_get("assessment_reference_number")
-                .map_err(map_sqlx_error)?,
-        )?,
+        assessment: assessment_reference(row.try_get("assessment_id").map_err(map_sqlx_error)?)?,
         title: row.try_get("assessment_title").map_err(map_sqlx_error)?,
         assessment_type,
         decision,
@@ -238,10 +232,7 @@ fn decode_invitation(
     let term =
         CourseTerm::from_parts(&start_date, &end_date).map_err(|_| invalid("Course term"))?;
     Ok(LiveStudentCourseInvitationSummary {
-        course: course_reference(
-            row.try_get("course_public_reference")
-                .map_err(map_sqlx_error)?,
-        )?,
+        course: course_reference(row.try_get("course_instance_id").map_err(map_sqlx_error)?)?,
         short_name: name(
             row.try_get("course_short_name").map_err(map_sqlx_error)?,
             "Course short name",

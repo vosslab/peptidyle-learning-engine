@@ -85,11 +85,11 @@ CREATE TABLE ple_data.blueprint_revision_assessment (
     blueprint_course_id ple_data.blueprint_course_id NOT NULL,
     blueprint_revision_number integer NOT NULL,
     blueprint_module_reference uuid NOT NULL,
-    blueprint_assessment_reference uuid NOT NULL,
+    blueprint_assessment_id uuid NOT NULL,
     assessment_position integer NOT NULL CHECK (assessment_position BETWEEN 1 AND 1024),
     PRIMARY KEY (
         blueprint_course_id, blueprint_revision_number,
-        blueprint_assessment_reference
+        blueprint_assessment_id
     ),
     FOREIGN KEY (
         blueprint_course_id, blueprint_revision_number,

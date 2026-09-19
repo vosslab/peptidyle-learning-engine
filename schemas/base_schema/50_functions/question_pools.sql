@@ -2,7 +2,7 @@
 
 SET LOCAL ROLE ple_data_owner;
 
-CREATE TRIGGER question_pool_public_id_is_reserved
+CREATE TRIGGER question_pool_id_is_reserved
 BEFORE INSERT ON ple_data.question_pool
 FOR EACH ROW EXECUTE FUNCTION ple_private.reserve_public_id_from_trigger(
     'question_pool', 'question_pool_id'
@@ -365,7 +365,7 @@ $$;
 
 -- Importing a reusable Pool into an Assessment never aliases the published
 -- lineage. The ordinary route remains Instructor-only.
-CREATE FUNCTION ple_data.fork_question_pool_revision(
+CREATE FUNCTION ple_data.fork_question_pool(
     p_question_pool_id text,
     p_source_question_pool_id text
 ) RETURNS TABLE (
@@ -392,7 +392,7 @@ $$;
 -- Course adoption is the one additional internal context where a Sysadmin may
 -- create a Course for an assigned Instructor. It has no standalone API grant:
 -- the already-authorized atomic Course creation boundary is its only caller.
-CREATE FUNCTION ple_data.fork_question_pool_revision_for_course_adoption(
+CREATE FUNCTION ple_data.fork_question_pool_for_course_adoption(
     p_question_pool_id text,
     p_source_question_pool_id text
 ) RETURNS TABLE (
@@ -432,7 +432,7 @@ $$;
 
 SET LOCAL ROLE ple_data_owner;
 
--- A deliberately narrow, answer-free public-reference projection. It names
+-- A deliberately narrow, answer-free public-ID projection. It names
 -- no internal UUID and does not make Pool content, membership, selection,
 -- ownership, or lifecycle state visible. C355 may consume these stable IDs;
 -- it must supply all selection semantics separately.
@@ -440,7 +440,8 @@ CREATE FUNCTION ple_data.list_published_content_identities()
 RETURNS TABLE (
     content_kind text,
     public_id text,
-    current_revision_number bigint
+    current_revision_number bigint,
+    current_edit_number bigint
 ) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
 BEGIN
@@ -451,13 +452,15 @@ BEGIN
     RETURN QUERY
     SELECT 'question'::text,
            question.published_question_id,
-           max(revision.revision_number)::bigint
+           max(revision.revision_number)::bigint,
+           NULL::bigint
       FROM ple_data.published_question AS question
       JOIN ple_data.question_revision AS revision ON revision.published_question_id = question.published_question_id
      GROUP BY question.published_question_id
     UNION ALL
     SELECT 'pool'::text,
            pool.question_pool_id,
+           NULL::bigint,
            pool.question_pool_edit_number
       FROM ple_data.question_pool AS pool
      ORDER BY 1, 2;
@@ -470,7 +473,8 @@ CREATE FUNCTION ple_api.list_published_content_identities()
 RETURNS TABLE (
     content_kind text,
     public_id text,
-    current_revision_number bigint
+    current_revision_number bigint,
+    current_edit_number bigint
 ) LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT * FROM ple_data.list_published_content_identities()

@@ -28,6 +28,7 @@ import local_stack_control.renderer
 import local_stack_control.status
 import local_stack_control.live_demo_gateway
 import local_stack_control.live_demo_seed
+import local_stack_control.lifecycle_browser
 
 
 MIGRATION_DATABASE_OWNER = local_stack_control.lifecycle_database.MIGRATION_DATABASE_OWNER
@@ -426,7 +427,7 @@ def _start_lifecycle(
 		report_step("provisioning the local sysadmin TOTP authenticator")
 		provision_local_sysadmin_totp(target, runner)
 	if options.open_browser:
-		open_browser(runner, repo_root, gateway_url)
+		local_stack_control.lifecycle_browser.open_browser(runner, repo_root, gateway_url)
 	return LifecycleResult(selected.project, gateway_url, oci_id)
 
 
@@ -993,13 +994,3 @@ def wait_for_complete_ready(
 	local_stack_control.lifecycle_wait.poll_ready(read_report, options.timeout_seconds)
 	require_complete_ready(target, runner)
 	return url
-
-
-#============================================
-#============================================
-def open_browser(runner: local_stack_control.process.CommandRunner, repo_root: pathlib.Path, url: str) -> None:
-	"""Open the proven loopback URL using an argument-array platform opener."""
-	result = runner.run(["open", url], local_stack_control.env_file.sanitized_runtime_environment(local_stack_control.process.current_environment()), repo_root)
-	if not result.ok():
-		result = runner.run(["xdg-open", url], local_stack_control.env_file.sanitized_runtime_environment(local_stack_control.process.current_environment()), repo_root)
-		require_command(result, "browser open")

@@ -50,7 +50,7 @@ CREATE TABLE ple_data.assessment (
     source_blueprint_revision_number integer CHECK (source_blueprint_revision_number > 0),
     -- BlueprintAssessmentSource: an exact immutable Blueprint Revision plus
     -- the stable Assessment member selected from that Revision.
-    source_blueprint_assessment_reference uuid,
+    source_blueprint_assessment_id uuid,
     created_at timestamptz NOT NULL,
     updated_at timestamptz NOT NULL,
     assessment_edit_number bigint NOT NULL DEFAULT 1 CHECK (assessment_edit_number > 0),
@@ -62,21 +62,21 @@ CREATE TABLE ple_data.assessment (
     FOREIGN KEY (
         source_blueprint_course_id,
         source_blueprint_revision_number,
-        source_blueprint_assessment_reference
+        source_blueprint_assessment_id
     ) REFERENCES ple_data.blueprint_revision_assessment (
         blueprint_course_id,
         blueprint_revision_number,
-        blueprint_assessment_reference
+        blueprint_assessment_id
     ),
     CHECK (
         (origin_kind = 'direct'
             AND source_blueprint_course_id IS NULL
             AND source_blueprint_revision_number IS NULL
-            AND source_blueprint_assessment_reference IS NULL)
+            AND source_blueprint_assessment_id IS NULL)
         OR (origin_kind = 'adopted'
             AND source_blueprint_course_id IS NOT NULL
             AND source_blueprint_revision_number IS NOT NULL
-            AND source_blueprint_assessment_reference IS NOT NULL)
+            AND source_blueprint_assessment_id IS NOT NULL)
     ),
     CHECK (updated_at >= created_at)
 );
@@ -210,7 +210,7 @@ COMMENT ON COLUMN ple_data.assessment_policy_snapshot.assessment_attempt_time_li
 COMMENT ON COLUMN ple_data.assessment_policy_snapshot.assessment_attempt_limit IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.assessment.source_blueprint_course_id IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.assessment.source_blueprint_revision_number IS 'NULL means this optional fact is absent.';
-COMMENT ON COLUMN ple_data.assessment.source_blueprint_assessment_reference IS 'NULL means this optional fact is absent.';
+COMMENT ON COLUMN ple_data.assessment.source_blueprint_assessment_id IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.assessment_entry.active_authored_position IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_data.assessment_entry.assessment_entry_question_id IS 'NULL means this Entry is a Question Pool child, not a fixed Question.';
 COMMENT ON COLUMN ple_data.assessment_entry.assessment_entry_pool_id IS 'NULL means this Entry is a fixed Question child, not a Question Pool.';

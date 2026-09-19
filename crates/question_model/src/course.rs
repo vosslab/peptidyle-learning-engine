@@ -8,8 +8,8 @@ use crate::{
     AssessmentPointValue, AssessmentProgressRecord, AssessmentQuestionVariationRule,
     AssessmentScoringState, AssessmentTitle, CourseInstanceId, CourseTerm, LateWorkRule,
     QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionBackend, QuestionBackendCapabilities,
-    QuestionId, QuestionPoolRevisionReference, QuestionPoolSelectionRule,
-    StudentFeedbackReleaseRule, StudentRecordId, Timestamp,
+    QuestionId, QuestionPoolEditNumber, QuestionPoolSelectionRule, StudentFeedbackReleaseRule,
+    StudentRecordId, Timestamp,
 };
 
 /// Relationship that may be persisted on one direct course membership.
@@ -97,8 +97,9 @@ pub struct FixedQuestionAssessmentEntrySummary {
 pub struct QuestionPoolAssessmentEntrySummary {
     /// Stable Assessment Entry identity.
     pub id: AssessmentEntryId,
-    /// Exact current immutable Revision of the Assessment-owned fork Pool.
-    pub question_pool_revision: QuestionPoolRevisionReference,
+    pub question_pool_id: QuestionId,
+    /// Current-state Pool Edit Number; not a historical membership object.
+    pub question_pool_edit_number: QuestionPoolEditNumber,
     /// Whether future Assessment Attempts may receive this Assessment Entry.
     pub availability: AssessmentEntryAvailability,
     /// Current-only scoring rule applied to every selected Question Pool Item.

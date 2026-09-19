@@ -9,7 +9,7 @@ test("inline Assessment save sends raw local time with its row edit number", asy
     async () =>
       new Response(
         JSON.stringify({
-          reference: "A8H4N6PA6",
+          id: "A8H4N6PA6",
           assessmentType: "exam",
           title: "Edited peptide bonds",
           dueAt: "2026-09-11T14:30:00.125",

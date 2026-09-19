@@ -1,11 +1,15 @@
-// Strict correction receipts for exact Question and Pool Revisions.
+// Strict correction receipts for Question Revisions and current Question Pools.
 
 import type { QuestionBloomCorrectionReceipt } from "../../../generated/api/QuestionBloomCorrectionReceipt";
 import type { QuestionPoolBloomCorrectionReceipt } from "../../../generated/api/QuestionPoolBloomCorrectionReceipt";
-import { decodeRecord } from "../decoder";
 import { decodeBloomClassificationView } from "./bloom_classification";
-import { decodeQuestionPoolRevisionReference } from "./question_pool_library";
-import { decodeQuestionRevisionReference, field, requireOnlyFields } from "./shared";
+import { decodeRecord } from "../decoder";
+import {
+  decodeQuestionId,
+  decodeQuestionRevisionReference,
+  field,
+  requireOnlyFields,
+} from "./shared";
 
 export function decodeQuestionBloomCorrectionReceipt(
   value: unknown,
@@ -27,11 +31,11 @@ export function decodeQuestionPoolBloomCorrectionReceipt(
   path: string,
 ): QuestionPoolBloomCorrectionReceipt {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["questionPoolRevision", "bloom"]);
+  requireOnlyFields(record, path, ["questionPoolId", "bloom"]);
   return {
-    questionPoolRevision: decodeQuestionPoolRevisionReference(
-      field(record, "questionPoolRevision", path),
-      `${path}.questionPoolRevision`,
+    questionPoolId: decodeQuestionId(
+      field(record, "questionPoolId", path),
+      `${path}.questionPoolId`,
     ),
     bloom: decodeBloomClassificationView(field(record, "bloom", path), `${path}.bloom`),
   };

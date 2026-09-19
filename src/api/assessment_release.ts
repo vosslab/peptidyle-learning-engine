@@ -40,7 +40,7 @@ export interface AssessmentBlueprintUpdateReview {
 
 /** One current adopted Assessment correspondence; direct local Assessments are omitted. */
 export interface CourseAssessmentBlueprintUpdateSummary {
-  readonly assessmentReference: AssessmentId;
+  readonly assessmentId: AssessmentId;
   readonly title: string;
   readonly assessmentType: AssessmentType;
   readonly matchesSource: boolean;
@@ -49,7 +49,7 @@ export interface CourseAssessmentBlueprintUpdateSummary {
 
 /** Derived together from one parent Revision; adoptedRevision is the immutable creation pin. */
 export interface CourseBlueprintUpdateReview {
-  readonly blueprintReference: BlueprintCourseId;
+  readonly blueprintCourseId: BlueprintCourseId;
   readonly adoptedRevision: BlueprintRevision;
   readonly sourceRevision: BlueprintRevision;
   readonly assessments: ReadonlyArray<CourseAssessmentBlueprintUpdateSummary>;
@@ -75,9 +75,9 @@ export interface CourseAssessmentSummary {
 
 /** One Course-qualified Assessment due in the authenticated Instructor's rolling next-seven-days window. */
 export interface DueSoonAssessmentSummary {
-  readonly courseReference: CourseInstanceId;
+  readonly courseId: CourseInstanceId;
   readonly courseLongName: string;
-  readonly assessmentReference: AssessmentId;
+  readonly assessmentId: AssessmentId;
   readonly assessmentType: AssessmentType;
   readonly assessmentTitle: string;
   readonly assessmentStatus: LiveAssessmentStatus;

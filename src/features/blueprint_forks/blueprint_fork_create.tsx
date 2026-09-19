@@ -36,7 +36,7 @@ export function BlueprintForkCreate(props: BlueprintForkCreateProps): JSX.Elemen
     setError("");
     try {
       // ASVS 2.3.1: uncertain retries retain this operation's key and exact source Revision.
-      if (action?.id !== reference || action.revision !== revision) {
+      if (action?.reference !== reference || action.revision !== revision) {
         action = { reference, revision, key: crypto.randomUUID() };
       }
       const result = await props.client.forkBlueprintCourse(reference, revision, action.key);

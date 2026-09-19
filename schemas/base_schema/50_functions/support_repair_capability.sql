@@ -98,15 +98,15 @@ $$;
 -- not a membership grant. Exact issuer Course authority and canonical roster
 -- scope are required here and rechecked beside the specific repair operation.
 CREATE FUNCTION ple_api.issue_support_repair_capability(
-    p_sysadmin_public_reference text, p_resource_class text,
+    p_sysadmin_account_id text, p_resource_class text,
     p_resource_reference text, p_purpose text, p_capability_id uuid
 )
-RETURNS TABLE(support_repair_capability_id uuid, sysadmin_public_reference text, resource_class text,
+RETURNS TABLE(support_repair_capability_id uuid, sysadmin_account_id text, resource_class text,
               resource_reference text, purpose text, expires_at_millis bigint, revoked_at_millis bigint)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_audit, ple_private AS $$
 DECLARE issuer text; sysadmin text; now_at timestamptz; repair_course text;
 BEGIN
-    IF p_sysadmin_public_reference IS NULL OR p_capability_id IS NULL
+    IF p_sysadmin_account_id IS NULL OR p_capability_id IS NULL
        OR p_resource_class IS NULL OR p_resource_class <> 'student'
        OR p_resource_reference IS NULL OR p_resource_reference <> btrim(p_resource_reference)
        OR char_length(p_resource_reference) NOT BETWEEN 1 AND 512 OR p_resource_reference ~ '[[:cntrl:]]'
@@ -130,7 +130,7 @@ BEGIN
          WHERE event.account_id = account.account_id
          ORDER BY event.occurred_at DESC, event.event_id DESC LIMIT 1
     ) AS state_event ON state_event.state = 'active'
-    WHERE account.account_id = p_sysadmin_public_reference AND account.product_role = 'sysadmin';
+    WHERE account.account_id = p_sysadmin_account_id AND account.product_role = 'sysadmin';
     IF NOT FOUND THEN RETURN; END IF;
     now_at := pg_catalog.transaction_timestamp();
     INSERT INTO ple_private.support_repair_capability (
@@ -152,7 +152,7 @@ END
 $$;
 
 CREATE FUNCTION ple_api.revoke_support_repair_capability(p_capability_id uuid)
-RETURNS TABLE(support_repair_capability_id uuid, sysadmin_public_reference text, resource_class text,
+RETURNS TABLE(support_repair_capability_id uuid, sysadmin_account_id text, resource_class text,
               resource_reference text, purpose text, expires_at_millis bigint, revoked_at_millis bigint)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_audit, ple_private AS $$
 DECLARE issuer text; capability ple_private.support_repair_capability%ROWTYPE;

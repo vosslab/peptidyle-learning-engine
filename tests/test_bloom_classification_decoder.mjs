@@ -57,7 +57,7 @@ test("Bloom correction receipts are exact-target closed DTOs", () => {
     bloom,
   };
   const pool = {
-    questionPoolRevision: { questionPoolId: "3S8B-24DZ", revisionNumber: 5 },
+    questionPoolId: "3S8B-24DZ",
     bloom,
   };
   assert.deepEqual(decodeQuestionBloomCorrectionReceipt(question, "response"), question);

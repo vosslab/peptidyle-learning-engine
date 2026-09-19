@@ -36,7 +36,7 @@ REVOKE ALL PRIVILEGES ON TABLE
 FROM PUBLIC;
 
 REVOKE ALL PRIVILEGES ON FUNCTION ple_data.blueprint_content_question_pins(jsonb),
-    ple_data.blueprint_content_pool_pins(jsonb),
+    ple_data.blueprint_content_pools(jsonb),
     ple_data.blueprint_content_assessments(jsonb), ple_data.blueprint_content_modules(jsonb),
     ple_data.blueprint_content_has_exact_keys(jsonb, text[]),
     ple_data.blueprint_content_is_closed(jsonb),
@@ -44,7 +44,7 @@ REVOKE ALL PRIVILEGES ON FUNCTION ple_data.blueprint_content_question_pins(jsonb
     ple_data.validate_blueprint_question_selection(text, bigint, jsonb) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION ple_data.blueprint_content_question_pins(jsonb),
-    ple_data.blueprint_content_pool_pins(jsonb),
+    ple_data.blueprint_content_pools(jsonb),
     ple_data.blueprint_content_assessments(jsonb), ple_data.blueprint_content_modules(jsonb),
     ple_data.blueprint_content_has_exact_keys(jsonb, text[]),
     ple_data.blueprint_content_is_closed(jsonb),

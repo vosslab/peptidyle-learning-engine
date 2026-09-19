@@ -73,12 +73,7 @@ function providedAvatarId(value: unknown, path: string): string {
 
 function summary(value: unknown, path: string): InstructorAccountSummary {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, [
-    "id",
-    "state",
-    "lastSuccessfulSignIn",
-    "providedAvatarId",
-  ]);
+  requireOnlyFields(record, path, ["id", "state", "lastSuccessfulSignIn", "providedAvatarId"]);
   return {
     id: accountReference(field(record, "id", path), `${path}.id`),
     state: accountState(field(record, "state", path), `${path}.state`),

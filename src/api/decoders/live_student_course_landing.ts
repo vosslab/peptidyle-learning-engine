@@ -49,13 +49,7 @@ function decodeCourseSummary(value: unknown, path: string): LiveStudentCourseLan
 function decodeInvitationSummary(value: unknown, path: string): LiveStudentCourseInvitationSummary {
   const record = decodeRecord(value, path);
   // ASVS 1.5.2/8.2.3: this closed projection contains no private identity fields.
-  requireOnlyFields(record, path, [
-    "id",
-    "shortName",
-    "longName",
-    "instructorDisplayName",
-    "term",
-  ]);
+  requireOnlyFields(record, path, ["id", "shortName", "longName", "instructorDisplayName", "term"]);
   const instructorDisplayName = decodeString(
     field(record, "instructorDisplayName", path),
     `${path}.instructorDisplayName`,

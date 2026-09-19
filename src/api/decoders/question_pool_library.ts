@@ -4,9 +4,8 @@ import { MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY } from "../../../generated
 import type { QuestionPoolLibrarySummary } from "../../../generated/api/QuestionPoolLibrarySummary";
 import type { QuestionPoolBloomFacets } from "../../../generated/api/QuestionPoolBloomFacets";
 import type { QuestionPoolMetadata } from "../../../generated/api/QuestionPoolMetadata";
-import type { QuestionPoolRevisionMemberView } from "../../../generated/api/QuestionPoolRevisionMemberView";
-import type { QuestionPoolRevisionReference } from "../../../generated/api/QuestionPoolRevisionReference";
-import type { QuestionPoolRevisionView } from "../../../generated/api/QuestionPoolRevisionView";
+import type { QuestionPoolMemberView } from "../../../generated/api/QuestionPoolMemberView";
+import type { QuestionPoolView } from "../../../generated/api/QuestionPoolView";
 import type { ReusableQuestionView } from "../../../generated/api/ReusableQuestionView";
 import type { QuestionSearchBloomCognitiveProcessFacet } from "../../../generated/api/QuestionSearchBloomCognitiveProcessFacet";
 import type { QuestionSearchBloomKnowledgeDimensionFacet } from "../../../generated/api/QuestionSearchBloomKnowledgeDimensionFacet";
@@ -118,35 +117,27 @@ export function decodeQuestionPoolMetadata(value: unknown, path: string): Questi
   };
 }
 
-export function decodeQuestionPoolRevisionReference(
-  value: unknown,
-  path: string,
-): QuestionPoolRevisionReference {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["questionPoolId", "revisionNumber"]);
-  return {
-    questionPoolId: decodeQuestionId(
-      field(record, "questionPoolId", path),
-      `${path}.questionPoolId`,
-    ),
-    revisionNumber: decodePositiveInteger(
-      field(record, "revisionNumber", path),
-      `${path}.revisionNumber`,
-    ),
-  };
-}
-
 function decodeQuestionPoolLibrarySummary(
   value: unknown,
   path: string,
 ): QuestionPoolLibrarySummary {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["questionPoolRevision", "metadata", "memberCount", "bloom"]);
+  requireOnlyFields(record, path, [
+    "questionPoolId",
+    "questionPoolEditNumber",
+    "metadata",
+    "memberCount",
+    "bloom",
+  ]);
   return {
     metadata: decodeQuestionPoolMetadata(field(record, "metadata", path), `${path}.metadata`),
-    questionPoolRevision: decodeQuestionPoolRevisionReference(
-      field(record, "questionPoolRevision", path),
-      `${path}.questionPoolRevision`,
+    questionPoolId: decodeQuestionId(
+      field(record, "questionPoolId", path),
+      `${path}.questionPoolId`,
+    ),
+    questionPoolEditNumber: decodePositiveInteger(
+      field(record, "questionPoolEditNumber", path),
+      `${path}.questionPoolEditNumber`,
     ),
     memberCount: decodePositiveInteger(field(record, "memberCount", path), `${path}.memberCount`),
     bloom: decodeNullable(
@@ -250,10 +241,7 @@ function decodeReusableQuestionView(value: unknown, path: string): ReusableQuest
 }
 
 /** Strictly decodes one ordered exact member for Pool and Assessment-fork readers. */
-export function decodeQuestionPoolRevisionMemberView(
-  value: unknown,
-  path: string,
-): QuestionPoolRevisionMemberView {
+export function decodeQuestionPoolMemberView(value: unknown, path: string): QuestionPoolMemberView {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["memberPosition", "questionRevision", "question"]);
   return {
@@ -297,13 +285,11 @@ export function decodeQuestionPoolLibraryPage(
 }
 
 /** ASVS 1.5.2 and 2.2.3: validates exact pins and immutable member order. */
-export function decodeQuestionPoolRevisionView(
-  value: unknown,
-  path = "response",
-): QuestionPoolRevisionView {
+export function decodeQuestionPoolView(value: unknown, path = "response"): QuestionPoolView {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "questionPoolRevision",
+    "questionPoolId",
+    "questionPoolEditNumber",
     "metadata",
     "bloom",
     "members",
@@ -313,7 +299,7 @@ export function decodeQuestionPoolRevisionView(
     field(record, "members", path),
     `${path}.members`,
     MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY,
-    decodeQuestionPoolRevisionMemberView,
+    decodeQuestionPoolMemberView,
   );
   if (members.length === 0) {
     throw new DecodeError(`${path}.members`, "a nonempty published Question Pool");
@@ -328,9 +314,13 @@ export function decodeQuestionPoolRevisionView(
   }
   return {
     metadata: decodeQuestionPoolMetadata(field(record, "metadata", path), `${path}.metadata`),
-    questionPoolRevision: decodeQuestionPoolRevisionReference(
-      field(record, "questionPoolRevision", path),
-      `${path}.questionPoolRevision`,
+    questionPoolId: decodeQuestionId(
+      field(record, "questionPoolId", path),
+      `${path}.questionPoolId`,
+    ),
+    questionPoolEditNumber: decodePositiveInteger(
+      field(record, "questionPoolEditNumber", path),
+      `${path}.questionPoolEditNumber`,
     ),
     bloom: decodeNullable(
       field(record, "bloom", path),

@@ -435,10 +435,10 @@ async fn access_reader_projects_one_authoritative_decision_and_effective_policy(
     let migration_url = runtime.migration_url().expose();
     let admin = lazy_pool(migration_url).expect("migration pool");
     let fixture = seed(&admin).await;
-    let course_public_reference = fixture.course_id.clone();
-    let assessment_public_reference = fixture.assessment_id.clone();
-    let course = CourseInstanceId::new(&course_public_reference).expect("Course reference");
-    let assessment = AssessmentId::new(&assessment_public_reference).expect("Assessment reference");
+    let course_instance_id = fixture.course_id.clone();
+    let assessment_id = fixture.assessment_id.clone();
+    let course = CourseInstanceId::new(&course_instance_id).expect("Course reference");
+    let assessment = AssessmentId::new(&assessment_id).expect("Assessment reference");
 
     let application_url = std::env::var("DATABASE_URL").expect("application database URL");
     let application = lazy_pool(&application_url).expect("application pool");
@@ -574,8 +574,8 @@ async fn access_reader_projects_one_authoritative_decision_and_effective_policy(
                 due_at < closes_at AS due_before_close \
            FROM ple_api.read_student_assessment_access($1, $2)",
     )
-    .bind(&course_public_reference)
-    .bind(&assessment_public_reference)
+    .bind(&course_instance_id)
+    .bind(&assessment_id)
     .fetch_one(&mut *tx)
     .await
     .expect("complete Assessment Access projection");

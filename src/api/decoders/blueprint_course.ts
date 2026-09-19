@@ -62,10 +62,10 @@ export function text(value: unknown, path: string): string {
   return decoded;
 }
 
-function blueprintReference(value: unknown, path: string): BlueprintCourseId {
+function blueprintCourseId(value: unknown, path: string): BlueprintCourseId {
   const decoded = decodeString(value, path);
   if (validateCanonicalPublicReference("blueprintCourse", decoded) === null) {
-    throw new DecodeError(path, "a canonical opaque Blueprint Course reference");
+    throw new DecodeError(path, "a canonical Blueprint Course ID");
   }
   return decoded;
 }
@@ -227,12 +227,19 @@ function authoringPool(value: unknown, path: string, selectionCount: number): vo
     record,
     path,
     kind === "import"
-      ? ["kind", "questionPoolRevision"]
-      : ["kind", "questionPoolRevision", "members", "interchangeabilityAttested"],
+      ? ["kind", "question_pool_id", "question_pool_edit_number"]
+      : [
+          "kind",
+          "question_pool_id",
+          "question_pool_edit_number",
+          "members",
+          "interchangeabilityAttested",
+        ],
   );
-  questionPoolRevisionReference(
-    field(record, "questionPoolRevision", path),
-    `${path}.questionPoolRevision`,
+  questionPoolId(field(record, "question_pool_id", path), `${path}.question_pool_id`);
+  decodePositiveInteger(
+    field(record, "question_pool_edit_number", path),
+    `${path}.question_pool_edit_number`,
   );
   if (kind === "import") return;
   const attested = decodeBoolean(
@@ -449,7 +456,8 @@ function contentView(value: unknown, path: string): void {
       } else {
         requireOnlyFields(entry, entryPath, [
           "kind",
-          "question_pool_revision",
+          "question_pool_id",
+          "question_pool_edit_number",
           "selection_count",
           "points_per_item",
           "scoring_rule",
@@ -457,9 +465,13 @@ function contentView(value: unknown, path: string): void {
           "question_attempt_limit",
           "question_attempt_time_limit",
         ]);
-        questionPoolRevisionReference(
-          field(entry, "question_pool_revision", entryPath),
-          `${entryPath}.question_pool_revision`,
+        questionPoolId(
+          field(entry, "question_pool_id", entryPath),
+          `${entryPath}.question_pool_id`,
+        );
+        decodePositiveInteger(
+          field(entry, "question_pool_edit_number", entryPath),
+          `${entryPath}.question_pool_edit_number`,
         );
         decodePositiveInteger(
           field(entry, "selection_count", entryPath),
@@ -489,13 +501,6 @@ function contentView(value: unknown, path: string): void {
   );
 }
 
-export function questionPoolRevisionReference(value: unknown, path: string): void {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["questionPoolId", "revisionNumber"]);
-  questionPoolId(field(record, "questionPoolId", path), `${path}.questionPoolId`);
-  decodePositiveInteger(field(record, "revisionNumber", path), `${path}.revisionNumber`);
-}
-
 function availability(value: unknown, path: string): BlueprintAvailability {
   // Blueprint Availability is a closed, generated browser contract. Do not
   // accept the obsolete `available` spelling: Private and Public have distinct
@@ -515,7 +520,7 @@ export function revisionReference(value: unknown, path: string): BlueprintRevisi
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["blueprint_course_id", "revision"]);
   return {
-    blueprint_course_id: blueprintReference(
+    blueprint_course_id: blueprintCourseId(
       field(record, "blueprint_course_id", path),
       `${path}.blueprint_course_id`,
     ),
@@ -554,7 +559,7 @@ function summary(value: unknown, path: string): BlueprintCourseSummaryView {
       `${path}.classification`,
     ),
     total_students_ever_enrolled: totalStudents,
-    id: blueprintReference(field(record, "id", path), `${path}.id`),
+    id: blueprintCourseId(field(record, "id", path), `${path}.id`),
     short_name: text(field(record, "short_name", path), `${path}.short_name`),
     long_name: text(field(record, "long_name", path), `${path}.long_name`),
     availability: availability(field(record, "availability", path), `${path}.availability`),
@@ -622,7 +627,7 @@ export function decodeBlueprintCourseView(value: unknown, path = "response"): Bl
     "modules",
   ]);
   return {
-    id: blueprintReference(field(record, "id", path), `${path}.id`),
+    id: blueprintCourseId(field(record, "id", path), `${path}.id`),
     classification: decodeCourseClassification(
       field(record, "classification", path),
       `${path}.classification`,
@@ -721,8 +726,8 @@ export function decodeRenameBlueprintCourseInput(
   return value as RenameBlueprintCourseInput;
 }
 
-export function decodeBlueprintCourseId(value: unknown, path = "reference"): BlueprintCourseId {
-  return blueprintReference(value, path);
+export function decodeBlueprintCourseId(value: unknown, path = "id"): BlueprintCourseId {
+  return blueprintCourseId(value, path);
 }
 
 function knownBlueprintFork(value: unknown, path: string): BlueprintKnownForkView {
@@ -749,7 +754,7 @@ function knownBlueprintFork(value: unknown, path: string): BlueprintKnownForkVie
     throw new DecodeError(`${path}.ownerDisplayName`, "one verified Instructor display name");
   }
   return {
-    id: blueprintReference(field(record, "id", path), `${path}.id`),
+    id: blueprintCourseId(field(record, "id", path), `${path}.id`),
     shortName: text(field(record, "shortName", path), `${path}.shortName`),
     longName: text(field(record, "longName", path), `${path}.longName`),
     availability: availability(field(record, "availability", path), `${path}.availability`),

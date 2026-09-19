@@ -74,7 +74,7 @@ impl CourseBlueprintPublicationStore for PostgresCourseBlueprintPublicationStore
         // ASVS 2.3.3: a retry resolves before any fresh child or Pool identity
         // is issued, preventing committed orphan Pool forks.
         if let Some(row) = sqlx::query(
-            "SELECT public_reference, blueprint_revision_number, blueprint_edit_number, \
+            "SELECT blueprint_course_id, blueprint_revision_number, blueprint_edit_number, \
              (EXTRACT(EPOCH FROM accepted_at) * 1000)::bigint AS accepted_at_millis \
              FROM ple_api.course_blueprint_publication_receipt($1, $2)",
         )
@@ -120,7 +120,7 @@ impl CourseBlueprintPublicationStore for PostgresCourseBlueprintPublicationStore
         let checksum = content.checksum()?;
         let classification = input.classification;
         let row = sqlx::query(
-            "SELECT public_reference, blueprint_revision_number, blueprint_edit_number, \
+            "SELECT blueprint_course_id, blueprint_revision_number, blueprint_edit_number, \
              (EXTRACT(EPOCH FROM accepted_at) * 1000)::bigint AS accepted_at_millis \
              FROM ple_api.create_blueprint_from_course_instance( \
                  $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)",
@@ -180,7 +180,7 @@ fn decode_receipt(
     request_checksum: RequestChecksum,
 ) -> Result<CreateBlueprintCourseReceipt, StoreError> {
     let reference = row
-        .try_get::<String, _>("public_reference")
+        .try_get::<String, _>("blueprint_course_id")
         .map_err(map_sqlx_error)?
         .parse::<BlueprintCourseId>()
         .map_err(|_| invalid("Blueprint Course Reference"))?;

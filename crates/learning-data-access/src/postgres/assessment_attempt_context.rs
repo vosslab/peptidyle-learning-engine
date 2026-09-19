@@ -19,8 +19,8 @@ impl PostgresLiveAssessmentDeliveryStore {
         let mut tx = self.begin(token).await?;
         let row = sqlx::query(
             "SELECT assessment_attempt_id, assessment_attempt_number, \
-                    course_reference_number, course_short_name, course_long_name, course_theme, \
-                    assessment_reference_number, assessment_title, \
+                    course_instance_id, course_short_name, course_long_name, course_theme, \
+                    assessment_id, assessment_title, \
                     display_time_zone, expires_at_millis, timer_remaining_milliseconds \
                FROM ple_api.read_student_assessment_attempt_context($1)",
         )
@@ -45,10 +45,7 @@ impl PostgresLiveAssessmentDeliveryStore {
                     .map_err(map_sqlx_error)?,
                 "Assessment Attempt number",
             )?,
-            course: course_reference(
-                row.try_get("course_reference_number")
-                    .map_err(map_sqlx_error)?,
-            )?,
+            course: course_reference(row.try_get("course_instance_id").map_err(map_sqlx_error)?)?,
             course_short_name: name(
                 row.try_get("course_short_name").map_err(map_sqlx_error)?,
                 "Course short name",
@@ -63,8 +60,7 @@ impl PostgresLiveAssessmentDeliveryStore {
             )
             .map_err(|_| StoreError::InvalidRecord("Course theme is invalid".to_string()))?,
             assessment: assessment_reference(
-                row.try_get("assessment_reference_number")
-                    .map_err(map_sqlx_error)?,
+                row.try_get("assessment_id").map_err(map_sqlx_error)?,
             )?,
             assessment_title: nonempty(
                 row.try_get("assessment_title").map_err(map_sqlx_error)?,

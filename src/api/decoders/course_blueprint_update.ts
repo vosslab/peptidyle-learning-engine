@@ -12,13 +12,14 @@ import {
   decodeRecord,
   decodeStringEnum,
 } from "../decoder";
-import { blueprintCourseReference, blueprintRevision } from "./assessment_release";
+import { blueprintRevision } from "./assessment_release";
+import { decodeBlueprintCourseId } from "./blueprint_course";
 import { decodeAssessmentId, decodeAssessmentTitle, field, requireOnlyFields } from "./shared";
 
 function assessmentSummary(value: unknown, path: string): CourseAssessmentBlueprintUpdateSummary {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "assessmentReference",
+    "assessmentId",
     "title",
     "assessmentType",
     "matchesSource",
@@ -40,10 +41,7 @@ function assessmentSummary(value: unknown, path: string): CourseAssessmentBluepr
     throw new DecodeError(path, "an applicable matching Blueprint Assessment");
   }
   return {
-    assessmentReference: decodeAssessmentId(
-      field(record, "assessmentReference", path),
-      `${path}.assessmentReference`,
-    ),
+    assessmentId: decodeAssessmentId(field(record, "assessmentId", path), `${path}.assessmentId`),
     title: decodeAssessmentTitle(field(record, "title", path), `${path}.title`),
     assessmentType: decodeStringEnum(
       field(record, "assessmentType", path),
@@ -62,7 +60,7 @@ export function decodeCourseBlueprintUpdateReview(
 ): CourseBlueprintUpdateReview {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "blueprintReference",
+    "blueprintCourseId",
     "adoptedRevision",
     "sourceRevision",
     "assessments",
@@ -82,14 +80,14 @@ export function decodeCourseBlueprintUpdateReview(
   );
   if (
     BigInt(sourceRevision) < BigInt(adoptedRevision) ||
-    new Set(assessments.map((row) => row.assessmentReference)).size !== assessments.length
+    new Set(assessments.map((row) => row.assessmentId)).size !== assessments.length
   ) {
     throw new DecodeError(path, "a current Revision and unique adopted Assessment correspondences");
   }
   return {
-    blueprintReference: blueprintCourseReference(
-      field(record, "blueprintReference", path),
-      `${path}.blueprintReference`,
+    blueprintCourseId: decodeBlueprintCourseId(
+      field(record, "blueprintCourseId", path),
+      `${path}.blueprintCourseId`,
     ),
     adoptedRevision,
     sourceRevision,

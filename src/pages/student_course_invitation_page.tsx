@@ -39,7 +39,7 @@ export function StudentCourseInvitationPage(): JSX.Element {
       busy() ||
       invitation.loading ||
       invitation.error !== undefined ||
-      invitation()?.reference !== reference
+      invitation()?.id !== reference
     )
       return;
     const generation = ++claimGeneration;
@@ -77,7 +77,7 @@ export function StudentCourseInvitationPage(): JSX.Element {
             <Show
               when={
                 !invitation.loading &&
-                (invitation.error !== undefined || invitation()?.reference !== course())
+                (invitation.error !== undefined || invitation()?.id !== course())
               }
             >
               <h1>Course invitation unavailable</h1>
@@ -90,7 +90,7 @@ export function StudentCourseInvitationPage(): JSX.Element {
               when={
                 !invitation.loading &&
                 invitation.error === undefined &&
-                invitation()?.reference === course()
+                invitation()?.id === course()
                   ? invitation()
                   : null
               }

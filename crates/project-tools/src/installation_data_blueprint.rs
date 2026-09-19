@@ -32,7 +32,7 @@ const LIVE_DEMO_BLUEPRINT_REQUEST_CHECKSUM: RequestChecksum = RequestChecksum::f
 
 /// Store-generated references consumed by the dependent Live Demo SQL graph.
 pub(crate) struct LiveDemoBlueprintManifestReferences {
-    pub(crate) blueprint_public_reference: String,
+    pub(crate) blueprint_course_id: String,
     pub(crate) assessment_id: String,
 }
 
@@ -139,7 +139,7 @@ pub(crate) fn create_live_demo_blueprint(
             "Live Demo Blueprint is not Public before Course adoption"
         );
         Ok(LiveDemoBlueprintManifestReferences {
-            blueprint_public_reference: receipt.blueprint_revision.blueprint_course_id.to_string(),
+            blueprint_course_id: receipt.blueprint_revision.blueprint_course_id.to_string(),
             assessment_id: assessment_reference.to_string(),
         })
     })

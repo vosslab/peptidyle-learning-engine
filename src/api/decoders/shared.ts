@@ -9,6 +9,7 @@ import type { QuestionLicense } from "../../../generated/api/QuestionLicense";
 import type { QuestionCitation } from "../../../generated/api/QuestionCitation";
 import type { QuestionRevisionReference } from "../../../generated/api/QuestionRevisionReference";
 import type { QuestionBackend } from "../../../generated/api/QuestionBackend";
+import type { AccountId } from "../../../generated/api/AccountId";
 import type { QuestionId } from "../../../generated/api/QuestionId";
 import type { QuestionMetadata } from "../../../generated/api/QuestionMetadata";
 import type {
@@ -16,6 +17,7 @@ import type {
   CourseInstanceRouteReference,
 } from "../../navigation/public_route";
 import { parseAssessmentId, parseCourseInstanceId } from "../../navigation/public_route";
+import { validateCanonicalPublicReference } from "../../question_id";
 import type { CursorPage } from "../contracts";
 import {
   DecodeError,
@@ -89,6 +91,14 @@ export function decodeAssessmentId(value: unknown, path: string): AssessmentRout
   const reference = parseAssessmentId(value);
   if (reference === null) throw new DecodeError(path, "an A reference");
   return reference;
+}
+
+export function decodeAccountId(value: unknown, path: string): AccountId {
+  const decoded = decodeString(value, path);
+  if (validateCanonicalPublicReference("account", decoded) === null) {
+    throw new DecodeError(path, "a canonical Account ID");
+  }
+  return decoded;
 }
 
 /** Course Instance names are durable labels, not Question Titles. */

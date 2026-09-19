@@ -8,7 +8,7 @@ import type { FixedQuestionAssessmentEntrySummary as FixedQuestionAssessmentEntr
 import type { AssessmentEntrySummary } from "../../../generated/api/AssessmentEntrySummary";
 import type { AssessmentEntryScoringRule } from "../../../generated/api/AssessmentEntryScoringRule";
 import type { QuestionPoolAssessmentEntrySummary as QuestionPoolAssessmentEntry } from "../../../generated/api/QuestionPoolAssessmentEntrySummary";
-import type { QuestionPoolRevisionReference } from "../../../generated/api/QuestionPoolRevisionReference";
+
 import type { AssessmentSummary } from "../../../generated/api/AssessmentSummary";
 import type { QuestionSearchResult } from "../../../generated/api/QuestionSearchResult";
 import type { CourseQuestionUse } from "../../../generated/api/CourseQuestionUse";
@@ -56,7 +56,6 @@ import {
   decodeIdentifier,
   decodeQuestionMetadata,
   decodeQuestionId,
-  decodePositiveQuestionRevisionNumber,
   decodeTimestamp,
   field,
   kind,
@@ -418,7 +417,7 @@ export function decodeCourseSummary(value: unknown, path = "response"): CourseSu
       field(record, "classification", path),
       `${path}.classification`,
     ),
-    id: decodeIdentifier(field(record, "id", path), `${path}.id`),
+    id: decodeCourseInstanceId(field(record, "id", path), `${path}.id`),
     shortName: decodeCourseName(field(record, "shortName", path), `${path}.shortName`),
     longName: decodeCourseName(field(record, "longName", path), `${path}.longName`),
     term: decodeCourseTerm(field(record, "term", path), `${path}.term`),
@@ -638,24 +637,6 @@ export function decodeAssessmentContentInput(
   };
 }
 
-function decodeQuestionPoolRevisionReference(
-  value: unknown,
-  path: string,
-): QuestionPoolRevisionReference {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["questionPoolId", "revisionNumber"]);
-  return {
-    questionPoolId: decodeQuestionId(
-      field(record, "questionPoolId", path),
-      `${path}.questionPoolId`,
-    ),
-    revisionNumber: decodePositiveQuestionRevisionNumber(
-      field(record, "revisionNumber", path),
-      `${path}.revisionNumber`,
-    ),
-  };
-}
-
 function decodeQuestionPoolSelectionRule(value: unknown, path: string): QuestionPoolSelectionRule {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["selectedQuestionOrder"]);
@@ -679,7 +660,8 @@ function decodeQuestionPoolAssessmentEntry(
   requireOnlyFields(record, path, [
     "kind",
     "id",
-    "questionPoolRevision",
+    "questionPoolId",
+    "questionPoolEditNumber",
     "availability",
     "scoringRule",
     "selectionCount",
@@ -690,9 +672,13 @@ function decodeQuestionPoolAssessmentEntry(
   ]);
   return {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
-    questionPoolRevision: decodeQuestionPoolRevisionReference(
-      field(record, "questionPoolRevision", path),
-      `${path}.questionPoolRevision`,
+    questionPoolId: decodeQuestionId(
+      field(record, "questionPoolId", path),
+      `${path}.questionPoolId`,
+    ),
+    questionPoolEditNumber: decodePositiveInteger(
+      field(record, "questionPoolEditNumber", path),
+      `${path}.questionPoolEditNumber`,
     ),
     availability: decodeStringEnum(field(record, "availability", path), `${path}.availability`, [
       "available",
@@ -756,8 +742,8 @@ export function decodeAssessmentSummary(
     ]);
   }
   const decoded = {
-    id: decodeIdentifier(field(record, "id", path), `${path}.id`),
-    courseId: decodeIdentifier(field(record, "courseId", path), `${path}.courseId`),
+    id: decodeAssessmentId(field(record, "id", path), `${path}.id`),
+    courseId: decodeCourseInstanceId(field(record, "courseId", path), `${path}.courseId`),
     title: decodeNonemptyString(field(record, "title", path), `${path}.title`),
     entries: decodeArray(field(record, "entries", path), `${path}.entries`, decodeAssessmentEntry),
     studentFeedbackReleaseRule: decodeStudentFeedbackReleaseRule(

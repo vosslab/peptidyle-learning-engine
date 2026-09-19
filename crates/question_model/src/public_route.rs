@@ -18,9 +18,9 @@ pub const RESERVED_REFERENCE_PREFIXES: &[&str] =
 
 /// Every public ID includes seven server-random Crockford characters and one
 /// public SHA-256 checksum character.
-pub const PUBLIC_REFERENCE_RANDOM_LENGTH: usize = 7;
+pub const PUBLIC_ID_RANDOM_LENGTH: usize = 7;
 
-macro_rules! impl_public_reference {
+macro_rules! impl_public_id {
     ($name:ident, $wire_prefix:literal, $checksum_prefix:literal, $description:literal) => {
         impl $name {
             /// Validates the exact canonical reference returned by a data boundary.
@@ -34,7 +34,7 @@ macro_rules! impl_public_reference {
             /// secure source for the supplied random characters.
             pub fn from_random_identity(identity: impl AsRef<str>) -> Result<Self, &'static str> {
                 let identity = identity.as_ref();
-                if identity.len() != PUBLIC_REFERENCE_RANDOM_LENGTH
+                if identity.len() != PUBLIC_ID_RANDOM_LENGTH
                     || !identity
                         .bytes()
                         .all(|character| QUESTION_ID_ALPHABET.contains(&character))
@@ -85,7 +85,7 @@ macro_rules! impl_public_reference {
                     ));
                 };
                 if !value.is_ascii()
-                    || suffix.len() != PUBLIC_REFERENCE_RANDOM_LENGTH + 1
+                    || suffix.len() != PUBLIC_ID_RANDOM_LENGTH + 1
                     || !suffix
                         .bytes()
                         .all(|character| QUESTION_ID_ALPHABET.contains(&character))
@@ -95,12 +95,9 @@ macro_rules! impl_public_reference {
                         " must use its exact canonical syntax"
                     ));
                 }
-                let checksum_input = format!(
-                    "{}{}",
-                    $checksum_prefix,
-                    &suffix[..PUBLIC_REFERENCE_RANDOM_LENGTH]
-                );
-                if suffix.as_bytes()[PUBLIC_REFERENCE_RANDOM_LENGTH]
+                let checksum_input =
+                    format!("{}{}", $checksum_prefix, &suffix[..PUBLIC_ID_RANDOM_LENGTH]);
+                if suffix.as_bytes()[PUBLIC_ID_RANDOM_LENGTH]
                     != public_id_checksum_character(checksum_input.as_bytes()) as u8
                 {
                     return Err(concat!(
@@ -217,10 +214,10 @@ pub struct CourseInvitationReference(NonZeroU32);
 #[serde(try_from = "String", into = "String")]
 pub struct BlueprintCourseId(String);
 
-impl_public_reference!(CourseInstanceId, "CI", "CI", "Course Instance ID");
-impl_public_reference!(AssessmentId, "A", "A", "Assessment ID");
-impl_public_reference!(AccountId, "U", "U", "Account ID");
-impl_public_reference!(BlueprintCourseId, "BP", "BP", "Blueprint Course ID");
+impl_public_id!(CourseInstanceId, "CI", "CI", "Course Instance ID");
+impl_public_id!(AssessmentId, "A", "A", "Assessment ID");
+impl_public_id!(AccountId, "U", "U", "Account ID");
+impl_public_id!(BlueprintCourseId, "BP", "BP", "Blueprint Course ID");
 
 fn crockford_serial(mut serial: u128) -> String {
     let mut chars = [b'0'; 7];

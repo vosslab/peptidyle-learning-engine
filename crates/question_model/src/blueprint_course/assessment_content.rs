@@ -10,7 +10,7 @@ use crate::{
     AssessmentActivityRules, AssessmentEntryScoringRule, AssessmentInstructions,
     AssessmentPointValue, LateWorkRule, MAX_ASSESSMENT_ATTEMPT_LIMIT,
     MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS, MAX_ASSESSMENT_ORDERED_ENTRIES,
-    QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionPoolRevisionReference,
+    QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionId, QuestionPoolEditNumber,
     QuestionPoolSelectionRule, QuestionRevisionReference, QuestionSearchResult,
     StudentFeedbackReleaseRule,
 };
@@ -73,18 +73,16 @@ pub struct ReusableFixedQuestionInput {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum BlueprintPoolInputChoice {
-    /// Copy the exact source Revision into a fresh Assessment-owned Pool.
+    /// Copy the current source Pool membership into a fresh Assessment-owned Pool.
     Import {
-        /// Exact immutable source Pool Revision; never resolved to latest.
-        #[serde(rename = "questionPoolRevision")]
-        question_pool_revision: QuestionPoolRevisionReference,
+        question_pool_id: QuestionId,
+        question_pool_edit_number: QuestionPoolEditNumber,
     },
     /// Retain a Pool already owned by the Assessment being replaced.
     Retained {
-        /// Exact prior Pool Revision checked under destination ownership by the Store.
-        #[serde(rename = "questionPoolRevision")]
-        question_pool_revision: QuestionPoolRevisionReference,
-        /// Null preserves members; an ordered list authors a new immutable Pool Revision.
+        question_pool_id: QuestionId,
+        question_pool_edit_number: QuestionPoolEditNumber,
+        /// Null preserves members; an ordered list replaces current Pool membership.
         #[serde(deserialize_with = "deserialize_blueprint_pool_members")]
         members: Option<Vec<QuestionRevisionReference>>,
         /// Explicit interchangeability review for newly submitted member content.
@@ -238,8 +236,8 @@ pub struct ReusableQuestionView {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ReusablePoolView {
-    /// Exact immutable Revision of the reusable Pool source.
-    pub question_pool_revision: QuestionPoolRevisionReference,
+    pub question_pool_id: QuestionId,
+    pub question_pool_edit_number: QuestionPoolEditNumber,
     /// Positive number of Pool members selected for each future Assessment Attempt.
     pub selection_count: NonZeroU32,
     /// Points copied for every selected Question Pool Item.

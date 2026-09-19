@@ -2,7 +2,6 @@
 
 import type { AssessmentQuestionPoolForkView } from "../../../generated/api/AssessmentQuestionPoolForkView";
 import type { AssessmentQuestionPoolSelectionCountReceipt } from "../../../generated/api/AssessmentQuestionPoolSelectionCountReceipt";
-import type { QuestionPoolRevisionReference } from "../../../generated/api/QuestionPoolRevisionReference";
 import {
   DecodeError,
   decodeNullable,
@@ -11,10 +10,7 @@ import {
   decodeString,
   decodeUuid,
 } from "../decoder";
-import {
-  decodeQuestionPoolMetadata,
-  decodeQuestionPoolRevisionMemberView,
-} from "./question_pool_library";
+import { decodeQuestionPoolMetadata, decodeQuestionPoolMemberView } from "./question_pool_library";
 import { decodeBoundedArray, decodeQuestionId, field, requireOnlyFields } from "./shared";
 import { MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY } from "../../../generated/api/MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY";
 import type { ImportedAssessmentQuestionPoolFork } from "../assessment_pool_fork";
@@ -28,22 +24,7 @@ function positiveEditNumber(value: unknown, path: string): string {
   return decoded;
 }
 
-function poolRevision(value: unknown, path: string): QuestionPoolRevisionReference {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["questionPoolId", "revisionNumber"]);
-  return {
-    questionPoolId: decodeQuestionId(
-      field(record, "questionPoolId", path),
-      `${path}.questionPoolId`,
-    ),
-    revisionNumber: decodePositiveInteger(
-      field(record, "revisionNumber", path),
-      `${path}.revisionNumber`,
-    ),
-  };
-}
-
-/** Decodes only exact pinned Pool members plus their narrow editor metadata. */
+/** Decodes only exact current Pool members plus their narrow editor metadata. */
 export function decodeAssessmentQuestionPoolForkView(
   value: unknown,
   path = "response",
@@ -51,7 +32,7 @@ export function decodeAssessmentQuestionPoolForkView(
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "assessmentEntryId",
-    "questionPoolRevision",
+    "questionPoolId",
     "questionPoolEditNumber",
     "selectionCount",
     "bloom",
@@ -62,7 +43,7 @@ export function decodeAssessmentQuestionPoolForkView(
     field(record, "members", path),
     `${path}.members`,
     MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY,
-    decodeQuestionPoolRevisionMemberView,
+    decodeQuestionPoolMemberView,
   );
   for (const [index, member] of members.entries()) {
     if (member.memberPosition !== index) {
@@ -78,11 +59,11 @@ export function decodeAssessmentQuestionPoolForkView(
       field(record, "assessmentEntryId", path),
       `${path}.assessmentEntryId`,
     ),
-    questionPoolRevision: poolRevision(
-      field(record, "questionPoolRevision", path),
-      `${path}.questionPoolRevision`,
+    questionPoolId: decodeQuestionId(
+      field(record, "questionPoolId", path),
+      `${path}.questionPoolId`,
     ),
-    questionPoolEditNumber: positiveEditNumber(
+    questionPoolEditNumber: decodePositiveInteger(
       field(record, "questionPoolEditNumber", path),
       `${path}.questionPoolEditNumber`,
     ),
@@ -131,7 +112,7 @@ export function decodeImportedAssessmentQuestionPoolFork(
   requireOnlyFields(record, path, [
     "assessmentEntryId",
     "questionPoolId",
-    "revisionNumber",
+    "questionPoolEditNumber",
     "assessmentEditNumber",
   ]);
   return {
@@ -143,9 +124,9 @@ export function decodeImportedAssessmentQuestionPoolFork(
       field(record, "questionPoolId", path),
       `${path}.questionPoolId`,
     ),
-    revisionNumber: decodePositiveInteger(
-      field(record, "revisionNumber", path),
-      `${path}.revisionNumber`,
+    questionPoolEditNumber: decodePositiveInteger(
+      field(record, "questionPoolEditNumber", path),
+      `${path}.questionPoolEditNumber`,
     ),
     assessmentEditNumber: positiveEditNumber(
       field(record, "assessmentEditNumber", path),

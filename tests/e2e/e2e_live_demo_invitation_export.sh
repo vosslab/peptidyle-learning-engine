@@ -186,12 +186,12 @@ print(json.dumps({
 import json, re, sys
 value = json.load(open(sys.argv[1], encoding="utf-8"))
 course = value.get("course") if isinstance(value, dict) else None
-reference = course.get("reference") if isinstance(course, dict) else None
+reference = course.get("id") if isinstance(course, dict) else None
 if not isinstance(reference, str) or re.fullmatch(r"CI[0-9A-HJKMNP-TV-Z]{8}", reference) is None:
 	raise SystemExit(1)
 print(reference)
 ' "$body_path")"; then
-		echo "Course Instance creation did not return a canonical public reference" >&2
+		echo "Course Instance creation did not return a canonical Course Instance ID" >&2
 		exit 1
 	fi
 	printf '%s\n' "$course"
@@ -257,13 +257,13 @@ BEGIN
       JOIN pg_namespace AS namespace ON namespace.oid = proc.pronamespace
      WHERE namespace.nspname = 'ple_api'
        AND proc.proname = 'export_pending_course_invitations'
-       AND pg_get_function_identity_arguments(proc.oid) = 'p_course_public_reference text';
+       AND pg_get_function_identity_arguments(proc.oid) = 'p_course_instance_id text';
     SELECT proc.oid INTO v_course
       FROM pg_proc AS proc
       JOIN pg_namespace AS namespace ON namespace.oid = proc.pronamespace
      WHERE namespace.nspname = 'ple_api'
        AND proc.proname = 'load_invitation_export_course'
-       AND pg_get_function_identity_arguments(proc.oid) = 'p_course_public_reference text';
+       AND pg_get_function_identity_arguments(proc.oid) = 'p_course_instance_id text';
     IF v_export IS NULL OR v_course IS NULL
        OR NOT has_function_privilege('ple_app', v_export, 'EXECUTE')
        OR NOT has_function_privilege('ple_app', v_course, 'EXECUTE')

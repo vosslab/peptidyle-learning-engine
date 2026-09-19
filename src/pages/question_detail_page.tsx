@@ -602,7 +602,8 @@ export function QuestionDetailPage(): JSX.Element {
                     <Show when={mayMutateLibrary()}>
                       <BloomClassificationEditor
                         targetName="Question"
-                        revisionNumber={record().summary.latestQuestionRevision.revisionNumber}
+                        contentMarkerKind="Revision"
+                        contentMarkerNumber={record().summary.latestQuestionRevision.revisionNumber}
                         bloom={bloom()}
                         save={(request) =>
                           applicationApi.client

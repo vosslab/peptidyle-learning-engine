@@ -261,9 +261,7 @@ export function ProposalTargetTools(props: {
                 <option value="">Choose a source</option>
                 <For
                   each={sources().filter(
-                    (source) =>
-                      source.id !== props.target.id &&
-                      source.availability !== "archived",
+                    (source) => source.id !== props.target.id && source.availability !== "archived",
                   )}
                 >
                   {(source) => (

@@ -36,7 +36,8 @@ function content() {
       },
       {
         kind: "pool",
-        question_pool_revision: { questionPoolId: "2R5X-E7YA", revisionNumber: 1 },
+        question_pool_id: "2R5X-E7YA",
+        question_pool_edit_number: 1,
         selection_count: 1,
         points_per_item: "1",
         scoring_rule: "normal",
@@ -71,12 +72,14 @@ const query = {
 
 function revision(revisionNumber = "2") {
   return {
-    blueprintRevision: { reference: "BP7K3MX9AA", revision: revisionNumber },
+    blueprintRevision: { blueprint_course_id: "BP7K3MX9AA", revision: revisionNumber },
     modules: [
       {
         blueprint_module_reference: "module-7",
         label: "Module 1",
-        assessments: [{ blueprint_assessment_reference: "assessment-7", content: content() }],
+        assessments: [
+          { blueprint_assessment_id: "00000000-0000-0000-0000-000000000007", content: content() },
+        ],
       },
     ],
   };
@@ -94,8 +97,8 @@ test("Blueprint Assessment picker presents fixed Questions in authored order", a
     source: {
       kind: "blueprintCourseAssessment",
       source: {
-        blueprint_revision: { reference: "BP7K3MX9AA", revision: "2" },
-        blueprint_assessment_reference: "assessment-7",
+        blueprint_revision: { blueprint_course_id: "BP7K3MX9AA", revision: "2" },
+        blueprint_assessment_id: "00000000-0000-0000-0000-000000000007",
       },
       label: "Blueprint Assessment",
     },
@@ -126,8 +129,8 @@ test("Blueprint Assessment picker refuses a Blueprint Course revision that chang
       source: {
         kind: "blueprintCourseAssessment",
         source: {
-          blueprint_revision: { reference: "BP7K3MX9AA", revision: "2" },
-          blueprint_assessment_reference: "assessment-7",
+          blueprint_revision: { blueprint_course_id: "BP7K3MX9AA", revision: "2" },
+          blueprint_assessment_id: "00000000-0000-0000-0000-000000000007",
         },
         label: "Stale Blueprint Assessment",
       },

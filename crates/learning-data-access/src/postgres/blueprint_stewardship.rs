@@ -51,10 +51,10 @@ impl PostgresBlueprintStewardshipStore {
 
     async fn read_star_in(
         tx: &mut Transaction<'_, Postgres>,
-        reference: BlueprintCourseId,
+        blueprint_course_id: BlueprintCourseId,
     ) -> Result<BlueprintCourseStarProjection, StoreError> {
         let row = sqlx::query("SELECT * FROM ple_api.read_current_blueprint_course_star($1)")
-            .bind(reference.as_string())
+            .bind(blueprint_course_id.as_string())
             .fetch_optional(&mut **tx)
             .await
             .map_err(map_sqlx_error)?
@@ -69,10 +69,10 @@ impl PostgresBlueprintStewardshipStore {
 
     async fn read_watch_in(
         tx: &mut Transaction<'_, Postgres>,
-        reference: BlueprintCourseId,
+        blueprint_course_id: BlueprintCourseId,
     ) -> Result<BlueprintCourseWatchProjection, StoreError> {
         let row = sqlx::query("SELECT * FROM ple_api.read_current_blueprint_course_watch($1)")
-            .bind(reference.as_string())
+            .bind(blueprint_course_id.as_string())
             .fetch_optional(&mut **tx)
             .await
             .map_err(map_sqlx_error)?
@@ -84,14 +84,14 @@ impl PostgresBlueprintStewardshipStore {
 
     async fn read_starred_instructors_in(
         tx: &mut Transaction<'_, Postgres>,
-        reference: BlueprintCourseId,
+        blueprint_course_id: BlueprintCourseId,
     ) -> Result<Vec<BlueprintCourseStarredInstructor>, StoreError> {
         // ASVS 8.2.1--8.3.1: the SQL capability derives the viewer from the
         // installed session; it accepts no Account ID or claimed role.
         let rows = sqlx::query(
             "SELECT display_name FROM ple_api.read_current_blueprint_course_starred_instructors($1)",
         )
-        .bind(reference.as_string())
+        .bind(blueprint_course_id.as_string())
         .fetch_all(&mut **tx)
         .await
         .map_err(map_sqlx_error)?;

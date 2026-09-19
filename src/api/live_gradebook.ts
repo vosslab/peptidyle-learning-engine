@@ -8,7 +8,7 @@ import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 export interface CourseGradebookStudentWork {
   readonly rosterId: string;
   readonly rosterName: string;
-  readonly assessmentReference: AssessmentId;
+  readonly assessmentId: AssessmentId;
   readonly assessmentTitle: string;
   readonly assessmentAttemptCompletion: AssessmentAttemptCompletion | null;
   /** Derived from server time; no grading operation or queue state. */
@@ -25,7 +25,7 @@ export interface CourseGradebookStudentWork {
 
 /** The complete browser projection for one current Instructor Course. */
 export interface CourseGradebook {
-  readonly courseReference: CourseInstanceId;
+  readonly courseId: CourseInstanceId;
   readonly studentWork: ReadonlyArray<CourseGradebookStudentWork>;
 }
 

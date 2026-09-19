@@ -174,7 +174,9 @@ mod tests {
             scoring_rule,
             question_statistics_eligibility: true,
             question_pool_selection: None,
-            pool_revision_member: None,
+            question_pool_id: None,
+            question_pool_edit_number: None,
+            question_pool_member_position: None,
         }
     }
 

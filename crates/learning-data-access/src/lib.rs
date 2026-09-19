@@ -102,8 +102,8 @@ pub use assessment_delivery::{
     StudentAssessmentAttemptPresentationSource, StudentAssessmentAttemptSavedResponse,
 };
 pub use assessment_pool_fork::{
-    AppendAssessmentPoolForkRevisionInput, AppendedAssessmentPoolForkRevision,
-    AssessmentPoolForkStore, ImportAssessmentPoolForkInput, ImportedAssessmentPoolFork,
+    AppendAssessmentPoolForkMembersInput, AppendedAssessmentPoolFork, AssessmentPoolForkStore,
+    ImportAssessmentPoolForkInput, ImportedAssessmentPoolFork,
 };
 pub use assessment_pool_selection_count::{
     AssessmentPoolSelectionCountInput, AssessmentPoolSelectionCountStore,
@@ -260,7 +260,7 @@ pub use question_pool_creation::{
     QuestionPoolCreationStore,
 };
 pub use question_pool_library::{
-    AssessmentQuestionPoolForkRecord, PublishedQuestionPoolRevision, QuestionPoolDiscoveryFilter,
+    AssessmentQuestionPoolForkRecord, PublishedQuestionPool, QuestionPoolDiscoveryFilter,
     QuestionPoolDiscoveryPage, QuestionPoolLibraryStore, QuestionPoolTextField,
     QuestionPoolTextFilter, QuestionPoolTextTerm,
 };

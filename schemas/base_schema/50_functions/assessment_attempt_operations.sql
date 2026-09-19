@@ -479,7 +479,7 @@ $$;
 -- Private Assessment Attempt readers need stable Course route/display facts but do not
 -- receive direct access to the Course relation.  These API-owner functions
 -- are executable only by that trusted private boundary.
-CREATE FUNCTION ple_api.course_reference_number_for_assessment_attempt(p_course_instance_id text)
+CREATE FUNCTION ple_api.course_instance_id_for_assessment_attempt(p_course_instance_id text)
 RETURNS text LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
     SELECT course.course_instance_id
@@ -519,8 +519,8 @@ SET LOCAL ROLE ple_private_owner;
 -- the Student and route references rather than accepting either identity from
 -- the browser.
 CREATE FUNCTION ple_private.prepare_current_assessment_attempt_start_decision(
-    p_course_reference_number text,
-    p_assessment_public_reference text
+    p_course_instance_id text,
+    p_assessment_id text
 ) RETURNS TABLE (
     resumable_assessment_attempt_id uuid,
     resumable_assessment_attempt_number integer
@@ -530,17 +530,17 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE assessment_row ple_data.assessment%ROWTYPE;
 DECLARE student_record_id_value uuid;
 BEGIN
-    IF p_course_reference_number IS NULL
-       OR p_assessment_public_reference IS NULL THEN
+    IF p_course_instance_id IS NULL
+       OR p_assessment_id IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Assessment Attempt start is unavailable';
     END IF;
     SELECT assessment.* INTO assessment_row
       FROM ple_data.assessment AS assessment
-     WHERE assessment.assessment_id = p_assessment_public_reference;
-    IF NOT FOUND OR ple_api.course_reference_number_for_assessment_attempt(
+     WHERE assessment.assessment_id = p_assessment_id;
+    IF NOT FOUND OR ple_api.course_instance_id_for_assessment_attempt(
         assessment_row.course_instance_id
-    ) IS DISTINCT FROM p_course_reference_number THEN
+    ) IS DISTINCT FROM p_course_instance_id THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Assessment Attempt start is unavailable';
     END IF;
@@ -555,8 +555,8 @@ BEGIN
 END $$;
 
 CREATE FUNCTION ple_private.prepare_current_assessment_attempt_start(
-    p_course_reference_number text,
-    p_assessment_public_reference text
+    p_course_instance_id text,
+    p_assessment_id text
 ) RETURNS TABLE (
     student_record_id uuid,
     assessment_id text,
@@ -566,11 +566,10 @@ CREATE FUNCTION ple_private.prepare_current_assessment_attempt_start(
     fixed_question_id text,
     fixed_revision_number integer,
     question_pool_id text,
-    question_pool_public_id text,
     question_pool_edit_number bigint,
     member_position integer,
     pool_question_id text,
-    pool_revision_number integer,
+    pool_question_revision_number integer,
     question_backend text,
     selection_count integer,
     pool_selection_rule text,
@@ -583,18 +582,18 @@ DECLARE assessment_row ple_data.assessment%ROWTYPE;
 DECLARE policy_row ple_data.assessment_policy_snapshot%ROWTYPE;
 DECLARE student_record_id_value uuid;
 BEGIN
-    IF p_course_reference_number IS NULL
-       OR p_assessment_public_reference IS NULL THEN
+    IF p_course_instance_id IS NULL
+       OR p_assessment_id IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Assessment Attempt start is unavailable';
     END IF;
 
     SELECT assessment.* INTO assessment_row
       FROM ple_data.assessment AS assessment
-     WHERE assessment.assessment_id = p_assessment_public_reference;
-    IF NOT FOUND OR ple_api.course_reference_number_for_assessment_attempt(
+     WHERE assessment.assessment_id = p_assessment_id;
+    IF NOT FOUND OR ple_api.course_instance_id_for_assessment_attempt(
         assessment_row.course_instance_id
-    ) IS DISTINCT FROM p_course_reference_number THEN
+    ) IS DISTINCT FROM p_course_instance_id THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Assessment Attempt start is unavailable';
     END IF;
@@ -627,7 +626,6 @@ BEGIN
            question.published_question_id,
            question.question_revision_number,
            pool_entry.question_pool_id,
-           pool.question_pool_id,
            pool.question_pool_edit_number,
            item.member_position,
            item.published_question_id,
@@ -671,8 +669,8 @@ CREATE FUNCTION ple_private.read_started_student_assessment_attempt(
     p_assessment_attempt_id uuid
 ) RETURNS TABLE (
     assessment_attempt_id uuid,
-    course_reference_number text,
-    assessment_reference_number text,
+    course_instance_id text,
+    assessment_id text,
     assessment_attempt_number integer,
     assessment_title text,
     assessment_instructions text

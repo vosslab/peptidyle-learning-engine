@@ -22,26 +22,25 @@ export interface ImportAssessmentQuestionPoolForkInput {
   readonly scoringRule: AssessmentEntryScoringRule;
 }
 
-/** Closed browser input for appending one immutable revision to an Assessment-owned Pool fork. */
-export interface AppendAssessmentQuestionPoolForkRevisionInput {
+/** Closed browser input for replacing current membership of an Assessment-owned Pool fork. */
+export interface AppendAssessmentQuestionPoolForkMembersInput {
   readonly expectedQuestionPoolEditNumber: string;
   readonly members: ReadonlyArray<QuestionRevisionReference>;
   readonly interchangeabilityAttested: boolean;
 }
 
-/** Whole receipt after appending a new immutable Assessment-owned Pool fork Revision. */
-export interface AppendedAssessmentQuestionPoolForkRevision {
+/** Whole receipt after saving current membership of an Assessment-owned Pool fork. */
+export interface AppendedAssessmentQuestionPoolForkMembers {
   readonly assessmentEntryId: AssessmentEntryId;
-  readonly revisionNumber: number;
-  readonly blueprintEditNumber: string;
+  readonly questionPoolEditNumber: number;
   readonly assessmentEditNumber: AssessmentEditNumber;
 }
 
-/** Server-issued Assessment entry and fork Revision 1 after an atomic Pool import. */
+/** Server-issued Assessment entry and fork Pool at Edit Number 1 after an atomic Pool import. */
 export interface ImportedAssessmentQuestionPoolFork {
   readonly assessmentEntryId: AssessmentEntryId;
   readonly questionPoolId: QuestionId;
-  readonly revisionNumber: number;
+  readonly questionPoolEditNumber: number;
   readonly assessmentEditNumber: AssessmentEditNumber;
 }
 
@@ -58,13 +57,13 @@ export interface AssessmentPoolForkClient {
     input: ImportAssessmentQuestionPoolForkInput,
     etag: string,
   ) => Promise<ImportedAssessmentQuestionPoolFork>;
-  readonly appendAssessmentQuestionPoolForkRevision: (
+  readonly appendAssessmentQuestionPoolForkMembers: (
     course: CourseInstanceId,
     assessment: AssessmentId,
     entry: AssessmentEntryId,
-    input: AppendAssessmentQuestionPoolForkRevisionInput,
+    input: AppendAssessmentQuestionPoolForkMembersInput,
     etag: string,
-  ) => Promise<AppendedAssessmentQuestionPoolForkRevision>;
+  ) => Promise<AppendedAssessmentQuestionPoolForkMembers>;
   readonly updateAssessmentQuestionPoolSelectionCount: (
     course: CourseInstanceId,
     assessment: AssessmentId,

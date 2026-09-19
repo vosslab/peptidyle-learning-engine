@@ -9,12 +9,12 @@ function history() {
     assessmentAttempt: "00000000-0000-0000-0000-00000000000c",
     attemptNumber: 3,
     course: {
-      reference: "CI7K3M2QAZ",
+      id: "CI7K3M2QAZ",
       shortName: "BCHM 301",
       longName: "Biochemistry 301: Proteins and Peptides",
       theme: "ocean",
     },
-    assessment: { reference: "A7K3M2QAS", title: "Peptide structure practice" },
+    assessment: { id: "A7K3M2QAS", title: "Peptide structure practice" },
     state: "submitted",
     questions: [
       {

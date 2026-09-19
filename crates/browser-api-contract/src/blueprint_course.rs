@@ -33,11 +33,12 @@ pub struct BlueprintHistoryPageView {
     pub next_cursor: Option<String>,
 }
 
-/// Answer-free exact membership of a Pool pinned in a current Blueprint Assessment.
+/// Answer-free exact membership of a Pool used in a current Blueprint Assessment.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BlueprintPoolMembersView {
-    pub question_pool_revision: question_model::QuestionPoolRevisionReference,
+    pub question_pool_id: question_model::QuestionId,
+    pub question_pool_edit_number: question_model::QuestionPoolEditNumber,
     pub members: Vec<question_model::QuestionRevisionReference>,
 }
 

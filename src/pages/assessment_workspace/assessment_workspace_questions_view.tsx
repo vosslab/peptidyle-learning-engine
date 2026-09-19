@@ -190,7 +190,7 @@ export function AssessmentWorkspaceQuestionsView(
                   ordered Questions and Question Pools, including local customizations. Dates,
                   release status, and existing Student Work are preserved. New Attempts use the
                   updated content. For each proposed Library source Question Pool, Apply creates a
-                  replacement Assessment-owned fork from the exact source Pool Revision shown below.
+                  replacement Assessment-owned fork from the current source Pool shown below.
                 </p>
                 <div class="assessment-workspace-grid">
                   <AssessmentBlueprintContentSummary
@@ -446,9 +446,9 @@ export function AssessmentWorkspaceQuestionsView(
               <option value="">Choose a Question Pool</option>
               <For each={availablePools()}>
                 {(pool) => (
-                  <option value={pool.questionPoolRevision.questionPoolId}>
-                    {pool.metadata.title} - {pool.questionPoolRevision.questionPoolId} Revision{" "}
-                    {pool.questionPoolRevision.revisionNumber} ({pool.memberCount} Questions)
+                  <option value={pool.questionPoolId}>
+                    {pool.metadata.title} - {pool.questionPoolId} Edit {pool.questionPoolEditNumber}{" "}
+                    ({pool.memberCount} Questions)
                     <Show when={pool.bloom}>
                       {(bloom) => ` - ${bloom().cognitiveProcess} / ${bloom().knowledgeDimension}`}
                     </Show>

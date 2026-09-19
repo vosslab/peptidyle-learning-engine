@@ -60,10 +60,10 @@ pub(super) async fn authenticate_application_transaction(
 }
 
 /// Public Blueprint Course ID used as the relational inspection key.
-pub(super) async fn blueprint_reference_number(
-    public_reference: &question_model::BlueprintCourseId,
+pub(super) async fn blueprint_course_id_text(
+    blueprint_course_id: &question_model::BlueprintCourseId,
 ) -> String {
-    public_reference.as_string()
+    blueprint_course_id.as_string()
 }
 
 pub(super) async fn adoption_inspection_connection() -> PgConnection {
@@ -80,13 +80,13 @@ pub(super) async fn adoption_inspection_connection() -> PgConnection {
 }
 
 /// Public commands use the minted Blueprint Course ID.
-pub(super) async fn blueprint_public_reference(reference: &str) -> String {
-    reference.to_owned()
+pub(super) async fn blueprint_course_id_text_from_str(blueprint_course_id: &str) -> String {
+    blueprint_course_id.to_owned()
 }
 
-/// Exact immutable member pins for one local Pool Revision.
+/// Exact current member Question Revision pins for one Pool.
 pub(super) async fn question_pool_member_pins(
-    pool: &question_model::QuestionPoolRevisionReference,
+    question_pool_id: &question_model::QuestionId,
 ) -> Vec<(String, i32)> {
     let mut inspection = adoption_inspection_connection().await;
     let pins = sqlx::query_as(
@@ -95,7 +95,7 @@ pub(super) async fn question_pool_member_pins(
           WHERE member.question_pool_id = $1 \
           ORDER BY member.member_position",
     )
-    .bind(pool.question_pool_id.as_str())
+    .bind(question_pool_id.as_str())
     .fetch_all(&mut inspection)
     .await
     .expect("Pool member pins");
@@ -112,7 +112,7 @@ pub(super) async fn assert_revision_checksum_mismatch(
     migration_url: &str,
     application_url: &str,
     reference: &str,
-    blueprint_reference: question_model::BlueprintCourseId,
+    blueprint_course_id: question_model::BlueprintCourseId,
 ) {
     let tamper_pool = lazy_pool(application_url).expect("tamper application pool");
     let tamper_store = PostgresBlueprintCourseStore::new(tamper_pool.clone());
@@ -121,7 +121,7 @@ pub(super) async fn assert_revision_checksum_mismatch(
         .load_blueprint_revision(
             token(),
             question_model::BlueprintRevisionReference {
-                blueprint_course_id: blueprint_reference.clone(),
+                blueprint_course_id: blueprint_course_id.clone(),
                 revision: exact_revision,
             },
         )
@@ -174,7 +174,7 @@ pub(super) async fn assert_revision_checksum_mismatch(
             .load_blueprint_revision(
                 token(),
                 question_model::BlueprintRevisionReference {
-                    blueprint_course_id: blueprint_reference,
+                    blueprint_course_id: blueprint_course_id.clone(),
                     revision: exact_revision,
                 },
             )
@@ -222,7 +222,7 @@ pub(super) async fn save(
     checksum: Vec<u8>,
     content: &StoredBlueprintCourseContent,
 ) -> Result<(i64, bool), sqlx::Error> {
-    let public_reference = blueprint_public_reference(reference).await;
+    let blueprint_course_id = blueprint_course_id_text_from_str(reference).await;
     let encoded_content = database_content_json(content);
     let mut connection = PgConnection::connect(url)
         .await
@@ -237,7 +237,7 @@ pub(super) async fn save(
                  '[]'::jsonb) \
                 FROM ple_api.list_blueprint_daughter_course_ids($1)))",
     )
-    .bind(public_reference)
+    .bind(blueprint_course_id)
     .bind(expected_revision)
     .bind(checksum)
     .bind(encoded_content)
@@ -278,7 +278,7 @@ pub(super) async fn transition_blueprint_availability(
     availability: &'static str,
     archive_confirmation_long_name: Option<&str>,
 ) -> Result<(BlueprintAvailability, i64), sqlx::Error> {
-    let public_reference = blueprint_public_reference(reference).await;
+    let blueprint_course_id = blueprint_course_id_text_from_str(reference).await;
     let mut connection = PgConnection::connect(url)
         .await
         .expect("Blueprint lifecycle application connection");
@@ -290,7 +290,7 @@ pub(super) async fn transition_blueprint_availability(
     let result = sqlx::query(
         "SELECT availability, blueprint_edit_number FROM ple_api.set_blueprint_availability($1, $2, $3, $4)",
     )
-    .bind(public_reference)
+    .bind(blueprint_course_id)
     .bind(expected_edit_number)
     .bind(availability)
     .bind(archive_confirmation_long_name)
@@ -409,11 +409,11 @@ pub(super) fn content_input(title: &str) -> CreateBlueprintCourseInput {
                 entries: vec![
                     BlueprintAssessmentEntryInput::Pool(question_model::ReusablePoolInput {
                         pool: question_model::BlueprintPoolInputChoice::Import {
-                            question_pool_revision: question_model::QuestionPoolRevisionReference {
-                                question_pool_id: question_pool_id(),
-                                revision_number: question_model::QuestionPoolRevisionNumber::new(1)
-                                    .expect("fixture Pool Revision"),
-                            },
+                            question_pool_id: question_pool_id(),
+                            question_pool_edit_number: question_model::QuestionPoolEditNumber::new(
+                                1,
+                            )
+                            .expect("fixture Pool Edit Number"),
                         },
                         selection_count: std::num::NonZeroU32::new(1)
                             .expect("positive fixture Pool selection count"),
@@ -486,17 +486,21 @@ pub(super) fn retained_assessment_input(
     let mut input = assessment_input(title);
     let mut prior_pools = prior.entries.iter().filter_map(|entry| match entry {
         learning_data_access::StoredBlueprintAssessmentEntry::Pool {
-            question_pool_revision,
+            question_pool_id,
+            question_pool_edit_number,
             ..
-        } => Some(question_pool_revision.clone()),
+        } => Some((question_pool_id.clone(), *question_pool_edit_number)),
         learning_data_access::StoredBlueprintAssessmentEntry::Fixed { .. } => None,
     });
     for entry in &mut input.entries {
         let question_model::BlueprintAssessmentEntryInput::Pool(pool) = entry else {
             continue;
         };
+        let (question_pool_id, question_pool_edit_number) =
+            prior_pools.next().expect("retained fixture Pool");
         pool.pool = question_model::BlueprintPoolInputChoice::Retained {
-            question_pool_revision: prior_pools.next().expect("retained fixture Pool"),
+            question_pool_id,
+            question_pool_edit_number,
             members: None,
             interchangeability_attested: false,
         };

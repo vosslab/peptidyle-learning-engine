@@ -31,7 +31,8 @@ export interface BlueprintPoolMembersEditorProps {
 /** Only exact, scoped reads occur here; all writes belong to the parent Blueprint Save. */
 export function BlueprintPoolMembersEditor(props: BlueprintPoolMembersEditorProps): JSX.Element {
   const initialPool = structuredClone(props.entry.pool);
-  const pin = initialPool.questionPoolRevision;
+  const questionPoolId = initialPool.question_pool_id;
+  const questionPoolEditNumber = initialPool.question_pool_edit_number;
   const [members, setMembers] = createSignal<QuestionRevisionReference[]>();
   const [error, setError] = createSignal("");
   const [pickerOpen, setPickerOpen] = createSignal(false);
@@ -43,10 +44,10 @@ export function BlueprintPoolMembersEditor(props: BlueprintPoolMembersEditorProp
   });
 
   createEffect(() => {
-    const currentPin = props.entry.pool.questionPoolRevision;
+    const current = props.entry.pool;
     if (
-      currentPin.questionPoolId !== pin.questionPoolId ||
-      currentPin.revisionNumber !== pin.revisionNumber
+      current.question_pool_id !== questionPoolId ||
+      current.question_pool_edit_number !== questionPoolEditNumber
     )
       props.onClose();
   });
@@ -56,13 +57,13 @@ export function BlueprintPoolMembersEditor(props: BlueprintPoolMembersEditorProp
       const result = await props.client.getBlueprintPoolMembers(
         props.blueprintRef,
         props.assessmentRef,
-        pin.questionPoolId,
+        questionPoolId,
       );
       if (disposed) return;
-      // ASVS 2.2.1: reject stale provenance rather than silently choosing another Revision.
+      // ASVS 2.2.1: reject stale Pool membership rather than silently choosing another Pool.
       if (
-        result.questionPoolRevision.questionPoolId !== pin.questionPoolId ||
-        result.questionPoolRevision.revisionNumber !== pin.revisionNumber
+        result.questionPoolId !== questionPoolId ||
+        result.questionPoolEditNumber !== questionPoolEditNumber
       ) {
         setError(
           "Pool membership has changed. Cancel this editor and refresh the Blueprint Course before editing members.",
@@ -92,7 +93,8 @@ export function BlueprintPoolMembersEditor(props: BlueprintPoolMembersEditorProp
     props.onChange(
       {
         kind: "retained",
-        questionPoolRevision: pin,
+        question_pool_id: questionPoolId,
+        question_pool_edit_number: questionPoolEditNumber,
         members: next,
         interchangeabilityAttested: attested,
       },
@@ -133,7 +135,7 @@ export function BlueprintPoolMembersEditor(props: BlueprintPoolMembersEditorProp
   return (
     <section class="blueprint-course-content-card" aria-label="Blueprint Pool members">
       <h4>
-        Question Pool {pin.questionPoolId}, Revision {pin.revisionNumber}
+        Question Pool {questionPoolId}, Edit {questionPoolEditNumber}
       </h4>
       <p>
         Members are exact Question Revision References, in authored order. This edit changes only

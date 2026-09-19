@@ -228,10 +228,10 @@ pub enum CanonicalBlueprintAssessmentEntry {
         #[serde(deserialize_with = "deserialize_question_attempt_time_limit")]
         question_attempt_time_limit: QuestionAttemptTimeLimit,
     },
-    /// One exact immutable Question Pool Revision with reusable selection settings.
+    /// One current Question Pool with reusable selection settings.
     Pool {
-        #[serde(deserialize_with = "deserialize_question_pool_revision_reference")]
-        question_pool_revision: crate::QuestionPoolRevisionReference,
+        question_pool_id: crate::QuestionId,
+        question_pool_edit_number: crate::QuestionPoolEditNumber,
         selection_count: std::num::NonZeroU32,
         points_per_item: AssessmentPointValue,
         scoring_rule: AssessmentEntryScoringRule,
@@ -258,26 +258,6 @@ where
     let reference = StrictReference::deserialize(deserializer)?;
     Ok(QuestionRevisionReference {
         question_id: reference.question_id,
-        revision_number: reference.revision_number,
-    })
-}
-
-fn deserialize_question_pool_revision_reference<'de, D>(
-    deserializer: D,
-) -> Result<crate::QuestionPoolRevisionReference, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    #[derive(Deserialize)]
-    #[serde(rename_all = "camelCase", deny_unknown_fields)]
-    struct StrictReference {
-        question_pool_id: crate::QuestionId,
-        revision_number: crate::QuestionPoolRevisionNumber,
-    }
-
-    let reference = StrictReference::deserialize(deserializer)?;
-    Ok(crate::QuestionPoolRevisionReference {
-        question_pool_id: reference.question_pool_id,
         revision_number: reference.revision_number,
     })
 }
@@ -331,7 +311,8 @@ impl CanonicalBlueprintAssessmentEntry {
                 question_attempt_time_limit,
             }),
             Self::Pool {
-                question_pool_revision,
+                question_pool_id,
+                question_pool_edit_number,
                 selection_count,
                 points_per_item,
                 scoring_rule,
@@ -340,7 +321,8 @@ impl CanonicalBlueprintAssessmentEntry {
                 question_attempt_time_limit,
             } => BlueprintAssessmentEntryInput::Pool(ReusablePoolInput {
                 pool: BlueprintPoolInputChoice::Import {
-                    question_pool_revision,
+                    question_pool_id,
+                    question_pool_edit_number,
                 },
                 selection_count,
                 points_per_item,
@@ -399,7 +381,8 @@ impl From<&BlueprintAssessmentEntryContent> for CanonicalBlueprintAssessmentEntr
                 question_attempt_time_limit: *question_attempt_time_limit,
             },
             BlueprintAssessmentEntryContent::Pool(pool) => Self::Pool {
-                question_pool_revision: pool.question_pool_revision().clone(),
+                question_pool_id: pool.question_pool_id().clone(),
+                question_pool_edit_number: pool.question_pool_edit_number(),
                 selection_count: pool.selection_count(),
                 points_per_item: pool.points_per_item(),
                 scoring_rule: pool.scoring_rule(),
@@ -419,8 +402,8 @@ mod tests {
     use crate::{
         AssessmentActivityRules, AssessmentTitle, BlueprintAssessmentContent,
         BlueprintAssessmentId, BlueprintCourseModuleContent, BlueprintModuleReference,
-        BlueprintQuestionPoolContent, LateWorkRule, QuestionPoolRevisionNumber,
-        QuestionPoolRevisionReference, QuestionPoolSelectedQuestionOrder, QuestionRevisionNumber,
+        BlueprintQuestionPoolContent, LateWorkRule, QuestionPoolEditNumber,
+        QuestionPoolSelectedQuestionOrder, QuestionRevisionNumber, ReusablePoolView,
         StudentFeedbackReleaseRule,
     };
     use uuid::Uuid;
@@ -434,10 +417,8 @@ mod tests {
             question_id: "7K3M-19QX".parse().expect("Question ID"),
             revision_number: QuestionRevisionNumber::new(2).expect("Question Revision"),
         };
-        let pool = QuestionPoolRevisionReference {
-            question_pool_id: "12A4-TBCZ".parse().expect("Pool ID"),
-            revision_number: QuestionPoolRevisionNumber::new(3).expect("Pool Revision"),
-        };
+        let question_pool_id: crate::QuestionId = "12A4-TBCZ".parse().expect("Pool ID");
+        let question_pool_edit_number = QuestionPoolEditNumber::new(3).expect("Pool Edit Number");
         let defaults = BlueprintAssessmentDefaults {
             assessment_attempt_time_limit_seconds: NonZeroU32::new(900),
             attempt_limit: NonZeroU32::new(2),
@@ -467,18 +448,22 @@ mod tests {
                                 question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
                             },
                             BlueprintAssessmentEntryContent::Pool(
-                                BlueprintQuestionPoolContent::new(
-                                    pool.clone(),
-                                    NonZeroU32::new(2).expect("selection count"),
-                                    AssessmentPointValue::from_whole(4),
-                                    AssessmentEntryScoringRule::ExtraCredit,
-                                    QuestionPoolSelectionRule {
+                                BlueprintQuestionPoolContent::new(ReusablePoolView {
+                                    question_pool_id: question_pool_id.clone(),
+                                    question_pool_edit_number,
+                                    selection_count: NonZeroU32::new(2).expect("selection count"),
+                                    points_per_item: AssessmentPointValue::from_whole(4),
+                                    scoring_rule: AssessmentEntryScoringRule::ExtraCredit,
+                                    selection_rule: QuestionPoolSelectionRule {
                                         selected_question_order:
                                             QuestionPoolSelectedQuestionOrder::QuestionPoolOrder,
                                     },
-                                    QuestionAttemptLimit { max_attempts: None },
-                                    QuestionAttemptTimeLimit::Unlimited,
-                                )
+                                    question_attempt_limit: QuestionAttemptLimit {
+                                        max_attempts: None,
+                                    },
+                                    question_attempt_time_limit:
+                                        QuestionAttemptTimeLimit::Unlimited,
+                                })
                                 .expect("Pool content"),
                             ),
                         ],
@@ -521,9 +506,13 @@ mod tests {
         assert!(matches!(
             &input.modules[0].assessments[0].entries[1],
             BlueprintAssessmentEntryInput::Pool(ReusablePoolInput {
-                pool: BlueprintPoolInputChoice::Import { question_pool_revision },
+                pool: BlueprintPoolInputChoice::Import {
+                    question_pool_id: imported_pool_id,
+                    question_pool_edit_number: imported_edit_number,
+                },
                 ..
-            }) if question_pool_revision == &pool
+            }) if imported_pool_id.as_str() == "12A4-TBCZ"
+                && imported_edit_number.get() == 3
         ));
 
         let mut injected = serde_json::to_value(exchange).expect("canonical value");

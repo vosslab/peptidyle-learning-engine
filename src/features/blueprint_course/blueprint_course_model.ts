@@ -10,7 +10,8 @@ import type { BlueprintAssessmentContentView } from "../../../generated/api/Blue
 import type { BlueprintAssessmentEntryInput } from "../../../generated/api/BlueprintAssessmentEntryInput";
 import type { BlueprintAssessmentEntryView } from "../../../generated/api/BlueprintAssessmentEntryView";
 import type { AssessmentType } from "../../../generated/api/AssessmentType";
-import type { QuestionPoolRevisionReference } from "../../../generated/api/QuestionPoolRevisionReference";
+import type { QuestionId } from "../../../generated/api/QuestionId";
+import type { QuestionPoolEditNumber } from "../../../generated/api/QuestionPoolEditNumber";
 import type { QuestionRevisionReference } from "../../../generated/api/QuestionRevisionReference";
 import type { QuestionPickerSelection } from "../question_picker";
 
@@ -85,12 +86,12 @@ export function blueprintLifecyclePresentation(
 }
 
 /** Appends a cursor page without duplicating an already visible Blueprint Course. */
-export function appendBlueprintCoursePage<Record extends { readonly reference: string }>(
+export function appendBlueprintCoursePage<Record extends { readonly id: string }>(
   current: ReadonlyArray<Record>,
   incoming: ReadonlyArray<Record>,
 ): ReadonlyArray<Record> {
-  const known = new Set(current.map((record) => record.reference));
-  return [...current, ...incoming.filter((record) => !known.has(record.reference))];
+  const known = new Set(current.map((record) => record.id));
+  return [...current, ...incoming.filter((record) => !known.has(record.id))];
 }
 
 /** Gives every cursor continuation a precise Blueprint Course action. */
@@ -170,11 +171,16 @@ function fixedEntry(publishedQuestion: QuestionRevisionReference): BlueprintAsse
 }
 
 function poolEntry(
-  questionPoolRevision: QuestionPoolRevisionReference,
+  questionPoolId: QuestionId,
+  questionPoolEditNumber: QuestionPoolEditNumber,
 ): BlueprintAssessmentEntryInput {
   return {
     kind: "pool",
-    pool: { kind: "import", questionPoolRevision },
+    pool: {
+      kind: "import",
+      question_pool_id: questionPoolId,
+      question_pool_edit_number: questionPoolEditNumber,
+    },
     selection_count: 1,
     points_per_item: "1",
     scoring_rule: "normal",
@@ -201,9 +207,13 @@ export function appendPickedFixedEntries(
 /** Appends one Question Pool with Question Pool Item order selected by the Instructor. */
 export function appendPickedPool(
   content: BlueprintAssessmentContentInput,
-  questionPoolRevision: QuestionPoolRevisionReference,
+  questionPoolId: QuestionId,
+  questionPoolEditNumber: QuestionPoolEditNumber,
 ): BlueprintAssessmentContentInput {
-  return { ...content, entries: [...content.entries, poolEntry(questionPoolRevision)] };
+  return {
+    ...content,
+    entries: [...content.entries, poolEntry(questionPoolId, questionPoolEditNumber)],
+  };
 }
 
 export function moveReusableEntry(
@@ -370,7 +380,8 @@ function entryInputFromView(entry: BlueprintAssessmentEntryView): BlueprintAsses
       kind: "pool",
       pool: {
         kind: "retained",
-        questionPoolRevision: entry.question_pool_revision,
+        question_pool_id: entry.question_pool_id,
+        question_pool_edit_number: entry.question_pool_edit_number,
         members: null,
         interchangeabilityAttested: false,
       },

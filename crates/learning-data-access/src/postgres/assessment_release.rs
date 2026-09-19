@@ -8,9 +8,9 @@ use question_model::{
     AssessmentTitle, AssessmentType, BlueprintAssessmentId, BlueprintAssessmentSource,
     BlueprintCourseId, BlueprintRevision, BlueprintRevisionReference, CourseInstanceId, CourseTerm,
     FixedQuestionAssessmentEntry, LateWorkRule, LocalDateAndTime, QuestionAttemptLimit,
-    QuestionAttemptTimeLimit, QuestionId, QuestionPoolAssessmentEntry, QuestionPoolRevisionNumber,
-    QuestionPoolRevisionReference, QuestionPoolSelectedQuestionOrder, QuestionPoolSelectionRule,
-    QuestionRevisionNumber, QuestionRevisionReference, Timestamp,
+    QuestionAttemptTimeLimit, QuestionId, QuestionPoolAssessmentEntry, QuestionPoolEditNumber,
+    QuestionPoolSelectedQuestionOrder, QuestionPoolSelectionRule, QuestionRevisionNumber,
+    QuestionRevisionReference, Timestamp,
 };
 use sqlx::{Postgres, Row, Transaction};
 
@@ -83,7 +83,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
                     AccountTimeZone::parse(&value).map_err(|_| invalid("Account Time Zone"))
                 })?;
         let rows = sqlx::query(concat!(
-            "SELECT course_reference_number, course_long_name, assessment_reference_number, ",
+            "SELECT course_instance_id, course_long_name, assessment_id, ",
             "assessment_type, assessment_title, assessment_status, due_at_millis ",
             "FROM ple_api.list_assessments_due_soon()",
         ))
@@ -95,15 +95,13 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
             .map(|row| {
                 Ok(DueSoonAssessmentSummary {
                     course_id: course_reference(
-                        row.try_get("course_reference_number")
-                            .map_err(map_sqlx_error)?,
+                        row.try_get("course_instance_id").map_err(map_sqlx_error)?,
                     )?,
                     course_long_name: course_name(
                         row.try_get("course_long_name").map_err(map_sqlx_error)?,
                     )?,
                     assessment_id: assessment_reference(
-                        row.try_get("assessment_reference_number")
-                            .map_err(map_sqlx_error)?,
+                        row.try_get("assessment_id").map_err(map_sqlx_error)?,
                     )?,
                     assessment_type: assessment_type(
                         row.try_get("assessment_type").map_err(map_sqlx_error)?,
@@ -136,7 +134,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
         // ASVS 1.2.3 and 8.2.2: bind the public Course Reference and let the
         // session-authorized database function enforce the exact Course owner.
         let rows = sqlx::query(
-            "SELECT assessment_reference_number, assessment_type, assessment_title, due_at_millis, assessment_status, \
+            "SELECT assessment_id, assessment_type, assessment_title, due_at_millis, assessment_status, \
              assessment_edit_number FROM ple_api.list_course_assessments($1)",
         )
         .bind(course.as_string())
@@ -148,8 +146,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
             .map(|row| {
                 Ok(CourseAssessmentSummary {
                     id: assessment_reference(
-                        row.try_get("assessment_reference_number")
-                            .map_err(map_sqlx_error)?,
+                        row.try_get("assessment_id").map_err(map_sqlx_error)?,
                     )?,
                     assessment_type: assessment_type(
                         row.try_get("assessment_type").map_err(map_sqlx_error)?,
@@ -225,10 +222,8 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
             .fetch_one(&mut *tx)
             .await
             .map_err(map_sqlx_error)?;
-        let assessment = assessment_reference(
-            row.try_get("assessment_reference_number")
-                .map_err(map_sqlx_error)?,
-        )?;
+        let assessment =
+            assessment_reference(row.try_get("assessment_id").map_err(map_sqlx_error)?)?;
         let context = schedule_context(&mut tx, &course).await?;
         let rows = workspace_rows(&mut tx, &course, &assessment).await?;
         let result = decode_workspace(&rows, &context)?.ok_or(StoreError::NotFound)?;
@@ -339,7 +334,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
             })
             .transpose()?;
         let row = sqlx::query(
-            "SELECT assessment_reference_number, assessment_type, assessment_title, due_at_millis, assessment_status, assessment_edit_number \
+            "SELECT assessment_id, assessment_type, assessment_title, due_at_millis, assessment_status, assessment_edit_number \
              FROM ple_api.save_assessment_inline($1, $2, $3, $4, \
              CASE WHEN $5 IS NULL THEN NULL::timestamptz ELSE to_timestamp($5::double precision / 1000) END)",
         )
@@ -365,10 +360,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
             .transpose()
             .map_err(|_| invalid("Due at"))?;
         let result = CourseAssessmentSummary {
-            id: assessment_reference(
-                row.try_get("assessment_reference_number")
-                    .map_err(map_sqlx_error)?,
-            )?,
+            id: assessment_reference(row.try_get("assessment_id").map_err(map_sqlx_error)?)?,
             assessment_type: assessment_type(
                 row.try_get("assessment_type").map_err(map_sqlx_error)?,
             )?,
@@ -653,11 +645,7 @@ pub(super) fn decode_workspace(
         })
         .collect::<Result<Vec<_>, StoreError>>()?;
     Ok(Some(LiveAssessmentWorkspace {
-        id: assessment_reference(
-            first
-                .try_get("assessment_reference_number")
-                .map_err(map_sqlx_error)?,
-        )?,
+        id: assessment_reference(first.try_get("assessment_id").map_err(map_sqlx_error)?)?,
         edit_number: edit(
             first
                 .try_get("assessment_edit_number")
@@ -747,15 +735,13 @@ fn decode_entries(rows: &[sqlx::postgres::PgRow]) -> Result<Vec<AssessmentEntry>
         if kind != "question_pool" { return Err(invalid("Assessment Entry kind")); }
         let selection_count = u32::try_from(row.try_get::<i32, _>("selection_count").map_err(map_sqlx_error)?).map_err(|_| invalid("Question Pool selection count"))?;
         let selection_rule = QuestionPoolSelectionRule { selected_question_order: selected_question_order_from_row(row.try_get("selected_question_order").map_err(map_sqlx_error)?)? };
-        let question_pool_revision = QuestionPoolRevisionReference {
-            question_pool_id: question_id(row.try_get("question_pool_public_id").map_err(map_sqlx_error)?)?,
-            revision_number: QuestionPoolRevisionNumber::new(
-                u64::try_from(row.try_get::<i64, _>("question_pool_revision_number").map_err(map_sqlx_error)?)
-                    .map_err(|_| invalid("Question Pool Revision Number"))?,
-            ).map_err(|_| invalid("Question Pool Revision Number"))?,
-        };
+        let question_pool_id = question_id(row.try_get("question_pool_id").map_err(map_sqlx_error)?)?;
+        let question_pool_edit_number = QuestionPoolEditNumber::new(
+            u64::try_from(row.try_get::<i64, _>("question_pool_edit_number").map_err(map_sqlx_error)?)
+                .map_err(|_| invalid("Question Pool Edit Number"))?,
+        ).map_err(|_| invalid("Question Pool Edit Number"))?;
         entries.push(AssessmentEntry::QuestionPool(QuestionPoolAssessmentEntry {
-            id, question_pool_revision, availability, scoring_rule,
+            id, question_pool_id, question_pool_edit_number, availability, scoring_rule,
             selection_count: std::num::NonZeroU32::new(selection_count)
                 .ok_or_else(|| invalid("Question Pool selection count"))?,
             points_per_item: point_value(row, "points_per_item")?, selection_rule,
@@ -815,7 +801,7 @@ fn assessment_origin(row: &sqlx::postgres::PgRow) -> Result<AssessmentOrigin, St
     // ASVS 2.2.1 and 2.2.3: accept only the two complete persisted origin shapes.
     let kind: String = row.try_get("origin_kind").map_err(map_sqlx_error)?;
     let course_id: Option<String> = row
-        .try_get("source_blueprint_course_id_number")
+        .try_get("source_blueprint_course_id")
         .map_err(map_sqlx_error)?;
     let revision: Option<i64> = row
         .try_get("source_blueprint_revision_number")

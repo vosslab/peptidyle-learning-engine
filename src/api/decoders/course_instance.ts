@@ -201,10 +201,7 @@ export function decodeCourseInstanceView(value: unknown, path = "response"): Cou
     const origin = decodeRecord(originValue, originPath);
     requireOnlyFields(origin, originPath, ["id", "adoptedRevision", "currentRevision"]);
     blueprintOrigin = {
-      id: decodeBlueprintCourseId(
-        field(origin, "id", originPath),
-        `${originPath}.id`,
-      ),
+      id: decodeBlueprintCourseId(field(origin, "id", originPath), `${originPath}.id`),
       adoptedRevision: decodeBlueprintRevision(
         field(origin, "adoptedRevision", originPath),
         `${originPath}.adoptedRevision`,
@@ -253,10 +250,7 @@ export function decodeCourseCreationInstructors(
     const instructor = decodeRecord(entry, entryPath);
     requireOnlyFields(instructor, entryPath, ["id"]);
     return {
-      id: accountReference(
-        field(instructor, "id", entryPath),
-        `${entryPath}.id`,
-      ),
+      id: accountReference(field(instructor, "id", entryPath), `${entryPath}.id`),
     };
   });
 }

@@ -293,8 +293,11 @@ Gate: the schema audit is complete when this layout is in place, every table has
 catalog comment, `docs/SCHEMA_TABLES.md` and the snapshot are regenerated, the checker exits
 0 with no findings, and a fresh install passes. Review accepts a new table when it
 sits in `20_tables/` with a tagged comment and the checker is clean.
-`rule_14_unindexed_fk` still reports unindexed foreign keys until a measured
-index lands; those findings fail the checker.
+`rule_14_unindexed_fk` fails the checker when any foreign key lacks a covering
+index. PRIMARY KEY and UNIQUE constraints cover FKs whose columns lead those
+keys; remaining FKs have explicit referencing-side indexes in
+`schemas/base_schema/40_indexes.sql`. There are no intentional unindexed-FK
+exceptions.
 
 ## Partition readiness
 
@@ -367,7 +370,7 @@ question, the signal that it fails, and the fix. A table passes when every row r
 | 11 | Is it partition-ready? | A Student Work table lacks `course_instance_id`, or its PK / UNIQUE constraints start with another column. | Add `course_instance_id NOT NULL`, bind it in the parent FK, lead every key with it. `rule_11_student_work_keys` (Tier 2). |
 | 12 | Is immutability enforced by privilege? | A trigger enumerates `NEW.x IS DISTINCT FROM OLD.x`. | `REVOKE UPDATE` plus RLS `WITH CHECK (false)`, or the one generic `to_jsonb` trigger. `rule_12_immutability` (Tier 3). |
 | 13 | Is the state machine declared once? | Two CHECKs disagree about a state; the same lease or lifecycle shape exists on another table with different column names. | One pairing CHECK, one transition trigger, one shared shape. |
-| 14 | Which FK edges need an index? | A child of a table that is purged, unreleased, or closed lacks an index on the referencing columns; a hot parent-to-child lookup lacks one. | Add the referencing-side index; record the `EXPLAIN` that justified any other index. `rule_14_unindexed_fk` (advisory). |
+| 14 | Which FK edges need an index? | A child of a table that is purged, unreleased, or closed lacks an index on the referencing columns; a hot parent-to-child lookup lacks one. | Add the referencing-side index; record the `EXPLAIN` that justified any other index. `rule_14_unindexed_fk` fails the checker; no unindexed-FK exceptions. |
 | 15 | What deletes these rows? | The delete path (FERPA purge, Unrelease, retention, or none) is unnamed, or it is neither an FK cascade nor an explicit statement. | Name the path in the module comment; make it cascade or explicit. |
 | 16 | Does it have a clock? | The table lacks a `NOT NULL` creation clock; the clock is `timestamptz(n)`, an integer epoch, or `date` on an enforced/ordered/audited row; a current-state table lacks `updated_at`; an incremental integer key lacks a documented need. | Add the clock in the type its role requires; drop the counter. `rule_16_clock_present`, `rule_16_updated_clock`, `rule_16_clock_type`. |
 | 17 | Is it where a reader expects? | The table sits outside `20_tables/<aggregate>.sql`, beside functions or grants, or lacks `COMMENT ON TABLE`. | Move it; comment it; regenerate `docs/SCHEMA_TABLES.md`. `rule_layout` / `rule_17_role_tag`. |

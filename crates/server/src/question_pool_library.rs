@@ -13,9 +13,9 @@ use axum_extra::extract::Query;
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use learning_data_access::{
     ContentClassificationStore, ContentDisciplineDiscoveryStore, Cursor, PageRequest, PageSize,
-    QuestionLibraryStore, QuestionPoolDiscoveryFilter, QuestionPoolLibraryStore,
-    QuestionPoolTextField, QuestionPoolTextFilter, QuestionPoolTextTerm, SessionTokenHash,
-    StoreError,
+    PublishedQuestionPool, QuestionLibraryStore, QuestionPoolDiscoveryFilter,
+    QuestionPoolLibraryStore, QuestionPoolTextField, QuestionPoolTextFilter, QuestionPoolTextTerm,
+    SessionTokenHash, StoreError,
     postgres::{
         PostgresContentClassificationStore, PostgresQuestionLibraryStore,
         PostgresQuestionPoolLibraryStore, PostgresSessionStore,
@@ -26,8 +26,7 @@ use question_model::{
     AssessmentEntryId, AssessmentId, AssessmentQuestionPoolForkView,
     BloomClassificationCorrectionRequest, BloomCognitiveProcess, BloomKnowledgeDimension,
     CourseInstanceId, ProductRole, QuestionId, QuestionPoolBloomCorrectionReceipt,
-    QuestionPoolBloomFacets, QuestionPoolLibraryPage, QuestionPoolRevisionMemberView,
-    QuestionPoolRevisionReference, QuestionPoolRevisionView,
+    QuestionPoolBloomFacets, QuestionPoolLibraryPage, QuestionPoolMemberView, QuestionPoolView,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -60,12 +59,8 @@ pub fn question_pool_library_router(
         .route("/api/question-pools", get(list_pools))
         .route("/api/question-pools/{question_pool_id}", get(current_pool))
         .route(
-            "/api/question-pools/{question_pool_id}/revisions/{revision_number}",
-            get(exact_pool_revision),
-        )
-        .route(
-            "/api/question-pools/{question_pool_id}/revisions/{revision_number}/bloom",
-            post(correct_pool_revision_bloom),
+            "/api/question-pools/{question_pool_id}/bloom",
+            post(correct_pool_bloom),
         )
         .route(
             "/api/course-instances/{course}/assessments/{assessment}/question-pool-forks/{entry}",
@@ -215,81 +210,19 @@ async fn current_pool(
         Ok(value) => value,
         Err(error) => return store_error(error),
     };
-    match revision_view(
-        &state,
-        token,
-        is_instructor,
-        revision.question_pool_revision,
-        revision.metadata,
-        revision.bloom,
-        revision.members,
-    )
-    .await
-    {
+    match pool_view(&state, token, is_instructor, revision).await {
         Ok(value) => crate::auth::no_store(Json(value).into_response()),
         Err(response) => response,
     }
 }
 
-async fn exact_pool_revision(
+async fn correct_pool_bloom(
     State(state): State<RouteState>,
     headers: HeaderMap,
-    Path((question_pool_id, revision_number)): Path<(String, String)>,
-) -> Response {
-    let pool_id = match verified_id(&question_pool_id) {
-        Some(value) => value,
-        None => return concealed(),
-    };
-    let revision_number = match revision_number
-        .parse::<u64>()
-        .ok()
-        .filter(|value| *value <= i64::MAX as u64)
-        .and_then(|value| question_model::QuestionPoolRevisionNumber::new(value).ok())
-    {
-        Some(value) => value,
-        None => return concealed(),
-    };
-    let (token, is_instructor) = match library_reader(&state, &headers).await {
-        Ok(value) => value,
-        Err(response) => return *response,
-    };
-    let revision = match state
-        .pools
-        .load_published_question_pool_revision(
-            token,
-            &question_model::QuestionPoolRevisionReference {
-                question_pool_id: pool_id,
-                revision_number,
-            },
-        )
-        .await
-    {
-        Ok(value) => value,
-        Err(error) => return store_error(error),
-    };
-    match revision_view(
-        &state,
-        token,
-        is_instructor,
-        revision.question_pool_revision,
-        revision.metadata,
-        revision.bloom,
-        revision.members,
-    )
-    .await
-    {
-        Ok(value) => crate::auth::no_store(Json(value).into_response()),
-        Err(response) => response,
-    }
-}
-
-async fn correct_pool_revision_bloom(
-    State(state): State<RouteState>,
-    headers: HeaderMap,
-    Path((question_pool_id, revision_number)): Path<(String, String)>,
+    Path(question_pool_id): Path<String>,
     payload: Result<Json<BloomClassificationCorrectionRequest>, JsonRejection>,
 ) -> Response {
-    let reference = match verified_pool_revision(&question_pool_id, &revision_number) {
+    let pool_id = match verified_id(&question_pool_id) {
         Some(value) => value,
         None => return concealed(),
     };
@@ -310,9 +243,9 @@ async fn correct_pool_revision_bloom(
     };
     let bloom = match state
         .pools
-        .correct_question_pool_revision_bloom(
+        .correct_question_pool_bloom(
             token,
-            &reference,
+            &pool_id,
             request.expected_classification_edit_number,
             request.cognitive_process,
             request.knowledge_dimension,
@@ -334,9 +267,17 @@ async fn correct_pool_revision_bloom(
         }
         Err(error) => return store_error(error),
     };
+    let pin = match state
+        .pools
+        .load_current_published_question_pool(token, &pool_id)
+        .await
+    {
+        Ok(value) => value.question_pool_id,
+        Err(error) => return store_error(error),
+    };
     crate::auth::no_store(
         Json(QuestionPoolBloomCorrectionReceipt {
-            question_pool_revision: reference,
+            question_pool_id: pin,
             bloom,
         })
         .into_response(),
@@ -372,7 +313,7 @@ async fn assessment_fork(
         Ok(value) => value,
         Err(error) => return store_error(error),
     };
-    let members = match revision_members(&state, token, true, record.members).await {
+    let members = match pool_members(&state, token, true, record.members).await {
         Ok(value) => value,
         Err(response) => return response,
     };
@@ -380,7 +321,7 @@ async fn assessment_fork(
         Json(AssessmentQuestionPoolForkView {
             metadata: record.metadata,
             assessment_entry_id: record.assessment_entry_id,
-            question_pool_revision: record.question_pool_revision,
+            question_pool_id: record.question_pool_id,
             question_pool_edit_number: record.question_pool_edit_number,
             selection_count: record.selection_count,
             bloom: record.bloom,
@@ -394,27 +335,19 @@ async fn assessment_fork(
 // allocation and require every handler to unwrap solely to preserve Axum's
 // `Response` return type.
 #[allow(clippy::result_large_err)]
-async fn revision_view(
+async fn pool_view(
     state: &RouteState,
     token: SessionTokenHash,
     is_instructor: bool,
-    question_pool_revision: question_model::QuestionPoolRevisionReference,
-    metadata: question_model::QuestionPoolMetadata,
-    bloom: Option<question_model::BloomClassificationView>,
-    members: Vec<question_model::QuestionRevisionReference>,
-) -> Result<QuestionPoolRevisionView, Response> {
-    let evidence = pool_evidence(
-        state,
-        token,
-        is_instructor,
-        &question_pool_revision.question_pool_id,
-    )
-    .await?;
-    let members = revision_members(state, token, is_instructor, members).await?;
-    Ok(QuestionPoolRevisionView {
-        metadata,
-        question_pool_revision,
-        bloom,
+    pool: PublishedQuestionPool,
+) -> Result<QuestionPoolView, Response> {
+    let evidence = pool_evidence(state, token, is_instructor, &pool.question_pool_id).await?;
+    let members = pool_members(state, token, is_instructor, pool.members).await?;
+    Ok(QuestionPoolView {
+        metadata: pool.metadata,
+        question_pool_id: pool.question_pool_id,
+        question_pool_edit_number: pool.question_pool_edit_number,
+        bloom: pool.bloom,
         members,
         evidence,
     })
@@ -439,12 +372,12 @@ async fn pool_evidence(
 }
 
 #[allow(clippy::result_large_err)]
-async fn revision_members(
+async fn pool_members(
     state: &RouteState,
     token: SessionTokenHash,
     is_instructor: bool,
     members: Vec<question_model::QuestionRevisionReference>,
-) -> Result<Vec<QuestionPoolRevisionMemberView>, Response> {
+) -> Result<Vec<QuestionPoolMemberView>, Response> {
     let question_ids = members
         .iter()
         .map(|member| member.question_id.clone())
@@ -467,7 +400,7 @@ async fn revision_members(
         let question = answer_free_reusable_question_view(&state.objects, entry, member_evidence)
             .await
             .map_err(|_| unavailable())?;
-        views.push(QuestionPoolRevisionMemberView {
+        views.push(QuestionPoolMemberView {
             member_position: u32::try_from(position).map_err(|_| unavailable())?,
             question_revision: member,
             question,
@@ -527,22 +460,6 @@ async fn valid_classification(
 
 fn verified_id(value: &str) -> Option<QuestionId> {
     value.parse().ok()
-}
-
-fn verified_pool_revision(
-    question_pool_id: &str,
-    revision_number: &str,
-) -> Option<QuestionPoolRevisionReference> {
-    let question_pool_id = verified_id(question_pool_id)?;
-    let revision_number = revision_number
-        .parse::<u64>()
-        .ok()
-        .filter(|value| *value <= i64::MAX as u64)
-        .and_then(|value| question_model::QuestionPoolRevisionNumber::new(value).ok())?;
-    Some(QuestionPoolRevisionReference {
-        question_pool_id,
-        revision_number,
-    })
 }
 
 fn encode_cursor(

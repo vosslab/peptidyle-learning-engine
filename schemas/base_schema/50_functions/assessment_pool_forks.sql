@@ -47,7 +47,7 @@ BEGIN
     IF assessment_row.assessment_edit_number <> p_expected_assessment_edit_number THEN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Assessment Question Pool import is stale';
     END IF;
-    SELECT * INTO forked FROM ple_data.fork_question_pool_revision(
+    SELECT * INTO forked FROM ple_data.fork_question_pool(
         p_fork_question_pool_id, p_source_question_pool_id
     );
     IF p_selection_count > (
@@ -97,7 +97,7 @@ $$;
 -- Only an Assessment-owned child Pool may receive a member-list save.
 -- The same qualified Assessment edit that changes the Entry advances the Pool
 -- Edit Number, so a caller cannot save a root reusable Pool or a foreign fork.
-CREATE FUNCTION ple_data.append_assessment_question_pool_fork_revision(
+CREATE FUNCTION ple_data.append_assessment_question_pool_fork_members(
     p_assessment_id text,
     p_assessment_entry_id uuid,
     p_expected_assessment_edit_number bigint,
@@ -211,8 +211,8 @@ $$;
 -- Assessment by their opaque references inside this definer boundary.  It
 -- never receives or accepts an internal Assessment UUID from the browser.
 CREATE FUNCTION ple_api.import_assessment_question_pool_fork_for_reference(
-    p_course_public_reference text,
-    p_assessment_public_reference text,
+    p_course_instance_id text,
+    p_assessment_id text,
     p_assessment_entry_id uuid,
     p_expected_assessment_edit_number bigint,
     p_fork_question_pool_id text,
@@ -235,8 +235,8 @@ BEGIN
     SELECT assessment.assessment_id INTO assessment_id_value
       FROM ple_data.course_instance AS course
       JOIN ple_data.assessment AS assessment ON assessment.course_instance_id = course.course_instance_id
-     WHERE course.course_instance_id = p_course_public_reference
-       AND assessment.assessment_id = p_assessment_public_reference
+     WHERE course.course_instance_id = p_course_instance_id
+       AND assessment.assessment_id = p_assessment_id
        AND ple_api.current_session_account_is_course_instructor(course.course_instance_id);
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment Question Pool import is unavailable';
@@ -253,8 +253,8 @@ $$;
 -- the Course-owned Assessment Entry under the installed Instructor session.
 -- No browser-selected Pool identity crosses this boundary.
 CREATE FUNCTION ple_api.read_assessment_question_pool_fork(
-    p_course_reference text,
-    p_assessment_reference text,
+    p_course_instance_id text,
+    p_assessment_id text,
     p_assessment_entry_id uuid
 ) RETURNS TABLE (
     assessment_entry_id uuid,
@@ -299,15 +299,15 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
         ON discipline.content_discipline_id = pool.content_discipline_id
       JOIN ple_data.question_pool_member AS member
         ON member.question_pool_id = pool_entry.question_pool_id
-     WHERE course.course_instance_id = p_course_reference
-       AND assessment.assessment_id = p_assessment_reference
+     WHERE course.course_instance_id = p_course_instance_id
+       AND assessment.assessment_id = p_assessment_id
        AND entry.assessment_entry_id = p_assessment_entry_id
        AND entry.entry_kind = 'question_pool'
        AND ple_api.current_session_account_is_course_instructor(course.course_instance_id)
      ORDER BY member.member_position
 $$;
 
-CREATE FUNCTION ple_api.append_assessment_question_pool_fork_revision(
+CREATE FUNCTION ple_api.append_assessment_question_pool_fork_members(
     text, uuid, bigint, bigint, text[], integer[], boolean
 ) RETURNS TABLE (
     assessment_entry_id uuid, question_pool_id text,
@@ -315,14 +315,14 @@ CREATE FUNCTION ple_api.append_assessment_question_pool_fork_revision(
 )
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
-    SELECT * FROM ple_data.append_assessment_question_pool_fork_revision(
+    SELECT * FROM ple_data.append_assessment_question_pool_fork_members(
         $1, $2, $3, $4, $5, $6, $7
     )
 $$;
 
-CREATE FUNCTION ple_api.append_assessment_question_pool_fork_revision_for_reference(
-    p_course_public_reference text,
-    p_assessment_public_reference text,
+CREATE FUNCTION ple_api.append_assessment_question_pool_fork_members_for_course(
+    p_course_instance_id text,
+    p_assessment_id text,
     p_assessment_entry_id uuid,
     p_expected_assessment_edit_number bigint,
     p_expected_question_pool_edit_number bigint,
@@ -340,13 +340,13 @@ BEGIN
     SELECT assessment.assessment_id INTO assessment_id_value
       FROM ple_data.course_instance AS course
       JOIN ple_data.assessment AS assessment ON assessment.course_instance_id = course.course_instance_id
-     WHERE course.course_instance_id = p_course_public_reference
-       AND assessment.assessment_id = p_assessment_public_reference
+     WHERE course.course_instance_id = p_course_instance_id
+       AND assessment.assessment_id = p_assessment_id
        AND ple_api.current_session_account_is_course_instructor(course.course_instance_id);
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment Question Pool member save is unavailable';
     END IF;
-    RETURN QUERY SELECT * FROM ple_data.append_assessment_question_pool_fork_revision(
+    RETURN QUERY SELECT * FROM ple_data.append_assessment_question_pool_fork_members(
         assessment_id_value, p_assessment_entry_id, p_expected_assessment_edit_number,
         p_expected_question_pool_edit_number, p_member_question_ids,
         p_member_revision_numbers, p_interchangeability_attested

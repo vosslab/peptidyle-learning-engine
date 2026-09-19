@@ -23,10 +23,10 @@ NUMBER_PATTERN = re.compile(
 	r"CHECK_CHARACTER_INDEX|HYPHEN_INDEX)): usize = (\d+);"
 )
 PUBLIC_REFERENCE_LENGTH_PATTERN = re.compile(
-	r"pub const PUBLIC_REFERENCE_RANDOM_LENGTH: usize = (\d+);"
+	r"pub const PUBLIC_ID_RANDOM_LENGTH: usize = (\d+);"
 )
 PUBLIC_REFERENCE_PATTERN = re.compile(
-	r'impl_public_reference!\(\s*(\w+),\s*"([A-Z]+)",\s*"([A-Z]+)",\s*"[^"]+"\s*\);',
+	r'impl_public_id!\(\s*(\w+),\s*"([A-Z]+)",\s*"([A-Z]+)",\s*"[^"]+"\s*\);',
 	re.DOTALL,
 )
 

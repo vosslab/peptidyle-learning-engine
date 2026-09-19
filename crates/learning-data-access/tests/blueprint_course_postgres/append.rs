@@ -35,7 +35,7 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
         .await
         .expect("owner creates append fixture Blueprint through the application Store");
     let blueprint = created.blueprint_revision.blueprint_course_id;
-    let blueprint_number = blueprint_reference_number(&blueprint).await;
+    let blueprint_number = blueprint_course_id_text(&blueprint).await;
     let private = store
         .load_blueprint_course(token(), blueprint.clone())
         .await

@@ -2,7 +2,7 @@
 use super::canonical_exchange::CanonicalBlueprintAssessment;
 use crate::{
     BlueprintAssessmentEntryContent, BlueprintAssessmentId, BlueprintCourseContent,
-    BlueprintModuleReference, QuestionId, QuestionPoolRevisionReference, QuestionRevisionReference,
+    BlueprintModuleReference, QuestionId, QuestionPoolEditNumber, QuestionRevisionReference,
 };
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -76,7 +76,7 @@ pub enum BlueprintComparisonError {
     DuplicateModuleReference,
     /// An Assessment reference repeats within one side.
     DuplicateAssessmentId,
-    /// A referenced exact Pool Revision has no supplied membership.
+    /// A referenced Pool has no supplied membership.
     MissingPoolMembership,
     /// Pool membership is empty, repeats a lineage, or cannot satisfy selection.
     InvalidPoolMembership,
@@ -86,12 +86,8 @@ impl std::fmt::Display for BlueprintComparisonError {
         formatter.write_str(match self {
             Self::DuplicateModuleReference => "Blueprint comparison repeats a module reference",
             Self::DuplicateAssessmentId => "Blueprint comparison repeats an Assessment reference",
-            Self::MissingPoolMembership => {
-                "Blueprint comparison lacks exact Pool Revision membership"
-            }
-            Self::InvalidPoolMembership => {
-                "Blueprint comparison has invalid Pool Revision membership"
-            }
+            Self::MissingPoolMembership => "Blueprint comparison lacks exact Pool membership",
+            Self::InvalidPoolMembership => "Blueprint comparison has invalid Pool membership",
         })
     }
 }
@@ -101,7 +97,7 @@ impl std::error::Error for BlueprintComparisonError {}
 ///
 /// Only shared Question IDs establish relationships. Names, internal handles,
 /// Revisions and fuzzy similarity never establish a match. Pools contribute all
-/// members of exactly the supplied Pool Revision, not sampled/latest members.
+/// members of exactly the supplied current Pool, not sampled/latest members.
 /// Authorized reads, lineage eligibility, names and provenance belong to the
 /// caller. Inputs remain unchanged; no Question bodies or answers are read.
 ///
@@ -112,7 +108,10 @@ impl std::error::Error for BlueprintComparisonError {}
 pub fn compare_blueprint_courses(
     left: &BlueprintCourseContent,
     right: &BlueprintCourseContent,
-    pool_memberships: &BTreeMap<QuestionPoolRevisionReference, Vec<QuestionRevisionReference>>,
+    pool_memberships: &BTreeMap<
+        (QuestionId, QuestionPoolEditNumber),
+        Vec<QuestionRevisionReference>,
+    >,
 ) -> Result<BlueprintComparison, BlueprintComparisonError> {
     let left = inventory(left, pool_memberships)?;
     let right = inventory(right, pool_memberships)?;
@@ -150,7 +149,10 @@ pub fn compare_blueprint_courses(
 
 fn inventory(
     content: &BlueprintCourseContent,
-    pool_memberships: &BTreeMap<QuestionPoolRevisionReference, Vec<QuestionRevisionReference>>,
+    pool_memberships: &BTreeMap<
+        (QuestionId, QuestionPoolEditNumber),
+        Vec<QuestionRevisionReference>,
+    >,
 ) -> Result<BlueprintComparisonInventory, BlueprintComparisonError> {
     let mut inventory = BlueprintComparisonInventory {
         modules: Vec::new(),
@@ -181,7 +183,10 @@ fn inventory(
                     }
                     BlueprintAssessmentEntryContent::Pool(pool) => {
                         let members = pool_memberships
-                            .get(pool.question_pool_revision())
+                            .get(&(
+                                pool.question_pool_id().clone(),
+                                pool.question_pool_edit_number(),
+                            ))
                             .ok_or(BlueprintComparisonError::MissingPoolMembership)?;
                         let member_ids: BTreeSet<_> = members
                             .iter()

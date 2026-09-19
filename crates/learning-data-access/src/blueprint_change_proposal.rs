@@ -120,7 +120,10 @@ pub struct BlueprintChangeProposalReview {
     pub source: StoredBlueprintRevision,
     pub target: StoredBlueprintRevision,
     pub pool_memberships: BTreeMap<
-        question_model::QuestionPoolRevisionReference,
+        (
+            question_model::QuestionId,
+            question_model::QuestionPoolEditNumber,
+        ),
         Vec<question_model::QuestionRevisionReference>,
     >,
     pub can_accept: bool,

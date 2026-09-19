@@ -331,7 +331,7 @@ export function createBlueprintCourseClient(
     applyBlueprintFork: async (reference, request): Promise<BlueprintForkApplyResponse> => {
       const path = `${blueprintPath(reference)}/fork-update`;
       const body = decodeBlueprintForkApplyRequest(request);
-      if (body.expectedFork.id !== reference)
+      if (body.expectedFork.blueprint_course_id !== reference)
         throw new ApiProtocolError("Blueprint fork update must target its expected fork reference");
       const result = await blueprintJson(
         fetchImplementation,
@@ -386,7 +386,7 @@ export function createBlueprintCourseClient(
           expectedStatus: 200,
         })
       ).body;
-      if (body.questionPoolRevision.questionPoolId !== pool) {
+      if (body.questionPoolId !== pool) {
         throw new ApiProtocolError("Blueprint Pool members must identify the requested Pool");
       }
       return body;

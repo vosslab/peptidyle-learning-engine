@@ -5,18 +5,6 @@ import type { AssessmentGrade } from "../../../generated/api/AssessmentGrade";
 import type { AssessmentAttempt } from "../../../generated/api/AssessmentAttempt";
 import type { AssessmentAttemptPolicySource } from "../../../generated/api/AssessmentAttemptPolicySource";
 import type { BaseAssessmentPolicy } from "../../../generated/api/BaseAssessmentPolicy";
-import type { AssessmentAttemptRouteReference } from "../../navigation/public_route";
-import { parseAssessmentAttemptReference } from "../../navigation/public_route";
-
-function decodeAssessmentAttemptReference(
-  value: unknown,
-  path: string,
-): AssessmentAttemptRouteReference {
-  if (typeof value !== "string") throw new DecodeError(path, "an Assessment Attempt UUID");
-  const reference = parseAssessmentAttemptReference(value);
-  if (reference === null) throw new DecodeError(path, "an Assessment Attempt UUID");
-  return reference;
-}
 import type { StudentAssessmentLandingSummary } from "../../../generated/api/StudentAssessmentLandingSummary";
 import type { QuestionAttemptState } from "../../../generated/api/QuestionAttemptState";
 import type { QuestionAttemptTiming } from "../../../generated/api/QuestionAttemptTiming";
@@ -55,6 +43,8 @@ import {
   decodeTrue,
 } from "../decoder";
 import {
+  decodeAccountId,
+  decodeAssessmentId,
   decodeCapability,
   decodeCursorPage,
   decodeIdentifier,
@@ -289,7 +279,7 @@ export function decodeAssessmentAttempt(value: unknown, path = "response"): Asse
   const decoded = {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
     studentRecord: decodeIdentifier(field(record, "studentRecord", path), `${path}.studentRecord`),
-    assessment: decodeIdentifier(field(record, "assessment", path), `${path}.assessment`),
+    assessment: decodeAssessmentId(field(record, "assessment", path), `${path}.assessment`),
     evidence: decodeAssessmentAttemptEvidence(field(record, "evidence", path), `${path}.evidence`),
     attemptNumber: decodePositiveInteger(
       field(record, "attemptNumber", path),
@@ -478,7 +468,7 @@ export function decodeAssessmentProgressRecord(
       field(record, "student_record", path),
       `${path}.student_record`,
     ),
-    assessment: decodeIdentifier(field(record, "assessment", path), `${path}.assessment`),
+    assessment: decodeAssessmentId(field(record, "assessment", path), `${path}.assessment`),
     completed_assessment_attempt_count: decodeNonnegativeInteger(
       field(record, "completed_assessment_attempt_count", path),
       `${path}.completed_assessment_attempt_count`,
@@ -503,7 +493,7 @@ export function decodeAssessmentGrade(value: unknown, path = "response"): Assess
       field(record, "student_record", path),
       `${path}.student_record`,
     ),
-    assessment: decodeIdentifier(field(record, "assessment", path), `${path}.assessment`),
+    assessment: decodeAssessmentId(field(record, "assessment", path), `${path}.assessment`),
     first_completed_at: decodeNullable(
       field(record, "first_completed_at", path),
       `${path}.first_completed_at`,
@@ -668,7 +658,7 @@ export function decodeAuthenticatedSession(
   const decoded = {
     authenticated: decodeTrue(field(record, "authenticated", path), `${path}.authenticated`),
     account: {
-      id: decodeIdentifier(field(account, "id", `${path}.account`), `${path}.account.id`),
+      id: decodeAccountId(field(account, "id", `${path}.account`), `${path}.account.id`),
       productRole: decodeStringEnum(
         field(account, "productRole", `${path}.account`),
         `${path}.account.productRole`,

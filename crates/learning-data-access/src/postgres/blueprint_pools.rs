@@ -4,7 +4,7 @@ use crate::blueprint_course::StoredBlueprintAssessmentEntry;
 use crate::{CourseInstancePoolIdIssuer, StoreError, StoredBlueprintCourseContent};
 use question_model::{
     BlueprintAssessmentId, BlueprintCourseId, BlueprintPoolInputChoice, BlueprintRevision,
-    QuestionPoolRevisionNumber, QuestionPoolRevisionReference, QuestionRevisionReference,
+    QuestionPoolEditNumber, QuestionRevisionReference,
 };
 use sqlx::{Postgres, Row, Transaction};
 
@@ -18,12 +18,15 @@ pub(super) async fn materialize_imported_pools(
         for assessment in &mut module.assessments {
             for entry in &mut assessment.content.entries {
                 if let StoredBlueprintAssessmentEntry::Pool {
-                    question_pool_revision,
+                    question_pool_id,
+                    question_pool_edit_number,
                     ..
                 } = entry
                 {
-                    *question_pool_revision =
-                        import(transaction, question_pool_revision, issuer).await?;
+                    let (child_id, child_edit) =
+                        import(transaction, question_pool_id, issuer).await?;
+                    *question_pool_id = child_id;
+                    *question_pool_edit_number = child_edit;
                 }
             }
         }
@@ -33,28 +36,25 @@ pub(super) async fn materialize_imported_pools(
 
 async fn import(
     transaction: &mut Transaction<'_, Postgres>,
-    source: &QuestionPoolRevisionReference,
+    source_question_pool_id: &question_model::QuestionId,
     issuer: Option<&dyn CourseInstancePoolIdIssuer>,
-) -> Result<QuestionPoolRevisionReference, StoreError> {
+) -> Result<(question_model::QuestionId, QuestionPoolEditNumber), StoreError> {
     let child = issuer
         .ok_or_else(|| {
             StoreError::InvalidRecord("Question Pool fork identity issuer is unavailable".into())
         })?
         .issue_question_pool_id()?;
-    // ASVS 1.2.4 / 2.3.3: exact source pins and fresh children share the Blueprint transaction.
-    sqlx::query("SELECT ple_api.fork_blueprint_question_pool($1,$2,$3,$4)")
-        .bind(source.question_pool_id.as_str())
-        .bind(source.revision_number.get() as i64)
-        .bind(super::blueprint_course::random_uuid()?)
+    sqlx::query("SELECT ple_api.fork_blueprint_question_pool($1,$2)")
+        .bind(source_question_pool_id.as_str())
         .bind(child.as_str())
         .execute(&mut **transaction)
         .await
         .map_err(map_sqlx_error)?;
-    Ok(QuestionPoolRevisionReference {
-        question_pool_id: child,
-        revision_number: QuestionPoolRevisionNumber::new(1)
-            .map_err(|_| StoreError::InvalidRecord("Question Pool Revision".into()))?,
-    })
+    Ok((
+        child,
+        QuestionPoolEditNumber::new(1)
+            .map_err(|_| StoreError::InvalidRecord("Question Pool Edit Number".into()))?,
+    ))
 }
 
 pub(super) async fn materialize_authoring_pools(
@@ -72,7 +72,8 @@ pub(super) async fn materialize_authoring_pools(
         for (assessment, choices) in module.assessments.iter().zip(choices) {
             for choice in choices {
                 if let BlueprintPoolInputChoice::Retained {
-                    question_pool_revision,
+                    question_pool_id,
+                    question_pool_edit_number,
                     ..
                 } = choice
                 {
@@ -84,14 +85,15 @@ pub(super) async fn materialize_authoring_pools(
                         })
                         .ok_or(StoreError::Forbidden)?;
                     if !old.content.entries.iter().any(|entry| matches!(entry,
-                        StoredBlueprintAssessmentEntry::Pool { question_pool_revision: pin, .. } if pin == question_pool_revision))
-                        || !seen.insert(question_pool_revision.question_pool_id.clone()) { return Err(StoreError::Forbidden); }
+                        StoredBlueprintAssessmentEntry::Pool { question_pool_id: id, .. } if id == question_pool_id))
+                        || !seen.insert(question_pool_id.clone()) { return Err(StoreError::Forbidden); }
                     let (reference, revision) = context.as_ref().ok_or(StoreError::Forbidden)?;
                     members(
                         transaction,
                         reference,
                         assessment.blueprint_assessment_id,
-                        question_pool_revision,
+                        question_pool_id,
+                        *question_pool_edit_number,
                         Some(*revision),
                     )
                     .await?;
@@ -104,7 +106,8 @@ pub(super) async fn materialize_authoring_pools(
             let mut choices = choices.into_iter();
             for entry in &mut assessment.content.entries {
                 let StoredBlueprintAssessmentEntry::Pool {
-                    question_pool_revision: pin,
+                    question_pool_id: entry_pool_id,
+                    question_pool_edit_number: entry_edit_number,
                     ..
                 } = entry
                 else {
@@ -112,10 +115,16 @@ pub(super) async fn materialize_authoring_pools(
                 };
                 match choices.next().ok_or(StoreError::Forbidden)? {
                     BlueprintPoolInputChoice::Import {
-                        question_pool_revision,
-                    } => *pin = import(transaction, &question_pool_revision, issuer).await?,
+                        question_pool_id, ..
+                    } => {
+                        let (child_id, child_edit) =
+                            import(transaction, &question_pool_id, issuer).await?;
+                        *entry_pool_id = child_id;
+                        *entry_edit_number = child_edit;
+                    }
                     BlueprintPoolInputChoice::Retained {
-                        question_pool_revision,
+                        question_pool_id,
+                        question_pool_edit_number,
                         members: replacement,
                         interchangeability_attested,
                     } => {
@@ -126,7 +135,8 @@ pub(super) async fn materialize_authoring_pools(
                                 transaction,
                                 reference,
                                 assessment.blueprint_assessment_id,
-                                &question_pool_revision,
+                                &question_pool_id,
+                                question_pool_edit_number,
                                 Some(*revision),
                             )
                             .await?;
@@ -139,17 +149,18 @@ pub(super) async fn materialize_authoring_pools(
                                     .iter()
                                     .map(|q| q.revision_number.get() as i32)
                                     .collect();
-                                let row = sqlx::query("SELECT ple_api.append_blueprint_pool_revision($1,$2,$3,$4,$5,$6,$7,$8) AS revision")
+                                let row = sqlx::query("SELECT ple_api.append_blueprint_pool_members($1,$2,$3,$4,$5,$6,$7,$8) AS question_pool_edit_number")
                                     .bind(reference.as_string()).bind(assessment.blueprint_assessment_id.as_uuid())
-                                    .bind(revision.value() as i64).bind(pin.question_pool_id.as_str())
-                                    .bind(pin.revision_number.get() as i64).bind(ids).bind(revisions).bind(interchangeability_attested)
+                                    .bind(revision.value() as i64).bind(question_pool_id.as_str())
+                                    .bind(question_pool_edit_number.get() as i64).bind(ids).bind(revisions).bind(interchangeability_attested)
                                     .fetch_one(&mut **transaction).await.map_err(map_sqlx_error)?;
-                                pin.revision_number = QuestionPoolRevisionNumber::new(
-                                    row.try_get::<i64, _>("revision").map_err(map_sqlx_error)?
+                                *entry_edit_number = QuestionPoolEditNumber::new(
+                                    row.try_get::<i64, _>("question_pool_edit_number")
+                                        .map_err(map_sqlx_error)?
                                         as u64,
                                 )
                                 .map_err(|_| {
-                                    StoreError::InvalidRecord("Question Pool Revision".into())
+                                    StoreError::InvalidRecord("Question Pool Edit Number".into())
                                 })?;
                             }
                         }
@@ -163,18 +174,19 @@ pub(super) async fn materialize_authoring_pools(
 
 pub(super) async fn members(
     transaction: &mut Transaction<'_, Postgres>,
-    reference: &BlueprintCourseId,
+    blueprint_course_id: &BlueprintCourseId,
     assessment: BlueprintAssessmentId,
-    pin: &QuestionPoolRevisionReference,
+    question_pool_id: &question_model::QuestionId,
+    question_pool_edit_number: QuestionPoolEditNumber,
     write: Option<BlueprintRevision>,
 ) -> Result<Vec<QuestionRevisionReference>, StoreError> {
     let rows = sqlx::query("SELECT * FROM ple_api.blueprint_pool_members($1,$2,$3,$4,$5,$6)")
-        .bind(reference.as_string())
+        .bind(blueprint_course_id.as_string())
         .bind(assessment.as_uuid())
-        .bind(pin.question_pool_id.as_str())
+        .bind(question_pool_id.as_str())
         .bind(write.is_some())
         .bind(write.map(|r| r.value() as i64))
-        .bind(Some(pin.revision_number.get() as i64))
+        .bind(Some(question_pool_edit_number.get() as i64))
         .fetch_all(&mut **transaction)
         .await
         .map_err(map_sqlx_error)?;

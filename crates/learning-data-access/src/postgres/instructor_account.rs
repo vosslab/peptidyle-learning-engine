@@ -81,7 +81,7 @@ impl InstructorAccountStore for PostgresInstructorAccountStore {
     ) -> Result<InstructorAccountList, StoreError> {
         let mut tx = self.begin(token).await?;
         let rows = sqlx::query(
-            "SELECT public_reference, state, provided_avatar_id, \
+            "SELECT account_id, state, provided_avatar_id, \
              (extract(epoch FROM last_successful_sign_in) * 1000)::bigint \
              AS last_successful_sign_in_millis \
              FROM ple_api.list_instructor_account_avatar_summaries()",
@@ -122,8 +122,8 @@ impl InstructorAccountStore for PostgresInstructorAccountStore {
     ) -> Result<InstructorAccountSummary, StoreError> {
         input.validate()?;
         let mut tx = self.begin(token).await?;
-        let public_reference = sqlx::query_scalar(
-            "SELECT public_reference \
+        let account_id = sqlx::query_scalar(
+            "SELECT account_id \
              FROM ple_api.create_instructor_account($1, $2)",
         )
         .bind(input.normalized_email)
@@ -131,7 +131,7 @@ impl InstructorAccountStore for PostgresInstructorAccountStore {
         .fetch_one(&mut *tx)
         .await
         .map_err(map_sqlx_error)?;
-        let record = summary_for_reference(&mut tx, public_reference)
+        let record = summary_for_account(&mut tx, account_id)
             .await?
             .ok_or(StoreError::NotFound)?;
         tx.commit().await.map_err(map_sqlx_error)?;
@@ -167,8 +167,8 @@ impl PostgresInstructorAccountStore {
         reason: Option<String>,
     ) -> Result<InstructorAccountSummary, StoreError> {
         let mut tx = self.begin(token).await?;
-        let public_reference = sqlx::query_scalar(
-            "SELECT public_reference \
+        let account_id = sqlx::query_scalar(
+            "SELECT account_id \
              FROM ple_api.change_instructor_account_state($1, $2, $3)",
         )
         .bind(id.as_string())
@@ -177,8 +177,8 @@ impl PostgresInstructorAccountStore {
         .fetch_optional(&mut *tx)
         .await
         .map_err(map_sqlx_error)?;
-        let public_reference = public_reference.ok_or(StoreError::NotFound)?;
-        let record = summary_for_reference(&mut tx, public_reference)
+        let account_id = account_id.ok_or(StoreError::NotFound)?;
+        let record = summary_for_account(&mut tx, account_id)
             .await?
             .ok_or(StoreError::NotFound)?;
         tx.commit().await.map_err(map_sqlx_error)?;
@@ -186,18 +186,18 @@ impl PostgresInstructorAccountStore {
     }
 }
 
-async fn summary_for_reference(
+async fn summary_for_account(
     tx: &mut Transaction<'_, Postgres>,
-    public_reference: String,
+    account_id: String,
 ) -> Result<Option<InstructorAccountSummary>, StoreError> {
     let row = sqlx::query(
-        "SELECT public_reference, state, provided_avatar_id, \
+        "SELECT account_id, state, provided_avatar_id, \
          (extract(epoch FROM last_successful_sign_in) * 1000)::bigint \
          AS last_successful_sign_in_millis \
          FROM ple_api.list_instructor_account_avatar_summaries() \
-         WHERE public_reference = $1",
+         WHERE account_id = $1",
     )
-    .bind(public_reference)
+    .bind(account_id)
     .fetch_optional(&mut **tx)
     .await
     .map_err(map_sqlx_error)?;
@@ -206,10 +206,10 @@ async fn summary_for_reference(
 
 fn decode_summary(row: &sqlx::postgres::PgRow) -> Result<InstructorAccountSummary, StoreError> {
     let reference = AccountId::new(
-        row.try_get::<String, _>("public_reference")
+        row.try_get::<String, _>("account_id")
             .map_err(map_sqlx_error)?,
     )
-    .map_err(|_| invalid("Account Reference"))?;
+    .map_err(|_| invalid("Account ID"))?;
     let state = match row
         .try_get::<String, _>("state")
         .map_err(map_sqlx_error)?

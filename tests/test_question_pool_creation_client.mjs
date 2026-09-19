@@ -17,13 +17,13 @@ function createdPoolResponse(value) {
   });
 }
 
-test("Question Pool creation sends explicit metadata and attested ordered pins with a Revision 1 receipt", async () => {
+test("Question Pool creation sends explicit metadata and attested ordered pins with an Edit Number 1 receipt", async () => {
   const requests = [];
   const client = createHttpApiClient({
     fetch: async (input, init) => {
       const request = new Request(new URL(input.toString(), "https://ple.example"), init);
       requests.push(request.clone());
-      return createdPoolResponse({ questionPoolId: "3S8B-24DZ", revisionNumber: 1 });
+      return createdPoolResponse({ questionPoolId: "3S8B-24DZ", questionPoolEditNumber: 1 });
     },
   });
   const created = await client.createQuestionPool({
@@ -36,7 +36,7 @@ test("Question Pool creation sends explicit metadata and attested ordered pins w
     interchangeabilityAttested: true,
   });
 
-  assert.deepEqual(created, { questionPoolId: "3S8B-24DZ", revisionNumber: 1 });
+  assert.deepEqual(created, { questionPoolId: "3S8B-24DZ", questionPoolEditNumber: 1 });
   const request = requests[0];
   assert.ok(request);
   assert.equal(new URL(request.url).pathname, "/api/question-pools");
@@ -53,7 +53,8 @@ test("Question Pool creation sends explicit metadata and attested ordered pins w
   });
 
   const malformedReceiptClient = createHttpApiClient({
-    fetch: async () => createdPoolResponse({ questionPoolId: "3S8B-24DZ", revisionNumber: 2 }),
+    fetch: async () =>
+      createdPoolResponse({ questionPoolId: "3S8B-24DZ", questionPoolEditNumber: 2 }),
   });
   await assert.rejects(
     malformedReceiptClient.createQuestionPool({
@@ -71,7 +72,7 @@ test("Question Pool creation rejects missing or noncanonical metadata before tra
   const client = createHttpApiClient({
     fetch: async () => {
       requests += 1;
-      return createdPoolResponse({ questionPoolId: "3S8B-24DZ", revisionNumber: 1 });
+      return createdPoolResponse({ questionPoolId: "3S8B-24DZ", questionPoolEditNumber: 1 });
     },
   });
   const valid = {

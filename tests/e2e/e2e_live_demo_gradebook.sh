@@ -75,7 +75,7 @@ postgres_scalar() {
 course_reference() {
     python3 -c 'import json,re,sys
 items=json.loads(sys.argv[1]).get("items",[])
-values=[x.get("reference") for x in items if isinstance(x,dict)]
+values=[x.get("id") for x in items if isinstance(x,dict)]
 valid=[x for x in values if isinstance(x,str) and re.fullmatch(r"CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}",x)]
 if not valid: raise SystemExit("Gradebook prerequisite lacks a Course Instance")
 print(valid[0])' "$1"

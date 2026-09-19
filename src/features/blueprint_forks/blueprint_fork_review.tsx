@@ -48,8 +48,9 @@ export function BlueprintForkSource(props: {
         <section class="blueprint-forks">
           <h2>Fork source</h2>
           <p>
-            Forked from <A href={coursePath(source().id)}>source Blueprint Course</A>,
-            Revision {source().revision}. This fork develops independently.
+            Forked from{" "}
+            <A href={coursePath(source().blueprint_course_id)}>source Blueprint Course</A>, Revision{" "}
+            {source().revision}. This fork develops independently.
           </p>
           <button
             type="button"
@@ -63,7 +64,7 @@ export function BlueprintForkSource(props: {
             <BlueprintForkReview
               client={props.client}
               reference={props.view.id}
-              leftReference={source().id}
+              leftReference={source().blueprint_course_id}
               hasUnsavedChanges={props.hasUnsavedChanges}
               onApplied={props.onApplied}
             />
@@ -133,9 +134,9 @@ export function AssessmentSnapshot(props: {
                     <Show when={entry.kind === "pool" ? entry : undefined}>
                       {(pool) => (
                         <p>
-                          Question Pool {pool().question_pool_revision.questionPoolId}, Revision{" "}
-                          {pool().question_pool_revision.revisionNumber}; select{" "}
-                          {pool().selection_count}; {pool().points_per_item} points per Question.
+                          Question Pool {pool().question_pool_id}, Edit{" "}
+                          {pool().question_pool_edit_number}; select {pool().selection_count};{" "}
+                          {pool().points_per_item} points per Question.
                         </p>
                       )}
                     </Show>
@@ -186,8 +187,9 @@ function Comparison(props: { readonly view: BlueprintComparisonView }): JSX.Elem
                 {props.view[key].names.longName}
               </A>
               <p>
-                {props.view[key].names.shortName}; {props.view[key].currentRevision.blueprint_course_id};
-                Revision {props.view[key].currentRevision.revision}.
+                {props.view[key].names.shortName};{" "}
+                {props.view[key].currentRevision.blueprint_course_id}; Revision{" "}
+                {props.view[key].currentRevision.revision}.
               </p>
               <h4>Module structure in authored order</h4>
               <For each={props.view[key].modules} fallback={<p>No Modules.</p>}>
@@ -219,8 +221,8 @@ function Comparison(props: { readonly view: BlueprintComparisonView }): JSX.Elem
       </p>
       <p>
         Shared Question IDs relate Assessments, including splits and combinations. Assessment names
-        and local references do not establish identity. Question and Pool pins do not expose
-        Question bodies; body differences are not determined here.
+        and local references do not establish identity. Question Revision pins and Pool membership
+        do not expose Question bodies; body differences are not determined here.
       </p>
       <h3>Question IDs</h3>
       <p>Shared: {props.view.sharedQuestionIds.join(", ") || "None"}.</p>
@@ -240,8 +242,8 @@ function Comparison(props: { readonly view: BlueprintComparisonView }): JSX.Elem
         {(edge) => (
           <details class="blueprint-fork-item">
             <summary>
-              {assessment(props.view.left, edge.leftAssessmentId)?.content.title} compared
-              with {assessment(props.view.right, edge.rightAssessmentId)?.content.title}
+              {assessment(props.view.left, edge.leftAssessmentId)?.content.title} compared with{" "}
+              {assessment(props.view.right, edge.rightAssessmentId)?.content.title}
             </summary>
             <p>Shared Question IDs: {edge.sharedQuestionIds.join(", ")}.</p>
             <Show when={assessment(props.view.left, edge.leftAssessmentId)}>
@@ -573,7 +575,7 @@ export function BlueprintForkReview(
                 !props.hasUnsavedChanges &&
                 loaded.target?.read_access === "blueprint_course_owner" &&
                 loaded.target.availability !== "archived" &&
-                loaded.target.fork_source?.id ===
+                loaded.target.fork_source?.blueprint_course_id ===
                   loaded.comparison.left.currentRevision.blueprint_course_id
               }
               fallback={

@@ -10,14 +10,14 @@ import {
 
 test("Student Course landing carries both Course Instance names", () => {
   const value = {
-    courses: [{ reference: "CI6F2R8TA0", shortName: "Mol Bio", longName: "Molecular Biology" }],
+    courses: [{ id: "CI6F2R8TA0", shortName: "Mol Bio", longName: "Molecular Biology" }],
   };
   assert.deepEqual(decodeLiveStudentCourseLandings(value), value.courses);
 });
 
 test("pending invitations require complete verified Instructor and inclusive term context", () => {
   const invitation = {
-    reference: "CI6F2R8TA0",
+    id: "CI6F2R8TA0",
     shortName: "Mol Bio",
     longName: "Molecular Biology",
     instructorDisplayName: "Elena Voss",
@@ -49,7 +49,7 @@ test("pending invitations require complete verified Instructor and inclusive ter
 
 test("pending invitations reject private identities and roster fields", () => {
   const invitation = {
-    reference: "CI6F2R8TA0",
+    id: "CI6F2R8TA0",
     shortName: "Mol Bio",
     longName: "Molecular Biology",
     instructorDisplayName: "Elena Voss",
@@ -75,7 +75,7 @@ test("pending invitations reject private identities and roster fields", () => {
 
 function assessment(overrides = {}) {
   return {
-    reference: "A5D9Q3XAH",
+    id: "A5D9Q3XAH",
     title: "Peptide practice",
     assessmentType: "regular_assignment",
     decision: {

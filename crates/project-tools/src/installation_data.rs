@@ -139,8 +139,8 @@ fn apply_live_demo() -> Result<()> {
             ("pilot_publication_session_id", session_id_text),
             ("pilot_question_publications", publications.clone()),
             (
-                "live_demo_blueprint_public_reference",
-                live_demo_blueprint.blueprint_public_reference,
+                "live_demo_blueprint_course_id",
+                live_demo_blueprint.blueprint_course_id,
             ),
             (
                 "live_demo_blueprint_assessment_id",
@@ -489,7 +489,7 @@ mod tests {
                     r#"{"pilot":{"sourceSha256":"abc","questionRevision":{"questionId":"ABC1-J234","revisionNumber":1}}}"#.to_string(),
                 ),
                 (
-                    "live_demo_blueprint_public_reference",
+                    "live_demo_blueprint_course_id",
                     "BPABCDEFGJ".to_string(),
                 ),
                 (
@@ -501,7 +501,7 @@ mod tests {
         .unwrap();
         assert!(script.contains("\\set pilot_publication_session_id"));
         assert!(script.contains("\\set pilot_question_publications"));
-        assert!(script.contains("\\set live_demo_blueprint_public_reference 'BPABCDEFGJ'"));
+        assert!(script.contains("\\set live_demo_blueprint_course_id 'BPABCDEFGJ'"));
         assert!(script.contains(
             "\\set live_demo_blueprint_assessment_id '00000000-0000-0000-0000-000000000012'"
         ));

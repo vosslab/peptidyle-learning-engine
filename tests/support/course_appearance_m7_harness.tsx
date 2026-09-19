@@ -28,7 +28,7 @@ const FIXTURE_CLASSIFICATION = {
 function initialCourse(): CourseRouteView {
   return {
     summary: {
-      reference: COURSE_REFERENCE,
+      id: COURSE_REFERENCE,
       shortName: "BCHM 301",
       longName: "Biochemistry 301: Proteins and Peptides",
       classification: FIXTURE_CLASSIFICATION,

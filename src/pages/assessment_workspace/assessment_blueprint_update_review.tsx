@@ -59,10 +59,10 @@ export function AssessmentEntrySummary(props: {
               : props.poolRole === "librarySource"
                 ? "Library source Question Pool"
                 : "Question Pool"}{" "}
-            {props.entry.questionPoolRevision.questionPoolId}
+            {props.entry.questionPoolId}
           </strong>{" "}
-          * Revision {props.entry.questionPoolRevision.revisionNumber}; select{" "}
-          {props.entry.selectionCount}; {props.entry.pointsPerItem} points per Question;{" "}
+          * Edit {props.entry.questionPoolEditNumber}; select {props.entry.selectionCount};{" "}
+          {props.entry.pointsPerItem} points per Question;{" "}
           {props.entry.selectionRule.selectedQuestionOrder === "randomOrder"
             ? "Random selected Question order"
             : "Question Pool order"}

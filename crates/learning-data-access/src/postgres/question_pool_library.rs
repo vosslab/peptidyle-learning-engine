@@ -6,16 +6,15 @@ use async_trait::async_trait;
 use question_model::{
     AssessmentEntryId, AssessmentId, BloomClassificationEditNumber, BloomClassificationView,
     BloomCognitiveProcess, BloomKnowledgeDimension, CourseInstanceId, QuestionId,
-    QuestionPoolLibrarySummary, QuestionPoolMetadata, QuestionPoolRevisionNumber,
-    QuestionPoolRevisionReference, QuestionRevisionNumber, QuestionRevisionReference,
-    QuestionSearchBloomCognitiveProcessFacet, QuestionSearchBloomKnowledgeDimensionFacet,
-    QuestionUsageTotals,
+    QuestionPoolEditNumber, QuestionPoolLibrarySummary, QuestionPoolMetadata,
+    QuestionRevisionNumber, QuestionRevisionReference, QuestionSearchBloomCognitiveProcessFacet,
+    QuestionSearchBloomKnowledgeDimensionFacet, QuestionUsageTotals,
 };
 use sqlx::{Postgres, Row, Transaction};
 
 use super::{Pool, connection::map_sqlx_error};
 use crate::{
-    AssessmentQuestionPoolForkRecord, Cursor, PageRequest, PublishedQuestionPoolRevision,
+    AssessmentQuestionPoolForkRecord, Cursor, PageRequest, PublishedQuestionPool,
     QuestionPoolDiscoveryFilter, QuestionPoolDiscoveryPage, QuestionPoolLibraryStore,
     QuestionPoolTextFilter, SessionTokenHash, StoreError,
 };
@@ -101,7 +100,7 @@ impl QuestionPoolLibraryStore for PostgresQuestionPoolLibraryStore {
         let mut items = Vec::with_capacity(rows.len());
         for row in &rows {
             if row
-                .try_get::<Option<String>, _>("public_question_pool_id")
+                .try_get::<Option<String>, _>("question_pool_id")
                 .map_err(map_sqlx_error)?
                 .is_some()
             {
@@ -114,7 +113,7 @@ impl QuestionPoolLibraryStore for PostgresQuestionPoolLibraryStore {
             .then(|| {
                 items
                     .last()
-                    .map(|item| item.question_pool_revision.question_pool_id.to_string())
+                    .map(|item| item.question_pool_id.to_string())
                     .ok_or_else(|| invalid("Question Pool page"))
             })
             .transpose()?
@@ -133,50 +132,23 @@ impl QuestionPoolLibraryStore for PostgresQuestionPoolLibraryStore {
     async fn load_current_published_question_pool(
         &self,
         session_token_hash: SessionTokenHash,
-        public_question_pool_id: &QuestionId,
-    ) -> Result<PublishedQuestionPoolRevision, StoreError> {
+        question_pool_id: &QuestionId,
+    ) -> Result<PublishedQuestionPool, StoreError> {
         let mut transaction = self.begin(session_token_hash).await?;
         let rows = sqlx::query("SELECT * FROM ple_api.read_current_published_question_pool($1)")
-            .bind(public_question_pool_id.as_str())
+            .bind(question_pool_id.as_str())
             .fetch_all(&mut *transaction)
             .await
             .map_err(map_sqlx_error)?;
-        let result = decode_revision_rows(&rows, public_question_pool_id, None)?
-            .ok_or(StoreError::NotFound)?;
+        let result = decode_pool_rows(&rows, question_pool_id)?.ok_or(StoreError::NotFound)?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(result)
     }
 
-    async fn load_published_question_pool_revision(
+    async fn correct_question_pool_bloom(
         &self,
         session_token_hash: SessionTokenHash,
-        reference: &QuestionPoolRevisionReference,
-    ) -> Result<PublishedQuestionPoolRevision, StoreError> {
-        let mut transaction = self.begin(session_token_hash).await?;
-        let rows =
-            sqlx::query("SELECT * FROM ple_api.read_published_question_pool_revision($1, $2)")
-                .bind(reference.question_pool_id.as_str())
-                .bind(
-                    i64::try_from(reference.revision_number.get())
-                        .map_err(|_| invalid("Question Pool Revision"))?,
-                )
-                .fetch_all(&mut *transaction)
-                .await
-                .map_err(map_sqlx_error)?;
-        let result = decode_revision_rows(
-            &rows,
-            &reference.question_pool_id,
-            Some(reference.revision_number),
-        )?
-        .ok_or(StoreError::NotFound)?;
-        transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(result)
-    }
-
-    async fn correct_question_pool_revision_bloom(
-        &self,
-        session_token_hash: SessionTokenHash,
-        reference: &QuestionPoolRevisionReference,
+        question_pool_id: &QuestionId,
         expected_edit_number: BloomClassificationEditNumber,
         cognitive_process: BloomCognitiveProcess,
         knowledge_dimension: BloomKnowledgeDimension,
@@ -188,13 +160,9 @@ impl QuestionPoolLibraryStore for PostgresQuestionPoolLibraryStore {
             "SELECT cognitive_process AS bloom_cognitive_process, \
                     knowledge_dimension AS bloom_knowledge_dimension, \
                     classification_edit_number AS bloom_classification_edit_number \
-             FROM ple_api.correct_question_pool_revision_bloom($1, $2, $3, $4, $5)",
+             FROM ple_api.correct_question_pool_bloom($1, $2, $3, $4)",
         )
-        .bind(reference.question_pool_id.as_str())
-        .bind(
-            i64::try_from(reference.revision_number.get())
-                .map_err(|_| invalid("Question Pool Revision"))?,
-        )
+        .bind(question_pool_id.as_str())
         .bind(expected_edit_number.value() as i64)
         .bind(cognitive_process.as_str())
         .bind(knowledge_dimension.as_str())
@@ -232,8 +200,8 @@ impl QuestionPoolLibraryStore for PostgresQuestionPoolLibraryStore {
         if stored_entry != assessment_entry {
             return Err(invalid("Assessment Pool fork Entry"));
         }
-        let pool_id = decode_question_id(first, "public_question_pool_id")?;
-        let revision_number = decode_pool_revision(first, "revision_number")?;
+        let pool_id = decode_question_id(first, "question_pool_id")?;
+        let edit_number = decode_pool_edit_number(first)?;
         let selection_count = u32::try_from(
             first
                 .try_get::<i32, _>("selection_count")
@@ -242,17 +210,12 @@ impl QuestionPoolLibraryStore for PostgresQuestionPoolLibraryStore {
         .ok()
         .and_then(NonZeroU32::new)
         .ok_or_else(|| invalid("Assessment Pool selection count"))?;
-        let members = decode_member_rows(&rows, &pool_id, revision_number)?;
+        let members = decode_member_rows(&rows, &pool_id, edit_number)?;
         let result = AssessmentQuestionPoolForkRecord {
             metadata: decode_metadata(first)?,
             assessment_entry_id: stored_entry,
-            question_pool_revision: QuestionPoolRevisionReference {
-                question_pool_id: pool_id,
-                revision_number,
-            },
-            question_pool_edit_number: first
-                .try_get("question_pool_edit_number")
-                .map_err(map_sqlx_error)?,
+            question_pool_id: pool_id,
+            question_pool_edit_number: edit_number,
             selection_count,
             bloom: decode_bloom(first)?,
             members,
@@ -292,8 +255,8 @@ impl PostgresQuestionPoolLibraryStore {
 }
 
 fn decode_summary(row: &sqlx::postgres::PgRow) -> Result<QuestionPoolLibrarySummary, StoreError> {
-    let question_pool_id = decode_question_id(row, "public_question_pool_id")?;
-    let revision_number = decode_pool_revision(row, "revision_number")?;
+    let question_pool_id = decode_question_id(row, "question_pool_id")?;
+    let edit_number = decode_pool_edit_number(row)?;
     let member_count = u32::try_from(
         row.try_get::<i32, _>("member_count")
             .map_err(map_sqlx_error)?,
@@ -303,10 +266,8 @@ fn decode_summary(row: &sqlx::postgres::PgRow) -> Result<QuestionPoolLibrarySumm
     .ok_or_else(|| invalid("Question Pool member count"))?;
     Ok(QuestionPoolLibrarySummary {
         metadata: decode_metadata(row)?,
-        question_pool_revision: QuestionPoolRevisionReference {
-            question_pool_id,
-            revision_number,
-        },
+        question_pool_id,
+        question_pool_edit_number: edit_number,
         member_count,
         bloom: decode_bloom(row)?,
     })
@@ -355,36 +316,31 @@ fn decode_bloom_facets(
     Ok((cognitive_processes, knowledge_dimensions))
 }
 
-fn decode_revision_rows(
+fn decode_pool_rows(
     rows: &[sqlx::postgres::PgRow],
     expected_id: &QuestionId,
-    expected_revision: Option<QuestionPoolRevisionNumber>,
-) -> Result<Option<PublishedQuestionPoolRevision>, StoreError> {
+) -> Result<Option<PublishedQuestionPool>, StoreError> {
     let Some(first) = rows.first() else {
         return Ok(None);
     };
-    let pool_id = decode_question_id(first, "public_question_pool_id")?;
-    let revision_number = decode_pool_revision(first, "revision_number")?;
-    if expected_id != &pool_id
-        || expected_revision.is_some_and(|expected| expected != revision_number)
-    {
+    let pool_id = decode_question_id(first, "question_pool_id")?;
+    let edit_number = decode_pool_edit_number(first)?;
+    if expected_id != &pool_id {
         return Err(invalid("Question Pool identity"));
     }
-    Ok(Some(PublishedQuestionPoolRevision {
+    Ok(Some(PublishedQuestionPool {
         metadata: decode_metadata(first)?,
         bloom: decode_bloom(first)?,
-        members: decode_member_rows(rows, &pool_id, revision_number)?,
-        question_pool_revision: QuestionPoolRevisionReference {
-            question_pool_id: pool_id,
-            revision_number,
-        },
+        members: decode_member_rows(rows, &pool_id, edit_number)?,
+        question_pool_id: pool_id,
+        question_pool_edit_number: edit_number,
     }))
 }
 
 fn decode_member_rows(
     rows: &[sqlx::postgres::PgRow],
     pool_id: &QuestionId,
-    revision_number: QuestionPoolRevisionNumber,
+    edit_number: QuestionPoolEditNumber,
 ) -> Result<Vec<QuestionRevisionReference>, StoreError> {
     let metadata = rows.first().map(decode_metadata).transpose()?;
     let bloom = rows.first().map(decode_bloom).transpose()?.flatten();
@@ -394,8 +350,8 @@ fn decode_member_rows(
             if metadata.as_ref() != Some(&decode_metadata(row)?) || bloom != decode_bloom(row)? {
                 return Err(invalid("Question Pool lineage metadata"));
             }
-            if decode_question_id(row, "public_question_pool_id")? != *pool_id
-                || decode_pool_revision(row, "revision_number")? != revision_number
+            if decode_question_id(row, "question_pool_id")? != *pool_id
+                || decode_pool_edit_number(row)? != edit_number
                 || row
                     .try_get::<i32, _>("member_position")
                     .map_err(map_sqlx_error)?
@@ -403,7 +359,7 @@ fn decode_member_rows(
             {
                 return Err(invalid("Question Pool member order"));
             }
-            let question_id = decode_question_id(row, "question_id")?;
+            let question_id = decode_question_id(row, "published_question_id")?;
             let question_revision = u32::try_from(
                 row.try_get::<i32, _>("question_revision_number")
                     .map_err(map_sqlx_error)?,
@@ -462,14 +418,16 @@ fn decode_metadata(row: &sqlx::postgres::PgRow) -> Result<QuestionPoolMetadata, 
     let metadata = QuestionPoolMetadata {
         title: row.try_get("title").map_err(map_sqlx_error)?,
         description: row.try_get("description").map_err(map_sqlx_error)?,
-        discipline_uuid: row.try_get("discipline_uuid").map_err(map_sqlx_error)?,
+        discipline_uuid: row
+            .try_get("content_discipline_id")
+            .map_err(map_sqlx_error)?,
         discipline_name: row.try_get("discipline_name").map_err(map_sqlx_error)?,
         discipline_is_retired: row
             .try_get("discipline_is_retired")
             .map_err(map_sqlx_error)?,
-        subject_uuid: row.try_get("subject_uuid").map_err(map_sqlx_error)?,
-        topic_uuid: row.try_get("topic_uuid").map_err(map_sqlx_error)?,
-        subtopic_uuid: row.try_get("subtopic_uuid").map_err(map_sqlx_error)?,
+        subject_uuid: row.try_get("content_subject_id").map_err(map_sqlx_error)?,
+        topic_uuid: row.try_get("content_topic_id").map_err(map_sqlx_error)?,
+        subtopic_uuid: row.try_get("content_subtopic_id").map_err(map_sqlx_error)?,
         tags: row.try_get("tags").map_err(map_sqlx_error)?,
     };
     if !(1..=question_model::MAX_QUESTION_TITLE_UNICODE_SCALARS)
@@ -508,15 +466,17 @@ fn decode_question_id(row: &sqlx::postgres::PgRow, column: &str) -> Result<Quest
         .map_err(|_| invalid("public Question ID"))
 }
 
-fn decode_pool_revision(
+fn decode_pool_edit_number(
     row: &sqlx::postgres::PgRow,
-    column: &str,
-) -> Result<QuestionPoolRevisionNumber, StoreError> {
-    QuestionPoolRevisionNumber::new(
-        u64::try_from(row.try_get::<i64, _>(column).map_err(map_sqlx_error)?)
-            .map_err(|_| invalid("Question Pool Revision"))?,
+) -> Result<QuestionPoolEditNumber, StoreError> {
+    QuestionPoolEditNumber::new(
+        u64::try_from(
+            row.try_get::<i64, _>("question_pool_edit_number")
+                .map_err(map_sqlx_error)?,
+        )
+        .map_err(|_| invalid("Question Pool Edit Number"))?,
     )
-    .map_err(|_| invalid("Question Pool Revision"))
+    .map_err(|_| invalid("Question Pool Edit Number"))
 }
 
 fn invalid(field: &str) -> StoreError {

@@ -42,20 +42,20 @@ SET LOCAL ROLE ple_api_owner;
 -- ASVS 8.3.1: the answer-free preview resolves the same finite base as start,
 -- only after current Course Instructor authorization; workspace keeps authored NULL.
 CREATE FUNCTION ple_api.read_instructor_student_view_duration_seconds(
-    p_course_public_reference text, p_assessment_public_reference text
+    p_course_instance_id text, p_assessment_id text
 ) RETURNS integer LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT ple_data.assessment_effective_base_duration_seconds(assessment.assessment_id)
       FROM ple_data.assessment AS assessment
       JOIN ple_data.course_instance AS course ON course.course_instance_id = assessment.course_instance_id
-     WHERE course.course_instance_id = p_course_public_reference
-       AND assessment.assessment_id = p_assessment_public_reference
+     WHERE course.course_instance_id = p_course_instance_id
+       AND assessment.assessment_id = p_assessment_id
        AND ple_api.current_session_account_is_course_instructor(course.course_instance_id)
 $$;
 
 CREATE FUNCTION ple_api.load_instructor_student_view_question_source(
-    p_course_public_reference text,
-    p_assessment_public_reference text,
+    p_course_instance_id text,
+    p_assessment_id text,
     p_expected_assessment_edit_number bigint,
     p_authored_position integer,
     p_published_question_id text,
@@ -92,8 +92,8 @@ BEGIN
       FROM ple_data.course_instance AS course
       JOIN ple_data.assessment AS assessment
         ON assessment.course_instance_id = course.course_instance_id
-     WHERE course.course_instance_id = p_course_public_reference
-       AND assessment.assessment_id = p_assessment_public_reference
+     WHERE course.course_instance_id = p_course_instance_id
+       AND assessment.assessment_id = p_assessment_id
        AND ple_api.current_session_account_is_course_instructor(course.course_instance_id);
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
@@ -106,7 +106,7 @@ BEGIN
     END IF;
 
     -- ASVS 1.2.4 and 2.3.1: use typed equality predicates for the complete
-    -- locator. A caller cannot substitute another position, Pool Revision,
+    -- locator. A caller cannot substitute another position, Pool membership,
     -- member, Question ID, or Question Revision.
     IF NOT EXISTS (
         SELECT 1

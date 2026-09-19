@@ -88,7 +88,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         "create request replay returns its original Revision"
     );
     let blueprint_reference = created.blueprint_revision.blueprint_course_id;
-    let reference = blueprint_reference_number(&blueprint_reference).await;
+    let reference = blueprint_course_id_text(&blueprint_reference).await;
     let reader_store = PostgresBlueprintCourseStore::new(application_pool.clone());
     promotion_boundary(&owner_store, blueprint_reference.clone()).await;
     // Regression: a refactor could disclose Private immutable content or let
@@ -424,14 +424,14 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         .expect("restored Public Blueprint accepts rename");
     assert_eq!(renamed.short_name, "RESTORED");
     let mut inspection = adoption_inspection_connection().await;
-    let adopted_course_reference_number = adopted.course.id.as_string();
-    let independently_adopted_course_reference_number = independently_adopted.course.id.as_string();
+    let adopted_course_instance_id = adopted.course.id.as_string();
+    let independently_adopted_course_instance_id = independently_adopted.course.id.as_string();
     blueprint_course_postgres_adoption::assert_adoption_projection(
         &mut inspection,
-        &adopted_course_reference_number,
+        &adopted_course_instance_id,
         &reference,
         1,
-        &independently_adopted_course_reference_number,
+        &independently_adopted_course_instance_id,
     )
     .await;
     let mut enrollment = inspection.begin().await.expect("enrollment fixture");
@@ -692,7 +692,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     let (save_pid_sender, save_pid_receiver) = oneshot::channel();
     let save_url = application_url.clone();
     let save_content = revision_four_content.clone();
-    let save_reference = blueprint_public_reference(&reference).await;
+    let save_reference = blueprint_course_id_text_from_str(&reference).await;
     let saver = tokio::spawn(async move {
         let mut connection = PgConnection::connect(&save_url)
             .await
@@ -747,7 +747,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     );
     let (creator_pid_sender, creator_pid_receiver) = oneshot::channel();
     let create_url = application_url.clone();
-    let create_reference = blueprint_public_reference(&reference).await;
+    let create_reference = blueprint_course_id_text_from_str(&reference).await;
     let creator = tokio::spawn(async move {
         let mut connection = PgConnection::connect(&create_url)
             .await
@@ -760,7 +760,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
             .expect("creator backend PID");
         creator_pid_sender.send(pid).expect("creator PID receiver");
         sqlx::query(
-            "SELECT public_reference FROM ple_api.create_course_instance(\
+            "SELECT course_instance_id FROM ple_api.create_course_instance(\
              'CI0000000' || ple_private.crockford_checksum_character('CI0000000'), \
              '00000000-0000-0000-0000-00000000b131', \
              '00000000-0000-0000-0000-00000000b132', \

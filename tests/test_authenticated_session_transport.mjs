@@ -10,11 +10,11 @@ test("session decoder accepts one immutable Account Product Role and rejects the
   assert.deepEqual(
     decodeAuthenticatedSession({
       authenticated: true,
-      account: { id: "00000000-0000-0000-0000-000000000001", productRole: "instructor" },
+      account: { id: "U7K3M2PA0", productRole: "instructor" },
     }),
     {
       authenticated: true,
-      account: { id: "00000000-0000-0000-0000-000000000001", productRole: "instructor" },
+      account: { id: "U7K3M2PA0", productRole: "instructor" },
     },
   );
   assert.throws(

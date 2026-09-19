@@ -1,12 +1,11 @@
 // Strict same-origin transport for reusable published Question Pool reads.
 
 import type { QuestionId } from "../../../generated/api/QuestionId";
-import type { QuestionPoolRevisionView } from "../../../generated/api/QuestionPoolRevisionView";
-import type { QuestionPoolRevisionReference } from "../../../generated/api/QuestionPoolRevisionReference";
+import type { QuestionPoolView } from "../../../generated/api/QuestionPoolView";
 import { validateCanonicalQuestionIdSyntax } from "../../../generated/api/QuestionIdSyntaxContract";
 import {
   decodeQuestionPoolLibraryPage,
-  decodeQuestionPoolRevisionView,
+  decodeQuestionPoolView,
 } from "../decoders/question_pool_library";
 import type {
   QuestionPoolLibraryClient,
@@ -38,14 +37,6 @@ function canonicalQuestionPoolId(value: QuestionId): QuestionId {
     throw new ApiProtocolError("Question Pool ID must be canonical");
   }
   return canonical;
-}
-
-function exactQuestionPoolRevisionPath(reference: QuestionPoolRevisionReference): string {
-  const canonical = canonicalQuestionPoolId(reference.questionPoolId);
-  if (!Number.isSafeInteger(reference.revisionNumber) || reference.revisionNumber < 1) {
-    throw new ApiProtocolError("Question Pool Revision Number must be a positive safe integer");
-  }
-  return `/api/question-pools/${encodedId(canonical)}/revisions/${reference.revisionNumber}`;
 }
 
 function questionPoolPagePath(
@@ -107,35 +98,12 @@ export function createQuestionPoolLibraryClient(
       }
       return page;
     },
-    getQuestionPool: async (questionPoolId): Promise<QuestionPoolRevisionView> => {
+    getQuestionPool: async (questionPoolId): Promise<QuestionPoolView> => {
       const canonical = canonicalQuestionPoolId(questionPoolId);
       const path = `/api/question-pools/${encodedId(canonical)}`;
-      const detail = await readJson(
-        fetchImplementation,
-        basePath,
-        path,
-        decodeQuestionPoolRevisionView,
-      );
-      if (detail.questionPoolRevision.questionPoolId !== canonical) {
+      const detail = await readJson(fetchImplementation, basePath, path, decodeQuestionPoolView);
+      if (detail.questionPoolId !== canonical) {
         throw new ApiProtocolError("Question Pool detail does not match its requested Pool ID");
-      }
-      return detail;
-    },
-    getQuestionPoolRevision: async (reference): Promise<QuestionPoolRevisionView> => {
-      const path = exactQuestionPoolRevisionPath(reference);
-      const detail = await readJson(
-        fetchImplementation,
-        basePath,
-        path,
-        decodeQuestionPoolRevisionView,
-      );
-      if (
-        detail.questionPoolRevision.questionPoolId !== reference.questionPoolId ||
-        detail.questionPoolRevision.revisionNumber !== reference.revisionNumber
-      ) {
-        throw new ApiProtocolError(
-          "Question Pool detail does not match its requested exact Pool Revision",
-        );
       }
       return detail;
     },

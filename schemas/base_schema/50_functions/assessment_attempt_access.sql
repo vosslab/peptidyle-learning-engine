@@ -55,8 +55,8 @@ BEGIN
 END $$;
 
 CREATE FUNCTION ple_private.read_student_assessment_access(
-    p_course_reference_number text,
-    p_assessment_reference_number text
+    p_course_instance_id text,
+    p_assessment_id text
 ) RETURNS TABLE (
     start_decision text,
     assessment_title text,
@@ -81,9 +81,9 @@ DECLARE accommodation_row ple_private.student_assessment_accommodation%ROWTYPE;
 DECLARE student_record_id_value uuid; active_assessment_attempt ple_private.assessment_attempt%ROWTYPE;
 DECLARE evaluation_time timestamptz := pg_catalog.statement_timestamp(); started_assessment_attempt_count integer;
 BEGIN
-    IF p_course_reference_number IS NULL THEN RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable'; END IF;
-    SELECT assessment.* INTO assessment_row FROM ple_data.assessment AS assessment WHERE assessment.assessment_id = p_assessment_reference_number;
-    IF NOT FOUND OR ple_api.course_reference_number_for_assessment_attempt(assessment_row.course_instance_id) IS DISTINCT FROM p_course_reference_number THEN RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable'; END IF;
+    IF p_course_instance_id IS NULL THEN RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable'; END IF;
+    SELECT assessment.* INTO assessment_row FROM ple_data.assessment AS assessment WHERE assessment.assessment_id = p_assessment_id;
+    IF NOT FOUND OR ple_api.course_instance_id_for_assessment_attempt(assessment_row.course_instance_id) IS DISTINCT FROM p_course_instance_id THEN RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable'; END IF;
     SELECT * INTO policy_row FROM ple_data.assessment_policy_snapshot
      WHERE assessment_policy_snapshot_id = assessment_row.assessment_policy_snapshot_id;
     -- ASVS 8.2.2, 8.2.3, 14.2.6: return only this session Student's
@@ -188,9 +188,9 @@ BEGIN
     RETURN NEXT;
 END $$;
 
-CREATE FUNCTION ple_private.read_active_student_assessment_attempt_reference(p_course_reference_number text, p_assessment_reference_number text)
+CREATE FUNCTION ple_private.read_active_student_assessment_attempt_reference(p_course_instance_id text, p_assessment_id text)
 RETURNS TABLE (assessment_attempt_id uuid) LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
-    SELECT assessment_attempt.assessment_attempt_id FROM ple_private.assessment_attempt AS assessment_attempt JOIN ple_data.assessment AS assessment ON assessment.assessment_id = assessment_attempt.assessment_id WHERE ple_api.course_reference_number_for_assessment_attempt(assessment.course_instance_id) = p_course_reference_number AND assessment.assessment_id = p_assessment_reference_number AND NOT EXISTS (SELECT 1 FROM ple_private.assessment_submission AS submission WHERE submission.assessment_attempt_id = assessment_attempt.assessment_attempt_id) AND (assessment_attempt.expires_at IS NULL OR assessment_attempt.expires_at > pg_catalog.statement_timestamp()) AND ple_api.course_student_work_is_ordinarily_visible(assessment.course_instance_id) AND ple_api.current_session_account_owns_student_record(assessment.course_instance_id, assessment_attempt.student_record_id) ORDER BY assessment_attempt.assessment_attempt_number DESC LIMIT 1
+    SELECT assessment_attempt.assessment_attempt_id FROM ple_private.assessment_attempt AS assessment_attempt JOIN ple_data.assessment AS assessment ON assessment.assessment_id = assessment_attempt.assessment_id WHERE ple_api.course_instance_id_for_assessment_attempt(assessment.course_instance_id) = p_course_instance_id AND assessment.assessment_id = p_assessment_id AND NOT EXISTS (SELECT 1 FROM ple_private.assessment_submission AS submission WHERE submission.assessment_attempt_id = assessment_attempt.assessment_attempt_id) AND (assessment_attempt.expires_at IS NULL OR assessment_attempt.expires_at > pg_catalog.statement_timestamp()) AND ple_api.course_student_work_is_ordinarily_visible(assessment.course_instance_id) AND ple_api.current_session_account_owns_student_record(assessment.course_instance_id, assessment_attempt.student_record_id) ORDER BY assessment_attempt.assessment_attempt_number DESC LIMIT 1
 $$;
 
 
@@ -210,7 +210,6 @@ CREATE FUNCTION ple_private.read_student_assessment_attempt_pool_selection(
     question_pool_selection_id uuid,
     selection_position integer,
     question_pool_id text,
-    question_pool_public_id text,
     question_pool_edit_number bigint,
     member_position integer,
     published_question_id text,
@@ -229,13 +228,11 @@ BEGIN
            selection.question_pool_selection_id,
            selected.selection_position,
            selection.question_pool_id,
-           pool.question_pool_id,
            selection.question_pool_edit_number,
            selected.member_position,
            selected.published_question_id,
            selected.revision_number
       FROM ple_private.question_pool_selection AS selection
-      JOIN ple_data.question_pool AS pool ON pool.question_pool_id = selection.question_pool_id
       JOIN ple_private.question_pool_selected_item AS selected
         ON selected.question_pool_selection_id = selection.question_pool_selection_id
      WHERE selection.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id
@@ -243,7 +240,7 @@ BEGIN
 END $$;
 
 CREATE FUNCTION ple_private.read_student_assessment_attempt_context(p_assessment_attempt_id uuid)
-RETURNS TABLE (assessment_attempt_id uuid, assessment_attempt_number integer, course_reference_number text, course_short_name text, course_long_name text, course_theme text, assessment_reference_number text, assessment_title text, display_time_zone text, expires_at_millis bigint, timer_remaining_milliseconds bigint)
+RETURNS TABLE (assessment_attempt_id uuid, assessment_attempt_number integer, course_instance_id text, course_short_name text, course_long_name text, course_theme text, assessment_id text, assessment_title text, display_time_zone text, expires_at_millis bigint, timer_remaining_milliseconds bigint)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE assessment_attempt_id_value uuid;
 DECLARE evaluation_time timestamptz := pg_catalog.statement_timestamp();
@@ -289,7 +286,7 @@ CREATE FUNCTION ple_api.read_student_assessment_access(text, text) RETURNS TABLE
 
 CREATE FUNCTION ple_api.read_active_student_assessment_attempt_reference(text, text) RETURNS TABLE (assessment_attempt_id uuid) LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api, ple_data AS $$ SELECT * FROM ple_private.read_active_student_assessment_attempt_reference((SELECT course_instance_id FROM ple_data.course_instance WHERE course_instance_id = $1), $2) $$;
 
-CREATE FUNCTION ple_api.read_student_assessment_attempt_pool_selection(uuid) RETURNS TABLE (assessment_attempt_id uuid, assessment_entry_id uuid, question_pool_selection_id uuid, selection_position integer, question_pool_id text, question_pool_public_id text, question_pool_edit_number bigint, member_position integer, published_question_id text, revision_number integer) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$ SELECT * FROM ple_private.read_student_assessment_attempt_pool_selection($1) $$;
+CREATE FUNCTION ple_api.read_student_assessment_attempt_pool_selection(uuid) RETURNS TABLE (assessment_attempt_id uuid, assessment_entry_id uuid, question_pool_selection_id uuid, selection_position integer, question_pool_id text, question_pool_edit_number bigint, member_position integer, published_question_id text, revision_number integer) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$ SELECT * FROM ple_private.read_student_assessment_attempt_pool_selection($1) $$;
 
-CREATE FUNCTION ple_api.read_student_assessment_attempt_context(uuid) RETURNS TABLE (assessment_attempt_id uuid, assessment_attempt_number integer, course_reference_number text, course_short_name text, course_long_name text, course_theme text, assessment_reference_number text, assessment_title text, display_time_zone text, expires_at_millis bigint, timer_remaining_milliseconds bigint) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$ SELECT * FROM ple_private.read_student_assessment_attempt_context($1) $$;
+CREATE FUNCTION ple_api.read_student_assessment_attempt_context(uuid) RETURNS TABLE (assessment_attempt_id uuid, assessment_attempt_number integer, course_instance_id text, course_short_name text, course_long_name text, course_theme text, assessment_id text, assessment_title text, display_time_zone text, expires_at_millis bigint, timer_remaining_milliseconds bigint) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$ SELECT * FROM ple_private.read_student_assessment_attempt_context($1) $$;
 

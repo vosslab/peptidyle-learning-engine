@@ -58,7 +58,7 @@ UUID values, and the five Assessment Type enum values; Assignment remains only
 in the three Type display names. The canonical JSON names are `assessment`,
 `id` or nested `assessmentId` / `courseId` for those public IDs,
 `assessmentAttempt`, `assessmentEntry`,
-`assessmentStatus`, `assessments`, and `blueprint_assessment_reference`.
+`assessmentStatus`, `assessments`, and `blueprint_assessment_id`.
 Canonical decoders accept only those names. There is no parallel `reference`
 property.
 
@@ -191,8 +191,9 @@ creates an Unreleased copy in each daughter Course Instance.
 For one retained daughter Assessment, `GET` and `POST`
 `/api/course-instances/{course}/assessments/{assessment}/blueprint-update`
 derive a review from the current parent Revision and explicitly apply its reusable
-content. The read exposes the current and proposed ordered Fixed Question and
-Question Pool pins; Apply accepts only the expected parent Revision and daughter
+content. The read exposes the current and proposed ordered Fixed Question
+Revision pins together with sibling Pool ID and Pool Edit Number fields; Apply
+accepts only the expected parent Revision and daughter
 Assessment Edit Number. The trusted Store reauthorizes and locks parent, Course,
 and Assessment, compares reusable semantics before minting fresh owned Pool forks,
 and preserves Course dates, release status, origin pins, and existing Student Work.

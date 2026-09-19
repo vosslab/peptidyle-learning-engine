@@ -36,17 +36,17 @@ $$;
 
 
 
--- A Pool entry names one exact reusable Pool Revision. Its ordered Question
--- member pins live in that immutable Pool Revision, rather than being copied
--- into Blueprint JSON as a second representation.
-CREATE FUNCTION ple_data.blueprint_content_pool_pins(p_content jsonb)
+-- A Pool entry names one current Question Pool by Pool ID. Ordered Question
+-- Revision member pins live in current Pool membership, rather than being
+-- copied into Blueprint JSON as a second representation.
+CREATE FUNCTION ple_data.blueprint_content_pools(p_content jsonb)
 RETURNS TABLE (content_path text, question_pool_id text)
 LANGUAGE sql IMMUTABLE STRICT
 SET search_path = pg_catalog, ple_data
 AS $$
     SELECT pg_catalog.format('m%s.a%s.e%s', module_ordinality,
                assessment_ordinality, entry_ordinality),
-           entry #>> '{question_pool_revision,questionPoolId}'
+           entry ->> 'question_pool_id'
       FROM pg_catalog.jsonb_array_elements(p_content -> 'modules')
              WITH ORDINALITY AS module_row(module, module_ordinality)
       CROSS JOIN LATERAL pg_catalog.jsonb_array_elements(module_row.module -> 'assessments')
@@ -59,14 +59,14 @@ $$;
 
 CREATE FUNCTION ple_data.blueprint_content_assessments(p_content jsonb)
 RETURNS TABLE (
-    blueprint_module_reference uuid, blueprint_assessment_reference uuid,
+    blueprint_module_reference uuid, blueprint_assessment_id uuid,
     module_position integer, assessment_position integer
 )
 LANGUAGE sql IMMUTABLE STRICT
 SET search_path = pg_catalog, ple_data
 AS $$
     SELECT (module_row.module ->> 'blueprint_module_reference')::uuid,
-           (assessment_row.assessment ->> 'blueprint_assessment_reference')::uuid,
+           (assessment_row.assessment ->> 'blueprint_assessment_id')::uuid,
            module_row.module_ordinality::integer,
            assessment_row.assessment_ordinality::integer
       FROM pg_catalog.jsonb_array_elements(p_content -> 'modules')
@@ -139,8 +139,8 @@ BEGIN
         FOR assessment_value IN
             SELECT value FROM jsonb_array_elements(module_value -> 'assessments') LOOP
             IF NOT ple_data.blueprint_content_has_exact_keys(
-                assessment_value, ARRAY['blueprint_assessment_reference', 'content']
-            ) OR jsonb_typeof(assessment_value -> 'blueprint_assessment_reference') <> 'string'
+                assessment_value, ARRAY['blueprint_assessment_id', 'content']
+            ) OR jsonb_typeof(assessment_value -> 'blueprint_assessment_id') <> 'string'
               OR jsonb_typeof(assessment_value -> 'content') <> 'object' THEN
                 RETURN false;
             END IF;
@@ -203,16 +203,18 @@ BEGIN
                     delivered_question_count := delivered_question_count +
                         (entry_value ->> 'selection_count')::bigint;
                     IF NOT ple_data.blueprint_content_has_exact_keys(entry_value, ARRAY[
-                        'kind', 'question_pool_revision', 'selection_count', 'points_per_item',
+                        'kind', 'question_pool_id', 'question_pool_edit_number',
+                        'selection_count', 'points_per_item',
                         'scoring_rule', 'selection_rule', 'question_attempt_limit',
                         'question_attempt_time_limit'
-                    ]) OR jsonb_typeof(entry_value -> 'question_pool_revision') <> 'object' THEN
+                    ]) THEN
                         RETURN false;
                     END IF;
-                    pin_value := entry_value -> 'question_pool_revision';
-                    IF NOT ple_data.blueprint_content_has_exact_keys(
-                        pin_value, ARRAY['questionPoolId', 'revisionNumber']
-                    ) THEN RETURN false; END IF;
+                    IF entry_value ->> 'question_pool_id' IS NULL
+                       OR jsonb_typeof(entry_value -> 'question_pool_edit_number')
+                            NOT IN ('number', 'string') THEN
+                        RETURN false;
+                    END IF;
                     selection_value := entry_value -> 'selection_rule';
                     IF NOT ple_data.blueprint_content_has_exact_keys(
                         selection_value, ARRAY['selectedQuestionOrder']
@@ -268,12 +270,12 @@ BEGIN
              CROSS JOIN LATERAL jsonb_array_elements(module_row.module -> 'assessments')
                  AS assessment_row(assessment)
             WHERE jsonb_typeof(assessment_row.assessment) <> 'object'
-               OR assessment_row.assessment ->> 'blueprint_assessment_reference' IS NULL
+               OR assessment_row.assessment ->> 'blueprint_assessment_id' IS NULL
                OR jsonb_typeof(assessment_row.assessment -> 'content') <> 'object'
                OR jsonb_typeof(assessment_row.assessment -> 'content' -> 'entries') <> 'array'
        )
        OR (SELECT count(*) FROM ple_data.blueprint_content_assessments(p_content))
-          <> (SELECT count(DISTINCT blueprint_assessment_reference)
+          <> (SELECT count(DISTINCT blueprint_assessment_id)
                 FROM ple_data.blueprint_content_assessments(p_content))
        OR EXISTS (
            SELECT 1
@@ -288,7 +290,8 @@ BEGIN
                OR (entry_row.entry ->> 'kind' = 'fixed'
                    AND jsonb_typeof(entry_row.entry -> 'question_revision') <> 'object')
                OR (entry_row.entry ->> 'kind' = 'pool'
-                   AND jsonb_typeof(entry_row.entry -> 'question_pool_revision') <> 'object')
+                   AND (entry_row.entry ->> 'question_pool_id' IS NULL
+                        OR entry_row.entry -> 'question_pool_edit_number' IS NULL))
        ) THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Blueprint Course content is invalid';
@@ -301,7 +304,7 @@ $$;
 -- New pins must select an Available Published Question. A Save may retain an
 -- exact pin already owned by its expected immutable head Revision.
 CREATE FUNCTION ple_data.validate_blueprint_question_selection(
-    p_existing_blueprint_course_reference_number text,
+    p_existing_blueprint_course_instance_id text,
     p_existing_blueprint_revision_number bigint,
     p_content jsonb
 ) RETURNS void
@@ -324,7 +327,7 @@ BEGIN
            AND revision.revision_number = pin.question_revision_number
           LEFT JOIN ple_data.blueprint_revision_question_pin AS existing
             ON existing.blueprint_course_id
-                 = p_existing_blueprint_course_reference_number
+                 = p_existing_blueprint_course_instance_id
            AND existing.blueprint_revision_number = p_existing_blueprint_revision_number
            AND existing.published_question_id = pin.published_question_id
            AND existing.question_revision_number = pin.question_revision_number

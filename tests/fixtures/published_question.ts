@@ -13,11 +13,7 @@ type BrowserQuestionAttempt = Omit<(typeof fixtureSet.attempts)[number], "reprod
 
 type BrowserIssuedQuestion = Omit<
   (typeof fixtureSet.issuedQuestions)[number],
-  | "reproductionDetails"
-  | "pointValue"
-  | "scoringRule"
-  | "questionPoolSelection"
-  | "poolRevisionMember"
+  "reproductionDetails" | "pointValue" | "scoringRule" | "questionPoolSelection" | "poolMember"
 >;
 
 function browserQuestionAttempt(
@@ -35,7 +31,7 @@ function browserIssuedQuestion(
     pointValue: _pointValue,
     scoringRule: _scoringRule,
     questionPoolSelection: _questionPoolSelection,
-    poolRevisionMember: _poolRevisionMember,
+    poolMember: _poolMember,
     ...browserSafeIssuedQuestion
   } = issuedQuestion;
   // Durable issued positions are zero-based; the Student display ordinal is one-based.

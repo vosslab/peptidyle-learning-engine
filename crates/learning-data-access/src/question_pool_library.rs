@@ -1,14 +1,14 @@
 //! Session-authorized reads for reusable published Question Pools.
 //!
-//! PostgreSQL returns only public Pool identity and exact immutable Revision
-//! pins. Question source bindings remain owned by `QuestionLibraryStore` and
+//! PostgreSQL returns only public Pool identity and current membership.
+//! Question source bindings remain owned by `QuestionLibraryStore` and
 //! browser-safe rendering remains a server responsibility.
 
 use async_trait::async_trait;
 use question_model::{
     AssessmentEntryId, BloomClassificationEditNumber, BloomClassificationView,
-    BloomCognitiveProcess, BloomKnowledgeDimension, QuestionPoolLibrarySummary,
-    QuestionPoolMetadata, QuestionPoolRevisionReference, QuestionRevisionReference,
+    BloomCognitiveProcess, BloomKnowledgeDimension, QuestionId, QuestionPoolEditNumber,
+    QuestionPoolLibrarySummary, QuestionPoolMetadata, QuestionRevisionReference,
     QuestionSearchBloomCognitiveProcessFacet, QuestionSearchBloomKnowledgeDimensionFacet,
 };
 use serde::Serialize;
@@ -78,9 +78,10 @@ impl QuestionPoolDiscoveryFilter {
 
 /// Exact immutable Pool content before answer-free Question projection.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PublishedQuestionPoolRevision {
+pub struct PublishedQuestionPool {
     pub metadata: QuestionPoolMetadata,
-    pub question_pool_revision: QuestionPoolRevisionReference,
+    pub question_pool_id: QuestionId,
+    pub question_pool_edit_number: QuestionPoolEditNumber,
     pub bloom: Option<BloomClassificationView>,
     pub members: Vec<QuestionRevisionReference>,
 }
@@ -90,8 +91,8 @@ pub struct PublishedQuestionPoolRevision {
 pub struct AssessmentQuestionPoolForkRecord {
     pub metadata: QuestionPoolMetadata,
     pub assessment_entry_id: AssessmentEntryId,
-    pub question_pool_revision: QuestionPoolRevisionReference,
-    pub question_pool_edit_number: Uuid,
+    pub question_pool_id: QuestionId,
+    pub question_pool_edit_number: QuestionPoolEditNumber,
     pub selection_count: std::num::NonZeroU32,
     pub bloom: Option<BloomClassificationView>,
     pub members: Vec<QuestionRevisionReference>,
@@ -110,33 +111,26 @@ pub trait QuestionPoolLibraryStore: Send + Sync {
         text: QuestionPoolTextFilter,
     ) -> Result<QuestionPoolDiscoveryPage, StoreError>;
 
-    /// Resolves the current Revision of one published Pool lineage.
+    /// Resolves the current membership of one published Pool.
     async fn load_current_published_question_pool(
         &self,
         session_token_hash: SessionTokenHash,
-        public_question_pool_id: &question_model::QuestionId,
-    ) -> Result<PublishedQuestionPoolRevision, StoreError>;
+        question_pool_id: &question_model::QuestionId,
+    ) -> Result<PublishedQuestionPool, StoreError>;
 
-    /// Resolves one caller-selected immutable Revision of a published Pool.
-    async fn load_published_question_pool_revision(
-        &self,
-        session_token_hash: SessionTokenHash,
-        reference: &QuestionPoolRevisionReference,
-    ) -> Result<PublishedQuestionPoolRevision, StoreError>;
-
-    /// Corrects both Bloom dimensions for one exact Pool Revision through the
+    /// Corrects both Bloom dimensions for one current Pool through the
     /// classification-owned compare-and-swap number.
-    async fn correct_question_pool_revision_bloom(
+    async fn correct_question_pool_bloom(
         &self,
         session_token_hash: SessionTokenHash,
-        reference: &QuestionPoolRevisionReference,
+        question_pool_id: &question_model::QuestionId,
         expected_edit_number: BloomClassificationEditNumber,
         cognitive_process: BloomCognitiveProcess,
         knowledge_dimension: BloomKnowledgeDimension,
     ) -> Result<BloomClassificationView, StoreError>;
 
     /// Derives one exact Assessment-owned fork through Course, Assessment,
-    /// and Entry authorization; callers cannot select a Pool Revision.
+    /// and Entry authorization; callers cannot select historical Pool membership.
     async fn load_assessment_question_pool_fork(
         &self,
         session_token_hash: SessionTokenHash,

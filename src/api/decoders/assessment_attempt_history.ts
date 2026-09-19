@@ -64,10 +64,7 @@ export function decodeStudentAssessmentAttemptHistory(
       `${path}.attemptNumber`,
     ),
     course: {
-      id: decodeCourseInstanceId(
-        field(course, "id", `${path}.course`),
-        `${path}.course.id`,
-      ),
+      id: decodeCourseInstanceId(field(course, "id", `${path}.course`), `${path}.course.id`),
       shortName: decodeCourseName(
         field(course, "shortName", `${path}.course`),
         `${path}.course.shortName`,

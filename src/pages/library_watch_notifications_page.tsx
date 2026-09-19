@@ -101,7 +101,10 @@ export function LibraryWatchNotificationsPage(): JSX.Element {
                   </p>
                   <Show when={notification.revisionNumber !== null}>
                     <p>
-                      <strong>Revision:</strong> {notification.revisionNumber}
+                      <strong>
+                        {notification.targetKind === "questionPool" ? "Edit Number" : "Revision"}:
+                      </strong>{" "}
+                      {notification.revisionNumber}
                     </p>
                   </Show>
                   <Show when={notification.forkedPublicId !== null}>

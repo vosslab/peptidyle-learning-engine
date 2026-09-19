@@ -100,8 +100,8 @@ export function SelectedAssessmentEntryIdentity(
   return (
     <>
       <h3>
-        Entry {props.entryNumber} · Question Pool {pool.questionPoolRevision.questionPoolId} ·
-        Revision {pool.questionPoolRevision.revisionNumber}
+        Entry {props.entryNumber} · Question Pool {pool.questionPoolId} · Edit{" "}
+        {pool.questionPoolEditNumber}
       </h3>
       <p class="assessment-editor-row-description">
         {pool.selectionRule.selectedQuestionOrder === "randomOrder"

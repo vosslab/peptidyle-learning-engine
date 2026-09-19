@@ -214,13 +214,13 @@ assert_current_view() {
 import json, sys
 payload = json.loads(sys.argv[1])
 reference, revision, short_name, long_name, availability, read_access = sys.argv[2:]
-expected = {"reference", "short_name", "long_name", "availability", "metadata_etag", "current_revision", "read_access", "modules"}
+expected = {"classification", "id", "short_name", "long_name", "availability", "blueprint_edit_number", "current_revision", "read_access", "fork_source", "modules"}
 if set(payload) != expected:
     raise SystemExit("Blueprint Course response did not have the current closed DTO shape")
-if (payload["reference"] != reference or payload["short_name"] != short_name or payload["long_name"] != long_name
+if (payload["id"] != reference or payload["short_name"] != short_name or payload["long_name"] != long_name
         or payload["availability"] != availability or payload["read_access"] != read_access
-        or payload["current_revision"] != {"reference": reference, "revision": revision}
-        or not isinstance(payload["metadata_etag"], str) or not payload["metadata_etag"]
+        or payload["current_revision"] != {"blueprint_course_id": reference, "revision": revision}
+        or not isinstance(payload["blueprint_edit_number"], str) or not payload["blueprint_edit_number"]
         or not isinstance(payload["modules"], list)):
     raise SystemExit("Blueprint Course did not return its current immutable Revision")
 ' "$response" "$reference" "$revision" "$short_name" "$long_name" "$availability" "$read_access"
@@ -235,7 +235,7 @@ if set(value) != {"blueprintCourse", "changed"}:
     raise SystemExit("Blueprint Save response was not closed")
 course = value["blueprintCourse"]
 if (value["changed"] != (changed == "true")
-        or course.get("current_revision") != {"reference": reference, "revision": revision}):
+        or course.get("current_revision") != {"blueprint_course_id": reference, "revision": revision}):
     raise SystemExit("Blueprint Save did not return its exact current Revision and changed outcome")
 ' "$1" "$2" "$3" "$4"
 }
@@ -247,12 +247,12 @@ value = json.loads(sys.argv[1])
 reference, revision = sys.argv[2:]
 if set(value) != {"blueprintRevision", "modules"}:
     raise SystemExit("exact Blueprint Revision response was not closed")
-if value["blueprintRevision"] != {"reference": reference, "revision": revision}:
+if value["blueprintRevision"] != {"blueprint_course_id": reference, "revision": revision}:
     raise SystemExit("exact Blueprint Revision did not resolve its immutable identity")
 modules = value["modules"]
 if not isinstance(modules, list) or len(modules) != 1:
     raise SystemExit("exact Blueprint Revision did not retain its module")
-assignments = modules[0].get("assignments") if isinstance(modules[0], dict) else None
+assignments = modules[0].get("assessments") if isinstance(modules[0], dict) else None
 if not isinstance(assignments, list) or len(assignments) != 1:
     raise SystemExit("exact Blueprint Revision did not retain its assignment")
 ' "$1" "$2" "$3"
@@ -262,13 +262,13 @@ assert_metadata() {
 	python3 -c '
 import json, sys
 value = json.loads(sys.argv[1])
-if (set(value) != {"short_name", "long_name", "availability", "metadata_etag"}
+if (set(value) != {"short_name", "long_name", "availability", "blueprint_edit_number"}
         or value["availability"] != sys.argv[2]
         or value["short_name"] != sys.argv[3]
         or value["long_name"] != sys.argv[4]
-        or not isinstance(value["metadata_etag"], str) or not value["metadata_etag"]):
+        or not isinstance(value["blueprint_edit_number"], str) or not value["blueprint_edit_number"]):
     raise SystemExit("Blueprint metadata transition did not return its opaque qualified result")
-print(value["metadata_etag"])
+print(value["blueprint_edit_number"])
 ' "$1" "$2" "$3" "$4"
 }
 
@@ -276,7 +276,7 @@ assert_absent_from_listing() {
 	python3 -c '
 import json, sys
 items = json.loads(sys.argv[1]).get("items")
-if not isinstance(items, list) or any(item.get("reference") == sys.argv[2] for item in items if isinstance(item, dict)):
+if not isinstance(items, list) or any(item.get("id") == sys.argv[2] for item in items if isinstance(item, dict)):
     raise SystemExit("archived Blueprint Course remained in ordinary browsing")
 ' "$1" "$2"
 }
@@ -285,7 +285,7 @@ assert_present_in_listing() {
 	python3 -c '
 import json, sys
 items = json.loads(sys.argv[1]).get("items")
-if not isinstance(items, list) or not any(item.get("reference") == sys.argv[2] for item in items if isinstance(item, dict)):
+if not isinstance(items, list) or not any(item.get("id") == sys.argv[2] for item in items if isinstance(item, dict)):
     raise SystemExit("restored Blueprint Course did not return to ordinary browsing")
 ' "$1" "$2"
 }
@@ -422,11 +422,11 @@ prove_service() {
 	read -r reference metadata_etag < <(python3 -c '
 import json, re, sys
 value = json.loads(sys.argv[1])
-reference = value.get("reference")
+reference = value.get("id")
 revision = value.get("current_revision")
-metadata_etag = value.get("metadata_etag")
-if (not isinstance(reference, str) or not re.fullmatch(r"BP-[1-9][0-9]{0,9}", reference)
-        or revision != {"reference": reference, "revision": "1"}
+metadata_etag = value.get("blueprint_edit_number")
+if (not isinstance(reference, str) or not re.fullmatch(r"BP[0-9A-HJKMNP-TV-Z]{8}", reference)
+        or revision != {"blueprint_course_id": reference, "revision": "1"}
         or not isinstance(metadata_etag, str) or not metadata_etag):
     raise SystemExit("Blueprint Course creation did not return Revision 1 and metadata identity")
 print(reference, metadata_etag)
@@ -479,7 +479,7 @@ print(reference, metadata_etag)
 		prove_non_owner_browse "$reader_cookie" "$reference" "$metadata_etag" "$replacement"
 		# C19's archive/restore path advances the opaque metadata validator.
 		detail="$(request "/api/course-blueprints/$reference" "$instructor_cookie")"
-		metadata_etag="$(python3 -c 'import json, sys; value=json.loads(sys.argv[1]); print(value["metadata_etag"])' "$(response_body "$detail")")"
+		metadata_etag="$(python3 -c 'import json, sys; value=json.loads(sys.argv[1]); print(value["blueprint_edit_number"])' "$(response_body "$detail")")"
 	else
 		# The fixed Browser Suite deliberately has only one Instructor. It still
 		# proves the owner lifecycle; a self-owned runtime supplies the C19 reader

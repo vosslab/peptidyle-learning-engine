@@ -745,9 +745,9 @@ precise identifiers when documenting source evidence, with the product meaning
 or gap nearby; internal names create no additional product workflow or
 lifecycle state.
 
-Rust, TypeScript, SQL, and JSON use the same public-ID type names as this
-contract: `AccountId`, `CourseInstanceId`, `AssessmentId`,
-`BlueprintCourseId`, `QuestionId`, and Pool ID (`question_pool_id`). SQL
-primary keys and JSON `id` fields are those public IDs. Do not keep a
-parallel UUID primary key, a `reference` JSON field, or a
-`public_reference` SQL alias beside a public ID.
+Rust, TypeScript, SQL, and JSON name the same public IDs. Each language
+uses its ordinary casing: SQL `account_id`, Rust/TypeScript type
+`AccountId`, Rust field `account_id`, JSON `id` or nested `accountId`.
+Do not keep a parallel UUID primary key, a `reference` JSON field for a
+public ID, or a `public_reference` SQL alias beside a public ID. Composite
+Question Revision pins remain `{questionId, revisionNumber}`.

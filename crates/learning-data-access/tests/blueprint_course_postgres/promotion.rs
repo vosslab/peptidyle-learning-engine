@@ -26,7 +26,7 @@ pub(super) fn discovery(
 // the connected lifecycle oracle rather than constructing another full fixture.
 pub(super) async fn promotion_boundary(
     store: &PostgresBlueprintCourseStore,
-    reference: BlueprintCourseId,
+    blueprint_course_id: BlueprintCourseId,
 ) {
     let runtime = acceptance_runtime::AcceptanceRuntime::load().expect("acceptance runtime");
     let admin = lazy_pool(runtime.migration_url().expose()).expect("migration pool");
@@ -64,19 +64,19 @@ pub(super) async fn promotion_boundary(
     transaction.commit().await.expect("fixture commit");
     admin.close().await;
     let initial = store
-        .load_blueprint_promotion(sysadmin, reference.clone())
+        .load_blueprint_promotion(sysadmin, blueprint_course_id.clone())
         .await
         .expect("Sysadmin reads promotion");
     assert!(!initial.promoted, "new lineage defaults unpromoted");
     let head = store
-        .load_blueprint_course(token(), reference.clone())
+        .load_blueprint_course(token(), blueprint_course_id.clone())
         .await
         .expect("owner head")
         .current_revision;
     for actor in [token(), student] {
         assert!(matches!(
             store
-                .load_blueprint_promotion(actor, reference.clone())
+                .load_blueprint_promotion(actor, blueprint_course_id.clone())
                 .await,
             Err(StoreError::NotFound | StoreError::Forbidden)
         ));
@@ -84,7 +84,7 @@ pub(super) async fn promotion_boundary(
             store
                 .set_blueprint_promotion(
                     actor,
-                    reference.clone(),
+                    blueprint_course_id.clone(),
                     initial.blueprint_edit_number,
                     true
                 )
@@ -101,12 +101,12 @@ pub(super) async fn promotion_boundary(
             .expect("unpromoted filtering")
             .items
             .iter()
-            .all(|item| item.id != reference)
+            .all(|item| item.id != blueprint_course_id)
     );
     let promoted = store
         .set_blueprint_promotion(
             sysadmin,
-            reference.clone(),
+            blueprint_course_id.clone(),
             initial.blueprint_edit_number,
             true,
         )
@@ -121,7 +121,7 @@ pub(super) async fn promotion_boundary(
         store
             .set_blueprint_promotion(
                 sysadmin,
-                reference.clone(),
+                blueprint_course_id.clone(),
                 initial.blueprint_edit_number,
                 false
             )
@@ -132,7 +132,7 @@ pub(super) async fn promotion_boundary(
         store
             .set_blueprint_promotion(
                 sysadmin,
-                reference.clone(),
+                blueprint_course_id.clone(),
                 promoted.blueprint_edit_number,
                 true
             )
@@ -147,7 +147,7 @@ pub(super) async fn promotion_boundary(
             .expect("owner promoted filtering")
             .items
             .iter()
-            .any(|item| item.id == reference)
+            .any(|item| item.id == blueprint_course_id)
     );
     assert!(
         store
@@ -156,18 +156,23 @@ pub(super) async fn promotion_boundary(
             .expect("promotion does not expose Private lineage")
             .items
             .iter()
-            .all(|item| item.id != reference)
+            .all(|item| item.id != blueprint_course_id)
     );
     assert_eq!(
         store
-            .load_blueprint_course(token(), reference.clone())
+            .load_blueprint_course(token(), blueprint_course_id.clone())
             .await
             .expect("unchanged Revision")
             .current_revision,
         head
     );
     store
-        .set_blueprint_promotion(sysadmin, reference, promoted.blueprint_edit_number, false)
+        .set_blueprint_promotion(
+            sysadmin,
+            blueprint_course_id,
+            promoted.blueprint_edit_number,
+            false,
+        )
         .await
         .expect("restore fixture flag");
 }

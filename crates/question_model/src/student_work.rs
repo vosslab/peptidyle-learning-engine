@@ -97,9 +97,13 @@ impl Timestamp {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct QuestionPoolSelectedItem {
-    /// Exact immutable Pool Revision member selected for delivery.
-    pub pool_revision_member: crate::PoolRevisionMemberReference,
-    /// Exact immutable Question Revision selected for delivery.
+    /// Pool whose current membership supplied this selection.
+    pub question_pool_id: crate::QuestionId,
+    /// Pool Edit Number current when this member was selected. Not a historical object.
+    pub question_pool_edit_number: crate::QuestionPoolEditNumber,
+    /// Zero-based position in that Pool's member list at selection.
+    pub member_position: u32,
+    /// Exact Published Question Revision delivered to the Student.
     pub reference: QuestionRevisionReference,
 }
 
@@ -114,8 +118,10 @@ pub struct QuestionPoolSelection {
     pub assessment_attempt: AssessmentAttemptId,
     /// Question Pool Assessment Entry that supplied the Question Pool Items.
     pub question_pool_assessment_entry: AssessmentEntryId,
-    /// Exact immutable Assessment-owned fork Pool Revision selected from.
-    pub question_pool_revision: crate::QuestionPoolRevisionReference,
+    /// Pool whose current membership was sampled.
+    pub question_pool_id: crate::QuestionId,
+    /// Pool Edit Number current when these items were selected. Not a historical object.
+    pub question_pool_edit_number: crate::QuestionPoolEditNumber,
     /// Database-authoritative time at which the server selected these entries.
     pub created_at: Timestamp,
     /// Number of exact Question Pool Items selected for this Assessment Attempt.
@@ -161,8 +167,12 @@ pub struct IssuedQuestion {
     pub question_statistics_eligibility: bool,
     /// Immutable Question Pool Selection that produced this Issued Question, if it was drawn.
     pub question_pool_selection: Option<QuestionPoolSelectionId>,
-    /// Exact immutable Pool Revision member in that Question Pool Selection, if drawn.
-    pub pool_revision_member: Option<crate::PoolRevisionMemberReference>,
+    /// Pool ID when this Issued Question was drawn from a Pool.
+    pub question_pool_id: Option<crate::QuestionId>,
+    /// Pool Edit Number current at selection. Not a historical membership object.
+    pub question_pool_edit_number: Option<crate::QuestionPoolEditNumber>,
+    /// Zero-based Pool member position at selection, if drawn from a Pool.
+    pub question_pool_member_position: Option<u32>,
 }
 
 /// Server-recorded timing inputs for one issued question.

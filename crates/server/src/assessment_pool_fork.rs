@@ -14,12 +14,12 @@ use axum::{
     routing::{post, put},
 };
 use learning_data_access::{
-    AppendAssessmentPoolForkRevisionInput, AssessmentPoolForkStore, ImportAssessmentPoolForkInput,
+    AppendAssessmentPoolForkMembersInput, AssessmentPoolForkStore, ImportAssessmentPoolForkInput,
     SessionTokenHash, StoreError, postgres::PostgresAssessmentPoolForkStore,
 };
 use question_model::{
     AssessmentEditNumber, AssessmentEntryId, AssessmentEntryScoringRule, AssessmentId,
-    AssessmentPointValue, CourseInstanceId, ProductRole, QuestionId,
+    AssessmentPointValue, CourseInstanceId, ProductRole, QuestionId, QuestionPoolEditNumber,
     QuestionPoolSelectedQuestionOrder, QuestionRevisionNumber, QuestionRevisionReference,
 };
 use serde::{Deserialize, Serialize};
@@ -92,7 +92,7 @@ struct ForkMemberRequest {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct AppendForkRequest {
-    expected_question_pool_edit_number: Uuid,
+    expected_question_pool_edit_number: QuestionPoolEditNumber,
     members: Vec<ForkMemberRequest>,
     interchangeability_attested: bool,
 }
@@ -102,7 +102,7 @@ struct AppendForkRequest {
 struct ImportedForkResponse {
     assessment_entry_id: AssessmentEntryId,
     question_pool_id: String,
-    revision_number: u64,
+    question_pool_edit_number: u64,
     assessment_edit_number: AssessmentEditNumber,
 }
 
@@ -110,8 +110,7 @@ struct ImportedForkResponse {
 #[serde(rename_all = "camelCase")]
 struct AppendedForkResponse {
     assessment_entry_id: AssessmentEntryId,
-    revision_number: u64,
-    blueprint_edit_number: Uuid,
+    question_pool_edit_number: u64,
     assessment_edit_number: AssessmentEditNumber,
 }
 
@@ -136,13 +135,12 @@ async fn import_fork(
         Ok(value) => value,
         Err(response) => return response,
     };
-    let source_public_question_pool_id =
-        match verified_question_id(&request.source_question_pool_id) {
-            Some(value) => value,
-            None => return concealed(),
-        };
+    let source_question_pool_id = match verified_question_id(&request.source_question_pool_id) {
+        Some(value) => value,
+        None => return concealed(),
+    };
     for _ in 0..POOL_IDENTITY_ATTEMPTS {
-        let fork_public_question_pool_id = match state.issuer.issue_question_id() {
+        let fork_question_pool_id = match state.issuer.issue_question_id() {
             Ok(value) => value,
             Err(_) => return unavailable(),
         };
@@ -151,9 +149,8 @@ async fn import_fork(
             assessment: assessment.clone(),
             assessment_entry: AssessmentEntryId::from_uuid(Uuid::now_v7()),
             expected_assessment_edit_number,
-            fork_question_pool_id: Uuid::now_v7(),
-            fork_public_question_pool_id,
-            source_public_question_pool_id: source_public_question_pool_id.clone(),
+            fork_question_pool_id,
+            source_question_pool_id: source_question_pool_id.clone(),
             authored_position: request.authored_position,
             selection_count: request.selection_count,
             points_per_item: request.points_per_item,
@@ -171,11 +168,8 @@ async fn import_fork(
                         StatusCode::CREATED,
                         Json(ImportedForkResponse {
                             assessment_entry_id: result.assessment_entry,
-                            question_pool_id: result
-                                .question_pool_revision
-                                .question_pool_id
-                                .to_string(),
-                            revision_number: result.question_pool_revision.revision_number.get(),
+                            question_pool_id: result.question_pool_id.to_string(),
+                            question_pool_edit_number: result.question_pool_edit_number.get(),
                             assessment_edit_number: result.assessment_edit_number,
                         }),
                     )
@@ -227,9 +221,9 @@ async fn append_fork_revision(
     };
     match state
         .forks
-        .append_assessment_question_pool_fork_revision(
+        .append_assessment_question_pool_fork_members(
             token,
-            AppendAssessmentPoolForkRevisionInput {
+            AppendAssessmentPoolForkMembersInput {
                 course,
                 assessment,
                 assessment_entry: entry,
@@ -247,8 +241,7 @@ async fn append_fork_revision(
                     StatusCode::OK,
                     Json(AppendedForkResponse {
                         assessment_entry_id: result.assessment_entry,
-                        revision_number: result.question_pool_revision_number.get(),
-                        blueprint_edit_number: result.blueprint_edit_number,
+                        question_pool_edit_number: result.question_pool_edit_number.get(),
                         assessment_edit_number: result.assessment_edit_number,
                     }),
                 )

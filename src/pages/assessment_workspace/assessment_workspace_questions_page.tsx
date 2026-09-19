@@ -502,12 +502,12 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     if (dirty() || needsReload() || fork === undefined) return;
     setBusy(true);
     try {
-      await applicationApi.client.appendAssessmentQuestionPoolForkRevision(
+      await applicationApi.client.appendAssessmentQuestionPoolForkMembers(
         workspace.courseReference,
         workspace.assessmentReference,
         entry.id,
         {
-          expectedQuestionPoolEditNumber: fork.questionPoolEditNumber,
+          expectedQuestionPoolEditNumber: String(fork.questionPoolEditNumber),
           members,
           interchangeabilityAttested: true,
         },
@@ -529,9 +529,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
 
   async function importPool(): Promise<void> {
     if (dirty() || needsReload()) return;
-    const source = availablePools().find(
-      (pool) => pool.questionPoolRevision.questionPoolId === poolToImport(),
-    );
+    const source = availablePools().find((pool) => pool.questionPoolId === poolToImport());
     const selectionCount = Number(poolSelectionCount());
     if (
       source === undefined ||
@@ -548,7 +546,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
         workspace.courseReference,
         workspace.assessmentReference,
         {
-          sourceQuestionPoolId: source.questionPoolRevision.questionPoolId,
+          sourceQuestionPoolId: source.questionPoolId,
           authoredPosition: entries().length,
           selectionCount,
           pointsPerItem: poolPointsPerItem(),

@@ -13,15 +13,15 @@ import { createRecordingFetch } from "./http_client_test_support.mjs";
 
 function savedPolicyWorkspace() {
   return {
-    reference: "A8H4N6PA6",
+    id: "A8H4N6PA6",
     editNumber: "4",
     status: "unreleased",
     assessmentType: "regular_assignment",
     origin: {
       kind: "adopted",
       source: {
-        blueprint_revision: { reference: "BP7K3M2QAF", revision: "1" },
-        blueprint_assessment_reference: "00000000-0000-0000-0000-000000000011",
+        blueprint_revision: { blueprint_course_id: "BP7K3M2QAF", revision: "1" },
+        blueprint_assessment_id: "00000000-0000-0000-0000-000000000011",
       },
     },
     title: "Peptide bonds",
@@ -77,7 +77,7 @@ function baseAssessmentPolicy() {
 test("Course Assessment rows require exact due and Instructor-zone display facts", () => {
   const rows = decodeCourseAssessments([
     {
-      reference: "A8H4N6PA6",
+      id: "A8H4N6PA6",
       assessmentType: "regular_assignment",
       title: "Peptide bonds",
       dueAt: "2026-09-11T14:30:00.000",
@@ -92,7 +92,7 @@ test("Course Assessment rows require exact due and Instructor-zone display facts
   assert.throws(() =>
     decodeCourseAssessments([
       {
-        reference: "A8H4N6PA6",
+        id: "A8H4N6PA6",
         assessmentType: "regular_assignment",
         title: "Peptide bonds",
         displayTimeZone: "America/Chicago",
@@ -104,7 +104,7 @@ test("Course Assessment rows require exact due and Instructor-zone display facts
   assert.throws(() =>
     decodeCourseAssessments([
       {
-        reference: "A8H4N6PA6",
+        id: "A8H4N6PA6",
         assessmentType: "regular_assignment",
         title: "Peptide bonds",
         dueAt: "2026-09-11T14:30:00.000",
@@ -202,8 +202,7 @@ test("Base Assessment Policy save requires a matching response ETag and maps an 
 
 test("Student Assessment detail accepts only its viewer-owned display zone", () => {
   const detail = decodeStudentAssessmentDetail({
-    id: "00000000-0000-0000-0000-000000000001",
-    reference: "A9D2RX5AF",
+    id: "A9D2RX5AF",
     title: "Peptide bonds",
     instructions: "Use your notes.",
     display_time_zone: "America/New_York",

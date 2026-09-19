@@ -3,7 +3,7 @@
 import type { BloomClassificationCorrectionRequest } from "../../../generated/api/BloomClassificationCorrectionRequest";
 import type { QuestionBloomCorrectionReceipt } from "../../../generated/api/QuestionBloomCorrectionReceipt";
 import type { QuestionPoolBloomCorrectionReceipt } from "../../../generated/api/QuestionPoolBloomCorrectionReceipt";
-import type { QuestionPoolRevisionReference } from "../../../generated/api/QuestionPoolRevisionReference";
+import type { QuestionId } from "../../../generated/api/QuestionId";
 import type { QuestionRevisionReference } from "../../../generated/api/QuestionRevisionReference";
 import { validateCanonicalQuestionIdSyntax } from "../../../generated/api/QuestionIdSyntaxContract";
 import type { BloomClassificationCorrectionClient } from "../bloom_classification";
@@ -36,12 +36,9 @@ function questionPath(reference: QuestionRevisionReference): string {
   return `/api/questions/by-id/${encodedId(questionId)}/revisions/${reference.revisionNumber}/bloom`;
 }
 
-function poolPath(reference: QuestionPoolRevisionReference): string {
-  const questionPoolId = canonicalQuestionId(reference.questionPoolId, "Question Pool ID");
-  if (!Number.isSafeInteger(reference.revisionNumber) || reference.revisionNumber < 1) {
-    throw new ApiProtocolError("Question Pool Revision Number must be a positive safe integer");
-  }
-  return `/api/question-pools/${encodedId(questionPoolId)}/revisions/${reference.revisionNumber}/bloom`;
+function poolPath(questionPoolId: QuestionId): string {
+  const canonical = canonicalQuestionId(questionPoolId, "Question Pool ID");
+  return `/api/question-pools/${encodedId(canonical)}/bloom`;
 }
 
 async function post<T>(
@@ -89,10 +86,10 @@ export function createBloomClassificationCorrectionClient(
       return receipt;
     },
     correctQuestionPoolBloom: async (
-      reference,
+      questionPoolId,
       request,
     ): Promise<QuestionPoolBloomCorrectionReceipt> => {
-      const path = poolPath(reference);
+      const path = poolPath(questionPoolId);
       const receipt = await post(
         fetchImplementation,
         basePath,
@@ -100,11 +97,8 @@ export function createBloomClassificationCorrectionClient(
         request,
         decodeQuestionPoolBloomCorrectionReceipt,
       );
-      if (
-        receipt.questionPoolRevision.questionPoolId !== reference.questionPoolId ||
-        receipt.questionPoolRevision.revisionNumber !== reference.revisionNumber
-      ) {
-        throw new ApiProtocolError("Bloom correction receipt does not match its Pool Revision");
+      if (receipt.questionPoolId !== questionPoolId) {
+        throw new ApiProtocolError("Bloom correction receipt does not match its Question Pool");
       }
       return receipt;
     },

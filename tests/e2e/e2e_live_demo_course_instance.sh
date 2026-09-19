@@ -171,7 +171,7 @@ if not isinstance(assignments, list) or len(assignments) != 1:
     raise SystemExit("Blueprint Revision 1 did not return one reusable assignment")
 assignment = assignments[0]
 module_ref = module.get("blueprint_module_reference")
-assignment_ref = assignment.get("blueprint_assessment_reference") if isinstance(assignment, dict) else None
+assignment_ref = assignment.get("blueprint_assessment_id") if isinstance(assignment, dict) else None
 content = assignment.get("content") if isinstance(assignment, dict) else None
 if not isinstance(module_ref, str) or not isinstance(assignment_ref, str) or not isinstance(content, dict):
     raise SystemExit("Blueprint Revision 1 did not return stable reusable identities")
@@ -179,7 +179,7 @@ entry = content.get("entries", [None])[0]
 question = entry.get("question", {}).get("reference") if isinstance(entry, dict) else None
 if not isinstance(question, dict) or set(question) != {"questionId", "revisionNumber"}:
     raise SystemExit("Blueprint Revision 1 did not return its reusable Question")
-replacement = {"modules":[{"choice":{"kind":"retained","blueprint_module_reference":module_ref},"label":module.get("label"),"assessments":[{"choice":{"kind":"retained","blueprint_assessment_reference":assignment_ref},"content":{"assessment_type":content.get("assessment_type"),"title":content.get("title") + " revised","instructions":content.get("instructions"),"entries":[{"kind":"fixed","published_question":question,"points_possible":entry.get("points_possible"),"scoring_rule":entry.get("scoring_rule"),"question_attempt_limit":entry.get("question_attempt_limit"),"question_attempt_time_limit":entry.get("question_attempt_time_limit")}],"defaults":content.get("defaults")}}]}]}
+replacement = {"modules":[{"choice":{"kind":"retained","blueprint_module_reference":module_ref},"label":module.get("label"),"assessments":[{"choice":{"kind":"retained","blueprint_assessment_id":assignment_ref},"content":{"assessment_type":content.get("assessment_type"),"title":content.get("title") + " revised","instructions":content.get("instructions"),"entries":[{"kind":"fixed","published_question":question,"points_possible":entry.get("points_possible"),"scoring_rule":entry.get("scoring_rule"),"question_attempt_limit":entry.get("question_attempt_limit"),"question_attempt_time_limit":entry.get("question_attempt_time_limit")}],"defaults":content.get("defaults")}}]}]}
 print(json.dumps(replacement, separators=(",",":")))
 ' "$1"
 }
@@ -200,15 +200,15 @@ if set(value) != {"course"}:
     raise SystemExit("Course Instance creation receipt was not closed")
 course = value["course"]
 themes = {"tundra", "forest", "desert", "grass", "arctic", "ocean", "tropical", "coral-reef", "swamp", "underground", "salt-marsh", "wetland", "sea-floor", "magma", "beach"}
-if (set(course) != {"classification", "metadataEtag", "reference", "shortName", "longName", "term", "theme"}
-    or not isinstance(course["reference"], str) or not course["reference"]
+if (set(course) != {"classification", "lifecycleState", "courseEditNumber", "id", "shortName", "longName", "term", "theme"}
+    or not isinstance(course["id"], str) or not course["id"]
     or course["classification"] != json.loads(sys.argv[4])
-    or not isinstance(course["metadataEtag"], str) or not course["metadataEtag"]
+    or not isinstance(course["courseEditNumber"], str) or not course["courseEditNumber"]
     or course["theme"] not in themes):
     raise SystemExit("Course Instance creation receipt did not return a public Course Instance identity")
 if course["shortName"] != sys.argv[2] or course["longName"] != sys.argv[3]:
     raise SystemExit("Sysadmin Course Instance creation did not preserve its Course identity receipt")
-print(course["reference"])
+print(course["id"])
 ' "$1" "$2" "$3" "$4"
 }
 
@@ -220,11 +220,11 @@ if set(value) != {"course", "activeInstructorCount", "blueprintOrigin"}:
     raise SystemExit("Course Instance teaching-team view was not closed")
 course = value["course"]
 themes = {"tundra", "forest", "desert", "grass", "arctic", "ocean", "tropical", "coral-reef", "swamp", "underground", "salt-marsh", "wetland", "sea-floor", "magma", "beach"}
-if (set(course) != {"classification", "metadataEtag", "reference", "shortName", "longName", "term", "theme"}
-    or not isinstance(course["reference"], str) or not course["reference"]
-    or course["reference"] != sys.argv[2]
+if (set(course) != {"classification", "lifecycleState", "courseEditNumber", "id", "shortName", "longName", "term", "theme"}
+    or not isinstance(course["id"], str) or not course["id"]
+    or course["id"] != sys.argv[2]
     or course["classification"] != json.loads(sys.argv[5])
-    or not isinstance(course["metadataEtag"], str) or not course["metadataEtag"]
+    or not isinstance(course["courseEditNumber"], str) or not course["courseEditNumber"]
     or course["theme"] not in themes):
     raise SystemExit("Course Instance teaching-team view identity differs")
 if course["shortName"] != sys.argv[3] or course["longName"] != sys.argv[4]:
@@ -234,8 +234,8 @@ if not isinstance(value["activeInstructorCount"], int) or value["activeInstructo
 origin = value["blueprintOrigin"]
 if origin is not None and (
     not isinstance(origin, dict)
-    or set(origin) != {"reference", "adoptedRevision", "currentRevision"}
-    or not isinstance(origin["reference"], str) or not origin["reference"]
+    or set(origin) != {"id", "adoptedRevision", "currentRevision"}
+    or not isinstance(origin["id"], str) or not origin["id"]
     or not isinstance(origin["adoptedRevision"], str)
     or not isinstance(origin["currentRevision"], str)
     or not origin["adoptedRevision"].isdigit()
@@ -256,7 +256,7 @@ value = json.loads(sys.argv[1])
 items = value.get("items")
 if not isinstance(items, list):
     raise SystemExit("Course Instance list was malformed")
-matches = [item for item in items if isinstance(item, dict) and item.get("reference") == sys.argv[2]]
+matches = [item for item in items if isinstance(item, dict) and item.get("id") == sys.argv[2]]
 if len(matches) != 1:
     raise SystemExit("Assigned Instructor Course Instance list did not retain the created identity")
 course = matches[0]
@@ -302,20 +302,20 @@ print(json.dumps({"disciplineUuid": sys.argv[1], "subjectUuid": sys.argv[2], "to
 ' "$discipline_uuid" "$subject_uuid"
 }
 
-instructor_public_reference() {
-	local response account_id postgres
+instructor_account_id() {
+	local response
 	response="$(request '/api/auth/session' "$1")"
 	[ "$(response_status "$response")" = 200 ] || return 1
-	account_id="$(python3 -c '
-import json, sys, uuid
+	python3 -c '
+import json, re, sys
 value=json.loads(sys.argv[1])
+account_id=value.get("account",{}).get("id")
 if value.get("authenticated") is not True or value.get("account",{}).get("productRole") != "instructor":
     raise SystemExit("Course fixture requires an authenticated Instructor")
-print(uuid.UUID(value["account"]["id"]))
-' "$(response_body "$response")")" || return 1
-	postgres="$(service_id postgres)"
-	printf '%s\n' "SELECT public_reference FROM ple_private.account WHERE account_id = :'account_id'::uuid AND product_role = 'instructor';" |
-		podman exec -i "$postgres" sh -lc 'exec psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At "$@"' sh -v account_id="$account_id"
+if not isinstance(account_id,str) or re.fullmatch(r"U[0-9A-HJKMNP-TV-Z]{8}", account_id) is None:
+    raise SystemExit("Course fixture Instructor Account ID is invalid")
+print(account_id)
+' "$(response_body "$response")"
 }
 
 assert_database_evidence() {
@@ -328,48 +328,51 @@ assert_database_evidence() {
 	sql="SELECT 'course_instance_authority'
       FROM ple_data.course_instance AS course
       JOIN ple_data.blueprint_course AS blueprint
-        ON blueprint.reference_number = course.blueprint_course_reference_number
+        ON blueprint.blueprint_course_id = course.blueprint_course_id
       JOIN ple_private.account AS instructor
-        ON instructor.account_id = course.assigned_instructor_account_id
-     WHERE course.public_reference = :'course_reference'
-       AND blueprint.public_reference = :'blueprint_reference'
+        ON instructor.account_id = :'instructor_reference'
+     WHERE course.course_instance_id = :'course_reference'
+       AND blueprint.blueprint_course_id = :'blueprint_reference'
        AND course.blueprint_revision_number = :'blueprint_revision'::bigint
-       AND instructor.public_reference = :'instructor_reference'
+       AND instructor.account_id = :'instructor_reference'
        AND EXISTS (SELECT 1 FROM ple_data.course_origin AS origin
-                    WHERE origin.course_id = course.course_id
-                      AND origin.source_course_id IS NULL
-                      AND origin.blueprint_course_reference_number = course.blueprint_course_reference_number
+                    WHERE origin.course_instance_id = course.course_instance_id
+                      AND origin.source_course_instance_id IS NULL
+                      AND origin.blueprint_course_id = course.blueprint_course_id
                       AND origin.blueprint_revision_number = course.blueprint_revision_number)
        AND EXISTS (SELECT 1 FROM ple_data.course_membership AS membership
-                    WHERE membership.course_id = course.course_id
-                      AND membership.account_id = course.assigned_instructor_account_id
+                    WHERE membership.course_instance_id = course.course_instance_id
+                      AND membership.account_id = instructor.account_id
                       AND membership.role = 'instructor'
-                      AND ple_data.course_membership_is_active(membership.membership_id))
+                      AND ple_data.course_membership_is_active(membership.course_membership_id))
        AND EXISTS (SELECT 1 FROM ple_audit.course_instance_creation_event AS event
-                    WHERE event.course_id = course.course_id
-                      AND event.assigned_instructor_account_id = course.assigned_instructor_account_id
-                      AND event.created_by_account_id <> course.assigned_instructor_account_id)
-       AND NOT EXISTS (SELECT 1 FROM ple_data.student_record WHERE course_id = course.course_id)
-       AND (SELECT count(*) FROM ple_data.assessment WHERE course_id = course.course_id) = 1
+                    WHERE event.course_instance_id = course.course_instance_id
+                      AND event.assigned_instructor_account_id = instructor.account_id
+                      AND event.created_by_account_id <> instructor.account_id)
+       AND NOT EXISTS (SELECT 1 FROM ple_data.student_record WHERE course_instance_id = course.course_instance_id)
+       AND (SELECT count(*) FROM ple_data.assessment WHERE course_instance_id = course.course_instance_id) = 1
        AND EXISTS (
            SELECT 1 FROM ple_data.assessment AS assessment
            JOIN ple_data.blueprint_course_revision AS source
-             ON source.blueprint_course_reference_number = course.blueprint_course_reference_number
+             ON source.blueprint_course_id = course.blueprint_course_id
             AND source.blueprint_revision_number = course.blueprint_revision_number
            CROSS JOIN LATERAL ple_data.blueprint_content_assessments(source.content) AS member
            CROSS JOIN LATERAL ple_data.blueprint_content_question_pins(source.content) AS pin
            JOIN ple_data.assessment_entry AS entry ON entry.assessment_id = assessment.assessment_id
-          WHERE assessment.course_id = course.course_id
+          WHERE assessment.course_instance_id = course.course_instance_id
             AND assessment.origin_kind = 'adopted'
-            AND assessment.source_blueprint_course_reference_number = course.blueprint_course_reference_number
+            AND assessment.source_blueprint_course_id = course.blueprint_course_id
             AND assessment.source_blueprint_revision_number = course.blueprint_revision_number
-            AND assessment.source_blueprint_assessment_reference = member.blueprint_assessment_reference
+            AND assessment.source_blueprint_assessment_id = member.blueprint_assessment_id
             AND assessment.assessment_status = 'unreleased'
-            AND assessment.available_at IS NULL AND assessment.due_at IS NULL AND assessment.closes_at IS NULL
             AND entry.entry_kind = 'fixed_question'
-            AND entry.question_id = pin.question_id
-            AND entry.question_revision_number = pin.question_revision_number
-            AND entry.points_possible = 1
+            AND EXISTS (
+                SELECT 1 FROM ple_data.assessment_entry_question AS question
+                 WHERE question.assessment_entry_id = entry.assessment_entry_id
+                   AND question.published_question_id = pin.published_question_id
+                   AND question.question_revision_number = pin.question_revision_number
+                   AND question.points_possible = 1
+            )
             AND (SELECT count(*) FROM ple_data.assessment_entry
                   WHERE assessment_id = assessment.assessment_id) = 1);"
 	output="$(printf '%s\n' "$sql" | podman exec -i "$postgres" sh -lc 'exec psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At "$@"' sh -v course_reference="$course_reference" -v blueprint_reference="$blueprint_reference" -v blueprint_revision="$blueprint_revision" -v instructor_reference="$instructor_reference")"
@@ -400,9 +403,9 @@ prove_authority() {
 	fi
 read -r blueprint revision_one metadata_etag < <(python3 -c '
 import json, sys
-value=json.loads(sys.argv[1]); reference=value.get("reference"); revision=value.get("current_revision"); metadata_etag=value.get("metadata_etag")
+value=json.loads(sys.argv[1]); reference=value.get("id"); revision=value.get("current_revision"); metadata_etag=value.get("blueprint_edit_number")
 if (not isinstance(reference,str) or not reference
-    or revision != {"reference": reference, "revision": "1"}
+    or revision != {"blueprint_course_id": reference, "revision": "1"}
     or not isinstance(metadata_etag, str) or not metadata_etag):
     raise SystemExit("Blueprint creation did not return available exact Revision 1")
 print(reference, revision["revision"], metadata_etag)
@@ -412,17 +415,17 @@ print(reference, revision["revision"], metadata_etag)
 		echo "Sysadmin could not obtain the bounded Assigned Instructor selection (HTTP $(response_status "$candidates"))" >&2
 		exit 1
 	fi
-	assigned="$(instructor_public_reference "$instructor_cookie")"
+	assigned="$(instructor_account_id "$instructor_cookie")"
 	assigned="$(python3 -c '
 import json, sys
 items=json.loads(sys.argv[1]).get("items")
 if not isinstance(items,list) or not items or any(not isinstance(item,dict) for item in items):
     raise SystemExit("Assigned Instructor selection is empty or malformed")
-references=[item.get("reference") for item in items]
+references=[item.get("id") for item in items]
 if any(not isinstance(reference,str) or not reference for reference in references):
-    raise SystemExit("Assigned Instructor selection lacks a public Account Reference")
+    raise SystemExit("Assigned Instructor selection lacks a canonical Account ID")
 if len(set(references)) != len(references):
-    raise SystemExit("Assigned Instructor selection duplicates a public Account Reference")
+    raise SystemExit("Assigned Instructor selection duplicates a canonical Account ID")
 if references.count(sys.argv[2]) != 1:
     raise SystemExit("Authenticated demo Instructor is absent from Assigned Instructor selection")
 print(sys.argv[2])

@@ -8,9 +8,9 @@ use question_model::{
     AccountId, BlueprintAvailability, BlueprintCourseId, BlueprintCourseReadAccess,
     BlueprintEditNumber, BlueprintMetadataState, BlueprintRevision, BlueprintRevisionReference,
     CanonicalBlueprintCourse, CreateBlueprintCourseInput, CreateBlueprintCourseReceipt, QuestionId,
-    QuestionPoolRevisionNumber, QuestionPoolRevisionReference, QuestionRevisionNumber,
-    QuestionRevisionReference, RenameBlueprintCourseInput, ReplaceBlueprintCourseContentInput,
-    RequestChecksum, SaveBlueprintCourseReceipt, Timestamp,
+    QuestionPoolEditNumber, QuestionRevisionNumber, QuestionRevisionReference,
+    RenameBlueprintCourseInput, ReplaceBlueprintCourseContentInput, RequestChecksum,
+    SaveBlueprintCourseReceipt, Timestamp,
 };
 use serde_json::{Value, json};
 use sqlx::{Postgres, Row, Transaction, types::Json};
@@ -228,13 +228,10 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         let number = rows
             .first()
             .ok_or(StoreError::NotFound)?
-            .try_get::<i64, _>("pool_revision")
+            .try_get::<i64, _>("question_pool_edit_number")
             .map_err(map_sqlx_error)?;
-        let question_pool_revision = QuestionPoolRevisionReference {
-            question_pool_id,
-            revision_number: QuestionPoolRevisionNumber::new(number as u64)
-                .map_err(|_| invalid("Pool Revision"))?,
-        };
+        let question_pool_edit_number =
+            QuestionPoolEditNumber::new(number as u64).map_err(|_| invalid("Pool Edit Number"))?;
         let members = rows
             .into_iter()
             .map(|row| {
@@ -254,7 +251,8 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
             .collect::<Result<Vec<_>, StoreError>>()?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(crate::StoredBlueprintPoolMembers {
-            question_pool_revision,
+            question_pool_id,
+            question_pool_edit_number,
             members,
         })
     }
@@ -408,7 +406,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
             let receipt = CreateBlueprintCourseReceipt {
                 blueprint_revision: BlueprintRevisionReference {
                     blueprint_course_id: reference(
-                        row.try_get("public_reference").map_err(map_sqlx_error)?,
+                        row.try_get("blueprint_course_id").map_err(map_sqlx_error)?,
                     )?,
                     revision: revision(row.try_get("revision_number").map_err(map_sqlx_error)?)?,
                 },
@@ -437,7 +435,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         .await?;
         let encoded = encode_content(&content)?;
         let row = sqlx::query(
-            "SELECT public_reference, blueprint_revision_number, blueprint_edit_number, \
+            "SELECT blueprint_course_id, blueprint_revision_number, blueprint_edit_number, \
              (EXTRACT(EPOCH FROM accepted_at) * 1000)::bigint AS accepted_at_millis \
              FROM ple_api.create_blueprint_course($1, $2, $3, $4, $5, $6, $7,$8,$9,$10,$11)",
         )
@@ -455,7 +453,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         .fetch_one(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
-        let blueprint = reference(row.try_get("public_reference").map_err(map_sqlx_error)?)?;
+        let blueprint = reference(row.try_get("blueprint_course_id").map_err(map_sqlx_error)?)?;
         let receipt = CreateBlueprintCourseReceipt {
             blueprint_revision: BlueprintRevisionReference {
                 blueprint_course_id: blueprint,
@@ -805,7 +803,7 @@ fn decode_summary(row: &sqlx::postgres::PgRow) -> Result<StoredBlueprintCourseSu
                 .map_err(map_sqlx_error)?,
         )
         .map_err(|_| invalid("Blueprint enrollment count"))?,
-        id: reference(row.try_get("public_reference").map_err(map_sqlx_error)?)?,
+        id: reference(row.try_get("blueprint_course_id").map_err(map_sqlx_error)?)?,
         short_name: row.try_get("short_name").map_err(map_sqlx_error)?,
         long_name: row.try_get("long_name").map_err(map_sqlx_error)?,
         availability: availability_value(row.try_get("availability").map_err(map_sqlx_error)?)?,
@@ -822,13 +820,13 @@ fn decode_summary(row: &sqlx::postgres::PgRow) -> Result<StoredBlueprintCourseSu
 }
 
 fn decode_course(row: &sqlx::postgres::PgRow) -> Result<StoredBlueprintCourse, StoreError> {
-    let fork_source_reference: Option<String> = row
-        .try_get("fork_source_reference")
+    let fork_source_blueprint_course_id: Option<String> = row
+        .try_get("fork_source_blueprint_course_id")
         .map_err(map_sqlx_error)?;
     let fork_source_revision: Option<i64> = row
         .try_get("fork_source_revision_number")
         .map_err(map_sqlx_error)?;
-    let fork_source = match (fork_source_reference, fork_source_revision) {
+    let fork_source = match (fork_source_blueprint_course_id, fork_source_revision) {
         (Some(source), Some(number)) => Some(BlueprintRevisionReference {
             blueprint_course_id: reference(source)?,
             revision: revision(number)?,
@@ -844,7 +842,7 @@ fn decode_course(row: &sqlx::postgres::PgRow) -> Result<StoredBlueprintCourse, S
     )?;
     Ok(StoredBlueprintCourse {
         classification: decode_classification(row)?,
-        id: reference(row.try_get("public_reference").map_err(map_sqlx_error)?)?,
+        id: reference(row.try_get("blueprint_course_id").map_err(map_sqlx_error)?)?,
         short_name: row.try_get("short_name").map_err(map_sqlx_error)?,
         long_name: row.try_get("long_name").map_err(map_sqlx_error)?,
         availability: availability_value(row.try_get("availability").map_err(map_sqlx_error)?)?,

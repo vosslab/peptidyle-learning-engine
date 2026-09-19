@@ -28,7 +28,7 @@ pub trait BlueprintHistoryStore: Send + Sync {
     async fn list_blueprint_history(
         &self,
         session: SessionTokenHash,
-        reference: BlueprintCourseId,
+        blueprint_course_id: BlueprintCourseId,
         kind: BlueprintHistoryKind,
         page: PageRequest,
     ) -> Result<Page<BlueprintHistoryEntryView>, StoreError>;

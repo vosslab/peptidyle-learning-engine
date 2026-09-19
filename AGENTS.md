@@ -13,7 +13,7 @@
 - docs/TERMINOLOGY_CONTRACT.md
 - docs/DESIGN_DECISIONS.md
 - docs/REPO_STYLE.md
-- docs/*_STYLE.md 
+- docs/*_STYLE.md
 
 ### Other files of note
 
@@ -28,7 +28,7 @@
 
 ## Workflow
 
-- Follow the main authoritative docs/HUMAN_GUIDANCE.md and the language, naming, repository, 
+- Follow the main authoritative docs/HUMAN_GUIDANCE.md and the language, naming, repository,
   Markdown, and test style guides in docs/.
 - Use `source ./source_me.sh && ./launchers/run_fast_checks.sh` for a quicker compliance check
 - Use `source ./source_me.sh && ./launchers/all_test.sh` for a complete compliance check
@@ -83,5 +83,5 @@
 - Adaptability should be a focus so the software can evolve as requirements and insights change.
 - Cargo, Node, and PyPI dependencies should use the latest versions to include security fixes.
 - If an interface is measured as too slow, consider moving the slow code to Rust/WebAssembly.
-- All fields, identifiers, domain concepts, and terminology in the PostgreSQL database structure, Rust code, TypeScript code, JSON/API 
+- All fields, identifiers, domain concepts, and terminology in the PostgreSQL database structure, Rust code, TypeScript code, JSON/API
   contracts, Terminology Contract, and Human Guidance are in alignment.

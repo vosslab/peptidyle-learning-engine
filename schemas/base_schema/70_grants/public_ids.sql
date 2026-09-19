@@ -1,4 +1,4 @@
--- Privileges from public_references.sql.
+-- Privileges from public_ids.sql.
 
 SET LOCAL ROLE ple_private_owner;
 

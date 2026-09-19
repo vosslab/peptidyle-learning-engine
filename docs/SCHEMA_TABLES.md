@@ -86,6 +86,7 @@ Foreign keys:
 Indexes:
 
 - ple_private.account_state_event_pkey UNIQUE (event_id)
+- account_state_event_account_id_fk_idx (account_id)
 
 ### ple_private.account_time_zone
 
@@ -147,6 +148,9 @@ Indexes:
 
 - ple_audit.instructor_account_creation_event_pkey UNIQUE (event_id)
 - ple_audit.instructor_account_creation_event_unique_0 UNIQUE (created_instructor_account_id)
+- instructor_account_creation_event_created_by_sy_4138130d_fk_idx (created_by_sysadmin_account_id, created_by_sysadmin_product_role)
+- instructor_account_creation_event_created_instr_838b23f7_fk_idx (created_instructor_account_id, created_instructor_product_role)
+- instructor_account_creation_event_instructor_id_2eefdbbf_fk_idx (instructor_identity_vetting_decision_id)
 
 ### ple_audit.instructor_identity_vetting_decision
 
@@ -179,6 +183,7 @@ Indexes:
 
 - ple_audit.instructor_identity_vetting_decision_pkey UNIQUE (decision_id)
 - ple_audit.instructor_identity_vetting_decision_unique_0 UNIQUE (normalized_email)
+- instructor_identity_vetting_decision_completed__5e383e9f_fk_idx (completed_by_sysadmin_account_id, completed_by_sysadmin_product_role)
 
 ## 20_tables/assessment.sql
 
@@ -240,7 +245,7 @@ Columns:
 | origin_kind | ple_data.assessment_origin_kind | NOT NULL |
 | source_blueprint_course_id | ple_data.blueprint_course_id | NULL |
 | source_blueprint_revision_number | integer | NULL |
-| source_blueprint_assessment_reference | uuid | NULL |
+| source_blueprint_assessment_id | uuid | NULL |
 | created_at | timestamptz | NOT NULL |
 | updated_at | timestamptz | NOT NULL |
 | assessment_edit_number | bigint | NOT NULL |
@@ -259,12 +264,15 @@ Foreign keys:
 
 - (course_instance_id) -> ple_data.course_instance (course_instance_id)
 - (assessment_policy_snapshot_id) -> ple_data.assessment_policy_snapshot (assessment_policy_snapshot_id)
-- (source_blueprint_course_id, source_blueprint_revision_number, source_blueprint_assessment_reference) -> ple_data.blueprint_revision_assessment (blueprint_course_id, blueprint_revision_number, blueprint_assessment_reference)
+- (source_blueprint_course_id, source_blueprint_revision_number, source_blueprint_assessment_id) -> ple_data.blueprint_revision_assessment (blueprint_course_id, blueprint_revision_number, blueprint_assessment_id)
 
 Indexes:
 
 - ple_data.assessment_pkey UNIQUE (assessment_id)
 - ple_data.assessment_unique_0 UNIQUE (assessment_id, course_instance_id)
+- assessment_source_blueprint_course_id_a95c83d2_fk_idx (source_blueprint_course_id, source_blueprint_revision_number, source_blueprint_assessment_id)
+- assessment_assessment_policy_snapshot_id_fk_idx (assessment_policy_snapshot_id)
+- assessment_course_instance_id_fk_idx (course_instance_id)
 
 ### ple_data.assessment_entry
 
@@ -346,6 +354,7 @@ Indexes:
 
 - ple_data.assessment_entry_question_pkey UNIQUE (assessment_entry_id)
 - ple_data.assessment_entry_question_unique_0 UNIQUE (assessment_entry_id, assessment_id)
+- assessment_entry_question_published_question_id_570ef8b8_fk_idx (published_question_id, question_revision_number)
 
 ### ple_data.assessment_entry_pool
 
@@ -385,6 +394,7 @@ Indexes:
 - ple_data.assessment_entry_pool_pkey UNIQUE (assessment_entry_id)
 - ple_data.assessment_entry_pool_unique_0 UNIQUE (assessment_entry_id, assessment_id)
 - ple_data.assessment_entry_pool_unique_1 UNIQUE (assessment_entry_id, assessment_id, question_pool_id)
+- assessment_entry_pool_question_pool_id_fk_idx (question_pool_id)
 
 ### ple_data.assessment_question_pool_fork
 
@@ -459,6 +469,8 @@ Indexes:
 - ple_private.student_assessment_accommodation_pkey UNIQUE (accommodation_id)
 - ple_private.student_assessment_accommodation_unique_0 UNIQUE (accommodation_id, student_record_id, assessment_id, course_instance_id)
 - ple_private.student_assessment_accommodation_unique_1 UNIQUE (student_record_id, assessment_id)
+- student_assessment_accommodation_assessment_id_d947306c_fk_idx (assessment_id, course_instance_id)
+- student_assessment_accommodation_student_record_5951ea54_fk_idx (student_record_id, course_instance_id)
 
 ### ple_private.assessment_attempt
 
@@ -509,6 +521,11 @@ Indexes:
 - assessment_attempt_student_assessment_lookup_idx (student_record_id, assessment_id, assessment_attempt_number)
 - assessment_attempt_assessment_id_idx (assessment_id, course_instance_id)
 - assessment_attempt_expiry_sweep_idx (expires_at, assessment_attempt_id) WHERE expires_at IS NOT NULL
+- assessment_attempt_assessment_attempt_limit_acc_f173cbca_fk_idx (assessment_attempt_limit_accommodation_id, student_record_id, assessment_id, course_instance_id)
+- assessment_attempt_schedule_accommodation_id_7a50f886_fk_idx (schedule_accommodation_id, student_record_id, assessment_id, course_instance_id)
+- assessment_attempt_time_limit_accommodation_id_45e3ebf6_fk_idx (time_limit_accommodation_id, student_record_id, assessment_id, course_instance_id)
+- assessment_attempt_student_record_id_course_instance_id_fk_idx (student_record_id, course_instance_id)
+- assessment_attempt_assessment_policy_snapshot_id_fk_idx (assessment_policy_snapshot_id)
 
 ### ple_private.question_pool_selection
 
@@ -546,6 +563,7 @@ Indexes:
 - ple_private.question_pool_selection_pkey UNIQUE (course_instance_id, question_pool_selection_id)
 - ple_private.question_pool_selection_unique_0 UNIQUE (course_instance_id, question_pool_selection_id, assessment_attempt_id, assessment_entry_id)
 - ple_private.question_pool_selection_unique_1 UNIQUE (course_instance_id, assessment_attempt_id, assessment_entry_id)
+- question_pool_selection_question_pool_id_fk_idx (question_pool_id)
 
 ### ple_private.question_pool_selected_item
 
@@ -582,6 +600,7 @@ Indexes:
 - ple_private.question_pool_selected_item_pkey UNIQUE (course_instance_id, question_pool_selection_id, selection_position)
 - ple_private.question_pool_selected_item_unique_0 UNIQUE (course_instance_id, question_pool_selection_id, member_position)
 - ple_private.question_pool_selected_item_unique_1 UNIQUE (course_instance_id, question_pool_selection_id, member_position, published_question_id, revision_number)
+- question_pool_selected_item_published_question__5b4ced3b_fk_idx (published_question_id, revision_number)
 
 ### ple_private.assessment_entry_snapshot
 
@@ -617,6 +636,8 @@ Foreign keys:
 Indexes:
 
 - ple_private.assessment_entry_snapshot_pkey UNIQUE (assessment_entry_snapshot_id)
+- assessment_entry_snapshot_published_question_id_22f37768_fk_idx (published_question_id, question_revision_number)
+- assessment_entry_snapshot_question_pool_id_fk_idx (question_pool_id)
 
 ### ple_private.issued_question
 
@@ -662,6 +683,10 @@ Indexes:
 
 - ple_private.issued_question_pkey UNIQUE (course_instance_id, issued_question_id)
 - ple_private.issued_question_unique_0 UNIQUE (course_instance_id, assessment_attempt_id, issued_position)
+- issued_question_course_instance_id_31d5d1c2_fk_idx (course_instance_id, question_pool_selection_id, question_pool_member_position, published_question_id, revision_number)
+- issued_question_course_instance_id_b08795ae_fk_idx (course_instance_id, question_pool_selection_id, assessment_attempt_id, assessment_entry_id)
+- issued_question_published_question_id_revision_number_fk_idx (published_question_id, revision_number)
+- issued_question_assessment_entry_snapshot_id_fk_idx (assessment_entry_snapshot_id)
 
 ### ple_private.delivery_toolchain
 
@@ -742,6 +767,8 @@ Indexes:
 
 - ple_private.question_attempt_pkey UNIQUE (course_instance_id, question_attempt_id)
 - ple_private.question_attempt_unique_0 UNIQUE (course_instance_id, issued_question_id)
+- question_attempt_delivery_toolchain_id_fk_idx (delivery_toolchain_id)
+- question_attempt_source_object_record_id_fk_idx (source_object_record_id)
 
 ### ple_private.assessment_submission
 
@@ -772,6 +799,7 @@ Indexes:
 
 - ple_private.assessment_submission_pkey UNIQUE (course_instance_id, assessment_submission_id)
 - ple_private.assessment_submission_unique_0 UNIQUE (course_instance_id, assessment_attempt_id)
+- assessment_submission_authorized_by_account_id_fk_idx (authorized_by_account_id)
 
 ### ple_private.assessment_attempt_saved_response
 
@@ -802,6 +830,7 @@ Foreign keys:
 Indexes:
 
 - ple_private.assessment_attempt_saved_response_pkey UNIQUE (course_instance_id, question_attempt_id)
+- assessment_attempt_saved_response_course_instan_71d206a1_fk_idx (course_instance_id, assessment_submission_id)
 
 ### ple_private.question_attempt_presentation_binding
 
@@ -1025,6 +1054,7 @@ Indexes:
 
 - ple_private.assessment_template_pkey UNIQUE (assessment_template_id)
 - assessment_template_owner_list_idx (owner_account_id, template_name, assessment_template_id)
+- assessment_template_assessment_policy_snapshot_id_fk_idx (assessment_policy_snapshot_id)
 
 ## 20_tables/audit.sql
 
@@ -1070,7 +1100,7 @@ Columns:
 | actor_account_id | ple_data.account_id | NOT NULL |
 | assessment_edit_number | bigint | NOT NULL |
 | assessment_attempt_count | bigint | NOT NULL |
-| question_response_count | bigint | NOT NULL |
+| finalized_saved_response_count | bigint | NOT NULL |
 | assessment_submission_count | bigint | NOT NULL |
 | grading_result_count | bigint | NOT NULL |
 | outcome | text | NOT NULL |
@@ -1081,7 +1111,7 @@ Constraints:
 - PRIMARY KEY (event_id)
 - CHECK assessment_edit_number: `(assessment_edit_number > 0)`
 - CHECK assessment_attempt_count: `(assessment_attempt_count >= 0)`
-- CHECK question_response_count: `(question_response_count >= 0)`
+- CHECK finalized_saved_response_count: `(finalized_saved_response_count >= 0)`
 - CHECK assessment_submission_count: `(assessment_submission_count >= 0)`
 - CHECK grading_result_count: `(grading_result_count >= 0)`
 
@@ -1093,6 +1123,8 @@ Foreign keys:
 Indexes:
 
 - ple_audit.assessment_unrelease_event_pkey UNIQUE (event_id)
+- assessment_unrelease_event_actor_account_id_fk_idx (actor_account_id)
+- assessment_unrelease_event_assessment_id_fk_idx (assessment_id)
 
 ## 20_tables/authentication.sql
 
@@ -1195,6 +1227,7 @@ Indexes:
 - email_authentication_challenge_active_token_idx (token_hash, expires_at) WHERE consumed_at IS NULL
 - email_authentication_challenge_expired_sweep_idx (expires_at) WHERE consumed_at IS NULL
 - email_authentication_challenge_consumed_sweep_idx (consumed_at) WHERE consumed_at IS NOT NULL
+- email_authentication_challenge_target_account_id_fk_idx (target_account_id)
 
 ### ple_private.passkey_ceremony
 
@@ -1229,6 +1262,7 @@ Indexes:
 - ple_private.passkey_ceremony_pkey UNIQUE (ceremony_id)
 - passkey_ceremony_expired_sweep_idx (expires_at) WHERE consumed_at IS NULL
 - passkey_ceremony_consumed_sweep_idx (consumed_at) WHERE consumed_at IS NOT NULL
+- passkey_ceremony_target_account_id_fk_idx (target_account_id)
 
 ### ple_private.passkey
 
@@ -1327,6 +1361,7 @@ Indexes:
 
 - ple_private.sysadmin_totp_attestation_pkey UNIQUE (sysadmin_totp_attestation_id)
 - sysadmin_totp_attestation_active_idx (sysadmin_totp_attestation_id, expires_at) WHERE consumed_at IS NULL
+- sysadmin_totp_attestation_account_id_fk_idx (account_id)
 
 ### ple_private.sysadmin_totp_used_counter
 
@@ -1384,6 +1419,7 @@ Foreign keys:
 Indexes:
 
 - ple_private.sysadmin_totp_verification_attempt_pkey UNIQUE (sysadmin_totp_attestation_id)
+- sysadmin_totp_verification_attempt_account_id_fk_idx (account_id)
 
 ### ple_private.authenticated_session
 
@@ -1421,6 +1457,7 @@ Indexes:
 - authenticated_session_active_account_idx (account_id, expires_at) WHERE revoked_at IS NULL
 - authenticated_session_expired_sweep_idx (expires_at) WHERE revoked_at IS NULL
 - authenticated_session_revoked_sweep_idx (revoked_at) WHERE revoked_at IS NOT NULL
+- authenticated_session_account_id_product_role_fk_idx (account_id, product_role)
 
 ## 20_tables/blueprint_course.sql
 
@@ -1471,6 +1508,12 @@ Indexes:
 
 - ple_data.blueprint_course_pkey UNIQUE (blueprint_course_id)
 - blueprint_course_available_owner_idx (availability, owner_account_id, blueprint_course_id)
+- blueprint_course_blueprint_course_id_a1565d12_fk_idx (blueprint_course_id, current_blueprint_revision_number)
+- blueprint_course_content_subject_id_a63d26bc_fk_idx (content_subject_id, content_discipline_id)
+- blueprint_course_content_subject_id_content_topic_id_fk_idx (content_subject_id, content_topic_id)
+- blueprint_course_content_topic_id_content_subtopic_id_fk_idx (content_topic_id, content_subtopic_id)
+- blueprint_course_content_discipline_id_fk_idx (content_discipline_id)
+- blueprint_course_owner_account_id_fk_idx (owner_account_id)
 
 ### ple_data.blueprint_course_revision
 
@@ -1577,13 +1620,13 @@ Columns:
 | blueprint_course_id | ple_data.blueprint_course_id | NOT NULL |
 | blueprint_revision_number | integer | NOT NULL |
 | blueprint_module_reference | uuid | NOT NULL |
-| blueprint_assessment_reference | uuid | NOT NULL |
+| blueprint_assessment_id | uuid | NOT NULL |
 | assessment_position | integer | NOT NULL |
 | created_at | timestamptz | NOT NULL |
 
 Constraints:
 
-- PRIMARY KEY (blueprint_course_id, blueprint_revision_number, blueprint_assessment_reference)
+- PRIMARY KEY (blueprint_course_id, blueprint_revision_number, blueprint_assessment_id)
 - UNIQUE (blueprint_course_id, blueprint_revision_number, blueprint_module_reference, assessment_position)
 - CHECK assessment_position: `(assessment_position BETWEEN 1 AND 1024)`
 
@@ -1593,7 +1636,7 @@ Foreign keys:
 
 Indexes:
 
-- ple_data.blueprint_revision_assessment_pkey UNIQUE (blueprint_course_id, blueprint_revision_number, blueprint_assessment_reference)
+- ple_data.blueprint_revision_assessment_pkey UNIQUE (blueprint_course_id, blueprint_revision_number, blueprint_assessment_id)
 - ple_data.blueprint_revision_assessment_unique_0 UNIQUE (blueprint_course_id, blueprint_revision_number, blueprint_module_reference, assessment_position)
 
 ### ple_data.blueprint_revision_event
@@ -1629,6 +1672,7 @@ Indexes:
 - ple_data.blueprint_revision_event_pkey UNIQUE (blueprint_revision_event_id)
 - ple_data.blueprint_revision_event_unique_0 UNIQUE (blueprint_course_id, blueprint_revision_number)
 - ple_data.blueprint_revision_event_unique_1 UNIQUE (blueprint_course_id, actor_account_id, request_checksum)
+- blueprint_revision_event_actor_account_id_fk_idx (actor_account_id)
 
 ### ple_data.blueprint_metadata_event
 
@@ -1669,6 +1713,7 @@ Indexes:
 
 - ple_data.blueprint_metadata_event_pkey UNIQUE (blueprint_metadata_event_id)
 - ple_data.blueprint_metadata_event_unique_0 UNIQUE (blueprint_course_id, blueprint_edit_number)
+- blueprint_metadata_event_actor_account_id_fk_idx (actor_account_id)
 
 ### ple_data.blueprint_course_create_receipt
 
@@ -1700,6 +1745,7 @@ Foreign keys:
 Indexes:
 
 - ple_data.blueprint_course_create_receipt_pkey UNIQUE (actor_account_id, request_checksum)
+- blueprint_course_create_receipt_blueprint_cours_a188b3c4_fk_idx (blueprint_course_id, blueprint_revision_number)
 
 ### ple_data.blueprint_course_save_receipt
 
@@ -1731,6 +1777,7 @@ Foreign keys:
 Indexes:
 
 - ple_data.blueprint_course_save_receipt_pkey UNIQUE (blueprint_course_id, actor_account_id, request_checksum)
+- blueprint_course_save_receipt_actor_account_id_fk_idx (actor_account_id)
 
 ### ple_data.blueprint_course_fork
 
@@ -1797,6 +1844,8 @@ Foreign keys:
 Indexes:
 
 - ple_data.blueprint_course_fork_receipt_pkey UNIQUE (actor_account_id, request_checksum)
+- blueprint_course_fork_receipt_source_blueprint__840527c5_fk_idx (source_blueprint_course_id, source_blueprint_revision_number)
+- blueprint_course_fork_receipt_blueprint_course_id_fk_idx (blueprint_course_id)
 
 ### ple_data.blueprint_change_proposal
 
@@ -1835,6 +1884,11 @@ Foreign keys:
 Indexes:
 
 - ple_data.blueprint_change_proposal_pkey UNIQUE (blueprint_change_proposal_id)
+- blueprint_change_proposal_source_blueprint_cour_4dd90b27_fk_idx (source_blueprint_course_id, source_blueprint_edit_number)
+- blueprint_change_proposal_source_blueprint_cour_0eaaf160_fk_idx (source_blueprint_course_id, source_revision_number)
+- blueprint_change_proposal_target_blueprint_cour_8b0346f6_fk_idx (target_blueprint_course_id, target_blueprint_edit_number)
+- blueprint_change_proposal_target_blueprint_cour_ac785fb9_fk_idx (target_blueprint_course_id, target_revision_number)
+- blueprint_change_proposal_proposer_account_id_fk_idx (proposer_account_id)
 
 ### ple_data.blueprint_change_proposal_acceptance
 
@@ -1869,6 +1923,9 @@ Foreign keys:
 Indexes:
 
 - ple_data.blueprint_change_proposal_acceptance_pkey UNIQUE (blueprint_change_proposal_id)
+- blueprint_change_proposal_acceptance_target_blu_103f00b2_fk_idx (target_blueprint_course_id, resulting_blueprint_edit_number)
+- blueprint_change_proposal_acceptance_target_blu_32957868_fk_idx (target_blueprint_course_id, resulting_revision_number)
+- blueprint_change_proposal_acceptance_actor_account_id_fk_idx (actor_account_id)
 
 ### ple_data.blueprint_course_star
 
@@ -1957,6 +2014,7 @@ Indexes:
 - ple_private.blueprint_course_watch_notification_pkey UNIQUE (notification_id)
 - ple_private.blueprint_course_watch_notification_unique_0 UNIQUE (recipient_account_id, event_kind, source_event_id)
 - blueprint_course_watch_notification_recipient_idx (recipient_account_id, occurred_at, notification_id)
+- blueprint_course_watch_notification_blueprint_course_id_fk_idx (blueprint_course_id)
 
 ## 20_tables/content_classification.sql
 
@@ -2040,6 +2098,7 @@ Foreign keys:
 Indexes:
 
 - ple_data.content_subject_discipline_pkey UNIQUE (content_subject_id, content_discipline_id)
+- content_subject_discipline_content_discipline_id_fk_idx (content_discipline_id)
 
 ### ple_data.content_topic
 
@@ -2140,6 +2199,8 @@ Indexes:
 
 - ple_data.forced_question_correction_pkey UNIQUE (forced_question_correction_id)
 - ple_data.forced_question_correction_unique_0 UNIQUE (flawed_question_id, flawed_revision_number, correction_generation)
+- forced_question_correction_approved_by_account__198a0268_fk_idx (approved_by_account_id, approver_role)
+- forced_question_correction_replacement_question_67ad7428_fk_idx (replacement_question_id, replacement_revision_number)
 
 ### ple_data.question_change_event
 
@@ -2171,6 +2232,7 @@ Indexes:
 
 - ple_data.question_change_event_pkey UNIQUE (question_change_event_id)
 - ple_data.question_change_event_unique_0 UNIQUE (forced_question_correction_id)
+- question_change_event_recorded_by_account_id_fk_idx (recorded_by_account_id)
 
 ### ple_audit.forced_question_correction_assessment_attempt_target
 
@@ -2198,6 +2260,8 @@ Foreign keys:
 Indexes:
 
 - ple_audit.forced_question_correction_assessment_attempt_target_pkey UNIQUE (course_instance_id, forced_question_correction_id, assessment_attempt_id)
+- forced_question_correction_assessment_attempt_t_e6cf004d_fk_idx (course_instance_id, assessment_attempt_id)
+- forced_question_correction_assessment_attempt_t_056ba53c_fk_idx (forced_question_correction_id)
 
 ### ple_audit.forced_question_correction_issued_question_target
 
@@ -2225,6 +2289,8 @@ Foreign keys:
 Indexes:
 
 - ple_audit.forced_question_correction_issued_question_target_pkey UNIQUE (course_instance_id, forced_question_correction_id, issued_question_id)
+- forced_question_correction_issued_question_targ_42536c1f_fk_idx (course_instance_id, issued_question_id)
+- forced_question_correction_issued_question_targ_bfe39ee6_fk_idx (forced_question_correction_id)
 
 ## 20_tables/course_instance.sql
 
@@ -2313,6 +2379,13 @@ Foreign keys:
 Indexes:
 
 - ple_data.course_instance_pkey UNIQUE (course_instance_id)
+- course_instance_blueprint_course_id_4a126ed2_fk_idx (blueprint_course_id, blueprint_revision_number)
+- course_instance_content_subject_id_content_discipline_id_fk_idx (content_subject_id, content_discipline_id)
+- course_instance_content_subject_id_content_topic_id_fk_idx (content_subject_id, content_topic_id)
+- course_instance_content_topic_id_content_subtopic_id_fk_idx (content_topic_id, content_subtopic_id)
+- course_instance_course_instance_id_ce017de1_fk_idx (course_instance_id, current_course_banner_id)
+- course_instance_content_discipline_id_fk_idx (content_discipline_id)
+- course_instance_course_theme_id_fk_idx (course_theme_id)
 
 ### ple_data.course_origin
 
@@ -2347,6 +2420,8 @@ Indexes:
 
 - ple_data.course_origin_pkey UNIQUE (course_origin_id)
 - ple_data.course_origin_unique_0 UNIQUE (course_instance_id)
+- course_origin_blueprint_course_id_95fa803f_fk_idx (blueprint_course_id, blueprint_revision_number)
+- course_origin_source_course_instance_id_fk_idx (source_course_instance_id)
 
 ### ple_audit.course_instance_creation_event
 
@@ -2383,6 +2458,9 @@ Indexes:
 
 - ple_audit.course_instance_creation_event_pkey UNIQUE (course_instance_creation_event_id)
 - ple_audit.course_instance_creation_event_unique_0 UNIQUE (course_instance_id)
+- course_instance_creation_event_blueprint_course_f6406743_fk_idx (blueprint_course_id, blueprint_revision_number)
+- course_instance_creation_event_assigned_instruc_af26ef10_fk_idx (assigned_instructor_account_id)
+- course_instance_creation_event_created_by_account_id_fk_idx (created_by_account_id)
 
 ### ple_data.blueprint_course_instance_source
 
@@ -2455,6 +2533,7 @@ Indexes:
 
 - ple_data.course_banner_pkey UNIQUE (course_instance_id, course_banner_id)
 - ple_data.course_banner_unique_0 UNIQUE (course_instance_id, course_banner_id, source_object_record_id)
+- course_banner_source_object_record_id_fk_idx (source_object_record_id)
 
 ### ple_data.course_banner_rendition
 
@@ -2490,6 +2569,7 @@ Indexes:
 
 - ple_data.course_banner_rendition_pkey UNIQUE (course_instance_id, course_banner_id, rendition_kind)
 - ple_data.course_banner_rendition_unique_0 UNIQUE (course_instance_id, course_banner_id, rendition_kind, object_record_id)
+- course_banner_rendition_object_record_id_fk_idx (object_record_id)
 
 ### ple_data.course_banner_delivery
 
@@ -2520,6 +2600,8 @@ Foreign keys:
 Indexes:
 
 - ple_data.course_banner_delivery_pkey UNIQUE (object_delivery_id)
+- course_banner_delivery_course_instance_id_364cac3c_fk_idx (course_instance_id, course_banner_id, rendition_kind, object_record_id)
+- course_banner_delivery_object_delivery_id_216c0c32_fk_idx (object_delivery_id, object_record_id)
 
 ### ple_private.course_banner_upload
 
@@ -2562,6 +2644,8 @@ Indexes:
 
 - ple_private.course_banner_upload_pkey UNIQUE (course_banner_upload_id)
 - ple_private.course_banner_upload_unique_0 UNIQUE (object_record_id)
+- course_banner_upload_account_id_fk_idx (account_id)
+- course_banner_upload_course_instance_id_fk_idx (course_instance_id)
 
 ### ple_private.course_banner_storage_subject
 
@@ -2605,6 +2689,8 @@ Indexes:
 - ple_private.course_banner_storage_subject_pkey UNIQUE (course_banner_storage_subject_id)
 - ple_private.course_banner_storage_subject_unique_0 UNIQUE (object_record_id)
 - ple_private.course_banner_storage_subject_unique_1 UNIQUE (course_banner_storage_subject_id, object_record_id)
+- course_banner_storage_subject_course_instance_i_c9e745db_fk_idx (course_instance_id, course_banner_id)
+- course_banner_storage_subject_course_banner_upload_id_fk_idx (course_banner_upload_id)
 
 ### ple_private.course_banner_work
 
@@ -2643,6 +2729,9 @@ Foreign keys:
 Indexes:
 
 - ple_private.course_banner_work_pkey UNIQUE (course_banner_work_id)
+- course_banner_work_course_banner_storage_subjec_1ea914b2_fk_idx (course_banner_storage_subject_id, object_record_id)
+- course_banner_work_object_delivery_id_object_record_id_fk_idx (object_delivery_id, object_record_id)
+- course_banner_work_course_instance_id_fk_idx (course_instance_id)
 
 ### ple_private.course_banner_prepared_presentation
 
@@ -2738,6 +2827,9 @@ Indexes:
 
 - ple_data.course_membership_pkey UNIQUE (course_membership_id)
 - course_membership_account_course_idx (account_id, course_instance_id)
+- course_membership_account_id_role_fk_idx (account_id, role)
+- course_membership_course_instance_id_fk_idx (course_instance_id)
+- course_membership_student_record_id_fk_idx (student_record_id)
 
 ### ple_data.course_membership_event
 
@@ -2804,6 +2896,9 @@ Foreign keys:
 Indexes:
 
 - ple_private.course_invitation_pkey UNIQUE (course_invitation_id)
+- course_invitation_inviting_instructor_account_i_759dd1e2_fk_idx (inviting_instructor_account_id, inviting_instructor_role)
+- course_invitation_target_account_id_membership_role_fk_idx (target_account_id, membership_role)
+- course_invitation_course_instance_id_fk_idx (course_instance_id)
 
 ### ple_private.course_invitation_event
 
@@ -2836,6 +2931,7 @@ Indexes:
 
 - ple_private.course_invitation_event_pkey UNIQUE (course_invitation_event_id)
 - ple_private.course_invitation_event_unique_0 UNIQUE (course_invitation_id)
+- course_invitation_event_performed_by_account_id_fk_idx (performed_by_account_id)
 
 ### ple_private.course_roster_profile
 
@@ -2872,6 +2968,7 @@ Indexes:
 - ple_private.course_roster_profile_pkey UNIQUE (course_roster_profile_id)
 - ple_private.course_roster_profile_unique_0 UNIQUE (course_instance_id, student_account_id)
 - ple_private.course_roster_profile_unique_1 UNIQUE (course_instance_id, roster_id)
+- course_roster_profile_student_account_id_fk_idx (student_account_id)
 
 ### ple_audit.course_roster_event
 
@@ -2902,6 +2999,9 @@ Foreign keys:
 Indexes:
 
 - ple_audit.course_roster_event_pkey UNIQUE (course_roster_event_id)
+- course_roster_event_acting_account_id_fk_idx (acting_account_id)
+- course_roster_event_course_instance_id_fk_idx (course_instance_id)
+- course_roster_event_student_account_id_fk_idx (student_account_id)
 
 ## 20_tables/jobs.sql
 
@@ -2944,6 +3044,7 @@ Indexes:
 - ple_private.job_pkey UNIQUE (job_id)
 - job_ready_claim_idx (available_at, job_id) WHERE state = 'ready'
 - job_expired_lease_idx (lease_expires_at, job_id) WHERE state = 'leased'
+- job_published_question_id_revision_number_fk_idx (published_question_id, revision_number)
 
 ## 20_tables/library_discussion.sql
 
@@ -2982,6 +3083,8 @@ Indexes:
 
 - ple_data.library_improvement_thread_pkey UNIQUE (library_improvement_thread_id)
 - library_improvement_thread_object_idx (object_kind, public_object_id, created_at, library_improvement_thread_id)
+- library_improvement_thread_created_by_account_id_fk_idx (created_by_account_id)
+- library_improvement_thread_resolved_by_account_id_fk_idx (resolved_by_account_id)
 
 ### ple_data.library_improvement_post
 
@@ -3016,6 +3119,7 @@ Indexes:
 
 - ple_data.library_improvement_post_pkey UNIQUE (post_id)
 - library_improvement_post_thread_idx (library_improvement_thread_id, created_at, post_id)
+- library_improvement_post_author_account_id_fk_idx (author_account_id)
 
 ### ple_data.library_impact_notice
 
@@ -3057,6 +3161,8 @@ Indexes:
 
 - ple_data.library_impact_notice_pkey UNIQUE (impact_notice_id)
 - library_impact_notice_object_idx (object_kind, public_object_id, created_at, impact_notice_id)
+- library_impact_notice_cancelled_by_account_id_fk_idx (cancelled_by_account_id)
+- library_impact_notice_created_by_account_id_fk_idx (created_by_account_id)
 
 ## 20_tables/library_watch.sql
 
@@ -3223,6 +3329,8 @@ Foreign keys:
 Indexes:
 
 - ple_data.course_object_delivery_pkey UNIQUE (object_delivery_id)
+- course_object_delivery_object_delivery_id_e88c74aa_fk_idx (object_delivery_id, object_record_id)
+- course_object_delivery_course_instance_id_fk_idx (course_instance_id)
 
 ### ple_private.object_storage_check
 
@@ -3282,6 +3390,7 @@ Indexes:
 
 - ple_private.object_cleanup_manifest_pkey UNIQUE (object_cleanup_manifest_id)
 - ple_private.object_cleanup_manifest_unique_0 UNIQUE (object_cleanup_manifest_id, permitted_disposition)
+- object_cleanup_manifest_object_storage_check_id_fk_idx (object_storage_check_id)
 
 ### ple_audit.object_storage_check_event
 
@@ -3337,6 +3446,7 @@ Foreign keys:
 Indexes:
 
 - ple_audit.object_cleanup_receipt_pkey UNIQUE (object_cleanup_receipt_id)
+- object_cleanup_receipt_object_cleanup_manifest__f9f85e91_fk_idx (object_cleanup_manifest_id, disposition)
 
 ## 20_tables/profile_media.sql
 
@@ -3373,6 +3483,7 @@ Indexes:
 - ple_data.profile_image_delivery_unique_0 UNIQUE (profile_image_id)
 - ple_data.profile_image_delivery_unique_1 UNIQUE (object_delivery_id, object_record_id)
 - ple_data.profile_image_delivery_unique_2 UNIQUE (profile_image_id, object_delivery_id)
+- profile_image_delivery_object_record_id_fk_idx (object_record_id)
 
 ### ple_data.provided_avatar
 
@@ -3436,6 +3547,8 @@ Indexes:
 - ple_private.account_avatar_pkey UNIQUE (account_id)
 - ple_private.account_avatar_unique_0 UNIQUE (profile_image_id)
 - ple_private.account_avatar_unique_1 UNIQUE (profile_image_delivery_id)
+- account_avatar_profile_image_id_10940e09_fk_idx (profile_image_id, profile_image_delivery_id)
+- account_avatar_provided_avatar_id_fk_idx (provided_avatar_id)
 
 ### ple_private.profile_image_work
 
@@ -3473,6 +3586,9 @@ Indexes:
 
 - ple_private.profile_image_work_pkey UNIQUE (profile_image_work_id)
 - ple_private.profile_image_work_unique_0 UNIQUE (profile_image_id, operation_kind)
+- profile_image_work_object_delivery_id_object_record_id_fk_idx (object_delivery_id, object_record_id)
+- profile_image_work_account_id_fk_idx (account_id)
+- profile_image_work_object_record_id_fk_idx (object_record_id)
 
 ## 20_tables/published_question.sql
 
@@ -3578,6 +3694,9 @@ Indexes:
 
 - ple_data.published_question_metadata_pkey UNIQUE (published_question_id)
 - published_question_metadata_search_idx ()
+- published_question_metadata_content_subject_id_2904f118_fk_idx (content_subject_id, content_discipline_id)
+- published_question_metadata_content_subject_id_eed7807b_fk_idx (content_subject_id, content_topic_id)
+- published_question_metadata_content_topic_id_4033d80b_fk_idx (content_topic_id, content_subtopic_id)
 
 ### ple_data.question_publication_event
 
@@ -3609,6 +3728,7 @@ Indexes:
 
 - ple_data.question_publication_event_pkey UNIQUE (event_id)
 - ple_data.question_publication_event_unique_0 UNIQUE (published_question_id, revision_number)
+- question_publication_event_actor_account_id_fk_idx (actor_account_id)
 
 ### ple_data.question_availability_event
 
@@ -3642,6 +3762,7 @@ Indexes:
 
 - ple_data.question_availability_event_pkey UNIQUE (event_id)
 - ple_data.question_availability_event_unique_0 UNIQUE (published_question_id, edit_number)
+- question_availability_event_actor_account_id_fk_idx (actor_account_id)
 
 ### ple_data.question_revision_acceptance
 
@@ -3676,6 +3797,9 @@ Foreign keys:
 Indexes:
 
 - ple_data.question_revision_acceptance_pkey UNIQUE (published_question_id, revision_number)
+- question_revision_acceptance_published_question_8abd36b6_fk_idx (published_question_id, parent_revision_number)
+- question_revision_acceptance_accepted_by_account_id_fk_idx (accepted_by_account_id)
+- question_revision_acceptance_editor_account_id_fk_idx (editor_account_id)
 
 ### ple_data.question_revision_authorship
 
@@ -3710,6 +3834,7 @@ Indexes:
 
 - ple_data.question_revision_authorship_pkey UNIQUE (published_question_id, revision_number, author_position)
 - ple_data.question_revision_authorship_unique_0 UNIQUE (published_question_id, revision_number, author_display_name)
+- question_revision_authorship_author_account_id_fk_idx (author_account_id)
 
 ### ple_data.question_revision_license
 
@@ -3796,6 +3921,8 @@ Indexes:
 
 - ple_data.question_ownership_event_pkey UNIQUE (question_ownership_event_id)
 - question_ownership_event_initial_once UNIQUE (published_question_id) WHERE event_kind = 'initial'
+- question_ownership_event_owner_account_id_fk_idx (owner_account_id)
+- question_ownership_event_recorded_by_account_id_fk_idx (recorded_by_account_id)
 
 ### ple_data.question_fork_source
 
@@ -3824,6 +3951,7 @@ Foreign keys:
 Indexes:
 
 - ple_data.question_fork_source_pkey UNIQUE (forked_published_question_id)
+- question_fork_source_source_question_id_e7bd1bc8_fk_idx (source_question_id, source_revision_number)
 
 ### ple_data.question_star
 
@@ -3972,6 +4100,8 @@ Foreign keys:
 Indexes:
 
 - ple_data.question_asset_delivery_pkey UNIQUE (object_delivery_id)
+- question_asset_delivery_object_delivery_id_72e8beb7_fk_idx (object_delivery_id, object_record_id)
+- question_asset_delivery_published_question_id_db298a25_fk_idx (published_question_id, revision_number)
 
 ### ple_private.question_asset_publication
 
@@ -4024,6 +4154,8 @@ Indexes:
 - ple_private.question_asset_publication_unique_0 UNIQUE (public_object_id)
 - ple_private.question_asset_publication_unique_1 UNIQUE (object_delivery_id)
 - ple_private.question_asset_publication_unique_2 UNIQUE (job_id)
+- question_asset_publication_object_delivery_id_e5836f6f_fk_idx (object_delivery_id, public_object_id)
+- question_asset_publication_source_object_record_id_fk_idx (source_object_record_id)
 
 ## 20_tables/question_authoring.sql
 
@@ -4053,6 +4185,7 @@ Foreign keys:
 Indexes:
 
 - ple_private.authoring_workspace_pkey UNIQUE (authoring_workspace_id)
+- authoring_workspace_owner_account_id_fk_idx (owner_account_id)
 
 ### ple_private.authoring_workspace_collaborator_event
 
@@ -4085,6 +4218,8 @@ Indexes:
 
 - ple_private.authoring_workspace_collaborator_event_pkey UNIQUE (event_id)
 - ple_private.authoring_workspace_collaborator_event_unique_0 UNIQUE (authoring_workspace_id, collaborator_account_id, event_kind)
+- authoring_workspace_collaborator_event_actor_account_id_fk_idx (actor_account_id)
+- authoring_workspace_collaborator_event_collabor_8f92f6cb_fk_idx (collaborator_account_id)
 
 ### ple_private.draft_question
 
@@ -4115,6 +4250,7 @@ Indexes:
 
 - ple_private.draft_question_pkey UNIQUE (draft_question_id)
 - ple_private.draft_question_unique_0 UNIQUE (draft_question_id, authoring_workspace_id)
+- draft_question_authoring_workspace_id_fk_idx (authoring_workspace_id)
 
 ### ple_private.draft_question_metadata
 
@@ -4183,6 +4319,7 @@ Foreign keys:
 Indexes:
 
 - ple_private.draft_question_source_binding_pkey UNIQUE (draft_question_id)
+- draft_question_source_binding_source_object_record_id_fk_idx (source_object_record_id)
 
 ### ple_private.question_revision_source_binding
 
@@ -4215,6 +4352,7 @@ Foreign keys:
 Indexes:
 
 - ple_private.question_revision_source_binding_pkey UNIQUE (published_question_id, revision_number)
+- question_revision_source_binding_source_object_record_id_fk_idx (source_object_record_id)
 
 ### ple_private.workspace_import
 
@@ -4315,6 +4453,7 @@ Indexes:
 
 - ple_private.draft_question_fork_source_pkey UNIQUE (draft_question_id)
 - ple_private.draft_question_fork_source_unique_0 UNIQUE (actor_account_id, idempotency_key)
+- draft_question_fork_source_source_question_id_86c817bf_fk_idx (source_question_id, source_revision_number)
 
 ### ple_private.question_folder
 
@@ -4346,6 +4485,7 @@ Foreign keys:
 Indexes:
 
 - ple_private.question_folder_pkey UNIQUE (question_folder_id)
+- question_folder_owner_account_id_fk_idx (owner_account_id)
 
 ### ple_private.question_folder_entry
 
@@ -4373,6 +4513,7 @@ Foreign keys:
 Indexes:
 
 - ple_private.question_folder_entry_pkey UNIQUE (question_folder_id, published_question_id)
+- question_folder_entry_published_question_id_fk_idx (published_question_id)
 
 ### ple_private.saved_question_search
 
@@ -4404,6 +4545,7 @@ Foreign keys:
 Indexes:
 
 - ple_private.saved_question_search_pkey UNIQUE (search_id)
+- saved_question_search_owner_account_id_fk_idx (owner_account_id)
 
 ### ple_private.draft_question_asset
 
@@ -4439,6 +4581,7 @@ Indexes:
 
 - ple_private.draft_question_asset_pkey UNIQUE (draft_question_id, asset_id)
 - ple_private.draft_question_asset_unique_0 UNIQUE (source_object_record_id)
+- draft_question_asset_draft_question_id_b5a44014_fk_idx (draft_question_id, authoring_workspace_id)
 
 ## 20_tables/question_pool.sql
 
@@ -4486,6 +4629,11 @@ Foreign keys:
 Indexes:
 
 - ple_data.question_pool_pkey UNIQUE (question_pool_id)
+- question_pool_content_subject_id_content_discipline_id_fk_idx (content_subject_id, content_discipline_id)
+- question_pool_content_subject_id_content_topic_id_fk_idx (content_subject_id, content_topic_id)
+- question_pool_content_topic_id_content_subtopic_id_fk_idx (content_topic_id, content_subtopic_id)
+- question_pool_interchangeability_attested_by_account_id_fk_idx (interchangeability_attested_by_account_id)
+- question_pool_source_question_pool_id_fk_idx (source_question_pool_id)
 
 ### ple_data.question_pool_member
 
@@ -4519,6 +4667,7 @@ Indexes:
 
 - ple_data.question_pool_member_pkey UNIQUE (question_pool_id, member_position)
 - ple_data.question_pool_member_unique_0 UNIQUE (question_pool_id, published_question_id, question_revision_number)
+- question_pool_member_published_question_id_c92544b6_fk_idx (published_question_id, question_revision_number)
 
 ### ple_data.question_pool_star
 
@@ -4546,6 +4695,7 @@ Foreign keys:
 Indexes:
 
 - ple_data.question_pool_star_pkey UNIQUE (question_pool_id, instructor_account_id)
+- question_pool_star_instructor_account_id_fk_idx (instructor_account_id)
 
 ### ple_data.question_pool_watch
 
@@ -4573,6 +4723,7 @@ Foreign keys:
 Indexes:
 
 - ple_data.question_pool_watch_pkey UNIQUE (question_pool_id, instructor_account_id)
+- question_pool_watch_instructor_account_id_fk_idx (instructor_account_id)
 
 ### ple_data.question_pool_bloom
 
@@ -4650,6 +4801,7 @@ Indexes:
 - ple_private.course_retention_notification_unique_0 UNIQUE (course_instance_id, action_kind, due_at, recipient_account_id)
 - ple_private.course_retention_notification_unique_1 UNIQUE (provider_idempotency_key)
 - course_retention_notification_claim_idx (due_at, notification_id) WHERE provider_accepted_at IS NULL
+- course_retention_notification_recipient_account_5bb3f876_fk_idx (recipient_account_id, recipient_product_role)
 
 ## 20_tables/statistics.sql
 
@@ -4751,6 +4903,7 @@ Foreign keys:
 Indexes:
 
 - ple_data.question_pool_member_statistics_pkey UNIQUE (question_pool_id, published_question_id)
+- question_pool_member_statistics_published_question_id_fk_idx (published_question_id)
 
 ### ple_private.question_statistics_observation_receipt
 
@@ -4784,6 +4937,8 @@ Indexes:
 
 - ple_private.question_statistics_observation_receipt_pkey UNIQUE (course_instance_id, issued_question_id)
 - ple_private.question_statistics_observation_receipt_unique_0 UNIQUE (course_instance_id, issued_question_id, assessment_submission_id)
+- question_statistics_observation_receipt_course__d3f8d499_fk_idx (course_instance_id, assessment_submission_id)
+- question_statistics_observation_receipt_publish_de307fa4_fk_idx (published_question_id, revision_number)
 
 ## 20_tables/support_repair.sql
 
@@ -4824,6 +4979,8 @@ Foreign keys:
 Indexes:
 
 - ple_private.support_repair_capability_pkey UNIQUE (support_repair_capability_id)
+- support_repair_capability_sysadmin_account_id_49d4b3ce_fk_idx (sysadmin_account_id, sysadmin_role)
+- support_repair_capability_issuer_account_id_fk_idx (issuer_account_id)
 
 ### ple_audit.support_repair_capability_event
 
@@ -4859,3 +5016,6 @@ Foreign keys:
 Indexes:
 
 - ple_audit.support_repair_capability_event_pkey UNIQUE (event_id)
+- support_repair_capability_event_issuer_account_id_fk_idx (issuer_account_id)
+- support_repair_capability_event_support_repair__975ebcdb_fk_idx (support_repair_capability_id)
+- support_repair_capability_event_sysadmin_account_id_fk_idx (sysadmin_account_id)

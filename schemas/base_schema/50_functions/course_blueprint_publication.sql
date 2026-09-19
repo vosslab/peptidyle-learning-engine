@@ -135,10 +135,8 @@ AS $$
                     )
                     WHEN 'question_pool' THEN jsonb_build_object(
                         'kind', 'pool',
-                        'question_pool_revision', jsonb_build_object(
-                            'questionPoolId', pool.question_pool_id,
-                            'revisionNumber', pool.question_pool_edit_number
-                        ),
+                        'question_pool_id', pool.question_pool_id,
+                        'question_pool_edit_number', pool.question_pool_edit_number,
                         'selection_count', pool_entry.selection_count,
                         'points_per_item', pool_entry.points_per_item::text,
                         'scoring_rule', CASE entry.scoring_rule::text
@@ -210,9 +208,9 @@ $$;
 
 
 
--- Edit Numbers bind all current Assessment content. Pool pins are repeated in
--- the snapshot because Pool membership is copied through a separate immutable
--- fork primitive inside the same transaction.
+-- Edit Numbers bind all current Assessment content. Pool ID plus Pool Edit
+-- Number are recorded in the snapshot as concurrency evidence, not as a
+-- historical Pool membership object.
 CREATE FUNCTION ple_data.course_blueprint_publication_snapshot(p_course_instance_id text)
 RETURNS jsonb LANGUAGE sql STABLE STRICT
 SET search_path = pg_catalog, ple_data
@@ -220,11 +218,11 @@ AS $$
     SELECT COALESCE(jsonb_agg(jsonb_build_object(
         'assessmentId', assessment.assessment_id,
         'assessmentEditNumber', assessment.assessment_edit_number,
-        'poolPins', COALESCE((
+        'poolEvidence', COALESCE((
             SELECT jsonb_agg(jsonb_build_object(
                 'assessmentEntryId', entry.assessment_entry_id,
                 'questionPoolId', pool_entry.question_pool_id,
-                'revisionNumber', (
+                'questionPoolEditNumber', (
                     SELECT pool.question_pool_edit_number
                       FROM ple_data.question_pool AS pool
                      WHERE pool.question_pool_id = pool_entry.question_pool_id
@@ -255,7 +253,7 @@ SET LOCAL ROLE ple_api_owner;
 -- obtains the Course and every Assessment row lock before returning reusable
 -- structure. A concurrent Course metadata or Assessment save must finish
 -- before this snapshot, or wait until the complete publication commits.
-CREATE FUNCTION ple_api.load_course_blueprint_publication_source(p_course_reference text)
+CREATE FUNCTION ple_api.load_course_blueprint_publication_source(p_course_instance_id text)
 RETURNS TABLE (
     course_edit_number bigint,
     source_snapshot jsonb,
@@ -269,7 +267,7 @@ DECLARE
 BEGIN
     SELECT * INTO source_course
       FROM ple_data.course_instance AS course
-     WHERE course.course_instance_id = p_course_reference
+     WHERE course.course_instance_id = p_course_instance_id
      FOR UPDATE;
     IF NOT FOUND
        OR NOT ple_api.current_session_account_is_course_instructor(source_course.course_instance_id) THEN
@@ -311,11 +309,11 @@ $$;
 -- Pool identities. The route's domain-separated checksum prevents overlap
 -- with ordinary Blueprint creation and canonical import.
 CREATE FUNCTION ple_api.course_blueprint_publication_receipt(
-    p_course_reference text,
+    p_course_instance_id text,
     p_request_checksum bytea
 )
 RETURNS TABLE (
-    public_reference text,
+    blueprint_course_id text,
     blueprint_revision_number bigint,
     blueprint_edit_number bigint,
     accepted_at timestamp with time zone
@@ -340,10 +338,10 @@ BEGIN
             pg_catalog.encode(p_request_checksum, 'hex')), 0));
     SELECT course.course_instance_id INTO source_course_instance_id
       FROM ple_data.course_instance AS course
-     WHERE course.course_instance_id = p_course_reference;
+     WHERE course.course_instance_id = p_course_instance_id;
     SELECT blueprint.blueprint_course_id, receipt.blueprint_revision_number,
            receipt.blueprint_edit_number, receipt.accepted_at, source.source_course_instance_id
-      INTO public_reference, blueprint_revision_number, blueprint_edit_number, accepted_at,
+      INTO blueprint_course_id, blueprint_revision_number, blueprint_edit_number, accepted_at,
            prior_source_course_id
       FROM ple_data.blueprint_course_create_receipt AS receipt
       JOIN ple_data.blueprint_course AS blueprint
@@ -369,10 +367,10 @@ $$;
 -- capability rechecks the exact snapshot, delegates ordinary Revision-1
 -- construction, and records source provenance before the transaction commits.
 CREATE FUNCTION ple_api.create_blueprint_from_course_instance(
-    p_course_reference text,
+    p_course_instance_id text,
     p_expected_course_edit_number bigint,
     p_expected_source_snapshot jsonb,
-    p_blueprint_id text,
+    p_blueprint_course_id text,
     p_request_checksum bytea,
     p_short_name text,
     p_long_name text,
@@ -385,7 +383,7 @@ CREATE FUNCTION ple_api.create_blueprint_from_course_instance(
     p_tags text[]
 )
 RETURNS TABLE (
-    public_reference text,
+    blueprint_course_id text,
     blueprint_revision_number bigint,
     blueprint_edit_number bigint,
     accepted_at timestamp with time zone
@@ -398,7 +396,7 @@ DECLARE
     source_course ple_data.course_instance%ROWTYPE;
     prior_receipt record;
     created record;
-    created_reference_number text;
+    created_blueprint_course_id text;
 BEGIN
     IF p_request_checksum IS NULL
        OR octet_length(p_request_checksum) <> 32
@@ -426,12 +424,12 @@ BEGIN
     IF FOUND THEN
         SELECT * INTO source_course
           FROM ple_data.course_instance AS course
-         WHERE course.course_instance_id = p_course_reference;
+         WHERE course.course_instance_id = p_course_instance_id;
         IF NOT FOUND OR prior_receipt.source_course_instance_id IS DISTINCT FROM source_course.course_instance_id THEN
             RAISE EXCEPTION USING ERRCODE = '22023',
                 MESSAGE = 'Idempotency-Key belongs to another Blueprint operation';
         END IF;
-        public_reference := prior_receipt.blueprint_course_id;
+        blueprint_course_id := prior_receipt.blueprint_course_id;
         blueprint_revision_number := prior_receipt.blueprint_revision_number;
         blueprint_edit_number := prior_receipt.blueprint_edit_number;
         accepted_at := prior_receipt.accepted_at;
@@ -441,7 +439,7 @@ BEGIN
 
     SELECT * INTO source_course
       FROM ple_data.course_instance AS course
-     WHERE course.course_instance_id = p_course_reference
+     WHERE course.course_instance_id = p_course_instance_id
      FOR UPDATE;
     IF NOT FOUND
        OR NOT ple_api.current_session_account_is_course_instructor(source_course.course_instance_id) THEN
@@ -476,26 +474,26 @@ BEGIN
               AND discipline.is_retired
        ) THEN
         SELECT * INTO created FROM ple_private.create_blueprint_course(
-            p_blueprint_id, p_request_checksum, p_short_name, p_long_name,
+            p_blueprint_course_id, p_request_checksum, p_short_name, p_long_name,
             p_content, p_content_checksum, p_discipline, p_subject, p_topic,
             p_subtopic, p_tags, source_course.content_discipline_id
         );
     ELSE
         SELECT * INTO created FROM ple_api.create_blueprint_course(
-            p_blueprint_id, p_request_checksum, p_short_name, p_long_name,
+            p_blueprint_course_id, p_request_checksum, p_short_name, p_long_name,
             p_content, p_content_checksum, p_discipline, p_subject, p_topic,
             p_subtopic, p_tags
         );
     END IF;
-    SELECT blueprint.blueprint_course_id INTO created_reference_number
+    SELECT blueprint.blueprint_course_id INTO created_blueprint_course_id
       FROM ple_data.blueprint_course AS blueprint
-     WHERE blueprint.blueprint_course_id = created.public_reference;
+     WHERE blueprint.blueprint_course_id = created.blueprint_course_id;
     INSERT INTO ple_data.blueprint_course_instance_source (
         blueprint_course_id, source_course_instance_id, recorded_at
     ) VALUES (
-        created_reference_number, source_course.course_instance_id, created.accepted_at
+        created_blueprint_course_id, source_course.course_instance_id, created.accepted_at
     );
-    public_reference := created.public_reference;
+    blueprint_course_id := created.blueprint_course_id;
     blueprint_revision_number := created.blueprint_revision_number;
     blueprint_edit_number := created.blueprint_edit_number;
     accepted_at := created.accepted_at;

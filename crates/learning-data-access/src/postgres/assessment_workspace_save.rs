@@ -55,7 +55,7 @@ fn entry_json(entry: &AssessmentEntry, position: usize) -> Result<Value, StoreEr
     let position = i32::try_from(position).map_err(|_| invalid("Assessment Entry position"))?;
     match entry {
         AssessmentEntry::FixedQuestion(value) => { let (seconds, grace_seconds) = question_time_limit(&value.question_attempt_time_limit)?; Ok(json!({ "assessmentEntryId": value.id.to_string(), "authoredPosition": position, "kind": "fixed_question", "availability": entry_availability(value.availability), "scoringRule": scoring_rule(value.scoring_rule), "questionId": value.reference.question_id.as_str(), "revisionNumber": value.reference.revision_number.get(), "pointsPossible": value.points_possible.to_string(), "questionAttemptLimit": value.question_attempt_limit.max_attempts, "questionAttemptTimeLimitSeconds": seconds, "questionAttemptGraceSeconds": grace_seconds })) }
-        AssessmentEntry::QuestionPool(value) => { let (seconds, grace_seconds) = question_time_limit(&value.question_attempt_time_limit)?; Ok(json!({ "assessmentEntryId": value.id.to_string(), "authoredPosition": position, "kind": "question_pool", "availability": entry_availability(value.availability), "scoringRule": scoring_rule(value.scoring_rule), "questionPoolId": value.question_pool_revision.question_pool_id.as_str(), "questionPoolRevisionNumber": value.question_pool_revision.revision_number.get(), "selectionCount": value.selection_count.get(), "pointsPerItem": value.points_per_item.to_string(), "selectedQuestionOrder": selected_question_order(value.selection_rule.selected_question_order), "questionAttemptLimit": value.question_attempt_limit.max_attempts, "questionAttemptTimeLimitSeconds": seconds, "questionAttemptGraceSeconds": grace_seconds })) }
+        AssessmentEntry::QuestionPool(value) => { let (seconds, grace_seconds) = question_time_limit(&value.question_attempt_time_limit)?; Ok(json!({ "assessmentEntryId": value.id.to_string(), "authoredPosition": position, "kind": "question_pool", "availability": entry_availability(value.availability), "scoringRule": scoring_rule(value.scoring_rule), "questionPoolId": value.question_pool_id.as_str(), "questionPoolEditNumber": value.question_pool_edit_number.get(), "selectionCount": value.selection_count.get(), "pointsPerItem": value.points_per_item.to_string(), "selectedQuestionOrder": selected_question_order(value.selection_rule.selected_question_order), "questionAttemptLimit": value.question_attempt_limit.max_attempts, "questionAttemptTimeLimitSeconds": seconds, "questionAttemptGraceSeconds": grace_seconds })) }
     }
 }
 #[rustfmt::skip]
@@ -80,7 +80,7 @@ mod tests {
             .expect("test Question Pool random identity is canonical");
         let entries: Vec<AssessmentEntry> = serde_json::from_value(serde_json::json!([
             {"kind":"fixedQuestion","id":"00000000-0000-0000-0000-000000000001","reference":{"questionId":question_id,"revisionNumber":2},"pointsPossible":"3.5","availability":"available","scoringRule":"normal","questionAttemptLimit":{"maxAttempts":2},"questionAttemptTimeLimit":{"kind":"limited","seconds":90,"graceSeconds":5}},
-            {"kind":"questionPool","id":"00000000-0000-0000-0000-000000000002","questionPoolRevision":{"questionPoolId":question_pool_id,"revisionNumber":1},"availability":"retired","scoringRule":"extraCredit","selectionCount":1,"pointsPerItem":"2","selectionRule":{"selectedQuestionOrder":"randomOrder"},"questionAttemptLimit":{"maxAttempts":null},"questionAttemptTimeLimit":{"kind":"unlimited"}}
+            {"kind":"questionPool","id":"00000000-0000-0000-0000-000000000002","questionPoolId":question_pool_id,"questionPoolEditNumber":1,"availability":"retired","scoringRule":"extraCredit","selectionCount":1,"pointsPerItem":"2","selectionRule":{"selectedQuestionOrder":"randomOrder"},"questionAttemptLimit":{"maxAttempts":null},"questionAttemptTimeLimit":{"kind":"unlimited"}}
         ])).expect("mixed exact-pinned entries deserialize");
         let value = assessment_entries_json(&entries).expect("entries encode for PostgreSQL");
         assert_eq!(
@@ -92,6 +92,6 @@ mod tests {
         assert_eq!(value[0]["questionAttemptGraceSeconds"], 5);
         assert_eq!(value[1]["selectedQuestionOrder"], "random_order");
         assert_eq!(value[1]["questionPoolId"], question_pool_id.as_str());
-        assert_eq!(value[1]["questionPoolRevisionNumber"], 1);
+        assert_eq!(value[1]["questionPoolEditNumber"], 1);
     }
 }

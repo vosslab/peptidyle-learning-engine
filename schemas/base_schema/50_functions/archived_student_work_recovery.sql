@@ -5,7 +5,7 @@ SET LOCAL ROLE ple_private_owner;
 CREATE FUNCTION ple_private.read_archived_assessment_attempt_evidence(
     p_course_instance_id text, p_assessment_attempt_id uuid
 ) RETURNS TABLE (
-    student_record_id uuid, assessment_reference_number text,
+    student_record_id uuid, assessment_id text,
     assessment_attempt_id uuid, assessment_attempt_number integer,
     started_at timestamptz, expires_at timestamptz,
     attempt_facts jsonb, submission jsonb, questions jsonb
@@ -155,7 +155,7 @@ $$;
 CREATE FUNCTION ple_private.select_archived_assessment_attempt_evidence(
     p_course_instance_id text, p_after_assessment_attempt_id uuid, p_limit integer
 ) RETURNS TABLE (
-    student_record_id uuid, assessment_reference_number text, assessment_title text,
+    student_record_id uuid, assessment_id text, assessment_title text,
     assessment_attempt_id uuid, assessment_attempt_number integer,
     started_at timestamptz, submitted_at timestamptz
 ) LANGUAGE sql VOLATILE SECURITY DEFINER
@@ -188,9 +188,9 @@ SET LOCAL ROLE ple_api_owner;
 -- Both deliberate operations hold the same Course SHARE lock until transaction
 -- end. This seam is not application-callable and conveys no caller authority.
 CREATE FUNCTION ple_api.lock_archived_course_for_recovery(
-    p_course_public_reference text
+    p_course_instance_id text
 ) RETURNS TABLE (
-    course_instance_id text, course_reference_number text,
+    course_instance_id text, course_instance_id text,
     student_data_archived_at timestamptz, delete_due_at timestamptz
 ) LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
@@ -203,7 +203,7 @@ BEGIN
     -- including non-key lifecycle writes. Existing Course-media definer
     -- privileges support this lock; no new Course UPDATE grant/helper needed.
     SELECT course.* INTO course_row FROM ple_data.course_instance AS course
-     WHERE course.course_instance_id = p_course_public_reference
+     WHERE course.course_instance_id = p_course_instance_id
        AND ple_api.current_session_account_is_course_instructor(course.course_instance_id)
      FOR SHARE;
     IF NOT FOUND THEN RETURN; END IF;
@@ -225,10 +225,10 @@ BEGIN
 END $$;
 
 CREATE FUNCTION ple_api.read_archived_assessment_attempt_for_recovery(
-    p_course_public_reference text, p_assessment_attempt_id uuid
+    p_course_instance_id text, p_assessment_attempt_id uuid
 ) RETURNS TABLE (
-    course_reference_number text, student_record_id uuid, roster_id text,
-    assessment_reference_number text,
+    course_instance_id text, student_record_id uuid, roster_id text,
+    assessment_id text,
     assessment_attempt_id uuid, assessment_attempt_number integer,
     started_at timestamptz, expires_at timestamptz,
     student_data_archived_at timestamptz, delete_due_at timestamptz,
@@ -238,11 +238,11 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE recovery_course record;
 BEGIN
     SELECT * INTO recovery_course
-      FROM ple_api.lock_archived_course_for_recovery(p_course_public_reference);
+      FROM ple_api.lock_archived_course_for_recovery(p_course_instance_id);
     IF NOT FOUND THEN RETURN; END IF;
-    RETURN QUERY SELECT recovery_course.course_reference_number,
+    RETURN QUERY SELECT recovery_course.course_instance_id,
         evidence.student_record_id, roster.roster_id,
-        evidence.assessment_reference_number, evidence.assessment_attempt_id,
+        evidence.assessment_id, evidence.assessment_attempt_id,
         evidence.assessment_attempt_number, evidence.started_at, evidence.expires_at,
         recovery_course.student_data_archived_at, recovery_course.delete_due_at,
         evidence.attempt_facts, evidence.submission, evidence.questions
@@ -258,9 +258,9 @@ BEGIN
 END $$;
 
 CREATE FUNCTION ple_api.select_archived_assessment_attempts_for_recovery(
-    p_course_public_reference text, p_after_assessment_attempt_id uuid, p_limit integer
+    p_course_instance_id text, p_after_assessment_attempt_id uuid, p_limit integer
 ) RETURNS TABLE (
-    course_reference_number text, roster_id text, assessment_reference_number text,
+    course_instance_id text, roster_id text, assessment_id text,
     assessment_title text, assessment_attempt_id uuid,
     assessment_attempt_number integer, started_at timestamptz, submitted_at timestamptz,
     student_data_archived_at timestamptz, delete_due_at timestamptz
@@ -273,14 +273,14 @@ BEGIN
     IF p_limit IS NULL OR p_limit NOT BETWEEN 1 AND 101
        THEN RETURN; END IF;
     SELECT * INTO recovery_course
-      FROM ple_api.lock_archived_course_for_recovery(p_course_public_reference);
+      FROM ple_api.lock_archived_course_for_recovery(p_course_instance_id);
     -- An authorized empty page is distinct from an unavailable Course; the
     -- trusted adapter conceals this generic refusal without private detail.
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Retained Work unavailable';
     END IF;
-    RETURN QUERY SELECT recovery_course.course_reference_number, roster.roster_id,
-        evidence.assessment_reference_number, evidence.assessment_title,
+    RETURN QUERY SELECT recovery_course.course_instance_id, roster.roster_id,
+        evidence.assessment_id, evidence.assessment_title,
         evidence.assessment_attempt_id, evidence.assessment_attempt_number,
         evidence.started_at, evidence.submitted_at,
         recovery_course.student_data_archived_at, recovery_course.delete_due_at

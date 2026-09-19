@@ -104,12 +104,12 @@ test("Question Pool validation requires a positive whole selection count", () =>
   assert.match(validateReusableContent(invalid).message ?? "", /selection count/);
 });
 
-test("Blueprint Course pages append unique public references and name the next action", () => {
+test("Blueprint Course pages append unique public IDs and name the next action", () => {
   const visible = appendBlueprintCoursePage(
-    [{ reference: "BP-one", title: "Enzyme kinetics" }],
+    [{ id: "BP-one", title: "Enzyme kinetics" }],
     [
-      { reference: "BP-one", title: "Stale duplicate" },
-      { reference: "BP-two", title: "DNA repair" },
+      { id: "BP-one", title: "Stale duplicate" },
+      { id: "BP-two", title: "DNA repair" },
     ],
   );
 

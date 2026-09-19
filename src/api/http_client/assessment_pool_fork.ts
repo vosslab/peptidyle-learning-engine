@@ -6,8 +6,8 @@ import type { AssessmentQuestionPoolSelectionCountReceipt } from "../../../gener
 import type { AssessmentId } from "../../../generated/api/AssessmentId";
 import type { CourseInstanceId } from "../../../generated/api/CourseInstanceId";
 import type {
-  AppendAssessmentQuestionPoolForkRevisionInput,
-  AppendedAssessmentQuestionPoolForkRevision,
+  AppendAssessmentQuestionPoolForkMembersInput,
+  AppendedAssessmentQuestionPoolForkMembers,
   AssessmentPoolForkClient,
   ImportAssessmentQuestionPoolForkInput,
   ImportedAssessmentQuestionPoolFork,
@@ -117,9 +117,11 @@ function importBody(input: ImportAssessmentQuestionPoolForkInput): object {
   return input;
 }
 
-function appendBody(input: AppendAssessmentQuestionPoolForkRevisionInput): object {
+function appendBody(input: AppendAssessmentQuestionPoolForkMembersInput): object {
   if (!input.interchangeabilityAttested || input.members.length === 0) {
-    throw new ApiProtocolError("Assessment Pool fork revision requires attested nonempty members");
+    throw new ApiProtocolError(
+      "Assessment Pool fork membership requires attested nonempty members",
+    );
   }
   if (
     !/^[1-9][0-9]*$/u.test(input.expectedQuestionPoolEditNumber) ||
@@ -135,14 +137,9 @@ function appendBody(input: AppendAssessmentQuestionPoolForkRevisionInput): objec
 function decodeAppendReceipt(
   value: unknown,
   path = "response",
-): AppendedAssessmentQuestionPoolForkRevision {
+): AppendedAssessmentQuestionPoolForkMembers {
   const record = decodeRecord(value, path);
-  const allowed = [
-    "assessmentEntryId",
-    "revisionNumber",
-    "blueprintEditNumber",
-    "assessmentEditNumber",
-  ];
+  const allowed = ["assessmentEntryId", "questionPoolEditNumber", "assessmentEditNumber"];
   if (
     Object.keys(record).length !== allowed.length ||
     Object.keys(record).some((key) => !allowed.includes(key))
@@ -156,17 +153,12 @@ function decodeAppendReceipt(
   if (!/^[1-9][0-9]*$/u.test(assessmentEditNumber)) {
     throw new DecodeError(`${path}.assessmentEditNumber`, "a positive Assessment Edit Number");
   }
-  const blueprintEditNumber = decodeString(
-    record.blueprintEditNumber,
-    `${path}.blueprintEditNumber`,
-  );
-  if (!/^[1-9][0-9]*$/u.test(blueprintEditNumber)) {
-    throw new DecodeError(`${path}.blueprintEditNumber`, "a positive Blueprint Edit Number");
-  }
   return {
     assessmentEntryId: decodeUuid(record.assessmentEntryId, `${path}.assessmentEntryId`),
-    revisionNumber: decodePositiveInteger(record.revisionNumber, `${path}.revisionNumber`),
-    blueprintEditNumber,
+    questionPoolEditNumber: decodePositiveInteger(
+      record.questionPoolEditNumber,
+      `${path}.questionPoolEditNumber`,
+    ),
     assessmentEditNumber,
   };
 }
@@ -217,13 +209,13 @@ export function createAssessmentPoolForkClient(
       requireResponseEtag(response, receipt.assessmentEditNumber, path);
       return receipt;
     },
-    appendAssessmentQuestionPoolForkRevision: async (
+    appendAssessmentQuestionPoolForkMembers: async (
       course,
       assessment,
       entry,
       input,
       etag,
-    ): Promise<AppendedAssessmentQuestionPoolForkRevision> => {
+    ): Promise<AppendedAssessmentQuestionPoolForkMembers> => {
       const path = forkPath(course, assessment, entry);
       const response = await requestSameOrigin(fetchImplementation, basePath, path, {
         method: "PUT",

@@ -10,10 +10,9 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    AssessmentEditNumber, AssessmentEntryId, BloomClassificationView,
-    QuestionPoolRevisionReference, QuestionRevisionReference,
-    QuestionSearchBloomCognitiveProcessFacet, QuestionSearchBloomKnowledgeDimensionFacet,
-    QuestionStatistics, ReusableQuestionView,
+    AssessmentEditNumber, AssessmentEntryId, BloomClassificationView, QuestionId,
+    QuestionPoolEditNumber, QuestionRevisionReference, QuestionSearchBloomCognitiveProcessFacet,
+    QuestionSearchBloomKnowledgeDimensionFacet, QuestionStatistics, ReusableQuestionView,
 };
 
 /// Current Pool lineage metadata, independent of immutable membership Revisions.
@@ -39,9 +38,10 @@ pub struct QuestionPoolMetadata {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionPoolLibrarySummary {
     pub metadata: QuestionPoolMetadata,
-    /// Current immutable published Pool Revision.
-    pub question_pool_revision: QuestionPoolRevisionReference,
-    /// Total members in that exact immutable Pool Revision.
+    pub question_pool_id: QuestionId,
+    /// Current-state concurrency marker; not a historical membership object.
+    pub question_pool_edit_number: QuestionPoolEditNumber,
+    /// Total members in the current Pool membership.
     pub member_count: NonZeroU32,
     /// Exact Pool-owned Bloom Classification when assigned; member classifications do not substitute.
     pub bloom: Option<BloomClassificationView>,
@@ -61,7 +61,7 @@ pub struct QuestionPoolBloomFacets {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionPoolLibraryPage {
-    /// At most the caller's validated page size of current Pool Revisions.
+    /// At most the caller's validated page size of current Pools.
     pub items: Vec<QuestionPoolLibrarySummary>,
     /// Opaque continuation bound to the complete normalized Pool query.
     pub next_cursor: Option<String>,
@@ -69,11 +69,11 @@ pub struct QuestionPoolLibraryPage {
     pub bloom_facets: QuestionPoolBloomFacets,
 }
 
-/// One ordered exact Question Revision in an immutable Question Pool Revision.
+/// One ordered exact Question Revision in the current Pool membership.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct QuestionPoolRevisionMemberView {
-    /// Zero-based position matching `PoolRevisionMemberReference`.
+pub struct QuestionPoolMemberView {
+    /// Zero-based position in the Pool's current member list.
     pub member_position: u32,
     /// Exact immutable Question Revision at this position.
     pub question_revision: QuestionRevisionReference,
@@ -81,18 +81,19 @@ pub struct QuestionPoolRevisionMemberView {
     pub question: ReusableQuestionView,
 }
 
-/// Complete ordered contents of one immutable published Question Pool Revision.
+/// Complete ordered contents of one current published Question Pool.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct QuestionPoolRevisionView {
-    /// Current lineage metadata even when reading historical membership.
+pub struct QuestionPoolView {
+    /// Current Pool metadata.
     pub metadata: QuestionPoolMetadata,
-    /// Exact immutable Pool Revision being read.
-    pub question_pool_revision: QuestionPoolRevisionReference,
-    /// Exact Pool-owned Bloom Classification for `question_pool_revision`, when assigned.
+    pub question_pool_id: QuestionId,
+    /// Current-state concurrency marker; not a historical membership object.
+    pub question_pool_edit_number: QuestionPoolEditNumber,
+    /// Exact Pool-owned Bloom Classification when assigned.
     pub bloom: Option<BloomClassificationView>,
-    /// Members in their immutable Pool Revision order.
-    pub members: Vec<QuestionPoolRevisionMemberView>,
+    /// Members in current Pool order.
+    pub members: Vec<QuestionPoolMemberView>,
     /// Instructor-visible Pool issued_count plus current-member outcome rollup.
     pub evidence: QuestionStatistics,
 }
@@ -104,16 +105,15 @@ pub struct AssessmentQuestionPoolForkView {
     pub metadata: QuestionPoolMetadata,
     /// Stable Assessment Entry that owns this fork.
     pub assessment_entry_id: AssessmentEntryId,
-    /// Exact immutable fork Pool Revision.
-    pub question_pool_revision: QuestionPoolRevisionReference,
-    /// Opaque current metadata validator for the Pool fork.
-    pub question_pool_edit_number: Uuid,
+    pub question_pool_id: QuestionId,
+    /// Current-state concurrency marker for the Assessment-owned fork Pool.
+    pub question_pool_edit_number: QuestionPoolEditNumber,
     /// Positive number of members selected for each future Assessment Attempt.
     pub selection_count: NonZeroU32,
     /// Exact fork-owned Bloom Classification when assigned; source and member pairs do not substitute.
     pub bloom: Option<BloomClassificationView>,
-    /// Ordered exact members in the fork Pool Revision.
-    pub members: Vec<QuestionPoolRevisionMemberView>,
+    /// Ordered current members of the fork Pool.
+    pub members: Vec<QuestionPoolMemberView>,
 }
 
 /// Accepted Assessment-owned Pool selection-count change.

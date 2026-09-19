@@ -295,7 +295,7 @@
       "scoringRule": "normal",
       "questionStatisticsEligibility": true,
       "questionPoolSelection": null,
-      "poolRevisionMember": null
+      "poolMember": null
     },
     {
       "id": "0198e000-0000-7000-8000-000000000041",
@@ -324,7 +324,7 @@
       "scoringRule": "normal",
       "questionStatisticsEligibility": true,
       "questionPoolSelection": null,
-      "poolRevisionMember": null
+      "poolMember": null
     },
     {
       "id": "0198e000-0000-7000-8000-000000000042",
@@ -353,7 +353,7 @@
       "scoringRule": "normal",
       "questionStatisticsEligibility": true,
       "questionPoolSelection": null,
-      "poolRevisionMember": null
+      "poolMember": null
     },
     {
       "id": "0198e000-0000-7000-8000-000000000043",
@@ -382,7 +382,7 @@
       "scoringRule": "normal",
       "questionStatisticsEligibility": true,
       "questionPoolSelection": null,
-      "poolRevisionMember": null
+      "poolMember": null
     }
   ],
   "attempts": [

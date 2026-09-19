@@ -36,7 +36,7 @@ impl std::fmt::Display for BloomPreparationReceiptId {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum BloomPreparationTargetKind {
     QuestionRevision,
-    QuestionPoolRevision,
+    QuestionPool,
 }
 
 impl BloomPreparationTargetKind {
@@ -44,7 +44,7 @@ impl BloomPreparationTargetKind {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::QuestionRevision => "question_revision",
-            Self::QuestionPoolRevision => "question_pool_revision",
+            Self::QuestionPool => "question_pool",
         }
     }
 }
@@ -57,7 +57,7 @@ pub enum BloomPreparationCandidate {
         /// SHA-256 of the immutable source bytes for that Revision.
         source_checksum: Sha256Checksum,
     },
-    /// One exact intended Pool Revision before its atomic publication.
+    /// One intended Question Pool before its atomic publication.
     Pool {
         /// Exact candidate Pool Title.
         title: String,
@@ -73,7 +73,7 @@ impl BloomPreparationCandidate {
     pub const fn target_kind(&self) -> BloomPreparationTargetKind {
         match self {
             Self::Question { .. } => BloomPreparationTargetKind::QuestionRevision,
-            Self::Pool { .. } => BloomPreparationTargetKind::QuestionPoolRevision,
+            Self::Pool { .. } => BloomPreparationTargetKind::QuestionPool,
         }
     }
 }
@@ -108,8 +108,8 @@ mod tests {
             "question_revision"
         );
         assert_eq!(
-            BloomPreparationTargetKind::QuestionPoolRevision.as_str(),
-            "question_pool_revision"
+            BloomPreparationTargetKind::QuestionPool.as_str(),
+            "question_pool",
         );
     }
 }

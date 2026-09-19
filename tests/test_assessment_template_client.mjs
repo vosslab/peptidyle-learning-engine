@@ -35,7 +35,7 @@ function template(editNumber = "1") {
 
 function workspace(editNumber = "3") {
   return {
-    reference: "A8H4N6PA6",
+    id: "A8H4N6PA6",
     editNumber,
     status: "unreleased",
     origin: { kind: "direct" },
@@ -201,7 +201,7 @@ test("Assessment Template client copies a Template through the closed Course Ass
     title: "Genetics practice",
   });
 
-  assert.equal(created.workspace.reference, "A8H4N6PA6");
+  assert.equal(created.workspace.id, "A8H4N6PA6");
   assert.equal(created.etag, '"3"');
   assert.equal(
     new URL(requests[0].url).pathname,

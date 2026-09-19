@@ -51,7 +51,7 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
   const [error, setError] = createSignal<string>();
   const [createdPool, setCreatedPool] = createSignal<{
     readonly questionPoolId: string;
-    readonly revisionNumber: number;
+    readonly questionPoolEditNumber: number;
   }>();
   let reviewHeading: HTMLHeadingElement | undefined;
   const pickerRepository =
@@ -302,7 +302,7 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
                   </p>
                   <p>{trimPoolDraft(description())}</p>
                   <p>
-                    {created().questionPoolId}, Revision {created().revisionNumber}
+                    {created().questionPoolId}, Edit {created().questionPoolEditNumber}
                   </p>
                   <button class="quiet-action" type="button" onClick={props.onClose}>
                     Close

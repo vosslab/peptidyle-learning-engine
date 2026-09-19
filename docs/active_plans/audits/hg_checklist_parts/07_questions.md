@@ -267,7 +267,7 @@
   - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
   - Mismatch: `schemas/base_schema/50_functions/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
 - [ ] Published Questions also use the shared Question Library metadata required for publication.
-  - Mismatch: `schemas/base_schema/50_functions/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/50_functions/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+  - Mismatch: `schemas/base_schema/50_functions/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/50_functions/question_pools.sql` `question_pool` and `question_pool_pin` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
 
 #### Published Question revisions, edits, and forks
 
@@ -353,7 +353,7 @@
   - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `list_published_question_pools` and `read_current_published_question_pool` authorize active Instructors and project only public Pool/Revision/member facts.
   - Evidence (runtime): `crates/server/src/question_pool_library.rs` `list_pools` passed accepted actual-server proof that a second vetted Instructor listed and read root Pool `1N6T-MZRD` and child Pool `J1BX-8V8F` with exact public member pins and no Course facts. A nonmember Assessment-fork PUT returned 404 without mutation; Student and anonymous Pool list/read calls returned no-store 404. Artifact: `/private/tmp/ple-course-empty-artifacts.hvS4KT`.
 - [x] A Question Pool has its own public `XXXX-ZXXX` Crockford Base32 ID and immutable Revisions.
-  - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `question_pool` stores its canonical public identity, `question_pool_revision` stores sequential immutable Revisions, and `question_pool_public_id_is_reserved` enters the ID in the shared registry.
+  - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `question_pool` stores its canonical public identity, `question_pool_pin` stores sequential immutable Revisions, and `question_pool_public_id_is_reserved` enters the ID in the shared registry.
 - [x] Importing a Question Pool into a new Assessment automatically forks the Question Pool.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_pool_forks.sql` `import_assessment_question_pool_fork` atomically creates a fresh child Pool Revision and Assessment Entry from an exact reusable source Revision without accepting raw member pins.
   - Evidence (runtime): `crates/server/src/assessment_pool_fork.rs` `import_fork` passed accepted actual-server proof that imported source Pool `P8H3-QYX9` into a direct Assessment and returned distinct fork `VFH9-CQKS`, Revision 1, at Assessment Edit 2.
@@ -361,7 +361,7 @@
   - Evidence (source): `schemas/base_schema/50_functions/assessments.sql` `assessment_question_pool_fork` owns each child Pool through exactly one Assessment Entry, and `schemas/base_schema/50_functions/question_pools.sql` retains exact source-Revision provenance.
   - Evidence (runtime): `crates/server/src/assessment_pool_fork.rs` `append_fork_revision` passed accepted actual-server proof that appended the fork's Revision 2 with the two exact member pins reversed, then reread the reusable source unchanged at Revision 1 with its original order. Artifact: `/private/tmp/ple-course-empty-artifacts.BbKFFd`.
 - [x] Forking a Question Pool preserves its list of Published Questions by their public `XXXX-ZXXX` IDs.
-  - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `construct_question_pool_revision_fork` copies the source Revision's ordered exact member Question IDs and Revision Numbers into the new Pool lineage.
+  - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `construct_question_pool_pin_fork` copies the source Revision's ordered exact member Question IDs and Revision Numbers into the new Pool lineage.
 - [ ] Question Pools work the same way regardless of the Question Backend.
   - Mismatch: incomplete secondary backend delivery leaves this unverified.
 - [x] **Instructors** choose the contents of a Question Pool and how many Questions are selected.
@@ -384,7 +384,7 @@
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_history.sql` `read_student_assessment_attempt_history_response_sources` retains `question_id` and `revision_number`.
   - Evidence (test): `crates/question_model/src/student_work/model_tests.rs` `question_pool_selection_retains_exact_entries_and_issued_question_link` checks the exact issued linkage.
 - [x] Each member of a Question Pool is a **Published Question**.
-  - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `question_pool_revision_member` stores each exact Published Question revision reference.
+  - Evidence (source): `schemas/base_schema/50_functions/question_pools.sql` `question_pool_member` stores each exact Published Question revision reference.
 - [ ] Question Pools contain only **Published Questions**; Question Pools cannot be members of Question Pools.
   - Verification pending: Source-contributor audit must confirm only exact Published Question Revision members and no Pool-member input; broad runtime evidence remains pending.
 - [ ] Watching a Question Pool drives in-app notifications for new Revisions, forks, improvement

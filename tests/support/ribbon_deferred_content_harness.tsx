@@ -63,7 +63,7 @@ const FIXTURE_CLASSIFICATION = {
 function instructorCourse(reference: string): CourseRouteView {
   return {
     summary: {
-      reference,
+      id: reference,
       shortName: `Course ${reference}`,
       longName: `Deferred content evidence course ${reference}`,
       classification: FIXTURE_CLASSIFICATION,

@@ -117,7 +117,7 @@ import json, re, sys
 def references(response):
     items=json.loads(response).get("items")
     if not isinstance(items,list): raise SystemExit("Course Instance list was malformed")
-    values=[item.get("reference") for item in items if isinstance(item,dict)]
+    values=[item.get("id") for item in items if isinstance(item,dict)]
     if any(not isinstance(value,str) or not re.fullmatch(r"CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}",value) for value in values):
         raise SystemExit("Course Instance list lacks canonical public identities")
     return set(values)
@@ -163,27 +163,27 @@ assert_database_evidence() {
 	postgres="$(service_id postgres)"
 	sql="DO \$\$
 DECLARE
-    v_course_id uuid;
-    v_student_account_id uuid;
+    v_course_instance_id text;
+    v_student_account_id text;
 BEGIN
-    SELECT course_id INTO v_course_id FROM ple_data.course_instance
-     WHERE public_reference = '${course_reference}';
+    SELECT course_instance_id INTO v_course_instance_id FROM ple_data.course_instance
+     WHERE course_instance_id = '${course_reference}';
     SELECT profile.student_account_id INTO v_student_account_id
       FROM ple_private.course_roster_profile AS profile
-     WHERE profile.course_id = v_course_id AND profile.roster_id = 'm9-seeded';
-    IF v_course_id IS NULL OR v_student_account_id IS NULL
+     WHERE profile.course_instance_id = v_course_instance_id AND profile.roster_id = 'm9-seeded';
+    IF v_course_instance_id IS NULL OR v_student_account_id IS NULL
        OR NOT EXISTS (SELECT 1 FROM ple_data.student_record AS record
-                      WHERE record.course_id = v_course_id AND record.student_account_id = v_student_account_id)
+                      WHERE record.course_instance_id = v_course_instance_id AND record.student_account_id = v_student_account_id)
        OR EXISTS (SELECT 1 FROM ple_data.course_membership AS membership
-                  WHERE membership.course_id = v_course_id AND membership.account_id = v_student_account_id
-                    AND membership.role = 'student' AND ple_data.course_membership_is_active(membership.membership_id))
+                  WHERE membership.course_instance_id = v_course_instance_id AND membership.account_id = v_student_account_id
+                    AND membership.role = 'student' AND ple_data.course_membership_is_active(membership.course_membership_id))
        OR (SELECT count(*) FROM ple_private.account_authentication_email
            WHERE normalized_email = 'm9-created@biology.roosevelt.edu') <> 1
        OR NOT EXISTS (SELECT 1 FROM ple_audit.course_roster_event AS event
-                      WHERE event.course_id = v_course_id AND event.student_account_id = v_student_account_id
+                      WHERE event.course_instance_id = v_course_instance_id AND event.student_account_id = v_student_account_id
                         AND event.event_kind = 'invitation_claimed')
 	       OR NOT EXISTS (SELECT 1 FROM ple_audit.course_roster_event AS event
-	                      WHERE event.course_id = v_course_id AND event.student_account_id = v_student_account_id
+	                      WHERE event.course_instance_id = v_course_instance_id AND event.student_account_id = v_student_account_id
 	                        AND event.event_kind = 'student_access_revoked')
     THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Course Roster atomic evidence is incomplete';

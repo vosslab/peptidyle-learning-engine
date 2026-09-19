@@ -17,12 +17,12 @@ SELECT set_config(
     :'pilot_publication_session_id', true
 ) AS ignored \gset
 SELECT set_config(
-    'ple.installation_live_demo_blueprint_public_reference',
-    :'live_demo_blueprint_public_reference', true
+    'ple.installation_live_demo_blueprint_course_id',
+    :'live_demo_blueprint_course_id', true
 ) AS ignored \gset
 SELECT set_config(
-    'ple.installation_live_demo_blueprint_assessment_reference',
-    :'live_demo_blueprint_assessment_reference', true
+    'ple.installation_live_demo_blueprint_assessment_id',
+    :'live_demo_blueprint_assessment_id', true
 ) AS ignored \gset
 
 SET LOCAL ROLE ple_data_owner;
@@ -137,37 +137,37 @@ SET LOCAL ROLE ple_api_owner;
 
 DO $$
 DECLARE
-    blueprint_id text;
+    v_blueprint_course_id text;
     elena text;
-    expected_blueprint_assessment_reference uuid := current_setting(
-        'ple.installation_live_demo_blueprint_assessment_reference'
+    expected_blueprint_assessment_id uuid := current_setting(
+        'ple.installation_live_demo_blueprint_assessment_id'
     )::uuid;
 BEGIN
     -- ASVS 1.2.4 and 8.2.2: the installer carries the canonical Blueprint
     -- Course public ID; never decode it as an internal UUID.
-    blueprint_id := current_setting(
-        'ple.installation_live_demo_blueprint_public_reference'
+    v_blueprint_course_id := current_setting(
+        'ple.installation_live_demo_blueprint_course_id'
     );
     elena := current_setting('ple.installation_live_demo_elena_account_id');
     IF NOT EXISTS (
         SELECT 1 FROM ple_data.blueprint_course
-         WHERE blueprint_course_id = blueprint_id
+         WHERE blueprint_course_id = v_blueprint_course_id
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'Live Demo Blueprint public reference is unavailable';
+            MESSAGE = 'Live Demo Blueprint Course ID is unavailable';
     END IF;
     IF NOT EXISTS (
         SELECT 1 FROM ple_data.blueprint_course
-         WHERE blueprint_course_id = blueprint_id
+         WHERE blueprint_course_id = v_blueprint_course_id
            AND owner_account_id = elena
            AND availability = 'public'
            AND current_blueprint_revision_number = 1
            AND EXISTS (
                SELECT 1 FROM ple_data.blueprint_revision_assessment AS revision_assessment
-                WHERE revision_assessment.blueprint_course_id = blueprint_id
+                WHERE revision_assessment.blueprint_course_id = v_blueprint_course_id
                   AND revision_assessment.blueprint_revision_number = 1
-                  AND revision_assessment.blueprint_assessment_reference
-                      = expected_blueprint_assessment_reference
+                  AND revision_assessment.blueprint_assessment_id
+                      = expected_blueprint_assessment_id
            )
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
@@ -181,7 +181,7 @@ BEGIN
               AND course.term_starts_on = date '2026-08-24'
               AND course.term_ends_on = date '2026-12-11'
               AND course.source_kind = 'adopted'
-              AND course.blueprint_course_id = blueprint_id
+              AND course.blueprint_course_id = v_blueprint_course_id
               AND course.blueprint_revision_number = 1
               AND EXISTS (
                   SELECT 1 FROM ple_data.course_membership AS membership
@@ -198,8 +198,8 @@ $$;
 
 DO $$
 DECLARE
-    course_id text;
-    blueprint_id text;
+    v_course_instance_id text;
+    v_blueprint_course_id text;
     elena text;
     selected_discipline uuid;
     selected_subject uuid;
@@ -209,21 +209,21 @@ DECLARE
 BEGIN
     selected_discipline := current_setting('ple.installation_live_demo_discipline_uuid')::uuid;
     selected_subject := current_setting('ple.installation_live_demo_subject_uuid')::uuid;
-    blueprint_id := current_setting(
-        'ple.installation_live_demo_blueprint_public_reference'
+    v_blueprint_course_id := current_setting(
+        'ple.installation_live_demo_blueprint_course_id'
     );
     elena := current_setting('ple.installation_live_demo_elena_account_id');
-    IF blueprint_id IS NULL OR NOT EXISTS (
+    IF v_blueprint_course_id IS NULL OR NOT EXISTS (
         SELECT 1 FROM ple_data.blueprint_course
-         WHERE blueprint_course_id = blueprint_id
+         WHERE blueprint_course_id = v_blueprint_course_id
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'Live Demo Blueprint public reference is unavailable';
+            MESSAGE = 'Live Demo Blueprint Course ID is unavailable';
     END IF;
-    SELECT course.course_instance_id INTO course_id
+    SELECT course.course_instance_id INTO v_course_instance_id
       FROM ple_data.course_instance AS course
      WHERE course.course_short_name = 'BCHM 301';
-    IF course_id IS NULL THEN
+    IF v_course_instance_id IS NULL THEN
         created_at_value := pg_catalog.transaction_timestamp();
         active_until_value := (
             (created_at_value AT TIME ZONE 'UTC') + interval '6 months'
@@ -234,33 +234,33 @@ BEGIN
             term_starts_on, term_ends_on, created_at, active_until_at, retention_starts_at,
             content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags
         ) VALUES (
-            course_placeholder, 'adopted', blueprint_id, 1,
+            course_placeholder, 'adopted', v_blueprint_course_id, 1,
             'BCHM 301', 'Biochemistry 301: Proteins and Peptides',
             date '2026-08-24', date '2026-12-11',
             created_at_value, active_until_value, active_until_value,
             selected_discipline, selected_subject, NULL, NULL, ARRAY[]::text[]
-        ) RETURNING course_instance_id INTO course_id;
+        ) RETURNING course_instance_id INTO v_course_instance_id;
         INSERT INTO ple_data.course_origin (
             course_origin_id, course_instance_id, source_kind, blueprint_course_id,
             blueprint_revision_number, source_course_instance_id, created_at
         ) VALUES (
-            '00000000-0000-0000-0000-000000000221', course_id,
-            'adopted', blueprint_id, 1, NULL, created_at_value
+            '00000000-0000-0000-0000-000000000221', v_course_instance_id,
+            'adopted', v_blueprint_course_id, 1, NULL, created_at_value
         );
         INSERT INTO ple_data.course_membership (
             course_membership_id, course_instance_id, account_id, role, joined_at
         ) VALUES (
-            '00000000-0000-0000-0000-000000000222', course_id,
+            '00000000-0000-0000-0000-000000000222', v_course_instance_id,
             elena, 'instructor', created_at_value
         );
         PERFORM ple_audit.record_course_instance_creation_event(
-            '00000000-0000-0000-0000-000000000223', course_id,
-            'adopted', blueprint_id, 1,
+            '00000000-0000-0000-0000-000000000223', v_course_instance_id,
+            'adopted', v_blueprint_course_id, 1,
             elena, elena, created_at_value
         );
     ELSE
         IF NOT EXISTS (SELECT 1 FROM ple_data.course_instance
-                        WHERE course_instance_id = course_id
+                        WHERE course_instance_id = v_course_instance_id
                           AND content_discipline_id = selected_discipline
                           AND content_subject_id = selected_subject
                           AND content_topic_id IS NULL AND content_subtopic_id IS NULL
@@ -269,7 +269,7 @@ BEGIN
                 MESSAGE = 'Live Demo Course classification conflicts with authored metadata';
         END IF;
     END IF;
-    PERFORM set_config('ple.installation_live_demo_course_instance_id', course_id, true);
+    PERFORM set_config('ple.installation_live_demo_course_instance_id', v_course_instance_id, true);
 END
 $$;
 
@@ -344,14 +344,14 @@ SET LOCAL ROLE ple_data_owner;
 
 DO $$
 DECLARE
-    course_id text := current_setting('ple.installation_live_demo_course_instance_id');
+    v_course_instance_id text := current_setting('ple.installation_live_demo_course_instance_id');
     assessment_id_value text;
 BEGIN
     SELECT assessment.assessment_id INTO assessment_id_value
       FROM ple_data.assessment AS assessment
       JOIN ple_data.assessment_policy_snapshot AS policy
         ON policy.assessment_policy_snapshot_id = assessment.assessment_policy_snapshot_id
-     WHERE assessment.course_instance_id = course_id
+     WHERE assessment.course_instance_id = v_course_instance_id
        AND policy.assessment_title = 'Chapter 1 Pilot Practice';
     IF assessment_id_value IS NOT NULL
        AND (
@@ -360,7 +360,7 @@ BEGIN
                 JOIN ple_data.assessment_policy_snapshot AS policy
                   ON policy.assessment_policy_snapshot_id = assessment.assessment_policy_snapshot_id
                 WHERE assessment.assessment_id = assessment_id_value
-                  AND assessment.course_instance_id = course_id
+                  AND assessment.course_instance_id = v_course_instance_id
                   AND assessment.assessment_status = 'released'
                   AND assessment.assessment_type = 'practice_question_assignment'
                   AND policy.assessment_title = 'Chapter 1 Pilot Practice'
@@ -401,18 +401,18 @@ $$;
 
 DO $$
 DECLARE
-    course_id text := current_setting('ple.installation_live_demo_course_instance_id');
+    v_course_instance_id text := current_setting('ple.installation_live_demo_course_instance_id');
     new_assessment_id text;
     assessment_placeholder constant text := 'A0000000A';
-    expected_blueprint_assessment_reference uuid := current_setting(
-        'ple.installation_live_demo_blueprint_assessment_reference'
+    expected_blueprint_assessment_id uuid := current_setting(
+        'ple.installation_live_demo_blueprint_assessment_id'
     )::uuid;
 BEGIN
     SELECT assessment.assessment_id INTO new_assessment_id
       FROM ple_data.assessment AS assessment
       JOIN ple_data.assessment_policy_snapshot AS policy
         ON policy.assessment_policy_snapshot_id = assessment.assessment_policy_snapshot_id
-     WHERE assessment.course_instance_id = course_id
+     WHERE assessment.course_instance_id = v_course_instance_id
        AND policy.assessment_title = 'Chapter 1 Pilot Practice';
     IF new_assessment_id IS NOT NULL THEN
         PERFORM set_config(
@@ -422,21 +422,21 @@ BEGIN
     END IF;
     INSERT INTO ple_data.assessment (
         assessment_id, course_instance_id, origin_kind, source_blueprint_course_id,
-        source_blueprint_revision_number, source_blueprint_assessment_reference,
+        source_blueprint_revision_number, source_blueprint_assessment_id,
         created_at, updated_at, assessment_type, assessment_policy_snapshot_id
     ) VALUES (
         assessment_placeholder,
-        course_id,
+        v_course_instance_id,
         'adopted',
-        (SELECT blueprint_course_id FROM ple_data.course_instance WHERE course_instance_id = course_id),
-        1, expected_blueprint_assessment_reference, pg_catalog.transaction_timestamp(), pg_catalog.transaction_timestamp(),
+        (SELECT blueprint_course_id FROM ple_data.course_instance WHERE course_instance_id = v_course_instance_id),
+        1, expected_blueprint_assessment_id, pg_catalog.transaction_timestamp(), pg_catalog.transaction_timestamp(),
         'practice_question_assignment',
         ple_private.ensure_assessment_policy_snapshot(
             'Chapter 1 Pilot Practice',
             'Complete the four reviewed Chapter 1 practice questions.',
             NULL,
             (SELECT active_until_at FROM ple_data.course_instance
-              WHERE course_instance_id = course_id),
+              WHERE course_instance_id = v_course_instance_id),
             NULL,
             1800, NULL, 'accept', 'new_variation', 'authored_order',
             'after_submit', 'after_submit', 'after_submit',
@@ -491,7 +491,7 @@ BEGIN
     UPDATE ple_data.assessment SET assessment_status = 'released',
         assessment_edit_number = assessment_edit_number + 1, updated_at = pg_catalog.transaction_timestamp()
      WHERE assessment_id = new_assessment_id;
-    PERFORM ple_data.synchronize_course_assessment_deadline(course_id);
+    PERFORM ple_data.synchronize_course_assessment_deadline(v_course_instance_id);
     PERFORM set_config(
         'ple.installation_live_demo_assessment_id', new_assessment_id, true
     );

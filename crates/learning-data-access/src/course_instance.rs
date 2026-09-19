@@ -158,7 +158,7 @@ pub trait CourseInstanceStore: Send + Sync {
     async fn update_course_classification(
         &self,
         session_token_hash: SessionTokenHash,
-        reference: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
         expected_edit_number: question_model::CourseEditNumber,
         classification: question_model::CourseClassification,
     ) -> Result<CourseClassificationUpdate, StoreError>;
@@ -166,7 +166,7 @@ pub trait CourseInstanceStore: Send + Sync {
     async fn resolve_course_navigation(
         &self,
         session_token_hash: SessionTokenHash,
-        reference: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
     ) -> Result<CourseInstanceId, StoreError>;
 
     /// Reads one browser-safe Course Summary only for the current active Course Member.
@@ -204,7 +204,7 @@ pub trait CourseInstanceStore: Send + Sync {
     async fn load_course_instance(
         &self,
         session_token_hash: SessionTokenHash,
-        reference: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
     ) -> Result<CourseInstanceView, StoreError>;
 
     /// Lists active Instructor Accounts only for the current Sysadmin's explicit assessment choice.

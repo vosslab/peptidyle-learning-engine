@@ -3,7 +3,7 @@
 import type { BloomClassificationCorrectionRequest } from "../../generated/api/BloomClassificationCorrectionRequest";
 import type { QuestionBloomCorrectionReceipt } from "../../generated/api/QuestionBloomCorrectionReceipt";
 import type { QuestionPoolBloomCorrectionReceipt } from "../../generated/api/QuestionPoolBloomCorrectionReceipt";
-import type { QuestionPoolRevisionReference } from "../../generated/api/QuestionPoolRevisionReference";
+import type { QuestionId } from "../../generated/api/QuestionId";
 import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
 
 export interface BloomClassificationCorrectionClient {
@@ -12,7 +12,7 @@ export interface BloomClassificationCorrectionClient {
     request: BloomClassificationCorrectionRequest,
   ) => Promise<QuestionBloomCorrectionReceipt>;
   readonly correctQuestionPoolBloom: (
-    reference: QuestionPoolRevisionReference,
+    questionPoolId: QuestionId,
     request: BloomClassificationCorrectionRequest,
   ) => Promise<QuestionPoolBloomCorrectionReceipt>;
 }

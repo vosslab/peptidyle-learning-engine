@@ -14,7 +14,7 @@ use crate::{
 pub struct BlueprintForkApplySelection {
     /// Module labels to copy exactly from the current source.
     pub source_module_labels: Vec<BlueprintForkApplyModuleLabelCopy>,
-    /// Complete Assessments to copy, including defaults and exact Question/Pool pins.
+    /// Complete Assessments to copy, including defaults, Question Revision pins, and Pool ID plus Edit Number.
     pub source_assessments: Vec<BlueprintForkApplyAssessmentCopy>,
     /// Complete authored membership, parentage, and order; omission preserves fork layout.
     pub layout: Option<Vec<BlueprintForkApplyModuleLayout>>,

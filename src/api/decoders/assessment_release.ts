@@ -15,7 +15,6 @@ import type { BlueprintCourseId } from "../../../generated/api/BlueprintCourseId
 import type { BlueprintRevision } from "../../../generated/api/BlueprintRevision";
 import type { LateWorkRule } from "../../../generated/api/LateWorkRule";
 import type { LocalDateAndTime } from "../../../generated/api/LocalDateAndTime";
-import type { QuestionPoolRevisionReference } from "../../../generated/api/QuestionPoolRevisionReference";
 import type { QuestionPoolSelectedQuestionOrder } from "../../../generated/api/QuestionPoolSelectedQuestionOrder";
 import type {
   AssessmentBlueprintUpdateContent,
@@ -62,7 +61,6 @@ import {
   decodeIdentifier,
   decodeQuestionDescription,
   decodeQuestionId,
-  decodePositiveQuestionRevisionNumber,
   decodeQuestionRevisionReference,
   field,
   requireOnlyFields,
@@ -112,7 +110,8 @@ function blueprintUpdateEntry(value: unknown, path: string): AssessmentBlueprint
       ? [...sharedFields, "reference", "pointsPossible"]
       : [
           ...sharedFields,
-          "questionPoolRevision",
+          "questionPoolId",
+          "questionPoolEditNumber",
           "selectionCount",
           "pointsPerItem",
           "selectionRule",
@@ -157,9 +156,13 @@ function blueprintUpdateEntry(value: unknown, path: string): AssessmentBlueprint
     kind,
     ...settings,
     selectionCount,
-    questionPoolRevision: questionPoolRevisionReference(
-      field(record, "questionPoolRevision", path),
-      `${path}.questionPoolRevision`,
+    questionPoolId: decodeQuestionId(
+      field(record, "questionPoolId", path),
+      `${path}.questionPoolId`,
+    ),
+    questionPoolEditNumber: decodePositiveInteger(
+      field(record, "questionPoolEditNumber", path),
+      `${path}.questionPoolEditNumber`,
     ),
     pointsPerItem: pointValue(field(record, "pointsPerItem", path), `${path}.pointsPerItem`),
     selectionRule: poolSelectionRule(field(record, "selectionRule", path), `${path}.selectionRule`),
@@ -328,10 +331,10 @@ function displayTimeZone(value: unknown, path: string): AccountTimeZone {
   return timeZone;
 }
 
-export function blueprintCourseReference(value: unknown, path: string): BlueprintCourseId {
+export function decodeBlueprintCourseId(value: unknown, path: string): BlueprintCourseId {
   const decoded = decodeString(value, path);
   if (validateCanonicalPublicReference("blueprintCourse", decoded) === null) {
-    throw new DecodeError(path, "a canonical opaque Blueprint Course reference");
+    throw new DecodeError(path, "a canonical Blueprint Course ID");
   }
   return decoded;
 }
@@ -354,7 +357,7 @@ function blueprintAssessmentSource(value: unknown, path: string): BlueprintAsses
   requireOnlyFields(revision, `${path}.blueprint_revision`, ["blueprint_course_id", "revision"]);
   return {
     blueprint_revision: {
-      blueprint_course_id: blueprintCourseReference(
+      blueprint_course_id: decodeBlueprintCourseId(
         field(revision, "blueprint_course_id", `${path}.blueprint_revision`),
         `${path}.blueprint_revision.blueprint_course_id`,
       ),
@@ -379,24 +382,6 @@ function pointValue(value: unknown, path: string): AssessmentPointValue {
     throw new DecodeError(path, "a supported nonnegative point decimal with at most four places");
   }
   return decoded;
-}
-
-function questionPoolRevisionReference(
-  value: unknown,
-  path: string,
-): QuestionPoolRevisionReference {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["questionPoolId", "revisionNumber"]);
-  return {
-    questionPoolId: decodeQuestionId(
-      field(record, "questionPoolId", path),
-      `${path}.questionPoolId`,
-    ),
-    revisionNumber: decodePositiveQuestionRevisionNumber(
-      field(record, "revisionNumber", path),
-      `${path}.revisionNumber`,
-    ),
-  };
 }
 
 function poolSelectionRule(
@@ -464,7 +449,8 @@ function assessmentEntry(value: unknown, path: string): AssessmentEntry {
   requireOnlyFields(record, path, [
     "kind",
     "id",
-    "questionPoolRevision",
+    "questionPoolId",
+    "questionPoolEditNumber",
     "availability",
     "scoringRule",
     "selectionCount",
@@ -480,9 +466,13 @@ function assessmentEntry(value: unknown, path: string): AssessmentEntry {
   return {
     kind,
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
-    questionPoolRevision: questionPoolRevisionReference(
-      field(record, "questionPoolRevision", path),
-      `${path}.questionPoolRevision`,
+    questionPoolId: decodeQuestionId(
+      field(record, "questionPoolId", path),
+      `${path}.questionPoolId`,
+    ),
+    questionPoolEditNumber: decodePositiveInteger(
+      field(record, "questionPoolEditNumber", path),
+      `${path}.questionPoolEditNumber`,
     ),
     availability: decodeStringEnum(field(record, "availability", path), `${path}.availability`, [
       "available",
@@ -575,9 +565,9 @@ function courseAssessmentSummary(value: unknown, path: string): CourseAssessment
 function dueSoonAssessmentSummary(value: unknown, path: string): DueSoonAssessmentSummary {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "courseReference",
+    "courseId",
     "courseLongName",
-    "assessmentReference",
+    "assessmentId",
     "assessmentType",
     "assessmentTitle",
     "assessmentStatus",
@@ -587,18 +577,12 @@ function dueSoonAssessmentSummary(value: unknown, path: string): DueSoonAssessme
   if (!Number.isSafeInteger(dueAtMillis))
     throw new DecodeError(`${path}.dueAtMillis`, "a safe Unix millisecond instant");
   return {
-    courseReference: decodeCourseInstanceId(
-      field(record, "courseReference", path),
-      `${path}.courseReference`,
-    ),
+    courseId: decodeCourseInstanceId(field(record, "courseId", path), `${path}.courseId`),
     courseLongName: decodeCourseName(
       field(record, "courseLongName", path),
       `${path}.courseLongName`,
     ),
-    assessmentReference: decodeAssessmentId(
-      field(record, "assessmentReference", path),
-      `${path}.assessmentReference`,
-    ),
+    assessmentId: decodeAssessmentId(field(record, "assessmentId", path), `${path}.assessmentId`),
     assessmentType: assessmentType(field(record, "assessmentType", path), `${path}.assessmentType`),
     assessmentTitle: decodeAssessmentTitle(
       field(record, "assessmentTitle", path),

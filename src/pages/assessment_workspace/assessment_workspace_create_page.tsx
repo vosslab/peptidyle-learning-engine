@@ -104,10 +104,7 @@ export function AssessmentWorkspaceCreatePage(): JSX.Element {
           ? await createAssessmentFromTemplate(reference)
           : await createManualAssessment(reference);
       navigate(
-        createdAssessmentQuestionsPath(
-          reference,
-          assessmentRouteReference(created.workspace.reference),
-        ),
+        createdAssessmentQuestionsPath(reference, assessmentRouteReference(created.workspace.id)),
         {
           replace: true,
         },

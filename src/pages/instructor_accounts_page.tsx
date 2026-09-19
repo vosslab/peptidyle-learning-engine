@@ -56,7 +56,7 @@ export function InstructorAccountsPage(): JSX.Element {
         : {
             ...current,
             accounts: current.accounts.map((account) =>
-              account.reference === updated.reference ? updated : account,
+              account.id === updated.id ? updated : account,
             ),
           },
     );
@@ -116,19 +116,17 @@ export function InstructorAccountsPage(): JSX.Element {
   }
 
   async function deactivate(account: InstructorAccountSummary): Promise<void> {
-    const reason = reasonByReference()[account.reference] ?? "";
+    const reason = reasonByReference()[account.id] ?? "";
     if (reason.length === 0 || reason.length > 1000 || reason !== reason.trim()) {
       setError("Enter a trimmed deactivation reason within 1,000 characters.");
       return;
     }
-    setBusyReference(account.reference);
+    setBusyReference(account.id);
     setError(null);
     try {
-      updateAccount(
-        await runtime.client.deactivateInstructorAccount(account.reference, { reason }),
-      );
-      setReason(account.reference, "");
-      setAnnouncement(`Instructor Account ${account.reference} deactivated.`);
+      updateAccount(await runtime.client.deactivateInstructorAccount(account.id, { reason }));
+      setReason(account.id, "");
+      setAnnouncement(`Instructor Account ${account.id} deactivated.`);
     } catch {
       setError(failureCopy());
     } finally {
@@ -137,11 +135,11 @@ export function InstructorAccountsPage(): JSX.Element {
   }
 
   async function reactivate(account: InstructorAccountSummary): Promise<void> {
-    setBusyReference(account.reference);
+    setBusyReference(account.id);
     setError(null);
     try {
-      updateAccount(await runtime.client.reactivateInstructorAccount(account.reference));
-      setAnnouncement(`Instructor Account ${account.reference} reactivated.`);
+      updateAccount(await runtime.client.reactivateInstructorAccount(account.id));
+      setAnnouncement(`Instructor Account ${account.id} reactivated.`);
     } catch {
       setError(failureCopy());
     } finally {
@@ -243,7 +241,7 @@ export function InstructorAccountsPage(): JSX.Element {
                           <AvatarVisual avatarId={providedAvatarId()} decorative size={24} />
                         )}
                       </Show>{" "}
-                      {account.reference}
+                      {account.id}
                     </h2>
                     <p>State: {stateLabel(account.state)}</p>
                     <p>
@@ -251,16 +249,14 @@ export function InstructorAccountsPage(): JSX.Element {
                       {formatSignInLabel(account.lastSuccessfulSignIn, list.displayTimeZone)}
                     </p>
                     <Show when={account.state === "active"}>
-                      <label for={`deactivate-reason-${account.reference}`}>
+                      <label for={`deactivate-reason-${account.id}`}>
                         Deactivation reason
                         <input
-                          id={`deactivate-reason-${account.reference}`}
-                          name={`deactivationReason-${account.reference}`}
+                          id={`deactivate-reason-${account.id}`}
+                          name={`deactivationReason-${account.id}`}
                           type="text"
-                          value={reasonByReference()[account.reference] ?? ""}
-                          onInput={(event) =>
-                            setReason(account.reference, event.currentTarget.value)
-                          }
+                          value={reasonByReference()[account.id] ?? ""}
+                          onInput={(event) => setReason(account.id, event.currentTarget.value)}
                           maxlength={1000}
                           required
                         />
@@ -268,10 +264,10 @@ export function InstructorAccountsPage(): JSX.Element {
                       <button
                         class="quiet-action"
                         type="button"
-                        disabled={busyReference() === account.reference}
+                        disabled={busyReference() === account.id}
                         onClick={() => void deactivate(account)}
                       >
-                        {busyReference() === account.reference
+                        {busyReference() === account.id
                           ? "Updating..."
                           : "Deactivate Instructor Account"}
                       </button>
@@ -280,10 +276,10 @@ export function InstructorAccountsPage(): JSX.Element {
                       <button
                         class="primary-action"
                         type="button"
-                        disabled={busyReference() === account.reference}
+                        disabled={busyReference() === account.id}
                         onClick={() => void reactivate(account)}
                       >
-                        {busyReference() === account.reference
+                        {busyReference() === account.id
                           ? "Updating..."
                           : "Reactivate Instructor Account"}
                       </button>

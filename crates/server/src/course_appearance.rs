@@ -217,7 +217,7 @@ pub(super) fn now() -> Timestamp {
 pub(super) async fn resolve_course(
     state: &RouteState,
     token: SessionTokenHash,
-    reference: CourseInstanceId,
+    course_instance_id: CourseInstanceId,
 ) -> Result<CourseInstanceId, Box<Response>> {
     // ASVS 2.2.1, 8.2.2, and 8.3.1: the route accepts only a canonical public
     // Course Instance reference, then resolves its private ID through the
@@ -225,7 +225,7 @@ pub(super) async fn resolve_course(
     // mutation. Each Appearance Store repeats its operation-specific check.
     state
         .courses
-        .resolve_course_navigation(token, reference)
+        .resolve_course_navigation(token, course_instance_id)
         .await
         .map_err(|error| Box::new(store_error_response(error)))
 }

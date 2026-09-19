@@ -3,7 +3,7 @@
 import { For, Show, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 import type { QuestionPoolLibrarySummary } from "../../generated/api/QuestionPoolLibrarySummary";
 import type { QuestionPoolBloomFacets } from "../../generated/api/QuestionPoolBloomFacets";
-import type { QuestionPoolRevisionView } from "../../generated/api/QuestionPoolRevisionView";
+import type { QuestionPoolView } from "../../generated/api/QuestionPoolView";
 import type { ContentClassificationClient } from "../api/content_classification";
 import type { QuestionPoolLibraryClient } from "../api/question_pool_library";
 import type { LibraryDiscussionClient } from "../api/library_discussion";
@@ -34,8 +34,7 @@ import {
 } from "../components/bloom_classification";
 
 type PoolInspectionTarget = {
-  readonly publicId: QuestionPoolLibrarySummary["questionPoolRevision"]["questionPoolId"];
-  readonly reference?: QuestionPoolLibrarySummary["questionPoolRevision"];
+  readonly publicId: QuestionPoolLibrarySummary["questionPoolId"];
   readonly title: string;
 };
 
@@ -87,7 +86,7 @@ export function LibraryPoolDiscovery(props: {
     questionPoolLibraryFilter(EMPTY_LIBRARY_CLASSIFICATION_FILTER),
   );
   const [inspecting, setInspecting] = createSignal<PoolInspectionTarget | null>(null);
-  const [detail, setDetail] = createSignal<QuestionPoolRevisionView | null>(null);
+  const [detail, setDetail] = createSignal<QuestionPoolView | null>(null);
   const [detailError, setDetailError] = createSignal(false);
   let listGeneration = 0;
   let detailGeneration = 0;
@@ -176,10 +175,7 @@ export function LibraryPoolDiscovery(props: {
     setDetail(null);
     setDetailError(false);
     try {
-      const value =
-        target.reference === undefined
-          ? await props.client.getQuestionPool(target.publicId)
-          : await props.client.getQuestionPoolRevision(target.reference);
+      const value = await props.client.getQuestionPool(target.publicId);
       if (generation === detailGeneration) setDetail(value);
     } catch {
       if (generation === detailGeneration) setDetailError(true);
@@ -190,8 +186,7 @@ export function LibraryPoolDiscovery(props: {
     returnButton = button;
     returnScroll = window.scrollY;
     const target = {
-      publicId: pool.questionPoolRevision.questionPoolId,
-      reference: pool.questionPoolRevision,
+      publicId: pool.questionPoolId,
       title: pool.metadata.title,
     };
     setInspecting(target);
@@ -212,7 +207,7 @@ export function LibraryPoolDiscovery(props: {
     });
   }
 
-  function updateDetailBloom(bloom: QuestionPoolRevisionView["bloom"]): void {
+  function updateDetailBloom(bloom: QuestionPoolView["bloom"]): void {
     setDetail((current) => (current === null ? null : { ...current, bloom }));
   }
 
@@ -427,8 +422,8 @@ export function LibraryPoolDiscovery(props: {
                   )}
                 </Show>
                 <p>
-                  Pool ID: {pool.questionPoolRevision.questionPoolId} | Revision:{" "}
-                  {pool.questionPoolRevision.revisionNumber} | Members: {pool.memberCount}
+                  Pool ID: {pool.questionPoolId} | Edit: {pool.questionPoolEditNumber} | Members:{" "}
+                  {pool.memberCount}
                 </p>
                 <button type="button" onClick={(event) => inspect(pool, event.currentTarget)}>
                   Inspect Pool {pool.metadata.title}
@@ -486,31 +481,29 @@ export function LibraryPoolDiscovery(props: {
                     )}
                   </Show>
                   <p>
-                    Pool ID: {value().questionPoolRevision.questionPoolId} | Revision:{" "}
-                    {value().questionPoolRevision.revisionNumber} | Members:{" "}
-                    {value().members.length}
+                    Pool ID: {value().questionPoolId} | Edit: {value().questionPoolEditNumber} |
+                    Members: {value().members.length}
                   </p>
                   <p>Tags: {value().metadata.tags.join(", ") || "None"}</p>
                   <Show when={props.mayCorrectBloom && value().bloom}>
                     {(bloom) => (
                       <BloomClassificationEditor
                         targetName="Question Pool"
-                        revisionNumber={value().questionPoolRevision.revisionNumber}
+                        contentMarkerKind="Edit"
+                        contentMarkerNumber={value().questionPoolEditNumber}
                         bloom={bloom()}
                         save={(request) =>
                           props.client
-                            .correctQuestionPoolBloom(value().questionPoolRevision, request)
+                            .correctQuestionPoolBloom(value().questionPoolId, request)
                             .then((receipt) => receipt.bloom)
                         }
                         loadCurrent={() =>
-                          props.client
-                            .getQuestionPoolRevision(value().questionPoolRevision)
-                            .then((loaded) => {
-                              if (loaded.bloom === null) {
-                                throw new Error("Bloom Classification is not assigned.");
-                              }
-                              return loaded.bloom;
-                            })
+                          props.client.getQuestionPool(value().questionPoolId).then((loaded) => {
+                            if (loaded.bloom === null) {
+                              throw new Error("Bloom Classification is not assigned.");
+                            }
+                            return loaded.bloom;
+                          })
                         }
                         onCurrent={updateDetailBloom}
                         onConflictCurrent={() => void readPage()}
@@ -521,9 +514,7 @@ export function LibraryPoolDiscovery(props: {
                     )}
                   </Show>
                   <Show when={props.mayWatchPools}>
-                    <QuestionPoolWatchControl
-                      poolId={value().questionPoolRevision.questionPoolId}
-                    />
+                    <QuestionPoolWatchControl poolId={value().questionPoolId} />
                   </Show>
                   <h3>Exact Question Revisions</h3>
                   <ol>
@@ -536,10 +527,7 @@ export function LibraryPoolDiscovery(props: {
                       )}
                     </For>
                   </ol>
-                  <LibraryDiscussionPanel
-                    kind="questionPool"
-                    publicId={value().questionPoolRevision.questionPoolId}
-                  />
+                  <LibraryDiscussionPanel kind="questionPool" publicId={value().questionPoolId} />
                 </>
               )}
             </Show>

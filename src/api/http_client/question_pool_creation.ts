@@ -50,20 +50,20 @@ function requestMembers(input: CreateQuestionPoolInput): ReadonlyArray<QuestionR
 
 function decodeCreatedQuestionPool(value: unknown, path = "response"): CreatedQuestionPool {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["questionPoolId", "revisionNumber"]);
-  const revisionNumber = decodePositiveInteger(
-    field(record, "revisionNumber", path),
-    `${path}.revisionNumber`,
+  requireOnlyFields(record, path, ["questionPoolId", "questionPoolEditNumber"]);
+  const questionPoolEditNumber = decodePositiveInteger(
+    field(record, "questionPoolEditNumber", path),
+    `${path}.questionPoolEditNumber`,
   );
-  if (revisionNumber !== 1) {
-    throw new DecodeError(`${path}.revisionNumber`, "Published Question Pool Revision 1");
+  if (questionPoolEditNumber !== 1) {
+    throw new DecodeError(`${path}.questionPoolEditNumber`, "Question Pool Edit Number 1");
   }
   return {
     questionPoolId: decodeQuestionId(
       field(record, "questionPoolId", path),
       `${path}.questionPoolId`,
     ),
-    revisionNumber: 1,
+    questionPoolEditNumber: 1,
   };
 }
 

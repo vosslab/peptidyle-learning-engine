@@ -24,39 +24,39 @@ FOR EACH ROW EXECUTE FUNCTION ple_data.reject_blueprint_proposal_evidence_change
 SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.create_blueprint_change_proposal(
-    p_source_reference text, p_source_revision bigint, p_source_blueprint_edit_number bigint,
-    p_target_reference text, p_target_revision bigint, p_target_blueprint_edit_number bigint
+    p_source_blueprint_course_id text, p_source_revision bigint, p_source_blueprint_edit_number bigint,
+    p_target_blueprint_course_id text, p_target_revision bigint, p_target_blueprint_edit_number bigint
 ) RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
     v_actor text := ple_api.current_session_account_id();
     v_source ple_data.blueprint_course%ROWTYPE;
     v_target ple_data.blueprint_course%ROWTYPE;
-    v_locked_reference text;
+    v_locked_blueprint_course_id text;
     v_proposal_id uuid;
 BEGIN
     -- ASVS 8.2.1/2, 8.3.1/2: authorization is enforced at the SQL boundary.
     IF NOT ple_api.current_session_account_is_instructor()
-       OR v_actor IS NULL OR p_source_reference IS NULL OR p_target_reference IS NULL
-       OR NOT ple_private.is_canonical_prefixed_public_id(p_source_reference, 'BP')
-       OR NOT ple_private.is_canonical_prefixed_public_id(p_target_reference, 'BP')
-       OR p_source_reference = p_target_reference THEN
+       OR v_actor IS NULL OR p_source_blueprint_course_id IS NULL OR p_target_blueprint_course_id IS NULL
+       OR NOT ple_private.is_canonical_prefixed_public_id(p_source_blueprint_course_id, 'BP')
+       OR NOT ple_private.is_canonical_prefixed_public_id(p_target_blueprint_course_id, 'BP')
+       OR p_source_blueprint_course_id = p_target_blueprint_course_id THEN
         RAISE EXCEPTION 'Blueprint Proposal is unavailable' USING ERRCODE = '42501';
     END IF;
     -- Same stable lock order as Blueprint fork operations; SHARE prevents changes
     -- to visibility and the target comparison head during creation.
-    FOR v_locked_reference IN
+    FOR v_locked_blueprint_course_id IN
         SELECT course.blueprint_course_id FROM ple_data.blueprint_course AS course
-         WHERE course.blueprint_course_id IN (p_source_reference, p_target_reference)
+         WHERE course.blueprint_course_id IN (p_source_blueprint_course_id, p_target_blueprint_course_id)
          ORDER BY course.blueprint_course_id
     LOOP
         PERFORM 1 FROM ple_data.blueprint_course AS course
-         WHERE course.blueprint_course_id = v_locked_reference FOR SHARE;
+         WHERE course.blueprint_course_id = v_locked_blueprint_course_id FOR SHARE;
     END LOOP;
     SELECT course.* INTO v_source FROM ple_data.blueprint_course AS course
-     WHERE course.blueprint_course_id = p_source_reference;
+     WHERE course.blueprint_course_id = p_source_blueprint_course_id;
     SELECT course.* INTO v_target FROM ple_data.blueprint_course AS course
-     WHERE course.blueprint_course_id = p_target_reference;
+     WHERE course.blueprint_course_id = p_target_blueprint_course_id;
     IF v_source.blueprint_course_id IS NULL OR v_target.blueprint_course_id IS NULL
        OR NOT (v_source.availability IN ('public', 'archived')
                OR v_source.owner_account_id = v_actor)
@@ -92,7 +92,7 @@ $$;
 CREATE FUNCTION ple_api.read_blueprint_change_proposal(p_proposal_id uuid)
 RETURNS TABLE (
     blueprint_change_proposal_id uuid, proposer_account_id text, created_at_ms bigint,
-    target_is_stale boolean, source_position integer, public_reference text,
+    target_is_stale boolean, source_position integer, blueprint_course_id text,
     revision_number bigint, blueprint_edit_number bigint, content jsonb, content_checksum bytea,
     short_name text, long_name text, content_discipline_id uuid, content_subject_id uuid,
     content_topic_id uuid, content_subtopic_id uuid, tags text[], can_accept boolean
@@ -148,13 +148,13 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 $$;
 
 CREATE FUNCTION ple_api.list_blueprint_change_proposals(
-    p_target_reference text, p_mine boolean, p_after_created_at text,
+    p_target_blueprint_course_id text, p_mine boolean, p_after_created_at text,
     p_after_proposal_id uuid, p_limit integer
 ) RETURNS TABLE (
     blueprint_change_proposal_id uuid, created_at_ms bigint, created_at_key text,
-    source_public_reference text, source_revision_number bigint, source_blueprint_edit_number bigint,
+    source_blueprint_course_id text, source_revision_number bigint, source_blueprint_edit_number bigint,
     source_short_name text, source_long_name text,
-    target_public_reference text, target_revision_number bigint, target_blueprint_edit_number bigint,
+    target_blueprint_course_id text, target_revision_number bigint, target_blueprint_edit_number bigint,
     target_short_name text, target_long_name text, target_is_stale boolean,
     accepted_at_ms bigint, accepted_target_revision_number bigint,
     accepted_target_blueprint_edit_number bigint
@@ -166,9 +166,9 @@ DECLARE
 BEGIN
     -- ASVS 2.2.1/2/3: exactly one scope, bounded lookahead, and paired precise keys.
     IF p_mine IS NULL OR p_limit IS NULL OR p_limit NOT BETWEEN 1 AND 101
-       OR (p_mine AND p_target_reference IS NOT NULL)
-       OR (NOT p_mine AND (p_target_reference IS NULL
-           OR NOT ple_private.is_canonical_prefixed_public_id(p_target_reference, 'BP')))
+       OR (p_mine AND p_target_blueprint_course_id IS NOT NULL)
+       OR (NOT p_mine AND (p_target_blueprint_course_id IS NULL
+           OR NOT ple_private.is_canonical_prefixed_public_id(p_target_blueprint_course_id, 'BP')))
        OR (p_after_created_at IS NULL) <> (p_after_proposal_id IS NULL) THEN
         RAISE EXCEPTION 'Blueprint Proposal list request is invalid' USING ERRCODE = '22023';
     END IF;
@@ -191,7 +191,7 @@ BEGIN
     END IF;
     IF NOT p_mine AND NOT EXISTS (
         SELECT 1 FROM ple_data.blueprint_course AS target
-         WHERE target.blueprint_course_id = p_target_reference
+         WHERE target.blueprint_course_id = p_target_blueprint_course_id
            AND (target.availability IN ('public', 'archived') OR target.owner_account_id = v_actor)
            AND (target.owner_account_id = v_actor OR EXISTS (
                SELECT 1 FROM ple_data.blueprint_change_proposal AS proposal
@@ -232,7 +232,7 @@ BEGIN
         ON accepted.blueprint_change_proposal_id = proposal.blueprint_change_proposal_id
        AND accepted.target_blueprint_course_id = proposal.target_blueprint_course_id
      WHERE (p_mine AND proposal.proposer_account_id = v_actor
-            OR NOT p_mine AND target.blueprint_course_id = p_target_reference)
+            OR NOT p_mine AND target.blueprint_course_id = p_target_blueprint_course_id)
        AND (proposal.proposer_account_id = v_actor OR target.owner_account_id = v_actor)
        AND (source.availability IN ('public', 'archived')
             OR source.owner_account_id = v_actor OR target.owner_account_id = v_actor)
@@ -248,7 +248,7 @@ $$;
 -- ASVS 8.2.2/8.3.1, 2.3.3: authorize and retain the target owner lock before
 -- trusted Store selection/materialization. No current source-head dependency.
 CREATE FUNCTION ple_api.lock_blueprint_change_proposal_acceptance(
-    p_proposal_id uuid, p_target_reference text, p_expected_revision bigint,
+    p_proposal_id uuid, p_target_blueprint_course_id text, p_expected_revision bigint,
     p_expected_blueprint_edit_number bigint
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
@@ -260,7 +260,7 @@ BEGIN
      WHERE blueprint_change_proposal_id = p_proposal_id;
     SELECT * INTO v_target FROM ple_data.blueprint_course
      WHERE blueprint_course_id = v_proposal.target_blueprint_course_id
-       AND blueprint_course_id = p_target_reference
+       AND blueprint_course_id = p_target_blueprint_course_id
        AND owner_account_id = ple_api.current_session_account_id()
        AND ple_api.current_session_account_is_instructor() FOR UPDATE;
     IF NOT FOUND THEN
@@ -283,7 +283,7 @@ END
 $$;
 
 CREATE FUNCTION ple_api.finalize_blueprint_change_proposal_acceptance(
-    p_proposal_id uuid, p_target_reference text, p_expected_revision bigint,
+    p_proposal_id uuid, p_target_blueprint_course_id text, p_expected_revision bigint,
     p_expected_blueprint_edit_number bigint, p_decision jsonb, p_request_checksum bytea,
     p_content jsonb, p_content_checksum bytea
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
@@ -302,7 +302,7 @@ DECLARE
     v_metadata_changed boolean;
 BEGIN
     PERFORM ple_api.lock_blueprint_change_proposal_acceptance(
-        p_proposal_id, p_target_reference, p_expected_revision, p_expected_blueprint_edit_number);
+        p_proposal_id, p_target_blueprint_course_id, p_expected_revision, p_expected_blueprint_edit_number);
     IF p_decision IS NULL OR jsonb_typeof(p_decision) <> 'object'
        OR coalesce(p_decision #>> '{decision,kind}', '') NOT IN ('entire', 'selected')
        OR p_request_checksum IS NULL OR octet_length(p_request_checksum) <> 32
@@ -356,7 +356,7 @@ BEGIN
            AND blueprint_revision_number = p_expected_revision;
         INSERT INTO ple_data.blueprint_revision_assessment
         SELECT v_target.blueprint_course_id, v_result_revision, blueprint_module_reference,
-               blueprint_assessment_reference, assessment_position
+               blueprint_assessment_id, assessment_position
           FROM ple_data.blueprint_revision_assessment
          WHERE blueprint_course_id = v_target.blueprint_course_id
            AND blueprint_revision_number = p_expected_revision;
@@ -372,17 +372,17 @@ BEGIN
         -- Blueprint-only five-argument Save is private to the API owner after
         -- adoption installs. Never call the ordinary auto-daughter overload.
         SELECT resulting_blueprint_revision_number INTO STRICT v_result_revision
-          FROM ple_api.save_blueprint_course(p_target_reference, p_expected_revision,
+          FROM ple_api.save_blueprint_course(p_target_blueprint_course_id, p_expected_revision,
               p_request_checksum, p_content, p_content_checksum);
     END IF;
     IF v_result_revision <> p_expected_revision + 1 THEN
         RAISE EXCEPTION 'Blueprint Proposal acceptance needs one successor' USING ERRCODE = '22023';
     END IF;
     SELECT blueprint_edit_number INTO STRICT v_etag FROM ple_api.rename_blueprint_course(
-        p_target_reference, p_expected_blueprint_edit_number, v_short_name, v_long_name);
+        p_target_blueprint_course_id, p_expected_blueprint_edit_number, v_short_name, v_long_name);
     IF v_source_classification THEN
         SELECT blueprint_edit_number INTO STRICT v_etag FROM ple_api.update_blueprint_classification(
-            p_target_reference, v_etag, v_source.content_discipline_id, v_source.content_subject_id,
+            p_target_blueprint_course_id, v_etag, v_source.content_discipline_id, v_source.content_subject_id,
             v_source.content_topic_id, v_source.content_subtopic_id, v_source.tags);
     END IF;
     INSERT INTO ple_data.blueprint_change_proposal_acceptance VALUES (
@@ -394,7 +394,7 @@ $$;
 CREATE FUNCTION ple_api.read_accepted_blueprint_change_proposal(p_proposal_id uuid)
 RETURNS TABLE (
     blueprint_change_proposal_id uuid, actor_account_id text, accepted_at_ms bigint, decision jsonb,
-    public_reference text, revision_number bigint, blueprint_edit_number bigint,
+    blueprint_course_id text, revision_number bigint, blueprint_edit_number bigint,
     content jsonb, content_checksum bytea, short_name text, long_name text,
     content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid, content_subtopic_id uuid, tags text[]
 ) LANGUAGE sql STABLE SECURITY DEFINER

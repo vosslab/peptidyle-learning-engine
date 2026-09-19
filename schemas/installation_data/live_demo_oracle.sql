@@ -179,12 +179,12 @@ DECLARE
     mary text := current_setting('ple.installation_live_demo_mary_account_id');
     jack text := current_setting('ple.installation_live_demo_jack_account_id');
     avery text := current_setting('ple.installation_live_demo_avery_account_id');
-    expected_blueprint_assessment_reference uuid;
+    expected_blueprint_assessment_id uuid;
 BEGIN
     -- ASVS 1.2.4 and 8.2.2: the installer carries only the canonical public
     -- Blueprint Course ID; this owner resolves that key exactly here.
     blueprint_id := current_setting(
-        'ple.installation_live_demo_blueprint_public_reference'
+        'ple.installation_live_demo_blueprint_course_id'
     );
     IF blueprint_id IS NULL OR NOT EXISTS (
         SELECT 1 FROM ple_data.blueprint_course
@@ -193,8 +193,8 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Live Demo Blueprint public reference is unavailable';
     END IF;
-    expected_blueprint_assessment_reference := current_setting(
-        'ple.installation_live_demo_blueprint_assessment_reference'
+    expected_blueprint_assessment_id := current_setting(
+        'ple.installation_live_demo_blueprint_assessment_id'
     )::uuid;
     SELECT course.course_instance_id INTO course_id
       FROM ple_data.course_instance AS course
@@ -257,8 +257,8 @@ BEGIN
            SELECT 1 FROM ple_data.blueprint_revision_assessment AS revision_assessment
             WHERE revision_assessment.blueprint_course_id = blueprint_id
               AND revision_assessment.blueprint_revision_number = 1
-              AND revision_assessment.blueprint_assessment_reference
-                  = expected_blueprint_assessment_reference
+              AND revision_assessment.blueprint_assessment_id
+                  = expected_blueprint_assessment_id
        )
        OR NOT EXISTS (
            SELECT 1 FROM ple_data.course_origin
@@ -340,14 +340,14 @@ DECLARE
     blueprint_id text;
     course_id text;
     assessment_id_value text;
-    expected_blueprint_assessment_reference uuid := current_setting(
-        'ple.installation_live_demo_blueprint_assessment_reference'
+    expected_blueprint_assessment_id uuid := current_setting(
+        'ple.installation_live_demo_blueprint_assessment_id'
     )::uuid;
 BEGIN
     -- ASVS 1.2.4 and 8.2.2: resolve the Blueprint Course from the exact
     -- canonical public ID at this privileged installation boundary.
     blueprint_id := current_setting(
-        'ple.installation_live_demo_blueprint_public_reference'
+        'ple.installation_live_demo_blueprint_course_id'
     );
     IF blueprint_id IS NULL OR NOT EXISTS (
         SELECT 1 FROM ple_data.blueprint_course
@@ -373,8 +373,8 @@ BEGIN
                AND origin_kind = 'adopted'
                AND source_blueprint_course_id = blueprint_id
                AND source_blueprint_revision_number = 1
-               AND source_blueprint_assessment_reference
-                   = expected_blueprint_assessment_reference) <> 1
+               AND source_blueprint_assessment_id
+                   = expected_blueprint_assessment_id) <> 1
        OR (SELECT count(*) FROM ple_data.assessment_entry
              WHERE assessment_id = assessment_id_value) <> 4
        OR EXISTS (

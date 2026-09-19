@@ -227,13 +227,6 @@ evidence. Passing one layer does not claim another. See
 
 ## Known gaps
 
-- [crates/question_model/](../crates/question_model/) still names
-  `QuestionPoolRevisionReference` and `revisionNumber` on the wire, while
-  PostgreSQL stores current Pool state plus `question_pool_edit_number`.
-- Browser decoders still accept that Pool Revision JSON shape.
 - Unused leftover [src/pages/assignment_access/](../src/pages/assignment_access/)
   is not Student Coursework UI.
-- Empty leftover [crates/question_model/src/assignment/](../crates/question_model/src/assignment/).
-- Unrelease audit still reports a `question_response_count` column that counts
-  `assessment_attempt_saved_response` rows.
 - Published Question `availability` still uses the `available` enum label.

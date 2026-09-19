@@ -26,10 +26,10 @@ request() { local gateway port; gateway="$(service_id gateway)"; port="$(gateway
 persona_cookie() { local gateway port headers cookie; gateway="$(service_id gateway)"; port="$(gateway_port)"; headers="$(podman exec "$gateway" curl --silent --show-error --insecure --max-time 12 --dump-header - --output /dev/null --header "Host: localhost:$port" --header "Origin: https://localhost:$port" --header 'Content-Type: application/json' --request POST --data "{\"persona\":\"$1\"}" 'https://localhost:8080/api/auth/live-demo/accounts')"; cookie="$(printf '%s\n' "$headers" | sed -n 's/^set-cookie: \([^;]*\).*/\1/Ip' | head -n 1)"; [ -n "$cookie" ] || { echo "seeded demo did not issue an Authenticated Session" >&2; exit 1; }; printf '%s\n' "$cookie"; }
 status() { printf '%s' "${1##*$'\n'}"; }; body() { printf '%s' "${1%$'\n'*}"; }
 concealed() { [ "$(status "$1")" = 404 ] || { echo "Support capability authority was not concealed (${2:-unnamed scope}, HTTP $(status "$1"))" >&2; exit 1; }; }
-course_reference() { python3 -c 'import json,re,sys; values=[x.get("reference") for x in json.loads(sys.argv[1]).get("items",[]) if isinstance(x,dict)]; reference=sys.argv[2]
+course_reference() { python3 -c 'import json,re,sys; values=[x.get("id") for x in json.loads(sys.argv[1]).get("items",[]) if isinstance(x,dict)]; reference=sys.argv[2]
 if not re.fullmatch(r"CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}",reference) or values.count(reference)!=1: raise SystemExit("Owned Course Instance identity is invalid or absent")
 print(reference)' "$1" "$2"; }
-sysadmin_reference() { local postgres; postgres="$(service_id postgres)"; podman exec "$postgres" sh -lc 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "SELECT public_reference FROM ple_private.account WHERE product_role = '\''sysadmin'\'' ORDER BY reference_number LIMIT 1"' | python3 -c 'import re,sys; value=sys.stdin.read().strip();
+sysadmin_reference() { local postgres; postgres="$(service_id postgres)"; podman exec "$postgres" sh -lc 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "SELECT account_id FROM ple_private.account WHERE product_role = '\''sysadmin'\'' ORDER BY account_id LIMIT 1"' | python3 -c 'import re,sys; value=sys.stdin.read().strip();
 if not re.fullmatch(r"U[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}",value): raise SystemExit("Sysadmin identity is invalid")
 print(value)'; }
 prove_issue() {
@@ -101,31 +101,46 @@ support_sql() { podman exec -i "$postgres" sh -lc 'exec psql -X -q -v ON_ERROR_S
 # the issuing co-Instructor departs, isolating the exact authority condition.
 authority_course="$(support_sql -v capability="$student_repair" <<'SQL'
 BEGIN;
-SELECT gen_random_uuid() AS authority_instructor_id, gen_random_uuid() AS authority_course_id, gen_random_uuid() AS authority_profile_id \gset
 INSERT INTO ple_private.account(account_id,product_role,created_at)
-VALUES (:'authority_instructor_id','instructor',clock_timestamp());
--- The current trigger derives the new Course lifetime from its own creation time.
-INSERT INTO ple_data.course_instance(course_id,source_kind,assigned_instructor_account_id,course_short_name,course_long_name,discipline_uuid,tags,term_starts_on,term_ends_on,created_at)
-SELECT :'authority_course_id','empty',:'authority_instructor_id','SUPPORT','Disposable support authority Course',discipline_uuid,tags,term_starts_on,term_ends_on,clock_timestamp()
-FROM ple_data.course_instance WHERE public_reference = split_part((SELECT resource_reference FROM ple_private.support_repair_capability WHERE capability_id=:'capability'), '/', 2);
-INSERT INTO ple_data.course_membership(membership_id,course_id,account_id,role,joined_at)
+VALUES ('U00000009','instructor',clock_timestamp())
+RETURNING account_id AS authority_instructor_id \gset
+INSERT INTO ple_data.course_instance(
+    course_instance_id, source_kind, course_short_name, course_long_name,
+    content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags,
+    term_starts_on, term_ends_on, created_at, active_until_at, retention_starts_at)
+SELECT 'CI0000000Y', 'empty', 'SUPPORT', 'Disposable support authority Course',
+       src.content_discipline_id, src.content_subject_id, src.content_topic_id, src.content_subtopic_id, src.tags,
+       src.term_starts_on, src.term_ends_on, src.created_at, src.active_until_at, src.retention_starts_at
+  FROM ple_data.course_instance AS src
+ WHERE src.course_instance_id = split_part((SELECT resource_reference FROM ple_private.support_repair_capability WHERE capability_id=:'capability'), '/', 2)
+RETURNING course_instance_id AS authority_course_id \gset
+INSERT INTO ple_data.course_origin(course_origin_id, course_instance_id, source_kind, created_at)
+SELECT gen_random_uuid(), :'authority_course_id', 'empty', src.created_at
+  FROM ple_data.course_instance AS src WHERE src.course_instance_id = :'authority_course_id';
+INSERT INTO ple_data.course_membership(course_membership_id,course_instance_id,account_id,role,joined_at)
 VALUES (gen_random_uuid(),:'authority_course_id',:'authority_instructor_id','instructor',clock_timestamp());
-INSERT INTO ple_private.course_roster_profile(course_roster_profile_id,course_id,student_account_id,roster_id,roster_name,created_at)
-SELECT :'authority_profile_id',:'authority_course_id',student_account_id,'m17-support','Mary',clock_timestamp()
-FROM ple_private.course_roster_profile WHERE course_id=(SELECT course_id FROM ple_data.course_instance WHERE public_reference=split_part((SELECT resource_reference FROM ple_private.support_repair_capability WHERE capability_id=:'capability'), '/', 2)) AND roster_id='m17-support';
-INSERT INTO ple_private.course_invitation(invitation_id,course_id,target_account_id,membership_role,inviting_instructor_account_id,issued_at,expires_at)
-SELECT gen_random_uuid(),course_id,student_account_id,'student',:'authority_instructor_id',clock_timestamp(),clock_timestamp()+interval '1 hour'
-FROM ple_private.course_roster_profile WHERE course_roster_profile_id=:'authority_profile_id';
+INSERT INTO ple_private.course_roster_profile(course_roster_profile_id,course_instance_id,student_account_id,roster_id,roster_name,created_at)
+SELECT gen_random_uuid(), :'authority_course_id', student_account_id, 'm17-support', 'Mary', clock_timestamp()
+  FROM ple_private.course_roster_profile
+ WHERE course_instance_id = split_part((SELECT resource_reference FROM ple_private.support_repair_capability WHERE capability_id=:'capability'), '/', 2)
+   AND roster_id = 'm17-support'
+RETURNING course_roster_profile_id AS authority_profile_id \gset
+INSERT INTO ple_private.course_invitation(
+    course_invitation_id, course_instance_id, target_account_id, membership_role,
+    inviting_instructor_account_id, inviting_instructor_role, issued_at, expires_at)
+SELECT gen_random_uuid(), course_instance_id, student_account_id, 'student',
+       :'authority_instructor_id', 'instructor', clock_timestamp(), clock_timestamp()+interval '1 hour'
+  FROM ple_private.course_roster_profile WHERE course_roster_profile_id=:'authority_profile_id';
 COMMIT;
-SELECT public_reference FROM ple_data.course_instance WHERE course_id=:'authority_course_id';
+SELECT :'authority_course_id';
 SQL
 )"
 [[ "$authority_course" =~ ^CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}$ ]] || { echo "Support authority fixture Course identity invalid" >&2; exit 1; }
 authority_scope="course-instance/$authority_course/roster/m17-support"
 concealed "$(request "$repair_path" "$instructor_cookie" POST "{\"sysadminReference\":\"$sysadmin\",\"resourceClass\":\"student\",\"resourceReference\":\"$authority_scope\",\"purpose\":\"Unrelated global Instructor denial\"}")"
 support_sql -v capability="$student_repair" -v course="$authority_course" <<'SQL'
-INSERT INTO ple_data.course_membership(membership_id,course_id,account_id,role,joined_at)
-SELECT gen_random_uuid(),(SELECT course_id FROM ple_data.course_instance WHERE public_reference=:'course'),issuer_account_id,'instructor',clock_timestamp()
+INSERT INTO ple_data.course_membership(course_membership_id,course_instance_id,account_id,role,joined_at)
+SELECT gen_random_uuid(),:'course',issuer_account_id,'instructor',clock_timestamp()
 FROM ple_private.support_repair_capability WHERE capability_id=:'capability';
 SQL
 authority_repair="$(issue_repair student "$authority_scope" 'Original issuer authority regression')"
@@ -144,13 +159,13 @@ SQL
 instructor_cookie="$(persona_cookie elenaInstructor)"
 [ "$(status "$(request "$authority_path" "$sysadmin_cookie")")" = 200 ] || { echo "Reactivated original issuer capability did not recover" >&2; exit 1; }
 support_sql -v capability="$authority_repair" -v course="$authority_course" <<'SQL'
-INSERT INTO ple_data.course_membership_event(course_membership_event_id,membership_id,event_kind,occurred_at,reason)
-SELECT gen_random_uuid(),membership.membership_id,'ended',clock_timestamp(),'Disposable original issuer Course departure'
+INSERT INTO ple_data.course_membership_event(course_membership_event_id,course_membership_id,event_kind,occurred_at,reason)
+SELECT gen_random_uuid(),membership.course_membership_id,'ended',clock_timestamp(),'Disposable original issuer Course departure'
 FROM ple_data.course_membership AS membership
-JOIN ple_data.course_instance AS course ON course.course_id=membership.course_id
+JOIN ple_data.course_instance AS course ON course.course_instance_id=membership.course_instance_id
 JOIN ple_private.support_repair_capability AS capability ON capability.issuer_account_id=membership.account_id
-WHERE capability.capability_id=:'capability' AND course.public_reference=:'course'
-AND membership.role='instructor' AND ple_data.course_membership_is_active(membership.membership_id);
+WHERE capability.capability_id=:'capability' AND course.course_instance_id=:'course'
+AND membership.role='instructor' AND ple_data.course_membership_is_active(membership.course_membership_id);
 SQL
 concealed "$(request "$authority_path" "$sysadmin_cookie")"
 authority_events="$(support_sql -v capability="$authority_repair" <<'SQL'
@@ -158,7 +173,7 @@ SELECT result FROM ple_audit.support_repair_capability_event WHERE capability_id
 SQL
 )"
 [ "$authority_events" = $'issued\nused\nused' ] || { echo "Denied original issuer authority use produced a success audit" >&2; exit 1; }
-podman exec "$postgres" sh -lc "psql -X -v ON_ERROR_STOP=1 -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -At -c \"SELECT account.product_role || ':' || count(membership.membership_id) FROM ple_private.account AS account LEFT JOIN ple_data.course_membership AS membership ON membership.account_id = account.account_id AND membership.course_id = (SELECT course_id FROM ple_data.course_instance WHERE public_reference = '$course') WHERE account.public_reference = '$sysadmin' GROUP BY account.product_role\"" | rg -qx 'sysadmin:0' || { echo "Support capability escalated Sysadmin role or Course membership" >&2; exit 1; }
+podman exec "$postgres" sh -lc "psql -X -v ON_ERROR_STOP=1 -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -At -c \"SELECT account.product_role || ':' || count(membership.course_membership_id) FROM ple_private.account AS account LEFT JOIN ple_data.course_membership AS membership ON membership.account_id = account.account_id AND membership.course_instance_id = '$course' WHERE account.account_id = '$sysadmin' GROUP BY account.product_role\"" | rg -qx 'sysadmin:0' || { echo "Support capability escalated Sysadmin role or Course membership" >&2; exit 1; }
 revoked_student="$(request "$repair_path/$student_repair/revoke" "$instructor_cookie" POST '{}')"
 [ "$(status "$revoked_student")" = 200 ] || { echo "Issuing Instructor could not revoke Student repair capability" >&2; exit 1; }
 concealed "$(request "$(repair_record_path "$student_repair")" "$sysadmin_cookie")"

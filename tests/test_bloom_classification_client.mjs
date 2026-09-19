@@ -9,7 +9,7 @@ import {
 } from "../src/api/http_client/error.ts";
 
 const question = { questionId: "7K3M-79QP", revisionNumber: 3 };
-const pool = { questionPoolId: "3S8B-24DZ", revisionNumber: 5 };
+const poolId = "3S8B-24DZ";
 const request = {
   cognitiveProcess: "Analyze",
   knowledgeDimension: "Conceptual Knowledge",
@@ -36,7 +36,7 @@ test("Bloom correction posts one complete exact-Revision CAS command", async () 
   const client = createBloomClassificationCorrectionClient(async (input, init) => {
     calls.push({ input, init });
     if (String(input).includes("/question-pools/")) {
-      return jsonResponse({ questionPoolRevision: pool, bloom });
+      return jsonResponse({ questionPoolId: poolId, bloom });
     }
     return jsonResponse({ questionRevision: question, bloom });
   }, "/ple");
@@ -45,13 +45,13 @@ test("Bloom correction posts one complete exact-Revision CAS command", async () 
     questionRevision: question,
     bloom,
   });
-  assert.deepEqual(await client.correctQuestionPoolBloom(pool, request), {
-    questionPoolRevision: pool,
+  assert.deepEqual(await client.correctQuestionPoolBloom(poolId, request), {
+    questionPoolId: poolId,
     bloom,
   });
   assert.equal(calls.length, 2);
   assert.equal(String(calls[0].input), "/ple/api/questions/by-id/7K3M-79QP/revisions/3/bloom");
-  assert.equal(String(calls[1].input), "/ple/api/question-pools/3S8B-24DZ/revisions/5/bloom");
+  assert.equal(String(calls[1].input), "/ple/api/question-pools/3S8B-24DZ/bloom");
   for (const call of calls) {
     assert.equal(call.init.method, "POST");
     assert.equal(call.init.credentials, "same-origin");

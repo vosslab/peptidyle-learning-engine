@@ -365,8 +365,8 @@ targets, `course_banner`, `course_banner_rendition`, `course_banner_delivery`,
 `course_banner_storage_subject`, `course_banner_prepared_presentation`,
 `course_retention_policy`, `draft_question_asset`, `course_object_delivery`,
 `profile_image_delivery`, `provided_avatar`, `account_avatar`, `question_asset_delivery`,
-`question_asset_publication`, `question_revision_bloom`, `question_pool_revision_bloom`,
-`bloom_preparation_receipt`, `question_pool_revision_member`, `question_revision_authorship`,
+`question_asset_publication`, `question_revision_bloom`, `question_pool_pin_bloom`,
+`bloom_preparation_receipt`, `question_pool_member`, `question_revision_authorship`,
 `question_revision_license`, `question_revision_citation`, `library_watch_event_recipient`,
 `question_revision_choice_statistics`, `question_statistics_observation_choice`.
 
@@ -400,7 +400,7 @@ wants a measured `tsvector` + GIN index (plan M4), not partitioning.
 Of 180 single-column foreign keys, 72 have a column name that ends in something other than the
 parent's table name plus `_id`: `course_id` -> `course_instance` (14 tables), `question_id` ->
 `published_question` (7, plus every `(question_id, revision_number)` pair), `object_id` and
-`source_object_id` -> `object_record` (11), `blueprint_course_reference_number` (9, removed by
+`source_object_id` -> `object_record` (11), `blueprint_course_instance_id` (9, removed by
 2.1), `delivery_id` -> `object_delivery`, `workspace_id` -> `authoring_workspace`, the
 `*_uuid` classification keys, and short names such as `thread_id`, `folder_id`,
 `proposal_id`, `capability_id`, `membership_id`, `invitation_id`. A reader cannot tell from

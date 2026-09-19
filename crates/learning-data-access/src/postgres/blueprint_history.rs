@@ -16,7 +16,7 @@ impl BlueprintHistoryStore for PostgresBlueprintCourseStore {
     async fn list_blueprint_history(
         &self,
         session: SessionTokenHash,
-        reference: BlueprintCourseId,
+        blueprint_course_id: BlueprintCourseId,
         kind: BlueprintHistoryKind,
         page: PageRequest,
     ) -> Result<Page<BlueprintHistoryEntryView>, StoreError> {
@@ -26,7 +26,7 @@ impl BlueprintHistoryStore for PostgresBlueprintCourseStore {
             .await?;
         // ASVS 1.2.4: the course, sequence, stable key and bounded size are bound values.
         let rows = sqlx::query("SELECT * FROM ple_api.list_blueprint_history($1, $2, $3, $4)")
-            .bind(reference.as_string())
+            .bind(blueprint_course_id.as_string())
             .bind(kind.as_str())
             .bind(after)
             .bind(i32::from(page.size.get()))

@@ -5,7 +5,7 @@ import { DecodeError } from "../src/api/decoder.ts";
 import {
   decodeQuestionPoolLibraryPage,
   decodeQuestionPoolMetadata,
-  decodeQuestionPoolRevisionView,
+  decodeQuestionPoolView,
 } from "../src/api/decoders/question_pool_library.ts";
 import { decodeAssessmentQuestionPoolForkView } from "../src/api/decoders/assessment_pool_fork.ts";
 import { publishedQuestionFixture } from "./fixtures/published_question.ts";
@@ -40,11 +40,12 @@ const bloomFacets = {
   ].map((knowledgeDimension, count) => ({ knowledgeDimension, count })),
 };
 
-test("Pool list retains independent metadata and exact Revision identity", () => {
+test("Pool list retains independent metadata and current Pool identity", () => {
   const page = {
     items: [
       {
-        questionPoolRevision: { questionPoolId: "3S8B-24DZ", revisionNumber: 4 },
+        questionPoolId: "3S8B-24DZ",
+        questionPoolEditNumber: 4,
         metadata,
         memberCount: 2,
         bloom,
@@ -107,7 +108,8 @@ test("Pool metadata rejects missing required fields, unknown fields and malforme
 
 test("Pool list permits a blank Bloom pair and rejects partial or malformed Bloom", () => {
   const item = {
-    questionPoolRevision: { questionPoolId: "3S8B-24DZ", revisionNumber: 4 },
+    questionPoolId: "3S8B-24DZ",
+    questionPoolEditNumber: 4,
     metadata,
     memberCount: 2,
     bloom,
@@ -168,7 +170,8 @@ test("Pool list requires complete ordered whole-result Bloom counts", () => {
 test("Pool exact detail keeps its own assigned Bloom pair or a blank pair", () => {
   const questionRevision = publishedQuestionFixture.publishedQuestion.latestQuestionRevision;
   const detail = {
-    questionPoolRevision: { questionPoolId: "3S8B-24DZ", revisionNumber: 4 },
+    questionPoolId: "3S8B-24DZ",
+    questionPoolEditNumber: 4,
     metadata,
     bloom,
     members: [
@@ -189,18 +192,18 @@ test("Pool exact detail keeps its own assigned Bloom pair or a blank pair", () =
     ],
     evidence: { state: "unavailable" },
   };
-  assert.deepEqual(decodeQuestionPoolRevisionView(detail), detail);
-  assert.equal(decodeQuestionPoolRevisionView({ ...detail, bloom: null }).bloom, null);
+  assert.deepEqual(decodeQuestionPoolView(detail), detail);
+  assert.equal(decodeQuestionPoolView({ ...detail, bloom: null }).bloom, null);
   const { bloom: _bloom, ...withoutBloom } = detail;
-  assert.throws(() => decodeQuestionPoolRevisionView(withoutBloom), DecodeError);
+  assert.throws(() => decodeQuestionPoolView(withoutBloom), DecodeError);
 });
 
 test("Assessment-owned Pool fork keeps its own assigned Bloom pair or a blank pair", () => {
   const questionRevision = publishedQuestionFixture.publishedQuestion.latestQuestionRevision;
   const fork = {
     assessmentEntryId: "00000000-0000-0000-0000-000000000011",
-    questionPoolRevision: { questionPoolId: "3S8B-24DZ", revisionNumber: 4 },
-    questionPoolEditNumber: "1",
+    questionPoolId: "3S8B-24DZ",
+    questionPoolEditNumber: 4,
     selectionCount: 1,
     metadata,
     bloom,

@@ -209,7 +209,7 @@ WITH source_assessment AS (
            AND child.interchangeability_attested_at =
                root.interchangeability_attested_at
            AND root.question_pool_id
-                 = source.entry #>> '{question_pool_revision,questionPoolId}'
+                 = source.entry ->> 'question_pool_id'
            AND NOT EXISTS (
                (SELECT member_position, published_question_id, question_revision_number
                   FROM ple_data.question_pool_member

@@ -26,14 +26,14 @@ SET LOCAL ROLE ple_unrelease_executor;
 -- confirmation inputs at the trusted boundary; ASVS 2.3.1/2.3.3 keeps the
 -- transition, deletion, and audit event indivisible; anonymous totals remain.
 CREATE FUNCTION ple_api.read_assessment_unrelease_impact(
-    p_course_reference_number text,
-    p_assessment_reference_number text
+    p_course_instance_id text,
+    p_assessment_id text
 )
 RETURNS TABLE (
     assessment_title text,
     assessment_edit_number bigint,
     assessment_attempt_count bigint,
-    question_response_count bigint,
+    finalized_saved_response_count bigint,
     assessment_submission_count bigint,
     grading_result_count bigint
 )
@@ -41,15 +41,15 @@ LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE assessment_row ple_data.assessment%ROWTYPE;
 BEGIN
-    IF p_course_reference_number IS NULL THEN
+    IF p_course_instance_id IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable';
     END IF;
 
     SELECT assessment.* INTO assessment_row
       FROM ple_data.course_instance AS course
       JOIN ple_data.assessment AS assessment ON assessment.course_instance_id = course.course_instance_id
-     WHERE course.course_instance_id = p_course_reference_number
-       AND assessment.assessment_id = p_assessment_reference_number
+     WHERE course.course_instance_id = p_course_instance_id
+       AND assessment.assessment_id = p_assessment_id
        AND assessment.assessment_status = 'released'
        AND ple_api.current_session_account_is_course_instructor(course.course_instance_id);
     IF NOT FOUND THEN
@@ -63,7 +63,7 @@ BEGIN
     SELECT count(*) INTO assessment_attempt_count
       FROM ple_private.assessment_attempt
      WHERE assessment_id = assessment_row.assessment_id;
-    SELECT count(*) INTO question_response_count
+    SELECT count(*) INTO finalized_saved_response_count
       FROM ple_private.assessment_attempt_saved_response AS submission
       JOIN ple_private.question_attempt AS question_attempt
         ON question_attempt.question_attempt_id = submission.question_attempt_id
@@ -94,18 +94,18 @@ END
 $$;
 
 CREATE FUNCTION ple_api.unrelease_assessment(
-    p_course_reference_number text,
-    p_assessment_reference_number text,
+    p_course_instance_id text,
+    p_assessment_id text,
     p_expected_edit_number bigint,
     p_confirmation_title text
 )
 RETURNS TABLE (
-    assessment_reference_number text,
+    assessment_id text,
     assessment_title text,
     assessment_status text,
     assessment_edit_number bigint,
     assessment_attempt_count bigint,
-    question_response_count bigint,
+    finalized_saved_response_count bigint,
     assessment_submission_count bigint,
     grading_result_count bigint
 )
@@ -115,7 +115,7 @@ DECLARE assessment_row ple_data.assessment%ROWTYPE;
 DECLARE actor_account_id text;
 DECLARE now_at timestamptz := pg_catalog.transaction_timestamp();
 BEGIN
-    IF p_course_reference_number IS NULL
+    IF p_course_instance_id IS NULL
        OR p_expected_edit_number IS NULL OR p_expected_edit_number <= 0
        OR p_confirmation_title IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable';
@@ -128,8 +128,8 @@ BEGIN
     SELECT assessment.* INTO assessment_row
       FROM ple_data.course_instance AS course
       JOIN ple_data.assessment AS assessment ON assessment.course_instance_id = course.course_instance_id
-     WHERE course.course_instance_id = p_course_reference_number
-       AND assessment.assessment_id = p_assessment_reference_number
+     WHERE course.course_instance_id = p_course_instance_id
+       AND assessment.assessment_id = p_assessment_id
        AND ple_api.current_session_account_is_course_instructor(course.course_instance_id)
      FOR UPDATE OF assessment;
     IF NOT FOUND THEN
@@ -151,7 +151,7 @@ BEGIN
     SELECT count(*) INTO assessment_attempt_count
       FROM ple_private.assessment_attempt
      WHERE assessment_id = assessment_row.assessment_id;
-    SELECT count(*) INTO question_response_count
+    SELECT count(*) INTO finalized_saved_response_count
       FROM ple_private.assessment_attempt_saved_response AS submission
       JOIN ple_private.question_attempt AS question_attempt
         ON question_attempt.question_attempt_id = submission.question_attempt_id
@@ -184,7 +184,7 @@ BEGIN
            updated_at = now_at
      WHERE updated.assessment_id = assessment_row.assessment_id
      RETURNING updated.assessment_id, updated.assessment_status, updated.assessment_edit_number
-      INTO assessment_reference_number, assessment_status, assessment_edit_number;
+      INTO assessment_id, assessment_status, assessment_edit_number;
 
     -- ASVS 14.2.4: remove Student Work, not approved identity-free totals.
     DELETE FROM ple_private.assessment_attempt
@@ -192,11 +192,11 @@ BEGIN
 
     INSERT INTO ple_audit.assessment_unrelease_event (
         event_id, assessment_id, actor_account_id, assessment_edit_number,
-        assessment_attempt_count, question_response_count,
+        assessment_attempt_count, finalized_saved_response_count,
         assessment_submission_count, grading_result_count, outcome, occurred_at
     ) VALUES (
         pg_catalog.gen_random_uuid(), assessment_row.assessment_id, actor_account_id,
-        assessment_edit_number, assessment_attempt_count, question_response_count,
+        assessment_edit_number, assessment_attempt_count, finalized_saved_response_count,
         assessment_submission_count, grading_result_count, 'completed', now_at
     );
     RETURN NEXT;

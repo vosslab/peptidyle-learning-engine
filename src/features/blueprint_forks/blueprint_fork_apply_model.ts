@@ -64,9 +64,7 @@ export function forkSelectionProblem(
       labels.flatMap((c) => (c.targetModuleReference === null ? [] : [c.targetModuleReference])),
     ).size !== labels.filter((c) => c.targetModuleReference !== null).length ||
     new Set(
-      assessments.flatMap((c) =>
-        c.targetAssessmentId === null ? [] : [c.targetAssessmentId],
-      ),
+      assessments.flatMap((c) => (c.targetAssessmentId === null ? [] : [c.targetAssessmentId])),
     ).size !== assessments.filter((c) => c.targetAssessmentId !== null).length
   )
     return "Choose a different target for each source copy.";
@@ -84,9 +82,7 @@ export function forkSelectionProblem(
       return "Every selected source label needs a destination module.";
   for (const copy of assessments)
     if (
-      !review.left.assessments.some(
-        (a) => a.blueprintAssessmentId === copy.sourceAssessmentId,
-      ) ||
+      !review.left.assessments.some((a) => a.blueprintAssessmentId === copy.sourceAssessmentId) ||
       !entries.includes(
         destinationKey(
           copy.targetAssessmentId === null
@@ -118,8 +114,7 @@ export function forkSelectionProblem(
             )
           : !assessments.some(
               (c) =>
-                c.sourceAssessmentId === entry.sourceAssessmentId &&
-                c.targetAssessmentId === null,
+                c.sourceAssessmentId === entry.sourceAssessmentId && c.targetAssessmentId === null,
             )
       )
         return "Choose a valid existing Assessment or select complete content for the new copy.";

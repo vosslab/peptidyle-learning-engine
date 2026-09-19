@@ -72,7 +72,7 @@ impl QuestionPoolCreationStore for PostgresQuestionPoolCreationStore {
             .collect::<Result<Vec<_>, _>>()
             .map_err(|_| {
                 CreateQuestionPoolError::Store(StoreError::InvalidRecord(
-                    "Question Pool Revision Number exceeds PostgreSQL integer".to_owned(),
+                    "Question Revision Number exceeds PostgreSQL integer".to_owned(),
                 ))
             })?;
         let mut tx = self
@@ -80,11 +80,10 @@ impl QuestionPoolCreationStore for PostgresQuestionPoolCreationStore {
             .await
             .map_err(CreateQuestionPoolError::Store)?;
         let row = sqlx::query(
-            "SELECT public_question_pool_id, revision_number \
-             FROM ple_api.create_question_pool($1, $2, $3, $4, $5, $6, $7)",
+            "SELECT question_pool_id, question_pool_edit_number \
+             FROM ple_api.create_question_pool($1, $2, $3, $4, $5, $6)",
         )
-        .bind(input.question_pool_id)
-        .bind(input.public_question_pool_id.as_str())
+        .bind(input.question_pool_id.as_str())
         .bind(member_question_ids)
         .bind(member_revision_numbers)
         .bind(input.interchangeability_attested)
@@ -94,8 +93,8 @@ impl QuestionPoolCreationStore for PostgresQuestionPoolCreationStore {
         .fetch_one(&mut *tx)
         .await
         .map_err(map_create_question_pool_error)?;
-        let public_question_pool_id = row
-            .try_get::<String, _>("public_question_pool_id")
+        let question_pool_id = row
+            .try_get::<String, _>("question_pool_id")
             .map_err(map_sqlx_error)
             .and_then(|value| {
                 value.parse::<QuestionId>().map_err(|_| {
@@ -105,25 +104,25 @@ impl QuestionPoolCreationStore for PostgresQuestionPoolCreationStore {
                 })
             })
             .map_err(CreateQuestionPoolError::Store)?;
-        if public_question_pool_id != input.public_question_pool_id {
+        if question_pool_id != input.question_pool_id {
             return Err(CreateQuestionPoolError::Store(StoreError::InvalidRecord(
                 "Question Pool creation returned an unexpected public identity".to_owned(),
             )));
         }
-        let revision_number = row
-            .try_get::<i64, _>("revision_number")
+        let edit_number = row
+            .try_get::<i64, _>("question_pool_edit_number")
             .map_err(map_sqlx_error)
             .and_then(|value| {
                 u64::try_from(value).map_err(|_| {
                     StoreError::InvalidRecord(
-                        "Question Pool creation returned an invalid Revision Number".to_owned(),
+                        "Question Pool creation returned an invalid Edit Number".to_owned(),
                     )
                 })
             })
             .map_err(CreateQuestionPoolError::Store)?;
-        if revision_number != 1 {
+        if edit_number != 1 {
             return Err(CreateQuestionPoolError::Store(StoreError::InvalidRecord(
-                "Question Pool creation must return Revision 1".to_owned(),
+                "Question Pool creation must return Edit Number 1".to_owned(),
             )));
         }
         tx.commit()
@@ -131,8 +130,8 @@ impl QuestionPoolCreationStore for PostgresQuestionPoolCreationStore {
             .map_err(map_sqlx_error)
             .map_err(CreateQuestionPoolError::Store)?;
         Ok(CreatedQuestionPool {
-            public_question_pool_id,
-            revision_number,
+            question_pool_id,
+            edit_number,
         })
     }
 }

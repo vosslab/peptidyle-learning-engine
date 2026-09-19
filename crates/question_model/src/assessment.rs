@@ -431,20 +431,20 @@ pub struct QuestionPoolSelectionRule {
     pub selected_question_order: QuestionPoolSelectedQuestionOrder,
 }
 
-/// Positive, monotonic Revision number within one Question Pool lineage.
+/// Positive sequential Pool Edit Number on one current-state Question Pool.
 ///
-/// Pool Revisions use PostgreSQL `BIGINT` and are deliberately independent of
-/// the `u32` Question Revision number domain.
+/// Pools have no Revision family. This counter uses PostgreSQL `BIGINT` and is
+/// independent of the `u32` Question Revision number domain.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "u64", into = "u64")]
-pub struct QuestionPoolRevisionNumber(NonZeroU64);
+pub struct QuestionPoolEditNumber(NonZeroU64);
 
-impl QuestionPoolRevisionNumber {
-    /// Creates a positive Pool Revision number.
+impl QuestionPoolEditNumber {
+    /// Creates a positive Pool Edit Number.
     pub fn new(value: u64) -> Result<Self, &'static str> {
         NonZeroU64::new(value)
             .map(Self)
-            .ok_or("Question Pool Revision number must be positive")
+            .ok_or("Question Pool Edit Number must be positive")
     }
 
     /// Returns the stored positive integer.
@@ -453,7 +453,7 @@ impl QuestionPoolRevisionNumber {
     }
 }
 
-impl TryFrom<u64> for QuestionPoolRevisionNumber {
+impl TryFrom<u64> for QuestionPoolEditNumber {
     type Error = &'static str;
 
     fn try_from(value: u64) -> Result<Self, Self::Error> {
@@ -461,39 +461,16 @@ impl TryFrom<u64> for QuestionPoolRevisionNumber {
     }
 }
 
-impl From<QuestionPoolRevisionNumber> for u64 {
-    fn from(value: QuestionPoolRevisionNumber) -> Self {
+impl From<QuestionPoolEditNumber> for u64 {
+    fn from(value: QuestionPoolEditNumber) -> Self {
         value.get()
     }
 }
 
-impl std::fmt::Display for QuestionPoolRevisionNumber {
+impl std::fmt::Display for QuestionPoolEditNumber {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(formatter, "{}", self.get())
     }
-}
-
-/// One immutable published Question Pool Revision.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct QuestionPoolRevisionReference {
-    /// Public identity of the Assessment-owned fork Pool lineage.
-    pub question_pool_id: QuestionId,
-    /// Exact immutable Revision of that fork Pool.
-    pub revision_number: QuestionPoolRevisionNumber,
-}
-
-/// One exact member of an immutable Question Pool Revision.
-///
-/// The member position is zero-based in the Pool Revision's only member list.
-/// It is not a separately minted, mutable item identity.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PoolRevisionMemberReference {
-    /// Exact immutable Pool Revision that owns the member.
-    pub question_pool_revision: QuestionPoolRevisionReference,
-    /// Zero-based member position within that immutable Pool Revision.
-    pub member_position: u32,
 }
 
 /// A Question Pool Assessment Entry; issued Questions snapshot the selected result.
@@ -502,8 +479,10 @@ pub struct PoolRevisionMemberReference {
 pub struct QuestionPoolAssessmentEntry {
     /// Stable Assessment Entry identity.
     pub id: AssessmentEntryId,
-    /// Exact current immutable Revision of this Assessment-owned fork Pool.
-    pub question_pool_revision: QuestionPoolRevisionReference,
+    /// Canonical public Pool ID. Membership is current state on that Pool.
+    pub question_pool_id: QuestionId,
+    /// Current-state Pool Edit Number used for concurrency, not historical membership.
+    pub question_pool_edit_number: QuestionPoolEditNumber,
     /// Whether future Assessment Attempts may receive this Assessment Entry.
     pub availability: AssessmentEntryAvailability,
     /// Current-only scoring rule applied to every selected Question Pool Item.

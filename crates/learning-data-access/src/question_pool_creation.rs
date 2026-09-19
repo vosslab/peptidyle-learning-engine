@@ -1,4 +1,4 @@
-//! Atomic creation of one reusable Published Question Pool Revision.
+//! Atomic creation of one reusable current-state Published Question Pool.
 //!
 //! Selection-count policy deliberately does not cross this boundary. It belongs
 //! to the Assessment Entry, separate from immutable Pool membership and its
@@ -10,20 +10,17 @@ use async_trait::async_trait;
 use question_model::{
     MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY, QuestionId, QuestionRevisionReference,
 };
-use uuid::Uuid;
 
 use crate::{SessionTokenHash, StoreError};
 
-/// Complete server-owned create input for the first immutable Pool Revision.
+/// Complete server-owned create input for a new current-state Question Pool.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CreateQuestionPoolInput {
     /// Deliberate Pool-specific lineage Title and Description.
     pub title: String,
     pub description: String,
-    /// Private stable storage identity minted by the trusted server operation.
-    pub question_pool_id: Uuid,
     /// Fresh checksum-valid public Pool identity minted by the server issuer.
-    pub public_question_pool_id: QuestionId,
+    pub question_pool_id: QuestionId,
     /// Ordered exact Published Question Revision pins.
     pub members: Vec<QuestionRevisionReference>,
     /// The Instructor affirms that these Questions are interchangeable.
@@ -74,13 +71,13 @@ impl CreateQuestionPoolInput {
     }
 }
 
-/// The answer-free receipt for one newly-created first Pool Revision.
+/// The answer-free receipt for one newly-created Question Pool.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CreatedQuestionPool {
     /// Canonical public Question Pool identity.
-    pub public_question_pool_id: QuestionId,
-    /// The immutable first Pool Revision.
-    pub revision_number: u64,
+    pub question_pool_id: QuestionId,
+    /// Sequential Edit Number; a new Pool starts at 1.
+    pub edit_number: u64,
 }
 
 /// The only conclusive creation race for a freshly issued Pool ID.

@@ -1,6 +1,13 @@
 import type { NavigationResolution } from "../../../generated/api/NavigationResolution";
 import { DecodeError, decodeRecord } from "../decoder";
-import { decodeIdentifier, field, kind, requireOnlyFields } from "./shared";
+import {
+  decodeAssessmentId,
+  decodeCourseInstanceId,
+  decodeIdentifier,
+  field,
+  kind,
+  requireOnlyFields,
+} from "./shared";
 
 /** Strict decoder for the authenticated public-reference lookup boundary. */
 export function decodeNavigationResolution(
@@ -13,7 +20,7 @@ export function decodeNavigationResolution(
       requireOnlyFields(record, path, ["kind", "courseInstanceId"]);
       return {
         kind: "course",
-        courseInstanceId: decodeIdentifier(
+        courseInstanceId: decodeCourseInstanceId(
           field(record, "courseInstanceId", path),
           `${path}.courseInstanceId`,
         ),
@@ -22,11 +29,14 @@ export function decodeNavigationResolution(
       requireOnlyFields(record, path, ["kind", "courseInstanceId", "assessmentId"]);
       return {
         kind: "assessment",
-        courseInstanceId: decodeIdentifier(
+        courseInstanceId: decodeCourseInstanceId(
           field(record, "courseInstanceId", path),
           `${path}.courseInstanceId`,
         ),
-        assessmentId: decodeIdentifier(field(record, "assessmentId", path), `${path}.assessmentId`),
+        assessmentId: decodeAssessmentId(
+          field(record, "assessmentId", path),
+          `${path}.assessmentId`,
+        ),
       };
     case "assessmentAttempt":
       requireOnlyFields(record, path, [
@@ -38,11 +48,14 @@ export function decodeNavigationResolution(
       ]);
       return {
         kind: "assessmentAttempt",
-        courseInstanceId: decodeIdentifier(
+        courseInstanceId: decodeCourseInstanceId(
           field(record, "courseInstanceId", path),
           `${path}.courseInstanceId`,
         ),
-        assessmentId: decodeIdentifier(field(record, "assessmentId", path), `${path}.assessmentId`),
+        assessmentId: decodeAssessmentId(
+          field(record, "assessmentId", path),
+          `${path}.assessmentId`,
+        ),
         studentRecordId: decodeIdentifier(
           field(record, "studentRecordId", path),
           `${path}.studentRecordId`,

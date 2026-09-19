@@ -8,7 +8,7 @@ SET LOCAL ROLE ple_data_owner;
 -- attested session and allows only an active Instructor to set their own
 -- relationship with a Public or Archived Blueprint Course.
 CREATE FUNCTION ple_data.set_current_blueprint_course_star(
-    p_reference_number text,
+    p_blueprint_course_id_number text,
     p_starred boolean
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
@@ -24,7 +24,7 @@ BEGIN
             MESSAGE = 'Blueprint Course Star requires an active Instructor Account';
     END IF;
     PERFORM 1 FROM ple_data.blueprint_course
-     WHERE blueprint_course_id = p_reference_number
+     WHERE blueprint_course_id = p_blueprint_course_id_number
        AND availability IN ('public', 'archived');
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
@@ -33,11 +33,11 @@ BEGIN
     IF p_starred THEN
         INSERT INTO ple_data.blueprint_course_star (
             blueprint_course_id, instructor_account_id, starred_at
-        ) VALUES (p_reference_number, actor_id, pg_catalog.clock_timestamp())
+        ) VALUES (p_blueprint_course_id_number, actor_id, pg_catalog.clock_timestamp())
         ON CONFLICT (blueprint_course_id, instructor_account_id) DO NOTHING;
     ELSE
         DELETE FROM ple_data.blueprint_course_star
-         WHERE blueprint_course_id = p_reference_number
+         WHERE blueprint_course_id = p_blueprint_course_id_number
            AND instructor_account_id = actor_id;
     END IF;
 END
@@ -48,7 +48,7 @@ $$;
 -- ASVS 8.2.1 and 8.3.1: private subscription changes are self-only and
 -- idempotent. No Account identifier or role claim is accepted from callers.
 CREATE FUNCTION ple_data.set_current_blueprint_course_watch(
-    p_reference_number text,
+    p_blueprint_course_id_number text,
     p_watching boolean
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
@@ -64,7 +64,7 @@ BEGIN
             MESSAGE = 'Blueprint Course Watch requires an active Instructor Account';
     END IF;
     PERFORM 1 FROM ple_data.blueprint_course
-     WHERE blueprint_course_id = p_reference_number
+     WHERE blueprint_course_id = p_blueprint_course_id_number
        AND availability IN ('public', 'archived');
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
@@ -73,11 +73,11 @@ BEGIN
     IF p_watching THEN
         INSERT INTO ple_data.blueprint_course_watch (
             blueprint_course_id, instructor_account_id, watched_at
-        ) VALUES (p_reference_number, actor_id, pg_catalog.clock_timestamp())
+        ) VALUES (p_blueprint_course_id_number, actor_id, pg_catalog.clock_timestamp())
         ON CONFLICT (blueprint_course_id, instructor_account_id) DO NOTHING;
     ELSE
         DELETE FROM ple_data.blueprint_course_watch
-         WHERE blueprint_course_id = p_reference_number
+         WHERE blueprint_course_id = p_blueprint_course_id_number
            AND instructor_account_id = actor_id;
     END IF;
 END
@@ -90,14 +90,14 @@ $$;
 -- ASVS 8.2.1 and 8.3.1: the actor and recipients are derived in PostgreSQL;
 -- this is never an API accepting an Account identifier or client role claim.
 CREATE FUNCTION ple_data.fan_out_blueprint_course_watch_notifications(
-    p_reference_number text,
+    p_blueprint_course_id_number text,
     p_event_kind text,
     p_source_event_id uuid,
     p_occurred_at timestamptz
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data, ple_private AS $$
 BEGIN
-    IF p_reference_number IS NULL
+    IF p_blueprint_course_id_number IS NULL
        
        OR p_event_kind IS NULL
        OR p_event_kind NOT IN ('revision', 'published', 'archived', 'restored')
@@ -109,7 +109,7 @@ BEGIN
         recipient_account_id, blueprint_course_id, event_kind,
         source_event_id, occurred_at
     )
-    SELECT watch.instructor_account_id, p_reference_number,
+    SELECT watch.instructor_account_id, p_blueprint_course_id_number,
            p_event_kind::ple_data.watch_notification_event_kind,
            p_source_event_id, p_occurred_at
       FROM ple_data.blueprint_course_watch AS watch
@@ -120,7 +120,7 @@ BEGIN
            WHERE account_id = account.account_id
            ORDER BY occurred_at DESC, event_id DESC LIMIT 1
       ) AS state_event ON state_event.state = 'active'
-     WHERE watch.blueprint_course_id = p_reference_number
+     WHERE watch.blueprint_course_id = p_blueprint_course_id_number
        AND account.product_role = 'instructor'
     ON CONFLICT (recipient_account_id, event_kind, source_event_id) DO NOTHING;
 END
@@ -178,14 +178,14 @@ FOR EACH ROW EXECUTE FUNCTION ple_data.enqueue_blueprint_course_watch_lifecycle_
 -- derives both the viewer and the current active-Instructor endorser set from
 -- trusted database state; it constructs no dynamic SQL.
 CREATE FUNCTION ple_data.read_current_blueprint_course_star(
-    p_reference_number text
+    p_blueprint_course_id_number text
 ) RETURNS TABLE (viewer_has_starred boolean, star_count bigint)
 LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE actor_id text;
 BEGIN
     actor_id := ple_api.current_session_account_id();
-    IF p_reference_number IS NULL
+    IF p_blueprint_course_id_number IS NULL
        
        OR actor_id IS NULL
        OR NOT ple_api.current_session_account_is_instructor() THEN
@@ -193,7 +193,7 @@ BEGIN
             MESSAGE = 'Blueprint Course Star requires an active Instructor Account';
     END IF;
     PERFORM 1 FROM ple_data.blueprint_course
-     WHERE blueprint_course_id = p_reference_number
+     WHERE blueprint_course_id = p_blueprint_course_id_number
        AND availability IN ('public', 'archived');
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
@@ -213,7 +213,7 @@ BEGIN
                ORDER BY event.occurred_at DESC, event.event_id DESC
                LIMIT 1
           ) AS state_event ON state_event.state = 'active'
-         WHERE star.blueprint_course_id = p_reference_number
+         WHERE star.blueprint_course_id = p_blueprint_course_id_number
     )
     SELECT EXISTS (
                SELECT 1 FROM active_endorsers
@@ -234,14 +234,14 @@ $$;
 -- ASVS 8.2.1 and 8.3.1: viewer and disclosed endorser authorization derive
 -- only from PostgreSQL state, never from browser role or identity claims.
 CREATE FUNCTION ple_data.read_current_blueprint_course_starred_instructors(
-    p_reference_number text
+    p_blueprint_course_id_number text
 ) RETURNS TABLE (display_name text)
 LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE actor_id text;
 BEGIN
     actor_id := ple_api.current_session_account_id();
-    IF p_reference_number IS NULL
+    IF p_blueprint_course_id_number IS NULL
        
        OR actor_id IS NULL
        OR NOT ple_api.current_session_account_is_instructor() THEN
@@ -253,7 +253,7 @@ BEGIN
             MESSAGE = 'Blueprint Course Star identities require a vetted Instructor Account';
     END IF;
     PERFORM 1 FROM ple_data.blueprint_course
-     WHERE blueprint_course_id = p_reference_number
+     WHERE blueprint_course_id = p_blueprint_course_id_number
        AND availability IN ('public', 'archived');
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
@@ -273,21 +273,21 @@ BEGIN
            ORDER BY event.occurred_at DESC, event.event_id DESC
            LIMIT 1
       ) AS state_event ON state_event.state = 'active'
-     WHERE star.blueprint_course_id = p_reference_number
+     WHERE star.blueprint_course_id = p_blueprint_course_id_number
        AND ple_private.verified_instructor_display_name(star.instructor_account_id) IS NOT NULL
      ORDER BY ple_private.verified_instructor_display_name(star.instructor_account_id) COLLATE "C";
 END
 $$;
 
 CREATE FUNCTION ple_data.read_current_blueprint_course_watch(
-    p_reference_number text
+    p_blueprint_course_id_number text
 ) RETURNS TABLE (watching boolean)
 LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
 DECLARE actor_id text;
 BEGIN
     actor_id := ple_api.current_session_account_id();
-    IF p_reference_number IS NULL
+    IF p_blueprint_course_id_number IS NULL
        
        OR actor_id IS NULL
        OR NOT ple_api.current_session_account_is_instructor() THEN
@@ -295,7 +295,7 @@ BEGIN
             MESSAGE = 'Blueprint Course Watch requires an active Instructor Account';
     END IF;
     PERFORM 1 FROM ple_data.blueprint_course
-     WHERE blueprint_course_id = p_reference_number
+     WHERE blueprint_course_id = p_blueprint_course_id_number
        AND availability IN ('public', 'archived');
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
@@ -303,21 +303,21 @@ BEGIN
     END IF;
     RETURN QUERY SELECT EXISTS (
         SELECT 1 FROM ple_data.blueprint_course_watch
-         WHERE blueprint_course_id = p_reference_number
+         WHERE blueprint_course_id = p_blueprint_course_id_number
            AND instructor_account_id = actor_id
     );
 END
 $$;
 
 CREATE FUNCTION ple_data.read_current_blueprint_course_watch_events(
-    p_reference_number text, p_limit integer
+    p_blueprint_course_id_number text, p_limit integer
 ) RETURNS TABLE (event_kind text, occurred_at_millis bigint)
 LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE actor_id text;
 BEGIN
     actor_id := ple_api.current_session_account_id();
-    IF p_reference_number IS NULL
+    IF p_blueprint_course_id_number IS NULL
        
        OR p_limit IS NULL OR p_limit NOT BETWEEN 1 AND 100
        OR actor_id IS NULL
@@ -326,7 +326,7 @@ BEGIN
             MESSAGE = 'Blueprint Course Watch events require an active Instructor Account';
     END IF;
     PERFORM 1 FROM ple_data.blueprint_course
-     WHERE blueprint_course_id = p_reference_number
+     WHERE blueprint_course_id = p_blueprint_course_id_number
        AND availability IN ('public', 'archived');
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
@@ -336,7 +336,7 @@ BEGIN
         (EXTRACT(EPOCH FROM notification.occurred_at) * 1000)::bigint
       FROM ple_private.blueprint_course_watch_notification AS notification
      WHERE notification.recipient_account_id = actor_id
-       AND notification.blueprint_course_id = p_reference_number
+       AND notification.blueprint_course_id = p_blueprint_course_id_number
      ORDER BY notification.occurred_at DESC, notification.notification_id DESC
      LIMIT p_limit;
 END
@@ -360,7 +360,7 @@ FOR EACH ROW EXECUTE FUNCTION ple_data.reject_blueprint_course_watch_notificatio
 SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.read_current_blueprint_course_star(
-    p_reference text
+    p_blueprint_course_id text
 ) RETURNS TABLE (viewer_has_starred boolean, star_count bigint)
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
@@ -370,7 +370,7 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
 $$;
 
 CREATE FUNCTION ple_api.read_current_blueprint_course_starred_instructors(
-    p_reference text
+    p_blueprint_course_id text
 ) RETURNS TABLE (display_name text)
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
@@ -380,7 +380,7 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
 $$;
 
 CREATE FUNCTION ple_api.read_current_blueprint_course_watch(
-    p_reference text
+    p_blueprint_course_id text
 ) RETURNS TABLE (watching boolean)
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
@@ -390,7 +390,7 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
 $$;
 
 CREATE FUNCTION ple_api.read_current_blueprint_course_watch_events(
-    p_reference text, p_limit integer
+    p_blueprint_course_id text, p_limit integer
 ) RETURNS TABLE (event_kind text, occurred_at_millis bigint)
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
@@ -400,7 +400,7 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
 $$;
 
 CREATE FUNCTION ple_api.set_current_blueprint_course_star(
-    p_reference text, p_starred boolean
+    p_blueprint_course_id text, p_starred boolean
 ) RETURNS void LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT ple_data.set_current_blueprint_course_star(
@@ -409,7 +409,7 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
 $$;
 
 CREATE FUNCTION ple_api.set_current_blueprint_course_watch(
-    p_reference text, p_watching boolean
+    p_blueprint_course_id text, p_watching boolean
 ) RETURNS void LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT ple_data.set_current_blueprint_course_watch(

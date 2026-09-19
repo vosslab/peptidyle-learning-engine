@@ -90,14 +90,9 @@ fn assessment_attempt_retains_interpretation_evidence() {
 #[test]
 fn question_pool_selection_retains_exact_entries_and_issued_question_link() {
     let selection_id = QuestionPoolSelectionId::from_uuid(Uuid::from_u128(10));
-    let pool_revision = crate::QuestionPoolRevisionReference {
-        question_pool_id: "7654-Z321".parse().expect("valid Pool ID"),
-        revision_number: crate::QuestionPoolRevisionNumber::new(1).expect("positive Pool Revision"),
-    };
-    let pool_revision_member = crate::PoolRevisionMemberReference {
-        question_pool_revision: pool_revision.clone(),
-        member_position: 0,
-    };
+    let question_pool_id: crate::QuestionId = "7654-Z321".parse().expect("valid Pool ID");
+    let question_pool_edit_number =
+        crate::QuestionPoolEditNumber::new(1).expect("positive Pool Edit Number");
     let reference = QuestionRevisionReference {
         question_id: "1234-H567".parse().expect("valid Question ID"),
         revision_number: crate::QuestionRevisionNumber::new(1).expect("positive version"),
@@ -106,11 +101,14 @@ fn question_pool_selection_retains_exact_entries_and_issued_question_link() {
         id: selection_id,
         assessment_attempt: AssessmentAttemptId::from_uuid(Uuid::from_u128(12)),
         question_pool_assessment_entry: AssessmentEntryId::from_uuid(Uuid::from_u128(13)),
-        question_pool_revision: pool_revision,
+        question_pool_id: question_pool_id.clone(),
+        question_pool_edit_number,
         created_at: Timestamp::from_unix_millis(1_000),
         selected_question_count: 1,
         selected_items: vec![QuestionPoolSelectedItem {
-            pool_revision_member: pool_revision_member.clone(),
+            question_pool_id: question_pool_id.clone(),
+            question_pool_edit_number,
+            member_position: 0,
             reference: reference.clone(),
         }],
     };
@@ -127,14 +125,17 @@ fn question_pool_selection_retains_exact_entries_and_issued_question_link() {
         scoring_rule: crate::AssessmentEntryScoringRule::Normal,
         question_statistics_eligibility: true,
         question_pool_selection: Some(selection_id),
-        pool_revision_member: Some(pool_revision_member.clone()),
+        question_pool_id: Some(question_pool_id.clone()),
+        question_pool_edit_number: Some(question_pool_edit_number),
+        question_pool_member_position: Some(0),
     };
 
     assert_eq!(selection.selected_items.len(), 1);
     assert_eq!(issued_question.question_pool_selection, Some(selection.id));
+    assert_eq!(issued_question.question_pool_id, Some(question_pool_id));
     assert_eq!(
-        issued_question.pool_revision_member,
-        Some(pool_revision_member)
+        issued_question.question_pool_edit_number,
+        Some(question_pool_edit_number)
     );
 }
 

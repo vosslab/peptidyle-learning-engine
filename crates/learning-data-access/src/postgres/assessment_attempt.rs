@@ -136,13 +136,13 @@ fn storage_selections(
                 json!({
                     "question_pool_selection_id": id.as_uuid(),
                     "assessment_entry_id": selection.question_pool_assessment_entry.as_uuid(),
-                    "question_pool_id": selection.question_pool_revision.question_pool_id.as_str(),
-                    "question_pool_revision_number": selection.question_pool_revision.revision_number.get(),
+                    "question_pool_id": selection.question_pool_id.as_str(),
+                    "question_pool_edit_number": selection.question_pool_edit_number.get(),
                     "selected_items": selection.selected_items.iter().map(|item| {
-                        // PostgreSQL stores Pool Revision member positions one-based;
+                        // PostgreSQL stores Pool member positions one-based;
                         // the shared contract deliberately exposes them zero-based.
-                        i32::try_from(item.pool_revision_member.member_position + 1)
-                            .expect("Pool Revision member position fits PostgreSQL INTEGER")
+                        i32::try_from(item.member_position + 1)
+                            .expect("Pool member position fits PostgreSQL INTEGER")
                     }).collect::<Vec<_>>(),
                 })
             })
@@ -163,7 +163,7 @@ fn storage_issued_questions(
             let (
                 assessment_entry,
                 question_pool_selection,
-                pool_revision_member,
+                pool_member,
                 reference,
                 backend,
             ): (
@@ -181,7 +181,7 @@ fn storage_issued_questions(
                 PreparedIssuedQuestion::QuestionPoolItem {
                     assessment_entry,
                     question_pool_selection_index,
-                    pool_revision_member,
+                    member_position,
                     reference,
                     backend,
                 } => (
@@ -192,7 +192,7 @@ fn storage_issued_questions(
                                 .to_string(),
                         )
                     })?),
-                    Some(pool_revision_member),
+                    Some(*member_position),
                     reference,
                     backend,
                 ),
@@ -212,10 +212,31 @@ fn storage_issued_questions(
                     ));
                 }
             };
+            let pool_identity = match question {
+                PreparedIssuedQuestion::QuestionPoolItem {
+                    question_pool_selection_index,
+                    member_position,
+                    ..
+                } => {
+                    let selection = start.question_pool_selections.get(*question_pool_selection_index)
+                        .ok_or_else(|| {
+                            StoreError::InvalidRecord(
+                                "a pooled Issued Question must name a prepared Question Pool Selection"
+                                    .to_string(),
+                            )
+                        })?;
+                    Some((
+                        &selection.question_pool_id,
+                        selection.question_pool_edit_number,
+                        *member_position,
+                    ))
+                }
+                PreparedIssuedQuestion::FixedQuestion { .. } => None,
+            };
             let issued_question = IssuedQuestionId::for_frozen_content(
                 assessment_attempt,
                 assessment_entry,
-                pool_revision_member,
+                pool_identity,
             );
             Ok(json!({
                 "issued_question_id": issued_question.as_uuid(),
@@ -224,9 +245,9 @@ fn storage_issued_questions(
                 "question_id": reference.question_id.as_str(),
                 "revision_number": reference.revision_number.get(),
                 "question_pool_selection_id": question_pool_selection.map(|selection| selection.as_uuid()),
-                "question_pool_member_position": pool_revision_member.map(|member| {
-                    i32::try_from(member.member_position + 1)
-                        .expect("Pool Revision member position fits PostgreSQL INTEGER")
+                "question_pool_member_position": pool_member.map(|member_position| {
+                    i32::try_from(member_position + 1)
+                        .expect("Pool member position fits PostgreSQL INTEGER")
                 }),
                 "question_seed": question_seed,
             }))

@@ -3,7 +3,7 @@
 import type { QuestionId } from "../../generated/api/QuestionId";
 import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
 
-/** Browser-supplied content for a server-issued Published Question Pool Revision 1. */
+/** Browser-supplied content for a new current-state Published Question Pool. */
 export interface CreateQuestionPoolInput {
   readonly title: string;
   readonly description: string;
@@ -11,10 +11,10 @@ export interface CreateQuestionPoolInput {
   readonly interchangeabilityAttested: true;
 }
 
-/** Server-issued identity and first immutable revision for one Published Question Pool. */
+/** Server-issued Pool ID; a new Pool starts at Edit Number 1. */
 export interface CreatedQuestionPool {
   readonly questionPoolId: QuestionId;
-  readonly revisionNumber: 1;
+  readonly questionPoolEditNumber: 1;
 }
 
 /** The one browser command for creating a reusable Published Question Pool. */

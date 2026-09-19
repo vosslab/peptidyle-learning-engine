@@ -468,8 +468,7 @@ async fn resolve_graph(api: &ProductApi, instructor: &TemporarySession) -> Resul
         assessments.len() == 1,
         "Live Demo Assessment is missing or ambiguous"
     );
-    let assessment =
-        public_id::<AssessmentId>(assessments[0].get("id"), "Assessment")?;
+    let assessment = public_id::<AssessmentId>(assessments[0].get("id"), "Assessment")?;
     Ok(DemoGraph { course, assessment })
 }
 

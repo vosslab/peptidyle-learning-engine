@@ -22,7 +22,6 @@ import {
   defaults,
   pointValue,
   questionId,
-  questionPoolRevisionReference,
   revisionReference,
   selectionRule,
   text,
@@ -82,7 +81,8 @@ function canonicalAssessment(value: unknown, path: string): void {
             ]
           : [
               "kind",
-              "question_pool_revision",
+              "question_pool_id",
+              "question_pool_edit_number",
               "selection_count",
               "points_per_item",
               "scoring_rule",
@@ -99,9 +99,10 @@ function canonicalAssessment(value: unknown, path: string): void {
         decodePositiveInteger(field(pin, "revisionNumber", pinPath), `${pinPath}.revisionNumber`);
         pointValue(field(entry, "points_possible", entryPath), `${entryPath}.points_possible`);
       } else {
-        questionPoolRevisionReference(
-          field(entry, "question_pool_revision", entryPath),
-          `${entryPath}.question_pool_revision`,
+        questionId(field(entry, "question_pool_id", entryPath), `${entryPath}.question_pool_id`);
+        decodePositiveInteger(
+          field(entry, "question_pool_edit_number", entryPath),
+          `${entryPath}.question_pool_edit_number`,
         );
         decodePositiveInteger(
           field(entry, "selection_count", entryPath),

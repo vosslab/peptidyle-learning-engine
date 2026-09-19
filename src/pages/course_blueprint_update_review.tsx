@@ -82,7 +82,7 @@ export function CourseBlueprintUpdateReviewList(props: {
             {(summary) => (
               <>
                 <p class="page-lede" data-blueprint-source-revision>
-                  Source Blueprint {summary().blueprintReference}, Revision{" "}
+                  Source Blueprint {summary().blueprintCourseId}, Revision{" "}
                   {summary().sourceRevision} under review.
                 </p>
                 <p class="instructor-list__metadata">
@@ -102,7 +102,7 @@ export function CourseBlueprintUpdateReviewList(props: {
                       {(assessment) => (
                         <article
                           class="instructor-list__row course-blueprint-update-review__row"
-                          data-blueprint-update-assessment={assessment.assessmentReference}
+                          data-blueprint-update-assessment={assessment.assessmentId}
                         >
                           <div class="instructor-list__identity">
                             <p class="instructor-list__kind">{updateLabel(assessment)}</p>
@@ -110,14 +110,14 @@ export function CourseBlueprintUpdateReviewList(props: {
                             <h3>{assessment.title}</h3>
                             <p class="instructor-list__metadata">
                               {assessmentTypePresentation(assessment.assessmentType).label}
-                              {"; "}Assessment {assessment.assessmentReference}
+                              {"; "}Assessment {assessment.assessmentId}
                             </p>
                           </div>
                           <div class="instructor-list__actions">
                             <A
                               class="quiet-link"
                               aria-label={`Review this Assessment: ${assessment.title}`}
-                              href={`/instructor/courses/${props.courseReference}/assessments/${assessment.assessmentReference}/questions`}
+                              href={`/instructor/courses/${props.courseReference}/assessments/${assessment.assessmentId}/questions`}
                             >
                               Review this Assessment
                             </A>

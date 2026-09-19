@@ -658,19 +658,14 @@ export function CourseInstancePage(): JSX.Element {
                       <h3 id="blueprint-source-heading">Blueprint source</h3>
                       <p data-blueprint-origin>
                         Adopted from Blueprint{" "}
-                        <A href={`/blueprint-courses/${origin().id}`}>
-                          {origin().id}
-                        </A>
-                        , Revision {origin().adoptedRevision}; source now Revision{" "}
-                        {origin().currentRevision}.
+                        <A href={`/blueprint-courses/${origin().id}`}>{origin().id}</A>, Revision{" "}
+                        {origin().adoptedRevision}; source now Revision {origin().currentRevision}.
                       </p>
                       <Show
                         when={BigInt(origin().currentRevision) > BigInt(origin().adoptedRevision)}
                       >
                         <p data-blueprint-revision-notice>Newer Blueprint Revision available</p>
-                        <CourseBlueprintUpdateReviewList
-                          courseReference={view().course.id}
-                        />
+                        <CourseBlueprintUpdateReviewList courseReference={view().course.id} />
                       </Show>
                     </section>
                   )}
@@ -682,16 +677,10 @@ export function CourseInstancePage(): JSX.Element {
               >
                 <h3 id="course-administration-heading">Course tools</h3>
                 <nav class="course-instance-page__actions" aria-label="Course actions">
-                  <A
-                    class="quiet-link"
-                    href={`/instructor/courses/${view().course.id}/students`}
-                  >
+                  <A class="quiet-link" href={`/instructor/courses/${view().course.id}/students`}>
                     Open Students
                   </A>
-                  <A
-                    class="quiet-link"
-                    href={`/instructor/courses/${view().course.id}/appearance`}
-                  >
+                  <A class="quiet-link" href={`/instructor/courses/${view().course.id}/appearance`}>
                     Appearance
                   </A>
                 </nav>

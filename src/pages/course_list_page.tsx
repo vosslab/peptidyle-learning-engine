@@ -75,9 +75,7 @@ function coursesForMode(
   mode: CourseListMode,
 ): ReadonlyArray<CourseInstanceSummary> {
   const listedReferences = new Set(listedCourses?.map((course) => course.id) ?? []);
-  const localOnlyCourses = createdCourses.filter(
-    (course) => !listedReferences.has(course.id),
-  );
+  const localOnlyCourses = createdCourses.filter((course) => !listedReferences.has(course.id));
   const combinedCourses = [...localOnlyCourses, ...(listedCourses ?? [])];
   return combinedCourses.filter((course) => course.lifecycleState === mode);
 }

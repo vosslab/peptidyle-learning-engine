@@ -144,7 +144,7 @@ impl PostgresBlueprintCourseStore {
             return Err(invalid());
         }
         // Only explicit source copies import fresh Assessment-owned Pools;
-        // untouched target Assessments keep their exact existing Pool pins.
+        // untouched target Assessments keep their existing Pool ID and Edit Number.
         let replay = sqlx::query("SELECT * FROM ple_api.blueprint_pool_write_receipt($1,$2)")
             .bind(input.expected_fork.blueprint_course_id.as_string())
             .bind(checksum.into_bytes().to_vec())

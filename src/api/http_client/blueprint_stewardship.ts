@@ -17,9 +17,9 @@ import { ApiProtocolError, ApiRequestError, BlueprintCourseConflictError } from 
 import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
 
-function referencePath(reference: string): string {
-  // ASVS 1.2.2: validated references remain encoded as one path component.
-  return encodeURIComponent(decodeBlueprintCourseId(reference));
+function blueprintCoursePath(blueprintCourseId: string): string {
+  // ASVS 1.2.2: validated Blueprint Course IDs remain encoded as one path component.
+  return encodeURIComponent(decodeBlueprintCourseId(blueprintCourseId, "id"));
 }
 
 function quotedBlueprintEditNumber(value: string): string {
@@ -50,7 +50,7 @@ export function createBlueprintStewardshipClient(
   }
 
   function path(reference: string, suffix: string): string {
-    return `/api/course-blueprints/${referencePath(reference)}/stewardship/${suffix}`;
+    return `/api/course-blueprints/${blueprintCoursePath(reference)}/stewardship/${suffix}`;
   }
 
   async function promotion(
@@ -59,7 +59,7 @@ export function createBlueprintStewardshipClient(
     etag?: string,
   ): Promise<BlueprintPromotion> {
     const result = await request(
-      `/api/sysadmin/course-blueprints/${referencePath(reference)}/promotion`,
+      `/api/sysadmin/course-blueprints/${blueprintCoursePath(reference)}/promotion`,
       decodeBlueprintPromotion,
       promoted === undefined ? undefined : { promoted: decodeBoolean(promoted, "promoted") },
       etag,

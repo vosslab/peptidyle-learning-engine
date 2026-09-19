@@ -4,14 +4,14 @@ use super::*;
 
 pub(super) async fn assert_actual_role_round_trip(
     store: &PostgresBlueprintCourseStore,
-    blueprint_reference: BlueprintCourseId,
+    blueprint_course_id: BlueprintCourseId,
     owner_private: &learning_data_access::StoredBlueprintCourse,
 ) {
     // The canonical exchange is a stable reusable-content contract. Import
     // creates a distinct owner-owned Private lineage at Revision 1; it does
     // not transfer source lineage identity, visibility, or child identities.
     let exported = store
-        .export_blueprint_course(token(), blueprint_reference.clone())
+        .export_blueprint_course(token(), blueprint_course_id.clone())
         .await
         .expect("owner exports reusable Blueprint content");
     let imported = store
@@ -24,7 +24,7 @@ pub(super) async fn assert_actual_role_round_trip(
         .await
         .expect("owner imports canonical reusable Blueprint content");
     assert_ne!(
-        imported.blueprint_revision.blueprint_course_id, blueprint_reference,
+        imported.blueprint_revision.blueprint_course_id, blueprint_course_id,
         "canonical import creates a distinct local Blueprint lineage"
     );
     assert_eq!(
@@ -41,7 +41,7 @@ pub(super) async fn assert_actual_role_round_trip(
         .expect("owner reads imported Private Blueprint");
     assert_eq!(
         store
-            .load_blueprint_course(token(), blueprint_reference.clone())
+            .load_blueprint_course(token(), blueprint_course_id.clone())
             .await
             .expect("owner reloads unchanged source Blueprint"),
         *owner_private,
@@ -121,7 +121,8 @@ pub(super) async fn assert_actual_role_round_trip(
                     }
                     (
                         question_model::CanonicalBlueprintAssessmentEntry::Pool {
-                            question_pool_revision: source_pool,
+                            question_pool_id: source_pool_id,
+                            question_pool_edit_number: source_edit_number,
                             selection_count: source_count,
                             points_per_item: source_points,
                             scoring_rule: source_scoring,
@@ -130,7 +131,8 @@ pub(super) async fn assert_actual_role_round_trip(
                             question_attempt_time_limit: source_time_limit,
                         },
                         question_model::CanonicalBlueprintAssessmentEntry::Pool {
-                            question_pool_revision: imported_pool,
+                            question_pool_id: imported_pool_id,
+                            question_pool_edit_number: imported_edit_number,
                             selection_count: imported_count,
                             points_per_item: imported_points,
                             scoring_rule: imported_scoring,
@@ -140,15 +142,15 @@ pub(super) async fn assert_actual_role_round_trip(
                         },
                     ) => {
                         assert_ne!(
-                            imported_pool.question_pool_id, source_pool.question_pool_id,
+                            imported_pool_id, source_pool_id,
                             "canonical import creates a fresh local Pool identity"
                         );
                         assert_eq!(
-                            question_pool_member_pins(imported_pool).await,
-                            question_pool_member_pins(source_pool).await,
+                            question_pool_member_pins(imported_pool_id).await,
+                            question_pool_member_pins(source_pool_id).await,
                             "canonical import preserves the exact ordered Pool member pins"
                         );
-                        assert_eq!(imported_pool.revision_number, source_pool.revision_number);
+                        assert_eq!(imported_edit_number, source_edit_number);
                         assert_eq!(imported_count, source_count);
                         assert_eq!(imported_points, source_points);
                         assert_eq!(imported_scoring, source_scoring);

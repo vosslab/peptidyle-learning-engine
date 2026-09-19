@@ -403,7 +403,7 @@ END
 $$;
 
 CREATE FUNCTION ple_private.instructor_account_summary(p_account_id text)
-RETURNS TABLE (public_reference text, state text, last_successful_sign_in timestamp with time zone)
+RETURNS TABLE (account_id text, state text, last_successful_sign_in timestamp with time zone)
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private
 AS $$
@@ -423,7 +423,7 @@ END
 $$;
 
 CREATE FUNCTION ple_private.list_instructor_accounts()
-RETURNS TABLE (public_reference text, state text, last_successful_sign_in timestamp with time zone)
+RETURNS TABLE (account_id text, state text, last_successful_sign_in timestamp with time zone)
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private
 AS $$
@@ -440,7 +440,7 @@ $$;
 CREATE FUNCTION ple_private.create_instructor_account_summary(
     p_normalized_email text, p_vetting_decision_id uuid
 )
-RETURNS TABLE (public_reference text, state text, last_successful_sign_in timestamp with time zone)
+RETURNS TABLE (account_id text, state text, last_successful_sign_in timestamp with time zone)
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private
 AS $$
@@ -455,16 +455,16 @@ END
 $$;
 
 CREATE FUNCTION ple_private.change_instructor_account_state(
-    p_public_reference text, p_next_state text, p_reason text
+    p_account_id text, p_next_state text, p_reason text
 )
-RETURNS TABLE (public_reference text, state text, last_successful_sign_in timestamp with time zone)
+RETURNS TABLE (account_id text, state text, last_successful_sign_in timestamp with time zone)
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private
 AS $$
 DECLARE v_account_id text; v_current_state text;
 BEGIN
     PERFORM ple_private.require_current_sysadmin_account();
-    IF p_next_state NOT IN ('active', 'deactivated') OR p_public_reference IS NULL THEN
+    IF p_next_state NOT IN ('active', 'deactivated') OR p_account_id IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Instructor Account state input is invalid';
     END IF;
     SELECT account.account_id, state_event.state INTO v_account_id, v_current_state
@@ -474,7 +474,7 @@ BEGIN
          WHERE event.account_id = account.account_id
          ORDER BY event.occurred_at DESC, event.event_id DESC LIMIT 1
     ) AS state_event ON true
-    WHERE account.account_id = p_public_reference AND account.product_role = 'instructor'
+    WHERE account.account_id = p_account_id AND account.product_role = 'instructor'
     FOR UPDATE OF account;
     IF NOT FOUND OR v_current_state = p_next_state THEN RETURN; END IF;
     IF p_next_state = 'deactivated' AND char_length(btrim(p_reason)) NOT BETWEEN 1 AND 1000 THEN
@@ -536,7 +536,7 @@ SET search_path = pg_catalog, ple_api, ple_private
 AS $$ SELECT ple_private.update_current_authenticated_account_time_zone(p_time_zone) $$;
 
 CREATE FUNCTION ple_api.list_instructor_accounts()
-RETURNS TABLE (public_reference text, state text, last_successful_sign_in timestamp with time zone)
+RETURNS TABLE (account_id text, state text, last_successful_sign_in timestamp with time zone)
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private
 AS $$ SELECT * FROM ple_private.list_instructor_accounts() $$;
@@ -544,7 +544,7 @@ AS $$ SELECT * FROM ple_private.list_instructor_accounts() $$;
 CREATE FUNCTION ple_api.create_instructor_account(
     p_normalized_email text, p_vetting_decision_id uuid
 )
-RETURNS TABLE (public_reference text, state text, last_successful_sign_in timestamp with time zone)
+RETURNS TABLE (account_id text, state text, last_successful_sign_in timestamp with time zone)
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private
 AS $$ SELECT * FROM ple_private.create_instructor_account_summary(
@@ -561,12 +561,12 @@ AS $$ SELECT ple_private.complete_instructor_identity_vetting(
 ) $$;
 
 CREATE FUNCTION ple_api.change_instructor_account_state(
-    p_public_reference text, p_next_state text, p_reason text
+    p_account_id text, p_next_state text, p_reason text
 )
-RETURNS TABLE (public_reference text, state text, last_successful_sign_in timestamp with time zone)
+RETURNS TABLE (account_id text, state text, last_successful_sign_in timestamp with time zone)
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private
 AS $$ SELECT * FROM ple_private.change_instructor_account_state(
-    p_public_reference, p_next_state, p_reason
+    p_account_id, p_next_state, p_reason
 ) $$;
 

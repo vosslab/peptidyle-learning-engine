@@ -36,12 +36,12 @@ const FIXTURE_CLASSIFICATION = {
 } satisfies CourseClassification;
 
 const COURSE_ONE: LiveStudentCourseLandingSummary = {
-  reference: "CI7K3M2QAZ",
+  id: "CI7K3M2QAZ",
   shortName: "BCHM 301",
   longName: "Biochemistry 301: Proteins and Peptides",
 };
 const COURSE_TWO: LiveStudentCourseLandingSummary = {
-  reference: "CI4W8QF9AD",
+  id: "CI4W8QF9AD",
   shortName: "BIOL 302",
   longName: "Molecular Genetics: Gene Regulation",
 };
@@ -58,7 +58,7 @@ const ASSESSMENT_DECISION = {
   publicReason: null,
 } as const;
 const ASSESSMENT: LiveStudentAssessmentLandingSummary = {
-  reference: "A9D2RX5AF",
+  id: "A9D2RX5AF",
   title: "Protein structure practice",
   assessmentType: "regular_assignment",
   decision: ASSESSMENT_DECISION,
@@ -72,7 +72,7 @@ const ASSESSMENT: LiveStudentAssessmentLandingSummary = {
 };
 const BONUS_ASSESSMENT: LiveStudentAssessmentLandingSummary = {
   ...ASSESSMENT,
-  reference: "A4N8BQ2A1",
+  id: "A4N8BQ2A1",
   title: "Bonus protein challenge",
   assessmentType: "bonus_assignment",
   decision: { ...ASSESSMENT_DECISION, attemptLimit: null },
@@ -85,7 +85,7 @@ const BONUS_ASSESSMENT: LiveStudentAssessmentLandingSummary = {
   assessmentScore: { pointsEarned: 3, pointsPossible: 0 },
 };
 const WITHHELD_ASSESSMENT: LiveStudentAssessmentLandingSummary = {
-  reference: "A7K2CW4A0",
+  id: "A7K2CW4A0",
   title: "Peptide quiz",
   assessmentType: "quiz",
   decision: ASSESSMENT_DECISION,
@@ -98,7 +98,7 @@ const WITHHELD_ASSESSMENT: LiveStudentAssessmentLandingSummary = {
 };
 const UNSTARTED_ASSESSMENT: LiveStudentAssessmentLandingSummary = {
   ...WITHHELD_ASSESSMENT,
-  reference: "A3N7DX6AT",
+  id: "A3N7DX6AT",
   title: "Protein folding quiz",
   assessmentAttemptNumber: null,
   assessmentAttemptCompletion: null,
@@ -169,7 +169,7 @@ export function mountStudentCourseEntryM6Harness(
       startLiveAssessment: () =>
         Promise.resolve({
           assessmentAttempt: "00000000-0000-0000-0000-000000000006",
-          assessment: ASSESSMENT.reference,
+          assessment: ASSESSMENT.id,
           attemptNumber: ASSESSMENT.assessmentAttemptNumber,
           resumed: true,
           title: ASSESSMENT.title,
@@ -188,7 +188,7 @@ export function mountStudentCourseEntryM6Harness(
           BONUS_ASSESSMENT,
           WITHHELD_ASSESSMENT,
           UNSTARTED_ASSESSMENT,
-        ].find((candidate) => candidate.reference === assessment);
+        ].find((candidate) => candidate.id === assessment);
         if (item === undefined) throw new Error("Unknown harness Coursework");
         return Promise.resolve({
           decision: item.decision,
@@ -218,7 +218,7 @@ export function mountStudentCourseEntryM6Harness(
         (_reference: CourseInstanceRouteReference): Promise<CourseRouteView> =>
           Promise.resolve({
             summary: {
-              reference: COURSE_ONE.reference,
+              id: COURSE_ONE.id,
               shortName: COURSE_ONE.shortName,
               longName: COURSE_ONE.longName,
               classification: FIXTURE_CLASSIFICATION,
@@ -238,7 +238,7 @@ export function mountStudentCourseEntryM6Harness(
             expiresAt: null,
             timerRemainingMilliseconds: null,
             course: { ...COURSE_ONE, theme: "ocean" },
-            assessment: { reference: ASSESSMENT.reference, title: ASSESSMENT.title },
+            assessment: { id: ASSESSMENT.id, title: ASSESSMENT.title },
           }),
         "m6-attempt-scope",
       ),
@@ -248,7 +248,7 @@ export function mountStudentCourseEntryM6Harness(
             assessmentAttempt: "00000000-0000-0000-0000-000000000005",
             attemptNumber: 1,
             course: { ...COURSE_ONE, theme: "ocean" },
-            assessment: { reference: BONUS_ASSESSMENT.reference, title: BONUS_ASSESSMENT.title },
+            assessment: { id: BONUS_ASSESSMENT.id, title: BONUS_ASSESSMENT.title },
             state: "submitted",
             score: BONUS_ASSESSMENT.assessmentScore,
             questions: [],

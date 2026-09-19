@@ -67,7 +67,7 @@ function modules() {
       label: "Week one",
       assessments: [
         {
-          blueprint_assessment_reference: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6e",
+          blueprint_assessment_id: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6e",
           content: {
             ...contentInput(),
             entries: [
@@ -99,12 +99,12 @@ function modules() {
 function blueprint(revision = "3") {
   return {
     classification,
-    reference: "BP7K3M2QAF",
+    id: "BP7K3M2QAF",
     short_name: "Biochemistry",
     long_name: "Biochemistry sequence",
     availability: "private",
     blueprint_edit_number: blueprintEditNumber,
-    current_revision: { reference: "BP7K3M2QAF", revision },
+    current_revision: { blueprint_course_id: "BP7K3M2QAF", revision },
     fork_source: null,
     read_access: "blueprint_course_owner",
     modules: modules(),
@@ -117,7 +117,7 @@ function blueprintWithAssessments(assessmentCount) {
   assessment.content.instructions = "x".repeat(50_000);
   const assessments = Array.from({ length: assessmentCount }, (_, index) => ({
     ...structuredClone(assessment),
-    blueprint_assessment_reference: `assessment-${index + 1}`,
+    blueprint_assessment_id: `assessment-${index + 1}`,
   }));
   return { ...blueprint(), modules: [{ ...blueprintModule, assessments }] };
 }
@@ -155,7 +155,7 @@ function replacementInput() {
           {
             choice: {
               kind: "retained",
-              blueprint_assessment_reference: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6e",
+              blueprint_assessment_id: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6e",
             },
             content: contentInput(),
           },
@@ -377,7 +377,7 @@ test("B1 client sends Revision and metadata validators to their separate routes"
         return noStoreJson(privateMetadata, `"${privateMetadata.blueprint_edit_number}"`);
       if (path.endsWith("/revisions/3"))
         return noStoreJson({
-          blueprintRevision: { reference: "BP7K3M2QAF", revision: "3" },
+          blueprintRevision: { blueprint_course_id: "BP7K3M2QAF", revision: "3" },
           modules: modules(),
         });
       if (request.method === "GET" && path.endsWith("BP7K3M2QAF"))
@@ -472,13 +472,13 @@ test("Canonical Blueprint exchange uses the one strict reusable-structure transp
       const request = new Request(new URL(input.toString(), "https://ple.example"), init);
       requests.push(request.clone());
       if (request.method === "GET") return noStoreJson(exchange);
-      return noStoreJson({ ...blueprint("1"), reference: "BP7K3M2RAW" }, '"1"', 201);
+      return noStoreJson({ ...blueprint("1"), id: "BP7K3M2RAW" }, '"1"', 201);
     },
   });
 
   assert.deepEqual(await client.exportBlueprintCourse("BP7K3M2QAF"), exchange);
   const imported = await client.importBlueprintCourse(exchange, "import-7");
-  assert.equal(imported.blueprintCourse.reference, "BP7K3M2RAW");
+  assert.equal(imported.blueprintCourse.id, "BP7K3M2RAW");
   assert.equal(imported.blueprintCourse.availability, "private");
   assert.deepEqual(
     requests.map((request) => [request.method, new URL(request.url).pathname]),
@@ -501,12 +501,12 @@ test("Canonical Blueprint import rejects a receipt that is not a new actor-owned
   const malformedReceipts = [
     { availability: "public" },
     { read_access: "active_instructor" },
-    { fork_source: { reference: "BP7K3M2QAF", revision: "1" } },
-    { current_revision: { reference: "BP7K3M2RAW", revision: "2" } },
+    { fork_source: { blueprint_course_id: "BP7K3M2QAF", revision: "1" } },
+    { current_revision: { blueprint_course_id: "BP7K3M2RAW", revision: "2" } },
   ];
 
   for (const changes of malformedReceipts) {
-    const receipt = { ...blueprint("1"), reference: "BP7K3M2RAW", ...changes };
+    const receipt = { ...blueprint("1"), id: "BP7K3M2RAW", ...changes };
     const client = createHttpApiClient({
       fetch: () =>
         Promise.resolve(noStoreJson(receipt, `"${receipt.current_revision.revision}"`, 201)),

@@ -33,7 +33,7 @@ pub struct AssessmentBlueprintUpdateReview {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CourseBlueprintUpdateReview {
-    pub blueprint_reference: question_model::BlueprintCourseId,
+    pub blueprint_course_id: question_model::BlueprintCourseId,
     /// Immutable creation pin, not a claim that the whole Course has applied a Revision.
     pub adopted_revision: question_model::BlueprintRevision,
     pub source_revision: question_model::BlueprintRevision,
@@ -86,7 +86,8 @@ pub enum AssessmentBlueprintUpdateEntry {
         question_attempt_time_limit: question_model::QuestionAttemptTimeLimit,
     },
     QuestionPool {
-        question_pool_revision: question_model::QuestionPoolRevisionReference,
+        question_pool_id: question_model::QuestionId,
+        question_pool_edit_number: question_model::QuestionPoolEditNumber,
         selection_count: NonZeroU32,
         points_per_item: question_model::AssessmentPointValue,
         scoring_rule: question_model::AssessmentEntryScoringRule,

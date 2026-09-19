@@ -30,15 +30,15 @@ if not isinstance(value, dict) or set(value) != {"items", "nextCursor"} or value
     raise SystemExit("Course list is not the closed current projection")
 matches=[]
 for item in value["items"]:
-    if not isinstance(item, dict) or set(item) != {"classification", "metadataEtag", "reference", "shortName", "longName", "term", "theme"}:
+    if not isinstance(item, dict) or set(item) != {"classification", "lifecycleState", "courseEditNumber", "id", "shortName", "longName", "term", "theme"}:
         raise SystemExit("Course list item is not the closed current projection")
     if item.get("longName") == long_name:
         matches.append(item)
 if len(matches) != 1:
     raise SystemExit("Live Demo Course is absent or duplicated")
-reference=matches[0].get("reference")
+reference=matches[0].get("id")
 if not isinstance(reference, str) or re.fullmatch(r"CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}", reference) is None:
-    raise SystemExit("Live Demo Course lacks a canonical public reference")
+    raise SystemExit("Live Demo Course lacks a canonical Course Instance ID")
 print(reference)
 ' "$1" "$live_demo_course_long_name"
 }
@@ -53,11 +53,11 @@ matches=[item for item in items if isinstance(item, dict) and item.get("title") 
 if len(matches) != 1:
     raise SystemExit("Live Demo Assessment is absent or duplicated")
 item=matches[0]
-if set(item) != {"reference","assessmentType","title","dueAt","displayTimeZone","status","editNumber"}:
+if set(item) != {"id","assessmentType","title","dueAt","displayTimeZone","status","editNumber"}:
     raise SystemExit("Course Assessment list is not its current closed projection")
-reference=item["reference"]
+reference=item["id"]
 if not isinstance(reference, str) or re.fullmatch(r"A[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}", reference) is None:
-    raise SystemExit("Live Demo Assessment lacks a canonical public reference")
+    raise SystemExit("Live Demo Assessment lacks a canonical Course Instance ID")
 print(reference)
 ' "$1" "$live_demo_assessment_title"
 }
@@ -68,10 +68,10 @@ assert_current_assessment() {
 import json, sys
 items=json.loads(sys.argv[1]); reference=sys.argv[2]
 if not isinstance(items, list): raise SystemExit("Course Assessment list is malformed")
-matches=[item for item in items if isinstance(item, dict) and item.get("reference") == reference]
+matches=[item for item in items if isinstance(item, dict) and item.get("id") == reference]
 if len(matches) != 1: raise SystemExit("Live Demo Assessment is absent or duplicated")
 item=matches[0]
-if set(item) != {"reference","assessmentType","title","dueAt","displayTimeZone","status","editNumber"}:
+if set(item) != {"id","assessmentType","title","dueAt","displayTimeZone","status","editNumber"}:
     raise SystemExit("Course Assessment list is not its current closed projection")
 if item["assessmentType"] != "practice_question_assignment":
     raise SystemExit("Live Demo Assessment has the wrong Assessment Type")

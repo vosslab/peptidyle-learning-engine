@@ -2,7 +2,7 @@
 
 RESET ROLE;
 \ir 70_grants/foundation_roles.sql
-\ir 70_grants/public_references.sql
+\ir 70_grants/public_ids.sql
 \ir 70_grants/accounts.sql
 \ir 70_grants/authentication.sql
 \ir 70_grants/authorization.sql

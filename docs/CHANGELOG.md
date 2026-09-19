@@ -10,6 +10,38 @@
 
 ### Fixes and Maintenance
 
+- Add referencing-side indexes in `40_indexes.sql` for every foreign key
+  that was not already the leading columns of a PRIMARY KEY or UNIQUE
+  constraint. `rule_14_unindexed_fk` is clean; there are no intentional
+  unindexed-FK exceptions. Gate: `source source_me.sh && python3
+  schema_style/check_schema_style.py`.
+
+- Direct identity cutover: Question Pools are current-state membership under
+  one Pool ID plus a sequential Pool Edit Number, stored as sibling fields
+  (`question_pool_id` / `question_pool_edit_number`, JSON `questionPoolId` /
+  `questionPoolEditNumber`). There is no Pool Pin wrapper and no Pool
+  Revision family. JSON and docs treat those as sibling fields; "pin"
+  remains the Question Revision `{questionId, revisionNumber}` pair. SQL public-ID parameters and `RETURNS TABLE` columns use
+  `*_id` rather than `public_reference`. Dual `question_pool_public_id`
+  columns are gone. Unrelease audit counts finalized saved responses as
+  `finalized_saved_response_count`. Store parameters that carry public IDs
+  use those ID names. Browser decoders accept canonical public IDs (`id`,
+  nested `courseId` / `assessmentId` / `blueprintCourseId`) rather than
+  UUID or leftover `*Reference` JSON for those objects. Blueprint Assessment
+  lineage columns and stored JSON keys are `blueprint_assessment_id`. Pool
+  forks during adoption mint only a new Pool ID. SQL locals that hold
+  Blueprint Course IDs use `*_blueprint_course_id`. Live Demo e2e and
+  install scripts query `account_id` / `course_instance_id` /
+  `assessment_id` / `blueprint_course_id` rather than `public_reference`.
+  Public-ID mint helpers live in `public_ids.sql`. Gate:
+  `cargo test -p question_model --lib`,
+  `cargo check -p learning-data-access -p server_core --offline --tests`,
+  and `node --import tsx --test tests/test_question_pool_discovery_client.mjs
+  tests/test_question_pool_metadata.mjs tests/test_bloom_classification_client.mjs
+  tests/test_question_pool_creation_client.mjs
+  tests/test_assessment_summary_policy_decoder.mjs
+  tests/test_assignment_client.mjs`.
+
 - Align Student Course landing, invitation, Assessment list, and Attempt
   context JSON public-ID fields to `id`. Live Demo activity provisioning
   reads those `id` fields. Human Guidance now states that a Pool fork

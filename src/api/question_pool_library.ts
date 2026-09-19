@@ -3,8 +3,7 @@
 import type { QuestionId } from "../../generated/api/QuestionId";
 import type { QuestionPoolLibrarySummary } from "../../generated/api/QuestionPoolLibrarySummary";
 import type { QuestionPoolBloomFacets } from "../../generated/api/QuestionPoolBloomFacets";
-import type { QuestionPoolRevisionView } from "../../generated/api/QuestionPoolRevisionView";
-import type { QuestionPoolRevisionReference } from "../../generated/api/QuestionPoolRevisionReference";
+import type { QuestionPoolView } from "../../generated/api/QuestionPoolView";
 import type { BloomCognitiveProcess } from "../../generated/api/BloomCognitiveProcess";
 import type { BloomKnowledgeDimension } from "../../generated/api/BloomKnowledgeDimension";
 import type { LibraryClassificationFilter } from "./library_classification_filter";
@@ -29,8 +28,5 @@ export interface QuestionPoolLibraryClient {
     pageSize?: number,
     filter?: QuestionPoolLibraryFilter,
   ) => Promise<QuestionPoolLibraryPage>;
-  readonly getQuestionPool: (questionPoolId: QuestionId) => Promise<QuestionPoolRevisionView>;
-  readonly getQuestionPoolRevision: (
-    reference: QuestionPoolRevisionReference,
-  ) => Promise<QuestionPoolRevisionView>;
+  readonly getQuestionPool: (questionPoolId: QuestionId) => Promise<QuestionPoolView>;
 }

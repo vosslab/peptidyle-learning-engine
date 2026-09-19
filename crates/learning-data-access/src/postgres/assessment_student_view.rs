@@ -7,11 +7,11 @@ use question_model::{
     AccountTimeZone, AssessmentEditNumber, AssessmentEntryAvailability, AssessmentEntryId,
     AssessmentEntryScoringRule, AssessmentId, AssessmentInstructions, AssessmentPointValue,
     AssessmentQuestionOrderRule, AssessmentStatus, AssessmentTitle, CourseInstanceId,
-    InstructorStudentViewDelivery, LateWorkRule, ObjectId, PoolRevisionMemberReference,
-    QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionId, QuestionPoolAssessmentEntry,
-    QuestionPoolRevisionNumber, QuestionPoolRevisionReference, QuestionPoolSelectedItem,
-    QuestionPoolSelectedQuestionOrder, QuestionPoolSelectionRule, QuestionRevisionNumber,
-    QuestionRevisionReference, SourceObjectChecksum, SourceObjectReference, Timestamp,
+    InstructorStudentViewDelivery, LateWorkRule, ObjectId, QuestionAttemptLimit,
+    QuestionAttemptTimeLimit, QuestionId, QuestionPoolAssessmentEntry, QuestionPoolEditNumber,
+    QuestionPoolSelectedItem, QuestionPoolSelectedQuestionOrder, QuestionPoolSelectionRule,
+    QuestionRevisionNumber, QuestionRevisionReference, SourceObjectChecksum, SourceObjectReference,
+    Timestamp,
 };
 use sqlx::{Postgres, Row, Transaction};
 
@@ -215,7 +215,8 @@ fn snapshot_entries(
             }
             "question_pool" => {
                 let assessment_entry = pool_assessment_entry(row, entry_id, availability)?;
-                let expected_pool_revision = assessment_entry.question_pool_revision.clone();
+                let expected_pool_id = assessment_entry.question_pool_id.clone();
+                let expected_pool_edit_number = assessment_entry.question_pool_edit_number;
                 let mut members = Vec::new();
                 let mut previous_member_position = None;
                 while let Some(member_row) = rows.get(index) {
@@ -243,10 +244,9 @@ fn snapshot_entries(
                     }
                     previous_member_position = Some(member_position);
                     members.push(QuestionPoolSelectedItem {
-                        pool_revision_member: PoolRevisionMemberReference {
-                            question_pool_revision: expected_pool_revision.clone(),
-                            member_position,
-                        },
+                        question_pool_id: expected_pool_id.clone(),
+                        question_pool_edit_number: expected_pool_edit_number,
+                        member_position,
                         reference: question_revision(member_row)?,
                     });
                     index += 1;
@@ -272,17 +272,15 @@ fn pool_assessment_entry(
     id: AssessmentEntryId,
     availability: AssessmentEntryAvailability,
 ) -> Result<QuestionPoolAssessmentEntry, StoreError> {
-    let question_pool_revision = QuestionPoolRevisionReference {
-        question_pool_id: column::<String>(row, "question_pool_public_id")?
-            .parse::<QuestionId>()
-            .map_err(|_| invalid("Question Pool ID"))?,
-        revision_number: QuestionPoolRevisionNumber::new(unsigned_i64(
-            row,
-            "question_pool_revision_number",
-            "Question Pool Revision Number",
-        )?)
-        .map_err(|_| invalid("Question Pool Revision Number"))?,
-    };
+    let question_pool_id = column::<String>(row, "question_pool_id")?
+        .parse::<QuestionId>()
+        .map_err(|_| invalid("Question Pool ID"))?;
+    let question_pool_edit_number = QuestionPoolEditNumber::new(unsigned_i64(
+        row,
+        "question_pool_edit_number",
+        "Question Pool Edit Number",
+    )?)
+    .map_err(|_| invalid("Question Pool Edit Number"))?;
     let selection_count = NonZeroU32::new(unsigned_i32(
         row,
         "selection_count",
@@ -291,7 +289,8 @@ fn pool_assessment_entry(
     .ok_or_else(|| invalid("Question Pool selection count"))?;
     Ok(QuestionPoolAssessmentEntry {
         id,
-        question_pool_revision,
+        question_pool_id,
+        question_pool_edit_number,
         availability,
         scoring_rule: entry_scoring_rule(row)?,
         selection_count,

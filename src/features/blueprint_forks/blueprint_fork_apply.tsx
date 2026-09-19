@@ -81,9 +81,7 @@ export function BlueprintSelectionEditor(props: ApplyProps): JSX.Element {
           (a) => a.blueprintAssessmentId === entry.sourceAssessmentId,
         )?.content.title ?? "New Assessment"
       );
-    const copy = contents().find(
-      (c) => c.targetAssessmentId === entry.targetAssessmentId,
-    );
+    const copy = contents().find((c) => c.targetAssessmentId === entry.targetAssessmentId);
     return (
       (copy
         ? props.review.left.assessments.find(
@@ -146,9 +144,7 @@ export function BlueprintSelectionEditor(props: ApplyProps): JSX.Element {
     if (
       value !== "new" &&
       layout().some((row) =>
-        row.assessments.some(
-          (a) => a.kind === "newFromSource" && a.sourceAssessmentId === source,
-        ),
+        row.assessments.some((a) => a.kind === "newFromSource" && a.sourceAssessmentId === source),
       )
     )
       place({ kind: "newFromSource", sourceAssessmentId: source }, "");
@@ -182,19 +178,22 @@ export function BlueprintSelectionEditor(props: ApplyProps): JSX.Element {
         return;
       }
       if (!props.client) throw new Error("Fork client is unavailable.");
-      await props.client.applyBlueprintFork(props.review.right.currentRevision.blueprint_course_id, {
-        expectedSource: props.review.left.currentRevision,
-        expectedFork: props.review.right.currentRevision,
-        expectedSourceBlueprintEditNumber: props.review.left.blueprintEditNumber,
-        expectedForkBlueprintEditNumber: props.review.right.blueprintEditNumber,
-        sourceShortName: shortName(),
-        sourceLongName: longName(),
-        selection: {
-          sourceModuleLabels: labels(),
-          sourceAssessments: contents(),
-          layout: edited() ? layout() : null,
+      await props.client.applyBlueprintFork(
+        props.review.right.currentRevision.blueprint_course_id,
+        {
+          expectedSource: props.review.left.currentRevision,
+          expectedFork: props.review.right.currentRevision,
+          expectedSourceBlueprintEditNumber: props.review.left.blueprintEditNumber,
+          expectedForkBlueprintEditNumber: props.review.right.blueprintEditNumber,
+          sourceShortName: shortName(),
+          sourceLongName: longName(),
+          selection: {
+            sourceModuleLabels: labels(),
+            sourceAssessments: contents(),
+            layout: edited() ? layout() : null,
+          },
         },
-      });
+      );
       setLocked(true);
       setMessage("Selected changes saved. Reloading the fork and comparison...");
       props.onApplied();
@@ -315,12 +314,9 @@ export function BlueprintSelectionEditor(props: ApplyProps): JSX.Element {
               Pools, pins and scoring)
               <select
                 value={
-                  contents().find(
-                    (c) => c.sourceAssessmentId === source.blueprintAssessmentId,
-                  )?.targetAssessmentId ??
-                  (contents().some(
-                    (c) => c.sourceAssessmentId === source.blueprintAssessmentId,
-                  )
+                  contents().find((c) => c.sourceAssessmentId === source.blueprintAssessmentId)
+                    ?.targetAssessmentId ??
+                  (contents().some((c) => c.sourceAssessmentId === source.blueprintAssessmentId)
                     ? "new"
                     : "")
                 }

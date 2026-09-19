@@ -17,13 +17,14 @@ export function decodeBlueprintPoolMembersView(
 ): BlueprintPoolMembersView {
   // ASVS 1.5.2, 2.2.1/3: exact allowlisted shape, bounded unique Question IDs.
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["questionPoolRevision", "members"]);
-  const poolPath = `${path}.questionPoolRevision`;
-  const pool = decodeRecord(field(record, "questionPoolRevision", path), poolPath);
-  requireOnlyFields(pool, poolPath, ["questionPoolId", "revisionNumber"]);
-  const revisionNumber = decodePositiveInteger(
-    field(pool, "revisionNumber", poolPath),
-    `${poolPath}.revisionNumber`,
+  requireOnlyFields(record, path, ["questionPoolId", "questionPoolEditNumber", "members"]);
+  const questionPoolId = decodeQuestionId(
+    field(record, "questionPoolId", path),
+    `${path}.questionPoolId`,
+  );
+  const questionPoolEditNumber = decodePositiveInteger(
+    field(record, "questionPoolEditNumber", path),
+    `${path}.questionPoolEditNumber`,
   );
   const members = decodeBoundedArray(
     field(record, "members", path),
@@ -46,13 +47,8 @@ export function decodeBlueprintPoolMembersView(
     }
   }
   return {
-    questionPoolRevision: {
-      questionPoolId: decodeQuestionId(
-        field(pool, "questionPoolId", poolPath),
-        `${poolPath}.questionPoolId`,
-      ),
-      revisionNumber,
-    },
+    questionPoolId,
+    questionPoolEditNumber,
     members,
   };
 }

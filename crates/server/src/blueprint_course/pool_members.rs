@@ -46,7 +46,8 @@ pub(super) async fn load_pool_members(
     {
         Ok(value) => crate::auth::no_store(
             Json(BlueprintPoolMembersView {
-                question_pool_revision: value.question_pool_revision,
+                question_pool_id: value.question_pool_id,
+                question_pool_edit_number: value.question_pool_edit_number,
                 members: value.members,
             })
             .into_response(),

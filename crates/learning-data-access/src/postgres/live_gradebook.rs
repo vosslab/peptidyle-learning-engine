@@ -57,7 +57,7 @@ impl CourseGradebookStore for PostgresCourseGradebookStore {
     ) -> Result<CourseGradebook, StoreError> {
         let mut transaction = self.begin(token).await?;
         let rows = sqlx::query(
-            "SELECT course_public_reference, roster_id, roster_name, assessment_reference_number, assessment_title, \
+            "SELECT course_instance_id, roster_id, roster_name, assessment_id, assessment_title, \
              assessment_attempt_completion, expired_submitting, \
              points_earned, points_possible \
              FROM ple_api.read_course_gradebook($1)",
@@ -71,7 +71,7 @@ impl CourseGradebookStore for PostgresCourseGradebookStore {
         };
         let returned_course = course_reference(
             first
-                .try_get("course_public_reference")
+                .try_get("course_instance_id")
                 .map_err(map_sqlx_error)?,
         )?;
         if returned_course != course {
@@ -97,10 +97,8 @@ fn decode_row(
     let Some(roster_id) = row.try_get("roster_id").map_err(map_sqlx_error)? else {
         return Ok(None);
     };
-    let assessment_reference = assessment_reference(
-        row.try_get("assessment_reference_number")
-            .map_err(map_sqlx_error)?,
-    )?;
+    let assessment_reference =
+        assessment_reference(row.try_get("assessment_id").map_err(map_sqlx_error)?)?;
     let roster_name: String = row.try_get("roster_name").map_err(map_sqlx_error)?;
     if roster_name.trim().is_empty()
         || roster_name != roster_name.trim()

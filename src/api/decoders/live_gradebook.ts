@@ -1,8 +1,6 @@
 // Strict decoding for the answer-free Gradebook projection.
 
-import type { AssessmentId } from "../../../generated/api/AssessmentId";
 import type { AssessmentAttemptCompletion } from "../../../generated/api/AssessmentAttemptCompletion";
-import type { CourseInstanceId } from "../../../generated/api/CourseInstanceId";
 import type { CourseGradebook, CourseGradebookStudentWork } from "../live_gradebook";
 import {
   DecodeError,
@@ -12,30 +10,19 @@ import {
   decodeString,
   decodeStringEnum,
 } from "../decoder";
-import { decodeAssessmentTitle, field, requireOnlyFields } from "./shared";
+import {
+  decodeAssessmentId,
+  decodeAssessmentTitle,
+  decodeCourseInstanceId,
+  field,
+  requireOnlyFields,
+} from "./shared";
 import { decodeRosterName } from "./course_roster";
-import { validateCanonicalPublicReference } from "../../question_id";
 
 const ASSIGNMENT_ATTEMPT_COMPLETIONS = [
   "inProgress",
   "completed",
 ] as const satisfies ReadonlyArray<AssessmentAttemptCompletion>;
-
-function courseReference(value: unknown, path: string): CourseInstanceId {
-  const decoded = decodeString(value, path);
-  if (validateCanonicalPublicReference("courseInstance", decoded) === null) {
-    throw new DecodeError(path, "a canonical opaque Course Instance reference");
-  }
-  return decoded;
-}
-
-function assessmentReference(value: unknown, path: string): AssessmentId {
-  const decoded = decodeString(value, path);
-  if (validateCanonicalPublicReference("assessment", decoded) === null) {
-    throw new DecodeError(path, "a canonical opaque Assessment reference");
-  }
-  return decoded;
-}
 
 function rosterId(value: unknown, path: string): string {
   const decoded = decodeString(value, path);
@@ -59,7 +46,7 @@ function studentWork(value: unknown, path: string): CourseGradebookStudentWork {
   requireOnlyFields(record, path, [
     "rosterId",
     "rosterName",
-    "assessmentReference",
+    "assessmentId",
     "assessmentTitle",
     "assessmentAttemptCompletion",
     "expiredSubmitting",
@@ -100,10 +87,7 @@ function studentWork(value: unknown, path: string): CourseGradebookStudentWork {
   return {
     rosterId: rosterId(field(record, "rosterId", path), `${path}.rosterId`),
     rosterName: decodeRosterName(field(record, "rosterName", path), `${path}.rosterName`),
-    assessmentReference: assessmentReference(
-      field(record, "assessmentReference", path),
-      `${path}.assessmentReference`,
-    ),
+    assessmentId: decodeAssessmentId(field(record, "assessmentId", path), `${path}.assessmentId`),
     assessmentAttemptCompletion,
     assessmentTitle: decodeAssessmentTitle(
       field(record, "assessmentTitle", path),
@@ -117,12 +101,9 @@ function studentWork(value: unknown, path: string): CourseGradebookStudentWork {
 /** Rejects any field outside the declared answer-free projection. */
 export function decodeCourseGradebook(value: unknown, path = "response"): CourseGradebook {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["courseReference", "studentWork"]);
+  requireOnlyFields(record, path, ["courseId", "studentWork"]);
   return {
-    courseReference: courseReference(
-      field(record, "courseReference", path),
-      `${path}.courseReference`,
-    ),
+    courseId: decodeCourseInstanceId(field(record, "courseId", path), `${path}.courseId`),
     studentWork: decodeArray(
       field(record, "studentWork", path),
       `${path}.studentWork`,

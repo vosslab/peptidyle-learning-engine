@@ -127,8 +127,9 @@ export function ProposalReview(props: {
                 <h3>{side === "source" ? "Proposed source" : "Before: comparison target"}</h3>
                 <h4>{value().names.longName}</h4>
                 <p>
-                  Short name: {value().names.shortName}. Blueprint {value().revision.blueprint_course_id};
-                  frozen Revision {value().revision.revision}; edit {value().blueprintEditNumber}.
+                  Short name: {value().names.shortName}. Blueprint{" "}
+                  {value().revision.blueprint_course_id}; frozen Revision{" "}
+                  {value().revision.revision}; edit {value().blueprintEditNumber}.
                 </p>
                 <p>Exact classification identities below use current vocabulary labels.</p>
                 <CourseClassificationSummary value={value().classification} />
@@ -160,8 +161,7 @@ export function ProposalReview(props: {
                                 (edge) =>
                                   (side === "source"
                                     ? edge.leftAssessmentId
-                                    : edge.rightAssessmentId) ===
-                                  assessment.blueprintAssessmentId,
+                                    : edge.rightAssessmentId) === assessment.blueprintAssessmentId,
                               )}
                               fallback={<p>No shared-Question relationship (unmatched).</p>}
                             >
@@ -271,7 +271,8 @@ export function ProposalReview(props: {
           <p>
             Entire acceptance replaces the complete target module/Assessment structure and copies
             both source names and the complete classification including Tags. Target-only units are
-            removed. Question/Pool pins remain exact.
+            removed. Question Revision pins stay exact. Pool ID and Pool Edit Number remain sibling
+            fields.
           </p>
           <button type="button" disabled={busy()} onClick={() => setChosen({ kind: "entire" })}>
             Review entire result
@@ -349,8 +350,7 @@ function DecisionSummary(props: {
       if (copy)
         return (
           source().assessments.find(
-            (assessment) =>
-              assessment.blueprintAssessmentId === copy.sourceAssessmentId,
+            (assessment) => assessment.blueprintAssessmentId === copy.sourceAssessmentId,
           )?.content.title ?? key
         );
     }
@@ -444,15 +444,15 @@ function AcceptedResult(props: {
     const inventory = props.detail.comparison[side];
     return module
       ? (inventory.modules.find((m) => m.blueprintModuleReference === reference)?.label ?? "Module")
-      : (inventory.assessments.find((a) => a.blueprintAssessmentId === reference)?.content
-          .title ?? "Assessment");
+      : (inventory.assessments.find((a) => a.blueprintAssessmentId === reference)?.content.title ??
+          "Assessment");
   }
   return (
     <section aria-label="Committed acceptance result">
       <h3>Accepted: exact committed target</h3>
       <p>
-        Blueprint {props.value.target.blueprint_course_id}, Revision {props.value.target.revision}, edit{" "}
-        {props.value.targetBlueprintEditNumber}; accepted {props.value.acceptedAt}. Decision:{" "}
+        Blueprint {props.value.target.blueprint_course_id}, Revision {props.value.target.revision},
+        edit {props.value.targetBlueprintEditNumber}; accepted {props.value.acceptedAt}. Decision:{" "}
         {props.value.decision.kind}.
       </p>
       <Show when={props.value.decision.kind === "selected" ? props.value.decision : undefined}>
@@ -551,7 +551,7 @@ function AcceptedResult(props: {
                         <li>
                           {entry.kind === "fixed"
                             ? `Question ${entry.published_question.questionId}, Revision ${entry.published_question.revisionNumber}; ${entry.points_possible} points`
-                            : `Pool ${entry.question_pool_revision.questionPoolId}, Revision ${entry.question_pool_revision.revisionNumber}; select ${entry.selection_count}; ${entry.points_per_item} points per item`}
+                            : `Pool ${entry.question_pool_id}, Edit ${entry.question_pool_edit_number}; select ${entry.selection_count}; ${entry.points_per_item} points per item`}
                           <Settings value={entry} />
                         </li>
                       )}

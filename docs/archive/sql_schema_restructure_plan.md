@@ -517,7 +517,7 @@ dependent milestone starts, and record it in `docs/DESIGN_DECISIONS.md` at close
 ### Work package: WP-2.5 Question Pools as current state
 
 - Owner: schema coder with Rust coder.
-- Touch points: `20_tables/question_pool.sql` (drop `question_pool_revision`; key
+- Touch points: `20_tables/question_pool.sql` (drop `question_pool_pin`; key
   `question_pool_member` by `(question_pool_id, member_position)`; add `edit_number`,
   `interchangeability_attested_by_account_id`, `interchangeability_attested_at`, `updated_on`
   to the Pool row); `20_tables/assessment.sql` (Pool entries reference `question_pool_id` only);
@@ -525,12 +525,12 @@ dependent milestone starts, and record it in `docs/DESIGN_DECISIONS.md` at close
   `question_pool_edit_number`; selected items keep their exact Question pins);
   `20_tables/blueprint_course.sql` (Blueprint Revisions embed Pool member lists in `content`
   plus pin rows); statistics and Bloom tables keyed by Pool; `50_functions/` replaces
-  `append_question_pool_revision`, `construct_question_pool_revision_fork`, and the fork
+  `append_question_pool_pin`, `construct_question_pool_pin_fork`, and the fork
   wrappers with one `save_question_pool_members` (CAS on Edit Number, re-attestation, canonical
   no-op advances nothing) and one fork that copies members; Watch notifications emit "members
   changed"; Rust store types and the Pool detail projection.
 - Depends on: WP-2.2 (entry split gives Pool entries their own child table).
-- Acceptance criteria: no `question_pool_revision` table or `revision_number` column on any Pool
+- Acceptance criteria: no `question_pool_pin` table or `revision_number` column on any Pool
   table; `question_pool_selection` rows carry all four pins; a Blueprint Revision installed from
   the seed reproduces its Pool member lists from its own content; Watch, statistics, and Bloom
   reads return the same rows for the Live Demo seed keyed by Pool; the two-Instructor

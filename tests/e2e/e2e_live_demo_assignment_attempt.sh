@@ -21,7 +21,7 @@ esac
 rerelease_latest_unreleased_current_assignment() {
 	local instructor="$1" postgres output course assignment workspace edit released
 	postgres="$(service_id postgres)"
-	output="$(podman exec "$postgres" sh -lc 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "SELECT course.public_reference || '\'' '\'' || assessment.public_reference FROM ple_data.course_instance AS course JOIN ple_data.assessment AS assessment ON assessment.course_id=course.course_id WHERE assessment.assessment_status='\''unreleased'\'' AND assessment.assessment_title='\''Current Assignment'\'' ORDER BY assessment.reference_number DESC LIMIT 1"')"
+	output="$(podman exec "$postgres" sh -lc 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "SELECT course.course_instance_id || '\'' '\'' || assessment.assessment_id FROM ple_data.course_instance AS course JOIN ple_data.assessment AS assessment ON assessment.course_instance_id=course.course_instance_id JOIN ple_data.assessment_policy_snapshot AS policy ON policy.assessment_policy_snapshot_id=assessment.assessment_policy_snapshot_id WHERE assessment.assessment_status='\''unreleased'\'' AND policy.assessment_title='\''Current Assignment'\'' ORDER BY assessment.assessment_id DESC LIMIT 1"')"
 	printf '%s\n' "$output" | rg -q '^CI[0-9A-HJKMNP-TV-Z]{8} A[0-9A-HJKMNP-TV-Z]{8}$' || { echo "current unreleased Assessment prerequisite is unavailable" >&2; exit 1; }
 	read -r course assignment <<<"$output"
 	workspace="$(request "/api/course-instances/$course/assessments/$assignment" "$instructor")"
@@ -105,19 +105,19 @@ assert_evidence_rows() {
 	sql="SELECT CASE WHEN
 		(SELECT count(*) FROM ple_private.assessment_attempt AS attempt
 		 JOIN ple_data.assessment AS assessment_row ON assessment_row.assessment_id = attempt.assessment_id
-		 JOIN ple_data.course_instance AS course_row ON course_row.course_id = assessment_row.course_id
-		 WHERE course_row.public_reference = '$course'
-		   AND assessment_row.public_reference = '$assignment') = 2
+		 JOIN ple_data.course_instance AS course_row ON course_row.course_instance_id = assessment_row.course_instance_id
+		 WHERE course_row.course_instance_id = '$course'
+		   AND assessment_row.assessment_id = '$assignment') = 2
 		AND (SELECT count(*) FROM ple_private.issued_question AS issued
 		     JOIN ple_private.assessment_attempt AS attempt ON attempt.assessment_attempt_id = issued.assessment_attempt_id
 		     JOIN ple_data.assessment AS assessment_row ON assessment_row.assessment_id = attempt.assessment_id
-		     JOIN ple_data.course_instance AS course_row ON course_row.course_id = assessment_row.course_id
-		     WHERE course_row.public_reference = '$course'
-		       AND assessment_row.public_reference = '$assignment') = 2
+		     JOIN ple_data.course_instance AS course_row ON course_row.course_instance_id = assessment_row.course_instance_id
+		     WHERE course_row.course_instance_id = '$course'
+		       AND assessment_row.assessment_id = '$assignment') = 2
 		AND NOT EXISTS (SELECT 1 FROM ple_private.issued_question AS issued
 		                JOIN ple_private.assessment_attempt AS attempt ON attempt.assessment_attempt_id = issued.assessment_attempt_id
 		                JOIN ple_data.assessment AS assessment_row ON assessment_row.assessment_id = attempt.assessment_id
-		                WHERE assessment_row.public_reference = '$assignment'
+		                WHERE assessment_row.assessment_id = '$assignment'
 		                  AND (issued.question_id IS NULL OR issued.revision_number < 1))
 	THEN 'assessment_attempt_evidence' ELSE 'incomplete' END"
 	output="$(podman exec "$postgres" sh -lc 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "$1"' sh "$sql")"

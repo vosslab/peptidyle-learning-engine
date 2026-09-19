@@ -70,7 +70,7 @@ leaves a partially renamed public boundary.
 Canonical JSON names are `assessment`, `id` or nested `assessmentId` /
 `courseId` for those public IDs, `assessmentAttempt`, `assessmentEntry`,
 `assessmentStatus`, Blueprint JSON `assessments`, and
-`blueprint_assessment_reference`; canonical decoders accept only those names.
+`blueprint_assessment_id`; canonical decoders accept only those names.
 There is no parallel `reference` property and no runtime legacy Blueprint
 import. A one-time, offline developer export-transform-import may assist the
 preproduction rebuild, but a fresh installation is canonical from the start.
@@ -488,11 +488,6 @@ collision with a newly issued canonical ID. Pool schema owns the exact canonical
 ID and current membership storage, but it does not become an
 unrouted ID issuer. The create route is the only path that combines the active
 Instructor authorization, allocator, and atomic Pool creation operation.
-
-### Question Pools are published revisioned content
-
-**Superseded.** Human Guidance treats Pool membership as current authored
-state. See [Question Pools are current state](#question-pools-are-current-state).
 
 ### Question Backends own Question behavior
 
@@ -1301,8 +1296,9 @@ normalized credit. Scoring rules stay on the Entry snapshot.
 from the facts that implied them.
 
 **Consequence.** Unanswered Issued Questions have no saved-response row.
-JSON may still project `question_attempt_state` and
-`question_response_count` from remaining facts.
+Unrelease audit counts finalized `assessment_attempt_saved_response` rows as
+`finalized_saved_response_count`. JSON may still project
+`question_attempt_state` from remaining facts.
 
 ### Question Pools are current state
 

@@ -28,7 +28,7 @@ CREATE TABLE ple_audit.assessment_unrelease_event (
     actor_account_id ple_data.account_id NOT NULL REFERENCES ple_private.account(account_id),
     assessment_edit_number bigint NOT NULL CHECK (assessment_edit_number > 0),
     assessment_attempt_count bigint NOT NULL CHECK (assessment_attempt_count >= 0),
-    question_response_count bigint NOT NULL CHECK (question_response_count >= 0),
+    finalized_saved_response_count bigint NOT NULL CHECK (finalized_saved_response_count >= 0),
     assessment_submission_count bigint NOT NULL CHECK (assessment_submission_count >= 0),
     grading_result_count bigint NOT NULL CHECK (grading_result_count >= 0),
     outcome text NOT NULL DEFAULT 'completed',

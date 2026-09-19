@@ -9,9 +9,8 @@ use std::collections::BTreeSet;
 
 use async_trait::async_trait;
 use question_model::{
-    AssessmentAttemptId, AssessmentEntryId, AssessmentId, PoolRevisionMemberReference,
-    QuestionBackend, QuestionPoolRevisionReference, QuestionPoolSelectedItem,
-    QuestionRevisionReference, StudentRecordId,
+    AssessmentAttemptId, AssessmentEntryId, AssessmentId, QuestionBackend, QuestionId,
+    QuestionPoolEditNumber, QuestionPoolSelectedItem, QuestionRevisionReference, StudentRecordId,
 };
 
 use crate::{SessionTokenHash, StoreError};
@@ -21,8 +20,9 @@ use crate::{SessionTokenHash, StoreError};
 pub struct PreparedQuestionPoolSelection {
     /// Exact Question Pool Assessment Entry in the current released Assessment.
     pub question_pool_assessment_entry: AssessmentEntryId,
-    /// Exact immutable Assessment-owned fork Pool Revision selected from.
-    pub question_pool_revision: QuestionPoolRevisionReference,
+    pub question_pool_id: QuestionId,
+    /// Pool Edit Number current at selection. Not a historical membership object.
+    pub question_pool_edit_number: QuestionPoolEditNumber,
     /// Exact selected Question Pool Items in their frozen delivery order.
     pub selected_items: Vec<QuestionPoolSelectedItem>,
 }
@@ -45,8 +45,8 @@ pub enum PreparedIssuedQuestion {
         assessment_entry: AssessmentEntryId,
         /// Position in [`AssessmentAttemptStart::question_pool_selections`].
         question_pool_selection_index: usize,
-        /// Exact selected immutable Pool Revision member.
-        pool_revision_member: PoolRevisionMemberReference,
+        /// Zero-based Pool member position at selection.
+        member_position: u32,
         /// Exact pinned Question Revision.
         reference: QuestionRevisionReference,
         /// Authoritative backend of the pinned revision.
@@ -99,7 +99,7 @@ impl AssessmentAttemptStart {
             let PreparedIssuedQuestion::QuestionPoolItem {
                 assessment_entry,
                 question_pool_selection_index,
-                pool_revision_member,
+                member_position,
                 ..
             } = question
             else {
@@ -118,15 +118,13 @@ impl AssessmentAttemptStart {
                 || !selection
                     .selected_items
                     .iter()
-                    .any(|item| item.pool_revision_member == *pool_revision_member)
+                    .any(|item| item.member_position == *member_position)
             {
                 return Err(StoreError::InvalidRecord(
                     "a pooled Issued Question must match its prepared Selection".to_string(),
                 ));
             }
-            if !issued_question_pool_items
-                .insert((assessment_entry.as_uuid(), pool_revision_member.clone()))
-            {
+            if !issued_question_pool_items.insert((assessment_entry.as_uuid(), *member_position)) {
                 return Err(StoreError::InvalidRecord(
                     "a selected Question Pool Item may be issued once".to_string(),
                 ));
@@ -142,11 +140,11 @@ impl AssessmentAttemptStart {
                             question,
                             PreparedIssuedQuestion::QuestionPoolItem {
                                 assessment_entry,
-                                pool_revision_member,
+                                member_position,
                                 reference,
                                 ..
                             } if assessment_entry == &selection.question_pool_assessment_entry
-                                && pool_revision_member == &selected_item.pool_revision_member
+                                && member_position == &selected_item.member_position
                                 && reference == &selected_item.reference
                         )
                     })
@@ -187,10 +185,7 @@ pub trait AssessmentAttemptStore: Send + Sync {
 
 #[cfg(test)]
 mod tests {
-    use question_model::{
-        QuestionId, QuestionPoolRevisionNumber, QuestionPoolRevisionReference,
-        QuestionRevisionNumber,
-    };
+    use question_model::{QuestionId, QuestionPoolEditNumber, QuestionRevisionNumber};
     use uuid::Uuid;
 
     use super::*;
@@ -202,17 +197,20 @@ mod tests {
         }
     }
 
-    fn pool_revision() -> QuestionPoolRevisionReference {
-        QuestionPoolRevisionReference {
-            question_pool_id: "7654-Z321".parse().expect("Pool ID"),
-            revision_number: QuestionPoolRevisionNumber::new(1).expect("positive Pool Revision"),
-        }
+    fn pool_id() -> QuestionId {
+        "7654-Z321".parse().expect("Pool ID")
     }
 
-    fn pool_revision_member(member_position: u32) -> PoolRevisionMemberReference {
-        PoolRevisionMemberReference {
-            question_pool_revision: pool_revision(),
+    fn pool_edit_number() -> QuestionPoolEditNumber {
+        QuestionPoolEditNumber::new(1).expect("positive Pool Edit Number")
+    }
+
+    fn pool_item(member_position: u32) -> QuestionPoolSelectedItem {
+        QuestionPoolSelectedItem {
+            question_pool_id: pool_id(),
+            question_pool_edit_number: pool_edit_number(),
             member_position,
+            reference: reference(),
         }
     }
 
@@ -224,16 +222,14 @@ mod tests {
             assessment: AssessmentId::from_debug_serial(3),
             question_pool_selections: vec![PreparedQuestionPoolSelection {
                 question_pool_assessment_entry: entry,
-                question_pool_revision: pool_revision(),
-                selected_items: vec![QuestionPoolSelectedItem {
-                    pool_revision_member: pool_revision_member(4),
-                    reference: reference(),
-                }],
+                question_pool_id: pool_id(),
+                question_pool_edit_number: pool_edit_number(),
+                selected_items: vec![pool_item(4)],
             }],
             issued_questions: vec![PreparedIssuedQuestion::QuestionPoolItem {
                 assessment_entry: entry,
                 question_pool_selection_index: 0,
-                pool_revision_member: pool_revision_member(5),
+                member_position: 5,
                 reference: reference(),
                 backend: QuestionBackend::Ple,
             }],
@@ -253,22 +249,14 @@ mod tests {
             assessment: AssessmentId::from_debug_serial(3),
             question_pool_selections: vec![PreparedQuestionPoolSelection {
                 question_pool_assessment_entry: entry,
-                question_pool_revision: pool_revision(),
-                selected_items: vec![
-                    QuestionPoolSelectedItem {
-                        pool_revision_member: pool_revision_member(4),
-                        reference: reference(),
-                    },
-                    QuestionPoolSelectedItem {
-                        pool_revision_member: pool_revision_member(5),
-                        reference: reference(),
-                    },
-                ],
+                question_pool_id: pool_id(),
+                question_pool_edit_number: pool_edit_number(),
+                selected_items: vec![pool_item(4), pool_item(5)],
             }],
             issued_questions: vec![PreparedIssuedQuestion::QuestionPoolItem {
                 assessment_entry: entry,
                 question_pool_selection_index: 0,
-                pool_revision_member: pool_revision_member(4),
+                member_position: 4,
                 reference: reference(),
                 backend: QuestionBackend::Ple,
             }],

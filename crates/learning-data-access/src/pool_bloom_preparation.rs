@@ -1,10 +1,10 @@
-//! Request-owned trusted receipts for the Pool Revisions created by one mutation.
+//! Request-owned trusted receipts for the Pools created by one mutation.
 
 use std::collections::VecDeque;
 
 use crate::{BloomPreparationReceiptId, StoreError};
 
-/// One independently prepared receipt for each newly materialized Pool Revision.
+/// One independently prepared receipt for each newly materialized Question Pool.
 ///
 /// Supply receipts in materialization order: Blueprint module, Assessment, Entry,
 /// followed by each daughter Course in the locked database result order. Retained

@@ -7,7 +7,8 @@ use crate::{
     AssessmentEntryScoringRule, AssessmentInstructions, AssessmentPointValue, AssessmentTitle,
     BlueprintAssessmentDefaults, BlueprintAssessmentId, BlueprintCourseValidationError,
     BlueprintModuleReference, MAX_ASSESSMENT_ORDERED_ENTRIES, QuestionAttemptLimit,
-    QuestionAttemptTimeLimit, QuestionRevisionReference, validate_blueprint_course_title,
+    QuestionAttemptTimeLimit, QuestionRevisionReference, ReusablePoolView,
+    validate_blueprint_course_title,
 };
 
 mod contracts;
@@ -200,10 +201,11 @@ pub enum BlueprintAssessmentEntryContent {
     /// One validated deterministic item pool.
     Pool(BlueprintQuestionPoolContent),
 }
-/// One validated exact immutable Pool Revision selected for future adoption.
+/// One validated current Question Pool selected for future adoption.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlueprintQuestionPoolContent {
-    question_pool_revision: crate::QuestionPoolRevisionReference,
+    question_pool_id: crate::QuestionId,
+    question_pool_edit_number: crate::QuestionPoolEditNumber,
     selection_count: std::num::NonZeroU32,
     points_per_item: AssessmentPointValue,
     scoring_rule: AssessmentEntryScoringRule,
@@ -212,29 +214,27 @@ pub struct BlueprintQuestionPoolContent {
     question_attempt_time_limit: QuestionAttemptTimeLimit,
 }
 impl BlueprintQuestionPoolContent {
-    /// Validates the exact immutable Pool Revision and entry-owned selection count.
-    pub fn new(
-        question_pool_revision: crate::QuestionPoolRevisionReference,
-        selection_count: std::num::NonZeroU32,
-        points_per_item: AssessmentPointValue,
-        scoring_rule: AssessmentEntryScoringRule,
-        selection_rule: crate::QuestionPoolSelectionRule,
-        question_attempt_limit: QuestionAttemptLimit,
-        question_attempt_time_limit: QuestionAttemptTimeLimit,
-    ) -> Result<Self, BlueprintCourseValidationError> {
+    /// Validates the current Pool identity and entry-owned selection count.
+    pub fn new(pool: ReusablePoolView) -> Result<Self, BlueprintCourseValidationError> {
         Ok(Self {
-            question_pool_revision,
-            selection_count,
-            points_per_item,
-            scoring_rule,
-            selection_rule,
-            question_attempt_limit,
-            question_attempt_time_limit,
+            question_pool_id: pool.question_pool_id,
+            question_pool_edit_number: pool.question_pool_edit_number,
+            selection_count: pool.selection_count,
+            points_per_item: pool.points_per_item,
+            scoring_rule: pool.scoring_rule,
+            selection_rule: pool.selection_rule,
+            question_attempt_limit: pool.question_attempt_limit,
+            question_attempt_time_limit: pool.question_attempt_time_limit,
         })
     }
-    /// Returns the exact immutable Pool Revision.
-    pub fn question_pool_revision(&self) -> &crate::QuestionPoolRevisionReference {
-        &self.question_pool_revision
+    /// Returns the Pool ID.
+    pub fn question_pool_id(&self) -> &crate::QuestionId {
+        &self.question_pool_id
+    }
+
+    /// Returns the current-state Pool Edit Number.
+    pub fn question_pool_edit_number(&self) -> crate::QuestionPoolEditNumber {
+        self.question_pool_edit_number
     }
     /// Returns the number of Question Pool Items selected for one Assessment Attempt.
     pub fn selection_count(&self) -> std::num::NonZeroU32 {
@@ -352,7 +352,8 @@ enum EncodedEntry<'a> {
         question_attempt_time_limit: &'a QuestionAttemptTimeLimit,
     },
     Pool {
-        question_pool_revision: &'a crate::QuestionPoolRevisionReference,
+        question_pool_id: &'a crate::QuestionId,
+        question_pool_edit_number: crate::QuestionPoolEditNumber,
         selection_count: std::num::NonZeroU32,
         points_per_item: AssessmentPointValue,
         scoring_rule: AssessmentEntryScoringRule,
@@ -411,7 +412,8 @@ fn encode_assessment(assessment: &BlueprintAssessmentContent) -> EncodedAssessme
                     question_attempt_time_limit,
                 },
                 BlueprintAssessmentEntryContent::Pool(pool) => EncodedEntry::Pool {
-                    question_pool_revision: &pool.question_pool_revision,
+                    question_pool_id: &pool.question_pool_id,
+                    question_pool_edit_number: pool.question_pool_edit_number,
                     selection_count: pool.selection_count,
                     points_per_item: pool.points_per_item,
                     scoring_rule: pool.scoring_rule,
@@ -430,25 +432,26 @@ mod wire_tests {
     use super::*;
 
     #[test]
-    fn question_pool_keeps_the_exact_pool_revision() {
-        let pool_revision = crate::QuestionPoolRevisionReference {
-            question_pool_id: "7K3M-19QX".parse().expect("Pool ID"),
-            revision_number: crate::QuestionPoolRevisionNumber::new(1).expect("Pool Revision"),
-        };
-        let pool = BlueprintQuestionPoolContent::new(
-            pool_revision.clone(),
-            std::num::NonZeroU32::new(1).expect("positive count"),
-            AssessmentPointValue::from_whole(1),
-            AssessmentEntryScoringRule::Normal,
-            crate::QuestionPoolSelectionRule {
+    fn question_pool_keeps_the_pool_id_and_edit_number() {
+        let question_pool_id: crate::QuestionId = "7K3M-19QX".parse().expect("Pool ID");
+        let question_pool_edit_number =
+            crate::QuestionPoolEditNumber::new(1).expect("Pool Edit Number");
+        let pool = BlueprintQuestionPoolContent::new(ReusablePoolView {
+            question_pool_id: question_pool_id.clone(),
+            question_pool_edit_number,
+            selection_count: std::num::NonZeroU32::new(1).expect("positive count"),
+            points_per_item: AssessmentPointValue::from_whole(1),
+            scoring_rule: AssessmentEntryScoringRule::Normal,
+            selection_rule: crate::QuestionPoolSelectionRule {
                 selected_question_order:
                     crate::QuestionPoolSelectedQuestionOrder::QuestionPoolOrder,
             },
-            QuestionAttemptLimit { max_attempts: None },
-            QuestionAttemptTimeLimit::Unlimited,
-        )
-        .expect("one exact Pool Revision is valid");
+            question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
+            question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
+        })
+        .expect("current Pool identity is valid");
 
-        assert_eq!(pool.question_pool_revision(), &pool_revision);
+        assert_eq!(pool.question_pool_id(), &question_pool_id);
+        assert_eq!(pool.question_pool_edit_number(), question_pool_edit_number);
     }
 }

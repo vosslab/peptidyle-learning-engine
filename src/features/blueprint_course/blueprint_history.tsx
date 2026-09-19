@@ -200,7 +200,7 @@ function HistoryPage(props: HistoryPageProps): JSX.Element {
     setItems([]);
     setNextCursor(null);
     try {
-      const page = await props.client.listBlueprintHistory(props.id, props.kind, cursor, 50);
+      const page = await props.client.listBlueprintHistory(props.reference, props.kind, cursor, 50);
       if (currentRequest !== request) return;
       setItems(page.items);
       setNextCursor(page.nextCursor);
@@ -349,7 +349,7 @@ function RevisionContent(props: { readonly revision: BlueprintRevisionView }): J
                   <li>
                     {entry.kind === "fixed"
                       ? `Fixed Question ${entry.question.reference.questionId}, Revision ${entry.question.reference.revisionNumber}; ${entry.points_possible} points`
-                      : `Question Pool ${entry.question_pool_revision.questionPoolId}, Revision ${entry.question_pool_revision.revisionNumber}; select ${entry.selection_count}; ${entry.points_per_item} points per Question`}{" "}
+                      : `Question Pool ${entry.question_pool_id}, Edit ${entry.question_pool_edit_number}; select ${entry.selection_count}; ${entry.points_per_item} points per Question`}{" "}
                     - scoring {entry.scoring_rule}; Question Attempt limit{" "}
                     {entry.question_attempt_limit.maxAttempts ?? "unlimited"}; time limit{" "}
                     {entry.question_attempt_time_limit.kind === "limited"

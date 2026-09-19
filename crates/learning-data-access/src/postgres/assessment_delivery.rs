@@ -100,7 +100,7 @@ async fn read_committed_assessment_attempt(
     assessment_attempt_id: Uuid,
 ) -> Result<LiveAssessmentAttempt, StoreError> {
     let header = sqlx::query(
-        "SELECT assessment_attempt_id, course_reference_number, assessment_reference_number, \
+        "SELECT assessment_attempt_id, course_instance_id, assessment_id, \
          assessment_attempt_number, assessment_title, assessment_instructions \
          FROM ple_api.read_started_student_assessment_attempt($1)",
     )
@@ -120,7 +120,7 @@ async fn read_committed_assessment_attempt(
     let assessment_attempt = decode_assessment_attempt_id(&header)?;
     let assessment = AssessmentId::new(
         header
-            .try_get::<String, _>("assessment_reference_number")
+            .try_get::<String, _>("assessment_id")
             .map_err(map_sqlx_error)?,
     )
     .map_err(|_| StoreError::InvalidRecord("Assessment reference is invalid".to_string()))?;

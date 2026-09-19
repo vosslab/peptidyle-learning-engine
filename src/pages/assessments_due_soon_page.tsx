@@ -34,8 +34,8 @@ function DueSoonAssessmentRow(props: {
   readonly assessment: DueSoonAssessmentSummary;
   readonly displayTimeZone: string;
 }): JSX.Element {
-  const courseReference = courseInstanceRouteReference(props.assessment.courseReference);
-  const assessmentReference = assessmentRouteReference(props.assessment.assessmentReference);
+  const courseReference = courseInstanceRouteReference(props.assessment.courseId);
+  const assessmentReference = assessmentRouteReference(props.assessment.assessmentId);
   const assessmentPath = `/instructor/courses/${courseReference}/assessments/${assessmentReference}`;
 
   return (

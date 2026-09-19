@@ -114,10 +114,9 @@ pub use crate::assessment::{
     MAX_ASSESSMENT_ATTEMPT_LIMIT, MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS,
     MAX_ASSESSMENT_INSTRUCTIONS_UNICODE_SCALARS, MAX_ASSESSMENT_ORDERED_ENTRIES,
     MAX_ASSESSMENT_QUESTION_POOL_ITEMS, MAX_ASSESSMENT_TITLE_UNICODE_SCALARS,
-    MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY, PoolRevisionMemberReference,
-    QuestionPoolAssessmentEntry, QuestionPoolRevisionNumber, QuestionPoolRevisionReference,
-    QuestionPoolSelectedQuestionOrder, QuestionPoolSelectionRule, ScoringGeneration,
-    derive_instructor_assessment_availability,
+    MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY, QuestionPoolAssessmentEntry,
+    QuestionPoolEditNumber, QuestionPoolSelectedQuestionOrder, QuestionPoolSelectionRule,
+    ScoringGeneration, derive_instructor_assessment_availability,
 };
 pub use crate::assessment_activity_rules::{
     AssessmentActivityRules, AssessmentQuestionOrderRule, AssessmentQuestionVariationRule,
@@ -270,7 +269,7 @@ pub use crate::question_license::QuestionLicense;
 pub use crate::question_pool_library::{
     AssessmentQuestionPoolForkView, AssessmentQuestionPoolSelectionCountReceipt,
     QuestionPoolBloomFacets, QuestionPoolLibraryPage, QuestionPoolLibrarySummary,
-    QuestionPoolMetadata, QuestionPoolRevisionMemberView, QuestionPoolRevisionView,
+    QuestionPoolMemberView, QuestionPoolMetadata, QuestionPoolView,
 };
 pub use crate::question_revision::{
     MAX_QUESTION_REVISION_REASON_UNICODE_SCALARS, QuestionRevisionReason,

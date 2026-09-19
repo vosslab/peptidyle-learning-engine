@@ -138,7 +138,7 @@ FOR EACH ROW EXECUTE FUNCTION ple_audit.reject_course_instance_creation_event_ch
 
 CREATE FUNCTION ple_audit.record_course_instance_creation_event(
     p_event_id uuid, p_course_instance_id text, p_source_kind text,
-    p_blueprint_reference text, p_blueprint_revision integer,
+    p_blueprint_course_id text, p_blueprint_revision integer,
     p_assigned_instructor text, p_creator text,
     p_occurred_at timestamp with time zone
 )
@@ -148,9 +148,9 @@ BEGIN
     IF p_event_id IS NULL OR p_course_instance_id IS NULL
        OR p_source_kind IS NULL OR p_source_kind NOT IN ('empty', 'adopted')
        OR (p_source_kind = 'empty'
-           AND (p_blueprint_reference IS NOT NULL OR p_blueprint_revision IS NOT NULL))
+           AND (p_blueprint_course_id IS NOT NULL OR p_blueprint_revision IS NOT NULL))
        OR (p_source_kind = 'adopted'
-           AND (p_blueprint_reference IS NULL OR p_blueprint_revision IS NULL
+           AND (p_blueprint_course_id IS NULL OR p_blueprint_revision IS NULL
                 OR p_blueprint_revision <= 0))
        OR p_assigned_instructor IS NULL OR p_creator IS NULL OR p_occurred_at IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
@@ -162,7 +162,7 @@ BEGIN
         assigned_instructor_account_id, created_by_account_id, occurred_at
     ) VALUES (
         p_event_id, p_course_instance_id, p_source_kind::ple_data.course_source_kind,
-        p_blueprint_reference, p_blueprint_revision,
+        p_blueprint_course_id, p_blueprint_revision,
         p_assigned_instructor, p_creator, p_occurred_at
     );
 END

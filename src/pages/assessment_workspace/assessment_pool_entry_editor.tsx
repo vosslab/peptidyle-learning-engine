@@ -69,8 +69,7 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
   return (
     <section class="assessment-pool-fork" aria-labelledby={`assessment-pool-${props.entry.id}`}>
       <h3 id={`assessment-pool-${props.entry.id}`}>
-        Question Pool {props.entry.questionPoolRevision.questionPoolId} Revision{" "}
-        {props.entry.questionPoolRevision.revisionNumber}
+        Question Pool {props.entry.questionPoolId} Edit {props.entry.questionPoolEditNumber}
       </h3>
       <Show
         when={props.fork}

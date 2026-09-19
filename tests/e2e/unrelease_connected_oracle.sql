@@ -376,7 +376,7 @@ BEGIN
         1, 'Unrelease target'
     );
     IF result.assessment_status <> 'unreleased' OR result.assessment_edit_number <> 2
-       OR result.assessment_attempt_count <> 1 OR result.question_response_count <> 1
+       OR result.assessment_attempt_count <> 1 OR result.finalized_saved_response_count <> 1
        OR result.assessment_submission_count <> 1 OR result.grading_result_count <> 1 THEN
         RAISE EXCEPTION 'accepted Unrelease returned an incorrect aggregate receipt';
     END IF;

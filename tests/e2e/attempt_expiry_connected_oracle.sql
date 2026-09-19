@@ -302,7 +302,7 @@ BEGIN
           FROM ple_api.list_released_live_student_assessments(
               current_setting('ple.test_direct_course_id')
           ) AS landing
-         WHERE landing.assessment_reference_number = current_setting('ple.test_direct_assessment_id')
+         WHERE landing.assessment_id = current_setting('ple.test_direct_assessment_id')
            AND landing.start_decision = 'attempt_limit_reached') <> 1 THEN
         RAISE EXCEPTION 'Student landing did not report the submitted Attempt limit';
     END IF;
@@ -419,17 +419,17 @@ BEGIN
         RAISE EXCEPTION 'Gradebook fixture Instructor lacks Course authority';
     END IF;
     SELECT coalesce(jsonb_agg(jsonb_build_object(
-               'assessmentReference', gradebook.assessment_reference_number,
+               'assessmentReference', gradebook.assessment_id,
                'completion', gradebook.assessment_attempt_completion,
                'pointsEarned', gradebook.points_earned,
                'pointsPossible', gradebook.points_possible
-           ) ORDER BY gradebook.assessment_reference_number), '[]'::jsonb)
+           ) ORDER BY gradebook.assessment_id), '[]'::jsonb)
       INTO observed_rows
       FROM ple_api.read_course_gradebook(current_setting('ple.test_direct_course_id')) AS gradebook
-     WHERE gradebook.assessment_reference_number = current_setting('ple.test_direct_assessment_id');
+     WHERE gradebook.assessment_id = current_setting('ple.test_direct_assessment_id');
     IF (SELECT count(*)
           FROM ple_api.read_course_gradebook(current_setting('ple.test_direct_course_id')) AS gradebook
-         WHERE gradebook.assessment_reference_number = current_setting('ple.test_direct_assessment_id')
+         WHERE gradebook.assessment_id = current_setting('ple.test_direct_assessment_id')
            AND gradebook.assessment_attempt_completion = 'completed'
            AND gradebook.points_earned = 0
            AND gradebook.points_possible = 3) <> 1 THEN

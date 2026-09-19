@@ -118,7 +118,7 @@ BEGIN
            AND member.question_revision_number = NEW.revision_number
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'Selected Question Pool member must match its retained exact Pool Revision';
+            MESSAGE = 'Selected Question Pool member must match current Pool membership';
     END IF;
     RETURN NEW;
 END $$;
@@ -216,7 +216,7 @@ FOR EACH ROW EXECUTE FUNCTION ple_private.reject_immutable_student_work_change()
 CREATE TRIGGER question_pool_selected_item_delete_is_guarded BEFORE DELETE ON ple_private.question_pool_selected_item
 FOR EACH ROW EXECUTE FUNCTION ple_private.reject_student_work_delete();
 
-CREATE TRIGGER question_pool_selected_item_matches_retained_pool_revision BEFORE INSERT
+CREATE TRIGGER question_pool_selected_item_matches_current_pool_membership BEFORE INSERT
 ON ple_private.question_pool_selected_item FOR EACH ROW
 EXECUTE FUNCTION ple_private.validate_question_pool_selected_item_member();
 

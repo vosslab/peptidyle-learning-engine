@@ -4,8 +4,8 @@ use async_trait::async_trait;
 use question_model::{
     BlueprintAssessmentId, BlueprintAvailability, BlueprintCourseId, BlueprintEditNumber,
     BlueprintModuleReference, BlueprintRevision, BlueprintRevisionReference, QuestionId,
-    QuestionPoolRevisionReference, QuestionRevisionNumber, QuestionRevisionReference,
-    RequestChecksum, Timestamp,
+    QuestionPoolEditNumber, QuestionRevisionNumber, QuestionRevisionReference, RequestChecksum,
+    Timestamp,
 };
 use sqlx::{Postgres, Row, Transaction, types::Json};
 use std::collections::{BTreeMap, BTreeSet};
@@ -86,9 +86,9 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
         let mut transaction = self.begin(session).await.map_err(concealed)?;
         // ASVS 1.2.4, 8.2.2/3: bound source; trusted reader filters children and fields.
         let rows = sqlx::query(
-            "SELECT public_reference, short_name, long_name, availability, \
+            "SELECT blueprint_course_id, short_name, long_name, availability, \
              blueprint_revision_number, source_blueprint_revision_number, owner_display_name \
-             FROM ple_api.list_known_blueprint_forks($1) ORDER BY public_reference COLLATE \"C\"",
+             FROM ple_api.list_known_blueprint_forks($1) ORDER BY blueprint_course_id COLLATE \"C\"",
         )
         .bind(source.as_string())
         .fetch_all(&mut *transaction)
@@ -101,7 +101,9 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
             let owner_display_name: Option<String> =
                 row.try_get("owner_display_name").map_err(map_sqlx_error)?;
             forks.push(StoredKnownBlueprintFork {
-                id: blueprint_reference(row.try_get("public_reference").map_err(map_sqlx_error)?)?,
+                id: blueprint_reference(
+                    row.try_get("blueprint_course_id").map_err(map_sqlx_error)?,
+                )?,
                 short_name: row.try_get("short_name").map_err(map_sqlx_error)?,
                 long_name: row.try_get("long_name").map_err(map_sqlx_error)?,
                 availability: match availability.as_str() {
@@ -173,7 +175,7 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
             revisions.push(StoredBlueprintRevision {
                 reference: BlueprintRevisionReference {
                     blueprint_course_id: blueprint_reference(
-                        row.try_get("public_reference").map_err(map_sqlx_error)?,
+                        row.try_get("blueprint_course_id").map_err(map_sqlx_error)?,
                     )?,
                     revision: blueprint_revision(
                         row.try_get("blueprint_revision_number")
@@ -266,7 +268,7 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
             (None, None)
         };
         let row = sqlx::query(
-            "SELECT public_reference, blueprint_revision_number, blueprint_edit_number, \
+            "SELECT blueprint_course_id, blueprint_revision_number, blueprint_edit_number, \
              (EXTRACT(EPOCH FROM accepted_at) * 1000)::bigint AS accepted_at_millis \
              FROM ple_api.fork_blueprint_course($1, $2, $3, $4, $5, $6)",
         )
@@ -279,14 +281,15 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
         .fetch_one(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
-        let public_reference: String = row.try_get("public_reference").map_err(map_sqlx_error)?;
+        let blueprint_course_id: String =
+            row.try_get("blueprint_course_id").map_err(map_sqlx_error)?;
         let revision_number: i64 = row
             .try_get("blueprint_revision_number")
             .map_err(map_sqlx_error)?;
         let accepted_at_millis: i64 = row.try_get("accepted_at_millis").map_err(map_sqlx_error)?;
         let receipt = ForkBlueprintCourseReceipt {
             blueprint_revision: BlueprintRevisionReference {
-                blueprint_course_id: blueprint_reference(public_reference)?,
+                blueprint_course_id: blueprint_reference(blueprint_course_id)?,
                 revision: blueprint_revision(revision_number)?,
             },
             source,
@@ -306,7 +309,10 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
 pub(super) async fn load_pool_memberships(
     transaction: &mut Transaction<'_, Postgres>,
     revisions: &[StoredBlueprintRevision],
-) -> Result<BTreeMap<QuestionPoolRevisionReference, Vec<QuestionRevisionReference>>, StoreError> {
+) -> Result<
+    BTreeMap<(QuestionId, QuestionPoolEditNumber), Vec<QuestionRevisionReference>>,
+    StoreError,
+> {
     let pins: BTreeSet<_> = revisions
         .iter()
         .flat_map(|revision| &revision.content.modules)
@@ -314,20 +320,20 @@ pub(super) async fn load_pool_memberships(
         .flat_map(|assessment| &assessment.content.entries)
         .filter_map(|entry| match entry {
             StoredBlueprintAssessmentEntry::Pool {
-                question_pool_revision,
+                question_pool_id,
+                question_pool_edit_number,
                 ..
-            } => Some(question_pool_revision.clone()),
+            } => Some((question_pool_id.clone(), *question_pool_edit_number)),
             StoredBlueprintAssessmentEntry::Fixed { .. } => None,
         })
         .collect();
     let invalid =
         || StoreError::InvalidRecord("Blueprint comparison Pool membership is invalid".into());
     let mut result = BTreeMap::new();
-    for pin in pins {
+    for (question_pool_id, question_pool_edit_number) in pins {
         // ASVS 1.2.4, 8.2.3: exact bound metadata only, never Question bodies/answers.
-        let rows = sqlx::query("SELECT * FROM ple_api.read_published_question_pool_revision($1, $2) ORDER BY member_position")
-            .bind(pin.question_pool_id.as_str())
-            .bind(i64::try_from(pin.revision_number.get()).map_err(|_| invalid())?)
+        let rows = sqlx::query("SELECT * FROM ple_api.read_current_published_question_pool($1) ORDER BY member_position")
+            .bind(question_pool_id.as_str())
             .fetch_all(&mut **transaction).await.map_err(map_sqlx_error)?;
         if rows.is_empty() {
             return Err(invalid());
@@ -336,15 +342,15 @@ pub(super) async fn load_pool_memberships(
         let mut unique = BTreeSet::new();
         for (index, row) in rows.iter().enumerate() {
             let pool_id: QuestionId = row
-                .try_get::<String, _>("public_question_pool_id")
+                .try_get::<String, _>("question_pool_id")
                 .map_err(map_sqlx_error)?
                 .parse()
                 .map_err(|_| invalid())?;
-            if pool_id != pin.question_pool_id
+            if pool_id != question_pool_id
                 || row
-                    .try_get::<i64, _>("revision_number")
+                    .try_get::<i64, _>("question_pool_edit_number")
                     .map_err(map_sqlx_error)?
-                    != i64::try_from(pin.revision_number.get()).map_err(|_| invalid())?
+                    != i64::try_from(question_pool_edit_number.get()).map_err(|_| invalid())?
                 || row
                     .try_get::<i32, _>("member_position")
                     .map_err(map_sqlx_error)?
@@ -354,7 +360,7 @@ pub(super) async fn load_pool_memberships(
             }
             let member = QuestionRevisionReference {
                 question_id: row
-                    .try_get::<String, _>("question_id")
+                    .try_get::<String, _>("published_question_id")
                     .map_err(map_sqlx_error)?
                     .parse()
                     .map_err(|_| invalid())?,
@@ -372,7 +378,7 @@ pub(super) async fn load_pool_memberships(
             }
             members.push(member);
         }
-        result.insert(pin, members);
+        result.insert((question_pool_id, question_pool_edit_number), members);
     }
     Ok(result)
 }

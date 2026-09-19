@@ -107,9 +107,9 @@ items=page["accounts"]
 if not isinstance(items,list) or not items:
     raise SystemExit("Instructor Account list is not a nonempty array")
 for item in items:
-    if not isinstance(item,dict) or set(item)!={"reference","state","lastSuccessfulSignIn"}:
+    if not isinstance(item,dict) or set(item)!={"id","state","lastSuccessfulSignIn","providedAvatarId"}:
         raise SystemExit("Instructor Account list projection is not closed")
-    if not isinstance(item["reference"],str) or not re.fullmatch(r"U-[1-9][0-9]{0,9}",item["reference"]):
+    if not isinstance(item["id"],str) or not re.fullmatch(r"U[0-9A-HJKMNP-TV-Z]{8}",item["id"]):
         raise SystemExit("Instructor Account reference is malformed")
     if item["state"] not in {"active","deactivated","closed"}:
         raise SystemExit("Instructor Account state is malformed")
@@ -122,7 +122,7 @@ active_signed_in_instructor_reference() {
 	python3 -c '
 import json, re, sys
 page=json.loads(sys.argv[1]); items=page["accounts"]
-matches=[item.get("reference") for item in items if isinstance(item,dict) and item.get("state")=="active" and isinstance(item.get("lastSuccessfulSignIn"),int) and isinstance(item.get("reference"),str) and re.fullmatch(r"U-[1-9][0-9]{0,9}",item["reference"])]
+matches=[item.get("id") for item in items if isinstance(item,dict) and item.get("state")=="active" and isinstance(item.get("lastSuccessfulSignIn"),int) and isinstance(item.get("id"),str) and re.fullmatch(r"U[0-9A-HJKMNP-TV-Z]{8}",item["id"])]
 if len(matches) != 1:
     raise SystemExit("Live Demo did not retain one observable active Instructor session")
 print(matches[0])
@@ -133,9 +133,9 @@ assert_summary() {
 	python3 -c '
 import json, re, sys
 value=json.loads(sys.argv[1]); expected_reference=sys.argv[2]; expected_state=sys.argv[3]
-if not isinstance(value,dict) or set(value)!={"reference","state","lastSuccessfulSignIn"}:
+if not isinstance(value,dict) or set(value)!={"id","state","lastSuccessfulSignIn","providedAvatarId"}:
     raise SystemExit("Instructor Account lifecycle projection is not closed")
-if value.get("reference") != expected_reference or not re.fullmatch(r"U-[1-9][0-9]{0,9}", expected_reference):
+if value.get("id") != expected_reference or not re.fullmatch(r"U[0-9A-HJKMNP-TV-Z]{8}", expected_reference):
     raise SystemExit("Instructor Account lifecycle changed its public identity")
 if value.get("state") != expected_state or value.get("lastSuccessfulSignIn") is not None:
     raise SystemExit("Instructor Account lifecycle did not retain the expected state")
@@ -354,7 +354,7 @@ prove_service() {
 		echo "Active Sysadmin could not create an Instructor Account from completed vetting" >&2
 		exit 1
 	fi
-	created_reference="$(python3 -c 'import json, sys; print(json.loads(sys.argv[1])["reference"])' "$(response_body "$created")")"
+	created_reference="$(python3 -c 'import json, sys; print(json.loads(sys.argv[1])["id"])' "$(response_body "$created")")"
 	assert_summary "$(response_body "$created")" "$created_reference" active
 	assert_creation_audit_link "$approved_email" "$approved_decision"
 

@@ -584,7 +584,7 @@ fn canonical_content(
 }
 
 fn reference(row: &sqlx::postgres::PgRow) -> Result<BlueprintRevisionReference, StoreError> {
-    let reference: String = row.try_get("public_reference").map_err(map_sqlx_error)?;
+    let reference: String = row.try_get("blueprint_course_id").map_err(map_sqlx_error)?;
     let revision: i64 = row.try_get("revision_number").map_err(map_sqlx_error)?;
     Ok(BlueprintRevisionReference {
         blueprint_course_id: reference
@@ -598,7 +598,7 @@ fn reference(row: &sqlx::postgres::PgRow) -> Result<BlueprintRevisionReference, 
 fn proposal_summary(
     row: &sqlx::postgres::PgRow,
 ) -> Result<BlueprintChangeProposalSummary, StoreError> {
-    let target = summary_reference(row, "target_public_reference", "target_revision_number")?;
+    let target = summary_reference(row, "target_blueprint_course_id", "target_revision_number")?;
     let accepted_at: Option<i64> = row.try_get("accepted_at_ms").map_err(map_sqlx_error)?;
     let accepted_revision: Option<i64> = row
         .try_get("accepted_target_revision_number")
@@ -624,7 +624,7 @@ fn proposal_summary(
         created_at: Timestamp::from_unix_millis(
             row.try_get("created_at_ms").map_err(map_sqlx_error)?,
         ),
-        source: summary_reference(row, "source_public_reference", "source_revision_number")?,
+        source: summary_reference(row, "source_blueprint_course_id", "source_revision_number")?,
         source_blueprint_edit_number: BlueprintEditNumber::from_edit_number(
             row.try_get("source_blueprint_edit_number")
                 .map_err(map_sqlx_error)?,
