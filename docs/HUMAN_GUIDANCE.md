@@ -750,6 +750,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 #### Public ID formats by object
 
 - Published Questions and Question Pools use the public `XXXX-ZXXX` format.
+- Question IDs are the merged concept of Published Question IDs and Question Pool IDs
+- The hyphen is specific to Question IDs. Other public IDs use a prefix without a hyphen.
 - Published Questions and Question Pools share the same public-ID namespace.
 - An `XXXX-ZXXX` value identifies either a Published Question or a Question Pool, never both.
 - Blueprint Course IDs use `BPXXXXXXXZ`.
@@ -758,8 +760,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Account IDs use `UXXXXXXXZ`.
 - Each prefixed public ID uses seven cryptographically random Crockford Base32 characters and a final embedded checksum.
 - Each prefixed public-ID random namespace contains 32^7 = 34,359,738,368 values.
-- Account `U` references are Sysadmin support references.
-- Account `U` references are not automatically exposed to Students or Instructors.
+- Account `UXXXXXXXZ` ids are look up values for Sysadmin support.
+- Account `UXXXXXXXZ` ids are only exposed to Students or Instructors only on their profile page.
 
 #### Database keys and clocks
 
@@ -767,15 +769,15 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
   foreign key to it.
 - An object without a public ID uses a native UUID primary key, or a composite natural key when
   it is owned by a parent (for example a Revision keyed by its lineage ID and Revision Number).
-- One value that is the canonical identity of one object is an Id.
+- One value that identifies one object is an Id, such as a Public ID or UUID.
 - Multiple values that together identify one exact object, state, or version are a Tuple.
-- Tuple is the general cross-language concept for that composite identity, not a version-only suffix.
+- Tuple is the general cross-language term and suffix for a composite identity made from multiple values.
 - A Published Question Revision Tuple is one example: Question ID plus Question Revision Number.
 - A Blueprint Revision Tuple is another example: Blueprint Course ID plus Blueprint Revision Number.
-- Use Reference only for a genuine indirect, scoped, or external locator.
+- Use Reference for a genuine indirect, scoped, or external locator.
 - Do not name an Id or a Tuple as a Reference; "Reference" reads like a pointer, not a composite identity.
-- The hyphen is specific to Question IDs. Other public IDs use a prefix without a hyphen.
-- An object without a public ID uses its UUID Id in routes and JSON. Do not add a second compact locator namespace such as W-, M-, I-, or R-.
+- Use the simplest term that accurately describes what the value represents.
+- An object without a public ID uses its UUID Id in routes and JSON. Secondary Ids are not allowed.
 - Internal UUIDs never substitute for or appear as public identities.
 - Table shape and clocks follow [DATABASE_STYLE.md](/docs/DATABASE_STYLE.md).
 
