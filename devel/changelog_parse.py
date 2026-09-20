@@ -1,10 +1,100 @@
-"""Changelog day-block and entry parsing helpers.
+# This file is vendored. Local changes can and will be overwritten by propagation.
 
-Used by changelog_lib. Callers import changelog_lib.
+"""Parse changelog day blocks and entries.
+
+Callers use changelog_lib, which re-exports this module's public records and
+parser functions. Keeping parsing here leaves file mutation, Git operations,
+and console behavior in changelog_lib.
 """
 
-# local repo modules
-import changelog_lib
+# Standard Library
+import re
+import dataclasses
+
+
+#============================================
+# Module constants
+
+# DATE_RE matches structurally well-formed YYYY-MM-DD headings only;
+# calendrical validation (e.g. 2026-13-99) is performed in
+# parse_day_blocks via datetime.date.fromisoformat().
+DATE_RE = re.compile(r"^## (\d{4}-\d{2}-\d{2})\s*$")
+CATEGORY_RE = re.compile(r"^###\s+(.+?)\s*$")
+BULLET_RE = re.compile(r"^-\s+(.*)$")
+
+CANONICAL_CATEGORIES = [
+	"Additions and New Features",
+	"Behavior or Interface Changes",
+	"Fixes and Maintenance",
+	"Removals and Deprecations",
+	"Decisions and Failures",
+	"Developer Tests and Notes",
+]
+
+#============================================
+# Dataclasses
+
+@dataclasses.dataclass
+class DayBlock:
+	"""One ``## YYYY-MM-DD`` day block from a changelog file.
+
+	Attributes:
+		date: ISO date string in YYYY-MM-DD form. Calendrically valid
+			(passes ``datetime.date.fromisoformat``).
+		raw_text: The verbatim slice of the source file, including the
+			``## YYYY-MM-DD`` heading line and any trailing newlines
+			up to (but not including) the next accepted day heading.
+		source: File path the block came from. ``"<unknown>"`` when the
+			caller did not supply a source path.
+		lineno: 1-based line number of the ``## YYYY-MM-DD`` heading in
+			``source``.
+		lead_text: Concatenation of non-blank, non-bullet, non-heading
+			lines that appear AFTER the ``## YYYY-MM-DD`` heading and
+			BEFORE the first ``### Category`` heading or first ``- ``
+			bullet. Captures author-attribution lines such as
+			``Neil Voss <vossman77@yahoo.com>`` or ``OpenAI Codex``
+			that would otherwise be silently dropped by entry-view
+			consumers. Empty string when no such line exists. NOT the
+			same as the file-level "preamble" returned by
+			``parse_day_blocks``, which is text BEFORE the first day
+			block.
+	"""
+	date: str
+	raw_text: str
+	source: str
+	lineno: int
+	lead_text: str = ""
+
+#============================================
+
+@dataclasses.dataclass
+class Entry:
+	"""A single bullet inside a day block.
+
+	Attributes:
+		date: ISO date string of the parent day block.
+		source: File path of the parent day block.
+		category: The ``### Category`` heading the bullet sits under, or
+			``"Uncategorized"`` when the bullet appears before any
+			category heading.
+		title: First line of the bullet, with the leading ``- `` removed
+			and trailing whitespace stripped.
+		body: Continuation lines joined with ``"\n"``, trailing
+			whitespace stripped. Empty string when the bullet is a
+			single line.
+		text: ``f"{title}. {body}"`` when ``body`` is non-empty,
+			otherwise just ``title``. This is the value keyword search
+			hits.
+		lineno: 1-based line number of the bullet's ``- `` line in
+			``source``.
+	"""
+	date: str
+	source: str
+	category: str
+	title: str
+	body: str
+	text: str
+	lineno: int
 
 #============================================
 # Parsing
@@ -55,12 +145,12 @@ def parse_day_blocks(text: str, source: str = "<unknown>",
 
 	A day block runs from a ``## YYYY-MM-DD`` heading up to (but not
 	including) the next ``## YYYY-MM-DD`` heading or end of file.
-	The ``raw_text`` field on each ``changelog_lib.DayBlock`` preserves the source
+	The ``raw_text`` field on each ``DayBlock`` preserves the source
 	bytes verbatim, including all trailing newlines.
 
 	Tolerance:
 
-	- A ``## YYYY-MM-DD`` heading that matches ``changelog_lib.DATE_RE`` but whose
+	- A ``## YYYY-MM-DD`` heading that matches ``DATE_RE`` but whose
 	  date is calendrically invalid (rejected by
 	  ``datetime.date.fromisoformat``) causes the entire block under
 	  that heading to be skipped. A warning of the form
@@ -81,12 +171,12 @@ def parse_day_blocks(text: str, source: str = "<unknown>",
 	Args:
 		text: Full changelog file contents.
 		source: File path used in warning messages and on each
-			resulting ``changelog_lib.DayBlock.source``. Defaults to ``"<unknown>"``.
+			resulting ``DayBlock.source``. Defaults to ``"<unknown>"``.
 		duplicate_policy: ``"warn"``, ``"raise"``, or ``"keep"``.
 
 	Returns:
 		A tuple ``(preamble, blocks, warnings)`` where ``preamble`` is
-		a string, ``blocks`` is a list of ``changelog_lib.DayBlock`` records, and
+		a string, ``blocks`` is a list of ``DayBlock`` records, and
 		``warnings`` is a list of warning strings.
 
 	Raises:
@@ -106,7 +196,7 @@ def parse_day_blocks(text: str, source: str = "<unknown>",
 	# each entry: (lineno_1based, date_str, is_valid_iso)
 	heading_positions: list = []
 	for index, line in enumerate(lines):
-		match = changelog_lib.DATE_RE.match(line)
+		match = DATE_RE.match(line)
 		if not match:
 			continue
 		date_str = match.group(1)
@@ -188,9 +278,9 @@ def parse_day_blocks(text: str, source: str = "<unknown>",
 		lead_text_parts: list = []
 		for scan_idx in range(line_index + 1, end_index):
 			scan_line = lines[scan_idx]
-			if changelog_lib.BULLET_RE.match(scan_line) or changelog_lib.CATEGORY_RE.match(scan_line):
+			if BULLET_RE.match(scan_line) or CATEGORY_RE.match(scan_line):
 				break
-			if changelog_lib.DATE_RE.match(scan_line):
+			if DATE_RE.match(scan_line):
 				break
 			scan_stripped = scan_line.strip()
 			if scan_stripped:
@@ -205,7 +295,7 @@ def parse_day_blocks(text: str, source: str = "<unknown>",
 				f"{excerpt}"
 			)
 			warnings.append(warning)
-		block = changelog_lib.DayBlock(
+		block = DayBlock(
 			date=date_str, raw_text=raw_text, source=source, lineno=lineno,
 			lead_text=lead_text,
 		)
@@ -215,10 +305,10 @@ def parse_day_blocks(text: str, source: str = "<unknown>",
 
 #============================================
 
-def split_day_block(block: changelog_lib.DayBlock, strict: bool = False) -> tuple:
-	"""Split one ``changelog_lib.DayBlock`` into ``changelog_lib.Entry`` records.
+def split_day_block(block: DayBlock, strict: bool = False) -> tuple:
+	"""Split one ``DayBlock`` into ``Entry`` records.
 
-	Walks the block's raw text and emits one ``changelog_lib.Entry`` per ``- ``
+	Walks the block's raw text and emits one ``Entry`` per ``- ``
 	bullet. Bullets are grouped by the most recent ``### Category``
 	heading; bullets that appear before any category heading are
 	classified ``"Uncategorized"``.
@@ -235,23 +325,23 @@ def split_day_block(block: changelog_lib.DayBlock, strict: bool = False) -> tupl
 	  actionable; never collapsed.
 
 	The third warning shape (``"lead text under day heading"``) is
-	emitted by ``parse_day_blocks`` when it captures ``changelog_lib.DayBlock.lead_text``;
+	emitted by ``parse_day_blocks`` when it captures ``DayBlock.lead_text``;
 	this function does not emit it.
 
 	Bullet body collection rule: a bullet starts at a line matching
-	``changelog_lib.BULLET_RE``. Continuation lines belong to the bullet if they
+	``BULLET_RE``. Continuation lines belong to the bullet if they
 	are indented (start with whitespace) or blank. A new bullet
 	(``- `` at column 0), a new ``### `` heading, or a new ``## ``
 	heading ends the current bullet.
 
 	Args:
-		block: The ``changelog_lib.DayBlock`` to split.
+		block: The ``DayBlock`` to split.
 		strict: When True, emit a warning for any category heading
-			that is not in ``changelog_lib.CANONICAL_CATEGORIES``.
+			that is not in ``CANONICAL_CATEGORIES``.
 
 	Returns:
 		A tuple ``(entries, warnings)`` where ``entries`` is a list
-		of ``changelog_lib.Entry`` records (in source order) and ``warnings`` is a
+		of ``Entry`` records (in source order) and ``warnings`` is a
 		list of warning strings.
 	"""
 	warnings: list = []
@@ -266,13 +356,13 @@ def split_day_block(block: changelog_lib.DayBlock, strict: bool = False) -> tupl
 	pre_first_bullet_idx = None
 	pre_cat_count = 0
 	for pre_idx, pre_line in enumerate(raw_lines):
-		if pre_idx == 0 and changelog_lib.DATE_RE.match(pre_line):
+		if pre_idx == 0 and DATE_RE.match(pre_line):
 			continue
-		if changelog_lib.CATEGORY_RE.match(pre_line):
+		if CATEGORY_RE.match(pre_line):
 			pre_cat_count += 1
 			if pre_first_cat_idx is None:
 				pre_first_cat_idx = pre_idx
-		elif changelog_lib.BULLET_RE.match(pre_line):
+		elif BULLET_RE.match(pre_line):
 			if pre_first_bullet_idx is None:
 				pre_first_bullet_idx = pre_idx
 
@@ -296,7 +386,7 @@ def split_day_block(block: changelog_lib.DayBlock, strict: bool = False) -> tupl
 			text = f"{title}. {body}"
 		else:
 			text = title
-		entry = changelog_lib.Entry(
+		entry = Entry(
 			date=block.date,
 			source=block.source,
 			category=current_category if current_category is not None else "Uncategorized",
@@ -311,10 +401,10 @@ def split_day_block(block: changelog_lib.DayBlock, strict: bool = False) -> tupl
 		file_lineno = block.lineno + offset
 
 		# the ## heading itself is skipped from entry collection
-		if offset == 0 and changelog_lib.DATE_RE.match(line):
+		if offset == 0 and DATE_RE.match(line):
 			continue
 
-		cat_match = changelog_lib.CATEGORY_RE.match(line)
+		cat_match = CATEGORY_RE.match(line)
 		if cat_match:
 			# flush any pending bullet before switching category
 			flush_bullet(bullet_title, bullet_body_lines, bullet_lineno)
@@ -322,13 +412,13 @@ def split_day_block(block: changelog_lib.DayBlock, strict: bool = False) -> tupl
 			bullet_body_lines = []
 			heading = cat_match.group(1).strip()
 			current_category = heading
-			if strict and heading not in changelog_lib.CANONICAL_CATEGORIES:
+			if strict and heading not in CANONICAL_CATEGORIES:
 				warnings.append(
 					f"{block.source}:{file_lineno}: non-canonical category '{heading}'"
 				)
 			continue
 
-		bullet_match = changelog_lib.BULLET_RE.match(line)
+		bullet_match = BULLET_RE.match(line)
 		if bullet_match:
 			# flush previous bullet
 			flush_bullet(bullet_title, bullet_body_lines, bullet_lineno)
@@ -377,4 +467,3 @@ def split_day_block(block: changelog_lib.DayBlock, strict: bool = False) -> tupl
 	# flush a trailing bullet at end of block
 	flush_bullet(bullet_title, bullet_body_lines, bullet_lineno)
 	return (entries, warnings)
-

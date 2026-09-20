@@ -326,7 +326,11 @@ Heads-up: `tsc -p tsconfig.lint.json` exits 2 with `TS18003` ("No inputs were fo
 
 ## BUILD SYSTEM
 
-Use `npx tsc --noEmit -p tsconfig.json` to type-check, and `npx esbuild <entry>.ts --bundle --format=esm --target=es2020 --platform=browser --minify --sourcemap --outfile=dist/main.js` for runtime bundle.
+Use `npx tsc --noEmit -p tsconfig.json` to type-check. Repositories declaring
+`REPO_TYPE=githubpages` use `npx esbuild <entry>.ts --bundle --format=esm
+--target=es2020 --platform=browser --minify --sourcemap
+--outfile=dist/main.js` for the runtime bundle. Generic TypeScript repositories
+own the build command appropriate to their application.
 
 ### Why this shape
 
@@ -361,18 +365,17 @@ Document a build variant only where a real design need drives it, not by head co
 - Pre-build codegen: a generation step run BEFORE bundling, e.g. compiling YAML to JSON or
   generating SVG assets, wired into `build_github_pages.sh` ahead of the esbuild call.
 
-### Front door: run the shell scripts directly
+### Front doors
 
-The named shell scripts are the operational interface for everyone, including
-non-TypeScript coders and non-technical users. Run them directly by name; you
-never need to open `package.json` to learn how to drive a repo:
+The shared TypeScript front doors are:
 
 - `./check_codebase.sh` (run the fast typecheck, lint, format, and unit-test gate).
-- `./build_github_pages.sh` (build the GitHub Pages bundle).
-- `./run_web_server.sh` (build and serve a local preview).
 - `./devel/clean_build.sh` (wipe `dist/`).
-- `./run_playwright_tests.sh` (build as needed, then run the Playwright
-  browser tests). This is its own front door so `check_codebase.sh` stays the fast gate.
+
+The `githubpages` child type adds `./build_github_pages.sh`,
+`./run_web_server.sh`, and `./run_playwright_tests.sh`. Generic TypeScript
+repositories do not receive those build-specific scripts and run browser tests
+with `npm run test:playwright` when applicable.
 
 Each script invokes its tools directly (`npx tsc`, `npx eslint`, `npx prettier`,
 `node --test`). The `package.json` `scripts` block is a thin pass-through: the
@@ -423,10 +426,10 @@ Alias rules:
 | Shell script | npm alias | Job |
 | --- | --- | --- |
 | `./check_codebase.sh` | `npm run check` | Typecheck, lint, format-check, Node unit tests |
-| `./build_github_pages.sh` | `npm run build` | Build the esbuild bundle into `dist/` |
-| `./run_web_server.sh` | `npm run serve` | Build and serve `dist/` on a random port |
 | `./devel/clean_build.sh` | `npm run clean` | Remove `dist/` |
-| `./run_playwright_tests.sh` | `npm run test:playwright` | Build as needed, then run Playwright browser tests |
+
+`npm run test:playwright` invokes Playwright directly. A `githubpages`
+repository can instead call its build-aware runner directly.
 
 The remaining `package.json` aliases have no shell-script front door. Run their
 direct command instead of the alias when you are not in an npm workflow. Use the
@@ -454,10 +457,8 @@ shell wrapper only when it improves usability, never a hidden alias.
 
 ### Canonical scripts
 
-See the shell-script/npm-alias table above for the full list of scripts and their jobs.
-Script names for reference:
-`build_github_pages.sh`, `run_web_server.sh`, `check_codebase.sh`,
-`devel/clean_build.sh`, `run_playwright_tests.sh`.
+See the shell-script/npm-alias table above for the shared scripts. The Pages
+front doors named there exist only when `REPO_TYPE=githubpages`.
 
 ### Repo-local extras
 
@@ -514,15 +515,16 @@ These repos deploy through GitHub Actions from the build output:
 
 ## Canonical repo shape
 
-This is the baseline TypeScript repository layout:
+For `githubpages`, the baseline TypeScript repository layout is:
 
 - `src/main.ts` &mdash; canonical entry point (`src/main.tsx` for JSX or Solid).
 - `src/index.html` &mdash; HTML host with `<script type="module" src="main.js">`.
 - `src/style.css` &mdash; stylesheet copied verbatim into `dist/`.
 - `dist/` &mdash; only build output (canonical GitHub Pages artifact).
 
-Entry point: `src/main.ts` (or `src/main.tsx` for JSX/Solid) is canonical. `src/init.ts` is
-LEGACY: `build_github_pages.sh` still accepts it as a fallback and prints a rename warning, so
+Entry point: `src/main.ts` (or `src/main.tsx` for JSX/Solid) is canonical for
+the Pages build. `src/init.ts` is LEGACY: `build_github_pages.sh` still accepts
+it as a fallback and prints a rename warning, so
 migrate it to `src/main.ts`. The names are not co-equal; `main.ts`/`main.tsx` is the target
 and `init.ts` is deprecated.
 
