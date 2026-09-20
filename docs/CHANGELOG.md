@@ -10,6 +10,16 @@
 
 ### Fixes and Maintenance
 
+- Course Instance load selects `adopted_blueprint_revision_number` /
+  `current_blueprint_revision_number`. Genetics receipt JSON is
+  `blueprintRevisionNumber`. Assessment decode helper takes
+  `revision_number`. Blueprint exact-Revision route in API_CONTRACTS is
+  `{revision_number}`. Gate: `cargo test -p learning-data-access
+  --features postgres --lib load_course_instance_selects_revision_number_columns
+  question_revision_tuple_takes_a_revision_number`, `cargo test -p
+  project-tools --bin project-tools
+  genetics_receipt_serializes_blueprint_revision_number`.
+
 - Remaining Tuple JSON fields use Tuple names: Change Proposal
   `sourceRevisionTuple` / `targetRevisionTuple` /
   `expectedTargetRevisionTuple`, fork apply

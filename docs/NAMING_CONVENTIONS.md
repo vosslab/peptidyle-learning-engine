@@ -55,12 +55,30 @@ their owner's spelling.
 | Genuine indirect, scoped, or external locator | `Reference` | Use only when a simpler Id, Tuple, path, key, handle, or token is inaccurate |
 | Current-state concurrency | `EditNumber` | `AssessmentEditNumber` |
 | Integrity value | `Checksum` | `ObjectChecksum` |
+| Cardinality | `Count` | `activeInstructorCount` |
+| Ordinal placement | `Position` | `authoredPosition` |
 | Bounded bearer value | `Token` | `WorkerLeaseToken` |
 | One-time correspondence value | `Nonce` | `PresentationNonce` |
 
 Use `Revision` only for Published Questions and Blueprint Courses. Question
 Pools, Assessments, and Course Instances are current state. An Edit Number,
 event, receipt, snapshot, job generation, or current state is not a Revision.
+
+A Count is not a version number. A Position is neither an identity nor a
+version number.
+
+## Nested identity vs resource-root `id`
+
+`id` is permitted only as the immediate identity of a resource at its own JSON
+root, typed as that resource's specific `...Id`. Nested identities in a
+relationship, selection, provenance, command, route, or DTO use the precise
+`...Id`, `...Tuple`, or `...Number`. Do not use shorthand such as `source`,
+`target`, `course`, `assessment`, `entry`, `attempt`, `revision`, or
+`currentRevision` when the value is an identity or version clock.
+
+HTTP `ETag` and `If-Match` remain standard header spellings only. Domain and
+browser values use the exact Edit Number or Revision Number; a quoted header
+is only the HTTP encoding of that number.
 
 Use `Uuid` only when the physical value is a UUID. A public ID is the one
 universal, canonical human-facing identifier for a PLE object that needs one.

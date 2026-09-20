@@ -27,9 +27,9 @@ pub(super) async fn creation_assessments(
     let (blueprint_course, blueprint_revision_number) = match &input.source {
         CourseInstanceCreationSource::Empty => return Ok(Value::Array(Vec::new())),
         CourseInstanceCreationSource::Adopted {
-            blueprint_course,
+            blueprint_course_id,
             blueprint_revision_number,
-        } => (blueprint_course, blueprint_revision_number),
+        } => (blueprint_course_id, blueprint_revision_number),
     };
     let row = sqlx::query("SELECT * FROM ple_api.load_course_instance_blueprint($1, $2)")
         .bind(blueprint_course.as_string())

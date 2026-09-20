@@ -69,20 +69,20 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
                         CourseInstanceCreationSource::Empty
                     } else {
                         CourseInstanceCreationSource::Adopted {
-                            blueprint_course: blueprint.clone(),
+                            blueprint_course_id: blueprint.clone(),
                             blueprint_revision_number: BlueprintRevisionNumber::INITIAL,
                         }
                     },
                     short_name: format!("APPEND-{index}"),
                     long_name: format!("Append Save Course {index}"),
                     term: term.clone(),
-                    assigned_instructor: None,
+                    assigned_instructor_account_id: None,
                 },
                 Default::default(),
             )
             .await
             .expect("create append fixture Course");
-        let number = result.course.id.as_string();
+        let number = result.course_instance.id.as_string();
         if index == 2 {
             empty_number = number;
         } else {

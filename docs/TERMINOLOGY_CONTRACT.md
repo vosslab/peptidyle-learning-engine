@@ -758,3 +758,8 @@ public ID, or a `public_reference` SQL alias beside a public ID. Composite
 Question Revision Tuple JSON is the field `questionRevisionTuple` with members
 `{questionId, revisionNumber}`. Blueprint Revision Tuple JSON is the field
 `blueprintRevisionTuple` with members `{blueprintCourseId, revisionNumber}`.
+
+JSON `id` is only the immediate identity of a resource at its own root.
+Nested identities use the precise `...Id`, `...Tuple`, or `...Number`. An
+HTTP ETag is only a quoted encoding of an explicitly named Edit Number or
+Revision Number; domain fields do not store ETag-shaped values.

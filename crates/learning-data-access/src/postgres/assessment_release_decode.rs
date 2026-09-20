@@ -23,12 +23,12 @@ pub(super) fn question_id(value: String) -> Result<QuestionId, StoreError> {
 
 pub(super) fn question_revision_tuple(
     question: String,
-    revision: i32,
+    revision_number: i32,
 ) -> Result<QuestionRevisionTuple, StoreError> {
     Ok(QuestionRevisionTuple {
         question_id: question_id(question)?,
         revision_number: QuestionRevisionNumber::new(
-            u32::try_from(revision).map_err(|_| invalid("Question Revision Number"))?,
+            u32::try_from(revision_number).map_err(|_| invalid("Question Revision Number"))?,
         )
         .map_err(|_| invalid("Question Revision Number"))?,
     })
@@ -255,4 +255,15 @@ pub(super) fn random_uuid() -> Result<uuid::Uuid, StoreError> {
     crate::random_uuid::random_uuid_v4(|_| {
         StoreError::Unavailable("Assessment Workspace UUID randomness unavailable".to_string())
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::question_revision_tuple;
+
+    #[test]
+    fn question_revision_tuple_takes_a_revision_number() {
+        let tuple = question_revision_tuple("ABCD-XEFG".into(), 4).expect("tuple");
+        assert_eq!(tuple.revision_number.get(), 4);
+    }
 }

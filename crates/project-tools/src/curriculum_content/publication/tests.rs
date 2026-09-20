@@ -115,6 +115,23 @@ fn canonical_blueprint_uses_ordered_direct_fixed_questions() {
 }
 
 #[test]
+fn genetics_receipt_serializes_blueprint_revision_number() {
+    let receipt = Receipt::new(
+        "BPABCDEFGJ".into(),
+        1,
+        &manifest(),
+        &BTreeMap::from([
+            ("first".to_owned(), question_revision_tuple("7K3M-19QX", 1)),
+            ("second".to_owned(), question_revision_tuple("8K3M-99QX", 1)),
+        ]),
+    )
+    .expect("receipt");
+    let wire = serde_json::to_value(&receipt).expect("receipt serializes");
+    assert_eq!(wire["blueprintRevisionNumber"], 1);
+    assert!(wire.get("blueprintRevision").is_none());
+}
+
+#[test]
 fn exact_replay_rejects_semantic_drift() {
     let manifest = manifest();
     let first = question_revision_tuple("7K3M-19QX", 1);

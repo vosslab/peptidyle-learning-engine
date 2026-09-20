@@ -19,6 +19,13 @@ use crate::{
 };
 
 const ADOPTION_POOL_IDENTITY_ATTEMPTS: usize = 8;
+const LOAD_COURSE_INSTANCE_SQL: &str = "SELECT course_instance_id, short_name, long_name, \
+     term_starts_on::text AS term_starts_on, term_ends_on::text AS term_ends_on, course_theme, \
+     course_lifecycle_state, course_edit_number, content_discipline_id AS discipline_uuid, \
+     content_subject_id AS subject_uuid, content_topic_id AS topic_uuid, \
+     content_subtopic_id AS subtopic_uuid, tags, active_instructor_count, blueprint_course_id, \
+     adopted_blueprint_revision_number, current_blueprint_revision_number \
+     FROM ple_api.load_course_instance($1)";
 
 /// PostgreSQL Store for Course Instance creation and current Teaching Team reads.
 #[derive(Clone)]
@@ -213,14 +220,15 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
                 &mut attempt_bloom_receipts,
             )
             .await?;
-            let (source_kind, blueprint_course_id, blueprint_revision) = match &input.source {
+            let (source_kind, blueprint_course_id, blueprint_revision_number) = match &input.source
+            {
                 CourseInstanceCreationSource::Empty => ("empty", None, None),
                 CourseInstanceCreationSource::Adopted {
-                    blueprint_course,
+                    blueprint_course_id,
                     blueprint_revision_number,
                 } => (
                     "adopted",
-                    Some(blueprint_course.to_string()),
+                    Some(blueprint_course_id.to_string()),
                     Some(
                         i64::try_from(blueprint_revision_number.value())
                             .map_err(|_| invalid("Blueprint Revision"))?,
@@ -241,14 +249,14 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         .bind(random_uuid()?)
         .bind(source_kind)
         .bind(blueprint_course_id)
-        .bind(blueprint_revision)
+        .bind(blueprint_revision_number)
         .bind(&input.short_name)
         .bind(&input.long_name)
         .bind(input.term.start_date().to_string())
         .bind(input.term.end_date().to_string())
         .bind(
             input
-                .assigned_instructor
+                .assigned_instructor_account_id
                 .as_ref()
                 .map(|account_id| account_id.as_string()),
         )
@@ -273,7 +281,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
                 }
             };
             let record = CreatedCourseInstance {
-                course: CourseInstanceSummary {
+                course_instance: CourseInstanceSummary {
                     classification: super::blueprint_course::decode_classification(&row)?,
                     lifecycle_state: lifecycle_state(
                         row.try_get("course_lifecycle_state")
@@ -333,18 +341,11 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         let mut transaction = self
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
-        let row = sqlx::query(
-            "SELECT course_instance_id, short_name, long_name, term_starts_on::text AS term_starts_on, \
-             term_ends_on::text AS term_ends_on, course_theme, course_lifecycle_state, course_edit_number, \
-             content_discipline_id AS discipline_uuid, content_subject_id AS subject_uuid, \
-             content_topic_id AS topic_uuid, content_subtopic_id AS subtopic_uuid, tags, \
-             active_instructor_count, blueprint_course_id, adopted_blueprint_revision, \
-             current_blueprint_revision FROM ple_api.load_course_instance($1)",
-        )
-        .bind(id.as_string())
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
+        let row = sqlx::query(LOAD_COURSE_INSTANCE_SQL)
+            .bind(id.as_string())
+            .fetch_optional(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
         let record = row
             .as_ref()
             .map(decode_view)
@@ -369,7 +370,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
             .iter()
             .map(|row| {
                 Ok(CourseCreationInstructor {
-                    id: account_id(row.try_get("account_id").map_err(map_sqlx_error)?)?,
+                    account_id: account_id(row.try_get("account_id").map_err(map_sqlx_error)?)?,
                 })
             })
             .collect::<Result<Vec<_>, StoreError>>()?;
@@ -442,7 +443,7 @@ fn decode_view(row: &sqlx::postgres::PgRow) -> Result<CourseInstanceView, StoreE
                     .ok_or_else(|| invalid("Blueprint Revision"))
             };
             Some(CourseInstanceBlueprintOrigin {
-                id: blueprint_course_id
+                blueprint_course_id: blueprint_course_id
                     .parse()
                     .map_err(|_| invalid("Blueprint Course ID"))?,
                 adopted_revision_number: parse_revision_number(adopted)?,
@@ -452,7 +453,7 @@ fn decode_view(row: &sqlx::postgres::PgRow) -> Result<CourseInstanceView, StoreE
         _ => return Err(invalid("Blueprint origin")),
     };
     Ok(CourseInstanceView {
-        course: decode_summary(row)?,
+        course_instance: decode_summary(row)?,
         active_instructor_count: u32::try_from(active_instructor_count)
             .map_err(|_| invalid("Teaching Team size"))?,
         blueprint_origin,
@@ -499,4 +500,17 @@ fn random_uuid() -> Result<uuid::Uuid, StoreError> {
     crate::random_uuid::random_uuid_v4(|_| {
         StoreError::Unavailable("Course Instance UUID randomness unavailable".to_string())
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::LOAD_COURSE_INSTANCE_SQL;
+
+    #[test]
+    fn load_course_instance_selects_revision_number_columns() {
+        assert!(LOAD_COURSE_INSTANCE_SQL.contains("adopted_blueprint_revision_number"));
+        assert!(LOAD_COURSE_INSTANCE_SQL.contains("current_blueprint_revision_number"));
+        assert!(!LOAD_COURSE_INSTANCE_SQL.contains("adopted_blueprint_revision,"));
+        assert!(!LOAD_COURSE_INSTANCE_SQL.contains("current_blueprint_revision "));
+    }
 }

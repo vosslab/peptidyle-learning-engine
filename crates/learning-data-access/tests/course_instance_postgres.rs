@@ -37,7 +37,7 @@ fn empty_course_input() -> CreateCourseInstanceInput {
         short_name: "EMPTY-1".to_owned(),
         long_name: "Empty Course contract".to_owned(),
         term: CourseTerm::from_parts("2026-01-01", "2026-05-01").expect("fixture term"),
-        assigned_instructor: None,
+        assigned_instructor_account_id: None,
     }
 }
 
@@ -244,7 +244,7 @@ async fn empty_course_has_no_initial_content_and_current_instructors_are_peers()
         .create_course_instance(token(0xc1), empty_course_input(), Default::default())
         .await
         .expect("Empty Course creation");
-    let course = created.course.id;
+    let course = created.course_instance.id;
     let workspace = store
         .load_course_instance(token(0xc1), course.clone())
         .await

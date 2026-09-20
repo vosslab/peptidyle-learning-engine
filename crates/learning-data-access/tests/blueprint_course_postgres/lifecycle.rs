@@ -106,13 +106,13 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
                     tags: Vec::new(),
                 },
                 source: CourseInstanceCreationSource::Adopted {
-                    blueprint_course: blueprint_course_id.clone(),
+                    blueprint_course_id: blueprint_course_id.clone(),
                     blueprint_revision_number: BlueprintRevisionNumber::new(1).expect("Revision 1"),
                 },
                 short_name: "ADOPT".into(),
                 long_name: "Complete Blueprint adoption".into(),
                 term: adoption_term.clone(),
-                assigned_instructor: None,
+                assigned_instructor_account_id: None,
             },
             Default::default(),
         )
@@ -130,13 +130,13 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
                     tags: Vec::new(),
                 },
                 source: CourseInstanceCreationSource::Adopted {
-                    blueprint_course: blueprint_course_id.clone(),
+                    blueprint_course_id: blueprint_course_id.clone(),
                     blueprint_revision_number: BlueprintRevisionNumber::new(1).expect("Revision 1"),
                 },
                 short_name: "ADOPT-2".into(),
                 long_name: "Independent Blueprint adoption".into(),
                 term: adoption_term.clone(),
-                assigned_instructor: None,
+                assigned_instructor_account_id: None,
             },
             Default::default(),
         )
@@ -298,13 +298,13 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
                         tags: Vec::new()
                     },
                     source: CourseInstanceCreationSource::Adopted {
-                        blueprint_course: blueprint_course_id.clone(),
+                        blueprint_course_id: blueprint_course_id.clone(),
                         blueprint_revision_number: BlueprintRevisionNumber::INITIAL,
                     },
                     short_name: "ARCH".into(),
                     long_name: "Archived Blueprint adoption denial".into(),
                     term: adoption_term,
-                    assigned_instructor: None,
+                    assigned_instructor_account_id: None,
                 },
                 Default::default(),
             )
@@ -347,8 +347,9 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         .expect("restored Public Blueprint accepts rename");
     assert_eq!(renamed.short_name, "RESTORED");
     let mut inspection = adoption_inspection_connection().await;
-    let adopted_course_instance_id = adopted.course.id.as_string();
-    let independently_adopted_course_instance_id = independently_adopted.course.id.as_string();
+    let adopted_course_instance_id = adopted.course_instance.id.as_string();
+    let independently_adopted_course_instance_id =
+        independently_adopted.course_instance.id.as_string();
     blueprint_course_postgres_adoption::assert_adoption_projection(
         &mut inspection,
         &adopted_course_instance_id,
@@ -362,7 +363,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         .execute(&mut *enrollment)
         .await
         .expect("membership owner");
-    let course_id = adopted.course.id.as_string();
+    let course_id = adopted.course_instance.id.as_string();
     sqlx::query("INSERT INTO ple_data.student_record (student_record_id, course_instance_id, student_account_id, created_at) VALUES ($1,$2,$3,clock_timestamp())")
         .bind(id(0xb105)).bind(&course_id).bind(student_account_id()).execute(&mut *enrollment).await.expect("Student Record");
     for episode in [0xb106, 0xb107] {

@@ -7,7 +7,7 @@ use super::{Manifest, SourceRevisions};
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Receipt {
     pub(super) blueprint_course_id: String,
-    pub(super) blueprint_revision: u64,
+    pub(super) blueprint_revision_number: u64,
     pub(super) source_repository: String,
     pub(super) source_revision: String,
     pub(super) topics: Vec<ReceiptTopic>,
@@ -48,7 +48,7 @@ impl Receipt {
         format!(
             "Genetics Blueprint {} revision {}: {} topics, {} canonical Questions",
             self.blueprint_course_id,
-            self.blueprint_revision,
+            self.blueprint_revision_number,
             self.topics.len(),
             question_count
         )
@@ -103,7 +103,7 @@ impl Receipt {
             .collect::<Result<Vec<_>>>()?;
         Ok(Self {
             blueprint_course_id,
-            blueprint_revision: revision_number,
+            blueprint_revision_number: revision_number,
             source_repository: manifest.course.source_repository.clone(),
             source_revision: manifest.course.source_revision.clone(),
             topics,

@@ -31,7 +31,7 @@ pub enum CourseInstanceCreationSource {
     /// Materialize content from exactly this reusable Blueprint Revision.
     Adopted {
         /// Exact reusable Blueprint Course source.
-        blueprint_course: BlueprintCourseId,
+        blueprint_course_id: BlueprintCourseId,
         /// Exact immutable Blueprint Revision Number source.
         blueprint_revision_number: BlueprintRevisionNumber,
     },
@@ -53,7 +53,7 @@ pub struct CreateCourseInstanceInput {
     pub term: CourseTerm,
     /// Required when a Sysadmin creates for an Instructor; omitted by an Instructor creating for self.
     #[serde(default)]
-    pub assigned_instructor: Option<AccountId>,
+    pub assigned_instructor_account_id: Option<AccountId>,
 }
 
 impl CreateCourseInstanceInput {
@@ -108,7 +108,7 @@ fn valid_name(value: &str) -> bool {
 #[serde(rename_all = "camelCase")]
 pub struct CourseInstanceView {
     /// Course identity and Course Term.
-    pub course: CourseInstanceSummary,
+    pub course_instance: CourseInstanceSummary,
     /// Current Teaching Team size; creation starts with exactly one Instructor membership.
     pub active_instructor_count: u32,
     /// Original adoption and current head, only while the actor can read the source.
@@ -120,7 +120,7 @@ pub struct CourseInstanceView {
 #[serde(rename_all = "camelCase")]
 pub struct CourseInstanceBlueprintOrigin {
     /// Readable parent Blueprint public identity.
-    pub id: BlueprintCourseId,
+    pub blueprint_course_id: BlueprintCourseId,
     /// Immutable Revision Number originally adopted when the Course was created.
     pub adopted_revision_number: BlueprintRevisionNumber,
     /// Current readable source Revision, without applying any changes.
@@ -132,7 +132,7 @@ pub struct CourseInstanceBlueprintOrigin {
 #[serde(rename_all = "camelCase")]
 pub struct CourseCreationInstructor {
     /// Public Account ID carries neither email nor authority.
-    pub id: AccountId,
+    pub account_id: AccountId,
 }
 
 /// Creation receipt that does not imply the creator has Course access.
@@ -140,7 +140,7 @@ pub struct CourseCreationInstructor {
 #[serde(rename_all = "camelCase")]
 pub struct CreatedCourseInstance {
     /// Newly allocated Course Instance identity.
-    pub course: CourseInstanceSummary,
+    pub course_instance: CourseInstanceSummary,
 }
 
 /// Server-only issuer for the fresh public identity of each Assessment-owned
@@ -255,7 +255,7 @@ mod tests {
             .expect("canonical Blueprint Course ID");
         let adopted = serde_json::json!({
             "kind": "adopted",
-            "blueprintCourse": blueprint_course,
+            "blueprintCourseId": blueprint_course,
             "blueprintRevisionNumber": "1"
         });
         assert!(serde_json::from_value::<CourseInstanceCreationSource>(empty).is_ok());
@@ -274,7 +274,7 @@ mod tests {
                 "kind": "adopted",
                 "blueprintCourse": question_model::BlueprintCourseId::from_random_identity("7K3M2QX")
                     .expect("canonical Blueprint Course ID"),
-                "blueprintRevision": "1"
+                "blueprintRevisionNumber": "1"
             }))
             .is_err(),
             "leftover blueprintRevision is not accepted for a Revision Number"
@@ -282,7 +282,7 @@ mod tests {
         assert!(
             serde_json::from_value::<CourseInstanceCreationSource>(serde_json::json!({
                 "kind": "adopted",
-                "blueprintCourse": question_model::BlueprintCourseId::from_random_identity("7K3M2QX")
+                "blueprintCourseId": question_model::BlueprintCourseId::from_random_identity("7K3M2QX")
                     .expect("canonical Blueprint Course ID"),
                 "blueprintRevisionNumber": "1",
                 "blueprint_course": question_model::BlueprintCourseId::from_random_identity("7K3M2QX")
