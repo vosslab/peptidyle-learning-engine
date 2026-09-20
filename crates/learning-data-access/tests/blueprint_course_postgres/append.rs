@@ -69,8 +69,10 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
                         CourseInstanceCreationSource::Empty
                     } else {
                         CourseInstanceCreationSource::Adopted {
-                            blueprint_course_id: blueprint.clone(),
-                            blueprint_revision_number: BlueprintRevisionNumber::INITIAL,
+                            blueprint_revision_tuple: question_model::BlueprintRevisionTuple {
+                                blueprint_course_id: blueprint.clone(),
+                                revision_number: BlueprintRevisionNumber::INITIAL,
+                            },
                         }
                     },
                     short_name: format!("APPEND-{index}"),

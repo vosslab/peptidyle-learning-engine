@@ -10,6 +10,16 @@
 
 ### Fixes and Maintenance
 
+- Course Instance adoption and provenance use named Blueprint Revision
+  Tuples (`blueprintRevisionTuple`, `adoptedBlueprintRevisionTuple`,
+  `currentBlueprintRevisionTuple`). Nested client identities use
+  `courseInstanceId` / `assessmentId` / `assessmentEntryId` /
+  `targetBlueprintCourseId`. Pool fork clocks use
+  `QuestionPoolEditNumber`. SQL stale-concurrency messages name Edit
+  Number, not ETag. Gate: `node --import tsx --test
+  tests/test_course_instance_summary.mjs`, `source source_me.sh &&
+  python3 -m pytest tests/test_semantic_boundary_names.py`.
+
 - SQL keeps `p_` parameter and `v_` local prefixes. Ambiguous domain values
   after those prefixes now name the owning clock:
   `p_expected_blueprint_revision_number`,

@@ -39,7 +39,7 @@ function Evidence(props: { readonly label: string; readonly text: string | null 
 
 /** Deliberate evidence access, not an archive browser or restoration command. */
 export function CourseStudentWorkRecovery(props: {
-  readonly course: CourseInstanceId;
+  readonly courseInstanceId: CourseInstanceId;
   readonly client: CourseStudentWorkRecoveryClient;
   /** Authenticated Instructor Account preference, never the Course or browser zone. */
   readonly displayTimeZone: string;
@@ -63,7 +63,7 @@ export function CourseStudentWorkRecovery(props: {
     setMessage("");
   }
   createEffect(() => {
-    void props.course;
+    void props.courseInstanceId;
     clear();
   });
   onCleanup(clear);
@@ -92,7 +92,7 @@ export function CourseStudentWorkRecovery(props: {
     setEvidence(undefined);
     setSelection(undefined);
     try {
-      const result = await props.client.selectArchivedStudentWork(props.course, cursor);
+      const result = await props.client.selectArchivedStudentWork(props.courseInstanceId, cursor);
       if (token !== generation) return;
       setSelection(result);
       queueMicrotask(() => heading?.focus());
@@ -111,7 +111,7 @@ export function CourseStudentWorkRecovery(props: {
     setMessage("");
     setEvidence(undefined);
     try {
-      const result = await props.client.recoverArchivedStudentWork(props.course, attempt);
+      const result = await props.client.recoverArchivedStudentWork(props.courseInstanceId, attempt);
       if (token !== generation) return;
       setEvidence(result);
     } catch (error: unknown) {

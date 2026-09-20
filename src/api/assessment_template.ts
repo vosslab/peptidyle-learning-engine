@@ -47,7 +47,7 @@ export interface AssessmentTemplateClient {
   ) => Promise<AssessmentTemplateResponse>;
   /** Creates an Unreleased live Assessment from one private Template. */
   readonly createAssessmentFromTemplate: (
-    course: CourseInstanceId,
+    courseInstanceId: CourseInstanceId,
     input: CreateAssessmentFromTemplateInput,
   ) => Promise<LiveAssessmentWorkspaceResponse>;
 }

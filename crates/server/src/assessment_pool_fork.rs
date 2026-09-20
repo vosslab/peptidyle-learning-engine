@@ -145,8 +145,8 @@ async fn import_fork(
             Err(_) => return unavailable(),
         };
         let input = ImportAssessmentPoolForkInput {
-            course: course.clone(),
-            assessment: assessment.clone(),
+            course_instance_id: course.clone(),
+            assessment_id: assessment.clone(),
             assessment_entry: AssessmentEntryId::from_uuid(Uuid::now_v7()),
             expected_assessment_edit_number,
             fork_question_pool_id,
@@ -224,8 +224,8 @@ async fn append_fork_revision(
         .append_assessment_question_pool_fork_members(
             token,
             AppendAssessmentPoolForkMembersInput {
-                course,
-                assessment,
+                course_instance_id: course,
+                assessment_id: assessment,
                 assessment_entry: entry,
                 expected_assessment_edit_number,
                 expected_question_pool_edit_number: request.expected_question_pool_edit_number,

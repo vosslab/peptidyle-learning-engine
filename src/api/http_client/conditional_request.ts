@@ -17,7 +17,11 @@ export function ifMatchHeaderForPositiveNumber(value: string, path: string, labe
 }
 
 /** Read the HTTP ETag as an unquoted positive domain number. */
-export function numberFromResponseEtag(response: Response, path: string, label: string): string {
+export function numberFromQuotedPositiveHeader(
+  response: Response,
+  path: string,
+  label: string,
+): string {
   const etag = response.headers.get("etag");
   if (etag === null || !/^"[1-9][0-9]*"$/u.test(etag)) {
     throw new ApiProtocolError(`API response ${path} must include one strong numeric ${label}`);
@@ -33,9 +37,9 @@ export function assertResponseMatchesPositiveNumber(
   path: string,
   label: string,
 ): string {
-  const actual = numberFromResponseEtag(response, path, label);
+  const actual = numberFromQuotedPositiveHeader(response, path, label);
   if (actual !== requirePositiveNumber(expected, path, label)) {
-    throw new ApiProtocolError(`API response ${path} ETag must match its ${label}`);
+    throw new ApiProtocolError(`API response ${path} quoted number must match its ${label}`);
   }
   return actual;
 }

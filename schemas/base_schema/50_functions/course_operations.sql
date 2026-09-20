@@ -313,7 +313,7 @@ BEGIN
     END IF;
     -- ASVS 2.3.3: only classification writes advance this bounded CAS validator.
     IF p_expected_course_edit_number IS DISTINCT FROM v_course.course_edit_number THEN
-        RAISE EXCEPTION 'Course metadata ETag is stale' USING ERRCODE = '40001';
+        RAISE EXCEPTION 'Course metadata Edit Number is stale' USING ERRCODE = '40001';
     END IF;
     IF ROW(v_course.content_discipline_id, v_course.content_subject_id, v_course.content_topic_id,
            v_course.content_subtopic_id, v_course.tags)

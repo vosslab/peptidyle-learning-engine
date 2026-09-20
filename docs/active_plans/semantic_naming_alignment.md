@@ -46,12 +46,10 @@ same concept.
   the canonical decisions, including the distinction between a root resource
   `id` and a nested identity. State that an HTTP ETag is only a quoted encoding
   of an explicitly named domain number.
-- During this migration, run the untracked one-time scanner
-  `tests/_temp/test_semantic_boundary_names.py` aggressively to find retired
-  names and verify cleanup. Do not promote that file into `tests/test_*.py`.
-  After the migration, promote only narrow durable mechanically decidable
-  invariants, such as forbidding domain-facing `BlueprintRevisionEtag` or
-  `QuestionAvailabilityEtag`, if they still earn a permanent gate.
+- Production-boundary domain `*Etag` names are forbidden by the durable
+  gate `tests/test_semantic_boundary_names.py`. HTTP `etag` / `ETAG` / `ETag`
+  header spellings remain allowed only as transport. SQL stale-concurrency
+  messages name Edit Number, not ETag.
 - Add mechanical enforcement for syntactically decidable rules: forbidden
   domain-facing `*Etag` names, missing `Id` / `Tuple` / `Number` suffixes where
   the owning type is known, and retired serialized field names. Scan PLE-owned

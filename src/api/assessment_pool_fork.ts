@@ -10,6 +10,7 @@ import type { AssessmentEntryScoringRule } from "../../generated/api/AssessmentE
 import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { QuestionId } from "../../generated/api/QuestionId";
 import type { QuestionPoolSelectedQuestionOrder } from "../../generated/api/QuestionPoolSelectedQuestionOrder";
+import type { QuestionPoolEditNumber } from "../../generated/api/QuestionPoolEditNumber";
 import type { QuestionRevisionTuple } from "../../generated/api/QuestionRevisionTuple";
 
 /** Closed browser input for importing one reusable Pool into an Assessment-owned fork. */
@@ -24,7 +25,7 @@ export interface ImportAssessmentQuestionPoolForkInput {
 
 /** Closed browser input for replacing current membership of an Assessment-owned Pool fork. */
 export interface AppendAssessmentQuestionPoolForkMembersInput {
-  readonly expectedQuestionPoolEditNumber: string;
+  readonly expectedQuestionPoolEditNumber: QuestionPoolEditNumber;
   readonly members: ReadonlyArray<QuestionRevisionTuple>;
   readonly interchangeabilityAttested: boolean;
 }
@@ -32,7 +33,7 @@ export interface AppendAssessmentQuestionPoolForkMembersInput {
 /** Whole receipt after saving current membership of an Assessment-owned Pool fork. */
 export interface AppendedAssessmentQuestionPoolForkMembers {
   readonly assessmentEntryId: AssessmentEntryId;
-  readonly questionPoolEditNumber: number;
+  readonly questionPoolEditNumber: QuestionPoolEditNumber;
   readonly assessmentEditNumber: AssessmentEditNumber;
 }
 
@@ -40,34 +41,34 @@ export interface AppendedAssessmentQuestionPoolForkMembers {
 export interface ImportedAssessmentQuestionPoolFork {
   readonly assessmentEntryId: AssessmentEntryId;
   readonly questionPoolId: QuestionId;
-  readonly questionPoolEditNumber: number;
+  readonly questionPoolEditNumber: QuestionPoolEditNumber;
   readonly assessmentEditNumber: AssessmentEditNumber;
 }
 
 /** Narrow Assessment Pool-fork capability; it neither saves generic Assessment content nor issues Pool IDs. */
 export interface AssessmentPoolForkClient {
   readonly getAssessmentQuestionPoolFork: (
-    course: CourseInstanceId,
-    assessment: AssessmentId,
-    entry: AssessmentEntryId,
+    courseInstanceId: CourseInstanceId,
+    assessmentId: AssessmentId,
+    assessmentEntryId: AssessmentEntryId,
   ) => Promise<AssessmentQuestionPoolForkView>;
   readonly importAssessmentQuestionPoolFork: (
-    course: CourseInstanceId,
-    assessment: AssessmentId,
+    courseInstanceId: CourseInstanceId,
+    assessmentId: AssessmentId,
     input: ImportAssessmentQuestionPoolForkInput,
     expectedAssessmentEditNumber: AssessmentEditNumber,
   ) => Promise<ImportedAssessmentQuestionPoolFork>;
   readonly appendAssessmentQuestionPoolForkMembers: (
-    course: CourseInstanceId,
-    assessment: AssessmentId,
-    entry: AssessmentEntryId,
+    courseInstanceId: CourseInstanceId,
+    assessmentId: AssessmentId,
+    assessmentEntryId: AssessmentEntryId,
     input: AppendAssessmentQuestionPoolForkMembersInput,
     expectedAssessmentEditNumber: AssessmentEditNumber,
   ) => Promise<AppendedAssessmentQuestionPoolForkMembers>;
   readonly updateAssessmentQuestionPoolSelectionCount: (
-    course: CourseInstanceId,
-    assessment: AssessmentId,
-    entry: AssessmentEntryId,
+    courseInstanceId: CourseInstanceId,
+    assessmentId: AssessmentId,
+    assessmentEntryId: AssessmentEntryId,
     selectionCount: number,
     expectedAssessmentEditNumber: AssessmentEditNumber,
   ) => Promise<AssessmentQuestionPoolSelectionCountReceipt>;

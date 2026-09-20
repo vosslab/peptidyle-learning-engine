@@ -53,6 +53,6 @@ export interface LiveStudentCourseLandingClient {
   >;
   readonly listLiveStudentCourses: () => Promise<ReadonlyArray<LiveStudentCourseLandingSummary>>;
   readonly listLiveStudentAssessments: (
-    course: CourseInstanceId,
+    courseInstanceId: CourseInstanceId,
   ) => Promise<ReadonlyArray<LiveStudentAssessmentLandingSummary>>;
 }

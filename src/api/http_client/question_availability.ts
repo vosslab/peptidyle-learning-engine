@@ -13,7 +13,7 @@ import type { QuestionAvailabilityEditNumber } from "../../../generated/api/Ques
 import {
   assertResponseMatchesPositiveNumber,
   ifMatchHeaderForPositiveNumber,
-  numberFromResponseEtag,
+  numberFromQuotedPositiveHeader,
 } from "./conditional_request";
 import {
   decodeQuestionAvailabilityTransition,
@@ -43,7 +43,7 @@ function questionAvailabilityEditNumberFromResponse(
   response: Response,
   path: string,
 ): QuestionAvailabilityEditNumber {
-  return numberFromResponseEtag(response, path, "Question Availability Edit Number");
+  return numberFromQuotedPositiveHeader(response, path, "Question Availability Edit Number");
 }
 
 async function questionJson<T>(

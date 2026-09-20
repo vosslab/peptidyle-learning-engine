@@ -84,8 +84,8 @@ export interface BlueprintCourseClient extends BlueprintStewardshipClient {
     blueprintCourseId: BlueprintCourseId,
   ) => Promise<readonly BlueprintKnownForkView[]>;
   readonly getBlueprintComparison: (
-    left: BlueprintCourseId,
-    right: BlueprintCourseId,
+    leftBlueprintCourseId: BlueprintCourseId,
+    rightBlueprintCourseId: BlueprintCourseId,
   ) => Promise<BlueprintComparisonView>;
   readonly listBlueprintCourses: (
     cursor?: string,

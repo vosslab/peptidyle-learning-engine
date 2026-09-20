@@ -33,9 +33,9 @@ export type GradebookExportFormat = "csv" | "tsv";
 
 /** Same-origin current-Instructor Gradebook read and point-export capability. */
 export interface CourseGradebookClient {
-  readonly getCourseGradebook: (course: CourseInstanceId) => Promise<CourseGradebook>;
+  readonly getCourseGradebook: (courseInstanceId: CourseInstanceId) => Promise<CourseGradebook>;
   readonly downloadCourseGradebook: (
-    course: CourseInstanceId,
+    courseInstanceId: CourseInstanceId,
     format: GradebookExportFormat,
   ) => Promise<Blob>;
 }

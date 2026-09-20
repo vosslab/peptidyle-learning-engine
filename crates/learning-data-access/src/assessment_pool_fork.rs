@@ -15,8 +15,8 @@ use crate::{SessionTokenHash, StoreError};
 /// and the Store copies current source membership in one transaction.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ImportAssessmentPoolForkInput {
-    pub course: CourseInstanceId,
-    pub assessment: AssessmentId,
+    pub course_instance_id: CourseInstanceId,
+    pub assessment_id: AssessmentId,
     pub assessment_entry: AssessmentEntryId,
     pub expected_assessment_edit_number: AssessmentEditNumber,
     pub fork_question_pool_id: QuestionId,
@@ -40,8 +40,8 @@ pub struct ImportedAssessmentPoolFork {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AppendAssessmentPoolForkMembersInput {
     /// Opaque route IDs; no browser supplies an internal Assessment ID.
-    pub course: CourseInstanceId,
-    pub assessment: AssessmentId,
+    pub course_instance_id: CourseInstanceId,
+    pub assessment_id: AssessmentId,
     pub assessment_entry: AssessmentEntryId,
     pub expected_assessment_edit_number: AssessmentEditNumber,
     pub expected_question_pool_edit_number: QuestionPoolEditNumber,

@@ -1,7 +1,7 @@
 import type { DraftQuestionRouteId } from "../../navigation/public_route";
 import {
   ifMatchHeaderForPositiveNumber,
-  numberFromResponseEtag,
+  numberFromQuotedPositiveHeader,
 } from "../../api/http_client/conditional_request";
 import { ApiProtocolError } from "../../api/http_client/error";
 
@@ -112,7 +112,7 @@ function sameOriginPath(basePath: string, path: string): string {
 
 function draftQuestionEditNumberFromResponse(response: Response, path: string): string {
   try {
-    return numberFromResponseEtag(response, path, "Draft Question Edit Number");
+    return numberFromQuotedPositiveHeader(response, path, "Draft Question Edit Number");
   } catch (error: unknown) {
     throw new PleQuestionGeneralFeedbackProtocolError(
       error instanceof ApiProtocolError

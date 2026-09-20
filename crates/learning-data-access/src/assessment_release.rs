@@ -33,10 +33,10 @@ pub struct AssessmentBlueprintUpdateReview {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CourseBlueprintUpdateReview {
-    pub blueprint_course_id: question_model::BlueprintCourseId,
     /// Immutable creation pin, not a claim that the whole Course has applied a Revision.
-    pub adopted_revision_number: question_model::BlueprintRevisionNumber,
-    pub source_revision_number: question_model::BlueprintRevisionNumber,
+    pub adopted_blueprint_revision_tuple: question_model::BlueprintRevisionTuple,
+    /// Current readable parent Blueprint Revision offered for review.
+    pub current_blueprint_revision_tuple: question_model::BlueprintRevisionTuple,
     pub assessments: Vec<CourseAssessmentBlueprintUpdateSummary>,
 }
 
@@ -103,7 +103,7 @@ pub enum AssessmentBlueprintUpdateEntry {
 pub struct ApplyAssessmentBlueprintUpdateInput {
     // ASVS 1.5.2, 2.2.1: the browser cannot choose source identities or content.
     pub expected_source_revision_number: question_model::BlueprintRevisionNumber,
-    pub expected_edit_number: AssessmentEditNumber,
+    pub expected_assessment_edit_number: AssessmentEditNumber,
 }
 
 /// Bounded initial authored content for one new Course-owned Assessment.
@@ -662,7 +662,7 @@ pub trait LiveAssessmentStore: Send + Sync {
         session_token_hash: SessionTokenHash,
         course: CourseInstanceId,
         assessment: AssessmentId,
-        expected_edit_number: AssessmentEditNumber,
+        expected_assessment_edit_number: AssessmentEditNumber,
     ) -> Result<LiveAssessmentWorkspace, StoreError>;
 
     /// Reads the exact, aggregate impact of Unrelease for a currently Released Assessment.

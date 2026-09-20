@@ -106,8 +106,10 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
                     tags: Vec::new(),
                 },
                 source: CourseInstanceCreationSource::Adopted {
-                    blueprint_course_id: blueprint_course_id.clone(),
-                    blueprint_revision_number: BlueprintRevisionNumber::new(1).expect("Revision 1"),
+                    blueprint_revision_tuple: question_model::BlueprintRevisionTuple {
+                        blueprint_course_id: blueprint_course_id.clone(),
+                        revision_number: BlueprintRevisionNumber::new(1).expect("Revision 1"),
+                    },
                 },
                 short_name: "ADOPT".into(),
                 long_name: "Complete Blueprint adoption".into(),
@@ -130,8 +132,10 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
                     tags: Vec::new(),
                 },
                 source: CourseInstanceCreationSource::Adopted {
-                    blueprint_course_id: blueprint_course_id.clone(),
-                    blueprint_revision_number: BlueprintRevisionNumber::new(1).expect("Revision 1"),
+                    blueprint_revision_tuple: question_model::BlueprintRevisionTuple {
+                        blueprint_course_id: blueprint_course_id.clone(),
+                        revision_number: BlueprintRevisionNumber::new(1).expect("Revision 1"),
+                    },
                 },
                 short_name: "ADOPT-2".into(),
                 long_name: "Independent Blueprint adoption".into(),
@@ -298,8 +302,10 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
                         tags: Vec::new()
                     },
                     source: CourseInstanceCreationSource::Adopted {
-                        blueprint_course_id: blueprint_course_id.clone(),
-                        blueprint_revision_number: BlueprintRevisionNumber::INITIAL,
+                        blueprint_revision_tuple: question_model::BlueprintRevisionTuple {
+                            blueprint_course_id: blueprint_course_id.clone(),
+                            revision_number: BlueprintRevisionNumber::INITIAL,
+                        },
                     },
                     short_name: "ARCH".into(),
                     long_name: "Archived Blueprint adoption denial".into(),

@@ -458,13 +458,13 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
         token: SessionTokenHash,
         course: CourseInstanceId,
         assessment: AssessmentId,
-        expected: AssessmentEditNumber,
+        expected_assessment_edit_number: AssessmentEditNumber,
     ) -> Result<LiveAssessmentWorkspace, StoreError> {
         let mut tx = self.begin(token).await?;
         let _row = sqlx::query("SELECT * FROM ple_api.release_assessment($1, $2, $3)")
             .bind(course.as_string())
             .bind(assessment.as_string())
-            .bind(i64::try_from(expected.value()).map_err(|_| invalid("Assessment Edit Number"))?)
+            .bind(i64::try_from(expected_assessment_edit_number.value()).map_err(|_| invalid("Assessment Edit Number"))?)
             .fetch_one(&mut *tx)
             .await
             .map_err(map_sqlx_error)?;

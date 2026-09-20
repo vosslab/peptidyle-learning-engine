@@ -297,7 +297,7 @@ import datetime, json, sys
 blueprint_course_id, revision = sys.argv[1:]
 today = datetime.date.today()
 print(json.dumps({
-    "source": {"kind": "adopted", "blueprintCourse": blueprint_course_id, "blueprintRevisionNumber": revision},
+    "source": {"kind": "adopted", "blueprintRevisionTuple": {"blueprintCourseId": blueprint_course_id, "revisionNumber": revision}},
     "shortName": "Blueprint browse adoption",
     "longName": "Blueprint Course browse adoption",
     "term": {"startDate": today.isoformat(), "endDate": (today + datetime.timedelta(days=7)).isoformat()},

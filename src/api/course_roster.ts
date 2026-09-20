@@ -24,17 +24,17 @@ export interface CourseRosterEntry {
 /** Same-origin roster transport boundary. */
 export interface LiveCourseRosterClient {
   readonly getLiveCourseRoster: (
-    course: CourseInstanceId,
+    courseInstanceId: CourseInstanceId,
   ) => Promise<ReadonlyArray<CourseRosterEntry>>;
   readonly importLiveCourseRoster: (
-    course: CourseInstanceId,
+    courseInstanceId: CourseInstanceId,
     input: CourseRosterImportInput,
   ) => Promise<ReadonlyArray<CourseRosterEntry>>;
   readonly claimLiveCourseInvitation: (
-    course: CourseInstanceId,
+    courseInstanceId: CourseInstanceId,
   ) => Promise<{ readonly activeStudentMembership: boolean }>;
   readonly revokeLiveCourseRosterEntry: (
-    course: CourseInstanceId,
+    courseInstanceId: CourseInstanceId,
     rosterId: string,
   ) => Promise<void>;
 }

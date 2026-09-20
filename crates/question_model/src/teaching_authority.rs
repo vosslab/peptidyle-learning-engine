@@ -57,7 +57,7 @@ pub enum CourseInvitationState {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CourseInvitationEvent {
     /// Exact invitation whose state changes.
-    pub invitation: CourseInvitationId,
+    pub course_invitation_id: CourseInvitationId,
     /// Closed terminal transition selected once for the invitation.
     pub kind: CourseInvitationEventKind,
     /// Account that performed the transition.
@@ -82,15 +82,15 @@ pub enum CourseInvitationEventKind {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CourseInvitation {
     /// Internal storage identity, never a visible ID.
-    pub id: CourseInvitationId,
-    /// Exact course that can receive one ordinary Instructor Course Membership.
-    pub course: CourseInstanceId,
+    pub course_invitation_id: CourseInvitationId,
+    /// Exact Course Instance that can receive one ordinary Instructor Course Membership.
+    pub course_instance_id: CourseInstanceId,
     /// Exact Instructor Course Membership episode that initiated the invitation.
     pub invited_by: CourseMembershipId,
     /// Exact Course Membership Role granted if the target accepts this invitation.
     pub membership_role: CourseMembershipRole,
-    /// Existing account invited to this exact course with that exact role.
-    pub target: AccountId,
+    /// Existing account invited to this exact Course Instance with that exact role.
+    pub target_account_id: AccountId,
     /// Authoritative creation time.
     pub created_at: Timestamp,
     /// Required authoritative expiry, exactly 30 days after creation.

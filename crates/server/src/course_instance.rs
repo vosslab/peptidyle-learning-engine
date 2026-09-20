@@ -209,7 +209,7 @@ async fn update_classification(
         .and_then(|value| value.parse::<question_model::CourseEditNumber>().ok())
     {
         Some(value) => value,
-        None => return route_error(StatusCode::BAD_REQUEST, "Course metadata ETag is invalid"),
+        None => return route_error(StatusCode::BAD_REQUEST, "Course metadata Edit Number is invalid"),
     };
     let session = match instructor_session_hash(&state, &headers).await {
         Ok(value) => value,

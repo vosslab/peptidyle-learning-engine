@@ -1,6 +1,9 @@
 //! Derived source review and one retained Assessment's explicit reusable-content update.
 
-use question_model::{AssessmentId, BlueprintCourseId, BlueprintRevisionNumber, CourseInstanceId};
+use question_model::{
+    AssessmentId, BlueprintCourseId, BlueprintRevisionNumber, BlueprintRevisionTuple,
+    CourseInstanceId,
+};
 use sqlx::{Postgres, Row, Transaction, types::Json};
 use uuid::Uuid;
 
@@ -54,6 +57,14 @@ pub(super) async fn review_course(
     };
     let adopted_revision_number = parse_revision_number("adopted_revision_number")?;
     let source_revision_number = parse_revision_number("source_revision_number")?;
+    let adopted_blueprint_revision_tuple = BlueprintRevisionTuple {
+        blueprint_course_id: blueprint_course_id.clone(),
+        revision_number: adopted_revision_number,
+    };
+    let current_blueprint_revision_tuple = BlueprintRevisionTuple {
+        blueprint_course_id,
+        revision_number: source_revision_number,
+    };
     let Json(content): Json<StoredBlueprintCourseContent> =
         source.try_get("content").map_err(map_sqlx_error)?;
     let checksum: Vec<u8> = source.try_get("content_checksum").map_err(map_sqlx_error)?;
@@ -84,9 +95,8 @@ pub(super) async fn review_course(
     }
     tx.commit().await.map_err(map_sqlx_error)?;
     Ok(CourseBlueprintUpdateReview {
-        blueprint_course_id,
-        adopted_revision_number,
-        source_revision_number,
+        adopted_blueprint_revision_tuple,
+        current_blueprint_revision_tuple,
         assessments,
     })
 }
@@ -124,7 +134,7 @@ pub(super) async fn apply(
     let source = load_source(&mut tx, &course, &assessment).await?;
     let workspace = load_workspace(&mut tx, &course, &assessment).await?;
     if source.revision_number != input.expected_source_revision_number
-        || workspace.edit_number != input.expected_edit_number
+        || workspace.edit_number != input.expected_assessment_edit_number
     {
         return Err(StoreError::Conflict);
     }
@@ -163,7 +173,7 @@ pub(super) async fn apply(
             "Blueprint Revision",
         )?)
         .bind(integer(
-            input.expected_edit_number.value(),
+            input.expected_assessment_edit_number.value(),
             "Assessment Edit Number",
         )?)
         .bind(materialized)

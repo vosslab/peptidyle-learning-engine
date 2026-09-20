@@ -6,13 +6,13 @@ import type { SaveAssessmentStudentTimeAccommodationInput } from "../../generate
 
 export interface AssessmentStudentTimeAccommodationClient {
   readonly getAssessmentStudentTimeAccommodation: (
-    course: CourseInstanceId,
-    assessment: AssessmentId,
+    courseInstanceId: CourseInstanceId,
+    assessmentId: AssessmentId,
     rosterId: string,
   ) => Promise<AssessmentStudentTimeAccommodation>;
   readonly saveAssessmentStudentTimeAccommodation: (
-    course: CourseInstanceId,
-    assessment: AssessmentId,
+    courseInstanceId: CourseInstanceId,
+    assessmentId: AssessmentId,
     rosterId: string,
     input: SaveAssessmentStudentTimeAccommodationInput,
   ) => Promise<AssessmentStudentTimeAccommodation>;

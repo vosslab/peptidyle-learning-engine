@@ -761,5 +761,9 @@ Question Revision Tuple JSON is the field `questionRevisionTuple` with members
 
 JSON `id` is only the immediate identity of a resource at its own root.
 Nested identities use the precise `...Id`, `...Tuple`, or `...Number`. An
+exact immutable Blueprint or Question revision is the named Tuple
+`blueprintRevisionTuple` or `questionRevisionTuple`, including Course
+Instance adoption (`blueprintRevisionTuple`) and provenance
+(`adoptedBlueprintRevisionTuple`, `currentBlueprintRevisionTuple`). An
 HTTP ETag is only a quoted encoding of an explicitly named Edit Number or
 Revision Number; domain fields do not store ETag-shaped values.

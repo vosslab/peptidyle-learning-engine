@@ -114,7 +114,7 @@ async fn manifest(
         Ok(value) => value,
         Err(()) => return unavailable(),
     };
-    etag_response(Json(view).into_response(), edit_number)
+    quoted_edit_number_response(Json(view).into_response(), edit_number)
 }
 
 async fn presentation(
@@ -160,7 +160,7 @@ async fn presentation(
         Ok(value) => Json(value).into_response(),
         Err(()) => return unavailable(),
     };
-    etag_response(response, expected)
+    quoted_edit_number_response(response, expected)
 }
 
 async fn document(
@@ -660,7 +660,7 @@ async fn instructor_with_sessions(
     }
 }
 
-fn etag_response(response: Response, edit_number: AssessmentEditNumber) -> Response {
+fn quoted_edit_number_response(response: Response, edit_number: AssessmentEditNumber) -> Response {
     let mut response = crate::auth::no_store(response);
     match HeaderValue::from_str(&format!("\"{}\"", edit_number.value())) {
         Ok(value) => {

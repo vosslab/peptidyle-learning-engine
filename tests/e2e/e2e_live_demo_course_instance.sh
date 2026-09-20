@@ -188,7 +188,7 @@ course_payload() {
 	python3 -c '
 import json, sys
 blueprint, revision, assigned, classification, short_name, long_name = sys.argv[1:]
-print(json.dumps({"classification":json.loads(classification),"source":{"kind":"adopted","blueprintCourse":blueprint,"blueprintRevisionNumber":revision},"shortName":short_name,"longName":long_name,"term":{"startDate":"2026-09-01","endDate":"2026-12-18"},"assignedInstructor":assigned}, separators=(",",":")))
+print(json.dumps({"classification":json.loads(classification),"source":{"kind":"adopted","blueprintRevisionTuple":{"blueprintCourseId":blueprint,"revisionNumber":revision}},"shortName":short_name,"longName":long_name,"term":{"startDate":"2026-09-01","endDate":"2026-12-18"},"assignedInstructorAccountId":assigned}, separators=(",",":")))
 ' "$1" "$2" "$3" "$4" "$5" "$6"
 }
 
@@ -196,9 +196,9 @@ assert_course_receipt() {
 	python3 -c '
 import json, sys
 value = json.loads(sys.argv[1])
-if set(value) != {"course"}:
+if set(value) != {"courseInstance"}:
     raise SystemExit("Course Instance creation receipt was not closed")
-course = value["course"]
+course = value["courseInstance"]
 themes = {"tundra", "forest", "desert", "grass", "arctic", "ocean", "tropical", "coral-reef", "swamp", "underground", "salt-marsh", "wetland", "sea-floor", "magma", "beach"}
 if (set(course) != {"classification", "lifecycleState", "courseEditNumber", "id", "shortName", "longName", "term", "theme"}
     or not isinstance(course["id"], str) or not course["id"]
@@ -216,9 +216,9 @@ assert_instructor_view() {
 	python3 -c '
 import json, sys
 value = json.loads(sys.argv[1])
-if set(value) != {"course", "activeInstructorCount", "blueprintOrigin"}:
+if set(value) != {"courseInstance", "activeInstructorCount", "blueprintOrigin"}:
     raise SystemExit("Course Instance teaching-team view was not closed")
-course = value["course"]
+course = value["courseInstance"]
 themes = {"tundra", "forest", "desert", "grass", "arctic", "ocean", "tropical", "coral-reef", "swamp", "underground", "salt-marsh", "wetland", "sea-floor", "magma", "beach"}
 if (set(course) != {"classification", "lifecycleState", "courseEditNumber", "id", "shortName", "longName", "term", "theme"}
     or not isinstance(course["id"], str) or not course["id"]
@@ -234,13 +234,13 @@ if not isinstance(value["activeInstructorCount"], int) or value["activeInstructo
 origin = value["blueprintOrigin"]
 if origin is not None and (
     not isinstance(origin, dict)
-    or set(origin) != {"id", "adoptedRevisionNumber", "currentRevisionNumber"}
-    or not isinstance(origin["id"], str) or not origin["id"]
-    or not isinstance(origin["adoptedRevisionNumber"], str)
-    or not isinstance(origin["currentRevisionNumber"], str)
-    or not origin["adoptedRevisionNumber"].isdigit()
-    or not origin["currentRevisionNumber"].isdigit()
-    or not 0 < int(origin["adoptedRevisionNumber"]) <= int(origin["currentRevisionNumber"])
+    or set(origin) != {"adoptedBlueprintRevisionTuple", "currentBlueprintRevisionTuple"}
+    or origin["adoptedBlueprintRevisionTuple"].get("blueprintCourseId") != origin["currentBlueprintRevisionTuple"].get("blueprintCourseId")
+    or not isinstance(origin["adoptedBlueprintRevisionTuple"].get("revisionNumber"), str)
+    or not isinstance(origin["currentBlueprintRevisionTuple"].get("revisionNumber"), str)
+    or not origin["adoptedBlueprintRevisionTuple"]["revisionNumber"].isdigit()
+    or not origin["currentBlueprintRevisionTuple"]["revisionNumber"].isdigit()
+    or not 0 < int(origin["adoptedBlueprintRevisionTuple"]["revisionNumber"]) <= int(origin["currentBlueprintRevisionTuple"]["revisionNumber"])
 ):
     raise SystemExit("Course Instance Blueprint origin was not a closed ordered provenance")
 forbidden = {"id", "accountId", "student", "studentRecord", "assignment", "sourceObject", "answerKey"}

@@ -7,5 +7,5 @@ export interface LiveInvitationExportClient {
   /**
    * Downloads the protected attachment without interpreting its recipient data in the browser.
    */
-  readonly downloadLiveInvitationExport: (course: CourseInstanceId) => Promise<Blob>;
+  readonly downloadLiveInvitationExport: (courseInstanceId: CourseInstanceId) => Promise<Blob>;
 }

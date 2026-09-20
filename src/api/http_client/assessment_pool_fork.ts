@@ -129,8 +129,8 @@ function appendBody(input: AppendAssessmentQuestionPoolForkMembersInput): object
     );
   }
   if (
-    !/^[1-9][0-9]*$/u.test(input.expectedQuestionPoolEditNumber) ||
-    BigInt(input.expectedQuestionPoolEditNumber) > 9_223_372_036_854_775_807n
+    !Number.isSafeInteger(input.expectedQuestionPoolEditNumber) ||
+    input.expectedQuestionPoolEditNumber < 1
   ) {
     throw new ApiProtocolError(
       "Assessment Pool expected Question Pool Edit Number must be a positive integer",

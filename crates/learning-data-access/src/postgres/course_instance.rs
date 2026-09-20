@@ -4,8 +4,8 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use question_model::{
-    AccountId, BlueprintRevisionNumber, CourseInstanceId, CourseMembershipRole, CourseSummary,
-    CourseTerm, CourseTheme,
+    AccountId, BlueprintRevisionNumber, BlueprintRevisionTuple, CourseInstanceId,
+    CourseMembershipRole, CourseSummary, CourseTerm, CourseTheme,
 };
 use sqlx::{Postgres, Row, Transaction};
 
@@ -224,13 +224,12 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
             {
                 CourseInstanceCreationSource::Empty => ("empty", None, None),
                 CourseInstanceCreationSource::Adopted {
-                    blueprint_course_id,
-                    blueprint_revision_number,
+                    blueprint_revision_tuple,
                 } => (
                     "adopted",
-                    Some(blueprint_course_id.to_string()),
+                    Some(blueprint_revision_tuple.blueprint_course_id.to_string()),
                     Some(
-                        i64::try_from(blueprint_revision_number.value())
+                        i64::try_from(blueprint_revision_tuple.revision_number.value())
                             .map_err(|_| invalid("Blueprint Revision"))?,
                     ),
                 ),
@@ -442,12 +441,18 @@ fn decode_view(row: &sqlx::postgres::PgRow) -> Result<CourseInstanceView, StoreE
                     .and_then(BlueprintRevisionNumber::new)
                     .ok_or_else(|| invalid("Blueprint Revision"))
             };
+            let blueprint_course_id = blueprint_course_id
+                .parse()
+                .map_err(|_| invalid("Blueprint Course ID"))?;
             Some(CourseInstanceBlueprintOrigin {
-                blueprint_course_id: blueprint_course_id
-                    .parse()
-                    .map_err(|_| invalid("Blueprint Course ID"))?,
-                adopted_revision_number: parse_revision_number(adopted)?,
-                current_revision_number: parse_revision_number(current)?,
+                adopted_blueprint_revision_tuple: BlueprintRevisionTuple {
+                    blueprint_course_id: blueprint_course_id.clone(),
+                    revision_number: parse_revision_number(adopted)?,
+                },
+                current_blueprint_revision_tuple: BlueprintRevisionTuple {
+                    blueprint_course_id,
+                    revision_number: parse_revision_number(current)?,
+                },
             })
         }
         _ => return Err(invalid("Blueprint origin")),

@@ -25,7 +25,7 @@ pub struct StoredKnownBlueprintFork {
 }
 
 /// Authorized exact content and current names for a Blueprint fork review.
-/// Name ETags reuse the ordinary lineage metadata concurrency boundary.
+/// Name Edit Numbers reuse the ordinary lineage metadata concurrency boundary.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BlueprintComparisonSources {
     pub left: StoredBlueprintRevision,

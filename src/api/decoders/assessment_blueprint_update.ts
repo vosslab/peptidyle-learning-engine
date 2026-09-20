@@ -36,15 +36,18 @@ export function decodeApplyAssessmentBlueprintUpdateInput(
   path = "input",
 ): ApplyAssessmentBlueprintUpdateInput {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["expectedSourceRevisionNumber", "expectedEditNumber"]);
+  requireOnlyFields(record, path, [
+    "expectedSourceRevisionNumber",
+    "expectedAssessmentEditNumber",
+  ]);
   return {
     expectedSourceRevisionNumber: blueprintRevisionNumber(
       field(record, "expectedSourceRevisionNumber", path),
       `${path}.expectedSourceRevisionNumber`,
     ),
-    expectedEditNumber: editNumber(
-      field(record, "expectedEditNumber", path),
-      `${path}.expectedEditNumber`,
+    expectedAssessmentEditNumber: editNumber(
+      field(record, "expectedAssessmentEditNumber", path),
+      `${path}.expectedAssessmentEditNumber`,
     ),
   };
 }

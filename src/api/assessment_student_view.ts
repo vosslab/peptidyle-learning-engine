@@ -10,21 +10,21 @@ import type { StudentQuestionPresentation } from "../../generated/api/StudentQue
 /** Read-only preview capability with no Student, Attempt, submission, or grading operation. */
 export interface AssessmentStudentViewClient {
   readonly getInstructorStudentView: (
-    course: CourseInstanceId,
-    assessment: AssessmentId,
+    courseInstanceId: CourseInstanceId,
+    assessmentId: AssessmentId,
   ) => Promise<InstructorStudentView>;
   readonly getInstructorStudentViewQuestion: (
-    course: CourseInstanceId,
-    assessment: AssessmentId,
+    courseInstanceId: CourseInstanceId,
+    assessmentId: AssessmentId,
     authoredPosition: number,
     questionRevisionTuple: QuestionRevisionTuple,
-    editNumber: AssessmentEditNumber,
+    expectedAssessmentEditNumber: AssessmentEditNumber,
   ) => Promise<StudentQuestionPresentation>;
   readonly instructorStudentViewQuestionDocumentUrl: (
-    course: CourseInstanceId,
-    assessment: AssessmentId,
+    courseInstanceId: CourseInstanceId,
+    assessmentId: AssessmentId,
     authoredPosition: number,
     questionRevisionTuple: QuestionRevisionTuple,
-    editNumber: AssessmentEditNumber,
+    expectedAssessmentEditNumber: AssessmentEditNumber,
   ) => string;
 }

@@ -659,16 +659,18 @@ export function CourseInstancePage(): JSX.Element {
                       <h3 id="blueprint-source-heading">Blueprint source</h3>
                       <p data-blueprint-origin>
                         Adopted from Blueprint{" "}
-                        <A href={`/blueprint-courses/${origin().blueprintCourseId}`}>
-                          {origin().blueprintCourseId}
+                        <A
+                          href={`/blueprint-courses/${origin().adoptedBlueprintRevisionTuple.blueprintCourseId}`}
+                        >
+                          {origin().adoptedBlueprintRevisionTuple.blueprintCourseId}
                         </A>
-                        , Revision {origin().adoptedRevisionNumber}; source now Revision{" "}
-                        {origin().currentRevisionNumber}.
+                        , Revision {origin().adoptedBlueprintRevisionTuple.revisionNumber}; source
+                        now Revision {origin().currentBlueprintRevisionTuple.revisionNumber}.
                       </p>
                       <Show
                         when={
-                          BigInt(origin().currentRevisionNumber) >
-                          BigInt(origin().adoptedRevisionNumber)
+                          BigInt(origin().currentBlueprintRevisionTuple.revisionNumber) >
+                          BigInt(origin().adoptedBlueprintRevisionTuple.revisionNumber)
                         }
                       >
                         <p data-blueprint-revision-notice>Newer Blueprint Revision available</p>
@@ -723,7 +725,7 @@ export function CourseInstancePage(): JSX.Element {
                   >
                     {(settings) => (
                       <CourseStudentWorkRecovery
-                        course={view().courseInstance.id}
+                        courseInstanceId={view().courseInstance.id}
                         client={applicationApi.client}
                         displayTimeZone={settings().timeZone}
                       />

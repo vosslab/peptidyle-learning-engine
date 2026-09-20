@@ -10,11 +10,11 @@ import type { BlueprintChangeProposalPageView } from "../../generated/api/Bluepr
 /** Participant-only browser operations for immutable Change Proposal evidence. */
 export interface BlueprintChangeProposalClient {
   readonly createBlueprintChangeProposal: (
-    target: BlueprintCourseId,
+    targetBlueprintCourseId: BlueprintCourseId,
     request: BlueprintChangeProposalCreateRequest,
   ) => Promise<BlueprintChangeProposalDetailView>;
   readonly listBlueprintChangeProposalsForTarget: (
-    target: BlueprintCourseId,
+    targetBlueprintCourseId: BlueprintCourseId,
     cursor?: string,
     pageSize?: number,
   ) => Promise<BlueprintChangeProposalPageView>;

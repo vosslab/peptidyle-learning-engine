@@ -84,7 +84,7 @@ pub struct BlueprintEditNumberError;
 
 impl std::fmt::Display for BlueprintEditNumberError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str("Blueprint metadata ETag must be a positive Edit Number")
+        formatter.write_str("Blueprint metadata Edit Number must be a positive Edit Number")
     }
 }
 

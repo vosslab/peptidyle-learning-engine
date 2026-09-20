@@ -6,8 +6,8 @@
 
 use async_trait::async_trait;
 use question_model::{
-    AccountId, BlueprintCourseId, BlueprintRevisionNumber, CourseInstanceId, CourseSummary,
-    CourseTerm, CourseTheme, QuestionId,
+    AccountId, BlueprintRevisionTuple, CourseInstanceId, CourseSummary, CourseTerm, CourseTheme,
+    QuestionId,
 };
 use serde::{Deserialize, Serialize};
 
@@ -30,10 +30,8 @@ pub enum CourseInstanceCreationSource {
     Empty,
     /// Materialize content from exactly this reusable Blueprint Revision.
     Adopted {
-        /// Exact reusable Blueprint Course source.
-        blueprint_course_id: BlueprintCourseId,
-        /// Exact immutable Blueprint Revision Number source.
-        blueprint_revision_number: BlueprintRevisionNumber,
+        /// Exact immutable Blueprint Course plus Revision Number source.
+        blueprint_revision_tuple: BlueprintRevisionTuple,
     },
 }
 
@@ -119,12 +117,10 @@ pub struct CourseInstanceView {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CourseInstanceBlueprintOrigin {
-    /// Readable parent Blueprint public identity.
-    pub blueprint_course_id: BlueprintCourseId,
-    /// Immutable Revision Number originally adopted when the Course was created.
-    pub adopted_revision_number: BlueprintRevisionNumber,
-    /// Current readable source Revision, without applying any changes.
-    pub current_revision_number: BlueprintRevisionNumber,
+    /// Immutable Blueprint Revision originally adopted when the Course was created.
+    pub adopted_blueprint_revision_tuple: BlueprintRevisionTuple,
+    /// Current readable source Blueprint Revision, without applying any changes.
+    pub current_blueprint_revision_tuple: BlueprintRevisionTuple,
 }
 
 /// Safe active-Instructor selection identity for a Sysadmin creation request.
@@ -255,8 +251,10 @@ mod tests {
             .expect("canonical Blueprint Course ID");
         let adopted = serde_json::json!({
             "kind": "adopted",
-            "blueprintCourseId": blueprint_course,
-            "blueprintRevisionNumber": "1"
+            "blueprintRevisionTuple": {
+                "blueprintCourseId": blueprint_course,
+                "revisionNumber": "1"
+            }
         });
         assert!(serde_json::from_value::<CourseInstanceCreationSource>(empty).is_ok());
         assert!(serde_json::from_value::<CourseInstanceCreationSource>(adopted).is_ok());
@@ -272,20 +270,22 @@ mod tests {
         assert!(
             serde_json::from_value::<CourseInstanceCreationSource>(serde_json::json!({
                 "kind": "adopted",
-                "blueprintCourse": question_model::BlueprintCourseId::from_random_identity("7K3M2QX")
+                "blueprintCourseId": question_model::BlueprintCourseId::from_random_identity("7K3M2QX")
                     .expect("canonical Blueprint Course ID"),
                 "blueprintRevisionNumber": "1"
             }))
             .is_err(),
-            "leftover blueprintRevision is not accepted for a Revision Number"
+            "split Blueprint Course ID plus Revision Number siblings are not a Tuple"
         );
         assert!(
             serde_json::from_value::<CourseInstanceCreationSource>(serde_json::json!({
                 "kind": "adopted",
+                "blueprintRevisionTuple": {
+                    "blueprintCourseId": question_model::BlueprintCourseId::from_random_identity("7K3M2QX")
+                        .expect("canonical Blueprint Course ID"),
+                    "revisionNumber": "1"
+                },
                 "blueprintCourseId": question_model::BlueprintCourseId::from_random_identity("7K3M2QX")
-                    .expect("canonical Blueprint Course ID"),
-                "blueprintRevisionNumber": "1",
-                "blueprint_course": question_model::BlueprintCourseId::from_random_identity("7K3M2QX")
                     .expect("canonical Blueprint Course ID")
             }))
             .is_err()

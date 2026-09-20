@@ -428,7 +428,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
         workspace.assessmentId,
         {
           expectedSourceRevisionNumber: review.sourceRevisionNumber,
-          expectedEditNumber: review.assessment.editNumber,
+          expectedAssessmentEditNumber: review.assessment.editNumber,
         },
       );
       setBlueprintReview(undefined);
@@ -512,7 +512,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
         workspace.assessmentId,
         entry.id,
         {
-          expectedQuestionPoolEditNumber: String(fork.questionPoolEditNumber),
+          expectedQuestionPoolEditNumber: fork.questionPoolEditNumber,
           members,
           interchangeabilityAttested: true,
         },

@@ -289,7 +289,7 @@ BEGIN
             MESSAGE = 'Archived Blueprint Course is read-only';
     END IF;
     IF v_course.blueprint_edit_number <> p_expected_blueprint_edit_number THEN
-        RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Blueprint metadata ETag is stale';
+        RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Blueprint metadata Edit Number is stale';
     END IF;
     IF v_course.short_name = p_short_name AND v_course.long_name = p_long_name THEN
         RETURN QUERY SELECT v_course.short_name, v_course.long_name,
@@ -352,7 +352,7 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Blueprint Course is not available';
     END IF;
     IF v_course.blueprint_edit_number <> p_expected_blueprint_edit_number THEN
-        RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Blueprint metadata ETag is stale';
+        RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Blueprint metadata Edit Number is stale';
     END IF;
     -- Reusable content advances through one directed lifecycle. A Public
     -- lineage may become Private only before its first Adoption, whether that
@@ -430,7 +430,7 @@ BEGIN
     END IF;
     -- ASVS 2.3.3: row lock and validator reject concurrent stale metadata writes.
     IF p_expected_blueprint_edit_number IS DISTINCT FROM v_course.blueprint_edit_number THEN
-        RAISE EXCEPTION 'Blueprint metadata ETag is stale' USING ERRCODE = '40001';
+        RAISE EXCEPTION 'Blueprint metadata Edit Number is stale' USING ERRCODE = '40001';
     END IF;
     IF ROW(v_course.content_discipline_id, v_course.content_subject_id, v_course.content_topic_id,
            v_course.content_subtopic_id, v_course.tags)

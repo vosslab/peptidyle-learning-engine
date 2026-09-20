@@ -12,8 +12,7 @@ import {
   decodeRecord,
   decodeStringEnum,
 } from "../decoder";
-import { blueprintRevisionNumber } from "./assessment_release";
-import { decodeBlueprintCourseId } from "./blueprint_course";
+import { blueprintRevisionTuple } from "./blueprint_course";
 import { decodeAssessmentId, decodeAssessmentTitle, field, requireOnlyFields } from "./shared";
 
 function assessmentSummary(value: unknown, path: string): CourseAssessmentBlueprintUpdateSummary {
@@ -60,18 +59,17 @@ export function decodeCourseBlueprintUpdateReview(
 ): CourseBlueprintUpdateReview {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "blueprintCourseId",
-    "adoptedRevisionNumber",
-    "sourceRevisionNumber",
+    "adoptedBlueprintRevisionTuple",
+    "currentBlueprintRevisionTuple",
     "assessments",
   ]);
-  const adoptedRevisionNumber = blueprintRevisionNumber(
-    field(record, "adoptedRevisionNumber", path),
-    `${path}.adoptedRevisionNumber`,
+  const adoptedBlueprintRevisionTuple = blueprintRevisionTuple(
+    field(record, "adoptedBlueprintRevisionTuple", path),
+    `${path}.adoptedBlueprintRevisionTuple`,
   );
-  const sourceRevisionNumber = blueprintRevisionNumber(
-    field(record, "sourceRevisionNumber", path),
-    `${path}.sourceRevisionNumber`,
+  const currentBlueprintRevisionTuple = blueprintRevisionTuple(
+    field(record, "currentBlueprintRevisionTuple", path),
+    `${path}.currentBlueprintRevisionTuple`,
   );
   const assessments = decodeArray(
     field(record, "assessments", path),
@@ -79,18 +77,17 @@ export function decodeCourseBlueprintUpdateReview(
     assessmentSummary,
   );
   if (
-    BigInt(sourceRevisionNumber) < BigInt(adoptedRevisionNumber) ||
+    currentBlueprintRevisionTuple.blueprintCourseId !==
+      adoptedBlueprintRevisionTuple.blueprintCourseId ||
+    BigInt(currentBlueprintRevisionTuple.revisionNumber) <
+      BigInt(adoptedBlueprintRevisionTuple.revisionNumber) ||
     new Set(assessments.map((row) => row.assessmentId)).size !== assessments.length
   ) {
     throw new DecodeError(path, "a current Revision and unique adopted Assessment correspondences");
   }
   return {
-    blueprintCourseId: decodeBlueprintCourseId(
-      field(record, "blueprintCourseId", path),
-      `${path}.blueprintCourseId`,
-    ),
-    adoptedRevisionNumber,
-    sourceRevisionNumber,
+    adoptedBlueprintRevisionTuple,
+    currentBlueprintRevisionTuple,
     assessments,
   };
 }

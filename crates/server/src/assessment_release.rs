@@ -295,11 +295,11 @@ async fn save_assessment(
         Ok(v) => v,
         Err(r) => return *r,
     };
-    let expected = match edit_header(&headers) {
+    let expected_assessment_edit_number = match edit_header(&headers) {
         Ok(v) => v,
         Err(r) => return *r,
     };
-    input.expected_edit_number = expected;
+    input.expected_edit_number = expected_assessment_edit_number;
     let token = match instructor(&state, &headers).await {
         Ok(v) => v,
         Err(r) => return *r,
@@ -399,7 +399,7 @@ async fn release_assessment(
         Ok(v) => v,
         Err(r) => return *r,
     };
-    let expected = match edit_header(&headers) {
+    let expected_assessment_edit_number = match edit_header(&headers) {
         Ok(v) => v,
         Err(r) => return *r,
     };
@@ -409,7 +409,7 @@ async fn release_assessment(
     };
     match state
         .assessments
-        .release_live_assessment(token, course, assessment, expected)
+        .release_live_assessment(token, course, assessment, expected_assessment_edit_number)
         .await
     {
         Ok(v) => workspace_response(StatusCode::OK, &v),

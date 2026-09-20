@@ -122,8 +122,8 @@ pub enum CourseInvitationError {
 /// The Instructor Course Membership fact a Store must atomically create after acceptance.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CourseInvitationAcceptance {
-    pub course: CourseInstanceId,
-    pub target: AccountId,
+    pub course_instance_id: CourseInstanceId,
+    pub target_account_id: AccountId,
     pub accepted_at: Timestamp,
 }
 
@@ -172,12 +172,12 @@ pub fn accept_course_invitation(
             return Err(CourseInvitationError::InvitationRevoked);
         }
     }
-    if accepting_account != invitation.target {
+    if accepting_account != invitation.target_account_id {
         return Err(CourseInvitationError::WrongTarget);
     }
     Ok(CourseInvitationAcceptance {
-        course: invitation.course.clone(),
-        target: invitation.target.clone(),
+        course_instance_id: invitation.course_instance_id.clone(),
+        target_account_id: invitation.target_account_id.clone(),
         accepted_at: now,
     })
 }
@@ -212,14 +212,14 @@ fn validate_invitation_record(
         return Err(CourseInvitationError::ExpiryDoesNotMatchThirtyDays);
     }
     if let Some(ref event) = invitation.terminal_event
-        && (event.invitation != invitation.id
+        && (event.course_invitation_id != invitation.course_invitation_id
             || event.occurred_at < invitation.created_at
             || event.occurred_at >= invitation.expires_at
             || event.occurred_at > now
             || (matches!(
                 event.kind,
                 CourseInvitationEventKind::Accepted | CourseInvitationEventKind::Declined
-            ) && event.performed_by != invitation.target))
+            ) && event.performed_by != invitation.target_account_id))
     {
         return Err(CourseInvitationError::InvalidTerminalTimestamps);
     }
@@ -243,11 +243,11 @@ mod tests {
 
     fn invitation() -> CourseInvitation {
         CourseInvitation {
-            id: CourseInvitationId::from_uuid(id(1)),
-            course: CourseInstanceId::from_debug_serial(2),
+            course_invitation_id: CourseInvitationId::from_uuid(id(1)),
+            course_instance_id: CourseInstanceId::from_debug_serial(2),
             invited_by: CourseMembershipId::from_uuid(id(4)),
             membership_role: CourseMembershipRole::Instructor,
-            target: AccountId::from_debug_serial(3),
+            target_account_id: AccountId::from_debug_serial(3),
             created_at: stamp(1_000),
             expires_at: stamp(1_000 + COURSE_INVITATION_LIFETIME_MILLIS),
             terminal_event: None,
@@ -261,7 +261,7 @@ mod tests {
         occurred_at: Timestamp,
     ) -> CourseInvitationEvent {
         CourseInvitationEvent {
-            invitation: invitation.id,
+            course_invitation_id: invitation.course_invitation_id,
             kind,
             performed_by,
             occurred_at,
@@ -418,7 +418,7 @@ mod tests {
             terminal_event: Some(terminal_event(
                 &pending,
                 CourseInvitationEventKind::Accepted,
-                pending.target.clone(),
+                pending.target_account_id.clone(),
                 stamp(1_010),
             )),
             ..pending.clone()
@@ -444,7 +444,7 @@ mod tests {
             terminal_event: Some(terminal_event(
                 &pending,
                 CourseInvitationEventKind::Declined,
-                pending.target.clone(),
+                pending.target_account_id.clone(),
                 stamp(1_010),
             )),
             ..pending
@@ -468,9 +468,9 @@ mod tests {
         );
         let invalid_terminal = CourseInvitation {
             terminal_event: Some(CourseInvitationEvent {
-                invitation: CourseInvitationId::from_uuid(id(99)),
+                course_invitation_id: CourseInvitationId::from_uuid(id(99)),
                 kind: CourseInvitationEventKind::Accepted,
-                performed_by: invitation.target.clone(),
+                performed_by: invitation.target_account_id.clone(),
                 occurred_at: stamp(1_010),
             }),
             ..invitation
@@ -506,7 +506,7 @@ mod tests {
                     if matches!(kind, CourseInvitationEventKind::Revoked) {
                         AccountId::from_debug_serial(9)
                     } else {
-                        pending.target.clone()
+                        pending.target_account_id.clone()
                     },
                     now,
                 )),
@@ -527,7 +527,7 @@ mod tests {
                     if matches!(kind, CourseInvitationEventKind::Revoked) {
                         AccountId::from_debug_serial(9)
                     } else {
-                        pending.target.clone()
+                        pending.target_account_id.clone()
                     },
                     stamp(1_011),
                 )),
@@ -549,10 +549,10 @@ mod tests {
             Err(CourseInvitationError::WrongTarget)
         );
         assert_eq!(
-            accept_course_invitation(&invitation, invitation.target.clone(), now,),
+            accept_course_invitation(&invitation, invitation.target_account_id.clone(), now,),
             Ok(CourseInvitationAcceptance {
-                course: invitation.course.clone(),
-                target: invitation.target.clone(),
+                course_instance_id: invitation.course_instance_id.clone(),
+                target_account_id: invitation.target_account_id.clone(),
                 accepted_at: now,
             })
         );

@@ -571,7 +571,7 @@ fn expected_edit_number(headers: &HeaderMap) -> Result<BlueprintEditNumber, Box<
     quoted_if_match(headers)?.parse().map_err(|_| {
         Box::new(route_error(
             StatusCode::BAD_REQUEST,
-            "Blueprint metadata ETag is invalid",
+            "Blueprint metadata Edit Number is invalid",
         ))
     })
 }

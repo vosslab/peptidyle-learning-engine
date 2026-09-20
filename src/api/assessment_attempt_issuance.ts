@@ -47,11 +47,11 @@ export interface LiveAssessmentAttempt {
 /** Same-origin Student-only access and start boundary. */
 export interface LiveAssessmentAttemptIssuanceClient {
   readonly getLiveAssessmentAccess: (
-    course: CourseInstanceId,
-    assessment: AssessmentId,
+    courseInstanceId: CourseInstanceId,
+    assessmentId: AssessmentId,
   ) => Promise<LiveAssessmentAccess>;
   readonly startLiveAssessment: (
-    course: CourseInstanceId,
-    assessment: AssessmentId,
+    courseInstanceId: CourseInstanceId,
+    assessmentId: AssessmentId,
   ) => Promise<LiveAssessmentAttempt>;
 }

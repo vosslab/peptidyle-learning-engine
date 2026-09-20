@@ -229,8 +229,7 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
       }
       source = {
         kind: "adopted",
-        blueprintCourseId: selected.id,
-        blueprintRevisionNumber: selected.current_revision_tuple.revisionNumber,
+        blueprintRevisionTuple: selected.current_revision_tuple,
       };
     }
     if (

@@ -1,8 +1,7 @@
 // Browser capability contract for live Course Instance creation and the initial Teaching Team.
 
 import type { AccountId } from "../../generated/api/AccountId";
-import type { BlueprintCourseId } from "../../generated/api/BlueprintCourseId";
-import type { BlueprintRevisionNumber } from "../../generated/api/BlueprintRevisionNumber";
+import type { BlueprintRevisionTuple } from "../../generated/api/BlueprintRevisionTuple";
 import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { CourseInstanceRouteSummary } from "../../generated/api/CourseInstanceRouteSummary";
 import type { CourseTerm } from "../../generated/api/CourseTerm";
@@ -17,8 +16,7 @@ export type CourseInstanceCreationSource =
   | { readonly kind: "empty" }
   | {
       readonly kind: "adopted";
-      readonly blueprintCourseId: BlueprintCourseId;
-      readonly blueprintRevisionNumber: BlueprintRevisionNumber;
+      readonly blueprintRevisionTuple: BlueprintRevisionTuple;
     };
 
 /** Exact source and initial Course Term required to create one Course Instance. */
@@ -55,9 +53,8 @@ export interface CourseInstanceView {
   readonly activeInstructorCount: number;
   /** Original adoption provenance; null for Empty Courses or unreadable sources. */
   readonly blueprintOrigin: {
-    readonly blueprintCourseId: BlueprintCourseId;
-    readonly adoptedRevisionNumber: BlueprintRevisionNumber;
-    readonly currentRevisionNumber: BlueprintRevisionNumber;
+    readonly adoptedBlueprintRevisionTuple: BlueprintRevisionTuple;
+    readonly currentBlueprintRevisionTuple: BlueprintRevisionTuple;
   } | null;
 }
 

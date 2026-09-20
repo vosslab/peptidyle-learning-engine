@@ -8,6 +8,7 @@ import { DecodeError } from "../src/api/decoder.ts";
 import {
   decodeCreateBlueprintFromCourseInstanceInput,
   decodeCourseInstanceList,
+  decodeCourseInstanceView,
   decodeCreateCourseInstanceInput,
 } from "../src/api/decoders/course_instance.ts";
 import { ApiProtocolError, createHttpApiClient } from "../src/api/http_client.ts";
@@ -106,15 +107,29 @@ test("Course creation accepts only the two current source wires", () => {
   assert.deepEqual(
     decodeCreateCourseInstanceInput({
       ...common,
-      source: { kind: "adopted", blueprintCourseId: "BP6F2R8TA9", blueprintRevisionNumber: "2" },
+      source: {
+        kind: "adopted",
+        blueprintRevisionTuple: { blueprintCourseId: "BP6F2R8TA9", revisionNumber: "2" },
+      },
     }).source,
-    { kind: "adopted", blueprintCourseId: "BP6F2R8TA9", blueprintRevisionNumber: "2" },
+    {
+      kind: "adopted",
+      blueprintRevisionTuple: { blueprintCourseId: "BP6F2R8TA9", revisionNumber: "2" },
+    },
   );
   assert.throws(
     () =>
       decodeCreateCourseInstanceInput({
         ...common,
         source: { kind: "empty", blueprintCourseId: "BP6F2R8TA9" },
+      }),
+    DecodeError,
+  );
+  assert.throws(
+    () =>
+      decodeCreateCourseInstanceInput({
+        ...common,
+        source: { kind: "adopted", blueprintCourseId: "BP6F2R8TA9", blueprintRevisionNumber: "2" },
       }),
     DecodeError,
   );
@@ -136,6 +151,44 @@ test("Course creation accepts only the two current source wires", () => {
   );
   assert.throws(
     () => decodeCreateCourseInstanceInput({ ...common, blueprintCourse: "BP6F2R8TA9" }),
+    DecodeError,
+  );
+});
+
+test("Course Instance view provenance accepts named Blueprint Revision Tuples and rejects split siblings", () => {
+  const origin = {
+    adoptedBlueprintRevisionTuple: { blueprintCourseId: "BP6F2R8TA9", revisionNumber: "1" },
+    currentBlueprintRevisionTuple: { blueprintCourseId: "BP6F2R8TA9", revisionNumber: "2" },
+  };
+  const view = decodeCourseInstanceView({
+    courseInstance: courseSummary(),
+    activeInstructorCount: 1,
+    blueprintOrigin: origin,
+  });
+  assert.deepEqual(view.blueprintOrigin, origin);
+  assert.throws(
+    () =>
+      decodeCourseInstanceView({
+        courseInstance: courseSummary(),
+        activeInstructorCount: 1,
+        blueprintOrigin: {
+          blueprintCourseId: "BP6F2R8TA9",
+          adoptedRevisionNumber: "1",
+          currentRevisionNumber: "2",
+        },
+      }),
+    DecodeError,
+  );
+  assert.throws(
+    () =>
+      decodeCourseInstanceView({
+        courseInstance: courseSummary(),
+        activeInstructorCount: 1,
+        blueprintOrigin: {
+          adoptedBlueprintRevisionTuple: { blueprintCourseId: "BP6F2R8TA9", revisionNumber: "2" },
+          currentBlueprintRevisionTuple: { blueprintCourseId: "BP6F2R8TA9", revisionNumber: "1" },
+        },
+      }),
     DecodeError,
   );
 });

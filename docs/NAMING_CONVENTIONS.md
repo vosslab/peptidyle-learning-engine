@@ -80,6 +80,11 @@ HTTP `ETag` and `If-Match` remain standard header spellings only. Domain and
 browser values use the exact Edit Number or Revision Number; a quoted header
 is only the HTTP encoding of that number.
 
+An exact immutable Blueprint or Question revision is one named Tuple, not
+sibling ID-plus-number fields. Course Instance adoption uses
+`blueprintRevisionTuple`. Course Instance provenance uses
+`adoptedBlueprintRevisionTuple` and `currentBlueprintRevisionTuple`.
+
 Use `Uuid` only when the physical value is a UUID. A public ID is the one
 universal, canonical human-facing identifier for a PLE object that needs one.
 Store and use an exact public ID unchanged across all boundaries; it is not a

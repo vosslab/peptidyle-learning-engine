@@ -1,11 +1,13 @@
+import type { AssessmentAttemptId } from "../../generated/api/AssessmentAttemptId";
+import type { AssessmentId } from "../../generated/api/AssessmentId";
 import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 
 export interface RecoverySummary {
-  readonly courseInstanceId: string;
+  readonly courseInstanceId: CourseInstanceId;
   readonly rosterId: string | null;
-  readonly assessmentId: string;
+  readonly assessmentId: AssessmentId;
   readonly assessmentTitle: string;
-  readonly assessmentAttemptId: string;
+  readonly assessmentAttemptId: AssessmentAttemptId;
   readonly assessmentAttemptNumber: number;
   readonly startedAt: string;
   readonly submittedAt: string | null;
@@ -35,17 +37,17 @@ export interface RecoveredAttempt extends Omit<RecoverySummary, "submittedAt"> {
 }
 export interface RecoverySelection {
   readonly action: "select";
-  readonly courseInstanceId: string;
+  readonly courseInstanceId: CourseInstanceId;
   readonly attempts: ReadonlyArray<RecoverySummary>;
   readonly nextCursor: string | null;
 }
 export interface CourseStudentWorkRecoveryClient {
   readonly selectArchivedStudentWork: (
-    course: CourseInstanceId,
+    courseInstanceId: CourseInstanceId,
     cursor: string | null,
   ) => Promise<RecoverySelection>;
   readonly recoverArchivedStudentWork: (
-    course: CourseInstanceId,
-    assessmentAttempt: string,
+    courseInstanceId: CourseInstanceId,
+    assessmentAttemptId: AssessmentAttemptId,
   ) => Promise<RecoveredAttempt>;
 }

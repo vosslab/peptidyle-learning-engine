@@ -9,7 +9,7 @@ import { PLE_QUESTION_JSON_MEDIA_TYPE, type PleQuestionJsonDocument } from "./qu
 import { parsePleQuestionJsonSource, serializePleQuestionJsonSource } from "./question_json_codec";
 import {
   ifMatchHeaderForPositiveNumber,
-  numberFromResponseEtag,
+  numberFromQuotedPositiveHeader,
 } from "../../api/http_client/conditional_request";
 import { ApiProtocolError } from "../../api/http_client/error";
 
@@ -200,7 +200,7 @@ function sameOriginPath(basePath: string, path: string): string {
 
 function draftQuestionEditNumberFromResponse(response: Response, path: string): string {
   try {
-    return numberFromResponseEtag(response, path, "Draft Question Edit Number");
+    return numberFromQuotedPositiveHeader(response, path, "Draft Question Edit Number");
   } catch (error: unknown) {
     throw new PleQuestionJsonProtocolError(
       error instanceof ApiProtocolError
