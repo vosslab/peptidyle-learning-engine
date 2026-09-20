@@ -2,7 +2,7 @@
 
 use question_model::{
     BlueprintAvailability, BlueprintCourseId, BlueprintCourseReadAccess, BlueprintEditNumber,
-    BlueprintMetadataState, BlueprintRevision, BlueprintRevisionTuple, Timestamp,
+    BlueprintMetadataState, BlueprintRevisionNumber, BlueprintRevisionTuple, Timestamp,
 };
 use serde_json::Value;
 use sqlx::Row;
@@ -37,7 +37,7 @@ pub(super) fn decode_summary(
             row.try_get("blueprint_edit_number")
                 .map_err(map_sqlx_error)?,
         ),
-        current_revision: revision(
+        current_revision_number: revision(
             row.try_get("current_blueprint_revision_number")
                 .map_err(map_sqlx_error)?,
         )?,
@@ -51,13 +51,13 @@ pub(super) fn decode_course(
     let fork_source_blueprint_course_id: Option<String> = row
         .try_get("fork_source_blueprint_course_id")
         .map_err(map_sqlx_error)?;
-    let fork_source_revision: Option<i64> = row
+    let fork_source_revision_number: Option<i64> = row
         .try_get("fork_source_revision_number")
         .map_err(map_sqlx_error)?;
-    let fork_source_tuple = match (fork_source_blueprint_course_id, fork_source_revision) {
+    let fork_source_tuple = match (fork_source_blueprint_course_id, fork_source_revision_number) {
         (Some(source), Some(number)) => Some(BlueprintRevisionTuple {
             blueprint_course_id: blueprint_course_id(source)?,
-            revision: revision(number)?,
+            revision_number: revision(number)?,
         }),
         (None, None) => None,
         _ => return Err(invalid("fork origin")),
@@ -78,7 +78,7 @@ pub(super) fn decode_course(
             row.try_get("blueprint_edit_number")
                 .map_err(map_sqlx_error)?,
         ),
-        current_revision: revision(
+        current_revision_number: revision(
             row.try_get("current_blueprint_revision_number")
                 .map_err(map_sqlx_error)?,
         )?,
@@ -154,16 +154,16 @@ pub(super) fn availability_value(value: String) -> Result<BlueprintAvailability,
 pub(super) fn blueprint_course_id(value: String) -> Result<BlueprintCourseId, StoreError> {
     value.parse().map_err(|_| invalid("Blueprint Course ID"))
 }
-pub(super) fn revision(value: i64) -> Result<BlueprintRevision, StoreError> {
+pub(super) fn revision(value: i64) -> Result<BlueprintRevisionNumber, StoreError> {
     u64::try_from(value)
         .ok()
-        .and_then(BlueprintRevision::new)
+        .and_then(BlueprintRevisionNumber::new)
         .ok_or_else(|| invalid("Blueprint Revision"))
 }
 pub(super) fn blueprint_edit_number(value: i64) -> BlueprintEditNumber {
     BlueprintEditNumber::from_edit_number(value)
 }
-pub(super) fn revision_number(value: BlueprintRevision) -> Result<i64, StoreError> {
+pub(super) fn revision_number(value: BlueprintRevisionNumber) -> Result<i64, StoreError> {
     i64::try_from(value.value()).map_err(|_| invalid("Blueprint Revision"))
 }
 pub(super) fn timestamp(value: i64) -> Result<Timestamp, StoreError> {

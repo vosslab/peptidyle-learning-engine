@@ -44,8 +44,8 @@ use crate::{
 
 mod http;
 use http::{
-    edit_number_response, etag, existing_parent_question_revision, is_ple_question_json_request,
-    publication_error, question_authorship,
+    edit_number_response, etag, existing_parent_question_revision_tuple,
+    is_ple_question_json_request, publication_error, question_authorship,
 };
 pub(crate) use http::{
     expected_edit_number, instructor_session_hash, parse_draft_question_uuid, private_store_error,
@@ -666,7 +666,7 @@ async fn publish_revision_draft(
         Ok(number) => number,
         Err(response) => return *response,
     };
-    let parent_question_revision_tuple = match existing_parent_question_revision(
+    let parent_question_revision_tuple = match existing_parent_question_revision_tuple(
         request.question_id,
         request.parent_revision_number,
     ) {
@@ -784,14 +784,14 @@ mod tests {
         let question_id = issuer.issue_question_id().expect("issued Question ID");
 
         assert_eq!(
-            existing_parent_question_revision(question_id.to_string(), 1),
+            existing_parent_question_revision_tuple(question_id.to_string(), 1),
             Ok(QuestionRevisionTuple {
                 question_id: question_id.clone(),
                 revision_number: QuestionRevisionNumber::new(1)
                     .expect("positive Question Revision Number"),
             })
         );
-        assert!(existing_parent_question_revision(question_id.to_string(), 0).is_err());
-        assert!(existing_parent_question_revision("0000-X000".to_string(), 1).is_err());
+        assert!(existing_parent_question_revision_tuple(question_id.to_string(), 0).is_err());
+        assert!(existing_parent_question_revision_tuple("0000-X000".to_string(), 1).is_err());
     }
 }

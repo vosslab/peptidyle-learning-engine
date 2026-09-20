@@ -5,7 +5,7 @@ use question_model::{
     AssessmentEntryAvailability, AssessmentEntryId, AssessmentEntryScoringRule, AssessmentId,
     AssessmentInstructions, AssessmentOrigin, AssessmentPointValue, AssessmentStatus,
     AssessmentTitle, AssessmentType, BlueprintAssessmentId, BlueprintAssessmentSource,
-    BlueprintCourseId, BlueprintRevision, BlueprintRevisionTuple, CourseInstanceId,
+    BlueprintCourseId, BlueprintRevisionNumber, BlueprintRevisionTuple, CourseInstanceId,
     FixedQuestionAssessmentEntry, LateWorkRule, LocalDateAndTime, QuestionAttemptLimit,
     QuestionAttemptTimeLimit, QuestionId, QuestionPoolAssessmentEntry, QuestionPoolEditNumber,
     QuestionPoolSelectedQuestionOrder, QuestionPoolSelectionRule, QuestionRevisionNumber,
@@ -135,13 +135,13 @@ pub(super) fn assessment_origin(
                 BlueprintCourseId::new(course_id).map_err(|_| invalid("Assessment Origin"))?;
             let revision = u64::try_from(revision)
                 .ok()
-                .and_then(BlueprintRevision::new)
+                .and_then(BlueprintRevisionNumber::new)
                 .ok_or_else(|| invalid("Assessment Origin"))?;
             Ok(AssessmentOrigin::Adopted {
                 source: BlueprintAssessmentSource::new(
                     BlueprintRevisionTuple {
                         blueprint_course_id: course_id,
-                        revision,
+                        revision_number: revision,
                     },
                     BlueprintAssessmentId::from_uuid(assessment_id),
                 ),

@@ -97,8 +97,8 @@ import json, re, sys
 items=json.loads(sys.argv[1])
 if not isinstance(items, list) or not items: raise SystemExit("Question picker is empty")
 item=items[0]
-if not isinstance(item, dict) or not {"questionRevision", "description"}.issubset(item): raise SystemExit("Question picker is malformed")
-question_revision=item["questionRevision"]
+if not isinstance(item, dict) or not {"questionRevisionTuple", "description"}.issubset(item): raise SystemExit("Question picker is malformed")
+question_revision=item["questionRevisionTuple"]
 if (not isinstance(question_revision, dict) or set(question_revision) != {"questionId", "revisionNumber"}
     or not isinstance(question_revision["questionId"], str)
     or re.fullmatch(r"[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}", question_revision["questionId"]) is None
@@ -131,7 +131,7 @@ payload["title"]=title
 payload["dueAt"]="2026-12-01T23:59:00.000"
 payload["assessmentAttemptTimeLimitSeconds"]=300
 payload["entries"]=[{
-  "kind":"fixedQuestion", "id":str(uuid.uuid4()), "questionRevision":question_revision,
+  "kind":"fixedQuestion", "id":str(uuid.uuid4()), "questionRevisionTuple":question_revision,
   "pointsPossible":"1", "availability":"available", "scoringRule":"normal",
   "questionAttemptLimit":{"maxAttempts":None}, "questionAttemptTimeLimit":{"kind":"unlimited"},
 }]
@@ -171,7 +171,7 @@ if set(value) != required or value["resumed"] is not expected_resumed or value["
 if not re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", value["assessmentAttempt"]): raise SystemExit("Attempt identity is malformed")
 if not isinstance(value["questions"], list) or len(value["questions"]) != 1: raise SystemExit("Attempt lacks one issued Question")
 question=value["questions"][0]
-if question.get("questionRevision") != question_revision: raise SystemExit("Issued Question lost its exact Question Revision pin")
+if question.get("questionRevisionTuple") != question_revision: raise SystemExit("Issued Question lost its exact Question Revision pin")
 forbidden={"answer","answerKey","studentRecord","assignmentAttemptId","questionAttemptId","checksum","reproduction"}
 def scan(item):
     if isinstance(item, dict):

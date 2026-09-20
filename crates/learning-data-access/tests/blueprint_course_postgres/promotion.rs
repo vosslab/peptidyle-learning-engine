@@ -72,7 +72,7 @@ pub(super) async fn promotion_boundary(
         .load_blueprint_course(token(), blueprint_course_id.clone())
         .await
         .expect("owner head")
-        .current_revision;
+        .current_revision_number;
     for actor in [token(), student] {
         assert!(matches!(
             store
@@ -163,7 +163,7 @@ pub(super) async fn promotion_boundary(
             .load_blueprint_course(token(), blueprint_course_id.clone())
             .await
             .expect("unchanged Revision")
-            .current_revision,
+            .current_revision_number,
         head
     );
     store

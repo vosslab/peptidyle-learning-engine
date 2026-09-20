@@ -246,9 +246,9 @@ impl NewQuestionLineagePublicationInput {
     /// Refuses target object or acceptance facts that do not match this publication.
     pub fn validate(&self) -> Result<(), StoreError> {
         Self::validate_initial_shared_tags(&self.initial_shared_tags)?;
-        let expected_revision = self.question_revision_tuple();
+        let expected_revision_tuple = self.question_revision_tuple();
         if let Some(asset) = &self.hotspot_asset {
-            asset.validate(&expected_revision)?;
+            asset.validate(&expected_revision_tuple)?;
         }
         let ObjectAddress::QuestionSource {
             question_revision_tuple,
@@ -259,7 +259,7 @@ impl NewQuestionLineagePublicationInput {
                 "Question Publication requires a Question Source Object Address".to_string(),
             ));
         };
-        if question_revision_tuple != &expected_revision
+        if question_revision_tuple != &expected_revision_tuple
             || *object != self.question_source_object_record.id
             || self.question_source_object_record.storage_area != ObjectStorageArea::PrivateContent
             || self.question_source_object_record.data_class != ObjectDataClass::QuestionSource
@@ -267,7 +267,7 @@ impl NewQuestionLineagePublicationInput {
                 .question_source_object_record
                 .question_revision_tuple
                 .as_ref()
-                != Some(&expected_revision)
+                != Some(&expected_revision_tuple)
         {
             return Err(StoreError::InvalidRecord(
                 "Question Publication Object Record must derive from its exact first Question Revision"
@@ -391,9 +391,9 @@ impl ExistingQuestionRevisionPublicationInput {
 
     /// Refuses a target object that is not owned by the exact successor.
     pub fn validate(&self) -> Result<(), StoreError> {
-        let expected_revision = self.question_revision_tuple()?;
+        let expected_revision_tuple = self.question_revision_tuple()?;
         if let Some(asset) = &self.hotspot_asset {
-            asset.validate(&expected_revision)?;
+            asset.validate(&expected_revision_tuple)?;
         }
         let ObjectAddress::QuestionSource {
             question_revision_tuple,
@@ -405,7 +405,7 @@ impl ExistingQuestionRevisionPublicationInput {
                     .to_string(),
             ));
         };
-        if question_revision_tuple != &expected_revision
+        if question_revision_tuple != &expected_revision_tuple
             || *object != self.question_source_object_record.id
             || self.question_source_object_record.storage_area != ObjectStorageArea::PrivateContent
             || self.question_source_object_record.data_class != ObjectDataClass::QuestionSource
@@ -413,7 +413,7 @@ impl ExistingQuestionRevisionPublicationInput {
                 .question_source_object_record
                 .question_revision_tuple
                 .as_ref()
-                != Some(&expected_revision)
+                != Some(&expected_revision_tuple)
         {
             return Err(StoreError::InvalidRecord(
                 "Question Revision Publication Object Record must derive from its exact successor"

@@ -116,13 +116,13 @@ pub(super) async fn assert_revision_checksum_mismatch(
 ) {
     let tamper_pool = lazy_pool(application_url).expect("tamper application pool");
     let tamper_store = PostgresBlueprintCourseStore::new(tamper_pool.clone());
-    let exact_revision = BlueprintRevision::new(3).expect("Revision three");
+    let exact_revision = BlueprintRevisionNumber::new(3).expect("Revision three");
     let before_tamper = tamper_store
         .load_blueprint_revision(
             token(),
             question_model::BlueprintRevisionTuple {
                 blueprint_course_id: blueprint_course_id.clone(),
-                revision: exact_revision,
+                revision_number: exact_revision,
             },
         )
         .await
@@ -175,7 +175,7 @@ pub(super) async fn assert_revision_checksum_mismatch(
                 token(),
                 question_model::BlueprintRevisionTuple {
                     blueprint_course_id: blueprint_course_id.clone(),
-                    revision: exact_revision,
+                    revision_number: exact_revision,
                 },
             )
             .await,
@@ -218,7 +218,7 @@ pub(super) async fn blueprint_write_state(blueprint_course_id_sql: &str) -> serd
 pub(super) async fn save(
     url: &str,
     blueprint_course_id_sql: &str,
-    expected_revision: i64,
+    expected_revision_number: i64,
     checksum: Vec<u8>,
     content: &StoredBlueprintCourseContent,
 ) -> Result<(i64, bool), sqlx::Error> {
@@ -238,7 +238,7 @@ pub(super) async fn save(
                 FROM ple_api.list_blueprint_daughter_course_ids($1)))",
     )
     .bind(blueprint_course_id)
-    .bind(expected_revision)
+    .bind(expected_revision_number)
     .bind(checksum)
     .bind(encoded_content)
     .bind(

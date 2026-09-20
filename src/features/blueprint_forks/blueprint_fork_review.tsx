@@ -13,7 +13,7 @@ import {
 import type { BlueprintCourseView } from "../../../generated/api/BlueprintCourseView";
 import type { BlueprintComparisonView } from "../../../generated/api/BlueprintComparisonView";
 import type { BlueprintComparisonSide } from "../../../generated/api/BlueprintComparisonSide";
-import type { BlueprintRevision } from "../../../generated/api/BlueprintRevision";
+import type { BlueprintRevisionNumber } from "../../../generated/api/BlueprintRevisionNumber";
 import type { BlueprintCourseClient } from "../../api/blueprint_course";
 import { assessmentTypePresentation } from "../../assessment_type_presentation";
 import { normalizeHumanEnteredPublicId } from "../../question_id";
@@ -390,7 +390,7 @@ function RelatedComparison(props: ForkProps): JSX.Element {
 
 /** Authorized rows only; source head is compared to source ancestry, never fork numbering. */
 export function BlueprintKnownForks(
-  props: ForkProps & { readonly sourceCurrentRevision: BlueprintRevision },
+  props: ForkProps & { readonly sourceCurrentRevision: BlueprintRevisionNumber },
 ): JSX.Element {
   const [selectedFork, setSelectedFork] = createSignal<string>();
   const comparisonId = createUniqueId();

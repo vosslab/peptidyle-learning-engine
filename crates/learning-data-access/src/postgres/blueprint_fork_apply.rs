@@ -40,10 +40,10 @@ impl PostgresBlueprintCourseStore {
             "SELECT * FROM ple_api.load_blueprint_fork_apply_sources($1, $2, $3, $4, $5, $6)",
         )
         .bind(input.expected_source.blueprint_course_id.as_string())
-        .bind(i64::try_from(input.expected_source.revision.value()).map_err(|_| invalid())?)
+        .bind(i64::try_from(input.expected_source.revision_number.value()).map_err(|_| invalid())?)
         .bind(input.expected_source_blueprint_edit_number.as_i64())
         .bind(input.expected_fork.blueprint_course_id.as_string())
-        .bind(i64::try_from(input.expected_fork.revision.value()).map_err(|_| invalid())?)
+        .bind(i64::try_from(input.expected_fork.revision_number.value()).map_err(|_| invalid())?)
         .bind(input.expected_fork_blueprint_edit_number.as_i64())
         .fetch_all(&mut *transaction)
         .await
@@ -187,7 +187,7 @@ impl PostgresBlueprintCourseStore {
             .save_trusted_content(
                 &mut transaction,
                 input.expected_fork.blueprint_course_id.clone(),
-                input.expected_fork.revision,
+                input.expected_fork.revision_number,
                 checksum,
                 actor,
                 fork,

@@ -47,7 +47,7 @@ $$;
 
 CREATE FUNCTION ple_api.create_course_instance(
     p_course_instance_id text, p_origin_id uuid, p_membership_id uuid, p_event_id uuid,
-    p_source_kind text, p_blueprint_course_id text, p_blueprint_revision bigint,
+    p_source_kind text, p_blueprint_course_id text, p_blueprint_revision_number bigint,
     p_short_name text, p_long_name text, p_term_start date, p_term_end date,
     p_assigned_instructor_account_id text, p_assessments jsonb,
     p_discipline uuid, p_subject uuid, p_topic uuid, p_subtopic uuid, p_tags text[]
@@ -67,10 +67,10 @@ BEGIN
     IF p_course_instance_id IS NULL OR p_origin_id IS NULL OR p_membership_id IS NULL OR p_event_id IS NULL
        OR p_source_kind IS NULL OR p_source_kind NOT IN ('empty', 'adopted')
        OR (p_source_kind = 'empty'
-           AND (p_blueprint_course_id IS NOT NULL OR p_blueprint_revision IS NOT NULL))
+           AND (p_blueprint_course_id IS NOT NULL OR p_blueprint_revision_number IS NOT NULL))
        OR (p_source_kind = 'adopted'
-           AND (p_blueprint_course_id IS NULL OR p_blueprint_revision IS NULL
-                OR p_blueprint_revision <= 0))
+           AND (p_blueprint_course_id IS NULL OR p_blueprint_revision_number IS NULL
+                OR p_blueprint_revision_number <= 0))
        OR p_short_name IS NULL OR p_short_name <> btrim(p_short_name)
        OR char_length(p_short_name) NOT BETWEEN 1 AND 200
        OR p_long_name IS NULL OR p_long_name <> btrim(p_long_name)
@@ -128,14 +128,14 @@ BEGIN
         IF NOT FOUND OR blueprint.availability <> 'public' THEN
             RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Course Instance source is unavailable';
         END IF;
-        IF blueprint.current_blueprint_revision_number <> p_blueprint_revision THEN
+        IF blueprint.current_blueprint_revision_number <> p_blueprint_revision_number THEN
             RAISE EXCEPTION USING ERRCODE = '40001',
                 MESSAGE = 'Blueprint Revision precondition is stale';
         END IF;
         SELECT array_agg(source.blueprint_assessment_id ORDER BY source.blueprint_assessment_id)
           INTO expected_sources FROM ple_data.blueprint_revision_assessment AS source
          WHERE source.blueprint_course_id = blueprint.blueprint_course_id
-           AND source.blueprint_revision_number = p_blueprint_revision;
+           AND source.blueprint_revision_number = p_blueprint_revision_number;
         SELECT array_agg((item ->> 'source')::uuid ORDER BY (item ->> 'source')::uuid)
           INTO supplied_sources FROM jsonb_array_elements(p_assessments) AS item;
         IF expected_sources IS NULL OR supplied_sources IS DISTINCT FROM expected_sources THEN
@@ -161,7 +161,7 @@ BEGIN
         term_starts_on, term_ends_on, created_at, active_until_at, retention_starts_at,
         content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags
     ) VALUES (
-        p_course_instance_id, p_source_kind, blueprint.blueprint_course_id, p_blueprint_revision,
+        p_course_instance_id, p_source_kind, blueprint.blueprint_course_id, p_blueprint_revision_number,
         p_short_name, p_long_name, p_term_start, p_term_end, now_at,
         ((now_at AT TIME ZONE 'UTC') + INTERVAL '6 months') AT TIME ZONE 'UTC',
         ((now_at AT TIME ZONE 'UTC') + INTERVAL '6 months') AT TIME ZONE 'UTC',
@@ -171,17 +171,17 @@ BEGIN
         course_origin_id, course_instance_id, source_kind, blueprint_course_id,
         blueprint_revision_number, source_course_instance_id, created_at
     ) VALUES (p_origin_id, p_course_instance_id, p_source_kind, blueprint.blueprint_course_id,
-              p_blueprint_revision, NULL, now_at);
+              p_blueprint_revision_number, NULL, now_at);
     INSERT INTO ple_data.course_membership (course_membership_id, course_instance_id, account_id, role, joined_at)
     VALUES (p_membership_id, p_course_instance_id, assigned, 'instructor', now_at);
     IF p_source_kind = 'adopted' THEN
         PERFORM ple_data.initialize_course_assessments(
-            p_course_instance_id, blueprint.blueprint_course_id, p_blueprint_revision, p_assessments
+            p_course_instance_id, blueprint.blueprint_course_id, p_blueprint_revision_number, p_assessments
         );
     END IF;
     PERFORM ple_audit.record_course_instance_creation_event(
         p_event_id, p_course_instance_id, p_source_kind,
-        blueprint.blueprint_course_id, p_blueprint_revision, assigned, actor, now_at
+        blueprint.blueprint_course_id, p_blueprint_revision_number, assigned, actor, now_at
     );
     RETURN QUERY SELECT course.course_instance_id, course.course_short_name, course.course_long_name,
         course.term_starts_on, course.term_ends_on, course.content_discipline_id, course.content_subject_id,
@@ -262,7 +262,7 @@ CREATE FUNCTION ple_api.load_course_instance(p_course_instance_id text)
 RETURNS TABLE(course_instance_id text, short_name text, long_name text, term_starts_on date,
               term_ends_on date, course_theme text,
               active_instructor_count bigint, blueprint_course_id text,
-              adopted_blueprint_revision bigint, current_blueprint_revision bigint,
+              adopted_blueprint_revision_number bigint, current_blueprint_revision_number bigint,
               content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid, content_subtopic_id uuid,
               tags text[], course_edit_number bigint, course_lifecycle_state text)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data AS $$

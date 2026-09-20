@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use question_model::{
-    AccountId, BlueprintRevision, CourseInstanceId, CourseMembershipRole, CourseSummary,
+    AccountId, BlueprintRevisionNumber, CourseInstanceId, CourseMembershipRole, CourseSummary,
     CourseTerm, CourseTheme,
 };
 use sqlx::{Postgres, Row, Transaction};
@@ -421,20 +421,24 @@ fn decode_view(row: &sqlx::postgres::PgRow) -> Result<CourseInstanceView, StoreE
         .map_err(map_sqlx_error)?;
     let blueprint_course_id: Option<String> =
         row.try_get("blueprint_course_id").map_err(map_sqlx_error)?;
-    let adopted_revision: Option<i64> = row
-        .try_get("adopted_blueprint_revision")
+    let adopted_revision_number: Option<i64> = row
+        .try_get("adopted_blueprint_revision_number")
         .map_err(map_sqlx_error)?;
-    let current_revision: Option<i64> = row
-        .try_get("current_blueprint_revision")
+    let current_revision_number: Option<i64> = row
+        .try_get("current_blueprint_revision_number")
         .map_err(map_sqlx_error)?;
     // ASVS 2.2.3: the nullable projection is all-or-nothing and revisions remain ordered.
-    let blueprint_origin = match (blueprint_course_id, adopted_revision, current_revision) {
+    let blueprint_origin = match (
+        blueprint_course_id,
+        adopted_revision_number,
+        current_revision_number,
+    ) {
         (None, None, None) => None,
         (Some(blueprint_course_id), Some(adopted), Some(current)) if current >= adopted => {
             let revision = |value| {
                 u64::try_from(value)
                     .ok()
-                    .and_then(BlueprintRevision::new)
+                    .and_then(BlueprintRevisionNumber::new)
                     .ok_or_else(|| invalid("Blueprint Revision"))
             };
             Some(CourseInstanceBlueprintOrigin {

@@ -10,6 +10,39 @@
 
 ### Fixes and Maintenance
 
+- Live-demo Course Instance origin JSON is `adoptedRevisionNumber` /
+  `currentRevisionNumber`. Question Library and Assessment live-demo JSON
+  use `questionRevisionTuple`. SQL `p_expected_revision_number` /
+  `v_result_revision_number` hold Revision Numbers. Locals that hold a
+  Question Revision Tuple are `expected_revision_tuple`. Gate:
+  `cargo check -p learning-data-access -p project-tools`.
+
+- SQL parameters that hold a Revision Number use a Number suffix
+  (`p_revision_number`, `p_blueprint_revision_number`). Helpers that parse or
+  return a Question Revision Tuple are named Tuple:
+  `verified_question_revision_tuple`, `existing_parent_question_revision_tuple`,
+  `permitted_answer_revision_tuple`, `successor_question_revision_tuple`. Gate:
+  `cargo check -p server_core`.
+
+- Live-demo Blueprint E2E JSON expects `current_revision_tuple` /
+  `fork_source_tuple` / `blueprintRevisionTuple` with `revisionNumber`
+  members, and Course creation uses `blueprintRevisionNumber`. The Library
+  discussion helper is `library_object_current_revision_number`. Keep
+  `current_revision_tuple` and `current_revision_matches`. Gate:
+  `cargo check -p learning-data-access`.
+
+- The scalar Blueprint Revision Number type is `BlueprintRevisionNumber`,
+  matching `QuestionRevisionNumber` and fields such as `revision_number`.
+  `BlueprintRevisionTuple` and `BlueprintRevisionView` remain Revision
+  objects. Gate: `cargo tsgen`, `npx tsc --noEmit -p tsconfig.json`.
+
+- Internal store names follow the same Revision Number rule as JSON: LDA
+  `current_revision_number` / `source_revision_number`,
+  `BlueprintRevisionTuple.revision_number`, and SQL API columns such as
+  `source_revision_number` and `adopted_blueprint_revision_number`. Store-only
+  names are not a carve-out. Gate:
+  `cargo check -p learning-data-access -p server_core -p question_model`.
+
 - Lone Blueprint Revision Numbers on remaining browser contracts use a Number
   suffix: history `revisionNumber`, Course Blueprint update
   `adoptedRevisionNumber` / `sourceRevisionNumber`, Assessment Blueprint update

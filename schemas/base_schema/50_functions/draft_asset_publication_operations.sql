@@ -5,7 +5,7 @@ SET LOCAL ROLE ple_private_owner;
 -- Late private-only helper: authoring publication calls this inside its final transaction.
 -- Requires Assets and Jobs to exist; never a standalone ple_app command.
 CREATE FUNCTION ple_private.bind_draft_asset_publication(
-    p_draft_uuid uuid, p_authoring_workspace_id uuid, p_published_question_id text, p_revision integer,
+    p_draft_uuid uuid, p_authoring_workspace_id uuid, p_published_question_id text, p_revision_number integer,
     p_backend text, p_question_type text, p_asset jsonb, p_published_at timestamptz
 ) RETURNS void LANGUAGE plpgsql
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
@@ -60,7 +60,7 @@ BEGIN
     END IF;
     SELECT * INTO STRICT record FROM ple_private.object_record WHERE object_record_id = draft_asset.source_object_record_id;
     expected_address := jsonb_build_object('kind','restrictedQuestionAsset',
-        'questionRevisionTuple',jsonb_build_object('questionId',p_published_question_id,'revisionNumber',p_revision),
+        'questionRevisionTuple',jsonb_build_object('questionId',p_published_question_id,'revisionNumber',p_revision_number),
         'asset',v_asset_id,'object',source_id);
     IF p_asset->'sourceObjectAddress' IS DISTINCT FROM expected_address
        OR record.sha256 IS DISTINCT FROM checksum OR record.size_bytes IS DISTINCT FROM v_byte_length
@@ -76,12 +76,12 @@ BEGIN
     INSERT INTO ple_data.object_delivery(object_delivery_id,object_record_id,sha256,media_type,byte_length,delivery_state,registered_at)
     VALUES(v_delivery_id,public_id,checksum,v_media_type,v_byte_length,'pending',p_published_at);
     INSERT INTO ple_data.question_asset_delivery(object_delivery_id,object_record_id,published_question_id,revision_number,asset_id)
-    VALUES(v_delivery_id,public_id,p_published_question_id,p_revision,v_asset_id);
-    PERFORM ple_private.enqueue_public_asset_publication(v_job_id,p_published_question_id,p_revision,'{}',p_published_at,3,p_published_at);
+    VALUES(v_delivery_id,public_id,p_published_question_id,p_revision_number,v_asset_id);
+    PERFORM ple_private.enqueue_public_asset_publication(v_job_id,p_published_question_id,p_revision_number,'{}',p_published_at,3,p_published_at);
     INSERT INTO ple_private.question_asset_publication(published_question_id,revision_number,asset_id,source_object_record_id,
         source_object_checksum,public_object_id,public_object_checksum,public_byte_length,verified_media_type,
         intrinsic_width,intrinsic_height,object_delivery_id,job_id,publication_state)
-    VALUES(p_published_question_id,p_revision,v_asset_id,source_id,checksum,public_id,checksum,v_byte_length,v_media_type,
+    VALUES(p_published_question_id,p_revision_number,v_asset_id,source_id,checksum,public_id,checksum,v_byte_length,v_media_type,
         width,height,v_delivery_id,v_job_id,'pending');
 END $$;
 

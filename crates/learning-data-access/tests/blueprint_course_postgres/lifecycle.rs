@@ -30,8 +30,8 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         .await
         .expect("owner creates a new Blueprint through the application Store");
     assert_eq!(
-        created.blueprint_revision_tuple.revision,
-        BlueprintRevision::INITIAL
+        created.blueprint_revision_tuple.revision_number,
+        BlueprintRevisionNumber::INITIAL
     );
     let replay = owner_store
         .create_blueprint_course(
@@ -107,7 +107,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
                 },
                 source: CourseInstanceCreationSource::Adopted {
                     blueprint_course: blueprint_course_id.clone(),
-                    blueprint_revision_number: BlueprintRevision::new(1).expect("Revision 1"),
+                    blueprint_revision_number: BlueprintRevisionNumber::new(1).expect("Revision 1"),
                 },
                 short_name: "ADOPT".into(),
                 long_name: "Complete Blueprint adoption".into(),
@@ -131,7 +131,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
                 },
                 source: CourseInstanceCreationSource::Adopted {
                     blueprint_course: blueprint_course_id.clone(),
-                    blueprint_revision_number: BlueprintRevision::new(1).expect("Revision 1"),
+                    blueprint_revision_number: BlueprintRevisionNumber::new(1).expect("Revision 1"),
                 },
                 short_name: "ADOPT-2".into(),
                 long_name: "Independent Blueprint adoption".into(),
@@ -275,7 +275,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
                 reader_token(),
                 question_model::BlueprintRevisionTuple {
                     blueprint_course_id: blueprint_course_id.clone(),
-                    revision: BlueprintRevision::INITIAL,
+                    revision_number: BlueprintRevisionNumber::INITIAL,
                 },
             )
             .await
@@ -299,7 +299,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
                     },
                     source: CourseInstanceCreationSource::Adopted {
                         blueprint_course: blueprint_course_id.clone(),
-                        blueprint_revision_number: BlueprintRevision::INITIAL,
+                        blueprint_revision_number: BlueprintRevisionNumber::INITIAL,
                     },
                     short_name: "ARCH".into(),
                     long_name: "Archived Blueprint adoption denial".into(),
@@ -515,7 +515,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         .save_blueprint_course(
             token(),
             blueprint_course_id.clone(),
-            BlueprintRevision::new(2).expect("Revision two"),
+            BlueprintRevisionNumber::new(2).expect("Revision two"),
             question_model::RequestChecksum::from_bytes([0x15; 32]),
             moved_input,
             Default::default(),
@@ -523,8 +523,8 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         .await
         .expect("Save moving retained Assessment and materializing a new daughter Assessment");
     assert_eq!(
-        moved_receipt.blueprint_revision_tuple.revision,
-        BlueprintRevision::new(3).expect("Revision three")
+        moved_receipt.blueprint_revision_tuple.revision_number,
+        BlueprintRevisionNumber::new(3).expect("Revision three")
     );
     let moved = (3, moved_receipt.changed);
     let moved_content = append_store

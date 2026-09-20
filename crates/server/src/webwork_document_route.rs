@@ -55,7 +55,7 @@ pub(crate) async fn answer_review(
         Ok(value) => value,
         Err(_) => return concealed(),
     };
-    let Some(revision) = permitted_answer_revision(&history, position) else {
+    let Some(revision) = permitted_answer_revision_tuple(&history, position) else {
         return concealed();
     };
     let sources = match state
@@ -103,7 +103,7 @@ pub(crate) async fn answer_review(
         Ok(value) => value,
         Err(_) => return concealed(),
     };
-    if permitted_answer_revision(&final_history, position) != Some(revision) {
+    if permitted_answer_revision_tuple(&final_history, position) != Some(revision) {
         return concealed();
     }
     let document = match rendered
@@ -121,7 +121,7 @@ pub(crate) async fn answer_review(
     }
 }
 
-fn permitted_answer_revision(
+fn permitted_answer_revision_tuple(
     evidence: &StudentAssessmentAttemptHistoryEvidence,
     position: u32,
 ) -> Option<&QuestionRevisionTuple> {
@@ -348,11 +348,11 @@ mod tests {
     #[test]
     fn answer_review_requires_committed_submission_and_current_answer_permission() {
         let mut evidence = review_evidence();
-        assert!(permitted_answer_revision(&evidence, 1).is_some());
-        assert!(permitted_answer_revision(&evidence, 0).is_none());
-        assert!(permitted_answer_revision(&evidence, 2).is_none());
+        assert!(permitted_answer_revision_tuple(&evidence, 1).is_some());
+        assert!(permitted_answer_revision_tuple(&evidence, 0).is_none());
+        assert!(permitted_answer_revision_tuple(&evidence, 2).is_none());
         evidence.submitted_at = None;
-        assert!(permitted_answer_revision(&evidence, 1).is_none());
+        assert!(permitted_answer_revision_tuple(&evidence, 1).is_none());
         evidence.submitted_at = Some(question_model::Timestamp::from_unix_millis(1));
         for assessment_type in [
             question_model::AssessmentType::Quiz,
@@ -360,17 +360,17 @@ mod tests {
         ] {
             evidence.assessment_type = assessment_type;
             evidence.all_students_completed = false;
-            assert!(permitted_answer_revision(&evidence, 1).is_none());
+            assert!(permitted_answer_revision_tuple(&evidence, 1).is_none());
             evidence.all_students_completed = true;
-            assert!(permitted_answer_revision(&evidence, 1).is_some());
+            assert!(permitted_answer_revision_tuple(&evidence, 1).is_some());
             // A newly current Student recloses the same decision used after rendering.
             evidence.all_students_completed = false;
-            assert!(permitted_answer_revision(&evidence, 1).is_none());
+            assert!(permitted_answer_revision_tuple(&evidence, 1).is_none());
         }
         evidence.all_students_completed = true;
         evidence.feedback_rule.question_answer =
             question_model::StudentFeedbackReleaseTiming::Never;
-        assert!(permitted_answer_revision(&evidence, 1).is_none());
+        assert!(permitted_answer_revision_tuple(&evidence, 1).is_none());
     }
 
     #[test]

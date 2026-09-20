@@ -10,7 +10,7 @@ use learning_data_access::StoreError;
 use question_model::{BlueprintCourseView, BlueprintMetadataState};
 
 pub(super) fn blueprint_response(status: StatusCode, view: BlueprintCourseView) -> Response {
-    let revision = view.current_revision_tuple.revision;
+    let revision = view.current_revision_tuple.revision_number;
     let mut response = crate::auth::no_store((status, Json(view)).into_response());
     match HeaderValue::from_str(&format!("\"{revision}\"")) {
         Ok(value) => {
@@ -21,7 +21,7 @@ pub(super) fn blueprint_response(status: StatusCode, view: BlueprintCourseView) 
     }
 }
 pub(super) fn blueprint_save_response(view: BlueprintCourseView, changed: bool) -> Response {
-    let revision = view.current_revision_tuple.revision;
+    let revision = view.current_revision_tuple.revision_number;
     let mut response = crate::auth::no_store(
         Json(BlueprintCourseSaveResponse {
             blueprint_course: view,

@@ -34,7 +34,7 @@ import {
   decodeBlueprintCourseSaveResponse,
   decodeBlueprintCourseView,
   decodeBlueprintMetadataState,
-  decodeBlueprintRevision,
+  decodeBlueprintRevisionNumber,
   decodeBlueprintRevisionView,
   decodeCreateBlueprintCourseInput,
   decodeRenameBlueprintCourseInput,
@@ -313,7 +313,7 @@ export function createBlueprintCourseClient(
       requestKey,
     ): Promise<LoadedBlueprintCourse> => {
       // ASVS 1.2.2, 2.2.1: validate and encode the exact immutable source identity.
-      const path = `${blueprintPath(blueprintCourseId)}/revisions/${encodeURIComponent(decodeBlueprintRevision(revision, "revision"))}/fork`;
+      const path = `${blueprintPath(blueprintCourseId)}/revisions/${encodeURIComponent(decodeBlueprintRevisionNumber(revision, "revision"))}/fork`;
       const result = await blueprintJson(
         fetchImplementation,
         basePath,
@@ -533,7 +533,7 @@ export function createBlueprintCourseClient(
       return metadataTransition(result.body, result.response, path);
     },
     getBlueprintRevision: async (blueprintCourseId, revision): Promise<BlueprintRevisionView> => {
-      const path = `${blueprintPath(blueprintCourseId)}/revisions/${encodeURIComponent(decodeBlueprintRevision(revision, "revision"))}`;
+      const path = `${blueprintPath(blueprintCourseId)}/revisions/${encodeURIComponent(decodeBlueprintRevisionNumber(revision, "revision"))}`;
       return (await blueprintJson(fetchImplementation, basePath, path, decodeBlueprintRevisionView))
         .body;
     },

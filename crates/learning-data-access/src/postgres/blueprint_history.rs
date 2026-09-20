@@ -2,7 +2,9 @@
 
 use async_trait::async_trait;
 use browser_api_contract::blueprint_course::BlueprintHistoryEntryView;
-use question_model::{BlueprintAvailability, BlueprintCourseId, BlueprintRevision, Timestamp};
+use question_model::{
+    BlueprintAvailability, BlueprintCourseId, BlueprintRevisionNumber, Timestamp,
+};
 use sqlx::Row;
 
 use super::{blueprint_course::PostgresBlueprintCourseStore, connection::map_sqlx_error};
@@ -62,7 +64,7 @@ fn decode_entry(
         BlueprintHistoryKind::Revisions => {
             let number: i64 = row.try_get("revision_number").map_err(map_sqlx_error)?;
             Ok(BlueprintHistoryEntryView::SavedRevision {
-                revision_number: BlueprintRevision::new(
+                revision_number: BlueprintRevisionNumber::new(
                     u64::try_from(number).map_err(|_| invalid())?,
                 )
                 .ok_or_else(invalid)?,

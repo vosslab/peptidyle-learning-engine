@@ -81,10 +81,11 @@ async fn get_public_question_asset(
     headers: HeaderMap,
     Path((question_id, revision_number, asset_id)): Path<(String, String, String)>,
 ) -> Response {
-    let question_revision_tuple = match verified_question_revision(&question_id, &revision_number) {
-        Some(value) => value,
-        None => return concealed(),
-    };
+    let question_revision_tuple =
+        match verified_question_revision_tuple(&question_id, &revision_number) {
+            Some(value) => value,
+            None => return concealed(),
+        };
     let asset_id = match Uuid::parse_str(&asset_id) {
         Ok(value) => QuestionAssetId::from_uuid(value),
         Err(_) => return concealed(),
@@ -115,7 +116,7 @@ async fn get_public_question_asset(
 /// The shared model parses the exact checksum-bearing ID before this
 /// authorization-sensitive Store lookup (ASVS 2.2.1 and 2.2.2). Invalid and
 /// unauthorized Tuples share the opaque response below.
-fn verified_question_revision(
+fn verified_question_revision_tuple(
     question_id: &str,
     revision_number: &str,
 ) -> Option<QuestionRevisionTuple> {
@@ -247,7 +248,7 @@ mod tests {
 
     #[test]
     fn asset_route_requires_a_verified_exact_question_revision() {
-        let question_revision_tuple = verified_question_revision("0000-4000", "1")
+        let question_revision_tuple = verified_question_revision_tuple("0000-4000", "1")
             .expect("documented checksum vector and positive revision");
         assert_eq!(question_revision_tuple.question_id.to_string(), "0000-4000");
         assert_eq!(question_revision_tuple.revision_number.get(), 1);
@@ -259,7 +260,7 @@ mod tests {
             ("0000-4000", "+1"),
         ] {
             assert!(
-                verified_question_revision(question_id, revision_number).is_none(),
+                verified_question_revision_tuple(question_id, revision_number).is_none(),
                 "{question_id}/{revision_number} must not reach the Store"
             );
         }

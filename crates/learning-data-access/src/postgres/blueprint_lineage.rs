@@ -3,7 +3,7 @@
 use async_trait::async_trait;
 use question_model::{
     BlueprintAssessmentId, BlueprintAvailability, BlueprintCourseId, BlueprintEditNumber,
-    BlueprintModuleId, BlueprintRevision, BlueprintRevisionTuple, QuestionId,
+    BlueprintModuleId, BlueprintRevisionNumber, BlueprintRevisionTuple, QuestionId,
     QuestionPoolEditNumber, QuestionRevisionNumber, QuestionRevisionTuple, RequestChecksum,
     Timestamp,
 };
@@ -116,11 +116,11 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
                         ));
                     }
                 },
-                current_revision: blueprint_revision(
+                current_revision_number: blueprint_revision_number(
                     row.try_get("blueprint_revision_number")
                         .map_err(map_sqlx_error)?,
                 )?,
-                source_revision: blueprint_revision(
+                source_revision_number: blueprint_revision_number(
                     row.try_get("source_blueprint_revision_number")
                         .map_err(map_sqlx_error)?,
                 )?,
@@ -177,7 +177,7 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
                     blueprint_course_id: parse_blueprint_course_id(
                         row.try_get("blueprint_course_id").map_err(map_sqlx_error)?,
                     )?,
-                    revision: blueprint_revision(
+                    revision_number: blueprint_revision_number(
                         row.try_get("blueprint_revision_number")
                             .map_err(map_sqlx_error)?,
                     )?,
@@ -223,7 +223,7 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
         let mut transaction = self.begin(session).await?;
         let actor = current_actor(&mut transaction).await?;
         let source_revision_number =
-            i64::try_from(source.blueprint_revision_tuple.revision.value())
+            i64::try_from(source.blueprint_revision_tuple.revision_number.value())
                 .map_err(|_| StoreError::InvalidRecord("Blueprint Revision is invalid".into()))?;
         // Source authorization and lifecycle stay locked through the write. The
         // existing request receipt takes priority over re-reading its source.
@@ -300,7 +300,7 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
         let receipt = ForkBlueprintCourseReceipt {
             blueprint_revision_tuple: BlueprintRevisionTuple {
                 blueprint_course_id: parse_blueprint_course_id(blueprint_course_id)?,
-                revision: blueprint_revision(revision_number)?,
+                revision_number: blueprint_revision_number(revision_number)?,
             },
             source,
             blueprint_edit_number: BlueprintEditNumber::from_edit_number(
@@ -408,10 +408,10 @@ fn parse_blueprint_course_id(value: String) -> Result<BlueprintCourseId, StoreEr
         .map_err(|_| StoreError::InvalidRecord("Blueprint Course ID is invalid".to_string()))
 }
 
-fn blueprint_revision(value: i64) -> Result<BlueprintRevision, StoreError> {
+fn blueprint_revision_number(value: i64) -> Result<BlueprintRevisionNumber, StoreError> {
     let number = u64::try_from(value)
         .map_err(|_| StoreError::InvalidRecord("Blueprint Revision is invalid".to_string()))?;
-    BlueprintRevision::new(number)
+    BlueprintRevisionNumber::new(number)
         .ok_or_else(|| StoreError::InvalidRecord("Blueprint Revision is invalid".to_string()))
 }
 

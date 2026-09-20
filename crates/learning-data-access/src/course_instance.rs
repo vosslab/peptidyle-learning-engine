@@ -6,8 +6,8 @@
 
 use async_trait::async_trait;
 use question_model::{
-    AccountId, BlueprintCourseId, BlueprintRevision, CourseInstanceId, CourseSummary, CourseTerm,
-    CourseTheme, QuestionId,
+    AccountId, BlueprintCourseId, BlueprintRevisionNumber, CourseInstanceId, CourseSummary,
+    CourseTerm, CourseTheme, QuestionId,
 };
 use serde::{Deserialize, Serialize};
 
@@ -33,7 +33,7 @@ pub enum CourseInstanceCreationSource {
         /// Exact reusable Blueprint Course source.
         blueprint_course: BlueprintCourseId,
         /// Exact immutable Blueprint Revision Number source.
-        blueprint_revision_number: BlueprintRevision,
+        blueprint_revision_number: BlueprintRevisionNumber,
     },
 }
 
@@ -122,9 +122,9 @@ pub struct CourseInstanceBlueprintOrigin {
     /// Readable parent Blueprint public identity.
     pub id: BlueprintCourseId,
     /// Immutable Revision Number originally adopted when the Course was created.
-    pub adopted_revision_number: BlueprintRevision,
+    pub adopted_revision_number: BlueprintRevisionNumber,
     /// Current readable source Revision, without applying any changes.
-    pub current_revision_number: BlueprintRevision,
+    pub current_revision_number: BlueprintRevisionNumber,
 }
 
 /// Safe active-Instructor selection identity for a Sysadmin creation request.

@@ -24,7 +24,7 @@ use crate::{SessionTokenHash, StoreError};
 #[serde(rename_all = "camelCase")]
 pub struct AssessmentBlueprintUpdateReview {
     pub assessment: LiveAssessmentWorkspace,
-    pub source_revision_number: question_model::BlueprintRevision,
+    pub source_revision_number: question_model::BlueprintRevisionNumber,
     pub proposed: Option<AssessmentBlueprintUpdateContent>,
     pub cannot_apply_reason: Option<AssessmentBlueprintUpdateCannotApplyReason>,
 }
@@ -35,8 +35,8 @@ pub struct AssessmentBlueprintUpdateReview {
 pub struct CourseBlueprintUpdateReview {
     pub blueprint_course_id: question_model::BlueprintCourseId,
     /// Immutable creation pin, not a claim that the whole Course has applied a Revision.
-    pub adopted_revision_number: question_model::BlueprintRevision,
-    pub source_revision_number: question_model::BlueprintRevision,
+    pub adopted_revision_number: question_model::BlueprintRevisionNumber,
+    pub source_revision_number: question_model::BlueprintRevisionNumber,
     pub assessments: Vec<CourseAssessmentBlueprintUpdateSummary>,
 }
 
@@ -102,7 +102,7 @@ pub enum AssessmentBlueprintUpdateEntry {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ApplyAssessmentBlueprintUpdateInput {
     // ASVS 1.5.2, 2.2.1: the browser cannot choose source identities or content.
-    pub expected_source_revision_number: question_model::BlueprintRevision,
+    pub expected_source_revision_number: question_model::BlueprintRevisionNumber,
     pub expected_edit_number: AssessmentEditNumber,
 }
 

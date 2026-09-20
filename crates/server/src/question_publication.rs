@@ -359,8 +359,9 @@ where
         command: ExistingQuestionRevisionPublicationCommand,
         stored_at: Timestamp,
     ) -> Result<QuestionRevisionTuple, QuestionPublicationError> {
-        let successor_revision = successor_revision(&command.parent_question_revision_tuple)
-            .map_err(QuestionPublicationError::Store)?;
+        let successor_question_revision_tuple =
+            successor_question_revision_tuple(&command.parent_question_revision_tuple)
+                .map_err(QuestionPublicationError::Store)?;
         let publication_source = self
             .publication_store
             .load_draft_question_publication_source(
@@ -393,7 +394,7 @@ where
         )
         .await?;
         let target_address = ObjectAddress::QuestionSource {
-            question_revision_tuple: successor_revision.clone(),
+            question_revision_tuple: successor_question_revision_tuple.clone(),
             object: ObjectId::generate(),
         };
         let target_record = self
@@ -410,7 +411,7 @@ where
         let prepared_asset = crate::question_publication_assets::prepare_hotspot_asset(
             &self.object_store,
             hotspot_asset.as_ref(),
-            &successor_revision,
+            &successor_question_revision_tuple,
             stored_at,
         )
         .await?;
@@ -454,7 +455,7 @@ where
     }
 }
 
-fn successor_revision(
+fn successor_question_revision_tuple(
     parent_question_revision_tuple: &QuestionRevisionTuple,
 ) -> Result<QuestionRevisionTuple, StoreError> {
     let revision_number = parent_question_revision_tuple

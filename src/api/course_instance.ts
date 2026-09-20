@@ -2,7 +2,7 @@
 
 import type { AccountId } from "../../generated/api/AccountId";
 import type { BlueprintCourseId } from "../../generated/api/BlueprintCourseId";
-import type { BlueprintRevision } from "../../generated/api/BlueprintRevision";
+import type { BlueprintRevisionNumber } from "../../generated/api/BlueprintRevisionNumber";
 import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { CourseInstanceRouteSummary } from "../../generated/api/CourseInstanceRouteSummary";
 import type { CourseTerm } from "../../generated/api/CourseTerm";
@@ -18,7 +18,7 @@ export type CourseInstanceCreationSource =
   | {
       readonly kind: "adopted";
       readonly blueprintCourse: BlueprintCourseId;
-      readonly blueprintRevisionNumber: BlueprintRevision;
+      readonly blueprintRevisionNumber: BlueprintRevisionNumber;
     };
 
 /** Exact source and initial Course Term required to create one Course Instance. */
@@ -56,8 +56,8 @@ export interface CourseInstanceView {
   /** Original adoption provenance; null for Empty Courses or unreadable sources. */
   readonly blueprintOrigin: {
     readonly id: BlueprintCourseId;
-    readonly adoptedRevisionNumber: BlueprintRevision;
-    readonly currentRevisionNumber: BlueprintRevision;
+    readonly adoptedRevisionNumber: BlueprintRevisionNumber;
+    readonly currentRevisionNumber: BlueprintRevisionNumber;
   } | null;
 }
 

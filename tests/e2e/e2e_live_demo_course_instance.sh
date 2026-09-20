@@ -132,7 +132,7 @@ if not isinstance(items, list) or not items:
 question_id = items[0].get("summary", {}).get("questionId")
 if not isinstance(question_id, str) or not re.fullmatch(r"[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}", question_id):
     raise SystemExit("Question Library did not return an opaque Question ID")
-revision = items[0].get("summary", {}).get("questionRevision")
+revision = items[0].get("summary", {}).get("questionRevisionTuple")
 if (not isinstance(revision, dict) or set(revision) != {"questionId", "revisionNumber"}
     or revision["questionId"] != question_id
     or not isinstance(revision["revisionNumber"], int)
@@ -188,7 +188,7 @@ course_payload() {
 	python3 -c '
 import json, sys
 blueprint, revision, assigned, classification, short_name, long_name = sys.argv[1:]
-print(json.dumps({"classification":json.loads(classification),"source":{"kind":"adopted","blueprintCourse":blueprint,"blueprintRevision":revision},"shortName":short_name,"longName":long_name,"term":{"startDate":"2026-09-01","endDate":"2026-12-18"},"assignedInstructor":assigned}, separators=(",",":")))
+print(json.dumps({"classification":json.loads(classification),"source":{"kind":"adopted","blueprintCourse":blueprint,"blueprintRevisionNumber":revision},"shortName":short_name,"longName":long_name,"term":{"startDate":"2026-09-01","endDate":"2026-12-18"},"assignedInstructor":assigned}, separators=(",",":")))
 ' "$1" "$2" "$3" "$4" "$5" "$6"
 }
 
@@ -234,13 +234,13 @@ if not isinstance(value["activeInstructorCount"], int) or value["activeInstructo
 origin = value["blueprintOrigin"]
 if origin is not None and (
     not isinstance(origin, dict)
-    or set(origin) != {"id", "adoptedRevision", "currentRevision"}
+    or set(origin) != {"id", "adoptedRevisionNumber", "currentRevisionNumber"}
     or not isinstance(origin["id"], str) or not origin["id"]
-    or not isinstance(origin["adoptedRevision"], str)
-    or not isinstance(origin["currentRevision"], str)
-    or not origin["adoptedRevision"].isdigit()
-    or not origin["currentRevision"].isdigit()
-    or not 0 < int(origin["adoptedRevision"]) <= int(origin["currentRevision"])
+    or not isinstance(origin["adoptedRevisionNumber"], str)
+    or not isinstance(origin["currentRevisionNumber"], str)
+    or not origin["adoptedRevisionNumber"].isdigit()
+    or not origin["currentRevisionNumber"].isdigit()
+    or not 0 < int(origin["adoptedRevisionNumber"]) <= int(origin["currentRevisionNumber"])
 ):
     raise SystemExit("Course Instance Blueprint origin was not a closed ordered provenance")
 forbidden = {"id", "accountId", "student", "studentRecord", "assignment", "sourceObject", "answerKey"}
@@ -403,12 +403,12 @@ prove_authority() {
 	fi
 read -r blueprint revision_one <retired-term-replace-me> < <(python3 -c '
 import json, sys
-value=json.loads(sys.argv[1]); blueprint_course_id=value.get("id"); revision=value.get("current_revision"); <retired-term-replace-me>=value.get("blueprint_edit_number")
+value=json.loads(sys.argv[1]); blueprint_course_id=value.get("id"); revision=value.get("current_revision_tuple"); <retired-term-replace-me>=value.get("blueprint_edit_number")
 if (not isinstance(blueprint_course_id,str) or not blueprint_course_id
-    or revision != {"blueprint_course_id": blueprint_course_id, "revision": "1"}
+    or revision != {"blueprintCourseId": blueprint_course_id, "revisionNumber": "1"}
     or not isinstance(<retired-term-replace-me>, str) or not <retired-term-replace-me>):
     raise SystemExit("Blueprint creation did not return available exact Revision 1")
-print(blueprint_course_id, revision["revision"], <retired-term-replace-me>)
+print(blueprint_course_id, revision["revisionNumber"], <retired-term-replace-me>)
 ' "$(response_body "$created")")
 	candidates="$(request '/api/course-instance-creation/instructors' "$sysadmin_cookie")"
 	if [ "$(response_status "$candidates")" != "200" ]; then
@@ -479,7 +479,7 @@ print(sys.argv[2])
 import json, sys
 value=json.loads(sys.argv[1]); course=value.get("blueprintCourse")
 if (value.get("changed") is not True or not isinstance(course,dict)
-        or course.get("current_revision") != {"blueprint_course_id":sys.argv[2],"revision":"2"}):
+        or course.get("current_revision_tuple") != {"blueprintCourseId":sys.argv[2],"revisionNumber":"2"}):
     raise SystemExit("changed Blueprint Save did not create exact Revision 2")
 print("2")
 ' "$(response_body "$saved")" "$blueprint")"

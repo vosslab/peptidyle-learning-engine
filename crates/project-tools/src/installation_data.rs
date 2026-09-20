@@ -251,7 +251,7 @@ fn publish_bundled_genetics(
         ensure!(
             published.availability == BlueprintAvailability::Public
                 && published.read_access == BlueprintCourseReadAccess::BlueprintCourseOwner
-                && published.current_revision == blueprint.current_revision,
+                && published.current_revision_number == blueprint.current_revision_number,
             "bundled Genetics publication changed ownership or Revision, or is not Public"
         );
         Ok(receipt)

@@ -5,11 +5,11 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use question_model::{
-    AccountId, BlueprintCourseId, BlueprintEditNumber, BlueprintMetadataState, BlueprintRevision,
-    BlueprintRevisionTuple, CanonicalBlueprintCourse, CreateBlueprintCourseInput,
-    CreateBlueprintCourseReceipt, QuestionId, QuestionPoolEditNumber, QuestionRevisionNumber,
-    QuestionRevisionTuple, RenameBlueprintCourseInput, ReplaceBlueprintCourseContentInput,
-    RequestChecksum, SaveBlueprintCourseReceipt,
+    AccountId, BlueprintCourseId, BlueprintEditNumber, BlueprintMetadataState,
+    BlueprintRevisionNumber, BlueprintRevisionTuple, CanonicalBlueprintCourse,
+    CreateBlueprintCourseInput, CreateBlueprintCourseReceipt, QuestionId, QuestionPoolEditNumber,
+    QuestionRevisionNumber, QuestionRevisionTuple, RenameBlueprintCourseInput,
+    ReplaceBlueprintCourseContentInput, RequestChecksum, SaveBlueprintCourseReceipt,
 };
 use serde_json::{Value, json};
 use sqlx::{Postgres, Row, Transaction, types::Json};
@@ -90,7 +90,7 @@ impl PostgresBlueprintCourseStore {
         &self,
         transaction: &mut Transaction<'_, Postgres>,
         blueprint_course_id: BlueprintCourseId,
-        expected_revision: BlueprintRevision,
+        expected_revision_number: BlueprintRevisionNumber,
         request_checksum: RequestChecksum,
         actor: AccountId,
         prior: &StoredBlueprintCourseContent,
@@ -127,7 +127,7 @@ impl PostgresBlueprintCourseStore {
              FROM ple_api.save_blueprint_course($1, $2, $3, $4, $5, $6)",
         )
         .bind(blueprint_course_id.as_string())
-        .bind(revision_number(expected_revision)?)
+        .bind(revision_number(expected_revision_number)?)
         .bind(request_checksum.into_bytes().to_vec())
         .bind(encoded)
         .bind(content.checksum()?.as_bytes().to_vec())
@@ -138,7 +138,7 @@ impl PostgresBlueprintCourseStore {
         let receipt = SaveBlueprintCourseReceipt {
             blueprint_revision_tuple: BlueprintRevisionTuple {
                 blueprint_course_id,
-                revision: revision(
+                revision_number: revision(
                     row.try_get("resulting_blueprint_revision_number")
                         .map_err(map_sqlx_error)?,
                 )?,
@@ -308,7 +308,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
             .await?;
         let row = sqlx::query("SELECT * FROM ple_api.load_blueprint_revision($1, $2)")
             .bind(blueprint_revision_tuple.blueprint_course_id.as_string())
-            .bind(revision_number(blueprint_revision_tuple.revision)?)
+            .bind(revision_number(blueprint_revision_tuple.revision_number)?)
             .fetch_optional(&mut *transaction)
             .await
             .map_err(map_sqlx_error)?;
@@ -411,7 +411,9 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
                     blueprint_course_id: blueprint_course_id(
                         row.try_get("blueprint_course_id").map_err(map_sqlx_error)?,
                     )?,
-                    revision: revision(row.try_get("revision_number").map_err(map_sqlx_error)?)?,
+                    revision_number: revision(
+                        row.try_get("revision_number").map_err(map_sqlx_error)?,
+                    )?,
                 },
                 blueprint_edit_number: blueprint_edit_number(
                     row.try_get("blueprint_edit_number")
@@ -461,7 +463,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         let receipt = CreateBlueprintCourseReceipt {
             blueprint_revision_tuple: BlueprintRevisionTuple {
                 blueprint_course_id: blueprint,
-                revision: revision(
+                revision_number: revision(
                     row.try_get("blueprint_revision_number")
                         .map_err(map_sqlx_error)?,
                 )?,
@@ -482,7 +484,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         &self,
         session: SessionTokenHash,
         blueprint_course_id: BlueprintCourseId,
-        expected_revision: BlueprintRevision,
+        expected_revision_number: BlueprintRevisionNumber,
         request_checksum: RequestChecksum,
         input: ReplaceBlueprintCourseContentInput,
         mut bloom_receipts: crate::PoolBloomPreparationReceipts,
@@ -525,7 +527,9 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
             let receipt = SaveBlueprintCourseReceipt {
                 blueprint_revision_tuple: BlueprintRevisionTuple {
                     blueprint_course_id,
-                    revision: revision(row.try_get("revision_number").map_err(map_sqlx_error)?)?,
+                    revision_number: revision(
+                        row.try_get("revision_number").map_err(map_sqlx_error)?,
+                    )?,
                 },
                 changed: row.try_get("changed").map_err(map_sqlx_error)?,
                 actor,
@@ -546,7 +550,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         let prior = load_revision_content(
             &mut transaction,
             blueprint_course_id.clone(),
-            expected_revision,
+            expected_revision_number,
         )
         .await?;
         let requested =
@@ -558,7 +562,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
             &mut transaction,
             &mut content,
             pool_choices,
-            Some((blueprint_course_id.clone(), expected_revision)),
+            Some((blueprint_course_id.clone(), expected_revision_number)),
             Some(&prior),
             self.pool_id_issuer.as_deref(),
             &mut bloom_receipts,
@@ -568,7 +572,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
             .save_trusted_content(
                 &mut transaction,
                 blueprint_course_id,
-                expected_revision,
+                expected_revision_number,
                 request_checksum,
                 actor,
                 &prior,
@@ -707,11 +711,11 @@ impl PostgresBlueprintCourseStore {
 async fn load_revision_content(
     transaction: &mut Transaction<'_, Postgres>,
     blueprint_course_id: BlueprintCourseId,
-    revision_value: BlueprintRevision,
+    revision_number: BlueprintRevisionNumber,
 ) -> Result<StoredBlueprintCourseContent, StoreError> {
     let row = sqlx::query("SELECT * FROM ple_api.load_blueprint_revision($1, $2)")
         .bind(blueprint_course_id.as_string())
-        .bind(revision_number(revision_value)?)
+        .bind(decode::revision_number(revision_number)?)
         .fetch_optional(&mut **transaction)
         .await
         .map_err(map_sqlx_error)?

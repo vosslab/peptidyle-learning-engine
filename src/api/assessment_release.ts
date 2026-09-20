@@ -12,7 +12,7 @@ import type { AssessmentActivityRules } from "../../generated/api/AssessmentActi
 import type { AssessmentType } from "../../generated/api/AssessmentType";
 import type { StudentFeedbackReleaseRule } from "../../generated/api/StudentFeedbackReleaseRule";
 import type { QuestionRevisionTuple } from "../../generated/api/QuestionRevisionTuple";
-import type { BlueprintRevision } from "../../generated/api/BlueprintRevision";
+import type { BlueprintRevisionNumber } from "../../generated/api/BlueprintRevisionNumber";
 import type { BlueprintCourseId } from "../../generated/api/BlueprintCourseId";
 import type { BlueprintAssessmentDefaults } from "../../generated/api/BlueprintAssessmentDefaults";
 import type { FixedQuestionAssessmentEntry } from "../../generated/api/FixedQuestionAssessmentEntry";
@@ -33,7 +33,7 @@ export interface AssessmentBlueprintUpdateContent {
 
 export interface AssessmentBlueprintUpdateReview {
   readonly assessment: LiveAssessmentWorkspace;
-  readonly sourceRevisionNumber: BlueprintRevision;
+  readonly sourceRevisionNumber: BlueprintRevisionNumber;
   readonly proposed: AssessmentBlueprintUpdateContent | null;
   readonly cannotApplyReason: "retainedSourceMissing" | "assessmentTypeMismatch" | null;
 }
@@ -50,13 +50,13 @@ export interface CourseAssessmentBlueprintUpdateSummary {
 /** Derived together from one parent Revision; adoptedRevisionNumber is the immutable creation pin. */
 export interface CourseBlueprintUpdateReview {
   readonly blueprintCourseId: BlueprintCourseId;
-  readonly adoptedRevisionNumber: BlueprintRevision;
-  readonly sourceRevisionNumber: BlueprintRevision;
+  readonly adoptedRevisionNumber: BlueprintRevisionNumber;
+  readonly sourceRevisionNumber: BlueprintRevisionNumber;
   readonly assessments: ReadonlyArray<CourseAssessmentBlueprintUpdateSummary>;
 }
 
 export interface ApplyAssessmentBlueprintUpdateInput {
-  readonly expectedSourceRevisionNumber: BlueprintRevision;
+  readonly expectedSourceRevisionNumber: BlueprintRevisionNumber;
   readonly expectedEditNumber: AssessmentEditNumber;
 }
 

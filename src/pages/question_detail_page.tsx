@@ -189,7 +189,7 @@ function QuestionPoolFromQuestionControl(props: { readonly detail: QuestionDetai
   );
 }
 
-function questionRevisionFromSearch(search: string): QuestionRevisionNumber | undefined {
+function questionRevisionNumberFromSearch(search: string): QuestionRevisionNumber | undefined {
   const values = new URLSearchParams(search).getAll(QUESTION_REVISION_QUERY_PARAMETER);
   if (values.length === 0) return undefined;
   const [value] = values;
@@ -450,7 +450,7 @@ export function QuestionDetailPage(): JSX.Element {
     if (questionId === undefined || parseQuestionRouteId(questionId) === null) {
       throw new Error("The Question ID address is incomplete.");
     }
-    const revisionNumber = questionRevisionFromSearch(location.search);
+    const revisionNumber = questionRevisionNumberFromSearch(location.search);
     if (revisionNumber !== undefined)
       return applicationApi.client.getQuestionRevision({
         questionId: questionId,

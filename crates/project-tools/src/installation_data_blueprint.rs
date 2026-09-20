@@ -9,7 +9,7 @@ use learning_data_access::{
 use question_model::{
     AssessmentActivityRules, AssessmentEntryScoringRule, AssessmentInstructions,
     AssessmentPointValue, BlueprintAssessmentContentInput, BlueprintAssessmentDefaults,
-    BlueprintAssessmentEntryInput, BlueprintAvailability, BlueprintRevision,
+    BlueprintAssessmentEntryInput, BlueprintAvailability, BlueprintRevisionNumber,
     CreateBlueprintCourseInput, CreateBlueprintModuleInput, LateWorkRule, QuestionAttemptLimit,
     QuestionAttemptTimeLimit, QuestionRevisionTuple, RequestChecksum, ReusableFixedQuestionInput,
 };
@@ -85,7 +85,7 @@ pub(crate) fn create_live_demo_blueprint(
             .await
             .context("creating the ordinary Live Demo Blueprint Course")?;
         ensure!(
-            receipt.blueprint_revision_tuple.revision == BlueprintRevision::INITIAL,
+            receipt.blueprint_revision_tuple.revision_number == BlueprintRevisionNumber::INITIAL,
             "Live Demo Blueprint creation did not return Revision 1"
         );
         let blueprint = store
@@ -103,7 +103,7 @@ pub(crate) fn create_live_demo_blueprint(
             "Live Demo Blueprint is neither Private nor Public"
         );
         ensure!(
-            blueprint.current_revision == BlueprintRevision::INITIAL,
+            blueprint.current_revision_number == BlueprintRevisionNumber::INITIAL,
             "Live Demo Blueprint current Revision is not Revision 1"
         );
         ensure!(

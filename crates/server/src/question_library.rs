@@ -302,10 +302,11 @@ async fn question_revision_details(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let question_revision_tuple = match verified_question_revision(&question_id, &revision_number) {
-        Some(question_revision_tuple) => question_revision_tuple,
-        None => return concealed(),
-    };
+    let question_revision_tuple =
+        match verified_question_revision_tuple(&question_id, &revision_number) {
+            Some(question_revision_tuple) => question_revision_tuple,
+            None => return concealed(),
+        };
     let entry = match state
         .store
         .load_published_question_revision_library_entry(session_hash, &question_revision_tuple)
@@ -341,10 +342,11 @@ async fn correct_question_revision_bloom(
     Path((question_id, revision_number)): Path<(String, String)>,
     payload: Result<Json<BloomClassificationCorrectionRequest>, JsonRejection>,
 ) -> Response {
-    let question_revision_tuple = match verified_question_revision(&question_id, &revision_number) {
-        Some(question_revision_tuple) => question_revision_tuple,
-        None => return concealed(),
-    };
+    let question_revision_tuple =
+        match verified_question_revision_tuple(&question_id, &revision_number) {
+            Some(question_revision_tuple) => question_revision_tuple,
+            None => return concealed(),
+        };
     // ASVS 8.2.1/8.3.1: only an active vetted Instructor reaches correction;
     // a Sysadmin retains the read-only Library surface and receives concealment.
     let session_hash = match instructor_session_hash(&state, &headers).await {
@@ -403,10 +405,11 @@ async fn question_revision_preview_document(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let question_revision_tuple = match verified_question_revision(&question_id, &revision_number) {
-        Some(question_revision_tuple) => question_revision_tuple,
-        None => return concealed(),
-    };
+    let question_revision_tuple =
+        match verified_question_revision_tuple(&question_id, &revision_number) {
+            Some(question_revision_tuple) => question_revision_tuple,
+            None => return concealed(),
+        };
     let entry = match state
         .store
         .load_published_question_revision_library_entry(session_hash, &question_revision_tuple)
@@ -562,7 +565,7 @@ fn verified_question_id(value: &str) -> Option<QuestionId> {
     value.parse().ok()
 }
 
-fn verified_question_revision(
+fn verified_question_revision_tuple(
     question_id: &str,
     revision_number: &str,
 ) -> Option<QuestionRevisionTuple> {

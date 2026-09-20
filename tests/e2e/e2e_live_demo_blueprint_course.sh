@@ -214,12 +214,12 @@ assert_current_view() {
 import json, sys
 payload = json.loads(sys.argv[1])
 blueprint_course_id, revision, short_name, long_name, availability, read_access = sys.argv[2:]
-expected = {"classification", "id", "short_name", "long_name", "availability", "blueprint_edit_number", "current_revision", "read_access", "fork_source", "modules"}
+expected = {"classification", "id", "short_name", "long_name", "availability", "blueprint_edit_number", "current_revision_tuple", "read_access", "fork_source_tuple", "modules"}
 if set(payload) != expected:
     raise SystemExit("Blueprint Course response did not have the current closed DTO shape")
 if (payload["id"] != blueprint_course_id or payload["short_name"] != short_name or payload["long_name"] != long_name
         or payload["availability"] != availability or payload["read_access"] != read_access
-        or payload["current_revision"] != {"blueprint_course_id": blueprint_course_id, "revision": revision}
+        or payload["current_revision_tuple"] != {"blueprintCourseId": blueprint_course_id, "revisionNumber": revision}
         or not isinstance(payload["blueprint_edit_number"], str) or not payload["blueprint_edit_number"]
         or not isinstance(payload["modules"], list)):
     raise SystemExit("Blueprint Course did not return its current immutable Revision")
@@ -235,7 +235,7 @@ if set(value) != {"blueprintCourse", "changed"}:
     raise SystemExit("Blueprint Save response was not closed")
 course = value["blueprintCourse"]
 if (value["changed"] != (changed == "true")
-        or course.get("current_revision") != {"blueprint_course_id": blueprint_course_id, "revision": revision}):
+        or course.get("current_revision_tuple") != {"blueprintCourseId": blueprint_course_id, "revisionNumber": revision}):
     raise SystemExit("Blueprint Save did not return its exact current Revision and changed outcome")
 ' "$1" "$2" "$3" "$4"
 }
@@ -245,9 +245,9 @@ assert_exact_revision() {
 import json, sys
 value = json.loads(sys.argv[1])
 blueprint_course_id, revision = sys.argv[2:]
-if set(value) != {"blueprintRevision", "modules"}:
+if set(value) != {"blueprintRevisionTuple", "modules"}:
     raise SystemExit("exact Blueprint Revision response was not closed")
-if value["blueprintRevision"] != {"blueprint_course_id": blueprint_course_id, "revision": revision}:
+if value["blueprintRevisionTuple"] != {"blueprintCourseId": blueprint_course_id, "revisionNumber": revision}:
     raise SystemExit("exact Blueprint Revision did not resolve its immutable identity")
 modules = value["modules"]
 if not isinstance(modules, list) or len(modules) != 1:
@@ -297,7 +297,7 @@ import datetime, json, sys
 blueprint_course_id, revision = sys.argv[1:]
 today = datetime.date.today()
 print(json.dumps({
-    "source": {"kind": "adopted", "blueprintCourse": blueprint_course_id, "blueprintRevision": revision},
+    "source": {"kind": "adopted", "blueprintCourse": blueprint_course_id, "blueprintRevisionNumber": revision},
     "shortName": "Blueprint browse adoption",
     "longName": "Blueprint Course browse adoption",
     "term": {"startDate": today.isoformat(), "endDate": (today + datetime.timedelta(days=7)).isoformat()},
@@ -423,10 +423,10 @@ prove_service() {
 import json, re, sys
 value = json.loads(sys.argv[1])
 blueprint_course_id = value.get("id")
-revision = value.get("current_revision")
+revision = value.get("current_revision_tuple")
 <retired-term-replace-me> = value.get("blueprint_edit_number")
 if (not isinstance(blueprint_course_id, str) or not re.fullmatch(r"BP[0-9A-HJKMNP-TV-Z]{8}", blueprint_course_id)
-        or revision != {"blueprint_course_id": blueprint_course_id, "revision": "1"}
+        or revision != {"blueprintCourseId": blueprint_course_id, "revisionNumber": "1"}
         or not isinstance(<retired-term-replace-me>, str) or not <retired-term-replace-me>):
     raise SystemExit("Blueprint Course creation did not return Revision 1 and metadata identity")
 print(blueprint_course_id, <retired-term-replace-me>)

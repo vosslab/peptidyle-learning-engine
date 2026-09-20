@@ -12,7 +12,7 @@ import type { AssessmentPointValue } from "../../../generated/api/AssessmentPoin
 import type { AccountTimeZone } from "../../../generated/api/AccountTimeZone";
 import type { BlueprintAssessmentSource } from "../../../generated/api/BlueprintAssessmentSource";
 import type { BlueprintCourseId } from "../../../generated/api/BlueprintCourseId";
-import type { BlueprintRevision } from "../../../generated/api/BlueprintRevision";
+import type { BlueprintRevisionNumber } from "../../../generated/api/BlueprintRevisionNumber";
 import type { LateWorkRule } from "../../../generated/api/LateWorkRule";
 import type { LocalDateAndTime } from "../../../generated/api/LocalDateAndTime";
 import type { QuestionPoolSelectedQuestionOrder } from "../../../generated/api/QuestionPoolSelectedQuestionOrder";
@@ -146,7 +146,7 @@ export function decodeBlueprintCourseId(value: unknown, path: string): Blueprint
   return decoded;
 }
 
-export function blueprintRevisionNumber(value: unknown, path: string): BlueprintRevision {
+export function blueprintRevisionNumber(value: unknown, path: string): BlueprintRevisionNumber {
   const decoded = decodeString(value, path);
   if (!/^[1-9][0-9]*$/u.test(decoded) || BigInt(decoded) > 9_223_372_036_854_775_807n) {
     throw new DecodeError(path, "a positive Blueprint Revision");

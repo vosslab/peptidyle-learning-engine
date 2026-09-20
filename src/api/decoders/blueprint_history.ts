@@ -2,7 +2,7 @@
 import type { BlueprintHistoryEntryView } from "../../../generated/api/BlueprintHistoryEntryView";
 import type { BlueprintHistoryPageView } from "../../../generated/api/BlueprintHistoryPageView";
 import { DecodeError, decodeRecord, decodeStringEnum } from "../decoder";
-import { decodeBlueprintRevision, text } from "./blueprint_course";
+import { decodeBlueprintRevisionNumber, text } from "./blueprint_course";
 import { decodeCursorPage, decodeTimestamp, field, requireOnlyFields } from "./shared";
 import { decodeCourseClassification } from "./course_classification";
 
@@ -14,7 +14,7 @@ function entry(value: unknown, path: string): BlueprintHistoryEntryView {
     requireOnlyFields(record, path, ["kind", "revisionNumber", "savedAt"]);
     return {
       kind,
-      revisionNumber: decodeBlueprintRevision(
+      revisionNumber: decodeBlueprintRevisionNumber(
         field(record, "revisionNumber", path),
         `${path}.revisionNumber`,
       ),

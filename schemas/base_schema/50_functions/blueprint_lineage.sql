@@ -160,8 +160,8 @@ $$;
 -- ASVS 8.2.2, 8.3.1, 2.3.3: strongest locks initially, ordinary visibility
 -- and all four preconditions before any Save/rename or receipt replay.
 CREATE FUNCTION ple_api.load_blueprint_fork_apply_sources(
-    p_source_blueprint_course_id text, p_source_revision bigint, p_source_etag uuid,
-    p_fork_blueprint_course_id text, p_fork_revision bigint, p_fork_etag uuid
+    p_source_blueprint_course_id text, p_source_revision_number bigint, p_source_etag uuid,
+    p_fork_blueprint_course_id text, p_fork_revision_number bigint, p_fork_etag uuid
 ) RETURNS TABLE (source_position integer, content jsonb, content_checksum bytea,
     short_name text, long_name text)
 LANGUAGE plpgsql SECURITY DEFINER
@@ -209,17 +209,17 @@ BEGIN
     IF v_fork.availability = 'archived' THEN
         RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = 'Archived Blueprint Course is read-only';
     END IF;
-    IF p_source_revision IS NULL OR p_fork_revision IS NULL
+    IF p_source_revision_number IS NULL OR p_fork_revision_number IS NULL
        OR p_source_etag IS NULL OR p_fork_etag IS NULL
-       OR v_source.current_blueprint_revision_number <> p_source_revision
-       OR v_fork.current_blueprint_revision_number <> p_fork_revision
+       OR v_source.current_blueprint_revision_number <> p_source_revision_number
+       OR v_fork.current_blueprint_revision_number <> p_fork_revision_number
        OR v_source.blueprint_edit_number <> p_source_etag OR v_fork.blueprint_edit_number <> p_fork_etag THEN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Blueprint fork apply precondition is stale';
     END IF;
     RETURN QUERY SELECT inputs.position, revision.content, revision.content_checksum,
         inputs.current_short_name, inputs.current_long_name
-      FROM (VALUES (0, v_source.blueprint_course_id, p_source_revision, v_source.short_name, v_source.long_name),
-          (1, v_fork.blueprint_course_id, p_fork_revision, v_fork.short_name, v_fork.long_name))
+      FROM (VALUES (0, v_source.blueprint_course_id, p_source_revision_number, v_source.short_name, v_source.long_name),
+          (1, v_fork.blueprint_course_id, p_fork_revision_number, v_fork.short_name, v_fork.long_name))
           AS inputs(position, blueprint_course_id, revision_number, current_short_name, current_long_name)
       JOIN ple_data.blueprint_course_revision AS revision
         ON revision.blueprint_course_id = inputs.blueprint_course_id

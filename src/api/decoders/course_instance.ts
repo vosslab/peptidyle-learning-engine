@@ -21,7 +21,7 @@ import {
   decodeString,
   decodeStringEnum,
 } from "../decoder";
-import { decodeBlueprintCourseId, decodeBlueprintRevision } from "./blueprint_course";
+import { decodeBlueprintCourseId, decodeBlueprintRevisionNumber } from "./blueprint_course";
 import { isCanonicalAccountId } from "./instructor_account";
 import { decodeCourseTerm } from "./course_term";
 import { decodeCourseClassification } from "./course_classification";
@@ -142,7 +142,7 @@ export function decodeCreateCourseInstanceInput(
         field(sourceRecord, "blueprintCourse", sourcePath),
         `${sourcePath}.blueprintCourse`,
       ),
-      blueprintRevisionNumber: decodeBlueprintRevision(
+      blueprintRevisionNumber: decodeBlueprintRevisionNumber(
         field(sourceRecord, "blueprintRevisionNumber", sourcePath),
         `${sourcePath}.blueprintRevisionNumber`,
       ),
@@ -206,11 +206,11 @@ export function decodeCourseInstanceView(value: unknown, path = "response"): Cou
     requireOnlyFields(origin, originPath, ["id", "adoptedRevisionNumber", "currentRevisionNumber"]);
     blueprintOrigin = {
       id: decodeBlueprintCourseId(field(origin, "id", originPath), `${originPath}.id`),
-      adoptedRevisionNumber: decodeBlueprintRevision(
+      adoptedRevisionNumber: decodeBlueprintRevisionNumber(
         field(origin, "adoptedRevisionNumber", originPath),
         `${originPath}.adoptedRevisionNumber`,
       ),
-      currentRevisionNumber: decodeBlueprintRevision(
+      currentRevisionNumber: decodeBlueprintRevisionNumber(
         field(origin, "currentRevisionNumber", originPath),
         `${originPath}.currentRevisionNumber`,
       ),

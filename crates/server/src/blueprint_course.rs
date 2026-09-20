@@ -26,7 +26,7 @@ use learning_data_access::{
 };
 use objects::s3::S3ObjectStore;
 use question_model::{
-    BlueprintCourseId, BlueprintCourseView, BlueprintEditNumber, BlueprintRevision,
+    BlueprintCourseId, BlueprintCourseView, BlueprintEditNumber, BlueprintRevisionNumber,
     BlueprintRevisionTuple, CreateBlueprintCourseInput, RenameBlueprintCourseInput,
     ReplaceBlueprintCourseContentInput, RequestChecksum,
 };
@@ -286,7 +286,7 @@ async fn save_blueprint(
     if !valid_replace_question_ids(&input) {
         return concealed();
     }
-    let expected = match expected_revision(&headers) {
+    let expected = match expected_revision_number(&headers) {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -360,7 +360,7 @@ async fn load_revision(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let revision = match revision.parse::<BlueprintRevision>() {
+    let revision = match revision.parse::<BlueprintRevisionNumber>() {
         Ok(value) => value,
         Err(_) => return concealed(),
     };
@@ -370,7 +370,7 @@ async fn load_revision(
     };
     let blueprint_revision_tuple = BlueprintRevisionTuple {
         blueprint_course_id,
-        revision,
+        revision_number: revision,
     };
     let record = match state
         .blueprints
@@ -559,7 +559,7 @@ fn quoted_if_match(headers: &HeaderMap) -> Result<&str, Box<Response>> {
     };
     Ok(number)
 }
-fn expected_revision(headers: &HeaderMap) -> Result<BlueprintRevision, Box<Response>> {
+fn expected_revision_number(headers: &HeaderMap) -> Result<BlueprintRevisionNumber, Box<Response>> {
     quoted_if_match(headers)?.parse().map_err(|_| {
         Box::new(route_error(
             StatusCode::BAD_REQUEST,
@@ -680,7 +680,7 @@ mod tests {
         let mut headers = HeaderMap::new();
         headers.insert(IF_MATCH, HeaderValue::from_static("\"7\""));
         headers.insert("idempotency-key", HeaderValue::from_static("save-7"));
-        let revision = expected_revision(&headers).expect("Revision CAS ETag");
+        let revision = expected_revision_number(&headers).expect("Revision CAS ETag");
         assert_eq!(revision.value(), 7);
 
         let first = request_checksum("save-blueprint-course", &headers, &("BP-1", revision))

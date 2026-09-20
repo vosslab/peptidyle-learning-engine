@@ -782,7 +782,7 @@ export function decodeKnownBlueprintForks(
   return decodeArray(value, path, knownBlueprintFork);
 }
 
-export function decodeBlueprintRevision(value: unknown, path = "revision"): string {
+export function decodeBlueprintRevisionNumber(value: unknown, path = "revision"): string {
   return revision(value, path);
 }
 

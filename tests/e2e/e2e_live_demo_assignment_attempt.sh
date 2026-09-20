@@ -48,7 +48,7 @@ value=json.loads(sys.argv[1]); backend=sys.argv[2]
 items=value.get("items")
 if not isinstance(items,list) or not items: raise SystemExit("Question Library has no selected backend Question")
 summary=items[0].get("summary") if isinstance(items[0],dict) else None
-question_revision=summary.get("questionRevision") if isinstance(summary,dict) else None
+question_revision=summary.get("questionRevisionTuple") if isinstance(summary,dict) else None
 if not isinstance(summary,dict) or summary.get("backend") != backend or not isinstance(question_revision,dict):
     raise SystemExit("Question Library did not return the selected backend")
 if (set(question_revision)!={"questionId","revisionNumber"} or not isinstance(question_revision["questionId"],str)
@@ -72,7 +72,7 @@ items=json.loads(sys.argv[1]).get("items",[])
 for item in items:
     summary=item.get("summary") if isinstance(item,dict) else None
     metadata=summary.get("metadata") if isinstance(summary,dict) else None
-    question_revision=summary.get("questionRevision") if isinstance(summary,dict) else None
+    question_revision=summary.get("questionRevisionTuple") if isinstance(summary,dict) else None
     if (isinstance(metadata,dict) and metadata.get("questionTitle")=="Genetics Chapter 1: Phenylalanine metabolism"
         and summary.get("backend")=="ple" and isinstance(question_revision,dict)
         and set(question_revision)=={"questionId","revisionNumber"}
@@ -140,7 +140,7 @@ prove_start() {
 
 	started="$(request "/api/course-instances/$course/assessments/$assignment/start" "$mary" POST '{}')"
 	require_status "Student Assessment start" "$started" 201
-	question_revision_tuple="$(python3 -c 'import json,sys; print(json.dumps(json.loads(sys.argv[1])["questions"][0]["questionRevision"], separators=(",", ":")))' "$(response_body "$started")")"
+	question_revision_tuple="$(python3 -c 'import json,sys; print(json.dumps(json.loads(sys.argv[1])["questions"][0]["questionRevisionTuple"], separators=(",", ":")))' "$(response_body "$started")")"
 	assert_started "$started" false "Current Assignment" "$question_revision_tuple"
 
 	workspace="$(request "/api/course-instances/$course/assessments/$assignment" "$instructor")"

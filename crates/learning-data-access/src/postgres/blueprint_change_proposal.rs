@@ -8,7 +8,7 @@ use question_model::blueprint_course::{
 };
 use question_model::{
     BlueprintAssessmentId, BlueprintCourseId, BlueprintEditNumber, BlueprintModuleId,
-    BlueprintRevision, BlueprintRevisionTuple, CanonicalBlueprintCourse, Timestamp,
+    BlueprintRevisionNumber, BlueprintRevisionTuple, CanonicalBlueprintCourse, Timestamp,
 };
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -135,10 +135,10 @@ impl BlueprintChangeProposalStore for PostgresBlueprintCourseStore {
             "SELECT ple_api.create_blueprint_change_proposal($1, $2, $3, $4, $5, $6)",
         )
         .bind(input.source.blueprint_course_id.as_string())
-        .bind(revision_number(input.source.revision)?)
+        .bind(revision_number(input.source.revision_number)?)
         .bind(input.source_blueprint_edit_number.as_i64())
         .bind(input.target.blueprint_course_id.as_string())
-        .bind(revision_number(input.target.revision)?)
+        .bind(revision_number(input.target.revision_number)?)
         .bind(input.target_blueprint_edit_number.as_i64())
         .fetch_one(&mut *transaction)
         .await
@@ -178,7 +178,7 @@ impl BlueprintChangeProposalStore for PostgresBlueprintCourseStore {
         sqlx::query("SELECT ple_api.lock_blueprint_change_proposal_acceptance($1,$2,$3,$4)")
             .bind(input.proposal_id)
             .bind(input.expected_target.blueprint_course_id.as_string())
-            .bind(revision_number(input.expected_target.revision)?)
+            .bind(revision_number(input.expected_target.revision_number)?)
             .bind(input.expected_target_blueprint_edit_number.as_i64())
             .execute(&mut *transaction)
             .await
@@ -324,7 +324,7 @@ impl BlueprintChangeProposalStore for PostgresBlueprintCourseStore {
         )
         .bind(input.proposal_id)
         .bind(input.expected_target.blueprint_course_id.as_string())
-        .bind(revision_number(input.expected_target.revision)?)
+        .bind(revision_number(input.expected_target.revision_number)?)
         .bind(input.expected_target_blueprint_edit_number.as_i64())
         .bind(Json(encoded_evidence))
         .bind(checksum.to_vec())
@@ -594,8 +594,10 @@ fn blueprint_revision_tuple(
         blueprint_course_id: blueprint_course_id
             .parse::<BlueprintCourseId>()
             .map_err(|_| invalid())?,
-        revision: BlueprintRevision::new(u64::try_from(revision).map_err(|_| invalid())?)
-            .ok_or_else(invalid)?,
+        revision_number: BlueprintRevisionNumber::new(
+            u64::try_from(revision).map_err(|_| invalid())?,
+        )
+        .ok_or_else(invalid)?,
     })
 }
 
@@ -616,8 +618,10 @@ fn proposal_summary(
             accepted_at: Timestamp::from_unix_millis(at),
             target: BlueprintRevisionTuple {
                 blueprint_course_id: target.blueprint_course_id.clone(),
-                revision: BlueprintRevision::new(u64::try_from(revision).map_err(|_| invalid())?)
-                    .ok_or_else(invalid)?,
+                revision_number: BlueprintRevisionNumber::new(
+                    u64::try_from(revision).map_err(|_| invalid())?,
+                )
+                .ok_or_else(invalid)?,
             },
             target_blueprint_edit_number: BlueprintEditNumber::from_edit_number(etag),
         }),
@@ -656,12 +660,14 @@ fn summary_tuple(
     let revision: i64 = row.try_get(number).map_err(map_sqlx_error)?;
     Ok(BlueprintRevisionTuple {
         blueprint_course_id: value.parse().map_err(|_| invalid())?,
-        revision: BlueprintRevision::new(u64::try_from(revision).map_err(|_| invalid())?)
-            .ok_or_else(invalid)?,
+        revision_number: BlueprintRevisionNumber::new(
+            u64::try_from(revision).map_err(|_| invalid())?,
+        )
+        .ok_or_else(invalid)?,
     })
 }
 
-fn revision_number(revision: BlueprintRevision) -> Result<i64, StoreError> {
+fn revision_number(revision: BlueprintRevisionNumber) -> Result<i64, StoreError> {
     i64::try_from(revision.value()).map_err(|_| invalid())
 }
 

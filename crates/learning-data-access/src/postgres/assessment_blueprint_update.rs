@@ -1,6 +1,6 @@
 //! Derived source review and one retained Assessment's explicit reusable-content update.
 
-use question_model::{AssessmentId, BlueprintCourseId, BlueprintRevision, CourseInstanceId};
+use question_model::{AssessmentId, BlueprintCourseId, BlueprintRevisionNumber, CourseInstanceId};
 use sqlx::{Postgres, Row, Transaction, types::Json};
 use uuid::Uuid;
 
@@ -20,7 +20,7 @@ use crate::{
 };
 
 struct UpdateSource {
-    revision: BlueprintRevision,
+    revision_number: BlueprintRevisionNumber,
     member: Option<StoredBlueprintAssessment>,
     cannot_apply_reason: Option<AssessmentBlueprintUpdateCannotApplyReason>,
 }
@@ -45,15 +45,15 @@ pub(super) async fn review_course(
     let blueprint_course_id = blueprint_course_id
         .parse::<BlueprintCourseId>()
         .map_err(|_| invalid("Blueprint Course ID"))?;
-    let revision = |field: &str| -> Result<BlueprintRevision, StoreError> {
+    let revision = |field: &str| -> Result<BlueprintRevisionNumber, StoreError> {
         let value: i64 = source.try_get(field).map_err(map_sqlx_error)?;
         u64::try_from(value)
             .ok()
-            .and_then(BlueprintRevision::new)
+            .and_then(BlueprintRevisionNumber::new)
             .ok_or_else(|| invalid("Blueprint Revision"))
     };
-    let adopted_revision = revision("adopted_revision")?;
-    let source_revision = revision("source_revision")?;
+    let adopted_revision_number = revision("adopted_revision_number")?;
+    let source_revision_number = revision("source_revision_number")?;
     let Json(content): Json<StoredBlueprintCourseContent> =
         source.try_get("content").map_err(map_sqlx_error)?;
     let checksum: Vec<u8> = source.try_get("content_checksum").map_err(map_sqlx_error)?;
@@ -85,8 +85,8 @@ pub(super) async fn review_course(
     tx.commit().await.map_err(map_sqlx_error)?;
     Ok(CourseBlueprintUpdateReview {
         blueprint_course_id,
-        adopted_revision_number: adopted_revision,
-        source_revision_number: source_revision,
+        adopted_revision_number,
+        source_revision_number,
         assessments,
     })
 }
@@ -104,7 +104,7 @@ pub(super) async fn review(
     tx.commit().await.map_err(map_sqlx_error)?;
     Ok(AssessmentBlueprintUpdateReview {
         assessment,
-        source_revision_number: source.revision,
+        source_revision_number: source.revision_number,
         proposed,
         cannot_apply_reason: source.cannot_apply_reason,
     })
@@ -123,7 +123,7 @@ pub(super) async fn apply(
     // Course and Assessment locks before either qualified precondition is tested.
     let source = load_source(&mut tx, &course, &assessment).await?;
     let workspace = load_workspace(&mut tx, &course, &assessment).await?;
-    if source.revision != input.expected_source_revision_number
+    if source.revision_number != input.expected_source_revision_number
         || workspace.edit_number != input.expected_edit_number
     {
         return Err(StoreError::Conflict);
@@ -187,10 +187,12 @@ async fn load_source(
         .await
         .map_err(update_error)?
         .ok_or(StoreError::NotFound)?;
-    let raw_revision: i64 = row.try_get("source_revision").map_err(map_sqlx_error)?;
+    let raw_revision: i64 = row
+        .try_get("source_revision_number")
+        .map_err(map_sqlx_error)?;
     let revision = u64::try_from(raw_revision)
         .ok()
-        .and_then(BlueprintRevision::new)
+        .and_then(BlueprintRevisionNumber::new)
         .ok_or_else(|| invalid("Blueprint Revision"))?;
     let source_assessment_id: Uuid = row
         .try_get("source_assessment_id")
@@ -224,7 +226,7 @@ async fn load_source(
         return Err(invalid("Blueprint retained Assessment"));
     }
     Ok(UpdateSource {
-        revision,
+        revision_number: revision,
         member,
         cannot_apply_reason,
     })

@@ -4,27 +4,27 @@ SET LOCAL ROLE ple_data_owner;
 
 -- Session-authorized Library discussion and impact-notice operations.
 -- All target, author, owner, and role predicates are derived in PostgreSQL.
-CREATE FUNCTION ple_data.library_object_current_revision(
+CREATE FUNCTION ple_data.library_object_current_revision_number(
     p_object_kind text, p_public_object_id text, p_require_available boolean DEFAULT true
 ) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
-DECLARE v_revision bigint;
+DECLARE v_revision_number bigint;
 BEGIN
     IF p_object_kind = 'question' THEN
-        SELECT max(revision.revision_number)::bigint INTO v_revision
+        SELECT max(revision.revision_number)::bigint INTO v_revision_number
           FROM ple_data.published_question AS question
           JOIN ple_data.question_revision AS revision ON revision.published_question_id = question.published_question_id
          WHERE question.published_question_id = p_public_object_id
            AND (NOT p_require_available OR question.availability = 'available');
     ELSIF p_object_kind = 'question_pool' THEN
-        SELECT pool.question_pool_edit_number INTO v_revision
+        SELECT pool.question_pool_edit_number INTO v_revision_number
           FROM ple_data.question_pool AS pool
          WHERE pool.question_pool_id = p_public_object_id;
     END IF;
-    IF v_revision IS NULL THEN
+    IF v_revision_number IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = 'P1D01', MESSAGE = 'Library Object is unavailable';
     END IF;
-    RETURN v_revision;
+    RETURN v_revision_number;
 END
 $$;
 
@@ -85,19 +85,19 @@ CREATE FUNCTION ple_data.require_library_discussion_reader(
     p_object_kind text, p_public_object_id text
 ) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
-DECLARE v_revision bigint;
+DECLARE v_revision_number bigint;
 BEGIN
     IF ple_api.current_session_account_has_platform_administration() THEN
-        v_revision := ple_data.library_object_current_revision(
+        v_revision_number := ple_data.library_object_current_revision_number(
             p_object_kind, p_public_object_id, false);
     ELSIF ple_data.current_actor_is_library_discussion_participant() THEN
-        v_revision := ple_data.library_object_current_revision(
+        v_revision_number := ple_data.library_object_current_revision_number(
             p_object_kind, p_public_object_id, true);
     ELSE
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Library discussion reader authority is required';
     END IF;
-    RETURN v_revision;
+    RETURN v_revision_number;
 END
 $$;
 
@@ -122,7 +122,7 @@ CREATE FUNCTION ple_data.require_library_discussion_manager(
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 BEGIN
     -- Resolve the exact target before evaluating target-specific authority.
-    PERFORM ple_data.library_object_current_revision(
+    PERFORM ple_data.library_object_current_revision_number(
         p_object_kind, p_public_object_id, false);
     IF NOT ple_data.current_actor_may_manage_library_discussion(
         p_object_kind, p_public_object_id) THEN

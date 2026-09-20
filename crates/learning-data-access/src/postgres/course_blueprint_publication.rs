@@ -5,8 +5,9 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use question_model::{
     AccountId, BlueprintAssessmentId, BlueprintCourseId, BlueprintEditNumber, BlueprintModuleId,
-    BlueprintRevision, BlueprintRevisionTuple, CourseInstanceId, CreateBlueprintCourseReceipt,
-    CreateBlueprintFromCourseInstanceInput, RequestChecksum, Timestamp,
+    BlueprintRevisionNumber, BlueprintRevisionTuple, CourseInstanceId,
+    CreateBlueprintCourseReceipt, CreateBlueprintFromCourseInstanceInput, RequestChecksum,
+    Timestamp,
 };
 use serde::Deserialize;
 use serde_json::Value;
@@ -188,12 +189,12 @@ fn decode_receipt(
             .map_err(map_sqlx_error)?,
     )
     .ok()
-    .and_then(BlueprintRevision::new)
+    .and_then(BlueprintRevisionNumber::new)
     .ok_or_else(|| invalid("Blueprint Revision"))?;
     Ok(CreateBlueprintCourseReceipt {
         blueprint_revision_tuple: BlueprintRevisionTuple {
             blueprint_course_id,
-            revision,
+            revision_number: revision,
         },
         blueprint_edit_number: BlueprintEditNumber::from_edit_number(
             row.try_get("blueprint_edit_number")

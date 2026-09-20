@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 )]
 pub enum BlueprintHistoryEntryView {
     SavedRevision {
-        revision_number: question_model::BlueprintRevision,
+        revision_number: question_model::BlueprintRevisionNumber,
         saved_at: question_model::Timestamp,
     },
     MetadataChange {
@@ -51,9 +51,9 @@ pub struct BlueprintKnownForkView {
     pub short_name: String,
     pub long_name: String,
     pub availability: question_model::BlueprintAvailability,
-    pub current_revision_number: question_model::BlueprintRevision,
+    pub current_revision_number: question_model::BlueprintRevisionNumber,
     /// Source Revision Number at fork creation, not a last-applied update marker.
-    pub source_revision_number: question_model::BlueprintRevision,
+    pub source_revision_number: question_model::BlueprintRevisionNumber,
     pub owner_display_name: String,
 }
 
@@ -157,7 +157,7 @@ pub struct BlueprintForkApplyResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use question_model::{BlueprintCourseId, BlueprintRevision};
+    use question_model::{BlueprintCourseId, BlueprintRevisionNumber};
 
     #[test]
     fn revision_view_keeps_the_exact_immutable_tuple() {
@@ -166,7 +166,7 @@ mod tests {
                 blueprint_course_id: "BPABCDEFGJ"
                     .parse::<BlueprintCourseId>()
                     .expect("Blueprint Course ID"),
-                revision: BlueprintRevision::new(3).expect("revision"),
+                revision_number: BlueprintRevisionNumber::new(3).expect("revision"),
             },
             modules: Vec::new(),
         };

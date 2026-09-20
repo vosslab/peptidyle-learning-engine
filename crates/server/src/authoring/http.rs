@@ -19,7 +19,7 @@ use uuid::Uuid;
 use super::{AuthoringRouteState, PLE_QUESTION_JSON_MEDIA_TYPE, concealed, private_error};
 use crate::auth::{AuthError, resolve_session};
 
-pub(super) fn existing_parent_question_revision(
+pub(super) fn existing_parent_question_revision_tuple(
     question_id: String,
     parent_revision_number: u32,
 ) -> Result<QuestionRevisionTuple, ()> {

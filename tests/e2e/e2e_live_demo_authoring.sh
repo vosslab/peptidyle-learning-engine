@@ -313,7 +313,7 @@ print(json.dumps({
 import json, sys
 value = json.loads(sys.argv[1])
 question_id = sys.argv[2]
-revision = value.get("questionRevision")
+revision = value.get("questionRevisionTuple")
 if not isinstance(revision, dict) or revision != {"questionId": question_id, "revisionNumber": 2}:
     raise SystemExit("Successor publication did not return the exact immutable Question Revision")
 ' "$(response_body "$published")" "$published_question_id"

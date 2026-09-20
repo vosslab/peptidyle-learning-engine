@@ -3,7 +3,8 @@
 use std::str::FromStr;
 
 use crate::{
-    AccountId, AssessmentId, BlueprintAssessmentId, BlueprintCourseId, BlueprintRevision, Timestamp,
+    AccountId, AssessmentId, BlueprintAssessmentId, BlueprintCourseId, BlueprintRevisionNumber,
+    Timestamp,
 };
 use serde::{Deserialize, Serialize};
 
@@ -12,8 +13,7 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BlueprintRevisionTuple {
     pub blueprint_course_id: BlueprintCourseId,
-    #[serde(rename = "revisionNumber")]
-    pub revision: BlueprintRevision,
+    pub revision_number: BlueprintRevisionNumber,
 }
 
 /// Stable Blueprint Assessment provenance inside one exact Blueprint Revision.
@@ -191,7 +191,7 @@ mod tests {
         let receipt = CreateBlueprintCourseReceipt {
             blueprint_revision_tuple: BlueprintRevisionTuple {
                 blueprint_course_id: blueprint.clone(),
-                revision: BlueprintRevision::INITIAL,
+                revision_number: BlueprintRevisionNumber::INITIAL,
             },
             blueprint_edit_number: BlueprintEditNumber::from_edit_number(13),
             actor: AccountId::from_debug_serial(14),
@@ -204,8 +204,8 @@ mod tests {
             blueprint
         );
         assert_eq!(
-            receipt.blueprint_revision_tuple.revision,
-            BlueprintRevision::INITIAL
+            receipt.blueprint_revision_tuple.revision_number,
+            BlueprintRevisionNumber::INITIAL
         );
     }
 
@@ -214,7 +214,7 @@ mod tests {
         let tuple = BlueprintRevisionTuple {
             blueprint_course_id: BlueprintCourseId::new("BP7K3M2QXH")
                 .expect("valid Blueprint Course"),
-            revision: BlueprintRevision::INITIAL,
+            revision_number: BlueprintRevisionNumber::INITIAL,
         };
         let json = serde_json::to_value(&tuple).expect("tuple serializes");
         assert_eq!(json["blueprintCourseId"], "BP7K3M2QXH");

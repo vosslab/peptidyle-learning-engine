@@ -26,7 +26,7 @@ import json, sys
 value=json.loads(sys.argv[1]); status=sys.argv[2]; question_revision=json.loads(sys.argv[3])
 required={"id","editNumber","status","origin","assessmentType","title","instructions","dueAt","availableAt","closesAt","lateWorkRule","assessmentAttemptTimeLimitSeconds","attemptLimit","activityRules","studentFeedbackReleaseRule","displayTimeZone","entries","questions"}
 if set(value) != required or value["status"] != status: raise SystemExit("workspace projection is not current and closed")
-if status == "unreleased" and value["questions"] and value["questions"][0].get("questionRevision") != question_revision:
+if status == "unreleased" and value["questions"] and value["questions"][0].get("questionRevisionTuple") != question_revision:
     raise SystemExit("workspace did not retain the exact Question Revision pin")
 ' "$(response_body "$response")" "$expected_status" "$expected_question_revision_tuple"
 }
@@ -60,7 +60,7 @@ if assignment["status"] != "unreleased" or assignment["title"] != title:
     raise SystemExit("Unrelease did not return the current Unreleased Assessment")
 if not isinstance(assignment["editNumber"], str) or int(assignment["editNumber"]) != int(previous_edit) + 1:
     raise SystemExit("Unrelease did not advance the Assessment Edit Number")
-if assignment["questions"] and assignment["questions"][0].get("questionRevision") != question_revision:
+if assignment["questions"] and assignment["questions"][0].get("questionRevisionTuple") != question_revision:
     raise SystemExit("Unrelease lost the retained Question Revision pin")
 if (deleted["confirmationTitle"] != title or deleted["editNumber"] != assignment["editNumber"]
     or any(not isinstance(deleted[key], int) or deleted[key] != 0 for key in ("attemptCount", "submissionCount", "gradeCount"))):

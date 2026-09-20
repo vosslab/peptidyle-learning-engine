@@ -2,7 +2,7 @@
 
 SET LOCAL ROLE ple_data_owner;
 
-REVOKE ALL ON FUNCTION ple_data.library_object_current_revision(text, text, boolean),
+REVOKE ALL ON FUNCTION ple_data.library_object_current_revision_number(text, text, boolean),
     ple_data.library_object_revision_exists(text, text, bigint),
     ple_data.current_actor_owns_library_object(text, text),
     ple_data.current_actor_is_library_discussion_participant(),

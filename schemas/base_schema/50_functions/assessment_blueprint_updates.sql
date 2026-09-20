@@ -32,7 +32,7 @@ SET LOCAL ROLE ple_api_owner;
 CREATE FUNCTION ple_api.load_assessment_blueprint_update(
     p_course_instance_id text, p_assessment_id text
 ) RETURNS TABLE (
-    source_blueprint_course_id text, source_revision bigint, source_assessment_id uuid,
+    source_blueprint_course_id text, source_revision_number bigint, source_assessment_id uuid,
     content jsonb, content_checksum bytea, source_assessment_content jsonb,
     cannot_apply_reason text
 )
@@ -69,12 +69,12 @@ BEGIN
        OR NOT (parent.availability IN ('public', 'archived')
                OR parent.owner_account_id = ple_api.current_session_account_id()) THEN RETURN; END IF;
     source_blueprint_course_id := parent.blueprint_course_id;
-    source_revision := parent.current_blueprint_revision_number;
+    source_revision_number := parent.current_blueprint_revision_number;
     source_assessment_id := assessment_row.source_blueprint_assessment_id;
     SELECT revision.content, revision.content_checksum INTO content, content_checksum
       FROM ple_data.blueprint_course_revision AS revision
      WHERE revision.blueprint_course_id = source_blueprint_course_id
-       AND revision.blueprint_revision_number = source_revision;
+       AND revision.blueprint_revision_number = source_revision_number;
     SELECT member.value -> 'content' INTO source_assessment_content
       FROM jsonb_array_elements(content -> 'modules') AS module
       CROSS JOIN LATERAL jsonb_array_elements(module.value -> 'assessments') AS member
@@ -171,7 +171,7 @@ $$;
 
 CREATE FUNCTION ple_data.apply_assessment_blueprint_update(
     p_course_instance_id text, p_assessment_id text,
-    p_expected_source_revision bigint, p_expected_edit_number bigint, p_member jsonb
+    p_expected_source_revision_number bigint, p_expected_edit_number bigint, p_member jsonb
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
 DECLARE
@@ -190,7 +190,7 @@ BEGIN
      WHERE course_instance_id = course_row.course_instance_id AND assessment_id = p_assessment_id;
     SELECT * INTO policy FROM ple_data.assessment_policy_snapshot
      WHERE assessment_policy_snapshot_id = assessment_row.assessment_policy_snapshot_id;
-    IF source.source_revision IS DISTINCT FROM p_expected_source_revision
+    IF source.source_revision_number IS DISTINCT FROM p_expected_source_revision_number
        OR assessment_row.assessment_edit_number IS DISTINCT FROM p_expected_edit_number THEN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Blueprint update precondition is stale';
     END IF;
@@ -202,7 +202,7 @@ BEGIN
     END IF;
     -- ASVS 2.2.2, 15.3.3: trusted exact-source validation precedes any fork.
     PERFORM ple_data.validate_course_blueprint_adoption(
-        source.source_blueprint_course_id, source.source_revision, jsonb_build_array(p_member));
+        source.source_blueprint_course_id, source.source_revision_number, jsonb_build_array(p_member));
     IF ple_data.assessment_blueprint_update_equivalent(
         assessment_row.assessment_id, p_member -> 'values', p_member -> 'entries') THEN
         IF assessment_row.assessment_status = 'released' THEN
@@ -274,7 +274,7 @@ SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.apply_assessment_blueprint_update(
     p_course_instance_id text, p_assessment_id text,
-    p_expected_source_revision bigint, p_expected_edit_number bigint, p_member jsonb
+    p_expected_source_revision_number bigint, p_expected_edit_number bigint, p_member jsonb
 ) RETURNS void LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT ple_data.apply_assessment_blueprint_update($1, $2, $3, $4, $5)
@@ -338,7 +338,7 @@ SET LOCAL ROLE ple_api_owner;
 CREATE FUNCTION ple_api.load_course_blueprint_update(
     p_course_instance_id text, p_members jsonb
 ) RETURNS TABLE (
-    blueprint_course_id text, adopted_revision bigint, source_revision bigint,
+    blueprint_course_id text, adopted_revision_number bigint, source_revision_number bigint,
     content jsonb, content_checksum bytea, assessments jsonb
 ) LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
@@ -365,12 +365,12 @@ BEGIN
        OR NOT (parent.availability IN ('public', 'archived')
                OR parent.owner_account_id = ple_api.current_session_account_id()) THEN RETURN; END IF;
     blueprint_course_id := parent.blueprint_course_id;
-    adopted_revision := course_row.blueprint_revision_number;
-    source_revision := parent.current_blueprint_revision_number;
+    adopted_revision_number := course_row.blueprint_revision_number;
+    source_revision_number := parent.current_blueprint_revision_number;
     SELECT revision.content, revision.content_checksum INTO content, content_checksum
       FROM ple_data.blueprint_course_revision AS revision
      WHERE revision.blueprint_course_id = parent.blueprint_course_id
-       AND revision.blueprint_revision_number = source_revision;
+       AND revision.blueprint_revision_number = source_revision_number;
     IF p_members IS NOT NULL AND jsonb_typeof(p_members) IS DISTINCT FROM 'array' THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Blueprint update projections are invalid';
     END IF;

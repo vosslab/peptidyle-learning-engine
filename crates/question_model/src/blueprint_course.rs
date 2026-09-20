@@ -70,10 +70,10 @@ pub fn validate_blueprint_course_title(value: &str) -> Result<(), BlueprintCours
         .ok_or(BlueprintCourseTitleError::Invalid)
 }
 
-/// Strong revision evidence for one complete BlueprintCourse tree.
+/// Strong Revision Number for one complete Blueprint Course tree.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct BlueprintRevision(NonZeroU64);
+pub struct BlueprintRevisionNumber(NonZeroU64);
 
 macro_rules! impl_revision {
     ($name:ident) => {
@@ -140,7 +140,7 @@ macro_rules! impl_revision {
     };
 }
 
-impl_revision!(BlueprintRevision);
+impl_revision!(BlueprintRevisionNumber);
 
 /// Closed browser-safe classification for one returned Blueprint Course view.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -502,7 +502,7 @@ mod tests {
             blueprint_edit_number: crate::BlueprintEditNumber::from_edit_number(42),
             current_revision_tuple: crate::BlueprintRevisionTuple {
                 blueprint_course_id: "BP7K3M2QXH".parse().expect("valid Blueprint Course ID"),
-                revision: BlueprintRevision::INITIAL,
+                revision_number: BlueprintRevisionNumber::INITIAL,
             },
             read_access: BlueprintCourseReadAccess::ActiveInstructor,
             fork_source_tuple: None,

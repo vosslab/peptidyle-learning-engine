@@ -24,8 +24,8 @@ FOR EACH ROW EXECUTE FUNCTION ple_data.reject_blueprint_proposal_evidence_change
 SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.create_blueprint_change_proposal(
-    p_source_blueprint_course_id text, p_source_revision bigint, p_source_blueprint_edit_number bigint,
-    p_target_blueprint_course_id text, p_target_revision bigint, p_target_blueprint_edit_number bigint
+    p_source_blueprint_course_id text, p_source_revision_number bigint, p_source_blueprint_edit_number bigint,
+    p_target_blueprint_course_id text, p_target_revision_number bigint, p_target_blueprint_edit_number bigint
 ) RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
@@ -67,13 +67,13 @@ BEGIN
     END IF;
     -- ASVS 2.3.3: the receiving target basis must still be the reviewed current
     -- head. Historical source content/metadata are permitted exact evidence.
-    IF p_target_revision IS DISTINCT FROM v_target.current_blueprint_revision_number
+    IF p_target_revision_number IS DISTINCT FROM v_target.current_blueprint_revision_number
        OR p_target_blueprint_edit_number IS DISTINCT FROM v_target.blueprint_edit_number THEN
         RAISE EXCEPTION 'Blueprint Proposal comparison is stale' USING ERRCODE = '40001';
     END IF;
     IF NOT EXISTS (SELECT 1 FROM ple_data.blueprint_course_revision AS revision
          WHERE revision.blueprint_course_id = v_source.blueprint_course_id
-           AND revision.blueprint_revision_number = p_source_revision)
+           AND revision.blueprint_revision_number = p_source_revision_number)
        OR NOT EXISTS (SELECT 1 FROM ple_data.blueprint_metadata_event AS event
          WHERE event.blueprint_course_id = v_source.blueprint_course_id
            AND event.blueprint_edit_number = p_source_blueprint_edit_number) THEN
@@ -81,8 +81,8 @@ BEGIN
     END IF;
     v_proposal_id := gen_random_uuid();
     INSERT INTO ple_data.blueprint_change_proposal VALUES (
-        v_proposal_id, v_actor, v_source.blueprint_course_id, p_source_revision,
-        p_source_blueprint_edit_number, v_target.blueprint_course_id, p_target_revision,
+        v_proposal_id, v_actor, v_source.blueprint_course_id, p_source_revision_number,
+        p_source_blueprint_edit_number, v_target.blueprint_course_id, p_target_revision_number,
         p_target_blueprint_edit_number, clock_timestamp()
     );
     RETURN v_proposal_id;
@@ -248,7 +248,7 @@ $$;
 -- ASVS 8.2.2/8.3.1, 2.3.3: authorize and retain the target owner lock before
 -- trusted Store selection/materialization. No current source-head dependency.
 CREATE FUNCTION ple_api.lock_blueprint_change_proposal_acceptance(
-    p_proposal_id uuid, p_target_blueprint_course_id text, p_expected_revision bigint,
+    p_proposal_id uuid, p_target_blueprint_course_id text, p_expected_revision_number bigint,
     p_expected_blueprint_edit_number bigint
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
@@ -273,9 +273,9 @@ BEGIN
         WHERE blueprint_change_proposal_id = p_proposal_id) THEN
         RAISE EXCEPTION 'Blueprint Proposal is already accepted' USING ERRCODE = '55000';
     END IF;
-    IF p_expected_revision IS DISTINCT FROM v_target.current_blueprint_revision_number
+    IF p_expected_revision_number IS DISTINCT FROM v_target.current_blueprint_revision_number
        OR p_expected_blueprint_edit_number IS DISTINCT FROM v_target.blueprint_edit_number
-       OR p_expected_revision IS DISTINCT FROM v_proposal.target_revision_number
+       OR p_expected_revision_number IS DISTINCT FROM v_proposal.target_revision_number
        OR p_expected_blueprint_edit_number IS DISTINCT FROM v_proposal.target_blueprint_edit_number THEN
         RAISE EXCEPTION 'Blueprint Proposal comparison is stale' USING ERRCODE = '40001';
     END IF;
@@ -283,7 +283,7 @@ END
 $$;
 
 CREATE FUNCTION ple_api.finalize_blueprint_change_proposal_acceptance(
-    p_proposal_id uuid, p_target_blueprint_course_id text, p_expected_revision bigint,
+    p_proposal_id uuid, p_target_blueprint_course_id text, p_expected_revision_number bigint,
     p_expected_blueprint_edit_number bigint, p_decision jsonb, p_request_checksum bytea,
     p_content jsonb, p_content_checksum bytea
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
@@ -293,7 +293,7 @@ DECLARE
     v_target ple_data.blueprint_course%ROWTYPE;
     v_source ple_data.blueprint_metadata_event%ROWTYPE;
     v_prior ple_data.blueprint_course_revision%ROWTYPE;
-    v_result_revision bigint;
+    v_result_revision_number bigint;
     v_etag uuid;
     v_now timestamp with time zone := clock_timestamp();
     v_short_name text;
@@ -302,7 +302,7 @@ DECLARE
     v_metadata_changed boolean;
 BEGIN
     PERFORM ple_api.lock_blueprint_change_proposal_acceptance(
-        p_proposal_id, p_target_blueprint_course_id, p_expected_revision, p_expected_blueprint_edit_number);
+        p_proposal_id, p_target_blueprint_course_id, p_expected_revision_number, p_expected_blueprint_edit_number);
     IF p_decision IS NULL OR jsonb_typeof(p_decision) <> 'object'
        OR coalesce(p_decision #>> '{decision,kind}', '') NOT IN ('entire', 'selected')
        OR p_request_checksum IS NULL OR octet_length(p_request_checksum) <> 32
@@ -319,7 +319,7 @@ BEGIN
        AND blueprint_edit_number = v_proposal.source_blueprint_edit_number;
     SELECT * INTO STRICT v_prior FROM ple_data.blueprint_course_revision
      WHERE blueprint_course_id = v_proposal.target_blueprint_course_id
-       AND blueprint_revision_number = p_expected_revision;
+       AND blueprint_revision_number = p_expected_revision_number;
     v_short_name := CASE WHEN p_decision #>> '{decision,kind}' = 'entire'
         OR p_decision #> '{decision,source_short_name}' = 'true'::jsonb
         THEN v_source.short_name ELSE v_target.short_name END;
@@ -340,42 +340,42 @@ BEGIN
             RAISE EXCEPTION 'Blueprint Proposal decision changes no canonical content'
                 USING ERRCODE = '22023';
         END IF;
-        v_result_revision := p_expected_revision + 1;
+        v_result_revision_number := p_expected_revision_number + 1;
         INSERT INTO ple_data.blueprint_course_revision VALUES (
-            v_target.blueprint_course_id, v_result_revision,
+            v_target.blueprint_course_id, v_result_revision_number,
             v_prior.content, v_prior.content_checksum, v_now);
         INSERT INTO ple_data.blueprint_revision_question_pin
-        SELECT v_target.blueprint_course_id, v_result_revision, content_path,
+        SELECT v_target.blueprint_course_id, v_result_revision_number, content_path,
                published_question_id, question_revision_number FROM ple_data.blueprint_revision_question_pin
          WHERE blueprint_course_id = v_target.blueprint_course_id
-           AND blueprint_revision_number = p_expected_revision;
+           AND blueprint_revision_number = p_expected_revision_number;
         INSERT INTO ple_data.blueprint_revision_module
-        SELECT v_target.blueprint_course_id, v_result_revision, blueprint_module_id,
+        SELECT v_target.blueprint_course_id, v_result_revision_number, blueprint_module_id,
                module_position FROM ple_data.blueprint_revision_module
          WHERE blueprint_course_id = v_target.blueprint_course_id
-           AND blueprint_revision_number = p_expected_revision;
+           AND blueprint_revision_number = p_expected_revision_number;
         INSERT INTO ple_data.blueprint_revision_assessment
-        SELECT v_target.blueprint_course_id, v_result_revision, blueprint_module_id,
+        SELECT v_target.blueprint_course_id, v_result_revision_number, blueprint_module_id,
                blueprint_assessment_id, assessment_position
           FROM ple_data.blueprint_revision_assessment
          WHERE blueprint_course_id = v_target.blueprint_course_id
-           AND blueprint_revision_number = p_expected_revision;
+           AND blueprint_revision_number = p_expected_revision_number;
         INSERT INTO ple_data.blueprint_revision_event (
             blueprint_course_id, blueprint_revision_number,
             actor_account_id, request_checksum, occurred_at
         ) VALUES (
-            v_target.blueprint_course_id, v_result_revision,
+            v_target.blueprint_course_id, v_result_revision_number,
             ple_api.current_session_account_id(), p_request_checksum, v_now);
-        UPDATE ple_data.blueprint_course SET current_blueprint_revision_number = v_result_revision
+        UPDATE ple_data.blueprint_course SET current_blueprint_revision_number = v_result_revision_number
          WHERE blueprint_course_id = v_target.blueprint_course_id;
     ELSE
         -- Blueprint-only five-argument Save is private to the API owner after
         -- adoption installs. Never call the ordinary auto-daughter overload.
-        SELECT resulting_blueprint_revision_number INTO STRICT v_result_revision
-          FROM ple_api.save_blueprint_course(p_target_blueprint_course_id, p_expected_revision,
+        SELECT resulting_blueprint_revision_number INTO STRICT v_result_revision_number
+          FROM ple_api.save_blueprint_course(p_target_blueprint_course_id, p_expected_revision_number,
               p_request_checksum, p_content, p_content_checksum);
     END IF;
-    IF v_result_revision <> p_expected_revision + 1 THEN
+    IF v_result_revision_number <> p_expected_revision_number + 1 THEN
         RAISE EXCEPTION 'Blueprint Proposal acceptance needs one successor' USING ERRCODE = '22023';
     END IF;
     SELECT blueprint_edit_number INTO STRICT v_etag FROM ple_api.rename_blueprint_course(
@@ -387,7 +387,7 @@ BEGIN
     END IF;
     INSERT INTO ple_data.blueprint_change_proposal_acceptance VALUES (
         p_proposal_id, ple_api.current_session_account_id(), v_now, p_decision,
-        v_target.blueprint_course_id, v_result_revision, v_etag);
+        v_target.blueprint_course_id, v_result_revision_number, v_etag);
 END
 $$;
 

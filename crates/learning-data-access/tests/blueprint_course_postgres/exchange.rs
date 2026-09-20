@@ -28,8 +28,8 @@ pub(super) async fn assert_actual_role_round_trip(
         "canonical import creates a distinct local Blueprint lineage"
     );
     assert_eq!(
-        imported.blueprint_revision_tuple.revision,
-        BlueprintRevision::INITIAL,
+        imported.blueprint_revision_tuple.revision_number,
+        BlueprintRevisionNumber::INITIAL,
         "canonical import starts the new lineage at Revision 1"
     );
     let imported_private = store

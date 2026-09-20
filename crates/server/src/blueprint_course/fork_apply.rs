@@ -64,7 +64,7 @@ pub(super) async fn apply_fork_update(
     };
     // ASVS 2.3.3/8.2.3: project only the result committed together, not a later
     // reload; actor identity and private ordinary-Save receipt fields stay internal.
-    let revision = result.save.blueprint_revision_tuple.revision;
+    let revision = result.save.blueprint_revision_tuple.revision_number;
     let mut response = crate::auth::no_store(
         Json(BlueprintForkApplyResponse {
             blueprint_revision_tuple: result.save.blueprint_revision_tuple,

@@ -11,9 +11,9 @@ use learning_data_access::{
 };
 use question_model::{
     AssessmentEntryScoringRule, BlueprintAssessmentEntryInput, BlueprintAvailability,
-    BlueprintRevision, CreateBlueprintCourseInput, QuestionAttemptLimit, QuestionAttemptTimeLimit,
-    QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship, QuestionBackend,
-    QuestionLicense, QuestionRevisionTuple, RequestChecksum, WorkspaceId,
+    BlueprintRevisionNumber, CreateBlueprintCourseInput, QuestionAttemptLimit,
+    QuestionAttemptTimeLimit, QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship,
+    QuestionBackend, QuestionLicense, QuestionRevisionTuple, RequestChecksum, WorkspaceId,
 };
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
@@ -104,7 +104,7 @@ pub(crate) async fn publish_with_context(
             .context("same-name Genetics Blueprint conflicts with the canonical fresh catalog")?;
         return Receipt::new(
             retained.id.to_string(),
-            retained.current_revision.value(),
+            retained.current_revision_number.value(),
             &manifest,
             &existing_revisions,
         );
@@ -263,14 +263,14 @@ async fn create_blueprint(
     manifest: &Manifest,
     revisions: &SourceRevisions,
     store: &PostgresBlueprintCourseStore,
-) -> Result<(question_model::BlueprintCourseId, BlueprintRevision)> {
+) -> Result<(question_model::BlueprintCourseId, BlueprintRevisionNumber)> {
     let checksum = request_checksum(input)?;
     let receipt = store
         .create_blueprint_course(session, checksum, input.clone(), Default::default())
         .await
         .context("creating canonical Genetics Blueprint Course")?;
     ensure!(
-        receipt.blueprint_revision_tuple.revision == BlueprintRevision::INITIAL,
+        receipt.blueprint_revision_tuple.revision_number == BlueprintRevisionNumber::INITIAL,
         "canonical Genetics Blueprint creation did not return Revision 1"
     );
     let loaded = store
@@ -289,7 +289,7 @@ async fn create_blueprint(
         loaded.classification == input.classification,
         "created Genetics Blueprint classification differs from authored metadata"
     );
-    Ok((loaded.id, loaded.current_revision))
+    Ok((loaded.id, loaded.current_revision_number))
 }
 
 fn validate_loaded_content(
@@ -345,11 +345,11 @@ fn validate_loaded_content(
             else {
                 bail!("canonical Genetics Blueprint entries must all be direct Fixed Questions");
             };
-            let expected_revision = revisions.get(source_id).with_context(|| {
+            let expected_revision_tuple = revisions.get(source_id).with_context(|| {
                 format!("canonical Genetics revision is missing for source {source_id}")
             })?;
             ensure!(
-                question_revision_tuple == expected_revision
+                question_revision_tuple == expected_revision_tuple
                     && question_revision_tuple == &expected_fixed.question_revision_tuple
                     && points_possible == &expected_fixed.points_possible
                     && scoring_rule == &AssessmentEntryScoringRule::Normal

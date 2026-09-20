@@ -20,7 +20,7 @@ use question_model::{
     AssessmentPointValue, BlueprintAssessmentContentInput, BlueprintAssessmentDefaults,
     BlueprintAssessmentEditChoice, BlueprintAssessmentEntryInput,
     BlueprintAssessmentReplacementInput, BlueprintAvailability, BlueprintCourseId,
-    BlueprintModuleEditChoice, BlueprintModuleReplacementInput, BlueprintRevision,
+    BlueprintModuleEditChoice, BlueprintModuleReplacementInput, BlueprintRevisionNumber,
     CreateBlueprintCourseInput, CreateBlueprintModuleInput, LateWorkRule, QuestionAttemptLimit,
     QuestionAttemptTimeLimit, QuestionId, QuestionRevisionNumber, QuestionRevisionTuple,
     RenameBlueprintCourseInput, ReplaceBlueprintCourseContentInput, RequestChecksum,

@@ -3,7 +3,7 @@ use super::connection::map_sqlx_error;
 use crate::blueprint_course::StoredBlueprintAssessmentEntry;
 use crate::{CourseInstancePoolIdIssuer, StoreError, StoredBlueprintCourseContent};
 use question_model::{
-    BlueprintAssessmentId, BlueprintCourseId, BlueprintPoolInputChoice, BlueprintRevision,
+    BlueprintAssessmentId, BlueprintCourseId, BlueprintPoolInputChoice, BlueprintRevisionNumber,
     QuestionPoolEditNumber, QuestionRevisionTuple,
 };
 use sqlx::{Postgres, Row, Transaction};
@@ -61,7 +61,7 @@ pub(super) async fn materialize_authoring_pools(
     transaction: &mut Transaction<'_, Postgres>,
     content: &mut StoredBlueprintCourseContent,
     choices: Vec<Vec<Vec<BlueprintPoolInputChoice>>>,
-    context: Option<(BlueprintCourseId, BlueprintRevision)>,
+    context: Option<(BlueprintCourseId, BlueprintRevisionNumber)>,
     prior: Option<&StoredBlueprintCourseContent>,
     issuer: Option<&dyn CourseInstancePoolIdIssuer>,
     _bloom_receipts: &mut crate::PoolBloomPreparationReceipts,
@@ -179,7 +179,7 @@ pub(super) async fn members(
     assessment: BlueprintAssessmentId,
     question_pool_id: &question_model::QuestionId,
     question_pool_edit_number: QuestionPoolEditNumber,
-    write: Option<BlueprintRevision>,
+    write: Option<BlueprintRevisionNumber>,
 ) -> Result<Vec<QuestionRevisionTuple>, StoreError> {
     let rows = sqlx::query("SELECT * FROM ple_api.blueprint_pool_members($1,$2,$3,$4,$5,$6)")
         .bind(blueprint_course_id.as_string())

@@ -30,7 +30,7 @@ pub(super) async fn view_from_record(
         blueprint_edit_number: record.blueprint_edit_number,
         current_revision_tuple: BlueprintRevisionTuple {
             blueprint_course_id: record.id,
-            revision: record.current_revision,
+            revision_number: record.current_revision_number,
         },
         read_access: record.read_access,
         fork_source_tuple: record.fork_source_tuple,
@@ -51,7 +51,7 @@ pub(super) fn summary_view(
         blueprint_edit_number: record.blueprint_edit_number,
         current_revision_tuple: BlueprintRevisionTuple {
             blueprint_course_id: record.id,
-            revision: record.current_revision,
+            revision_number: record.current_revision_number,
         },
         read_access: record.read_access,
     }

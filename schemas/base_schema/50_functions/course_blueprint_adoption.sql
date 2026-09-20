@@ -3,7 +3,7 @@
 SET LOCAL ROLE ple_api_owner;
 
 -- Atomic initial teaching content, materialized by the Store from the exact Blueprint.
-CREATE FUNCTION ple_api.load_course_instance_blueprint(p_blueprint_course_id text, p_revision bigint)
+CREATE FUNCTION ple_api.load_course_instance_blueprint(p_blueprint_course_id text, p_revision_number bigint)
 RETURNS TABLE(content jsonb, content_checksum bytea)
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
@@ -11,7 +11,7 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
       FROM ple_data.blueprint_course AS blueprint
       JOIN ple_data.blueprint_course_revision AS revision
         ON revision.blueprint_course_id = blueprint.blueprint_course_id
-       AND revision.blueprint_revision_number = p_revision
+       AND revision.blueprint_revision_number = p_revision_number
      WHERE blueprint.blueprint_course_id = p_blueprint_course_id
        AND blueprint.availability = 'public'
        AND (ple_api.current_session_account_is_instructor()
@@ -24,7 +24,7 @@ $$;
 
 -- The automatic append is authorized by Blueprint ownership, not daughter
 -- teaching membership or current Course Instance activity.
-CREATE FUNCTION ple_api.load_blueprint_assessment_copy_source(p_blueprint_course_id text, p_revision bigint)
+CREATE FUNCTION ple_api.load_blueprint_assessment_copy_source(p_blueprint_course_id text, p_revision_number bigint)
 RETURNS TABLE(content jsonb, content_checksum bytea)
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
@@ -32,7 +32,7 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
       FROM ple_data.blueprint_course AS blueprint
       JOIN ple_data.blueprint_course_revision AS revision
         ON revision.blueprint_course_id = blueprint.blueprint_course_id
-       AND revision.blueprint_revision_number = p_revision
+       AND revision.blueprint_revision_number = p_revision_number
      WHERE blueprint.blueprint_course_id = p_blueprint_course_id
        AND ((blueprint.availability IN ('public', 'archived')
              AND (ple_api.current_session_account_is_instructor()
@@ -53,7 +53,7 @@ SET LOCAL ROLE ple_data_owner;
 -- persisted curriculum or policy value.  Compare that proposed materialization
 -- to the sealed Blueprint Revision here, before any Course child exists.
 CREATE FUNCTION ple_data.validate_course_blueprint_adoption(
-    p_blueprint_course_id text, p_blueprint_revision bigint, p_assessments jsonb
+    p_blueprint_course_id text, p_blueprint_revision_number bigint, p_assessments jsonb
 )
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
@@ -71,7 +71,7 @@ BEGIN
     FOR member IN SELECT value FROM jsonb_array_elements(p_assessments) LOOP
         SELECT assessment_row.assessment -> 'content' INTO source_content
           FROM ple_api.load_blueprint_assessment_copy_source(
-              p_blueprint_course_id, p_blueprint_revision
+              p_blueprint_course_id, p_blueprint_revision_number
           ) AS revision
           CROSS JOIN LATERAL jsonb_array_elements(revision.content -> 'modules')
               AS module_row(module)
@@ -183,7 +183,7 @@ END;
 $$;
 
 CREATE FUNCTION ple_data.append_course_assessments(
-    p_course_instance_id text, p_blueprint_course_id text, p_blueprint_revision bigint, p_assessments jsonb
+    p_course_instance_id text, p_blueprint_course_id text, p_blueprint_revision_number bigint, p_assessments jsonb
 )
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
@@ -201,7 +201,7 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Course initial assessments are invalid';
     END IF;
     PERFORM ple_data.validate_course_blueprint_adoption(
-        p_blueprint_course_id, p_blueprint_revision, p_assessments
+        p_blueprint_course_id, p_blueprint_revision_number, p_assessments
     );
     FOR member IN SELECT value FROM jsonb_array_elements(p_assessments) LOOP
         -- Stable provenance makes a repeated append harmless, without touching
@@ -240,7 +240,7 @@ BEGIN
             assessment_policy_snapshot_id
         ) VALUES (
             new_assessment_id, p_course_instance_id, 'adopted', p_blueprint_course_id,
-            p_blueprint_revision, (member ->> 'source')::uuid,
+            p_blueprint_revision_number, (member ->> 'source')::uuid,
             transaction_timestamp(), transaction_timestamp(),
             assessment_type_value,
             snapshot_id
@@ -315,7 +315,7 @@ END
 $$;
 
 CREATE FUNCTION ple_data.initialize_course_assessments(
-    p_course_instance_id text, p_blueprint_course_id text, p_blueprint_revision bigint, p_assessments jsonb
+    p_course_instance_id text, p_blueprint_course_id text, p_blueprint_revision_number bigint, p_assessments jsonb
 )
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
@@ -324,7 +324,7 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Course initial assessments are invalid';
     END IF;
     PERFORM ple_data.append_course_assessments(
-        p_course_instance_id, p_blueprint_course_id, p_blueprint_revision, p_assessments
+        p_course_instance_id, p_blueprint_course_id, p_blueprint_revision_number, p_assessments
     );
 END
 $$;
