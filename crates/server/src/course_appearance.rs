@@ -73,7 +73,7 @@ pub fn course_appearance_router(
             axum::routing::put(promote_banner).delete(remove_banner),
         )
         .route(
-            "/api/course-banners/{banner}/delivery",
+            "/api/course-banners/{course_banner_id}/delivery",
             post(deliver_banner),
         )
         .with_state(RouteState {

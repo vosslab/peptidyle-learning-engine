@@ -1,15 +1,20 @@
 import type { DraftQuestionRouteId } from "../../navigation/public_route";
+import {
+  ifMatchHeaderForPositiveNumber,
+  numberFromResponseEtag,
+} from "../../api/http_client/conditional_request";
+import { ApiProtocolError } from "../../api/http_client/error";
 
 const MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
 const SAFE_ORIGIN = "https://ple-question-general-feedback.invalid";
 
 export type PleQuestionGeneralFeedbackRead = {
   readonly generalFeedback: string | null;
-  readonly etag: string;
+  readonly draftQuestionEditNumber: string;
 };
 
 export type PleQuestionGeneralFeedbackSave = {
-  readonly etag: string;
+  readonly draftQuestionEditNumber: string;
 };
 
 export type PleQuestionGeneralFeedbackFetch = (
@@ -49,7 +54,7 @@ export interface PleQuestionGeneralFeedbackClient {
   save(
     draftQuestion: DraftQuestionRouteId,
     generalFeedback: string | null,
-    etag: string,
+    expectedDraftQuestionEditNumber: string,
   ): Promise<PleQuestionGeneralFeedbackSave>;
 }
 
@@ -105,28 +110,28 @@ function sameOriginPath(basePath: string, path: string): string {
   return requestPath;
 }
 
-function validEtag(value: string): string {
-  if (!/^"[1-9][0-9]*"$/u.test(value)) {
+function draftQuestionEditNumberFromResponse(response: Response, path: string): string {
+  try {
+    return numberFromResponseEtag(response, path, "Draft Question Edit Number");
+  } catch (error: unknown) {
     throw new PleQuestionGeneralFeedbackProtocolError(
-      "Question general feedback ETag must be one positive strong numeric ETag",
+      error instanceof ApiProtocolError
+        ? error.message
+        : `Question general feedback response ${path} must include one Draft Question Edit Number`,
     );
   }
-  if (BigInt(value.slice(1, -1)) > 9_223_372_036_854_775_807n) {
-    throw new PleQuestionGeneralFeedbackProtocolError(
-      "Question general feedback ETag must fit in a signed 64-bit integer",
-    );
-  }
-  return value;
 }
 
-function strongEtag(response: Response, path: string): string {
-  const etag = response.headers.get("etag");
-  if (etag === null) {
+function ifMatchDraftQuestionEditNumber(value: string, path: string): string {
+  try {
+    return ifMatchHeaderForPositiveNumber(value, path, "Draft Question Edit Number");
+  } catch (error: unknown) {
     throw new PleQuestionGeneralFeedbackProtocolError(
-      `Question general feedback response ${path} must include one strong numeric ETag`,
+      error instanceof ApiProtocolError
+        ? error.message
+        : "Draft Question Edit Number must be a positive integer",
     );
   }
-  return validEtag(etag);
 }
 
 function requireJson(response: Response, path: string): void {
@@ -201,14 +206,14 @@ export function createPleQuestionGeneralFeedbackClient(
     requireJson(response, path);
     return {
       generalFeedback: decodeMetadata(await boundedJson(response, path), path),
-      etag: strongEtag(response, path),
+      draftQuestionEditNumber: draftQuestionEditNumberFromResponse(response, path),
     };
   }
 
   async function save(
     draftQuestion: DraftQuestionRouteId,
     generalFeedback: string | null,
-    etag: string,
+    expectedDraftQuestionEditNumber: string,
   ): Promise<PleQuestionGeneralFeedbackSave> {
     const path = metadataPath(draftQuestion);
     const response = await fetchImplementation(
@@ -218,7 +223,7 @@ export function createPleQuestionGeneralFeedbackClient(
         {
           accept: "application/json",
           "content-type": "application/json",
-          "if-match": validEtag(etag),
+          "if-match": ifMatchDraftQuestionEditNumber(expectedDraftQuestionEditNumber, path),
         },
         JSON.stringify({ generalFeedback }),
       ),
@@ -232,7 +237,7 @@ export function createPleQuestionGeneralFeedbackClient(
         `Question general feedback save ${path} must return no content`,
       );
     }
-    return { etag: strongEtag(response, path) };
+    return { draftQuestionEditNumber: draftQuestionEditNumberFromResponse(response, path) };
   }
 
   return { load, save };

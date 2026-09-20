@@ -144,7 +144,9 @@ export function QuestionUsePanel(props: QuestionUsePanelProps): JSX.Element {
           <For each={props.usage.ownCourses}>
             {(course) => (
               <li>
-                <A href={`/courses/${courseInstanceRouteId(course.course)}`}>{course.title}</A>
+                <A href={`/courses/${courseInstanceRouteId(course.courseInstanceId)}`}>
+                  {course.title}
+                </A>
                 <span>{`${wholeNumber.format(course.assessmentCount)} assessment${course.assessmentCount === 1 ? "" : "s"}`}</span>
               </li>
             )}

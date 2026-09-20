@@ -9,6 +9,10 @@ import { decodeInstructorStudentView } from "../decoders/assessment_student_view
 import { decodeStudentQuestionPresentation } from "../decoders/presentation_delivery";
 import { parseAssessmentId, parseCourseInstanceId } from "../../navigation/public_route";
 import { ApiProtocolError, ApiRequestError, AssessmentConflictError } from "./error";
+import {
+  assertResponseMatchesPositiveNumber,
+  ifMatchHeaderForPositiveNumber,
+} from "./conditional_request";
 import { requestPath, requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
 
@@ -43,17 +47,12 @@ function questionPath(
   return `${base}/entries/${authoredPosition}/questions/${encodeURIComponent(questionId)}/revisions/${questionRevisionTuple.revisionNumber}`;
 }
 
-function quotedEditNumber(editNumber: string, path: string): string {
-  if (!/^[1-9][0-9]*$/u.test(editNumber) || BigInt(editNumber) > 9_223_372_036_854_775_807n) {
-    throw new ApiProtocolError(`API ${path} requires a positive Assessment Edit Number`);
-  }
-  return `"${editNumber}"`;
-}
-
-function requireMatchingEtag(response: Response, editNumber: string, path: string): void {
-  if (response.headers.get("etag") !== quotedEditNumber(editNumber, path)) {
-    throw new ApiProtocolError(`API response ${path} ETag must match its Assessment Edit Number`);
-  }
+function requireMatchingAssessmentEditNumber(
+  response: Response,
+  editNumber: string,
+  path: string,
+): void {
+  assertResponseMatchesPositiveNumber(response, editNumber, path, "Assessment Edit Number");
 }
 
 function sameQuestionRevision(
@@ -78,7 +77,7 @@ async function manifestRequest(
   if (!response.ok) throw new ApiRequestError(response.status, path);
   // ASVS 1.5.2, 2.2.1, and 4.1.1: bounded JSON is decoded into one closed DTO.
   const manifest = decodeInstructorStudentView(await boundedResponseJson(response, path));
-  requireMatchingEtag(response, manifest.editNumber, path);
+  requireMatchingAssessmentEditNumber(response, manifest.editNumber, path);
   return manifest;
 }
 
@@ -93,7 +92,9 @@ async function presentationRequest(
 ): ReturnType<AssessmentStudentViewClient["getInstructorStudentViewQuestion"]> {
   const path = `${questionPath(course, assessment, authoredPosition, questionRevisionTuple)}/presentation`;
   const response = await requestSameOrigin(fetchImplementation, basePath, path, {
-    headers: { "if-match": quotedEditNumber(editNumber, path) },
+    headers: {
+      "if-match": ifMatchHeaderForPositiveNumber(editNumber, path, "Assessment Edit Number"),
+    },
   });
   requireNoStore(response, path);
   if (response.status === 409 || response.status === 412 || response.status === 428) {
@@ -106,7 +107,7 @@ async function presentationRequest(
       `API response ${path} does not match the requested Question Revision`,
     );
   }
-  requireMatchingEtag(response, editNumber, path);
+  requireMatchingAssessmentEditNumber(response, editNumber, path);
   return presentation;
 }
 
@@ -142,8 +143,8 @@ export function createAssessmentStudentViewClient(
       editNumber,
     ): string => {
       const path = `${questionPath(course, assessment, authoredPosition, questionRevisionTuple)}/document`;
+      ifMatchHeaderForPositiveNumber(editNumber, path, "Assessment Edit Number");
       const query = new URLSearchParams({ editNumber });
-      quotedEditNumber(editNumber, path);
       return requestPath(basePath, `${path}?${query.toString()}`);
     },
   };

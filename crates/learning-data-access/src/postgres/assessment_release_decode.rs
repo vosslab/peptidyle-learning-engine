@@ -22,11 +22,11 @@ pub(super) fn question_id(value: String) -> Result<QuestionId, StoreError> {
 }
 
 pub(super) fn question_revision_tuple(
-    question: String,
+    question_id: String,
     revision_number: i32,
 ) -> Result<QuestionRevisionTuple, StoreError> {
     Ok(QuestionRevisionTuple {
-        question_id: question_id(question)?,
+        question_id: question_id.parse().map_err(|_| invalid("Question ID"))?,
         revision_number: QuestionRevisionNumber::new(
             u32::try_from(revision_number).map_err(|_| invalid("Question Revision Number"))?,
         )

@@ -27,6 +27,10 @@ import {
   decodeUnreleasedLiveAssessment,
 } from "../decoders/assessment_release";
 import { ApiProtocolError, ApiRequestError } from "./error";
+import {
+  assertResponseMatchesPositiveNumber,
+  ifMatchHeaderForPositiveNumber,
+} from "./conditional_request";
 import { decodeCourseBlueprintUpdateReview } from "../decoders/course_blueprint_update";
 import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
@@ -53,21 +57,13 @@ function assessmentPath(course: CourseInstanceId, assessment: AssessmentId): str
   return `${coursePath(course)}/assessments/${encodeURIComponent(assessment)}`;
 }
 
-function requireWorkspaceEtag(response: Response, editNumber: string, path: string): string {
-  const etag = response.headers.get("etag");
-  if (etag === null || etag !== `"${editNumber}"`) {
-    throw new ApiProtocolError(`API response ${path} ETag must match its Assessment Edit Number`);
-  }
-  return etag;
-}
-
-function quotedStrongEtag(etag: string, path: string): string {
-  if (!/^"[1-9][0-9]*"$/u.test(etag) || BigInt(etag.slice(1, -1)) > 9_223_372_036_854_775_807n) {
-    throw new ApiProtocolError(
-      `API ${path} If-Match must be one quoted strong Assessment Edit Number`,
-    );
-  }
-  return etag;
+function loadedWorkspace(
+  body: LiveAssessmentWorkspaceResponse["workspace"],
+  response: Response,
+  path: string,
+): LiveAssessmentWorkspaceResponse {
+  assertResponseMatchesPositiveNumber(response, body.editNumber, path, "Assessment Edit Number");
+  return { workspace: body };
 }
 
 async function assessmentJson<T>(
@@ -78,12 +74,20 @@ async function assessmentJson<T>(
   options: {
     readonly method?: "GET" | "POST" | "PUT";
     readonly body?: unknown;
-    readonly etag?: string;
+    readonly expectedAssessmentEditNumber?: string;
     readonly status?: 200 | 201;
   } = {},
 ): Promise<{ readonly body: T; readonly response: Response }> {
   const headers: Record<string, string> =
-    options.etag === undefined ? {} : { "if-match": quotedStrongEtag(options.etag, path) };
+    options.expectedAssessmentEditNumber === undefined
+      ? {}
+      : {
+          "if-match": ifMatchHeaderForPositiveNumber(
+            options.expectedAssessmentEditNumber,
+            path,
+            "Assessment Edit Number",
+          ),
+        };
   const response = await requestSameOrigin(fetchImplementation, basePath, path, {
     method: options.method ?? "GET",
     headers,
@@ -141,10 +145,7 @@ export function createLiveAssessmentReleaseClient(
           status: 200,
         },
       );
-      return {
-        workspace: result.body,
-        etag: requireWorkspaceEtag(result.response, result.body.editNumber, path),
-      };
+      return loadedWorkspace(result.body, result.response, path);
     },
     listAssessmentsDueSoon: async (): Promise<DueSoonAssessments> =>
       (
@@ -179,11 +180,16 @@ export function createLiveAssessmentReleaseClient(
         {
           method: "PUT",
           body: decodeSaveLiveAssessmentInlineInput(input),
-          etag: `"${editNumber}"`,
+          expectedAssessmentEditNumber: editNumber,
           status: 200,
         },
       );
-      requireWorkspaceEtag(result.response, result.body.editNumber, path);
+      assertResponseMatchesPositiveNumber(
+        result.response,
+        result.body.editNumber,
+        path,
+        "Assessment Edit Number",
+      );
       return result.body;
     },
     listLiveAssessmentQuestionPicker: async (course) =>
@@ -208,10 +214,7 @@ export function createLiveAssessmentReleaseClient(
           status: 201,
         },
       );
-      return {
-        workspace: result.body,
-        etag: requireWorkspaceEtag(result.response, result.body.editNumber, path),
-      };
+      return loadedWorkspace(result.body, result.response, path);
     },
     getLiveAssessmentWorkspace: async (
       course,
@@ -224,16 +227,13 @@ export function createLiveAssessmentReleaseClient(
         path,
         decodeLiveAssessmentWorkspace,
       );
-      return {
-        workspace: result.body,
-        etag: requireWorkspaceEtag(result.response, result.body.editNumber, path),
-      };
+      return loadedWorkspace(result.body, result.response, path);
     },
     saveLiveAssessment: async (
       course,
       assessment,
       input,
-      etag,
+      expectedAssessmentEditNumber,
     ): Promise<LiveAssessmentWorkspaceResponse> => {
       const path = assessmentPath(course, assessment);
       const result = await assessmentJson(
@@ -244,20 +244,17 @@ export function createLiveAssessmentReleaseClient(
         {
           method: "PUT",
           body: decodeSaveLiveAssessmentInput(input),
-          etag,
+          expectedAssessmentEditNumber,
           status: 200,
         },
       );
-      return {
-        workspace: result.body,
-        etag: requireWorkspaceEtag(result.response, result.body.editNumber, path),
-      };
+      return loadedWorkspace(result.body, result.response, path);
     },
     saveBaseAssessmentPolicy: async (
       course,
       assessment,
       input,
-      etag,
+      expectedAssessmentEditNumber,
     ): Promise<LiveAssessmentWorkspaceResponse> => {
       const path = `${assessmentPath(course, assessment)}/policies`;
       const result = await assessmentJson(
@@ -268,14 +265,11 @@ export function createLiveAssessmentReleaseClient(
         {
           method: "PUT",
           body: decodeSaveBaseAssessmentPolicyInput(input),
-          etag,
+          expectedAssessmentEditNumber,
           status: 200,
         },
       );
-      return {
-        workspace: result.body,
-        etag: requireWorkspaceEtag(result.response, result.body.editNumber, path),
-      };
+      return loadedWorkspace(result.body, result.response, path);
     },
     validateLiveAssessmentRelease: async (course, assessment) =>
       (
@@ -289,7 +283,7 @@ export function createLiveAssessmentReleaseClient(
     releaseLiveAssessment: async (
       course,
       assessment,
-      etag,
+      expectedAssessmentEditNumber,
     ): Promise<LiveAssessmentWorkspaceResponse> => {
       const path = `${assessmentPath(course, assessment)}/release`;
       const result = await assessmentJson(
@@ -299,14 +293,11 @@ export function createLiveAssessmentReleaseClient(
         decodeLiveAssessmentWorkspace,
         {
           method: "POST",
-          etag,
+          expectedAssessmentEditNumber,
           status: 200,
         },
       );
-      return {
-        workspace: result.body,
-        etag: requireWorkspaceEtag(result.response, result.body.editNumber, path),
-      };
+      return loadedWorkspace(result.body, result.response, path);
     },
     getLiveAssessmentUnreleaseImpact: async (course, assessment) =>
       (
@@ -321,8 +312,8 @@ export function createLiveAssessmentReleaseClient(
       course,
       assessment,
       confirmationTitle,
-      etag,
-    ): Promise<{ readonly result: UnreleasedLiveAssessment; readonly etag: string }> => {
+      expectedAssessmentEditNumber,
+    ): Promise<UnreleasedLiveAssessment> => {
       const path = `${assessmentPath(course, assessment)}/unrelease`;
       const result = await assessmentJson(
         fetchImplementation,
@@ -332,14 +323,17 @@ export function createLiveAssessmentReleaseClient(
         {
           method: "POST",
           body: { confirmationTitle },
-          etag,
+          expectedAssessmentEditNumber,
           status: 200,
         },
       );
-      return {
-        result: result.body,
-        etag: requireWorkspaceEtag(result.response, result.body.assessment.editNumber, path),
-      };
+      assertResponseMatchesPositiveNumber(
+        result.response,
+        result.body.assessment.editNumber,
+        path,
+        "Assessment Edit Number",
+      );
+      return result.body;
     },
   };
 }

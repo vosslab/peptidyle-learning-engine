@@ -87,11 +87,11 @@ pub(super) async fn save_selected_response(
         .await
     {
         Ok(saved)
-            if saved.assessment_attempt == assessment_attempt && saved.position == position =>
+            if saved.assessment_attempt_id == assessment_attempt && saved.position == position =>
         {
             crate::auth::no_store(
                 Json(SavedResponseAcknowledgement {
-                    assessment_attempt,
+                    assessment_attempt_id: assessment_attempt,
                     position,
                     response_state: "saved",
                 })
@@ -109,7 +109,7 @@ pub(super) async fn save_selected_response(
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct SavedResponseAcknowledgement {
-    assessment_attempt: AssessmentAttemptId,
+    assessment_attempt_id: AssessmentAttemptId,
     position: u32,
     response_state: &'static str,
 }
@@ -117,7 +117,7 @@ struct SavedResponseAcknowledgement {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct AssessmentAttemptSubmissionAcknowledgement {
-    assessment_attempt: AssessmentAttemptId,
+    assessment_attempt_id: AssessmentAttemptId,
     submission_state: &'static str,
 }
 
@@ -177,7 +177,7 @@ pub(super) async fn finalize_assessment_attempt(
     let StudentAssessmentAttemptFinalization::Submitted { .. } = finalization;
     crate::auth::no_store(
         Json(AssessmentAttemptSubmissionAcknowledgement {
-            assessment_attempt,
+            assessment_attempt_id: assessment_attempt,
             submission_state: "submitted",
         })
         .into_response(),
@@ -337,7 +337,7 @@ mod tests {
     #[test]
     fn submission_acknowledgement_reports_completion_without_grading_data() {
         let wire = serde_json::to_value(AssessmentAttemptSubmissionAcknowledgement {
-            assessment_attempt: AssessmentAttemptId::from_uuid(uuid::Uuid::from_u128(1)),
+            assessment_attempt_id: AssessmentAttemptId::from_uuid(uuid::Uuid::from_u128(1)),
             submission_state: "submitted",
         })
         .expect("submission acknowledgement serializes");
@@ -345,7 +345,7 @@ mod tests {
         assert_eq!(
             wire,
             serde_json::json!({
-                "assessmentAttempt": "00000000-0000-0000-0000-000000000001",
+                "assessmentAttemptId": "00000000-0000-0000-0000-000000000001",
                 "submissionState": "submitted",
             })
         );

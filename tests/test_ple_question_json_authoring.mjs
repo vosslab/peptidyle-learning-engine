@@ -59,7 +59,7 @@ test("image upload sends raw raster bytes and a source precondition, accepting o
       return jsonResponse(result, 201);
     },
   });
-  assert.deepEqual(await client.uploadAsset(draftQuestion, image, '"3"'), uploadedImage);
+  assert.deepEqual(await client.uploadAsset(draftQuestion, image, "3"), uploadedImage);
   assert.equal(
     client.assetPreviewPath(draftQuestion, uploadedImage.questionAsset),
     `/api/authoring/drafts/0198e000-0000-7000-8000-000000000001/assets/${uploadedImage.questionAsset}`,
@@ -74,7 +74,7 @@ test("image upload sends raw raster bytes and a source precondition, accepting o
     { ...uploadedImage, intrinsicWidth: 20_000_001 },
   ]) {
     result = malformed;
-    await assert.rejects(client.uploadAsset(draftQuestion, image, '"3"'));
+    await assert.rejects(client.uploadAsset(draftQuestion, image, "3"));
   }
 });
 
@@ -95,7 +95,7 @@ test("image failures and canceled upload never replace the caller source; 412 so
   const image = new Blob(["raster"], { type: "image/png" });
   for (const failure of [412, 413, 415, 400, 503, 0]) {
     status = failure;
-    await assert.rejects(client.uploadAsset(draftQuestion, image, '"1"'));
+    await assert.rejects(client.uploadAsset(draftQuestion, image, "1"));
     assert.equal(serializePleQuestionJsonSource(original), before);
   }
   status = 412;
@@ -481,9 +481,9 @@ test("client sends exact protected paths, headers, body, and ETags", async () =>
   });
 
   const loaded = await client.load(draftQuestion);
-  const saved = await client.save(draftQuestion, loaded.source, loaded.etag);
+  const saved = await client.save(draftQuestion, loaded.source, loaded.draftQuestionEditNumber);
   const request = publicationRequest();
-  const published = await client.publish(draftQuestion, request, saved.etag);
+  const published = await client.publish(draftQuestion, request, saved.draftQuestionEditNumber);
   assert.deepEqual(published, publicationSummary());
 
   assert.equal(requests[0].input, `/ple/api/authoring/drafts/${draftQuestion}/source`);
@@ -513,7 +513,7 @@ test("publication rejects invalid reviewed Question Authorship before it can mak
     [{ displayName: "Ada Lovelace" }, { displayName: "Ada Lovelace" }],
   ]) {
     await assert.rejects(
-      client.publish(draftQuestion, { authorship: { authors } }, '"1"'),
+      client.publish(draftQuestion, { authorship: { authors } }, "1"),
       PleQuestionJsonProtocolError,
     );
   }
@@ -566,7 +566,7 @@ test("conflicts do not echo a response body and repository preserves the caller 
 
   const repository = createPleQuestionJsonRepository({
     async load() {
-      return { source: source(), etag: '"1"' };
+      return { source: source(), draftQuestionEditNumber: "1" };
     },
     async save() {
       throw new PleQuestionJsonConflictError(
@@ -595,7 +595,7 @@ test("client rejects publication summaries that do not exactly confirm publicati
         : jsonResponse({ summary: publicationSummary("webwork"), viewerMayArchive: true }),
   });
   await assert.rejects(
-    wrongPublication.publish(draftQuestion, publicationRequest(), '"1"'),
+    wrongPublication.publish(draftQuestion, publicationRequest(), "1"),
     /available PLE Question Library summary/u,
   );
 
@@ -609,7 +609,7 @@ test("client rejects publication summaries that do not exactly confirm publicati
           }),
   });
   await assert.rejects(
-    staleScope.publish(draftQuestion, publicationRequest(), '"1"'),
+    staleScope.publish(draftQuestion, publicationRequest(), "1"),
     /scope must be a field allowed/u,
   );
 
@@ -621,7 +621,7 @@ test("client rejects publication summaries that do not exactly confirm publicati
           : jsonResponse({ summary, viewerMayArchive: true }),
     });
     await assert.rejects(
-      wrongLifecycleOrScope.publish(draftQuestion, publicationRequest(), '"1"'),
+      wrongLifecycleOrScope.publish(draftQuestion, publicationRequest(), "1"),
       /available PLE Question Library summary/u,
     );
   }
@@ -662,14 +662,14 @@ test("repository does not regress a Draft Question Edit Number when an older sav
   let publishedRevision;
   const repository = createPleQuestionJsonRepository({
     async load() {
-      return { source: source(), etag: '"1"' };
+      return { source: source(), draftQuestionEditNumber: "1" };
     },
-    save(_workspace, _source, etag) {
-      observedRevisions.push(etag);
+    save(_workspace, _source, expectedDraftQuestionEditNumber) {
+      observedRevisions.push(expectedDraftQuestionEditNumber);
       return observedRevisions.length === 1 ? firstSave.promise : secondSave.promise;
     },
-    async publish(_workspace, _request, etag) {
-      publishedRevision = etag;
+    async publish(_workspace, _request, expectedDraftQuestionEditNumber) {
+      publishedRevision = expectedDraftQuestionEditNumber;
       return publicationSummary();
     },
   });
@@ -677,13 +677,13 @@ test("repository does not regress a Draft Question Edit Number when an older sav
   await repository.load(draftQuestion);
   const older = repository.save(draftQuestion, source());
   const newer = repository.save(draftQuestion, source());
-  secondSave.resolve({ etag: '"3"' });
+  secondSave.resolve({ draftQuestionEditNumber: "3" });
   await newer;
-  firstSave.resolve({ etag: '"2"' });
+  firstSave.resolve({ draftQuestionEditNumber: "2" });
   await older;
   await repository.publish(draftQuestion, {
     authorship: { authors: [{ displayName: "Fixture Instructor" }] },
   });
-  assert.deepEqual(observedRevisions, ['"1"', '"1"']);
-  assert.equal(publishedRevision, '"3"');
+  assert.deepEqual(observedRevisions, ["1", "1"]);
+  assert.equal(publishedRevision, "3");
 });

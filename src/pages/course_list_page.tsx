@@ -229,7 +229,7 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
       }
       source = {
         kind: "adopted",
-        blueprintCourse: selected.id,
+        blueprintCourseId: selected.id,
         blueprintRevisionNumber: selected.current_revision_tuple.revisionNumber,
       };
     }
@@ -256,10 +256,10 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
         longName: longName(),
         term: { startDate: startDate(), endDate: endDate() },
       });
-      if (created.course.lifecycleState !== "active") {
+      if (created.courseInstance.lifecycleState !== "active") {
         throw new Error("A newly created Course Instance must be Active.");
       }
-      setCreatedCourses((current) => [created.course, ...current]);
+      setCreatedCourses((current) => [created.courseInstance, ...current]);
       setCreationDisclosure(false);
       setCreationSource("empty");
       setBlueprintChoice("");
@@ -271,7 +271,9 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
       setEndDate("");
       void refetchCourses();
       queueMicrotask(() =>
-        document.getElementById(`course-open-${courseInstanceRouteId(created.course.id)}`)?.focus(),
+        document
+          .getElementById(`course-open-${courseInstanceRouteId(created.courseInstance.id)}`)
+          ?.focus(),
       );
     } catch (_error: unknown) {
       setCreationError("We could not create that Course Instance. Check the source and try again.");

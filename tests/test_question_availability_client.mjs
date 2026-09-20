@@ -71,11 +71,14 @@ test("Question availability client keeps current lineage transitions and exact r
   const archived = await client.archiveQuestion(
     question.questionId,
     question.metadata.questionTitle,
-    '"5"',
+    "5",
   );
-  const restored = await client.restoreQuestion(question.questionId, archived.etag);
+  const restored = await client.restoreQuestion(
+    question.questionId,
+    archived.questionAvailabilityEditNumber,
+  );
 
-  assert.equal(lineage.availabilityEtag, '"5"');
+  assert.equal(lineage.questionAvailabilityEditNumber, "5");
   assert.equal(lineage.viewerMayArchive, true);
   assert.equal(resolved.questionId, question.questionId);
   assert.equal(exact.summary.questionRevisionTuple.revisionNumber, 2);

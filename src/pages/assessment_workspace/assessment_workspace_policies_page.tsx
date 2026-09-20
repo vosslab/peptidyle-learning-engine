@@ -356,7 +356,7 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
     setBusy(true);
     try {
       const current = workspace.assessment();
-      const released = await workspace.release(current.etag);
+      const released = await workspace.release(current.workspace.editNumber);
       await loadUnreleaseImpact();
       setReleaseValidation(undefined);
       setMessage(`Assessment released. Current edit number: ${released.workspace.editNumber}.`);

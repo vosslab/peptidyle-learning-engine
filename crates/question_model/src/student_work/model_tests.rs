@@ -40,7 +40,7 @@ fn assessment_attempt_retains_interpretation_evidence() {
     let mut attempt = AssessmentAttempt {
         id: AssessmentAttemptId::from_uuid(Uuid::from_u128(1)),
         student_record: StudentRecordId::from_uuid(Uuid::from_u128(2)),
-        assessment: AssessmentId::from_debug_serial(3),
+        assessment_id: AssessmentId::from_debug_serial(3),
         evidence,
         attempt_number: 1,
         started_at: Timestamp::from_unix_millis(1_000),
@@ -50,7 +50,7 @@ fn assessment_attempt_retains_interpretation_evidence() {
 
     assert_eq!(attempt.student_record.as_uuid(), Uuid::from_u128(2));
     assert_eq!(
-        attempt.assessment.as_str(),
+        attempt.assessment_id.as_str(),
         AssessmentId::from_debug_serial(3).as_str()
     );
     assert_eq!(
@@ -99,7 +99,7 @@ fn question_pool_selection_retains_exact_entries_and_issued_question_link() {
     };
     let selection = QuestionPoolSelection {
         id: selection_id,
-        assessment_attempt: AssessmentAttemptId::from_uuid(Uuid::from_u128(12)),
+        assessment_attempt_id: AssessmentAttemptId::from_uuid(Uuid::from_u128(12)),
         question_pool_assessment_entry: AssessmentEntryId::from_uuid(Uuid::from_u128(13)),
         question_pool_id: question_pool_id.clone(),
         question_pool_edit_number,
@@ -113,8 +113,8 @@ fn question_pool_selection_retains_exact_entries_and_issued_question_link() {
     };
     let issued_question = IssuedQuestion {
         id: IssuedQuestionId::from_uuid(Uuid::from_u128(14)),
-        assessment_attempt: selection.assessment_attempt,
-        assessment_entry: selection.question_pool_assessment_entry,
+        assessment_attempt_id: selection.assessment_attempt_id,
+        assessment_entry_id: selection.question_pool_assessment_entry,
         assessment_content_entry_index: 0,
         issued_position: 0,
         question_revision_tuple,
@@ -155,7 +155,7 @@ fn student_assessment_progress_separates_activity_from_disclosed_grade() {
         StudentRecordId::from_uuid(Uuid::from_u128(2)),
         AssessmentId::from_debug_serial(3),
     );
-    let mut grade = AssessmentGrade::empty(progress.student_record, progress.assessment.clone());
+    let mut grade = AssessmentGrade::empty(progress.student_record, progress.assessment_id.clone());
     assert_eq!(
         StudentAssessmentGrade::from_assessment_grade(
             &grade,
@@ -205,7 +205,7 @@ fn student_assessment_grade_hides_scores_while_scoring_is_not_current() {
         AssessmentId::from_debug_serial(3),
     );
     progress.total_question_attempts = 1;
-    let mut grade = AssessmentGrade::empty(progress.student_record, progress.assessment.clone());
+    let mut grade = AssessmentGrade::empty(progress.student_record, progress.assessment_id.clone());
     grade.current_score = Some(0.5);
     for assessment_scoring_state in [
         crate::AssessmentScoringState::Recalculating,

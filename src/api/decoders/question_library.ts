@@ -234,9 +234,12 @@ function decodeQuestionUseSummary(value: unknown, path: string): QuestionUseSumm
 
 function decodeCourseQuestionUse(value: unknown, path: string): CourseQuestionUse {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["course", "title", "assessmentCount"]);
+  requireOnlyFields(record, path, ["courseInstanceId", "title", "assessmentCount"]);
   return {
-    course: decodeCourseInstanceId(field(record, "course", path), `${path}.course`),
+    courseInstanceId: decodeCourseInstanceId(
+      field(record, "courseInstanceId", path),
+      `${path}.courseInstanceId`,
+    ),
     title: decodeCourseName(field(record, "title", path), `${path}.title`),
     assessmentCount: decodePositiveInteger(
       field(record, "assessmentCount", path),
@@ -257,10 +260,10 @@ function decodeQuestionUseDetails(value: unknown, path: string): QuestionUseDeta
   );
   const seenCourses = new Set<string>();
   for (const courseUsage of ownCourses) {
-    if (seenCourses.has(courseUsage.course)) {
+    if (seenCourses.has(courseUsage.courseInstanceId)) {
       throw new DecodeError(`${path}.ownCourses`, "unique course IDs");
     }
-    seenCourses.add(courseUsage.course);
+    seenCourses.add(courseUsage.courseInstanceId);
   }
   const ownCoursesTruncated = decodeBoolean(
     field(record, "ownCoursesTruncated", path),

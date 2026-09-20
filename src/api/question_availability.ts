@@ -4,20 +4,18 @@ import type { QuestionDetails } from "../../generated/api/QuestionDetails";
 import type { QuestionId } from "../../generated/api/QuestionId";
 import type { QuestionRevisionTuple } from "../../generated/api/QuestionRevisionTuple";
 import type { QuestionSummary } from "../../generated/api/QuestionSummary";
-
-export type QuestionAvailabilityEtag = string;
+import type { QuestionAvailabilityEditNumber } from "../../generated/api/QuestionAvailabilityEditNumber";
 
 export type QuestionAvailabilityTransition = {
   readonly availability: "available" | "archived";
-  readonly editNumber: string;
-  readonly etag: QuestionAvailabilityEtag;
+  readonly questionAvailabilityEditNumber: QuestionAvailabilityEditNumber;
 };
 
 /** Current discoverable lineage state and its qualified availability validator. */
 export type LoadedQuestionLineage = {
   readonly summary: QuestionSummary;
   readonly viewerMayArchive: boolean;
-  readonly availabilityEtag: QuestionAvailabilityEtag;
+  readonly questionAvailabilityEditNumber: QuestionAvailabilityEditNumber;
 };
 
 /** Instructor Question lineage administration and exact immutable revision reads. */
@@ -33,10 +31,10 @@ export interface QuestionAvailabilityClient {
   readonly archiveQuestion: (
     questionId: QuestionId,
     confirmationTitle: string,
-    etag: QuestionAvailabilityEtag,
+    expectedQuestionAvailabilityEditNumber: QuestionAvailabilityEditNumber,
   ) => Promise<QuestionAvailabilityTransition>;
   readonly restoreQuestion: (
     questionId: QuestionId,
-    etag: QuestionAvailabilityEtag,
+    expectedQuestionAvailabilityEditNumber: QuestionAvailabilityEditNumber,
   ) => Promise<QuestionAvailabilityTransition>;
 }

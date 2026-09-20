@@ -31,14 +31,9 @@ import type { PendingCourseInvitationsPage } from "../../generated/api/PendingCo
 import type { CourseInvitationStatePrecondition } from "../../generated/api/CourseInvitationStatePrecondition";
 import type { CapabilityValidator, FormatValidator, TimerEvaluator } from "../wasm/index";
 import type {
-  AssessmentEditorDetail,
-  AssessmentCreateInput,
-  AssessmentContentInput,
-  StudentAssessmentLandingSummary,
   StudentAssessmentDetail,
   StudentQuestionAttempt,
   AuthenticatedSession,
-  CourseSummary,
   CursorPage,
   ImathasQuestionBackendLaunch,
   StudentFeedbackReleaseResponse,
@@ -150,7 +145,6 @@ export interface ApiClient
   readonly resolveQuestion: (questionId: string) => Promise<QuestionSummary>;
   /** Gets the safe immutable Question Details View, never a complete Question Revision. */
   readonly getQuestionDetails: (questionId: QuestionId) => Promise<QuestionDetails>;
-  readonly listCourses: (cursor?: string) => Promise<CursorPage<CourseSummary>>;
   /** Gets only the authorized current Course Appearance View. */
   readonly getCourseAppearanceView: (
     courseInstanceId: CourseInstanceId,
@@ -174,43 +168,14 @@ export interface ApiClient
   readonly removeCourseBanner: (
     courseInstanceId: CourseInstanceId,
   ) => Promise<CourseAppearanceView>;
-  readonly listAssessments: (
-    courseId: CourseInstanceId,
-    cursor?: string,
-  ) => Promise<CursorPage<StudentAssessmentLandingSummary>>;
   /** Student-safe detail; Instructor workspace reads require an exact course identity. */
   readonly getAssessment: (assessmentId: AssessmentId) => Promise<StudentAssessmentDetail>;
   /** Current key-free student progress; the server omits withheld score totals. */
   readonly getAssessmentSummary: (assessmentId: AssessmentId) => Promise<StudentAssessmentProgress>;
-  /** Reads the course-bound Instructor assessment workspace. */
-  readonly getAssessmentWorkspace: (
-    courseId: CourseInstanceId,
-    assessmentId: AssessmentId,
-  ) => Promise<AssessmentEditorDetail>;
-  /** Creates a persisted empty Assessment with server-owned defaults. */
-  readonly createAssessment: (
-    courseId: CourseInstanceId,
-    input: AssessmentCreateInput,
-  ) => Promise<AssessmentEditorDetail>;
-  /** Replaces only Questions-owned title and ordered content. */
-  readonly saveAssessmentContent: (
-    courseId: CourseInstanceId,
-    assessmentId: AssessmentId,
-    input: AssessmentContentInput,
-    assessmentEtag: string,
-  ) => Promise<AssessmentEditorDetail>;
   readonly listAssessmentAttempts: (
     studentRecordId: StudentRecordId,
     cursor?: string,
   ) => Promise<CursorPage<AssessmentAttempt>>;
-  /**
-   * Starts or resumes student work within the course route that authorizes the assessment.
-   * The browser supplies no student-work authority or Answer Key.
-   */
-  readonly startAssessmentAttempt: (
-    courseId: CourseInstanceId,
-    assessmentId: AssessmentId,
-  ) => Promise<AssessmentAttempt>;
   readonly getAssessmentAttempt: (
     assessmentAttemptId: AssessmentAttemptId,
   ) => Promise<AssessmentAttempt>;

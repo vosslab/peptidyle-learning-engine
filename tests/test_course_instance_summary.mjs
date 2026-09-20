@@ -106,15 +106,15 @@ test("Course creation accepts only the two current source wires", () => {
   assert.deepEqual(
     decodeCreateCourseInstanceInput({
       ...common,
-      source: { kind: "adopted", blueprintCourse: "BP6F2R8TA9", blueprintRevisionNumber: "2" },
+      source: { kind: "adopted", blueprintCourseId: "BP6F2R8TA9", blueprintRevisionNumber: "2" },
     }).source,
-    { kind: "adopted", blueprintCourse: "BP6F2R8TA9", blueprintRevisionNumber: "2" },
+    { kind: "adopted", blueprintCourseId: "BP6F2R8TA9", blueprintRevisionNumber: "2" },
   );
   assert.throws(
     () =>
       decodeCreateCourseInstanceInput({
         ...common,
-        source: { kind: "empty", blueprintCourse: "BP6F2R8TA9" },
+        source: { kind: "empty", blueprintCourseId: "BP6F2R8TA9" },
       }),
     DecodeError,
   );
@@ -177,7 +177,7 @@ test("Course-derived Blueprint creation sends only metadata and requires a new p
   const input = { classification, shortName: "Mol Bio", longName: "Molecular Biology" };
   const created = await client.createBlueprintFromCourseInstance("CI6F2R8TA0", input, "create-7");
   assert.equal(created.blueprintCourse.id, "BP7K3M2QAF");
-  assert.equal(created.revisionEtag, '"1"');
+  assert.equal(created.blueprintCourse.current_revision_tuple.revisionNumber, "1");
   assert.equal(requests.length, 1);
   const [request] = requests;
   assert.equal(new URL(request.url).pathname, "/api/course-instances/CI6F2R8TA0/course-blueprints");

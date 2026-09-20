@@ -28,10 +28,9 @@ export interface CreateAssessmentFromTemplateInput {
   readonly title: AssessmentTitle;
 }
 
-/** One complete Template together with the exact strong ETag for its next replacement. */
+/** One complete Template together with its Assessment Template Edit Number. */
 export interface AssessmentTemplateResponse {
   readonly template: AssessmentTemplate;
-  readonly etag: string;
 }
 
 /** Same-origin private Template collection and compare-and-swap boundary. */
@@ -44,9 +43,9 @@ export interface AssessmentTemplateClient {
   readonly saveAssessmentTemplate: (
     id: AssessmentTemplateId,
     input: SaveAssessmentTemplateInput,
-    etag: string,
+    expectedAssessmentTemplateEditNumber: string,
   ) => Promise<AssessmentTemplateResponse>;
-  /** Creates an Unreleased live Assessment from one private Template and returns its strong ETag. */
+  /** Creates an Unreleased live Assessment from one private Template. */
   readonly createAssessmentFromTemplate: (
     course: CourseInstanceId,
     input: CreateAssessmentFromTemplateInput,

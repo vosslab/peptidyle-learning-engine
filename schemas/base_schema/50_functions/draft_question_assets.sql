@@ -28,7 +28,7 @@ BEFORE INSERT OR UPDATE ON ple_private.draft_question_asset
 FOR EACH ROW EXECUTE FUNCTION ple_private.validate_draft_question_asset();
 
 CREATE FUNCTION ple_private.register_draft_question_asset(
-    p_draft_question_uuid uuid, p_expected_edit_number bigint, p_asset_id uuid,
+    p_draft_question_uuid uuid, p_expected_draft_question_edit_number bigint, p_asset_id uuid,
     p_object_record_id uuid, p_object_address jsonb, p_sha256 bytea, p_size_bytes bigint,
     p_media_type text, p_created_at_millis bigint, p_width integer, p_height integer
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
@@ -36,7 +36,7 @@ SET search_path = pg_catalog, ple_api, ple_private AS $$
 DECLARE draft ple_private.draft_question%ROWTYPE; expected_address jsonb;
 BEGIN
     IF p_draft_question_uuid IS NULL OR p_asset_id IS NULL OR p_object_record_id IS NULL OR p_sha256 IS NULL OR octet_length(p_sha256) <> 32
-       OR p_expected_edit_number IS NULL OR p_expected_edit_number <= 0
+       OR p_expected_draft_question_edit_number IS NULL OR p_expected_draft_question_edit_number <= 0
        OR p_size_bytes IS NULL OR p_size_bytes NOT BETWEEN 1 AND 8388608
        OR p_media_type IS NULL OR p_media_type NOT IN ('image/png', 'image/jpeg', 'image/webp')
        OR p_created_at_millis IS NULL OR p_width IS NULL OR p_height IS NULL
@@ -52,7 +52,7 @@ BEGIN
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Draft Question is not available in the current Authoring Workspace';
     END IF;
-    IF draft.draft_question_edit_number <> p_expected_edit_number THEN
+    IF draft.draft_question_edit_number <> p_expected_draft_question_edit_number THEN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Draft Question Edit Number is stale';
     END IF;
     expected_address := jsonb_build_object('kind', 'draftQuestionAsset', 'workspace', draft.authoring_workspace_id,
@@ -85,11 +85,11 @@ $$;
 SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.register_draft_question_asset(
-    p_draft_question_uuid uuid, p_expected_edit_number bigint, p_asset_id uuid,
+    p_draft_question_uuid uuid, p_expected_draft_question_edit_number bigint, p_asset_id uuid,
     p_object_record_id uuid, p_object_address jsonb, p_sha256 bytea, p_size_bytes bigint,
     p_media_type text, p_created_at_millis bigint, p_width integer, p_height integer
 ) RETURNS void LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private AS $$
-    SELECT ple_private.register_draft_question_asset(p_draft_question_uuid,p_expected_edit_number,p_asset_id,
+    SELECT ple_private.register_draft_question_asset(p_draft_question_uuid,p_expected_draft_question_edit_number,p_asset_id,
         p_object_record_id,p_object_address,p_sha256,p_size_bytes,p_media_type,p_created_at_millis,p_width,p_height)
 $$;
 

@@ -153,8 +153,8 @@ async fn read_committed_assessment_attempt(
         })
         .collect::<Result<Vec<_>, StoreError>>()?;
     Ok(LiveAssessmentAttempt {
-        assessment_attempt,
-        assessment,
+        assessment_attempt_id: assessment_attempt,
+        assessment_id: assessment,
         attempt_number: positive_i32(
             &header,
             "assessment_attempt_number",
@@ -228,7 +228,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
         }
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(StudentAssessmentAttemptSavedResponse {
-            assessment_attempt,
+            assessment_attempt_id: assessment_attempt,
             position: position_u32,
         })
     }
@@ -340,7 +340,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
         }
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(StudentAssessmentAttemptProgress {
-            assessment_attempt,
+            assessment_attempt_id: assessment_attempt,
             question_count,
             recommended_position,
             positions,

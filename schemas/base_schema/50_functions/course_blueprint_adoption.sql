@@ -3,7 +3,7 @@
 SET LOCAL ROLE ple_api_owner;
 
 -- Atomic initial teaching content, materialized by the Store from the exact Blueprint.
-CREATE FUNCTION ple_api.load_course_instance_blueprint(p_blueprint_course_id text, p_revision_number bigint)
+CREATE FUNCTION ple_api.load_course_instance_blueprint(p_blueprint_course_id text, p_blueprint_revision_number bigint)
 RETURNS TABLE(content jsonb, content_checksum bytea)
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
@@ -11,7 +11,7 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
       FROM ple_data.blueprint_course AS blueprint
       JOIN ple_data.blueprint_course_revision AS revision
         ON revision.blueprint_course_id = blueprint.blueprint_course_id
-       AND revision.blueprint_revision_number = p_revision_number
+       AND revision.blueprint_revision_number = p_blueprint_revision_number
      WHERE blueprint.blueprint_course_id = p_blueprint_course_id
        AND blueprint.availability = 'public'
        AND (ple_api.current_session_account_is_instructor()
@@ -24,7 +24,7 @@ $$;
 
 -- The automatic append is authorized by Blueprint ownership, not daughter
 -- teaching membership or current Course Instance activity.
-CREATE FUNCTION ple_api.load_blueprint_assessment_copy_source(p_blueprint_course_id text, p_revision_number bigint)
+CREATE FUNCTION ple_api.load_blueprint_assessment_copy_source(p_blueprint_course_id text, p_blueprint_revision_number bigint)
 RETURNS TABLE(content jsonb, content_checksum bytea)
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
@@ -32,7 +32,7 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
       FROM ple_data.blueprint_course AS blueprint
       JOIN ple_data.blueprint_course_revision AS revision
         ON revision.blueprint_course_id = blueprint.blueprint_course_id
-       AND revision.blueprint_revision_number = p_revision_number
+       AND revision.blueprint_revision_number = p_blueprint_revision_number
      WHERE blueprint.blueprint_course_id = p_blueprint_course_id
        AND ((blueprint.availability IN ('public', 'archived')
              AND (ple_api.current_session_account_is_instructor()
@@ -353,7 +353,7 @@ END
 $$;
 
 CREATE FUNCTION ple_api.append_new_blueprint_assessments(
-    p_blueprint_course_id text, p_prior_revision_number bigint, p_saved_revision_number bigint,
+    p_blueprint_course_id text, p_prior_blueprint_revision_number bigint, p_saved_blueprint_revision_number bigint,
     p_course_instance_id text, p_assessments jsonb
 )
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER
@@ -371,8 +371,8 @@ BEGIN
        AND owner_account_id = ple_api.current_session_account_id()
        AND ple_api.current_session_account_is_instructor()
      FOR UPDATE;
-    IF NOT FOUND OR p_saved_revision_number <> p_prior_revision_number + 1
-       OR blueprint.current_blueprint_revision_number < p_saved_revision_number
+    IF NOT FOUND OR p_saved_blueprint_revision_number <> p_prior_blueprint_revision_number + 1
+       OR blueprint.current_blueprint_revision_number < p_saved_blueprint_revision_number
        OR jsonb_typeof(p_assessments) IS DISTINCT FROM 'array'
        OR NOT EXISTS (
            SELECT 1 FROM ple_data.course_instance
@@ -386,11 +386,11 @@ BEGIN
       INTO expected_sources
       FROM ple_data.blueprint_revision_assessment AS added
      WHERE added.blueprint_course_id = blueprint.blueprint_course_id
-       AND added.blueprint_revision_number = p_saved_revision_number
+       AND added.blueprint_revision_number = p_saved_blueprint_revision_number
        AND NOT EXISTS (
            SELECT 1 FROM ple_data.blueprint_revision_assessment AS prior
             WHERE prior.blueprint_course_id = blueprint.blueprint_course_id
-              AND prior.blueprint_revision_number = p_prior_revision_number
+              AND prior.blueprint_revision_number = p_prior_blueprint_revision_number
               AND prior.blueprint_assessment_id = added.blueprint_assessment_id
        );
     SELECT COALESCE(jsonb_agg(value ->> 'source' ORDER BY value ->> 'source'), '[]'::jsonb)
@@ -399,7 +399,7 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Blueprint append must contain only newly added Assessments';
     END IF;
     PERFORM ple_data.append_course_assessments(
-        p_course_instance_id, blueprint.blueprint_course_id, p_saved_revision_number, p_assessments
+        p_course_instance_id, blueprint.blueprint_course_id, p_saved_blueprint_revision_number, p_assessments
     );
 END
 $$;

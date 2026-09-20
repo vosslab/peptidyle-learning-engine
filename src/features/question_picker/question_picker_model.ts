@@ -21,8 +21,8 @@ export const MAX_QUESTION_PICKER_SELECTION_CAP = 1024;
 
 /** Stable browser IDs for one retained Course Instance Assessment. */
 export interface RetainedAssessmentId {
-  readonly course: string;
-  readonly assessment: string;
+  readonly courseInstanceId: string;
+  readonly assessmentId: string;
 }
 
 /**
@@ -282,21 +282,21 @@ function reusableQuestionLibraryRow(item: {
 
 function selectedBlueprintAssessment(
   source: BlueprintAssessmentSource,
-  revision: Awaited<ReturnType<BlueprintCourseClient["getBlueprintRevision"]>>,
+  blueprintRevision: Awaited<ReturnType<BlueprintCourseClient["getBlueprintRevision"]>>,
 ): Awaited<
   ReturnType<BlueprintCourseClient["getBlueprintRevision"]>
 >["modules"][number]["assessments"][number] {
   if (
-    revision.blueprintRevisionTuple.blueprintCourseId !==
+    blueprintRevision.blueprintRevisionTuple.blueprintCourseId !==
       source.blueprint_revision_tuple.blueprintCourseId ||
-    revision.blueprintRevisionTuple.revisionNumber !==
+    blueprintRevision.blueprintRevisionTuple.revisionNumber !==
       source.blueprint_revision_tuple.revisionNumber
   ) {
     throw new Error(
       "The selected Blueprint Revision did not resolve. Choose an Assessment from the Course's Blueprint Revision.",
     );
   }
-  for (const module of revision.modules) {
+  for (const module of blueprintRevision.modules) {
     const content = module.assessments.find(
       (assessment) => assessment.blueprint_assessment_id === source.blueprint_assessment_id,
     );
@@ -342,11 +342,11 @@ export function blueprintCourseQuestionPickerRepository(
       let rows: ReadonlyArray<QuestionLibraryBrowseRow>;
       if (request.source.kind === "blueprintCourseAssessment") {
         const source = request.source.source;
-        const revision = await client.getBlueprintRevision(
+        const blueprintRevision = await client.getBlueprintRevision(
           source.blueprint_revision_tuple.blueprintCourseId,
           source.blueprint_revision_tuple.revisionNumber,
         );
-        rows = contentRows(selectedBlueprintAssessment(source, revision).content);
+        rows = contentRows(selectedBlueprintAssessment(source, blueprintRevision).content);
       } else {
         throw new Error("Choose a Blueprint Course source for this picker composition.");
       }

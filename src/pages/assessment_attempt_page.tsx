@@ -102,7 +102,7 @@ function AttemptExperience(props: {
     setLoadError(null);
     try {
       const next = await runtime.client.getStudentAssessmentAttemptProgress(
-        props.context.assessmentAttempt,
+        props.context.assessmentAttemptId,
       );
       if (request !== progressRequest) return;
       const finalized =
@@ -142,7 +142,7 @@ function AttemptExperience(props: {
     setLoadError(null);
     try {
       const next = await runtime.client.getStudentAssessmentAttemptPresentation(
-        props.context.assessmentAttempt,
+        props.context.assessmentAttemptId,
         nextPosition,
       );
       if (request !== presentationRequest) return;
@@ -181,7 +181,7 @@ function AttemptExperience(props: {
       setSaveError(null);
       try {
         await runtime.client.saveStudentAssessmentAttemptResponse(
-          props.context.assessmentAttempt,
+          props.context.assessmentAttemptId,
           selected,
           current,
         );
@@ -249,7 +249,7 @@ function AttemptExperience(props: {
       const result = await saveCapturedBackendOwnedResponse(
         backendOwnedCapture,
         saveCurrentResponseBeforeAttemptSubmission,
-        () => runtime.client.submitStudentAssessmentAttempt(props.context.assessmentAttempt),
+        () => runtime.client.submitStudentAssessmentAttempt(props.context.assessmentAttemptId),
       );
       if (!result) {
         setSubmissionState("error");
@@ -260,7 +260,7 @@ function AttemptExperience(props: {
       // ASVS 1.2.2, 2.3.1, 8.2.2-8.2.3: enter the server-authorized, field-redacted result
       // view only after this exact whole-Attempt submission is accepted.
       navigate(
-        `/assessment-attempts/${assessmentAttemptRouteId(result.assessmentAttempt)}/summary`,
+        `/assessment-attempts/${assessmentAttemptRouteId(result.assessmentAttemptId)}/summary`,
         { replace: true },
       );
     } catch (error: unknown) {
@@ -344,7 +344,7 @@ function AttemptExperience(props: {
     const refresh = (async (): Promise<void> => {
       try {
         const context = await runtime.client.getStudentAssessmentAttemptContext(
-          props.context.assessmentAttempt,
+          props.context.assessmentAttemptId,
         );
         setRemainingMilliseconds(context.timerRemainingMilliseconds);
         await loadProgress();
@@ -496,14 +496,14 @@ function AttemptExperience(props: {
                   }
                 >
                   <AuthorContentFrame
-                    assessmentAttempt={props.context.assessmentAttempt}
+                    assessmentAttempt={props.context.assessmentAttemptId}
                     position={currentPresentation.position}
                   />
                 </Show>
               </div>
               <div class="attempt-response">
                 <QuestionPresentationResponseControl
-                  attemptId={`${props.context.assessmentAttempt}-${currentPresentation.position}`}
+                  attemptId={`${props.context.assessmentAttemptId}-${currentPresentation.position}`}
                   questionRevisionTuple={currentPresentation.presentation.questionRevisionTuple}
                   assetUrl={(asset) =>
                     new URL(
@@ -514,7 +514,7 @@ function AttemptExperience(props: {
                       window.location.origin,
                     )
                   }
-                  assessmentAttempt={props.context.assessmentAttempt}
+                  assessmentAttempt={props.context.assessmentAttemptId}
                   position={currentPresentation.position}
                   registerBackendOwnedCapture={(capture) => {
                     backendOwnedCapture = capture;

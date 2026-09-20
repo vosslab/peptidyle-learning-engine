@@ -42,7 +42,9 @@ export interface AssessmentWorkspaceContextValue {
   readonly saveBaseAssessmentPolicy: (
     input: SaveBaseAssessmentPolicyInput,
   ) => Promise<LiveAssessmentWorkspaceResponse>;
-  readonly release: (etag: string) => Promise<LiveAssessmentWorkspaceResponse>;
+  readonly release: (
+    expectedAssessmentEditNumber: string,
+  ) => Promise<LiveAssessmentWorkspaceResponse>;
   readonly unrelease: (confirmationTitle: string) => Promise<UnreleasedLiveAssessment>;
   readonly reloadAssessment: () => Promise<LiveAssessmentWorkspaceResponse>;
 }
@@ -216,7 +218,7 @@ function AssessmentWorkspaceLiveContent(props: AssessmentWorkspaceLivePageProps)
           courseInstanceId,
           assessmentId,
           input,
-          currentAssessment().etag,
+          currentAssessment().workspace.editNumber,
         );
         replaceCurrentAssessment(saved);
         return saved;
@@ -228,16 +230,18 @@ function AssessmentWorkspaceLiveContent(props: AssessmentWorkspaceLivePageProps)
           courseInstanceId,
           assessmentId,
           input,
-          currentAssessment().etag,
+          currentAssessment().workspace.editNumber,
         );
         replaceCurrentAssessment(saved);
         return saved;
       };
-      const release = async (etag: string): Promise<LiveAssessmentWorkspaceResponse> => {
+      const release = async (
+        expectedAssessmentEditNumber: string,
+      ): Promise<LiveAssessmentWorkspaceResponse> => {
         const released = await applicationApi.client.releaseLiveAssessment(
           courseInstanceId,
           assessmentId,
-          etag,
+          expectedAssessmentEditNumber,
         );
         replaceCurrentAssessment(released);
         return released;
@@ -247,10 +251,10 @@ function AssessmentWorkspaceLiveContent(props: AssessmentWorkspaceLivePageProps)
           courseInstanceId,
           assessmentId,
           confirmationTitle,
-          currentAssessment().etag,
+          currentAssessment().workspace.editNumber,
         );
-        replaceCurrentAssessment({ workspace: result.result.assessment, etag: result.etag });
-        return result.result;
+        replaceCurrentAssessment({ workspace: result.assessment });
+        return result;
       };
       setWorkspace({
         courseInstanceId,

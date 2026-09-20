@@ -526,8 +526,8 @@ export function CourseInstancePage(): JSX.Element {
         {(view) => (
           <>
             <header class="course-instance-page__identity">
-              <p class="eyebrow">Course Instance · {view().course.id}</p>
-              <h1>{view().course.longName}</h1>
+              <p class="eyebrow">Course Instance · {view().courseInstance.id}</p>
+              <h1>{view().courseInstance.longName}</h1>
             </header>
             <section
               class="course-instance-page__assessments"
@@ -544,7 +544,7 @@ export function CourseInstancePage(): JSX.Element {
                 </div>
                 <A
                   class="primary-link"
-                  href={`/instructor/courses/${view().course.id}/assessments/new`}
+                  href={`/instructor/courses/${view().courseInstance.id}/assessments/new`}
                 >
                   Create Assessment
                 </A>
@@ -575,7 +575,7 @@ export function CourseInstancePage(): JSX.Element {
                   <For each={assessments()}>
                     {(assessment, index) => (
                       <AssessmentRow
-                        courseInstanceId={view().course.id}
+                        courseInstanceId={view().courseInstance.id}
                         assessment={assessment}
                         position={index() + 1}
                       />
@@ -599,7 +599,8 @@ export function CourseInstancePage(): JSX.Element {
                 >
                   <h3 id="course-term-heading">Course Term</h3>
                   <p>
-                    {view().course.term.startDate} through {view().course.term.endDate}
+                    {view().courseInstance.term.startDate} through{" "}
+                    {view().courseInstance.term.endDate}
                   </p>
                 </section>
                 <section
@@ -619,19 +620,19 @@ export function CourseInstancePage(): JSX.Element {
                 >
                   <h3 id="course-classification-heading">Classification</h3>
                   <CourseClassificationEditor
-                    value={view().course.classification}
-                    editNumber={view().course.courseEditNumber}
+                    value={view().courseInstance.classification}
+                    editNumber={view().courseInstance.courseEditNumber}
                     canEdit
                     save={async (classification, editNumber) => {
                       const saved = await applicationApi.client.updateCourseInstanceClassification(
-                        view().course.id,
+                        view().courseInstance.id,
                         classification,
                         editNumber,
                       );
                       mutateCourse({
                         ...view(),
-                        course: {
-                          ...view().course,
+                        courseInstance: {
+                          ...view().courseInstance,
                           classification: saved.classification,
                           courseEditNumber: saved.courseEditNumber,
                         },
@@ -639,12 +640,12 @@ export function CourseInstancePage(): JSX.Element {
                     }}
                     reload={async () => {
                       const current = await applicationApi.client.getCourseInstance(
-                        view().course.id,
+                        view().courseInstance.id,
                       );
                       mutateCourse(current);
                       return {
-                        classification: current.course.classification,
-                        editNumber: current.course.courseEditNumber,
+                        classification: current.courseInstance.classification,
+                        editNumber: current.courseInstance.courseEditNumber,
                       };
                     }}
                   />
@@ -658,8 +659,10 @@ export function CourseInstancePage(): JSX.Element {
                       <h3 id="blueprint-source-heading">Blueprint source</h3>
                       <p data-blueprint-origin>
                         Adopted from Blueprint{" "}
-                        <A href={`/blueprint-courses/${origin().id}`}>{origin().id}</A>, Revision{" "}
-                        {origin().adoptedRevisionNumber}; source now Revision{" "}
+                        <A href={`/blueprint-courses/${origin().blueprintCourseId}`}>
+                          {origin().blueprintCourseId}
+                        </A>
+                        , Revision {origin().adoptedRevisionNumber}; source now Revision{" "}
                         {origin().currentRevisionNumber}.
                       </p>
                       <Show
@@ -669,7 +672,9 @@ export function CourseInstancePage(): JSX.Element {
                         }
                       >
                         <p data-blueprint-revision-notice>Newer Blueprint Revision available</p>
-                        <CourseBlueprintUpdateReviewList courseInstanceId={view().course.id} />
+                        <CourseBlueprintUpdateReviewList
+                          courseInstanceId={view().courseInstance.id}
+                        />
                       </Show>
                     </section>
                   )}
@@ -681,14 +686,20 @@ export function CourseInstancePage(): JSX.Element {
               >
                 <h3 id="course-administration-heading">Course tools</h3>
                 <nav class="course-instance-page__actions" aria-label="Course actions">
-                  <A class="quiet-link" href={`/instructor/courses/${view().course.id}/students`}>
+                  <A
+                    class="quiet-link"
+                    href={`/instructor/courses/${view().courseInstance.id}/students`}
+                  >
                     Open Students
                   </A>
-                  <A class="quiet-link" href={`/instructor/courses/${view().course.id}/appearance`}>
+                  <A
+                    class="quiet-link"
+                    href={`/instructor/courses/${view().courseInstance.id}/appearance`}
+                  >
                     Appearance
                   </A>
                 </nav>
-                <CreateBlueprintFromCourseInstance course={view().course} />
+                <CreateBlueprintFromCourseInstance course={view().courseInstance} />
                 <Show
                   when={profile.error === undefined}
                   fallback={
@@ -712,7 +723,7 @@ export function CourseInstancePage(): JSX.Element {
                   >
                     {(settings) => (
                       <CourseStudentWorkRecovery
-                        course={view().course.id}
+                        course={view().courseInstance.id}
                         client={applicationApi.client}
                         displayTimeZone={settings().timeZone}
                       />

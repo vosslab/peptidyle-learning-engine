@@ -10,7 +10,7 @@ export type StudentAssessmentAttemptResponseState = "unanswered" | "saved" | "su
 
 /** Answer-free durable navigation projection for one authorized Student Attempt. */
 export interface StudentAssessmentAttemptProgress {
-  readonly assessmentAttempt: AssessmentAttemptId;
+  readonly assessmentAttemptId: AssessmentAttemptId;
   readonly questionCount: number;
   readonly recommendedPosition: number | null;
   readonly positions: ReadonlyArray<{
@@ -21,7 +21,7 @@ export interface StudentAssessmentAttemptProgress {
 
 /** UUID-free display context authorized with an active Student Assessment Attempt. */
 export interface StudentAssessmentAttemptContext {
-  readonly assessmentAttempt: AssessmentAttemptId;
+  readonly assessmentAttemptId: AssessmentAttemptId;
   readonly attemptNumber: number;
   readonly displayTimeZone: AccountTimeZone;
   readonly expiresAt: number | null;
@@ -48,14 +48,14 @@ export interface StudentAssessmentAttemptPresentation {
 
 /** Durable-save receipt for one owned Question position in an Assessment Attempt. */
 export interface StudentAssessmentAttemptResponseSaveAcknowledgement {
-  readonly assessmentAttempt: AssessmentAttemptId;
+  readonly assessmentAttemptId: AssessmentAttemptId;
   readonly position: number;
   readonly responseState: "saved";
 }
 
 /** Immutable final-submission result for the whole Assessment Attempt. */
 export interface StudentAssessmentAttemptSubmissionResult {
-  readonly assessmentAttempt: AssessmentAttemptId;
+  readonly assessmentAttemptId: AssessmentAttemptId;
   readonly submissionState: "submitted";
 }
 

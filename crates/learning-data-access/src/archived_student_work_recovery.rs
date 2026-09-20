@@ -10,11 +10,11 @@ use crate::{SessionTokenHash, StoreError};
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RecoverySummary {
-    pub course: CourseInstanceId,
+    pub course_instance_id: CourseInstanceId,
     pub roster_id: Option<String>,
-    pub assessment: question_model::AssessmentId,
+    pub assessment_id: question_model::AssessmentId,
     pub assessment_title: String,
-    pub assessment_attempt: AssessmentAttemptId,
+    pub assessment_attempt_id: AssessmentAttemptId,
     pub assessment_attempt_number: u32,
     pub started_at: String,
     pub submitted_at: Option<String>,
@@ -26,10 +26,10 @@ pub struct RecoverySummary {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RecoveredAttempt {
-    pub course: CourseInstanceId,
+    pub course_instance_id: CourseInstanceId,
     pub roster_id: Option<String>,
-    pub assessment: question_model::AssessmentId,
-    pub assessment_attempt: AssessmentAttemptId,
+    pub assessment_id: question_model::AssessmentId,
+    pub assessment_attempt_id: AssessmentAttemptId,
     pub assessment_attempt_number: u32,
     pub started_at: String,
     pub expires_at: Option<String>,

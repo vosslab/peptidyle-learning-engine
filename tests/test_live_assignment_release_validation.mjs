@@ -265,12 +265,12 @@ test("release returns the complete current Assessment and its replacement ETag",
   const result = await createHttpApiClient({ fetch: recordingFetch }).releaseLiveAssessment(
     course,
     assessment,
-    '"1"',
+    "1",
   );
   assert.equal(result.workspace.status, "released");
   assert.equal(result.workspace.assessmentType, "regular_assignment");
   assert.equal(result.workspace.entries[1].kind, "questionPool");
-  assert.equal(result.etag, '"2"');
+  assert.equal(result.workspace.editNumber, "2");
   assert.equal(requests[0].method, "POST");
   assert.equal(requests[0].headers.get("if-match"), '"1"');
 });
@@ -357,11 +357,11 @@ test("Unrelease uses aggregate-only impact, exact title, and a replacement Asses
     course,
     assessment,
     loadedImpact.confirmationTitle,
-    '"2"',
+    "2",
   );
-  assert.equal(result.result.assessment.status, "unreleased");
-  assert.equal(result.result.deleted.submissionCount, 6);
-  assert.equal(result.etag, '"3"');
+  assert.equal(result.assessment.status, "unreleased");
+  assert.equal(result.deleted.submissionCount, 6);
+  assert.equal(result.assessment.editNumber, "3");
   assert.equal(requests[0].method, "GET");
   assert.equal(requests[1].method, "POST");
   assert.equal(requests[1].headers.get("if-match"), '"2"');

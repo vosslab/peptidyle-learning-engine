@@ -24,7 +24,7 @@ pub struct PreviewSelectedMoment {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct HypotheticalStudentViewScenarioRequest {
-    pub assessment: AssessmentId,
+    pub assessment_id: AssessmentId,
     pub edit_number: AssessmentEditNumber,
     pub selected_moment: PreviewSelectedMoment,
     pub modifiers: HypotheticalStudentViewScenarioModifiers,
@@ -48,7 +48,7 @@ pub struct HypotheticalStudentViewScenarioModifiers {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct SelectedStudentViewScenarioRequest {
-    pub assessment: AssessmentId,
+    pub assessment_id: AssessmentId,
     pub edit_number: AssessmentEditNumber,
     pub selected_moment: PreviewSelectedMoment,
     pub selected_student_membership: CourseMembershipId,
@@ -234,7 +234,7 @@ pub enum StudentViewScenarioAdmission {
 )]
 pub struct StudentViewScenario {
     pub origin: StudentViewScenarioOrigin,
-    pub assessment: AssessmentId,
+    pub assessment_id: AssessmentId,
     pub edit_number: AssessmentEditNumber,
     pub selected_moment: PreviewSelectedMoment,
     pub policy: PreviewResolvedPolicy,
@@ -245,7 +245,7 @@ pub struct StudentViewScenario {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 struct StudentViewScenarioWire {
     origin: StudentViewScenarioOrigin,
-    assessment: AssessmentId,
+    assessment_id: AssessmentId,
     edit_number: AssessmentEditNumber,
     selected_moment: PreviewSelectedMoment,
     policy: PreviewResolvedPolicy,
@@ -257,7 +257,7 @@ impl TryFrom<StudentViewScenarioWire> for StudentViewScenario {
     fn try_from(value: StudentViewScenarioWire) -> Result<Self, Self::Error> {
         Self::new(
             value.origin,
-            value.assessment,
+            value.assessment_id,
             value.edit_number,
             value.selected_moment,
             value.policy,
@@ -271,7 +271,7 @@ impl StudentViewScenario {
     /// authorization and resolution.
     pub fn new(
         origin: StudentViewScenarioOrigin,
-        assessment: AssessmentId,
+        assessment_id: AssessmentId,
         edit_number: AssessmentEditNumber,
         selected_moment: PreviewSelectedMoment,
         policy: PreviewResolvedPolicy,
@@ -279,7 +279,7 @@ impl StudentViewScenario {
     ) -> Result<Self, &'static str> {
         Ok(Self {
             origin,
-            assessment,
+            assessment_id,
             edit_number,
             selected_moment,
             policy,
@@ -481,7 +481,7 @@ mod direct_preview_tests {
     #[test]
     fn hypothetical_student_view_scenario_request_accepts_only_direct_preview_fields() {
         let request = serde_json::json!({
-            "assessment": "A7K3M2QXF",
+            "assessment_id": "A7K3M2QXF",
             "edit_number": "1",
             "selected_moment": { "value": "2026-08-20T09:00:00.000" },
             "modifiers": { "mode": "extend_only", "adjustment": {

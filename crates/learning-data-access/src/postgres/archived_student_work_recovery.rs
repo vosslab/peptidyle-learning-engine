@@ -69,7 +69,7 @@ impl ArchivedStudentWorkRecoveryStore for PostgresArchivedStudentWorkRecoverySto
         .await
         .map_err(map_sqlx_error)?;
         let result = rows.iter().map(summary).collect::<Result<Vec<_>, _>>()?;
-        if result.iter().any(|r| r.course != course) {
+        if result.iter().any(|r| r.course_instance_id != course) {
             return Err(invalid());
         }
         // ASVS 2.3.3: release retention lock before HTTP output or browser wait.
@@ -102,14 +102,14 @@ impl ArchivedStudentWorkRecoveryStore for PostgresArchivedStudentWorkRecoverySto
         let submission: Option<Submission> = document(&row, "submission")?;
         let questions: Vec<RetainedQuestion> = document(&row, "questions")?;
         let mut result = RecoveredAttempt {
-            course: get::<String>(&row, "course_instance_id")?
+            course_instance_id: get::<String>(&row, "course_instance_id")?
                 .parse()
                 .map_err(|_| invalid())?,
             roster_id: get(&row, "roster_id")?,
-            assessment: get::<String>(&row, "assessment_id")?
+            assessment_id: get::<String>(&row, "assessment_id")?
                 .parse()
                 .map_err(|_| invalid())?,
-            assessment_attempt: assessment_attempt_id(&row)?,
+            assessment_attempt_id: assessment_attempt_id(&row)?,
             assessment_attempt_number: positive(&row, "assessment_attempt_number")?,
             started_at: get(&row, "started_at")?,
             expires_at: get(&row, "expires_at")?,
@@ -120,7 +120,7 @@ impl ArchivedStudentWorkRecoveryStore for PostgresArchivedStudentWorkRecoverySto
             submission_text: submission.as_ref().map(text).transpose()?,
             questions: Vec::with_capacity(questions.len()),
         };
-        if result.course != course || result.assessment_attempt != attempt {
+        if result.course_instance_id != course || result.assessment_attempt_id != attempt {
             return Err(invalid());
         }
         for question in questions {
@@ -186,15 +186,15 @@ struct ResponseEvidence<'a> {
 
 fn summary(row: &PgRow) -> Result<RecoverySummary, StoreError> {
     Ok(RecoverySummary {
-        course: get::<String>(row, "course_instance_id")?
+        course_instance_id: get::<String>(row, "course_instance_id")?
             .parse()
             .map_err(|_| invalid())?,
         roster_id: get(row, "roster_id")?,
-        assessment: get::<String>(row, "assessment_id")?
+        assessment_id: get::<String>(row, "assessment_id")?
             .parse()
             .map_err(|_| invalid())?,
         assessment_title: get(row, "assessment_title")?,
-        assessment_attempt: assessment_attempt_id(row)?,
+        assessment_attempt_id: assessment_attempt_id(row)?,
         assessment_attempt_number: positive(row, "assessment_attempt_number")?,
         started_at: get(row, "started_at")?,
         submitted_at: get(row, "submitted_at")?,

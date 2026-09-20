@@ -282,7 +282,7 @@ export function QuestionArchiveControl(props: QuestionArchiveControlProps): JSX.
       const transition = await props.client.archiveQuestion(
         props.questionId,
         archiveConfirmation(),
-        currentLineage.value.availabilityEtag,
+        currentLineage.value.questionAvailabilityEditNumber,
       );
       mutateLineage({
         kind: "ready",
@@ -292,7 +292,7 @@ export function QuestionArchiveControl(props: QuestionArchiveControlProps): JSX.
             availability: { availability: transition.availability },
           },
           viewerMayArchive: currentLineage.value.viewerMayArchive,
-          availabilityEtag: transition.etag,
+          questionAvailabilityEditNumber: transition.questionAvailabilityEditNumber,
         },
       });
       setArchiveOpen(false);

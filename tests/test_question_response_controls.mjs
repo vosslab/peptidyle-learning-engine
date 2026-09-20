@@ -507,7 +507,7 @@ test("iMathAS Question Backend readiness and route values admit only the narrow 
   const origin = "https://client.example.test";
   assert.equal(
     isSafeImathasQuestionBackendLaunchPath(
-      "/api/courses/course-imathas/assessments/assessment-imathas/attempts/attempt-imathas/imathas-question-backend/launch",
+      "/api/course-instances/course-imathas/assessments/assessment-imathas/attempts/attempt-imathas/imathas-question-backend/launch",
       courseId,
       assessmentId,
       attemptId,
@@ -516,7 +516,7 @@ test("iMathAS Question Backend readiness and route values admit only the narrow 
     true,
   );
   const expected =
-    "/api/courses/course-imathas/assessments/assessment-imathas/attempts/attempt-imathas/imathas-question-backend/launch";
+    "/api/course-instances/course-imathas/assessments/assessment-imathas/attempts/attempt-imathas/imathas-question-backend/launch";
   for (const unsafe of [
     `https://client.example.test${expected}`,
     `https://foreign.example${expected}`,
@@ -526,8 +526,8 @@ test("iMathAS Question Backend readiness and route values admit only the narrow 
     expected.replace(attemptId, "other-attempt"),
     `${expected}?token=secret`,
     `${expected}#fragment`,
-    expected.replace("courses/course-imathas", "courses/../foreign"),
-    expected.replace("courses/course-imathas", "courses/%2e%2e/foreign"),
+    expected.replace("course-instances/course-imathas", "course-instances/../foreign"),
+    expected.replace("course-instances/course-imathas", "course-instances/%2e%2e/foreign"),
     expected.replace("/imathas-question-backend/", "\\imathas-question-backend\\"),
   ]) {
     assert.equal(

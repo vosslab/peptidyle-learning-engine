@@ -10,9 +10,9 @@ REVOKE ALL ON FUNCTION ple_api.load_blueprint_comparison_sources(text, text) FRO
 
 GRANT EXECUTE ON FUNCTION ple_api.load_blueprint_comparison_sources(text, text) TO ple_app;
 
-REVOKE ALL ON FUNCTION ple_api.load_blueprint_fork_apply_sources(text, bigint, uuid, text, bigint, uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_api.load_blueprint_fork_apply_sources(text, bigint, bigint, text, bigint, bigint) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_api.load_blueprint_fork_apply_sources(text, bigint, uuid, text, bigint, uuid) TO ple_app;
+GRANT EXECUTE ON FUNCTION ple_api.load_blueprint_fork_apply_sources(text, bigint, bigint, text, bigint, bigint) TO ple_app;
 
 REVOKE ALL ON FUNCTION ple_api.load_blueprint_fork_source(text, bigint, bytea) FROM PUBLIC;
 

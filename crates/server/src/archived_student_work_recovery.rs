@@ -47,8 +47,8 @@ enum Input {
         cursor: Option<String>,
     },
     Recover {
-        #[serde(rename = "assessmentAttempt")]
-        assessment_attempt: AssessmentAttemptId,
+        #[serde(rename = "assessmentAttemptId")]
+        assessment_attempt_id: AssessmentAttemptId,
     },
 }
 
@@ -61,7 +61,7 @@ fn required_nullable_cursor<'de, D: serde::Deserializer<'de>>(
 #[serde(tag = "action", rename_all = "camelCase")]
 enum Output {
     Select {
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
         attempts: Vec<RecoverySummary>,
         #[serde(rename = "nextCursor")]
         next_cursor: Option<String>,
@@ -121,21 +121,23 @@ async fn recover(
                         attempts.truncate(100);
                         attempts.last().map(|last| {
                             URL_SAFE_NO_PAD
-                                .encode(format!("{}:{}", course, last.assessment_attempt))
+                                .encode(format!("{}:{}", course, last.assessment_attempt_id))
                         })
                     } else {
                         None
                     };
                     Output::Select {
-                        course,
+                        course_instance_id: course,
                         attempts,
                         next_cursor,
                     }
                 })
         }
-        Input::Recover { assessment_attempt } => state
+        Input::Recover {
+            assessment_attempt_id,
+        } => state
             .recovery
-            .recover_retained_work(session.session_hash, course, assessment_attempt)
+            .recover_retained_work(session.session_hash, course, assessment_attempt_id)
             .await
             .map(|attempt| Output::Recover {
                 attempt: Box::new(attempt),

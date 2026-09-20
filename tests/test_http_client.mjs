@@ -160,7 +160,7 @@ test("iMathAS Question Backend launch returns its strict same-origin Assessment 
   const assessment = publishedQuestionFixture.assessment;
   const attempt = publishedQuestionFixture.attempts[0];
   assert.ok(attempt);
-  const launchUrl = `/api/courses/${course.id}/assessments/${assessment.id}/attempts/${attempt.id}/imathas-question-backend/launch`;
+  const launchUrl = `/api/course-instances/${course.id}/assessments/${assessment.id}/attempts/${attempt.id}/imathas-question-backend/launch`;
   const { recordingFetch, requests } = createRecordingFetch(async () =>
     jsonResponse({ launchUrl }),
   );
@@ -182,7 +182,7 @@ test("iMathAS Question Backend launch rejects noncanonical Assessment routes", a
   const assessment = publishedQuestionFixture.assessment;
   const attempt = publishedQuestionFixture.attempts[0];
   assert.ok(attempt);
-  const expected = `/api/courses/${course.id}/assessments/${assessment.id}/attempts/${attempt.id}/imathas-question-backend/launch`;
+  const expected = `/api/course-instances/${course.id}/assessments/${assessment.id}/attempts/${attempt.id}/imathas-question-backend/launch`;
   const routes = [
     `https://client.example.test${expected}`,
     `https://foreign.example${expected}`,

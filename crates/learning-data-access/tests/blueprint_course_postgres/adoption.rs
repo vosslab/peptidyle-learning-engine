@@ -9,17 +9,17 @@ pub(super) async fn assert_adoption_projection(
     audit_inspection: &mut PgConnection,
     course_id: &str,
     blueprint_course_id: &str,
-    blueprint_revision: i64,
+    blueprint_revision_number: i64,
     independent_course_id: &str,
 ) {
     assert_projection(
         audit_inspection,
         course_id,
         blueprint_course_id,
-        blueprint_revision,
+        blueprint_revision_number,
         independent_course_id,
         false,
-        blueprint_revision,
+        blueprint_revision_number,
     )
     .await;
 }
@@ -28,7 +28,7 @@ pub(super) async fn assert_append_projection(
     inspection: &mut PgConnection,
     course: &str,
     blueprint: &str,
-    revision: i64,
+    blueprint_revision_number: i64,
     independent_course: &str,
     adoption_revision: i64,
 ) {
@@ -36,7 +36,7 @@ pub(super) async fn assert_append_projection(
         inspection,
         course,
         blueprint,
-        revision,
+        blueprint_revision_number,
         independent_course,
         true,
         adoption_revision,
@@ -48,7 +48,7 @@ async fn assert_projection(
     audit_inspection: &mut PgConnection,
     course_id: &str,
     blueprint_course_id: &str,
-    blueprint_revision: i64,
+    blueprint_revision_number: i64,
     independent_course_id: &str,
     appended_only: bool,
     adoption_revision: i64,
@@ -67,7 +67,7 @@ async fn assert_projection(
          WHERE blueprint_course_id = $1 AND blueprint_revision_number = $2",
     )
     .bind(blueprint_course_id)
-    .bind(blueprint_revision)
+    .bind(blueprint_revision_number)
     .fetch_one(&mut *inspection)
     .await
     .expect("sealed Blueprint source exists");
@@ -76,7 +76,7 @@ async fn assert_projection(
          WHERE blueprint_course_id = $1 AND blueprint_revision_number < $2",
     )
     .bind(blueprint_course_id)
-    .bind(blueprint_revision)
+    .bind(blueprint_revision_number)
     .fetch_all(&mut *inspection)
     .await
     .expect("prior sealed Blueprint Assessment identities");
@@ -266,7 +266,7 @@ SELECT COALESCE((SELECT matches FROM policy_matches), false) AS policy_matches,
     )
     .bind(course_id)
     .bind(blueprint_course_id)
-    .bind(blueprint_revision)
+    .bind(blueprint_revision_number)
     .bind(independent_course_id)
     .bind(appended_only)
     .bind(source_content)

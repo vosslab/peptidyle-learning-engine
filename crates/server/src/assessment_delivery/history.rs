@@ -293,7 +293,7 @@ mod tests {
     fn evidence() -> StudentAssessmentAttemptHistoryEvidence {
         StudentAssessmentAttemptHistoryEvidence {
             history: StudentAssessmentAttemptHistory {
-                assessment_attempt: AssessmentAttemptId::from_uuid(uuid::Uuid::from_u128(12)),
+                assessment_attempt_id: AssessmentAttemptId::from_uuid(uuid::Uuid::from_u128(12)),
                 attempt_number: 2,
                 course: StudentAssessmentAttemptHistoryCourse {
                     id: CourseInstanceId::new("CIABCDEFGS").expect("valid Course Instance ID"),

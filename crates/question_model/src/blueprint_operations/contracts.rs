@@ -178,8 +178,9 @@ mod tests {
     #[test]
     fn blueprint_edit_numbers_are_canonical_opaque_values() {
         let value = "7";
-        let etag: BlueprintEditNumber = value.parse().expect("canonical metadata ETag");
-        assert_eq!(etag.to_string(), value);
+        let edit_number: BlueprintEditNumber =
+            value.parse().expect("canonical Blueprint Edit Number");
+        assert_eq!(edit_number.to_string(), value);
         for invalid in ["", "07", "0", "00000000-0000-0000-0000-000000000007"] {
             assert!(invalid.parse::<BlueprintEditNumber>().is_err(), "{invalid}");
         }

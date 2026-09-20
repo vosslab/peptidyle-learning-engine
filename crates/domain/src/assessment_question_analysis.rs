@@ -45,9 +45,9 @@ impl QuestionOutcomeDistribution {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct AssessmentQuestionAnalysis {
-    pub course: CourseInstanceId,
-    pub assessment: AssessmentId,
-    pub assessment_entry: AssessmentEntryId,
+    pub course_instance_id: CourseInstanceId,
+    pub assessment_id: AssessmentId,
+    pub assessment_entry_id: AssessmentEntryId,
     pub question_revision_tuple: QuestionRevisionTuple,
     pub scoring_generation: ScoringGeneration,
     pub analyzed_at: Timestamp,
@@ -75,8 +75,8 @@ pub struct AssessmentQuestionAnalysis {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct AssessmentQuestionAnalysisReport {
-    pub course: CourseInstanceId,
-    pub assessment: AssessmentId,
+    pub course_instance_id: CourseInstanceId,
+    pub assessment_id: AssessmentId,
     pub scoring_generation: ScoringGeneration,
     pub analyzed_at: Timestamp,
     pub completed_assessment_attempt_count: u32,

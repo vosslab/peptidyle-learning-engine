@@ -7,6 +7,11 @@ import { isQuestionAuthorship } from "../../api/question_authorship";
 import { validateCanonicalQuestionIdSyntax } from "../../question_id";
 import { PLE_QUESTION_JSON_MEDIA_TYPE, type PleQuestionJsonDocument } from "./question_json_source";
 import { parsePleQuestionJsonSource, serializePleQuestionJsonSource } from "./question_json_codec";
+import {
+  ifMatchHeaderForPositiveNumber,
+  numberFromResponseEtag,
+} from "../../api/http_client/conditional_request";
+import { ApiProtocolError } from "../../api/http_client/error";
 
 const MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
 const SAFE_ORIGIN = "https://ple-question-json.invalid";
@@ -52,18 +57,18 @@ export class PleQuestionJsonProtocolError extends Error {}
 
 export type PleQuestionJsonRead = {
   readonly source: PleQuestionJsonDocument;
-  readonly etag: string;
+  readonly draftQuestionEditNumber: string;
 };
 
 export type PleQuestionJsonSave = {
-  readonly etag: string;
+  readonly draftQuestionEditNumber: string;
 };
 
 export interface PleQuestionJsonClient {
   uploadAsset(
     draftQuestion: DraftQuestionRouteId,
     image: Blob,
-    etag: string,
+    expectedDraftQuestionEditNumber: string,
     signal?: AbortSignal,
   ): Promise<PleQuestionJsonAssetDescriptor>;
   assetPreviewPath(draftQuestion: DraftQuestionRouteId, asset: string): string;
@@ -71,12 +76,12 @@ export interface PleQuestionJsonClient {
   save(
     draftQuestion: DraftQuestionRouteId,
     source: PleQuestionJsonDocument,
-    etag?: string,
+    expectedDraftQuestionEditNumber?: string,
   ): Promise<PleQuestionJsonSave>;
   publish(
     draftQuestion: DraftQuestionRouteId,
     request: PleQuestionJsonPublicationRequest,
-    etag: string,
+    expectedDraftQuestionEditNumber: string,
   ): Promise<QuestionSummary>;
 }
 
@@ -193,19 +198,28 @@ function sameOriginPath(basePath: string, path: string): string {
   return requestPath;
 }
 
-function strongEtag(response: Response, path: string): string {
-  const etag = response.headers.get("etag");
-  if (etag === null || !/^"[1-9][0-9]*"$/u.test(etag)) {
+function draftQuestionEditNumberFromResponse(response: Response, path: string): string {
+  try {
+    return numberFromResponseEtag(response, path, "Draft Question Edit Number");
+  } catch (error: unknown) {
     throw new PleQuestionJsonProtocolError(
-      `PLE Question JSON response ${path} must include one strong numeric ETag`,
+      error instanceof ApiProtocolError
+        ? error.message
+        : `PLE Question JSON response ${path} must include one Draft Question Edit Number`,
     );
   }
-  if (BigInt(etag.slice(1, -1)) > 9_223_372_036_854_775_807n) {
+}
+
+function ifMatchDraftQuestionEditNumber(value: string, path: string): string {
+  try {
+    return ifMatchHeaderForPositiveNumber(value, path, "Draft Question Edit Number");
+  } catch (error: unknown) {
     throw new PleQuestionJsonProtocolError(
-      `PLE Question JSON response ${path} includes an out-of-range ETag`,
+      error instanceof ApiProtocolError
+        ? error.message
+        : "Draft Question Edit Number must be a positive integer",
     );
   }
-  return etag;
 }
 
 function isFlatMediaType(response: Response): boolean {
@@ -269,7 +283,7 @@ export function createPleQuestionJsonClient(
   async function uploadAsset(
     draftQuestion: DraftQuestionRouteId,
     image: Blob,
-    etag: string,
+    expectedDraftQuestionEditNumber: string,
     signal?: AbortSignal,
   ): Promise<PleQuestionJsonAssetDescriptor> {
     if (image.size < 1 || image.size > 8 * 1024 * 1024)
@@ -289,7 +303,7 @@ export function createPleQuestionJsonClient(
       headers: {
         accept: "application/json",
         "content-type": image.type,
-        "if-match": validEtag(etag),
+        "if-match": ifMatchDraftQuestionEditNumber(expectedDraftQuestionEditNumber, path),
       },
     });
     if (response.status === 409 || response.status === 412 || response.status === 428)
@@ -321,13 +335,16 @@ export function createPleQuestionJsonClient(
       );
     }
     const text = await boundedText(response, path);
-    return { source: parsePleQuestionJsonSource(text), etag: strongEtag(response, path) };
+    return {
+      source: parsePleQuestionJsonSource(text),
+      draftQuestionEditNumber: draftQuestionEditNumberFromResponse(response, path),
+    };
   }
 
   async function save(
     draftQuestion: DraftQuestionRouteId,
     source: PleQuestionJsonDocument,
-    etag?: string,
+    expectedDraftQuestionEditNumber?: string,
   ): Promise<PleQuestionJsonSave> {
     const path = sourcePath(draftQuestion);
     const requestPath = sameOriginPath(basePath, path);
@@ -335,7 +352,8 @@ export function createPleQuestionJsonClient(
       accept: "application/json",
       "content-type": PLE_QUESTION_JSON_MEDIA_TYPE,
     };
-    if (etag !== undefined) headers["if-match"] = validEtag(etag);
+    if (expectedDraftQuestionEditNumber !== undefined)
+      headers["if-match"] = ifMatchDraftQuestionEditNumber(expectedDraftQuestionEditNumber, path);
     const response = await fetchImplementation(
       requestPath,
       requestInit("PUT", headers, serializePleQuestionJsonSource(source)),
@@ -348,13 +366,13 @@ export function createPleQuestionJsonClient(
         `PLE Question JSON save ${path} must return no content`,
       );
     }
-    return { etag: strongEtag(response, path) };
+    return { draftQuestionEditNumber: draftQuestionEditNumberFromResponse(response, path) };
   }
 
   async function publish(
     draftQuestion: DraftQuestionRouteId,
     request: PleQuestionJsonPublicationRequest,
-    etag: string,
+    expectedDraftQuestionEditNumber: string,
   ): Promise<QuestionSummary> {
     if (!isQuestionAuthorship(request.authorship)) {
       throw new PleQuestionJsonProtocolError(
@@ -381,7 +399,7 @@ export function createPleQuestionJsonClient(
         {
           accept: "application/json",
           "content-type": "application/json",
-          "if-match": validEtag(etag),
+          "if-match": ifMatchDraftQuestionEditNumber(expectedDraftQuestionEditNumber, path),
         },
         JSON.stringify({
           authors: request.authorship.authors.map((author) => author.displayName),
@@ -446,18 +464,4 @@ function publishedQuestionId(value: unknown, path: string): string {
     );
   }
   return canonicalQuestionId;
-}
-
-function validEtag(value: string): string {
-  if (!/^"[1-9][0-9]*"$/u.test(value)) {
-    throw new PleQuestionJsonProtocolError(
-      "PLE Question JSON ETag must be one positive strong numeric ETag",
-    );
-  }
-  if (BigInt(value.slice(1, -1)) > 9_223_372_036_854_775_807n) {
-    throw new PleQuestionJsonProtocolError(
-      "PLE Question JSON ETag must fit in a signed 64-bit integer",
-    );
-  }
-  return value;
 }

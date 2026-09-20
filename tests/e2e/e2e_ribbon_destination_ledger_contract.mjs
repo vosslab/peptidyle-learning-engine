@@ -19,8 +19,8 @@ const preservationTestName = [
 
 test("ledger evidence links keep symbols outside path-matching link text", () => {
   assert.equal(
-    evidenceLink("src/api/application_api.tsx::ApiClient.listCourses"),
-    "[src/api/application_api.tsx](../../src/api/application_api.tsx)::ApiClient.listCourses",
+    evidenceLink("src/api/application_api.tsx::ApiClient.listCourseInstances"),
+    "[src/api/application_api.tsx](../../src/api/application_api.tsx)::ApiClient.listCourseInstances",
   );
   assert.equal(
     evidenceLink("src/route_contract.ts"),

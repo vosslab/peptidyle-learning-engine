@@ -112,7 +112,7 @@
     {
       "id": "0198e000-0000-7000-8000-000000000020",
       "studentRecord": "0198e000-0000-7000-8000-000000000007",
-      "assessment": "A000001AT",
+      "assessmentId": "A000001AT",
       "evidence": {
         "title": "Peptide bond mastery",
         "instructions": "",
@@ -151,7 +151,7 @@
       "id": "0198e000-0000-7000-8000-000000000021",
 
       "studentRecord": "0198e000-0000-7000-8000-000000000007",
-      "assessment": "A000001AT",
+      "assessmentId": "A000001AT",
       "evidence": {
         "title": "Peptide bond mastery",
         "instructions": "",
@@ -190,7 +190,7 @@
       "id": "0198e000-0000-7000-8000-000000000022",
 
       "studentRecord": "0198e000-0000-7000-8000-000000000007",
-      "assessment": "A000001AT",
+      "assessmentId": "A000001AT",
       "evidence": {
         "title": "Peptide bond mastery",
         "instructions": "",
@@ -229,7 +229,7 @@
       "id": "0198e000-0000-7000-8000-000000000023",
 
       "studentRecord": "0198e000-0000-7000-8000-000000000007",
-      "assessment": "A000001AT",
+      "assessmentId": "A000001AT",
       "evidence": {
         "title": "Peptide bond mastery",
         "instructions": "",
@@ -268,8 +268,8 @@
   "issuedQuestions": [
     {
       "id": "0198e000-0000-7000-8000-000000000040",
-      "assessmentAttempt": "0198e000-0000-7000-8000-000000000020",
-      "assessmentEntry": "0198e000-0000-7000-8000-000000000017",
+      "assessmentAttemptId": "0198e000-0000-7000-8000-000000000020",
+      "assessmentEntryId": "0198e000-0000-7000-8000-000000000017",
       "assessmentContentEntryIndex": 0,
       "issuedPosition": 0,
       "questionRevisionTuple": {
@@ -297,8 +297,8 @@
     },
     {
       "id": "0198e000-0000-7000-8000-000000000041",
-      "assessmentAttempt": "0198e000-0000-7000-8000-000000000021",
-      "assessmentEntry": "0198e000-0000-7000-8000-000000000017",
+      "assessmentAttemptId": "0198e000-0000-7000-8000-000000000021",
+      "assessmentEntryId": "0198e000-0000-7000-8000-000000000017",
       "assessmentContentEntryIndex": 0,
       "issuedPosition": 0,
       "questionRevisionTuple": {
@@ -326,8 +326,8 @@
     },
     {
       "id": "0198e000-0000-7000-8000-000000000042",
-      "assessmentAttempt": "0198e000-0000-7000-8000-000000000022",
-      "assessmentEntry": "0198e000-0000-7000-8000-000000000017",
+      "assessmentAttemptId": "0198e000-0000-7000-8000-000000000022",
+      "assessmentEntryId": "0198e000-0000-7000-8000-000000000017",
       "assessmentContentEntryIndex": 0,
       "issuedPosition": 0,
       "questionRevisionTuple": {
@@ -355,8 +355,8 @@
     },
     {
       "id": "0198e000-0000-7000-8000-000000000043",
-      "assessmentAttempt": "0198e000-0000-7000-8000-000000000023",
-      "assessmentEntry": "0198e000-0000-7000-8000-000000000017",
+      "assessmentAttemptId": "0198e000-0000-7000-8000-000000000023",
+      "assessmentEntryId": "0198e000-0000-7000-8000-000000000017",
       "assessmentContentEntryIndex": 0,
       "issuedPosition": 0,
       "questionRevisionTuple": {
@@ -550,7 +550,7 @@
   ],
   "assessmentGrade": {
     "student_record": "0198e000-0000-7000-8000-000000000007",
-    "assessment": "A000001AT",
+    "assessment_id": "A000001AT",
     "first_completed_at": 1786000001300,
     "current_assessment_attempt": "0198e000-0000-7000-8000-000000000021",
     "current_score": 1,
@@ -561,7 +561,7 @@
   },
   "assessmentProgress": {
     "student_record": "0198e000-0000-7000-8000-000000000007",
-    "assessment": "A000001AT",
+    "assessment_id": "A000001AT",
     "completed_assessment_attempt_count": 3,
     "total_question_attempts": 4,
     "last_activity_at": 1786000004100
@@ -575,7 +575,7 @@
       "assessment_title": "Peptide bond mastery",
       "assessment_grade": {
         "student_record": "0198e000-0000-7000-8000-000000000007",
-        "assessment": "A000001AT",
+        "assessment_id": "A000001AT",
         "first_completed_at": 1786000001300,
         "current_assessment_attempt": "0198e000-0000-7000-8000-000000000021",
         "current_score": 1,
@@ -586,7 +586,7 @@
       },
       "assessment_progress": {
         "student_record": "0198e000-0000-7000-8000-000000000007",
-        "assessment": "A000001AT",
+        "assessment_id": "A000001AT",
         "completed_assessment_attempt_count": 3,
         "total_question_attempts": 4,
         "last_activity_at": 1786000004100

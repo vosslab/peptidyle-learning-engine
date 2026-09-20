@@ -14,16 +14,16 @@ import {
   decodeBlueprintPromotion,
 } from "../decoders/blueprint_stewardship";
 import { ApiProtocolError, ApiRequestError, BlueprintCourseConflictError } from "./error";
+import {
+  assertResponseMatchesPositiveNumber,
+  ifMatchHeaderForPositiveNumber,
+} from "./conditional_request";
 import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
 
 function blueprintCoursePath(blueprintCourseId: string): string {
   // ASVS 1.2.2: validated Blueprint Course IDs remain encoded as one path component.
   return encodeURIComponent(decodeBlueprintCourseId(blueprintCourseId, "id"));
-}
-
-function quotedBlueprintEditNumber(value: string): string {
-  return `"${blueprintEditNumber(value, "blueprintEditNumber")}"`;
 }
 
 export function createBlueprintStewardshipClient(
@@ -34,12 +34,21 @@ export function createBlueprintStewardshipClient(
     path: string,
     decoder: (value: unknown) => T,
     body?: unknown,
-    etag?: string,
+    expectedBlueprintEditNumber?: string,
   ): Promise<{ readonly body: T; readonly response: Response }> {
     const response = await requestSameOrigin(fetchImplementation, basePath, path, {
       method: body === undefined ? "GET" : "PUT",
       body,
-      headers: etag === undefined ? {} : { "if-match": quotedBlueprintEditNumber(etag) },
+      headers:
+        expectedBlueprintEditNumber === undefined
+          ? {}
+          : {
+              "if-match": ifMatchHeaderForPositiveNumber(
+                blueprintEditNumber(expectedBlueprintEditNumber, "blueprintEditNumber"),
+                path,
+                "Blueprint Edit Number",
+              ),
+            },
     });
     requireNoStore(response, path);
     if (response.status === 412) throw new BlueprintCourseConflictError(path);
@@ -56,17 +65,21 @@ export function createBlueprintStewardshipClient(
   async function promotion(
     blueprintCourseId: string,
     promoted?: boolean,
-    etag?: string,
+    expectedBlueprintEditNumber?: string,
   ): Promise<BlueprintPromotion> {
+    const path = `/api/sysadmin/course-blueprints/${blueprintCoursePath(blueprintCourseId)}/promotion`;
     const result = await request(
-      `/api/sysadmin/course-blueprints/${blueprintCoursePath(blueprintCourseId)}/promotion`,
+      path,
       decodeBlueprintPromotion,
       promoted === undefined ? undefined : { promoted: decodeBoolean(promoted, "promoted") },
-      etag,
+      expectedBlueprintEditNumber,
     );
-    const validator = result.response.headers.get("etag");
-    if (validator === null || validator !== `"${result.body.blueprintEditNumber}"`)
-      throw new ApiProtocolError("Blueprint promotion ETag must match its Blueprint Edit Number");
+    assertResponseMatchesPositiveNumber(
+      result.response,
+      result.body.blueprintEditNumber,
+      path,
+      "Blueprint Edit Number",
+    );
     return {
       promoted: result.body.promoted,
       blueprintEditNumber: result.body.blueprintEditNumber,
@@ -112,7 +125,11 @@ export function createBlueprintStewardshipClient(
       return result.body;
     },
     getBlueprintPromotion: (blueprintCourseId) => promotion(blueprintCourseId),
-    setBlueprintPromotion: (blueprintCourseId, promoted, etag) =>
-      promotion(blueprintCourseId, decodeBoolean(promoted, "promoted"), etag),
+    setBlueprintPromotion: (blueprintCourseId, promoted, expectedBlueprintEditNumber) =>
+      promotion(
+        blueprintCourseId,
+        decodeBoolean(promoted, "promoted"),
+        expectedBlueprintEditNumber,
+      ),
   };
 }

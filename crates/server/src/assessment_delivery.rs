@@ -319,8 +319,8 @@ async fn start(
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct LiveAssessmentAttemptResponse {
-    assessment_attempt: AssessmentAttemptId,
-    assessment: AssessmentId,
+    assessment_attempt_id: AssessmentAttemptId,
+    assessment_id: AssessmentId,
     attempt_number: u32,
     resumed: bool,
     title: String,
@@ -375,8 +375,8 @@ async fn issue_native_assessment_batch(
             })
             .collect::<Result<Vec<_>, _>>()?;
         return Ok(LiveAssessmentAttemptResponse {
-            assessment_attempt: attempt.assessment_attempt,
-            assessment: attempt.assessment,
+            assessment_attempt_id: attempt.assessment_attempt_id,
+            assessment_id: attempt.assessment_id,
             attempt_number: attempt.attempt_number,
             resumed: batch.attempt_was_resumed,
             title: attempt.title,
@@ -405,8 +405,8 @@ async fn issue_native_assessment_batch(
         .map_err(StartError::Store)?;
     let questions = rebuild_committed_attempt_presentations(state, token, &attempt).await?;
     Ok(LiveAssessmentAttemptResponse {
-        assessment_attempt: attempt.assessment_attempt,
-        assessment: attempt.assessment,
+        assessment_attempt_id: attempt.assessment_attempt_id,
+        assessment_id: attempt.assessment_id,
         attempt_number: attempt.attempt_number,
         resumed: batch.attempt_was_resumed,
         title: attempt.title,
@@ -426,7 +426,7 @@ async fn rebuild_committed_attempt_presentations(
             .delivery
             .student_assessment_attempt_presentation_evidence(
                 token,
-                attempt.assessment_attempt,
+                attempt.assessment_attempt_id,
                 issued.position,
             )
             .await

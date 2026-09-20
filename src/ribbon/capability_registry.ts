@@ -472,7 +472,7 @@ const CAPABILITY_DECLARATIONS = {
     clientMethod: "ApiClient.getLiveAssessmentWorkspace",
     serverEvidence: {
       kind: "registeredHandler",
-      handler: "GET /api/course-instances/{course}/assessments/{assessment}",
+      handler: "GET /api/course-instances/{course_instance_id}/assessments/{assessment_id}",
     },
     evidence: [
       "src/routes.ts::routeComponents",

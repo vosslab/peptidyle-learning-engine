@@ -17,6 +17,10 @@ import {
   decodeCreatedCourseInstance,
 } from "../decoders/course_instance";
 import { ApiProtocolError, ApiRequestError } from "./error";
+import {
+  assertResponseMatchesPositiveNumber,
+  ifMatchHeaderForPositiveNumber,
+} from "./conditional_request";
 import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
 import { parseCourseInstanceId } from "../../navigation/public_route";
@@ -95,12 +99,12 @@ export function createCourseInstanceClient(
         await boundedResponseJson(response, path),
         "response",
       );
-      const revisionEtag = response.headers.get("etag");
-      if (revisionEtag !== `"${blueprintCourse.current_revision_tuple.revisionNumber}"`) {
-        throw new ApiProtocolError(
-          `API response ${path} ETag must match its current Blueprint Revision`,
-        );
-      }
+      assertResponseMatchesPositiveNumber(
+        response,
+        blueprintCourse.current_revision_tuple.revisionNumber,
+        path,
+        "Blueprint Revision Number",
+      );
       if (
         blueprintCourse.availability !== "private" ||
         blueprintCourse.read_access !== "blueprint_course_owner" ||
@@ -112,7 +116,7 @@ export function createCourseInstanceClient(
           "Course-derived Blueprint must be an actor-owned Private root at Revision 1",
         );
       }
-      return { blueprintCourse, revisionEtag };
+      return { blueprintCourse };
     },
     updateCourseInstanceClassification: async (
       courseInstanceId,
@@ -121,13 +125,12 @@ export function createCourseInstanceClient(
     ): Promise<Awaited<ReturnType<CourseInstanceClient["updateCourseInstanceClassification"]>>> => {
       const path = `${courseInstancePath(courseInstanceId)}/classification`;
       const validator = decodeString(courseEditNumber, "courseEditNumber");
-      if (!/^[1-9][0-9]*$/u.test(validator) || BigInt(validator) > 9_223_372_036_854_775_807n) {
-        throw new ApiProtocolError("Course If-Match must be a positive Course Edit Number");
-      }
       const response = await requestSameOrigin(fetchImplementation, basePath, path, {
         method: "PUT",
         body: decodeCourseClassification(classification, "request"),
-        headers: { "if-match": `"${validator}"` },
+        headers: {
+          "if-match": ifMatchHeaderForPositiveNumber(validator, path, "Course Edit Number"),
+        },
       });
       requireNoStore(response, path);
       if (!response.ok) throw new ApiRequestError(response.status, path);
@@ -145,8 +148,7 @@ export function createCourseInstanceClient(
       ) {
         throw new DecodeError("response.courseEditNumber", "a positive Course Edit Number");
       }
-      if (response.headers.get("etag") !== `"${nextEditNumber}"`)
-        throw new ApiProtocolError("Course metadata response ETag must match its Edit Number");
+      assertResponseMatchesPositiveNumber(response, nextEditNumber, path, "Course Edit Number");
       const changed = field(record, "changed", "response");
       if (typeof changed !== "boolean") throw new DecodeError("response.changed", "a boolean");
       return {

@@ -57,6 +57,6 @@ export interface PleQuestionJsonEditorPageProps {
 }
 
 export interface PleQuestionJsonDraftDisplayState {
-  readonly etag: string;
+  readonly draftQuestionEditNumber: string;
   readonly dirty: boolean;
 }

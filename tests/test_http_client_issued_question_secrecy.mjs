@@ -46,7 +46,7 @@ test("issued-question transport uses the explicit nested course and Assessment r
   );
   assert.equal(
     requests[1]?.url,
-    `https://client.example.test/api/courses/${publishedQuestionFixture.course.id}/assessments/${publishedQuestionFixture.assessment.id}/attempts/${attempt.id}/question`,
+    `https://client.example.test/api/course-instances/${publishedQuestionFixture.course.id}/assessments/${publishedQuestionFixture.assessment.id}/attempts/${attempt.id}/question`,
   );
 });
 
@@ -70,7 +70,7 @@ test("issued-question transport preserves a concealed nested-route 404 without a
   assert.equal(requests.length, 2);
   assert.match(
     requests[1]?.url ?? "",
-    /\/api\/courses\/.*\/assessments\/.*\/attempts\/.*\/question$/u,
+    /\/api\/course-instances\/.*\/assessments\/.*\/attempts\/.*\/question$/u,
   );
 });
 

@@ -19,7 +19,7 @@ pub struct LiveAssessmentAccess {
     /// Complete policy and decision calculated at authoritative server time.
     pub decision: StudentAssessmentDecisionSummary,
     /// The current authorized unfinished Assessment Attempt, if one exists.
-    pub active_assessment_attempt: Option<AssessmentAttemptId>,
+    pub active_assessment_attempt_id: Option<AssessmentAttemptId>,
     /// The effective Student-facing title for the current delivery state.
     pub title: String,
     /// Product-defined pedagogical Type for this Assessment.
@@ -37,7 +37,7 @@ pub struct LiveAssessmentAccess {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LiveAssessmentPreviousAttempt {
-    pub assessment_attempt: AssessmentAttemptId,
+    pub assessment_attempt_id: AssessmentAttemptId,
     pub attempt_number: u32,
     pub state: LiveAssessmentPreviousAttemptState,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -68,7 +68,7 @@ pub struct LiveAssessmentAttemptScore {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StudentAssessmentAttemptHistory {
-    pub assessment_attempt: AssessmentAttemptId,
+    pub assessment_attempt_id: AssessmentAttemptId,
     pub attempt_number: u32,
     /// Current Course display identity, authorized with the completed Attempt.
     pub course: StudentAssessmentAttemptHistoryCourse,
@@ -209,9 +209,9 @@ pub struct IssuedQuestionPresentation {
 #[serde(rename_all = "camelCase")]
 pub struct LiveAssessmentAttempt {
     /// Public attempt identity used only after server authorization.
-    pub assessment_attempt: AssessmentAttemptId,
+    pub assessment_attempt_id: AssessmentAttemptId,
     /// Public Assessment locator; the private Attempt identity stays server-side.
-    pub assessment: AssessmentId,
+    pub assessment_id: AssessmentId,
     /// One-based Student-specific Attempt sequence.
     pub attempt_number: u32,
     /// Released Student-facing Assessment title.
@@ -455,7 +455,7 @@ mod presentation_source_tests {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StudentAssessmentAttemptSavedResponse {
     /// Assessment Attempt identity that owns the saved response.
-    pub assessment_attempt: AssessmentAttemptId,
+    pub assessment_attempt_id: AssessmentAttemptId,
     /// One-based fixed issued Question position.
     pub position: u32,
 }
@@ -464,7 +464,7 @@ pub struct StudentAssessmentAttemptSavedResponse {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StudentAssessmentAttemptContext {
-    pub assessment_attempt: AssessmentAttemptId,
+    pub assessment_attempt_id: AssessmentAttemptId,
     pub attempt_number: u32,
     pub course: CourseInstanceId,
     pub course_short_name: String,

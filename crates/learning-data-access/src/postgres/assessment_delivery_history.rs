@@ -87,7 +87,7 @@ pub(super) async fn read(
         grading_is_current,
     )?;
     let history = StudentAssessmentAttemptHistory {
-        assessment_attempt,
+        assessment_attempt_id: assessment_attempt,
         attempt_number,
         course: StudentAssessmentAttemptHistoryCourse {
             id: course_instance_id(row.try_get("course_instance_id").map_err(map_sqlx_error)?)?,

@@ -47,7 +47,7 @@ pub(crate) fn assessment_pool_selection_count_router_with_store(
 ) -> Router {
     Router::new()
         .route(
-            "/api/course-instances/{course_instance_id}/assessments/{assessment_id}/question-pool-forks/{entry}/selection-count",
+            "/api/course-instances/{course_instance_id}/assessments/{assessment_id}/question-pool-forks/{assessment_entry_id}/selection-count",
             put(update_selection_count),
         )
         .with_state(RouteState {

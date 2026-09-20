@@ -100,13 +100,13 @@ test("Assessment Template client uses the closed private CRUD transport and repl
       assessmentType: "quiz",
       settings: template().settings,
     },
-    '"2"',
+    "2",
   );
 
   assert.equal(listed[0].id, templateId);
-  assert.equal(created.etag, '"1"');
-  assert.equal(loaded.etag, '"2"');
-  assert.equal(saved.etag, '"2"');
+  assert.equal(created.template.editNumber, "1");
+  assert.equal(loaded.template.editNumber, "2");
+  assert.equal(saved.template.editNumber, "2");
   assert.equal(new URL(requests[0].url).pathname, "/api/assessment-templates");
   assert.equal(requests[1].method, "POST");
   assert.deepEqual(JSON.parse(await requests[1].text()), {
@@ -202,7 +202,7 @@ test("Assessment Template client copies a Template through the closed Course Ass
   });
 
   assert.equal(created.workspace.id, "A8H4N6PA6");
-  assert.equal(created.etag, '"3"');
+  assert.equal(created.workspace.editNumber, "3");
   assert.equal(
     new URL(requests[0].url).pathname,
     "/api/course-instances/CI7K3M2QAZ/assessments/from-template",

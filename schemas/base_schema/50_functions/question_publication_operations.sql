@@ -7,16 +7,16 @@ SET LOCAL ROLE ple_private_owner;
 -- when all source facts are unchanged; it returns the committed Edit Number
 -- for publication and never accepts inline source bytes.
 CREATE FUNCTION ple_private.bind_draft_question_source(
-    p_draft_question_uuid uuid, p_expected_edit_number bigint, p_authoring_workspace_id uuid,
+    p_draft_question_uuid uuid, p_expected_draft_question_edit_number bigint, p_authoring_workspace_id uuid,
     p_backend text, p_question_format text, p_question_type text, p_webwork_pg_path text,
     p_source_object_id uuid, p_source_object_checksum text
 ) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
 DECLARE
-    current_edit bigint;
+    v_current_draft_question_edit_number bigint;
     existing ple_private.draft_question_source_binding%ROWTYPE;
 BEGIN
-    IF p_expected_edit_number IS NULL OR p_expected_edit_number <= 0
+    IF p_expected_draft_question_edit_number IS NULL OR p_expected_draft_question_edit_number <= 0
        OR NOT ple_api.current_session_account_can_access_authoring_workspace(p_authoring_workspace_id) THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'authorized Draft Question Edit Number is required';
@@ -27,13 +27,13 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Question Backend is unavailable for new production work';
     END IF;
-    SELECT draft_question_edit_number INTO current_edit FROM ple_private.draft_question
+    SELECT draft_question_edit_number INTO v_current_draft_question_edit_number FROM ple_private.draft_question
      WHERE draft_question_id = p_draft_question_uuid AND authoring_workspace_id = p_authoring_workspace_id
      FOR UPDATE;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Draft Question does not belong to workspace';
     END IF;
-    IF current_edit <> p_expected_edit_number THEN
+    IF v_current_draft_question_edit_number <> p_expected_draft_question_edit_number THEN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Draft Question Edit Number is stale';
     END IF;
     SELECT * INTO existing FROM ple_private.draft_question_source_binding
@@ -43,7 +43,7 @@ BEGIN
        AND existing.webwork_pg_path IS NOT DISTINCT FROM p_webwork_pg_path
        AND existing.source_object_record_id = p_source_object_id
        AND existing.source_object_checksum = p_source_object_checksum THEN
-        RETURN current_edit;
+        RETURN v_current_draft_question_edit_number;
     END IF;
     INSERT INTO ple_private.draft_question_source_binding AS binding (
         draft_question_id, backend, question_format, question_type, webwork_pg_path,
@@ -62,8 +62,8 @@ BEGIN
        SET draft_question_edit_number = draft_question_edit_number + 1,
            updated_at = pg_catalog.clock_timestamp()
      WHERE draft_question_id = p_draft_question_uuid
-     RETURNING draft_question_edit_number INTO current_edit;
-    RETURN current_edit;
+     RETURNING draft_question_edit_number INTO v_current_draft_question_edit_number;
+    RETURN v_current_draft_question_edit_number;
 END
 $$;
 
@@ -77,8 +77,8 @@ $$;
 -- database operation validates the complete aggregate, rechecks current
 -- workspace and Question Owner authority, and commits it atomically.
 CREATE FUNCTION ple_private.publish_question_revision(
-    p_draft_question_uuid uuid, p_expected_edit_number bigint, p_authoring_workspace_id uuid,
-    p_published_question_id text, p_expected_parent_revision_number integer,
+    p_draft_question_uuid uuid, p_expected_draft_question_edit_number bigint, p_authoring_workspace_id uuid,
+    p_published_question_id text, p_expected_parent_question_revision_number integer,
     p_target_object_id uuid, p_target_object_address jsonb,
     p_target_sha256 bytea, p_target_size_bytes bigint, p_target_media_type text,
     p_target_created_at_millis bigint, p_reason_for_edit text, p_publication_event_id uuid,
@@ -87,8 +87,8 @@ CREATE FUNCTION ple_private.publish_question_revision(
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
     actor_id text;
-    current_edit bigint;
-    next_revision_number integer;
+    v_current_draft_question_edit_number bigint;
+    v_next_question_revision_number integer;
     metadata ple_private.draft_question_metadata%ROWTYPE;
     binding ple_private.draft_question_source_binding%ROWTYPE;
     parent_binding ple_private.question_revision_source_binding%ROWTYPE;
@@ -97,13 +97,13 @@ DECLARE
     expected_address jsonb;
     published_at timestamptz := clock_timestamp();
 BEGIN
-    IF p_expected_edit_number IS NULL OR p_expected_edit_number <= 0
+    IF p_expected_draft_question_edit_number IS NULL OR p_expected_draft_question_edit_number <= 0
        OR p_published_question_id IS NULL
        OR p_published_question_id !~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
        OR substr(p_published_question_id, 6, 1) <> ple_private.crockford_checksum_character(
            substr(p_published_question_id, 1, 4) || substr(p_published_question_id, 7, 3)
        )
-       OR p_expected_parent_revision_number IS NULL OR p_expected_parent_revision_number <= 0
+       OR p_expected_parent_question_revision_number IS NULL OR p_expected_parent_question_revision_number <= 0
        OR p_target_object_id IS NULL OR p_target_sha256 IS NULL OR octet_length(p_target_sha256) <> 32
        OR p_target_size_bytes IS NULL OR p_target_size_bytes < 0
        OR p_target_media_type IS NULL OR char_length(btrim(p_target_media_type)) NOT BETWEEN 1 AND 255
@@ -119,9 +119,9 @@ BEGIN
             MESSAGE = 'Question Revision Publication requires current Authoring Workspace access';
     END IF;
     actor_id := ple_api.current_session_account_id();
-    SELECT draft_question_edit_number INTO current_edit FROM ple_private.draft_question
+    SELECT draft_question_edit_number INTO v_current_draft_question_edit_number FROM ple_private.draft_question
      WHERE draft_question_id = p_draft_question_uuid AND authoring_workspace_id = p_authoring_workspace_id FOR UPDATE;
-    IF NOT FOUND OR current_edit <> p_expected_edit_number THEN
+    IF NOT FOUND OR v_current_draft_question_edit_number <> p_expected_draft_question_edit_number THEN
         RAISE EXCEPTION USING ERRCODE = 'PQR01',
             MESSAGE = 'Question Revision Publication Draft Question Edit Number is stale or not in its workspace';
     END IF;
@@ -140,9 +140,9 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Question Revision Publication requires current Question Owner authority';
     END IF;
-    SELECT COALESCE(max(revision_number), 0) + 1 INTO next_revision_number
+    SELECT COALESCE(max(revision_number), 0) + 1 INTO v_next_question_revision_number
       FROM ple_data.question_revision WHERE published_question_id = p_published_question_id;
-    IF next_revision_number <= 1 OR next_revision_number - 1 <> p_expected_parent_revision_number THEN
+    IF v_next_question_revision_number <= 1 OR v_next_question_revision_number - 1 <> p_expected_parent_question_revision_number THEN
         RAISE EXCEPTION USING ERRCODE = 'PQR01',
             MESSAGE = 'Question Revision Publication parent Revision is stale';
     END IF;
@@ -156,11 +156,11 @@ BEGIN
     END IF;
     SELECT * INTO STRICT parent_binding FROM ple_private.question_revision_source_binding
      WHERE published_question_id = p_published_question_id
-       AND revision_number = p_expected_parent_revision_number
+       AND revision_number = p_expected_parent_question_revision_number
      FOR UPDATE;
     SELECT * INTO STRICT parent_revision FROM ple_data.question_revision
      WHERE published_question_id = p_published_question_id
-       AND revision_number = p_expected_parent_revision_number;
+       AND revision_number = p_expected_parent_question_revision_number;
     SELECT * INTO STRICT source_record FROM ple_private.object_record
      WHERE object_record_id = binding.source_object_record_id;
     -- A Question Source is the immutable, backend-owned package that carries
@@ -184,7 +184,7 @@ BEGIN
     END IF;
     expected_address := jsonb_build_object('kind', 'questionSource',
         'questionRevisionTuple', jsonb_build_object('questionId', p_published_question_id,
-            'revisionNumber', next_revision_number), 'object', p_target_object_id);
+            'revisionNumber', v_next_question_revision_number), 'object', p_target_object_id);
     IF p_target_object_address IS DISTINCT FROM expected_address
        OR p_target_sha256 IS DISTINCT FROM source_record.sha256
        OR encode(p_target_sha256, 'hex') IS DISTINCT FROM binding.source_object_checksum
@@ -196,7 +196,7 @@ BEGIN
     INSERT INTO ple_data.question_revision(
         published_question_id, revision_number, backend, question_type, general_feedback, published_at
     ) VALUES (
-        p_published_question_id, next_revision_number, binding.backend, binding.question_type,
+        p_published_question_id, v_next_question_revision_number, binding.backend, binding.question_type,
         metadata.general_feedback, published_at
     );
     INSERT INTO ple_private.object_record(
@@ -207,29 +207,29 @@ BEGIN
     INSERT INTO ple_private.question_revision_source_binding(
         published_question_id, revision_number, backend, question_format, webwork_pg_path,
         source_object_record_id, source_object_checksum, created_at
-    ) VALUES (p_published_question_id, next_revision_number, binding.backend, binding.question_format,
+    ) VALUES (p_published_question_id, v_next_question_revision_number, binding.backend, binding.question_format,
         binding.webwork_pg_path, p_target_object_id,
         encode(p_target_sha256, 'hex'), published_at);
     INSERT INTO ple_data.question_revision_acceptance(
         published_question_id, revision_number, parent_revision_number, editor_account_id,
         accepted_by_account_id, accepted_at, reason_for_edit
-    ) VALUES (p_published_question_id, next_revision_number, next_revision_number - 1, actor_id, actor_id,
+    ) VALUES (p_published_question_id, v_next_question_revision_number, v_next_question_revision_number - 1, actor_id, actor_id,
         published_at, p_reason_for_edit);
     INSERT INTO ple_data.question_revision_authorship(
         published_question_id, revision_number, author_position, author_display_name, author_account_id
-    ) SELECT p_published_question_id, next_revision_number, author.author_position,
+    ) SELECT p_published_question_id, v_next_question_revision_number, author.author_position,
         author.author_display_name, author.author_account_id
         -- Moderate edits retain the parent revision's immutable credit. A
         -- fork is the separate path that creates a new authorship record.
         FROM ple_data.question_revision_authorship AS author
        WHERE author.published_question_id = p_published_question_id
-         AND author.revision_number = p_expected_parent_revision_number;
+         AND author.revision_number = p_expected_parent_question_revision_number;
     INSERT INTO ple_data.question_revision_license(published_question_id, revision_number, spdx_expression)
-    SELECT p_published_question_id, next_revision_number, license.spdx_expression
+    SELECT p_published_question_id, v_next_question_revision_number, license.spdx_expression
       -- The compatible CC license is immutable lineage evidence as well.
       FROM ple_data.question_revision_license AS license
      WHERE license.published_question_id = p_published_question_id
-       AND license.revision_number = p_expected_parent_revision_number;
+       AND license.revision_number = p_expected_parent_question_revision_number;
     UPDATE ple_data.published_question_metadata
        SET question_title = metadata.question_title,
            question_description = metadata.question_description,
@@ -237,10 +237,10 @@ BEGIN
            updated_at = published_at
      WHERE published_question_id = p_published_question_id;
     INSERT INTO ple_data.question_publication_event(event_id, published_question_id, revision_number, actor_account_id, occurred_at)
-    VALUES (p_publication_event_id, p_published_question_id, next_revision_number, actor_id, published_at);
+    VALUES (p_publication_event_id, p_published_question_id, v_next_question_revision_number, actor_id, published_at);
     PERFORM ple_private.bind_draft_asset_publication(p_draft_question_uuid, p_authoring_workspace_id,
-        p_published_question_id, next_revision_number, binding.backend, binding.question_type, p_hotspot_asset, published_at);
-    RETURN next_revision_number;
+        p_published_question_id, v_next_question_revision_number, binding.backend, binding.question_type, p_hotspot_asset, published_at);
+    RETURN v_next_question_revision_number;
 END
 $$;
 
@@ -268,20 +268,20 @@ SET search_path = pg_catalog, ple_api, ple_private AS $$
 $$;
 
 CREATE FUNCTION ple_api.bind_draft_question_source(
-    p_draft_question_uuid uuid, p_expected_edit_number bigint, p_authoring_workspace_id uuid,
+    p_draft_question_uuid uuid, p_expected_draft_question_edit_number bigint, p_authoring_workspace_id uuid,
     p_backend text, p_question_format text, p_question_type text, p_webwork_pg_path text,
     p_source_object_id uuid, p_source_object_checksum text
 ) RETURNS bigint LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private, ple_api AS $$
     SELECT ple_private.bind_draft_question_source(
-        p_draft_question_uuid, p_expected_edit_number, p_authoring_workspace_id, p_backend,
+        p_draft_question_uuid, p_expected_draft_question_edit_number, p_authoring_workspace_id, p_backend,
         p_question_format, p_question_type, p_webwork_pg_path, p_source_object_id,
         p_source_object_checksum)
 $$;
 
 CREATE FUNCTION ple_api.publish_question_revision(
-    p_draft_question_uuid uuid, p_expected_edit_number bigint, p_authoring_workspace_id uuid,
-    p_published_question_id text, p_expected_parent_revision_number integer,
+    p_draft_question_uuid uuid, p_expected_draft_question_edit_number bigint, p_authoring_workspace_id uuid,
+    p_published_question_id text, p_expected_parent_question_revision_number integer,
     p_target_object_id uuid, p_target_object_address jsonb,
     p_target_sha256 bytea, p_target_size_bytes bigint, p_target_media_type text,
     p_target_created_at_millis bigint, p_reason_for_edit text, p_publication_event_id uuid,
@@ -289,8 +289,8 @@ CREATE FUNCTION ple_api.publish_question_revision(
 ) RETURNS integer LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT ple_private.publish_question_revision(
-        p_draft_question_uuid, p_expected_edit_number, p_authoring_workspace_id, p_published_question_id,
-        p_expected_parent_revision_number, p_target_object_id, p_target_object_address,
+        p_draft_question_uuid, p_expected_draft_question_edit_number, p_authoring_workspace_id, p_published_question_id,
+        p_expected_parent_question_revision_number, p_target_object_id, p_target_object_address,
         p_target_sha256, p_target_size_bytes,
         p_target_media_type, p_target_created_at_millis, p_reason_for_edit, p_publication_event_id,
         p_hotspot_asset)
@@ -305,16 +305,16 @@ SET LOCAL ROLE ple_private_owner;
 -- verified bytes to the typed immutable Question Revision address before this
 -- transaction records the complete Question aggregate.
 CREATE FUNCTION ple_private.load_draft_question_publication_source(
-    p_draft_question_uuid uuid, p_expected_edit_number bigint, p_authoring_workspace_id uuid
+    p_draft_question_uuid uuid, p_expected_draft_question_edit_number bigint, p_authoring_workspace_id uuid
 ) RETURNS TABLE (
     object_record_id uuid, object_address jsonb, sha256 bytea, size_bytes bigint,
     media_type text, created_at_millis bigint
 ) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
-DECLARE current_edit bigint; row_count bigint;
+DECLARE v_current_draft_question_edit_number bigint; row_count bigint;
 BEGIN
     IF p_draft_question_uuid IS NULL OR p_authoring_workspace_id IS NULL
-       OR p_expected_edit_number IS NULL OR p_expected_edit_number <= 0 THEN
+       OR p_expected_draft_question_edit_number IS NULL OR p_expected_draft_question_edit_number <= 0 THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Draft Question Publication Source arguments are invalid';
     END IF;
@@ -323,9 +323,9 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Draft Question Publication Source requires current Authoring Workspace access';
     END IF;
-    SELECT draft_question_edit_number INTO current_edit FROM ple_private.draft_question
+    SELECT draft_question_edit_number INTO v_current_draft_question_edit_number FROM ple_private.draft_question
      WHERE draft_question_id = p_draft_question_uuid AND authoring_workspace_id = p_authoring_workspace_id;
-    IF NOT FOUND OR current_edit <> p_expected_edit_number THEN
+    IF NOT FOUND OR v_current_draft_question_edit_number <> p_expected_draft_question_edit_number THEN
         RAISE EXCEPTION USING ERRCODE = '40001',
             MESSAGE = 'Draft Question Publication Source Edit Number is stale or not in its workspace';
     END IF;
@@ -349,7 +349,7 @@ END
 $$;
 
 CREATE FUNCTION ple_private.publish_new_question_lineage(
-    p_draft_question_uuid uuid, p_expected_edit_number bigint, p_authoring_workspace_id uuid,
+    p_draft_question_uuid uuid, p_expected_draft_question_edit_number bigint, p_authoring_workspace_id uuid,
     p_published_question_id text, p_target_object_id uuid, p_target_object_address jsonb,
     p_target_sha256 bytea, p_target_size_bytes bigint, p_target_media_type text,
     p_target_created_at_millis bigint, p_authorship jsonb,
@@ -360,14 +360,14 @@ CREATE FUNCTION ple_private.publish_new_question_lineage(
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
-    actor_id text; current_edit bigint; metadata ple_private.draft_question_metadata%ROWTYPE;
+    actor_id text; v_current_draft_question_edit_number bigint; metadata ple_private.draft_question_metadata%ROWTYPE;
     binding ple_private.draft_question_source_binding%ROWTYPE;
     source_record ple_private.object_record%ROWTYPE; expected_address jsonb;
     published_at timestamptz := clock_timestamp(); author_count integer; valid_count integer;
     recorded_source_question_id text;
     recorded_source_revision_number integer; recorded_source_license text;
 BEGIN
-    IF p_expected_edit_number IS NULL OR p_expected_edit_number <= 0
+    IF p_expected_draft_question_edit_number IS NULL OR p_expected_draft_question_edit_number <= 0
        OR p_published_question_id IS NULL
        OR p_published_question_id !~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
        OR substr(p_published_question_id, 6, 1) <> ple_private.crockford_checksum_character(
@@ -404,9 +404,9 @@ BEGIN
             MESSAGE = 'Question Publication requires current Authoring Workspace access';
     END IF;
     actor_id := ple_api.current_session_account_id();
-    SELECT draft_question_edit_number INTO current_edit FROM ple_private.draft_question
+    SELECT draft_question_edit_number INTO v_current_draft_question_edit_number FROM ple_private.draft_question
      WHERE draft_question_id = p_draft_question_uuid AND authoring_workspace_id = p_authoring_workspace_id FOR UPDATE;
-    IF NOT FOUND OR current_edit <> p_expected_edit_number THEN
+    IF NOT FOUND OR v_current_draft_question_edit_number <> p_expected_draft_question_edit_number THEN
         RAISE EXCEPTION USING ERRCODE = '40001',
             MESSAGE = 'Question Publication Draft Question Edit Number is stale or not in its workspace';
     END IF;
@@ -504,16 +504,16 @@ $$;
 SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.load_draft_question_publication_source(
-    p_draft_question_uuid uuid, p_expected_edit_number bigint, p_authoring_workspace_id uuid
+    p_draft_question_uuid uuid, p_expected_draft_question_edit_number bigint, p_authoring_workspace_id uuid
 ) RETURNS TABLE (object_record_id uuid, object_address jsonb, sha256 bytea, size_bytes bigint,
     media_type text, created_at_millis bigint)
 LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT * FROM ple_private.load_draft_question_publication_source(
-        p_draft_question_uuid, p_expected_edit_number, p_authoring_workspace_id)
+        p_draft_question_uuid, p_expected_draft_question_edit_number, p_authoring_workspace_id)
 $$;
 
 CREATE FUNCTION ple_api.publish_new_question_lineage(
-    p_draft_question_uuid uuid, p_expected_edit_number bigint, p_authoring_workspace_id uuid,
+    p_draft_question_uuid uuid, p_expected_draft_question_edit_number bigint, p_authoring_workspace_id uuid,
     p_published_question_id text, p_target_object_id uuid, p_target_object_address jsonb,
     p_target_sha256 bytea, p_target_size_bytes bigint, p_target_media_type text,
     p_target_created_at_millis bigint, p_authorship jsonb,
@@ -523,7 +523,7 @@ CREATE FUNCTION ple_api.publish_new_question_lineage(
     p_availability_event_id uuid, p_hotspot_asset jsonb
 ) RETURNS void LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
-    SELECT ple_private.publish_new_question_lineage(p_draft_question_uuid, p_expected_edit_number,
+    SELECT ple_private.publish_new_question_lineage(p_draft_question_uuid, p_expected_draft_question_edit_number,
         p_authoring_workspace_id, p_published_question_id, p_target_object_id, p_target_object_address, p_target_sha256,
         p_target_size_bytes, p_target_media_type, p_target_created_at_millis, p_authorship,
         p_initial_shared_tags, p_discipline_uuid, p_subject_uuid,

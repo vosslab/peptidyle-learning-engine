@@ -152,7 +152,7 @@ function AssessmentAttemptHistoryContent(props: {
                   <OpaqueWebworkPreviewFrame
                     class="attempt-history__answer-review"
                     src={backendAnswerReviewDocumentUrl(
-                      props.history.assessmentAttempt,
+                      props.history.assessmentAttemptId,
                       question.position,
                     )}
                     title="Correct answer"

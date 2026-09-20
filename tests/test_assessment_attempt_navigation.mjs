@@ -47,7 +47,7 @@ test("author-content document URLs select only canonical Attempts and positive p
 
 test("Assessment Attempt context retains one strict server expiry and display zone", () => {
   const context = {
-    assessmentAttempt: "00000000-0000-0000-0000-00000000000c",
+    assessmentAttemptId: "00000000-0000-0000-0000-00000000000c",
     attemptNumber: 2,
     displayTimeZone: "America/Chicago",
     expiresAt: 1_768_507_200_000,
@@ -69,7 +69,7 @@ test("Assessment Attempt context retains one strict server expiry and display zo
 
 test("Student Assessment Attempt progress rejects answer-bearing and extra fields", () => {
   const projection = {
-    assessmentAttempt: "00000000-0000-0000-0000-00000000000c",
+    assessmentAttemptId: "00000000-0000-0000-0000-00000000000c",
     questionCount: 2,
     recommendedPosition: 2,
     positions: [
@@ -113,17 +113,17 @@ test("Assessment Access carries only its authorized answer-free facts and Attemp
     pointsPossible: 8,
     previousAttempts: [
       {
-        assessmentAttempt: "00000000-0000-0000-0000-00000000000b",
+        assessmentAttemptId: "00000000-0000-0000-0000-00000000000b",
         attemptNumber: 1,
         state: "submitted",
         score: { pointsEarned: 6, pointsPossible: 8 },
       },
     ],
   };
-  const resumable = { activeAssessmentAttempt: "00000000-0000-0000-0000-00000000000c", ...facts };
+  const resumable = { activeAssessmentAttemptId: "00000000-0000-0000-0000-00000000000c", ...facts };
   const startable = {
     ...resumable,
-    activeAssessmentAttempt: null,
+    activeAssessmentAttemptId: null,
     decision: { ...decision, timeLimitSeconds: null },
   };
   const closedWithoutReleasedQuestions = {
@@ -145,7 +145,9 @@ test("Assessment Access carries only its authorized answer-free facts and Attemp
   assert.throws(() => decodeLiveAssessmentAccess({ decision }));
   assert.throws(() => decodeLiveAssessmentAccess({ ...resumable, assessmentType: undefined }));
   assert.throws(() => decodeLiveAssessmentAccess({ ...resumable, assessmentType: "project" }));
-  assert.throws(() => decodeLiveAssessmentAccess({ ...resumable, activeAssessmentAttempt: "12" }));
+  assert.throws(() =>
+    decodeLiveAssessmentAccess({ ...resumable, activeAssessmentAttemptId: "12" }),
+  );
   assert.throws(() => decodeLiveAssessmentAccess({ ...resumable, attemptId: "private" }));
   assert.throws(() =>
     decodeLiveAssessmentAccess({
@@ -219,12 +221,12 @@ test("Student Assessment Attempt save and final submission use closed no-store c
       const path = new URL(request.url).pathname;
       if (path.endsWith("/submission")) {
         return noStoreJson({
-          assessmentAttempt: "00000000-0000-0000-0000-00000000000c",
+          assessmentAttemptId: "00000000-0000-0000-0000-00000000000c",
           submissionState: "submitted",
         });
       }
       return noStoreJson({
-        assessmentAttempt: "00000000-0000-0000-0000-00000000000c",
+        assessmentAttemptId: "00000000-0000-0000-0000-00000000000c",
         position: 2,
         responseState: "saved",
       });
@@ -238,7 +240,7 @@ test("Student Assessment Attempt save and final submission use closed no-store c
   assert.deepEqual(
     await client.submitStudentAssessmentAttempt("00000000-0000-0000-0000-00000000000c"),
     {
-      assessmentAttempt: "00000000-0000-0000-0000-00000000000c",
+      assessmentAttemptId: "00000000-0000-0000-0000-00000000000c",
       submissionState: "submitted",
     },
   );
@@ -264,14 +266,14 @@ test("Student Assessment Attempt save and final submission use closed no-store c
 test("final submission reports completion without grading data", () => {
   assert.deepEqual(
     decodeStudentAssessmentAttemptSubmissionResult({
-      assessmentAttempt: "00000000-0000-0000-0000-00000000000c",
+      assessmentAttemptId: "00000000-0000-0000-0000-00000000000c",
       submissionState: "submitted",
     }),
-    { assessmentAttempt: "00000000-0000-0000-0000-00000000000c", submissionState: "submitted" },
+    { assessmentAttemptId: "00000000-0000-0000-0000-00000000000c", submissionState: "submitted" },
   );
   assert.throws(() =>
     decodeStudentAssessmentAttemptSubmissionResult({
-      assessmentAttempt: "00000000-0000-0000-0000-00000000000c",
+      assessmentAttemptId: "00000000-0000-0000-0000-00000000000c",
       submissionState: "submitted",
       score: { pointsEarned: 1, pointsPossible: 2 },
     }),
@@ -303,7 +305,7 @@ test("Student Assessment Attempt mutations reject invalid requests and acknowled
     fetch: () =>
       Promise.resolve(
         noStoreJson({
-          assessmentAttempt: "00000000-0000-0000-0000-00000000000d",
+          assessmentAttemptId: "00000000-0000-0000-0000-00000000000d",
           position: 1,
           responseState: "saved",
         }),
@@ -322,7 +324,7 @@ test("Student Assessment Attempt mutations reject invalid requests and acknowled
     fetch: () =>
       Promise.resolve(
         noStoreJson({
-          assessmentAttempt: "00000000-0000-0000-0000-00000000000c",
+          assessmentAttemptId: "00000000-0000-0000-0000-00000000000c",
           position: 2,
           responseState: "saved",
         }),
@@ -345,7 +347,7 @@ test("Student Assessment Attempt mutations reject invalid requests and acknowled
     fetch: () =>
       Promise.resolve(
         noStoreJson({
-          assessmentAttempt: "00000000-0000-0000-0000-00000000000c",
+          assessmentAttemptId: "00000000-0000-0000-0000-00000000000c",
           submissionState: "saved",
         }),
       ),
@@ -361,7 +363,7 @@ test("Student Assessment Attempt GET projections match their request", async () 
     fetch: () =>
       Promise.resolve(
         noStoreJson({
-          assessmentAttempt: "00000000-0000-0000-0000-00000000000d",
+          assessmentAttemptId: "00000000-0000-0000-0000-00000000000d",
           questionCount: 1,
           recommendedPosition: 1,
           positions: [{ position: 1, responseState: "unanswered" }],

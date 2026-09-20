@@ -55,20 +55,20 @@ export interface AssessmentPoolForkClient {
     course: CourseInstanceId,
     assessment: AssessmentId,
     input: ImportAssessmentQuestionPoolForkInput,
-    etag: string,
+    expectedAssessmentEditNumber: AssessmentEditNumber,
   ) => Promise<ImportedAssessmentQuestionPoolFork>;
   readonly appendAssessmentQuestionPoolForkMembers: (
     course: CourseInstanceId,
     assessment: AssessmentId,
     entry: AssessmentEntryId,
     input: AppendAssessmentQuestionPoolForkMembersInput,
-    etag: string,
+    expectedAssessmentEditNumber: AssessmentEditNumber,
   ) => Promise<AppendedAssessmentQuestionPoolForkMembers>;
   readonly updateAssessmentQuestionPoolSelectionCount: (
     course: CourseInstanceId,
     assessment: AssessmentId,
     entry: AssessmentEntryId,
     selectionCount: number,
-    etag: string,
+    expectedAssessmentEditNumber: AssessmentEditNumber,
   ) => Promise<AssessmentQuestionPoolSelectionCountReceipt>;
 }

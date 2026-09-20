@@ -516,7 +516,7 @@ pub struct QuestionUseSummary {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CourseQuestionUse {
     /// Authorized Course Instance ID; it is never authority by itself.
-    pub course: CourseInstanceId,
+    pub course_instance_id: CourseInstanceId,
     /// Current course title visible to the requesting instructor.
     pub title: String,
     /// Number of current assessment uses in this course.

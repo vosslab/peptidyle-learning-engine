@@ -34,7 +34,7 @@ export function backendAnswerReviewDocumentUrl(
 
 /** A no-store selected-history projection with protected fields omitted. */
 export interface StudentAssessmentAttemptHistory {
-  readonly assessmentAttempt: AssessmentAttemptId;
+  readonly assessmentAttemptId: AssessmentAttemptId;
   readonly attemptNumber: number;
   readonly course: {
     readonly id: CourseInstanceId;

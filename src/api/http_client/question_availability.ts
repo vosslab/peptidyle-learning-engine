@@ -7,9 +7,14 @@ import type { ApiClient } from "../client";
 import type {
   LoadedQuestionLineage,
   QuestionAvailabilityClient,
-  QuestionAvailabilityEtag,
   QuestionAvailabilityTransition,
 } from "../question_availability";
+import type { QuestionAvailabilityEditNumber } from "../../../generated/api/QuestionAvailabilityEditNumber";
+import {
+  assertResponseMatchesPositiveNumber,
+  ifMatchHeaderForPositiveNumber,
+  numberFromResponseEtag,
+} from "./conditional_request";
 import {
   decodeQuestionAvailabilityTransition,
   decodeQuestionLineageView,
@@ -34,21 +39,11 @@ function exactRevisionPath(questionRevisionTuple: QuestionRevisionTuple): string
   return `${questionPath(questionRevisionTuple.questionId)}/revisions/${encodeURIComponent(String(questionRevisionTuple.revisionNumber))}`;
 }
 
-function parseStrongEtag(value: string, path: string): QuestionAvailabilityEtag {
-  if (!/^"[1-9][0-9]*"$/u.test(value) || BigInt(value.slice(1, -1)) > 9_223_372_036_854_775_807n) {
-    throw new ApiProtocolError(
-      `API ${path} ETag must be one strong positive Question Availability Edit Number`,
-    );
-  }
-  return value;
-}
-
-function responseEtag(response: Response, path: string): QuestionAvailabilityEtag {
-  const value = response.headers.get("etag");
-  if (value === null) {
-    throw new ApiProtocolError(`API response ${path} must include a Question Availability ETag`);
-  }
-  return parseStrongEtag(value, path);
+function questionAvailabilityEditNumberFromResponse(
+  response: Response,
+  path: string,
+): QuestionAvailabilityEditNumber {
+  return numberFromResponseEtag(response, path, "Question Availability Edit Number");
 }
 
 async function questionJson<T>(
@@ -59,11 +54,17 @@ async function questionJson<T>(
   options: {
     readonly method?: "GET" | "POST";
     readonly body?: unknown;
-    readonly etag?: QuestionAvailabilityEtag;
+    readonly expectedQuestionAvailabilityEditNumber?: QuestionAvailabilityEditNumber;
   } = {},
 ): Promise<{ readonly body: T; readonly response: Response }> {
   const headers: Record<string, string> = {};
-  if (options.etag !== undefined) headers["if-match"] = parseStrongEtag(options.etag, path);
+  if (options.expectedQuestionAvailabilityEditNumber !== undefined) {
+    headers["if-match"] = ifMatchHeaderForPositiveNumber(
+      options.expectedQuestionAvailabilityEditNumber,
+      path,
+      "Question Availability Edit Number",
+    );
+  }
   const response = await requestSameOrigin(fetchImplementation, basePath, path, {
     method: options.method ?? "GET",
     headers,
@@ -90,15 +91,19 @@ function sameQuestionRevision(
 }
 
 function availabilityTransition(
-  body: Omit<QuestionAvailabilityTransition, "etag">,
+  body: Omit<QuestionAvailabilityTransition, "questionAvailabilityEditNumber"> & {
+    readonly questionAvailabilityEditNumber: QuestionAvailabilityEditNumber;
+  },
   response: Response,
   path: string,
 ): QuestionAvailabilityTransition {
-  const etag = responseEtag(response, path);
-  if (etag !== `"${body.editNumber}"`) {
-    throw new ApiProtocolError(`API response ${path} ETag must match its Availability Edit Number`);
-  }
-  return { ...body, etag };
+  assertResponseMatchesPositiveNumber(
+    response,
+    body.questionAvailabilityEditNumber,
+    path,
+    "Question Availability Edit Number",
+  );
+  return body;
 }
 
 /** Composes Question availability independently from ordinary Question Library search. */
@@ -119,7 +124,14 @@ export function createQuestionAvailabilityClient(
       if (summary.questionId !== questionId) {
         throw new ApiProtocolError(`API response ${path} does not match its Question lineage`);
       }
-      return { summary, viewerMayArchive, availabilityEtag: responseEtag(result.response, path) };
+      return {
+        summary,
+        viewerMayArchive,
+        questionAvailabilityEditNumber: questionAvailabilityEditNumberFromResponse(
+          result.response,
+          path,
+        ),
+      };
     },
     getQuestionRevision: async (questionRevisionTuple): Promise<QuestionDetails> => {
       const path = exactRevisionPath(questionRevisionTuple);
@@ -131,7 +143,7 @@ export function createQuestionAvailabilityClient(
     archiveQuestion: async (
       questionId,
       confirmationTitle,
-      etag,
+      expectedQuestionAvailabilityEditNumber,
     ): Promise<QuestionAvailabilityTransition> => {
       const path = `${questionPath(questionId)}/archive`;
       const result = await questionJson(
@@ -139,18 +151,25 @@ export function createQuestionAvailabilityClient(
         basePath,
         path,
         decodeQuestionAvailabilityTransition,
-        { method: "POST", body: { confirmationTitle }, etag },
+        {
+          method: "POST",
+          body: { confirmationTitle },
+          expectedQuestionAvailabilityEditNumber,
+        },
       );
       return availabilityTransition(result.body, result.response, path);
     },
-    restoreQuestion: async (questionId, etag): Promise<QuestionAvailabilityTransition> => {
+    restoreQuestion: async (
+      questionId,
+      expectedQuestionAvailabilityEditNumber,
+    ): Promise<QuestionAvailabilityTransition> => {
       const path = `${questionPath(questionId)}/restore`;
       const result = await questionJson(
         fetchImplementation,
         basePath,
         path,
         decodeQuestionAvailabilityTransition,
-        { method: "POST", etag },
+        { method: "POST", expectedQuestionAvailabilityEditNumber },
       );
       return availabilityTransition(result.body, result.response, path);
     },

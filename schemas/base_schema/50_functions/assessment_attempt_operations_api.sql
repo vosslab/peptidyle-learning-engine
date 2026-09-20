@@ -10,7 +10,7 @@ CREATE FUNCTION ple_private.save_student_assessment_accommodation(
     p_accommodation_id uuid,
     p_student_record_id uuid,
     p_assessment_id text,
-    p_expected_edit_number bigint,
+    p_expected_accommodation_edit_number bigint,
     p_available_at timestamptz,
     p_due_at timestamptz,
     p_closes_at timestamptz,
@@ -23,7 +23,7 @@ DECLARE current_row ple_private.student_assessment_accommodation%ROWTYPE;
 DECLARE course_id_value text;
 BEGIN
     IF p_accommodation_id IS NULL OR p_student_record_id IS NULL OR p_assessment_id IS NULL
-       OR p_expected_edit_number IS NULL OR p_expected_edit_number < 0 THEN
+       OR p_expected_accommodation_edit_number IS NULL OR p_expected_accommodation_edit_number < 0 THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Student Assessment Accommodation save is invalid';
     END IF;
     SELECT assessment.course_instance_id INTO course_id_value
@@ -41,7 +41,7 @@ BEGIN
      WHERE student_record_id = p_student_record_id AND assessment_id = p_assessment_id
      FOR UPDATE;
     IF NOT FOUND THEN
-        IF p_expected_edit_number <> 0 THEN
+        IF p_expected_accommodation_edit_number <> 0 THEN
             RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Student Assessment Accommodation Edit Number is stale';
         END IF;
         INSERT INTO ple_private.student_assessment_accommodation(
@@ -60,7 +60,7 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Student Assessment Accommodation identity is unavailable';
     END IF;
-    IF current_row.accommodation_edit_number <> p_expected_edit_number THEN
+    IF current_row.accommodation_edit_number <> p_expected_accommodation_edit_number THEN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Student Assessment Accommodation Edit Number is stale';
     END IF;
     IF ROW(current_row.available_at, current_row.due_at, current_row.closes_at,

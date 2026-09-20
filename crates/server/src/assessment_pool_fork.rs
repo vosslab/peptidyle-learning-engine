@@ -61,7 +61,7 @@ pub(crate) fn assessment_pool_fork_router_with_store(
             post(import_fork),
         )
         .route(
-            "/api/course-instances/{course_instance_id}/assessments/{assessment_id}/question-pool-forks/{entry}",
+            "/api/course-instances/{course_instance_id}/assessments/{assessment_id}/question-pool-forks/{assessment_entry_id}",
             put(append_fork_revision),
         )
         .with_state(RouteState {

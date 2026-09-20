@@ -47,7 +47,7 @@ pub use identifiers::{
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StudentAssessmentAttemptProgress {
-    pub assessment_attempt: AssessmentAttemptId,
+    pub assessment_attempt_id: AssessmentAttemptId,
     pub question_count: u32,
     pub recommended_position: Option<u32>,
     pub positions: Vec<StudentAssessmentAttemptPosition>,
@@ -115,7 +115,7 @@ pub struct QuestionPoolSelection {
     /// Durable Question Pool Selection identity.
     pub id: QuestionPoolSelectionId,
     /// Assessment Attempt that owns this selected Question Pool Item set.
-    pub assessment_attempt: AssessmentAttemptId,
+    pub assessment_attempt_id: AssessmentAttemptId,
     /// Question Pool Assessment Entry that supplied the Question Pool Items.
     pub question_pool_assessment_entry: AssessmentEntryId,
     /// Pool whose current membership was sampled.
@@ -136,9 +136,9 @@ pub struct IssuedQuestion {
     /// Durable issued-question identity.
     pub id: IssuedQuestionId,
     /// Assessment Attempt whose future sequencing is frozen by this record.
-    pub assessment_attempt: AssessmentAttemptId,
+    pub assessment_attempt_id: AssessmentAttemptId,
     /// Stable fixed-question or Question Pool Assessment Entry identity.
-    pub assessment_entry: AssessmentEntryId,
+    pub assessment_entry_id: AssessmentEntryId,
     /// Entry index in the Assessment Content when the Assessment Attempt began.
     pub assessment_content_entry_index: u32,
     /// Expanded zero-based delivery order inside this Assessment Attempt.
@@ -361,7 +361,7 @@ pub struct AssessmentProgressRecord {
     /// Student Record summarized by this view.
     pub student_record: StudentRecordId,
     /// Assessment summarized by this view.
-    pub assessment: AssessmentId,
+    pub assessment_id: AssessmentId,
     /// Number of completed Assessment Attempts, including continued Student work.
     pub completed_assessment_attempt_count: u32,
     /// Number of Question Attempts recorded across all Assessment Attempts.
@@ -491,10 +491,10 @@ impl From<&AssessmentProgressRecord> for AssessmentProgress {
 
 impl AssessmentProgressRecord {
     /// Creates the empty Student Work view for one Student Record and Assessment.
-    pub fn empty(student_record: StudentRecordId, assessment: AssessmentId) -> Self {
+    pub fn empty(student_record: StudentRecordId, assessment_id: AssessmentId) -> Self {
         Self {
             student_record,
-            assessment,
+            assessment_id,
             completed_assessment_attempt_count: 0,
             total_question_attempts: 0,
             last_activity_at: None,
@@ -504,10 +504,10 @@ impl AssessmentProgressRecord {
 
 impl AssessmentGrade {
     /// Creates the empty selected-grade record for one Student Record and Assessment.
-    pub fn empty(student_record: StudentRecordId, assessment: AssessmentId) -> Self {
+    pub fn empty(student_record: StudentRecordId, assessment_id: AssessmentId) -> Self {
         Self {
             student_record,
-            assessment,
+            assessment_id,
             first_completed_at: None,
             current_assessment_attempt: None,
             current_score: None,

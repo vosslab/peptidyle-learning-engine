@@ -397,7 +397,7 @@ test("B1 client sends Revision and metadata validators to their separate routes"
   const saved = await client.saveBlueprintCourse(
     "BP7K3M2QAF",
     replacementInput(),
-    current.revisionEtag,
+    current.blueprintCourse.current_revision_tuple.revisionNumber,
     "save-7",
   );
   const renamed = await client.renameBlueprintCourse(
@@ -420,7 +420,7 @@ test("B1 client sends Revision and metadata validators to their separate routes"
   assert.equal(current.blueprintCourse.modules[0].assessments[0].content.assessment_type, "exam");
   assert.equal(saved.changed, true);
   assert.equal(saved.blueprintCourse.modules[0].assessments[0].content.assessment_type, "exam");
-  assert.equal(saved.revisionEtag, '"4"');
+  assert.equal(saved.blueprintCourse.current_revision_tuple.revisionNumber, "4");
   assert.equal(returned.metadata.availability, "private");
   assert.equal(revision.blueprintRevisionTuple.revisionNumber, "3");
   const save = requests.find(
@@ -452,7 +452,7 @@ test("B1 client sends Revision and metadata validators to their separate routes"
     ),
   );
   await assert.rejects(
-    client.saveBlueprintCourse("BP7K3M2QAF", replacementInput(), '"07"', "save-7"),
+    client.saveBlueprintCourse("BP7K3M2QAF", replacementInput(), "07", "save-7"),
     ApiProtocolError,
   );
   await assert.rejects(
@@ -531,7 +531,7 @@ test("B1 client gives a typed conflict for a stale Blueprint Revision Save", asy
       ),
   });
   await assert.rejects(
-    client.saveBlueprintCourse("BP7K3M2QAF", replacementInput(), '"3"', "save-7"),
+    client.saveBlueprintCourse("BP7K3M2QAF", replacementInput(), "3", "save-7"),
     BlueprintCourseConflictError,
   );
 });
@@ -544,11 +544,11 @@ test("B1 client accepts a canonical Save no-op at the current Blueprint Revision
   const saved = await client.saveBlueprintCourse(
     "BP7K3M2QAF",
     replacementInput(),
-    '"3"',
+    "3",
     "save-no-op",
   );
   assert.equal(saved.changed, false);
-  assert.equal(saved.revisionEtag, '"3"');
+  assert.equal(saved.blueprintCourse.current_revision_tuple.revisionNumber, "3");
 });
 
 test("B1 Blueprint aggregates have a dedicated bounded response budget", async () => {

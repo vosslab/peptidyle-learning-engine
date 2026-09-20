@@ -63,8 +63,9 @@ export function createStudentAssessmentAttemptNavigationClient(
         `${attemptPath(attempt)}/context`,
         decodeStudentAssessmentAttemptContext,
       ).then((context) => {
-        if (context.assessmentAttempt !== attempt)
+        if (context.assessmentAttemptId !== attempt) {
           throw new ApiProtocolError("Assessment Attempt context does not match its request");
+        }
         return context;
       }),
     getStudentAssessmentAttemptProgress: (attempt) =>
@@ -74,8 +75,9 @@ export function createStudentAssessmentAttemptNavigationClient(
         `${attemptPath(attempt)}/student-progress`,
         decodeStudentAssessmentAttemptProgress,
       ).then((progress) => {
-        if (progress.assessmentAttempt !== attempt)
+        if (progress.assessmentAttemptId !== attempt) {
           throw new ApiProtocolError("Assessment Attempt progress does not match its request");
+        }
         return progress;
       }),
     getStudentAssessmentAttemptPresentation: (
@@ -115,14 +117,16 @@ export function createStudentAssessmentAttemptNavigationClient(
         await boundedResponseJson(result, path),
         "response",
       );
-      if (acknowledgement.assessmentAttempt !== attempt)
+      if (acknowledgement.assessmentAttemptId !== attempt) {
         throw new ApiProtocolError(
           "Saved response acknowledgement attempt does not match its request",
         );
-      if (acknowledgement.position !== position)
+      }
+      if (acknowledgement.position !== position) {
         throw new ApiProtocolError(
           "Saved response acknowledgement position does not match its request",
         );
+      }
       return acknowledgement;
     },
     submitStudentAssessmentAttempt: async (
@@ -138,10 +142,11 @@ export function createStudentAssessmentAttemptNavigationClient(
         await boundedResponseJson(result, path),
         "response",
       );
-      if (acknowledgement.assessmentAttempt !== attempt)
+      if (acknowledgement.assessmentAttemptId !== attempt) {
         throw new ApiProtocolError(
           "Assessment Attempt submission acknowledgement does not match its request",
         );
+      }
       return acknowledgement;
     },
   };

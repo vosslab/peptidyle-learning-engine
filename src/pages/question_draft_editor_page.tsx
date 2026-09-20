@@ -37,7 +37,9 @@ function GeneralFeedbackOnlyPage(props: {
   const [savedGeneralFeedback, setSavedGeneralFeedback] = createSignal(
     props.initial.generalFeedback,
   );
-  const [etag, setEtag] = createSignal(props.initial.etag);
+  const [draftQuestionEditNumber, setDraftQuestionEditNumber] = createSignal(
+    props.initial.draftQuestionEditNumber,
+  );
   const [saving, setSaving] = createSignal(false);
   const [status, setStatus] = createSignal<string | null>(null);
   const dirty = (): boolean => generalFeedback() !== savedGeneralFeedback();
@@ -49,7 +51,7 @@ function GeneralFeedbackOnlyPage(props: {
       const newest = await props.client.load(props.draftQuestion);
       setGeneralFeedback(newest.generalFeedback);
       setSavedGeneralFeedback(newest.generalFeedback);
-      setEtag(newest.etag);
+      setDraftQuestionEditNumber(newest.draftQuestionEditNumber);
       setStatus("Loaded the newest saved general feedback.");
     } catch (error: unknown) {
       setStatus(authorSafeMessage(error, "General feedback could not be loaded."));
@@ -63,9 +65,13 @@ function GeneralFeedbackOnlyPage(props: {
     setSaving(true);
     setStatus("Saving general feedback...");
     try {
-      const saved = await props.client.save(props.draftQuestion, generalFeedback(), etag());
+      const saved = await props.client.save(
+        props.draftQuestion,
+        generalFeedback(),
+        draftQuestionEditNumber(),
+      );
       setSavedGeneralFeedback(generalFeedback());
-      setEtag(saved.etag);
+      setDraftQuestionEditNumber(saved.draftQuestionEditNumber);
       setStatus("General feedback saved. It remains separate from backend interaction feedback.");
     } catch (error: unknown) {
       if (error instanceof PleQuestionGeneralFeedbackConflictError) {

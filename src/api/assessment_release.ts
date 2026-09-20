@@ -137,11 +137,9 @@ export interface LiveAssessmentWorkspace {
   readonly questions: ReadonlyArray<AuthoredAssessmentQuestion>;
 }
 
-/** Current Assessment workspace plus the exact ETag required for its next mutation. */
+/** Current Assessment workspace together with its Assessment Edit Number. */
 export interface LiveAssessmentWorkspaceResponse {
   readonly workspace: LiveAssessmentWorkspace;
-  /** Exact quoted strong ETag for the next save or release. */
-  readonly etag: string;
 }
 
 export interface CreateLiveAssessmentInput {
@@ -249,14 +247,14 @@ export interface LiveAssessmentReleaseClient {
     course: CourseInstanceId,
     assessment: AssessmentId,
     input: SaveLiveAssessmentInput,
-    etag: string,
+    expectedAssessmentEditNumber: AssessmentEditNumber,
   ) => Promise<LiveAssessmentWorkspaceResponse>;
   /** Saves only Base Assessment Policy fields with an exact Assessment Edit Number. */
   readonly saveBaseAssessmentPolicy: (
     course: CourseInstanceId,
     assessment: AssessmentId,
     input: SaveBaseAssessmentPolicyInput,
-    etag: string,
+    expectedAssessmentEditNumber: AssessmentEditNumber,
   ) => Promise<LiveAssessmentWorkspaceResponse>;
   readonly validateLiveAssessmentRelease: (
     course: CourseInstanceId,
@@ -265,7 +263,7 @@ export interface LiveAssessmentReleaseClient {
   readonly releaseLiveAssessment: (
     course: CourseInstanceId,
     assessment: AssessmentId,
-    etag: string,
+    expectedAssessmentEditNumber: AssessmentEditNumber,
   ) => Promise<LiveAssessmentWorkspaceResponse>;
   /** Reads the aggregate confirmation facts for a currently Released Assessment. */
   readonly getLiveAssessmentUnreleaseImpact: (
@@ -277,9 +275,6 @@ export interface LiveAssessmentReleaseClient {
     course: CourseInstanceId,
     assessment: AssessmentId,
     confirmationTitle: string,
-    etag: string,
-  ) => Promise<{
-    readonly result: UnreleasedLiveAssessment;
-    readonly etag: string;
-  }>;
+    expectedAssessmentEditNumber: AssessmentEditNumber,
+  ) => Promise<UnreleasedLiveAssessment>;
 }

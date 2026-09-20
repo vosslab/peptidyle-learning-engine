@@ -6,16 +6,11 @@ import {
   decodePendingCourseInvitationsPage,
 } from "../decoders";
 import { ApiProtocolError, ApiRequestError } from "./error";
+import { ifMatchHeaderForPositiveNumber } from "./conditional_request";
 import { requestPath, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
 
 type JsonDecoder<T> = (value: unknown, path?: string) => T;
-
-function strongDecimalEtag(value: string, name: string): string {
-  if (!/^[1-9][0-9]*$/u.test(value))
-    throw new ApiProtocolError(`${name} must be a positive canonical decimal precondition`);
-  return `"${value}"`;
-}
 
 function pagePath(path: string, cursor: string | undefined, pageSize: number | undefined): string {
   if (pageSize !== undefined && (!Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 100))
@@ -67,7 +62,7 @@ async function noContent(
 ): Promise<void> {
   const headers: Record<string, string> = {
     accept: "application/json",
-    "if-match": strongDecimalEtag(options.ifMatch, "request state precondition"),
+    "if-match": ifMatchHeaderForPositiveNumber(options.ifMatch, path, "request state precondition"),
   };
   if (options.body !== undefined) headers["content-type"] = "application/json";
   const response = await fetchImplementation(requestPath(basePath, path), {

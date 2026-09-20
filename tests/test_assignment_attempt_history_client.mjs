@@ -6,7 +6,7 @@ import { createRecordingFetch } from "./http_client_test_support.mjs";
 
 function history() {
   return {
-    assessmentAttempt: "00000000-0000-0000-0000-00000000000c",
+    assessmentAttemptId: "00000000-0000-0000-0000-00000000000c",
     attemptNumber: 3,
     course: {
       id: "CI7K3M2QAZ",

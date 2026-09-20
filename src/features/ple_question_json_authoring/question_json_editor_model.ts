@@ -19,7 +19,7 @@ const DEFAULT_CHOICES: ReadonlyArray<PleQuestionJsonChoice> = [
 ];
 
 export type PleQuestionJsonInstructorPreview = {
-  readonly etag: string;
+  readonly draftQuestionEditNumber: string;
   readonly correctChoice: string;
   readonly explanation: string | null;
 };

@@ -53,7 +53,7 @@ pub(super) async fn student_context(
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct StudentAssessmentAttemptContextResponse {
-    assessment_attempt: AssessmentAttemptId,
+    assessment_attempt_id: AssessmentAttemptId,
     attempt_number: u32,
     display_time_zone: AccountTimeZone,
     expires_at: Option<Timestamp>,
@@ -83,7 +83,7 @@ impl From<learning_data_access::StudentAssessmentAttemptContext>
 {
     fn from(value: learning_data_access::StudentAssessmentAttemptContext) -> Self {
         Self {
-            assessment_attempt: value.assessment_attempt,
+            assessment_attempt_id: value.assessment_attempt_id,
             attempt_number: value.attempt_number,
             display_time_zone: value.display_time_zone,
             expires_at: value.expires_at,

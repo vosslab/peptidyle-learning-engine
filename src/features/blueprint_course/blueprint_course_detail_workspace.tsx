@@ -7,7 +7,7 @@ import { UnsavedChangesGuard } from "../../components/unsaved_changes_guard";
 import { CourseClassificationEditor } from "../../components/course_classification_editor";
 import { ApiRequestError, BlueprintCourseConflictError } from "../../api/http_client";
 import { parseBlueprintCourseId } from "../../navigation/public_route";
-import type { BlueprintCourseClient, BlueprintRevisionEtag } from "../../api/blueprint_course";
+import type { BlueprintCourseClient } from "../../api/blueprint_course";
 import { BlueprintAssessmentContentEditor } from "./blueprint_assessment_content_editor";
 import { BlueprintCourseLifecycleControls } from "./blueprint_course_lifecycle_controls";
 import { BlueprintCourseExport } from "./blueprint_exchange";
@@ -34,8 +34,6 @@ interface Notice {
 
 interface LoadedBlueprintCourse {
   readonly view: BlueprintCourseView;
-  /** The exact Revision and ETag on which this local editor state is based. */
-  readonly revisionEtag: BlueprintRevisionEtag;
   readonly content: ReplaceBlueprintCourseContentInput;
   readonly savedContent: ReplaceBlueprintCourseContentInput;
 }
@@ -130,7 +128,6 @@ export function BlueprintCourseDetailWorkspace(
       const content = preserveContent && prior !== undefined ? prior.content : savedContent;
       setCurrent({
         view: result.blueprintCourse,
-        revisionEtag: result.revisionEtag,
         content,
         savedContent,
       });
@@ -213,13 +210,12 @@ export function BlueprintCourseDetailWorkspace(
       const saved = await props.client.saveBlueprintCourse(
         loaded.view.id,
         loaded.content,
-        loaded.revisionEtag,
+        loaded.view.current_revision_tuple.revisionNumber,
         crypto.randomUUID(),
       );
       const savedContent = replacementContentFromBlueprintModules(saved.blueprintCourse.modules);
       setCurrent({
         view: saved.blueprintCourse,
-        revisionEtag: saved.revisionEtag,
         content: savedContent,
         savedContent,
       });

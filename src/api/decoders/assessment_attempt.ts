@@ -104,8 +104,8 @@ export function decodeStudentIssuedQuestion(value: unknown, path: string): Stude
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "id",
-    "assessmentAttempt",
-    "assessmentEntry",
+    "assessmentAttemptId",
+    "assessmentEntryId",
     "assessmentContentEntryIndex",
     "issuedPosition",
     "questionRevisionTuple",
@@ -121,13 +121,13 @@ export function decodeStudentIssuedQuestion(value: unknown, path: string): Stude
   ]);
   return {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
-    assessmentAttempt: decodeIdentifier(
-      field(record, "assessmentAttempt", path),
-      `${path}.assessmentAttempt`,
+    assessmentAttemptId: decodeIdentifier(
+      field(record, "assessmentAttemptId", path),
+      `${path}.assessmentAttemptId`,
     ),
-    assessmentEntry: decodeIdentifier(
-      field(record, "assessmentEntry", path),
-      `${path}.assessmentEntry`,
+    assessmentEntryId: decodeIdentifier(
+      field(record, "assessmentEntryId", path),
+      `${path}.assessmentEntryId`,
     ),
     assessmentContentEntryIndex: decodeNonnegativeInteger(
       field(record, "assessmentContentEntryIndex", path),
@@ -279,7 +279,7 @@ export function decodeAssessmentAttempt(value: unknown, path = "response"): Asse
   requireOnlyFields(record, path, [
     "id",
     "studentRecord",
-    "assessment",
+    "assessmentId",
     "evidence",
     "attemptNumber",
     "startedAt",
@@ -289,7 +289,7 @@ export function decodeAssessmentAttempt(value: unknown, path = "response"): Asse
   const decoded = {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
     studentRecord: decodeIdentifier(field(record, "studentRecord", path), `${path}.studentRecord`),
-    assessment: decodeAssessmentId(field(record, "assessment", path), `${path}.assessment`),
+    assessmentId: decodeAssessmentId(field(record, "assessmentId", path), `${path}.assessmentId`),
     evidence: decodeAssessmentAttemptEvidence(field(record, "evidence", path), `${path}.evidence`),
     attemptNumber: decodePositiveInteger(
       field(record, "attemptNumber", path),
@@ -478,7 +478,10 @@ export function decodeAssessmentProgressRecord(
       field(record, "student_record", path),
       `${path}.student_record`,
     ),
-    assessment: decodeAssessmentId(field(record, "assessment", path), `${path}.assessment`),
+    assessment_id: decodeAssessmentId(
+      field(record, "assessment_id", path),
+      `${path}.assessment_id`,
+    ),
     completed_assessment_attempt_count: decodeNonnegativeInteger(
       field(record, "completed_assessment_attempt_count", path),
       `${path}.completed_assessment_attempt_count`,
@@ -503,7 +506,10 @@ export function decodeAssessmentGrade(value: unknown, path = "response"): Assess
       field(record, "student_record", path),
       `${path}.student_record`,
     ),
-    assessment: decodeAssessmentId(field(record, "assessment", path), `${path}.assessment`),
+    assessment_id: decodeAssessmentId(
+      field(record, "assessment_id", path),
+      `${path}.assessment_id`,
+    ),
     first_completed_at: decodeNullable(
       field(record, "first_completed_at", path),
       `${path}.first_completed_at`,

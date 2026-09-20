@@ -36,7 +36,7 @@ async function getHistory(
     await boundedResponseJson(response, path),
     "response",
   );
-  if (history.assessmentAttempt !== assessmentAttempt) {
+  if (history.assessmentAttemptId !== assessmentAttempt) {
     throw new ApiProtocolError("Assessment Attempt history does not match its request");
   }
   return history;

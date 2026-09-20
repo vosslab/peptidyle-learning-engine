@@ -4,20 +4,13 @@ import { query } from "@solidjs/router";
 import { createContext, useContext, type JSX } from "solid-js";
 
 import type { AssessmentId } from "../../generated/api/AssessmentId";
-import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { QuestionDetails } from "../../generated/api/QuestionDetails";
 import type { QuestionSearchPage } from "../../generated/api/QuestionSearchPage";
 import type { QuestionSearchRequest } from "../../generated/api/QuestionSearchRequest";
 import type { QuestionId } from "../../generated/api/QuestionId";
 import type { StudentAssessmentProgress } from "../../generated/api/StudentAssessmentProgress";
 import type { ApiClient, OrdinaryBrowserApiClient } from "./client";
-import type {
-  StudentAssessmentLandingSummary,
-  StudentAssessmentDetail,
-  CourseRouteView,
-  CourseSummary,
-  CursorPage,
-} from "./contracts";
+import type { StudentAssessmentDetail, CourseRouteView } from "./contracts";
 import {
   resolveAssessmentAttemptIdentity,
   type ResolvedAssessmentAttemptIdentity,
@@ -35,13 +28,8 @@ interface QueryFunction<Arguments extends ReadonlyArray<unknown>, Result> {
 export interface ApplicationApi<Client extends ApiClient = ApiClient> {
   readonly client: Client;
   readonly queries: {
-    readonly courses: QueryFunction<[], CursorPage<CourseSummary>>;
     readonly questionSearch: QueryFunction<[QuestionSearchRequest], QuestionSearchPage>;
     readonly questionDetails: QueryFunction<[QuestionId], QuestionDetails>;
-    readonly assessments: QueryFunction<
-      [CourseInstanceId],
-      CursorPage<StudentAssessmentLandingSummary>
-    >;
     readonly assessment: QueryFunction<[AssessmentId], StudentAssessmentDetail>;
     readonly assessmentSummary: QueryFunction<[AssessmentId], StudentAssessmentProgress>;
     readonly courseScope: QueryFunction<[CourseInstanceRouteId], CourseRouteView>;
@@ -69,7 +57,6 @@ export function createApplicationApi<Client extends ApiClient>(
   return {
     client,
     queries: {
-      courses: query(() => client.listCourses(), "course-list"),
       questionSearch: query(
         (search: QuestionSearchRequest) => client.searchQuestionLibrary(search),
         "question-search",
@@ -77,10 +64,6 @@ export function createApplicationApi<Client extends ApiClient>(
       questionDetails: query(
         (questionId: QuestionId) => client.getQuestionDetails(questionId),
         "question-details",
-      ),
-      assessments: query(
-        (courseId: CourseInstanceId) => client.listAssessments(courseId),
-        "course-assessments",
       ),
       assessment: query(
         (assessmentId: AssessmentId) => client.getAssessment(assessmentId),

@@ -46,9 +46,12 @@ import type {
   BlueprintIdempotencyKey,
   BlueprintMetadataTransition,
   LoadedBlueprintCourse,
-  BlueprintRevisionEtag,
 } from "../blueprint_course";
 import { ApiProtocolError, ApiRequestError, BlueprintCourseConflictError } from "./error";
+import {
+  assertResponseMatchesPositiveNumber,
+  ifMatchHeaderForPositiveNumber,
+} from "./conditional_request";
 import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
 import { createBlueprintStewardshipClient } from "./blueprint_stewardship";
@@ -122,20 +125,6 @@ function pagePath(
   return `${path}${suffix}`;
 }
 
-function parseRevisionEtag(value: string, path: string): string {
-  if (!/^"[1-9][0-9]*"$/u.test(value) || BigInt(value.slice(1, -1)) > 9_223_372_036_854_775_807n) {
-    throw new ApiProtocolError(`API ${path} ETag must be one strong positive Revision validator`);
-  }
-  return value;
-}
-
-function parseBlueprintEditNumberIfMatch(value: string, path: string): string {
-  if (!/^[1-9][0-9]*$/u.test(value) || BigInt(value) > 9_223_372_036_854_775_807n) {
-    throw new ApiProtocolError(`API ${path} If-Match must be a positive Blueprint Edit Number`);
-  }
-  return `"${value}"`;
-}
-
 function idempotencyKey(value: BlueprintIdempotencyKey, path: string): string {
   if (
     value.length === 0 ||
@@ -164,17 +153,18 @@ async function blueprintJson<T>(
   options: {
     readonly method?: "GET" | "POST" | "PUT";
     readonly body?: unknown;
-    readonly etag?: string;
-    readonly parseEtag?: (value: string, path: string) => string;
+    readonly ifMatchNumber?: string;
+    readonly ifMatchLabel?: string;
     readonly idempotencyKey?: BlueprintIdempotencyKey;
     readonly expectedStatus?: 200 | 201;
   } = {},
 ): Promise<{ readonly body: T; readonly response: Response }> {
   const headers: Record<string, string> = {};
-  if (options.etag !== undefined) {
-    headers["if-match"] = (options.parseEtag ?? parseRevisionEtag)(
-      options.etag,
-      `${path} If-Match`,
+  if (options.ifMatchNumber !== undefined) {
+    headers["if-match"] = ifMatchHeaderForPositiveNumber(
+      options.ifMatchNumber,
+      path,
+      options.ifMatchLabel ?? "number",
     );
   }
   if (options.idempotencyKey !== undefined)
@@ -199,27 +189,25 @@ async function blueprintJson<T>(
   };
 }
 
-function requireRevisionEtag(response: Response, revisionNumber: string, path: string): string {
-  const etag = response.headers.get("etag");
-  if (etag === null || parseRevisionEtag(etag, path) !== `"${revisionNumber}"`) {
-    throw new ApiProtocolError(
-      `API response ${path} ETag must match its current Blueprint Revision`,
-    );
-  }
-  return etag;
+function requireCurrentBlueprintRevisionNumber(
+  response: Response,
+  revisionNumber: string,
+  path: string,
+): void {
+  assertResponseMatchesPositiveNumber(response, revisionNumber, path, "Blueprint Revision Number");
 }
 
-function requireBlueprintEditNumberEtag(
+function requireMatchingBlueprintEditNumber(
   response: Response,
   state: BlueprintMetadataState,
   path: string,
-): string {
-  const etag = response.headers.get("etag");
-  const expected = `"${state.blueprint_edit_number}"`;
-  if (etag === null || parseRevisionEtag(etag, path) !== expected) {
-    throw new ApiProtocolError(`API response ${path} ETag must match its Blueprint Edit Number`);
-  }
-  return etag;
+): void {
+  assertResponseMatchesPositiveNumber(
+    response,
+    state.blueprint_edit_number,
+    path,
+    "Blueprint Edit Number",
+  );
 }
 
 function loadedBlueprintCourse(
@@ -227,10 +215,8 @@ function loadedBlueprintCourse(
   response: Response,
   path: string,
 ): LoadedBlueprintCourse {
-  return {
-    blueprintCourse: body,
-    revisionEtag: requireRevisionEtag(response, body.current_revision_tuple.revisionNumber, path),
-  };
+  requireCurrentBlueprintRevisionNumber(response, body.current_revision_tuple.revisionNumber, path);
+  return { blueprintCourse: body };
 }
 
 function metadataTransition(
@@ -238,7 +224,7 @@ function metadataTransition(
   response: Response,
   path: string,
 ): BlueprintMetadataTransition {
-  requireBlueprintEditNumberEtag(response, metadata, path);
+  requireMatchingBlueprintEditNumber(response, metadata, path);
   return { metadata };
 }
 
@@ -348,7 +334,11 @@ export function createBlueprintCourseClient(
         throw new ApiProtocolError(
           "Blueprint fork update response must identify the requested fork",
         );
-      requireRevisionEtag(result.response, result.body.blueprintRevisionTuple.revisionNumber, path);
+      requireCurrentBlueprintRevisionNumber(
+        result.response,
+        result.body.blueprintRevisionTuple.revisionNumber,
+        path,
+      );
       return result.body;
     },
     listKnownBlueprintForks: async (
@@ -444,9 +434,9 @@ export function createBlueprintCourseClient(
     saveBlueprintCourse: async (
       blueprintCourseId,
       content,
-      etag,
+      expectedCurrentBlueprintRevisionNumber,
       requestKey,
-    ): Promise<BlueprintCourseSaveResponse & { readonly revisionEtag: BlueprintRevisionEtag }> => {
+    ): Promise<BlueprintCourseSaveResponse> => {
       const path = blueprintPath(blueprintCourseId);
       const result = await blueprintJson(
         fetchImplementation,
@@ -456,25 +446,23 @@ export function createBlueprintCourseClient(
         {
           method: "PUT",
           body: decodeReplaceBlueprintCourseContentInput(content),
-          etag,
-          parseEtag: parseRevisionEtag,
+          ifMatchNumber: expectedCurrentBlueprintRevisionNumber,
+          ifMatchLabel: "Blueprint Revision Number",
           idempotencyKey: requestKey,
           expectedStatus: 200,
         },
       );
-      return {
-        ...result.body,
-        revisionEtag: requireRevisionEtag(
-          result.response,
-          result.body.blueprintCourse.current_revision_tuple.revisionNumber,
-          path,
-        ),
-      };
+      requireCurrentBlueprintRevisionNumber(
+        result.response,
+        result.body.blueprintCourse.current_revision_tuple.revisionNumber,
+        path,
+      );
+      return result.body;
     },
     updateBlueprintCourseClassification: async (
       blueprintCourseId,
       classification,
-      etag,
+      expectedBlueprintEditNumber,
     ): Promise<BlueprintMetadataTransition> => {
       const path = `${blueprintPath(blueprintCourseId)}/classification`;
       const result = await blueprintJson(
@@ -485,8 +473,8 @@ export function createBlueprintCourseClient(
         {
           method: "PUT",
           body: decodeCourseClassification(classification, "request"),
-          etag,
-          parseEtag: parseBlueprintEditNumberIfMatch,
+          ifMatchNumber: expectedBlueprintEditNumber,
+          ifMatchLabel: "Blueprint Edit Number",
           expectedStatus: 200,
         },
       );
@@ -495,7 +483,7 @@ export function createBlueprintCourseClient(
     renameBlueprintCourse: async (
       blueprintCourseId,
       names,
-      etag,
+      expectedBlueprintEditNumber,
     ): Promise<BlueprintMetadataTransition> => {
       const path = `${blueprintPath(blueprintCourseId)}/metadata`;
       const result = await blueprintJson(
@@ -506,8 +494,8 @@ export function createBlueprintCourseClient(
         {
           method: "PUT",
           body: decodeRenameBlueprintCourseInput(names),
-          etag,
-          parseEtag: parseBlueprintEditNumberIfMatch,
+          ifMatchNumber: expectedBlueprintEditNumber,
+          ifMatchLabel: "Blueprint Edit Number",
           expectedStatus: 200,
         },
       );
@@ -515,7 +503,7 @@ export function createBlueprintCourseClient(
     },
     publishBlueprintCourse: async (
       blueprintCourseId,
-      etag,
+      expectedBlueprintEditNumber,
     ): Promise<BlueprintMetadataTransition> => {
       const path = `${blueprintPath(blueprintCourseId)}/publish`;
       const result = await blueprintJson(
@@ -525,8 +513,8 @@ export function createBlueprintCourseClient(
         decodeBlueprintMetadataState,
         {
           method: "POST",
-          etag,
-          parseEtag: parseBlueprintEditNumberIfMatch,
+          ifMatchNumber: expectedBlueprintEditNumber,
+          ifMatchLabel: "Blueprint Edit Number",
           expectedStatus: 200,
         },
       );
@@ -543,7 +531,7 @@ export function createBlueprintCourseClient(
     archiveBlueprintCourse: async (
       blueprintCourseId,
       confirmationLongName,
-      etag,
+      expectedBlueprintEditNumber,
     ): Promise<BlueprintMetadataTransition> => {
       const path = `${blueprintPath(blueprintCourseId)}/archive`;
       const result = await blueprintJson(
@@ -554,8 +542,8 @@ export function createBlueprintCourseClient(
         {
           method: "POST",
           body: { confirmationLongName },
-          etag,
-          parseEtag: parseBlueprintEditNumberIfMatch,
+          ifMatchNumber: expectedBlueprintEditNumber,
+          ifMatchLabel: "Blueprint Edit Number",
           expectedStatus: 200,
         },
       );
@@ -563,7 +551,7 @@ export function createBlueprintCourseClient(
     },
     restoreBlueprintCourse: async (
       blueprintCourseId,
-      etag,
+      expectedBlueprintEditNumber,
     ): Promise<BlueprintMetadataTransition> => {
       const path = `${blueprintPath(blueprintCourseId)}/restore`;
       const result = await blueprintJson(
@@ -573,8 +561,8 @@ export function createBlueprintCourseClient(
         decodeBlueprintMetadataState,
         {
           method: "POST",
-          etag,
-          parseEtag: parseBlueprintEditNumberIfMatch,
+          ifMatchNumber: expectedBlueprintEditNumber,
+          ifMatchLabel: "Blueprint Edit Number",
           expectedStatus: 200,
         },
       );
@@ -582,7 +570,7 @@ export function createBlueprintCourseClient(
     },
     returnBlueprintCourseToPrivate: async (
       blueprintCourseId,
-      etag,
+      expectedBlueprintEditNumber,
     ): Promise<BlueprintMetadataTransition> => {
       const path = `${blueprintPath(blueprintCourseId)}/return-to-private`;
       const result = await blueprintJson(
@@ -592,8 +580,8 @@ export function createBlueprintCourseClient(
         decodeBlueprintMetadataState,
         {
           method: "POST",
-          etag,
-          parseEtag: parseBlueprintEditNumberIfMatch,
+          ifMatchNumber: expectedBlueprintEditNumber,
+          ifMatchLabel: "Blueprint Edit Number",
           expectedStatus: 200,
         },
       );

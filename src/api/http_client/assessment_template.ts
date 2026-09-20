@@ -20,6 +20,10 @@ import { decodeRecord, decodeUuid } from "../decoder";
 import { decodeLiveAssessmentWorkspace } from "../decoders/assessment_release";
 import { decodeAssessmentTitle, field, requireOnlyFields } from "../decoders/shared";
 import { ApiProtocolError, ApiRequestError } from "./error";
+import {
+  assertResponseMatchesPositiveNumber,
+  ifMatchHeaderForPositiveNumber,
+} from "./conditional_request";
 import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
 import { parseCourseInstanceId } from "../../navigation/public_route";
@@ -51,35 +55,17 @@ function decodeCreateAssessmentFromTemplateInput(
   };
 }
 
-function quotedStrongEtag(etag: string, path: string): string {
-  if (!/^"[1-9][0-9]*"$/u.test(etag) || BigInt(etag.slice(1, -1)) > 9_223_372_036_854_775_807n) {
-    throw new ApiProtocolError(
-      `API ${path} If-Match must be one quoted strong Assessment Template Edit Number`,
-    );
-  }
-  return etag;
-}
-
-function requireMatchingEtag(
+function requireMatchingTemplateEditNumber(
   response: Response,
   template: AssessmentTemplate,
   path: string,
-): string {
-  const etag = response.headers.get("etag");
-  if (etag !== `"${template.editNumber}"`) {
-    throw new ApiProtocolError(
-      `API response ${path} ETag must match its Assessment Template Edit Number`,
-    );
-  }
-  return etag;
-}
-
-function requireWorkspaceEtag(response: Response, editNumber: string, path: string): string {
-  const etag = response.headers.get("etag");
-  if (etag === null || etag !== `"${editNumber}"`) {
-    throw new ApiProtocolError(`API response ${path} ETag must match its Assessment Edit Number`);
-  }
-  return etag;
+): void {
+  assertResponseMatchesPositiveNumber(
+    response,
+    template.editNumber,
+    path,
+    "Assessment Template Edit Number",
+  );
 }
 
 function requireRequestedTemplate(
@@ -101,12 +87,20 @@ async function templateJson(
   options: {
     readonly method?: "GET" | "POST" | "PUT";
     readonly body?: unknown;
-    readonly etag?: string;
+    readonly expectedAssessmentTemplateEditNumber?: string;
     readonly status?: 200 | 201;
   } = {},
 ): Promise<{ readonly template: AssessmentTemplate; readonly response: Response }> {
   const headers: Record<string, string> =
-    options.etag === undefined ? {} : { "if-match": quotedStrongEtag(options.etag, path) };
+    options.expectedAssessmentTemplateEditNumber === undefined
+      ? {}
+      : {
+          "if-match": ifMatchHeaderForPositiveNumber(
+            options.expectedAssessmentTemplateEditNumber,
+            path,
+            "Assessment Template Edit Number",
+          ),
+        };
   const response = await requestSameOrigin(fetchImplementation, basePath, path, {
     method: options.method ?? "GET",
     headers,
@@ -125,10 +119,8 @@ function templateResponse(
   result: { readonly template: AssessmentTemplate; readonly response: Response },
   path: string,
 ): AssessmentTemplateResponse {
-  return {
-    template: result.template,
-    etag: requireMatchingEtag(result.response, result.template, path),
-  };
+  requireMatchingTemplateEditNumber(result.response, result.template, path);
+  return { template: result.template };
 }
 
 /** Composes the private Template capability without widening shared HTTP transport behavior. */
@@ -162,12 +154,16 @@ export function createAssessmentTemplateClient(
       requireRequestedTemplate(result.template, id, path);
       return templateResponse(result, path);
     },
-    saveAssessmentTemplate: async (id, input, etag): Promise<AssessmentTemplateResponse> => {
+    saveAssessmentTemplate: async (
+      id,
+      input,
+      expectedAssessmentTemplateEditNumber,
+    ): Promise<AssessmentTemplateResponse> => {
       const path = templatePath(id);
       const result = await templateJson(fetchImplementation, basePath, path, {
         method: "PUT",
         body: decodeSaveAssessmentTemplateInput(input),
-        etag,
+        expectedAssessmentTemplateEditNumber,
         status: 200,
       });
       requireRequestedTemplate(result.template, id, path);
@@ -191,10 +187,13 @@ export function createAssessmentTemplateClient(
         await boundedResponseJson(response, path),
         "response",
       );
-      return {
-        workspace,
-        etag: requireWorkspaceEtag(response, workspace.editNumber, path),
-      };
+      assertResponseMatchesPositiveNumber(
+        response,
+        workspace.editNumber,
+        path,
+        "Assessment Edit Number",
+      );
+      return { workspace };
     },
   };
 }

@@ -303,7 +303,7 @@ mod tests {
         };
         StudentAssessmentAttemptHistoryEvidence {
             history: StudentAssessmentAttemptHistory {
-                assessment_attempt: AssessmentAttemptId::from_uuid(uuid::Uuid::from_u128(12)),
+                assessment_attempt_id: AssessmentAttemptId::from_uuid(uuid::Uuid::from_u128(12)),
                 attempt_number: 1,
                 course: StudentAssessmentAttemptHistoryCourse {
                     id: "CIABCDEFGS".parse().unwrap(),

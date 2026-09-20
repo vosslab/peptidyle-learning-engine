@@ -39,7 +39,7 @@ impl PostgresLiveAssessmentDeliveryStore {
             ));
         }
         let value = StudentAssessmentAttemptContext {
-            assessment_attempt,
+            assessment_attempt_id: assessment_attempt,
             attempt_number: positive(
                 row.try_get("assessment_attempt_number")
                     .map_err(map_sqlx_error)?,

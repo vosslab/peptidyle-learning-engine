@@ -255,7 +255,7 @@ $$;
 
 CREATE FUNCTION ple_api.save_assessment_template(
     p_assessment_template_id uuid,
-    p_expected_edit_number bigint,
+    p_expected_assessment_template_edit_number bigint,
     p_template_name text,
     p_assessment_type text,
     p_settings jsonb
@@ -271,7 +271,7 @@ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private, ple_data AS $$
 DECLARE
     activity_rules jsonb;
-    current_edit_number bigint;
+    v_current_assessment_template_edit_number bigint;
     feedback_rules jsonb;
     snapshot_id ple_data.sha256_digest;
 BEGIN
@@ -280,7 +280,7 @@ BEGIN
             MESSAGE = 'Assessment Template is unavailable';
     END IF;
 
-    SELECT template.assessment_template_edit_number INTO current_edit_number
+    SELECT template.assessment_template_edit_number INTO v_current_assessment_template_edit_number
       FROM ple_private.assessment_template AS template
      WHERE template.assessment_template_id = p_assessment_template_id
        AND template.owner_account_id = ple_api.current_session_account_id()
@@ -289,11 +289,11 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Assessment Template is unavailable';
     END IF;
-    IF p_expected_edit_number IS NULL OR p_expected_edit_number <= 0 THEN
+    IF p_expected_assessment_template_edit_number IS NULL OR p_expected_assessment_template_edit_number <= 0 THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Assessment Template Edit Number is invalid';
     END IF;
-    IF current_edit_number <> p_expected_edit_number THEN
+    IF v_current_assessment_template_edit_number <> p_expected_assessment_template_edit_number THEN
         RAISE EXCEPTION USING ERRCODE = '40001',
             MESSAGE = 'Assessment Template changed before this save';
     END IF;

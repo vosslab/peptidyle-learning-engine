@@ -63,8 +63,8 @@ export interface AssessmentEditorDetail extends AssessmentSummary {
   readonly assessmentAvailability: InstructorAssessmentAvailabilityView;
   /** Closed, server-derived release blockers for this Assessment. */
   readonly assessmentReleaseValidation: AssessmentReleaseValidation;
-  /** Strong server-issued ETag; send it byte-for-byte when updating. */
-  readonly etag: string;
+  /** Assessment Edit Number for the next content save. */
+  readonly editNumber: AssessmentEditNumber;
 }
 
 /** Authorized resolution of one compact route ID to a browser API identity. */
@@ -83,7 +83,7 @@ export interface QuestionPoolPreviewRequest {
 
 /** A no-store Instructor sample of one saved pool; it is never student activity or evidence. */
 export interface QuestionPoolPreview {
-  readonly assessment: AssessmentId;
+  readonly assessmentId: AssessmentId;
   readonly editNumber: AssessmentEditNumber;
   readonly assessmentEntryId: string;
   readonly questionPoolLabel: string;
@@ -172,8 +172,8 @@ export interface QuestionPoolSelectionPosition {
  */
 export interface StudentIssuedQuestion {
   readonly id: IssuedQuestionId;
-  readonly assessmentAttempt: AssessmentAttemptId;
-  readonly assessmentEntry: AssessmentEntryId;
+  readonly assessmentAttemptId: AssessmentAttemptId;
+  readonly assessmentEntryId: AssessmentEntryId;
   readonly assessmentContentEntryIndex: number;
   readonly issuedPosition: number;
   readonly questionRevisionTuple: QuestionRevisionTuple;

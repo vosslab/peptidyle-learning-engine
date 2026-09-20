@@ -89,7 +89,7 @@ pub struct AssessmentAttempt {
     /// Student Record that owns this Assessment Attempt.
     pub student_record: StudentRecordId,
     /// Assessment that this Student Record attempts.
-    pub assessment: AssessmentId,
+    pub assessment_id: AssessmentId,
     /// Effective assessment facts frozen for this Student Work occurrence.
     pub evidence: AssessmentAttemptEvidence,
     /// One-based attempt number for this Student Record and Assessment.
@@ -112,7 +112,7 @@ pub struct AssessmentGrade {
     /// Student Record whose course result this is.
     pub student_record: StudentRecordId,
     /// Assessment whose policy selected this result.
-    pub assessment: AssessmentId,
+    pub assessment_id: AssessmentId,
     /// First time an Assessment Attempt satisfied completion.
     pub first_completed_at: Option<Timestamp>,
     /// Assessment Attempt currently selected by the grade rule.

@@ -344,8 +344,8 @@ pub struct StudentAttemptDescriptor {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct StudentAssessmentAttemptScreenScope {
-    pub course: CourseInstanceId,
-    pub assessment: AssessmentId,
+    pub course_instance_id: CourseInstanceId,
+    pub assessment_id: AssessmentId,
     pub theme: CourseTheme,
 }
 

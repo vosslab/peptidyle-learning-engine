@@ -1,11 +1,11 @@
 import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 
 export interface RecoverySummary {
-  readonly course: string;
+  readonly courseInstanceId: string;
   readonly rosterId: string | null;
-  readonly assessment: string;
+  readonly assessmentId: string;
   readonly assessmentTitle: string;
-  readonly assessmentAttempt: string;
+  readonly assessmentAttemptId: string;
   readonly assessmentAttemptNumber: number;
   readonly startedAt: string;
   readonly submittedAt: string | null;
@@ -35,7 +35,7 @@ export interface RecoveredAttempt extends Omit<RecoverySummary, "submittedAt"> {
 }
 export interface RecoverySelection {
   readonly action: "select";
-  readonly course: string;
+  readonly courseInstanceId: string;
   readonly attempts: ReadonlyArray<RecoverySummary>;
   readonly nextCursor: string | null;
 }

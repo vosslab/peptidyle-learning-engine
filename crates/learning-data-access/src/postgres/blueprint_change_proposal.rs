@@ -624,25 +624,31 @@ fn proposal_summary(
 ) -> Result<BlueprintChangeProposalSummary, StoreError> {
     let target = summary_tuple(row, "target_blueprint_course_id", "target_revision_number")?;
     let accepted_at: Option<i64> = row.try_get("accepted_at_ms").map_err(map_sqlx_error)?;
-    let accepted_revision: Option<i64> = row
+    let accepted_target_revision_number: Option<i64> = row
         .try_get("accepted_target_revision_number")
         .map_err(map_sqlx_error)?;
-    let accepted_etag: Option<i64> = row
+    let accepted_target_blueprint_edit_number: Option<i64> = row
         .try_get("accepted_target_blueprint_edit_number")
         .map_err(map_sqlx_error)?;
-    let accepted = match (accepted_at, accepted_revision, accepted_etag) {
+    let accepted = match (
+        accepted_at,
+        accepted_target_revision_number,
+        accepted_target_blueprint_edit_number,
+    ) {
         (None, None, None) => None,
-        (Some(at), Some(revision), Some(etag)) => Some(BlueprintChangeProposalAcceptedSummary {
-            accepted_at: Timestamp::from_unix_millis(at),
-            target_revision_tuple: BlueprintRevisionTuple {
-                blueprint_course_id: target.blueprint_course_id.clone(),
-                revision_number: BlueprintRevisionNumber::new(
-                    u64::try_from(revision).map_err(|_| invalid())?,
-                )
-                .ok_or_else(invalid)?,
-            },
-            target_blueprint_edit_number: BlueprintEditNumber::from_edit_number(etag),
-        }),
+        (Some(at), Some(revision_number), Some(edit_number)) => {
+            Some(BlueprintChangeProposalAcceptedSummary {
+                accepted_at: Timestamp::from_unix_millis(at),
+                target_revision_tuple: BlueprintRevisionTuple {
+                    blueprint_course_id: target.blueprint_course_id.clone(),
+                    revision_number: BlueprintRevisionNumber::new(
+                        u64::try_from(revision_number).map_err(|_| invalid())?,
+                    )
+                    .ok_or_else(invalid)?,
+                },
+                target_blueprint_edit_number: BlueprintEditNumber::from_edit_number(edit_number),
+            })
+        }
         _ => return Err(invalid()),
     };
     Ok(BlueprintChangeProposalSummary {

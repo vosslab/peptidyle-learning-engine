@@ -45,7 +45,7 @@ CREATE FUNCTION ple_private.fork_published_question_to_draft(
     p_authoring_workspace_id uuid,
     p_draft_question_uuid uuid,
     p_source_question_id text,
-    p_source_revision_number integer,
+    p_source_question_revision_number integer,
     p_idempotency_key uuid,
     p_target_object_id uuid,
     p_target_object_address jsonb,
@@ -63,7 +63,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
     actor_id text;
     existing_source_question_id text;
-    existing_source_revision_number integer;
+    v_existing_source_question_revision_number integer;
     created_at timestamptz := pg_catalog.clock_timestamp();
     source_revision ple_data.question_revision%ROWTYPE;
     source_metadata ple_data.published_question_metadata%ROWTYPE;
@@ -94,7 +94,7 @@ BEGIN
        OR substr(p_source_question_id, 6, 1) <> ple_private.crockford_checksum_character(
            substr(p_source_question_id, 1, 4) || substr(p_source_question_id, 7, 3)
        )
-       OR p_source_revision_number IS NULL OR p_source_revision_number <= 0
+       OR p_source_question_revision_number IS NULL OR p_source_question_revision_number <= 0
        OR p_idempotency_key IS NULL
        OR NOT ple_api.current_session_account_is_instructor() THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
@@ -111,13 +111,13 @@ BEGIN
     PERFORM pg_catalog.pg_advisory_xact_lock(
         pg_catalog.hashtextextended(actor_id::text || ':' || p_idempotency_key::text, 0));
     SELECT fork.source_question_id, fork.source_revision_number
-      INTO existing_source_question_id, existing_source_revision_number
+      INTO existing_source_question_id, v_existing_source_question_revision_number
       FROM ple_private.draft_question_fork_source AS fork
      WHERE fork.actor_account_id = actor_id
        AND fork.idempotency_key = p_idempotency_key;
     IF FOUND THEN
         IF existing_source_question_id <> p_source_question_id
-           OR existing_source_revision_number <> p_source_revision_number THEN
+           OR v_existing_source_question_revision_number <> p_source_question_revision_number THEN
             RAISE EXCEPTION USING ERRCODE = '22023',
                 MESSAGE = 'Question Fork idempotency key belongs to a different source Revision';
         END IF;
@@ -155,7 +155,7 @@ BEGIN
       FROM ple_data.published_question AS lineage
       JOIN ple_data.question_revision AS revision
         ON revision.published_question_id = lineage.published_question_id
-       AND revision.revision_number = p_source_revision_number
+       AND revision.revision_number = p_source_question_revision_number
      WHERE lineage.published_question_id = p_source_question_id
        AND lineage.availability = 'available'
        -- `set_question_availability` takes FOR UPDATE on this same lineage.
@@ -170,7 +170,7 @@ BEGIN
     SELECT * INTO STRICT source_revision
       FROM ple_data.question_revision AS revision
      WHERE revision.published_question_id = p_source_question_id
-       AND revision.revision_number = p_source_revision_number;
+       AND revision.revision_number = p_source_question_revision_number;
     SELECT * INTO STRICT source_metadata
       FROM ple_data.published_question_metadata AS metadata
      WHERE metadata.published_question_id = p_source_question_id
@@ -178,7 +178,7 @@ BEGIN
     SELECT * INTO STRICT source_binding
       FROM ple_private.question_revision_source_binding AS binding
      WHERE binding.published_question_id = p_source_question_id
-       AND binding.revision_number = p_source_revision_number
+       AND binding.revision_number = p_source_question_revision_number
      FOR KEY SHARE;
     IF NOT ple_private.question_backend_is_supported_for_production(source_binding.backend) THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
@@ -199,7 +199,7 @@ BEGIN
            'kind', 'questionSource',
            'questionRevisionTuple', pg_catalog.jsonb_build_object(
                'questionId', p_source_question_id,
-               'revisionNumber', p_source_revision_number),
+               'revisionNumber', p_source_question_revision_number),
            'object', source_binding.source_object_record_id)
        OR source_record.object_storage_area <> 'private-content'
        OR source_record.object_data_class <> 'question-source' THEN
@@ -210,7 +210,7 @@ BEGIN
         SELECT pg_catalog.count(*) INTO asset_count
           FROM ple_private.question_asset_publication AS publication
          WHERE publication.published_question_id = p_source_question_id
-           AND publication.revision_number = p_source_revision_number;
+           AND publication.revision_number = p_source_question_revision_number;
         IF source_revision.backend <> 'ple' OR asset_count <> 1 OR p_hotspot_asset IS NULL THEN
             RAISE EXCEPTION USING ERRCODE = '23514',
                 MESSAGE = 'Native HOTSPOT fork requires one exact source raster';
@@ -225,12 +225,12 @@ BEGIN
           JOIN ple_private.object_record AS record
             ON record.object_record_id = publication.source_object_record_id
          WHERE publication.published_question_id = p_source_question_id
-           AND publication.revision_number = p_source_revision_number
+           AND publication.revision_number = p_source_question_revision_number
            AND record.object_address = pg_catalog.jsonb_build_object(
                'kind', 'restrictedQuestionAsset',
                'questionRevisionTuple', pg_catalog.jsonb_build_object(
                    'questionId', p_source_question_id,
-                   'revisionNumber', p_source_revision_number),
+                   'revisionNumber', p_source_question_revision_number),
                'asset', publication.asset_id,
                'object', publication.source_object_record_id)
            AND record.object_storage_area = 'private-content'
@@ -314,7 +314,7 @@ BEGIN
         source_question_id, source_revision_number, created_at
     ) VALUES (
         p_draft_question_uuid, actor_id, p_idempotency_key,
-        p_source_question_id, p_source_revision_number, created_at
+        p_source_question_id, p_source_question_revision_number, created_at
     );
     draft_question_id := p_draft_question_uuid;
     authoring_workspace_id := p_authoring_workspace_id;
@@ -477,7 +477,7 @@ END
 $$;
 
 CREATE FUNCTION ple_private.save_authoring_draft(
-    p_draft_question_uuid uuid, p_expected_edit_number bigint, p_object_record_id uuid,
+    p_draft_question_uuid uuid, p_expected_draft_question_edit_number bigint, p_object_record_id uuid,
     p_object_address jsonb, p_sha256 bytea, p_size_bytes bigint, p_media_type text,
     p_created_at_millis bigint, p_question_title text, p_question_description text,
     p_language text, p_question_type text, p_hotspot_asset_id uuid, p_hotspot_checksum text
@@ -486,12 +486,12 @@ SET search_path = pg_catalog, ple_api, ple_private AS $$
 DECLARE
     v_draft_question_uuid uuid;
     v_workspace_id uuid;
-    v_current_edit_number bigint;
+    v_current_draft_question_edit_number bigint;
     v_binding ple_private.draft_question_source_binding%ROWTYPE;
     expected_address jsonb;
 BEGIN
     IF p_draft_question_uuid IS NULL
-       OR p_expected_edit_number IS NULL OR p_expected_edit_number <= 0
+       OR p_expected_draft_question_edit_number IS NULL OR p_expected_draft_question_edit_number <= 0
        OR p_object_record_id IS NULL OR p_sha256 IS NULL OR pg_catalog.octet_length(p_sha256) <> 32
        OR p_size_bytes IS NULL OR p_size_bytes < 0
        OR p_created_at_millis IS NULL
@@ -508,7 +508,7 @@ BEGIN
             MESSAGE = 'Draft Question save arguments are invalid';
     END IF;
     SELECT question.draft_question_id, question.authoring_workspace_id, question.draft_question_edit_number
-      INTO v_draft_question_uuid, v_workspace_id, v_current_edit_number
+      INTO v_draft_question_uuid, v_workspace_id, v_current_draft_question_edit_number
       FROM ple_private.draft_question AS question
      WHERE question.draft_question_id = p_draft_question_uuid
        AND ple_api.current_session_account_can_access_authoring_workspace(question.authoring_workspace_id)
@@ -517,7 +517,7 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Draft Question is not available in the current Authoring Workspace';
     END IF;
-    IF v_current_edit_number <> p_expected_edit_number THEN
+    IF v_current_draft_question_edit_number <> p_expected_draft_question_edit_number THEN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Draft Question Edit Number is stale';
     END IF;
     SELECT * INTO STRICT v_binding
@@ -588,16 +588,16 @@ $$;
 -- dynamic backend feedback.  A Draft edit advances the ordinary Draft CAS;
 -- publication then records the exact text on a new immutable Revision.
 CREATE FUNCTION ple_private.save_authoring_draft_general_feedback(
-    p_draft_question_uuid uuid, p_expected_edit_number bigint, p_general_feedback text
+    p_draft_question_uuid uuid, p_expected_draft_question_edit_number bigint, p_general_feedback text
 ) RETURNS TABLE (draft_question_edit_number bigint, general_feedback text)
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
 DECLARE
     v_draft_question_uuid uuid;
-    v_current_edit_number bigint;
+    v_current_draft_question_edit_number bigint;
 BEGIN
     IF p_draft_question_uuid IS NULL
-       OR p_expected_edit_number IS NULL OR p_expected_edit_number <= 0
+       OR p_expected_draft_question_edit_number IS NULL OR p_expected_draft_question_edit_number <= 0
        OR (p_general_feedback IS NOT NULL AND (
            p_general_feedback <> btrim(p_general_feedback)
            OR char_length(p_general_feedback) NOT BETWEEN 1 AND 4000
@@ -611,7 +611,7 @@ BEGIN
             MESSAGE = 'Draft Question general feedback arguments are invalid';
     END IF;
     SELECT question.draft_question_id, question.draft_question_edit_number
-      INTO v_draft_question_uuid, v_current_edit_number
+      INTO v_draft_question_uuid, v_current_draft_question_edit_number
       FROM ple_private.draft_question AS question
      WHERE question.draft_question_id = p_draft_question_uuid
        AND ple_api.current_session_account_can_access_authoring_workspace(question.authoring_workspace_id)
@@ -620,7 +620,7 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Draft Question is not available in the current Authoring Workspace';
     END IF;
-    IF v_current_edit_number <> p_expected_edit_number THEN
+    IF v_current_draft_question_edit_number <> p_expected_draft_question_edit_number THEN
         RAISE EXCEPTION USING ERRCODE = '40001',
             MESSAGE = 'Draft Question Edit Number is stale';
     END IF;
@@ -632,8 +632,8 @@ BEGIN
        SET draft_question_edit_number = question.draft_question_edit_number + 1,
            updated_at = pg_catalog.clock_timestamp()
      WHERE question.draft_question_id = v_draft_question_uuid
-     RETURNING question.draft_question_edit_number INTO v_current_edit_number;
-    RETURN QUERY SELECT v_current_edit_number, p_general_feedback;
+     RETURNING question.draft_question_edit_number INTO v_current_draft_question_edit_number;
+    RETURN QUERY SELECT v_current_draft_question_edit_number, p_general_feedback;
 END
 $$;
 
@@ -645,15 +645,15 @@ $$;
 -- Question lineages are separate ple_data state and are never considered.
 CREATE FUNCTION ple_private.delete_draft_question(
     p_draft_question_uuid uuid,
-    p_expected_edit_number bigint
+    p_expected_draft_question_edit_number bigint
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
 DECLARE
     v_draft_question_uuid uuid;
-    v_current_edit_number bigint;
+    v_current_draft_question_edit_number bigint;
 BEGIN
     IF p_draft_question_uuid IS NULL
-       OR p_expected_edit_number IS NULL OR p_expected_edit_number <= 0 THEN
+       OR p_expected_draft_question_edit_number IS NULL OR p_expected_draft_question_edit_number <= 0 THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Draft Question deletion arguments are invalid';
     END IF;
@@ -662,7 +662,7 @@ BEGIN
             MESSAGE = 'Draft Question deletion requires its current owner';
     END IF;
     SELECT question.draft_question_id, question.draft_question_edit_number
-      INTO v_draft_question_uuid, v_current_edit_number
+      INTO v_draft_question_uuid, v_current_draft_question_edit_number
       FROM ple_private.draft_question AS question
      WHERE question.draft_question_id = p_draft_question_uuid
        AND ple_private.current_session_account_owns_draft_question(
@@ -672,7 +672,7 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Draft Question deletion requires its current owner';
     END IF;
-    IF v_current_edit_number <> p_expected_edit_number THEN
+    IF v_current_draft_question_edit_number <> p_expected_draft_question_edit_number THEN
         RAISE EXCEPTION USING ERRCODE = '40001',
             MESSAGE = 'Draft Question Edit Number is stale';
     END IF;
@@ -699,7 +699,7 @@ CREATE FUNCTION ple_api.fork_published_question_to_draft(
     p_authoring_workspace_id uuid,
     p_draft_question_uuid uuid,
     p_source_question_id text,
-    p_source_revision_number integer,
+    p_source_question_revision_number integer,
     p_idempotency_key uuid,
     p_target_object_id uuid,
     p_target_object_address jsonb,
@@ -716,7 +716,7 @@ CREATE FUNCTION ple_api.fork_published_question_to_draft(
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT * FROM ple_private.fork_published_question_to_draft(
         p_authoring_workspace_id, p_draft_question_uuid, p_source_question_id,
-        p_source_revision_number, p_idempotency_key,
+        p_source_question_revision_number, p_idempotency_key,
         p_target_object_id, p_target_object_address, p_target_sha256,
         p_target_size_bytes, p_target_media_type, p_target_created_at_millis,
         p_hotspot_asset)
@@ -763,32 +763,32 @@ SET search_path = pg_catalog, ple_api, ple_private AS $$
 $$;
 
 CREATE FUNCTION ple_api.save_authoring_draft(
-    p_draft_question_uuid uuid, p_expected_edit_number bigint, p_object_record_id uuid,
+    p_draft_question_uuid uuid, p_expected_draft_question_edit_number bigint, p_object_record_id uuid,
     p_object_address jsonb, p_sha256 bytea, p_size_bytes bigint, p_media_type text,
     p_created_at_millis bigint, p_question_title text, p_question_description text,
     p_language text, p_question_type text, p_hotspot_asset_id uuid, p_hotspot_checksum text
 ) RETURNS void LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT ple_private.save_authoring_draft(
-        p_draft_question_uuid, p_expected_edit_number, p_object_record_id, p_object_address, p_sha256,
+        p_draft_question_uuid, p_expected_draft_question_edit_number, p_object_record_id, p_object_address, p_sha256,
         p_size_bytes, p_media_type, p_created_at_millis, p_question_title,
         p_question_description, p_language, p_question_type, p_hotspot_asset_id, p_hotspot_checksum)
 $$;
 
 CREATE FUNCTION ple_api.save_authoring_draft_general_feedback(
-    p_draft_question_uuid uuid, p_expected_edit_number bigint, p_general_feedback text
+    p_draft_question_uuid uuid, p_expected_draft_question_edit_number bigint, p_general_feedback text
 ) RETURNS TABLE (draft_question_edit_number bigint, general_feedback text)
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT * FROM ple_private.save_authoring_draft_general_feedback(
-        p_draft_question_uuid, p_expected_edit_number, p_general_feedback)
+        p_draft_question_uuid, p_expected_draft_question_edit_number, p_general_feedback)
 $$;
 
 CREATE FUNCTION ple_api.delete_draft_question(
     p_draft_question_uuid uuid,
-    p_expected_edit_number bigint
+    p_expected_draft_question_edit_number bigint
 ) RETURNS void LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
-    SELECT ple_private.delete_draft_question(p_draft_question_uuid, p_expected_edit_number)
+    SELECT ple_private.delete_draft_question(p_draft_question_uuid, p_expected_draft_question_edit_number)
 $$;
 

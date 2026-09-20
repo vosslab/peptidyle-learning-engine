@@ -75,7 +75,7 @@ pub(super) async fn read(
     tx.commit().await.map_err(map_sqlx_error)?;
     Ok(LiveAssessmentAccess {
         decision,
-        active_assessment_attempt,
+        active_assessment_attempt_id: active_assessment_attempt,
         title,
         assessment_type,
         question_count,

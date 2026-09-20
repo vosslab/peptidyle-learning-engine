@@ -38,7 +38,7 @@ export function decodeStudentAssessmentAttemptHistory(
 ): StudentAssessmentAttemptHistory {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "assessmentAttempt",
+    "assessmentAttemptId",
     "attemptNumber",
     "course",
     "assessment",
@@ -46,19 +46,19 @@ export function decodeStudentAssessmentAttemptHistory(
     "score",
     "questions",
   ]);
-  const assessmentAttemptValue = field(record, "assessmentAttempt", path);
+  const assessmentAttemptValue = field(record, "assessmentAttemptId", path);
   if (typeof assessmentAttemptValue !== "string")
-    throw new DecodeError(`${path}.assessmentAttempt`, "an Assessment Attempt UUID");
-  const assessmentAttempt = parseAssessmentAttemptId(assessmentAttemptValue);
-  if (assessmentAttempt === null)
-    throw new DecodeError(`${path}.assessmentAttempt`, "an Assessment Attempt UUID");
+    throw new DecodeError(`${path}.assessmentAttemptId`, "an Assessment Attempt UUID");
+  const assessmentAttemptId = parseAssessmentAttemptId(assessmentAttemptValue);
+  if (assessmentAttemptId === null)
+    throw new DecodeError(`${path}.assessmentAttemptId`, "an Assessment Attempt UUID");
   const assessment = decodeRecord(field(record, "assessment", path), `${path}.assessment`);
   requireOnlyFields(assessment, `${path}.assessment`, ["id", "title"]);
   const course = decodeRecord(field(record, "course", path), `${path}.course`);
   requireOnlyFields(course, `${path}.course`, ["id", "shortName", "longName", "theme"]);
   const score = optionalNestedScore(record.score, `${path}.score`);
   const decoded = {
-    assessmentAttempt,
+    assessmentAttemptId,
     attemptNumber: decodePositiveInteger(
       field(record, "attemptNumber", path),
       `${path}.attemptNumber`,

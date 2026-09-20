@@ -117,7 +117,7 @@ export function decodeCreateCourseInstanceInput(
     "shortName",
     "longName",
     "term",
-    "assignedInstructor",
+    "assignedInstructorAccountId",
     "classification",
   ]);
   const sourcePath = `${path}.source`;
@@ -133,14 +133,14 @@ export function decodeCreateCourseInstanceInput(
   } else {
     requireOnlyFields(sourceRecord, sourcePath, [
       "kind",
-      "blueprintCourse",
+      "blueprintCourseId",
       "blueprintRevisionNumber",
     ]);
     source = {
       kind,
-      blueprintCourse: decodeBlueprintCourseId(
-        field(sourceRecord, "blueprintCourse", sourcePath),
-        `${sourcePath}.blueprintCourse`,
+      blueprintCourseId: decodeBlueprintCourseId(
+        field(sourceRecord, "blueprintCourseId", sourcePath),
+        `${sourcePath}.blueprintCourseId`,
       ),
       blueprintRevisionNumber: decodeBlueprintRevisionNumber(
         field(sourceRecord, "blueprintRevisionNumber", sourcePath),
@@ -148,7 +148,7 @@ export function decodeCreateCourseInstanceInput(
       ),
     };
   }
-  const assignedInstructor = record["assignedInstructor"];
+  const assignedInstructorAccountId = record["assignedInstructorAccountId"];
   const decoded = {
     classification: decodeCourseClassification(
       field(record, "classification", path),
@@ -158,9 +158,14 @@ export function decodeCreateCourseInstanceInput(
     shortName: decodeCourseName(field(record, "shortName", path), `${path}.shortName`),
     longName: decodeCourseName(field(record, "longName", path), `${path}.longName`),
     term: decodeCourseTerm(field(record, "term", path), `${path}.term`),
-    ...(assignedInstructor === undefined
+    ...(assignedInstructorAccountId === undefined
       ? {}
-      : { assignedInstructor: accountId(assignedInstructor, `${path}.assignedInstructor`) }),
+      : {
+          assignedInstructorAccountId: accountId(
+            assignedInstructorAccountId,
+            `${path}.assignedInstructorAccountId`,
+          ),
+        }),
   } satisfies CreateCourseInstanceInput;
   return decoded;
 }
@@ -197,15 +202,22 @@ export function decodeCourseInstanceList(
 
 export function decodeCourseInstanceView(value: unknown, path = "response"): CourseInstanceView {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["course", "activeInstructorCount", "blueprintOrigin"]);
+  requireOnlyFields(record, path, ["courseInstance", "activeInstructorCount", "blueprintOrigin"]);
   const originValue = field(record, "blueprintOrigin", path);
   let blueprintOrigin: CourseInstanceView["blueprintOrigin"] = null;
   if (originValue !== null) {
     const originPath = `${path}.blueprintOrigin`;
     const origin = decodeRecord(originValue, originPath);
-    requireOnlyFields(origin, originPath, ["id", "adoptedRevisionNumber", "currentRevisionNumber"]);
+    requireOnlyFields(origin, originPath, [
+      "blueprintCourseId",
+      "adoptedRevisionNumber",
+      "currentRevisionNumber",
+    ]);
     blueprintOrigin = {
-      id: decodeBlueprintCourseId(field(origin, "id", originPath), `${originPath}.id`),
+      blueprintCourseId: decodeBlueprintCourseId(
+        field(origin, "blueprintCourseId", originPath),
+        `${originPath}.blueprintCourseId`,
+      ),
       adoptedRevisionNumber: decodeBlueprintRevisionNumber(
         field(origin, "adoptedRevisionNumber", originPath),
         `${originPath}.adoptedRevisionNumber`,
@@ -223,7 +235,7 @@ export function decodeCourseInstanceView(value: unknown, path = "response"): Cou
     }
   }
   return {
-    course: summary(field(record, "course", path), `${path}.course`),
+    courseInstance: summary(field(record, "courseInstance", path), `${path}.courseInstance`),
     activeInstructorCount: decodePositiveInteger(
       field(record, "activeInstructorCount", path),
       `${path}.activeInstructorCount`,
@@ -237,9 +249,9 @@ export function decodeCreatedCourseInstance(
   path = "response",
 ): CreatedCourseInstance {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["course"]);
+  requireOnlyFields(record, path, ["courseInstance"]);
   return {
-    course: summary(field(record, "course", path), `${path}.course`),
+    courseInstance: summary(field(record, "courseInstance", path), `${path}.courseInstance`),
   };
 }
 
@@ -254,9 +266,9 @@ export function decodeCourseCreationInstructors(
   }
   return decodeArray(field(record, "items", path), `${path}.items`, (entry, entryPath) => {
     const instructor = decodeRecord(entry, entryPath);
-    requireOnlyFields(instructor, entryPath, ["id"]);
+    requireOnlyFields(instructor, entryPath, ["accountId"]);
     return {
-      id: accountId(field(instructor, "id", entryPath), `${entryPath}.id`),
+      accountId: accountId(field(instructor, "accountId", entryPath), `${entryPath}.accountId`),
     };
   });
 }

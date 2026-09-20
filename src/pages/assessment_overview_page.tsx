@@ -48,7 +48,7 @@ export function AssessmentOverviewPage(): JSX.Element {
     return runtime.client.getLiveAssessmentAccess(courseInstanceId, assessmentId);
   });
   const activeAttemptId = createMemo(() => {
-    const activeAttempt = access()?.activeAssessmentAttempt;
+    const activeAttempt = access()?.activeAssessmentAttemptId;
     return activeAttempt === null || activeAttempt === undefined
       ? null
       : assessmentAttemptRouteId(activeAttempt);
@@ -64,7 +64,7 @@ export function AssessmentOverviewPage(): JSX.Element {
     const courseInstanceId = course();
     const assessmentId = assessment();
     const assessmentType = access()?.assessmentType;
-    const activeAttempt = access()?.activeAssessmentAttempt;
+    const activeAttempt = access()?.activeAssessmentAttemptId;
     const resuming = activeAttempt !== null && activeAttempt !== undefined;
     if (
       courseInstanceId === null ||
@@ -83,7 +83,7 @@ export function AssessmentOverviewPage(): JSX.Element {
       // ASVS 2.3.1: finish authorized same-Attempt issuance before reading progress.
       const attempt = await runtime.client.startLiveAssessment(courseInstanceId, assessmentId);
       if (!requestIsCurrent()) return;
-      const assessmentAttemptId = assessmentAttemptRouteId(attempt.assessmentAttempt);
+      const assessmentAttemptId = assessmentAttemptRouteId(attempt.assessmentAttemptId);
       navigate(`/assessment-attempts/${assessmentAttemptId}`, { replace: true });
     } catch (_error: unknown) {
       if (!requestIsCurrent()) return;
@@ -124,7 +124,7 @@ export function AssessmentOverviewPage(): JSX.Element {
             >
               <div class="student-assessment-primary-action">
                 <Switch>
-                  <Match when={current().activeAssessmentAttempt !== null}>
+                  <Match when={current().activeAssessmentAttemptId !== null}>
                     <button
                       class="primary-action wide-action"
                       type="button"
@@ -172,7 +172,7 @@ export function AssessmentOverviewPage(): JSX.Element {
                     {(attempt) => (
                       <li>
                         <A
-                          href={`/assessment-attempts/${assessmentAttemptRouteId(attempt.assessmentAttempt)}/summary`}
+                          href={`/assessment-attempts/${assessmentAttemptRouteId(attempt.assessmentAttemptId)}/summary`}
                         >
                           Attempt {attempt.attemptNumber}
                         </A>

@@ -24,7 +24,7 @@ test("incomplete Blueprint Course authoring remains local", async () => {
   const client = {
     async createBlueprintCourse() {
       createCalls += 1;
-      return { blueprintCourse: { id: "BP-created" }, etag: "etag" };
+      return { blueprintCourse: { id: "BP-created" } };
     },
   };
 
@@ -45,7 +45,7 @@ test("complete Blueprint Course meaning invokes its one live create capability",
     async createBlueprintCourse(content) {
       createCalls += 1;
       createdContent = content;
-      return { blueprintCourse: { id: "BP-created" }, etag: "etag" };
+      return { blueprintCourse: { id: "BP-created" } };
     },
   };
   const content = emptyReusableContent("exam", "Ready exam");

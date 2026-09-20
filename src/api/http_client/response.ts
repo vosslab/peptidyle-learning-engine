@@ -22,7 +22,6 @@ import type { ProfileSettings, UpdateAccountSettingsInput } from "../profile_set
 import type { StudentQuestionAttempt } from "../contracts";
 import { questionIdPath, questionSearchPath } from "../question_search_query";
 import {
-  decodeStudentAssessmentPage,
   decodeAssessmentAttempt,
   decodeStudentAssessmentDetail,
   decodeAttemptPage,
@@ -34,7 +33,6 @@ import {
   decodeCourseThemeUpdate,
   decodeCourseBannerUpdate,
   decodeCourseBannerUploadReceipt,
-  decodeCoursePage,
   decodeImathasQuestionBackendLaunch,
   decodeStudentQuestionAttempt,
   decodeIssuedQuestionPresentation,
@@ -441,13 +439,11 @@ export function createResponseClient(
   | "searchQuestionLibrary"
   | "resolveQuestion"
   | "getQuestionDetails"
-  | "listCourses"
   | "getCourseAppearanceView"
   | "updateCourseTheme"
   | "uploadCourseBanner"
   | "setCourseBanner"
   | "removeCourseBanner"
-  | "listAssessments"
   | "getAssessment"
   | "getAssessmentSummary"
   | "listAssessmentAttempts"
@@ -499,13 +495,6 @@ export function createResponseClient(
       );
     },
     getQuestionDetails: (questionId) => questionDetails(fetchImplementation, basePath, questionId),
-    listCourses: (cursor) =>
-      requestJson(
-        fetchImplementation,
-        basePath,
-        cursorPath("/api/courses", cursor),
-        decodeCoursePage,
-      ),
     getCourseAppearanceView: (courseInstanceId) =>
       courseAppearanceView(fetchImplementation, basePath, courseInstanceId),
     updateCourseTheme: (courseInstanceId, update) =>
@@ -516,13 +505,6 @@ export function createResponseClient(
       setCourseBanner(fetchImplementation, basePath, courseInstanceId, update),
     removeCourseBanner: (courseInstanceId) =>
       removeCourseBanner(fetchImplementation, basePath, courseInstanceId),
-    listAssessments: (courseId, cursor) =>
-      requestJson(
-        fetchImplementation,
-        basePath,
-        cursorPath(`/api/courses/${encodedId(courseId)}/assessments`, cursor),
-        decodeStudentAssessmentPage,
-      ),
     getAssessment: (assessmentId: AssessmentId) =>
       requestJson(
         fetchImplementation,

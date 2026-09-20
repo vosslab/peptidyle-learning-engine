@@ -21,12 +21,12 @@ export interface PleQuestionJsonAuthoringClient {
   save(
     draftQuestion: DraftQuestionRouteId,
     source: PleQuestionJsonDocument,
-    etag?: string,
+    expectedDraftQuestionEditNumber?: string,
   ): Promise<PleQuestionJsonSave>;
   publish(
     draftQuestion: DraftQuestionRouteId,
     request: PleQuestionJsonPublicationRequest,
-    etag: string,
+    expectedDraftQuestionEditNumber: string,
   ): Promise<QuestionSummary>;
 }
 
@@ -42,7 +42,10 @@ export interface PleQuestionJsonRepository {
     request: PleQuestionJsonPublicationRequest,
   ): Promise<QuestionSummary>;
   /** A separately saved Draft metadata field advances the same server edit number. */
-  synchronizeEtag(draftQuestion: DraftQuestionRouteId, etag: string): void;
+  synchronizeDraftQuestionEditNumber(
+    draftQuestion: DraftQuestionRouteId,
+    draftQuestionEditNumber: string,
+  ): void;
 }
 
 /** A stale save keeps the caller's private source available for a deliberate merge or reload. */
@@ -55,11 +58,11 @@ export class PleQuestionJsonStaleConflictError extends PleQuestionJsonConflictEr
   }
 }
 
-/** Owns only the server ETag; editor state remains with the calling UI. */
+/** Owns only the Draft Question Edit Number; editor state remains with the calling UI. */
 export function createPleQuestionJsonRepository(
   client: PleQuestionJsonAuthoringClient,
 ): PleQuestionJsonRepository {
-  const etags = new Map<DraftQuestionRouteId, string>();
+  const editNumbers = new Map<DraftQuestionRouteId, string>();
   const operationGenerations = new Map<DraftQuestionRouteId, number>();
 
   function startOperation(draftQuestion: DraftQuestionRouteId): number {
@@ -68,18 +71,19 @@ export function createPleQuestionJsonRepository(
     return generation;
   }
 
-  function setEtagIfCurrent(
+  function setEditNumberIfCurrent(
     draftQuestion: DraftQuestionRouteId,
     generation: number,
-    etag: string,
+    draftQuestionEditNumber: string,
   ): void {
-    if (operationGenerations.get(draftQuestion) === generation) etags.set(draftQuestion, etag);
+    if (operationGenerations.get(draftQuestion) === generation)
+      editNumbers.set(draftQuestion, draftQuestionEditNumber);
   }
 
   async function load(draftQuestion: DraftQuestionRouteId): Promise<PleQuestionJsonRead> {
     const generation = startOperation(draftQuestion);
     const result = await client.load(draftQuestion);
-    setEtagIfCurrent(draftQuestion, generation, result.etag);
+    setEditNumberIfCurrent(draftQuestion, generation, result.draftQuestionEditNumber);
     return result;
   }
 
@@ -88,10 +92,10 @@ export function createPleQuestionJsonRepository(
     source: PleQuestionJsonDocument,
   ): Promise<PleQuestionJsonSave> {
     const generation = startOperation(draftQuestion);
-    const etag = etags.get(draftQuestion);
+    const expectedDraftQuestionEditNumber = editNumbers.get(draftQuestion);
     try {
-      const result = await client.save(draftQuestion, source, etag);
-      setEtagIfCurrent(draftQuestion, generation, result.etag);
+      const result = await client.save(draftQuestion, source, expectedDraftQuestionEditNumber);
+      setEditNumberIfCurrent(draftQuestion, generation, result.draftQuestionEditNumber);
       return result;
     } catch (error: unknown) {
       if (error instanceof PleQuestionJsonConflictError) {
@@ -109,16 +113,19 @@ export function createPleQuestionJsonRepository(
     draftQuestion: DraftQuestionRouteId,
     request: PleQuestionJsonPublicationRequest,
   ): Promise<QuestionSummary> {
-    const etag = etags.get(draftQuestion);
-    if (etag === undefined) {
+    const expectedDraftQuestionEditNumber = editNumbers.get(draftQuestion);
+    if (expectedDraftQuestionEditNumber === undefined) {
       throw new Error("Load the saved Question before publishing it.");
     }
-    return await client.publish(draftQuestion, request, etag);
+    return await client.publish(draftQuestion, request, expectedDraftQuestionEditNumber);
   }
 
-  function synchronizeEtag(draftQuestion: DraftQuestionRouteId, etag: string): void {
-    etags.set(draftQuestion, etag);
+  function synchronizeDraftQuestionEditNumber(
+    draftQuestion: DraftQuestionRouteId,
+    draftQuestionEditNumber: string,
+  ): void {
+    editNumbers.set(draftQuestion, draftQuestionEditNumber);
   }
 
-  return { load, save, reload, publish, synchronizeEtag };
+  return { load, save, reload, publish, synchronizeDraftQuestionEditNumber };
 }

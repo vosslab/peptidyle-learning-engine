@@ -25,6 +25,10 @@ import {
   decodeUuid,
 } from "../decoder";
 import { ApiProtocolError, ApiRequestError } from "./error";
+import {
+  assertResponseMatchesPositiveNumber,
+  ifMatchHeaderForPositiveNumber,
+} from "./conditional_request";
 import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
 import { parseAssessmentId, parseCourseInstanceId } from "../../navigation/public_route";
@@ -54,19 +58,12 @@ function forkPath(
   return entry === undefined ? base : `${base}/${encodeURIComponent(entry)}`;
 }
 
-function quotedStrongEtag(etag: string, path: string): string {
-  if (!/^"[1-9][0-9]*"$/u.test(etag) || BigInt(etag.slice(1, -1)) > 9_223_372_036_854_775_807n) {
-    throw new ApiProtocolError(
-      `API ${path} If-Match must be one quoted strong Assessment Edit Number`,
-    );
-  }
-  return etag;
-}
-
-function requireResponseEtag(response: Response, editNumber: string, path: string): void {
-  if (response.headers.get("etag") !== `"${editNumber}"`) {
-    throw new ApiProtocolError(`API response ${path} ETag must match its Assessment Edit Number`);
-  }
+function requireMatchingAssessmentEditNumber(
+  response: Response,
+  editNumber: string,
+  path: string,
+): void {
+  assertResponseMatchesPositiveNumber(response, editNumber, path, "Assessment Edit Number");
 }
 
 function requireEntryReceipt(
@@ -87,11 +84,19 @@ async function requestJson<T>(
   options: {
     readonly method?: "GET" | "POST" | "PUT";
     readonly body?: unknown;
-    readonly etag?: string;
+    readonly expectedAssessmentEditNumber?: string;
   } = {},
 ): Promise<T> {
   const headers: Record<string, string> =
-    options.etag === undefined ? {} : { "if-match": quotedStrongEtag(options.etag, path) };
+    options.expectedAssessmentEditNumber === undefined
+      ? {}
+      : {
+          "if-match": ifMatchHeaderForPositiveNumber(
+            options.expectedAssessmentEditNumber,
+            path,
+            "Assessment Edit Number",
+          ),
+        };
   const response = await requestSameOrigin(fetchImplementation, basePath, path, {
     method: options.method ?? "GET",
     headers,
@@ -188,12 +193,18 @@ export function createAssessmentPoolForkClient(
       course,
       assessment,
       input,
-      etag,
+      expectedAssessmentEditNumber,
     ): Promise<ImportedAssessmentQuestionPoolFork> => {
       const path = forkPath(course, assessment);
       const response = await requestSameOrigin(fetchImplementation, basePath, path, {
         method: "POST",
-        headers: { "if-match": quotedStrongEtag(etag, path) },
+        headers: {
+          "if-match": ifMatchHeaderForPositiveNumber(
+            expectedAssessmentEditNumber,
+            path,
+            "Assessment Edit Number",
+          ),
+        },
         body: importBody(input),
       });
       requireNoStore(response, path);
@@ -206,7 +217,7 @@ export function createAssessmentPoolForkClient(
         await boundedResponseJson(response, path),
         "response",
       );
-      requireResponseEtag(response, receipt.assessmentEditNumber, path);
+      requireMatchingAssessmentEditNumber(response, receipt.assessmentEditNumber, path);
       return receipt;
     },
     appendAssessmentQuestionPoolForkMembers: async (
@@ -214,12 +225,18 @@ export function createAssessmentPoolForkClient(
       assessment,
       entry,
       input,
-      etag,
+      expectedAssessmentEditNumber,
     ): Promise<AppendedAssessmentQuestionPoolForkMembers> => {
       const path = forkPath(course, assessment, entry);
       const response = await requestSameOrigin(fetchImplementation, basePath, path, {
         method: "PUT",
-        headers: { "if-match": quotedStrongEtag(etag, path) },
+        headers: {
+          "if-match": ifMatchHeaderForPositiveNumber(
+            expectedAssessmentEditNumber,
+            path,
+            "Assessment Edit Number",
+          ),
+        },
         body: appendBody(input),
       });
       requireNoStore(response, path);
@@ -227,7 +244,7 @@ export function createAssessmentPoolForkClient(
       if (!response.ok) throw new ApiRequestError(response.status, path);
       const receipt = decodeAppendReceipt(await boundedResponseJson(response, path), "response");
       requireEntryReceipt(receipt.assessmentEntryId, entry, path);
-      requireResponseEtag(response, receipt.assessmentEditNumber, path);
+      requireMatchingAssessmentEditNumber(response, receipt.assessmentEditNumber, path);
       return receipt;
     },
     updateAssessmentQuestionPoolSelectionCount: async (
@@ -235,7 +252,7 @@ export function createAssessmentPoolForkClient(
       assessment,
       entry,
       selectionCount,
-      etag,
+      expectedAssessmentEditNumber,
     ): Promise<AssessmentQuestionPoolSelectionCountReceipt> => {
       if (!Number.isSafeInteger(selectionCount) || selectionCount < 1) {
         throw new ApiProtocolError("Assessment Pool selection count must be positive");
@@ -243,7 +260,13 @@ export function createAssessmentPoolForkClient(
       const path = `${forkPath(course, assessment, entry)}/selection-count`;
       const response = await requestSameOrigin(fetchImplementation, basePath, path, {
         method: "PUT",
-        headers: { "if-match": quotedStrongEtag(etag, path) },
+        headers: {
+          "if-match": ifMatchHeaderForPositiveNumber(
+            expectedAssessmentEditNumber,
+            path,
+            "Assessment Edit Number",
+          ),
+        },
         body: { selectionCount },
       });
       requireNoStore(response, path);
@@ -259,7 +282,7 @@ export function createAssessmentPoolForkClient(
           `API response ${path} must retain the requested selection count`,
         );
       }
-      requireResponseEtag(response, receipt.assessmentEditNumber, path);
+      requireMatchingAssessmentEditNumber(response, receipt.assessmentEditNumber, path);
       return receipt;
     },
   };

@@ -36,8 +36,8 @@ export function createCourseStudentWorkRecoveryClient(
         await request(course, { action: "select", cursor }),
       );
       if (
-        selection.course !== course ||
-        selection.attempts.some((attempt) => attempt.course !== course)
+        selection.courseInstanceId !== course ||
+        selection.attempts.some((attempt) => attempt.courseInstanceId !== course)
       )
         throw new ApiProtocolError("Recovery selection must match the requested Course");
       return selection;
@@ -46,10 +46,14 @@ export function createCourseStudentWorkRecoveryClient(
       if (parseAssessmentAttemptId(assessmentAttempt) === null)
         throw new ApiProtocolError("Assessment Attempt ID must be canonical");
       const attempt = decodeRecoveredAttempt(
-        await request(course, { action: "recover", assessmentAttempt }),
+        await request(course, { action: "recover", assessmentAttemptId: assessmentAttempt }),
       );
-      if (attempt.course !== course || attempt.assessmentAttempt !== assessmentAttempt)
+      if (
+        attempt.courseInstanceId !== course ||
+        attempt.assessmentAttemptId !== assessmentAttempt
+      ) {
         throw new ApiProtocolError("Recovery evidence must match the requested Course and Attempt");
+      }
       return attempt;
     },
   };

@@ -368,7 +368,7 @@ $$;
 CREATE FUNCTION ple_data.save_assessment(
     p_course_instance_id text,
     p_assessment_id text,
-    p_expected_edit_number bigint,
+    p_expected_assessment_edit_number bigint,
     p_values jsonb,
     p_entries jsonb
 ) RETURNS TABLE (
@@ -396,7 +396,7 @@ DECLARE
 BEGIN
     IF p_course_instance_id IS NULL
        OR p_assessment_id IS NULL
-       OR p_expected_edit_number IS NULL OR p_expected_edit_number <= 0
+       OR p_expected_assessment_edit_number IS NULL OR p_expected_assessment_edit_number <= 0
        OR p_values IS NULL OR jsonb_typeof(p_values) <> 'object'
        OR EXISTS (
            SELECT 1 FROM jsonb_object_keys(p_values) AS key WHERE key <> ALL (allowed_keys)
@@ -421,7 +421,7 @@ BEGIN
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable';
     END IF;
-    IF current_assessment.assessment_edit_number IS DISTINCT FROM p_expected_edit_number THEN
+    IF current_assessment.assessment_edit_number IS DISTINCT FROM p_expected_assessment_edit_number THEN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Assessment Edit Number is stale';
     END IF;
     SELECT * INTO current_snapshot
@@ -476,7 +476,7 @@ $$;
 
 CREATE FUNCTION ple_data.save_assessment_inline(
     p_course_instance_id text, p_assessment_id text,
-    p_expected_edit_number bigint, p_title text, p_due_at timestamptz
+    p_expected_assessment_edit_number bigint, p_title text, p_due_at timestamptz
 ) RETURNS TABLE (
     assessment_id text, assessment_title text, due_at_millis bigint,
     assessment_status text, assessment_edit_number bigint
@@ -491,7 +491,7 @@ DECLARE
 BEGIN
     IF p_course_instance_id IS NULL
        OR p_assessment_id IS NULL
-       OR p_expected_edit_number IS NULL OR p_expected_edit_number <= 0 OR p_title IS NULL THEN
+       OR p_expected_assessment_edit_number IS NULL OR p_expected_assessment_edit_number <= 0 OR p_title IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Assessment inline save is invalid';
     END IF;
     SELECT course.* INTO course_row
@@ -508,7 +508,7 @@ BEGIN
        AND assessment.assessment_id = p_assessment_id
      FOR UPDATE;
     IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable'; END IF;
-    IF assessment_row.assessment_edit_number IS DISTINCT FROM p_expected_edit_number THEN
+    IF assessment_row.assessment_edit_number IS DISTINCT FROM p_expected_assessment_edit_number THEN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Assessment Edit Number is stale';
     END IF;
     IF p_due_at > course_row.active_until_at THEN
@@ -568,7 +568,7 @@ $$;
 -- Policy-only persistence keeps Question Entries and title outside this write boundary.
 CREATE FUNCTION ple_data.save_assessment_policies(
     p_course_instance_id text, p_assessment_id text,
-    p_expected_edit_number bigint, p_policies jsonb
+    p_expected_assessment_edit_number bigint, p_policies jsonb
 ) RETURNS TABLE (
     assessment_id text, assessment_edit_number bigint,
     assessment_status text, assessment_title text, assessment_instructions text
@@ -591,7 +591,7 @@ DECLARE course_row ple_data.course_instance%ROWTYPE;
 BEGIN
     IF p_course_instance_id IS NULL
        OR p_assessment_id IS NULL
-       OR p_expected_edit_number IS NULL OR p_expected_edit_number <= 0
+       OR p_expected_assessment_edit_number IS NULL OR p_expected_assessment_edit_number <= 0
        OR p_policies IS NULL OR jsonb_typeof(p_policies) <> 'object'
        OR EXISTS (SELECT 1 FROM jsonb_object_keys(p_policies) AS key WHERE key <> ALL (allowed_keys))
        OR EXISTS (SELECT 1 FROM unnest(allowed_keys) AS key WHERE NOT p_policies ? key) THEN
@@ -611,7 +611,7 @@ BEGIN
        AND assessment.assessment_id = p_assessment_id
      FOR UPDATE;
     IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable'; END IF;
-    IF current_assessment.assessment_edit_number IS DISTINCT FROM p_expected_edit_number THEN
+    IF current_assessment.assessment_edit_number IS DISTINCT FROM p_expected_assessment_edit_number THEN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Assessment Edit Number is stale';
     END IF;
     SELECT * INTO current_snapshot
@@ -664,7 +664,7 @@ $$;
 CREATE FUNCTION ple_data.release_assessment(
     p_course_instance_id text,
     p_assessment_id text,
-    p_expected_edit_number bigint
+    p_expected_assessment_edit_number bigint
 ) RETURNS TABLE (
     assessment_id text, assessment_title text,
     assessment_status text, assessment_edit_number bigint
@@ -677,7 +677,7 @@ DECLARE
 BEGIN
     IF p_course_instance_id IS NULL
        OR p_assessment_id IS NULL
-       OR p_expected_edit_number IS NULL OR p_expected_edit_number <= 0 THEN
+       OR p_expected_assessment_edit_number IS NULL OR p_expected_assessment_edit_number <= 0 THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable';
     END IF;
     SELECT course.* INTO course_row
@@ -694,7 +694,7 @@ BEGIN
        AND assessment.assessment_id = p_assessment_id
      FOR UPDATE;
     IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable'; END IF;
-    IF assessment_row.assessment_edit_number IS DISTINCT FROM p_expected_edit_number THEN
+    IF assessment_row.assessment_edit_number IS DISTINCT FROM p_expected_assessment_edit_number THEN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Assessment Edit Number is stale';
     END IF;
     IF assessment_row.assessment_status <> 'unreleased' THEN

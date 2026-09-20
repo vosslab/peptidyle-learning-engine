@@ -69,7 +69,7 @@ accepted.
 ## Roster CSV import contract
 
 The current server can preview and commit UTF-8 CSV at
-`/api/courses/{course}/roster-imports/preview`. An authorized Course Instructor uses roster import
+`POST /api/course-instances/{course_instance_id}/roster`. An authorized Course Instructor uses roster import
 to bulk add Students to a Course Instance. Student removal remains an individual operation; PLE
 does not provide bulk Student removal. The accepted grammar is:
 

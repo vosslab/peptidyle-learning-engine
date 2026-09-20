@@ -313,7 +313,7 @@ $$;
 CREATE FUNCTION ple_api.save_assessment(
     p_course_instance_id text,
     p_assessment_id text,
-    p_expected_edit_number bigint,
+    p_expected_assessment_edit_number bigint,
     p_values jsonb,
     p_entries jsonb
 )
@@ -334,7 +334,7 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
         (SELECT assessment.assessment_id FROM ple_data.course_instance AS course
           JOIN ple_data.assessment ON assessment.course_instance_id = course.course_instance_id
          WHERE course.course_instance_id = p_course_instance_id
-           AND assessment.assessment_id = p_assessment_id), p_expected_edit_number,
+           AND assessment.assessment_id = p_assessment_id), p_expected_assessment_edit_number,
         p_values, p_entries
     ) AS result
       JOIN ple_data.assessment ON assessment.assessment_id = result.assessment_id
@@ -343,7 +343,7 @@ $$;
 CREATE FUNCTION ple_api.save_assessment_inline(
     p_course_instance_id text,
     p_assessment_id text,
-    p_expected_edit_number bigint,
+    p_expected_assessment_edit_number bigint,
     p_title text,
     p_due_at timestamptz
 )
@@ -366,7 +366,7 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
         (SELECT assessment.assessment_id FROM ple_data.course_instance AS course
           JOIN ple_data.assessment ON assessment.course_instance_id = course.course_instance_id
          WHERE course.course_instance_id = p_course_instance_id
-           AND assessment.assessment_id = p_assessment_id), p_expected_edit_number,
+           AND assessment.assessment_id = p_assessment_id), p_expected_assessment_edit_number,
         p_title, p_due_at
     ) AS result
       JOIN ple_data.assessment ON assessment.assessment_id = result.assessment_id
@@ -374,7 +374,7 @@ $$;
 
 CREATE FUNCTION ple_api.save_assessment_policies(
     p_course_instance_id text, p_assessment_id text,
-    p_expected_edit_number bigint, p_policies jsonb
+    p_expected_assessment_edit_number bigint, p_policies jsonb
 ) RETURNS TABLE (
     assessment_id text, assessment_edit_number bigint,
     assessment_status text, assessment_title text, assessment_instructions text
@@ -390,14 +390,14 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
           JOIN ple_data.assessment ON assessment.course_instance_id = course.course_instance_id
          WHERE course.course_instance_id = p_course_instance_id
            AND assessment.assessment_id = p_assessment_id),
-        p_expected_edit_number, p_policies) AS result
+        p_expected_assessment_edit_number, p_policies) AS result
       JOIN ple_data.assessment ON assessment.assessment_id = result.assessment_id
 $$;
 
 CREATE FUNCTION ple_api.release_assessment(
     p_course_instance_id text,
     p_assessment_id text,
-    p_expected_edit_number bigint
+    p_expected_assessment_edit_number bigint
 )
 RETURNS TABLE (
     assessment_id text,
@@ -416,7 +416,7 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
           JOIN ple_data.assessment ON assessment.course_instance_id = course.course_instance_id
          WHERE course.course_instance_id = p_course_instance_id
            AND assessment.assessment_id = p_assessment_id),
-        p_expected_edit_number
+        p_expected_assessment_edit_number
     ) AS result
       JOIN ple_data.assessment ON assessment.assessment_id = result.assessment_id
 $$;

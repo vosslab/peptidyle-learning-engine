@@ -108,8 +108,8 @@ fn validate_fixture_set(fixture_dir: &Path, fixture_set: &StoredFixtureSet) -> R
         "stored Assessment Grade and Assessment Progress must belong to the stored Student Record"
     );
     ensure!(
-        fixture_set.assessment_grade.assessment == fixture_set.assessment.id
-            && fixture_set.assessment_progress.assessment == fixture_set.assessment.id,
+        fixture_set.assessment_grade.assessment_id == fixture_set.assessment.id
+            && fixture_set.assessment_progress.assessment_id == fixture_set.assessment.id,
         "stored Assessment Grade and Assessment Progress must belong to the stored Assessment"
     );
     ensure!(

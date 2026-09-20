@@ -189,7 +189,7 @@ silently applied. When a Blueprint Assessment is newly added, PLE automatically
 creates an Unreleased copy in each daughter Course Instance.
 
 For one retained daughter Assessment, `GET` and `POST`
-`/api/course-instances/{course}/assessments/{assessment}/blueprint-update`
+`/api/course-instances/{course_instance_id}/assessments/{assessment_id}/blueprint-update`
 derive a review from the current parent Revision and explicitly apply its reusable
 content. The read exposes the current and proposed ordered Fixed Question
 Revision pins together with sibling Pool ID and Pool Edit Number fields; Apply

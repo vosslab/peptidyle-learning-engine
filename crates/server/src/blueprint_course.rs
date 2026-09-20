@@ -121,7 +121,7 @@ pub fn blueprint_course_router(
             get(exchange::export),
         )
         .route(
-            "/api/course-blueprints/{left}/compare/{right}",
+            "/api/course-blueprints/{left_blueprint_course_id}/compare/{right_blueprint_course_id}",
             get(fork_review::load_comparison),
         )
         .route(
@@ -137,7 +137,7 @@ pub fn blueprint_course_router(
             get(history::list_history),
         )
         .route(
-            "/api/course-blueprints/{blueprint_course_id}/assessments/{assessment_id}/pools/{pool}/members",
+            "/api/course-blueprints/{blueprint_course_id}/assessments/{assessment_id}/pools/{question_pool_id}/members",
             get(pool_members::load_pool_members),
         )
         .route(

@@ -51,7 +51,7 @@ export function decodeStudentAssessmentAttemptContext(
 ): StudentAssessmentAttemptContext {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "assessmentAttempt",
+    "assessmentAttemptId",
     "attemptNumber",
     "displayTimeZone",
     "expiresAt",
@@ -66,9 +66,9 @@ export function decodeStudentAssessmentAttemptContext(
   const remaining = field(record, "timerRemainingMilliseconds", path);
   const expiresAt = field(record, "expiresAt", path);
   return {
-    assessmentAttempt: decodeAssessmentAttemptId(
-      field(record, "assessmentAttempt", path),
-      `${path}.assessmentAttempt`,
+    assessmentAttemptId: decodeAssessmentAttemptId(
+      field(record, "assessmentAttemptId", path),
+      `${path}.assessmentAttemptId`,
     ),
     attemptNumber: decodePositiveInteger(
       field(record, "attemptNumber", path),
@@ -118,7 +118,7 @@ export function decodeStudentAssessmentAttemptProgress(
 ): StudentAssessmentAttemptProgress {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "assessmentAttempt",
+    "assessmentAttemptId",
     "questionCount",
     "recommendedPosition",
     "positions",
@@ -155,11 +155,11 @@ export function decodeStudentAssessmentAttemptProgress(
     throw new DecodeError(`${path}.positions`, "each 1-based issued position exactly once");
   if (recommendedPosition !== null && recommendedPosition > questionCount)
     throw new DecodeError(`${path}.recommendedPosition`, "an issued position or null");
-  const assessmentAttempt = decodeAssessmentAttemptId(
-    field(record, "assessmentAttempt", path),
-    `${path}.assessmentAttempt`,
+  const assessmentAttemptId = decodeAssessmentAttemptId(
+    field(record, "assessmentAttemptId", path),
+    `${path}.assessmentAttemptId`,
   );
-  return { assessmentAttempt, questionCount, recommendedPosition, positions };
+  return { assessmentAttemptId, questionCount, recommendedPosition, positions };
 }
 
 export function decodeStudentAssessmentAttemptPresentation(
@@ -185,14 +185,14 @@ export function decodeStudentAssessmentAttemptResponseSaveAcknowledgement(
   path = "response",
 ): StudentAssessmentAttemptResponseSaveAcknowledgement {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["assessmentAttempt", "position", "responseState"]);
+  requireOnlyFields(record, path, ["assessmentAttemptId", "position", "responseState"]);
   const responseState = field(record, "responseState", path);
   if (responseState !== "saved")
     throw new DecodeError(`${path}.responseState`, 'the durable response state "saved"');
   return {
-    assessmentAttempt: decodeAssessmentAttemptId(
-      field(record, "assessmentAttempt", path),
-      `${path}.assessmentAttempt`,
+    assessmentAttemptId: decodeAssessmentAttemptId(
+      field(record, "assessmentAttemptId", path),
+      `${path}.assessmentAttemptId`,
     ),
     position: decodePositiveInteger(field(record, "position", path), `${path}.position`),
     responseState,
@@ -204,7 +204,7 @@ export function decodeStudentAssessmentAttemptSubmissionResult(
   path = "response",
 ): StudentAssessmentAttemptSubmissionResult {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["assessmentAttempt", "submissionState"]);
+  requireOnlyFields(record, path, ["assessmentAttemptId", "submissionState"]);
   const submissionState = field(record, "submissionState", path);
   if (submissionState !== "submitted")
     throw new DecodeError(
@@ -212,9 +212,9 @@ export function decodeStudentAssessmentAttemptSubmissionResult(
       'the Assessment Attempt submission state "submitted"',
     );
   return {
-    assessmentAttempt: decodeAssessmentAttemptId(
-      field(record, "assessmentAttempt", path),
-      `${path}.assessmentAttempt`,
+    assessmentAttemptId: decodeAssessmentAttemptId(
+      field(record, "assessmentAttemptId", path),
+      `${path}.assessmentAttemptId`,
     ),
     submissionState,
   };

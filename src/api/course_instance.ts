@@ -17,7 +17,7 @@ export type CourseInstanceCreationSource =
   | { readonly kind: "empty" }
   | {
       readonly kind: "adopted";
-      readonly blueprintCourse: BlueprintCourseId;
+      readonly blueprintCourseId: BlueprintCourseId;
       readonly blueprintRevisionNumber: BlueprintRevisionNumber;
     };
 
@@ -29,7 +29,7 @@ export interface CreateCourseInstanceInput {
   readonly longName: string;
   readonly term: CourseTerm;
   /** Omitted for Instructor self-creation; required for a Sysadmin creation. */
-  readonly assignedInstructor?: AccountId;
+  readonly assignedInstructorAccountId?: AccountId;
 }
 
 /** Browser-safe Course Instance landing-page identity. */
@@ -51,11 +51,11 @@ export interface CourseInstanceSummary {
 
 /** Initial Teaching Team workspace projection. */
 export interface CourseInstanceView {
-  readonly course: CourseInstanceSummary;
+  readonly courseInstance: CourseInstanceSummary;
   readonly activeInstructorCount: number;
   /** Original adoption provenance; null for Empty Courses or unreadable sources. */
   readonly blueprintOrigin: {
-    readonly id: BlueprintCourseId;
+    readonly blueprintCourseId: BlueprintCourseId;
     readonly adoptedRevisionNumber: BlueprintRevisionNumber;
     readonly currentRevisionNumber: BlueprintRevisionNumber;
   } | null;
@@ -63,19 +63,17 @@ export interface CourseInstanceView {
 
 /** Explicit Sysadmin selection target; it carries no email or course authority. */
 export interface CourseCreationInstructor {
-  readonly id: AccountId;
+  readonly accountId: AccountId;
 }
 
 /** Creation receipt that does not imply creator Course access. */
 export interface CreatedCourseInstance {
-  readonly course: CourseInstanceSummary;
+  readonly courseInstance: CourseInstanceSummary;
 }
 
 /** Receipt for a new private Blueprint derived from one Course Instance. */
 export interface CreatedBlueprintFromCourseInstance {
   readonly blueprintCourse: BlueprintCourseView;
-  /** Strong validator for the new Blueprint's initial Revision. */
-  readonly revisionEtag: string;
 }
 
 /** Same-origin client boundary for Course Instance creation and initial teaching team. */

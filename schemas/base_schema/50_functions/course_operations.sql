@@ -301,7 +301,7 @@ RETURNS TABLE(course_edit_number bigint, changed boolean)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data AS $$
 DECLARE
     v_course ple_data.course_instance%ROWTYPE;
-    v_next bigint;
+    v_next_course_edit_number bigint;
 BEGIN
     -- ASVS 8.2.1/8.2.2: every current co-Instructor has equal scoped authority.
     SELECT course.* INTO v_course FROM ple_data.course_instance AS course
@@ -321,7 +321,7 @@ BEGIN
         RETURN QUERY SELECT v_course.course_edit_number, false;
         RETURN;
     END IF;
-    v_next := v_course.course_edit_number + 1;
+    v_next_course_edit_number := v_course.course_edit_number + 1;
     -- An existing retired Discipline remains valid when this update retains
     -- its UUID; only a replacement needs an active new selection.
     IF v_course.content_discipline_id IS DISTINCT FROM p_discipline THEN
@@ -329,9 +329,9 @@ BEGIN
     END IF;
     UPDATE ple_data.course_instance AS course SET
         content_discipline_id = p_discipline, content_subject_id = p_subject, content_topic_id = p_topic,
-        content_subtopic_id = p_subtopic, tags = p_tags, course_edit_number = v_next
+        content_subtopic_id = p_subtopic, tags = p_tags, course_edit_number = v_next_course_edit_number
      WHERE course.course_instance_id = v_course.course_instance_id;
-    RETURN QUERY SELECT v_next, true;
+    RETURN QUERY SELECT v_next_course_edit_number, true;
 END
 $$;
 

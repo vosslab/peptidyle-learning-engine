@@ -146,8 +146,8 @@ mod tests {
     fn issued_question(scoring_rule: AssessmentEntryScoringRule) -> IssuedQuestion {
         IssuedQuestion {
             id: IssuedQuestionId::from_uuid(Uuid::from_u128(1)),
-            assessment_attempt: AssessmentAttemptId::from_uuid(Uuid::from_u128(2)),
-            assessment_entry: AssessmentEntryId::from_uuid(Uuid::from_u128(3)),
+            assessment_attempt_id: AssessmentAttemptId::from_uuid(Uuid::from_u128(2)),
+            assessment_entry_id: AssessmentEntryId::from_uuid(Uuid::from_u128(3)),
             assessment_content_entry_index: 0,
             issued_position: 0,
             question_revision_tuple: QuestionRevisionTuple {

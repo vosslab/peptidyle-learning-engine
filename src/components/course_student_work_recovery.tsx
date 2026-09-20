@@ -104,7 +104,8 @@ export function CourseStudentWorkRecovery(props: {
   }
   async function recover(): Promise<void> {
     const attempt = selected();
-    if (busy() || !selection()?.attempts.some((item) => item.assessmentAttempt === attempt)) return;
+    if (busy() || !selection()?.attempts.some((item) => item.assessmentAttemptId === attempt))
+      return;
     const token = ++generation;
     setBusy(true);
     setMessage("");
@@ -182,10 +183,10 @@ export function CourseStudentWorkRecovery(props: {
                           <input
                             type="radio"
                             name="archived-student-work-attempt"
-                            value={attempt.assessmentAttempt}
-                            checked={selected() === attempt.assessmentAttempt}
+                            value={attempt.assessmentAttemptId}
+                            checked={selected() === attempt.assessmentAttemptId}
                             onChange={() => {
-                              setSelected(attempt.assessmentAttempt);
+                              setSelected(attempt.assessmentAttemptId);
                               setEvidence(undefined);
                             }}
                           />{" "}
@@ -193,7 +194,7 @@ export function CourseStudentWorkRecovery(props: {
                             ? "Roster ID not retained"
                             : `Roster ID: ${attempt.rosterId}`}{" "}
                           | {attempt.assessmentTitle} | Attempt {attempt.assessmentAttemptNumber} (
-                          {attempt.assessmentAttempt})
+                          {attempt.assessmentAttemptId})
                           <span style={{ display: "block" }}>
                             Started:{" "}
                             {formatRecoveryInstant(

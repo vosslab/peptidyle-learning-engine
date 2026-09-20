@@ -151,11 +151,10 @@ test("Base Assessment Policy save uses the current workspace boundary and exact 
     "CI7K3M2QAZ",
     "A8H4N6PA6",
     baseAssessmentPolicy(),
-    '"3"',
+    "3",
   );
 
   assert.equal(saved.workspace.editNumber, "4");
-  assert.equal(saved.etag, '"4"');
   assert.equal(
     new URL(requests[0].url).pathname,
     "/api/course-instances/CI7K3M2QAZ/assessments/A8H4N6PA6/policies",
@@ -177,9 +176,9 @@ test("Base Assessment Policy save requires a matching response ETag and maps an 
       "CI7K3M2QAZ",
       "A8H4N6PA6",
       baseAssessmentPolicy(),
-      '"3"',
+      "3",
     ),
-    /ETag must match/u,
+    /must include one strong numeric Assessment Edit Number/u,
   );
 
   const conflict = createRecordingFetch(
@@ -194,7 +193,7 @@ test("Base Assessment Policy save requires a matching response ETag and maps an 
       "CI7K3M2QAZ",
       "A8H4N6PA6",
       baseAssessmentPolicy(),
-      '"3"',
+      "3",
     ),
     LiveAssessmentWorkspaceConflictError,
   );

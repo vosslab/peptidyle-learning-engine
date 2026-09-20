@@ -96,7 +96,7 @@ $$;
 CREATE FUNCTION ple_api.unrelease_assessment(
     p_course_instance_id text,
     p_assessment_id text,
-    p_expected_edit_number bigint,
+    p_expected_assessment_edit_number bigint,
     p_confirmation_title text
 )
 RETURNS TABLE (
@@ -116,7 +116,7 @@ DECLARE actor_account_id text;
 DECLARE now_at timestamptz := pg_catalog.transaction_timestamp();
 BEGIN
     IF p_course_instance_id IS NULL
-       OR p_expected_edit_number IS NULL OR p_expected_edit_number <= 0
+       OR p_expected_assessment_edit_number IS NULL OR p_expected_assessment_edit_number <= 0
        OR p_confirmation_title IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable';
     END IF;
@@ -135,7 +135,7 @@ BEGIN
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable';
     END IF;
-    IF assessment_row.assessment_edit_number IS DISTINCT FROM p_expected_edit_number THEN
+    IF assessment_row.assessment_edit_number IS DISTINCT FROM p_expected_assessment_edit_number THEN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Assessment Edit Number is stale';
     END IF;
     IF assessment_row.assessment_status <> 'released' THEN

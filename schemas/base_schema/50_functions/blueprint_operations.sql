@@ -261,7 +261,7 @@ AS $$
 DECLARE
     v_actor text;
     v_course ple_data.blueprint_course%ROWTYPE;
-    v_next bigint;
+    v_next_blueprint_edit_number bigint;
     v_blueprint_course_id text;
 BEGIN
     IF NOT ple_private.is_canonical_prefixed_public_id(p_blueprint_course_id, 'BP')
@@ -298,9 +298,9 @@ BEGIN
             v_course.content_subtopic_id, v_course.tags;
         RETURN;
     END IF;
-    v_next := v_course.blueprint_edit_number + 1;
+    v_next_blueprint_edit_number := v_course.blueprint_edit_number + 1;
     UPDATE ple_data.blueprint_course AS course
-       SET short_name = p_short_name, long_name = p_long_name, blueprint_edit_number = v_next
+       SET short_name = p_short_name, long_name = p_long_name, blueprint_edit_number = v_next_blueprint_edit_number
      WHERE course.blueprint_course_id = v_blueprint_course_id;
     INSERT INTO ple_data.blueprint_metadata_event (
         blueprint_course_id, actor_account_id, short_name, long_name,
@@ -308,11 +308,11 @@ BEGIN
         content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags
     ) VALUES (
         v_blueprint_course_id, v_actor, p_short_name, p_long_name,
-        v_course.availability, v_next, pg_catalog.clock_timestamp(),
+        v_course.availability, v_next_blueprint_edit_number, pg_catalog.clock_timestamp(),
         v_course.content_discipline_id, v_course.content_subject_id, v_course.content_topic_id,
         v_course.content_subtopic_id, v_course.tags
     );
-    RETURN QUERY SELECT p_short_name, p_long_name, v_course.availability, v_next,
+    RETURN QUERY SELECT p_short_name, p_long_name, v_course.availability, v_next_blueprint_edit_number,
         v_course.content_discipline_id, v_course.content_subject_id, v_course.content_topic_id,
         v_course.content_subtopic_id, v_course.tags;
 END
@@ -332,7 +332,7 @@ AS $$
 DECLARE
     v_actor text;
     v_course ple_data.blueprint_course%ROWTYPE;
-    v_next bigint;
+    v_next_blueprint_edit_number bigint;
     v_blueprint_course_id text;
 BEGIN
     IF NOT ple_private.is_canonical_prefixed_public_id(p_blueprint_course_id, 'BP')
@@ -385,9 +385,9 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '55000',
             MESSAGE = 'Blueprint availability already has that state';
     END IF;
-    v_next := v_course.blueprint_edit_number + 1;
+    v_next_blueprint_edit_number := v_course.blueprint_edit_number + 1;
     UPDATE ple_data.blueprint_course AS course
-       SET availability = p_availability, blueprint_edit_number = v_next
+       SET availability = p_availability, blueprint_edit_number = v_next_blueprint_edit_number
      WHERE course.blueprint_course_id = v_blueprint_course_id;
     INSERT INTO ple_data.blueprint_metadata_event (
         blueprint_course_id, actor_account_id, short_name, long_name,
@@ -395,11 +395,11 @@ BEGIN
         content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags
     ) VALUES (
         v_blueprint_course_id, v_actor, v_course.short_name, v_course.long_name,
-        p_availability, v_next, pg_catalog.clock_timestamp(),
+        p_availability, v_next_blueprint_edit_number, pg_catalog.clock_timestamp(),
         v_course.content_discipline_id, v_course.content_subject_id, v_course.content_topic_id,
         v_course.content_subtopic_id, v_course.tags
     );
-    RETURN QUERY SELECT v_course.short_name, v_course.long_name, p_availability, v_next,
+    RETURN QUERY SELECT v_course.short_name, v_course.long_name, p_availability, v_next_blueprint_edit_number,
         v_course.content_discipline_id, v_course.content_subject_id, v_course.content_topic_id,
         v_course.content_subtopic_id, v_course.tags;
 END
@@ -414,7 +414,7 @@ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
     v_course ple_data.blueprint_course%ROWTYPE;
-    v_next bigint;
+    v_next_blueprint_edit_number bigint;
 BEGIN
     -- ASVS 8.2.1/8.2.2: ownership, not ambient Product Role, permits mutation.
     SELECT course.* INTO v_course FROM ple_data.blueprint_course AS course
@@ -438,7 +438,7 @@ BEGIN
         RETURN QUERY SELECT v_course.blueprint_edit_number, false;
         RETURN;
     END IF;
-    v_next := v_course.blueprint_edit_number + 1;
+    v_next_blueprint_edit_number := v_course.blueprint_edit_number + 1;
     -- Retaining an existing retired Discipline does not make it a new choice.
     -- A true replacement requires an active Discipline and retains its row
     -- lock through this update transaction.
@@ -447,7 +447,7 @@ BEGIN
     END IF;
     UPDATE ple_data.blueprint_course AS course SET
         content_discipline_id = p_discipline, content_subject_id = p_subject, content_topic_id = p_topic,
-        content_subtopic_id = p_subtopic, tags = p_tags, blueprint_edit_number = v_next
+        content_subtopic_id = p_subtopic, tags = p_tags, blueprint_edit_number = v_next_blueprint_edit_number
      WHERE course.blueprint_course_id = v_course.blueprint_course_id;
     INSERT INTO ple_data.blueprint_metadata_event (
         blueprint_course_id, actor_account_id, short_name, long_name,
@@ -456,9 +456,9 @@ BEGIN
     ) VALUES (
         v_course.blueprint_course_id, ple_api.current_session_account_id(),
         v_course.short_name, v_course.long_name, v_course.availability,
-        v_next, pg_catalog.clock_timestamp(), p_discipline, p_subject, p_topic, p_subtopic, p_tags
+        v_next_blueprint_edit_number, pg_catalog.clock_timestamp(), p_discipline, p_subject, p_topic, p_subtopic, p_tags
     );
-    RETURN QUERY SELECT v_next, true;
+    RETURN QUERY SELECT v_next_blueprint_edit_number, true;
 END
 $$;
 
@@ -660,7 +660,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private
 AS $$
 DECLARE
     v_course ple_data.blueprint_course%ROWTYPE;
-    v_next bigint;
+    v_next_blueprint_edit_number bigint;
 BEGIN
     IF NOT ple_api.current_session_account_is_sysadmin() THEN
         RAISE EXCEPTION 'Blueprint promotion forbidden' USING ERRCODE = '42501';
@@ -682,11 +682,11 @@ BEGIN
         RETURN QUERY SELECT v_course.promoted, v_course.blueprint_edit_number;
         RETURN;
     END IF;
-    v_next := v_course.blueprint_edit_number + 1;
+    v_next_blueprint_edit_number := v_course.blueprint_edit_number + 1;
     UPDATE ple_data.blueprint_course AS course
-       SET promoted = p_promoted, blueprint_edit_number = v_next
+       SET promoted = p_promoted, blueprint_edit_number = v_next_blueprint_edit_number
      WHERE course.blueprint_course_id = v_course.blueprint_course_id;
-    RETURN QUERY SELECT p_promoted, v_next;
+    RETURN QUERY SELECT p_promoted, v_next_blueprint_edit_number;
 END
 $$;
 

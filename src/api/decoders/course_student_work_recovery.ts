@@ -17,11 +17,11 @@ import { field, requireOnlyFields, decodeCourseInstanceId, decodeAssessmentId } 
 import { parseAssessmentAttemptId } from "../../navigation/public_route";
 
 const commonFields = [
-  "course",
+  "courseInstanceId",
   "rosterId",
-  "assessment",
+  "assessmentId",
   "assessmentTitle",
-  "assessmentAttempt",
+  "assessmentAttemptId",
   "assessmentAttemptNumber",
   "startedAt",
   "studentDataArchivedAt",
@@ -45,15 +45,18 @@ function common(
   path: string,
 ): Omit<RecoverySummary, "submittedAt"> {
   const text = (key: string): string => decodeString(field(record, key, path), `${path}.${key}`);
-  const assessmentAttempt = text("assessmentAttempt");
-  if (parseAssessmentAttemptId(assessmentAttempt) === null)
-    throw new DecodeError(`${path}.assessmentAttempt`, "an Assessment Attempt UUID");
+  const assessmentAttemptId = text("assessmentAttemptId");
+  if (parseAssessmentAttemptId(assessmentAttemptId) === null)
+    throw new DecodeError(`${path}.assessmentAttemptId`, "an Assessment Attempt UUID");
   return {
-    course: decodeCourseInstanceId(field(record, "course", path), `${path}.course`),
+    courseInstanceId: decodeCourseInstanceId(
+      field(record, "courseInstanceId", path),
+      `${path}.courseInstanceId`,
+    ),
     rosterId: nullableText(field(record, "rosterId", path), `${path}.rosterId`),
-    assessment: decodeAssessmentId(field(record, "assessment", path), `${path}.assessment`),
+    assessmentId: decodeAssessmentId(field(record, "assessmentId", path), `${path}.assessmentId`),
     assessmentTitle: text("assessmentTitle"),
-    assessmentAttempt,
+    assessmentAttemptId,
     assessmentAttemptNumber: decodePositiveInteger(
       field(record, "assessmentAttemptNumber", path),
       `${path}.assessmentAttemptNumber`,
@@ -109,11 +112,14 @@ function question(value: unknown, path: string): RecoveredQuestion {
 // ASVS 1.5.2: closed objects; retained evidence stays text, never executable markup.
 export function decodeRecoverySelection(value: unknown, path = "response"): RecoverySelection {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["action", "course", "attempts", "nextCursor"]);
+  requireOnlyFields(record, path, ["action", "courseInstanceId", "attempts", "nextCursor"]);
   if (field(record, "action", path) !== "select") throw new DecodeError(`${path}.action`, "select");
   return {
     action: "select",
-    course: decodeCourseInstanceId(field(record, "course", path), `${path}.course`),
+    courseInstanceId: decodeCourseInstanceId(
+      field(record, "courseInstanceId", path),
+      `${path}.courseInstanceId`,
+    ),
     attempts: decodeArray(field(record, "attempts", path), `${path}.attempts`, summary),
     nextCursor: nullableText(field(record, "nextCursor", path), `${path}.nextCursor`),
   };

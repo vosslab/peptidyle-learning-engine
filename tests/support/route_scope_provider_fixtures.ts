@@ -33,7 +33,7 @@ export function assignmentAttemptContext(
   courseInstanceId: string,
 ): StudentAssessmentAttemptContext {
   return {
-    assessmentAttempt: "00000000-0000-0000-0000-000000000001",
+    assessmentAttemptId: "00000000-0000-0000-0000-000000000001",
     attemptNumber: 1,
     displayTimeZone: "America/Chicago",
     expiresAt: 1_768_507_200_000,
@@ -53,7 +53,7 @@ export function assignmentAttemptHistoryData(
   courseInstanceId: string,
 ): StudentAssessmentAttemptHistory {
   return {
-    assessmentAttempt: "00000000-0000-0000-0000-000000000001",
+    assessmentAttemptId: "00000000-0000-0000-0000-000000000001",
     attemptNumber: 1,
     course: {
       id: courseInstanceId,

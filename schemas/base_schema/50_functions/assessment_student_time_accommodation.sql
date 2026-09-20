@@ -5,7 +5,7 @@ SET LOCAL ROLE ple_private_owner;
 -- Direct Instructor, Course-scoped per-Student time configuration.
 CREATE FUNCTION ple_private.student_assessment_time_configuration(
     p_student_record_id uuid, p_assessment_id text, p_roster_id text,
-    p_save boolean, p_expected_edit_number bigint, p_time_multiplier numeric
+    p_save boolean, p_expected_accommodation_edit_number bigint, p_time_multiplier numeric
 ) RETURNS TABLE (
     roster_id text, time_multiplier double precision, accommodation_edit_number bigint,
     base_duration_seconds integer, effective_duration_seconds integer, capped_at_24_hours boolean
@@ -28,12 +28,12 @@ BEGIN
      WHERE accommodation.student_record_id = p_student_record_id
        AND accommodation.assessment_id = p_assessment_id FOR UPDATE;
     IF p_save THEN
-        IF p_expected_edit_number IS NULL OR p_expected_edit_number < 0
+        IF p_expected_accommodation_edit_number IS NULL OR p_expected_accommodation_edit_number < 0
            OR (p_time_multiplier IS NOT NULL
                AND (p_time_multiplier < 1 OR p_time_multiplier >= 'Infinity'::numeric)) THEN
             RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Student time configuration is invalid';
         END IF;
-        IF COALESCE(current_row.accommodation_edit_number, 0) <> p_expected_edit_number THEN
+        IF COALESCE(current_row.accommodation_edit_number, 0) <> p_expected_accommodation_edit_number THEN
             RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Student time configuration Edit Number is stale';
         END IF;
         -- Standard time with no other configuration is a real no-op, not a
@@ -41,7 +41,7 @@ BEGIN
         IF current_row.accommodation_id IS NOT NULL OR p_time_multiplier IS NOT NULL THEN
             PERFORM * FROM ple_private.save_student_assessment_accommodation(
                 COALESCE(current_row.accommodation_id, pg_catalog.gen_random_uuid()),
-                p_student_record_id, p_assessment_id, p_expected_edit_number,
+                p_student_record_id, p_assessment_id, p_expected_accommodation_edit_number,
                 current_row.available_at, current_row.due_at, current_row.closes_at,
                 p_time_multiplier, current_row.assessment_attempt_limit
             );
@@ -67,7 +67,7 @@ SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.student_assessment_time_configuration(
     p_course text, p_assessment text, p_roster_id text,
-    p_save boolean, p_expected_edit_number bigint, p_time_multiplier numeric
+    p_save boolean, p_expected_accommodation_edit_number bigint, p_time_multiplier numeric
 ) RETURNS TABLE (
     roster_id text, time_multiplier double precision, accommodation_edit_number bigint,
     base_duration_seconds integer, effective_duration_seconds integer, capped_at_24_hours boolean
@@ -97,7 +97,7 @@ BEGIN
     END IF;
     RETURN QUERY SELECT * FROM ple_private.student_assessment_time_configuration(
         student_record_id_value, assessment_id_value, p_roster_id,
-        p_save, p_expected_edit_number, p_time_multiplier
+        p_save, p_expected_accommodation_edit_number, p_time_multiplier
     );
 END $$;
 

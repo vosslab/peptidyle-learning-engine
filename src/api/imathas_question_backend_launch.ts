@@ -5,7 +5,7 @@ export function imathasQuestionBackendLaunchPath(
   assessmentId: string,
   attemptId: string,
 ): string {
-  return `/api/courses/${encodeURIComponent(courseId)}/assessments/${encodeURIComponent(assessmentId)}/attempts/${encodeURIComponent(attemptId)}/imathas-question-backend/launch`;
+  return `/api/course-instances/${encodeURIComponent(courseId)}/assessments/${encodeURIComponent(assessmentId)}/attempts/${encodeURIComponent(attemptId)}/imathas-question-backend/launch`;
 }
 
 /**

@@ -10,6 +10,35 @@
 
 ### Fixes and Maintenance
 
+- SQL keeps `p_` parameter and `v_` local prefixes. Ambiguous domain values
+  after those prefixes now name the owning clock:
+  `p_expected_blueprint_revision_number`,
+  `p_expected_assessment_edit_number`,
+  `p_expected_draft_question_edit_number`,
+  `p_expected_assessment_template_edit_number`,
+  `p_expected_accommodation_edit_number`,
+  `p_expected_question_availability_edit_number`,
+  `v_next_blueprint_edit_number`,
+  `v_result_blueprint_revision_number`. Gate:
+  `source source_me.sh && python3 devel/generate_schema_tables_doc.py &&
+  schema_style/check_schema_style.py`.
+
+- Nested public JSON identities use `assessmentId` / `courseInstanceId` /
+  `assessmentAttemptId`. The leftover `listCourses` `/api/courses` client is
+  gone. Live Course summary, appearance, roster, and banner routes use
+  `/api/course-instances/{course_instance_id}` and
+  `{course_banner_id}`. Gate: `npx tsc --noEmit -p tsconfig.json`,
+  `node --import tsx --test tests/test_blueprint_course_client.mjs
+  tests/test_question_availability_client.mjs
+  tests/test_course_instance_summary.mjs
+  tests/test_blueprint_stewardship_client.mjs
+  tests/test_assignment_client.mjs
+  tests/test_live_assignment_release_validation.mjs
+  tests/test_assessment_template_client.mjs
+  tests/test_ple_question_json_authoring.mjs
+  tests/test_assessment_attempt_navigation.mjs
+  tests/test_assessment_attempt_history_decoder.mjs`.
+
 - Course Instance load selects `adopted_blueprint_revision_number` /
   `current_blueprint_revision_number`. Genetics receipt JSON is
   `blueprintRevisionNumber`. Assessment decode helper takes
@@ -26,8 +55,8 @@
   `expectedSourceRevisionTuple` / `expectedForkRevisionTuple`,
   stewardship `questionRevisionTuple` / `forkRevisionTuple`, and
   capability `questionRevisionTuple`. Library Question detail uses
-  `?revisionNumber=`. Assessment editor and PLE Question JSON draft
-  concurrency are `etag`. Attempt response edits use
+  `?revisionNumber=`. PLE Question JSON draft concurrency uses
+  `draftQuestionEditNumber`. Attempt response edits use
   `editGeneration`, not Revision. Gate: `npx tsc --noEmit -p
   tsconfig.json`, `node --import tsx --test
   tests/test_ple_question_json_authoring.mjs

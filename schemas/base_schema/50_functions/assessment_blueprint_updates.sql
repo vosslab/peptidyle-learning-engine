@@ -171,7 +171,7 @@ $$;
 
 CREATE FUNCTION ple_data.apply_assessment_blueprint_update(
     p_course_instance_id text, p_assessment_id text,
-    p_expected_source_revision_number bigint, p_expected_edit_number bigint, p_member jsonb
+    p_expected_source_blueprint_revision_number bigint, p_expected_assessment_edit_number bigint, p_member jsonb
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
 DECLARE
@@ -190,8 +190,8 @@ BEGIN
      WHERE course_instance_id = course_row.course_instance_id AND assessment_id = p_assessment_id;
     SELECT * INTO policy FROM ple_data.assessment_policy_snapshot
      WHERE assessment_policy_snapshot_id = assessment_row.assessment_policy_snapshot_id;
-    IF source.source_revision_number IS DISTINCT FROM p_expected_source_revision_number
-       OR assessment_row.assessment_edit_number IS DISTINCT FROM p_expected_edit_number THEN
+    IF source.source_revision_number IS DISTINCT FROM p_expected_source_blueprint_revision_number
+       OR assessment_row.assessment_edit_number IS DISTINCT FROM p_expected_assessment_edit_number THEN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Blueprint update precondition is stale';
     END IF;
     IF source.cannot_apply_reason IS NOT NULL THEN
@@ -266,7 +266,7 @@ BEGIN
         entries_json := entries_json || jsonb_build_array(entry_json);
     END LOOP;
     PERFORM ple_data.save_assessment(course_row.blueprint_course_id, assessment_row.assessment_id,
-        p_expected_edit_number, values_json, entries_json);
+        p_expected_assessment_edit_number, values_json, entries_json);
 END
 $$;
 
@@ -274,7 +274,7 @@ SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.apply_assessment_blueprint_update(
     p_course_instance_id text, p_assessment_id text,
-    p_expected_source_revision_number bigint, p_expected_edit_number bigint, p_member jsonb
+    p_expected_source_blueprint_revision_number bigint, p_expected_assessment_edit_number bigint, p_member jsonb
 ) RETURNS void LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT ple_data.apply_assessment_blueprint_update($1, $2, $3, $4, $5)

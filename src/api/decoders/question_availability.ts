@@ -29,7 +29,7 @@ export function decodeQuestionLineageView(value: unknown, path = "response"): Qu
 export function decodeQuestionAvailabilityTransition(
   value: unknown,
   path = "response",
-): Omit<QuestionAvailabilityTransition, "etag"> {
+): QuestionAvailabilityTransition {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["availability", "editNumber"]);
   const availabilityRecord = decodeRecord(
@@ -46,5 +46,5 @@ export function decodeQuestionAvailabilityTransition(
   if (!/^[1-9][0-9]*$/u.test(editNumber)) {
     throw new DecodeError(`${path}.editNumber`, "a canonical positive Edit Number");
   }
-  return { availability, editNumber };
+  return { availability, questionAvailabilityEditNumber: editNumber };
 }

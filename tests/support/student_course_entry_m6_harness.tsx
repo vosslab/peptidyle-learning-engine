@@ -168,8 +168,8 @@ export function mountStudentCourseEntryM6Harness(
       listLiveStudentCourses: () => Promise.resolve(courses),
       startLiveAssessment: () =>
         Promise.resolve({
-          assessmentAttempt: "00000000-0000-0000-0000-000000000006",
-          assessment: ASSESSMENT.id,
+          assessmentAttemptId: "00000000-0000-0000-0000-000000000006",
+          assessmentId: ASSESSMENT.id,
           attemptNumber: ASSESSMENT.assessmentAttemptNumber,
           resumed: true,
           title: ASSESSMENT.title,
@@ -192,7 +192,7 @@ export function mountStudentCourseEntryM6Harness(
         if (item === undefined) throw new Error("Unknown harness Coursework");
         return Promise.resolve({
           decision: item.decision,
-          activeAssessmentAttempt: item.canResumeAssessmentAttempt
+          activeAssessmentAttemptId: item.canResumeAssessmentAttempt
             ? "00000000-0000-0000-0000-000000000006"
             : null,
           title: item.title,
@@ -203,7 +203,7 @@ export function mountStudentCourseEntryM6Harness(
             item.assessmentAttemptCompletion === "completed"
               ? [
                   {
-                    assessmentAttempt: "00000000-0000-0000-0000-000000000005",
+                    assessmentAttemptId: "00000000-0000-0000-0000-000000000005",
                     attemptNumber: 1,
                     state: "submitted",
                     score: item.assessmentScore,
@@ -232,7 +232,7 @@ export function mountStudentCourseEntryM6Harness(
       assessmentAttemptScope: query(
         (_attemptId: AssessmentAttemptRouteId): Promise<StudentAssessmentAttemptContext> =>
           Promise.resolve({
-            assessmentAttempt: "00000000-0000-0000-0000-000000000006",
+            assessmentAttemptId: "00000000-0000-0000-0000-000000000006",
             attemptNumber: ASSESSMENT.assessmentAttemptNumber ?? 1,
             displayTimeZone: ASSESSMENT_DECISION.displayTimeZone,
             expiresAt: null,
@@ -245,7 +245,7 @@ export function mountStudentCourseEntryM6Harness(
       assessmentAttemptHistory: query(
         (_attemptId: AssessmentAttemptRouteId): Promise<StudentAssessmentAttemptHistory> =>
           Promise.resolve({
-            assessmentAttempt: "00000000-0000-0000-0000-000000000005",
+            assessmentAttemptId: "00000000-0000-0000-0000-000000000005",
             attemptNumber: 1,
             course: { ...COURSE_ONE, theme: "ocean" },
             assessment: { id: BONUS_ASSESSMENT.id, title: BONUS_ASSESSMENT.title },

@@ -22,7 +22,7 @@ test("backend answer review accepts only availability and derives its authorized
   assert.equal(decoded.questions[0].questionAnswer, undefined);
   assert.equal(decoded.score, undefined);
   assert.equal(
-    backendAnswerReviewDocumentUrl(decoded.assessmentAttempt, 1),
+    backendAnswerReviewDocumentUrl(decoded.assessmentAttemptId, 1),
     "/api/assessment-attempts/00000000-0000-0000-0000-00000000000c/questions/1/answer-review-document",
   );
   for (const marker of [
@@ -43,7 +43,7 @@ test("backend answer review accepts only availability and derives its authorized
     );
   }
   for (const position of [0, -1, 1.5, Number.NaN, Number.MAX_SAFE_INTEGER + 1]) {
-    assert.throws(() => backendAnswerReviewDocumentUrl(decoded.assessmentAttempt, position));
+    assert.throws(() => backendAnswerReviewDocumentUrl(decoded.assessmentAttemptId, position));
   }
   assert.throws(() =>
     backendAnswerReviewDocumentUrl("00000000-0000-0000-0000-00000000000c?reveal=1", 1),
@@ -52,7 +52,7 @@ test("backend answer review accepts only availability and derives its authorized
 
 function history() {
   return {
-    assessmentAttempt: "00000000-0000-0000-0000-00000000000c",
+    assessmentAttemptId: "00000000-0000-0000-0000-00000000000c",
     attemptNumber: 2,
     course: {
       id: "CI7K3M2QAZ",

@@ -13,7 +13,7 @@ export interface LiveAssessmentAttemptScore {
 }
 
 export interface LiveAssessmentPreviousAttempt {
-  readonly assessmentAttempt: AssessmentAttemptId;
+  readonly assessmentAttemptId: AssessmentAttemptId;
   readonly attemptNumber: number;
   readonly state: "submitted" | "closed";
   /** Omitted while grading is incomplete or disclosure withholds the score. */
@@ -24,7 +24,7 @@ export interface LiveAssessmentPreviousAttempt {
 export interface LiveAssessmentAccess {
   readonly decision: StudentAssessmentDecisionSummary;
   /** Authorized unfinished Assessment Attempt, if the Student can resume one. */
-  readonly activeAssessmentAttempt: AssessmentAttemptId | null;
+  readonly activeAssessmentAttemptId: AssessmentAttemptId | null;
   readonly title: string;
   readonly assessmentType: AssessmentType;
   readonly questionCount: number;
@@ -35,8 +35,8 @@ export interface LiveAssessmentAccess {
 
 /** Initial or resumed Assessment Attempt presentation with its response controls. */
 export interface LiveAssessmentAttempt {
-  readonly assessmentAttempt: AssessmentAttemptId;
-  readonly assessment: AssessmentId;
+  readonly assessmentAttemptId: AssessmentAttemptId;
+  readonly assessmentId: AssessmentId;
   readonly attemptNumber: number;
   readonly resumed: boolean;
   readonly title: string;

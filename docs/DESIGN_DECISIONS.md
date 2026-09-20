@@ -50,8 +50,8 @@ families are `/assessments/due-soon`,
 `/instructor/courses/:courseInstanceId/assessments/new`,
 `/instructor/courses/:courseInstanceId/assessments/:assessmentId/{questions,properties,student-view,delivery-check}`,
 and `/assessment-attempts/:assessmentAttemptId`. Canonical API families are
-`/api/assessments/due-soon`, `/api/course-instances/{course}/assessments...`,
-and `/api/assessment-attempts/{assessmentAttempt}...`. Public configuration is
+`/api/assessments/due-soon`, `/api/course-instances/{course_instance_id}/assessments...`,
+and `/api/assessment-attempts/{assessment_attempt_id}...`. Public configuration is
 called Assessment Properties, not policies. Assignment remains only in the
 three Type display names: Regular Assignment, Practice Question Assignment,
 and Bonus Assignment.

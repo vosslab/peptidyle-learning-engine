@@ -40,15 +40,15 @@ function priorAttempt(
   path: string,
 ): import("../assessment_attempt_issuance").LiveAssessmentPreviousAttempt {
   const record = decodeRecord(value, path);
-  const allowed = ["assessmentAttempt", "attemptNumber", "state", "score"];
+  const allowed = ["assessmentAttemptId", "attemptNumber", "state", "score"];
   requireOnlyFields(record, path, allowed);
-  const assessmentAttemptValue = field(record, "assessmentAttempt", path);
+  const assessmentAttemptValue = field(record, "assessmentAttemptId", path);
   if (typeof assessmentAttemptValue !== "string") {
-    throw new DecodeError(`${path}.assessmentAttempt`, "an Assessment Attempt UUID");
+    throw new DecodeError(`${path}.assessmentAttemptId`, "an Assessment Attempt UUID");
   }
-  const assessmentAttempt = parseAssessmentAttemptId(assessmentAttemptValue);
-  if (assessmentAttempt === null) {
-    throw new DecodeError(`${path}.assessmentAttempt`, "an Assessment Attempt UUID");
+  const assessmentAttemptId = parseAssessmentAttemptId(assessmentAttemptValue);
+  if (assessmentAttemptId === null) {
+    throw new DecodeError(`${path}.assessmentAttemptId`, "an Assessment Attempt UUID");
   }
   const state = decodeString(field(record, "state", path), `${path}.state`);
   if (state !== "submitted" && state !== "closed") {
@@ -73,7 +73,7 @@ function priorAttempt(
     score = { pointsEarned, pointsPossible };
   }
   return {
-    assessmentAttempt,
+    assessmentAttemptId,
     attemptNumber: decodePositiveInteger(
       field(record, "attemptNumber", path),
       `${path}.attemptNumber`,
@@ -90,33 +90,33 @@ export function decodeLiveAssessmentAccess(
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "decision",
-    "activeAssessmentAttempt",
+    "activeAssessmentAttemptId",
     "title",
     "assessmentType",
     "questionCount",
     "pointsPossible",
     "previousAttempts",
   ]);
-  const activeAssessmentAttemptValue = field(record, "activeAssessmentAttempt", path);
-  let activeAssessmentAttempt = null;
+  const activeAssessmentAttemptValue = field(record, "activeAssessmentAttemptId", path);
+  let activeAssessmentAttemptId = null;
   if (activeAssessmentAttemptValue !== null) {
     if (typeof activeAssessmentAttemptValue !== "string") {
       throw new DecodeError(
-        `${path}.activeAssessmentAttempt`,
+        `${path}.activeAssessmentAttemptId`,
         "an Assessment Attempt UUID or null",
       );
     }
-    activeAssessmentAttempt = parseAssessmentAttemptId(activeAssessmentAttemptValue);
-    if (activeAssessmentAttempt === null) {
+    activeAssessmentAttemptId = parseAssessmentAttemptId(activeAssessmentAttemptValue);
+    if (activeAssessmentAttemptId === null) {
       throw new DecodeError(
-        `${path}.activeAssessmentAttempt`,
+        `${path}.activeAssessmentAttemptId`,
         "an Assessment Attempt UUID or null",
       );
     }
   }
   return {
     decision: decodeStudentAssessmentDecision(field(record, "decision", path), `${path}.decision`),
-    activeAssessmentAttempt,
+    activeAssessmentAttemptId,
     title: decodeAssessmentTitle(field(record, "title", path), `${path}.title`),
     assessmentType: decodeStringEnum(
       field(record, "assessmentType", path),
@@ -145,20 +145,20 @@ export function decodeLiveAssessmentAttempt(
 ): LiveAssessmentAttempt {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "assessmentAttempt",
-    "assessment",
+    "assessmentAttemptId",
+    "assessmentId",
     "attemptNumber",
     "resumed",
     "title",
     "instructions",
     "questions",
   ]);
-  const assessmentAttemptValue = field(record, "assessmentAttempt", path);
+  const assessmentAttemptValue = field(record, "assessmentAttemptId", path);
   if (typeof assessmentAttemptValue !== "string")
-    throw new DecodeError(`${path}.assessmentAttempt`, "an Assessment Attempt UUID");
-  const assessmentAttempt = parseAssessmentAttemptId(assessmentAttemptValue);
-  if (assessmentAttempt === null)
-    throw new DecodeError(`${path}.assessmentAttempt`, "an Assessment Attempt UUID");
+    throw new DecodeError(`${path}.assessmentAttemptId`, "an Assessment Attempt UUID");
+  const assessmentAttemptId = parseAssessmentAttemptId(assessmentAttemptValue);
+  if (assessmentAttemptId === null)
+    throw new DecodeError(`${path}.assessmentAttemptId`, "an Assessment Attempt UUID");
   const questions = decodeArray(
     field(record, "questions", path),
     `${path}.questions`,
@@ -168,8 +168,8 @@ export function decodeLiveAssessmentAttempt(
     throw new DecodeError(`${path}.questions`, "one to twenty-five issued Questions");
   }
   return {
-    assessmentAttempt,
-    assessment: decodeAssessmentId(field(record, "assessment", path), `${path}.assessment`),
+    assessmentAttemptId,
+    assessmentId: decodeAssessmentId(field(record, "assessmentId", path), `${path}.assessmentId`),
     attemptNumber: decodePositiveInteger(
       field(record, "attemptNumber", path),
       `${path}.attemptNumber`,

@@ -238,7 +238,7 @@ async fn ensure_avery_is_startable(
             .and_then(|decision| decision.get("startDecision"))
             .and_then(Value::as_str)
             == Some("may_start")
-            && access.get("activeAssessmentAttempt") == Some(&Value::Null),
+            && access.get("activeAssessmentAttemptId") == Some(&Value::Null),
         "Live Demo Avery Assessment is not startable"
     );
     Ok(())
@@ -268,7 +268,7 @@ async fn assessment_access(
         &value,
         &[
             "decision",
-            "activeAssessmentAttempt",
+            "activeAssessmentAttemptId",
             "title",
             "assessmentType",
             "questionCount",
@@ -299,7 +299,7 @@ async fn prepare_attempt(
                 .and_then(|decision| decision.get("startDecision"))
                 .and_then(Value::as_str)
                 == Some("may_start")
-                && access.get("activeAssessmentAttempt") == Some(&Value::Null),
+                && access.get("activeAssessmentAttemptId") == Some(&Value::Null),
             "Live Demo {student_name} Assessment is not startable"
         );
     }
@@ -321,8 +321,8 @@ async fn prepare_attempt(
     let object = closed_object(
         &started,
         &[
-            "assessmentAttempt",
-            "assessment",
+            "assessmentAttemptId",
+            "assessmentId",
             "attemptNumber",
             "resumed",
             "title",
@@ -332,7 +332,7 @@ async fn prepare_attempt(
         "Assessment start",
     )?;
     ensure!(
-        object.get("assessment").and_then(Value::as_str) == Some(graph.assessment.as_str())
+        object.get("assessmentId").and_then(Value::as_str) == Some(graph.assessment.as_str())
             && object
                 .get("attemptNumber")
                 .and_then(Value::as_u64)
@@ -345,7 +345,7 @@ async fn prepare_attempt(
                 .is_some_and(|items| items.len() == LIVE_DEMO_QUESTION_COUNT as usize),
         "Live Demo {student_name} Assessment Attempt is invalid"
     );
-    public_id::<AssessmentAttemptId>(object.get("assessmentAttempt"), "Assessment Attempt")
+    public_id::<AssessmentAttemptId>(object.get("assessmentAttemptId"), "Assessment Attempt")
         .map(Some)
 }
 
@@ -373,7 +373,7 @@ async fn save_responses(
         ensure!(
             receipt
                 == json!({
-                    "assessmentAttempt": attempt,
+                    "assessmentAttemptId": attempt,
                     "position": position,
                     "responseState": "saved"
                 }),
@@ -443,11 +443,11 @@ async fn submit_attempt(api: &ProductApi, student: &TemporarySession, attempt: &
         .context("Live Demo Assessment submission receipt is invalid")?;
     ensure!(
         receipt.keys().map(String::as_str).collect::<Vec<_>>()
-            == ["assessmentAttempt", "submissionState"],
+            == ["assessmentAttemptId", "submissionState"],
         "Live Demo Assessment submission receipt is not closed"
     );
     ensure!(
-        receipt.get("assessmentAttempt").and_then(Value::as_str) == Some(attempt)
+        receipt.get("assessmentAttemptId").and_then(Value::as_str) == Some(attempt)
             && receipt.get("submissionState").and_then(Value::as_str) == Some("submitted"),
         "Live Demo Assessment submission receipt is invalid"
     );
@@ -486,7 +486,7 @@ async fn verify_complete_activity(
     let positions = closed_array_field(
         &progress,
         &[
-            "assessmentAttempt",
+            "assessmentAttemptId",
             "questionCount",
             "recommendedPosition",
             "positions",
@@ -495,7 +495,7 @@ async fn verify_complete_activity(
         "Student progress",
     )?;
     ensure!(
-        progress.get("assessmentAttempt").and_then(Value::as_str) == Some(jack_attempt)
+        progress.get("assessmentAttemptId").and_then(Value::as_str) == Some(jack_attempt)
             && progress.get("questionCount").and_then(Value::as_u64)
                 == Some(LIVE_DEMO_QUESTION_COUNT)
             && positions.len() == LIVE_DEMO_QUESTION_COUNT as usize,
