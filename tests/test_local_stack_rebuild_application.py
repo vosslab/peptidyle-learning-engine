@@ -8,7 +8,38 @@ import local_stack_control.disposable_stack_adapter
 import local_stack_control.lifecycle
 import local_stack_control.models
 import local_stack_lifecycle_helpers
-from tests.test_local_stack_lifecycle_restart import restart_report, restart_status
+
+
+def restart_status(
+	service: str, *, healthy: bool = True, instances: int = 1
+) -> local_stack_control.models.StackServiceStatus:
+	"""One semantic restart-baseline observation without an engine fixture."""
+	return local_stack_control.models.StackServiceStatus(
+		service=service,
+		instances=instances,
+		present=instances > 0,
+		running=healthy,
+		healthy=healthy,
+		complete=healthy if service in local_stack_control.models.BASE_ONE_SHOT_SERVICES else False,
+		state="running" if healthy else ("ambiguous" if instances > 1 else "exited"),
+		health="healthy" if healthy else None,
+		exit_code=None if healthy else 137,
+	)
+
+
+def restart_report(
+	*statuses: local_stack_control.models.StackServiceStatus,
+) -> local_stack_control.models.StatusReport:
+	"""Status report for deterministic recovery-policy tests."""
+	return local_stack_control.models.StatusReport(
+		project="containers",
+		with_smtp=False,
+		snapshot=local_stack_control.models.ProjectSnapshot("containers", (), (), ()),
+		services=statuses,
+		ok=False,
+		state="failed",
+		message="renderer recovery is required",
+	)
 
 
 lifecycle_target = local_stack_lifecycle_helpers.lifecycle_target

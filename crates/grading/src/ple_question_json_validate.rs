@@ -63,14 +63,14 @@ pub(super) fn validate_response_for_type(
         (
             QuestionType::Hotspot,
             QuestionResponseFormat::Hotspot {
-                surface,
+                question_asset_tuple,
                 description,
                 regions,
                 selection,
             },
         ) if !regions.is_empty() => {
             if description.trim().is_empty()
-                || !is_hex_sha256(&surface.checksum)
+                || !is_hex_sha256(&question_asset_tuple.checksum)
                 || matches!(selection, ResponseSelectionRule::AnyNumber)
             {
                 return invalid("PLE Question JSON hotspot surface or selection is invalid");

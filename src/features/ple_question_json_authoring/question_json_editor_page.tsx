@@ -138,7 +138,7 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
       draftQuestion,
       assetUrl: (asset) =>
         new URL(
-          client.assetPreviewPath(draftQuestion, asset.questionAsset),
+          client.assetPreviewPath(draftQuestion, asset.questionAssetId),
           window.location.origin,
         ),
     };

@@ -149,9 +149,12 @@ function presentedHotspotRegion(value: unknown, path: string): PresentedHotspotR
 
 function questionAssetTuple(value: unknown, path: string): QuestionAssetTuple {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["questionAsset", "checksum"]);
+  requireOnlyFields(record, path, ["questionAssetId", "checksum"]);
   return {
-    questionAsset: decodeIdentifier(field(record, "questionAsset", path), `${path}.questionAsset`),
+    questionAssetId: decodeIdentifier(
+      field(record, "questionAssetId", path),
+      `${path}.questionAssetId`,
+    ),
     checksum: decodeSha256(field(record, "checksum", path), `${path}.checksum`),
   };
 }
@@ -283,7 +286,7 @@ function issuedQuestionResponseFormat(
       const surfaceRecord = decodeRecord(field(record, "surface", path), surfacePath);
       requireOnlyFields(surfaceRecord, surfacePath, [
         "id",
-        "questionAsset",
+        "questionAssetTuple",
         "description",
         "regions",
       ]);
@@ -304,9 +307,9 @@ function issuedQuestionResponseFormat(
             field(surfaceRecord, "id", surfacePath),
             `${surfacePath}.id`,
           ),
-          questionAsset: questionAssetTuple(
-            field(surfaceRecord, "questionAsset", surfacePath),
-            `${surfacePath}.questionAsset`,
+          questionAssetTuple: questionAssetTuple(
+            field(surfaceRecord, "questionAssetTuple", surfacePath),
+            `${surfacePath}.questionAssetTuple`,
           ),
           description: decodeNonemptyString(
             field(surfaceRecord, "description", surfacePath),

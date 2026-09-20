@@ -79,7 +79,7 @@ pub(super) fn render_key(
     ObjectAddress::QuestionRender {
         question_revision_tuple: question_revision_tuple.clone(),
         question_seed,
-        object: deterministic_id(question_revision_tuple, question_seed),
+        object_id: deterministic_id(question_revision_tuple, question_seed),
     }
 }
 

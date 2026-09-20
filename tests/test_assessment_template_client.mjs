@@ -36,7 +36,7 @@ function template(editNumber = "1") {
 function workspace(editNumber = "3") {
   return {
     id: "A8H4N6PA6",
-    editNumber,
+    assessmentEditNumber: editNumber,
     status: "unreleased",
     origin: { kind: "direct" },
     assessmentType: "quiz",
@@ -202,7 +202,7 @@ test("Assessment Template client copies a Template through the closed Course Ass
   });
 
   assert.equal(created.workspace.id, "A8H4N6PA6");
-  assert.equal(created.workspace.editNumber, "3");
+  assert.equal(created.workspace.assessmentEditNumber, "3");
   assert.equal(
     new URL(requests[0].url).pathname,
     "/api/course-instances/CI7K3M2QAZ/assessments/from-template",

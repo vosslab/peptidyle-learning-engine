@@ -489,21 +489,21 @@ fn workspace_response(
     value: &learning_data_access::LiveAssessmentWorkspace,
 ) -> Response {
     let mut response = crate::auth::no_store((status, Json(value)).into_response());
-    if let Ok(header) = format!("\"{}\"", value.edit_number.value()).parse() {
+    if let Ok(header) = format!("\"{}\"", value.assessment_edit_number.value()).parse() {
         response.headers_mut().insert(ETAG, header);
     }
     response
 }
 fn summary_response(value: &learning_data_access::CourseAssessmentSummary) -> Response {
     let mut response = crate::auth::no_store(Json(value).into_response());
-    if let Ok(header) = format!("\"{}\"", value.edit_number.value()).parse() {
+    if let Ok(header) = format!("\"{}\"", value.assessment_edit_number.value()).parse() {
         response.headers_mut().insert(ETAG, header);
     }
     response
 }
 fn unreleased_response(value: &learning_data_access::UnreleasedLiveAssessment) -> Response {
     let mut response = crate::auth::no_store(Json(value).into_response());
-    if let Ok(header) = format!("\"{}\"", value.assessment.edit_number.value()).parse() {
+    if let Ok(header) = format!("\"{}\"", value.assessment.assessment_edit_number.value()).parse() {
         response.headers_mut().insert(ETAG, header);
     }
     response

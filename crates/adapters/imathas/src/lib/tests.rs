@@ -263,7 +263,7 @@ async fn stored_source(
         .put(PutObject {
             address: ObjectAddress::QuestionSource {
                 question_revision_tuple: question.clone(),
-                object: snapshot,
+                object_id: snapshot,
             },
             bytes: b"{\"recorded\":true}".to_vec(),
             media_type: "application/json".into(),

@@ -1,3 +1,4 @@
+import type { CourseRosterTuple } from "../../../generated/api/CourseRosterTuple";
 import type {
   RecoveredAttempt,
   RecoveredQuestion,
@@ -24,7 +25,7 @@ import { parseAssessmentAttemptId } from "../../navigation/public_route";
 
 const commonFields = [
   "courseInstanceId",
-  "rosterId",
+  "courseRosterTuple",
   "assessmentId",
   "assessmentTitle",
   "assessmentAttemptId",
@@ -46,6 +47,23 @@ const questionTextFields = [
 function nullableText(value: unknown, path: string): string | null {
   return decodeNullable(value, path, decodeString);
 }
+function courseRosterTuple(value: unknown, path: string): CourseRosterTuple | null {
+  return decodeNullable(value, path, (tuple, tuplePath) => {
+    const record = decodeRecord(tuple, tuplePath);
+    requireOnlyFields(record, tuplePath, ["courseInstanceId", "rosterId"]);
+    const rosterId = decodeString(field(record, "rosterId", tuplePath), `${tuplePath}.rosterId`);
+    if (!/^[A-Za-z0-9._-]{1,64}$/u.test(rosterId)) {
+      throw new DecodeError(`${tuplePath}.rosterId`, "a course-scoped roster identifier");
+    }
+    return {
+      courseInstanceId: decodeCourseInstanceId(
+        field(record, "courseInstanceId", tuplePath),
+        `${tuplePath}.courseInstanceId`,
+      ),
+      rosterId,
+    };
+  });
+}
 function common(
   record: Record<string, unknown>,
   path: string,
@@ -59,7 +77,10 @@ function common(
       field(record, "courseInstanceId", path),
       `${path}.courseInstanceId`,
     ),
-    rosterId: nullableText(field(record, "rosterId", path), `${path}.rosterId`),
+    courseRosterTuple: courseRosterTuple(
+      field(record, "courseRosterTuple", path),
+      `${path}.courseRosterTuple`,
+    ),
     assessmentId: decodeAssessmentId(field(record, "assessmentId", path), `${path}.assessmentId`),
     assessmentTitle: text("assessmentTitle"),
     assessmentAttemptId,

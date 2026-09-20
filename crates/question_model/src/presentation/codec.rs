@@ -303,17 +303,17 @@ impl Encoder {
 
     fn asset_ref(
         &mut self,
-        question_asset: &QuestionAssetTuple,
+        question_asset_tuple: &QuestionAssetTuple,
     ) -> Result<(), PresentationBuildError> {
-        self.raw(question_asset.question_asset.as_uuid().as_bytes());
-        self.checksum(&question_asset.checksum)
+        self.raw(question_asset_tuple.question_asset_id.as_uuid().as_bytes());
+        self.checksum(&question_asset_tuple.checksum)
     }
 
     fn question_asset_rendition(
         &mut self,
         asset: &QuestionAssetRendition,
     ) -> Result<(), PresentationBuildError> {
-        self.asset_ref(&asset.question_asset)?;
+        self.asset_ref(&asset.question_asset_tuple)?;
         self.checksum(&asset.rendition_checksum)?;
         self.optional_u32(asset.intrinsic_width);
         self.optional_u32(asset.intrinsic_height);
@@ -337,11 +337,11 @@ impl Encoder {
                     self.string(description)?;
                 }
                 QuestionContentBlock::Image {
-                    question_asset,
+                    question_asset_tuple,
                     description,
                 } => {
                     self.u8(2);
-                    self.asset_ref(question_asset)?;
+                    self.asset_ref(question_asset_tuple)?;
                     self.string(description)?;
                 }
                 QuestionContentBlock::Code { language, source } => {

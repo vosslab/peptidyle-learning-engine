@@ -123,6 +123,11 @@ convention, three cases:
   (Angelakos, "Putting UUIDs everywhere"). That is the accepted price of opaque identity. A table
   with a natural key uses it. If insert cost is ever measured as a problem, time-ordered UUIDs
   (UUIDv7) are the fix for internal aggregates.
+- Composite foreign keys and table pairs such as `(source_blueprint_course_id,
+  source_blueprint_revision_number)` are the physical representation of a Tuple. PostgreSQL does
+  not persist a Tuple type. Rust constructs `BlueprintRevisionTuple` or `QuestionRevisionTuple`
+  immediately at the SQL-to-Rust boundary and destructures the Tuple only when binding SQL
+  parameters.
 
 ## Types
 

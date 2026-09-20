@@ -53,7 +53,7 @@ async function waitForDeliveredQuestionControl(
   const response = question.presentation.response;
   if (response.kind !== "hotspot") return;
   const pin = question.presentation.questionRevisionTuple;
-  const assetPath = `/api/questions/${encodeURIComponent(pin.questionId)}/revisions/${pin.revisionNumber}/assets/${encodeURIComponent(response.surface.questionAsset.questionAsset)}`;
+  const assetPath = `/api/questions/${encodeURIComponent(pin.questionId)}/revisions/${pin.revisionNumber}/assets/${encodeURIComponent(response.surface.questionAssetTuple.questionAssetId)}`;
   const assetUrl = new URL(assetPath, page.url()).href;
   const control = page.locator("section.question-response-control");
   // The Save action is generic. Require the delivered immutable image and its loaded overlays.

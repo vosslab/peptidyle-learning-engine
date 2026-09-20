@@ -191,7 +191,7 @@ impl AuthoringDraftStore for PostgresAuthoringDraftStore {
         .bind(&input.description)
         .bind(&input.language)
         .bind(question_type_wire(input.question_type)?)
-        .bind(input.hotspot_surface.as_ref().map(|surface| surface.question_asset.as_uuid()))
+        .bind(input.hotspot_surface.as_ref().map(|surface| surface.question_asset_id.as_uuid()))
         .bind(input.hotspot_surface.as_ref().map(|surface| surface.checksum.as_str()))
         .execute(&mut *transaction)
         .await

@@ -1,11 +1,12 @@
 import type { AssessmentAttemptId } from "../../generated/api/AssessmentAttemptId";
 import type { AssessmentId } from "../../generated/api/AssessmentId";
 import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
+import type { CourseRosterTuple } from "../../generated/api/CourseRosterTuple";
 import type { QuestionRevisionTuple } from "../../generated/api/QuestionRevisionTuple";
 
 export interface RecoverySummary {
   readonly courseInstanceId: CourseInstanceId;
-  readonly rosterId: string | null;
+  readonly courseRosterTuple: CourseRosterTuple | null;
   readonly assessmentId: AssessmentId;
   readonly assessmentTitle: string;
   readonly assessmentAttemptId: AssessmentAttemptId;

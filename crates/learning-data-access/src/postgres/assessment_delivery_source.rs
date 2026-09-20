@@ -291,7 +291,7 @@ fn decode_retained_question_asset_renditions(
         .into_iter()
         .map(|value| {
             Ok(ReadyQuestionAssetRendition {
-                question_asset: uuid::Uuid::parse_str(&value.asset_id)
+                question_asset_id: uuid::Uuid::parse_str(&value.asset_id)
                     .map(question_model::QuestionAssetId::from_uuid)
                     .map_err(|_| {
                         StoreError::InvalidRecord("Question Asset ID is invalid".to_string())

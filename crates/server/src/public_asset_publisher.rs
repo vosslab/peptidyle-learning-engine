@@ -124,8 +124,8 @@ async fn publish_claim<O: ObjectStore>(
 ) -> Result<()> {
     let source_address = ObjectAddress::RestrictedQuestionAsset {
         question_revision_tuple: publication.question_revision_tuple.clone(),
-        asset: publication.asset_id,
-        object: publication.source_object_id,
+        question_asset_id: publication.asset_id,
+        object_id: publication.source_object_id,
     };
     let source = objects
         .get(&source_address)
@@ -147,8 +147,8 @@ async fn publish_claim<O: ObjectStore>(
 
     let public_address = ObjectAddress::QuestionAsset {
         question_revision_tuple: publication.question_revision_tuple.clone(),
-        asset: publication.asset_id,
-        object: publication.public_object_id,
+        question_asset_id: publication.asset_id,
+        object_id: publication.public_object_id,
     };
     let expected = ExpectedPublicRecord {
         address: &public_address,
@@ -349,8 +349,8 @@ mod tests {
         let bytes = png();
         let source_address = ObjectAddress::RestrictedQuestionAsset {
             question_revision_tuple: question_revision_tuple.clone(),
-            asset: asset_id,
-            object: source_object_id,
+            question_asset_id: asset_id,
+            object_id: source_object_id,
         };
         let source_record = objects
             .put(PutObject {
@@ -383,8 +383,8 @@ mod tests {
         assert!(publish_one(&store, &objects).await.expect("publisher run"));
         let public_address = ObjectAddress::QuestionAsset {
             question_revision_tuple,
-            asset: asset_id,
-            object: public_object_id,
+            question_asset_id: asset_id,
+            object_id: public_object_id,
         };
         let public = objects.get(&public_address).await.expect("public asset");
         assert_eq!(public.bytes, bytes);

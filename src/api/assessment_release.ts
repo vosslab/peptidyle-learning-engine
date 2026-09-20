@@ -12,7 +12,6 @@ import type { AssessmentActivityRules } from "../../generated/api/AssessmentActi
 import type { AssessmentType } from "../../generated/api/AssessmentType";
 import type { StudentFeedbackReleaseRule } from "../../generated/api/StudentFeedbackReleaseRule";
 import type { QuestionRevisionTuple } from "../../generated/api/QuestionRevisionTuple";
-import type { BlueprintRevisionNumber } from "../../generated/api/BlueprintRevisionNumber";
 import type { BlueprintRevisionTuple } from "../../generated/api/BlueprintRevisionTuple";
 import type { BlueprintAssessmentDefaults } from "../../generated/api/BlueprintAssessmentDefaults";
 import type { FixedQuestionAssessmentEntry } from "../../generated/api/FixedQuestionAssessmentEntry";
@@ -33,7 +32,7 @@ export interface AssessmentBlueprintUpdateContent {
 
 export interface AssessmentBlueprintUpdateReview {
   readonly assessment: LiveAssessmentWorkspace;
-  readonly sourceRevisionNumber: BlueprintRevisionNumber;
+  readonly sourceBlueprintRevisionTuple: BlueprintRevisionTuple;
   readonly proposed: AssessmentBlueprintUpdateContent | null;
   readonly cannotApplyReason: "retainedSourceMissing" | "assessmentTypeMismatch" | null;
 }
@@ -55,7 +54,7 @@ export interface CourseBlueprintUpdateReview {
 }
 
 export interface ApplyAssessmentBlueprintUpdateInput {
-  readonly expectedSourceRevisionNumber: BlueprintRevisionNumber;
+  readonly expectedSourceBlueprintRevisionTuple: BlueprintRevisionTuple;
   readonly expectedAssessmentEditNumber: AssessmentEditNumber;
 }
 
@@ -69,7 +68,7 @@ export interface CourseAssessmentSummary {
   /** Instructor zone governing this row's server-rendered local dueAt value. */
   readonly displayTimeZone: AccountTimeZone;
   readonly status: LiveAssessmentStatus;
-  readonly editNumber: AssessmentEditNumber;
+  readonly assessmentEditNumber: AssessmentEditNumber;
 }
 
 /** One Course-qualified Assessment due in the authenticated Instructor's rolling next-seven-days window. */
@@ -112,7 +111,7 @@ export interface AuthoredAssessmentQuestion {
 
 export interface LiveAssessmentWorkspace {
   readonly id: AssessmentId;
-  readonly editNumber: AssessmentEditNumber;
+  readonly assessmentEditNumber: AssessmentEditNumber;
   readonly status: LiveAssessmentStatus;
   /** Trusted server-derived direct or adopted origin; create requests never send it. */
   readonly origin: AssessmentOrigin;
@@ -194,7 +193,7 @@ export interface AssessmentUnreleaseImpact {
   /** The current title the Instructor must enter exactly. */
   readonly confirmationTitle: string;
   /** Current compare-and-swap value, retained for display and verification. */
-  readonly editNumber: AssessmentEditNumber;
+  readonly assessmentEditNumber: AssessmentEditNumber;
   readonly attemptCount: number;
   readonly submissionCount: number;
   readonly gradeCount: number;

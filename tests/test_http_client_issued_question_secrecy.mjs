@@ -143,8 +143,8 @@ test("issued-question transport rejects server-only data from a Question Present
         presentation.prompt = [
           {
             kind: "image",
-            questionAsset: {
-              questionAsset: "0198e000-0000-7000-8000-000000000010",
+            questionAssetTuple: {
+              questionAssetId: "0198e000-0000-7000-8000-000000000010",
               checksum: "0".repeat(64),
               objectKey: "private/answer-key",
             },
@@ -152,7 +152,7 @@ test("issued-question transport rejects server-only data from a Question Present
           },
         ];
       },
-      path: "response.prompt[0].questionAsset.objectKey",
+      path: "response.prompt[0].questionAssetTuple.objectKey",
     },
     {
       name: "multiple-choice response",

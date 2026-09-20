@@ -48,9 +48,10 @@ pub(crate) fn validated_source(bytes: &[u8]) -> Result<ValidatedSource, Box<Resp
         tags: metadata.tags.clone(),
         question_type: compiled.presentation().question_type(),
         hotspot_surface: match compiled.presentation().response() {
-            question_model::QuestionResponseFormat::Hotspot { surface, .. } => {
-                Some(surface.clone())
-            }
+            question_model::QuestionResponseFormat::Hotspot {
+                question_asset_tuple,
+                ..
+            } => Some(question_asset_tuple.clone()),
             _ => None,
         },
     })
@@ -64,8 +65,8 @@ pub(crate) async fn put_workspace_source(
     objects
         .put(PutObject {
             address: ObjectAddress::WorkspaceQuestionSource {
-                workspace,
-                object: ObjectId::generate(),
+                workspace_id: workspace,
+                object_id: ObjectId::generate(),
             },
             bytes,
             media_type: PLE_QUESTION_JSON_MEDIA_TYPE.to_string(),

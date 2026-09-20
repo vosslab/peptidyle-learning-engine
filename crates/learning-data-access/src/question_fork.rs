@@ -52,8 +52,8 @@ impl ForkPublishedQuestionInput {
         let source = &self.target_source_record;
         if source.address
             != (ObjectAddress::WorkspaceQuestionSource {
-                workspace: self.workspace,
-                object: source.id,
+                workspace_id: self.workspace,
+                object_id: source.id,
             })
             || source.storage_area != ObjectStorageArea::PrivateContent
             || source.data_class != ObjectDataClass::AuthoringContent
@@ -67,10 +67,10 @@ impl ForkPublishedQuestionInput {
             let record = &asset.target_record;
             if record.address
                 != (ObjectAddress::DraftQuestionAsset {
-                    workspace: self.workspace,
-                    draft_question_uuid: self.proposed_draft_question_id,
-                    asset: asset.asset_id,
-                    object: record.id,
+                    workspace_id: self.workspace,
+                    draft_question_id: self.proposed_draft_question_id,
+                    question_asset_id: asset.asset_id,
+                    object_id: record.id,
                 })
                 || record.storage_area != ObjectStorageArea::PrivateContent
                 || record.data_class != ObjectDataClass::AuthoringContent

@@ -170,7 +170,7 @@ impl From<QuestionPresentationToken> for String {
 pub struct QuestionAssetRendition {
     /// Exact authored Question Asset selected for this rendering. This Tuple
     /// identifies content but grants no storage or download authority.
-    pub question_asset: QuestionAssetTuple,
+    pub question_asset_tuple: QuestionAssetTuple,
     /// Checksum of the public rendition selected for this rendering.
     pub rendition_checksum: String,
     /// Intrinsic width of the selected public rendition, when known.
@@ -263,7 +263,7 @@ pub struct PresentedHotspotRegion {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PresentedHotspotSurface {
     pub id: PresentationResponseItemId,
-    pub question_asset: QuestionAssetTuple,
+    pub question_asset_tuple: QuestionAssetTuple,
     pub description: String,
     pub regions: Vec<PresentedHotspotRegion>,
 }

@@ -303,7 +303,7 @@ function AssessmentRow(props: {
         props.courseInstanceId,
         assessment().id,
         { title: title(), dueAt },
-        assessment().editNumber,
+        assessment().assessmentEditNumber,
       );
       setAssessment(saved);
       setState("idle");

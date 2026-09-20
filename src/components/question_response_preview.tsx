@@ -101,7 +101,10 @@ export function QuestionResponsePreviewControl(
         return (
           <>
             <div class="question-preview-hotspot">
-              <img src={props.assetUrl(preview.surface).href} alt={preview.description} />
+              <img
+                src={props.assetUrl(preview.questionAssetTuple).href}
+                alt={preview.description}
+              />
               <For each={preview.regions}>
                 {(region, index) => (
                   <span

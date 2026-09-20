@@ -473,8 +473,8 @@ async fn matching_or_new_draft(
     let source_record = objects
         .put(PutObject {
             address: ObjectAddress::WorkspaceQuestionSource {
-                workspace,
-                object: ObjectId::generate(),
+                workspace_id: workspace,
+                object_id: ObjectId::generate(),
             },
             bytes,
             media_type: "text/x-wework-pg".to_owned(),

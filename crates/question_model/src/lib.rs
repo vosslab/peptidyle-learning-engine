@@ -306,8 +306,9 @@ pub use crate::teaching_authority::{
 pub use crate::teaching_operations::{
     AccommodationAdjustmentView, AccommodationApplicationRuleView,
     CourseInvitationStatePrecondition, CourseInvitationStateView, CourseInvitationTerminalAction,
-    CourseInvitationTerminalActionRequest, CourseRosterChangeNumber, PendingCourseInvitationView,
-    PendingCourseInvitationsPage, TeachingAssessmentAttemptTimeLimitFieldPatch,
-    TeachingAssessmentAttemptTimeLimitSeconds, TeachingAttemptLimit,
-    TeachingAttemptLimitFieldPatch, TeachingDisplayLabel, TeachingTimeFieldPatch,
+    CourseInvitationTerminalActionRequest, CourseRosterChangeNumber, CourseRosterId,
+    CourseRosterTuple, PendingCourseInvitationView, PendingCourseInvitationsPage,
+    TeachingAssessmentAttemptTimeLimitFieldPatch, TeachingAssessmentAttemptTimeLimitSeconds,
+    TeachingAttemptLimit, TeachingAttemptLimitFieldPatch, TeachingDisplayLabel,
+    TeachingTimeFieldPatch,
 };

@@ -51,9 +51,9 @@ their owner's spelling.
 | Typed internal UUID | `Uuid` / `_uuid` | `AssessmentAttemptUuid`, `assessment_attempt_uuid` |
 | Public product ID | reviewed `Id` term | `CourseInstanceId` |
 | Immutable Revision number | `RevisionNumber` | `QuestionRevisionNumber`, `BlueprintRevisionNumber` |
-| Composite exact identity | `Tuple` | `QuestionRevisionTuple`, `BlueprintRevisionTuple`, `QuestionAssetTuple`; JSON fields `questionRevisionTuple` / `blueprintRevisionTuple` |
+| Composite exact identity | `Tuple` | `QuestionRevisionTuple`, `BlueprintRevisionTuple`, `QuestionAssetTuple`, `CourseRosterTuple`; JSON fields `questionRevisionTuple` / `blueprintRevisionTuple` / `questionAssetTuple` / `courseRosterTuple` |
 | Genuine indirect, scoped, or external locator | `Reference` | Use only when a simpler Id, Tuple, path, key, handle, or token is inaccurate |
-| Current-state concurrency | `EditNumber` | `AssessmentEditNumber` |
+| Current-state concurrency | `EditNumber` | `AssessmentEditNumber`, `BlueprintEditNumber`, `DraftQuestionEditNumber`; JSON `assessmentEditNumber`, `draftQuestionEditNumber`, `expectedAssessmentEditNumber` |
 | Integrity value | `Checksum` | `ObjectChecksum` |
 | Cardinality | `Count` | `activeInstructorCount` |
 | Ordinal placement | `Position` | `authoredPosition` |
@@ -77,13 +77,38 @@ relationship, selection, provenance, command, route, or DTO use the precise
 `currentRevision` when the value is an identity or version clock.
 
 HTTP `ETag` and `If-Match` remain standard header spellings only. Domain and
-browser values use the exact Edit Number or Revision Number; a quoted header
-is only the HTTP encoding of that number.
+browser values use the exact qualified Edit Number or Revision Number, such as
+`assessmentEditNumber` or `BlueprintRevisionNumber`; a quoted header is only
+the HTTP encoding of that number.
 
 An exact immutable Blueprint or Question revision is one named Tuple, not
 sibling ID-plus-number fields. Course Instance adoption uses
 `blueprintRevisionTuple`. Course Instance provenance uses
 `adoptedBlueprintRevisionTuple` and `currentBlueprintRevisionTuple`.
+Assessment Blueprint Update and known forks use named Blueprint Revision
+Tuples such as `expectedSourceBlueprintRevisionTuple`.
+
+`QuestionAssetTuple` members are `{questionAssetId, checksum}`. Every field
+holding that Tuple is `questionAssetTuple`. Object Address members are
+`objectId`, `questionAssetId`, `workspaceId`, `workspaceImportId`,
+`courseBannerId`, and `draftQuestionId`.
+
+Student Work Recovery uses `CourseRosterTuple { courseInstanceId, rosterId }`
+with typed Course, Assessment, Attempt, and Question Revision identities. It
+never exposes `StudentRecordId`.
+
+PostgreSQL tables and composite foreign keys retain role-qualified physical
+pairs such as `(source_blueprint_course_id,
+source_blueprint_revision_number)`. That storage shape is the intentional
+physical representation of a Tuple. Application and API layers assemble the
+named Tuple at the SQL-to-Rust boundary and do not persist a Tuple type in
+PostgreSQL.
+
+Complete relationship or comparison-side objects may be named `source`,
+`target`, `left`, or `right`. Scalar identities inside them still use the
+precise `...Id` or Tuple. Ordinary English such as code source, registered
+HTTP, DOM, and vendor names, route syntax before immediate parsing, physical
+SQL keys, and archival historical records keep their owner's spelling.
 
 Use `Uuid` only when the physical value is a UUID. A public ID is the one
 universal, canonical human-facing identifier for a PLE object that needs one.
@@ -97,7 +122,8 @@ Question/Pool ID remains `QuestionId`/`PoolId` because ID is its product name.
 | --- | --- |
 | Account/session | `account_id` (Account ID), `session_id` UUID, immutable Product Role |
 | Course relationship | `course_membership_id` UUID or precise Student/Instructor relationship name |
-| Student record | `student_record_id` UUID under one Course Instance |
+| Student record | `student_record_id` UUID under one Course Instance; FERPA-internal, not a recovery or public API field |
+| Course Roster | `CourseRosterId` and `CourseRosterTuple { courseInstanceId, rosterId }` |
 | Draft Question | `draft_question_id` UUID, optional `draft_question_edit_number` |
 | Published Question | `published_question_id` / `QuestionId` plus `QuestionRevisionTuple` |
 | Question Pool | `question_pool_id` / `PoolId` plus Pool member list and `question_pool_edit_number` |
@@ -106,7 +132,7 @@ Question/Pool ID remains `QuestionId`/`PoolId` because ID is its product name.
 | Assessment | `assessment_id` / `AssessmentId`; Blueprint Assessment or Course Instance Assessment where scope matters |
 | Assessment Attempt | `assessment_attempt_id` UUID and current whole-submission state |
 | Saved response | UUID of the saved-response row; never a Student submission |
-| Object | `object_record_id` UUID plus typed owner/scope |
+| Object | `object_record_id` UUID plus typed owner/scope; Object Address members use `objectId`, `questionAssetId`, `workspaceId`, `workspaceImportId`, `courseBannerId`, and `draftQuestionId` |
 | Service work | Exact operation target plus lease only when asynchronous work is required |
 
 Current `assignment_uuid`, `assignment_attempt_uuid`, `QuestionAttempt`, or

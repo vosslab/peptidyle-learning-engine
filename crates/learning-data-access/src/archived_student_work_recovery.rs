@@ -1,7 +1,9 @@
 //! Deliberate, read-only retained Work recovery. No ordinary-history capability.
 
 use async_trait::async_trait;
-use question_model::{AssessmentAttemptId, CourseInstanceId, QuestionRevisionTuple};
+use question_model::{
+    AssessmentAttemptId, CourseInstanceId, CourseRosterTuple, QuestionRevisionTuple,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::{SessionTokenHash, StoreError};
@@ -11,7 +13,7 @@ use crate::{SessionTokenHash, StoreError};
 #[serde(rename_all = "camelCase")]
 pub struct RecoverySummary {
     pub course_instance_id: CourseInstanceId,
-    pub roster_id: Option<String>,
+    pub course_roster_tuple: Option<CourseRosterTuple>,
     pub assessment_id: question_model::AssessmentId,
     pub assessment_title: String,
     pub assessment_attempt_id: AssessmentAttemptId,
@@ -27,7 +29,7 @@ pub struct RecoverySummary {
 #[serde(rename_all = "camelCase")]
 pub struct RecoveredAttempt {
     pub course_instance_id: CourseInstanceId,
-    pub roster_id: Option<String>,
+    pub course_roster_tuple: Option<CourseRosterTuple>,
     pub assessment_id: question_model::AssessmentId,
     pub assessment_attempt_id: AssessmentAttemptId,
     pub assessment_attempt_number: u32,
@@ -204,4 +206,37 @@ pub(crate) struct RetainedQuestion {
     pub saved_response: Option<RetainedResponse>,
     pub finalized_response: Option<RetainedResponse>,
     pub grading: Option<Grading>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::RecoverySummary;
+    use question_model::{
+        AssessmentAttemptId, CourseInstanceId, CourseRosterId, CourseRosterTuple,
+    };
+    use uuid::Uuid;
+
+    #[test]
+    fn recovery_summary_serializes_course_roster_tuple_without_student_record_id() {
+        let course_instance_id = CourseInstanceId::new("CI6F2R8TA0").expect("Course Instance ID");
+        let summary = RecoverySummary {
+            course_instance_id: course_instance_id.clone(),
+            course_roster_tuple: Some(CourseRosterTuple {
+                course_instance_id,
+                roster_id: CourseRosterId::new("bio-301").expect("roster"),
+            }),
+            assessment_id: "A7K3M2QXF".parse().expect("Assessment ID"),
+            assessment_title: "Quiz".to_string(),
+            assessment_attempt_id: AssessmentAttemptId::from_uuid(Uuid::from_u128(17)),
+            assessment_attempt_number: 1,
+            started_at: "2026-09-01T12:00:00Z".to_string(),
+            submitted_at: None,
+            student_data_archived_at: "2026-09-02T12:00:00Z".to_string(),
+            delete_due_at: "2026-09-09T12:00:00Z".to_string(),
+        };
+        let wire = serde_json::to_value(&summary).expect("summary serializes");
+        assert_eq!(wire["courseRosterTuple"]["rosterId"], "bio-301");
+        assert!(wire.get("rosterId").is_none());
+        assert!(wire.get("studentRecordId").is_none());
+    }
 }

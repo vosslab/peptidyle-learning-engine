@@ -91,7 +91,7 @@ export function AssessmentWorkspaceIdentity(): JSX.Element {
       </div>
       <div>
         <dt>Current edit</dt>
-        <dd>{assessment().editNumber}</dd>
+        <dd>{assessment().assessmentEditNumber}</dd>
       </div>
     </dl>
   );
@@ -218,7 +218,7 @@ function AssessmentWorkspaceLiveContent(props: AssessmentWorkspaceLivePageProps)
           courseInstanceId,
           assessmentId,
           input,
-          currentAssessment().workspace.editNumber,
+          currentAssessment().workspace.assessmentEditNumber,
         );
         replaceCurrentAssessment(saved);
         return saved;
@@ -230,7 +230,7 @@ function AssessmentWorkspaceLiveContent(props: AssessmentWorkspaceLivePageProps)
           courseInstanceId,
           assessmentId,
           input,
-          currentAssessment().workspace.editNumber,
+          currentAssessment().workspace.assessmentEditNumber,
         );
         replaceCurrentAssessment(saved);
         return saved;
@@ -251,7 +251,7 @@ function AssessmentWorkspaceLiveContent(props: AssessmentWorkspaceLivePageProps)
           courseInstanceId,
           assessmentId,
           confirmationTitle,
-          currentAssessment().workspace.editNumber,
+          currentAssessment().workspace.assessmentEditNumber,
         );
         replaceCurrentAssessment({ workspace: result.assessment });
         return result;

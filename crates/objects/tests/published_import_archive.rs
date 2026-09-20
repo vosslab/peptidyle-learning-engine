@@ -51,9 +51,9 @@ async fn published_import_archive_candidate_is_deterministic_non_signable_and_ex
     let question_revision_tuple = question_revision_tuple(5);
     let archive_bytes = b"verified QTI archive bytes".to_vec();
     let workspace_key = ObjectAddress::WorkspaceImportSource {
-        workspace,
-        import,
-        object: ObjectId::from_uuid(id(6)),
+        workspace_id: workspace,
+        workspace_import_id: import,
+        object_id: ObjectId::from_uuid(id(6)),
     };
 
     let workspace_record = store
@@ -82,8 +82,8 @@ async fn published_import_archive_candidate_is_deterministic_non_signable_and_ex
     let candidate = PutObject {
         address: ObjectAddress::PublishedImportArchive {
             question_revision_tuple: question_revision_tuple.clone(),
-            import,
-            object: archive_object,
+            workspace_import_id: import,
+            object_id: archive_object,
         },
         bytes: verified_workspace_archive.bytes,
         media_type: verified_workspace_archive.record.media_type,
@@ -126,7 +126,7 @@ async fn published_import_archive_candidate_is_deterministic_non_signable_and_ex
 
     let mismatched_key = ObjectRecord {
         address: ObjectAddress::Temporary {
-            object: ObjectId::from_uuid(id(7)),
+            object_id: ObjectId::from_uuid(id(7)),
         },
         ..replay.record.clone()
     };

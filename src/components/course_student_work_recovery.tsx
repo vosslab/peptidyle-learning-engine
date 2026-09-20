@@ -190,9 +190,9 @@ export function CourseStudentWorkRecovery(props: {
                               setEvidence(undefined);
                             }}
                           />{" "}
-                          {attempt.rosterId === null
+                          {attempt.courseRosterTuple === null
                             ? "Roster ID not retained"
-                            : `Roster ID: ${attempt.rosterId}`}{" "}
+                            : `Roster ID: ${attempt.courseRosterTuple.rosterId}`}{" "}
                           | {attempt.assessmentTitle} | Attempt {attempt.assessmentAttemptNumber} (
                           {attempt.assessmentAttemptId})
                           <span style={{ display: "block" }}>

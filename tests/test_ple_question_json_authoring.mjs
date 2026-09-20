@@ -27,7 +27,7 @@ import { source } from "./ple_question_json_authoring_support.mjs";
 
 const draftQuestion = "0198e000-0000-7000-8000-000000000001";
 const uploadedImage = {
-  questionAsset: "01234567-89ab-4cde-8f01-23456789abcd",
+  questionAssetId: "01234567-89ab-4cde-8f01-23456789abcd",
   checksum: "a".repeat(64),
   mediaType: "image/png",
   intrinsicWidth: 480,
@@ -61,12 +61,12 @@ test("image upload sends raw raster bytes and a source precondition, accepting o
   });
   assert.deepEqual(await client.uploadAsset(draftQuestion, image, "3"), uploadedImage);
   assert.equal(
-    client.assetPreviewPath(draftQuestion, uploadedImage.questionAsset),
-    `/api/authoring/drafts/0198e000-0000-7000-8000-000000000001/assets/${uploadedImage.questionAsset}`,
+    client.assetPreviewPath(draftQuestion, uploadedImage.questionAssetId),
+    `/api/authoring/drafts/0198e000-0000-7000-8000-000000000001/assets/${uploadedImage.questionAssetId}`,
   );
   for (const malformed of [
     { ...uploadedImage, url: "https://external.invalid/image.png" },
-    { ...uploadedImage, questionAsset: uploadedImage.questionAsset.toUpperCase() },
+    { ...uploadedImage, questionAssetId: uploadedImage.questionAssetId.toUpperCase() },
     { ...uploadedImage, checksum: "A".repeat(64) },
     { ...uploadedImage, mediaType: "image/svg+xml" },
     { ...uploadedImage, intrinsicWidth: 0 },
@@ -128,15 +128,15 @@ test("a real image descriptor creates the starter region and replacement preserv
   };
   const replacement = setPleQuestionJsonHotspotAsset(authored, {
     ...uploadedImage,
-    questionAsset: "01234567-89ab-4cde-8f01-23456789abce",
+    questionAssetId: "01234567-89ab-4cde-8f01-23456789abce",
     checksum: "b".repeat(64),
   });
   assert.deepEqual(replacement.response.regions, authored.response.regions);
   assert.deepEqual(replacement.response.correctRegions, ["dot"]);
   assert.equal(replacement.response.surface.description, "One dot in the image.");
   assert.notEqual(
-    replacement.response.surface.questionAsset,
-    authored.response.surface.questionAsset,
+    replacement.response.surface.questionAssetId,
+    authored.response.surface.questionAssetId,
   );
   assert.equal(decodePleQuestionJsonSource(replacement).response.kind, "hotspot");
 });
@@ -633,7 +633,7 @@ test("client saves a strict PLE hotspot source through its exact endpoint", asyn
     response: {
       kind: "hotspot",
       surface: {
-        questionAsset: "00000000-0000-4000-8000-000000000042",
+        questionAssetId: "00000000-0000-4000-8000-000000000042",
         checksum: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         description: "A chromosome map",
       },

@@ -26,9 +26,12 @@ export function decodeQuestionAssetTuple(
   strict = false,
 ): QuestionAssetTuple {
   const record = decodeRecord(value, path);
-  if (strict) requireOnlyFields(record, path, ["questionAsset", "checksum"]);
+  if (strict) requireOnlyFields(record, path, ["questionAssetId", "checksum"]);
   return {
-    questionAsset: decodeIdentifier(field(record, "questionAsset", path), `${path}.questionAsset`),
+    questionAssetId: decodeIdentifier(
+      field(record, "questionAssetId", path),
+      `${path}.questionAssetId`,
+    ),
     checksum: decodeSha256(field(record, "checksum", path), `${path}.checksum`),
   } satisfies QuestionAssetTuple;
 }
@@ -58,12 +61,12 @@ export function decodeQuestionContentBlock(
         ),
       } satisfies QuestionContentBlock;
     case "image":
-      if (strict) requireOnlyFields(record, path, ["kind", "questionAsset", "description"]);
+      if (strict) requireOnlyFields(record, path, ["kind", "questionAssetTuple", "description"]);
       return {
         kind: block,
-        questionAsset: decodeQuestionAssetTuple(
-          field(record, "questionAsset", path),
-          `${path}.questionAsset`,
+        questionAssetTuple: decodeQuestionAssetTuple(
+          field(record, "questionAssetTuple", path),
+          `${path}.questionAssetTuple`,
           strict,
         ),
         description: decodeNonemptyString(
@@ -311,12 +314,18 @@ export function decodeQuestionResponseFormat(
       } satisfies QuestionResponseFormat;
     case "hotspot":
       if (strict)
-        requireOnlyFields(record, path, ["kind", "surface", "description", "regions", "selection"]);
+        requireOnlyFields(record, path, [
+          "kind",
+          "questionAssetTuple",
+          "description",
+          "regions",
+          "selection",
+        ]);
       return {
         kind: response,
-        surface: decodeQuestionAssetTuple(
-          field(record, "surface", path),
-          `${path}.surface`,
+        questionAssetTuple: decodeQuestionAssetTuple(
+          field(record, "questionAssetTuple", path),
+          `${path}.questionAssetTuple`,
           strict,
         ),
         description: decodeNonemptyString(

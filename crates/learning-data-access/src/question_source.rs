@@ -180,8 +180,8 @@ impl PreparedQuestionAssetPublication {
         let record = &self.restricted_source_record;
         let expected = ObjectAddress::RestrictedQuestionAsset {
             question_revision_tuple: question_revision_tuple.clone(),
-            asset: self.asset_id,
-            object: record.id,
+            question_asset_id: self.asset_id,
+            object_id: record.id,
         };
         if record.address != expected
             || record.storage_area != ObjectStorageArea::PrivateContent
@@ -255,7 +255,7 @@ impl NewQuestionLineagePublicationInput {
         }
         let ObjectAddress::QuestionSource {
             question_revision_tuple,
-            object,
+            object_id: object,
         } = &self.question_source_object_record.address
         else {
             return Err(StoreError::InvalidRecord(
@@ -400,7 +400,7 @@ impl ExistingQuestionRevisionPublicationInput {
         }
         let ObjectAddress::QuestionSource {
             question_revision_tuple,
-            object,
+            object_id: object,
         } = &self.question_source_object_record.address
         else {
             return Err(StoreError::InvalidRecord(
@@ -536,7 +536,7 @@ mod tests {
                 data_class: ObjectDataClass::QuestionSource,
                 address: ObjectAddress::QuestionSource {
                     question_revision_tuple: question_revision_tuple.clone(),
-                    object,
+                    object_id: object,
                 },
                 sha256: Sha256Checksum::compute(b"complete Question Source"),
                 size_bytes: 24,
@@ -573,8 +573,8 @@ mod tests {
         let mut wrong_address = input;
         wrong_address.question_source_object_record.address =
             ObjectAddress::WorkspaceQuestionSource {
-                workspace: wrong_address.workspace,
-                object: wrong_address.question_source_object_record.id,
+                workspace_id: wrong_address.workspace,
+                object_id: wrong_address.question_source_object_record.id,
             };
         assert!(matches!(
             wrong_address.validate(),
@@ -592,8 +592,8 @@ mod tests {
         record.id = object;
         record.address = ObjectAddress::RestrictedQuestionAsset {
             question_revision_tuple: revision.clone(),
-            asset: asset_id,
-            object,
+            question_asset_id: asset_id,
+            object_id: object,
         };
         record.data_class = ObjectDataClass::QuestionAsset;
         record.media_type = "image/png".into();
@@ -654,7 +654,7 @@ mod tests {
                 data_class: ObjectDataClass::QuestionSource,
                 address: ObjectAddress::QuestionSource {
                     question_revision_tuple: successor,
-                    object,
+                    object_id: object,
                 },
                 sha256: Sha256Checksum::compute(b"complete Question Source"),
                 size_bytes: 24,

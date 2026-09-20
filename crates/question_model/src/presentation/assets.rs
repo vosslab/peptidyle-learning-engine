@@ -48,7 +48,7 @@ pub(super) fn validate_public_assets(
             collect_presented_response_item_assets(items, &mut referenced);
         }
         QuestionPresentationResponseFormat::Hotspot { surface, .. } => {
-            referenced.insert(AssetRefKey::from(&surface.question_asset));
+            referenced.insert(AssetRefKey::from(&surface.question_asset_tuple));
             for region in &surface.regions {
                 collect_assets(&region.label, &mut referenced);
             }
@@ -82,8 +82,8 @@ pub(super) fn content_assets(
             bindings
                 .iter()
                 .find(|binding| {
-                    binding.question_asset.question_asset == asset_key.question_asset
-                        && binding.question_asset.checksum == asset_key.checksum
+                    binding.question_asset_tuple.question_asset_id == asset_key.question_asset_id
+                        && binding.question_asset_tuple.checksum == asset_key.checksum
                 })
                 .cloned()
                 .ok_or(PresentationBuildError::InvalidPublicContent(
@@ -100,8 +100,8 @@ pub(super) fn question_asset_rendition<'a>(
     bindings
         .iter()
         .find(|binding| {
-            binding.question_asset.question_asset == question_asset_tuple.question_asset
-                && binding.question_asset.checksum == question_asset_tuple.checksum
+            binding.question_asset_tuple.question_asset_id == question_asset_tuple.question_asset_id
+                && binding.question_asset_tuple.checksum == question_asset_tuple.checksum
         })
         .ok_or(PresentationBuildError::InvalidPublicContent(
             "presentation asset binding is missing or mismatched",
@@ -115,9 +115,9 @@ fn validate_asset_refs(
     let mut by_id = BTreeMap::new();
     for binding in bindings {
         if by_id
-            .insert(binding.question_asset.question_asset, binding)
+            .insert(binding.question_asset_tuple.question_asset_id, binding)
             .is_some()
-            || !is_sha256(&binding.question_asset.checksum)
+            || !is_sha256(&binding.question_asset_tuple.checksum)
             || !is_sha256(&binding.rendition_checksum)
             || binding.intrinsic_width.is_some() != binding.intrinsic_height.is_some()
             || binding.intrinsic_width == Some(0)
@@ -129,10 +129,10 @@ fn validate_asset_refs(
         }
     }
     for asset_key in referenced {
-        let binding = by_id.get(&asset_key.question_asset).ok_or(
+        let binding = by_id.get(&asset_key.question_asset_id).ok_or(
             PresentationBuildError::InvalidPublicContent("presentation asset binding is missing"),
         )?;
-        if binding.question_asset.checksum != asset_key.checksum {
+        if binding.question_asset_tuple.checksum != asset_key.checksum {
             return Err(PresentationBuildError::InvalidPublicContent(
                 "presentation asset checksum does not match the question",
             ));
@@ -141,21 +141,25 @@ fn validate_asset_refs(
     if by_id.keys().any(|asset| {
         !referenced
             .iter()
-            .any(|value| value.question_asset == *asset)
+            .any(|value| value.question_asset_id == *asset)
     }) {
         return Err(PresentationBuildError::InvalidPublicContent(
             "presentation contains an unreferenced asset binding",
         ));
     }
     let mut values = bindings.to_vec();
-    values.sort_by_key(|binding| binding.question_asset.question_asset);
+    values.sort_by_key(|binding| binding.question_asset_tuple.question_asset_id);
     Ok(values)
 }
 
 fn collect_assets(content: &[QuestionContentBlock], target: &mut BTreeSet<AssetRefKey>) {
     for block in content {
-        if let QuestionContentBlock::Image { question_asset, .. } = block {
-            target.insert(AssetRefKey::from(question_asset));
+        if let QuestionContentBlock::Image {
+            question_asset_tuple,
+            ..
+        } = block
+        {
+            target.insert(AssetRefKey::from(question_asset_tuple));
         }
     }
 }
@@ -186,9 +190,11 @@ fn collect_response_assets(response: &QuestionResponseFormat, target: &mut BTree
             }
         }
         QuestionResponseFormat::Hotspot {
-            surface, regions, ..
+            question_asset_tuple,
+            regions,
+            ..
         } => {
-            target.insert(AssetRefKey::from(surface));
+            target.insert(AssetRefKey::from(question_asset_tuple));
             for region in regions {
                 collect_assets(&region.label, target);
             }
@@ -202,14 +208,14 @@ fn collect_response_assets(response: &QuestionResponseFormat, target: &mut BTree
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct AssetRefKey {
-    question_asset: crate::QuestionAssetId,
+    question_asset_id: crate::QuestionAssetId,
     checksum: String,
 }
 
 impl From<&QuestionAssetTuple> for AssetRefKey {
     fn from(value: &QuestionAssetTuple) -> Self {
         Self {
-            question_asset: value.question_asset,
+            question_asset_id: value.question_asset_id,
             checksum: value.checksum.clone(),
         }
     }

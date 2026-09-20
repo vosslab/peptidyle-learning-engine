@@ -72,7 +72,7 @@ pub(super) async fn stage_banner_upload(
     let media_type = verified.media_type.canonical_media_type().to_string();
     let address = ObjectAddress::CourseBannerUpload {
         course_instance_id: course.clone(),
-        upload,
+        course_banner_upload_id: upload,
     };
     let metadata = banner_metadata(
         &address,
@@ -179,11 +179,11 @@ pub(super) async fn promote_banner(
     let banner = CourseBannerId::generate();
     let source_address = ObjectAddress::CourseBannerSource {
         course_instance_id: course.clone(),
-        banner,
+        course_banner_id: banner,
     };
     let rendition_address = ObjectAddress::CourseBannerRendition {
         course_instance_id: course.clone(),
-        banner,
+        course_banner_id: banner,
         rendition: CourseBannerRendition::Banner,
     };
     let source_bytes = staged.bytes;
@@ -358,7 +358,7 @@ pub(super) async fn deliver_banner(
             .objects
             .get(&ObjectAddress::CourseBannerRendition {
                 course_instance_id: course.clone(),
-                banner,
+                course_banner_id: banner,
                 rendition: CourseBannerRendition::Banner,
             })
             .await

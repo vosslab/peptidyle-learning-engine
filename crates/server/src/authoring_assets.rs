@@ -29,7 +29,7 @@ use crate::authoring::{
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct UploadedAsset {
-    question_asset: QuestionAssetId,
+    question_asset_id: QuestionAssetId,
     checksum: String,
     media_type: String,
     intrinsic_width: u32,
@@ -104,10 +104,10 @@ pub(crate) async fn upload(
         .objects
         .put(PutObject {
             address: ObjectAddress::DraftQuestionAsset {
-                workspace: draft.workspace,
-                draft_question_uuid: draft.draft_question_uuid.as_uuid(),
-                asset: asset_id,
-                object: ObjectId::generate(),
+                workspace_id: draft.workspace,
+                draft_question_id: draft.draft_question_uuid.as_uuid(),
+                question_asset_id: asset_id,
+                object_id: ObjectId::generate(),
             },
             bytes: bytes.to_vec(),
             media_type: declared_media,
@@ -143,7 +143,7 @@ pub(crate) async fn upload(
             (
                 StatusCode::CREATED,
                 Json(UploadedAsset {
-                    question_asset: asset.asset_id,
+                    question_asset_id: asset.asset_id,
                     checksum: asset.source_record.sha256.to_string(),
                     media_type: asset.source_record.media_type,
                     intrinsic_width: asset.intrinsic_width,
@@ -170,12 +170,16 @@ pub(crate) async fn require_surface<S: AuthoringAssetsStore + ?Sized>(
     store: &S,
     session_hash: SessionTokenHash,
     draft_question_uuid: learning_data_access::DraftQuestionUuid,
-    surface: &QuestionAssetTuple,
+    question_asset_tuple: &QuestionAssetTuple,
 ) -> Result<OwnedDraftQuestionAsset, StoreError> {
     let asset = store
-        .load_draft_question_asset(session_hash, draft_question_uuid, surface.question_asset)
+        .load_draft_question_asset(
+            session_hash,
+            draft_question_uuid,
+            question_asset_tuple.question_asset_id,
+        )
         .await?;
-    if asset.source_record.sha256.to_string() != surface.checksum {
+    if asset.source_record.sha256.to_string() != question_asset_tuple.checksum {
         return Err(StoreError::InvalidRecord(
             "HOTSPOT image checksum does not match this Draft".into(),
         ));

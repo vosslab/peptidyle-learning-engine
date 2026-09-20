@@ -19,7 +19,11 @@ Those documents must preserve the meanings established by Human Guidance.
   Pools, Assessments, Course Instances, and Draft Questions use current state.
 - Use Edit Number only for current-state concurrency; it is not history. When
   needed, it is a monotonic sequential counter, not a stored historical object.
-- Revision Numbers start at 1 and increase sequentially within each object.
+  Name each clock with its domain, such as Assessment Edit Number, Blueprint
+  Edit Number, or Draft Question Edit Number.
+- Use Revision Number for immutable Question and Blueprint version sequences,
+  named as Question Revision Number or Blueprint Revision Number. Revision
+  Numbers start at 1 and increase sequentially within each object.
   A new Revision retains the object's identity; a fork has a new identity and
   starts at Revision 1 when published or created as a revisioned object.
 - Use Assignment only inside the three Assessment Type names.
@@ -28,8 +32,10 @@ Those documents must preserve the meanings established by Human Guidance.
   JSON, URLs, object storage, hashes, logs, and browser UI.
 - Use **Id** for one value that is the canonical identity of one object.
 - Use **Tuple** for multiple values that together identify one exact object, state, or version.
-  Current examples are `QuestionRevisionTuple { questionId, revisionNumber }` and
-  `BlueprintRevisionTuple { blueprintCourseId, revisionNumber }`.
+  Current examples are `QuestionRevisionTuple { questionId, revisionNumber }`,
+  `BlueprintRevisionTuple { blueprintCourseId, revisionNumber }`,
+  `QuestionAssetTuple { questionAssetId, checksum }`, and
+  `CourseRosterTuple { courseInstanceId, rosterId }`.
 - Use **Reference** only for a genuine indirect, scoped, or external locator.
 - Preserve the canonical ID exactly across system boundaries. Parsing,
   serialization, API transport, persistence, and display do not add, remove,
@@ -91,10 +97,16 @@ Instructors may bulk add Students through roster import. They remove Students
 individually; PLE has no bulk Student-removal workflow.
 
 **Student Record** is the Course-scoped record for a global Student Account.
-Roster import finds or creates the Account by institutional email, then uses
-the Course's Student Record and enrollment. Ending enrollment or deactivating
-Course access revokes future access without deleting the Account or Student
-Work. Course access may be restored; retained work follows Course retention.
+It is FERPA-internal. Recovery and public APIs identify the Student through
+**Course Roster** identity instead of `StudentRecordId`. Roster import finds
+or creates the Account by institutional email, then uses the Course's Student
+Record and enrollment. Ending enrollment or deactivating Course access revokes
+future access without deleting the Account or Student Work. Course access may
+be restored; retained work follows Course retention.
+
+**Course Roster** is the Course-local Student identity used for Gradebook
+labels and Student Work Recovery. **Course Roster Tuple** is Course Instance
+ID plus Course Roster ID.
 
 **Co-Instructor** is any current Instructor relationship in a Course Instance.
 All co-Instructors are equal. Do not use Course Owner, primary Instructor, or
@@ -758,6 +770,11 @@ public ID, or a `public_reference` SQL alias beside a public ID. Composite
 Question Revision Tuple JSON is the field `questionRevisionTuple` with members
 `{questionId, revisionNumber}`. Blueprint Revision Tuple JSON is the field
 `blueprintRevisionTuple` with members `{blueprintCourseId, revisionNumber}`.
+Question Asset Tuple JSON is the field `questionAssetTuple` with members
+`{questionAssetId, checksum}`. Course Roster Tuple JSON is the field
+`courseRosterTuple` with members `{courseInstanceId, rosterId}`. Domain clocks
+use qualified names such as `assessmentEditNumber`, `blueprintEditNumber`,
+`draftQuestionEditNumber`, and `expectedAssessmentEditNumber`.
 
 JSON `id` is only the immediate identity of a resource at its own root.
 Nested identities use the precise `...Id`, `...Tuple`, or `...Number`. An
@@ -765,5 +782,5 @@ exact immutable Blueprint or Question revision is the named Tuple
 `blueprintRevisionTuple` or `questionRevisionTuple`, including Course
 Instance adoption (`blueprintRevisionTuple`) and provenance
 (`adoptedBlueprintRevisionTuple`, `currentBlueprintRevisionTuple`). An
-HTTP ETag is only a quoted encoding of an explicitly named Edit Number or
+HTTP `ETag` is only a quoted encoding of an explicitly named Edit Number or
 Revision Number; domain fields do not store ETag-shaped values.

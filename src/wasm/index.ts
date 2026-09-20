@@ -53,7 +53,7 @@ function isQuestionPresentationResponseFormat(
       "backendOwned",
     ].includes(responseFormat.kind) ||
     (responseFormat.kind === "matching" && "reuseChoices" in responseFormat) ||
-    (responseFormat.kind === "hotspot" && typeof responseFormat.surface === "object")
+    (responseFormat.kind === "hotspot" && "surface" in responseFormat)
   );
 }
 

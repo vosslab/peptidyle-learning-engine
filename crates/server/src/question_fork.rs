@@ -166,8 +166,8 @@ async fn fork_published_question(
         .objects
         .put(PutObject {
             address: ObjectAddress::WorkspaceQuestionSource {
-                workspace,
-                object: ObjectId::generate(),
+                workspace_id: workspace,
+                object_id: ObjectId::generate(),
             },
             bytes: source.bytes().to_vec(),
             media_type: source.media_type().to_owned(),
@@ -257,7 +257,11 @@ async fn load_hotspot_asset(
     let document = adapter_ple::question_json::PleQuestionJsonDocument::parse(source)
         .map_err(|_| Box::new(unavailable()))?;
     let compiled = document.compile().map_err(|_| Box::new(unavailable()))?;
-    let QuestionResponseFormat::Hotspot { surface, .. } = compiled.presentation().response() else {
+    let QuestionResponseFormat::Hotspot {
+        question_asset_tuple,
+        ..
+    } = compiled.presentation().response()
+    else {
         return Err(Box::new(unavailable()));
     };
     let evidence = state
@@ -266,8 +270,8 @@ async fn load_hotspot_asset(
         .await
         .map_err(|_| Box::new(unavailable()))?
         .ok_or_else(|| Box::new(unavailable()))?;
-    if evidence.asset_id != surface.question_asset
-        || evidence.source_record.sha256.to_string() != surface.checksum
+    if evidence.asset_id != question_asset_tuple.question_asset_id
+        || evidence.source_record.sha256.to_string() != question_asset_tuple.checksum
     {
         return Err(Box::new(unavailable()));
     }
@@ -304,10 +308,10 @@ async fn copy_hotspot_asset(
     let target_record = objects
         .put(PutObject {
             address: ObjectAddress::DraftQuestionAsset {
-                workspace,
-                draft_question_uuid,
-                asset: source.evidence.asset_id,
-                object: ObjectId::generate(),
+                workspace_id: workspace,
+                draft_question_id: draft_question_uuid,
+                question_asset_id: source.evidence.asset_id,
+                object_id: ObjectId::generate(),
             },
             bytes: source.bytes.clone(),
             media_type: source.evidence.source_record.media_type.clone(),

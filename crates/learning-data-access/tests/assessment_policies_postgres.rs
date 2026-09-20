@@ -266,7 +266,7 @@ async fn policy_save_is_isolated_conflict_checked_and_reports_unreleased_invalid
         .await
         .expect("policy save");
     assert_eq!(saved.instructions.as_str(), "persisted policy");
-    assert_eq!(saved.edit_number.value(), 2);
+    assert_eq!(saved.assessment_edit_number.value(), 2);
 
     let row = sqlx::query(
         "SELECT snapshot.assessment_title, snapshot.assessment_instructions, \
@@ -335,7 +335,7 @@ async fn policy_save_is_isolated_conflict_checked_and_reports_unreleased_invalid
         )
         .await
         .expect("Unreleased invalid dates remain correctable");
-    assert_eq!(invalid_saved.edit_number.value(), 3);
+    assert_eq!(invalid_saved.assessment_edit_number.value(), 3);
     let validation = store
         .validate_live_assessment_release(token(), course, assessment)
         .await

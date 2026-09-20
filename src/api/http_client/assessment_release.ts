@@ -62,7 +62,12 @@ function loadedWorkspace(
   response: Response,
   path: string,
 ): LiveAssessmentWorkspaceResponse {
-  assertResponseMatchesPositiveNumber(response, body.editNumber, path, "Assessment Edit Number");
+  assertResponseMatchesPositiveNumber(
+    response,
+    body.assessmentEditNumber,
+    path,
+    "Assessment Edit Number",
+  );
   return { workspace: body };
 }
 
@@ -186,7 +191,7 @@ export function createLiveAssessmentReleaseClient(
       );
       assertResponseMatchesPositiveNumber(
         result.response,
-        result.body.editNumber,
+        result.body.assessmentEditNumber,
         path,
         "Assessment Edit Number",
       );
@@ -332,7 +337,7 @@ export function createLiveAssessmentReleaseClient(
       );
       assertResponseMatchesPositiveNumber(
         result.response,
-        result.body.assessment.editNumber,
+        result.body.assessment.assessmentEditNumber,
         path,
         "Assessment Edit Number",
       );

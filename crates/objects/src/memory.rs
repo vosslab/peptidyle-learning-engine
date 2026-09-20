@@ -122,7 +122,7 @@ mod tests {
     async fn read_refuses_bytes_that_no_longer_match_the_record() {
         let store = MemoryObjectStore::default();
         let key = ObjectAddress::Temporary {
-            object: ObjectId::from_uuid(Uuid::from_u128(1)),
+            object_id: ObjectId::from_uuid(Uuid::from_u128(1)),
         };
         store
             .put(PutObject {

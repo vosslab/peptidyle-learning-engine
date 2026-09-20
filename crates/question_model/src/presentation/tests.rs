@@ -455,13 +455,13 @@ fn presentation_for(response: QuestionResponseFormat) -> super::IssuedQuestionPr
 }
 
 fn hotspot_presentation() -> super::IssuedQuestionPresentation {
-    let question_asset = QuestionAssetTuple {
-        question_asset: crate::QuestionAssetId::from_uuid(uuid::Uuid::from_u128(1)),
+    let question_asset_tuple = QuestionAssetTuple {
+        question_asset_id: crate::QuestionAssetId::from_uuid(uuid::Uuid::from_u128(1)),
         checksum: "a".repeat(64),
     };
     let mut variation_presentation = fixture();
     variation_presentation.response = QuestionResponseFormat::Hotspot {
-        surface: question_asset.clone(),
+        question_asset_tuple: question_asset_tuple.clone(),
         description: "Cell diagram".to_owned(),
         regions: vec![HotspotRegion {
             id: ResponseItemId::new("nucleus"),
@@ -476,8 +476,8 @@ fn hotspot_presentation() -> super::IssuedQuestionPresentation {
         selection: ResponseSelectionRule::ExactlyOne,
     };
     let bindings = [super::QuestionAssetRendition {
-        question_asset: question_asset.clone(),
-        rendition_checksum: question_asset.checksum,
+        question_asset_tuple: question_asset_tuple.clone(),
+        rendition_checksum: question_asset_tuple.checksum,
         intrinsic_width: Some(800),
         intrinsic_height: Some(600),
     }];

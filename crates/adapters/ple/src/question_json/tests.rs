@@ -204,7 +204,7 @@ fn hotspot_publication_retargets_the_complete_question_asset_tuple() {
         "response": {
             "kind": "hotspot",
             "surface": {
-                "questionAsset": "00000000-0000-4000-8000-000000000001",
+                "questionAssetId": "00000000-0000-4000-8000-000000000001",
                 "checksum": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "description": "Protein structure"
             },
@@ -221,7 +221,7 @@ fn hotspot_publication_retargets_the_complete_question_asset_tuple() {
         "language": "en"
     }"#;
     let replacement = QuestionAssetTuple {
-        question_asset: QuestionAssetId::from_uuid(Uuid::from_u128(2)),
+        question_asset_id: QuestionAssetId::from_uuid(Uuid::from_u128(2)),
         checksum: "b".repeat(64),
     };
 
@@ -231,8 +231,12 @@ fn hotspot_publication_retargets_the_complete_question_asset_tuple() {
         .expect("hotspot asset tuple retargets");
     let compiled = published.compile().expect("retargeted source compiles");
 
-    let QuestionResponseFormat::Hotspot { surface, .. } = compiled.presentation().response() else {
+    let QuestionResponseFormat::Hotspot {
+        question_asset_tuple,
+        ..
+    } = compiled.presentation().response()
+    else {
         panic!("retargeted source remains a hotspot question");
     };
-    assert_eq!(surface, &replacement);
+    assert_eq!(question_asset_tuple, &replacement);
 }

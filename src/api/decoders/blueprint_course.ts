@@ -742,8 +742,8 @@ function knownBlueprintFork(value: unknown, path: string): BlueprintKnownForkVie
     "shortName",
     "longName",
     "availability",
-    "currentRevisionNumber",
-    "sourceRevisionNumber",
+    "currentRevisionTuple",
+    "sourceRevisionTuple",
     "ownerDisplayName",
   ]);
   const ownerDisplayName = decodeNonemptyString(
@@ -762,13 +762,13 @@ function knownBlueprintFork(value: unknown, path: string): BlueprintKnownForkVie
     shortName: text(field(record, "shortName", path), `${path}.shortName`),
     longName: text(field(record, "longName", path), `${path}.longName`),
     availability: availability(field(record, "availability", path), `${path}.availability`),
-    currentRevisionNumber: revisionNumber(
-      field(record, "currentRevisionNumber", path),
-      `${path}.currentRevisionNumber`,
+    currentRevisionTuple: blueprintRevisionTuple(
+      field(record, "currentRevisionTuple", path),
+      `${path}.currentRevisionTuple`,
     ),
-    sourceRevisionNumber: revisionNumber(
-      field(record, "sourceRevisionNumber", path),
-      `${path}.sourceRevisionNumber`,
+    sourceRevisionTuple: blueprintRevisionTuple(
+      field(record, "sourceRevisionTuple", path),
+      `${path}.sourceRevisionTuple`,
     ),
     ownerDisplayName,
   };

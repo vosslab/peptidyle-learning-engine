@@ -102,7 +102,7 @@ impl CourseBannerStore for PostgresCourseBannerStore {
         Ok(StagedCourseBannerUpload {
             address: ObjectAddress::CourseBannerUpload {
                 course_instance_id,
-                upload,
+                course_banner_upload_id: upload,
             },
             put_work_id: work_id,
         })
@@ -167,11 +167,11 @@ impl CourseBannerStore for PostgresCourseBannerStore {
             banner,
             source: ObjectAddress::CourseBannerSource {
                 course_instance_id: course_instance_id.clone(),
-                banner,
+                course_banner_id: banner,
             },
             rendition: ObjectAddress::CourseBannerRendition {
                 course_instance_id,
-                banner,
+                course_banner_id: banner,
                 rendition: question_model::CourseBannerRendition::Banner,
             },
             source_put_work_id: row.try_get("source_put_work_id").map_err(map_sqlx_error)?,
@@ -361,11 +361,11 @@ impl CourseBannerStore for PostgresCourseBannerStore {
                 banner,
                 source: ObjectAddress::CourseBannerSource {
                     course_instance_id: course_instance_id.clone(),
-                    banner,
+                    course_banner_id: banner,
                 },
                 rendition: ObjectAddress::CourseBannerRendition {
                     course_instance_id: course_instance_id.clone(),
-                    banner,
+                    course_banner_id: banner,
                     rendition: question_model::CourseBannerRendition::Banner,
                 },
                 source_put_work_id,
@@ -376,7 +376,7 @@ impl CourseBannerStore for PostgresCourseBannerStore {
             banner: appearance,
             upload: ObjectAddress::CourseBannerUpload {
                 course_instance_id,
-                upload,
+                course_banner_upload_id: upload,
             },
             upload_put_work_id,
             retired,
@@ -469,7 +469,7 @@ impl CourseBannerStore for PostgresCourseBannerStore {
             upload,
             address: ObjectAddress::CourseBannerUpload {
                 course_instance_id,
-                upload,
+                course_banner_upload_id: upload,
             },
             object_id,
             sha256: Sha256Checksum::from_bytes(digest),
@@ -508,11 +508,11 @@ impl CourseBannerStore for PostgresCourseBannerStore {
             banner,
             source: ObjectAddress::CourseBannerSource {
                 course_instance_id: course_instance_id.clone(),
-                banner,
+                course_banner_id: banner,
             },
             rendition: ObjectAddress::CourseBannerRendition {
                 course_instance_id,
-                banner,
+                course_banner_id: banner,
                 rendition: question_model::CourseBannerRendition::Banner,
             },
             source_put_work_id,

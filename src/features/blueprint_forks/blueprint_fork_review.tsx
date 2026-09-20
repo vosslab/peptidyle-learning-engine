@@ -441,17 +441,18 @@ export function BlueprintKnownForks(
                       <h3>{fork.longName}</h3>
                       <p>
                         {fork.shortName}; {readableSettingName(fork.availability)}; fork Revision{" "}
-                        {fork.currentRevisionNumber}.
+                        {fork.currentRevisionTuple.revisionNumber}.
                       </p>
-                      <p>Created from source Revision {fork.sourceRevisionNumber}.</p>
+                      <p>Created from source Revision {fork.sourceRevisionTuple.revisionNumber}.</p>
                       <Show
                         when={
-                          BigInt(props.sourceCurrentRevision) > BigInt(fork.sourceRevisionNumber)
+                          BigInt(props.sourceCurrentRevision) >
+                          BigInt(fork.sourceRevisionTuple.revisionNumber)
                         }
                       >
                         <p>The source has Revisions since this fork was created.</p>
                       </Show>
-                      <Show when={BigInt(fork.currentRevisionNumber) > 1n}>
+                      <Show when={BigInt(fork.currentRevisionTuple.revisionNumber) > 1n}>
                         <p>This fork has saved changes since it was created.</p>
                       </Show>
                       <p>Owning Instructor: {fork.ownerDisplayName}</p>

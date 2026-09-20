@@ -14,6 +14,7 @@ import { decodeCourseGradebook } from "../src/api/decoders/live_gradebook.ts";
 import { decodeAssessmentSummary } from "../src/api/decoders/question_library.ts";
 import { decodeBlueprintChangeProposalCreateRequest } from "../src/api/decoders/blueprint_change_proposal.ts";
 import { decodeBlueprintComparisonView } from "../src/api/decoders/blueprint_comparison.ts";
+import { decodeKnownBlueprintForks } from "../src/api/decoders/blueprint_course.ts";
 import {
   decodeRecoveredAttempt,
   decodeRecoverySelection,
@@ -33,7 +34,7 @@ test("Recovery selection requires branded Course Instance and Assessment Attempt
     attempts: [
       {
         courseInstanceId: COURSE,
-        rosterId: null,
+        courseRosterTuple: null,
         assessmentId: "A7K3M2QXF",
         assessmentTitle: "Quiz",
         assessmentAttemptId: ATTEMPT,
@@ -62,7 +63,7 @@ test("Recovery selection requires branded Course Instance and Assessment Attempt
 test("Recovered Question requires a Question Revision Tuple and rejects split siblings", () => {
   const attempt = {
     courseInstanceId: COURSE,
-    rosterId: null,
+    courseRosterTuple: null,
     assessmentId: "A7K3M2QXF",
     assessmentTitle: "Quiz",
     assessmentAttemptId: ATTEMPT,
@@ -292,6 +293,36 @@ test("Blueprint comparison rejects leftover scalar left/right Blueprint Course I
   );
 });
 
+test("Known forks require named current and source Blueprint Revision Tuples", () => {
+  const forks = decodeKnownBlueprintForks([
+    {
+      id: BLUEPRINT_TUPLE.blueprintCourseId,
+      shortName: "Fork",
+      longName: "Fork Course",
+      availability: "private",
+      currentRevisionTuple: BLUEPRINT_TUPLE,
+      sourceRevisionTuple: BLUEPRINT_TUPLE,
+      ownerDisplayName: "Elena",
+    },
+  ]);
+  assert.deepEqual(forks[0]?.currentRevisionTuple, BLUEPRINT_TUPLE);
+  assert.throws(
+    () =>
+      decodeKnownBlueprintForks([
+        {
+          id: BLUEPRINT_TUPLE.blueprintCourseId,
+          shortName: "Fork",
+          longName: "Fork Course",
+          availability: "private",
+          currentRevisionNumber: "2",
+          sourceRevisionNumber: "1",
+          ownerDisplayName: "Elena",
+        },
+      ]),
+    DecodeError,
+  );
+});
+
 test("Blueprint update apply rejects leftover expectedEditNumber", () => {
   assert.throws(
     () =>
@@ -303,11 +334,11 @@ test("Blueprint update apply rejects leftover expectedEditNumber", () => {
   );
   assert.deepEqual(
     decodeApplyAssessmentBlueprintUpdateInput({
-      expectedSourceRevisionNumber: "2",
+      expectedSourceBlueprintRevisionTuple: BLUEPRINT_TUPLE,
       expectedAssessmentEditNumber: "3",
     }),
     {
-      expectedSourceRevisionNumber: "2",
+      expectedSourceBlueprintRevisionTuple: BLUEPRINT_TUPLE,
       expectedAssessmentEditNumber: "3",
     },
   );

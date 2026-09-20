@@ -100,10 +100,11 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
             let availability: String = row.try_get("availability").map_err(map_sqlx_error)?;
             let owner_display_name: Option<String> =
                 row.try_get("owner_display_name").map_err(map_sqlx_error)?;
+            let fork_blueprint_course_id = parse_blueprint_course_id(
+                row.try_get("blueprint_course_id").map_err(map_sqlx_error)?,
+            )?;
             forks.push(StoredKnownBlueprintFork {
-                id: parse_blueprint_course_id(
-                    row.try_get("blueprint_course_id").map_err(map_sqlx_error)?,
-                )?,
+                id: fork_blueprint_course_id.clone(),
                 short_name: row.try_get("short_name").map_err(map_sqlx_error)?,
                 long_name: row.try_get("long_name").map_err(map_sqlx_error)?,
                 availability: match availability.as_str() {
@@ -116,14 +117,20 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
                         ));
                     }
                 },
-                current_revision_number: blueprint_revision_number(
-                    row.try_get("blueprint_revision_number")
-                        .map_err(map_sqlx_error)?,
-                )?,
-                source_revision_number: blueprint_revision_number(
-                    row.try_get("source_blueprint_revision_number")
-                        .map_err(map_sqlx_error)?,
-                )?,
+                current_revision_tuple: BlueprintRevisionTuple {
+                    blueprint_course_id: fork_blueprint_course_id,
+                    revision_number: blueprint_revision_number(
+                        row.try_get("blueprint_revision_number")
+                            .map_err(map_sqlx_error)?,
+                    )?,
+                },
+                source_revision_tuple: BlueprintRevisionTuple {
+                    blueprint_course_id: source_blueprint_course_id.clone(),
+                    revision_number: blueprint_revision_number(
+                        row.try_get("source_blueprint_revision_number")
+                            .map_err(map_sqlx_error)?,
+                    )?,
+                },
                 owner_display_name: owner_display_name.ok_or_else(|| {
                     StoreError::InvalidRecord(
                         "Blueprint fork owner verified display name is unavailable".into(),

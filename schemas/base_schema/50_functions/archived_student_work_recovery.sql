@@ -226,7 +226,7 @@ END $$;
 CREATE FUNCTION ple_api.read_archived_assessment_attempt_for_recovery(
     p_course_instance_id text, p_assessment_attempt_id uuid
 ) RETURNS TABLE (
-    course_instance_id text, student_record_id uuid, roster_id text,
+    course_instance_id text, roster_id text,
     assessment_id text,
     assessment_attempt_id uuid, assessment_attempt_number integer,
     started_at timestamptz, expires_at timestamptz,
@@ -240,7 +240,7 @@ BEGIN
       FROM ple_api.lock_archived_course_for_recovery(p_course_instance_id);
     IF NOT FOUND THEN RETURN; END IF;
     RETURN QUERY SELECT recovery_course.course_instance_id,
-        evidence.student_record_id, roster.roster_id,
+        roster.roster_id,
         evidence.assessment_id, evidence.assessment_attempt_id,
         evidence.assessment_attempt_number, evidence.started_at, evidence.expires_at,
         recovery_course.student_data_archived_at, recovery_course.delete_due_at,

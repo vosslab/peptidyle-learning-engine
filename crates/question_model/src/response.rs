@@ -332,7 +332,7 @@ pub enum QuestionResponseFormat {
     /// One or more labeled regions selected on an image-backed surface.
     Hotspot {
         /// Immutable image used as the coordinate surface.
-        surface: QuestionAssetTuple,
+        question_asset_tuple: QuestionAssetTuple,
         /// Text alternative describing the whole surface.
         description: String,
         /// Public Hotspot Regions; the correct region set remains private.

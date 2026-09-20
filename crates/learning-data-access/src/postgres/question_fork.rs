@@ -181,8 +181,8 @@ fn decode_fork_asset(
     };
     let expected_address = ObjectAddress::RestrictedQuestionAsset {
         question_revision_tuple: question_revision_tuple.clone(),
-        asset: asset_id,
-        object: object_id,
+        question_asset_id: asset_id,
+        object_id,
     };
     if source_record.address != expected_address {
         return Err(StoreError::InvalidRecord(

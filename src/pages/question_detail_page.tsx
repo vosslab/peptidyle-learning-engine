@@ -514,7 +514,7 @@ export function QuestionDetailPage(): JSX.Element {
                         new URL(
                           applicationApi.client.assetUrl(
                             record().summary.questionRevisionTuple,
-                            asset.questionAsset,
+                            asset.questionAssetId,
                           ),
                           window.location.origin,
                         )
@@ -540,7 +540,7 @@ export function QuestionDetailPage(): JSX.Element {
                       new URL(
                         applicationApi.client.assetUrl(
                           record().summary.questionRevisionTuple,
-                          asset.questionAsset,
+                          asset.questionAssetId,
                         ),
                         window.location.origin,
                       )

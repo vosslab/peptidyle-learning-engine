@@ -17,7 +17,7 @@ export function AssessmentWorkspaceOverviewPage(): JSX.Element {
       <header class="assessment-workspace-header">
         <p class="eyebrow">Assessment workspace</p>
         <h1 id="assessment-workspace-heading">{assessment().title}</h1>
-        <p class="page-lede">Current edit {assessment().editNumber}</p>
+        <p class="page-lede">Current edit {assessment().assessmentEditNumber}</p>
       </header>
       <div class="assessment-workspace-grid">
         <section

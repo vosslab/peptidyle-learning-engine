@@ -172,9 +172,14 @@ pub fn qti_question_asset_checksums(
             response_blocks.extend(choices.iter().flat_map(|choice| choice.body.iter()));
         }
         question_model::QuestionResponseFormat::Hotspot {
-            surface, regions, ..
+            question_asset_tuple,
+            regions,
+            ..
         } => {
-            assets.insert(surface.question_asset, surface.checksum.clone());
+            assets.insert(
+                question_asset_tuple.question_asset_id,
+                question_asset_tuple.checksum.clone(),
+            );
             response_blocks.extend(regions.iter().flat_map(|region| region.label.iter()));
         }
         question_model::QuestionResponseFormat::Numeric { .. }
@@ -183,12 +188,15 @@ pub fn qti_question_asset_checksums(
         | question_model::QuestionResponseFormat::BackendOwned {} => {}
     }
     for block in question.prompt.iter().chain(response_blocks) {
-        if let QuestionContentBlock::Image { question_asset, .. } = block
+        if let QuestionContentBlock::Image {
+            question_asset_tuple,
+            ..
+        } = block
             && let Some(previous) = assets.insert(
-                question_asset.question_asset,
-                question_asset.checksum.clone(),
+                question_asset_tuple.question_asset_id,
+                question_asset_tuple.checksum.clone(),
             )
-            && previous != question_asset.checksum
+            && previous != question_asset_tuple.checksum
         {
             return Err(QtiAssetError::ConflictingChecksum);
         }

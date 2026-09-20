@@ -246,7 +246,7 @@ where
             };
             let target_address = ObjectAddress::QuestionSource {
                 question_revision_tuple: question_revision_tuple.clone(),
-                object: ObjectId::generate(),
+                object_id: ObjectId::generate(),
             };
             // ASVS 5.3.2, 8.2.2, 14.2.4, and 15.4.2: typed server-created
             // addresses select storage; verified bytes are copied before the
@@ -395,7 +395,7 @@ where
         .await?;
         let target_address = ObjectAddress::QuestionSource {
             question_revision_tuple: successor_question_revision_tuple.clone(),
-            object: ObjectId::generate(),
+            object_id: ObjectId::generate(),
         };
         let target_record = self
             .object_store

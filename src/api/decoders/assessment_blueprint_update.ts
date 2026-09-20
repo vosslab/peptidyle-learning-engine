@@ -11,7 +11,6 @@ import { DecodeError, decodePositiveInteger, decodeRecord, decodeStringEnum } fr
 import { decodeStudentFeedbackReleaseRule } from "./assessment_policy";
 import {
   assessmentType,
-  blueprintRevisionNumber,
   decodeAssessmentActivityRules,
   decodeAssessmentInstructions,
   decodeLiveAssessmentWorkspace,
@@ -21,6 +20,7 @@ import {
   pointValue,
   poolSelectionRule,
 } from "./assessment_release";
+import { blueprintRevisionTuple } from "./blueprint_course";
 import { decodeQuestionAttemptLimit, decodeQuestionAttemptTimeLimit } from "./question_model";
 import {
   decodeAssessmentTitle,
@@ -36,11 +36,14 @@ export function decodeApplyAssessmentBlueprintUpdateInput(
   path = "input",
 ): ApplyAssessmentBlueprintUpdateInput {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["expectedSourceRevisionNumber", "expectedAssessmentEditNumber"]);
+  requireOnlyFields(record, path, [
+    "expectedSourceBlueprintRevisionTuple",
+    "expectedAssessmentEditNumber",
+  ]);
   return {
-    expectedSourceRevisionNumber: blueprintRevisionNumber(
-      field(record, "expectedSourceRevisionNumber", path),
-      `${path}.expectedSourceRevisionNumber`,
+    expectedSourceBlueprintRevisionTuple: blueprintRevisionTuple(
+      field(record, "expectedSourceBlueprintRevisionTuple", path),
+      `${path}.expectedSourceBlueprintRevisionTuple`,
     ),
     expectedAssessmentEditNumber: editNumber(
       field(record, "expectedAssessmentEditNumber", path),
@@ -186,7 +189,7 @@ export function decodeAssessmentBlueprintUpdateReview(
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "assessment",
-    "sourceRevisionNumber",
+    "sourceBlueprintRevisionTuple",
     "proposed",
     "cannotApplyReason",
   ]);
@@ -218,9 +221,9 @@ export function decodeAssessmentBlueprintUpdateReview(
     assessment,
     proposed,
     cannotApplyReason,
-    sourceRevisionNumber: blueprintRevisionNumber(
-      field(record, "sourceRevisionNumber", path),
-      `${path}.sourceRevisionNumber`,
+    sourceBlueprintRevisionTuple: blueprintRevisionTuple(
+      field(record, "sourceBlueprintRevisionTuple", path),
+      `${path}.sourceBlueprintRevisionTuple`,
     ),
   };
 }

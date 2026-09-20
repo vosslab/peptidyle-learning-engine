@@ -24,7 +24,7 @@ impl ResolvedQuestionSource {
     ) -> Result<Self, QuestionSourceResolutionError> {
         let expected_address = ObjectAddress::QuestionSource {
             question_revision_tuple: question_revision_tuple.clone(),
-            object: source_object_id,
+            object_id: source_object_id,
         };
         let stored = store
             .get(&expected_address)
@@ -118,7 +118,7 @@ mod tests {
             .put(PutObject {
                 address: ObjectAddress::QuestionSource {
                     question_revision_tuple: question_revision_tuple.clone(),
-                    object: source_object_id,
+                    object_id: source_object_id,
                 },
                 bytes: bytes.clone(),
                 media_type: "application/vnd.peptidyle.question+json".to_string(),
@@ -157,7 +157,7 @@ mod tests {
             .put(PutObject {
                 address: ObjectAddress::QuestionSource {
                     question_revision_tuple: question_revision_tuple.clone(),
-                    object: source_object_id,
+                    object_id: source_object_id,
                 },
                 bytes: b"trusted bytes".to_vec(),
                 media_type: "application/json".to_string(),

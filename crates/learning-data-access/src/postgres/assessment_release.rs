@@ -166,7 +166,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
                         .map_err(|_| invalid("Due at"))?,
                     display_time_zone: context.account_time_zone.clone(),
                     status: status(row.try_get("assessment_status").map_err(map_sqlx_error)?)?,
-                    edit_number: edit(
+                    assessment_edit_number: edit(
                         row.try_get("assessment_edit_number")
                             .map_err(map_sqlx_error)?,
                     )?,
@@ -370,7 +370,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
             due_at,
             display_time_zone: context.account_time_zone,
             status: status(row.try_get("assessment_status").map_err(map_sqlx_error)?)?,
-            edit_number: edit(
+            assessment_edit_number: edit(
                 row.try_get("assessment_edit_number")
                     .map_err(map_sqlx_error)?,
             )?,
@@ -545,7 +545,7 @@ fn decode_unrelease_impact(
     let submission_count = count(row, "assessment_submission_count")?;
     Ok(AssessmentUnreleaseImpact {
         confirmation_title: title(row.try_get("assessment_title").map_err(map_sqlx_error)?)?,
-        edit_number: edit(
+        assessment_edit_number: edit(
             row.try_get("assessment_edit_number")
                 .map_err(map_sqlx_error)?,
         )?,
@@ -653,7 +653,7 @@ pub(super) fn decode_workspace(
         id: assessment_release_decode::assessment_id(
             first.try_get("assessment_id").map_err(map_sqlx_error)?,
         )?,
-        edit_number: edit(
+        assessment_edit_number: edit(
             first
                 .try_get("assessment_edit_number")
                 .map_err(map_sqlx_error)?,

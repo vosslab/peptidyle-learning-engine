@@ -99,7 +99,7 @@ mod launch_session_bridge {
             .put(PutObject {
                 address: ObjectAddress::QuestionSource {
                     question_revision_tuple: question.clone(),
-                    object,
+                    object_id: object,
                 },
                 bytes: br#"{"recorded":true}"#.to_vec(),
                 media_type: "application/json".into(),

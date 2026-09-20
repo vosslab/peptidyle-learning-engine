@@ -90,10 +90,20 @@ export function decodeQuestionResponsePreview(
         items: decodeArray(field(record, "items", path), `${path}.items`, blocks),
       };
     case "hotspot":
-      requireOnlyFields(record, path, ["kind", "surface", "description", "regions", "selection"]);
+      requireOnlyFields(record, path, [
+        "kind",
+        "questionAssetTuple",
+        "description",
+        "regions",
+        "selection",
+      ]);
       return {
         kind: responseKind,
-        surface: decodeQuestionAssetTuple(field(record, "surface", path), `${path}.surface`, true),
+        questionAssetTuple: decodeQuestionAssetTuple(
+          field(record, "questionAssetTuple", path),
+          `${path}.questionAssetTuple`,
+          true,
+        ),
         description: decodeString(field(record, "description", path), `${path}.description`),
         regions: decodeArray(field(record, "regions", path), `${path}.regions`, region),
         selection: decodeResponseSelectionRule(

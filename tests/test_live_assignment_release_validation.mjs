@@ -34,7 +34,7 @@ function createdWorkspace(
 ) {
   return {
     id: assessment,
-    editNumber: "1",
+    assessmentEditNumber: "1",
     status: "unreleased",
     assessmentType,
     origin,
@@ -250,7 +250,7 @@ test("current direct Assessment workspace accepts only the closed tagged origin"
 });
 
 test("release returns the complete current Assessment and its replacement ETag", async () => {
-  const released = { ...createdWorkspace(), status: "released", editNumber: "2" };
+  const released = { ...createdWorkspace(), status: "released", assessmentEditNumber: "2" };
   const { recordingFetch, requests } = createRecordingFetch(
     async () =>
       new Response(JSON.stringify(released), {
@@ -270,7 +270,7 @@ test("release returns the complete current Assessment and its replacement ETag",
   assert.equal(result.workspace.status, "released");
   assert.equal(result.workspace.assessmentType, "regular_assignment");
   assert.equal(result.workspace.entries[1].kind, "questionPool");
-  assert.equal(result.workspace.editNumber, "2");
+  assert.equal(result.workspace.assessmentEditNumber, "2");
   assert.equal(requests[0].method, "POST");
   assert.equal(requests[0].headers.get("if-match"), '"1"');
 });
@@ -325,11 +325,11 @@ test("release readiness uses the current direct Assessment validation boundary",
 });
 
 test("Unrelease uses aggregate-only impact, exact title, and a replacement Assessment ETag", async () => {
-  const released = { ...createdWorkspace(), status: "released", editNumber: "2" };
-  const unreleased = { ...createdWorkspace(), status: "unreleased", editNumber: "3" };
+  const released = { ...createdWorkspace(), status: "released", assessmentEditNumber: "2" };
+  const unreleased = { ...createdWorkspace(), status: "unreleased", assessmentEditNumber: "3" };
   const impact = {
     confirmationTitle: "Peptide bonds",
-    editNumber: "2",
+    assessmentEditNumber: "2",
     attemptCount: 4,
     submissionCount: 6,
     gradeCount: 3,
@@ -361,7 +361,7 @@ test("Unrelease uses aggregate-only impact, exact title, and a replacement Asses
   );
   assert.equal(result.assessment.status, "unreleased");
   assert.equal(result.deleted.submissionCount, 6);
-  assert.equal(result.assessment.editNumber, "3");
+  assert.equal(result.assessment.assessmentEditNumber, "3");
   assert.equal(requests[0].method, "GET");
   assert.equal(requests[1].method, "POST");
   assert.equal(requests[1].headers.get("if-match"), '"2"');
@@ -374,7 +374,7 @@ test("Unrelease uses aggregate-only impact, exact title, and a replacement Asses
 test("Unrelease impact refuses Student detail and unknown fields", () => {
   const impact = {
     confirmationTitle: "Peptide bonds",
-    editNumber: "2",
+    assessmentEditNumber: "2",
     attemptCount: 4,
     submissionCount: 6,
     gradeCount: 3,

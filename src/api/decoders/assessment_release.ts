@@ -356,7 +356,7 @@ function courseAssessmentSummary(value: unknown, path: string): CourseAssessment
     "dueAt",
     "displayTimeZone",
     "status",
-    "editNumber",
+    "assessmentEditNumber",
   ]);
   return {
     id: decodeAssessmentId(field(record, "id", path), `${path}.id`),
@@ -368,7 +368,10 @@ function courseAssessmentSummary(value: unknown, path: string): CourseAssessment
       `${path}.displayTimeZone`,
     ),
     status: status(field(record, "status", path), `${path}.status`),
-    editNumber: editNumber(field(record, "editNumber", path), `${path}.editNumber`),
+    assessmentEditNumber: editNumber(
+      field(record, "assessmentEditNumber", path),
+      `${path}.assessmentEditNumber`,
+    ),
   };
 }
 
@@ -567,7 +570,7 @@ export function decodeLiveAssessmentWorkspace(
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "id",
-    "editNumber",
+    "assessmentEditNumber",
     "status",
     "origin",
     "assessmentType",
@@ -587,7 +590,10 @@ export function decodeLiveAssessmentWorkspace(
   ]);
   return {
     id: decodeAssessmentId(field(record, "id", path), `${path}.id`),
-    editNumber: editNumber(field(record, "editNumber", path), `${path}.editNumber`),
+    assessmentEditNumber: editNumber(
+      field(record, "assessmentEditNumber", path),
+      `${path}.assessmentEditNumber`,
+    ),
     status: status(field(record, "status", path), `${path}.status`),
     origin: assessmentOrigin(field(record, "origin", path), `${path}.origin`),
     assessmentType: assessmentType(field(record, "assessmentType", path), `${path}.assessmentType`),
@@ -681,7 +687,7 @@ export function decodeAssessmentUnreleaseImpact(
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "confirmationTitle",
-    "editNumber",
+    "assessmentEditNumber",
     "attemptCount",
     "submissionCount",
     "gradeCount",
@@ -691,7 +697,10 @@ export function decodeAssessmentUnreleaseImpact(
       field(record, "confirmationTitle", path),
       `${path}.confirmationTitle`,
     ),
-    editNumber: editNumber(field(record, "editNumber", path), `${path}.editNumber`),
+    assessmentEditNumber: editNumber(
+      field(record, "assessmentEditNumber", path),
+      `${path}.assessmentEditNumber`,
+    ),
     attemptCount: decodeNonnegativeInteger(
       field(record, "attemptCount", path),
       `${path}.attemptCount`,

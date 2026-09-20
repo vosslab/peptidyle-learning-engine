@@ -10,7 +10,7 @@ import {
 } from "../src/components/question_renderer.tsx";
 
 const questionAsset = {
-  questionAsset: "00000000-0000-0000-0000-000000000001",
+  questionAssetId: "00000000-0000-0000-0000-000000000001",
   checksum: "a".repeat(64),
 };
 const questionRevisionTuple = { questionId: "7K3M-79QP", revisionNumber: 2 };
@@ -30,11 +30,11 @@ test("asset URLs must be the resolver-derived logical asset route", () => {
         questionRevisionTuple,
         () =>
           new URL(
-            `/api/questions/${questionRevisionTuple.questionId}/revisions/${questionRevisionTuple.revisionNumber}/assets/${questionAsset.questionAsset}`,
+            `/api/questions/${questionRevisionTuple.questionId}/revisions/${questionRevisionTuple.revisionNumber}/assets/${questionAsset.questionAssetId}`,
             globalThis.location.origin,
           ),
       ),
-      `https://ple.example.test/api/questions/${questionRevisionTuple.questionId}/revisions/${questionRevisionTuple.revisionNumber}/assets/${questionAsset.questionAsset}`,
+      `https://ple.example.test/api/questions/${questionRevisionTuple.questionId}/revisions/${questionRevisionTuple.revisionNumber}/assets/${questionAsset.questionAssetId}`,
     );
     for (const resolver of [
       () => new URL("https://bucket.example.test/object"),
@@ -45,7 +45,7 @@ test("asset URLs must be the resolver-derived logical asset route", () => {
         ),
       () =>
         new URL(
-          `/api/questions/${questionRevisionTuple.questionId}/revisions/${questionRevisionTuple.revisionNumber}/assets/${questionAsset.questionAsset}?raw-key=object`,
+          `/api/questions/${questionRevisionTuple.questionId}/revisions/${questionRevisionTuple.revisionNumber}/assets/${questionAsset.questionAssetId}?raw-key=object`,
           globalThis.location.origin,
         ),
     ]) {

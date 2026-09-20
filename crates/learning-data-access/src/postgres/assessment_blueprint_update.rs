@@ -23,7 +23,7 @@ use crate::{
 };
 
 struct UpdateSource {
-    revision_number: BlueprintRevisionNumber,
+    source_blueprint_revision_tuple: BlueprintRevisionTuple,
     member: Option<StoredBlueprintAssessment>,
     cannot_apply_reason: Option<AssessmentBlueprintUpdateCannotApplyReason>,
 }
@@ -114,7 +114,7 @@ pub(super) async fn review(
     tx.commit().await.map_err(map_sqlx_error)?;
     Ok(AssessmentBlueprintUpdateReview {
         assessment,
-        source_revision_number: source.revision_number,
+        source_blueprint_revision_tuple: source.source_blueprint_revision_tuple,
         proposed,
         cannot_apply_reason: source.cannot_apply_reason,
     })
@@ -133,8 +133,8 @@ pub(super) async fn apply(
     // Course and Assessment locks before either qualified precondition is tested.
     let source = load_source(&mut tx, &course_instance_id, &assessment_id).await?;
     let workspace = load_workspace(&mut tx, &course_instance_id, &assessment_id).await?;
-    if source.revision_number != input.expected_source_revision_number
-        || workspace.edit_number != input.expected_assessment_edit_number
+    if source.source_blueprint_revision_tuple != input.expected_source_blueprint_revision_tuple
+        || workspace.assessment_edit_number != input.expected_assessment_edit_number
     {
         return Err(StoreError::Conflict);
     }
@@ -169,8 +169,11 @@ pub(super) async fn apply(
         .bind(course_instance_id.as_string())
         .bind(assessment_id.as_string())
         .bind(integer(
-            input.expected_source_revision_number.value(),
-            "Blueprint Revision",
+            input
+                .expected_source_blueprint_revision_tuple
+                .revision_number
+                .value(),
+            "Blueprint Revision Number",
         )?)
         .bind(integer(
             input.expected_assessment_edit_number.value(),
@@ -200,10 +203,19 @@ async fn load_source(
     let raw_revision: i64 = row
         .try_get("source_revision_number")
         .map_err(map_sqlx_error)?;
-    let revision = u64::try_from(raw_revision)
+    let revision_number = u64::try_from(raw_revision)
         .ok()
         .and_then(BlueprintRevisionNumber::new)
-        .ok_or_else(|| invalid("Blueprint Revision"))?;
+        .ok_or_else(|| invalid("Blueprint Revision Number"))?;
+    let source_blueprint_course_id: String = row
+        .try_get("source_blueprint_course_id")
+        .map_err(map_sqlx_error)?;
+    let source_blueprint_revision_tuple = BlueprintRevisionTuple {
+        blueprint_course_id: source_blueprint_course_id
+            .parse()
+            .map_err(|_| invalid("Blueprint Course ID"))?,
+        revision_number,
+    };
     let source_assessment_id: Uuid = row
         .try_get("source_assessment_id")
         .map_err(map_sqlx_error)?;
@@ -236,7 +248,7 @@ async fn load_source(
         return Err(invalid("Blueprint retained Assessment"));
     }
     Ok(UpdateSource {
-        revision_number: revision,
+        source_blueprint_revision_tuple,
         member,
         cannot_apply_reason,
     })

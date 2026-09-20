@@ -74,12 +74,12 @@ pub(super) fn pending_items(
             push_choices(&mut items, choices, ResponseItemRole::OrderingItem, assets)?;
         }
         QuestionResponseFormat::Hotspot {
-            surface,
+            question_asset_tuple,
             description,
             regions,
             ..
         } => {
-            let binding = question_asset_rendition(surface, assets)?;
+            let binding = question_asset_rendition(question_asset_tuple, assets)?;
             let hotspot_regions = regions
                 .iter()
                 .map(pending_hotspot_region_geometry)
@@ -87,9 +87,9 @@ pub(super) fn pending_items(
             push_item(
                 &mut items,
                 ResponseItemRole::HotspotSurface,
-                &surface.question_asset.to_string(),
+                &question_asset_tuple.question_asset_id.to_string(),
                 vec![QuestionContentBlock::Image {
-                    question_asset: surface.clone(),
+                    question_asset_tuple: question_asset_tuple.clone(),
                     description: description.clone(),
                 }],
                 assets,
@@ -311,7 +311,7 @@ pub(super) fn public_presentation(
                     "hotspot surface mapping is absent",
                 ))?;
             let QuestionContentBlock::Image {
-                question_asset,
+                question_asset_tuple,
                 description,
             } = &surface.basis.content[0]
             else {
@@ -330,7 +330,7 @@ pub(super) fn public_presentation(
             QuestionPresentationResponseFormat::Hotspot {
                 surface: PresentedHotspotSurface {
                     id: surface.presentation_response_item_id.clone(),
-                    question_asset: question_asset.clone(),
+                    question_asset_tuple: question_asset_tuple.clone(),
                     description: description.clone(),
                     regions: regions
                         .iter()

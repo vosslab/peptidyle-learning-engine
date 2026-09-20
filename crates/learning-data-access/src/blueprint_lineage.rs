@@ -3,8 +3,8 @@
 use async_trait::async_trait;
 use question_model::{
     AccountId, BlueprintAvailability, BlueprintCourseId, BlueprintEditNumber,
-    BlueprintRevisionNumber, BlueprintRevisionTuple, QuestionId, QuestionPoolEditNumber,
-    QuestionRevisionTuple, RequestChecksum, Timestamp,
+    BlueprintRevisionTuple, QuestionId, QuestionPoolEditNumber, QuestionRevisionTuple,
+    RequestChecksum, Timestamp,
 };
 use std::collections::BTreeMap;
 
@@ -18,9 +18,9 @@ pub struct StoredKnownBlueprintFork {
     pub short_name: String,
     pub long_name: String,
     pub availability: BlueprintAvailability,
-    pub current_revision_number: BlueprintRevisionNumber,
-    /// Immutable source Revision used when this direct fork was created.
-    pub source_revision_number: BlueprintRevisionNumber,
+    pub current_revision_tuple: BlueprintRevisionTuple,
+    /// Immutable source Blueprint Revision Tuple used when this direct fork was created.
+    pub source_revision_tuple: BlueprintRevisionTuple,
     pub owner_display_name: String,
 }
 

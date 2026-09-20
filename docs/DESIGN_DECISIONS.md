@@ -805,8 +805,9 @@ not permission to view a known Course. Private Blueprints are owner-only on eith
 controls the fork's apply mutation. The Instructor explicitly selects which displayed changes to
 bring forward; no source change is applied automatically. One request may select several related
 changes. The server constructs and validates one coherent complete fork tree, then uses the ordinary
-expected-current Revision CAS to save all selected content changes as one new immutable Blueprint
-Revision. Selected name changes use the ordinary metadata ETag in the same authorized operation.
+expected current Blueprint Revision Tuple compare-and-swap to save all selected content changes as
+one new immutable Blueprint Revision. Selected name changes use the ordinary Blueprint metadata
+Edit Number in the same authorized operation (HTTP `If-Match` encodes it).
 
 **User correction (2026-09-16).** This clarifies the existing Human Guidance visibility boundary;
 it is not a new product decision. It removes the incorrect owner-only comparison restriction while
@@ -1268,8 +1269,9 @@ reader to choose which key was real.
 SQL keys follow DATABASE_STYLE (`published_question_id`,
 `course_instance_id`). JSON fields for those objects are `id` (or
 `courseInstanceId` / `assessmentId` when nested). There is no parallel `reference`
-property and no SQL `public_reference` alias. HTTP ETags are the aggregate
-Edit Number as a decimal string. Assessment Attempts, Assessment Entries,
+property and no SQL `public_reference` alias. HTTP `ETag`/`If-Match` encode the
+aggregate Edit Number as a quoted decimal string; domain APIs use the qualified
+Edit Number. Assessment Attempts, Assessment Entries,
 and sessions stay UUID because they are not Human Guidance public IDs; their
 JSON field is also `id`. PLE is pre-production, so this cutover edits the
 contract directly.

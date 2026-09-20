@@ -14,7 +14,7 @@ import { createRecordingFetch } from "./http_client_test_support.mjs";
 function savedPolicyWorkspace() {
   return {
     id: "A8H4N6PA6",
-    editNumber: "4",
+    assessmentEditNumber: "4",
     status: "unreleased",
     assessmentType: "regular_assignment",
     origin: {
@@ -83,7 +83,7 @@ test("Course Assessment rows require exact due and Instructor-zone display facts
       dueAt: "2026-09-11T14:30:00.000",
       displayTimeZone: "America/Chicago",
       status: "released",
-      editNumber: "3",
+      assessmentEditNumber: "3",
     },
   ]);
   assert.equal(rows[0].dueAt, "2026-09-11T14:30:00.000");
@@ -154,7 +154,7 @@ test("Base Assessment Policy save uses the current workspace boundary and exact 
     "3",
   );
 
-  assert.equal(saved.workspace.editNumber, "4");
+  assert.equal(saved.workspace.assessmentEditNumber, "4");
   assert.equal(
     new URL(requests[0].url).pathname,
     "/api/course-instances/CI7K3M2QAZ/assessments/A8H4N6PA6/policies",

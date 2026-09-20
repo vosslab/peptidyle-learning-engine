@@ -15,7 +15,7 @@ test("inline Assessment save sends raw local time with its row edit number", asy
           dueAt: "2026-09-11T14:30:00.125",
           displayTimeZone: "America/Chicago",
           status: "released",
-          editNumber: "4",
+          assessmentEditNumber: "4",
         }),
         {
           headers: {
@@ -34,7 +34,7 @@ test("inline Assessment save sends raw local time with its row edit number", asy
     "3",
   );
 
-  assert.equal(saved.editNumber, "4");
+  assert.equal(saved.assessmentEditNumber, "4");
   assert.equal(saved.assessmentType, "exam");
   assert.equal(
     new URL(requests[0].url).pathname,

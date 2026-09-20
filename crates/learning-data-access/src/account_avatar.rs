@@ -107,8 +107,8 @@ impl PreparedAccountProfileImage {
     #[must_use]
     pub fn object_address(&self) -> ObjectAddress {
         ObjectAddress::ProfileImage {
-            image: self.profile_image_id,
-            object: self.object_id,
+            profile_image_id: self.profile_image_id,
+            object_id: self.object_id,
         }
     }
 }
@@ -126,8 +126,8 @@ impl AccountProfileImageDeleteWork {
     #[must_use]
     pub fn object_address(&self) -> ObjectAddress {
         ObjectAddress::ProfileImage {
-            image: self.profile_image_id,
-            object: self.object_id,
+            profile_image_id: self.profile_image_id,
+            object_id: self.object_id,
         }
     }
 }
@@ -145,8 +145,8 @@ impl FinalizedAccountProfileImage {
     #[must_use]
     pub fn object_address(&self) -> ObjectAddress {
         ObjectAddress::ProfileImage {
-            image: self.profile_image_id,
-            object: self.object_id,
+            profile_image_id: self.profile_image_id,
+            object_id: self.object_id,
         }
     }
 }

@@ -9,10 +9,10 @@ new product revisions or lifecycle states. Product meaning comes from
 | Boundary                     | Concurrency authority                                                                                |
 | ---------------------------- | ---------------------------------------------------------------------------------------------------- |
 | Authenticated database work  | One protected transaction with server-installed Account context and exact relationship checks        |
-| Draft Question               | Current Edit Number or equivalent compare-and-swap precondition                                      |
-| Assessment                   | Current Edit Number or equivalent; not an Assessment Revision                                        |
-| Blueprint content            | Expected current Blueprint Revision; a meaningful Save creates one next immutable Revision           |
-| Blueprint metadata/lifecycle | Independent current metadata precondition; no Blueprint Revision                                     |
+| Draft Question               | Draft Question Edit Number compare-and-swap                                                          |
+| Assessment                   | Assessment Edit Number; not an Assessment Revision                                                   |
+| Blueprint content            | Expected current Blueprint Revision Number; a meaningful Save creates one next immutable Revision    |
+| Blueprint metadata/lifecycle | Blueprint metadata Edit Number; no Blueprint Revision                                                |
 | Assessment Attempt           | One authoritative open Attempt per applicable start/resume operation                                 |
 | Response save and submission | Serialization at the Attempt boundary; saved response wins before submission or is refused afterward |
 | Assessment Unrelease         | Serialization at the Assessment root with complete Student Work deletion                             |
@@ -31,14 +31,18 @@ new product revisions or lifecycle states. Product meaning comes from
 
 ## Current-state edits
 
-A meaningful Draft Question or Assessment save advances its current Edit Number
-once. A no-op leaves it unchanged. A stale value conflicts and requires a
-reload; it never overwrites newer content.
+A meaningful Draft Question or Assessment save advances its Draft Question
+Edit Number or Assessment Edit Number once. A no-op leaves it unchanged. A
+stale value conflicts and requires a reload; it never overwrites newer content.
 
 Edit Numbers are not history. Only an explicit changed Blueprint Save creates
-an immutable Blueprint Revision. A no-op Save returns the current Revision with
-no new row. Blueprint name and lifecycle changes use current metadata and do
-not create content Revisions.
+an immutable Blueprint Revision. A no-op Save returns the current Blueprint
+Revision Number with no new row. Blueprint name and lifecycle changes use the
+Blueprint metadata Edit Number and do not create content Revisions.
+
+HTTP `If-Match` and `ETag` encode those qualified Numbers as quoted decimal
+strings. Domain APIs, fields, and errors use the Number; they do not use ETag
+as a domain term.
 
 Published Question source changes create one next immutable Question Revision
 under the stable Question ID. Publication serializes against the Draft state it

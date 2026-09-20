@@ -356,10 +356,12 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
     setBusy(true);
     try {
       const current = workspace.assessment();
-      const released = await workspace.release(current.workspace.editNumber);
+      const released = await workspace.release(current.workspace.assessmentEditNumber);
       await loadUnreleaseImpact();
       setReleaseValidation(undefined);
-      setMessage(`Assessment released. Current edit number: ${released.workspace.editNumber}.`);
+      setMessage(
+        `Assessment released. Current edit number: ${released.workspace.assessmentEditNumber}.`,
+      );
     } catch (error: unknown) {
       const conflict = error instanceof LiveAssessmentWorkspaceConflictError;
       setNeedsReload(conflict);

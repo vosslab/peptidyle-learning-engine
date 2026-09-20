@@ -13,7 +13,7 @@ use crate::question_tag::Tag;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct QuestionAssetTuple {
-    pub question_asset: QuestionAssetId,
+    pub question_asset_id: QuestionAssetId,
     pub checksum: String,
 }
 
@@ -32,7 +32,7 @@ pub enum QuestionContentBlock {
         description: String,
     },
     Image {
-        question_asset: QuestionAssetTuple,
+        question_asset_tuple: QuestionAssetTuple,
         description: String,
     },
     Code {
@@ -136,8 +136,29 @@ impl QuestionMetadata {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DraftQuestionSummary {
-    pub draft_question: uuid::Uuid,
-    pub workspace: WorkspaceId,
+    pub draft_question_id: uuid::Uuid,
+    pub workspace_id: WorkspaceId,
     pub question_title: String,
     pub question_backend: crate::question_library::QuestionBackend,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::identity::QuestionAssetId;
+    use uuid::Uuid;
+
+    #[test]
+    fn question_asset_tuple_serializes_question_asset_id() {
+        let tuple = QuestionAssetTuple {
+            question_asset_id: QuestionAssetId::from_uuid(Uuid::from_u128(7)),
+            checksum: "a".repeat(64),
+        };
+        let wire = serde_json::to_value(&tuple).expect("tuple serializes");
+        assert_eq!(
+            wire["questionAssetId"],
+            "00000000-0000-0000-0000-000000000007"
+        );
+        assert!(wire.get("questionAsset").is_none());
+    }
 }

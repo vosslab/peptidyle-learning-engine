@@ -292,7 +292,10 @@ fn template_response(status: StatusCode, template: AssessmentTemplate) -> Respon
 
 fn assessment_response(status: StatusCode, assessment: &LiveAssessmentWorkspace) -> Response {
     let mut response = crate::auth::no_store((status, Json(assessment)).into_response());
-    match HeaderValue::from_str(&format!("\"{}\"", assessment.edit_number.value())) {
+    match HeaderValue::from_str(&format!(
+        "\"{}\"",
+        assessment.assessment_edit_number.value()
+    )) {
         Ok(value) => {
             response.headers_mut().insert(ETAG, value);
             response

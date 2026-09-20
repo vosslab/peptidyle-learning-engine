@@ -72,7 +72,8 @@ Published Questions and Blueprint Courses have immutable Revision families.
 Question Pools are current state: members live on the Pool row's Edit Number.
 Accounts, Course Instances, Assessments, and Blueprint Courses use the public
 ID as primary key. Edit Numbers on current aggregates are concurrency
-controls; HTTP ETags are those integers as decimal strings.
+controls. HTTP `ETag`/`If-Match` encode those integers as quoted decimal
+strings; the domain value is the Edit Number or Revision Number.
 
 ## Questions and Pools
 

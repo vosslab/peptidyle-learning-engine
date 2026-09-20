@@ -38,7 +38,9 @@ more than one role uses separate Accounts.
 | Product role | The Account's one immutable Student, Instructor, or Sysadmin role |
 | Course Instance ID | One delivered Course |
 | Course relationship | One Account's Student or Instructor relationship to one Course |
-| Student record ID | The global Student Account's FERPA-protected record in one Course Instance |
+| Student record ID | The global Student Account's FERPA-protected record in one Course Instance. Internal only; recovery and public APIs use Course Roster identity instead |
+| Course Roster ID | `CourseRosterId`: Course-local Student roster identifier inside one Course Instance |
+| Course Roster Tuple | `CourseRosterTuple { courseInstanceId, rosterId }` |
 | Blueprint Course ID | One reusable Blueprint lineage and current lifecycle state |
 | Blueprint owner relationship | The one Instructor who owns that Blueprint lineage |
 | Authoring workspace ID | One private Draft Question workspace |
@@ -68,6 +70,8 @@ Course membership.
 | Blueprint Revision Tuple | One immutable saved Blueprint content state: Blueprint Course ID plus Revision Number |
 | Assessment ID | One current Blueprint or Course Instance Assessment; not a revision family |
 | Assessment Attempt ID | One Student's occurrence of one Course Instance Assessment |
+| Question Asset Tuple | `QuestionAssetTuple` with `QuestionAssetId` member `questionAssetId` plus checksum; every field holding it is `questionAssetTuple` |
+| Object Address | Typed physical object location. Members use `objectId`, `questionAssetId`, `workspaceId`, `workspaceImportId`, `courseBannerId`, and `draftQuestionId` |
 | Object ID | One immutable stored object |
 
 In ID format notation, `X` is one cryptographically random Crockford Base32
@@ -144,6 +148,11 @@ The Question Backend owns opaque render state and response interpretation. PLE
 binds that state to the authenticated Student, Course, Assessment Attempt,
 Question position, and exact Revision evidence. A browser-supplied Attempt or
 position is only a selector.
+
+Archived Student Work Recovery returns typed Course Instance, Assessment,
+Assessment Attempt, Question Revision Tuple, and `CourseRosterTuple`
+identities. It never exposes `StudentRecordId`. `StudentRecordId` may remain
+an internal FERPA record key.
 
 ## Future Course relationships
 

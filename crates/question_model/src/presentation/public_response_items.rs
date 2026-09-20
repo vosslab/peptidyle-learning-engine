@@ -93,7 +93,7 @@ pub(super) fn public_item_bindings(
             maximum,
         } => {
             validate_public_bounds(*minimum, *maximum, u32::MAX)?;
-            let binding = question_asset_rendition(&surface.question_asset, assets)?;
+            let binding = question_asset_rendition(&surface.question_asset_tuple, assets)?;
             let dimensions = Some((
                 binding
                     .intrinsic_width
@@ -112,7 +112,7 @@ pub(super) fn public_item_bindings(
                 surface.id.clone(),
                 ResponseItemRole::HotspotSurface,
                 vec![QuestionContentBlock::Image {
-                    question_asset: surface.question_asset.clone(),
+                    question_asset_tuple: surface.question_asset_tuple.clone(),
                     description: surface.description.clone(),
                 }],
                 assets,

@@ -286,7 +286,7 @@ mod tests {
             data_class: ObjectDataClass::QuestionSource,
             address: ObjectAddress::QuestionSource {
                 question_revision_tuple: question_revision_tuple.clone(),
-                object,
+                object_id: object,
             },
             sha256: Sha256Checksum::from_bytes(DIGEST_BYTES),
             size_bytes: 123,
@@ -304,7 +304,7 @@ mod tests {
                 "\"dataClass\":\"question-source\",",
                 "\"address\":{\"kind\":\"questionSource\",",
                 "\"questionRevisionTuple\":{\"questionId\":\"ABCD-XEFG\",\"revisionNumber\":2},",
-                "\"object\":\"00000000-0000-0000-0000-000000000003\"},",
+                "\"objectId\":\"00000000-0000-0000-0000-000000000003\"},",
                 "\"sha256\":\"000102030405060708090a0b0c0d0e0f",
                 "101112131415161718191a1b1c1d1e1f\",",
                 "\"sizeBytes\":123,",

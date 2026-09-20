@@ -24,7 +24,7 @@ use crate::{SessionTokenHash, StoreError};
 #[serde(rename_all = "camelCase")]
 pub struct AssessmentBlueprintUpdateReview {
     pub assessment: LiveAssessmentWorkspace,
-    pub source_revision_number: question_model::BlueprintRevisionNumber,
+    pub source_blueprint_revision_tuple: question_model::BlueprintRevisionTuple,
     pub proposed: Option<AssessmentBlueprintUpdateContent>,
     pub cannot_apply_reason: Option<AssessmentBlueprintUpdateCannotApplyReason>,
 }
@@ -102,7 +102,7 @@ pub enum AssessmentBlueprintUpdateEntry {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ApplyAssessmentBlueprintUpdateInput {
     // ASVS 1.5.2, 2.2.1: the browser cannot choose source identities or content.
-    pub expected_source_revision_number: question_model::BlueprintRevisionNumber,
+    pub expected_source_blueprint_revision_tuple: question_model::BlueprintRevisionTuple,
     pub expected_assessment_edit_number: AssessmentEditNumber,
 }
 
@@ -254,7 +254,7 @@ pub struct CourseAssessmentSummary {
     /// Stable Assessment lifecycle, separate from Student Assessment Access.
     pub status: AssessmentStatus,
     /// Exact compare-and-swap value for the current authored content.
-    pub edit_number: AssessmentEditNumber,
+    pub assessment_edit_number: AssessmentEditNumber,
 }
 
 /// One answer-free Assessment due in the current Instructor's rolling next-seven-days window.
@@ -316,7 +316,7 @@ pub struct LiveAssessmentWorkspace {
     /// Public Assessment ID; internal Assessment identity remains server-side.
     pub id: AssessmentId,
     /// Exact compare-and-swap value for the current authored content.
-    pub edit_number: AssessmentEditNumber,
+    pub assessment_edit_number: AssessmentEditNumber,
     /// Stable Assessment lifecycle, separate from future Assessment Access.
     pub status: AssessmentStatus,
     /// Immutable database-derived creation origin; browser requests cannot supply it.
@@ -386,9 +386,13 @@ pub struct AssessmentReleaseValidation {
 #[cfg(test)]
 mod tests {
     use super::{
-        AssessmentUnreleaseImpact, SaveLiveAssessmentInlineInput, SaveLiveAssessmentInput,
+        ApplyAssessmentBlueprintUpdateInput, AssessmentUnreleaseImpact,
+        SaveLiveAssessmentInlineInput, SaveLiveAssessmentInput,
     };
-    use question_model::{AssessmentEditNumber, AssessmentTitle};
+    use question_model::{
+        AssessmentEditNumber, AssessmentTitle, BlueprintCourseId, BlueprintRevisionNumber,
+        BlueprintRevisionTuple,
+    };
 
     #[test]
     fn release_date_blockers_are_stable_browser_issues() {
@@ -412,11 +416,54 @@ mod tests {
     }
 
     #[test]
+    fn apply_blueprint_update_requires_source_blueprint_revision_tuple() {
+        let json = serde_json::json!({
+            "expectedSourceBlueprintRevisionTuple": {
+                "blueprintCourseId": "BPABCDEFGJ",
+                "revisionNumber": "2"
+            },
+            "expectedAssessmentEditNumber": "3"
+        });
+        let input: ApplyAssessmentBlueprintUpdateInput =
+            serde_json::from_value(json).expect("canonical apply input");
+        assert_eq!(
+            input
+                .expected_source_blueprint_revision_tuple
+                .blueprint_course_id,
+            "BPABCDEFGJ"
+                .parse::<BlueprintCourseId>()
+                .expect("Blueprint Course ID")
+        );
+        assert_eq!(
+            input
+                .expected_source_blueprint_revision_tuple
+                .revision_number,
+            BlueprintRevisionNumber::new(2).expect("revision")
+        );
+        assert!(
+            serde_json::from_value::<ApplyAssessmentBlueprintUpdateInput>(serde_json::json!({
+                "expectedSourceRevisionNumber": "2",
+                "expectedAssessmentEditNumber": "3"
+            }))
+            .is_err()
+        );
+        let _ = BlueprintRevisionTuple {
+            blueprint_course_id: input
+                .expected_source_blueprint_revision_tuple
+                .blueprint_course_id
+                .clone(),
+            revision_number: input
+                .expected_source_blueprint_revision_tuple
+                .revision_number,
+        };
+    }
+
+    #[test]
     fn unrelease_impact_exposes_only_aggregate_deletion_counts() {
         let impact = AssessmentUnreleaseImpact {
             confirmation_title: AssessmentTitle::try_new("Peptide bonds".to_string())
                 .expect("valid title"),
-            edit_number: AssessmentEditNumber::new(3).expect("valid edit number"),
+            assessment_edit_number: AssessmentEditNumber::new(3).expect("valid edit number"),
             attempt_count: 2,
             submission_count: 5,
             grade_count: 3,
@@ -425,7 +472,7 @@ mod tests {
             serde_json::to_value(impact).expect("impact serializes"),
             serde_json::json!({
                 "confirmationTitle": "Peptide bonds",
-                "editNumber": "3",
+                "assessmentEditNumber": "3",
                 "attemptCount": 2,
                 "submissionCount": 5,
                 "gradeCount": 3
@@ -515,7 +562,7 @@ pub struct AssessmentUnreleaseImpact {
     /// Current Assessment Title that the Instructor must repeat to confirm.
     pub confirmation_title: AssessmentTitle,
     /// Exact compare-and-swap value required by the destructive transition.
-    pub edit_number: AssessmentEditNumber,
+    pub assessment_edit_number: AssessmentEditNumber,
     /// Assessment Attempts that the transition will delete.
     pub attempt_count: u64,
     /// All Question and Assessment submissions that the transition will delete.

@@ -251,7 +251,7 @@ struct PleQuestionJsonMatch {
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct PleQuestionJsonHotspotSurface {
-    question_asset: String,
+    question_asset_id: String,
     checksum: String,
     description: String,
 }
@@ -282,7 +282,7 @@ impl PleQuestionJsonDocumentBody {
         let PleQuestionJsonResponse::Hotspot { surface, .. } = &mut published.response else {
             return invalid("PLE Question JSON source has no hotspot surface to retarget");
         };
-        surface.question_asset = question_asset.question_asset.to_string();
+        surface.question_asset_id = question_asset.question_asset_id.to_string();
         surface.checksum = question_asset.checksum;
         published.validate()?;
         Ok(published)

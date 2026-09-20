@@ -301,7 +301,10 @@ async fn source_fixture(object_store: &MemoryObjectStore, workspace: WorkspaceId
     let object = ObjectId::from_uuid(Uuid::from_u128(3));
     object_store
         .put(PutObject {
-            address: ObjectAddress::WorkspaceQuestionSource { workspace, object },
+            address: ObjectAddress::WorkspaceQuestionSource {
+                workspace_id: workspace,
+                object_id: object,
+            },
             bytes: b"complete Question Source".to_vec(),
             media_type: "text/x-wework-pg".to_owned(),
             created_at: Timestamp::from_unix_millis(1_000),

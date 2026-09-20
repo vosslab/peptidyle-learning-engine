@@ -25,7 +25,7 @@ fn question_revision_tuple(revision_number: u32) -> QuestionRevisionTuple {
 async fn exercise_object_store(store: &dyn ObjectStore) {
     let key = ObjectAddress::QuestionSource {
         question_revision_tuple: question_revision_tuple(2),
-        object: ObjectId::from_uuid(id(3)),
+        object_id: ObjectId::from_uuid(id(3)),
     };
     let request = PutObject {
         address: key.clone(),
@@ -53,8 +53,8 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
     );
     let archive_key = ObjectAddress::PublishedImportArchive {
         question_revision_tuple: question_revision_tuple(42),
-        import: WorkspaceImportId::from_uuid(id(43)),
-        object: ObjectId::from_uuid(id(44)),
+        workspace_import_id: WorkspaceImportId::from_uuid(id(43)),
+        object_id: ObjectId::from_uuid(id(44)),
     };
     store
         .put(PutObject {
@@ -74,8 +74,8 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
     );
     let asset_key = ObjectAddress::QuestionAsset {
         question_revision_tuple: question_revision_tuple(2),
-        asset: QuestionAssetId::from_uuid(id(13)),
-        object: ObjectId::from_uuid(id(14)),
+        question_asset_id: QuestionAssetId::from_uuid(id(13)),
+        object_id: ObjectId::from_uuid(id(14)),
     };
     store
         .put(PutObject {
@@ -101,7 +101,7 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
     );
     let student_key = ObjectAddress::StudentRecord {
         course_instance_id: CourseInstanceId::from_debug_serial(4),
-        object: ObjectId::from_uuid(id(5)),
+        object_id: ObjectId::from_uuid(id(5)),
     };
     store
         .put(PutObject {
@@ -126,7 +126,7 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         ObjectDataClass::StudentRecord
     );
     let temporary_key = ObjectAddress::Temporary {
-        object: ObjectId::from_uuid(id(6)),
+        object_id: ObjectId::from_uuid(id(6)),
     };
     store
         .put(PutObject {
@@ -140,7 +140,7 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
 
     let banner_upload_key = ObjectAddress::CourseBannerUpload {
         course_instance_id: CourseInstanceId::from_debug_serial(51),
-        upload: CourseBannerUploadId::from_uuid(id(52)),
+        course_banner_upload_id: CourseBannerUploadId::from_uuid(id(52)),
     };
     let banner_upload_record = store
         .put(PutObject {
@@ -169,7 +169,7 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
 
     let course_banner_key = ObjectAddress::CourseBannerRendition {
         course_instance_id: CourseInstanceId::from_debug_serial(51),
-        banner: CourseBannerId::from_uuid(id(53)),
+        course_banner_id: CourseBannerId::from_uuid(id(53)),
         rendition: question_model::CourseBannerRendition::Banner,
     };
     let course_banner_record = store
@@ -195,19 +195,19 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         .expect("current course banners are signable after separate pointer authorization");
 
     let workspace_import_source = ObjectAddress::WorkspaceImportSource {
-        workspace: WorkspaceId::from_uuid(id(8)),
-        import: WorkspaceImportId::from_uuid(id(9)),
-        object: ObjectId::from_uuid(id(10)),
+        workspace_id: WorkspaceId::from_uuid(id(8)),
+        workspace_import_id: WorkspaceImportId::from_uuid(id(9)),
+        object_id: ObjectId::from_uuid(id(10)),
     };
     let workspace_question_source = ObjectAddress::WorkspaceQuestionSource {
-        workspace: WorkspaceId::from_uuid(id(8)),
-        object: ObjectId::from_uuid(id(15)),
+        workspace_id: WorkspaceId::from_uuid(id(8)),
+        object_id: ObjectId::from_uuid(id(15)),
     };
     let workspace_import_asset = ObjectAddress::WorkspaceImportAsset {
-        workspace: WorkspaceId::from_uuid(id(8)),
-        import: WorkspaceImportId::from_uuid(id(9)),
-        asset: QuestionAssetId::from_uuid(id(11)),
-        object: ObjectId::from_uuid(id(12)),
+        workspace_id: WorkspaceId::from_uuid(id(8)),
+        workspace_import_id: WorkspaceImportId::from_uuid(id(9)),
+        question_asset_id: QuestionAssetId::from_uuid(id(11)),
+        object_id: ObjectId::from_uuid(id(12)),
     };
     for key in [
         workspace_import_source.clone(),
@@ -309,14 +309,14 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
 #[test]
 fn workspace_object_paths_bind_workspace_and_import_identity() {
     let source = ObjectAddress::WorkspaceImportSource {
-        workspace: WorkspaceId::from_uuid(id(21)),
-        import: WorkspaceImportId::from_uuid(id(22)),
-        object: ObjectId::from_uuid(id(23)),
+        workspace_id: WorkspaceId::from_uuid(id(21)),
+        workspace_import_id: WorkspaceImportId::from_uuid(id(22)),
+        object_id: ObjectId::from_uuid(id(23)),
     };
     let other_workspace = ObjectAddress::WorkspaceImportSource {
-        workspace: WorkspaceId::from_uuid(id(24)),
-        import: WorkspaceImportId::from_uuid(id(22)),
-        object: ObjectId::from_uuid(id(23)),
+        workspace_id: WorkspaceId::from_uuid(id(24)),
+        workspace_import_id: WorkspaceImportId::from_uuid(id(22)),
+        object_id: ObjectId::from_uuid(id(23)),
     };
     assert_ne!(source, other_workspace);
     assert_ne!(source.path(), other_workspace.path());
@@ -329,8 +329,8 @@ fn workspace_object_paths_bind_workspace_and_import_identity() {
 #[test]
 fn workspace_question_source_key_has_stable_workspace_path_and_is_private_source() {
     let source = ObjectAddress::WorkspaceQuestionSource {
-        workspace: WorkspaceId::from_uuid(id(31)),
-        object: ObjectId::from_uuid(id(32)),
+        workspace_id: WorkspaceId::from_uuid(id(31)),
+        object_id: ObjectId::from_uuid(id(32)),
     };
     assert_eq!(
         source.path(),

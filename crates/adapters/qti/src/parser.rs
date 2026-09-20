@@ -524,8 +524,8 @@ fn image_block(
         .entry(path.clone())
         .or_insert_with(|| asset_object(path.clone(), bytes.to_vec(), media_type.to_string()));
     Ok(QuestionContentBlock::Image {
-        question_asset: QuestionAssetTuple {
-            question_asset: asset.asset,
+        question_asset_tuple: QuestionAssetTuple {
+            question_asset_id: asset.asset,
             checksum: asset.sha256.clone(),
         },
         description: image

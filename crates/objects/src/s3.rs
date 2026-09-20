@@ -528,7 +528,7 @@ mod tests {
     fn record() -> ObjectRecord {
         let key = ObjectAddress::QuestionSource {
             question_revision_tuple: question_revision_tuple(),
-            object: ObjectId::from_uuid(Uuid::from_u128(3)),
+            object_id: ObjectId::from_uuid(Uuid::from_u128(3)),
         };
         ObjectRecord {
             id: key.object_id(),
@@ -546,8 +546,8 @@ mod tests {
     fn public_asset_key() -> ObjectAddress {
         ObjectAddress::QuestionAsset {
             question_revision_tuple: question_revision_tuple(),
-            asset: QuestionAssetId::from_uuid(Uuid::from_u128(3)),
-            object: ObjectId::from_uuid(Uuid::from_u128(4)),
+            question_asset_id: QuestionAssetId::from_uuid(Uuid::from_u128(3)),
+            object_id: ObjectId::from_uuid(Uuid::from_u128(4)),
         }
     }
 
@@ -573,7 +573,7 @@ mod tests {
     fn metadata_for_another_semantic_key_is_rejected() {
         let stored = record();
         let requested = ObjectAddress::Temporary {
-            object: ObjectId::from_uuid(Uuid::from_u128(4)),
+            object_id: ObjectId::from_uuid(Uuid::from_u128(4)),
         };
         let metadata = HashMap::from([(
             RECORD_METADATA_KEY.to_string(),

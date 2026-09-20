@@ -783,10 +783,10 @@ mod tests {
         );
 
         let hotspot = QuestionResponseFormat::Hotspot {
-            surface: question_model::QuestionAssetTuple {
-                question_asset: question_model::QuestionAssetId::from_uuid(uuid::Uuid::from_u128(
-                    1,
-                )),
+            question_asset_tuple: question_model::QuestionAssetTuple {
+                question_asset_id: question_model::QuestionAssetId::from_uuid(
+                    uuid::Uuid::from_u128(1),
+                ),
                 checksum: "a".repeat(64),
             },
             description: "A diagram".to_string(),

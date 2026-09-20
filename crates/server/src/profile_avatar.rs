@@ -200,8 +200,8 @@ async fn replace_profile_image(State(state): State<RouteState>, request: Request
     let profile_image_id = ProfileImageId::generate();
     let object = ObjectId::from_uuid(Uuid::now_v7());
     let address = ObjectAddress::ProfileImage {
-        image: profile_image_id,
-        object,
+        profile_image_id,
+        object_id: object,
     };
     let checksum = Sha256Checksum::compute(&image);
     let length = u64::try_from(image.len()).unwrap_or(u64::MAX);
@@ -287,8 +287,8 @@ async fn cleanup_profile_image(
     work: AccountProfileImageDeleteWork,
 ) {
     let address = ObjectAddress::ProfileImage {
-        image: work.profile_image_id,
-        object: work.object_id,
+        profile_image_id: work.profile_image_id,
+        object_id: work.object_id,
     };
     match state.objects.delete(&address).await {
         Ok(()) => {
@@ -368,8 +368,8 @@ async fn deliver_profile_image(
         Err(error) => return store_error_response(error),
     };
     let address = ObjectAddress::ProfileImage {
-        image: profile_image_id,
-        object,
+        profile_image_id,
+        object_id: object,
     };
     let stored = match state.objects.get(&address).await {
         Ok(value)

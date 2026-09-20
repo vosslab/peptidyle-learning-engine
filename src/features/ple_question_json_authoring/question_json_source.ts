@@ -121,7 +121,7 @@ export type PleQuestionJsonNumericResponseTolerance =
 
 /** Immutable Question Asset Tuple and accessible description for a hotspot surface. */
 export type PleQuestionJsonHotspotSurface = {
-  readonly questionAsset: string;
+  readonly questionAssetId: string;
   readonly checksum: string;
   readonly description: string;
 };

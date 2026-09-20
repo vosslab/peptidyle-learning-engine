@@ -134,7 +134,7 @@ export function AssessmentStudentTimeAccommodations(props: {
   // A saved base-policy change invalidates the finite preview. Reload from the
   // shared server calculation; never retain a derived-duration cache.
   createEffect(
-    on([(): string => workspace.assessment().workspace.editNumber, open, student], () => {
+    on([(): string => workspace.assessment().workspace.assessmentEditNumber, open, student], () => {
       if (open() && student() !== "") void loadConfiguration(student());
     }),
   );

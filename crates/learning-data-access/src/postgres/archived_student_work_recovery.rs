@@ -2,8 +2,8 @@
 
 use async_trait::async_trait;
 use question_model::{
-    AssessmentAttemptId, CourseInstanceId, QuestionId, QuestionRevisionNumber,
-    QuestionRevisionTuple,
+    AssessmentAttemptId, CourseInstanceId, CourseRosterId, CourseRosterTuple, QuestionId,
+    QuestionRevisionNumber, QuestionRevisionTuple,
 };
 use serde::{Serialize, de::DeserializeOwned};
 use sqlx::{Postgres, Row, Transaction, postgres::PgRow};
@@ -111,7 +111,7 @@ impl ArchivedStudentWorkRecoveryStore for PostgresArchivedStudentWorkRecoverySto
             course_instance_id: get::<String>(&row, "course_instance_id")?
                 .parse()
                 .map_err(|_| invalid())?,
-            roster_id: get(&row, "roster_id")?,
+            course_roster_tuple: course_roster_tuple(&row, &course_instance_id)?,
             assessment_id: get::<String>(&row, "assessment_id")?
                 .parse()
                 .map_err(|_| invalid())?,
@@ -199,12 +199,28 @@ struct ResponseEvidence<'a> {
     finalized_at: &'a Option<String>,
 }
 
+fn course_roster_tuple(
+    row: &PgRow,
+    course_instance_id: &CourseInstanceId,
+) -> Result<Option<CourseRosterTuple>, StoreError> {
+    let roster_id: Option<String> = get(row, "roster_id")?;
+    roster_id
+        .map(|roster_id| {
+            Ok(CourseRosterTuple {
+                course_instance_id: course_instance_id.clone(),
+                roster_id: CourseRosterId::new(roster_id).map_err(|_| invalid())?,
+            })
+        })
+        .transpose()
+}
+
 fn summary(row: &PgRow) -> Result<RecoverySummary, StoreError> {
+    let course_instance_id: CourseInstanceId = get::<String>(row, "course_instance_id")?
+        .parse()
+        .map_err(|_| invalid())?;
     Ok(RecoverySummary {
-        course_instance_id: get::<String>(row, "course_instance_id")?
-            .parse()
-            .map_err(|_| invalid())?,
-        roster_id: get(row, "roster_id")?,
+        course_instance_id: course_instance_id.clone(),
+        course_roster_tuple: course_roster_tuple(row, &course_instance_id)?,
         assessment_id: get::<String>(row, "assessment_id")?
             .parse()
             .map_err(|_| invalid())?,

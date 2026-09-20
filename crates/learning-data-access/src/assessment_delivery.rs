@@ -256,7 +256,7 @@ pub struct NativePleIssuanceSource {
 /// The Question Asset checksum is content identity, not an object-store locator.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReadyQuestionAssetRendition {
-    pub question_asset: QuestionAssetId,
+    pub question_asset_id: QuestionAssetId,
     pub question_asset_checksum: String,
     pub rendition_checksum: String,
     pub intrinsic_width: u32,

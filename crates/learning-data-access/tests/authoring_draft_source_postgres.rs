@@ -43,8 +43,8 @@ fn source_record_with_id(
         storage_area: ObjectStorageArea::PrivateContent,
         data_class: ObjectDataClass::AuthoringContent,
         address: ObjectAddress::WorkspaceQuestionSource {
-            workspace,
-            object: id,
+            workspace_id: workspace,
+            object_id: id,
         },
         sha256: Sha256Checksum::compute(SOURCE_BYTES),
         size_bytes: SOURCE_BYTES.len() as u64,

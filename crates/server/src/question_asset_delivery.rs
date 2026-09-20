@@ -155,8 +155,8 @@ fn redirect_response(
 ) -> Result<Response, ()> {
     let address = ObjectAddress::QuestionAsset {
         question_revision_tuple: rendition.question_revision_tuple.clone(),
-        asset: rendition.asset_id,
-        object: rendition.public_object_id,
+        question_asset_id: rendition.asset_id,
+        object_id: rendition.public_object_id,
     };
     let location = base_url.join(&address.path()).map_err(|_| ())?;
     let location = HeaderValue::from_str(location.as_str()).map_err(|_| ())?;

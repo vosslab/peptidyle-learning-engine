@@ -12,7 +12,7 @@ use std::str::FromStr;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    CourseInvitationId, LocalDateAndTime, MAX_ASSESSMENT_ATTEMPT_LIMIT,
+    CourseInstanceId, CourseInvitationId, LocalDateAndTime, MAX_ASSESSMENT_ATTEMPT_LIMIT,
     MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS, Timestamp,
 };
 
@@ -132,6 +132,72 @@ impl From<CourseRosterChangeNumber> for String {
     fn from(value: CourseRosterChangeNumber) -> Self {
         value.to_string()
     }
+}
+
+/// Course-local Student roster identifier inside one Course Instance.
+///
+/// This is never an Account ID, Student Record ID, or public ID. Import and
+/// recovery use the same 1..=64 ASCII letters, digits, `.`, `_`, or `-` form.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct CourseRosterId(String);
+
+impl CourseRosterId {
+    /// Validates one Course Roster ID after trimming surrounding whitespace.
+    pub fn new(value: impl AsRef<str>) -> Result<Self, &'static str> {
+        let roster_id = value.as_ref().trim();
+        if roster_id.is_empty()
+            || roster_id.len() > 64
+            || !roster_id
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'))
+        {
+            return Err("Course Roster ID must be 1 to 64 ASCII letters, digits, '.', '_', or '-'");
+        }
+        Ok(Self(roster_id.to_string()))
+    }
+
+    /// Exact Course-local roster identifier.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl std::fmt::Display for CourseRosterId {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
+impl std::str::FromStr for CourseRosterId {
+    type Err = &'static str;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Self::new(value)
+    }
+}
+
+impl TryFrom<String> for CourseRosterId {
+    type Error = &'static str;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl From<CourseRosterId> for String {
+    fn from(value: CourseRosterId) -> Self {
+        value.0
+    }
+}
+
+/// Exact Course Instance plus Course Roster identity used by recovery and
+/// Course-scoped Student labels. Recovery never serializes Student Record ID.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CourseRosterTuple {
+    pub course_instance_id: CourseInstanceId,
+    pub roster_id: CourseRosterId,
 }
 
 /// Validated, nonblank browser display label with no email semantics.
@@ -326,6 +392,12 @@ mod tests {
         assert_eq!(
             "42".parse::<CourseRosterChangeNumber>().unwrap().value(),
             42
+        );
+        assert!(CourseRosterId::new("").is_err());
+        assert!(CourseRosterId::new("a".repeat(65)).is_err());
+        assert_eq!(
+            CourseRosterId::new("  bio-301  ").unwrap().as_str(),
+            "bio-301"
         );
         assert!(TeachingDisplayLabel::try_from(" ".to_owned()).is_err());
     }

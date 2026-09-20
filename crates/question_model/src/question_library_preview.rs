@@ -44,7 +44,7 @@ pub enum QuestionResponsePreview {
         items: Vec<Vec<QuestionContentBlock>>,
     },
     Hotspot {
-        surface: QuestionAssetTuple,
+        question_asset_tuple: QuestionAssetTuple,
         description: String,
         regions: Vec<QuestionPreviewRegion>,
         selection: ResponseSelectionRule,
@@ -72,12 +72,12 @@ impl QuestionResponsePreview {
                 items: items.iter().map(|item| item.body.clone()).collect(),
             },
             QuestionResponseFormat::Hotspot {
-                surface,
+                question_asset_tuple,
                 description,
                 regions,
                 selection,
             } => Self::Hotspot {
-                surface: surface.clone(),
+                question_asset_tuple: question_asset_tuple.clone(),
                 description: description.clone(),
                 regions: regions
                     .iter()

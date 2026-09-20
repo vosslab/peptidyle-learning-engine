@@ -48,7 +48,7 @@ function AssessmentAttemptHistoryContent(props: {
   ): Parameters<typeof ContentBlockList>[0]["assetUrl"] {
     return (asset) =>
       new URL(
-        applicationApi.client.assetUrl(questionRevisionTuple, asset.questionAsset),
+        applicationApi.client.assetUrl(questionRevisionTuple, asset.questionAssetId),
         window.location.origin,
       );
   }

@@ -13,7 +13,7 @@ export function setPleQuestionJsonHotspotAsset(
   const response: PleQuestionJsonHotspotResponse = {
     kind: "hotspot",
     surface: {
-      questionAsset: asset.questionAsset,
+      questionAssetId: asset.questionAssetId,
       checksum: asset.checksum,
       description:
         previous?.surface.description ??

@@ -17,8 +17,8 @@ pub fn validate_workspace_question_source_object_record(
     record: &ObjectRecord,
 ) -> Result<(), StoreError> {
     let ObjectAddress::WorkspaceQuestionSource {
-        workspace: address_workspace,
-        object,
+        workspace_id: address_workspace,
+        object_id: object,
     } = &record.address
     else {
         return Err(StoreError::InvalidRecord(
@@ -66,8 +66,8 @@ mod tests {
     fn object_record(workspace: WorkspaceId) -> ObjectRecord {
         let id = ObjectId::from_uuid(Uuid::from_u128(2));
         let address = ObjectAddress::WorkspaceQuestionSource {
-            workspace,
-            object: id,
+            workspace_id: workspace,
+            object_id: id,
         };
         ObjectRecord {
             id,

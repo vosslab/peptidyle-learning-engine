@@ -427,8 +427,8 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
         workspace.courseInstanceId,
         workspace.assessmentId,
         {
-          expectedSourceRevisionNumber: review.sourceRevisionNumber,
-          expectedAssessmentEditNumber: review.assessment.editNumber,
+          expectedSourceBlueprintRevisionTuple: review.sourceBlueprintRevisionTuple,
+          expectedAssessmentEditNumber: review.assessment.assessmentEditNumber,
         },
       );
       setBlueprintReview(undefined);
@@ -483,7 +483,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
         workspace.assessmentId,
         entry.id,
         selectionCount,
-        workspace.assessment().workspace.editNumber,
+        workspace.assessment().workspace.assessmentEditNumber,
       );
       await refreshAfterPoolMutation("Question Pool selection count updated.");
     } catch (error: unknown) {
@@ -516,7 +516,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
           members,
           interchangeabilityAttested: true,
         },
-        workspace.assessment().workspace.editNumber,
+        workspace.assessment().workspace.assessmentEditNumber,
       );
       await refreshAfterPoolMutation("Assessment-owned Question Pool membership updated.");
     } catch (error: unknown) {
@@ -558,7 +558,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
           selectedQuestionOrder: poolSelectedQuestionOrder(),
           scoringRule: poolScoringRule(),
         },
-        workspace.assessment().workspace.editNumber,
+        workspace.assessment().workspace.assessmentEditNumber,
       );
       setPoolToImport("");
       await refreshAfterPoolMutation("Question Pool imported as an Assessment-owned fork.");

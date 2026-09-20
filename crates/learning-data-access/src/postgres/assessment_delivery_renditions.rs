@@ -44,7 +44,7 @@ pub(super) fn presentation_payloads<'a>(
                 "response_item_id": binding.response_item_id.as_str(),
             })).collect::<Vec<_>>(),
             "question_assets": assets.iter().map(|asset| serde_json::json!({
-                "asset_id": asset.question_asset.as_uuid(),
+                "asset_id": asset.question_asset_id.as_uuid(),
                 "question_asset_checksum": asset.question_asset_checksum,
                 "rendition_checksum": asset.rendition_checksum,
                 "intrinsic_width": asset.intrinsic_width,
@@ -99,7 +99,7 @@ pub(super) async fn current_ready_question_asset_renditions(
                 .try_get::<String, _>("asset_id")
                 .map_err(map_sqlx_error)?;
             Ok(ReadyQuestionAssetRendition {
-                question_asset: uuid::Uuid::parse_str(&asset_id)
+                question_asset_id: uuid::Uuid::parse_str(&asset_id)
                     .map(question_model::QuestionAssetId::from_uuid)
                     .map_err(|_| {
                         StoreError::InvalidRecord("Question Asset ID is invalid".to_string())

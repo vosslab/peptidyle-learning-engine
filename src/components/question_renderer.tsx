@@ -249,7 +249,7 @@ export function resolveSameOriginAssetUrl(
   resolver: AssetUrlResolver,
 ): string {
   const url = resolver(questionAsset);
-  const expectedPath = `/api/questions/${encodeURIComponent(questionRevisionTuple.questionId)}/revisions/${questionRevisionTuple.revisionNumber}/assets/${encodeURIComponent(questionAsset.questionAsset)}`;
+  const expectedPath = `/api/questions/${encodeURIComponent(questionRevisionTuple.questionId)}/revisions/${questionRevisionTuple.revisionNumber}/assets/${encodeURIComponent(questionAsset.questionAssetId)}`;
   if (
     url.origin !== globalThis.location.origin ||
     url.pathname !== expectedPath ||
@@ -331,7 +331,7 @@ function QuestionContentBlockRenderer(props: {
           <img
             class="question-renderer__image"
             src={resolveSameOriginAssetUrl(
-              props.block.questionAsset,
+              props.block.questionAssetTuple,
               props.questionRevisionTuple,
               props.assetUrl,
             )}

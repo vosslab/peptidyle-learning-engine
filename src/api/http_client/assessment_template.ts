@@ -189,7 +189,7 @@ export function createAssessmentTemplateClient(
       );
       assertResponseMatchesPositiveNumber(
         response,
-        workspace.editNumber,
+        workspace.assessmentEditNumber,
         path,
         "Assessment Edit Number",
       );

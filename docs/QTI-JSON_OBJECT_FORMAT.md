@@ -182,10 +182,11 @@ The authored document contains answers. It is never a student, public,
 ordinary-browser-contract, or Wasm payload. The one narrow exception is an
 authenticated author-role instructor requesting that instructor's own private
 workspace source through the dedicated canonical-source `GET`/`PUT` route;
-that route is `no-store`, uses a strong ETag, and does not expose a signed
-object URL or checksum. The ordinary backend-agnostic authoring and delivery
-operations route the complete source to the PLE Question Backend. That backend
-validates it and derives only the output required by the current operation:
+that route is `no-store`, uses a strong HTTP `ETag` encoding of the Draft
+Question Edit Number, and does not expose a signed object URL or checksum.
+The ordinary backend-agnostic authoring and delivery operations route the
+complete source to the PLE Question Backend. That backend validates it and
+derives only the output required by the current operation:
 
 ```text
 answer-bearing PLE JSON

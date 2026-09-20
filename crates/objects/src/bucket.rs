@@ -78,13 +78,13 @@ pub enum ObjectAddress {
     /// Immutable raster staged for one real private Draft Question.
     DraftQuestionAsset {
         /// Private authoring workspace.
-        workspace: WorkspaceId,
+        workspace_id: WorkspaceId,
         /// Internal Draft identity, never a browser locator.
-        draft_question_uuid: uuid::Uuid,
+        draft_question_id: uuid::Uuid,
         /// Stable logical asset identity.
-        asset: QuestionAssetId,
+        question_asset_id: QuestionAssetId,
         /// Fresh physical object identity.
-        object: ObjectId,
+        object_id: ObjectId,
     },
     /// Original bytes for a private workspace import.
     ///
@@ -93,11 +93,11 @@ pub enum ObjectAddress {
     /// delivery.
     WorkspaceImportSource {
         /// Private authoring workspace.
-        workspace: WorkspaceId,
+        workspace_id: WorkspaceId,
         /// Staged import identity.
-        import: WorkspaceImportId,
+        workspace_import_id: WorkspaceImportId,
         /// Physical object-record identity.
-        object: ObjectId,
+        object_id: ObjectId,
     },
     /// Canonical private PLE Question JSON source for one workspace.
     ///
@@ -105,9 +105,9 @@ pub enum ObjectAddress {
     /// packages.
     WorkspaceQuestionSource {
         /// Private authoring workspace.
-        workspace: WorkspaceId,
+        workspace_id: WorkspaceId,
         /// Physical object-record identity.
-        object: ObjectId,
+        object_id: ObjectId,
     },
     /// A verified logical asset extracted from a private workspace import.
     ///
@@ -115,20 +115,20 @@ pub enum ObjectAddress {
     /// but not eligible for CDN or Question Library delivery.
     WorkspaceImportAsset {
         /// Private authoring workspace.
-        workspace: WorkspaceId,
+        workspace_id: WorkspaceId,
         /// Staged import identity.
-        import: WorkspaceImportId,
+        workspace_import_id: WorkspaceImportId,
         /// Logical asset referenced by imported draft content.
-        asset: QuestionAssetId,
+        question_asset_id: QuestionAssetId,
         /// Physical object-record identity.
-        object: ObjectId,
+        object_id: ObjectId,
     },
     /// An original source package for a published version.
     QuestionSource {
         /// Exact immutable Question Revision that owns the source.
         question_revision_tuple: QuestionRevisionTuple,
         /// Physical object-record identity.
-        object: ObjectId,
+        object_id: ObjectId,
     },
     /// The immutable original archive retained with a published imported version.
     ///
@@ -139,18 +139,18 @@ pub enum ObjectAddress {
         /// Exact immutable Question Revision that owns the archive.
         question_revision_tuple: QuestionRevisionTuple,
         /// Import identity which produced this published version.
-        import: WorkspaceImportId,
+        workspace_import_id: WorkspaceImportId,
         /// Physical object-record identity.
-        object: ObjectId,
+        object_id: ObjectId,
     },
     /// A logical asset and its physical object for a published version.
     QuestionAsset {
         /// Exact immutable Question Revision that owns the asset.
         question_revision_tuple: QuestionRevisionTuple,
         /// Logical asset referenced by content.
-        asset: QuestionAssetId,
+        question_asset_id: QuestionAssetId,
         /// Physical object-record identity.
-        object: ObjectId,
+        object_id: ObjectId,
     },
     /// A student-facing asset belonging to a Published Question Revision.
     ///
@@ -162,9 +162,9 @@ pub enum ObjectAddress {
         /// Exact immutable Question Revision that owns the asset.
         question_revision_tuple: QuestionRevisionTuple,
         /// Logical asset referenced by content.
-        asset: QuestionAssetId,
+        question_asset_id: QuestionAssetId,
         /// Physical object-record identity.
-        object: ObjectId,
+        object_id: ObjectId,
     },
     /// A deterministic rendered Question cached by exact Question Revision and Question Seed.
     QuestionRender {
@@ -173,7 +173,7 @@ pub enum ObjectAddress {
         /// Question Seed that fully determines the render.
         question_seed: QuestionSeed,
         /// Physical object-record identity.
-        object: ObjectId,
+        object_id: ObjectId,
     },
     /// Validated banner bytes awaiting one authorized appearance save.
     ///
@@ -183,42 +183,42 @@ pub enum ObjectAddress {
         /// Course whose authorized appearance flow created the upload.
         course_instance_id: CourseInstanceId,
         /// Opaque upload ID returned to the authorized browser.
-        upload: CourseBannerUploadId,
+        course_banner_upload_id: CourseBannerUploadId,
     },
     /// Immutable verified private source retained for one Course Banner.
     CourseBannerSource {
         /// Course whose appearance may reference the banner.
         course_instance_id: CourseInstanceId,
         /// Stable browser-safe banner delivery identity.
-        banner: CourseBannerId,
+        course_banner_id: CourseBannerId,
     },
     /// Immutable normalized private delivery rendition for one Course Banner.
     CourseBannerRendition {
         /// Course whose appearance may reference the banner.
         course_instance_id: CourseInstanceId,
         /// Stable browser-safe banner delivery identity.
-        banner: CourseBannerId,
+        course_banner_id: CourseBannerId,
         /// Closed, server-owned rendition identity.
         rendition: CourseBannerRendition,
     },
     /// One normalized private rendition for a self-owned Account Profile image.
     ProfileImage {
         /// Opaque role-neutral image ID minted only by the server.
-        image: ProfileImageId,
+        profile_image_id: ProfileImageId,
         /// Physical object-record identity.
-        object: ObjectId,
+        object_id: ObjectId,
     },
     /// A course-owned Student Record Object.
     StudentRecord {
         /// Exact course whose protected record owns this object.
         course_instance_id: CourseInstanceId,
         /// Physical object-record identity.
-        object: ObjectId,
+        object_id: ObjectId,
     },
     /// A short-lived processing Object that is never served.
     Temporary {
         /// Physical object-record identity.
-        object: ObjectId,
+        object_id: ObjectId,
     },
 }
 
@@ -271,67 +271,74 @@ impl ObjectAddress {
     pub fn path(&self) -> String {
         match self {
             Self::DraftQuestionAsset {
-                workspace,
-                draft_question_uuid,
-                asset,
-                object,
+                workspace_id,
+                draft_question_id,
+                question_asset_id,
+                object_id,
             } => {
                 // ASVS 5.3.2: only server-owned identities determine the key.
                 format!(
-                    "workspaces/{workspace}/questions/drafts/{draft_question_uuid}/assets/{asset}/{object}"
+                    "workspaces/{workspace_id}/questions/drafts/{draft_question_id}/assets/{question_asset_id}/{object_id}"
                 )
             }
             Self::WorkspaceImportSource {
-                workspace,
-                import,
-                object,
+                workspace_id,
+                workspace_import_id,
+                object_id,
             } => {
-                format!("workspaces/{workspace}/imports/{import}/source/{object}")
+                format!(
+                    "workspaces/{workspace_id}/imports/{workspace_import_id}/source/{object_id}"
+                )
             }
-            Self::WorkspaceQuestionSource { workspace, object } => {
-                format!("workspaces/{workspace}/questions/source/{object}")
+            Self::WorkspaceQuestionSource {
+                workspace_id,
+                object_id,
+            } => {
+                format!("workspaces/{workspace_id}/questions/source/{object_id}")
             }
             Self::WorkspaceImportAsset {
-                workspace,
-                import,
-                asset,
-                object,
+                workspace_id,
+                workspace_import_id,
+                question_asset_id,
+                object_id,
             } => {
-                format!("workspaces/{workspace}/imports/{import}/assets/{asset}/{object}")
+                format!(
+                    "workspaces/{workspace_id}/imports/{workspace_import_id}/assets/{question_asset_id}/{object_id}"
+                )
             }
             Self::QuestionSource {
                 question_revision_tuple,
-                object,
+                object_id,
             } => format!(
-                "questions/{}/versions/{}/source/{object}",
+                "questions/{}/versions/{}/source/{object_id}",
                 question_revision_tuple.question_id.as_str(),
                 question_revision_tuple.revision_number
             ),
             Self::PublishedImportArchive {
                 question_revision_tuple,
-                import,
-                object,
+                workspace_import_id,
+                object_id,
             } => format!(
-                "questions/{}/versions/{}/imports/{import}/archive/{object}",
+                "questions/{}/versions/{}/imports/{workspace_import_id}/archive/{object_id}",
                 question_revision_tuple.question_id.as_str(),
                 question_revision_tuple.revision_number
             ),
             Self::QuestionAsset {
                 question_revision_tuple,
-                asset,
-                object,
+                question_asset_id,
+                object_id,
             } => format!(
-                "questions/{}/versions/{}/assets/{asset}/{object}",
+                "questions/{}/versions/{}/assets/{question_asset_id}/{object_id}",
                 question_revision_tuple.question_id.as_str(),
                 question_revision_tuple.revision_number
             ),
             Self::RestrictedQuestionAsset {
                 question_revision_tuple,
-                asset,
-                object,
+                question_asset_id,
+                object_id,
             } => {
                 format!(
-                    "questions/{}/versions/{}/restricted-assets/{asset}/{object}",
+                    "questions/{}/versions/{}/restricted-assets/{question_asset_id}/{object_id}",
                     question_revision_tuple.question_id.as_str(),
                     question_revision_tuple.revision_number
                 )
@@ -339,79 +346,84 @@ impl ObjectAddress {
             Self::QuestionRender {
                 question_revision_tuple,
                 question_seed,
-                object,
+                object_id,
             } => format!(
-                "questions/{}/versions/{}/renders/{}/{object}",
+                "questions/{}/versions/{}/renders/{}/{object_id}",
                 question_revision_tuple.question_id.as_str(),
                 question_revision_tuple.revision_number,
                 question_seed.value()
             ),
             Self::CourseBannerUpload {
                 course_instance_id,
-                upload,
+                course_banner_upload_id,
             } => format!(
-                "courses/{course_instance_id}/banners/uploads/{upload}/{}",
+                "courses/{course_instance_id}/banners/uploads/{course_banner_upload_id}/{}",
                 self.object_id()
             ),
             Self::CourseBannerSource {
                 course_instance_id,
-                banner,
+                course_banner_id,
             } => format!(
-                "courses/{course_instance_id}/banners/{banner}/source/{}",
+                "courses/{course_instance_id}/banners/{course_banner_id}/source/{}",
                 self.object_id()
             ),
             Self::CourseBannerRendition {
                 course_instance_id,
-                banner,
+                course_banner_id,
                 rendition,
             } => format!(
-                "courses/{course_instance_id}/banners/{banner}/renditions/{}/{}",
+                "courses/{course_instance_id}/banners/{course_banner_id}/renditions/{}/{}",
                 rendition.as_str(),
                 self.object_id()
             ),
-            Self::ProfileImage { image, object } => {
+            Self::ProfileImage {
+                profile_image_id,
+                object_id,
+            } => {
                 // ASVS 5.3.2: this storage path is constructed exclusively
                 // from server-owned typed identifiers, never a filename.
-                format!("profiles/images/{image}/{object}")
+                format!("profiles/images/{profile_image_id}/{object_id}")
             }
             Self::StudentRecord {
                 course_instance_id,
-                object,
+                object_id,
             } => {
-                format!("courses/{course_instance_id}/records/{object}")
+                format!("courses/{course_instance_id}/records/{object_id}")
             }
-            Self::Temporary { object } => format!("processing/{object}"),
+            Self::Temporary { object_id } => format!("processing/{object_id}"),
         }
     }
 
     /// Object-record identity embedded in the key.
     pub fn object_id(&self) -> ObjectId {
         match self {
-            Self::WorkspaceImportSource { object, .. }
-            | Self::DraftQuestionAsset { object, .. }
-            | Self::WorkspaceQuestionSource { object, .. }
-            | Self::WorkspaceImportAsset { object, .. }
-            | Self::QuestionSource { object, .. }
-            | Self::PublishedImportArchive { object, .. }
-            | Self::QuestionAsset { object, .. }
-            | Self::RestrictedQuestionAsset { object, .. }
-            | Self::QuestionRender { object, .. }
-            | Self::StudentRecord { object, .. }
-            | Self::Temporary { object } => *object,
+            Self::WorkspaceImportSource { object_id, .. }
+            | Self::DraftQuestionAsset { object_id, .. }
+            | Self::WorkspaceQuestionSource { object_id, .. }
+            | Self::WorkspaceImportAsset { object_id, .. }
+            | Self::QuestionSource { object_id, .. }
+            | Self::PublishedImportArchive { object_id, .. }
+            | Self::QuestionAsset { object_id, .. }
+            | Self::RestrictedQuestionAsset { object_id, .. }
+            | Self::QuestionRender { object_id, .. }
+            | Self::StudentRecord { object_id, .. }
+            | Self::Temporary { object_id } => *object_id,
             Self::CourseBannerUpload {
                 course_instance_id,
-                upload,
-            } => course_banner_upload_object_id(course_instance_id, *upload),
+                course_banner_upload_id,
+            } => course_banner_upload_object_id(course_instance_id, *course_banner_upload_id),
             Self::CourseBannerSource {
                 course_instance_id,
-                banner,
-            } => course_banner_source_object_id(course_instance_id, *banner),
+                course_banner_id,
+            } => course_banner_source_object_id(course_instance_id, *course_banner_id),
             Self::CourseBannerRendition {
                 course_instance_id,
-                banner,
+                course_banner_id,
                 rendition,
-            } => course_banner_rendition_object_id(course_instance_id, *banner, *rendition),
-            Self::ProfileImage { object, .. } => *object,
+            } => {
+                course_banner_rendition_object_id(course_instance_id, *course_banner_id, *rendition)
+            }
+            Self::ProfileImage { object_id, .. } => *object_id,
         }
     }
 
@@ -475,13 +487,13 @@ impl ObjectAddress {
     /// reconstructing a key later from an untrusted route or browser value.
     pub fn published_question_asset(
         question_revision_tuple: QuestionRevisionTuple,
-        asset: QuestionAssetId,
-        object: ObjectId,
+        question_asset_id: QuestionAssetId,
+        object_id: ObjectId,
     ) -> Self {
         Self::RestrictedQuestionAsset {
             question_revision_tuple,
-            asset,
-            object,
+            question_asset_id,
+            object_id,
         }
     }
 }
@@ -489,12 +501,12 @@ impl ObjectAddress {
 /// Derives the immutable physical identity for one Course Banner Upload.
 pub fn course_banner_upload_object_id(
     course_instance_id: &CourseInstanceId,
-    upload: CourseBannerUploadId,
+    course_banner_upload_id: CourseBannerUploadId,
 ) -> ObjectId {
     domain_separated_object_id_from_parts(
         b"ple:course-banner-upload:v3\0",
         course_instance_id.as_str().as_bytes(),
-        upload.as_uuid().as_bytes(),
+        course_banner_upload_id.as_uuid().as_bytes(),
         uuid::Uuid::nil().as_bytes(),
     )
 }
@@ -502,12 +514,12 @@ pub fn course_banner_upload_object_id(
 /// Derives the immutable physical identity for one promoted course banner.
 pub fn course_banner_source_object_id(
     course_instance_id: &CourseInstanceId,
-    banner: CourseBannerId,
+    course_banner_id: CourseBannerId,
 ) -> ObjectId {
     domain_separated_object_id_from_parts(
         b"ple:course-banner-source:v3\0",
         course_instance_id.as_str().as_bytes(),
-        banner.as_uuid().as_bytes(),
+        course_banner_id.as_uuid().as_bytes(),
         uuid::Uuid::nil().as_bytes(),
     )
 }
@@ -515,7 +527,7 @@ pub fn course_banner_source_object_id(
 /// Derives the immutable physical identity for one normalized course-banner rendition.
 pub fn course_banner_rendition_object_id(
     course_instance_id: &CourseInstanceId,
-    banner: CourseBannerId,
+    course_banner_id: CourseBannerId,
     rendition: CourseBannerRendition,
 ) -> ObjectId {
     let rendition_uuid = match rendition {
@@ -526,7 +538,7 @@ pub fn course_banner_rendition_object_id(
         // object-store rows to preserve.
         b"ple:course-banner-rendition:v3\0",
         course_instance_id.as_str().as_bytes(),
-        banner.as_uuid().as_bytes(),
+        course_banner_id.as_uuid().as_bytes(),
         rendition_uuid.as_bytes(),
     )
 }
@@ -557,13 +569,13 @@ fn domain_separated_object_id_from_parts(
 /// Only the first 16 bytes of the domain-separated SHA-256 digest become the
 /// deterministic object UUID.
 pub fn workspace_qti_archive_object_id(
-    workspace: WorkspaceId,
-    import: WorkspaceImportId,
+    workspace_id: WorkspaceId,
+    workspace_import_id: WorkspaceImportId,
 ) -> ObjectId {
     let mut hasher = Sha256::new();
     hasher.update(b"ple:workspace-qti-archive:v1\0");
-    hasher.update(workspace.as_uuid().as_bytes());
-    hasher.update(import.as_uuid().as_bytes());
+    hasher.update(workspace_id.as_uuid().as_bytes());
+    hasher.update(workspace_import_id.as_uuid().as_bytes());
 
     let digest = hasher.finalize();
     let mut object_uuid = [0_u8; 16];
@@ -580,14 +592,14 @@ pub fn workspace_qti_archive_object_id(
 /// object UUID.
 pub fn published_import_archive_object_id(
     question_revision_tuple: &QuestionRevisionTuple,
-    import: WorkspaceImportId,
+    workspace_import_id: WorkspaceImportId,
     archive_sha256: Sha256Checksum,
 ) -> ObjectId {
     let mut hasher = Sha256::new();
     hasher.update(b"ple:published-import-archive:v2\0");
     hasher.update(question_revision_tuple.question_id.as_str().as_bytes());
     hasher.update(question_revision_tuple.revision_number.get().to_be_bytes());
-    hasher.update(import.as_uuid().as_bytes());
+    hasher.update(workspace_import_id.as_uuid().as_bytes());
     hasher.update(archive_sha256.as_bytes());
 
     let digest = hasher.finalize();

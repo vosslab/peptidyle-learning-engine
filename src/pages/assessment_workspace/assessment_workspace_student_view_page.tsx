@@ -418,7 +418,7 @@ export function AssessmentWorkspaceStudentViewPage(): JSX.Element {
                                     new URL(
                                       applicationApi.client.assetUrl(
                                         readyPresentation().questionRevisionTuple,
-                                        asset.questionAsset,
+                                        asset.questionAssetId,
                                       ),
                                       globalThis.location.origin,
                                     )

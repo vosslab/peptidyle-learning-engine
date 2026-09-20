@@ -162,7 +162,7 @@ async fn source(store: &MemoryObjectStore) -> ResolvedWebworkQuestionSource {
         .put(PutObject {
             address: ObjectAddress::QuestionSource {
                 question_revision_tuple: binding.question_revision_tuple().clone(),
-                object: source_object_id,
+                object_id: source_object_id,
             },
             bytes: SOURCE.to_vec(),
             media_type: "text/x-wework-pg".to_string(),

@@ -29,7 +29,11 @@ pub struct OwnedDraftQuestionAsset {
 
 impl RegisterDraftQuestionAssetInput {
     pub fn validate(&self) -> Result<(), StoreError> {
-        let ObjectAddress::DraftQuestionAsset { asset, object, .. } = &self.source_record.address
+        let ObjectAddress::DraftQuestionAsset {
+            question_asset_id: asset,
+            object_id: object,
+            ..
+        } = &self.source_record.address
         else {
             return Err(StoreError::InvalidRecord(
                 "Draft asset requires its semantic address".into(),
@@ -110,10 +114,10 @@ mod tests {
                 storage_area: ObjectStorageArea::PrivateContent,
                 data_class: ObjectDataClass::AuthoringContent,
                 address: ObjectAddress::DraftQuestionAsset {
-                    workspace: WorkspaceId::from_uuid(Uuid::from_u128(2)),
-                    draft_question_uuid: Uuid::from_u128(3),
-                    asset,
-                    object,
+                    workspace_id: WorkspaceId::from_uuid(Uuid::from_u128(2)),
+                    draft_question_id: Uuid::from_u128(3),
+                    question_asset_id: asset,
+                    object_id: object,
                 },
                 sha256: Sha256Checksum::compute(b"verified original raster"),
                 size_bytes: 24,

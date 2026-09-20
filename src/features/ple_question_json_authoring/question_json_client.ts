@@ -86,7 +86,7 @@ export interface PleQuestionJsonClient {
 }
 
 export type PleQuestionJsonAssetDescriptor = {
-  readonly questionAsset: string;
+  readonly questionAssetId: string;
   readonly checksum: string;
   readonly mediaType: "image/png" | "image/jpeg" | "image/webp";
   readonly intrinsicWidth: number;
@@ -100,7 +100,7 @@ export function decodePleQuestionJsonAssetDescriptor(
   if (typeof value !== "object" || value === null || Array.isArray(value))
     throw new PleQuestionJsonProtocolError("The image upload returned an invalid descriptor.");
   const record = value as Record<string, unknown>;
-  const keys = ["questionAsset", "checksum", "mediaType", "intrinsicWidth", "intrinsicHeight"];
+  const keys = ["questionAssetId", "checksum", "mediaType", "intrinsicWidth", "intrinsicHeight"];
   if (
     Object.keys(record).length !== keys.length ||
     keys.some((key) => !Object.prototype.hasOwnProperty.call(record, key))
@@ -108,7 +108,7 @@ export function decodePleQuestionJsonAssetDescriptor(
     throw new PleQuestionJsonProtocolError(
       "The image upload returned unexpected descriptor fields.",
     );
-  const questionAsset = publicationUuid(record.questionAsset, "asset.questionAsset");
+  const questionAssetId = publicationUuid(record.questionAssetId, "asset.questionAssetId");
   const checksum = record.checksum;
   const mediaType = record.mediaType;
   const intrinsicWidth = record.intrinsicWidth;
@@ -128,7 +128,7 @@ export function decodePleQuestionJsonAssetDescriptor(
     throw new PleQuestionJsonProtocolError(
       "The image upload returned invalid measured image facts.",
     );
-  return { questionAsset, checksum, mediaType, intrinsicWidth, intrinsicHeight };
+  return { questionAssetId, checksum, mediaType, intrinsicWidth, intrinsicHeight };
 }
 
 function browserFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {

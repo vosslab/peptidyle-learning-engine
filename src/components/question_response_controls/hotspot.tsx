@@ -64,9 +64,9 @@ export function resolveHotspotImageUrl(
   >,
 ): string | undefined {
   const asset =
-    "regions" in props.responseFormat
-      ? props.responseFormat.surface
-      : props.responseFormat.surface.questionAsset;
+    "surface" in props.responseFormat
+      ? props.responseFormat.surface.questionAssetTuple
+      : props.responseFormat.questionAssetTuple;
   // ASVS 1.2.2: reuse the exact same-origin asset boundary, never author-provided URLs.
   if (props.questionRevisionTuple !== undefined && props.assetUrl !== undefined) {
     return resolveSameOriginAssetUrl(asset, props.questionRevisionTuple, props.assetUrl);
@@ -74,7 +74,7 @@ export function resolveHotspotImageUrl(
   const draft = props.hotspotDraftAsset;
   if (props.mode !== "formatOnly" || draft === undefined) return undefined;
   const url = draft.assetUrl(asset);
-  const path = `/api/authoring/drafts/${encodeURIComponent(draft.draftQuestion)}/assets/${encodeURIComponent(asset.questionAsset)}`;
+  const path = `/api/authoring/drafts/${encodeURIComponent(draft.draftQuestion)}/assets/${encodeURIComponent(asset.questionAssetId)}`;
   if (
     url.origin !== globalThis.location.origin ||
     url.pathname !== path ||

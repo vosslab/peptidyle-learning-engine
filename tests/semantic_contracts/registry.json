@@ -1,0 +1,46 @@
+{
+  "surfaces": [
+    {
+      "id": "course_instance_blueprint_provenance",
+      "behavior": "Course Instance provenance uses named Blueprint Revision Tuples.",
+      "rust_test": "crates/learning-data-access/src/course_instance.rs",
+      "typescript_test": "tests/test_course_instance_summary.mjs",
+      "postgres_api": "ple_api.load_course_instance"
+    },
+    {
+      "id": "blueprint_known_fork_tuples",
+      "behavior": "Known-fork results carry current and source Blueprint Revision Tuples.",
+      "rust_test": "crates/browser-api-contract/src/blueprint_course.rs",
+      "typescript_test": "tests/test_nested_identity_contracts.mjs",
+      "postgres_api": "ple_api.list_known_blueprint_forks"
+    },
+    {
+      "id": "assessment_blueprint_update_tuples",
+      "behavior": "Apply uses expectedSourceBlueprintRevisionTuple plus expectedAssessmentEditNumber.",
+      "rust_test": "crates/learning-data-access/src/assessment_release.rs",
+      "typescript_test": "tests/test_nested_identity_contracts.mjs",
+      "postgres_api": "ple_api.apply_assessment_blueprint_update"
+    },
+    {
+      "id": "student_work_recovery_identities",
+      "behavior": "Recovery returns Course Roster Tuple and does not serialize StudentRecordId.",
+      "rust_test": "crates/learning-data-access/src/archived_student_work_recovery.rs",
+      "typescript_test": "tests/test_nested_identity_contracts.mjs",
+      "postgres_api": "ple_api.read_archived_assessment_attempt_for_recovery"
+    },
+    {
+      "id": "question_asset_tuple",
+      "behavior": "QuestionAssetTuple serializes questionAssetId plus checksum.",
+      "rust_test": "crates/question_model/src/question_content.rs",
+      "typescript_test": "tests/test_question_renderer.mjs",
+      "postgres_api": "ple_data object address jsonb"
+    },
+    {
+      "id": "qualified_assessment_edit_number",
+      "behavior": "Assessment workspace JSON uses assessmentEditNumber; HTTP ETag is header encoding only.",
+      "rust_test": "crates/learning-data-access/src/assessment_release.rs",
+      "typescript_test": "tests/test_nested_identity_contracts.mjs",
+      "postgres_api": "ple_api.save_live_assessment"
+    }
+  ]
+}

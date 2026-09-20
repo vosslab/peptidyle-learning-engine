@@ -51,9 +51,9 @@ pub struct BlueprintKnownForkView {
     pub short_name: String,
     pub long_name: String,
     pub availability: question_model::BlueprintAvailability,
-    pub current_revision_number: question_model::BlueprintRevisionNumber,
-    /// Source Revision Number at fork creation, not a last-applied update marker.
-    pub source_revision_number: question_model::BlueprintRevisionNumber,
+    pub current_revision_tuple: BlueprintRevisionTuple,
+    /// Source Blueprint Revision Tuple at fork creation, not a last-applied update marker.
+    pub source_revision_tuple: BlueprintRevisionTuple,
     pub owner_display_name: String,
 }
 
@@ -173,5 +173,39 @@ mod tests {
 
         let wire = serde_json::to_value(view).expect("view serializes");
         assert_eq!(wire["blueprintRevisionTuple"]["revisionNumber"], "3");
+    }
+
+    #[test]
+    fn known_fork_view_serializes_current_and_source_revision_tuples() {
+        let blueprint_course_id = "BPABCDEFGJ"
+            .parse::<BlueprintCourseId>()
+            .expect("Blueprint Course ID");
+        let view = BlueprintKnownForkView {
+            id: blueprint_course_id.clone(),
+            short_name: "Fork".to_string(),
+            long_name: "Fork Course".to_string(),
+            availability: question_model::BlueprintAvailability::Private,
+            current_revision_tuple: BlueprintRevisionTuple {
+                blueprint_course_id: blueprint_course_id.clone(),
+                revision_number: BlueprintRevisionNumber::new(2).expect("revision"),
+            },
+            source_revision_tuple: BlueprintRevisionTuple {
+                blueprint_course_id: BlueprintCourseId::from_debug_serial(2),
+                revision_number: BlueprintRevisionNumber::new(1).expect("revision"),
+            },
+            owner_display_name: "Elena".to_string(),
+        };
+        let wire = serde_json::to_value(&view).expect("view serializes");
+        assert_eq!(
+            wire["currentRevisionTuple"]["blueprintCourseId"],
+            "BPABCDEFGJ"
+        );
+        assert_eq!(wire["sourceRevisionTuple"]["revisionNumber"], "1");
+        assert_eq!(
+            wire["sourceRevisionTuple"]["blueprintCourseId"],
+            BlueprintCourseId::from_debug_serial(2).to_string()
+        );
+        assert!(wire.get("currentRevisionNumber").is_none());
+        assert!(wire.get("sourceRevisionNumber").is_none());
     }
 }

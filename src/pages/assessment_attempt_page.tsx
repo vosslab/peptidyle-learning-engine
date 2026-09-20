@@ -482,7 +482,7 @@ function AttemptExperience(props: {
                       new URL(
                         runtime.client.assetUrl(
                           currentPresentation.presentation.questionRevisionTuple,
-                          asset.questionAsset,
+                          asset.questionAssetId,
                         ),
                         window.location.origin,
                       )
@@ -509,7 +509,7 @@ function AttemptExperience(props: {
                     new URL(
                       runtime.client.assetUrl(
                         currentPresentation.presentation.questionRevisionTuple,
-                        asset.questionAsset,
+                        asset.questionAssetId,
                       ),
                       window.location.origin,
                     )

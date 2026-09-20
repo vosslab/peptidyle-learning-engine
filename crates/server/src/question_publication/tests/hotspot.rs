@@ -49,10 +49,10 @@ async fn fixture(
     let image_record = objects
         .put(PutObject {
             address: ObjectAddress::DraftQuestionAsset {
-                workspace,
-                draft_question_uuid: Uuid::from_u128(2),
-                asset: asset_id,
-                object: ObjectId::generate(),
+                workspace_id: workspace,
+                draft_question_id: Uuid::from_u128(2),
+                question_asset_id: asset_id,
+                object_id: ObjectId::generate(),
             },
             bytes: png.clone(),
             media_type: "image/png".into(),
@@ -64,7 +64,7 @@ async fn fixture(
         "format": "pleQuestionJson", "questionTitle": "Click the dot",
         "questionDescription": "Select the dot in the image.", "prompt": "Click the dot.",
         "language": "en", "response": { "kind": "hotspot",
-            "surface": { "questionAsset": asset_id, "checksum": image_record.sha256.to_string(),
+            "surface": { "questionAssetId": asset_id, "checksum": image_record.sha256.to_string(),
                 "description": "One black dot on white" },
             "regions": [{ "id": "dot", "label": "Dot", "x": 5000, "y": 5000,
                 "width": 1000, "height": 1000 }], "correctRegions": ["dot"] }
@@ -78,8 +78,8 @@ async fn fixture(
     let source_record = objects
         .put(PutObject {
             address: ObjectAddress::WorkspaceQuestionSource {
-                workspace,
-                object: ObjectId::generate(),
+                workspace_id: workspace,
+                object_id: ObjectId::generate(),
             },
             bytes,
             media_type: crate::authoring::PLE_QUESTION_JSON_MEDIA_TYPE.into(),
@@ -195,8 +195,8 @@ async fn hotspot_collision_retries_exact_bytes_and_cleans_both_rolled_back_targe
         objects
             .get(&ObjectAddress::QuestionAsset {
                 question_revision_tuple: accepted.question_revision_tuple(),
-                asset: accepted_image.asset_id,
-                object: accepted_image.public_object_id
+                question_asset_id: accepted_image.asset_id,
+                object_id: accepted_image.public_object_id
             })
             .await,
         Err(ObjectStoreError::NotFound)

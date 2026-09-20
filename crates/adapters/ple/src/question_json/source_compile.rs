@@ -152,9 +152,9 @@ pub(super) fn compile_response(
             regions,
             correct_regions,
         } => {
-            let question_asset = QuestionAssetTuple {
-                question_asset: QuestionAssetId::from_uuid(
-                    Uuid::parse_str(&surface.question_asset).map_err(|_| {
+            let question_asset_tuple = QuestionAssetTuple {
+                question_asset_id: QuestionAssetId::from_uuid(
+                    Uuid::parse_str(&surface.question_asset_id).map_err(|_| {
                         PleQuestionJsonError::InvalidDocument(
                             "hotspot question asset must be a UUID".to_string(),
                         )
@@ -164,7 +164,7 @@ pub(super) fn compile_response(
             };
             (
                 QuestionResponseFormat::Hotspot {
-                    surface: question_asset.clone(),
+                    question_asset_tuple: question_asset_tuple.clone(),
                     description: surface.description.clone(),
                     regions: regions.iter().map(compile_region).collect(),
                     // Correct-region cardinality is private Answer Key data.
@@ -178,7 +178,7 @@ pub(super) fn compile_response(
                 },
                 Vec::new(),
                 vec![QuestionContentBlock::Image {
-                    question_asset,
+                    question_asset_tuple,
                     description: surface.description.clone(),
                 }],
             )
@@ -421,7 +421,7 @@ pub(super) fn validate_hotspot(
     regions: &[PleQuestionJsonHotspotRegion],
     correct: &[String],
 ) -> Result<(), PleQuestionJsonError> {
-    Uuid::parse_str(&surface.question_asset).map_err(|_| {
+    Uuid::parse_str(&surface.question_asset_id).map_err(|_| {
         PleQuestionJsonError::InvalidDocument("hotspot question asset must be a UUID".to_string())
     })?;
     if surface.checksum.len() != 64

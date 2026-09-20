@@ -24,7 +24,7 @@ async fn resolved_question_json_issues_and_grades_from_its_exact_immutable_sourc
         .put(PutObject {
             address: ObjectAddress::QuestionSource {
                 question_revision_tuple: question_revision_tuple.clone(),
-                object: source_object_id,
+                object_id: source_object_id,
             },
             bytes: ple_question_json_single_choice_bytes(),
             media_type: crate::question_json::PLE_QUESTION_JSON_MEDIA_TYPE.to_string(),

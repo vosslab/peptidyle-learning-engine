@@ -31,7 +31,11 @@ pub(crate) async fn load_hotspot_asset<O: ObjectStore>(
     let document = adapter_ple::question_json::PleQuestionJsonDocument::parse(source)
         .map_err(|_| invalid_source())?;
     let compiled = document.compile().map_err(|_| invalid_source())?;
-    let QuestionResponseFormat::Hotspot { surface, .. } = compiled.presentation().response() else {
+    let QuestionResponseFormat::Hotspot {
+        question_asset_tuple,
+        ..
+    } = compiled.presentation().response()
+    else {
         return Ok(None);
     };
     let context = context.ok_or_else(invalid_source)?;
@@ -39,15 +43,15 @@ pub(crate) async fn load_hotspot_asset<O: ObjectStore>(
         context.store.as_ref(),
         session_hash,
         context.draft_question_uuid,
-        surface,
+        question_asset_tuple,
     )
     .await
     .map_err(QuestionPublicationError::Store)?;
     // ASVS 8.2.2/8.3.1: never accept an image selected from another Draft context.
     if !matches!(&asset.source_record.address,
-        ObjectAddress::DraftQuestionAsset { workspace: owner, draft_question_uuid, asset: id, object }
+        ObjectAddress::DraftQuestionAsset { workspace_id: owner, draft_question_id: draft_question_uuid, question_asset_id: id, object_id: object }
         if *owner == workspace && *draft_question_uuid == draft.as_uuid()
-            && *id == surface.question_asset && *object == asset.source_record.id)
+            && *id == question_asset_tuple.question_asset_id && *object == asset.source_record.id)
     {
         return Err(QuestionPublicationError::SourceObjectRecordMismatch);
     }
@@ -78,8 +82,8 @@ pub(crate) async fn prepare_hotspot_asset<O: ObjectStore>(
         .put(PutObject {
             address: ObjectAddress::RestrictedQuestionAsset {
                 question_revision_tuple: question_revision_tuple.clone(),
-                asset: asset.asset_id,
-                object: ObjectId::generate(),
+                question_asset_id: asset.asset_id,
+                object_id: ObjectId::generate(),
             },
             bytes: bytes.to_vec(),
             media_type: asset.source_record.media_type.clone(),

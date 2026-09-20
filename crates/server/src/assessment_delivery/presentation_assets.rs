@@ -15,8 +15,8 @@ pub(crate) fn question_asset_renditions_from_ready(
     renditions
         .iter()
         .map(|rendition| QuestionAssetRendition {
-            question_asset: QuestionAssetTuple {
-                question_asset: rendition.question_asset,
+            question_asset_tuple: QuestionAssetTuple {
+                question_asset_id: rendition.question_asset_id,
                 checksum: rendition.question_asset_checksum.clone(),
             },
             rendition_checksum: rendition.rendition_checksum.clone(),

@@ -376,8 +376,8 @@ async fn matching_or_new_draft(
     let source_record = objects
         .put(PutObject {
             address: ObjectAddress::WorkspaceQuestionSource {
-                workspace,
-                object: ObjectId::generate(),
+                workspace_id: workspace,
+                object_id: ObjectId::generate(),
             },
             bytes: question.source_bytes.clone(),
             media_type: question.source_media_type.to_string(),
