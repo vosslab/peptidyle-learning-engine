@@ -55,7 +55,7 @@ Prompt, choice, and feedback content is Markdown. It passes through the normal
 sanitized content renderer; the format does not accept raw browser HTML or
 executable content.
 
-## Teaching support and assets
+## Teaching support and images
 
 PLE follows the assessment meanings demonstrated by QTI v3 without importing
 QTI's general response-processing language into the PLE Question JSON format. QTI
@@ -76,7 +76,7 @@ PLE maps those meanings to narrower contracts:
 | Feedback selected by an incorrect outcome          | Incorrect Feedback               | Post-grading Question Feedback                               |
 | Correct-response declaration                       | Answer Key, then Question Answer | Private grading facts, then separately released display form |
 | Model solution                                     | Question Answer Explanation      | Explanatory content with independent release timing          |
-| Item, Hint, Feedback, Answer, or explanation media | Exact Question Asset role        | Checksummed Object bound to the exact Question Revision      |
+| Item, Hint, Feedback, Answer, or explanation media | Question Image Asset             | Still image bound to the exact Question Revision; Object is physical storage |
 
 A QTI Hint request maps to Question Hint even when QTI uses a feedback block as
 its display container. A correct-response declaration supplies private Answer
@@ -96,12 +96,12 @@ capability stays separate from the PLE Question JSON source contract until that
 migration lands.
 
 The current format supports one image-bearing source shape: the HOTSPOT
-`surface` binds an exact Question Asset Tuple, checksum, and accessible
-description. Prompt, choice, Hint, Feedback, Answer, and Answer Explanation
-fields currently accept text content rather than file paths or browser URLs.
-Their future image or file support uses explicit Question Hint Asset, Question
-Feedback Asset, Question Answer Asset, or Question Answer Explanation Asset
-relationships and retains the same checksum and accessibility requirements.
+`surface` binds an exact Question Image Asset Tuple
+(`questionImageAssetId` plus checksum) and an accessible description. Prompt,
+choice, Hint, Feedback, Answer, and Answer Explanation fields currently accept
+text content rather than file paths or browser URLs. Future image support in
+those fields uses Question Image Assets bound to the exact Question Revision
+and retains the same checksum and accessibility requirements.
 
 ## Current source contract
 
@@ -169,7 +169,7 @@ tolerance is one of `exact`, `absolute` with nonnegative finite `epsilon`,
 `relative` with nonnegative finite `fraction`, or `significantFigures` with a
 positive `digits` count.
 
-Hotspot surfaces name an existing immutable asset UUID, its lowercase SHA-256
+Hotspot surfaces name an existing Question Image Asset ID, its lowercase SHA-256
 checksum, and a nonblank description. Current Hotspot Regions are rectangles
 with integer coordinates from 0 through 10,000, independent of browser pixels.
 Each rectangle must be nonempty, contained by that normalized surface, and
@@ -275,8 +275,8 @@ The current contract additionally enforces exact Question-Type-specific bindings
 answers are nonempty and unique; multi-blank IDs and answers are complete;
 numeric answers and tolerance parameters are finite; matching binds every
 prompt once to one unique available choice; ordering names every item exactly
-once; and hotspot assets, checksums, rectangles, accessible labels, and correct
-region subsets are complete and internally consistent.
+once; and hotspot Question Image Assets, checksums, rectangles, accessible
+labels, and correct region subsets are complete and internally consistent.
 
 Choice Feedback is selected for the submitted choice. Correct or Incorrect
 Feedback is appended according to the server-derived grade. The

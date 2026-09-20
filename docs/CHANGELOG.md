@@ -30,6 +30,10 @@
 
 ### Fixes and Maintenance
 
+- [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md) names HOTSPOT
+  `surface` as a Question Image Asset Tuple and maps QTI media to Question
+  Image Asset plus physical Object storage.
+
 - Question image vocabulary: a QTI ZIP is `QtiPackageUploadFile`, the
   retained original is `QtiPackageArchive`, a verified extract is
   `QtiPackageExtractedImage`, a Question-bound still image is
