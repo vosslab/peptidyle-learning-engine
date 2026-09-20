@@ -64,7 +64,7 @@ export interface AssessmentEditorDetail extends AssessmentSummary {
   /** Closed, server-derived release blockers for this Assessment. */
   readonly assessmentReleaseValidation: AssessmentReleaseValidation;
   /** Assessment Edit Number for the next content save. */
-  readonly editNumber: AssessmentEditNumber;
+  readonly assessmentEditNumber: AssessmentEditNumber;
 }
 
 /** Authorized resolution of one compact route ID to a browser API identity. */
@@ -84,7 +84,7 @@ export interface QuestionPoolPreviewRequest {
 /** A no-store Instructor sample of one saved pool; it is never student activity or evidence. */
 export interface QuestionPoolPreview {
   readonly assessmentId: AssessmentId;
-  readonly editNumber: AssessmentEditNumber;
+  readonly assessmentEditNumber: AssessmentEditNumber;
   readonly assessmentEntryId: string;
   readonly questionPoolLabel: string;
   readonly selectionCount: number;

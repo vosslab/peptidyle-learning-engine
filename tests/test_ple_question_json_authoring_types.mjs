@@ -82,7 +82,7 @@ test("all remaining source Question Types retain semantic IDs and publish answer
       response: {
         kind: "hotspot",
         surface: {
-          questionAssetId: "00000000-0000-4000-8000-000000000042",
+          questionImageAssetId: "00000000-0000-4000-8000-000000000042",
           checksum: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           description: "A chromosome map",
         },
@@ -118,7 +118,7 @@ test("hotspot public preview does not disclose correct-region cardinality", () =
   const baseResponse = {
     kind: "hotspot",
     surface: {
-      questionAssetId: "00000000-0000-4000-8000-000000000042",
+      questionImageAssetId: "00000000-0000-4000-8000-000000000042",
       checksum: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       description: "A chromosome map",
     },
@@ -141,8 +141,8 @@ test("hotspot public preview does not disclose correct-region cardinality", () =
   assert.deepEqual(onePublic, twoPublic);
   assert.deepEqual(onePublic, {
     kind: "hotspot",
-    questionAssetTuple: {
-      questionAssetId: "00000000-0000-4000-8000-000000000042",
+    questionImageAssetTuple: {
+      questionImageAssetId: "00000000-0000-4000-8000-000000000042",
       checksum: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     },
     description: "A chromosome map",
@@ -257,7 +257,7 @@ test("remaining source Question Types reject invalid private contracts", () => {
       response: {
         kind: "hotspot",
         surface: {
-          questionAssetId: "00000000-0000-4000-8000-000000000042",
+          questionImageAssetId: "00000000-0000-4000-8000-000000000042",
           checksum: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           description: "Surface",
         },

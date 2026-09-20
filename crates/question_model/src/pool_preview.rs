@@ -34,7 +34,7 @@ pub struct QuestionPoolPreviewItem {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionPoolPreview {
     pub assessment_id: AssessmentId,
-    pub edit_number: AssessmentEditNumber,
+    pub assessment_edit_number: AssessmentEditNumber,
     pub assessment_entry_id: AssessmentEntryId,
     /// Stable presentation label derived from the saved Question Pool
     /// Assessment Entry order. Question Pool Assessment Entries have no
@@ -61,7 +61,7 @@ mod tests {
         let question_id: QuestionId = "ABCD-QEF1".parse().expect("canonical question ID");
         let result = QuestionPoolPreview {
             assessment_id: "A7K3M2QXF".parse().expect("Assessment ID"),
-            edit_number: "3".parse().expect("edit number"),
+            assessment_edit_number: "3".parse().expect("Assessment Edit Number"),
             assessment_entry_id: serde_json::from_value(serde_json::json!(
                 "0198e000-0000-7000-8000-000000000017"
             ))
@@ -83,11 +83,20 @@ mod tests {
         assert_eq!(
             serde_json::to_value(result).expect("serializes"),
             serde_json::json!({
-                "assessmentId":"A7K3M2QXF", "editNumber":"3", "assessmentEntryId":"0198e000-0000-7000-8000-000000000017", "questionPoolLabel":"Pool 3",
+                "assessmentId":"A7K3M2QXF", "assessmentEditNumber":"3", "assessmentEntryId":"0198e000-0000-7000-8000-000000000017", "questionPoolLabel":"Pool 3",
                 "selectionCount":1, "selectionRule":{"selectedQuestionOrder":"randomOrder"},
                 "items":[{"questionId":"ABCD-QEF1", "questionTitle":"Question Pool Item"}],
                 "selectedItems":[{"questionId":"ABCD-QEF1", "questionTitle":"Question Pool Item"}]
             })
+        );
+        assert!(
+            serde_json::from_value::<QuestionPoolPreview>(serde_json::json!({
+                "assessmentId":"A7K3M2QXF", "editNumber":"3", "assessmentEntryId":"0198e000-0000-7000-8000-000000000017", "questionPoolLabel":"Pool 3",
+                "selectionCount":1, "selectionRule":{"selectedQuestionOrder":"randomOrder"},
+                "items":[{"questionId":"ABCD-QEF1", "questionTitle":"Question Pool Item"}],
+                "selectedItems":[{"questionId":"ABCD-QEF1", "questionTitle":"Question Pool Item"}]
+            }))
+            .is_err()
         );
     }
 }

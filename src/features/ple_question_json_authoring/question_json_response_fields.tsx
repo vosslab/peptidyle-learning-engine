@@ -62,7 +62,7 @@ export function PleQuestionJsonResponseFields(props: {
   readonly hotspotPending: () => boolean;
   readonly onHotspotLiteralValidityChange: (valid: boolean) => void;
   readonly onUpload: (file: File, signal: AbortSignal) => Promise<void>;
-  readonly assetPreviewPath: (asset: string) => string;
+  readonly questionImagePreviewPath: (asset: string) => string;
 }): JSX.Element {
   const responseKind = (): PleQuestionJsonDocument["response"]["kind"] =>
     props.hotspotPending() ? "hotspot" : props.selectedKind();
@@ -109,7 +109,7 @@ export function PleQuestionJsonResponseFields(props: {
           source={props.source}
           disabled={props.disabled}
           fieldErrors={props.fieldErrors}
-          previewPath={props.assetPreviewPath}
+          previewPath={props.questionImagePreviewPath}
           onEdit={props.onEdit}
           onStatus={props.onStatus}
           onLiteralValidityChange={props.onHotspotLiteralValidityChange}

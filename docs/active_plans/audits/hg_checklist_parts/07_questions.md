@@ -45,6 +45,9 @@
   - Evidence (source): `crates/adapters/ple/src/question_json/source_document.rs` `PleQuestionJsonDocumentBody` validates the PLE JSON source form.
 - [x] QTI is for import, export, and archival interchange rather than the internal source model.
   - Evidence (source): `schemas/base_schema/50_functions/question_authoring_state.sql` `workspace_import` treats `qti` as an import format, not a source binding.
+- [x] A QTI ZIP, retained QTI archive, and extracted QTI image are interchange roles, not Question Image
+  Assets.
+  - Evidence (source): `crates/adapters/qti/src/model.rs` `QtiPackageArchive` and `QtiPackageExtractedImage` are import-only; `question_image_asset_id()` is derived at Question bind.
 - [x] MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT Question Types should be supported.
   - Evidence (source): `schemas/base_schema/50_functions/question_lineages.sql` `question_revision` CHECK lists all eight types.
   - Evidence (runtime): `tests/playwright/screenshot_corpus/scenarios_student_types.ts` `captureTypes` supplied current authorized Student delivery of each eight released native types at laptop and phone widths (18 unanswered captures including WeBWorK); exact issued Question Revision membership and permitted-response privacy checks passed. This is private presentation coverage, not an eight-type interaction matrix. Receipt: `/private/tmp/ple-resumed-types-20260916.md`.
@@ -118,8 +121,8 @@
 - [x] Native interactive Question Types such as HOTSPOT use PLE-owned interaction code.
   - Evidence (source): `src/components/question_response_controls/question_response_control.tsx` `QuestionResponseControl` dispatches a delivered `hotspot` format to `HotspotResponse`; `src/components/question_response_controls/hotspot.tsx` `HotspotResponse` owns the image overlay, labeled native region controls, response serialization, and Save handoff.
   - Evidence (runtime): `tests/playwright/screenshot_corpus/hotspot_workflow.ts` `exerciseHotspot` passed unchanged for Avery's pointer input and Jack's keyboard Space input: each selected the PLE-owned region, saved, reloaded the exact issued Question ID and Revision with the selection intact, submitted the whole Attempt, and received `Marked correct.` from server grading. Receipt: `/private/tmp/ple-hotspot-connected-interaction-20260916.md`.
-- [ ] HOTSPOT content uses supported static assets such as images and SVG.
-  - Evidence (source): `schemas/base_schema/50_functions/draft_question_assets.sql` `validate_draft_question_asset` accepts only bounded PNG, JPEG, and WebP raster evidence; `src/components/question_response_controls/hotspot.tsx` `HotspotResponse` renders the revision-pinned image surface.
+- [ ] HOTSPOT content uses supported still images and SVG.
+  - Evidence (source): `schemas/base_schema/50_functions/draft_question_images.sql` `validate_draft_question_image` accepts only bounded PNG, JPEG, and WebP raster evidence; `src/components/question_response_controls/hotspot.tsx` `HotspotResponse` renders the revision-pinned image surface.
   - Verification pending: Connected canonical proof now covers a prepared published raster image, its loaded Student surface, and selection. SVG remains unsupported because the accepted media types exclude `image/svg+xml`, so the images-and-SVG requirement remains open.
 - [ ] Grading and correctness decisions remain server-owned and independent of author-supplied JavaScript.
   - Mismatch: author JavaScript is absent; no runtime proof covers this interaction boundary.
@@ -280,7 +283,7 @@
 - [x] The Question owner may publish corrections, wording changes, accessibility improvements, answer changes, grading changes, and other updates as a new Revision.
   - Evidence (source): `schemas/base_schema/50_functions/question_publication_operations.sql` `publish_question_revision` appends an owner-authored revision.
 - [ ] Changing Question source, answer content, grading rules, Hints, Question Feedback, Worked Solutions,
-  or Question assets creates a new Question Revision.
+  or Question Image Assets creates a new Question Revision.
   - Evidence (source): `schemas/base_schema/50_functions/question_authoring_operations.sql` `ple_api.save_authoring_draft_general_feedback` stores immutable Revision `general_feedback` separately from the private source binding; `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns it independently of backend teaching-content projection.
   - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
   - Mismatch: `schemas/base_schema/50_functions/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.

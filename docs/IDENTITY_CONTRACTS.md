@@ -70,8 +70,8 @@ Course membership.
 | Blueprint Revision Tuple | One immutable saved Blueprint content state: Blueprint Course ID plus Revision Number |
 | Assessment ID | One current Blueprint or Course Instance Assessment; not a revision family |
 | Assessment Attempt ID | One Student's occurrence of one Course Instance Assessment |
-| Question Asset Tuple | `QuestionAssetTuple` with `QuestionAssetId` member `questionAssetId` plus checksum; every field holding it is `questionAssetTuple` |
-| Object Address | Typed physical object location. Members use `objectId`, `questionAssetId`, `workspaceId`, `workspaceImportId`, `courseBannerId`, and `draftQuestionId` |
+| Question Image Asset Tuple | `QuestionImageAssetTuple` with `QuestionImageAssetId` member `questionImageAssetId` plus checksum; every field holding it is `questionImageAssetTuple` |
+| Object Address | Typed physical object location. Members use `objectId`, `questionImageAssetId`, `workspaceId`, `workspaceImportId`, `courseBannerId`, and `draftQuestionId` |
 | Object ID | One immutable stored object |
 
 In ID format notation, `X` is one cryptographically random Crockford Base32

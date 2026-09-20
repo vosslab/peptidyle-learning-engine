@@ -2,21 +2,21 @@
 
 use async_trait::async_trait;
 use objects::{ObjectAddress, ObjectDataClass, ObjectRecord, ObjectStorageArea, Sha256Checksum};
-use question_model::{ObjectId, QuestionAssetId, Timestamp};
+use question_model::{ObjectId, QuestionImageAssetId, Timestamp};
 use sqlx::{Postgres, Row, Transaction, types::Json};
 
 use super::{Pool, connection::map_sqlx_error};
 use crate::{
-    AuthoringAssetsStore, OwnedDraftQuestionAsset, RegisterDraftQuestionAssetInput,
+    DraftQuestionImageStore, OwnedDraftQuestionImage, RegisterDraftQuestionImageInput,
     SessionTokenHash, StoreError,
 };
 
 #[derive(Clone)]
-pub struct PostgresAuthoringAssetsStore {
+pub struct PostgresDraftQuestionImageStore {
     pool: Pool,
 }
 
-impl PostgresAuthoringAssetsStore {
+impl PostgresDraftQuestionImageStore {
     pub fn new(pool: Pool) -> Self {
         Self { pool }
     }
@@ -50,12 +50,12 @@ impl PostgresAuthoringAssetsStore {
 }
 
 #[async_trait]
-impl AuthoringAssetsStore for PostgresAuthoringAssetsStore {
-    async fn register_draft_question_asset(
+impl DraftQuestionImageStore for PostgresDraftQuestionImageStore {
+    async fn register_draft_question_image(
         &self,
         session_hash: SessionTokenHash,
-        input: RegisterDraftQuestionAssetInput,
-    ) -> Result<OwnedDraftQuestionAsset, StoreError> {
+        input: RegisterDraftQuestionImageInput,
+    ) -> Result<OwnedDraftQuestionImage, StoreError> {
         input.validate()?;
         let address = serde_json::to_value(&input.source_record.address).map_err(|_| {
             StoreError::InvalidRecord("Draft image address cannot be encoded".into())
@@ -63,11 +63,11 @@ impl AuthoringAssetsStore for PostgresAuthoringAssetsStore {
         let mut tx = self.begin(session_hash).await?;
         // ASVS 1.2.4, 8.2.2, 15.4.2: parameters and transactional owner/CAS recheck.
         sqlx::query(
-            "SELECT ple_api.register_draft_question_asset($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)",
+            "SELECT ple_api.register_draft_question_image($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)",
         )
         .bind(input.draft_question_uuid.as_uuid())
         .bind(input.expected_edit_number.as_postgres_bigint())
-        .bind(input.asset_id.as_uuid())
+        .bind(input.question_image_asset_id.as_uuid())
         .bind(input.source_record.id.as_uuid())
         .bind(address)
         .bind(input.source_record.sha256.as_bytes().to_vec())
@@ -80,24 +80,24 @@ impl AuthoringAssetsStore for PostgresAuthoringAssetsStore {
         .await
         .map_err(map_sqlx_error)?;
         tx.commit().await.map_err(map_sqlx_error)?;
-        Ok(OwnedDraftQuestionAsset {
-            asset_id: input.asset_id,
+        Ok(OwnedDraftQuestionImage {
+            question_image_asset_id: input.question_image_asset_id,
             source_record: input.source_record,
             intrinsic_width: input.intrinsic_width,
             intrinsic_height: input.intrinsic_height,
         })
     }
 
-    async fn load_draft_question_asset(
+    async fn load_draft_question_image(
         &self,
         session_hash: SessionTokenHash,
         draft_question_uuid: crate::DraftQuestionUuid,
-        asset_id: QuestionAssetId,
-    ) -> Result<OwnedDraftQuestionAsset, StoreError> {
+        question_image_asset_id: QuestionImageAssetId,
+    ) -> Result<OwnedDraftQuestionImage, StoreError> {
         let mut tx = self.begin(session_hash).await?;
-        let row = sqlx::query("SELECT * FROM ple_api.load_draft_question_asset($1,$2)")
+        let row = sqlx::query("SELECT * FROM ple_api.load_draft_question_image($1,$2)")
             .bind(draft_question_uuid.as_uuid())
-            .bind(asset_id.as_uuid())
+            .bind(question_image_asset_id.as_uuid())
             .fetch_optional(&mut *tx)
             .await
             .map_err(map_sqlx_error)?
@@ -134,10 +134,10 @@ impl AuthoringAssetsStore for PostgresAuthoringAssetsStore {
                 .map_err(map_sqlx_error)?,
         )
         .map_err(|_| invalid())?;
-        crate::authoring_assets::validate_raster_facts(&record, width, height)?;
+        crate::draft_question_images::validate_raster_facts(&record, width, height)?;
         tx.commit().await.map_err(map_sqlx_error)?;
-        Ok(OwnedDraftQuestionAsset {
-            asset_id,
+        Ok(OwnedDraftQuestionImage {
+            question_image_asset_id,
             source_record: record,
             intrinsic_width: width,
             intrinsic_height: height,

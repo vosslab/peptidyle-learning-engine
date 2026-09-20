@@ -783,8 +783,8 @@ mod tests {
         );
 
         let hotspot = QuestionResponseFormat::Hotspot {
-            question_asset_tuple: question_model::QuestionAssetTuple {
-                question_asset_id: question_model::QuestionAssetId::from_uuid(
+            question_image_asset_tuple: question_model::QuestionImageAssetTuple {
+                question_image_asset_id: question_model::QuestionImageAssetId::from_uuid(
                     uuid::Uuid::from_u128(1),
                 ),
                 checksum: "a".repeat(64),

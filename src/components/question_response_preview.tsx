@@ -15,7 +15,7 @@ export function QuestionResponsePreviewControl(
     <QuestionPromptRenderer
       blocks={blocks}
       questionRevisionTuple={props.questionRevisionTuple}
-      assetUrl={props.assetUrl}
+      questionImageUrl={props.questionImageUrl}
     />
   );
   function controls(preview: QuestionResponsePreview): JSX.Element {
@@ -102,7 +102,7 @@ export function QuestionResponsePreviewControl(
           <>
             <div class="question-preview-hotspot">
               <img
-                src={props.assetUrl(preview.questionAssetTuple).href}
+                src={props.questionImageUrl(preview.questionImageAssetTuple).href}
                 alt={preview.description}
               />
               <For each={preview.regions}>

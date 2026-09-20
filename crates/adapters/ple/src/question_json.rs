@@ -185,17 +185,17 @@ impl PleQuestionJsonDocument {
         self.0.has_external_image_resource()
     }
 
-    /// Returns a publication-only HOTSPOT source with the exact Question Asset
-    /// Tuple substituted for the private workspace image ID.
+    /// Returns a publication-only HOTSPOT source with the exact Question Image
+    /// Asset Tuple substituted for the private workspace image ID.
     ///
     /// The returned source remains answer-bearing and canonical, so the
     /// published Source Object ID, PLE Question JSON public content, and server-only key can
     /// all be derived from one immutable version-scoped source document.
-    pub fn with_hotspot_surface_asset(
+    pub fn with_hotspot_surface_image(
         &self,
-        question_asset: question_model::QuestionAssetTuple,
+        question_asset: question_model::QuestionImageAssetTuple,
     ) -> Result<Self, PleQuestionJsonError> {
-        Ok(Self(self.0.with_hotspot_surface_asset(question_asset)?))
+        Ok(Self(self.0.with_hotspot_surface_image(question_asset)?))
     }
 
     fn validate(&self) -> Result<(), PleQuestionJsonError> {

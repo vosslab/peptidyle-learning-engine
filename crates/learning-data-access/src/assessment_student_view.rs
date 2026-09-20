@@ -15,7 +15,7 @@ use question_model::{
     SourceObjectChecksum,
 };
 
-use crate::{ReadyQuestionAssetRendition, SessionTokenHash, StoreError};
+use crate::{ReadyQuestionImageRendition, SessionTokenHash, StoreError};
 
 /// One authorized current Assessment snapshot used only for Instructor Student View rendering.
 ///
@@ -24,7 +24,7 @@ use crate::{ReadyQuestionAssetRendition, SessionTokenHash, StoreError};
 /// relationship and returns only the exact fields needed by the render owner.
 #[derive(Debug, Clone, PartialEq)]
 pub struct InstructorStudentViewSnapshot {
-    pub edit_number: AssessmentEditNumber,
+    pub assessment_edit_number: AssessmentEditNumber,
     pub status: AssessmentStatus,
     pub title: AssessmentTitle,
     pub instructions: AssessmentInstructions,
@@ -61,13 +61,13 @@ pub enum InstructorStudentViewSnapshotEntry {
 /// seed, nonce, retained presentation, Student, response, grade, or feedback.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InstructorStudentViewSource {
-    /// Native PLE Question JSON source and ready public asset renditions.
+    /// Native PLE Question JSON source and ready Question Image Renditions.
     Ple {
         question_revision_tuple: QuestionRevisionTuple,
         source_object_id: ObjectId,
         source_object_checksum: SourceObjectChecksum,
         source_media_type: String,
-        question_asset_renditions: Vec<ReadyQuestionAssetRendition>,
+        question_image_renditions: Vec<ReadyQuestionImageRendition>,
     },
     /// WeBWorK PG/PGML source and its canonical registered path.
     Webwork {
@@ -76,7 +76,7 @@ pub enum InstructorStudentViewSource {
         source_object_checksum: SourceObjectChecksum,
         source_media_type: String,
         webwork_pg_path: String,
-        question_asset_renditions: Vec<ReadyQuestionAssetRendition>,
+        question_image_renditions: Vec<ReadyQuestionImageRendition>,
     },
     /// iMathAS immutable launch binding; no backend source bytes cross this seam.
     Imathas {
@@ -87,7 +87,7 @@ pub enum InstructorStudentViewSource {
         /// Immutable source-bound deployment and item. The adapter resolves
         /// its configured render profile without adding Attempt persistence.
         imathas_question_backend_binding: DraftImathasQuestionBackendBinding,
-        question_asset_renditions: Vec<ReadyQuestionAssetRendition>,
+        question_image_renditions: Vec<ReadyQuestionImageRendition>,
     },
 }
 

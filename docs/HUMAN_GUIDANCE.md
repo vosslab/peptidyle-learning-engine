@@ -65,7 +65,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Classify one-time checks separately from permanent tests.
 - Finish the obvious. Continue while the next safe step is defined by the plan, implied by the current task.
 - Robust means the software continues to function despite imperfect inputs, data, state, or behavior.
-- Treat tests as liabilities as well as assets. Keep only requirements and gates grounded in actual needs.
+- Treat tests as liabilities as well as protection. Keep only requirements and gates grounded in actual needs.
 - Plans should be finishable by the manager and subagents without additional human interaction.
 - Prefer more small, independently verifiable milestones over a few large milestones.
 - Fix the design that causes a problem rather than adding a workaround for its symptom.
@@ -90,7 +90,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Before production, edit the main database design directly as the design changes.
 - After production, update existing databases without rebuilding them from scratch.
 - Use readable `snake_case` whenever possible; see [NAMING_CONVENTIONS.md](/docs/NAMING_CONVENTIONS.md) for details.
-- Give variables for distinct concepts distinct names. For example, `qti_package_upload_file`, `question_image_asset`, `delivered_question_image`, and `object_id` name four different roles.
+- Give variables for distinct concepts distinct names. For example, `qti_package_upload_file`,
+  `qti_package_archive`, `qti_package_extracted_image`, `question_image_asset`,
+  `question_image_rendition`, and `object_id` name different roles.
 - Use the clearest variable name, including a longer name when it better expresses the value; name length has no runtime cost.
 - Adaptability should be a focus so the software can evolve as requirements and insights change.
 - Cargo, Node, and PyPI dependencies should use the latest versions to include security fixes.
@@ -152,6 +154,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Question Type**: Author-declared educational metadata describing the Question's interaction type, such as MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, or HOTSPOT.
 - **Question Library**: The global collection of **Published Questions** and **Question Pools** available to vetted **Instructors**.
 - **Library Object**: A **Published Question** or **Question Pool** in the **Question Library**.
+- **Question Image Asset**: A still image bound to an exact **Question Revision**. Current kinds
+  are PNG, JPEG, and WebP.
+- **Question Image Rendition**: The authorized delivered form of a **Question Image Asset**.
 
 ### Student Work vocabulary
 
@@ -907,7 +912,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
   ID, its Revision Number, the Question Pool ID, and the Pool's Edit Number at selection time.
 - Changes to Question point values recalculate scores from the stored grading outcome without changing the outcome.
 - Changes to Assessment settings do not change the recorded history of completed Assessment Attempts.
-- Immutable Question source and Question assets use SHA-256 checksums where needed to verify their stored contents.
+- Immutable Question source and Question Image Assets use SHA-256 checksums where needed to verify their stored contents.
 - A public-ID checksum is one embedded character derived from other ID characters.
 - A stored-content checksum is a full SHA-256 value verifying exact bytes.
 - Public-ID checksums and stored-content checksums are not interchangeable.
@@ -950,6 +955,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 - PLE flat-question JSON is the canonical machine format for simple static Questions.
 - QTI is for import, export, and archival interchange rather than the internal source model.
+- A QTI ZIP, retained QTI archive, and extracted QTI image are interchange roles, not Question Image
+  Assets.
 - MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT Question Types should be supported.
 - Question Type is immutable author-declared educational metadata on a Published Question Revision.
 - PLE uses Question Type for search, filtering, labeling, and presentation.
@@ -987,7 +994,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Author-supplied JavaScript is limited to client-side rendering and interaction.
 - Author-supplied JavaScript operates independently of PLE application APIs and privileged state.
 - Native interactive Question Types such as HOTSPOT use PLE-owned interaction code.
-- HOTSPOT content uses supported static assets such as images and SVG.
+- HOTSPOT content uses supported still images and SVG.
 - Grading and correctness decisions remain server-owned and independent of author-supplied JavaScript.
 - External JavaScript dependencies and CDN domains are explicitly recorded and reviewable.
 - Approved external dependencies may initially load from recorded CDN sources.
@@ -1073,7 +1080,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Publishing a new Question Revision does not silently change existing Assessments or Student Work.
 - The Question owner may publish corrections, wording changes, accessibility improvements, answer changes, grading changes, and other updates as a new Revision.
 - Changing Question source, answer content, grading rules, Hints, Question Feedback, Worked Solutions,
-  or Question assets creates a new Question Revision.
+  or Question Image Assets creates a new Question Revision.
 - Changes to the Question title, description, Discipline, Subject, Topic, Subtopic, Tags, or other
   search metadata update the Published Question metadata while preserving the current Question Revision.
 - Search metadata belongs to the Published Question as a whole rather than to one Revision.

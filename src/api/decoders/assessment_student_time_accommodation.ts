@@ -35,7 +35,7 @@ export function decodeAssessmentStudentTimeAccommodation(
   const keys = [
     "rosterId",
     "timeMultiplier",
-    "editNumber",
+    "accommodationEditNumber",
     "baseDurationSeconds",
     "effectiveDurationSeconds",
     "cappedAt24Hours",
@@ -52,7 +52,10 @@ export function decodeAssessmentStudentTimeAccommodation(
     record.timeMultiplier,
     `${path}.timeMultiplier`,
   );
-  const editNumber = decodeAccommodationEditNumber(record.editNumber, `${path}.editNumber`);
+  const accommodationEditNumber = decodeAccommodationEditNumber(
+    record.accommodationEditNumber,
+    `${path}.accommodationEditNumber`,
+  );
   const baseDurationSeconds = decodeNullable(
     record.baseDurationSeconds,
     `${path}.baseDurationSeconds`,
@@ -70,7 +73,7 @@ export function decodeAssessmentStudentTimeAccommodation(
     (effectiveDurationSeconds !== null &&
       (effectiveDurationSeconds > 86_400 ||
         effectiveDurationSeconds < (baseDurationSeconds ?? 1))) ||
-    (editNumber === null && timeMultiplier !== null) ||
+    (accommodationEditNumber === null && timeMultiplier !== null) ||
     (cappedAt24Hours && effectiveDurationSeconds !== 86_400)
   ) {
     throw new DecodeError(path, "a consistent finite-duration Student time configuration");
@@ -78,7 +81,7 @@ export function decodeAssessmentStudentTimeAccommodation(
   return {
     rosterId,
     timeMultiplier,
-    editNumber,
+    accommodationEditNumber,
     baseDurationSeconds,
     effectiveDurationSeconds,
     cappedAt24Hours,

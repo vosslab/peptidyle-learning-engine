@@ -63,7 +63,7 @@ CREATE TYPE ple_data.object_storage_area AS ENUM (
     'private-content', 'public-assets', 'student-records', 'temp-processing'
 );
 CREATE TYPE ple_data.object_data_class AS ENUM (
-    'authoring-content', 'course-appearance', 'profile-image', 'question-asset',
+    'authoring-content', 'course-appearance', 'profile-image', 'question-image',
     'question-render', 'question-source', 'student-record', 'temporary-processing'
 );
 CREATE TYPE ple_data.lease_state AS ENUM (

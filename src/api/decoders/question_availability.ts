@@ -31,7 +31,7 @@ export function decodeQuestionAvailabilityTransition(
   path = "response",
 ): QuestionAvailabilityTransition {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["availability", "editNumber"]);
+  requireOnlyFields(record, path, ["availability", "questionAvailabilityEditNumber"]);
   const availabilityRecord = decodeRecord(
     field(record, "availability", path),
     `${path}.availability`,
@@ -42,9 +42,15 @@ export function decodeQuestionAvailabilityTransition(
     `${path}.availability.availability`,
     ["available", "archived"],
   );
-  const editNumber = decodeString(field(record, "editNumber", path), `${path}.editNumber`);
-  if (!/^[1-9][0-9]*$/u.test(editNumber)) {
-    throw new DecodeError(`${path}.editNumber`, "a canonical positive Edit Number");
+  const questionAvailabilityEditNumber = decodeString(
+    field(record, "questionAvailabilityEditNumber", path),
+    `${path}.questionAvailabilityEditNumber`,
+  );
+  if (!/^[1-9][0-9]*$/u.test(questionAvailabilityEditNumber)) {
+    throw new DecodeError(
+      `${path}.questionAvailabilityEditNumber`,
+      "a canonical positive Question Availability Edit Number",
+    );
   }
-  return { availability, questionAvailabilityEditNumber: editNumber };
+  return { availability, questionAvailabilityEditNumber };
 }

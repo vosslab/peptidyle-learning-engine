@@ -3,32 +3,32 @@
 use std::io::Cursor;
 
 use image::{ImageBuffer, ImageFormat, Rgba};
-use learning_data_access::{OwnedDraftQuestionAsset, RegisterDraftQuestionAssetInput};
-use question_model::QuestionAssetId;
+use learning_data_access::{OwnedDraftQuestionImage, RegisterDraftQuestionImageInput};
+use question_model::QuestionImageAssetId;
 
 use super::*;
 
-struct DraftImageStore(OwnedDraftQuestionAsset);
+struct DraftImageStore(OwnedDraftQuestionImage);
 
 #[async_trait]
-impl AuthoringAssetsStore for DraftImageStore {
-    async fn register_draft_question_asset(
+impl DraftQuestionImageStore for DraftImageStore {
+    async fn register_draft_question_image(
         &self,
         _: SessionTokenHash,
-        _: RegisterDraftQuestionAssetInput,
-    ) -> Result<OwnedDraftQuestionAsset, StoreError> {
+        _: RegisterDraftQuestionImageInput,
+    ) -> Result<OwnedDraftQuestionImage, StoreError> {
         Err(StoreError::Forbidden)
     }
 
-    async fn load_draft_question_asset(
+    async fn load_draft_question_image(
         &self,
         session: SessionTokenHash,
         draft_question_uuid: DraftQuestionUuid,
-        asset: QuestionAssetId,
-    ) -> Result<OwnedDraftQuestionAsset, StoreError> {
+        asset: QuestionImageAssetId,
+    ) -> Result<OwnedDraftQuestionImage, StoreError> {
         if session != SessionTokenHash::compute(b"session")
             || draft_question_uuid.as_uuid() != Uuid::from_u128(2)
-            || asset != self.0.asset_id
+            || asset != self.0.question_image_asset_id
         {
             return Err(StoreError::NotFound);
         }
@@ -39,19 +39,19 @@ impl AuthoringAssetsStore for DraftImageStore {
 async fn fixture(
     objects: &MemoryObjectStore,
     workspace: WorkspaceId,
-) -> (ObjectRecord, OwnedDraftQuestionAsset, Vec<u8>) {
+) -> (ObjectRecord, OwnedDraftQuestionImage, Vec<u8>) {
     let mut image = ImageBuffer::from_pixel(10, 10, Rgba([255_u8, 255, 255, 255]));
     image.put_pixel(5, 5, Rgba([0, 0, 0, 255]));
     let mut png = Cursor::new(Vec::new());
     image.write_to(&mut png, ImageFormat::Png).expect("dot PNG");
     let png = png.into_inner();
-    let asset_id = QuestionAssetId::generate();
+    let question_image_asset_id = QuestionImageAssetId::generate();
     let image_record = objects
         .put(PutObject {
-            address: ObjectAddress::DraftQuestionAsset {
+            address: ObjectAddress::DraftQuestionImage {
                 workspace_id: workspace,
                 draft_question_id: Uuid::from_u128(2),
-                question_asset_id: asset_id,
+                question_image_asset_id,
                 object_id: ObjectId::generate(),
             },
             bytes: png.clone(),
@@ -64,7 +64,7 @@ async fn fixture(
         "format": "pleQuestionJson", "questionTitle": "Click the dot",
         "questionDescription": "Select the dot in the image.", "prompt": "Click the dot.",
         "language": "en", "response": { "kind": "hotspot",
-            "surface": { "questionAssetId": asset_id, "checksum": image_record.sha256.to_string(),
+            "surface": { "questionImageAssetId": question_image_asset_id, "checksum": image_record.sha256.to_string(),
                 "description": "One black dot on white" },
             "regions": [{ "id": "dot", "label": "Dot", "x": 5000, "y": 5000,
                 "width": 1000, "height": 1000 }], "correctRegions": ["dot"] }
@@ -89,8 +89,8 @@ async fn fixture(
         .expect("saved Draft source");
     (
         source_record,
-        OwnedDraftQuestionAsset {
-            asset_id,
+        OwnedDraftQuestionImage {
+            question_image_asset_id,
             source_record: image_record,
             intrinsic_width: 10,
             intrinsic_height: 10,
@@ -99,8 +99,8 @@ async fn fixture(
     )
 }
 
-fn context(asset: OwnedDraftQuestionAsset) -> AuthoringAssetContext {
-    AuthoringAssetContext {
+fn context(asset: OwnedDraftQuestionImage) -> DraftQuestionImageContext {
+    DraftQuestionImageContext {
         store: Arc::new(DraftImageStore(asset)),
         draft_question_uuid: DraftQuestionUuid::from_uuid(Uuid::from_u128(2)),
     }
@@ -141,11 +141,11 @@ async fn hotspot_collision_retries_exact_bytes_and_cleans_both_rolled_back_targe
     let failed = &publications[0];
     let accepted = &publications[1];
     let failed_image = failed
-        .hotspot_asset
+        .hotspot_question_image
         .as_ref()
         .expect("prepared rolled-back image");
     let accepted_image = accepted
-        .hotspot_asset
+        .hotspot_question_image
         .as_ref()
         .expect("prepared accepted image");
     assert_eq!(
@@ -188,14 +188,17 @@ async fn hotspot_collision_retries_exact_bytes_and_cleans_both_rolled_back_targe
         failed_image.restricted_source_record.id,
         accepted_image.restricted_source_record.id
     );
-    assert_eq!(failed_image.asset_id, accepted_image.asset_id);
+    assert_eq!(
+        failed_image.question_image_asset_id,
+        accepted_image.question_image_asset_id
+    );
     assert_eq!(accepted_image.intrinsic_width, 10);
     assert_eq!(accepted_image.intrinsic_height, 10);
     assert_eq!(
         objects
-            .get(&ObjectAddress::QuestionAsset {
+            .get(&ObjectAddress::QuestionImage {
                 question_revision_tuple: accepted.question_revision_tuple(),
-                question_asset_id: accepted_image.asset_id,
+                question_image_asset_id: accepted_image.question_image_asset_id,
                 object_id: accepted_image.public_object_id
             })
             .await,
@@ -241,7 +244,7 @@ async fn hotspot_successor_stale_removes_source_and_image_but_retains_private_dr
         objects
             .get(
                 &failed
-                    .hotspot_asset
+                    .hotspot_question_image
                     .as_ref()
                     .expect("prepared image")
                     .restricted_source_record

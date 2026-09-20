@@ -11,19 +11,19 @@ use learning_data_access::{
         Pool, PostgresAccountAvatarGallery, PostgresAccountTimeZoneStore,
         PostgresArchivedStudentWorkRecoveryStore, PostgresAssessmentAttemptExpirySweepStore,
         PostgresAssessmentPoolForkStore, PostgresAssessmentPoolSelectionCountStore,
-        PostgresAssessmentTemplateStore, PostgresAuthoringAssetsStore, PostgresAuthoringDraftStore,
-        PostgresBlueprintCourseStore, PostgresBlueprintLineageStore,
-        PostgresBlueprintStewardshipStore, PostgresBulkPublishedQuestionMetadataStore,
-        PostgresContentClassificationStore, PostgresCourseBannerStore,
-        PostgresCourseBlueprintPublicationStore, PostgresCourseGradebookStore,
-        PostgresCourseInstanceStore, PostgresCourseRetentionNotificationStore,
-        PostgresCourseRetentionStore, PostgresCourseRosterStore, PostgresCourseThemeStore,
+        PostgresAssessmentTemplateStore, PostgresAuthoringDraftStore, PostgresBlueprintCourseStore,
+        PostgresBlueprintLineageStore, PostgresBlueprintStewardshipStore,
+        PostgresBulkPublishedQuestionMetadataStore, PostgresContentClassificationStore,
+        PostgresCourseBannerStore, PostgresCourseBlueprintPublicationStore,
+        PostgresCourseGradebookStore, PostgresCourseInstanceStore,
+        PostgresCourseRetentionNotificationStore, PostgresCourseRetentionStore,
+        PostgresCourseRosterStore, PostgresCourseThemeStore, PostgresDraftQuestionImageStore,
         PostgresDraftQuestionSourceBindingStore, PostgresInstructorAccountStore,
         PostgresInstructorStudentViewStore, PostgresInvitationExportStore,
         PostgresLibraryDiscussionStore, PostgresLibraryWatchNotificationStore,
         PostgresLiveAssessmentDeliveryStore, PostgresLiveAssessmentStore,
         PostgresLiveStudentCourseLandingStore, PostgresPublicAssetPublicationStore,
-        PostgresQuestionAssetDeliveryStore, PostgresQuestionForkStore,
+        PostgresQuestionForkStore, PostgresQuestionImageDeliveryStore,
         PostgresQuestionLibraryStore, PostgresQuestionPoolCreationStore,
         PostgresQuestionPoolLibraryStore, PostgresQuestionPoolStewardshipStore,
         PostgresQuestionStarStore, PostgresQuestionWatchStore, PostgresSessionStore,
@@ -102,9 +102,9 @@ pub async fn production_router_from_env() -> Result<Router> {
     let assessment_templates = PostgresAssessmentTemplateStore::new(pool.clone());
     let assessment_delivery = PostgresLiveAssessmentDeliveryStore::new(pool.clone());
     let assessment_student_view = PostgresInstructorStudentViewStore::new(pool.clone());
-    let question_asset_delivery = PostgresQuestionAssetDeliveryStore::new(pool.clone());
+    let question_image_delivery = PostgresQuestionImageDeliveryStore::new(pool.clone());
     let authoring_drafts = PostgresAuthoringDraftStore::new(pool.clone());
-    let authoring_assets = PostgresAuthoringAssetsStore::new(pool.clone());
+    let draft_question_images = PostgresDraftQuestionImageStore::new(pool.clone());
     let authoring_publication = PostgresDraftQuestionSourceBindingStore::new(pool.clone());
     let question_library_objects = question_library_object_store_from_env().await?;
     let webwork_adapter = webwork_adapter_from_env()?;
@@ -214,7 +214,7 @@ pub async fn production_router_from_env() -> Result<Router> {
         .merge(crate::authoring::authoring_router(
             Arc::clone(&sessions),
             authoring_drafts,
-            authoring_assets,
+            draft_question_images,
             authoring_publication,
             question_library_objects.clone(),
             question_id_issuer,
@@ -331,10 +331,10 @@ pub async fn production_router_from_env() -> Result<Router> {
                 .map_err(anyhow::Error::msg)?,
         )
         .merge(
-            crate::question_asset_delivery::question_asset_delivery_router(
+            crate::question_image_delivery::question_image_delivery_router(
                 Arc::clone(&sessions),
-                question_asset_delivery,
-                crate::question_asset_delivery::public_asset_base_url(&required_env(
+                question_image_delivery,
+                crate::question_image_delivery::public_asset_base_url(&required_env(
                     "PLE_PUBLIC_ASSET_BASE_URL",
                 )?)
                 .map_err(anyhow::Error::msg)?,

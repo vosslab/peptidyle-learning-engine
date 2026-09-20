@@ -53,7 +53,7 @@ CREATE FUNCTION ple_private.fork_published_question_to_draft(
     p_target_size_bytes bigint,
     p_target_media_type text,
     p_target_created_at_millis bigint,
-    p_hotspot_asset jsonb
+    p_hotspot_question_image jsonb
 ) RETURNS TABLE (
     draft_question_id uuid,
     authoring_workspace_id uuid,
@@ -71,15 +71,15 @@ DECLARE
     source_record ple_private.object_record%ROWTYPE;
     expected_source_address jsonb;
     asset_count bigint;
-    source_asset_id uuid;
+    source_question_image_asset_id uuid;
     source_asset_object_id uuid;
     source_asset_checksum bytea;
     source_asset_media_type text;
     source_asset_size_bytes bigint;
     source_asset_width integer;
     source_asset_height integer;
-    target_asset_id uuid;
-    target_asset_object_id uuid;
+    target_question_image_asset_id uuid;
+    target_question_image_object_id uuid;
     target_asset_address jsonb;
     target_asset_checksum bytea;
     target_asset_size_bytes bigint;
@@ -188,8 +188,8 @@ BEGIN
       FROM ple_private.object_record AS record
      WHERE record.object_record_id = source_binding.source_object_record_id;
     expected_source_address := pg_catalog.jsonb_build_object(
-        'kind', 'workspaceQuestionSource', 'workspace', p_authoring_workspace_id,
-        'object', p_target_object_id);
+        'kind', 'workspaceQuestionSource', 'workspaceId', p_authoring_workspace_id,
+        'objectId', p_target_object_id);
     IF p_target_object_address IS DISTINCT FROM expected_source_address
        OR p_target_sha256 IS DISTINCT FROM source_record.sha256
        OR pg_catalog.encode(p_target_sha256, 'hex') IS DISTINCT FROM source_binding.source_object_checksum
@@ -200,7 +200,7 @@ BEGIN
            'questionRevisionTuple', pg_catalog.jsonb_build_object(
                'questionId', p_source_question_id,
                'revisionNumber', p_source_question_revision_number),
-           'object', source_binding.source_object_record_id)
+           'objectId', source_binding.source_object_record_id)
        OR source_record.object_storage_area <> 'private-content'
        OR source_record.object_data_class <> 'question-source' THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
@@ -208,45 +208,45 @@ BEGIN
     END IF;
     IF source_revision.question_type = 'hotspot' THEN
         SELECT pg_catalog.count(*) INTO asset_count
-          FROM ple_private.question_asset_publication AS publication
+          FROM ple_private.question_image_publication AS publication
          WHERE publication.published_question_id = p_source_question_id
            AND publication.revision_number = p_source_question_revision_number;
-        IF source_revision.backend <> 'ple' OR asset_count <> 1 OR p_hotspot_asset IS NULL THEN
+        IF source_revision.backend <> 'ple' OR asset_count <> 1 OR p_hotspot_question_image IS NULL THEN
             RAISE EXCEPTION USING ERRCODE = '23514',
                 MESSAGE = 'Native HOTSPOT fork requires one exact source raster';
         END IF;
-        SELECT publication.asset_id, publication.source_object_record_id,
+        SELECT publication.question_image_asset_id, publication.source_object_record_id,
                publication.source_object_checksum, publication.verified_media_type,
                record.size_bytes, publication.intrinsic_width, publication.intrinsic_height
-          INTO STRICT source_asset_id, source_asset_object_id, source_asset_checksum,
+          INTO STRICT source_question_image_asset_id, source_asset_object_id, source_asset_checksum,
                source_asset_media_type, source_asset_size_bytes,
                source_asset_width, source_asset_height
-          FROM ple_private.question_asset_publication AS publication
+          FROM ple_private.question_image_publication AS publication
           JOIN ple_private.object_record AS record
             ON record.object_record_id = publication.source_object_record_id
          WHERE publication.published_question_id = p_source_question_id
            AND publication.revision_number = p_source_question_revision_number
            AND record.object_address = pg_catalog.jsonb_build_object(
-               'kind', 'restrictedQuestionAsset',
+               'kind', 'restrictedQuestionImage',
                'questionRevisionTuple', pg_catalog.jsonb_build_object(
                    'questionId', p_source_question_id,
                    'revisionNumber', p_source_question_revision_number),
-               'asset', publication.asset_id,
-               'object', publication.source_object_record_id)
+               'questionImageAssetId', publication.question_image_asset_id,
+               'objectId', publication.source_object_record_id)
            AND record.object_storage_area = 'private-content'
-           AND record.object_data_class = 'question-asset'
+           AND record.object_data_class = 'question-image'
            AND record.sha256 = publication.source_object_checksum
            AND record.media_type = publication.verified_media_type;
-        target_asset_id := (p_hotspot_asset ->> 'assetId')::uuid;
-        target_asset_object_id := (p_hotspot_asset ->> 'objectId')::uuid;
-        target_asset_address := p_hotspot_asset -> 'objectAddress';
-        target_asset_checksum := pg_catalog.decode(p_hotspot_asset ->> 'checksum', 'hex');
-        target_asset_size_bytes := (p_hotspot_asset ->> 'byteLength')::bigint;
-        target_asset_media_type := p_hotspot_asset ->> 'mediaType';
-        target_asset_created_at_millis := (p_hotspot_asset ->> 'createdAtMillis')::bigint;
-        target_asset_width := (p_hotspot_asset ->> 'intrinsicWidth')::integer;
-        target_asset_height := (p_hotspot_asset ->> 'intrinsicHeight')::integer;
-        IF target_asset_id IS DISTINCT FROM source_asset_id
+        target_question_image_asset_id := (p_hotspot_question_image ->> 'questionImageAssetId')::uuid;
+        target_question_image_object_id := (p_hotspot_question_image ->> 'objectId')::uuid;
+        target_asset_address := p_hotspot_question_image -> 'objectAddress';
+        target_asset_checksum := pg_catalog.decode(p_hotspot_question_image ->> 'checksum', 'hex');
+        target_asset_size_bytes := (p_hotspot_question_image ->> 'byteLength')::bigint;
+        target_asset_media_type := p_hotspot_question_image ->> 'mediaType';
+        target_asset_created_at_millis := (p_hotspot_question_image ->> 'createdAtMillis')::bigint;
+        target_asset_width := (p_hotspot_question_image ->> 'intrinsicWidth')::integer;
+        target_asset_height := (p_hotspot_question_image ->> 'intrinsicHeight')::integer;
+        IF target_question_image_asset_id IS DISTINCT FROM source_question_image_asset_id
            OR target_asset_checksum IS DISTINCT FROM source_asset_checksum
            OR target_asset_size_bytes IS DISTINCT FROM source_asset_size_bytes
            OR target_asset_media_type IS DISTINCT FROM source_asset_media_type
@@ -254,13 +254,13 @@ BEGIN
            OR target_asset_height IS DISTINCT FROM source_asset_height
            OR target_asset_created_at_millis IS NULL
            OR target_asset_address IS DISTINCT FROM pg_catalog.jsonb_build_object(
-               'kind', 'draftQuestionAsset', 'workspace', p_authoring_workspace_id,
-               'draftQuestionUuid', p_draft_question_uuid,
-               'asset', target_asset_id, 'object', target_asset_object_id) THEN
+               'kind', 'draftQuestionImage', 'workspaceId', p_authoring_workspace_id,
+               'draftQuestionId', p_draft_question_uuid,
+               'questionImageAssetId', target_question_image_asset_id, 'objectId', target_question_image_object_id) THEN
             RAISE EXCEPTION USING ERRCODE = '23514',
                 MESSAGE = 'Question Fork target raster must preserve exact HOTSPOT evidence';
         END IF;
-    ELSIF p_hotspot_asset IS NOT NULL THEN
+    ELSIF p_hotspot_question_image IS NOT NULL THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Only a native HOTSPOT fork may carry a Draft raster';
     END IF;
@@ -298,16 +298,16 @@ BEGIN
             object_record_id, object_address, object_storage_area, object_data_class,
             sha256, size_bytes, media_type, created_at
         ) VALUES (
-            target_asset_object_id, target_asset_address, 'private-content',
+            target_question_image_object_id, target_asset_address, 'private-content',
             'authoring-content', target_asset_checksum, target_asset_size_bytes,
             target_asset_media_type,
             pg_catalog.to_timestamp(target_asset_created_at_millis::double precision / 1000.0));
-        INSERT INTO ple_private.draft_question_asset(
-            draft_question_id, authoring_workspace_id, asset_id, source_object_record_id,
+        INSERT INTO ple_private.draft_question_image(
+            draft_question_id, authoring_workspace_id, question_image_asset_id, source_object_record_id,
             intrinsic_width, intrinsic_height
         ) VALUES (
-            p_draft_question_uuid, p_authoring_workspace_id, target_asset_id,
-            target_asset_object_id, target_asset_width, target_asset_height);
+            p_draft_question_uuid, p_authoring_workspace_id, target_question_image_asset_id,
+            target_question_image_object_id, target_asset_width, target_asset_height);
     END IF;
     INSERT INTO ple_private.draft_question_fork_source(
         draft_question_id, actor_account_id, idempotency_key,
@@ -391,8 +391,8 @@ SET search_path = pg_catalog, ple_api, ple_private AS $$
        AND record.object_storage_area = 'private-content'
        AND record.object_data_class = 'authoring-content'
        AND record.object_address = pg_catalog.jsonb_build_object(
-           'kind', 'workspaceQuestionSource', 'workspace', question.authoring_workspace_id,
-           'object', record.object_record_id)
+           'kind', 'workspaceQuestionSource', 'workspaceId', question.authoring_workspace_id,
+           'objectId', record.object_record_id)
 $$;
 
 CREATE FUNCTION ple_private.create_authoring_draft(
@@ -441,7 +441,7 @@ BEGIN
             MESSAGE = 'Draft Question creation arguments are invalid';
     END IF;
     expected_address := pg_catalog.jsonb_build_object(
-        'kind', 'workspaceQuestionSource', 'workspace', p_authoring_workspace_id, 'object', p_object_record_id);
+        'kind', 'workspaceQuestionSource', 'workspaceId', p_authoring_workspace_id, 'objectId', p_object_record_id);
     IF p_object_address IS DISTINCT FROM expected_address THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Draft Question source must use its exact Workspace Question Source Object Address';
@@ -480,7 +480,7 @@ CREATE FUNCTION ple_private.save_authoring_draft(
     p_draft_question_uuid uuid, p_expected_draft_question_edit_number bigint, p_object_record_id uuid,
     p_object_address jsonb, p_sha256 bytea, p_size_bytes bigint, p_media_type text,
     p_created_at_millis bigint, p_question_title text, p_question_description text,
-    p_language text, p_question_type text, p_hotspot_asset_id uuid, p_hotspot_checksum text
+    p_language text, p_question_type text, p_hotspot_question_image_asset_id uuid, p_hotspot_checksum text
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
 DECLARE
@@ -526,16 +526,16 @@ BEGIN
      FOR UPDATE;
     -- ASVS 8.2.2, 15.4.2: source binding and exact Draft-owned image are accepted under one CAS.
     IF v_binding.backend = 'ple' AND p_question_type = 'hotspot' THEN
-        IF p_hotspot_asset_id IS NULL OR p_hotspot_checksum IS NULL OR NOT EXISTS (
-            SELECT 1 FROM ple_private.draft_question_asset AS asset
-            JOIN ple_private.object_record AS record ON record.object_record_id = asset.source_object_record_id
-            WHERE asset.draft_question_id = v_draft_question_uuid AND asset.authoring_workspace_id = v_workspace_id
-              AND asset.asset_id = p_hotspot_asset_id AND encode(record.sha256, 'hex') = p_hotspot_checksum
+        IF p_hotspot_question_image_asset_id IS NULL OR p_hotspot_checksum IS NULL OR NOT EXISTS (
+            SELECT 1 FROM ple_private.draft_question_image AS image
+            JOIN ple_private.object_record AS record ON record.object_record_id = image.source_object_record_id
+            WHERE image.draft_question_id = v_draft_question_uuid AND image.authoring_workspace_id = v_workspace_id
+              AND image.question_image_asset_id = p_hotspot_question_image_asset_id AND encode(record.sha256, 'hex') = p_hotspot_checksum
               AND ple_private.current_session_is_authoring_workspace_owner(v_workspace_id)
         ) THEN
             RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Native HOTSPOT requires its exact Draft-owned surface';
         END IF;
-    ELSIF p_hotspot_asset_id IS NOT NULL OR p_hotspot_checksum IS NOT NULL THEN
+    ELSIF p_hotspot_question_image_asset_id IS NOT NULL OR p_hotspot_checksum IS NOT NULL THEN
         RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Only native HOTSPOT accepts a Draft image surface';
     END IF;
     IF NOT (
@@ -550,7 +550,7 @@ BEGIN
             MESSAGE = 'Draft Question source media type must match its registered source binding';
     END IF;
     expected_address := pg_catalog.jsonb_build_object(
-        'kind', 'workspaceQuestionSource', 'workspace', v_workspace_id, 'object', p_object_record_id);
+        'kind', 'workspaceQuestionSource', 'workspaceId', v_workspace_id, 'objectId', p_object_record_id);
     IF p_object_address IS DISTINCT FROM expected_address THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Draft Question source must use its exact Workspace Question Source Object Address';
@@ -707,7 +707,7 @@ CREATE FUNCTION ple_api.fork_published_question_to_draft(
     p_target_size_bytes bigint,
     p_target_media_type text,
     p_target_created_at_millis bigint,
-    p_hotspot_asset jsonb
+    p_hotspot_question_image jsonb
 ) RETURNS TABLE (
     draft_question_id uuid,
     authoring_workspace_id uuid,
@@ -719,7 +719,7 @@ SET search_path = pg_catalog, ple_api, ple_private AS $$
         p_source_question_revision_number, p_idempotency_key,
         p_target_object_id, p_target_object_address, p_target_sha256,
         p_target_size_bytes, p_target_media_type, p_target_created_at_millis,
-        p_hotspot_asset)
+        p_hotspot_question_image)
 $$;
 
 CREATE FUNCTION ple_api.current_session_account_owns_draft_question(
@@ -766,13 +766,13 @@ CREATE FUNCTION ple_api.save_authoring_draft(
     p_draft_question_uuid uuid, p_expected_draft_question_edit_number bigint, p_object_record_id uuid,
     p_object_address jsonb, p_sha256 bytea, p_size_bytes bigint, p_media_type text,
     p_created_at_millis bigint, p_question_title text, p_question_description text,
-    p_language text, p_question_type text, p_hotspot_asset_id uuid, p_hotspot_checksum text
+    p_language text, p_question_type text, p_hotspot_question_image_asset_id uuid, p_hotspot_checksum text
 ) RETURNS void LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT ple_private.save_authoring_draft(
         p_draft_question_uuid, p_expected_draft_question_edit_number, p_object_record_id, p_object_address, p_sha256,
         p_size_bytes, p_media_type, p_created_at_millis, p_question_title,
-        p_question_description, p_language, p_question_type, p_hotspot_asset_id, p_hotspot_checksum)
+        p_question_description, p_language, p_question_type, p_hotspot_question_image_asset_id, p_hotspot_checksum)
 $$;
 
 CREATE FUNCTION ple_api.save_authoring_draft_general_feedback(

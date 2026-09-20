@@ -12,7 +12,7 @@ function template(assessmentType, attemptLimit) {
     id: "00000000-0000-0000-0000-000000000123",
     name: "Genetics settings",
     assessmentType,
-    editNumber: "1",
+    assessmentTemplateEditNumber: "1",
     settings: {
       instructions: "Show your reasoning.",
       assessmentAttemptTimeLimitSeconds: null,

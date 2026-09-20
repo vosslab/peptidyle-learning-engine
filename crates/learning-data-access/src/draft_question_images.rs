@@ -3,16 +3,16 @@
 use async_trait::async_trait;
 use objects::image_validation::MAX_STILL_IMAGE_BYTES;
 use objects::{ObjectAddress, ObjectDataClass, ObjectRecord, ObjectStorageArea};
-use question_model::QuestionAssetId;
+use question_model::QuestionImageAssetId;
 
 use crate::{DraftQuestionEditNumber, SessionTokenHash, StoreError};
 
 /// Bytes-first registration under the Draft's ordinary source CAS.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RegisterDraftQuestionAssetInput {
+pub struct RegisterDraftQuestionImageInput {
     pub draft_question_uuid: crate::DraftQuestionUuid,
     pub expected_edit_number: DraftQuestionEditNumber,
-    pub asset_id: QuestionAssetId,
+    pub question_image_asset_id: QuestionImageAssetId,
     pub source_record: ObjectRecord,
     pub intrinsic_width: u32,
     pub intrinsic_height: u32,
@@ -20,33 +20,33 @@ pub struct RegisterDraftQuestionAssetInput {
 
 /// Private server-only immutable raster facts.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct OwnedDraftQuestionAsset {
-    pub asset_id: QuestionAssetId,
+pub struct OwnedDraftQuestionImage {
+    pub question_image_asset_id: QuestionImageAssetId,
     pub source_record: ObjectRecord,
     pub intrinsic_width: u32,
     pub intrinsic_height: u32,
 }
 
-impl RegisterDraftQuestionAssetInput {
+impl RegisterDraftQuestionImageInput {
     pub fn validate(&self) -> Result<(), StoreError> {
-        let ObjectAddress::DraftQuestionAsset {
-            question_asset_id: asset,
+        let ObjectAddress::DraftQuestionImage {
+            question_image_asset_id: asset,
             object_id: object,
             ..
         } = &self.source_record.address
         else {
             return Err(StoreError::InvalidRecord(
-                "Draft asset requires its semantic address".into(),
+                "Draft Question image requires its semantic address".into(),
             ));
         };
-        if *asset != self.asset_id
+        if *asset != self.question_image_asset_id
             || *object != self.source_record.id
             || self.source_record.storage_area != ObjectStorageArea::PrivateContent
             || self.source_record.data_class != ObjectDataClass::AuthoringContent
             || self.source_record.question_revision_tuple.is_some()
         {
             return Err(StoreError::InvalidRecord(
-                "Draft asset identity is incoherent".into(),
+                "Draft Question image identity is incoherent".into(),
             ));
         }
         validate_raster_facts(
@@ -73,7 +73,7 @@ pub(crate) fn validate_raster_facts(
         || u64::from(width) * u64::from(height) > 20_000_000
     {
         return Err(StoreError::InvalidRecord(
-            "Draft asset raster facts are invalid".into(),
+            "Draft Question image raster facts are invalid".into(),
         ));
     }
     Ok(())
@@ -81,18 +81,18 @@ pub(crate) fn validate_raster_facts(
 
 /// Session-authorized exact Draft image registration and preview lookup.
 #[async_trait]
-pub trait AuthoringAssetsStore: Send + Sync {
-    async fn register_draft_question_asset(
+pub trait DraftQuestionImageStore: Send + Sync {
+    async fn register_draft_question_image(
         &self,
         session_hash: SessionTokenHash,
-        input: RegisterDraftQuestionAssetInput,
-    ) -> Result<OwnedDraftQuestionAsset, StoreError>;
-    async fn load_draft_question_asset(
+        input: RegisterDraftQuestionImageInput,
+    ) -> Result<OwnedDraftQuestionImage, StoreError>;
+    async fn load_draft_question_image(
         &self,
         session_hash: SessionTokenHash,
         draft_question_uuid: crate::DraftQuestionUuid,
-        asset_id: QuestionAssetId,
-    ) -> Result<OwnedDraftQuestionAsset, StoreError>;
+        question_image_asset_id: QuestionImageAssetId,
+    ) -> Result<OwnedDraftQuestionImage, StoreError>;
 }
 
 #[cfg(test)]
@@ -102,21 +102,21 @@ mod tests {
     use question_model::{ObjectId, Timestamp, WorkspaceId};
     use uuid::Uuid;
 
-    fn input() -> RegisterDraftQuestionAssetInput {
-        let asset = QuestionAssetId::from_uuid(Uuid::from_u128(4));
+    fn input() -> RegisterDraftQuestionImageInput {
+        let asset = QuestionImageAssetId::from_uuid(Uuid::from_u128(4));
         let object = ObjectId::from_uuid(Uuid::from_u128(5));
-        RegisterDraftQuestionAssetInput {
+        RegisterDraftQuestionImageInput {
             draft_question_uuid: crate::DraftQuestionUuid::from_uuid(Uuid::from_u128(1)),
             expected_edit_number: DraftQuestionEditNumber::new(1).expect("positive CAS"),
-            asset_id: asset,
+            question_image_asset_id: asset,
             source_record: ObjectRecord {
                 id: object,
                 storage_area: ObjectStorageArea::PrivateContent,
                 data_class: ObjectDataClass::AuthoringContent,
-                address: ObjectAddress::DraftQuestionAsset {
+                address: ObjectAddress::DraftQuestionImage {
                     workspace_id: WorkspaceId::from_uuid(Uuid::from_u128(2)),
                     draft_question_id: Uuid::from_u128(3),
-                    question_asset_id: asset,
+                    question_image_asset_id: asset,
                     object_id: object,
                 },
                 sha256: Sha256Checksum::compute(b"verified original raster"),
@@ -134,7 +134,7 @@ mod tests {
     fn registration_refuses_forged_asset_identity_and_unbounded_or_nonraster_facts() {
         assert_eq!(input().validate(), Ok(()));
         let mut forged = input();
-        forged.asset_id = QuestionAssetId::from_uuid(Uuid::from_u128(6));
+        forged.question_image_asset_id = QuestionImageAssetId::from_uuid(Uuid::from_u128(6));
         assert!(forged.validate().is_err());
         let mut wrong_area = input();
         wrong_area.source_record.storage_area = ObjectStorageArea::PublicAssets;

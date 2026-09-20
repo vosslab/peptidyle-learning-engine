@@ -246,7 +246,7 @@ CREATE FUNCTION ple_private.read_student_assessment_attempt_history_response_sou
     source_object_checksum text, webwork_pg_path text, question_seed text,
     generated_parameter_sha256 text,
     presentation_nonce text, presentation_checksum text, presentation jsonb, author_content jsonb,
-    question_asset_renditions jsonb, response_item_bindings jsonb
+    question_image_renditions jsonb, response_item_bindings jsonb
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
     WITH owned_assessment_attempt AS (
@@ -286,7 +286,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
            encode(presentation.presentation_checksum, 'hex'),
            presentation.presentation,
            presentation.author_content,
-           COALESCE(asset_renditions.question_asset_renditions, '[]'::jsonb),
+           COALESCE(question_image_renditions.question_image_renditions, '[]'::jsonb),
            COALESCE(response_item_bindings.response_item_bindings, '[]'::jsonb)
       FROM owned_assessment_attempt AS owned
       JOIN ple_private.issued_question AS issued
@@ -308,16 +308,16 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
         ON source_object.object_record_id = binding.source_object_record_id
       LEFT JOIN LATERAL (
           SELECT jsonb_agg(jsonb_build_object(
-              'asset_id', presented.asset_id,
-              'question_asset_checksum', encode(presented.question_asset_checksum, 'hex'),
+              'question_image_asset_id', presented.question_image_asset_id,
+              'question_image_checksum', encode(presented.question_image_checksum, 'hex'),
               'rendition_checksum', encode(presented.rendition_checksum, 'hex'),
               'intrinsic_width', presented.intrinsic_width,
               'intrinsic_height', presented.intrinsic_height
-          ) ORDER BY presented.asset_id) AS question_asset_renditions
-            FROM ple_private.question_attempt_presentation_asset_rendition AS presented
-           WHERE presented.question_attempt_presentation_asset_binding_id
+          ) ORDER BY presented.question_image_asset_id) AS question_image_renditions
+            FROM ple_private.question_attempt_presentation_image_rendition AS presented
+           WHERE presented.question_attempt_presentation_image_binding_id
                  = question_attempt.question_attempt_id
-      ) AS asset_renditions ON true
+      ) AS question_image_renditions ON true
       LEFT JOIN LATERAL (
           SELECT jsonb_agg(jsonb_build_object(
               'presentation_response_item_id', response_item.presentation_response_item_id,
@@ -340,14 +340,14 @@ CREATE FUNCTION ple_api.read_student_assessment_attempt_history_response_sources
     source_object_checksum text, webwork_pg_path text, question_seed text,
     generated_parameter_sha256 text,
     presentation_nonce text, presentation_checksum text, presentation jsonb, author_content jsonb,
-    question_asset_renditions jsonb, response_item_bindings jsonb
+    question_image_renditions jsonb, response_item_bindings jsonb
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT "position" + 1, assessment_attempt_id, student_response, backend, question_attempt_id,
            published_question_id, revision_number, general_feedback, source_object_record_id, source_object_address,
            source_object_checksum, webwork_pg_path, question_seed,
            generated_parameter_sha256,
-           presentation_nonce, presentation_checksum, presentation, author_content, question_asset_renditions,
+           presentation_nonce, presentation_checksum, presentation, author_content, question_image_renditions,
            response_item_bindings
       FROM ple_private.read_student_assessment_attempt_history_response_sources($1)
 $$;

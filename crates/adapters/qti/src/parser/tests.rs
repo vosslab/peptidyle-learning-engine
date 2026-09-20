@@ -241,14 +241,14 @@ fn extracts_verified_image_to_worker_manifest_and_rewrites_prompt() {
         .import(&bytes)
         .expect("image imports");
     assert_eq!(
-        imported.assets.len(),
+        imported.extracted_images.len(),
         1,
         "unsupported: {:?}",
         imported.unsupported
     );
-    assert_eq!(imported.assets[0].worker_bytes(), png.as_slice());
-    assert_eq!(imported.assets[0].media_type, "image/png");
-    assert!(!format!("{:?}", imported.assets[0]).contains("assets/p.png"));
+    assert_eq!(imported.extracted_images[0].worker_bytes(), png.as_slice());
+    assert_eq!(imported.extracted_images[0].media_type, "image/png");
+    assert!(!format!("{:?}", imported.extracted_images[0]).contains("assets/p.png"));
     assert!(matches!(
         imported.questions[0].prompt.last(),
         Some(QuestionContentBlock::Image { .. })
@@ -271,9 +271,9 @@ fn qti_assets_share_the_complete_still_raster_boundary() {
         let imported = QtiImporter::default()
             .import(&archive)
             .expect("safe image imports");
-        assert_eq!(imported.worker_assets().len(), 1);
+        assert_eq!(imported.worker_extracted_images().len(), 1);
         assert_eq!(
-            imported.worker_assets()[0].worker_media_type(),
+            imported.worker_extracted_images()[0].worker_media_type(),
             expected_media_type
         );
     }
@@ -298,7 +298,7 @@ fn qti_reports_unsafe_image_bytes_without_publishing_an_asset() {
             .import(&archive)
             .expect("partial report");
         assert!(imported.questions.is_empty());
-        assert!(imported.worker_assets().is_empty());
+        assert!(imported.worker_extracted_images().is_empty());
         assert!(
             imported.item_results[0]
                 .warnings
@@ -346,7 +346,7 @@ fn active_svg_assets_are_rejected_without_disclosing_source_bytes() {
             .import(&archive)
             .expect("a safe item-level refusal keeps the package report available");
         assert!(imported.questions.is_empty(), "{name}");
-        assert!(imported.worker_assets().is_empty(), "{name}");
+        assert!(imported.worker_extracted_images().is_empty(), "{name}");
         let result = imported.item_results.first().expect("one item result");
         assert_eq!(result.status, QtiItemImportStatus::Rejected, "{name}");
         assert!(
@@ -375,7 +375,7 @@ fn asset_collector_includes_images_in_choice_bodies() {
         .expect("choice image parses");
     let question = imported.questions.first().expect("one imported question");
     assert_eq!(
-        qti_question_asset_checksums(question)
+        qti_question_image_checksums(question)
             .expect("one checksum per logical image")
             .len(),
         1
@@ -392,7 +392,7 @@ fn import_handoff_keeps_archive_assets_and_answer_binding_server_only() {
         fixture(VALID_PACKAGE).len()
     );
     assert_eq!(imported.worker_original_package_checksum().len(), 64);
-    assert!(imported.worker_assets().is_empty());
+    assert!(imported.worker_extracted_images().is_empty());
     let item_id = &imported.questions[0].item_id;
     assert_eq!(
         imported.worker_correct_choice(item_id),

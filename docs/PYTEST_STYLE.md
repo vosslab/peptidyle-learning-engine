@@ -9,7 +9,7 @@ Language Model guide to Neil pytest policy.
 Prefer fewer, stronger permanent tests. Each test should protect behavior worth preserving without
 unnecessarily constraining future design.
 
-Treat tests as liabilities as well as assets. A permanent test adds confidence, maintenance cost,
+Treat tests as liabilities as well as protection. A permanent test adds confidence, maintenance cost,
 and a constraint on future implementations. It can preserve undesirable behavior as effectively as
 desirable behavior, so every permanent test must earn its place.
 

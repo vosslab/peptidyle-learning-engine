@@ -12,8 +12,8 @@
 \ir 60_policies/question_watch_notifications.sql
 \ir 60_policies/object_records.sql
 \ir 60_policies/question_authoring_state.sql
-\ir 60_policies/draft_question_assets.sql
-\ir 60_policies/question_assets.sql
+\ir 60_policies/draft_question_images.sql
+\ir 60_policies/question_images.sql
 \ir 60_policies/blueprints.sql
 \ir 60_policies/blueprint_change_proposals.sql
 \ir 60_policies/blueprint_stewardship.sql

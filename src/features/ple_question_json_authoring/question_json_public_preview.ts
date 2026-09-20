@@ -77,8 +77,8 @@ export function pleQuestionJsonResponseFormat(
     case "hotspot":
       return {
         kind: "hotspot",
-        questionAssetTuple: {
-          questionAssetId: response.surface.questionAssetId,
+        questionImageAssetTuple: {
+          questionImageAssetId: response.surface.questionImageAssetId,
           checksum: response.surface.checksum,
         },
         description: response.surface.description,

@@ -337,7 +337,7 @@ pub struct AssessmentTemplate {
     /// Reusable settings copied by value into a new Assessment.
     pub settings: AssessmentTemplateSettings,
     /// Current compare-and-swap value for replacement.
-    pub edit_number: AssessmentTemplateEditNumber,
+    pub assessment_template_edit_number: AssessmentTemplateEditNumber,
 }
 
 impl AssessmentTemplate {
@@ -352,7 +352,7 @@ impl AssessmentTemplate {
             name,
             assessment_type,
             settings: AssessmentTemplateSettings::for_assessment_type(assessment_type),
-            edit_number: AssessmentTemplateEditNumber::INITIAL,
+            assessment_template_edit_number: AssessmentTemplateEditNumber::INITIAL,
         }
     }
 }
@@ -393,5 +393,27 @@ mod tests {
             settings.validate_for_assessment_type(AssessmentType::RegularAssignment),
             Ok(())
         );
+    }
+
+    #[test]
+    fn assessment_template_json_uses_assessment_template_edit_number() {
+        let template = AssessmentTemplate::new(
+            AssessmentTemplateId::from_uuid(Uuid::from_u128(1)),
+            AssessmentTemplateName::try_from("Timed quiz".to_string()).expect("name"),
+            AssessmentType::Quiz,
+        );
+        let wire = serde_json::to_value(&template).expect("template serializes");
+        assert_eq!(wire["assessmentTemplateEditNumber"], "1");
+        assert!(wire.get("editNumber").is_none());
+        let mut leftover = wire.clone();
+        leftover
+            .as_object_mut()
+            .expect("object")
+            .insert("editNumber".to_string(), serde_json::json!("1"));
+        leftover
+            .as_object_mut()
+            .expect("object")
+            .remove("assessmentTemplateEditNumber");
+        assert!(serde_json::from_value::<AssessmentTemplate>(leftover).is_err());
     }
 }

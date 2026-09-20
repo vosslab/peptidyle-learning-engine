@@ -49,8 +49,6 @@ mod attempt_expiry;
 #[cfg(feature = "postgres")]
 mod authoring;
 #[cfg(feature = "postgres")]
-mod authoring_assets;
-#[cfg(feature = "postgres")]
 mod bloom_preparation;
 #[cfg(feature = "postgres")]
 mod blueprint_change_proposal;
@@ -70,6 +68,8 @@ mod blueprint_stewardship;
 mod connection;
 #[cfg(feature = "postgres")]
 mod content_classification;
+#[cfg(feature = "postgres")]
+mod draft_question_images;
 #[cfg(feature = "postgres")]
 pub use content_classification::PostgresContentClassificationStore;
 #[cfg(feature = "postgres")]
@@ -106,17 +106,15 @@ pub use archived_student_work_recovery::PostgresArchivedStudentWorkRecoveryStore
 #[cfg(feature = "postgres")]
 mod migrations;
 #[cfg(feature = "postgres")]
-#[cfg(feature = "postgres")]
-#[cfg(feature = "postgres")]
 mod object_record;
-#[cfg(feature = "postgres")]
-mod public_asset_publication;
-#[cfg(feature = "postgres")]
-mod question_asset_delivery;
 #[cfg(feature = "postgres")]
 mod question_bulk_metadata;
 #[cfg(feature = "postgres")]
 mod question_fork;
+#[cfg(feature = "postgres")]
+mod question_image_delivery;
+#[cfg(feature = "postgres")]
+mod question_image_publication;
 #[cfg(feature = "postgres")]
 mod question_library;
 #[cfg(feature = "postgres")]
@@ -172,8 +170,6 @@ pub use attempt_expiry::PostgresAssessmentAttemptExpirySweepStore;
 #[cfg(feature = "postgres")]
 pub use authoring::PostgresAuthoringDraftStore;
 #[cfg(feature = "postgres")]
-pub use authoring_assets::PostgresAuthoringAssetsStore;
-#[cfg(feature = "postgres")]
 pub use bloom_preparation::PostgresBloomClassificationPreparationStore;
 #[cfg(feature = "postgres")]
 pub use blueprint_course::PostgresBlueprintCourseStore;
@@ -193,6 +189,8 @@ pub use course_instance::PostgresCourseInstanceStore;
 pub use course_roster::PostgresCourseRosterStore;
 #[cfg(feature = "postgres")]
 pub use course_theme::PostgresCourseThemeStore;
+#[cfg(feature = "postgres")]
+pub use draft_question_images::PostgresDraftQuestionImageStore;
 #[cfg(feature = "postgres")]
 #[cfg(feature = "postgres")]
 pub use imathas_question_backend_session::PostgresImathasQuestionBackendSessionStore;
@@ -214,17 +212,15 @@ pub use migrations::{
     acquire_schema_lifecycle, verify_application_schema,
 };
 #[cfg(feature = "postgres")]
-#[cfg(feature = "postgres")]
-#[cfg(feature = "postgres")]
 pub use object_record::PostgresWorkspaceQuestionSourceObjectRecordStore;
-#[cfg(feature = "postgres")]
-pub use public_asset_publication::PostgresPublicAssetPublicationStore;
-#[cfg(feature = "postgres")]
-pub use question_asset_delivery::PostgresQuestionAssetDeliveryStore;
 #[cfg(feature = "postgres")]
 pub use question_bulk_metadata::PostgresBulkPublishedQuestionMetadataStore;
 #[cfg(feature = "postgres")]
 pub use question_fork::PostgresQuestionForkStore;
+#[cfg(feature = "postgres")]
+pub use question_image_delivery::PostgresQuestionImageDeliveryStore;
+#[cfg(feature = "postgres")]
+pub use question_image_publication::PostgresPublicAssetPublicationStore;
 #[cfg(feature = "postgres")]
 pub use question_library::PostgresQuestionLibraryStore;
 #[cfg(feature = "postgres")]

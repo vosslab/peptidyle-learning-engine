@@ -1,19 +1,19 @@
-import type { PleQuestionJsonAssetDescriptor } from "./question_json_client";
+import type { PleQuestionJsonImageDescriptor } from "./question_json_client";
 import type {
   PleQuestionJsonDocument,
   PleQuestionJsonHotspotResponse,
 } from "./question_json_source";
 
 /** A source surface only comes from a verified upload; replacing it preserves authored content. */
-export function setPleQuestionJsonHotspotAsset(
+export function setPleQuestionJsonHotspotImage(
   source: PleQuestionJsonDocument,
-  asset: PleQuestionJsonAssetDescriptor,
+  asset: PleQuestionJsonImageDescriptor,
 ): PleQuestionJsonDocument {
   const previous = source.response.kind === "hotspot" ? source.response : null;
   const response: PleQuestionJsonHotspotResponse = {
     kind: "hotspot",
     surface: {
-      questionAssetId: asset.questionAssetId,
+      questionImageAssetId: asset.questionImageAssetId,
       checksum: asset.checksum,
       description:
         previous?.surface.description ??

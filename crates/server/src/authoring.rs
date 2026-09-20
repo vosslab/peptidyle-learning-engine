@@ -24,7 +24,7 @@ use learning_data_access::{
     AuthoringDraftStore, CreateAuthoringDraftInput, DeleteAuthoringDraftInput, DraftQuestionUuid,
     SaveAuthoringDraftGeneralFeedbackInput, SaveAuthoringDraftInput, StoreError,
     postgres::{
-        PostgresAuthoringAssetsStore, PostgresAuthoringDraftStore,
+        PostgresAuthoringDraftStore, PostgresDraftQuestionImageStore,
         PostgresDraftQuestionSourceBindingStore, PostgresSessionStore,
     },
 };
@@ -36,7 +36,7 @@ use uuid::Uuid;
 use crate::{
     authoring_source::{load_verified_source, put_workspace_source, validated_source},
     question_publication::{
-        AuthoringAssetContext, ExistingQuestionRevisionPublicationCommand,
+        DraftQuestionImageContext, ExistingQuestionRevisionPublicationCommand,
         ExistingQuestionRevisionPublisher, NewQuestionLineagePublicationCommand,
         NewQuestionLineagePublisher, RandomQuestionIdIssuer,
     },
@@ -58,7 +58,7 @@ const INITIAL_PUBLICATION_REASON: &str = "Initial publication from Authoring Wor
 pub(crate) struct AuthoringRouteState {
     pub(crate) sessions: Arc<PostgresSessionStore>,
     pub(crate) drafts: PostgresAuthoringDraftStore,
-    pub(crate) assets: Arc<PostgresAuthoringAssetsStore>,
+    pub(crate) draft_question_images: Arc<PostgresDraftQuestionImageStore>,
     publication: PostgresDraftQuestionSourceBindingStore,
     pub(crate) objects: S3ObjectStore,
     question_id_issuer: RandomQuestionIdIssuer,
@@ -68,7 +68,7 @@ pub(crate) struct AuthoringRouteState {
 pub fn authoring_router(
     sessions: Arc<PostgresSessionStore>,
     drafts: PostgresAuthoringDraftStore,
-    assets: PostgresAuthoringAssetsStore,
+    draft_question_images: PostgresDraftQuestionImageStore,
     publication: PostgresDraftQuestionSourceBindingStore,
     objects: S3ObjectStore,
     question_id_issuer: RandomQuestionIdIssuer,
@@ -80,14 +80,14 @@ pub fn authoring_router(
             delete(delete_draft),
         )
         .route(
-            "/api/authoring/drafts/{draft_question_id}/assets",
-            post(crate::authoring_assets::upload).layer(DefaultBodyLimit::max(
+            "/api/authoring/drafts/{draft_question_id}/images",
+            post(crate::draft_question_images::upload).layer(DefaultBodyLimit::max(
                 objects::image_validation::MAX_STILL_IMAGE_BYTES,
             )),
         )
         .route(
-            "/api/authoring/drafts/{draft_question_id}/assets/{asset}",
-            get(crate::authoring_assets::preview),
+            "/api/authoring/drafts/{draft_question_id}/images/{question_image_asset_id}",
+            get(crate::draft_question_images::preview),
         )
         .route(
             "/api/authoring/drafts/{draft_question_id}/source",
@@ -108,7 +108,7 @@ pub fn authoring_router(
         .with_state(AuthoringRouteState {
             sessions,
             drafts,
-            assets: Arc::new(assets),
+            draft_question_images: Arc::new(draft_question_images),
             publication,
             objects,
             question_id_issuer,
@@ -118,8 +118,8 @@ pub fn authoring_router(
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct DraftSummaryResponse {
-    draft_question: Uuid,
-    edit_number: u64,
+    draft_question_id: Uuid,
+    draft_question_edit_number: String,
     question_title: String,
     question_description: String,
 }
@@ -132,8 +132,8 @@ struct DraftListResponse {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct CreatedDraftResponse {
-    draft_question: Uuid,
-    edit_number: u64,
+    draft_question_id: Uuid,
+    draft_question_edit_number: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -188,8 +188,11 @@ async fn list_drafts(State(state): State<AuthoringRouteState>, headers: HeaderMa
                 items: drafts
                     .into_iter()
                     .map(|draft| DraftSummaryResponse {
-                        draft_question: draft.draft_question_uuid.as_uuid(),
-                        edit_number: draft.edit_number.as_postgres_bigint() as u64,
+                        draft_question_id: draft.draft_question_uuid.as_uuid(),
+                        draft_question_edit_number: draft
+                            .edit_number
+                            .as_postgres_bigint()
+                            .to_string(),
                         question_title: draft.title,
                         question_description: draft.description,
                     })
@@ -266,8 +269,8 @@ async fn create_draft(
             (
                 StatusCode::CREATED,
                 Json(CreatedDraftResponse {
-                    draft_question: draft.draft_question_uuid.as_uuid(),
-                    edit_number: draft.edit_number.as_postgres_bigint() as u64,
+                    draft_question_id: draft.draft_question_uuid.as_uuid(),
+                    draft_question_edit_number: draft.edit_number.as_postgres_bigint().to_string(),
                 }),
             )
                 .into_response(),
@@ -403,8 +406,8 @@ async fn save_source(
         );
     }
     if let Some(surface) = &source.hotspot_surface
-        && let Err(error) = crate::authoring_assets::require_surface(
-            state.assets.as_ref(),
+        && let Err(error) = crate::draft_question_images::require_surface(
+            state.draft_question_images.as_ref(),
             session_hash,
             draft_question_uuid,
             surface,
@@ -636,8 +639,8 @@ async fn publish_draft(
         state.objects.clone(),
         state.publication.clone(),
         state.question_id_issuer,
-        Some(AuthoringAssetContext {
-            store: state.assets.clone(),
+        Some(DraftQuestionImageContext {
+            store: state.draft_question_images.clone(),
             draft_question_uuid,
         }),
     );
@@ -721,8 +724,8 @@ async fn publish_revision_draft(
     let publisher = ExistingQuestionRevisionPublisher::new(
         state.objects.clone(),
         state.publication.clone(),
-        Some(AuthoringAssetContext {
-            store: state.assets.clone(),
+        Some(DraftQuestionImageContext {
+            store: state.draft_question_images.clone(),
             draft_question_uuid,
         }),
     );

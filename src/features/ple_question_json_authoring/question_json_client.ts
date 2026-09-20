@@ -65,13 +65,16 @@ export type PleQuestionJsonSave = {
 };
 
 export interface PleQuestionJsonClient {
-  uploadAsset(
+  uploadQuestionImage(
     draftQuestion: DraftQuestionRouteId,
     image: Blob,
     expectedDraftQuestionEditNumber: string,
     signal?: AbortSignal,
-  ): Promise<PleQuestionJsonAssetDescriptor>;
-  assetPreviewPath(draftQuestion: DraftQuestionRouteId, asset: string): string;
+  ): Promise<PleQuestionJsonImageDescriptor>;
+  questionImagePreviewPath(
+    draftQuestion: DraftQuestionRouteId,
+    questionImageAssetId: string,
+  ): string;
   load(draftQuestion: DraftQuestionRouteId): Promise<PleQuestionJsonRead>;
   save(
     draftQuestion: DraftQuestionRouteId,
@@ -85,8 +88,8 @@ export interface PleQuestionJsonClient {
   ): Promise<QuestionSummary>;
 }
 
-export type PleQuestionJsonAssetDescriptor = {
-  readonly questionAssetId: string;
+export type PleQuestionJsonImageDescriptor = {
+  readonly questionImageAssetId: string;
   readonly checksum: string;
   readonly mediaType: "image/png" | "image/jpeg" | "image/webp";
   readonly intrinsicWidth: number;
@@ -94,13 +97,19 @@ export type PleQuestionJsonAssetDescriptor = {
 };
 
 /** ASVS 2.2.1: closed measured server facts, never caller-provided source or URLs. */
-export function decodePleQuestionJsonAssetDescriptor(
+export function decodePleQuestionJsonImageDescriptor(
   value: unknown,
-): PleQuestionJsonAssetDescriptor {
+): PleQuestionJsonImageDescriptor {
   if (typeof value !== "object" || value === null || Array.isArray(value))
     throw new PleQuestionJsonProtocolError("The image upload returned an invalid descriptor.");
   const record = value as Record<string, unknown>;
-  const keys = ["questionAssetId", "checksum", "mediaType", "intrinsicWidth", "intrinsicHeight"];
+  const keys = [
+    "questionImageAssetId",
+    "checksum",
+    "mediaType",
+    "intrinsicWidth",
+    "intrinsicHeight",
+  ];
   if (
     Object.keys(record).length !== keys.length ||
     keys.some((key) => !Object.prototype.hasOwnProperty.call(record, key))
@@ -108,7 +117,10 @@ export function decodePleQuestionJsonAssetDescriptor(
     throw new PleQuestionJsonProtocolError(
       "The image upload returned unexpected descriptor fields.",
     );
-  const questionAssetId = publicationUuid(record.questionAssetId, "asset.questionAssetId");
+  const questionImageAssetId = publicationUuid(
+    record.questionImageAssetId,
+    "asset.questionImageAssetId",
+  );
   const checksum = record.checksum;
   const mediaType = record.mediaType;
   const intrinsicWidth = record.intrinsicWidth;
@@ -128,7 +140,7 @@ export function decodePleQuestionJsonAssetDescriptor(
     throw new PleQuestionJsonProtocolError(
       "The image upload returned invalid measured image facts.",
     );
-  return { questionAssetId, checksum, mediaType, intrinsicWidth, intrinsicHeight };
+  return { questionImageAssetId, checksum, mediaType, intrinsicWidth, intrinsicHeight };
 }
 
 function browserFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
@@ -272,27 +284,33 @@ export function createPleQuestionJsonClient(
   const fetchImplementation = config.fetch ?? browserFetch;
   const basePath = normalizeBasePath(config.basePath);
 
-  function assetPreviewPath(draftQuestion: DraftQuestionRouteId, asset: string): string {
-    const canonicalAsset = publicationUuid(asset, "asset.questionAsset");
+  function questionImagePreviewPath(
+    draftQuestion: DraftQuestionRouteId,
+    questionImageAssetId: string,
+  ): string {
+    const canonicalQuestionImageAssetId = publicationUuid(
+      questionImageAssetId,
+      "questionImageAssetId",
+    );
     return sameOriginPath(
       basePath,
-      `/api/authoring/drafts/${encodedId(draftQuestion)}/assets/${encodedId(canonicalAsset)}`,
+      `/api/authoring/drafts/${encodedId(draftQuestion)}/images/${encodedId(canonicalQuestionImageAssetId)}`,
     );
   }
 
-  async function uploadAsset(
+  async function uploadQuestionImage(
     draftQuestion: DraftQuestionRouteId,
     image: Blob,
     expectedDraftQuestionEditNumber: string,
     signal?: AbortSignal,
-  ): Promise<PleQuestionJsonAssetDescriptor> {
+  ): Promise<PleQuestionJsonImageDescriptor> {
     if (image.size < 1 || image.size > 8 * 1024 * 1024)
       throw new PleQuestionJsonProtocolError("Choose an image no larger than 8 MiB.");
     if (!["image/png", "image/jpeg", "image/webp"].includes(image.type))
       throw new PleQuestionJsonProtocolError(
         "Choose a PNG, JPEG, or WebP image. SVG is not yet supported.",
       );
-    const path = `/api/authoring/drafts/${encodedId(draftQuestion)}/assets`;
+    const path = `/api/authoring/drafts/${encodedId(draftQuestion)}/images`;
     // ASVS 2.2.2: browser checks aid usability; the server verifies the actual raster bytes.
     const response = await fetchImplementation(sameOriginPath(basePath, path), {
       method: "POST",
@@ -312,7 +330,7 @@ export function createPleQuestionJsonClient(
     if (response.status !== 201)
       throw new PleQuestionJsonProtocolError("The image upload must return a created asset.");
     requireJson(response, path);
-    return decodePleQuestionJsonAssetDescriptor(
+    return decodePleQuestionJsonImageDescriptor(
       decodeJson(await boundedText(response, path), path),
     );
   }
@@ -438,7 +456,7 @@ export function createPleQuestionJsonClient(
     return summary;
   }
 
-  return { load, save, publish, uploadAsset, assetPreviewPath };
+  return { load, save, publish, uploadQuestionImage, questionImagePreviewPath };
 }
 
 function publishedQuestionId(value: unknown, path: string): string {

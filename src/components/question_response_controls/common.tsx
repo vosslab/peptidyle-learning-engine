@@ -15,7 +15,7 @@ import type {
   StudentResponseFormatIssue,
 } from "../../api/decoders/student_response_format_check";
 import type { ResponseFormatValidator } from "../../wasm/index";
-import type { AssetUrlResolver } from "../question_renderer";
+import type { QuestionImageUrlResolver } from "../question_renderer";
 import type { QuestionRevisionTuple } from "../../../generated/api/QuestionRevisionTuple";
 import type { DraftQuestionRouteId } from "../../navigation/public_route";
 
@@ -76,11 +76,11 @@ export interface QuestionResponseControlBaseProps {
   readonly attemptId: string;
   /** Exact publication identity and authorized resolver for image-backed controls. */
   readonly questionRevisionTuple?: QuestionRevisionTuple;
-  readonly assetUrl?: AssetUrlResolver;
+  readonly questionImageUrl?: QuestionImageUrlResolver;
   /** Authorized private Draft route; local author preview only. */
-  readonly hotspotDraftAsset?: {
+  readonly hotspotDraftQuestionImage?: {
     readonly draftQuestion: DraftQuestionRouteId;
-    readonly assetUrl: AssetUrlResolver;
+    readonly questionImageUrl: QuestionImageUrlResolver;
   };
   /** Format-only controls have no Student Response save capability. */
   readonly mode?: ResponseControlMode;

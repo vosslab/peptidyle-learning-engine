@@ -10,6 +10,10 @@ import {
 } from "../src/api/decoders/assessment_pool_fork.ts";
 import { decodeDueSoonAssessments } from "../src/api/decoders/assessment_release.ts";
 import { decodeInstructorStudentView } from "../src/api/decoders/assessment_student_view.ts";
+import { decodeAssessmentTemplate } from "../src/api/decoders/assessment_template.ts";
+import { decodeAssessmentStudentTimeAccommodation } from "../src/api/decoders/assessment_student_time_accommodation.ts";
+import { decodeQuestionAvailabilityTransition } from "../src/api/decoders/question_availability.ts";
+import { decodeQuestionPoolPreview } from "../src/api/decoders/pool_preview.ts";
 import { decodeCourseGradebook } from "../src/api/decoders/live_gradebook.ts";
 import { decodeAssessmentSummary } from "../src/api/decoders/question_library.ts";
 import { decodeBlueprintChangeProposalCreateRequest } from "../src/api/decoders/blueprint_change_proposal.ts";
@@ -192,6 +196,105 @@ test("Student View rejects leftover course identity names", () => {
         delivery: { kind: "ordered" },
         entries: [],
       }),
+    DecodeError,
+  );
+});
+
+test("Student View, Template, Pool Preview, accommodation, and availability reject leftover generic clocks", () => {
+  const studentView = {
+    assessmentEditNumber: "1",
+    status: "unreleased",
+    title: "Quiz",
+    instructions: "",
+    displayTimeZone: "America/New_York",
+    delivery: {
+      available_at: null,
+      due_at: null,
+      closes_at: null,
+      assessment_attempt_time_limit_seconds: null,
+      attempt_limit: null,
+      late_work_rule: "reject",
+    },
+    entries: [],
+  };
+  assert.equal(decodeInstructorStudentView(studentView).assessmentEditNumber, "1");
+  assert.throws(
+    () => decodeInstructorStudentView({ ...studentView, editNumber: "1" }),
+    DecodeError,
+  );
+  assert.throws(() => {
+    const leftover = { ...studentView, editNumber: "1" };
+    delete leftover.assessmentEditNumber;
+    decodeInstructorStudentView(leftover);
+  }, DecodeError);
+
+  const template = {
+    id: "00000000-0000-0000-0000-000000000123",
+    name: "Timed genetics quiz",
+    assessmentType: "quiz",
+    settings: {
+      instructions: "Show your reasoning.",
+      assessmentAttemptTimeLimitSeconds: 1800,
+      attemptLimit: 1,
+      lateWorkRule: "reject",
+      activityRules: {
+        questionVariationRule: "reuseVariation",
+        assessmentQuestionOrderRule: "authoredOrder",
+      },
+      studentFeedbackReleaseRule: {
+        score: "after_submit",
+        per_item_correctness: "after_due",
+        submitted_response: "after_submit",
+        question_answer: "never",
+        question_answer_explanation: "never",
+        class_statistics: "after_close",
+      },
+    },
+    assessmentTemplateEditNumber: "1",
+  };
+  assert.equal(decodeAssessmentTemplate(template).assessmentTemplateEditNumber, "1");
+  assert.throws(() => decodeAssessmentTemplate({ ...template, editNumber: "1" }), DecodeError);
+
+  const preview = {
+    assessmentId: "A7K3M2QXF",
+    assessmentEditNumber: "3",
+    assessmentEntryId: ENTRY,
+    questionPoolLabel: "Pool 3",
+    selectionCount: 1,
+    selectionRule: { selectedQuestionOrder: "randomOrder" },
+    items: [{ questionId: QUESTION_TUPLE.questionId, questionTitle: "Question Pool Item" }],
+    selectedItems: [{ questionId: QUESTION_TUPLE.questionId, questionTitle: "Question Pool Item" }],
+  };
+  assert.equal(decodeQuestionPoolPreview(preview).assessmentEditNumber, "3");
+  assert.throws(() => decodeQuestionPoolPreview({ ...preview, editNumber: "3" }), DecodeError);
+
+  const accommodation = {
+    rosterId: "bio-301",
+    timeMultiplier: null,
+    accommodationEditNumber: "2",
+    baseDurationSeconds: null,
+    effectiveDurationSeconds: null,
+    cappedAt24Hours: false,
+  };
+  assert.equal(
+    decodeAssessmentStudentTimeAccommodation(accommodation).accommodationEditNumber,
+    "2",
+  );
+  assert.throws(
+    () => decodeAssessmentStudentTimeAccommodation({ ...accommodation, editNumber: "2" }),
+    DecodeError,
+  );
+
+  const availability = {
+    availability: { availability: "archived" },
+    questionAvailabilityEditNumber: "6",
+  };
+  assert.equal(
+    decodeQuestionAvailabilityTransition(availability).questionAvailabilityEditNumber,
+    "6",
+  );
+  assert.throws(
+    () => decodeQuestionAvailabilityTransition({ ...availability, editNumber: "6" }),
     DecodeError,
   );
 });

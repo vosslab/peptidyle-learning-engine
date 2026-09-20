@@ -6,7 +6,7 @@
 
 use async_trait::async_trait;
 use objects::{ObjectAddress, ObjectDataClass, ObjectRecord, ObjectStorageArea};
-use question_model::{QuestionAssetId, QuestionRevisionTuple, WorkspaceId};
+use question_model::{QuestionImageAssetId, QuestionRevisionTuple, WorkspaceId};
 use uuid::Uuid;
 
 use crate::{SessionTokenHash, StoreError};
@@ -23,15 +23,15 @@ pub struct ForkPublishedQuestionInput {
     /// Fresh immutable copy of the exact source bytes in the target workspace.
     pub target_source_record: ObjectRecord,
     /// Fresh Draft-owned copy of the exact native HOTSPOT raster, when required.
-    pub hotspot_asset: Option<ForkPublishedQuestionAssetInput>,
+    pub hotspot_question_image: Option<ForkPublishedQuestionImageInput>,
     /// Opaque caller retry key, scoped by PostgreSQL to the authenticated actor.
     pub idempotency_key: Uuid,
 }
 
 /// Fresh target facts for the one native HOTSPOT raster owned by the new Draft.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ForkPublishedQuestionAssetInput {
-    pub asset_id: QuestionAssetId,
+pub struct ForkPublishedQuestionImageInput {
+    pub question_image_asset_id: QuestionImageAssetId,
     pub target_record: ObjectRecord,
     pub intrinsic_width: u32,
     pub intrinsic_height: u32,
@@ -39,8 +39,8 @@ pub struct ForkPublishedQuestionAssetInput {
 
 /// Exact immutable published HOTSPOT raster selected by its source Revision.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PublishedQuestionForkAsset {
-    pub asset_id: QuestionAssetId,
+pub struct PublishedQuestionForkImage {
+    pub question_image_asset_id: QuestionImageAssetId,
     pub source_record: ObjectRecord,
     pub intrinsic_width: u32,
     pub intrinsic_height: u32,
@@ -63,13 +63,13 @@ impl ForkPublishedQuestionInput {
                 "Question Fork target source is not owned by its workspace".to_owned(),
             ));
         }
-        if let Some(asset) = &self.hotspot_asset {
+        if let Some(asset) = &self.hotspot_question_image {
             let record = &asset.target_record;
             if record.address
-                != (ObjectAddress::DraftQuestionAsset {
+                != (ObjectAddress::DraftQuestionImage {
                     workspace_id: self.workspace,
                     draft_question_id: self.proposed_draft_question_id,
-                    question_asset_id: asset.asset_id,
+                    question_image_asset_id: asset.question_image_asset_id,
                     object_id: record.id,
                 })
                 || record.storage_area != ObjectStorageArea::PrivateContent
@@ -77,7 +77,7 @@ impl ForkPublishedQuestionInput {
                 || record.question_revision_tuple.is_some()
             {
                 return Err(StoreError::InvalidRecord(
-                    "Question Fork target asset is not owned by its Draft".to_owned(),
+                    "Question Fork target image is not owned by its Draft".to_owned(),
                 ));
             }
         }
@@ -107,7 +107,7 @@ pub trait QuestionForkStore: Send + Sync {
         &self,
         session_token_hash: SessionTokenHash,
         question_revision_tuple: &QuestionRevisionTuple,
-    ) -> Result<Option<PublishedQuestionForkAsset>, StoreError>;
+    ) -> Result<Option<PublishedQuestionForkImage>, StoreError>;
 
     /// Creates or returns the actor/key's one private Draft fork atomically.
     async fn fork_published_question_to_draft(

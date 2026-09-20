@@ -22,6 +22,10 @@ use crate::{
     StoredBlueprintAssessmentEntry, StoredBlueprintRevision,
 };
 
+const LIST_KNOWN_BLUEPRINT_FORKS_SQL: &str = "SELECT blueprint_course_id, short_name, long_name, availability, \
+             blueprint_revision_number, source_blueprint_revision_number, owner_display_name \
+             FROM ple_api.list_known_blueprint_forks($1) ORDER BY blueprint_course_id COLLATE \"C\"";
+
 /// PostgreSQL implementation of the closed Blueprint fork boundary.
 #[derive(Clone)]
 pub struct PostgresBlueprintLineageStore {
@@ -85,16 +89,12 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
         };
         let mut transaction = self.begin(session).await.map_err(concealed)?;
         // ASVS 1.2.4, 8.2.2/3: bound source; trusted reader filters children and fields.
-        let rows = sqlx::query(
-            "SELECT blueprint_course_id, short_name, long_name, availability, \
-             blueprint_revision_number, source_blueprint_revision_number, owner_display_name \
-             FROM ple_api.list_known_blueprint_forks($1) ORDER BY blueprint_course_id COLLATE \"C\"",
-        )
-        .bind(source_blueprint_course_id.as_string())
-        .fetch_all(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)
-        .map_err(concealed)?;
+        let rows = sqlx::query(LIST_KNOWN_BLUEPRINT_FORKS_SQL)
+            .bind(source_blueprint_course_id.as_string())
+            .fetch_all(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)
+            .map_err(concealed)?;
         let mut forks = Vec::with_capacity(rows.len());
         for row in rows {
             let availability: String = row.try_get("availability").map_err(map_sqlx_error)?;
@@ -426,4 +426,16 @@ fn random_uuid() -> Result<uuid::Uuid, StoreError> {
     crate::random_uuid::random_uuid_v4(|_| {
         StoreError::Unavailable("Blueprint fork UUID randomness unavailable".to_string())
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::LIST_KNOWN_BLUEPRINT_FORKS_SQL;
+
+    #[test]
+    fn known_forks_query_uses_revision_number_columns() {
+        assert!(LIST_KNOWN_BLUEPRINT_FORKS_SQL.contains("ple_api.list_known_blueprint_forks"));
+        assert!(LIST_KNOWN_BLUEPRINT_FORKS_SQL.contains("blueprint_revision_number"));
+        assert!(LIST_KNOWN_BLUEPRINT_FORKS_SQL.contains("source_blueprint_revision_number"));
+    }
 }

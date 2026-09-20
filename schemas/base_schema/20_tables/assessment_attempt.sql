@@ -308,16 +308,16 @@ CREATE TABLE ple_private.question_attempt_presentation_asset_binding (
     created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
 );
 
-CREATE TABLE ple_private.question_attempt_presentation_asset_rendition (
+CREATE TABLE ple_private.question_attempt_presentation_image_rendition (
     course_instance_id ple_data.course_instance_id NOT NULL,
-    question_attempt_presentation_asset_binding_id uuid NOT NULL,
-    asset_id uuid NOT NULL,
-    question_asset_checksum bytea NOT NULL CHECK (octet_length(question_asset_checksum) = 32),
+    question_attempt_presentation_image_binding_id uuid NOT NULL,
+    question_image_asset_id uuid NOT NULL,
+    question_image_checksum bytea NOT NULL CHECK (octet_length(question_image_checksum) = 32),
     rendition_checksum bytea NOT NULL CHECK (octet_length(rendition_checksum) = 32),
     intrinsic_width integer NOT NULL CHECK (intrinsic_width > 0),
     intrinsic_height integer NOT NULL CHECK (intrinsic_height > 0),
-    PRIMARY KEY (course_instance_id, question_attempt_presentation_asset_binding_id, asset_id),
-    FOREIGN KEY (course_instance_id, question_attempt_presentation_asset_binding_id)
+    PRIMARY KEY (course_instance_id, question_attempt_presentation_image_binding_id, question_image_asset_id),
+    FOREIGN KEY (course_instance_id, question_attempt_presentation_image_binding_id)
         REFERENCES ple_private.question_attempt_presentation_asset_binding(course_instance_id, question_attempt_id)
         ON DELETE CASCADE,
     created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
@@ -370,7 +370,7 @@ COMMENT ON TABLE ple_private.assessment_submission IS 'role: student work, delet
 COMMENT ON TABLE ple_private.question_attempt_presentation_binding IS 'role: student work, Checksummed issued presentation and, for backend-owned Questions, immutable document retained for one Question Attempt.';
 COMMENT ON TABLE ple_private.question_attempt_response_item_binding IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
 COMMENT ON TABLE ple_private.question_attempt_presentation_asset_binding IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
-COMMENT ON TABLE ple_private.question_attempt_presentation_asset_rendition IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
+COMMENT ON TABLE ple_private.question_attempt_presentation_image_rendition IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
 COMMENT ON TABLE ple_private.grading_result IS 'role: student work, One immutable normalized-credit outcome for an accepted Submission; current Assessment Entry points calculate scores on read.';
 
 SET LOCAL ROLE ple_audit_owner;

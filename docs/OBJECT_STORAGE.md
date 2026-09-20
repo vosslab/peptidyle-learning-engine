@@ -18,8 +18,8 @@ generic background-work model.
 
 | Domain                        | Object Storage Area | Contents                                                                                                                                                                    | Delivery rule                                                                                                                                                                                                                                                                             |
 | ----------------------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Published presentation assets | `PublicAssets`      | Only immutable, answer-free renditions of Published Questions                                                                                                               | Public delivery is available only after the Question Library publication decision and durable registry are `Ready`, with the exact immutable-public tag and vetted-Instructor Question Library access or an allowed Assessment access decision for the Student's Coursework. |
-| Private content               | `PrivateContent`    | Private Draft Question source/assets, backend state or grading inputs, and Course-record presentation assets                                                               | Never publicly readable. A protected delivery uses its exact server-derived authority. |
+| Published Question Image Renditions | `PublicAssets`      | Only immutable, answer-free Question Image Renditions of Published Questions                                                                                                 | Public delivery is available only after the Question Library publication decision and durable registry are `Ready`, with the exact immutable-public tag and vetted-Instructor Question Library access or an allowed Assessment access decision for the Student's Coursework. |
+| Private content               | `PrivateContent`    | Private Draft Question source and Question Image Assets, backend state or grading inputs, and Course Banners                                                               | Never publicly readable. A protected delivery uses its exact server-derived authority. |
 | Student records               | `StudentRecords`    | Student work, protected course-record artifacts, and annotations                                                                                                            | Never public; delivery requires the exact Student, course, or typed support authority for that record.                                                                                                                                                                                    |
 | Temporary processing          | `TempProcessing`    | Conversion workspaces and short-lived course-banner entries                                                                                                                 | Never signable or browser-served.                                                                                                                                                                                                                                                         |
 
@@ -45,11 +45,11 @@ variant. Important mappings are:
 
 | Object class                                                        | Object Address variants                                                               | Domain and delivery authority                                                                                                                                                                                                                                                                     |
 | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Private workspace source and imported assets                        | `WorkspaceImportSource`, `WorkspaceQuestionSource`, `WorkspaceImportAsset`            | `PrivateContent`; the Authoring Workspace Owner relationship is required for a private workspace View. Collaboration is a future separately designed capability, not current authority.                                                                                                           |
-| Published answer-free presentation asset                            | `QuestionAsset`                                                                       | `PublicAssets`; vetted-Instructor Question Library access or an allowed Assessment access decision selects the immutable public rendition. This does not expose source, Answer Key, Question Feedback, Question Answer Explanation, or grading input. |
+| Private workspace source and imported QTI media                     | `WorkspaceImportSource`, `WorkspaceQuestionSource`, `WorkspaceImportExtractedImage`   | `PrivateContent`; the Authoring Workspace Owner relationship is required for a private workspace View. Collaboration is a future separately designed capability, not current authority.                                                                                                           |
+| Published answer-free Question Image                                | `QuestionImage`                                                                       | `PublicAssets`; vetted-Instructor Question Library access or an allowed Assessment access decision selects the immutable public rendition. This does not expose source, Answer Key, Question Feedback, Question Answer Explanation, or grading input. |
 | Published Question Source, import archive, and private render state | `QuestionSource`, `PublishedImportArchive`, `QuestionRender`                          | `PrivateContent`; only an exact server capability or the authorized private workspace Question Source operation may read it.                                                                                                                                                                      |
 | Generation/grader keys and payloads                                 | Server-only private records and any typed private object written by its owning worker | `PrivateContent`; only the exact grader, generation, worker lease, or capability may read it.                                                                                                                                                                                                     |
-| Course-record presentation asset                                    | `CourseBanner`                                                                        | `PrivateContent`; delivery rechecks the exact current course record and its course relationship.                                                                                                                                                                                                  |
+| Course Banner                                                       | `CourseBanner`                                                                        | `PrivateContent`; delivery rechecks the exact current course record and its course relationship.                                                                                                                                                                                                  |
 | Student work or protected artifact                                  | `StudentRecord`                                                                       | `StudentRecords`; delivery rechecks exact Student ownership, course Instructor authority, or a narrow audited support capability.                                                                                                                                                                 |
 | Course Banner Upload or processing scratch object                   | `CourseBannerUpload`, `Temporary`                                                     | `TempProcessing`; never delivered, signed, or used as a public publication result.                                                                                                                                                                                                                |
 
@@ -107,7 +107,7 @@ Every delivery selects one server-derived authority. The Object Storage Area and
 object or delivery ID never supply authority by themselves:
 
 1. Approved-Instructor Question Library access delivers safe Question Library
-   search and details results and the published presentation assets that they reference.
+   search and details results and the published Question Image Renditions that they reference.
 2. An allowed Assessment access decision delivers the answer-free
    presentation needed for that Student's Coursework.
 3. The exact Authoring Workspace Owner relationship delivers a private
@@ -121,12 +121,12 @@ object or delivery ID never supply authority by themselves:
 `GET /api/assets/{id}` can return only an already-ready published presentation
 asset after the route proves vetted-Instructor Question Library access or the exact
 Assessment access decision. It resolves an opaque registry ID, verifies
-the complete trusted `QuestionAsset`/`PublicAssets` record shape, then
+the complete trusted `QuestionImage`/`PublicAssets` record shape, then
 redirects to a configured immutable public URL. It cannot authorize, audit, or
 issue a protected bearer URL, and it returns the same not-found response for
 protected and absent IDs.
 
-Published presentation assets are not anonymous internet content. Delivering
+Published Question Image Renditions are not anonymous internet content. Delivering
 one through an approved authority does not grant Question Library search,
 details, or delivery of another asset. Question Library search and details
 require authenticated approved-Instructor access. A Student receives an
@@ -137,7 +137,7 @@ receive Question Library access.
 same-origin authenticated session, reauthorizes the exact Account, course,
 Student, workspace, and object relationship required by the selected typed
 scope, records a minimized access event, and returns a short-lived URL in
-JSON. It refuses published presentation assets so there is no second,
+JSON. It refuses published Question Image Renditions so there is no second,
 stateful public path. Private-content URLs are at most 60 minutes;
 Student-record URLs are at most five minutes. Protected responses use
 `no-store`, `Pragma: no-cache`, and `Referrer-Policy: no-referrer`. Temporary
@@ -188,7 +188,7 @@ inspection before it can be accepted.
 Future cloud production support must require encryption at rest for every
 object write, verify the provider's returned encryption evidence, and protect
 all four domains and their backups with independently managed keys. PLE does
-not encrypt every published presentation asset again in application code.
+not encrypt every published Question Image Rendition again in application code.
 Public objects must be publicly readable after their authorization gate, and a
 blanket application layer would add key-handling risk without supplying an
 access-control property that this public class lacks.

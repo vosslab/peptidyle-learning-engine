@@ -73,15 +73,15 @@ impl std::fmt::Display for QuestionRevisionNumber {
     }
 }
 
-/// A stored asset: an image, a figure, or an imported source package.
+/// Logical identity of one Question-bound displayed still image.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct QuestionAssetId(Uuid);
+pub struct QuestionImageAssetId(Uuid);
 
 /// One immutable object-store record.
 ///
-/// An asset may point at an object, but the two identities stay distinct so a
-/// later physical deduplication scheme can change object placement without
-/// changing the logical asset referenced by content.
+/// A Question Image Asset may point at an object, but the two identities stay
+/// distinct so a later physical placement change does not change the logical
+/// image referenced by content.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct ObjectId(Uuid);
 
@@ -122,7 +122,7 @@ macro_rules! impl_identifier {
 
 impl_identifier!(WorkspaceId);
 impl_identifier!(WorkspaceImportId);
-impl_identifier!(QuestionAssetId);
+impl_identifier!(QuestionImageAssetId);
 impl_identifier!(ObjectId);
 
 #[cfg(test)]

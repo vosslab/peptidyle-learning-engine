@@ -127,7 +127,7 @@ struct ArchiveQuestionRequest {
 #[serde(rename_all = "camelCase")]
 struct QuestionAvailabilityResponse {
     availability: question_model::QuestionAvailability,
-    edit_number: question_model::QuestionAvailabilityEditNumber,
+    question_availability_edit_number: question_model::QuestionAvailabilityEditNumber,
 }
 
 use query::QuestionSearchQuery;

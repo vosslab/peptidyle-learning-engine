@@ -17,11 +17,11 @@ RESET ROLE;
 \ir 70_grants/question_watch_notifications.sql
 \ir 70_grants/object_records.sql
 \ir 70_grants/question_authoring_state.sql
-\ir 70_grants/draft_question_assets.sql
+\ir 70_grants/draft_question_images.sql
 \ir 70_grants/question_publication_operations.sql
 \ir 70_grants/question_authoring_operations.sql
 \ir 70_grants/published_question_metadata_operations.sql
-\ir 70_grants/question_assets.sql
+\ir 70_grants/question_images.sql
 \ir 70_grants/blueprints.sql
 \ir 70_grants/blueprint_operations.sql
 \ir 70_grants/blueprint_history.sql
@@ -65,8 +65,8 @@ RESET ROLE;
 \ir 70_grants/delivery_backends.sql
 \ir 70_grants/delivery.sql
 \ir 70_grants/jobs.sql
-\ir 70_grants/question_asset_operations.sql
-\ir 70_grants/draft_asset_publication_operations.sql
+\ir 70_grants/question_image_operations.sql
+\ir 70_grants/draft_question_image_publication_operations.sql
 \ir 70_grants/grading.sql
 \ir 70_grants/grading_access.sql
 \ir 70_grants/student_assessment_landing.sql

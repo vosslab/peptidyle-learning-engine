@@ -12,7 +12,7 @@ import {
 } from "../decoder";
 import { field, kind, requireOnlyFields } from "./shared";
 import {
-  decodeQuestionAssetTuple,
+  decodeQuestionImageAssetTuple,
   decodeQuestionContentBlock,
   decodeResponseSelectionRule,
 } from "./question_response_format";
@@ -92,16 +92,16 @@ export function decodeQuestionResponsePreview(
     case "hotspot":
       requireOnlyFields(record, path, [
         "kind",
-        "questionAssetTuple",
+        "questionImageAssetTuple",
         "description",
         "regions",
         "selection",
       ]);
       return {
         kind: responseKind,
-        questionAssetTuple: decodeQuestionAssetTuple(
-          field(record, "questionAssetTuple", path),
-          `${path}.questionAssetTuple`,
+        questionImageAssetTuple: decodeQuestionImageAssetTuple(
+          field(record, "questionImageAssetTuple", path),
+          `${path}.questionImageAssetTuple`,
           true,
         ),
         description: decodeString(field(record, "description", path), `${path}.description`),

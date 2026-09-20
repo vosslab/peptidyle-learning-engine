@@ -129,7 +129,7 @@ async fn resolve_graph(api: &ProductApi, instructor: &TemporarySession) -> Resul
                     "dueAt",
                     "displayTimeZone",
                     "status",
-                    "editNumber",
+                    "assessmentEditNumber",
                 ],
                 "Assessment",
             )?;

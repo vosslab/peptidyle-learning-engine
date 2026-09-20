@@ -1,20 +1,20 @@
-//! PostgreSQL adapter for the public Question Asset redirect boundary.
+//! PostgreSQL adapter for the public Question Image Asset redirect boundary.
 
 use async_trait::async_trait;
 use objects::Sha256Checksum;
-use question_model::{ObjectId, QuestionAssetId, QuestionRevisionTuple};
+use question_model::{ObjectId, QuestionImageAssetId, QuestionRevisionTuple};
 use sqlx::{Postgres, Row, Transaction};
 
 use super::{Pool, connection::map_sqlx_error};
-use crate::{QuestionAssetDeliveryStore, ReadyQuestionAssetDelivery, SessionTokenHash, StoreError};
+use crate::{QuestionImageDeliveryStore, ReadyQuestionImageDelivery, SessionTokenHash, StoreError};
 
 /// Binds the attested API pool to the one opaque published-asset resolver.
 #[derive(Clone)]
-pub struct PostgresQuestionAssetDeliveryStore {
+pub struct PostgresQuestionImageDeliveryStore {
     pool: Pool,
 }
 
-impl PostgresQuestionAssetDeliveryStore {
+impl PostgresQuestionImageDeliveryStore {
     pub fn new(pool: Pool) -> Self {
         Self { pool }
     }
@@ -47,17 +47,17 @@ impl PostgresQuestionAssetDeliveryStore {
 }
 
 #[async_trait]
-impl QuestionAssetDeliveryStore for PostgresQuestionAssetDeliveryStore {
-    async fn resolve_ready_question_asset_delivery(
+impl QuestionImageDeliveryStore for PostgresQuestionImageDeliveryStore {
+    async fn resolve_ready_question_image_delivery(
         &self,
         token: SessionTokenHash,
         question_revision_tuple: QuestionRevisionTuple,
-        asset_id: QuestionAssetId,
-    ) -> Result<ReadyQuestionAssetDelivery, StoreError> {
+        question_image_asset_id: QuestionImageAssetId,
+    ) -> Result<ReadyQuestionImageDelivery, StoreError> {
         let mut transaction = self.begin(token).await?;
         let row = sqlx::query(
             "SELECT public_object_id, rendition_checksum \
-             FROM ple_api.resolve_ready_question_asset($1, $2, $3)",
+             FROM ple_api.resolve_ready_question_image($1, $2, $3)",
         )
         .bind(question_revision_tuple.question_id.as_str())
         .bind(
@@ -65,7 +65,7 @@ impl QuestionAssetDeliveryStore for PostgresQuestionAssetDeliveryStore {
                 StoreError::InvalidRecord("Question Revision number is invalid".to_string())
             })?,
         )
-        .bind(asset_id.as_uuid())
+        .bind(question_image_asset_id.as_uuid())
         .fetch_optional(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?
@@ -75,11 +75,11 @@ impl QuestionAssetDeliveryStore for PostgresQuestionAssetDeliveryStore {
             .map_err(map_sqlx_error)?
             .try_into()
             .map_err(|_| {
-                StoreError::InvalidRecord("Question Asset checksum is invalid".to_string())
+                StoreError::InvalidRecord("Question Image Asset checksum is invalid".to_string())
             })?;
-        let value = ReadyQuestionAssetDelivery {
+        let value = ReadyQuestionImageDelivery {
             question_revision_tuple,
-            asset_id,
+            question_image_asset_id,
             public_object_id: ObjectId::from_uuid(
                 row.try_get("public_object_id").map_err(map_sqlx_error)?,
             ),

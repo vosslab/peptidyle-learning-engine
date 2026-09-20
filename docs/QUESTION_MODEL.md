@@ -34,7 +34,7 @@ content already copied into a Published Question Revision.
 ## Publication and Revisions
 
 Publishing a new Question creates a stable lineage and Revision 1. Publishing a
-change to source, answers, grading rules, feedback, or Question assets creates
+change to source, answers, grading rules, feedback, or Question Image Assets creates
 the next immutable Revision under the same ID when the Question remains the
 same lineage.
 
@@ -181,16 +181,16 @@ Author JavaScript may render or support interaction in an isolated untrusted
 environment. It receives no random seed, application credentials, privileged
 state, or grading authority. Its only dependency declaration is the closed
 `libraries` enum (currently `rdkit`); native source cannot name a dependency
-URL, CDN, local path, package version, or asset digest. A separate
-server-owned reviewed registry selects any runtime assets.
+URL, CDN, local path, package version, or content digest. A separate
+server-owned reviewed registry selects any runtime files.
 
 QTI is an import, export, and archival interchange boundary, not PLE's internal
 source or runtime model. Importers translate supported external items into
 PLE-managed Draft Questions without creating a second Question lifecycle.
 
-## Assets and presentation
+## Question images and presentation
 
-Question assets bind to the exact Published Question Revision. Private source,
+Question Image Assets bind to the exact Published Question Revision. Private source,
 Answer Keys, and grading inputs remain in private storage. Only answer-free
 authorized renditions cross the Student boundary.
 

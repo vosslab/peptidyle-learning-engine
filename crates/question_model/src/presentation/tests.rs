@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use crate::answer::{ResponseSelectionRule, TextResponseMatchRule};
-use crate::question_content::{QuestionAssetTuple, QuestionContentBlock};
+use crate::question_content::{QuestionContentBlock, QuestionImageAssetTuple};
 use crate::question_variation::{NativeChoiceOrder, QuestionVariationPresentation};
 use crate::response::{
     HotspotRegion, MatchingChoice, MatchingPrompt, OrderingItem, QuestionChoice,
@@ -455,13 +455,13 @@ fn presentation_for(response: QuestionResponseFormat) -> super::IssuedQuestionPr
 }
 
 fn hotspot_presentation() -> super::IssuedQuestionPresentation {
-    let question_asset_tuple = QuestionAssetTuple {
-        question_asset_id: crate::QuestionAssetId::from_uuid(uuid::Uuid::from_u128(1)),
+    let question_image_asset_tuple = QuestionImageAssetTuple {
+        question_image_asset_id: crate::QuestionImageAssetId::from_uuid(uuid::Uuid::from_u128(1)),
         checksum: "a".repeat(64),
     };
     let mut variation_presentation = fixture();
     variation_presentation.response = QuestionResponseFormat::Hotspot {
-        question_asset_tuple: question_asset_tuple.clone(),
+        question_image_asset_tuple: question_image_asset_tuple.clone(),
         description: "Cell diagram".to_owned(),
         regions: vec![HotspotRegion {
             id: ResponseItemId::new("nucleus"),
@@ -475,9 +475,9 @@ fn hotspot_presentation() -> super::IssuedQuestionPresentation {
         }],
         selection: ResponseSelectionRule::ExactlyOne,
     };
-    let bindings = [super::QuestionAssetRendition {
-        question_asset_tuple: question_asset_tuple.clone(),
-        rendition_checksum: question_asset_tuple.checksum,
+    let bindings = [super::QuestionImageRendition {
+        question_image_asset_tuple: question_image_asset_tuple.clone(),
+        rendition_checksum: question_image_asset_tuple.checksum,
         intrinsic_width: Some(800),
         intrinsic_height: Some(600),
     }];

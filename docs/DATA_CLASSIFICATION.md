@@ -53,7 +53,7 @@ Before adding a datum:
 
 | Class | Examples | Browser boundary | Retention |
 | --- | --- | --- | --- |
-| Published answer-free content | Published Question metadata, safe prompt content, authorized presentation assets | Vetted Instructor discovery or authorized Student delivery; not anonymous by default | Independent of Course Student-record retention |
+| Published answer-free content | Published Question metadata, safe prompt content, authorized Question Image Renditions | Vetted Instructor discovery or authorized Student delivery; not anonymous by default | Independent of Course Student-record retention |
 | Private authoring content | Draft Question source, import archive, private preview, Answer Key | Authorized Instructor authoring only | Workspace policy; publication creates independent immutable content |
 | Blueprint content | Blueprint metadata and immutable Revisions | Private owner-only; Public to vetted Instructors; Archived only through explicit inclusion | Independent of Course Student-record retention |
 | Blueprint update and proposal data | Source and receiving Blueprint references, canonical differences, and acceptance decision | Daughter Course co-Instructors for Course updates; receiving Blueprint owner for Change Proposals | Retained with the Blueprint/Course relationship; never grants FERPA access |

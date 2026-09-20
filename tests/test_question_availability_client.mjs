@@ -53,10 +53,16 @@ test("Question availability client keeps current lineage transitions and exact r
       const path = new URL(request.url).pathname;
       if (path.endsWith("/revisions/2")) return noStoreJson(details(2, true), '"5"');
       if (path.endsWith("/archive")) {
-        return noStoreJson({ availability: { availability: "archived" }, editNumber: "6" }, '"6"');
+        return noStoreJson(
+          { availability: { availability: "archived" }, questionAvailabilityEditNumber: "6" },
+          '"6"',
+        );
       }
       if (path.endsWith("/restore")) {
-        return noStoreJson({ availability: { availability: "available" }, editNumber: "7" }, '"7"');
+        return noStoreJson(
+          { availability: { availability: "available" }, questionAvailabilityEditNumber: "7" },
+          '"7"',
+        );
       }
       return noStoreJson({ summary: question, viewerMayArchive: true }, '"5"');
     },

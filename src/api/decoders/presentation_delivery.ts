@@ -1,6 +1,6 @@
 // Strict Student Question Attempt View decoding and key-free Question Response Control translation.
 
-import type { QuestionAssetTuple } from "../../../generated/api/QuestionAssetTuple";
+import type { QuestionImageAssetTuple } from "../../../generated/api/QuestionImageAssetTuple";
 import type { QuestionPresentation } from "../../../generated/api/QuestionPresentation";
 import type { PresentedMatchingChoice } from "../../../generated/api/PresentedMatchingChoice";
 import type { PresentedMatchingPrompt } from "../../../generated/api/PresentedMatchingPrompt";
@@ -147,13 +147,13 @@ function presentedHotspotRegion(value: unknown, path: string): PresentedHotspotR
   };
 }
 
-function questionAssetTuple(value: unknown, path: string): QuestionAssetTuple {
+function questionImageAssetTuple(value: unknown, path: string): QuestionImageAssetTuple {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["questionAssetId", "checksum"]);
+  requireOnlyFields(record, path, ["questionImageAssetId", "checksum"]);
   return {
-    questionAssetId: decodeIdentifier(
-      field(record, "questionAssetId", path),
-      `${path}.questionAssetId`,
+    questionImageAssetId: decodeIdentifier(
+      field(record, "questionImageAssetId", path),
+      `${path}.questionImageAssetId`,
     ),
     checksum: decodeSha256(field(record, "checksum", path), `${path}.checksum`),
   };
@@ -286,7 +286,7 @@ function issuedQuestionResponseFormat(
       const surfaceRecord = decodeRecord(field(record, "surface", path), surfacePath);
       requireOnlyFields(surfaceRecord, surfacePath, [
         "id",
-        "questionAssetTuple",
+        "questionImageAssetTuple",
         "description",
         "regions",
       ]);
@@ -307,9 +307,9 @@ function issuedQuestionResponseFormat(
             field(surfaceRecord, "id", surfacePath),
             `${surfacePath}.id`,
           ),
-          questionAssetTuple: questionAssetTuple(
-            field(surfaceRecord, "questionAssetTuple", surfacePath),
-            `${surfacePath}.questionAssetTuple`,
+          questionImageAssetTuple: questionImageAssetTuple(
+            field(surfaceRecord, "questionImageAssetTuple", surfacePath),
+            `${surfacePath}.questionImageAssetTuple`,
           ),
           description: decodeNonemptyString(
             field(surfaceRecord, "description", surfacePath),

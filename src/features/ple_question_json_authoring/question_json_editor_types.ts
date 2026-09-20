@@ -42,7 +42,10 @@ export interface PleQuestionJsonEditorPageProps {
   readonly initialGeneralFeedback: PleQuestionGeneralFeedbackRead;
   readonly generalFeedbackClient: PleQuestionGeneralFeedbackClient;
   readonly repository: PleQuestionJsonRepository;
-  readonly assetClient?: Pick<PleQuestionJsonClient, "uploadAsset" | "assetPreviewPath">;
+  readonly questionImageClient?: Pick<
+    PleQuestionJsonClient,
+    "uploadQuestionImage" | "questionImagePreviewPath"
+  >;
   readonly classificationClient: ContentClassificationClient;
   /** Injected browser-safe validator keeps preview on the same student QuestionResponseControl path. */
   readonly responseValidator: Pick<WasmFacade, "validateResponseFormat">;

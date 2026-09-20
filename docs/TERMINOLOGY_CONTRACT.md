@@ -34,7 +34,7 @@ Those documents must preserve the meanings established by Human Guidance.
 - Use **Tuple** for multiple values that together identify one exact object, state, or version.
   Current examples are `QuestionRevisionTuple { questionId, revisionNumber }`,
   `BlueprintRevisionTuple { blueprintCourseId, revisionNumber }`,
-  `QuestionAssetTuple { questionAssetId, checksum }`, and
+  `QuestionImageAssetTuple { questionImageAssetId, checksum }`, and
   `CourseRosterTuple { courseInstanceId, rosterId }`.
 - Use **Reference** only for a genuine indirect, scoped, or external locator.
 - Preserve the canonical ID exactly across system boundaries. Parsing,
@@ -348,7 +348,14 @@ recorded CDNs and should eventually be owned and served locally by PLE.
 
 **QTI interchange** covers import, export, and archival exchange. Importers are
 transient translators into PLE-managed Question representations. QTI is not
-PLE's internal source or another runtime Question model.
+PLE's internal source or another runtime Question model. A QTI ZIP, retained
+QTI archive, and extracted QTI image are interchange roles, not Question Image
+Assets.
+
+**Question Image Asset** is a still image bound to an exact Question Revision.
+Current kinds are PNG, JPEG, and WebP. **Question Image Rendition** is the
+authorized delivered form of that image. Course Banner, Profile Image, and
+WeBWorK renderer files keep their own identities.
 
 ## Question Pools
 
@@ -770,8 +777,8 @@ public ID, or a `public_reference` SQL alias beside a public ID. Composite
 Question Revision Tuple JSON is the field `questionRevisionTuple` with members
 `{questionId, revisionNumber}`. Blueprint Revision Tuple JSON is the field
 `blueprintRevisionTuple` with members `{blueprintCourseId, revisionNumber}`.
-Question Asset Tuple JSON is the field `questionAssetTuple` with members
-`{questionAssetId, checksum}`. Course Roster Tuple JSON is the field
+Question Image Asset Tuple JSON is the field `questionImageAssetTuple` with members
+`{questionImageAssetId, checksum}`. Course Roster Tuple JSON is the field
 `courseRosterTuple` with members `{courseInstanceId, rosterId}`. Domain clocks
 use qualified names such as `assessmentEditNumber`, `blueprintEditNumber`,
 `draftQuestionEditNumber`, and `expectedAssessmentEditNumber`.

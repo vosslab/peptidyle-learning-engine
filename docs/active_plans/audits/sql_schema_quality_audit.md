@@ -353,7 +353,7 @@ parent's time (revision members, Blueprint pins, vocabulary hierarchy, delivery 
 is why nobody noticed; but the set also includes `ple_private.assessment_template`
 (assessment_templates.sql:23), a current-state table with an Edit Number and no
 `created_at`/`updated_at`, `ple_private.issued_question` (assessment_attempts.sql:111), a Student
-Work row with no issue instant of its own, `ple_private.question_asset_publication`, and all five
+Work row with no issue instant of its own, `ple_private.question_image_publication`, and all five
 `content_*` vocabulary tables. Without a creation instant a row cannot be ordered, aged, purged
 by date, or explained in support. [DATABASE_STYLE.md](../../DATABASE_STYLE.md), "Every table has
 a clock", requires one creation instant per table and `updated_at` on current state; plan work
@@ -363,9 +363,9 @@ package WP-1.7 adds them. Full list from the parser: `account_time_zone`, the fo
 `blueprint_revision_*` children, five `content_*` tables, two `forced_question_correction_*`
 targets, `course_banner`, `course_banner_rendition`, `course_banner_delivery`,
 `course_banner_storage_subject`, `course_banner_prepared_presentation`,
-`course_retention_policy`, `draft_question_asset`, `course_object_delivery`,
-`profile_image_delivery`, `provided_avatar`, `account_avatar`, `question_asset_delivery`,
-`question_asset_publication`, `question_revision_bloom`, `question_pool_pin_bloom`,
+`course_retention_policy`, `draft_question_image`, `course_object_delivery`,
+`profile_image_delivery`, `provided_avatar`, `account_avatar`, `question_image_delivery`,
+`question_image_publication`, `question_revision_bloom`, `question_pool_pin_bloom`,
 `bloom_preparation_receipt`, `question_pool_member`, `question_revision_authorship`,
 `question_revision_license`, `question_revision_citation`, `library_watch_event_recipient`,
 `question_revision_choice_statistics`, `question_statistics_observation_choice`.

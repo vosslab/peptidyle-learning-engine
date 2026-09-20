@@ -154,7 +154,7 @@ export function mountRibbonDeferredContentHarness(target: HTMLElement): Deferred
         if (property === "getLiveAssessmentWorkspace")
           return () => unresolved("getLiveAssessmentWorkspace");
         if (property === "getLiveCourseRoster") return () => unresolved("getLiveCourseRoster");
-        if (property === "assetUrl") return () => "/asset";
+        if (property === "questionImageUrl") return () => "/question-image";
         return () =>
           Promise.reject(
             new Error(`Unexpected deferred-content evidence transport: ${String(property)}`),

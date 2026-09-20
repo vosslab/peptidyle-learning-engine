@@ -21,7 +21,7 @@ import { ApiRequestError, AssessmentConflictError } from "../../api/http_client"
 import { OpaqueWebworkPreviewFrame } from "../../components/opaque_webwork_preview_frame";
 import {
   QuestionPresentationRenderer,
-  type AssetUrlResolver,
+  type QuestionImageUrlResolver,
 } from "../../components/question_renderer";
 import { QuestionPresentationResponseControl } from "../../components/question_response_controls/question_response_control";
 import {
@@ -202,12 +202,15 @@ function PreviewDocument(props: { readonly src: string; readonly position: numbe
 function NativeQuestionPreview(props: {
   readonly presentation: StudentQuestionPresentation;
   readonly position: number;
-  readonly assetUrl: AssetUrlResolver;
+  readonly questionImageUrl: QuestionImageUrlResolver;
 }): JSX.Element {
   if (props.presentation.response.kind === "imathasQuestionBackend") {
     return (
       <>
-        <QuestionPresentationRenderer presentation={props.presentation} assetUrl={props.assetUrl} />
+        <QuestionPresentationRenderer
+          presentation={props.presentation}
+          questionImageUrl={props.questionImageUrl}
+        />
         <p class="calm-status" role="status">
           The iMathAS interactive response is not configured for Instructor Student View.
         </p>
@@ -216,14 +219,17 @@ function NativeQuestionPreview(props: {
   }
   return (
     <>
-      <QuestionPresentationRenderer presentation={props.presentation} assetUrl={props.assetUrl} />
+      <QuestionPresentationRenderer
+        presentation={props.presentation}
+        questionImageUrl={props.questionImageUrl}
+      />
       <fieldset class="student-view-disabled-response" disabled aria-label="Preview response">
         <legend>Student response preview</legend>
         <div inert aria-disabled="true">
           <QuestionPresentationResponseControl
             attemptId={`student-view-${props.position}`}
             questionRevisionTuple={props.presentation.questionRevisionTuple}
-            assetUrl={props.assetUrl}
+            questionImageUrl={props.questionImageUrl}
             mode="formatOnly"
             responseFormat={props.presentation.response}
             validator={PREVIEW_VALIDATOR}
@@ -275,7 +281,7 @@ export function AssessmentWorkspaceStudentViewPage(): JSX.Element {
         workspace.assessmentId,
         question.authoredPosition,
         question.questionRevisionTuple,
-        currentManifest.editNumber,
+        currentManifest.assessmentEditNumber,
       );
     },
   );
@@ -414,11 +420,11 @@ export function AssessmentWorkspaceStudentViewPage(): JSX.Element {
                                 <NativeQuestionPreview
                                   presentation={readyPresentation()}
                                   position={question.position}
-                                  assetUrl={(asset) =>
+                                  questionImageUrl={(asset) =>
                                     new URL(
-                                      applicationApi.client.assetUrl(
+                                      applicationApi.client.questionImageUrl(
                                         readyPresentation().questionRevisionTuple,
-                                        asset.questionAssetId,
+                                        asset.questionImageAssetId,
                                       ),
                                       globalThis.location.origin,
                                     )
@@ -433,7 +439,7 @@ export function AssessmentWorkspaceStudentViewPage(): JSX.Element {
                                   workspace.assessmentId,
                                   question.authoredPosition,
                                   question.questionRevisionTuple,
-                                  readyManifest().editNumber,
+                                  readyManifest().assessmentEditNumber,
                                 )}
                               />
                             </Show>

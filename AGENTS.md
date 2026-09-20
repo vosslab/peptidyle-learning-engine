@@ -58,7 +58,7 @@
 - Classify one-time checks separately from permanent tests.
 - Finish the obvious. Continue while the next safe step is defined by the plan, implied by the current task.
 - Robust means the software continues to function despite imperfect inputs, data, state, or behavior.
-- Treat tests as liabilities as well as assets. Keep only requirements and gates grounded in actual needs.
+- Treat tests as liabilities as well as protection. Keep only requirements and gates grounded in actual needs.
 - Plans should be finishable by the manager and subagents without additional human interaction.
 - Prefer more small, independently verifiable milestones over a few large milestones.
 - Fix the design that causes a problem rather than adding a workaround for its symptom.

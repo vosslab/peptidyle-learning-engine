@@ -2,12 +2,14 @@
 
 use async_trait::async_trait;
 use objects::{ObjectAddress, ObjectDataClass, ObjectRecord, ObjectStorageArea, Sha256Checksum};
-use question_model::{ObjectId, QuestionAssetId, QuestionRevisionTuple, Timestamp, WorkspaceId};
+use question_model::{
+    ObjectId, QuestionImageAssetId, QuestionRevisionTuple, Timestamp, WorkspaceId,
+};
 use sqlx::{Postgres, Row, Transaction, types::Json};
 
 use super::{Pool, connection::map_sqlx_error};
 use crate::{
-    ForkPublishedQuestionInput, ForkedPublishedQuestionDraft, PublishedQuestionForkAsset,
+    ForkPublishedQuestionInput, ForkedPublishedQuestionDraft, PublishedQuestionForkImage,
     QuestionForkStore, SessionTokenHash, StoreError,
 };
 
@@ -56,7 +58,7 @@ impl QuestionForkStore for PostgresQuestionForkStore {
         &self,
         session_token_hash: SessionTokenHash,
         question_revision_tuple: &QuestionRevisionTuple,
-    ) -> Result<Option<PublishedQuestionForkAsset>, StoreError> {
+    ) -> Result<Option<PublishedQuestionForkImage>, StoreError> {
         let revision_number = i32::try_from(question_revision_tuple.revision_number.get())
             .map_err(|_| {
                 StoreError::InvalidRecord(
@@ -106,7 +108,8 @@ impl QuestionForkStore for PostgresQuestionForkStore {
                 "Question Fork target size exceeds PostgreSQL bigint".to_owned(),
             )
         })?;
-        let hotspot_asset = encode_hotspot_asset(input.hotspot_asset.as_ref())?;
+        let hotspot_question_image =
+            encode_hotspot_question_image(input.hotspot_question_image.as_ref())?;
         let mut transaction = self.begin(session_token_hash).await?;
         let row = sqlx::query(
             "SELECT * FROM ple_api.fork_published_question_to_draft(\
@@ -124,7 +127,7 @@ impl QuestionForkStore for PostgresQuestionForkStore {
         .bind(target_size)
         .bind(&target.media_type)
         .bind(target.created_at.as_unix_millis())
-        .bind(hotspot_asset)
+        .bind(hotspot_question_image)
         .fetch_one(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
@@ -146,32 +149,35 @@ impl QuestionForkStore for PostgresQuestionForkStore {
 fn decode_fork_asset(
     row: &sqlx::postgres::PgRow,
     question_revision_tuple: &QuestionRevisionTuple,
-) -> Result<PublishedQuestionForkAsset, StoreError> {
+) -> Result<PublishedQuestionForkImage, StoreError> {
     let object_id = ObjectId::from_uuid(row.try_get("object_id").map_err(map_sqlx_error)?);
-    let asset_id = QuestionAssetId::from_uuid(row.try_get("asset_id").map_err(map_sqlx_error)?);
+    let question_image_asset_id = QuestionImageAssetId::from_uuid(
+        row.try_get("question_image_asset_id")
+            .map_err(map_sqlx_error)?,
+    );
     let Json(address): Json<ObjectAddress> =
         row.try_get("object_address").map_err(map_sqlx_error)?;
     let checksum: Vec<u8> = row.try_get("sha256").map_err(map_sqlx_error)?;
     let checksum: [u8; 32] = checksum.try_into().map_err(|_| {
-        StoreError::InvalidRecord("Question Fork asset checksum has invalid width".to_owned())
+        StoreError::InvalidRecord("Question Fork image checksum has invalid width".to_owned())
     })?;
     let size_bytes: i64 = row.try_get("size_bytes").map_err(map_sqlx_error)?;
     let size_bytes = u64::try_from(size_bytes).map_err(|_| {
-        StoreError::InvalidRecord("Question Fork asset size is negative".to_owned())
+        StoreError::InvalidRecord("Question Fork image size is negative".to_owned())
     })?;
     let width: i32 = row.try_get("intrinsic_width").map_err(map_sqlx_error)?;
     let height: i32 = row.try_get("intrinsic_height").map_err(map_sqlx_error)?;
     let intrinsic_width = u32::try_from(width).map_err(|_| {
-        StoreError::InvalidRecord("Question Fork asset width is invalid".to_owned())
+        StoreError::InvalidRecord("Question Fork image width is invalid".to_owned())
     })?;
     let intrinsic_height = u32::try_from(height).map_err(|_| {
-        StoreError::InvalidRecord("Question Fork asset height is invalid".to_owned())
+        StoreError::InvalidRecord("Question Fork image height is invalid".to_owned())
     })?;
     let created_at_millis: i64 = row.try_get("created_at_millis").map_err(map_sqlx_error)?;
     let source_record = ObjectRecord {
         id: object_id,
         storage_area: ObjectStorageArea::PrivateContent,
-        data_class: ObjectDataClass::QuestionAsset,
+        data_class: ObjectDataClass::QuestionImage,
         address,
         sha256: Sha256Checksum::from_bytes(checksum),
         size_bytes,
@@ -179,35 +185,35 @@ fn decode_fork_asset(
         question_revision_tuple: Some(question_revision_tuple.clone()),
         created_at: Timestamp::from_unix_millis(created_at_millis),
     };
-    let expected_address = ObjectAddress::RestrictedQuestionAsset {
+    let expected_address = ObjectAddress::RestrictedQuestionImage {
         question_revision_tuple: question_revision_tuple.clone(),
-        question_asset_id: asset_id,
+        question_image_asset_id,
         object_id,
     };
     if source_record.address != expected_address {
         return Err(StoreError::InvalidRecord(
-            "Question Fork asset is not owned by the exact source Revision".to_owned(),
+            "Question Fork image is not owned by the exact source Revision".to_owned(),
         ));
     }
-    Ok(PublishedQuestionForkAsset {
-        asset_id,
+    Ok(PublishedQuestionForkImage {
+        question_image_asset_id,
         source_record,
         intrinsic_width,
         intrinsic_height,
     })
 }
 
-fn encode_hotspot_asset(
-    asset: Option<&crate::ForkPublishedQuestionAssetInput>,
+fn encode_hotspot_question_image(
+    asset: Option<&crate::ForkPublishedQuestionImageInput>,
 ) -> Result<Option<serde_json::Value>, StoreError> {
     asset
         .map(|asset| {
             let record = &asset.target_record;
             let address = serde_json::to_value(&record.address).map_err(|_| {
-                StoreError::InvalidRecord("Question Fork asset address cannot be encoded".into())
+                StoreError::InvalidRecord("Question Fork image address cannot be encoded".into())
             })?;
             Ok(serde_json::json!({
-                "assetId": asset.asset_id,
+                "questionImageAssetId": asset.question_image_asset_id,
                 "objectId": record.id,
                 "objectAddress": address,
                 "checksum": record.sha256.to_string(),

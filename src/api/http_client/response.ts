@@ -454,7 +454,7 @@ export function createResponseClient(
   | "beginImathasQuestionBackendLaunch"
   | "getAssessmentActivitySummary"
   | "fetchCourseBanner"
-  | "assetUrl"
+  | "questionImageUrl"
 > {
   return {
     getProfile: () => profileSettings(fetchImplementation, basePath),
@@ -595,10 +595,10 @@ export function createResponseClient(
         decodeStudentAssessmentProgress,
       ),
     fetchCourseBanner: (bannerId) => fetchCourseBanner(fetchImplementation, basePath, bannerId),
-    assetUrl: (questionRevisionTuple, assetId) =>
+    questionImageUrl: (questionRevisionTuple, questionImageAssetId) =>
       requestPath(
         basePath,
-        `/api/questions/${encodedId(questionRevisionTuple.questionId)}/revisions/${questionRevisionTuple.revisionNumber}/assets/${encodedId(assetId)}`,
+        `/api/questions/${encodedId(questionRevisionTuple.questionId)}/revisions/${questionRevisionTuple.revisionNumber}/images/${encodedId(questionImageAssetId)}`,
       ),
   };
 }

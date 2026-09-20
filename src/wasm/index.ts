@@ -1,6 +1,6 @@
 // index.ts - the only browser boundary around generated wasm-bindgen glue.
 
-import type { QuestionAssetRendition } from "../../generated/api/QuestionAssetRendition";
+import type { QuestionImageRendition } from "../../generated/api/QuestionImageRendition";
 import type { Timestamp } from "../../generated/api/Timestamp";
 import type { QuestionAttemptTiming } from "../../generated/api/QuestionAttemptTiming";
 import type { QuestionBackendCapabilities } from "../../generated/api/QuestionBackendCapabilities";
@@ -134,7 +134,7 @@ export type PresentationVerification =
 
 export type NativeStaticPresentationVerifier = (
   presentation: QuestionPresentation,
-  assets: ReadonlyArray<QuestionAssetRendition>,
+  assets: ReadonlyArray<QuestionImageRendition>,
   presentationToken: QuestionPresentationToken,
 ) => Promise<PresentationVerification>;
 
@@ -162,7 +162,7 @@ interface WasmBindgenModule {
   readonly preview_ple_draft: (draftJson: string) => string;
   readonly verify_native_static_presentation_descriptor: (
     presentationJson: string,
-    questionAssetRenditionsJson: string,
+    questionImageRenditionsJson: string,
     presentationToken: string,
   ) => boolean;
 }

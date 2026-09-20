@@ -2,7 +2,7 @@
 
 use axum::body::Bytes;
 use learning_data_access::{
-    DraftQuestionUuid, OwnedDraftQuestionAsset, PreparedQuestionAssetPublication, StoreError,
+    DraftQuestionUuid, OwnedDraftQuestionImage, PreparedQuestionImagePublication, StoreError,
 };
 use objects::{ObjectAddress, ObjectStore, PutObject};
 use question_model::{
@@ -11,20 +11,20 @@ use question_model::{
 use uuid::Uuid;
 
 use crate::{
-    authoring_assets::{require_surface, verified_asset_bytes},
-    question_publication::{AuthoringAssetContext, QuestionPublicationError},
+    draft_question_images::{require_surface, verified_question_image_bytes},
+    question_publication::{DraftQuestionImageContext, QuestionPublicationError},
 };
 
 /// Read the one surface through the authoritative native compiler, not another parser.
-pub(crate) async fn load_hotspot_asset<O: ObjectStore>(
+pub(crate) async fn load_hotspot_question_image<O: ObjectStore>(
     objects: &O,
-    context: Option<&AuthoringAssetContext>,
+    context: Option<&DraftQuestionImageContext>,
     session_hash: learning_data_access::SessionTokenHash,
     workspace: WorkspaceId,
     draft: DraftQuestionUuid,
     source: &[u8],
     media_type: &str,
-) -> Result<Option<(OwnedDraftQuestionAsset, Bytes)>, QuestionPublicationError> {
+) -> Result<Option<(OwnedDraftQuestionImage, Bytes)>, QuestionPublicationError> {
     if media_type != "application/vnd.peptidyle.question+json" {
         return Ok(None);
     }
@@ -32,7 +32,7 @@ pub(crate) async fn load_hotspot_asset<O: ObjectStore>(
         .map_err(|_| invalid_source())?;
     let compiled = document.compile().map_err(|_| invalid_source())?;
     let QuestionResponseFormat::Hotspot {
-        question_asset_tuple,
+        question_image_asset_tuple,
         ..
     } = compiled.presentation().response()
     else {
@@ -43,20 +43,20 @@ pub(crate) async fn load_hotspot_asset<O: ObjectStore>(
         context.store.as_ref(),
         session_hash,
         context.draft_question_uuid,
-        question_asset_tuple,
+        question_image_asset_tuple,
     )
     .await
     .map_err(QuestionPublicationError::Store)?;
     // ASVS 8.2.2/8.3.1: never accept an image selected from another Draft context.
     if !matches!(&asset.source_record.address,
-        ObjectAddress::DraftQuestionAsset { workspace_id: owner, draft_question_id: draft_question_uuid, question_asset_id: id, object_id: object }
+        ObjectAddress::DraftQuestionImage { workspace_id: owner, draft_question_id: draft_question_uuid, question_image_asset_id: id, object_id: object }
         if *owner == workspace && *draft_question_uuid == draft.as_uuid()
-            && *id == question_asset_tuple.question_asset_id && *object == asset.source_record.id)
+            && *id == question_image_asset_tuple.question_image_asset_id && *object == asset.source_record.id)
     {
         return Err(QuestionPublicationError::SourceObjectRecordMismatch);
     }
     // ASVS 5.2.2/5.2.6: repeat full raster verification at the publication boundary.
-    let bytes = verified_asset_bytes(objects, &asset)
+    let bytes = verified_question_image_bytes(objects, &asset)
         .await
         .map_err(|()| QuestionPublicationError::SourceObjectRecordMismatch)?;
     Ok(Some((asset, bytes)))
@@ -68,21 +68,21 @@ fn invalid_source() -> QuestionPublicationError {
     ))
 }
 
-pub(crate) async fn prepare_hotspot_asset<O: ObjectStore>(
+pub(crate) async fn prepare_hotspot_question_image<O: ObjectStore>(
     objects: &O,
-    asset: Option<&(OwnedDraftQuestionAsset, Bytes)>,
+    asset: Option<&(OwnedDraftQuestionImage, Bytes)>,
     question_revision_tuple: &QuestionRevisionTuple,
     stored_at: Timestamp,
-) -> Result<Option<PreparedQuestionAssetPublication>, QuestionPublicationError> {
+) -> Result<Option<PreparedQuestionImagePublication>, QuestionPublicationError> {
     let Some((asset, bytes)) = asset else {
         return Ok(None);
     };
     // ASVS 5.3.2: new physical identity; stable logical image UUID and exact bytes.
     let record = objects
         .put(PutObject {
-            address: ObjectAddress::RestrictedQuestionAsset {
+            address: ObjectAddress::RestrictedQuestionImage {
                 question_revision_tuple: question_revision_tuple.clone(),
-                question_asset_id: asset.asset_id,
+                question_image_asset_id: asset.question_image_asset_id,
                 object_id: ObjectId::generate(),
             },
             bytes: bytes.to_vec(),
@@ -91,8 +91,8 @@ pub(crate) async fn prepare_hotspot_asset<O: ObjectStore>(
         })
         .await
         .map_err(QuestionPublicationError::ObjectStore)?;
-    Ok(Some(PreparedQuestionAssetPublication {
-        asset_id: asset.asset_id,
+    Ok(Some(PreparedQuestionImagePublication {
+        question_image_asset_id: asset.question_image_asset_id,
         restricted_source_record: record,
         public_object_id: ObjectId::generate(),
         intrinsic_width: asset.intrinsic_width,

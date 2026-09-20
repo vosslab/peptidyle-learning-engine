@@ -510,11 +510,11 @@ export function QuestionDetailPage(): JSX.Element {
                     <QuestionPromptRenderer
                       blocks={record().prompt.blocks}
                       questionRevisionTuple={record().summary.questionRevisionTuple}
-                      assetUrl={(asset) =>
+                      questionImageUrl={(asset) =>
                         new URL(
-                          applicationApi.client.assetUrl(
+                          applicationApi.client.questionImageUrl(
                             record().summary.questionRevisionTuple,
-                            asset.questionAssetId,
+                            asset.questionImageAssetId,
                           ),
                           window.location.origin,
                         )
@@ -536,11 +536,11 @@ export function QuestionDetailPage(): JSX.Element {
                   <QuestionResponsePreviewControl
                     preview={preview()}
                     questionRevisionTuple={record().summary.questionRevisionTuple}
-                    assetUrl={(asset) =>
+                    questionImageUrl={(asset) =>
                       new URL(
-                        applicationApi.client.assetUrl(
+                        applicationApi.client.questionImageUrl(
                           record().summary.questionRevisionTuple,
-                          asset.questionAssetId,
+                          asset.questionImageAssetId,
                         ),
                         window.location.origin,
                       )

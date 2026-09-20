@@ -109,7 +109,7 @@ async fn manifest(
         Ok(value) => value,
         Err(error) => return store_error(error),
     };
-    let edit_number = snapshot.edit_number;
+    let edit_number = snapshot.assessment_edit_number;
     let view = match project_manifest(snapshot) {
         Ok(value) => value,
         Err(()) => return unavailable(),
@@ -297,7 +297,7 @@ fn project_manifest(
         });
     }
     Ok(InstructorStudentView {
-        edit_number: snapshot.edit_number,
+        assessment_edit_number: snapshot.assessment_edit_number,
         status: snapshot.status,
         title: snapshot.title,
         instructions: snapshot.instructions,
@@ -371,7 +371,7 @@ async fn answer_free_presentation(
             source_object_id,
             source_object_checksum,
             source_media_type,
-            question_asset_renditions,
+            question_image_renditions,
         } => {
             if &question_revision_tuple != expected
                 || source_media_type != adapter_ple::question_json::PLE_QUESTION_JSON_MEDIA_TYPE
@@ -389,8 +389,8 @@ async fn answer_free_presentation(
             let presentation = PleQuestionBackend::new().preview_question_json(&resolved);
             let built = question_model::presentation::build_question_presentation(
                 &presentation,
-                &crate::assessment_delivery::question_asset_renditions_from_ready(
-                    &question_asset_renditions,
+                &crate::assessment_delivery::question_image_renditions_from_ready(
+                    &question_image_renditions,
                 ),
             )
             .map_err(|_| ())?;
@@ -621,7 +621,7 @@ fn document_edit_query(raw_query: Option<&str>) -> Result<AssessmentEditNumber, 
             "Assessment Edit Number is invalid",
         )));
     };
-    if name != "editNumber" {
+    if name != "assessmentEditNumber" {
         return Err(Box::new(error(
             StatusCode::BAD_REQUEST,
             "Assessment Edit Number is invalid",

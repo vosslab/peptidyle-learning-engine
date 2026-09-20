@@ -22,7 +22,7 @@ import {
 } from "./question_json_editor_workspace";
 import { PleQuestionJsonStaleConflictError } from "./question_json_repository";
 import { PleQuestionJsonConflictError } from "./question_json_client";
-import { setPleQuestionJsonHotspotAsset } from "./question_json_hotspot_model";
+import { setPleQuestionJsonHotspotImage } from "./question_json_hotspot_model";
 import { PleQuestionGeneralFeedbackConflictError } from "./question_general_feedback_client";
 import type { PleQuestionJsonDocument, PleQuestionJsonOrderingItem } from "./question_json_source";
 import type { PleQuestionJsonInstructorAnswerCheck } from "./question_json_preview";
@@ -130,15 +130,15 @@ function hasLocalDraftChanges(state: PleQuestionJsonEditorState): boolean {
  * does not write Draft Question Content to URLs, browser storage, or diagnostics.
  */
 export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps): JSX.Element {
-  function hotspotDraftAsset(): PleQuestionJsonPreviewProps["hotspotDraftAsset"] {
+  function hotspotDraftQuestionImage(): PleQuestionJsonPreviewProps["hotspotDraftQuestionImage"] {
     const draftQuestion = props.draftQuestion;
-    const client = props.assetClient;
+    const client = props.questionImageClient;
     if (draftQuestion === undefined || client === undefined) return undefined;
     return {
       draftQuestion,
-      assetUrl: (asset) =>
+      questionImageUrl: (asset) =>
         new URL(
-          client.assetPreviewPath(draftQuestion, asset.questionAssetId),
+          client.questionImagePreviewPath(draftQuestion, asset.questionImageAssetId),
           window.location.origin,
         ),
     };
@@ -321,8 +321,8 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
     applyEdit({ ...current, response: { ...current.response, answer } });
   }
 
-  async function uploadAsset(file: File, signal: AbortSignal): Promise<void> {
-    const client = props.assetClient;
+  async function uploadQuestionImage(file: File, signal: AbortSignal): Promise<void> {
+    const client = props.questionImageClient;
     if (client === undefined || isLocked()) {
       setStatus("Image upload is unavailable. Your draft is unchanged.");
       return;
@@ -330,7 +330,7 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
     setAssetUploading(true);
     setStatus("Uploading private image...");
     try {
-      const asset = await client.uploadAsset(
+      const asset = await client.uploadQuestionImage(
         props.draftQuestion,
         file,
         latestDraftQuestionEditNumber(),
@@ -342,7 +342,7 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
       }
       setReview(null);
       setShowInstructorCheck(false);
-      transition({ kind: "edit", source: setPleQuestionJsonHotspotAsset(currentSource(), asset) });
+      transition({ kind: "edit", source: setPleQuestionJsonHotspotImage(currentSource(), asset) });
       setStatus("Image uploaded. Edit the description and regions, then save before publishing.");
     } catch (error: unknown) {
       if (signal.aborted) {
@@ -645,14 +645,15 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
         subtopicUuid={subtopicUuid}
         publishedQuestionId={() => publishedQuestionId(state())}
         publishedSummary={publishedSummary}
-        hotspotDraftAsset={hotspotDraftAsset}
+        hotspotDraftQuestionImage={hotspotDraftQuestionImage}
         instructorAnswerCheck={(draft) => answerCheck(draft) ?? undefined}
         classificationClient={props.classificationClient}
         responseValidator={props.responseValidator}
-        assetPreviewPath={(asset) =>
+        questionImagePreviewPath={(asset) =>
           asset === ""
             ? ""
-            : (props.assetClient?.assetPreviewPath(props.draftQuestion, asset) ?? "")
+            : (props.questionImageClient?.questionImagePreviewPath(props.draftQuestion, asset) ??
+              "")
         }
         onEdit={applyEdit}
         onNumericAnswerLiteralChange={updateNumericAnswerLiteral}
@@ -660,7 +661,7 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
         onStatus={setStatus}
         onHotspotPendingChange={setHotspotPending}
         onHotspotLiteralValidityChange={setHotspotLiteralsValid}
-        onUpload={uploadAsset}
+        onUpload={uploadQuestionImage}
         onGeneralFeedbackChange={setGeneralFeedback}
         onSaveGeneralFeedback={() => void saveGeneralFeedback()}
         onSave={() => void save()}

@@ -34,8 +34,8 @@ pub const GRADING_VERSION: &str = "1";
 
 /// Trusted server-side relationship between one PLE asset and immutable object bytes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct QuestionAssetObjectTuple {
-    pub question_asset_id: question_model::QuestionAssetId,
+pub struct QuestionImageObjectTuple {
+    pub question_image_asset_id: question_model::QuestionImageAssetId,
     pub object_id: ObjectId,
 }
 

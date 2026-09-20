@@ -11,7 +11,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 
 use crate::answer::{NumericResponseTolerance, ResponseSelectionRule, TextResponseMatchRule};
-use crate::question_content::{QuestionAssetTuple, QuestionContentBlock};
+use crate::question_content::{QuestionContentBlock, QuestionImageAssetTuple};
 
 /// The educational interaction a Question assesses.
 ///
@@ -332,7 +332,7 @@ pub enum QuestionResponseFormat {
     /// One or more labeled regions selected on an image-backed surface.
     Hotspot {
         /// Immutable image used as the coordinate surface.
-        question_asset_tuple: QuestionAssetTuple,
+        question_image_asset_tuple: QuestionImageAssetTuple,
         /// Text alternative describing the whole surface.
         description: String,
         /// Public Hotspot Regions; the correct region set remains private.

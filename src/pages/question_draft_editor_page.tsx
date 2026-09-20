@@ -242,7 +242,7 @@ export function QuestionDraftEditorPage(): JSX.Element {
             initialGeneralFeedback={loaded().generalFeedback}
             generalFeedbackClient={generalFeedbackClient}
             repository={repository}
-            assetClient={client}
+            questionImageClient={client}
             classificationClient={classificationClient}
             responseValidator={wasm}
           />

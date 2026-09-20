@@ -119,15 +119,21 @@ function assessmentTemplateSettings(value: unknown, path: string): AssessmentTem
 /** Decodes one full private aggregate and refuses every server-added field. */
 export function decodeAssessmentTemplate(value: unknown, path = "response"): AssessmentTemplate {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["id", "name", "assessmentType", "settings", "editNumber"]);
+  requireOnlyFields(record, path, [
+    "id",
+    "name",
+    "assessmentType",
+    "settings",
+    "assessmentTemplateEditNumber",
+  ]);
   return {
     id: assessmentTemplateId(field(record, "id", path), `${path}.id`),
     name: assessmentTemplateName(field(record, "name", path), `${path}.name`),
     assessmentType: assessmentType(field(record, "assessmentType", path), `${path}.assessmentType`),
     settings: assessmentTemplateSettings(field(record, "settings", path), `${path}.settings`),
-    editNumber: assessmentTemplateEditNumber(
-      field(record, "editNumber", path),
-      `${path}.editNumber`,
+    assessmentTemplateEditNumber: assessmentTemplateEditNumber(
+      field(record, "assessmentTemplateEditNumber", path),
+      `${path}.assessmentTemplateEditNumber`,
     ),
   };
 }

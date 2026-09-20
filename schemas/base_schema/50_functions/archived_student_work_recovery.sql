@@ -85,7 +85,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
                       'author_content', presentation.author_content,
                       'backend_document', presentation.backend_document,
                       'response_item_bindings', response_items.items,
-                      'asset_renditions', assets.items) END,
+                      'question_image_renditions', question_images.items) END,
               'saved_response', CASE WHEN saved.question_attempt_id IS NOT NULL THEN
                   jsonb_build_object('student_response', saved.student_response, 'saved_at', saved.saved_at) END,
               'finalized_response', CASE WHEN saved.finalized_at IS NOT NULL THEN
@@ -130,15 +130,15 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
             ) AS response_items
             CROSS JOIN LATERAL (
                 SELECT COALESCE(jsonb_agg(jsonb_build_object(
-                    'asset_id', asset.asset_id,
-                    'question_asset_checksum', encode(asset.question_asset_checksum, 'hex'),
-                    'rendition_checksum', encode(asset.rendition_checksum, 'hex'),
-                    'intrinsic_width', asset.intrinsic_width, 'intrinsic_height', asset.intrinsic_height
-                ) ORDER BY asset.asset_id), '[]'::jsonb) AS items
-                  FROM ple_private.question_attempt_presentation_asset_rendition AS asset
-                 WHERE asset.question_attempt_presentation_asset_binding_id
+                    'question_image_asset_id', image.question_image_asset_id,
+                    'question_image_checksum', encode(image.question_image_checksum, 'hex'),
+                    'rendition_checksum', encode(image.rendition_checksum, 'hex'),
+                    'intrinsic_width', image.intrinsic_width, 'intrinsic_height', image.intrinsic_height
+                ) ORDER BY image.question_image_asset_id), '[]'::jsonb) AS items
+                  FROM ple_private.question_attempt_presentation_image_rendition AS image
+                 WHERE image.question_attempt_presentation_image_binding_id
                        = attempt.question_attempt_id
-            ) AS assets
+            ) AS question_images
            WHERE issued.assessment_attempt_id = work.assessment_attempt_id
       ) AS evidence
      WHERE work.assessment_attempt_id = p_assessment_attempt_id

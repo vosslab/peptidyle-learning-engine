@@ -38,11 +38,11 @@ pub(crate) mod direct_finalization;
 pub(crate) mod history;
 mod history_response;
 mod ple_shell;
-mod presentation_assets;
+mod presentation_images;
 mod submission;
 
-pub(super) use presentation_assets::{
-    question_asset_renditions, question_asset_renditions_from_ready,
+pub(super) use presentation_images::{
+    question_image_renditions, question_image_renditions_from_ready,
 };
 
 #[derive(serde::Deserialize)]
@@ -243,7 +243,7 @@ pub(super) fn reproduce_selected_issued_presentation(
         .map_err(|_| StartError::Invalid)?;
     let issued = question_model::presentation::rebuild_question_presentation_with_reproduction_and_author_content(
         &presentation,
-        &question_asset_renditions_from_ready(&evidence.question_asset_renditions),
+        &question_image_renditions_from_ready(&evidence.question_image_renditions),
         evidence.reproduction,
         evidence.author_content,
     )
@@ -465,7 +465,7 @@ async fn issue_new_presentations(
         let issued = backend
             .issue_question_json(&resolved)
             .map_err(|_| StartError::Invalid)?;
-        let assets = question_asset_renditions(source);
+        let assets = question_image_renditions(source);
         let presentation = build_question_presentation(&issued.presentation, &assets)
             .map_err(|_| StartError::Unavailable)?;
         if presentation.reproduction != question_model::QuestionReproduction::Static {
@@ -492,7 +492,7 @@ async fn issue_new_presentations(
             presentation_checksum: presentation.checksum.to_hex(),
             author_content: presentation.author_content.clone(),
             response_item_bindings,
-            question_asset_renditions: source.question_asset_renditions.clone(),
+            question_image_renditions: source.question_image_renditions.clone(),
             issued_capability: "ple_question_json_presentation".to_string(),
             backend_document: None,
         });
@@ -520,7 +520,7 @@ async fn issue_new_webwork_presentations(
         let document = String::from_utf8(issued.document).map_err(|_| StartError::Invalid)?;
         let presentation = build_question_presentation(
             &issued.presentation,
-            &question_asset_renditions_from_ready(&source.question_asset_renditions),
+            &question_image_renditions_from_ready(&source.question_image_renditions),
         )
         .map_err(|_| StartError::Unavailable)?;
         if presentation.reproduction.question_seed() != Some(seed) {
@@ -547,7 +547,7 @@ async fn issue_new_webwork_presentations(
             presentation_checksum: presentation.checksum.to_hex(),
             author_content: None,
             response_item_bindings,
-            question_asset_renditions: source.question_asset_renditions.clone(),
+            question_image_renditions: source.question_image_renditions.clone(),
             issued_capability: "webwork_presentation".to_string(),
             backend_document: Some(document),
         });

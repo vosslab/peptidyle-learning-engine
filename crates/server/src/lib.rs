@@ -30,7 +30,6 @@ mod author_content_dependency_registry_generated;
 pub(crate) mod author_content_document_route;
 /// Private Authoring Workspace and Draft Question routes.
 pub mod authoring;
-mod authoring_assets;
 mod authoring_source;
 /// Server-owned Bloom classifier and candidate-bound publication preparation.
 /// Instructor-owned reusable Blueprint Course routes.
@@ -50,6 +49,7 @@ pub mod course_retention_notification_delivery;
 pub mod course_retention_worker;
 /// Course Roster Import, invitation claim, and access-revocation routes.
 pub(crate) mod course_roster;
+mod draft_question_images;
 /// Readiness probe support for the executable process.
 pub mod health;
 /// Uniform dynamic-response security headers.
@@ -71,14 +71,14 @@ pub(crate) mod navigation;
 pub(crate) mod profile_avatar;
 /// Authenticated role-neutral self-only Profile Settings routes.
 pub(crate) mod profile_settings;
-/// One-shot immutable public Question Asset publisher with no HTTP surface.
+/// One-shot immutable public Question Image publisher with no HTTP surface.
 pub mod public_asset_publisher;
-/// Authorized immutable public Question Asset redirect route.
-pub(crate) mod question_asset_delivery;
 /// Active-vetted-Instructor atomic shared Published Question metadata edits.
 mod question_bulk_metadata;
 /// Active-Instructor Published Question to private Draft fork command.
 mod question_fork;
+/// Authorized immutable public Question Image redirect route.
+pub(crate) mod question_image_delivery;
 /// Instructor Question Library browse and answer-free detail routes.
 mod question_library;
 /// Active-Instructor reusable Published Question Pool creation.
@@ -89,7 +89,7 @@ mod question_pool_library;
 mod question_pool_stewardship;
 /// Server-only verified Question Publication coordination.
 pub mod question_publication;
-mod question_publication_assets;
+mod question_publication_images;
 /// Vetted-Instructor Question Star state and aggregate endorsement routes.
 mod question_stewardship;
 /// Private self-only vetted-Instructor Question Watch routes.

@@ -177,7 +177,7 @@ export function AssessmentTemplatesSurface(props: AssessmentTemplatesSurfaceProp
           assessmentType: currentDraft.assessmentType,
           settings: settingsResult.settings,
         },
-        response.template.editNumber,
+        response.template.assessmentTemplateEditNumber,
       );
       setTemplates((current) => replaceTemplate(current, saved.template));
       openResponse(saved);

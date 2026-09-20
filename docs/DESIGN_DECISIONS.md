@@ -1391,6 +1391,33 @@ memory from the live replay and fails when the committed file differs.
 
 **Owner.** [HOW_TO_SCREENSHOT.md](HOW_TO_SCREENSHOT.md).
 
+### Question Image, QTI package, and Object are different roles
+
+**Decision.** A QTI ZIP, a retained QTI archive, a still image extracted during
+import, a Question-bound displayed still image, an authorized delivered image,
+and a physical storage record are different roles. Current Question-bound media
+is PNG, JPEG, or WebP only, so the Question-side names are
+`QuestionImageAsset` and `QuestionImageRendition`. QTI import uses
+`QtiPackageUploadFile`, `QtiPackageArchive`, and
+`QtiPackageExtractedImage`. `Object` / `ObjectId` is only the physical
+record. Course Banner, Profile Image, and WeBWorK renderer files keep their
+own names.
+
+**Why.** Human Guidance names **Question Image Asset** as the Question-bound
+still image and **Question Image Rendition** as its authorized delivered form.
+A QTI ZIP, retained archive, and extracted image are interchange roles.
+`Object` / `ObjectId` is physical storage. A shared `asset` type made readers
+infer authority and lifecycle from implementation details, including assigning
+`QuestionImageAssetId` to a QTI extract before it was a Question-bound image.
+
+**Consequence.** Domain APIs, SQL, JSON, and Object Address kinds use these
+role names. SVG remains unsupported Question ingest. Non-image Question media
+is not a current product type.
+
+**Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md),
+[TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md),
+[OBJECT_STORAGE.md](OBJECT_STORAGE.md).
+
 ## Unresolved decisions
 
 The complete Student Ribbon task layout and the complete Sysadmin Ribbon task

@@ -5,7 +5,7 @@ SET LOCAL ROLE ple_private_owner;
 REVOKE ALL ON TABLE ple_private.question_attempt_presentation_binding,
     ple_private.question_attempt_response_item_binding,
     ple_private.question_attempt_presentation_asset_binding,
-    ple_private.question_attempt_presentation_asset_rendition FROM PUBLIC;
+    ple_private.question_attempt_presentation_image_rendition FROM PUBLIC;
 
 REVOKE ALL ON FUNCTION ple_private.reject_question_attempt_presentation_change(),
     ple_private.validate_question_attempt_reproduction(),

@@ -21,13 +21,13 @@ use sqlx::{Postgres, Row, Transaction};
 use uuid::Uuid;
 
 pub(super) use super::assessment_delivery_source::{
-    issuance_reproduction_from_row, ready_question_asset_renditions, reproduction_from_row,
+    issuance_reproduction_from_row, ready_question_image_renditions, reproduction_from_row,
     source_from_row,
 };
 #[path = "assessment_delivery_renditions.rs"]
 mod assessment_delivery_renditions;
 use assessment_delivery_renditions::{
-    current_ready_question_asset_renditions, presentation_payloads,
+    current_ready_question_image_renditions, presentation_payloads,
 };
 
 /// PostgreSQL Store for the Student delivery boundary.
@@ -363,7 +363,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
         let mut tx = self.begin(token).await?;
         let row = sqlx::query(
             "SELECT question_id, revision_number, question_seed::text, generated_parameter_sha256, presentation_nonce, presentation_checksum, presentation, author_content, \
-             question_asset_renditions, response_item_bindings \
+             question_image_renditions, response_item_bindings \
              FROM ple_api.read_student_assessment_attempt_presentation_evidence($1, $2)",
         )
         .bind(assessment_attempt.as_uuid())
@@ -461,7 +461,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
                         webwork_pg_path,
                         reproduction,
                         retained_presentation: None,
-                        question_asset_renditions: Vec::new(),
+                        question_image_renditions: Vec::new(),
                     },
                     saved_response,
                 })
@@ -489,7 +489,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
             .await?;
         let mut tx = self.begin(token).await?;
         let retained_rows = sqlx::query(
-            "SELECT assessment_entry_id::text, issued_position, question_id, revision_number, question_seed::text, generated_parameter_sha256, presentation_nonce, presentation_checksum, presentation, author_content, question_asset_renditions, response_item_bindings \
+            "SELECT assessment_entry_id::text, issued_position, question_id, revision_number, question_seed::text, generated_parameter_sha256, presentation_nonce, presentation_checksum, presentation, author_content, question_image_renditions, response_item_bindings \
              FROM ple_api.read_student_assessment_attempt_presentation_evidence_set($1)",
         )
         .bind(started.assessment_attempt.as_uuid())
@@ -515,7 +515,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
                 webwork_sources: Vec::new(),
             });
         }
-        let rows = sqlx::query("SELECT issued_question_id, assessment_entry_id::text, issued_position, question_id, revision_number, backend, source_object_id::text, source_object_address, source_object_checksum, webwork_pg_path, question_seed::text, generated_parameter_sha256, question_attempt_id, presentation_nonce, presentation_checksum, presentation, author_content, question_asset_renditions FROM ple_api.prepare_student_assessment_attempt_presentation($1)")
+        let rows = sqlx::query("SELECT issued_question_id, assessment_entry_id::text, issued_position, question_id, revision_number, backend, source_object_id::text, source_object_address, source_object_checksum, webwork_pg_path, question_seed::text, generated_parameter_sha256, question_attempt_id, presentation_nonce, presentation_checksum, presentation, author_content, question_image_renditions FROM ple_api.prepare_student_assessment_attempt_presentation($1)")
             .bind(started.assessment_attempt.as_uuid())
             .fetch_all(&mut *tx).await.map_err(map_sqlx_error)?;
         let first = rows.first().ok_or_else(|| {
@@ -560,7 +560,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
                 row.try_get("source_object_id").map_err(map_sqlx_error)?,
                 row.try_get("source_object_checksum")
                     .map_err(map_sqlx_error)?,
-                ready_question_asset_renditions(&row)?,
+                ready_question_image_renditions(&row)?,
             );
             let retained_presentation =
                 super::assessment_delivery_source::optional_presentation_evidence_from_row(&row)?;
@@ -590,7 +590,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
                             .try_get("presentation_checksum")
                             .map_err(map_sqlx_error)?,
                         retained_presentation,
-                        question_asset_renditions: common.7,
+                        question_image_renditions: common.7,
                     });
                 }
                 "webwork" => {
@@ -606,7 +606,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
                         webwork_pg_path: row.try_get("webwork_pg_path").map_err(map_sqlx_error)?,
                         reproduction,
                         retained_presentation,
-                        question_asset_renditions: common.7,
+                        question_image_renditions: common.7,
                     });
                 }
                 _ => {
@@ -618,7 +618,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
         }
         if !presentation_is_committed {
             for source in &mut ple_sources {
-                source.question_asset_renditions = current_ready_question_asset_renditions(
+                source.question_image_renditions = current_ready_question_image_renditions(
                     &mut tx,
                     source.question_id.as_str(),
                     source.revision_number,
@@ -626,7 +626,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
                 .await?;
             }
             for source in &mut webwork_sources {
-                source.question_asset_renditions = current_ready_question_asset_renditions(
+                source.question_image_renditions = current_ready_question_image_renditions(
                     &mut tx,
                     source.question_id.as_str(),
                     source.revision_number,
@@ -661,7 +661,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
                 &value.presentation_nonce,
                 &value.presentation_checksum,
                 value.author_content.as_ref(),
-                value.question_asset_renditions.as_slice(),
+                value.question_image_renditions.as_slice(),
                 value.issued_capability.as_str(),
                 value.backend_document.as_ref(),
                 value.response_item_bindings.as_slice(),

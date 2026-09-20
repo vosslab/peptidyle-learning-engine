@@ -923,7 +923,7 @@ Indexes:
 
 - ple_private.question_attempt_presentation_asset_binding_pkey UNIQUE (course_instance_id, question_attempt_id)
 
-### ple_private.question_attempt_presentation_asset_rendition
+### ple_private.question_attempt_presentation_image_rendition
 
 - Role: student work
 - Comment: role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.
@@ -933,9 +933,9 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | course_instance_id | ple_data.course_instance_id | NOT NULL |
-| question_attempt_presentation_asset_binding_id | uuid | NOT NULL |
-| asset_id | uuid | NOT NULL |
-| question_asset_checksum | bytea | NOT NULL |
+| question_attempt_presentation_image_binding_id | uuid | NOT NULL |
+| question_image_asset_id | uuid | NOT NULL |
+| question_image_checksum | bytea | NOT NULL |
 | rendition_checksum | bytea | NOT NULL |
 | intrinsic_width | integer | NOT NULL |
 | intrinsic_height | integer | NOT NULL |
@@ -943,19 +943,19 @@ Columns:
 
 Constraints:
 
-- PRIMARY KEY (course_instance_id, question_attempt_presentation_asset_binding_id, asset_id)
-- CHECK question_asset_checksum: `(octet_length(question_asset_checksum) = 32)`
+- PRIMARY KEY (course_instance_id, question_attempt_presentation_image_binding_id, question_image_asset_id)
+- CHECK question_image_checksum: `(octet_length(question_image_checksum) = 32)`
 - CHECK rendition_checksum: `(octet_length(rendition_checksum) = 32)`
 - CHECK intrinsic_width: `(intrinsic_width > 0)`
 - CHECK intrinsic_height: `(intrinsic_height > 0)`
 
 Foreign keys:
 
-- (course_instance_id, question_attempt_presentation_asset_binding_id) -> ple_private.question_attempt_presentation_asset_binding (course_instance_id, question_attempt_id)
+- (course_instance_id, question_attempt_presentation_image_binding_id) -> ple_private.question_attempt_presentation_asset_binding (course_instance_id, question_attempt_id)
 
 Indexes:
 
-- ple_private.question_attempt_presentation_asset_rendition_pkey UNIQUE (course_instance_id, question_attempt_presentation_asset_binding_id, asset_id)
+- ple_private.question_attempt_presentation_image_rendition_pkey UNIQUE (course_instance_id, question_attempt_presentation_image_binding_id, question_image_asset_id)
 
 ### ple_private.grading_result
 
@@ -4065,95 +4065,6 @@ Indexes:
 
 - ple_private.bloom_preparation_receipt_pkey UNIQUE (bloom_preparation_receipt_id)
 
-## 20_tables/question_assets.sql
-
-### ple_data.question_asset_delivery
-
-- Role: current state
-- Comment: role: current state, deleted by Unrelease and object cleanup. HUMAN_GUIDANCE.md Question assets.
-
-Columns:
-
-| Name | Type | Null |
-| --- | --- | --- |
-| object_delivery_id | uuid | NOT NULL |
-| object_record_id | uuid | NOT NULL |
-| published_question_id | ple_data.question_family_id | NOT NULL |
-| revision_number | integer | NOT NULL |
-| asset_id | uuid | NOT NULL |
-| created_at | timestamptz | NOT NULL |
-| updated_at | timestamptz | NOT NULL |
-
-Constraints:
-
-- PRIMARY KEY (object_delivery_id)
-- CHECK revision_number: `(revision_number > 0)`
-
-Foreign keys:
-
-- (object_delivery_id, object_record_id) -> ple_data.object_delivery (object_delivery_id, object_record_id)
-- (published_question_id, revision_number) -> ple_data.question_revision (published_question_id, revision_number)
-
-Indexes:
-
-- ple_data.question_asset_delivery_pkey UNIQUE (object_delivery_id)
-- question_asset_delivery_object_delivery_id_72e8beb7_fk_idx (object_delivery_id, object_record_id)
-- question_asset_delivery_published_question_id_db298a25_fk_idx (published_question_id, revision_number)
-
-### ple_private.question_asset_publication
-
-- Role: event
-- Comment: role: event, deleted by Unrelease and object cleanup. HUMAN_GUIDANCE.md Question assets.
-
-Columns:
-
-| Name | Type | Null |
-| --- | --- | --- |
-| published_question_id | ple_data.question_family_id | NOT NULL |
-| revision_number | integer | NOT NULL |
-| asset_id | uuid | NOT NULL |
-| source_object_record_id | uuid | NOT NULL |
-| source_object_checksum | bytea | NOT NULL |
-| public_object_id | uuid | NOT NULL |
-| public_object_checksum | bytea | NOT NULL |
-| public_byte_length | bigint | NOT NULL |
-| verified_media_type | ple_data.media_type | NOT NULL |
-| intrinsic_width | integer | NOT NULL |
-| intrinsic_height | integer | NOT NULL |
-| object_delivery_id | uuid | NOT NULL |
-| job_id | uuid | NOT NULL |
-| publication_state | ple_data.publication_state | NOT NULL |
-| created_at | timestamptz | NOT NULL |
-
-Constraints:
-
-- PRIMARY KEY (published_question_id, revision_number, asset_id)
-- UNIQUE (public_object_id)
-- UNIQUE (object_delivery_id)
-- UNIQUE (job_id)
-- CHECK revision_number: `(revision_number > 0)`
-- CHECK source_object_checksum: `(octet_length(source_object_checksum) = 32)`
-- CHECK public_object_checksum: `(octet_length(public_object_checksum) = 32)`
-- CHECK public_byte_length: `(public_byte_length >= 0)`
-- CHECK intrinsic_width: `(intrinsic_width > 0)`
-- CHECK intrinsic_height: `(intrinsic_height > 0)`
-
-Foreign keys:
-
-- (source_object_record_id) -> ple_private.object_record (source_object_record_id)
-- (published_question_id, revision_number) -> ple_data.question_revision (published_question_id, revision_number)
-- (object_delivery_id, public_object_id) -> ple_data.object_delivery (object_delivery_id, object_record_id)
-- (job_id) -> ple_private.job (job_id)
-
-Indexes:
-
-- ple_private.question_asset_publication_pkey UNIQUE (published_question_id, revision_number, asset_id)
-- ple_private.question_asset_publication_unique_0 UNIQUE (public_object_id)
-- ple_private.question_asset_publication_unique_1 UNIQUE (object_delivery_id)
-- ple_private.question_asset_publication_unique_2 UNIQUE (job_id)
-- question_asset_publication_object_delivery_id_e5836f6f_fk_idx (object_delivery_id, public_object_id)
-- question_asset_publication_source_object_record_id_fk_idx (source_object_record_id)
-
 ## 20_tables/question_authoring.sql
 
 ### ple_private.authoring_workspace
@@ -4544,7 +4455,7 @@ Indexes:
 - ple_private.saved_question_search_pkey UNIQUE (search_id)
 - saved_question_search_owner_account_id_fk_idx (owner_account_id)
 
-### ple_private.draft_question_asset
+### ple_private.draft_question_image
 
 - Role: current state
 - Comment: role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.
@@ -4555,7 +4466,7 @@ Columns:
 | --- | --- | --- |
 | draft_question_id | uuid | NOT NULL |
 | authoring_workspace_id | uuid | NOT NULL |
-| asset_id | uuid | NOT NULL |
+| question_image_asset_id | uuid | NOT NULL |
 | source_object_record_id | uuid | NOT NULL |
 | intrinsic_width | integer | NOT NULL |
 | intrinsic_height | integer | NOT NULL |
@@ -4564,7 +4475,7 @@ Columns:
 
 Constraints:
 
-- PRIMARY KEY (draft_question_id, asset_id)
+- PRIMARY KEY (draft_question_id, question_image_asset_id)
 - UNIQUE (source_object_record_id)
 - CHECK intrinsic_width: `(intrinsic_width > 0)`
 - CHECK intrinsic_height: `(intrinsic_height > 0)`
@@ -4576,9 +4487,98 @@ Foreign keys:
 
 Indexes:
 
-- ple_private.draft_question_asset_pkey UNIQUE (draft_question_id, asset_id)
-- ple_private.draft_question_asset_unique_0 UNIQUE (source_object_record_id)
-- draft_question_asset_draft_question_id_b5a44014_fk_idx (draft_question_id, authoring_workspace_id)
+- ple_private.draft_question_image_pkey UNIQUE (draft_question_id, question_image_asset_id)
+- ple_private.draft_question_image_unique_0 UNIQUE (source_object_record_id)
+- draft_question_image_draft_question_id_b5a44014_fk_idx (draft_question_id, authoring_workspace_id)
+
+## 20_tables/question_images.sql
+
+### ple_data.question_image_delivery
+
+- Role: current state
+- Comment: role: current state, deleted by Unrelease and object cleanup. HUMAN_GUIDANCE.md Question Image Assets.
+
+Columns:
+
+| Name | Type | Null |
+| --- | --- | --- |
+| object_delivery_id | uuid | NOT NULL |
+| object_record_id | uuid | NOT NULL |
+| published_question_id | ple_data.question_family_id | NOT NULL |
+| revision_number | integer | NOT NULL |
+| question_image_asset_id | uuid | NOT NULL |
+| created_at | timestamptz | NOT NULL |
+| updated_at | timestamptz | NOT NULL |
+
+Constraints:
+
+- PRIMARY KEY (object_delivery_id)
+- CHECK revision_number: `(revision_number > 0)`
+
+Foreign keys:
+
+- (object_delivery_id, object_record_id) -> ple_data.object_delivery (object_delivery_id, object_record_id)
+- (published_question_id, revision_number) -> ple_data.question_revision (published_question_id, revision_number)
+
+Indexes:
+
+- ple_data.question_image_delivery_pkey UNIQUE (object_delivery_id)
+- question_image_delivery_object_delivery_id_72e8beb7_fk_idx (object_delivery_id, object_record_id)
+- question_image_delivery_published_question_id_db298a25_fk_idx (published_question_id, revision_number)
+
+### ple_private.question_image_publication
+
+- Role: event
+- Comment: role: event, deleted by Unrelease and object cleanup. HUMAN_GUIDANCE.md Question Image Assets.
+
+Columns:
+
+| Name | Type | Null |
+| --- | --- | --- |
+| published_question_id | ple_data.question_family_id | NOT NULL |
+| revision_number | integer | NOT NULL |
+| question_image_asset_id | uuid | NOT NULL |
+| source_object_record_id | uuid | NOT NULL |
+| source_object_checksum | bytea | NOT NULL |
+| public_object_id | uuid | NOT NULL |
+| public_object_checksum | bytea | NOT NULL |
+| public_byte_length | bigint | NOT NULL |
+| verified_media_type | ple_data.media_type | NOT NULL |
+| intrinsic_width | integer | NOT NULL |
+| intrinsic_height | integer | NOT NULL |
+| object_delivery_id | uuid | NOT NULL |
+| job_id | uuid | NOT NULL |
+| publication_state | ple_data.publication_state | NOT NULL |
+| created_at | timestamptz | NOT NULL |
+
+Constraints:
+
+- PRIMARY KEY (published_question_id, revision_number, question_image_asset_id)
+- UNIQUE (public_object_id)
+- UNIQUE (object_delivery_id)
+- UNIQUE (job_id)
+- CHECK revision_number: `(revision_number > 0)`
+- CHECK source_object_checksum: `(octet_length(source_object_checksum) = 32)`
+- CHECK public_object_checksum: `(octet_length(public_object_checksum) = 32)`
+- CHECK public_byte_length: `(public_byte_length >= 0)`
+- CHECK intrinsic_width: `(intrinsic_width > 0)`
+- CHECK intrinsic_height: `(intrinsic_height > 0)`
+
+Foreign keys:
+
+- (source_object_record_id) -> ple_private.object_record (source_object_record_id)
+- (published_question_id, revision_number) -> ple_data.question_revision (published_question_id, revision_number)
+- (object_delivery_id, public_object_id) -> ple_data.object_delivery (object_delivery_id, object_record_id)
+- (job_id) -> ple_private.job (job_id)
+
+Indexes:
+
+- ple_private.question_image_publication_pkey UNIQUE (published_question_id, revision_number, question_image_asset_id)
+- ple_private.question_image_publication_unique_0 UNIQUE (public_object_id)
+- ple_private.question_image_publication_unique_1 UNIQUE (object_delivery_id)
+- ple_private.question_image_publication_unique_2 UNIQUE (job_id)
+- question_image_publication_object_delivery_id_e5836f6f_fk_idx (object_delivery_id, public_object_id)
+- question_image_publication_source_object_record_id_fk_idx (source_object_record_id)
 
 ## 20_tables/question_pool.sql
 

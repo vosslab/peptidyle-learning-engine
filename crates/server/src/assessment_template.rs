@@ -279,7 +279,7 @@ fn expected_edit_number(
 }
 
 fn template_response(status: StatusCode, template: AssessmentTemplate) -> Response {
-    let edit_number = template.edit_number;
+    let edit_number = template.assessment_template_edit_number;
     let mut response = crate::auth::no_store((status, Json(template)).into_response());
     match HeaderValue::from_str(&format!("\"{edit_number}\"")) {
         Ok(value) => {

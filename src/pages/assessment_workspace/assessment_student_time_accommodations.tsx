@@ -108,7 +108,7 @@ export function AssessmentStudentTimeAccommodations(props: {
         workspace.courseInstanceId,
         workspace.assessmentId,
         rosterId,
-        { timeMultiplier, expectedAccommodationEditNumber: current.editNumber },
+        { timeMultiplier, expectedAccommodationEditNumber: current.accommodationEditNumber },
       );
       if (request !== requestNumber || student() !== rosterId) return;
       accept(value);

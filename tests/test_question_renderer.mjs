@@ -6,11 +6,11 @@ import test from "node:test";
 import {
   QuestionContentError,
   requireAccessibilityDescription,
-  resolveSameOriginAssetUrl,
+  resolveSameOriginQuestionImageUrl,
 } from "../src/components/question_renderer.tsx";
 
-const questionAsset = {
-  questionAssetId: "00000000-0000-0000-0000-000000000001",
+const questionImage = {
+  questionImageAssetId: "00000000-0000-0000-0000-000000000001",
   checksum: "a".repeat(64),
 };
 const questionRevisionTuple = { questionId: "7K3M-79QP", revisionNumber: 2 };
@@ -25,32 +25,32 @@ test("asset URLs must be the resolver-derived logical asset route", () => {
   });
   try {
     assert.equal(
-      resolveSameOriginAssetUrl(
-        questionAsset,
+      resolveSameOriginQuestionImageUrl(
+        questionImage,
         questionRevisionTuple,
         () =>
           new URL(
-            `/api/questions/${questionRevisionTuple.questionId}/revisions/${questionRevisionTuple.revisionNumber}/assets/${questionAsset.questionAssetId}`,
+            `/api/questions/${questionRevisionTuple.questionId}/revisions/${questionRevisionTuple.revisionNumber}/images/${questionImage.questionImageAssetId}`,
             globalThis.location.origin,
           ),
       ),
-      `https://ple.example.test/api/questions/${questionRevisionTuple.questionId}/revisions/${questionRevisionTuple.revisionNumber}/assets/${questionAsset.questionAssetId}`,
+      `https://ple.example.test/api/questions/${questionRevisionTuple.questionId}/revisions/${questionRevisionTuple.revisionNumber}/images/${questionImage.questionImageAssetId}`,
     );
     for (const resolver of [
       () => new URL("https://bucket.example.test/object"),
       () =>
         new URL(
-          `/api/questions/${questionRevisionTuple.questionId}/revisions/${questionRevisionTuple.revisionNumber}/assets/another-asset`,
+          `/api/questions/${questionRevisionTuple.questionId}/revisions/${questionRevisionTuple.revisionNumber}/images/another-asset`,
           globalThis.location.origin,
         ),
       () =>
         new URL(
-          `/api/questions/${questionRevisionTuple.questionId}/revisions/${questionRevisionTuple.revisionNumber}/assets/${questionAsset.questionAssetId}?raw-key=object`,
+          `/api/questions/${questionRevisionTuple.questionId}/revisions/${questionRevisionTuple.revisionNumber}/images/${questionImage.questionImageAssetId}?raw-key=object`,
           globalThis.location.origin,
         ),
     ]) {
       assert.throws(
-        () => resolveSameOriginAssetUrl(questionAsset, questionRevisionTuple, resolver),
+        () => resolveSameOriginQuestionImageUrl(questionImage, questionRevisionTuple, resolver),
         QuestionContentError,
       );
     }

@@ -416,11 +416,11 @@ CREATE INDEX published_question_metadata_content_subject_id_eed7807b_fk_idx
 CREATE INDEX published_question_metadata_content_topic_id_4033d80b_fk_idx
     ON ple_data.published_question_metadata (content_topic_id, content_subtopic_id);
 
-CREATE INDEX question_asset_delivery_object_delivery_id_72e8beb7_fk_idx
-    ON ple_data.question_asset_delivery (object_delivery_id, object_record_id);
+CREATE INDEX question_image_delivery_object_delivery_id_72e8beb7_fk_idx
+    ON ple_data.question_image_delivery (object_delivery_id, object_record_id);
 
-CREATE INDEX question_asset_delivery_published_question_id_db298a25_fk_idx
-    ON ple_data.question_asset_delivery (published_question_id, revision_number);
+CREATE INDEX question_image_delivery_published_question_id_db298a25_fk_idx
+    ON ple_data.question_image_delivery (published_question_id, revision_number);
 
 CREATE INDEX question_availability_event_actor_account_id_fk_idx
     ON ple_data.question_availability_event (actor_account_id);
@@ -577,8 +577,8 @@ CREATE INDEX course_roster_profile_student_account_id_fk_idx
 CREATE INDEX draft_question_authoring_workspace_id_fk_idx
     ON ple_private.draft_question (authoring_workspace_id);
 
-CREATE INDEX draft_question_asset_draft_question_id_b5a44014_fk_idx
-    ON ple_private.draft_question_asset (draft_question_id, authoring_workspace_id);
+CREATE INDEX draft_question_image_draft_question_id_b5a44014_fk_idx
+    ON ple_private.draft_question_image (draft_question_id, authoring_workspace_id);
 
 CREATE INDEX draft_question_fork_source_source_question_id_86c817bf_fk_idx
     ON ple_private.draft_question_fork_source (source_question_id, source_revision_number);
@@ -619,11 +619,11 @@ CREATE INDEX profile_image_work_account_id_fk_idx
 CREATE INDEX profile_image_work_object_record_id_fk_idx
     ON ple_private.profile_image_work (object_record_id);
 
-CREATE INDEX question_asset_publication_object_delivery_id_e5836f6f_fk_idx
-    ON ple_private.question_asset_publication (object_delivery_id, public_object_id);
+CREATE INDEX question_image_publication_object_delivery_id_e5836f6f_fk_idx
+    ON ple_private.question_image_publication (object_delivery_id, public_object_id);
 
-CREATE INDEX question_asset_publication_source_object_record_id_fk_idx
-    ON ple_private.question_asset_publication (source_object_record_id);
+CREATE INDEX question_image_publication_source_object_record_id_fk_idx
+    ON ple_private.question_image_publication (source_object_record_id);
 
 CREATE INDEX question_attempt_delivery_toolchain_id_fk_idx
     ON ple_private.question_attempt (delivery_toolchain_id);

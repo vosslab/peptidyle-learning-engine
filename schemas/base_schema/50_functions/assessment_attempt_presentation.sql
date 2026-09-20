@@ -104,10 +104,10 @@ FOR EACH ROW EXECUTE FUNCTION ple_private.reject_question_attempt_presentation_c
 CREATE TRIGGER question_attempt_presentation_asset_binding_delete_is_guarded BEFORE DELETE ON ple_private.question_attempt_presentation_asset_binding
 FOR EACH ROW EXECUTE FUNCTION ple_private.reject_student_work_delete();
 
-CREATE TRIGGER question_attempt_presentation_asset_rendition_is_immutable BEFORE UPDATE ON ple_private.question_attempt_presentation_asset_rendition
+CREATE TRIGGER question_attempt_presentation_image_rendition_is_immutable BEFORE UPDATE ON ple_private.question_attempt_presentation_image_rendition
 FOR EACH ROW EXECUTE FUNCTION ple_private.reject_question_attempt_presentation_change();
 
-CREATE TRIGGER question_attempt_presentation_asset_rendition_delete_is_guarded BEFORE DELETE ON ple_private.question_attempt_presentation_asset_rendition
+CREATE TRIGGER question_attempt_presentation_image_rendition_delete_is_guarded BEFORE DELETE ON ple_private.question_attempt_presentation_image_rendition
 FOR EACH ROW EXECUTE FUNCTION ple_private.reject_student_work_delete();
 
 CREATE CONSTRAINT TRIGGER question_attempt_reproduction_is_complete AFTER INSERT OR UPDATE OR DELETE ON ple_private.question_attempt
@@ -171,7 +171,7 @@ CREATE FUNCTION ple_private.prepare_student_assessment_attempt_presentation(
     issued_capability text, source_object_record_id uuid, source_object_address jsonb,
     source_object_checksum text, webwork_pg_path text,
     question_attempt_id uuid, presentation_nonce text, presentation_checksum text,
-    presentation jsonb, author_content jsonb, question_asset_renditions jsonb
+    presentation jsonb, author_content jsonb, question_image_renditions jsonb
 ) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 BEGIN
@@ -190,12 +190,12 @@ BEGIN
                 ELSE encode(binding.presentation_checksum, 'hex') END,
            binding.presentation, binding.author_content,
            COALESCE(jsonb_agg(jsonb_build_object(
-               'asset_id', rendition.asset_id,
-               'question_asset_checksum', encode(rendition.question_asset_checksum, 'hex'),
+               'question_image_asset_id', rendition.question_image_asset_id,
+               'question_image_checksum', encode(rendition.question_image_checksum, 'hex'),
                'rendition_checksum', encode(rendition.rendition_checksum, 'hex'),
                'intrinsic_width', rendition.intrinsic_width,
                'intrinsic_height', rendition.intrinsic_height
-           ) ORDER BY rendition.asset_id) FILTER (WHERE rendition.asset_id IS NOT NULL), '[]'::jsonb)
+           ) ORDER BY rendition.question_image_asset_id) FILTER (WHERE rendition.question_image_asset_id IS NOT NULL), '[]'::jsonb)
       FROM ple_private.issued_question AS issued
       JOIN ple_private.question_revision_source_binding AS source
         ON source.published_question_id = issued.published_question_id
@@ -210,14 +210,14 @@ BEGIN
       -- Existing Attempts never refresh immutable evidence from publication.
       -- ASVS 2.3.1/8.2.2: select only after the owning Attempt check above.
       LEFT JOIN LATERAL (
-          SELECT retained.asset_id, retained.question_asset_checksum,
+          SELECT retained.question_image_asset_id, retained.question_image_checksum,
                  retained.rendition_checksum, retained.intrinsic_width, retained.intrinsic_height
-            FROM ple_private.question_attempt_presentation_asset_rendition AS retained
+            FROM ple_private.question_attempt_presentation_image_rendition AS retained
            WHERE retained.question_attempt_id = assessment_attempt.question_attempt_id
           UNION ALL
-          SELECT ready.asset_id, decode(ready.question_asset_checksum, 'hex'),
+          SELECT ready.question_image_asset_id, decode(ready.question_image_checksum, 'hex'),
                  decode(ready.rendition_checksum, 'hex'), ready.intrinsic_width, ready.intrinsic_height
-            FROM ple_private.select_ready_question_asset_renditions(
+            FROM ple_private.select_ready_question_image_renditions(
                 issued.published_question_id, issued.revision_number
             ) AS ready
            WHERE assessment_attempt.question_attempt_id IS NULL
@@ -438,35 +438,35 @@ BEGIN
           FROM jsonb_to_recordset(item_response_item_bindings) AS supplied(
               presentation_response_item_id text, response_item_id text
           );
-        IF item ? 'question_assets' AND jsonb_typeof(item -> 'question_assets') <> 'array' THEN
-            RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Question presentation assets are invalid';
+        IF item ? 'question_images' AND jsonb_typeof(item -> 'question_images') <> 'array' THEN
+            RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Question presentation images are invalid';
         END IF;
-        IF jsonb_array_length(COALESCE(item -> 'question_assets', '[]'::jsonb)) > 0 THEN
+        IF jsonb_array_length(COALESCE(item -> 'question_images', '[]'::jsonb)) > 0 THEN
             IF EXISTS (
-                SELECT 1 FROM jsonb_to_recordset(item -> 'question_assets') AS supplied(asset_id uuid, question_asset_checksum text, rendition_checksum text, intrinsic_width integer, intrinsic_height integer)
-                 WHERE supplied.asset_id IS NULL OR supplied.question_asset_checksum !~ '^[0-9a-f]{64}$' OR supplied.rendition_checksum !~ '^[0-9a-f]{64}$'
+                SELECT 1 FROM jsonb_to_recordset(item -> 'question_images') AS supplied(question_image_asset_id uuid, question_image_checksum text, rendition_checksum text, intrinsic_width integer, intrinsic_height integer)
+                 WHERE supplied.question_image_asset_id IS NULL OR supplied.question_image_checksum !~ '^[0-9a-f]{64}$' OR supplied.rendition_checksum !~ '^[0-9a-f]{64}$'
                     OR supplied.intrinsic_width IS NULL OR supplied.intrinsic_width <= 0 OR supplied.intrinsic_height IS NULL OR supplied.intrinsic_height <= 0
                     OR NOT EXISTS (
-                        SELECT 1 FROM ple_private.select_ready_question_asset_renditions(
+                        SELECT 1 FROM ple_private.select_ready_question_image_renditions(
                             issued_row.published_question_id, issued_row.revision_number
                         ) AS ready
-                         WHERE ready.asset_id = supplied.asset_id
-                           AND ready.question_asset_checksum = supplied.question_asset_checksum
+                         WHERE ready.question_image_asset_id = supplied.question_image_asset_id
+                           AND ready.question_image_checksum = supplied.question_image_checksum
                            AND ready.rendition_checksum = supplied.rendition_checksum
                            AND ready.intrinsic_width = supplied.intrinsic_width
                            AND ready.intrinsic_height = supplied.intrinsic_height
                     )
             ) OR EXISTS (
-                SELECT 1 FROM jsonb_to_recordset(item -> 'question_assets') AS supplied(asset_id uuid)
-                 GROUP BY supplied.asset_id HAVING count(*) <> 1
+                SELECT 1 FROM jsonb_to_recordset(item -> 'question_images') AS supplied(question_image_asset_id uuid)
+                 GROUP BY supplied.question_image_asset_id HAVING count(*) <> 1
             ) THEN
-                RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Question presentation assets are invalid';
+                RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Question presentation images are invalid';
             END IF;
             INSERT INTO ple_private.question_attempt_presentation_asset_binding(course_instance_id, question_attempt_id)
             VALUES (assessment_attempt_row.course_instance_id, item_question_attempt_id);
-            INSERT INTO ple_private.question_attempt_presentation_asset_rendition(course_instance_id, question_attempt_presentation_asset_binding_id, asset_id, question_asset_checksum, rendition_checksum, intrinsic_width, intrinsic_height)
-            SELECT assessment_attempt_row.course_instance_id, item_question_attempt_id, supplied.asset_id, decode(supplied.question_asset_checksum, 'hex'), decode(supplied.rendition_checksum, 'hex'), supplied.intrinsic_width, supplied.intrinsic_height
-              FROM jsonb_to_recordset(item -> 'question_assets') AS supplied(asset_id uuid, question_asset_checksum text, rendition_checksum text, intrinsic_width integer, intrinsic_height integer);
+            INSERT INTO ple_private.question_attempt_presentation_image_rendition(course_instance_id, question_attempt_presentation_image_binding_id, question_image_asset_id, question_image_checksum, rendition_checksum, intrinsic_width, intrinsic_height)
+            SELECT assessment_attempt_row.course_instance_id, item_question_attempt_id, supplied.question_image_asset_id, decode(supplied.question_image_checksum, 'hex'), decode(supplied.rendition_checksum, 'hex'), supplied.intrinsic_width, supplied.intrinsic_height
+              FROM jsonb_to_recordset(item -> 'question_images') AS supplied(question_image_asset_id uuid, question_image_checksum text, rendition_checksum text, intrinsic_width integer, intrinsic_height integer);
         END IF;
     END LOOP;
     SET CONSTRAINTS ALL IMMEDIATE;
@@ -492,7 +492,7 @@ CREATE FUNCTION ple_private.read_student_assessment_attempt_presentation_evidenc
     published_question_id text, revision_number integer, question_seed numeric,
     generated_parameter_sha256 text,
     presentation_nonce text, presentation_checksum text, presentation jsonb, author_content jsonb,
-    question_asset_renditions jsonb, response_item_bindings jsonb
+    question_image_renditions jsonb, response_item_bindings jsonb
 ) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE assessment_attempt_id_value uuid;
@@ -514,19 +514,19 @@ BEGIN
            encode(binding.presentation_checksum, 'hex'),
            binding.presentation, binding.author_content,
            COALESCE(jsonb_agg(jsonb_build_object(
-               'asset_id', rendition.asset_id,
-               'question_asset_checksum', encode(rendition.question_asset_checksum, 'hex'),
+               'question_image_asset_id', rendition.question_image_asset_id,
+               'question_image_checksum', encode(rendition.question_image_checksum, 'hex'),
                'rendition_checksum', encode(rendition.rendition_checksum, 'hex'),
                'intrinsic_width', rendition.intrinsic_width,
                'intrinsic_height', rendition.intrinsic_height
-           ) ORDER BY rendition.asset_id) FILTER (WHERE rendition.asset_id IS NOT NULL), '[]'::jsonb)
+           ) ORDER BY rendition.question_image_asset_id) FILTER (WHERE rendition.question_image_asset_id IS NOT NULL), '[]'::jsonb)
            , COALESCE(response_item_bindings.response_item_bindings, '[]'::jsonb)
       FROM ple_private.issued_question AS issued
       JOIN ple_private.question_attempt AS question_attempt
         ON question_attempt.issued_question_id = issued.issued_question_id
       JOIN ple_private.question_attempt_presentation_binding AS binding
         ON binding.question_attempt_id = question_attempt.question_attempt_id
-      LEFT JOIN ple_private.question_attempt_presentation_asset_rendition AS rendition
+      LEFT JOIN ple_private.question_attempt_presentation_image_rendition AS rendition
         ON rendition.question_attempt_id = question_attempt.question_attempt_id
       LEFT JOIN LATERAL (
           SELECT jsonb_agg(jsonb_build_object(
@@ -550,7 +550,7 @@ CREATE FUNCTION ple_private.read_student_assessment_attempt_presentation_evidenc
     assessment_entry_id uuid, issued_position integer, published_question_id text, revision_number integer,
     question_seed numeric, generated_parameter_sha256 text,
     presentation_nonce text, presentation_checksum text, presentation jsonb, author_content jsonb,
-    question_asset_renditions jsonb, response_item_bindings jsonb
+    question_image_renditions jsonb, response_item_bindings jsonb
 ) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
 DECLARE expected_count integer;
@@ -592,13 +592,13 @@ BEGIN
     SELECT issued.assessment_entry_id, issued.issued_position, issued.published_question_id, issued.revision_number,
            question_attempt.question_seed, question_attempt.generated_parameter_sha256,
            binding.presentation_nonce, encode(binding.presentation_checksum, 'hex'), binding.presentation, binding.author_content,
-           COALESCE(jsonb_agg(jsonb_build_object('asset_id', rendition.asset_id, 'question_asset_checksum', encode(rendition.question_asset_checksum, 'hex'), 'rendition_checksum', encode(rendition.rendition_checksum, 'hex'), 'intrinsic_width', rendition.intrinsic_width, 'intrinsic_height', rendition.intrinsic_height) ORDER BY rendition.asset_id) FILTER (WHERE rendition.asset_id IS NOT NULL), '[]'::jsonb)
+           COALESCE(jsonb_agg(jsonb_build_object('question_image_asset_id', rendition.question_image_asset_id, 'question_image_checksum', encode(rendition.question_image_checksum, 'hex'), 'rendition_checksum', encode(rendition.rendition_checksum, 'hex'), 'intrinsic_width', rendition.intrinsic_width, 'intrinsic_height', rendition.intrinsic_height) ORDER BY rendition.question_image_asset_id) FILTER (WHERE rendition.question_image_asset_id IS NOT NULL), '[]'::jsonb)
            , COALESCE(response_item_bindings.response_item_bindings, '[]'::jsonb)
       FROM ple_private.issued_question AS issued
       JOIN ple_private.question_attempt AS question_attempt ON question_attempt.issued_question_id = issued.issued_question_id
       JOIN ple_private.question_revision_source_binding AS source ON source.published_question_id = issued.published_question_id AND source.revision_number = issued.revision_number
       JOIN ple_private.question_attempt_presentation_binding AS binding ON binding.question_attempt_id = question_attempt.question_attempt_id
-      LEFT JOIN ple_private.question_attempt_presentation_asset_rendition AS rendition ON rendition.question_attempt_presentation_asset_binding_id = question_attempt.question_attempt_id
+      LEFT JOIN ple_private.question_attempt_presentation_image_rendition AS rendition ON rendition.question_attempt_presentation_image_binding_id = question_attempt.question_attempt_id
       LEFT JOIN LATERAL (
           SELECT jsonb_agg(jsonb_build_object(
               'presentation_response_item_id', response_item.presentation_response_item_id,
@@ -694,7 +694,7 @@ RETURNS TABLE (
     issued_capability text, source_object_record_id uuid, source_object_address jsonb,
     source_object_checksum text, webwork_pg_path text,
     question_attempt_id uuid, presentation_nonce text, presentation_checksum text,
-    presentation jsonb, author_content jsonb, question_asset_renditions jsonb
+    presentation jsonb, author_content jsonb, question_image_renditions jsonb
 ) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$
     SELECT assessment_attempt_id, issued_question_id, issued_position + 1,
            assessment_entry_id, assessment_content_entry_index,
@@ -702,7 +702,7 @@ RETURNS TABLE (
            issued_capability, source_object_record_id, source_object_address,
            source_object_checksum, webwork_pg_path,
            question_attempt_id, presentation_nonce, presentation_checksum,
-           presentation, author_content, question_asset_renditions
+           presentation, author_content, question_image_renditions
       FROM ple_private.prepare_student_assessment_attempt_presentation($1)
 $$;
 
@@ -721,18 +721,18 @@ RETURNS TABLE (
     published_question_id text, revision_number integer, question_seed numeric,
     generated_parameter_sha256 text,
     presentation_nonce text, presentation_checksum text, presentation jsonb, author_content jsonb,
-    question_asset_renditions jsonb, response_item_bindings jsonb
+    question_image_renditions jsonb, response_item_bindings jsonb
 ) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$
     SELECT published_question_id, revision_number, question_seed, generated_parameter_sha256,
            presentation_nonce, presentation_checksum, presentation, author_content,
-           question_asset_renditions, response_item_bindings
+           question_image_renditions, response_item_bindings
       FROM ple_private.read_student_assessment_attempt_presentation_evidence($1, $2 - 1)
 $$;
 
 CREATE FUNCTION ple_api.read_student_assessment_attempt_presentation_evidence_set(uuid)
-RETURNS TABLE (assessment_entry_id uuid, issued_position integer, published_question_id text, revision_number integer, question_seed numeric, generated_parameter_sha256 text, presentation_nonce text, presentation_checksum text, presentation jsonb, author_content jsonb, question_asset_renditions jsonb, response_item_bindings jsonb)
+RETURNS TABLE (assessment_entry_id uuid, issued_position integer, published_question_id text, revision_number integer, question_seed numeric, generated_parameter_sha256 text, presentation_nonce text, presentation_checksum text, presentation jsonb, author_content jsonb, question_image_renditions jsonb, response_item_bindings jsonb)
 LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$
-    SELECT assessment_entry_id, issued_position + 1, published_question_id, revision_number, question_seed, generated_parameter_sha256, presentation_nonce, presentation_checksum, presentation, author_content, question_asset_renditions, response_item_bindings
+    SELECT assessment_entry_id, issued_position + 1, published_question_id, revision_number, question_seed, generated_parameter_sha256, presentation_nonce, presentation_checksum, presentation, author_content, question_image_renditions, response_item_bindings
       FROM ple_private.read_student_assessment_attempt_presentation_evidence_set($1)
 $$;
 

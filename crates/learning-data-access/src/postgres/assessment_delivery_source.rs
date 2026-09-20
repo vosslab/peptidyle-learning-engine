@@ -6,7 +6,7 @@ use sqlx::Row;
 use super::{assessment_delivery::positive_i32, connection::map_sqlx_error};
 use crate::{
     NativePleIssuanceSource, NativeWebworkIssuanceSource, QuestionIssuanceReproductionInput,
-    ReadyQuestionAssetRendition, StoreError, StudentAssessmentAttemptPresentationEvidence,
+    ReadyQuestionImageRendition, StoreError, StudentAssessmentAttemptPresentationEvidence,
     StudentAssessmentAttemptPresentationSource,
 };
 
@@ -53,7 +53,7 @@ pub(super) fn presentation_evidence_from_row(
         presentation,
         author_content,
         response_item_bindings,
-        question_asset_renditions: ready_question_asset_renditions(row)?,
+        question_image_renditions: ready_question_image_renditions(row)?,
     })
 }
 
@@ -157,7 +157,7 @@ pub(super) fn source_from_row(
                 presentation_nonce: Some(nonce),
                 presentation_checksum: Some(checksum),
                 retained_presentation: None,
-                question_asset_renditions: ready_question_asset_renditions(row)?,
+                question_image_renditions: ready_question_image_renditions(row)?,
             },
         }),
         "webwork" => Ok(StudentAssessmentAttemptPresentationSource::Webwork {
@@ -180,7 +180,7 @@ pub(super) fn source_from_row(
                     })?,
                 reproduction: issuance_reproduction_from_row(row, "webwork")?,
                 retained_presentation: None,
-                question_asset_renditions: ready_question_asset_renditions(row)?,
+                question_image_renditions: ready_question_image_renditions(row)?,
             },
             reproduction: require_seeded_reproduction(reproduction)?,
             presentation_nonce: nonce,
@@ -263,46 +263,46 @@ pub(super) fn issuance_reproduction_from_row(
 }
 
 #[derive(serde::Deserialize)]
-struct ReadyQuestionAssetRenditionRow {
-    asset_id: String,
-    question_asset_checksum: String,
+struct ReadyQuestionImageRenditionRow {
+    question_image_asset_id: String,
+    question_image_checksum: String,
     rendition_checksum: String,
     intrinsic_width: i32,
     intrinsic_height: i32,
 }
 
-pub(super) fn ready_question_asset_renditions(
+pub(super) fn ready_question_image_renditions(
     row: &sqlx::postgres::PgRow,
-) -> Result<Vec<ReadyQuestionAssetRendition>, StoreError> {
-    decode_retained_question_asset_renditions(
-        row.try_get("question_asset_renditions")
+) -> Result<Vec<ReadyQuestionImageRendition>, StoreError> {
+    decode_retained_question_image_renditions(
+        row.try_get("question_image_renditions")
             .map_err(map_sqlx_error)?,
     )
 }
 
-fn decode_retained_question_asset_renditions(
+fn decode_retained_question_image_renditions(
     value: serde_json::Value,
-) -> Result<Vec<ReadyQuestionAssetRendition>, StoreError> {
-    let values: Vec<ReadyQuestionAssetRenditionRow> =
+) -> Result<Vec<ReadyQuestionImageRendition>, StoreError> {
+    let values: Vec<ReadyQuestionImageRenditionRow> =
         serde_json::from_value(value).map_err(|_| {
-            StoreError::InvalidRecord("Question Asset renditions are invalid".to_string())
+            StoreError::InvalidRecord("Question Image renditions are invalid".to_string())
         })?;
     values
         .into_iter()
         .map(|value| {
-            Ok(ReadyQuestionAssetRendition {
-                question_asset_id: uuid::Uuid::parse_str(&value.asset_id)
-                    .map(question_model::QuestionAssetId::from_uuid)
+            Ok(ReadyQuestionImageRendition {
+                question_image_asset_id: uuid::Uuid::parse_str(&value.question_image_asset_id)
+                    .map(question_model::QuestionImageAssetId::from_uuid)
                     .map_err(|_| {
-                        StoreError::InvalidRecord("Question Asset ID is invalid".to_string())
+                        StoreError::InvalidRecord("Question Image Asset ID is invalid".to_string())
                     })?,
-                question_asset_checksum: value.question_asset_checksum,
+                question_image_checksum: value.question_image_checksum,
                 rendition_checksum: value.rendition_checksum,
                 intrinsic_width: u32::try_from(value.intrinsic_width).map_err(|_| {
-                    StoreError::InvalidRecord("Question Asset width is invalid".to_string())
+                    StoreError::InvalidRecord("Question Image width is invalid".to_string())
                 })?,
                 intrinsic_height: u32::try_from(value.intrinsic_height).map_err(|_| {
-                    StoreError::InvalidRecord("Question Asset height is invalid".to_string())
+                    StoreError::InvalidRecord("Question Image height is invalid".to_string())
                 })?,
             })
         })
@@ -316,25 +316,25 @@ mod tests {
     #[test]
     fn retained_renditions_ignore_later_current_publication_values() {
         let retained = serde_json::json!([{
-            "asset_id": "00000000-0000-0000-0000-000000000001",
-            "question_asset_checksum": "retained-question-asset",
+            "question_image_asset_id": "00000000-0000-0000-0000-000000000001",
+            "question_image_checksum": "retained-question-image",
             "rendition_checksum": "retained-rendition",
             "intrinsic_width": 640,
             "intrinsic_height": 480
         }]);
         let later_current_publication = serde_json::json!([{
-            "asset_id": "00000000-0000-0000-0000-000000000002",
-            "question_asset_checksum": "current-question-asset",
+            "question_image_asset_id": "00000000-0000-0000-0000-000000000002",
+            "question_image_checksum": "current-question-image",
             "rendition_checksum": "current-rendition",
             "intrinsic_width": 1,
             "intrinsic_height": 1
         }]);
 
-        let decoded = decode_retained_question_asset_renditions(retained).expect("retained data");
+        let decoded = decode_retained_question_image_renditions(retained).expect("retained data");
         assert_eq!(decoded.len(), 1);
         assert_eq!(
-            decoded[0].question_asset_checksum,
-            "retained-question-asset"
+            decoded[0].question_image_checksum,
+            "retained-question-image"
         );
         assert_eq!(decoded[0].rendition_checksum, "retained-rendition");
         assert_ne!(

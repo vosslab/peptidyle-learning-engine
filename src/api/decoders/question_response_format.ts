@@ -1,6 +1,6 @@
 // Browser-safe content and Question Response Format decoders.
 
-import type { QuestionAssetTuple } from "../../../generated/api/QuestionAssetTuple";
+import type { QuestionImageAssetTuple } from "../../../generated/api/QuestionImageAssetTuple";
 import type { QuestionContentBlock } from "../../../generated/api/QuestionContentBlock";
 import type { NumericResponseTolerance } from "../../../generated/api/NumericResponseTolerance";
 import type { QuestionResponseFormat } from "../../../generated/api/QuestionResponseFormat";
@@ -20,20 +20,20 @@ import {
 } from "../decoder";
 import { decodeIdentifier, decodeSha256, field, kind, requireOnlyFields } from "./shared";
 
-export function decodeQuestionAssetTuple(
+export function decodeQuestionImageAssetTuple(
   value: unknown,
   path: string,
   strict = false,
-): QuestionAssetTuple {
+): QuestionImageAssetTuple {
   const record = decodeRecord(value, path);
-  if (strict) requireOnlyFields(record, path, ["questionAssetId", "checksum"]);
+  if (strict) requireOnlyFields(record, path, ["questionImageAssetId", "checksum"]);
   return {
-    questionAssetId: decodeIdentifier(
-      field(record, "questionAssetId", path),
-      `${path}.questionAssetId`,
+    questionImageAssetId: decodeIdentifier(
+      field(record, "questionImageAssetId", path),
+      `${path}.questionImageAssetId`,
     ),
     checksum: decodeSha256(field(record, "checksum", path), `${path}.checksum`),
-  } satisfies QuestionAssetTuple;
+  } satisfies QuestionImageAssetTuple;
 }
 
 export function decodeQuestionContentBlock(
@@ -61,12 +61,13 @@ export function decodeQuestionContentBlock(
         ),
       } satisfies QuestionContentBlock;
     case "image":
-      if (strict) requireOnlyFields(record, path, ["kind", "questionAssetTuple", "description"]);
+      if (strict)
+        requireOnlyFields(record, path, ["kind", "questionImageAssetTuple", "description"]);
       return {
         kind: block,
-        questionAssetTuple: decodeQuestionAssetTuple(
-          field(record, "questionAssetTuple", path),
-          `${path}.questionAssetTuple`,
+        questionImageAssetTuple: decodeQuestionImageAssetTuple(
+          field(record, "questionImageAssetTuple", path),
+          `${path}.questionImageAssetTuple`,
           strict,
         ),
         description: decodeNonemptyString(
@@ -316,16 +317,16 @@ export function decodeQuestionResponseFormat(
       if (strict)
         requireOnlyFields(record, path, [
           "kind",
-          "questionAssetTuple",
+          "questionImageAssetTuple",
           "description",
           "regions",
           "selection",
         ]);
       return {
         kind: response,
-        questionAssetTuple: decodeQuestionAssetTuple(
-          field(record, "questionAssetTuple", path),
-          `${path}.questionAssetTuple`,
+        questionImageAssetTuple: decodeQuestionImageAssetTuple(
+          field(record, "questionImageAssetTuple", path),
+          `${path}.questionImageAssetTuple`,
           strict,
         ),
         description: decodeNonemptyString(

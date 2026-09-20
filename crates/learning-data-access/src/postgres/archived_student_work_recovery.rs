@@ -15,6 +15,12 @@ use crate::{
     SessionTokenHash, StoreError,
 };
 
+const READ_ARCHIVED_ASSESSMENT_ATTEMPT_FOR_RECOVERY_SQL: &str = "SELECT course_instance_id, roster_id, assessment_id, \
+     assessment_attempt_id, assessment_attempt_number, started_at::text, \
+     expires_at::text, student_data_archived_at::text, delete_due_at::text, \
+     attempt_facts, submission, questions \
+     FROM ple_api.read_archived_assessment_attempt_for_recovery($1,$2)";
+
 /// Uses only protected recovery wrappers under the originating session.
 #[derive(Clone)]
 pub struct PostgresArchivedStudentWorkRecoveryStore {
@@ -91,19 +97,13 @@ impl ArchivedStudentWorkRecoveryStore for PostgresArchivedStudentWorkRecoverySto
     ) -> Result<RecoveredAttempt, StoreError> {
         let mut tx = self.begin(session).await?;
         // Explicit columns exclude internal Student Record UUID and all Account fields.
-        let row = sqlx::query(
-            "SELECT course_instance_id, roster_id, assessment_id, \
-             assessment_attempt_id, assessment_attempt_number, started_at::text, \
-             expires_at::text, student_data_archived_at::text, delete_due_at::text, \
-             attempt_facts, submission, questions \
-             FROM ple_api.read_archived_assessment_attempt_for_recovery($1,$2)",
-        )
-        .bind(course_instance_id.as_string())
-        .bind(assessment_attempt_id.as_uuid())
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(map_sqlx_error)?
-        .ok_or(StoreError::NotFound)?;
+        let row = sqlx::query(READ_ARCHIVED_ASSESSMENT_ATTEMPT_FOR_RECOVERY_SQL)
+            .bind(course_instance_id.as_string())
+            .bind(assessment_attempt_id.as_uuid())
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(map_sqlx_error)?
+            .ok_or(StoreError::NotFound)?;
         let facts: AttemptFacts = document(&row, "attempt_facts")?;
         let submission: Option<Submission> = document(&row, "submission")?;
         let questions: Vec<RetainedQuestion> = document(&row, "questions")?;
@@ -261,4 +261,19 @@ fn text<T: Serialize>(value: &T) -> Result<String, StoreError> {
 }
 fn invalid() -> StoreError {
     StoreError::InvalidRecord("Retained Work evidence is invalid".into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::READ_ARCHIVED_ASSESSMENT_ATTEMPT_FOR_RECOVERY_SQL;
+
+    #[test]
+    fn recovery_query_selects_roster_id_without_student_record() {
+        assert!(
+            READ_ARCHIVED_ASSESSMENT_ATTEMPT_FOR_RECOVERY_SQL
+                .contains("ple_api.read_archived_assessment_attempt_for_recovery")
+        );
+        assert!(READ_ARCHIVED_ASSESSMENT_ATTEMPT_FOR_RECOVERY_SQL.contains("roster_id"));
+        assert!(!READ_ARCHIVED_ASSESSMENT_ATTEMPT_FOR_RECOVERY_SQL.contains("student_record_id"));
+    }
 }

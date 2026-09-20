@@ -22,12 +22,12 @@ import {
   PleQuestionJsonStaleConflictError,
 } from "../src/features/ple_question_json_authoring/question_json_repository.ts";
 import { PLE_QUESTION_JSON_MEDIA_TYPE } from "../src/features/ple_question_json_authoring/question_json_source.ts";
-import { setPleQuestionJsonHotspotAsset } from "../src/features/ple_question_json_authoring/question_json_hotspot_model.ts";
+import { setPleQuestionJsonHotspotImage } from "../src/features/ple_question_json_authoring/question_json_hotspot_model.ts";
 import { source } from "./ple_question_json_authoring_support.mjs";
 
 const draftQuestion = "0198e000-0000-7000-8000-000000000001";
 const uploadedImage = {
-  questionAssetId: "01234567-89ab-4cde-8f01-23456789abcd",
+  questionImageAssetId: "01234567-89ab-4cde-8f01-23456789abcd",
   checksum: "a".repeat(64),
   mediaType: "image/png",
   intrinsicWidth: 480,
@@ -49,7 +49,7 @@ test("image upload sends raw raster bytes and a source precondition, accepting o
   let result = uploadedImage;
   const client = createPleQuestionJsonClient({
     fetch: async (path, init) => {
-      assert.equal(path, "/api/authoring/drafts/0198e000-0000-7000-8000-000000000001/assets");
+      assert.equal(path, "/api/authoring/drafts/0198e000-0000-7000-8000-000000000001/images");
       assert.equal(init.method, "POST");
       assert.equal(init.body, image);
       assert.equal(init.credentials, "same-origin");
@@ -59,14 +59,14 @@ test("image upload sends raw raster bytes and a source precondition, accepting o
       return jsonResponse(result, 201);
     },
   });
-  assert.deepEqual(await client.uploadAsset(draftQuestion, image, "3"), uploadedImage);
+  assert.deepEqual(await client.uploadQuestionImage(draftQuestion, image, "3"), uploadedImage);
   assert.equal(
-    client.assetPreviewPath(draftQuestion, uploadedImage.questionAssetId),
-    `/api/authoring/drafts/0198e000-0000-7000-8000-000000000001/assets/${uploadedImage.questionAssetId}`,
+    client.questionImagePreviewPath(draftQuestion, uploadedImage.questionImageAssetId),
+    `/api/authoring/drafts/0198e000-0000-7000-8000-000000000001/images/${uploadedImage.questionImageAssetId}`,
   );
   for (const malformed of [
     { ...uploadedImage, url: "https://external.invalid/image.png" },
-    { ...uploadedImage, questionAssetId: uploadedImage.questionAssetId.toUpperCase() },
+    { ...uploadedImage, questionImageAssetId: uploadedImage.questionImageAssetId.toUpperCase() },
     { ...uploadedImage, checksum: "A".repeat(64) },
     { ...uploadedImage, mediaType: "image/svg+xml" },
     { ...uploadedImage, intrinsicWidth: 0 },
@@ -74,7 +74,7 @@ test("image upload sends raw raster bytes and a source precondition, accepting o
     { ...uploadedImage, intrinsicWidth: 20_000_001 },
   ]) {
     result = malformed;
-    await assert.rejects(client.uploadAsset(draftQuestion, image, "3"));
+    await assert.rejects(client.uploadQuestionImage(draftQuestion, image, "3"));
   }
 });
 
@@ -95,7 +95,7 @@ test("image failures and canceled upload never replace the caller source; 412 so
   const image = new Blob(["raster"], { type: "image/png" });
   for (const failure of [412, 413, 415, 400, 503, 0]) {
     status = failure;
-    await assert.rejects(client.uploadAsset(draftQuestion, image, "1"));
+    await assert.rejects(client.uploadQuestionImage(draftQuestion, image, "1"));
     assert.equal(serializePleQuestionJsonSource(original), before);
   }
   status = 412;
@@ -111,7 +111,7 @@ test("image failures and canceled upload never replace the caller source; 412 so
 });
 
 test("a real image descriptor creates the starter region and replacement preserves authored HOTSPOT content", () => {
-  const initial = setPleQuestionJsonHotspotAsset(source(), uploadedImage);
+  const initial = setPleQuestionJsonHotspotImage(source(), uploadedImage);
   assert.equal(decodePleQuestionJsonSource(initial).response.kind, "hotspot");
   assert.deepEqual(initial.response.regions, [
     { id: "region_1", label: "Region 1", x: 0, y: 0, width: 10000, height: 10000 },
@@ -126,17 +126,17 @@ test("a real image descriptor creates the starter region and replacement preserv
       correctRegions: ["dot"],
     },
   };
-  const replacement = setPleQuestionJsonHotspotAsset(authored, {
+  const replacement = setPleQuestionJsonHotspotImage(authored, {
     ...uploadedImage,
-    questionAssetId: "01234567-89ab-4cde-8f01-23456789abce",
+    questionImageAssetId: "01234567-89ab-4cde-8f01-23456789abce",
     checksum: "b".repeat(64),
   });
   assert.deepEqual(replacement.response.regions, authored.response.regions);
   assert.deepEqual(replacement.response.correctRegions, ["dot"]);
   assert.equal(replacement.response.surface.description, "One dot in the image.");
   assert.notEqual(
-    replacement.response.surface.questionAssetId,
-    authored.response.surface.questionAssetId,
+    replacement.response.surface.questionImageAssetId,
+    authored.response.surface.questionImageAssetId,
   );
   assert.equal(decodePleQuestionJsonSource(replacement).response.kind, "hotspot");
 });
@@ -633,7 +633,7 @@ test("client saves a strict PLE hotspot source through its exact endpoint", asyn
     response: {
       kind: "hotspot",
       surface: {
-        questionAssetId: "00000000-0000-4000-8000-000000000042",
+        questionImageAssetId: "00000000-0000-4000-8000-000000000042",
         checksum: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         description: "A chromosome map",
       },

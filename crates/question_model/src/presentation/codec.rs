@@ -3,13 +3,13 @@
 use sha2::{Digest, Sha256};
 
 use crate::QuestionReproduction;
-use crate::question_content::{QuestionAssetTuple, QuestionContentBlock};
+use crate::question_content::{QuestionContentBlock, QuestionImageAssetTuple};
 
 use super::builder::{
     IssuedQuestionPresentation, PresentationBuildError, ResponseItemBasis, ResponseItemRole,
 };
 use super::model::{
-    PresentationResponseItemId, PresentedResponseItemContent, QuestionAssetRendition,
+    PresentationResponseItemId, PresentedResponseItemContent, QuestionImageRendition,
     QuestionPresentationResponseFormat, QuestionPresentationToken,
 };
 
@@ -109,9 +109,9 @@ pub fn descriptor_bytes(
         let basis = item_basis_bytes(&item.basis)?;
         encoder.bytes(&basis)?;
     }
-    encoder.u32_len(presentation.question_asset_renditions.len())?;
-    for binding in &presentation.question_asset_renditions {
-        encoder.question_asset_rendition(binding)?;
+    encoder.u32_len(presentation.question_image_renditions.len())?;
+    for binding in &presentation.question_image_renditions {
+        encoder.question_image_rendition(binding)?;
     }
     Ok(encoder.finish())
 }
@@ -140,9 +140,9 @@ pub(super) fn item_basis_bytes(
     encoder.u32(basis.ordinal);
     encoder.optional_string(basis.label.as_deref())?;
     encoder.content_blocks(&basis.content)?;
-    encoder.u32_len(basis.assets.len())?;
-    for asset in &basis.assets {
-        encoder.question_asset_rendition(asset)?;
+    encoder.u32_len(basis.question_image_renditions.len())?;
+    for rendition in &basis.question_image_renditions {
+        encoder.question_image_rendition(rendition)?;
     }
     encoder.optional_u32(basis.hotspot_width);
     encoder.optional_u32(basis.hotspot_height);
@@ -303,17 +303,22 @@ impl Encoder {
 
     fn asset_ref(
         &mut self,
-        question_asset_tuple: &QuestionAssetTuple,
+        question_image_asset_tuple: &QuestionImageAssetTuple,
     ) -> Result<(), PresentationBuildError> {
-        self.raw(question_asset_tuple.question_asset_id.as_uuid().as_bytes());
-        self.checksum(&question_asset_tuple.checksum)
+        self.raw(
+            question_image_asset_tuple
+                .question_image_asset_id
+                .as_uuid()
+                .as_bytes(),
+        );
+        self.checksum(&question_image_asset_tuple.checksum)
     }
 
-    fn question_asset_rendition(
+    fn question_image_rendition(
         &mut self,
-        asset: &QuestionAssetRendition,
+        asset: &QuestionImageRendition,
     ) -> Result<(), PresentationBuildError> {
-        self.asset_ref(&asset.question_asset_tuple)?;
+        self.asset_ref(&asset.question_image_asset_tuple)?;
         self.checksum(&asset.rendition_checksum)?;
         self.optional_u32(asset.intrinsic_width);
         self.optional_u32(asset.intrinsic_height);
@@ -337,11 +342,11 @@ impl Encoder {
                     self.string(description)?;
                 }
                 QuestionContentBlock::Image {
-                    question_asset_tuple,
+                    question_image_asset_tuple,
                     description,
                 } => {
                     self.u8(2);
-                    self.asset_ref(question_asset_tuple)?;
+                    self.asset_ref(question_image_asset_tuple)?;
                     self.string(description)?;
                 }
                 QuestionContentBlock::Code { language, source } => {

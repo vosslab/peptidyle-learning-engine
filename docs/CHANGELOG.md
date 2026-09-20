@@ -30,13 +30,34 @@
 
 ### Fixes and Maintenance
 
+- Question image vocabulary: a QTI ZIP is `QtiPackageUploadFile`, the
+  retained original is `QtiPackageArchive`, a verified extract is
+  `QtiPackageExtractedImage`, a Question-bound still image is
+  `QuestionImageAsset` / `QuestionImageAssetTuple`, and the delivered form
+  is `QuestionImageRendition`. `ObjectId` remains physical storage. SQL,
+  Object Address kinds, JSON, `/images/` routes, and the browser
+  `questionImageUrl` resolver follow those names. Human Guidance now names
+  **Question Image Asset** and **Question Image Rendition** as product terms.
+  Question-image modules are `draft_question_images`,
+  `question_publication_images`, `presentation/question_images`, and
+  `draft_question_image_publication_operations.sql`. Public-asset-publisher,
+  WeBWorK proxy, RDKit, and static `/assets/` paths keep their own names.
+  Gate: `cargo test -p question_model -p adapter_qti -p objects --offline
+  --lib`, `node --import tsx --test tests/test_question_renderer.mjs
+  tests/test_http_client.mjs`.
+
 - Semantic naming: exact identities use `Id`, exact Question/Blueprint
-  revisions use named Tuples, and clocks use qualified Edit/Revision
-  Numbers. Known forks, Assessment Blueprint Update, Student Work Recovery,
-  Question Asset Tuple, Object Address members, and Assessment workspace
-  JSON now ship those shapes. HTTP `ETag`/`If-Match` remain header
-  encoding only. A compact contract registry replaces the broad domain-ETag
-  spelling pytest. Gate: `node --import tsx --test
+  revisions use named Tuples, and clocks use qualified domain Edit/Revision
+  Numbers. Student View, Assessment Template, Question Pool Preview,
+  Student time accommodation, Question availability, Draft Question, and
+  Assessment editor JSON reject leftover generic `editNumber`. Known forks,
+  Assessment Blueprint Update, Student Work Recovery, Question Asset Tuple,
+  Object Address members, and Assessment workspace JSON ship the same
+  shapes. HTTP `ETag`/`If-Match` remain header encoding only. The contract
+  registry cites Human Guidance or Terminology and names real `ple_api`
+  functions plus native postgres tests. Canonical JSON stays inline in
+  those native tests.
+  Gate: `node --import tsx --test
   tests/test_nested_identity_contracts.mjs`, `python3 -m pytest
   tests/test_semantic_contract_registry.py`,
   `cargo test -p question_model -p browser-api-contract -p objects
@@ -291,7 +312,7 @@
   `ImathasDeploymentId`). Multiple values that together identify one exact
   object, state, or version are a Tuple (`QuestionRevisionTuple`
   `{questionId, revisionNumber}`, `BlueprintRevisionTuple` Blueprint
-  Course ID plus Revision Number, `QuestionAssetTuple` asset ID plus
+  Course ID plus Revision Number, `QuestionImageAssetTuple` asset ID plus
   checksum). Route wrappers are `*RouteId`. Course Banner Upload storage
   uses `course_banner_upload_id`. Presentation response-item
   bindings use `presentation_response_item_id` and `response_item_id`.

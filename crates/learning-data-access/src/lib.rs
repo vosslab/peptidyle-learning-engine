@@ -20,7 +20,6 @@ mod attempt_expiry;
 mod authentication_ceremony;
 mod authentication_email;
 mod authoring;
-mod authoring_assets;
 mod bloom_preparation;
 mod blueprint_change_proposal;
 mod blueprint_course;
@@ -33,6 +32,7 @@ mod course_blueprint_publication;
 mod course_instance;
 mod course_roster;
 mod course_theme;
+mod draft_question_images;
 mod imathas_question_backend_session;
 mod instructor_account;
 mod invitation_export;
@@ -47,9 +47,9 @@ pub use archived_student_work_recovery::{
 mod object_record;
 mod pagination;
 pub mod postgres;
-mod public_asset_publication;
-mod question_asset_delivery;
 mod question_bulk_metadata;
+mod question_image_delivery;
+mod question_image_publication;
 pub use content_classification::{
     ContentClassificationItem, ContentClassificationStore, ContentDiscipline,
     ContentDisciplineAdministrationStore, ContentDisciplineDiscoveryStore,
@@ -89,7 +89,7 @@ pub use assessment_delivery::{
     LiveAssessmentAttempt, LiveAssessmentAttemptScore, LiveAssessmentDeliveryStore,
     LiveAssessmentPreviousAttempt, LiveAssessmentPreviousAttemptState,
     NativeAssessmentIssuanceBatch, NativePleIssuanceSource, NativePresentationInput,
-    NativeWebworkIssuanceSource, QuestionIssuanceReproductionInput, ReadyQuestionAssetRendition,
+    NativeWebworkIssuanceSource, QuestionIssuanceReproductionInput, ReadyQuestionImageRendition,
     StudentAssessmentAttemptBackendDocument, StudentAssessmentAttemptBackendDocumentResume,
     StudentAssessmentAttemptContext, StudentAssessmentAttemptFinalization,
     StudentAssessmentAttemptFinalizationBackend, StudentAssessmentAttemptFinalizationEvaluation,
@@ -143,9 +143,6 @@ pub use authoring::{
     AuthoringDraft, AuthoringDraftStore, AuthoringDraftSummary, CreateAuthoringDraftInput,
     DeleteAuthoringDraftInput, SaveAuthoringDraftGeneralFeedbackInput, SaveAuthoringDraftInput,
 };
-pub use authoring_assets::{
-    AuthoringAssetsStore, OwnedDraftQuestionAsset, RegisterDraftQuestionAssetInput,
-};
 pub use bloom_preparation::{
     BloomClassificationPreparationStore, BloomPreparationCandidate, BloomPreparationReceiptId,
     BloomPreparationTargetKind, PrepareBloomClassificationInput,
@@ -193,6 +190,9 @@ pub use course_roster::{
     CourseRosterImportInput, CourseRosterStore,
 };
 pub use course_theme::CourseThemeStore;
+pub use draft_question_images::{
+    DraftQuestionImageStore, OwnedDraftQuestionImage, RegisterDraftQuestionImageInput,
+};
 pub use imathas_question_backend_session::{
     ImathasGradingContext, ImathasLaunchBindingChecksum, ImathasNormalizedScore,
     ImathasQuestionBackendLaunchPreparationValidation, ImathasQuestionBackendSession,
@@ -242,16 +242,18 @@ pub use object_record::{
 };
 pub use pagination::{Cursor, Page, PageRequest, PageSize, PaginationError};
 pub use pool_bloom_preparation::PoolBloomPreparationReceipts;
-pub use public_asset_publication::{ClaimedQuestionAssetPublication, PublicAssetPublicationStore};
-pub use question_asset_delivery::{QuestionAssetDeliveryStore, ReadyQuestionAssetDelivery};
 pub use question_bulk_metadata::{
     BulkPublishedQuestionMetadataInput, BulkPublishedQuestionMetadataPatch,
     BulkPublishedQuestionMetadataResult, BulkPublishedQuestionMetadataSelection,
     BulkPublishedQuestionMetadataStore,
 };
 pub use question_fork::{
-    ForkPublishedQuestionAssetInput, ForkPublishedQuestionInput, ForkedPublishedQuestionDraft,
-    PublishedQuestionForkAsset, QuestionForkStore,
+    ForkPublishedQuestionImageInput, ForkPublishedQuestionInput, ForkedPublishedQuestionDraft,
+    PublishedQuestionForkImage, QuestionForkStore,
+};
+pub use question_image_delivery::{QuestionImageDeliveryStore, ReadyQuestionImageDelivery};
+pub use question_image_publication::{
+    ClaimedQuestionImagePublication, PublicAssetPublicationStore,
 };
 pub use question_library::{
     PublishedQuestionAvailability, PublishedQuestionLibraryEntry, QuestionLibraryStore,
@@ -271,7 +273,7 @@ pub use question_source::{
     ExistingQuestionRevisionPublicationError, ExistingQuestionRevisionPublicationInput,
     ExistingQuestionRevisionPublicationStore, NewQuestionLineagePublicationError,
     NewQuestionLineagePublicationInput, NewQuestionLineagePublicationStore,
-    PreparedQuestionAssetPublication,
+    PreparedQuestionImagePublication,
 };
 pub use question_star::{QuestionStarProjection, QuestionStarStore, QuestionStarredInstructor};
 pub use question_watch::{QuestionWatchProjection, QuestionWatchStore};

@@ -8,7 +8,7 @@ import type { StudentResponse } from "../../../generated/api/StudentResponse";
 import type { HotspotRegion } from "../../../generated/api/HotspotRegion";
 
 import { handleQuestionResponseControlKeyDown } from "../question_response_controls/keyboard";
-import { QuestionContentError, resolveSameOriginAssetUrl } from "../question_renderer";
+import { QuestionContentError, resolveSameOriginQuestionImageUrl } from "../question_renderer";
 import {
   Actions,
   createResponseController,
@@ -60,21 +60,29 @@ export function hotspotRegionStyle(
 export function resolveHotspotImageUrl(
   props: Pick<
     QuestionResponseControlBodyProps<HotspotResponseFormat>,
-    "responseFormat" | "questionRevisionTuple" | "assetUrl" | "hotspotDraftAsset" | "mode"
+    | "responseFormat"
+    | "questionRevisionTuple"
+    | "questionImageUrl"
+    | "hotspotDraftQuestionImage"
+    | "mode"
   >,
 ): string | undefined {
   const asset =
     "surface" in props.responseFormat
-      ? props.responseFormat.surface.questionAssetTuple
-      : props.responseFormat.questionAssetTuple;
+      ? props.responseFormat.surface.questionImageAssetTuple
+      : props.responseFormat.questionImageAssetTuple;
   // ASVS 1.2.2: reuse the exact same-origin asset boundary, never author-provided URLs.
-  if (props.questionRevisionTuple !== undefined && props.assetUrl !== undefined) {
-    return resolveSameOriginAssetUrl(asset, props.questionRevisionTuple, props.assetUrl);
+  if (props.questionRevisionTuple !== undefined && props.questionImageUrl !== undefined) {
+    return resolveSameOriginQuestionImageUrl(
+      asset,
+      props.questionRevisionTuple,
+      props.questionImageUrl,
+    );
   }
-  const draft = props.hotspotDraftAsset;
+  const draft = props.hotspotDraftQuestionImage;
   if (props.mode !== "formatOnly" || draft === undefined) return undefined;
-  const url = draft.assetUrl(asset);
-  const path = `/api/authoring/drafts/${encodeURIComponent(draft.draftQuestion)}/assets/${encodeURIComponent(asset.questionAssetId)}`;
+  const url = draft.questionImageUrl(asset);
+  const path = `/api/authoring/drafts/${encodeURIComponent(draft.draftQuestion)}/images/${encodeURIComponent(asset.questionImageAssetId)}`;
   if (
     url.origin !== globalThis.location.origin ||
     url.pathname !== path ||

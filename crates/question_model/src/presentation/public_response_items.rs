@@ -2,20 +2,20 @@
 
 use crate::QuestionContentBlock;
 
-use super::assets::{content_assets, question_asset_rendition};
 use super::builder::{
     PendingHotspotRegionGeometry, PresentationBuildError, ResponseItemBasis, ResponseItemBinding,
     ResponseItemRole, pending_hotspot_region_geometry,
 };
 use super::model::{
-    PresentationResponseItemId, PresentedResponseItemContent, QuestionAssetRendition,
+    PresentationResponseItemId, PresentedResponseItemContent, QuestionImageRendition,
     QuestionPresentationResponseFormat,
 };
+use super::question_images::{content_question_images, question_image_rendition};
 use super::response_validation::validate_regions;
 
 pub(super) fn public_item_bindings(
     response: &QuestionPresentationResponseFormat,
-    assets: &[QuestionAssetRendition],
+    assets: &[QuestionImageRendition],
 ) -> Result<Vec<ResponseItemBinding>, PresentationBuildError> {
     let mut target = Vec::new();
     match response {
@@ -93,7 +93,7 @@ pub(super) fn public_item_bindings(
             maximum,
         } => {
             validate_public_bounds(*minimum, *maximum, u32::MAX)?;
-            let binding = question_asset_rendition(&surface.question_asset_tuple, assets)?;
+            let binding = question_image_rendition(&surface.question_image_asset_tuple, assets)?;
             let dimensions = Some((
                 binding
                     .intrinsic_width
@@ -112,7 +112,7 @@ pub(super) fn public_item_bindings(
                 surface.id.clone(),
                 ResponseItemRole::HotspotSurface,
                 vec![QuestionContentBlock::Image {
-                    question_asset_tuple: surface.question_asset_tuple.clone(),
+                    question_image_asset_tuple: surface.question_image_asset_tuple.clone(),
                     description: surface.description.clone(),
                 }],
                 assets,
@@ -162,7 +162,7 @@ fn push_public_response_items<T: PresentedResponseItemContent>(
     target: &mut Vec<ResponseItemBinding>,
     items: &[T],
     role: ResponseItemRole,
-    assets: &[QuestionAssetRendition],
+    assets: &[QuestionImageRendition],
 ) -> Result<(), PresentationBuildError> {
     for item in items {
         push_public_item(
@@ -183,12 +183,12 @@ fn push_public_item(
     presentation_response_item_id: PresentationResponseItemId,
     role: ResponseItemRole,
     content: Vec<QuestionContentBlock>,
-    assets: &[QuestionAssetRendition],
+    assets: &[QuestionImageRendition],
     hotspot_dimensions: Option<(u32, u32)>,
     hotspot_regions: Vec<PendingHotspotRegionGeometry>,
 ) -> Result<(), PresentationBuildError> {
     let ordinal = u32::try_from(target.len()).map_err(|_| PresentationBuildError::TooManyItems)?;
-    let item_assets = content_assets(&content, assets)?;
+    let item_assets = content_question_images(&content, assets)?;
     target.push(ResponseItemBinding {
         presentation_response_item_id,
         role,
@@ -199,7 +199,7 @@ fn push_public_item(
             ordinal,
             label: None,
             content,
-            assets: item_assets,
+            question_image_renditions: item_assets,
             hotspot_width: hotspot_dimensions.map(|value| value.0),
             hotspot_height: hotspot_dimensions.map(|value| value.1),
             hotspot_regions,

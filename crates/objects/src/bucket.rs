@@ -3,7 +3,7 @@
 use question_model::generation::QuestionSeed;
 use question_model::{
     CourseBannerId, CourseBannerRendition, CourseBannerUploadId, CourseInstanceId, ObjectId,
-    ProfileImageId, QuestionAssetId, QuestionRevisionTuple, WorkspaceId, WorkspaceImportId,
+    ProfileImageId, QuestionImageAssetId, QuestionRevisionTuple, WorkspaceId, WorkspaceImportId,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -16,7 +16,7 @@ use crate::Sha256Checksum;
 #[serde(rename_all = "kebab-case")]
 pub enum ObjectStorageArea {
     /// Immutable student-facing renditions. This is the only CDN-readable
-    /// domain and therefore contains only [`ObjectAddress::QuestionAsset`] bytes.
+    /// domain and therefore contains only [`ObjectAddress::QuestionImage`] bytes.
     PublicAssets,
     /// Private authoring, import evidence, grading, rendering, and course content.
     PrivateContent,
@@ -50,8 +50,8 @@ pub enum ObjectDataClass {
     AuthoringContent,
     /// Immutable source bytes and import archives for a Question Revision.
     QuestionSource,
-    /// One logical Question Asset, whether public or restricted.
-    QuestionAsset,
+    /// One logical Question Image, whether public or restricted.
+    QuestionImage,
     /// A deterministic answer-free Question render.
     QuestionRender,
     /// A Course Banner Upload or saved Course Banner.
@@ -76,20 +76,20 @@ pub enum ObjectDataClass {
 )]
 pub enum ObjectAddress {
     /// Immutable raster staged for one real private Draft Question.
-    DraftQuestionAsset {
+    DraftQuestionImage {
         /// Private authoring workspace.
         workspace_id: WorkspaceId,
         /// Internal Draft identity, never a browser locator.
         draft_question_id: uuid::Uuid,
-        /// Stable logical asset identity.
-        question_asset_id: QuestionAssetId,
+        /// Stable Question Image Asset identity.
+        question_image_asset_id: QuestionImageAssetId,
         /// Fresh physical object identity.
         object_id: ObjectId,
     },
     /// Original bytes for a private workspace import.
     ///
     /// This intentionally uses the private-content Object Storage Area for immutable
-    /// durable bytes and must never be exposed through CDN or Question Library asset
+    /// durable bytes and must never be exposed through CDN or Question Library image
     /// delivery.
     WorkspaceImportSource {
         /// Private authoring workspace.
@@ -109,17 +109,17 @@ pub enum ObjectAddress {
         /// Physical object-record identity.
         object_id: ObjectId,
     },
-    /// A verified logical asset extracted from a private workspace import.
+    /// A verified still image extracted from a private workspace import.
     ///
     /// Like [`Self::WorkspaceImportSource`], this is durable private-content storage
     /// but not eligible for CDN or Question Library delivery.
-    WorkspaceImportAsset {
+    WorkspaceImportExtractedImage {
         /// Private authoring workspace.
         workspace_id: WorkspaceId,
         /// Staged import identity.
         workspace_import_id: WorkspaceImportId,
-        /// Logical asset referenced by imported draft content.
-        question_asset_id: QuestionAssetId,
+        /// Question Image Asset referenced by imported draft content.
+        question_image_asset_id: QuestionImageAssetId,
         /// Physical object-record identity.
         object_id: ObjectId,
     },
@@ -143,26 +143,26 @@ pub enum ObjectAddress {
         /// Physical object-record identity.
         object_id: ObjectId,
     },
-    /// A logical asset and its physical object for a published version.
-    QuestionAsset {
-        /// Exact immutable Question Revision that owns the asset.
+    /// A Question Image Asset and its physical object for a published version.
+    QuestionImage {
+        /// Exact immutable Question Revision that owns the image.
         question_revision_tuple: QuestionRevisionTuple,
-        /// Logical asset referenced by content.
-        question_asset_id: QuestionAssetId,
+        /// Question Image Asset referenced by content.
+        question_image_asset_id: QuestionImageAssetId,
         /// Physical object-record identity.
         object_id: ObjectId,
     },
-    /// A student-facing asset belonging to a Published Question Revision.
+    /// A student-facing Question Image belonging to a Published Question Revision.
     ///
-    /// Its identity is as immutable as [`Self::QuestionAsset`], but its bytes
+    /// Its identity is as immutable as [`Self::QuestionImage`], but its bytes
     /// live in private-content and are delivered only after Question Library
     /// authorization.  A CDN-readable key must never represent restricted
     /// published content.
-    RestrictedQuestionAsset {
-        /// Exact immutable Question Revision that owns the asset.
+    RestrictedQuestionImage {
+        /// Exact immutable Question Revision that owns the image.
         question_revision_tuple: QuestionRevisionTuple,
-        /// Logical asset referenced by content.
-        question_asset_id: QuestionAssetId,
+        /// Question Image Asset referenced by content.
+        question_image_asset_id: QuestionImageAssetId,
         /// Physical object-record identity.
         object_id: ObjectId,
     },
@@ -227,17 +227,17 @@ impl ObjectAddress {
     pub fn storage_area(&self) -> ObjectStorageArea {
         match self {
             Self::WorkspaceImportSource { .. }
-            | Self::DraftQuestionAsset { .. }
+            | Self::DraftQuestionImage { .. }
             | Self::WorkspaceQuestionSource { .. }
-            | Self::WorkspaceImportAsset { .. }
+            | Self::WorkspaceImportExtractedImage { .. }
             | Self::QuestionSource { .. }
             | Self::PublishedImportArchive { .. }
-            | Self::RestrictedQuestionAsset { .. }
+            | Self::RestrictedQuestionImage { .. }
             | Self::QuestionRender { .. }
             | Self::CourseBannerSource { .. }
             | Self::CourseBannerRendition { .. }
             | Self::ProfileImage { .. } => ObjectStorageArea::PrivateContent,
-            Self::QuestionAsset { .. } => ObjectStorageArea::PublicAssets,
+            Self::QuestionImage { .. } => ObjectStorageArea::PublicAssets,
             Self::CourseBannerUpload { .. } => ObjectStorageArea::TempProcessing,
             Self::StudentRecord { .. } => ObjectStorageArea::StudentRecords,
             Self::Temporary { .. } => ObjectStorageArea::TempProcessing,
@@ -248,14 +248,14 @@ impl ObjectAddress {
     pub fn data_class(&self) -> ObjectDataClass {
         match self {
             Self::WorkspaceImportSource { .. }
-            | Self::DraftQuestionAsset { .. }
+            | Self::DraftQuestionImage { .. }
             | Self::WorkspaceQuestionSource { .. }
-            | Self::WorkspaceImportAsset { .. } => ObjectDataClass::AuthoringContent,
+            | Self::WorkspaceImportExtractedImage { .. } => ObjectDataClass::AuthoringContent,
             Self::QuestionSource { .. } | Self::PublishedImportArchive { .. } => {
                 ObjectDataClass::QuestionSource
             }
-            Self::QuestionAsset { .. } | Self::RestrictedQuestionAsset { .. } => {
-                ObjectDataClass::QuestionAsset
+            Self::QuestionImage { .. } | Self::RestrictedQuestionImage { .. } => {
+                ObjectDataClass::QuestionImage
             }
             Self::QuestionRender { .. } => ObjectDataClass::QuestionRender,
             Self::CourseBannerUpload { .. }
@@ -270,15 +270,15 @@ impl ObjectAddress {
     /// Immutable path derived only from typed identity components.
     pub fn path(&self) -> String {
         match self {
-            Self::DraftQuestionAsset {
+            Self::DraftQuestionImage {
                 workspace_id,
                 draft_question_id,
-                question_asset_id,
+                question_image_asset_id,
                 object_id,
             } => {
                 // ASVS 5.3.2: only server-owned identities determine the key.
                 format!(
-                    "workspaces/{workspace_id}/questions/drafts/{draft_question_id}/assets/{question_asset_id}/{object_id}"
+                    "workspaces/{workspace_id}/questions/drafts/{draft_question_id}/images/{question_image_asset_id}/{object_id}"
                 )
             }
             Self::WorkspaceImportSource {
@@ -296,14 +296,14 @@ impl ObjectAddress {
             } => {
                 format!("workspaces/{workspace_id}/questions/source/{object_id}")
             }
-            Self::WorkspaceImportAsset {
+            Self::WorkspaceImportExtractedImage {
                 workspace_id,
                 workspace_import_id,
-                question_asset_id,
+                question_image_asset_id,
                 object_id,
             } => {
                 format!(
-                    "workspaces/{workspace_id}/imports/{workspace_import_id}/assets/{question_asset_id}/{object_id}"
+                    "workspaces/{workspace_id}/imports/{workspace_import_id}/extracted-images/{question_image_asset_id}/{object_id}"
                 )
             }
             Self::QuestionSource {
@@ -323,22 +323,22 @@ impl ObjectAddress {
                 question_revision_tuple.question_id.as_str(),
                 question_revision_tuple.revision_number
             ),
-            Self::QuestionAsset {
+            Self::QuestionImage {
                 question_revision_tuple,
-                question_asset_id,
+                question_image_asset_id,
                 object_id,
             } => format!(
-                "questions/{}/versions/{}/assets/{question_asset_id}/{object_id}",
+                "questions/{}/versions/{}/images/{question_image_asset_id}/{object_id}",
                 question_revision_tuple.question_id.as_str(),
                 question_revision_tuple.revision_number
             ),
-            Self::RestrictedQuestionAsset {
+            Self::RestrictedQuestionImage {
                 question_revision_tuple,
-                question_asset_id,
+                question_image_asset_id,
                 object_id,
             } => {
                 format!(
-                    "questions/{}/versions/{}/restricted-assets/{question_asset_id}/{object_id}",
+                    "questions/{}/versions/{}/restricted-images/{question_image_asset_id}/{object_id}",
                     question_revision_tuple.question_id.as_str(),
                     question_revision_tuple.revision_number
                 )
@@ -398,13 +398,13 @@ impl ObjectAddress {
     pub fn object_id(&self) -> ObjectId {
         match self {
             Self::WorkspaceImportSource { object_id, .. }
-            | Self::DraftQuestionAsset { object_id, .. }
+            | Self::DraftQuestionImage { object_id, .. }
             | Self::WorkspaceQuestionSource { object_id, .. }
-            | Self::WorkspaceImportAsset { object_id, .. }
+            | Self::WorkspaceImportExtractedImage { object_id, .. }
             | Self::QuestionSource { object_id, .. }
             | Self::PublishedImportArchive { object_id, .. }
-            | Self::QuestionAsset { object_id, .. }
-            | Self::RestrictedQuestionAsset { object_id, .. }
+            | Self::QuestionImage { object_id, .. }
+            | Self::RestrictedQuestionImage { object_id, .. }
             | Self::QuestionRender { object_id, .. }
             | Self::StudentRecord { object_id, .. }
             | Self::Temporary { object_id } => *object_id,
@@ -438,11 +438,11 @@ impl ObjectAddress {
                 question_revision_tuple,
                 ..
             }
-            | Self::QuestionAsset {
+            | Self::QuestionImage {
                 question_revision_tuple,
                 ..
             }
-            | Self::RestrictedQuestionAsset {
+            | Self::RestrictedQuestionImage {
                 question_revision_tuple,
                 ..
             }
@@ -451,9 +451,9 @@ impl ObjectAddress {
                 ..
             } => Some(question_revision_tuple),
             Self::WorkspaceImportSource { .. }
-            | Self::DraftQuestionAsset { .. }
+            | Self::DraftQuestionImage { .. }
             | Self::WorkspaceQuestionSource { .. }
-            | Self::WorkspaceImportAsset { .. }
+            | Self::WorkspaceImportExtractedImage { .. }
             | Self::CourseBannerUpload { .. }
             | Self::CourseBannerSource { .. }
             | Self::CourseBannerRendition { .. }
@@ -473,8 +473,8 @@ impl ObjectAddress {
     pub fn may_issue_signed_url(&self) -> bool {
         matches!(
             self,
-            Self::QuestionAsset { .. }
-                | Self::RestrictedQuestionAsset { .. }
+            Self::QuestionImage { .. }
+                | Self::RestrictedQuestionImage { .. }
                 | Self::QuestionRender { .. }
                 | Self::CourseBannerRendition { .. }
                 | Self::ProfileImage { .. }
@@ -482,17 +482,17 @@ impl ObjectAddress {
         )
     }
 
-    /// Chooses the physical immutable asset domain from the publication's
+    /// Chooses the physical immutable Question image domain from the publication's
     /// immutable visibility.  Call this at publication time rather than
     /// reconstructing a key later from an untrusted route or browser value.
-    pub fn published_question_asset(
+    pub fn published_question_image(
         question_revision_tuple: QuestionRevisionTuple,
-        question_asset_id: QuestionAssetId,
+        question_image_asset_id: QuestionImageAssetId,
         object_id: ObjectId,
     ) -> Self {
-        Self::RestrictedQuestionAsset {
+        Self::RestrictedQuestionImage {
             question_revision_tuple,
-            question_asset_id,
+            question_image_asset_id,
             object_id,
         }
     }

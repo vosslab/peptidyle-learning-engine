@@ -116,7 +116,7 @@ export function PleQuestionJsonHotspotEditor(props: {
         <div class="ple-question-json-hotspot__image">
           {/* ASVS 1.2.1: labels and descriptions are text, never injected HTML. */}
           <img
-            src={props.previewPath(response()?.surface.questionAssetId ?? "")}
+            src={props.previewPath(response()?.surface.questionImageAssetId ?? "")}
             alt={response()?.surface.description ?? ""}
             onLoad={() => setImageUnavailable(false)}
             onError={() => setImageUnavailable(true)}

@@ -36,7 +36,7 @@ pub enum ProductionLoginProfile {
     /// Retention notifier: three direct SECURITY DEFINER receipt procedures;
     /// it has no capability-role membership or raw-table authority.
     CourseRetentionNotifier,
-    /// Dedicated immutable public Question Asset publisher: its exact private
+    /// Dedicated immutable public Question Image Asset publisher: its exact private
     /// source-to-public rendition claim and activation procedures only.
     PublicAssetPublisher,
 }

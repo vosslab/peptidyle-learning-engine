@@ -6,7 +6,7 @@ import { createRecordingFetch } from "./http_client_test_support.mjs";
 
 const templateId = "00000000-0000-0000-0000-000000000123";
 
-function template(editNumber = "1") {
+function template(assessmentTemplateEditNumber = "1") {
   return {
     id: templateId,
     name: "Timed genetics quiz",
@@ -29,7 +29,7 @@ function template(editNumber = "1") {
         class_statistics: "after_close",
       },
     },
-    editNumber,
+    assessmentTemplateEditNumber,
   };
 }
 
@@ -104,9 +104,9 @@ test("Assessment Template client uses the closed private CRUD transport and repl
   );
 
   assert.equal(listed[0].id, templateId);
-  assert.equal(created.template.editNumber, "1");
-  assert.equal(loaded.template.editNumber, "2");
-  assert.equal(saved.template.editNumber, "2");
+  assert.equal(created.template.assessmentTemplateEditNumber, "1");
+  assert.equal(loaded.template.assessmentTemplateEditNumber, "2");
+  assert.equal(saved.template.assessmentTemplateEditNumber, "2");
   assert.equal(new URL(requests[0].url).pathname, "/api/assessment-templates");
   assert.equal(requests[1].method, "POST");
   assert.deepEqual(JSON.parse(await requests[1].text()), {

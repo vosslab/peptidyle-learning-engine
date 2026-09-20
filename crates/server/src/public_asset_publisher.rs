@@ -1,4 +1,4 @@
-//! Dedicated publisher for immutable public Question Asset renditions.
+//! Dedicated publisher for immutable public Question Image Asset renditions.
 //!
 //! It owns no listener, session, Account, generic Job, or caller-selected
 //! object key. The registry claim fixes the private source and final public
@@ -7,7 +7,7 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{Result, anyhow};
-use learning_data_access::{ClaimedQuestionAssetPublication, PublicAssetPublicationStore};
+use learning_data_access::{ClaimedQuestionImagePublication, PublicAssetPublicationStore};
 use objects::{
     ObjectAddress, ObjectDataClass, ObjectRecord, ObjectStorageArea, ObjectStore, ObjectStoreError,
     PutObject, Sha256Checksum, image_validation::verify_still_image,
@@ -21,7 +21,7 @@ use uuid::Uuid;
 // timeout cancellation leaves any claimed Job to the same lease recovery.
 const PUBLICATION_OPERATION_BOUND: std::time::Duration = std::time::Duration::from_secs(30);
 
-/// Claims and publishes at most one registry-backed Question Asset Job.
+/// Claims and publishes at most one registry-backed Question Image Asset Job.
 ///
 /// PostgreSQL owns the existing Job lease, attempt limit, and recovery policy.
 pub async fn publish_one<S, O>(store: &S, objects: &O) -> Result<bool>
@@ -31,17 +31,17 @@ where
 {
     let lease_token = Uuid::now_v7();
     let Some(publication) = store
-        .claim_question_asset_publication(lease_token)
+        .claim_question_image_publication(lease_token)
         .await
-        .map_err(|_| anyhow!("could not claim a Question Asset Publication Job"))?
+        .map_err(|_| anyhow!("could not claim a Question Image Asset Publication Job"))?
     else {
         return Ok(false);
     };
     publish_claim(objects, &publication).await?;
     store
-        .activate_question_asset_publication(publication.job_id, lease_token)
+        .activate_question_image_publication(publication.job_id, lease_token)
         .await
-        .map_err(|_| anyhow!("could not activate a Question Asset Publication"))?;
+        .map_err(|_| anyhow!("could not activate a Question Image Asset Publication"))?;
     tracing::info!(event = "public_asset_publication_completed");
     Ok(true)
 }
@@ -120,20 +120,21 @@ async fn shutdown_signal() {
 
 async fn publish_claim<O: ObjectStore>(
     objects: &O,
-    publication: &ClaimedQuestionAssetPublication,
+    publication: &ClaimedQuestionImagePublication,
 ) -> Result<()> {
-    let source_address = ObjectAddress::RestrictedQuestionAsset {
+    let source_address = ObjectAddress::RestrictedQuestionImage {
         question_revision_tuple: publication.question_revision_tuple.clone(),
-        question_asset_id: publication.asset_id,
+        question_image_asset_id: publication.question_image_asset_id,
         object_id: publication.source_object_id,
     };
     let source = objects
         .get(&source_address)
         .await
-        .map_err(|_| anyhow!("could not read the claimed restricted Question Asset"))?;
+        .map_err(|_| anyhow!("could not read the claimed restricted Question Image Asset"))?;
     require_exact_source(&source.record, &source_address, publication)?;
-    let verified = verify_still_image(&source.bytes)
-        .map_err(|_| anyhow!("claimed restricted Question Asset is not a valid still image"))?;
+    let verified = verify_still_image(&source.bytes).map_err(|_| {
+        anyhow!("claimed restricted Question Image Asset is not a valid still image")
+    })?;
     if verified.media_type.canonical_media_type() != publication.verified_media_type
         || verified.width != publication.intrinsic_width
         || verified.height != publication.intrinsic_height
@@ -141,13 +142,13 @@ async fn publish_claim<O: ObjectStore>(
         || u64::try_from(source.bytes.len()).ok() != Some(publication.public_byte_length)
     {
         return Err(anyhow!(
-            "claimed Question Asset does not match its fixed public rendition"
+            "claimed Question Image Asset does not match its fixed public rendition"
         ));
     }
 
-    let public_address = ObjectAddress::QuestionAsset {
+    let public_address = ObjectAddress::QuestionImage {
         question_revision_tuple: publication.question_revision_tuple.clone(),
-        question_asset_id: publication.asset_id,
+        question_image_asset_id: publication.question_image_asset_id,
         object_id: publication.public_object_id,
     };
     let expected = ExpectedPublicRecord {
@@ -167,14 +168,13 @@ async fn publish_claim<O: ObjectStore>(
     {
         Ok(record) => require_exact_public_record(&record, expected),
         Err(ObjectStoreError::AlreadyExists) => {
-            let existing = objects
-                .get(&public_address)
-                .await
-                .map_err(|_| anyhow!("could not verify the existing public Question Asset"))?;
+            let existing = objects.get(&public_address).await.map_err(|_| {
+                anyhow!("could not verify the existing public Question Image Asset")
+            })?;
             require_exact_public_record(&existing.record, expected)
         }
         Err(_) => Err(anyhow!(
-            "could not write the immutable public Question Asset"
+            "could not write the immutable public Question Image Asset"
         )),
     }
 }
@@ -182,17 +182,17 @@ async fn publish_claim<O: ObjectStore>(
 fn require_exact_source(
     record: &ObjectRecord,
     address: &ObjectAddress,
-    publication: &ClaimedQuestionAssetPublication,
+    publication: &ClaimedQuestionImagePublication,
 ) -> Result<()> {
     if record.address != *address
         || record.id != publication.source_object_id
         || record.storage_area != ObjectStorageArea::PrivateContent
-        || record.data_class != ObjectDataClass::QuestionAsset
+        || record.data_class != ObjectDataClass::QuestionImage
         || record.sha256 != publication.source_checksum
         || record.media_type != publication.verified_media_type
     {
         return Err(anyhow!(
-            "claimed restricted Question Asset record is not exact"
+            "claimed restricted Question Image Asset record is not exact"
         ));
     }
     Ok(())
@@ -213,12 +213,12 @@ fn require_exact_public_record(
     if record.address != *expected.address
         || record.id != expected.address.object_id()
         || record.storage_area != ObjectStorageArea::PublicAssets
-        || record.data_class != ObjectDataClass::QuestionAsset
+        || record.data_class != ObjectDataClass::QuestionImage
         || record.sha256 != expected.checksum
         || record.size_bytes != expected.byte_length
         || record.media_type != expected.media_type
     {
-        return Err(anyhow!("public Question Asset record is not exact"));
+        return Err(anyhow!("public Question Image Asset record is not exact"));
     }
     Ok(())
 }
@@ -240,7 +240,7 @@ mod tests {
     use learning_data_access::{PublicAssetPublicationStore, StoreError};
     use objects::memory::MemoryObjectStore;
     use question_model::{
-        ObjectId, QuestionAssetId, QuestionId, QuestionRevisionNumber, QuestionRevisionTuple,
+        ObjectId, QuestionId, QuestionImageAssetId, QuestionRevisionNumber, QuestionRevisionTuple,
     };
 
     use super::*;
@@ -252,10 +252,10 @@ mod tests {
 
     #[async_trait]
     impl PublicAssetPublicationStore for RecoveringPublicationStore {
-        async fn claim_question_asset_publication(
+        async fn claim_question_image_publication(
             &self,
             _lease_token: Uuid,
-        ) -> Result<Option<ClaimedQuestionAssetPublication>, StoreError> {
+        ) -> Result<Option<ClaimedQuestionImagePublication>, StoreError> {
             let claim = self
                 .claims
                 .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
@@ -280,7 +280,7 @@ mod tests {
             std::future::pending().await
         }
 
-        async fn activate_question_asset_publication(
+        async fn activate_question_image_publication(
             &self,
             _job_id: Uuid,
             _lease_token: Uuid,
@@ -305,20 +305,20 @@ mod tests {
 
     #[derive(Clone)]
     struct RecordingPublicationStore {
-        publication: ClaimedQuestionAssetPublication,
+        publication: ClaimedQuestionImagePublication,
         activated: Arc<Mutex<Option<(Uuid, Uuid)>>>,
     }
 
     #[async_trait]
     impl PublicAssetPublicationStore for RecordingPublicationStore {
-        async fn claim_question_asset_publication(
+        async fn claim_question_image_publication(
             &self,
             _lease_token: Uuid,
-        ) -> Result<Option<ClaimedQuestionAssetPublication>, StoreError> {
+        ) -> Result<Option<ClaimedQuestionImagePublication>, StoreError> {
             Ok(Some(self.publication.clone()))
         }
 
-        async fn activate_question_asset_publication(
+        async fn activate_question_image_publication(
             &self,
             job_id: Uuid,
             lease_token: Uuid,
@@ -343,13 +343,13 @@ mod tests {
             question_id: QuestionId::from_random_identifier("ABCDEFG").expect("question ID"),
             revision_number: QuestionRevisionNumber::new(1).expect("revision number"),
         };
-        let asset_id = QuestionAssetId::from_uuid(Uuid::from_u128(1));
+        let question_image_asset_id = QuestionImageAssetId::from_uuid(Uuid::from_u128(1));
         let source_object_id = ObjectId::from_uuid(Uuid::from_u128(2));
         let public_object_id = ObjectId::from_uuid(Uuid::from_u128(3));
         let bytes = png();
-        let source_address = ObjectAddress::RestrictedQuestionAsset {
+        let source_address = ObjectAddress::RestrictedQuestionImage {
             question_revision_tuple: question_revision_tuple.clone(),
-            question_asset_id: asset_id,
+            question_image_asset_id,
             object_id: source_object_id,
         };
         let source_record = objects
@@ -361,10 +361,10 @@ mod tests {
             })
             .await
             .expect("restricted source");
-        let publication = ClaimedQuestionAssetPublication {
+        let publication = ClaimedQuestionImagePublication {
             job_id: Uuid::from_u128(4),
             question_revision_tuple: question_revision_tuple.clone(),
-            asset_id,
+            question_image_asset_id,
             source_object_id,
             source_checksum: source_record.sha256,
             public_object_id,
@@ -381,9 +381,9 @@ mod tests {
         };
 
         assert!(publish_one(&store, &objects).await.expect("publisher run"));
-        let public_address = ObjectAddress::QuestionAsset {
+        let public_address = ObjectAddress::QuestionImage {
             question_revision_tuple,
-            question_asset_id: asset_id,
+            question_image_asset_id,
             object_id: public_object_id,
         };
         let public = objects.get(&public_address).await.expect("public asset");

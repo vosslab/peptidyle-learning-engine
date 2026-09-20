@@ -57,13 +57,13 @@ export interface PleQuestionJsonEditorWorkspaceProps {
   readonly subtopicUuid: Accessor<string | null>;
   readonly publishedQuestionId: Accessor<string | null>;
   readonly publishedSummary: Accessor<QuestionSummary | undefined>;
-  readonly hotspotDraftAsset: () => PleQuestionJsonPreviewProps["hotspotDraftAsset"];
+  readonly hotspotDraftQuestionImage: () => PleQuestionJsonPreviewProps["hotspotDraftQuestionImage"];
   readonly instructorAnswerCheck: (
     draft: PleQuestionJsonDocument,
   ) => PleQuestionJsonInstructorAnswerCheck | undefined;
   readonly classificationClient: PleQuestionJsonEditorPageProps["classificationClient"];
   readonly responseValidator: PleQuestionJsonEditorPageProps["responseValidator"];
-  readonly assetPreviewPath: (asset: string) => string;
+  readonly questionImagePreviewPath: (asset: string) => string;
   readonly onEdit: (source: PleQuestionJsonDocument) => void;
   readonly onNumericAnswerLiteralChange: (literal: string) => void;
   readonly onMoveChoice: (choiceId: string, direction: "up" | "down") => void;
@@ -137,7 +137,7 @@ export function PleQuestionJsonEditorWorkspace(
                 hotspotPending={props.hotspotPending}
                 onHotspotLiteralValidityChange={props.onHotspotLiteralValidityChange}
                 onUpload={props.onUpload}
-                assetPreviewPath={props.assetPreviewPath}
+                questionImagePreviewPath={props.questionImagePreviewPath}
               />
               <PleQuestionJsonHintField
                 value={props.currentSource().questionHint}
@@ -244,7 +244,7 @@ export function PleQuestionJsonEditorWorkspace(
                   {(draft) => (
                     <PleQuestionJsonPreview
                       preview={pleQuestionJsonPublicPreview(draft)}
-                      hotspotDraftAsset={props.hotspotDraftAsset()}
+                      hotspotDraftQuestionImage={props.hotspotDraftQuestionImage()}
                       validator={props.responseValidator}
                       instructorAnswerCheck={
                         props.showInstructorCheck() && props.isSaved()

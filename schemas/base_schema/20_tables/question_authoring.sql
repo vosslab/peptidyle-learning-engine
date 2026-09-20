@@ -170,14 +170,14 @@ CREATE TABLE ple_private.saved_question_search (
 );
 
 -- Immutable private raster staging for a real Draft; no catalog or mutable selection.
-CREATE TABLE ple_private.draft_question_asset (
+CREATE TABLE ple_private.draft_question_image (
     draft_question_id uuid NOT NULL,
     authoring_workspace_id uuid NOT NULL,
-    asset_id uuid NOT NULL,
+    question_image_asset_id uuid NOT NULL,
     source_object_record_id uuid NOT NULL UNIQUE REFERENCES ple_private.object_record,
     intrinsic_width integer NOT NULL CHECK (intrinsic_width > 0),
     intrinsic_height integer NOT NULL CHECK (intrinsic_height > 0),
-    PRIMARY KEY (draft_question_id, asset_id),
+    PRIMARY KEY (draft_question_id, question_image_asset_id),
     FOREIGN KEY (draft_question_id, authoring_workspace_id)
         REFERENCES ple_private.draft_question(draft_question_id, authoring_workspace_id) ON DELETE CASCADE,
     CHECK (intrinsic_width::bigint * intrinsic_height <= 20000000),
@@ -212,7 +212,7 @@ COMMENT ON TABLE ple_private.question_folder_entry IS 'role: current state, dele
 
 COMMENT ON TABLE ple_private.saved_question_search IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
 
-COMMENT ON TABLE ple_private.draft_question_asset IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
+COMMENT ON TABLE ple_private.draft_question_image IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
 
 COMMENT ON TABLE ple_private.authoring_workspace IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
 
@@ -238,35 +238,7 @@ COMMENT ON TABLE ple_private.question_folder_entry IS 'role: current state, dele
 
 COMMENT ON TABLE ple_private.saved_question_search IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
 
-COMMENT ON TABLE ple_private.draft_question_asset IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
-
-
-
-COMMENT ON TABLE ple_private.authoring_workspace IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
-
-COMMENT ON TABLE ple_private.authoring_workspace_collaborator_event IS 'role: event, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
-
-COMMENT ON TABLE ple_private.draft_question IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
-
-COMMENT ON TABLE ple_private.draft_question_metadata IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
-
-COMMENT ON TABLE ple_private.draft_question_source_binding IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
-
-COMMENT ON TABLE ple_private.question_revision_source_binding IS 'role: revision, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
-
-COMMENT ON TABLE ple_private.workspace_import IS 'role: event, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
-
-COMMENT ON TABLE ple_private.workspace_import_item_result IS 'role: event, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
-
-COMMENT ON TABLE ple_private.draft_question_fork_source IS 'role: event, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
-
-COMMENT ON TABLE ple_private.question_folder IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
-
-COMMENT ON TABLE ple_private.question_folder_entry IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
-
-COMMENT ON TABLE ple_private.saved_question_search IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
-
-COMMENT ON TABLE ple_private.draft_question_asset IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
+COMMENT ON TABLE ple_private.draft_question_image IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
 
 
 
@@ -294,33 +266,7 @@ COMMENT ON TABLE ple_private.question_folder_entry IS 'role: current state, dele
 
 COMMENT ON TABLE ple_private.saved_question_search IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
 
-COMMENT ON TABLE ple_private.draft_question_asset IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
-
-COMMENT ON TABLE ple_private.authoring_workspace IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
-
-COMMENT ON TABLE ple_private.authoring_workspace_collaborator_event IS 'role: event, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
-
-COMMENT ON TABLE ple_private.draft_question IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
-
-COMMENT ON TABLE ple_private.draft_question_metadata IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
-
-COMMENT ON TABLE ple_private.draft_question_source_binding IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
-
-COMMENT ON TABLE ple_private.question_revision_source_binding IS 'role: revision, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
-
-COMMENT ON TABLE ple_private.workspace_import IS 'role: event, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
-
-COMMENT ON TABLE ple_private.workspace_import_item_result IS 'role: event, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
-
-COMMENT ON TABLE ple_private.draft_question_fork_source IS 'role: event, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
-
-COMMENT ON TABLE ple_private.question_folder IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
-
-COMMENT ON TABLE ple_private.question_folder_entry IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
-
-COMMENT ON TABLE ple_private.saved_question_search IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
-
-COMMENT ON TABLE ple_private.draft_question_asset IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
+COMMENT ON TABLE ple_private.draft_question_image IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
 
 
 
@@ -348,7 +294,61 @@ COMMENT ON TABLE ple_private.question_folder_entry IS 'role: current state, dele
 
 COMMENT ON TABLE ple_private.saved_question_search IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
 
-COMMENT ON TABLE ple_private.draft_question_asset IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
+COMMENT ON TABLE ple_private.draft_question_image IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
+
+COMMENT ON TABLE ple_private.authoring_workspace IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
+
+COMMENT ON TABLE ple_private.authoring_workspace_collaborator_event IS 'role: event, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
+
+COMMENT ON TABLE ple_private.draft_question IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
+
+COMMENT ON TABLE ple_private.draft_question_metadata IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
+
+COMMENT ON TABLE ple_private.draft_question_source_binding IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
+
+COMMENT ON TABLE ple_private.question_revision_source_binding IS 'role: revision, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
+
+COMMENT ON TABLE ple_private.workspace_import IS 'role: event, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
+
+COMMENT ON TABLE ple_private.workspace_import_item_result IS 'role: event, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
+
+COMMENT ON TABLE ple_private.draft_question_fork_source IS 'role: event, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
+
+COMMENT ON TABLE ple_private.question_folder IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
+
+COMMENT ON TABLE ple_private.question_folder_entry IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
+
+COMMENT ON TABLE ple_private.saved_question_search IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
+
+COMMENT ON TABLE ple_private.draft_question_image IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
+
+
+
+COMMENT ON TABLE ple_private.authoring_workspace IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
+
+COMMENT ON TABLE ple_private.authoring_workspace_collaborator_event IS 'role: event, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
+
+COMMENT ON TABLE ple_private.draft_question IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
+
+COMMENT ON TABLE ple_private.draft_question_metadata IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
+
+COMMENT ON TABLE ple_private.draft_question_source_binding IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
+
+COMMENT ON TABLE ple_private.question_revision_source_binding IS 'role: revision, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
+
+COMMENT ON TABLE ple_private.workspace_import IS 'role: event, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
+
+COMMENT ON TABLE ple_private.workspace_import_item_result IS 'role: event, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
+
+COMMENT ON TABLE ple_private.draft_question_fork_source IS 'role: event, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
+
+COMMENT ON TABLE ple_private.question_folder IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
+
+COMMENT ON TABLE ple_private.question_folder_entry IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
+
+COMMENT ON TABLE ple_private.saved_question_search IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
+
+COMMENT ON TABLE ple_private.draft_question_image IS 'role: current state, deleted by workspace delete and publication. HUMAN_GUIDANCE.md Question authoring.';
 
 SET LOCAL ROLE ple_private_owner;
 COMMENT ON COLUMN ple_private.authoring_workspace.revoked_at IS 'NULL means this optional fact is absent.';

@@ -74,11 +74,11 @@ ALTER TABLE ple_data.assessment_entry_pool
 
 SET LOCAL ROLE ple_private_owner;
 
--- Late operations for immutable Question Revision public assets.  This module
+-- Late operations for immutable Question Revision public images.  This module
 -- follows Jobs and retained presentation evidence; it owns the resulting
 -- publication transition and opaque resolver rather than a corrective layer.
-ALTER TABLE ple_private.question_asset_publication
-    ADD CONSTRAINT question_asset_publication_job_fkey
+ALTER TABLE ple_private.question_image_publication
+    ADD CONSTRAINT question_image_publication_job_fkey
     FOREIGN KEY (job_id) REFERENCES ple_private.job(job_id);
 
 SET LOCAL ROLE ple_data_owner;

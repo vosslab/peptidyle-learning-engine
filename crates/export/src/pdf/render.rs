@@ -5,7 +5,7 @@ use std::io::Write;
 
 use flate2::Compression;
 use flate2::write::ZlibEncoder;
-use question_model::QuestionAssetId;
+use question_model::QuestionImageAssetId;
 
 use crate::{ExportArtifact, PrintExam, PrintLayout, exam_flow};
 
@@ -32,7 +32,7 @@ pub(super) fn write(exam: &PrintExam, layout: PrintLayout) -> ExportArtifact {
 
 pub(super) fn objects_for_pages(
     pages: &[Vec<RenderBlock>],
-    assets: &[(QuestionAssetId, PngImage)],
+    assets: &[(QuestionImageAssetId, PngImage)],
     font: &EmbeddedFont,
 ) -> Vec<Vec<u8>> {
     let page_count = pages.len().max(1);
@@ -89,7 +89,7 @@ pub(super) fn objects_for_pages(
 
 fn content_stream(
     page: &[RenderBlock],
-    indexes: &BTreeMap<QuestionAssetId, usize>,
+    indexes: &BTreeMap<QuestionImageAssetId, usize>,
     font: &EmbeddedFont,
 ) -> Vec<u8> {
     // PDF text matrices are relative.  Keeping the cursor in ordinary page

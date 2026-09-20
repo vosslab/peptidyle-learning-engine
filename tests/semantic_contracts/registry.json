@@ -3,44 +3,56 @@
     {
       "id": "course_instance_blueprint_provenance",
       "behavior": "Course Instance provenance uses named Blueprint Revision Tuples.",
+      "citation": "docs/HUMAN_GUIDANCE.md; docs/TERMINOLOGY_CONTRACT.md",
       "rust_test": "crates/learning-data-access/src/course_instance.rs",
       "typescript_test": "tests/test_course_instance_summary.mjs",
-      "postgres_api": "ple_api.load_course_instance"
+      "postgres_api": "ple_api.load_course_instance",
+      "postgres_test": "crates/learning-data-access/src/postgres/course_instance.rs"
     },
     {
       "id": "blueprint_known_fork_tuples",
       "behavior": "Known-fork results carry current and source Blueprint Revision Tuples.",
+      "citation": "docs/HUMAN_GUIDANCE.md; docs/TERMINOLOGY_CONTRACT.md",
       "rust_test": "crates/browser-api-contract/src/blueprint_course.rs",
       "typescript_test": "tests/test_nested_identity_contracts.mjs",
-      "postgres_api": "ple_api.list_known_blueprint_forks"
+      "postgres_api": "ple_api.list_known_blueprint_forks",
+      "postgres_test": "crates/learning-data-access/src/postgres/blueprint_lineage.rs"
     },
     {
       "id": "assessment_blueprint_update_tuples",
       "behavior": "Apply uses expectedSourceBlueprintRevisionTuple plus expectedAssessmentEditNumber.",
+      "citation": "docs/HUMAN_GUIDANCE.md; docs/TERMINOLOGY_CONTRACT.md",
       "rust_test": "crates/learning-data-access/src/assessment_release.rs",
       "typescript_test": "tests/test_nested_identity_contracts.mjs",
-      "postgres_api": "ple_api.apply_assessment_blueprint_update"
+      "postgres_api": "ple_api.apply_assessment_blueprint_update",
+      "postgres_test": "crates/learning-data-access/src/postgres/assessment_blueprint_update.rs"
     },
     {
       "id": "student_work_recovery_identities",
       "behavior": "Recovery returns Course Roster Tuple and does not serialize StudentRecordId.",
+      "citation": "docs/TERMINOLOGY_CONTRACT.md; docs/HUMAN_GUIDANCE.md",
       "rust_test": "crates/learning-data-access/src/archived_student_work_recovery.rs",
       "typescript_test": "tests/test_nested_identity_contracts.mjs",
-      "postgres_api": "ple_api.read_archived_assessment_attempt_for_recovery"
+      "postgres_api": "ple_api.read_archived_assessment_attempt_for_recovery",
+      "postgres_test": "crates/learning-data-access/src/postgres/archived_student_work_recovery.rs"
     },
     {
-      "id": "question_asset_tuple",
-      "behavior": "QuestionAssetTuple serializes questionAssetId plus checksum.",
+      "id": "question_image_asset_tuple",
+      "behavior": "QuestionImageAssetTuple serializes questionImageAssetId plus checksum.",
+      "citation": "docs/HUMAN_GUIDANCE.md; docs/TERMINOLOGY_CONTRACT.md",
       "rust_test": "crates/question_model/src/question_content.rs",
       "typescript_test": "tests/test_question_renderer.mjs",
-      "postgres_api": "ple_data object address jsonb"
+      "postgres_api": "ple_api.select_ready_question_image_renditions",
+      "postgres_test": "crates/learning-data-access/src/postgres/assessment_delivery_renditions.rs"
     },
     {
       "id": "qualified_assessment_edit_number",
       "behavior": "Assessment workspace JSON uses assessmentEditNumber; HTTP ETag is header encoding only.",
+      "citation": "docs/HUMAN_GUIDANCE.md; docs/TERMINOLOGY_CONTRACT.md",
       "rust_test": "crates/learning-data-access/src/assessment_release.rs",
       "typescript_test": "tests/test_nested_identity_contracts.mjs",
-      "postgres_api": "ple_api.save_live_assessment"
+      "postgres_api": "ple_api.save_assessment",
+      "postgres_test": "crates/learning-data-access/src/postgres/assessment_release.rs"
     }
   ]
 }

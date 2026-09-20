@@ -15,7 +15,7 @@
 \ir 20_tables/question_pool.sql
 \ir 20_tables/object_record.sql
 \ir 20_tables/question_authoring.sql
-\ir 20_tables/question_assets.sql
+\ir 20_tables/question_images.sql
 \ir 20_tables/library_discussion.sql
 \ir 20_tables/library_watch.sql
 \ir 20_tables/blueprint_course.sql
@@ -48,11 +48,11 @@
 \ir 50_functions/question_watch_notifications.sql
 \ir 50_functions/object_records.sql
 \ir 50_functions/question_authoring_state.sql
-\ir 50_functions/draft_question_assets.sql
+\ir 50_functions/draft_question_images.sql
 \ir 50_functions/question_publication_operations.sql
 \ir 50_functions/question_authoring_operations.sql
 \ir 50_functions/published_question_metadata_operations.sql
-\ir 50_functions/question_assets.sql
+\ir 50_functions/question_images.sql
 \ir 50_functions/blueprints.sql
 \ir 50_functions/blueprint_operations.sql
 \ir 50_functions/blueprint_history.sql
@@ -98,8 +98,8 @@
 \ir 50_functions/delivery_backends.sql
 \ir 50_functions/delivery.sql
 \ir 50_functions/jobs.sql
-\ir 50_functions/question_asset_operations.sql
-\ir 50_functions/draft_asset_publication_operations.sql
+\ir 50_functions/question_image_operations.sql
+\ir 50_functions/draft_question_image_publication_operations.sql
 \ir 50_functions/grading.sql
 \ir 50_functions/grading_access.sql
 \ir 50_functions/student_assessment_landing.sql

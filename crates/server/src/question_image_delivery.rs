@@ -1,4 +1,4 @@
-//! Authorized redirect route for immutable published Question Asset renditions.
+//! Authorized redirect route for immutable published Question Image renditions.
 //!
 //! The route is deliberately a metadata boundary: PostgreSQL proves the
 //! current authority and exact ready rendition, then this module derives one
@@ -15,12 +15,12 @@ use axum::{
     routing::get,
 };
 use learning_data_access::{
-    QuestionAssetDeliveryStore, ReadyQuestionAssetDelivery, SessionTokenHash, StoreError,
-    postgres::{PostgresQuestionAssetDeliveryStore, PostgresSessionStore},
+    QuestionImageDeliveryStore, ReadyQuestionImageDelivery, SessionTokenHash, StoreError,
+    postgres::{PostgresQuestionImageDeliveryStore, PostgresSessionStore},
 };
 use objects::ObjectAddress;
 use question_model::{
-    ProductRole, QuestionAssetId, QuestionId, QuestionRevisionNumber, QuestionRevisionTuple,
+    ProductRole, QuestionId, QuestionImageAssetId, QuestionRevisionNumber, QuestionRevisionTuple,
 };
 use url::Url;
 use uuid::Uuid;
@@ -28,25 +28,25 @@ use uuid::Uuid;
 use crate::auth::{AuthError, resolve_session};
 
 #[derive(Clone)]
-struct QuestionAssetDeliveryRouteState {
+struct QuestionImageDeliveryRouteState {
     sessions: Arc<PostgresSessionStore>,
-    store: PostgresQuestionAssetDeliveryStore,
+    store: PostgresQuestionImageDeliveryStore,
     public_asset_base_url: Url,
 }
 
 /// Registers the only public-asset GET route. The configured base is
 /// deployment-owned; a browser never supplies a bucket, key, or hostname.
-pub fn question_asset_delivery_router(
+pub fn question_image_delivery_router(
     sessions: Arc<PostgresSessionStore>,
-    store: PostgresQuestionAssetDeliveryStore,
+    store: PostgresQuestionImageDeliveryStore,
     public_asset_base_url: Url,
 ) -> Router {
     Router::new()
         .route(
-            "/api/questions/{question_id}/revisions/{revision_number}/assets/{asset_id}",
-            get(get_public_question_asset),
+            "/api/questions/{question_id}/revisions/{revision_number}/images/{question_image_asset_id}",
+            get(get_public_question_image),
         )
-        .with_state(QuestionAssetDeliveryRouteState {
+        .with_state(QuestionImageDeliveryRouteState {
             sessions,
             store,
             public_asset_base_url,
@@ -76,18 +76,18 @@ pub(crate) fn public_asset_base_url(value: &str) -> Result<Url, String> {
     Ok(parsed)
 }
 
-async fn get_public_question_asset(
-    State(state): State<QuestionAssetDeliveryRouteState>,
+async fn get_public_question_image(
+    State(state): State<QuestionImageDeliveryRouteState>,
     headers: HeaderMap,
-    Path((question_id, revision_number, asset_id)): Path<(String, String, String)>,
+    Path((question_id, revision_number, question_image_asset_id)): Path<(String, String, String)>,
 ) -> Response {
     let question_revision_tuple =
         match verified_question_revision_tuple(&question_id, &revision_number) {
             Some(value) => value,
             None => return concealed(),
         };
-    let asset_id = match Uuid::parse_str(&asset_id) {
-        Ok(value) => QuestionAssetId::from_uuid(value),
+    let question_image_asset_id = match Uuid::parse_str(&question_image_asset_id) {
+        Ok(value) => QuestionImageAssetId::from_uuid(value),
         Err(_) => return concealed(),
     };
     let session_hash = match asset_session_hash(&state, &headers).await {
@@ -96,7 +96,11 @@ async fn get_public_question_asset(
     };
     let rendition = match state
         .store
-        .resolve_ready_question_asset_delivery(session_hash, question_revision_tuple, asset_id)
+        .resolve_ready_question_image_delivery(
+            session_hash,
+            question_revision_tuple,
+            question_image_asset_id,
+        )
         .await
     {
         Ok(value) => value,
@@ -132,7 +136,7 @@ fn verified_question_revision_tuple(
 }
 
 async fn asset_session_hash(
-    state: &QuestionAssetDeliveryRouteState,
+    state: &QuestionImageDeliveryRouteState,
     headers: &HeaderMap,
 ) -> Result<SessionTokenHash, Box<Response>> {
     match resolve_session(state.sessions.as_ref(), cookie(headers).as_deref()).await {
@@ -151,11 +155,11 @@ async fn asset_session_hash(
 
 fn redirect_response(
     base_url: &Url,
-    rendition: &ReadyQuestionAssetDelivery,
+    rendition: &ReadyQuestionImageDelivery,
 ) -> Result<Response, ()> {
-    let address = ObjectAddress::QuestionAsset {
+    let address = ObjectAddress::QuestionImage {
         question_revision_tuple: rendition.question_revision_tuple.clone(),
-        question_asset_id: rendition.asset_id,
+        question_image_asset_id: rendition.question_image_asset_id,
         object_id: rendition.public_object_id,
     };
     let location = base_url.join(&address.path()).map_err(|_| ())?;
@@ -204,13 +208,13 @@ mod tests {
 
     use super::*;
 
-    fn rendition() -> ReadyQuestionAssetDelivery {
-        ReadyQuestionAssetDelivery {
+    fn rendition() -> ReadyQuestionImageDelivery {
+        ReadyQuestionImageDelivery {
             question_revision_tuple: QuestionRevisionTuple {
                 question_id: QuestionId::from_random_identifier("ABCDEFG").expect("Question ID"),
                 revision_number: QuestionRevisionNumber::new(1).expect("revision"),
             },
-            asset_id: QuestionAssetId::from_uuid(Uuid::from_u128(2)),
+            question_image_asset_id: QuestionImageAssetId::from_uuid(Uuid::from_u128(2)),
             public_object_id: ObjectId::from_uuid(Uuid::from_u128(3)),
             rendition_checksum: Sha256Checksum::from_bytes([4; 32]),
         }
@@ -224,7 +228,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::FOUND);
         assert_eq!(
             response.headers()["location"],
-            "https://assets.example.test/public-assets/questions/ABCD-XEFG/versions/1/assets/00000000-0000-0000-0000-000000000002/00000000-0000-0000-0000-000000000003"
+            "https://assets.example.test/public-assets/questions/ABCD-XEFG/versions/1/images/00000000-0000-0000-0000-000000000002/00000000-0000-0000-0000-000000000003"
         );
         assert_eq!(
             response.headers()["cache-control"],

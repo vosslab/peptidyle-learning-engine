@@ -332,9 +332,9 @@
   - Evidence (test): `tests/e2e/attempt_expiry_connected_oracle.sql` `replay_score` changes points and verifies retained credit is replayed.
 - [x] Changes to Assessment settings do not change the recorded history of completed Assessment Attempts.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_history.sql` `read_student_assessment_attempt_history` deliberately interprets retained Attempt evidence rather than current Assessment content.
-- [x] Immutable Question source and Question assets use SHA-256 checksums where needed to verify their stored contents.
+- [x] Immutable Question source and Question Image Assets use SHA-256 checksums where needed to verify their stored contents.
   - Evidence (source): `schemas/base_schema/50_functions/question_authoring_state.sql` `source_object_checksum` binds immutable Question-source contents to SHA-256 object records.
-  - Evidence (source): `schemas/base_schema/20_tables/question_assets.sql` `public_object_checksum` binds immutable Question-asset contents to SHA-256 object records.
+  - Evidence (source): `schemas/base_schema/20_tables/question_images.sql` `public_object_checksum` binds immutable Question-asset contents to SHA-256 object records.
 - [x] A public-ID checksum is one embedded character derived from other ID characters.
   - Evidence (source): `crates/question_model/src/question_library.rs` `public_id_checksum_character` derives one Crockford character from the canonical ID characters.
 - [x] A stored-content checksum is a full SHA-256 value verifying exact bytes.

@@ -481,12 +481,12 @@ fn unavailable_metadata(message: &str) -> ObjectStoreError {
     ObjectStoreError::Unavailable(format!("invalid object metadata: {message}"))
 }
 
-/// `QuestionAsset` is the one semantic key admitted to the public-assets
+/// `QuestionImage` is the one semantic key admitted to the public-assets
 /// bucket. Every other typed key must remain untagged so a private object
 /// cannot accidentally acquire the public immutable-publication capability.
 #[cfg(feature = "s3")]
 fn requires_immutable_publication_tag(key: &ObjectAddress) -> bool {
-    matches!(key, ObjectAddress::QuestionAsset { .. })
+    matches!(key, ObjectAddress::QuestionImage { .. })
 }
 
 #[cfg(feature = "s3")]
@@ -514,7 +514,7 @@ mod tests {
     use super::*;
     use crate::ObjectDataClass;
     use question_model::{
-        ObjectId, QuestionAssetId, QuestionId, QuestionRevisionNumber, QuestionRevisionTuple,
+        ObjectId, QuestionId, QuestionImageAssetId, QuestionRevisionNumber, QuestionRevisionTuple,
     };
     use uuid::Uuid;
 
@@ -544,9 +544,9 @@ mod tests {
     }
 
     fn public_asset_key() -> ObjectAddress {
-        ObjectAddress::QuestionAsset {
+        ObjectAddress::QuestionImage {
             question_revision_tuple: question_revision_tuple(),
-            question_asset_id: QuestionAssetId::from_uuid(Uuid::from_u128(3)),
+            question_image_asset_id: QuestionImageAssetId::from_uuid(Uuid::from_u128(3)),
             object_id: ObjectId::from_uuid(Uuid::from_u128(4)),
         }
     }
@@ -616,7 +616,7 @@ mod tests {
     }
 
     #[test]
-    fn only_public_question_assets_receive_the_immutable_publication_tag() {
+    fn only_public_question_images_receive_the_immutable_publication_tag() {
         let private_source = record().address;
         let public_asset = public_asset_key();
 

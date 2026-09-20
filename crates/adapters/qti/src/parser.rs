@@ -4,7 +4,7 @@
 //! accepts a deliberately small QTI subset using an XML event parser: DTDs,
 //! entity declarations, malformed nesting, and duplicate attributes fail
 //! before any model is made.  Asset bytes leave this module only in an
-//! immutable worker handoff; student-visible questions contain `QuestionAssetTuple`s,
+//! immutable worker handoff; student-visible questions contain `QuestionImageAssetTuple`s,
 //! never archive paths or an Answer Key.
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -14,19 +14,17 @@ use objects::Sha256Checksum;
 use objects::image_validation::verify_still_image;
 use question_model::answer::ResponseSelectionRule;
 use question_model::response::{QuestionChoice, ResponseItemId};
-use question_model::{QuestionAssetId, QuestionResponseFormat};
-use question_model::{QuestionAssetTuple, QuestionContentBlock};
-use uuid::Uuid;
+use question_model::{QuestionContentBlock, QuestionImageAssetTuple, QuestionResponseFormat};
 
 const MANIFEST_PATH: &str = "imsmanifest.xml";
 
 use crate::archive::{BoundedArchiveEntries, read_bounded_archive, validate_relative_path};
-use crate::model::{ArchivedQtiPackage, QtiImportAnswerBinding};
 pub use crate::model::{
-    ImportedQtiPackage, ImportedQtiQuestion, QtiAssetError, QtiAssetObject, QtiImportError,
-    QtiImportLimits, QtiItemImportResult, QtiItemImportStatus, QtiManifest, QtiResource,
-    UnsupportedFeature, qti_question_asset_checksums,
+    ImportedQtiPackage, ImportedQtiQuestion, QtiImportError, QtiImportLimits, QtiItemImportResult,
+    QtiItemImportStatus, QtiManifest, QtiPackageExtractedImage, QtiPackageExtractedImageError,
+    QtiResource, UnsupportedFeature, qti_question_image_checksums,
 };
+use crate::model::{QtiImportAnswerBinding, QtiPackageArchive};
 use crate::xml::{XmlNode, parse_xml};
 
 #[derive(Debug, Clone, Copy)]
@@ -39,9 +37,12 @@ impl QtiImporter {
         Self { limits }
     }
 
-    /// Validates the ZIP before extracting a bounded QTI single-choice subset.
-    pub fn import(&self, bytes: &[u8]) -> Result<ImportedQtiPackage, QtiImportError> {
-        let entries = read_bounded_archive(bytes, self.limits, is_allowed_entry)?;
+    /// Validates the untrusted QTI package upload file before extracting a bounded subset.
+    pub fn import(
+        &self,
+        qti_package_upload_file: &[u8],
+    ) -> Result<ImportedQtiPackage, QtiImportError> {
+        let entries = read_bounded_archive(qti_package_upload_file, self.limits, is_allowed_entry)?;
         let manifest = parse_manifest(
             MANIFEST_PATH,
             entries
@@ -193,16 +194,16 @@ impl QtiImporter {
             }
         }
         Ok(ImportedQtiPackage {
-            original: ArchivedQtiPackage {
-                bytes: bytes.to_vec(),
-                package_checksum: Sha256Checksum::compute(bytes).to_string(),
-                size_bytes: u64::try_from(bytes.len()).map_err(|_| {
+            original: QtiPackageArchive {
+                bytes: qti_package_upload_file.to_vec(),
+                package_checksum: Sha256Checksum::compute(qti_package_upload_file).to_string(),
+                size_bytes: u64::try_from(qti_package_upload_file.len()).map_err(|_| {
                     QtiImportError::InvalidArchive("archive length overflow".into())
                 })?,
             },
             manifest,
             questions,
-            assets: assets.into_values().collect(),
+            extracted_images: assets.into_values().collect(),
             unsupported: unsupported_features,
             item_results,
             answer_binding: QtiImportAnswerBinding {
@@ -322,7 +323,7 @@ fn parse_single_choice_item(
     path: &str,
     root: &XmlNode,
     entries: &BoundedArchiveEntries,
-    assets: &mut BTreeMap<String, QtiAssetObject>,
+    assets: &mut BTreeMap<String, QtiPackageExtractedImage>,
 ) -> Result<(ImportedQtiQuestion, ResponseItemId), UnsupportedFeature> {
     if root.name() != "assessmentItem" {
         return Err(unsupported(
@@ -456,7 +457,7 @@ fn content_blocks(
     item_path: &str,
     nodes: &[&XmlNode],
     entries: &BoundedArchiveEntries,
-    assets: &mut BTreeMap<String, QtiAssetObject>,
+    assets: &mut BTreeMap<String, QtiPackageExtractedImage>,
 ) -> Result<Vec<QuestionContentBlock>, UnsupportedFeature> {
     let mut blocks = Vec::new();
     for node in nodes {
@@ -496,7 +497,7 @@ fn image_block(
     item_path: &str,
     image: &XmlNode,
     entries: &BoundedArchiveEntries,
-    assets: &mut BTreeMap<String, QtiAssetObject>,
+    assets: &mut BTreeMap<String, QtiPackageExtractedImage>,
 ) -> Result<QuestionContentBlock, UnsupportedFeature> {
     let raw = image
         .attribute("src")
@@ -520,13 +521,17 @@ fn image_block(
     let verified = verify_still_image(bytes)
         .map_err(|error| unsupported(&path, "unsafe-image", error.import_detail()))?;
     let media_type = verified.media_type.canonical_media_type();
-    let asset = assets
-        .entry(path.clone())
-        .or_insert_with(|| asset_object(path.clone(), bytes.to_vec(), media_type.to_string()));
+    let extracted = assets.entry(path.clone()).or_insert_with(|| {
+        QtiPackageExtractedImage::from_verified_still_image(
+            path.clone(),
+            bytes.to_vec(),
+            media_type.to_string(),
+        )
+    });
     Ok(QuestionContentBlock::Image {
-        question_asset_tuple: QuestionAssetTuple {
-            question_asset_id: asset.asset,
-            checksum: asset.sha256.clone(),
+        question_image_asset_tuple: QuestionImageAssetTuple {
+            question_image_asset_id: extracted.question_image_asset_id(),
+            checksum: extracted.sha256.clone(),
         },
         description: image
             .attribute("alt")
@@ -534,20 +539,6 @@ fn image_block(
             .map(str::to_owned)
             .unwrap_or_else(|| "Image supplied by imported QTI package".into()),
     })
-}
-fn asset_object(source_path: String, bytes: Vec<u8>, media_type: String) -> QtiAssetObject {
-    let checksum = Sha256Checksum::compute(&bytes);
-    let mut raw = [0_u8; 16];
-    raw.copy_from_slice(&checksum.as_bytes()[..16]);
-    raw[6] = (raw[6] & 0x0f) | 0x40;
-    raw[8] = (raw[8] & 0x3f) | 0x80;
-    QtiAssetObject {
-        asset: QuestionAssetId::from_uuid(Uuid::from_bytes(raw)),
-        source_path,
-        sha256: checksum.to_string(),
-        media_type,
-        bytes,
-    }
 }
 fn resolve_asset_path(item_path: &str, raw: &str) -> Result<String, String> {
     if raw.contains("://")

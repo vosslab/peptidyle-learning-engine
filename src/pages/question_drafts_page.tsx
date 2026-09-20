@@ -10,11 +10,19 @@ import { parseDraftQuestionId, type DraftQuestionRouteId } from "../navigation/p
 import "./question_drafts_page.css";
 
 type DraftSummary = {
-  readonly draftQuestion: DraftQuestionRouteId;
-  readonly editNumber: number;
+  readonly draftQuestionId: DraftQuestionRouteId;
+  readonly draftQuestionEditNumber: string;
   readonly questionTitle: string;
   readonly questionDescription: string;
 };
+
+function isDraftQuestionEditNumber(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    /^[1-9][0-9]*$/u.test(value) &&
+    BigInt(value) <= 9_223_372_036_854_775_807n
+  );
+}
 
 type PageMessage = {
   readonly kind: "error" | "success";
@@ -42,9 +50,9 @@ function isDraftList(value: unknown): value is { readonly items: ReadonlyArray<D
     const summary = item as Record<string, unknown>;
     return (
       Object.keys(summary).length === 4 &&
-      typeof summary.draftQuestion === "string" &&
-      parseDraftQuestionId(summary.draftQuestion) !== null &&
-      Number.isSafeInteger(summary.editNumber) &&
+      typeof summary.draftQuestionId === "string" &&
+      parseDraftQuestionId(summary.draftQuestionId) !== null &&
+      isDraftQuestionEditNumber(summary.draftQuestionEditNumber) &&
       typeof summary.questionTitle === "string" &&
       typeof summary.questionDescription === "string"
     );
@@ -56,12 +64,12 @@ function createdDraftId(value: unknown): DraftQuestionRouteId | null {
   const record = value as Record<string, unknown>;
   if (
     Object.keys(record).length !== 2 ||
-    typeof record.draftQuestion !== "string" ||
-    !Number.isSafeInteger(record.editNumber)
+    typeof record.draftQuestionId !== "string" ||
+    !isDraftQuestionEditNumber(record.draftQuestionEditNumber)
   ) {
     return null;
   }
-  return parseDraftQuestionId(record.draftQuestion);
+  return parseDraftQuestionId(record.draftQuestionId);
 }
 
 /** Lists only the signed-in Instructor's private Draft Questions. */
@@ -133,12 +141,12 @@ export function QuestionDraftsPage(): JSX.Element {
     try {
       // ASVS 2.2.2: the server, not this UI, validates identity, ownership, and this precondition.
       const response = await fetch(
-        `/api/authoring/drafts/${encodeURIComponent(draft.draftQuestion)}`,
+        `/api/authoring/drafts/${encodeURIComponent(draft.draftQuestionId)}`,
         {
           method: "DELETE",
           headers: {
             accept: "application/json",
-            "if-match": `"${draft.editNumber}"`,
+            "if-match": `"${draft.draftQuestionEditNumber}"`,
           },
           credentials: "same-origin",
           cache: "no-store",
@@ -217,7 +225,7 @@ export function QuestionDraftsPage(): JSX.Element {
                     <div class="draft-question-content">
                       <A
                         class="draft-question-title"
-                        href={`/authoring/drafts/${encodeURIComponent(draft.draftQuestion)}`}
+                        href={`/authoring/drafts/${encodeURIComponent(draft.draftQuestionId)}`}
                       >
                         {draft.questionTitle}
                       </A>
@@ -227,12 +235,12 @@ export function QuestionDraftsPage(): JSX.Element {
                     </div>
                     <p class="draft-question-metadata">
                       <span>Private draft</span>
-                      <span>Edit Number {draft.editNumber}</span>
+                      <span>Draft Question Edit Number {draft.draftQuestionEditNumber}</span>
                     </p>
                     <div class="draft-question-actions">
                       <A
                         class="quiet-link draft-question-edit"
-                        href={`/authoring/drafts/${encodeURIComponent(draft.draftQuestion)}`}
+                        href={`/authoring/drafts/${encodeURIComponent(draft.draftQuestionId)}`}
                         aria-label={`Edit draft: ${draft.questionTitle}`}
                       >
                         Edit draft

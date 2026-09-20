@@ -28,12 +28,15 @@ import { decodeAccountTimeZone } from "./student_assessment_decision";
 const ASSESSMENT_STATUSES = ["unreleased", "released", "closed", "archived"] as const;
 const LATE_WORK_RULES = ["accept", "mark_late", "reject"] as const;
 
-function decodeEditNumber(value: unknown, path: string): string {
-  const editNumber = decodeString(value, path);
-  if (!/^[1-9][0-9]*$/u.test(editNumber) || BigInt(editNumber) > 9_223_372_036_854_775_807n) {
+function decodeAssessmentEditNumber(value: unknown, path: string): string {
+  const assessmentEditNumber = decodeString(value, path);
+  if (
+    !/^[1-9][0-9]*$/u.test(assessmentEditNumber) ||
+    BigInt(assessmentEditNumber) > 9_223_372_036_854_775_807n
+  ) {
     throw new DecodeError(path, "a positive Assessment Edit Number");
   }
-  return editNumber;
+  return assessmentEditNumber;
 }
 
 function decodeInstructions(value: unknown, path: string): string {
@@ -143,7 +146,7 @@ export function decodeInstructorStudentView(
 ): InstructorStudentView {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "editNumber",
+    "assessmentEditNumber",
     "status",
     "title",
     "instructions",
@@ -179,7 +182,10 @@ export function decodeInstructorStudentView(
     }
   });
   return {
-    editNumber: decodeEditNumber(field(record, "editNumber", path), `${path}.editNumber`),
+    assessmentEditNumber: decodeAssessmentEditNumber(
+      field(record, "assessmentEditNumber", path),
+      `${path}.assessmentEditNumber`,
+    ),
     status: decodeStringEnum(field(record, "status", path), `${path}.status`, ASSESSMENT_STATUSES),
     title: decodeAssessmentTitle(field(record, "title", path), `${path}.title`),
     instructions: decodeInstructions(field(record, "instructions", path), `${path}.instructions`),

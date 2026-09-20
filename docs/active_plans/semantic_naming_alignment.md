@@ -33,9 +33,9 @@ compatibility readers, or legacy transport variants.
 - Add `CourseRosterId` and `CourseRosterTuple { courseInstanceId, rosterId }`.
   Recovery returns typed Course, Assessment, Attempt, Question Revision, and
   Course Roster identities while never exposing `StudentRecordId`.
-- Correct `QuestionAssetTuple` to contain `questionAssetId`; every field
-  holding it is `questionAssetTuple`. Apply the same rule to Object Address:
-  `objectId`, `questionAssetId`, `workspaceId`, `workspaceImportId`,
+- Correct `QuestionImageAssetTuple` to contain `questionImageAssetId`; every field
+  holding it is `questionImageAssetTuple`. Apply the same rule to Object Address:
+  `objectId`, `questionImageAssetId`, `workspaceId`, `workspaceImportId`,
   `courseBannerId`, and `draftQuestionId`.
 - PostgreSQL tables and composite foreign keys retain role-qualified relational
   pairs such as `(source_blueprint_course_id,
@@ -112,7 +112,7 @@ Add one changelog entry only after all gates and the adversarial review pass.
 
 ## Permanent-test policy
 
-- Treat tests as liabilities as well as assets. Retain a permanent test only
+- Treat tests as liabilities as well as protection. Retain a permanent test only
   when it protects intentionally stable, important, externally meaningful
   behavior that could plausibly regress. Do not retain tests that merely freeze
   an implementation spelling or prior migration path.

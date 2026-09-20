@@ -5,15 +5,15 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::identity::{QuestionAssetId, WorkspaceId};
+use crate::identity::{QuestionImageAssetId, WorkspaceId};
 use crate::question_citation::QuestionCitation;
 use crate::question_license::QuestionLicense;
 use crate::question_tag::Tag;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct QuestionAssetTuple {
-    pub question_asset_id: QuestionAssetId,
+pub struct QuestionImageAssetTuple {
+    pub question_image_asset_id: QuestionImageAssetId,
     pub checksum: String,
 }
 
@@ -32,7 +32,7 @@ pub enum QuestionContentBlock {
         description: String,
     },
     Image {
-        question_asset_tuple: QuestionAssetTuple,
+        question_image_asset_tuple: QuestionImageAssetTuple,
         description: String,
     },
     Code {
@@ -145,20 +145,27 @@ pub struct DraftQuestionSummary {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::identity::QuestionAssetId;
+    use crate::identity::QuestionImageAssetId;
     use uuid::Uuid;
 
     #[test]
-    fn question_asset_tuple_serializes_question_asset_id() {
-        let tuple = QuestionAssetTuple {
-            question_asset_id: QuestionAssetId::from_uuid(Uuid::from_u128(7)),
+    fn question_image_asset_tuple_serializes_question_image_asset_id() {
+        let tuple = QuestionImageAssetTuple {
+            question_image_asset_id: QuestionImageAssetId::from_uuid(Uuid::from_u128(7)),
             checksum: "a".repeat(64),
         };
         let wire = serde_json::to_value(&tuple).expect("tuple serializes");
         assert_eq!(
-            wire["questionAssetId"],
+            wire["questionImageAssetId"],
             "00000000-0000-0000-0000-000000000007"
         );
-        assert!(wire.get("questionAsset").is_none());
+        assert!(wire.get("questionAssetId").is_none());
+        assert!(
+            serde_json::from_value::<QuestionImageAssetTuple>(serde_json::json!({
+                "questionAssetId": "00000000-0000-0000-0000-000000000007",
+                "checksum": "a".repeat(64)
+            }))
+            .is_err()
+        );
     }
 }

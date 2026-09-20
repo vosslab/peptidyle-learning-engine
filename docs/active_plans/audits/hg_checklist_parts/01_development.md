@@ -30,7 +30,7 @@
   - Reason: agent instruction, not implemented PLE product behavior.
 - N/A Robust means the software continues to function despite imperfect inputs, data, state, or behavior.
   - Reason: agent instruction, not implemented PLE product behavior.
-- N/A Treat tests as liabilities as well as assets. Keep only requirements and gates grounded in actual needs.
+- N/A Treat tests as liabilities as well as protection. Keep only requirements and gates grounded in actual needs.
   - Reason: agent instruction, not implemented PLE product behavior.
 - N/A Plans should be finishable by the manager and subagents without additional human interaction.
   - Reason: agent instruction, not implemented PLE product behavior.

@@ -55,10 +55,15 @@ function questionPath(
 
 function requireMatchingAssessmentEditNumber(
   response: Response,
-  editNumber: string,
+  assessmentEditNumber: string,
   path: string,
 ): void {
-  assertResponseMatchesPositiveNumber(response, editNumber, path, "Assessment Edit Number");
+  assertResponseMatchesPositiveNumber(
+    response,
+    assessmentEditNumber,
+    path,
+    "Assessment Edit Number",
+  );
 }
 
 function sameQuestionRevision(
@@ -83,7 +88,7 @@ async function manifestRequest(
   if (!response.ok) throw new ApiRequestError(response.status, path);
   // ASVS 1.5.2, 2.2.1, and 4.1.1: bounded JSON is decoded into one closed DTO.
   const manifest = decodeInstructorStudentView(await boundedResponseJson(response, path));
-  requireMatchingAssessmentEditNumber(response, manifest.editNumber, path);
+  requireMatchingAssessmentEditNumber(response, manifest.assessmentEditNumber, path);
   return manifest;
 }
 
@@ -94,12 +99,16 @@ async function presentationRequest(
   assessmentId: AssessmentId,
   authoredPosition: number,
   questionRevisionTuple: QuestionRevisionTuple,
-  editNumber: string,
+  expectedAssessmentEditNumber: string,
 ): ReturnType<AssessmentStudentViewClient["getInstructorStudentViewQuestion"]> {
   const path = `${questionPath(courseInstanceId, assessmentId, authoredPosition, questionRevisionTuple)}/presentation`;
   const response = await requestSameOrigin(fetchImplementation, basePath, path, {
     headers: {
-      "if-match": ifMatchHeaderForPositiveNumber(editNumber, path, "Assessment Edit Number"),
+      "if-match": ifMatchHeaderForPositiveNumber(
+        expectedAssessmentEditNumber,
+        path,
+        "Assessment Edit Number",
+      ),
     },
   });
   requireNoStore(response, path);
@@ -113,7 +122,7 @@ async function presentationRequest(
       `API response ${path} does not match the requested Question Revision`,
     );
   }
-  requireMatchingAssessmentEditNumber(response, editNumber, path);
+  requireMatchingAssessmentEditNumber(response, expectedAssessmentEditNumber, path);
   return presentation;
 }
 
@@ -130,7 +139,7 @@ export function createAssessmentStudentViewClient(
       assessmentId,
       authoredPosition,
       questionRevisionTuple,
-      editNumber,
+      expectedAssessmentEditNumber,
     ) =>
       presentationRequest(
         fetchImplementation,
@@ -139,18 +148,18 @@ export function createAssessmentStudentViewClient(
         assessmentId,
         authoredPosition,
         questionRevisionTuple,
-        editNumber,
+        expectedAssessmentEditNumber,
       ),
     instructorStudentViewQuestionDocumentUrl: (
       courseInstanceId,
       assessmentId,
       authoredPosition,
       questionRevisionTuple,
-      editNumber,
+      expectedAssessmentEditNumber,
     ): string => {
       const path = `${questionPath(courseInstanceId, assessmentId, authoredPosition, questionRevisionTuple)}/document`;
-      ifMatchHeaderForPositiveNumber(editNumber, path, "Assessment Edit Number");
-      const query = new URLSearchParams({ editNumber });
+      ifMatchHeaderForPositiveNumber(expectedAssessmentEditNumber, path, "Assessment Edit Number");
+      const query = new URLSearchParams({ assessmentEditNumber: expectedAssessmentEditNumber });
       return requestPath(basePath, `${path}?${query.toString()}`);
     },
   };

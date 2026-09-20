@@ -15,7 +15,7 @@ use question_model::{
 use sqlx::{Postgres, Row, Transaction};
 
 use super::{
-    Pool, assessment_delivery_source::ready_question_asset_renditions, connection::map_sqlx_error,
+    Pool, assessment_delivery_source::ready_question_image_renditions, connection::map_sqlx_error,
 };
 use crate::{
     InstructorStudentViewSnapshot, InstructorStudentViewSnapshotEntry, InstructorStudentViewSource,
@@ -104,7 +104,7 @@ impl InstructorStudentViewStore for PostgresInstructorStudentViewStore {
                 .await
                 .map_err(map_sqlx_error)?;
         let snapshot = InstructorStudentViewSnapshot {
-            edit_number: edit_number(first)?,
+            assessment_edit_number: edit_number(first)?,
             status: assessment_status(first)?,
             title: AssessmentTitle::try_new(column(first, "assessment_title")?)
                 .map_err(|_| invalid("Assessment Title"))?,
@@ -323,7 +323,7 @@ fn source_from_row(
         SourceObjectChecksum::parse(column::<String>(row, "source_object_checksum")?)
             .map_err(|_| invalid("Question Source Object checksum"))?;
     let source_media_type = column(row, "source_media_type")?;
-    let question_asset_renditions = ready_question_asset_renditions(row)?;
+    let question_image_renditions = ready_question_image_renditions(row)?;
     let webwork_pg_path = optional_column(row, "webwork_pg_path")?;
     match (column::<String>(row, "backend")?.as_str(), webwork_pg_path) {
         ("ple", None) => Ok(InstructorStudentViewSource::Ple {
@@ -331,7 +331,7 @@ fn source_from_row(
             source_object_id,
             source_object_checksum,
             source_media_type,
-            question_asset_renditions,
+            question_image_renditions,
         }),
         ("webwork", Some(webwork_pg_path)) => Ok(InstructorStudentViewSource::Webwork {
             question_revision_tuple,
@@ -339,7 +339,7 @@ fn source_from_row(
             source_object_checksum,
             source_media_type,
             webwork_pg_path,
-            question_asset_renditions,
+            question_image_renditions,
         }),
         _ => Err(invalid("Question Source Backend binding")),
     }

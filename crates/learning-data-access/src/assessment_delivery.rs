@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use browser_api_contract::student_assessment_decision::StudentAssessmentDecisionSummary;
 use question_model::{
     AssessmentAttemptId, AssessmentId, AssessmentType, CourseInstanceId, CourseTheme,
-    GradingResult, QuestionAssetId, QuestionAttemptId, QuestionId, QuestionRevisionTuple,
+    GradingResult, QuestionAttemptId, QuestionId, QuestionImageAssetId, QuestionRevisionTuple,
     StudentAssessmentAttemptProgress, StudentFeedback, StudentFeedbackReleaseRule, StudentResponse,
     Timestamp,
 };
@@ -247,17 +247,17 @@ pub struct NativePleIssuanceSource {
     /// Complete immutable descriptor when this position was already committed.
     /// New issuance leaves this absent until its one commit succeeds.
     pub retained_presentation: Option<StudentAssessmentAttemptPresentationEvidence>,
-    /// Ready, exact-revision public asset renditions. These contain no object
+    /// Ready, exact-revision Question Image Renditions. These contain no object
     /// locator or source bytes and are bound into the Question Presentation.
-    pub question_asset_renditions: Vec<ReadyQuestionAssetRendition>,
+    pub question_image_renditions: Vec<ReadyQuestionImageRendition>,
 }
 
-/// One server-selected Ready public rendition for an authored Question Asset.
-/// The Question Asset checksum is content identity, not an object-store locator.
+/// One server-selected Ready public rendition for an authored Question Image Asset.
+/// The Question Image Asset checksum is content identity, not an object-store locator.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ReadyQuestionAssetRendition {
-    pub question_asset_id: QuestionAssetId,
-    pub question_asset_checksum: String,
+pub struct ReadyQuestionImageRendition {
+    pub question_image_asset_id: QuestionImageAssetId,
+    pub question_image_checksum: String,
     pub rendition_checksum: String,
     pub intrinsic_width: u32,
     pub intrinsic_height: u32,
@@ -287,9 +287,9 @@ pub struct NativeWebworkIssuanceSource {
     /// Complete immutable descriptor when this position was already committed.
     /// New issuance leaves this absent until its one commit succeeds.
     pub retained_presentation: Option<StudentAssessmentAttemptPresentationEvidence>,
-    /// Exact retained asset renditions. Resume uses these bindings rather than
+    /// Exact retained Question Image Renditions. Resume uses these bindings rather than
     /// consulting mutable current publication state.
-    pub question_asset_renditions: Vec<ReadyQuestionAssetRendition>,
+    pub question_image_renditions: Vec<ReadyQuestionImageRendition>,
 }
 
 /// Server-only reproduction input for the narrow period before a renderer has
@@ -333,7 +333,7 @@ pub struct NativePresentationInput {
     pub response_item_bindings: Vec<question_model::presentation::DurableResponseItemBinding>,
     /// Exact ready PLE renditions for a mixed native Assessment. WeBWorK-only
     /// entries carry an empty list; this never crosses the browser boundary.
-    pub question_asset_renditions: Vec<ReadyQuestionAssetRendition>,
+    pub question_image_renditions: Vec<ReadyQuestionImageRendition>,
     /// Explicit issued capability.  It is recorded independently from the
     /// backend document so PLE never infers a backend from document presence.
     pub issued_capability: String,
@@ -396,7 +396,7 @@ pub struct StudentAssessmentAttemptPresentationEvidence {
     pub author_content: Option<question_model::AuthorContentPresentation>,
     /// Exact normalized durable identities for each public response item.
     pub response_item_bindings: Vec<question_model::presentation::DurableResponseItemBinding>,
-    pub question_asset_renditions: Vec<ReadyQuestionAssetRendition>,
+    pub question_image_renditions: Vec<ReadyQuestionImageRendition>,
 }
 
 impl NativeAssessmentIssuanceBatch {

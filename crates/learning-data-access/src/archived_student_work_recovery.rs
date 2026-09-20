@@ -154,7 +154,7 @@ pub(crate) struct RetainedPresentation {
     presentation_nonce: String,
     presentation_checksum: String,
     response_item_bindings: Vec<ResponseItemBinding>,
-    asset_renditions: Vec<AssetRendition>,
+    question_image_renditions: Vec<QuestionImageRenditionEvidence>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -163,9 +163,9 @@ struct ResponseItemBinding {
     response_item_id: String,
 }
 #[derive(Deserialize, Serialize)]
-struct AssetRendition {
-    asset_id: String,
-    question_asset_checksum: String,
+struct QuestionImageRenditionEvidence {
+    question_image_asset_id: String,
+    question_image_checksum: String,
     rendition_checksum: String,
     intrinsic_width: u32,
     intrinsic_height: u32,

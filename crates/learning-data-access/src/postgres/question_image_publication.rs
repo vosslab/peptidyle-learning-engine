@@ -2,12 +2,14 @@
 
 use async_trait::async_trait;
 use objects::Sha256Checksum;
-use question_model::{ObjectId, QuestionAssetId, QuestionRevisionNumber, QuestionRevisionTuple};
+use question_model::{
+    ObjectId, QuestionImageAssetId, QuestionRevisionNumber, QuestionRevisionTuple,
+};
 use sqlx::{Row, Transaction};
 use uuid::Uuid;
 
 use super::{Pool, connection::map_sqlx_error};
-use crate::{ClaimedQuestionAssetPublication, PublicAssetPublicationStore, StoreError};
+use crate::{ClaimedQuestionImagePublication, PublicAssetPublicationStore, StoreError};
 
 /// Binds the publisher-only attested pool to the registry's closed procedures.
 #[derive(Clone)]
@@ -32,13 +34,13 @@ impl PostgresPublicAssetPublicationStore {
 
 #[async_trait]
 impl PublicAssetPublicationStore for PostgresPublicAssetPublicationStore {
-    async fn claim_question_asset_publication(
+    async fn claim_question_image_publication(
         &self,
         lease_token: Uuid,
-    ) -> Result<Option<ClaimedQuestionAssetPublication>, StoreError> {
+    ) -> Result<Option<ClaimedQuestionImagePublication>, StoreError> {
         let mut transaction = self.begin().await?;
         let row = sqlx::query(
-            "SELECT * FROM ple_private.claim_question_asset_publication_job(\
+            "SELECT * FROM ple_private.claim_question_image_publication_job(\
              $1, pg_catalog.clock_timestamp() + interval '300 seconds')",
         )
         .bind(lease_token)
@@ -49,13 +51,13 @@ impl PublicAssetPublicationStore for PostgresPublicAssetPublicationStore {
         row.map(decode_claim).transpose()
     }
 
-    async fn activate_question_asset_publication(
+    async fn activate_question_image_publication(
         &self,
         job_id: Uuid,
         lease_token: Uuid,
     ) -> Result<(), StoreError> {
         let mut transaction = self.begin().await?;
-        sqlx::query("SELECT ple_private.activate_question_asset_publication($1, $2)")
+        sqlx::query("SELECT ple_private.activate_question_image_publication($1, $2)")
             .bind(job_id)
             .bind(lease_token)
             .execute(&mut *transaction)
@@ -65,7 +67,7 @@ impl PublicAssetPublicationStore for PostgresPublicAssetPublicationStore {
     }
 }
 
-fn decode_claim(row: sqlx::postgres::PgRow) -> Result<ClaimedQuestionAssetPublication, StoreError> {
+fn decode_claim(row: sqlx::postgres::PgRow) -> Result<ClaimedQuestionImagePublication, StoreError> {
     let revision_number = row
         .try_get::<i32, _>("revision_number")
         .map_err(map_sqlx_error)?;
@@ -78,14 +80,16 @@ fn decode_claim(row: sqlx::postgres::PgRow) -> Result<ClaimedQuestionAssetPublic
     let checksum = |column| -> Result<Sha256Checksum, StoreError> {
         let bytes = row.try_get::<Vec<u8>, _>(column).map_err(map_sqlx_error)?;
         let bytes: [u8; 32] = bytes.try_into().map_err(|_| {
-            StoreError::InvalidRecord("Question Asset Publication checksum is invalid".to_string())
+            StoreError::InvalidRecord(
+                "Question Image Asset Publication checksum is invalid".to_string(),
+            )
         })?;
         Ok(Sha256Checksum::from_bytes(bytes))
     };
     let byte_length = row
         .try_get::<i64, _>("public_byte_length")
         .map_err(map_sqlx_error)?;
-    Ok(ClaimedQuestionAssetPublication {
+    Ok(ClaimedQuestionImagePublication {
         job_id: row.try_get("job_id").map_err(map_sqlx_error)?,
         question_revision_tuple: QuestionRevisionTuple {
             question_id: row
@@ -95,7 +99,10 @@ fn decode_claim(row: sqlx::postgres::PgRow) -> Result<ClaimedQuestionAssetPublic
                 .map_err(|_| StoreError::InvalidRecord("Question ID is invalid".to_string()))?,
             revision_number,
         },
-        asset_id: QuestionAssetId::from_uuid(row.try_get("asset_id").map_err(map_sqlx_error)?),
+        question_image_asset_id: QuestionImageAssetId::from_uuid(
+            row.try_get("question_image_asset_id")
+                .map_err(map_sqlx_error)?,
+        ),
         source_object_id: ObjectId::from_uuid(
             row.try_get("source_object_id").map_err(map_sqlx_error)?,
         ),
@@ -106,7 +113,7 @@ fn decode_claim(row: sqlx::postgres::PgRow) -> Result<ClaimedQuestionAssetPublic
         public_checksum: checksum("public_object_checksum")?,
         public_byte_length: u64::try_from(byte_length).map_err(|_| {
             StoreError::InvalidRecord(
-                "Question Asset Publication byte length is invalid".to_string(),
+                "Question Image Asset Publication byte length is invalid".to_string(),
             )
         })?,
         verified_media_type: row.try_get("verified_media_type").map_err(map_sqlx_error)?,
@@ -114,11 +121,15 @@ fn decode_claim(row: sqlx::postgres::PgRow) -> Result<ClaimedQuestionAssetPublic
             row.try_get::<i32, _>("intrinsic_width")
                 .map_err(map_sqlx_error)?,
         )
-        .map_err(|_| StoreError::InvalidRecord("Question Asset width is invalid".to_string()))?,
+        .map_err(|_| {
+            StoreError::InvalidRecord("Question Image Asset width is invalid".to_string())
+        })?,
         intrinsic_height: u32::try_from(
             row.try_get::<i32, _>("intrinsic_height")
                 .map_err(map_sqlx_error)?,
         )
-        .map_err(|_| StoreError::InvalidRecord("Question Asset height is invalid".to_string()))?,
+        .map_err(|_| {
+            StoreError::InvalidRecord("Question Image Asset height is invalid".to_string())
+        })?,
     })
 }

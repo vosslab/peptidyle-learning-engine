@@ -7,14 +7,14 @@ use crate::response::{
 };
 use crate::{AuthorContentPresentation, QuestionContentBlock, QuestionVariationPresentation};
 
-use super::super::assets::{content_assets, question_asset_rendition};
 use super::super::choice_order::nonce_randomized_choices;
 use super::super::model::{
     PresentedHotspotRegion, PresentedHotspotSurface, PresentedMatchingChoice,
     PresentedMatchingPrompt, PresentedOrderingItem, PresentedQuestionChoice,
-    PresentedTextEntrySlot, QuestionAssetRendition, QuestionPresentation,
+    PresentedTextEntrySlot, QuestionImageRendition, QuestionPresentation,
     QuestionPresentationNonce, QuestionPresentationResponseFormat,
 };
+use super::super::question_images::{content_question_images, question_image_rendition};
 use super::super::response_validation::selection_bounds;
 use super::{
     NUMERIC_MAX_CHARACTERS, PendingHotspotRegionGeometry, PendingResponseItem,
@@ -23,7 +23,7 @@ use super::{
 
 pub(super) fn pending_items(
     presentation: &QuestionVariationPresentation,
-    assets: &[QuestionAssetRendition],
+    assets: &[QuestionImageRendition],
     nonce: QuestionPresentationNonce,
 ) -> Result<Vec<PendingResponseItem>, PresentationBuildError> {
     let mut items = Vec::new();
@@ -74,12 +74,12 @@ pub(super) fn pending_items(
             push_choices(&mut items, choices, ResponseItemRole::OrderingItem, assets)?;
         }
         QuestionResponseFormat::Hotspot {
-            question_asset_tuple,
+            question_image_asset_tuple,
             description,
             regions,
             ..
         } => {
-            let binding = question_asset_rendition(question_asset_tuple, assets)?;
+            let binding = question_image_rendition(question_image_asset_tuple, assets)?;
             let hotspot_regions = regions
                 .iter()
                 .map(pending_hotspot_region_geometry)
@@ -87,9 +87,11 @@ pub(super) fn pending_items(
             push_item(
                 &mut items,
                 ResponseItemRole::HotspotSurface,
-                &question_asset_tuple.question_asset_id.to_string(),
+                &question_image_asset_tuple
+                    .question_image_asset_id
+                    .to_string(),
                 vec![QuestionContentBlock::Image {
-                    question_asset_tuple: question_asset_tuple.clone(),
+                    question_image_asset_tuple: question_image_asset_tuple.clone(),
                     description: description.clone(),
                 }],
                 assets,
@@ -166,7 +168,7 @@ fn push_choices<T: PresentedResponseItem>(
     target: &mut Vec<PendingResponseItem>,
     choices: &[T],
     role: ResponseItemRole,
-    assets: &[QuestionAssetRendition],
+    assets: &[QuestionImageRendition],
 ) -> Result<(), PresentationBuildError> {
     for choice in choices {
         push_item(
@@ -186,7 +188,7 @@ fn push_item(
     role: ResponseItemRole,
     response_item_id: &str,
     content: Vec<QuestionContentBlock>,
-    assets: &[QuestionAssetRendition],
+    assets: &[QuestionImageRendition],
     hotspot_dimensions: Option<(u32, u32)>,
     hotspot_regions: Vec<PendingHotspotRegionGeometry>,
 ) -> Result<(), PresentationBuildError> {
@@ -196,7 +198,7 @@ fn push_item(
         ));
     }
     let ordinal = u32::try_from(target.len()).map_err(|_| PresentationBuildError::TooManyItems)?;
-    let item_assets = content_assets(&content, assets)?;
+    let item_assets = content_question_images(&content, assets)?;
     target.push(PendingResponseItem {
         role,
         ordinal,
@@ -206,7 +208,7 @@ fn push_item(
             ordinal,
             label: None,
             content,
-            assets: item_assets,
+            question_image_renditions: item_assets,
             hotspot_width: hotspot_dimensions.map(|value| value.0),
             hotspot_height: hotspot_dimensions.map(|value| value.1),
             hotspot_regions,
@@ -311,7 +313,7 @@ pub(super) fn public_presentation(
                     "hotspot surface mapping is absent",
                 ))?;
             let QuestionContentBlock::Image {
-                question_asset_tuple,
+                question_image_asset_tuple,
                 description,
             } = &surface.basis.content[0]
             else {
@@ -330,7 +332,7 @@ pub(super) fn public_presentation(
             QuestionPresentationResponseFormat::Hotspot {
                 surface: PresentedHotspotSurface {
                     id: surface.presentation_response_item_id.clone(),
-                    question_asset_tuple: question_asset_tuple.clone(),
+                    question_image_asset_tuple: question_image_asset_tuple.clone(),
                     description: description.clone(),
                     regions: regions
                         .iter()

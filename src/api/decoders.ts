@@ -4,6 +4,7 @@ export * from "./decoders/question_library";
 export * from "./decoders/question_availability";
 export * from "./decoders/assessment_workspace";
 export { decodeInstructorStudentView } from "./decoders/assessment_student_view";
+export { decodeQuestionPoolPreview } from "./decoders/pool_preview";
 export * from "./decoders/question_model";
 export * from "./decoders/question_delivery";
 export * from "./decoders/presentation_delivery";

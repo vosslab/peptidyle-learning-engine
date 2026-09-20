@@ -25,7 +25,7 @@ pub struct PreviewSelectedMoment {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct HypotheticalStudentViewScenarioRequest {
     pub assessment_id: AssessmentId,
-    pub edit_number: AssessmentEditNumber,
+    pub assessment_edit_number: AssessmentEditNumber,
     pub selected_moment: PreviewSelectedMoment,
     pub modifiers: HypotheticalStudentViewScenarioModifiers,
 }
@@ -49,7 +49,7 @@ pub struct HypotheticalStudentViewScenarioModifiers {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct SelectedStudentViewScenarioRequest {
     pub assessment_id: AssessmentId,
-    pub edit_number: AssessmentEditNumber,
+    pub assessment_edit_number: AssessmentEditNumber,
     pub selected_moment: PreviewSelectedMoment,
     pub selected_student_membership: CourseMembershipId,
 }
@@ -235,7 +235,7 @@ pub enum StudentViewScenarioAdmission {
 pub struct StudentViewScenario {
     pub origin: StudentViewScenarioOrigin,
     pub assessment_id: AssessmentId,
-    pub edit_number: AssessmentEditNumber,
+    pub assessment_edit_number: AssessmentEditNumber,
     pub selected_moment: PreviewSelectedMoment,
     pub policy: PreviewResolvedPolicy,
     pub prior_assessment_attempt_count: PreviewPriorAssessmentAttemptCount,
@@ -246,7 +246,7 @@ pub struct StudentViewScenario {
 struct StudentViewScenarioWire {
     origin: StudentViewScenarioOrigin,
     assessment_id: AssessmentId,
-    edit_number: AssessmentEditNumber,
+    assessment_edit_number: AssessmentEditNumber,
     selected_moment: PreviewSelectedMoment,
     policy: PreviewResolvedPolicy,
     prior_assessment_attempt_count: PreviewPriorAssessmentAttemptCount,
@@ -258,7 +258,7 @@ impl TryFrom<StudentViewScenarioWire> for StudentViewScenario {
         Self::new(
             value.origin,
             value.assessment_id,
-            value.edit_number,
+            value.assessment_edit_number,
             value.selected_moment,
             value.policy,
             value.prior_assessment_attempt_count,
@@ -272,7 +272,7 @@ impl StudentViewScenario {
     pub fn new(
         origin: StudentViewScenarioOrigin,
         assessment_id: AssessmentId,
-        edit_number: AssessmentEditNumber,
+        assessment_edit_number: AssessmentEditNumber,
         selected_moment: PreviewSelectedMoment,
         policy: PreviewResolvedPolicy,
         prior_assessment_attempt_count: PreviewPriorAssessmentAttemptCount,
@@ -280,7 +280,7 @@ impl StudentViewScenario {
         Ok(Self {
             origin,
             assessment_id,
-            edit_number,
+            assessment_edit_number,
             selected_moment,
             policy,
             prior_assessment_attempt_count,
@@ -343,7 +343,7 @@ pub enum InstructorPreviewScheduleRow {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct InstructorPreviewSchedulePage {
-    pub edit_number: AssessmentEditNumber,
+    pub assessment_edit_number: AssessmentEditNumber,
     pub rows: Vec<InstructorPreviewScheduleRow>,
     pub next_cursor: Option<String>,
 }
@@ -482,7 +482,7 @@ mod direct_preview_tests {
     fn hypothetical_student_view_scenario_request_accepts_only_direct_preview_fields() {
         let request = serde_json::json!({
             "assessment_id": "A7K3M2QXF",
-            "edit_number": "1",
+            "assessment_edit_number": "1",
             "selected_moment": { "value": "2026-08-20T09:00:00.000" },
             "modifiers": { "mode": "extend_only", "adjustment": {
                 "available_at": { "kind": "inherit" },

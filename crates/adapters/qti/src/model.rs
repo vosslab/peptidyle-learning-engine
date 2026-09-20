@@ -1,11 +1,13 @@
 use std::collections::BTreeMap;
 
 use crate::profiles::NormalizedQtiItemFingerprint;
-use question_model::QuestionAssetId;
+use objects::Sha256Checksum;
 use question_model::QuestionContentBlock;
+use question_model::QuestionImageAssetId;
 use question_model::QuestionResponseFormat;
 use question_model::response::ResponseItemId;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 /// Hard resource limits enforced before extraction or XML parsing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -38,7 +40,7 @@ impl Default for QtiImportLimits {
 
 /// Original immutable package bytes, retained verbatim for export/re-import.
 #[derive(Clone, PartialEq)]
-pub(crate) struct ArchivedQtiPackage {
+pub(crate) struct QtiPackageArchive {
     pub(crate) bytes: Vec<u8>,
     pub(crate) package_checksum: String,
     pub(crate) size_bytes: u64,
@@ -88,25 +90,22 @@ pub struct QtiItemImportResult {
     pub warnings: Vec<UnsupportedFeature>,
 }
 
-/// One immutable media object the import worker must write before publishing.
+/// One still image extracted from a QTI package after still-image verification.
 ///
-/// `bytes` is intentionally excluded from JSON.  It is an import-worker
-/// handoff, not a browser or draft projection.  The worker uses `asset` as the
-/// logical ID and writes the bytes under the eventual immutable Object Address.
+/// This is import-only. It is not a Question Image Asset until conversion binds
+/// it into Question content. `bytes` is excluded from JSON.
 #[derive(Clone, PartialEq, Eq)]
-pub struct QtiAssetObject {
-    pub(crate) asset: QuestionAssetId,
-    pub(crate) source_path: String,
+pub struct QtiPackageExtractedImage {
+    pub(crate) package_path: String,
     pub(crate) sha256: String,
     pub(crate) media_type: String,
     pub(crate) bytes: Vec<u8>,
 }
 
-impl std::fmt::Debug for QtiAssetObject {
+impl std::fmt::Debug for QtiPackageExtractedImage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("QtiAssetObject")
-            .field("asset", &self.asset)
-            .field("source_path", &"<worker-only>")
+        f.debug_struct("QtiPackageExtractedImage")
+            .field("package_path", &"<worker-only>")
             .field("sha256", &self.sha256)
             .field("media_type", &self.media_type)
             .field("bytes", &"<worker-only>")
@@ -114,20 +113,39 @@ impl std::fmt::Debug for QtiAssetObject {
     }
 }
 
-impl QtiAssetObject {
+impl QtiPackageExtractedImage {
+    pub(crate) fn from_verified_still_image(
+        package_path: String,
+        bytes: Vec<u8>,
+        media_type: String,
+    ) -> Self {
+        let checksum = Sha256Checksum::compute(&bytes);
+        Self {
+            package_path,
+            sha256: checksum.to_string(),
+            media_type,
+            bytes,
+        }
+    }
+
     /// Returns bytes only to the import worker which owns the object write.
     pub fn worker_bytes(&self) -> &[u8] {
         &self.bytes
     }
 
-    /// Logical asset identity the worker carries into its private registry.
-    pub fn worker_asset_id(&self) -> QuestionAssetId {
-        self.asset
+    /// Question Image Asset ID derived from verified extracted bytes at bind time.
+    pub fn question_image_asset_id(&self) -> QuestionImageAssetId {
+        let checksum = Sha256Checksum::compute(&self.bytes);
+        let mut raw = [0_u8; 16];
+        raw.copy_from_slice(&checksum.as_bytes()[..16]);
+        raw[6] = (raw[6] & 0x0f) | 0x40;
+        raw[8] = (raw[8] & 0x3f) | 0x80;
+        QuestionImageAssetId::from_uuid(Uuid::from_bytes(raw))
     }
 
-    /// Package-relative source path for the worker's private registry only.
-    pub fn worker_source_path(&self) -> &str {
-        &self.source_path
+    /// Package-relative path for the worker's private registry only.
+    pub fn worker_package_path(&self) -> &str {
+        &self.package_path
     }
 
     /// Adapter-sniffed media type, never browser-supplied MIME metadata.
@@ -149,12 +167,12 @@ pub struct ImportedQtiQuestion {
     pub response: QuestionResponseFormat,
 }
 
-/// Returns each logical item asset with the checksum embedded in its public
-/// QTI presentation asset Tuple. Conflicting duplicate Tuples are invalid:
-/// the same logical asset cannot name two different immutable byte strings.
-pub fn qti_question_asset_checksums(
+/// Returns each extracted still image with the checksum embedded in its public
+/// Question Image Asset Tuple. Conflicting duplicate Tuples are invalid:
+/// the same Question Image Asset cannot name two different immutable byte strings.
+pub fn qti_question_image_checksums(
     question: &ImportedQtiQuestion,
-) -> Result<BTreeMap<QuestionAssetId, String>, QtiAssetError> {
+) -> Result<BTreeMap<QuestionImageAssetId, String>, QtiPackageExtractedImageError> {
     let mut response_blocks: Vec<&QuestionContentBlock> = Vec::new();
     let mut assets = BTreeMap::new();
     match &question.response {
@@ -172,13 +190,13 @@ pub fn qti_question_asset_checksums(
             response_blocks.extend(choices.iter().flat_map(|choice| choice.body.iter()));
         }
         question_model::QuestionResponseFormat::Hotspot {
-            question_asset_tuple,
+            question_image_asset_tuple,
             regions,
             ..
         } => {
             assets.insert(
-                question_asset_tuple.question_asset_id,
-                question_asset_tuple.checksum.clone(),
+                question_image_asset_tuple.question_image_asset_id,
+                question_image_asset_tuple.checksum.clone(),
             );
             response_blocks.extend(regions.iter().flat_map(|region| region.label.iter()));
         }
@@ -189,23 +207,23 @@ pub fn qti_question_asset_checksums(
     }
     for block in question.prompt.iter().chain(response_blocks) {
         if let QuestionContentBlock::Image {
-            question_asset_tuple,
+            question_image_asset_tuple,
             ..
         } = block
             && let Some(previous) = assets.insert(
-                question_asset_tuple.question_asset_id,
-                question_asset_tuple.checksum.clone(),
+                question_image_asset_tuple.question_image_asset_id,
+                question_image_asset_tuple.checksum.clone(),
             )
-            && previous != question_asset_tuple.checksum
+            && previous != question_image_asset_tuple.checksum
         {
-            return Err(QtiAssetError::ConflictingChecksum);
+            return Err(QtiPackageExtractedImageError::ConflictingChecksum);
         }
     }
     Ok(assets)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum QtiAssetError {
+pub enum QtiPackageExtractedImageError {
     ConflictingChecksum,
 }
 
@@ -222,12 +240,12 @@ pub(crate) struct QtiImportAnswerBinding {
 /// independently before constructing canonical PLE Question JSON.
 #[derive(Clone, PartialEq)]
 pub struct ImportedQtiPackage {
-    pub(crate) original: ArchivedQtiPackage,
+    pub(crate) original: QtiPackageArchive,
     pub manifest: QtiManifest,
     pub questions: Vec<ImportedQtiQuestion>,
     /// Import-worker-only object manifest; it is persisted before a public
     /// question projection is made and is never included in that projection.
-    pub(crate) assets: Vec<QtiAssetObject>,
+    pub(crate) extracted_images: Vec<QtiPackageExtractedImage>,
     pub unsupported: Vec<UnsupportedFeature>,
     /// Complete answer-free per-item report, including rejected resources.
     pub item_results: Vec<QtiItemImportResult>,
@@ -242,7 +260,7 @@ impl std::fmt::Debug for ImportedQtiPackage {
         f.debug_struct("ImportedQtiPackage")
             .field("manifest", &self.manifest)
             .field("question_count", &self.questions.len())
-            .field("asset_count", &self.assets.len())
+            .field("extracted_image_count", &self.extracted_images.len())
             .field("unsupported", &self.unsupported)
             .field("item_result_count", &self.item_results.len())
             .field("original", &"<server-only>")
@@ -273,9 +291,9 @@ impl ImportedQtiPackage {
         self.original.size_bytes
     }
 
-    /// Verified extracted assets for server-owned workspace persistence.
-    pub fn worker_assets(&self) -> &[QtiAssetObject] {
-        &self.assets
+    /// Verified extracted still images for server-owned workspace persistence.
+    pub fn worker_extracted_images(&self) -> &[QtiPackageExtractedImage] {
+        &self.extracted_images
     }
 
     /// Returns the private correct-choice mapping only to the server import

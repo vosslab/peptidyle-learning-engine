@@ -78,7 +78,7 @@ SET search_path = pg_catalog, ple_data AS $$
 DECLARE target_delivery_id uuid := COALESCE(NEW.object_delivery_id, OLD.object_delivery_id); owner_count integer;
 BEGIN
     IF (SELECT delivery_state FROM ple_data.object_delivery WHERE object_delivery_id = target_delivery_id) = 'available' THEN
-        SELECT (SELECT count(*) FROM ple_data.question_asset_delivery WHERE object_delivery_id = target_delivery_id)
+        SELECT (SELECT count(*) FROM ple_data.question_image_delivery WHERE object_delivery_id = target_delivery_id)
              + (SELECT count(*) FROM ple_data.course_banner_delivery WHERE object_delivery_id = target_delivery_id)
              + (SELECT count(*) FROM ple_data.course_object_delivery WHERE object_delivery_id = target_delivery_id)
              + (SELECT count(*) FROM ple_data.profile_image_delivery WHERE object_delivery_id = target_delivery_id)

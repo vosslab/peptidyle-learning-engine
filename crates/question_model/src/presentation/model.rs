@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::QuestionRevisionTuple;
 use crate::course_appearance::CourseTheme;
-use crate::question_content::{QuestionAssetTuple, QuestionContentBlock};
+use crate::question_content::{QuestionContentBlock, QuestionImageAssetTuple};
 use crate::student_work::{AssessmentId, CourseInstanceId, QuestionAttemptId, Timestamp};
 
 /// Four-lowercase-hex identifier for one object in one issued presentation.
@@ -164,13 +164,13 @@ impl From<QuestionPresentationToken> for String {
     }
 }
 
-/// One logical asset and the exact rendition selected for this presentation.
+/// One Question Image Asset and the exact rendition selected for this presentation.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct QuestionAssetRendition {
-    /// Exact authored Question Asset selected for this rendering. This Tuple
+pub struct QuestionImageRendition {
+    /// Exact authored Question Image Asset selected for this rendering. This Tuple
     /// identifies content but grants no storage or download authority.
-    pub question_asset_tuple: QuestionAssetTuple,
+    pub question_image_asset_tuple: QuestionImageAssetTuple,
     /// Checksum of the public rendition selected for this rendering.
     pub rendition_checksum: String,
     /// Intrinsic width of the selected public rendition, when known.
@@ -211,7 +211,7 @@ pub struct PresentedOrderingItem {
     pub body: Vec<QuestionContentBlock>,
 }
 
-/// Shared descriptor and asset access for exact public response-item records.
+/// Shared descriptor and Question image access for exact public response-item records.
 pub trait PresentedResponseItemContent {
     fn presentation_item_id(&self) -> &PresentationResponseItemId;
     fn presentation_item_body(&self) -> &[QuestionContentBlock];
@@ -263,7 +263,7 @@ pub struct PresentedHotspotRegion {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PresentedHotspotSurface {
     pub id: PresentationResponseItemId,
-    pub question_asset_tuple: QuestionAssetTuple,
+    pub question_image_asset_tuple: QuestionImageAssetTuple,
     pub description: String,
     pub regions: Vec<PresentedHotspotRegion>,
 }

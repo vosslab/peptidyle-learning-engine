@@ -3,7 +3,7 @@
 use axum::{body::Bytes, http::StatusCode, response::Response};
 use learning_data_access::AuthoringDraft;
 use objects::{ObjectAddress, ObjectStore, PutObject, s3::S3ObjectStore};
-use question_model::{ObjectId, QuestionAssetTuple, QuestionLicense, QuestionType, Tag};
+use question_model::{ObjectId, QuestionImageAssetTuple, QuestionLicense, QuestionType, Tag};
 
 use crate::authoring::{PLE_QUESTION_JSON_MEDIA_TYPE, now, private_error};
 
@@ -15,7 +15,7 @@ pub(crate) struct ValidatedSource {
     pub license: Option<QuestionLicense>,
     pub tags: Vec<Tag>,
     pub question_type: QuestionType,
-    pub hotspot_surface: Option<QuestionAssetTuple>,
+    pub hotspot_surface: Option<QuestionImageAssetTuple>,
 }
 
 pub(crate) fn validated_source(bytes: &[u8]) -> Result<ValidatedSource, Box<Response>> {
@@ -49,9 +49,9 @@ pub(crate) fn validated_source(bytes: &[u8]) -> Result<ValidatedSource, Box<Resp
         question_type: compiled.presentation().question_type(),
         hotspot_surface: match compiled.presentation().response() {
             question_model::QuestionResponseFormat::Hotspot {
-                question_asset_tuple,
+                question_image_asset_tuple,
                 ..
-            } => Some(question_asset_tuple.clone()),
+            } => Some(question_image_asset_tuple.clone()),
             _ => None,
         },
     })

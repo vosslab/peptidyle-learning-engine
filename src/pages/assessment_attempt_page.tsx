@@ -478,11 +478,11 @@ function AttemptExperience(props: {
                 <ErrorBoundary fallback={<p class="inline-error">Question rendering failed.</p>}>
                   <QuestionPresentationRenderer
                     presentation={currentPresentation.presentation}
-                    assetUrl={(asset) =>
+                    questionImageUrl={(asset) =>
                       new URL(
-                        runtime.client.assetUrl(
+                        runtime.client.questionImageUrl(
                           currentPresentation.presentation.questionRevisionTuple,
-                          asset.questionAssetId,
+                          asset.questionImageAssetId,
                         ),
                         window.location.origin,
                       )
@@ -505,11 +505,11 @@ function AttemptExperience(props: {
                 <QuestionPresentationResponseControl
                   attemptId={`${props.context.assessmentAttemptId}-${currentPresentation.position}`}
                   questionRevisionTuple={currentPresentation.presentation.questionRevisionTuple}
-                  assetUrl={(asset) =>
+                  questionImageUrl={(asset) =>
                     new URL(
-                      runtime.client.assetUrl(
+                      runtime.client.questionImageUrl(
                         currentPresentation.presentation.questionRevisionTuple,
-                        asset.questionAssetId,
+                        asset.questionImageAssetId,
                       ),
                       window.location.origin,
                     )

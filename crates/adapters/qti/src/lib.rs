@@ -13,9 +13,9 @@ pub mod profiles;
 mod xml;
 
 pub use crate::parser::{
-    ImportedQtiPackage, ImportedQtiQuestion, QtiAssetError, QtiAssetObject, QtiImportError,
-    QtiImportLimits, QtiImporter, QtiItemImportResult, QtiItemImportStatus, QtiManifest,
-    QtiResource, UnsupportedFeature, qti_question_asset_checksums,
+    ImportedQtiPackage, ImportedQtiQuestion, QtiImportError, QtiImportLimits, QtiImporter,
+    QtiItemImportResult, QtiItemImportStatus, QtiManifest, QtiPackageExtractedImage,
+    QtiPackageExtractedImageError, QtiResource, UnsupportedFeature, qti_question_image_checksums,
 };
 pub use crate::profiles::{
     QTI_PROFILE_MATRIX, QtiImportChecksums, QtiImportResultChecksumInput, QtiMappingVersion,

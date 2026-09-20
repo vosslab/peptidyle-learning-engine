@@ -15,15 +15,15 @@ import {
 import { createHttpApiClient } from "../src/api/http_client.ts";
 import { createRecordingFetch, jsonResponse } from "./http_client_test_support.mjs";
 
-test("asset URLs require and retain the exact Question Revision identity", () => {
+test("Question image URLs require and retain the exact Question Revision identity", () => {
   const client = createHttpApiClient({ basePath: "/live" });
-  const assetUrl = client.assetUrl(
+  const questionImageUrl = client.questionImageUrl(
     { questionId: "7K3M-79QP", revisionNumber: 2 },
     "00000000-0000-0000-0000-000000000001",
   );
   assert.equal(
-    assetUrl,
-    "/live/api/questions/7K3M-79QP/revisions/2/assets/00000000-0000-0000-0000-000000000001",
+    questionImageUrl,
+    "/live/api/questions/7K3M-79QP/revisions/2/images/00000000-0000-0000-0000-000000000001",
   );
 });
 

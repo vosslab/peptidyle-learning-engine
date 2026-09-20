@@ -75,7 +75,7 @@ across the default `containers` project and `ple-live-demo-browser`.
 
 The four buckets are `public-assets`, `private-content`, `student-records`,
 and `temp-processing`. Their distinct policies are part of the contract:
-public presentation assets are immutable and versioned, private content is
+public Question Image Renditions are immutable and versioned, private content is
 authorized-only, Student records have explicit expiry/deletion handling, and
 temporary processing is never served.
 

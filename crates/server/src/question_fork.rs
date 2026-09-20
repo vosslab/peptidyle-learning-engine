@@ -18,8 +18,8 @@ use axum::{
     routing::post,
 };
 use learning_data_access::{
-    AuthoringDraftStore, ForkPublishedQuestionAssetInput, ForkPublishedQuestionInput,
-    PublishedQuestionForkAsset, PublishedQuestionLibraryEntry, QuestionForkStore,
+    AuthoringDraftStore, ForkPublishedQuestionImageInput, ForkPublishedQuestionInput,
+    PublishedQuestionForkImage, PublishedQuestionLibraryEntry, QuestionForkStore,
     QuestionLibraryStore, SessionTokenHash, StoreError,
     postgres::{
         PostgresAuthoringDraftStore, PostgresQuestionForkStore, PostgresQuestionLibraryStore,
@@ -148,7 +148,7 @@ async fn fork_published_question(
         Ok(value) => value,
         Err(error) => return store_error_response(error),
     };
-    let hotspot_asset = match load_hotspot_asset(
+    let hotspot_question_image = match load_hotspot_question_image(
         &state,
         session,
         &library_entry,
@@ -179,11 +179,11 @@ async fn fork_published_question(
         Err(_) => return unavailable(),
     };
     let target_source_address = target_source_record.address.clone();
-    let target_hotspot_asset = match copy_hotspot_asset(
+    let target_hotspot_question_image = match copy_hotspot_question_image(
         &state.objects,
         workspace,
         proposed_draft_question_id,
-        hotspot_asset.as_ref(),
+        hotspot_question_image.as_ref(),
     )
     .await
     {
@@ -195,7 +195,7 @@ async fn fork_published_question(
             return unavailable();
         }
     };
-    let target_asset_address = target_hotspot_asset
+    let target_asset_address = target_hotspot_question_image
         .as_ref()
         .map(|asset| asset.target_record.address.clone());
     let input = ForkPublishedQuestionInput {
@@ -203,7 +203,7 @@ async fn fork_published_question(
         workspace,
         proposed_draft_question_id,
         target_source_record,
-        hotspot_asset: target_hotspot_asset,
+        hotspot_question_image: target_hotspot_question_image,
         idempotency_key,
     };
     match state
@@ -234,18 +234,18 @@ async fn fork_published_question(
     }
 }
 
-struct VerifiedForkHotspotAsset {
-    evidence: PublishedQuestionForkAsset,
+struct VerifiedForkHotspotImage {
+    evidence: PublishedQuestionForkImage,
     bytes: Vec<u8>,
 }
 
-async fn load_hotspot_asset(
+async fn load_hotspot_question_image(
     state: &RouteState,
     session: SessionTokenHash,
     entry: &PublishedQuestionLibraryEntry,
     question_revision_tuple: &QuestionRevisionTuple,
     source: &[u8],
-) -> Result<Option<VerifiedForkHotspotAsset>, Box<Response>> {
+) -> Result<Option<VerifiedForkHotspotImage>, Box<Response>> {
     if entry.question_type != QuestionType::Hotspot {
         return Ok(None);
     }
@@ -258,7 +258,7 @@ async fn load_hotspot_asset(
         .map_err(|_| Box::new(unavailable()))?;
     let compiled = document.compile().map_err(|_| Box::new(unavailable()))?;
     let QuestionResponseFormat::Hotspot {
-        question_asset_tuple,
+        question_image_asset_tuple,
         ..
     } = compiled.presentation().response()
     else {
@@ -270,8 +270,8 @@ async fn load_hotspot_asset(
         .await
         .map_err(|_| Box::new(unavailable()))?
         .ok_or_else(|| Box::new(unavailable()))?;
-    if evidence.asset_id != question_asset_tuple.question_asset_id
-        || evidence.source_record.sha256.to_string() != question_asset_tuple.checksum
+    if evidence.question_image_asset_id != question_image_asset_tuple.question_image_asset_id
+        || evidence.source_record.sha256.to_string() != question_image_asset_tuple.checksum
     {
         return Err(Box::new(unavailable()));
     }
@@ -290,27 +290,27 @@ async fn load_hotspot_asset(
     {
         return Err(Box::new(unavailable()));
     }
-    Ok(Some(VerifiedForkHotspotAsset {
+    Ok(Some(VerifiedForkHotspotImage {
         evidence,
         bytes: stored.bytes,
     }))
 }
 
-async fn copy_hotspot_asset(
+async fn copy_hotspot_question_image(
     objects: &S3ObjectStore,
     workspace: question_model::WorkspaceId,
     draft_question_uuid: Uuid,
-    source: Option<&VerifiedForkHotspotAsset>,
-) -> Result<Option<ForkPublishedQuestionAssetInput>, ObjectStoreError> {
+    source: Option<&VerifiedForkHotspotImage>,
+) -> Result<Option<ForkPublishedQuestionImageInput>, ObjectStoreError> {
     let Some(source) = source else {
         return Ok(None);
     };
     let target_record = objects
         .put(PutObject {
-            address: ObjectAddress::DraftQuestionAsset {
+            address: ObjectAddress::DraftQuestionImage {
                 workspace_id: workspace,
                 draft_question_id: draft_question_uuid,
-                question_asset_id: source.evidence.asset_id,
+                question_image_asset_id: source.evidence.question_image_asset_id,
                 object_id: ObjectId::generate(),
             },
             bytes: source.bytes.clone(),
@@ -318,8 +318,8 @@ async fn copy_hotspot_asset(
             created_at: crate::authoring::now(),
         })
         .await?;
-    Ok(Some(ForkPublishedQuestionAssetInput {
-        asset_id: source.evidence.asset_id,
+    Ok(Some(ForkPublishedQuestionImageInput {
+        question_image_asset_id: source.evidence.question_image_asset_id,
         target_record,
         intrinsic_width: source.evidence.intrinsic_width,
         intrinsic_height: source.evidence.intrinsic_height,

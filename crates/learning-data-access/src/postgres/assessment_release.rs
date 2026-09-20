@@ -20,6 +20,13 @@ use crate::{
     SaveLiveAssessmentInput, SessionTokenHash, StoreError, UnreleasedLiveAssessment,
 };
 
+const SAVE_ASSESSMENT_SQL: &str = "SELECT * FROM ple_api.save_assessment($1, $2, $3, \
+             $4::jsonb || jsonb_build_object( \
+                 'available_at', CASE WHEN $5 IS NULL THEN NULL::timestamptz ELSE to_timestamp($5::double precision / 1000) END, \
+                 'due_at', CASE WHEN $6 IS NULL THEN NULL::timestamptz ELSE to_timestamp($6::double precision / 1000) END, \
+                 'closes_at', CASE WHEN $7 IS NULL THEN NULL::timestamptz ELSE to_timestamp($7::double precision / 1000) END \
+             ), $8)";
+
 pub use super::assessment_workspace_connection::PostgresLiveAssessmentStore;
 
 #[path = "assessment_release_decode.rs"]
@@ -281,28 +288,21 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
         )?;
         let values = assessment_values_json(&input)?;
         let entries = assessment_entries_json(&input.entries)?;
-        sqlx::query(
-            "SELECT * FROM ple_api.save_assessment($1, $2, $3, \
-             $4::jsonb || jsonb_build_object( \
-                 'available_at', CASE WHEN $5 IS NULL THEN NULL::timestamptz ELSE to_timestamp($5::double precision / 1000) END, \
-                 'due_at', CASE WHEN $6 IS NULL THEN NULL::timestamptz ELSE to_timestamp($6::double precision / 1000) END, \
-                 'closes_at', CASE WHEN $7 IS NULL THEN NULL::timestamptz ELSE to_timestamp($7::double precision / 1000) END \
-             ), $8)",
-        )
-        .bind(course_instance_id.as_string())
-        .bind(assessment_id.as_string())
-        .bind(
-            i64::try_from(input.expected_assessment_edit_number.value())
-                .map_err(|_| invalid("Assessment Edit Number"))?,
-        )
-        .bind(values)
-        .bind(available_at_millis)
-        .bind(due_at_millis)
-        .bind(closes_at_millis)
-        .bind(entries)
-        .fetch_one(&mut *tx)
-        .await
-        .map_err(map_sqlx_error)?;
+        sqlx::query(SAVE_ASSESSMENT_SQL)
+            .bind(course_instance_id.as_string())
+            .bind(assessment_id.as_string())
+            .bind(
+                i64::try_from(input.expected_assessment_edit_number.value())
+                    .map_err(|_| invalid("Assessment Edit Number"))?,
+            )
+            .bind(values)
+            .bind(available_at_millis)
+            .bind(due_at_millis)
+            .bind(closes_at_millis)
+            .bind(entries)
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(map_sqlx_error)?;
         let rows = workspace_rows(&mut tx, &course_instance_id, &assessment_id).await?;
         let result = decode_workspace(&rows, &context)?.ok_or(StoreError::NotFound)?;
         tx.commit().await.map_err(map_sqlx_error)?;
@@ -706,4 +706,14 @@ pub(super) fn decode_workspace(
         entries: decode_entries(rows)?,
         questions,
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SAVE_ASSESSMENT_SQL;
+
+    #[test]
+    fn save_assessment_query_names_the_canonical_api() {
+        assert!(SAVE_ASSESSMENT_SQL.contains("ple_api.save_assessment"));
+    }
 }

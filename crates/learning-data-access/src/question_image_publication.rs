@@ -1,8 +1,8 @@
-//! Closed persistence boundary for immutable public Question Asset publication.
+//! Closed persistence boundary for immutable public Question Image publication.
 
 use async_trait::async_trait;
 use objects::Sha256Checksum;
-use question_model::{ObjectId, QuestionAssetId, QuestionRevisionTuple};
+use question_model::{ObjectId, QuestionImageAssetId, QuestionRevisionTuple};
 use uuid::Uuid;
 
 use crate::StoreError;
@@ -12,10 +12,10 @@ use crate::StoreError;
 /// This is never built from a browser request or a queue payload. The
 /// publication registry fixes every field before the publisher can claim it.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ClaimedQuestionAssetPublication {
+pub struct ClaimedQuestionImagePublication {
     pub job_id: Uuid,
     pub question_revision_tuple: QuestionRevisionTuple,
-    pub asset_id: QuestionAssetId,
+    pub question_image_asset_id: QuestionImageAssetId,
     pub source_object_id: ObjectId,
     pub source_checksum: Sha256Checksum,
     pub public_object_id: ObjectId,
@@ -30,12 +30,12 @@ pub struct ClaimedQuestionAssetPublication {
 /// activate that same lease, but has no generic Job, source, or API method.
 #[async_trait]
 pub trait PublicAssetPublicationStore: Send + Sync {
-    async fn claim_question_asset_publication(
+    async fn claim_question_image_publication(
         &self,
         lease_token: Uuid,
-    ) -> Result<Option<ClaimedQuestionAssetPublication>, StoreError>;
+    ) -> Result<Option<ClaimedQuestionImagePublication>, StoreError>;
 
-    async fn activate_question_asset_publication(
+    async fn activate_question_image_publication(
         &self,
         job_id: Uuid,
         lease_token: Uuid,

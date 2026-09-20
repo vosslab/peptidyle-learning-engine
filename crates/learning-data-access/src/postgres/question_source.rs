@@ -243,7 +243,7 @@ impl NewQuestionLineagePublicationStore for PostgresDraftQuestionSourceBindingSt
         .bind(input.question_ownership_event_id)
         .bind(input.question_publication_event_id)
         .bind(input.question_availability_event_id)
-        .bind(encode_prepared_asset(input.hotspot_asset.as_ref()).map_err(NewQuestionLineagePublicationError::Store)?)
+        .bind(encode_prepared_question_image(input.hotspot_question_image.as_ref()).map_err(NewQuestionLineagePublicationError::Store)?)
         .execute(&mut *transaction)
         .await
         .map_err(map_new_question_lineage_publication_error)?;
@@ -322,7 +322,7 @@ impl ExistingQuestionRevisionPublicationStore for PostgresDraftQuestionSourceBin
         .bind(input.question_revision_reason.as_str())
         .bind(input.question_publication_event_id)
         .bind(
-            encode_prepared_asset(input.hotspot_asset.as_ref())
+            encode_prepared_question_image(input.hotspot_question_image.as_ref())
                 .map_err(ExistingQuestionRevisionPublicationError::Store)?,
         )
         .fetch_one(&mut *transaction)
@@ -356,15 +356,15 @@ impl ExistingQuestionRevisionPublicationStore for PostgresDraftQuestionSourceBin
     }
 }
 
-fn encode_prepared_asset(
-    asset: Option<&crate::PreparedQuestionAssetPublication>,
+fn encode_prepared_question_image(
+    asset: Option<&crate::PreparedQuestionImagePublication>,
 ) -> Result<Option<serde_json::Value>, StoreError> {
     asset.map(|asset| {
         let record = &asset.restricted_source_record;
         let address = serde_json::to_value(&record.address)
             .map_err(|_| StoreError::InvalidRecord("Publication asset address cannot be encoded".into()))?;
         Ok(serde_json::json!({
-            "assetId": asset.asset_id, "sourceObjectId": record.id, "sourceObjectAddress": address,
+            "questionImageAssetId": asset.question_image_asset_id, "sourceObjectId": record.id, "sourceObjectAddress": address,
             "checksum": record.sha256.to_string(), "byteLength": record.size_bytes,
             "mediaType": record.media_type, "createdAtMillis": record.created_at.as_unix_millis(),
             "publicObjectId": asset.public_object_id, "intrinsicWidth": asset.intrinsic_width,

@@ -10,8 +10,8 @@ use std::{collections::BTreeSet, num::NonZeroU64};
 use async_trait::async_trait;
 use objects::{ObjectAddress, ObjectDataClass, ObjectRecord, ObjectStorageArea};
 use question_model::{
-    DraftImathasQuestionBackendBinding, ObjectId, QuestionAssetId, QuestionAuthorship,
-    QuestionBackend, QuestionFormat, QuestionId, QuestionLicense, QuestionRevisionNumber,
+    DraftImathasQuestionBackendBinding, ObjectId, QuestionAuthorship, QuestionBackend,
+    QuestionFormat, QuestionId, QuestionImageAssetId, QuestionLicense, QuestionRevisionNumber,
     QuestionRevisionReason, QuestionRevisionTuple, QuestionType, SourceObjectChecksum, Tag,
     WorkspaceId,
 };
@@ -162,8 +162,8 @@ pub trait DraftQuestionPublicationSourceStore: Send + Sync {
 
 /// Trusted bytes-first original raster facts for one exact target Revision.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PreparedQuestionAssetPublication {
-    pub asset_id: QuestionAssetId,
+pub struct PreparedQuestionImagePublication {
+    pub question_image_asset_id: QuestionImageAssetId,
     pub restricted_source_record: ObjectRecord,
     pub public_object_id: ObjectId,
     pub intrinsic_width: u32,
@@ -172,20 +172,20 @@ pub struct PreparedQuestionAssetPublication {
     pub job_id: Uuid,
 }
 
-impl PreparedQuestionAssetPublication {
+impl PreparedQuestionImagePublication {
     pub fn validate(
         &self,
         question_revision_tuple: &QuestionRevisionTuple,
     ) -> Result<(), StoreError> {
         let record = &self.restricted_source_record;
-        let expected = ObjectAddress::RestrictedQuestionAsset {
+        let expected = ObjectAddress::RestrictedQuestionImage {
             question_revision_tuple: question_revision_tuple.clone(),
-            question_asset_id: self.asset_id,
+            question_image_asset_id: self.question_image_asset_id,
             object_id: record.id,
         };
         if record.address != expected
             || record.storage_area != ObjectStorageArea::PrivateContent
-            || record.data_class != ObjectDataClass::QuestionAsset
+            || record.data_class != ObjectDataClass::QuestionImage
             || record.question_revision_tuple.as_ref() != Some(question_revision_tuple)
             || record.id == self.public_object_id
         {
@@ -193,7 +193,7 @@ impl PreparedQuestionAssetPublication {
                 "Publication image must belong to the exact target Revision".into(),
             ));
         }
-        crate::authoring_assets::validate_raster_facts(
+        crate::draft_question_images::validate_raster_facts(
             record,
             self.intrinsic_width,
             self.intrinsic_height,
@@ -204,7 +204,7 @@ impl PreparedQuestionAssetPublication {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NewQuestionLineagePublicationInput {
     /// Exactly one prepared raster for native HOTSPOT, absent otherwise.
-    pub hotspot_asset: Option<PreparedQuestionAssetPublication>,
+    pub hotspot_question_image: Option<PreparedQuestionImagePublication>,
     /// Current private Draft Question selected for publication.
     pub draft_question_uuid: DraftQuestionUuid,
     /// Exact saved Draft Question state validated by the server.
@@ -250,7 +250,7 @@ impl NewQuestionLineagePublicationInput {
     pub fn validate(&self) -> Result<(), StoreError> {
         Self::validate_initial_shared_tags(&self.initial_shared_tags)?;
         let expected_revision_tuple = self.question_revision_tuple();
-        if let Some(asset) = &self.hotspot_asset {
+        if let Some(asset) = &self.hotspot_question_image {
             asset.validate(&expected_revision_tuple)?;
         }
         let ObjectAddress::QuestionSource {
@@ -341,7 +341,7 @@ pub enum NewQuestionLineagePublicationError {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExistingQuestionRevisionPublicationInput {
     /// Exactly one prepared raster for native HOTSPOT, absent otherwise.
-    pub hotspot_asset: Option<PreparedQuestionAssetPublication>,
+    pub hotspot_question_image: Option<PreparedQuestionImagePublication>,
     /// Current private Draft Question selected for publication.
     pub draft_question_uuid: DraftQuestionUuid,
     /// Exact saved Draft Question state validated by the server.
@@ -395,7 +395,7 @@ impl ExistingQuestionRevisionPublicationInput {
     /// Refuses a target object that is not owned by the exact successor.
     pub fn validate(&self) -> Result<(), StoreError> {
         let expected_revision_tuple = self.question_revision_tuple()?;
-        if let Some(asset) = &self.hotspot_asset {
+        if let Some(asset) = &self.hotspot_question_image {
             asset.validate(&expected_revision_tuple)?;
         }
         let ObjectAddress::QuestionSource {
@@ -524,7 +524,7 @@ mod tests {
         };
         let object = ObjectId::from_uuid(Uuid::from_u128(7));
         NewQuestionLineagePublicationInput {
-            hotspot_asset: None,
+            hotspot_question_image: None,
             draft_question_uuid: DraftQuestionUuid::from_uuid(Uuid::from_u128(1)),
             expected_draft_question_edit_number: DraftQuestionEditNumber::new(2)
                 .expect("positive Draft Question Edit Number"),
@@ -586,19 +586,19 @@ mod tests {
     fn prepared_raster_cannot_be_reused_for_another_revision_or_public_source() {
         let publication = publication_input();
         let revision = publication.question_revision_tuple();
-        let asset_id = QuestionAssetId::from_uuid(Uuid::from_u128(20));
+        let question_image_asset_id = QuestionImageAssetId::from_uuid(Uuid::from_u128(20));
         let object = ObjectId::from_uuid(Uuid::from_u128(21));
         let mut record = publication.question_source_object_record;
         record.id = object;
-        record.address = ObjectAddress::RestrictedQuestionAsset {
+        record.address = ObjectAddress::RestrictedQuestionImage {
             question_revision_tuple: revision.clone(),
-            question_asset_id: asset_id,
+            question_image_asset_id,
             object_id: object,
         };
-        record.data_class = ObjectDataClass::QuestionAsset;
+        record.data_class = ObjectDataClass::QuestionImage;
         record.media_type = "image/png".into();
-        let mut asset = PreparedQuestionAssetPublication {
-            asset_id,
+        let mut asset = PreparedQuestionImagePublication {
+            question_image_asset_id,
             restricted_source_record: record,
             public_object_id: ObjectId::from_uuid(Uuid::from_u128(22)),
             intrinsic_width: 10,
@@ -642,7 +642,7 @@ mod tests {
         };
         let object = ObjectId::from_uuid(Uuid::from_u128(7));
         let input = ExistingQuestionRevisionPublicationInput {
-            hotspot_asset: None,
+            hotspot_question_image: None,
             draft_question_uuid: DraftQuestionUuid::from_uuid(Uuid::from_u128(1)),
             expected_draft_question_edit_number: DraftQuestionEditNumber::new(2)
                 .expect("positive Draft Question Edit Number"),

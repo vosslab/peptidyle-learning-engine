@@ -44,7 +44,7 @@ export type PleQuestionJsonInstructorAnswerCheck =
     };
 
 export interface PleQuestionJsonPreviewProps {
-  readonly hotspotDraftAsset?: QuestionResponseControlBaseProps["hotspotDraftAsset"];
+  readonly hotspotDraftQuestionImage?: QuestionResponseControlBaseProps["hotspotDraftQuestionImage"];
   /** This PLE Question JSON Public Preview contains no correct answer and is safe for the student-equivalent preview. */
   readonly preview: PleQuestionJsonPublicPreview;
   readonly validator: Pick<WasmFacade, "validateResponseFormat">;
@@ -189,7 +189,7 @@ export function PleQuestionJsonPreview(props: PleQuestionJsonPreviewProps): JSX.
         <p>{props.preview.prompt}</p>
         <QuestionResponseControl
           attemptId="ple-question-json-author-preview"
-          hotspotDraftAsset={props.hotspotDraftAsset}
+          hotspotDraftQuestionImage={props.hotspotDraftQuestionImage}
           responseFormat={props.preview.response}
           mode="formatOnly"
           validator={props.validator}

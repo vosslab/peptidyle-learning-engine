@@ -62,7 +62,7 @@ function requireMatchingTemplateEditNumber(
 ): void {
   assertResponseMatchesPositiveNumber(
     response,
-    template.editNumber,
+    template.assessmentTemplateEditNumber,
     path,
     "Assessment Template Edit Number",
   );

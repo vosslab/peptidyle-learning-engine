@@ -319,7 +319,7 @@ pub(super) fn availability_response(
     question_response(
         Json(QuestionAvailabilityResponse {
             availability,
-            edit_number,
+            question_availability_edit_number: edit_number,
         })
         .into_response(),
         edit_number,

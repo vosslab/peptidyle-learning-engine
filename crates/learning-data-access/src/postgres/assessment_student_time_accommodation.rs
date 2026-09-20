@@ -104,7 +104,7 @@ impl AssessmentStudentTimeAccommodationStore for PostgresAssessmentStudentTimeAc
         let projection = AssessmentStudentTimeAccommodation {
             roster_id: row.try_get("roster_id").map_err(map_sqlx_error)?,
             time_multiplier: stored_multiplier,
-            edit_number: edit.map(|value| value.to_string()),
+            accommodation_edit_number: edit.map(|value| value.to_string()),
             base_duration_seconds: base.map(|value| value as u32),
             effective_duration_seconds: effective.map(|value| value as u32),
             capped_at_24_hours: row.try_get("capped_at_24_hours").map_err(map_sqlx_error)?,

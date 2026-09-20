@@ -7,7 +7,7 @@
 
 use domain::{draft_preview, policy, timing, validation};
 use question_model::presentation::{
-    QuestionAssetRendition, QuestionPresentation, QuestionPresentationResponseFormat,
+    QuestionImageRendition, QuestionPresentation, QuestionPresentationResponseFormat,
     QuestionPresentationToken, rebuild_native_static_question_presentation,
 };
 use question_model::response::{QuestionResponseFormat, StudentResponse};
@@ -184,18 +184,20 @@ pub fn preview_ple_draft(draft_json: &str) -> Result<String, JsValue> {
 #[wasm_bindgen]
 pub fn verify_native_static_presentation_descriptor(
     presentation_json: &str,
-    question_asset_renditions_json: &str,
+    question_image_renditions_json: &str,
     presentation_token: &str,
 ) -> Result<bool, JsValue> {
     let presentation: QuestionPresentation = serde_json::from_str(presentation_json)
         .map_err(|error| JsValue::from_str(&format!("invalid Question Presentation: {error}")))?;
-    let assets: Vec<QuestionAssetRendition> = serde_json::from_str(question_asset_renditions_json)
-        .map_err(|error| JsValue::from_str(&format!("invalid presentation assets: {error}")))?;
+    let question_image_renditions: Vec<QuestionImageRendition> =
+        serde_json::from_str(question_image_renditions_json)
+            .map_err(|error| JsValue::from_str(&format!("invalid presentation images: {error}")))?;
     let expected = QuestionPresentationToken::parse(presentation_token).map_err(|error| {
         JsValue::from_str(&format!("invalid Question Presentation Token: {error}"))
     })?;
-    let presentation = rebuild_native_static_question_presentation(&presentation, &assets)
-        .map_err(|error| JsValue::from_str(&format!("invalid presentation: {error}")))?;
+    let presentation =
+        rebuild_native_static_question_presentation(&presentation, &question_image_renditions)
+            .map_err(|error| JsValue::from_str(&format!("invalid presentation: {error}")))?;
     Ok(presentation.checksum.public_token() == expected)
 }
 

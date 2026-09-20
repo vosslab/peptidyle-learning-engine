@@ -1,5 +1,5 @@
 use question_model::response::{QuestionResponseFormat, ResponseItemId, StudentResponse};
-use question_model::{GradingResult, QuestionAssetId, QuestionAssetTuple};
+use question_model::{GradingResult, QuestionImageAssetId, QuestionImageAssetTuple};
 use uuid::Uuid;
 
 use super::{PLE_QUESTION_JSON_MEDIA_TYPE, PleQuestionJsonDocument, PleQuestionJsonError};
@@ -195,7 +195,7 @@ fn external_image_resource_is_distinguishable_from_nonvisual_resources() {
 }
 
 #[test]
-fn hotspot_publication_retargets_the_complete_question_asset_tuple() {
+fn hotspot_publication_retargets_the_complete_question_image_asset_tuple() {
     let source = br#"{
         "format": "pleQuestionJson",
         "questionTitle": "Locate the active site",
@@ -204,7 +204,7 @@ fn hotspot_publication_retargets_the_complete_question_asset_tuple() {
         "response": {
             "kind": "hotspot",
             "surface": {
-                "questionAssetId": "00000000-0000-4000-8000-000000000001",
+                "questionImageAssetId": "00000000-0000-4000-8000-000000000001",
                 "checksum": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "description": "Protein structure"
             },
@@ -220,23 +220,23 @@ fn hotspot_publication_retargets_the_complete_question_asset_tuple() {
         },
         "language": "en"
     }"#;
-    let replacement = QuestionAssetTuple {
-        question_asset_id: QuestionAssetId::from_uuid(Uuid::from_u128(2)),
+    let replacement = QuestionImageAssetTuple {
+        question_image_asset_id: QuestionImageAssetId::from_uuid(Uuid::from_u128(2)),
         checksum: "b".repeat(64),
     };
 
     let document = PleQuestionJsonDocument::parse(source).expect("hotspot source parses");
     let published = document
-        .with_hotspot_surface_asset(replacement.clone())
+        .with_hotspot_surface_image(replacement.clone())
         .expect("hotspot asset tuple retargets");
     let compiled = published.compile().expect("retargeted source compiles");
 
     let QuestionResponseFormat::Hotspot {
-        question_asset_tuple,
+        question_image_asset_tuple,
         ..
     } = compiled.presentation().response()
     else {
         panic!("retargeted source remains a hotspot question");
     };
-    assert_eq!(question_asset_tuple, &replacement);
+    assert_eq!(question_image_asset_tuple, &replacement);
 }

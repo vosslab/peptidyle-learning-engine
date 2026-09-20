@@ -1,6 +1,6 @@
 //! Pagination and line-wrapping for the deterministic PDF writer.
 
-use question_model::QuestionAssetId;
+use question_model::QuestionImageAssetId;
 
 use crate::FlowBlock;
 
@@ -20,7 +20,7 @@ pub(super) enum RenderBlock {
         lines: Vec<String>,
         keep_with_next: bool,
     },
-    Image(QuestionAssetId),
+    Image(QuestionImageAssetId),
 }
 
 pub(super) fn paginate(

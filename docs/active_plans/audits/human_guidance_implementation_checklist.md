@@ -42,7 +42,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
   - Reason: agent instruction, not implemented PLE product behavior.
 - N/A Robust means the software continues to function despite imperfect inputs, data, state, or behavior.
   - Reason: agent instruction, not implemented PLE product behavior.
-- N/A Treat tests as liabilities as well as assets. Keep only requirements and gates grounded in actual needs.
+- N/A Treat tests as liabilities as well as protection. Keep only requirements and gates grounded in actual needs.
   - Reason: agent instruction, not implemented PLE product behavior.
 - N/A Plans should be finishable by the manager and subagents without additional human interaction.
   - Reason: agent instruction, not implemented PLE product behavior.
@@ -1460,9 +1460,9 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
   - Evidence (test): `tests/e2e/attempt_expiry_connected_oracle.sql` `replay_score` changes points and verifies retained credit is replayed.
 - [x] Changes to Assessment settings do not change the recorded history of completed Assessment Attempts.
   - Evidence (source): `schemas/base_schema/50_functions/assessment_attempt_history.sql` `read_student_assessment_attempt_history` deliberately interprets retained Attempt evidence rather than current Assessment content.
-- [x] Immutable Question source and Question assets use SHA-256 checksums where needed to verify their stored contents.
+- [x] Immutable Question source and Question Image Assets use SHA-256 checksums where needed to verify their stored contents.
   - Evidence (source): `schemas/base_schema/50_functions/question_authoring_state.sql` `source_object_checksum` binds immutable Question-source contents to SHA-256 object records.
-  - Evidence (source): `schemas/base_schema/20_tables/question_assets.sql` `public_object_checksum` binds immutable Question-asset contents to SHA-256 object records.
+  - Evidence (source): `schemas/base_schema/20_tables/question_images.sql` `public_object_checksum` binds immutable Question-asset contents to SHA-256 object records.
 - [x] A public-ID checksum is one embedded character derived from other ID characters.
   - Evidence (source): `crates/question_model/src/question_library.rs` `public_id_checksum_character` derives one Crockford character from the canonical ID characters.
 - [x] A stored-content checksum is a full SHA-256 value verifying exact bytes.
@@ -1537,6 +1537,9 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
   - Evidence (source): `crates/adapters/ple/src/question_json/source_document.rs` `PleQuestionJsonDocumentBody` validates the PLE JSON source form.
 - [x] QTI is for import, export, and archival interchange rather than the internal source model.
   - Evidence (source): `schemas/base_schema/50_functions/question_authoring_state.sql` `workspace_import` treats `qti` as an import format, not a source binding.
+- [x] A QTI ZIP, retained QTI archive, and extracted QTI image are interchange roles, not Question Image
+  Assets.
+  - Evidence (source): `crates/adapters/qti/src/model.rs` `QtiPackageArchive` and `QtiPackageExtractedImage` are import-only; `question_image_asset_id()` is derived at Question bind.
 - [x] MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT Question Types should be supported.
   - Evidence (source): `schemas/base_schema/50_functions/question_lineages.sql` `question_revision` CHECK lists all eight types.
   - Evidence (runtime): `tests/playwright/screenshot_corpus/scenarios_student_types.ts` `captureTypes` supplied current authorized Student delivery of each eight released native types at laptop and phone widths (18 unanswered captures including WeBWorK); exact issued Question Revision membership and permitted-response privacy checks passed. This is private presentation coverage, not an eight-type interaction matrix. Receipt: `/private/tmp/ple-resumed-types-20260916.md`.
@@ -1610,8 +1613,8 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [x] Native interactive Question Types such as HOTSPOT use PLE-owned interaction code.
   - Evidence (source): `src/components/question_response_controls/question_response_control.tsx` `QuestionResponseControl` dispatches a delivered `hotspot` format to `HotspotResponse`; `src/components/question_response_controls/hotspot.tsx` `HotspotResponse` owns the image overlay, labeled native region controls, response serialization, and Save handoff.
   - Evidence (runtime): `tests/playwright/screenshot_corpus/hotspot_workflow.ts` `exerciseHotspot` passed unchanged for Avery's pointer input and Jack's keyboard Space input: each selected the PLE-owned region, saved, reloaded the exact issued Question ID and Revision with the selection intact, submitted the whole Attempt, and received `Marked correct.` from server grading. Receipt: `/private/tmp/ple-hotspot-connected-interaction-20260916.md`.
-- [ ] HOTSPOT content uses supported static assets such as images and SVG.
-  - Evidence (source): `schemas/base_schema/50_functions/draft_question_assets.sql` `validate_draft_question_asset` accepts only bounded PNG, JPEG, and WebP raster evidence; `src/components/question_response_controls/hotspot.tsx` `HotspotResponse` renders the revision-pinned image surface.
+- [ ] HOTSPOT content uses supported still images and SVG.
+  - Evidence (source): `schemas/base_schema/50_functions/draft_question_images.sql` `validate_draft_question_image` accepts only bounded PNG, JPEG, and WebP raster evidence; `src/components/question_response_controls/hotspot.tsx` `HotspotResponse` renders the revision-pinned image surface.
   - Verification pending: Connected canonical proof now covers a prepared published raster image, its loaded Student surface, and selection. SVG remains unsupported because the accepted media types exclude `image/svg+xml`, so the images-and-SVG requirement remains open.
 - [ ] Grading and correctness decisions remain server-owned and independent of author-supplied JavaScript.
   - Mismatch: author JavaScript is absent; no runtime proof covers this interaction boundary.
@@ -1772,7 +1775,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [x] The Question owner may publish corrections, wording changes, accessibility improvements, answer changes, grading changes, and other updates as a new Revision.
   - Evidence (source): `schemas/base_schema/50_functions/question_publication_operations.sql` `publish_question_revision` appends an owner-authored revision.
 - [ ] Changing Question source, answer content, grading rules, Hints, Question Feedback, Worked Solutions,
-  or Question assets creates a new Question Revision.
+  or Question Image Assets creates a new Question Revision.
   - Evidence (source): `schemas/base_schema/50_functions/question_authoring_operations.sql` `ple_api.save_authoring_draft_general_feedback` stores immutable Revision `general_feedback` separately from the private source binding; `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns it independently of backend teaching-content projection.
   - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
   - Mismatch: `schemas/base_schema/50_functions/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.

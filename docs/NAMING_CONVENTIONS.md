@@ -51,7 +51,7 @@ their owner's spelling.
 | Typed internal UUID | `Uuid` / `_uuid` | `AssessmentAttemptUuid`, `assessment_attempt_uuid` |
 | Public product ID | reviewed `Id` term | `CourseInstanceId` |
 | Immutable Revision number | `RevisionNumber` | `QuestionRevisionNumber`, `BlueprintRevisionNumber` |
-| Composite exact identity | `Tuple` | `QuestionRevisionTuple`, `BlueprintRevisionTuple`, `QuestionAssetTuple`, `CourseRosterTuple`; JSON fields `questionRevisionTuple` / `blueprintRevisionTuple` / `questionAssetTuple` / `courseRosterTuple` |
+| Composite exact identity | `Tuple` | `QuestionRevisionTuple`, `BlueprintRevisionTuple`, `QuestionImageAssetTuple`, `CourseRosterTuple`; JSON fields `questionRevisionTuple` / `blueprintRevisionTuple` / `questionImageAssetTuple` / `courseRosterTuple` |
 | Genuine indirect, scoped, or external locator | `Reference` | Use only when a simpler Id, Tuple, path, key, handle, or token is inaccurate |
 | Current-state concurrency | `EditNumber` | `AssessmentEditNumber`, `BlueprintEditNumber`, `DraftQuestionEditNumber`; JSON `assessmentEditNumber`, `draftQuestionEditNumber`, `expectedAssessmentEditNumber` |
 | Integrity value | `Checksum` | `ObjectChecksum` |
@@ -88,10 +88,18 @@ sibling ID-plus-number fields. Course Instance adoption uses
 Assessment Blueprint Update and known forks use named Blueprint Revision
 Tuples such as `expectedSourceBlueprintRevisionTuple`.
 
-`QuestionAssetTuple` members are `{questionAssetId, checksum}`. Every field
-holding that Tuple is `questionAssetTuple`. Object Address members are
-`objectId`, `questionAssetId`, `workspaceId`, `workspaceImportId`,
+`QuestionImageAssetTuple` members are `{questionImageAssetId, checksum}`. Every
+field holding that Tuple is `questionImageAssetTuple`. Object Address members
+are `objectId`, `questionImageAssetId`, `workspaceId`, `workspaceImportId`,
 `courseBannerId`, and `draftQuestionId`.
+
+QTI interchange names the untrusted incoming ZIP `QtiPackageUploadFile`, the
+retained original `QtiPackageArchive`, and a still-image extracted during
+import `QtiPackageExtractedImage`. A Question-bound displayed still image is
+`QuestionImageAsset`. The authorized delivered form is
+`QuestionImageRendition`. `Object` / `ObjectId` is only the physical storage
+record. Course Banner and Profile Image keep their own identities. WeBWorK
+renderer static files are not Question Image Assets.
 
 Student Work Recovery uses `CourseRosterTuple { courseInstanceId, rosterId }`
 with typed Course, Assessment, Attempt, and Question Revision identities. It
@@ -132,7 +140,7 @@ Question/Pool ID remains `QuestionId`/`PoolId` because ID is its product name.
 | Assessment | `assessment_id` / `AssessmentId`; Blueprint Assessment or Course Instance Assessment where scope matters |
 | Assessment Attempt | `assessment_attempt_id` UUID and current whole-submission state |
 | Saved response | UUID of the saved-response row; never a Student submission |
-| Object | `object_record_id` UUID plus typed owner/scope; Object Address members use `objectId`, `questionAssetId`, `workspaceId`, `workspaceImportId`, `courseBannerId`, and `draftQuestionId` |
+| Object | `object_record_id` UUID plus typed owner/scope; Object Address members use `objectId`, `questionImageAssetId`, `workspaceId`, `workspaceImportId`, `courseBannerId`, and `draftQuestionId` |
 | Service work | Exact operation target plus lease only when asynchronous work is required |
 
 Current `assignment_uuid`, `assignment_attempt_uuid`, `QuestionAttempt`, or

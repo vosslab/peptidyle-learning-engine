@@ -66,7 +66,7 @@ CREATE FUNCTION ple_api.load_instructor_student_view_question_source(
     source_object_checksum text,
     source_media_type text,
     webwork_pg_path text,
-    question_asset_renditions jsonb
+    question_image_renditions jsonb
 )
 LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
@@ -149,14 +149,14 @@ BEGIN
            COALESCE((
                SELECT jsonb_agg(
                    jsonb_build_object(
-                       'asset_id', rendition.asset_id,
-                       'question_asset_checksum', rendition.question_asset_checksum,
+                       'question_image_asset_id', rendition.question_image_asset_id,
+                       'question_image_checksum', rendition.question_image_checksum,
                        'rendition_checksum', rendition.rendition_checksum,
                        'intrinsic_width', rendition.intrinsic_width,
                        'intrinsic_height', rendition.intrinsic_height
-                   ) ORDER BY rendition.asset_id
+                   ) ORDER BY rendition.question_image_asset_id
                )
-                 FROM ple_api.select_ready_question_asset_renditions(
+                 FROM ple_api.select_ready_question_image_renditions(
                      p_published_question_id, p_question_revision_number
                  ) AS rendition
            ), '[]'::jsonb)

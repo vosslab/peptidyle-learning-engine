@@ -82,7 +82,7 @@ CREATE FUNCTION ple_private.publish_question_revision(
     p_target_object_id uuid, p_target_object_address jsonb,
     p_target_sha256 bytea, p_target_size_bytes bigint, p_target_media_type text,
     p_target_created_at_millis bigint, p_reason_for_edit text, p_publication_event_id uuid,
-    p_hotspot_asset jsonb
+    p_hotspot_question_image jsonb
 ) RETURNS integer LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
@@ -238,8 +238,8 @@ BEGIN
      WHERE published_question_id = p_published_question_id;
     INSERT INTO ple_data.question_publication_event(event_id, published_question_id, revision_number, actor_account_id, occurred_at)
     VALUES (p_publication_event_id, p_published_question_id, v_next_question_revision_number, actor_id, published_at);
-    PERFORM ple_private.bind_draft_asset_publication(p_draft_question_uuid, p_authoring_workspace_id,
-        p_published_question_id, v_next_question_revision_number, binding.backend, binding.question_type, p_hotspot_asset, published_at);
+    PERFORM ple_private.bind_draft_question_image_publication(p_draft_question_uuid, p_authoring_workspace_id,
+        p_published_question_id, v_next_question_revision_number, binding.backend, binding.question_type, p_hotspot_question_image, published_at);
     RETURN v_next_question_revision_number;
 END
 $$;
@@ -285,7 +285,7 @@ CREATE FUNCTION ple_api.publish_question_revision(
     p_target_object_id uuid, p_target_object_address jsonb,
     p_target_sha256 bytea, p_target_size_bytes bigint, p_target_media_type text,
     p_target_created_at_millis bigint, p_reason_for_edit text, p_publication_event_id uuid,
-    p_hotspot_asset jsonb
+    p_hotspot_question_image jsonb
 ) RETURNS integer LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT ple_private.publish_question_revision(
@@ -293,7 +293,7 @@ SET search_path = pg_catalog, ple_api, ple_private AS $$
         p_expected_parent_question_revision_number, p_target_object_id, p_target_object_address,
         p_target_sha256, p_target_size_bytes,
         p_target_media_type, p_target_created_at_millis, p_reason_for_edit, p_publication_event_id,
-        p_hotspot_asset)
+        p_hotspot_question_image)
 $$;
 
 SET LOCAL ROLE ple_private_owner;
@@ -356,7 +356,7 @@ CREATE FUNCTION ple_private.publish_new_question_lineage(
     p_initial_shared_tags text[], p_discipline_uuid uuid, p_subject_uuid uuid,
     p_topic_uuid uuid, p_subtopic_uuid uuid, p_license text,
     p_reason_for_edit text, p_ownership_event_id uuid, p_publication_event_id uuid,
-    p_availability_event_id uuid, p_hotspot_asset jsonb
+    p_availability_event_id uuid, p_hotspot_question_image jsonb
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
@@ -496,8 +496,8 @@ BEGIN
     INSERT INTO ple_data.question_availability_event(
         event_id, published_question_id, actor_account_id, availability, edit_number, reason, occurred_at
     ) VALUES (p_availability_event_id, p_published_question_id, actor_id, 'available', 1, NULL, published_at);
-    PERFORM ple_private.bind_draft_asset_publication(p_draft_question_uuid, p_authoring_workspace_id,
-        p_published_question_id, 1, binding.backend, binding.question_type, p_hotspot_asset, published_at);
+    PERFORM ple_private.bind_draft_question_image_publication(p_draft_question_uuid, p_authoring_workspace_id,
+        p_published_question_id, 1, binding.backend, binding.question_type, p_hotspot_question_image, published_at);
 END
 $$;
 
@@ -520,7 +520,7 @@ CREATE FUNCTION ple_api.publish_new_question_lineage(
     p_initial_shared_tags text[], p_discipline_uuid uuid, p_subject_uuid uuid,
     p_topic_uuid uuid, p_subtopic_uuid uuid, p_license text,
     p_reason_for_edit text, p_ownership_event_id uuid, p_publication_event_id uuid,
-    p_availability_event_id uuid, p_hotspot_asset jsonb
+    p_availability_event_id uuid, p_hotspot_question_image jsonb
 ) RETURNS void LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT ple_private.publish_new_question_lineage(p_draft_question_uuid, p_expected_draft_question_edit_number,
@@ -529,6 +529,6 @@ SET search_path = pg_catalog, ple_api, ple_private AS $$
         p_initial_shared_tags, p_discipline_uuid, p_subject_uuid,
         p_topic_uuid, p_subtopic_uuid, p_license,
         p_reason_for_edit, p_ownership_event_id, p_publication_event_id, p_availability_event_id,
-        p_hotspot_asset)
+        p_hotspot_question_image)
 $$;
 

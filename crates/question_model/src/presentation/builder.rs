@@ -16,16 +16,16 @@ use crate::{
     QuestionVariationPresentation,
 };
 
-use super::assets::{validate_assets, validate_public_assets};
 use super::binding::QuestionPresentationBinding;
 use super::codec::{
     QuestionPresentationChecksum, crc16_ccitt_false, descriptor_bytes, item_basis_bytes,
 };
 use super::model::{
-    PresentationResponseItemId, QuestionAssetRendition, QuestionPresentation,
+    PresentationResponseItemId, QuestionImageRendition, QuestionPresentation,
     QuestionPresentationNonce, QuestionPresentationResponseFormat,
 };
 use super::public_response_items::public_item_bindings;
+use super::question_images::{validate_public_question_images, validate_question_images};
 const MAX_PRESENTED_ITEMS: usize = 32;
 const MAX_NONCE_ATTEMPTS: usize = 8;
 const NUMERIC_MAX_CHARACTERS: u32 = 128;
@@ -81,7 +81,7 @@ pub(super) struct ResponseItemBasis {
     pub ordinal: u32,
     pub label: Option<String>,
     pub content: Vec<QuestionContentBlock>,
-    pub assets: Vec<QuestionAssetRendition>,
+    pub question_image_renditions: Vec<QuestionImageRendition>,
     pub hotspot_width: Option<u32>,
     pub hotspot_height: Option<u32>,
     pub hotspot_regions: Vec<PendingHotspotRegionGeometry>,
@@ -111,7 +111,7 @@ pub struct IssuedQuestionPresentation {
     /// Server-only tagged reproduction evidence. It never crosses the public
     /// Question Presentation boundary.
     pub reproduction: QuestionReproduction,
-    pub question_asset_renditions: Vec<QuestionAssetRendition>,
+    pub question_image_renditions: Vec<QuestionImageRendition>,
     pub item_bindings: Vec<ResponseItemBinding>,
     /// Server-only isolated author-content evidence. It is not part of the
     /// generic browser `QuestionPresentation` DTO.
@@ -174,11 +174,11 @@ impl QuestionPresentationNonceSource for OperatingSystemQuestionPresentationNonc
 /// Builds one presentation using operating-system randomness.
 pub fn build_question_presentation(
     presentation: &QuestionVariationPresentation,
-    question_asset_renditions: &[QuestionAssetRendition],
+    question_image_renditions: &[QuestionImageRendition],
 ) -> Result<IssuedQuestionPresentation, PresentationBuildError> {
     build_question_presentation_with_nonce_source(
         presentation,
-        question_asset_renditions,
+        question_image_renditions,
         &mut OperatingSystemQuestionPresentationNonceSource,
     )
 }
@@ -196,13 +196,13 @@ impl QuestionPresentationNonceSource for PersistedNonceSource {
 /// Rebuilds the server-issued Question Presentation from its durable nonce and checksum.
 pub fn reproduce_question_presentation(
     presentation: &QuestionVariationPresentation,
-    question_asset_renditions: &[QuestionAssetRendition],
+    question_image_renditions: &[QuestionImageRendition],
     binding: QuestionPresentationBinding,
 ) -> Result<IssuedQuestionPresentation, PresentationBuildError> {
     let mut nonce = PersistedNonceSource(Some(binding.nonce().as_bytes()));
     let presentation = build_question_presentation_with_nonce_source(
         presentation,
-        question_asset_renditions,
+        question_image_renditions,
         &mut nonce,
     )?;
     if presentation.checksum != binding.checksum() {
@@ -215,12 +215,12 @@ pub fn reproduce_question_presentation(
 /// Builds one presentation using an injected nonce source.
 pub fn build_question_presentation_with_nonce_source<N: QuestionPresentationNonceSource>(
     presentation: &QuestionVariationPresentation,
-    question_asset_renditions: &[QuestionAssetRendition],
+    question_image_renditions: &[QuestionImageRendition],
     nonce_source: &mut N,
 ) -> Result<IssuedQuestionPresentation, PresentationBuildError> {
     build_with_hasher(
         presentation,
-        question_asset_renditions,
+        question_image_renditions,
         nonce_source,
         crc16_ccitt_false,
     )
@@ -234,7 +234,7 @@ pub fn build_question_presentation_with_nonce_source<N: QuestionPresentationNonc
 /// through [`rebuild_question_presentation_with_reproduction`].
 pub fn rebuild_native_static_question_presentation(
     presentation: &QuestionPresentation,
-    question_asset_renditions: &[QuestionAssetRendition],
+    question_image_renditions: &[QuestionImageRendition],
 ) -> Result<IssuedQuestionPresentation, PresentationBuildError> {
     if matches!(
         presentation.response,
@@ -247,7 +247,7 @@ pub fn rebuild_native_static_question_presentation(
     }
     rebuild_question_presentation_with_reproduction(
         presentation,
-        question_asset_renditions,
+        question_image_renditions,
         QuestionReproduction::Static,
     )
 }
@@ -259,12 +259,12 @@ pub fn rebuild_native_static_question_presentation(
 /// reproduction evidence they retained alongside the presentation.
 pub fn rebuild_question_presentation_with_reproduction(
     presentation: &QuestionPresentation,
-    question_asset_renditions: &[QuestionAssetRendition],
+    question_image_renditions: &[QuestionImageRendition],
     reproduction: QuestionReproduction,
 ) -> Result<IssuedQuestionPresentation, PresentationBuildError> {
     rebuild_question_presentation_with_reproduction_and_author_content(
         presentation,
-        question_asset_renditions,
+        question_image_renditions,
         reproduction,
         None,
     )
@@ -274,7 +274,7 @@ pub fn rebuild_question_presentation_with_reproduction(
 /// content. The generic browser presentation deliberately cannot carry it.
 pub fn rebuild_question_presentation_with_reproduction_and_author_content(
     presentation: &QuestionPresentation,
-    question_asset_renditions: &[QuestionAssetRendition],
+    question_image_renditions: &[QuestionImageRendition],
     reproduction: QuestionReproduction,
     author_content: Option<AuthorContentPresentation>,
 ) -> Result<IssuedQuestionPresentation, PresentationBuildError> {
@@ -285,7 +285,7 @@ pub fn rebuild_question_presentation_with_reproduction_and_author_content(
             "author content digest does not match retained descriptor",
         ));
     }
-    let assets = validate_public_assets(presentation, question_asset_renditions)?;
+    let assets = validate_public_question_images(presentation, question_image_renditions)?;
     let item_bindings = public_item_bindings(&presentation.response, &assets)?;
     if item_bindings.len() > MAX_PRESENTED_ITEMS {
         return Err(PresentationBuildError::TooManyItems);
@@ -302,7 +302,7 @@ pub fn rebuild_question_presentation_with_reproduction_and_author_content(
     let mut presentation = IssuedQuestionPresentation {
         presentation: presentation.clone(),
         reproduction,
-        question_asset_renditions: assets,
+        question_image_renditions: assets,
         item_bindings,
         author_content,
         checksum: QuestionPresentationChecksum::zero(),
@@ -389,7 +389,7 @@ pub fn rebind_durable_response_item_bindings(
 #[cfg(test)]
 pub(super) fn build_question_presentation_with_hasher<N, H>(
     presentation: &QuestionVariationPresentation,
-    question_asset_renditions: &[QuestionAssetRendition],
+    question_image_renditions: &[QuestionImageRendition],
     nonce_source: &mut N,
     hasher: H,
 ) -> Result<IssuedQuestionPresentation, PresentationBuildError>
@@ -399,14 +399,14 @@ where
 {
     build_with_hasher(
         presentation,
-        question_asset_renditions,
+        question_image_renditions,
         nonce_source,
         hasher,
     )
 }
 fn build_with_hasher<N, H>(
     presentation: &QuestionVariationPresentation,
-    question_asset_renditions: &[QuestionAssetRendition],
+    question_image_renditions: &[QuestionImageRendition],
     nonce_source: &mut N,
     mut hasher: H,
 ) -> Result<IssuedQuestionPresentation, PresentationBuildError>
@@ -414,7 +414,7 @@ where
     N: QuestionPresentationNonceSource,
     H: FnMut(&[u8]) -> u16,
 {
-    let assets = validate_assets(presentation, question_asset_renditions)?;
+    let assets = validate_question_images(presentation, question_image_renditions)?;
     for _ in 0..MAX_NONCE_ATTEMPTS {
         let nonce = QuestionPresentationNonce::from_bytes(nonce_source.next_nonce()?);
         let pending = pending_items(presentation, &assets, nonce)?;
@@ -449,7 +449,7 @@ where
         let mut presentation = IssuedQuestionPresentation {
             presentation: public,
             reproduction: presentation.variation.reproduction.clone(),
-            question_asset_renditions: assets.clone(),
+            question_image_renditions: assets.clone(),
             item_bindings: bindings,
             author_content: presentation.author_content.clone(),
             checksum: QuestionPresentationChecksum::zero(),

@@ -25,7 +25,7 @@ not a new authorization claim.
 | Record or capability                                            | Exact owner or scope                                                  | Authorization                                                   |
 | --------------------------------------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------- |
 | Account, Authentication Email, required passkeys, session       | Global `AccountId` and Authenticated Session                          | Account/session contract; passkeys remain an implementation gap |
-| Published question and presentation asset                       | Stable `QuestionId` lineage and immutable Question Revision Tuple | Every active Instructor                                         |
+| Published Question and Question Image Rendition                 | Stable `QuestionId` lineage and immutable Question Revision Tuple | Every active Instructor                                         |
 | Draft Question or private curriculum workspace                  | `WorkspaceId` and Authoring Workspace relationship                    | Authoring Workspace Owner or Workspace Collaborator             |
 | Blueprint Course metadata or Blueprint Revision                 | Exact Blueprint Course and current Revision Tuple                 | Blueprint Course Owner                                          |
 | Course, roster, Assessment, schedule                            | Exact `CourseInstanceId` and child identity                                   | Current equal co-Instructor Course relationship                 |

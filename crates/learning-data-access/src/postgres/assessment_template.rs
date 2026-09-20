@@ -106,7 +106,7 @@ impl AssessmentTemplateStore for PostgresAssessmentTemplateStore {
         session_token_hash: SessionTokenHash,
         template: AssessmentTemplate,
     ) -> Result<AssessmentTemplate, StoreError> {
-        if template.edit_number != AssessmentTemplateEditNumber::INITIAL {
+        if template.assessment_template_edit_number != AssessmentTemplateEditNumber::INITIAL {
             return Err(StoreError::InvalidRecord(
                 "new Assessment Template must have initial Edit Number".to_owned(),
             ));
@@ -243,7 +243,7 @@ fn decode_template(row: sqlx::postgres::PgRow) -> Result<AssessmentTemplate, Sto
         name,
         assessment_type,
         settings,
-        edit_number,
+        assessment_template_edit_number: edit_number,
     })
 }
 

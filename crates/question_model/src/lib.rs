@@ -192,7 +192,7 @@ pub use crate::feedback::{
 };
 pub use crate::generation::{QuestionReproduction, QuestionSeed, QuestionSourceSelection};
 pub use crate::identity::{
-    ObjectId, QuestionAssetId, QuestionRevisionNumber, WorkspaceId, WorkspaceImportId,
+    ObjectId, QuestionImageAssetId, QuestionRevisionNumber, WorkspaceId, WorkspaceImportId,
 };
 pub use crate::library_discussion::{
     LibraryObjectKind, LibraryObjectTuple, LibraryStewardshipEvent,
@@ -204,7 +204,7 @@ pub use crate::presentation::{
     PresentationResponseItemId, PresentedHotspotRegion, PresentedHotspotSurface,
     PresentedMatchingChoice, PresentedMatchingPrompt, PresentedOrderingItem,
     PresentedQuestionChoice, PresentedResponseItemContent, PresentedTextEntrySlot,
-    QuestionAssetRendition, QuestionPresentation, QuestionPresentationBinding,
+    QuestionImageRendition, QuestionPresentation, QuestionPresentationBinding,
     QuestionPresentationChecksum, QuestionPresentationNonce, QuestionPresentationResponseFormat,
     QuestionPresentationToken, StudentAssessmentAttemptScreen,
     StudentAssessmentAttemptScreenAttempt, StudentAssessmentAttemptScreenScope,
@@ -239,8 +239,8 @@ pub use crate::question_backend_fields::{
 pub use crate::question_citation::{QuestionCitation, QuestionCitationError};
 pub use crate::question_content::{
     DraftQuestionSummary, MAX_QUESTION_DESCRIPTION_UNICODE_SCALARS,
-    MAX_QUESTION_TITLE_UNICODE_SCALARS, QuestionAssetTuple, QuestionContentBlock,
-    QuestionDescriptionError, QuestionFormat, QuestionMetadata, QuestionTitleError,
+    MAX_QUESTION_TITLE_UNICODE_SCALARS, QuestionContentBlock, QuestionDescriptionError,
+    QuestionFormat, QuestionImageAssetTuple, QuestionMetadata, QuestionTitleError,
     validate_question_description, validate_question_title,
 };
 pub use crate::question_library::{

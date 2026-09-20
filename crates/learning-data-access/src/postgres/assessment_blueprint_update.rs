@@ -22,6 +22,9 @@ use crate::{
     blueprint_course::{StoredBlueprintAssessment, StoredBlueprintAssessmentEntry},
 };
 
+const APPLY_ASSESSMENT_BLUEPRINT_UPDATE_SQL: &str =
+    "SELECT ple_api.apply_assessment_blueprint_update($1, $2, $3, $4, $5)";
+
 struct UpdateSource {
     source_blueprint_revision_tuple: BlueprintRevisionTuple,
     member: Option<StoredBlueprintAssessment>,
@@ -165,7 +168,7 @@ pub(super) async fn apply(
     };
     // ASVS 1.2.4, 2.3.3: parameterized exact-source projection; the database
     // validates it, preserves locked dates, establishes forks, and saves once.
-    sqlx::query("SELECT ple_api.apply_assessment_blueprint_update($1, $2, $3, $4, $5)")
+    sqlx::query(APPLY_ASSESSMENT_BLUEPRINT_UPDATE_SQL)
         .bind(course_instance_id.as_string())
         .bind(assessment_id.as_string())
         .bind(integer(
@@ -329,4 +332,17 @@ fn update_error(error: sqlx::Error) -> StoreError {
         }
     }
     map_sqlx_error(error)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::APPLY_ASSESSMENT_BLUEPRINT_UPDATE_SQL;
+
+    #[test]
+    fn apply_query_names_the_canonical_api() {
+        assert!(
+            APPLY_ASSESSMENT_BLUEPRINT_UPDATE_SQL
+                .contains("ple_api.apply_assessment_blueprint_update")
+        );
+    }
 }

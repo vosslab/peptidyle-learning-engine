@@ -6,8 +6,9 @@ use objects::{
     Sha256Checksum,
 };
 use question_model::{
-    CourseBannerId, CourseBannerUploadId, CourseInstanceId, ObjectId, QuestionAssetId, QuestionId,
-    QuestionRevisionNumber, QuestionRevisionTuple, Timestamp, WorkspaceId, WorkspaceImportId,
+    CourseBannerId, CourseBannerUploadId, CourseInstanceId, ObjectId, QuestionId,
+    QuestionImageAssetId, QuestionRevisionNumber, QuestionRevisionTuple, Timestamp, WorkspaceId,
+    WorkspaceImportId,
 };
 use uuid::Uuid;
 
@@ -72,9 +73,9 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         Err(ObjectStoreError::NotSignable),
         "published import evidence must remain server-only"
     );
-    let asset_key = ObjectAddress::QuestionAsset {
+    let asset_key = ObjectAddress::QuestionImage {
         question_revision_tuple: question_revision_tuple(2),
-        question_asset_id: QuestionAssetId::from_uuid(id(13)),
+        question_image_asset_id: QuestionImageAssetId::from_uuid(id(13)),
         object_id: ObjectId::from_uuid(id(14)),
     };
     store
@@ -97,7 +98,7 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
             .expect("published asset should be stored")
             .record
             .data_class,
-        ObjectDataClass::QuestionAsset
+        ObjectDataClass::QuestionImage
     );
     let student_key = ObjectAddress::StudentRecord {
         course_instance_id: CourseInstanceId::from_debug_serial(4),
@@ -203,10 +204,10 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         workspace_id: WorkspaceId::from_uuid(id(8)),
         object_id: ObjectId::from_uuid(id(15)),
     };
-    let workspace_import_asset = ObjectAddress::WorkspaceImportAsset {
+    let workspace_import_asset = ObjectAddress::WorkspaceImportExtractedImage {
         workspace_id: WorkspaceId::from_uuid(id(8)),
         workspace_import_id: WorkspaceImportId::from_uuid(id(9)),
-        question_asset_id: QuestionAssetId::from_uuid(id(11)),
+        question_image_asset_id: QuestionImageAssetId::from_uuid(id(11)),
         object_id: ObjectId::from_uuid(id(12)),
     };
     for key in [

@@ -23,7 +23,7 @@ use crate::{
 #[serde(rename_all = "camelCase")]
 pub struct InstructorStudentView {
     /// Exact current authored Assessment state used for this projection.
-    pub edit_number: AssessmentEditNumber,
+    pub assessment_edit_number: AssessmentEditNumber,
     /// Current stable Assessment lifecycle.
     pub status: AssessmentStatus,
     /// Student-facing Assessment title.
@@ -134,5 +134,28 @@ mod tests {
                 }]
             })
         );
+    }
+
+    #[test]
+    fn instructor_student_view_serializes_assessment_edit_number() {
+        let view = InstructorStudentView {
+            assessment_edit_number: "3".parse().expect("Assessment Edit Number"),
+            status: AssessmentStatus::Unreleased,
+            title: crate::AssessmentTitle::try_new("Quiz".to_string()).expect("title"),
+            instructions: AssessmentInstructions::default(),
+            display_time_zone: AccountTimeZone::parse("America/Chicago").expect("zone"),
+            delivery: InstructorStudentViewDelivery {
+                available_at: None,
+                due_at: None,
+                closes_at: None,
+                assessment_attempt_time_limit_seconds: None,
+                attempt_limit: None,
+                late_work_rule: LateWorkRule::Reject,
+            },
+            entries: Vec::new(),
+        };
+        let wire = serde_json::to_value(&view).expect("manifest serializes");
+        assert_eq!(wire["assessmentEditNumber"], "3");
+        assert!(wire.get("editNumber").is_none());
     }
 }

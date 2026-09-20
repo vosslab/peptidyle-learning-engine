@@ -5,7 +5,7 @@
 
 use async_trait::async_trait;
 use objects::ObjectRecord;
-use question_model::{QuestionAssetTuple, QuestionFormat, QuestionType, WorkspaceId};
+use question_model::{QuestionFormat, QuestionImageAssetTuple, QuestionType, WorkspaceId};
 use uuid::Uuid;
 
 use crate::{DraftQuestionEditNumber, DraftQuestionUuid, SessionTokenHash, StoreError};
@@ -68,7 +68,7 @@ pub struct CreateAuthoringDraftInput {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SaveAuthoringDraftInput {
     /// Exact native HOTSPOT surface derived from validated source, not browser metadata.
-    pub hotspot_surface: Option<QuestionAssetTuple>,
+    pub hotspot_surface: Option<QuestionImageAssetTuple>,
     /// Draft Question selected from the authorized private UUID.
     pub draft_question_uuid: DraftQuestionUuid,
     /// Current browser concurrency token.

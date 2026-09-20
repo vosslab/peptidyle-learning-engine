@@ -461,17 +461,20 @@ function decodeChoiceResponse(
 
 function decodeHotspotSurface(value: unknown, path: string): PleQuestionJsonHotspotSurface {
   const record = decodeRecord(value, path);
-  onlyFields(record, path, ["questionAssetId", "checksum", "description"]);
-  const questionAssetId = string(field(record, "questionAssetId", path), `${path}.questionAssetId`);
-  if (!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/iu.test(questionAssetId)) {
-    throw new DecodeError(`${path}.questionAssetId`, "a UUID");
+  onlyFields(record, path, ["questionImageAssetId", "checksum", "description"]);
+  const questionImageAssetId = string(
+    field(record, "questionImageAssetId", path),
+    `${path}.questionImageAssetId`,
+  );
+  if (!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/iu.test(questionImageAssetId)) {
+    throw new DecodeError(`${path}.questionImageAssetId`, "a UUID");
   }
   const checksum = string(field(record, "checksum", path), `${path}.checksum`);
   if (!/^[0-9a-f]{64}$/u.test(checksum)) {
     throw new DecodeError(`${path}.checksum`, "a lowercase SHA-256 checksum");
   }
   return {
-    questionAssetId,
+    questionImageAssetId,
     checksum,
     description: boundedText(
       field(record, "description", path),

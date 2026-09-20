@@ -5,13 +5,13 @@
 //! issued question and route a student response back to that exact
 //! presentation.
 
-mod assets;
 mod binding;
 mod builder;
 mod choice_order;
 mod codec;
 mod model;
 mod public_response_items;
+mod question_images;
 mod response_translation;
 mod response_validation;
 
@@ -34,7 +34,7 @@ pub use model::{
     PresentationResponseItemId, PresentedHotspotRegion, PresentedHotspotSurface,
     PresentedMatchingChoice, PresentedMatchingPrompt, PresentedOrderingItem,
     PresentedQuestionChoice, PresentedResponseItemContent, PresentedTextEntrySlot,
-    QuestionAssetRendition, QuestionPresentation, QuestionPresentationNonce,
+    QuestionImageRendition, QuestionPresentation, QuestionPresentationNonce,
     QuestionPresentationResponseFormat, QuestionPresentationToken, StudentAssessmentAttemptScreen,
     StudentAssessmentAttemptScreenAttempt, StudentAssessmentAttemptScreenScope,
     StudentAttemptDescriptor,

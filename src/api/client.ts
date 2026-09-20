@@ -1,6 +1,6 @@
 // client.ts - the only API shape consumed by browser routes and components.
 
-import type { QuestionAssetId } from "../../generated/api/QuestionAssetId";
+import type { QuestionImageAssetId } from "../../generated/api/QuestionImageAssetId";
 import type { QuestionRevisionTuple } from "../../generated/api/QuestionRevisionTuple";
 import type { AssessmentId } from "../../generated/api/AssessmentId";
 import type { AssessmentAttempt } from "../../generated/api/AssessmentAttempt";
@@ -205,10 +205,10 @@ export interface ApiClient
   ) => Promise<StudentAssessmentProgress>;
   /** Same-origin POST that authorizes, audits, and returns one normalized course banner. */
   readonly fetchCourseBanner: (bannerId: CourseBannerId) => Promise<Blob>;
-  /** Exact immutable Question Revision asset redirect path; it never issues a capability. */
-  readonly assetUrl: (
+  /** Exact immutable Question Revision image redirect path; it never issues a capability. */
+  readonly questionImageUrl: (
     questionRevisionTuple: QuestionRevisionTuple,
-    assetId: QuestionAssetId,
+    questionImageAssetId: QuestionImageAssetId,
   ) => string;
   readonly validateResponseFormatOnServer: FormatValidator;
   readonly questionAttemptTimingDecisionOnServer: TimerEvaluator;
