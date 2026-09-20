@@ -22,11 +22,13 @@ pub(super) fn question_id(value: String) -> Result<QuestionId, StoreError> {
 }
 
 pub(super) fn question_revision_tuple(
-    question_id: String,
+    published_question_id: String,
     revision_number: i32,
 ) -> Result<QuestionRevisionTuple, StoreError> {
     Ok(QuestionRevisionTuple {
-        question_id: question_id.parse().map_err(|_| invalid("Question ID"))?,
+        question_id: published_question_id
+            .parse()
+            .map_err(|_| invalid("Published Question ID"))?,
         revision_number: QuestionRevisionNumber::new(
             u32::try_from(revision_number).map_err(|_| invalid("Question Revision Number"))?,
         )
@@ -78,7 +80,7 @@ pub(super) fn decode_entries(rows: &[sqlx::postgres::PgRow]) -> Result<Vec<Asses
 }
 #[rustfmt::skip]
 pub(super) fn row_question_revision_tuple(row: &sqlx::postgres::PgRow) -> Result<QuestionRevisionTuple, StoreError> {
-    question_revision_tuple(row.try_get("question_id").map_err(map_sqlx_error)?, row.try_get("question_revision_number").map_err(map_sqlx_error)?)
+    question_revision_tuple(row.try_get("published_question_id").map_err(map_sqlx_error)?, row.try_get("question_revision_number").map_err(map_sqlx_error)?)
 }
 
 #[rustfmt::skip]

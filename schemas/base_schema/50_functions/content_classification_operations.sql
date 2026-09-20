@@ -3,7 +3,7 @@
 SET LOCAL ROLE ple_private_owner;
 
 CREATE FUNCTION ple_private.require_content_classification_actor(p_sysadmin_only boolean)
-RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER
+RETURNS text LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
 DECLARE actor_id text;
 BEGIN
@@ -27,7 +27,7 @@ $$;
 -- no Course membership, Student work, or other FERPA data. Mutations retain the
 -- vetted-identity guard above; installation publishers receive no special bypass.
 CREATE FUNCTION ple_private.require_content_classification_reader()
-RETURNS uuid LANGUAGE plpgsql STABLE SECURITY DEFINER
+RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
 DECLARE actor_id text;
 BEGIN

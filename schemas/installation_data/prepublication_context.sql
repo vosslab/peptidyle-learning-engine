@@ -77,31 +77,15 @@ BEGIN
         );
     END IF;
 
-    SELECT email.account_id INTO sysadmin_id
-      FROM ple_private.account_authentication_email AS email
-     WHERE email.normalized_email = 'morgan.delgado@live-demo.invalid';
-    IF sysadmin_id IS NULL THEN
-        SELECT account.account_id INTO sysadmin_id
-          FROM ple_private.account AS account
-         WHERE account.product_role = 'sysadmin'
-         ORDER BY account.created_at, account.account_id
-         LIMIT 1;
-    END IF;
+    SELECT account.account_id INTO sysadmin_id
+      FROM ple_private.account AS account
+     WHERE account.product_role = 'sysadmin'
+     ORDER BY account.created_at, account.account_id
+     LIMIT 1;
     IF sysadmin_id IS NULL THEN
         INSERT INTO ple_private.account (account_id, product_role, created_at)
         VALUES (account_placeholder, 'sysadmin', pg_catalog.transaction_timestamp())
         RETURNING account_id INTO sysadmin_id;
-    END IF;
-    IF NOT EXISTS (
-        SELECT 1 FROM ple_private.account_authentication_email AS email
-         WHERE email.normalized_email = 'morgan.delgado@live-demo.invalid'
-    ) THEN
-        INSERT INTO ple_private.account_authentication_email (
-            account_id, normalized_email, delivery_email, verified_at, updated_at
-        ) VALUES (
-            sysadmin_id, 'morgan.delgado@live-demo.invalid',
-            'morgan.delgado@live-demo.invalid', clock_timestamp(), clock_timestamp()
-        );
     END IF;
 
     SELECT email.account_id INTO priya

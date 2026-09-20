@@ -6,7 +6,7 @@ SET LOCAL ROLE ple_private_owner;
 -- Requires Question images and Jobs to exist; never a standalone ple_app command.
 CREATE FUNCTION ple_private.bind_draft_question_image_publication(
     p_draft_uuid uuid, p_authoring_workspace_id uuid, p_published_question_id text, p_revision_number integer,
-    p_backend text, p_question_type text, p_question_image jsonb, p_published_at timestamptz
+    p_backend ple_data.question_backend, p_question_type ple_data.question_type, p_question_image jsonb, p_published_at timestamptz
 ) RETURNS void LANGUAGE plpgsql
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
@@ -16,7 +16,8 @@ DECLARE
     draft_question_image ple_private.draft_question_image%ROWTYPE;
     record ple_private.object_record%ROWTYPE;
 BEGIN
-    IF p_backend IS DISTINCT FROM 'ple' OR p_question_type IS DISTINCT FROM 'hotspot' THEN
+    IF p_backend IS DISTINCT FROM 'ple'::ple_data.question_backend
+       OR p_question_type IS DISTINCT FROM 'hotspot'::ple_data.question_type THEN
         IF p_question_image IS NOT NULL THEN
             RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Only native HOTSPOT accepts a prepared Draft Question image';
         END IF;

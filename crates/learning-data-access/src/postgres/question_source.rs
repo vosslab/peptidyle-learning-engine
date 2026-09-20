@@ -54,7 +54,8 @@ impl DraftQuestionPublicationSourceStore for PostgresDraftQuestionSourceBindingS
                 .map_err(map_sqlx_error)?;
         transaction.commit().await.map_err(map_sqlx_error)?;
 
-        let object_id = ObjectId::from_uuid(row.try_get("object_id").map_err(map_sqlx_error)?);
+        let object_id =
+            ObjectId::from_uuid(row.try_get("object_record_id").map_err(map_sqlx_error)?);
         let Json(object_address): Json<ObjectAddress> =
             row.try_get("object_address").map_err(map_sqlx_error)?;
         let checksum: Vec<u8> = row.try_get("sha256").map_err(map_sqlx_error)?;

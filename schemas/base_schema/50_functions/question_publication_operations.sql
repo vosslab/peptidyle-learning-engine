@@ -38,8 +38,9 @@ BEGIN
     END IF;
     SELECT * INTO existing FROM ple_private.draft_question_source_binding
      WHERE draft_question_id = p_draft_question_uuid FOR UPDATE;
-    IF FOUND AND existing.backend = p_backend AND existing.question_format = p_question_format
-       AND existing.question_type = p_question_type
+    IF FOUND AND existing.backend = p_backend::ple_data.question_backend
+       AND existing.question_format = p_question_format::ple_data.question_format
+       AND existing.question_type = p_question_type::ple_data.question_type
        AND existing.webwork_pg_path IS NOT DISTINCT FROM p_webwork_pg_path
        AND existing.source_object_record_id = p_source_object_id
        AND existing.source_object_checksum = p_source_object_checksum THEN
@@ -49,7 +50,9 @@ BEGIN
         draft_question_id, backend, question_format, question_type, webwork_pg_path,
         source_object_record_id, source_object_checksum, created_at, updated_at
     ) VALUES (
-        p_draft_question_uuid, p_backend, p_question_format, p_question_type, p_webwork_pg_path,
+        p_draft_question_uuid, p_backend::ple_data.question_backend,
+        p_question_format::ple_data.question_format, p_question_type::ple_data.question_type,
+        p_webwork_pg_path,
         p_source_object_id, p_source_object_checksum, pg_catalog.clock_timestamp(), pg_catalog.clock_timestamp()
     ) ON CONFLICT (draft_question_id) DO UPDATE SET
         backend = EXCLUDED.backend, question_format = EXCLUDED.question_format,
@@ -184,7 +187,7 @@ BEGIN
     END IF;
     expected_address := jsonb_build_object('kind', 'questionSource',
         'questionRevisionTuple', jsonb_build_object('questionId', p_published_question_id,
-            'revisionNumber', v_next_question_revision_number), 'object', p_target_object_id);
+            'revisionNumber', v_next_question_revision_number), 'objectId', p_target_object_id);
     IF p_target_object_address IS DISTINCT FROM expected_address
        OR p_target_sha256 IS DISTINCT FROM source_record.sha256
        OR encode(p_target_sha256, 'hex') IS DISTINCT FROM binding.source_object_checksum
@@ -339,7 +342,7 @@ BEGIN
        AND record.object_storage_area = 'private-content'
        AND record.object_data_class = 'authoring-content'
        AND record.object_address = jsonb_build_object('kind', 'workspaceQuestionSource',
-           'workspace', p_authoring_workspace_id, 'object', record.object_record_id);
+           'workspaceId', p_authoring_workspace_id, 'objectId', record.object_record_id);
     GET DIAGNOSTICS row_count = ROW_COUNT;
     IF row_count <> 1 THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
@@ -441,7 +444,7 @@ BEGIN
      WHERE object_record_id = binding.source_object_record_id;
     expected_address := jsonb_build_object('kind', 'questionSource',
         'questionRevisionTuple', jsonb_build_object('questionId', p_published_question_id, 'revisionNumber', 1),
-        'object', p_target_object_id);
+        'objectId', p_target_object_id);
     IF p_target_object_address IS DISTINCT FROM expected_address
        OR p_target_sha256 IS DISTINCT FROM source_record.sha256
        OR encode(p_target_sha256, 'hex') IS DISTINCT FROM binding.source_object_checksum
@@ -483,19 +486,19 @@ BEGIN
     ) SELECT p_published_question_id, 1, author.ordinality::integer, author.value #>> '{}', NULL::uuid
         FROM jsonb_array_elements(p_authorship) WITH ORDINALITY AS author(value, ordinality);
     INSERT INTO ple_data.question_revision_license(published_question_id, revision_number, spdx_expression)
-    VALUES (p_published_question_id, 1, p_license);
+    VALUES (p_published_question_id, 1, p_license::ple_data.license_spdx);
     INSERT INTO ple_data.question_ownership_event(
         question_ownership_event_id, published_question_id, owner_account_id, recorded_by_account_id, event_kind, occurred_at
     ) VALUES (p_ownership_event_id, p_published_question_id, actor_id, actor_id, 'initial', published_at);
     INSERT INTO ple_data.question_fork_source(
-        forked_question_id, source_question_id, source_revision_number, recorded_at
+        forked_published_question_id, source_question_id, source_revision_number, recorded_at
     ) SELECT p_published_question_id, source_question_id, source_revision_number, published_at
       FROM ple_private.draft_question_fork_source WHERE draft_question_id = p_draft_question_uuid;
     INSERT INTO ple_data.question_publication_event(event_id, published_question_id, revision_number, actor_account_id, occurred_at)
     VALUES (p_publication_event_id, p_published_question_id, 1, actor_id, published_at);
     INSERT INTO ple_data.question_availability_event(
         event_id, published_question_id, actor_account_id, availability, edit_number, reason, occurred_at
-    ) VALUES (p_availability_event_id, p_published_question_id, actor_id, 'available', 1, NULL, published_at);
+    ) VALUES (p_availability_event_id, p_published_question_id, actor_id, 'available'::ple_data.question_availability, 1, NULL, published_at);
     PERFORM ple_private.bind_draft_question_image_publication(p_draft_question_uuid, p_authoring_workspace_id,
         p_published_question_id, 1, binding.backend, binding.question_type, p_hotspot_question_image, published_at);
 END

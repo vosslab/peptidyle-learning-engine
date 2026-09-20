@@ -242,10 +242,10 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
             .map(|row| {
                 Ok(QuestionRevisionTuple {
                     question_id: row
-                        .try_get::<String, _>("question_id")
+                        .try_get::<String, _>("published_question_id")
                         .map_err(map_sqlx_error)?
                         .parse()
-                        .map_err(|_| invalid("Question ID"))?,
+                        .map_err(|_| invalid("Published Question ID"))?,
                     revision_number: QuestionRevisionNumber::new(
                         row.try_get::<i32, _>("question_revision_number")
                             .map_err(map_sqlx_error)? as u32,
@@ -446,7 +446,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
              (EXTRACT(EPOCH FROM accepted_at) * 1000)::bigint AS accepted_at_millis \
              FROM ple_api.create_blueprint_course($1, $2, $3, $4, $5, $6, $7,$8,$9,$10,$11)",
         )
-        .bind(random_uuid()?)
+        .bind(Option::<String>::None)
         .bind(request_checksum.into_bytes().to_vec())
         .bind(short_name)
         .bind(long_name)
@@ -768,7 +768,7 @@ async fn validate_question_revision_tuples(
     // exact-Tuple boundary. PostgreSQL rechecks selection while locked.
     for question_revision_tuple in requested.into_iter().collect::<BTreeSet<_>>() {
         let row = sqlx::query(
-            "SELECT question_id, revision_number, availability
+            "SELECT published_question_id, revision_number, availability
              FROM ple_api.load_question_library_revision($1, $2)",
         )
         .bind(question_revision_tuple.question_id.as_str())
@@ -780,15 +780,15 @@ async fn validate_question_revision_tuples(
         .await
         .map_err(map_sqlx_error)?
         .ok_or_else(|| invalid("Published Question exact revision"))?;
-        let question_id = row
-            .try_get::<String, _>("question_id")
+        let published_question_id = row
+            .try_get::<String, _>("published_question_id")
             .map_err(map_sqlx_error)?
             .parse::<QuestionId>()
             .map_err(|_| invalid("Published Question ID"))?;
         let revision_number = row
             .try_get::<i32, _>("revision_number")
             .map_err(map_sqlx_error)?;
-        if question_id != question_revision_tuple.question_id
+        if published_question_id != question_revision_tuple.question_id
             || u32::try_from(revision_number).ok()
                 != Some(question_revision_tuple.revision_number.get())
         {

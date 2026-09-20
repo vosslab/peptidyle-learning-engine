@@ -20,10 +20,12 @@ pub(in crate::postgres) fn decode_classification(
 ) -> Result<question_model::CourseClassification, StoreError> {
     let tags: Vec<String> = row.try_get("tags").map_err(map_sqlx_error)?;
     let value = question_model::CourseClassification {
-        discipline_uuid: row.try_get("discipline_uuid").map_err(map_sqlx_error)?,
-        subject_uuid: row.try_get("subject_uuid").map_err(map_sqlx_error)?,
-        topic_uuid: row.try_get("topic_uuid").map_err(map_sqlx_error)?,
-        subtopic_uuid: row.try_get("subtopic_uuid").map_err(map_sqlx_error)?,
+        discipline_uuid: row
+            .try_get("content_discipline_id")
+            .map_err(map_sqlx_error)?,
+        subject_uuid: row.try_get("content_subject_id").map_err(map_sqlx_error)?,
+        topic_uuid: row.try_get("content_topic_id").map_err(map_sqlx_error)?,
+        subtopic_uuid: row.try_get("content_subtopic_id").map_err(map_sqlx_error)?,
         tags: tags.into_iter().map(question_model::Tag::new).collect(),
     };
     value

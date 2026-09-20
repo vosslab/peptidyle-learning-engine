@@ -30,6 +30,107 @@
 
 ### Fixes and Maintenance
 
+- Blueprint content JSON pins use `question_revision_tuple`, matching
+  `StoredBlueprintAssessmentEntry`. Gate:
+  `./launchers/run_fast_checks.sh` then
+  `./launchers/run_live_demo.sh --headless`.
+
+- `ple_api.create_blueprint_course` mints the Blueprint Course ID. The
+  adapter binds NULL instead of a UUID, matching `text` plus
+  `assign_public_id`. Gate: `./launchers/run_fast_checks.sh` then
+  `./launchers/run_live_demo.sh --headless`.
+
+- `ple_api.blueprint_pool_write_receipt` casts `blueprint_course_id` to
+  `text` and revision numbers to `bigint` so RETURN QUERY matches
+  `RETURNS TABLE`. Gate: `./launchers/run_fast_checks.sh` then
+  `./launchers/run_live_demo.sh --headless`.
+
+- `ple_private.bind_draft_question_image_publication` takes
+  `ple_data.question_backend` and `ple_data.question_type`, matching the
+  source-binding columns passed from Question Publication. Gate:
+  `./launchers/run_fast_checks.sh` then `./devel/capture_screenshots.sh`.
+
+- `ple_private.publish_new_question_lineage` inserts
+  `forked_published_question_id` into `ple_data.question_fork_source`, and the
+  watch trigger reads that column. Gate: `./launchers/run_fast_checks.sh`
+  then `./devel/capture_screenshots.sh`.
+
+- `ple_private.publish_new_question_lineage` casts `p_license` to
+  `ple_data.license_spdx` and initial availability to
+  `ple_data.question_availability`. Gate:
+  `./devel/capture_screenshots.sh` after a clean Live Demo start.
+
+- `ple_private.bind_draft_question_source` casts backend, Question Format, and
+  Question Type text arguments to `ple_data` enums before comparing or
+  inserting. Gate: `./devel/capture_screenshots.sh` after a clean Live Demo
+  start.
+
+- Authoring Draft, Draft Question Publication Source, Draft Question Image,
+  and Question Fork image reads `try_get` `object_record_id`,
+  `draft_question_id`, and `authoring_workspace_id`. Gate:
+  `./devel/capture_screenshots.sh` after a clean Live Demo start.
+
+- Workspace Question Source and Question Source Object Addresses use JSON
+  members `workspaceId` and `objectId`. Binding triggers still expected
+  `workspace` / `object`, which blocked ordinary Pilot Draft creation. Gate:
+  `./devel/capture_screenshots.sh` after a clean Live Demo start.
+
+- `ple_private.create_authoring_draft` casts the source-binding backend,
+  Question Format, and Question Type to `ple_data` enums. A text `CASE`
+  into `question_backend` blocked ordinary Pilot Draft creation. Gate:
+  `./devel/capture_screenshots.sh` after a clean Live Demo start.
+
+- `require_current_sysadmin_account`, `require_content_classification_reader`,
+  and `require_content_classification_actor` return `text` Account IDs. They
+  previously declared `RETURNS uuid`, so listing Disciplines failed with
+  `invalid input syntax for type uuid: "U7R4PC0H6"`. Gate:
+  `./devel/capture_screenshots.sh` after a clean Live Demo start.
+
+- Content classification and Course Instance reads select
+  `content_discipline_id`, `content_subject_id`, `content_topic_id`, and
+  `content_subtopic_id`. There is no `discipline_uuid AS uuid` alias. Gate:
+  `./devel/capture_screenshots.sh` after a clean Live Demo start.
+
+- `ple_private.question_library_entries` casts `published_question_id`,
+  Question Backend, Question Format, Question Type, SPDX license,
+  availability, and author names to the `RETURNS TABLE` text types. Gate:
+  `./devel/capture_screenshots.sh` after a clean Live Demo start.
+
+- Public-asset Job SQL uses the current `ple_private.job` columns. The table
+  no longer has `job_kind`, `job_target_kind`, or `worker_kind`; leftover
+  predicates made Question Image Publication claim fail. Gate:
+  `./devel/capture_screenshots.sh` after a clean Live Demo start.
+
+- Question Library reads join taxonomy lists on `content_discipline_id`,
+  `content_subject_id`, `content_topic_id`, and `content_subtopic_id`. The
+  leftover `discipline_uuid` join blocked Pilot Question provenance during
+  Live Demo provision. Gate: `./devel/capture_screenshots.sh` after a clean
+  Live Demo start.
+
+- Live Demo seeds the Sysadmin Account by `product_role` and does not insert
+  Morgan into `account_authentication_email`. That table is Student and
+  Instructor only; the previous email insert failed provisioning with
+  `Authentication Email requires a Student or Instructor Account`. Gate:
+  `./devel/capture_screenshots.sh` after a clean Live Demo start.
+
+- `ple_private.assign_public_id` reads and writes the minted column through
+  `to_jsonb(NEW)` / `jsonb_populate_record`, because one trigger function
+  serves account, Course Instance, Blueprint Course, and Assessment rows.
+  A `CASE` on `NEW.course_instance_id` failed Live Demo account inserts
+  with `record "new" has no field "course_instance_id"`. Gate:
+  `./devel/capture_screenshots.sh` after a clean Live Demo start.
+
+- Question Image SQL leftover aliases: `load_draft_question_image` uses
+  `image.*` after `draft_question_image AS image`, and
+  `resolve_ready_question_image_delivery` uses `presented_image.*` after
+  `question_attempt_presentation_image_rendition AS presented_image`. Those
+  leftovers blocked Live Demo schema install. Learning-data-access selects
+  and `try_get`s `published_question_id` and `source_object_record_id`
+  under those SQL names, then maps them into `QuestionRevisionTuple` /
+  Object identity. There is no `published_question_id AS question_id`
+  alias. Gate: `./devel/capture_screenshots.sh` after a clean Live Demo
+  start.
+
 - Live Demo stop treats Compose `gateway_edge` as an owned network, so an
   interrupted `ple-live-demo-browser` stack can be cleared instead of failing
   with foreign-resource ownership. Gate:

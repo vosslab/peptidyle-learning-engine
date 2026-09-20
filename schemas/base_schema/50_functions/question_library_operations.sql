@@ -51,14 +51,14 @@ BEGIN
            AND entry.entry_kind = 'question_pool'
            AND ple_api.current_session_account_is_course_instructor(assessment.course_instance_id)
     )
-    SELECT revision.published_question_id, revision.revision_number, revision.backend, binding.question_format, revision.question_type,
+    SELECT revision.published_question_id::text, revision.revision_number, revision.backend::text, binding.question_format::text, revision.question_type::text,
            floor(extract(epoch FROM revision.published_at) * 1000)::bigint,
            metadata.question_title, metadata.question_description,
            ARRAY(SELECT authorship.author_display_name
                FROM ple_data.question_revision_authorship AS authorship
               WHERE authorship.published_question_id = revision.published_question_id
                 AND authorship.revision_number = revision.revision_number
-              ORDER BY authorship.author_position),
+              ORDER BY authorship.author_position)::text[],
            EXISTS (SELECT 1 FROM ple_data.question_revision_authorship AS authorship
               WHERE authorship.published_question_id = revision.published_question_id
                 AND authorship.revision_number = revision.revision_number
@@ -66,7 +66,7 @@ BEGIN
            EXISTS (SELECT 1 FROM ple_data.question_current_owner AS owner
               WHERE owner.published_question_id = revision.published_question_id
                 AND owner.owner_account_id = ple_api.current_session_account_id()),
-           license.spdx_expression, lineage.availability, lineage.availability_edit_number,
+           license.spdx_expression::text, lineage.availability::text, lineage.availability_edit_number,
            metadata.metadata_edit_number, metadata.tags, metadata.content_discipline_id, metadata.content_subject_id, metadata.content_topic_id, metadata.content_subtopic_id,
            authorized_course_question.published_question_id IS NOT NULL,
            bloom.cognitive_process::text, bloom.knowledge_dimension::text,

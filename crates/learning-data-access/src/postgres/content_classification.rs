@@ -25,6 +25,7 @@ impl PostgresContentClassificationStore {
         &self,
         token: SessionTokenHash,
         query: &'static str,
+        id_column: &'static str,
         parent: Option<Uuid>,
     ) -> Result<Vec<ContentClassificationItem>, StoreError> {
         let mut tx = self.begin(token).await?;
@@ -38,7 +39,7 @@ impl PostgresContentClassificationStore {
         let rows = query.fetch_all(&mut *tx).await.map_err(map_sqlx_error)?;
         let items = rows
             .iter()
-            .map(decode_classification_item)
+            .map(|row| decode_classification_item(row, id_column))
             .collect::<Result<Vec<_>, StoreError>>()?;
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(items)
@@ -76,7 +77,7 @@ impl PostgresContentClassificationStore {
         discipline_uuid: Uuid,
     ) -> Result<ContentDiscipline, StoreError> {
         let row = sqlx::query(
-            "SELECT discipline_uuid AS uuid, name, is_retired \
+            "SELECT content_discipline_id, name, is_retired \
              FROM ple_api.get_content_discipline($1)",
         )
         .bind(discipline_uuid)
@@ -110,16 +111,19 @@ impl PostgresContentClassificationStore {
 
 fn decode_classification_item(
     row: &sqlx::postgres::PgRow,
+    id_column: &'static str,
 ) -> Result<ContentClassificationItem, StoreError> {
     Ok(ContentClassificationItem {
-        uuid: row.try_get("uuid").map_err(map_sqlx_error)?,
+        uuid: row.try_get(id_column).map_err(map_sqlx_error)?,
         name: row.try_get("name").map_err(map_sqlx_error)?,
     })
 }
 
 fn decode_discipline(row: &sqlx::postgres::PgRow) -> Result<ContentDiscipline, StoreError> {
     Ok(ContentDiscipline {
-        uuid: row.try_get("uuid").map_err(map_sqlx_error)?,
+        uuid: row
+            .try_get("content_discipline_id")
+            .map_err(map_sqlx_error)?,
         name: row.try_get("name").map_err(map_sqlx_error)?,
         is_retired: row.try_get("is_retired").map_err(map_sqlx_error)?,
     })
@@ -133,7 +137,8 @@ impl ContentClassificationStore for PostgresContentClassificationStore {
     ) -> Result<Vec<ContentClassificationItem>, StoreError> {
         self.read(
             token,
-            "SELECT discipline_uuid AS uuid, name FROM ple_api.list_content_disciplines()",
+            "SELECT content_discipline_id, name FROM ple_api.list_content_disciplines()",
+            "content_discipline_id",
             None,
         )
         .await
@@ -145,7 +150,8 @@ impl ContentClassificationStore for PostgresContentClassificationStore {
     ) -> Result<Vec<ContentClassificationItem>, StoreError> {
         self.read(
             token,
-            "SELECT subject_uuid AS uuid, name FROM ple_api.list_content_subjects($1)",
+            "SELECT content_subject_id, name FROM ple_api.list_content_subjects($1)",
+            "content_subject_id",
             Some(discipline_uuid),
         )
         .await
@@ -157,7 +163,8 @@ impl ContentClassificationStore for PostgresContentClassificationStore {
     ) -> Result<Vec<ContentClassificationItem>, StoreError> {
         self.read(
             token,
-            "SELECT topic_uuid AS uuid, name FROM ple_api.list_content_topics($1)",
+            "SELECT content_topic_id, name FROM ple_api.list_content_topics($1)",
+            "content_topic_id",
             Some(subject_uuid),
         )
         .await
@@ -169,7 +176,8 @@ impl ContentClassificationStore for PostgresContentClassificationStore {
     ) -> Result<Vec<ContentClassificationItem>, StoreError> {
         self.read(
             token,
-            "SELECT subtopic_uuid AS uuid, name FROM ple_api.list_content_subtopics($1)",
+            "SELECT content_subtopic_id, name FROM ple_api.list_content_subtopics($1)",
+            "content_subtopic_id",
             Some(topic_uuid),
         )
         .await
@@ -184,7 +192,7 @@ impl ContentDisciplineDiscoveryStore for PostgresContentClassificationStore {
     ) -> Result<Vec<ContentDiscipline>, StoreError> {
         let mut tx = self.begin(token).await?;
         let rows = sqlx::query(
-            "SELECT discipline_uuid AS uuid, name, is_retired \
+            "SELECT content_discipline_id, name, is_retired \
              FROM ple_api.list_content_disciplines_including_retired()",
         )
         .fetch_all(&mut *tx)

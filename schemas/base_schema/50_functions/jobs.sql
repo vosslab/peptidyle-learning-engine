@@ -7,12 +7,12 @@ RETURNS trigger LANGUAGE plpgsql
 SET search_path = pg_catalog, ple_private AS $$
 BEGIN
     IF ROW(
-        NEW.job_id, NEW.job_kind, NEW.job_target_kind, NEW.published_question_id,
-        NEW.revision_number, NEW.worker_kind,
+        NEW.job_id, NEW.published_question_id,
+        NEW.revision_number,
         NEW.payload, NEW.max_attempts, NEW.created_at
     ) IS DISTINCT FROM ROW(
-        OLD.job_id, OLD.job_kind, OLD.job_target_kind, OLD.published_question_id,
-        OLD.revision_number, OLD.worker_kind,
+        OLD.job_id, OLD.published_question_id,
+        OLD.revision_number,
         OLD.payload, OLD.max_attempts, OLD.created_at
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '55000',
@@ -59,7 +59,7 @@ SET search_path = pg_catalog, ple_private AS $$
 BEGIN
     IF NEW.state = 'ready'
        AND (TG_OP = 'INSERT' OR OLD.state IS DISTINCT FROM 'ready') THEN
-        PERFORM pg_catalog.pg_notify('ple_job_ready', NEW.worker_kind);
+        PERFORM pg_catalog.pg_notify('ple_job_ready', 'public_asset_publisher');
     END IF;
     RETURN NEW;
 END $$;
@@ -97,11 +97,8 @@ BEGIN
         IF NOT EXISTS (
             SELECT 1 FROM ple_private.job AS job
              WHERE job.job_id = p_job_id
-               AND job.job_kind = 'publish_public_assets'
-               AND job.job_target_kind = 'public_asset_publication'
                AND job.published_question_id = p_published_question_id
                AND job.revision_number = p_revision_number
-               AND job.worker_kind = 'public_asset_publisher'
                AND job.payload = p_payload
                AND job.available_at = p_available_at
                AND job.max_attempts = p_max_attempts
@@ -114,11 +111,10 @@ BEGIN
     END IF;
 
     INSERT INTO ple_private.job (
-        job_id, job_kind, job_target_kind, published_question_id, revision_number, worker_kind,
+        job_id, published_question_id, revision_number,
         payload, available_at, max_attempts, created_at
     ) VALUES (
-        p_job_id, 'publish_public_assets', 'public_asset_publication',
-        p_published_question_id, p_revision_number, 'public_asset_publisher',
+        p_job_id, p_published_question_id, p_revision_number,
         p_payload, p_available_at, p_max_attempts, p_created_at
     );
 END $$;

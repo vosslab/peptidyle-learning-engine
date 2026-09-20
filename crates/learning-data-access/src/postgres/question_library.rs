@@ -69,10 +69,10 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
         let rows = sqlx::query(
             "SELECT q.*, s.name AS subject_name, t.name AS topic_name, d.name AS discipline_name, d.is_retired AS discipline_is_retired, st.name AS subtopic_name \
              FROM ple_api.list_question_library_entries() q \
-             JOIN LATERAL ple_api.list_content_disciplines_including_retired() d ON d.discipline_uuid = q.discipline_uuid \
-             LEFT JOIN LATERAL ple_api.list_content_subtopics(q.topic_uuid) st ON st.subtopic_uuid = q.subtopic_uuid \
-             JOIN LATERAL ple_api.list_content_subjects(q.discipline_uuid) s ON s.subject_uuid = q.subject_uuid \
-             LEFT JOIN LATERAL ple_api.list_content_topics(q.subject_uuid) t ON t.topic_uuid = q.topic_uuid \
+             JOIN LATERAL ple_api.list_content_disciplines_including_retired() d ON d.content_discipline_id = q.content_discipline_id \
+             LEFT JOIN LATERAL ple_api.list_content_subtopics(q.content_topic_id) st ON st.content_subtopic_id = q.content_subtopic_id \
+             JOIN LATERAL ple_api.list_content_subjects(q.content_discipline_id) s ON s.content_subject_id = q.content_subject_id \
+             LEFT JOIN LATERAL ple_api.list_content_topics(q.content_subject_id) t ON t.content_topic_id = q.content_topic_id \
              WHERE q.availability = 'available'",
         )
             .fetch_all(&mut *transaction)
@@ -97,11 +97,11 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
         let row = sqlx::query(
             "SELECT q.*, s.name AS subject_name, t.name AS topic_name, d.name AS discipline_name, d.is_retired AS discipline_is_retired, st.name AS subtopic_name \
              FROM ple_api.list_question_library_entries() q \
-             JOIN LATERAL ple_api.list_content_disciplines_including_retired() d ON d.discipline_uuid = q.discipline_uuid \
-             LEFT JOIN LATERAL ple_api.list_content_subtopics(q.topic_uuid) st ON st.subtopic_uuid = q.subtopic_uuid \
-             JOIN LATERAL ple_api.list_content_subjects(q.discipline_uuid) s ON s.subject_uuid = q.subject_uuid \
-             LEFT JOIN LATERAL ple_api.list_content_topics(q.subject_uuid) t ON t.topic_uuid = q.topic_uuid \
-             WHERE q.question_id = $1 AND q.availability = 'available'",
+             JOIN LATERAL ple_api.list_content_disciplines_including_retired() d ON d.content_discipline_id = q.content_discipline_id \
+             LEFT JOIN LATERAL ple_api.list_content_subtopics(q.content_topic_id) st ON st.content_subtopic_id = q.content_subtopic_id \
+             JOIN LATERAL ple_api.list_content_subjects(q.content_discipline_id) s ON s.content_subject_id = q.content_subject_id \
+             LEFT JOIN LATERAL ple_api.list_content_topics(q.content_subject_id) t ON t.content_topic_id = q.content_topic_id \
+             WHERE q.published_question_id = $1 AND q.availability = 'available'",
         )
         .bind(question_id.as_str())
         .fetch_optional(&mut *transaction)
@@ -129,10 +129,10 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
         // the Question lineage is archived.
         let row = sqlx::query("SELECT q.*, s.name AS subject_name, t.name AS topic_name, d.name AS discipline_name, d.is_retired AS discipline_is_retired, st.name AS subtopic_name \
              FROM ple_api.load_question_library_revision($1, $2) q \
-             JOIN LATERAL ple_api.list_content_disciplines_including_retired() d ON d.discipline_uuid = q.discipline_uuid \
-             LEFT JOIN LATERAL ple_api.list_content_subtopics(q.topic_uuid) st ON st.subtopic_uuid = q.subtopic_uuid \
-             JOIN LATERAL ple_api.list_content_subjects(q.discipline_uuid) s ON s.subject_uuid = q.subject_uuid \
-             LEFT JOIN LATERAL ple_api.list_content_topics(q.subject_uuid) t ON t.topic_uuid = q.topic_uuid")
+             JOIN LATERAL ple_api.list_content_disciplines_including_retired() d ON d.content_discipline_id = q.content_discipline_id \
+             LEFT JOIN LATERAL ple_api.list_content_subtopics(q.content_topic_id) st ON st.content_subtopic_id = q.content_subtopic_id \
+             JOIN LATERAL ple_api.list_content_subjects(q.content_discipline_id) s ON s.content_subject_id = q.content_subject_id \
+             LEFT JOIN LATERAL ple_api.list_content_topics(q.content_subject_id) t ON t.content_topic_id = q.content_topic_id")
             .bind(question_revision_tuple.question_id.as_str())
             .bind(
                 i32::try_from(question_revision_tuple.revision_number.get())
@@ -212,7 +212,9 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
         // ASVS 1.2.4: bind the complete ID array; no identifier or value is
         // interpolated into the SQL statement.
         let rows = sqlx::query(
-            "SELECT question_id, metadata_edit_number, tags, discipline_uuid, subject_uuid, topic_uuid, subtopic_uuid \
+            "SELECT published_question_id, metadata_edit_number, tags, \
+                    content_discipline_id, content_subject_id, \
+                    content_topic_id, content_subtopic_id \
              FROM ple_api.load_current_published_question_shared_metadata($1)",
         )
         .bind(&canonical_ids)
@@ -375,7 +377,9 @@ impl PostgresQuestionLibraryStore {
 }
 
 fn decode_entry(row: &sqlx::postgres::PgRow) -> Result<PublishedQuestionLibraryEntry, StoreError> {
-    let question_id: String = row.try_get("question_id").map_err(map_sqlx_error)?;
+    let question_id: String = row
+        .try_get("published_question_id")
+        .map_err(map_sqlx_error)?;
     let question_id = question_id
         .parse::<QuestionId>()
         .map_err(|_| invalid("Question ID"))?;
@@ -415,8 +419,10 @@ fn decode_entry(row: &sqlx::postgres::PgRow) -> Result<PublishedQuestionLibraryE
     let question_license = serde_json::from_value(serde_json::Value::String(question_license))
         .map_err(|_| invalid("Question License"))?;
     let (availability, availability_edit_number) = decode_availability(row)?;
-    let source_object_id =
-        ObjectId::from_uuid(row.try_get("source_object_id").map_err(map_sqlx_error)?);
+    let source_object_id = ObjectId::from_uuid(
+        row.try_get("source_object_record_id")
+            .map_err(map_sqlx_error)?,
+    );
     let source_object_checksum: String = row
         .try_get("source_object_checksum")
         .map_err(map_sqlx_error)?;
@@ -507,7 +513,7 @@ fn decode_shared_metadata(
     row: &sqlx::postgres::PgRow,
 ) -> Result<PublishedQuestionSharedMetadata, StoreError> {
     let question_id = row
-        .try_get::<String, _>("question_id")
+        .try_get::<String, _>("published_question_id")
         .map_err(map_sqlx_error)?
         .parse::<QuestionId>()
         .map_err(|_| invalid("Question ID"))?;
@@ -530,10 +536,12 @@ fn decode_shared_metadata(
         question_id,
         metadata_edit_number,
         tags,
-        discipline_uuid: row.try_get("discipline_uuid").map_err(map_sqlx_error)?,
-        subject_uuid: row.try_get("subject_uuid").map_err(map_sqlx_error)?,
-        topic_uuid: row.try_get("topic_uuid").map_err(map_sqlx_error)?,
-        subtopic_uuid: row.try_get("subtopic_uuid").map_err(map_sqlx_error)?,
+        discipline_uuid: row
+            .try_get("content_discipline_id")
+            .map_err(map_sqlx_error)?,
+        subject_uuid: row.try_get("content_subject_id").map_err(map_sqlx_error)?,
+        topic_uuid: row.try_get("content_topic_id").map_err(map_sqlx_error)?,
+        subtopic_uuid: row.try_get("content_subtopic_id").map_err(map_sqlx_error)?,
     })
 }
 

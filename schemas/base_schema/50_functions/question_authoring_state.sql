@@ -98,7 +98,7 @@ BEGIN
     SELECT authoring_workspace_id INTO workspace FROM ple_private.draft_question
      WHERE draft_question_id = NEW.draft_question_id;
     expected_address := jsonb_build_object('kind', 'workspaceQuestionSource',
-        'workspace', workspace, 'object', NEW.source_object_record_id);
+        'workspaceId', workspace, 'objectId', NEW.source_object_record_id);
     IF NOT EXISTS (SELECT 1 FROM ple_private.object_record AS record
         WHERE record.object_record_id = NEW.source_object_record_id
           AND record.object_storage_area = 'private-content'
@@ -119,7 +119,7 @@ DECLARE expected_address jsonb;
 BEGIN
     expected_address := jsonb_build_object('kind', 'questionSource',
         'questionRevisionTuple', jsonb_build_object('questionId', NEW.published_question_id,
-            'revisionNumber', NEW.revision_number), 'object', NEW.source_object_record_id);
+            'revisionNumber', NEW.revision_number), 'objectId', NEW.source_object_record_id);
     IF NOT EXISTS (SELECT 1 FROM ple_private.object_record AS record
         WHERE record.object_record_id = NEW.source_object_record_id
           AND record.object_storage_area = 'private-content'

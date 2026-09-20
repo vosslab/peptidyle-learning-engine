@@ -190,14 +190,15 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
         course_instance_id: CourseInstanceId,
     ) -> Result<Vec<AssessmentQuestionPickerEntry>, StoreError> {
         let mut tx = self.begin(token).await?;
-        let rows = sqlx::query("SELECT question_id, question_revision_number, question_description, bloom_cognitive_process, bloom_knowledge_dimension, bloom_classification_edit_number FROM ple_api.list_assessment_question_picker($1)")
+        let rows = sqlx::query("SELECT published_question_id, question_revision_number, question_description, bloom_cognitive_process, bloom_knowledge_dimension, bloom_classification_edit_number FROM ple_api.list_assessment_question_picker($1)")
             .bind(course_instance_id.as_string()).fetch_all(&mut *tx).await.map_err(map_sqlx_error)?;
         let records = rows
             .iter()
             .map(|row| {
                 Ok(AssessmentQuestionPickerEntry {
                     question_revision_tuple: question_revision_tuple(
-                        row.try_get("question_id").map_err(map_sqlx_error)?,
+                        row.try_get("published_question_id")
+                            .map_err(map_sqlx_error)?,
                         row.try_get("question_revision_number")
                             .map_err(map_sqlx_error)?,
                     )?,
@@ -631,13 +632,13 @@ pub(super) fn decode_workspace(
     let questions = rows
         .iter()
         .filter_map(|row| {
-            row.try_get::<Option<String>, _>("question_id")
+            row.try_get::<Option<String>, _>("published_question_id")
                 .ok()
                 .flatten()
-                .map(|id| {
+                .map(|published_question_id| {
                     Ok(AuthoredAssessmentQuestion {
                         question_revision_tuple: question_revision_tuple(
-                            id,
+                            published_question_id,
                             row.try_get("question_revision_number")
                                 .map_err(map_sqlx_error)?,
                         )?,

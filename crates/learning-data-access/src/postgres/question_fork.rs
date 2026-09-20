@@ -150,7 +150,7 @@ fn decode_fork_asset(
     row: &sqlx::postgres::PgRow,
     question_revision_tuple: &QuestionRevisionTuple,
 ) -> Result<PublishedQuestionForkImage, StoreError> {
-    let object_id = ObjectId::from_uuid(row.try_get("object_id").map_err(map_sqlx_error)?);
+    let object_id = ObjectId::from_uuid(row.try_get("object_record_id").map_err(map_sqlx_error)?);
     let question_image_asset_id = QuestionImageAssetId::from_uuid(
         row.try_get("question_image_asset_id")
             .map_err(map_sqlx_error)?,

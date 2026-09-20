@@ -24,7 +24,7 @@ AS $$
           ) WITH ORDINALITY AS entry_row(entry, entry_ordinality)
     ), pins AS (
         SELECT module_ordinality, assessment_ordinality, entry_ordinality,
-               entry -> 'question_revision' AS pin
+               entry -> 'question_revision_tuple' AS pin
           FROM entries WHERE entry ->> 'kind' = 'fixed'
     )
     SELECT pg_catalog.format('m%s.a%s.e%s.p%s', module_ordinality,
@@ -189,10 +189,10 @@ BEGIN
                 IF entry_value ->> 'kind' = 'fixed' THEN
                     delivered_question_count := delivered_question_count + 1;
                     IF NOT ple_data.blueprint_content_has_exact_keys(entry_value, ARRAY[
-                        'kind', 'question_revision', 'points_possible', 'scoring_rule',
+                        'kind', 'question_revision_tuple', 'points_possible', 'scoring_rule',
                         'question_attempt_limit', 'question_attempt_time_limit'
                     ]) THEN RETURN false; END IF;
-                    pin_value := entry_value -> 'question_revision';
+                    pin_value := entry_value -> 'question_revision_tuple';
                     IF NOT ple_data.blueprint_content_has_exact_keys(
                         pin_value, ARRAY['questionId', 'revisionNumber']
                     ) THEN RETURN false; END IF;
@@ -288,7 +288,7 @@ BEGIN
             WHERE entry_row.entry ->> 'kind' IS NULL
                OR entry_row.entry ->> 'kind' NOT IN ('fixed', 'pool')
                OR (entry_row.entry ->> 'kind' = 'fixed'
-                   AND jsonb_typeof(entry_row.entry -> 'question_revision') <> 'object')
+                   AND jsonb_typeof(entry_row.entry -> 'question_revision_tuple') <> 'object')
                OR (entry_row.entry ->> 'kind' = 'pool'
                    AND (entry_row.entry ->> 'question_pool_id' IS NULL
                         OR entry_row.entry -> 'question_pool_edit_number' IS NULL))

@@ -29,7 +29,7 @@ DECLARE
     v_blueprint_edit_number bigint;
     v_blueprint_course_id text;
 BEGIN
-    IF p_blueprint_course_id IS NULL OR octet_length(p_request_checksum) <> 32
+    IF octet_length(p_request_checksum) <> 32
        OR p_short_name IS NULL OR p_short_name <> btrim(p_short_name)
        OR char_length(p_short_name) NOT BETWEEN 1 AND 500
        OR p_long_name IS NULL OR p_long_name <> btrim(p_long_name)
@@ -68,7 +68,7 @@ BEGIN
         blueprint_course_id, owner_account_id, short_name, long_name, blueprint_edit_number, created_at,
         content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags
     ) VALUES (
-        p_blueprint_course_id, v_actor, p_short_name, p_long_name, v_blueprint_edit_number, v_now,
+        COALESCE(p_blueprint_course_id, 'BP0000000C'), v_actor, p_short_name, p_long_name, v_blueprint_edit_number, v_now,
         p_discipline, p_subject, p_topic, p_subtopic, p_tags
     ) RETURNING course.blueprint_course_id INTO v_blueprint_course_id;
     blueprint_revision_number := 1;

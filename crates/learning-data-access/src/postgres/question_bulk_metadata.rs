@@ -88,7 +88,7 @@ impl BulkPublishedQuestionMetadataStore for PostgresBulkPublishedQuestionMetadat
         }
         let mut tx = self.begin(session_token_hash).await?;
         let rows = sqlx::query(
-            "SELECT question_id, metadata_edit_number \
+            "SELECT published_question_id, metadata_edit_number \
              FROM ple_api.bulk_replace_published_question_metadata($1, $2)",
         )
         .bind(Json(selection))
@@ -99,12 +99,14 @@ impl BulkPublishedQuestionMetadataStore for PostgresBulkPublishedQuestionMetadat
         let result = rows
             .iter()
             .map(|row| {
-                let question_id = row
-                    .try_get::<String, _>("question_id")
+                let published_question_id = row
+                    .try_get::<String, _>("published_question_id")
                     .map_err(map_sqlx_error)?
                     .parse::<QuestionId>()
                     .map_err(|_| {
-                        invalid("Bulk Published Question metadata returned an invalid Question ID")
+                        invalid(
+                            "Bulk Published Question metadata returned an invalid Published Question ID",
+                        )
                     })?;
                 let metadata_edit_number = row
                     .try_get::<i64, _>("metadata_edit_number")
@@ -117,7 +119,7 @@ impl BulkPublishedQuestionMetadataStore for PostgresBulkPublishedQuestionMetadat
                         })
                     })?;
                 Ok(BulkPublishedQuestionMetadataResult {
-                    question_id,
+                    question_id: published_question_id,
                     metadata_edit_number,
                 })
             })

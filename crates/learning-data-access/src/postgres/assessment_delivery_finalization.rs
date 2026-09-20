@@ -24,7 +24,8 @@ pub(super) async fn prepare(
     let rows = sqlx::query(
         "SELECT preparation_state, finalization_kind, \
                 points_earned, points_possible, question_attempt_id, saved_at_millis, \
-                question_id, revision_number, source_object_id::text AS source_object_id, \
+                published_question_id, revision_number, \
+                source_object_record_id, \
                 source_object_checksum, question_seed::text AS question_seed, generated_parameter_sha256, student_response, \
                 backend, webwork_pg_path \
          FROM ple_api.prepare_student_assessment_attempt_finalization($1)",
@@ -208,12 +209,12 @@ pub(super) fn finalization_source_from_row(
         row.try_get::<i64, _>("saved_at_millis")
             .map_err(map_sqlx_error)?,
     );
-    let question_id = row
-        .try_get::<String, _>("question_id")
+    let published_question_id = row
+        .try_get::<String, _>("published_question_id")
         .map_err(map_sqlx_error)?
         .parse()
         .map_err(|_| {
-            StoreError::InvalidRecord("Finalization Question ID is invalid".to_string())
+            StoreError::InvalidRecord("Finalization Published Question ID is invalid".to_string())
         })?;
     let revision_number = u32::try_from(
         row.try_get::<i32, _>("revision_number")
@@ -263,9 +264,12 @@ pub(super) fn finalization_source_from_row(
     Ok(Some(StudentAssessmentAttemptFinalizationSource {
         question_attempt_id,
         saved_at,
-        question_id,
+        question_id: published_question_id,
         revision_number,
-        source_object_id: row.try_get("source_object_id").map_err(map_sqlx_error)?,
+        source_object_id: row
+            .try_get::<uuid::Uuid, _>("source_object_record_id")
+            .map_err(map_sqlx_error)?
+            .to_string(),
         source_object_checksum: row
             .try_get("source_object_checksum")
             .map_err(map_sqlx_error)?,

@@ -195,10 +195,10 @@ pub(super) async fn members(
         .map(|row| {
             Ok(QuestionRevisionTuple {
                 question_id: row
-                    .try_get::<String, _>("question_id")
+                    .try_get::<String, _>("published_question_id")
                     .map_err(map_sqlx_error)?
                     .parse()
-                    .map_err(|_| StoreError::InvalidRecord("Question ID".into()))?,
+                    .map_err(|_| StoreError::InvalidRecord("Published Question ID".into()))?,
                 revision_number: question_model::QuestionRevisionNumber::new(
                     row.try_get::<i32, _>("question_revision_number")
                         .map_err(map_sqlx_error)? as u32,

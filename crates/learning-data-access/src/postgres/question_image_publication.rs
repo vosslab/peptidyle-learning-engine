@@ -93,10 +93,12 @@ fn decode_claim(row: sqlx::postgres::PgRow) -> Result<ClaimedQuestionImagePublic
         job_id: row.try_get("job_id").map_err(map_sqlx_error)?,
         question_revision_tuple: QuestionRevisionTuple {
             question_id: row
-                .try_get::<String, _>("question_id")
+                .try_get::<String, _>("published_question_id")
                 .map_err(map_sqlx_error)?
                 .parse()
-                .map_err(|_| StoreError::InvalidRecord("Question ID is invalid".to_string()))?,
+                .map_err(|_| {
+                    StoreError::InvalidRecord("Published Question ID is invalid".to_string())
+                })?,
             revision_number,
         },
         question_image_asset_id: QuestionImageAssetId::from_uuid(
@@ -104,7 +106,8 @@ fn decode_claim(row: sqlx::postgres::PgRow) -> Result<ClaimedQuestionImagePublic
                 .map_err(map_sqlx_error)?,
         ),
         source_object_id: ObjectId::from_uuid(
-            row.try_get("source_object_id").map_err(map_sqlx_error)?,
+            row.try_get("source_object_record_id")
+                .map_err(map_sqlx_error)?,
         ),
         source_checksum: checksum("source_object_checksum")?,
         public_object_id: ObjectId::from_uuid(

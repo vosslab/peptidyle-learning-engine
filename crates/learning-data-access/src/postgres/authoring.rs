@@ -244,7 +244,7 @@ impl AuthoringDraftStore for PostgresAuthoringDraftStore {
 fn decode_summary(row: &sqlx::postgres::PgRow) -> Result<AuthoringDraftSummary, StoreError> {
     Ok(AuthoringDraftSummary {
         draft_question_uuid: DraftQuestionUuid::from_uuid(
-            row.try_get("draft_question_uuid").map_err(map_sqlx_error)?,
+            row.try_get("draft_question_id").map_err(map_sqlx_error)?,
         ),
         edit_number: edit_number(
             row.try_get("draft_question_edit_number")
@@ -259,11 +259,14 @@ fn decode_summary(row: &sqlx::postgres::PgRow) -> Result<AuthoringDraftSummary, 
 
 fn decode_draft(row: &sqlx::postgres::PgRow) -> Result<AuthoringDraft, StoreError> {
     let source_record = decode_source_record(row)?;
-    let workspace = WorkspaceId::from_uuid(row.try_get("workspace_id").map_err(map_sqlx_error)?);
+    let workspace = WorkspaceId::from_uuid(
+        row.try_get("authoring_workspace_id")
+            .map_err(map_sqlx_error)?,
+    );
     validate_workspace_question_source_object_record(workspace, &source_record)?;
     Ok(AuthoringDraft {
         draft_question_uuid: DraftQuestionUuid::from_uuid(
-            row.try_get("draft_question_uuid").map_err(map_sqlx_error)?,
+            row.try_get("draft_question_id").map_err(map_sqlx_error)?,
         ),
         workspace,
         edit_number: edit_number(
@@ -310,7 +313,7 @@ fn decode_source_record(row: &sqlx::postgres::PgRow) -> Result<ObjectRecord, Sto
         .try_into()
         .map_err(|_| invalid("source checksum"))?;
     Ok(ObjectRecord {
-        id: ObjectId::from_uuid(row.try_get("object_id").map_err(map_sqlx_error)?),
+        id: ObjectId::from_uuid(row.try_get("object_record_id").map_err(map_sqlx_error)?),
         storage_area: ObjectStorageArea::PrivateContent,
         data_class: ObjectDataClass::AuthoringContent,
         address,

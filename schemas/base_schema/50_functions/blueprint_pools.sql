@@ -18,7 +18,7 @@ BEGIN
     IF p_blueprint_course_id IS NULL THEN
         PERFORM pg_advisory_xact_lock(hashtextextended(format('ple:blueprint-course-create:%s:%s',
             ple_api.current_session_account_id(), encode(p_checksum, 'hex')), 0));
-        RETURN QUERY SELECT course.blueprint_course_id, receipt.blueprint_revision_number,
+        RETURN QUERY SELECT course.blueprint_course_id::text, receipt.blueprint_revision_number::bigint,
             receipt.blueprint_edit_number, true, (extract(epoch FROM receipt.accepted_at)*1000)::bigint
             FROM ple_data.blueprint_course_create_receipt AS receipt JOIN ple_data.blueprint_course AS course
             ON course.blueprint_course_id = receipt.blueprint_course_id
@@ -29,7 +29,7 @@ BEGIN
             OR course_row.availability = 'archived' THEN
             RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Blueprint write is unavailable';
         END IF;
-        RETURN QUERY SELECT p_blueprint_course_id, receipt.resulting_blueprint_revision_number,
+        RETURN QUERY SELECT p_blueprint_course_id, receipt.resulting_blueprint_revision_number::bigint,
             course_row.blueprint_edit_number, receipt.changed, (extract(epoch FROM receipt.accepted_at)*1000)::bigint
             FROM ple_data.blueprint_course_save_receipt AS receipt
             WHERE receipt.blueprint_course_id = course_row.blueprint_course_id

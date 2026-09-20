@@ -468,9 +468,9 @@ BEGIN
         source_object_checksum, created_at, updated_at
     ) VALUES (
         p_draft_question_uuid,
-        CASE p_media_type WHEN 'application/vnd.peptidyle.question+json' THEN 'ple' ELSE 'webwork' END,
-        p_question_format,
-        p_question_type, p_webwork_pg_path, p_object_record_id,
+        (CASE p_media_type WHEN 'application/vnd.peptidyle.question+json' THEN 'ple' ELSE 'webwork' END)::ple_data.question_backend,
+        p_question_format::ple_data.question_format,
+        p_question_type::ple_data.question_type, p_webwork_pg_path, p_object_record_id,
         pg_catalog.encode(p_sha256, 'hex'), pg_catalog.clock_timestamp(), pg_catalog.clock_timestamp());
     RETURN p_draft_question_uuid;
 END

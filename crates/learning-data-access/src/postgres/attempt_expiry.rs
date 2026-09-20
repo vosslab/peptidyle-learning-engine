@@ -43,7 +43,8 @@ impl AssessmentAttemptExpirySweepStore for PostgresAssessmentAttemptExpirySweepS
             .map_err(map_sqlx_error)?;
         let rows = sqlx::query(
             "SELECT assessment_attempt_id, question_attempt_id, saved_at_millis, \
-                    question_id, revision_number, source_object_id::text AS source_object_id, \
+                    published_question_id, revision_number, \
+                    source_object_record_id, \
                     source_object_checksum, question_seed::text AS question_seed, generated_parameter_sha256, student_response, \
                     backend, webwork_pg_path \
              FROM ple_api.prepare_expired_student_assessment_attempt_finalizations($1)",

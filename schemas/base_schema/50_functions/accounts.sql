@@ -218,7 +218,7 @@ $$;
 SET LOCAL ROLE ple_private_owner;
 
 CREATE FUNCTION ple_private.require_current_sysadmin_account()
-RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER
+RETURNS text LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private
 AS $$
 DECLARE v_account_id text;

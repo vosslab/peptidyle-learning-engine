@@ -108,7 +108,7 @@ impl DraftQuestionImageStore for PostgresDraftQuestionImageStore {
         let invalid =
             || StoreError::InvalidRecord("Database returned invalid Draft raster facts".into());
         let record = ObjectRecord {
-            id: ObjectId::from_uuid(row.try_get("object_id").map_err(map_sqlx_error)?),
+            id: ObjectId::from_uuid(row.try_get("object_record_id").map_err(map_sqlx_error)?),
             address,
             storage_area: ObjectStorageArea::PrivateContent,
             data_class: ObjectDataClass::AuthoringContent,

@@ -73,10 +73,10 @@ RETURNS TABLE(object_record_id uuid, object_address jsonb, sha256 bytea, size_by
     media_type text, created_at_millis bigint, intrinsic_width integer, intrinsic_height integer)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT record.object_record_id, record.object_address, record.sha256, record.size_bytes, record.media_type,
-        round(extract(epoch FROM record.created_at) * 1000)::bigint, asset.intrinsic_width, asset.intrinsic_height
+        round(extract(epoch FROM record.created_at) * 1000)::bigint, image.intrinsic_width, image.intrinsic_height
       FROM ple_private.draft_question AS draft
       JOIN ple_private.draft_question_image AS image USING (draft_question_id, authoring_workspace_id)
-      JOIN ple_private.object_record AS record ON record.object_record_id = asset.source_object_record_id
+      JOIN ple_private.object_record AS record ON record.object_record_id = image.source_object_record_id
      WHERE draft.draft_question_id = p_draft_question_uuid AND image.question_image_asset_id = p_question_image_asset_id
        AND ple_api.current_session_account_is_instructor()
        AND ple_private.current_session_is_authoring_workspace_owner(draft.authoring_workspace_id)

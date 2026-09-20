@@ -21,9 +21,9 @@ use crate::{
 const ADOPTION_POOL_IDENTITY_ATTEMPTS: usize = 8;
 const LOAD_COURSE_INSTANCE_SQL: &str = "SELECT course_instance_id, short_name, long_name, \
      term_starts_on::text AS term_starts_on, term_ends_on::text AS term_ends_on, course_theme, \
-     course_lifecycle_state, course_edit_number, content_discipline_id AS discipline_uuid, \
-     content_subject_id AS subject_uuid, content_topic_id AS topic_uuid, \
-     content_subtopic_id AS subtopic_uuid, tags, active_instructor_count, blueprint_course_id, \
+     course_lifecycle_state, course_edit_number, content_discipline_id, \
+     content_subject_id, content_topic_id, \
+     content_subtopic_id, tags, active_instructor_count, blueprint_course_id, \
      adopted_blueprint_revision_number, current_blueprint_revision_number \
      FROM ple_api.load_course_instance($1)";
 
@@ -186,8 +186,8 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         let rows = sqlx::query(
             "SELECT course_instance_id, short_name, long_name, term_starts_on::text AS term_starts_on, \
              term_ends_on::text AS term_ends_on, course_theme, course_lifecycle_state, course_edit_number, \
-             content_discipline_id AS discipline_uuid, content_subject_id AS subject_uuid, \
-             content_topic_id AS topic_uuid, content_subtopic_id AS subtopic_uuid, tags \
+             content_discipline_id, content_subject_id, \
+             content_topic_id, content_subtopic_id, tags \
              FROM ple_api.list_course_instances()",
         )
         .fetch_all(&mut *transaction)
@@ -238,8 +238,8 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
             let row = sqlx::query(
             "SELECT course_instance_id, short_name, long_name, term_starts_on::text AS term_starts_on, \
              term_ends_on::text AS term_ends_on, course_lifecycle_state, course_edit_number, \
-             content_discipline_id AS discipline_uuid, content_subject_id AS subject_uuid, \
-             content_topic_id AS topic_uuid, content_subtopic_id AS subtopic_uuid, tags \
+             content_discipline_id, content_subject_id, \
+             content_topic_id, content_subtopic_id, tags \
              FROM ple_api.create_course_instance(\
              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10::date, $11::date, $12, $13, $14,$15,$16,$17,$18)",
         )

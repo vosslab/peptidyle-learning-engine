@@ -120,6 +120,7 @@ DECLARE
     object_kind text;
     supplied text;
     mint_placeholder text;
+    field_name text;
 BEGIN
     IF TG_NARGS <> 1 OR TG_ARGV[0] NOT IN ('BP', 'CI', 'A', 'U') THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
@@ -131,12 +132,16 @@ BEGIN
         WHEN 'A' THEN 'assessment'
         WHEN 'U' THEN 'account'
     END;
-    supplied := CASE TG_ARGV[0]
-        WHEN 'U' THEN NEW.account_id
-        WHEN 'CI' THEN NEW.course_instance_id
-        WHEN 'BP' THEN NEW.blueprint_course_id
-        WHEN 'A' THEN NEW.assessment_id
+    -- One trigger function serves four row types. PL/pgSQL CASE/IF branches
+    -- still resolve NEW.field names against the firing table, so account
+    -- inserts cannot mention course_instance_id. Read and write through JSON.
+    field_name := CASE TG_ARGV[0]
+        WHEN 'U' THEN 'account_id'
+        WHEN 'CI' THEN 'course_instance_id'
+        WHEN 'BP' THEN 'blueprint_course_id'
+        WHEN 'A' THEN 'assessment_id'
     END;
+    supplied := pg_catalog.to_jsonb(NEW) ->> field_name;
     mint_placeholder := CASE TG_ARGV[0]
         WHEN 'U' THEN 'U00000009'
         WHEN 'CI' THEN 'CI0000000Y'
@@ -160,15 +165,7 @@ BEGIN
             -- Draw again; the registry remains the final global boundary.
         END;
     END LOOP;
-    IF TG_ARGV[0] = 'U' THEN
-        NEW.account_id := candidate;
-    ELSIF TG_ARGV[0] = 'CI' THEN
-        NEW.course_instance_id := candidate;
-    ELSIF TG_ARGV[0] = 'BP' THEN
-        NEW.blueprint_course_id := candidate;
-    ELSIF TG_ARGV[0] = 'A' THEN
-        NEW.assessment_id := candidate;
-    END IF;
+    NEW := jsonb_populate_record(NEW, jsonb_build_object(field_name, candidate));
     RETURN NEW;
 END
 $$;

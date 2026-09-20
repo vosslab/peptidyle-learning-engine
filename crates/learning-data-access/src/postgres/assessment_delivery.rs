@@ -117,7 +117,7 @@ async fn read_committed_assessment_attempt(
     .await
     .map_err(map_sqlx_error)?;
     let rows = sqlx::query(
-        "SELECT assessment_entry_id::text, issued_position, question_id, revision_number, question_seed::text, generated_parameter_sha256, \
+        "SELECT assessment_entry_id::text, issued_position, published_question_id, revision_number, question_seed::text, generated_parameter_sha256, \
          presentation_nonce, presentation_checksum \
          FROM ple_api.read_student_assessment_attempt_presentation_evidence_set($1)",
     )
@@ -138,11 +138,13 @@ async fn read_committed_assessment_attempt(
             Ok(IssuedQuestionPresentation {
                 assessment_entry_id: row.try_get("assessment_entry_id").map_err(map_sqlx_error)?,
                 question_id: row
-                    .try_get::<String, _>("question_id")
+                    .try_get::<String, _>("published_question_id")
                     .map_err(map_sqlx_error)?
                     .parse()
                     .map_err(|_| {
-                        StoreError::InvalidRecord("Issued Question ID is invalid".to_string())
+                        StoreError::InvalidRecord(
+                            "Issued Published Question ID is invalid".to_string(),
+                        )
                     })?,
                 description: String::new(),
                 position: positive_i32(row, "issued_position", "Issued Question position")?,
@@ -362,7 +364,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
         }
         let mut tx = self.begin(token).await?;
         let row = sqlx::query(
-            "SELECT question_id, revision_number, question_seed::text, generated_parameter_sha256, presentation_nonce, presentation_checksum, presentation, author_content, \
+            "SELECT published_question_id, revision_number, question_seed::text, generated_parameter_sha256, presentation_nonce, presentation_checksum, presentation, author_content, \
              question_image_renditions, response_item_bindings \
              FROM ple_api.read_student_assessment_attempt_presentation_evidence($1, $2)",
         )
@@ -390,7 +392,8 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
         let mut tx = self.begin(token).await?;
         let row = sqlx::query(
             "SELECT backend_document, issued_question_id, assessment_entry_id, issued_position, \
-                    question_id, revision_number, question_seed::text, generated_parameter_sha256, source_object_id, \
+                    published_question_id, revision_number, question_seed::text, generated_parameter_sha256, \
+                    source_object_record_id, \
                     source_object_checksum, webwork_pg_path, student_response \
              FROM ple_api.read_student_assessment_attempt_backend_document($1, $2)",
         )
@@ -426,16 +429,18 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
                 QuestionRevisionNumber::new(revision_number).map_err(|_| {
                     StoreError::InvalidRecord("Question Revision number is invalid".to_string())
                 })?;
-                let question_id = row
-                    .try_get::<String, _>("question_id")
+                let published_question_id = row
+                    .try_get::<String, _>("published_question_id")
                     .map_err(map_sqlx_error)?
                     .parse()
                     .map_err(|_| {
-                        StoreError::InvalidRecord("Issued Question ID is invalid".to_string())
+                        StoreError::InvalidRecord(
+                            "Issued Published Question ID is invalid".to_string(),
+                        )
                     })?;
                 let reproduction = issuance_reproduction_from_row(&row, "webwork")?;
-                let source_object_id = row
-                    .try_get::<Uuid, _>("source_object_id")
+                let source_object_record_id = row
+                    .try_get::<Uuid, _>("source_object_record_id")
                     .map_err(map_sqlx_error)?;
                 let source_object_checksum = row
                     .try_get::<String, _>("source_object_checksum")
@@ -454,9 +459,9 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
                         issued_question_id: Some(issued_question_id),
                         assessment_entry_id: assessment_entry_id.to_string(),
                         position,
-                        question_id,
+                        question_id: published_question_id,
                         revision_number,
-                        source_object_id: source_object_id.to_string(),
+                        source_object_id: source_object_record_id.to_string(),
                         source_object_checksum,
                         webwork_pg_path,
                         reproduction,
@@ -489,7 +494,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
             .await?;
         let mut tx = self.begin(token).await?;
         let retained_rows = sqlx::query(
-            "SELECT assessment_entry_id::text, issued_position, question_id, revision_number, question_seed::text, generated_parameter_sha256, presentation_nonce, presentation_checksum, presentation, author_content, question_image_renditions, response_item_bindings \
+            "SELECT assessment_entry_id::text, issued_position, published_question_id, revision_number, question_seed::text, generated_parameter_sha256, presentation_nonce, presentation_checksum, presentation, author_content, question_image_renditions, response_item_bindings \
              FROM ple_api.read_student_assessment_attempt_presentation_evidence_set($1)",
         )
         .bind(started.assessment_attempt.as_uuid())
@@ -515,7 +520,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
                 webwork_sources: Vec::new(),
             });
         }
-        let rows = sqlx::query("SELECT issued_question_id, assessment_entry_id::text, issued_position, question_id, revision_number, backend, source_object_id::text, source_object_address, source_object_checksum, webwork_pg_path, question_seed::text, generated_parameter_sha256, question_attempt_id, presentation_nonce, presentation_checksum, presentation, author_content, question_image_renditions FROM ple_api.prepare_student_assessment_attempt_presentation($1)")
+        let rows = sqlx::query("SELECT issued_question_id, assessment_entry_id::text, issued_position, published_question_id, revision_number, backend, source_object_record_id, source_object_address, source_object_checksum, webwork_pg_path, question_seed::text, generated_parameter_sha256, question_attempt_id, presentation_nonce, presentation_checksum, presentation, author_content, question_image_renditions FROM ple_api.prepare_student_assessment_attempt_presentation($1)")
             .bind(started.assessment_attempt.as_uuid())
             .fetch_all(&mut *tx).await.map_err(map_sqlx_error)?;
         let first = rows.first().ok_or_else(|| {
@@ -537,12 +542,12 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
                 ));
             }
             let position = positive_i32(&row, "issued_position", "Issued Question position")?;
-            let question_id = row
-                .try_get::<String, _>("question_id")
+            let published_question_id = row
+                .try_get::<String, _>("published_question_id")
                 .map_err(map_sqlx_error)?
                 .parse()
                 .map_err(|_| {
-                    StoreError::InvalidRecord("Issued Question ID is invalid".to_string())
+                    StoreError::InvalidRecord("Issued Published Question ID is invalid".to_string())
                 })?;
             let revision_number = u32::try_from(
                 row.try_get::<i32, _>("revision_number")
@@ -551,13 +556,16 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
             .map_err(|_| {
                 StoreError::InvalidRecord("Question Revision number is invalid".to_string())
             })?;
+            let source_object_record_id = row
+                .try_get::<Uuid, _>("source_object_record_id")
+                .map_err(map_sqlx_error)?;
             let common = (
                 row.try_get("issued_question_id").map_err(map_sqlx_error)?,
                 row.try_get("assessment_entry_id").map_err(map_sqlx_error)?,
                 position,
-                question_id,
+                published_question_id,
                 revision_number,
-                row.try_get("source_object_id").map_err(map_sqlx_error)?,
+                source_object_record_id.to_string(),
                 row.try_get("source_object_checksum")
                     .map_err(map_sqlx_error)?,
                 ready_question_image_renditions(&row)?,

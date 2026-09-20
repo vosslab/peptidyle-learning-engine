@@ -104,7 +104,7 @@ BEGIN
         forked_public_id, occurred_at
     ) VALUES (
         'question', NEW.source_question_id, 'fork', NEW.source_revision_number,
-        NEW.forked_question_id, NEW.recorded_at
+        NEW.forked_published_question_id, NEW.recorded_at
     );
     RETURN NEW;
 END

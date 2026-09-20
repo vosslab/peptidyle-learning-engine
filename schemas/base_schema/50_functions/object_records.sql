@@ -24,8 +24,8 @@ CREATE FUNCTION ple_private.register_workspace_question_source_object(
 SET search_path = pg_catalog, ple_api, ple_private AS $$
 DECLARE
     expected_address jsonb := jsonb_build_object(
-        'kind', 'workspaceQuestionSource', 'workspace', p_authoring_workspace_id,
-        'object', p_object_record_id);
+        'kind', 'workspaceQuestionSource', 'workspaceId', p_authoring_workspace_id,
+        'objectId', p_object_record_id);
     expected_created_at timestamptz := to_timestamp(p_created_at_millis::double precision / 1000.0);
 BEGIN
     IF NOT ple_api.current_session_account_can_access_authoring_workspace(p_authoring_workspace_id) THEN

@@ -1,6 +1,6 @@
 //! Decoding for one retained Assessment Attempt presentation source.
 
-use question_model::{QuestionReproduction, QuestionSeed};
+use question_model::{QuestionId, QuestionReproduction, QuestionSeed};
 use sqlx::Row;
 
 use super::{assessment_delivery::positive_i32, connection::map_sqlx_error};
@@ -13,11 +13,13 @@ use crate::{
 pub(super) fn presentation_evidence_from_row(
     row: &sqlx::postgres::PgRow,
 ) -> Result<StudentAssessmentAttemptPresentationEvidence, StoreError> {
-    let question_id = row
-        .try_get::<String, _>("question_id")
+    let published_question_id = row
+        .try_get::<String, _>("published_question_id")
         .map_err(map_sqlx_error)?
-        .parse()
-        .map_err(|_| StoreError::InvalidRecord("Issued Question ID is invalid".to_string()))?;
+        .parse::<QuestionId>()
+        .map_err(|_| {
+            StoreError::InvalidRecord("Issued Published Question ID is invalid".to_string())
+        })?;
     let revision_number = u32::try_from(
         row.try_get::<i32, _>("revision_number")
             .map_err(map_sqlx_error)?,
@@ -44,7 +46,7 @@ pub(super) fn presentation_evidence_from_row(
     )?;
     Ok(StudentAssessmentAttemptPresentationEvidence {
         question_revision_tuple: question_model::QuestionRevisionTuple {
-            question_id,
+            question_id: published_question_id,
             revision_number,
         },
         reproduction: reproduction_from_row(row)?,
@@ -118,11 +120,13 @@ pub(super) fn source_from_row(
         .try_get::<uuid::Uuid, _>("question_attempt_id")
         .map(question_model::QuestionAttemptId::from_uuid)
         .map_err(map_sqlx_error)?;
-    let question_id = row
-        .try_get::<String, _>("question_id")
+    let published_question_id = row
+        .try_get::<String, _>("published_question_id")
         .map_err(map_sqlx_error)?
-        .parse()
-        .map_err(|_| StoreError::InvalidRecord("Issued Question ID is invalid".to_string()))?;
+        .parse::<QuestionId>()
+        .map_err(|_| {
+            StoreError::InvalidRecord("Issued Published Question ID is invalid".to_string())
+        })?;
     let revision_number = u32::try_from(
         row.try_get::<i32, _>("revision_number")
             .map_err(map_sqlx_error)?,
@@ -131,7 +135,9 @@ pub(super) fn source_from_row(
     question_model::QuestionRevisionNumber::new(revision_number).map_err(|_| {
         StoreError::InvalidRecord("Question Revision number is invalid".to_string())
     })?;
-    let source_object_id: uuid::Uuid = row.try_get("source_object_id").map_err(map_sqlx_error)?;
+    let source_object_record_id: uuid::Uuid = row
+        .try_get("source_object_record_id")
+        .map_err(map_sqlx_error)?;
     let reproduction = reproduction_from_row(row)?;
     let nonce: String = row.try_get("presentation_nonce").map_err(map_sqlx_error)?;
     let checksum: String = row
@@ -144,9 +150,9 @@ pub(super) fn source_from_row(
                 issued_question_id: None,
                 assessment_entry_id: String::new(),
                 position,
-                question_id,
+                question_id: published_question_id.clone(),
                 revision_number,
-                source_object_id: source_object_id.to_string(),
+                source_object_id: source_object_record_id.to_string(),
                 source_object_address: row
                     .try_get("source_object_address")
                     .map_err(map_sqlx_error)?,
@@ -166,9 +172,9 @@ pub(super) fn source_from_row(
                 issued_question_id: None,
                 assessment_entry_id: String::new(),
                 position,
-                question_id,
+                question_id: published_question_id,
                 revision_number,
-                source_object_id: source_object_id.to_string(),
+                source_object_id: source_object_record_id.to_string(),
                 source_object_checksum: row
                     .try_get("source_object_checksum")
                     .map_err(map_sqlx_error)?,

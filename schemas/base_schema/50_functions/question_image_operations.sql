@@ -21,9 +21,6 @@ BEGIN
     -- ASVS 2.1.2, 2.3.3: the deferred check binds the current publication
     -- atomically to its exact current immutable Job contract.
     IF NOT FOUND
-       OR publication_job.job_kind IS DISTINCT FROM 'publish_public_assets'
-       OR publication_job.job_target_kind IS DISTINCT FROM 'public_asset_publication'
-       OR publication_job.worker_kind IS DISTINCT FROM 'public_asset_publisher'
        OR publication_job.published_question_id IS DISTINCT FROM publication.published_question_id
        OR publication_job.revision_number IS DISTINCT FROM publication.revision_number THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
@@ -74,9 +71,6 @@ BEGIN
       JOIN ple_private.question_image_publication AS registry
         ON registry.job_id = candidate.job_id
      WHERE registry.publication_state = 'pending'
-       AND candidate.job_kind = 'publish_public_assets'
-       AND candidate.job_target_kind = 'public_asset_publication'
-       AND candidate.worker_kind = 'public_asset_publisher'
        AND candidate.published_question_id = registry.published_question_id
        AND candidate.revision_number = registry.revision_number
        AND candidate.attempt_count < candidate.max_attempts
@@ -96,9 +90,6 @@ BEGIN
            lease_expires_at = p_lease_expires_at,
            attempt_count = publication_job.attempt_count + 1
      WHERE job.job_id = publication_job.job_id
-       AND job.job_kind = 'publish_public_assets'
-       AND job.job_target_kind = 'public_asset_publication'
-       AND job.worker_kind = 'public_asset_publisher'
        AND job.published_question_id = publication.published_question_id
        AND job.revision_number = publication.revision_number
        AND job.attempt_count = publication_job.attempt_count
@@ -143,9 +134,6 @@ BEGIN
     SELECT * INTO publication_job FROM ple_private.job
      WHERE job_id = p_job_id FOR UPDATE;
     IF NOT FOUND
-       OR publication_job.job_kind <> 'publish_public_assets'
-       OR publication_job.job_target_kind <> 'public_asset_publication'
-       OR publication_job.worker_kind <> 'public_asset_publisher'
        OR publication_job.published_question_id <> publication.published_question_id
        OR publication_job.revision_number <> publication.revision_number
        OR publication_job.state <> 'leased'
@@ -291,12 +279,12 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
                   JOIN ple_private.question_attempt AS question_attempt
                     ON question_attempt.course_instance_id = issued.course_instance_id
                    AND question_attempt.issued_question_id = issued.issued_question_id
-                  JOIN ple_private.question_attempt_presentation_image_rendition AS presented_asset
-                    ON presented_asset.course_instance_id = question_attempt.course_instance_id
-                   AND presented_asset.question_attempt_presentation_image_binding_id
+                  JOIN ple_private.question_attempt_presentation_image_rendition AS presented_image
+                    ON presented_image.course_instance_id = question_attempt.course_instance_id
+                   AND presented_image.question_attempt_presentation_image_binding_id
                         = question_attempt.question_attempt_id
                    AND presented_image.question_image_asset_id = publication.question_image_asset_id
-                   AND presented_asset.rendition_checksum = publication.public_object_checksum
+                   AND presented_image.rendition_checksum = publication.public_object_checksum
                   JOIN ple_data.assessment AS assessment
                     ON assessment.assessment_id = assessment_attempt.assessment_id
                  WHERE issued.published_question_id = publication.published_question_id
