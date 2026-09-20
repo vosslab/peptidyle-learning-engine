@@ -90,6 +90,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Before production, edit the main database design directly as the design changes.
 - After production, update existing databases without rebuilding them from scratch.
 - Use readable `snake_case` whenever possible; see [NAMING_CONVENTIONS.md](/docs/NAMING_CONVENTIONS.md) for details.
+- Give variables for distinct concepts distinct names. For example, `qti_package_upload_file`, `question_image_asset`, `delivered_question_image`, and `object_id` name four different roles.
+- Use the clearest variable name, including a longer name when it better expresses the value; name length has no runtime cost.
 - Adaptability should be a focus so the software can evolve as requirements and insights change.
 - Cargo, Node, and PyPI dependencies should use the latest versions to include security fixes.
 - If an interface is measured as too slow, consider moving the slow code to Rust/WebAssembly.
