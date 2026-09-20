@@ -334,6 +334,7 @@ DECLARE
     v_course ple_data.blueprint_course%ROWTYPE;
     v_next_blueprint_edit_number bigint;
     v_blueprint_course_id text;
+    v_availability ple_data.blueprint_availability;
 BEGIN
     IF NOT ple_private.is_canonical_prefixed_public_id(p_blueprint_course_id, 'BP')
        OR p_expected_blueprint_edit_number IS NULL
@@ -342,6 +343,7 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Blueprint availability change is invalid';
     END IF;
+    v_availability := p_availability::ple_data.blueprint_availability;
     v_actor := ple_api.current_session_account_id();
     SELECT course.blueprint_course_id INTO v_blueprint_course_id
       FROM ple_data.blueprint_course AS course
@@ -381,13 +383,13 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Archive Blueprint requires exact long name confirmation';
     END IF;
-    IF v_course.availability = p_availability THEN
+    IF v_course.availability = v_availability THEN
         RAISE EXCEPTION USING ERRCODE = '55000',
             MESSAGE = 'Blueprint availability already has that state';
     END IF;
     v_next_blueprint_edit_number := v_course.blueprint_edit_number + 1;
     UPDATE ple_data.blueprint_course AS course
-       SET availability = p_availability, blueprint_edit_number = v_next_blueprint_edit_number
+       SET availability = v_availability, blueprint_edit_number = v_next_blueprint_edit_number
      WHERE course.blueprint_course_id = v_blueprint_course_id;
     INSERT INTO ple_data.blueprint_metadata_event (
         blueprint_course_id, actor_account_id, short_name, long_name,
@@ -395,7 +397,7 @@ BEGIN
         content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags
     ) VALUES (
         v_blueprint_course_id, v_actor, v_course.short_name, v_course.long_name,
-        p_availability, v_next_blueprint_edit_number, pg_catalog.clock_timestamp(),
+        v_availability, v_next_blueprint_edit_number, pg_catalog.clock_timestamp(),
         v_course.content_discipline_id, v_course.content_subject_id, v_course.content_topic_id,
         v_course.content_subtopic_id, v_course.tags
     );

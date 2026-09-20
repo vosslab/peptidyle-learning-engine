@@ -16,7 +16,7 @@ BEGIN
      WHERE workspace.authoring_workspace_id = example_workspace;
     IF publisher IS NULL THEN
         INSERT INTO ple_private.account (account_id, product_role, created_at)
-        VALUES (account_placeholder, 'instructor', clock_timestamp())
+        VALUES (account_placeholder, 'instructor', pg_catalog.transaction_timestamp())
         RETURNING account_id INTO publisher;
         INSERT INTO ple_private.authoring_workspace (
             authoring_workspace_id, owner_account_id, created_at

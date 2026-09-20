@@ -30,6 +30,35 @@
 
 ### Fixes and Maintenance
 
+- Bundled curriculum publisher Account insert uses
+  `transaction_timestamp()` for `created_at` so `account_check`
+  (`updated_at >= created_at`) holds. Gate:
+  `./launchers/run_fast_checks.sh` then
+  `./launchers/run_live_demo.sh --headless`.
+
+- Live Demo Assessment oracle reads Question IDs from
+  `assessment_entry_question` and raises a specific missing-graph message.
+  Gate: `./launchers/run_fast_checks.sh` then
+  `./launchers/run_live_demo.sh --headless`.
+
+- Live Demo oracle membership checks compare `ple_data.product_role` rather
+  than text. Gate: `./launchers/run_fast_checks.sh` then
+  `./launchers/run_live_demo.sh --headless`.
+
+- Live Demo installation oracle raises a specific incomplete-graph message
+  instead of one combined check. Gate: `./launchers/run_fast_checks.sh` then
+  `./launchers/run_live_demo.sh --headless`.
+
+- Live Demo provision accepts the Store Blueprint Assessment ID as a UUID
+  child identity, not an `A`-prefixed Assessment ID. Gate:
+  `./launchers/run_fast_checks.sh` then
+  `./launchers/run_live_demo.sh --headless`.
+
+- `ple_api.set_blueprint_availability` compares and writes
+  `ple_data.blueprint_availability` rather than text. Gate:
+  `./launchers/run_fast_checks.sh` then
+  `./launchers/run_live_demo.sh --headless`.
+
 - Blueprint content JSON pins use `question_revision_tuple`, matching
   `StoredBlueprintAssessmentEntry`. Gate:
   `./launchers/run_fast_checks.sh` then

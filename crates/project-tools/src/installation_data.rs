@@ -11,7 +11,8 @@ use learning_data_access::{
     postgres::{PostgresBlueprintCourseStore, lazy_pool},
 };
 use question_model::{
-    AssessmentId, BlueprintAvailability, BlueprintCourseId, BlueprintCourseReadAccess, WorkspaceId,
+    BlueprintAssessmentId, BlueprintAvailability, BlueprintCourseId, BlueprintCourseReadAccess,
+    WorkspaceId,
 };
 use uuid::Uuid;
 
@@ -129,8 +130,11 @@ fn apply_live_demo() -> Result<()> {
         crate::installation_data_blueprint::create_live_demo_blueprint(token_hash, &publications)
             .context("creating the ordinary Live Demo Blueprint Course")?;
     ensure!(
-        AssessmentId::new(live_demo_blueprint.assessment_id.clone()).is_ok(),
-        "Live Demo Blueprint Store receipt is not a canonical Assessment ID"
+        live_demo_blueprint
+            .assessment_id
+            .parse::<BlueprintAssessmentId>()
+            .is_ok(),
+        "Live Demo Blueprint Store receipt is not a canonical Blueprint Assessment ID"
     );
     run_manifest(
         &migration_database_url,
