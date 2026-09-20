@@ -43,18 +43,18 @@ export class LiveAssessmentWorkspaceConflictError extends ApiRequestError {
   }
 }
 
-function coursePath(course: CourseInstanceId): string {
-  if (parseCourseInstanceId(course) === null) {
+function coursePath(courseInstanceId: CourseInstanceId): string {
+  if (parseCourseInstanceId(courseInstanceId) === null) {
     throw new ApiProtocolError("Course Instance ID must be canonical");
   }
-  return `/api/course-instances/${encodeURIComponent(course)}`;
+  return `/api/course-instances/${encodeURIComponent(courseInstanceId)}`;
 }
 
-function assessmentPath(course: CourseInstanceId, assessment: AssessmentId): string {
-  if (parseAssessmentId(assessment) === null) {
+function assessmentPath(courseInstanceId: CourseInstanceId, assessmentId: AssessmentId): string {
+  if (parseAssessmentId(assessmentId) === null) {
     throw new ApiProtocolError("Assessment ID must be canonical");
   }
-  return `${coursePath(course)}/assessments/${encodeURIComponent(assessment)}`;
+  return `${coursePath(courseInstanceId)}/assessments/${encodeURIComponent(assessmentId)}`;
 }
 
 function loadedWorkspace(
@@ -108,32 +108,32 @@ export function createLiveAssessmentReleaseClient(
   basePath: string,
 ): Pick<ApiClient, keyof LiveAssessmentReleaseClient> {
   return {
-    getCourseBlueprintUpdateReview: async (course) =>
+    getCourseBlueprintUpdateReview: async (courseInstanceId) =>
       (
         await assessmentJson(
           fetchImplementation,
           basePath,
-          `${coursePath(course)}/blueprint-update-review`,
+          `${coursePath(courseInstanceId)}/blueprint-update-review`,
           decodeCourseBlueprintUpdateReview,
           { status: 200 },
         )
       ).body,
-    getAssessmentBlueprintUpdateReview: async (course, assessment) =>
+    getAssessmentBlueprintUpdateReview: async (courseInstanceId, assessmentId) =>
       (
         await assessmentJson(
           fetchImplementation,
           basePath,
-          `${assessmentPath(course, assessment)}/blueprint-update`,
+          `${assessmentPath(courseInstanceId, assessmentId)}/blueprint-update`,
           decodeAssessmentBlueprintUpdateReview,
           { status: 200 },
         )
       ).body,
     applyAssessmentBlueprintUpdate: async (
-      course,
-      assessment,
+      courseInstanceId,
+      assessmentId,
       input,
     ): Promise<LiveAssessmentWorkspaceResponse> => {
-      const path = `${assessmentPath(course, assessment)}/blueprint-update`;
+      const path = `${assessmentPath(courseInstanceId, assessmentId)}/blueprint-update`;
       const result = await assessmentJson(
         fetchImplementation,
         basePath,
@@ -156,22 +156,22 @@ export function createLiveAssessmentReleaseClient(
           decodeDueSoonAssessments,
         )
       ).body,
-    listCourseAssessments: async (course) =>
+    listCourseAssessments: async (courseInstanceId) =>
       (
         await assessmentJson(
           fetchImplementation,
           basePath,
-          `${coursePath(course)}/assessments`,
+          `${coursePath(courseInstanceId)}/assessments`,
           decodeCourseAssessments,
         )
       ).body,
     saveLiveAssessmentInline: async (
-      course,
-      assessment,
+      courseInstanceId,
+      assessmentId,
       input,
       editNumber,
     ): Promise<CourseAssessmentSummary> => {
-      const path = `${assessmentPath(course, assessment)}/inline`;
+      const path = `${assessmentPath(courseInstanceId, assessmentId)}/inline`;
       const result = await assessmentJson(
         fetchImplementation,
         basePath,
@@ -192,17 +192,20 @@ export function createLiveAssessmentReleaseClient(
       );
       return result.body;
     },
-    listLiveAssessmentQuestionPicker: async (course) =>
+    listLiveAssessmentQuestionPicker: async (courseInstanceId) =>
       (
         await assessmentJson(
           fetchImplementation,
           basePath,
-          `${coursePath(course)}/assessment-question-picker`,
+          `${coursePath(courseInstanceId)}/assessment-question-picker`,
           decodeAssessmentQuestionPicker,
         )
       ).body,
-    createLiveAssessment: async (course, input): Promise<LiveAssessmentWorkspaceResponse> => {
-      const path = `${coursePath(course)}/assessments`;
+    createLiveAssessment: async (
+      courseInstanceId,
+      input,
+    ): Promise<LiveAssessmentWorkspaceResponse> => {
+      const path = `${coursePath(courseInstanceId)}/assessments`;
       const result = await assessmentJson(
         fetchImplementation,
         basePath,
@@ -217,10 +220,10 @@ export function createLiveAssessmentReleaseClient(
       return loadedWorkspace(result.body, result.response, path);
     },
     getLiveAssessmentWorkspace: async (
-      course,
-      assessment,
+      courseInstanceId,
+      assessmentId,
     ): Promise<LiveAssessmentWorkspaceResponse> => {
-      const path = assessmentPath(course, assessment);
+      const path = assessmentPath(courseInstanceId, assessmentId);
       const result = await assessmentJson(
         fetchImplementation,
         basePath,
@@ -230,12 +233,12 @@ export function createLiveAssessmentReleaseClient(
       return loadedWorkspace(result.body, result.response, path);
     },
     saveLiveAssessment: async (
-      course,
-      assessment,
+      courseInstanceId,
+      assessmentId,
       input,
       expectedAssessmentEditNumber,
     ): Promise<LiveAssessmentWorkspaceResponse> => {
-      const path = assessmentPath(course, assessment);
+      const path = assessmentPath(courseInstanceId, assessmentId);
       const result = await assessmentJson(
         fetchImplementation,
         basePath,
@@ -251,12 +254,12 @@ export function createLiveAssessmentReleaseClient(
       return loadedWorkspace(result.body, result.response, path);
     },
     saveBaseAssessmentPolicy: async (
-      course,
-      assessment,
+      courseInstanceId,
+      assessmentId,
       input,
       expectedAssessmentEditNumber,
     ): Promise<LiveAssessmentWorkspaceResponse> => {
-      const path = `${assessmentPath(course, assessment)}/policies`;
+      const path = `${assessmentPath(courseInstanceId, assessmentId)}/policies`;
       const result = await assessmentJson(
         fetchImplementation,
         basePath,
@@ -271,21 +274,21 @@ export function createLiveAssessmentReleaseClient(
       );
       return loadedWorkspace(result.body, result.response, path);
     },
-    validateLiveAssessmentRelease: async (course, assessment) =>
+    validateLiveAssessmentRelease: async (courseInstanceId, assessmentId) =>
       (
         await assessmentJson(
           fetchImplementation,
           basePath,
-          `${assessmentPath(course, assessment)}/release-validation`,
+          `${assessmentPath(courseInstanceId, assessmentId)}/release-validation`,
           decodeAssessmentReleaseValidation,
         )
       ).body,
     releaseLiveAssessment: async (
-      course,
-      assessment,
+      courseInstanceId,
+      assessmentId,
       expectedAssessmentEditNumber,
     ): Promise<LiveAssessmentWorkspaceResponse> => {
-      const path = `${assessmentPath(course, assessment)}/release`;
+      const path = `${assessmentPath(courseInstanceId, assessmentId)}/release`;
       const result = await assessmentJson(
         fetchImplementation,
         basePath,
@@ -299,22 +302,22 @@ export function createLiveAssessmentReleaseClient(
       );
       return loadedWorkspace(result.body, result.response, path);
     },
-    getLiveAssessmentUnreleaseImpact: async (course, assessment) =>
+    getLiveAssessmentUnreleaseImpact: async (courseInstanceId, assessmentId) =>
       (
         await assessmentJson(
           fetchImplementation,
           basePath,
-          `${assessmentPath(course, assessment)}/unrelease-impact`,
+          `${assessmentPath(courseInstanceId, assessmentId)}/unrelease-impact`,
           decodeAssessmentUnreleaseImpact,
         )
       ).body,
     unreleaseLiveAssessment: async (
-      course,
-      assessment,
+      courseInstanceId,
+      assessmentId,
       confirmationTitle,
       expectedAssessmentEditNumber,
     ): Promise<UnreleasedLiveAssessment> => {
-      const path = `${assessmentPath(course, assessment)}/unrelease`;
+      const path = `${assessmentPath(courseInstanceId, assessmentId)}/unrelease`;
       const result = await assessmentJson(
         fetchImplementation,
         basePath,

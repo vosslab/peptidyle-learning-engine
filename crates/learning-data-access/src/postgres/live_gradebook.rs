@@ -4,7 +4,10 @@ use async_trait::async_trait;
 use question_model::{AssessmentAttemptCompletion, AssessmentId, CourseInstanceId};
 use sqlx::{Postgres, Row, Transaction};
 
-use super::{Pool, connection::map_sqlx_error};
+use super::{
+    Pool,
+    connection::{map_sqlx_error, parse_course_instance_id},
+};
 use crate::{
     CourseGradebook, CourseGradebookStore, CourseGradebookStudentWork, LiveAssessmentAttemptScore,
     SessionTokenHash, StoreError,
@@ -53,7 +56,7 @@ impl CourseGradebookStore for PostgresCourseGradebookStore {
     async fn course_gradebook(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
     ) -> Result<CourseGradebook, StoreError> {
         let mut transaction = self.begin(token).await?;
         let rows = sqlx::query(
@@ -62,19 +65,19 @@ impl CourseGradebookStore for PostgresCourseGradebookStore {
              points_earned, points_possible \
              FROM ple_api.read_course_gradebook($1)",
         )
-        .bind(course.as_string())
+        .bind(course_instance_id.as_string())
         .fetch_all(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
         let Some(first) = rows.first() else {
             return Err(StoreError::NotFound);
         };
-        let returned_course = course_instance_id(
+        let returned_course = parse_course_instance_id(
             first
                 .try_get("course_instance_id")
                 .map_err(map_sqlx_error)?,
         )?;
-        if returned_course != course {
+        if returned_course != course_instance_id {
             return Err(StoreError::InvalidRecord(
                 "database returned a different Course ID".to_string(),
             ));
@@ -85,7 +88,7 @@ impl CourseGradebookStore for PostgresCourseGradebookStore {
             .collect::<Result<Vec<_>, _>>()?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(CourseGradebook {
-            course_id: returned_course,
+            course_instance_id: returned_course,
             student_work,
         })
     }
@@ -151,10 +154,6 @@ fn decode_row(
         expired_submitting,
         score,
     }))
-}
-
-fn course_instance_id(value: String) -> Result<CourseInstanceId, StoreError> {
-    CourseInstanceId::new(value).map_err(|_| invalid("Course Instance ID"))
 }
 
 fn assessment_id(value: String) -> Result<AssessmentId, StoreError> {

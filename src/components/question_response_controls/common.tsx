@@ -68,7 +68,7 @@ type QuestionResponseControlPhase =
   | { readonly kind: "failed"; readonly message: string };
 
 export interface StudentWorkRouteScope {
-  readonly courseId: CourseInstanceId;
+  readonly courseInstanceId: CourseInstanceId;
   readonly assessmentId: AssessmentId;
 }
 
@@ -104,7 +104,7 @@ export interface QuestionResponseControlBaseProps {
   readonly studentWorkRoute?: StudentWorkRouteScope;
   readonly beginImathasQuestionBackendLaunch?: () => Promise<ImathasQuestionBackendLaunch>;
   /** Current authorized lifecycle ID for a backend-owned document route. */
-  readonly assessmentAttempt?: AssessmentAttemptId;
+  readonly assessmentAttemptId?: AssessmentAttemptId;
   /** Current 1-based position for a backend-owned document route. */
   readonly position?: number;
   /**

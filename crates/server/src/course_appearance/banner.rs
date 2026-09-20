@@ -71,7 +71,7 @@ pub(super) async fn stage_banner_upload(
     let upload = CourseBannerUploadId::generate();
     let media_type = verified.media_type.canonical_media_type().to_string();
     let address = ObjectAddress::CourseBannerUpload {
-        course: course.clone(),
+        course_instance_id: course.clone(),
         upload,
     };
     let metadata = banner_metadata(
@@ -87,7 +87,7 @@ pub(super) async fn stage_banner_upload(
         .stage_course_banner_upload(
             token,
             StageCourseBannerUpload {
-                course: course.clone(),
+                course_instance_id: course.clone(),
                 upload,
                 metadata: metadata.clone(),
                 width: verified.width,
@@ -178,11 +178,11 @@ pub(super) async fn promote_banner(
     };
     let banner = CourseBannerId::generate();
     let source_address = ObjectAddress::CourseBannerSource {
-        course: course.clone(),
+        course_instance_id: course.clone(),
         banner,
     };
     let rendition_address = ObjectAddress::CourseBannerRendition {
-        course: course.clone(),
+        course_instance_id: course.clone(),
         banner,
         rendition: CourseBannerRendition::Banner,
     };
@@ -228,7 +228,7 @@ pub(super) async fn promote_banner(
         .prepare_course_banner_promotion(
             token,
             PrepareCourseBannerPromotion {
-                course: course.clone(),
+                course_instance_id: course.clone(),
                 upload: update.upload,
                 banner,
                 update: update.clone(),
@@ -357,7 +357,7 @@ pub(super) async fn deliver_banner(
         Ok(course) => match state
             .objects
             .get(&ObjectAddress::CourseBannerRendition {
-                course: course.clone(),
+                course_instance_id: course.clone(),
                 banner,
                 rendition: CourseBannerRendition::Banner,
             })
@@ -446,20 +446,20 @@ fn record_matches_metadata(
 async fn mark_repair(
     state: &RouteState,
     token: SessionTokenHash,
-    course: CourseInstanceId,
+    course_instance_id: CourseInstanceId,
     banner: Option<CourseBannerId>,
     object_id: question_model::ObjectId,
 ) {
     let _ = state
         .banners
-        .require_course_banner_object_repair(token, course.clone(), banner, object_id)
+        .require_course_banner_object_repair(token, course_instance_id.clone(), banner, object_id)
         .await;
 }
 
 async fn compensate_prepared(
     state: &RouteState,
     token: SessionTokenHash,
-    course: CourseInstanceId,
+    course_instance_id: CourseInstanceId,
     banner: CourseBannerId,
     objects: &[(&ObjectAddress, Vec<u8>, CourseBannerObjectMetadata, Uuid)],
 ) {
@@ -468,7 +468,7 @@ async fn compensate_prepared(
             &state.banners,
             &state.objects,
             token,
-            course.clone(),
+            course_instance_id.clone(),
             Some(banner),
             address,
             *put_work_id,
@@ -484,7 +484,7 @@ pub(crate) async fn write_prepared_objects<S: CourseBannerStore, O: ObjectStore>
     banners: &S,
     objects: &O,
     token: SessionTokenHash,
-    course: CourseInstanceId,
+    course_instance_id: CourseInstanceId,
     banner: CourseBannerId,
     prepared: &[(&ObjectAddress, Vec<u8>, CourseBannerObjectMetadata, Uuid)],
 ) -> Result<(), ()> {
@@ -504,7 +504,7 @@ pub(crate) async fn write_prepared_objects<S: CourseBannerStore, O: ObjectStore>
         banners
             .complete_prepared_course_banner_object(
                 token,
-                course.clone(),
+                course_instance_id.clone(),
                 banner,
                 metadata.object_id,
             )
@@ -519,7 +519,7 @@ pub(crate) async fn finalize_staged_upload<S: CourseBannerStore, O: ObjectStore>
     banners: &S,
     objects: &O,
     token: SessionTokenHash,
-    course: CourseInstanceId,
+    course_instance_id: CourseInstanceId,
     upload: CourseBannerUploadId,
     put_work_id: Uuid,
     address: &ObjectAddress,
@@ -538,14 +538,19 @@ pub(crate) async fn finalize_staged_upload<S: CourseBannerStore, O: ObjectStore>
     let valid = matches!(&put, Ok(record) if record_matches_metadata(record, address, metadata));
     if !valid {
         let _ = banners
-            .require_course_banner_object_repair(token, course.clone(), None, metadata.object_id)
+            .require_course_banner_object_repair(
+                token,
+                course_instance_id.clone(),
+                None,
+                metadata.object_id,
+            )
             .await;
         return Err(StoreError::Unavailable(
             "Course Banner stage object put failed".to_string(),
         ));
     }
     match banners
-        .finalize_course_banner_upload_stage(token, course.clone(), upload)
+        .finalize_course_banner_upload_stage(token, course_instance_id.clone(), upload)
         .await
     {
         Ok(()) => Ok(()),
@@ -554,7 +559,7 @@ pub(crate) async fn finalize_staged_upload<S: CourseBannerStore, O: ObjectStore>
                 banners,
                 objects,
                 token,
-                course.clone(),
+                course_instance_id.clone(),
                 None,
                 address,
                 put_work_id,
@@ -568,27 +573,27 @@ pub(crate) async fn finalize_staged_upload<S: CourseBannerStore, O: ObjectStore>
 async fn cleanup_finalized_promotion(
     state: &RouteState,
     token: SessionTokenHash,
-    course: CourseInstanceId,
+    course_instance_id: CourseInstanceId,
     finalized: &FinalizedCourseBannerPromotion,
 ) {
     cleanup_address(
         state,
         token,
-        course.clone(),
+        course_instance_id.clone(),
         None,
         &finalized.upload,
         finalized.upload_put_work_id,
     )
     .await;
     if let Some(retired) = &finalized.retired {
-        cleanup_removal(state, token, course.clone(), retired).await;
+        cleanup_removal(state, token, course_instance_id.clone(), retired).await;
     }
 }
 
 async fn cleanup_removal(
     state: &RouteState,
     token: SessionTokenHash,
-    course: CourseInstanceId,
+    course_instance_id: CourseInstanceId,
     removal: &PreparedCourseBannerRemoval,
 ) {
     for (address, put_work_id) in [
@@ -598,7 +603,7 @@ async fn cleanup_removal(
         cleanup_address(
             state,
             token,
-            course.clone(),
+            course_instance_id.clone(),
             Some(removal.banner),
             address,
             put_work_id,
@@ -610,7 +615,7 @@ async fn cleanup_removal(
 async fn cleanup_address(
     state: &RouteState,
     token: SessionTokenHash,
-    course: CourseInstanceId,
+    course_instance_id: CourseInstanceId,
     banner: Option<CourseBannerId>,
     address: &ObjectAddress,
     put_work_id: Uuid,
@@ -619,7 +624,7 @@ async fn cleanup_address(
         &state.banners,
         &state.objects,
         token,
-        course.clone(),
+        course_instance_id.clone(),
         banner,
         address,
         put_work_id,
@@ -632,7 +637,7 @@ pub(crate) async fn cleanup_address_with<S: CourseBannerStore, O: ObjectStore>(
     banners: &S,
     objects: &O,
     token: SessionTokenHash,
-    _course: CourseInstanceId,
+    _course_instance_id: CourseInstanceId,
     _banner: Option<CourseBannerId>,
     address: &ObjectAddress,
     put_work_id: Uuid,

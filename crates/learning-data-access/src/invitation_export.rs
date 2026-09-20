@@ -66,6 +66,6 @@ pub trait InvitationExportStore: Send + Sync {
     async fn export_pending_course_invitations(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
     ) -> Result<PendingInvitationExport, StoreError>;
 }

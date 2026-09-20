@@ -107,7 +107,7 @@ fn only_immutable_question_assets_enter_the_public_delivery_domain() {
             object,
         },
         ObjectAddress::CourseBannerSource {
-            course: CourseInstanceId::from_debug_serial(10),
+            course_instance_id: CourseInstanceId::from_debug_serial(10),
             banner: CourseBannerId::from_uuid(Uuid::from_u128(11)),
         },
     ] {
@@ -125,15 +125,15 @@ fn course_banner_keys_bind_scope_classification_and_signing() {
     let upload_id = CourseBannerUploadId::from_uuid(Uuid::from_u128(3));
     let banner_id = CourseBannerId::from_uuid(Uuid::from_u128(4));
     let upload = ObjectAddress::CourseBannerUpload {
-        course: course.clone(),
+        course_instance_id: course.clone(),
         upload: upload_id,
     };
     let source = ObjectAddress::CourseBannerSource {
-        course: course.clone(),
+        course_instance_id: course.clone(),
         banner: banner_id,
     };
     let banner = ObjectAddress::CourseBannerRendition {
-        course: course.clone(),
+        course_instance_id: course.clone(),
         banner: banner_id,
         rendition: CourseBannerRendition::Banner,
     };
@@ -171,7 +171,7 @@ fn banner_object_identity_changes_with_course_and_route_id() {
 #[test]
 fn banner_keys_round_trip_without_a_caller_supplied_object_id() {
     let key = ObjectAddress::CourseBannerRendition {
-        course: CourseInstanceId::from_debug_serial(2),
+        course_instance_id: CourseInstanceId::from_debug_serial(2),
         banner: CourseBannerId::from_uuid(Uuid::from_u128(3)),
         rendition: CourseBannerRendition::Banner,
     };

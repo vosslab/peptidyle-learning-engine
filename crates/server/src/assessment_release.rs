@@ -299,7 +299,7 @@ async fn save_assessment(
         Ok(v) => v,
         Err(r) => return *r,
     };
-    input.expected_edit_number = expected_assessment_edit_number;
+    input.expected_assessment_edit_number = expected_assessment_edit_number;
     let token = match instructor(&state, &headers).await {
         Ok(v) => v,
         Err(r) => return *r,
@@ -354,7 +354,7 @@ async fn save_base_assessment_policy(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    input.expected_edit_number = expected;
+    input.expected_assessment_edit_number = expected;
     let token = match instructor(&state, &headers).await {
         Ok(value) => value,
         Err(response) => return *response,
@@ -446,7 +446,7 @@ async fn unrelease_impact(
 }
 
 /// Atomically deletes rooted Student Work and restores a Released Assessment
-/// to Unreleased after a strong ETag and exact-title confirmation.
+/// to Unreleased after a strong Assessment Edit Number and exact-title confirmation.
 async fn unrelease_assessment(
     State(state): State<StateData>,
     headers: HeaderMap,

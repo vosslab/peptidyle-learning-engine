@@ -1,0 +1,137 @@
+{
+  "routes": [
+    {
+      "id": "courses",
+      "status": "deferred",
+      "reason": "The root route is only signed-in Product Role resolution; current canonical captures use their role-owned home routes."
+    },
+    {
+      "id": "accountSettings",
+      "status": "deferred",
+      "reason": "Account Settings requires a fresh Live Demo capture before visual evidence is claimed."
+    },
+    {
+      "id": "libraryWatchNotifications",
+      "status": "deferred",
+      "reason": "The private Watch notification inbox requires the next canonical Live Demo screenshot refresh before rendered evidence is claimed."
+    },
+    {
+      "id": "myChangeProposals",
+      "status": "deferred",
+      "reason": "Blueprint Change Proposals require a compiled-main two-Instructor Live Demo workflow before rendered evidence is claimed."
+    },
+    {
+      "id": "changeProposalDetail",
+      "status": "deferred",
+      "reason": "Blueprint Change Proposals require a compiled-main two-Instructor Live Demo workflow before rendered evidence is claimed."
+    },
+    {
+      "id": "assessmentWorkspaceOverview",
+      "status": "deferred",
+      "reason": "The legacy multi-tab Assignment workspace is retired."
+    },
+    {
+      "id": "assessmentTemplates",
+      "status": "deferred",
+      "reason": "Assessment Templates needs a fresh Live Demo capture before rendered evidence is claimed."
+    },
+    {
+      "id": "courseAppearance",
+      "status": "deferred",
+      "reason": "Course Appearance is an admitted Instructor Ribbon destination; the current atlas has no dedicated Appearance capture. The completed M11 browser scenario separately proves reload, enrolled-Student propagation, and second-Course isolation."
+    },
+    {
+      "id": "contentDisciplines",
+      "status": "deferred",
+      "reason": "The Sysadmin Discipline lifecycle workspace requires the next canonical Live Demo screenshot refresh before rendered evidence is claimed."
+    },
+    {
+      "id": "pendingCourseInvitations",
+      "status": "deferred",
+      "reason": "Pending teaching invitations are not provisioned by the current Live Demo and are not restored for screenshots."
+    }
+  ],
+  "ribbonDestinations": [
+    {
+      "id": "tab:teachingOperations",
+      "status": "deferred",
+      "reason": "Teaching Operations is not admitted by the current Live Demo capability registry."
+    },
+    {
+      "id": "tab:blueprintUpdates",
+      "status": "deferred",
+      "reason": "Blueprint Updates is a future Ribbon destination without a Product Route."
+    },
+    {
+      "id": "tab:courseSetup",
+      "status": "deferred",
+      "reason": "Course Setup is a future Ribbon destination without a complete current workflow."
+    },
+    {
+      "id": "tab:attempt",
+      "status": "deferred",
+      "reason": "The separate legacy Assignment Attempt Ribbon is not exposed by the default Live Demo."
+    },
+    {
+      "id": "tab:disciplines",
+      "status": "deferred",
+      "reason": "The Sysadmin Disciplines tab requires the next canonical Live Demo screenshot refresh before rendered evidence is claimed."
+    },
+    {
+      "id": "task:myQuestions",
+      "status": "deferred",
+      "reason": "My Questions is a future Ribbon destination without a Product Route."
+    },
+    {
+      "id": "task:starred",
+      "status": "deferred",
+      "reason": "Starred Questions is a future Ribbon destination without a Product Route."
+    },
+    {
+      "id": "task:watched",
+      "status": "deferred",
+      "reason": "Watched is an Instructor route to the private Watch inbox; its rendered checkpoint awaits the next canonical Live Demo replay."
+    },
+    {
+      "id": "task:assessmentTemplates",
+      "status": "deferred",
+      "reason": "Assessment Templates needs a fresh Live Demo capture before rendered evidence is claimed."
+    },
+    {
+      "id": "task:assessmentOverview",
+      "status": "deferred",
+      "reason": "The legacy multi-tab Assignment workspace is retired."
+    },
+    {
+      "id": "task:assessmentQuestions",
+      "status": "deferred",
+      "reason": "The legacy multi-tab Assignment workspace is retired."
+    },
+    {
+      "id": "task:assessmentPolicies",
+      "status": "deferred",
+      "reason": "The legacy multi-tab Assignment workspace is retired."
+    },
+    {
+      "id": "task:assessmentStudentView",
+      "status": "deferred",
+      "reason": "The answer-free release preview is the current Student-view surface."
+    },
+    {
+      "id": "task:gradeSettings",
+      "status": "deferred",
+      "reason": "Grade Settings is not admitted by the current Live Demo capability registry."
+    },
+    {
+      "id": "task:appearance",
+      "status": "deferred",
+      "reason": "Course Appearance is an admitted Instructor Ribbon task; the current atlas has no dedicated Appearance capture. The completed M11 browser scenario separately proves reload, enrolled-Student propagation, and second-Course isolation."
+    },
+    {
+      "id": "task:backToAssessments",
+      "status": "covered_by",
+      "reason": "The destination is the same captured Course Assignment workspace.",
+      "target": "tab:assessments"
+    }
+  ]
+}

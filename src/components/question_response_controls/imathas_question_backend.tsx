@@ -94,14 +94,14 @@ export function isImathasQuestionBackendReadyMessage(
 /** Accept only the exact same-origin iMathAS Question Backend route. */
 export function isSafeImathasQuestionBackendLaunchPath(
   launchUrl: string,
-  courseId: string,
+  courseInstanceId: string,
   assessmentId: string,
   attemptId: string,
   origin: string,
 ): boolean {
   return isExpectedImathasQuestionBackendLaunchPath(
     launchUrl,
-    courseId,
+    courseInstanceId,
     assessmentId,
     attemptId,
     origin,
@@ -194,7 +194,7 @@ export function ImathasQuestionBackendResponse(
       if (
         !isSafeImathasQuestionBackendLaunchPath(
           launchResult.launchUrl,
-          studentWorkRoute.courseId,
+          studentWorkRoute.courseInstanceId,
           studentWorkRoute.assessmentId,
           props.attemptId,
           window.location.origin,

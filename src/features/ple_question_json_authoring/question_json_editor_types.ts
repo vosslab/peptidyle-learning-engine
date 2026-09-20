@@ -50,7 +50,7 @@ export interface PleQuestionJsonEditorPageProps {
   readonly focusHeadingOnMount?: boolean;
   /** Clears the route's one-shot focus request after the unlocked heading receives it. */
   readonly onHeadingFocusDelivered?: () => void;
-  /** Reports the exact saved ETag and whether this editor has local changes. */
+  /** Reports the exact saved Draft Question Edit Number and whether this editor has local changes. */
   readonly onDraftDisplayStateChange?: (state: PleQuestionJsonDraftDisplayState) => void;
   /** Prevents edits while QTI conversion is replacing and refetching this draft. */
   readonly replacementPending?: boolean;

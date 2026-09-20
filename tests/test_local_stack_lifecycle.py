@@ -13,6 +13,7 @@ import local_stack_control.process
 import local_stack_control.renderer
 import local_stack_control.env_file
 import local_stack_control.status
+import local_stack_control.service_singletons
 import local_stack_lifecycle_helpers
 
 
@@ -150,6 +151,7 @@ def test_teaching_stack_verifies_application_schema_before_application_start(
 	monkeypatch.setattr(local_stack_control.lifecycle, "validate_static", lambda *args: values)
 	monkeypatch.setattr(local_stack_control.lifecycle_validation, "require_mutation_engine", lambda *args: None)
 	monkeypatch.setattr(local_stack_control.lifecycle, "validate_compose", lambda *args: None)
+	monkeypatch.setattr(local_stack_control.service_singletons, "require_for_target", lambda *args: None)
 	monkeypatch.setattr(local_stack_control.lifecycle, "child_environment", lambda *args: {})
 	monkeypatch.setattr(local_stack_control.lifecycle, "build_artifacts", lambda *args: None)
 	monkeypatch.setattr(local_stack_control.renderer, "ensure_renderer_oci_id", lambda *args: "sha256:" + "a" * 64)

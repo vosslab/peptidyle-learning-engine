@@ -22,14 +22,14 @@ export interface StudentAssessmentAttemptHistoryQuestion extends StudentFeedback
 
 /** Derives the sole review route from existing public Attempt and position identities. */
 export function backendAnswerReviewDocumentUrl(
-  assessmentAttempt: AssessmentAttemptId,
+  assessmentAttemptId: AssessmentAttemptId,
   position: number,
 ): string {
-  const assessmentAttemptId = parseAssessmentAttemptId(assessmentAttempt);
-  if (assessmentAttemptId === null || !Number.isSafeInteger(position) || position < 1) {
+  const parsedAssessmentAttemptId = parseAssessmentAttemptId(assessmentAttemptId);
+  if (parsedAssessmentAttemptId === null || !Number.isSafeInteger(position) || position < 1) {
     throw new Error("Invalid completed Assessment Attempt position");
   }
-  return `/api/assessment-attempts/${assessmentAttemptId}/questions/${position}/answer-review-document`;
+  return `/api/assessment-attempts/${parsedAssessmentAttemptId}/questions/${position}/answer-review-document`;
 }
 
 /** A no-store selected-history projection with protected fields omitted. */
@@ -56,6 +56,6 @@ export interface StudentAssessmentAttemptHistory {
 
 export interface StudentAssessmentAttemptHistoryClient {
   readonly getStudentAssessmentAttemptHistory: (
-    assessmentAttempt: AssessmentAttemptId,
+    assessmentAttemptId: AssessmentAttemptId,
   ) => Promise<StudentAssessmentAttemptHistory>;
 }

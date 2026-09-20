@@ -94,16 +94,16 @@ export function backendOwnedResponseFromPairs(
 
 /** Builds only the document route authorized by the current Assessment Attempt and position. */
 export function backendOwnedDocumentPath(
-  assessmentAttempt: AssessmentAttemptId,
+  assessmentAttemptId: AssessmentAttemptId,
   position: number,
 ): string | null {
-  if (parseAssessmentAttemptId(assessmentAttempt) === null) return null;
+  if (parseAssessmentAttemptId(assessmentAttemptId) === null) return null;
   if (!Number.isSafeInteger(position) || position < 1 || position > 2_147_483_647) return null;
-  return `/api/assessment-attempts/${encodeURIComponent(assessmentAttempt)}/questions/${position}/document`;
+  return `/api/assessment-attempts/${encodeURIComponent(assessmentAttemptId)}/questions/${position}/document`;
 }
 
 export interface BackendOwnedDocumentProps extends QuestionResponseControlBaseProps {
-  readonly assessmentAttempt: AssessmentAttemptId;
+  readonly assessmentAttemptId: AssessmentAttemptId;
   readonly position: number;
 }
 
@@ -119,7 +119,7 @@ export function BackendOwnedDocument(props: BackendOwnedDocumentProps): JSX.Elem
   let pendingCapture: Promise<StudentResponse | null> | undefined;
   let resolvePendingCapture: ((response: StudentResponse | null) => void) | undefined;
   let pendingCaptureId: string | undefined;
-  const documentPath = backendOwnedDocumentPath(props.assessmentAttempt, props.position);
+  const documentPath = backendOwnedDocumentPath(props.assessmentAttemptId, props.position);
 
   function isFrameMessage(event: MessageEvent<unknown>): boolean {
     return event.origin === window.location.origin && event.source === frame?.contentWindow;

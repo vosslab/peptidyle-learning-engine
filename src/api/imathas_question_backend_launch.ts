@@ -1,11 +1,11 @@
 /** Shared expected-route contract for the server-owned iMathAS Question Backend Transport. */
 
 export function imathasQuestionBackendLaunchPath(
-  courseId: string,
+  courseInstanceId: string,
   assessmentId: string,
   attemptId: string,
 ): string {
-  return `/api/course-instances/${encodeURIComponent(courseId)}/assessments/${encodeURIComponent(assessmentId)}/attempts/${encodeURIComponent(attemptId)}/imathas-question-backend/launch`;
+  return `/api/course-instances/${encodeURIComponent(courseInstanceId)}/assessments/${encodeURIComponent(assessmentId)}/attempts/${encodeURIComponent(attemptId)}/imathas-question-backend/launch`;
 }
 
 /**
@@ -15,13 +15,13 @@ export function imathasQuestionBackendLaunchPath(
  */
 export function isExpectedImathasQuestionBackendLaunchPath(
   launchUrl: string,
-  courseId: string,
+  courseInstanceId: string,
   assessmentId: string,
   attemptId: string,
   origin: string,
 ): boolean {
   if (
-    launchUrl !== imathasQuestionBackendLaunchPath(courseId, assessmentId, attemptId) ||
+    launchUrl !== imathasQuestionBackendLaunchPath(courseInstanceId, assessmentId, attemptId) ||
     !launchUrl.startsWith("/") ||
     launchUrl.startsWith("//") ||
     launchUrl.includes("?") ||

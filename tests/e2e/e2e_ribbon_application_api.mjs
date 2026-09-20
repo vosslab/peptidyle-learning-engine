@@ -74,14 +74,14 @@ const resolvingClient = createHttpApiClient({
       "/api/course-instances/CI4W8QF9AD/appearance": { theme: "forest", banner: null },
       "/api/navigation/00000000-0000-0000-0000-000000000001": {
         kind: "assessmentAttempt",
-        courseId: identity.courseOne,
+        courseInstanceId: identity.courseOne,
         assessmentId: identity.assessment,
         studentRecordId: identity.student,
         assessmentAttemptId: identity.attempt,
       },
       "/api/navigation/00000000-0000-0000-0000-000000000009": {
         kind: "assessment",
-        courseId: identity.courseOne,
+        courseInstanceId: identity.courseOne,
         assessmentId: identity.assessment,
       },
     };
@@ -138,7 +138,7 @@ assert.deepEqual(await resolutionApi.queries.courseScope(courseOne), {
   appearance: { theme: "grass", banner: null },
 });
 assert.deepEqual(await resolutionApi.queries.resolveAssessmentAttempt(attemptOne), {
-  courseId: identity.courseOne,
+  courseInstanceId: identity.courseOne,
   assessmentId: identity.assessment,
   assessmentAttemptId: identity.attempt,
 });

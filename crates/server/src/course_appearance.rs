@@ -153,14 +153,14 @@ async fn update_course_appearance(
     themes: &(impl CourseThemeStore + ?Sized),
     banners: &(impl CourseBannerStore + ?Sized),
     session_hash: SessionTokenHash,
-    course: CourseInstanceId,
+    course_instance_id: CourseInstanceId,
     theme: question_model::CourseTheme,
 ) -> Result<CourseAppearanceView, StoreError> {
     let theme = themes
-        .update_course_theme(session_hash, course.clone().clone(), theme)
+        .update_course_theme(session_hash, course_instance_id.clone().clone(), theme)
         .await?;
     let banner = banners
-        .read_current_course_banner(session_hash, course.clone())
+        .read_current_course_banner(session_hash, course_instance_id.clone())
         .await?;
     Ok(CourseAppearanceView { theme, banner })
 }

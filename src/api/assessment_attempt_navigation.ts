@@ -61,25 +61,25 @@ export interface StudentAssessmentAttemptSubmissionResult {
 
 export interface StudentAssessmentAttemptNavigationClient {
   readonly getStudentAssessmentAttemptContext: (
-    assessmentAttempt: AssessmentAttemptId,
+    assessmentAttemptId: AssessmentAttemptId,
   ) => Promise<StudentAssessmentAttemptContext>;
   readonly getStudentAssessmentAttemptProgress: (
-    assessmentAttempt: AssessmentAttemptId,
+    assessmentAttemptId: AssessmentAttemptId,
   ) => Promise<StudentAssessmentAttemptProgress>;
   readonly getStudentAssessmentAttemptPresentation: (
-    assessmentAttempt: AssessmentAttemptId,
+    assessmentAttemptId: AssessmentAttemptId,
     position: number,
   ) => Promise<StudentAssessmentAttemptPresentation>;
   readonly studentAuthorContentDocumentUrl: (
-    assessmentAttempt: AssessmentAttemptId,
+    assessmentAttemptId: AssessmentAttemptId,
     position: number,
   ) => string;
   readonly saveStudentAssessmentAttemptResponse: (
-    assessmentAttempt: AssessmentAttemptId,
+    assessmentAttemptId: AssessmentAttemptId,
     position: number,
     response: StudentResponse,
   ) => Promise<StudentAssessmentAttemptResponseSaveAcknowledgement>;
   readonly submitStudentAssessmentAttempt: (
-    assessmentAttempt: AssessmentAttemptId,
+    assessmentAttemptId: AssessmentAttemptId,
   ) => Promise<StudentAssessmentAttemptSubmissionResult>;
 }

@@ -85,7 +85,7 @@ impl PostgresAssessmentAttemptStore {
         )
         .bind(assessment_attempt.as_uuid())
         .bind(start.student_record.as_uuid())
-        .bind(start.assessment.as_str())
+        .bind(start.assessment_id.as_str())
         .bind(selections)
         .bind(issued_questions)
         .fetch_one(&mut **transaction)
@@ -270,7 +270,7 @@ mod tests {
         let assessment_entry = AssessmentEntryId::from_uuid(Uuid::from_u128(3));
         let start = AssessmentAttemptStart {
             student_record: StudentRecordId::from_uuid(Uuid::from_u128(1)),
-            assessment: AssessmentId::from_debug_serial(2),
+            assessment_id: AssessmentId::from_debug_serial(2),
             question_pool_selections: Vec::new(),
             issued_questions: vec![PreparedIssuedQuestion::FixedQuestion {
                 assessment_entry,
@@ -307,7 +307,7 @@ mod tests {
         let assessment_entry = AssessmentEntryId::from_uuid(Uuid::from_u128(3));
         let start = AssessmentAttemptStart {
             student_record: StudentRecordId::from_uuid(Uuid::from_u128(1)),
-            assessment: AssessmentId::from_debug_serial(2),
+            assessment_id: AssessmentId::from_debug_serial(2),
             question_pool_selections: Vec::new(),
             issued_questions: vec![PreparedIssuedQuestion::FixedQuestion {
                 assessment_entry,

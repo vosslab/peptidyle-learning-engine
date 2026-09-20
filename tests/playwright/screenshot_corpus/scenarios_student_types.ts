@@ -8,7 +8,7 @@ import { decodeQuestionSearchPage } from "../../../src/api/decoders/question_lib
 import { decodeStudentAssessmentAttemptPresentation } from "../../../src/api/decoders/assessment_attempt_navigation";
 import type { StudentAssessmentAttemptPresentation } from "../../../src/api/assessment_attempt_navigation";
 import type { CaptureSession, ScenarioRuntime } from "./runtime";
-import type { ScenarioDefinition } from "./scenario_types";
+import type { CaptureDeclaration, ScenarioDefinition } from "./scenario_types";
 import { authorHotspot, exerciseHotspot } from "./hotspot_workflow";
 import {
   assignmentCard,
@@ -34,6 +34,8 @@ interface Example {
   readonly backend: "ple" | "webwork";
   readonly format?: string;
   readonly prompt?: string;
+  readonly state: string;
+  readonly caption: string;
 }
 
 // Meaningful published examples, not response-format fixture data or made-up deployment IDs.
@@ -43,6 +45,8 @@ const EXAMPLES: ReadonlyArray<Example> = [
     title: "Biochemistry Chapter 1: Charged functional groups",
     type: "multipleChoice",
     backend: "ple",
+    state: "unanswered MC question",
+    caption: "Student MC response controls",
   },
   {
     slug: "ma",
@@ -51,6 +55,8 @@ const EXAMPLES: ReadonlyArray<Example> = [
     backend: "ple",
     format: "multipleAnswer",
     prompt: "Select all components commonly found in a plasma membrane.",
+    state: "unanswered MA question",
+    caption: "Student MA response controls",
   },
   {
     slug: "fib",
@@ -59,6 +65,8 @@ const EXAMPLES: ReadonlyArray<Example> = [
     backend: "ple",
     format: "fillIn",
     prompt: "What process copies a cell's DNA before division? Enter the process name.",
+    state: "unanswered FIB question",
+    caption: "Student FIB response controls",
   },
   {
     slug: "multi_fib",
@@ -68,6 +76,8 @@ const EXAMPLES: ReadonlyArray<Example> = [
     format: "multiFillIn",
     prompt:
       "Name the process that produces RNA from DNA, then the process that produces a polypeptide from an RNA template.",
+    state: "unanswered MULTI-FIB question",
+    caption: "Student MULTI-FIB response controls",
   },
   {
     slug: "num",
@@ -77,12 +87,16 @@ const EXAMPLES: ReadonlyArray<Example> = [
     format: "numeric",
     prompt:
       "Dilute 2 mL of a 10 mM solution to a final volume of 20 mL. What is the final concentration in mM?",
+    state: "unanswered NUM question",
+    caption: "Student NUM response controls",
   },
   {
     slug: "match",
     title: "Biochemistry Chapter 1: Functional group matching",
     type: "matching",
     backend: "ple",
+    state: "unanswered MATCH question",
+    caption: "Student MATCH response controls",
   },
   {
     slug: "order",
@@ -91,6 +105,8 @@ const EXAMPLES: ReadonlyArray<Example> = [
     backend: "ple",
     format: "ordering",
     prompt: "Arrange these stages of mitosis from earliest to latest.",
+    state: "unanswered ORDER question",
+    caption: "Student ORDER response controls",
   },
   {
     slug: "hotspot",
@@ -99,12 +115,16 @@ const EXAMPLES: ReadonlyArray<Example> = [
     backend: "ple",
     format: "hotspot",
     prompt: "Click the dot.",
+    state: "unanswered HOTSPOT question",
+    caption: "Student HOTSPOT uploaded-image response controls",
   },
   {
     slug: "webwork",
     title: "Genetic Disorders from Descriptions",
     type: "multipleChoice",
     backend: "webwork",
+    state: "unanswered WeBWorK question",
+    caption: "Student WeBWorK response controls",
   },
 ];
 
@@ -242,7 +262,7 @@ async function publish(page: Page, example: Example): Promise<void> {
 async function prepare(runtime: ScenarioRuntime): Promise<ReadonlyMap<string, Example>> {
   // Preparation is a separate uncaptured session, so private authoring responses never enter a
   // Student capture's privacy monitor. ASVS 8.2.1: all writes remain role-gated visible actions.
-  const session = await runtime.open(runtime.record(SCENARIO, checkpoint("mc", "laptop")));
+  const session = await runtime.open(checkpoint("mc", "laptop"));
   const selected: Array<{ readonly example: Example; readonly summary: QuestionSummary }> = [];
   try {
     const page = session.page;
@@ -398,7 +418,7 @@ async function waitForControl(session: CaptureSession, example: Example): Promis
 async function captureTypes(runtime: ScenarioRuntime): Promise<void> {
   const provenance = await prepare(runtime);
   for (const viewport of ["laptop", "phone"] as const) {
-    const session = await runtime.open(runtime.record(SCENARIO, checkpoint("mc", viewport)));
+    const session = await runtime.open(checkpoint("mc", viewport));
     try {
       const page = session.page;
       await choosePersona(page, "Avery Thompson");
@@ -432,10 +452,7 @@ async function captureTypes(runtime: ScenarioRuntime): Promise<void> {
           );
         await waitForControl(session, example);
         await scrollTop(page);
-        await runtime.capture(
-          session,
-          runtime.record(SCENARIO, checkpoint(example.slug, viewport)),
-        );
+        await runtime.captureCheckpoint(session, checkpoint(example.slug, viewport));
         covered.add(example.slug);
       }
       if (
@@ -449,7 +466,7 @@ async function captureTypes(runtime: ScenarioRuntime): Promise<void> {
   }
   // Interaction/submission proof is uncaptured and occurs after both unanswered captures.
   for (const input of ["pointer", "keyboard"] as const) {
-    const session = await runtime.open(runtime.record(SCENARIO, checkpoint("hotspot", "laptop")));
+    const session = await runtime.open(checkpoint("hotspot", "laptop"));
     try {
       await choosePersona(session.page, input === "pointer" ? "Avery Thompson" : "Jack Nguyen");
       await openStudentCourse(session.page);
@@ -464,12 +481,25 @@ async function captureTypes(runtime: ScenarioRuntime): Promise<void> {
   }
 }
 
+function typeCapture(example: Example, viewport: "laptop" | "phone"): CaptureDeclaration {
+  return {
+    checkpoint: checkpoint(example.slug, viewport),
+    area: "assessments",
+    workflow: "native and WeBWorK response practice",
+    state: example.state,
+    viewport,
+    privacyProfile: "student_unanswered",
+    caption: `${example.caption} on a ${viewport}`,
+  };
+}
+
 export const STUDENT_TYPE_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
   {
     id: SCENARIO,
-    checkpoints: EXAMPLES.flatMap((example) => [
-      checkpoint(example.slug, "laptop"),
-      checkpoint(example.slug, "phone"),
+    role: "student",
+    captures: EXAMPLES.flatMap((example) => [
+      typeCapture(example, "laptop"),
+      typeCapture(example, "phone"),
     ]),
     run: captureTypes,
   },

@@ -100,7 +100,7 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         ObjectDataClass::QuestionAsset
     );
     let student_key = ObjectAddress::StudentRecord {
-        course: CourseInstanceId::from_debug_serial(4),
+        course_instance_id: CourseInstanceId::from_debug_serial(4),
         object: ObjectId::from_uuid(id(5)),
     };
     store
@@ -139,7 +139,7 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         .expect("temporary put should succeed");
 
     let banner_upload_key = ObjectAddress::CourseBannerUpload {
-        course: CourseInstanceId::from_debug_serial(51),
+        course_instance_id: CourseInstanceId::from_debug_serial(51),
         upload: CourseBannerUploadId::from_uuid(id(52)),
     };
     let banner_upload_record = store
@@ -168,7 +168,7 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
     );
 
     let course_banner_key = ObjectAddress::CourseBannerRendition {
-        course: CourseInstanceId::from_debug_serial(51),
+        course_instance_id: CourseInstanceId::from_debug_serial(51),
         banner: CourseBannerId::from_uuid(id(53)),
         rendition: question_model::CourseBannerRendition::Banner,
     };

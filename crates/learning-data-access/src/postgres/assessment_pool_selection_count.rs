@@ -71,9 +71,9 @@ impl AssessmentPoolSelectionCountStore for PostgresAssessmentPoolSelectionCountS
             "SELECT * FROM ple_api.update_assessment_question_pool_selection_count(\
              $1, $2, $3, $4, $5)",
         )
-        .bind(input.course.as_string())
-        .bind(input.assessment.as_string())
-        .bind(input.assessment_entry.as_uuid())
+        .bind(input.course_instance_id.as_string())
+        .bind(input.assessment_id.as_string())
+        .bind(input.assessment_entry_id.as_uuid())
         .bind(expected_edit)
         .bind(selection_count)
         .fetch_one(&mut *transaction)
@@ -99,7 +99,7 @@ impl AssessmentPoolSelectionCountStore for PostgresAssessmentPoolSelectionCountS
         )
         .ok_or_else(|| invalid("Assessment Edit Number"))?;
 
-        if assessment_entry_id != input.assessment_entry
+        if assessment_entry_id != input.assessment_entry_id
             || stored_count != input.selection_count
             || assessment_edit_number != expected_next_edit
         {

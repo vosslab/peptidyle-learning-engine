@@ -109,7 +109,7 @@ pub trait SupportRepairCapabilityStore: Send + Sync {
         &self,
         token: SessionTokenHash,
         capability_id: Uuid,
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
         roster_id: String,
     ) -> Result<Option<SupportCourseRosterEntry>, StoreError>;
 }

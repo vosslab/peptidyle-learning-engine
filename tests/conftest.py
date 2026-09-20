@@ -30,10 +30,12 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 # Exclude browser and whole-system tiers from ordinary pytest collection.
 # tests/playwright/ holds browser-driven tests, while tests/e2e/ owns generic
 # whole-system orchestration. They run outside pytest; see docs/PLAYWRIGHT_USAGE.md
-# and docs/E2E_TESTS.md.
+# and docs/E2E_TESTS.md. tests/_temp/ holds untracked one-time checks that must
+# not constrain the permanent suite.
 collect_ignore = [
 	"e2e",
 	"playwright",
+	"_temp",
 ]
 
 

@@ -109,11 +109,11 @@ async function fetchCourseBanner(
 async function issuedQuestionForAttempt(
   fetchImplementation: ApiFetch,
   basePath: string,
-  courseId: CourseInstanceId,
+  courseInstanceId: CourseInstanceId,
   assessmentId: AssessmentId,
   attempt: StudentQuestionAttempt,
 ): Promise<import("../../../generated/api/QuestionPresentation").QuestionPresentation> {
-  const path = `${studentAttemptPath(courseId, assessmentId, attempt.id)}/question`;
+  const path = `${studentAttemptPath(courseInstanceId, assessmentId, attempt.id)}/question`;
   return requestJson(fetchImplementation, basePath, path, decodeIssuedQuestionPresentation);
 }
 
@@ -554,7 +554,7 @@ export function createResponseClient(
         decodeStudentQuestionAttempt,
       ),
     getIssuedQuestion: async (
-      courseId,
+      courseInstanceId,
       assessmentId,
       attemptId,
     ): Promise<import("../../../generated/api/QuestionPresentation").QuestionPresentation> => {
@@ -567,18 +567,24 @@ export function createResponseClient(
       return issuedQuestionForAttempt(
         fetchImplementation,
         basePath,
-        courseId,
+        courseInstanceId,
         assessmentId,
         attempt,
       );
     },
-    beginImathasQuestionBackendLaunch: (courseId, assessmentId, attemptId) =>
+    beginImathasQuestionBackendLaunch: (courseInstanceId, assessmentId, attemptId) =>
       requestJson(
         fetchImplementation,
         basePath,
-        `${studentAttemptPath(courseId, assessmentId, attemptId)}/imathas-question-backend/launch`,
+        `${studentAttemptPath(courseInstanceId, assessmentId, attemptId)}/imathas-question-backend/launch`,
         (value, path = "response") =>
-          decodeImathasQuestionBackendLaunch(value, path, courseId, assessmentId, attemptId),
+          decodeImathasQuestionBackendLaunch(
+            value,
+            path,
+            courseInstanceId,
+            assessmentId,
+            attemptId,
+          ),
         { method: "POST" },
       ),
     getAssessmentActivitySummary: (studentRecordId) =>

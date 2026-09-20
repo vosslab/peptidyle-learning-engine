@@ -51,44 +51,46 @@ export function createStudentAssessmentAttemptNavigationClient(
   basePath: string,
 ): Pick<ApiClient, keyof StudentAssessmentAttemptNavigationClient> {
   return {
-    studentAuthorContentDocumentUrl: (attempt, position): string => {
+    studentAuthorContentDocumentUrl: (assessmentAttemptId, position): string => {
       // ASVS 1.2.2, 2.2.1: only an exact Attempt and issued position select this document.
-      const path = `${attemptPath(attempt)}/questions/${positionPathSegment(position)}/author-content-document`;
+      const path = `${attemptPath(assessmentAttemptId)}/questions/${positionPathSegment(position)}/author-content-document`;
       return requestPath(basePath, path);
     },
-    getStudentAssessmentAttemptContext: (attempt): Promise<StudentAssessmentAttemptContext> =>
+    getStudentAssessmentAttemptContext: (
+      assessmentAttemptId,
+    ): Promise<StudentAssessmentAttemptContext> =>
       read(
         fetcher,
         basePath,
-        `${attemptPath(attempt)}/context`,
+        `${attemptPath(assessmentAttemptId)}/context`,
         decodeStudentAssessmentAttemptContext,
       ).then((context) => {
-        if (context.assessmentAttemptId !== attempt) {
+        if (context.assessmentAttemptId !== assessmentAttemptId) {
           throw new ApiProtocolError("Assessment Attempt context does not match its request");
         }
         return context;
       }),
-    getStudentAssessmentAttemptProgress: (attempt) =>
+    getStudentAssessmentAttemptProgress: (assessmentAttemptId) =>
       read(
         fetcher,
         basePath,
-        `${attemptPath(attempt)}/student-progress`,
+        `${attemptPath(assessmentAttemptId)}/student-progress`,
         decodeStudentAssessmentAttemptProgress,
       ).then((progress) => {
-        if (progress.assessmentAttemptId !== attempt) {
+        if (progress.assessmentAttemptId !== assessmentAttemptId) {
           throw new ApiProtocolError("Assessment Attempt progress does not match its request");
         }
         return progress;
       }),
     getStudentAssessmentAttemptPresentation: (
-      attempt,
+      assessmentAttemptId,
       position,
     ): Promise<StudentAssessmentAttemptPresentation> => {
       const positionPath = positionPathSegment(position);
       return read(
         fetcher,
         basePath,
-        `${attemptPath(attempt)}/student-question?position=${positionPath}`,
+        `${attemptPath(assessmentAttemptId)}/student-question?position=${positionPath}`,
         decodeStudentAssessmentAttemptPresentation,
       ).then((presentation) => {
         if (presentation.position !== position)
@@ -99,11 +101,11 @@ export function createStudentAssessmentAttemptNavigationClient(
       });
     },
     saveStudentAssessmentAttemptResponse: async (
-      attempt,
+      assessmentAttemptId,
       position,
       response,
     ): Promise<StudentAssessmentAttemptResponseSaveAcknowledgement> => {
-      const path = `${attemptPath(attempt)}/responses/${positionPathSegment(position)}`;
+      const path = `${attemptPath(assessmentAttemptId)}/responses/${positionPathSegment(position)}`;
       const request = decodeStudentResponse(response, "request.response");
       const result = await requestSameOrigin(fetcher, basePath, path, {
         method: "PUT",
@@ -117,7 +119,7 @@ export function createStudentAssessmentAttemptNavigationClient(
         await boundedResponseJson(result, path),
         "response",
       );
-      if (acknowledgement.assessmentAttemptId !== attempt) {
+      if (acknowledgement.assessmentAttemptId !== assessmentAttemptId) {
         throw new ApiProtocolError(
           "Saved response acknowledgement attempt does not match its request",
         );
@@ -130,9 +132,9 @@ export function createStudentAssessmentAttemptNavigationClient(
       return acknowledgement;
     },
     submitStudentAssessmentAttempt: async (
-      attempt,
+      assessmentAttemptId,
     ): Promise<StudentAssessmentAttemptSubmissionResult> => {
-      const path = `${attemptPath(attempt)}/submission`;
+      const path = `${attemptPath(assessmentAttemptId)}/submission`;
       const result = await requestSameOrigin(fetcher, basePath, path, { method: "POST" });
       requireNoStore(result, path);
       if (!result.ok) throw new ApiRequestError(result.status, path);
@@ -142,7 +144,7 @@ export function createStudentAssessmentAttemptNavigationClient(
         await boundedResponseJson(result, path),
         "response",
       );
-      if (acknowledgement.assessmentAttemptId !== attempt) {
+      if (acknowledgement.assessmentAttemptId !== assessmentAttemptId) {
         throw new ApiProtocolError(
           "Assessment Attempt submission acknowledgement does not match its request",
         );

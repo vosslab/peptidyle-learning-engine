@@ -6,7 +6,7 @@ use sqlx::Row;
 
 use super::{
     Pool,
-    connection::{map_sqlx_error, parse_course_id},
+    connection::{map_sqlx_error, parse_course_instance_id},
 };
 use crate::{
     CourseRetentionDueAction, CourseRetentionDueActionKind, CourseRetentionStore, StoreError,
@@ -50,7 +50,7 @@ impl CourseRetentionStore for PostgresCourseRetentionStore {
             .await
             .map_err(map_sqlx_error)?;
         let rows = sqlx::query(
-            "SELECT course_id, due_action, \
+            "SELECT course_instance_id, due_action, \
                     (extract(epoch FROM due_at) * 1000)::bigint AS due_at_millis, \
                     CASE WHEN archive_marked_at IS NULL THEN NULL \
                          ELSE (extract(epoch FROM archive_marked_at) * 1000)::bigint END \
@@ -67,12 +67,12 @@ impl CourseRetentionStore for PostgresCourseRetentionStore {
 
     async fn mark_course_instance_inactive(
         &self,
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
         evaluated_at: Timestamp,
     ) -> Result<bool, StoreError> {
         self.commit_transition(
             "ple_api.mark_course_instance_inactive",
-            course,
+            course_instance_id,
             evaluated_at,
         )
         .await
@@ -80,12 +80,12 @@ impl CourseRetentionStore for PostgresCourseRetentionStore {
 
     async fn archive_course_student_records(
         &self,
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
         evaluated_at: Timestamp,
     ) -> Result<bool, StoreError> {
         self.commit_transition(
             "ple_api.archive_course_student_records",
-            course,
+            course_instance_id,
             evaluated_at,
         )
         .await
@@ -93,12 +93,12 @@ impl CourseRetentionStore for PostgresCourseRetentionStore {
 
     async fn delete_course_student_records(
         &self,
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
         evaluated_at: Timestamp,
     ) -> Result<bool, StoreError> {
         self.commit_transition(
             "ple_api.delete_course_student_records",
-            course,
+            course_instance_id,
             evaluated_at,
         )
         .await
@@ -109,7 +109,7 @@ impl PostgresCourseRetentionStore {
     async fn commit_transition(
         &self,
         procedure: &'static str,
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
         evaluated_at: Timestamp,
     ) -> Result<bool, StoreError> {
         let mut transaction = self.begin().await?;
@@ -131,7 +131,7 @@ impl PostgresCourseRetentionStore {
         };
         // ASVS 1.2.4: Course identity and evaluated instant are bound values.
         let committed = sqlx::query_scalar(statement)
-            .bind(course.as_str())
+            .bind(course_instance_id.as_str())
             .bind(evaluated_at.as_unix_millis())
             .fetch_one(&mut *transaction)
             .await
@@ -159,7 +159,9 @@ fn decode_due_action(row: &sqlx::postgres::PgRow) -> Result<CourseRetentionDueAc
         }
     };
     Ok(CourseRetentionDueAction {
-        course: parse_course_id(row.try_get("course_id").map_err(map_sqlx_error)?)?,
+        course_instance_id: parse_course_instance_id(
+            row.try_get("course_instance_id").map_err(map_sqlx_error)?,
+        )?,
         action,
         due_at: Timestamp::from_unix_millis(row.try_get("due_at_millis").map_err(map_sqlx_error)?),
         archive_marked_at: row

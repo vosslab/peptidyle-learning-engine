@@ -292,7 +292,7 @@ CREATE FUNCTION ple_api.list_released_live_student_assessments(
 ) LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
-    course_id_value text;
+    course_instance_id_value text;
     student_record_id_value uuid;
     evaluation_time timestamptz := pg_catalog.statement_timestamp();
 BEGIN
@@ -301,7 +301,7 @@ BEGIN
     END IF;
 
     SELECT course.course_instance_id, student.student_record_id
-      INTO course_id_value, student_record_id_value
+      INTO course_instance_id_value, student_record_id_value
       FROM ple_private.account AS account
       JOIN LATERAL (
           SELECT event.state
@@ -330,7 +330,7 @@ BEGIN
 
     RETURN QUERY
     SELECT * FROM ple_private.read_student_released_assessment_landing_evidence(
-        course_id_value, student_record_id_value, evaluation_time
+        course_instance_id_value, student_record_id_value, evaluation_time
     );
 END
 $$;

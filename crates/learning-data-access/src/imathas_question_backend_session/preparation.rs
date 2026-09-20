@@ -7,8 +7,8 @@ use question_model::{
 /// Server-only pre-imathas_question_backend-launch facts for one iMathAS Question Backend Session.
 pub struct ImathasQuestionBackendSessionPreparationContext {
     account: AccountId,
-    course: CourseInstanceId,
-    assessment: AssessmentId,
+    course_instance_id: CourseInstanceId,
+    assessment_id: AssessmentId,
     grading_context: ImathasGradingContext,
     imathas_question_backend_binding: ImathasQuestionBackendBinding,
     source_object: ObjectId,
@@ -37,8 +37,8 @@ impl ImathasQuestionBackendSessionPreparationContext {
     #[allow(clippy::too_many_arguments)] // Preparation gathers independent trusted launch facts.
     pub fn new(
         account: AccountId,
-        course: CourseInstanceId,
-        assessment: AssessmentId,
+        course_instance_id: CourseInstanceId,
+        assessment_id: AssessmentId,
         grading_context: ImathasGradingContext,
         imathas_question_backend_binding: ImathasQuestionBackendBinding,
         source_object: ObjectId,
@@ -56,8 +56,8 @@ impl ImathasQuestionBackendSessionPreparationContext {
         }
         Ok(Self {
             account,
-            course,
-            assessment,
+            course_instance_id,
+            assessment_id,
             grading_context,
             imathas_question_backend_binding,
             source_object,
@@ -90,8 +90,8 @@ impl ImathasQuestionBackendSessionPreparationContext {
     ) -> Result<ImathasQuestionBackendSessionCreate, StoreError> {
         ImathasQuestionBackendSessionCreate::new(
             self.account,
-            self.course,
-            self.assessment,
+            self.course_instance_id,
+            self.assessment_id,
             self.grading_context,
             self.imathas_question_backend_binding,
             self.source_object,

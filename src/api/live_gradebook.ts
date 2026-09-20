@@ -25,7 +25,7 @@ export interface CourseGradebookStudentWork {
 
 /** The complete browser projection for one current Instructor Course. */
 export interface CourseGradebook {
-  readonly courseId: CourseInstanceId;
+  readonly courseInstanceId: CourseInstanceId;
   readonly studentWork: ReadonlyArray<CourseGradebookStudentWork>;
 }
 

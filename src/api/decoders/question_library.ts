@@ -737,7 +737,7 @@ export function decodeAssessmentSummary(
   if (strict) {
     requireOnlyFields(record, path, [
       "id",
-      "courseId",
+      "courseInstanceId",
       "title",
       "entries",
       "studentFeedbackReleaseRule",
@@ -746,7 +746,10 @@ export function decodeAssessmentSummary(
   }
   const decoded = {
     id: decodeAssessmentId(field(record, "id", path), `${path}.id`),
-    courseId: decodeCourseInstanceId(field(record, "courseId", path), `${path}.courseId`),
+    courseInstanceId: decodeCourseInstanceId(
+      field(record, "courseInstanceId", path),
+      `${path}.courseInstanceId`,
+    ),
     title: decodeNonemptyString(field(record, "title", path), `${path}.title`),
     entries: decodeArray(field(record, "entries", path), `${path}.entries`, decodeAssessmentEntry),
     studentFeedbackReleaseRule: decodeStudentFeedbackReleaseRule(

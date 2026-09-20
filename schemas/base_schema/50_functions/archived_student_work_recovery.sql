@@ -189,7 +189,7 @@ SET LOCAL ROLE ple_api_owner;
 CREATE FUNCTION ple_api.lock_archived_course_for_recovery(
     p_course_instance_id text
 ) RETURNS TABLE (
-    course_instance_id text, course_instance_id text,
+    course_instance_id text,
     student_data_archived_at timestamptz, delete_due_at timestamptz
 ) LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
@@ -219,7 +219,7 @@ BEGIN
        OR NOT ple_api.current_session_account_is_instructor()
        OR NOT ple_api.current_session_account_is_course_instructor(course_row.course_instance_id)
        THEN RETURN; END IF;
-    RETURN QUERY SELECT course_row.course_instance_id, course_row.course_instance_id,
+    RETURN QUERY SELECT course_row.course_instance_id,
         course_row.student_data_archived_at, deletion_deadline;
 END $$;
 

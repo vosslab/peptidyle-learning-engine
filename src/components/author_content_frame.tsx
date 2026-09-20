@@ -8,7 +8,7 @@ import { useApplicationApi } from "../api/application_api";
 import "./author_content_frame.css";
 
 export function AuthorContentFrame(props: {
-  readonly assessmentAttempt: AssessmentAttemptId;
+  readonly assessmentAttemptId: AssessmentAttemptId;
   readonly position: number;
 }): JSX.Element {
   const runtime = useApplicationApi();
@@ -17,7 +17,10 @@ export function AuthorContentFrame(props: {
   return (
     <iframe
       class="author-content-frame"
-      src={runtime.client.studentAuthorContentDocumentUrl(props.assessmentAttempt, props.position)}
+      src={runtime.client.studentAuthorContentDocumentUrl(
+        props.assessmentAttemptId,
+        props.position,
+      )}
       title={`Interactive content for Question ${props.position}`}
       sandbox="allow-scripts"
       referrerpolicy="no-referrer"

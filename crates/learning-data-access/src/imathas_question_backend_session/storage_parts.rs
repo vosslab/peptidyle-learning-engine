@@ -16,8 +16,8 @@ use super::{
 pub(crate) struct ImathasQuestionBackendSessionStorageParts {
     pub(crate) session_id: ImathasQuestionBackendSessionId,
     pub(crate) account: AccountId,
-    pub(crate) course: CourseInstanceId,
-    pub(crate) assessment: AssessmentId,
+    pub(crate) course_instance_id: CourseInstanceId,
+    pub(crate) assessment_id: AssessmentId,
     pub(crate) grading_context: ImathasGradingContext,
     pub(crate) imathas_question_backend_binding: ImathasQuestionBackendBinding,
     pub(crate) source_object: ObjectId,
@@ -34,8 +34,8 @@ pub(crate) struct ImathasQuestionBackendSessionStorageParts {
 #[allow(dead_code)] // Used by the feature-gated PostgreSQL Store.
 pub(crate) struct ImathasQuestionBackendSessionRestoreParts {
     pub(crate) account: AccountId,
-    pub(crate) course: CourseInstanceId,
-    pub(crate) assessment: AssessmentId,
+    pub(crate) course_instance_id: CourseInstanceId,
+    pub(crate) assessment_id: AssessmentId,
     pub(crate) grading_context: ImathasGradingContext,
     pub(crate) imathas_question_backend_binding: ImathasQuestionBackendBinding,
     pub(crate) source_object: ObjectId,

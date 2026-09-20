@@ -85,7 +85,7 @@ async fn save(
     if !value.as_object().is_some_and(|fields| {
         fields.len() == 2
             && fields.contains_key("timeMultiplier")
-            && fields.contains_key("expectedEditNumber")
+            && fields.contains_key("expectedAccommodationEditNumber")
     }) {
         return error(
             StatusCode::UNPROCESSABLE_ENTITY,

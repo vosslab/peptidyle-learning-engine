@@ -15,20 +15,18 @@ const VERIFIED_INSTRUCTOR_DISPLAY_NAME = "Screenshot Instructor";
 
 async function captureCheckpoint(
   runtime: ScenarioRuntime,
-  scenario: string,
   checkpoint: string,
   session: CaptureSession,
 ): Promise<void> {
   await scrollTop(session.page);
-  await runtime.capture(session, runtime.record(scenario, checkpoint));
+  await runtime.captureCheckpoint(session, checkpoint);
 }
 
 async function sysadminCourses(runtime: ScenarioRuntime): Promise<void> {
-  const scenario = "sysadmin_courses";
-  const session = await runtime.open(runtime.record(scenario, "course_list"));
+  const session = await runtime.open("course_list");
   try {
     await enterSysadmin(session.page);
-    await captureCheckpoint(runtime, scenario, "course_list", session);
+    await captureCheckpoint(runtime, "course_list", session);
   } finally {
     await runtime.close(session);
   }
@@ -60,13 +58,12 @@ async function reloadInstructorAccounts(page: Page): Promise<void> {
 }
 
 async function sysadminAccounts(runtime: ScenarioRuntime): Promise<void> {
-  const scenario = "sysadmin_accounts";
-  const session = await runtime.open(runtime.record(scenario, "accounts_initial"));
+  const session = await runtime.open("accounts_initial");
   const page = session.page;
   try {
     await enterSysadmin(page);
     await openInstructorAccounts(page);
-    await captureCheckpoint(runtime, scenario, "accounts_initial", session);
+    await captureCheckpoint(runtime, "accounts_initial", session);
     await page.getByLabel("Instructor Authentication Email").fill("xx");
     await page.getByRole("button", { name: "Create Instructor Account", exact: true }).click();
     await page
@@ -75,7 +72,7 @@ async function sysadminAccounts(runtime: ScenarioRuntime): Promise<void> {
       })
       .waitFor();
     await page.getByLabel("Instructor Authentication Email").fill("");
-    await captureCheckpoint(runtime, scenario, "account_validation", session);
+    await captureCheckpoint(runtime, "account_validation", session);
     await page.getByLabel("Instructor Authentication Email").fill(CREATED_EMAIL);
     await page
       .getByLabel("Verified Instructor Display Name")
@@ -90,7 +87,7 @@ async function sysadminAccounts(runtime: ScenarioRuntime): Promise<void> {
     await reloadInstructorAccounts(page);
     let created = instructorAccount(page, accountId);
     await created.waitFor();
-    await captureCheckpoint(runtime, scenario, "account_created", session);
+    await captureCheckpoint(runtime, "account_created", session);
     await created.getByLabel("Deactivation reason").fill("Screenshot corpus lifecycle review");
     await created
       .getByRole("button", { name: "Deactivate Instructor Account", exact: true })
@@ -99,7 +96,7 @@ async function sysadminAccounts(runtime: ScenarioRuntime): Promise<void> {
     await reloadInstructorAccounts(page);
     created = instructorAccount(page, accountId);
     await created.getByText("State: Deactivated", { exact: true }).waitFor();
-    await captureCheckpoint(runtime, scenario, "account_deactivated", session);
+    await captureCheckpoint(runtime, "account_deactivated", session);
     await created
       .getByRole("button", { name: "Reactivate Instructor Account", exact: true })
       .click();
@@ -113,14 +110,63 @@ async function sysadminAccounts(runtime: ScenarioRuntime): Promise<void> {
 }
 
 export const SYSADMIN_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
-  { id: "sysadmin_courses", checkpoints: ["course_list"], run: sysadminCourses },
+  {
+    id: "sysadmin_courses",
+    role: "sysadmin",
+    captures: [
+      {
+        checkpoint: "course_list",
+        area: "system administration",
+        workflow: "system administration",
+        state: "system administration home",
+        viewport: "laptop",
+        privacyProfile: "sysadmin_account",
+        caption: "System administration home",
+        featured: true,
+      },
+    ],
+    run: sysadminCourses,
+  },
   {
     id: "sysadmin_accounts",
-    checkpoints: [
-      "accounts_initial",
-      "account_validation",
-      "account_created",
-      "account_deactivated",
+    role: "sysadmin",
+    captures: [
+      {
+        checkpoint: "accounts_initial",
+        area: "accounts",
+        workflow: "instructor account lifecycle",
+        state: "initial",
+        viewport: "laptop",
+        privacyProfile: "sysadmin_account",
+        caption: "Instructor Accounts",
+      },
+      {
+        checkpoint: "account_created",
+        area: "accounts",
+        workflow: "instructor account lifecycle",
+        state: "created",
+        viewport: "laptop",
+        privacyProfile: "sysadmin_account",
+        caption: "Created Instructor Account",
+      },
+      {
+        checkpoint: "account_deactivated",
+        area: "accounts",
+        workflow: "instructor account lifecycle",
+        state: "deactivated",
+        viewport: "laptop",
+        privacyProfile: "sysadmin_account",
+        caption: "Deactivated Instructor Account",
+      },
+      {
+        checkpoint: "account_validation",
+        area: "accounts",
+        workflow: "instructor account lifecycle",
+        state: "creation validation",
+        viewport: "laptop",
+        privacyProfile: "sysadmin_account",
+        caption: "Instructor Account creation validation",
+      },
     ],
     run: sysadminAccounts,
   },

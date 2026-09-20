@@ -25,17 +25,15 @@ const PUBLISHED_NATIVE_TITLE = "Biochemistry Chapter 1: Charged functional group
 
 async function captureCheckpoint(
   runtime: ScenarioRuntime,
-  scenario: string,
   checkpoint: string,
   pageSession: Awaited<ReturnType<ScenarioRuntime["open"]>>,
 ): Promise<void> {
   await scrollTop(pageSession.page);
-  await runtime.capture(pageSession, runtime.record(scenario, checkpoint));
+  await runtime.captureCheckpoint(pageSession, checkpoint);
 }
 
 async function seededInstructor(runtime: ScenarioRuntime): Promise<void> {
-  const scenario = "instructor_seeded";
-  const session = await runtime.open(runtime.record(scenario, "course_list"));
+  const session = await runtime.open("course_list");
   try {
     await enterInstructor(session.page);
     await session.page
@@ -43,7 +41,7 @@ async function seededInstructor(runtime: ScenarioRuntime): Promise<void> {
       .getByRole("link", { name: "Courses", exact: true })
       .click();
     await session.page.getByRole("heading", { name: "My Active Courses", exact: true }).waitFor();
-    await captureCheckpoint(runtime, scenario, "course_list", session);
+    await captureCheckpoint(runtime, "course_list", session);
     await session.page
       .getByRole("navigation", { name: "Ribbon tasks", exact: true })
       .getByRole("link", { name: "My Inactive Courses", exact: true })
@@ -57,17 +55,17 @@ async function seededInstructor(runtime: ScenarioRuntime): Promise<void> {
     if ((await inactiveCourseList.locator(".instructor-list__row--course").count()) !== 0) {
       throw new Error("The inactive Course list must have zero Course rows for this scenario.");
     }
-    await captureCheckpoint(runtime, scenario, "inactive_courses_list", session);
+    await captureCheckpoint(runtime, "inactive_courses_list", session);
     await session.page.getByRole("link", { name: "My Active Courses", exact: true }).click();
     await session.page.getByRole("heading", { name: "My Active Courses", exact: true }).waitFor();
     const seededCourse = courseCard(session.page, COURSE_TITLE);
     await seededCourse.getByRole("link", { name: "Open Course Instance", exact: true }).click();
     await session.page.getByRole("heading", { name: COURSE_TITLE, exact: true }).waitFor();
-    await captureCheckpoint(runtime, scenario, "course_assignment_workspace", session);
+    await captureCheckpoint(runtime, "course_assignment_workspace", session);
     await session.page.getByRole("link", { name: "Open Students", exact: true }).click();
     await session.page.getByRole("heading", { name: "Students", exact: true }).waitFor();
     await session.page.getByText("BIO301-AVERY", { exact: true }).waitFor();
-    await captureCheckpoint(runtime, scenario, "course_roster_active", session);
+    await captureCheckpoint(runtime, "course_roster_active", session);
     await session.page.locator("summary").filter({ hasText: "Roster tools" }).click();
     await session.page
       .getByLabel("Email, roster ID, Course roster name")
@@ -76,14 +74,14 @@ async function seededInstructor(runtime: ScenarioRuntime): Promise<void> {
       );
     await session.page.getByRole("button", { name: "Import roster", exact: true }).click();
     await session.page.getByText("screenshot-pending", { exact: true }).waitFor();
-    await captureCheckpoint(runtime, scenario, "course_roster_pending_invitation", session);
+    await captureCheckpoint(runtime, "course_roster_pending_invitation", session);
     await session.page
       .getByRole("navigation", { name: "Ribbon tabs", exact: true })
       .getByRole("link", { name: "Gradebook", exact: true })
       .click();
     await session.page.locator('[data-route-surface="gradebook"]').waitFor();
     await session.page.getByText("BIO301-JACK", { exact: true }).first().waitFor();
-    await captureCheckpoint(runtime, scenario, "gradebook", session);
+    await captureCheckpoint(runtime, "gradebook", session);
     await session.page.locator(".ple-app-ribbon__brand").click();
     await session.page.waitForURL((url) => url.pathname === "/instructor");
     await session.page.locator('[data-route-surface="courses"]').waitFor();
@@ -101,15 +99,14 @@ async function seededInstructor(runtime: ScenarioRuntime): Promise<void> {
         .waitFor(),
       session.page.getByRole("list", { name: "Assessments due in the next 7 days" }).waitFor(),
     ]);
-    await captureCheckpoint(runtime, scenario, "assignments_due_soon_empty", session);
+    await captureCheckpoint(runtime, "assignments_due_soon_empty", session);
   } finally {
     await runtime.close(session);
   }
 }
 
 async function instructorProfile(runtime: ScenarioRuntime): Promise<void> {
-  const scenario = "instructor_profile";
-  const session = await runtime.open(runtime.record(scenario, "default"));
+  const session = await runtime.open("default");
   try {
     await enterInstructor(session.page);
     await session.page.getByRole("button", { name: "Profile", exact: true }).click();
@@ -121,29 +118,28 @@ async function instructorProfile(runtime: ScenarioRuntime): Promise<void> {
       .getByRole("heading", { level: 2, name: "Profile image", exact: true })
       .waitFor();
     await session.page.locator(".profile-thumbnail-placeholder").waitFor();
-    await captureCheckpoint(runtime, scenario, "default", session);
+    await captureCheckpoint(runtime, "default", session);
   } finally {
     await runtime.close(session);
   }
 }
 
 async function instructorLibrary(runtime: ScenarioRuntime): Promise<void> {
-  const scenario = "instructor_library";
-  const session = await runtime.open(runtime.record(scenario, "library_default"));
+  const session = await runtime.open("library_default");
   try {
     await enterInstructor(session.page);
-    await captureCheckpoint(runtime, scenario, "library_default", session);
+    await captureCheckpoint(runtime, "library_default", session);
     await session.page.getByLabel("Search published questions").fill("charged functional");
     await session.page
       .getByRole("heading", { name: PUBLISHED_NATIVE_TITLE, exact: true })
       .waitFor();
-    await captureCheckpoint(runtime, scenario, "library_filtered", session);
+    await captureCheckpoint(runtime, "library_filtered", session);
     const result = session.page.locator("article.question-library-row").filter({
       has: session.page.getByRole("heading", { name: PUBLISHED_NATIVE_TITLE, exact: true }),
     });
     await result.getByRole("link", { name: "Open question", exact: true }).click();
     await session.page.getByRole("region", { name: "Question prompt", exact: true }).waitFor();
-    await captureCheckpoint(runtime, scenario, "published_question_detail", session);
+    await captureCheckpoint(runtime, "published_question_detail", session);
     await session.page
       .getByRole("navigation", { name: "Ribbon tabs", exact: true })
       .getByRole("link", { name: "Questions", exact: true })
@@ -156,15 +152,14 @@ async function instructorLibrary(runtime: ScenarioRuntime): Promise<void> {
       .getByRole("heading", { name: "Browse Question Library", exact: true })
       .waitFor();
     await session.page.getByRole("heading", { name: "Subjects", exact: true }).waitFor();
-    await captureCheckpoint(runtime, scenario, "library_browse", session);
+    await captureCheckpoint(runtime, "library_browse", session);
   } finally {
     await runtime.close(session);
   }
 }
 
 async function instructorAuthoring(runtime: ScenarioRuntime): Promise<void> {
-  const scenario = "instructor_authoring";
-  const session = await runtime.open(runtime.record(scenario, "draft_list"));
+  const session = await runtime.open("draft_list");
   try {
     await enterInstructor(session.page);
     await session.page
@@ -179,7 +174,7 @@ async function instructorAuthoring(runtime: ScenarioRuntime): Promise<void> {
     await session.page
       .getByText("Loading your private Draft Questions...", { exact: true })
       .waitFor({ state: "hidden" });
-    await captureCheckpoint(runtime, scenario, "draft_list", session);
+    await captureCheckpoint(runtime, "draft_list", session);
     await session.page.getByRole("button", { name: "New Draft Question", exact: true }).click();
     await session.page.getByLabel("Question Title").fill(AUTHORING_TITLE);
     await session.page.getByLabel("Question License").selectOption("CC-BY-4.0");
@@ -192,7 +187,7 @@ async function instructorAuthoring(runtime: ScenarioRuntime): Promise<void> {
     if ((await session.page.getByLabel("Question Title").inputValue()) !== AUTHORING_TITLE) {
       throw new Error("saved Draft Question did not persist after reload");
     }
-    await captureCheckpoint(runtime, scenario, "saved_editor", session);
+    await captureCheckpoint(runtime, "saved_editor", session);
     await session.page
       .getByRole("button", { name: "Review publication changes", exact: true })
       .click();
@@ -200,15 +195,14 @@ async function instructorAuthoring(runtime: ScenarioRuntime): Promise<void> {
     await questionAuthors.waitFor();
     // The review section renders below the editor form, so capture it in view.
     await questionAuthors.scrollIntoViewIfNeeded();
-    await runtime.capture(session, runtime.record(scenario, "publication_review"));
+    await runtime.captureCheckpoint(session, "publication_review");
   } finally {
     await runtime.close(session);
   }
 }
 
 async function instructorBlueprint(runtime: ScenarioRuntime): Promise<void> {
-  const scenario = "instructor_blueprint";
-  const session = await runtime.open(runtime.record(scenario, "blueprint_list"));
+  const session = await runtime.open("blueprint_list");
   try {
     await enterInstructor(session.page);
     await session.page
@@ -221,10 +215,10 @@ async function instructorBlueprint(runtime: ScenarioRuntime): Promise<void> {
       .getByRole("heading", { name: "Build reusable course structure", exact: true })
       .waitFor();
     await session.page.getByText(COURSE_TITLE, { exact: true }).waitFor();
-    await captureCheckpoint(runtime, scenario, "blueprint_list", session);
+    await captureCheckpoint(runtime, "blueprint_list", session);
     await session.page.getByText(COURSE_TITLE, { exact: true }).click();
     await session.page.getByRole("heading", { name: COURSE_TITLE, exact: true }).waitFor();
-    await captureCheckpoint(runtime, scenario, "blueprint_detail", session);
+    await captureCheckpoint(runtime, "blueprint_detail", session);
     await session.page
       .getByRole("link", { name: "Return to Blueprint Courses", exact: true })
       .click();
@@ -245,15 +239,14 @@ async function instructorBlueprint(runtime: ScenarioRuntime): Promise<void> {
       .click();
     await session.page.getByRole("button", { name: "Search questions", exact: true }).click();
     await session.page.locator(".question-picker-result input").first().waitFor();
-    await captureCheckpoint(runtime, scenario, "blueprint_question_picker", session);
+    await captureCheckpoint(runtime, "blueprint_question_picker", session);
   } finally {
     await runtime.close(session);
   }
 }
 
 async function instructorPublicBlueprintSearch(runtime: ScenarioRuntime): Promise<void> {
-  const scenario = "instructor_public_blueprint_search";
-  const session = await runtime.open(runtime.record(scenario, "filtered_results"));
+  const session = await runtime.open("filtered_results");
   try {
     await enterInstructor(session.page);
     await session.page
@@ -281,22 +274,21 @@ async function instructorPublicBlueprintSearch(runtime: ScenarioRuntime): Promis
     await session.page
       .getByRole("heading", { level: 3, name: COURSE_TITLE, exact: true })
       .waitFor();
-    await captureCheckpoint(runtime, scenario, "filtered_results", session);
+    await captureCheckpoint(runtime, "filtered_results", session);
   } finally {
     await runtime.close(session);
   }
 }
 
 async function instructorAssignment(runtime: ScenarioRuntime): Promise<void> {
-  const scenario = "instructor_assignment";
-  const session = await runtime.open(runtime.record(scenario, "assignment_creation"));
+  const session = await runtime.open("assignment_creation");
   const page = session.page;
   try {
     await enterInstructor(page);
     await openInstructorCourse(page);
     await page.getByRole("link", { name: "Create Assessment", exact: true }).click();
     await page.getByRole("heading", { name: "Create an Assessment", exact: true }).waitFor();
-    await captureCheckpoint(runtime, scenario, "assignment_creation", session);
+    await captureCheckpoint(runtime, "assignment_creation", session);
     await page.getByLabel("Assessment title").fill(ASSIGNMENT_TITLE);
     await page
       .getByRole("combobox", { name: /^Assessment Type/u })
@@ -304,7 +296,7 @@ async function instructorAssignment(runtime: ScenarioRuntime): Promise<void> {
     await page.getByRole("button", { name: "Create Assessment", exact: true }).click();
     await page.getByRole("heading", { name: "Assessment Question Editor", exact: true }).waitFor();
     await page.getByRole("button", { name: "Add Question", exact: true }).first().click();
-    await captureCheckpoint(runtime, scenario, "assignment_questions_draft", session);
+    await captureCheckpoint(runtime, "assignment_questions_draft", session);
     await page.getByRole("button", { name: "Save Questions and order", exact: true }).click();
     await page
       .getByText("Questions and order saved. Review Assessment Properties when you are ready.")
@@ -329,7 +321,7 @@ async function instructorAssignment(runtime: ScenarioRuntime): Promise<void> {
     await page.locator('section[aria-label="Student View"]').waitFor();
     await page.getByRole("note", { name: "Student View preview", exact: true }).waitFor();
     await page.getByRole("heading", { name: ASSIGNMENT_TITLE, exact: true }).waitFor();
-    await runtime.capture(session, runtime.record(scenario, "assignment_delivery_check"));
+    await runtime.captureCheckpoint(session, "assignment_delivery_check");
     await page.getByRole("link", { name: "Return to assessment", exact: true }).click();
     await page.getByRole("link", { name: "Assessment Properties Editor", exact: true }).click();
     await page
@@ -344,7 +336,7 @@ async function instructorAssignment(runtime: ScenarioRuntime): Promise<void> {
       .waitFor();
     await page.getByRole("button", { name: "Release assessment", exact: true }).click();
     await page.getByText(/^Assessment released\. Current edit number: [1-9][0-9]*\.$/u).waitFor();
-    await captureCheckpoint(runtime, scenario, "assignment_policies_released", session);
+    await captureCheckpoint(runtime, "assignment_policies_released", session);
   } finally {
     await runtime.close(session);
   }
@@ -353,54 +345,261 @@ async function instructorAssignment(runtime: ScenarioRuntime): Promise<void> {
 export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
   {
     id: "instructor_seeded",
-    checkpoints: [
-      "course_list",
-      "inactive_courses_list",
-      "course_assignment_workspace",
-      "course_roster_active",
-      "course_roster_pending_invitation",
-      "gradebook",
-      "assignments_due_soon_empty",
+    role: "instructor",
+    captures: [
+      {
+        checkpoint: "course_list",
+        area: "courses",
+        workflow: "seeded teaching course",
+        state: "course list",
+        viewport: "laptop",
+        privacyProfile: "instructor_answer_free",
+        caption: "Instructor Course Instances",
+        featured: true,
+      },
+      {
+        checkpoint: "inactive_courses_list",
+        area: "courses",
+        workflow: "past teaching courses",
+        state: "zero past Course Instances",
+        viewport: "laptop",
+        privacyProfile: "instructor_answer_free",
+        caption: "Inactive Courses list",
+      },
+      {
+        checkpoint: "course_assignment_workspace",
+        area: "courses",
+        workflow: "seeded teaching course",
+        state: "assignment workspace",
+        viewport: "laptop",
+        privacyProfile: "instructor_answer_free",
+        caption: "Course Assignment workspace",
+      },
+      {
+        checkpoint: "course_roster_active",
+        area: "courses",
+        workflow: "roster",
+        state: "active students",
+        viewport: "laptop",
+        privacyProfile: "instructor_answer_free",
+        caption: "Active Course roster",
+      },
+      {
+        checkpoint: "course_roster_pending_invitation",
+        area: "courses",
+        workflow: "roster",
+        state: "pending invitation",
+        viewport: "laptop",
+        privacyProfile: "instructor_answer_free",
+        caption: "Roster with a pending invitation",
+      },
+      {
+        checkpoint: "gradebook",
+        area: "grading",
+        workflow: "seeded teaching course",
+        state: "mixed progress",
+        viewport: "laptop",
+        privacyProfile: "instructor_answer_free",
+        caption: "Answer-free Gradebook",
+        featured: true,
+      },
+      {
+        checkpoint: "assignments_due_soon_empty",
+        area: "assignments",
+        workflow: "upcoming deadlines",
+        state: "no current deadlines",
+        viewport: "laptop",
+        privacyProfile: "instructor_answer_free",
+        caption: "Assignments Due Soon without current deadlines",
+      },
     ],
     run: seededInstructor,
   },
   {
     id: "instructor_library",
-    checkpoints: [
-      "library_default",
-      "library_filtered",
-      "published_question_detail",
-      "library_browse",
+    role: "instructor",
+    captures: [
+      {
+        checkpoint: "library_default",
+        area: "question library",
+        workflow: "question discovery",
+        state: "default",
+        viewport: "laptop",
+        privacyProfile: "instructor_answer_free",
+        caption: "Question Library",
+        featured: true,
+      },
+      {
+        checkpoint: "library_filtered",
+        area: "question library",
+        workflow: "question discovery",
+        state: "filtered",
+        viewport: "laptop",
+        privacyProfile: "instructor_answer_free",
+        caption: "Filtered Question Library",
+      },
+      {
+        checkpoint: "published_question_detail",
+        area: "question library",
+        workflow: "question discovery",
+        state: "published detail",
+        viewport: "laptop",
+        privacyProfile: "instructor_answer_free",
+        caption: "Published Question detail",
+      },
+      {
+        checkpoint: "library_browse",
+        area: "question library",
+        workflow: "question discovery",
+        state: "browse overview",
+        viewport: "laptop",
+        privacyProfile: "instructor_answer_free",
+        caption: "Browse Question Library",
+      },
     ],
     run: instructorLibrary,
   },
   {
     id: "instructor_profile",
-    checkpoints: ["default"],
+    role: "instructor",
+    captures: [
+      {
+        checkpoint: "default",
+        area: "account",
+        workflow: "profile preferences",
+        state: "default profile",
+        viewport: "laptop",
+        privacyProfile: "instructor_answer_free",
+        caption: "Instructor Profile",
+      },
+    ],
     run: instructorProfile,
   },
   {
     id: "instructor_authoring",
-    checkpoints: ["draft_list", "saved_editor", "publication_review"],
+    role: "instructor",
+    captures: [
+      {
+        checkpoint: "draft_list",
+        area: "question authoring",
+        workflow: "publication",
+        state: "draft list",
+        viewport: "laptop",
+        privacyProfile: "instructor_answer_free",
+        caption: "Private Question drafts",
+      },
+      {
+        checkpoint: "saved_editor",
+        area: "question authoring",
+        workflow: "publication",
+        state: "saved draft",
+        viewport: "laptop",
+        privacyProfile: "instructor_answer_free",
+        caption: "Saved private Question editor",
+      },
+      {
+        checkpoint: "publication_review",
+        area: "question authoring",
+        workflow: "publication",
+        state: "review",
+        viewport: "laptop",
+        privacyProfile: "instructor_answer_free",
+        caption: "Question publication review",
+      },
+    ],
     run: instructorAuthoring,
   },
   {
     id: "instructor_blueprint",
-    checkpoints: ["blueprint_list", "blueprint_detail", "blueprint_question_picker"],
+    role: "instructor",
+    captures: [
+      {
+        checkpoint: "blueprint_list",
+        area: "blueprint courses",
+        workflow: "reusable course design",
+        state: "list",
+        viewport: "laptop",
+        privacyProfile: "instructor_answer_free",
+        caption: "Blueprint Courses",
+      },
+      {
+        checkpoint: "blueprint_detail",
+        area: "blueprint courses",
+        workflow: "reusable course design",
+        state: "detail",
+        viewport: "laptop",
+        privacyProfile: "instructor_answer_free",
+        caption: "Blueprint Course detail",
+      },
+      {
+        checkpoint: "blueprint_question_picker",
+        area: "blueprint courses",
+        workflow: "reusable course design",
+        state: "question picker",
+        viewport: "laptop",
+        privacyProfile: "instructor_answer_free",
+        caption: "Blueprint Question picker",
+      },
+    ],
     run: instructorBlueprint,
   },
   {
     id: "instructor_public_blueprint_search",
-    checkpoints: ["filtered_results"],
+    role: "instructor",
+    captures: [
+      {
+        checkpoint: "filtered_results",
+        area: "blueprint courses",
+        workflow: "public blueprint discovery",
+        state: "filtered results",
+        viewport: "laptop",
+        privacyProfile: "instructor_answer_free",
+        caption: "Search Public Blueprint Courses",
+      },
+    ],
     run: instructorPublicBlueprintSearch,
   },
   {
     id: "instructor_assignment",
-    checkpoints: [
-      "assignment_creation",
-      "assignment_questions_draft",
-      "assignment_delivery_check",
-      "assignment_policies_released",
+    role: "instructor",
+    captures: [
+      {
+        checkpoint: "assignment_creation",
+        area: "assignments",
+        workflow: "assignment release",
+        state: "creation",
+        viewport: "laptop",
+        privacyProfile: "instructor_answer_free",
+        caption: "Assignment creation",
+      },
+      {
+        checkpoint: "assignment_questions_draft",
+        area: "assignments",
+        workflow: "assignment release",
+        state: "draft",
+        viewport: "laptop",
+        privacyProfile: "instructor_answer_free",
+        caption: "Draft Assignment Questions",
+      },
+      {
+        checkpoint: "assignment_delivery_check",
+        area: "assignments",
+        workflow: "assignment release",
+        state: "answer-free preview",
+        viewport: "laptop",
+        privacyProfile: "instructor_answer_free",
+        caption: "Answer-free Assignment Preview",
+      },
+      {
+        checkpoint: "assignment_policies_released",
+        area: "assignments",
+        workflow: "assignment release",
+        state: "released",
+        viewport: "laptop",
+        privacyProfile: "instructor_answer_free",
+        caption: "Released Assignment Policies",
+        featured: true,
+      },
     ],
     run: instructorAssignment,
   },

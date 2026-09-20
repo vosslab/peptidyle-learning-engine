@@ -14,7 +14,7 @@ BEGIN
         SELECT 1 FROM ple_private.object_record AS record
          WHERE record.object_record_id = NEW.source_object_record_id
            AND record.object_address = jsonb_build_object(
-               'kind', 'courseBannerSource', 'course', NEW.course_instance_id, 'banner', NEW.course_banner_id)
+               'kind', 'courseBannerSource', 'courseInstanceId', NEW.course_instance_id, 'banner', NEW.course_banner_id)
            AND record.object_storage_area = 'private-content'
            AND record.object_data_class = 'course-appearance'
            AND record.sha256 = NEW.source_object_checksum
@@ -36,7 +36,7 @@ BEGIN
         SELECT 1 FROM ple_private.object_record AS record
          WHERE record.object_record_id = NEW.object_record_id
            AND record.object_address = jsonb_build_object(
-               'kind', 'courseBannerRendition', 'course', NEW.course_instance_id,
+               'kind', 'courseBannerRendition', 'courseInstanceId', NEW.course_instance_id,
                'banner', NEW.course_banner_id, 'rendition', NEW.rendition_kind)
            AND record.object_storage_area = 'private-content'
            AND record.object_data_class = 'course-appearance'
@@ -57,7 +57,7 @@ BEGIN
         JOIN ple_private.object_record AS record ON record.object_record_id = delivery.object_record_id
          WHERE delivery.object_delivery_id = NEW.object_delivery_id AND delivery.object_record_id = NEW.object_record_id
            AND record.object_address = jsonb_build_object(
-               'kind', 'courseBannerRendition', 'course', NEW.course_instance_id,
+               'kind', 'courseBannerRendition', 'courseInstanceId', NEW.course_instance_id,
                'banner', NEW.course_banner_id, 'rendition', NEW.rendition_kind)
            AND record.object_storage_area = 'private-content'
            AND record.object_data_class = 'course-appearance'
@@ -109,7 +109,7 @@ CREATE FUNCTION ple_api.stage_course_banner_upload(
 ) RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE account_id text; subject_id uuid := gen_random_uuid(); work_id uuid := gen_random_uuid();
-    expected_address jsonb := jsonb_build_object('kind', 'courseBannerUpload', 'course', p_course_instance_id, 'upload', p_upload_id);
+    expected_address jsonb := jsonb_build_object('kind', 'courseBannerUpload', 'courseInstanceId', p_course_instance_id, 'upload', p_upload_id);
 BEGIN
     IF NOT ple_api.current_session_account_is_course_instructor(p_course_instance_id) THEN RETURN NULL; END IF;
     account_id := ple_api.current_session_account_id();
@@ -202,19 +202,19 @@ BEGIN
         (object_record_id, object_address, object_storage_area, object_data_class,
          sha256, size_bytes, media_type, created_at)
     VALUES
-        (p_source_object, jsonb_build_object('kind', 'courseBannerSource', 'course', p_course_instance_id, 'banner', p_banner_id),
+        (p_source_object, jsonb_build_object('kind', 'courseBannerSource', 'courseInstanceId', p_course_instance_id, 'banner', p_banner_id),
          'private-content', 'course-appearance', p_source_sha256, p_source_size, p_source_media, clock_timestamp()),
-        (p_banner_object, jsonb_build_object('kind', 'courseBannerRendition', 'course', p_course_instance_id, 'banner', p_banner_id, 'rendition', 'banner'),
+        (p_banner_object, jsonb_build_object('kind', 'courseBannerRendition', 'courseInstanceId', p_course_instance_id, 'banner', p_banner_id, 'rendition', 'banner'),
          'private-content', 'course-appearance', p_banner_sha256, p_banner_size, p_banner_media, clock_timestamp())
     ON CONFLICT DO NOTHING;
     IF NOT EXISTS (
         SELECT 1 FROM ple_private.object_record WHERE object_record_id = p_source_object
-          AND object_address = jsonb_build_object('kind', 'courseBannerSource', 'course', p_course_instance_id, 'banner', p_banner_id)
+          AND object_address = jsonb_build_object('kind', 'courseBannerSource', 'courseInstanceId', p_course_instance_id, 'banner', p_banner_id)
           AND object_storage_area = 'private-content' AND object_data_class = 'course-appearance'
           AND sha256 = p_source_sha256 AND size_bytes = p_source_size AND media_type = p_source_media
     ) OR NOT EXISTS (
         SELECT 1 FROM ple_private.object_record WHERE object_record_id = p_banner_object
-          AND object_address = jsonb_build_object('kind', 'courseBannerRendition', 'course', p_course_instance_id, 'banner', p_banner_id, 'rendition', 'banner')
+          AND object_address = jsonb_build_object('kind', 'courseBannerRendition', 'courseInstanceId', p_course_instance_id, 'banner', p_banner_id, 'rendition', 'banner')
           AND object_storage_area = 'private-content' AND object_data_class = 'course-appearance'
           AND sha256 = p_banner_sha256 AND size_bytes = p_banner_size AND media_type = p_banner_media
     ) THEN

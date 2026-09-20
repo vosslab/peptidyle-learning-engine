@@ -1,6 +1,7 @@
 import type { AssessmentAttemptId } from "../../generated/api/AssessmentAttemptId";
 import type { AssessmentId } from "../../generated/api/AssessmentId";
 import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
+import type { QuestionRevisionTuple } from "../../generated/api/QuestionRevisionTuple";
 
 export interface RecoverySummary {
   readonly courseInstanceId: CourseInstanceId;
@@ -16,8 +17,7 @@ export interface RecoverySummary {
 }
 export interface RecoveredQuestion {
   readonly issuedPosition: number;
-  readonly questionId: string;
-  readonly revisionNumber: number;
+  readonly questionRevisionTuple: QuestionRevisionTuple;
   readonly deliveryText: string;
   readonly poolText: string | null;
   readonly attemptText: string | null;

@@ -466,11 +466,11 @@ pub struct StudentAssessmentAttemptSavedResponse {
 pub struct StudentAssessmentAttemptContext {
     pub assessment_attempt_id: AssessmentAttemptId,
     pub attempt_number: u32,
-    pub course: CourseInstanceId,
+    pub course_instance_id: CourseInstanceId,
     pub course_short_name: String,
     pub course_long_name: String,
     pub course_theme: CourseTheme,
-    pub assessment: AssessmentId,
+    pub assessment_id: AssessmentId,
     pub assessment_title: String,
     /// Authenticated Student's selected IANA display zone.
     pub display_time_zone: question_model::AccountTimeZone,
@@ -634,8 +634,8 @@ pub trait LiveAssessmentDeliveryStore: Send + Sync {
     async fn prepare_native_assessment_issuance(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceId,
-        assessment: AssessmentId,
+        course_instance_id: CourseInstanceId,
+        assessment_id: AssessmentId,
     ) -> Result<NativeAssessmentIssuanceBatch, StoreError>;
 
     /// Commits all native presentation evidence in one atomic operation, or
@@ -650,8 +650,8 @@ pub trait LiveAssessmentDeliveryStore: Send + Sync {
     async fn live_assessment_access(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceId,
-        assessment: AssessmentId,
+        course_instance_id: CourseInstanceId,
+        assessment_id: AssessmentId,
     ) -> Result<LiveAssessmentAccess, StoreError>;
 
     /// Reads one completed Attempt after the store has re-authorized exact

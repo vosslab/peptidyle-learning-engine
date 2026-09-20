@@ -102,8 +102,8 @@ pub trait InstructorStudentViewStore: Send + Sync {
     async fn load_instructor_student_view_snapshot(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceId,
-        assessment: AssessmentId,
+        course_instance_id: CourseInstanceId,
+        assessment_id: AssessmentId,
     ) -> Result<InstructorStudentViewSnapshot, StoreError>;
 
     /// Reauthorizes one exact Question against the current Assessment snapshot.
@@ -114,8 +114,8 @@ pub trait InstructorStudentViewStore: Send + Sync {
     async fn load_instructor_student_view_question_source(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceId,
-        assessment: AssessmentId,
+        course_instance_id: CourseInstanceId,
+        assessment_id: AssessmentId,
         expected_edit_number: AssessmentEditNumber,
         authored_position: u32,
         question_revision_tuple: QuestionRevisionTuple,

@@ -100,7 +100,7 @@ impl LiveStudentCourseLandingStore for PostgresLiveStudentCourseLandingStore {
     async fn list_released_live_student_assessments(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
     ) -> Result<Vec<LiveStudentAssessmentLandingSummary>, StoreError> {
         let mut transaction = self.begin(session_token_hash).await?;
         let rows = sqlx::query(
@@ -120,7 +120,7 @@ impl LiveStudentCourseLandingStore for PostgresLiveStudentCourseLandingStore {
              assessment_score_points_earned, assessment_score_points_possible \
              FROM ple_api.list_released_live_student_assessments($1)",
         )
-        .bind(course.as_string())
+        .bind(course_instance_id.as_string())
         .fetch_all(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
@@ -137,7 +137,9 @@ fn decode_course(
     row: &sqlx::postgres::PgRow,
 ) -> Result<LiveStudentCourseLandingSummary, StoreError> {
     Ok(LiveStudentCourseLandingSummary {
-        course: course_instance_id(row.try_get("course_instance_id").map_err(map_sqlx_error)?)?,
+        course_instance_id: course_instance_id(
+            row.try_get("course_instance_id").map_err(map_sqlx_error)?,
+        )?,
         short_name: name(
             row.try_get("course_short_name").map_err(map_sqlx_error)?,
             "Course short name",
@@ -202,7 +204,7 @@ fn decode_assessment(
         return Err(invalid("Assessment progress"));
     }
     Ok(LiveStudentAssessmentLandingSummary {
-        assessment: assessment_id(row.try_get("assessment_id").map_err(map_sqlx_error)?)?,
+        assessment_id: assessment_id(row.try_get("assessment_id").map_err(map_sqlx_error)?)?,
         title: row.try_get("assessment_title").map_err(map_sqlx_error)?,
         assessment_type,
         decision,
@@ -232,7 +234,9 @@ fn decode_invitation(
     let term =
         CourseTerm::from_parts(&start_date, &end_date).map_err(|_| invalid("Course term"))?;
     Ok(LiveStudentCourseInvitationSummary {
-        course: course_instance_id(row.try_get("course_instance_id").map_err(map_sqlx_error)?)?,
+        course_instance_id: course_instance_id(
+            row.try_get("course_instance_id").map_err(map_sqlx_error)?,
+        )?,
         short_name: name(
             row.try_get("course_short_name").map_err(map_sqlx_error)?,
             "Course short name",

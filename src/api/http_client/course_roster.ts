@@ -13,11 +13,11 @@ import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
 import { parseCourseInstanceId } from "../../navigation/public_route";
 
-function courseRosterPath(course: CourseInstanceId): string {
-  if (parseCourseInstanceId(course) === null) {
+function courseRosterPath(courseInstanceId: CourseInstanceId): string {
+  if (parseCourseInstanceId(courseInstanceId) === null) {
     throw new ApiProtocolError("Course Instance ID must be canonical");
   }
-  return `/api/course-instances/${encodeURIComponent(course)}/roster`;
+  return `/api/course-instances/${encodeURIComponent(courseInstanceId)}/roster`;
 }
 
 async function rosterJson<T>(
@@ -49,28 +49,39 @@ export function createLiveCourseRosterClient(
   basePath: string,
 ): Pick<ApiClient, keyof LiveCourseRosterClient> {
   return {
-    getLiveCourseRoster: (course) =>
-      rosterJson(fetchImplementation, basePath, courseRosterPath(course), decodeCourseRoster),
-    importLiveCourseRoster: (course, input) =>
-      // ASVS 14.2.1/14.3.2: names stay in the POST body and protected no-store transport.
-      rosterJson(fetchImplementation, basePath, courseRosterPath(course), decodeCourseRoster, {
-        method: "POST",
-        body: decodeCourseRosterImportInput(input),
-        status: 201,
-      }),
-    claimLiveCourseInvitation: (course) =>
+    getLiveCourseRoster: (courseInstanceId) =>
       rosterJson(
         fetchImplementation,
         basePath,
-        `${courseRosterPath(course)}/claim`,
+        courseRosterPath(courseInstanceId),
+        decodeCourseRoster,
+      ),
+    importLiveCourseRoster: (courseInstanceId, input) =>
+      // ASVS 14.2.1/14.3.2: names stay in the POST body and protected no-store transport.
+      rosterJson(
+        fetchImplementation,
+        basePath,
+        courseRosterPath(courseInstanceId),
+        decodeCourseRoster,
+        {
+          method: "POST",
+          body: decodeCourseRosterImportInput(input),
+          status: 201,
+        },
+      ),
+    claimLiveCourseInvitation: (courseInstanceId) =>
+      rosterJson(
+        fetchImplementation,
+        basePath,
+        `${courseRosterPath(courseInstanceId)}/claim`,
         decodeClaimedCourseInvitation,
         { method: "POST" },
       ),
-    revokeLiveCourseRosterEntry: async (course, rosterId): Promise<void> => {
+    revokeLiveCourseRosterEntry: async (courseInstanceId, rosterId): Promise<void> => {
       if (!/^[A-Za-z0-9._-]{1,64}$/u.test(rosterId)) {
         throw new ApiProtocolError("Course roster identifier must be canonical");
       }
-      const path = `${courseRosterPath(course)}/${encodeURIComponent(rosterId)}/revoke`;
+      const path = `${courseRosterPath(courseInstanceId)}/${encodeURIComponent(rosterId)}/revoke`;
       const response = await requestSameOrigin(fetchImplementation, basePath, path, {
         method: "POST",
       });

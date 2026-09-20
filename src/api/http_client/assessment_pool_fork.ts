@@ -42,19 +42,22 @@ export class AssessmentPoolForkConflictError extends ApiRequestError {
   }
 }
 
-function assessmentPath(course: CourseInstanceId, assessment: AssessmentId): string {
-  if (parseCourseInstanceId(course) === null || parseAssessmentId(assessment) === null) {
+function assessmentPath(courseInstanceId: CourseInstanceId, assessmentId: AssessmentId): string {
+  if (
+    parseCourseInstanceId(courseInstanceId) === null ||
+    parseAssessmentId(assessmentId) === null
+  ) {
     throw new ApiProtocolError("Assessment Pool route IDs must be canonical");
   }
-  return `/api/course-instances/${encodeURIComponent(course)}/assessments/${encodeURIComponent(assessment)}`;
+  return `/api/course-instances/${encodeURIComponent(courseInstanceId)}/assessments/${encodeURIComponent(assessmentId)}`;
 }
 
 function forkPath(
-  course: CourseInstanceId,
-  assessment: AssessmentId,
+  courseInstanceId: CourseInstanceId,
+  assessmentId: AssessmentId,
   entry?: AssessmentEntryId,
 ): string {
-  const base = `${assessmentPath(course, assessment)}/question-pool-forks`;
+  const base = `${assessmentPath(courseInstanceId, assessmentId)}/question-pool-forks`;
   return entry === undefined ? base : `${base}/${encodeURIComponent(entry)}`;
 }
 
@@ -175,11 +178,11 @@ export function createAssessmentPoolForkClient(
 ): AssessmentPoolForkClient {
   return {
     getAssessmentQuestionPoolFork: async (
-      course,
-      assessment,
+      courseInstanceId,
+      assessmentId,
       entry,
     ): Promise<AssessmentQuestionPoolForkView> => {
-      const path = forkPath(course, assessment, entry);
+      const path = forkPath(courseInstanceId, assessmentId, entry);
       const fork = await requestJson(
         fetchImplementation,
         basePath,
@@ -190,12 +193,12 @@ export function createAssessmentPoolForkClient(
       return fork;
     },
     importAssessmentQuestionPoolFork: async (
-      course,
-      assessment,
+      courseInstanceId,
+      assessmentId,
       input,
       expectedAssessmentEditNumber,
     ): Promise<ImportedAssessmentQuestionPoolFork> => {
-      const path = forkPath(course, assessment);
+      const path = forkPath(courseInstanceId, assessmentId);
       const response = await requestSameOrigin(fetchImplementation, basePath, path, {
         method: "POST",
         headers: {
@@ -221,13 +224,13 @@ export function createAssessmentPoolForkClient(
       return receipt;
     },
     appendAssessmentQuestionPoolForkMembers: async (
-      course,
-      assessment,
+      courseInstanceId,
+      assessmentId,
       entry,
       input,
       expectedAssessmentEditNumber,
     ): Promise<AppendedAssessmentQuestionPoolForkMembers> => {
-      const path = forkPath(course, assessment, entry);
+      const path = forkPath(courseInstanceId, assessmentId, entry);
       const response = await requestSameOrigin(fetchImplementation, basePath, path, {
         method: "PUT",
         headers: {
@@ -248,8 +251,8 @@ export function createAssessmentPoolForkClient(
       return receipt;
     },
     updateAssessmentQuestionPoolSelectionCount: async (
-      course,
-      assessment,
+      courseInstanceId,
+      assessmentId,
       entry,
       selectionCount,
       expectedAssessmentEditNumber,
@@ -257,7 +260,7 @@ export function createAssessmentPoolForkClient(
       if (!Number.isSafeInteger(selectionCount) || selectionCount < 1) {
         throw new ApiProtocolError("Assessment Pool selection count must be positive");
       }
-      const path = `${forkPath(course, assessment, entry)}/selection-count`;
+      const path = `${forkPath(courseInstanceId, assessmentId, entry)}/selection-count`;
       const response = await requestSameOrigin(fetchImplementation, basePath, path, {
         method: "PUT",
         headers: {

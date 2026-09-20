@@ -142,7 +142,7 @@ fn assessment_input(
     content: &StoredBlueprintAssessmentContent,
 ) -> Result<SaveLiveAssessmentInput, StoreError> {
     Ok(SaveLiveAssessmentInput {
-        expected_edit_number: AssessmentEditNumber::INITIAL,
+        expected_assessment_edit_number: AssessmentEditNumber::INITIAL,
         title: AssessmentTitle::try_new(content.title.clone())
             .map_err(|_| invalid("Assessment Title"))?,
         instructions: content.instructions.clone(),

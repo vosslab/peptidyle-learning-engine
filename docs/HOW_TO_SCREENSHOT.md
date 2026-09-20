@@ -12,8 +12,10 @@ Operational steps for rebuilding the canonical screenshot corpus under
 - Playwright browsers installed once: `./devel/setup_playwright.sh`. The capture wrapper
   runs this itself.
 - Clean working tree so the publish diff is readable.
-- No other owned Live Demo running. The wrapper calls `./launchers/run_live_demo.sh stop`
-  before it starts, so a stale demo is not a blocker.
+
+The normal path **reuses a running Live Demo**. Start one with
+`./launchers/run_live_demo.sh --headless` if none is up. Use `--fresh` only when you want
+the wrapper to stop, start, and afterwards stop an owned stack.
 
 ## Rebuild the corpus
 
@@ -21,33 +23,34 @@ Operational steps for rebuilding the canonical screenshot corpus under
 ./devel/capture_screenshots.sh
 ```
 
-What it does, in order:
+On a **warm** stack the driver decides what to rebuild from file timestamps, runs at most
+one build, replaces application containers only when server crates changed, then captures
+and publishes the full corpus. TypeScript, CSS, assets, and `crates/wasm` edits do not
+rebuild images, replace containers, or reseed the database: Caddy bind-mounts host `dist/`.
 
-1. Stops any owned Live Demo, then starts a fresh seeded one headlessly through
-   `./launchers/run_live_demo.sh --headless`.
-2. Resolves the local Sysadmin MFA authenticator path for the owned stack (path only; the
-   seed never reaches Chromium or the terminal).
-3. Runs `tests/playwright/capture_live_demo_screenshots.mjs --publish` against the reported
-   `Live demo entry:` URL. Every scenario in
-   `tests/playwright/screenshot_corpus/scenario_registry.ts` walks its normal visible
-   workflow and captures each declared checkpoint.
-4. Validates route, semantic-state, privacy, page-error, origin, and dimension invariants,
-   then publishes: rewrites the four role folders, prunes PNGs the manifest no longer
-   declares, regenerates `docs/screenshots/current_capture_receipt.json` and
-   `docs/SCREENSHOT_ATLAS.md`.
-5. Stops the stack and prints `Screenshot corpus complete`.
+| Newer than its output | Build | Containers |
+| --- | --- | --- |
+| `src/`, `assets/` newer than `dist/index.html` | `node pipeline/build.mjs --skip-wasm` | none |
+| `crates/wasm/` newer than `dist/wasm/ple_bridge_bg.wasm` | `pipeline/build_wasm.sh --debug`, then `node pipeline/build.mjs --skip-wasm` | none |
+| other `crates/`, `Cargo.toml`, `Cargo.lock` newer than the api image | `./build.sh --debug` | `python3 local_stack.py rebuild-application` |
+| `schemas/`, `containers/`, `compose*.yaml` newer than the launch receipt | done by the restart | full stack restart |
+| nothing newer | none | none |
 
-Expect roughly ten to twenty minutes. Run it in the background and tail the log:
+`rebuild-application` rebuilds the shared api image and recreates api, worker, and
+public-asset-publisher. PostgreSQL, MinIO, the renderer, and the gateway keep running.
 
-```bash
-./devel/capture_screenshots.sh > /tmp/capture_publish.log 2>&1 &
-tail -f /tmp/capture_publish.log
-```
+A **cold** run (no stack, or `--fresh`) starts the Live Demo through
+`./launchers/run_live_demo.sh --headless`, which already builds once, then captures.
 
-Afterwards, `git status` should list only PNGs under `docs/screenshots/`, the receipt, and
-the atlas. Open a sample of PNGs (one per role folder plus any new capture) and check for
-blank pages, error banners, or overlapping chrome before recording the refresh in
-`docs/CHANGELOG.md`.
+After capture the driver hashes only `.png` files under the four role folders. Changed
+images are listed (and copied under `test-results/screenshot-corpus/review/`); otherwise
+it prints `no visual change` and exits 0.
+
+`--verify`, `--headed`, `--fresh`, `--only=IDS`, and `--help` keep their current meanings.
+`--build none|client|wasm_client|full` overrides the timestamp decision.
+
+Expect a warm TypeScript loop to spend most of its time in Playwright, not in the
+bundle. A cold start still takes on the order of ten to twenty minutes.
 
 ## Verify without changing the corpus
 
@@ -71,22 +74,20 @@ entry, see the screenshot section of [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ## Add or change a capture
 
-A capture needs three coordinated edits:
+One hand-authored edit in one scenario file:
 
-1. `docs/screenshots/current_capture_manifest.json`: add a record with `id`, `path`, `role`,
-   `routeId`, `area`, `workflow`, `state`, `scenario`, `checkpoint`, `viewport`,
-   `privacyProfile`, and `gallery`. Update the route and Ribbon coverage ledger rows that
-   the capture now satisfies. Records hold identity and presentation only, never selectors.
-2. `tests/playwright/screenshot_corpus/scenarios_<role>.ts`: inside the named scenario, reach
-   the state through visible navigation, assert the state that proves it, then call
-   `captureCheckpoint(runtime, scenario, "<checkpoint>", session)`. Add the checkpoint name
-   to that scenario's `checkpoints` list.
-3. Rebuild with `./devel/capture_screenshots.sh`. Validation refuses a manifest capture with
-   no registered scenario checkpoint, and a registered checkpoint with no manifest capture.
-   Publication prunes PNGs the manifest does not declare.
+1. In `tests/playwright/screenshot_corpus/scenarios_<role>.ts`, add (or delete) a
+   `captures` declaration and the matching `runtime.captureCheckpoint(session, checkpoint)`
+   call after the page has reached the state through visible navigation. Capture id and
+   path are `<role>_<checkpoint>` and `<role>/<checkpoint>.png`. The reached route is
+   observed, not declared.
+2. Rebuild with `./devel/capture_screenshots.sh`. Publish writes
+   `docs/screenshots/current_capture_manifest.json`, the receipt, the atlas, and coverage
+   ledgers. `docs/screenshots/coverage_exceptions.json` is the only hand-kept coverage
+   list; generation fails closed on an uncovered unlisted surface.
 
-Removing a capture is the reverse: delete the manifest record, drop the checkpoint from the
-scenario, and rebuild. The stale PNG is pruned on publish.
+Removing a capture is the reverse: delete the declaration and call, then rebuild. The
+stale PNG is pruned on publish.
 
 Viewports are fixed: laptop 1280x800, tablet 800x1280, phone 393x852, square 800x800. Add a
 non-laptop variant only when the responsive composition changes materially.

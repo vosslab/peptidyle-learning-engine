@@ -8,8 +8,7 @@ import type { ScenarioDefinition } from "./scenario_types";
 import { enterInstructor } from "./visible_workflows";
 
 async function instructorPools(runtime: ScenarioRuntime): Promise<void> {
-  const scenario = "instructor_pools";
-  const session = await runtime.open(runtime.record(scenario, "pool_creation_review"));
+  const session = await runtime.open("pool_creation_review");
   const page = session.page;
   try {
     await enterInstructor(page);
@@ -37,7 +36,7 @@ async function instructorPools(runtime: ScenarioRuntime): Promise<void> {
     await page
       .getByRole("heading", { level: 1, name: "Create Question Pool", exact: true })
       .waitFor();
-    await runtime.capture(session, runtime.record(scenario, "pool_creation_review"));
+    await runtime.captureCheckpoint(session, "pool_creation_review");
   } finally {
     await runtime.close(session);
   }
@@ -46,7 +45,18 @@ async function instructorPools(runtime: ScenarioRuntime): Promise<void> {
 export const INSTRUCTOR_POOL_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
   {
     id: "instructor_pools",
-    checkpoints: ["pool_creation_review"],
+    role: "instructor",
+    captures: [
+      {
+        checkpoint: "pool_creation_review",
+        area: "question library",
+        workflow: "question pool creation",
+        state: "selected Question review",
+        viewport: "laptop",
+        privacyProfile: "instructor_answer_free",
+        caption: "Question Pool creation review",
+      },
+    ],
     run: instructorPools,
   },
 ];

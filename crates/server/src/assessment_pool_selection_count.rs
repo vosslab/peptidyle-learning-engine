@@ -93,9 +93,9 @@ async fn update_selection_count(
         .update_assessment_question_pool_selection_count(
             token,
             AssessmentPoolSelectionCountInput {
-                course,
-                assessment,
-                assessment_entry,
+                course_instance_id: course,
+                assessment_id: assessment,
+                assessment_entry_id: assessment_entry,
                 expected_assessment_edit_number,
                 selection_count: body.selection_count,
             },

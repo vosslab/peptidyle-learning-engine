@@ -158,7 +158,8 @@ bounded work item.
 | Container-backed behavior                  | `bash tests/e2e/e2e_<name>.sh`                             | The named disposable whole-system oracle.                            |
 | All named non-browser E2E checks           | `bash tests/e2e/e2e_run_all.sh`                            | The current build, CLI, contract, and named-service E2E collection.  |
 | Local stack diagnosis and lifecycle        | `source source_me.sh && python3 local_stack.py <command>`  | The scoped controller contract.                                      |
-| Current application screenshots            | `./devel/capture_screenshots.sh [--verify] [--headed]`     | Rebuilds or verifies the complete manifest corpus.                   |
+| Current application screenshots            | `./devel/capture_screenshots.sh [--verify] [--headed]`     | Warm loop: rebuild only what changed, then publish or verify the corpus. |
+| Application-only stack rebuild             | `python3 local_stack.py rebuild-application`               | New api image; recreate api, worker, publisher; keep data services. |
 
 Sysadmin captures use the ordinary Morgan MFA form. The capture wrapper prepares the owned
 stack's restricted setup-URI file and passes only its path to a separate local CLI authenticator

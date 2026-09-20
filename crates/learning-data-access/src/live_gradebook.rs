@@ -28,7 +28,7 @@ pub struct CourseGradebookStudentWork {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CourseGradebook {
-    pub course_id: CourseInstanceId,
+    pub course_instance_id: CourseInstanceId,
     pub student_work: Vec<CourseGradebookStudentWork>,
 }
 
@@ -39,6 +39,6 @@ pub trait CourseGradebookStore: Send + Sync {
     async fn course_gradebook(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
     ) -> Result<CourseGradebook, StoreError>;
 }

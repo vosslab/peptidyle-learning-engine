@@ -89,13 +89,13 @@ impl From<learning_data_access::StudentAssessmentAttemptContext>
             expires_at: value.expires_at,
             timer_remaining_milliseconds: value.timer_remaining_milliseconds,
             course: StudentAssessmentAttemptCourseContext {
-                id: value.course,
+                id: value.course_instance_id,
                 short_name: value.course_short_name,
                 long_name: value.course_long_name,
                 theme: value.course_theme,
             },
             assessment: StudentAssessmentAttemptAssessmentContext {
-                id: value.assessment,
+                id: value.assessment_id,
                 title: value.assessment_title,
             },
         }

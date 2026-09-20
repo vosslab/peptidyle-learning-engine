@@ -33,8 +33,8 @@ fn base() -> BaseAssessmentPolicy {
 
 fn active_student_course_membership() -> ActiveStudentCourseMembershipDecision {
     evaluate_active_student_course_membership(ActiveStudentCourseMembershipFacts {
-        course: CourseInstanceId::from_debug_serial(2),
-        assessment: AssessmentId::from_debug_serial(3),
+        course_instance_id: CourseInstanceId::from_debug_serial(2),
+        assessment_id: AssessmentId::from_debug_serial(3),
         student_account: AccountId::from_debug_serial(4),
         membership: Some(ActiveStudentMembership {
             id: CourseMembershipId::from_uuid(id(5)),

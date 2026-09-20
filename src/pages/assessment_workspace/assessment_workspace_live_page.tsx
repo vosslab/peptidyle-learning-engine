@@ -35,7 +35,7 @@ import { useSetAssessmentTitleForPath } from "../../ribbon/route_scope_context";
 
 export interface AssessmentWorkspaceContextValue {
   readonly courseInstanceId: CourseInstanceRouteId;
-  /** Shared direct resource and exact ETag for every child page. */
+  /** Shared direct resource and exact Assessment Edit Number for every child page. */
   readonly assessment: Accessor<LiveAssessmentWorkspaceResponse>;
   readonly assessmentId: AssessmentRouteId;
   readonly save: (input: SaveLiveAssessmentInput) => Promise<LiveAssessmentWorkspaceResponse>;

@@ -137,7 +137,7 @@ pub struct AssessmentSummary {
     /// Assessment ID (`AXXXXXXXZ`).
     pub id: AssessmentId,
     /// Course that owns this assessment.
-    pub course_id: CourseInstanceId,
+    pub course_instance_id: CourseInstanceId,
     /// Human-facing assessment title.
     pub title: AssessmentTitle,
     /// Ordered complete Assessment Content Entry.
@@ -278,7 +278,7 @@ impl StudentAssessmentDetail {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct GradebookSummaryRow {
     /// Course whose instructor requested this bounded page.
-    pub course_id: CourseInstanceId,
+    pub course_instance_id: CourseInstanceId,
     /// Course-owned Student Record represented by this row.
     pub student_record_id: StudentRecordId,
     /// Human-facing Student name from the protected course roster.
@@ -310,7 +310,7 @@ mod tests {
         let assessment = AssessmentSummary {
             id: AssessmentId::from_debug_serial(1),
 
-            course_id: CourseInstanceId::from_debug_serial(3),
+            course_instance_id: CourseInstanceId::from_debug_serial(3),
             title: assessment_title("Peptide bonds"),
             entries: vec![AssessmentEntrySummary::FixedQuestion(
                 FixedQuestionAssessmentEntrySummary {
@@ -334,7 +334,8 @@ mod tests {
         };
 
         let value = serde_json::to_value(assessment).expect("assessment should serialize");
-        assert!(value.get("courseId").is_some());
+        assert!(value.get("courseInstanceId").is_some());
+        assert!(value.get("courseId").is_none());
         assert!(value.get("course_id").is_none());
         let item = &value["entries"][0];
         assert_eq!(item["questionId"], "7K3M-19QX");
@@ -345,7 +346,7 @@ mod tests {
         let student = StudentAssessmentLandingSummary::from(AssessmentSummary {
             id: AssessmentId::from_debug_serial(1),
 
-            course_id: CourseInstanceId::from_debug_serial(3),
+            course_instance_id: CourseInstanceId::from_debug_serial(3),
             title: assessment_title("Peptide bonds"),
             entries: Vec::new(),
             student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
@@ -364,7 +365,7 @@ mod tests {
         let assessment = AssessmentSummary {
             id: AssessmentId::from_debug_serial(1),
 
-            course_id: CourseInstanceId::from_debug_serial(3),
+            course_instance_id: CourseInstanceId::from_debug_serial(3),
             title: assessment_title("Peptide bonds"),
             entries: Vec::new(),
             student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
@@ -415,7 +416,7 @@ mod tests {
     #[test]
     fn gradebook_summary_row_keeps_the_projection_nested() {
         let row = GradebookSummaryRow {
-            course_id: CourseInstanceId::from_debug_serial(2),
+            course_instance_id: CourseInstanceId::from_debug_serial(2),
             student_record_id: StudentRecordId::from_uuid(Uuid::from_u128(3)),
             student_name: "Ada Student".to_string(),
             assessment_id: AssessmentId::from_debug_serial(5),
@@ -432,7 +433,8 @@ mod tests {
         };
 
         let value = serde_json::to_value(row).expect("gradebook row should serialize");
-        assert!(value.get("course_id").is_some());
+        assert!(value.get("course_instance_id").is_some());
+        assert!(value.get("course_id").is_none());
         assert!(value.get("assessment_title").is_some());
         assert_eq!(
             value.get("student_name").and_then(|name| name.as_str()),

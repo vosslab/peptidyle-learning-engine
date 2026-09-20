@@ -369,7 +369,7 @@ pub(super) fn parse_account_id(value: String) -> Result<AccountId, StoreError> {
     AccountId::new(value).map_err(|message| StoreError::InvalidRecord(message.to_string()))
 }
 
-pub(super) fn parse_course_id(value: String) -> Result<CourseInstanceId, StoreError> {
+pub(super) fn parse_course_instance_id(value: String) -> Result<CourseInstanceId, StoreError> {
     CourseInstanceId::new(value).map_err(|message| StoreError::InvalidRecord(message.to_string()))
 }
 

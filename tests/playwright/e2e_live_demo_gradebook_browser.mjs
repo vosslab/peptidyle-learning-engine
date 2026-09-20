@@ -35,8 +35,8 @@ try {
     projection === null ||
     typeof projection !== "object" ||
     Array.isArray(projection) ||
-    Object.keys(projection).sort().join(",") !== "courseId,studentWork" ||
-    projection.courseId !== course ||
+    Object.keys(projection).sort().join(",") !== "courseInstanceId,studentWork" ||
+    projection.courseInstanceId !== course ||
     !Array.isArray(projection.studentWork) ||
     projection.studentWork.length === 0
   ) {

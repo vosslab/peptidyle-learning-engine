@@ -178,15 +178,15 @@ impl QuestionPoolLibraryStore for PostgresQuestionPoolLibraryStore {
     async fn load_assessment_question_pool_fork(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceId,
-        assessment: AssessmentId,
+        course_instance_id: CourseInstanceId,
+        assessment_id: AssessmentId,
         assessment_entry: AssessmentEntryId,
     ) -> Result<AssessmentQuestionPoolForkRecord, StoreError> {
         let mut transaction = self.begin(session_token_hash).await?;
         let rows =
             sqlx::query("SELECT * FROM ple_api.read_assessment_question_pool_fork($1, $2, $3)")
-                .bind(course.as_string())
-                .bind(assessment.as_string())
+                .bind(course_instance_id.as_string())
+                .bind(assessment_id.as_string())
                 .bind(assessment_entry.as_uuid())
                 .fetch_all(&mut *transaction)
                 .await

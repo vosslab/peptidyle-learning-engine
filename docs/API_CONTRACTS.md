@@ -25,7 +25,7 @@ same no-store `404`. Browser decoders accept only their closed response shapes.
 Responses never expose private object locations or checksums, source bytes,
 answer keys, raw renderer or grader data, credentials, or internal database IDs.
 Account, Course Instance, Assessment, Blueprint Course, Attempt, and similar
-objects emit JSON `id` (or nested `courseId` / `assessmentId`). HTTP path
+objects emit JSON `id` (or nested `courseInstanceId` / `assessmentId`). HTTP path
 parameters that carry those public IDs are named `course_instance_id`,
 `assessment_id`, `blueprint_course_id`, and `account_id`. Composite Question
 Revision pins remain `{ questionId, revisionNumber }`. Exact Blueprint

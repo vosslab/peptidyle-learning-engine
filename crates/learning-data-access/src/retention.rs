@@ -13,7 +13,7 @@ use crate::StoreError;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CourseRetentionDueAction {
     /// The Course whose stored schedule produced this action.
-    pub course: CourseInstanceId,
+    pub course_instance_id: CourseInstanceId,
     /// Closed action kind selected by the database policy function.
     pub action: CourseRetentionDueActionKind,
     /// Database-authoritative due instant.
@@ -51,21 +51,21 @@ pub trait CourseRetentionStore: Send + Sync {
     /// returns a Store error without changing the Course.
     async fn mark_course_instance_inactive(
         &self,
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
         evaluated_at: Timestamp,
     ) -> Result<bool, StoreError>;
 
     /// Commits the database-owned archive transition for one Course.
     async fn archive_course_student_records(
         &self,
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
         evaluated_at: Timestamp,
     ) -> Result<bool, StoreError>;
 
     /// Commits the database-owned deletion transition for one Course.
     async fn delete_course_student_records(
         &self,
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
         evaluated_at: Timestamp,
     ) -> Result<bool, StoreError>;
 }

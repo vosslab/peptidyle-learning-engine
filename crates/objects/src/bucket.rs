@@ -181,21 +181,21 @@ pub enum ObjectAddress {
     /// course before persistence adds Account and expiry ownership.
     CourseBannerUpload {
         /// Course whose authorized appearance flow created the upload.
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
         /// Opaque upload ID returned to the authorized browser.
         upload: CourseBannerUploadId,
     },
     /// Immutable verified private source retained for one Course Banner.
     CourseBannerSource {
         /// Course whose appearance may reference the banner.
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
         /// Stable browser-safe banner delivery identity.
         banner: CourseBannerId,
     },
     /// Immutable normalized private delivery rendition for one Course Banner.
     CourseBannerRendition {
         /// Course whose appearance may reference the banner.
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
         /// Stable browser-safe banner delivery identity.
         banner: CourseBannerId,
         /// Closed, server-owned rendition identity.
@@ -211,7 +211,7 @@ pub enum ObjectAddress {
     /// A course-owned Student Record Object.
     StudentRecord {
         /// Exact course whose protected record owns this object.
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
         /// Physical object-record identity.
         object: ObjectId,
     },
@@ -346,20 +346,26 @@ impl ObjectAddress {
                 question_revision_tuple.revision_number,
                 question_seed.value()
             ),
-            Self::CourseBannerUpload { course, upload } => format!(
-                "courses/{course}/banners/uploads/{upload}/{}",
+            Self::CourseBannerUpload {
+                course_instance_id,
+                upload,
+            } => format!(
+                "courses/{course_instance_id}/banners/uploads/{upload}/{}",
                 self.object_id()
             ),
-            Self::CourseBannerSource { course, banner } => format!(
-                "courses/{course}/banners/{banner}/source/{}",
+            Self::CourseBannerSource {
+                course_instance_id,
+                banner,
+            } => format!(
+                "courses/{course_instance_id}/banners/{banner}/source/{}",
                 self.object_id()
             ),
             Self::CourseBannerRendition {
-                course,
+                course_instance_id,
                 banner,
                 rendition,
             } => format!(
-                "courses/{course}/banners/{banner}/renditions/{}/{}",
+                "courses/{course_instance_id}/banners/{banner}/renditions/{}/{}",
                 rendition.as_str(),
                 self.object_id()
             ),
@@ -368,8 +374,11 @@ impl ObjectAddress {
                 // from server-owned typed identifiers, never a filename.
                 format!("profiles/images/{image}/{object}")
             }
-            Self::StudentRecord { course, object } => {
-                format!("courses/{course}/records/{object}")
+            Self::StudentRecord {
+                course_instance_id,
+                object,
+            } => {
+                format!("courses/{course_instance_id}/records/{object}")
             }
             Self::Temporary { object } => format!("processing/{object}"),
         }
@@ -389,17 +398,19 @@ impl ObjectAddress {
             | Self::QuestionRender { object, .. }
             | Self::StudentRecord { object, .. }
             | Self::Temporary { object } => *object,
-            Self::CourseBannerUpload { course, upload } => {
-                course_banner_upload_object_id(course, *upload)
-            }
-            Self::CourseBannerSource { course, banner } => {
-                course_banner_source_object_id(course, *banner)
-            }
+            Self::CourseBannerUpload {
+                course_instance_id,
+                upload,
+            } => course_banner_upload_object_id(course_instance_id, *upload),
+            Self::CourseBannerSource {
+                course_instance_id,
+                banner,
+            } => course_banner_source_object_id(course_instance_id, *banner),
             Self::CourseBannerRendition {
-                course,
+                course_instance_id,
                 banner,
                 rendition,
-            } => course_banner_rendition_object_id(course, *banner, *rendition),
+            } => course_banner_rendition_object_id(course_instance_id, *banner, *rendition),
             Self::ProfileImage { object, .. } => *object,
         }
     }
@@ -477,12 +488,12 @@ impl ObjectAddress {
 
 /// Derives the immutable physical identity for one Course Banner Upload.
 pub fn course_banner_upload_object_id(
-    course: &CourseInstanceId,
+    course_instance_id: &CourseInstanceId,
     upload: CourseBannerUploadId,
 ) -> ObjectId {
     domain_separated_object_id_from_parts(
         b"ple:course-banner-upload:v3\0",
-        course.as_str().as_bytes(),
+        course_instance_id.as_str().as_bytes(),
         upload.as_uuid().as_bytes(),
         uuid::Uuid::nil().as_bytes(),
     )
@@ -490,12 +501,12 @@ pub fn course_banner_upload_object_id(
 
 /// Derives the immutable physical identity for one promoted course banner.
 pub fn course_banner_source_object_id(
-    course: &CourseInstanceId,
+    course_instance_id: &CourseInstanceId,
     banner: CourseBannerId,
 ) -> ObjectId {
     domain_separated_object_id_from_parts(
         b"ple:course-banner-source:v3\0",
-        course.as_str().as_bytes(),
+        course_instance_id.as_str().as_bytes(),
         banner.as_uuid().as_bytes(),
         uuid::Uuid::nil().as_bytes(),
     )
@@ -503,7 +514,7 @@ pub fn course_banner_source_object_id(
 
 /// Derives the immutable physical identity for one normalized course-banner rendition.
 pub fn course_banner_rendition_object_id(
-    course: &CourseInstanceId,
+    course_instance_id: &CourseInstanceId,
     banner: CourseBannerId,
     rendition: CourseBannerRendition,
 ) -> ObjectId {
@@ -514,7 +525,7 @@ pub fn course_banner_rendition_object_id(
         // `v3` hashes the Course public ID. Pre-production has no durable
         // object-store rows to preserve.
         b"ple:course-banner-rendition:v3\0",
-        course.as_str().as_bytes(),
+        course_instance_id.as_str().as_bytes(),
         banner.as_uuid().as_bytes(),
         rendition_uuid.as_bytes(),
     )

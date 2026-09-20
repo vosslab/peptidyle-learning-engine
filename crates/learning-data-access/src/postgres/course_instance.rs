@@ -10,7 +10,7 @@ use question_model::{
 use sqlx::{Postgres, Row, Transaction};
 
 use super::Pool;
-use super::connection::{map_sqlx_error, parse_course_id};
+use super::connection::{map_sqlx_error, parse_course_instance_id};
 use crate::course_instance::CourseInstanceBlueprintOrigin;
 use crate::{
     CourseCreationInstructor, CourseInstanceCreationSource, CourseInstanceLifecycleState,
@@ -130,16 +130,17 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
             .await?;
         // ASVS 1.2.3, 8.2.2, and 8.3.1: the procedure resolves an opaque
         // ID only after binding it to the installed active membership.
-        let row = sqlx::query("SELECT course_id FROM ple_api.resolve_course_navigation($1)")
-            .bind(id.as_string())
-            .fetch_optional(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
+        let row =
+            sqlx::query("SELECT course_instance_id FROM ple_api.resolve_course_navigation($1)")
+                .bind(id.as_string())
+                .fetch_optional(&mut *transaction)
+                .await
+                .map_err(map_sqlx_error)?;
         let course = row
             .map(|row| {
-                row.try_get("course_id")
+                row.try_get("course_instance_id")
                     .map_err(map_sqlx_error)
-                    .and_then(parse_course_id)
+                    .and_then(parse_course_instance_id)
             })
             .transpose()?
             .ok_or(StoreError::NotFound)?;
@@ -150,7 +151,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
     async fn read_course_summary(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
     ) -> Result<CourseSummary, StoreError> {
         let mut transaction = self
             .begin_authenticated_application_transaction(session_token_hash)
@@ -158,11 +159,11 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         // ASVS 1.2.3, 8.2.2, and 8.3.1: the SECURITY DEFINER procedure binds
         // this opaque Course ID to the installed session's active membership.
         let row = sqlx::query(
-            "SELECT course_id, course_instance_id, short_name, long_name, term_starts_on::text AS term_starts_on, \
+            "SELECT course_instance_id, short_name, long_name, term_starts_on::text AS term_starts_on, \
              term_ends_on::text AS term_ends_on, membership_role, discipline_uuid, subject_uuid, topic_uuid, subtopic_uuid, tags \
              FROM ple_api.read_course_summary($1)",
         )
-        .bind(course.as_str())
+        .bind(course_instance_id.as_str())
         .fetch_optional(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
@@ -312,7 +313,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
     async fn add_course_instructor(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
         instructor: AccountId,
     ) -> Result<(), StoreError> {
         let mut transaction = self
@@ -323,7 +324,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         // Instructor identity establishes this authority.
         sqlx::query("SELECT ple_api.add_course_instructor($1, $2, $3)")
             .bind(random_uuid()?)
-            .bind(course.as_string())
+            .bind(course_instance_id.as_string())
             .bind(instructor.as_string())
             .fetch_one(&mut *transaction)
             .await
@@ -400,7 +401,8 @@ fn decode_summary(row: &sqlx::postgres::PgRow) -> Result<CourseInstanceSummary, 
 }
 
 fn decode_course_summary(row: &sqlx::postgres::PgRow) -> Result<CourseSummary, StoreError> {
-    let course = parse_course_id(row.try_get("course_instance_id").map_err(map_sqlx_error)?)?;
+    let course =
+        parse_course_instance_id(row.try_get("course_instance_id").map_err(map_sqlx_error)?)?;
     let stored_membership_role: String = row.try_get("membership_role").map_err(map_sqlx_error)?;
     Ok(CourseSummary {
         classification: super::blueprint_course::decode_classification(row)?,
@@ -441,7 +443,7 @@ fn decode_view(row: &sqlx::postgres::PgRow) -> Result<CourseInstanceView, StoreE
                     .and_then(BlueprintRevisionNumber::new)
                     .ok_or_else(|| invalid("Blueprint Revision"))
             };
-            let blueprint_course_id = blueprint_course_id
+            let blueprint_course_id: question_model::BlueprintCourseId = blueprint_course_id
                 .parse()
                 .map_err(|_| invalid("Blueprint Course ID"))?;
             Some(CourseInstanceBlueprintOrigin {

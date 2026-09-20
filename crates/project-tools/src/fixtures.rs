@@ -99,7 +99,7 @@ fn validate_fixture_set(fixture_dir: &Path, fixture_set: &StoredFixtureSet) -> R
     }
 
     ensure!(
-        fixture_set.course.id == fixture_set.assessment.course_id,
+        fixture_set.course.id == fixture_set.assessment.course_instance_id,
         "stored Assessment must belong to the stored Course Instance"
     );
     ensure!(
@@ -118,7 +118,7 @@ fn validate_fixture_set(fixture_dir: &Path, fixture_set: &StoredFixtureSet) -> R
     );
     for row in &fixture_set.gradebook {
         ensure!(
-            row.course_id == fixture_set.course.id
+            row.course_instance_id == fixture_set.course.id
                 && row.assessment_id == fixture_set.assessment.id
                 && row.student_record_id == fixture_set.student_record,
             "stored Gradebook row must match its Course, Assessment, and Student Record"

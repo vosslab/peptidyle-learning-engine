@@ -32,7 +32,7 @@
   Markdown, and test style guides in docs/.
 - Use `source ./source_me.sh && ./launchers/run_fast_checks.sh` for a quicker compliance check
 - Use `source ./source_me.sh && ./launchers/all_test.sh` for a complete compliance check
-- Use `source ./source_me.sh && ./devel/capture_screenshots.sh` for UI work to capture fresh screenshots
+- Use `source ./source_me.sh && ./devel/capture_screenshots.sh` for UI work. A running Live Demo rebuilds only the stale bundle; TypeScript/CSS/WASM edits do not replace containers.
 - Complete one bounded task, pass its narrow gate, then update docs/CHANGELOG.md.
 - Run Python commands through `source source_me.sh && python3`.
 - Eval schema tables with `source source_me.sh && devel/generate_schema_tables_doc.py && schema_style/check_schema_style.py`

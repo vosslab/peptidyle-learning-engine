@@ -66,7 +66,7 @@ pub trait AssessmentTemplateStore: Send + Sync {
     async fn create_assessment_from_template(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
         input: CreateAssessmentFromTemplateInput,
     ) -> Result<LiveAssessmentWorkspace, StoreError>;
 }

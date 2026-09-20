@@ -31,13 +31,13 @@ struct UpdateSource {
 pub(super) async fn review_course(
     store: &PostgresLiveAssessmentStore,
     token: SessionTokenHash,
-    course: CourseInstanceId,
+    course_instance_id: CourseInstanceId,
 ) -> Result<CourseBlueprintUpdateReview, StoreError> {
     let mut tx = store.begin(token).await?;
     // ASVS 8.3.1, 15.4.2-15.4.3: the authorized reader locks parent -> Course
     // -> adopted Assessments, holding one Revision and membership through both reads.
     let source = sqlx::query("SELECT * FROM ple_api.load_course_blueprint_update($1, NULL)")
-        .bind(course.as_string())
+        .bind(course_instance_id.as_string())
         .fetch_optional(&mut *tx)
         .await
         .map_err(update_error)?
@@ -81,7 +81,7 @@ pub(super) async fn review_course(
     // it mints no Entry/Pool identities and returns no Student Work or answers.
     let Json(assessments): Json<Vec<CourseAssessmentBlueprintUpdateSummary>> =
         sqlx::query_scalar("SELECT assessments FROM ple_api.load_course_blueprint_update($1, $2)")
-            .bind(course.as_string())
+            .bind(course_instance_id.as_string())
             .bind(Json(projections))
             .fetch_optional(&mut *tx)
             .await
@@ -104,12 +104,12 @@ pub(super) async fn review_course(
 pub(super) async fn review(
     store: &PostgresLiveAssessmentStore,
     token: SessionTokenHash,
-    course: CourseInstanceId,
-    assessment: AssessmentId,
+    course_instance_id: CourseInstanceId,
+    assessment_id: AssessmentId,
 ) -> Result<AssessmentBlueprintUpdateReview, StoreError> {
     let mut tx = store.begin(token).await?;
-    let source = load_source(&mut tx, &course, &assessment).await?;
-    let assessment = load_workspace(&mut tx, &course, &assessment).await?;
+    let source = load_source(&mut tx, &course_instance_id, &assessment_id).await?;
+    let assessment = load_workspace(&mut tx, &course_instance_id, &assessment_id).await?;
     let proposed = source.member.as_ref().map(public_content);
     tx.commit().await.map_err(map_sqlx_error)?;
     Ok(AssessmentBlueprintUpdateReview {
@@ -123,16 +123,16 @@ pub(super) async fn review(
 pub(super) async fn apply(
     store: &PostgresLiveAssessmentStore,
     token: SessionTokenHash,
-    course: CourseInstanceId,
-    assessment: AssessmentId,
+    course_instance_id: CourseInstanceId,
+    assessment_id: AssessmentId,
     input: ApplyAssessmentBlueprintUpdateInput,
     mut bloom_receipts: crate::PoolBloomPreparationReceipts,
 ) -> Result<LiveAssessmentWorkspace, StoreError> {
     let mut tx = store.begin(token).await?;
     // ASVS 8.3.1, 15.4.2: the procedure reauthorizes and holds parent,
     // Course and Assessment locks before either qualified precondition is tested.
-    let source = load_source(&mut tx, &course, &assessment).await?;
-    let workspace = load_workspace(&mut tx, &course, &assessment).await?;
+    let source = load_source(&mut tx, &course_instance_id, &assessment_id).await?;
+    let workspace = load_workspace(&mut tx, &course_instance_id, &assessment_id).await?;
     if source.revision_number != input.expected_source_revision_number
         || workspace.edit_number != input.expected_assessment_edit_number
     {
@@ -147,8 +147,8 @@ pub(super) async fn apply(
     // issuer and leaves the current Edit Number and owned fork graph unchanged.
     let equivalent: bool =
         sqlx::query_scalar("SELECT ple_api.assessment_blueprint_update_equivalent($1, $2, $3, $4)")
-            .bind(course.as_string())
-            .bind(assessment.as_string())
+            .bind(course_instance_id.as_string())
+            .bind(assessment_id.as_string())
             .bind(reusable["values"].clone())
             .bind(reusable["entries"].clone())
             .fetch_one(&mut *tx)
@@ -166,8 +166,8 @@ pub(super) async fn apply(
     // ASVS 1.2.4, 2.3.3: parameterized exact-source projection; the database
     // validates it, preserves locked dates, establishes forks, and saves once.
     sqlx::query("SELECT ple_api.apply_assessment_blueprint_update($1, $2, $3, $4, $5)")
-        .bind(course.as_string())
-        .bind(assessment.as_string())
+        .bind(course_instance_id.as_string())
+        .bind(assessment_id.as_string())
         .bind(integer(
             input.expected_source_revision_number.value(),
             "Blueprint Revision",
@@ -180,19 +180,19 @@ pub(super) async fn apply(
         .execute(&mut *tx)
         .await
         .map_err(update_error)?;
-    let workspace = load_workspace(&mut tx, &course, &assessment).await?;
+    let workspace = load_workspace(&mut tx, &course_instance_id, &assessment_id).await?;
     tx.commit().await.map_err(map_sqlx_error)?;
     Ok(workspace)
 }
 
 async fn load_source(
     tx: &mut Transaction<'_, Postgres>,
-    course: &CourseInstanceId,
-    assessment: &AssessmentId,
+    course_instance_id: &CourseInstanceId,
+    assessment_id: &AssessmentId,
 ) -> Result<UpdateSource, StoreError> {
     let row = sqlx::query("SELECT * FROM ple_api.load_assessment_blueprint_update($1, $2)")
-        .bind(course.as_string())
-        .bind(assessment.as_string())
+        .bind(course_instance_id.as_string())
+        .bind(assessment_id.as_string())
         .fetch_optional(&mut **tx)
         .await
         .map_err(update_error)?
@@ -244,11 +244,11 @@ async fn load_source(
 
 async fn load_workspace(
     tx: &mut Transaction<'_, Postgres>,
-    course: &CourseInstanceId,
-    assessment: &AssessmentId,
+    course_instance_id: &CourseInstanceId,
+    assessment_id: &AssessmentId,
 ) -> Result<LiveAssessmentWorkspace, StoreError> {
-    let context = schedule_context(tx, course).await?;
-    let rows = workspace_rows(tx, course, assessment).await?;
+    let context = schedule_context(tx, course_instance_id).await?;
+    let rows = workspace_rows(tx, course_instance_id, assessment_id).await?;
     decode_workspace(&rows, &context)?.ok_or(StoreError::NotFound)
 }
 

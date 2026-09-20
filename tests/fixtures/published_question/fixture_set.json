@@ -67,7 +67,7 @@
   },
   "assessment": {
     "id": "A000001AT",
-    "courseId": "CI000001AE",
+    "courseInstanceId": "CI000001AE",
     "title": "Peptide bond mastery",
     "entries": [
       {
@@ -568,7 +568,7 @@
   },
   "gradebook": [
     {
-      "course_id": "CI000001AE",
+      "course_instance_id": "CI000001AE",
       "student_record_id": "0198e000-0000-7000-8000-000000000007",
       "student_name": "Jordan Student",
       "assessment_id": "A000001AT",

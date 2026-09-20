@@ -5,7 +5,7 @@
 import type { Page } from "playwright";
 
 import type { ScenarioRuntime } from "./runtime";
-import type { ScenarioDefinition } from "./scenario_types";
+import type { CaptureDeclaration, ScenarioDefinition } from "./scenario_types";
 import { enterInstructor } from "./visible_workflows";
 
 const ANSWER_KEY_TEXT = /answer key|correct answer|correct feedback|private source/iu;
@@ -17,6 +17,8 @@ interface GeneratedExample {
   readonly prompt: string;
   readonly control: "input[type=radio]" | "select";
   readonly header?: string;
+  readonly state: string;
+  readonly caption: string;
 }
 
 const GENERATED_EXAMPLES: ReadonlyArray<GeneratedExample> = [
@@ -26,6 +28,8 @@ const GENERATED_EXAMPLES: ReadonlyArray<GeneratedExample> = [
     search: "Genetic disorders",
     prompt: "",
     control: "input[type=radio]",
+    state: "rendered WeBWorK example",
+    caption: "Answer-free WeBWorK generated example",
   },
   {
     checkpoint: "hla_genotype_laptop",
@@ -33,6 +37,8 @@ const GENERATED_EXAMPLES: ReadonlyArray<GeneratedExample> = [
     search: "Offspring HLA",
     prompt: "The mother has",
     control: "input[type=radio]",
+    state: "HLA haplotype inheritance example",
+    caption: "HLA offspring genotype generated example",
   },
   {
     checkpoint: "monohybrid_matching_laptop",
@@ -40,6 +46,8 @@ const GENERATED_EXAMPLES: ReadonlyArray<GeneratedExample> = [
     search: "Matching Monohybrid",
     prompt: "monohybrid crosses",
     control: "select",
+    state: "monohybrid genotype matching example",
+    caption: "Monohybrid genotype matching generated example",
   },
   {
     checkpoint: "x_linked_counts_laptop",
@@ -48,6 +56,8 @@ const GENERATED_EXAMPLES: ReadonlyArray<GeneratedExample> = [
     prompt: "red-eyed (wildtype)",
     control: "input[type=radio]",
     header: "phenotype",
+    state: "X-linked offspring count table example",
+    caption: "X-linked offspring count table generated example",
   },
   {
     checkpoint: "dna_structure_laptop",
@@ -55,6 +65,8 @@ const GENERATED_EXAMPLES: ReadonlyArray<GeneratedExample> = [
     search: "DNA Structure",
     prompt: "DNA",
     control: "input[type=radio]",
+    state: "True/False Statements About DNA Structure generated example",
+    caption: "True/False Statements About DNA Structure generated example",
   },
   {
     checkpoint: "meiosis_prophase_laptop",
@@ -62,6 +74,8 @@ const GENERATED_EXAMPLES: ReadonlyArray<GeneratedExample> = [
     search: "Matching Meiosis Prophase",
     prompt: "stages of meiosis prophase I",
     control: "select",
+    state: "Matching Meiosis Prophase I Stages to Descriptions generated example",
+    caption: "Matching Meiosis Prophase I Stages to Descriptions generated example",
   },
   {
     checkpoint: "chi_square_laptop",
@@ -69,6 +83,8 @@ const GENERATED_EXAMPLES: ReadonlyArray<GeneratedExample> = [
     search: "Chi-Square Tests",
     prompt: "chi-square",
     control: "input[type=radio]",
+    state: "True/False Statements About Chi-Square Tests generated example",
+    caption: "True/False Statements About Chi-Square Tests generated example",
   },
   {
     checkpoint: "chromosome_shapes_laptop",
@@ -76,6 +92,8 @@ const GENERATED_EXAMPLES: ReadonlyArray<GeneratedExample> = [
     search: "Matching Chromosome Shapes",
     prompt: "categories of chromosome shape",
     control: "select",
+    state: "Matching Chromosome Shapes to Descriptions generated example",
+    caption: "Matching Chromosome Shapes to Descriptions generated example",
   },
 ];
 
@@ -115,9 +133,7 @@ async function captureGeneratedExample(
   runtime: ScenarioRuntime,
   example: GeneratedExample,
 ): Promise<void> {
-  const scenario = "instructor_webwork";
-  const checkpoint = example.checkpoint;
-  const session = await runtime.open(runtime.record(scenario, checkpoint));
+  const session = await runtime.open(example.checkpoint);
   const page = session.page;
   try {
     await enterInstructor(page);
@@ -129,7 +145,7 @@ async function captureGeneratedExample(
     await page.getByRole("heading", { level: 1, name: example.title, exact: true }).waitFor();
     await page.getByRole("region", { name: "Question prompt", exact: true }).waitFor();
     await renderedAnswerFreePreview(page, example);
-    await runtime.capture(session, runtime.record(scenario, checkpoint));
+    await runtime.captureCheckpoint(session, example.checkpoint);
   } finally {
     await runtime.close(session);
   }
@@ -139,10 +155,23 @@ async function instructorWebwork(runtime: ScenarioRuntime): Promise<void> {
   for (const example of GENERATED_EXAMPLES) await captureGeneratedExample(runtime, example);
 }
 
+function generatedExampleCapture(example: GeneratedExample): CaptureDeclaration {
+  return {
+    checkpoint: example.checkpoint,
+    area: "question library",
+    workflow: "generated Question preview",
+    state: example.state,
+    viewport: "laptop",
+    privacyProfile: "instructor_answer_free",
+    caption: example.caption,
+  };
+}
+
 export const INSTRUCTOR_WEBWORK_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
   {
     id: "instructor_webwork",
-    checkpoints: GENERATED_EXAMPLES.map((example) => example.checkpoint),
+    role: "instructor",
+    captures: GENERATED_EXAMPLES.map(generatedExampleCapture),
     run: instructorWebwork,
   },
 ];

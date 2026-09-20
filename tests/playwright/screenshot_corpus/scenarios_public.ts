@@ -8,12 +8,41 @@ import { enterInstructor, scrollTop } from "./visible_workflows";
 export const PUBLIC_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
   {
     id: "public_entry",
-    checkpoints: ["sign_in_laptop", "sign_in_phone", "session_renewal_laptop"],
+    role: "public",
+    captures: [
+      {
+        checkpoint: "sign_in_laptop",
+        area: "account",
+        workflow: "authentication",
+        state: "sign in",
+        viewport: "laptop",
+        privacyProfile: "public",
+        caption: "Seeded Live Demo sign-in",
+        featured: true,
+      },
+      {
+        checkpoint: "sign_in_phone",
+        area: "account",
+        workflow: "authentication",
+        state: "sign in",
+        viewport: "phone",
+        privacyProfile: "public",
+        caption: "Seeded Live Demo sign-in on a phone",
+      },
+      {
+        checkpoint: "session_renewal_laptop",
+        area: "account",
+        workflow: "session recovery",
+        state: "expired",
+        viewport: "laptop",
+        privacyProfile: "public",
+        caption: "Expired-session renewal",
+      },
+    ],
     async run(runtime): Promise<void> {
-      const laptopRecord = runtime.record("public_entry", "sign_in_laptop");
-      const laptop = await runtime.open(laptopRecord);
+      const laptop = await runtime.open("sign_in_laptop");
       try {
-        await runtime.capture(laptop, laptopRecord);
+        await runtime.captureCheckpoint(laptop, "sign_in_laptop");
         await enterInstructor(laptop.page);
         await laptop.privacy.settleResponses();
         await laptop.context.clearCookies();
@@ -22,15 +51,14 @@ export const PUBLIC_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
           .getByRole("heading", { name: "Your session needs to be renewed", exact: true })
           .waitFor();
         await scrollTop(laptop.page);
-        await runtime.capture(laptop, runtime.record("public_entry", "session_renewal_laptop"));
+        await runtime.captureCheckpoint(laptop, "session_renewal_laptop");
       } finally {
         await runtime.close(laptop);
       }
 
-      const phoneRecord = runtime.record("public_entry", "sign_in_phone");
-      const phone = await runtime.open(phoneRecord);
+      const phone = await runtime.open("sign_in_phone");
       try {
-        await runtime.capture(phone, phoneRecord);
+        await runtime.captureCheckpoint(phone, "sign_in_phone");
       } finally {
         await runtime.close(phone);
       }

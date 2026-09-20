@@ -20,18 +20,18 @@ CREATE FUNCTION ple_private.save_student_assessment_accommodation(
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE current_row ple_private.student_assessment_accommodation%ROWTYPE;
-DECLARE course_id_value text;
+DECLARE course_instance_id_value text;
 BEGIN
     IF p_accommodation_id IS NULL OR p_student_record_id IS NULL OR p_assessment_id IS NULL
        OR p_expected_accommodation_edit_number IS NULL OR p_expected_accommodation_edit_number < 0 THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Student Assessment Accommodation save is invalid';
     END IF;
-    SELECT assessment.course_instance_id INTO course_id_value
+    SELECT assessment.course_instance_id INTO course_instance_id_value
       FROM ple_data.assessment AS assessment
      WHERE assessment.assessment_id = p_assessment_id;
     IF NOT FOUND
        OR NOT ple_data.student_assessment_has_course_scope(p_student_record_id, p_assessment_id)
-       OR NOT ple_api.current_session_account_is_course_instructor(course_id_value) THEN
+       OR NOT ple_api.current_session_account_is_course_instructor(course_instance_id_value) THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Student Assessment Accommodation is unavailable';
     END IF;
     -- Shares the Student Work root lock so a newly accepted current
@@ -48,7 +48,7 @@ BEGIN
             accommodation_id, course_instance_id, student_record_id, assessment_id, available_at, due_at, closes_at,
             time_multiplier, assessment_attempt_limit, created_at
         ) VALUES (
-            p_accommodation_id, course_id_value, p_student_record_id, p_assessment_id, p_available_at, p_due_at,
+            p_accommodation_id, course_instance_id_value, p_student_record_id, p_assessment_id, p_available_at, p_due_at,
             p_closes_at, p_time_multiplier, p_assessment_attempt_limit,
             pg_catalog.transaction_timestamp()
         ) RETURNING ple_private.student_assessment_accommodation.accommodation_edit_number

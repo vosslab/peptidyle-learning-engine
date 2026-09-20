@@ -56,7 +56,7 @@ transition such as creating a workspace or entering an Assessment Attempt. Route
 `createAsync` queries where a shared route cache is useful, while the private PLE Question JSON workspace editor uses a
 keyed `createResource` for its private draft read.
 
-`CourseThemeScope` classifies only course-owned routes. It loads `courseScope(courseId)` for course
+`CourseThemeScope` classifies only course-owned routes. It loads `courseScope(courseInstanceId)` for course
 and instructor-course routes, `assignmentAttemptScope(reference)` for an active Attempt, and
 `assignmentAttemptSummary(assignmentAttemptId)` for a summary. The context exposes the authorized
 `CourseRouteView` to the course entry identity and theme;

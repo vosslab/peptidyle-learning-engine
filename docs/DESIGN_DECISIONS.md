@@ -69,7 +69,7 @@ whole deployment and its resettable preproduction database together; it never
 leaves a partially renamed public boundary.
 
 Canonical JSON names are `assessment`, `id` or nested `assessmentId` /
-`courseId` for those public IDs, `assessmentAttempt`, `assessmentEntry`,
+`courseInstanceId` for those public IDs, `assessmentAttempt`, `assessmentEntry`,
 `assessmentStatus`, Blueprint JSON `assessments`, and
 `blueprint_assessment_id`; canonical decoders accept only those names.
 There is no parallel `reference` property and no runtime legacy Blueprint
@@ -1267,7 +1267,7 @@ reader to choose which key was real.
 `CourseInstanceId`, `AssessmentId`, and `BlueprintCourseId` over `String`.
 SQL keys follow DATABASE_STYLE (`published_question_id`,
 `course_instance_id`). JSON fields for those objects are `id` (or
-`courseId` / `assessmentId` when nested). There is no parallel `reference`
+`courseInstanceId` / `assessmentId` when nested). There is no parallel `reference`
 property and no SQL `public_reference` alias. HTTP ETags are the aggregate
 Edit Number as a decimal string. Assessment Attempts, Assessment Entries,
 and sessions stay UUID because they are not Human Guidance public IDs; their
@@ -1368,6 +1368,26 @@ user, so their `EXECUTE` grant is `PUBLIC`.
 
 **Owner.** [DATABASE_STYLE.md](DATABASE_STYLE.md) "Every table has a
 clock".
+
+### Screenshot manifest is generated from scenario declarations
+
+**Decision.** Each screenshot is defined once in a scenario
+`captureCheckpoint` declaration. Publish writes
+`docs/screenshots/current_capture_manifest.json`, the receipt, the atlas,
+and coverage ledgers. `docs/screenshots/coverage_exceptions.json` is the
+only hand-kept coverage list. The reached route is observed at capture
+time.
+
+**Why.** Hand-editing the manifest, a checkpoints list, the scenario body,
+and coverage ledgers together drifted. Pre-production can fix ownership
+instead of adding compatibility aliases.
+
+**Consequence.** Adding or removing a capture is one scenario-file edit
+followed by `./devel/capture_screenshots.sh`. Generation fails closed on
+an uncovered unlisted surface. `--verify` regenerates the manifest in
+memory from the live replay and fails when the committed file differs.
+
+**Owner.** [HOW_TO_SCREENSHOT.md](HOW_TO_SCREENSHOT.md).
 
 ## Unresolved decisions
 

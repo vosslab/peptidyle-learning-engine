@@ -270,7 +270,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
         .stage_course_banner_upload(
             token(1),
             StageCourseBannerUpload {
-                course: course.clone(),
+                course_instance_id: course.clone(),
                 upload,
                 metadata: metadata(
                     upload_object,
@@ -291,7 +291,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
             .stage_course_banner_upload(
                 token(4),
                 StageCourseBannerUpload {
-                    course: course.clone(),
+                    course_instance_id: course.clone(),
                     upload: CourseBannerUploadId::from_uuid(id(0xcf04)),
                     metadata: metadata(
                         ObjectId::from_uuid(id(0xd004)),
@@ -324,7 +324,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
             .stage_course_banner_upload(
                 token(2),
                 StageCourseBannerUpload {
-                    course: course.clone(),
+                    course_instance_id: course.clone(),
                     upload: CourseBannerUploadId::from_uuid(id(0xcf02)),
                     metadata: metadata(
                         ObjectId::from_uuid(id(0xd002)),
@@ -347,7 +347,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
             .stage_course_banner_upload(
                 token(3),
                 StageCourseBannerUpload {
-                    course: course.clone(),
+                    course_instance_id: course.clone(),
                     upload: CourseBannerUploadId::from_uuid(id(0xcf03)),
                     metadata: metadata(
                         ObjectId::from_uuid(id(0xd003)),
@@ -405,7 +405,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
         .prepare_course_banner_promotion(
             token(1),
             PrepareCourseBannerPromotion {
-                course: course.clone(),
+                course_instance_id: course.clone(),
                 upload,
                 banner,
                 update: CourseBannerUpdate {
@@ -498,7 +498,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
         .stage_course_banner_upload(
             token(1),
             StageCourseBannerUpload {
-                course: course.clone(),
+                course_instance_id: course.clone(),
                 upload: replacement_upload,
                 metadata: metadata(
                     replacement_upload_id,
@@ -534,7 +534,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
         .prepare_course_banner_promotion(
             token(1),
             PrepareCourseBannerPromotion {
-                course: course.clone(),
+                course_instance_id: course.clone(),
                 upload: replacement_upload,
                 banner: replacement_banner,
                 update: CourseBannerUpdate {

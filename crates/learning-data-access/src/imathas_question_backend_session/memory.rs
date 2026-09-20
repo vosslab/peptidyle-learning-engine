@@ -64,27 +64,27 @@ impl MemoryImathasQuestionBackendSessionStore {
     pub fn install_active_student_authorization(
         &self,
         account: AccountId,
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
         question_attempt: QuestionAttemptId,
     ) {
         self.state
             .lock()
             .expect("memory iMathAS Question Backend Session store lock")
             .active_student_authorizations
-            .insert((account, course, question_attempt));
+            .insert((account, course_instance_id, question_attempt));
     }
 
     pub fn revoke_active_student_authorization(
         &self,
         account: AccountId,
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
         question_attempt: QuestionAttemptId,
     ) {
         self.state
             .lock()
             .expect("memory iMathAS Question Backend Session store lock")
             .active_student_authorizations
-            .remove(&(account, course, question_attempt));
+            .remove(&(account, course_instance_id, question_attempt));
     }
 
     fn account(state: &MemoryState, token: SessionTokenHash) -> Result<AccountId, StoreError> {
@@ -99,13 +99,15 @@ impl MemoryImathasQuestionBackendSessionStore {
         state: &MemoryState,
         token: SessionTokenHash,
         account: AccountId,
-        course: CourseInstanceId,
-        attempt: QuestionAttemptId,
+        course_instance_id: CourseInstanceId,
+        question_attempt_id: QuestionAttemptId,
     ) -> Result<(), StoreError> {
         if Self::account(state, token)? != account
-            || !state
-                .active_student_authorizations
-                .contains(&(account, course, attempt))
+            || !state.active_student_authorizations.contains(&(
+                account,
+                course_instance_id,
+                question_attempt_id,
+            ))
         {
             return Err(StoreError::Forbidden);
         }
@@ -129,7 +131,7 @@ impl ImathasQuestionBackendSessionStore for MemoryImathasQuestionBackendSessionS
             &state,
             token,
             create.account.clone(),
-            create.course.clone(),
+            create.course_instance_id.clone(),
             create.grading_context.question_attempt(),
         )?;
         if create.issued_at > state.now || create.expires_at <= state.now {
@@ -168,7 +170,7 @@ impl ImathasQuestionBackendSessionStore for MemoryImathasQuestionBackendSessionS
             &state,
             token,
             session.account.clone(),
-            session.course.clone(),
+            session.course_instance_id.clone(),
             session.grading_context.question_attempt(),
         )?;
         if !expectation.matches(session) {

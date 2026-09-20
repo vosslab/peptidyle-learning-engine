@@ -36,11 +36,11 @@ function templatePath(id?: AssessmentTemplateId): string {
   return `/api/assessment-templates/${encodeURIComponent(id)}`;
 }
 
-function createFromTemplatePath(course: CourseInstanceId): string {
-  if (parseCourseInstanceId(course) === null) {
+function createFromTemplatePath(courseInstanceId: CourseInstanceId): string {
+  if (parseCourseInstanceId(courseInstanceId) === null) {
     throw new ApiProtocolError("Course Instance ID must be canonical");
   }
-  return `/api/course-instances/${encodeURIComponent(course)}/assessments/from-template`;
+  return `/api/course-instances/${encodeURIComponent(courseInstanceId)}/assessments/from-template`;
 }
 
 function decodeCreateAssessmentFromTemplateInput(
@@ -170,10 +170,10 @@ export function createAssessmentTemplateClient(
       return templateResponse(result, path);
     },
     createAssessmentFromTemplate: async (
-      course,
+      courseInstanceId,
       input,
     ): Promise<LiveAssessmentWorkspaceResponse> => {
-      const path = createFromTemplatePath(course);
+      const path = createFromTemplatePath(courseInstanceId);
       const response = await requestSameOrigin(fetchImplementation, basePath, path, {
         method: "POST",
         body: decodeCreateAssessmentFromTemplateInput(input),

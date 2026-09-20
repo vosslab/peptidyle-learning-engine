@@ -8,8 +8,8 @@ use sqlx::Row;
 pub(super) async fn read(
     store: &PostgresLiveAssessmentDeliveryStore,
     token: SessionTokenHash,
-    course: CourseInstanceId,
-    assessment: AssessmentId,
+    course_instance_id: CourseInstanceId,
+    assessment_id: AssessmentId,
 ) -> Result<LiveAssessmentAccess, StoreError> {
     let mut tx = store.begin(token).await?;
     let row = sqlx::query(
@@ -27,8 +27,8 @@ pub(super) async fn read(
          previous_assessment_attempts \
          FROM ple_api.read_student_assessment_access($1, $2)",
     )
-    .bind(course.as_string())
-    .bind(assessment.as_string())
+    .bind(course_instance_id.as_string())
+    .bind(assessment_id.as_string())
     .fetch_one(&mut *tx)
     .await
     .map_err(map_sqlx_error)?;
@@ -69,7 +69,9 @@ pub(super) async fn read(
     }
     let active_assessment_attempt =
         PostgresLiveAssessmentDeliveryStore::optional_active_attempt_id(
-            &mut tx, course, assessment,
+            &mut tx,
+            course_instance_id,
+            assessment_id,
         )
         .await?;
     tx.commit().await.map_err(map_sqlx_error)?;

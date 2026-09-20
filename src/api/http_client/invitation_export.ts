@@ -11,11 +11,11 @@ import { parseCourseInstanceId } from "../../navigation/public_route";
 const INVITATION_EXPORT_FILENAME = "ple-invitations.json";
 const MAX_INVITATION_EXPORT_BYTES = 1_048_576;
 
-function invitationExportPath(course: CourseInstanceId): string {
-  if (parseCourseInstanceId(course) === null) {
+function invitationExportPath(courseInstanceId: CourseInstanceId): string {
+  if (parseCourseInstanceId(courseInstanceId) === null) {
     throw new ApiProtocolError("Course Instance ID must be canonical");
   }
-  return `/api/course-instances/${encodeURIComponent(course)}/invitation-export`;
+  return `/api/course-instances/${encodeURIComponent(courseInstanceId)}/invitation-export`;
 }
 
 function requireInvitationExportAttachment(response: Response, path: string): void {
@@ -38,8 +38,8 @@ export function createLiveInvitationExportClient(
   basePath: string,
 ): Pick<ApiClient, keyof LiveInvitationExportClient> {
   return {
-    downloadLiveInvitationExport: async (course): Promise<Blob> => {
-      const path = invitationExportPath(course);
+    downloadLiveInvitationExport: async (courseInstanceId): Promise<Blob> => {
+      const path = invitationExportPath(courseInstanceId);
       const response = await requestSameOrigin(fetchImplementation, basePath, path);
       requireNoStore(response, path);
       if (!response.ok) throw new ApiRequestError(response.status, path);

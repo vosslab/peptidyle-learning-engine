@@ -375,7 +375,7 @@ function courseAssessmentSummary(value: unknown, path: string): CourseAssessment
 function dueSoonAssessmentSummary(value: unknown, path: string): DueSoonAssessmentSummary {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "courseId",
+    "courseInstanceId",
     "courseLongName",
     "assessmentId",
     "assessmentType",
@@ -387,7 +387,10 @@ function dueSoonAssessmentSummary(value: unknown, path: string): DueSoonAssessme
   if (!Number.isSafeInteger(dueAtMillis))
     throw new DecodeError(`${path}.dueAtMillis`, "a safe Unix millisecond instant");
   return {
-    courseId: decodeCourseInstanceId(field(record, "courseId", path), `${path}.courseId`),
+    courseInstanceId: decodeCourseInstanceId(
+      field(record, "courseInstanceId", path),
+      `${path}.courseInstanceId`,
+    ),
     courseLongName: decodeCourseName(
       field(record, "courseLongName", path),
       `${path}.courseLongName`,

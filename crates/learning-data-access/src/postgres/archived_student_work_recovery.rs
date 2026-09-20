@@ -1,7 +1,10 @@
 //! Session-installed protected recovery with no external renderer or grader calls.
 
 use async_trait::async_trait;
-use question_model::{AssessmentAttemptId, CourseInstanceId};
+use question_model::{
+    AssessmentAttemptId, CourseInstanceId, QuestionId, QuestionRevisionNumber,
+    QuestionRevisionTuple,
+};
 use serde::{Serialize, de::DeserializeOwned};
 use sqlx::{Postgres, Row, Transaction, postgres::PgRow};
 
@@ -52,7 +55,7 @@ impl ArchivedStudentWorkRecoveryStore for PostgresArchivedStudentWorkRecoverySto
     async fn select_retained_work(
         &self,
         session: SessionTokenHash,
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
         after: Option<AssessmentAttemptId>,
     ) -> Result<Vec<RecoverySummary>, StoreError> {
         let mut tx = self.begin(session).await?;
@@ -63,13 +66,16 @@ impl ArchivedStudentWorkRecoveryStore for PostgresArchivedStudentWorkRecoverySto
              submitted_at::text, student_data_archived_at::text, delete_due_at::text \
              FROM ple_api.select_archived_assessment_attempts_for_recovery($1,$2,101)",
         )
-        .bind(course.as_string())
+        .bind(course_instance_id.as_string())
         .bind(after.map(|id| id.as_uuid()))
         .fetch_all(&mut *tx)
         .await
         .map_err(map_sqlx_error)?;
         let result = rows.iter().map(summary).collect::<Result<Vec<_>, _>>()?;
-        if result.iter().any(|r| r.course_instance_id != course) {
+        if result
+            .iter()
+            .any(|r| r.course_instance_id != course_instance_id)
+        {
             return Err(invalid());
         }
         // ASVS 2.3.3: release retention lock before HTTP output or browser wait.
@@ -80,8 +86,8 @@ impl ArchivedStudentWorkRecoveryStore for PostgresArchivedStudentWorkRecoverySto
     async fn recover_retained_work(
         &self,
         session: SessionTokenHash,
-        course: CourseInstanceId,
-        attempt: AssessmentAttemptId,
+        course_instance_id: CourseInstanceId,
+        assessment_attempt_id: AssessmentAttemptId,
     ) -> Result<RecoveredAttempt, StoreError> {
         let mut tx = self.begin(session).await?;
         // Explicit columns exclude internal Student Record UUID and all Account fields.
@@ -92,8 +98,8 @@ impl ArchivedStudentWorkRecoveryStore for PostgresArchivedStudentWorkRecoverySto
              attempt_facts, submission, questions \
              FROM ple_api.read_archived_assessment_attempt_for_recovery($1,$2)",
         )
-        .bind(course.as_string())
-        .bind(attempt.as_uuid())
+        .bind(course_instance_id.as_string())
+        .bind(assessment_attempt_id.as_uuid())
         .fetch_optional(&mut *tx)
         .await
         .map_err(map_sqlx_error)?
@@ -109,7 +115,7 @@ impl ArchivedStudentWorkRecoveryStore for PostgresArchivedStudentWorkRecoverySto
             assessment_id: get::<String>(&row, "assessment_id")?
                 .parse()
                 .map_err(|_| invalid())?,
-            assessment_attempt_id: assessment_attempt_id(&row)?,
+            assessment_attempt_id: parse_assessment_attempt_id(&row)?,
             assessment_attempt_number: positive(&row, "assessment_attempt_number")?,
             started_at: get(&row, "started_at")?,
             expires_at: get(&row, "expires_at")?,
@@ -120,7 +126,9 @@ impl ArchivedStudentWorkRecoveryStore for PostgresArchivedStudentWorkRecoverySto
             submission_text: submission.as_ref().map(text).transpose()?,
             questions: Vec::with_capacity(questions.len()),
         };
-        if result.course_instance_id != course || result.assessment_attempt_id != attempt {
+        if result.course_instance_id != course_instance_id
+            || result.assessment_attempt_id != assessment_attempt_id
+        {
             return Err(invalid());
         }
         for question in questions {
@@ -143,8 +151,15 @@ impl ArchivedStudentWorkRecoveryStore for PostgresArchivedStudentWorkRecoverySto
                 };
             result.questions.push(RecoveredQuestion {
                 issued_position: question.delivery.issued_position,
-                question_id: question.delivery.question_id.clone(),
-                revision_number: question.delivery.revision_number,
+                question_revision_tuple: QuestionRevisionTuple {
+                    question_id: question
+                        .delivery
+                        .question_id
+                        .parse::<QuestionId>()
+                        .map_err(|_| invalid())?,
+                    revision_number: QuestionRevisionNumber::new(question.delivery.revision_number)
+                        .map_err(|_| invalid())?,
+                },
                 delivery_text: text(&question.delivery)?,
                 pool_text: question.pool.as_ref().map(text).transpose()?,
                 attempt_text: question.attempt.as_ref().map(text).transpose()?,
@@ -194,7 +209,7 @@ fn summary(row: &PgRow) -> Result<RecoverySummary, StoreError> {
             .parse()
             .map_err(|_| invalid())?,
         assessment_title: get(row, "assessment_title")?,
-        assessment_attempt_id: assessment_attempt_id(row)?,
+        assessment_attempt_id: parse_assessment_attempt_id(row)?,
         assessment_attempt_number: positive(row, "assessment_attempt_number")?,
         started_at: get(row, "started_at")?,
         submitted_at: get(row, "submitted_at")?,
@@ -203,7 +218,7 @@ fn summary(row: &PgRow) -> Result<RecoverySummary, StoreError> {
     })
 }
 
-fn assessment_attempt_id(row: &PgRow) -> Result<AssessmentAttemptId, StoreError> {
+fn parse_assessment_attempt_id(row: &PgRow) -> Result<AssessmentAttemptId, StoreError> {
     Ok(AssessmentAttemptId::from_uuid(get(
         row,
         "assessment_attempt_id",

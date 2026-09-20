@@ -5,15 +5,11 @@ import { mkdir } from "node:fs/promises";
 
 import type { Browser, BrowserContext, Page } from "playwright";
 
-import { routeContractForPathname } from "../../../src/route_contract";
+import { routeContractForPathname, type RouteId } from "../../../src/route_contract";
 import { TAB_CATALOG } from "../../../src/ribbon/ribbon_catalog";
-import {
-  CANONICAL_VIEWPORTS,
-  type CaptureManifest,
-  type CaptureRecord,
-  type ViewportId,
-} from "./manifest";
+import { CANONICAL_VIEWPORTS, type CaptureRecord, type ViewportId } from "./manifest";
 import { monitorCapturePrivacy, type PrivacyMonitor } from "./privacy_profiles";
+import type { CaptureDeclaration, ScenarioDefinition } from "./scenario_types";
 
 export interface CaptureSession {
   readonly context: BrowserContext;
@@ -27,12 +23,18 @@ export interface ScenarioRuntime {
   readonly browser: Browser;
   readonly entryUrl: URL;
   readonly outputRoot: string;
-  readonly manifest: CaptureManifest;
   readonly producedPaths: Set<string>;
-  readonly record: (scenario: string, checkpoint: string) => CaptureRecord;
-  readonly open: (record: CaptureRecord) => Promise<CaptureSession>;
-  readonly capture: (session: CaptureSession, record: CaptureRecord) => Promise<void>;
+  readonly producedCaptures: CaptureRecord[];
+  readonly open: (checkpoint: string) => Promise<CaptureSession>;
+  readonly captureCheckpoint: (session: CaptureSession, checkpoint: string) => Promise<void>;
   readonly close: (session: CaptureSession) => Promise<void>;
+}
+
+export function captureIdentity(
+  role: ScenarioDefinition["role"],
+  checkpoint: string,
+): { readonly id: string; readonly path: string } {
+  return { id: `${role}_${checkpoint}`, path: `${role}/${checkpoint}.png` };
 }
 
 export function requireEntryUrl(argument: string | undefined): URL {
@@ -58,15 +60,13 @@ function requireNoPageErrors(session: CaptureSession): void {
   }
 }
 
-function assertRoute(page: Page, capture: CaptureRecord): void {
+function observedRoute(page: Page, captureId: string): RouteId {
   const url = new URL(page.url());
   const route = routeContractForPathname(url.pathname);
-  if (route?.id !== capture.routeId) {
-    throw new Error(
-      `${capture.id} reached ${route?.id ?? "no declared route"} at ${url.pathname}; ` +
-        `expected ${capture.routeId}`,
-    );
+  if (route === undefined) {
+    throw new Error(`${captureId} reached no declared route at ${url.pathname}`);
   }
+  return route.id;
 }
 
 async function assertRibbon(page: Page, capture: CaptureRecord): Promise<void> {
@@ -91,32 +91,31 @@ async function assertRibbon(page: Page, capture: CaptureRecord): Promise<void> {
 function captureTarget(outputRoot: string, capture: CaptureRecord): string {
   const resolvedRoot = path.resolve(outputRoot);
   const target = path.resolve(resolvedRoot, capture.path);
-  // ASVS 5.3.1: manifest decoding and this containment check close file publication.
   if (!target.startsWith(`${resolvedRoot}${path.sep}`))
     throw new Error("capture target escaped root");
   return target;
+}
+
+function declarationFor(scenario: ScenarioDefinition, checkpoint: string): CaptureDeclaration {
+  const matches = scenario.captures.filter((capture) => capture.checkpoint === checkpoint);
+  if (matches.length !== 1 || matches[0] === undefined) {
+    throw new Error(`expected one capture declaration for ${scenario.id}:${checkpoint}`);
+  }
+  return matches[0];
 }
 
 export function createScenarioRuntime(options: {
   readonly browser: Browser;
   readonly entryUrl: URL;
   readonly outputRoot: string;
-  readonly manifest: CaptureManifest;
+  readonly scenario: ScenarioDefinition;
 }): ScenarioRuntime {
   const producedPaths = new Set<string>();
+  const producedCaptures: CaptureRecord[] = [];
 
-  function record(scenario: string, checkpoint: string): CaptureRecord {
-    const matches = options.manifest.captures.filter(
-      (capture) => capture.scenario === scenario && capture.checkpoint === checkpoint,
-    );
-    if (matches.length !== 1 || matches[0] === undefined) {
-      throw new Error(`expected one manifest record for ${scenario}:${checkpoint}`);
-    }
-    return matches[0];
-  }
-
-  async function open(capture: CaptureRecord): Promise<CaptureSession> {
-    const viewport = CANONICAL_VIEWPORTS[capture.viewport];
+  async function openSession(checkpoint: string): Promise<CaptureSession> {
+    const declaration = declarationFor(options.scenario, checkpoint);
+    const viewport = CANONICAL_VIEWPORTS[declaration.viewport];
     const context = await options.browser.newContext({
       colorScheme: "light",
       deviceScaleFactor: 1,
@@ -138,19 +137,37 @@ export function createScenarioRuntime(options: {
         exact: true,
       })
       .waitFor();
-    // The sign-in page has completed its bootstrap. Inspect only workflow traffic, matching the
-    // durable browser scenarios instead of treating application startup as screenshot evidence.
     const privacy = monitorCapturePrivacy(page, options.entryUrl.origin);
-    return { context, page, pageErrors, privacy, viewport: capture.viewport };
+    return { context, page, pageErrors, privacy, viewport: declaration.viewport };
   }
 
-  async function capture(session: CaptureSession, captureRecord: CaptureRecord): Promise<void> {
-    if (session.viewport !== captureRecord.viewport) {
-      throw new Error(`${captureRecord.id} uses a session with the wrong viewport`);
+  async function captureCheckpoint(session: CaptureSession, checkpoint: string): Promise<void> {
+    const declaration = declarationFor(options.scenario, checkpoint);
+    if (session.viewport !== declaration.viewport) {
+      throw new Error(`${checkpoint} uses a session with the wrong viewport`);
     }
+    const identity = captureIdentity(options.scenario.role, checkpoint);
+    const routeId = observedRoute(session.page, identity.id);
+    const captureRecord: CaptureRecord = {
+      id: identity.id,
+      path: identity.path,
+      role: options.scenario.role,
+      routeId,
+      area: declaration.area,
+      workflow: declaration.workflow,
+      state: declaration.state,
+      scenario: options.scenario.id,
+      checkpoint,
+      viewport: declaration.viewport,
+      privacyProfile: declaration.privacyProfile,
+      gallery: {
+        order: producedCaptures.length + 1,
+        caption: declaration.caption,
+        featured: declaration.featured === true,
+      },
+    };
     console.log(`Checking screenshot checkpoint ${captureRecord.id}`);
     await session.page.evaluate(async () => document.fonts.ready);
-    assertRoute(session.page, captureRecord);
     await assertRibbon(session.page, captureRecord);
     console.log(`Checking screenshot privacy ${captureRecord.id}`);
     await session.privacy.assertSafe(captureRecord);
@@ -163,6 +180,7 @@ export function createScenarioRuntime(options: {
       path: target,
     });
     producedPaths.add(captureRecord.path);
+    producedCaptures.push(captureRecord);
     console.log(`Captured ${captureRecord.path}`);
   }
 
@@ -175,17 +193,21 @@ export function createScenarioRuntime(options: {
     browser: options.browser,
     entryUrl: options.entryUrl,
     outputRoot: options.outputRoot,
-    manifest: options.manifest,
     producedPaths,
-    record,
-    open,
-    capture,
+    producedCaptures,
+    open: openSession,
+    captureCheckpoint,
     close,
   };
 }
 
-export function requireProducedClosure(runtime: ScenarioRuntime): void {
-  const expected = new Set(runtime.manifest.captures.map((capture) => capture.path));
+export function requireProducedClosure(
+  runtime: ScenarioRuntime,
+  scenario: ScenarioDefinition,
+): void {
+  const expected = new Set(
+    scenario.captures.map((capture) => captureIdentity(scenario.role, capture.checkpoint).path),
+  );
   const missing = [...expected].filter((artifactPath) => !runtime.producedPaths.has(artifactPath));
   const unexpected = [...runtime.producedPaths].filter(
     (artifactPath) => !expected.has(artifactPath),

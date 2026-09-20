@@ -151,14 +151,14 @@ function QuestionResponseControlBody(props: QuestionResponseControlProps): JSX.E
         />
       );
     case "backendOwned":
-      return props.assessmentAttempt === undefined || props.position === undefined ? (
+      return props.assessmentAttemptId === undefined || props.position === undefined ? (
         <p class="inline-error" role="alert">
           This Question document is not available right now.
         </p>
       ) : (
         <BackendOwnedDocument
           {...props}
-          assessmentAttempt={props.assessmentAttempt}
+          assessmentAttemptId={props.assessmentAttemptId}
           position={props.position}
         />
       );

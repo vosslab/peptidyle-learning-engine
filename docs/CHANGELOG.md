@@ -6,6 +6,58 @@
 
 > September 17 entries are archived in [CHANGELOG-2026-09m.md](CHANGELOG-2026-09m.md).
 
+## 2026-09-20
+
+### Features
+
+- Local Stack start and `python3 local_stack.py doctor` refuse a second
+  running copy of postgres, MinIO, the WeBWorK renderer, api, worker,
+  public-asset-publisher, or gateway across the default `containers`
+  project and `ple-live-demo-browser`. Gate:
+  `python3 -m pytest tests/test_local_stack_service_singletons.py`.
+
+- Warm screenshot loop: `./devel/capture_screenshots.sh` on a running Live Demo
+  rebuilds only the stale client, wasm+client, or application image group, then
+  publishes the full corpus and reports PNG changes (or `no visual change`).
+  `python3 local_stack.py rebuild-application` recreates api, worker, and
+  public-asset-publisher without touching PostgreSQL, MinIO, or the renderer.
+  Capture membership lives in scenario `captureCheckpoint` declarations; the
+  committed manifest, coverage ledgers, and atlas order are generated.
+  `coverage_exceptions.json` is the only hand-kept coverage list. M0 kept the
+  `wasm_client` row. Gate: `python3 -m pytest tests/test_change_scope.py`,
+  `node --import tsx --test tests/test_screenshot_corpus_definition.mjs`,
+  `bash tests/e2e/e2e_screenshot_warm_loop.sh`.
+
+### Fixes and Maintenance
+
+- Warm screenshot `api_image_created_at` parses podman `image inspect`
+  `{{.Created}}` Go `time.String()` stamps such as
+  `2026-09-20 07:03:03.033094562 +0000 UTC`, so a TypeScript-only warm
+  run stays `client` / `none` instead of treating crates as stale.
+  Gate: `python3 -m pytest tests/test_change_scope.py`.
+
+- Instructor, Student, and Sysadmin screenshot scenarios declare `role`
+  and one `captures` row per checkpoint, then call
+  `runtime.open(checkpoint)` and
+  `runtime.captureCheckpoint(session, checkpoint)`. Gate:
+  `npx eslint --max-warnings 0
+  tests/playwright/screenshot_corpus/scenarios_*.ts`,
+  `node --import tsx --test tests/test_screenshot_corpus_definition.mjs`
+  (registry uniqueness).
+
+- Nested Course Instance identities use `course_instance_id` /
+  `courseInstanceId` across Rust store/domain structs, Object Address
+  JSON, SQL object-address keys, and browser contracts. Nested
+  Assessment and Assessment Attempt identities use `assessment_id` /
+  `assessmentId` and `assessment_attempt_id` /
+  `assessmentAttemptId`. Leftover JSON `courseId` is rejected.
+  `ple_api.lock_archived_course_for_recovery` returns one
+  `course_instance_id` column. Gate:
+  `node --import tsx --test tests/test_nested_identity_contracts.mjs
+  tests/test_live_gradebook_decoder.mjs
+  tests/test_assignments_due_soon_client.mjs`,
+  `source source_me.sh && ./launchers/run_fast_checks.sh`.
+
 ## 2026-09-19
 
 ### Fixes and Maintenance
@@ -17,8 +69,10 @@
   `targetBlueprintCourseId`. Pool fork clocks use
   `QuestionPoolEditNumber`. SQL stale-concurrency messages name Edit
   Number, not ETag. Gate: `node --import tsx --test
-  tests/test_course_instance_summary.mjs`, `source source_me.sh &&
-  python3 -m pytest tests/test_semantic_boundary_names.py`.
+  tests/test_course_instance_summary.mjs
+  tests/test_nested_identity_contracts.mjs`,
+  `source source_me.sh && python3 -m pytest
+  tests/test_semantic_boundary_names.py`.
 
 - SQL keeps `p_` parameter and `v_` local prefixes. Ambiguous domain values
   after those prefixes now name the owning clock:

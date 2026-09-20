@@ -24,8 +24,8 @@ impl AssessmentStudentTimeAccommodationStore for PostgresAssessmentStudentTimeAc
     async fn student_time_configuration(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceId,
-        assessment: AssessmentId,
+        course_instance_id: CourseInstanceId,
+        assessment_id: AssessmentId,
         roster_id: String,
         save: Option<SaveAssessmentStudentTimeAccommodationInput>,
     ) -> Result<AssessmentStudentTimeAccommodation, StoreError> {
@@ -43,7 +43,7 @@ impl AssessmentStudentTimeAccommodationStore for PostgresAssessmentStudentTimeAc
         }
         let expected = match save
             .as_ref()
-            .and_then(|value| value.expected_edit_number.as_deref())
+            .and_then(|value| value.expected_accommodation_edit_number.as_deref())
         {
             None => 0,
             Some(value)
@@ -79,7 +79,7 @@ impl AssessmentStudentTimeAccommodationStore for PostgresAssessmentStudentTimeAc
         // ASVS 1.2.4, 8.3.1: bound values; the database resolves and authorizes
         // Course + Assessment + active roster Student, then serializes with start.
         let row = sqlx::query("SELECT * FROM ple_api.student_assessment_time_configuration($1, $2, $3, $4, $5, $6::double precision::text::numeric)")
-            .bind(course.as_string()).bind(assessment.as_string()).bind(&roster_id)
+            .bind(course_instance_id.as_string()).bind(assessment_id.as_string()).bind(&roster_id)
             .bind(save.is_some()).bind(expected).bind(multiplier)
             .fetch_one(&mut *transaction).await.map_err(map_sqlx_error)?;
         let stored_multiplier: Option<f64> =

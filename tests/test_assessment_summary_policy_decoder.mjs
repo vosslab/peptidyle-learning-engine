@@ -21,7 +21,7 @@ const feedback = {
 function summary() {
   return {
     id: "A8H4N6PA6",
-    courseId: "CI7K3M2QAZ",
+    courseInstanceId: "CI7K3M2QAZ",
     title: "Protein structure",
     entries: [],
     studentFeedbackReleaseRule: feedback,

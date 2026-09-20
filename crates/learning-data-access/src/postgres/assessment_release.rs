@@ -32,33 +32,34 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
     async fn review_course_blueprint_update(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
     ) -> Result<crate::CourseBlueprintUpdateReview, StoreError> {
-        super::assessment_blueprint_update::review_course(self, token, course).await
+        super::assessment_blueprint_update::review_course(self, token, course_instance_id).await
     }
 
     async fn review_assessment_blueprint_update(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceId,
-        assessment: AssessmentId,
+        course_instance_id: CourseInstanceId,
+        assessment_id: AssessmentId,
     ) -> Result<crate::AssessmentBlueprintUpdateReview, StoreError> {
-        super::assessment_blueprint_update::review(self, token, course, assessment).await
+        super::assessment_blueprint_update::review(self, token, course_instance_id, assessment_id)
+            .await
     }
 
     async fn apply_assessment_blueprint_update(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceId,
-        assessment: AssessmentId,
+        course_instance_id: CourseInstanceId,
+        assessment_id: AssessmentId,
         input: crate::ApplyAssessmentBlueprintUpdateInput,
         bloom_receipts: crate::PoolBloomPreparationReceipts,
     ) -> Result<LiveAssessmentWorkspace, StoreError> {
         super::assessment_blueprint_update::apply(
             self,
             token,
-            course,
-            assessment,
+            course_instance_id,
+            assessment_id,
             input,
             bloom_receipts,
         )
@@ -92,13 +93,13 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
             .iter()
             .map(|row| {
                 Ok(DueSoonAssessmentSummary {
-                    course_id: course_instance_id(
+                    course_instance_id: assessment_release_decode::course_instance_id(
                         row.try_get("course_instance_id").map_err(map_sqlx_error)?,
                     )?,
                     course_long_name: course_name(
                         row.try_get("course_long_name").map_err(map_sqlx_error)?,
                     )?,
-                    assessment_id: assessment_id(
+                    assessment_id: assessment_release_decode::assessment_id(
                         row.try_get("assessment_id").map_err(map_sqlx_error)?,
                     )?,
                     assessment_type: assessment_type(
@@ -125,17 +126,17 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
     async fn list_course_assessments(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
     ) -> Result<Vec<CourseAssessmentSummary>, StoreError> {
         let mut tx = self.begin(token).await?;
-        let context = schedule_context(&mut tx, &course).await?;
+        let context = schedule_context(&mut tx, &course_instance_id).await?;
         // ASVS 1.2.3 and 8.2.2: bind the public Course ID and let the
         // session-authorized database function enforce the exact Course owner.
         let rows = sqlx::query(
             "SELECT assessment_id, assessment_type, assessment_title, due_at_millis, assessment_status, \
              assessment_edit_number FROM ple_api.list_course_assessments($1)",
         )
-        .bind(course.as_string())
+        .bind(course_instance_id.as_string())
         .fetch_all(&mut *tx)
         .await
         .map_err(map_sqlx_error)?;
@@ -143,7 +144,9 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
             .iter()
             .map(|row| {
                 Ok(CourseAssessmentSummary {
-                    id: assessment_id(row.try_get("assessment_id").map_err(map_sqlx_error)?)?,
+                    id: assessment_release_decode::assessment_id(
+                        row.try_get("assessment_id").map_err(map_sqlx_error)?,
+                    )?,
                     assessment_type: assessment_type(
                         row.try_get("assessment_type").map_err(map_sqlx_error)?,
                     )?,
@@ -177,11 +180,11 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
     async fn list_assessment_question_picker(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
     ) -> Result<Vec<AssessmentQuestionPickerEntry>, StoreError> {
         let mut tx = self.begin(token).await?;
         let rows = sqlx::query("SELECT question_id, question_revision_number, question_description, bloom_cognitive_process, bloom_knowledge_dimension, bloom_classification_edit_number FROM ple_api.list_assessment_question_picker($1)")
-            .bind(course.as_string()).fetch_all(&mut *tx).await.map_err(map_sqlx_error)?;
+            .bind(course_instance_id.as_string()).fetch_all(&mut *tx).await.map_err(map_sqlx_error)?;
         let records = rows
             .iter()
             .map(|row| {
@@ -205,22 +208,24 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
     async fn create_live_assessment(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
         input: CreateLiveAssessmentInput,
     ) -> Result<LiveAssessmentWorkspace, StoreError> {
         let mut tx = self.begin(token).await?;
         let row = sqlx::query("SELECT * FROM ple_api.create_assessment($1, $2, $3, $4, $5)")
             .bind(random_uuid()?)
-            .bind(course.as_string())
+            .bind(course_instance_id.as_string())
             .bind(input.assessment_type.as_str())
             .bind(input.title.as_str())
             .bind(input.instructions.as_str())
             .fetch_one(&mut *tx)
             .await
             .map_err(map_sqlx_error)?;
-        let assessment = assessment_id(row.try_get("assessment_id").map_err(map_sqlx_error)?)?;
-        let context = schedule_context(&mut tx, &course).await?;
-        let rows = workspace_rows(&mut tx, &course, &assessment).await?;
+        let assessment = assessment_release_decode::assessment_id(
+            row.try_get("assessment_id").map_err(map_sqlx_error)?,
+        )?;
+        let context = schedule_context(&mut tx, &course_instance_id).await?;
+        let rows = workspace_rows(&mut tx, &course_instance_id, &assessment).await?;
         let result = decode_workspace(&rows, &context)?.ok_or(StoreError::NotFound)?;
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(result)
@@ -229,12 +234,12 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
     async fn load_live_assessment(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceId,
-        assessment: AssessmentId,
+        course_instance_id: CourseInstanceId,
+        assessment_id: AssessmentId,
     ) -> Result<LiveAssessmentWorkspace, StoreError> {
         let mut tx = self.begin(token).await?;
-        let context = schedule_context(&mut tx, &course).await?;
-        let rows = workspace_rows(&mut tx, &course, &assessment).await?;
+        let context = schedule_context(&mut tx, &course_instance_id).await?;
+        let rows = workspace_rows(&mut tx, &course_instance_id, &assessment_id).await?;
         let result = decode_workspace(&rows, &context)?.ok_or(StoreError::NotFound)?;
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(result)
@@ -243,13 +248,13 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
     async fn save_live_assessment(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceId,
-        assessment: AssessmentId,
+        course_instance_id: CourseInstanceId,
+        assessment_id: AssessmentId,
         input: SaveLiveAssessmentInput,
     ) -> Result<LiveAssessmentWorkspace, StoreError> {
         input.validate()?;
         let mut tx = self.begin(token).await?;
-        let context = schedule_context(&mut tx, &course).await?;
+        let context = schedule_context(&mut tx, &course_instance_id).await?;
         let due_at_millis = input
             .due_at
             .as_ref()
@@ -284,10 +289,10 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
                  'closes_at', CASE WHEN $7 IS NULL THEN NULL::timestamptz ELSE to_timestamp($7::double precision / 1000) END \
              ), $8)",
         )
-        .bind(course.as_string())
-        .bind(assessment.as_string())
+        .bind(course_instance_id.as_string())
+        .bind(assessment_id.as_string())
         .bind(
-            i64::try_from(input.expected_edit_number.value())
+            i64::try_from(input.expected_assessment_edit_number.value())
                 .map_err(|_| invalid("Assessment Edit Number"))?,
         )
         .bind(values)
@@ -298,7 +303,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
         .fetch_one(&mut *tx)
         .await
         .map_err(map_sqlx_error)?;
-        let rows = workspace_rows(&mut tx, &course, &assessment).await?;
+        let rows = workspace_rows(&mut tx, &course_instance_id, &assessment_id).await?;
         let result = decode_workspace(&rows, &context)?.ok_or(StoreError::NotFound)?;
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(result)
@@ -307,13 +312,13 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
     async fn save_live_assessment_inline(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceId,
-        assessment: AssessmentId,
-        expected_edit_number: AssessmentEditNumber,
+        course_instance_id: CourseInstanceId,
+        assessment_id: AssessmentId,
+        expected_assessment_edit_number: AssessmentEditNumber,
         input: SaveLiveAssessmentInlineInput,
     ) -> Result<CourseAssessmentSummary, StoreError> {
         let mut tx = self.begin(token).await?;
-        let context = schedule_context(&mut tx, &course).await?;
+        let context = schedule_context(&mut tx, &course_instance_id).await?;
         let due_at_millis = input
             .due_at
             .as_ref()
@@ -333,9 +338,9 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
              FROM ple_api.save_assessment_inline($1, $2, $3, $4, \
              CASE WHEN $5 IS NULL THEN NULL::timestamptz ELSE to_timestamp($5::double precision / 1000) END)",
         )
-        .bind(course.as_string())
-        .bind(assessment.as_string())
-        .bind(i64::try_from(expected_edit_number.value()).map_err(|_| invalid("Assessment Edit Number"))?)
+        .bind(course_instance_id.as_string())
+        .bind(assessment_id.as_string())
+        .bind(i64::try_from(expected_assessment_edit_number.value()).map_err(|_| invalid("Assessment Edit Number"))?)
         .bind(input.title.as_str())
         .bind(due_at_millis)
         .fetch_one(&mut *tx)
@@ -355,7 +360,9 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
             .transpose()
             .map_err(|_| invalid("Due at"))?;
         let result = CourseAssessmentSummary {
-            id: assessment_id(row.try_get("assessment_id").map_err(map_sqlx_error)?)?,
+            id: assessment_release_decode::assessment_id(
+                row.try_get("assessment_id").map_err(map_sqlx_error)?,
+            )?,
             assessment_type: assessment_type(
                 row.try_get("assessment_type").map_err(map_sqlx_error)?,
             )?,
@@ -375,12 +382,12 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
     async fn save_base_assessment_policy(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceId,
-        assessment: AssessmentId,
+        course_instance_id: CourseInstanceId,
+        assessment_id: AssessmentId,
         input: SaveBaseAssessmentPolicyInput,
     ) -> Result<LiveAssessmentWorkspace, StoreError> {
         let mut tx = self.begin(token).await?;
-        let context = schedule_context(&mut tx, &course).await?;
+        let context = schedule_context(&mut tx, &course_instance_id).await?;
         let resolve = |value: Option<&LocalDateAndTime>, field| {
             resolve_local_timestamp(value, &context, field)
         };
@@ -395,11 +402,11 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
         )?;
         let values = super::assessment_workspace_save::base_assessment_policy_values_json(&input);
         sqlx::query("SELECT * FROM ple_api.save_assessment_policies($1, $2, $3, $4::jsonb || jsonb_build_object('available_at', CASE WHEN $5 IS NULL THEN NULL::timestamptz ELSE to_timestamp($5::double precision / 1000) END, 'due_at', CASE WHEN $6 IS NULL THEN NULL::timestamptz ELSE to_timestamp($6::double precision / 1000) END, 'closes_at', CASE WHEN $7 IS NULL THEN NULL::timestamptz ELSE to_timestamp($7::double precision / 1000) END))")
-            .bind(course.as_string()).bind(assessment.as_string())
-            .bind(i64::try_from(input.expected_edit_number.value()).map_err(|_| invalid("Assessment Edit Number"))?)
+            .bind(course_instance_id.as_string()).bind(assessment_id.as_string())
+            .bind(i64::try_from(input.expected_assessment_edit_number.value()).map_err(|_| invalid("Assessment Edit Number"))?)
             .bind(values).bind(available_at_millis).bind(due_at_millis).bind(closes_at_millis)
             .fetch_one(&mut *tx).await.map_err(map_sqlx_error)?;
-        let rows = workspace_rows(&mut tx, &course, &assessment).await?;
+        let rows = workspace_rows(&mut tx, &course_instance_id, &assessment_id).await?;
         let result = decode_workspace(&rows, &context)?.ok_or(StoreError::NotFound)?;
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(result)
@@ -408,13 +415,13 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
     async fn validate_live_assessment_release(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceId,
-        assessment: AssessmentId,
+        course_instance_id: CourseInstanceId,
+        assessment_id: AssessmentId,
     ) -> Result<AssessmentReleaseValidation, StoreError> {
         let mut tx = self.begin(token).await?;
         let rows = sqlx::query("SELECT issue FROM ple_api.validate_assessment_release($1, $2)")
-            .bind(course.as_string())
-            .bind(assessment.as_string())
+            .bind(course_instance_id.as_string())
+            .bind(assessment_id.as_string())
             .fetch_all(&mut *tx)
             .await
             .map_err(map_sqlx_error)?;
@@ -456,20 +463,23 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
     async fn release_live_assessment(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceId,
-        assessment: AssessmentId,
+        course_instance_id: CourseInstanceId,
+        assessment_id: AssessmentId,
         expected_assessment_edit_number: AssessmentEditNumber,
     ) -> Result<LiveAssessmentWorkspace, StoreError> {
         let mut tx = self.begin(token).await?;
         let _row = sqlx::query("SELECT * FROM ple_api.release_assessment($1, $2, $3)")
-            .bind(course.as_string())
-            .bind(assessment.as_string())
-            .bind(i64::try_from(expected_assessment_edit_number.value()).map_err(|_| invalid("Assessment Edit Number"))?)
+            .bind(course_instance_id.as_string())
+            .bind(assessment_id.as_string())
+            .bind(
+                i64::try_from(expected_assessment_edit_number.value())
+                    .map_err(|_| invalid("Assessment Edit Number"))?,
+            )
             .fetch_one(&mut *tx)
             .await
             .map_err(map_sqlx_error)?;
-        let context = schedule_context(&mut tx, &course).await?;
-        let rows = workspace_rows(&mut tx, &course, &assessment).await?;
+        let context = schedule_context(&mut tx, &course_instance_id).await?;
+        let rows = workspace_rows(&mut tx, &course_instance_id, &assessment_id).await?;
         let workspace = decode_workspace(&rows, &context)?.ok_or(StoreError::NotFound)?;
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(workspace)
@@ -478,13 +488,13 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
     async fn read_live_assessment_unrelease_impact(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceId,
-        assessment: AssessmentId,
+        course_instance_id: CourseInstanceId,
+        assessment_id: AssessmentId,
     ) -> Result<AssessmentUnreleaseImpact, StoreError> {
         let mut tx = self.begin(token).await?;
         let row = sqlx::query("SELECT * FROM ple_api.read_assessment_unrelease_impact($1, $2)")
-            .bind(course.as_string())
-            .bind(assessment.as_string())
+            .bind(course_instance_id.as_string())
+            .bind(assessment_id.as_string())
             .fetch_optional(&mut *tx)
             .await
             .map_err(map_unrelease_sqlx_error)?
@@ -497,8 +507,8 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
     async fn unrelease_live_assessment(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceId,
-        assessment: AssessmentId,
+        course_instance_id: CourseInstanceId,
+        assessment_id: AssessmentId,
         expected: AssessmentEditNumber,
         confirmation_title: AssessmentTitle,
     ) -> Result<UnreleasedLiveAssessment, StoreError> {
@@ -507,16 +517,16 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
         // SECURITY DEFINER procedure owns authorization, lock ordering,
         // transition, closure deletion, retained anonymous totals, and audit receipt.
         let row = sqlx::query("SELECT * FROM ple_api.unrelease_assessment($1, $2, $3, $4)")
-            .bind(course.as_string())
-            .bind(assessment.as_string())
+            .bind(course_instance_id.as_string())
+            .bind(assessment_id.as_string())
             .bind(i64::try_from(expected.value()).map_err(|_| invalid("Assessment Edit Number"))?)
             .bind(confirmation_title.as_str())
             .fetch_one(&mut *tx)
             .await
             .map_err(map_unrelease_sqlx_error)?;
         let deleted = decode_unrelease_impact(&row)?;
-        let context = schedule_context(&mut tx, &course).await?;
-        let rows = workspace_rows(&mut tx, &course, &assessment).await?;
+        let context = schedule_context(&mut tx, &course_instance_id).await?;
+        let rows = workspace_rows(&mut tx, &course_instance_id, &assessment_id).await?;
         let assessment = decode_workspace(&rows, &context)?.ok_or(StoreError::NotFound)?;
         if assessment.status != AssessmentStatus::Unreleased {
             return Err(invalid("Unreleased Assessment status"));
@@ -565,12 +575,12 @@ fn map_unrelease_sqlx_error(error: sqlx::Error) -> StoreError {
 
 pub(super) async fn workspace_rows(
     tx: &mut Transaction<'_, Postgres>,
-    course: &CourseInstanceId,
-    assessment: &AssessmentId,
+    course_instance_id: &CourseInstanceId,
+    assessment_id: &AssessmentId,
 ) -> Result<Vec<sqlx::postgres::PgRow>, StoreError> {
     sqlx::query("SELECT * FROM ple_api.load_assessment_workspace_rows($1, $2)")
-        .bind(course.as_string())
-        .bind(assessment.as_string())
+        .bind(course_instance_id.as_string())
+        .bind(assessment_id.as_string())
         .fetch_all(&mut **tx)
         .await
         .map_err(map_sqlx_error)
@@ -583,13 +593,13 @@ pub(super) struct AssessmentScheduleContext {
 
 pub(super) async fn schedule_context(
     tx: &mut Transaction<'_, Postgres>,
-    course: &CourseInstanceId,
+    course_instance_id: &CourseInstanceId,
 ) -> Result<AssessmentScheduleContext, StoreError> {
     let row = sqlx::query(
         "SELECT term_starts_on::text AS term_starts_on, term_ends_on::text AS term_ends_on \
          FROM ple_api.load_course_instance($1)",
     )
-    .bind(course.as_string())
+    .bind(course_instance_id.as_string())
     .fetch_optional(&mut **tx)
     .await
     .map_err(map_sqlx_error)?
@@ -640,7 +650,9 @@ pub(super) fn decode_workspace(
         })
         .collect::<Result<Vec<_>, StoreError>>()?;
     Ok(Some(LiveAssessmentWorkspace {
-        id: assessment_id(first.try_get("assessment_id").map_err(map_sqlx_error)?)?,
+        id: assessment_release_decode::assessment_id(
+            first.try_get("assessment_id").map_err(map_sqlx_error)?,
+        )?,
         edit_number: edit(
             first
                 .try_get("assessment_edit_number")

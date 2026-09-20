@@ -1,12 +1,21 @@
 // Manifest-driven screenshot corpus publisher and live replay verifier.
 
 import path from "node:path";
+import { writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
 import { chromium } from "playwright";
 import { liveDemoChromiumArgs } from "../helper_gateway_trust.mjs";
 
-import { loadManifest, validateScenarioClosure, type CaptureManifest } from "./manifest";
+import {
+  assertManifestMatches,
+  generateManifest,
+  loadCoverageExceptions,
+  loadManifest,
+  manifestJson,
+  type CaptureManifest,
+  type CaptureRecord,
+} from "./manifest";
 import {
   manifestDigest,
   prepareOutputRoot,
@@ -21,6 +30,7 @@ import { SCREENSHOT_SCENARIOS } from "./scenario_registry";
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 const screenshotRoot = path.join(repositoryRoot, "docs/screenshots");
 const manifestPath = path.join(screenshotRoot, "current_capture_manifest.json");
+const exceptionsPath = path.join(screenshotRoot, "coverage_exceptions.json");
 const receiptPath = path.join(screenshotRoot, "current_capture_receipt.json");
 const atlasPath = path.join(repositoryRoot, "docs/SCREENSHOT_ATLAS.md");
 const resultRoot = path.join(repositoryRoot, "test-results/screenshot-corpus");
@@ -39,7 +49,6 @@ async function loadContract(): Promise<LoadedContract> {
     loadManifest(manifestPath),
     manifestDigest(manifestPath),
   ]);
-  validateScenarioClosure(manifest, SCREENSHOT_SCENARIOS);
   return { manifest, digest };
 }
 
@@ -62,7 +71,7 @@ async function replay(
   onlyScenarioIds: ReadonlySet<string> = new Set(),
 ): Promise<void> {
   const publishedBefore = mode === "verify" ? await verifyPublished() : undefined;
-  const contract = publishedBefore ?? (await loadContract());
+  const exceptions = await loadCoverageExceptions(exceptionsPath);
   const entryUrl = requireEntryUrl(entryArgument);
   const outputRoot = path.join(resultRoot, mode === "verify" ? "verify" : "staging");
   await prepareOutputRoot(outputRoot);
@@ -70,13 +79,8 @@ async function replay(
     headless: !headed,
     args: liveDemoChromiumArgs(entryUrl.href),
   });
+  const produced: CaptureRecord[] = [];
   try {
-    const runtime = createScenarioRuntime({
-      browser,
-      entryUrl,
-      outputRoot,
-      manifest: contract.manifest,
-    });
     const selected = SCREENSHOT_SCENARIOS.filter(
       (scenario) => mode !== "only" || onlyScenarioIds.has(scenario.id),
     );
@@ -85,37 +89,48 @@ async function replay(
     }
     for (const scenario of selected) {
       console.log(`Running screenshot scenario ${scenario.id}`);
+      const runtime = createScenarioRuntime({
+        browser,
+        entryUrl,
+        outputRoot,
+        scenario,
+      });
       try {
         await scenario.run(runtime);
       } catch (error: unknown) {
         console.error(`Screenshot scenario ${scenario.id} failed.`);
         throw error;
       }
+      requireProducedClosure(runtime, scenario);
+      produced.push(...runtime.producedCaptures);
     }
     if (mode === "only") {
-      // Iteration aid: staged captures stay under test-results/ and nothing is published.
       console.log(`Ran ${String(selected.length)} selected scenario(s) into ${outputRoot}.`);
       return;
     }
-    requireProducedClosure(runtime);
+    const generated = generateManifest(produced, exceptions);
+    const encoded = manifestJson(generated);
+    await writeFile(path.join(outputRoot, "current_capture_manifest.json"), encoded, "utf8");
+    const digest = await manifestDigest(path.join(outputRoot, "current_capture_manifest.json"));
     if (mode === "publish") {
       await promoteCorpus({
         stagingRoot: outputRoot,
         screenshotRoot,
         atlasPath,
-        manifest: contract.manifest,
-        digest: contract.digest,
+        manifest: generated,
+        digest,
       });
       console.log("Published the complete screenshot corpus and generated atlas.");
       return;
     }
+    if (publishedBefore === undefined) throw new Error("verification lacks published artifacts");
+    assertManifestMatches(publishedBefore.manifest, generated);
     const replayed = await writeReplayArtifacts({
       outputRoot,
-      manifest: contract.manifest,
-      digest: contract.digest,
+      manifest: generated,
+      digest,
     });
     const after = await verifyPublished();
-    if (publishedBefore === undefined) throw new Error("verification lacks published artifacts");
     const beforeHashes = new Map(publishedBefore.images.map((image) => [image.path, image.sha256]));
     const afterHashes = new Map(after.images.map((image) => [image.path, image.sha256]));
     for (const [artifactPath, hash] of beforeHashes) {

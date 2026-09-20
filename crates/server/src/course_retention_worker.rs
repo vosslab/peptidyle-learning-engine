@@ -90,17 +90,17 @@ where
         let result = match action.action {
             CourseRetentionDueActionKind::MarkInactive => {
                 retention
-                    .mark_course_instance_inactive(action.course.clone(), evaluated_at)
+                    .mark_course_instance_inactive(action.course_instance_id.clone(), evaluated_at)
                     .await
             }
             CourseRetentionDueActionKind::Archive => {
                 retention
-                    .archive_course_student_records(action.course.clone(), evaluated_at)
+                    .archive_course_student_records(action.course_instance_id.clone(), evaluated_at)
                     .await
             }
             CourseRetentionDueActionKind::Delete => {
                 retention
-                    .delete_course_student_records(action.course.clone(), evaluated_at)
+                    .delete_course_student_records(action.course_instance_id.clone(), evaluated_at)
                     .await
             }
             CourseRetentionDueActionKind::WarnInactive
@@ -109,7 +109,7 @@ where
         if let Err(error) = result {
             tracing::warn!(
                 event = "course_retention_transition_failed",
-                course_id = %action.course,
+                course_id = %action.course_instance_id,
                 action = ?action.action,
                 error = %error,
             );

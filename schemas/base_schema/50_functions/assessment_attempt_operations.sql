@@ -46,7 +46,7 @@ CREATE FUNCTION ple_private.assert_current_student_assessment_attempt(
 ) RETURNS ple_private.assessment_attempt LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE result ple_private.assessment_attempt%ROWTYPE;
-DECLARE course_id_value text;
+DECLARE course_instance_id_value text;
 BEGIN
     SELECT assessment_attempt.* INTO result
       FROM ple_private.assessment_attempt AS assessment_attempt
@@ -60,13 +60,13 @@ BEGIN
     -- capability; an owned Assessment Attempt ID is never an ordinary read or
     -- mutator bypass after archive or deletion.  Keep this beside the
     -- ownership assertion because every current-Assessment Attempt operation shares it.
-    SELECT assessment.course_instance_id INTO course_id_value
+    SELECT assessment.course_instance_id INTO course_instance_id_value
       FROM ple_data.assessment AS assessment
      WHERE assessment.assessment_id = result.assessment_id;
     IF NOT FOUND
-       OR NOT ple_api.course_student_work_is_ordinarily_visible(course_id_value)
+       OR NOT ple_api.course_student_work_is_ordinarily_visible(course_instance_id_value)
        OR NOT ple_api.current_session_account_owns_student_record(
-           course_id_value, result.student_record_id
+           course_instance_id_value, result.student_record_id
        ) THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Assessment Attempt is unavailable';

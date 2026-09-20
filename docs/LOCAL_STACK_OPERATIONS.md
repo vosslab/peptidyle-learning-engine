@@ -69,7 +69,9 @@ always authoritative.
 All published ports bind to `127.0.0.1`. The API is the sole PLE application
 process in the supported local topology. The renderer has no SQL database,
 course, roster, volume, or browser path; PLE remains the educational-record
-authority.
+authority. Start and `python3 local_stack.py doctor` refuse a second running
+copy of postgres, MinIO, the renderer, api, worker, publisher, or gateway
+across the default `containers` project and `ple-live-demo-browser`.
 
 The four buckets are `public-assets`, `private-content`, `student-records`,
 and `temp-processing`. Their distinct policies are part of the contract:

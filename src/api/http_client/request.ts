@@ -94,11 +94,11 @@ export async function requestJson<T>(
 }
 
 export function studentAttemptPath(
-  courseId: CourseInstanceId,
+  courseInstanceId: CourseInstanceId,
   assessmentId: AssessmentId,
   attemptId: QuestionAttemptId,
 ): string {
-  return `/api/course-instances/${encodedId(courseId)}/assessments/${encodedId(assessmentId)}/attempts/${encodedId(attemptId)}`;
+  return `/api/course-instances/${encodedId(courseInstanceId)}/assessments/${encodedId(assessmentId)}/attempts/${encodedId(attemptId)}`;
 }
 
 export function createRequestClient(

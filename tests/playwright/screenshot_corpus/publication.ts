@@ -17,6 +17,7 @@ const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 const ACTIVE_CORPUS_METADATA = [
   "current_capture_manifest.json",
   "current_capture_receipt.json",
+  "coverage_exceptions.json",
 ] as const;
 
 export interface PublishedImage {
@@ -407,7 +408,13 @@ export async function promoteCorpus(
   }
   const receiptSource = path.join(options.stagingRoot, "current_capture_receipt.json");
   const receiptTarget = path.join(options.screenshotRoot, "current_capture_receipt.json");
+  const manifestSource = path.join(options.stagingRoot, "current_capture_manifest.json");
+  const manifestTarget = path.join(options.screenshotRoot, "current_capture_manifest.json");
   await copyIfPresent(receiptTarget, path.join(buildingBackupRoot, "current_capture_receipt.json"));
+  await copyIfPresent(
+    manifestTarget,
+    path.join(buildingBackupRoot, "current_capture_manifest.json"),
+  );
   await copyIfPresent(options.atlasPath, path.join(buildingBackupRoot, "SCREENSHOT_ATLAS.md"));
   await movePath(buildingBackupRoot, backupRoot);
   const atlasTemporary = `${options.atlasPath}.new`;
@@ -421,6 +428,9 @@ export async function promoteCorpus(
       await movePath(source, target);
     }
     await movePath(receiptSource, receiptTarget);
+    if (await exists(manifestSource)) {
+      await movePath(manifestSource, manifestTarget);
+    }
     await movePath(atlasTemporary, options.atlasPath);
     const promoted = await inspectCorpus(
       options.screenshotRoot,
@@ -441,6 +451,8 @@ export async function promoteCorpus(
     }
     await rm(receiptTarget, { force: true });
     await copyIfPresent(path.join(backupRoot, "current_capture_receipt.json"), receiptTarget);
+    await rm(manifestTarget, { force: true });
+    await copyIfPresent(path.join(backupRoot, "current_capture_manifest.json"), manifestTarget);
     await rm(options.atlasPath, { force: true });
     await copyIfPresent(path.join(backupRoot, "SCREENSHOT_ATLAS.md"), options.atlasPath);
     throw error;

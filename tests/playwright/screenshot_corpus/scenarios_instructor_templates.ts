@@ -9,8 +9,7 @@ import { enterInstructor } from "./visible_workflows";
 const TEMPLATE_NAME = "Weekly Quiz settings";
 
 async function instructorTemplates(runtime: ScenarioRuntime): Promise<void> {
-  const scenario = "instructor_templates";
-  const session = await runtime.open(runtime.record(scenario, "template_editor"));
+  const session = await runtime.open("template_editor");
   try {
     await enterInstructor(session.page);
     await session.page
@@ -53,7 +52,7 @@ async function instructorTemplates(runtime: ScenarioRuntime): Promise<void> {
     });
     await editorHeading.waitFor();
     await editorHeading.scrollIntoViewIfNeeded();
-    await runtime.capture(session, runtime.record(scenario, "template_editor"));
+    await runtime.captureCheckpoint(session, "template_editor");
   } finally {
     await runtime.close(session);
   }
@@ -62,7 +61,18 @@ async function instructorTemplates(runtime: ScenarioRuntime): Promise<void> {
 export const INSTRUCTOR_TEMPLATE_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
   {
     id: "instructor_templates",
-    checkpoints: ["template_editor"],
+    role: "instructor",
+    captures: [
+      {
+        checkpoint: "template_editor",
+        area: "assignments",
+        workflow: "assessment template creation",
+        state: "editable template",
+        viewport: "laptop",
+        privacyProfile: "instructor_answer_free",
+        caption: "Editable Assessment Template",
+      },
+    ],
     run: instructorTemplates,
   },
 ];

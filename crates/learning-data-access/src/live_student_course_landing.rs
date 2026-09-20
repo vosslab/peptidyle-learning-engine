@@ -26,7 +26,7 @@ pub struct LiveAssessmentGradeContribution {
 #[serde(rename_all = "camelCase")]
 pub struct LiveStudentCourseLandingSummary {
     /// Public Course Instance ID.
-    pub course: CourseInstanceId,
+    pub course_instance_id: CourseInstanceId,
     /// Compact Course Instance name for constrained navigation.
     pub short_name: String,
     /// Descriptive Course Instance name for headings and lists.
@@ -41,7 +41,7 @@ pub struct LiveStudentCourseLandingSummary {
 #[serde(rename_all = "camelCase")]
 pub struct LiveStudentCourseInvitationSummary {
     /// Public Course Instance ID, never an invitation or Account identity.
-    pub course: CourseInstanceId,
+    pub course_instance_id: CourseInstanceId,
     /// Compact Course Instance name for constrained navigation.
     pub short_name: String,
     /// Descriptive Course Instance name for headings and lists.
@@ -57,7 +57,7 @@ pub struct LiveStudentCourseInvitationSummary {
 #[serde(rename_all = "camelCase")]
 pub struct LiveStudentAssessmentLandingSummary {
     /// Public Assessment ID.
-    pub assessment: AssessmentId,
+    pub assessment_id: AssessmentId,
     /// Student-facing released Assessment title.
     pub title: String,
     /// Product-defined pedagogical Type for this Assessment.
@@ -109,6 +109,6 @@ pub trait LiveStudentCourseLandingStore: Send + Sync {
     async fn list_released_live_student_assessments(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
     ) -> Result<Vec<LiveStudentAssessmentLandingSummary>, StoreError>;
 }

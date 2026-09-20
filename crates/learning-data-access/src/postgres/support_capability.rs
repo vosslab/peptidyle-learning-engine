@@ -122,7 +122,7 @@ impl SupportRepairCapabilityStore for PostgresSupportCapabilityStore {
         &self,
         token: SessionTokenHash,
         capability_id: Uuid,
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
         roster_id: String,
     ) -> Result<Option<crate::SupportCourseRosterEntry>, StoreError> {
         let mut tx = self.begin(token).await?;
@@ -130,7 +130,7 @@ impl SupportRepairCapabilityStore for PostgresSupportCapabilityStore {
             "SELECT roster_id, state FROM ple_api.read_course_roster_entry_repair_support($1, $2, $3)",
         )
         .bind(capability_id)
-        .bind(course.as_string())
+        .bind(course_instance_id.as_string())
         .bind(roster_id)
         .fetch_optional(&mut *tx)
         .await

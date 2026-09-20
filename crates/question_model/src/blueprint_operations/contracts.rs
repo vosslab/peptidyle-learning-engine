@@ -165,7 +165,7 @@ pub struct SaveBlueprintCourseReceipt {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlueprintAssessmentImportReceipt {
     pub source: BlueprintAssessmentSource,
-    pub destination_assessment: AssessmentId,
+    pub destination_assessment_id: AssessmentId,
     pub actor: AccountId,
     pub request_checksum: RequestChecksum,
     pub accepted_at: Timestamp,

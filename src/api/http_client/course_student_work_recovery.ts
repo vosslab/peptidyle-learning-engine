@@ -16,11 +16,11 @@ export function createCourseStudentWorkRecoveryClient(
   fetchImplementation: ApiFetch,
   basePath: string,
 ): CourseStudentWorkRecoveryClient {
-  async function request(course: string, body: unknown): Promise<unknown> {
-    if (parseCourseInstanceId(course) === null)
+  async function request(courseInstanceId: string, body: unknown): Promise<unknown> {
+    if (parseCourseInstanceId(courseInstanceId) === null)
       throw new ApiProtocolError("Course Instance ID must be canonical");
     // ASVS 14.2.1, 14.3.2: selection cursor and Attempt are POST body only; no cache.
-    const path = `/api/course-instances/${encodeURIComponent(course)}/student-work/recovery`;
+    const path = `/api/course-instances/${encodeURIComponent(courseInstanceId)}/student-work/recovery`;
     const response = await requestSameOrigin(fetchImplementation, basePath, path, {
       method: "POST",
       body,
@@ -31,26 +31,32 @@ export function createCourseStudentWorkRecoveryClient(
     return boundedResponseJson(response, path);
   }
   return {
-    async selectArchivedStudentWork(course, cursor): Promise<RecoverySelection> {
+    async selectArchivedStudentWork(courseInstanceId, cursor): Promise<RecoverySelection> {
       const selection = decodeRecoverySelection(
-        await request(course, { action: "select", cursor }),
+        await request(courseInstanceId, { action: "select", cursor }),
       );
       if (
-        selection.courseInstanceId !== course ||
-        selection.attempts.some((attempt) => attempt.courseInstanceId !== course)
+        selection.courseInstanceId !== courseInstanceId ||
+        selection.attempts.some((attempt) => attempt.courseInstanceId !== courseInstanceId)
       )
         throw new ApiProtocolError("Recovery selection must match the requested Course");
       return selection;
     },
-    async recoverArchivedStudentWork(course, assessmentAttempt): Promise<RecoveredAttempt> {
-      if (parseAssessmentAttemptId(assessmentAttempt) === null)
+    async recoverArchivedStudentWork(
+      courseInstanceId,
+      assessmentAttemptId,
+    ): Promise<RecoveredAttempt> {
+      if (parseAssessmentAttemptId(assessmentAttemptId) === null)
         throw new ApiProtocolError("Assessment Attempt ID must be canonical");
       const attempt = decodeRecoveredAttempt(
-        await request(course, { action: "recover", assessmentAttemptId: assessmentAttempt }),
+        await request(courseInstanceId, {
+          action: "recover",
+          assessmentAttemptId,
+        }),
       );
       if (
-        attempt.courseInstanceId !== course ||
-        attempt.assessmentAttemptId !== assessmentAttempt
+        attempt.courseInstanceId !== courseInstanceId ||
+        attempt.assessmentAttemptId !== assessmentAttemptId
       ) {
         throw new ApiProtocolError("Recovery evidence must match the requested Course and Attempt");
       }

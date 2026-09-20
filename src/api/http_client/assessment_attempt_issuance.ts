@@ -17,14 +17,14 @@ import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
 import { parseAssessmentId, parseCourseInstanceId } from "../../navigation/public_route";
 
-function assessmentPath(course: CourseInstanceId, assessment: AssessmentId): string {
-  if (parseCourseInstanceId(course) === null) {
+function assessmentPath(courseInstanceId: CourseInstanceId, assessmentId: AssessmentId): string {
+  if (parseCourseInstanceId(courseInstanceId) === null) {
     throw new ApiProtocolError("Course Instance ID must be canonical");
   }
-  if (parseAssessmentId(assessment) === null) {
+  if (parseAssessmentId(assessmentId) === null) {
     throw new ApiProtocolError("Assessment ID must be canonical");
   }
-  return `/api/course-instances/${encodeURIComponent(course)}/assessments/${encodeURIComponent(assessment)}`;
+  return `/api/course-instances/${encodeURIComponent(courseInstanceId)}/assessments/${encodeURIComponent(assessmentId)}`;
 }
 
 async function assessmentJson<T>(
@@ -50,8 +50,8 @@ export function createLiveAssessmentAttemptIssuanceClient(
   basePath: string,
 ): Pick<ApiClient, keyof LiveAssessmentAttemptIssuanceClient> {
   return {
-    getLiveAssessmentAccess: (course, assessment): Promise<LiveAssessmentAccess> => {
-      const path = `${assessmentPath(course, assessment)}/access`;
+    getLiveAssessmentAccess: (courseInstanceId, assessmentId): Promise<LiveAssessmentAccess> => {
+      const path = `${assessmentPath(courseInstanceId, assessmentId)}/access`;
       return assessmentJson(
         fetchImplementation,
         basePath,
@@ -61,8 +61,8 @@ export function createLiveAssessmentAttemptIssuanceClient(
         200,
       );
     },
-    startLiveAssessment: (course, assessment): Promise<LiveAssessmentAttempt> => {
-      const path = `${assessmentPath(course, assessment)}/start`;
+    startLiveAssessment: (courseInstanceId, assessmentId): Promise<LiveAssessmentAttempt> => {
+      const path = `${assessmentPath(courseInstanceId, assessmentId)}/start`;
       return assessmentJson(
         fetchImplementation,
         basePath,

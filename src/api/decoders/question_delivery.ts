@@ -21,7 +21,7 @@ import { decodeQuestionContentBlock } from "./question_model";
 export function decodeImathasQuestionBackendLaunch(
   value: unknown,
   path: string,
-  courseId: string,
+  courseInstanceId: string,
   assessmentId: string,
   attemptId: string,
 ): ImathasQuestionBackendLaunch {
@@ -31,7 +31,7 @@ export function decodeImathasQuestionBackendLaunch(
   if (
     !isExpectedImathasQuestionBackendLaunchPath(
       launchUrl,
-      courseId,
+      courseInstanceId,
       assessmentId,
       attemptId,
       "https://ple-invalid.example",

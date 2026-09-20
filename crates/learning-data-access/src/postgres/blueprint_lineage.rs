@@ -77,7 +77,7 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
     async fn list_known_blueprint_forks(
         &self,
         session: SessionTokenHash,
-        source: BlueprintCourseId,
+        source_blueprint_course_id: BlueprintCourseId,
     ) -> Result<Vec<StoredKnownBlueprintFork>, StoreError> {
         let concealed = |error| match error {
             StoreError::Forbidden => StoreError::NotFound,
@@ -90,7 +90,7 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
              blueprint_revision_number, source_blueprint_revision_number, owner_display_name \
              FROM ple_api.list_known_blueprint_forks($1) ORDER BY blueprint_course_id COLLATE \"C\"",
         )
-        .bind(source.as_string())
+        .bind(source_blueprint_course_id.as_string())
         .fetch_all(&mut *transaction)
         .await
         .map_err(map_sqlx_error)

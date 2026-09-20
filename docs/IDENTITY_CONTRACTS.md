@@ -19,7 +19,7 @@ Assessments. Assignment appears only in the three Assessment Type names.
   reformats, strips, reconstructs, or derives it.
 - Internal UUIDs remain internal. An object with a public ID uses that public
   ID as its primary key. There is no parallel UUID key beside a public ID.
-  JSON for those objects is `id` (or nested `courseId` / `assessmentId`); there
+  JSON for those objects is `id` (or nested `courseInstanceId` / `assessmentId`); there
   is no parallel `reference` property.
 - Published Questions and Blueprint Courses have immutable Revision families.
   Question Pools are current state with an Edit Number.

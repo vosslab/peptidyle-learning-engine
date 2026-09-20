@@ -78,7 +78,7 @@ struct CourseInvitationSummary {
 impl From<LiveStudentCourseInvitationSummary> for CourseInvitationSummary {
     fn from(invitation: LiveStudentCourseInvitationSummary) -> Self {
         Self {
-            id: invitation.course,
+            id: invitation.course_instance_id,
             short_name: invitation.short_name,
             long_name: invitation.long_name,
             instructor_display_name: invitation.instructor_display_name,
@@ -120,7 +120,7 @@ async fn list_courses(State(state): State<RouteState>, headers: HeaderMap) -> Re
                 courses: courses
                     .into_iter()
                     .map(|course| CourseSummary {
-                        id: course.course,
+                        id: course.course_instance_id,
                         short_name: course.short_name,
                         long_name: course.long_name,
                     })
@@ -185,7 +185,7 @@ async fn list_assessments(
                 assessments: assessments
                     .into_iter()
                     .map(|assessment| AssessmentSummary {
-                        id: assessment.assessment,
+                        id: assessment.assessment_id,
                         title: assessment.title,
                         assessment_type: assessment.assessment_type,
                         decision: assessment.decision,
@@ -286,7 +286,8 @@ mod tests {
     #[test]
     fn pending_invitation_projects_only_pre_acceptance_course_context() {
         let invitation = LiveStudentCourseInvitationSummary {
-            course: CourseInstanceId::new("CI6F2R8TA0").expect("canonical Course Instance ID"),
+            course_instance_id: CourseInstanceId::new("CI6F2R8TA0")
+                .expect("canonical Course Instance ID"),
             short_name: "Mol Bio".into(),
             long_name: "Molecular Biology".into(),
             instructor_display_name: "Elena Voss".into(),

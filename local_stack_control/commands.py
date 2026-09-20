@@ -11,6 +11,7 @@ import local_stack_control.cleanup
 import local_stack_control.acceptance_lanes
 import local_stack_control.browser_suite_developer
 import local_stack_control.browser_suite_developer_start
+import local_stack_control.browser_suite_lease
 import local_stack_control.compose
 import local_stack_control.disposable_stack_adapter
 import local_stack_control.discovery
@@ -20,6 +21,7 @@ import local_stack_control.process
 import local_stack_control.status
 import local_stack_control.lifecycle
 import local_stack_control.local_totp_authenticator
+import local_stack_control.service_singletons
 
 
 DEFAULT_LIFECYCLE_TIMEOUT_SECONDS = 180.0
@@ -304,15 +306,16 @@ def doctor(
 		checks.append(local_stack_control.models.DoctorCheck("env file", status, "; ".join(env_errors)))
 
 	try:
+		snapshots = project_snapshots(runner, repo_root)
 		summaries = tuple(
-			local_stack_control.status.project_summary(item)
-			for item in project_snapshots(runner, repo_root)
+			local_stack_control.status.project_summary(item) for item in snapshots
 		)
 	except local_stack_control.models.ControllerError as error:
 		summaries = ()
 		checks.append(local_stack_control.models.DoctorCheck("compose projects", "FAIL", str(error)))
 	else:
 		checks.append(local_stack_control.models.DoctorCheck("compose projects", "OK", str(len(summaries))))
+		checks.append(local_stack_control.service_singletons.doctor_check(snapshots))
 	output = {"checks": checks, "projects": summaries}
 	if args.json:
 		print_json(output)
@@ -627,6 +630,68 @@ def restart(
 		),
 	)
 	print(f"Local stack ready: {result.gateway_url}")
+	return 0
+
+
+APPLICATION_REBUILD_SERVICES = local_stack_control.lifecycle.APPLICATION_REBUILD_SERVICES
+
+
+#============================================
+def live_demo_rebuild_target(
+	runner: local_stack_control.process.CommandRunner,
+	repo_root: pathlib.Path,
+) -> (
+	local_stack_control.models.ComposeTarget
+	| local_stack_control.models.DisposableComposeTarget
+	| None
+):
+	"""Return the running Live Demo target when its private workspace is present."""
+	control = (
+		repo_root
+		/ local_stack_control.browser_suite_lease.LIVE_DEMO_BROWSER_STATE_DIRECTORY
+		/ "developer-control.json"
+	)
+	manifest_path = (
+		repo_root
+		/ local_stack_control.browser_suite_lease.LIVE_DEMO_BROWSER_STATE_DIRECTORY
+		/ "workspace"
+		/ "disposable.manifest"
+	)
+	if not control.is_file() or not manifest_path.is_file():
+		return None
+	manifest = local_stack_control.disposable_stack_adapter.load_manifest(repo_root, manifest_path)
+	if manifest.owner != local_stack_control.models.LIVE_DEMO_BROWSER_OWNER:
+		raise local_stack_control.models.ControllerError(
+			"rebuild-application refuses a non Live Demo disposable owner"
+		)
+	return local_stack_control.disposable_stack_adapter.disposable_target(
+		runner, repo_root, manifest
+	)
+
+
+#============================================
+def rebuild_application(
+	args: argparse.Namespace,
+	runner: local_stack_control.process.CommandRunner,
+	repo_root: pathlib.Path,
+) -> int:
+	"""Rebuild the shared application image and recreate api, worker, and publisher."""
+	target = live_demo_rebuild_target(runner, repo_root)
+	if target is None:
+		target = target_from_args(args, runner, repo_root)
+		local_stack_control.compose.require_default_mutation_target(target)
+	result = local_stack_control.lifecycle.rebuild_application_lifecycle(
+		target,
+		runner,
+		repo_root,
+		local_stack_control.lifecycle.LifecycleOptions(
+			DEFAULT_LIFECYCLE_TIMEOUT_SECONDS, False, False, False
+		),
+	)
+	print(f"Local stack ready: {result.gateway_url}")
+	print(
+		"Rebuilt application services: " + ", ".join(APPLICATION_REBUILD_SERVICES)
+	)
 	return 0
 
 

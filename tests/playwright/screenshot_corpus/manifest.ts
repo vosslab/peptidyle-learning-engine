@@ -84,9 +84,9 @@ export interface CaptureManifest {
   };
 }
 
-export interface ScenarioRegistration {
-  readonly id: string;
-  readonly checkpoints: ReadonlyArray<string>;
+export interface CoverageExceptions {
+  readonly routes: ReadonlyArray<CoverageEntry>;
+  readonly ribbonDestinations: ReadonlyArray<CoverageEntry>;
 }
 
 const IDENTIFIER_PATTERN = /^[a-z][a-z0-9_]*$/u;
@@ -324,6 +324,9 @@ function validateCaptureRelationships(captures: ReadonlyArray<CaptureRecord>): v
     "gallery orders",
   );
   for (const capture of captures) {
+    enumValue(capture.privacyProfile, PRIVACY_PROFILE_IDS, `capture ${capture.id} privacyProfile`);
+    enumValue(capture.viewport, VIEWPORT_IDS, `capture ${capture.id} viewport`);
+    enumValue(capture.role, ROLE_IDS, `capture ${capture.id} role`);
     const route = ROUTE_CONTRACT.find((candidate) => candidate.id === capture.routeId);
     if (route === undefined) throw new Error(`capture ${capture.id} names an unknown route`);
     if (
@@ -432,37 +435,158 @@ export async function loadManifest(manifestPath: string): Promise<CaptureManifes
   return decodeManifest(JSON.parse(source) as unknown);
 }
 
-export function validateScenarioClosure(
-  manifest: CaptureManifest,
-  registrations: ReadonlyArray<ScenarioRegistration>,
-): void {
-  requireUnique(
-    registrations.map((registration) => registration.id),
-    "scenario registry IDs",
-  );
-  const registered = new Map(
-    registrations.map((registration) => {
-      requireUnique(registration.checkpoints, `scenario ${registration.id} checkpoints`);
-      return [registration.id, new Set(registration.checkpoints)] as const;
-    }),
-  );
-  for (const capture of manifest.captures) {
-    const checkpoints = registered.get(capture.scenario);
-    if (checkpoints === undefined || !checkpoints.has(capture.checkpoint)) {
-      throw new Error(
-        `capture ${capture.id} has no registered ${capture.scenario}:${capture.checkpoint}`,
-      );
-    }
+export function decodeCoverageExceptions(value: unknown): CoverageExceptions {
+  const decoded = objectValue(value, "coverage exceptions");
+  exactKeys(decoded, ["routes", "ribbonDestinations"], [], "coverage exceptions");
+  if (!Array.isArray(decoded["routes"]) || !Array.isArray(decoded["ribbonDestinations"])) {
+    throw new Error("coverage exceptions ledgers must be arrays");
   }
-  for (const [scenarioId, checkpoints] of registered) {
-    for (const checkpoint of checkpoints) {
-      if (
-        !manifest.captures.some(
-          (capture) => capture.scenario === scenarioId && capture.checkpoint === checkpoint,
-        )
-      ) {
-        throw new Error(`registry checkpoint ${scenarioId}:${checkpoint} has no manifest capture`);
+  return {
+    routes: decoded["routes"].map((entry, index) =>
+      decodeCoverageEntry(entry, `route exception ${String(index)}`, "id"),
+    ),
+    ribbonDestinations: decoded["ribbonDestinations"].map((entry, index) =>
+      decodeCoverageEntry(entry, `Ribbon exception ${String(index)}`, "id"),
+    ),
+  };
+}
+
+export async function loadCoverageExceptions(exceptionsPath: string): Promise<CoverageExceptions> {
+  const source = await readFile(exceptionsPath, "utf8");
+  return decodeCoverageExceptions(JSON.parse(source) as unknown);
+}
+
+function exceptionById(
+  entries: ReadonlyArray<CoverageEntry>,
+  id: string,
+): CoverageEntry | undefined {
+  return entries.find((entry) => entry.id === id);
+}
+
+export function computeCoverage(
+  captures: ReadonlyArray<CaptureRecord>,
+  exceptions: CoverageExceptions,
+): CaptureManifest["coverage"] {
+  const routes = ROUTE_CONTRACT.map((route): CoverageEntry => {
+    const captureIds = captures
+      .filter((capture) => capture.routeId === route.id)
+      .map((capture) => capture.id);
+    if (captureIds.length > 0) {
+      return { id: route.id, status: "captured", captureIds };
+    }
+    const listed = exceptionById(exceptions.routes, route.id);
+    if (listed === undefined) {
+      throw new Error(`uncovered route ${route.id} is not listed in coverage exceptions`);
+    }
+    return listed;
+  });
+  const ribbonIds = [
+    ...TAB_CATALOG.map((control) => ({
+      key: `tab:${control.id}`,
+      destination: control.destination,
+    })),
+    ...RIBBON_TASK_CATALOG.map((control) => ({
+      key: `task:${control.id}`,
+      destination: control.destination,
+    })),
+  ];
+  const ribbonDestinations = ribbonIds.map(({ key, destination }): CoverageEntry => {
+    if (destination.kind === "route") {
+      const captureIds = captures
+        .filter((capture) => capture.routeId === destination.routeId)
+        .map((capture) => capture.id);
+      if (captureIds.length > 0) {
+        return { id: key, status: "captured", captureIds };
       }
     }
+    const listed = exceptionById(exceptions.ribbonDestinations, key);
+    if (listed === undefined) {
+      throw new Error(`uncovered Ribbon destination ${key} is not listed in coverage exceptions`);
+    }
+    return listed;
+  });
+  return { routes, ribbonDestinations };
+}
+
+export function assignGalleryOrder(
+  captures: ReadonlyArray<CaptureRecord>,
+): ReadonlyArray<CaptureRecord> {
+  const grouped: CaptureRecord[] = [];
+  for (const role of ROLE_IDS) {
+    const roleCaptures = captures.filter((capture) => capture.role === role);
+    const areas = [...new Set(roleCaptures.map((capture) => capture.area))];
+    for (const area of areas) {
+      const areaCaptures = roleCaptures.filter((capture) => capture.area === area);
+      const workflows = [...new Set(areaCaptures.map((capture) => capture.workflow))];
+      for (const workflow of workflows) {
+        grouped.push(...areaCaptures.filter((capture) => capture.workflow === workflow));
+      }
+    }
+  }
+  return grouped.map((capture, index) => ({
+    ...capture,
+    gallery: { ...capture.gallery, order: index + 1 },
+  }));
+}
+
+export function generateManifest(
+  captures: ReadonlyArray<CaptureRecord>,
+  exceptions: CoverageExceptions,
+): CaptureManifest {
+  const ordered = assignGalleryOrder(captures);
+  validateCaptureRelationships(ordered);
+  const manifest: CaptureManifest = {
+    schemaVersion: 2,
+    evidenceClass: "reproducible-rendered",
+    rebuildCommand: "./devel/capture_screenshots.sh",
+    viewports: CANONICAL_VIEWPORTS,
+    captures: ordered,
+    coverage: computeCoverage(ordered, exceptions),
+  };
+  validateCoverage(manifest);
+  return manifest;
+}
+
+function encodeCoverageEntry(
+  entry: CoverageEntry,
+  identityField: "routeId" | "id",
+): Record<string, unknown> {
+  if (entry.status === "captured") {
+    return { [identityField]: entry.id, status: entry.status, captureIds: entry.captureIds };
+  }
+  if (entry.status === "covered_by") {
+    return {
+      [identityField]: entry.id,
+      status: entry.status,
+      target: entry.target,
+      reason: entry.reason,
+    };
+  }
+  return { [identityField]: entry.id, status: entry.status, reason: entry.reason };
+}
+
+export function manifestJson(manifest: CaptureManifest): string {
+  const encoded = {
+    schemaVersion: manifest.schemaVersion,
+    evidenceClass: manifest.evidenceClass,
+    rebuildCommand: manifest.rebuildCommand,
+    viewports: manifest.viewports,
+    captures: manifest.captures,
+    coverage: {
+      routes: manifest.coverage.routes.map((entry) => encodeCoverageEntry(entry, "routeId")),
+      ribbonDestinations: manifest.coverage.ribbonDestinations.map((entry) =>
+        encodeCoverageEntry(entry, "id"),
+      ),
+    },
+  };
+  return `${JSON.stringify(encoded, null, 2)}\n`;
+}
+
+export function assertManifestMatches(
+  committed: CaptureManifest,
+  generated: CaptureManifest,
+): void {
+  if (manifestJson(committed) !== manifestJson(generated)) {
+    throw new Error("committed screenshot manifest drifted from scenario generation");
   }
 }

@@ -72,9 +72,12 @@ function GradebookEvidence(props: { readonly gradebook: CourseGradebook }): JSX.
   );
 }
 
-function GradebookCoursePage(props: { readonly course: CourseInstanceId }): JSX.Element {
+function GradebookCoursePage(props: { readonly courseInstanceId: CourseInstanceId }): JSX.Element {
   const runtime = useApplicationApi();
-  const [gradebook] = createResource(() => props.course, runtime.client.getCourseGradebook);
+  const [gradebook] = createResource(
+    () => props.courseInstanceId,
+    runtime.client.getCourseGradebook,
+  );
   const [downloading, setDownloading] = createSignal(false);
   const [downloadMessage, setDownloadMessage] = createSignal("");
   const [downloadError, setDownloadError] = createSignal("");
@@ -89,14 +92,17 @@ function GradebookCoursePage(props: { readonly course: CourseInstanceId }): JSX.
     setDownloadMessage(`Preparing ${format.toUpperCase()} download...`);
     setDownloadError("");
     try {
-      const exportBlob = await runtime.client.downloadCourseGradebook(props.course, format);
+      const exportBlob = await runtime.client.downloadCourseGradebook(
+        props.courseInstanceId,
+        format,
+      );
       if (disposed) return;
       // ASVS 14.3.3: keep sensitive bytes only in this short-lived download URL.
       const downloadUrl = URL.createObjectURL(exportBlob);
       const link = document.createElement("a");
       try {
         link.href = downloadUrl;
-        link.download = `ple_${props.course}_grades.${format}`;
+        link.download = `ple_${props.courseInstanceId}_grades.${format}`;
         document.body.append(link);
         link.click();
       } finally {
@@ -178,7 +184,7 @@ export function GradebookPage(): JSX.Element {
         </section>
       }
     >
-      {(loadedCourse) => <GradebookCoursePage course={loadedCourse} />}
+      {(loadedCourse) => <GradebookCoursePage courseInstanceId={loadedCourse} />}
     </Show>
   );
 }

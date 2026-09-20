@@ -13,11 +13,11 @@ import { requestSameOrigin, type ApiFetch, type RequestOptions } from "./request
 import { boundedResponseJson, requireNoStore } from "./response";
 import { parseCourseInstanceId } from "../../navigation/public_route";
 
-function assessmentLandingPath(course: CourseInstanceId): string {
-  if (parseCourseInstanceId(course) === null) {
+function assessmentLandingPath(courseInstanceId: CourseInstanceId): string {
+  if (parseCourseInstanceId(courseInstanceId) === null) {
     throw new ApiProtocolError("Course Instance ID must be canonical");
   }
-  return `/api/course-instances/${encodeURIComponent(course)}/assessment-landing`;
+  return `/api/course-instances/${encodeURIComponent(courseInstanceId)}/assessment-landing`;
 }
 
 async function landingJson<T>(
@@ -56,11 +56,11 @@ export function createLiveStudentCourseLandingClient(
         "/api/student/course-instances",
         decodeLiveStudentCourseLandings,
       ),
-    listLiveStudentAssessments: (course) =>
+    listLiveStudentAssessments: (courseInstanceId) =>
       landingJson(
         fetchImplementation,
         basePath,
-        assessmentLandingPath(course),
+        assessmentLandingPath(courseInstanceId),
         decodeLiveStudentAssessmentLandings,
       ),
   };

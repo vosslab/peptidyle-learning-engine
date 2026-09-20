@@ -31,6 +31,7 @@ import local_stack_control.status
 import local_stack_control.live_demo_gateway
 import local_stack_control.live_demo_seed
 import local_stack_control.lifecycle_browser
+import local_stack_control.service_singletons
 
 
 MIGRATION_DATABASE_OWNER = local_stack_control.lifecycle_database.MIGRATION_DATABASE_OWNER
@@ -371,6 +372,7 @@ def _start_lifecycle(
 	values = validate_static(selected)
 	local_stack_control.lifecycle_validation.require_mutation_engine(runner, repo_root, True)
 	validate_compose(selected, runner, repo_root)
+	local_stack_control.service_singletons.require_for_target(target, runner, repo_root)
 	environment = child_environment(selected)
 	build_artifacts(runner, repo_root, options)
 	local_stack_control.image_cleanup.remove_obsolete_images_before_build(runner, repo_root)
@@ -501,6 +503,71 @@ def restart_lifecycle(
 		attest_renderer(selected, runner, repo_root, values, oci_id)
 	gateway_url = wait_for_complete_ready(target, runner, options)
 	return LifecycleResult(selected.project, gateway_url, oci_id)
+
+
+APPLICATION_REBUILD_SERVICES = ("api", "worker", "public-asset-publisher")
+
+
+#============================================
+def rebuild_application_lifecycle(
+	target: (
+		local_stack_control.models.ComposeTarget
+		| local_stack_control.models.DisposableComposeTarget
+	),
+	runner: local_stack_control.process.CommandRunner,
+	repo_root: pathlib.Path,
+	options: LifecycleOptions,
+) -> LifecycleResult:
+	"""Rebuild the shared application image and recreate its three services."""
+	selected = target_of(target)
+	require_lifecycle_inputs(selected, repo_root, options)
+	require_disposable_ownership(target)
+	if options.release or options.open_browser:
+		raise local_stack_control.models.ControllerError(
+			"rebuild-application accepts no release or browser-open intent"
+		)
+	local_stack_control.env_file.require_mutation_env_file(selected.env_file)
+	values = validate_static(selected)
+	local_stack_control.lifecycle_validation.require_mutation_engine(runner, repo_root, True)
+	require_application_rebuild_baseline(target, runner)
+	local_stack_control.service_singletons.require_for_target(target, runner, repo_root)
+	oci_id = local_stack_control.renderer.inspect_renderer_oci_id(
+		runner, repo_root, values["PLE_WEBWORK_RENDERER_IMAGE"], child_environment(selected)
+	)
+	require_attested_running_renderer(selected, runner, values, oci_id)
+	probe_renderer(selected, runner, repo_root, oci_id)
+	with local_stack_control.image_cleanup.image_build_lease(repo_root):
+		local_stack_control.image_cleanup.remove_obsolete_images_before_build(runner, repo_root)
+		compose_run(selected, runner, ["build", "api"])
+		run_api_initializers(selected, runner, options)
+		for service in APPLICATION_REBUILD_SERVICES:
+			arguments = local_stack_control.lifecycle_profiles.recreate_arguments(target, service)
+			compose_run(selected, runner, arguments)
+	gateway_url = wait_for_complete_ready(target, runner, options)
+	return LifecycleResult(selected.project, gateway_url, oci_id)
+
+
+#============================================
+def require_application_rebuild_baseline(
+	target: LifecycleTarget,
+	runner: local_stack_control.process.CommandRunner,
+) -> None:
+	"""Require stateful and gateway services healthy before replacing the application group."""
+	report = status_report(target, runner)
+	rebuild = set(APPLICATION_REBUILD_SERVICES)
+	for item in report.services:
+		if item.service in rebuild:
+			continue
+		if not item.healthy:
+			raise local_stack_control.models.ControllerError(
+				"a non-application required service is not healthy"
+			)
+	for service in APPLICATION_REBUILD_SERVICES:
+		matching = tuple(item for item in report.services if item.service == service)
+		if len(matching) != 1 or matching[0].state == "ambiguous":
+			raise local_stack_control.models.ControllerError(
+				"selected application service is absent or has unexpected instance cardinality"
+			)
 
 
 #============================================
@@ -773,6 +840,8 @@ def require_complete_ready(
 ) -> None:
 	"""Require one already-ready full stack before a stateless restart."""
 	local_stack_control.lifecycle_wait.require_ready(status_report(target, runner))
+	selected = target_of(target)
+	local_stack_control.service_singletons.require_for_target(target, runner, selected.repo_root)
 
 
 #============================================

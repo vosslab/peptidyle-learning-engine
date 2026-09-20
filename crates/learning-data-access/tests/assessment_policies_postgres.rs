@@ -26,12 +26,12 @@ fn token() -> SessionTokenHash {
 
 fn policy(expected_edit_number: u64, instructions: &str) -> SaveBaseAssessmentPolicyInput {
     let mut input: SaveBaseAssessmentPolicyInput = serde_json::from_value(serde_json::json!({
-        "expectedEditNumber": expected_edit_number.to_string(),
+        "expectedAssessmentEditNumber": expected_edit_number.to_string(),
         "instructions": instructions,
         "assessmentAttemptTimeLimitSeconds": 600
     }))
     .expect("closed policy fixture");
-    input.expected_edit_number =
+    input.expected_assessment_edit_number =
         AssessmentEditNumber::new(expected_edit_number).expect("positive fixture Edit Number");
     input
 }
@@ -320,11 +320,11 @@ async fn policy_save_is_isolated_conflict_checked_and_reports_unreleased_invalid
     ));
     let mut invalid_ordering: SaveBaseAssessmentPolicyInput =
         serde_json::from_value(serde_json::json!({
-            "expectedEditNumber": "2", "instructions": "invalid ordering",
+            "expectedAssessmentEditNumber": "2", "instructions": "invalid ordering",
             "dueAt": "2026-09-12T12:00:00.000", "closesAt": "2026-09-12T11:00:00.000"
         }))
         .expect("closed invalid policy fixture");
-    invalid_ordering.expected_edit_number =
+    invalid_ordering.expected_assessment_edit_number =
         AssessmentEditNumber::new(2).expect("fixture Edit Number");
     let invalid_saved = store
         .save_base_assessment_policy(

@@ -19,18 +19,18 @@ export function createAssessmentStudentTimeAccommodationClient(
   basePath: string,
 ): AssessmentStudentTimeAccommodationClient {
   async function configuration(
-    course: CourseInstanceId,
-    assessment: AssessmentId,
+    courseInstanceId: CourseInstanceId,
+    assessmentId: AssessmentId,
     rosterId: string,
     input?: SaveAssessmentStudentTimeAccommodationInput,
   ): Promise<AssessmentStudentTimeAccommodation> {
     if (
-      parseCourseInstanceId(course) === null ||
-      parseAssessmentId(assessment) === null ||
+      parseCourseInstanceId(courseInstanceId) === null ||
+      parseAssessmentId(assessmentId) === null ||
       !/^[A-Za-z0-9._-]{1,64}$/u.test(rosterId)
     )
       throw new ApiProtocolError("Student time configuration route is invalid");
-    const path = `/api/course-instances/${encodeURIComponent(course)}/assessments/${encodeURIComponent(assessment)}/student-time-accommodations/${encodeURIComponent(rosterId)}`;
+    const path = `/api/course-instances/${encodeURIComponent(courseInstanceId)}/assessments/${encodeURIComponent(assessmentId)}/student-time-accommodations/${encodeURIComponent(rosterId)}`;
     const body =
       input === undefined
         ? undefined
@@ -39,9 +39,9 @@ export function createAssessmentStudentTimeAccommodationClient(
               input.timeMultiplier,
               "input.timeMultiplier",
             ),
-            expectedEditNumber: decodeAccommodationEditNumber(
-              input.expectedEditNumber,
-              "input.expectedEditNumber",
+            expectedAccommodationEditNumber: decodeAccommodationEditNumber(
+              input.expectedAccommodationEditNumber,
+              "input.expectedAccommodationEditNumber",
             ),
           };
     const response = await requestSameOrigin(

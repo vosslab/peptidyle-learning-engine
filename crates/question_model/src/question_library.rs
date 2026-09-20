@@ -443,7 +443,7 @@ pub struct QuestionSummary {
 /// Current Question lineage plus the session-derived Archive affordance.
 ///
 /// This projection carries no owner identity. The mutation independently
-/// reauthorizes the current session, Question, ownership, title, and ETag.
+/// reauthorizes the current session, Question, ownership, title, and Edit Number.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionLineageView {

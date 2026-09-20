@@ -87,8 +87,8 @@ export function CourseBlueprintUpdateReviewList(props: {
                 </p>
                 <p class="instructor-list__metadata">
                   Review and approve changes separately for each Assessment. The original Course
-                  adoption remains Revision{" "}
-                  {summary().adoptedBlueprintRevisionTuple.revisionNumber}.
+                  adoption remains Revision {summary().adoptedBlueprintRevisionTuple.revisionNumber}
+                  .
                 </p>
                 <Show
                   when={summary().assessments.length > 0}

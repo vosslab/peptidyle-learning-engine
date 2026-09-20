@@ -79,7 +79,7 @@ impl AssessmentPoolForkStore for PostgresAssessmentPoolForkStore {
         )
         .bind(input.course_instance_id.as_string())
         .bind(input.assessment_id.as_string())
-        .bind(input.assessment_entry.as_uuid())
+        .bind(input.assessment_entry_id.as_uuid())
         .bind(expected_edit)
         .bind(input.fork_question_pool_id.as_str())
         .bind(input.source_question_pool_id.as_str())
@@ -94,7 +94,7 @@ impl AssessmentPoolForkStore for PostgresAssessmentPoolForkStore {
         let assessment_entry = question_model::AssessmentEntryId::from_uuid(
             row.try_get("assessment_entry_id").map_err(map_sqlx_error)?,
         );
-        if assessment_entry != input.assessment_entry {
+        if assessment_entry != input.assessment_entry_id {
             return Err(invalid("Assessment Pool fork Entry"));
         }
         let question_pool_id: String = row.try_get("question_pool_id").map_err(map_sqlx_error)?;
@@ -125,7 +125,7 @@ impl AssessmentPoolForkStore for PostgresAssessmentPoolForkStore {
         }
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(ImportedAssessmentPoolFork {
-            assessment_entry,
+            assessment_entry_id: assessment_entry,
             question_pool_id: input.fork_question_pool_id,
             question_pool_edit_number: edit_number,
             assessment_edit_number,
@@ -157,13 +157,13 @@ impl AssessmentPoolForkStore for PostgresAssessmentPoolForkStore {
             .map_err(|_| invalid("Assessment Edit Number"))?;
         let mut transaction = self.begin(session_token_hash).await?;
         let row = sqlx::query("SELECT * FROM ple_api.append_assessment_question_pool_fork_members_for_course($1,$2,$3,$4,$5,$6,$7,$8)")
-            .bind(input.course_instance_id.as_string()).bind(input.assessment_id.as_string()).bind(input.assessment_entry.as_uuid()).bind(expected_edit)
+            .bind(input.course_instance_id.as_string()).bind(input.assessment_id.as_string()).bind(input.assessment_entry_id.as_uuid()).bind(expected_edit)
             .bind(i64::try_from(input.expected_question_pool_edit_number.get()).map_err(|_| invalid("Question Pool Edit Number"))?).bind(question_ids).bind(revision_numbers).bind(true)
             .fetch_one(&mut *transaction).await.map_err(map_sqlx_error)?;
         let assessment_entry = question_model::AssessmentEntryId::from_uuid(
             row.try_get("assessment_entry_id").map_err(map_sqlx_error)?,
         );
-        if assessment_entry != input.assessment_entry {
+        if assessment_entry != input.assessment_entry_id {
             return Err(invalid("Assessment Pool fork Entry"));
         }
         let edit_number = question_model::QuestionPoolEditNumber::new(
@@ -184,7 +184,7 @@ impl AssessmentPoolForkStore for PostgresAssessmentPoolForkStore {
         .ok_or_else(|| invalid("Assessment Edit Number"))?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(AppendedAssessmentPoolFork {
-            assessment_entry,
+            assessment_entry_id: assessment_entry,
             question_pool_edit_number: edit_number,
             assessment_edit_number,
         })

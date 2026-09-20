@@ -57,7 +57,7 @@ impl CourseBlueprintPublicationStore for PostgresCourseBlueprintPublicationStore
     async fn create_blueprint_from_course_instance(
         &self,
         session: SessionTokenHash,
-        source_course: CourseInstanceId,
+        source_course_instance_id: CourseInstanceId,
         request_checksum: RequestChecksum,
         input: CreateBlueprintFromCourseInstanceInput,
         mut bloom_receipts: crate::PoolBloomPreparationReceipts,
@@ -78,7 +78,7 @@ impl CourseBlueprintPublicationStore for PostgresCourseBlueprintPublicationStore
              (EXTRACT(EPOCH FROM accepted_at) * 1000)::bigint AS accepted_at_millis \
              FROM ple_api.course_blueprint_publication_receipt($1, $2)",
         )
-        .bind(source_course.as_string())
+        .bind(source_course_instance_id.as_string())
         .bind(request_checksum.into_bytes().to_vec())
         .fetch_optional(&mut *transaction)
         .await
@@ -96,7 +96,7 @@ impl CourseBlueprintPublicationStore for PostgresCourseBlueprintPublicationStore
             "SELECT course_blueprint_edit_number, source_snapshot, source_assessments \
              FROM ple_api.load_course_blueprint_publication_source($1)",
         )
-        .bind(source_course.as_string())
+        .bind(source_course_instance_id.as_string())
         .fetch_one(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
@@ -125,7 +125,7 @@ impl CourseBlueprintPublicationStore for PostgresCourseBlueprintPublicationStore
              FROM ple_api.create_blueprint_from_course_instance( \
                  $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)",
         )
-        .bind(source_course.as_string())
+        .bind(source_course_instance_id.as_string())
         .bind(expected_course_blueprint_edit_number)
         .bind(source_snapshot)
         .bind(random_uuid()?)

@@ -12,14 +12,14 @@ pub trait CourseThemeStore: Send + Sync {
     async fn read_course_theme(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
     ) -> Result<CourseTheme, StoreError>;
 
     /// Replaces the current theme only when the current Account is an active Instructor Course Member.
     async fn update_course_theme(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
         theme: CourseTheme,
     ) -> Result<CourseTheme, StoreError>;
 }

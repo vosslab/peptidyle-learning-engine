@@ -232,8 +232,9 @@ mod tests {
                 .to_string(),
             "CIABCDEFGS"
         );
-        let course: CourseInstanceId = "CIABCDEFGS".parse().expect("Course Instance ID");
-        assert_eq!(course.as_string(), course.as_str());
+        let course_instance_id: CourseInstanceId =
+            "CIABCDEFGS".parse().expect("Course Instance ID");
+        assert_eq!(course_instance_id.as_string(), course_instance_id.as_str());
         assert_eq!(
             AssessmentId::from_random_identity("ABCDEFG")
                 .expect("Assessment random identity")

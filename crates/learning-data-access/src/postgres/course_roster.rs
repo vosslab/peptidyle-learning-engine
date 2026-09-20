@@ -55,14 +55,14 @@ impl CourseRosterStore for PostgresCourseRosterStore {
     async fn list_course_roster(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
     ) -> Result<Vec<CourseRosterEntry>, StoreError> {
         let mut transaction = self
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
         let rows =
             sqlx::query("SELECT roster_id, roster_name, state FROM ple_api.list_course_roster($1)")
-                .bind(course.as_string())
+                .bind(course_instance_id.as_string())
                 .fetch_all(&mut *transaction)
                 .await
                 .map_err(map_sqlx_error)?;
@@ -77,7 +77,7 @@ impl CourseRosterStore for PostgresCourseRosterStore {
     async fn import_course_roster(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
         input: CourseRosterImportInput,
     ) -> Result<Vec<CourseRosterEntry>, StoreError> {
         let entries = input.validated_entries()?;
@@ -104,7 +104,7 @@ impl CourseRosterStore for PostgresCourseRosterStore {
             "SELECT roster_id, roster_name, state \
              FROM ple_api.import_course_roster($1, $2, $3, $4, $5)",
         )
-        .bind(course.as_string())
+        .bind(course_instance_id.as_string())
         .bind(normalized_emails)
         .bind(delivery_emails)
         .bind(roster_ids)
@@ -123,7 +123,7 @@ impl CourseRosterStore for PostgresCourseRosterStore {
     async fn claim_course_invitation(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
     ) -> Result<ClaimedCourseInvitation, StoreError> {
         let mut transaction = self
             .begin_authenticated_application_transaction(session_token_hash)
@@ -135,7 +135,7 @@ impl CourseRosterStore for PostgresCourseRosterStore {
         .bind(random_uuid()?)
         .bind(random_uuid()?)
         .bind(random_uuid()?)
-        .bind(course.as_string())
+        .bind(course_instance_id.as_string())
         .fetch_one(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
@@ -148,7 +148,7 @@ impl CourseRosterStore for PostgresCourseRosterStore {
     async fn revoke_course_roster_entry(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
         roster_id: String,
     ) -> Result<(), StoreError> {
         if roster_id.is_empty() || roster_id.len() > 64 {
@@ -161,7 +161,7 @@ impl CourseRosterStore for PostgresCourseRosterStore {
             .await?;
         sqlx::query("SELECT ple_api.revoke_course_roster_entry($1, $2, $3)")
             .bind(random_uuid()?)
-            .bind(course.as_string())
+            .bind(course_instance_id.as_string())
             .bind(&roster_id)
             .execute(&mut *transaction)
             .await

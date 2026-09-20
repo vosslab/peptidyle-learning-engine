@@ -21,7 +21,7 @@ fn row(roster_id: &str) -> CourseGradebookStudentWork {
 
 fn gradebook(student_work: Vec<CourseGradebookStudentWork>) -> CourseGradebook {
     CourseGradebook {
-        course_id: "CI7K3M2QAZ".parse().unwrap(),
+        course_instance_id: "CI7K3M2QAZ".parse().unwrap(),
         student_work,
     }
 }

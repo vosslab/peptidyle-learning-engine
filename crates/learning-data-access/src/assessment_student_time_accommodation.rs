@@ -13,8 +13,8 @@ pub trait AssessmentStudentTimeAccommodationStore: Send + Sync {
     async fn student_time_configuration(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceId,
-        assessment: AssessmentId,
+        course_instance_id: CourseInstanceId,
+        assessment_id: AssessmentId,
         roster_id: String,
         save: Option<SaveAssessmentStudentTimeAccommodationInput>,
     ) -> Result<AssessmentStudentTimeAccommodation, StoreError>;

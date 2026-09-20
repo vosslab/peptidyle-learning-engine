@@ -112,7 +112,7 @@ SET search_path = pg_catalog, ple_private, ple_audit AS $$
 DECLARE result_id uuid := pg_catalog.gen_random_uuid();
 DECLARE receipt_id uuid := pg_catalog.gen_random_uuid();
 DECLARE calculated_checksum bytea;
-DECLARE course_id_value text;
+DECLARE course_instance_id_value text;
 BEGIN
     IF p_question_attempt_id IS NULL
        OR p_normalized_credit IS NULL OR p_normalized_credit < 0
@@ -120,7 +120,7 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Direct automated grading facts are invalid';
     END IF;
-    SELECT attempt.course_instance_id INTO course_id_value
+    SELECT attempt.course_instance_id INTO course_instance_id_value
       FROM ple_private.question_attempt AS attempt
      WHERE attempt.question_attempt_id = p_question_attempt_id
      FOR KEY SHARE;
@@ -134,7 +134,7 @@ BEGIN
     INSERT INTO ple_private.grading_result (
         course_instance_id, grading_result_id, question_attempt_id, normalized_credit, recorded_at
     ) VALUES (
-        course_id_value, result_id, p_question_attempt_id, p_normalized_credit, p_recorded_at
+        course_instance_id_value, result_id, p_question_attempt_id, p_normalized_credit, p_recorded_at
     );
     calculated_checksum := pg_catalog.sha256(
         pg_catalog.convert_to('ple:automated-grading-receipt:v2', 'UTF8')
@@ -148,7 +148,7 @@ BEGIN
         automated_grading_receipt_id, course_instance_id,
         grading_result_id, committed_at, automated_grading_receipt_checksum
     ) VALUES (
-        receipt_id, course_id_value, result_id, p_recorded_at, calculated_checksum
+        receipt_id, course_instance_id_value, result_id, p_recorded_at, calculated_checksum
     );
 END $$;
 

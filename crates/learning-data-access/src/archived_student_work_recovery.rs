@@ -1,7 +1,7 @@
 //! Deliberate, read-only retained Work recovery. No ordinary-history capability.
 
 use async_trait::async_trait;
-use question_model::{AssessmentAttemptId, CourseInstanceId};
+use question_model::{AssessmentAttemptId, CourseInstanceId, QuestionRevisionTuple};
 use serde::{Deserialize, Serialize};
 
 use crate::{SessionTokenHash, StoreError};
@@ -46,8 +46,7 @@ pub struct RecoveredAttempt {
 #[serde(rename_all = "camelCase")]
 pub struct RecoveredQuestion {
     pub issued_position: u32,
-    pub question_id: String,
-    pub revision_number: u32,
+    pub question_revision_tuple: QuestionRevisionTuple,
     pub delivery_text: String,
     pub pool_text: Option<String>,
     pub attempt_text: Option<String>,
@@ -66,15 +65,15 @@ pub trait ArchivedStudentWorkRecoveryStore: Send + Sync {
     async fn select_retained_work(
         &self,
         session: SessionTokenHash,
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
         after: Option<AssessmentAttemptId>,
     ) -> Result<Vec<RecoverySummary>, StoreError>;
 
     async fn recover_retained_work(
         &self,
         session: SessionTokenHash,
-        course: CourseInstanceId,
-        attempt: AssessmentAttemptId,
+        course_instance_id: CourseInstanceId,
+        assessment_attempt_id: AssessmentAttemptId,
     ) -> Result<RecoveredAttempt, StoreError>;
 }
 

@@ -167,7 +167,7 @@ impl AssessmentTemplateStore for PostgresAssessmentTemplateStore {
     async fn create_assessment_from_template(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
         input: CreateAssessmentFromTemplateInput,
     ) -> Result<LiveAssessmentWorkspace, StoreError> {
         let minted_assessment_uuid = crate::random_uuid::random_uuid_v4(|_| {
@@ -181,15 +181,15 @@ impl AssessmentTemplateStore for PostgresAssessmentTemplateStore {
              FROM ple_api.create_assessment_from_template($1, $2, $3, $4)",
         )
         .bind(minted_assessment_uuid)
-        .bind(course.as_string())
+        .bind(course_instance_id.as_string())
         .bind(input.template_id.as_uuid())
         .bind(input.title.as_str())
         .fetch_one(&mut *transaction)
         .await
         .map_err(map_sqlx_error)
         .and_then(super::assessment_release::assessment_id)?;
-        let context = schedule_context(&mut transaction, &course).await?;
-        let rows = workspace_rows(&mut transaction, &course, &assessment_id).await?;
+        let context = schedule_context(&mut transaction, &course_instance_id).await?;
+        let rows = workspace_rows(&mut transaction, &course_instance_id, &assessment_id).await?;
         let assessment = decode_workspace(&rows, &context)?.ok_or(StoreError::NotFound)?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(assessment)

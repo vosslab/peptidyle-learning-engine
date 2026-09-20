@@ -69,15 +69,15 @@ impl PostgresLiveAssessmentDeliveryStore {
 
     pub(super) async fn optional_active_attempt_id(
         tx: &mut Transaction<'_, Postgres>,
-        course: CourseInstanceId,
-        assessment: AssessmentId,
+        course_instance_id: CourseInstanceId,
+        assessment_id: AssessmentId,
     ) -> Result<Option<AssessmentAttemptId>, StoreError> {
         let row = sqlx::query(
             "SELECT assessment_attempt_id \
              FROM ple_api.read_active_student_assessment_attempt_id($1, $2)",
         )
-        .bind(course.as_string())
-        .bind(assessment.as_string())
+        .bind(course_instance_id.as_string())
+        .bind(assessment_id.as_string())
         .fetch_optional(&mut **tx)
         .await
         .map_err(map_sqlx_error)?;
@@ -90,11 +90,14 @@ impl PostgresLiveAssessmentDeliveryStore {
     async fn start_current_assessment_attempt(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceId,
-        assessment: AssessmentId,
+        course_instance_id: CourseInstanceId,
+        assessment_id: AssessmentId,
     ) -> Result<crate::AssessmentAttemptStartResult, StoreError> {
         super::assessment_delivery_start::start_current_assessment_attempt(
-            self, token, course, assessment,
+            self,
+            token,
+            course_instance_id,
+            assessment_id,
         )
         .await
     }
@@ -478,11 +481,11 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
     async fn prepare_native_assessment_issuance(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceId,
-        assessment: AssessmentId,
+        course_instance_id: CourseInstanceId,
+        assessment_id: AssessmentId,
     ) -> Result<NativeAssessmentIssuanceBatch, StoreError> {
         let started = self
-            .start_current_assessment_attempt(token, course, assessment)
+            .start_current_assessment_attempt(token, course_instance_id, assessment_id)
             .await?;
         let mut tx = self.begin(token).await?;
         let retained_rows = sqlx::query(
@@ -679,10 +682,11 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
     async fn live_assessment_access(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceId,
-        assessment: AssessmentId,
+        course_instance_id: CourseInstanceId,
+        assessment_id: AssessmentId,
     ) -> Result<LiveAssessmentAccess, StoreError> {
-        super::assessment_delivery_access::read(self, token, course, assessment).await
+        super::assessment_delivery_access::read(self, token, course_instance_id, assessment_id)
+            .await
     }
 
     async fn student_assessment_attempt_history(

@@ -153,7 +153,10 @@ async fn recover(
     }
 }
 
-fn decode_cursor(cursor: &str, course: &CourseInstanceId) -> Result<AssessmentAttemptId, ()> {
+fn decode_cursor(
+    cursor: &str,
+    course_instance_id: &CourseInstanceId,
+) -> Result<AssessmentAttemptId, ()> {
     if cursor.len() > 80 {
         return Err(());
     }
@@ -163,7 +166,7 @@ fn decode_cursor(cursor: &str, course: &CourseInstanceId) -> Result<AssessmentAt
     }
     let value = std::str::from_utf8(&bytes).map_err(|_| ())?;
     let (bound, attempt) = value.split_once(':').ok_or(())?;
-    if bound != course.as_string() {
+    if bound != course_instance_id.as_string() {
         return Err(());
     }
     attempt.parse().map_err(|_| ())

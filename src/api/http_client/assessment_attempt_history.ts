@@ -12,19 +12,19 @@ import { ApiProtocolError, ApiRequestError } from "./error";
 import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
 
-function historyPath(assessmentAttempt: AssessmentAttemptId): string {
-  if (parseAssessmentAttemptId(assessmentAttempt) === null) {
+function historyPath(assessmentAttemptId: AssessmentAttemptId): string {
+  if (parseAssessmentAttemptId(assessmentAttemptId) === null) {
     throw new ApiProtocolError("Assessment Attempt ID must be a UUID");
   }
-  return `/api/assessment-attempts/${encodeURIComponent(assessmentAttempt)}/history`;
+  return `/api/assessment-attempts/${encodeURIComponent(assessmentAttemptId)}/history`;
 }
 
 async function getHistory(
   fetchImplementation: ApiFetch,
   basePath: string,
-  assessmentAttempt: AssessmentAttemptId,
+  assessmentAttemptId: AssessmentAttemptId,
 ): Promise<StudentAssessmentAttemptHistory> {
-  const path = historyPath(assessmentAttempt);
+  const path = historyPath(assessmentAttemptId);
   // ASVS 3.5.1 and 4.1.1: retain the shared same-origin, JSON-only request boundary.
   const response = await requestSameOrigin(fetchImplementation, basePath, path);
   requireNoStore(response, path);
@@ -36,7 +36,7 @@ async function getHistory(
     await boundedResponseJson(response, path),
     "response",
   );
-  if (history.assessmentAttemptId !== assessmentAttempt) {
+  if (history.assessmentAttemptId !== assessmentAttemptId) {
     throw new ApiProtocolError("Assessment Attempt history does not match its request");
   }
   return history;
@@ -48,7 +48,7 @@ export function createStudentAssessmentAttemptHistoryClient(
   basePath: string,
 ): Pick<ApiClient, keyof StudentAssessmentAttemptHistoryClient> {
   return {
-    getStudentAssessmentAttemptHistory: (assessmentAttempt) =>
-      getHistory(fetchImplementation, basePath, assessmentAttempt),
+    getStudentAssessmentAttemptHistory: (assessmentAttemptId) =>
+      getHistory(fetchImplementation, basePath, assessmentAttemptId),
   };
 }

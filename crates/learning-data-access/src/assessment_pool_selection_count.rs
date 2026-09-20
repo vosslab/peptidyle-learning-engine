@@ -14,11 +14,11 @@ use crate::{SessionTokenHash, StoreError};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AssessmentPoolSelectionCountInput {
     /// Opaque Course Instance ID from the canonical route.
-    pub course: CourseInstanceId,
+    pub course_instance_id: CourseInstanceId,
     /// Opaque Assessment ID from the canonical route.
-    pub assessment: AssessmentId,
+    pub assessment_id: AssessmentId,
     /// Stable Assessment Entry selected by the route.
-    pub assessment_entry: AssessmentEntryId,
+    pub assessment_entry_id: AssessmentEntryId,
     /// Strong current Assessment Edit Number from `If-Match`.
     pub expected_assessment_edit_number: AssessmentEditNumber,
     /// Positive count selected for each future Assessment Attempt.

@@ -31,16 +31,16 @@ struct CurrentPoolEntry {
 pub(super) async fn start_current_assessment_attempt(
     store: &PostgresLiveAssessmentDeliveryStore,
     token: SessionTokenHash,
-    course: CourseInstanceId,
-    assessment: AssessmentId,
+    course_instance_id: CourseInstanceId,
+    assessment_id: AssessmentId,
 ) -> Result<crate::AssessmentAttemptStartResult, StoreError> {
     let mut tx = store.begin(token).await?;
     let decision = sqlx::query(
         "SELECT resumable_assessment_attempt_id, resumable_assessment_attempt_number \
          FROM ple_api.prepare_current_assessment_attempt_start_decision($1, $2)",
     )
-    .bind(course.as_string())
-    .bind(assessment.as_string())
+    .bind(course_instance_id.as_string())
+    .bind(assessment_id.as_string())
     .fetch_one(&mut *tx)
     .await
     .map_err(map_sqlx_error)?;
@@ -81,8 +81,8 @@ pub(super) async fn start_current_assessment_attempt(
          pool_selection_rule, assessment_question_order_rule \
          FROM ple_api.prepare_current_assessment_attempt_start($1, $2)",
     )
-        .bind(course.as_string())
-    .bind(assessment.as_string())
+        .bind(course_instance_id.as_string())
+    .bind(assessment_id.as_string())
     .fetch_all(&mut *tx)
     .await
     .map_err(map_sqlx_error)?;
@@ -100,7 +100,8 @@ fn current_attempt_start_from_rows(
     let first = rows.first().ok_or(StoreError::NotFound)?;
     let student_record =
         StudentRecordId::from_uuid(first.try_get("student_record_id").map_err(map_sqlx_error)?);
-    let assessment = parse_assessment_id(first.try_get("assessment_id").map_err(map_sqlx_error)?)?;
+    let assessment_id =
+        parse_assessment_id(first.try_get("assessment_id").map_err(map_sqlx_error)?)?;
     let question_order_rule = first
         .try_get::<String, _>("assessment_question_order_rule")
         .map_err(map_sqlx_error)?;
@@ -233,7 +234,7 @@ fn current_attempt_start_from_rows(
     }
     Ok(AssessmentAttemptStart {
         student_record,
-        assessment,
+        assessment_id,
         question_pool_selections: selections,
         issued_questions: issued.into_iter().map(|(_, question)| question).collect(),
     })

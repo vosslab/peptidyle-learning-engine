@@ -5,7 +5,7 @@ import { decodeCourseGradebook } from "../src/api/decoders/live_gradebook.ts";
 
 test("Gradebook distinguishes an expired submission still awaiting outcomes from zero credit", () => {
   const gradebook = {
-    courseId: "CI7K3M2QAZ",
+    courseInstanceId: "CI7K3M2QAZ",
     studentWork: [
       {
         rosterId: "student-1",
@@ -44,6 +44,7 @@ test("Gradebook distinguishes an expired submission still awaiting outcomes from
       studentWork: [{ ...gradebook.studentWork[0], answerKey: "not authorized" }],
     }),
   );
+  assert.throws(() => decodeCourseGradebook({ ...gradebook, courseId: "CI7K3M2QAZ" }));
   assert.throws(() =>
     decodeCourseGradebook({
       ...gradebook,
@@ -54,7 +55,7 @@ test("Gradebook distinguishes an expired submission still awaiting outcomes from
 
 test("Gradebook accepts finite non-negative grade contribution pairs", () => {
   const gradebook = {
-    courseId: "CI7K3M2QAZ",
+    courseInstanceId: "CI7K3M2QAZ",
     studentWork: [
       {
         rosterId: "bonus-student",

@@ -30,7 +30,7 @@ not generic `assignment`.
 | Rust modules, functions, fields, locals | `snake_case` | `assessment_attempt` |
 | Rust types, traits, enum variants | `UpperCamelCase` | `AssessmentAttempt` |
 | TypeScript functions, locals, signals, ordinary props | `lowerCamelCase` | `saveAssessment` |
-| PLE-owned JSON identity and Tuple members | camelCase | `accountId`, `courseId`, `{questionId, revisionNumber}`, `{blueprintCourseId, revisionNumber}` |
+| PLE-owned JSON identity and Tuple members | camelCase | `accountId`, `courseInstanceId`, `{questionId, revisionNumber}`, `{blueprintCourseId, revisionNumber}` |
 | Other PLE-owned serialized fields | language-native at the owning boundary | SQL `assessment_type`; JSON may still use `snake_case` on non-identity Blueprint views |
 | TypeScript types and components | `UpperCamelCase` | `AssessmentPropertiesEditor` |
 | Python modules, functions, locals | `snake_case` | `assessment_id` |

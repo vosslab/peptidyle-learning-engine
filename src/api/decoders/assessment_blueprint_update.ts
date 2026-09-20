@@ -36,10 +36,7 @@ export function decodeApplyAssessmentBlueprintUpdateInput(
   path = "input",
 ): ApplyAssessmentBlueprintUpdateInput {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, [
-    "expectedSourceRevisionNumber",
-    "expectedAssessmentEditNumber",
-  ]);
+  requireOnlyFields(record, path, ["expectedSourceRevisionNumber", "expectedAssessmentEditNumber"]);
   return {
     expectedSourceRevisionNumber: blueprintRevisionNumber(
       field(record, "expectedSourceRevisionNumber", path),

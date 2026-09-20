@@ -417,7 +417,7 @@ mod tests {
         headers.insert(IF_MATCH, HeaderValue::from_static("\"12\""));
 
         assert_eq!(
-            expected_edit_number(&headers).expect("valid strong ETag"),
+            expected_edit_number(&headers).expect("valid strong Assessment Template Edit Number"),
             AssessmentTemplateEditNumber::new(12).expect("positive Edit Number")
         );
     }

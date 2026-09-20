@@ -337,12 +337,12 @@ pub(crate) enum StartError {
 async fn issue_native_ple_presentation(
     state: &StateData,
     token: SessionTokenHash,
-    course: CourseInstanceId,
-    assessment: AssessmentId,
+    course_instance_id: CourseInstanceId,
+    assessment_id: AssessmentId,
 ) -> Result<LiveAssessmentAttemptResponse, StartError> {
     let batch = state
         .delivery
-        .prepare_native_assessment_issuance(token, course, assessment)
+        .prepare_native_assessment_issuance(token, course_instance_id, assessment_id)
         .await
         .map_err(StartError::Store)?;
     issue_native_assessment_batch(state, token, batch).await

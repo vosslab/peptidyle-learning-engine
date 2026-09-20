@@ -73,15 +73,15 @@ impl InstructorStudentViewStore for PostgresInstructorStudentViewStore {
     async fn load_instructor_student_view_snapshot(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceId,
-        assessment: AssessmentId,
+        course_instance_id: CourseInstanceId,
+        assessment_id: AssessmentId,
     ) -> Result<InstructorStudentViewSnapshot, StoreError> {
         let mut transaction = self.begin_read_only(session_token_hash).await?;
         // ASVS 1.2.4 and 8.2.2: opaque IDs are bound parameters and the
         // definer function rechecks the current direct Course Instructor relationship.
         let rows = sqlx::query("SELECT * FROM ple_api.load_assessment_workspace_rows($1, $2)")
-            .bind(course.as_string())
-            .bind(assessment.as_string())
+            .bind(course_instance_id.as_string())
+            .bind(assessment_id.as_string())
             .fetch_all(&mut *transaction)
             .await
             .map_err(map_sqlx_error)?;
@@ -89,8 +89,8 @@ impl InstructorStudentViewStore for PostgresInstructorStudentViewStore {
         let duration_seconds: Option<i32> = sqlx::query_scalar(
             "SELECT ple_api.read_instructor_student_view_duration_seconds($1, $2)",
         )
-        .bind(course.as_string())
-        .bind(assessment.as_string())
+        .bind(course_instance_id.as_string())
+        .bind(assessment_id.as_string())
         .fetch_one(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
@@ -126,8 +126,8 @@ impl InstructorStudentViewStore for PostgresInstructorStudentViewStore {
     async fn load_instructor_student_view_question_source(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceId,
-        assessment: AssessmentId,
+        course_instance_id: CourseInstanceId,
+        assessment_id: AssessmentId,
         expected_edit_number: AssessmentEditNumber,
         authored_position: u32,
         question_revision_tuple: QuestionRevisionTuple,
@@ -145,8 +145,8 @@ impl InstructorStudentViewStore for PostgresInstructorStudentViewStore {
             "SELECT * FROM ple_api.load_instructor_student_view_question_source(\
              $1, $2, $3, $4, $5, $6)",
         )
-        .bind(course.as_string())
-        .bind(assessment.as_string())
+        .bind(course_instance_id.as_string())
+        .bind(assessment_id.as_string())
         .bind(expected_edit_number)
         .bind(authored_position)
         .bind(question_revision_tuple.question_id.as_str())

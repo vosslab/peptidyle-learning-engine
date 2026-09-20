@@ -12,15 +12,15 @@ CREATE FUNCTION ple_private.student_assessment_time_configuration(
 ) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private, ple_data, ple_api AS $$
 DECLARE current_row ple_private.student_assessment_accommodation%ROWTYPE;
-DECLARE course_id_value text;
+DECLARE course_instance_id_value text;
 BEGIN
-    SELECT assessment.course_instance_id INTO course_id_value FROM ple_data.assessment AS assessment
+    SELECT assessment.course_instance_id INTO course_instance_id_value FROM ple_data.assessment AS assessment
      WHERE assessment.assessment_id = p_assessment_id;
     -- ASVS 8.2.1-8.2.3, 8.3.1: authorization and exact Course/Student scope
     -- precede the private lookup; no private identity is projected.
-    IF course_id_value IS NULL OR p_student_record_id IS NULL
+    IF course_instance_id_value IS NULL OR p_student_record_id IS NULL
        OR NOT ple_data.student_assessment_has_course_scope(p_student_record_id, p_assessment_id)
-       OR NOT ple_api.current_session_account_is_course_instructor(course_id_value) THEN
+       OR NOT ple_api.current_session_account_is_course_instructor(course_instance_id_value) THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Student time configuration is unavailable';
     END IF;
     PERFORM ple_private.lock_assessment_for_student_work(p_assessment_id);
@@ -66,7 +66,7 @@ END $$;
 SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.student_assessment_time_configuration(
-    p_course text, p_assessment text, p_roster_id text,
+    p_course_instance_id text, p_assessment_id text, p_roster_id text,
     p_save boolean, p_expected_accommodation_edit_number bigint, p_time_multiplier numeric
 ) RETURNS TABLE (
     roster_id text, time_multiplier double precision, accommodation_edit_number bigint,
@@ -88,7 +88,7 @@ BEGIN
       JOIN ple_data.course_membership AS membership
         ON membership.course_instance_id = course.course_instance_id
        AND membership.account_id = profile.student_account_id AND membership.role = 'student'
-     WHERE course.course_instance_id = p_course AND assessment.assessment_id = p_assessment
+     WHERE course.course_instance_id = p_course_instance_id AND assessment.assessment_id = p_assessment_id
        AND profile.roster_id = p_roster_id
        AND ple_data.course_membership_is_active(membership.course_membership_id)
        AND ple_api.current_session_account_is_course_instructor(course.course_instance_id);

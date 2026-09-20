@@ -148,14 +148,14 @@ pub trait CourseRosterStore: Send + Sync {
     async fn list_course_roster(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
     ) -> Result<Vec<CourseRosterEntry>, StoreError>;
 
     /// Resolves or creates Student Accounts and records pending Course Invitations atomically.
     async fn import_course_roster(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
         input: CourseRosterImportInput,
     ) -> Result<Vec<CourseRosterEntry>, StoreError>;
 
@@ -163,14 +163,14 @@ pub trait CourseRosterStore: Send + Sync {
     async fn claim_course_invitation(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
     ) -> Result<ClaimedCourseInvitation, StoreError>;
 
     /// Ends a pending invitation or active Student Course Membership without deleting records.
     async fn revoke_course_roster_entry(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
         roster_id: String,
     ) -> Result<(), StoreError>;
 }

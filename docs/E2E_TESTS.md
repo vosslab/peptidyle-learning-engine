@@ -71,6 +71,13 @@ Assert externally meaningful results and make diagnostics identify the failed wo
 E2E check becomes a blocking CI, build, release, or repository-wide gate, define what failure means
 and the decision, correction, or recovery that follows.
 
+## Repository runners
+
+- `bash tests/e2e/e2e_screenshot_warm_loop.sh` proves a running Live Demo rebuilds a
+  stale client bundle (`touch src/style.css`) and that
+  `./devel/capture_screenshots.sh --verify` then passes. It is a Live Demo check, not
+  part of the fast pytest lane.
+
 ## Related docs
 
 - [PYTEST_STYLE.md](PYTEST_STYLE.md) decides which behavior earns permanent protection.

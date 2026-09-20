@@ -283,8 +283,9 @@ export function CourseStudentWorkRecovery(props: {
                   {(question) => (
                     <section>
                       <h4>
-                        Issued Question {question.issuedPosition + 1}: {question.questionId},
-                        Revision {question.revisionNumber}
+                        Issued Question {question.issuedPosition + 1}:{" "}
+                        {question.questionRevisionTuple.questionId}, Revision{" "}
+                        {question.questionRevisionTuple.revisionNumber}
                       </h4>
                       <Evidence label="Delivery and exact Revision" text={question.deliveryText} />
                       <Evidence label="Pool selection" text={question.poolText} />

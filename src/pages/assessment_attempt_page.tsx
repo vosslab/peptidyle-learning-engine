@@ -496,7 +496,7 @@ function AttemptExperience(props: {
                   }
                 >
                   <AuthorContentFrame
-                    assessmentAttempt={props.context.assessmentAttemptId}
+                    assessmentAttemptId={props.context.assessmentAttemptId}
                     position={currentPresentation.position}
                   />
                 </Show>
@@ -514,7 +514,7 @@ function AttemptExperience(props: {
                       window.location.origin,
                     )
                   }
-                  assessmentAttempt={props.context.assessmentAttemptId}
+                  assessmentAttemptId={props.context.assessmentAttemptId}
                   position={currentPresentation.position}
                   registerBackendOwnedCapture={(capture) => {
                     backendOwnedCapture = capture;

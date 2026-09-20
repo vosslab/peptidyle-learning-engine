@@ -112,9 +112,11 @@ impl PostgresBlueprintCourseStore {
         }
         let mut materialized_daughters = Vec::with_capacity(daughters.len());
         for daughter in daughters {
-            let course_id: String = daughter.try_get("course_id").map_err(map_sqlx_error)?;
+            let course_instance_id: String = daughter
+                .try_get("course_instance_id")
+                .map_err(map_sqlx_error)?;
             materialized_daughters.push(json!({
-                "course_id": course_id,
+                "course_instance_id": course_instance_id,
                 "assessments": super::course_blueprint_adoption::materialize(
                     &additions, self.pool_id_issuer.as_deref(), bloom_receipts
                 )?,
@@ -541,12 +543,13 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         }
         // ASVS 2.3.3: hold the parent lock before resolving and materializing
         // additions; Course adoption takes this same lock and checks the head.
-        let daughters =
-            sqlx::query("SELECT course_id FROM ple_api.list_blueprint_daughter_course_ids($1)")
-                .bind(blueprint_course_id.as_string())
-                .fetch_all(&mut *transaction)
-                .await
-                .map_err(map_sqlx_error)?;
+        let daughters = sqlx::query(
+            "SELECT course_instance_id FROM ple_api.list_blueprint_daughter_course_ids($1)",
+        )
+        .bind(blueprint_course_id.as_string())
+        .fetch_all(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
         let prior = load_revision_content(
             &mut transaction,
             blueprint_course_id.clone(),

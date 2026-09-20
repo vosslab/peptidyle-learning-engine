@@ -197,17 +197,18 @@ impl PostgresBlueprintCourseStore {
                 }
             }
         }
-        let daughters =
-            sqlx::query("SELECT course_id FROM ple_api.list_blueprint_daughter_course_ids($1)")
-                .bind(
-                    input
-                        .expected_fork_revision_tuple
-                        .blueprint_course_id
-                        .as_string(),
-                )
-                .fetch_all(&mut *transaction)
-                .await
-                .map_err(map_sqlx_error)?;
+        let daughters = sqlx::query(
+            "SELECT course_instance_id FROM ple_api.list_blueprint_daughter_course_ids($1)",
+        )
+        .bind(
+            input
+                .expected_fork_revision_tuple
+                .blueprint_course_id
+                .as_string(),
+        )
+        .fetch_all(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
         let actor = current_actor(&mut transaction).await?;
         let save = self
             .save_trusted_content(

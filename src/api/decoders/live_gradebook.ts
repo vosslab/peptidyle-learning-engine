@@ -101,9 +101,12 @@ function studentWork(value: unknown, path: string): CourseGradebookStudentWork {
 /** Rejects any field outside the declared answer-free projection. */
 export function decodeCourseGradebook(value: unknown, path = "response"): CourseGradebook {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["courseId", "studentWork"]);
+  requireOnlyFields(record, path, ["courseInstanceId", "studentWork"]);
   return {
-    courseId: decodeCourseInstanceId(field(record, "courseId", path), `${path}.courseId`),
+    courseInstanceId: decodeCourseInstanceId(
+      field(record, "courseInstanceId", path),
+      `${path}.courseInstanceId`,
+    ),
     studentWork: decodeArray(
       field(record, "studentWork", path),
       `${path}.studentWork`,

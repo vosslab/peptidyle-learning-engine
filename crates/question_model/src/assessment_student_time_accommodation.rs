@@ -26,5 +26,5 @@ pub struct SaveAssessmentStudentTimeAccommodationInput {
     /// Unset clears only the time multiplier.
     pub time_multiplier: Option<f64>,
     /// Current accommodation Edit Number; unset expects no row.
-    pub expected_edit_number: Option<String>,
+    pub expected_accommodation_edit_number: Option<String>,
 }

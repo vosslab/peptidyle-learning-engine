@@ -169,7 +169,7 @@ pub trait CourseInstanceStore: Send + Sync {
     async fn read_course_summary(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
     ) -> Result<CourseSummary, StoreError>;
 
     /// Lists only Course Instances where the current Account has an active Instructor Course Membership.
@@ -192,7 +192,7 @@ pub trait CourseInstanceStore: Send + Sync {
     async fn add_course_instructor(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceId,
+        course_instance_id: CourseInstanceId,
         instructor: AccountId,
     ) -> Result<(), StoreError>;
 

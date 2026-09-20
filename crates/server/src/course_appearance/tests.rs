@@ -245,11 +245,11 @@ fn prepared_fixture() -> (CourseInstanceId, CourseBannerId, PreparedFixtureObjec
     let banner = CourseBannerId::from_uuid(Uuid::from_u128(72));
     let addresses = [
         ObjectAddress::CourseBannerSource {
-            course: course.clone(),
+            course_instance_id: course.clone(),
             banner,
         },
         ObjectAddress::CourseBannerRendition {
-            course: course.clone(),
+            course_instance_id: course.clone(),
             banner,
             rendition: CourseBannerRendition::Banner,
         },
@@ -405,7 +405,7 @@ async fn staged_put_failure_repairs_without_finalizing() {
     let course = CourseInstanceId::from_debug_serial(81);
     let upload = CourseBannerUploadId::from_uuid(Uuid::from_u128(82));
     let address = ObjectAddress::CourseBannerUpload {
-        course: course.clone(),
+        course_instance_id: course.clone(),
         upload,
     };
     let bytes = b"stage".to_vec();
@@ -440,7 +440,7 @@ async fn staged_finalize_failure_deletes_and_repairs() {
     let course = CourseInstanceId::from_debug_serial(83);
     let upload = CourseBannerUploadId::from_uuid(Uuid::from_u128(84));
     let address = ObjectAddress::CourseBannerUpload {
-        course: course.clone(),
+        course_instance_id: course.clone(),
         upload,
     };
     let bytes = b"stage".to_vec();
@@ -476,7 +476,7 @@ async fn cleanup_confirms_only_a_successful_delete_and_repairs_a_failed_delete()
     let course = CourseInstanceId::from_debug_serial(91);
     let banner = CourseBannerId::from_uuid(Uuid::from_u128(92));
     let address = ObjectAddress::CourseBannerSource {
-        course: course.clone(),
+        course_instance_id: course.clone(),
         banner,
     };
     let seed = MemoryObjectStore::default();

@@ -20,7 +20,7 @@ pub const COURSE_INVITATION_LIFETIME_MILLIS: i64 = 30 * 24 * 60 * 60 * 1_000;
 /// the course creator and every accepted Teaching Team Member use the same exact membership relation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CurrentInstructorCourseMembership {
-    pub course: CourseInstanceId,
+    pub course_instance_id: CourseInstanceId,
     pub instructor_account: AccountId,
     pub active: bool,
 }
@@ -41,13 +41,13 @@ pub enum InstructorAuthority {
 pub fn current_course_instructor(
     membership: Option<CurrentInstructorCourseMembership>,
     instructor_account: AccountId,
-    course: CourseInstanceId,
+    course_instance_id: CourseInstanceId,
 ) -> bool {
     matches!(
         membership,
         Some(membership)
             if membership.active
-                && membership.course == course
+                && membership.course_instance_id == course_instance_id
                 && membership.instructor_account == instructor_account
     )
 }
@@ -61,7 +61,7 @@ pub fn current_course_instructor(
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StudentCourseMembership {
     pub membership: CourseMembershipId,
-    pub course: CourseInstanceId,
+    pub course_instance_id: CourseInstanceId,
     pub student_account: AccountId,
     pub student_record: StudentRecordId,
     pub role: CourseMembershipRole,
@@ -78,7 +78,7 @@ pub struct StudentCourseMembership {
 pub fn student_owns_course_record(
     membership: Option<StudentCourseMembership>,
     student_account: AccountId,
-    course: CourseInstanceId,
+    course_instance_id: CourseInstanceId,
     student_record: StudentRecordId,
 ) -> bool {
     matches!(
@@ -86,7 +86,7 @@ pub fn student_owns_course_record(
         Some(membership)
             if membership.active
                 && membership.role == CourseMembershipRole::Student
-                && membership.course == course
+                && membership.course_instance_id == course_instance_id
                 && membership.student_account == student_account
                 && membership.student_record == student_record
     )
@@ -96,10 +96,10 @@ pub fn student_owns_course_record(
 /// denial reason without turning a role label into authority.
 pub fn evaluate_course_instructor_authority(
     membership: Option<CurrentInstructorCourseMembership>,
-    course: CourseInstanceId,
+    course_instance_id: CourseInstanceId,
     instructor_account: AccountId,
 ) -> InstructorAuthority {
-    if current_course_instructor(membership, instructor_account, course) {
+    if current_course_instructor(membership, instructor_account, course_instance_id) {
         InstructorAuthority::CurrentCourseInstructor
     } else {
         InstructorAuthority::NoCurrentInstructorCourseMembership
@@ -273,7 +273,7 @@ mod tests {
         let instructor_account = AccountId::from_debug_serial(3);
         let course = CourseInstanceId::from_debug_serial(2);
         let membership = CurrentInstructorCourseMembership {
-            course: course.clone(),
+            course_instance_id: course.clone(),
             instructor_account: instructor_account.clone(),
             active: true,
         };
@@ -296,7 +296,7 @@ mod tests {
         let course = CourseInstanceId::from_debug_serial(2);
         assert!(!current_course_instructor(
             Some(CurrentInstructorCourseMembership {
-                course: CourseInstanceId::from_debug_serial(4),
+                course_instance_id: CourseInstanceId::from_debug_serial(4),
                 instructor_account: instructor_account.clone(),
                 active: true,
             }),
@@ -311,7 +311,7 @@ mod tests {
         let course = CourseInstanceId::from_debug_serial(2);
         assert!(!current_course_instructor(
             Some(CurrentInstructorCourseMembership {
-                course: course.clone(),
+                course_instance_id: course.clone(),
                 instructor_account: AccountId::from_debug_serial(4),
                 active: true,
             }),
@@ -326,7 +326,7 @@ mod tests {
         let course = CourseInstanceId::from_debug_serial(2);
         assert!(!current_course_instructor(
             Some(CurrentInstructorCourseMembership {
-                course: course.clone(),
+                course_instance_id: course.clone(),
                 instructor_account: instructor_account.clone(),
                 active: false,
             }),
@@ -573,11 +573,11 @@ mod tests {
 
     fn student_membership(
         student_account: &AccountId,
-        course: &CourseInstanceId,
+        course_instance_id: &CourseInstanceId,
     ) -> StudentCourseMembership {
         StudentCourseMembership {
             membership: CourseMembershipId::from_uuid(id(6)),
-            course: course.clone(),
+            course_instance_id: course_instance_id.clone(),
             student_account: student_account.clone(),
             student_record: StudentRecordId::from_uuid(id(5)),
             role: CourseMembershipRole::Student,

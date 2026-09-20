@@ -128,7 +128,7 @@ CREATE FUNCTION ple_private.require_owned_assessment_attempt_for_presentation(
 ) RETURNS ple_private.assessment_attempt LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE result ple_private.assessment_attempt%ROWTYPE;
-DECLARE course_id_value text;
+DECLARE course_instance_id_value text;
 BEGIN
     IF p_assessment_attempt_id IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Assessment Attempt presentation identity is invalid';
@@ -143,11 +143,11 @@ BEGIN
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment Attempt presentation is unavailable';
     END IF;
-    SELECT assessment.course_instance_id INTO course_id_value
+    SELECT assessment.course_instance_id INTO course_instance_id_value
       FROM ple_data.assessment AS assessment
      WHERE assessment.assessment_id = result.assessment_id;
     IF NOT FOUND OR NOT ple_api.current_session_account_owns_student_record(
-        course_id_value, result.student_record_id
+        course_instance_id_value, result.student_record_id
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment Attempt presentation is unavailable';
     END IF;

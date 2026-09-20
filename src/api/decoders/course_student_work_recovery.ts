@@ -13,7 +13,13 @@ import {
   decodeRecord,
   decodeString,
 } from "../decoder";
-import { field, requireOnlyFields, decodeCourseInstanceId, decodeAssessmentId } from "./shared";
+import {
+  field,
+  requireOnlyFields,
+  decodeCourseInstanceId,
+  decodeAssessmentId,
+  decodeQuestionRevisionTuple,
+} from "./shared";
 import { parseAssessmentAttemptId } from "../../navigation/public_route";
 
 const commonFields = [
@@ -78,8 +84,7 @@ function question(value: unknown, path: string): RecoveredQuestion {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "issuedPosition",
-    "questionId",
-    "revisionNumber",
+    "questionRevisionTuple",
     "deliveryText",
     "unavailableEvidence",
     ...questionTextFields,
@@ -95,10 +100,9 @@ function question(value: unknown, path: string): RecoveredQuestion {
       field(record, "issuedPosition", path),
       `${path}.issuedPosition`,
     ),
-    questionId: decodeString(field(record, "questionId", path), `${path}.questionId`),
-    revisionNumber: decodePositiveInteger(
-      field(record, "revisionNumber", path),
-      `${path}.revisionNumber`,
+    questionRevisionTuple: decodeQuestionRevisionTuple(
+      field(record, "questionRevisionTuple", path),
+      `${path}.questionRevisionTuple`,
     ),
     deliveryText: decodeString(field(record, "deliveryText", path), `${path}.deliveryText`),
     ...texts,

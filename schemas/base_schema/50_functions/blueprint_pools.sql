@@ -52,7 +52,7 @@ BEGIN
 END $$;
 
 CREATE FUNCTION ple_api.blueprint_pool_members(
-    p_blueprint_course_id text, p_assessment uuid, p_public_pool_id text, p_write boolean,
+    p_blueprint_course_id text, p_blueprint_assessment_id uuid, p_public_pool_id text, p_write boolean,
     p_expected_blueprint_revision_number bigint DEFAULT NULL, p_expected_pool_edit_number bigint DEFAULT NULL
 ) RETURNS TABLE (question_pool_edit_number bigint, published_question_id text, question_revision_number integer)
 LANGUAGE plpgsql SECURITY DEFINER
@@ -79,7 +79,7 @@ BEGIN
       FROM jsonb_array_elements(content_value -> 'modules') AS module,
            jsonb_array_elements(module -> 'assessments') AS assessment,
            jsonb_array_elements(assessment #> '{content,entries}') AS entry
-      WHERE (assessment ->> 'blueprint_assessment_id')::uuid = p_assessment
+      WHERE (assessment ->> 'blueprint_assessment_id')::uuid = p_blueprint_assessment_id
         AND entry ->> 'question_pool_id' = p_public_pool_id;
     IF pin_id IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Blueprint Assessment Pool membership is unavailable';
@@ -99,14 +99,14 @@ BEGIN
 END $$;
 
 CREATE FUNCTION ple_api.append_blueprint_pool_members(
-    p_blueprint_course_id text, p_assessment uuid, p_expected_blueprint_revision_number bigint,
+    p_blueprint_course_id text, p_blueprint_assessment_id uuid, p_expected_blueprint_revision_number bigint,
     p_public_pool_id text, p_expected_pool_edit_number bigint,
     p_question_ids text[], p_revision_numbers integer[], p_attested boolean
 ) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
 DECLARE pool_row ple_data.question_pool%ROWTYPE; appended record;
 BEGIN
-    PERFORM * FROM ple_api.blueprint_pool_members(p_blueprint_course_id, p_assessment,
+    PERFORM * FROM ple_api.blueprint_pool_members(p_blueprint_course_id, p_blueprint_assessment_id,
         p_public_pool_id, true, p_expected_blueprint_revision_number, p_expected_pool_edit_number);
     SELECT * INTO pool_row FROM ple_data.question_pool WHERE question_pool_id = p_public_pool_id;
     SELECT * INTO appended FROM ple_data.save_question_pool_members(pool_row.question_pool_id,

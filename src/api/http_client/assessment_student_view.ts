@@ -16,21 +16,27 @@ import {
 import { requestPath, requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
 
-function assessmentStudentViewPath(course: CourseInstanceId, assessment: AssessmentId): string {
-  if (parseCourseInstanceId(course) === null || parseAssessmentId(assessment) === null) {
+function assessmentStudentViewPath(
+  courseInstanceId: CourseInstanceId,
+  assessmentId: AssessmentId,
+): string {
+  if (
+    parseCourseInstanceId(courseInstanceId) === null ||
+    parseAssessmentId(assessmentId) === null
+  ) {
     throw new ApiProtocolError("Student View route IDs must be canonical");
   }
   // ASVS 1.2.2 and 2.2.1: validate, then encode every dynamic path segment.
-  return `/api/course-instances/${encodeURIComponent(course)}/assessments/${encodeURIComponent(assessment)}/student-view`;
+  return `/api/course-instances/${encodeURIComponent(courseInstanceId)}/assessments/${encodeURIComponent(assessmentId)}/student-view`;
 }
 
 function questionPath(
-  course: CourseInstanceId,
-  assessment: AssessmentId,
+  courseInstanceId: CourseInstanceId,
+  assessmentId: AssessmentId,
   authoredPosition: number,
   questionRevisionTuple: QuestionRevisionTuple,
 ): string {
-  const base = assessmentStudentViewPath(course, assessment);
+  const base = assessmentStudentViewPath(courseInstanceId, assessmentId);
   const questionId = validateCanonicalQuestionIdSyntax(questionRevisionTuple.questionId);
   if (
     !Number.isSafeInteger(authoredPosition) ||
@@ -68,10 +74,10 @@ function sameQuestionRevision(
 async function manifestRequest(
   fetchImplementation: ApiFetch,
   basePath: string,
-  course: CourseInstanceId,
-  assessment: AssessmentId,
+  courseInstanceId: CourseInstanceId,
+  assessmentId: AssessmentId,
 ): ReturnType<AssessmentStudentViewClient["getInstructorStudentView"]> {
-  const path = assessmentStudentViewPath(course, assessment);
+  const path = assessmentStudentViewPath(courseInstanceId, assessmentId);
   const response = await requestSameOrigin(fetchImplementation, basePath, path);
   requireNoStore(response, path);
   if (!response.ok) throw new ApiRequestError(response.status, path);
@@ -84,13 +90,13 @@ async function manifestRequest(
 async function presentationRequest(
   fetchImplementation: ApiFetch,
   basePath: string,
-  course: CourseInstanceId,
-  assessment: AssessmentId,
+  courseInstanceId: CourseInstanceId,
+  assessmentId: AssessmentId,
   authoredPosition: number,
   questionRevisionTuple: QuestionRevisionTuple,
   editNumber: string,
 ): ReturnType<AssessmentStudentViewClient["getInstructorStudentViewQuestion"]> {
-  const path = `${questionPath(course, assessment, authoredPosition, questionRevisionTuple)}/presentation`;
+  const path = `${questionPath(courseInstanceId, assessmentId, authoredPosition, questionRevisionTuple)}/presentation`;
   const response = await requestSameOrigin(fetchImplementation, basePath, path, {
     headers: {
       "if-match": ifMatchHeaderForPositiveNumber(editNumber, path, "Assessment Edit Number"),
@@ -117,11 +123,11 @@ export function createAssessmentStudentViewClient(
   basePath: string,
 ): AssessmentStudentViewClient {
   return {
-    getInstructorStudentView: (course, assessment) =>
-      manifestRequest(fetchImplementation, basePath, course, assessment),
+    getInstructorStudentView: (courseInstanceId, assessmentId) =>
+      manifestRequest(fetchImplementation, basePath, courseInstanceId, assessmentId),
     getInstructorStudentViewQuestion: (
-      course,
-      assessment,
+      courseInstanceId,
+      assessmentId,
       authoredPosition,
       questionRevisionTuple,
       editNumber,
@@ -129,20 +135,20 @@ export function createAssessmentStudentViewClient(
       presentationRequest(
         fetchImplementation,
         basePath,
-        course,
-        assessment,
+        courseInstanceId,
+        assessmentId,
         authoredPosition,
         questionRevisionTuple,
         editNumber,
       ),
     instructorStudentViewQuestionDocumentUrl: (
-      course,
-      assessment,
+      courseInstanceId,
+      assessmentId,
       authoredPosition,
       questionRevisionTuple,
       editNumber,
     ): string => {
-      const path = `${questionPath(course, assessment, authoredPosition, questionRevisionTuple)}/document`;
+      const path = `${questionPath(courseInstanceId, assessmentId, authoredPosition, questionRevisionTuple)}/document`;
       ifMatchHeaderForPositiveNumber(editNumber, path, "Assessment Edit Number");
       const query = new URLSearchParams({ editNumber });
       return requestPath(basePath, `${path}?${query.toString()}`);

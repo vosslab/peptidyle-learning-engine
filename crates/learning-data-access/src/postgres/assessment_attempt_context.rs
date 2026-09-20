@@ -45,7 +45,9 @@ impl PostgresLiveAssessmentDeliveryStore {
                     .map_err(map_sqlx_error)?,
                 "Assessment Attempt number",
             )?,
-            course: course_instance_id(row.try_get("course_instance_id").map_err(map_sqlx_error)?)?,
+            course_instance_id: course_instance_id(
+                row.try_get("course_instance_id").map_err(map_sqlx_error)?,
+            )?,
             course_short_name: name(
                 row.try_get("course_short_name").map_err(map_sqlx_error)?,
                 "Course short name",
@@ -59,7 +61,7 @@ impl PostgresLiveAssessmentDeliveryStore {
                     .map_err(map_sqlx_error)?,
             )
             .map_err(|_| StoreError::InvalidRecord("Course theme is invalid".to_string()))?,
-            assessment: assessment_id(row.try_get("assessment_id").map_err(map_sqlx_error)?)?,
+            assessment_id: assessment_id(row.try_get("assessment_id").map_err(map_sqlx_error)?)?,
             assessment_title: nonempty(
                 row.try_get("assessment_title").map_err(map_sqlx_error)?,
                 "Assessment title",

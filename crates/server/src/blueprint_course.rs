@@ -563,7 +563,7 @@ fn expected_revision_number(headers: &HeaderMap) -> Result<BlueprintRevisionNumb
     quoted_if_match(headers)?.parse().map_err(|_| {
         Box::new(route_error(
             StatusCode::BAD_REQUEST,
-            "Blueprint Revision ETag is invalid",
+            "Blueprint Revision Number is invalid",
         ))
     })
 }
@@ -680,7 +680,7 @@ mod tests {
         let mut headers = HeaderMap::new();
         headers.insert(IF_MATCH, HeaderValue::from_static("\"7\""));
         headers.insert("idempotency-key", HeaderValue::from_static("save-7"));
-        let revision = expected_revision_number(&headers).expect("Revision CAS ETag");
+        let revision = expected_revision_number(&headers).expect("Revision CAS Edit Number");
         assert_eq!(revision.value(), 7);
 
         let first = request_checksum("save-blueprint-course", &headers, &("BP-1", revision))

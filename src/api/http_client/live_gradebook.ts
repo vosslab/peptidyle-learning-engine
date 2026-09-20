@@ -9,11 +9,11 @@ import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
 import { parseCourseInstanceId } from "../../navigation/public_route";
 
-function gradebookPath(course: CourseInstanceId): string {
-  if (parseCourseInstanceId(course) === null) {
+function gradebookPath(courseInstanceId: CourseInstanceId): string {
+  if (parseCourseInstanceId(courseInstanceId) === null) {
     throw new ApiProtocolError("Course Instance ID must be canonical");
   }
-  return `/api/course-instances/${encodeURIComponent(course)}/gradebook`;
+  return `/api/course-instances/${encodeURIComponent(courseInstanceId)}/gradebook`;
 }
 
 /** Composes only the registered answer-free Gradebook handler. */
@@ -22,8 +22,8 @@ export function createCourseGradebookClient(
   basePath: string,
 ): Pick<ApiClient, keyof CourseGradebookClient> {
   return {
-    downloadCourseGradebook: async (course, format): Promise<Blob> => {
-      const path = `${gradebookPath(course)}/export?format=${format}`;
+    downloadCourseGradebook: async (courseInstanceId, format): Promise<Blob> => {
+      const path = `${gradebookPath(courseInstanceId)}/export?format=${format}`;
       if (format !== "csv" && format !== "tsv") {
         throw new ApiProtocolError("Gradebook export format must be csv or tsv");
       }
@@ -41,7 +41,7 @@ export function createCourseGradebookClient(
       if (
         response.headers.get("content-type") !== mediaType ||
         response.headers.get("content-disposition") !==
-          `attachment; filename="ple_${course}_grades.${format}"` ||
+          `attachment; filename="ple_${courseInstanceId}_grades.${format}"` ||
         response.headers.get("x-content-type-options") !== "nosniff"
       ) {
         throw new ApiProtocolError(
@@ -50,8 +50,8 @@ export function createCourseGradebookClient(
       }
       return response.blob();
     },
-    getCourseGradebook: async (course): Promise<CourseGradebook> => {
-      const path = gradebookPath(course);
+    getCourseGradebook: async (courseInstanceId): Promise<CourseGradebook> => {
+      const path = gradebookPath(courseInstanceId);
       const response = await requestSameOrigin(fetchImplementation, basePath, path);
       requireNoStore(response, path);
       if (!response.ok) throw new ApiRequestError(response.status, path);

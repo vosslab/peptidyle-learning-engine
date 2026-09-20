@@ -74,7 +74,7 @@ export interface CourseAssessmentSummary {
 
 /** One Course-qualified Assessment due in the authenticated Instructor's rolling next-seven-days window. */
 export interface DueSoonAssessmentSummary {
-  readonly courseId: CourseInstanceId;
+  readonly courseInstanceId: CourseInstanceId;
   readonly courseLongName: string;
   readonly assessmentId: AssessmentId;
   readonly assessmentType: AssessmentType;

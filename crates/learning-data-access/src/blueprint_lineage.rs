@@ -65,7 +65,7 @@ pub trait BlueprintLineageStore: Send + Sync {
     async fn list_known_blueprint_forks(
         &self,
         session: SessionTokenHash,
-        source: BlueprintCourseId,
+        source_blueprint_course_id: BlueprintCourseId,
     ) -> Result<Vec<StoredKnownBlueprintFork>, StoreError>;
 
     /// Loads visible current heads of two related Courses and exact Pool membership.

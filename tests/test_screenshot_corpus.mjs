@@ -126,6 +126,11 @@ test("published verification rejects a receipt that no longer binds its PNG", as
       `${JSON.stringify(manifest)}\n`,
       "utf8",
     );
+    await writeFile(
+      path.join(screenshotRoot, "coverage_exceptions.json"),
+      `${JSON.stringify({ routes: [], ribbonDestinations: [] })}\n`,
+      "utf8",
+    );
     await writeFile(receiptPath, receiptJson(receipt), "utf8");
     await writeFile(atlasPath, renderAtlas(manifest, "screenshots/"), "utf8");
     await verifyPublishedArtifacts({

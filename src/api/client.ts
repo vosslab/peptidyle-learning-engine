@@ -186,13 +186,13 @@ export interface ApiClient
   readonly getAttempt: (attemptId: QuestionAttemptId) => Promise<StudentQuestionAttempt>;
   /** Returns the regenerated, answer-free Question Presentation; grading stays server-side. */
   readonly getIssuedQuestion: (
-    courseId: CourseInstanceId,
+    courseInstanceId: CourseInstanceId,
     assessmentId: AssessmentId,
     attemptId: QuestionAttemptId,
   ) => Promise<QuestionPresentation>;
   /** Creates an iMathAS Question Backend launch by same-origin POST, then returns its inert shell route. */
   readonly beginImathasQuestionBackendLaunch: (
-    courseId: CourseInstanceId,
+    courseInstanceId: CourseInstanceId,
     assessmentId: AssessmentId,
     attemptId: QuestionAttemptId,
   ) => Promise<ImathasQuestionBackendLaunch>;

@@ -22,6 +22,23 @@ Do not use `podman compose down`, `podman system prune`, or another global
 cleanup command. Those commands bypass the label and lease checks that prove
 the project scope.
 
+## Duplicate running services
+
+The controller allows only one running copy of each developer service
+(postgres, MinIO, WeBWorK renderer, api, worker, public-asset-publisher,
+gateway) across the default `containers` project and
+`ple-live-demo-browser`. Starting a second stack, or leaving an extra
+replica from a failed recreate, fails with the extra container names.
+Stop the extras, then retry:
+
+```bash
+./launchers/run_live_demo.sh stop
+source source_me.sh && python3 local_stack.py doctor
+```
+
+The replica E2E profile may run two `api` containers in its own project.
+Short-lived course-appearance E2E stacks are not this workstation guard.
+
 ## Preflight failures
 
 - **`python3 is required`:** run `brew bundle`, then rerun `./launchers/run_live_demo.sh`. The wrapper sources
