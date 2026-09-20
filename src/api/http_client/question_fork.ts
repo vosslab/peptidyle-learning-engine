@@ -15,8 +15,14 @@ import { boundedResponseJson, requireNoStore } from "./response";
 
 const MAX_QUESTION_REVISION_NUMBER = 4_294_967_295;
 
-function exactForkPath(source: Parameters<QuestionForkClient["forkPublishedQuestion"]>[0]): string {
-  const questionRevisionTuple = decodeQuestionRevisionTuple(source, "request.source", true);
+function exactForkPath(
+  sourceRevisionTuple: Parameters<QuestionForkClient["forkPublishedQuestion"]>[0],
+): string {
+  const questionRevisionTuple = decodeQuestionRevisionTuple(
+    sourceRevisionTuple,
+    "request.sourceRevisionTuple",
+    true,
+  );
   if (questionRevisionTuple.revisionNumber > MAX_QUESTION_REVISION_NUMBER) {
     throw new ApiProtocolError("Question Revision number must be one positive u32");
   }
@@ -48,9 +54,12 @@ export function createQuestionForkClient(
   basePath: string,
 ): Pick<ApiClient, keyof QuestionForkClient> {
   return {
-    forkPublishedQuestion: async (source, requestKey): Promise<ForkedPublishedQuestion> => {
+    forkPublishedQuestion: async (
+      sourceRevisionTuple,
+      requestKey,
+    ): Promise<ForkedPublishedQuestion> => {
       // ASVS 1.2.2, 2.2.1: validate and encode only the exact source path; send no fork payload.
-      const path = exactForkPath(source);
+      const path = exactForkPath(sourceRevisionTuple);
       const response = await requestSameOrigin(fetchImplementation, basePath, path, {
         method: "POST",
         headers: { "idempotency-key": idempotencyKey(requestKey, path) },

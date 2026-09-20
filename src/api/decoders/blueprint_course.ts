@@ -67,7 +67,7 @@ function blueprintCourseId(value: unknown, path: string): BlueprintCourseId {
   return decoded;
 }
 
-function revision(value: unknown, path: string): string {
+function revisionNumber(value: unknown, path: string): string {
   const decoded = decodeString(value, path);
   if (!POSITIVE_REVISION.test(decoded) || BigInt(decoded) > 9_223_372_036_854_775_807n) {
     throw new DecodeError(path, "a canonical positive PostgreSQL bigint revision");
@@ -528,7 +528,7 @@ export function blueprintRevisionTuple(value: unknown, path: string): BlueprintR
       field(record, "blueprintCourseId", path),
       `${path}.blueprintCourseId`,
     ),
-    revisionNumber: revision(field(record, "revisionNumber", path), `${path}.revisionNumber`),
+    revisionNumber: revisionNumber(field(record, "revisionNumber", path), `${path}.revisionNumber`),
   };
 }
 
@@ -762,11 +762,11 @@ function knownBlueprintFork(value: unknown, path: string): BlueprintKnownForkVie
     shortName: text(field(record, "shortName", path), `${path}.shortName`),
     longName: text(field(record, "longName", path), `${path}.longName`),
     availability: availability(field(record, "availability", path), `${path}.availability`),
-    currentRevisionNumber: revision(
+    currentRevisionNumber: revisionNumber(
       field(record, "currentRevisionNumber", path),
       `${path}.currentRevisionNumber`,
     ),
-    sourceRevisionNumber: revision(
+    sourceRevisionNumber: revisionNumber(
       field(record, "sourceRevisionNumber", path),
       `${path}.sourceRevisionNumber`,
     ),
@@ -782,8 +782,8 @@ export function decodeKnownBlueprintForks(
   return decodeArray(value, path, knownBlueprintFork);
 }
 
-export function decodeBlueprintRevisionNumber(value: unknown, path = "revision"): string {
-  return revision(value, path);
+export function decodeBlueprintRevisionNumber(value: unknown, path = "revisionNumber"): string {
+  return revisionNumber(value, path);
 }
 
 export function decodeBlueprintCoursePage(

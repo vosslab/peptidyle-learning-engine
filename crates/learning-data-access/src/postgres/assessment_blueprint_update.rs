@@ -45,15 +45,15 @@ pub(super) async fn review_course(
     let blueprint_course_id = blueprint_course_id
         .parse::<BlueprintCourseId>()
         .map_err(|_| invalid("Blueprint Course ID"))?;
-    let revision = |field: &str| -> Result<BlueprintRevisionNumber, StoreError> {
+    let parse_revision_number = |field: &str| -> Result<BlueprintRevisionNumber, StoreError> {
         let value: i64 = source.try_get(field).map_err(map_sqlx_error)?;
         u64::try_from(value)
             .ok()
             .and_then(BlueprintRevisionNumber::new)
             .ok_or_else(|| invalid("Blueprint Revision"))
     };
-    let adopted_revision_number = revision("adopted_revision_number")?;
-    let source_revision_number = revision("source_revision_number")?;
+    let adopted_revision_number = parse_revision_number("adopted_revision_number")?;
+    let source_revision_number = parse_revision_number("source_revision_number")?;
     let Json(content): Json<StoredBlueprintCourseContent> =
         source.try_get("content").map_err(map_sqlx_error)?;
     let checksum: Vec<u8> = source.try_get("content_checksum").map_err(map_sqlx_error)?;

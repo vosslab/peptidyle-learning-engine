@@ -199,9 +199,9 @@ async function blueprintJson<T>(
   };
 }
 
-function requireRevisionEtag(response: Response, revision: string, path: string): string {
+function requireRevisionEtag(response: Response, revisionNumber: string, path: string): string {
   const etag = response.headers.get("etag");
-  if (etag === null || parseRevisionEtag(etag, path) !== `"${revision}"`) {
+  if (etag === null || parseRevisionEtag(etag, path) !== `"${revisionNumber}"`) {
     throw new ApiProtocolError(
       `API response ${path} ETag must match its current Blueprint Revision`,
     );
@@ -309,11 +309,11 @@ export function createBlueprintCourseClient(
     },
     forkBlueprintCourse: async (
       blueprintCourseId,
-      revision,
+      revisionNumber,
       requestKey,
     ): Promise<LoadedBlueprintCourse> => {
       // ASVS 1.2.2, 2.2.1: validate and encode the exact immutable source identity.
-      const path = `${blueprintPath(blueprintCourseId)}/revisions/${encodeURIComponent(decodeBlueprintRevisionNumber(revision, "revision"))}/fork`;
+      const path = `${blueprintPath(blueprintCourseId)}/revisions/${encodeURIComponent(decodeBlueprintRevisionNumber(revisionNumber, "revisionNumber"))}/fork`;
       const result = await blueprintJson(
         fetchImplementation,
         basePath,
@@ -331,7 +331,7 @@ export function createBlueprintCourseClient(
     applyBlueprintFork: async (blueprintCourseId, request): Promise<BlueprintForkApplyResponse> => {
       const path = `${blueprintPath(blueprintCourseId)}/fork-update`;
       const body = decodeBlueprintForkApplyRequest(request);
-      if (body.expectedFork.blueprintCourseId !== blueprintCourseId)
+      if (body.expectedForkRevisionTuple.blueprintCourseId !== blueprintCourseId)
         throw new ApiProtocolError("Blueprint fork update must target its expected fork ID");
       const result = await blueprintJson(
         fetchImplementation,
@@ -532,8 +532,11 @@ export function createBlueprintCourseClient(
       );
       return metadataTransition(result.body, result.response, path);
     },
-    getBlueprintRevision: async (blueprintCourseId, revision): Promise<BlueprintRevisionView> => {
-      const path = `${blueprintPath(blueprintCourseId)}/revisions/${encodeURIComponent(decodeBlueprintRevisionNumber(revision, "revision"))}`;
+    getBlueprintRevision: async (
+      blueprintCourseId,
+      revisionNumber,
+    ): Promise<BlueprintRevisionView> => {
+      const path = `${blueprintPath(blueprintCourseId)}/revisions/${encodeURIComponent(decodeBlueprintRevisionNumber(revisionNumber, "revisionNumber"))}`;
       return (await blueprintJson(fetchImplementation, basePath, path, decodeBlueprintRevisionView))
         .body;
     },

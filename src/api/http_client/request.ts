@@ -165,12 +165,12 @@ export async function requestAssessmentEditor(
     );
   if (expected.courseId !== undefined && detail.courseId !== expected.courseId)
     throw new ApiProtocolError("assessment editor response does not match the requested course");
-  const revision = response.headers.get("etag");
-  if (revision === null || !validRevision(revision))
+  const etag = response.headers.get("etag");
+  if (etag === null || !validRevision(etag))
     throw new ApiProtocolError(
       `API response ${path} must include one positive strong numeric ETag`,
     );
-  return { ...detail, revision };
+  return { ...detail, etag };
 }
 
 export function createRequestClient(

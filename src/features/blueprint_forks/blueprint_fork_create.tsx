@@ -17,7 +17,11 @@ export function BlueprintForkCreate(props: BlueprintForkCreateProps): JSX.Elemen
   const [pending, setPending] = createSignal(false);
   const [error, setError] = createSignal("");
   let action:
-    | { readonly blueprintCourseId: string; readonly revision: string; readonly key: string }
+    | {
+        readonly blueprintCourseId: string;
+        readonly revisionNumber: string;
+        readonly key: string;
+      }
     | undefined;
   let disposed = false;
   onCleanup(() => {
@@ -32,17 +36,20 @@ export function BlueprintForkCreate(props: BlueprintForkCreateProps): JSX.Elemen
   async function createFork(): Promise<void> {
     if (pending() || !canFork()) return;
     const blueprintCourseId = props.source.id;
-    const revision = props.source.current_revision_tuple.revisionNumber;
+    const revisionNumber = props.source.current_revision_tuple.revisionNumber;
     setPending(true);
     setError("");
     try {
       // ASVS 2.3.1: uncertain retries retain this operation's key and exact source Revision.
-      if (action?.blueprintCourseId !== blueprintCourseId || action.revision !== revision) {
-        action = { blueprintCourseId, revision, key: crypto.randomUUID() };
+      if (
+        action?.blueprintCourseId !== blueprintCourseId ||
+        action.revisionNumber !== revisionNumber
+      ) {
+        action = { blueprintCourseId, revisionNumber, key: crypto.randomUUID() };
       }
       const result = await props.client.forkBlueprintCourse(
         blueprintCourseId,
-        revision,
+        revisionNumber,
         action.key,
       );
       if (disposed) return;

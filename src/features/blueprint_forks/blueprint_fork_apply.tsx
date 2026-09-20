@@ -176,8 +176,8 @@ export function BlueprintSelectionEditor(props: ApplyProps): JSX.Element {
       await props.client.applyBlueprintFork(
         props.review.right.currentRevisionTuple.blueprintCourseId,
         {
-          expectedSource: props.review.left.currentRevisionTuple,
-          expectedFork: props.review.right.currentRevisionTuple,
+          expectedSourceRevisionTuple: props.review.left.currentRevisionTuple,
+          expectedForkRevisionTuple: props.review.right.currentRevisionTuple,
           expectedSourceBlueprintEditNumber: props.review.left.blueprintEditNumber,
           expectedForkBlueprintEditNumber: props.review.right.blueprintEditNumber,
           sourceShortName: shortName(),

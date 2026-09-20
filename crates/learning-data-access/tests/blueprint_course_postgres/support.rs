@@ -348,11 +348,11 @@ pub(super) async fn assert_immutable_child(
     connection: &mut PgConnection,
     sql: &'static str,
     blueprint_course_id_sql: &str,
-    revision: i64,
+    revision_number: i64,
 ) {
     let error = sqlx::query(sql)
         .bind(blueprint_course_id_sql)
-        .bind(revision)
+        .bind(revision_number)
         .execute(&mut *connection)
         .await
         .expect_err("sealed Revision child mutation must fail");

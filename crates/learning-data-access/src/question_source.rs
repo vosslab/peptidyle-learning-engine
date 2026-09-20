@@ -173,17 +173,20 @@ pub struct PreparedQuestionAssetPublication {
 }
 
 impl PreparedQuestionAssetPublication {
-    pub fn validate(&self, revision: &QuestionRevisionTuple) -> Result<(), StoreError> {
+    pub fn validate(
+        &self,
+        question_revision_tuple: &QuestionRevisionTuple,
+    ) -> Result<(), StoreError> {
         let record = &self.restricted_source_record;
         let expected = ObjectAddress::RestrictedQuestionAsset {
-            question_revision_tuple: revision.clone(),
+            question_revision_tuple: question_revision_tuple.clone(),
             asset: self.asset_id,
             object: record.id,
         };
         if record.address != expected
             || record.storage_area != ObjectStorageArea::PrivateContent
             || record.data_class != ObjectDataClass::QuestionAsset
-            || record.question_revision_tuple.as_ref() != Some(revision)
+            || record.question_revision_tuple.as_ref() != Some(question_revision_tuple)
             || record.id == self.public_object_id
         {
             return Err(StoreError::InvalidRecord(

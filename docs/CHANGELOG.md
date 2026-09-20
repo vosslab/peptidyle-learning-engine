@@ -10,6 +10,29 @@
 
 ### Fixes and Maintenance
 
+- Remaining Tuple JSON fields use Tuple names: Change Proposal
+  `sourceRevisionTuple` / `targetRevisionTuple` /
+  `expectedTargetRevisionTuple`, fork apply
+  `expectedSourceRevisionTuple` / `expectedForkRevisionTuple`,
+  stewardship `questionRevisionTuple` / `forkRevisionTuple`, and
+  capability `questionRevisionTuple`. Library Question detail uses
+  `?revisionNumber=`. Assessment editor concurrency is `etag`, not
+  `revision`. Gate: `cargo tsgen`, `npx tsc --noEmit -p tsconfig.json`.
+
+- Student-view and Blueprint Course routes use `{revision_number}` for a lone
+  Revision Number. Helpers that return or take a Question Revision Tuple are
+  named Tuple (`row_question_revision_tuple`,
+  `content_question_revision_tuples`,
+  `requested_question_revision_tuples_*`, `decode_fork_asset` /
+  `prepare_hotspot_asset` parameters). Gate:
+  `cargo check -p learning-data-access -p server_core`.
+
+- SQL append parameters `p_prior_revision_number` /
+  `p_saved_revision_number` are Revision Numbers. LDA `parse_revision_number`
+  parses a SQL bigint into `BlueprintRevisionNumber`. Student View
+  `verified_question_revision_tuple` takes a Tuple. Gate:
+  `cargo check -p learning-data-access -p server_core`.
+
 - Live-demo Course Instance origin JSON is `adoptedRevisionNumber` /
   `currentRevisionNumber`. Question Library and Assessment live-demo JSON
   use `questionRevisionTuple`. SQL `p_expected_revision_number` /

@@ -12,9 +12,9 @@ use std::collections::BTreeMap;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BlueprintChangeProposalCreateRequest {
-    pub source: BlueprintRevisionTuple,
+    pub source_revision_tuple: BlueprintRevisionTuple,
     pub source_blueprint_edit_number: BlueprintEditNumber,
-    pub target: BlueprintRevisionTuple,
+    pub target_revision_tuple: BlueprintRevisionTuple,
     pub target_blueprint_edit_number: BlueprintEditNumber,
 }
 
@@ -39,7 +39,7 @@ pub enum BlueprintChangeProposalDecisionView {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BlueprintChangeProposalAcceptanceRequest {
-    pub expected_target: BlueprintRevisionTuple,
+    pub expected_target_revision_tuple: BlueprintRevisionTuple,
     pub expected_target_blueprint_edit_number: BlueprintEditNumber,
     pub decision: BlueprintChangeProposalDecisionView,
 }
@@ -48,7 +48,7 @@ pub struct BlueprintChangeProposalAcceptanceRequest {
 #[serde(rename_all = "camelCase")]
 pub struct BlueprintChangeProposalAcceptedSummaryView {
     pub accepted_at: Timestamp,
-    pub target: BlueprintRevisionTuple,
+    pub target_revision_tuple: BlueprintRevisionTuple,
     pub target_blueprint_edit_number: BlueprintEditNumber,
 }
 
@@ -58,10 +58,10 @@ pub struct BlueprintChangeProposalAcceptedSummaryView {
 pub struct BlueprintChangeProposalSummaryView {
     pub proposal_id: String,
     pub created_at: Timestamp,
-    pub source: BlueprintRevisionTuple,
+    pub source_revision_tuple: BlueprintRevisionTuple,
     pub source_blueprint_edit_number: BlueprintEditNumber,
     pub source_names: BlueprintComparisonNames,
-    pub target: BlueprintRevisionTuple,
+    pub target_revision_tuple: BlueprintRevisionTuple,
     pub target_blueprint_edit_number: BlueprintEditNumber,
     pub target_names: BlueprintComparisonNames,
     pub target_is_stale: bool,
@@ -104,7 +104,7 @@ pub struct BlueprintChangeProposalComparisonView {
 #[serde(rename_all = "camelCase")]
 pub struct BlueprintChangeProposalAcceptedView {
     pub accepted_at: Timestamp,
-    pub target: BlueprintRevisionTuple,
+    pub target_revision_tuple: BlueprintRevisionTuple,
     pub target_blueprint_edit_number: BlueprintEditNumber,
     pub decision: BlueprintChangeProposalDecisionView,
     pub applied_selection: question_model::blueprint_course::BlueprintForkApplySelection,

@@ -82,7 +82,7 @@ export type AssessmentAttemptRemainingDurationEvaluator = (
 ) => Promise<number | null>;
 
 export interface AssessmentQuestionConfig {
-  readonly question: QuestionRevisionTuple;
+  readonly questionRevisionTuple: QuestionRevisionTuple;
   readonly questionBackendCapabilities: QuestionBackendCapabilities;
 }
 
@@ -92,7 +92,7 @@ export interface AssessmentConfig {
 }
 
 export interface CapabilityViolation {
-  readonly question: QuestionRevisionTuple;
+  readonly questionRevisionTuple: QuestionRevisionTuple;
   readonly capability: Capability;
 }
 
@@ -309,9 +309,9 @@ function parseCapabilityViolations(json: string): ReadonlyArray<CapabilityViolat
       throw new Error("WASM capability violation must be an object");
     }
     return {
-      question: decodeQuestionRevisionTuple(
-        entry["question"],
-        "capabilityViolation.question",
+      questionRevisionTuple: decodeQuestionRevisionTuple(
+        entry["questionRevisionTuple"],
+        "capabilityViolation.questionRevisionTuple",
         true,
       ),
       capability: parseCapability(entry["capability"]),

@@ -40,10 +40,10 @@ function summary(value: unknown, path: string): BlueprintChangeProposalSummaryVi
   requireOnlyFields(record, path, [
     "proposalId",
     "createdAt",
-    "source",
+    "sourceRevisionTuple",
     "sourceBlueprintEditNumber",
     "sourceNames",
-    "target",
+    "targetRevisionTuple",
     "targetBlueprintEditNumber",
     "targetNames",
     "targetIsStale",
@@ -54,10 +54,17 @@ function summary(value: unknown, path: string): BlueprintChangeProposalSummaryVi
     `${path}.accepted`,
     (item, itemPath) => {
       const row = decodeRecord(item, itemPath);
-      requireOnlyFields(row, itemPath, ["acceptedAt", "target", "targetBlueprintEditNumber"]);
+      requireOnlyFields(row, itemPath, [
+        "acceptedAt",
+        "targetRevisionTuple",
+        "targetBlueprintEditNumber",
+      ]);
       return {
         acceptedAt: decodeTimestamp(field(row, "acceptedAt", itemPath), `${itemPath}.acceptedAt`),
-        target: blueprintRevisionTuple(field(row, "target", itemPath), `${itemPath}.target`),
+        targetRevisionTuple: blueprintRevisionTuple(
+          field(row, "targetRevisionTuple", itemPath),
+          `${itemPath}.targetRevisionTuple`,
+        ),
         targetBlueprintEditNumber: blueprintEditNumber(
           field(row, "targetBlueprintEditNumber", itemPath),
           `${itemPath}.targetBlueprintEditNumber`,
@@ -68,13 +75,19 @@ function summary(value: unknown, path: string): BlueprintChangeProposalSummaryVi
   return {
     proposalId: decodeUuid(field(record, "proposalId", path), `${path}.proposalId`),
     createdAt: decodeTimestamp(field(record, "createdAt", path), `${path}.createdAt`),
-    source: blueprintRevisionTuple(field(record, "source", path), `${path}.source`),
+    sourceRevisionTuple: blueprintRevisionTuple(
+      field(record, "sourceRevisionTuple", path),
+      `${path}.sourceRevisionTuple`,
+    ),
     sourceBlueprintEditNumber: blueprintEditNumber(
       field(record, "sourceBlueprintEditNumber", path),
       `${path}.sourceBlueprintEditNumber`,
     ),
     sourceNames: names(field(record, "sourceNames", path), `${path}.sourceNames`),
-    target: blueprintRevisionTuple(field(record, "target", path), `${path}.target`),
+    targetRevisionTuple: blueprintRevisionTuple(
+      field(record, "targetRevisionTuple", path),
+      `${path}.targetRevisionTuple`,
+    ),
     targetBlueprintEditNumber: blueprintEditNumber(
       field(record, "targetBlueprintEditNumber", path),
       `${path}.targetBlueprintEditNumber`,
@@ -277,7 +290,7 @@ function accepted(value: unknown, path: string): BlueprintChangeProposalAccepted
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "acceptedAt",
-    "target",
+    "targetRevisionTuple",
     "targetBlueprintEditNumber",
     "decision",
     "appliedSelection",
@@ -287,7 +300,10 @@ function accepted(value: unknown, path: string): BlueprintChangeProposalAccepted
   ]);
   return {
     acceptedAt: decodeTimestamp(field(record, "acceptedAt", path), `${path}.acceptedAt`),
-    target: blueprintRevisionTuple(field(record, "target", path), `${path}.target`),
+    targetRevisionTuple: blueprintRevisionTuple(
+      field(record, "targetRevisionTuple", path),
+      `${path}.targetRevisionTuple`,
+    ),
     targetBlueprintEditNumber: blueprintEditNumber(
       field(record, "targetBlueprintEditNumber", path),
       `${path}.targetBlueprintEditNumber`,
@@ -320,18 +336,24 @@ export function decodeBlueprintChangeProposalCreateRequest(
 ): BlueprintChangeProposalCreateRequest {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "source",
+    "sourceRevisionTuple",
     "sourceBlueprintEditNumber",
-    "target",
+    "targetRevisionTuple",
     "targetBlueprintEditNumber",
   ]);
   return {
-    source: blueprintRevisionTuple(field(record, "source", path), `${path}.source`),
+    sourceRevisionTuple: blueprintRevisionTuple(
+      field(record, "sourceRevisionTuple", path),
+      `${path}.sourceRevisionTuple`,
+    ),
     sourceBlueprintEditNumber: blueprintEditNumber(
       field(record, "sourceBlueprintEditNumber", path),
       `${path}.sourceBlueprintEditNumber`,
     ),
-    target: blueprintRevisionTuple(field(record, "target", path), `${path}.target`),
+    targetRevisionTuple: blueprintRevisionTuple(
+      field(record, "targetRevisionTuple", path),
+      `${path}.targetRevisionTuple`,
+    ),
     targetBlueprintEditNumber: blueprintEditNumber(
       field(record, "targetBlueprintEditNumber", path),
       `${path}.targetBlueprintEditNumber`,
@@ -345,14 +367,14 @@ export function decodeBlueprintChangeProposalAcceptanceRequest(
 ): BlueprintChangeProposalAcceptanceRequest {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "expectedTarget",
+    "expectedTargetRevisionTuple",
     "expectedTargetBlueprintEditNumber",
     "decision",
   ]);
   return {
-    expectedTarget: blueprintRevisionTuple(
-      field(record, "expectedTarget", path),
-      `${path}.expectedTarget`,
+    expectedTargetRevisionTuple: blueprintRevisionTuple(
+      field(record, "expectedTargetRevisionTuple", path),
+      `${path}.expectedTargetRevisionTuple`,
     ),
     expectedTargetBlueprintEditNumber: blueprintEditNumber(
       field(record, "expectedTargetBlueprintEditNumber", path),

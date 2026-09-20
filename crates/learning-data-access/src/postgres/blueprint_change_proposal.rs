@@ -134,11 +134,15 @@ impl BlueprintChangeProposalStore for PostgresBlueprintCourseStore {
         let proposal_id: uuid::Uuid = sqlx::query_scalar(
             "SELECT ple_api.create_blueprint_change_proposal($1, $2, $3, $4, $5, $6)",
         )
-        .bind(input.source.blueprint_course_id.as_string())
-        .bind(revision_number(input.source.revision_number)?)
+        .bind(input.source_revision_tuple.blueprint_course_id.as_string())
+        .bind(revision_number(
+            input.source_revision_tuple.revision_number,
+        )?)
         .bind(input.source_blueprint_edit_number.as_i64())
-        .bind(input.target.blueprint_course_id.as_string())
-        .bind(revision_number(input.target.revision_number)?)
+        .bind(input.target_revision_tuple.blueprint_course_id.as_string())
+        .bind(revision_number(
+            input.target_revision_tuple.revision_number,
+        )?)
         .bind(input.target_blueprint_edit_number.as_i64())
         .fetch_one(&mut *transaction)
         .await
@@ -177,8 +181,15 @@ impl BlueprintChangeProposalStore for PostgresBlueprintCourseStore {
         // interpreting selection or allocating any persistent Pool children.
         sqlx::query("SELECT ple_api.lock_blueprint_change_proposal_acceptance($1,$2,$3,$4)")
             .bind(input.proposal_id)
-            .bind(input.expected_target.blueprint_course_id.as_string())
-            .bind(revision_number(input.expected_target.revision_number)?)
+            .bind(
+                input
+                    .expected_target_revision_tuple
+                    .blueprint_course_id
+                    .as_string(),
+            )
+            .bind(revision_number(
+                input.expected_target_revision_tuple.revision_number,
+            )?)
             .bind(input.expected_target_blueprint_edit_number.as_i64())
             .execute(&mut *transaction)
             .await
@@ -323,8 +334,15 @@ impl BlueprintChangeProposalStore for PostgresBlueprintCourseStore {
             "SELECT ple_api.finalize_blueprint_change_proposal_acceptance($1,$2,$3,$4,$5,$6,$7,$8)",
         )
         .bind(input.proposal_id)
-        .bind(input.expected_target.blueprint_course_id.as_string())
-        .bind(revision_number(input.expected_target.revision_number)?)
+        .bind(
+            input
+                .expected_target_revision_tuple
+                .blueprint_course_id
+                .as_string(),
+        )
+        .bind(revision_number(
+            input.expected_target_revision_tuple.revision_number,
+        )?)
         .bind(input.expected_target_blueprint_edit_number.as_i64())
         .bind(Json(encoded_evidence))
         .bind(checksum.to_vec())
@@ -464,7 +482,7 @@ async fn read_accepted_in_transaction(
         accepted_at: Timestamp::from_unix_millis(
             row.try_get("accepted_at_ms").map_err(map_sqlx_error)?,
         ),
-        target: blueprint_revision_tuple(&row)?,
+        target_revision_tuple: blueprint_revision_tuple(&row)?,
         target_blueprint_edit_number: BlueprintEditNumber::from_edit_number(
             row.try_get("blueprint_edit_number")
                 .map_err(map_sqlx_error)?,
@@ -527,13 +545,13 @@ async fn read_sources_in_transaction(
         created_at: Timestamp::from_unix_millis(
             source.try_get("created_at_ms").map_err(map_sqlx_error)?,
         ),
-        source: blueprint_revision_tuple(source)?,
+        source_revision_tuple: blueprint_revision_tuple(source)?,
         source_blueprint_edit_number: BlueprintEditNumber::from_edit_number(
             source
                 .try_get("blueprint_edit_number")
                 .map_err(map_sqlx_error)?,
         ),
-        target: blueprint_revision_tuple(target)?,
+        target_revision_tuple: blueprint_revision_tuple(target)?,
         target_blueprint_edit_number: BlueprintEditNumber::from_edit_number(
             target
                 .try_get("blueprint_edit_number")
@@ -545,11 +563,11 @@ async fn read_sources_in_transaction(
     };
     let revisions = [
         StoredBlueprintRevision {
-            blueprint_revision_tuple: proposal.source.clone(),
+            blueprint_revision_tuple: proposal.source_revision_tuple.clone(),
             content: source_content,
         },
         StoredBlueprintRevision {
-            blueprint_revision_tuple: proposal.target.clone(),
+            blueprint_revision_tuple: proposal.target_revision_tuple.clone(),
             content: target_content,
         },
     ];
@@ -589,13 +607,13 @@ fn blueprint_revision_tuple(
     row: &sqlx::postgres::PgRow,
 ) -> Result<BlueprintRevisionTuple, StoreError> {
     let blueprint_course_id: String = row.try_get("blueprint_course_id").map_err(map_sqlx_error)?;
-    let revision: i64 = row.try_get("revision_number").map_err(map_sqlx_error)?;
+    let revision_number: i64 = row.try_get("revision_number").map_err(map_sqlx_error)?;
     Ok(BlueprintRevisionTuple {
         blueprint_course_id: blueprint_course_id
             .parse::<BlueprintCourseId>()
             .map_err(|_| invalid())?,
         revision_number: BlueprintRevisionNumber::new(
-            u64::try_from(revision).map_err(|_| invalid())?,
+            u64::try_from(revision_number).map_err(|_| invalid())?,
         )
         .ok_or_else(invalid)?,
     })
@@ -616,7 +634,7 @@ fn proposal_summary(
         (None, None, None) => None,
         (Some(at), Some(revision), Some(etag)) => Some(BlueprintChangeProposalAcceptedSummary {
             accepted_at: Timestamp::from_unix_millis(at),
-            target: BlueprintRevisionTuple {
+            target_revision_tuple: BlueprintRevisionTuple {
                 blueprint_course_id: target.blueprint_course_id.clone(),
                 revision_number: BlueprintRevisionNumber::new(
                     u64::try_from(revision).map_err(|_| invalid())?,
@@ -632,14 +650,18 @@ fn proposal_summary(
         created_at: Timestamp::from_unix_millis(
             row.try_get("created_at_ms").map_err(map_sqlx_error)?,
         ),
-        source: summary_tuple(row, "source_blueprint_course_id", "source_revision_number")?,
+        source_revision_tuple: summary_tuple(
+            row,
+            "source_blueprint_course_id",
+            "source_revision_number",
+        )?,
         source_blueprint_edit_number: BlueprintEditNumber::from_edit_number(
             row.try_get("source_blueprint_edit_number")
                 .map_err(map_sqlx_error)?,
         ),
         source_short_name: row.try_get("source_short_name").map_err(map_sqlx_error)?,
         source_long_name: row.try_get("source_long_name").map_err(map_sqlx_error)?,
-        target,
+        target_revision_tuple: target,
         target_blueprint_edit_number: BlueprintEditNumber::from_edit_number(
             row.try_get("target_blueprint_edit_number")
                 .map_err(map_sqlx_error)?,
@@ -657,18 +679,18 @@ fn summary_tuple(
     number: &str,
 ) -> Result<BlueprintRevisionTuple, StoreError> {
     let value: String = row.try_get(name).map_err(map_sqlx_error)?;
-    let revision: i64 = row.try_get(number).map_err(map_sqlx_error)?;
+    let revision_number: i64 = row.try_get(number).map_err(map_sqlx_error)?;
     Ok(BlueprintRevisionTuple {
         blueprint_course_id: value.parse().map_err(|_| invalid())?,
         revision_number: BlueprintRevisionNumber::new(
-            u64::try_from(revision).map_err(|_| invalid())?,
+            u64::try_from(revision_number).map_err(|_| invalid())?,
         )
         .ok_or_else(invalid)?,
     })
 }
 
-fn revision_number(revision: BlueprintRevisionNumber) -> Result<i64, StoreError> {
-    i64::try_from(revision.value()).map_err(|_| invalid())
+fn revision_number(revision_number: BlueprintRevisionNumber) -> Result<i64, StoreError> {
+    i64::try_from(revision_number.value()).map_err(|_| invalid())
 }
 
 fn invalid() -> StoreError {

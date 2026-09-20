@@ -100,11 +100,12 @@ export function ProposalRecords(props: {
                     </A>
                   </h3>
                   <p>
-                    Source {item.sourceNames.shortName}, Revision {item.source.revisionNumber};
-                    comparison target {item.targetNames.shortName}, Revision{" "}
-                    {item.target.revisionNumber}.{" "}
+                    Source {item.sourceNames.shortName}, Revision{" "}
+                    {item.sourceRevisionTuple.revisionNumber}; comparison target{" "}
+                    {item.targetNames.shortName}, Revision {item.targetRevisionTuple.revisionNumber}
+                    .{" "}
                     {item.accepted
-                      ? `Accepted target Revision ${item.accepted.target.revisionNumber}`
+                      ? `Accepted target Revision ${item.accepted.targetRevisionTuple.revisionNumber}`
                       : item.targetIsStale
                         ? "Older target basis; acceptance unavailable"
                         : "Proposed"}
@@ -201,9 +202,9 @@ export function ProposalTargetTools(props: {
     setBusy(true);
     try {
       const result = await props.client.createBlueprintChangeProposal(target.id, {
-        source: source.current_revision_tuple,
+        sourceRevisionTuple: source.current_revision_tuple,
         sourceBlueprintEditNumber: source.blueprint_edit_number,
-        target: target.current_revision_tuple,
+        targetRevisionTuple: target.current_revision_tuple,
         targetBlueprintEditNumber: target.blueprint_edit_number,
       });
       if (generation !== targetGeneration) return;

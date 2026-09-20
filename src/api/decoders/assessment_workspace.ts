@@ -23,7 +23,7 @@ import {
 export function decodeAssessmentEditorDetail(
   value: unknown,
   path = "response",
-): Omit<AssessmentEditorDetail, "revision"> {
+): Omit<AssessmentEditorDetail, "etag"> {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "id",
@@ -67,7 +67,7 @@ export function decodeAssessmentEditorDetail(
     assessmentAuthoredContent,
     assessmentAvailability,
     assessmentReleaseValidation,
-  } satisfies Omit<AssessmentEditorDetail, "revision">;
+  } satisfies Omit<AssessmentEditorDetail, "etag">;
   return decoded;
 }
 

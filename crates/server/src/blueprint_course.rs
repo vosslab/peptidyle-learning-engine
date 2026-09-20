@@ -153,11 +153,11 @@ pub fn blueprint_course_router(
             post(publish_blueprint),
         )
         .route(
-            "/api/course-blueprints/{blueprint_course_id}/revisions/{revision}",
+            "/api/course-blueprints/{blueprint_course_id}/revisions/{revision_number}",
             get(load_revision),
         )
         .route(
-            "/api/course-blueprints/{blueprint_course_id}/revisions/{revision}/fork",
+            "/api/course-blueprints/{blueprint_course_id}/revisions/{revision_number}/fork",
             post(fork_blueprint),
         )
         .route(
@@ -354,13 +354,13 @@ async fn rename_blueprint(
 async fn load_revision(
     State(state): State<BlueprintCourseRouteState>,
     headers: HeaderMap,
-    Path((blueprint_course_id, revision)): Path<(String, String)>,
+    Path((blueprint_course_id, revision_number)): Path<(String, String)>,
 ) -> Response {
     let blueprint_course_id = match parse_blueprint_course_id(&blueprint_course_id) {
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let revision = match revision.parse::<BlueprintRevisionNumber>() {
+    let revision_number = match revision_number.parse::<BlueprintRevisionNumber>() {
         Ok(value) => value,
         Err(_) => return concealed(),
     };
@@ -370,7 +370,7 @@ async fn load_revision(
     };
     let blueprint_revision_tuple = BlueprintRevisionTuple {
         blueprint_course_id,
-        revision_number: revision,
+        revision_number,
     };
     let record = match state
         .blueprints
@@ -666,11 +666,11 @@ mod tests {
             revision_number: question_model::QuestionRevisionNumber::new(2).expect("revision two"),
         };
         let values = BTreeMap::from([(older.clone(), "older"), (current.clone(), "current")]);
-        let current_revisions = BTreeMap::from([(question_id, current)]);
+        let current_question_revision_tuples = BTreeMap::from([(question_id, current)]);
 
         assert_eq!(views::exact_revision_value(&older, &values), Some(&"older"));
         assert_eq!(
-            views::selection_availability(&older, &current_revisions),
+            views::selection_availability(&older, &current_question_revision_tuples),
             ReusableSelectionAvailability::Retained
         );
     }

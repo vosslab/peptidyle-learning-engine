@@ -737,10 +737,11 @@ export function decodeQuestionAttemptTimingDecision(
 
 function decodeCapabilityViolation(value: unknown, path: string): CapabilityViolation {
   const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["questionRevisionTuple", "capability"]);
   const decoded = {
-    question: decodeQuestionRevisionTuple(
-      field(record, "question", path),
-      `${path}.question`,
+    questionRevisionTuple: decodeQuestionRevisionTuple(
+      field(record, "questionRevisionTuple", path),
+      `${path}.questionRevisionTuple`,
       true,
     ),
     capability: decodeCapability(field(record, "capability", path), `${path}.capability`),

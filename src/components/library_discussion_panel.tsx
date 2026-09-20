@@ -26,7 +26,7 @@ function timestamp(value: number): string {
   return new Date(value).toLocaleString();
 }
 
-function revision(value: string): number | null {
+function parseRevisionNumber(value: string): number | null {
   if (value.trim() === "") return null;
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
@@ -91,7 +91,7 @@ function ActiveImpactNotice(props: {
   const [error, setError] = createSignal("");
 
   async function update(): Promise<void> {
-    const value = revision(affectedRevision());
+    const value = parseRevisionNumber(affectedRevision());
     if (affectedRevision().trim() !== "" && value === null) {
       setError("Affected Revision must be a positive whole number.");
       return;
@@ -204,7 +204,7 @@ export function LibraryDiscussionPanel(props: LibraryDiscussionPanelProps): JSX.
   }
 
   async function createNotice(): Promise<void> {
-    const affectedRevision = revision(noticeRevision());
+    const affectedRevision = parseRevisionNumber(noticeRevision());
     if (noticeRevision().trim() !== "" && affectedRevision === null) {
       setError("Affected Revision must be a positive whole number.");
       return;

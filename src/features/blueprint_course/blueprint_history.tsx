@@ -180,7 +180,7 @@ interface HistoryPageProps {
   readonly blueprintCourseId: string;
   readonly kind: "revisions" | "metadata";
   readonly currentRevisionNumber: string;
-  readonly onInspect: (revision: string) => void;
+  readonly onInspect: (revisionNumber: string) => void;
 }
 
 /** One bounded page at a time, with a retry tied to the exact failed continuation. */

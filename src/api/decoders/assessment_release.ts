@@ -157,22 +157,22 @@ export function blueprintRevisionNumber(value: unknown, path: string): Blueprint
 function blueprintAssessmentSource(value: unknown, path: string): BlueprintAssessmentSource {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["blueprint_revision_tuple", "blueprint_assessment_id"]);
-  const revision = decodeRecord(
+  const blueprintRevisionTuple = decodeRecord(
     field(record, "blueprint_revision_tuple", path),
-    `${path}.blueprint_revision`,
+    `${path}.blueprint_revision_tuple`,
   );
-  requireOnlyFields(revision, `${path}.blueprint_revision`, [
+  requireOnlyFields(blueprintRevisionTuple, `${path}.blueprint_revision_tuple`, [
     "blueprintCourseId",
     "revisionNumber",
   ]);
   return {
     blueprint_revision_tuple: {
       blueprintCourseId: decodeBlueprintCourseId(
-        field(revision, "blueprintCourseId", `${path}.blueprint_revision`),
+        field(blueprintRevisionTuple, "blueprintCourseId", path),
         `${path}.blueprint_revision_tuple.blueprintCourseId`,
       ),
       revisionNumber: blueprintRevisionNumber(
-        field(revision, "revisionNumber", `${path}.blueprint_revision`),
+        field(blueprintRevisionTuple, "revisionNumber", path),
         `${path}.blueprint_revision_tuple.revisionNumber`,
       ),
     },

@@ -56,7 +56,7 @@ impl Receipt {
 
     pub(super) fn new(
         blueprint_course_id: String,
-        revision: u64,
+        revision_number: u64,
         manifest: &Manifest,
         revisions: &SourceRevisions,
     ) -> Result<Self> {
@@ -103,7 +103,7 @@ impl Receipt {
             .collect::<Result<Vec<_>>>()?;
         Ok(Self {
             blueprint_course_id,
-            blueprint_revision: revision,
+            blueprint_revision: revision_number,
             source_repository: manifest.course.source_repository.clone(),
             source_revision: manifest.course.source_revision.clone(),
             topics,

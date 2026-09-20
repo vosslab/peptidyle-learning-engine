@@ -20,20 +20,20 @@ use super::{
 pub(super) async fn fork_blueprint(
     State(state): State<BlueprintCourseRouteState>,
     headers: HeaderMap,
-    Path((blueprint_course_id, revision)): Path<(String, String)>,
+    Path((blueprint_course_id, revision_number)): Path<(String, String)>,
 ) -> Response {
     let blueprint_course_id = match parse_blueprint_course_id(&blueprint_course_id) {
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let revision = match revision.parse::<BlueprintRevisionNumber>() {
+    let revision_number = match revision_number.parse::<BlueprintRevisionNumber>() {
         Ok(value) => value,
         Err(_) => return concealed(),
     };
     let checksum = match request_checksum(
         "fork-blueprint-course",
         &headers,
-        &(blueprint_course_id.clone(), revision),
+        &(blueprint_course_id.clone(), revision_number),
     ) {
         Ok(value) => value,
         Err(response) => return *response,
@@ -49,7 +49,7 @@ pub(super) async fn fork_blueprint(
             BlueprintForkSource {
                 blueprint_revision_tuple: BlueprintRevisionTuple {
                     blueprint_course_id,
-                    revision_number: revision,
+                    revision_number,
                 },
             },
             checksum,

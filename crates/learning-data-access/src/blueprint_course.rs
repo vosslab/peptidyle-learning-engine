@@ -48,8 +48,8 @@ pub struct StoredBlueprintPromotion {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ApplyBlueprintForkInput {
-    pub expected_source: BlueprintRevisionTuple,
-    pub expected_fork: BlueprintRevisionTuple,
+    pub expected_source_revision_tuple: BlueprintRevisionTuple,
+    pub expected_fork_revision_tuple: BlueprintRevisionTuple,
     pub expected_source_blueprint_edit_number: BlueprintEditNumber,
     pub expected_fork_blueprint_edit_number: BlueprintEditNumber,
     pub source_short_name: bool,
@@ -242,25 +242,25 @@ impl StoredBlueprintCourseContent {
         Ok(content)
     }
 
-    pub fn requested_question_revisions_from_create(
+    pub fn requested_question_revision_tuples_from_create(
         input: &CreateBlueprintCourseInput,
     ) -> Vec<QuestionRevisionTuple> {
         input
             .modules
             .iter()
             .flat_map(|module| module.assessments.iter())
-            .flat_map(requested_question_revisions)
+            .flat_map(requested_question_revision_tuples)
             .collect()
     }
 
-    pub fn requested_question_revisions_from_replace(
+    pub fn requested_question_revision_tuples_from_replace(
         input: &ReplaceBlueprintCourseContentInput,
     ) -> Vec<QuestionRevisionTuple> {
         input
             .modules
             .iter()
             .flat_map(|module| module.assessments.iter())
-            .flat_map(|assessment| requested_question_revisions(&assessment.content))
+            .flat_map(|assessment| requested_question_revision_tuples(&assessment.content))
             .collect()
     }
 
@@ -591,7 +591,7 @@ pub trait BlueprintCourseStore: Send + Sync {
     ) -> Result<BlueprintMetadataState, StoreError>;
 }
 
-fn requested_question_revisions(
+fn requested_question_revision_tuples(
     input: &BlueprintAssessmentContentInput,
 ) -> Vec<QuestionRevisionTuple> {
     input

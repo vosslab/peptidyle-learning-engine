@@ -243,7 +243,7 @@ async fn load_hotspot_asset(
     state: &RouteState,
     session: SessionTokenHash,
     entry: &PublishedQuestionLibraryEntry,
-    revision: &QuestionRevisionTuple,
+    question_revision_tuple: &QuestionRevisionTuple,
     source: &[u8],
 ) -> Result<Option<VerifiedForkHotspotAsset>, Box<Response>> {
     if entry.question_type != QuestionType::Hotspot {
@@ -262,7 +262,7 @@ async fn load_hotspot_asset(
     };
     let evidence = state
         .forks
-        .load_published_question_fork_asset(session, revision)
+        .load_published_question_fork_asset(session, question_revision_tuple)
         .await
         .map_err(|_| Box::new(unavailable()))?
         .ok_or_else(|| Box::new(unavailable()))?;

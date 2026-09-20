@@ -64,7 +64,7 @@ export interface AssessmentEditorDetail extends AssessmentSummary {
   /** Closed, server-derived release blockers for this Assessment. */
   readonly assessmentReleaseValidation: AssessmentReleaseValidation;
   /** Strong server-issued ETag; send it byte-for-byte when updating. */
-  readonly revision: string;
+  readonly etag: string;
 }
 
 /** Authorized resolution of one compact route ID to a browser API identity. */

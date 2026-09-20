@@ -37,7 +37,7 @@ pub(super) async fn apply_fork_update(
         Ok(value) => value,
         Err(error) => return route_error(error.status(), "Blueprint fork update is invalid"),
     };
-    if request.expected_fork.blueprint_course_id != blueprint_course_id {
+    if request.expected_fork_revision_tuple.blueprint_course_id != blueprint_course_id {
         return route_error(StatusCode::BAD_REQUEST, "Blueprint fork ID does not match");
     }
     let result = match state
@@ -45,8 +45,8 @@ pub(super) async fn apply_fork_update(
         .apply_blueprint_fork(
             session,
             ApplyBlueprintForkInput {
-                expected_source: request.expected_source,
-                expected_fork: request.expected_fork,
+                expected_source_revision_tuple: request.expected_source_revision_tuple,
+                expected_fork_revision_tuple: request.expected_fork_revision_tuple,
                 expected_source_blueprint_edit_number: request
                     .expected_source_blueprint_edit_number,
                 expected_fork_blueprint_edit_number: request.expected_fork_blueprint_edit_number,
@@ -64,7 +64,7 @@ pub(super) async fn apply_fork_update(
     };
     // ASVS 2.3.3/8.2.3: project only the result committed together, not a later
     // reload; actor identity and private ordinary-Save receipt fields stay internal.
-    let revision = result.save.blueprint_revision_tuple.revision_number;
+    let revision_number = result.save.blueprint_revision_tuple.revision_number;
     let mut response = crate::auth::no_store(
         Json(BlueprintForkApplyResponse {
             blueprint_revision_tuple: result.save.blueprint_revision_tuple,
@@ -73,7 +73,7 @@ pub(super) async fn apply_fork_update(
         })
         .into_response(),
     );
-    match HeaderValue::from_str(&format!("\"{revision}\"")) {
+    match HeaderValue::from_str(&format!("\"{revision_number}\"")) {
         Ok(value) => {
             response.headers_mut().insert(ETAG, value);
             response

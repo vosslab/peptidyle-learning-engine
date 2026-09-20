@@ -37,7 +37,7 @@ pub(super) fn decode_summary(
             row.try_get("blueprint_edit_number")
                 .map_err(map_sqlx_error)?,
         ),
-        current_revision_number: revision(
+        current_revision_number: parse_revision_number(
             row.try_get("current_blueprint_revision_number")
                 .map_err(map_sqlx_error)?,
         )?,
@@ -57,7 +57,7 @@ pub(super) fn decode_course(
     let fork_source_tuple = match (fork_source_blueprint_course_id, fork_source_revision_number) {
         (Some(source), Some(number)) => Some(BlueprintRevisionTuple {
             blueprint_course_id: blueprint_course_id(source)?,
-            revision_number: revision(number)?,
+            revision_number: parse_revision_number(number)?,
         }),
         (None, None) => None,
         _ => return Err(invalid("fork origin")),
@@ -78,7 +78,7 @@ pub(super) fn decode_course(
             row.try_get("blueprint_edit_number")
                 .map_err(map_sqlx_error)?,
         ),
-        current_revision_number: revision(
+        current_revision_number: parse_revision_number(
             row.try_get("current_blueprint_revision_number")
                 .map_err(map_sqlx_error)?,
         )?,
@@ -154,7 +154,7 @@ pub(super) fn availability_value(value: String) -> Result<BlueprintAvailability,
 pub(super) fn blueprint_course_id(value: String) -> Result<BlueprintCourseId, StoreError> {
     value.parse().map_err(|_| invalid("Blueprint Course ID"))
 }
-pub(super) fn revision(value: i64) -> Result<BlueprintRevisionNumber, StoreError> {
+pub(super) fn parse_revision_number(value: i64) -> Result<BlueprintRevisionNumber, StoreError> {
     u64::try_from(value)
         .ok()
         .and_then(BlueprintRevisionNumber::new)

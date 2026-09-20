@@ -38,16 +38,17 @@ pub struct LibraryObjectTuple {
 )]
 pub enum LibraryStewardshipEvent {
     /// An improvement thread was created or received a retained post.
-    ImprovementThreadActivity { object: LibraryObjectTuple },
+    ImprovementThreadActivity { object_tuple: LibraryObjectTuple },
     /// An owner-maintained impact notice was created, changed, or cancelled.
-    ImpactNotice { object: LibraryObjectTuple },
+    ImpactNotice { object_tuple: LibraryObjectTuple },
 }
 
 impl LibraryStewardshipEvent {
     /// The stable Library Object lineage affected by this activity.
-    pub fn object(&self) -> &LibraryObjectTuple {
+    pub fn object_tuple(&self) -> &LibraryObjectTuple {
         match self {
-            Self::ImprovementThreadActivity { object } | Self::ImpactNotice { object } => object,
+            Self::ImprovementThreadActivity { object_tuple }
+            | Self::ImpactNotice { object_tuple } => object_tuple,
         }
     }
 }

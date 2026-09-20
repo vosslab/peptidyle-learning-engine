@@ -51,7 +51,7 @@ export function ProposalReview(props: {
       const result = await props.client.acceptBlueprintChangeProposal(
         props.detail.proposal.proposalId,
         {
-          expectedTarget: props.detail.proposal.target,
+          expectedTargetRevisionTuple: props.detail.proposal.targetRevisionTuple,
           expectedTargetBlueprintEditNumber: props.detail.proposal.targetBlueprintEditNumber,
           decision,
         },
@@ -446,9 +446,10 @@ function AcceptedResult(props: {
     <section aria-label="Committed acceptance result">
       <h3>Accepted: exact committed target</h3>
       <p>
-        Blueprint {props.value.target.blueprintCourseId}, Revision{" "}
-        {props.value.target.revisionNumber}, edit {props.value.targetBlueprintEditNumber}; accepted{" "}
-        {props.value.acceptedAt}. Decision: {props.value.decision.kind}.
+        Blueprint {props.value.targetRevisionTuple.blueprintCourseId}, Revision{" "}
+        {props.value.targetRevisionTuple.revisionNumber}, edit{" "}
+        {props.value.targetBlueprintEditNumber}; accepted {props.value.acceptedAt}. Decision:{" "}
+        {props.value.decision.kind}.
       </p>
       <Show when={props.value.decision.kind === "selected" ? props.value.decision : undefined}>
         {(decision) => (

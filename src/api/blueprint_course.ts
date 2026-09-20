@@ -75,7 +75,7 @@ export interface BlueprintCourseClient extends BlueprintStewardshipClient {
   ) => Promise<BlueprintPoolMembersView>;
   readonly forkBlueprintCourse: (
     blueprintCourseId: BlueprintCourseId,
-    revision: string,
+    revisionNumber: string,
     idempotencyKey: BlueprintIdempotencyKey,
   ) => Promise<LoadedBlueprintCourse>;
   readonly applyBlueprintFork: (
@@ -122,7 +122,7 @@ export interface BlueprintCourseClient extends BlueprintStewardshipClient {
   ) => Promise<BlueprintMetadataTransition>;
   readonly getBlueprintRevision: (
     blueprintCourseId: BlueprintCourseId,
-    revision: string,
+    revisionNumber: string,
   ) => Promise<BlueprintRevisionView>;
   readonly archiveBlueprintCourse: (
     blueprintCourseId: BlueprintCourseId,

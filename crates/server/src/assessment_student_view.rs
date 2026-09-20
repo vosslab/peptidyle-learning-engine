@@ -72,11 +72,11 @@ pub fn assessment_student_view_router(
             get(manifest),
         )
         .route(
-            "/api/course-instances/{course_instance_id}/assessments/{assessment_id}/student-view/entries/{authored_position}/questions/{question_id}/revisions/{revision}/presentation",
+            "/api/course-instances/{course_instance_id}/assessments/{assessment_id}/student-view/entries/{authored_position}/questions/{question_id}/revisions/{revision_number}/presentation",
             get(presentation),
         )
         .route(
-            "/api/course-instances/{course_instance_id}/assessments/{assessment_id}/student-view/entries/{authored_position}/questions/{question_id}/revisions/{revision}/document",
+            "/api/course-instances/{course_instance_id}/assessments/{assessment_id}/student-view/entries/{authored_position}/questions/{question_id}/revisions/{revision_number}/document",
             get(document),
         )
         .with_state(StateData {
@@ -120,7 +120,7 @@ async fn manifest(
 async fn presentation(
     State(state): State<StateData>,
     headers: HeaderMap,
-    Path((course, assessment, authored_position, question_id, revision)): Path<(
+    Path((course, assessment, authored_position, question_id, revision_number)): Path<(
         String,
         String,
         u32,
@@ -133,7 +133,7 @@ async fn presentation(
         Err(response) => return *response,
     };
     let Some((course, assessment, question_revision_tuple)) =
-        route_question_ids(&course, &assessment, &question_id, revision)
+        route_question_ids(&course, &assessment, &question_id, revision_number)
     else {
         return concealed();
     };
@@ -166,7 +166,7 @@ async fn presentation(
 async fn document(
     State(state): State<StateData>,
     headers: HeaderMap,
-    Path((course, assessment, authored_position, question_id, revision)): Path<(
+    Path((course, assessment, authored_position, question_id, revision_number)): Path<(
         String,
         String,
         u32,
@@ -180,7 +180,7 @@ async fn document(
         Err(response) => return *response,
     };
     let Some((course, assessment, question_revision_tuple)) =
-        route_question_ids(&course, &assessment, &question_id, revision)
+        route_question_ids(&course, &assessment, &question_id, revision_number)
     else {
         return concealed();
     };
@@ -239,7 +239,7 @@ fn project_manifest(
                 availability: AssessmentEntryAvailability::Available,
                 question_revision_tuple,
             } => {
-                verified_revision(&question_revision_tuple)?;
+                verified_question_revision_tuple(&question_revision_tuple)?;
                 PendingEntry::Presented {
                     authored_position,
                     questions: vec![question_revision_tuple],
@@ -252,7 +252,7 @@ fn project_manifest(
                 members,
             } => {
                 for member in &members {
-                    verified_revision(&member.question_revision_tuple)?;
+                    verified_question_revision_tuple(&member.question_revision_tuple)?;
                 }
                 let selected =
                     select_question_pool_items(&assessment_entry, &members, selection_entropy()?)
@@ -549,7 +549,7 @@ fn route_question_ids(
     course: &str,
     assessment: &str,
     question_id: &str,
-    revision: u32,
+    revision_number: u32,
 ) -> Option<(CourseInstanceId, AssessmentId, QuestionRevisionTuple)> {
     let (course, assessment) = route_ids(course, assessment)?;
     let question_id = question_id.parse::<QuestionId>().ok()?;
@@ -559,13 +559,15 @@ fn route_question_ids(
         assessment,
         QuestionRevisionTuple {
             question_id,
-            revision_number: QuestionRevisionNumber::new(revision).ok()?,
+            revision_number: QuestionRevisionNumber::new(revision_number).ok()?,
         },
     ))
 }
 
-fn verified_revision(revision: &QuestionRevisionTuple) -> Result<(), ()> {
-    revision
+fn verified_question_revision_tuple(
+    question_revision_tuple: &QuestionRevisionTuple,
+) -> Result<(), ()> {
+    question_revision_tuple
         .question_id
         .as_str()
         .parse::<QuestionId>()

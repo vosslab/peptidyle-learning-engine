@@ -138,7 +138,7 @@ fn current_attempt_start_from_rows(
                 authored_position,
                 PreparedIssuedQuestion::FixedQuestion {
                     assessment_entry: entry,
-                    question_revision_tuple: row_question_revision(
+                    question_revision_tuple: row_question_revision_tuple(
                         &row,
                         "fixed_question_id",
                         "fixed_revision_number",
@@ -178,7 +178,7 @@ fn current_attempt_start_from_rows(
                     question_pool_id: pool.question_pool_id.clone(),
                     question_pool_edit_number: pool.question_pool_edit_number,
                     member_position,
-                    question_revision_tuple: row_question_revision(
+                    question_revision_tuple: row_question_revision_tuple(
                         &row,
                         "pool_question_id",
                         "pool_question_revision_number",
@@ -254,10 +254,10 @@ fn shuffle_issued_questions<T>(issued: &mut [T]) -> Result<(), StoreError> {
     Ok(())
 }
 
-fn row_question_revision(
+fn row_question_revision_tuple(
     row: &sqlx::postgres::PgRow,
     id: &str,
-    revision: &str,
+    revision_number: &str,
 ) -> Result<QuestionRevisionTuple, StoreError> {
     let question_id = row
         .try_get::<String, _>(id)
@@ -265,7 +265,11 @@ fn row_question_revision(
         .parse()
         .map_err(|_| StoreError::InvalidRecord("Question ID is invalid".to_string()))?;
     let revision_number = QuestionRevisionNumber::new(
-        u32::try_from(row.try_get::<i32, _>(revision).map_err(map_sqlx_error)?).map_err(|_| {
+        u32::try_from(
+            row.try_get::<i32, _>(revision_number)
+                .map_err(map_sqlx_error)?,
+        )
+        .map_err(|_| {
             StoreError::InvalidRecord("Question Revision number is invalid".to_string())
         })?,
     )

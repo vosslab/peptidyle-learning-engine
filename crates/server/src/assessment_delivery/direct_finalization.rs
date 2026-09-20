@@ -47,7 +47,7 @@ async fn evaluate_one(
     webwork: &WebworkAdapter<HttpWebworkRenderer>,
     response: &StudentAssessmentAttemptFinalizationSource,
 ) -> Result<f64, StoreError> {
-    let revision = QuestionRevisionTuple {
+    let question_revision_tuple = QuestionRevisionTuple {
         question_id: response.question_id.clone(),
         revision_number: QuestionRevisionNumber::new(response.revision_number)
             .map_err(|_| finalization_unavailable())?,
@@ -62,10 +62,14 @@ async fn evaluate_one(
             if response.reproduction != QuestionReproduction::Static {
                 return Err(finalization_unavailable());
             }
-            let source =
-                ResolvedPleQuestionJsonSource::resolve(objects, revision, source, checksum)
-                    .await
-                    .map_err(|_| finalization_unavailable())?;
+            let source = ResolvedPleQuestionJsonSource::resolve(
+                objects,
+                question_revision_tuple,
+                source,
+                checksum,
+            )
+            .await
+            .map_err(|_| finalization_unavailable())?;
             PleQuestionBackend::new()
                 .grade_question_json(&source, &response.student_response)
                 .map(|evaluation| evaluation.evaluation.normalized_credit())
@@ -76,8 +80,9 @@ async fn evaluate_one(
                 .reproduction
                 .question_seed()
                 .ok_or_else(finalization_unavailable)?;
-            let binding = WebworkQuestionSourceBinding::new(revision, pg_path.clone())
-                .map_err(|_| finalization_unavailable())?;
+            let binding =
+                WebworkQuestionSourceBinding::new(question_revision_tuple, pg_path.clone())
+                    .map_err(|_| finalization_unavailable())?;
             let source = ResolvedWebworkQuestionSource::resolve(objects, binding, source, checksum)
                 .await
                 .map_err(|_| finalization_unavailable())?;

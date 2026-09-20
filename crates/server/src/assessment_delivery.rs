@@ -561,13 +561,14 @@ pub(crate) async fn resolve_webwork_source(
 ) -> Result<ResolvedWebworkQuestionSource, StartError> {
     let object =
         uuid::Uuid::parse_str(&source.source_object_id).map_err(|_| StartError::Invalid)?;
-    let revision = QuestionRevisionTuple {
+    let question_revision_tuple = QuestionRevisionTuple {
         question_id: source.question_id.clone(),
         revision_number: QuestionRevisionNumber::new(source.revision_number)
             .map_err(|_| StartError::Invalid)?,
     };
-    let binding = WebworkQuestionSourceBinding::new(revision, source.webwork_pg_path.clone())
-        .map_err(|_| StartError::Invalid)?;
+    let binding =
+        WebworkQuestionSourceBinding::new(question_revision_tuple, source.webwork_pg_path.clone())
+            .map_err(|_| StartError::Invalid)?;
     ResolvedWebworkQuestionSource::resolve(
         objects,
         binding,
@@ -585,16 +586,21 @@ pub(super) async fn resolve_source(
 ) -> Result<ResolvedPleQuestionJsonSource, StartError> {
     let object =
         uuid::Uuid::parse_str(&source.source_object_id).map_err(|_| StartError::Invalid)?;
-    let revision = QuestionRevisionTuple {
+    let question_revision_tuple = QuestionRevisionTuple {
         question_id: source.question_id.clone(),
         revision_number: QuestionRevisionNumber::new(source.revision_number)
             .map_err(|_| StartError::Invalid)?,
     };
     let checksum = SourceObjectChecksum::parse(source.source_object_checksum.clone())
         .map_err(|_| StartError::Invalid)?;
-    ResolvedPleQuestionJsonSource::resolve(objects, revision, ObjectId::from_uuid(object), checksum)
-        .await
-        .map_err(|_| StartError::Unavailable)
+    ResolvedPleQuestionJsonSource::resolve(
+        objects,
+        question_revision_tuple,
+        ObjectId::from_uuid(object),
+        checksum,
+    )
+    .await
+    .map_err(|_| StartError::Unavailable)
 }
 
 // Route handlers return this response immediately; boxing it would add an

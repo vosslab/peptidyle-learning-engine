@@ -22,7 +22,7 @@ const expectedExports = [
   { name: "memory", kind: "memory" },
   { name: "preview_ple_draft", kind: "function" },
   { name: "question_attempt_timing_decision", kind: "function" },
-  { name: "validate_assignment_config", kind: "function" },
+  { name: "validate_assessment_config", kind: "function" },
   { name: "validate_presentation_response_format", kind: "function" },
   { name: "validate_response_format", kind: "function" },
   { name: "verify_native_static_presentation_descriptor", kind: "function" },

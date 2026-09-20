@@ -435,7 +435,7 @@ fn decode_view(row: &sqlx::postgres::PgRow) -> Result<CourseInstanceView, StoreE
     ) {
         (None, None, None) => None,
         (Some(blueprint_course_id), Some(adopted), Some(current)) if current >= adopted => {
-            let revision = |value| {
+            let parse_revision_number = |value| {
                 u64::try_from(value)
                     .ok()
                     .and_then(BlueprintRevisionNumber::new)
@@ -445,8 +445,8 @@ fn decode_view(row: &sqlx::postgres::PgRow) -> Result<CourseInstanceView, StoreE
                 id: blueprint_course_id
                     .parse()
                     .map_err(|_| invalid("Blueprint Course ID"))?,
-                adopted_revision_number: revision(adopted)?,
-                current_revision_number: revision(current)?,
+                adopted_revision_number: parse_revision_number(adopted)?,
+                current_revision_number: parse_revision_number(current)?,
             })
         }
         _ => return Err(invalid("Blueprint origin")),

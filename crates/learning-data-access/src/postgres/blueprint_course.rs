@@ -138,7 +138,7 @@ impl PostgresBlueprintCourseStore {
         let receipt = SaveBlueprintCourseReceipt {
             blueprint_revision_tuple: BlueprintRevisionTuple {
                 blueprint_course_id,
-                revision_number: revision(
+                revision_number: parse_revision_number(
                     row.try_get("resulting_blueprint_revision_number")
                         .map_err(map_sqlx_error)?,
                 )?,
@@ -394,7 +394,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
             })
             .collect();
         let requested =
-            StoredBlueprintCourseContent::requested_question_revisions_from_create(&input);
+            StoredBlueprintCourseContent::requested_question_revision_tuples_from_create(&input);
         let mut transaction = self
             .begin_authenticated_application_transaction(session)
             .await?;
@@ -411,7 +411,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
                     blueprint_course_id: blueprint_course_id(
                         row.try_get("blueprint_course_id").map_err(map_sqlx_error)?,
                     )?,
-                    revision_number: revision(
+                    revision_number: parse_revision_number(
                         row.try_get("revision_number").map_err(map_sqlx_error)?,
                     )?,
                 },
@@ -463,7 +463,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         let receipt = CreateBlueprintCourseReceipt {
             blueprint_revision_tuple: BlueprintRevisionTuple {
                 blueprint_course_id: blueprint,
-                revision_number: revision(
+                revision_number: parse_revision_number(
                     row.try_get("blueprint_revision_number")
                         .map_err(map_sqlx_error)?,
                 )?,
@@ -527,7 +527,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
             let receipt = SaveBlueprintCourseReceipt {
                 blueprint_revision_tuple: BlueprintRevisionTuple {
                     blueprint_course_id,
-                    revision_number: revision(
+                    revision_number: parse_revision_number(
                         row.try_get("revision_number").map_err(map_sqlx_error)?,
                     )?,
                 },
@@ -554,7 +554,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         )
         .await?;
         let requested =
-            StoredBlueprintCourseContent::requested_question_revisions_from_replace(&input);
+            StoredBlueprintCourseContent::requested_question_revision_tuples_from_replace(&input);
         validate_question_revision_tuples(&mut transaction, requested, Some(&prior)).await?;
         let mut content =
             StoredBlueprintCourseContent::from_replace(input, &prior, &BTreeMap::new())?;

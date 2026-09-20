@@ -136,8 +136,8 @@ pub struct BlueprintCourseSaveResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BlueprintForkApplyRequest {
-    pub expected_source: BlueprintRevisionTuple,
-    pub expected_fork: BlueprintRevisionTuple,
+    pub expected_source_revision_tuple: BlueprintRevisionTuple,
+    pub expected_fork_revision_tuple: BlueprintRevisionTuple,
     pub expected_source_blueprint_edit_number: question_model::BlueprintEditNumber,
     pub expected_fork_blueprint_edit_number: question_model::BlueprintEditNumber,
     pub source_short_name: bool,

@@ -66,7 +66,7 @@ pub(super) async fn content_modules(
         .list_published_question_library_entries(session)
         .await
         .map_err(RouteLoadError::Store)?;
-    let current_question_revisions = entries
+    let current_question_revision_tuples = entries
         .iter()
         .map(|entry| {
             (
@@ -78,7 +78,7 @@ pub(super) async fn content_modules(
     // Discovery excludes archived lineages.  Retained Blueprint pins use the
     // exact historical Store path so an archive never breaks immutable
     // Blueprint Revision interpretation.
-    for question_revision_tuple in content_question_revisions(content) {
+    for question_revision_tuple in content_question_revision_tuples(content) {
         if !entries
             .iter()
             .any(|entry| entry.question_revision_tuple == question_revision_tuple)
@@ -130,7 +130,7 @@ pub(super) async fn content_modules(
                             content: assessment_content_view(
                                 &assessment.content,
                                 &questions,
-                                &current_question_revisions,
+                                &current_question_revision_tuples,
                             )?,
                         })
                     })
@@ -140,7 +140,7 @@ pub(super) async fn content_modules(
         .collect()
 }
 
-fn content_question_revisions(
+fn content_question_revision_tuples(
     content: &StoredBlueprintCourseContent,
 ) -> Vec<question_model::QuestionRevisionTuple> {
     content
@@ -161,7 +161,7 @@ fn content_question_revisions(
 fn assessment_content_view(
     content: &StoredBlueprintAssessmentContent,
     questions: &BTreeMap<QuestionRevisionTuple, QuestionSearchResult>,
-    current_question_revisions: &BTreeMap<QuestionId, QuestionRevisionTuple>,
+    current_question_revision_tuples: &BTreeMap<QuestionId, QuestionRevisionTuple>,
 ) -> Result<BlueprintAssessmentContentView, RouteLoadError> {
     let entries = content
         .entries
@@ -177,7 +177,7 @@ fn assessment_content_view(
                 question: Box::new(question_view(
                     question_revision_tuple,
                     questions,
-                    current_question_revisions,
+                    current_question_revision_tuples,
                 )?),
                 points_possible: *points_possible,
                 scoring_rule: *scoring_rule,
@@ -216,14 +216,14 @@ fn assessment_content_view(
 fn question_view(
     question_revision_tuple: &question_model::QuestionRevisionTuple,
     questions: &BTreeMap<QuestionRevisionTuple, QuestionSearchResult>,
-    current_question_revisions: &BTreeMap<QuestionId, QuestionRevisionTuple>,
+    current_question_revision_tuples: &BTreeMap<QuestionId, QuestionRevisionTuple>,
 ) -> Result<ReusableQuestionView, RouteLoadError> {
     Ok(ReusableQuestionView {
         question_revision_tuple: question_revision_tuple.clone(),
         question_library: question_search_result(question_revision_tuple, questions)?,
         selection_availability: selection_availability(
             question_revision_tuple,
-            current_question_revisions,
+            current_question_revision_tuples,
         ),
     })
 }
@@ -244,9 +244,9 @@ pub(super) fn exact_revision_value<'a, T>(
 }
 pub(super) fn selection_availability(
     question_revision_tuple: &question_model::QuestionRevisionTuple,
-    current_question_revisions: &BTreeMap<QuestionId, QuestionRevisionTuple>,
+    current_question_revision_tuples: &BTreeMap<QuestionId, QuestionRevisionTuple>,
 ) -> ReusableSelectionAvailability {
-    if current_question_revisions.get(&question_revision_tuple.question_id)
+    if current_question_revision_tuples.get(&question_revision_tuple.question_id)
         == Some(question_revision_tuple)
     {
         ReusableSelectionAvailability::Available

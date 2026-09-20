@@ -61,8 +61,8 @@ export function decodeBlueprintForkApplyRequest(
 ): BlueprintForkApplyRequest {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "expectedSource",
-    "expectedFork",
+    "expectedSourceRevisionTuple",
+    "expectedForkRevisionTuple",
     "expectedSourceBlueprintEditNumber",
     "expectedForkBlueprintEditNumber",
     "sourceShortName",
@@ -112,13 +112,13 @@ export function decodeBlueprintForkApplyRequest(
     },
   );
   return {
-    expectedSource: blueprintRevisionTuple(
-      field(record, "expectedSource", path),
-      `${path}.expectedSource`,
+    expectedSourceRevisionTuple: blueprintRevisionTuple(
+      field(record, "expectedSourceRevisionTuple", path),
+      `${path}.expectedSourceRevisionTuple`,
     ),
-    expectedFork: blueprintRevisionTuple(
-      field(record, "expectedFork", path),
-      `${path}.expectedFork`,
+    expectedForkRevisionTuple: blueprintRevisionTuple(
+      field(record, "expectedForkRevisionTuple", path),
+      `${path}.expectedForkRevisionTuple`,
     ),
     expectedSourceBlueprintEditNumber: blueprintEditNumber(
       field(record, "expectedSourceBlueprintEditNumber", path),

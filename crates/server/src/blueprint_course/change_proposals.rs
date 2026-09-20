@@ -32,7 +32,7 @@ pub(super) async fn create(
         Ok(value) => value,
         Err(_) => return invalid_request(),
     };
-    if blueprint_course_id != input.target.blueprint_course_id {
+    if blueprint_course_id != input.target_revision_tuple.blueprint_course_id {
         return invalid_request();
     }
     let session = match instructor_session_hash(&state, &headers).await {
@@ -45,9 +45,9 @@ pub(super) async fn create(
         .create_blueprint_change_proposal(
             session,
             CreateBlueprintChangeProposalInput {
-                source: input.source,
+                source_revision_tuple: input.source_revision_tuple,
                 source_blueprint_edit_number: input.source_blueprint_edit_number,
-                target: input.target,
+                target_revision_tuple: input.target_revision_tuple,
                 target_blueprint_edit_number: input.target_blueprint_edit_number,
             },
         )
@@ -117,7 +117,7 @@ pub(super) async fn accept(
             session,
             AcceptBlueprintChangeProposalInput {
                 proposal_id: id,
-                expected_target: input.expected_target,
+                expected_target_revision_tuple: input.expected_target_revision_tuple,
                 expected_target_blueprint_edit_number: input.expected_target_blueprint_edit_number,
                 decision: change_proposal_view::store_decision(input.decision),
             },

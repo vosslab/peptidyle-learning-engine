@@ -145,7 +145,7 @@ impl QuestionForkStore for PostgresQuestionForkStore {
 
 fn decode_fork_asset(
     row: &sqlx::postgres::PgRow,
-    revision: &QuestionRevisionTuple,
+    question_revision_tuple: &QuestionRevisionTuple,
 ) -> Result<PublishedQuestionForkAsset, StoreError> {
     let object_id = ObjectId::from_uuid(row.try_get("object_id").map_err(map_sqlx_error)?);
     let asset_id = QuestionAssetId::from_uuid(row.try_get("asset_id").map_err(map_sqlx_error)?);
@@ -176,11 +176,11 @@ fn decode_fork_asset(
         sha256: Sha256Checksum::from_bytes(checksum),
         size_bytes,
         media_type: row.try_get("media_type").map_err(map_sqlx_error)?,
-        question_revision_tuple: Some(revision.clone()),
+        question_revision_tuple: Some(question_revision_tuple.clone()),
         created_at: Timestamp::from_unix_millis(created_at_millis),
     };
     let expected_address = ObjectAddress::RestrictedQuestionAsset {
-        question_revision_tuple: revision.clone(),
+        question_revision_tuple: question_revision_tuple.clone(),
         asset: asset_id,
         object: object_id,
     };

@@ -26,7 +26,7 @@ pub enum BlueprintChangeProposalDecision {
 #[derive(Debug, Clone)]
 pub struct AcceptBlueprintChangeProposalInput {
     pub proposal_id: uuid::Uuid,
-    pub expected_target: BlueprintRevisionTuple,
+    pub expected_target_revision_tuple: BlueprintRevisionTuple,
     pub expected_target_blueprint_edit_number: BlueprintEditNumber,
     pub decision: BlueprintChangeProposalDecision,
 }
@@ -48,7 +48,7 @@ pub struct AcceptedBlueprintChangeProposal {
     pub proposal_id: uuid::Uuid,
     pub actor: AccountId,
     pub accepted_at: Timestamp,
-    pub target: BlueprintRevisionTuple,
+    pub target_revision_tuple: BlueprintRevisionTuple,
     pub target_blueprint_edit_number: BlueprintEditNumber,
     pub decision: BlueprintChangeProposalAcceptedDecision,
     pub resulting_json: CanonicalBlueprintCourse,
@@ -57,9 +57,9 @@ pub struct AcceptedBlueprintChangeProposal {
 /// Exact reviewed content and independent lineage metadata; no client JSON input.
 #[derive(Debug, Clone)]
 pub struct CreateBlueprintChangeProposalInput {
-    pub source: BlueprintRevisionTuple,
+    pub source_revision_tuple: BlueprintRevisionTuple,
     pub source_blueprint_edit_number: BlueprintEditNumber,
-    pub target: BlueprintRevisionTuple,
+    pub target_revision_tuple: BlueprintRevisionTuple,
     pub target_blueprint_edit_number: BlueprintEditNumber,
 }
 
@@ -69,9 +69,9 @@ pub struct StoredBlueprintChangeProposal {
     pub proposal_id: uuid::Uuid,
     pub proposer: AccountId,
     pub created_at: Timestamp,
-    pub source: BlueprintRevisionTuple,
+    pub source_revision_tuple: BlueprintRevisionTuple,
     pub source_blueprint_edit_number: BlueprintEditNumber,
-    pub target: BlueprintRevisionTuple,
+    pub target_revision_tuple: BlueprintRevisionTuple,
     pub target_blueprint_edit_number: BlueprintEditNumber,
     pub proposed_json: CanonicalBlueprintCourse,
     pub target_comparison_json: CanonicalBlueprintCourse,
@@ -91,11 +91,11 @@ pub enum BlueprintChangeProposalListScope {
 pub struct BlueprintChangeProposalSummary {
     pub proposal_id: uuid::Uuid,
     pub created_at: Timestamp,
-    pub source: BlueprintRevisionTuple,
+    pub source_revision_tuple: BlueprintRevisionTuple,
     pub source_blueprint_edit_number: BlueprintEditNumber,
     pub source_short_name: String,
     pub source_long_name: String,
-    pub target: BlueprintRevisionTuple,
+    pub target_revision_tuple: BlueprintRevisionTuple,
     pub target_blueprint_edit_number: BlueprintEditNumber,
     pub target_short_name: String,
     pub target_long_name: String,
@@ -106,7 +106,7 @@ pub struct BlueprintChangeProposalSummary {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlueprintChangeProposalAcceptedSummary {
     pub accepted_at: Timestamp,
-    pub target: BlueprintRevisionTuple,
+    pub target_revision_tuple: BlueprintRevisionTuple,
     pub target_blueprint_edit_number: BlueprintEditNumber,
 }
 

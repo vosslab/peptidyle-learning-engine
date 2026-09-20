@@ -85,7 +85,7 @@ export interface AssessmentWorkspaceQuestionsViewArgs {
 
 function questionRevisionInspectionPath(questionRevisionTuple: QuestionRevisionTuple): string {
   // ASVS 1.2.2: encode the displayed Question identity before placing it in a route path.
-  return `/library/${encodeURIComponent(questionRevisionTuple.questionId)}?revision=${questionRevisionTuple.revisionNumber}`;
+  return `/library/${encodeURIComponent(questionRevisionTuple.questionId)}?revisionNumber=${questionRevisionTuple.revisionNumber}`;
 }
 
 function questionPoolEntry(

@@ -14,7 +14,7 @@ export interface ForkedPublishedQuestion {
 /** The one browser command for forking an exact Published Question Revision. */
 export interface QuestionForkClient {
   readonly forkPublishedQuestion: (
-    source: QuestionRevisionTuple,
+    sourceRevisionTuple: QuestionRevisionTuple,
     requestKey: QuestionForkIdempotencyKey,
   ) => Promise<ForkedPublishedQuestion>;
 }

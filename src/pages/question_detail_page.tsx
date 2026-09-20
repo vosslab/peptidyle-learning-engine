@@ -67,21 +67,24 @@ type ArchiveNotice = {
   readonly text: string;
 };
 
-const QUESTION_REVISION_QUERY_PARAMETER = "revision";
+const QUESTION_REVISION_QUERY_PARAMETER = "revisionNumber";
 
-function QuestionForkControl(props: { readonly source: QuestionRevisionTuple }): JSX.Element {
+function QuestionForkControl(props: {
+  readonly sourceRevisionTuple: QuestionRevisionTuple;
+}): JSX.Element {
   const applicationApi = useApplicationApi();
   const navigate = useNavigate();
   const [forking, setForking] = createSignal(false);
   const [error, setError] = createSignal("");
-  let action: { readonly source: QuestionRevisionTuple; readonly key: string } | undefined;
+  let action:
+    { readonly sourceRevisionTuple: QuestionRevisionTuple; readonly key: string } | undefined;
   let disposed = false;
   onCleanup(() => {
     disposed = true;
   });
 
   async function forkPublishedQuestion(): Promise<void> {
-    const source = props.source;
+    const sourceRevisionTuple = props.sourceRevisionTuple;
     if (forking()) return;
     setForking(true);
     setError("");
@@ -89,12 +92,15 @@ function QuestionForkControl(props: { readonly source: QuestionRevisionTuple }):
       // ASVS 2.3.1: an uncertain retry keeps this exact source Revision and opaque request key.
       if (
         action === undefined ||
-        action.source.questionId !== source.questionId ||
-        action.source.revisionNumber !== source.revisionNumber
+        action.sourceRevisionTuple.questionId !== sourceRevisionTuple.questionId ||
+        action.sourceRevisionTuple.revisionNumber !== sourceRevisionTuple.revisionNumber
       ) {
-        action = { source, key: crypto.randomUUID() };
+        action = { sourceRevisionTuple, key: crypto.randomUUID() };
       }
-      const fork = await applicationApi.client.forkPublishedQuestion(source, action.key);
+      const fork = await applicationApi.client.forkPublishedQuestion(
+        sourceRevisionTuple,
+        action.key,
+      );
       if (disposed) return;
       // ASVS 1.2.2: only the exact server-returned private Draft UUID selects this local route.
       navigate(`/authoring/drafts/${encodeURIComponent(fork.draftQuestion)}`);
@@ -118,8 +124,8 @@ function QuestionForkControl(props: { readonly source: QuestionRevisionTuple }):
     >
       <h2>Fork this Published Question</h2>
       <p>
-        Fork Revision {props.source.revisionNumber} into your own private Draft Question. It must
-        pass publication validation before it can join the Question Library.
+        Fork Revision {props.sourceRevisionTuple.revisionNumber} into your own private Draft
+        Question. It must pass publication validation before it can join the Question Library.
       </p>
       <button type="button" disabled={forking()} onClick={() => void forkPublishedQuestion()}>
         {forking()
@@ -659,7 +665,9 @@ export function QuestionDetailPage(): JSX.Element {
                   renderAvailableAction={() => (
                     <>
                       <QuestionPoolFromQuestionControl detail={record()} />
-                      <QuestionForkControl source={record().summary.questionRevisionTuple} />
+                      <QuestionForkControl
+                        sourceRevisionTuple={record().summary.questionRevisionTuple}
+                      />
                     </>
                   )}
                 />

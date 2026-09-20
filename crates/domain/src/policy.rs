@@ -6,14 +6,14 @@ use question_model::{Capability, QuestionBackendCapabilities, QuestionRevisionTu
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AssessmentQuestionConfig {
-    pub question: QuestionRevisionTuple,
+    pub question_revision_tuple: QuestionRevisionTuple,
     pub question_backend_capabilities: QuestionBackendCapabilities,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AssessmentConfig {
     pub questions: Vec<AssessmentQuestionConfig>,
     /// Assessment-owned requirements; Question Source does not derive these.
@@ -21,9 +21,9 @@ pub struct AssessmentConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Violation {
-    pub question: QuestionRevisionTuple,
+    pub question_revision_tuple: QuestionRevisionTuple,
     pub capability: Capability,
 }
 
@@ -40,7 +40,7 @@ pub fn validate_assessment_config(config: &AssessmentConfig) -> Vec<Violation> {
                         && !selected.question_backend_capabilities.supports(*capability)
                 })
                 .map(|capability| Violation {
-                    question: selected.question.clone(),
+                    question_revision_tuple: selected.question_revision_tuple.clone(),
                     capability,
                 })
         })

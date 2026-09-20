@@ -239,13 +239,13 @@ where
                 .question_id_issuer
                 .issue_question_id()
                 .map_err(QuestionPublicationError::QuestionIdIssuance)?;
-            let revision = QuestionRevisionTuple {
+            let question_revision_tuple = QuestionRevisionTuple {
                 question_id: question_id.clone(),
                 revision_number: QuestionRevisionNumber::new(1)
                     .expect("first Question Revision Number is positive"),
             };
             let target_address = ObjectAddress::QuestionSource {
-                question_revision_tuple: revision.clone(),
+                question_revision_tuple: question_revision_tuple.clone(),
                 object: ObjectId::generate(),
             };
             // ASVS 5.3.2, 8.2.2, 14.2.4, and 15.4.2: typed server-created
@@ -265,7 +265,7 @@ where
             let prepared_asset = crate::question_publication_assets::prepare_hotspot_asset(
                 &self.object_store,
                 hotspot_asset.as_ref(),
-                &revision,
+                &question_revision_tuple,
                 stored_at,
             )
             .await?;

@@ -23,11 +23,13 @@ use crate::question_library::{QuestionId, QuestionRevisionTuple};
 )]
 pub enum QuestionStewardshipEvent {
     /// A new immutable revision joined the Question's published lineage.
-    RevisionPublished { revision: QuestionRevisionTuple },
+    RevisionPublished {
+        question_revision_tuple: QuestionRevisionTuple,
+    },
     /// A published fork records its distinct Question lineage and source.
     ForkPublished {
         source_question: QuestionId,
-        fork: QuestionRevisionTuple,
+        fork_revision_tuple: QuestionRevisionTuple,
     },
     /// An improvement thread has activity for the named Question lineage.
     ImprovementThreadActivity { question: QuestionId },
@@ -39,7 +41,9 @@ impl QuestionStewardshipEvent {
     /// Returns the published Question lineage whose stewardship changed.
     pub fn question(&self) -> &QuestionId {
         match self {
-            Self::RevisionPublished { revision } => &revision.question_id,
+            Self::RevisionPublished {
+                question_revision_tuple,
+            } => &question_revision_tuple.question_id,
             Self::ForkPublished {
                 source_question, ..
             } => source_question,

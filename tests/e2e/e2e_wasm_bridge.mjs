@@ -163,11 +163,11 @@ const fixture = JSON.parse(
   ),
 );
 const capabilityViolations = JSON.parse(
-  bridge.validate_assignment_config(
+  bridge.validate_assessment_config(
     JSON.stringify({
       questions: [
         {
-          question: fixture.questionSummary.questionRevisionTuple,
+          questionRevisionTuple: fixture.questionSummary.questionRevisionTuple,
           questionBackendCapabilities: [],
         },
       ],

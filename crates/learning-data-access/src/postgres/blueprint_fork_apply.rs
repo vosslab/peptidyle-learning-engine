@@ -39,11 +39,27 @@ impl PostgresBlueprintCourseStore {
         let rows = sqlx::query(
             "SELECT * FROM ple_api.load_blueprint_fork_apply_sources($1, $2, $3, $4, $5, $6)",
         )
-        .bind(input.expected_source.blueprint_course_id.as_string())
-        .bind(i64::try_from(input.expected_source.revision_number.value()).map_err(|_| invalid())?)
+        .bind(
+            input
+                .expected_source_revision_tuple
+                .blueprint_course_id
+                .as_string(),
+        )
+        .bind(
+            i64::try_from(input.expected_source_revision_tuple.revision_number.value())
+                .map_err(|_| invalid())?,
+        )
         .bind(input.expected_source_blueprint_edit_number.as_i64())
-        .bind(input.expected_fork.blueprint_course_id.as_string())
-        .bind(i64::try_from(input.expected_fork.revision_number.value()).map_err(|_| invalid())?)
+        .bind(
+            input
+                .expected_fork_revision_tuple
+                .blueprint_course_id
+                .as_string(),
+        )
+        .bind(
+            i64::try_from(input.expected_fork_revision_tuple.revision_number.value())
+                .map_err(|_| invalid())?,
+        )
         .bind(input.expected_fork_blueprint_edit_number.as_i64())
         .fetch_all(&mut *transaction)
         .await
@@ -147,7 +163,12 @@ impl PostgresBlueprintCourseStore {
         // Only explicit source copies import fresh Assessment-owned Pools;
         // untouched target Assessments keep their existing Pool ID and Edit Number.
         let replay = sqlx::query("SELECT * FROM ple_api.blueprint_pool_write_receipt($1,$2)")
-            .bind(input.expected_fork.blueprint_course_id.as_string())
+            .bind(
+                input
+                    .expected_fork_revision_tuple
+                    .blueprint_course_id
+                    .as_string(),
+            )
             .bind(checksum.into_bytes().to_vec())
             .fetch_optional(&mut *transaction)
             .await
@@ -178,7 +199,12 @@ impl PostgresBlueprintCourseStore {
         }
         let daughters =
             sqlx::query("SELECT course_id FROM ple_api.list_blueprint_daughter_course_ids($1)")
-                .bind(input.expected_fork.blueprint_course_id.as_string())
+                .bind(
+                    input
+                        .expected_fork_revision_tuple
+                        .blueprint_course_id
+                        .as_string(),
+                )
                 .fetch_all(&mut *transaction)
                 .await
                 .map_err(map_sqlx_error)?;
@@ -186,8 +212,11 @@ impl PostgresBlueprintCourseStore {
         let save = self
             .save_trusted_content(
                 &mut transaction,
-                input.expected_fork.blueprint_course_id.clone(),
-                input.expected_fork.revision_number,
+                input
+                    .expected_fork_revision_tuple
+                    .blueprint_course_id
+                    .clone(),
+                input.expected_fork_revision_tuple.revision_number,
                 checksum,
                 actor,
                 fork,
@@ -203,7 +232,10 @@ impl PostgresBlueprintCourseStore {
         let metadata = self
             .rename_in_transaction(
                 &mut transaction,
-                input.expected_fork.blueprint_course_id.clone(),
+                input
+                    .expected_fork_revision_tuple
+                    .blueprint_course_id
+                    .clone(),
                 input.expected_fork_blueprint_edit_number,
                 RenameBlueprintCourseInput {
                     short_name,

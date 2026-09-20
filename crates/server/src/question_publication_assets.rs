@@ -67,7 +67,7 @@ fn invalid_source() -> QuestionPublicationError {
 pub(crate) async fn prepare_hotspot_asset<O: ObjectStore>(
     objects: &O,
     asset: Option<&(OwnedDraftQuestionAsset, Bytes)>,
-    revision: &QuestionRevisionTuple,
+    question_revision_tuple: &QuestionRevisionTuple,
     stored_at: Timestamp,
 ) -> Result<Option<PreparedQuestionAssetPublication>, QuestionPublicationError> {
     let Some((asset, bytes)) = asset else {
@@ -77,7 +77,7 @@ pub(crate) async fn prepare_hotspot_asset<O: ObjectStore>(
     let record = objects
         .put(PutObject {
             address: ObjectAddress::RestrictedQuestionAsset {
-                question_revision_tuple: revision.clone(),
+                question_revision_tuple: question_revision_tuple.clone(),
                 asset: asset.asset_id,
                 object: ObjectId::generate(),
             },
