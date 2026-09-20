@@ -30,6 +30,11 @@
 
 ### Fixes and Maintenance
 
+- Live Demo stop treats Compose `gateway_edge` as an owned network, so an
+  interrupted `ple-live-demo-browser` stack can be cleared instead of failing
+  with foreign-resource ownership. Gate:
+  `python3 -m pytest tests/test_browser_suite_reset.py::test_gateway_edge_is_an_owned_live_demo_network`.
+
 - [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md) names HOTSPOT
   `surface` as a Question Image Asset Tuple and maps QTI media to Question
   Image Asset plus physical Object storage.

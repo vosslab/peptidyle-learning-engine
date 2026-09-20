@@ -4,6 +4,7 @@ import pathlib
 
 import pytest
 
+import local_stack_control.browser_suite_ownership
 import local_stack_control.browser_suite_reset
 import local_stack_control.browser_suite_lease
 import local_stack_control.models
@@ -181,3 +182,21 @@ def test_interrupted_reset_retries_only_remaining_valid_resources(
 		("podman", "volume", "rm", "ple-live-demo-browser_ple_pgdata"),
 		("podman", "network", "rm", "ple-live-demo-browser_default"),
 	]
+
+
+#============================================
+def test_gateway_edge_is_an_owned_live_demo_network() -> None:
+	"""Compose publishes gateway_edge; stop must treat it as owned, not foreign."""
+	project = local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT
+	owner = local_stack_control.models.LIVE_DEMO_BROWSER_OWNER
+	owned = local_stack_control.models.ProjectSnapshot(
+		project=project,
+		containers=(),
+		volumes=(),
+		networks=(
+			local_stack_control.models.NetworkResource(
+				f"{project}_gateway_edge", project, owner=owner
+			),
+		),
+	)
+	local_stack_control.browser_suite_ownership.require_live_demo_browser_ownership(owned)

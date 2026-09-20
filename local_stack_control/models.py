@@ -185,6 +185,7 @@ DECLARED_SMTP_VOLUMES = ("ple_smtp_runtime",)
 DECLARED_BASE_NETWORKS = (
 	"default",
 	"gateway_api",
+	"gateway_edge",
 	"renderer_private",
 	"api_outbound",
 )
