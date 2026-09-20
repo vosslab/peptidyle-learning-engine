@@ -144,12 +144,12 @@ export function BackendOwnedDocument(props: BackendOwnedDocumentProps): JSX.Elem
       if (resolvesCapture) clearPendingCapture(null);
       return;
     }
-    const revision = props.onResponseEdit?.(response);
-    if (props.onResponseEdit !== undefined && revision === undefined) {
+    const editGeneration = props.onResponseEdit?.(response);
+    if (props.onResponseEdit !== undefined && editGeneration === undefined) {
       if (resolvesCapture) clearPendingCapture(null);
       return;
     }
-    props.onResponseChange?.(response, { issues: [] }, revision);
+    props.onResponseChange?.(response, { issues: [] }, editGeneration);
     setPhase("saved");
     setMessage("Response saved.");
     if (resolvesCapture) clearPendingCapture(response);

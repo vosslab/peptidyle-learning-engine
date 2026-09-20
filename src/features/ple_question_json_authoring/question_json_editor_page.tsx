@@ -146,7 +146,7 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
   const [state, setState] = createSignal<PleQuestionJsonEditorState>(
     initialPleQuestionJsonEditorState(),
   );
-  const [latestRevision, setLatestRevision] = createSignal(props.initial.revision);
+  const [latestEtag, setLatestEtag] = createSignal(props.initial.etag);
   const [review, setReview] = createSignal<Review | null>(null);
   const [authorshipText, setAuthorshipText] = createSignal("");
   const [disciplineUuid, setDisciplineUuid] = createSignal<string | null>(null);
@@ -165,8 +165,8 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
   const [savedGeneralFeedback, setSavedGeneralFeedback] = createSignal<string | null>(
     props.initialGeneralFeedback.generalFeedback,
   );
-  const [generalFeedbackRevision, setGeneralFeedbackRevision] = createSignal(
-    props.initialGeneralFeedback.revision,
+  const [generalFeedbackEtag, setGeneralFeedbackEtag] = createSignal(
+    props.initialGeneralFeedback.etag,
   );
   const [generalFeedbackSaving, setGeneralFeedbackSaving] = createSignal(false);
   let heading: HTMLHeadingElement | null = null;
@@ -267,7 +267,7 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
 
   createEffect(() => {
     props.onDraftDisplayStateChange?.({
-      revision: latestRevision(),
+      etag: latestEtag(),
       dirty:
         hasLocalDraftChanges(state()) ||
         hasUnsavedGeneralFeedback() ||
@@ -328,7 +328,7 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
     setAssetUploading(true);
     setStatus("Uploading private image...");
     try {
-      const asset = await client.uploadAsset(props.draftQuestion, file, latestRevision(), signal);
+      const asset = await client.uploadAsset(props.draftQuestion, file, latestEtag(), signal);
       if (signal.aborted) {
         setStatus("Upload canceled. Your previous draft is unchanged.");
         return;
@@ -369,8 +369,8 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
     transition({ kind: "saveStarted" });
     try {
       const result = await props.repository.save(props.draftQuestion, current);
-      setLatestRevision(result.revision);
-      setGeneralFeedbackRevision(result.revision);
+      setLatestEtag(result.etag);
+      setGeneralFeedbackEtag(result.etag);
       transition({ kind: "saveSucceeded" });
       setStatus("Private draft saved. It is not published.");
     } catch (error: unknown) {
@@ -397,10 +397,10 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
         props.repository.reload(props.draftQuestion),
         props.generalFeedbackClient.load(props.draftQuestion),
       ]);
-      setLatestRevision(newest.revision);
+      setLatestEtag(newest.etag);
       setGeneralFeedback(newestGeneralFeedback.generalFeedback);
       setSavedGeneralFeedback(newestGeneralFeedback.generalFeedback);
-      setGeneralFeedbackRevision(newestGeneralFeedback.revision);
+      setGeneralFeedbackEtag(newestGeneralFeedback.etag);
       setReview(null);
       setShowInstructorCheck(false);
       transition({ kind: "reloadSucceeded", source: newest.source });
@@ -440,12 +440,12 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
       const result = await props.generalFeedbackClient.save(
         props.draftQuestion,
         generalFeedback(),
-        generalFeedbackRevision(),
+        generalFeedbackEtag(),
       );
       setSavedGeneralFeedback(generalFeedback());
-      setGeneralFeedbackRevision(result.revision);
-      setLatestRevision(result.revision);
-      props.repository.synchronizeRevision(props.draftQuestion, result.revision);
+      setGeneralFeedbackEtag(result.etag);
+      setLatestEtag(result.etag);
+      props.repository.synchronizeEtag(props.draftQuestion, result.etag);
       setStatus("General feedback saved. It remains separate from backend interaction feedback.");
     } catch (error: unknown) {
       if (error instanceof PleQuestionGeneralFeedbackConflictError) {
@@ -485,7 +485,7 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
       return;
     }
     const nextReview: Review = {
-      revision: latestRevision(),
+      etag: latestEtag(),
       baseQuestion: "newQuestion",
       questionTitle: currentSource().questionTitle,
       changed: ["PLE Question JSON source"],
@@ -498,7 +498,7 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
   async function publish(): Promise<void> {
     if (state().kind !== "publishReview" || !isSaved() || isLocked()) return;
     const activeReview = review();
-    if (activeReview === null || activeReview.revision !== latestRevision()) {
+    if (activeReview === null || activeReview.etag !== latestEtag()) {
       setStatus("Refresh the publication review before publishing.");
       return;
     }

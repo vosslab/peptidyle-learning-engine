@@ -5,7 +5,7 @@ import type { StudentResponse } from "../../generated/api/StudentResponse";
 export interface ActiveAssessmentAttemptResponse {
   readonly position: number;
   readonly response: StudentResponse;
-  readonly revision: number;
+  readonly editGeneration: number;
   readonly valid: boolean;
 }
 
@@ -19,10 +19,10 @@ function sameResponse(left: StudentResponse, right: StudentResponse): boolean {
  */
 export class AssessmentAttemptResponseState {
   #active: ActiveAssessmentAttemptResponse | undefined;
-  #nextRevision = 0;
+  #nextEditGeneration = 0;
 
   clear(): void {
-    this.#nextRevision += 1;
+    this.#nextEditGeneration += 1;
     this.#active = undefined;
   }
 
@@ -37,15 +37,15 @@ export class AssessmentAttemptResponseState {
   validate(
     position: number,
     response: StudentResponse,
-    revision: number | undefined,
+    editGeneration: number | undefined,
     valid: boolean,
   ): boolean {
     const active = this.#active;
     if (
       active === undefined ||
-      revision === undefined ||
+      editGeneration === undefined ||
       active.position !== position ||
-      active.revision !== revision ||
+      active.editGeneration !== editGeneration ||
       !sameResponse(active.response, response)
     ) {
       return false;
@@ -60,8 +60,8 @@ export class AssessmentAttemptResponseState {
   }
 
   private replace(position: number, response: StudentResponse, valid: boolean): number {
-    this.#nextRevision += 1;
-    this.#active = { position, response, revision: this.#nextRevision, valid };
-    return this.#nextRevision;
+    this.#nextEditGeneration += 1;
+    this.#active = { position, response, editGeneration: this.#nextEditGeneration, valid };
+    return this.#nextEditGeneration;
   }
 }

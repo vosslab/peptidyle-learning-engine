@@ -5,11 +5,11 @@ const SAFE_ORIGIN = "https://ple-question-general-feedback.invalid";
 
 export type PleQuestionGeneralFeedbackRead = {
   readonly generalFeedback: string | null;
-  readonly revision: string;
+  readonly etag: string;
 };
 
 export type PleQuestionGeneralFeedbackSave = {
-  readonly revision: string;
+  readonly etag: string;
 };
 
 export type PleQuestionGeneralFeedbackFetch = (
@@ -49,7 +49,7 @@ export interface PleQuestionGeneralFeedbackClient {
   save(
     draftQuestion: DraftQuestionRouteId,
     generalFeedback: string | null,
-    revision: string,
+    etag: string,
   ): Promise<PleQuestionGeneralFeedbackSave>;
 }
 
@@ -105,28 +105,28 @@ function sameOriginPath(basePath: string, path: string): string {
   return requestPath;
 }
 
-function validRevision(value: string): string {
+function validEtag(value: string): string {
   if (!/^"[1-9][0-9]*"$/u.test(value)) {
     throw new PleQuestionGeneralFeedbackProtocolError(
-      "Question general feedback revision must be one positive strong numeric ETag",
+      "Question general feedback ETag must be one positive strong numeric ETag",
     );
   }
   if (BigInt(value.slice(1, -1)) > 9_223_372_036_854_775_807n) {
     throw new PleQuestionGeneralFeedbackProtocolError(
-      "Question general feedback revision must fit in a signed 64-bit integer",
+      "Question general feedback ETag must fit in a signed 64-bit integer",
     );
   }
   return value;
 }
 
-function strongRevision(response: Response, path: string): string {
-  const revision = response.headers.get("etag");
-  if (revision === null) {
+function strongEtag(response: Response, path: string): string {
+  const etag = response.headers.get("etag");
+  if (etag === null) {
     throw new PleQuestionGeneralFeedbackProtocolError(
       `Question general feedback response ${path} must include one strong numeric ETag`,
     );
   }
-  return validRevision(revision);
+  return validEtag(etag);
 }
 
 function requireJson(response: Response, path: string): void {
@@ -201,14 +201,14 @@ export function createPleQuestionGeneralFeedbackClient(
     requireJson(response, path);
     return {
       generalFeedback: decodeMetadata(await boundedJson(response, path), path),
-      revision: strongRevision(response, path),
+      etag: strongEtag(response, path),
     };
   }
 
   async function save(
     draftQuestion: DraftQuestionRouteId,
     generalFeedback: string | null,
-    revision: string,
+    etag: string,
   ): Promise<PleQuestionGeneralFeedbackSave> {
     const path = metadataPath(draftQuestion);
     const response = await fetchImplementation(
@@ -218,7 +218,7 @@ export function createPleQuestionGeneralFeedbackClient(
         {
           accept: "application/json",
           "content-type": "application/json",
-          "if-match": validRevision(revision),
+          "if-match": validEtag(etag),
         },
         JSON.stringify({ generalFeedback }),
       ),
@@ -232,7 +232,7 @@ export function createPleQuestionGeneralFeedbackClient(
         `Question general feedback save ${path} must return no content`,
       );
     }
-    return { revision: strongRevision(response, path) };
+    return { etag: strongEtag(response, path) };
   }
 
   return { load, save };

@@ -29,7 +29,7 @@ import type { PleQuestionJsonEditorPageProps } from "./question_json_editor_type
 import type { PleQuestionJsonDocument } from "./question_json_source";
 
 export type PleQuestionJsonPublishReview = {
-  readonly revision: string;
+  readonly etag: string;
   readonly baseQuestion: "newQuestion";
   readonly questionTitle: string;
   readonly changed: ReadonlyArray<string>;

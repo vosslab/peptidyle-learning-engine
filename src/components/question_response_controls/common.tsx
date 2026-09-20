@@ -98,7 +98,7 @@ export interface QuestionResponseControlBaseProps {
   readonly onResponseChange?: (
     response: StudentResponse,
     validation: StudentResponseFormatCheck,
-    editRevision?: number,
+    editGeneration?: number,
   ) => void;
   /** Exact navigation scope required to activate an iMathAS Question Backend response. */
   readonly studentWorkRoute?: StudentWorkRouteScope;
@@ -263,7 +263,7 @@ export function createResponseController(
   let saveRequest = 0;
   let disposed = false;
   let latestEdit:
-    { readonly response: StudentResponse; readonly revision: number | undefined } | undefined;
+    { readonly response: StudentResponse; readonly editGeneration: number | undefined } | undefined;
   let validatedResponse: StudentResponse | undefined;
 
   onCleanup(() => {
@@ -272,31 +272,31 @@ export function createResponseController(
     saveRequest += 1;
   });
 
-  function latestEditRevision(response: StudentResponse): number | undefined {
+  function latestEditGeneration(response: StudentResponse): number | undefined {
     if (
       latestEdit === undefined ||
       JSON.stringify(latestEdit.response) !== JSON.stringify(response)
     ) {
       return undefined;
     }
-    return latestEdit.revision;
+    return latestEdit.editGeneration;
   }
 
-  async function validate(response: StudentResponse, editRevision?: number): Promise<void> {
+  async function validate(response: StudentResponse, editGeneration?: number): Promise<void> {
     if (disposed) return;
     if (phase().kind === "saving") {
       return;
     }
     validationRequest += 1;
     const request = validationRequest;
-    const effectiveEditRevision = editRevision ?? latestEditRevision(response);
+    const effectiveEditGeneration = editGeneration ?? latestEditGeneration(response);
     validatedResponse = undefined;
     setPhase({ kind: "validating" });
     try {
       const check = await validateResponseLocally(props.validator, props.responseFormat, response);
       if (disposed || request !== validationRequest || phase().kind === "saving") return;
       if (check.issues.length === 0) validatedResponse = response;
-      props.onResponseChange?.(response, check, effectiveEditRevision);
+      props.onResponseChange?.(response, check, effectiveEditGeneration);
       setPhase(
         check.issues.length === 0
           ? { kind: "ready" }
@@ -311,9 +311,9 @@ export function createResponseController(
   }
 
   async function edit(response: StudentResponse): Promise<void> {
-    const editRevision = props.onResponseEdit?.(response);
-    latestEdit = { response, revision: editRevision };
-    await validate(response, editRevision);
+    const editGeneration = props.onResponseEdit?.(response);
+    latestEdit = { response, editGeneration };
+    await validate(response, editGeneration);
   }
 
   async function save(response: StudentResponse): Promise<void> {
@@ -363,8 +363,8 @@ export function createResponseController(
       return;
     }
     // A restored response supersedes every earlier asynchronous format check.
-    const editRevision = props.onResponseEdit?.(response);
-    latestEdit = { response, revision: editRevision };
+    const editGeneration = props.onResponseEdit?.(response);
+    latestEdit = { response, editGeneration };
     validatedResponse = undefined;
     validationRequest += 1;
     const request = validationRequest;
@@ -373,7 +373,7 @@ export function createResponseController(
       const check = await validateResponseLocally(props.validator, props.responseFormat, response);
       if (disposed || request !== validationRequest || phase().kind === "saving") return;
       if (check.issues.length === 0) validatedResponse = response;
-      props.onResponseChange?.(response, check, editRevision);
+      props.onResponseChange?.(response, check, editGeneration);
       setPhase(
         check.issues.length === 0
           ? { kind: "restored" }

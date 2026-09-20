@@ -118,7 +118,7 @@ test("conflict and reload preserve local source while clearing protected preview
   });
   const previewed = reducePleQuestionJsonEditor(loaded, {
     kind: "instructorPreviewLoaded",
-    preview: { revision: '"1"', correctChoice: "choice_a", explanation: "Instructor only" },
+    preview: { etag: '"1"', correctChoice: "choice_a", explanation: "Instructor only" },
   });
   const editedSource = setPleQuestionJsonQuestionTitle(source(), "Local only");
   const dirty = reducePleQuestionJsonEditor(previewed, { kind: "edit", source: editedSource });

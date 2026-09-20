@@ -169,15 +169,15 @@ function publicationSummary(backend = "ple") {
   };
 }
 
-function jsonResponse(value, status = 200, revision = '"1"') {
+function jsonResponse(value, status = 200, etag = '"1"') {
   return new Response(JSON.stringify(value), {
     status,
-    headers: { "content-type": "application/json", etag: revision },
+    headers: { "content-type": "application/json", etag },
   });
 }
 
-function noContent(revision = '"1"') {
-  return new Response(null, { status: 204, headers: { etag: revision } });
+function noContent(etag = '"1"') {
+  return new Response(null, { status: 204, headers: { etag } });
 }
 
 test("codec accepts a valid source and serializes deterministic compact JSON", () => {
@@ -460,7 +460,7 @@ test("matching codec refuses duplicate or incomplete pairings", () => {
   assert.throws(() => decodePleQuestionJsonSource(matching));
 });
 
-test("client sends exact protected paths, headers, body, and revisions", async () => {
+test("client sends exact protected paths, headers, body, and ETags", async () => {
   const requests = [];
   const client = createPleQuestionJsonClient({
     basePath: "/ple",
@@ -481,9 +481,9 @@ test("client sends exact protected paths, headers, body, and revisions", async (
   });
 
   const loaded = await client.load(draftQuestion);
-  const saved = await client.save(draftQuestion, loaded.source, loaded.revision);
+  const saved = await client.save(draftQuestion, loaded.source, loaded.etag);
   const request = publicationRequest();
-  const published = await client.publish(draftQuestion, request, saved.revision);
+  const published = await client.publish(draftQuestion, request, saved.etag);
   assert.deepEqual(published, publicationSummary());
 
   assert.equal(requests[0].input, `/ple/api/authoring/drafts/${draftQuestion}/source`);
@@ -566,7 +566,7 @@ test("conflicts do not echo a response body and repository preserves the caller 
 
   const repository = createPleQuestionJsonRepository({
     async load() {
-      return { source: source(), revision: '"1"' };
+      return { source: source(), etag: '"1"' };
     },
     async save() {
       throw new PleQuestionJsonConflictError(
@@ -662,14 +662,14 @@ test("repository does not regress a Draft Question Edit Number when an older sav
   let publishedRevision;
   const repository = createPleQuestionJsonRepository({
     async load() {
-      return { source: source(), revision: '"1"' };
+      return { source: source(), etag: '"1"' };
     },
-    save(_workspace, _source, revision) {
-      observedRevisions.push(revision);
+    save(_workspace, _source, etag) {
+      observedRevisions.push(etag);
       return observedRevisions.length === 1 ? firstSave.promise : secondSave.promise;
     },
-    async publish(_workspace, _request, revision) {
-      publishedRevision = revision;
+    async publish(_workspace, _request, etag) {
+      publishedRevision = etag;
       return publicationSummary();
     },
   });
@@ -677,9 +677,9 @@ test("repository does not regress a Draft Question Edit Number when an older sav
   await repository.load(draftQuestion);
   const older = repository.save(draftQuestion, source());
   const newer = repository.save(draftQuestion, source());
-  secondSave.resolve({ revision: '"3"' });
+  secondSave.resolve({ etag: '"3"' });
   await newer;
-  firstSave.resolve({ revision: '"2"' });
+  firstSave.resolve({ etag: '"2"' });
   await older;
   await repository.publish(draftQuestion, {
     authorship: { authors: [{ displayName: "Fixture Instructor" }] },

@@ -16,8 +16,12 @@
   `expectedSourceRevisionTuple` / `expectedForkRevisionTuple`,
   stewardship `questionRevisionTuple` / `forkRevisionTuple`, and
   capability `questionRevisionTuple`. Library Question detail uses
-  `?revisionNumber=`. Assessment editor concurrency is `etag`, not
-  `revision`. Gate: `cargo tsgen`, `npx tsc --noEmit -p tsconfig.json`.
+  `?revisionNumber=`. Assessment editor and PLE Question JSON draft
+  concurrency are `etag`. Attempt response edits use
+  `editGeneration`, not Revision. Gate: `npx tsc --noEmit -p
+  tsconfig.json`, `node --import tsx --test
+  tests/test_ple_question_json_authoring.mjs
+  tests/test_assessment_attempt_response_state.mjs`.
 
 - Student-view and Blueprint Course routes use `{revision_number}` for a lone
   Revision Number. Helpers that return or take a Question Revision Tuple are

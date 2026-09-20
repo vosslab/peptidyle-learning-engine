@@ -21,12 +21,12 @@ export interface PleQuestionJsonAuthoringClient {
   save(
     draftQuestion: DraftQuestionRouteId,
     source: PleQuestionJsonDocument,
-    revision?: string,
+    etag?: string,
   ): Promise<PleQuestionJsonSave>;
   publish(
     draftQuestion: DraftQuestionRouteId,
     request: PleQuestionJsonPublicationRequest,
-    revision: string,
+    etag: string,
   ): Promise<QuestionSummary>;
 }
 
@@ -42,7 +42,7 @@ export interface PleQuestionJsonRepository {
     request: PleQuestionJsonPublicationRequest,
   ): Promise<QuestionSummary>;
   /** A separately saved Draft metadata field advances the same server edit number. */
-  synchronizeRevision(draftQuestion: DraftQuestionRouteId, revision: string): void;
+  synchronizeEtag(draftQuestion: DraftQuestionRouteId, etag: string): void;
 }
 
 /** A stale save keeps the caller's private source available for a deliberate merge or reload. */
@@ -55,11 +55,11 @@ export class PleQuestionJsonStaleConflictError extends PleQuestionJsonConflictEr
   }
 }
 
-/** Owns only the server revision; editor state remains with the calling UI. */
+/** Owns only the server ETag; editor state remains with the calling UI. */
 export function createPleQuestionJsonRepository(
   client: PleQuestionJsonAuthoringClient,
 ): PleQuestionJsonRepository {
-  const revisions = new Map<DraftQuestionRouteId, string>();
+  const etags = new Map<DraftQuestionRouteId, string>();
   const operationGenerations = new Map<DraftQuestionRouteId, number>();
 
   function startOperation(draftQuestion: DraftQuestionRouteId): number {
@@ -68,19 +68,18 @@ export function createPleQuestionJsonRepository(
     return generation;
   }
 
-  function setRevisionIfCurrent(
+  function setEtagIfCurrent(
     draftQuestion: DraftQuestionRouteId,
     generation: number,
-    revision: string,
+    etag: string,
   ): void {
-    if (operationGenerations.get(draftQuestion) === generation)
-      revisions.set(draftQuestion, revision);
+    if (operationGenerations.get(draftQuestion) === generation) etags.set(draftQuestion, etag);
   }
 
   async function load(draftQuestion: DraftQuestionRouteId): Promise<PleQuestionJsonRead> {
     const generation = startOperation(draftQuestion);
     const result = await client.load(draftQuestion);
-    setRevisionIfCurrent(draftQuestion, generation, result.revision);
+    setEtagIfCurrent(draftQuestion, generation, result.etag);
     return result;
   }
 
@@ -89,10 +88,10 @@ export function createPleQuestionJsonRepository(
     source: PleQuestionJsonDocument,
   ): Promise<PleQuestionJsonSave> {
     const generation = startOperation(draftQuestion);
-    const revision = revisions.get(draftQuestion);
+    const etag = etags.get(draftQuestion);
     try {
-      const result = await client.save(draftQuestion, source, revision);
-      setRevisionIfCurrent(draftQuestion, generation, result.revision);
+      const result = await client.save(draftQuestion, source, etag);
+      setEtagIfCurrent(draftQuestion, generation, result.etag);
       return result;
     } catch (error: unknown) {
       if (error instanceof PleQuestionJsonConflictError) {
@@ -110,16 +109,16 @@ export function createPleQuestionJsonRepository(
     draftQuestion: DraftQuestionRouteId,
     request: PleQuestionJsonPublicationRequest,
   ): Promise<QuestionSummary> {
-    const revision = revisions.get(draftQuestion);
-    if (revision === undefined) {
+    const etag = etags.get(draftQuestion);
+    if (etag === undefined) {
       throw new Error("Load the saved Question before publishing it.");
     }
-    return await client.publish(draftQuestion, request, revision);
+    return await client.publish(draftQuestion, request, etag);
   }
 
-  function synchronizeRevision(draftQuestion: DraftQuestionRouteId, revision: string): void {
-    revisions.set(draftQuestion, revision);
+  function synchronizeEtag(draftQuestion: DraftQuestionRouteId, etag: string): void {
+    etags.set(draftQuestion, etag);
   }
 
-  return { load, save, reload, publish, synchronizeRevision };
+  return { load, save, reload, publish, synchronizeEtag };
 }

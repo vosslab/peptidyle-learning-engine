@@ -29,7 +29,7 @@ export interface ImathasQuestionBackendResponseProps {
   readonly onResponseChange?: (
     response: StudentResponse,
     validation: StudentResponseFormatCheck,
-    editRevision?: number,
+    editGeneration?: number,
   ) => void;
   readonly onResponseEdit?: (response: StudentResponse) => number | undefined;
   readonly studentWorkRoute?: StudentWorkRouteScope;
@@ -46,12 +46,12 @@ export function persistImathasQuestionBackendMarker(props: {
   readonly onResponseChange?: (
     response: StudentResponse,
     validation: StudentResponseFormatCheck,
-    editRevision?: number,
+    editGeneration?: number,
   ) => void;
 }): void {
   const response: StudentResponse = { kind: "imathasQuestionBackend" };
-  const editRevision = props.onResponseEdit?.(response);
-  props.onResponseChange?.(response, { issues: [] }, editRevision);
+  const editGeneration = props.onResponseEdit?.(response);
+  props.onResponseChange?.(response, { issues: [] }, editGeneration);
 }
 
 /** Persist one marker per Question Attempt; retrying its launch retains that response. */
@@ -60,7 +60,7 @@ export function createImathasQuestionBackendMarkerPersistence(props: {
   readonly onResponseChange?: (
     response: StudentResponse,
     validation: StudentResponseFormatCheck,
-    editRevision?: number,
+    editGeneration?: number,
   ) => void;
 }): () => void {
   let persisted = false;

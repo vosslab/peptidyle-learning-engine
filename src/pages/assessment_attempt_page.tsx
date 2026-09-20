@@ -84,7 +84,7 @@ function AttemptExperience(props: {
   let presentationRequest = 0;
   let timerRequest = 0;
   let timerStartedAt = 0;
-  let responseRevision = 0;
+  let responseEditGeneration = 0;
   const responseState = new AssessmentAttemptResponseState();
   let saveTimer: ReturnType<typeof globalThis.setTimeout> | undefined;
   let activeSave: Promise<boolean> | undefined;
@@ -134,7 +134,7 @@ function AttemptExperience(props: {
     const request = presentationRequest;
     setPresentation(undefined);
     responseState.clear();
-    responseRevision += 1;
+    responseEditGeneration += 1;
     setResponse(null);
     setResponseValid(false);
     setSaveState("idle");
@@ -148,7 +148,7 @@ function AttemptExperience(props: {
       if (request !== presentationRequest) return;
       setPresentation(next);
       if (next.savedResponse !== null) {
-        responseRevision = responseState.restore(nextPosition, next.savedResponse);
+        responseEditGeneration = responseState.restore(nextPosition, next.savedResponse);
         setResponse(next.savedResponse);
         setResponseValid(true);
         setSaveState("saved");
@@ -175,7 +175,7 @@ function AttemptExperience(props: {
       setSaveError("Complete the response format before saving it.");
       return false;
     }
-    const revision = active.revision;
+    const editGeneration = active.editGeneration;
     const save = (async (): Promise<boolean> => {
       setSaveState("saving");
       setSaveError(null);
@@ -190,11 +190,11 @@ function AttemptExperience(props: {
             ? existing
             : { ...existing, savedResponse: current },
         );
-        if (revision === responseRevision) setSaveState("saved");
+        if (editGeneration === responseEditGeneration) setSaveState("saved");
         await loadProgress();
         return true;
       } catch (error: unknown) {
-        if (revision === responseRevision) {
+        if (editGeneration === responseEditGeneration) {
           setSaveState("error");
           setSaveError(
             `Your response is still here. Save did not finish: ${errorMessage(error, "Please try again.")}`,
@@ -206,7 +206,7 @@ function AttemptExperience(props: {
     activeSave = save;
     const saved = await save;
     if (activeSave === save) activeSave = undefined;
-    if (revision !== responseRevision && saved) return saveCurrentResponse();
+    if (editGeneration !== responseEditGeneration && saved) return saveCurrentResponse();
     return saved;
   }
 
@@ -280,31 +280,31 @@ function AttemptExperience(props: {
 
   function responseEdited(position: number, next: StudentResponse): number | undefined {
     if (position !== currentPosition()) return undefined;
-    responseRevision = responseState.edit(position, next);
+    responseEditGeneration = responseState.edit(position, next);
     setResponse(next);
     setResponseValid(false);
     setSaveState("idle");
     setSaveError(null);
-    return responseRevision;
+    return responseEditGeneration;
   }
 
   function responseValidated(
     position: number,
     next: StudentResponse,
     validation: StudentResponseFormatCheck,
-    editRevision?: number,
+    editGeneration?: number,
   ): void {
-    if (!responseState.validate(position, next, editRevision, validation.issues.length === 0))
+    if (!responseState.validate(position, next, editGeneration, validation.issues.length === 0))
       return;
     if (position !== currentPosition()) return;
     setResponseValid(validation.issues.length === 0);
     if (validation.issues.length === 0) {
       const selected = currentPosition();
       if (selected !== null) {
-        const revision = responseRevision;
+        const generation = responseEditGeneration;
         if (saveTimer !== undefined) globalThis.clearTimeout(saveTimer);
         saveTimer = globalThis.setTimeout(() => {
-          if (selected === currentPosition() && revision === responseRevision)
+          if (selected === currentPosition() && generation === responseEditGeneration)
             void saveCurrentResponse();
         }, 350);
       }
@@ -530,12 +530,12 @@ function AttemptExperience(props: {
                   onResponseEdit={(response) =>
                     responseEdited(currentPresentation.position, response)
                   }
-                  onResponseChange={(response, validation, editRevision) =>
+                  onResponseChange={(response, validation, editGeneration) =>
                     responseValidated(
                       currentPresentation.position,
                       response,
                       validation,
-                      editRevision,
+                      editGeneration,
                     )
                   }
                   onSave={saveOutcome}
