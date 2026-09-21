@@ -1,154 +1,107 @@
 # Peptidyle Learning Engine
 
-An open-source teaching platform for instructors to build reusable courses and automatically graded practice, combining native and WeBWorK Questions with exact Revision evidence and server-owned grading.
+An open teaching platform where instructors assign auto-graded practice that students can repeat until they master it. Share and reuse Questions across courses, mix static and algorithmic WeBWorK problems, export grades, and keep student data protected.
 
-## Preparing for launch
+Pre-production, no hosted instance yet. Run the local Live Demo below; the first classroom
+pilot is Fall 2026.
 
-PLE is preparing for its first production launch. The local Live Demo provides connected
-Instructor, Student, and Sysadmin workflows using the ordinary application, database, and
-Course relationships. Authoring, delivery, and interface work remain under active refinement;
-individual implementation and screenshot receipts establish only their stated scope.
-[docs/ROADMAP.md](docs/ROADMAP.md) records release gates, and
-[docs/TEST_EVIDENCE_MODEL.md](docs/TEST_EVIDENCE_MODEL.md) explains what each check proves.
-The quick start below is a disposable local demonstration, not a production deployment procedure.
-
-Email authentication is not yet configured for the Live Demo. Students and Instructors enter
-through its visible fictional-account selector; Sysadmin entry additionally requires genuine
-TOTP authentication. See [docs/LIVE_DEMO_SPEC.md](docs/LIVE_DEMO_SPEC.md).
-
-## Reuse Questions, preserve the work
-
-PLE separates reusable teaching content from its delivery in a particular Course:
-
-- Find, author, publish, and reuse Questions through one global Question Library.
-- Combine native static Questions and algorithmic WeBWorK PG or PGML source. A generated
-  variant belongs to its algorithmic Question; a Question Pool selects among distinct Questions.
-- Design a Blueprint Course, then create a teaching Course Instance with independent Assessments.
-- Set Assessment content and Properties separately: Question order and points, Attempts, timing,
-  availability, and permitted feedback.
-- Let Students save responses, resume an open Attempt, and submit the whole Attempt, while
-  retained work identifies the exact Question Revision and, when the Question came from a Pool, the Pool ID and Pool Edit Number delivered.
-
-Regular Assignments default to repeated practice with unlimited Attempts. Practice Question
-Assignments provide focused review and show correct answers after whole-Attempt submission.
-Quizzes and Exams allow one Attempt. These are pedagogical Types within the same Assessment
-model, with independently configurable settings; see
-[docs/MASTERY_ASSIGNMENT_DESIGN.md](docs/MASTERY_ASSIGNMENT_DESIGN.md).
-
-Question Backends own interaction and grading. PLE keeps grading authority, protected answer
-content, and provider credentials on the server, and scopes Student Work through Course
-relationships and Student ownership. Reusable published content remains distinct from
-FERPA-sensitive Attempts, responses, and grades. Current product intent is defined by
-[docs/HUMAN_GUIDANCE.md](docs/HUMAN_GUIDANCE.md), with vocabulary in
-[docs/TERMINOLOGY_CONTRACT.md](docs/TERMINOLOGY_CONTRACT.md).
-
-## See the Live Demo
-
-These repository captures show the fictional-account entry, Instructor Assessment Properties,
-a Student's saved response, and Sysadmin administration. They are rendered evidence from the
-published capture corpus, not a fresh verification of every current workflow.
+![Open source, AGPL-3.0](https://img.shields.io/badge/open%20source-AGPL--3.0-2b6f3f)
+![Auto-graded practice](https://img.shields.io/badge/practice-auto--graded-1f5f8b)
+![WeBWorK and native Questions](https://img.shields.io/badge/questions-WeBWorK%20%2B%20native-1f5f8b)
+![Laptop, tablet, phone](https://img.shields.io/badge/works%20on-laptop%20%7C%20tablet%20%7C%20phone-2b6f3f)
 
 <!-- screenshots:begin (managed by screenshot-docs) -->
-
-![Live Demo sign-in with fictional Instructor, Student, and Sysadmin Accounts](docs/screenshots/public/sign_in_laptop.png)
-![Instructor Assessment Properties Editor with a saved, released Assessment](docs/screenshots/instructor/assignment_release_released.png)
-![Student Chapter 1 Pilot Practice Attempt with a saved response and Question navigation](docs/screenshots/student/assignment_attempt_saved_laptop.png)
-![Sysadmin administration home with Instructor Account and scoped roster-support actions](docs/screenshots/sysadmin/system_administration_home_laptop.png)
+<p align="center">
+  <img src="docs/screenshots/instructor/webwork_generated_example.png" width="920" alt="A published Genetics WeBWorK Question in the shared Question Library: Genetic Disorders from Descriptions, with its Question ID, author, backend, discipline, PGML format, and revision">
+</p>
 <!-- screenshots:end -->
 
-Browse [docs/SCREENSHOT_ATLAS.md](docs/SCREENSHOT_ATLAS.md) for the full grouped corpus and
-its coverage gaps. Capture and replay instructions are in
-[docs/SCREENSHOT_CONTRACT.md](docs/SCREENSHOT_CONTRACT.md).
-The demo runs locally at the HTTPS address printed by the launcher.
+<p align="center"><em>A real Genetics problem from the shared Question Library. It is algorithmic: every student's Attempt gets a freshly generated version.</em></p>
 
-## Quick start
+## Practice until it sticks
 
-Start from a checkout with Bash, Git, Python, Rust, Node.js/npm, Podman, and a usable Compose
-provider. [docs/INSTALL.md](docs/INSTALL.md) gives the complete setup path;
-[docs/MACOS_PODMAN.md](docs/MACOS_PODMAN.md) covers macOS Podman setup.
-Install the declared Python runtime dependencies, then start the demo:
+Assignments default to unlimited Attempts, grade themselves, and keep the highest score.
+
+<p align="center">
+  <img src="docs/screenshots/student/laptop/assessment_navigation.png" width="640" alt="Student Attempt on a laptop: numbered Question navigation with saved checkmarks, a countdown timer, and an autosave notice">
+  <img src="docs/screenshots/student/phone/question_answered_mc.png" width="220" alt="The same Student Attempt on a phone: a multiple choice Question with keyboard shortcuts 1 to 4 and a saved response">
+</p>
+
+<p align="center"><em>One Question at a time, on a laptop or a phone. Saved checkmarks, a countdown, and keys 1-4 to answer.</em></p>
+
+- Students repeat an Assignment until they earn the score they want; the best Attempt counts.
+- Responses save to the server as they go, so students pick up where they left off.
+- Every Question shows keyboard shortcuts and hints.
+
+## Real questions, shared and reused
+
+One Question Library serves every course: algorithmic WeBWorK PG and PGML problems beside
+native multiple choice, multiple answer, fill-in, numeric, matching, ordering, and hotspot
+Questions. The free BiologyProblems.org Genetics example Blueprint is included.
+
+<p align="center">
+  <img src="docs/screenshots/instructor/library_browse.png" width="920" alt="Instructor Browse Question Library page with Subject, Tag, and Question Type counts and Discipline, Subject, Topic, and Subtopic filters">
+</p>
+
+<p align="center"><em>Browse by Subject, Tag, Question Type, and Bloom level; star and watch what you want to reuse.</em></p>
+
+## Build a course once, teach it every term
+
+A Blueprint Course holds your Assessments without students or dates; each term you create a
+fresh Course Instance from it and export points to your LMS.
+
+<p align="center">
+  <img src="docs/screenshots/instructor/gradebook.png" width="920" alt="Instructor Gradebook for Biochemistry 301 showing three students at Not started, In progress, and Completed and scored 3 of 4, with Download CSV and Download TSV buttons">
+</p>
+
+<p align="center"><em>Progress per student, CSV or TSV export; weighting stays in your home LMS.</em></p>
+
+The full 97-capture corpus, including every Question Type on laptop and phone, is in
+[docs/SCREENSHOT_ATLAS.md](docs/SCREENSHOT_ATLAS.md).
+
+## Try the Live Demo
+
+You need Bash, Git, Python, Rust, Node.js/npm, and Podman with a Compose provider; see
+[docs/INSTALL.md](docs/INSTALL.md) and [docs/MACOS_PODMAN.md](docs/MACOS_PODMAN.md).
 
 ```bash
 source source_me.sh && python3 -m pip install --requirement pip_requirements.txt
 ./launchers/run_live_demo.sh
 ```
 
-The launcher installs missing TypeScript dependencies, builds the production browser bundle,
-provisions the fixed disposable `ple-live-demo-browser` stack, and prints a ready HTTPS entry URL.
-Open that URL, or open the running demo with:
+The launcher builds the browser bundle, provisions a disposable local stack, and prints an HTTPS
+URL. `./launchers/run_live_demo.sh open` reopens a running demo, `start --open` starts a fresh
+one, and `stop` tears it down. Email sign-in is not configured for the demo: pick a fictional
+Account from the sign-in page (Sysadmin entry needs TOTP; see
+[docs/LIVE_DEMO_SPEC.md](docs/LIVE_DEMO_SPEC.md)).
 
-```bash
-./launchers/run_live_demo.sh open
-```
+1. Sign in as **Elena Rivera (Instructor)**. Open **BCHM 301**, then **Chapter 1 Pilot
+   Practice**: its Questions, Properties, answer-free Student View, and Gradebook.
+2. Sign out and pick **Jack Nguyen (Student)** to resume an open practice Attempt with saved
+   responses.
+3. Pick **Mary Okafor (Student)** for completed, scored work, or **Avery Thompson (Student)** to
+   start the same Assignment fresh.
 
-To start a fresh demo and open it automatically, use `./launchers/run_live_demo.sh start --open`.
-The standalone `--open` option also starts a fresh demo; `open` opens the existing one.
+Startup trouble: [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md).
 
-### Try a teaching workflow
+## Status
 
-1. Choose **Elena Rivera (Instructor)**. Open **BCHM 301** and inspect **Chapter 1 Pilot Practice**,
-   its Questions, Assessment Properties, answer-free Student View, and Gradebook.
-2. Sign Out through Profile and choose **Jack Nguyen (Student)**. Resume the open practice
-   Attempt to inspect its saved response and Question navigation.
-3. Choose **Mary Okafor (Student)** to inspect completed work, or **Avery Thompson (Student)**
-   to see the same released practice before starting a new Attempt.
+- Pre-production. The Fall 2026 pilot covers Genetics, Biostatistics, Biotechnology, and
+  Biochemistry courses ([docs/FALL_2026_PILOT.md](docs/FALL_2026_PILOT.md)); release gates are in
+  [docs/ROADMAP.md](docs/ROADMAP.md).
+- Student work stays private to its course and is deleted on a schedule; your Questions and
+  Courses are kept.
 
-These personas use ordinary Course membership and Student Work. The reusable demo Blueprint is
-**Biochemistry 301: Proteins and Peptides**. The installation also includes the free, open-source
-BiologyProblems.org Genetics example Blueprint. Its canonical PG/PGML Questions demonstrate
-backend-native algorithmic variation. See [docs/LIVE_DEMO_SPEC.md](docs/LIVE_DEMO_SPEC.md)
-for the teaching graph and identity boundaries.
+## Learn more
 
-Stop the demo when finished:
+- [docs/INSTRUCTOR_GUIDE.md](docs/INSTRUCTOR_GUIDE.md): the teaching workflow, start to gradebook.
+- [docs/FAQ.md](docs/FAQ.md): Blueprints, repeated practice, grading, and Student records.
+- [docs/LIVE_DEMO_SPEC.md](docs/LIVE_DEMO_SPEC.md): demo Accounts and teaching data.
+- [docs/HUMAN_GUIDANCE.md](docs/HUMAN_GUIDANCE.md): the complete product rules.
+- [docs/RELATED_PROJECTS.md](docs/RELATED_PROJECTS.md): ADAPT, WeBWorK, and other systems.
 
-```bash
-./launchers/run_live_demo.sh stop
-```
-
-Starting again replaces this demo's containers, volumes, networks, and local records. Unrelated
-Podman projects are outside that lifecycle. For startup problems, use
-[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md); for diagnostics and controller ownership,
-use [docs/LOCAL_STACK_OPERATIONS.md](docs/LOCAL_STACK_OPERATIONS.md).
-
-## Find the right documentation
-
-- [docs/INSTALL.md](docs/INSTALL.md): prerequisites, checkout setup, and installation boundaries.
-- [docs/USAGE.md](docs/USAGE.md): Live Demo commands, Blueprint adoption, and stack diagnostics.
-- [docs/LIVE_DEMO_SPEC.md](docs/LIVE_DEMO_SPEC.md): fictional Accounts, teaching data, and demo access.
-- [docs/HUMAN_GUIDANCE.md](docs/HUMAN_GUIDANCE.md): controlling product intent and teaching rules.
-- [docs/TERMINOLOGY_CONTRACT.md](docs/TERMINOLOGY_CONTRACT.md): Courses, Assessments, Questions,
-  Revisions, Student Work, and retention vocabulary.
-- [docs/CODE_ARCHITECTURE.md](docs/CODE_ARCHITECTURE.md): component ownership and security boundaries.
-- [docs/ROADMAP.md](docs/ROADMAP.md): release direction and production gates.
-- [docs/RELATED_PROJECTS.md](docs/RELATED_PROJECTS.md): related assessment systems and standards.
-
-For common design questions, see [docs/FAQ.md](docs/FAQ.md). Developers can continue with
-[docs/FILE_STRUCTURE.md](docs/FILE_STRUCTURE.md), [docs/CONTRACTS.md](docs/CONTRACTS.md),
-and [docs/API_CONTRACTS.md](docs/API_CONTRACTS.md) for layout, module boundaries, and HTTP details.
-
-## For contributors
-
-The implementation uses a Rust workspace, PostgreSQL, S3-compatible local MinIO storage, and a
-Solid/TypeScript browser with a WebAssembly bridge. Follow
-[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for dependency setup and bounded verification.
-The build and offline check front doors are:
-
-```bash
-./build.sh
-./check_rust.sh
-./check_codebase.sh
-source source_me.sh && python3 -m pytest tests/
-```
-
-The complete aggregate adds disposable service acceptance:
-
-```bash
-source source_me.sh && ./launchers/all_test.sh
-```
-
-Browser and screenshot evidence have separate execution lanes. Passing offline checks or service
-acceptance alone does not establish a visible teaching journey; see
-[docs/TEST_EVIDENCE_MODEL.md](docs/TEST_EVIDENCE_MODEL.md).
+Developers: start at [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) and
+[docs/CODE_ARCHITECTURE.md](docs/CODE_ARCHITECTURE.md).
 
 ## License and authorship
 
