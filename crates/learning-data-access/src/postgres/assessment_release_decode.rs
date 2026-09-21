@@ -6,10 +6,10 @@ use question_model::{
     AssessmentInstructions, AssessmentOrigin, AssessmentPointValue, AssessmentStatus,
     AssessmentTitle, AssessmentType, BlueprintAssessmentId, BlueprintAssessmentSource,
     BlueprintCourseId, BlueprintRevisionNumber, BlueprintRevisionTuple, CourseInstanceId,
-    FixedQuestionAssessmentEntry, LateWorkRule, LocalDateAndTime, QuestionAttemptLimit,
-    QuestionAttemptTimeLimit, QuestionId, QuestionPoolAssessmentEntry, QuestionPoolEditNumber,
-    QuestionPoolSelectedQuestionOrder, QuestionPoolSelectionRule, QuestionRevisionNumber,
-    QuestionRevisionTuple, Timestamp,
+    FixedQuestionAssessmentEntry, LateWorkRule, LocalDateAndTime, PublishedQuestionRevisionTuple,
+    QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionPoolAssessmentEntry,
+    QuestionPoolEditNumber, QuestionPoolId, QuestionPoolSelectedQuestionOrder,
+    QuestionPoolSelectionRule, QuestionRevisionNumber, Timestamp,
 };
 use sqlx::Row;
 
@@ -17,16 +17,16 @@ use super::super::connection::map_sqlx_error;
 use super::AssessmentScheduleContext;
 use crate::StoreError;
 
-pub(super) fn question_id(value: String) -> Result<QuestionId, StoreError> {
+pub(super) fn question_pool_id(value: String) -> Result<QuestionPoolId, StoreError> {
     value.parse().map_err(|_| invalid("Question ID"))
 }
 
-pub(super) fn question_revision_tuple(
+pub(super) fn published_question_revision_tuple(
     published_question_id: String,
     revision_number: i32,
-) -> Result<QuestionRevisionTuple, StoreError> {
-    Ok(QuestionRevisionTuple {
-        question_id: published_question_id
+) -> Result<PublishedQuestionRevisionTuple, StoreError> {
+    Ok(PublishedQuestionRevisionTuple {
+        published_question_id: published_question_id
             .parse()
             .map_err(|_| invalid("Published Question ID"))?,
         revision_number: QuestionRevisionNumber::new(
@@ -47,14 +47,14 @@ pub(super) fn decode_entries(rows: &[sqlx::postgres::PgRow]) -> Result<Vec<Asses
         let policy = question_policy(row)?;
         if kind == "fixed_question" {
             entries.push(AssessmentEntry::FixedQuestion(FixedQuestionAssessmentEntry {
-                id, question_revision_tuple: row_question_revision_tuple(row)?, points_possible: point_value(row, "points_possible")?, availability, scoring_rule,
+                id, published_question_revision_tuple: row_published_question_revision_tuple(row)?, points_possible: point_value(row, "points_possible")?, availability, scoring_rule,
                 question_attempt_limit: policy.0, question_attempt_time_limit: policy.1,
             })); index += 1; continue;
         }
         if kind != "question_pool" { return Err(invalid("Assessment Entry kind")); }
         let selection_count = u32::try_from(row.try_get::<i32, _>("selection_count").map_err(map_sqlx_error)?).map_err(|_| invalid("Question Pool selection count"))?;
         let selection_rule = QuestionPoolSelectionRule { selected_question_order: selected_question_order_from_row(row.try_get("selected_question_order").map_err(map_sqlx_error)?)? };
-        let question_pool_id = question_id(row.try_get("question_pool_id").map_err(map_sqlx_error)?)?;
+        let question_pool_id = question_pool_id(row.try_get("question_pool_id").map_err(map_sqlx_error)?)?;
         let question_pool_edit_number = QuestionPoolEditNumber::new(
             u64::try_from(row.try_get::<i64, _>("question_pool_edit_number").map_err(map_sqlx_error)?)
                 .map_err(|_| invalid("Question Pool Edit Number"))?,
@@ -79,8 +79,8 @@ pub(super) fn decode_entries(rows: &[sqlx::postgres::PgRow]) -> Result<Vec<Asses
     Ok(entries)
 }
 #[rustfmt::skip]
-pub(super) fn row_question_revision_tuple(row: &sqlx::postgres::PgRow) -> Result<QuestionRevisionTuple, StoreError> {
-    question_revision_tuple(row.try_get("published_question_id").map_err(map_sqlx_error)?, row.try_get("question_revision_number").map_err(map_sqlx_error)?)
+pub(super) fn row_published_question_revision_tuple(row: &sqlx::postgres::PgRow) -> Result<PublishedQuestionRevisionTuple, StoreError> {
+    published_question_revision_tuple(row.try_get("published_question_id").map_err(map_sqlx_error)?, row.try_get("question_revision_number").map_err(map_sqlx_error)?)
 }
 
 #[rustfmt::skip]
@@ -253,19 +253,13 @@ pub(super) fn resolve_local_timestamp(
 pub(in crate::postgres) fn invalid(label: &str) -> StoreError {
     StoreError::InvalidRecord(format!("database returned an invalid {label}"))
 }
-pub(super) fn random_uuid() -> Result<uuid::Uuid, StoreError> {
-    crate::random_uuid::random_uuid_v4(|_| {
-        StoreError::Unavailable("Assessment Workspace UUID randomness unavailable".to_string())
-    })
-}
-
 #[cfg(test)]
 mod tests {
-    use super::question_revision_tuple;
+    use super::published_question_revision_tuple;
 
     #[test]
-    fn question_revision_tuple_takes_a_revision_number() {
-        let tuple = question_revision_tuple("ABCD-XEFG".into(), 4).expect("tuple");
+    fn published_question_revision_tuple_takes_a_revision_number() {
+        let tuple = published_question_revision_tuple("ABCD-XEFG".into(), 4).expect("tuple");
         assert_eq!(tuple.revision_number.get(), 4);
     }
 }

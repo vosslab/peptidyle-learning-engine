@@ -286,7 +286,7 @@ CREATE FUNCTION ple_private.read_student_assessment_attempt_saved_response(
     p_assessment_attempt_id uuid,
     p_issued_position integer
 ) RETURNS TABLE (issued_position integer, student_response jsonb)
-LANGUAGE plpgsql STABLE SECURITY DEFINER
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE assessment_attempt_row ple_private.assessment_attempt%ROWTYPE;
 BEGIN
@@ -339,7 +339,7 @@ BEGIN
     PERFORM ple_private.lock_assessment_for_student_work(assessment_id_value);
     RETURN QUERY
     SELECT question_attempt.question_attempt_id, issued.issued_question_id,
-           assessment_attempt.assessment_attempt_id, assessment_attempt.assessment_id, issued.published_question_id,
+           assessment_attempt.assessment_attempt_id, assessment_attempt.assessment_id::text, issued.published_question_id::text,
            issued.revision_number, question_attempt.question_seed,
            question_attempt.generated_parameter_sha256
       FROM ple_private.question_attempt AS question_attempt
@@ -364,7 +364,7 @@ BEGIN
     assessment_attempt_row := ple_private.assert_current_student_assessment_attempt(p_assessment_attempt_id);
     RETURN QUERY
     SELECT assessment_attempt_row.assessment_attempt_id, policy.assessment_title, policy.assessment_instructions,
-           issued.issued_position, issued.published_question_id, issued.revision_number,
+           issued.issued_position, issued.published_question_id::text, issued.revision_number,
            question_attempt.question_seed, question_attempt.generated_parameter_sha256,
            snapshot.question_attempt_limit, snapshot.question_attempt_time_limit_seconds,
            snapshot.question_attempt_grace_seconds,
@@ -381,4 +381,3 @@ BEGIN
      WHERE issued.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id
      ORDER BY issued.issued_position;
 END $$;
-

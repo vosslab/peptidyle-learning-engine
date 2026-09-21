@@ -52,8 +52,8 @@ async function waitForDeliveredQuestionControl(
   await waitForQuestionControl(page, question.position);
   const response = question.presentation.response;
   if (response.kind !== "hotspot") return;
-  const pin = question.presentation.questionRevisionTuple;
-  const assetPath = `/api/questions/${encodeURIComponent(pin.questionId)}/revisions/${pin.revisionNumber}/images/${encodeURIComponent(response.surface.questionImageAssetTuple.questionImageAssetId)}`;
+  const pin = question.presentation.publishedQuestionRevisionTuple;
+  const assetPath = `/api/questions/${encodeURIComponent(pin.publishedQuestionId)}/revisions/${pin.revisionNumber}/images/${encodeURIComponent(response.surface.questionImageAssetTuple.questionImageAssetId)}`;
   const questionImageUrl = new URL(assetPath, page.url()).href;
   const control = page.locator("section.question-response-control");
   // The Save action is generic. Require the delivered immutable image and its loaded overlays.
@@ -149,8 +149,14 @@ export async function authorHotspot(page: Page): Promise<void> {
   });
   await page.getByLabel("Image description", { exact: true }).fill(DESCRIPTION);
   await page.getByLabel("Region 1 label", { exact: true }).fill("Dot");
-  for (const [coordinate, value] of Object.entries({ x: 4500, y: 4000, width: 1000, height: 2000 }))
+  for (const [coordinate, value] of Object.entries({
+    x: 4500,
+    y: 4000,
+    width: 1000,
+    height: 2000,
+  })) {
     await page.getByLabel(`Region 1 ${coordinate}`, { exact: true }).fill(String(value));
+  }
   await page.getByLabel("Region 1 is correct", { exact: true }).check();
 }
 
@@ -171,7 +177,7 @@ export async function exerciseHotspot(page: Page, input: "pointer" | "keyboard")
     }
   }
   if (position === undefined) throw new Error("The released Assessment did not deliver HOTSPOT.");
-  const pin = question.presentation.questionRevisionTuple;
+  const pin = question.presentation.publishedQuestionRevisionTuple;
   const control = page.locator("section.question-response-control");
   const image = control.getByRole("img", { name: DESCRIPTION, exact: true });
   await image.waitFor();
@@ -196,10 +202,10 @@ export async function exerciseHotspot(page: Page, input: "pointer" | "keyboard")
     // Reload may recommend another unanswered position; return through ordinary navigation.
     if (position === undefined) throw new Error("Missing HOTSPOT position after reload.");
     const restored = await returnToQuestion(page, position);
-    const restoredPin = restored.presentation.questionRevisionTuple;
+    const restoredPin = restored.presentation.publishedQuestionRevisionTuple;
     if (
       restored.presentation.response.kind !== "hotspot" ||
-      restoredPin.questionId !== pin.questionId ||
+      restoredPin.publishedQuestionId !== pin.publishedQuestionId ||
       restoredPin.revisionNumber !== pin.revisionNumber
     )
       throw new Error("Reload did not restore the exact issued HOTSPOT Question Revision.");

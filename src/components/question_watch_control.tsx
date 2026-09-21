@@ -2,11 +2,11 @@
 
 import { createResource, createSignal, type JSX, Show } from "solid-js";
 
-import type { QuestionId } from "../../generated/api/QuestionId";
+import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionId";
 import { useApplicationApi } from "../api/application_api";
 
 export interface QuestionWatchControlProps {
-  readonly questionId: QuestionId;
+  readonly questionId: PublishedQuestionId;
 }
 
 /** Shows only the current active Instructor's Watch state for this Question. */

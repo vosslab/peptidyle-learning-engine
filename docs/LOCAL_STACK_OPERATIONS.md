@@ -186,9 +186,6 @@ Assessment Attempts; Avery remains enrolled without one. The database-owned
 manifest is convergent; the full provision command is the canonical owner for
 the complete known-good Live Demo.
 
-`--without-live-demo` skips this optional product data before provisioning. It
-does not select a different schema, role model, or lifecycle.
-
 ## Startup order
 
 The lifecycle validates image digests, private files, Compose topology, and
@@ -204,8 +201,7 @@ Question Renderer Version before mutating the selected target. It then:
 6. starts API initializers, builds API and gateway images, and starts API and
    gateway;
 7. waits for API semantic health; and
-8. runs complete Live Demo provisioning unless `--without-live-demo` was
-   selected.
+8. runs complete Live Demo provisioning.
 
 The API receives its one bounded runtime database URL. Migration children receive
 administrator authority only for their bounded startup calls. Raw passwords and

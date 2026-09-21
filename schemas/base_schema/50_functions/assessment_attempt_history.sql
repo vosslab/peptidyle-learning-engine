@@ -315,7 +315,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
               'intrinsic_height', presented.intrinsic_height
           ) ORDER BY presented.question_image_asset_id) AS question_image_renditions
             FROM ple_private.question_attempt_presentation_image_rendition AS presented
-           WHERE presented.question_attempt_presentation_image_binding_id
+           WHERE presented.question_attempt_id
                  = question_attempt.question_attempt_id
       ) AS question_image_renditions ON true
       LEFT JOIN LATERAL (
@@ -324,7 +324,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
               'response_item_id', response_item.response_item_id
           ) ORDER BY response_item.presentation_response_item_id) AS response_item_bindings
             FROM ple_private.question_attempt_response_item_binding AS response_item
-           WHERE response_item.question_attempt_presentation_binding_id
+           WHERE response_item.question_attempt_id
                  = question_attempt.question_attempt_id
       ) AS response_item_bindings ON true
      ORDER BY issued.issued_position
@@ -413,4 +413,3 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
        AND course.student_data_archived_at IS NOT NULL
        AND course.student_data_deleted_at IS NULL
 $$;
-

@@ -394,7 +394,7 @@ fn webwork_asset_proxy_from_env() -> Result<crate::webwork_asset_proxy::WebworkA
 }
 
 /// Constructs the stateless OS-random issuer used by service and trusted
-/// installation publication paths. The public checksum belongs to QuestionId,
+/// installation publication paths. The public checksum belongs to PublishedQuestionId,
 /// so this path needs neither an environment secret nor deployment state.
 pub const fn question_id_issuer() -> crate::question_publication::RandomQuestionIdIssuer {
     crate::question_publication::RandomQuestionIdIssuer

@@ -11,7 +11,7 @@ use axum::{
 };
 use learning_data_access::QuestionLibraryStore;
 use question_model::{
-    MAX_BULK_QUESTION_METADATA_ITEMS, PublishedQuestionSharedMetadata, QuestionId,
+    MAX_BULK_QUESTION_METADATA_ITEMS, PublishedQuestionId, PublishedQuestionSharedMetadata,
 };
 use serde::{Deserialize, Serialize};
 
@@ -75,7 +75,7 @@ pub(super) async fn load_current_shared_metadata(
     }
 }
 
-fn decode_question_ids(values: Vec<String>) -> Option<Vec<QuestionId>> {
+fn decode_question_ids(values: Vec<String>) -> Option<Vec<PublishedQuestionId>> {
     if values.is_empty() || values.len() > MAX_BULK_QUESTION_METADATA_ITEMS {
         return None;
     }

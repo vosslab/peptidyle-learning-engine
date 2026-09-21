@@ -228,7 +228,7 @@ function NativeQuestionPreview(props: {
         <div inert aria-disabled="true">
           <QuestionPresentationResponseControl
             attemptId={`student-view-${props.position}`}
-            questionRevisionTuple={props.presentation.questionRevisionTuple}
+            publishedQuestionRevisionTuple={props.presentation.publishedQuestionRevisionTuple}
             questionImageUrl={props.questionImageUrl}
             mode="formatOnly"
             responseFormat={props.presentation.response}
@@ -280,7 +280,7 @@ export function AssessmentWorkspaceStudentViewPage(): JSX.Element {
         workspace.courseInstanceId,
         workspace.assessmentId,
         question.authoredPosition,
-        question.questionRevisionTuple,
+        question.publishedQuestionRevisionTuple,
         currentManifest.assessmentEditNumber,
       );
     },
@@ -423,7 +423,7 @@ export function AssessmentWorkspaceStudentViewPage(): JSX.Element {
                                   questionImageUrl={(asset) =>
                                     new URL(
                                       applicationApi.client.questionImageUrl(
-                                        readyPresentation().questionRevisionTuple,
+                                        readyPresentation().publishedQuestionRevisionTuple,
                                         asset.questionImageAssetId,
                                       ),
                                       globalThis.location.origin,
@@ -438,7 +438,7 @@ export function AssessmentWorkspaceStudentViewPage(): JSX.Element {
                                   workspace.courseInstanceId,
                                   workspace.assessmentId,
                                   question.authoredPosition,
-                                  question.questionRevisionTuple,
+                                  question.publishedQuestionRevisionTuple,
                                   readyManifest().assessmentEditNumber,
                                 )}
                               />

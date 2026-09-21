@@ -481,7 +481,7 @@ function AttemptExperience(props: {
                     questionImageUrl={(asset) =>
                       new URL(
                         runtime.client.questionImageUrl(
-                          currentPresentation.presentation.questionRevisionTuple,
+                          currentPresentation.presentation.publishedQuestionRevisionTuple,
                           asset.questionImageAssetId,
                         ),
                         window.location.origin,
@@ -504,11 +504,13 @@ function AttemptExperience(props: {
               <div class="attempt-response">
                 <QuestionPresentationResponseControl
                   attemptId={`${props.context.assessmentAttemptId}-${currentPresentation.position}`}
-                  questionRevisionTuple={currentPresentation.presentation.questionRevisionTuple}
+                  publishedQuestionRevisionTuple={
+                    currentPresentation.presentation.publishedQuestionRevisionTuple
+                  }
                   questionImageUrl={(asset) =>
                     new URL(
                       runtime.client.questionImageUrl(
-                        currentPresentation.presentation.questionRevisionTuple,
+                        currentPresentation.presentation.publishedQuestionRevisionTuple,
                         asset.questionImageAssetId,
                       ),
                       window.location.origin,

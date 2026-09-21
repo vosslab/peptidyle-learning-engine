@@ -57,47 +57,6 @@ def entry_url() -> str:
 
 
 #============================================
-def test_start_parser_exposes_only_explicit_demo_opt_out() -> None:
-	"""Start cannot select another environment, project, or artifact."""
-	args = local_stack_control.cli.build_parser().parse_args(["start", "--headless"])
-	assert args.headless
-	assert args.without_live_demo is False
-	without_demo = local_stack_control.cli.build_parser().parse_args([
-		"start", "--headless", "--without-live-demo",
-	])
-	assert without_demo.without_live_demo is True
-	with pytest.raises(SystemExit):
-		local_stack_control.cli.build_parser().parse_args(["start", "--project", "other"])
-
-
-#============================================
-def test_start_forwards_explicit_demo_opt_out_to_the_fixed_owner(
-	tmp_path: pathlib.Path,
-	monkeypatch: pytest.MonkeyPatch,
-) -> None:
-	"""The only opt-out suppresses demo data, never structure initialization."""
-	captured: list[bool] = []
-	monkeypatch.setattr(
-		local_stack_control.browser_suite_developer,
-		"clear_developer_browser_suite",
-		lambda _root, _runner: receipt().project,
-	)
-	monkeypatch.setattr(
-		local_stack_control.browser_suite_developer_start,
-		"start_developer_browser_suite",
-		lambda _root, without_live_demo=False: (
-			captured.append(without_live_demo), receipt()
-		)[1],
-	)
-
-	assert local_stack_control.cli.run(
-		["start", "--headless", "--without-live-demo"],
-		RecordingRunner(),
-		tmp_path,
-	) == 0
-	assert captured == [True]
-
-
 #============================================
 def test_start_uses_the_fixed_owner_and_opens_its_safe_origin(
 	tmp_path: pathlib.Path,

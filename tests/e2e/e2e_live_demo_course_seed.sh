@@ -53,7 +53,7 @@ matches=[item for item in items if isinstance(item, dict) and item.get("title") 
 if len(matches) != 1:
     raise SystemExit("Live Demo Assessment is absent or duplicated")
 item=matches[0]
-if set(item) != {"id","assessmentType","title","dueAt","displayTimeZone","status","editNumber"}:
+if set(item) != {"id","assessmentType","title","dueAt","displayTimeZone","status","assessmentEditNumber"}:
     raise SystemExit("Course Assessment list is not its current closed projection")
 assessment_id=item["id"]
 if not isinstance(assessment_id, str) or re.fullmatch(r"A[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}", assessment_id) is None:
@@ -71,11 +71,11 @@ if not isinstance(items, list): raise SystemExit("Course Assessment list is malf
 matches=[item for item in items if isinstance(item, dict) and item.get("id") == assessment_id]
 if len(matches) != 1: raise SystemExit("Live Demo Assessment is absent or duplicated")
 item=matches[0]
-if set(item) != {"id","assessmentType","title","dueAt","displayTimeZone","status","editNumber"}:
+if set(item) != {"id","assessmentType","title","dueAt","displayTimeZone","status","assessmentEditNumber"}:
     raise SystemExit("Course Assessment list is not its current closed projection")
 if item["assessmentType"] != "practice_question_assignment":
     raise SystemExit("Live Demo Assessment has the wrong Assessment Type")
-if item["status"] != "released" or not isinstance(item["editNumber"], str) or not item["editNumber"].isdigit():
+if item["status"] != "released" or not isinstance(item["assessmentEditNumber"], str) or not item["assessmentEditNumber"].isdigit():
     raise SystemExit("Live Demo Assessment is not a released current Assessment")
 ' "$(response_body "$response")" "$assessment"
 }

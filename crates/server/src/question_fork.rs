@@ -31,8 +31,8 @@ use objects::{
     image_validation::verify_still_image, s3::S3ObjectStore,
 };
 use question_model::{
-    ObjectId, ProductRole, QuestionBackend, QuestionId, QuestionResponseFormat,
-    QuestionRevisionNumber, QuestionRevisionTuple, QuestionType,
+    ObjectId, ProductRole, PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionBackend,
+    QuestionResponseFormat, QuestionRevisionNumber, QuestionType,
 };
 use serde::Serialize;
 use uuid::Uuid;
@@ -117,13 +117,17 @@ async fn fork_published_question(
             );
         }
     };
-    let source_question_revision_tuple = match canonical_source(question_id, revision_number) {
-        Some(value) => value,
-        None => return concealed(),
-    };
+    let source_published_question_revision_tuple =
+        match canonical_source(question_id, revision_number) {
+            Some(value) => value,
+            None => return concealed(),
+        };
     let library_entry = match state
         .library
-        .load_published_question_revision_library_entry(session, &source_question_revision_tuple)
+        .load_published_question_revision_library_entry(
+            session,
+            &source_published_question_revision_tuple,
+        )
         .await
     {
         Ok(value) => value,
@@ -131,7 +135,7 @@ async fn fork_published_question(
     };
     let source = match ResolvedQuestionSource::resolve(
         &state.objects,
-        source_question_revision_tuple.clone(),
+        source_published_question_revision_tuple.clone(),
         library_entry.source_object_id,
         library_entry.source_object_checksum.clone(),
     )
@@ -152,7 +156,7 @@ async fn fork_published_question(
         &state,
         session,
         &library_entry,
-        &source_question_revision_tuple,
+        &source_published_question_revision_tuple,
         source.bytes(),
     )
     .await
@@ -199,7 +203,7 @@ async fn fork_published_question(
         .as_ref()
         .map(|asset| asset.target_record.address.clone());
     let input = ForkPublishedQuestionInput {
-        source_question_revision_tuple: source_question_revision_tuple.clone(),
+        source_published_question_revision_tuple: source_published_question_revision_tuple.clone(),
         workspace,
         proposed_draft_question_id,
         target_source_record,
@@ -243,7 +247,7 @@ async fn load_hotspot_question_image(
     state: &RouteState,
     session: SessionTokenHash,
     entry: &PublishedQuestionLibraryEntry,
-    question_revision_tuple: &QuestionRevisionTuple,
+    published_question_revision_tuple: &PublishedQuestionRevisionTuple,
     source: &[u8],
 ) -> Result<Option<VerifiedForkHotspotImage>, Box<Response>> {
     if entry.question_type != QuestionType::Hotspot {
@@ -266,7 +270,7 @@ async fn load_hotspot_question_image(
     };
     let evidence = state
         .forks
-        .load_published_question_fork_asset(session, question_revision_tuple)
+        .load_published_question_fork_asset(session, published_question_revision_tuple)
         .await
         .map_err(|_| Box::new(unavailable()))?
         .ok_or_else(|| Box::new(unavailable()))?;
@@ -351,14 +355,17 @@ async fn cleanup_replayed_candidates(
     }
 }
 
-fn canonical_source(question_id: String, revision_number: String) -> Option<QuestionRevisionTuple> {
-    let question_id = question_id.parse::<QuestionId>().ok()?;
+fn canonical_source(
+    question_id: String,
+    revision_number: String,
+) -> Option<PublishedQuestionRevisionTuple> {
+    let question_id = question_id.parse::<PublishedQuestionId>().ok()?;
     let revision_number = revision_number
         .parse::<u32>()
         .ok()
         .and_then(|value| QuestionRevisionNumber::new(value).ok())?;
-    Some(QuestionRevisionTuple {
-        question_id,
+    Some(PublishedQuestionRevisionTuple {
+        published_question_id: question_id,
         revision_number,
     })
 }

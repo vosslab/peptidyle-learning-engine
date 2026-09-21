@@ -10,9 +10,9 @@ import type { BlueprintAssessmentContentView } from "../../../generated/api/Blue
 import type { BlueprintAssessmentEntryInput } from "../../../generated/api/BlueprintAssessmentEntryInput";
 import type { BlueprintAssessmentEntryView } from "../../../generated/api/BlueprintAssessmentEntryView";
 import type { AssessmentType } from "../../../generated/api/AssessmentType";
-import type { QuestionId } from "../../../generated/api/QuestionId";
+import type { QuestionPoolId } from "../../../generated/api/QuestionPoolId";
 import type { QuestionPoolEditNumber } from "../../../generated/api/QuestionPoolEditNumber";
-import type { QuestionRevisionTuple } from "../../../generated/api/QuestionRevisionTuple";
+import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
 import type { QuestionPickerSelection } from "../question_picker";
 
 export const MAX_REUSABLE_ENTRIES = 1024;
@@ -159,10 +159,12 @@ export function emptyBlueprintCourseContent(
   };
 }
 
-function fixedEntry(publishedQuestion: QuestionRevisionTuple): BlueprintAssessmentEntryInput {
+function fixedEntry(
+  publishedQuestion: PublishedQuestionRevisionTuple,
+): BlueprintAssessmentEntryInput {
   return {
     kind: "fixed",
-    question_revision_tuple: publishedQuestion,
+    published_question_revision_tuple: publishedQuestion,
     points_possible: "1",
     scoring_rule: "normal",
     question_attempt_limit: { maxAttempts: null },
@@ -171,7 +173,7 @@ function fixedEntry(publishedQuestion: QuestionRevisionTuple): BlueprintAssessme
 }
 
 function poolEntry(
-  questionPoolId: QuestionId,
+  questionPoolId: QuestionPoolId,
   questionPoolEditNumber: QuestionPoolEditNumber,
 ): BlueprintAssessmentEntryInput {
   return {
@@ -199,7 +201,9 @@ export function appendPickedFixedEntries(
     ...content,
     entries: [
       ...content.entries,
-      ...selection.questions.map((question) => fixedEntry(question.row.questionRevisionTuple)),
+      ...selection.questions.map((question) =>
+        fixedEntry(question.row.publishedQuestionRevisionTuple),
+      ),
     ],
   };
 }
@@ -207,7 +211,7 @@ export function appendPickedFixedEntries(
 /** Appends one Question Pool with Question Pool Item order selected by the Instructor. */
 export function appendPickedPool(
   content: BlueprintAssessmentContentInput,
-  questionPoolId: QuestionId,
+  questionPoolId: QuestionPoolId,
   questionPoolEditNumber: QuestionPoolEditNumber,
 ): BlueprintAssessmentContentInput {
   return {
@@ -290,9 +294,9 @@ export function validateReusableContent(
     if (entry.kind === "fixed") {
       // ASVS 2.2.1: a fixed selection carries its complete immutable Revision identity.
       if (
-        !entry.question_revision_tuple?.questionId ||
-        !Number.isSafeInteger(entry.question_revision_tuple.revisionNumber) ||
-        entry.question_revision_tuple.revisionNumber < 1
+        !entry.published_question_revision_tuple?.publishedQuestionId ||
+        !Number.isSafeInteger(entry.published_question_revision_tuple.revisionNumber) ||
+        entry.published_question_revision_tuple.revisionNumber < 1
       ) {
         return { valid: false, message: "Choose a fixed Question with a published Revision." };
       }
@@ -315,10 +319,10 @@ export function validateReusableContent(
         members.length === 0 ||
         members.length > MAX_REUSABLE_ENTRIES ||
         entry.selection_count > members.length ||
-        new Set(members.map((member) => member.questionId)).size !== members.length ||
+        new Set(members.map((member) => member.publishedQuestionId)).size !== members.length ||
         members.some(
           (member) =>
-            !member.questionId ||
+            !member.publishedQuestionId ||
             !Number.isSafeInteger(member.revisionNumber) ||
             member.revisionNumber < 1,
         ) ||
@@ -395,7 +399,7 @@ function entryInputFromView(entry: BlueprintAssessmentEntryView): BlueprintAsses
   }
   return {
     kind: "fixed",
-    question_revision_tuple: entry.question.question_revision_tuple,
+    published_question_revision_tuple: entry.question.published_question_revision_tuple,
     points_possible: entry.points_possible,
     scoring_rule: entry.scoring_rule,
     question_attempt_limit: entry.question_attempt_limit,

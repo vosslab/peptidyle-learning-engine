@@ -19,7 +19,7 @@ use learning_data_access::{
     StoreError,
     postgres::{PostgresQuestionStarStore, PostgresSessionStore},
 };
-use question_model::{ProductRole, QuestionId};
+use question_model::{ProductRole, PublishedQuestionId};
 use serde::{Deserialize, Serialize};
 
 use crate::auth::{AuthError, resolve_session};
@@ -159,8 +159,8 @@ async fn set_star(
 /// Parses the exact checksum-bearing ID before any persistence lookup.
 /// ASVS 2.2.1--2.2.2: only an exact canonical Question identity reaches the
 /// Star Store.
-fn verified_question_id(value: &str) -> Option<QuestionId> {
-    value.parse::<QuestionId>().ok()
+fn verified_question_id(value: &str) -> Option<PublishedQuestionId> {
+    value.parse::<PublishedQuestionId>().ok()
 }
 
 async fn instructor_session_hash(

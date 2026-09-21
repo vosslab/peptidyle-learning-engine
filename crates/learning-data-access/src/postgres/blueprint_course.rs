@@ -7,9 +7,10 @@ use async_trait::async_trait;
 use question_model::{
     AccountId, BlueprintCourseId, BlueprintEditNumber, BlueprintMetadataState,
     BlueprintRevisionNumber, BlueprintRevisionTuple, CanonicalBlueprintCourse,
-    CreateBlueprintCourseInput, CreateBlueprintCourseReceipt, QuestionId, QuestionPoolEditNumber,
-    QuestionRevisionNumber, QuestionRevisionTuple, RenameBlueprintCourseInput,
-    ReplaceBlueprintCourseContentInput, RequestChecksum, SaveBlueprintCourseReceipt,
+    CreateBlueprintCourseInput, CreateBlueprintCourseReceipt, PublishedQuestionId,
+    PublishedQuestionRevisionTuple, QuestionPoolEditNumber, QuestionPoolId, QuestionRevisionNumber,
+    RenameBlueprintCourseInput, ReplaceBlueprintCourseContentInput, RequestChecksum,
+    SaveBlueprintCourseReceipt,
 };
 use serde_json::{Value, json};
 use sqlx::{Postgres, Row, Transaction, types::Json};
@@ -217,7 +218,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         session: SessionTokenHash,
         id: BlueprintCourseId,
         assessment: question_model::BlueprintAssessmentId,
-        question_pool_id: QuestionId,
+        question_pool_id: QuestionPoolId,
     ) -> Result<crate::StoredBlueprintPoolMembers, StoreError> {
         let mut transaction = self
             .begin_authenticated_application_transaction(session)
@@ -240,8 +241,8 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         let members = rows
             .into_iter()
             .map(|row| {
-                Ok(QuestionRevisionTuple {
-                    question_id: row
+                Ok(PublishedQuestionRevisionTuple {
+                    published_question_id: row
                         .try_get::<String, _>("published_question_id")
                         .map_err(map_sqlx_error)?
                         .parse()
@@ -396,7 +397,9 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
             })
             .collect();
         let requested =
-            StoredBlueprintCourseContent::requested_question_revision_tuples_from_create(&input);
+            StoredBlueprintCourseContent::requested_published_question_revision_tuples_from_create(
+                &input,
+            );
         let mut transaction = self
             .begin_authenticated_application_transaction(session)
             .await?;
@@ -428,7 +431,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
             transaction.commit().await.map_err(map_sqlx_error)?;
             return Ok(receipt);
         }
-        validate_question_revision_tuples(&mut transaction, requested, None).await?;
+        validate_published_question_revision_tuples(&mut transaction, requested, None).await?;
         let mut content = StoredBlueprintCourseContent::from_create(input, &BTreeMap::new())?;
         super::blueprint_pools::materialize_authoring_pools(
             &mut transaction,
@@ -557,8 +560,11 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         )
         .await?;
         let requested =
-            StoredBlueprintCourseContent::requested_question_revision_tuples_from_replace(&input);
-        validate_question_revision_tuples(&mut transaction, requested, Some(&prior)).await?;
+            StoredBlueprintCourseContent::requested_published_question_revision_tuples_from_replace(
+                &input,
+            );
+        validate_published_question_revision_tuples(&mut transaction, requested, Some(&prior))
+            .await?;
         let mut content =
             StoredBlueprintCourseContent::from_replace(input, &prior, &BTreeMap::new())?;
         super::blueprint_pools::materialize_authoring_pools(
@@ -745,9 +751,9 @@ pub(super) async fn current_actor(
 /// Validate each submitted immutable Question pin without replacing it with a
 /// latest or retained-by-ID Revision. Only exact pins already owned by the
 /// expected Blueprint Revision may survive an archived Question lineage.
-async fn validate_question_revision_tuples(
+async fn validate_published_question_revision_tuples(
     transaction: &mut Transaction<'_, Postgres>,
-    requested: Vec<QuestionRevisionTuple>,
+    requested: Vec<PublishedQuestionRevisionTuple>,
     prior: Option<&StoredBlueprintCourseContent>,
 ) -> Result<(), StoreError> {
     let retained = prior
@@ -757,23 +763,27 @@ async fn validate_question_revision_tuples(
         .flat_map(|assessment| assessment.content.entries.iter())
         .filter_map(|entry| match entry {
             crate::StoredBlueprintAssessmentEntry::Fixed {
-                question_revision_tuple,
+                published_question_revision_tuple,
                 ..
-            } => Some(question_revision_tuple.clone()),
+            } => Some(published_question_revision_tuple.clone()),
             crate::StoredBlueprintAssessmentEntry::Pool { .. } => None,
         })
         .collect::<BTreeSet<_>>();
     // ASVS 2.2.1 and 2.2.3: validate the exact fixed-Question subset.
     // Pool-only content has an empty subset; Pool materialization has its own
     // exact-Tuple boundary. PostgreSQL rechecks selection while locked.
-    for question_revision_tuple in requested.into_iter().collect::<BTreeSet<_>>() {
+    for published_question_revision_tuple in requested.into_iter().collect::<BTreeSet<_>>() {
         let row = sqlx::query(
             "SELECT published_question_id, revision_number, availability
              FROM ple_api.load_question_library_revision($1, $2)",
         )
-        .bind(question_revision_tuple.question_id.as_str())
         .bind(
-            i32::try_from(question_revision_tuple.revision_number.get())
+            published_question_revision_tuple
+                .published_question_id
+                .as_str(),
+        )
+        .bind(
+            i32::try_from(published_question_revision_tuple.revision_number.get())
                 .map_err(|_| invalid("Published Question Revision"))?,
         )
         .fetch_optional(&mut **transaction)
@@ -783,21 +793,21 @@ async fn validate_question_revision_tuples(
         let published_question_id = row
             .try_get::<String, _>("published_question_id")
             .map_err(map_sqlx_error)?
-            .parse::<QuestionId>()
+            .parse::<PublishedQuestionId>()
             .map_err(|_| invalid("Published Question ID"))?;
         let revision_number = row
             .try_get::<i32, _>("revision_number")
             .map_err(map_sqlx_error)?;
-        if published_question_id != question_revision_tuple.question_id
+        if published_question_id != published_question_revision_tuple.published_question_id
             || u32::try_from(revision_number).ok()
-                != Some(question_revision_tuple.revision_number.get())
+                != Some(published_question_revision_tuple.revision_number.get())
         {
             return Err(invalid("Published Question exact revision"));
         }
         let availability = row
             .try_get::<String, _>("availability")
             .map_err(map_sqlx_error)?;
-        if availability != "available" && !retained.contains(&question_revision_tuple) {
+        if availability != "available" && !retained.contains(&published_question_revision_tuple) {
             return Err(StoreError::InvalidRecord(
                 "Blueprint Course requires currently available Published Questions".to_string(),
             ));

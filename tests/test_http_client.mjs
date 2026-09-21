@@ -18,7 +18,7 @@ import { createRecordingFetch, jsonResponse } from "./http_client_test_support.m
 test("Question image URLs require and retain the exact Question Revision identity", () => {
   const client = createHttpApiClient({ basePath: "/live" });
   const questionImageUrl = client.questionImageUrl(
-    { questionId: "7K3M-79QP", revisionNumber: 2 },
+    { publishedQuestionId: "7K3M-79QP", revisionNumber: 2 },
     "00000000-0000-0000-0000-000000000001",
   );
   assert.equal(
@@ -29,7 +29,7 @@ test("Question image URLs require and retain the exact Question Revision identit
 
 test("an issued iMathAS Question Backend Question Presentation accepts only its public marker", () => {
   const presentation = {
-    questionRevisionTuple: { questionId: "7K3M-79QP", revisionNumber: 1 },
+    publishedQuestionRevisionTuple: { publishedQuestionId: "7K3M-79QP", revisionNumber: 1 },
     presentationNonce: "0123456789abcdef0123456789abcdef",
     questionTitle: "iMathAS Question Backend practice item",
     prompt: [],

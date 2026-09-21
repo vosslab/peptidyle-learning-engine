@@ -4,7 +4,7 @@
 //! watcher count, identity, list, activity, or notification record.
 
 use async_trait::async_trait;
-use question_model::QuestionId;
+use question_model::PublishedQuestionId;
 
 use crate::{SessionTokenHash, StoreError};
 
@@ -25,7 +25,7 @@ pub trait QuestionWatchStore: Send + Sync {
     async fn question_watch_projection(
         &self,
         session_token_hash: SessionTokenHash,
-        question_id: &QuestionId,
+        question_id: &PublishedQuestionId,
     ) -> Result<QuestionWatchProjection, StoreError>;
 
     /// Sets only the authenticated Instructor's private Watch state.
@@ -33,7 +33,7 @@ pub trait QuestionWatchStore: Send + Sync {
     async fn set_current_question_watch(
         &self,
         session_token_hash: SessionTokenHash,
-        question_id: &QuestionId,
+        question_id: &PublishedQuestionId,
         watching: bool,
     ) -> Result<QuestionWatchProjection, StoreError>;
 }

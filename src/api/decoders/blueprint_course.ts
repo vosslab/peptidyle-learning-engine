@@ -38,7 +38,7 @@ import { decodeQuestionAttemptLimit, decodeQuestionAttemptTimeLimit } from "./qu
 import {
   decodeBoundedArray,
   decodeCursor,
-  decodeQuestionRevisionTuple,
+  decodePublishedQuestionRevisionTuple,
   field,
   requireOnlyFields,
 } from "./shared";
@@ -151,16 +151,16 @@ function assessmentEntry(value: unknown, path: string): { kind: "fixed" | "pool"
   if (kind === "fixed") {
     requireOnlyFields(record, path, [
       "kind",
-      "question_revision_tuple",
+      "published_question_revision_tuple",
       "points_possible",
       "scoring_rule",
       "question_attempt_limit",
       "question_attempt_time_limit",
     ]);
     // ASVS 1.5.2 and 2.2.1: accept the exact Tuple, never an ID-only fallback.
-    decodeQuestionRevisionTuple(
-      field(record, "question_revision_tuple", path),
-      `${path}.question_revision_tuple`,
+    decodePublishedQuestionRevisionTuple(
+      field(record, "published_question_revision_tuple", path),
+      `${path}.published_question_revision_tuple`,
     );
     pointValue(field(record, "points_possible", path), `${path}.points_possible`);
     decodeStringEnum(field(record, "scoring_rule", path), `${path}.scoring_rule`, [
@@ -252,7 +252,7 @@ function authoringPool(value: unknown, path: string, selectionCount: number): vo
         memberPath,
         MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY,
         (item, itemPath) => {
-          const member = decodeQuestionRevisionTuple(item, itemPath, true);
+          const member = decodePublishedQuestionRevisionTuple(item, itemPath, true);
           if (member.revisionNumber > 4_294_967_295)
             throw new DecodeError(
               `${itemPath}.revisionNumber`,
@@ -265,7 +265,7 @@ function authoringPool(value: unknown, path: string, selectionCount: number): vo
   if (members === null) return;
   if (members.length === 0) throw new DecodeError(`${path}.members`, "at least one Pool member");
   // ASVS 2.2.3: related member count, identity and review must agree.
-  if (new Set(members.map((member) => member.questionId)).size !== members.length)
+  if (new Set(members.map((member) => member.publishedQuestionId)).size !== members.length)
     throw new DecodeError(`${path}.members`, "unique Question IDs");
   if (selectionCount > members.length)
     throw new DecodeError(path, "a selection count within the authored member count");
@@ -398,13 +398,13 @@ export function decodeReplaceBlueprintCourseContentInput(
 function questionView(value: unknown, path: string): void {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "question_revision_tuple",
+    "published_question_revision_tuple",
     "question_library",
     "selection_availability",
   ]);
-  decodeQuestionRevisionTuple(
-    field(record, "question_revision_tuple", path),
-    `${path}.question_revision_tuple`,
+  decodePublishedQuestionRevisionTuple(
+    field(record, "published_question_revision_tuple", path),
+    `${path}.published_question_revision_tuple`,
   );
   decodeQuestionSearchResult(field(record, "question_library", path), `${path}.question_library`);
   decodeStringEnum(

@@ -23,7 +23,7 @@ function details(revisionNumber, disciplineIsRetired = false) {
   return {
     summary: {
       ...question,
-      questionRevisionTuple: { questionId: question.questionId, revisionNumber },
+      publishedQuestionRevisionTuple: { publishedQuestionId: question.questionId, revisionNumber },
     },
     disciplineName: "Biology",
     subjectName: "Genetics",
@@ -71,7 +71,7 @@ test("Question availability client keeps current lineage transitions and exact r
   const lineage = await client.getQuestionLineage(question.questionId);
   const resolved = await client.resolveQuestion(question.questionId);
   const exact = await client.getQuestionRevision({
-    questionId: question.questionId,
+    publishedQuestionId: question.questionId,
     revisionNumber: 2,
   });
   const archived = await client.archiveQuestion(
@@ -87,7 +87,7 @@ test("Question availability client keeps current lineage transitions and exact r
   assert.equal(lineage.questionAvailabilityEditNumber, "5");
   assert.equal(lineage.viewerMayArchive, true);
   assert.equal(resolved.questionId, question.questionId);
-  assert.equal(exact.summary.questionRevisionTuple.revisionNumber, 2);
+  assert.equal(exact.summary.publishedQuestionRevisionTuple.revisionNumber, 2);
   assert.equal(exact.disciplineName, "Biology");
   assert.equal(exact.subjectName, "Genetics");
   assert.equal(exact.disciplineIsRetired, true);
@@ -107,7 +107,7 @@ test("Question availability client rejects an ETag or exact revision identity mi
   });
   await assert.rejects(client.getQuestionLineage(question.questionId), ApiProtocolError);
   await assert.rejects(
-    client.getQuestionRevision({ questionId: question.questionId, revisionNumber: 2 }),
+    client.getQuestionRevision({ publishedQuestionId: question.questionId, revisionNumber: 2 }),
     ApiProtocolError,
   );
 });

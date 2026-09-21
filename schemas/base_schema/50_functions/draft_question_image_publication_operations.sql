@@ -61,7 +61,7 @@ BEGIN
     END IF;
     SELECT * INTO STRICT record FROM ple_private.object_record WHERE object_record_id = draft_question_image.source_object_record_id;
     expected_address := jsonb_build_object('kind','restrictedQuestionImage',
-        'questionRevisionTuple',jsonb_build_object('questionId',p_published_question_id,'revisionNumber',p_revision_number),
+        'publishedQuestionRevisionTuple',jsonb_build_object('publishedQuestionId',p_published_question_id,'revisionNumber',p_revision_number),
         'questionImageAssetId',v_question_image_asset_id,'objectId',source_id);
     IF p_question_image->'sourceObjectAddress' IS DISTINCT FROM expected_address
        OR record.sha256 IS DISTINCT FROM checksum OR record.size_bytes IS DISTINCT FROM v_byte_length
@@ -82,7 +82,6 @@ BEGIN
     INSERT INTO ple_private.question_image_publication(published_question_id,revision_number,question_image_asset_id,source_object_record_id,
         source_object_checksum,public_object_id,public_object_checksum,public_byte_length,verified_media_type,
         intrinsic_width,intrinsic_height,object_delivery_id,job_id,publication_state)
-    VALUES(p_published_question_id,p_revision_number,v_question_image_asset_id,source_id,checksum,public_id,checksum,v_byte_length,v_media_type,
+    VALUES(p_published_question_id,p_revision_number,v_question_image_asset_id,source_id,checksum,public_id,checksum,v_byte_length,v_media_type::ple_data.media_type,
         width,height,v_delivery_id,v_job_id,'pending');
 END $$;
-

@@ -12,7 +12,7 @@ use std::path::{Component, Path, PathBuf};
 use anyhow::{Context, Result, bail, ensure};
 use question_model::{
     AssessmentAttempt, AssessmentGrade, AssessmentProgressRecord, AssessmentSummary,
-    GradebookSummaryRow, IssuedQuestion, ObjectId, QuestionAttempt, QuestionRevisionTuple,
+    GradebookSummaryRow, IssuedQuestion, ObjectId, PublishedQuestionRevisionTuple, QuestionAttempt,
     QuestionSummary, SourceObjectChecksum, StudentRecordId,
 };
 use serde::Deserialize;
@@ -171,12 +171,14 @@ fn validate_fixture_set(fixture_dir: &Path, fixture_set: &StoredFixtureSet) -> R
     }
 
     ensure!(
-        fixture_set.question_summary.question_revision_tuple
-            == QuestionRevisionTuple {
-                question_id: fixture_set.question_summary.question_id.clone(),
+        fixture_set
+            .question_summary
+            .published_question_revision_tuple
+            == PublishedQuestionRevisionTuple {
+                published_question_id: fixture_set.question_summary.question_id.clone(),
                 revision_number: fixture_set
                     .question_summary
-                    .question_revision_tuple
+                    .published_question_revision_tuple
                     .revision_number,
             },
         "Question Summary Latest Question Revision must name its Question lineage"

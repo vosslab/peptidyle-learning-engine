@@ -7,10 +7,11 @@ use question_model::{
     AccountTimeZone, AssessmentEditNumber, AssessmentEntryAvailability, AssessmentEntryId,
     AssessmentEntryScoringRule, AssessmentId, AssessmentInstructions, AssessmentPointValue,
     AssessmentQuestionOrderRule, AssessmentStatus, AssessmentTitle, CourseInstanceId,
-    InstructorStudentViewDelivery, LateWorkRule, ObjectId, QuestionAttemptLimit,
-    QuestionAttemptTimeLimit, QuestionId, QuestionPoolAssessmentEntry, QuestionPoolEditNumber,
-    QuestionPoolSelectedItem, QuestionPoolSelectedQuestionOrder, QuestionPoolSelectionRule,
-    QuestionRevisionNumber, QuestionRevisionTuple, SourceObjectChecksum, Timestamp,
+    InstructorStudentViewDelivery, LateWorkRule, ObjectId, PublishedQuestionId,
+    PublishedQuestionRevisionTuple, QuestionAttemptLimit, QuestionAttemptTimeLimit,
+    QuestionPoolAssessmentEntry, QuestionPoolEditNumber, QuestionPoolId, QuestionPoolSelectedItem,
+    QuestionPoolSelectedQuestionOrder, QuestionPoolSelectionRule, QuestionRevisionNumber,
+    SourceObjectChecksum, Timestamp,
 };
 use sqlx::{Postgres, Row, Transaction};
 
@@ -130,15 +131,16 @@ impl InstructorStudentViewStore for PostgresInstructorStudentViewStore {
         assessment_id: AssessmentId,
         expected_edit_number: AssessmentEditNumber,
         authored_position: u32,
-        question_revision_tuple: QuestionRevisionTuple,
+        published_question_revision_tuple: PublishedQuestionRevisionTuple,
     ) -> Result<InstructorStudentViewSource, StoreError> {
         let mut transaction = self.begin_read_only(session_token_hash).await?;
         let authored_position = i32::try_from(authored_position)
             .map_err(|_| invalid("Assessment authored position"))?;
         let expected_edit_number = i64::try_from(expected_edit_number.value())
             .map_err(|_| invalid("Assessment Edit Number"))?;
-        let revision_number = i32::try_from(question_revision_tuple.revision_number.get())
-            .map_err(|_| invalid("Question Revision Number"))?;
+        let revision_number =
+            i32::try_from(published_question_revision_tuple.revision_number.get())
+                .map_err(|_| invalid("Question Revision Number"))?;
         // ASVS 1.2.4, 2.2.2, and 8.3.1: the typed definer boundary validates
         // the full current manifest precondition and exact authored source pin.
         let row = sqlx::query(
@@ -149,12 +151,16 @@ impl InstructorStudentViewStore for PostgresInstructorStudentViewStore {
         .bind(assessment_id.as_string())
         .bind(expected_edit_number)
         .bind(authored_position)
-        .bind(question_revision_tuple.question_id.as_str())
+        .bind(
+            published_question_revision_tuple
+                .published_question_id
+                .as_str(),
+        )
         .bind(revision_number)
         .fetch_one(&mut *transaction)
         .await
         .map_err(map_student_view_source_error)?;
-        let source = source_from_row(&row, question_revision_tuple)?;
+        let source = source_from_row(&row, published_question_revision_tuple)?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(source)
     }
@@ -208,7 +214,7 @@ fn snapshot_entries(
                 entries.push(InstructorStudentViewSnapshotEntry::Fixed {
                     authored_position,
                     availability,
-                    question_revision_tuple: question_revision_tuple(row)?,
+                    published_question_revision_tuple: published_question_revision_tuple(row)?,
                 });
                 index += 1;
             }
@@ -246,7 +252,9 @@ fn snapshot_entries(
                         question_pool_id: expected_pool_id.clone(),
                         question_pool_edit_number: expected_pool_edit_number,
                         member_position,
-                        question_revision_tuple: question_revision_tuple(member_row)?,
+                        published_question_revision_tuple: published_question_revision_tuple(
+                            member_row,
+                        )?,
                     });
                     index += 1;
                 }
@@ -272,7 +280,7 @@ fn pool_assessment_entry(
     availability: AssessmentEntryAvailability,
 ) -> Result<QuestionPoolAssessmentEntry, StoreError> {
     let question_pool_id = column::<String>(row, "question_pool_id")?
-        .parse::<QuestionId>()
+        .parse::<QuestionPoolId>()
         .map_err(|_| invalid("Question Pool ID"))?;
     let question_pool_edit_number = QuestionPoolEditNumber::new(unsigned_i64(
         row,
@@ -316,7 +324,7 @@ fn pool_assessment_entry(
 
 fn source_from_row(
     row: &sqlx::postgres::PgRow,
-    question_revision_tuple: QuestionRevisionTuple,
+    published_question_revision_tuple: PublishedQuestionRevisionTuple,
 ) -> Result<InstructorStudentViewSource, StoreError> {
     let source_object_id = ObjectId::from_uuid(column(row, "source_object_id")?);
     let source_object_checksum =
@@ -327,14 +335,14 @@ fn source_from_row(
     let webwork_pg_path = optional_column(row, "webwork_pg_path")?;
     match (column::<String>(row, "backend")?.as_str(), webwork_pg_path) {
         ("ple", None) => Ok(InstructorStudentViewSource::Ple {
-            question_revision_tuple,
+            published_question_revision_tuple,
             source_object_id,
             source_object_checksum,
             source_media_type,
             question_image_renditions,
         }),
         ("webwork", Some(webwork_pg_path)) => Ok(InstructorStudentViewSource::Webwork {
-            question_revision_tuple,
+            published_question_revision_tuple,
             source_object_id,
             source_object_checksum,
             source_media_type,
@@ -396,11 +404,11 @@ fn entry_scoring_rule(
     }
 }
 
-fn question_revision_tuple(
+fn published_question_revision_tuple(
     row: &sqlx::postgres::PgRow,
-) -> Result<QuestionRevisionTuple, StoreError> {
-    let question_id = column::<String>(row, "question_id")?
-        .parse::<QuestionId>()
+) -> Result<PublishedQuestionRevisionTuple, StoreError> {
+    let question_id = column::<String>(row, "published_question_id")?
+        .parse::<PublishedQuestionId>()
         .map_err(|_| invalid("Question ID"))?;
     let revision_number = QuestionRevisionNumber::new(unsigned_i32(
         row,
@@ -408,8 +416,8 @@ fn question_revision_tuple(
         "Question Revision Number",
     )?)
     .map_err(|_| invalid("Question Revision Number"))?;
-    Ok(QuestionRevisionTuple {
-        question_id,
+    Ok(PublishedQuestionRevisionTuple {
+        published_question_id: question_id,
         revision_number,
     })
 }

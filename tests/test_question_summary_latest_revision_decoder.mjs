@@ -11,22 +11,23 @@ function currentQuestionSummary() {
 
 test("Question Summary carries one exact Question Revision in its stable lineage", () => {
   const summary = decodeQuestionSummary(currentQuestionSummary(), "summary", true);
-  assert.deepEqual(summary.questionRevisionTuple, {
-    questionId: summary.questionId,
+  assert.deepEqual(summary.publishedQuestionRevisionTuple, {
+    publishedQuestionId: summary.questionId,
     revisionNumber: 1,
   });
 });
 
 test("Question Summary rejects an absent, extraneous, or cross-lineage Question Revision", () => {
   const summary = currentQuestionSummary();
-  const { questionRevisionTuple: _questionRevisionTuple, ...withoutLatest } = summary;
+  const { publishedQuestionRevisionTuple: _publishedQuestionRevisionTuple, ...withoutLatest } =
+    summary;
   assert.throws(() => decodeQuestionSummary(withoutLatest, "summary", true), DecodeError);
   assert.throws(
     () =>
       decodeQuestionSummary(
         {
           ...summary,
-          questionRevisionTuple: { questionId: "2R5X-E7YA", revisionNumber: 1 },
+          publishedQuestionRevisionTuple: { publishedQuestionId: "2R5X-E7YA", revisionNumber: 1 },
         },
         "summary",
         true,

@@ -175,8 +175,8 @@ BEGIN
             END IF;
             UPDATE ple_data.assessment_entry AS target
                SET authored_position = COALESCE((entry_json ->> 'authoredPosition')::integer, 0),
-                   availability = entry_json ->> 'availability',
-                   scoring_rule = entry_json ->> 'scoringRule',
+                   availability = (entry_json ->> 'availability')::ple_data.entry_availability,
+                   scoring_rule = (entry_json ->> 'scoringRule')::ple_data.scoring_rule,
                    question_attempt_limit = NULLIF(entry_json ->> 'questionAttemptLimit', '')::integer,
                    question_attempt_time_limit_seconds = NULLIF(entry_json ->> 'questionAttemptTimeLimitSeconds', '')::integer,
                    question_attempt_grace_seconds = NULLIF(entry_json ->> 'questionAttemptGraceSeconds', '')::integer
@@ -187,7 +187,8 @@ BEGIN
                        target.question_attempt_grace_seconds)
                    IS DISTINCT FROM ROW(
                        COALESCE((entry_json ->> 'authoredPosition')::integer, 0),
-                       entry_json ->> 'availability', entry_json ->> 'scoringRule',
+                       (entry_json ->> 'availability')::ple_data.entry_availability,
+                       (entry_json ->> 'scoringRule')::ple_data.scoring_rule,
                        NULLIF(entry_json ->> 'questionAttemptLimit', '')::integer,
                        NULLIF(entry_json ->> 'questionAttemptTimeLimitSeconds', '')::integer,
                        NULLIF(entry_json ->> 'questionAttemptGraceSeconds', '')::integer);
@@ -217,7 +218,8 @@ BEGIN
                     question_attempt_grace_seconds
                 ) VALUES (
                     entry_id, p_assessment_id, COALESCE((entry_json ->> 'authoredPosition')::integer, 0),
-                    'fixed_question', entry_json ->> 'availability', entry_json ->> 'scoringRule',
+                    'fixed_question', (entry_json ->> 'availability')::ple_data.entry_availability,
+                    (entry_json ->> 'scoringRule')::ple_data.scoring_rule,
                     NULLIF(entry_json ->> 'questionAttemptLimit', '')::integer,
                     NULLIF(entry_json ->> 'questionAttemptTimeLimitSeconds', '')::integer,
                     NULLIF(entry_json ->> 'questionAttemptGraceSeconds', '')::integer
@@ -306,8 +308,8 @@ BEGIN
             END IF;
             UPDATE ple_data.assessment_entry AS target
                SET authored_position = COALESCE((entry_json ->> 'authoredPosition')::integer, 0),
-                   availability = entry_json ->> 'availability',
-                   scoring_rule = entry_json ->> 'scoringRule',
+                   availability = (entry_json ->> 'availability')::ple_data.entry_availability,
+                   scoring_rule = (entry_json ->> 'scoringRule')::ple_data.scoring_rule,
                    question_attempt_limit = NULLIF(entry_json ->> 'questionAttemptLimit', '')::integer,
                    question_attempt_time_limit_seconds = NULLIF(entry_json ->> 'questionAttemptTimeLimitSeconds', '')::integer,
                    question_attempt_grace_seconds = NULLIF(entry_json ->> 'questionAttemptGraceSeconds', '')::integer
@@ -316,7 +318,8 @@ BEGIN
                        target.question_attempt_limit, target.question_attempt_time_limit_seconds,
                        target.question_attempt_grace_seconds) IS DISTINCT FROM ROW(
                        COALESCE((entry_json ->> 'authoredPosition')::integer, 0),
-                       entry_json ->> 'availability', entry_json ->> 'scoringRule',
+                       (entry_json ->> 'availability')::ple_data.entry_availability,
+                       (entry_json ->> 'scoringRule')::ple_data.scoring_rule,
                        NULLIF(entry_json ->> 'questionAttemptLimit', '')::integer,
                        NULLIF(entry_json ->> 'questionAttemptTimeLimitSeconds', '')::integer,
                        NULLIF(entry_json ->> 'questionAttemptGraceSeconds', '')::integer);
@@ -325,14 +328,14 @@ BEGIN
             UPDATE ple_data.assessment_entry_pool AS pool_entry
                SET selection_count = (entry_json ->> 'selectionCount')::integer,
                    points_per_item = (entry_json ->> 'pointsPerItem')::numeric,
-                   selected_question_order = entry_json ->> 'selectedQuestionOrder'
+                   selected_question_order = (entry_json ->> 'selectedQuestionOrder')::ple_data.selected_question_order
              WHERE pool_entry.assessment_entry_id = entry_id
                AND pool_entry.assessment_id = p_assessment_id
                AND ROW(pool_entry.selection_count, pool_entry.points_per_item,
                        pool_entry.selected_question_order) IS DISTINCT FROM ROW(
                        (entry_json ->> 'selectionCount')::integer,
                        (entry_json ->> 'pointsPerItem')::numeric,
-                       entry_json ->> 'selectedQuestionOrder');
+                       (entry_json ->> 'selectedQuestionOrder')::ple_data.selected_question_order);
             GET DIAGNOSTICS row_count = ROW_COUNT;
             changed := changed OR row_count > 0;
         END IF;
@@ -728,4 +731,3 @@ FOR EACH ROW EXECUTE FUNCTION ple_private.assign_public_id('A');
 CREATE TRIGGER assessment_question_pool_fork_requires_fork_provenance
 BEFORE INSERT OR UPDATE ON ple_data.assessment_question_pool_fork
 FOR EACH ROW EXECUTE FUNCTION ple_data.validate_assessment_question_pool_fork();
-

@@ -102,7 +102,7 @@ support_sql() { podman exec -i "$postgres" sh -lc 'exec psql -X -q -v ON_ERROR_S
 authority_course="$(support_sql -v capability="$student_repair" <<'SQL'
 BEGIN;
 INSERT INTO ple_private.account(account_id,product_role,created_at)
-VALUES ('U00000009','instructor',clock_timestamp())
+VALUES ('U00000009','instructor',pg_catalog.transaction_timestamp())
 RETURNING account_id AS authority_instructor_id \gset
 INSERT INTO ple_data.course_instance(
     course_instance_id, source_kind, course_short_name, course_long_name,

@@ -45,8 +45,9 @@ mod launch_session_bridge {
     use question_model::generation::QuestionSeed;
     use question_model::{
         AccountId, AssessmentId, CourseInstanceId, ImathasDeploymentId, ImathasItemId,
-        ImathasProfile, ImathasQuestionBackendBinding, ObjectId, QuestionAttemptId, QuestionId,
-        QuestionRevisionNumber, QuestionRevisionTuple, SourceObjectChecksum, Timestamp,
+        ImathasProfile, ImathasQuestionBackendBinding, ObjectId, PublishedQuestionId,
+        PublishedQuestionRevisionTuple, QuestionAttemptId, QuestionRevisionNumber,
+        SourceObjectChecksum, Timestamp,
     };
     use sha2::{Digest, Sha256};
     use uuid::Uuid;
@@ -79,9 +80,10 @@ mod launch_session_bridge {
         )
     }
 
-    fn question() -> QuestionRevisionTuple {
-        QuestionRevisionTuple {
-            question_id: QuestionId::from_random_identifier("ABCDEFG").expect("question ID"),
+    fn question() -> PublishedQuestionRevisionTuple {
+        PublishedQuestionRevisionTuple {
+            published_question_id: PublishedQuestionId::from_random_identifier("ABCDEFG")
+                .expect("question ID"),
             revision_number: QuestionRevisionNumber::new(2).expect("revision"),
         }
     }
@@ -89,7 +91,7 @@ mod launch_session_bridge {
     async fn source(
         store: &MemoryObjectStore,
     ) -> (
-        QuestionRevisionTuple,
+        PublishedQuestionRevisionTuple,
         ResolvedImathasQuestionSource,
         ObjectId,
     ) {
@@ -98,7 +100,7 @@ mod launch_session_bridge {
         let receipt = store
             .put(PutObject {
                 address: ObjectAddress::QuestionSource {
-                    question_revision_tuple: question.clone(),
+                    published_question_revision_tuple: question.clone(),
                     object_id: object,
                 },
                 bytes: br#"{"recorded":true}"#.to_vec(),
@@ -121,7 +123,7 @@ mod launch_session_bridge {
     }
 
     fn context(
-        question: &QuestionRevisionTuple,
+        question: &PublishedQuestionRevisionTuple,
         source: &ResolvedImathasQuestionSource,
         artifact: &ObjectId,
     ) -> ImathasQuestionBackendSessionPreparationContext {
@@ -381,18 +383,19 @@ mod launch_session_bridge {
             QuestionAttemptId::from_uuid(Uuid::from_u128(99)),
             wrong_attempt
                 .grading_context
-                .question_revision_tuple()
+                .published_question_revision_tuple()
                 .clone(),
             wrong_attempt.grading_context.question_seed(),
         );
         let mut wrong_question_id = validation.clone();
         wrong_question_id.grading_context = learning_data_access::ImathasGradingContext::new(
             wrong_question_id.grading_context.question_attempt(),
-            QuestionRevisionTuple {
-                question_id: QuestionId::from_random_identifier("BCDEFGH").expect("Question ID"),
+            PublishedQuestionRevisionTuple {
+                published_question_id: PublishedQuestionId::from_random_identifier("BCDEFGH")
+                    .expect("Question ID"),
                 revision_number: wrong_question_id
                     .grading_context
-                    .question_revision_tuple()
+                    .published_question_revision_tuple()
                     .revision_number,
             },
             wrong_question_id.grading_context.question_seed(),
@@ -400,11 +403,11 @@ mod launch_session_bridge {
         let mut wrong_revision = validation.clone();
         wrong_revision.grading_context = learning_data_access::ImathasGradingContext::new(
             wrong_revision.grading_context.question_attempt(),
-            QuestionRevisionTuple {
-                question_id: wrong_revision
+            PublishedQuestionRevisionTuple {
+                published_question_id: wrong_revision
                     .grading_context
-                    .question_revision_tuple()
-                    .question_id
+                    .published_question_revision_tuple()
+                    .published_question_id
                     .clone(),
                 revision_number: QuestionRevisionNumber::new(99).expect("revision"),
             },
@@ -413,7 +416,10 @@ mod launch_session_bridge {
         let mut wrong_seed = validation.clone();
         wrong_seed.grading_context = learning_data_access::ImathasGradingContext::new(
             wrong_seed.grading_context.question_attempt(),
-            wrong_seed.grading_context.question_revision_tuple().clone(),
+            wrong_seed
+                .grading_context
+                .published_question_revision_tuple()
+                .clone(),
             QuestionSeed::new(12),
         );
 
@@ -508,19 +514,19 @@ mod launch_session_bridge {
             |validation: &mut learning_data_access::ImathasQuestionBackendLaunchPreparationValidation| {
                 validation.grading_context = learning_data_access::ImathasGradingContext::new(
                     QuestionAttemptId::from_uuid(Uuid::from_u128(99)),
-                    validation.grading_context.question_revision_tuple().clone(),
+                    validation.grading_context.published_question_revision_tuple().clone(),
                     validation.grading_context.question_seed(),
                 )
             },
             |validation: &mut learning_data_access::ImathasQuestionBackendLaunchPreparationValidation| {
                 validation.grading_context = learning_data_access::ImathasGradingContext::new(
                     validation.grading_context.question_attempt(),
-                    QuestionRevisionTuple {
-                        question_id: QuestionId::from_random_identifier("BCDEFGH")
+                    PublishedQuestionRevisionTuple {
+                        published_question_id: PublishedQuestionId::from_random_identifier("BCDEFGH")
                             .expect("Question ID"),
                         revision_number: validation
                             .grading_context
-                            .question_revision_tuple()
+                            .published_question_revision_tuple()
                             .revision_number,
                     },
                     validation.grading_context.question_seed(),
@@ -529,11 +535,11 @@ mod launch_session_bridge {
             |validation: &mut learning_data_access::ImathasQuestionBackendLaunchPreparationValidation| {
                 validation.grading_context = learning_data_access::ImathasGradingContext::new(
                     validation.grading_context.question_attempt(),
-                    QuestionRevisionTuple {
-                        question_id: validation
+                    PublishedQuestionRevisionTuple {
+                        published_question_id: validation
                             .grading_context
-                            .question_revision_tuple()
-                            .question_id
+                            .published_question_revision_tuple()
+                            .published_question_id
                             .clone(),
                         revision_number: QuestionRevisionNumber::new(99).expect("revision"),
                     },
@@ -543,7 +549,7 @@ mod launch_session_bridge {
             |validation: &mut learning_data_access::ImathasQuestionBackendLaunchPreparationValidation| {
                 validation.grading_context = learning_data_access::ImathasGradingContext::new(
                     validation.grading_context.question_attempt(),
-                    validation.grading_context.question_revision_tuple().clone(),
+                    validation.grading_context.published_question_revision_tuple().clone(),
                     QuestionSeed::new(12),
                 )
             },

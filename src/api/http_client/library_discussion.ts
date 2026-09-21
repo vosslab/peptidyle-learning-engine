@@ -1,6 +1,6 @@
 // Same-origin transport for retained Library Object discussions and notices.
 
-import type { QuestionId } from "../../../generated/api/QuestionId";
+import type { PublishedQuestionId } from "../../../generated/api/PublishedQuestionId";
 import type { ApiClient } from "../client";
 import { decodeLibraryDiscussionView } from "../decoders/library_discussion";
 import type {
@@ -12,7 +12,7 @@ import { ApiRequestError } from "./error";
 import { encodedId, requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
 
-function objectPath(kind: LibraryObjectDiscussionKind, publicId: QuestionId): string {
+function objectPath(kind: LibraryObjectDiscussionKind, publicId: PublishedQuestionId): string {
   return `/api/library-objects/${kind}/${encodedId(publicId)}`;
 }
 

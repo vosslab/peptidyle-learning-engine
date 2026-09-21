@@ -73,7 +73,7 @@ function canonicalAssessment(value: unknown, path: string): void {
         kind === "fixed"
           ? [
               "kind",
-              "question_revision_tuple",
+              "published_question_revision_tuple",
               "points_possible",
               "scoring_rule",
               "question_attempt_limit",
@@ -92,10 +92,13 @@ function canonicalAssessment(value: unknown, path: string): void {
             ],
       );
       if (kind === "fixed") {
-        const pinPath = `${entryPath}.question_revision_tuple`;
-        const pin = decodeRecord(field(entry, "question_revision_tuple", entryPath), pinPath);
-        requireOnlyFields(pin, pinPath, ["questionId", "revisionNumber"]);
-        questionId(field(pin, "questionId", pinPath), `${pinPath}.questionId`);
+        const pinPath = `${entryPath}.published_question_revision_tuple`;
+        const pin = decodeRecord(
+          field(entry, "published_question_revision_tuple", entryPath),
+          pinPath,
+        );
+        requireOnlyFields(pin, pinPath, ["publishedQuestionId", "revisionNumber"]);
+        questionId(field(pin, "publishedQuestionId", pinPath), `${pinPath}.publishedQuestionId`);
         decodePositiveInteger(field(pin, "revisionNumber", pinPath), `${pinPath}.revisionNumber`);
         pointValue(field(entry, "points_possible", entryPath), `${entryPath}.points_possible`);
       } else {

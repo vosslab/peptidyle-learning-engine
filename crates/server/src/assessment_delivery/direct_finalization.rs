@@ -15,7 +15,7 @@ use learning_data_access::{
 };
 use objects::s3::S3ObjectStore;
 use question_model::{
-    ObjectId, QuestionReproduction, QuestionRevisionNumber, QuestionRevisionTuple,
+    ObjectId, PublishedQuestionRevisionTuple, QuestionReproduction, QuestionRevisionNumber,
     SourceObjectChecksum,
 };
 use uuid::Uuid;
@@ -47,8 +47,8 @@ async fn evaluate_one(
     webwork: &WebworkAdapter<HttpWebworkRenderer>,
     response: &StudentAssessmentAttemptFinalizationSource,
 ) -> Result<f64, StoreError> {
-    let question_revision_tuple = QuestionRevisionTuple {
-        question_id: response.question_id.clone(),
+    let published_question_revision_tuple = PublishedQuestionRevisionTuple {
+        published_question_id: response.question_id.clone(),
         revision_number: QuestionRevisionNumber::new(response.revision_number)
             .map_err(|_| finalization_unavailable())?,
     };
@@ -64,7 +64,7 @@ async fn evaluate_one(
             }
             let source = ResolvedPleQuestionJsonSource::resolve(
                 objects,
-                question_revision_tuple,
+                published_question_revision_tuple,
                 source,
                 checksum,
             )
@@ -80,9 +80,11 @@ async fn evaluate_one(
                 .reproduction
                 .question_seed()
                 .ok_or_else(finalization_unavailable)?;
-            let binding =
-                WebworkQuestionSourceBinding::new(question_revision_tuple, pg_path.clone())
-                    .map_err(|_| finalization_unavailable())?;
+            let binding = WebworkQuestionSourceBinding::new(
+                published_question_revision_tuple,
+                pg_path.clone(),
+            )
+            .map_err(|_| finalization_unavailable())?;
             let source = ResolvedWebworkQuestionSource::resolve(objects, binding, source, checksum)
                 .await
                 .map_err(|_| finalization_unavailable())?;

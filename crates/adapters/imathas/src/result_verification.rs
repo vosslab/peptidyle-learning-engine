@@ -9,7 +9,7 @@
 
 use base64::Engine as _;
 use hmac::{Hmac, KeyInit, Mac};
-use question_model::{QuestionRevisionTuple, Timestamp};
+use question_model::{PublishedQuestionRevisionTuple, Timestamp};
 use serde::Deserialize;
 use serde::de::IgnoredAny;
 use sha2::{Digest, Sha256};
@@ -151,7 +151,7 @@ impl ImathasGradingFailure {
 /// absent from this application record.
 #[derive(Clone, PartialEq, Eq)]
 pub struct ImathasRenderCacheEntry {
-    question_revision_tuple: QuestionRevisionTuple,
+    published_question_revision_tuple: PublishedQuestionRevisionTuple,
     imathas_seed: u16,
     profile: String,
     payload_digest: String,
@@ -162,7 +162,10 @@ impl std::fmt::Debug for ImathasRenderCacheEntry {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
             .debug_struct("ImathasRenderCacheEntry")
-            .field("question_revision_tuple", &self.question_revision_tuple)
+            .field(
+                "published_question_revision_tuple",
+                &self.published_question_revision_tuple,
+            )
             .field("imathas_seed", &self.imathas_seed)
             .field("profile", &self.profile)
             .field("payload_digest", &"REDACTED")
@@ -175,14 +178,14 @@ impl ImathasRenderCacheEntry {
     #[cfg(test)]
     #[allow(dead_code)]
     pub(crate) fn new(
-        question_revision_tuple: QuestionRevisionTuple,
+        published_question_revision_tuple: PublishedQuestionRevisionTuple,
         imathas_seed: u16,
         profile: String,
         payload_digest: String,
         expires_at: Timestamp,
     ) -> Self {
         Self {
-            question_revision_tuple,
+            published_question_revision_tuple,
             imathas_seed,
             profile,
             payload_digest,
@@ -479,14 +482,14 @@ pub(crate) fn imathas_launch_binding_checksum(
     digest.update(grading_context.question_attempt().as_uuid().as_bytes());
     digest.update(
         grading_context
-            .question_revision_tuple()
-            .question_id
+            .published_question_revision_tuple()
+            .published_question_id
             .to_string()
             .as_bytes(),
     );
     digest.update(
         grading_context
-            .question_revision_tuple()
+            .published_question_revision_tuple()
             .revision_number
             .get()
             .to_be_bytes(),

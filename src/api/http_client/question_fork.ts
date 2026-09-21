@@ -2,7 +2,7 @@
 
 import type { ApiClient } from "../client";
 import { DecodeError, decodeRecord, decodeUuid } from "../decoder";
-import { decodeQuestionRevisionTuple, field, requireOnlyFields } from "../decoders/shared";
+import { decodePublishedQuestionRevisionTuple, field, requireOnlyFields } from "../decoders/shared";
 import type {
   ForkedPublishedQuestion,
   QuestionForkClient,
@@ -18,15 +18,15 @@ const MAX_QUESTION_REVISION_NUMBER = 4_294_967_295;
 function exactForkPath(
   sourceRevisionTuple: Parameters<QuestionForkClient["forkPublishedQuestion"]>[0],
 ): string {
-  const questionRevisionTuple = decodeQuestionRevisionTuple(
+  const publishedQuestionRevisionTuple = decodePublishedQuestionRevisionTuple(
     sourceRevisionTuple,
     "request.sourceRevisionTuple",
     true,
   );
-  if (questionRevisionTuple.revisionNumber > MAX_QUESTION_REVISION_NUMBER) {
+  if (publishedQuestionRevisionTuple.revisionNumber > MAX_QUESTION_REVISION_NUMBER) {
     throw new ApiProtocolError("Question Revision number must be one positive u32");
   }
-  return `/api/questions/by-id/${encodeURIComponent(questionRevisionTuple.questionId)}/revisions/${encodeURIComponent(String(questionRevisionTuple.revisionNumber))}/fork`;
+  return `/api/questions/by-id/${encodeURIComponent(publishedQuestionRevisionTuple.publishedQuestionId)}/revisions/${encodeURIComponent(String(publishedQuestionRevisionTuple.revisionNumber))}/fork`;
 }
 
 function idempotencyKey(value: QuestionForkIdempotencyKey, path: string): string {

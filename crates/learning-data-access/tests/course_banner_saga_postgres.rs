@@ -28,7 +28,7 @@ fn token(value: u8) -> SessionTokenHash {
     SessionTokenHash::compute(&[value; 32])
 }
 fn timestamp() -> Timestamp {
-    Timestamp::from_unix_millis(1_800_000_000_000)
+    Timestamp::from_unix_millis(1_700_000_000_000)
 }
 fn metadata(
     object_id: ObjectId,
@@ -92,7 +92,7 @@ async fn mint_account(
 ) -> String {
     sqlx::query_scalar(
         "INSERT INTO ple_private.account (account_id, product_role, created_at) \
-         VALUES ('U00000009', $1, clock_timestamp()) RETURNING account_id",
+         VALUES ('U00000009', $1::ple_data.product_role, pg_catalog.transaction_timestamp()) RETURNING account_id",
     )
     .bind(role)
     .fetch_one(&mut **transaction)
@@ -123,7 +123,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> BannerFixture {
     let instructor_id = mint_account(&mut transaction, "instructor").await;
     let student_id = mint_account(&mut transaction, "student").await;
     let foreign_id = mint_account(&mut transaction, "instructor").await;
-    sqlx::query("INSERT INTO ple_private.authenticated_session (session_id, account_id, product_role, token_hash, created_at, expires_at) VALUES ($1,$2,'instructor',decode($3,'hex'),clock_timestamp(),clock_timestamp()+interval '1 hour'),($4,$5,'student',decode($6,'hex'),clock_timestamp(),clock_timestamp()+interval '1 hour'),($7,$8,'instructor',decode($9,'hex'),clock_timestamp(),clock_timestamp()+interval '1 hour')")
+    sqlx::query("INSERT INTO ple_private.authenticated_session (session_id, account_id, product_role, token_hash, created_at, expires_at) VALUES ($1,$2,'instructor',decode($3,'hex'),pg_catalog.transaction_timestamp(),pg_catalog.transaction_timestamp()+interval '1 hour'),($4,$5,'student',decode($6,'hex'),pg_catalog.transaction_timestamp(),pg_catalog.transaction_timestamp()+interval '1 hour'),($7,$8,'instructor',decode($9,'hex'),pg_catalog.transaction_timestamp(),pg_catalog.transaction_timestamp()+interval '1 hour')")
         .bind(id(0xcc01)).bind(&instructor_id).bind(token(1).to_string())
         .bind(id(0xcc02)).bind(&student_id).bind(token(2).to_string())
         .bind(id(0xcc03)).bind(&foreign_id).bind(token(3).to_string())
@@ -174,7 +174,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> BannerFixture {
           content_discipline_id, tags) \
          VALUES ('CI0000000' || ple_private.crockford_checksum_character('CI0000000'), \
                  'adopted', $1, 1, 'Banner', 'Banner course', current_date, current_date + 1, \
-                 clock_timestamp(), '00000000-0000-0000-0000-00000000cc01', ARRAY[]::text[]) \
+                 pg_catalog.transaction_timestamp(), '00000000-0000-0000-0000-00000000cc01', ARRAY[]::text[]) \
          RETURNING course_instance_id",
     )
     .bind(&blueprint_id)
@@ -188,7 +188,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> BannerFixture {
           content_discipline_id, tags) \
          VALUES ('CI0000000' || ple_private.crockford_checksum_character('CI0000000'), \
                  'adopted', $1, 1, 'Banner', 'Banner course', current_date, current_date + 1, \
-                 clock_timestamp(), '00000000-0000-0000-0000-00000000cc01', ARRAY[]::text[]) \
+                 pg_catalog.transaction_timestamp(), '00000000-0000-0000-0000-00000000cc01', ARRAY[]::text[]) \
          RETURNING course_instance_id",
     )
     .bind(&blueprint_id)
@@ -198,7 +198,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> BannerFixture {
     sqlx::query(
         "INSERT INTO ple_data.student_record \
          (student_record_id, course_instance_id, student_account_id, created_at) \
-         VALUES ($1, $2, $3, clock_timestamp())",
+         VALUES ($1, $2, $3, pg_catalog.transaction_timestamp())",
     )
     .bind(id(0xce10))
     .bind(&course_id)
@@ -310,7 +310,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
         "expired session is refused"
     );
     let pending: String = sqlx::query(
-        "SELECT state FROM ple_private.course_banner_work WHERE course_banner_work_id=$1",
+        "SELECT state::text FROM ple_private.course_banner_work WHERE course_banner_work_id=$1",
     )
     .bind(staged.put_work_id)
     .fetch_one(&mut inspection)
@@ -652,14 +652,14 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
         .expect("verified cleanup observation");
     set_inspection_role(&mut inspection, "ple_audit_owner").await;
     let verified_disposition: String =
-        sqlx::query_scalar("SELECT disposition FROM ple_audit.object_cleanup_receipt")
+        sqlx::query_scalar("SELECT disposition::text FROM ple_audit.object_cleanup_receipt")
             .fetch_one(&mut inspection)
             .await
             .expect("verified-present cleanup receipt");
     assert_eq!(verified_disposition, "retained");
     set_inspection_role(&mut inspection, "ple_private_owner").await;
     let verified_work_state: String = sqlx::query_scalar(
-        "SELECT state FROM ple_private.course_banner_work WHERE course_banner_work_id=$1",
+        "SELECT state::text FROM ple_private.course_banner_work WHERE course_banner_work_id=$1",
     )
     .bind(verified_delete.work_id)
     .fetch_one(&mut inspection)
@@ -704,7 +704,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
         .expect("pre-delete work");
     set_inspection_role(&mut inspection, "ple_private_owner").await;
     let delete_state: String = sqlx::query_scalar(
-        "SELECT state FROM ple_private.course_banner_work WHERE course_banner_work_id=$1",
+        "SELECT state::text FROM ple_private.course_banner_work WHERE course_banner_work_id=$1",
     )
     .bind(delete.work_id)
     .fetch_one(&mut inspection)
@@ -751,7 +751,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
     );
     set_inspection_role(&mut inspection, "ple_private_owner").await;
     let missing_work_state: String = sqlx::query_scalar(
-        "SELECT state FROM ple_private.course_banner_work WHERE course_banner_work_id=$1",
+        "SELECT state::text FROM ple_private.course_banner_work WHERE course_banner_work_id=$1",
     )
     .bind(missing_delete.work_id)
     .fetch_one(&mut inspection)

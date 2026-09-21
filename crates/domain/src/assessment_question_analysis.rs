@@ -4,8 +4,8 @@
 //! never retain Student identity, raw responses, answer choices, or Object Addresses.
 
 use question_model::{
-    AssessmentEntryId, AssessmentId, CourseInstanceId, QuestionRevisionTuple, ScoringGeneration,
-    Timestamp,
+    AssessmentEntryId, AssessmentId, CourseInstanceId, PublishedQuestionRevisionTuple,
+    ScoringGeneration, Timestamp,
 };
 use serde::{Deserialize, Serialize};
 
@@ -48,7 +48,7 @@ pub struct AssessmentQuestionAnalysis {
     pub course_instance_id: CourseInstanceId,
     pub assessment_id: AssessmentId,
     pub assessment_entry_id: AssessmentEntryId,
-    pub question_revision_tuple: QuestionRevisionTuple,
+    pub published_question_revision_tuple: PublishedQuestionRevisionTuple,
     pub scoring_generation: ScoringGeneration,
     pub analyzed_at: Timestamp,
     pub graded_attempt_count: u32,

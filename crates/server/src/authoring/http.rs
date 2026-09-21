@@ -11,22 +11,22 @@ use learning_data_access::{
     DraftQuestionEditNumber, DraftQuestionUuid, SessionTokenHash, StoreError,
 };
 use question_model::{
-    QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship, QuestionId,
-    QuestionRevisionNumber, QuestionRevisionTuple,
+    PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionAuthor, QuestionAuthorDisplayName,
+    QuestionAuthorship, QuestionRevisionNumber,
 };
 use uuid::Uuid;
 
 use super::{AuthoringRouteState, PLE_QUESTION_JSON_MEDIA_TYPE, concealed, private_error};
 use crate::auth::{AuthError, resolve_session};
 
-pub(super) fn existing_parent_question_revision_tuple(
+pub(super) fn existing_parent_published_question_revision_tuple(
     question_id: String,
     parent_revision_number: u32,
-) -> Result<QuestionRevisionTuple, ()> {
-    let question_id = question_id.parse::<QuestionId>().map_err(|_| ())?;
+) -> Result<PublishedQuestionRevisionTuple, ()> {
+    let question_id = question_id.parse::<PublishedQuestionId>().map_err(|_| ())?;
     let revision_number = QuestionRevisionNumber::new(parent_revision_number).map_err(|_| ())?;
-    Ok(QuestionRevisionTuple {
-        question_id,
+    Ok(PublishedQuestionRevisionTuple {
+        published_question_id: question_id,
         revision_number,
     })
 }

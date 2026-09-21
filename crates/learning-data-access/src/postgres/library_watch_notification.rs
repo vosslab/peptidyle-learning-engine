@@ -1,7 +1,7 @@
 //! PostgreSQL adapter for the private Library Watch outbox and inbox.
 
 use async_trait::async_trait;
-use question_model::{QuestionId, Timestamp};
+use question_model::{PublishedQuestionId, Timestamp};
 use sqlx::{Postgres, Row, Transaction};
 
 use super::{Pool, connection::map_sqlx_error};
@@ -65,9 +65,9 @@ fn positive_u64(value: i64, name: &str) -> Result<u64, StoreError> {
     Ok(value)
 }
 
-fn question_id(value: String, name: &str) -> Result<QuestionId, StoreError> {
+fn question_id(value: String, name: &str) -> Result<PublishedQuestionId, StoreError> {
     value
-        .parse::<QuestionId>()
+        .parse::<PublishedQuestionId>()
         .map_err(|_| StoreError::InvalidRecord(name.to_owned()))
 }
 

@@ -61,28 +61,28 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> (AccountId, AccountId) {
         .expect("private fixture role");
     let assigned_id: String = sqlx::query_scalar(
         "INSERT INTO ple_private.account (account_id, product_role, created_at) \
-         VALUES ('U00000009', 'instructor', clock_timestamp()) RETURNING account_id",
+         VALUES ('U00000009', 'instructor', pg_catalog.transaction_timestamp()) RETURNING account_id",
     )
     .fetch_one(&mut *transaction)
     .await
     .expect("assigned Instructor Account");
     let co_instructor_id: String = sqlx::query_scalar(
         "INSERT INTO ple_private.account (account_id, product_role, created_at) \
-         VALUES ('U00000009', 'instructor', clock_timestamp()) RETURNING account_id",
+         VALUES ('U00000009', 'instructor', pg_catalog.transaction_timestamp()) RETURNING account_id",
     )
     .fetch_one(&mut *transaction)
     .await
     .expect("co-Instructor Account");
     let target_instructor_id: String = sqlx::query_scalar(
         "INSERT INTO ple_private.account (account_id, product_role, created_at) \
-         VALUES ('U00000009', 'instructor', clock_timestamp()) RETURNING account_id",
+         VALUES ('U00000009', 'instructor', pg_catalog.transaction_timestamp()) RETURNING account_id",
     )
     .fetch_one(&mut *transaction)
     .await
     .expect("target Instructor Account");
     let nonmember_id: String = sqlx::query_scalar(
         "INSERT INTO ple_private.account (account_id, product_role, created_at) \
-         VALUES ('U00000009', 'instructor', clock_timestamp()) RETURNING account_id",
+         VALUES ('U00000009', 'instructor', pg_catalog.transaction_timestamp()) RETURNING account_id",
     )
     .fetch_one(&mut *transaction)
     .await
@@ -90,12 +90,12 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> (AccountId, AccountId) {
     sqlx::query(
         "INSERT INTO ple_private.authenticated_session \
          (session_id, account_id, product_role, token_hash, created_at, expires_at) \
-         VALUES ($1, $2, 'instructor', decode($3, 'hex'), clock_timestamp(), \
-                 clock_timestamp() + interval '1 hour'), \
-                ($4, $5, 'instructor', decode($6, 'hex'), clock_timestamp(), \
-                 clock_timestamp() + interval '1 hour'), \
-                ($7, $8, 'instructor', decode($9, 'hex'), clock_timestamp(), \
-                 clock_timestamp() + interval '1 hour')",
+         VALUES ($1, $2, 'instructor', decode($3, 'hex'), pg_catalog.transaction_timestamp(), \
+                 pg_catalog.transaction_timestamp() + interval '1 hour'), \
+                ($4, $5, 'instructor', decode($6, 'hex'), pg_catalog.transaction_timestamp(), \
+                 pg_catalog.transaction_timestamp() + interval '1 hour'), \
+                ($7, $8, 'instructor', decode($9, 'hex'), pg_catalog.transaction_timestamp(), \
+                 pg_catalog.transaction_timestamp() + interval '1 hour')",
     )
     .bind(id(ASSIGNED_SESSION))
     .bind(&assigned_id)
@@ -118,6 +118,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> (AccountId, AccountId) {
 
 async fn malformed_empty_materialization_rejection(
     application_url: &str,
+    session_token: SessionTokenHash,
 ) -> Result<(), sqlx::Error> {
     let mut connection = PgConnection::connect(application_url).await?;
     let mut transaction = connection.begin().await?;
@@ -125,7 +126,7 @@ async fn malformed_empty_materialization_rejection(
         .execute(&mut *transaction)
         .await?;
     sqlx::query("SELECT session_id FROM ple_api.resolve_and_install_session(decode($1, 'hex'))")
-        .bind(token(0xc1).to_string())
+        .bind(session_token.to_string())
         .fetch_one(&mut *transaction)
         .await?;
     sqlx::query("SET LOCAL ROLE ple_app")
@@ -133,7 +134,7 @@ async fn malformed_empty_materialization_rejection(
         .await?;
     sqlx::query(
         "SELECT course_instance_id FROM ple_api.create_course_instance( \
-         'CI0000000' || ple_private.crockford_checksum_character('CI0000000'), \
+         'CI0000000Y', \
          $1, $2, $3, 'empty', NULL, NULL, 'EMPTY-BAD', \
          'Rejected nonempty Empty Course', '2026-01-01'::date, '2026-05-01'::date, \
          NULL, jsonb_build_array(jsonb_build_object('source', $4::text)), \
@@ -160,7 +161,7 @@ async fn seed_lifetime_instructor(admin: &sqlx::postgres::PgPool) {
         .expect("Active-lifetime private fixture role");
     let lifetime_id: String = sqlx::query_scalar(
         "INSERT INTO ple_private.account (account_id, product_role, created_at) \
-         VALUES ('U00000009', 'instructor', clock_timestamp()) RETURNING account_id",
+         VALUES ('U00000009', 'instructor', pg_catalog.transaction_timestamp()) RETURNING account_id",
     )
     .fetch_one(&mut *transaction)
     .await
@@ -168,8 +169,8 @@ async fn seed_lifetime_instructor(admin: &sqlx::postgres::PgPool) {
     sqlx::query(
         "INSERT INTO ple_private.authenticated_session \
          (session_id, account_id, product_role, token_hash, created_at, expires_at) \
-         VALUES ($1, $2, 'instructor', decode($3, 'hex'), clock_timestamp(), \
-                 clock_timestamp() + interval '1 hour')",
+         VALUES ($1, $2, 'instructor', decode($3, 'hex'), pg_catalog.transaction_timestamp(), \
+                 pg_catalog.transaction_timestamp() + interval '1 hour')",
     )
     .bind(id(LIFETIME_SESSION))
     .bind(&lifetime_id)
@@ -201,7 +202,7 @@ async fn course_term_beyond_active_lifetime_rejection(
         .await?;
     sqlx::query(
         "SELECT course_instance_id FROM ple_api.create_course_instance( \
-         'CI0000000' || ple_private.crockford_checksum_character('CI0000000'), \
+         'CI0000000Y', \
          $1, $2, $3, 'empty', NULL, NULL, 'TERM-BAD', \
          'Rejected Active lifetime extension', \
          (transaction_timestamp() AT TIME ZONE 'UTC')::date, \
@@ -264,7 +265,7 @@ async fn empty_course_has_no_initial_content_and_current_instructors_are_peers()
         .await
         .expect("Empty Course provenance fixture role");
     let provenance: (String, Option<String>, Option<i64>, i64) = sqlx::query_as(
-        "SELECT course.source_kind, course.blueprint_course_id, \
+        "SELECT course.source_kind::text, course.blueprint_course_id::text, \
                 course.blueprint_revision_number, count(assessment.assessment_id) \
            FROM ple_data.course_instance AS course \
            LEFT JOIN ple_data.assessment AS assessment \
@@ -302,7 +303,7 @@ async fn empty_course_has_no_initial_content_and_current_instructors_are_peers()
     assert_eq!(error_code(&provenance_error).as_deref(), Some("55000"));
     drop(provenance_mutation);
 
-    let malformed = malformed_empty_materialization_rejection(&application_url)
+    let malformed = malformed_empty_materialization_rejection(&application_url, token(0xc2))
         .await
         .expect_err("Empty Course rejects supplied initial materialization");
     assert_eq!(error_code(&malformed).as_deref(), Some("22023"));

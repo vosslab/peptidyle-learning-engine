@@ -416,7 +416,7 @@ async fn selected_presentation(
         .context("Live Demo Student presentation is invalid")?;
     let presentation = closed_object(
         presentation,
-        &["questionRevisionTuple", "prompt", "response"],
+        &["publishedQuestionRevisionTuple", "prompt", "response"],
         "Student presentation",
     )?;
     presentation

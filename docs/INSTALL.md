@@ -98,14 +98,6 @@ narrower convergent installation operation. The local-stack controller supplies
 the required migrator, publisher, storage, API, and worker capabilities. The
 graph is documented in [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md).
 
-After the Bloom publication cutover, Live Demo data will be selected by default
-for a local disposable stack. The controller command below will explicitly omit
-the Live Demo while retaining the Genetics Blueprint:
-
-```bash
-source source_me.sh && python3 local_stack.py start --headless --without-live-demo
-```
-
 ## Verify install
 
 Use a restricted application connection in `DATABASE_URL`; it has no DDL or

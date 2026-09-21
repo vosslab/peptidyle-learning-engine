@@ -12,7 +12,7 @@ use std::num::NonZeroU32;
 use question_model::{
     AccountTimeZone, AssessmentActivityRules, AssessmentEditNumber, AssessmentEntry, AssessmentId,
     AssessmentInstructions, AssessmentOrigin, AssessmentStatus, AssessmentTitle, AssessmentType,
-    CourseInstanceId, LateWorkRule, LocalDateAndTime, QuestionRevisionTuple,
+    CourseInstanceId, LateWorkRule, LocalDateAndTime, PublishedQuestionRevisionTuple,
     StudentFeedbackReleaseRule,
 };
 use serde::{Deserialize, Serialize};
@@ -79,14 +79,14 @@ pub struct AssessmentBlueprintUpdateContent {
 )]
 pub enum AssessmentBlueprintUpdateEntry {
     FixedQuestion {
-        question_revision_tuple: QuestionRevisionTuple,
+        published_question_revision_tuple: PublishedQuestionRevisionTuple,
         points_possible: question_model::AssessmentPointValue,
         scoring_rule: question_model::AssessmentEntryScoringRule,
         question_attempt_limit: question_model::QuestionAttemptLimit,
         question_attempt_time_limit: question_model::QuestionAttemptTimeLimit,
     },
     QuestionPool {
-        question_pool_id: question_model::QuestionId,
+        question_pool_id: question_model::QuestionPoolId,
         question_pool_edit_number: question_model::QuestionPoolEditNumber,
         selection_count: NonZeroU32,
         points_per_item: question_model::AssessmentPointValue,
@@ -218,7 +218,7 @@ impl SaveLiveAssessmentInput {
 #[serde(rename_all = "camelCase")]
 pub struct AssessmentQuestionPickerEntry {
     /// Exact currently accepted Question Revision that a new Entry will pin.
-    pub question_revision_tuple: QuestionRevisionTuple,
+    pub published_question_revision_tuple: PublishedQuestionRevisionTuple,
     /// Answer-free Question description supplied by the current Question Library metadata.
     pub description: String,
     /// Exact Revision-owned Bloom Classification carried with the picker pin, when assigned.
@@ -230,7 +230,7 @@ pub struct AssessmentQuestionPickerEntry {
 #[serde(rename_all = "camelCase")]
 pub struct AuthoredAssessmentQuestion {
     /// Exact Question Revision retained by this current Assessment entry.
-    pub question_revision_tuple: QuestionRevisionTuple,
+    pub published_question_revision_tuple: PublishedQuestionRevisionTuple,
     /// Answer-free Question description for Instructor review and Assessment Preview.
     pub description: String,
     /// Exact Revision-owned Bloom Classification carried with the retained pin, when assigned.
@@ -530,7 +530,7 @@ mod tests {
 
     #[test]
     fn workspace_save_requires_an_exact_question_revision_pin() {
-        let question_id = question_model::QuestionId::from_random_identifier("7K3MXQP")
+        let question_id = question_model::PublishedQuestionId::from_random_identifier("7K3MXQP")
             .expect("canonical Question ID");
         let input: SaveLiveAssessmentInput = serde_json::from_value(serde_json::json!({
             "title": "Peptide bonds",
@@ -538,7 +538,7 @@ mod tests {
             "entries": [{
                 "kind": "fixedQuestion",
                 "id": "00000000-0000-0000-0000-000000000001",
-                "questionRevisionTuple": { "questionId": question_id, "revisionNumber": 1 },
+                "publishedQuestionRevisionTuple": { "publishedQuestionId": question_id, "revisionNumber": 1 },
                 "pointsPossible": "1",
                 "availability": "available",
                 "scoringRule": "normal",

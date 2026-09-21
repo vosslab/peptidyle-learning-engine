@@ -30,8 +30,8 @@ test("Question Pool creation sends explicit metadata and attested ordered pins w
     title: "Interchangeable genetics questions",
     description: "Practice reading inheritance patterns.",
     members: [
-      { questionId: FIRST_QUESTION, revisionNumber: 3 },
-      { questionId: SECOND_QUESTION, revisionNumber: 7 },
+      { publishedQuestionId: FIRST_QUESTION, revisionNumber: 3 },
+      { publishedQuestionId: SECOND_QUESTION, revisionNumber: 7 },
     ],
     interchangeabilityAttested: true,
   });
@@ -46,8 +46,8 @@ test("Question Pool creation sends explicit metadata and attested ordered pins w
     title: "Interchangeable genetics questions",
     description: "Practice reading inheritance patterns.",
     members: [
-      { questionId: FIRST_QUESTION, revisionNumber: 3 },
-      { questionId: SECOND_QUESTION, revisionNumber: 7 },
+      { publishedQuestionId: FIRST_QUESTION, revisionNumber: 3 },
+      { publishedQuestionId: SECOND_QUESTION, revisionNumber: 7 },
     ],
     interchangeabilityAttested: true,
   });
@@ -60,7 +60,7 @@ test("Question Pool creation sends explicit metadata and attested ordered pins w
     malformedReceiptClient.createQuestionPool({
       title: "Interchangeable genetics questions",
       description: "Practice reading inheritance patterns.",
-      members: [{ questionId: FIRST_QUESTION, revisionNumber: 3 }],
+      members: [{ publishedQuestionId: FIRST_QUESTION, revisionNumber: 3 }],
       interchangeabilityAttested: true,
     }),
     DecodeError,
@@ -78,7 +78,7 @@ test("Question Pool creation rejects missing or noncanonical metadata before tra
   const valid = {
     title: "Pool",
     description: "Learning goal",
-    members: [{ questionId: FIRST_QUESTION, revisionNumber: 3 }],
+    members: [{ publishedQuestionId: FIRST_QUESTION, revisionNumber: 3 }],
     interchangeabilityAttested: true,
   };
   for (const patch of [

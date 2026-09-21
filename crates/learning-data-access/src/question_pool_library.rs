@@ -7,8 +7,8 @@
 use async_trait::async_trait;
 use question_model::{
     AssessmentEntryId, BloomClassificationEditNumber, BloomClassificationView,
-    BloomCognitiveProcess, BloomKnowledgeDimension, QuestionId, QuestionPoolEditNumber,
-    QuestionPoolLibrarySummary, QuestionPoolMetadata, QuestionRevisionTuple,
+    BloomCognitiveProcess, BloomKnowledgeDimension, PublishedQuestionRevisionTuple,
+    QuestionPoolEditNumber, QuestionPoolId, QuestionPoolLibrarySummary, QuestionPoolMetadata,
     QuestionSearchBloomCognitiveProcessFacet, QuestionSearchBloomKnowledgeDimensionFacet,
 };
 use serde::Serialize;
@@ -80,10 +80,10 @@ impl QuestionPoolDiscoveryFilter {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PublishedQuestionPool {
     pub metadata: QuestionPoolMetadata,
-    pub question_pool_id: QuestionId,
+    pub question_pool_id: QuestionPoolId,
     pub question_pool_edit_number: QuestionPoolEditNumber,
     pub bloom: Option<BloomClassificationView>,
-    pub members: Vec<QuestionRevisionTuple>,
+    pub members: Vec<PublishedQuestionRevisionTuple>,
 }
 
 /// Assessment-owned exact fork facts before answer-free Question projection.
@@ -91,11 +91,11 @@ pub struct PublishedQuestionPool {
 pub struct AssessmentQuestionPoolForkRecord {
     pub metadata: QuestionPoolMetadata,
     pub assessment_entry_id: AssessmentEntryId,
-    pub question_pool_id: QuestionId,
+    pub question_pool_id: QuestionPoolId,
     pub question_pool_edit_number: QuestionPoolEditNumber,
     pub selection_count: std::num::NonZeroU32,
     pub bloom: Option<BloomClassificationView>,
-    pub members: Vec<QuestionRevisionTuple>,
+    pub members: Vec<PublishedQuestionRevisionTuple>,
 }
 
 /// Store boundary for global Pool discovery and owned Assessment-fork reads.
@@ -115,7 +115,7 @@ pub trait QuestionPoolLibraryStore: Send + Sync {
     async fn load_current_published_question_pool(
         &self,
         session_token_hash: SessionTokenHash,
-        question_pool_id: &question_model::QuestionId,
+        question_pool_id: &question_model::QuestionPoolId,
     ) -> Result<PublishedQuestionPool, StoreError>;
 
     /// Corrects both Bloom dimensions for one current Pool through the
@@ -123,7 +123,7 @@ pub trait QuestionPoolLibraryStore: Send + Sync {
     async fn correct_question_pool_bloom(
         &self,
         session_token_hash: SessionTokenHash,
-        question_pool_id: &question_model::QuestionId,
+        question_pool_id: &question_model::QuestionPoolId,
         expected_edit_number: BloomClassificationEditNumber,
         cognitive_process: BloomCognitiveProcess,
         knowledge_dimension: BloomKnowledgeDimension,

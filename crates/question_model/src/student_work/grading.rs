@@ -138,8 +138,9 @@ mod tests {
     use super::*;
     use crate::{
         AssessmentAttemptId, AssessmentEntryId, AssessmentPointValue, IssuedQuestionId,
-        QuestionAttemptReproductionDetails, QuestionBackendVersion, QuestionGraderVersion,
-        QuestionId, QuestionRevisionNumber, QuestionRevisionTuple, QuestionSourceSelection,
+        PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionAttemptReproductionDetails,
+        QuestionBackendVersion, QuestionGraderVersion, QuestionRevisionNumber,
+        QuestionSourceSelection,
     };
     use uuid::Uuid;
 
@@ -150,8 +151,9 @@ mod tests {
             assessment_entry_id: AssessmentEntryId::from_uuid(Uuid::from_u128(3)),
             assessment_content_entry_index: 0,
             issued_position: 0,
-            question_revision_tuple: QuestionRevisionTuple {
-                question_id: QuestionId::from_random_identifier("ABCDEFG").expect("question ID"),
+            published_question_revision_tuple: PublishedQuestionRevisionTuple {
+                published_question_id: PublishedQuestionId::from_random_identifier("ABCDEFG")
+                    .expect("question ID"),
                 revision_number: QuestionRevisionNumber::new(1).expect("revision"),
             },
             source_selection: QuestionSourceSelection::Static,

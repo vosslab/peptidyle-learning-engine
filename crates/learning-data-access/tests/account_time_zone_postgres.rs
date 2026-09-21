@@ -46,14 +46,14 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> CourseInstanceId {
         .expect("private fixture role");
     let instructor_id: String = sqlx::query_scalar(
         "INSERT INTO ple_private.account (account_id, product_role, created_at) \
-         VALUES ('U00000009', 'instructor', clock_timestamp()) RETURNING account_id",
+         VALUES ('U00000009', 'instructor', pg_catalog.transaction_timestamp()) RETURNING account_id",
     )
     .fetch_one(&mut *tx)
     .await
     .expect("Instructor Account");
     let existing_student_id: String = sqlx::query_scalar(
         "INSERT INTO ple_private.account (account_id, product_role, created_at) \
-         VALUES ('U00000009', 'student', clock_timestamp()) RETURNING account_id",
+         VALUES ('U00000009', 'student', pg_catalog.transaction_timestamp()) RETURNING account_id",
     )
     .fetch_one(&mut *tx)
     .await
@@ -82,10 +82,10 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> CourseInstanceId {
     sqlx::query(
         "INSERT INTO ple_private.authenticated_session \
          (session_id, account_id, product_role, token_hash, created_at, expires_at) \
-         VALUES ($1, $2, 'instructor', decode($3, 'hex'), clock_timestamp(), \
-                 clock_timestamp() + interval '1 hour'), \
-                ($4, $5, 'student', decode($6, 'hex'), clock_timestamp(), \
-                 clock_timestamp() + interval '1 hour')",
+         VALUES ($1, $2, 'instructor', decode($3, 'hex'), pg_catalog.transaction_timestamp(), \
+                 pg_catalog.transaction_timestamp() + interval '1 hour'), \
+                ($4, $5, 'student', decode($6, 'hex'), pg_catalog.transaction_timestamp(), \
+                 pg_catalog.transaction_timestamp() + interval '1 hour')",
     )
     .bind(id(INSTRUCTOR_SESSION))
     .bind(&instructor_id)
@@ -143,7 +143,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> CourseInstanceId {
           content_discipline_id, tags) \
          VALUES ('CI0000000' || ple_private.crockford_checksum_character('CI0000000'), \
                  'adopted', $1, 1, 'ZONE', \
-                 'Student Time Zone Course', current_date, current_date + 1, clock_timestamp(), \
+                 'Student Time Zone Course', current_date, current_date + 1, pg_catalog.transaction_timestamp(), \
                  '00000000-0000-0000-0000-00000000cc01', ARRAY[]::text[]) \
          RETURNING course_instance_id",
     )
@@ -185,8 +185,8 @@ async fn new_student_id_and_session(admin: &sqlx::postgres::PgPool) -> String {
     sqlx::query(
         "INSERT INTO ple_private.authenticated_session \
          (session_id, account_id, product_role, token_hash, created_at, expires_at) \
-         VALUES ($1, $2, 'student', decode($3, 'hex'), clock_timestamp(), \
-                 clock_timestamp() + interval '1 hour')",
+         VALUES ($1, $2, 'student', decode($3, 'hex'), pg_catalog.transaction_timestamp(), \
+                 pg_catalog.transaction_timestamp() + interval '1 hour')",
     )
     .bind(id(NEW_STUDENT_SESSION))
     .bind(&account_id)
@@ -273,13 +273,25 @@ async fn invitation_acceptance_defaults_only_a_new_student_account_to_the_inviti
         account_time_zone(&admin, &new_student).await,
         ("America/New_York".to_string(), false)
     );
+    let mut existing_student_transaction = admin
+        .begin()
+        .await
+        .expect("existing Student Account transaction");
+    sqlx::query("SET LOCAL ROLE ple_private_owner")
+        .execute(&mut *existing_student_transaction)
+        .await
+        .expect("existing Student Account role");
     let existing_student: String = sqlx::query_scalar(
         "SELECT account_id FROM ple_private.account_authentication_email \
          WHERE normalized_email = 'existing.student@example.edu'",
     )
-    .fetch_one(&admin)
+    .fetch_one(&mut *existing_student_transaction)
     .await
     .expect("existing Student Account");
+    existing_student_transaction
+        .commit()
+        .await
+        .expect("existing Student Account transaction commit");
     assert_eq!(
         account_time_zone(&admin, &existing_student).await,
         ("America/Denver".to_string(), false),

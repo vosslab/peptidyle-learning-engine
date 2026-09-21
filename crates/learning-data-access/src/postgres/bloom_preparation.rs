@@ -76,7 +76,7 @@ impl BloomReceiptPreparer for PostgresBloomClassificationPreparationStore {
             } => {
                 let member_question_ids = members
                     .iter()
-                    .map(|member| member.question_id.as_str().to_owned())
+                    .map(|member| member.published_question_id.as_str().to_owned())
                     .collect::<Vec<_>>();
                 let member_revision_numbers = members
                     .iter()

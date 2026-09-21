@@ -21,7 +21,7 @@ function clientWithIssuedQuestion(mutator) {
         issuedQuestionWireFixture(
           attempt,
           publishedQuestionFixture.publishedQuestion,
-          publishedQuestionFixture.issuedQuestions.at(-1).questionRevisionTuple,
+          publishedQuestionFixture.issuedQuestions.at(-1).publishedQuestionRevisionTuple,
         ),
       );
       mutator(issued);

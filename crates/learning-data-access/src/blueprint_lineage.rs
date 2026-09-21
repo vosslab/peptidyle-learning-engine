@@ -3,7 +3,7 @@
 use async_trait::async_trait;
 use question_model::{
     AccountId, BlueprintAvailability, BlueprintCourseId, BlueprintEditNumber,
-    BlueprintRevisionTuple, QuestionId, QuestionPoolEditNumber, QuestionRevisionTuple,
+    BlueprintRevisionTuple, PublishedQuestionRevisionTuple, QuestionPoolEditNumber, QuestionPoolId,
     RequestChecksum, Timestamp,
 };
 use std::collections::BTreeMap;
@@ -37,7 +37,7 @@ pub struct BlueprintComparisonSources {
     pub left_blueprint_edit_number: BlueprintEditNumber,
     pub right_blueprint_edit_number: BlueprintEditNumber,
     pub pool_memberships:
-        BTreeMap<(QuestionId, QuestionPoolEditNumber), Vec<QuestionRevisionTuple>>,
+        BTreeMap<(QuestionPoolId, QuestionPoolEditNumber), Vec<PublishedQuestionRevisionTuple>>,
 }
 
 /// Immutable source fact retained by a forked Blueprint lineage.

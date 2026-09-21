@@ -69,20 +69,20 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
   const descriptions = createMemo(() => {
     const known = new Map<string, string>();
     for (const question of workspace.assessment().workspace.questions)
-      known.set(questionRevisionKey(question.questionRevisionTuple), question.description);
+      known.set(questionRevisionKey(question.publishedQuestionRevisionTuple), question.description);
     for (const question of available())
-      known.set(questionRevisionKey(question.questionRevisionTuple), question.description);
+      known.set(questionRevisionKey(question.publishedQuestionRevisionTuple), question.description);
     return known;
   });
   const fixedBlooms = createMemo(() => {
     const known = new Map<string, BloomClassificationView>();
     for (const question of workspace.assessment().workspace.questions) {
       if (question.bloom !== null)
-        known.set(questionRevisionKey(question.questionRevisionTuple), question.bloom);
+        known.set(questionRevisionKey(question.publishedQuestionRevisionTuple), question.bloom);
     }
     for (const question of available()) {
       if (question.bloom !== null)
-        known.set(questionRevisionKey(question.questionRevisionTuple), question.bloom);
+        known.set(questionRevisionKey(question.publishedQuestionRevisionTuple), question.bloom);
     }
     return known;
   });
@@ -91,7 +91,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     for (const entry of entries()) {
       const bloom =
         entry.kind === "fixedQuestion"
-          ? fixedBlooms().get(questionRevisionKey(entry.questionRevisionTuple))
+          ? fixedBlooms().get(questionRevisionKey(entry.publishedQuestionRevisionTuple))
           : poolForks().get(entry.id)?.bloom;
       if (bloom !== undefined && bloom !== null) known.set(entry.id, bloom);
     }
@@ -117,8 +117,8 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
         !entries().some(
           (entry) =>
             entry.kind === "fixedQuestion" &&
-            questionRevisionKey(entry.questionRevisionTuple) ===
-              questionRevisionKey(candidate.questionRevisionTuple),
+            questionRevisionKey(entry.publishedQuestionRevisionTuple) ===
+              questionRevisionKey(candidate.publishedQuestionRevisionTuple),
         ),
     ),
   );
@@ -193,9 +193,12 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
   }
 
   function description(
-    questionRevisionTuple: AssessmentQuestionPickerEntry["questionRevisionTuple"],
+    publishedQuestionRevisionTuple: AssessmentQuestionPickerEntry["publishedQuestionRevisionTuple"],
   ): string {
-    return descriptions().get(questionRevisionKey(questionRevisionTuple)) ?? "Published Question";
+    return (
+      descriptions().get(questionRevisionKey(publishedQuestionRevisionTuple)) ??
+      "Published Question"
+    );
   }
 
   function move(index: number, offset: -1 | 1): void {
@@ -304,7 +307,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     // ASVS 2.2.1: resolve IDs only against the available Published summaries, never invent pins.
     for (const id of ids) {
       const matches = availableToAdd().filter(
-        (candidate) => candidate.questionRevisionTuple.questionId === id,
+        (candidate) => candidate.publishedQuestionRevisionTuple.publishedQuestionId === id,
       );
       if (matches.length === 1) candidates.push(matches[0]!);
       else unresolved.push(id);
@@ -501,7 +504,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
 
   async function replacePoolMembers(
     entry: Extract<AssessmentEntry, { readonly kind: "questionPool" }>,
-    members: ReadonlyArray<AssessmentQuestionPickerEntry["questionRevisionTuple"]>,
+    members: ReadonlyArray<AssessmentQuestionPickerEntry["publishedQuestionRevisionTuple"]>,
   ): Promise<void> {
     const fork = poolForks().get(entry.id);
     if (dirty() || needsReload() || fork === undefined) return;

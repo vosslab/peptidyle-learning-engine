@@ -128,8 +128,20 @@ const EXAMPLES: ReadonlyArray<Example> = [
   },
 ];
 
-function checkpoint(slug: ExampleSlug, viewport: "laptop" | "phone"): string {
+const MULTIPLE_CHOICE_EXAMPLE: Example =
+  EXAMPLES.find((example) => example.slug === "mc") ??
+  ((): never => {
+    throw new Error("Student question corpus must define an MC example.");
+  })();
+
+type QuestionViewport = "laptop" | "tablet" | "phone" | "square";
+
+function checkpoint(slug: ExampleSlug, viewport: QuestionViewport): string {
   return `question_unanswered_${slug}_${viewport}`;
+}
+
+function answeredCheckpoint(slug: ExampleSlug, viewport: QuestionViewport): string {
+  return `question_answered_${slug}_${viewport}`;
 }
 
 async function questionLibrary(page: Page): Promise<void> {
@@ -255,11 +267,15 @@ async function publish(page: Page, example: Example): Promise<void> {
   await page
     .getByRole("combobox", { name: "Subject (required)", exact: true })
     .selectOption({ label: "Biochemistry" });
-  await page.getByRole("button", { name: "Confirm and publish", exact: true }).click();
+  const confirm = page.getByRole("button", { name: "Confirm and publish", exact: true });
+  await confirm.click();
   await page.getByRole("heading", { name: "Published", exact: true }).waitFor();
 }
 
-async function prepare(runtime: ScenarioRuntime): Promise<ReadonlyMap<string, Example>> {
+async function prepare(
+  runtime: ScenarioRuntime,
+  assessmentTitle: string = ASSESSMENT_TITLE,
+): Promise<ReadonlyMap<string, Example>> {
   // Preparation is a separate uncaptured session, so private authoring responses never enter a
   // Student capture's privacy monitor. ASVS 8.2.1: all writes remain role-gated visible actions.
   const session = await runtime.open(checkpoint("mc", "laptop"));
@@ -280,7 +296,7 @@ async function prepare(runtime: ScenarioRuntime): Promise<ReadonlyMap<string, Ex
     await openInstructorCourse(page);
     await page.getByRole("link", { name: "Create Assessment", exact: true }).click();
     await page.getByRole("heading", { name: "Create an Assessment", exact: true }).waitFor();
-    await page.getByLabel("Assessment title", { exact: true }).fill(ASSESSMENT_TITLE);
+    await page.getByLabel("Assessment title", { exact: true }).fill(assessmentTitle);
     await page
       .getByRole("combobox", { name: /^Assessment Type/u })
       .selectOption("practice_question_assignment");
@@ -290,7 +306,7 @@ async function prepare(runtime: ScenarioRuntime): Promise<ReadonlyMap<string, Ex
     const idsToAdd: string[] = [];
     for (const { summary } of selected) {
       // Exact discovered ID + immutable Revision, not a first-row or title-only guess.
-      const identity = `${summary.questionId} * Revision ${summary.questionRevisionTuple.revisionNumber}:`;
+      const identity = `${summary.questionId} * Revision ${summary.publishedQuestionRevisionTuple.revisionNumber}:`;
       const row = available.getByRole("listitem").filter({ hasText: identity });
       await row.first().waitFor();
       if ((await row.count()) !== 1)
@@ -327,7 +343,7 @@ async function prepare(runtime: ScenarioRuntime): Promise<ReadonlyMap<string, Ex
     await page.getByText(/^Assessment released\. Current edit number: [1-9][0-9]*\.$/u).waitFor();
     return new Map(
       selected.map(({ example, summary }) => [
-        `${summary.questionId}:${summary.questionRevisionTuple.revisionNumber}`,
+        `${summary.questionId}:${summary.publishedQuestionRevisionTuple.revisionNumber}`,
         example,
       ]),
     );
@@ -415,13 +431,77 @@ async function waitForControl(session: CaptureSession, example: Example): Promis
   }
 }
 
+async function answerCurrentQuestion(session: CaptureSession, example: Example): Promise<void> {
+  const page = session.page;
+  if (example.backend === "webwork") {
+    const editable = page
+      .frameLocator('iframe[title="Question document"]')
+      .locator(
+        'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]), select, textarea',
+      )
+      .first();
+    const tag = await editable.evaluate((element) => element.tagName.toLowerCase());
+    const type = await editable.getAttribute("type");
+    if (tag === "select") await editable.selectOption({ index: 0 });
+    else if (type === "checkbox" || type === "radio") await editable.check();
+    else await editable.fill("1");
+  } else {
+    const response = page.locator("section.question-response-control");
+    switch (example.slug) {
+      case "mc":
+      case "ma":
+        await response.locator('input[type="radio"], input[type="checkbox"]').first().check();
+        break;
+      case "fib":
+        await response.locator('input[type="text"], textarea').first().fill("replication");
+        break;
+      case "multi_fib": {
+        const fields = response.locator('input[type="text"], textarea');
+        await fields.nth(0).fill("transcription");
+        await fields.nth(1).fill("translation");
+        break;
+      }
+      case "num":
+        await response.locator('input[type="number"]').fill("1");
+        break;
+      case "match": {
+        const slots = response.locator(".matching-slot[data-prompt-id]:not(:disabled)");
+        for (let index = 0; index < (await slots.count()); index += 1) {
+          await response
+            .locator(".matching-bank button[data-choice-id]:not(:disabled)")
+            .first()
+            .click();
+          await slots.nth(index).click();
+          await slots
+            .nth(index)
+            .getByText("Assign selected choice", { exact: true })
+            .waitFor({ state: "detached" });
+        }
+        break;
+      }
+      case "order":
+        await response.locator('button[data-order-direction="later"]').first().click();
+        break;
+      case "hotspot":
+        await response.locator('input[type="radio"], input[type="checkbox"]').first().check();
+        break;
+      case "webwork":
+        throw new Error("WebWork response handling must stay inside its backend branch.");
+    }
+  }
+  await page.getByRole("button", { name: "Save response", exact: true }).click();
+  await page.getByText("Response saved.", { exact: true }).waitFor();
+}
+
 async function captureTypes(runtime: ScenarioRuntime): Promise<void> {
   const provenance = await prepare(runtime);
   for (const viewport of ["laptop", "phone"] as const) {
     const session = await runtime.open(checkpoint("mc", viewport));
     try {
       const page = session.page;
-      await choosePersona(page, "Avery Thompson");
+      // Keep the answer-free baseline independent across viewports. The saved laptop responses
+      // must not turn the phone baseline into a selected-response capture on replay.
+      await choosePersona(page, viewport === "laptop" ? "Avery Thompson" : "Jack Nguyen");
       await openStudentCourse(page);
       const card = assignmentCard(page, ASSESSMENT_TITLE);
       let question = await readQuestion(page, () => openOrResumePracticeAssignment(page, card));
@@ -444,8 +524,8 @@ async function captureTypes(runtime: ScenarioRuntime): Promise<void> {
         await page
           .getByText(`Question ${position} of ${EXPECTED_QUESTION_COUNT}`, { exact: true })
           .waitFor();
-        const pin = question.presentation.questionRevisionTuple;
-        const example = provenance.get(`${pin.questionId}:${pin.revisionNumber}`);
+        const pin = question.presentation.publishedQuestionRevisionTuple;
+        const example = provenance.get(`${pin.publishedQuestionId}:${pin.revisionNumber}`);
         if (example === undefined || covered.has(example.slug))
           throw new Error(
             "Student delivery did not match the exact selected published Revision set.",
@@ -453,6 +533,9 @@ async function captureTypes(runtime: ScenarioRuntime): Promise<void> {
         await waitForControl(session, example);
         await scrollTop(page);
         await runtime.captureCheckpoint(session, checkpoint(example.slug, viewport));
+        await answerCurrentQuestion(session, example);
+        await scrollTop(page);
+        await runtime.captureCheckpoint(session, answeredCheckpoint(example.slug, viewport));
         covered.add(example.slug);
       }
       if (
@@ -464,15 +547,63 @@ async function captureTypes(runtime: ScenarioRuntime): Promise<void> {
       await runtime.close(session);
     }
   }
-  // Interaction/submission proof is uncaptured and occurs after both unanswered captures.
+  for (const viewport of ["tablet", "square"] as const) {
+    const session = await runtime.open(checkpoint("mc", viewport));
+    try {
+      const page = session.page;
+      await choosePersona(page, "Mary Okafor");
+      await openStudentCourse(page);
+      const card = assignmentCard(page, ASSESSMENT_TITLE);
+      let question = await readQuestion(page, () => openOrResumePracticeAssignment(page, card));
+      const navigation = page.getByRole("navigation", {
+        name: "Assessment questions",
+        exact: true,
+      });
+      const first = navigation.getByRole("button", { name: /^Question 1:/u });
+      if (question.position !== 1) question = await readQuestion(page, () => first.click());
+      else await first.click();
+      for (let position = 1; position <= EXPECTED_QUESTION_COUNT; position += 1) {
+        if (position > 1) {
+          question = await readQuestion(page, () =>
+            navigation.getByRole("button", { name: "Next question", exact: true }).click(),
+          );
+        }
+        if (question.position !== position)
+          throw new Error("Student navigation did not deliver the next issued Question position.");
+        await page
+          .getByText(`Question ${position} of ${EXPECTED_QUESTION_COUNT}`, { exact: true })
+          .waitFor();
+        const pin = question.presentation.publishedQuestionRevisionTuple;
+        const example = provenance.get(`${pin.publishedQuestionId}:${pin.revisionNumber}`);
+        if (example === undefined) {
+          throw new Error(
+            "Student delivery did not match the exact selected published Revision set.",
+          );
+        }
+        await waitForControl(session, example);
+        if (example.slug === "mc") {
+          await scrollTop(page);
+          await runtime.captureCheckpoint(session, checkpoint(example.slug, viewport));
+          break;
+        }
+      }
+    } finally {
+      await runtime.close(session);
+    }
+  }
+  // The saved-answer captures above consume the main Assessment's HOTSPOT response. Use one
+  // disposable Assessment per interaction so each uncaptured workflow still starts unanswered
+  // and proves its own pointer/keyboard, reload, submission, and grading path.
   for (const input of ["pointer", "keyboard"] as const) {
+    const workflowTitle = `HOTSPOT ${input} workflow`;
+    await prepare(runtime, workflowTitle);
     const session = await runtime.open(checkpoint("hotspot", "laptop"));
     try {
-      await choosePersona(session.page, input === "pointer" ? "Avery Thompson" : "Jack Nguyen");
+      await choosePersona(session.page, "Mary Okafor");
       await openStudentCourse(session.page);
       await openOrResumePracticeAssignment(
         session.page,
-        assignmentCard(session.page, ASSESSMENT_TITLE),
+        assignmentCard(session.page, workflowTitle),
       );
       await exerciseHotspot(session.page, input);
     } finally {
@@ -481,7 +612,7 @@ async function captureTypes(runtime: ScenarioRuntime): Promise<void> {
   }
 }
 
-function typeCapture(example: Example, viewport: "laptop" | "phone"): CaptureDeclaration {
+function typeCapture(example: Example, viewport: QuestionViewport): CaptureDeclaration {
   return {
     checkpoint: checkpoint(example.slug, viewport),
     area: "assessments",
@@ -493,6 +624,18 @@ function typeCapture(example: Example, viewport: "laptop" | "phone"): CaptureDec
   };
 }
 
+function answeredTypeCapture(example: Example, viewport: "laptop" | "phone"): CaptureDeclaration {
+  return {
+    checkpoint: answeredCheckpoint(example.slug, viewport),
+    area: "assessments",
+    workflow: "native and WeBWorK response practice",
+    state: `answered ${example.slug.toUpperCase()} question`,
+    viewport,
+    privacyProfile: "student_self",
+    caption: `${example.caption} after saving a response on a ${viewport}`,
+  };
+}
+
 export const STUDENT_TYPE_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
   {
     id: SCENARIO,
@@ -500,6 +643,11 @@ export const STUDENT_TYPE_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
     captures: EXAMPLES.flatMap((example) => [
       typeCapture(example, "laptop"),
       typeCapture(example, "phone"),
+      answeredTypeCapture(example, "laptop"),
+      answeredTypeCapture(example, "phone"),
+    ]).concat([
+      typeCapture(MULTIPLE_CHOICE_EXAMPLE, "tablet"),
+      typeCapture(MULTIPLE_CHOICE_EXAMPLE, "square"),
     ]),
     run: captureTypes,
   },

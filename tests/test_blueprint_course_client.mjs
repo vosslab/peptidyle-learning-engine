@@ -33,7 +33,7 @@ function contentInput() {
     entries: [
       {
         kind: "fixed",
-        question_revision_tuple: publishedQuestion.questionRevisionTuple,
+        published_question_revision_tuple: publishedQuestion.publishedQuestionRevisionTuple,
         points_possible: "2",
         scoring_rule: "normal",
         question_attempt_limit: { maxAttempts: null },
@@ -74,7 +74,8 @@ function modules() {
               {
                 kind: "fixed",
                 question: {
-                  question_revision_tuple: publishedQuestion.questionRevisionTuple,
+                  published_question_revision_tuple:
+                    publishedQuestion.publishedQuestionRevisionTuple,
                   question_library: {
                     summary: publishedQuestion,
                     disciplineName: "Biology",

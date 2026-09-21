@@ -9,8 +9,9 @@ use serde::{Deserialize, Serialize};
 use crate::{
     AssessmentActivityRules, AssessmentEditNumber, AssessmentEntry, AssessmentEntryAvailability,
     AssessmentEntryScoringRule, AssessmentPointValue, AssessmentStatus, AssessmentTitle,
-    Capability, InstructorAssessmentAuthoredContentLocal, QuestionAttemptLimit,
-    QuestionAttemptTimeLimit, QuestionId, QuestionPoolSelectionRule, StudentFeedbackReleaseRule,
+    Capability, InstructorAssessmentAuthoredContentLocal, PublishedQuestionId,
+    QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionPoolId, QuestionPoolSelectionRule,
+    StudentFeedbackReleaseRule,
 };
 
 /// Browser request to create one stable Assessment.
@@ -83,7 +84,7 @@ pub enum AssessmentPoliciesValidationIssue {
     /// A selected question backend cannot satisfy one required capability.
     Capability {
         question_title: String,
-        question_id: QuestionId,
+        question_id: PublishedQuestionId,
         capability: Capability,
     },
     /// The exact Assessment has release blockers.
@@ -104,7 +105,7 @@ pub enum AssessmentPoliciesValidationIssue {
 pub enum AssessmentEntryRequest {
     /// One fixed Question in an Assessment's ordered content for future Assessment Attempts.
     FixedQuestion {
-        question_id: QuestionId,
+        question_id: PublishedQuestionId,
         points_possible: AssessmentPointValue,
         availability: AssessmentEntryAvailability,
         scoring_rule: AssessmentEntryScoringRule,
@@ -115,7 +116,7 @@ pub enum AssessmentEntryRequest {
     QuestionPool {
         /// Public Pool identity. The server resolves its source Revision and mints the
         /// Assessment-owned fork; the browser supplies neither source pins nor IDs.
-        question_pool_id: QuestionId,
+        question_pool_id: QuestionPoolId,
         availability: AssessmentEntryAvailability,
         scoring_rule: AssessmentEntryScoringRule,
         selection_count: std::num::NonZeroU32,

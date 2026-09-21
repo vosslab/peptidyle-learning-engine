@@ -19,15 +19,16 @@ use learning_data_access::{
 };
 use question_model::{
     AssessmentEditNumber, AssessmentEntryId, AssessmentEntryScoringRule, AssessmentId,
-    AssessmentPointValue, CourseInstanceId, ProductRole, QuestionId, QuestionPoolEditNumber,
-    QuestionPoolSelectedQuestionOrder, QuestionRevisionNumber, QuestionRevisionTuple,
+    AssessmentPointValue, CourseInstanceId, ProductRole, PublishedQuestionId,
+    PublishedQuestionRevisionTuple, QuestionPoolEditNumber, QuestionPoolId,
+    QuestionPoolSelectedQuestionOrder, QuestionRevisionNumber,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
     auth::{AuthError, resolve_session},
-    question_publication::{QuestionIdIssuer, RandomQuestionIdIssuer},
+    question_publication::{QuestionPoolIdIssuer, RandomQuestionIdIssuer},
 };
 
 const MAX_POOL_FORK_REQUEST_BYTES: usize = 128 * 1024;
@@ -135,12 +136,12 @@ async fn import_fork(
         Ok(value) => value,
         Err(response) => return response,
     };
-    let source_question_pool_id = match verified_question_id(&request.source_question_pool_id) {
+    let source_question_pool_id = match verified_pool_id(&request.source_question_pool_id) {
         Some(value) => value,
         None => return concealed(),
     };
     for _ in 0..POOL_IDENTITY_ATTEMPTS {
-        let fork_question_pool_id = match state.issuer.issue_question_id() {
+        let fork_question_pool_id = match state.issuer.issue_question_pool_id() {
             Ok(value) => value,
             Err(_) => return unavailable(),
         };
@@ -298,16 +299,20 @@ fn refs(course: &str, assessment: &str) -> Option<(CourseInstanceId, AssessmentI
     Some((course.parse().ok()?, assessment.parse().ok()?))
 }
 
-fn verified_question_id(raw: &str) -> Option<QuestionId> {
+fn verified_pool_id(raw: &str) -> Option<QuestionPoolId> {
     raw.parse().ok()
 }
 
-fn verified_members(values: Vec<ForkMemberRequest>) -> Option<Vec<QuestionRevisionTuple>> {
+fn verified_published_question_id(raw: &str) -> Option<PublishedQuestionId> {
+    raw.parse().ok()
+}
+
+fn verified_members(values: Vec<ForkMemberRequest>) -> Option<Vec<PublishedQuestionRevisionTuple>> {
     values
         .into_iter()
         .map(|member| {
-            Some(QuestionRevisionTuple {
-                question_id: verified_question_id(&member.question_id)?,
+            Some(PublishedQuestionRevisionTuple {
+                published_question_id: verified_published_question_id(&member.question_id)?,
                 revision_number: QuestionRevisionNumber::new(member.revision_number).ok()?,
             })
         })

@@ -1,6 +1,6 @@
 //! Decoding for one retained Assessment Attempt presentation source.
 
-use question_model::{QuestionId, QuestionReproduction, QuestionSeed};
+use question_model::{PublishedQuestionId, QuestionReproduction, QuestionSeed};
 use sqlx::Row;
 
 use super::{assessment_delivery::positive_i32, connection::map_sqlx_error};
@@ -16,7 +16,7 @@ pub(super) fn presentation_evidence_from_row(
     let published_question_id = row
         .try_get::<String, _>("published_question_id")
         .map_err(map_sqlx_error)?
-        .parse::<QuestionId>()
+        .parse::<PublishedQuestionId>()
         .map_err(|_| {
             StoreError::InvalidRecord("Issued Published Question ID is invalid".to_string())
         })?;
@@ -45,8 +45,8 @@ pub(super) fn presentation_evidence_from_row(
             .map_err(map_sqlx_error)?,
     )?;
     Ok(StudentAssessmentAttemptPresentationEvidence {
-        question_revision_tuple: question_model::QuestionRevisionTuple {
-            question_id: published_question_id,
+        published_question_revision_tuple: question_model::PublishedQuestionRevisionTuple {
+            published_question_id,
             revision_number,
         },
         reproduction: reproduction_from_row(row)?,
@@ -123,7 +123,7 @@ pub(super) fn source_from_row(
     let published_question_id = row
         .try_get::<String, _>("published_question_id")
         .map_err(map_sqlx_error)?
-        .parse::<QuestionId>()
+        .parse::<PublishedQuestionId>()
         .map_err(|_| {
             StoreError::InvalidRecord("Issued Published Question ID is invalid".to_string())
         })?;

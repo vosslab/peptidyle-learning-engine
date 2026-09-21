@@ -8,9 +8,9 @@ use crate::{
     SessionTokenHash, StoreError,
 };
 use question_model::{
-    AssessmentAttemptId, AssessmentEntryId, AssessmentId, CourseInstanceId, QuestionBackend,
-    QuestionId, QuestionPoolEditNumber, QuestionPoolSelectedItem, QuestionRevisionNumber,
-    QuestionRevisionTuple, StudentRecordId,
+    AssessmentAttemptId, AssessmentEntryId, AssessmentId, CourseInstanceId,
+    PublishedQuestionRevisionTuple, QuestionBackend, QuestionPoolEditNumber, QuestionPoolId,
+    QuestionPoolSelectedItem, QuestionRevisionNumber, StudentRecordId,
 };
 use sqlx::Row;
 use std::collections::BTreeMap;
@@ -23,7 +23,7 @@ struct CurrentPoolEntry {
     selection_count: usize,
     random_selected_order: bool,
     candidates: Vec<QuestionPoolSelectedItem>,
-    question_pool_id: QuestionId,
+    question_pool_id: QuestionPoolId,
     question_pool_edit_number: QuestionPoolEditNumber,
     candidate_backends: BTreeMap<u32, QuestionBackend>,
 }
@@ -139,7 +139,7 @@ fn current_attempt_start_from_rows(
                 authored_position,
                 PreparedIssuedQuestion::FixedQuestion {
                     assessment_entry: entry,
-                    question_revision_tuple: row_question_revision_tuple(
+                    published_question_revision_tuple: row_published_question_revision_tuple(
                         &row,
                         "fixed_question_id",
                         "fixed_revision_number",
@@ -179,7 +179,7 @@ fn current_attempt_start_from_rows(
                     question_pool_id: pool.question_pool_id.clone(),
                     question_pool_edit_number: pool.question_pool_edit_number,
                     member_position,
-                    question_revision_tuple: row_question_revision_tuple(
+                    published_question_revision_tuple: row_published_question_revision_tuple(
                         &row,
                         "pool_question_id",
                         "pool_question_revision_number",
@@ -216,7 +216,9 @@ fn current_attempt_start_from_rows(
                     assessment_entry: pool.id,
                     question_pool_selection_index: index,
                     member_position: item.member_position,
-                    question_revision_tuple: item.question_revision_tuple.clone(),
+                    published_question_revision_tuple: item
+                        .published_question_revision_tuple
+                        .clone(),
                     backend,
                 },
             ));
@@ -255,11 +257,11 @@ fn shuffle_issued_questions<T>(issued: &mut [T]) -> Result<(), StoreError> {
     Ok(())
 }
 
-fn row_question_revision_tuple(
+fn row_published_question_revision_tuple(
     row: &sqlx::postgres::PgRow,
     id: &str,
     revision_number: &str,
-) -> Result<QuestionRevisionTuple, StoreError> {
+) -> Result<PublishedQuestionRevisionTuple, StoreError> {
     let question_id = row
         .try_get::<String, _>(id)
         .map_err(map_sqlx_error)?
@@ -275,15 +277,15 @@ fn row_question_revision_tuple(
         })?,
     )
     .map_err(|_| StoreError::InvalidRecord("Question Revision number is invalid".to_string()))?;
-    Ok(QuestionRevisionTuple {
-        question_id,
+    Ok(PublishedQuestionRevisionTuple {
+        published_question_id: question_id,
         revision_number,
     })
 }
 
 fn row_pool(
     row: &sqlx::postgres::PgRow,
-) -> Result<(QuestionId, QuestionPoolEditNumber), StoreError> {
+) -> Result<(QuestionPoolId, QuestionPoolEditNumber), StoreError> {
     let question_pool_id = row
         .try_get::<String, _>("question_pool_id")
         .map_err(map_sqlx_error)?
@@ -388,10 +390,10 @@ fn unbiased_index(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use question_model::{QuestionId, QuestionPoolEditNumber};
+    use question_model::{PublishedQuestionId, QuestionPoolEditNumber};
 
-    fn pool_id() -> QuestionId {
-        "0000-4000".parse::<QuestionId>().expect("Pool ID")
+    fn pool_id() -> QuestionPoolId {
+        "0000-4000".parse::<QuestionPoolId>().expect("Pool ID")
     }
 
     fn pool_edit_number() -> QuestionPoolEditNumber {
@@ -403,8 +405,10 @@ mod tests {
             question_pool_id: pool_id(),
             question_pool_edit_number: pool_edit_number(),
             member_position: value,
-            question_revision_tuple: QuestionRevisionTuple {
-                question_id: "0000-4000".parse::<QuestionId>().expect("question ID"),
+            published_question_revision_tuple: PublishedQuestionRevisionTuple {
+                published_question_id: "0000-4000"
+                    .parse::<PublishedQuestionId>()
+                    .expect("question ID"),
                 revision_number: QuestionRevisionNumber::new(1).expect("revision"),
             },
         }

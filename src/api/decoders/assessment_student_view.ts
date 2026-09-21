@@ -18,7 +18,7 @@ import {
 import {
   decodeAssessmentTitle,
   decodeBoundedArray,
-  decodeQuestionRevisionTuple,
+  decodePublishedQuestionRevisionTuple,
   decodeTimestamp,
   field,
   requireOnlyFields,
@@ -95,12 +95,12 @@ function decodeInstructorStudentViewQuestion(
   path: string,
 ): InstructorStudentViewQuestion {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["position", "questionRevisionTuple"]);
+  requireOnlyFields(record, path, ["position", "publishedQuestionRevisionTuple"]);
   return {
     position: decodePositiveInteger(field(record, "position", path), `${path}.position`),
-    questionRevisionTuple: decodeQuestionRevisionTuple(
-      field(record, "questionRevisionTuple", path),
-      `${path}.questionRevisionTuple`,
+    publishedQuestionRevisionTuple: decodePublishedQuestionRevisionTuple(
+      field(record, "publishedQuestionRevisionTuple", path),
+      `${path}.publishedQuestionRevisionTuple`,
       true,
     ),
   };

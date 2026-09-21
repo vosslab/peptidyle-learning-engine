@@ -1,7 +1,7 @@
 //! PostgreSQL implementation of the private authenticated Question Watch boundary.
 
 use async_trait::async_trait;
-use question_model::QuestionId;
+use question_model::PublishedQuestionId;
 use sqlx::{Postgres, Row, Transaction};
 
 use super::{Pool, connection::map_sqlx_error};
@@ -53,7 +53,7 @@ impl PostgresQuestionWatchStore {
 
     async fn read_in(
         tx: &mut Transaction<'_, Postgres>,
-        question_id: &QuestionId,
+        question_id: &PublishedQuestionId,
     ) -> Result<QuestionWatchProjection, StoreError> {
         // The SQL function derives and validates the actor from the installed
         // session. Its closed row has only the actor's boolean Watch state.
@@ -72,7 +72,7 @@ impl QuestionWatchStore for PostgresQuestionWatchStore {
     async fn question_watch_projection(
         &self,
         session_token_hash: SessionTokenHash,
-        question_id: &QuestionId,
+        question_id: &PublishedQuestionId,
     ) -> Result<QuestionWatchProjection, StoreError> {
         let mut tx = self.begin(session_token_hash).await?;
         let projection = Self::read_in(&mut tx, question_id).await?;
@@ -83,7 +83,7 @@ impl QuestionWatchStore for PostgresQuestionWatchStore {
     async fn set_current_question_watch(
         &self,
         session_token_hash: SessionTokenHash,
-        question_id: &QuestionId,
+        question_id: &PublishedQuestionId,
         watching: bool,
     ) -> Result<QuestionWatchProjection, StoreError> {
         let mut tx = self.begin(session_token_hash).await?;

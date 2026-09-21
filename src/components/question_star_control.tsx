@@ -2,12 +2,12 @@
 
 import { createResource, createSignal, For, Show, type JSX } from "solid-js";
 
-import type { QuestionId } from "../../generated/api/QuestionId";
+import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionId";
 import { useApplicationApi } from "../api/application_api";
 import type { QuestionStarredInstructor } from "../api/question_star";
 
 export interface QuestionStarControlProps {
-  readonly questionId: QuestionId;
+  readonly questionId: PublishedQuestionId;
 }
 
 export interface QuestionStarredInstructorListProps {

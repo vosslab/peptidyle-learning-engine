@@ -25,8 +25,8 @@ use objects::s3::S3ObjectStore;
 use question_model::{
     AssessmentEntryId, AssessmentId, AssessmentQuestionPoolForkView,
     BloomClassificationCorrectionRequest, BloomCognitiveProcess, BloomKnowledgeDimension,
-    CourseInstanceId, ProductRole, QuestionId, QuestionPoolBloomCorrectionReceipt,
-    QuestionPoolBloomFacets, QuestionPoolLibraryPage, QuestionPoolMemberView, QuestionPoolView,
+    CourseInstanceId, ProductRole, QuestionPoolBloomCorrectionReceipt, QuestionPoolBloomFacets,
+    QuestionPoolId, QuestionPoolLibraryPage, QuestionPoolMemberView, QuestionPoolView,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -358,7 +358,7 @@ async fn pool_evidence(
     state: &RouteState,
     token: SessionTokenHash,
     is_instructor: bool,
-    question_pool_id: &QuestionId,
+    question_pool_id: &QuestionPoolId,
 ) -> Result<question_model::QuestionStatistics, Response> {
     if !is_instructor {
         return Ok(question_model::QuestionStatistics::Unavailable);
@@ -376,11 +376,11 @@ async fn pool_members(
     state: &RouteState,
     token: SessionTokenHash,
     is_instructor: bool,
-    members: Vec<question_model::QuestionRevisionTuple>,
+    members: Vec<question_model::PublishedQuestionRevisionTuple>,
 ) -> Result<Vec<QuestionPoolMemberView>, Response> {
     let question_ids = members
         .iter()
-        .map(|member| member.question_id.clone())
+        .map(|member| member.published_question_id.clone())
         .collect::<Vec<_>>();
     let evidence = crate::question_library::bulk_question_statistics(
         &state.questions,
@@ -396,13 +396,14 @@ async fn pool_members(
             .load_published_question_revision_library_entry(token, &member)
             .await
             .map_err(store_error)?;
-        let member_evidence = crate::question_library::evidence_for(&member.question_id, &evidence);
+        let member_evidence =
+            crate::question_library::evidence_for(&member.published_question_id, &evidence);
         let question = answer_free_reusable_question_view(&state.objects, entry, member_evidence)
             .await
             .map_err(|_| unavailable())?;
         views.push(QuestionPoolMemberView {
             member_position: u32::try_from(position).map_err(|_| unavailable())?,
-            question_revision_tuple: member,
+            published_question_revision_tuple: member,
             question,
         });
     }
@@ -458,7 +459,7 @@ async fn valid_classification(
         .any(|item| item.uuid == subtopic))
 }
 
-fn verified_id(value: &str) -> Option<QuestionId> {
+fn verified_id(value: &str) -> Option<QuestionPoolId> {
     value.parse().ok()
 }
 
@@ -496,7 +497,7 @@ fn decode_cursor(
     {
         return None;
     }
-    let id = cursor.after.parse::<QuestionId>().ok()?;
+    let id = cursor.after.parse::<QuestionPoolId>().ok()?;
     Cursor::parse(id.to_string()).ok()
 }
 
@@ -632,8 +633,6 @@ fn response(status: StatusCode, message: &'static str) -> Response {
 
 #[cfg(test)]
 mod tests {
-    use question_model::QuestionId;
-
     use super::*;
 
     #[test]
@@ -678,7 +677,7 @@ mod tests {
 
     #[test]
     fn continuation_binds_normalized_text_and_tags() {
-        let id = QuestionId::from_random_identifier("ABCDEFG").expect("Pool ID");
+        let id = QuestionPoolId::from_random_identifier("ABCDEFG").expect("Pool ID");
         let identities = QuestionPoolDiscoveryFilter::default();
         let filter =
             normalize_text_filter(Some(" REVIEW ".into()), vec![" Exam ".into()]).expect("filter");
@@ -698,7 +697,7 @@ mod tests {
 
     #[test]
     fn continuation_is_opaque_query_bound_and_checksum_validated() {
-        let id = QuestionId::from_random_identifier("ABCDEFG").expect("Pool ID");
+        let id = QuestionPoolId::from_random_identifier("ABCDEFG").expect("Pool ID");
         let filter = QuestionPoolDiscoveryFilter::default();
         let encoded = encode_cursor(
             &id.to_string(),
@@ -722,7 +721,7 @@ mod tests {
 
     #[test]
     fn continuation_rejects_changed_classification_and_old_format() {
-        let id = QuestionId::from_random_identifier("ABCDEFG").expect("Pool ID");
+        let id = QuestionPoolId::from_random_identifier("ABCDEFG").expect("Pool ID");
         let filter = QuestionPoolDiscoveryFilter {
             discipline_uuid: Some(uuid::Uuid::from_u128(1)),
             subject_uuid: Some(uuid::Uuid::from_u128(2)),

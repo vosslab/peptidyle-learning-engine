@@ -68,8 +68,8 @@ podman exec --env PGPASSWORD="$database_password" "$postgres_name" \
 podman exec "$postgres_name" psql -X -v ON_ERROR_STOP=1 -U postgres -d "$database" -c "
     SET ROLE ple_private_owner;
     INSERT INTO ple_private.account(account_id, product_role, created_at) VALUES
-      ('00000000-0000-0000-0000-00000000c831', 'sysadmin', clock_timestamp()),
-      ('00000000-0000-0000-0000-00000000c832', 'student', clock_timestamp()),
+      ('00000000-0000-0000-0000-00000000c831', 'sysadmin', pg_catalog.transaction_timestamp()),
+      ('00000000-0000-0000-0000-00000000c832', 'student', pg_catalog.transaction_timestamp()),
       ('00000000-0000-0000-0000-00000000c833', 'instructor', clock_timestamp());
 " >/dev/null
 

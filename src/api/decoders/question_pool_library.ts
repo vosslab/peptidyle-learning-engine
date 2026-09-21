@@ -32,7 +32,7 @@ import {
   decodeBoundedArray,
   decodeCursor,
   decodeQuestionId,
-  decodeQuestionRevisionTuple,
+  decodePublishedQuestionRevisionTuple,
   field,
   requireOnlyFields,
 } from "./shared";
@@ -223,14 +223,14 @@ function decodeQuestionPoolBloomFacets(value: unknown, path: string): QuestionPo
 function decodeReusableQuestionView(value: unknown, path: string): ReusableQuestionView {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "question_revision_tuple",
+    "published_question_revision_tuple",
     "question_library",
     "selection_availability",
   ]);
   return {
-    question_revision_tuple: decodeQuestionRevisionTuple(
-      field(record, "question_revision_tuple", path),
-      `${path}.question_revision_tuple`,
+    published_question_revision_tuple: decodePublishedQuestionRevisionTuple(
+      field(record, "published_question_revision_tuple", path),
+      `${path}.published_question_revision_tuple`,
     ),
     question_library: decodeQuestionSearchResult(
       field(record, "question_library", path),
@@ -247,15 +247,15 @@ function decodeReusableQuestionView(value: unknown, path: string): ReusableQuest
 /** Strictly decodes one ordered exact member for Pool and Assessment-fork readers. */
 export function decodeQuestionPoolMemberView(value: unknown, path: string): QuestionPoolMemberView {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["memberPosition", "questionRevisionTuple", "question"]);
+  requireOnlyFields(record, path, ["memberPosition", "publishedQuestionRevisionTuple", "question"]);
   return {
     memberPosition: decodeNonnegativeInteger(
       field(record, "memberPosition", path),
       `${path}.memberPosition`,
     ),
-    questionRevisionTuple: decodeQuestionRevisionTuple(
-      field(record, "questionRevisionTuple", path),
-      `${path}.questionRevisionTuple`,
+    publishedQuestionRevisionTuple: decodePublishedQuestionRevisionTuple(
+      field(record, "publishedQuestionRevisionTuple", path),
+      `${path}.publishedQuestionRevisionTuple`,
       true,
     ),
     question: decodeReusableQuestionView(field(record, "question", path), `${path}.question`),

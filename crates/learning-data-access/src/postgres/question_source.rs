@@ -79,7 +79,7 @@ impl DraftQuestionPublicationSourceStore for PostgresDraftQuestionSourceBindingS
             sha256: Sha256Checksum::from_bytes(checksum),
             size_bytes,
             media_type: row.try_get("media_type").map_err(map_sqlx_error)?,
-            question_revision_tuple: None,
+            published_question_revision_tuple: None,
             created_at: Timestamp::from_unix_millis(created_at_millis),
         };
         Ok(DraftQuestionPublicationSource { source_record })
@@ -171,11 +171,12 @@ impl NewQuestionLineagePublicationStore for PostgresDraftQuestionSourceBindingSt
         &self,
         session_token_hash: SessionTokenHash,
         input: NewQuestionLineagePublicationInput,
-    ) -> Result<question_model::QuestionRevisionTuple, NewQuestionLineagePublicationError> {
+    ) -> Result<question_model::PublishedQuestionRevisionTuple, NewQuestionLineagePublicationError>
+    {
         input
             .validate()
             .map_err(NewQuestionLineagePublicationError::Store)?;
-        let question_revision_tuple = input.question_revision_tuple();
+        let published_question_revision_tuple = input.published_question_revision_tuple();
         let object_record = &input.question_source_object_record;
         let object_address = serde_json::to_value(&object_record.address).map_err(|_| {
             NewQuestionLineagePublicationError::Store(StoreError::InvalidRecord(
@@ -253,7 +254,7 @@ impl NewQuestionLineagePublicationStore for PostgresDraftQuestionSourceBindingSt
             .await
             .map_err(map_sqlx_error)
             .map_err(NewQuestionLineagePublicationError::Store)?;
-        Ok(question_revision_tuple)
+        Ok(published_question_revision_tuple)
     }
 }
 
@@ -263,13 +264,15 @@ impl ExistingQuestionRevisionPublicationStore for PostgresDraftQuestionSourceBin
         &self,
         session_token_hash: SessionTokenHash,
         input: ExistingQuestionRevisionPublicationInput,
-    ) -> Result<question_model::QuestionRevisionTuple, ExistingQuestionRevisionPublicationError>
-    {
+    ) -> Result<
+        question_model::PublishedQuestionRevisionTuple,
+        ExistingQuestionRevisionPublicationError,
+    > {
         input
             .validate()
             .map_err(ExistingQuestionRevisionPublicationError::Store)?;
-        let question_revision_tuple = input
-            .question_revision_tuple()
+        let published_question_revision_tuple = input
+            .published_question_revision_tuple()
             .map_err(ExistingQuestionRevisionPublicationError::Store)?;
         let object_record = &input.question_source_object_record;
         let object_address = serde_json::to_value(&object_record.address).map_err(|_| {
@@ -303,16 +306,22 @@ impl ExistingQuestionRevisionPublicationStore for PostgresDraftQuestionSourceBin
         )
         .bind(input.workspace.as_uuid())
         .bind(question_id_for_persistence(
-            &input.parent_question_revision_tuple.question_id,
+            &input
+                .parent_published_question_revision_tuple
+                .published_question_id,
         ))
         .bind(
-            i32::try_from(input.parent_question_revision_tuple.revision_number.get()).map_err(
-                |_| {
-                    ExistingQuestionRevisionPublicationError::Store(StoreError::InvalidRecord(
-                        "Question parent Revision Number is invalid".to_string(),
-                    ))
-                },
-            )?,
+            i32::try_from(
+                input
+                    .parent_published_question_revision_tuple
+                    .revision_number
+                    .get(),
+            )
+            .map_err(|_| {
+                ExistingQuestionRevisionPublicationError::Store(StoreError::InvalidRecord(
+                    "Question parent Revision Number is invalid".to_string(),
+                ))
+            })?,
         )
         .bind(object_record.id.as_uuid())
         .bind(object_address)
@@ -341,7 +350,7 @@ impl ExistingQuestionRevisionPublicationStore for PostgresDraftQuestionSourceBin
                     "Question Revision Publication returned an invalid revision".to_string(),
                 ))
             })?;
-        if revision_number != question_revision_tuple.revision_number {
+        if revision_number != published_question_revision_tuple.revision_number {
             return Err(ExistingQuestionRevisionPublicationError::Store(
                 StoreError::InvalidRecord(
                     "Question Revision Publication returned an unexpected revision".to_string(),
@@ -353,7 +362,7 @@ impl ExistingQuestionRevisionPublicationStore for PostgresDraftQuestionSourceBin
             .await
             .map_err(map_sqlx_error)
             .map_err(ExistingQuestionRevisionPublicationError::Store)?;
-        Ok(question_revision_tuple)
+        Ok(published_question_revision_tuple)
     }
 }
 
@@ -422,7 +431,7 @@ fn is_published_question_identity_collision(code: Option<&str>, constraint: Opti
         || (code == Some("23505") && constraint == Some(PUBLISHED_QUESTION_PRIMARY_KEY))
 }
 
-fn question_id_for_persistence(question_id: &question_model::QuestionId) -> &str {
+fn question_id_for_persistence(question_id: &question_model::PublishedQuestionId) -> &str {
     question_id.as_str()
 }
 
@@ -466,7 +475,7 @@ mod tests {
 
     #[test]
     fn new_lineage_publication_binds_the_canonical_database_question_id() {
-        let question_id = question_model::QuestionId::from_str("ABCD-XEFG")
+        let question_id = question_model::PublishedQuestionId::from_str("ABCD-XEFG")
             .expect("canonical Question ID is accepted at the model boundary");
 
         assert_eq!(question_id_for_persistence(&question_id), "ABCD-XEFG");

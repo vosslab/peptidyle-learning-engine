@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::question_library::{QuestionBackend, QuestionId};
+use crate::question_library::{PublishedQuestionId, QuestionBackend};
 use crate::question_license::QuestionLicense;
 use crate::response::QuestionType;
 use crate::{BloomCognitiveProcess, BloomKnowledgeDimension, Capability};
@@ -392,8 +392,8 @@ impl std::error::Error for QuestionSearchRequestError {}
 
 impl QuestionSearchRequest {
     /// Returns the stable Published Question lineage ID named in the text field.
-    pub fn exact_question_id(&self) -> Option<QuestionId> {
-        self.text.as_deref()?.parse::<QuestionId>().ok()
+    pub fn exact_question_id(&self) -> Option<PublishedQuestionId> {
+        self.text.as_deref()?.parse::<PublishedQuestionId>().ok()
     }
 
     /// Normalizes one D1 query for both rows and facet aggregates.

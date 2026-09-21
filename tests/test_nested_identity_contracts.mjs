@@ -27,7 +27,7 @@ import {
 const COURSE = "CI6F2R8TA0";
 const ATTEMPT = "0198e000-0000-7000-8000-000000000017";
 const ENTRY = "0198e000-0000-7000-8000-000000000018";
-const QUESTION_TUPLE = { questionId: "ABCD-XEFG", revisionNumber: 1 };
+const QUESTION_TUPLE = { publishedQuestionId: "ABCD-XEFG", revisionNumber: 1 };
 const BLUEPRINT_TUPLE = { blueprintCourseId: "BP7K3M2QXH", revisionNumber: "1" };
 
 test("Recovery selection requires branded Course Instance and Assessment Attempt IDs", () => {
@@ -81,7 +81,7 @@ test("Recovered Question requires a Question Revision Tuple and rejects split si
     questions: [
       {
         issuedPosition: 0,
-        questionRevisionTuple: QUESTION_TUPLE,
+        publishedQuestionRevisionTuple: QUESTION_TUPLE,
         deliveryText: "prompt",
         poolText: null,
         attemptText: null,
@@ -96,7 +96,7 @@ test("Recovered Question requires a Question Revision Tuple and rejects split si
     ],
   };
   const decoded = decodeRecoveredAttempt({ action: "recover", attempt });
-  assert.deepEqual(decoded.questions[0]?.questionRevisionTuple, QUESTION_TUPLE);
+  assert.deepEqual(decoded.questions[0]?.publishedQuestionRevisionTuple, QUESTION_TUPLE);
   assert.throws(
     () =>
       decodeRecoveredAttempt({
@@ -106,7 +106,7 @@ test("Recovered Question requires a Question Revision Tuple and rejects split si
           questions: [
             {
               ...attempt.questions[0],
-              questionId: QUESTION_TUPLE.questionId,
+              questionId: QUESTION_TUPLE.publishedQuestionId,
               revisionNumber: QUESTION_TUPLE.revisionNumber,
             },
           ],
@@ -123,7 +123,7 @@ test("Recovered Question requires a Question Revision Tuple and rejects split si
           questions: [
             {
               issuedPosition: 0,
-              questionId: QUESTION_TUPLE.questionId,
+              questionId: QUESTION_TUPLE.publishedQuestionId,
               revisionNumber: QUESTION_TUPLE.revisionNumber,
               deliveryText: "prompt",
               poolText: null,
@@ -146,7 +146,7 @@ test("Recovered Question requires a Question Revision Tuple and rejects split si
 test("Pool fork and selection-count receipts reject leftover entry identities", () => {
   const imported = {
     assessmentEntryId: ENTRY,
-    questionPoolId: QUESTION_TUPLE.questionId,
+    questionPoolId: QUESTION_TUPLE.publishedQuestionId,
     questionPoolEditNumber: 1,
     assessmentEditNumber: "2",
   };
@@ -262,8 +262,12 @@ test("Student View, Template, Pool Preview, accommodation, and availability reje
     questionPoolLabel: "Pool 3",
     selectionCount: 1,
     selectionRule: { selectedQuestionOrder: "randomOrder" },
-    items: [{ questionId: QUESTION_TUPLE.questionId, questionTitle: "Question Pool Item" }],
-    selectedItems: [{ questionId: QUESTION_TUPLE.questionId, questionTitle: "Question Pool Item" }],
+    items: [
+      { questionId: QUESTION_TUPLE.publishedQuestionId, questionTitle: "Question Pool Item" },
+    ],
+    selectedItems: [
+      { questionId: QUESTION_TUPLE.publishedQuestionId, questionTitle: "Question Pool Item" },
+    ],
   };
   assert.equal(decodeQuestionPoolPreview(preview).assessmentEditNumber, "3");
   assert.throws(() => decodeQuestionPoolPreview({ ...preview, editNumber: "3" }), DecodeError);

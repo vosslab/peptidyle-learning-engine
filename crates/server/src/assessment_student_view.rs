@@ -29,8 +29,9 @@ use objects::s3::S3ObjectStore;
 use question_model::{
     AssessmentEditNumber, AssessmentEntryAvailability, AssessmentId, AssessmentQuestionOrderRule,
     CourseInstanceId, InstructorStudentView, InstructorStudentViewEntry,
-    InstructorStudentViewNotShownReason, InstructorStudentViewQuestion, ProductRole, QuestionId,
-    QuestionPresentationResponseFormat, QuestionRevisionNumber, QuestionRevisionTuple,
+    InstructorStudentViewNotShownReason, InstructorStudentViewQuestion, ProductRole,
+    PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionPresentationResponseFormat,
+    QuestionRevisionNumber,
 };
 
 use crate::auth::{AuthError, resolve_session};
@@ -49,7 +50,7 @@ struct StateData {
 enum PendingEntry {
     Presented {
         authored_position: u32,
-        questions: Vec<QuestionRevisionTuple>,
+        questions: Vec<PublishedQuestionRevisionTuple>,
     },
     NotShown {
         authored_position: u32,
@@ -132,7 +133,7 @@ async fn presentation(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let Some((course, assessment, question_revision_tuple)) =
+    let Some((course, assessment, published_question_revision_tuple)) =
         route_question_ids(&course, &assessment, &question_id, revision_number)
     else {
         return concealed();
@@ -149,17 +150,18 @@ async fn presentation(
             assessment,
             expected,
             authored_position,
-            question_revision_tuple.clone(),
+            published_question_revision_tuple.clone(),
         )
         .await
     {
         Ok(value) => value,
         Err(error) => return store_error(error),
     };
-    let response = match answer_free_presentation(&state, source, &question_revision_tuple).await {
-        Ok(value) => Json(value).into_response(),
-        Err(()) => return unavailable(),
-    };
+    let response =
+        match answer_free_presentation(&state, source, &published_question_revision_tuple).await {
+            Ok(value) => Json(value).into_response(),
+            Err(()) => return unavailable(),
+        };
     quoted_edit_number_response(response, expected)
 }
 
@@ -179,7 +181,7 @@ async fn document(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let Some((course, assessment, question_revision_tuple)) =
+    let Some((course, assessment, published_question_revision_tuple)) =
         route_question_ids(&course, &assessment, &question_id, revision_number)
     else {
         return concealed();
@@ -196,14 +198,14 @@ async fn document(
             assessment,
             expected,
             authored_position,
-            question_revision_tuple.clone(),
+            published_question_revision_tuple.clone(),
         )
         .await
     {
         Ok(value) => value,
         Err(error) => return store_error(error),
     };
-    answer_free_document(&state, source, &question_revision_tuple).await
+    answer_free_document(&state, source, &published_question_revision_tuple).await
 }
 
 fn project_manifest(
@@ -237,12 +239,12 @@ fn project_manifest(
             InstructorStudentViewSnapshotEntry::Fixed {
                 authored_position,
                 availability: AssessmentEntryAvailability::Available,
-                question_revision_tuple,
+                published_question_revision_tuple,
             } => {
-                verified_question_revision_tuple(&question_revision_tuple)?;
+                verified_published_question_revision_tuple(&published_question_revision_tuple)?;
                 PendingEntry::Presented {
                     authored_position,
-                    questions: vec![question_revision_tuple],
+                    questions: vec![published_question_revision_tuple],
                 }
             }
             InstructorStudentViewSnapshotEntry::Pool {
@@ -252,7 +254,9 @@ fn project_manifest(
                 members,
             } => {
                 for member in &members {
-                    verified_question_revision_tuple(&member.question_revision_tuple)?;
+                    verified_published_question_revision_tuple(
+                        &member.published_question_revision_tuple,
+                    )?;
                 }
                 let selected =
                     select_question_pool_items(&assessment_entry, &members, selection_entropy()?)
@@ -261,7 +265,7 @@ fn project_manifest(
                     authored_position,
                     questions: selected
                         .into_iter()
-                        .map(|item| item.question_revision_tuple)
+                        .map(|item| item.published_question_revision_tuple)
                         .collect(),
                 }
             }
@@ -285,11 +289,11 @@ fn project_manifest(
                 questions: questions
                     .into_iter()
                     .enumerate()
-                    .map(|(question_index, question_revision_tuple)| {
+                    .map(|(question_index, published_question_revision_tuple)| {
                         Ok(InstructorStudentViewQuestion {
                             position: NonZeroU32::new(positions[entry_index][question_index])
                                 .ok_or(())?,
-                            question_revision_tuple,
+                            published_question_revision_tuple,
                         })
                     })
                     .collect::<Result<Vec<_>, ()>>()?,
@@ -363,24 +367,24 @@ fn random_index(bound: usize) -> Result<usize, ()> {
 async fn answer_free_presentation(
     state: &StateData,
     source: InstructorStudentViewSource,
-    expected: &QuestionRevisionTuple,
+    expected: &PublishedQuestionRevisionTuple,
 ) -> Result<StudentQuestionPresentation, ()> {
     match source {
         InstructorStudentViewSource::Ple {
-            question_revision_tuple,
+            published_question_revision_tuple,
             source_object_id,
             source_object_checksum,
             source_media_type,
             question_image_renditions,
         } => {
-            if &question_revision_tuple != expected
+            if &published_question_revision_tuple != expected
                 || source_media_type != adapter_ple::question_json::PLE_QUESTION_JSON_MEDIA_TYPE
             {
                 return Err(());
             }
             let resolved = ResolvedPleQuestionJsonSource::resolve(
                 &state.objects,
-                question_revision_tuple.clone(),
+                published_question_revision_tuple.clone(),
                 source_object_id,
                 source_object_checksum,
             )
@@ -395,28 +399,30 @@ async fn answer_free_presentation(
             )
             .map_err(|_| ())?;
             Ok(StudentQuestionPresentation {
-                question_revision_tuple,
+                published_question_revision_tuple,
                 author_content_digest: built.presentation.author_content_digest,
                 prompt: built.presentation.prompt,
                 response: built.presentation.response,
             })
         }
         InstructorStudentViewSource::Webwork {
-            question_revision_tuple,
+            published_question_revision_tuple,
             source_object_id,
             source_object_checksum,
             source_media_type,
             webwork_pg_path,
             ..
         } => {
-            if &question_revision_tuple != expected
+            if &published_question_revision_tuple != expected
                 || source_media_type != WEBWORK_SOURCE_MEDIA_TYPE
             {
                 return Err(());
             }
-            let binding =
-                WebworkQuestionSourceBinding::new(question_revision_tuple.clone(), webwork_pg_path)
-                    .map_err(|_| ())?;
+            let binding = WebworkQuestionSourceBinding::new(
+                published_question_revision_tuple.clone(),
+                webwork_pg_path,
+            )
+            .map_err(|_| ())?;
             ResolvedWebworkQuestionSource::resolve(
                 &state.objects,
                 binding,
@@ -426,7 +432,7 @@ async fn answer_free_presentation(
             .await
             .map_err(|_| ())?;
             Ok(StudentQuestionPresentation {
-                question_revision_tuple,
+                published_question_revision_tuple,
                 author_content_digest: None,
                 prompt: Vec::new(),
                 response: QuestionPresentationResponseFormat::BackendOwned {},
@@ -442,24 +448,24 @@ async fn answer_free_presentation(
 async fn answer_free_document(
     state: &StateData,
     source: InstructorStudentViewSource,
-    expected: &QuestionRevisionTuple,
+    expected: &PublishedQuestionRevisionTuple,
 ) -> Response {
     match source {
         InstructorStudentViewSource::Ple {
-            question_revision_tuple,
+            published_question_revision_tuple,
             source_object_id,
             source_object_checksum,
             source_media_type,
             ..
         } => {
-            if &question_revision_tuple != expected
+            if &published_question_revision_tuple != expected
                 || source_media_type != adapter_ple::question_json::PLE_QUESTION_JSON_MEDIA_TYPE
             {
                 return unavailable();
             }
             let resolved = match ResolvedPleQuestionJsonSource::resolve(
                 &state.objects,
-                question_revision_tuple,
+                published_question_revision_tuple,
                 source_object_id,
                 source_object_checksum,
             )
@@ -478,20 +484,20 @@ async fn answer_free_document(
             )
         }
         InstructorStudentViewSource::Webwork {
-            question_revision_tuple,
+            published_question_revision_tuple,
             source_object_id,
             source_object_checksum,
             source_media_type,
             webwork_pg_path,
             ..
         } => {
-            if &question_revision_tuple != expected
+            if &published_question_revision_tuple != expected
                 || source_media_type != WEBWORK_SOURCE_MEDIA_TYPE
             {
                 return unavailable();
             }
             let binding = match WebworkQuestionSourceBinding::new(
-                question_revision_tuple.clone(),
+                published_question_revision_tuple.clone(),
                 webwork_pg_path,
             ) {
                 Ok(value) => value,
@@ -550,27 +556,31 @@ fn route_question_ids(
     assessment: &str,
     question_id: &str,
     revision_number: u32,
-) -> Option<(CourseInstanceId, AssessmentId, QuestionRevisionTuple)> {
+) -> Option<(
+    CourseInstanceId,
+    AssessmentId,
+    PublishedQuestionRevisionTuple,
+)> {
     let (course, assessment) = route_ids(course, assessment)?;
-    let question_id = question_id.parse::<QuestionId>().ok()?;
+    let question_id = question_id.parse::<PublishedQuestionId>().ok()?;
     // ASVS 2.2.1/2: parse the exact checksum-bearing ID before any Question lookup.
     Some((
         course,
         assessment,
-        QuestionRevisionTuple {
-            question_id,
+        PublishedQuestionRevisionTuple {
+            published_question_id: question_id,
             revision_number: QuestionRevisionNumber::new(revision_number).ok()?,
         },
     ))
 }
 
-fn verified_question_revision_tuple(
-    question_revision_tuple: &QuestionRevisionTuple,
+fn verified_published_question_revision_tuple(
+    published_question_revision_tuple: &PublishedQuestionRevisionTuple,
 ) -> Result<(), ()> {
-    question_revision_tuple
-        .question_id
+    published_question_revision_tuple
+        .published_question_id
         .as_str()
-        .parse::<QuestionId>()
+        .parse::<PublishedQuestionId>()
         .map(|_| ())
         .map_err(|_| ())
 }

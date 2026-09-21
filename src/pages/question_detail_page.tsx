@@ -19,9 +19,9 @@ import {
 } from "solid-js";
 
 import type { QuestionDetails } from "../../generated/api/QuestionDetails";
-import type { QuestionId } from "../../generated/api/QuestionId";
+import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionId";
 import type { QuestionRevisionNumber } from "../../generated/api/QuestionRevisionNumber";
-import type { QuestionRevisionTuple } from "../../generated/api/QuestionRevisionTuple";
+import type { PublishedQuestionRevisionTuple } from "../../generated/api/PublishedQuestionRevisionTuple";
 import type { BloomClassificationView } from "../../generated/api/BloomClassificationView";
 import { useApplicationApi } from "../api/application_api";
 import { useSessionBootstrap } from "../auth/session_context";
@@ -70,14 +70,15 @@ type ArchiveNotice = {
 const QUESTION_REVISION_QUERY_PARAMETER = "revisionNumber";
 
 function QuestionForkControl(props: {
-  readonly sourceRevisionTuple: QuestionRevisionTuple;
+  readonly sourceRevisionTuple: PublishedQuestionRevisionTuple;
 }): JSX.Element {
   const applicationApi = useApplicationApi();
   const navigate = useNavigate();
   const [forking, setForking] = createSignal(false);
   const [error, setError] = createSignal("");
   let action:
-    { readonly sourceRevisionTuple: QuestionRevisionTuple; readonly key: string } | undefined;
+    | { readonly sourceRevisionTuple: PublishedQuestionRevisionTuple; readonly key: string }
+    | undefined;
   let disposed = false;
   onCleanup(() => {
     disposed = true;
@@ -92,7 +93,8 @@ function QuestionForkControl(props: {
       // ASVS 2.3.1: an uncertain retry keeps this exact source Revision and opaque request key.
       if (
         action === undefined ||
-        action.sourceRevisionTuple.questionId !== sourceRevisionTuple.questionId ||
+        action.sourceRevisionTuple.publishedQuestionId !==
+          sourceRevisionTuple.publishedQuestionId ||
         action.sourceRevisionTuple.revisionNumber !== sourceRevisionTuple.revisionNumber
       ) {
         action = { sourceRevisionTuple, key: crypto.randomUUID() };
@@ -183,7 +185,7 @@ function QuestionPoolFromQuestionControl(props: { readonly detail: QuestionDetai
         questionLibrary={questionLibrary}
         getQuestionDetails={applicationApi.client.getQuestionDetails}
         startingQuestion={{
-          questionRevisionTuple: props.detail.summary.questionRevisionTuple,
+          publishedQuestionRevisionTuple: props.detail.summary.publishedQuestionRevisionTuple,
           questionTitle: props.detail.summary.metadata.questionTitle,
           disciplineName: props.detail.disciplineName,
           subjectName: props.detail.subjectName,
@@ -221,7 +223,7 @@ function archiveFailureMessage(error: unknown): string {
 
 export interface QuestionArchiveControlProps {
   readonly client: Pick<QuestionAvailabilityClient, "getQuestionLineage" | "archiveQuestion">;
-  readonly questionId: QuestionId;
+  readonly questionId: PublishedQuestionId;
   /** Renders a related action only while the loaded Published Question remains available. */
   readonly renderAvailableAction?: () => JSX.Element;
 }
@@ -459,7 +461,7 @@ export function QuestionDetailPage(): JSX.Element {
     const revisionNumber = questionRevisionNumberFromSearch(location.search);
     if (revisionNumber !== undefined)
       return applicationApi.client.getQuestionRevision({
-        questionId: questionId,
+        publishedQuestionId: questionId,
         revisionNumber,
       });
     return applicationApi.client
@@ -467,9 +469,9 @@ export function QuestionDetailPage(): JSX.Element {
       .then((summary) => applicationApi.queries.questionDetails(summary.questionId));
   });
   createEffect(() => {
-    const questionRevisionTuple = detail()?.summary.questionRevisionTuple;
-    if (questionRevisionTuple === undefined) return;
-    const key = `${questionRevisionTuple.questionId}:${questionRevisionTuple.revisionNumber}`;
+    const publishedQuestionRevisionTuple = detail()?.summary.publishedQuestionRevisionTuple;
+    if (publishedQuestionRevisionTuple === undefined) return;
+    const key = `${publishedQuestionRevisionTuple.publishedQuestionId}:${publishedQuestionRevisionTuple.revisionNumber}`;
     if (key === correctionTarget) return;
     correctionTarget = key;
     setCorrectedBloom(undefined);
@@ -509,11 +511,13 @@ export function QuestionDetailPage(): JSX.Element {
                   fallback={
                     <QuestionPromptRenderer
                       blocks={record().prompt.blocks}
-                      questionRevisionTuple={record().summary.questionRevisionTuple}
+                      publishedQuestionRevisionTuple={
+                        record().summary.publishedQuestionRevisionTuple
+                      }
                       questionImageUrl={(asset) =>
                         new URL(
                           applicationApi.client.questionImageUrl(
-                            record().summary.questionRevisionTuple,
+                            record().summary.publishedQuestionRevisionTuple,
                             asset.questionImageAssetId,
                           ),
                           window.location.origin,
@@ -525,9 +529,9 @@ export function QuestionDetailPage(): JSX.Element {
                   <OpaqueWebworkPreviewFrame
                     class="question-library-webwork-preview"
                     src={applicationApi.client.questionRevisionPreviewDocumentUrl(
-                      record().summary.questionRevisionTuple,
+                      record().summary.publishedQuestionRevisionTuple,
                     )}
-                    title={`Generated example for ${record().summary.metadata.questionTitle}, Revision ${record().summary.questionRevisionTuple.revisionNumber}`}
+                    title={`Generated example for ${record().summary.metadata.questionTitle}, Revision ${record().summary.publishedQuestionRevisionTuple.revisionNumber}`}
                   />
                 </Show>
               </section>
@@ -535,11 +539,11 @@ export function QuestionDetailPage(): JSX.Element {
                 {(preview) => (
                   <QuestionResponsePreviewControl
                     preview={preview()}
-                    questionRevisionTuple={record().summary.questionRevisionTuple}
+                    publishedQuestionRevisionTuple={record().summary.publishedQuestionRevisionTuple}
                     questionImageUrl={(asset) =>
                       new URL(
                         applicationApi.client.questionImageUrl(
-                          record().summary.questionRevisionTuple,
+                          record().summary.publishedQuestionRevisionTuple,
                           asset.questionImageAssetId,
                         ),
                         window.location.origin,
@@ -587,7 +591,7 @@ export function QuestionDetailPage(): JSX.Element {
                   </Show>
                   <div>
                     <dt>Revision</dt>
-                    <dd>{record().summary.questionRevisionTuple.revisionNumber}</dd>
+                    <dd>{record().summary.publishedQuestionRevisionTuple.revisionNumber}</dd>
                   </div>
                   <Show when={correctedBloom() ?? record().summary.bloom}>
                     {(bloom) => (
@@ -606,16 +610,21 @@ export function QuestionDetailPage(): JSX.Element {
                       <BloomClassificationEditor
                         targetName="Question"
                         contentMarkerKind="Revision"
-                        contentMarkerNumber={record().summary.questionRevisionTuple.revisionNumber}
+                        contentMarkerNumber={
+                          record().summary.publishedQuestionRevisionTuple.revisionNumber
+                        }
                         bloom={bloom()}
                         save={(request) =>
                           applicationApi.client
-                            .correctQuestionBloom(record().summary.questionRevisionTuple, request)
+                            .correctQuestionBloom(
+                              record().summary.publishedQuestionRevisionTuple,
+                              request,
+                            )
                             .then((receipt) => receipt.bloom)
                         }
                         loadCurrent={() =>
                           applicationApi.client
-                            .getQuestionRevision(record().summary.questionRevisionTuple)
+                            .getQuestionRevision(record().summary.publishedQuestionRevisionTuple)
                             .then((loaded) => {
                               if (loaded.summary.bloom === null) {
                                 throw new Error("Bloom Classification is not assigned.");
@@ -666,7 +675,7 @@ export function QuestionDetailPage(): JSX.Element {
                     <>
                       <QuestionPoolFromQuestionControl detail={record()} />
                       <QuestionForkControl
-                        sourceRevisionTuple={record().summary.questionRevisionTuple}
+                        sourceRevisionTuple={record().summary.publishedQuestionRevisionTuple}
                       />
                     </>
                   )}

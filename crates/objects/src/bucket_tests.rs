@@ -1,12 +1,13 @@
 //! Behavior contracts for typed object-address construction.
 
 use super::*;
-use question_model::{QuestionId, QuestionRevisionNumber};
+use question_model::{PublishedQuestionId, QuestionRevisionNumber};
 use uuid::Uuid;
 
-fn question_revision_tuple(revision_number: u32) -> QuestionRevisionTuple {
-    QuestionRevisionTuple {
-        question_id: QuestionId::from_random_identifier("ABCDEFG").expect("canonical Question ID"),
+fn published_question_revision_tuple(revision_number: u32) -> PublishedQuestionRevisionTuple {
+    PublishedQuestionRevisionTuple {
+        published_question_id: PublishedQuestionId::from_random_identifier("ABCDEFG")
+            .expect("canonical Question ID"),
         revision_number: QuestionRevisionNumber::new(revision_number)
             .expect("positive Question Revision Number"),
     }
@@ -15,11 +16,11 @@ fn question_revision_tuple(revision_number: u32) -> QuestionRevisionTuple {
 #[test]
 fn source_objects_are_never_direct_delivery_targets() {
     let source = ObjectAddress::QuestionSource {
-        question_revision_tuple: question_revision_tuple(2),
+        published_question_revision_tuple: published_question_revision_tuple(2),
         object_id: ObjectId::from_uuid(Uuid::from_u128(3)),
     };
     let asset = ObjectAddress::QuestionImage {
-        question_revision_tuple: question_revision_tuple(2),
+        published_question_revision_tuple: published_question_revision_tuple(2),
         question_image_asset_id: QuestionImageAssetId::from_uuid(Uuid::from_u128(4)),
         object_id: ObjectId::from_uuid(Uuid::from_u128(5)),
     };
@@ -47,7 +48,7 @@ fn draft_question_image_binds_private_workspace_draft_and_immutable_object_witho
     assert_eq!(address.storage_area(), ObjectStorageArea::PrivateContent);
     assert_eq!(address.data_class(), ObjectDataClass::AuthoringContent);
     assert_eq!(address.object_id(), object);
-    assert!(address.question_revision_tuple().is_none());
+    assert!(address.published_question_revision_tuple().is_none());
     assert!(!address.may_issue_signed_url());
     let encoded = serde_json::to_value(&address).expect("internal address serializes");
     assert_eq!(encoded["kind"], "draftQuestionImage");
@@ -61,18 +62,18 @@ fn draft_question_image_binds_private_workspace_draft_and_immutable_object_witho
 #[test]
 fn only_immutable_question_images_enter_the_public_delivery_domain() {
     let workspace = WorkspaceId::from_uuid(Uuid::from_u128(2));
-    let question_revision_tuple = question_revision_tuple(4);
+    let published_question_revision_tuple = published_question_revision_tuple(4);
     let object = ObjectId::from_uuid(Uuid::from_u128(5));
 
     let public_asset = ObjectAddress::QuestionImage {
-        question_revision_tuple: question_revision_tuple.clone(),
+        published_question_revision_tuple: published_question_revision_tuple.clone(),
         question_image_asset_id: QuestionImageAssetId::from_uuid(Uuid::from_u128(6)),
         object_id: object,
     };
     assert_eq!(public_asset.storage_area(), ObjectStorageArea::PublicAssets);
     assert_eq!(
         ObjectAddress::published_question_image(
-            question_revision_tuple.clone(),
+            published_question_revision_tuple.clone(),
             QuestionImageAssetId::from_uuid(Uuid::from_u128(60)),
             object,
         )
@@ -88,21 +89,21 @@ fn only_immutable_question_images_enter_the_public_delivery_domain() {
             object_id: object,
         },
         ObjectAddress::QuestionSource {
-            question_revision_tuple: question_revision_tuple.clone(),
+            published_question_revision_tuple: published_question_revision_tuple.clone(),
             object_id: object,
         },
         ObjectAddress::RestrictedQuestionImage {
-            question_revision_tuple: question_revision_tuple.clone(),
+            published_question_revision_tuple: published_question_revision_tuple.clone(),
             question_image_asset_id: QuestionImageAssetId::from_uuid(Uuid::from_u128(61)),
             object_id: object,
         },
         ObjectAddress::PublishedImportArchive {
-            question_revision_tuple: question_revision_tuple.clone(),
+            published_question_revision_tuple: published_question_revision_tuple.clone(),
             workspace_import_id: WorkspaceImportId::from_uuid(Uuid::from_u128(9)),
             object_id: object,
         },
         ObjectAddress::QuestionRender {
-            question_revision_tuple: question_revision_tuple.clone(),
+            published_question_revision_tuple: published_question_revision_tuple.clone(),
             question_seed: QuestionSeed::new(1),
             object_id: object,
         },
@@ -139,10 +140,10 @@ fn course_banner_keys_bind_scope_classification_and_signing() {
     };
 
     assert_eq!(upload.storage_area(), ObjectStorageArea::TempProcessing);
-    assert_eq!(upload.question_revision_tuple(), None);
+    assert_eq!(upload.published_question_revision_tuple(), None);
     assert!(!upload.may_issue_signed_url());
     assert_eq!(source.storage_area(), ObjectStorageArea::PrivateContent);
-    assert_eq!(source.question_revision_tuple(), None);
+    assert_eq!(source.published_question_revision_tuple(), None);
     assert!(!source.may_issue_signed_url());
     assert_eq!(banner.storage_area(), ObjectStorageArea::PrivateContent);
     assert!(banner.may_issue_signed_url());
@@ -280,14 +281,14 @@ fn workspace_qti_archive_uses_private_workspace_import_source_key() {
     );
     assert_eq!(key.object_id(), object);
     assert_eq!(key.storage_area(), ObjectStorageArea::PrivateContent);
-    assert_eq!(key.question_revision_tuple(), None);
+    assert_eq!(key.published_question_revision_tuple(), None);
     assert!(!key.may_issue_signed_url());
 }
 
 #[test]
 fn published_import_archive_object_id_matches_golden() {
     let actual = published_import_archive_object_id(
-        &question_revision_tuple(3),
+        &published_question_revision_tuple(3),
         WorkspaceImportId::from_uuid(Uuid::from_u128(4)),
         Sha256Checksum::compute(b"archive fixture"),
     );
@@ -295,7 +296,7 @@ fn published_import_archive_object_id_matches_golden() {
     assert_eq!(
         actual,
         published_import_archive_object_id(
-            &question_revision_tuple(3),
+            &published_question_revision_tuple(3),
             WorkspaceImportId::from_uuid(Uuid::from_u128(4)),
             Sha256Checksum::compute(b"archive fixture"),
         )
@@ -305,7 +306,7 @@ fn published_import_archive_object_id_matches_golden() {
 #[test]
 fn published_import_archive_key_has_distinct_path_and_private_classification() {
     let key = ObjectAddress::PublishedImportArchive {
-        question_revision_tuple: question_revision_tuple(3),
+        published_question_revision_tuple: published_question_revision_tuple(3),
         workspace_import_id: WorkspaceImportId::from_uuid(Uuid::from_u128(4)),
         object_id: ObjectId::from_uuid(Uuid::from_u128(5)),
     };
@@ -316,23 +317,23 @@ fn published_import_archive_key_has_distinct_path_and_private_classification() {
     );
     assert_eq!(key.storage_area(), ObjectStorageArea::PrivateContent);
     assert_eq!(
-        key.question_revision_tuple(),
-        Some(&question_revision_tuple(3))
+        key.published_question_revision_tuple(),
+        Some(&published_question_revision_tuple(3))
     );
     assert!(!key.may_issue_signed_url());
 }
 
 #[test]
 fn every_archive_identity_input_changes_the_object_id() {
-    let base_revision = question_revision_tuple(3);
+    let base_revision = published_question_revision_tuple(3);
     let import = WorkspaceImportId::from_uuid(Uuid::from_u128(4));
     let archive = Sha256Checksum::compute(b"archive fixture");
     let base = published_import_archive_object_id(&base_revision, import, archive);
     assert_ne!(
         base,
         published_import_archive_object_id(
-            &QuestionRevisionTuple {
-                question_id: QuestionId::from_random_identifier("BCDEFGH")
+            &PublishedQuestionRevisionTuple {
+                published_question_id: PublishedQuestionId::from_random_identifier("BCDEFGH")
                     .expect("canonical Question ID"),
                 revision_number: base_revision.revision_number,
             },
@@ -342,7 +343,7 @@ fn every_archive_identity_input_changes_the_object_id() {
     );
     assert_ne!(
         base,
-        published_import_archive_object_id(&question_revision_tuple(13), import, archive)
+        published_import_archive_object_id(&published_question_revision_tuple(13), import, archive)
     );
     assert_ne!(
         base,
@@ -365,7 +366,7 @@ fn every_archive_identity_input_changes_the_object_id() {
 #[test]
 fn published_import_archive_address_round_trips_through_serde() {
     let address = ObjectAddress::PublishedImportArchive {
-        question_revision_tuple: question_revision_tuple(3),
+        published_question_revision_tuple: published_question_revision_tuple(3),
         workspace_import_id: WorkspaceImportId::from_uuid(Uuid::from_u128(4)),
         object_id: ObjectId::from_uuid(Uuid::from_u128(5)),
     };
@@ -375,35 +376,35 @@ fn published_import_archive_address_round_trips_through_serde() {
         serde_json::from_str(&encoded).expect("Object Address should deserialize");
     assert_eq!(decoded, address);
     assert!(encoded.contains("publishedImportArchive"));
-    assert!(encoded.contains("\"questionId\":\"ABCD-XEFG\""));
+    assert!(encoded.contains("\"publishedQuestionId\":\"ABCD-XEFG\""));
 }
 
 #[test]
 fn every_published_question_address_uses_canonical_question_id_json() {
-    let revision = question_revision_tuple(3);
+    let revision = published_question_revision_tuple(3);
     let object = ObjectId::from_uuid(Uuid::from_u128(5));
     let addresses = [
         ObjectAddress::QuestionSource {
-            question_revision_tuple: revision.clone(),
+            published_question_revision_tuple: revision.clone(),
             object_id: object,
         },
         ObjectAddress::PublishedImportArchive {
-            question_revision_tuple: revision.clone(),
+            published_question_revision_tuple: revision.clone(),
             workspace_import_id: WorkspaceImportId::from_uuid(Uuid::from_u128(4)),
             object_id: object,
         },
         ObjectAddress::QuestionImage {
-            question_revision_tuple: revision.clone(),
+            published_question_revision_tuple: revision.clone(),
             question_image_asset_id: QuestionImageAssetId::from_uuid(Uuid::from_u128(6)),
             object_id: object,
         },
         ObjectAddress::RestrictedQuestionImage {
-            question_revision_tuple: revision.clone(),
+            published_question_revision_tuple: revision.clone(),
             question_image_asset_id: QuestionImageAssetId::from_uuid(Uuid::from_u128(7)),
             object_id: object,
         },
         ObjectAddress::QuestionRender {
-            question_revision_tuple: revision,
+            published_question_revision_tuple: revision,
             question_seed: QuestionSeed::new(8),
             object_id: object,
         },
@@ -411,7 +412,7 @@ fn every_published_question_address_uses_canonical_question_id_json() {
 
     for address in addresses {
         let encoded = serde_json::to_string(&address).expect("Object Address should serialize");
-        assert!(encoded.contains("\"questionId\":\"ABCD-XEFG\""));
+        assert!(encoded.contains("\"publishedQuestionId\":\"ABCD-XEFG\""));
         assert_eq!(
             serde_json::from_str::<ObjectAddress>(&encoded)
                 .expect("canonical Object Address should deserialize"),
@@ -422,7 +423,7 @@ fn every_published_question_address_uses_canonical_question_id_json() {
 
 #[test]
 fn object_address_rejects_noncanonical_question_id_json() {
-    let encoded = r#"{"kind":"questionSource","questionRevisionTuple":{"questionId":"ABCDXEFG","revisionNumber":3},"objectId":"00000000-0000-0000-0000-000000000005"}"#;
+    let encoded = r#"{"kind":"questionSource","publishedQuestionRevisionTuple":{"publishedQuestionId":"ABCDXEFG","revisionNumber":3},"objectId":"00000000-0000-0000-0000-000000000005"}"#;
 
     assert!(serde_json::from_str::<ObjectAddress>(encoded).is_err());
 }

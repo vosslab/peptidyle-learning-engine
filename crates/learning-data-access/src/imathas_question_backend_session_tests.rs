@@ -2,8 +2,8 @@ use super::*;
 use question_model::generation::QuestionSeed;
 use question_model::{
     AccountId, AssessmentId, CourseInstanceId, ImathasDeploymentId, ImathasItemId, ImathasProfile,
-    ImathasQuestionBackendBinding, ObjectId, QuestionAttemptId, QuestionId, QuestionRevisionNumber,
-    QuestionRevisionTuple, SourceObjectChecksum, Timestamp,
+    ImathasQuestionBackendBinding, ObjectId, PublishedQuestionId, PublishedQuestionRevisionTuple,
+    QuestionAttemptId, QuestionRevisionNumber, SourceObjectChecksum, Timestamp,
 };
 use uuid::Uuid;
 fn facts(
@@ -15,8 +15,10 @@ fn facts(
     let course = CourseInstanceId::from_debug_serial(2);
     let assessment = AssessmentId::from_debug_serial(3);
     let attempt = QuestionAttemptId::from_uuid(Uuid::from_u128(4));
-    let revision = QuestionRevisionTuple {
-        question_id: "1234-H567".parse::<QuestionId>().expect("question ID"),
+    let revision = PublishedQuestionRevisionTuple {
+        published_question_id: "1234-H567"
+            .parse::<PublishedQuestionId>()
+            .expect("question ID"),
         revision_number: QuestionRevisionNumber::new(1).expect("revision"),
     };
     let imathas_question_backend_binding = ImathasQuestionBackendBinding::new(
@@ -91,8 +93,10 @@ fn ring() -> ImathasQuestionBackendStateKeyRing {
 fn grading_context_authentication_payload_v1_has_the_locked_row_530_bytes() {
     let context = ImathasGradingContext::new(
         QuestionAttemptId::from_uuid(Uuid::from_u128(4)),
-        QuestionRevisionTuple {
-            question_id: "1234-H567".parse::<QuestionId>().expect("question ID"),
+        PublishedQuestionRevisionTuple {
+            published_question_id: "1234-H567"
+                .parse::<PublishedQuestionId>()
+                .expect("question ID"),
             revision_number: QuestionRevisionNumber::new(1).expect("revision"),
         },
         QuestionSeed::new(7),
@@ -102,7 +106,10 @@ fn grading_context_authentication_payload_v1_has_the_locked_row_530_bytes() {
         QuestionAttemptId::from_uuid(Uuid::from_u128(4))
     );
     assert_eq!(
-        context.question_revision_tuple().question_id.to_string(),
+        context
+            .published_question_revision_tuple()
+            .published_question_id
+            .to_string(),
         "1234-H567"
     );
     assert_eq!(context.question_seed(), QuestionSeed::new(7));
@@ -232,8 +239,10 @@ async fn memory_oracle_refuses_every_changed_imathas_question_backend_grading_co
         .await
         .expect("create");
 
-    let replacement_revision = QuestionRevisionTuple {
-        question_id: "1234-0568".parse::<QuestionId>().expect("question ID"),
+    let replacement_revision = PublishedQuestionRevisionTuple {
+        published_question_id: "1234-0568"
+            .parse::<PublishedQuestionId>()
+            .expect("question ID"),
         revision_number: QuestionRevisionNumber::new(2).expect("revision"),
     };
     let contexts = [
@@ -241,7 +250,7 @@ async fn memory_oracle_refuses_every_changed_imathas_question_backend_grading_co
             QuestionAttemptId::from_uuid(Uuid::from_u128(40)),
             expectation
                 .grading_context
-                .question_revision_tuple()
+                .published_question_revision_tuple()
                 .clone(),
             expectation.grading_context.question_seed(),
         ),
@@ -254,7 +263,7 @@ async fn memory_oracle_refuses_every_changed_imathas_question_backend_grading_co
             expectation.grading_context.question_attempt(),
             expectation
                 .grading_context
-                .question_revision_tuple()
+                .published_question_revision_tuple()
                 .clone(),
             QuestionSeed::new(70),
         ),

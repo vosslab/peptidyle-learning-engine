@@ -7,7 +7,7 @@ const AUTHOR_CONTENT_DIGEST_DOMAIN: &[u8] = b"ple:author-content:v1\0";
 
 use crate::generation::{QuestionReproduction, QuestionSeed};
 use crate::question_content::QuestionContentBlock;
-use crate::{QuestionResponseFormat, QuestionRevisionTuple};
+use crate::{PublishedQuestionRevisionTuple, QuestionResponseFormat};
 
 /// Closed reviewed runtime libraries available to an isolated author-content
 /// document. This deliberately is not a URL or package reference.
@@ -115,7 +115,7 @@ pub enum NativeChoiceOrder {
 #[serde(rename_all = "camelCase")]
 pub struct QuestionVariation {
     /// Exact immutable Question Revision that produced this presentation.
-    pub question_revision_tuple: QuestionRevisionTuple,
+    pub published_question_revision_tuple: PublishedQuestionRevisionTuple,
     /// Explicit static or seeded reproduction facts for this variation.
     pub reproduction: QuestionReproduction,
 }
@@ -123,23 +123,23 @@ pub struct QuestionVariation {
 impl QuestionVariation {
     /// Records the exact facts that reproduce an issued Question Variation.
     pub fn from_question_revision_and_reproduction(
-        question_revision_tuple: QuestionRevisionTuple,
+        published_question_revision_tuple: PublishedQuestionRevisionTuple,
         reproduction: QuestionReproduction,
     ) -> Self {
         Self {
-            question_revision_tuple,
+            published_question_revision_tuple,
             reproduction,
         }
     }
 
     /// Records a seeded generated variation.
     pub fn from_question_revision_and_question_seed(
-        question_revision_tuple: QuestionRevisionTuple,
+        published_question_revision_tuple: PublishedQuestionRevisionTuple,
         question_seed: QuestionSeed,
         generated_parameter_sha256: String,
     ) -> Self {
         Self::from_question_revision_and_reproduction(
-            question_revision_tuple,
+            published_question_revision_tuple,
             QuestionReproduction::Seeded {
                 question_seed,
                 generated_parameter_sha256,

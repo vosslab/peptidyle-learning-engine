@@ -1,7 +1,7 @@
 // client.ts - the only API shape consumed by browser routes and components.
 
 import type { QuestionImageAssetId } from "../../generated/api/QuestionImageAssetId";
-import type { QuestionRevisionTuple } from "../../generated/api/QuestionRevisionTuple";
+import type { PublishedQuestionRevisionTuple } from "../../generated/api/PublishedQuestionRevisionTuple";
 import type { AssessmentId } from "../../generated/api/AssessmentId";
 import type { AssessmentAttempt } from "../../generated/api/AssessmentAttempt";
 import type { QuestionSummary } from "../../generated/api/QuestionSummary";
@@ -21,7 +21,7 @@ import type {
 } from "./profile_avatar";
 import type { ProfileSettings, UpdateAccountSettingsInput } from "./profile_settings";
 import type { StudentRecordId } from "../../generated/api/StudentRecordId";
-import type { QuestionId } from "../../generated/api/QuestionId";
+import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionId";
 import type { QuestionAttemptId } from "../../generated/api/QuestionAttemptId";
 import type { AssessmentAttemptId } from "../../generated/api/AssessmentAttemptId";
 import type { StudentAssessmentProgress } from "../../generated/api/StudentAssessmentProgress";
@@ -144,7 +144,7 @@ export interface ApiClient
   /** Resolves one copyable Instructor-facing ID to its exact answer-free Question Summary. */
   readonly resolveQuestion: (questionId: string) => Promise<QuestionSummary>;
   /** Gets the safe immutable Question Details View, never a complete Question Revision. */
-  readonly getQuestionDetails: (questionId: QuestionId) => Promise<QuestionDetails>;
+  readonly getQuestionDetails: (questionId: PublishedQuestionId) => Promise<QuestionDetails>;
   /** Gets only the authorized current Course Appearance View. */
   readonly getCourseAppearanceView: (
     courseInstanceId: CourseInstanceId,
@@ -207,7 +207,7 @@ export interface ApiClient
   readonly fetchCourseBanner: (bannerId: CourseBannerId) => Promise<Blob>;
   /** Exact immutable Question Revision image redirect path; it never issues a capability. */
   readonly questionImageUrl: (
-    questionRevisionTuple: QuestionRevisionTuple,
+    publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple,
     questionImageAssetId: QuestionImageAssetId,
   ) => string;
   readonly validateResponseFormatOnServer: FormatValidator;

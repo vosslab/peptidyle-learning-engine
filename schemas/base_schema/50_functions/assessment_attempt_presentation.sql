@@ -177,18 +177,18 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 BEGIN
     PERFORM ple_private.require_owned_assessment_attempt_for_presentation(p_assessment_attempt_id);
     RETURN QUERY
-    SELECT issued.assessment_attempt_id, issued.issued_question_id, issued.issued_position,
-           issued.assessment_entry_id, issued.assessment_content_entry_index,
-           issued.published_question_id, issued.revision_number, issued.question_seed,
-           assessment_attempt.generated_parameter_sha256, source.backend,
+    SELECT issued.assessment_attempt_id::uuid, issued.issued_question_id::uuid, issued.issued_position::integer,
+           issued.assessment_entry_id::uuid, issued.assessment_content_entry_index::integer,
+           issued.published_question_id::text, issued.revision_number::integer, issued.question_seed::numeric,
+           assessment_attempt.generated_parameter_sha256::text, source.backend::text,
            CASE source.backend WHEN 'ple' THEN 'ple_question_json_presentation'
                                WHEN 'webwork' THEN 'webwork_presentation' END,
-           source.source_object_record_id, object_record.object_address,
-           source.source_object_checksum, source.webwork_pg_path,
-           assessment_attempt.question_attempt_id, binding.presentation_nonce,
+           source.source_object_record_id::uuid, object_record.object_address::jsonb,
+           source.source_object_checksum::text, source.webwork_pg_path::text,
+           assessment_attempt.question_attempt_id::uuid, binding.presentation_nonce::text,
            CASE WHEN binding.question_attempt_id IS NULL THEN NULL
                 ELSE encode(binding.presentation_checksum, 'hex') END,
-           binding.presentation, binding.author_content,
+           binding.presentation::jsonb, binding.author_content::jsonb,
            COALESCE(jsonb_agg(jsonb_build_object(
                'question_image_asset_id', rendition.question_image_asset_id,
                'question_image_checksum', encode(rendition.question_image_checksum, 'hex'),
@@ -431,7 +431,7 @@ BEGIN
             item_backend_document
         );
         INSERT INTO ple_private.question_attempt_response_item_binding(
-            course_instance_id, question_attempt_presentation_binding_id, presentation_response_item_id, response_item_id
+            course_instance_id, question_attempt_id, presentation_response_item_id, response_item_id
         )
         SELECT assessment_attempt_row.course_instance_id, item_question_attempt_id, supplied.presentation_response_item_id,
                supplied.response_item_id
@@ -464,7 +464,7 @@ BEGIN
             END IF;
             INSERT INTO ple_private.question_attempt_presentation_asset_binding(course_instance_id, question_attempt_id)
             VALUES (assessment_attempt_row.course_instance_id, item_question_attempt_id);
-            INSERT INTO ple_private.question_attempt_presentation_image_rendition(course_instance_id, question_attempt_presentation_image_binding_id, question_image_asset_id, question_image_checksum, rendition_checksum, intrinsic_width, intrinsic_height)
+            INSERT INTO ple_private.question_attempt_presentation_image_rendition(course_instance_id, question_attempt_id, question_image_asset_id, question_image_checksum, rendition_checksum, intrinsic_width, intrinsic_height)
             SELECT assessment_attempt_row.course_instance_id, item_question_attempt_id, supplied.question_image_asset_id, decode(supplied.question_image_checksum, 'hex'), decode(supplied.rendition_checksum, 'hex'), supplied.intrinsic_width, supplied.intrinsic_height
               FROM jsonb_to_recordset(item -> 'question_images') AS supplied(question_image_asset_id uuid, question_image_checksum text, rendition_checksum text, intrinsic_width integer, intrinsic_height integer);
         END IF;
@@ -508,11 +508,11 @@ BEGIN
     END IF;
     PERFORM ple_private.require_owned_assessment_attempt_for_presentation(assessment_attempt_id_value);
     RETURN QUERY
-    SELECT issued.published_question_id, issued.revision_number, question_attempt.question_seed,
-           question_attempt.generated_parameter_sha256,
-           binding.presentation_nonce,
-           encode(binding.presentation_checksum, 'hex'),
-           binding.presentation, binding.author_content,
+    SELECT issued.published_question_id::text, issued.revision_number::integer, question_attempt.question_seed::numeric,
+           question_attempt.generated_parameter_sha256::text,
+           binding.presentation_nonce::text,
+           encode(binding.presentation_checksum, 'hex')::text,
+           binding.presentation::jsonb, binding.author_content::jsonb,
            COALESCE(jsonb_agg(jsonb_build_object(
                'question_image_asset_id', rendition.question_image_asset_id,
                'question_image_checksum', encode(rendition.question_image_checksum, 'hex'),
@@ -589,16 +589,18 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = 'Assessment Attempt presentation evidence is incomplete';
     END IF;
     RETURN QUERY
-    SELECT issued.assessment_entry_id, issued.issued_position, issued.published_question_id, issued.revision_number,
-           question_attempt.question_seed, question_attempt.generated_parameter_sha256,
-           binding.presentation_nonce, encode(binding.presentation_checksum, 'hex'), binding.presentation, binding.author_content,
+    SELECT issued.assessment_entry_id::uuid, issued.issued_position::integer,
+           issued.published_question_id::text, issued.revision_number::integer,
+           question_attempt.question_seed::numeric, question_attempt.generated_parameter_sha256::text,
+           binding.presentation_nonce::text, encode(binding.presentation_checksum, 'hex')::text,
+           binding.presentation::jsonb, binding.author_content::jsonb,
            COALESCE(jsonb_agg(jsonb_build_object('question_image_asset_id', rendition.question_image_asset_id, 'question_image_checksum', encode(rendition.question_image_checksum, 'hex'), 'rendition_checksum', encode(rendition.rendition_checksum, 'hex'), 'intrinsic_width', rendition.intrinsic_width, 'intrinsic_height', rendition.intrinsic_height) ORDER BY rendition.question_image_asset_id) FILTER (WHERE rendition.question_image_asset_id IS NOT NULL), '[]'::jsonb)
            , COALESCE(response_item_bindings.response_item_bindings, '[]'::jsonb)
       FROM ple_private.issued_question AS issued
       JOIN ple_private.question_attempt AS question_attempt ON question_attempt.issued_question_id = issued.issued_question_id
       JOIN ple_private.question_revision_source_binding AS source ON source.published_question_id = issued.published_question_id AND source.revision_number = issued.revision_number
       JOIN ple_private.question_attempt_presentation_binding AS binding ON binding.question_attempt_id = question_attempt.question_attempt_id
-      LEFT JOIN ple_private.question_attempt_presentation_image_rendition AS rendition ON rendition.question_attempt_presentation_image_binding_id = question_attempt.question_attempt_id
+      LEFT JOIN ple_private.question_attempt_presentation_image_rendition AS rendition ON rendition.question_attempt_id = question_attempt.question_attempt_id
       LEFT JOIN LATERAL (
           SELECT jsonb_agg(jsonb_build_object(
               'presentation_response_item_id', response_item.presentation_response_item_id,
@@ -651,16 +653,16 @@ BEGIN
     PERFORM ple_private.require_owned_assessment_attempt_for_presentation(assessment_attempt_id_value);
     RETURN QUERY
     SELECT binding.backend_document,
-           issued.issued_question_id,
-           issued.assessment_entry_id,
-           issued.issued_position,
-           issued.published_question_id,
-           issued.revision_number,
-           question_attempt.question_seed, question_attempt.generated_parameter_sha256,
-           question_attempt.source_object_record_id,
-           encode(question_attempt.source_object_checksum, 'hex'),
-           source.webwork_pg_path,
-           response.student_response
+           issued.issued_question_id::uuid,
+           issued.assessment_entry_id::uuid,
+           issued.issued_position::integer,
+           issued.published_question_id::text,
+           issued.revision_number::integer,
+           question_attempt.question_seed::numeric, question_attempt.generated_parameter_sha256::text,
+           question_attempt.source_object_record_id::uuid,
+           encode(question_attempt.source_object_checksum, 'hex')::text,
+           source.webwork_pg_path::text,
+           response.student_response::jsonb
       FROM ple_private.issued_question AS issued
       JOIN ple_private.question_attempt AS question_attempt
         ON question_attempt.issued_question_id = issued.issued_question_id
@@ -756,4 +758,3 @@ LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api
            source_object_checksum, webwork_pg_path, student_response
       FROM ple_private.read_student_assessment_attempt_backend_document($1, $2 - 1)
 $$;
-

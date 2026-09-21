@@ -90,7 +90,8 @@ export interface CoverageExceptions {
 }
 
 const IDENTIFIER_PATTERN = /^[a-z][a-z0-9_]*$/u;
-const ROLE_PATH_PATTERN = /^(public|instructor|student|sysadmin)\/[a-z0-9_]+\.png$/u;
+const ROLE_PATH_PATTERN =
+  /^(public|instructor|student|sysadmin)\/(?:(?:laptop|tablet|phone|square)\/)?[a-z0-9_]+\.png$/u;
 const TEXT_PATTERN = /^[\x20-\x7e]+$/u;
 
 function objectValue(value: unknown, label: string): Record<string, unknown> {
@@ -214,7 +215,11 @@ function decodeCapture(value: unknown, index: number): CaptureRecord {
   const role = enumValue(decoded["role"], ROLE_IDS, `${label} role`);
   const artifactPath = stringValue(decoded["path"], `${label} path`);
   if (!ROLE_PATH_PATTERN.test(artifactPath) || artifactPath.split("/")[0] !== role) {
-    throw new Error(`${label} path must be one flat semantic filename in its role folder`);
+    throw new Error(`${label} path must be a semantic filename in its role folder`);
+  }
+  const pathParts = artifactPath.split("/");
+  if (pathParts.length === 3 && pathParts[1] !== decoded["viewport"]) {
+    throw new Error(`${label} viewport folder must match the capture viewport`);
   }
   const routeIds = ROUTE_CONTRACT.map((route) => route.id);
   const routeId = enumValue(decoded["routeId"], routeIds, `${label} routeId`);

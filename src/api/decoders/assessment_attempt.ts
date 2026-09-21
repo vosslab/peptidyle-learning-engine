@@ -49,7 +49,7 @@ import {
   decodeCursorPage,
   decodeIdentifier,
   decodeAssessmentTitle,
-  decodeQuestionRevisionTuple,
+  decodePublishedQuestionRevisionTuple,
   decodeTimestamp,
   field,
   requireOnlyFields,
@@ -108,15 +108,15 @@ export function decodeStudentIssuedQuestion(value: unknown, path: string): Stude
     "assessmentEntryId",
     "assessmentContentEntryIndex",
     "issuedPosition",
-    "questionRevisionTuple",
+    "publishedQuestionRevisionTuple",
     "questionStatisticsEligibility",
   ]);
-  const questionRevisionTuple = decodeRecord(
-    field(record, "questionRevisionTuple", path),
-    `${path}.questionRevisionTuple`,
+  const publishedQuestionRevisionTuple = decodeRecord(
+    field(record, "publishedQuestionRevisionTuple", path),
+    `${path}.publishedQuestionRevisionTuple`,
   );
-  requireOnlyFields(questionRevisionTuple, `${path}.questionRevisionTuple`, [
-    "questionId",
+  requireOnlyFields(publishedQuestionRevisionTuple, `${path}.publishedQuestionRevisionTuple`, [
+    "publishedQuestionId",
     "revisionNumber",
   ]);
   return {
@@ -137,9 +137,9 @@ export function decodeStudentIssuedQuestion(value: unknown, path: string): Stude
       field(record, "issuedPosition", path),
       `${path}.issuedPosition`,
     ),
-    questionRevisionTuple: decodeQuestionRevisionTuple(
-      questionRevisionTuple,
-      `${path}.questionRevisionTuple`,
+    publishedQuestionRevisionTuple: decodePublishedQuestionRevisionTuple(
+      publishedQuestionRevisionTuple,
+      `${path}.publishedQuestionRevisionTuple`,
       true,
     ),
     questionStatisticsEligibility: decodeBoolean(
@@ -743,11 +743,11 @@ export function decodeQuestionAttemptTimingDecision(
 
 function decodeCapabilityViolation(value: unknown, path: string): CapabilityViolation {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["questionRevisionTuple", "capability"]);
+  requireOnlyFields(record, path, ["publishedQuestionRevisionTuple", "capability"]);
   const decoded = {
-    questionRevisionTuple: decodeQuestionRevisionTuple(
-      field(record, "questionRevisionTuple", path),
-      `${path}.questionRevisionTuple`,
+    publishedQuestionRevisionTuple: decodePublishedQuestionRevisionTuple(
+      field(record, "publishedQuestionRevisionTuple", path),
+      `${path}.publishedQuestionRevisionTuple`,
       true,
     ),
     capability: decodeCapability(field(record, "capability", path), `${path}.capability`),

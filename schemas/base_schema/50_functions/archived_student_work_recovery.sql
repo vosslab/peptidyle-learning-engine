@@ -125,7 +125,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
                     'response_item_id', item.response_item_id
                 ) ORDER BY item.presentation_response_item_id), '[]'::jsonb) AS items
                   FROM ple_private.question_attempt_response_item_binding AS item
-                 WHERE item.question_attempt_presentation_binding_id
+                 WHERE item.question_attempt_id
                        = attempt.question_attempt_id
             ) AS response_items
             CROSS JOIN LATERAL (
@@ -136,7 +136,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
                     'intrinsic_width', image.intrinsic_width, 'intrinsic_height', image.intrinsic_height
                 ) ORDER BY image.question_image_asset_id), '[]'::jsonb) AS items
                   FROM ple_private.question_attempt_presentation_image_rendition AS image
-                 WHERE image.question_attempt_presentation_image_binding_id
+                 WHERE image.question_attempt_id
                        = attempt.question_attempt_id
             ) AS question_images
            WHERE issued.assessment_attempt_id = work.assessment_attempt_id
@@ -219,7 +219,7 @@ BEGIN
        OR NOT ple_api.current_session_account_is_instructor()
        OR NOT ple_api.current_session_account_is_course_instructor(course_row.course_instance_id)
        THEN RETURN; END IF;
-    RETURN QUERY SELECT course_row.course_instance_id,
+    RETURN QUERY SELECT course_row.course_instance_id::text,
         course_row.student_data_archived_at, deletion_deadline;
 END $$;
 
@@ -294,4 +294,3 @@ BEGIN
        AND roster.student_account_id = student.student_account_id
      ORDER BY evidence.assessment_attempt_id;
 END $$;
-

@@ -49,7 +49,15 @@ fi
 # B waits inside Unrelease, then changes lifecycle state.  A fresh Student
 # start after B wins must fail and leave no new Attempt behind.
 race_workspace="$(mktemp -d "${TMPDIR:-/tmp}/ple-unrelease-race.XXXXXX")"
-trap 'rm -rf "$race_workspace"' EXIT
+locker_pid=""
+cleanup_race() {
+	if [[ -n "${locker_pid:-}" ]]; then
+		kill "$locker_pid" 2>/dev/null || true
+		wait "$locker_pid" 2>/dev/null || true
+	fi
+	rm -rf "$race_workspace"
+}
+trap cleanup_race EXIT
 mkfifo "$race_workspace/release_locker"
 
 {
@@ -79,12 +87,13 @@ grep -q '^race_lock_held$' "$race_workspace/locker.out" || {
 {
 psql_admin -qAt <<SQL
 BEGIN;
-SET LOCAL ROLE ple_app;
+SET LOCAL ROLE ple_data_owner;
 SELECT set_config('ple.session_account_id', membership.account_id, true)
   FROM ple_data.course_membership AS membership
  WHERE membership.course_instance_id = '$race_course_instance_id'
    AND membership.role = 'instructor'
  LIMIT 1 \g /dev/null
+SET LOCAL ROLE ple_app;
 SELECT * FROM ple_api.unrelease_assessment('$race_course_instance_id', '$race_assessment_id', 1, 'Unrelease lock race');
 COMMIT;
 SQL
@@ -94,7 +103,7 @@ unrelease_pid=$!
 waited=0
 for _ in $(seq 1 30); do
 	if psql_admin -qAt \
-		-c "SELECT count(*) FROM pg_catalog.pg_stat_activity WHERE query LIKE '%unrelease_assessment(''$race_course_instance_id'', ''$race_assessment_id''%' AND wait_event_type = 'Lock'" \
+		-c "SELECT count(*) FROM pg_catalog.pg_stat_activity WHERE query LIKE '%unrelease_assessment%' AND query LIKE '%$race_assessment_id%' AND wait_event_type = 'Lock'" \
 		| grep -qx '1'; then
 		waited=1
 		break
@@ -117,12 +126,13 @@ grep -qx "$race_assessment_id|Unrelease lock race|unreleased|2|0|0|0|0" "$race_w
 
 psql_admin -qAt <<SQL
 BEGIN;
-SET LOCAL ROLE ple_app;
+SET LOCAL ROLE ple_data_owner;
 SELECT set_config('ple.session_account_id', membership.account_id, true)
   FROM ple_data.course_membership AS membership
  WHERE membership.course_instance_id = '$race_course_instance_id'
    AND membership.role = 'student'
  LIMIT 1;
+SET LOCAL ROLE ple_app;
 DO \$\$
 BEGIN
     PERFORM * FROM ple_api.start_assessment_attempt(

@@ -2,8 +2,8 @@
 
 use async_trait::async_trait;
 use question_model::{
-    AssessmentAttemptId, CourseInstanceId, CourseRosterId, CourseRosterTuple, QuestionId,
-    QuestionRevisionNumber, QuestionRevisionTuple,
+    AssessmentAttemptId, CourseInstanceId, CourseRosterId, CourseRosterTuple, PublishedQuestionId,
+    PublishedQuestionRevisionTuple, QuestionRevisionNumber,
 };
 use serde::{Serialize, de::DeserializeOwned};
 use sqlx::{Postgres, Row, Transaction, postgres::PgRow};
@@ -151,11 +151,11 @@ impl ArchivedStudentWorkRecoveryStore for PostgresArchivedStudentWorkRecoverySto
                 };
             result.questions.push(RecoveredQuestion {
                 issued_position: question.delivery.issued_position,
-                question_revision_tuple: QuestionRevisionTuple {
-                    question_id: question
+                published_question_revision_tuple: PublishedQuestionRevisionTuple {
+                    published_question_id: question
                         .delivery
                         .question_id
-                        .parse::<QuestionId>()
+                        .parse::<PublishedQuestionId>()
                         .map_err(|_| invalid())?,
                     revision_number: QuestionRevisionNumber::new(question.delivery.revision_number)
                         .map_err(|_| invalid())?,

@@ -122,8 +122,8 @@ course`, `Invitation accepted.`, and one `Open course` action; keyboard Enter re
 
 ### S02: Coursework actions communicate little about the next step
 
-- Evidence: [course_in_progress_laptop.png](../../screenshots/student/course_in_progress_laptop.png)
-  and [course_completed_laptop.png](../../screenshots/student/course_completed_laptop.png) both use
+- Evidence: [in_progress_laptop.png](../../screenshots/student/laptop/in_progress.png)
+  and [completed_laptop.png](../../screenshots/student/laptop/completed.png) both use
   "Open Regular Assignment" despite different completion states.
 - User need: recognize whether the next step continues work, reviews a result, or starts another
   permitted Attempt.
@@ -138,7 +138,7 @@ course`, `Invitation accepted.`, and one `Open course` action; keyboard Enter re
 
 ### S03: active-work progress is expressed as grading progress
 
-- Evidence: [course_in_progress_laptop.png](../../screenshots/student/course_in_progress_laptop.png)
+- Evidence: [in_progress_laptop.png](../../screenshots/student/laptop/in_progress.png)
   reports "0 of 4 questions graded" for in-progress Coursework.
 - User need: understand how much work is recorded during an active Attempt.
 - Acceptance: distinguish saved or answered progress from grading progress using Student language.
@@ -159,7 +159,7 @@ saved`; completed Coursework retains its existing grading and disclosed-score br
 
 ### S04: Attempt history follows a tall settings summary
 
-- Evidence: [assignment_overview_history_laptop.png](../../screenshots/student/assignment_overview_history_laptop.png)
+- Evidence: [overview_history.png](../../screenshots/student/laptop/overview_history.png)
   places "Previous attempts" at the bottom of the captured viewport after vertically stacked rules.
 - User need: find recorded Attempts and results as readily as the next available work action.
 - Acceptance: make previous Attempts easy to locate alongside a compact overview. Check laptop and
@@ -174,9 +174,9 @@ saved`; completed Coursework retains its existing grading and disclosed-score br
 
 ### S05: settings dominate Coursework entries and overviews
 
-- Evidence: [course_completed_laptop.png](../../screenshots/student/course_completed_laptop.png)
+- Evidence: [completed_laptop.png](../../screenshots/student/laptop/completed.png)
   repeats due-time and time-zone information in a tall access section;
-  [assignment_overview_unanswered_laptop.png](../../screenshots/student/assignment_overview_unanswered_laptop.png)
+  [unanswered_laptop.png](../../screenshots/student/laptop/unanswered.png)
   stacks short labels and indented values across most of the viewport.
 - Acceptance: use compact summaries with visually connected labels and values. Keep essential
   information and actions visible; disclose fuller rules through accessible expandable details.
@@ -189,7 +189,7 @@ saved`; completed Coursework retains its existing grading and disclosed-score br
 
 ### S06: Question navigation consumes vertical working space
 
-- Evidence: [assignment_attempt_saved_laptop.png](../../screenshots/student/assignment_attempt_saved_laptop.png)
+- Evidence: [response_selected.png](../../screenshots/student/laptop/response_selected.png)
   shows a vertical numbered list with tightly joined text such as "Question 1Saved" and controls
   visually inconsistent with PLE response actions.
 - Acceptance: use horizontal numbered navigation with distinct current and saved cues, consistent
@@ -198,9 +198,9 @@ saved`; completed Coursework retains its existing grading and disclosed-score br
 
 ### S07: phone navigation loses readable context
 
-- Evidence: [course_not_started_phone.png](../../screenshots/student/course_not_started_phone.png)
+- Evidence: [not_started_phone.png](../../screenshots/student/phone/not_started.png)
   clips product and navigation text;
-  [assignment_attempt_submitted_phone.png](../../screenshots/student/assignment_attempt_submitted_phone.png)
+  [submitted.png](../../screenshots/student/phone/submitted.png)
   reduces several breadcrumb levels to short fragments.
 - Acceptance: adapt Student navigation to narrow widths while preserving recognizable current
   context, reachable navigation, and Profile access. Check long Course and Coursework names,
@@ -218,8 +218,8 @@ saved`; completed Coursework retains its existing grading and disclosed-score br
 
 ### S08: review information is spread over many lines
 
-- Evidence: [assignment_attempt_summary_laptop.png](../../screenshots/student/assignment_attempt_summary_laptop.png)
-  and [assignment_attempt_submitted_phone.png](../../screenshots/student/assignment_attempt_submitted_phone.png)
+- Evidence: [overview_history.png](../../screenshots/student/laptop/overview_history.png)
+  and [submitted.png](../../screenshots/student/phone/submitted.png)
   separate each Question's submission status, result, points, response, and feedback with repeated gaps.
 - Acceptance: group each reviewed response and its permitted result information into a compact,
   clearly separated unit. Verify feedback disclosure follows Coursework settings.
@@ -237,7 +237,7 @@ saved`; completed Coursework retains its existing grading and disclosed-score br
 
 The green backgrounds and layered rounded surfaces warrant rendered theme review. A sampled
 body-text foreground `#315047` and nearby background `#B5DBA9` from
-[assignment_attempt_resumed_tablet.png](../../screenshots/student/assignment_attempt_resumed_tablet.png)
+[resume_selected.png](../../screenshots/student/tablet/resume_selected.png)
 measure 5.77:1. This pair passes the preferred 5.5:1 text target; it establishes neither a whole-page
 failure nor a whole-page pass. Neighborhood-averaged image sampling also blends anti-aliased text
 with its background and is unsuitable as definitive text-contrast evidence.
@@ -283,7 +283,7 @@ deferred/future descriptions with their current disposition.
 ### I01: draft records concatenate distinct information
 
 - Priority: high; finding visible in
-  [question_drafts.png](../../screenshots/instructor/question_drafts.png).
+  [draft_list.png](../../screenshots/instructor/draft_list.png).
 - Titles run directly into descriptions and draft metadata. Repeated Delete actions appear on
   their own lines, while the title and description share one long link.
 - Acceptance: use compact aligned records with distinct title, description, state, and actions.
@@ -349,7 +349,7 @@ deferred/future descriptions with their current disposition.
 
 - Priority: high; evidence:
   [published_question_detail.png](../../screenshots/instructor/published_question_detail.png) and
-  [webwork_generated_example.png](../../screenshots/instructor/webwork_generated_example.png).
+  [generated_example.png](../../screenshots/instructor/webwork_generated_example.png).
 - Repeated title/reference text, separate Star and Watch rows, author, Backend, Revision, and
   explanations consume much of the captured working space before the Question.
 - Acceptance: make the prompt and response presentation easy to inspect, with compact metadata
@@ -405,8 +405,8 @@ deferred/future descriptions with their current disposition.
 ### I06: assessment identity and records are hard to scan
 
 - Priority: high; historical workspace evidence:
-  [assignment_release_draft.png](../../screenshots/instructor/assignment_release_draft.png),
-  [assignment_release_released.png](../../screenshots/instructor/assignment_release_released.png), and
+  [assignment_questions_draft.png](../../screenshots/instructor/assignment_questions_draft.png),
+  [assignment_policies_released.png](../../screenshots/instructor/assignment_policies_released.png), and
   [course_assignment_workspace.png](../../screenshots/instructor/course_assignment_workspace.png).
 - Generic Assessment breadcrumbs and editor headings provide little object identity. Ordered
   entries combine IDs, Revision, description, points, availability, scoring, and limits in prose.
@@ -444,7 +444,7 @@ deferred/future descriptions with their current disposition.
 ### I07: search results repeat the title and fragment actions
 
 - Priority: medium; evidence:
-  [question_library_filtered.png](../../screenshots/instructor/question_library_filtered.png).
+  [library_filtered.png](../../screenshots/instructor/library_filtered.png).
 - One result has a title at the left and repeats it on a lower reference line. Open, reference,
   and Copy reference occupy loosely connected positions. The bulk-selection panel is nearly as
   tall as the result itself.
@@ -469,7 +469,7 @@ deferred/future descriptions with their current disposition.
 ### I08: Browse starts with an unexplained empty Subject region
 
 - Priority: medium; evidence:
-  [question_library_browse.png](../../screenshots/instructor/question_library_browse.png).
+  [library_browse.png](../../screenshots/instructor/library_browse.png).
 - The page promises navigation from broad subject to topic, but Subjects is an empty tall panel.
   Tags and Question Types are lists of individually boxed entries; actual Question results are
   outside the captured viewport.
@@ -492,7 +492,7 @@ deferred/future descriptions with their current disposition.
 
 - Priority: medium; evidence:
   [blueprint_question_picker.png](../../screenshots/instructor/blueprint_question_picker.png) and
-  [question_pool_creation_review.png](../../screenshots/instructor/question_pool_creation_review.png).
+  [pool_creation_review.png](../../screenshots/instructor/pool_creation_review.png).
 - The picker spends much of its height on introduction and filters before results. Pool review
   remains under a Search Question Library heading and a large empty search panel. Its attestation
   says Questions are "interchangeable" with little explanation of that educational decision.
@@ -510,8 +510,8 @@ deferred/future descriptions with their current disposition.
 ### I10: Blueprint state and availability messaging need reconciliation
 
 - Priority: medium; evidence:
-  [blueprint_courses.png](../../screenshots/instructor/blueprint_courses.png) and
-  [blueprint_course_detail.png](../../screenshots/instructor/blueprint_course_detail.png).
+  [blueprint_list.png](../../screenshots/instructor/blueprint_list.png) and
+  [blueprint_detail.png](../../screenshots/instructor/blueprint_detail.png).
 - My Blueprint Courses labels its collection Available Blueprint Courses and discusses every
   active Instructor. The detail prominently presents Return to Private and Archive before the
   captured editing structure. Return to Private describes a server condition rather than plainly
@@ -534,7 +534,7 @@ deferred/future descriptions with their current disposition.
 - Priority: medium; evidence:
   [course_list.png](../../screenshots/instructor/course_list.png),
   [assignment_creation.png](../../screenshots/instructor/assignment_creation.png), and
-  [assessment_template_editor.png](../../screenshots/instructor/assessment_template_editor.png).
+  [template_editor.png](../../screenshots/instructor/template_editor.png).
 - Course creation dominates the Course list; three Assessment creation choices occupy a large
   nested panel; Template editing nests multiple rounded surfaces. Template duration is labeled
   in seconds, and changing Type explains an exception through a long helper sentence.
@@ -608,7 +608,7 @@ Coursework`; keyboard Enter reached the admitted Instructor Course-management de
 ### I14: generated Question wording joins separate words
 
 - Priority: high; evidence:
-  [webwork_chromosome_shapes.png](../../screenshots/instructor/webwork_chromosome_shapes.png)
+  [chromosome_shapes.png](../../screenshots/instructor/webwork_chromosome_shapes.png)
   shows "chromosomemost", "chromosomewith", and "centromeresituated" at colored-text boundaries.
 - Acceptance: preserve word spacing across markup boundaries in generated prompts and choices.
   Check the generator and rendered Backend output to locate ownership; inspect related examples.
@@ -633,9 +633,9 @@ Coursework`; keyboard Enter reached the admitted Instructor Course-management de
 ### I15: preview height and control styling vary across surfaces
 
 - Priority: medium; evidence:
-  [webwork_dna_structure.png](../../screenshots/instructor/webwork_dna_structure.png),
-  [webwork_hla_genotype.png](../../screenshots/instructor/webwork_hla_genotype.png), and
-  [webwork_monohybrid_matching.png](../../screenshots/instructor/webwork_monohybrid_matching.png).
+  [dna_structure.png](../../screenshots/instructor/webwork_dna_structure.png),
+  [hla_genotype.png](../../screenshots/instructor/webwork_hla_genotype.png), and
+  [monohybrid_matching.png](../../screenshots/instructor/webwork_monohybrid_matching.png).
 - Short Questions occupy large blank preview regions. PLE-owned Star/Watch actions resemble
   default browser buttons, while other PLE actions have deliberate typography and styling.
 - Acceptance: size previews for content and task, preserving correct Backend layout. Style
@@ -671,7 +671,7 @@ refresh follows.
 
 ### I16: Profile emphasizes avatar descriptions over account settings
 
-- Priority: low; evidence: [profile_default.png](../../screenshots/instructor/profile_default.png).
+- Priority: low; evidence: [default.png](../../screenshots/instructor/default.png).
 - Time zone is displayed as text, while named avatar cards with visible descriptions dominate the
   viewport. The capture establishes neither a time-zone editing action nor the current avatar
   selection; it cannot prove those capabilities absent elsewhere.
@@ -682,8 +682,8 @@ refresh follows.
 ### I17: Library sorting is not visible
 
 - Priority: medium; user observation and evidence:
-  [question_library_filtered.png](../../screenshots/instructor/question_library_filtered.png) and
-  [question_library_browse.png](../../screenshots/instructor/question_library_browse.png) show no
+  [library_filtered.png](../../screenshots/instructor/library_filtered.png) and
+  [library_browse.png](../../screenshots/instructor/library_browse.png) show no
   visible sort control. HG already requires Library sorting.
 - Acceptance: expose the active order and a useful sort choice; preserve it through filters,
   pagination, and return from Question inspection. Verify equal values and missing metadata across

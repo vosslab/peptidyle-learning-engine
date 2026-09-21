@@ -181,7 +181,7 @@ BEGIN
         closes_at,
         assessment_attempt_limit,
         started_assessment_attempt_count,
-        late_work_rule,
+        late_work_rule::ple_data.late_work_rule,
         evaluation_time
     );
     SELECT COALESCE(jsonb_agg(jsonb_build_object('assessmentAttemptId', assessment_attempt.assessment_attempt_id::text, 'attemptNumber', assessment_attempt.assessment_attempt_number, 'state', CASE WHEN submission.assessment_attempt_id IS NULL THEN 'closed' ELSE 'submitted' END) ORDER BY assessment_attempt.assessment_attempt_number DESC, assessment_attempt.assessment_attempt_id DESC), '[]'::jsonb) INTO previous_assessment_attempts FROM ple_private.assessment_attempt AS assessment_attempt LEFT JOIN ple_private.assessment_submission AS submission ON submission.assessment_attempt_id = assessment_attempt.assessment_attempt_id WHERE assessment_attempt.student_record_id = student_record_id_value AND assessment_attempt.assessment_id = assessment_row.assessment_id AND (submission.assessment_attempt_id IS NOT NULL OR (assessment_attempt.expires_at IS NOT NULL AND assessment_attempt.expires_at <= evaluation_time));
@@ -196,7 +196,7 @@ $$;
 
 
 -- Pool-member selection is immutable Student Work evidence.  The start
--- operation writes the exact C353 QuestionRevisionTuples in the same
+-- operation writes the exact C353 PublishedQuestionRevisionTuples in the same
 -- transaction as its Assessment Attempt; this read accepts only an opaque Assessment Attempt route
 -- reference and derives the owning Student from the installed session.
 -- ASVS 2.2.1, 2.2.2, 2.3.1: do not accept a browser-selected Student,
@@ -215,7 +215,7 @@ CREATE FUNCTION ple_private.read_student_assessment_attempt_pool_selection(
     published_question_id text,
     revision_number integer
 )
-LANGUAGE plpgsql STABLE SECURITY DEFINER
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
 DECLARE assessment_attempt_row ple_private.assessment_attempt%ROWTYPE;
 BEGIN
@@ -227,10 +227,10 @@ BEGIN
            selection.assessment_entry_id,
            selection.question_pool_selection_id,
            selected.selection_position,
-           selection.question_pool_id,
+           selection.question_pool_id::text,
            selection.question_pool_edit_number,
            selected.member_position,
-           selected.published_question_id,
+           selected.published_question_id::text,
            selected.revision_number
       FROM ple_private.question_pool_selection AS selection
       JOIN ple_private.question_pool_selected_item AS selected
@@ -260,8 +260,8 @@ BEGIN
     END IF;
     RETURN QUERY
     SELECT assessment_attempt.assessment_attempt_id, assessment_attempt.assessment_attempt_number, course.course_instance_id,
-           course.course_short_name, course.course_long_name, course.course_theme_id AS course_theme,
-           assessment.assessment_id, policy.assessment_title,
+           course.course_short_name, course.course_long_name, course.course_theme,
+           assessment.assessment_id::text, policy.assessment_title,
            preference.time_zone,
            CASE WHEN assessment_attempt.expires_at IS NULL THEN NULL
                 ELSE floor(extract(epoch FROM assessment_attempt.expires_at) * 1000)::bigint END,
@@ -289,4 +289,3 @@ CREATE FUNCTION ple_api.read_active_student_assessment_attempt_id(text, text) RE
 CREATE FUNCTION ple_api.read_student_assessment_attempt_pool_selection(uuid) RETURNS TABLE (assessment_attempt_id uuid, assessment_entry_id uuid, question_pool_selection_id uuid, selection_position integer, question_pool_id text, question_pool_edit_number bigint, member_position integer, published_question_id text, revision_number integer) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$ SELECT * FROM ple_private.read_student_assessment_attempt_pool_selection($1) $$;
 
 CREATE FUNCTION ple_api.read_student_assessment_attempt_context(uuid) RETURNS TABLE (assessment_attempt_id uuid, assessment_attempt_number integer, course_instance_id text, course_short_name text, course_long_name text, course_theme text, assessment_id text, assessment_title text, display_time_zone text, expires_at_millis bigint, timer_remaining_milliseconds bigint) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$ SELECT * FROM ple_private.read_student_assessment_attempt_context($1) $$;
-

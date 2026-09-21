@@ -1,6 +1,6 @@
 // Same-origin transport for whole-set Published Question shared-metadata commands.
 
-import type { QuestionId } from "../../../generated/api/QuestionId";
+import type { PublishedQuestionId } from "../../../generated/api/PublishedQuestionId";
 import type { PublishedQuestionSharedMetadata } from "../../../generated/api/PublishedQuestionSharedMetadata";
 import { MAX_BULK_QUESTION_METADATA_ITEMS } from "../../../generated/api/MAX_BULK_QUESTION_METADATA_ITEMS";
 import {
@@ -22,8 +22,8 @@ const UPDATE_METADATA_PATH = "/api/questions/bulk-metadata";
 const MAX_BULK_METADATA_RESPONSE_CHARACTERS = 18 * 1_024 * 1_024;
 
 function exactOrderedIdSet(
-  expected: ReadonlyArray<QuestionId>,
-  actual: ReadonlyArray<{ readonly questionId: QuestionId }>,
+  expected: ReadonlyArray<PublishedQuestionId>,
+  actual: ReadonlyArray<{ readonly questionId: PublishedQuestionId }>,
   path: string,
 ): void {
   if (

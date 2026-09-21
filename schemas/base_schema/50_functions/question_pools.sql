@@ -190,7 +190,7 @@ BEGIN
            p_member_revision_numbers[member.ordinality], created_at
       FROM unnest(p_member_question_ids) WITH ORDINALITY AS member(published_question_id, ordinality)
      ORDER BY member.ordinality;
-    RETURN QUERY SELECT pool.question_pool_id, pool.question_pool_edit_number
+    RETURN QUERY SELECT pool.question_pool_id::text, pool.question_pool_edit_number
       FROM ple_data.question_pool AS pool WHERE pool.question_pool_id = p_question_pool_id;
 END
 $$;
@@ -202,7 +202,7 @@ CREATE FUNCTION ple_data.save_question_pool_members(
 ) RETURNS TABLE (question_pool_edit_number bigint) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
 DECLARE pool_row ple_data.question_pool%ROWTYPE; actor_id text;
-    created_at timestamptz := pg_catalog.clock_timestamp();
+    v_created_at timestamptz := pg_catalog.clock_timestamp();
     current_question_ids text[]; current_revision_numbers integer[];
 BEGIN
     IF p_question_pool_id IS NULL OR p_expected_question_pool_edit_number IS NULL
@@ -281,13 +281,13 @@ BEGIN
         question_pool_id, member_position, published_question_id, question_revision_number, created_at
     )
     SELECT p_question_pool_id, member.ordinality::integer, member.published_question_id,
-           p_member_revision_numbers[member.ordinality], created_at
+           p_member_revision_numbers[member.ordinality], v_created_at
       FROM unnest(p_member_question_ids) WITH ORDINALITY AS member(published_question_id, ordinality)
      ORDER BY member.ordinality;
     UPDATE ple_data.question_pool
        SET question_pool_edit_number = pool_row.question_pool_edit_number + 1,
            interchangeability_attested_by_account_id = actor_id,
-           interchangeability_attested_at = created_at,
+           interchangeability_attested_at = v_created_at,
            updated_on = CURRENT_DATE
      WHERE question_pool_id = p_question_pool_id
      RETURNING ple_data.question_pool.question_pool_edit_number INTO question_pool_edit_number;
@@ -306,7 +306,7 @@ CREATE FUNCTION ple_data.construct_question_pool_fork(
 )
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
-DECLARE created_at timestamptz := pg_catalog.clock_timestamp();
+DECLARE v_created_at timestamptz := pg_catalog.clock_timestamp();
 DECLARE source_metadata ple_data.question_pool%ROWTYPE;
 BEGIN
     IF p_question_pool_id IS NULL
@@ -343,7 +343,7 @@ BEGIN
         title, description, content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags
     ) VALUES (
         p_question_pool_id, 1,
-        p_source_question_pool_id, created_at,
+        p_source_question_pool_id, v_created_at,
         source_metadata.interchangeability_attested_by_account_id,
         source_metadata.interchangeability_attested_at,
         source_metadata.title, source_metadata.description, source_metadata.content_discipline_id,
@@ -354,11 +354,11 @@ BEGIN
         question_pool_id, member_position, published_question_id, question_revision_number, created_at
     )
     SELECT p_question_pool_id, member.member_position, member.published_question_id,
-           member.question_revision_number, created_at
+           member.question_revision_number, v_created_at
       FROM ple_data.question_pool_member AS member
      WHERE member.question_pool_id = p_source_question_pool_id
      ORDER BY member.member_position;
-    RETURN QUERY SELECT pool.question_pool_id, pool.question_pool_edit_number
+    RETURN QUERY SELECT pool.question_pool_id::text, pool.question_pool_edit_number
       FROM ple_data.question_pool AS pool WHERE pool.question_pool_id = p_question_pool_id;
 END
 $$;
@@ -451,7 +451,7 @@ BEGIN
     END IF;
     RETURN QUERY
     SELECT 'question'::text,
-           question.published_question_id,
+           question.published_question_id::text,
            max(revision.revision_number)::bigint,
            NULL::bigint
       FROM ple_data.published_question AS question
@@ -459,7 +459,7 @@ BEGIN
      GROUP BY question.published_question_id
     UNION ALL
     SELECT 'pool'::text,
-           pool.question_pool_id,
+           pool.question_pool_id::text,
            NULL::bigint,
            pool.question_pool_edit_number
       FROM ple_data.question_pool AS pool
@@ -513,7 +513,7 @@ RETURNS TABLE (
     bloom_cognitive_process text, bloom_knowledge_dimension text,
     bloom_classification_edit_number bigint,
     bloom_cognitive_process_counts bigint[], bloom_knowledge_dimension_counts bigint[]
-) LANGUAGE plpgsql STABLE SECURITY DEFINER
+) LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
 BEGIN
     -- ASVS 8.2.1: preserve empty unauthorized discovery before invoking
@@ -538,7 +538,7 @@ BEGIN
     END IF;
     RETURN QUERY
     WITH filtered AS MATERIALIZED (
-        SELECT pool.question_pool_id,
+        SELECT pool.question_pool_id::text,
                pool.question_pool_edit_number,
                (SELECT count(*)::integer FROM ple_data.question_pool_member AS member
                  WHERE member.question_pool_id = pool.question_pool_id) AS member_count,
@@ -653,9 +653,9 @@ RETURNS TABLE (
 SET search_path = pg_catalog, ple_api, ple_data AS $$
 BEGIN
     RETURN QUERY
-    SELECT pool.question_pool_id,
+    SELECT pool.question_pool_id::text,
            pool.question_pool_edit_number, member.member_position,
-           member.published_question_id,
+           member.published_question_id::text,
            member.question_revision_number,
            pool.title, pool.description, pool.content_discipline_id, discipline.name,
            discipline.is_retired, pool.content_subject_id,

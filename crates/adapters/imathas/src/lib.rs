@@ -61,8 +61,8 @@ use question_model::QuestionContentBlock;
 use question_model::generation::QuestionSeed;
 #[cfg(test)]
 use question_model::{
-    ObjectId, QuestionAttemptId, QuestionId, QuestionRevisionNumber, QuestionRevisionTuple,
-    SourceObjectChecksum, Timestamp,
+    ObjectId, PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionAttemptId,
+    QuestionRevisionNumber, SourceObjectChecksum, Timestamp,
 };
 #[cfg(test)]
 use uuid::Uuid;

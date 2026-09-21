@@ -19,7 +19,9 @@ function selection(...questionIds) {
     questionIds,
     questions: questionIds.map((questionId) => ({
       questionId,
-      row: { questionRevisionTuple: { questionId, revisionNumber: 1 } },
+      row: {
+        publishedQuestionRevisionTuple: { publishedQuestionId: questionId, revisionNumber: 1 },
+      },
     })),
   };
 }
@@ -133,7 +135,7 @@ test("Blueprint Course creation requires separate short and long lineage names",
     entries: [
       {
         kind: "fixed",
-        question_revision_tuple: { questionId: "AAAA-2BBB", revisionNumber: 1 },
+        published_question_revision_tuple: { publishedQuestionId: "AAAA-2BBB", revisionNumber: 1 },
         points_possible: "1",
         scoring_rule: "normal",
       },

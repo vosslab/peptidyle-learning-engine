@@ -25,9 +25,10 @@ use objects::s3::S3ObjectStore;
 use question_model::presentation::build_question_presentation;
 use question_model::question_library::QuestionBackendInterface;
 use question_model::{
-    AssessmentAttemptId, AssessmentId, CourseInstanceId, ObjectId, ProductRole, QuestionBackend,
-    QuestionBackendCapabilities, QuestionPresentation, QuestionPresentationChecksum,
-    QuestionRevisionNumber, QuestionRevisionTuple, SourceObjectChecksum, StudentResponse,
+    AssessmentAttemptId, AssessmentId, CourseInstanceId, ObjectId, ProductRole,
+    PublishedQuestionRevisionTuple, QuestionBackend, QuestionBackendCapabilities,
+    QuestionPresentation, QuestionPresentationChecksum, QuestionRevisionNumber,
+    SourceObjectChecksum, StudentResponse,
 };
 use serde::Serialize;
 
@@ -171,7 +172,7 @@ async fn student_question(
         Ok(value) => value,
         Err(value) => return store_error(value),
     };
-    let question_revision_tuple = source.question_revision_tuple.clone();
+    let published_question_revision_tuple = source.published_question_revision_tuple.clone();
     let issued = match reproduce_selected_issued_presentation(source) {
         Ok(value) => value,
         Err(StartError::Store(value)) => return store_error(value),
@@ -202,7 +203,7 @@ async fn student_question(
         Json(SelectedPresentationResponse {
             position: query.position,
             presentation: StudentQuestionPresentation {
-                question_revision_tuple,
+                published_question_revision_tuple,
                 author_content_digest: issued.presentation.author_content_digest,
                 prompt: issued.presentation.prompt,
                 response: issued.presentation.response,
@@ -234,7 +235,7 @@ pub(super) fn reproduce_selected_issued_presentation(
         (Some(expected), Some(author_content)) if expected == author_content.digest() => {}
         _ => return Err(StartError::Invalid),
     }
-    if presentation.question_revision_tuple != evidence.question_revision_tuple
+    if presentation.published_question_revision_tuple != evidence.published_question_revision_tuple
         || presentation.presentation_nonce.to_hex() != evidence.presentation_nonce
     {
         return Err(StartError::Invalid);
@@ -362,8 +363,14 @@ async fn issue_native_assessment_batch(
             .into_iter()
             .zip(&attempt.questions)
             .map(|(evidence, issued)| {
-                if evidence.question_revision_tuple.question_id != issued.question_id
-                    || evidence.question_revision_tuple.revision_number.get()
+                if evidence
+                    .published_question_revision_tuple
+                    .published_question_id
+                    != issued.question_id
+                    || evidence
+                        .published_question_revision_tuple
+                        .revision_number
+                        .get()
                         != issued.revision_number
                     || evidence.reproduction != issued.reproduction
                     || evidence.presentation_nonce != issued.presentation_nonce
@@ -431,8 +438,15 @@ async fn rebuild_committed_attempt_presentations(
             )
             .await
             .map_err(StartError::Store)?;
-        if evidence.question_revision_tuple.question_id != issued.question_id
-            || evidence.question_revision_tuple.revision_number.get() != issued.revision_number
+        if evidence
+            .published_question_revision_tuple
+            .published_question_id
+            != issued.question_id
+            || evidence
+                .published_question_revision_tuple
+                .revision_number
+                .get()
+                != issued.revision_number
             || evidence.reproduction != issued.reproduction
             || evidence.presentation_nonce != issued.presentation_nonce
             || evidence.presentation_checksum != issued.presentation_checksum
@@ -561,14 +575,16 @@ pub(crate) async fn resolve_webwork_source(
 ) -> Result<ResolvedWebworkQuestionSource, StartError> {
     let object =
         uuid::Uuid::parse_str(&source.source_object_id).map_err(|_| StartError::Invalid)?;
-    let question_revision_tuple = QuestionRevisionTuple {
-        question_id: source.question_id.clone(),
+    let published_question_revision_tuple = PublishedQuestionRevisionTuple {
+        published_question_id: source.question_id.clone(),
         revision_number: QuestionRevisionNumber::new(source.revision_number)
             .map_err(|_| StartError::Invalid)?,
     };
-    let binding =
-        WebworkQuestionSourceBinding::new(question_revision_tuple, source.webwork_pg_path.clone())
-            .map_err(|_| StartError::Invalid)?;
+    let binding = WebworkQuestionSourceBinding::new(
+        published_question_revision_tuple,
+        source.webwork_pg_path.clone(),
+    )
+    .map_err(|_| StartError::Invalid)?;
     ResolvedWebworkQuestionSource::resolve(
         objects,
         binding,
@@ -586,8 +602,8 @@ pub(super) async fn resolve_source(
 ) -> Result<ResolvedPleQuestionJsonSource, StartError> {
     let object =
         uuid::Uuid::parse_str(&source.source_object_id).map_err(|_| StartError::Invalid)?;
-    let question_revision_tuple = QuestionRevisionTuple {
-        question_id: source.question_id.clone(),
+    let published_question_revision_tuple = PublishedQuestionRevisionTuple {
+        published_question_id: source.question_id.clone(),
         revision_number: QuestionRevisionNumber::new(source.revision_number)
             .map_err(|_| StartError::Invalid)?,
     };
@@ -595,7 +611,7 @@ pub(super) async fn resolve_source(
         .map_err(|_| StartError::Invalid)?;
     ResolvedPleQuestionJsonSource::resolve(
         objects,
-        question_revision_tuple,
+        published_question_revision_tuple,
         ObjectId::from_uuid(object),
         checksum,
     )

@@ -10,9 +10,10 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    AssessmentEditNumber, AssessmentEntryId, BloomClassificationView, QuestionId,
-    QuestionPoolEditNumber, QuestionRevisionTuple, QuestionSearchBloomCognitiveProcessFacet,
-    QuestionSearchBloomKnowledgeDimensionFacet, QuestionStatistics, ReusableQuestionView,
+    AssessmentEditNumber, AssessmentEntryId, BloomClassificationView,
+    PublishedQuestionRevisionTuple, QuestionPoolEditNumber, QuestionPoolId,
+    QuestionSearchBloomCognitiveProcessFacet, QuestionSearchBloomKnowledgeDimensionFacet,
+    QuestionStatistics, ReusableQuestionView,
 };
 
 /// Current Pool lineage metadata, independent of immutable membership Revisions.
@@ -38,7 +39,7 @@ pub struct QuestionPoolMetadata {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionPoolLibrarySummary {
     pub metadata: QuestionPoolMetadata,
-    pub question_pool_id: QuestionId,
+    pub question_pool_id: QuestionPoolId,
     /// Current-state concurrency marker; not a historical membership object.
     pub question_pool_edit_number: QuestionPoolEditNumber,
     /// Total members in the current Pool membership.
@@ -76,7 +77,7 @@ pub struct QuestionPoolMemberView {
     /// Zero-based position in the Pool's current member list.
     pub member_position: u32,
     /// Exact immutable Question Revision at this position.
-    pub question_revision_tuple: QuestionRevisionTuple,
+    pub published_question_revision_tuple: PublishedQuestionRevisionTuple,
     /// Answer-free reusable Question projection for the exact member.
     pub question: ReusableQuestionView,
 }
@@ -87,7 +88,7 @@ pub struct QuestionPoolMemberView {
 pub struct QuestionPoolView {
     /// Current Pool metadata.
     pub metadata: QuestionPoolMetadata,
-    pub question_pool_id: QuestionId,
+    pub question_pool_id: QuestionPoolId,
     /// Current-state concurrency marker; not a historical membership object.
     pub question_pool_edit_number: QuestionPoolEditNumber,
     /// Exact Pool-owned Bloom Classification when assigned.
@@ -105,7 +106,7 @@ pub struct AssessmentQuestionPoolForkView {
     pub metadata: QuestionPoolMetadata,
     /// Stable Assessment Entry that owns this fork.
     pub assessment_entry_id: AssessmentEntryId,
-    pub question_pool_id: QuestionId,
+    pub question_pool_id: QuestionPoolId,
     /// Current-state concurrency marker for the Assessment-owned fork Pool.
     pub question_pool_edit_number: QuestionPoolEditNumber,
     /// Positive number of members selected for each future Assessment Attempt.

@@ -20,7 +20,7 @@ BEGIN
         RETURNING account_id INTO publisher;
         INSERT INTO ple_private.authoring_workspace (
             authoring_workspace_id, owner_account_id, created_at
-        ) VALUES (example_workspace, publisher, clock_timestamp());
+        ) VALUES (example_workspace, publisher, pg_catalog.transaction_timestamp());
     END IF;
 END
 $$;

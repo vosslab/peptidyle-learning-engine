@@ -4,7 +4,7 @@ import type { AssessmentEditNumber } from "../../generated/api/AssessmentEditNum
 import type { AssessmentId } from "../../generated/api/AssessmentId";
 import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { InstructorStudentView } from "../../generated/api/InstructorStudentView";
-import type { QuestionRevisionTuple } from "../../generated/api/QuestionRevisionTuple";
+import type { PublishedQuestionRevisionTuple } from "../../generated/api/PublishedQuestionRevisionTuple";
 import type { StudentQuestionPresentation } from "../../generated/api/StudentQuestionPresentation";
 
 /** Read-only preview capability with no Student, Attempt, submission, or grading operation. */
@@ -17,14 +17,14 @@ export interface AssessmentStudentViewClient {
     courseInstanceId: CourseInstanceId,
     assessmentId: AssessmentId,
     authoredPosition: number,
-    questionRevisionTuple: QuestionRevisionTuple,
+    publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple,
     expectedAssessmentEditNumber: AssessmentEditNumber,
   ) => Promise<StudentQuestionPresentation>;
   readonly instructorStudentViewQuestionDocumentUrl: (
     courseInstanceId: CourseInstanceId,
     assessmentId: AssessmentId,
     authoredPosition: number,
-    questionRevisionTuple: QuestionRevisionTuple,
+    publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple,
     expectedAssessmentEditNumber: AssessmentEditNumber,
   ) => string;
 }

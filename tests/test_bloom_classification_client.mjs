@@ -8,7 +8,7 @@ import {
   BloomClassificationConflictError,
 } from "../src/api/http_client/error.ts";
 
-const question = { questionId: "7K3M-79QP", revisionNumber: 3 };
+const question = { publishedQuestionId: "7K3M-79QP", revisionNumber: 3 };
 const poolId = "3S8B-24DZ";
 const request = {
   cognitiveProcess: "Analyze",
@@ -38,11 +38,11 @@ test("Bloom correction posts one complete exact-Revision CAS command", async () 
     if (String(input).includes("/question-pools/")) {
       return jsonResponse({ questionPoolId: poolId, bloom });
     }
-    return jsonResponse({ questionRevisionTuple: question, bloom });
+    return jsonResponse({ publishedQuestionRevisionTuple: question, bloom });
   }, "/ple");
 
   assert.deepEqual(await client.correctQuestionBloom(question, request), {
-    questionRevisionTuple: question,
+    publishedQuestionRevisionTuple: question,
     bloom,
   });
   assert.deepEqual(await client.correctQuestionPoolBloom(poolId, request), {
@@ -77,8 +77,8 @@ test("Bloom correction surfaces stale state once and never retries", async () =>
 
 test("Bloom correction rejects response target drift and open receipts", async () => {
   const responses = [
-    { questionRevisionTuple: { ...question, revisionNumber: 4 }, bloom },
-    { questionRevisionTuple: question, bloom, actor: "Instructor" },
+    { publishedQuestionRevisionTuple: { ...question, revisionNumber: 4 }, bloom },
+    { publishedQuestionRevisionTuple: question, bloom, actor: "Instructor" },
   ];
   const client = createBloomClassificationCorrectionClient(
     async () => jsonResponse(responses.shift()),

@@ -12,7 +12,7 @@ function questionLibraryEntry(questionId, questionTitle, revisionNumber) {
     summary: {
       ...publishedQuestion,
       questionId,
-      questionRevisionTuple: { questionId, revisionNumber },
+      publishedQuestionRevisionTuple: { publishedQuestionId: questionId, revisionNumber },
       metadata: { ...publishedQuestion.metadata, questionTitle },
     },
     disciplineName: "Biology",
@@ -29,7 +29,10 @@ function content() {
       {
         kind: "fixed",
         question: {
-          question_revision_tuple: { questionId: "7K3M-79QP", revisionNumber: 3 },
+          published_question_revision_tuple: {
+            publishedQuestionId: "7K3M-79QP",
+            revisionNumber: 3,
+          },
           question_library: questionLibraryEntry("7K3M-79QP", "First fixed", 3),
           selection_availability: "available",
         },
@@ -48,7 +51,10 @@ function content() {
       {
         kind: "fixed",
         question: {
-          question_revision_tuple: { questionId: "4T9C-C5EW", revisionNumber: 5 },
+          published_question_revision_tuple: {
+            publishedQuestionId: "4T9C-C5EW",
+            revisionNumber: 5,
+          },
           question_library: questionLibraryEntry("4T9C-C5EW", "Final fixed", 5),
           selection_availability: "available",
         },
@@ -111,10 +117,10 @@ test("Blueprint Assessment picker presents fixed Questions in authored order", a
     ["7K3M-79QP", "4T9C-C5EW"],
   );
   assert.deepEqual(
-    result.items.map((row) => row.questionRevisionTuple),
+    result.items.map((row) => row.publishedQuestionRevisionTuple),
     [
-      { questionId: "7K3M-79QP", revisionNumber: 3 },
-      { questionId: "4T9C-C5EW", revisionNumber: 5 },
+      { publishedQuestionId: "7K3M-79QP", revisionNumber: 3 },
+      { publishedQuestionId: "4T9C-C5EW", revisionNumber: 5 },
     ],
   );
   assert.deepEqual(resolved, [{ blueprintCourseId: "BP7K3MX9AA", revisionNumber: "2" }]);

@@ -42,9 +42,9 @@ BEGIN
             MESSAGE = 'Blueprint Course is unavailable';
     END IF;
     RETURN QUERY
-    SELECT child.blueprint_course_id, child.short_name, child.long_name,
-           child.availability, child.current_blueprint_revision_number,
-           ancestry.source_blueprint_revision_number,
+    SELECT child.blueprint_course_id::text, child.short_name, child.long_name,
+           child.availability::text, child.current_blueprint_revision_number::bigint,
+           ancestry.source_blueprint_revision_number::bigint,
            ple_private.verified_instructor_display_name(child.owner_account_id)
       FROM ple_data.blueprint_course_fork AS ancestry
       JOIN ple_data.blueprint_course AS child
@@ -139,7 +139,7 @@ BEGIN
         SELECT 1 FROM left_ancestors JOIN right_ancestors USING (blueprint_course_id)
     ) THEN RETURN; END IF;
     RETURN QUERY
-    SELECT inputs.position, inputs.blueprint_course_id, revision.blueprint_revision_number,
+    SELECT inputs.position, inputs.blueprint_course_id::text, revision.blueprint_revision_number::bigint,
            revision.content, revision.content_checksum,
            v_source.short_name, v_source.long_name, v_fork.short_name, v_fork.long_name,
            v_source.blueprint_edit_number, v_fork.blueprint_edit_number
@@ -489,8 +489,12 @@ BEGIN
         v_source.content_discipline_id, v_source.content_subject_id, v_source.content_topic_id,
         v_source.content_subtopic_id, v_source.tags
     );
-    INSERT INTO ple_data.blueprint_course_fork VALUES (
-        v_child_blueprint_course_id, v_source_blueprint_course_id, p_source_blueprint_revision_number, v_now
+    INSERT INTO ple_data.blueprint_course_fork(
+        blueprint_course_id, source_blueprint_course_id,
+        source_blueprint_revision_number, forked_at
+    ) VALUES (
+        v_child_blueprint_course_id, v_source_blueprint_course_id,
+        p_source_blueprint_revision_number, v_now
     );
     INSERT INTO ple_data.blueprint_course_fork_receipt VALUES (
         v_actor, p_request_checksum, v_child_blueprint_course_id, v_source_blueprint_course_id,
@@ -505,4 +509,3 @@ BEGIN
     RETURN NEXT;
 END
 $$;
-

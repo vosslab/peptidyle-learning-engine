@@ -27,7 +27,7 @@ $$;
 -- no Course membership, Student work, or other FERPA data. Mutations retain the
 -- vetted-identity guard above; installation publishers receive no special bypass.
 CREATE FUNCTION ple_private.require_content_classification_reader()
-RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER
+RETURNS text LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
 DECLARE actor_id text;
 BEGIN
@@ -285,7 +285,7 @@ END
 $$;
 
 CREATE FUNCTION ple_private.list_content_disciplines()
-RETURNS TABLE (content_discipline_id uuid, name text) LANGUAGE plpgsql STABLE SECURITY DEFINER
+RETURNS TABLE (content_discipline_id uuid, name text) LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 BEGIN
     PERFORM ple_private.require_content_classification_reader();
@@ -302,7 +302,7 @@ $$;
 -- active-only projection above.
 CREATE FUNCTION ple_private.list_content_disciplines_including_retired()
 RETURNS TABLE (content_discipline_id uuid, name text, is_retired boolean)
-LANGUAGE plpgsql STABLE SECURITY DEFINER
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 BEGIN
     PERFORM ple_private.require_content_classification_reader();
@@ -314,7 +314,7 @@ $$;
 
 CREATE FUNCTION ple_private.get_content_discipline(p_discipline_uuid uuid)
 RETURNS TABLE (content_discipline_id uuid, name text, is_retired boolean)
-LANGUAGE plpgsql STABLE SECURITY DEFINER
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 BEGIN
     PERFORM ple_private.require_content_classification_reader();
@@ -325,7 +325,7 @@ END
 $$;
 
 CREATE FUNCTION ple_private.list_content_subjects(p_discipline_uuid uuid)
-RETURNS TABLE (content_subject_id uuid, name text) LANGUAGE plpgsql STABLE SECURITY DEFINER
+RETURNS TABLE (content_subject_id uuid, name text) LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 BEGIN
     PERFORM ple_private.require_content_classification_reader();
@@ -337,7 +337,7 @@ END
 $$;
 
 CREATE FUNCTION ple_private.list_content_topics(p_subject_uuid uuid)
-RETURNS TABLE (content_topic_id uuid, name text) LANGUAGE plpgsql STABLE SECURITY DEFINER
+RETURNS TABLE (content_topic_id uuid, name text) LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 BEGIN
     PERFORM ple_private.require_content_classification_reader();
@@ -348,7 +348,7 @@ END
 $$;
 
 CREATE FUNCTION ple_private.list_content_subtopics(p_topic_uuid uuid)
-RETURNS TABLE (content_subtopic_id uuid, name text) LANGUAGE plpgsql STABLE SECURITY DEFINER
+RETURNS TABLE (content_subtopic_id uuid, name text) LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 BEGIN
     PERFORM ple_private.require_content_classification_reader();
@@ -359,7 +359,7 @@ END
 $$;
 
 CREATE FUNCTION ple_private.find_content_subject(p_name text)
-RETURNS TABLE (content_subject_id uuid, name text) LANGUAGE plpgsql STABLE SECURITY DEFINER
+RETURNS TABLE (content_subject_id uuid, name text) LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE normalized_name text;
 BEGIN
@@ -459,4 +459,3 @@ SET search_path = pg_catalog, ple_api, ple_private AS $$ SELECT * FROM ple_priva
 CREATE FUNCTION ple_api.list_content_subtopics(p_topic_uuid uuid)
 RETURNS TABLE (content_subtopic_id uuid, name text) LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$ SELECT * FROM ple_private.list_content_subtopics(p_topic_uuid) $$;
-

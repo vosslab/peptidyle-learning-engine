@@ -35,7 +35,7 @@ rerelease_latest_unreleased_current_assignment() {
 # Choose an ordinary published Question through the Instructor API.  The
 # acceptance journey deliberately selects a backend, not a source file or a
 # question-control type: WeBWorK remains opaque to PLE and to this shell test.
-published_question_revision_tuple() {
+published_published_question_revision_tuple() {
 	local instructor="$1" backend="$2" listed
 	listed="$(request "/api/questions/search?backends=$backend&authorship=any&page_size=50" "$instructor")"
 	if [ "$(response_status "$listed")" != 200 ]; then
@@ -48,18 +48,18 @@ value=json.loads(sys.argv[1]); backend=sys.argv[2]
 items=value.get("items")
 if not isinstance(items,list) or not items: raise SystemExit("Question Library has no selected backend Question")
 summary=items[0].get("summary") if isinstance(items[0],dict) else None
-question_revision=summary.get("questionRevisionTuple") if isinstance(summary,dict) else None
+question_revision=summary.get("publishedQuestionRevisionTuple") if isinstance(summary,dict) else None
 if not isinstance(summary,dict) or summary.get("backend") != backend or not isinstance(question_revision,dict):
     raise SystemExit("Question Library did not return the selected backend")
-if (set(question_revision)!={"questionId","revisionNumber"} or not isinstance(question_revision["questionId"],str)
-    or re.fullmatch(r"[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}",question_revision["questionId"]) is None
+if (set(question_revision)!={"publishedQuestionId","revisionNumber"} or not isinstance(question_revision["publishedQuestionId"],str)
+    or re.fullmatch(r"[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}",question_revision["publishedQuestionId"]) is None
     or not isinstance(question_revision["revisionNumber"],int) or question_revision["revisionNumber"] < 1):
     raise SystemExit("Question Library backend Question Revision Tuple is malformed")
 print(json.dumps(question_revision,separators=(",",":")))
 ' "$(response_body "$listed")" "$backend"
 }
 
-canonical_native_question_revision_tuple() {
+canonical_native_published_question_revision_tuple() {
 	local instructor="$1" listed
 	listed="$(request '/api/questions/search?backends=ple&authorship=any&page_size=20' "$instructor")"
 	if [ "$(response_status "$listed")" != 200 ]; then
@@ -72,11 +72,11 @@ items=json.loads(sys.argv[1]).get("items",[])
 for item in items:
     summary=item.get("summary") if isinstance(item,dict) else None
     metadata=summary.get("metadata") if isinstance(summary,dict) else None
-    question_revision=summary.get("questionRevisionTuple") if isinstance(summary,dict) else None
+    question_revision=summary.get("publishedQuestionRevisionTuple") if isinstance(summary,dict) else None
     if (isinstance(metadata,dict) and metadata.get("questionTitle")=="Genetics Chapter 1: Phenylalanine metabolism"
         and summary.get("backend")=="ple" and isinstance(question_revision,dict)
-        and set(question_revision)=={"questionId","revisionNumber"}
-        and re.fullmatch(r"[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}",question_revision["questionId"])
+        and set(question_revision)=={"publishedQuestionId","revisionNumber"}
+        and re.fullmatch(r"[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}",question_revision["publishedQuestionId"])
         and isinstance(question_revision["revisionNumber"],int) and question_revision["revisionNumber"] > 0):
         print(json.dumps(question_revision,separators=(",",":"))); break
 else: raise SystemExit("canonical native acceptance Question is unavailable")
@@ -84,12 +84,12 @@ else: raise SystemExit("canonical native acceptance Question is unavailable")
 }
 
 create_released_backend_assignment() {
-	local course="$1" instructor="$2" backend="$3" title="$4" duration="${5:-300}" question_revision_tuple="${6:-}" created assignment edit saved saved_edit released payload
+	local course="$1" instructor="$2" backend="$3" title="$4" duration="${5:-300}" published_question_revision_tuple="${6:-}" created assignment edit saved saved_edit released payload
 	created="$(request "/api/course-instances/$course/assessments" "$instructor" POST "{\"assessmentType\":\"practice_question_assignment\",\"title\":\"$title\",\"instructions\":\"Complete the selected Question.\"}")"
 	require_status "Backend Assessment creation" "$created" 201
 	read -r assignment edit < <(workspace_id_and_edit_number "$(response_body "$created")")
-	[ -n "$question_revision_tuple" ] || question_revision_tuple="$(published_question_revision_tuple "$instructor" "$backend")"
-	payload="$(save_payload "$(response_body "$created")" "$question_revision_tuple" "$title")"
+	[ -n "$published_question_revision_tuple" ] || published_question_revision_tuple="$(published_published_question_revision_tuple "$instructor" "$backend")"
+	payload="$(save_payload "$(response_body "$created")" "$published_question_revision_tuple" "$title")"
 	payload="$(python3 -c 'import json,sys; value=json.loads(sys.argv[1]); value["assessmentAttemptTimeLimitSeconds"]=int(sys.argv[2]); print(json.dumps(value,separators=(",",":")))' "$payload" "$duration")"
 	saved="$(request "/api/course-instances/$course/assessments/$assignment" "$instructor" PUT "$payload" "$edit")"
 	require_status "Backend Assessment save" "$saved" 200
@@ -125,7 +125,7 @@ assert_evidence_rows() {
 }
 
 prove_start() {
-	local instructor mary jack sysadmin course assignment access started question_revision_tuple workspace assignment_edit updated resumed new_attempt
+	local instructor mary jack sysadmin course assignment access started published_question_revision_tuple workspace assignment_edit updated resumed new_attempt
 	instructor="$(persona_cookie elenaInstructor)"; mary="$(persona_cookie maryStudent)"; jack="$(persona_cookie jackStudent)"; sysadmin="$(persona_cookie morganSysadmin)"
 	bash "$repository_root/tests/e2e/e2e_live_demo_assignment_release.sh" --service >/dev/null
 	read -r course assignment < <(rerelease_latest_unreleased_current_assignment "$instructor")
@@ -140,8 +140,8 @@ prove_start() {
 
 	started="$(request "/api/course-instances/$course/assessments/$assignment/start" "$mary" POST '{}')"
 	require_status "Student Assessment start" "$started" 201
-	question_revision_tuple="$(python3 -c 'import json,sys; print(json.dumps(json.loads(sys.argv[1])["questions"][0]["questionRevisionTuple"], separators=(",", ":")))' "$(response_body "$started")")"
-	assert_started "$started" false "Current Assignment" "$question_revision_tuple"
+	published_question_revision_tuple="$(python3 -c 'import json,sys; print(json.dumps(json.loads(sys.argv[1])["questions"][0]["publishedQuestionRevisionTuple"], separators=(",", ":")))' "$(response_body "$started")")"
+	assert_started "$started" false "Current Assignment" "$published_question_revision_tuple"
 
 	workspace="$(request "/api/course-instances/$course/assessments/$assignment" "$instructor")"
 	require_status "Instructor current Assessment read" "$workspace" 200
@@ -151,10 +151,10 @@ prove_start() {
 
 	resumed="$(request "/api/course-instances/$course/assessments/$assignment/start" "$mary" POST '{}')"
 	require_status "Existing Attempt resume" "$resumed" 201
-	assert_started "$resumed" true "Current Assignment" "$question_revision_tuple"
+	assert_started "$resumed" true "Current Assignment" "$published_question_revision_tuple"
 	new_attempt="$(request "/api/course-instances/$course/assessments/$assignment/start" "$jack" POST '{}')"
 	require_status "New Attempt start" "$new_attempt" 201
-	assert_started "$new_attempt" false "Edited for future Attempts" "$question_revision_tuple"
+	assert_started "$new_attempt" false "Edited for future Attempts" "$published_question_revision_tuple"
 	assert_evidence_rows "$course" "$assignment"
 	echo "Assessment Attempt: authorization, exact Question Revision evidence, and released-edit boundary passed"
 }
@@ -232,12 +232,12 @@ print(json.dumps(payload,separators=(",",":")))
 }
 
 prove_native_current_points() {
-	local instructor mary course assignment question_revision_tuple started attempt selected saved submitted initial_score workspace edit updated history gradebook
+	local instructor mary course assignment published_question_revision_tuple started attempt selected saved submitted initial_score workspace edit updated history gradebook
 	instructor="$(persona_cookie elenaInstructor)"; mary="$(persona_cookie maryStudent)"
 	course="$(new_course_instance_id "$instructor")"
 	claim_student_record "$course" "$instructor" "$mary" mary.okafor@biology.roosevelt.edu current-points-mary Mary
-	question_revision_tuple="$(canonical_native_question_revision_tuple "$instructor")"
-	assignment="$(create_released_backend_assignment "$course" "$instructor" ple "Native Current Points" 300 "$question_revision_tuple")"
+	published_question_revision_tuple="$(canonical_native_published_question_revision_tuple "$instructor")"
+	assignment="$(create_released_backend_assignment "$course" "$instructor" ple "Native Current Points" 300 "$published_question_revision_tuple")"
 	started="$(request "/api/course-instances/$course/assessments/$assignment/start" "$mary" POST '{}')"
 	require_status "Native Assessment start" "$started" 201
 	attempt="$(python3 -c 'import json,re,sys; value=json.loads(sys.argv[1]); attempt=value.get("assessmentAttempt"); assert isinstance(attempt,str) and re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",attempt); print(attempt)' "$(response_body "$started")")"
@@ -272,12 +272,12 @@ if not any(row.get("assessmentId")==assignment and row.get("score") is not None 
 }
 
 prove_background_expiry() {
-	local instructor mary course assignment question_revision_tuple started attempt selected saved history completed=0 postgres evidence
+	local instructor mary course assignment published_question_revision_tuple started attempt selected saved history completed=0 postgres evidence
 	instructor="$(persona_cookie elenaInstructor)"; mary="$(persona_cookie maryStudent)"
 	course="$(new_course_instance_id "$instructor")"
 	claim_student_record "$course" "$instructor" "$mary" mary.okafor@biology.roosevelt.edu expiry-worker-mary Mary
-	question_revision_tuple="$(canonical_native_question_revision_tuple "$instructor")"
-	assignment="$(create_released_backend_assignment "$course" "$instructor" ple "Background Expiry" 300 "$question_revision_tuple")"
+	published_question_revision_tuple="$(canonical_native_published_question_revision_tuple "$instructor")"
+	assignment="$(create_released_backend_assignment "$course" "$instructor" ple "Background Expiry" 300 "$published_question_revision_tuple")"
 	started="$(request "/api/course-instances/$course/assessments/$assignment/start" "$mary" POST '{}')"
 	require_status "Expiry Assessment start" "$started" 201
 	attempt="$(python3 -c 'import json,re,sys; value=json.loads(sys.argv[1]); attempt=value.get("assessmentAttempt"); assert isinstance(attempt,str) and re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",attempt); print(attempt)' "$(response_body "$started")")"

@@ -10,8 +10,9 @@ use question_model::{
     AssessmentActivityRules, AssessmentEntryScoringRule, AssessmentInstructions,
     AssessmentPointValue, BlueprintAssessmentContentInput, BlueprintAssessmentDefaults,
     BlueprintAssessmentEntryInput, BlueprintAvailability, BlueprintRevisionNumber,
-    CreateBlueprintCourseInput, CreateBlueprintModuleInput, LateWorkRule, QuestionAttemptLimit,
-    QuestionAttemptTimeLimit, QuestionRevisionTuple, RequestChecksum, ReusableFixedQuestionInput,
+    CreateBlueprintCourseInput, CreateBlueprintModuleInput, LateWorkRule,
+    PublishedQuestionRevisionTuple, QuestionAttemptLimit, QuestionAttemptTimeLimit,
+    RequestChecksum, ReusableFixedQuestionInput,
 };
 
 use crate::{
@@ -153,7 +154,7 @@ pub(crate) fn create_live_demo_blueprint(
 fn validate_loaded_content(
     content: &StoredBlueprintCourseContent,
     expected: &CreateBlueprintCourseInput,
-    questions: &[QuestionRevisionTuple],
+    questions: &[PublishedQuestionRevisionTuple],
 ) -> Result<question_model::BlueprintAssessmentId> {
     ensure!(
         content.modules.len() == 1 && expected.modules.len() == 1,
@@ -189,7 +190,7 @@ fn validate_loaded_content(
     {
         let (
             StoredBlueprintAssessmentEntry::Fixed {
-                question_revision_tuple,
+                published_question_revision_tuple,
                 points_possible: actual_points,
                 scoring_rule: actual_scoring,
                 question_attempt_limit: actual_attempt_limit,
@@ -201,8 +202,8 @@ fn validate_loaded_content(
             anyhow::bail!("Live Demo Blueprint entries must remain fixed Questions");
         };
         ensure!(
-            question_revision_tuple == question
-                && &expected_fixed.question_revision_tuple == question,
+            published_question_revision_tuple == question
+                && &expected_fixed.published_question_revision_tuple == question,
             "Live Demo Blueprint Question pins differ from the reviewed Pilot publications"
         );
         ensure!(
@@ -217,7 +218,7 @@ fn validate_loaded_content(
 }
 
 fn live_demo_blueprint_input(
-    questions: Vec<QuestionRevisionTuple>,
+    questions: Vec<PublishedQuestionRevisionTuple>,
     classification: question_model::CourseClassification,
 ) -> Result<CreateBlueprintCourseInput> {
     ensure!(
@@ -241,7 +242,7 @@ fn live_demo_blueprint_input(
                     .into_iter()
                     .map(|question| {
                         BlueprintAssessmentEntryInput::Fixed(ReusableFixedQuestionInput {
-                            question_revision_tuple: question,
+                            published_question_revision_tuple: question,
                             points_possible: AssessmentPointValue::from_whole(1),
                             scoring_rule: AssessmentEntryScoringRule::Normal,
                             question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
@@ -274,11 +275,11 @@ mod tests {
     use question_model::{BlueprintAssessmentId, BlueprintModuleId};
     use uuid::Uuid;
 
-    fn question(number: u8) -> QuestionRevisionTuple {
-        QuestionRevisionTuple {
-            question_id: question_model::QuestionId::from_random_identifier(format!(
-                "ABCDEF{number}"
-            ))
+    fn question(number: u8) -> PublishedQuestionRevisionTuple {
+        PublishedQuestionRevisionTuple {
+            published_question_id: question_model::PublishedQuestionId::from_random_identifier(
+                format!("ABCDEF{number}"),
+            )
             .expect("test Question ID is valid"),
             revision_number: question_model::QuestionRevisionNumber::new(1)
                 .expect("test Revision is valid"),
@@ -327,7 +328,7 @@ mod tests {
 
     fn stored_content(
         input: &CreateBlueprintCourseInput,
-        questions: &[QuestionRevisionTuple],
+        questions: &[PublishedQuestionRevisionTuple],
     ) -> StoredBlueprintCourseContent {
         let assessment = &input.modules[0].assessments[0];
         StoredBlueprintCourseContent {
@@ -347,7 +348,7 @@ mod tests {
                             .map(|(entry, question)| match entry {
                                 BlueprintAssessmentEntryInput::Fixed(fixed) => {
                                     StoredBlueprintAssessmentEntry::Fixed {
-                                        question_revision_tuple: question.clone(),
+                                        published_question_revision_tuple: question.clone(),
                                         points_possible: fixed.points_possible,
                                         scoring_rule: fixed.scoring_rule,
                                         question_attempt_limit: fixed.question_attempt_limit,

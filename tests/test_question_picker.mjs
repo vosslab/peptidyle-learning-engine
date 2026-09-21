@@ -14,7 +14,7 @@ import {
 function row(displayId, questionTitle = "Question", revisionNumber = 1) {
   return {
     displayId,
-    questionRevisionTuple: { questionId: displayId, revisionNumber },
+    publishedQuestionRevisionTuple: { publishedQuestionId: displayId, revisionNumber },
     questionTitle,
     summary: "Answer-free summary.",
     bloom: {
@@ -53,8 +53,8 @@ test("Question Picker preserves public Question ID order and safe row metadata",
   ]);
   assert.deepEqual(selection.questionIds, ["7K3M-79QP", "2R5X-E7YA"]);
   assert.equal(selection.questions[1]?.row.questionTitle, "Second");
-  assert.deepEqual(selection.questions[1]?.row.questionRevisionTuple, {
-    questionId: "2R5X-E7YA",
+  assert.deepEqual(selection.questions[1]?.row.publishedQuestionRevisionTuple, {
+    publishedQuestionId: "2R5X-E7YA",
     revisionNumber: 1,
   });
 });

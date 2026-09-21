@@ -12,7 +12,7 @@ import type { BloomClassificationCorrectionClient } from "../api/bloom_classific
 import { LibraryPoolDiscovery } from "./library_pool_discovery";
 import { MAX_BULK_QUESTION_METADATA_ITEMS } from "../../generated/api/MAX_BULK_QUESTION_METADATA_ITEMS";
 import type { QuestionDetails } from "../../generated/api/QuestionDetails";
-import type { QuestionId } from "../../generated/api/QuestionId";
+import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionId";
 import type { PublishedQuestionSharedMetadata } from "../../generated/api/PublishedQuestionSharedMetadata";
 import type {
   QuestionBulkMetadataClient,
@@ -70,7 +70,7 @@ export interface LibraryPageProps {
   readonly poolLibraryClient?: QuestionPoolLibraryClient &
     LibraryDiscussionClient &
     BloomClassificationCorrectionClient;
-  readonly getQuestionDetails: (questionId: QuestionId) => Promise<QuestionDetails>;
+  readonly getQuestionDetails: (questionId: PublishedQuestionId) => Promise<QuestionDetails>;
 }
 
 /** Question Library UI with the production repository injected by the route composition. */

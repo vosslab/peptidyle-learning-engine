@@ -6,8 +6,8 @@ use sha2::{Digest, Sha256};
 use crate::{
     AssessmentEntryScoringRule, AssessmentInstructions, AssessmentPointValue, AssessmentTitle,
     BlueprintAssessmentDefaults, BlueprintAssessmentId, BlueprintCourseValidationError,
-    BlueprintModuleId, MAX_ASSESSMENT_ORDERED_ENTRIES, QuestionAttemptLimit,
-    QuestionAttemptTimeLimit, QuestionRevisionTuple, ReusablePoolView,
+    BlueprintModuleId, MAX_ASSESSMENT_ORDERED_ENTRIES, PublishedQuestionRevisionTuple,
+    QuestionAttemptLimit, QuestionAttemptTimeLimit, ReusablePoolView,
     validate_blueprint_course_title,
 };
 
@@ -188,7 +188,7 @@ pub enum BlueprintAssessmentEntryContent {
     /// One fixed immutable Question Revision and its scoring rule.
     Fixed {
         /// Exact immutable publication pin authorized for the destination.
-        question_revision_tuple: QuestionRevisionTuple,
+        published_question_revision_tuple: PublishedQuestionRevisionTuple,
         /// Exact points copied into the destination assessment.
         points_possible: AssessmentPointValue,
         /// Scoring treatment copied into the destination assessment.
@@ -204,7 +204,7 @@ pub enum BlueprintAssessmentEntryContent {
 /// One validated current Question Pool selected for future adoption.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlueprintQuestionPoolContent {
-    question_pool_id: crate::QuestionId,
+    question_pool_id: crate::QuestionPoolId,
     question_pool_edit_number: crate::QuestionPoolEditNumber,
     selection_count: std::num::NonZeroU32,
     points_per_item: AssessmentPointValue,
@@ -228,7 +228,7 @@ impl BlueprintQuestionPoolContent {
         })
     }
     /// Returns the Pool ID.
-    pub fn question_pool_id(&self) -> &crate::QuestionId {
+    pub fn question_pool_id(&self) -> &crate::QuestionPoolId {
         &self.question_pool_id
     }
 
@@ -345,14 +345,14 @@ struct EncodedAssessment<'a> {
 #[serde(tag = "kind", rename_all = "snake_case")]
 enum EncodedEntry<'a> {
     Fixed {
-        question_revision_tuple: &'a QuestionRevisionTuple,
+        published_question_revision_tuple: &'a PublishedQuestionRevisionTuple,
         points_possible: AssessmentPointValue,
         scoring_rule: AssessmentEntryScoringRule,
         question_attempt_limit: &'a QuestionAttemptLimit,
         question_attempt_time_limit: &'a QuestionAttemptTimeLimit,
     },
     Pool {
-        question_pool_id: &'a crate::QuestionId,
+        question_pool_id: &'a crate::QuestionPoolId,
         question_pool_edit_number: crate::QuestionPoolEditNumber,
         selection_count: std::num::NonZeroU32,
         points_per_item: AssessmentPointValue,
@@ -399,13 +399,13 @@ fn encode_assessment(assessment: &BlueprintAssessmentContent) -> EncodedAssessme
             .iter()
             .map(|entry| match entry {
                 BlueprintAssessmentEntryContent::Fixed {
-                    question_revision_tuple,
+                    published_question_revision_tuple,
                     points_possible,
                     scoring_rule,
                     question_attempt_limit,
                     question_attempt_time_limit,
                 } => EncodedEntry::Fixed {
-                    question_revision_tuple,
+                    published_question_revision_tuple,
                     points_possible: *points_possible,
                     scoring_rule: *scoring_rule,
                     question_attempt_limit,
@@ -433,7 +433,7 @@ mod wire_tests {
 
     #[test]
     fn question_pool_keeps_the_pool_id_and_edit_number() {
-        let question_pool_id: crate::QuestionId = "7K3M-19QX".parse().expect("Pool ID");
+        let question_pool_id: crate::QuestionPoolId = "7K3M-19QX".parse().expect("Pool ID");
         let question_pool_edit_number =
             crate::QuestionPoolEditNumber::new(1).expect("Pool Edit Number");
         let pool = BlueprintQuestionPoolContent::new(ReusablePoolView {

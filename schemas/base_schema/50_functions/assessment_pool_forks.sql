@@ -59,14 +59,14 @@ BEGIN
     INSERT INTO ple_data.assessment_entry(
         assessment_entry_id, assessment_id, authored_position, entry_kind, availability, scoring_rule
     ) VALUES (
-        p_assessment_entry_id, p_assessment_id, p_authored_position, 'question_pool', 'available', p_scoring_rule
+        p_assessment_entry_id, p_assessment_id, p_authored_position, 'question_pool', 'available', p_scoring_rule::ple_data.scoring_rule
     );
     INSERT INTO ple_data.assessment_entry_pool(
         assessment_entry_id, assessment_id, question_pool_id,
         selection_count, points_per_item, selected_question_order
     ) VALUES (
         p_assessment_entry_id, p_assessment_id, forked.question_pool_id,
-        p_selection_count, p_points_per_item, p_selected_question_order
+        p_selection_count, p_points_per_item, p_selected_question_order::ple_data.selected_question_order
     );
     PERFORM ple_private.ensure_assessment_entry_snapshot(
         'question_pool', p_scoring_rule::ple_data.scoring_rule, p_points_per_item,

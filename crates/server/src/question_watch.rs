@@ -17,7 +17,7 @@ use learning_data_access::{
     QuestionWatchProjection, QuestionWatchStore, SessionTokenHash, StoreError,
     postgres::{PostgresQuestionWatchStore, PostgresSessionStore},
 };
-use question_model::{ProductRole, QuestionId};
+use question_model::{ProductRole, PublishedQuestionId};
 use serde::{Deserialize, Serialize};
 
 use crate::auth::{AuthError, resolve_session};
@@ -134,8 +134,8 @@ async fn set_watch(
 }
 
 /// Parses the exact checksum-bearing ID before a private Watch lookup.
-fn verified_question_id(value: &str) -> Option<QuestionId> {
-    value.parse::<QuestionId>().ok()
+fn verified_question_id(value: &str) -> Option<PublishedQuestionId> {
+    value.parse::<PublishedQuestionId>().ok()
 }
 
 async fn instructor_session_hash(

@@ -15,8 +15,8 @@ use learning_data_access::{
 };
 use objects::{ObjectAddress, ObjectStore, PutObject};
 use question_model::{
-    ObjectId, QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship, QuestionBackend,
-    QuestionLicense, QuestionRevisionReason, QuestionRevisionTuple, QuestionType,
+    ObjectId, PublishedQuestionRevisionTuple, QuestionAuthor, QuestionAuthorDisplayName,
+    QuestionAuthorship, QuestionBackend, QuestionLicense, QuestionRevisionReason, QuestionType,
     SourceObjectChecksum, Timestamp, WorkspaceId,
 };
 use serde::{Deserialize, Serialize};
@@ -37,7 +37,7 @@ const INITIAL_PUBLICATION_REASON: &str = "Initial publication from Authoring Wor
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct PublishedPilotQuestion {
     source_sha256: String,
-    question_revision_tuple: QuestionRevisionTuple,
+    published_question_revision_tuple: PublishedQuestionRevisionTuple,
 }
 
 /// Publishes the fixed reviewed Pilot inventory through the ordinary Authoring
@@ -101,7 +101,7 @@ pub(crate) fn validate_publication_mapping_json(value: &str) -> Result<()> {
 /// the complete mapping still validates every published Pilot source first.
 pub(crate) fn validated_ple_question_json_revisions(
     value: &str,
-) -> Result<Vec<QuestionRevisionTuple>> {
+) -> Result<Vec<PublishedQuestionRevisionTuple>> {
     let mut mapping = validated_publication_mapping(value)?;
     let revisions = publication_plan()?
         .questions
@@ -110,7 +110,7 @@ pub(crate) fn validated_ple_question_json_revisions(
         .map(|question| {
             mapping
                 .remove(&question.slug)
-                .map(|published| published.question_revision_tuple)
+                .map(|published| published.published_question_revision_tuple)
                 .with_context(|| format!("Pilot publication mapping lacks {}", question.slug))
         })
         .collect::<Result<Vec<_>>>()?;
@@ -140,7 +140,11 @@ fn validated_publication_mapping(value: &str) -> Result<BTreeMap<String, Publish
             source.slug
         );
         ensure!(
-            published.question_revision_tuple.revision_number.get() > 0,
+            published
+                .published_question_revision_tuple
+                .revision_number
+                .get()
+                > 0,
             "Pilot publication mapping revision is invalid for {}",
             source.slug
         );
@@ -206,7 +210,7 @@ async fn publish_plan(
                 question.slug,
                 PublishedPilotQuestion {
                     source_sha256: question.source_sha256,
-                    question_revision_tuple: revision,
+                    published_question_revision_tuple: revision,
                 },
             );
             continue;
@@ -276,7 +280,7 @@ async fn publish_plan(
             question.slug,
             PublishedPilotQuestion {
                 source_sha256: question.source_sha256,
-                question_revision_tuple: revision,
+                published_question_revision_tuple: revision,
             },
         );
     }
@@ -308,7 +312,7 @@ fn existing_publication(
     question: &PublicationSource,
     authorship: &QuestionAuthorship,
     license: &QuestionLicense,
-) -> Result<Option<QuestionRevisionTuple>> {
+) -> Result<Option<PublishedQuestionRevisionTuple>> {
     let matching = entries
         .iter()
         .filter(|entry| entry.source_object_checksum.as_str() == question.source_sha256)
@@ -337,7 +341,7 @@ fn existing_publication(
             question.slug
         );
     }
-    Ok(Some(entry.question_revision_tuple.clone()))
+    Ok(Some(entry.published_question_revision_tuple.clone()))
 }
 
 async fn matching_or_new_draft(

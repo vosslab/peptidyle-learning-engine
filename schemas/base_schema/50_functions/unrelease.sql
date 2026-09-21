@@ -61,8 +61,8 @@ BEGIN
      WHERE policy.assessment_policy_snapshot_id = assessment_row.assessment_policy_snapshot_id;
     assessment_edit_number := assessment_row.assessment_edit_number;
     SELECT count(*) INTO assessment_attempt_count
-      FROM ple_private.assessment_attempt
-     WHERE assessment_id = assessment_row.assessment_id;
+      FROM ple_private.assessment_attempt AS assessment_attempt
+     WHERE assessment_attempt.assessment_id = assessment_row.assessment_id;
     SELECT count(*) INTO finalized_saved_response_count
       FROM ple_private.assessment_attempt_saved_response AS submission
       JOIN ple_private.question_attempt AS question_attempt
@@ -71,8 +71,9 @@ BEGIN
         ON issued.issued_question_id = question_attempt.issued_question_id
      WHERE submission.finalized_at IS NOT NULL
        AND issued.assessment_attempt_id IN (
-         SELECT assessment_attempt_id FROM ple_private.assessment_attempt
-          WHERE assessment_id = assessment_row.assessment_id
+         SELECT assessment_attempt.assessment_attempt_id
+           FROM ple_private.assessment_attempt AS assessment_attempt
+          WHERE assessment_attempt.assessment_id = assessment_row.assessment_id
      );
     SELECT count(*) INTO assessment_submission_count
       FROM ple_private.assessment_submission AS submission
@@ -86,8 +87,9 @@ BEGIN
       JOIN ple_private.issued_question AS issued
         ON issued.issued_question_id = question_attempt.issued_question_id
      WHERE issued.assessment_attempt_id IN (
-         SELECT assessment_attempt_id FROM ple_private.assessment_attempt
-          WHERE assessment_id = assessment_row.assessment_id
+         SELECT assessment_attempt.assessment_attempt_id
+           FROM ple_private.assessment_attempt AS assessment_attempt
+          WHERE assessment_attempt.assessment_id = assessment_row.assessment_id
      );
     RETURN NEXT;
 END
@@ -149,8 +151,8 @@ BEGIN
     END IF;
 
     SELECT count(*) INTO assessment_attempt_count
-      FROM ple_private.assessment_attempt
-     WHERE assessment_id = assessment_row.assessment_id;
+      FROM ple_private.assessment_attempt AS assessment_attempt
+     WHERE assessment_attempt.assessment_id = assessment_row.assessment_id;
     SELECT count(*) INTO finalized_saved_response_count
       FROM ple_private.assessment_attempt_saved_response AS submission
       JOIN ple_private.question_attempt AS question_attempt
@@ -159,8 +161,9 @@ BEGIN
         ON issued.issued_question_id = question_attempt.issued_question_id
      WHERE submission.finalized_at IS NOT NULL
        AND issued.assessment_attempt_id IN (
-         SELECT assessment_attempt_id FROM ple_private.assessment_attempt
-          WHERE assessment_id = assessment_row.assessment_id
+         SELECT assessment_attempt.assessment_attempt_id
+           FROM ple_private.assessment_attempt AS assessment_attempt
+          WHERE assessment_attempt.assessment_id = assessment_row.assessment_id
      );
     SELECT count(*) INTO assessment_submission_count
       FROM ple_private.assessment_submission AS submission
@@ -174,8 +177,9 @@ BEGIN
       JOIN ple_private.issued_question AS issued
         ON issued.issued_question_id = question_attempt.issued_question_id
      WHERE issued.assessment_attempt_id IN (
-         SELECT assessment_attempt_id FROM ple_private.assessment_attempt
-          WHERE assessment_id = assessment_row.assessment_id
+         SELECT assessment_attempt.assessment_attempt_id
+           FROM ple_private.assessment_attempt AS assessment_attempt
+          WHERE assessment_attempt.assessment_id = assessment_row.assessment_id
      );
 
     UPDATE ple_data.assessment AS updated
@@ -187,8 +191,8 @@ BEGIN
       INTO assessment_id, assessment_status, assessment_edit_number;
 
     -- ASVS 14.2.4: remove Student Work, not approved identity-free totals.
-    DELETE FROM ple_private.assessment_attempt
-     WHERE assessment_id = assessment_row.assessment_id;
+    DELETE FROM ple_private.assessment_attempt AS assessment_attempt
+     WHERE assessment_attempt.assessment_id = assessment_row.assessment_id;
 
     INSERT INTO ple_audit.assessment_unrelease_event (
         event_id, assessment_id, actor_account_id, assessment_edit_number,
@@ -202,4 +206,3 @@ BEGIN
     RETURN NEXT;
 END
 $$;
-

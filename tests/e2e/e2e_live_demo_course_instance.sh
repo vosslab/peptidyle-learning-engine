@@ -132,9 +132,9 @@ if not isinstance(items, list) or not items:
 question_id = items[0].get("summary", {}).get("questionId")
 if not isinstance(question_id, str) or not re.fullmatch(r"[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}", question_id):
     raise SystemExit("Question Library did not return an opaque Question ID")
-revision = items[0].get("summary", {}).get("questionRevisionTuple")
-if (not isinstance(revision, dict) or set(revision) != {"questionId", "revisionNumber"}
-    or revision["questionId"] != question_id
+revision = items[0].get("summary", {}).get("publishedQuestionRevisionTuple")
+if (not isinstance(revision, dict) or set(revision) != {"publishedQuestionId", "revisionNumber"}
+    or revision["publishedQuestionId"] != question_id
     or not isinstance(revision["revisionNumber"], int)
     or isinstance(revision["revisionNumber"], bool) or revision["revisionNumber"] < 1):
     raise SystemExit("Question Library did not return an exact published Question Revision")
@@ -177,7 +177,7 @@ if not isinstance(blueprint_module_id, str) or not isinstance(blueprint_assessme
     raise SystemExit("Blueprint Revision 1 did not return stable reusable identities")
 entry = content.get("entries", [None])[0]
 question_revision = entry.get("question", {}).get("question_revision") if isinstance(entry, dict) else None
-if not isinstance(question_revision, dict) or set(question_revision) != {"questionId", "revisionNumber"}:
+if not isinstance(question_revision, dict) or set(question_revision) != {"publishedQuestionId", "revisionNumber"}:
     raise SystemExit("Blueprint Revision 1 did not return its reusable Question")
 replacement = {"modules":[{"choice":{"kind":"retained","blueprint_module_id":blueprint_module_id},"label":module.get("label"),"assessments":[{"choice":{"kind":"retained","blueprint_assessment_id":blueprint_assessment_id},"content":{"assessment_type":content.get("assessment_type"),"title":content.get("title") + " revised","instructions":content.get("instructions"),"entries":[{"kind":"fixed","published_question":question_revision,"points_possible":entry.get("points_possible"),"scoring_rule":entry.get("scoring_rule"),"question_attempt_limit":entry.get("question_attempt_limit"),"question_attempt_time_limit":entry.get("question_attempt_time_limit")}],"defaults":content.get("defaults")}}]}]}
 print(json.dumps(replacement, separators=(",",":")))

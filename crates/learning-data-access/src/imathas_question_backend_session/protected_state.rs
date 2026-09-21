@@ -316,13 +316,13 @@ pub(super) fn imathas_question_backend_state_aad(
             .as_slice(),
         session
             .grading_context
-            .question_revision_tuple()
-            .question_id
+            .published_question_revision_tuple()
+            .published_question_id
             .as_str()
             .as_bytes(),
         &session
             .grading_context
-            .question_revision_tuple()
+            .published_question_revision_tuple()
             .revision_number
             .get()
             .to_be_bytes(),

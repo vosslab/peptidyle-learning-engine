@@ -26,12 +26,12 @@ use serde::Serialize;
 
 use crate::{
     auth::{AuthError, resolve_session},
-    question_publication::{QuestionIdIssuer, RandomQuestionIdIssuer},
+    question_publication::{QuestionPoolIdIssuer, RandomQuestionIdIssuer},
 };
 
 impl CourseInstancePoolIdIssuer for RandomQuestionIdIssuer {
-    fn issue_question_pool_id(&self) -> Result<question_model::QuestionId, StoreError> {
-        self.issue_question_id().map_err(|_| {
+    fn issue_question_pool_id(&self) -> Result<question_model::QuestionPoolId, StoreError> {
+        QuestionPoolIdIssuer::issue_question_pool_id(self).map_err(|_| {
             StoreError::Unavailable(
                 "Question Pool fork identity issuance is unavailable".to_string(),
             )

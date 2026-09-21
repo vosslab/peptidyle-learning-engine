@@ -182,7 +182,7 @@ SET search_path = pg_catalog, ple_data, ple_private, ple_audit AS $$
               effective.closes_at,
               effective.assessment_attempt_limit,
               started.started_assessment_attempt_count,
-              assessment.late_work_rule,
+              assessment.late_work_rule::ple_data.late_work_rule,
               p_now
           ) AS start_decision
       ) AS decision ON true
@@ -334,4 +334,3 @@ BEGIN
     );
 END
 $$;
-

@@ -7,7 +7,7 @@
 //! Watch state, or Student fact.
 
 use async_trait::async_trait;
-use question_model::QuestionId;
+use question_model::PublishedQuestionId;
 
 use crate::{SessionTokenHash, StoreError};
 
@@ -39,7 +39,7 @@ pub trait QuestionStarStore: Send + Sync {
     async fn question_star_projection(
         &self,
         session_token_hash: SessionTokenHash,
-        question_id: &QuestionId,
+        question_id: &PublishedQuestionId,
     ) -> Result<QuestionStarProjection, StoreError>;
 
     /// Sets only the authenticated Instructor's Star state for one lineage.
@@ -47,7 +47,7 @@ pub trait QuestionStarStore: Send + Sync {
     async fn set_current_question_star(
         &self,
         session_token_hash: SessionTokenHash,
-        question_id: &QuestionId,
+        question_id: &PublishedQuestionId,
         starred: bool,
     ) -> Result<QuestionStarProjection, StoreError>;
 }

@@ -289,12 +289,12 @@ mod tests {
     use super::*;
     use crate::{
         AssessmentActivityRules, AssessmentEntryScoringRule, AssessmentInstructions,
-        AssessmentPointValue, LateWorkRule, QuestionAttemptLimit, QuestionAttemptTimeLimit,
-        QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship, QuestionAvailability,
-        QuestionBackend, QuestionBackendCapabilities, QuestionFormat, QuestionId, QuestionLicense,
-        QuestionMetadata, QuestionPoolEditNumber, QuestionPoolSelectionRule,
-        QuestionRevisionNumber, QuestionRevisionTuple, QuestionSearchResult, QuestionStatistics,
-        QuestionSummary, QuestionType, StudentFeedbackReleaseRule, Timestamp,
+        AssessmentPointValue, LateWorkRule, PublishedQuestionId, PublishedQuestionRevisionTuple,
+        QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionAuthor, QuestionAuthorDisplayName,
+        QuestionAuthorship, QuestionAvailability, QuestionBackend, QuestionBackendCapabilities,
+        QuestionFormat, QuestionLicense, QuestionMetadata, QuestionPoolEditNumber,
+        QuestionPoolSelectionRule, QuestionRevisionNumber, QuestionSearchResult,
+        QuestionStatistics, QuestionSummary, QuestionType, StudentFeedbackReleaseRule, Timestamp,
     };
     use uuid::Uuid;
 
@@ -306,7 +306,7 @@ mod tests {
         BlueprintAssessmentId::from_uuid(Uuid::from_u128(2))
     }
 
-    fn question_id() -> QuestionId {
+    fn question_id() -> PublishedQuestionId {
         "7K3M-19QX".parse().expect("valid question ID")
     }
 
@@ -331,8 +331,8 @@ mod tests {
                 .expect("valid instructions"),
             entries: vec![
                 BlueprintAssessmentEntryInput::Fixed(ReusableFixedQuestionInput {
-                    question_revision_tuple: QuestionRevisionTuple {
-                        question_id: question_id(),
+                    published_question_revision_tuple: PublishedQuestionRevisionTuple {
+                        published_question_id: question_id(),
                         revision_number: QuestionRevisionNumber::new(1).expect("positive Revision"),
                     },
                     points_possible: AssessmentPointValue::from_whole(3),
@@ -365,8 +365,8 @@ mod tests {
         QuestionSearchResult {
             summary: QuestionSummary {
                 question_id: question_id(),
-                question_revision_tuple: QuestionRevisionTuple {
-                    question_id: question_id(),
+                published_question_revision_tuple: PublishedQuestionRevisionTuple {
+                    published_question_id: question_id(),
                     revision_number: QuestionRevisionNumber::new(1).expect("positive version"),
                 },
                 backend: QuestionBackend::Ple,
@@ -420,11 +420,11 @@ mod tests {
         let wire = serde_json::to_value(&content).expect("content serializes");
         assert_eq!(wire["entries"][0]["kind"], "fixed");
         assert_eq!(
-            wire["entries"][0]["question_revision_tuple"]["questionId"],
+            wire["entries"][0]["published_question_revision_tuple"]["publishedQuestionId"],
             "7K3M-19QX"
         );
         assert_eq!(
-            wire["entries"][0]["question_revision_tuple"]["revisionNumber"],
+            wire["entries"][0]["published_question_revision_tuple"]["revisionNumber"],
             1
         );
         assert_eq!(wire["entries"][0]["points_possible"], "3");
@@ -442,20 +442,21 @@ mod tests {
         );
         let mut leftover = serde_json::to_value(&content).expect("content serializes");
         leftover["entries"][0]["published_question"] =
-            leftover["entries"][0]["question_revision_tuple"].take();
+            leftover["entries"][0]["published_question_revision_tuple"].take();
         leftover["entries"][0]
             .as_object_mut()
             .expect("fixed entry")
-            .remove("question_revision_tuple");
+            .remove("published_question_revision_tuple");
         assert!(
             serde_json::from_value::<BlueprintAssessmentContentInput>(leftover).is_err(),
             "Tuple JSON is not accepted under leftover published_question"
         );
         let mut number_under_tuple = serde_json::to_value(&content).expect("content serializes");
-        number_under_tuple["entries"][0]["question_revision_tuple"] = serde_json::json!(1);
+        number_under_tuple["entries"][0]["published_question_revision_tuple"] =
+            serde_json::json!(1);
         assert!(
             serde_json::from_value::<BlueprintAssessmentContentInput>(number_under_tuple).is_err(),
-            "a lone Revision Number is not accepted under question_revision_tuple"
+            "a lone Revision Number is not accepted under published_question_revision_tuple"
         );
         let mut legacy_wire = serde_json::to_value(&content).expect("content serializes");
         let defaults = legacy_wire["defaults"]
@@ -518,9 +519,9 @@ mod tests {
                         entries: vec![
                             BlueprintAssessmentEntryView::Fixed {
                                 question: ReusableQuestionView {
-                                    question_revision_tuple: discovery()
+                                    published_question_revision_tuple: discovery()
                                         .summary
-                                        .question_revision_tuple,
+                                        .published_question_revision_tuple,
                                     question_library: discovery(),
                                     selection_availability:
                                         ReusableSelectionAvailability::Available,
@@ -612,8 +613,8 @@ mod blueprint_course_tests {
     use super::*;
     use crate::{
         AssessmentActivityRules, AssessmentEntryScoringRule, AssessmentInstructions,
-        AssessmentPointValue, LateWorkRule, QuestionAttemptLimit, QuestionAttemptTimeLimit,
-        QuestionRevisionNumber, QuestionRevisionTuple, StudentFeedbackReleaseRule,
+        AssessmentPointValue, LateWorkRule, PublishedQuestionRevisionTuple, QuestionAttemptLimit,
+        QuestionAttemptTimeLimit, QuestionRevisionNumber, StudentFeedbackReleaseRule,
     };
     use uuid::Uuid;
 
@@ -637,8 +638,10 @@ mod blueprint_course_tests {
                     instructions: AssessmentInstructions::default(),
                     entries: vec![BlueprintAssessmentEntryInput::Fixed(
                         ReusableFixedQuestionInput {
-                            question_revision_tuple: QuestionRevisionTuple {
-                                question_id: "7K3M-19QX".parse().expect("QuestionId"),
+                            published_question_revision_tuple: PublishedQuestionRevisionTuple {
+                                published_question_id: "7K3M-19QX"
+                                    .parse()
+                                    .expect("PublishedQuestionId"),
                                 revision_number: QuestionRevisionNumber::new(1)
                                     .expect("positive Revision"),
                             },
@@ -665,8 +668,11 @@ mod blueprint_course_tests {
         input.validate().expect("valid BlueprintCourse");
         let wire = serde_json::to_value(&input).expect("serializes");
         assert!(wire.get("modules").is_some());
-        assert!(wire.to_string().contains("question_revision_tuple"));
-        assert!(!wire.to_string().contains("QuestionRevisionTuple"));
+        assert!(
+            wire.to_string()
+                .contains("published_question_revision_tuple")
+        );
+        assert!(!wire.to_string().contains("PublishedQuestionRevisionTuple"));
         let mut forged = wire;
         forged["owner"] = serde_json::json!("U-1");
         assert!(serde_json::from_value::<CreateBlueprintCourseInput>(forged).is_err());
@@ -692,8 +698,8 @@ mod blueprint_course_tests {
             instructions: AssessmentInstructions::default(),
             entries: vec![BlueprintAssessmentEntryInput::Fixed(
                 ReusableFixedQuestionInput {
-                    question_revision_tuple: QuestionRevisionTuple {
-                        question_id: "7K3M-19QX".parse().expect("QuestionId"),
+                    published_question_revision_tuple: PublishedQuestionRevisionTuple {
+                        published_question_id: "7K3M-19QX".parse().expect("PublishedQuestionId"),
                         revision_number: QuestionRevisionNumber::new(1).expect("positive Revision"),
                     },
                     points_possible: AssessmentPointValue::from_whole(1),

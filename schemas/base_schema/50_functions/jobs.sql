@@ -112,10 +112,9 @@ BEGIN
 
     INSERT INTO ple_private.job (
         job_id, published_question_id, revision_number,
-        payload, available_at, max_attempts, created_at
+        payload, available_at, max_attempts, created_at, updated_at
     ) VALUES (
         p_job_id, p_published_question_id, p_revision_number,
-        p_payload, p_available_at, p_max_attempts, p_created_at
+        p_payload, p_available_at, p_max_attempts, p_created_at, p_created_at
     );
 END $$;
-

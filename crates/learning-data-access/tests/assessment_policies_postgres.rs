@@ -56,7 +56,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> (CourseInstanceId, AssessmentId
         .expect("private fixture role");
     let instructor_id: String = sqlx::query_scalar(
         "INSERT INTO ple_private.account (account_id, product_role, created_at) \
-         VALUES ('U00000009', 'instructor', clock_timestamp()) RETURNING account_id",
+         VALUES ('U00000009', 'instructor', pg_catalog.transaction_timestamp()) RETURNING account_id",
     )
     .fetch_one(&mut *tx)
     .await
@@ -64,8 +64,8 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> (CourseInstanceId, AssessmentId
     sqlx::query(
         "INSERT INTO ple_private.authenticated_session \
          (session_id, account_id, product_role, token_hash, created_at, expires_at) \
-         VALUES ($1, $2, 'instructor', decode($3, 'hex'), clock_timestamp(), \
-                 clock_timestamp() + interval '1 hour')",
+         VALUES ($1, $2, 'instructor', decode($3, 'hex'), pg_catalog.transaction_timestamp(), \
+                 pg_catalog.transaction_timestamp() + interval '1 hour')",
     )
     .bind(id(0xda02))
     .bind(&instructor_id)
@@ -160,7 +160,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> (CourseInstanceId, AssessmentId
           content_discipline_id, tags) \
          VALUES ('CI0000000' || ple_private.crockford_checksum_character('CI0000000'), \
                  'adopted', $1, 1, 'POL-1', 'Policy oracle Course', current_date, \
-                 current_date + 1, clock_timestamp(), \
+                 current_date + 1, pg_catalog.transaction_timestamp(), \
                  '00000000-0000-0000-0000-00000000cc01', ARRAY[]::text[]) \
          RETURNING course_instance_id",
     )

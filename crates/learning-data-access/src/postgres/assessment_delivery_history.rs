@@ -11,8 +11,8 @@ use crate::{
 };
 use question_model::{
     AssessmentAttemptId, AssessmentId, AssessmentType, CourseInstanceId, CourseTheme,
-    GradingResult, QuestionId, QuestionRevisionNumber, QuestionRevisionTuple, StudentFeedback,
-    StudentFeedbackReleaseRule, Timestamp,
+    GradingResult, PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionRevisionNumber,
+    StudentFeedback, StudentFeedbackReleaseRule, Timestamp,
 };
 use serde::Deserialize;
 use sqlx::Row;
@@ -171,7 +171,7 @@ fn public_issued_position(position: u32) -> Result<u32, StoreError> {
 fn decode_question(
     question: StoredQuestion,
 ) -> Result<StudentAssessmentAttemptHistoryQuestion, StoreError> {
-    let question_id = QuestionId::from_str(&question.question_id)
+    let question_id = PublishedQuestionId::from_str(&question.question_id)
         .map_err(|_| StoreError::InvalidRecord("Issued Question ID is invalid".to_string()))?;
     let revision_number = QuestionRevisionNumber::new(question.revision_number).map_err(|_| {
         StoreError::InvalidRecord("Issued Question Revision Number is invalid".to_string())
@@ -179,8 +179,8 @@ fn decode_question(
     let position = public_issued_position(question.position)?;
     Ok(StudentAssessmentAttemptHistoryQuestion {
         position,
-        question_revision_tuple: QuestionRevisionTuple {
-            question_id,
+        published_question_revision_tuple: PublishedQuestionRevisionTuple {
+            published_question_id: question_id,
             revision_number,
         },
         response_state: question.response_state,
@@ -241,7 +241,7 @@ mod tests {
     use super::*;
 
     fn question_id() -> String {
-        QuestionId::from_random_identifier("ABCDEFG")
+        PublishedQuestionId::from_random_identifier("ABCDEFG")
             .expect("test Question random identity is canonical")
             .to_string()
     }
@@ -257,10 +257,19 @@ mod tests {
         .expect("retained issued Question evidence is valid");
 
         assert_eq!(
-            question.question_revision_tuple.question_id.to_string(),
+            question
+                .published_question_revision_tuple
+                .published_question_id
+                .to_string(),
             question_id()
         );
-        assert_eq!(question.question_revision_tuple.revision_number.get(), 3);
+        assert_eq!(
+            question
+                .published_question_revision_tuple
+                .revision_number
+                .get(),
+            3
+        );
     }
 
     #[test]

@@ -3,7 +3,7 @@
 import type { AssessmentEntry } from "../../../generated/api/AssessmentEntry";
 import type { AssessmentEntryId } from "../../../generated/api/AssessmentEntryId";
 import type { AssessmentPointValue } from "../../../generated/api/AssessmentPointValue";
-import type { QuestionRevisionTuple } from "../../../generated/api/QuestionRevisionTuple";
+import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
 import type { BloomClassificationView } from "../../../generated/api/BloomClassificationView";
 import type {
   AssessmentQuestionPickerEntry,
@@ -64,8 +64,10 @@ export function withFixedQuestionPointValues(
 }
 
 /** A stable, exact identity used when comparing pinned Question Revisions. */
-export function questionRevisionKey(questionRevisionTuple: QuestionRevisionTuple): string {
-  return `${questionRevisionTuple.questionId}:${questionRevisionTuple.revisionNumber}`;
+export function questionRevisionKey(
+  publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple,
+): string {
+  return `${publishedQuestionRevisionTuple.publishedQuestionId}:${publishedQuestionRevisionTuple.revisionNumber}`;
 }
 
 /** Appends an Available picker row as a new fixed Entry without altering existing Entry objects. */
@@ -74,11 +76,12 @@ export function appendAvailableFixedQuestion(
   picker: AssessmentQuestionPickerEntry,
   entryId: AssessmentEntryId,
 ): ReadonlyArray<AssessmentEntry> {
-  const key = questionRevisionKey(picker.questionRevisionTuple);
+  const key = questionRevisionKey(picker.publishedQuestionRevisionTuple);
   if (
     entries.some(
       (entry) =>
-        entry.kind === "fixedQuestion" && questionRevisionKey(entry.questionRevisionTuple) === key,
+        entry.kind === "fixedQuestion" &&
+        questionRevisionKey(entry.publishedQuestionRevisionTuple) === key,
     )
   )
     return entries;
@@ -87,7 +90,7 @@ export function appendAvailableFixedQuestion(
     {
       kind: "fixedQuestion",
       id: entryId,
-      questionRevisionTuple: picker.questionRevisionTuple,
+      publishedQuestionRevisionTuple: picker.publishedQuestionRevisionTuple,
       pointsPossible: "1",
       availability: "available",
       scoringRule: "normal",

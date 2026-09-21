@@ -1,7 +1,9 @@
 # UI density and layout audit
 
-Date: 2026-09-17. Status: read-only audit of the current canonical screenshot corpus. No code
-changed. Fix packages below are proposals awaiting approval.
+Date: 2026-09-17. Status: historical read-only audit of the 2026-09-17 screenshot corpus. No code
+changed. Its paths and measurements describe that 76-capture corpus, not the current published
+corpus; current screenshot evidence is indexed by [SCREENSHOT_ATLAS.md](../../SCREENSHOT_ATLAS.md).
+Fix packages below are proposals awaiting approval.
 
 ## Scope and method
 

@@ -3,9 +3,9 @@
 use async_trait::async_trait;
 use question_model::{
     BlueprintAssessmentId, BlueprintAvailability, BlueprintCourseId, BlueprintEditNumber,
-    BlueprintModuleId, BlueprintRevisionNumber, BlueprintRevisionTuple, QuestionId,
-    QuestionPoolEditNumber, QuestionRevisionNumber, QuestionRevisionTuple, RequestChecksum,
-    Timestamp,
+    BlueprintModuleId, BlueprintRevisionNumber, BlueprintRevisionTuple,
+    PublishedQuestionRevisionTuple, QuestionPoolEditNumber, QuestionPoolId, QuestionRevisionNumber,
+    RequestChecksum, Timestamp,
 };
 use sqlx::{Postgres, Row, Transaction, types::Json};
 use std::collections::{BTreeMap, BTreeSet};
@@ -326,8 +326,10 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
 pub(super) async fn load_pool_memberships(
     transaction: &mut Transaction<'_, Postgres>,
     revisions: &[StoredBlueprintRevision],
-) -> Result<BTreeMap<(QuestionId, QuestionPoolEditNumber), Vec<QuestionRevisionTuple>>, StoreError>
-{
+) -> Result<
+    BTreeMap<(QuestionPoolId, QuestionPoolEditNumber), Vec<PublishedQuestionRevisionTuple>>,
+    StoreError,
+> {
     let pins: BTreeSet<_> = revisions
         .iter()
         .flat_map(|revision| &revision.content.modules)
@@ -356,7 +358,7 @@ pub(super) async fn load_pool_memberships(
         let mut members = Vec::with_capacity(rows.len());
         let mut unique = BTreeSet::new();
         for (index, row) in rows.iter().enumerate() {
-            let pool_id: QuestionId = row
+            let pool_id: QuestionPoolId = row
                 .try_get::<String, _>("question_pool_id")
                 .map_err(map_sqlx_error)?
                 .parse()
@@ -373,8 +375,8 @@ pub(super) async fn load_pool_memberships(
             {
                 return Err(invalid());
             }
-            let member = QuestionRevisionTuple {
-                question_id: row
+            let member = PublishedQuestionRevisionTuple {
+                published_question_id: row
                     .try_get::<String, _>("published_question_id")
                     .map_err(map_sqlx_error)?
                     .parse()

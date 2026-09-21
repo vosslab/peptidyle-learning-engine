@@ -156,7 +156,7 @@ BEGIN
     INSERT INTO ple_data.library_improvement_thread(
         library_improvement_thread_id, object_kind, public_object_id, creation_revision_number,
         created_by_account_id, created_at
-    ) VALUES (v_thread_id, p_object_kind, p_public_object_id, v_creation_revision_number, v_actor, v_now);
+    ) VALUES (v_thread_id, p_object_kind::ple_data.library_object_kind, p_public_object_id, v_creation_revision_number, v_actor, v_now);
     INSERT INTO ple_data.library_improvement_post(
         post_id, library_improvement_thread_id, author_account_id, author_display_name, body, created_at
     ) VALUES (pg_catalog.gen_random_uuid(), v_thread_id, v_actor, v_name, p_body, v_now);
@@ -169,7 +169,7 @@ CREATE FUNCTION ple_data.reply_to_library_improvement_thread(
 ) RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
 DECLARE v_actor text := ple_api.current_session_account_id(); v_name text;
-    v_post_id uuid := pg_catalog.gen_random_uuid(); v_thread ple_data.library_improvement_thread%ROWTYPE;
+    v_post_id uuid := pg_catalog.gen_random_uuid();
 BEGIN
     v_name := ple_data.require_library_discussion_participant();
     PERFORM ple_data.require_library_discussion_reader(
@@ -177,8 +177,8 @@ BEGIN
     IF p_thread_id IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Improvement reply is invalid';
     END IF;
-    SELECT * INTO v_thread FROM ple_data.library_improvement_thread
-     WHERE library_improvement_thread_id = p_thread_id AND object_kind = p_object_kind
+    PERFORM 1 FROM ple_data.library_improvement_thread
+     WHERE library_improvement_thread_id = p_thread_id AND object_kind::text = p_object_kind
        AND public_object_id = p_public_object_id FOR KEY SHARE;
     IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE = 'P1D01', MESSAGE = 'Improvement thread is unavailable'; END IF;
     IF p_body IS NULL OR p_body <> btrim(p_body)
@@ -209,7 +209,7 @@ BEGIN
       INTO v_post
       FROM ple_data.library_improvement_post AS post
       JOIN ple_data.library_improvement_thread AS thread ON thread.library_improvement_thread_id = post.library_improvement_thread_id
-     WHERE post.post_id = p_post_id AND thread.object_kind = p_object_kind
+     WHERE post.post_id = p_post_id AND thread.object_kind::text = p_object_kind
        AND thread.public_object_id = p_public_object_id
      FOR UPDATE OF post;
     IF NOT FOUND THEN
@@ -231,15 +231,14 @@ CREATE FUNCTION ple_data.set_library_improvement_thread_state(
     p_object_kind text, p_public_object_id text, p_thread_id uuid, p_resolved boolean
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
-DECLARE v_thread ple_data.library_improvement_thread%ROWTYPE;
 BEGIN
     PERFORM ple_data.require_library_discussion_manager(
         p_object_kind, p_public_object_id);
     IF p_thread_id IS NULL OR p_resolved IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Improvement thread state is invalid';
     END IF;
-    SELECT * INTO v_thread FROM ple_data.library_improvement_thread
-     WHERE library_improvement_thread_id = p_thread_id AND object_kind = p_object_kind
+    PERFORM 1 FROM ple_data.library_improvement_thread
+     WHERE library_improvement_thread_id = p_thread_id AND object_kind::text = p_object_kind
        AND public_object_id = p_public_object_id FOR UPDATE;
     IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE = 'P1D01', MESSAGE = 'Improvement thread is unavailable'; END IF;
     IF p_resolved THEN
@@ -275,7 +274,7 @@ BEGIN
         impact_notice_id, object_kind, public_object_id, affected_revision_number,
         created_by_account_id, author_display_name, body, created_at, updated_at
     ) VALUES (
-        v_notice_id, p_object_kind, p_public_object_id, p_affected_revision_number,
+        v_notice_id, p_object_kind::ple_data.library_object_kind, p_public_object_id, p_affected_revision_number,
         ple_api.current_session_account_id(), v_author_display_name, p_body, v_now, v_now
     );
     RETURN v_notice_id;
@@ -295,7 +294,7 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Impact notice is invalid';
     END IF;
     SELECT * INTO v_notice FROM ple_data.library_impact_notice
-     WHERE impact_notice_id = p_impact_notice_id AND object_kind = p_object_kind
+     WHERE impact_notice_id = p_impact_notice_id AND object_kind::text = p_object_kind
        AND public_object_id = p_public_object_id FOR UPDATE;
     IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE = 'P1D01', MESSAGE = 'Impact notice is unavailable'; END IF;
     IF v_notice.state <> 'active' THEN
@@ -305,7 +304,7 @@ BEGIN
        OR char_length(p_body) NOT BETWEEN 1 AND 4000 OR p_body ~ '[[:cntrl:]]'
        OR (p_affected_revision_number IS NOT NULL
            AND NOT ple_data.library_object_revision_exists(
-               v_notice.object_kind, v_notice.public_object_id,
+               v_notice.object_kind::text, v_notice.public_object_id,
                p_affected_revision_number)) THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Impact notice is invalid';
     END IF;
@@ -331,7 +330,7 @@ BEGIN
         p_object_kind, p_public_object_id);
     IF p_impact_notice_id IS NULL THEN RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Impact notice is invalid'; END IF;
     SELECT * INTO v_notice FROM ple_data.library_impact_notice
-     WHERE impact_notice_id = p_impact_notice_id AND object_kind = p_object_kind
+     WHERE impact_notice_id = p_impact_notice_id AND object_kind::text = p_object_kind
        AND public_object_id = p_public_object_id FOR UPDATE;
     IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE = 'P1D01', MESSAGE = 'Impact notice is unavailable'; END IF;
     IF v_notice.state = 'cancelled' THEN RETURN; END IF;
@@ -354,13 +353,13 @@ BEGIN
     PERFORM ple_data.require_library_discussion_reader(
         p_object_kind, p_public_object_id);
     RETURN QUERY SELECT thread.library_improvement_thread_id::uuid AS library_improvement_thread_id,
-        thread.creation_revision_number, thread.state,
+        thread.creation_revision_number::bigint, thread.state::text,
         floor(extract(epoch FROM thread.created_at) * 1000)::bigint,
         CASE WHEN thread.resolved_at IS NULL THEN NULL ELSE floor(extract(epoch FROM thread.resolved_at) * 1000)::bigint END,
         ple_data.current_actor_may_manage_library_discussion(
-            thread.object_kind, thread.public_object_id)
+            thread.object_kind::text, thread.public_object_id)
       FROM ple_data.library_improvement_thread AS thread
-     WHERE thread.object_kind = p_object_kind AND thread.public_object_id = p_public_object_id
+     WHERE thread.object_kind::text = p_object_kind AND thread.public_object_id = p_public_object_id
      ORDER BY thread.created_at, thread.library_improvement_thread_id;
 END
 $$;
@@ -376,7 +375,7 @@ BEGIN
     SELECT * INTO v_thread FROM ple_data.library_improvement_thread WHERE library_improvement_thread_id = p_thread_id;
     IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE = 'P1D01', MESSAGE = 'Improvement thread is unavailable'; END IF;
     PERFORM ple_data.require_library_discussion_reader(
-        v_thread.object_kind, v_thread.public_object_id);
+        v_thread.object_kind::text, v_thread.public_object_id);
     RETURN QUERY SELECT post.post_id, post.author_display_name, post.body,
         floor(extract(epoch FROM post.created_at) * 1000)::bigint,
         CASE WHEN post.updated_at IS NULL THEN NULL ELSE floor(extract(epoch FROM post.updated_at) * 1000)::bigint END,
@@ -398,15 +397,15 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
 BEGIN
     PERFORM ple_data.require_library_discussion_reader(
         p_object_kind, p_public_object_id);
-    RETURN QUERY SELECT notice.impact_notice_id, notice.affected_revision_number, notice.author_display_name,
-        notice.body, notice.state, floor(extract(epoch FROM notice.created_at) * 1000)::bigint,
+    RETURN QUERY SELECT notice.impact_notice_id, notice.affected_revision_number::bigint, notice.author_display_name,
+        notice.body, notice.state::text, floor(extract(epoch FROM notice.created_at) * 1000)::bigint,
         floor(extract(epoch FROM notice.updated_at) * 1000)::bigint,
         CASE WHEN notice.cancelled_at IS NULL THEN NULL ELSE floor(extract(epoch FROM notice.cancelled_at) * 1000)::bigint END,
         notice.state = 'active'
           AND ple_data.current_actor_may_manage_library_discussion(
-              notice.object_kind, notice.public_object_id)
+              notice.object_kind::text, notice.public_object_id)
       FROM ple_data.library_impact_notice AS notice
-     WHERE notice.object_kind = p_object_kind AND notice.public_object_id = p_public_object_id
+     WHERE notice.object_kind::text = p_object_kind AND notice.public_object_id = p_public_object_id
      ORDER BY notice.created_at DESC, notice.impact_notice_id;
 END
 $$;
@@ -475,4 +474,3 @@ LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_data AS $$
 CREATE FUNCTION ple_api.read_library_object_discussion_management(text, text)
 RETURNS boolean LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_data AS $$
     SELECT ple_data.read_library_object_discussion_management($1, $2) $$;
-

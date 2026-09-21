@@ -16,8 +16,8 @@ use crate::{
     BlueprintAssessmentContentInput, BlueprintAssessmentDefaults, BlueprintAssessmentEntryContent,
     BlueprintAssessmentEntryInput, BlueprintCourseContent, BlueprintCourseValidationError,
     BlueprintPoolInputChoice, CreateBlueprintCourseInput, CreateBlueprintModuleInput,
-    QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionPoolSelectionRule,
-    QuestionRevisionTuple, ReusableFixedQuestionInput, ReusablePoolInput,
+    PublishedQuestionRevisionTuple, QuestionAttemptLimit, QuestionAttemptTimeLimit,
+    QuestionPoolSelectionRule, ReusableFixedQuestionInput, ReusablePoolInput,
 };
 
 /// Deterministic current-metadata and reusable Blueprint Course projection.
@@ -220,8 +220,8 @@ impl CanonicalBlueprintAssessment {
 pub enum CanonicalBlueprintAssessmentEntry {
     /// One exact immutable Published Question Revision.
     Fixed {
-        #[serde(deserialize_with = "deserialize_question_revision_tuple")]
-        question_revision_tuple: QuestionRevisionTuple,
+        #[serde(deserialize_with = "deserialize_published_question_revision_tuple")]
+        published_question_revision_tuple: PublishedQuestionRevisionTuple,
         points_possible: AssessmentPointValue,
         scoring_rule: AssessmentEntryScoringRule,
         question_attempt_limit: QuestionAttemptLimit,
@@ -230,7 +230,7 @@ pub enum CanonicalBlueprintAssessmentEntry {
     },
     /// One current Question Pool with reusable selection settings.
     Pool {
-        question_pool_id: crate::QuestionId,
+        question_pool_id: crate::QuestionPoolId,
         question_pool_edit_number: crate::QuestionPoolEditNumber,
         selection_count: std::num::NonZeroU32,
         points_per_item: AssessmentPointValue,
@@ -242,22 +242,22 @@ pub enum CanonicalBlueprintAssessmentEntry {
     },
 }
 
-fn deserialize_question_revision_tuple<'de, D>(
+fn deserialize_published_question_revision_tuple<'de, D>(
     deserializer: D,
-) -> Result<QuestionRevisionTuple, D::Error>
+) -> Result<PublishedQuestionRevisionTuple, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase", deny_unknown_fields)]
-    struct StrictQuestionRevisionTuple {
-        question_id: crate::QuestionId,
+    struct StrictPublishedQuestionRevisionTuple {
+        published_question_id: crate::PublishedQuestionId,
         revision_number: crate::QuestionRevisionNumber,
     }
 
-    let tuple = StrictQuestionRevisionTuple::deserialize(deserializer)?;
-    Ok(QuestionRevisionTuple {
-        question_id: tuple.question_id,
+    let tuple = StrictPublishedQuestionRevisionTuple::deserialize(deserializer)?;
+    Ok(PublishedQuestionRevisionTuple {
+        published_question_id: tuple.published_question_id,
         revision_number: tuple.revision_number,
     })
 }
@@ -298,13 +298,13 @@ impl CanonicalBlueprintAssessmentEntry {
     fn into_create_input(self) -> BlueprintAssessmentEntryInput {
         match self {
             Self::Fixed {
-                question_revision_tuple,
+                published_question_revision_tuple,
                 points_possible,
                 scoring_rule,
                 question_attempt_limit,
                 question_attempt_time_limit,
             } => BlueprintAssessmentEntryInput::Fixed(ReusableFixedQuestionInput {
-                question_revision_tuple,
+                published_question_revision_tuple,
                 points_possible,
                 scoring_rule,
                 question_attempt_limit,
@@ -368,13 +368,13 @@ impl From<&BlueprintAssessmentEntryContent> for CanonicalBlueprintAssessmentEntr
     fn from(entry: &BlueprintAssessmentEntryContent) -> Self {
         match entry {
             BlueprintAssessmentEntryContent::Fixed {
-                question_revision_tuple,
+                published_question_revision_tuple,
                 points_possible,
                 scoring_rule,
                 question_attempt_limit,
                 question_attempt_time_limit,
             } => Self::Fixed {
-                question_revision_tuple: question_revision_tuple.clone(),
+                published_question_revision_tuple: published_question_revision_tuple.clone(),
                 points_possible: *points_possible,
                 scoring_rule: *scoring_rule,
                 question_attempt_limit: *question_attempt_limit,
@@ -413,11 +413,11 @@ mod tests {
         // Regression contract: import must preserve reusable meaning while
         // refusing transferred authority. On failure, repair this projection
         // or conversion; never admit owner or operational fields.
-        let fixed = QuestionRevisionTuple {
-            question_id: "7K3M-19QX".parse().expect("Question ID"),
+        let fixed = PublishedQuestionRevisionTuple {
+            published_question_id: "7K3M-19QX".parse().expect("Question ID"),
             revision_number: QuestionRevisionNumber::new(2).expect("Question Revision"),
         };
-        let question_pool_id: crate::QuestionId = "12A4-TBCZ".parse().expect("Pool ID");
+        let question_pool_id: crate::QuestionPoolId = "12A4-TBCZ".parse().expect("Pool ID");
         let question_pool_edit_number = QuestionPoolEditNumber::new(3).expect("Pool Edit Number");
         let defaults = BlueprintAssessmentDefaults {
             assessment_attempt_time_limit_seconds: NonZeroU32::new(900),
@@ -439,7 +439,7 @@ mod tests {
                             .expect("instructions"),
                         vec![
                             BlueprintAssessmentEntryContent::Fixed {
-                                question_revision_tuple: fixed.clone(),
+                                published_question_revision_tuple: fixed.clone(),
                                 points_possible: AssessmentPointValue::from_whole(3),
                                 scoring_rule: AssessmentEntryScoringRule::Normal,
                                 question_attempt_limit: QuestionAttemptLimit {
@@ -501,7 +501,7 @@ mod tests {
         assert!(matches!(
             &input.modules[0].assessments[0].entries[0],
             BlueprintAssessmentEntryInput::Fixed(value)
-                if value.question_revision_tuple == fixed
+                if value.published_question_revision_tuple == fixed
         ));
         assert!(matches!(
             &input.modules[0].assessments[0].entries[1],
@@ -544,7 +544,7 @@ mod tests {
         ))
         .expect("canonical value");
         injected
-            .pointer_mut("/modules/0/assessments/0/entries/0/question_revision_tuple")
+            .pointer_mut("/modules/0/assessments/0/entries/0/published_question_revision_tuple")
             .and_then(serde_json::Value::as_object_mut)
             .expect("Question Revision Tuple")
             .insert("owner".to_owned(), serde_json::json!("not accepted"));

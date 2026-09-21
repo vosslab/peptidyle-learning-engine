@@ -29,7 +29,9 @@ use learning_data_access::{
     },
 };
 use objects::s3::S3ObjectStore;
-use question_model::{QuestionFormat, QuestionRevisionReason, QuestionRevisionTuple, Timestamp};
+use question_model::{
+    PublishedQuestionRevisionTuple, QuestionFormat, QuestionRevisionReason, Timestamp,
+};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -44,7 +46,7 @@ use crate::{
 
 mod http;
 use http::{
-    edit_number_response, etag, existing_parent_question_revision_tuple,
+    edit_number_response, etag, existing_parent_published_question_revision_tuple,
     is_ple_question_json_request, publication_error, question_authorship,
 };
 pub(crate) use http::{
@@ -174,7 +176,7 @@ struct PublishRevisionDraftRequest {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct PublishedRevisionDraftResponse {
-    question_revision_tuple: QuestionRevisionTuple,
+    published_question_revision_tuple: PublishedQuestionRevisionTuple,
 }
 
 async fn list_drafts(State(state): State<AuthoringRouteState>, headers: HeaderMap) -> Response {
@@ -647,7 +649,7 @@ async fn publish_draft(
     match publisher.publish(session_hash, command, now()).await {
         Ok(revision) => crate::auth::no_store(
             Json(PublishedDraftResponse {
-                question_id: revision.question_id.to_string(),
+                question_id: revision.published_question_id.to_string(),
             })
             .into_response(),
         ),
@@ -669,13 +671,14 @@ async fn publish_revision_draft(
         Ok(number) => number,
         Err(response) => return *response,
     };
-    let parent_question_revision_tuple = match existing_parent_question_revision_tuple(
-        request.question_id,
-        request.parent_revision_number,
-    ) {
-        Ok(revision) => revision,
-        Err(()) => return concealed(),
-    };
+    let parent_published_question_revision_tuple =
+        match existing_parent_published_question_revision_tuple(
+            request.question_id,
+            request.parent_revision_number,
+        ) {
+            Ok(revision) => revision,
+            Err(()) => return concealed(),
+        };
     let revision_reason = match QuestionRevisionReason::new(request.reason_for_edit) {
         Ok(reason) => reason,
         Err(_) => {
@@ -736,16 +739,16 @@ async fn publish_revision_draft(
                 draft_question_uuid: draft.draft_question_uuid,
                 expected_draft_question_edit_number: expected_edit_number,
                 workspace: draft.workspace,
-                parent_question_revision_tuple,
+                parent_published_question_revision_tuple,
                 question_revision_reason: revision_reason,
             },
             now(),
         )
         .await
     {
-        Ok(question_revision_tuple) => crate::auth::no_store(
+        Ok(published_question_revision_tuple) => crate::auth::no_store(
             Json(PublishedRevisionDraftResponse {
-                question_revision_tuple,
+                published_question_revision_tuple,
             })
             .into_response(),
         ),
@@ -787,14 +790,18 @@ mod tests {
         let question_id = issuer.issue_question_id().expect("issued Question ID");
 
         assert_eq!(
-            existing_parent_question_revision_tuple(question_id.to_string(), 1),
-            Ok(QuestionRevisionTuple {
-                question_id: question_id.clone(),
+            existing_parent_published_question_revision_tuple(question_id.to_string(), 1),
+            Ok(PublishedQuestionRevisionTuple {
+                published_question_id: question_id.clone(),
                 revision_number: QuestionRevisionNumber::new(1)
                     .expect("positive Question Revision Number"),
             })
         );
-        assert!(existing_parent_question_revision_tuple(question_id.to_string(), 0).is_err());
-        assert!(existing_parent_question_revision_tuple("0000-X000".to_string(), 1).is_err());
+        assert!(
+            existing_parent_published_question_revision_tuple(question_id.to_string(), 0).is_err()
+        );
+        assert!(
+            existing_parent_published_question_revision_tuple("0000-X000".to_string(), 1).is_err()
+        );
     }
 }

@@ -31,13 +31,13 @@ FOR EACH ROW EXECUTE FUNCTION ple_private.reject_question_image_publication_chan
 CREATE FUNCTION ple_private.validate_question_image_publication()
 RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_data, ple_private AS $$
 DECLARE source_address jsonb := jsonb_build_object('kind','restrictedQuestionImage',
-    'questionRevisionTuple',jsonb_build_object('questionId',NEW.published_question_id,'revisionNumber',NEW.revision_number),
+    'publishedQuestionRevisionTuple',jsonb_build_object('publishedQuestionId',NEW.published_question_id,'revisionNumber',NEW.revision_number),
     'questionImageAssetId',NEW.question_image_asset_id,'objectId',NEW.source_object_record_id);
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM ple_private.object_record record WHERE record.object_record_id=NEW.source_object_record_id
        AND record.object_address=source_address AND record.object_storage_area='private-content'
        AND record.object_data_class='question-image' AND record.sha256=NEW.source_object_checksum
-       AND record.media_type=NEW.verified_media_type) THEN
+       AND record.media_type=NEW.verified_media_type::text) THEN
         RAISE EXCEPTION USING ERRCODE='23514', MESSAGE='Question Image Publication requires its exact trusted source Object Record';
     END IF;
     RETURN NEW;
@@ -56,8 +56,8 @@ BEGIN
     IF NOT FOUND THEN RETURN NULL; END IF;
     IF NOT EXISTS (SELECT 1 FROM ple_data.object_delivery delivery WHERE delivery.object_delivery_id=publication.object_delivery_id
           AND delivery.object_record_id=publication.public_object_id AND delivery.sha256=publication.public_object_checksum
-          AND delivery.media_type=publication.verified_media_type AND delivery.byte_length=publication.public_byte_length
-          AND delivery.delivery_state=CASE publication.publication_state WHEN 'pending' THEN 'pending' WHEN 'ready' THEN 'available' END)
+          AND delivery.media_type=publication.verified_media_type::text AND delivery.byte_length=publication.public_byte_length
+          AND delivery.delivery_state=(CASE publication.publication_state WHEN 'pending' THEN 'pending' WHEN 'ready' THEN 'available' END)::ple_data.delivery_state)
        OR NOT EXISTS (SELECT 1 FROM ple_data.question_image_delivery image_delivery WHERE image_delivery.object_delivery_id=publication.object_delivery_id
           AND image_delivery.object_record_id=publication.public_object_id AND image_delivery.published_question_id=publication.published_question_id
           AND image_delivery.revision_number=publication.revision_number AND image_delivery.question_image_asset_id=publication.question_image_asset_id) THEN
@@ -134,8 +134,8 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
        AND publication.revision_number = p_revision_number
        AND record.object_address = pg_catalog.jsonb_build_object(
            'kind', 'restrictedQuestionImage',
-           'questionRevisionTuple', pg_catalog.jsonb_build_object(
-               'questionId', p_published_question_id, 'revisionNumber', p_revision_number),
+           'publishedQuestionRevisionTuple', pg_catalog.jsonb_build_object(
+               'publishedQuestionId', p_published_question_id, 'revisionNumber', p_revision_number),
            'questionImageAssetId', publication.question_image_asset_id, 'objectId', publication.source_object_record_id)
        AND record.object_storage_area = 'private-content'
        AND record.object_data_class = 'question-image'
@@ -153,4 +153,3 @@ CREATE FUNCTION ple_api.load_question_fork_asset(
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT * FROM ple_private.load_question_fork_asset(p_published_question_id, p_revision_number)
 $$;
-

@@ -247,7 +247,8 @@ impl SysadminTotpStore for PostgresSysadminTotpStore {
         let attestation = SysadminTotpAttestationId::generate()?;
         let mut transaction = self.begin().await?;
         let row = sqlx::query(
-            "SELECT attestation_id FROM ple_api.create_pending_sysadmin_totp_attestation($1, $2, $3, $4)",
+            "SELECT sysadmin_totp_attestation_id \
+             FROM ple_api.create_pending_sysadmin_totp_attestation($1, $2, $3, $4)",
         )
         .bind(attestation.as_uuid())
         .bind(account.as_str())
@@ -257,7 +258,9 @@ impl SysadminTotpStore for PostgresSysadminTotpStore {
         .await
         .map_err(map_sqlx_error)?;
         transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(row.map(|row| SysadminTotpAttestationId::from_uuid(row.get("attestation_id"))))
+        Ok(row.map(|row| {
+            SysadminTotpAttestationId::from_uuid(row.get("sysadmin_totp_attestation_id"))
+        }))
     }
 
     async fn load_pending_sysadmin_totp_attestation(

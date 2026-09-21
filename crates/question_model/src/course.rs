@@ -7,9 +7,9 @@ use crate::{
     AssessmentEntryScoringRule, AssessmentGrade, AssessmentId, AssessmentInstructions,
     AssessmentPointValue, AssessmentProgressRecord, AssessmentQuestionVariationRule,
     AssessmentScoringState, AssessmentTitle, CourseInstanceId, CourseTerm, LateWorkRule,
-    QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionBackend, QuestionBackendCapabilities,
-    QuestionId, QuestionPoolEditNumber, QuestionPoolSelectionRule, StudentFeedbackReleaseRule,
-    StudentRecordId, Timestamp,
+    PublishedQuestionId, QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionBackend,
+    QuestionBackendCapabilities, QuestionPoolEditNumber, QuestionPoolId, QuestionPoolSelectionRule,
+    StudentFeedbackReleaseRule, StudentRecordId, Timestamp,
 };
 
 /// Relationship that may be persisted on one direct course membership.
@@ -72,7 +72,7 @@ pub struct FixedQuestionAssessmentEntrySummary {
     /// Server-minted identity for this editable assessment slot.
     pub id: AssessmentEntryId,
     /// Browser-visible Question ID for the stable Published Question lineage.
-    pub question_id: QuestionId,
+    pub question_id: PublishedQuestionId,
     /// Safe Question Library label shown while editing this assessment.
     pub question_title: String,
     /// Question Backend selected for this Fixed Question Assessment Entry.
@@ -97,7 +97,7 @@ pub struct FixedQuestionAssessmentEntrySummary {
 pub struct QuestionPoolAssessmentEntrySummary {
     /// Stable Assessment Entry identity.
     pub id: AssessmentEntryId,
-    pub question_pool_id: QuestionId,
+    pub question_pool_id: QuestionPoolId,
     /// Current-state Pool Edit Number; not a historical membership object.
     pub question_pool_edit_number: QuestionPoolEditNumber,
     /// Whether future Assessment Attempts may receive this Assessment Entry.

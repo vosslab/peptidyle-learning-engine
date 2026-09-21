@@ -4,9 +4,9 @@ use async_trait::async_trait;
 use browser_api_contract::student_assessment_decision::StudentAssessmentDecisionSummary;
 use question_model::{
     AssessmentAttemptId, AssessmentId, AssessmentType, CourseInstanceId, CourseTheme,
-    GradingResult, QuestionAttemptId, QuestionId, QuestionImageAssetId, QuestionRevisionTuple,
-    StudentAssessmentAttemptProgress, StudentFeedback, StudentFeedbackReleaseRule, StudentResponse,
-    Timestamp,
+    GradingResult, PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionAttemptId,
+    QuestionImageAssetId, StudentAssessmentAttemptProgress, StudentFeedback,
+    StudentFeedbackReleaseRule, StudentResponse, Timestamp,
 };
 use serde::{Deserialize, Serialize};
 
@@ -108,7 +108,7 @@ pub struct StudentAssessmentAttemptHistoryQuestion {
     /// This history projection never resolves a current Question or Assessment
     /// entry: its revision identity is part of the durable Student Work
     /// evidence that makes old presentations and their assets interpretable.
-    pub question_revision_tuple: QuestionRevisionTuple,
+    pub published_question_revision_tuple: PublishedQuestionRevisionTuple,
     pub response_state: LiveAssessmentPreviousAttemptState,
     /// Readable submitted response, released independently from all grading
     /// and feedback fields. Omitted when withheld or exact reproduction fails.
@@ -186,7 +186,7 @@ pub struct IssuedQuestionPresentation {
     #[serde(skip_serializing)]
     pub assessment_entry_id: String,
     /// Exact Published Question identity, without an internal row locator.
-    pub question_id: QuestionId,
+    pub question_id: PublishedQuestionId,
     /// Answer-free Question description for this first delivery slice.
     pub description: String,
     /// Stable one-based Student-facing position in this Assessment Attempt.
@@ -234,7 +234,7 @@ pub struct NativePleIssuanceSource {
     pub issued_question_id: Option<uuid::Uuid>,
     pub assessment_entry_id: String,
     pub position: u32,
-    pub question_id: QuestionId,
+    pub question_id: PublishedQuestionId,
     pub revision_number: u32,
     pub source_object_id: String,
     pub source_object_address: serde_json::Value,
@@ -276,7 +276,7 @@ pub struct NativeWebworkIssuanceSource {
     pub issued_question_id: Option<uuid::Uuid>,
     pub assessment_entry_id: String,
     pub position: u32,
-    pub question_id: QuestionId,
+    pub question_id: PublishedQuestionId,
     pub revision_number: u32,
     pub source_object_id: String,
     pub source_object_checksum: String,
@@ -315,7 +315,7 @@ pub struct NativePresentationInput {
     pub issued_question_id: String,
     pub assessment_entry_id: String,
     pub position: u32,
-    pub question_id: QuestionId,
+    pub question_id: PublishedQuestionId,
     pub revision_number: u32,
     /// Cohesive static-or-seeded reproduction facts.  The database codec maps
     /// this to its paired nullable seed/hash columns without a sentinel.
@@ -385,7 +385,7 @@ pub struct NativeAssessmentIssuanceBatch {
 /// input for selected-presentation and saved-response interpretation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StudentAssessmentAttemptPresentationEvidence {
-    pub question_revision_tuple: QuestionRevisionTuple,
+    pub published_question_revision_tuple: PublishedQuestionRevisionTuple,
     /// Static or seeded reproduction facts. These never cross the HTTP seam.
     pub reproduction: question_model::QuestionReproduction,
     pub presentation_nonce: String,
@@ -508,7 +508,7 @@ pub enum StudentAssessmentAttemptFinalizationKind {
 pub struct StudentAssessmentAttemptFinalizationSource {
     pub question_attempt_id: uuid::Uuid,
     pub saved_at: Timestamp,
-    pub question_id: QuestionId,
+    pub question_id: PublishedQuestionId,
     pub revision_number: u32,
     pub source_object_id: String,
     pub source_object_checksum: String,

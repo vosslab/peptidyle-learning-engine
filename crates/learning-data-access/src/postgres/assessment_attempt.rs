@@ -2,8 +2,8 @@
 
 use async_trait::async_trait;
 use question_model::{
-    AssessmentAttemptId, IssuedQuestionId, QuestionBackend, QuestionPoolSelectionId,
-    QuestionRevisionTuple,
+    AssessmentAttemptId, IssuedQuestionId, PublishedQuestionRevisionTuple, QuestionBackend,
+    QuestionPoolSelectionId,
 };
 use serde_json::{Value, json};
 use sqlx::{Postgres, Row, Transaction};
@@ -164,25 +164,25 @@ fn storage_issued_questions(
                 assessment_entry,
                 question_pool_selection,
                 pool_member,
-                question_revision_tuple,
+                published_question_revision_tuple,
                 backend,
             ): (
                 _,
                 Option<QuestionPoolSelectionId>,
                 _,
-                &QuestionRevisionTuple,
+                &PublishedQuestionRevisionTuple,
                 &QuestionBackend,
             ) = match question {
                 PreparedIssuedQuestion::FixedQuestion {
                     assessment_entry,
-                    question_revision_tuple,
+                    published_question_revision_tuple,
                     backend,
-                } => (*assessment_entry, None, None, question_revision_tuple, backend),
+                } => (*assessment_entry, None, None, published_question_revision_tuple, backend),
                 PreparedIssuedQuestion::QuestionPoolItem {
                     assessment_entry,
                     question_pool_selection_index,
                     member_position,
-                    question_revision_tuple,
+                    published_question_revision_tuple,
                     backend,
                 } => (
                     *assessment_entry,
@@ -193,7 +193,7 @@ fn storage_issued_questions(
                         )
                     })?),
                     Some(*member_position),
-                    question_revision_tuple,
+                    published_question_revision_tuple,
                     backend,
                 ),
             };
@@ -242,8 +242,8 @@ fn storage_issued_questions(
                 "issued_question_id": issued_question.as_uuid(),
                 "assessment_entry_id": assessment_entry.as_uuid(),
                 "issued_position": position,
-                "question_id": question_revision_tuple.question_id.as_str(),
-                "revision_number": question_revision_tuple.revision_number.get(),
+                "published_question_id": published_question_revision_tuple.published_question_id.as_str(),
+                "revision_number": published_question_revision_tuple.revision_number.get(),
                 "question_pool_selection_id": question_pool_selection.map(|selection| selection.as_uuid()),
                 "question_pool_member_position": pool_member.map(|member_position| {
                     i32::try_from(member_position + 1)
@@ -259,7 +259,8 @@ fn storage_issued_questions(
 #[cfg(test)]
 mod tests {
     use question_model::{
-        AssessmentEntryId, AssessmentId, QuestionId, QuestionRevisionNumber, StudentRecordId,
+        AssessmentEntryId, AssessmentId, PublishedQuestionId, QuestionRevisionNumber,
+        StudentRecordId,
     };
     use uuid::Uuid;
 
@@ -274,8 +275,10 @@ mod tests {
             question_pool_selections: Vec::new(),
             issued_questions: vec![PreparedIssuedQuestion::FixedQuestion {
                 assessment_entry,
-                question_revision_tuple: QuestionRevisionTuple {
-                    question_id: "1234-H567".parse::<QuestionId>().expect("Question ID"),
+                published_question_revision_tuple: PublishedQuestionRevisionTuple {
+                    published_question_id: "1234-H567"
+                        .parse::<PublishedQuestionId>()
+                        .expect("Question ID"),
                     revision_number: QuestionRevisionNumber::new(1).expect("revision number"),
                 },
                 backend: QuestionBackend::Ple,
@@ -296,7 +299,7 @@ mod tests {
 
         assert_eq!(issued.get("question_seed"), Some(&Value::Null));
         assert_eq!(
-            issued.get("question_id").and_then(Value::as_str),
+            issued.get("published_question_id").and_then(Value::as_str),
             Some("1234-H567")
         );
         assert!(!issued.contains_key("questionSeed"));
@@ -311,8 +314,10 @@ mod tests {
             question_pool_selections: Vec::new(),
             issued_questions: vec![PreparedIssuedQuestion::FixedQuestion {
                 assessment_entry,
-                question_revision_tuple: QuestionRevisionTuple {
-                    question_id: "1234-H567".parse::<QuestionId>().expect("Question ID"),
+                published_question_revision_tuple: PublishedQuestionRevisionTuple {
+                    published_question_id: "1234-H567"
+                        .parse::<PublishedQuestionId>()
+                        .expect("Question ID"),
                     revision_number: QuestionRevisionNumber::new(1).expect("revision number"),
                 },
                 backend: QuestionBackend::Webwork,

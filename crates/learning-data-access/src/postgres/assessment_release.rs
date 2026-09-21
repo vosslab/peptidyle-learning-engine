@@ -196,7 +196,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
             .iter()
             .map(|row| {
                 Ok(AssessmentQuestionPickerEntry {
-                    question_revision_tuple: question_revision_tuple(
+                    published_question_revision_tuple: published_question_revision_tuple(
                         row.try_get("published_question_id")
                             .map_err(map_sqlx_error)?,
                         row.try_get("question_revision_number")
@@ -220,8 +220,11 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
         input: CreateLiveAssessmentInput,
     ) -> Result<LiveAssessmentWorkspace, StoreError> {
         let mut tx = self.begin(token).await?;
-        let row = sqlx::query("SELECT * FROM ple_api.create_assessment($1, $2, $3, $4, $5)")
-            .bind(random_uuid()?)
+        // The database owns public Assessment-ID minting. This canonical
+        // placeholder passes the domain check and is replaced by the
+        // assessment INSERT trigger with a reserved public ID.
+        let row = sqlx::query("SELECT * FROM ple_api.create_assessment($1::text, $2, $3, $4, $5)")
+            .bind("A0000000A")
             .bind(course_instance_id.as_string())
             .bind(input.assessment_type.as_str())
             .bind(input.title.as_str())
@@ -637,7 +640,7 @@ pub(super) fn decode_workspace(
                 .flatten()
                 .map(|published_question_id| {
                     Ok(AuthoredAssessmentQuestion {
-                        question_revision_tuple: question_revision_tuple(
+                        published_question_revision_tuple: published_question_revision_tuple(
                             published_question_id,
                             row.try_get("question_revision_number")
                                 .map_err(map_sqlx_error)?,

@@ -1,6 +1,6 @@
 // Retained text-only Question Library improvement-thread and impact-notice contracts.
 
-import type { QuestionId } from "../../generated/api/QuestionId";
+import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionId";
 
 export type LibraryObjectDiscussionKind = "question" | "questionPool";
 
@@ -66,47 +66,47 @@ export interface LibraryDiscussionView {
 export interface LibraryDiscussionClient {
   readonly getLibraryDiscussion: (
     kind: LibraryObjectDiscussionKind,
-    publicId: QuestionId,
+    publicId: PublishedQuestionId,
   ) => Promise<LibraryDiscussionView>;
   readonly createImprovementThread: (
     kind: LibraryObjectDiscussionKind,
-    publicId: QuestionId,
+    publicId: PublishedQuestionId,
     body: string,
   ) => Promise<void>;
   readonly replyToImprovementThread: (
     kind: LibraryObjectDiscussionKind,
-    publicId: QuestionId,
+    publicId: PublishedQuestionId,
     threadId: string,
     body: string,
   ) => Promise<void>;
   readonly editOwnImprovementPost: (
     kind: LibraryObjectDiscussionKind,
-    publicId: QuestionId,
+    publicId: PublishedQuestionId,
     postId: string,
     body: string,
   ) => Promise<void>;
   readonly setImprovementThreadResolved: (
     kind: LibraryObjectDiscussionKind,
-    publicId: QuestionId,
+    publicId: PublishedQuestionId,
     threadId: string,
     resolved: boolean,
   ) => Promise<void>;
   readonly createImpactNotice: (
     kind: LibraryObjectDiscussionKind,
-    publicId: QuestionId,
+    publicId: PublishedQuestionId,
     affectedRevisionNumber: number | null,
     body: string,
   ) => Promise<void>;
   readonly updateImpactNotice: (
     kind: LibraryObjectDiscussionKind,
-    publicId: QuestionId,
+    publicId: PublishedQuestionId,
     impactNoticeId: string,
     affectedRevisionNumber: number | null,
     body: string,
   ) => Promise<void>;
   readonly cancelImpactNotice: (
     kind: LibraryObjectDiscussionKind,
-    publicId: QuestionId,
+    publicId: PublishedQuestionId,
     impactNoticeId: string,
   ) => Promise<void>;
 }

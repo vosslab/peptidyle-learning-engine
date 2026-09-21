@@ -11,7 +11,7 @@ use serde::Serialize;
 
 use crate::{
     AccountTimeZone, AssessmentEditNumber, AssessmentInstructions, AssessmentStatus,
-    AssessmentTitle, LateWorkRule, QuestionRevisionTuple, Timestamp,
+    AssessmentTitle, LateWorkRule, PublishedQuestionRevisionTuple, Timestamp,
 };
 
 /// Answer-free, non-mutating Instructor Student View manifest for one current Assessment.
@@ -87,7 +87,7 @@ pub enum InstructorStudentViewEntry {
 pub struct InstructorStudentViewQuestion {
     /// One-based position in the flattened presented-Question sequence.
     pub position: NonZeroU32,
-    pub question_revision_tuple: QuestionRevisionTuple,
+    pub published_question_revision_tuple: PublishedQuestionRevisionTuple,
 }
 
 /// Closed Student-safe reason that an authored entry is not shown.
@@ -101,23 +101,27 @@ pub enum InstructorStudentViewNotShownReason {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{QuestionId, QuestionRevisionNumber};
+    use crate::{PublishedQuestionId, QuestionRevisionNumber};
 
-    fn question_revision_tuple() -> QuestionRevisionTuple {
-        QuestionRevisionTuple {
-            question_id: "0000-T00N".parse::<QuestionId>().expect("Question ID"),
+    fn published_question_revision_tuple() -> PublishedQuestionRevisionTuple {
+        PublishedQuestionRevisionTuple {
+            published_question_id: "0000-T00N"
+                .parse::<PublishedQuestionId>()
+                .expect("Question ID"),
             revision_number: QuestionRevisionNumber::new(1).expect("Question Revision"),
         }
     }
 
     #[test]
     fn presented_entry_serializes_only_public_exact_question_locators() {
-        let question_id = "0000-T00N".parse::<QuestionId>().expect("Question ID");
+        let question_id = "0000-T00N"
+            .parse::<PublishedQuestionId>()
+            .expect("Question ID");
         let entry = InstructorStudentViewEntry::Presented {
             authored_position: 0,
             questions: vec![InstructorStudentViewQuestion {
                 position: NonZeroU32::new(1).expect("positive position"),
-                question_revision_tuple: question_revision_tuple(),
+                published_question_revision_tuple: published_question_revision_tuple(),
             }],
         };
         assert_eq!(
@@ -127,8 +131,8 @@ mod tests {
                 "authoredPosition": 0,
                 "questions": [{
                     "position": 1,
-                    "questionRevisionTuple": {
-                        "questionId": question_id.to_string(),
+                    "publishedQuestionRevisionTuple": {
+                        "publishedQuestionId": question_id.to_string(),
                         "revisionNumber": 1
                     }
                 }]

@@ -8,7 +8,7 @@ import {
 } from "../src/components/question_pool_create_model.ts";
 
 const startingQuestion = {
-  questionRevisionTuple: { questionId: "7K3M-79QP", revisionNumber: 2 },
+  publishedQuestionRevisionTuple: { publishedQuestionId: "7K3M-79QP", revisionNumber: 2 },
   questionTitle: "Starting Question",
   disciplineName: "Biology",
   subjectName: "Genetics",
@@ -17,7 +17,7 @@ const startingQuestion = {
 function row(displayId, disciplineName, questionTitle = "Question") {
   return {
     displayId,
-    questionRevisionTuple: { questionId: displayId, revisionNumber: 1 },
+    publishedQuestionRevisionTuple: { publishedQuestionId: displayId, revisionNumber: 1 },
     questionTitle,
     summary: "Answer-free summary.",
     bloom: {
@@ -59,7 +59,12 @@ test("source-bound Pool members keep the exact starting Revision first", async (
     async (questionId) => {
       lookedUp.push(questionId);
       return {
-        summary: { questionRevisionTuple: { questionId, revisionNumber: 5 } },
+        summary: {
+          publishedQuestionRevisionTuple: {
+            publishedQuestionId: questionId,
+            revisionNumber: 5,
+          },
+        },
         disciplineName: "Biology",
         subjectName: "Genetics",
       };
@@ -68,8 +73,8 @@ test("source-bound Pool members keep the exact starting Revision first", async (
   );
 
   assert.deepEqual(members, [
-    { questionId: "7K3M-79QP", revisionNumber: 2 },
-    { questionId: "2R5X-E7YA", revisionNumber: 5 },
+    { publishedQuestionId: "7K3M-79QP", revisionNumber: 2 },
+    { publishedQuestionId: "2R5X-E7YA", revisionNumber: 5 },
   ]);
   assert.deepEqual(lookedUp, ["2R5X-E7YA"]);
 });

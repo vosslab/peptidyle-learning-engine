@@ -11,7 +11,7 @@ use question_model::{
     AccountTimeZone, AssessmentEditNumber, AssessmentEntryAvailability, AssessmentId,
     AssessmentInstructions, AssessmentQuestionOrderRule, AssessmentStatus, AssessmentTitle,
     CourseInstanceId, DraftImathasQuestionBackendBinding, InstructorStudentViewDelivery, ObjectId,
-    QuestionPoolAssessmentEntry, QuestionPoolSelectedItem, QuestionRevisionTuple,
+    PublishedQuestionRevisionTuple, QuestionPoolAssessmentEntry, QuestionPoolSelectedItem,
     SourceObjectChecksum,
 };
 
@@ -42,7 +42,7 @@ pub enum InstructorStudentViewSnapshotEntry {
         /// Zero-based position in the current authored Assessment Entry order.
         authored_position: u32,
         availability: AssessmentEntryAvailability,
-        question_revision_tuple: QuestionRevisionTuple,
+        published_question_revision_tuple: PublishedQuestionRevisionTuple,
     },
     /// One Assessment-owned Pool with members in current Pool order.
     Pool {
@@ -63,7 +63,7 @@ pub enum InstructorStudentViewSnapshotEntry {
 pub enum InstructorStudentViewSource {
     /// Native PLE Question JSON source and ready Question Image Renditions.
     Ple {
-        question_revision_tuple: QuestionRevisionTuple,
+        published_question_revision_tuple: PublishedQuestionRevisionTuple,
         source_object_id: ObjectId,
         source_object_checksum: SourceObjectChecksum,
         source_media_type: String,
@@ -71,7 +71,7 @@ pub enum InstructorStudentViewSource {
     },
     /// WeBWorK PG/PGML source and its canonical registered path.
     Webwork {
-        question_revision_tuple: QuestionRevisionTuple,
+        published_question_revision_tuple: PublishedQuestionRevisionTuple,
         source_object_id: ObjectId,
         source_object_checksum: SourceObjectChecksum,
         source_media_type: String,
@@ -80,7 +80,7 @@ pub enum InstructorStudentViewSource {
     },
     /// iMathAS immutable launch binding; no backend source bytes cross this seam.
     Imathas {
-        question_revision_tuple: QuestionRevisionTuple,
+        published_question_revision_tuple: PublishedQuestionRevisionTuple,
         source_object_id: ObjectId,
         source_object_checksum: SourceObjectChecksum,
         source_media_type: String,
@@ -118,6 +118,6 @@ pub trait InstructorStudentViewStore: Send + Sync {
         assessment_id: AssessmentId,
         expected_edit_number: AssessmentEditNumber,
         authored_position: u32,
-        question_revision_tuple: QuestionRevisionTuple,
+        published_question_revision_tuple: PublishedQuestionRevisionTuple,
     ) -> Result<InstructorStudentViewSource, StoreError>;
 }

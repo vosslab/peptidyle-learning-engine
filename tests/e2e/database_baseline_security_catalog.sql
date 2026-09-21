@@ -148,9 +148,63 @@ BEGIN
 		JOIN pg_namespace namespace ON namespace.oid = relation.relnamespace
 		WHERE namespace.nspname IN ('ple_data', 'ple_private', 'ple_audit')
 			AND relation.relkind IN ('r', 'p')
+			-- The append-only public-ID registry is a private allocation
+			-- authority, not a product table; its table ACL and immutable
+			-- trigger provide its boundary instead of row visibility.
+			AND NOT (namespace.nspname = 'ple_private'
+				AND relation.relname = 'public_id_reservation')
 			AND (NOT relation.relrowsecurity OR NOT relation.relforcerowsecurity)
 	) THEN
 		RAISE EXCEPTION 'PLE protected tables do not force row-level security';
+	END IF;
+	IF EXISTS (
+		SELECT 1
+		FROM pg_class AS relation
+		JOIN pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+		CROSS JOIN LATERAL aclexplode(
+			COALESCE(relation.relacl, acldefault('r', relation.relowner))
+		) AS privilege
+		WHERE namespace.nspname = 'ple_private'
+		  AND relation.relname = 'public_id_reservation'
+		  AND privilege.grantee = 0
+	) THEN
+		RAISE EXCEPTION 'PUBLIC retains privilege on public-ID reservations';
+	END IF;
+	IF EXISTS (
+		SELECT 1
+		FROM pg_class AS relation
+		JOIN pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+		CROSS JOIN (VALUES ('ple_app'::name), ('ple_auth'::name), ('ple_student'::name)) AS role_name(rolname)
+		CROSS JOIN (VALUES
+			('SELECT'::text), ('INSERT'::text), ('UPDATE'::text),
+			('DELETE'::text), ('TRUNCATE'::text), ('REFERENCES'::text), ('TRIGGER'::text)
+		) AS requested(privilege_type)
+		WHERE namespace.nspname = 'ple_private'
+		  AND relation.relname = 'public_id_reservation'
+		  AND has_table_privilege(role_name.rolname, relation.oid, requested.privilege_type)
+	) THEN
+		RAISE EXCEPTION 'an application capability can access public-ID reservations directly';
+	END IF;
+	IF NOT EXISTS (
+		SELECT 1
+		FROM pg_trigger AS trigger_row
+		JOIN pg_class AS relation ON relation.oid = trigger_row.tgrelid
+		JOIN pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+		WHERE namespace.nspname = 'ple_private'
+		  AND relation.relname = 'public_id_reservation'
+		  AND trigger_row.tgname = 'public_id_reservation_is_permanent'
+		  AND NOT trigger_row.tgisinternal
+		  AND trigger_row.tgenabled = 'O'
+		  AND trigger_row.tgfoid = (
+			SELECT routine.oid
+			  FROM pg_proc AS routine
+			  JOIN pg_namespace AS routine_namespace ON routine_namespace.oid = routine.pronamespace
+			 WHERE routine_namespace.nspname = 'ple_private'
+			   AND routine.proname = 'reject_public_id_reservation_change'
+			   AND routine.pronargs = 0
+		  )
+	) THEN
+		RAISE EXCEPTION 'public-ID reservations lack their enabled immutable trigger';
 	END IF;
 END
 $$;
@@ -162,8 +216,12 @@ $$;
 BEGIN;
 SET LOCAL ROLE ple_private_owner;
 INSERT INTO ple_private.account (account_id, product_role, created_at)
-VALUES ('00000000-0000-0000-0000-00000000c240', 'sysadmin', clock_timestamp());
+VALUES ('U00000009', 'sysadmin', pg_catalog.transaction_timestamp())
+RETURNING account_id AS sysadmin_account_id \gset
 SET LOCAL ROLE ple_api_owner;
+SELECT pg_catalog.set_config(
+    'ple.test_sysadmin_account_id', :'sysadmin_account_id', true
+);
 -- C803: a primary-authentication caller cannot issue a Sysadmin session
 -- through the ordinary session boundary. If this fails, restore mandatory
 -- TOTP enforcement rather than relaxing the denial or adding a bypass.
@@ -172,7 +230,7 @@ BEGIN
     BEGIN
         PERFORM ple_api.create_authenticated_session(
             '00000000-0000-0000-0000-00000000c242'::uuid,
-            '00000000-0000-0000-0000-00000000c240'::uuid,
+            pg_catalog.current_setting('ple.test_sysadmin_account_id'),
             decode(repeat('24', 32), 'hex'), 900
         );
         RAISE EXCEPTION 'ordinary issuance bypassed mandatory Sysadmin TOTP';
@@ -186,7 +244,7 @@ DO $$
 BEGIN
     IF EXISTS (
         SELECT 1 FROM ple_private.authenticated_session
-        WHERE account_id = '00000000-0000-0000-0000-00000000c240'::uuid
+        WHERE account_id = pg_catalog.current_setting('ple.test_sysadmin_account_id')
     ) THEN
         RAISE EXCEPTION 'denied Sysadmin issuance left an authenticated session';
     END IF;
@@ -194,7 +252,7 @@ END
 $$;
 SET LOCAL ROLE ple_api_owner;
 SELECT pg_catalog.set_config(
-    'ple.session_account_id', '00000000-0000-0000-0000-00000000c240', true
+    'ple.session_account_id', :'sysadmin_account_id', true
 );
 DO $$
 BEGIN
@@ -203,9 +261,9 @@ BEGIN
         RAISE EXCEPTION 'active Sysadmin lacks platform-administration authority';
     END IF;
     IF ple_api.current_session_account_is_course_member(
-        '00000000-0000-0000-0000-00000000c241'::uuid
+        'CI0000000Y'
     ) OR ple_api.current_session_account_is_course_instructor(
-        '00000000-0000-0000-0000-00000000c241'::uuid
+        'CI0000000Y'
     ) THEN
         RAISE EXCEPTION 'Sysadmin Product Role unexpectedly grants Course-record authority';
     END IF;
@@ -298,7 +356,9 @@ BEGIN
 		SELECT routine.oid::regprocedure::text
 		  FROM pg_catalog.pg_proc AS routine
 		  JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = routine.pronamespace
-		 WHERE namespace.nspname LIKE 'ple\_%' ESCAPE '\'
+		 -- Public pure helpers in ple_private/ple_data are intentionally
+		 -- executable by PUBLIC; the notifier cannot reach those schemas.
+		 WHERE namespace.nspname = 'ple_api'
 		   AND has_function_privilege(
 			   'ple_course_retention_notifier', routine.oid, 'EXECUTE'
 		   )
@@ -340,7 +400,7 @@ BEGIN
 	IF NOT EXISTS (
 		SELECT 1 FROM pg_catalog.pg_proc AS routine
 		WHERE routine.oid = to_regprocedure(
-			'ple_api.mark_course_instance_inactive(uuid,timestamp with time zone)'
+			'ple_api.mark_course_instance_inactive(text,timestamp with time zone)'
 		)
 		AND routine.proowner = to_regrole('ple_course_retention_executor')
 		AND routine.prosecdef
@@ -350,7 +410,7 @@ BEGIN
 		WHERE role.rolname IN ('ple_app', 'ple_auth', 'ple_course_retention_notifier')
 		AND has_function_privilege(
 			role.oid,
-			'ple_api.mark_course_instance_inactive(uuid,timestamp with time zone)',
+				'ple_api.mark_course_instance_inactive(text,timestamp with time zone)',
 			'EXECUTE'
 		)
 	) THEN
@@ -388,7 +448,7 @@ $$;
 
 -- This catalog runs as the actual migrator login.  Verify its coordinator
 -- projection works while a DDL attempt is rejected at the schema boundary.
-SELECT base_release FROM ple_api.ple_schema_state LIMIT 1;
+SELECT base_release FROM ple_api.ple_schema_state ORDER BY base_release LIMIT 1;
 DO $$
 BEGIN
 	BEGIN

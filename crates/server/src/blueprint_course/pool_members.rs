@@ -8,7 +8,7 @@ use axum::{
 };
 use browser_api_contract::blueprint_course::BlueprintPoolMembersView;
 use learning_data_access::BlueprintCourseStore;
-use question_model::{BlueprintAssessmentId, QuestionId};
+use question_model::{BlueprintAssessmentId, QuestionPoolId};
 
 use super::{
     BlueprintCourseRouteState, concealed, instructor_session_hash, parse_blueprint_course_id,
@@ -29,7 +29,7 @@ pub(super) async fn load_pool_members(
         Ok(value) => value,
         Err(_) => return concealed(),
     };
-    let pool = match pool.parse::<QuestionId>() {
+    let pool = match pool.parse::<QuestionPoolId>() {
         Ok(value) => value,
         _ => return concealed(),
     };

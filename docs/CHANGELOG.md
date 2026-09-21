@@ -6,6 +6,67 @@
 
 > September 18 entries are archived in [CHANGELOG-2026-09n.md](CHANGELOG-2026-09n.md).
 
+## 2026-09-21
+
+### Behavior or Interface Changes
+
+- Rewrote `README.md` as an instructor landing page: a plain-prose About paragraph, a status
+  line, a badge row, a centered WeBWorK Question Library hero, and three product statements
+  (practice until it sticks; real questions, shared and reused; build a course once, teach it
+  every term) each carried by captioned screenshots, with a laptop-and-phone Student pair. Live
+  Demo commands, the persona tour, and license attribution are preserved; build and check
+  commands moved out to `docs/DEVELOPMENT.md` behind one developer line. Claims were checked
+  against `docs/CONTRACTS.md` (seeded WeBWorK issuance), `deploy/opentofu/DATABASE_PROVISIONING.md`
+  (Genetics Blueprint published on install), and the screenshot corpus.
+
+### Fixes and Maintenance
+
+- Applied the screenshot-recovery cleanup map: replay staging now requires its manifest;
+  publication receipts and atlases explicitly cover the active public, Instructor, and Student
+  roles while Sysadmin remains deferred; the public-ID reservation catalog asserts its ACL and
+  enabled permanence trigger; and presentation child shared keys are named `question_attempt_id`.
+  Refreshed the current-source `plpgsql_check` receipt to 272 ordinary and 105 trigger functions
+  with zero errors and warnings. Focused publication, link, static-corpus, schema-style, and
+  disposable PostgreSQL checks pass.
+- Kept the Live Demo launcher single-purpose by removing its acceptance-only
+  `--without-live-demo` mode and opt-out acceptance fixture. The lower-level Cargo
+  installation-data command retains its separate deployment option.
+- Published a fresh 97-capture screenshot corpus from a clean Live Demo, including 33 Instructor
+  captures, 56 Student captures, all 18 unanswered and 18 saved-answer question-type
+  laptop/phone captures, plus representative tablet and square MC captures. Added a dedicated
+  Student Question-navigation capture showing saved progress and the countdown timer. The
+  static manifest, receipt, atlas, and role-owned PNG sets passed verification. Corrected the
+  Sysadmin TOTP attestation-column projection and staging metadata validation exposed by the
+  publication run.
+- Restored the semantic `webwork_` prefix on Instructor generated-example screenshots. Viewport
+  variants now use explicit role folders instead of redundant `_laptop` and `_phone` filename
+  suffixes; genuinely single-view artifacts remain at the role root.
+- Organized viewport-qualified screenshots under role viewport folders (`laptop/`, `tablet/`,
+  `phone/`, and `square/`) while keeping genuinely single-view artifacts at the role root. The
+  Student question corpus now includes saved-answer captures for every current native and
+  WeBWorK response format on laptop and phone, in addition to the answer-free baseline captures;
+  saved-response, resume, submission, and history evidence now also uses explicit viewport paths.
+- Hardened the Rust verification front door so generated Question-ID contracts are checked rather
+  than rewritten; removed temporary publication-response coupling from the screenshot scenarios;
+  and removed temporary workstream labels plus an unreachable `course_instance` trigger branch
+  from the PostgreSQL source. Expanded the one-time `plpgsql_check` receipt with reproducible
+  container, query, and result-digest details.
+- Completed the pre-production identity cleanup: Rust and TypeScript now distinguish
+  `PublishedQuestionId` from `QuestionPoolId`, exact pins are
+  `PublishedQuestionRevisionTuple`, and their JSON member is `publishedQuestionId`. Updated
+  schema installation data, decoders, fixtures, acceptance checks, and current terminology docs.
+- Re-ran the complete screenshot corpus from a clean Live Demo after the identity cleanup. The
+  capture now uses Student identities for the HOTSPOT workflow and disposable assessments for its
+  unanswered pointer/keyboard checks, so saved-answer captures do not contaminate the interaction
+  proof. All published scenarios, the atlas, and the static corpus checks pass; the owned stack
+  is clean afterward.
+
+### Developer Tests and Notes
+
+- Recorded an independent screenshot-recovery audit for the coding manager. It reviews the
+  cross-layer repair batch, Question-identity naming, Student Question-format coverage, and
+  acceptance evidence before changes are accepted.
+
 ## 2026-09-20
 
 ### Features
@@ -29,6 +90,38 @@
   `bash tests/e2e/e2e_screenshot_warm_loop.sh`.
 
 ### Fixes and Maintenance
+
+- Restored the full acceptance run: Course Banner PostgreSQL/MinIO persistence now uses
+  explicit PostgreSQL domain and enum boundaries, transaction-safe object timestamps,
+  explicit work-record columns, and the canonical `object_record_id` adapter projection.
+  Stale acceptance assumptions now use `assessmentEditNumber`, the current Blueprint
+  course-list signature, authorized course-list inspection, and text casts only when
+  inspecting PostgreSQL enums.  Fixed-suite teardown retries transient supervisor
+  shutdown failures.  Gate: `./launchers/all_test.sh`.
+
+- Recorded the one-time `plpgsql_check` PostgreSQL 17 diagnostic in
+  [PLPGSQL_CHECK_DIAGNOSTIC.md](PLPGSQL_CHECK_DIAGNOSTIC.md). A temporary
+  derivative server image loaded the normal `base_schema` and checked 272
+  ordinary PLE PL/pgSQL functions plus installed trigger functions; the receipt
+  groups the actionable type, function-resolution, catalog, and ambiguity
+  findings separately from context false positives and behavioral failures.
+  A fresh current-source rerun is clean for ordinary functions; the only
+  remaining trigger findings are the documented unreachable `OLD`/`NEW` context
+  branch. The extension remains outside the permanent PostgreSQL image and
+  `all_test.sh`.
+
+- Course Blueprint adoption now validates fixed Question IDs from the canonical
+  `question_revision_tuple` JSON path. The stale `question_revision` path made
+  every adopted fixed Question fail before its Course Instance could be created.
+  Its Assessment writer also now supplies the domain-valid `A0000000A` mint
+  placeholder so the database-owned Assessment trigger can issue the public ID,
+  then retains the trigger-returned ID for its child entries.
+  Gate: `./devel/capture_screenshots.sh` after a clean Live Demo start.
+- Public HOTSPOT publication now initializes Job and public Object Record
+  `updated_at` from their explicit publication timestamps. The prior transaction
+  timestamp could precede the supplied `clock_timestamp()` and violate the
+  `updated_at >= created_at` contract during image publication.
+  Gate: `./devel/capture_screenshots.sh` after a clean Live Demo start.
 
 - Bundled curriculum publisher Account insert uses
   `transaction_timestamp()` for `created_at` so `account_check`
@@ -634,4 +727,3 @@
 - Synchronized shared style guides, tests, and repository support files from the starter template.
 - Synchronized shared style guides, tests, and repository support files from the starter template.
 - Synchronized shared style guides, tests, and repository support files from the starter template.
-

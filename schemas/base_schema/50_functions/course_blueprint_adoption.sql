@@ -123,12 +123,12 @@ BEGIN
                 IF proposed_entry ->> 'kind' IS DISTINCT FROM 'fixed_question'
                    OR proposed_entry ->> 'availability' IS DISTINCT FROM 'available'
                    OR proposed_entry ->> 'authoredPosition' IS DISTINCT FROM entry_index::text
-                   -- C842/C843 persist the exact canonical Question ID in the
-                   -- sealed JSON and relational state; no representation
-                   -- translation is permitted at this persistence seam.
+                   -- Persist the exact canonical Question ID in the sealed JSON
+                   -- and relational state; no representation translation is
+                   -- permitted at this persistence seam.
                    OR proposed_entry ->> 'questionId' IS DISTINCT FROM
-                        source_entry #>> '{question_revision,questionId}'
-                   OR proposed_entry ->> 'revisionNumber' IS DISTINCT FROM source_entry #>> '{question_revision,revisionNumber}'
+                        source_entry #>> '{published_question_revision_tuple,publishedQuestionId}'
+                   OR proposed_entry ->> 'revisionNumber' IS DISTINCT FROM source_entry #>> '{published_question_revision_tuple,revisionNumber}'
                    OR proposed_entry ->> 'pointsPossible' IS DISTINCT FROM source_entry ->> 'points_possible'
                    OR proposed_entry ->> 'scoringRule' IS DISTINCT FROM (CASE (source_entry ->> 'scoring_rule')
                         WHEN 'normal' THEN 'normal' WHEN 'fullCredit' THEN 'full_credit'
@@ -231,7 +231,10 @@ BEGIN
             candidate.feedback_question_answer, candidate.feedback_question_answer_explanation,
             candidate.feedback_class_statistics, assessment_type_value
         );
-        new_assessment_id := gen_random_uuid();
+        -- The assessment trigger owns the public identity.  Supply its
+        -- canonical domain-valid mint placeholder rather than a raw UUID,
+        -- which the assessment_id domain must reject before the trigger runs.
+        new_assessment_id := 'A0000000A';
         INSERT INTO ple_data.assessment (
             assessment_id, course_instance_id, origin_kind, source_blueprint_course_id,
             source_blueprint_revision_number, source_blueprint_assessment_id,
@@ -244,7 +247,7 @@ BEGIN
             transaction_timestamp(), transaction_timestamp(),
             assessment_type_value,
             snapshot_id
-        );
+        ) RETURNING assessment_id INTO new_assessment_id;
         -- Fixed entries have no child lineage and can use the ordinary guarded
         -- entry writer. Pool entries are created below through their distinct
         -- immutable fork boundary; a normal save may never attach a published Pool.
@@ -288,7 +291,7 @@ BEGIN
             ) VALUES (
                 (entry_json ->> 'assessmentEntryId')::uuid, new_assessment_id,
                 (entry_json ->> 'authoredPosition')::integer, 'question_pool', 'available',
-                entry_json ->> 'scoringRule',
+                (entry_json ->> 'scoringRule')::ple_data.scoring_rule,
                 NULLIF(entry_json ->> 'questionAttemptLimit', '')::integer,
                 NULLIF(entry_json ->> 'questionAttemptTimeLimitSeconds', '')::integer,
                 NULLIF(entry_json ->> 'questionAttemptGraceSeconds', '')::integer
@@ -301,7 +304,7 @@ BEGIN
                 forked.question_pool_id,
                 (entry_json ->> 'selectionCount')::integer,
                 (entry_json ->> 'pointsPerItem')::numeric,
-                entry_json ->> 'selectedQuestionOrder'
+                (entry_json ->> 'selectedQuestionOrder')::ple_data.selected_question_order
             );
             INSERT INTO ple_data.assessment_question_pool_fork (
                 assessment_entry_id, assessment_id, question_pool_id
@@ -341,7 +344,7 @@ BEGIN
        AND owner_account_id = ple_api.current_session_account_id()
        AND ple_api.current_session_account_is_instructor()
      FOR UPDATE;
-    RETURN QUERY SELECT daughter.course_instance_id
+    RETURN QUERY SELECT daughter.course_instance_id::text
       FROM ple_data.course_instance AS daughter
       JOIN ple_data.blueprint_course AS blueprint
         ON blueprint.blueprint_course_id = daughter.blueprint_course_id
@@ -454,4 +457,3 @@ BEGIN
     RETURN QUERY SELECT receipt.resulting_blueprint_revision_number, receipt.changed, receipt.accepted_at;
 END
 $$;
-

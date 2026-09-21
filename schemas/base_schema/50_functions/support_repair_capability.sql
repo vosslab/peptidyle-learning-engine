@@ -65,7 +65,7 @@ BEGIN
     recorded_event_id := pg_catalog.gen_random_uuid();
     INSERT INTO ple_audit.support_repair_capability_event
     VALUES (recorded_event_id, p_capability_id, p_sysadmin_account_id, p_issuer_account_id,
-            p_resource_class, p_resource_path, p_purpose, p_result,
+            p_resource_class, p_resource_path, p_purpose, p_result::ple_data.repair_result,
             pg_catalog.transaction_timestamp());
     RETURN recorded_event_id;
 END
@@ -141,7 +141,7 @@ BEGIN
     PERFORM ple_audit.record_support_repair_capability_event(
         p_capability_id, sysadmin, issuer, p_resource_class, p_resource_path, p_purpose, 'issued'
     );
-    RETURN QUERY SELECT capability.support_repair_capability_id, account.account_id,
+    RETURN QUERY SELECT capability.support_repair_capability_id, account.account_id::text,
         capability.resource_class, capability.resource_path, capability.purpose,
         (extract(epoch FROM capability.expires_at) * 1000)::bigint,
         (extract(epoch FROM capability.revoked_at) * 1000)::bigint
@@ -168,7 +168,7 @@ BEGIN
         capability.support_repair_capability_id, capability.sysadmin_account_id, issuer, capability.resource_class,
         capability.resource_path, capability.purpose, 'revoked'
     );
-    RETURN QUERY SELECT stored.support_repair_capability_id, account.account_id, stored.resource_class,
+    RETURN QUERY SELECT stored.support_repair_capability_id, account.account_id::text, stored.resource_class,
         stored.resource_path, stored.purpose,
         (extract(epoch FROM stored.expires_at) * 1000)::bigint,
         (extract(epoch FROM stored.revoked_at) * 1000)::bigint
@@ -223,4 +223,3 @@ BEGIN
         capability.resource_path, (extract(epoch FROM now_at) * 1000)::bigint;
 END
 $$;
-

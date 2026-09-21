@@ -1,8 +1,8 @@
 // Browser contract for stable Published Question lineage availability.
 
 import type { QuestionDetails } from "../../generated/api/QuestionDetails";
-import type { QuestionId } from "../../generated/api/QuestionId";
-import type { QuestionRevisionTuple } from "../../generated/api/QuestionRevisionTuple";
+import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionId";
+import type { PublishedQuestionRevisionTuple } from "../../generated/api/PublishedQuestionRevisionTuple";
 import type { QuestionSummary } from "../../generated/api/QuestionSummary";
 import type { QuestionAvailabilityEditNumber } from "../../generated/api/QuestionAvailabilityEditNumber";
 
@@ -20,21 +20,21 @@ export type LoadedQuestionLineage = {
 
 /** Instructor Question lineage administration and exact immutable revision reads. */
 export interface QuestionAvailabilityClient {
-  readonly getQuestionLineage: (questionId: QuestionId) => Promise<LoadedQuestionLineage>;
+  readonly getQuestionLineage: (questionId: PublishedQuestionId) => Promise<LoadedQuestionLineage>;
   readonly getQuestionRevision: (
-    questionRevisionTuple: QuestionRevisionTuple,
+    publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple,
   ) => Promise<QuestionDetails>;
   /** Same-origin, answer-free WeBWorK preview for one exact immutable Revision. */
   readonly questionRevisionPreviewDocumentUrl: (
-    questionRevisionTuple: QuestionRevisionTuple,
+    publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple,
   ) => string;
   readonly archiveQuestion: (
-    questionId: QuestionId,
+    questionId: PublishedQuestionId,
     confirmationTitle: string,
     expectedQuestionAvailabilityEditNumber: QuestionAvailabilityEditNumber,
   ) => Promise<QuestionAvailabilityTransition>;
   readonly restoreQuestion: (
-    questionId: QuestionId,
+    questionId: PublishedQuestionId,
     expectedQuestionAvailabilityEditNumber: QuestionAvailabilityEditNumber,
   ) => Promise<QuestionAvailabilityTransition>;
 }

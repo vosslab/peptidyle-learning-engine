@@ -4,7 +4,7 @@ import { For, Match, Show, Switch, createSignal, onCleanup, onMount, type JSX } 
 
 import type { QuestionPoolLibrarySummary } from "../../../generated/api/QuestionPoolLibrarySummary";
 import type { QuestionPoolView } from "../../../generated/api/QuestionPoolView";
-import type { QuestionId } from "../../../generated/api/QuestionId";
+import type { QuestionPoolId } from "../../../generated/api/QuestionPoolId";
 import type { QuestionPoolEditNumber } from "../../../generated/api/QuestionPoolEditNumber";
 import type { QuestionPoolLibraryClient } from "../../api/question_pool_library";
 import "./question_pool_picker.css";
@@ -13,7 +13,7 @@ import { CourseClassificationSummary } from "../../components/course_classificat
 type LoadState = "loading" | "ready" | "empty" | "error";
 
 export interface QuestionPoolPickerSelection {
-  readonly questionPoolId: QuestionId;
+  readonly questionPoolId: QuestionPoolId;
   readonly questionPoolEditNumber: QuestionPoolEditNumber;
   readonly memberCount: number;
 }
@@ -247,8 +247,8 @@ export function QuestionPoolPicker(props: QuestionPoolPickerProps): JSX.Element 
                             {member.question.question_library.summary.metadata.questionTitle}
                           </strong>
                           <span>
-                            {member.questionRevisionTuple.questionId}, Revision{" "}
-                            {member.questionRevisionTuple.revisionNumber}
+                            {member.publishedQuestionRevisionTuple.publishedQuestionId}, Revision{" "}
+                            {member.publishedQuestionRevisionTuple.revisionNumber}
                           </span>
                         </li>
                       )}

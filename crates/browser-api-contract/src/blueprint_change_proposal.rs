@@ -94,9 +94,9 @@ pub struct BlueprintChangeProposalComparisonView {
     pub target: BlueprintChangeProposalSideView,
     /// Existing relationship DTO: left means frozen source, right means frozen target.
     pub assessment_relationships: Vec<BlueprintComparisonAssessmentRelationship>,
-    pub shared_question_ids: Vec<question_model::QuestionId>,
-    pub source_only_question_ids: Vec<question_model::QuestionId>,
-    pub target_only_question_ids: Vec<question_model::QuestionId>,
+    pub shared_question_ids: Vec<question_model::PublishedQuestionId>,
+    pub source_only_question_ids: Vec<question_model::PublishedQuestionId>,
+    pub target_only_question_ids: Vec<question_model::PublishedQuestionId>,
 }
 
 /// Committed immutable outcome, never a later ordinary target-head reload.

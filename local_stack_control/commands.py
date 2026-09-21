@@ -378,13 +378,7 @@ def start(
 		runner,
 	)
 	print(f"Developer Browser Suite cleared: {project}")
-	if not args.without_live_demo:
-		result = local_stack_control.browser_suite_developer_start.start_developer_browser_suite(repo_root)
-	else:
-		result = local_stack_control.browser_suite_developer_start.start_developer_browser_suite(
-			repo_root,
-			without_live_demo=args.without_live_demo,
-		)
+	result = local_stack_control.browser_suite_developer_start.start_developer_browser_suite(repo_root)
 	entry_url = live_demo_entry_url(result.origin)
 	print(f"Live demo entry: {entry_url}", flush=True)
 	if not args.headless:

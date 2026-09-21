@@ -53,7 +53,7 @@ test("Bloom correction request is complete, closed, and precision-safe", () => {
 
 test("Bloom correction receipts are exact-target closed DTOs", () => {
   const question = {
-    questionRevisionTuple: { questionId: "7K3M-79QP", revisionNumber: 3 },
+    publishedQuestionRevisionTuple: { publishedQuestionId: "7K3M-79QP", revisionNumber: 3 },
     bloom,
   };
   const pool = {

@@ -287,12 +287,12 @@ CREATE TABLE ple_private.question_attempt_presentation_binding (
 
 CREATE TABLE ple_private.question_attempt_response_item_binding (
     course_instance_id ple_data.course_instance_id NOT NULL,
-    question_attempt_presentation_binding_id uuid NOT NULL,
+    question_attempt_id uuid NOT NULL,
     presentation_response_item_id text NOT NULL CHECK (presentation_response_item_id ~ '^[0-9a-f]{4}$'),
     response_item_id text NOT NULL CHECK (char_length(btrim(response_item_id)) > 0),
-    PRIMARY KEY (course_instance_id, question_attempt_presentation_binding_id, presentation_response_item_id),
-    UNIQUE (course_instance_id, question_attempt_presentation_binding_id, response_item_id),
-    FOREIGN KEY (course_instance_id, question_attempt_presentation_binding_id)
+    PRIMARY KEY (course_instance_id, question_attempt_id, presentation_response_item_id),
+    UNIQUE (course_instance_id, question_attempt_id, response_item_id),
+    FOREIGN KEY (course_instance_id, question_attempt_id)
         REFERENCES ple_private.question_attempt_presentation_binding(course_instance_id, question_attempt_id)
         ON DELETE CASCADE,
     created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
@@ -310,14 +310,14 @@ CREATE TABLE ple_private.question_attempt_presentation_asset_binding (
 
 CREATE TABLE ple_private.question_attempt_presentation_image_rendition (
     course_instance_id ple_data.course_instance_id NOT NULL,
-    question_attempt_presentation_image_binding_id uuid NOT NULL,
+    question_attempt_id uuid NOT NULL,
     question_image_asset_id uuid NOT NULL,
     question_image_checksum bytea NOT NULL CHECK (octet_length(question_image_checksum) = 32),
     rendition_checksum bytea NOT NULL CHECK (octet_length(rendition_checksum) = 32),
     intrinsic_width integer NOT NULL CHECK (intrinsic_width > 0),
     intrinsic_height integer NOT NULL CHECK (intrinsic_height > 0),
-    PRIMARY KEY (course_instance_id, question_attempt_presentation_image_binding_id, question_image_asset_id),
-    FOREIGN KEY (course_instance_id, question_attempt_presentation_image_binding_id)
+    PRIMARY KEY (course_instance_id, question_attempt_id, question_image_asset_id),
+    FOREIGN KEY (course_instance_id, question_attempt_id)
         REFERENCES ple_private.question_attempt_presentation_asset_binding(course_instance_id, question_attempt_id)
         ON DELETE CASCADE,
     created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()

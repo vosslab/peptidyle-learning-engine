@@ -27,9 +27,8 @@ browser over HTTPS and uses production authentication; it does not select a
 alternate authentication or SMTP overlay.
 
 The lifecycle initializes the canonical schema before the API starts. After the
-services are ready, its default `installation-data provision` phase creates the
-complete ordinary Live Demo; an explicit controller opt-out skips that data
-only. `apply` creates only the database-owned Pilot and teaching graph.
+services are ready, its `installation-data provision` phase creates the complete
+ordinary Live Demo. `apply` creates only the database-owned Pilot and teaching graph.
 Cross-system work in the complete demo stays with its owning application paths.
 
 ## Long-running services

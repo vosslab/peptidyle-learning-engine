@@ -3,7 +3,7 @@
 import { For, Show, createEffect, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 
 import type { BlueprintAssessmentEntryInput } from "../../../generated/api/BlueprintAssessmentEntryInput";
-import type { QuestionRevisionTuple } from "../../../generated/api/QuestionRevisionTuple";
+import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
 import type { BlueprintCourseClient } from "../../api/blueprint_course";
 import { MAX_REUSABLE_ENTRIES } from "./blueprint_course_model";
 import {
@@ -33,7 +33,7 @@ export function BlueprintPoolMembersEditor(props: BlueprintPoolMembersEditorProp
   const initialPool = structuredClone(props.entry.pool);
   const questionPoolId = initialPool.question_pool_id;
   const questionPoolEditNumber = initialPool.question_pool_edit_number;
-  const [members, setMembers] = createSignal<QuestionRevisionTuple[]>();
+  const [members, setMembers] = createSignal<PublishedQuestionRevisionTuple[]>();
   const [error, setError] = createSignal("");
   const [pickerOpen, setPickerOpen] = createSignal(false);
   let trigger: HTMLButtonElement | undefined;
@@ -87,7 +87,7 @@ export function BlueprintPoolMembersEditor(props: BlueprintPoolMembersEditorProp
     void loadMembers();
   });
 
-  function changeMembers(next: QuestionRevisionTuple[], attested = false): void {
+  function changeMembers(next: PublishedQuestionRevisionTuple[], attested = false): void {
     setError("");
     setMembers(next);
     props.onChange(
@@ -108,16 +108,21 @@ export function BlueprintPoolMembersEditor(props: BlueprintPoolMembersEditorProp
   function addQuestions(selection: QuestionPickerSelection): void {
     const next = [...(members() ?? [])];
     for (const question of selection.questions) {
-      const questionRevisionTuple = question.row.questionRevisionTuple;
-      if (!questionRevisionTuple) {
+      const publishedQuestionRevisionTuple = question.row.publishedQuestionRevisionTuple;
+      if (!publishedQuestionRevisionTuple) {
         setError(
           "A selected Question has no exact Revision Tuple. No members were added; refresh the Question Picker and try again.",
         );
         setPickerOpen(false);
         return;
       }
-      if (!next.some((member) => member.questionId === questionRevisionTuple.questionId))
-        next.push(questionRevisionTuple);
+      if (
+        !next.some(
+          (member) =>
+            member.publishedQuestionId === publishedQuestionRevisionTuple.publishedQuestionId,
+        )
+      )
+        next.push(publishedQuestionRevisionTuple);
     }
     setPickerOpen(false);
     changeMembers(next);
@@ -161,7 +166,7 @@ export function BlueprintPoolMembersEditor(props: BlueprintPoolMembersEditorProp
                   <li>
                     {/* ASVS 1.2.1: ordinary JSX text keeps IDs inert; no HTML or raw JSON rendering. */}
                     <span>
-                      Question {member.questionId}, Revision {member.revisionNumber}
+                      Question {member.publishedQuestionId}, Revision {member.revisionNumber}
                     </span>
                     <Show when={props.editable}>
                       <div class="blueprint-course-inline-actions">

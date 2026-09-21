@@ -10,16 +10,15 @@ SET LOCAL ROLE ple_private_owner;
 CREATE FUNCTION ple_private.validate_bloom_pair(p_cognitive_process text, p_knowledge_dimension text)
 RETURNS void LANGUAGE plpgsql
 SET search_path = pg_catalog AS $$
-DECLARE
-    validated_cognitive_process ple_data.bloom_cognitive_process;
-    validated_knowledge_dimension ple_data.bloom_knowledge_dimension;
 BEGIN
     IF p_cognitive_process IS NULL OR p_knowledge_dimension IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Bloom classification pair is invalid';
     END IF;
     BEGIN
-        validated_cognitive_process := p_cognitive_process::ple_data.bloom_cognitive_process;
-        validated_knowledge_dimension := p_knowledge_dimension::ple_data.bloom_knowledge_dimension;
+        IF p_cognitive_process::ple_data.bloom_cognitive_process IS NULL
+           OR p_knowledge_dimension::ple_data.bloom_knowledge_dimension IS NULL THEN
+            RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Bloom classification pair is invalid';
+        END IF;
     EXCEPTION WHEN invalid_text_representation THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Bloom classification pair is invalid';
     END;
@@ -193,8 +192,6 @@ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
     current_bloom ple_data.question_revision_bloom%ROWTYPE;
-    validated_cognitive_process ple_data.bloom_cognitive_process;
-    validated_knowledge_dimension ple_data.bloom_knowledge_dimension;
 BEGIN
     -- ASVS 8.2.1/8.2.2/8.3.1: same current active-Instructor exact-read
     -- boundary as Library readers; no invented ownership or fork restriction.
@@ -211,8 +208,6 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Bloom correction reference is invalid';
     END IF;
     PERFORM ple_private.validate_bloom_pair(p_cognitive_process, p_knowledge_dimension);
-    validated_cognitive_process := p_cognitive_process::ple_data.bloom_cognitive_process;
-    validated_knowledge_dimension := p_knowledge_dimension::ple_data.bloom_knowledge_dimension;
     IF NOT EXISTS (SELECT 1 FROM ple_private.question_library_entries(
         p_published_question_id, p_revision_number, false)) THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Bloom correction target is unavailable';
@@ -228,11 +223,11 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Bloom classification Edit Number is stale';
     END IF;
     -- An exact no-op keeps its token, but a stale no-op still refuses.
-    IF validated_cognitive_process IS DISTINCT FROM current_bloom.cognitive_process
-       OR validated_knowledge_dimension IS DISTINCT FROM current_bloom.knowledge_dimension THEN
+    IF p_cognitive_process::ple_data.bloom_cognitive_process IS DISTINCT FROM current_bloom.cognitive_process
+       OR p_knowledge_dimension::ple_data.bloom_knowledge_dimension IS DISTINCT FROM current_bloom.knowledge_dimension THEN
         UPDATE ple_data.question_revision_bloom AS bloom
-           SET cognitive_process = validated_cognitive_process,
-               knowledge_dimension = validated_knowledge_dimension,
+           SET cognitive_process = p_cognitive_process::ple_data.bloom_cognitive_process,
+               knowledge_dimension = p_knowledge_dimension::ple_data.bloom_knowledge_dimension,
                classification_edit_number = bloom.classification_edit_number + 1
          WHERE bloom.published_question_id = p_published_question_id
            AND bloom.revision_number = p_revision_number
@@ -269,8 +264,6 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
     current_bloom ple_data.question_pool_bloom%ROWTYPE;
     target_pool_id text;
-    validated_cognitive_process ple_data.bloom_cognitive_process;
-    validated_knowledge_dimension ple_data.bloom_knowledge_dimension;
 BEGIN
     -- ASVS 8.2.1/8.2.2/8.3.1: same current active-Instructor exact-read
     -- boundary as Library readers; no invented ownership or fork restriction.
@@ -286,8 +279,6 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Bloom correction reference is invalid';
     END IF;
     PERFORM ple_private.validate_bloom_pair(p_cognitive_process, p_knowledge_dimension);
-    validated_cognitive_process := p_cognitive_process::ple_data.bloom_cognitive_process;
-    validated_knowledge_dimension := p_knowledge_dimension::ple_data.bloom_knowledge_dimension;
     SELECT pool.question_pool_id INTO target_pool_id
       FROM ple_data.question_pool AS pool
      WHERE pool.question_pool_id = p_question_pool_id;
@@ -304,11 +295,11 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Bloom classification Edit Number is stale';
     END IF;
     -- An exact no-op keeps its token, but a stale no-op still refuses.
-    IF validated_cognitive_process IS DISTINCT FROM current_bloom.cognitive_process
-       OR validated_knowledge_dimension IS DISTINCT FROM current_bloom.knowledge_dimension THEN
+    IF p_cognitive_process::ple_data.bloom_cognitive_process IS DISTINCT FROM current_bloom.cognitive_process
+       OR p_knowledge_dimension::ple_data.bloom_knowledge_dimension IS DISTINCT FROM current_bloom.knowledge_dimension THEN
         UPDATE ple_data.question_pool_bloom AS bloom
-           SET cognitive_process = validated_cognitive_process,
-               knowledge_dimension = validated_knowledge_dimension,
+           SET cognitive_process = p_cognitive_process::ple_data.bloom_cognitive_process,
+               knowledge_dimension = p_knowledge_dimension::ple_data.bloom_knowledge_dimension,
                classification_edit_number = bloom.classification_edit_number + 1
          WHERE bloom.question_pool_id = target_pool_id
          RETURNING bloom.* INTO current_bloom;
@@ -331,4 +322,3 @@ SET search_path = pg_catalog, ple_private AS $$
         p_question_pool_id, p_expected_classification_edit_number,
         p_cognitive_process, p_knowledge_dimension)
 $$;
-

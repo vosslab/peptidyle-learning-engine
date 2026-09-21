@@ -107,13 +107,13 @@ SELECT lineage.published_question_id, revision.revision_number AS latest_questio
        metadata.question_description, metadata.language, lineage.availability,
        lineage.availability_edit_number
   FROM ple_data.published_question AS lineage
-  JOIN ple_data.published_question_metadata AS metadata ON metadata.published_question_id = lineage.published_question_id
-  JOIN LATERAL (
+  INNER JOIN ple_data.published_question_metadata AS metadata ON metadata.published_question_id = lineage.published_question_id
+  INNER JOIN LATERAL (
       SELECT accepted.revision_number FROM ple_data.question_revision_acceptance AS accepted
        WHERE accepted.published_question_id = lineage.published_question_id
        ORDER BY accepted.revision_number DESC LIMIT 1
   ) AS latest ON true
-  JOIN ple_data.question_revision AS revision
+  INNER JOIN ple_data.question_revision AS revision
     ON revision.published_question_id = lineage.published_question_id AND revision.revision_number = latest.revision_number;
 
 CREATE FUNCTION ple_api.list_question_library_entries()
@@ -189,7 +189,7 @@ BEGIN
     -- ordered data read therefore has one snapshot, and the later denial
     -- cannot expose rows from an incomplete selection.
     RETURN QUERY
-    SELECT metadata.published_question_id, metadata.metadata_edit_number,
+    SELECT metadata.published_question_id::text, metadata.metadata_edit_number,
            metadata.tags, metadata.content_discipline_id, metadata.content_subject_id, metadata.content_topic_id, metadata.content_subtopic_id
       FROM ple_data.published_question_metadata AS metadata
       JOIN ple_data.published_question AS lineage
@@ -220,4 +220,3 @@ SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT *
       FROM ple_private.load_current_published_question_shared_metadata(p_question_ids)
 $$;
-

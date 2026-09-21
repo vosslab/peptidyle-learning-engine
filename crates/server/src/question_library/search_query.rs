@@ -1,13 +1,13 @@
 //! Bounded text-query parsing and matching for Question Library search.
 
-use question_model::{QuestionId, QuestionType};
+use question_model::{PublishedQuestionId, QuestionType};
 
 use super::ResolvedQuestionLibraryEntry;
 
 use crate::library_search_terms::{SearchField, SearchTerm, parse_terms};
 
 pub(super) struct QuestionTextQuery {
-    exact_question_id: Option<QuestionId>,
+    exact_question_id: Option<PublishedQuestionId>,
     terms: Vec<SearchTerm>,
 }
 
@@ -17,7 +17,7 @@ impl QuestionTextQuery {
     /// ASVS 2.2.1 and 2.2.2: the server applies the documented allow-listed field
     /// grammar instead of relying on browser parsing or passing input to an interpreter.
     pub(super) fn parse(text: Option<&str>) -> Self {
-        let exact_question_id = text.and_then(|value| value.parse::<QuestionId>().ok());
+        let exact_question_id = text.and_then(|value| value.parse::<PublishedQuestionId>().ok());
         let terms = if exact_question_id.is_some() {
             Vec::new()
         } else {

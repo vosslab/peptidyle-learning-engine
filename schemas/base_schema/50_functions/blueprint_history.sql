@@ -43,7 +43,7 @@ BEGIN
             END IF;
         END IF;
         RETURN QUERY
-        SELECT revision.blueprint_revision_number::text, revision.blueprint_revision_number,
+        SELECT revision.blueprint_revision_number::text, revision.blueprint_revision_number::bigint,
                (extract(epoch FROM revision.saved_at) * 1000)::bigint,
                NULL::text, NULL::text, NULL::text,
                NULL::uuid, NULL::uuid, NULL::uuid, NULL::uuid, NULL::text[]
@@ -60,7 +60,7 @@ BEGIN
         RETURN QUERY
         SELECT event.blueprint_edit_number::text, NULL::bigint,
                (extract(epoch FROM event.occurred_at) * 1000)::bigint,
-               event.short_name, event.long_name, event.availability,
+               event.short_name, event.long_name, event.availability::text,
                event.content_discipline_id, event.content_subject_id, event.content_topic_id,
                event.content_subtopic_id, event.tags
           FROM ple_data.blueprint_metadata_event AS event
@@ -74,4 +74,3 @@ BEGIN
     END IF;
 END
 $$;
-

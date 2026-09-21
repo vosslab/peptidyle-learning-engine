@@ -1,6 +1,6 @@
 // Closed Pool endorsement and actor-private subscription contracts.
 
-import type { QuestionId } from "../../generated/api/QuestionId";
+import type { QuestionPoolId } from "../../generated/api/QuestionPoolId";
 
 /** One immutable vetted public name, never an Account or Profile ID. */
 export interface QuestionPoolStarredInstructor {
@@ -21,14 +21,14 @@ export interface QuestionPoolWatchProjection {
 
 /** Explicit own-state operations for one stable public Pool identity. */
 export interface QuestionPoolStewardshipClient {
-  readonly getQuestionPoolStar: (poolId: QuestionId) => Promise<QuestionPoolStarProjection>;
+  readonly getQuestionPoolStar: (poolId: QuestionPoolId) => Promise<QuestionPoolStarProjection>;
   readonly setQuestionPoolStar: (
-    poolId: QuestionId,
+    poolId: QuestionPoolId,
     starred: boolean,
   ) => Promise<QuestionPoolStarProjection>;
-  readonly getQuestionPoolWatch: (poolId: QuestionId) => Promise<QuestionPoolWatchProjection>;
+  readonly getQuestionPoolWatch: (poolId: QuestionPoolId) => Promise<QuestionPoolWatchProjection>;
   readonly setQuestionPoolWatch: (
-    poolId: QuestionId,
+    poolId: QuestionPoolId,
     watching: boolean,
   ) => Promise<QuestionPoolWatchProjection>;
 }

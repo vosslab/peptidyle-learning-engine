@@ -27,9 +27,9 @@ answer keys, raw renderer or grader data, credentials, or internal database IDs.
 Account, Course Instance, Assessment, Blueprint Course, Attempt, and similar
 objects emit JSON `id` (or nested `courseInstanceId` / `assessmentId`). HTTP path
 parameters that carry those public IDs are named `course_instance_id`,
-`assessment_id`, `blueprint_course_id`, and `account_id`. Exact Question
-revisions use a named `questionRevisionTuple` with members
-`{ questionId, revisionNumber }`. Exact Blueprint revisions use a named
+`assessment_id`, `blueprint_course_id`, and `account_id`. Exact Published Question
+revisions use a named `publishedQuestionRevisionTuple` with members
+`{ publishedQuestionId, revisionNumber }`. Exact Blueprint revisions use a named
 `blueprintRevisionTuple` with members `{ blueprintCourseId, revisionNumber }`. Nested command, provenance, and
 client identities use `courseInstanceId`, `assessmentId`, and other precise
 `...Id` names rather than bare `course` or `assessment`. Assessment Blueprint
@@ -56,26 +56,26 @@ lifecycle transition is `409`. Temporary dependency failure is `503`.
 | Session                    | `GET /api/auth/session`, `POST /api/auth/logout`                                                                                      | Resolves the browser-safe session projection or revokes the presented session.                                                                                                                                                                                                                                                                                                                                                 |
 | Optional seeded-demo entry | `GET` / `POST /api/auth/live-demo/accounts`                                                                                           | When the installation includes configured demo accounts, lists the bounded eligible persona set or establishes an ordinary session for one selected persona. It grants no authority itself.                                                                                                                                                                                                                                    |
 | Question Library           | `GET /api/questions/search`, `GET /api/questions/by-id/{questionId}`, `GET /api/questions/by-id/{questionId}/detail`                  | Active vetted Instructors and Sysadmins receive answer-free discovery and current published Question detail.                                                                                                                                                                                                                                                                                                                    |
-| Exact Question Revision    | `GET /api/questions/by-id/{questionId}/revisions/{revisionNumber}`                                                                    | Resolves one immutable `QuestionRevisionTuple`, including when its lineage is archived, for an authorized Instructor.                                                                                                                                                                                                                                                                                                      |
+| Exact Question Revision    | `GET /api/questions/by-id/{questionId}/revisions/{revisionNumber}`                                                                    | Resolves one immutable `PublishedQuestionRevisionTuple`, including when its lineage is archived, for an authorized Instructor.                                                                                                                                                                                                                                                                                                      |
 | Question Bloom correction  | `POST /api/questions/by-id/{questionId}/revisions/{revisionNumber}/bloom`                                                            | An active vetted Instructor corrects one exact Question Revision with the complete Bloom pair and its expected classification Edit Number. A successful response returns that same exact Revision and current pair.                                                                                                                                                                                                                   |
 | Question availability      | `POST /api/questions/by-id/{questionId}/archive`, `POST /api/questions/by-id/{questionId}/restore`                                    | Archive requires the exact lineage Availability Edit Number and a clear confirmation; the current `confirmationTitle` request field is an implementation shape, not a Human Guidance requirement. Restore requires the exact Availability Edit Number. Each returns current availability and its new Availability Edit Number.                                                                                                                                  |
 | Draft Question             | `GET` / `POST /api/authoring/drafts`; `GET` / `PUT /api/authoring/drafts/{draftQuestionId}/source`                                    | An Instructor owns private canonical source through their Authoring Workspace. `draftQuestionId` is the native private UUID route value. Source save uses its quoted Draft Question Edit Number.                                                                                                                                                                                                                                      |
-| Question publication       | `POST /api/authoring/drafts/{draftQuestionId}/publish`, `POST /api/authoring/drafts/{draftQuestionId}/publish-revision`               | Validates the owned Draft and creates immutable published Question content. Publication copies the author-declared educational Question Type from the Draft source binding to the Published Question Revision. The first route creates a stable lineage; the second requires an exact parent `QuestionRevisionTuple` and reviewed reason, then creates its successor Revision. Responses expose no private source binding.   |
+| Question publication       | `POST /api/authoring/drafts/{draftQuestionId}/publish`, `POST /api/authoring/drafts/{draftQuestionId}/publish-revision`               | Validates the owned Draft and creates immutable published Question content. Publication copies the author-declared educational Question Type from the Draft source binding to the Published Question Revision. The first route creates a stable lineage; the second requires an exact parent `PublishedQuestionRevisionTuple` and reviewed reason, then creates its successor Revision. Responses expose no private source binding.   |
 
 Question availability belongs to the stable lineage; publishing another
-`QuestionRevisionTuple` does not reset it. Ordinary selection admits only
+`PublishedQuestionRevisionTuple` does not reset it. Ordinary selection admits only
 Published, non-archived Question lineages. Existing exact references remain resolvable.
 
 Active Instructors and Sysadmins receive answer-free Question and Pool Library
 read projections. A Question projection carries its exact Revision's required
 two-value Bloom Classification and independent classification Edit Number. A
 Pool projection carries the current Pool's own pair and classification Edit
-Number; member Question pairs never substitute. The `questionRevisionTuple` field identifies the exact resolved Revision on an
+Number; member Question pairs never substitute. The `publishedQuestionRevisionTuple` field identifies the exact resolved Revision on an
 exact Question-detail route. `GET /api/question-pools` and
 `GET /api/question-pools/{questionPoolId}` are the product Pool reads. JSON
 carries sibling `questionPoolId` and `questionPoolEditNumber` fields; there
 is no Pool Pin wrapper. Exact immutable Question Revision pins remain
-`{ questionId, revisionNumber }`.
+`{ publishedQuestionId, revisionNumber }`.
 
 Pool discovery accepts optional exact `bloom_cognitive_process` and
 `bloom_knowledge_dimension` query parameters. Each combines with every other applied Pool
@@ -126,7 +126,7 @@ including zero counts and an empty result.
 | Known forks               | `GET /api/course-blueprints/{blueprint_course_id}/forks`                                                                                                                                         | Returns ordinary-visibility known forks with current and source `BlueprintRevisionTuple` values rather than split ID-plus-Revision siblings.                                                             |
 | Metadata and lifecycle    | `PUT /api/course-blueprints/{blueprint_course_id}/metadata`; current archive and restore routes                                                                                                  | Rename and lifecycle changes use the Blueprint metadata Edit Number without creating a Revision. The target lifecycle is Private, Public, and Archived. The current route set does not yet express the complete make-Public and permitted return-to-Private workflow.             |
 
-A Blueprint Revision contains exact `QuestionRevisionTuple` pins. A Course
+A Blueprint Revision contains exact `PublishedQuestionRevisionTuple` pins. A Course
 Instance Assessment records its stable Blueprint Assessment reference plus the
 exact Blueprint Revision Tuple. That source is
 provenance, not a third Revision family. A newly added Blueprint Assessment is

@@ -53,7 +53,7 @@ The permanent database evidence is intentionally small:
 | Current Assessment save/release, released edits, future Attempts, Question/Blueprint archive behavior, Blueprint Revision creation/Save, and Assessment Unrelease follow their lifecycle and concurrency contracts. | Narrow owner tests at the lowest layer that proves the behavior. |
 | Two Course Instances can pin one Blueprint Revision; a later changed Save leaves both pinned while a new Instance pins the newer current Revision.                                       | Deterministic Store or service fixture covering creation, Save, and exact provenance. |
 | Fresh base initialization, no-op compatible replay, and application-role verification work through supported commands.                                                                   | Connected lifecycle acceptance.                                                       |
-| Default installation-data provisioning converges and the explicit opt-out leaves ordinary product data unprovisioned.                                                                    | Connected installation-data acceptance.                                               |
+| Default installation-data provisioning and replay converge through the ordinary Live Demo path.                                                                                         | Connected installation-data acceptance.                                               |
 
 Migration-file counts, historical checksums, module layouts, SQL body snippets,
 custom splitter behavior, retired Revision projections, and broad source

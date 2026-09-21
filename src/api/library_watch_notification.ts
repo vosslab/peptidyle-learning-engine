@@ -1,13 +1,13 @@
 // Private Instructor Watch inbox contracts.
 
-import type { QuestionId } from "../../generated/api/QuestionId";
+import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionId";
 
 export type LibraryWatchTargetKind = "question" | "questionPool";
 
 /** One self-only in-app notification; it contains no watcher or actor identity. */
 type LibraryWatchNotificationBase = {
   readonly targetKind: LibraryWatchTargetKind;
-  readonly targetPublicId: QuestionId;
+  readonly targetPublicId: PublishedQuestionId;
   readonly occurredAt: number;
 };
 
@@ -21,7 +21,7 @@ export type LibraryWatchNotification =
   | (LibraryWatchNotificationBase & {
       readonly eventKind: "fork";
       readonly revisionNumber: number;
-      readonly forkedPublicId: QuestionId;
+      readonly forkedPublicId: PublishedQuestionId;
       readonly activityId: null;
     })
   | (LibraryWatchNotificationBase & {

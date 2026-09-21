@@ -339,7 +339,7 @@ BEGIN
                locked_until = CASE WHEN v_next_count = 5 THEN v_candidate.expires_at ELSE NULL END
          WHERE attempt.sysadmin_totp_attestation_id = p_attestation_id;
     END IF;
-    RETURN QUERY SELECT v_candidate.account_id;
+    RETURN QUERY SELECT v_candidate.account_id::text;
 END
 $$;
 
@@ -401,7 +401,7 @@ BEGIN
          WHERE attestation.sysadmin_totp_attestation_id = p_attestation_id
            AND attestation.account_id = created.account_id
         RETURNING attestation.sysadmin_totp_attestation_id
-    ) SELECT created.session_id, created.token_hash, created.account_id, created.product_role,
+    ) SELECT created.session_id, created.token_hash, created.account_id::text, created.product_role::text,
              created.created_at, created.expires_at
         FROM created CROSS JOIN consumed;
 END
@@ -572,4 +572,3 @@ CREATE FUNCTION ple_api.sweep_expired_authentication_growth(
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private
 AS $$ SELECT ple_private.sweep_expired_authentication_growth(p_evaluated_at) $$;
-

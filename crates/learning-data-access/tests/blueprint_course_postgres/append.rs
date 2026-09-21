@@ -5,7 +5,7 @@ use super::*;
 struct AppendPoolIds(AtomicUsize);
 
 impl CourseInstancePoolIdIssuer for AppendPoolIds {
-    fn issue_question_pool_id(&self) -> Result<QuestionId, StoreError> {
+    fn issue_question_pool_id(&self) -> Result<QuestionPoolId, StoreError> {
         let index = self.0.fetch_add(1, Ordering::SeqCst);
         format!("{}K3M-X8P1", index + 1)
             .parse()

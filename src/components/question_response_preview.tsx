@@ -14,7 +14,7 @@ export function QuestionResponsePreviewControl(
   const content = (blocks: ReadonlyArray<QuestionContentBlock>): JSX.Element => (
     <QuestionPromptRenderer
       blocks={blocks}
-      questionRevisionTuple={props.questionRevisionTuple}
+      publishedQuestionRevisionTuple={props.publishedQuestionRevisionTuple}
       questionImageUrl={props.questionImageUrl}
     />
   );

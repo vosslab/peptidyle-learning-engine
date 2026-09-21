@@ -8,6 +8,7 @@ import { cp, mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:
 import {
   CANONICAL_VIEWPORTS,
   ROLE_IDS,
+  VIEWPORT_IDS,
   type CaptureManifest,
   type CaptureRecord,
   type ScreenshotRole,
@@ -19,6 +20,13 @@ const ACTIVE_CORPUS_METADATA = [
   "current_capture_receipt.json",
   "coverage_exceptions.json",
 ] as const;
+// Sysadmin capture production is deferred. Keep its files and manifest records available for a
+// later lane, but do not make them part of the current receipt, atlas, or duplicate-byte gate.
+const CURRENT_CORPUS_ROLES: ReadonlySet<ScreenshotRole> = new Set([
+  "public",
+  "instructor",
+  "student",
+]);
 
 export interface PublishedImage {
   readonly id: string;
@@ -68,9 +76,19 @@ function rolePath(root: string, role: ScreenshotRole): string {
   return target;
 }
 
+function isCurrentCapture(capture: CaptureRecord): boolean {
+  return CURRENT_CORPUS_ROLES.has(capture.role);
+}
+
+function isCurrentPath(capturePath: string): boolean {
+  const role = capturePath.split("/", 1)[0] as ScreenshotRole | undefined;
+  return role !== undefined && CURRENT_CORPUS_ROLES.has(role);
+}
+
 async function actualPngPaths(
   root: string,
   allowedMetadata: ReadonlyArray<string>,
+  requiredMetadata: ReadonlyArray<string> = allowedMetadata,
 ): Promise<ReadonlyArray<string>> {
   const rootEntries = await readdir(root, { withFileTypes: true });
   const directories = rootEntries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
@@ -78,7 +96,17 @@ async function actualPngPaths(
   const special = rootEntries.filter((entry) => !entry.isDirectory() && !entry.isFile());
   // ASVS 5.3.2: accept only the internally named role folders and publication metadata.
   comparePathSet([...ROLE_IDS].sort(), directories.sort(), "screenshot corpus role folder");
-  comparePathSet([...allowedMetadata].sort(), files.sort(), "screenshot corpus root file");
+  comparePathSet(
+    [...requiredMetadata].sort(),
+    files.filter((file) => requiredMetadata.includes(file)).sort(),
+    "screenshot corpus required root file",
+  );
+  const unmanaged = files.filter((file) => !allowedMetadata.includes(file)).sort();
+  if (unmanaged.length > 0) {
+    throw new Error(
+      `screenshot corpus root file path set differs; unmanaged=${unmanaged.join(",")}`,
+    );
+  }
   if (special.length > 0) {
     throw new Error(
       `screenshot corpus root contains unsupported entries: ${special
@@ -94,7 +122,20 @@ async function actualPngPaths(
     const entries: Dirent[] = await readdir(directory, { withFileTypes: true });
     for (const entry of entries) {
       if (entry.isDirectory()) {
-        throw new Error(`active screenshot role folder must stay flat: ${role}/${entry.name}`);
+        if (!(entry.name in CANONICAL_VIEWPORTS)) {
+          throw new Error(`unmanaged screenshot viewport folder: ${role}/${entry.name}`);
+        }
+        const viewportDirectory = path.join(directory, entry.name);
+        const viewportEntries = await readdir(viewportDirectory, { withFileTypes: true });
+        for (const viewportEntry of viewportEntries) {
+          if (!viewportEntry.isFile() || !viewportEntry.name.endsWith(".png")) {
+            throw new Error(
+              `unmanaged screenshot viewport entry: ${role}/${entry.name}/${viewportEntry.name}`,
+            );
+          }
+          paths.push(`${role}/${entry.name}/${viewportEntry.name}`);
+        }
+        continue;
       }
       if (!entry.isFile() || !entry.name.endsWith(".png")) {
         throw new Error(`unmanaged screenshot role entry: ${role}/${entry.name}`);
@@ -150,10 +191,16 @@ export async function inspectCorpus(
   root: string,
   manifest: CaptureManifest,
   allowedMetadata: ReadonlyArray<string> = [],
+  requiredMetadata: ReadonlyArray<string> = allowedMetadata,
 ): Promise<ReadonlyArray<PublishedImage>> {
-  const expected = manifest.captures.map((capture) => capture.path).sort();
-  comparePathSet(expected, await actualPngPaths(root, allowedMetadata), "screenshot corpus");
-  const images = await Promise.all(manifest.captures.map((capture) => imageRecord(root, capture)));
+  const currentCaptures = manifest.captures.filter(isCurrentCapture);
+  const expected = currentCaptures.map((capture) => capture.path).sort();
+  comparePathSet(
+    expected,
+    (await actualPngPaths(root, allowedMetadata, requiredMetadata)).filter(isCurrentPath),
+    "screenshot corpus",
+  );
+  const images = await Promise.all(currentCaptures.map((capture) => imageRecord(root, capture)));
   const pathsByHash = new Map<string, string>();
   for (const image of images) {
     const duplicateOf = pathsByHash.get(image.sha256);
@@ -241,10 +288,10 @@ export function renderAtlas(manifest: CaptureManifest, imagePrefix: string): str
     "human review.",
     "",
   ];
-  const ordered = [...manifest.captures].sort(
-    (left, right) => left.gallery.order - right.gallery.order,
-  );
-  for (const role of ROLE_IDS) {
+  const ordered = manifest.captures
+    .filter(isCurrentCapture)
+    .sort((left, right) => left.gallery.order - right.gallery.order);
+  for (const role of ROLE_IDS.filter((candidate) => CURRENT_CORPUS_ROLES.has(candidate))) {
     const roleCaptures = ordered.filter((capture) => capture.role === role);
     lines.push(`## ${titleCase(role)}`, "");
     const areas = [...new Set(roleCaptures.map((capture) => capture.area))];
@@ -342,7 +389,9 @@ export async function writeReplayArtifacts(options: {
   readonly manifest: CaptureManifest;
   readonly digest: string;
 }): Promise<ReadonlyArray<PublishedImage>> {
-  const images = await inspectCorpus(options.outputRoot, options.manifest);
+  const images = await inspectCorpus(options.outputRoot, options.manifest, [
+    "current_capture_manifest.json",
+  ]);
   const receipt = createReceipt(options.digest, images);
   await Promise.all([
     writeFile(
@@ -464,5 +513,11 @@ export async function promoteCorpus(
 export async function prepareOutputRoot(root: string): Promise<void> {
   await rm(root, { force: true, recursive: true });
   await mkdir(root, { recursive: true });
-  await Promise.all(ROLE_IDS.map((role) => mkdir(rolePath(root, role), { recursive: true })));
+  await Promise.all(
+    ROLE_IDS.flatMap((role) =>
+      VIEWPORT_IDS.map((viewport) =>
+        mkdir(path.join(rolePath(root, role), viewport), { recursive: true }),
+      ),
+    ),
+  );
 }

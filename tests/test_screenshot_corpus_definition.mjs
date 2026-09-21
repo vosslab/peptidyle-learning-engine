@@ -6,6 +6,7 @@ import {
   generateManifest,
 } from "../tests/playwright/screenshot_corpus/manifest.ts";
 import { SCREENSHOT_SCENARIOS } from "../tests/playwright/screenshot_corpus/scenario_registry.ts";
+import { captureIdentity } from "../tests/playwright/screenshot_corpus/runtime.ts";
 import { ROUTE_CONTRACT } from "../src/route_contract.ts";
 import { RIBBON_TASK_CATALOG, TAB_CATALOG } from "../src/ribbon/ribbon_catalog.ts";
 
@@ -37,7 +38,7 @@ test("each screenshot has one role, checkpoint, id, and path", () => {
       assert.equal(checkpoints.has(capture.checkpoint), false);
       checkpoints.add(capture.checkpoint);
       ids.push(`${scenario.role}_${capture.checkpoint}`);
-      paths.push(`${scenario.role}/${capture.checkpoint}.png`);
+      paths.push(captureIdentity(scenario.role, capture.checkpoint, capture.viewport).path);
     }
   }
   assert.equal(new Set(ids).size, ids.length);

@@ -4,7 +4,7 @@ import { For, Show, createSignal, onMount, type JSX } from "solid-js";
 
 import { MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY } from "../../generated/api/MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY";
 import type { QuestionDetails } from "../../generated/api/QuestionDetails";
-import type { QuestionId } from "../../generated/api/QuestionId";
+import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionId";
 import type { QuestionPoolCreationClient } from "../api/question_pool_creation";
 import { decodeQuestionPoolText } from "../api/decoders/question_pool_library";
 import type { QuestionLibraryBrowseRepository } from "../pages/library_page_model";
@@ -31,7 +31,7 @@ function trimPoolDraft(value: string): string {
 export interface QuestionPoolCreateDialogProps {
   readonly questionPoolClient: QuestionPoolCreationClient;
   readonly questionLibrary: QuestionLibraryBrowseRepository;
-  readonly getQuestionDetails: (questionId: QuestionId) => Promise<QuestionDetails>;
+  readonly getQuestionDetails: (questionId: PublishedQuestionId) => Promise<QuestionDetails>;
   /** Exact Published Question that fixes source-bound Pool membership and classification. */
   readonly startingQuestion?: QuestionPoolStartingQuestion;
   readonly onTaskPhaseChange: (active: boolean) => void;
@@ -184,8 +184,8 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
                     {(starting) => (
                       <li>
                         <strong>{starting().questionTitle}</strong> (
-                        {starting().questionRevisionTuple.questionId}, Revision{" "}
-                        {starting().questionRevisionTuple.revisionNumber})
+                        {starting().publishedQuestionRevisionTuple.publishedQuestionId}, Revision{" "}
+                        {starting().publishedQuestionRevisionTuple.revisionNumber})
                       </li>
                     )}
                   </Show>

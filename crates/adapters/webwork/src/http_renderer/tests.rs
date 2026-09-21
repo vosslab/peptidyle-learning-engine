@@ -22,17 +22,19 @@ fn config() -> HttpWebworkRendererConfig {
 }
 
 fn request() -> RenderRequest<'static> {
-    static QUESTION_REVISION: LazyLock<question_model::QuestionRevisionTuple> =
-        LazyLock::new(|| question_model::QuestionRevisionTuple {
-            question_id: question_model::QuestionId::from_random_identifier("ABCDEFG")
-                .expect("fixed Question ID is valid"),
+    static QUESTION_REVISION: LazyLock<question_model::PublishedQuestionRevisionTuple> =
+        LazyLock::new(|| question_model::PublishedQuestionRevisionTuple {
+            published_question_id: question_model::PublishedQuestionId::from_random_identifier(
+                "ABCDEFG",
+            )
+            .expect("fixed Question ID is valid"),
             revision_number: question_model::QuestionRevisionNumber::new(1)
                 .expect("fixed Question Revision Number is valid"),
         });
     RenderRequest {
         pg_source: b"DOCUMENT();",
         pg_path: "Library/opaque.pg",
-        question_revision_tuple: &QUESTION_REVISION,
+        published_question_revision_tuple: &QUESTION_REVISION,
         seed: 7,
     }
 }
@@ -143,15 +145,18 @@ fn response_pairs_refuse_noncanonical_and_server_owned_names() {
 /// Prevents transport configuration from drifting away from the generic embed and deployment boundary.
 fn protocol_uses_embed_format_and_deployment_owned_urls() {
     let settings = config();
-    let revision = question_model::QuestionRevisionTuple {
-        question_id: question_model::QuestionId::from_random_identifier("ABCDEFG").unwrap(),
+    let revision = question_model::PublishedQuestionRevisionTuple {
+        published_question_id: question_model::PublishedQuestionId::from_random_identifier(
+            "ABCDEFG",
+        )
+        .unwrap(),
         revision_number: question_model::QuestionRevisionNumber::new(1).unwrap(),
     };
     let fields = super::super::protocol::render_fields(
         RenderRequest {
             pg_source: b"DOCUMENT();",
             pg_path: "Library/a.pg",
-            question_revision_tuple: &revision,
+            published_question_revision_tuple: &revision,
             seed: 7,
         },
         &settings.ple_origin,
@@ -395,7 +400,7 @@ async fn grade_forwards_ordered_pairs_once_with_trusted_fields() {
             .grade(GradeRequest {
                 pg_source: request.pg_source,
                 pg_path: request.pg_path,
-                question_revision_tuple: request.question_revision_tuple,
+                published_question_revision_tuple: request.published_question_revision_tuple,
                 seed: request.seed,
                 response_payload:
                     br#"[["AnSwEr0001","A"],["AnSwEr0001","B"],["ordinary","value"]]"#,

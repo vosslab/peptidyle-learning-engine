@@ -3,7 +3,7 @@
 import type { BlueprintCourseId } from "../../generated/api/BlueprintCourseId";
 import type { BlueprintAssessmentId } from "../../generated/api/BlueprintAssessmentId";
 import type { BlueprintPoolMembersView } from "../../generated/api/BlueprintPoolMembersView";
-import type { QuestionId } from "../../generated/api/QuestionId";
+import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionId";
 import type { BlueprintCourseSummaryView } from "../../generated/api/BlueprintCourseSummaryView";
 import type { BlueprintCourseView } from "../../generated/api/BlueprintCourseView";
 import type { BlueprintRevisionView } from "../../generated/api/BlueprintRevisionView";
@@ -69,7 +69,7 @@ export interface BlueprintCourseClient extends BlueprintStewardshipClient {
   readonly getBlueprintPoolMembers: (
     blueprintCourseId: BlueprintCourseId,
     assessmentId: BlueprintAssessmentId,
-    poolId: QuestionId,
+    poolId: PublishedQuestionId,
   ) => Promise<BlueprintPoolMembersView>;
   readonly forkBlueprintCourse: (
     blueprintCourseId: BlueprintCourseId,

@@ -314,8 +314,8 @@ mod tests {
     }
 
     fn notification(activity: LibraryWatchActivity) -> LibraryWatchNotification {
-        let question_id =
-            question_model::QuestionId::from_random_identifier("0000000").expect("Question ID");
+        let question_id = question_model::PublishedQuestionId::from_random_identifier("0000000")
+            .expect("Question ID");
         LibraryWatchNotification {
             target_kind: LibraryWatchTargetKind::Question,
             target_public_id: question_id,
@@ -326,8 +326,8 @@ mod tests {
 
     #[test]
     fn every_watch_activity_serializes_to_the_stable_wire_shape() {
-        let forked_id =
-            question_model::QuestionId::from_random_identifier("0000001").expect("Question ID");
+        let forked_id = question_model::PublishedQuestionId::from_random_identifier("0000001")
+            .expect("Question ID");
         let thread_id = uuid::Uuid::from_u128(1);
         let notice_id = uuid::Uuid::from_u128(2);
         let cases = [
@@ -409,8 +409,8 @@ mod tests {
 
     #[test]
     fn notification_response_uses_canonical_display_question_ids() {
-        let question_id =
-            question_model::QuestionId::from_random_identifier("0000000").expect("Question ID");
+        let question_id = question_model::PublishedQuestionId::from_random_identifier("0000000")
+            .expect("Question ID");
         let response = serde_json::to_value(NotificationResponse::from(notification(
             LibraryWatchActivity::Fork {
                 source_revision_number: 3,

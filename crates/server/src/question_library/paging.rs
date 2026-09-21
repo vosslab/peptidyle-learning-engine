@@ -4,7 +4,7 @@ use std::cmp::Ordering;
 
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use question_model::{
-    MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES, QuestionId, QuestionSearchFilter,
+    MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES, PublishedQuestionId, QuestionSearchFilter,
     QuestionSearchRequest, QuestionSearchSort,
 };
 use serde::{Deserialize, Serialize};
@@ -30,11 +30,11 @@ struct Cursor {
 enum CursorPosition {
     TitleAscending {
         title: String,
-        question_id: QuestionId,
+        question_id: PublishedQuestionId,
     },
     PublishedNewest {
         published_at_millis: i64,
-        question_id: QuestionId,
+        question_id: PublishedQuestionId,
     },
 }
 
@@ -171,14 +171,14 @@ fn query_digest(query: &QuestionSearchRequest) -> [u8; 32] {
 mod tests {
     use super::*;
     use question_model::{
-        QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship, QuestionAvailability,
-        QuestionBackend, QuestionBackendCapabilities, QuestionLicense, QuestionMetadata,
-        QuestionRevisionNumber, QuestionRevisionTuple, QuestionSummary, QuestionType, Timestamp,
-        validate_question_title,
+        PublishedQuestionRevisionTuple, QuestionAuthor, QuestionAuthorDisplayName,
+        QuestionAuthorship, QuestionAvailability, QuestionBackend, QuestionBackendCapabilities,
+        QuestionLicense, QuestionMetadata, QuestionRevisionNumber, QuestionSummary, QuestionType,
+        Timestamp, validate_question_title,
     };
 
-    fn test_question_id(identifier: &str) -> QuestionId {
-        QuestionId::from_random_identifier(identifier).expect("canonical question ID")
+    fn test_question_id(identifier: &str) -> PublishedQuestionId {
+        PublishedQuestionId::from_random_identifier(identifier).expect("canonical question ID")
     }
 
     fn entry(title: &str, identifier: &str) -> ResolvedQuestionLibraryEntry {
@@ -186,8 +186,8 @@ mod tests {
         ResolvedQuestionLibraryEntry {
             summary: QuestionSummary {
                 question_id: question_id.clone(),
-                question_revision_tuple: QuestionRevisionTuple {
-                    question_id,
+                published_question_revision_tuple: PublishedQuestionRevisionTuple {
+                    published_question_id: question_id,
                     revision_number: QuestionRevisionNumber::new(1).expect("positive revision"),
                 },
                 backend: QuestionBackend::Ple,

@@ -26,7 +26,10 @@ impl ObjectStore for MemoryObjectStore {
             id: request.address.object_id(),
             storage_area: request.address.storage_area(),
             data_class: request.address.data_class(),
-            question_revision_tuple: request.address.question_revision_tuple().cloned(),
+            published_question_revision_tuple: request
+                .address
+                .published_question_revision_tuple()
+                .cloned(),
             sha256: Sha256Checksum::compute(&request.bytes),
             size_bytes,
             media_type: request.media_type,

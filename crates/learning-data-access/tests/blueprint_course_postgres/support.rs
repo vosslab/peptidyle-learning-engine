@@ -19,7 +19,7 @@ pub(super) fn student_account_id() -> &'static str {
 pub(super) struct FixturePoolIdIssuer(pub(super) AtomicUsize);
 
 impl CourseInstancePoolIdIssuer for FixturePoolIdIssuer {
-    fn issue_question_pool_id(&self) -> Result<QuestionId, StoreError> {
+    fn issue_question_pool_id(&self) -> Result<QuestionPoolId, StoreError> {
         const IDS: [&str; 8] = [
             "8K3M-69Q1",
             "9K3M-09Q2",
@@ -86,7 +86,7 @@ pub(super) async fn blueprint_course_id_text_from_str(blueprint_course_id: &str)
 
 /// Exact current member Question Revision pins for one Pool.
 pub(super) async fn question_pool_member_pins(
-    question_pool_id: &question_model::QuestionId,
+    question_pool_id: &question_model::QuestionPoolId,
 ) -> Vec<(String, i32)> {
     let mut inspection = adoption_inspection_connection().await;
     let pins = sqlx::query_as(
@@ -380,11 +380,11 @@ pub(super) fn request(value: u8) -> Vec<u8> {
     vec![value; 32]
 }
 
-fn question_id() -> QuestionId {
+fn question_id() -> PublishedQuestionId {
     QUESTION.parse().expect("closed Question ID fixture")
 }
 
-fn question_pool_id() -> QuestionId {
+fn question_pool_id() -> QuestionPoolId {
     QUESTION_POOL.parse().expect("closed Pool ID fixture")
 }
 
@@ -432,8 +432,8 @@ pub(super) fn content_input(title: &str) -> CreateBlueprintCourseInput {
                         },
                     }),
                     BlueprintAssessmentEntryInput::Fixed(ReusableFixedQuestionInput {
-                        question_revision_tuple: QuestionRevisionTuple {
-                            question_id: question_id(),
+                        published_question_revision_tuple: PublishedQuestionRevisionTuple {
+                            published_question_id: question_id(),
                             revision_number: QuestionRevisionNumber::new(1)
                                 .expect("fixture Question Revision"),
                         },
@@ -540,21 +540,21 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
         .expect("private fixture role");
     let instructor_id: String = sqlx::query_scalar(
         "INSERT INTO ple_private.account (account_id, product_role, created_at) \
-         VALUES ('U00000009', 'instructor', clock_timestamp()) RETURNING account_id",
+         VALUES ('U00000009', 'instructor', pg_catalog.transaction_timestamp()) RETURNING account_id",
     )
     .fetch_one(&mut *transaction)
     .await
     .expect("Instructor account");
     let reader_id: String = sqlx::query_scalar(
         "INSERT INTO ple_private.account (account_id, product_role, created_at) \
-         VALUES ('U00000009', 'instructor', clock_timestamp()) RETURNING account_id",
+         VALUES ('U00000009', 'instructor', pg_catalog.transaction_timestamp()) RETURNING account_id",
     )
     .fetch_one(&mut *transaction)
     .await
     .expect("reader Instructor account");
     let student_id: String = sqlx::query_scalar(
         "INSERT INTO ple_private.account (account_id, product_role, created_at) \
-         VALUES ('U00000009', 'student', clock_timestamp()) RETURNING account_id",
+         VALUES ('U00000009', 'student', pg_catalog.transaction_timestamp()) RETURNING account_id",
     )
     .fetch_one(&mut *transaction)
     .await
@@ -562,10 +562,10 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
     sqlx::query(
         "INSERT INTO ple_private.authenticated_session \
          (session_id, account_id, product_role, token_hash, created_at, expires_at) \
-         VALUES ($1, $2, 'instructor', decode($3, 'hex'), clock_timestamp(), \
-                 clock_timestamp() + interval '1 hour'), \
-                ($4, $5, 'instructor', decode($6, 'hex'), clock_timestamp(), \
-                 clock_timestamp() + interval '1 hour')",
+         VALUES ($1, $2, 'instructor', decode($3, 'hex'), pg_catalog.transaction_timestamp(), \
+                 pg_catalog.transaction_timestamp() + interval '1 hour'), \
+                ($4, $5, 'instructor', decode($6, 'hex'), pg_catalog.transaction_timestamp(), \
+                 pg_catalog.transaction_timestamp() + interval '1 hour')",
     )
     .bind(id(SESSION))
     .bind(&instructor_id)
@@ -641,7 +641,7 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
              sha256, size_bytes, media_type, created_at\
          ) SELECT $1, jsonb_build_object(\
                  'kind', 'questionSource', \
-                 'questionRevisionTuple', jsonb_build_object('questionId', $2, 'revisionNumber', 1), \
+                 'publishedQuestionRevisionTuple', jsonb_build_object('publishedQuestionId', $2, 'revisionNumber', 1), \
                  'object', $1\
              ), 'private-content', 'question-source', decode(repeat('b1', 32), 'hex'), \
              1, 'application/json', revision.published_at \

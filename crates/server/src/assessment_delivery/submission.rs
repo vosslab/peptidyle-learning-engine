@@ -253,8 +253,9 @@ mod tests {
     use super::*;
     use question_model::answer::ResponseSelectionRule;
     use question_model::{
-        NativeChoiceOrder, QuestionContentBlock, QuestionReproduction, QuestionRevisionNumber,
-        QuestionRevisionTuple, QuestionVariation, QuestionVariationPresentation,
+        NativeChoiceOrder, PublishedQuestionRevisionTuple, QuestionContentBlock,
+        QuestionReproduction, QuestionRevisionNumber, QuestionVariation,
+        QuestionVariationPresentation,
         presentation::build_question_presentation,
         response::{QuestionChoice, QuestionResponseFormat},
     };
@@ -262,9 +263,10 @@ mod tests {
     fn issued_multiple_choice() -> IssuedQuestionPresentation {
         let presentation = QuestionVariationPresentation {
             variation: QuestionVariation::from_question_revision_and_reproduction(
-                QuestionRevisionTuple {
-                    question_id: question_model::QuestionId::from_random_identifier("1234567")
-                        .expect("question id"),
+                PublishedQuestionRevisionTuple {
+                    published_question_id:
+                        question_model::PublishedQuestionId::from_random_identifier("1234567")
+                            .expect("question id"),
                     revision_number: QuestionRevisionNumber::new(1).expect("revision"),
                 },
                 QuestionReproduction::Static,
@@ -291,9 +293,10 @@ mod tests {
     fn issued_backend_owned() -> IssuedQuestionPresentation {
         let presentation = QuestionVariationPresentation {
             variation: QuestionVariation::from_question_revision_and_reproduction(
-                QuestionRevisionTuple {
-                    question_id: question_model::QuestionId::from_random_identifier("1234567")
-                        .expect("question id"),
+                PublishedQuestionRevisionTuple {
+                    published_question_id:
+                        question_model::PublishedQuestionId::from_random_identifier("1234567")
+                            .expect("question id"),
                     revision_number: QuestionRevisionNumber::new(1).expect("revision"),
                 },
                 QuestionReproduction::Static,

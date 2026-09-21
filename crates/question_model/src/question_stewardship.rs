@@ -8,7 +8,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::question_library::{QuestionId, QuestionRevisionTuple};
+use crate::question_library::{PublishedQuestionId, PublishedQuestionRevisionTuple};
 
 /// A browser-safe stewardship activity concerning a Published Question.
 ///
@@ -24,26 +24,26 @@ use crate::question_library::{QuestionId, QuestionRevisionTuple};
 pub enum QuestionStewardshipEvent {
     /// A new immutable revision joined the Question's published lineage.
     RevisionPublished {
-        question_revision_tuple: QuestionRevisionTuple,
+        published_question_revision_tuple: PublishedQuestionRevisionTuple,
     },
     /// A published fork records its distinct Question lineage and source.
     ForkPublished {
-        source_question: QuestionId,
-        fork_revision_tuple: QuestionRevisionTuple,
+        source_question: PublishedQuestionId,
+        fork_revision_tuple: PublishedQuestionRevisionTuple,
     },
     /// An improvement thread has activity for the named Question lineage.
-    ImprovementThreadActivity { question: QuestionId },
+    ImprovementThreadActivity { question: PublishedQuestionId },
     /// A maintained impact notice concerns the named Question lineage.
-    ImpactNotice { question: QuestionId },
+    ImpactNotice { question: PublishedQuestionId },
 }
 
 impl QuestionStewardshipEvent {
     /// Returns the published Question lineage whose stewardship changed.
-    pub fn question(&self) -> &QuestionId {
+    pub fn question(&self) -> &PublishedQuestionId {
         match self {
             Self::RevisionPublished {
-                question_revision_tuple,
-            } => &question_revision_tuple.question_id,
+                published_question_revision_tuple,
+            } => &published_question_revision_tuple.published_question_id,
             Self::ForkPublished {
                 source_question, ..
             } => source_question,

@@ -63,14 +63,11 @@ FOR EACH ROW EXECUTE FUNCTION ple_data.assert_course_membership_event_transition
 
 CREATE FUNCTION ple_data.assert_assigned_instructor_membership() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_data AS $$
-DECLARE checked_course text; checked_membership uuid;
+DECLARE checked_course text;
 BEGIN
- IF TG_TABLE_NAME = 'course_instance' THEN
-  IF TG_OP = 'DELETE' THEN checked_course := OLD.course_instance_id; ELSE checked_course := NEW.course_instance_id; END IF;
- ELSE
-  IF TG_OP = 'DELETE' THEN checked_membership := OLD.course_membership_id; ELSE checked_membership := NEW.course_membership_id; END IF;
-  SELECT course_instance_id INTO checked_course FROM ple_data.course_membership WHERE course_membership_id = checked_membership;
- END IF;
+ SELECT course_instance_id INTO checked_course
+   FROM ple_data.course_membership
+  WHERE course_membership_id = NEW.course_membership_id;
  IF NOT EXISTS (
     SELECT 1
       FROM ple_data.course_membership AS membership
@@ -85,4 +82,3 @@ BEGIN
 END $$;
 
 CREATE CONSTRAINT TRIGGER course_membership_preserves_instructor AFTER INSERT ON ple_data.course_membership_event DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION ple_data.assert_assigned_instructor_membership();
-

@@ -47,7 +47,7 @@ fn token(marker: u8) -> SessionTokenHash {
 async fn mint_account(tx: &mut sqlx::Transaction<'_, sqlx::Postgres>, role: &str) -> String {
     sqlx::query_scalar(
         "INSERT INTO ple_private.account (account_id, product_role, created_at) \
-         VALUES ('U00000009', $1, clock_timestamp()) RETURNING account_id",
+         VALUES ('U00000009', $1::ple_data.product_role, pg_catalog.transaction_timestamp()) RETURNING account_id",
     )
     .bind(role)
     .fetch_one(&mut **tx)
@@ -120,14 +120,14 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> AccessFixture {
     sqlx::query(
         "INSERT INTO ple_private.authenticated_session \
          (session_id, account_id, product_role, token_hash, created_at, expires_at) \
-         VALUES ($1, $2, 'student', decode($3, 'hex'), clock_timestamp(), \
-                 clock_timestamp() + interval '1 hour'), \
-                ($4, $5, 'student', decode($6, 'hex'), clock_timestamp(), \
-                 clock_timestamp() + interval '1 hour'), \
-                ($7, $8, 'student', decode($9, 'hex'), clock_timestamp(), \
-                 clock_timestamp() + interval '1 hour'), \
-                ($10, $11, 'sysadmin', decode($12, 'hex'), clock_timestamp(), \
-                 clock_timestamp() + interval '1 hour')",
+         VALUES ($1, $2, 'student', decode($3, 'hex'), pg_catalog.transaction_timestamp(), \
+                 pg_catalog.transaction_timestamp() + interval '1 hour'), \
+                ($4, $5, 'student', decode($6, 'hex'), pg_catalog.transaction_timestamp(), \
+                 pg_catalog.transaction_timestamp() + interval '1 hour'), \
+                ($7, $8, 'student', decode($9, 'hex'), pg_catalog.transaction_timestamp(), \
+                 pg_catalog.transaction_timestamp() + interval '1 hour'), \
+                ($10, $11, 'sysadmin', decode($12, 'hex'), pg_catalog.transaction_timestamp(), \
+                 pg_catalog.transaction_timestamp() + interval '1 hour')",
     )
     .bind(id(STUDENT_SESSION))
     .bind(&student_id)
@@ -234,7 +234,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> AccessFixture {
           content_discipline_id, tags) \
          VALUES ('CI0000000' || ple_private.crockford_checksum_character('CI0000000'), \
                  'adopted', $1, 1, 'ACCESS', 'Assessment Access Course', \
-                 current_date, current_date + 1, clock_timestamp(), \
+                 current_date, current_date + 1, pg_catalog.transaction_timestamp(), \
                  '00000000-0000-0000-0000-00000000cc01', ARRAY[]::text[]) \
          RETURNING course_instance_id",
     )
@@ -250,7 +250,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> AccessFixture {
          VALUES ('CI0000001' || ple_private.crockford_checksum_character('CI0000001'), \
                  'adopted', $1, 1, 'ACCESS-OTHER', \
                  'Other Course for exact Student Work scope', current_date, current_date + 1, \
-                 clock_timestamp(), '00000000-0000-0000-0000-00000000cc01', ARRAY[]::text[]) \
+                 pg_catalog.transaction_timestamp(), '00000000-0000-0000-0000-00000000cc01', ARRAY[]::text[]) \
          RETURNING course_instance_id",
     )
     .bind(&blueprint_id)
@@ -282,8 +282,8 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> AccessFixture {
     sqlx::query(
         "INSERT INTO ple_data.student_record \
          (student_record_id, course_instance_id, student_account_id, created_at) \
-         VALUES ($1, $2, $3, clock_timestamp()), \
-                ($4, $2, $5, clock_timestamp())",
+         VALUES ($1, $2, $3, pg_catalog.transaction_timestamp()), \
+                ($4, $2, $5, pg_catalog.transaction_timestamp())",
     )
     .bind(id(STUDENT_RECORD))
     .bind(&course_id)
@@ -296,7 +296,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> AccessFixture {
     sqlx::query(
         "INSERT INTO ple_data.student_record \
          (student_record_id, course_instance_id, student_account_id, created_at) \
-         VALUES ($1, $2, $3, clock_timestamp())",
+         VALUES ($1, $2, $3, pg_catalog.transaction_timestamp())",
     )
     .bind(id(OTHER_COURSE_STUDENT_RECORD))
     .bind(&other_course_id)
@@ -411,7 +411,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> AccessFixture {
          ) VALUES ( \
              $1, $2, $3, $4, clock_timestamp() - interval '1 hour', \
              clock_timestamp() + interval '1 hour', clock_timestamp() + interval '2 hours', \
-             1.5, 1, clock_timestamp() \
+             1.5, 1, pg_catalog.transaction_timestamp() \
          )",
     )
     .bind(id(OTHER_STUDENT_ACCOMMODATION))
@@ -621,22 +621,22 @@ async fn access_reader_projects_one_authoritative_decision_and_effective_policy(
     let row = sqlx::query(
         "SELECT \
          ple_private.assessment_start_decision('released', '2026-01-01 10:00:00+00', \
-             '2026-01-01 20:00:00+00', '2026-01-01 23:00:00+00', 2, 0, 'reject', \
+             '2026-01-01 20:00:00+00', '2026-01-01 23:00:00+00', 2, 0, 'reject'::ple_data.late_work_rule, \
              '2026-01-01 09:59:59.999+00') AS before_available, \
          ple_private.assessment_start_decision('released', '2026-01-01 10:00:00+00', \
-             '2026-01-01 20:00:00+00', '2026-01-01 23:00:00+00', 2, 0, 'reject', \
+             '2026-01-01 20:00:00+00', '2026-01-01 23:00:00+00', 2, 0, 'reject'::ple_data.late_work_rule, \
              '2026-01-01 10:00:00+00') AS at_available, \
          ple_private.assessment_start_decision('released', '2026-01-01 10:00:00+00', \
-             '2026-01-01 20:00:00+00', '2026-01-01 23:00:00+00', 2, 0, 'reject', \
+             '2026-01-01 20:00:00+00', '2026-01-01 23:00:00+00', 2, 0, 'reject'::ple_data.late_work_rule, \
              '2026-01-01 20:00:00+00') AS at_due, \
          ple_private.assessment_start_decision('released', '2026-01-01 10:00:00+00', \
-             '2026-01-01 20:00:00+00', '2026-01-01 23:00:00+00', 2, 0, 'reject', \
+             '2026-01-01 20:00:00+00', '2026-01-01 23:00:00+00', 2, 0, 'reject'::ple_data.late_work_rule, \
              '2026-01-01 20:00:00.001+00') AS after_due, \
          ple_private.assessment_start_decision('released', '2026-01-01 10:00:00+00', \
-             '2026-01-01 20:00:00+00', '2026-01-01 23:00:00+00', 2, 0, 'reject', \
+             '2026-01-01 20:00:00+00', '2026-01-01 23:00:00+00', 2, 0, 'reject'::ple_data.late_work_rule, \
              '2026-01-01 23:00:00+00') AS at_close, \
          ple_private.assessment_start_decision('released', '2026-01-01 10:00:00+00', \
-             '2026-01-01 20:00:00+00', '2026-01-01 23:00:00+00', 2, 2, 'reject', \
+             '2026-01-01 20:00:00+00', '2026-01-01 23:00:00+00', 2, 2, 'reject'::ple_data.late_work_rule, \
              '2026-01-01 20:00:00.001+00') AS limit_before_late",
     )
     .fetch_one(&mut *exact)

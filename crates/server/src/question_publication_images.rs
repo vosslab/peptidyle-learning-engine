@@ -6,7 +6,7 @@ use learning_data_access::{
 };
 use objects::{ObjectAddress, ObjectStore, PutObject};
 use question_model::{
-    ObjectId, QuestionResponseFormat, QuestionRevisionTuple, Timestamp, WorkspaceId,
+    ObjectId, PublishedQuestionRevisionTuple, QuestionResponseFormat, Timestamp, WorkspaceId,
 };
 use uuid::Uuid;
 
@@ -71,7 +71,7 @@ fn invalid_source() -> QuestionPublicationError {
 pub(crate) async fn prepare_hotspot_question_image<O: ObjectStore>(
     objects: &O,
     asset: Option<&(OwnedDraftQuestionImage, Bytes)>,
-    question_revision_tuple: &QuestionRevisionTuple,
+    published_question_revision_tuple: &PublishedQuestionRevisionTuple,
     stored_at: Timestamp,
 ) -> Result<Option<PreparedQuestionImagePublication>, QuestionPublicationError> {
     let Some((asset, bytes)) = asset else {
@@ -81,7 +81,7 @@ pub(crate) async fn prepare_hotspot_question_image<O: ObjectStore>(
     let record = objects
         .put(PutObject {
             address: ObjectAddress::RestrictedQuestionImage {
-                question_revision_tuple: question_revision_tuple.clone(),
+                published_question_revision_tuple: published_question_revision_tuple.clone(),
                 question_image_asset_id: asset.question_image_asset_id,
                 object_id: ObjectId::generate(),
             },

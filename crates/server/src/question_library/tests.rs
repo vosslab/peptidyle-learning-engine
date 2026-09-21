@@ -21,7 +21,7 @@ impl QuestionLibraryStore for LookupCountingStore {
     async fn load_published_question_library_entry(
         &self,
         _: SessionTokenHash,
-        _: &QuestionId,
+        _: &PublishedQuestionId,
     ) -> Result<PublishedQuestionLibraryEntry, StoreError> {
         self.0.fetch_add(1, Ordering::SeqCst);
         Err(StoreError::Unavailable("lookup must not occur".to_string()))
@@ -30,7 +30,7 @@ impl QuestionLibraryStore for LookupCountingStore {
     async fn load_published_question_revision_library_entry(
         &self,
         _: SessionTokenHash,
-        _: &QuestionRevisionTuple,
+        _: &PublishedQuestionRevisionTuple,
     ) -> Result<PublishedQuestionLibraryEntry, StoreError> {
         Err(StoreError::Unavailable(
             "not used by this contract".to_string(),
@@ -40,7 +40,7 @@ impl QuestionLibraryStore for LookupCountingStore {
     async fn load_current_published_question_shared_metadata(
         &self,
         _: SessionTokenHash,
-        _: &[QuestionId],
+        _: &[PublishedQuestionId],
     ) -> Result<Vec<question_model::PublishedQuestionSharedMetadata>, StoreError> {
         Err(StoreError::Unavailable(
             "not used by this contract".to_string(),
@@ -50,7 +50,7 @@ impl QuestionLibraryStore for LookupCountingStore {
     async fn archive_published_question(
         &self,
         _: SessionTokenHash,
-        _: &QuestionId,
+        _: &PublishedQuestionId,
         _: question_model::QuestionAvailabilityEditNumber,
         _: &str,
     ) -> Result<learning_data_access::PublishedQuestionAvailability, StoreError> {
@@ -62,7 +62,7 @@ impl QuestionLibraryStore for LookupCountingStore {
     async fn restore_published_question(
         &self,
         _: SessionTokenHash,
-        _: &QuestionId,
+        _: &PublishedQuestionId,
         _: question_model::QuestionAvailabilityEditNumber,
     ) -> Result<learning_data_access::PublishedQuestionAvailability, StoreError> {
         Err(StoreError::Unavailable(
@@ -73,7 +73,7 @@ impl QuestionLibraryStore for LookupCountingStore {
     async fn correct_question_revision_bloom(
         &self,
         _: SessionTokenHash,
-        _: &QuestionRevisionTuple,
+        _: &PublishedQuestionRevisionTuple,
         _: question_model::BloomClassificationEditNumber,
         _: BloomCognitiveProcess,
         _: BloomKnowledgeDimension,

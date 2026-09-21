@@ -37,9 +37,9 @@ pub struct BlueprintHistoryPageView {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BlueprintPoolMembersView {
-    pub question_pool_id: question_model::QuestionId,
+    pub question_pool_id: question_model::QuestionPoolId,
     pub question_pool_edit_number: question_model::QuestionPoolEditNumber,
-    pub members: Vec<question_model::QuestionRevisionTuple>,
+    pub members: Vec<question_model::PublishedQuestionRevisionTuple>,
 }
 
 /// One readable direct fork and its verified owning Instructor display name.
@@ -64,9 +64,9 @@ pub struct BlueprintComparisonView {
     pub left: BlueprintComparisonSide,
     pub right: BlueprintComparisonSide,
     pub assessment_relationships: Vec<BlueprintComparisonAssessmentRelationship>,
-    pub shared_question_ids: Vec<question_model::QuestionId>,
-    pub left_only_question_ids: Vec<question_model::QuestionId>,
-    pub right_only_question_ids: Vec<question_model::QuestionId>,
+    pub shared_question_ids: Vec<question_model::PublishedQuestionId>,
+    pub left_only_question_ids: Vec<question_model::PublishedQuestionId>,
+    pub right_only_question_ids: Vec<question_model::PublishedQuestionId>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -100,7 +100,7 @@ pub struct BlueprintComparisonModule {
 pub struct BlueprintComparisonAssessmentRelationship {
     pub left_assessment_id: question_model::BlueprintAssessmentId,
     pub right_assessment_id: question_model::BlueprintAssessmentId,
-    pub shared_question_ids: Vec<question_model::QuestionId>,
+    pub shared_question_ids: Vec<question_model::PublishedQuestionId>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -110,7 +110,7 @@ pub struct BlueprintComparisonAssessment {
     pub blueprint_module_id: question_model::BlueprintModuleId,
     pub position: usize,
     pub content: question_model::CanonicalBlueprintAssessment,
-    pub question_ids: Vec<question_model::QuestionId>,
+    pub question_ids: Vec<question_model::PublishedQuestionId>,
 }
 
 /// Answer-free immutable content resolved by its exact Blueprint Revision Tuple.

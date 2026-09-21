@@ -1,6 +1,6 @@
 // Strict same-origin transport for the Published Question Star projection.
 
-import type { QuestionId } from "../../../generated/api/QuestionId";
+import type { PublishedQuestionId } from "../../../generated/api/PublishedQuestionId";
 import type { ApiClient } from "../client";
 import { decodeQuestionStarProjection } from "../decoders/question_star";
 import type { QuestionStarClient, QuestionStarProjection } from "../question_star";
@@ -8,14 +8,14 @@ import { ApiRequestError } from "./error";
 import { encodedId, requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
 
-function starPath(questionId: QuestionId): string {
+function starPath(questionId: PublishedQuestionId): string {
   return `/api/questions/by-id/${encodedId(questionId)}/stewardship/star`;
 }
 
 async function requestStar(
   fetchImplementation: ApiFetch,
   basePath: string,
-  questionId: QuestionId,
+  questionId: PublishedQuestionId,
   starred?: boolean,
 ): Promise<QuestionStarProjection> {
   const path = starPath(questionId);

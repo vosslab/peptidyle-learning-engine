@@ -1,7 +1,7 @@
 //! PostgreSQL implementation of atomic reusable Question Pool creation.
 
 use async_trait::async_trait;
-use question_model::QuestionId;
+use question_model::QuestionPoolId;
 use sqlx::{Postgres, Row, Transaction};
 
 use super::{Pool, connection::map_sqlx_error};
@@ -63,7 +63,7 @@ impl QuestionPoolCreationStore for PostgresQuestionPoolCreationStore {
         let member_question_ids = input
             .members
             .iter()
-            .map(|member| member.question_id.as_str().to_owned())
+            .map(|member| member.published_question_id.as_str().to_owned())
             .collect::<Vec<_>>();
         let member_revision_numbers = input
             .members
@@ -97,7 +97,7 @@ impl QuestionPoolCreationStore for PostgresQuestionPoolCreationStore {
             .try_get::<String, _>("question_pool_id")
             .map_err(map_sqlx_error)
             .and_then(|value| {
-                value.parse::<QuestionId>().map_err(|_| {
+                value.parse::<QuestionPoolId>().map_err(|_| {
                     StoreError::InvalidRecord(
                         "Question Pool creation returned an invalid public identity".to_owned(),
                     )

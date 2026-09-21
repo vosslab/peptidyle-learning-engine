@@ -124,9 +124,9 @@ fn sample_below(random: &mut ChaCha20Rng, upper: u64) -> u64 {
 mod tests {
     use question_model::{
         AssessmentEntryAvailability, AssessmentEntryId, AssessmentEntryScoringRule,
-        AssessmentPointValue, QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionId,
-        QuestionPoolEditNumber, QuestionPoolSelectionRule, QuestionRevisionNumber,
-        QuestionRevisionTuple,
+        AssessmentPointValue, PublishedQuestionId, PublishedQuestionRevisionTuple,
+        QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionPoolEditNumber, QuestionPoolId,
+        QuestionPoolSelectionRule, QuestionRevisionNumber,
     };
     use uuid::Uuid;
 
@@ -134,12 +134,14 @@ mod tests {
 
     fn pool_member(number: u32) -> QuestionPoolSelectedItem {
         QuestionPoolSelectedItem {
-            question_pool_id: QuestionId::from_random_identifier("7K3M9QP").expect("Pool ID"),
+            question_pool_id: QuestionPoolId::from_random_identifier("7K3M9QP").expect("Pool ID"),
             question_pool_edit_number: QuestionPoolEditNumber::new(1).expect("edit number"),
             member_position: number,
-            question_revision_tuple: QuestionRevisionTuple {
-                question_id: QuestionId::from_random_identifier(format!("7K3M9Q{number}"))
-                    .expect("valid Question ID"),
+            published_question_revision_tuple: PublishedQuestionRevisionTuple {
+                published_question_id: PublishedQuestionId::from_random_identifier(format!(
+                    "7K3M9Q{number}"
+                ))
+                .expect("valid Question ID"),
                 revision_number: QuestionRevisionNumber::new(1).expect("positive version"),
             },
         }
@@ -150,7 +152,7 @@ mod tests {
             id: AssessmentEntryId::from_uuid(Uuid::from_u128(1)),
             availability: AssessmentEntryAvailability::Available,
             scoring_rule: AssessmentEntryScoringRule::Normal,
-            question_pool_id: QuestionId::from_random_identifier("7K3M9QP").expect("Pool ID"),
+            question_pool_id: QuestionPoolId::from_random_identifier("7K3M9QP").expect("Pool ID"),
             question_pool_edit_number: QuestionPoolEditNumber::new(1).expect("edit number"),
             selection_count: std::num::NonZeroU32::new(2).expect("positive count"),
             points_per_item: AssessmentPointValue::from_whole(1),

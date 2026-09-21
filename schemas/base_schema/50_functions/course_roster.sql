@@ -77,8 +77,8 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Course Roster Event arguments are invalid';
     END IF;
     INSERT INTO ple_audit.course_roster_event
-    VALUES (pg_catalog.gen_random_uuid(), p_course_instance_id, p_student_account_id, p_acting_account_id, p_kind,
+    VALUES (pg_catalog.gen_random_uuid(), p_course_instance_id, p_student_account_id, p_acting_account_id,
+            p_kind::ple_data.roster_event_kind,
             pg_catalog.transaction_timestamp());
 END
 $$;
-

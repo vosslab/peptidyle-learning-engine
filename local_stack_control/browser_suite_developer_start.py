@@ -200,7 +200,6 @@ def _prepare_launch(repository_root: pathlib.Path) -> tuple[local_stack_control.
 def _spawn_supervisor(
 	root: pathlib.Path,
 	held_lease: local_stack_control.browser_suite_lease.BrowserSuiteLease,
-	without_live_demo: bool,
 ) -> object:
 	"""Start the detached supervisor with its output appended to the private log."""
 	descriptors = held_lease.inherited_descriptors()
@@ -213,8 +212,6 @@ def _spawn_supervisor(
 		str(descriptors[1]),
 		str(descriptors[2]),
 	]
-	if without_live_demo:
-		arguments.append("--without-live-demo")
 	# Keep supervisor diagnostics in a private log so a long first start is inspectable.
 	log_descriptor = os.open(
 		supervisor_log_path(root),
@@ -304,7 +301,6 @@ def start_developer_browser_suite(
 	timeout_seconds: float = DEVELOPER_START_WAIT_SECONDS,
 	spawn: Callable[[pathlib.Path, local_stack_control.browser_suite_lease.BrowserSuiteLease], object] | None = None,
 	child_terminator: Callable[[object, float], None] = _terminate_child,
-	without_live_demo: bool = False,
 	stall_seconds: float = START_STALL_SECONDS,
 ) -> DeveloperStartReceipt:
 	"""Launch the background lease owner and return only its fixed HTTPS origin.
@@ -321,7 +317,7 @@ def start_developer_browser_suite(
 		root: pathlib.Path,
 		held_lease: local_stack_control.browser_suite_lease.BrowserSuiteLease,
 	) -> object:
-		return _spawn_supervisor(root, held_lease, without_live_demo)
+		return _spawn_supervisor(root, held_lease)
 	launcher = default_spawn if spawn is None else spawn
 	handoff_started = False
 	child: object | None = None

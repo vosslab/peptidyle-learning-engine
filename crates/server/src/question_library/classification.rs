@@ -97,15 +97,15 @@ pub(super) fn matches(
 mod tests {
     use super::*;
     use learning_data_access::StoreError;
-    use question_model::QuestionId;
+    use question_model::PublishedQuestionId;
     use uuid::Uuid;
 
     struct Vocabulary {
         unavailable: bool,
     }
 
-    fn test_question_id(identifier: &str) -> QuestionId {
-        QuestionId::from_random_identifier(identifier).expect("canonical question ID")
+    fn test_question_id(identifier: &str) -> PublishedQuestionId {
+        PublishedQuestionId::from_random_identifier(identifier).expect("canonical question ID")
     }
 
     impl Vocabulary {

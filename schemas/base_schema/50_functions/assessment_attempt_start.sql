@@ -486,22 +486,22 @@ BEGIN
 
     RETURN QUERY
     SELECT student_record_id_value,
-           assessment_row.assessment_id,
+           assessment_row.assessment_id::text,
            entry.assessment_entry_id,
-           entry.entry_kind,
+           entry.entry_kind::text,
            entry.authored_position,
-           question.published_question_id,
+           question.published_question_id::text,
            question.question_revision_number,
-           pool_entry.question_pool_id,
+           pool_entry.question_pool_id::text,
            pool.question_pool_edit_number,
            item.member_position,
-           item.published_question_id,
+           item.published_question_id::text,
            item.question_revision_number,
-           COALESCE(fixed_source.backend, pool_source.backend),
+           COALESCE(fixed_source.backend, pool_source.backend)::text,
            pool_entry.selection_count,
-           pool_entry.selected_question_order,
-           policy_row.question_variation_rule,
-           policy_row.assessment_question_order_rule
+           pool_entry.selected_question_order::text,
+           policy_row.question_variation_rule::text,
+           policy_row.assessment_question_order_rule::text
       FROM ple_data.assessment_entry AS entry
       LEFT JOIN ple_data.assessment_entry_question AS question
         ON question.assessment_entry_id = entry.assessment_entry_id

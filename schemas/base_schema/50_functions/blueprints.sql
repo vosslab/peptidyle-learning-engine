@@ -24,12 +24,12 @@ AS $$
           ) WITH ORDINALITY AS entry_row(entry, entry_ordinality)
     ), pins AS (
         SELECT module_ordinality, assessment_ordinality, entry_ordinality,
-               entry -> 'question_revision_tuple' AS pin
+               entry -> 'published_question_revision_tuple' AS pin
           FROM entries WHERE entry ->> 'kind' = 'fixed'
     )
     SELECT pg_catalog.format('m%s.a%s.e%s.p%s', module_ordinality,
                assessment_ordinality, entry_ordinality, 0),
-           pin ->> 'questionId',
+           pin ->> 'publishedQuestionId',
            (pin ->> 'revisionNumber')::bigint
       FROM pins
 $$;
@@ -189,12 +189,12 @@ BEGIN
                 IF entry_value ->> 'kind' = 'fixed' THEN
                     delivered_question_count := delivered_question_count + 1;
                     IF NOT ple_data.blueprint_content_has_exact_keys(entry_value, ARRAY[
-                        'kind', 'question_revision_tuple', 'points_possible', 'scoring_rule',
+                        'kind', 'published_question_revision_tuple', 'points_possible', 'scoring_rule',
                         'question_attempt_limit', 'question_attempt_time_limit'
                     ]) THEN RETURN false; END IF;
-                    pin_value := entry_value -> 'question_revision_tuple';
+                    pin_value := entry_value -> 'published_question_revision_tuple';
                     IF NOT ple_data.blueprint_content_has_exact_keys(
-                        pin_value, ARRAY['questionId', 'revisionNumber']
+                        pin_value, ARRAY['publishedQuestionId', 'revisionNumber']
                     ) THEN RETURN false; END IF;
                 ELSIF entry_value ->> 'kind' = 'pool' THEN
                     IF entry_value ->> 'selection_count' !~ '^[1-9][0-9]*$'
@@ -288,7 +288,7 @@ BEGIN
             WHERE entry_row.entry ->> 'kind' IS NULL
                OR entry_row.entry ->> 'kind' NOT IN ('fixed', 'pool')
                OR (entry_row.entry ->> 'kind' = 'fixed'
-                   AND jsonb_typeof(entry_row.entry -> 'question_revision_tuple') <> 'object')
+                   AND jsonb_typeof(entry_row.entry -> 'published_question_revision_tuple') <> 'object')
                OR (entry_row.entry ->> 'kind' = 'pool'
                    AND (entry_row.entry ->> 'question_pool_id' IS NULL
                         OR entry_row.entry -> 'question_pool_edit_number' IS NULL))
@@ -359,4 +359,3 @@ $$;
 CREATE TRIGGER blueprint_course_fork_origin_is_immutable
 BEFORE UPDATE OR DELETE ON ple_data.blueprint_course_fork
 FOR EACH ROW EXECUTE FUNCTION ple_data.reject_blueprint_course_fork_change();
-

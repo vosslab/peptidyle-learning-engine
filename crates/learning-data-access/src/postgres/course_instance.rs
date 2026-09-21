@@ -160,7 +160,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         // this opaque Course ID to the installed session's active membership.
         let row = sqlx::query(
             "SELECT course_instance_id, short_name, long_name, term_starts_on::text AS term_starts_on, \
-             term_ends_on::text AS term_ends_on, membership_role, discipline_uuid, subject_uuid, topic_uuid, subtopic_uuid, tags \
+             term_ends_on::text AS term_ends_on, membership_role, content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags \
              FROM ple_api.read_course_summary($1)",
         )
         .bind(course_instance_id.as_str())
@@ -241,9 +241,9 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
              content_discipline_id, content_subject_id, \
              content_topic_id, content_subtopic_id, tags \
              FROM ple_api.create_course_instance(\
-             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10::date, $11::date, $12, $13, $14,$15,$16,$17,$18)",
+             $1::text, $2, $3, $4, $5, $6, $7, $8, $9, $10::date, $11::date, $12, $13, $14,$15,$16,$17,$18)",
         )
-            .bind(random_uuid()?)
+            .bind("CI0000000Y")
         .bind(random_uuid()?)
         .bind(random_uuid()?)
         .bind(random_uuid()?)

@@ -21,10 +21,10 @@ use question_model::{
     BlueprintAssessmentEditChoice, BlueprintAssessmentEntryInput,
     BlueprintAssessmentReplacementInput, BlueprintAvailability, BlueprintCourseId,
     BlueprintModuleEditChoice, BlueprintModuleReplacementInput, BlueprintRevisionNumber,
-    CreateBlueprintCourseInput, CreateBlueprintModuleInput, LateWorkRule, QuestionAttemptLimit,
-    QuestionAttemptTimeLimit, QuestionId, QuestionRevisionNumber, QuestionRevisionTuple,
-    RenameBlueprintCourseInput, ReplaceBlueprintCourseContentInput, RequestChecksum,
-    ReusableFixedQuestionInput, StudentFeedbackReleaseRule,
+    CreateBlueprintCourseInput, CreateBlueprintModuleInput, LateWorkRule, PublishedQuestionId,
+    PublishedQuestionRevisionTuple, QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionPoolId,
+    QuestionRevisionNumber, RenameBlueprintCourseInput, ReplaceBlueprintCourseContentInput,
+    RequestChecksum, ReusableFixedQuestionInput, StudentFeedbackReleaseRule,
 };
 use sqlx::{Connection, PgConnection, Row};
 use tokio::sync::oneshot;

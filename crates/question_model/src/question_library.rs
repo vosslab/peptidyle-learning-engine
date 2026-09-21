@@ -55,82 +55,114 @@ pub const MAX_QUESTION_ID_COUNT: u64 = 100_000_000;
 /// Maximum number of Published Questions one shared-metadata command changes.
 pub const MAX_BULK_QUESTION_METADATA_ITEMS: usize = 1000;
 
+/// Defines one domain-specific public ID with the shared canonical wire syntax.
+/// The separate Rust types prevent Published Question IDs and Question Pool IDs
+/// from being mixed even though both use the same Crockford/checksum encoding.
+macro_rules! define_public_id_type {
+    ($type_name:ident, $label:literal) => {
+        impl $type_name {
+            /// The exact canonical public value for every storage and transport boundary.
+            pub fn as_str(&self) -> &str {
+                &self.0
+            }
+
+            /// Mints the exact public value from seven server-random Crockford characters.
+            pub fn from_random_identifier(
+                identifier: impl AsRef<str>,
+            ) -> Result<Self, &'static str> {
+                let identifier = identifier.as_ref();
+                if identifier.len() != QUESTION_ID_IDENTIFIER_LENGTH
+                    || !identifier
+                        .bytes()
+                        .all(|character| QUESTION_ID_ALPHABET.contains(&character))
+                {
+                    return Err(concat!(
+                        $label,
+                        " random characters must be exact uppercase Crockford Base32"
+                    ));
+                }
+                let checksum = public_id_checksum_character(identifier.as_bytes());
+                Ok(Self(format!(
+                    "{}-{checksum}{}",
+                    &identifier[..QUESTION_ID_HYPHEN_INDEX],
+                    &identifier[QUESTION_ID_HYPHEN_INDEX..]
+                )))
+            }
+        }
+
+        impl std::fmt::Display for $type_name {
+            fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str(&self.0)
+            }
+        }
+
+        impl std::str::FromStr for $type_name {
+            type Err = &'static str;
+
+            fn from_str(value: &str) -> Result<Self, Self::Err> {
+                // ASVS V2.2.1 and V2.2.2: an untrusted boundary accepts only this
+                // one exact value; it never trims, aliases, or reformats an ID.
+                if value.len() != QUESTION_ID_CANONICAL_LENGTH
+                    || !value.is_ascii()
+                    || value.as_bytes()[QUESTION_ID_HYPHEN_INDEX] != b'-'
+                    || !value[..QUESTION_ID_HYPHEN_INDEX]
+                        .bytes()
+                        .chain(value[QUESTION_ID_CHECK_CHARACTER_INDEX..].bytes())
+                        .all(|character| QUESTION_ID_ALPHABET.contains(&character))
+                {
+                    return Err(concat!(
+                        $label,
+                        " must use exact canonical XXXX-ZXXX syntax"
+                    ));
+                }
+                let checksum_input = format!(
+                    "{}{}",
+                    &value[..QUESTION_ID_HYPHEN_INDEX],
+                    &value[QUESTION_ID_CHECK_CHARACTER_INDEX + 1..]
+                );
+                if value.as_bytes()[QUESTION_ID_CHECK_CHARACTER_INDEX]
+                    != public_id_checksum_character(checksum_input.as_bytes()) as u8
+                {
+                    return Err(concat!(
+                        $label,
+                        " checksum does not match its canonical characters"
+                    ));
+                }
+                Ok(Self(value.to_owned()))
+            }
+        }
+
+        impl TryFrom<String> for $type_name {
+            type Error = &'static str;
+
+            fn try_from(value: String) -> Result<Self, Self::Error> {
+                value.parse()
+            }
+        }
+
+        impl From<$type_name> for String {
+            fn from(value: $type_name) -> Self {
+                value.to_string()
+            }
+        }
+    };
+}
+
 /// One stable, non-sequential human-facing identity for a Published Question
-/// lineage. [`QuestionRevisionTuple`] pairs it with a positive revision
+/// lineage. `PublishedQuestionRevisionTuple` pairs it with a positive revision
 /// number to identify one immutable Question Revision.
-///
-/// `XXXX-ZXXX` is the one canonical value at every boundary. The hyphen and
-/// public checksum character are both part of the ID, not presentation.
-/// Parsing rejects every alternate spelling, including lowercase,
-/// unhyphenated, alias, and whitespace-padded input.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct QuestionId(String);
+pub struct PublishedQuestionId(String);
 
-impl QuestionId {
-    /// The exact canonical public value for every storage and transport boundary.
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
+define_public_id_type!(PublishedQuestionId, "Published Question ID");
 
-    /// Mints the exact public value from seven server-random Crockford characters.
-    ///
-    /// ASVS V2.1.1 and V2.2.1: this trusted server-generation boundary checks its
-    /// constrained input before creating an identifier. Callers must obtain the
-    /// seven random characters from a cryptographically secure source.
-    pub fn from_random_identifier(identifier: impl AsRef<str>) -> Result<Self, &'static str> {
-        let identifier = identifier.as_ref();
-        if identifier.len() != QUESTION_ID_IDENTIFIER_LENGTH
-            || !identifier
-                .bytes()
-                .all(|character| QUESTION_ID_ALPHABET.contains(&character))
-        {
-            return Err("Question ID random characters must be exact uppercase Crockford Base32");
-        }
-        let checksum = public_id_checksum_character(identifier.as_bytes());
-        Ok(Self(format!(
-            "{}-{checksum}{}",
-            &identifier[..QUESTION_ID_HYPHEN_INDEX],
-            &identifier[QUESTION_ID_HYPHEN_INDEX..]
-        )))
-    }
-}
+/// One stable identity for a reusable Question Pool lineage.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct QuestionPoolId(String);
 
-impl std::fmt::Display for QuestionId {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str(&self.0)
-    }
-}
-
-impl std::str::FromStr for QuestionId {
-    type Err = &'static str;
-
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        // ASVS V2.2.1 and V2.2.2: an untrusted boundary accepts only this
-        // one exact value; it never trims, aliases, or reformats an ID.
-        if value.len() != QUESTION_ID_CANONICAL_LENGTH
-            || !value.is_ascii()
-            || value.as_bytes()[QUESTION_ID_HYPHEN_INDEX] != b'-'
-            || !value[..QUESTION_ID_HYPHEN_INDEX]
-                .bytes()
-                .chain(value[QUESTION_ID_CHECK_CHARACTER_INDEX..].bytes())
-                .all(|character| QUESTION_ID_ALPHABET.contains(&character))
-        {
-            return Err("Question ID must use exact canonical XXXX-ZXXX syntax");
-        }
-        let checksum_input = format!(
-            "{}{}",
-            &value[..QUESTION_ID_HYPHEN_INDEX],
-            &value[QUESTION_ID_CHECK_CHARACTER_INDEX + 1..]
-        );
-        if value.as_bytes()[QUESTION_ID_CHECK_CHARACTER_INDEX]
-            != public_id_checksum_character(checksum_input.as_bytes()) as u8
-        {
-            return Err("Question ID checksum does not match its canonical characters");
-        }
-        Ok(Self(value.to_owned()))
-    }
-}
+define_public_id_type!(QuestionPoolId, "Question Pool ID");
 
 /// Calculates the public checksum character for canonical-ID characters after
 /// separators and checksum positions have been excluded by the caller.
@@ -142,27 +174,13 @@ pub fn public_id_checksum_character(canonical_characters: &[u8]) -> char {
     QUESTION_ID_ALPHABET[(digest[0] >> 3) as usize] as char
 }
 
-impl TryFrom<String> for QuestionId {
-    type Error = &'static str;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        value.parse()
-    }
-}
-
-impl From<QuestionId> for String {
-    fn from(value: QuestionId) -> Self {
-        value.to_string()
-    }
-}
-
 /// Exact immutable Question Revision identity used by storage, delivery,
 /// grading, replay, and audit.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct QuestionRevisionTuple {
-    /// Stable Question lineage.
-    pub question_id: QuestionId,
+pub struct PublishedQuestionRevisionTuple {
+    /// Stable Published Question lineage.
+    pub published_question_id: PublishedQuestionId,
     /// Exact immutable version within that Question lineage.
     pub revision_number: QuestionRevisionNumber,
 }
@@ -176,7 +194,7 @@ pub struct QuestionRevisionTuple {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PublishedQuestionSharedMetadata {
     /// Stable Published Question identity.
-    pub question_id: QuestionId,
+    pub question_id: PublishedQuestionId,
     /// Current compare-and-swap number for the shared metadata.
     pub metadata_edit_number: u64,
     /// Current complete tag set.
@@ -305,7 +323,7 @@ impl std::fmt::Display for QuestionAvailabilityEditNumber {
 /// Immutable availability-transition evidence for a stable Published Question.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QuestionAvailabilityEvent {
-    pub question_id: QuestionId,
+    pub question_id: PublishedQuestionId,
     pub actor: crate::AccountId,
     pub availability: QuestionAvailability,
     pub edit_number: QuestionAvailabilityEditNumber,
@@ -412,10 +430,10 @@ impl QuestionBackendInterface {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionSummary {
     /// Sole human-facing identity of this stable Published Question lineage.
-    pub question_id: QuestionId,
+    pub question_id: PublishedQuestionId,
     /// Current accepted Revision for ordinary routes, or the exact resolved
     /// Revision for an exact-detail route. Independent of selection availability.
-    pub question_revision_tuple: QuestionRevisionTuple,
+    pub published_question_revision_tuple: PublishedQuestionRevisionTuple,
     /// Question Backend, without private backend fields or Question Source data.
     pub backend: QuestionBackend,
     /// Immutable reviewed source representation, for Instructor identification
@@ -665,8 +683,8 @@ mod tests {
         let detail = QuestionDetails {
             summary: QuestionSummary {
                 question_id: "ABCD-XEFG".parse().expect("fixture Question ID parses"),
-                question_revision_tuple: QuestionRevisionTuple {
-                    question_id: "ABCD-XEFG".parse().expect("fixture Question ID parses"),
+                published_question_revision_tuple: PublishedQuestionRevisionTuple {
+                    published_question_id: "ABCD-XEFG".parse().expect("fixture Question ID parses"),
                     revision_number: QuestionRevisionNumber::new(1).expect("positive version"),
                 },
                 backend: QuestionBackend::Ple,
@@ -737,36 +755,36 @@ mod tests {
     }
 
     #[test]
-    fn question_revision_tuple_round_trips_camel_case_members() {
-        let tuple = QuestionRevisionTuple {
-            question_id: "ABCD-XEFG".parse().expect("fixture Question ID parses"),
+    fn published_question_revision_tuple_round_trips_camel_case_members() {
+        let tuple = PublishedQuestionRevisionTuple {
+            published_question_id: "ABCD-XEFG".parse().expect("fixture Question ID parses"),
             revision_number: QuestionRevisionNumber::new(1).expect("positive version"),
         };
         let json = serde_json::to_value(&tuple).expect("tuple serializes");
-        assert_eq!(json["questionId"], "ABCD-XEFG");
+        assert_eq!(json["publishedQuestionId"], "ABCD-XEFG");
         assert_eq!(json["revisionNumber"], 1);
         assert!(json.get("reference").is_none());
-        let decoded: QuestionRevisionTuple =
+        let decoded: PublishedQuestionRevisionTuple =
             serde_json::from_value(json).expect("tuple deserializes from its members");
         assert_eq!(decoded, tuple);
     }
 
     #[test]
-    fn question_revision_tuple_rejects_legacy_reference_json() {
+    fn published_question_revision_tuple_rejects_legacy_reference_json() {
         assert!(
-            serde_json::from_str::<QuestionRevisionTuple>(
+            serde_json::from_str::<PublishedQuestionRevisionTuple>(
                 r#"{"reference":{"questionId":"ABCD-XEFG","revisionNumber":1}}"#
             )
             .is_err()
         );
         assert!(
-            serde_json::from_str::<QuestionRevisionTuple>(
-                r#"{"questionId":"ABCD-XEFG","revisionNumber":1,"reference":"ABCD-XEFG"}"#
+            serde_json::from_str::<PublishedQuestionRevisionTuple>(
+                r#"{"publishedQuestionId":"ABCD-XEFG","revisionNumber":1,"reference":"ABCD-XEFG"}"#
             )
             .is_err()
         );
         assert!(
-            serde_json::from_value::<QuestionRevisionTuple>(serde_json::json!(1)).is_err(),
+            serde_json::from_value::<PublishedQuestionRevisionTuple>(serde_json::json!(1)).is_err(),
             "a lone Revision Number is not a Question Revision Tuple"
         );
     }

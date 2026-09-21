@@ -113,8 +113,8 @@ async function prepareStudentInvitation(
 }
 
 async function studentInvitation(runtime: ScenarioRuntime): Promise<void> {
-  await prepareStudentInvitation(runtime, "invitation_index");
-  const session = await runtime.open("invitation_index");
+  await prepareStudentInvitation(runtime, "invitation_index_laptop");
+  const session = await runtime.open("invitation_index_laptop");
   const page = session.page;
   try {
     await choosePersona(page, "Mary Okafor");
@@ -123,14 +123,14 @@ async function studentInvitation(runtime: ScenarioRuntime): Promise<void> {
     await page.getByRole("heading", { name: "Course invitations", exact: true }).waitFor();
     const invitation = courseCard(page, INVITATION_COURSE_LONG_NAME);
     await invitation.waitFor();
-    await captureCheckpoint(runtime, "invitation_index", session);
+    await captureCheckpoint(runtime, "invitation_index_laptop", session);
     await invitation.getByRole("link", { name: "Review invitation", exact: true }).click();
     await page
       .getByRole("heading", { level: 1, name: INVITATION_COURSE_LONG_NAME, exact: true })
       .waitFor();
     await page.getByRole("button", { name: "Accept invitation", exact: true }).waitFor();
     // The invited Student never joins, so this scenario stays stable across replays.
-    await captureCheckpoint(runtime, "invitation_detail", session);
+    await captureCheckpoint(runtime, "invitation_detail_laptop", session);
   } finally {
     await runtime.close(session);
   }
@@ -189,7 +189,7 @@ async function studentAssignmentOverviews(runtime: ScenarioRuntime): Promise<voi
 }
 
 async function studentAssignmentHistory(runtime: ScenarioRuntime): Promise<void> {
-  const session = await runtime.open("overview_history");
+  const session = await runtime.open("overview_history_laptop");
   try {
     await choosePersona(session.page, "Mary Okafor");
     await openStudentCourse(session.page);
@@ -201,11 +201,11 @@ async function studentAssignmentHistory(runtime: ScenarioRuntime): Promise<void>
     await session.page.getByRole("heading", { name: "Previous attempts", exact: true }).waitFor();
     const previousAttempt = session.page.getByRole("link", { name: "Attempt 1", exact: true });
     await previousAttempt.waitFor();
-    await captureCheckpoint(runtime, "overview_history", session);
+    await captureCheckpoint(runtime, "overview_history_laptop", session);
     await previousAttempt.click();
     await session.page.locator('[data-route-surface="assessmentAttemptSummary"]').waitFor();
     await session.page.getByRole("heading", { name: "Your recorded work", exact: true }).waitFor();
-    await captureCheckpoint(runtime, "selected_history", session);
+    await captureCheckpoint(runtime, "selected_history_laptop", session);
   } finally {
     await runtime.close(session);
   }
@@ -268,7 +268,7 @@ async function waitForRestoredResponse(session: CaptureSession): Promise<void> {
 }
 
 async function studentAssignmentAttempt(runtime: ScenarioRuntime): Promise<void> {
-  const savedSession = await runtime.open("response_selected");
+  const savedSession = await runtime.open("response_selected_laptop");
   try {
     await choosePersona(savedSession.page, "Avery Thompson");
     await openStudentCourse(savedSession.page);
@@ -280,12 +280,16 @@ async function studentAssignmentAttempt(runtime: ScenarioRuntime): Promise<void>
     await savedSession.page.getByText("Question 1 of 4", { exact: true }).waitFor();
     await saveCurrentResponse(savedSession);
     await attemptQuestion(savedSession, "Question 1: Saved, current").waitFor();
-    await captureCheckpoint(runtime, "response_selected", savedSession);
+    await captureCheckpoint(runtime, "response_selected_laptop", savedSession);
+    await attemptQuestion(savedSession, "Question 2: Not answered").click();
+    await attemptQuestion(savedSession, "Question 2: Not answered, current").waitFor();
+    await savedSession.page.getByText("Question 2 of 4", { exact: true }).waitFor();
+    await captureCheckpoint(runtime, "assessment_navigation_laptop", savedSession);
   } finally {
     await runtime.close(savedSession);
   }
 
-  const resumedSession = await runtime.open("resume_selected");
+  const resumedSession = await runtime.open("resume_selected_tablet");
   try {
     await choosePersona(resumedSession.page, "Avery Thompson");
     await openStudentCourse(resumedSession.page);
@@ -312,12 +316,12 @@ async function studentAssignmentAttempt(runtime: ScenarioRuntime): Promise<void>
     await resumedSession.page.getByText("Question 1 of 4", { exact: true }).waitFor();
     await waitForRestoredResponse(resumedSession);
     await resumedSession.page.getByText("Response saved.", { exact: true }).waitFor();
-    await captureCheckpoint(runtime, "resume_selected", resumedSession);
+    await captureCheckpoint(runtime, "resume_selected_tablet", resumedSession);
   } finally {
     await runtime.close(resumedSession);
   }
 
-  const submittedSession = await runtime.open("submitted");
+  const submittedSession = await runtime.open("submitted_phone");
   try {
     await choosePersona(submittedSession.page, "Avery Thompson");
     await openStudentCourse(submittedSession.page);
@@ -342,7 +346,7 @@ async function studentAssignmentAttempt(runtime: ScenarioRuntime): Promise<void>
     await submittedSession.page
       .getByRole("heading", { name: "Your recorded work", exact: true })
       .waitFor();
-    await captureCheckpoint(runtime, "submitted", submittedSession);
+    await captureCheckpoint(runtime, "submitted_phone", submittedSession);
   } finally {
     await runtime.close(submittedSession);
   }
@@ -405,7 +409,7 @@ export const STUDENT_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
     role: "student",
     captures: [
       {
-        checkpoint: "invitation_index",
+        checkpoint: "invitation_index_laptop",
         area: "courses",
         workflow: "course invitation",
         state: "pending index",
@@ -414,7 +418,7 @@ export const STUDENT_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
         caption: "Pending Course Invitations",
       },
       {
-        checkpoint: "invitation_detail",
+        checkpoint: "invitation_detail_laptop",
         area: "courses",
         workflow: "course invitation",
         state: "review",
@@ -500,7 +504,7 @@ export const STUDENT_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
     role: "student",
     captures: [
       {
-        checkpoint: "overview_history",
+        checkpoint: "overview_history_laptop",
         area: "assignments",
         workflow: "assignment history",
         state: "previous attempts",
@@ -509,7 +513,7 @@ export const STUDENT_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
         caption: "Assignment overview with previous attempts",
       },
       {
-        checkpoint: "selected_history",
+        checkpoint: "selected_history_laptop",
         area: "assignments",
         workflow: "assignment history",
         state: "selected previous attempt",
@@ -525,7 +529,7 @@ export const STUDENT_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
     role: "student",
     captures: [
       {
-        checkpoint: "response_selected",
+        checkpoint: "response_selected_laptop",
         area: "assignments",
         workflow: "assignment attempt",
         state: "saved response",
@@ -535,7 +539,16 @@ export const STUDENT_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
         featured: true,
       },
       {
-        checkpoint: "resume_selected",
+        checkpoint: "assessment_navigation_laptop",
+        area: "assessments",
+        workflow: "assessment navigation and progress",
+        state: "Question 2 current with one saved response",
+        viewport: "laptop",
+        privacyProfile: "student_self",
+        caption: "Student Question navigation, saved progress, and countdown timer",
+      },
+      {
+        checkpoint: "resume_selected_tablet",
         area: "assignments",
         workflow: "assignment attempt",
         state: "reloaded saved response",
@@ -544,7 +557,7 @@ export const STUDENT_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
         caption: "Reloaded Student Assignment response on a tablet",
       },
       {
-        checkpoint: "submitted",
+        checkpoint: "submitted_phone",
         area: "assignments",
         workflow: "assignment attempt",
         state: "submitted",

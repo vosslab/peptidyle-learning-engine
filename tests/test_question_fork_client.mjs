@@ -5,7 +5,7 @@ import { DecodeError } from "../src/api/decoder.ts";
 import { ApiProtocolError, createHttpApiClient } from "../src/api/http_client.ts";
 import { publishedQuestionFixture } from "./fixtures/published_question.ts";
 
-const source = publishedQuestionFixture.publishedQuestion.questionRevisionTuple;
+const source = publishedQuestionFixture.publishedQuestion.publishedQuestionRevisionTuple;
 const retryKey = "9f1f2d1f-6d23-4fc2-930f-2bdad8d15fcb";
 
 function createdDraftResponse(value, status = 201) {
@@ -32,7 +32,7 @@ test("Question fork client sends only an exact source path and retry key, then a
   assert.ok(request);
   assert.equal(
     new URL(request.url).pathname,
-    `/api/questions/by-id/${encodeURIComponent(source.questionId)}/revisions/${source.revisionNumber}/fork`,
+    `/api/questions/by-id/${encodeURIComponent(source.publishedQuestionId)}/revisions/${source.revisionNumber}/fork`,
   );
   assert.equal(request.method, "POST");
   assert.equal(request.headers.get("idempotency-key"), retryKey);
@@ -63,7 +63,7 @@ test("Question fork client requires a no-store 201 closed Draft receipt", async 
     fetch: async () =>
       createdDraftResponse({
         draftQuestion: "0198e000-0000-7000-8000-000000000001",
-        sourceQuestionId: source.questionId,
+        sourceQuestionId: source.publishedQuestionId,
       }),
   });
   await assert.rejects(malformedReceiptClient.forkPublishedQuestion(source, retryKey), DecodeError);

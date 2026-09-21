@@ -5,7 +5,7 @@
 //! public aggregate surface.
 
 use async_trait::async_trait;
-use question_model::{QuestionId, Timestamp};
+use question_model::{PublishedQuestionId, Timestamp};
 use uuid::Uuid;
 
 use crate::{SessionTokenHash, StoreError};
@@ -25,7 +25,7 @@ pub enum LibraryWatchActivity {
     },
     Fork {
         source_revision_number: u64,
-        forked_public_id: QuestionId,
+        forked_public_id: PublishedQuestionId,
     },
     ImprovementThread {
         creation_revision_number: u64,
@@ -41,7 +41,7 @@ pub enum LibraryWatchActivity {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LibraryWatchNotification {
     pub target_kind: LibraryWatchTargetKind,
-    pub target_public_id: QuestionId,
+    pub target_public_id: PublishedQuestionId,
     pub activity: LibraryWatchActivity,
     pub occurred_at: Timestamp,
 }

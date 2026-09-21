@@ -1,6 +1,6 @@
 // Same-origin explicit own-state transport for one published Pool.
 
-import type { QuestionId } from "../../../generated/api/QuestionId";
+import type { QuestionPoolId } from "../../../generated/api/QuestionPoolId";
 import {
   decodeQuestionPoolStarProjection,
   decodeQuestionPoolWatchProjection,
@@ -17,7 +17,7 @@ import { boundedResponseJson, requireNoStore } from "./response";
 async function requestStar(
   fetchImplementation: ApiFetch,
   basePath: string,
-  poolId: QuestionId,
+  poolId: QuestionPoolId,
   starred?: boolean,
 ): Promise<QuestionPoolStarProjection> {
   const path = `/api/question-pools/${encodedId(poolId)}/stewardship/star`;
@@ -33,7 +33,7 @@ async function requestStar(
 async function requestWatch(
   fetchImplementation: ApiFetch,
   basePath: string,
-  poolId: QuestionId,
+  poolId: QuestionPoolId,
   watching?: boolean,
 ): Promise<QuestionPoolWatchProjection> {
   const path = `/api/question-pools/${encodedId(poolId)}/stewardship/watch`;

@@ -73,11 +73,6 @@ def build_parser() -> argparse.ArgumentParser:
 		help="clear and start the fixed production-browser Developer Browser Suite",
 	)
 	start.add_argument("--headless", action="store_true")
-	start.add_argument(
-		"--without-live-demo",
-		action="store_true",
-		help="initialize the ordinary product stack without provisioning Live Demo data",
-	)
 	start.set_defaults(handler=local_stack_control.commands.start)
 
 	open_browser = subparsers.add_parser(

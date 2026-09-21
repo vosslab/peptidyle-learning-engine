@@ -168,7 +168,8 @@ test("Pool list requires complete ordered whole-result Bloom counts", () => {
 });
 
 test("Pool exact detail keeps its own assigned Bloom pair or a blank pair", () => {
-  const questionRevisionTuple = publishedQuestionFixture.publishedQuestion.questionRevisionTuple;
+  const publishedQuestionRevisionTuple =
+    publishedQuestionFixture.publishedQuestion.publishedQuestionRevisionTuple;
   const detail = {
     questionPoolId: "3S8B-24DZ",
     questionPoolEditNumber: 4,
@@ -177,9 +178,9 @@ test("Pool exact detail keeps its own assigned Bloom pair or a blank pair", () =
     members: [
       {
         memberPosition: 0,
-        questionRevisionTuple,
+        publishedQuestionRevisionTuple,
         question: {
-          question_revision_tuple: questionRevisionTuple,
+          published_question_revision_tuple: publishedQuestionRevisionTuple,
           question_library: {
             summary: publishedQuestionFixture.publishedQuestion,
             disciplineName: "Biology",
@@ -199,7 +200,8 @@ test("Pool exact detail keeps its own assigned Bloom pair or a blank pair", () =
 });
 
 test("Assessment-owned Pool fork keeps its own assigned Bloom pair or a blank pair", () => {
-  const questionRevisionTuple = publishedQuestionFixture.publishedQuestion.questionRevisionTuple;
+  const publishedQuestionRevisionTuple =
+    publishedQuestionFixture.publishedQuestion.publishedQuestionRevisionTuple;
   const fork = {
     assessmentEntryId: "00000000-0000-0000-0000-000000000011",
     questionPoolId: "3S8B-24DZ",
@@ -210,9 +212,9 @@ test("Assessment-owned Pool fork keeps its own assigned Bloom pair or a blank pa
     members: [
       {
         memberPosition: 0,
-        questionRevisionTuple,
+        publishedQuestionRevisionTuple,
         question: {
-          question_revision_tuple: questionRevisionTuple,
+          published_question_revision_tuple: publishedQuestionRevisionTuple,
           question_library: {
             summary: publishedQuestionFixture.publishedQuestion,
             disciplineName: "Biology",

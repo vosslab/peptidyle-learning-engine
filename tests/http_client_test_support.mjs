@@ -21,9 +21,13 @@ export function createRecordingFetch(respond) {
 }
 
 /** Builds a literal browser-issued presentation from current Question Summary evidence. */
-export function issuedQuestionWireFixture(attempt, questionSummary, questionRevisionTuple) {
+export function issuedQuestionWireFixture(
+  attempt,
+  questionSummary,
+  publishedQuestionRevisionTuple,
+) {
   return {
-    questionRevisionTuple,
+    publishedQuestionRevisionTuple,
     presentationNonce: attempt.id.replaceAll("-", "").slice(-32),
     questionTitle: questionSummary.metadata.questionTitle,
     prompt: [

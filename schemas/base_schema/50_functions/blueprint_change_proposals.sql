@@ -106,7 +106,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
            (extract(epoch FROM proposal.created_at) * 1000)::bigint,
            target.current_blueprint_revision_number <> proposal.target_revision_number
                OR target.blueprint_edit_number <> proposal.target_blueprint_edit_number,
-           basis.position, course.blueprint_course_id, basis.revision_number,
+           basis.position, course.blueprint_course_id, basis.revision_number::bigint,
            basis.blueprint_edit_number, revision.content, revision.content_checksum,
            event.short_name, event.long_name, event.content_discipline_id, event.content_subject_id,
            event.content_topic_id, event.content_subtopic_id, event.tags,
@@ -209,14 +209,14 @@ BEGIN
     RETURN QUERY
     SELECT proposal.blueprint_change_proposal_id, (extract(epoch FROM proposal.created_at) * 1000)::bigint,
            to_char(proposal.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
-           source.blueprint_course_id, proposal.source_revision_number, proposal.source_blueprint_edit_number,
+           source.blueprint_course_id::text, proposal.source_revision_number::bigint, proposal.source_blueprint_edit_number,
            source_event.short_name, source_event.long_name,
-           target.blueprint_course_id, proposal.target_revision_number, proposal.target_blueprint_edit_number,
+           target.blueprint_course_id::text, proposal.target_revision_number::bigint, proposal.target_blueprint_edit_number,
            target_event.short_name, target_event.long_name,
            target.current_blueprint_revision_number <> proposal.target_revision_number
                OR target.blueprint_edit_number <> proposal.target_blueprint_edit_number,
            (extract(epoch FROM accepted.accepted_at) * 1000)::bigint,
-           accepted.resulting_revision_number, accepted.resulting_blueprint_edit_number
+           accepted.resulting_revision_number::bigint, accepted.resulting_blueprint_edit_number
       FROM ple_data.blueprint_change_proposal AS proposal
       JOIN ple_data.blueprint_course AS source
         ON source.blueprint_course_id = proposal.source_blueprint_course_id
@@ -401,7 +401,7 @@ RETURNS TABLE (
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
     SELECT acceptance.blueprint_change_proposal_id, acceptance.actor_account_id,
            (extract(epoch FROM acceptance.accepted_at) * 1000)::bigint, acceptance.decision,
-           target.blueprint_course_id, acceptance.resulting_revision_number,
+           target.blueprint_course_id, acceptance.resulting_revision_number::bigint,
            acceptance.resulting_blueprint_edit_number, revision.content, revision.content_checksum,
            event.short_name, event.long_name, event.content_discipline_id, event.content_subject_id,
            event.content_topic_id, event.content_subtopic_id, event.tags
@@ -417,4 +417,3 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
      WHERE acceptance.blueprint_change_proposal_id = p_proposal_id
        AND EXISTS (SELECT 1 FROM ple_api.read_blueprint_change_proposal(p_proposal_id));
 $$;
-

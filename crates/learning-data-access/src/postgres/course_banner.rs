@@ -449,11 +449,12 @@ impl CourseBannerStore for PostgresCourseBannerStore {
         upload: CourseBannerUploadId,
     ) -> Result<ClaimedCourseBannerUpload, StoreError> {
         let mut tx = self.begin(token).await?;
-        let row = sqlx::query("SELECT object_id, sha256, byte_length, canonical_media_type, width, height, put_work_id FROM ple_api.read_staged_course_banner_upload($1,$2)")
+        let row = sqlx::query("SELECT object_record_id, sha256, byte_length, canonical_media_type, width, height, put_work_id FROM ple_api.read_staged_course_banner_upload($1,$2)")
             .bind(course_instance_id.as_str()).bind(upload.as_uuid()).fetch_optional(&mut *tx).await.map_err(map_sqlx_error)?
             .ok_or(StoreError::NotFound)?;
-        let object_id =
-            question_model::ObjectId::from_uuid(row.try_get("object_id").map_err(map_sqlx_error)?);
+        let object_id = question_model::ObjectId::from_uuid(
+            row.try_get("object_record_id").map_err(map_sqlx_error)?,
+        );
         let digest: Vec<u8> = row.try_get("sha256").map_err(map_sqlx_error)?;
         let digest: [u8; 32] = digest
             .try_into()

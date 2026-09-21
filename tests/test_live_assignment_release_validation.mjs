@@ -63,7 +63,7 @@ function createdWorkspace(
       {
         kind: "fixedQuestion",
         id: "00000000-0000-0000-0000-000000000001",
-        questionRevisionTuple: { questionId: "7K3M-79QP", revisionNumber: 1 },
+        publishedQuestionRevisionTuple: { publishedQuestionId: "7K3M-79QP", revisionNumber: 1 },
         pointsPossible: "1",
         availability: "available",
         scoringRule: "normal",
@@ -86,7 +86,7 @@ function createdWorkspace(
     ],
     questions: [
       {
-        questionRevisionTuple: { questionId: "7K3M-79QP", revisionNumber: 1 },
+        publishedQuestionRevisionTuple: { publishedQuestionId: "7K3M-79QP", revisionNumber: 1 },
         description: "A fixed question.",
         bloom,
       },
@@ -209,7 +209,7 @@ test("current adopted Assessment workspace retains exact origin and normalized f
 
 test("Assessment picker accepts blank Bloom and rejects malformed values", () => {
   const row = {
-    questionRevisionTuple: { questionId: "7K3M-79QP", revisionNumber: 1 },
+    publishedQuestionRevisionTuple: { publishedQuestionId: "7K3M-79QP", revisionNumber: 1 },
     description: "A fixed question.",
     bloom,
   };

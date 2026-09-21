@@ -4,7 +4,7 @@ use crate::blueprint_course::StoredBlueprintAssessmentEntry;
 use crate::{CourseInstancePoolIdIssuer, StoreError, StoredBlueprintCourseContent};
 use question_model::{
     BlueprintAssessmentId, BlueprintCourseId, BlueprintPoolInputChoice, BlueprintRevisionNumber,
-    QuestionPoolEditNumber, QuestionRevisionTuple,
+    PublishedQuestionRevisionTuple, QuestionPoolEditNumber,
 };
 use sqlx::{Postgres, Row, Transaction};
 
@@ -36,9 +36,9 @@ pub(super) async fn materialize_imported_pools(
 
 async fn import(
     transaction: &mut Transaction<'_, Postgres>,
-    source_question_pool_id: &question_model::QuestionId,
+    source_question_pool_id: &question_model::QuestionPoolId,
     issuer: Option<&dyn CourseInstancePoolIdIssuer>,
-) -> Result<(question_model::QuestionId, QuestionPoolEditNumber), StoreError> {
+) -> Result<(question_model::QuestionPoolId, QuestionPoolEditNumber), StoreError> {
     let child = issuer
         .ok_or_else(|| {
             StoreError::InvalidRecord("Question Pool fork identity issuer is unavailable".into())
@@ -144,7 +144,7 @@ pub(super) async fn materialize_authoring_pools(
                             if replacement != old {
                                 let ids: Vec<_> = replacement
                                     .iter()
-                                    .map(|q| q.question_id.as_str().to_owned())
+                                    .map(|q| q.published_question_id.as_str().to_owned())
                                     .collect();
                                 let revisions: Vec<_> = replacement
                                     .iter()
@@ -177,10 +177,10 @@ pub(super) async fn members(
     transaction: &mut Transaction<'_, Postgres>,
     blueprint_course_id: &BlueprintCourseId,
     assessment: BlueprintAssessmentId,
-    question_pool_id: &question_model::QuestionId,
+    question_pool_id: &question_model::QuestionPoolId,
     question_pool_edit_number: QuestionPoolEditNumber,
     write: Option<BlueprintRevisionNumber>,
-) -> Result<Vec<QuestionRevisionTuple>, StoreError> {
+) -> Result<Vec<PublishedQuestionRevisionTuple>, StoreError> {
     let rows = sqlx::query("SELECT * FROM ple_api.blueprint_pool_members($1,$2,$3,$4,$5,$6)")
         .bind(blueprint_course_id.as_string())
         .bind(assessment.as_uuid())
@@ -193,8 +193,8 @@ pub(super) async fn members(
         .map_err(map_sqlx_error)?;
     rows.into_iter()
         .map(|row| {
-            Ok(QuestionRevisionTuple {
-                question_id: row
+            Ok(PublishedQuestionRevisionTuple {
+                published_question_id: row
                     .try_get::<String, _>("published_question_id")
                     .map_err(map_sqlx_error)?
                     .parse()

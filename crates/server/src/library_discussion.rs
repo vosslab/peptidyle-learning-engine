@@ -19,7 +19,7 @@ use learning_data_access::{
     LibraryImprovementThreadLifecycle, SessionTokenHash, StoreError,
     postgres::{PostgresLibraryDiscussionStore, PostgresSessionStore},
 };
-use question_model::{LibraryObjectKind, ProductRole, QuestionId, Timestamp};
+use question_model::{LibraryObjectKind, ProductRole, PublishedQuestionId, Timestamp};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -492,7 +492,7 @@ fn target(kind: &str, public_id: &str) -> Option<LibraryDiscussionTarget> {
         "questionPool" => LibraryObjectKind::QuestionPool,
         _ => return None,
     };
-    let public_id = public_id.parse::<QuestionId>().ok()?;
+    let public_id = public_id.parse::<PublishedQuestionId>().ok()?;
     Some(LibraryDiscussionTarget { kind, public_id })
 }
 

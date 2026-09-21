@@ -197,7 +197,7 @@ async fn hotspot_collision_retries_exact_bytes_and_cleans_both_rolled_back_targe
     assert_eq!(
         objects
             .get(&ObjectAddress::QuestionImage {
-                question_revision_tuple: accepted.question_revision_tuple(),
+                published_question_revision_tuple: accepted.published_question_revision_tuple(),
                 question_image_asset_id: accepted_image.question_image_asset_id,
                 object_id: accepted_image.public_object_id
             })

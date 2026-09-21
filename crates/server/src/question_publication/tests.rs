@@ -42,7 +42,7 @@ struct ExistingRevisionRecordingStore {
 
 #[derive(Clone)]
 struct FixedQuestionIdIssuer {
-    question_ids: Arc<Mutex<VecDeque<QuestionId>>>,
+    question_ids: Arc<Mutex<VecDeque<PublishedQuestionId>>>,
 }
 
 #[derive(Clone)]
@@ -77,8 +77,8 @@ impl NewQuestionLineagePublicationStore for RecordingPublicationStore {
         &self,
         _session_token_hash: SessionTokenHash,
         input: NewQuestionLineagePublicationInput,
-    ) -> Result<QuestionRevisionTuple, NewQuestionLineagePublicationError> {
-        let result = input.question_revision_tuple();
+    ) -> Result<PublishedQuestionRevisionTuple, NewQuestionLineagePublicationError> {
+        let result = input.published_question_revision_tuple();
         self.publications
             .lock()
             .expect("publication capture lock")
@@ -108,8 +108,8 @@ impl NewQuestionLineagePublicationStore for ScriptedPublicationStore {
         &self,
         _session_token_hash: SessionTokenHash,
         input: NewQuestionLineagePublicationInput,
-    ) -> Result<QuestionRevisionTuple, NewQuestionLineagePublicationError> {
-        let result = input.question_revision_tuple();
+    ) -> Result<PublishedQuestionRevisionTuple, NewQuestionLineagePublicationError> {
+        let result = input.published_question_revision_tuple();
         self.publications
             .lock()
             .expect("publication capture lock")
@@ -148,9 +148,9 @@ impl ExistingQuestionRevisionPublicationStore for ExistingRevisionRecordingStore
         &self,
         _session_token_hash: SessionTokenHash,
         input: ExistingQuestionRevisionPublicationInput,
-    ) -> Result<QuestionRevisionTuple, ExistingQuestionRevisionPublicationError> {
+    ) -> Result<PublishedQuestionRevisionTuple, ExistingQuestionRevisionPublicationError> {
         let revision = input
-            .question_revision_tuple()
+            .published_question_revision_tuple()
             .map_err(ExistingQuestionRevisionPublicationError::Store)?;
         self.publications
             .lock()
@@ -161,7 +161,7 @@ impl ExistingQuestionRevisionPublicationStore for ExistingRevisionRecordingStore
 }
 
 impl QuestionIdIssuer for FixedQuestionIdIssuer {
-    fn issue_question_id(&self) -> Result<QuestionId, QuestionIdIssuanceError> {
+    fn issue_question_id(&self) -> Result<PublishedQuestionId, QuestionIdIssuanceError> {
         self.question_ids
             .lock()
             .expect("Question ID lock")
@@ -222,8 +222,8 @@ impl ObjectStore for PutAlreadyExistsObjectStore {
     }
 }
 
-fn fixed_question_id(identifier: &str) -> QuestionId {
-    QuestionId::from_random_identifier(identifier)
+fn fixed_question_id(identifier: &str) -> PublishedQuestionId {
+    PublishedQuestionId::from_random_identifier(identifier)
         .expect("fixed Question ID uses canonical Crockford characters")
 }
 
@@ -285,8 +285,8 @@ fn existing_command(workspace: WorkspaceId) -> ExistingQuestionRevisionPublicati
         expected_draft_question_edit_number: DraftQuestionEditNumber::new(3)
             .expect("positive Draft Question Edit Number"),
         workspace,
-        parent_question_revision_tuple: QuestionRevisionTuple {
-            question_id: fixed_question_id("0000000"),
+        parent_published_question_revision_tuple: PublishedQuestionRevisionTuple {
+            published_question_id: fixed_question_id("0000000"),
             revision_number: QuestionRevisionNumber::new(1)
                 .expect("positive Question Revision Number"),
         },
@@ -346,7 +346,7 @@ async fn publication_copies_verified_source_before_committing_its_exact_revision
         .await
         .expect("published source object");
 
-    assert_eq!(input.question_revision_tuple(), published);
+    assert_eq!(input.published_question_revision_tuple(), published);
     assert_eq!(stored.bytes, b"complete Question Source");
 }
 
@@ -384,15 +384,17 @@ async fn publication_refuses_database_and_object_store_source_disagreement() {
 #[test]
 fn question_id_issuer_mints_exact_public_checksum_ids() {
     let issuer = RandomQuestionIdIssuer::new();
-    let vector = "0000-4000".parse::<QuestionId>().expect("checksum vector");
+    let vector = "0000-4000"
+        .parse::<PublishedQuestionId>()
+        .expect("checksum vector");
     assert_eq!(vector.as_str(), "0000-4000");
-    assert!("0000-5000".parse::<QuestionId>().is_err());
-    assert!("00004000".parse::<QuestionId>().is_err());
+    assert!("0000-5000".parse::<PublishedQuestionId>().is_err());
+    assert!("00004000".parse::<PublishedQuestionId>().is_err());
     let minted = issuer
         .issue_question_id()
         .expect("operating-system randomness mints a Question ID");
     assert_eq!(minted.as_str().len(), 9);
-    assert!(minted.as_str().parse::<QuestionId>().is_ok());
+    assert!(minted.as_str().parse::<PublishedQuestionId>().is_ok());
 }
 
 #[tokio::test]
@@ -597,7 +599,9 @@ async fn same_lineage_publication_copies_to_the_exact_successor_revision() {
         .expect("captured publication");
     assert_eq!(
         published,
-        input.question_revision_tuple().expect("successor revision")
+        input
+            .published_question_revision_tuple()
+            .expect("successor revision")
     );
     assert_eq!(published.revision_number.get(), 2);
     assert_eq!(

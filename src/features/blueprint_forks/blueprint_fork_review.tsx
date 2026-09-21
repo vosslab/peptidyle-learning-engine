@@ -124,8 +124,8 @@ export function AssessmentSnapshot(props: {
                     <Show when={entry.kind === "fixed" ? entry : undefined}>
                       {(fixed) => (
                         <p>
-                          Question {fixed().question_revision_tuple.questionId}, Revision{" "}
-                          {fixed().question_revision_tuple.revisionNumber};{" "}
+                          Question {fixed().published_question_revision_tuple.publishedQuestionId},
+                          Revision {fixed().published_question_revision_tuple.revisionNumber};{" "}
                           {fixed().points_possible} points.
                         </p>
                       )}

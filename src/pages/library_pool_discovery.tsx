@@ -521,8 +521,8 @@ export function LibraryPoolDiscovery(props: {
                     <For each={value().members}>
                       {(member) => (
                         <li>
-                          {member.questionRevisionTuple.questionId} | Revision:{" "}
-                          {member.questionRevisionTuple.revisionNumber}
+                          {member.publishedQuestionRevisionTuple.publishedQuestionId} | Revision:{" "}
+                          {member.publishedQuestionRevisionTuple.revisionNumber}
                         </li>
                       )}
                     </For>

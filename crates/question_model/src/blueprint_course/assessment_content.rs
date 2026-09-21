@@ -10,8 +10,8 @@ use crate::{
     AssessmentActivityRules, AssessmentEntryScoringRule, AssessmentInstructions,
     AssessmentPointValue, LateWorkRule, MAX_ASSESSMENT_ATTEMPT_LIMIT,
     MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS, MAX_ASSESSMENT_ORDERED_ENTRIES,
-    QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionId, QuestionPoolEditNumber,
-    QuestionPoolSelectionRule, QuestionRevisionTuple, QuestionSearchResult,
+    PublishedQuestionRevisionTuple, QuestionAttemptLimit, QuestionAttemptTimeLimit,
+    QuestionPoolEditNumber, QuestionPoolId, QuestionPoolSelectionRule, QuestionSearchResult,
     StudentFeedbackReleaseRule,
 };
 
@@ -57,7 +57,7 @@ impl BlueprintAssessmentDefaults {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ReusableFixedQuestionInput {
     /// Exact published Question Revision checked under destination authority.
-    pub question_revision_tuple: QuestionRevisionTuple,
+    pub published_question_revision_tuple: PublishedQuestionRevisionTuple,
     /// Points copied into the future Fixed Question Assessment Entry.
     pub points_possible: AssessmentPointValue,
     /// Score treatment copied into the future Fixed Question Assessment Entry.
@@ -75,16 +75,16 @@ pub struct ReusableFixedQuestionInput {
 pub enum BlueprintPoolInputChoice {
     /// Copy the current source Pool membership into a fresh Assessment-owned Pool.
     Import {
-        question_pool_id: QuestionId,
+        question_pool_id: QuestionPoolId,
         question_pool_edit_number: QuestionPoolEditNumber,
     },
     /// Retain a Pool already owned by the Assessment being replaced.
     Retained {
-        question_pool_id: QuestionId,
+        question_pool_id: QuestionPoolId,
         question_pool_edit_number: QuestionPoolEditNumber,
         /// Null preserves members; an ordered list replaces current Pool membership.
         #[serde(deserialize_with = "deserialize_blueprint_pool_members")]
-        members: Option<Vec<QuestionRevisionTuple>>,
+        members: Option<Vec<PublishedQuestionRevisionTuple>>,
         /// Explicit interchangeability review for newly submitted member content.
         #[serde(rename = "interchangeabilityAttested")]
         interchangeability_attested: bool,
@@ -93,11 +93,11 @@ pub enum BlueprintPoolInputChoice {
 
 fn deserialize_blueprint_pool_members<'de, D>(
     deserializer: D,
-) -> Result<Option<Vec<QuestionRevisionTuple>>, D::Error>
+) -> Result<Option<Vec<PublishedQuestionRevisionTuple>>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    Option::<Vec<QuestionRevisionTuple>>::deserialize(deserializer)
+    Option::<Vec<PublishedQuestionRevisionTuple>>::deserialize(deserializer)
 }
 
 /// One Question Pool Assessment Entry with an explicit ownership operation.
@@ -140,7 +140,7 @@ impl ReusablePoolInput {
             let mut questions = BTreeSet::new();
             if members
                 .iter()
-                .any(|member| !questions.insert(member.question_id.clone()))
+                .any(|member| !questions.insert(member.published_question_id.clone()))
             {
                 return Err(BlueprintCourseValidationError::DuplicateQuestionPoolItem);
             }
@@ -225,7 +225,7 @@ pub enum ReusableSelectionAvailability {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ReusableQuestionView {
     /// Exact stored published Question Revision; never inferred from a library head.
-    pub question_revision_tuple: QuestionRevisionTuple,
+    pub published_question_revision_tuple: PublishedQuestionRevisionTuple,
     /// Public Question Library metadata and disclosed evidence for the stored Revision.
     pub question_library: QuestionSearchResult,
     /// Whether the stored exact member remains selectable for a new copy.
@@ -236,7 +236,7 @@ pub struct ReusableQuestionView {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ReusablePoolView {
-    pub question_pool_id: QuestionId,
+    pub question_pool_id: QuestionPoolId,
     pub question_pool_edit_number: QuestionPoolEditNumber,
     /// Positive number of Pool members selected for each future Assessment Attempt.
     pub selection_count: NonZeroU32,

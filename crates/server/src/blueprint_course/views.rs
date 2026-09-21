@@ -9,8 +9,8 @@ use learning_data_access::{
 use question_model::{
     BlueprintAssessmentContentView, BlueprintAssessmentEntryView,
     BlueprintCourseAssessmentContentView, BlueprintCourseSummaryView, BlueprintCourseView,
-    BlueprintModuleView, BlueprintRevisionTuple, CreateBlueprintCourseInput, QuestionId,
-    QuestionRevisionTuple, QuestionSearchResult, ReplaceBlueprintCourseContentInput,
+    BlueprintModuleView, BlueprintRevisionTuple, CreateBlueprintCourseInput, PublishedQuestionId,
+    PublishedQuestionRevisionTuple, QuestionSearchResult, ReplaceBlueprintCourseContentInput,
     ReusablePoolView, ReusableQuestionView, ReusableSelectionAvailability,
 };
 
@@ -66,29 +66,31 @@ pub(super) async fn content_modules(
         .list_published_question_library_entries(session)
         .await
         .map_err(RouteLoadError::Store)?;
-    let current_question_revision_tuples = entries
+    let current_published_question_revision_tuples = entries
         .iter()
         .map(|entry| {
             (
-                entry.question_revision_tuple.question_id.clone(),
-                entry.question_revision_tuple.clone(),
+                entry
+                    .published_question_revision_tuple
+                    .published_question_id
+                    .clone(),
+                entry.published_question_revision_tuple.clone(),
             )
         })
         .collect::<BTreeMap<_, _>>();
     // Discovery excludes archived lineages.  Retained Blueprint pins use the
     // exact historical Store path so an archive never breaks immutable
     // Blueprint Revision interpretation.
-    for question_revision_tuple in content_question_revision_tuples(content) {
-        if !entries
-            .iter()
-            .any(|entry| entry.question_revision_tuple == question_revision_tuple)
-        {
+    for published_question_revision_tuple in content_published_question_revision_tuples(content) {
+        if !entries.iter().any(|entry| {
+            entry.published_question_revision_tuple == published_question_revision_tuple
+        }) {
             entries.push(
                 state
                     .question_library
                     .load_published_question_revision_library_entry(
                         session,
-                        &question_revision_tuple,
+                        &published_question_revision_tuple,
                     )
                     .await
                     .map_err(RouteLoadError::Store)?,
@@ -97,7 +99,12 @@ pub(super) async fn content_modules(
     }
     let question_ids = entries
         .iter()
-        .map(|entry| entry.question_revision_tuple.question_id.clone())
+        .map(|entry| {
+            entry
+                .published_question_revision_tuple
+                .published_question_id
+                .clone()
+        })
         .collect::<Vec<_>>();
     let evidence = crate::question_library::bulk_question_statistics(
         &state.question_library,
@@ -130,7 +137,7 @@ pub(super) async fn content_modules(
                             content: assessment_content_view(
                                 &assessment.content,
                                 &questions,
-                                &current_question_revision_tuples,
+                                &current_published_question_revision_tuples,
                             )?,
                         })
                     })
@@ -140,9 +147,9 @@ pub(super) async fn content_modules(
         .collect()
 }
 
-fn content_question_revision_tuples(
+fn content_published_question_revision_tuples(
     content: &StoredBlueprintCourseContent,
-) -> Vec<question_model::QuestionRevisionTuple> {
+) -> Vec<question_model::PublishedQuestionRevisionTuple> {
     content
         .modules
         .iter()
@@ -150,9 +157,9 @@ fn content_question_revision_tuples(
         .flat_map(|assessment| assessment.content.entries.iter())
         .filter_map(|entry| match entry {
             StoredBlueprintAssessmentEntry::Fixed {
-                question_revision_tuple,
+                published_question_revision_tuple,
                 ..
-            } => Some(question_revision_tuple),
+            } => Some(published_question_revision_tuple),
             StoredBlueprintAssessmentEntry::Pool { .. } => None,
         })
         .cloned()
@@ -160,24 +167,27 @@ fn content_question_revision_tuples(
 }
 fn assessment_content_view(
     content: &StoredBlueprintAssessmentContent,
-    questions: &BTreeMap<QuestionRevisionTuple, QuestionSearchResult>,
-    current_question_revision_tuples: &BTreeMap<QuestionId, QuestionRevisionTuple>,
+    questions: &BTreeMap<PublishedQuestionRevisionTuple, QuestionSearchResult>,
+    current_published_question_revision_tuples: &BTreeMap<
+        PublishedQuestionId,
+        PublishedQuestionRevisionTuple,
+    >,
 ) -> Result<BlueprintAssessmentContentView, RouteLoadError> {
     let entries = content
         .entries
         .iter()
         .map(|entry| match entry {
             StoredBlueprintAssessmentEntry::Fixed {
-                question_revision_tuple,
+                published_question_revision_tuple,
                 points_possible,
                 scoring_rule,
                 question_attempt_limit,
                 question_attempt_time_limit,
             } => Ok(BlueprintAssessmentEntryView::Fixed {
                 question: Box::new(question_view(
-                    question_revision_tuple,
+                    published_question_revision_tuple,
                     questions,
-                    current_question_revision_tuples,
+                    current_published_question_revision_tuples,
                 )?),
                 points_possible: *points_possible,
                 scoring_rule: *scoring_rule,
@@ -214,40 +224,47 @@ fn assessment_content_view(
     })
 }
 fn question_view(
-    question_revision_tuple: &question_model::QuestionRevisionTuple,
-    questions: &BTreeMap<QuestionRevisionTuple, QuestionSearchResult>,
-    current_question_revision_tuples: &BTreeMap<QuestionId, QuestionRevisionTuple>,
+    published_question_revision_tuple: &question_model::PublishedQuestionRevisionTuple,
+    questions: &BTreeMap<PublishedQuestionRevisionTuple, QuestionSearchResult>,
+    current_published_question_revision_tuples: &BTreeMap<
+        PublishedQuestionId,
+        PublishedQuestionRevisionTuple,
+    >,
 ) -> Result<ReusableQuestionView, RouteLoadError> {
     Ok(ReusableQuestionView {
-        question_revision_tuple: question_revision_tuple.clone(),
-        question_library: question_search_result(question_revision_tuple, questions)?,
+        published_question_revision_tuple: published_question_revision_tuple.clone(),
+        question_library: question_search_result(published_question_revision_tuple, questions)?,
         selection_availability: selection_availability(
-            question_revision_tuple,
-            current_question_revision_tuples,
+            published_question_revision_tuple,
+            current_published_question_revision_tuples,
         ),
     })
 }
 fn question_search_result(
-    question_revision_tuple: &question_model::QuestionRevisionTuple,
-    questions: &BTreeMap<QuestionRevisionTuple, QuestionSearchResult>,
+    published_question_revision_tuple: &question_model::PublishedQuestionRevisionTuple,
+    questions: &BTreeMap<PublishedQuestionRevisionTuple, QuestionSearchResult>,
 ) -> Result<QuestionSearchResult, RouteLoadError> {
-    exact_revision_value(question_revision_tuple, questions)
+    exact_revision_value(published_question_revision_tuple, questions)
         .cloned()
         .ok_or(RouteLoadError::Unavailable)
 }
 
 pub(super) fn exact_revision_value<'a, T>(
-    question_revision_tuple: &QuestionRevisionTuple,
-    values: &'a BTreeMap<QuestionRevisionTuple, T>,
+    published_question_revision_tuple: &PublishedQuestionRevisionTuple,
+    values: &'a BTreeMap<PublishedQuestionRevisionTuple, T>,
 ) -> Option<&'a T> {
-    values.get(question_revision_tuple)
+    values.get(published_question_revision_tuple)
 }
 pub(super) fn selection_availability(
-    question_revision_tuple: &question_model::QuestionRevisionTuple,
-    current_question_revision_tuples: &BTreeMap<QuestionId, QuestionRevisionTuple>,
+    published_question_revision_tuple: &question_model::PublishedQuestionRevisionTuple,
+    current_published_question_revision_tuples: &BTreeMap<
+        PublishedQuestionId,
+        PublishedQuestionRevisionTuple,
+    >,
 ) -> ReusableSelectionAvailability {
-    if current_question_revision_tuples.get(&question_revision_tuple.question_id)
-        == Some(question_revision_tuple)
+    if current_published_question_revision_tuples
+        .get(&published_question_revision_tuple.published_question_id)
+        == Some(published_question_revision_tuple)
     {
         ReusableSelectionAvailability::Available
     } else {

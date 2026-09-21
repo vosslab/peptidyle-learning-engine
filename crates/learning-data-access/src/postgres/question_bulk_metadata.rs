@@ -1,7 +1,7 @@
 //! PostgreSQL implementation of the closed Published Question metadata command.
 
 use async_trait::async_trait;
-use question_model::QuestionId;
+use question_model::PublishedQuestionId;
 use serde_json::{Map, Value, json};
 use sqlx::{Postgres, Row, Transaction, types::Json};
 
@@ -102,7 +102,7 @@ impl BulkPublishedQuestionMetadataStore for PostgresBulkPublishedQuestionMetadat
                 let published_question_id = row
                     .try_get::<String, _>("published_question_id")
                     .map_err(map_sqlx_error)?
-                    .parse::<QuestionId>()
+                    .parse::<PublishedQuestionId>()
                     .map_err(|_| {
                         invalid(
                             "Bulk Published Question metadata returned an invalid Published Question ID",

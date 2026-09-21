@@ -1,7 +1,7 @@
 //! Retained, text-only improvement threads and impact notices for Library Objects.
 
 use async_trait::async_trait;
-use question_model::{LibraryObjectKind, QuestionId, Timestamp};
+use question_model::{LibraryObjectKind, PublishedQuestionId, Timestamp};
 use uuid::Uuid;
 
 use crate::{SessionTokenHash, StoreError};
@@ -10,7 +10,7 @@ use crate::{SessionTokenHash, StoreError};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LibraryDiscussionTarget {
     pub kind: LibraryObjectKind,
-    pub public_id: QuestionId,
+    pub public_id: PublishedQuestionId,
 }
 
 /// Retained lifecycle of one improvement thread.

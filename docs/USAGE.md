@@ -58,15 +58,9 @@ Revision.
 ## Choose installation data
 
 The default local stack creates the Pilot Question publication and ordinary Live Demo
-graph after its canonical structure is installed. To start an ordinary product stack
-without that data, use the controller directly before provisioning:
-
-```bash
-source source_me.sh && python3 local_stack.py start --headless --without-live-demo
-```
-
-This opt-out changes only the installation-data choice. It does not select another
-schema, identity model, project, or data lifecycle.
+graph after its canonical structure is installed. The Live Demo launcher is intentionally
+single-purpose; use the installation-data command documented below when a deployment
+needs to omit the optional teaching graph.
 
 ## Inspect the local stack
 

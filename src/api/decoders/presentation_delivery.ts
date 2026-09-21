@@ -23,7 +23,7 @@ import {
   decodeBoundedArray,
   decodeQuestionTitle,
   decodeIdentifier,
-  decodeQuestionRevisionTuple,
+  decodePublishedQuestionRevisionTuple,
   decodeSha256,
   field,
   kind,
@@ -34,7 +34,7 @@ import { decodeQuestionContentBlock } from "./question_response_format";
 /** Renderable Student fields from a server-selected, pinned presentation. */
 export interface StudentQuestionPresentation {
   /** Exact immutable Question Revision identity required for every prompt asset. */
-  readonly questionRevisionTuple: QuestionPresentation["questionRevisionTuple"];
+  readonly publishedQuestionRevisionTuple: QuestionPresentation["publishedQuestionRevisionTuple"];
   /** Optional digest for isolated author content; never raw source or a URL. */
   readonly authorContentDigest?: string;
   readonly prompt: QuestionPresentation["prompt"];
@@ -333,7 +333,7 @@ export function decodeIssuedQuestionPresentation(
 ): QuestionPresentation {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "questionRevisionTuple",
+    "publishedQuestionRevisionTuple",
     "presentationNonce",
     "authorContentDigest",
     "questionTitle",
@@ -345,9 +345,9 @@ export function decodeIssuedQuestionPresentation(
     throw new DecodeError(`${path}.presentationNonce`, "32 lowercase hexadecimal characters");
   }
   const presentation = {
-    questionRevisionTuple: decodeQuestionRevisionTuple(
-      field(record, "questionRevisionTuple", path),
-      `${path}.questionRevisionTuple`,
+    publishedQuestionRevisionTuple: decodePublishedQuestionRevisionTuple(
+      field(record, "publishedQuestionRevisionTuple", path),
+      `${path}.publishedQuestionRevisionTuple`,
       true,
     ),
     presentationNonce: nonce,
@@ -381,15 +381,15 @@ export function decodeStudentQuestionPresentation(
 ): StudentQuestionPresentation {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "questionRevisionTuple",
+    "publishedQuestionRevisionTuple",
     "authorContentDigest",
     "prompt",
     "response",
   ]);
   return {
-    questionRevisionTuple: decodeQuestionRevisionTuple(
-      field(record, "questionRevisionTuple", path),
-      `${path}.questionRevisionTuple`,
+    publishedQuestionRevisionTuple: decodePublishedQuestionRevisionTuple(
+      field(record, "publishedQuestionRevisionTuple", path),
+      `${path}.publishedQuestionRevisionTuple`,
       true,
     ),
     ...(record.authorContentDigest === undefined

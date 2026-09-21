@@ -4,9 +4,9 @@ use objects::memory::MemoryObjectStore;
 use objects::{ObjectAddress, ObjectStore, PutObject, Sha256Checksum};
 use question_model::generation::QuestionSeed;
 use question_model::{
-    BackendOwnedLifecycleState, ObjectId, QuestionEvaluation, QuestionId, QuestionRendererVersion,
-    QuestionRevisionNumber, QuestionRevisionTuple, SourceObjectChecksum, StudentResponse,
-    Timestamp,
+    BackendOwnedLifecycleState, ObjectId, PublishedQuestionId, PublishedQuestionRevisionTuple,
+    QuestionEvaluation, QuestionRendererVersion, QuestionRevisionNumber, SourceObjectChecksum,
+    StudentResponse, Timestamp,
 };
 use uuid::Uuid;
 
@@ -21,9 +21,10 @@ const SOURCE: &[u8] =
 const DOCUMENT: &[u8] = b"<!doctype html><form><input name=AnSwEr0001></form>";
 const PAYLOAD: &[u8] = br#"[["AnSwEr0001","student value"],["hidden","1"]]"#;
 
-fn question_revision_tuple() -> QuestionRevisionTuple {
-    QuestionRevisionTuple {
-        question_id: QuestionId::from_random_identifier("ABCDEFG").expect("Question ID"),
+fn published_question_revision_tuple() -> PublishedQuestionRevisionTuple {
+    PublishedQuestionRevisionTuple {
+        published_question_id: PublishedQuestionId::from_random_identifier("ABCDEFG")
+            .expect("Question ID"),
         revision_number: QuestionRevisionNumber::new(2).expect("positive version"),
     }
 }
@@ -45,7 +46,10 @@ impl WebworkRenderer for RecordedRenderer {
         request: RenderRequest<'_>,
     ) -> Result<RenderedWebworkQuestion, RendererFailure> {
         assert_eq!(request.seed, 17);
-        assert_eq!(request.question_revision_tuple, &question_revision_tuple());
+        assert_eq!(
+            request.published_question_revision_tuple,
+            &published_question_revision_tuple()
+        );
         self.render(request).await
     }
 
@@ -150,7 +154,7 @@ impl WebworkRenderer for NativeResponseRejectingRenderer {
 
 async fn source(store: &MemoryObjectStore) -> ResolvedWebworkQuestionSource {
     let binding = WebworkQuestionSourceBinding::new(
-        question_revision_tuple(),
+        published_question_revision_tuple(),
         "Library/opaque.pg".to_string(),
     )
     .expect("fixed path is valid");
@@ -161,7 +165,9 @@ async fn source(store: &MemoryObjectStore) -> ResolvedWebworkQuestionSource {
     store
         .put(PutObject {
             address: ObjectAddress::QuestionSource {
-                question_revision_tuple: binding.question_revision_tuple().clone(),
+                published_question_revision_tuple: binding
+                    .published_question_revision_tuple()
+                    .clone(),
                 object_id: source_object_id,
             },
             bytes: SOURCE.to_vec(),

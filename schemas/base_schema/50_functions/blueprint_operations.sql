@@ -293,7 +293,7 @@ BEGIN
     END IF;
     IF v_course.short_name = p_short_name AND v_course.long_name = p_long_name THEN
         RETURN QUERY SELECT v_course.short_name, v_course.long_name,
-            v_course.availability, v_course.blueprint_edit_number,
+            v_course.availability::text, v_course.blueprint_edit_number,
             v_course.content_discipline_id, v_course.content_subject_id, v_course.content_topic_id,
             v_course.content_subtopic_id, v_course.tags;
         RETURN;
@@ -312,7 +312,7 @@ BEGIN
         v_course.content_discipline_id, v_course.content_subject_id, v_course.content_topic_id,
         v_course.content_subtopic_id, v_course.tags
     );
-    RETURN QUERY SELECT p_short_name, p_long_name, v_course.availability, v_next_blueprint_edit_number,
+    RETURN QUERY SELECT p_short_name, p_long_name, v_course.availability::text, v_next_blueprint_edit_number,
         v_course.content_discipline_id, v_course.content_subject_id, v_course.content_topic_id,
         v_course.content_subtopic_id, v_course.tags;
 END
@@ -476,7 +476,7 @@ RETURNS TABLE (
     total_adoptions bigint, total_students_ever_enrolled bigint,
     content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid, content_subtopic_id uuid, tags text[]
 )
-LANGUAGE plpgsql STABLE SECURITY DEFINER
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private
 AS $$
 BEGIN
@@ -507,9 +507,9 @@ BEGIN
              WHERE item.content_subtopic_id = p_subtopic_uuid)) THEN
         RAISE EXCEPTION 'invalid Blueprint classification filter' USING ERRCODE = '22023';
     END IF;
-    RETURN QUERY SELECT course.blueprint_course_id, course.short_name, course.long_name,
-           course.availability, course.blueprint_edit_number,
-           course.current_blueprint_revision_number,
+    RETURN QUERY SELECT course.blueprint_course_id::text, course.short_name, course.long_name,
+           course.availability::text, course.blueprint_edit_number,
+           course.current_blueprint_revision_number::bigint,
            course.owner_account_id = ple_api.current_session_account_id(),
            (SELECT count(*) FROM (
                 SELECT adoption.course_instance_id
@@ -580,14 +580,14 @@ RETURNS TABLE (
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private
 AS $$
-    SELECT course.blueprint_course_id, course.short_name, course.long_name,
-           course.availability, course.blueprint_edit_number,
-           course.current_blueprint_revision_number,
+    SELECT course.blueprint_course_id::text, course.short_name, course.long_name,
+           course.availability::text, course.blueprint_edit_number,
+           course.current_blueprint_revision_number::bigint,
            revision.content, revision.content_checksum,
            course.owner_account_id = ple_api.current_session_account_id(),
            source.blueprint_course_id,
            CASE WHEN source.blueprint_course_id IS NOT NULL
-                THEN ancestry.source_blueprint_revision_number END,
+                THEN ancestry.source_blueprint_revision_number::bigint END,
            course.content_discipline_id, course.content_subject_id, course.content_topic_id,
            course.content_subtopic_id, course.tags
       FROM ple_data.blueprint_course AS course
@@ -691,4 +691,3 @@ BEGIN
     RETURN QUERY SELECT p_promoted, v_next_blueprint_edit_number;
 END
 $$;
-

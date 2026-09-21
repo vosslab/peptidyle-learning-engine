@@ -16,9 +16,9 @@ use learning_data_access::{
 };
 use objects::{ObjectAddress, ObjectStore, ObjectStoreError, PutObject};
 use question_model::{
-    ObjectId, QUESTION_ID_ALPHABET, QUESTION_ID_IDENTIFIER_LENGTH, QuestionAuthorship, QuestionId,
-    QuestionLicense, QuestionRevisionNumber, QuestionRevisionReason, QuestionRevisionTuple, Tag,
-    Timestamp, WorkspaceId,
+    ObjectId, PublishedQuestionId, PublishedQuestionRevisionTuple, QUESTION_ID_ALPHABET,
+    QUESTION_ID_IDENTIFIER_LENGTH, QuestionAuthorship, QuestionLicense, QuestionPoolId,
+    QuestionRevisionNumber, QuestionRevisionReason, Tag, Timestamp, WorkspaceId,
 };
 use uuid::Uuid;
 
@@ -46,12 +46,17 @@ impl std::error::Error for QuestionIdIssuanceError {}
 /// Server-only source of fresh canonical Question IDs.
 pub trait QuestionIdIssuer: Send + Sync {
     /// Mints one fresh candidate for a new Published Question lineage.
-    fn issue_question_id(&self) -> Result<QuestionId, QuestionIdIssuanceError>;
+    fn issue_question_id(&self) -> Result<PublishedQuestionId, QuestionIdIssuanceError>;
+}
+
+/// Server-only source of fresh canonical Question Pool IDs.
+pub trait QuestionPoolIdIssuer: Send + Sync {
+    fn issue_question_pool_id(&self) -> Result<QuestionPoolId, QuestionIdIssuanceError>;
 }
 
 /// Stateless operating-system-random issuer for canonical Question IDs.
 ///
-/// [`QuestionId`] itself validates the public SHA-256 checksum at every parse
+/// [`PublishedQuestionId`] itself validates the public SHA-256 checksum at every parse
 /// boundary, so no deployment secret or issuer-specific validation exists.
 #[derive(Clone, Copy, Default)]
 pub struct RandomQuestionIdIssuer;
@@ -64,7 +69,7 @@ impl RandomQuestionIdIssuer {
 }
 
 impl QuestionIdIssuer for RandomQuestionIdIssuer {
-    fn issue_question_id(&self) -> Result<QuestionId, QuestionIdIssuanceError> {
+    fn issue_question_id(&self) -> Result<PublishedQuestionId, QuestionIdIssuanceError> {
         let mut random = [0_u8; QUESTION_ID_IDENTIFIER_LENGTH];
         // ASVS 2.2.1 and 2.2.2: issuance uses OS CSPRNG output, then the
         // shared model constructs the one exact checksum-bearing public form.
@@ -73,7 +78,17 @@ impl QuestionIdIssuer for RandomQuestionIdIssuer {
             .into_iter()
             .map(|byte| QUESTION_ID_ALPHABET[(byte & 0x1f) as usize] as char)
             .collect();
-        QuestionId::from_random_identifier(&identifier).map_err(|_| QuestionIdIssuanceError)
+        PublishedQuestionId::from_random_identifier(&identifier)
+            .map_err(|_| QuestionIdIssuanceError)
+    }
+}
+
+impl QuestionPoolIdIssuer for RandomQuestionIdIssuer {
+    fn issue_question_pool_id(&self) -> Result<QuestionPoolId, QuestionIdIssuanceError> {
+        self.issue_question_id()?
+            .to_string()
+            .parse()
+            .map_err(|_| QuestionIdIssuanceError)
     }
 }
 
@@ -112,7 +127,7 @@ pub struct ExistingQuestionRevisionPublicationCommand {
     /// Authoring Workspace that owns the Draft Question.
     pub workspace: WorkspaceId,
     /// Exact current immutable revision the Instructor is editing from.
-    pub parent_question_revision_tuple: QuestionRevisionTuple,
+    pub parent_published_question_revision_tuple: PublishedQuestionRevisionTuple,
     /// Reviewed reason for accepting the successor. The database copies the
     /// parent revision's immutable authorship and compatible license.
     pub question_revision_reason: QuestionRevisionReason,
@@ -198,7 +213,7 @@ where
         session_token_hash: SessionTokenHash,
         command: NewQuestionLineagePublicationCommand,
         stored_at: Timestamp,
-    ) -> Result<QuestionRevisionTuple, QuestionPublicationError> {
+    ) -> Result<PublishedQuestionRevisionTuple, QuestionPublicationError> {
         NewQuestionLineagePublicationInput::validate_initial_shared_tags(
             &command.initial_shared_tags,
         )
@@ -240,13 +255,13 @@ where
                 .question_id_issuer
                 .issue_question_id()
                 .map_err(QuestionPublicationError::QuestionIdIssuance)?;
-            let question_revision_tuple = QuestionRevisionTuple {
-                question_id: question_id.clone(),
+            let published_question_revision_tuple = PublishedQuestionRevisionTuple {
+                published_question_id: question_id.clone(),
                 revision_number: QuestionRevisionNumber::new(1)
                     .expect("first Question Revision Number is positive"),
             };
             let target_address = ObjectAddress::QuestionSource {
-                question_revision_tuple: question_revision_tuple.clone(),
+                published_question_revision_tuple: published_question_revision_tuple.clone(),
                 object_id: ObjectId::generate(),
             };
             // ASVS 5.3.2, 8.2.2, 14.2.4, and 15.4.2: typed server-created
@@ -267,7 +282,7 @@ where
                 crate::question_publication_images::prepare_hotspot_question_image(
                     &self.object_store,
                     hotspot_question_image.as_ref(),
-                    &question_revision_tuple,
+                    &published_question_revision_tuple,
                     stored_at,
                 )
                 .await?;
@@ -298,7 +313,9 @@ where
                 .publish_new_question_lineage(session_token_hash, input)
                 .await
             {
-                Ok(question_revision_tuple) => return Ok(question_revision_tuple),
+                Ok(published_question_revision_tuple) => {
+                    return Ok(published_question_revision_tuple);
+                }
                 // PostgreSQL returns IdentityCollision only after its locked
                 // allocation check (with the primary key retained as a legacy
                 // backstop). That conclusive rollback leaves this request's
@@ -360,10 +377,12 @@ where
         session_token_hash: SessionTokenHash,
         command: ExistingQuestionRevisionPublicationCommand,
         stored_at: Timestamp,
-    ) -> Result<QuestionRevisionTuple, QuestionPublicationError> {
-        let successor_question_revision_tuple =
-            successor_question_revision_tuple(&command.parent_question_revision_tuple)
-                .map_err(QuestionPublicationError::Store)?;
+    ) -> Result<PublishedQuestionRevisionTuple, QuestionPublicationError> {
+        let successor_published_question_revision_tuple =
+            successor_published_question_revision_tuple(
+                &command.parent_published_question_revision_tuple,
+            )
+            .map_err(QuestionPublicationError::Store)?;
         let publication_source = self
             .publication_store
             .load_draft_question_publication_source(
@@ -397,7 +416,7 @@ where
             )
             .await?;
         let target_address = ObjectAddress::QuestionSource {
-            question_revision_tuple: successor_question_revision_tuple.clone(),
+            published_question_revision_tuple: successor_published_question_revision_tuple.clone(),
             object_id: ObjectId::generate(),
         };
         let target_record = self
@@ -415,7 +434,7 @@ where
             crate::question_publication_images::prepare_hotspot_question_image(
                 &self.object_store,
                 hotspot_question_image.as_ref(),
-                &successor_question_revision_tuple,
+                &successor_published_question_revision_tuple,
                 stored_at,
             )
             .await?;
@@ -426,7 +445,8 @@ where
             draft_question_uuid: command.draft_question_uuid,
             expected_draft_question_edit_number: command.expected_draft_question_edit_number,
             workspace: command.workspace,
-            parent_question_revision_tuple: command.parent_question_revision_tuple,
+            parent_published_question_revision_tuple: command
+                .parent_published_question_revision_tuple,
             question_source_object_record: target_record,
             hotspot_question_image: prepared_question_image,
             question_revision_reason: command.question_revision_reason,
@@ -459,10 +479,10 @@ where
     }
 }
 
-fn successor_question_revision_tuple(
-    parent_question_revision_tuple: &QuestionRevisionTuple,
-) -> Result<QuestionRevisionTuple, StoreError> {
-    let revision_number = parent_question_revision_tuple
+fn successor_published_question_revision_tuple(
+    parent_published_question_revision_tuple: &PublishedQuestionRevisionTuple,
+) -> Result<PublishedQuestionRevisionTuple, StoreError> {
+    let revision_number = parent_published_question_revision_tuple
         .revision_number
         .get()
         .checked_add(1)
@@ -470,8 +490,10 @@ fn successor_question_revision_tuple(
         .ok_or_else(|| {
             StoreError::InvalidRecord("Question Revision Number cannot advance further".to_string())
         })?;
-    Ok(QuestionRevisionTuple {
-        question_id: parent_question_revision_tuple.question_id.clone(),
+    Ok(PublishedQuestionRevisionTuple {
+        published_question_id: parent_published_question_revision_tuple
+            .published_question_id
+            .clone(),
         revision_number,
     })
 }

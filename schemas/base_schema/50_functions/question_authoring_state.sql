@@ -39,12 +39,12 @@ CREATE FUNCTION ple_private.validate_authoring_workspace_collaborator_event()
 RETURNS trigger LANGUAGE plpgsql
 SET search_path = pg_catalog, ple_private AS $$
 DECLARE
-    workspace_owner uuid;
+    workspace_owner text;
 BEGIN
     PERFORM pg_catalog.pg_advisory_xact_lock(
         pg_catalog.hashtextextended(
             NEW.authoring_workspace_id::text || ':' || NEW.collaborator_account_id::text, 0));
-    SELECT owner_account_id INTO workspace_owner
+    SELECT owner_account_id::text INTO workspace_owner
       FROM ple_private.authoring_workspace
      WHERE authoring_workspace_id = NEW.authoring_workspace_id AND revoked_at IS NULL;
     IF workspace_owner IS NULL THEN
@@ -52,8 +52,8 @@ BEGIN
             MESSAGE = 'Workspace Collaborator Events require an active Authoring Workspace';
     END IF;
     IF NEW.event_kind = 'started' THEN
-        IF NEW.actor_account_id <> workspace_owner
-           OR NEW.collaborator_account_id = workspace_owner
+        IF NEW.actor_account_id::text <> workspace_owner
+           OR NEW.collaborator_account_id::text = workspace_owner
            OR NOT EXISTS (SELECT 1 FROM ple_private.account
                WHERE account_id = NEW.collaborator_account_id AND product_role = 'instructor') THEN
             RAISE EXCEPTION USING ERRCODE = '23514',
@@ -63,7 +63,7 @@ BEGIN
         WHERE started.authoring_workspace_id = NEW.authoring_workspace_id
           AND started.collaborator_account_id = NEW.collaborator_account_id
           AND started.event_kind = 'started' AND started.occurred_at <= NEW.occurred_at)
-       OR NEW.actor_account_id NOT IN (workspace_owner, NEW.collaborator_account_id) THEN
+       OR NEW.actor_account_id::text NOT IN (workspace_owner, NEW.collaborator_account_id::text) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'a Workspace Collaborator relationship ends after its start by its owner or collaborator';
     END IF;
@@ -118,7 +118,7 @@ SET search_path = pg_catalog, ple_private AS $$
 DECLARE expected_address jsonb;
 BEGIN
     expected_address := jsonb_build_object('kind', 'questionSource',
-        'questionRevisionTuple', jsonb_build_object('questionId', NEW.published_question_id,
+        'publishedQuestionRevisionTuple', jsonb_build_object('publishedQuestionId', NEW.published_question_id,
             'revisionNumber', NEW.revision_number), 'objectId', NEW.source_object_record_id);
     IF NOT EXISTS (SELECT 1 FROM ple_private.object_record AS record
         WHERE record.object_record_id = NEW.source_object_record_id
@@ -238,4 +238,3 @@ SET search_path = pg_catalog, ple_private AS $$
            AND binding.revision_number = p_revision_number
     )
 $$;
-

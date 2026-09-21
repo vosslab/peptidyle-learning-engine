@@ -20,9 +20,9 @@ use learning_data_access::{
 };
 use objects::{ObjectAddress, ObjectStore, PutObject};
 use question_model::{
-    ObjectId, QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship, QuestionBackend,
-    QuestionFormat, QuestionLicense, QuestionRevisionReason, QuestionRevisionTuple, QuestionType,
-    SourceObjectChecksum, Timestamp, WorkspaceId,
+    ObjectId, PublishedQuestionRevisionTuple, QuestionAuthor, QuestionAuthorDisplayName,
+    QuestionAuthorship, QuestionBackend, QuestionFormat, QuestionLicense, QuestionRevisionReason,
+    QuestionType, SourceObjectChecksum, Timestamp, WorkspaceId,
 };
 use server_core::question_publication::{
     NewQuestionLineagePublicationCommand, NewQuestionLineagePublisher, RandomQuestionIdIssuer,
@@ -249,7 +249,7 @@ struct PreparedSource {
 
 struct AdmittedSource {
     prepared: PreparedSource,
-    existing: Option<QuestionRevisionTuple>,
+    existing: Option<PublishedQuestionRevisionTuple>,
     resumable_draft: Option<AuthoringDraft>,
 }
 
@@ -349,7 +349,7 @@ fn existing_publication(
     context: &SourceContext,
     authorship: &QuestionAuthorship,
     license: &QuestionLicense,
-) -> Result<Option<QuestionRevisionTuple>> {
+) -> Result<Option<PublishedQuestionRevisionTuple>> {
     let matches = entries
         .get(&source.pg_sha256)
         .map(Vec::as_slice)
@@ -377,7 +377,7 @@ fn existing_publication(
         "ordinary Question provenance conflicts with parameterized source {}",
         source.source_id
     );
-    Ok(Some(entry.question_revision_tuple.clone()))
+    Ok(Some(entry.published_question_revision_tuple.clone()))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -395,7 +395,7 @@ async fn publish_source(
     bindings: &PostgresDraftQuestionSourceBindingStore,
     objects: &objects::s3::S3ObjectStore,
     issuer: &RandomQuestionIdIssuer,
-) -> Result<QuestionRevisionTuple> {
+) -> Result<PublishedQuestionRevisionTuple> {
     let draft = matching_or_new_draft(
         session,
         workspace,
@@ -566,19 +566,19 @@ struct ReceiptSource {
     webwork_pg_path: String,
     canonical_author_source_url: String,
     canonical_author_source_checksum: String,
-    question_revision_tuple: QuestionRevisionTuple,
+    published_question_revision_tuple: PublishedQuestionRevisionTuple,
 }
 
 impl Receipt {
     /// Returns the immutable Question Revision produced for each admitted
     /// source so the fresh publisher can construct direct Fixed entries.
-    pub(crate) fn question_revisions(&self) -> BTreeMap<String, QuestionRevisionTuple> {
+    pub(crate) fn question_revisions(&self) -> BTreeMap<String, PublishedQuestionRevisionTuple> {
         self.sources
             .iter()
             .map(|source| {
                 (
                     source.source_id.clone(),
-                    source.question_revision_tuple.clone(),
+                    source.published_question_revision_tuple.clone(),
                 )
             })
             .collect()
@@ -586,13 +586,13 @@ impl Receipt {
 
     fn new(
         manifest: &Manifest,
-        published: BTreeMap<String, QuestionRevisionTuple>,
+        published: BTreeMap<String, PublishedQuestionRevisionTuple>,
     ) -> Result<Self> {
         let sources = manifest
             .parameterized_sources
             .iter()
             .map(|source| {
-                let question_revision_tuple =
+                let published_question_revision_tuple =
                     published.get(&source.source_id).cloned().with_context(|| {
                         format!(
                             "parameterized receipt is missing source {}",
@@ -611,7 +611,7 @@ impl Receipt {
                     webwork_pg_path: source.webwork_pg_path.clone(),
                     canonical_author_source_url: source.canonical_author_source_url.clone(),
                     canonical_author_source_checksum: source.canonical_author_source_sha256.clone(),
-                    question_revision_tuple,
+                    published_question_revision_tuple,
                 })
             })
             .collect::<Result<Vec<_>>>()?;

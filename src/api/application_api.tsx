@@ -7,7 +7,7 @@ import type { AssessmentId } from "../../generated/api/AssessmentId";
 import type { QuestionDetails } from "../../generated/api/QuestionDetails";
 import type { QuestionSearchPage } from "../../generated/api/QuestionSearchPage";
 import type { QuestionSearchRequest } from "../../generated/api/QuestionSearchRequest";
-import type { QuestionId } from "../../generated/api/QuestionId";
+import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionId";
 import type { StudentAssessmentProgress } from "../../generated/api/StudentAssessmentProgress";
 import type { ApiClient, OrdinaryBrowserApiClient } from "./client";
 import type { StudentAssessmentDetail, CourseRouteView } from "./contracts";
@@ -29,7 +29,7 @@ export interface ApplicationApi<Client extends ApiClient = ApiClient> {
   readonly client: Client;
   readonly queries: {
     readonly questionSearch: QueryFunction<[QuestionSearchRequest], QuestionSearchPage>;
-    readonly questionDetails: QueryFunction<[QuestionId], QuestionDetails>;
+    readonly questionDetails: QueryFunction<[PublishedQuestionId], QuestionDetails>;
     readonly assessment: QueryFunction<[AssessmentId], StudentAssessmentDetail>;
     readonly assessmentSummary: QueryFunction<[AssessmentId], StudentAssessmentProgress>;
     readonly courseScope: QueryFunction<[CourseInstanceRouteId], CourseRouteView>;
@@ -62,7 +62,7 @@ export function createApplicationApi<Client extends ApiClient>(
         "question-search",
       ),
       questionDetails: query(
-        (questionId: QuestionId) => client.getQuestionDetails(questionId),
+        (questionId: PublishedQuestionId) => client.getQuestionDetails(questionId),
         "question-details",
       ),
       assessment: query(

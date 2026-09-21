@@ -3,8 +3,8 @@
 import type { BloomClassificationCorrectionRequest } from "../../../generated/api/BloomClassificationCorrectionRequest";
 import type { QuestionBloomCorrectionReceipt } from "../../../generated/api/QuestionBloomCorrectionReceipt";
 import type { QuestionPoolBloomCorrectionReceipt } from "../../../generated/api/QuestionPoolBloomCorrectionReceipt";
-import type { QuestionId } from "../../../generated/api/QuestionId";
-import type { QuestionRevisionTuple } from "../../../generated/api/QuestionRevisionTuple";
+import type { QuestionPoolId } from "../../../generated/api/QuestionPoolId";
+import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
 import { validateCanonicalQuestionIdSyntax } from "../../../generated/api/QuestionIdSyntaxContract";
 import type { BloomClassificationCorrectionClient } from "../bloom_classification";
 import { decodeBloomClassificationCorrectionRequest } from "../decoders/bloom_classification";
@@ -24,19 +24,22 @@ function canonicalQuestionId(value: string, label: string): string {
   return canonical;
 }
 
-function questionPath(questionRevisionTuple: QuestionRevisionTuple): string {
-  const questionId = canonicalQuestionId(questionRevisionTuple.questionId, "Question ID");
+function questionPath(publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple): string {
+  const questionId = canonicalQuestionId(
+    publishedQuestionRevisionTuple.publishedQuestionId,
+    "Question ID",
+  );
   if (
-    !Number.isSafeInteger(questionRevisionTuple.revisionNumber) ||
-    questionRevisionTuple.revisionNumber < 1 ||
-    questionRevisionTuple.revisionNumber > 4_294_967_295
+    !Number.isSafeInteger(publishedQuestionRevisionTuple.revisionNumber) ||
+    publishedQuestionRevisionTuple.revisionNumber < 1 ||
+    publishedQuestionRevisionTuple.revisionNumber > 4_294_967_295
   ) {
     throw new ApiProtocolError("Question Revision Number must be a positive u32 integer");
   }
-  return `/api/questions/by-id/${encodedId(questionId)}/revisions/${questionRevisionTuple.revisionNumber}/bloom`;
+  return `/api/questions/by-id/${encodedId(questionId)}/revisions/${publishedQuestionRevisionTuple.revisionNumber}/bloom`;
 }
 
-function poolPath(questionPoolId: QuestionId): string {
+function poolPath(questionPoolId: QuestionPoolId): string {
   const canonical = canonicalQuestionId(questionPoolId, "Question Pool ID");
   return `/api/question-pools/${encodedId(canonical)}/bloom`;
 }
@@ -69,10 +72,10 @@ export function createBloomClassificationCorrectionClient(
 ): BloomClassificationCorrectionClient {
   return {
     correctQuestionBloom: async (
-      questionRevisionTuple,
+      publishedQuestionRevisionTuple,
       request,
     ): Promise<QuestionBloomCorrectionReceipt> => {
-      const path = questionPath(questionRevisionTuple);
+      const path = questionPath(publishedQuestionRevisionTuple);
       const receipt = await post(
         fetchImplementation,
         basePath,
@@ -81,8 +84,10 @@ export function createBloomClassificationCorrectionClient(
         decodeQuestionBloomCorrectionReceipt,
       );
       if (
-        receipt.questionRevisionTuple.questionId !== questionRevisionTuple.questionId ||
-        receipt.questionRevisionTuple.revisionNumber !== questionRevisionTuple.revisionNumber
+        receipt.publishedQuestionRevisionTuple.publishedQuestionId !==
+          publishedQuestionRevisionTuple.publishedQuestionId ||
+        receipt.publishedQuestionRevisionTuple.revisionNumber !==
+          publishedQuestionRevisionTuple.revisionNumber
       ) {
         throw new ApiProtocolError("Bloom correction receipt does not match its Question Revision");
       }

@@ -3,8 +3,8 @@
 use async_trait::async_trait;
 use question_model::{
     AssessmentEditNumber, AssessmentEntryId, AssessmentEntryScoringRule, AssessmentId,
-    AssessmentPointValue, CourseInstanceId, QuestionId, QuestionPoolEditNumber,
-    QuestionPoolSelectedQuestionOrder, QuestionRevisionTuple,
+    AssessmentPointValue, CourseInstanceId, PublishedQuestionRevisionTuple, QuestionPoolEditNumber,
+    QuestionPoolId, QuestionPoolSelectedQuestionOrder,
 };
 
 use crate::{SessionTokenHash, StoreError};
@@ -19,8 +19,8 @@ pub struct ImportAssessmentPoolForkInput {
     pub assessment_id: AssessmentId,
     pub assessment_entry_id: AssessmentEntryId,
     pub expected_assessment_edit_number: AssessmentEditNumber,
-    pub fork_question_pool_id: QuestionId,
-    pub source_question_pool_id: QuestionId,
+    pub fork_question_pool_id: QuestionPoolId,
+    pub source_question_pool_id: QuestionPoolId,
     pub authored_position: u32,
     pub selection_count: std::num::NonZeroU32,
     pub points_per_item: AssessmentPointValue,
@@ -32,7 +32,7 @@ pub struct ImportAssessmentPoolForkInput {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ImportedAssessmentPoolFork {
     pub assessment_entry_id: AssessmentEntryId,
-    pub question_pool_id: QuestionId,
+    pub question_pool_id: QuestionPoolId,
     pub question_pool_edit_number: QuestionPoolEditNumber,
     pub assessment_edit_number: AssessmentEditNumber,
 }
@@ -45,7 +45,7 @@ pub struct AppendAssessmentPoolForkMembersInput {
     pub assessment_entry_id: AssessmentEntryId,
     pub expected_assessment_edit_number: AssessmentEditNumber,
     pub expected_question_pool_edit_number: QuestionPoolEditNumber,
-    pub members: Vec<QuestionRevisionTuple>,
+    pub members: Vec<PublishedQuestionRevisionTuple>,
     pub interchangeability_attested: bool,
 }
 

@@ -8,7 +8,7 @@ use std::collections::BTreeSet;
 
 use async_trait::async_trait;
 use question_model::{
-    MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY, QuestionId, QuestionRevisionTuple,
+    MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY, PublishedQuestionRevisionTuple, QuestionPoolId,
 };
 
 use crate::{SessionTokenHash, StoreError};
@@ -20,9 +20,9 @@ pub struct CreateQuestionPoolInput {
     pub title: String,
     pub description: String,
     /// Fresh checksum-valid public Pool identity minted by the server issuer.
-    pub question_pool_id: QuestionId,
+    pub question_pool_id: QuestionPoolId,
     /// Ordered exact Published Question Revision pins.
-    pub members: Vec<QuestionRevisionTuple>,
+    pub members: Vec<PublishedQuestionRevisionTuple>,
     /// The Instructor affirms that these Questions are interchangeable.
     pub interchangeability_attested: bool,
 }
@@ -75,7 +75,7 @@ impl CreateQuestionPoolInput {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CreatedQuestionPool {
     /// Canonical public Question Pool identity.
-    pub question_pool_id: QuestionId,
+    pub question_pool_id: QuestionPoolId,
     /// Sequential Edit Number; a new Pool starts at 1.
     pub edit_number: u64,
 }

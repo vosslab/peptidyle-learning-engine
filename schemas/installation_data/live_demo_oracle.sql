@@ -251,8 +251,8 @@ BEGIN
     END IF;
     IF EXISTS (
            WITH input AS (
-               SELECT value -> 'questionRevisionTuple' ->> 'questionId' AS published_question_id,
-                      (value -> 'questionRevisionTuple' ->> 'revisionNumber')::integer AS revision_number
+               SELECT value -> 'publishedQuestionRevisionTuple' ->> 'publishedQuestionId' AS published_question_id,
+                      (value -> 'publishedQuestionRevisionTuple' ->> 'revisionNumber')::integer AS revision_number
                  FROM jsonb_each(
                      current_setting('ple.installation_pilot_question_publications')::jsonb
                  )
@@ -434,8 +434,8 @@ BEGIN
     END IF;
     IF EXISTS (
            WITH input AS (
-               SELECT value -> 'questionRevisionTuple' ->> 'questionId' AS published_question_id,
-                      (value -> 'questionRevisionTuple' ->> 'revisionNumber')::integer AS revision_number,
+               SELECT value -> 'publishedQuestionRevisionTuple' ->> 'publishedQuestionId' AS published_question_id,
+                      (value -> 'publishedQuestionRevisionTuple' ->> 'revisionNumber')::integer AS revision_number,
                       row_number() OVER (ORDER BY array_position(ARRAY[
                           'genetics-disorders-ple-question-json-mc',
                           'genetics-disorders-ple-question-json-matching',

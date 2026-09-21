@@ -1,6 +1,6 @@
 // Closed browser contract for one Published Question Star projection.
 
-import type { QuestionId } from "../../generated/api/QuestionId";
+import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionId";
 
 /** One server-projected verified Instructor display name, not an Account identity. */
 export interface QuestionStarredInstructor {
@@ -22,9 +22,9 @@ export interface QuestionStarProjection {
 
 /** Active-Instructor self-service Star boundary for one Published Question. */
 export interface QuestionStarClient {
-  readonly getQuestionStar: (questionId: QuestionId) => Promise<QuestionStarProjection>;
+  readonly getQuestionStar: (questionId: PublishedQuestionId) => Promise<QuestionStarProjection>;
   readonly setQuestionStar: (
-    questionId: QuestionId,
+    questionId: PublishedQuestionId,
     starred: boolean,
   ) => Promise<QuestionStarProjection>;
 }

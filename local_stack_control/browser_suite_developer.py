@@ -1,4 +1,4 @@
-"""Persistent fixed-owner lifecycle for the production live-demo browser stack."""
+"""Persistent lifecycle for the fixed browser-suite harness and Live Demo stack."""
 
 import dataclasses
 import hashlib
@@ -35,8 +35,13 @@ import local_stack_control.process
 
 SOCKET_DIRECTORY = pathlib.Path("/private/tmp") / "ple-live-demo-browser-control"
 MAXIMUM_FAILURE_DIAGNOSTIC_CHARACTERS = 240
-DEVELOPER_STOP_WAIT_SECONDS = 20.0
-# A later stop or status caller waits this long for a still-starting owner's receipt.
+# The local browser-suite harness can take longer to tear down than its ready
+# request, especially on the first disposable-stack cleanup. Keep stop bounded,
+# but give its background harness process the same recovery window used when
+# terminating an unready launch.
+BROWSER_SUITE_STOP_WAIT_SECONDS = 120.0
+# A later stop or status caller waits this long for the still-starting harness
+# process to publish its private control receipt.
 # The parent-side start wait lives in browser_suite_developer_start.
 DEVELOPER_RECEIPT_WAIT_SECONDS = 600.0
 SUPERVISOR_LOG_NAME = "supervisor.log"
@@ -456,7 +461,7 @@ def _validate_stop_request(content: bytes, receipt: DeveloperControlReceipt) -> 
 
 #============================================
 def _browser_suite_lease_is_held(repository_root: pathlib.Path) -> bool:
-	"""Return whether one live owner still exclusively controls the fixed suite."""
+	"""Return whether the browser-suite harness still holds its cleanup lease."""
 	try:
 		lease = local_stack_control.browser_suite_lease.BrowserSuiteLease.acquire(repository_root)
 	except local_stack_control.browser_suite_lease.BrowserSuiteError as error:
@@ -472,7 +477,7 @@ def _wait_for_authenticated_control_receipt(
 	repository_root: pathlib.Path,
 	timeout_seconds: float,
 ) -> DeveloperControlReceipt:
-	"""Wait for a lease-owning supervisor to publish its authenticated ready receipt."""
+	"""Wait for the lease-holding harness process to publish its ready receipt."""
 	deadline = time.monotonic() + timeout_seconds
 	reported_startup_wait = False
 	while True:
@@ -481,7 +486,7 @@ def _wait_for_authenticated_control_receipt(
 		except DeveloperBrowserSuiteError as error:
 			if str(error) != "Developer Browser Suite is not running":
 				raise
-			# ASVS 15.4.2 and 15.4.3: a held fixed-owner lease is the only
+			# ASVS 15.4.2 and 15.4.3: a held browser-suite cleanup lease is the only
 			# authority that justifies waiting; never reclaim or reset its work.
 			if not _browser_suite_lease_is_held(repository_root):
 				raise
@@ -510,7 +515,7 @@ def read_developer_browser_suite_start_receipt(
 #============================================
 def request_developer_browser_suite_stop(
 	repository_root: pathlib.Path,
-	timeout_seconds: float = DEVELOPER_STOP_WAIT_SECONDS,
+	timeout_seconds: float = BROWSER_SUITE_STOP_WAIT_SECONDS,
 ) -> DeveloperStartReceipt:
 	"""Request a bounded authenticated Browser Suite stop and await cleanup."""
 	if timeout_seconds <= 0:
@@ -566,12 +571,10 @@ def _adapter_argv(action: str, manifest_path: pathlib.Path, arguments: tuple[str
 
 
 #============================================
-def default_operations(
-	without_live_demo: bool = False,
-) -> DeveloperOperations:
+def default_operations() -> DeveloperOperations:
 	"""Retain the supervisor facade for the external-operations owner."""
 	return local_stack_control.browser_suite_developer_operations.default_operations(
-		without_live_demo, _launch_diagnostic
+		_launch_diagnostic
 	)
 
 
@@ -588,11 +591,10 @@ def run_supervisor(
 	acquire_browser_suite_lease: Callable[[pathlib.Path], local_stack_control.browser_suite_lease.BrowserSuiteLease] = local_stack_control.browser_suite_lease.BrowserSuiteLease.acquire,
 	install_signal_handlers: bool = True,
 	inherited_descriptors: tuple[int, int, int] | None = None,
-	without_live_demo: bool = False,
 ) -> None:
 	"""Hold the actual lease until an authenticated stop or termination cleans the fixed stack."""
 	active_operations = (
-		default_operations(without_live_demo) if operations is None else operations
+		default_operations() if operations is None else operations
 	)
 	lease = (
 		acquire_browser_suite_lease(repository_root)
@@ -713,7 +715,7 @@ def run_supervisor(
 
 #============================================
 def clear_stale_control_state(repository_root: pathlib.Path) -> None:
-	"""Clear an old receipt only after acquiring the real lease that proves no owner is live."""
+	"""Clear an old receipt only after the cleanup lease proves no process is live."""
 	lease = local_stack_control.browser_suite_lease.BrowserSuiteLease.acquire(repository_root)
 	root_descriptor = -1
 	try:
@@ -736,8 +738,8 @@ def purge_orphaned_developer_browser_suite(
 ) -> str:
 	"""Reacquire the fixed lease and purge one interrupted Developer Browser Suite.
 
-	The caller reaches this path only after its authenticated supervisor protocol
-	is unavailable.  The lease proves no live owner remains; the reset then uses
+	The caller reaches this path only after the authenticated harness protocol is
+	unavailable. The cleanup lease proves no live process remains; the reset uses
 	the closed project/label registry rather than a caller-selected target.
 	"""
 	lease = local_stack_control.browser_suite_lease.BrowserSuiteLease.acquire(repository_root)
@@ -770,8 +772,8 @@ def clear_developer_browser_suite(
 ) -> str:
 	"""Leave the fixed Developer Browser Suite empty before a stop or start.
 
-	ASVS 2.3.1 and 15.4.3: the fixed owner completes cleanup before the next
-	owner may acquire the same lease. ASVS 8.2.2: orphan recovery remains bound
+	ASVS 2.3.1 and 15.4.3: the browser-suite process completes cleanup before a
+	new process may acquire the same lease. ASVS 8.2.2: orphan recovery remains bound
 	to the immutable live-demo project and its verified resource labels.
 	"""
 	try:
@@ -779,7 +781,7 @@ def clear_developer_browser_suite(
 		project = result.project
 	except DeveloperBrowserSuiteError:
 		# Any unavailable or incomplete control protocol can fall back only after
-		# reacquiring the same exclusive lease. A live owner keeps the lease and
+		# reacquiring the same exclusive lease. A live process keeps the lease and
 		# this path therefore fails before engine or Podman work.
 		project = purge_orphaned_developer_browser_suite(repository_root, runner)
 	return project
@@ -795,20 +797,11 @@ def main() -> None:
 		descriptors = int(arguments[1]), int(arguments[2]), int(arguments[3])
 	except ValueError as error:
 		raise DeveloperBrowserSuiteError("developer browser supervisor has an invalid invocation") from error
-	without_live_demo = False
-	remaining = arguments[4:]
-	while remaining:
-		option = remaining.pop(0)
-		if option == "--without-live-demo" and not without_live_demo:
-			without_live_demo = True
-			continue
-		raise DeveloperBrowserSuiteError(
-			"developer browser supervisor has an invalid invocation"
-		)
+	if len(arguments) != 4:
+		raise DeveloperBrowserSuiteError("developer browser supervisor has an invalid invocation")
 	run_supervisor(
 		pathlib.Path.cwd(),
 		inherited_descriptors=descriptors,
-		without_live_demo=without_live_demo,
 	)
 
 

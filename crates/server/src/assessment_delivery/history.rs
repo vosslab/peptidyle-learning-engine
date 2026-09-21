@@ -285,9 +285,9 @@ mod tests {
         StudentAssessmentAttemptHistoryCourse, StudentAssessmentAttemptHistoryQuestion,
     };
     use question_model::{
-        AssessmentId, AssessmentType, CourseInstanceId, CourseTheme, GradingResult, QuestionId,
-        QuestionRevisionNumber, QuestionRevisionTuple, StudentFeedback, StudentFeedbackReleaseRule,
-        StudentFeedbackReleaseTiming,
+        AssessmentId, AssessmentType, CourseInstanceId, CourseTheme, GradingResult,
+        PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionRevisionNumber,
+        StudentFeedback, StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming,
     };
 
     fn evidence() -> StudentAssessmentAttemptHistoryEvidence {
@@ -309,9 +309,11 @@ mod tests {
                 score: None,
                 questions: vec![StudentAssessmentAttemptHistoryQuestion {
                     position: 1,
-                    question_revision_tuple: QuestionRevisionTuple {
-                        question_id: QuestionId::from_random_identifier("ABCDEF1")
-                            .expect("Question ID"),
+                    published_question_revision_tuple: PublishedQuestionRevisionTuple {
+                        published_question_id: PublishedQuestionId::from_random_identifier(
+                            "ABCDEF1",
+                        )
+                        .expect("Question ID"),
                         revision_number: QuestionRevisionNumber::new(3)
                             .expect("Question Revision Number"),
                     },
@@ -400,16 +402,16 @@ mod tests {
     fn history_wire_keeps_the_exact_issued_question_revision() {
         let evidence = evidence();
         let expected = evidence.history.questions[0]
-            .question_revision_tuple
+            .published_question_revision_tuple
             .clone();
         let wire = serde_json::to_value(project_history(&evidence)).expect("history serializes");
 
         assert_eq!(
-            wire["questions"][0]["questionRevisionTuple"]["questionId"],
-            expected.question_id.to_string()
+            wire["questions"][0]["publishedQuestionRevisionTuple"]["publishedQuestionId"],
+            expected.published_question_id.to_string()
         );
         assert_eq!(
-            wire["questions"][0]["questionRevisionTuple"]["revisionNumber"],
+            wire["questions"][0]["publishedQuestionRevisionTuple"]["revisionNumber"],
             expected.revision_number.get()
         );
         assert!(wire["questions"][0].get("backendAnswerReview").is_none());

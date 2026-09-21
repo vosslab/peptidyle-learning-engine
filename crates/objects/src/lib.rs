@@ -5,7 +5,7 @@
 //! No AWS SDK type appears in this contract.
 
 use async_trait::async_trait;
-use question_model::{ObjectId, QuestionRevisionTuple, Timestamp};
+use question_model::{ObjectId, PublishedQuestionRevisionTuple, Timestamp};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use sha2::{Digest, Sha256};
 
@@ -137,7 +137,7 @@ pub struct ObjectRecord {
     /// Media type verified by the owning import or render path.
     pub media_type: String,
     /// Exact Question Revision associated with content, when one exists.
-    pub question_revision_tuple: Option<QuestionRevisionTuple>,
+    pub published_question_revision_tuple: Option<PublishedQuestionRevisionTuple>,
     /// Server-supplied creation timestamp.
     pub created_at: Timestamp,
 }
@@ -228,7 +228,9 @@ pub trait ObjectStore: Send + Sync {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use question_model::{QuestionId, QuestionRevisionNumber, QuestionRevisionTuple};
+    use question_model::{
+        PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionRevisionNumber,
+    };
     use uuid::Uuid;
 
     const DIGEST_BYTES: [u8; 32] = [
@@ -273,8 +275,8 @@ mod tests {
 
     #[test]
     fn object_record_json_shape_uses_canonical_hex_checksum() {
-        let question_revision_tuple = QuestionRevisionTuple {
-            question_id: QuestionId::from_random_identifier("ABCDEFG")
+        let published_question_revision_tuple = PublishedQuestionRevisionTuple {
+            published_question_id: PublishedQuestionId::from_random_identifier("ABCDEFG")
                 .expect("canonical Question ID"),
             revision_number: QuestionRevisionNumber::new(2)
                 .expect("positive Question Revision Number"),
@@ -285,13 +287,13 @@ mod tests {
             storage_area: ObjectStorageArea::PrivateContent,
             data_class: ObjectDataClass::QuestionSource,
             address: ObjectAddress::QuestionSource {
-                question_revision_tuple: question_revision_tuple.clone(),
+                published_question_revision_tuple: published_question_revision_tuple.clone(),
                 object_id: object,
             },
             sha256: Sha256Checksum::from_bytes(DIGEST_BYTES),
             size_bytes: 123,
             media_type: "application/zip".to_string(),
-            question_revision_tuple: Some(question_revision_tuple),
+            published_question_revision_tuple: Some(published_question_revision_tuple),
             created_at: Timestamp::from_unix_millis(1_000),
         };
         let encoded = serde_json::to_string(&record).expect("object record should serialize");
@@ -303,13 +305,13 @@ mod tests {
                 "\"storageArea\":\"private-content\",",
                 "\"dataClass\":\"question-source\",",
                 "\"address\":{\"kind\":\"questionSource\",",
-                "\"questionRevisionTuple\":{\"questionId\":\"ABCD-XEFG\",\"revisionNumber\":2},",
+                "\"publishedQuestionRevisionTuple\":{\"publishedQuestionId\":\"ABCD-XEFG\",\"revisionNumber\":2},",
                 "\"objectId\":\"00000000-0000-0000-0000-000000000003\"},",
                 "\"sha256\":\"000102030405060708090a0b0c0d0e0f",
                 "101112131415161718191a1b1c1d1e1f\",",
                 "\"sizeBytes\":123,",
                 "\"mediaType\":\"application/zip\",",
-                "\"questionRevisionTuple\":{\"questionId\":\"ABCD-XEFG\",\"revisionNumber\":2},",
+                "\"publishedQuestionRevisionTuple\":{\"publishedQuestionId\":\"ABCD-XEFG\",\"revisionNumber\":2},",
                 "\"createdAt\":1000}"
             )
         );

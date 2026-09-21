@@ -2,7 +2,7 @@
 
 use async_trait::async_trait;
 use objects::Sha256Checksum;
-use question_model::{ObjectId, QuestionImageAssetId, QuestionRevisionTuple};
+use question_model::{ObjectId, PublishedQuestionRevisionTuple, QuestionImageAssetId};
 use sqlx::{Postgres, Row, Transaction};
 
 use super::{Pool, connection::map_sqlx_error};
@@ -51,7 +51,7 @@ impl QuestionImageDeliveryStore for PostgresQuestionImageDeliveryStore {
     async fn resolve_ready_question_image_delivery(
         &self,
         token: SessionTokenHash,
-        question_revision_tuple: QuestionRevisionTuple,
+        published_question_revision_tuple: PublishedQuestionRevisionTuple,
         question_image_asset_id: QuestionImageAssetId,
     ) -> Result<ReadyQuestionImageDelivery, StoreError> {
         let mut transaction = self.begin(token).await?;
@@ -59,11 +59,15 @@ impl QuestionImageDeliveryStore for PostgresQuestionImageDeliveryStore {
             "SELECT public_object_id, rendition_checksum \
              FROM ple_api.resolve_ready_question_image($1, $2, $3)",
         )
-        .bind(question_revision_tuple.question_id.as_str())
         .bind(
-            i32::try_from(question_revision_tuple.revision_number.get()).map_err(|_| {
-                StoreError::InvalidRecord("Question Revision number is invalid".to_string())
-            })?,
+            published_question_revision_tuple
+                .published_question_id
+                .as_str(),
+        )
+        .bind(
+            i32::try_from(published_question_revision_tuple.revision_number.get()).map_err(
+                |_| StoreError::InvalidRecord("Question Revision number is invalid".to_string()),
+            )?,
         )
         .bind(question_image_asset_id.as_uuid())
         .fetch_optional(&mut *transaction)
@@ -78,7 +82,7 @@ impl QuestionImageDeliveryStore for PostgresQuestionImageDeliveryStore {
                 StoreError::InvalidRecord("Question Image Asset checksum is invalid".to_string())
             })?;
         let value = ReadyQuestionImageDelivery {
-            question_revision_tuple,
+            published_question_revision_tuple,
             question_image_asset_id,
             public_object_id: ObjectId::from_uuid(
                 row.try_get("public_object_id").map_err(map_sqlx_error)?,

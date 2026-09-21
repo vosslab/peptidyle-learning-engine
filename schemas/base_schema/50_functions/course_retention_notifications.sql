@@ -39,7 +39,7 @@ BEGIN
            AND membership.role = 'instructor'
            AND ple_data.course_membership_is_active(membership.course_membership_id)
     )
-    SELECT recipient.course_instance_id, recipient.action_kind, recipient.due_at,
+    SELECT recipient.course_instance_id, recipient.action_kind::ple_data.retention_action_kind, recipient.due_at,
            recipient.account_id, p_evaluated_at, recipient.due_at
       FROM recipient
       JOIN ple_private.account AS account
@@ -86,7 +86,7 @@ BEGIN
                SELECT 1
                  FROM ple_data.course_retention_due_actions(p_evaluated_at) AS due
                 WHERE due.course_instance_id = receipt.course_instance_id
-                  AND due.due_action = receipt.action_kind
+                  AND due.due_action::ple_data.retention_action_kind = receipt.action_kind
                   AND due.due_at = receipt.due_at
            )
            AND EXISTS (
@@ -170,7 +170,7 @@ BEGIN
            lease_expires_at = NULL,
            lease_token = NULL,
            last_failure_at = p_failed_at,
-           last_failure_kind = p_failure_kind,
+           last_failure_kind = p_failure_kind::ple_data.retention_failure_kind,
            next_attempt_at = p_failed_at + pg_catalog.make_interval(secs => LEAST(
                3600,
                60 * pg_catalog.power(2::numeric, LEAST(receipt.attempt_count - 1, 10))::integer
@@ -182,4 +182,3 @@ BEGIN
     RETURN FOUND;
 END
 $$;
-

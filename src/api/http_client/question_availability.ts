@@ -1,8 +1,8 @@
 // Strict same-origin transport for Question lineage availability and exact revisions.
 
 import type { QuestionDetails } from "../../../generated/api/QuestionDetails";
-import type { QuestionId } from "../../../generated/api/QuestionId";
-import type { QuestionRevisionTuple } from "../../../generated/api/QuestionRevisionTuple";
+import type { PublishedQuestionId } from "../../../generated/api/PublishedQuestionId";
+import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
 import type { ApiClient } from "../client";
 import type {
   LoadedQuestionLineage,
@@ -24,19 +24,19 @@ import { ApiProtocolError, ApiRequestError } from "./error";
 import { encodedId, requestPath, requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
 
-function questionPath(questionId: QuestionId): string {
+function questionPath(questionId: PublishedQuestionId): string {
   return `/api/questions/by-id/${encodedId(questionId)}`;
 }
 
-function exactRevisionPath(questionRevisionTuple: QuestionRevisionTuple): string {
+function exactRevisionPath(publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple): string {
   if (
-    !Number.isSafeInteger(questionRevisionTuple.revisionNumber) ||
-    questionRevisionTuple.revisionNumber < 1 ||
-    questionRevisionTuple.revisionNumber > 4_294_967_295
+    !Number.isSafeInteger(publishedQuestionRevisionTuple.revisionNumber) ||
+    publishedQuestionRevisionTuple.revisionNumber < 1 ||
+    publishedQuestionRevisionTuple.revisionNumber > 4_294_967_295
   ) {
     throw new ApiProtocolError("Question Revision number must be one positive u32");
   }
-  return `${questionPath(questionRevisionTuple.questionId)}/revisions/${encodeURIComponent(String(questionRevisionTuple.revisionNumber))}`;
+  return `${questionPath(publishedQuestionRevisionTuple.publishedQuestionId)}/revisions/${encodeURIComponent(String(publishedQuestionRevisionTuple.revisionNumber))}`;
 }
 
 function questionAvailabilityEditNumberFromResponse(
@@ -77,13 +77,13 @@ async function questionJson<T>(
 
 function sameQuestionRevision(
   detail: QuestionDetails,
-  questionRevisionTuple: QuestionRevisionTuple,
+  publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple,
   path: string,
 ): QuestionDetails {
-  const actual = detail.summary.questionRevisionTuple;
+  const actual = detail.summary.publishedQuestionRevisionTuple;
   if (
-    actual.questionId !== questionRevisionTuple.questionId ||
-    actual.revisionNumber !== questionRevisionTuple.revisionNumber
+    actual.publishedQuestionId !== publishedQuestionRevisionTuple.publishedQuestionId ||
+    actual.revisionNumber !== publishedQuestionRevisionTuple.revisionNumber
   ) {
     throw new ApiProtocolError(`API response ${path} does not match its exact Question Revision`);
   }
@@ -133,13 +133,16 @@ export function createQuestionAvailabilityClient(
         ),
       };
     },
-    getQuestionRevision: async (questionRevisionTuple): Promise<QuestionDetails> => {
-      const path = exactRevisionPath(questionRevisionTuple);
+    getQuestionRevision: async (publishedQuestionRevisionTuple): Promise<QuestionDetails> => {
+      const path = exactRevisionPath(publishedQuestionRevisionTuple);
       const result = await questionJson(fetchImplementation, basePath, path, decodeQuestionDetails);
-      return sameQuestionRevision(result.body, questionRevisionTuple, path);
+      return sameQuestionRevision(result.body, publishedQuestionRevisionTuple, path);
     },
-    questionRevisionPreviewDocumentUrl: (questionRevisionTuple) =>
-      requestPath(basePath, `${exactRevisionPath(questionRevisionTuple)}/preview-document`),
+    questionRevisionPreviewDocumentUrl: (publishedQuestionRevisionTuple) =>
+      requestPath(
+        basePath,
+        `${exactRevisionPath(publishedQuestionRevisionTuple)}/preview-document`,
+      ),
     archiveQuestion: async (
       questionId,
       confirmationTitle,

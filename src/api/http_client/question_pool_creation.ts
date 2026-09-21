@@ -1,12 +1,12 @@
 // Strict same-origin transport for one server-issued Published Question Pool.
 
 import { MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY } from "../../../generated/api/MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY";
-import type { QuestionRevisionTuple } from "../../../generated/api/QuestionRevisionTuple";
+import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
 import type { ApiClient } from "../client";
 import { DecodeError, decodePositiveInteger, decodeRecord } from "../decoder";
 import {
   decodeQuestionId,
-  decodeQuestionRevisionTuple,
+  decodePublishedQuestionRevisionTuple,
   field,
   requireOnlyFields,
 } from "../decoders/shared";
@@ -22,7 +22,9 @@ import { decodeQuestionPoolText } from "../decoders/question_pool_library";
 
 const CREATE_QUESTION_POOL_PATH = "/api/question-pools";
 
-function requestMembers(input: CreateQuestionPoolInput): ReadonlyArray<QuestionRevisionTuple> {
+function requestMembers(
+  input: CreateQuestionPoolInput,
+): ReadonlyArray<PublishedQuestionRevisionTuple> {
   if (input.interchangeabilityAttested !== true) {
     throw new ApiProtocolError("Question Pool creation requires interchangeability attestation");
   }
@@ -36,19 +38,19 @@ function requestMembers(input: CreateQuestionPoolInput): ReadonlyArray<QuestionR
   }
   const tuples = new Set<string>();
   return input.members.map((member, index) => {
-    const questionRevisionTuple = decodeQuestionRevisionTuple(
+    const publishedQuestionRevisionTuple = decodePublishedQuestionRevisionTuple(
       member,
       `request.members[${index}]`,
       true,
     );
-    const key = `${questionRevisionTuple.questionId}:${questionRevisionTuple.revisionNumber}`;
+    const key = `${publishedQuestionRevisionTuple.publishedQuestionId}:${publishedQuestionRevisionTuple.revisionNumber}`;
     if (tuples.has(key)) {
       throw new ApiProtocolError(
         "Question Pool creation cannot include an exact revision more than once",
       );
     }
     tuples.add(key);
-    return questionRevisionTuple;
+    return publishedQuestionRevisionTuple;
   });
 }
 

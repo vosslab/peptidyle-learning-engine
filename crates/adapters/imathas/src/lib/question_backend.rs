@@ -3,7 +3,9 @@
 use async_trait::async_trait;
 use question_model::QuestionContentBlock;
 use question_model::generation::QuestionSeed;
-use question_model::{ImathasDeploymentId, ImathasItemId, ImathasProfile, QuestionRevisionTuple};
+use question_model::{
+    ImathasDeploymentId, ImathasItemId, ImathasProfile, PublishedQuestionRevisionTuple,
+};
 
 use crate::{ImathasAdapterError, ImathasQuestionBackendFailure, VerifiedImathasResult};
 
@@ -180,7 +182,7 @@ pub struct ImathasRenderRequest<'a> {
     /// Pinned source profile.
     pub profile: &'a str,
     /// Exact immutable Question Revision.
-    pub question_revision_tuple: QuestionRevisionTuple,
+    pub published_question_revision_tuple: PublishedQuestionRevisionTuple,
     /// Deterministic Question Seed.
     pub question_seed: QuestionSeed,
 }

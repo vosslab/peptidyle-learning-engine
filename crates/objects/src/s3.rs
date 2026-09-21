@@ -268,7 +268,10 @@ impl ObjectStore for S3ObjectStore {
             sha256: Sha256Checksum::compute(&request.bytes),
             size_bytes,
             media_type: request.media_type,
-            question_revision_tuple: request.address.question_revision_tuple().cloned(),
+            published_question_revision_tuple: request
+                .address
+                .published_question_revision_tuple()
+                .cloned(),
             created_at: request.created_at,
         };
         let encoded_record = encode_record(&record)?;
@@ -423,7 +426,8 @@ fn decode_record(
         || record.id != key.object_id()
         || record.storage_area != key.storage_area()
         || record.data_class != key.data_class()
-        || record.question_revision_tuple != key.question_revision_tuple().cloned()
+        || record.published_question_revision_tuple
+            != key.published_question_revision_tuple().cloned()
     {
         return Err(unavailable_metadata("semantic key does not match record"));
     }
@@ -514,20 +518,22 @@ mod tests {
     use super::*;
     use crate::ObjectDataClass;
     use question_model::{
-        ObjectId, QuestionId, QuestionImageAssetId, QuestionRevisionNumber, QuestionRevisionTuple,
+        ObjectId, PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionImageAssetId,
+        QuestionRevisionNumber,
     };
     use uuid::Uuid;
 
-    fn question_revision_tuple() -> QuestionRevisionTuple {
-        QuestionRevisionTuple {
-            question_id: QuestionId::from_random_identifier("ABCDEFG").expect("Question ID"),
+    fn published_question_revision_tuple() -> PublishedQuestionRevisionTuple {
+        PublishedQuestionRevisionTuple {
+            published_question_id: PublishedQuestionId::from_random_identifier("ABCDEFG")
+                .expect("Question ID"),
             revision_number: QuestionRevisionNumber::new(2).expect("positive version"),
         }
     }
 
     fn record() -> ObjectRecord {
         let key = ObjectAddress::QuestionSource {
-            question_revision_tuple: question_revision_tuple(),
+            published_question_revision_tuple: published_question_revision_tuple(),
             object_id: ObjectId::from_uuid(Uuid::from_u128(3)),
         };
         ObjectRecord {
@@ -538,14 +544,14 @@ mod tests {
             sha256: Sha256Checksum::compute(b"source"),
             size_bytes: 6,
             media_type: "application/zip".to_string(),
-            question_revision_tuple: Some(question_revision_tuple()),
+            published_question_revision_tuple: Some(published_question_revision_tuple()),
             created_at: Timestamp::from_unix_millis(1_000),
         }
     }
 
     fn public_asset_key() -> ObjectAddress {
         ObjectAddress::QuestionImage {
-            question_revision_tuple: question_revision_tuple(),
+            published_question_revision_tuple: published_question_revision_tuple(),
             question_image_asset_id: QuestionImageAssetId::from_uuid(Uuid::from_u128(3)),
             object_id: ObjectId::from_uuid(Uuid::from_u128(4)),
         }

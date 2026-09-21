@@ -49,7 +49,7 @@ import {
   decodeCourseName,
   decodeQuestionBackendCapabilities,
   decodeBoundedArray,
-  decodeQuestionRevisionTuple,
+  decodePublishedQuestionRevisionTuple,
   decodeQuestionAvailability,
   decodeQuestionTitle,
   decodeCourseInstanceId,
@@ -91,7 +91,7 @@ export function decodeQuestionSummary(
   if (strict) {
     requireOnlyFields(record, path, [
       "questionId",
-      "questionRevisionTuple",
+      "publishedQuestionRevisionTuple",
       "backend",
       "questionFormat",
       "questionType",
@@ -105,9 +105,9 @@ export function decodeQuestionSummary(
   }
   const decoded = {
     questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
-    questionRevisionTuple: decodeQuestionRevisionTuple(
-      field(record, "questionRevisionTuple", path),
-      `${path}.questionRevisionTuple`,
+    publishedQuestionRevisionTuple: decodePublishedQuestionRevisionTuple(
+      field(record, "publishedQuestionRevisionTuple", path),
+      `${path}.publishedQuestionRevisionTuple`,
       strict,
     ),
     backend: decodeStringEnum(field(record, "backend", path), `${path}.backend`, [
@@ -149,9 +149,9 @@ export function decodeQuestionSummary(
       decodeBloomClassificationView,
     ),
   } satisfies QuestionSummary;
-  if (decoded.questionRevisionTuple.questionId !== decoded.questionId) {
+  if (decoded.publishedQuestionRevisionTuple.publishedQuestionId !== decoded.questionId) {
     throw new DecodeError(
-      `${path}.questionRevisionTuple.questionId`,
+      `${path}.publishedQuestionRevisionTuple.publishedQuestionId`,
       "the Question Summary questionId",
     );
   }

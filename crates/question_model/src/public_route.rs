@@ -177,14 +177,14 @@ pub enum NavigationResolution {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::QuestionId;
+    use crate::PublishedQuestionId;
 
     #[test]
     fn public_ids_are_exact_checksum_validated_values() {
         type PublicIdParser = fn(&str) -> bool;
 
         fn question(value: &str) -> bool {
-            value.parse::<QuestionId>().is_ok()
+            value.parse::<PublishedQuestionId>().is_ok()
         }
         fn blueprint(value: &str) -> bool {
             value.parse::<BlueprintCourseId>().is_ok()
@@ -215,7 +215,7 @@ mod tests {
         }
 
         assert_eq!(
-            QuestionId::from_random_identifier("ABCDEFG")
+            PublishedQuestionId::from_random_identifier("ABCDEFG")
                 .expect("Question random identity")
                 .to_string(),
             "ABCD-XEFG"

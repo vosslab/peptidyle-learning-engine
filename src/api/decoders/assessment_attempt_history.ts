@@ -14,7 +14,7 @@ import {
   decodeAssessmentTitle,
   decodeCourseInstanceId,
   decodeCourseName,
-  decodeQuestionRevisionTuple,
+  decodePublishedQuestionRevisionTuple,
   field,
   requireOnlyFields,
 } from "./shared";
@@ -98,7 +98,7 @@ export function decodeStudentAssessmentAttemptHistory(
         const item = decodeRecord(question, questionPath);
         requireOnlyFields(item, questionPath, [
           "position",
-          "questionRevisionTuple",
+          "publishedQuestionRevisionTuple",
           "responseState",
           "response",
           "backendAnswerReview",
@@ -147,9 +147,9 @@ export function decodeStudentAssessmentAttemptHistory(
             field(item, "position", questionPath),
             `${questionPath}.position`,
           ),
-          questionRevisionTuple: decodeQuestionRevisionTuple(
-            field(item, "questionRevisionTuple", questionPath),
-            `${questionPath}.questionRevisionTuple`,
+          publishedQuestionRevisionTuple: decodePublishedQuestionRevisionTuple(
+            field(item, "publishedQuestionRevisionTuple", questionPath),
+            `${questionPath}.publishedQuestionRevisionTuple`,
             true,
           ),
           responseState: state(

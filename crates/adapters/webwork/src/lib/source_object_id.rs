@@ -1,7 +1,7 @@
 //! Trusted immutable PG-source resolution and binding checks.
 
 use objects::{ObjectStore, QuestionSourceResolutionError, ResolvedQuestionSource};
-use question_model::{ObjectId, QuestionRevisionTuple, SourceObjectChecksum};
+use question_model::{ObjectId, PublishedQuestionRevisionTuple, SourceObjectChecksum};
 
 use super::WebworkAdapterError;
 
@@ -19,14 +19,14 @@ pub struct ResolvedWebworkQuestionSource {
 /// Revision record.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WebworkQuestionSourceBinding {
-    question_revision_tuple: QuestionRevisionTuple,
+    published_question_revision_tuple: PublishedQuestionRevisionTuple,
     pg_path: String,
 }
 
 impl WebworkQuestionSourceBinding {
     /// Creates the registered PG-path binding for one published source.
     pub fn new(
-        question_revision_tuple: QuestionRevisionTuple,
+        published_question_revision_tuple: PublishedQuestionRevisionTuple,
         pg_path: String,
     ) -> Result<Self, WebworkAdapterError> {
         if pg_path.is_empty()
@@ -40,14 +40,14 @@ impl WebworkQuestionSourceBinding {
             return Err(WebworkAdapterError::InvalidPgPath);
         }
         Ok(Self {
-            question_revision_tuple,
+            published_question_revision_tuple,
             pg_path,
         })
     }
 
     /// Exact immutable revision that registered this source.
-    pub fn question_revision_tuple(&self) -> &QuestionRevisionTuple {
-        &self.question_revision_tuple
+    pub fn published_question_revision_tuple(&self) -> &PublishedQuestionRevisionTuple {
+        &self.published_question_revision_tuple
     }
 
     /// Registered OPL-style PG location used only by the private renderer.
@@ -66,7 +66,7 @@ impl ResolvedWebworkQuestionSource {
     ) -> Result<Self, WebworkAdapterError> {
         let resolved = ResolvedQuestionSource::resolve(
             store,
-            binding.question_revision_tuple().clone(),
+            binding.published_question_revision_tuple().clone(),
             source_object_id,
             source_object_checksum,
         )
@@ -93,8 +93,8 @@ impl ResolvedWebworkQuestionSource {
     }
 
     /// Exact immutable revision verified through the Question Source Object Address.
-    pub fn question_revision_tuple(&self) -> &QuestionRevisionTuple {
-        self.binding.question_revision_tuple()
+    pub fn published_question_revision_tuple(&self) -> &PublishedQuestionRevisionTuple {
+        self.binding.published_question_revision_tuple()
     }
 
     /// Registered private PG path for this exact immutable source.

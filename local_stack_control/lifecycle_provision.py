@@ -27,8 +27,6 @@ def selected_compose_target(target: LifecycleTarget) -> local_stack_control.mode
 def provision_ready_installation_data(
 	target: LifecycleTarget,
 	runner: local_stack_control.process.CommandRunner,
-	*,
-	without_live_demo: bool,
 ) -> None:
 	"""Run canonical bundled-content provisioning after application readiness."""
 	selected = selected_compose_target(target)
@@ -36,8 +34,6 @@ def provision_ready_installation_data(
 		"--profile", "migration", "run", "--rm", "--no-deps",
 		"database-migrator", "installation-data", "provision",
 	]
-	if without_live_demo:
-		command.append("--without-live-demo")
 	result = runner.run(
 		local_stack_control.compose.compose_argv(
 			selected, command,

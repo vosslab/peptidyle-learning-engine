@@ -3,7 +3,7 @@
 use async_trait::async_trait;
 use objects::{ObjectAddress, ObjectDataClass, ObjectRecord, ObjectStorageArea, Sha256Checksum};
 use question_model::{
-    ObjectId, QuestionImageAssetId, QuestionRevisionTuple, Timestamp, WorkspaceId,
+    ObjectId, PublishedQuestionRevisionTuple, QuestionImageAssetId, Timestamp, WorkspaceId,
 };
 use sqlx::{Postgres, Row, Transaction, types::Json};
 
@@ -57,17 +57,23 @@ impl QuestionForkStore for PostgresQuestionForkStore {
     async fn load_published_question_fork_asset(
         &self,
         session_token_hash: SessionTokenHash,
-        question_revision_tuple: &QuestionRevisionTuple,
+        published_question_revision_tuple: &PublishedQuestionRevisionTuple,
     ) -> Result<Option<PublishedQuestionForkImage>, StoreError> {
-        let revision_number = i32::try_from(question_revision_tuple.revision_number.get())
-            .map_err(|_| {
-                StoreError::InvalidRecord(
-                    "Question Fork Revision Number exceeds PostgreSQL integer".to_owned(),
-                )
-            })?;
+        let revision_number = i32::try_from(
+            published_question_revision_tuple.revision_number.get(),
+        )
+        .map_err(|_| {
+            StoreError::InvalidRecord(
+                "Question Fork Revision Number exceeds PostgreSQL integer".to_owned(),
+            )
+        })?;
         let mut transaction = self.begin(session_token_hash).await?;
         let rows = sqlx::query("SELECT * FROM ple_api.load_question_fork_asset($1, $2)")
-            .bind(question_revision_tuple.question_id.as_str())
+            .bind(
+                published_question_revision_tuple
+                    .published_question_id
+                    .as_str(),
+            )
             .bind(revision_number)
             .fetch_all(&mut *transaction)
             .await
@@ -79,7 +85,7 @@ impl QuestionForkStore for PostgresQuestionForkStore {
         }
         let asset = rows
             .first()
-            .map(|row| decode_fork_asset(row, question_revision_tuple))
+            .map(|row| decode_fork_asset(row, published_question_revision_tuple))
             .transpose()?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(asset)
@@ -92,7 +98,10 @@ impl QuestionForkStore for PostgresQuestionForkStore {
     ) -> Result<ForkedPublishedQuestionDraft, StoreError> {
         input.validate()?;
         let source_revision_number = i32::try_from(
-            input.source_question_revision_tuple.revision_number.get(),
+            input
+                .source_published_question_revision_tuple
+                .revision_number
+                .get(),
         )
         .map_err(|_| {
             StoreError::InvalidRecord(
@@ -118,7 +127,12 @@ impl QuestionForkStore for PostgresQuestionForkStore {
         )
         .bind(input.workspace.as_uuid())
         .bind(input.proposed_draft_question_id)
-        .bind(input.source_question_revision_tuple.question_id.as_str())
+        .bind(
+            input
+                .source_published_question_revision_tuple
+                .published_question_id
+                .as_str(),
+        )
         .bind(source_revision_number)
         .bind(input.idempotency_key)
         .bind(target.id.as_uuid())
@@ -148,7 +162,7 @@ impl QuestionForkStore for PostgresQuestionForkStore {
 
 fn decode_fork_asset(
     row: &sqlx::postgres::PgRow,
-    question_revision_tuple: &QuestionRevisionTuple,
+    published_question_revision_tuple: &PublishedQuestionRevisionTuple,
 ) -> Result<PublishedQuestionForkImage, StoreError> {
     let object_id = ObjectId::from_uuid(row.try_get("object_record_id").map_err(map_sqlx_error)?);
     let question_image_asset_id = QuestionImageAssetId::from_uuid(
@@ -182,11 +196,11 @@ fn decode_fork_asset(
         sha256: Sha256Checksum::from_bytes(checksum),
         size_bytes,
         media_type: row.try_get("media_type").map_err(map_sqlx_error)?,
-        question_revision_tuple: Some(question_revision_tuple.clone()),
+        published_question_revision_tuple: Some(published_question_revision_tuple.clone()),
         created_at: Timestamp::from_unix_millis(created_at_millis),
     };
     let expected_address = ObjectAddress::RestrictedQuestionImage {
-        question_revision_tuple: question_revision_tuple.clone(),
+        published_question_revision_tuple: published_question_revision_tuple.clone(),
         question_image_asset_id,
         object_id,
     };

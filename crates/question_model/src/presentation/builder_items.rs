@@ -359,7 +359,10 @@ pub(super) fn public_presentation(
         }
     };
     Ok(QuestionPresentation {
-        question_revision_tuple: source.variation.question_revision_tuple.clone(),
+        published_question_revision_tuple: source
+            .variation
+            .published_question_revision_tuple
+            .clone(),
         presentation_nonce: nonce,
         author_content_digest: source
             .author_content

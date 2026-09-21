@@ -21,8 +21,9 @@ pub use teaching_settings_local::{
 };
 
 use crate::{
-    AssessmentActivityRules, AssessmentEntryId, BlueprintAssessmentSource, QuestionAttemptLimit,
-    QuestionAttemptTimeLimit, QuestionId, QuestionRevisionTuple, Timestamp,
+    AssessmentActivityRules, AssessmentEntryId, BlueprintAssessmentSource,
+    PublishedQuestionRevisionTuple, QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionPoolId,
+    Timestamp,
 };
 
 /// Maximum Unicode scalar values in one human-facing Assessment Title.
@@ -400,7 +401,7 @@ pub struct FixedQuestionAssessmentEntry {
     /// Stable identity preserved across point and order changes.
     pub id: AssessmentEntryId,
     /// Exact immutable Question Library content pinned by this Fixed Question Assessment Entry.
-    pub question_revision_tuple: QuestionRevisionTuple,
+    pub published_question_revision_tuple: PublishedQuestionRevisionTuple,
     /// Current assessment-authored points.
     pub points_possible: AssessmentPointValue,
     /// Whether future Assessment Attempts may receive this Assessment Entry.
@@ -480,7 +481,7 @@ pub struct QuestionPoolAssessmentEntry {
     /// Stable Assessment Entry identity.
     pub id: AssessmentEntryId,
     /// Canonical public Pool ID. Membership is current state on that Pool.
-    pub question_pool_id: QuestionId,
+    pub question_pool_id: QuestionPoolId,
     /// Current-state Pool Edit Number used for concurrency, not historical membership.
     pub question_pool_edit_number: QuestionPoolEditNumber,
     /// Whether future Assessment Attempts may receive this Assessment Entry.

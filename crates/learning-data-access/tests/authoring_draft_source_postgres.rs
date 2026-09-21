@@ -25,7 +25,7 @@ fn token() -> SessionTokenHash {
 }
 
 fn timestamp() -> Timestamp {
-    Timestamp::from_unix_millis(1_800_000_000_000)
+    Timestamp::from_unix_millis(1_700_000_000_000)
 }
 
 fn source_record(workspace: WorkspaceId, media_type: &str) -> ObjectRecord {
@@ -49,7 +49,7 @@ fn source_record_with_id(
         sha256: Sha256Checksum::compute(SOURCE_BYTES),
         size_bytes: SOURCE_BYTES.len() as u64,
         media_type: media_type.to_owned(),
-        question_revision_tuple: None,
+        published_question_revision_tuple: None,
         created_at: timestamp(),
     }
 }
@@ -62,7 +62,7 @@ async fn seed_instructor(admin: &sqlx::postgres::PgPool, token: SessionTokenHash
         .expect("private fixture role");
     let account_id: String = sqlx::query_scalar(
         "INSERT INTO ple_private.account (account_id, product_role, created_at) \
-         VALUES ('U00000009', 'instructor', clock_timestamp()) RETURNING account_id",
+         VALUES ('U00000009', 'instructor', pg_catalog.transaction_timestamp()) RETURNING account_id",
     )
     .fetch_one(&mut *transaction)
     .await
@@ -70,8 +70,8 @@ async fn seed_instructor(admin: &sqlx::postgres::PgPool, token: SessionTokenHash
     sqlx::query(
         "INSERT INTO ple_private.authenticated_session \
          (session_id, account_id, product_role, token_hash, created_at, expires_at) \
-         VALUES ($1, $2, 'instructor', decode($3, 'hex'), clock_timestamp(), \
-         clock_timestamp() + interval '1 hour')",
+         VALUES ($1, $2, 'instructor', decode($3, 'hex'), pg_catalog.transaction_timestamp(), \
+         pg_catalog.transaction_timestamp() + interval '1 hour')",
     )
     .bind(Uuid::from_u128(0xa702))
     .bind(&account_id)
@@ -152,8 +152,8 @@ async fn webwork_draft_creation_keeps_the_initial_source_binding_on_confirmation
         .await
         .expect("private catalog assertion role");
     let tuple: (String, String, String, Option<String>) = sqlx::query_as(
-        "SELECT backend, question_format, question_type, webwork_pg_path \
-         FROM ple_private.draft_question_source_binding WHERE draft_question_uuid = $1",
+        "SELECT backend::text, question_format::text, question_type::text, webwork_pg_path \
+         FROM ple_private.draft_question_source_binding WHERE draft_question_id = $1",
     )
     .bind(draft.draft_question_uuid.as_uuid())
     .fetch_one(&mut *catalog_transaction)
@@ -202,8 +202,8 @@ async fn webwork_draft_creation_keeps_the_initial_source_binding_on_confirmation
         .await
         .expect("PGML private catalog assertion role");
     let pgml_format: String = sqlx::query_scalar(
-        "SELECT question_format FROM ple_private.draft_question_source_binding \
-         WHERE draft_question_uuid = $1",
+        "SELECT question_format::text FROM ple_private.draft_question_source_binding \
+         WHERE draft_question_id = $1",
     )
     .bind(pgml_draft.draft_question_uuid.as_uuid())
     .fetch_one(&mut *pgml_catalog_transaction)

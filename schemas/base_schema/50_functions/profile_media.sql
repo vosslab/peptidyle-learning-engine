@@ -295,9 +295,9 @@ BEGIN
  SELECT sha256 INTO expected FROM ple_data.object_delivery WHERE object_delivery_id = work.object_delivery_id;
  IF NOT p_object_present AND p_observed_checksum IS NULL THEN result := 'missing'; ELSIF p_object_present AND p_observed_checksum = expected THEN result := 'verified'; ELSIF p_object_present AND octet_length(p_observed_checksum) = 32 THEN result := 'mismatched'; ELSE RETURN false; END IF;
  INSERT INTO ple_private.object_storage_check (object_storage_check_id, object_delivery_id, expected_sha256, check_result, checked_at) VALUES (check_id, work.object_delivery_id, expected, result, clock_timestamp());
- disposition := CASE result WHEN 'missing' THEN 'already_absent' ELSE 'retained' END; INSERT INTO ple_private.object_cleanup_manifest VALUES (manifest_id, check_id, clock_timestamp(), disposition);
+ disposition := CASE result WHEN 'missing' THEN 'already_absent' ELSE 'retained' END; INSERT INTO ple_private.object_cleanup_manifest VALUES (manifest_id, check_id, clock_timestamp(), disposition::ple_data.cleanup_disposition);
  INSERT INTO ple_audit.object_storage_check_event VALUES (gen_random_uuid(), check_id, result, clock_timestamp(), sha256(convert_to('ple:profile-image-storage-check-event:v1', 'UTF8') || uuid_send(check_id) || convert_to(result, 'UTF8') || expected));
- INSERT INTO ple_audit.object_cleanup_receipt VALUES (gen_random_uuid(), manifest_id, disposition, clock_timestamp());
+ INSERT INTO ple_audit.object_cleanup_receipt VALUES (gen_random_uuid(), manifest_id, disposition::ple_data.cleanup_disposition, clock_timestamp());
  UPDATE ple_private.profile_image_work SET state = 'completed', completed_at = clock_timestamp() WHERE profile_image_work_id = p_delete_work_id; RETURN true;
 END $$;
 
@@ -315,11 +315,10 @@ BEGIN
  UPDATE ple_private.profile_image_work SET state = 'finalized', completed_at = clock_timestamp() WHERE profile_image_work_id = work.profile_image_work_id;
  INSERT INTO ple_private.account_avatar (account_id, avatar_kind, profile_image_id, profile_image_delivery_id) VALUES (work.account_id, 'profile-image', work.profile_image_id, work.object_delivery_id) ON CONFLICT (account_id) DO UPDATE SET avatar_kind = EXCLUDED.avatar_kind, provided_avatar_id = NULL, profile_image_id = EXCLUDED.profile_image_id, profile_image_delivery_id = EXCLUDED.profile_image_delivery_id;
  UPDATE ple_data.object_delivery SET delivery_state = 'available' WHERE object_delivery_id = work.object_delivery_id;
- IF old_delivery IS NOT NULL THEN UPDATE ple_data.object_delivery SET delivery_state = 'retired' WHERE object_delivery_id = old_delivery; SELECT object_record_id INTO old_object FROM ple_data.object_delivery WHERE object_delivery_id = old_delivery; retired_delete_work_id := gen_random_uuid(); retired_profile_image_id := old_image; retired_object_id := old_object; INSERT INTO ple_private.profile_image_work (profile_image_work_id, account_id, profile_image_id, object_delivery_id, object_record_id, operation_kind, state, created_at) VALUES (retired_delete_work_id, work.account_id, old_image, old_delivery, old_object, 'delete', 'pending', clock_timestamp()); END IF;
+ IF old_delivery IS NOT NULL THEN UPDATE ple_data.object_delivery SET delivery_state = 'retired' WHERE object_delivery_id = old_delivery; SELECT delivery.object_record_id INTO old_object FROM ple_data.object_delivery AS delivery WHERE delivery.object_delivery_id = old_delivery; retired_delete_work_id := gen_random_uuid(); retired_profile_image_id := old_image; retired_object_id := old_object; INSERT INTO ple_private.profile_image_work (profile_image_work_id, account_id, profile_image_id, object_delivery_id, object_record_id, operation_kind, state, created_at) VALUES (retired_delete_work_id, work.account_id, old_image, old_delivery, old_object, 'delete', 'pending', clock_timestamp()); END IF;
  profile_image_id := work.profile_image_id; object_record_id := work.object_record_id; RETURN NEXT;
 END $$;
 
 CREATE FUNCTION ple_api.resolve_current_account_profile_image(p_profile_image_id uuid) RETURNS uuid LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
  SELECT delivery.object_record_id FROM ple_private.account_avatar avatar JOIN ple_data.object_delivery delivery ON delivery.object_delivery_id = avatar.profile_image_delivery_id WHERE avatar.profile_image_id = p_profile_image_id AND avatar.account_id = ple_api.current_session_account_id() AND avatar.avatar_kind = 'profile-image' AND (ple_api.current_session_account_is_instructor() OR ple_api.current_session_account_is_sysadmin()) AND delivery.delivery_state = 'available'
 $$;
-

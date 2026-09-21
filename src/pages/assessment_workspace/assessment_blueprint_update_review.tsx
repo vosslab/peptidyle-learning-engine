@@ -4,7 +4,7 @@ import type {
   AssessmentBlueprintUpdateEntry,
   LiveAssessmentWorkspace,
 } from "../../api/assessment_release";
-import type { QuestionRevisionTuple } from "../../../generated/api/QuestionRevisionTuple";
+import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
 import type { AssessmentEntryAvailability } from "../../../generated/api/AssessmentEntryAvailability";
 import { assessmentTypePresentation } from "../../assessment_type_presentation";
 import {
@@ -36,7 +36,7 @@ export function AssessmentEntrySummary(props: {
   readonly entry: AssessmentBlueprintUpdateEntry & {
     readonly availability?: AssessmentEntryAvailability;
   };
-  readonly description: (questionRevisionTuple: QuestionRevisionTuple) => string;
+  readonly description: (publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple) => string;
   readonly poolRole?: "assessmentOwned" | "librarySource";
 }): JSX.Element {
   const timeLimit = (): string =>
@@ -47,10 +47,10 @@ export function AssessmentEntrySummary(props: {
     <>
       {props.entry.kind === "fixedQuestion" ? (
         <>
-          <strong>{props.entry.questionRevisionTuple.questionId}</strong> * Revision{" "}
-          {props.entry.questionRevisionTuple.revisionNumber}:{" "}
-          {props.description(props.entry.questionRevisionTuple)}; {props.entry.pointsPossible}{" "}
-          points
+          <strong>{props.entry.publishedQuestionRevisionTuple.publishedQuestionId}</strong> *
+          Revision {props.entry.publishedQuestionRevisionTuple.revisionNumber}:{" "}
+          {props.description(props.entry.publishedQuestionRevisionTuple)};{" "}
+          {props.entry.pointsPossible} points
         </>
       ) : (
         <>
@@ -98,7 +98,7 @@ function settingCopy(value: string): string {
 export function AssessmentBlueprintContentSummary(props: {
   readonly heading: string;
   readonly content: AssessmentBlueprintUpdateContent;
-  readonly description: (questionRevisionTuple: QuestionRevisionTuple) => string;
+  readonly description: (publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple) => string;
   readonly poolRole: "assessmentOwned" | "librarySource";
 }): JSX.Element {
   const defaults = (): AssessmentBlueprintUpdateContent["defaults"] => props.content.defaults;

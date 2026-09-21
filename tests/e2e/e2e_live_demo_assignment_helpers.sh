@@ -91,17 +91,17 @@ if not any(isinstance(item,dict) and item.get("id")==course_instance_id for item
 	printf '%s\n' "$course_instance_id"
 }
 
-picker_question_revision_tuple() {
+picker_published_question_revision_tuple() {
 	python3 -c '
 import json, re, sys
 items=json.loads(sys.argv[1])
 if not isinstance(items, list) or not items: raise SystemExit("Question picker is empty")
 item=items[0]
-if not isinstance(item, dict) or not {"questionRevisionTuple", "description"}.issubset(item): raise SystemExit("Question picker is malformed")
-question_revision=item["questionRevisionTuple"]
-if (not isinstance(question_revision, dict) or set(question_revision) != {"questionId", "revisionNumber"}
-    or not isinstance(question_revision["questionId"], str)
-    or re.fullmatch(r"[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}", question_revision["questionId"]) is None
+if not isinstance(item, dict) or not {"publishedQuestionRevisionTuple", "description"}.issubset(item): raise SystemExit("Question picker is malformed")
+question_revision=item["publishedQuestionRevisionTuple"]
+if (not isinstance(question_revision, dict) or set(question_revision) != {"publishedQuestionId", "revisionNumber"}
+    or not isinstance(question_revision["publishedQuestionId"], str)
+    or re.fullmatch(r"[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}", question_revision["publishedQuestionId"]) is None
     or not isinstance(question_revision["revisionNumber"], int) or question_revision["revisionNumber"] < 1):
     raise SystemExit("Question picker lacks an exact Question Revision Tuple")
 print(json.dumps(question_revision, separators=(",", ":")))
@@ -120,7 +120,7 @@ print(value["id"], value["editNumber"])
 }
 
 save_payload() {
-	local workspace="$1" question_revision_tuple="$2" title="$3"
+	local workspace="$1" published_question_revision_tuple="$2" title="$3"
 	python3 -c '
 import json, sys, uuid
 workspace=json.loads(sys.argv[1]); question_revision=json.loads(sys.argv[2]); title=sys.argv[3]
@@ -131,12 +131,12 @@ payload["title"]=title
 payload["dueAt"]="2026-12-01T23:59:00.000"
 payload["assessmentAttemptTimeLimitSeconds"]=300
 payload["entries"]=[{
-  "kind":"fixedQuestion", "id":str(uuid.uuid4()), "questionRevisionTuple":question_revision,
+  "kind":"fixedQuestion", "id":str(uuid.uuid4()), "publishedQuestionRevisionTuple":question_revision,
   "pointsPossible":"1", "availability":"available", "scoringRule":"normal",
   "questionAttemptLimit":{"maxAttempts":None}, "questionAttemptTimeLimit":{"kind":"unlimited"},
 }]
 print(json.dumps(payload, separators=(",", ":")))
-' "$workspace" "$question_revision_tuple" "$title"
+' "$workspace" "$published_question_revision_tuple" "$title"
 }
 
 retitle_payload() {
@@ -161,7 +161,7 @@ claim_student_record() {
 }
 
 assert_started() {
-	local response="$1" resumed="$2" title="$3" exact_question_revision_tuple="$4"
+	local response="$1" resumed="$2" title="$3" exact_published_question_revision_tuple="$4"
 	python3 -c '
 import json, re, sys
 value=json.loads(sys.argv[1]); expected_resumed=sys.argv[2] == "true"; title=sys.argv[3]; question_revision=json.loads(sys.argv[4])
@@ -171,7 +171,7 @@ if set(value) != required or value["resumed"] is not expected_resumed or value["
 if not re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", value["assessmentAttempt"]): raise SystemExit("Attempt identity is malformed")
 if not isinstance(value["questions"], list) or len(value["questions"]) != 1: raise SystemExit("Attempt lacks one issued Question")
 question=value["questions"][0]
-if question.get("questionRevisionTuple") != question_revision: raise SystemExit("Issued Question lost its exact Question Revision pin")
+if question.get("publishedQuestionRevisionTuple") != question_revision: raise SystemExit("Issued Question lost its exact Question Revision pin")
 forbidden={"answer","answerKey","studentRecord","assignmentAttemptId","questionAttemptId","checksum","reproduction"}
 def scan(item):
     if isinstance(item, dict):
@@ -180,5 +180,5 @@ def scan(item):
     elif isinstance(item, list):
         for child in item: scan(child)
 scan(value)
-' "$(response_body "$response")" "$resumed" "$title" "$exact_question_revision_tuple"
+' "$(response_body "$response")" "$resumed" "$title" "$exact_published_question_revision_tuple"
 }

@@ -2,7 +2,7 @@
 
 use async_trait::async_trait;
 use objects::Sha256Checksum;
-use question_model::{ObjectId, QuestionImageAssetId, QuestionRevisionTuple};
+use question_model::{ObjectId, PublishedQuestionRevisionTuple, QuestionImageAssetId};
 
 use crate::{SessionTokenHash, StoreError};
 
@@ -12,7 +12,7 @@ use crate::{SessionTokenHash, StoreError};
 /// these typed identities; it never receives a caller-selected object address.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReadyQuestionImageDelivery {
-    pub question_revision_tuple: QuestionRevisionTuple,
+    pub published_question_revision_tuple: PublishedQuestionRevisionTuple,
     pub question_image_asset_id: QuestionImageAssetId,
     pub public_object_id: ObjectId,
     pub rendition_checksum: Sha256Checksum,
@@ -25,7 +25,7 @@ pub trait QuestionImageDeliveryStore: Send + Sync {
     async fn resolve_ready_question_image_delivery(
         &self,
         session_token_hash: SessionTokenHash,
-        question_revision_tuple: QuestionRevisionTuple,
+        published_question_revision_tuple: PublishedQuestionRevisionTuple,
         question_image_asset_id: QuestionImageAssetId,
     ) -> Result<ReadyQuestionImageDelivery, StoreError>;
 }

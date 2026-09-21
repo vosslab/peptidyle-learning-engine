@@ -1,6 +1,6 @@
 use objects::Sha256Checksum;
 use question_model::generation::QuestionSeed;
-use question_model::{QuestionAttemptId, QuestionEvaluation, QuestionRevisionTuple};
+use question_model::{PublishedQuestionRevisionTuple, QuestionAttemptId, QuestionEvaluation};
 use uuid::Uuid;
 
 use crate::StoreError;
@@ -285,19 +285,19 @@ impl std::fmt::Debug for ImathasQuestionBackendSessionAuthentication {
 #[derive(Clone, PartialEq, Eq)]
 pub struct ImathasGradingContext {
     question_attempt: QuestionAttemptId,
-    question_revision_tuple: QuestionRevisionTuple,
+    published_question_revision_tuple: PublishedQuestionRevisionTuple,
     pub(crate) question_seed: QuestionSeed,
 }
 
 impl ImathasGradingContext {
     pub fn new(
         question_attempt: QuestionAttemptId,
-        question_revision_tuple: QuestionRevisionTuple,
+        published_question_revision_tuple: PublishedQuestionRevisionTuple,
         question_seed: QuestionSeed,
     ) -> Self {
         Self {
             question_attempt,
-            question_revision_tuple,
+            published_question_revision_tuple,
             question_seed,
         }
     }
@@ -306,8 +306,8 @@ impl ImathasGradingContext {
         self.question_attempt
     }
 
-    pub fn question_revision_tuple(&self) -> &QuestionRevisionTuple {
-        &self.question_revision_tuple
+    pub fn published_question_revision_tuple(&self) -> &PublishedQuestionRevisionTuple {
+        &self.published_question_revision_tuple
     }
 
     pub fn question_seed(&self) -> QuestionSeed {
@@ -321,13 +321,16 @@ impl ImathasGradingContext {
     /// big-endian bytes. The hyphenated Question ID has nine ASCII bytes (for
     /// example, `1234-H567`) and is intentionally not length-prefixed.
     pub fn authentication_payload_v1(&self) -> Vec<u8> {
-        let question_id = self.question_revision_tuple.question_id.as_str();
+        let question_id = self
+            .published_question_revision_tuple
+            .published_question_id
+            .as_str();
         let mut payload = Vec::with_capacity(16 + question_id.len() + 4 + 8);
         payload.extend_from_slice(self.question_attempt.as_uuid().as_bytes());
         payload.extend_from_slice(question_id.as_bytes());
         payload.extend_from_slice(
             &self
-                .question_revision_tuple
+                .published_question_revision_tuple
                 .revision_number
                 .get()
                 .to_be_bytes(),

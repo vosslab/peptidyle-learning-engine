@@ -19,7 +19,7 @@ function history() {
     questions: [
       {
         position: 1,
-        questionRevisionTuple: { questionId: "7K3M-79QP", revisionNumber: 2 },
+        publishedQuestionRevisionTuple: { publishedQuestionId: "7K3M-79QP", revisionNumber: 2 },
         responseState: "submitted",
       },
     ],

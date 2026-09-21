@@ -4,18 +4,23 @@ import type { QuestionBloomCorrectionReceipt } from "../../../generated/api/Ques
 import type { QuestionPoolBloomCorrectionReceipt } from "../../../generated/api/QuestionPoolBloomCorrectionReceipt";
 import { decodeBloomClassificationView } from "./bloom_classification";
 import { decodeRecord } from "../decoder";
-import { decodeQuestionId, decodeQuestionRevisionTuple, field, requireOnlyFields } from "./shared";
+import {
+  decodeQuestionId,
+  decodePublishedQuestionRevisionTuple,
+  field,
+  requireOnlyFields,
+} from "./shared";
 
 export function decodeQuestionBloomCorrectionReceipt(
   value: unknown,
   path: string,
 ): QuestionBloomCorrectionReceipt {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["questionRevisionTuple", "bloom"]);
+  requireOnlyFields(record, path, ["publishedQuestionRevisionTuple", "bloom"]);
   return {
-    questionRevisionTuple: decodeQuestionRevisionTuple(
-      field(record, "questionRevisionTuple", path),
-      `${path}.questionRevisionTuple`,
+    publishedQuestionRevisionTuple: decodePublishedQuestionRevisionTuple(
+      field(record, "publishedQuestionRevisionTuple", path),
+      `${path}.publishedQuestionRevisionTuple`,
     ),
     bloom: decodeBloomClassificationView(field(record, "bloom", path), `${path}.bloom`),
   };

@@ -1,6 +1,6 @@
 // Strict same-origin transport for self-only Published Question Watch state.
 
-import type { QuestionId } from "../../../generated/api/QuestionId";
+import type { PublishedQuestionId } from "../../../generated/api/PublishedQuestionId";
 import type { ApiClient } from "../client";
 import { decodeQuestionWatchProjection } from "../decoders/question_watch";
 import type { QuestionWatchClient, QuestionWatchProjection } from "../question_watch";
@@ -8,14 +8,14 @@ import { ApiRequestError } from "./error";
 import { encodedId, requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
 
-function watchPath(questionId: QuestionId): string {
+function watchPath(questionId: PublishedQuestionId): string {
   return `/api/questions/by-id/${encodedId(questionId)}/stewardship/watch`;
 }
 
 async function requestWatch(
   fetchImplementation: ApiFetch,
   basePath: string,
-  questionId: QuestionId,
+  questionId: PublishedQuestionId,
   watching?: boolean,
 ): Promise<QuestionWatchProjection> {
   const path = watchPath(questionId);

@@ -8,14 +8,14 @@ import type { AssessmentId } from "../../generated/api/AssessmentId";
 import type { AssessmentPointValue } from "../../generated/api/AssessmentPointValue";
 import type { AssessmentEntryScoringRule } from "../../generated/api/AssessmentEntryScoringRule";
 import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
-import type { QuestionId } from "../../generated/api/QuestionId";
+import type { QuestionPoolId } from "../../generated/api/QuestionPoolId";
 import type { QuestionPoolSelectedQuestionOrder } from "../../generated/api/QuestionPoolSelectedQuestionOrder";
 import type { QuestionPoolEditNumber } from "../../generated/api/QuestionPoolEditNumber";
-import type { QuestionRevisionTuple } from "../../generated/api/QuestionRevisionTuple";
+import type { PublishedQuestionRevisionTuple } from "../../generated/api/PublishedQuestionRevisionTuple";
 
 /** Closed browser input for importing one reusable Pool into an Assessment-owned fork. */
 export interface ImportAssessmentQuestionPoolForkInput {
-  readonly sourceQuestionPoolId: QuestionId;
+  readonly sourceQuestionPoolId: QuestionPoolId;
   readonly authoredPosition: number;
   readonly selectionCount: number;
   readonly pointsPerItem: AssessmentPointValue;
@@ -26,7 +26,7 @@ export interface ImportAssessmentQuestionPoolForkInput {
 /** Closed browser input for replacing current membership of an Assessment-owned Pool fork. */
 export interface AppendAssessmentQuestionPoolForkMembersInput {
   readonly expectedQuestionPoolEditNumber: QuestionPoolEditNumber;
-  readonly members: ReadonlyArray<QuestionRevisionTuple>;
+  readonly members: ReadonlyArray<PublishedQuestionRevisionTuple>;
   readonly interchangeabilityAttested: boolean;
 }
 
@@ -40,7 +40,7 @@ export interface AppendedAssessmentQuestionPoolForkMembers {
 /** Server-issued Assessment entry and fork Pool at Edit Number 1 after an atomic Pool import. */
 export interface ImportedAssessmentQuestionPoolFork {
   readonly assessmentEntryId: AssessmentEntryId;
-  readonly questionPoolId: QuestionId;
+  readonly questionPoolId: QuestionPoolId;
   readonly questionPoolEditNumber: QuestionPoolEditNumber;
   readonly assessmentEditNumber: AssessmentEditNumber;
 }

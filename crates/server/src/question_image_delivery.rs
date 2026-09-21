@@ -20,7 +20,8 @@ use learning_data_access::{
 };
 use objects::ObjectAddress;
 use question_model::{
-    ProductRole, QuestionId, QuestionImageAssetId, QuestionRevisionNumber, QuestionRevisionTuple,
+    ProductRole, PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionImageAssetId,
+    QuestionRevisionNumber,
 };
 use url::Url;
 use uuid::Uuid;
@@ -81,8 +82,8 @@ async fn get_public_question_image(
     headers: HeaderMap,
     Path((question_id, revision_number, question_image_asset_id)): Path<(String, String, String)>,
 ) -> Response {
-    let question_revision_tuple =
-        match verified_question_revision_tuple(&question_id, &revision_number) {
+    let published_question_revision_tuple =
+        match verified_published_question_revision_tuple(&question_id, &revision_number) {
             Some(value) => value,
             None => return concealed(),
         };
@@ -98,7 +99,7 @@ async fn get_public_question_image(
         .store
         .resolve_ready_question_image_delivery(
             session_hash,
-            question_revision_tuple,
+            published_question_revision_tuple,
             question_image_asset_id,
         )
         .await
@@ -120,17 +121,17 @@ async fn get_public_question_image(
 /// The shared model parses the exact checksum-bearing ID before this
 /// authorization-sensitive Store lookup (ASVS 2.2.1 and 2.2.2). Invalid and
 /// unauthorized Tuples share the opaque response below.
-fn verified_question_revision_tuple(
+fn verified_published_question_revision_tuple(
     question_id: &str,
     revision_number: &str,
-) -> Option<QuestionRevisionTuple> {
-    let question_id = question_id.parse::<QuestionId>().ok()?;
+) -> Option<PublishedQuestionRevisionTuple> {
+    let question_id = question_id.parse::<PublishedQuestionId>().ok()?;
     let revision_value = revision_number.parse::<u32>().ok()?;
     if revision_value.to_string() != revision_number {
         return None;
     }
-    Some(QuestionRevisionTuple {
-        question_id,
+    Some(PublishedQuestionRevisionTuple {
+        published_question_id: question_id,
         revision_number: QuestionRevisionNumber::new(revision_value).ok()?,
     })
 }
@@ -158,7 +159,7 @@ fn redirect_response(
     rendition: &ReadyQuestionImageDelivery,
 ) -> Result<Response, ()> {
     let address = ObjectAddress::QuestionImage {
-        question_revision_tuple: rendition.question_revision_tuple.clone(),
+        published_question_revision_tuple: rendition.published_question_revision_tuple.clone(),
         question_image_asset_id: rendition.question_image_asset_id,
         object_id: rendition.public_object_id,
     };
@@ -204,14 +205,17 @@ fn cookie(headers: &HeaderMap) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use objects::Sha256Checksum;
-    use question_model::{ObjectId, QuestionId, QuestionRevisionNumber, QuestionRevisionTuple};
+    use question_model::{
+        ObjectId, PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionRevisionNumber,
+    };
 
     use super::*;
 
     fn rendition() -> ReadyQuestionImageDelivery {
         ReadyQuestionImageDelivery {
-            question_revision_tuple: QuestionRevisionTuple {
-                question_id: QuestionId::from_random_identifier("ABCDEFG").expect("Question ID"),
+            published_question_revision_tuple: PublishedQuestionRevisionTuple {
+                published_question_id: PublishedQuestionId::from_random_identifier("ABCDEFG")
+                    .expect("Question ID"),
                 revision_number: QuestionRevisionNumber::new(1).expect("revision"),
             },
             question_image_asset_id: QuestionImageAssetId::from_uuid(Uuid::from_u128(2)),
@@ -252,10 +256,16 @@ mod tests {
 
     #[test]
     fn asset_route_requires_a_verified_exact_question_revision() {
-        let question_revision_tuple = verified_question_revision_tuple("0000-4000", "1")
-            .expect("documented checksum vector and positive revision");
-        assert_eq!(question_revision_tuple.question_id.to_string(), "0000-4000");
-        assert_eq!(question_revision_tuple.revision_number.get(), 1);
+        let published_question_revision_tuple =
+            verified_published_question_revision_tuple("0000-4000", "1")
+                .expect("documented checksum vector and positive revision");
+        assert_eq!(
+            published_question_revision_tuple
+                .published_question_id
+                .to_string(),
+            "0000-4000"
+        );
+        assert_eq!(published_question_revision_tuple.revision_number.get(), 1);
 
         for (question_id, revision_number) in [
             ("0000-5000", "1"),
@@ -264,7 +274,7 @@ mod tests {
             ("0000-4000", "+1"),
         ] {
             assert!(
-                verified_question_revision_tuple(question_id, revision_number).is_none(),
+                verified_published_question_revision_tuple(question_id, revision_number).is_none(),
                 "{question_id}/{revision_number} must not reach the Store"
             );
         }

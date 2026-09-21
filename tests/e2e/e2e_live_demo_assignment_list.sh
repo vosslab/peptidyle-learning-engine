@@ -19,7 +19,7 @@ if not isinstance(items,list):
     raise SystemExit("Course Assessment list is not an array")
 observed={}
 for item in items:
-    if not isinstance(item,dict) or set(item)!={"id","assessmentType","title","dueAt","displayTimeZone","status","editNumber"}:
+    if not isinstance(item,dict) or set(item)!={"id","assessmentType","title","dueAt","displayTimeZone","status","assessmentEditNumber"}:
         raise SystemExit("Course Assessment list is not a closed current projection")
     if not isinstance(item["id"],str) or not re.fullmatch(r"A[0-9A-HJKMNP-TV-Z]{8}",item["id"]):
         raise SystemExit("Course Assessment list lacks a canonical Assessment ID")
@@ -27,7 +27,7 @@ for item in items:
         raise SystemExit("Course Assessment list contains an invalid Assessment Type")
     if item["status"] not in {"unreleased","released","closed","archived"}:
         raise SystemExit("Course Assessment list contains an invalid Assessment Status")
-    if not isinstance(item["editNumber"],str) or not item["editNumber"].isdigit():
+    if not isinstance(item["assessmentEditNumber"],str) or not item["assessmentEditNumber"].isdigit():
         raise SystemExit("Course Assessment list contains an invalid Assessment Edit Number")
     if item["dueAt"] is not None and (not isinstance(item["dueAt"],str) or not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}",item["dueAt"])):
         raise SystemExit("Course Assessment list contains an invalid local Due at")
@@ -125,8 +125,8 @@ require_status "Released Assessment creation" "$created" 201
 read -r assessment initial_edit < <(workspace_id_and_edit_number "$(response_body "$created")")
 picker="$(request "/api/course-instances/$course/assessment-question-picker" "$instructor_cookie")"
 require_status "Assessment Question picker" "$picker" 200
-question_revision_tuple="$(picker_question_revision_tuple "$(response_body "$picker")")"
-payload="$(save_payload "$(response_body "$created")" "$question_revision_tuple" "M10 released Assessment")"
+published_question_revision_tuple="$(picker_published_question_revision_tuple "$(response_body "$picker")")"
+payload="$(save_payload "$(response_body "$created")" "$published_question_revision_tuple" "M10 released Assessment")"
 saved="$(request "/api/course-instances/$course/assessments/$assessment" "$instructor_cookie" PUT "$payload" "$initial_edit")"
 require_status "Released Assessment save" "$saved" 200
 read -r _ saved_edit < <(workspace_id_and_edit_number "$(response_body "$saved")")

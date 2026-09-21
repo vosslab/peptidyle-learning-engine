@@ -494,7 +494,7 @@ mod tests {
                 ),
                 (
                     "pilot_question_publications",
-                    r#"{"pilot":{"sourceSha256":"abc","questionRevisionTuple":{"questionId":"ABC1-J234","revisionNumber":1}}}"#.to_string(),
+                    r#"{"pilot":{"sourceSha256":"abc","publishedQuestionRevisionTuple":{"publishedQuestionId":"ABC1-J234","revisionNumber":1}}}"#.to_string(),
                 ),
                 (
                     "live_demo_blueprint_course_id",

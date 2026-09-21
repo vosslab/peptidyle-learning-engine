@@ -2,7 +2,7 @@
 
 use async_trait::async_trait;
 use question_model::{
-    AssessmentAttemptId, CourseInstanceId, CourseRosterTuple, QuestionRevisionTuple,
+    AssessmentAttemptId, CourseInstanceId, CourseRosterTuple, PublishedQuestionRevisionTuple,
 };
 use serde::{Deserialize, Serialize};
 
@@ -48,7 +48,7 @@ pub struct RecoveredAttempt {
 #[serde(rename_all = "camelCase")]
 pub struct RecoveredQuestion {
     pub issued_position: u32,
-    pub question_revision_tuple: QuestionRevisionTuple,
+    pub published_question_revision_tuple: PublishedQuestionRevisionTuple,
     pub delivery_text: String,
     pub pool_text: Option<String>,
     pub attempt_text: Option<String>,

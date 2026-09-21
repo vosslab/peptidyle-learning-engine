@@ -14,13 +14,13 @@ human review.
 
 | | | |
 | --- | --- | --- |
-| [![Screenshot preview of Seeded Live Demo sign-in](screenshots/public/sign_in_laptop.png)](screenshots/public/sign_in_laptop.png)<br>Seeded Live Demo sign-in<br>sign in - laptop<br>Featured | [![Screenshot preview of Seeded Live Demo sign-in on a phone](screenshots/public/sign_in_phone.png)](screenshots/public/sign_in_phone.png)<br>Seeded Live Demo sign-in on a phone<br>sign in - phone |  |
+| [![Screenshot preview of Seeded Live Demo sign-in](screenshots/public/laptop/sign_in.png)](screenshots/public/laptop/sign_in.png)<br>Seeded Live Demo sign-in<br>sign in - laptop<br>Featured | [![Screenshot preview of Seeded Live Demo sign-in on a phone](screenshots/public/phone/sign_in.png)](screenshots/public/phone/sign_in.png)<br>Seeded Live Demo sign-in on a phone<br>sign in - phone |  |
 
 #### Session Recovery
 
 | | | |
 | --- | --- | --- |
-| [![Screenshot preview of Expired-session renewal](screenshots/public/session_renewal_laptop.png)](screenshots/public/session_renewal_laptop.png)<br>Expired-session renewal<br>expired - laptop |  |  |
+| [![Screenshot preview of Expired-session renewal](screenshots/public/laptop/session_renewal.png)](screenshots/public/laptop/session_renewal.png)<br>Expired-session renewal<br>expired - laptop |  |  |
 
 ## Instructor
 
@@ -64,22 +64,14 @@ human review.
 
 | | | |
 | --- | --- | --- |
-| [![Screenshot preview of Assignment creation](screenshots/instructor/assignment_creation.png)](screenshots/instructor/assignment_creation.png)<br>Assignment creation<br>creation - laptop | [![Screenshot preview of Draft Assignment Questions](screenshots/instructor/assignment_release_draft.png)](screenshots/instructor/assignment_release_draft.png)<br>Draft Assignment Questions<br>draft - laptop | [![Screenshot preview of Answer-free Assignment Preview](screenshots/instructor/assignment_release_preview.png)](screenshots/instructor/assignment_release_preview.png)<br>Answer-free Assignment Preview<br>answer-free preview - laptop |
-| [![Screenshot preview of Released Assignment Policies](screenshots/instructor/assignment_release_released.png)](screenshots/instructor/assignment_release_released.png)<br>Released Assignment Policies<br>released - laptop<br>Featured |  |  |
+| [![Screenshot preview of Assignment creation](screenshots/instructor/assignment_creation.png)](screenshots/instructor/assignment_creation.png)<br>Assignment creation<br>creation - laptop | [![Screenshot preview of Draft Assignment Questions](screenshots/instructor/assignment_questions_draft.png)](screenshots/instructor/assignment_questions_draft.png)<br>Draft Assignment Questions<br>draft - laptop | [![Screenshot preview of Answer-free Assignment Preview](screenshots/instructor/assignment_delivery_check.png)](screenshots/instructor/assignment_delivery_check.png)<br>Answer-free Assignment Preview<br>answer-free preview - laptop |
+| [![Screenshot preview of Released Assignment Policies](screenshots/instructor/assignment_policies_released.png)](screenshots/instructor/assignment_policies_released.png)<br>Released Assignment Policies<br>released - laptop<br>Featured |  |  |
 
 #### Assessment Template Creation
 
 | | | |
 | --- | --- | --- |
-| [![Screenshot preview of Editable Assessment Template](screenshots/instructor/assessment_template_editor.png)](screenshots/instructor/assessment_template_editor.png)<br>Editable Assessment Template<br>editable template - laptop |  |  |
-
-### Account
-
-#### Profile Preferences
-
-| | | |
-| --- | --- | --- |
-| [![Screenshot preview of Instructor Profile](screenshots/instructor/profile_default.png)](screenshots/instructor/profile_default.png)<br>Instructor Profile<br>default profile - laptop |  |  |
+| [![Screenshot preview of Editable Assessment Template](screenshots/instructor/template_editor.png)](screenshots/instructor/template_editor.png)<br>Editable Assessment Template<br>editable template - laptop |  |  |
 
 ### Question Library
 
@@ -87,14 +79,14 @@ human review.
 
 | | | |
 | --- | --- | --- |
-| [![Screenshot preview of Question Library](screenshots/instructor/question_library.png)](screenshots/instructor/question_library.png)<br>Question Library<br>default - laptop<br>Featured | [![Screenshot preview of Filtered Question Library](screenshots/instructor/question_library_filtered.png)](screenshots/instructor/question_library_filtered.png)<br>Filtered Question Library<br>filtered - laptop | [![Screenshot preview of Browse Question Library](screenshots/instructor/question_library_browse.png)](screenshots/instructor/question_library_browse.png)<br>Browse Question Library<br>browse overview - laptop |
-| [![Screenshot preview of Published Question detail](screenshots/instructor/published_question_detail.png)](screenshots/instructor/published_question_detail.png)<br>Published Question detail<br>published detail - laptop |  |  |
+| [![Screenshot preview of Question Library](screenshots/instructor/library_default.png)](screenshots/instructor/library_default.png)<br>Question Library<br>default - laptop<br>Featured | [![Screenshot preview of Filtered Question Library](screenshots/instructor/library_filtered.png)](screenshots/instructor/library_filtered.png)<br>Filtered Question Library<br>filtered - laptop | [![Screenshot preview of Published Question detail](screenshots/instructor/published_question_detail.png)](screenshots/instructor/published_question_detail.png)<br>Published Question detail<br>published detail - laptop |
+| [![Screenshot preview of Browse Question Library](screenshots/instructor/library_browse.png)](screenshots/instructor/library_browse.png)<br>Browse Question Library<br>browse overview - laptop |  |  |
 
 #### Question Pool Creation
 
 | | | |
 | --- | --- | --- |
-| [![Screenshot preview of Question Pool creation review](screenshots/instructor/question_pool_creation_review.png)](screenshots/instructor/question_pool_creation_review.png)<br>Question Pool creation review<br>selected Question review - laptop |  |  |
+| [![Screenshot preview of Question Pool creation review](screenshots/instructor/pool_creation_review.png)](screenshots/instructor/pool_creation_review.png)<br>Question Pool creation review<br>selected Question review - laptop |  |  |
 
 #### Generated Question Preview
 
@@ -104,13 +96,21 @@ human review.
 | [![Screenshot preview of X-linked offspring count table generated example](screenshots/instructor/webwork_x_linked_counts.png)](screenshots/instructor/webwork_x_linked_counts.png)<br>X-linked offspring count table generated example<br>X-linked offspring count table example - laptop | [![Screenshot preview of True or False Statements About DNA Structure generated example](screenshots/instructor/webwork_dna_structure.png)](screenshots/instructor/webwork_dna_structure.png)<br>True/False Statements About DNA Structure generated example<br>True/False Statements About DNA Structure generated example - laptop | [![Screenshot preview of Matching Meiosis Prophase I Stages to Descriptions generated example](screenshots/instructor/webwork_meiosis_prophase.png)](screenshots/instructor/webwork_meiosis_prophase.png)<br>Matching Meiosis Prophase I Stages to Descriptions generated example<br>Matching Meiosis Prophase I Stages to Descriptions generated example - laptop |
 | [![Screenshot preview of True or False Statements About Chi-Square Tests generated example](screenshots/instructor/webwork_chi_square.png)](screenshots/instructor/webwork_chi_square.png)<br>True/False Statements About Chi-Square Tests generated example<br>True/False Statements About Chi-Square Tests generated example - laptop | [![Screenshot preview of Matching Chromosome Shapes to Descriptions generated example](screenshots/instructor/webwork_chromosome_shapes.png)](screenshots/instructor/webwork_chromosome_shapes.png)<br>Matching Chromosome Shapes to Descriptions generated example<br>Matching Chromosome Shapes to Descriptions generated example - laptop |  |
 
+### Account
+
+#### Profile Preferences
+
+| | | |
+| --- | --- | --- |
+| [![Screenshot preview of Instructor Profile](screenshots/instructor/default.png)](screenshots/instructor/default.png)<br>Instructor Profile<br>default profile - laptop |  |  |
+
 ### Question Authoring
 
 #### Publication
 
 | | | |
 | --- | --- | --- |
-| [![Screenshot preview of Private Question drafts](screenshots/instructor/question_drafts.png)](screenshots/instructor/question_drafts.png)<br>Private Question drafts<br>draft list - laptop | [![Screenshot preview of Saved private Question editor](screenshots/instructor/draft_editor_saved.png)](screenshots/instructor/draft_editor_saved.png)<br>Saved private Question editor<br>saved draft - laptop | [![Screenshot preview of Question publication review](screenshots/instructor/publication_review.png)](screenshots/instructor/publication_review.png)<br>Question publication review<br>review - laptop |
+| [![Screenshot preview of Private Question drafts](screenshots/instructor/draft_list.png)](screenshots/instructor/draft_list.png)<br>Private Question drafts<br>draft list - laptop | [![Screenshot preview of Saved private Question editor](screenshots/instructor/saved_editor.png)](screenshots/instructor/saved_editor.png)<br>Saved private Question editor<br>saved draft - laptop | [![Screenshot preview of Question publication review](screenshots/instructor/publication_review.png)](screenshots/instructor/publication_review.png)<br>Question publication review<br>review - laptop |
 
 ### Blueprint Courses
 
@@ -118,13 +118,13 @@ human review.
 
 | | | |
 | --- | --- | --- |
-| [![Screenshot preview of Blueprint Courses](screenshots/instructor/blueprint_courses.png)](screenshots/instructor/blueprint_courses.png)<br>Blueprint Courses<br>list - laptop | [![Screenshot preview of Blueprint Course detail](screenshots/instructor/blueprint_course_detail.png)](screenshots/instructor/blueprint_course_detail.png)<br>Blueprint Course detail<br>detail - laptop | [![Screenshot preview of Blueprint Question picker](screenshots/instructor/blueprint_question_picker.png)](screenshots/instructor/blueprint_question_picker.png)<br>Blueprint Question picker<br>question picker - laptop |
+| [![Screenshot preview of Blueprint Courses](screenshots/instructor/blueprint_list.png)](screenshots/instructor/blueprint_list.png)<br>Blueprint Courses<br>list - laptop | [![Screenshot preview of Blueprint Course detail](screenshots/instructor/blueprint_detail.png)](screenshots/instructor/blueprint_detail.png)<br>Blueprint Course detail<br>detail - laptop | [![Screenshot preview of Blueprint Question picker](screenshots/instructor/blueprint_question_picker.png)](screenshots/instructor/blueprint_question_picker.png)<br>Blueprint Question picker<br>question picker - laptop |
 
 #### Public Blueprint Discovery
 
 | | | |
 | --- | --- | --- |
-| [![Screenshot preview of Search Public Blueprint Courses](screenshots/instructor/public_blueprint_search.png)](screenshots/instructor/public_blueprint_search.png)<br>Search Public Blueprint Courses<br>filtered results - laptop |  |  |
+| [![Screenshot preview of Search Public Blueprint Courses](screenshots/instructor/filtered_results.png)](screenshots/instructor/filtered_results.png)<br>Search Public Blueprint Courses<br>filtered results - laptop |  |  |
 
 ## Student
 
@@ -134,20 +134,20 @@ human review.
 
 | | | |
 | --- | --- | --- |
-| [![Screenshot preview of Student courses](screenshots/student/course_list_laptop.png)](screenshots/student/course_list_laptop.png)<br>Student courses<br>course list - laptop<br>Featured | [![Screenshot preview of Student courses on a phone](screenshots/student/course_list_phone.png)](screenshots/student/course_list_phone.png)<br>Student courses on a phone<br>course list - phone |  |
+| [![Screenshot preview of Student courses](screenshots/student/laptop/course_list.png)](screenshots/student/laptop/course_list.png)<br>Student courses<br>course list - laptop<br>Featured | [![Screenshot preview of Student courses on a phone](screenshots/student/phone/course_list.png)](screenshots/student/phone/course_list.png)<br>Student courses on a phone<br>course list - phone |  |
 
 #### Course Invitation
 
 | | | |
 | --- | --- | --- |
-| [![Screenshot preview of Pending Course Invitations](screenshots/student/invitation_index_laptop.png)](screenshots/student/invitation_index_laptop.png)<br>Pending Course Invitations<br>pending index - laptop | [![Screenshot preview of Course Invitation review](screenshots/student/invitation_detail_laptop.png)](screenshots/student/invitation_detail_laptop.png)<br>Course Invitation review<br>review - laptop |  |
+| [![Screenshot preview of Pending Course Invitations](screenshots/student/laptop/invitation_index.png)](screenshots/student/laptop/invitation_index.png)<br>Pending Course Invitations<br>pending index - laptop | [![Screenshot preview of Course Invitation review](screenshots/student/laptop/invitation_detail.png)](screenshots/student/laptop/invitation_detail.png)<br>Course Invitation review<br>review - laptop |  |
 
 #### Seeded Assignment Progress
 
 | | | |
 | --- | --- | --- |
-| [![Screenshot preview of Not-started Course landing](screenshots/student/course_not_started_laptop.png)](screenshots/student/course_not_started_laptop.png)<br>Not-started Course landing<br>not started - laptop | [![Screenshot preview of In-progress Course landing](screenshots/student/course_in_progress_laptop.png)](screenshots/student/course_in_progress_laptop.png)<br>In-progress Course landing<br>in progress - laptop | [![Screenshot preview of Completed Course landing](screenshots/student/course_completed_laptop.png)](screenshots/student/course_completed_laptop.png)<br>Completed Course landing<br>completed - laptop<br>Featured |
-| [![Screenshot preview of Not-started Course landing on a phone](screenshots/student/course_not_started_phone.png)](screenshots/student/course_not_started_phone.png)<br>Not-started Course landing on a phone<br>not started - phone |  |  |
+| [![Screenshot preview of Not-started Course landing](screenshots/student/laptop/not_started.png)](screenshots/student/laptop/not_started.png)<br>Not-started Course landing<br>not started - laptop | [![Screenshot preview of In-progress Course landing](screenshots/student/laptop/in_progress.png)](screenshots/student/laptop/in_progress.png)<br>In-progress Course landing<br>in progress - laptop | [![Screenshot preview of Completed Course landing](screenshots/student/laptop/completed.png)](screenshots/student/laptop/completed.png)<br>Completed Course landing<br>completed - laptop<br>Featured |
+| [![Screenshot preview of Not-started Course landing on a phone](screenshots/student/phone/not_started.png)](screenshots/student/phone/not_started.png)<br>Not-started Course landing on a phone<br>not started - phone |  |  |
 
 ### Assignments
 
@@ -155,19 +155,45 @@ human review.
 
 | | | |
 | --- | --- | --- |
-| [![Screenshot preview of Unanswered Assignment overview](screenshots/student/assignment_overview_unanswered_laptop.png)](screenshots/student/assignment_overview_unanswered_laptop.png)<br>Unanswered Assignment overview<br>unanswered - laptop<br>Featured | [![Screenshot preview of Unanswered Assignment overview on a tablet](screenshots/student/assignment_overview_unanswered_tablet.png)](screenshots/student/assignment_overview_unanswered_tablet.png)<br>Unanswered Assignment overview on a tablet<br>unanswered - tablet |  |
+| [![Screenshot preview of Unanswered Assignment overview](screenshots/student/laptop/unanswered.png)](screenshots/student/laptop/unanswered.png)<br>Unanswered Assignment overview<br>unanswered - laptop<br>Featured | [![Screenshot preview of Unanswered Assignment overview on a tablet](screenshots/student/tablet/unanswered.png)](screenshots/student/tablet/unanswered.png)<br>Unanswered Assignment overview on a tablet<br>unanswered - tablet |  |
 
 #### Assignment History
 
 | | | |
 | --- | --- | --- |
-| [![Screenshot preview of Assignment overview with previous attempts](screenshots/student/assignment_overview_history_laptop.png)](screenshots/student/assignment_overview_history_laptop.png)<br>Assignment overview with previous attempts<br>previous attempts - laptop | [![Screenshot preview of Selected Assignment history](screenshots/student/assignment_attempt_summary_laptop.png)](screenshots/student/assignment_attempt_summary_laptop.png)<br>Selected Assignment history<br>selected previous attempt - laptop |  |
+| [![Screenshot preview of Assignment overview with previous attempts](screenshots/student/laptop/overview_history.png)](screenshots/student/laptop/overview_history.png)<br>Assignment overview with previous attempts<br>previous attempts - laptop | [![Screenshot preview of Selected Assignment history](screenshots/student/laptop/selected_history.png)](screenshots/student/laptop/selected_history.png)<br>Selected Assignment history<br>selected previous attempt - laptop |  |
 
 #### Assignment Attempt
 
 | | | |
 | --- | --- | --- |
-| [![Screenshot preview of Saved Student Assignment response](screenshots/student/assignment_attempt_saved_laptop.png)](screenshots/student/assignment_attempt_saved_laptop.png)<br>Saved Student Assignment response<br>saved response - laptop<br>Featured | [![Screenshot preview of Reloaded Student Assignment response on a tablet](screenshots/student/assignment_attempt_resumed_tablet.png)](screenshots/student/assignment_attempt_resumed_tablet.png)<br>Reloaded Student Assignment response on a tablet<br>reloaded saved response - tablet | [![Screenshot preview of Submitted Student Assignment on a phone](screenshots/student/assignment_attempt_submitted_phone.png)](screenshots/student/assignment_attempt_submitted_phone.png)<br>Submitted Student Assignment on a phone<br>submitted - phone |
+| [![Screenshot preview of Saved Student Assignment response](screenshots/student/laptop/response_selected.png)](screenshots/student/laptop/response_selected.png)<br>Saved Student Assignment response<br>saved response - laptop<br>Featured | [![Screenshot preview of Reloaded Student Assignment response on a tablet](screenshots/student/tablet/resume_selected.png)](screenshots/student/tablet/resume_selected.png)<br>Reloaded Student Assignment response on a tablet<br>reloaded saved response - tablet | [![Screenshot preview of Submitted Student Assignment on a phone](screenshots/student/phone/submitted.png)](screenshots/student/phone/submitted.png)<br>Submitted Student Assignment on a phone<br>submitted - phone |
+
+### Assessments
+
+#### Assessment Navigation And Progress
+
+| | | |
+| --- | --- | --- |
+| [![Screenshot preview of Student Question navigation, saved progress, and countdown timer](screenshots/student/laptop/assessment_navigation.png)](screenshots/student/laptop/assessment_navigation.png)<br>Student Question navigation, saved progress, and countdown timer<br>Question 2 current with one saved response - laptop |  |  |
+
+#### Native And WeBWorK Response Practice
+
+| | | |
+| --- | --- | --- |
+| [![Screenshot preview of Student MULTI-FIB response controls on a laptop](screenshots/student/laptop/question_unanswered_multi_fib.png)](screenshots/student/laptop/question_unanswered_multi_fib.png)<br>Student MULTI-FIB response controls on a laptop<br>unanswered MULTI-FIB question - laptop | [![Screenshot preview of Student MULTI-FIB response controls after saving a response on a laptop](screenshots/student/laptop/question_answered_multi_fib.png)](screenshots/student/laptop/question_answered_multi_fib.png)<br>Student MULTI-FIB response controls after saving a response on a laptop<br>answered MULTI_FIB question - laptop | [![Screenshot preview of Student WeBWorK response controls on a laptop](screenshots/student/laptop/question_unanswered_webwork.png)](screenshots/student/laptop/question_unanswered_webwork.png)<br>Student WeBWorK response controls on a laptop<br>unanswered WeBWorK question - laptop |
+| [![Screenshot preview of Student WeBWorK response controls after saving a response on a laptop](screenshots/student/laptop/question_answered_webwork.png)](screenshots/student/laptop/question_answered_webwork.png)<br>Student WeBWorK response controls after saving a response on a laptop<br>answered WEBWORK question - laptop | [![Screenshot preview of Student MATCH response controls on a laptop](screenshots/student/laptop/question_unanswered_match.png)](screenshots/student/laptop/question_unanswered_match.png)<br>Student MATCH response controls on a laptop<br>unanswered MATCH question - laptop | [![Screenshot preview of Student MATCH response controls after saving a response on a laptop](screenshots/student/laptop/question_answered_match.png)](screenshots/student/laptop/question_answered_match.png)<br>Student MATCH response controls after saving a response on a laptop<br>answered MATCH question - laptop |
+| [![Screenshot preview of Student FIB response controls on a laptop](screenshots/student/laptop/question_unanswered_fib.png)](screenshots/student/laptop/question_unanswered_fib.png)<br>Student FIB response controls on a laptop<br>unanswered FIB question - laptop | [![Screenshot preview of Student FIB response controls after saving a response on a laptop](screenshots/student/laptop/question_answered_fib.png)](screenshots/student/laptop/question_answered_fib.png)<br>Student FIB response controls after saving a response on a laptop<br>answered FIB question - laptop | [![Screenshot preview of Student HOTSPOT uploaded-image response controls on a laptop](screenshots/student/laptop/question_unanswered_hotspot.png)](screenshots/student/laptop/question_unanswered_hotspot.png)<br>Student HOTSPOT uploaded-image response controls on a laptop<br>unanswered HOTSPOT question - laptop |
+| [![Screenshot preview of Student HOTSPOT uploaded-image response controls after saving a response on a laptop](screenshots/student/laptop/question_answered_hotspot.png)](screenshots/student/laptop/question_answered_hotspot.png)<br>Student HOTSPOT uploaded-image response controls after saving a response on a laptop<br>answered HOTSPOT question - laptop | [![Screenshot preview of Student ORDER response controls on a laptop](screenshots/student/laptop/question_unanswered_order.png)](screenshots/student/laptop/question_unanswered_order.png)<br>Student ORDER response controls on a laptop<br>unanswered ORDER question - laptop | [![Screenshot preview of Student ORDER response controls after saving a response on a laptop](screenshots/student/laptop/question_answered_order.png)](screenshots/student/laptop/question_answered_order.png)<br>Student ORDER response controls after saving a response on a laptop<br>answered ORDER question - laptop |
+| [![Screenshot preview of Student MA response controls on a laptop](screenshots/student/laptop/question_unanswered_ma.png)](screenshots/student/laptop/question_unanswered_ma.png)<br>Student MA response controls on a laptop<br>unanswered MA question - laptop | [![Screenshot preview of Student MA response controls after saving a response on a laptop](screenshots/student/laptop/question_answered_ma.png)](screenshots/student/laptop/question_answered_ma.png)<br>Student MA response controls after saving a response on a laptop<br>answered MA question - laptop | [![Screenshot preview of Student NUM response controls on a laptop](screenshots/student/laptop/question_unanswered_num.png)](screenshots/student/laptop/question_unanswered_num.png)<br>Student NUM response controls on a laptop<br>unanswered NUM question - laptop |
+| [![Screenshot preview of Student NUM response controls after saving a response on a laptop](screenshots/student/laptop/question_answered_num.png)](screenshots/student/laptop/question_answered_num.png)<br>Student NUM response controls after saving a response on a laptop<br>answered NUM question - laptop | [![Screenshot preview of Student MC response controls on a laptop](screenshots/student/laptop/question_unanswered_mc.png)](screenshots/student/laptop/question_unanswered_mc.png)<br>Student MC response controls on a laptop<br>unanswered MC question - laptop | [![Screenshot preview of Student MC response controls after saving a response on a laptop](screenshots/student/laptop/question_answered_mc.png)](screenshots/student/laptop/question_answered_mc.png)<br>Student MC response controls after saving a response on a laptop<br>answered MC question - laptop |
+| [![Screenshot preview of Student HOTSPOT uploaded-image response controls on a phone](screenshots/student/phone/question_unanswered_hotspot.png)](screenshots/student/phone/question_unanswered_hotspot.png)<br>Student HOTSPOT uploaded-image response controls on a phone<br>unanswered HOTSPOT question - phone | [![Screenshot preview of Student HOTSPOT uploaded-image response controls after saving a response on a phone](screenshots/student/phone/question_answered_hotspot.png)](screenshots/student/phone/question_answered_hotspot.png)<br>Student HOTSPOT uploaded-image response controls after saving a response on a phone<br>answered HOTSPOT question - phone | [![Screenshot preview of Student MATCH response controls on a phone](screenshots/student/phone/question_unanswered_match.png)](screenshots/student/phone/question_unanswered_match.png)<br>Student MATCH response controls on a phone<br>unanswered MATCH question - phone |
+| [![Screenshot preview of Student MATCH response controls after saving a response on a phone](screenshots/student/phone/question_answered_match.png)](screenshots/student/phone/question_answered_match.png)<br>Student MATCH response controls after saving a response on a phone<br>answered MATCH question - phone | [![Screenshot preview of Student MC response controls on a phone](screenshots/student/phone/question_unanswered_mc.png)](screenshots/student/phone/question_unanswered_mc.png)<br>Student MC response controls on a phone<br>unanswered MC question - phone | [![Screenshot preview of Student MC response controls after saving a response on a phone](screenshots/student/phone/question_answered_mc.png)](screenshots/student/phone/question_answered_mc.png)<br>Student MC response controls after saving a response on a phone<br>answered MC question - phone |
+| [![Screenshot preview of Student MA response controls on a phone](screenshots/student/phone/question_unanswered_ma.png)](screenshots/student/phone/question_unanswered_ma.png)<br>Student MA response controls on a phone<br>unanswered MA question - phone | [![Screenshot preview of Student MA response controls after saving a response on a phone](screenshots/student/phone/question_answered_ma.png)](screenshots/student/phone/question_answered_ma.png)<br>Student MA response controls after saving a response on a phone<br>answered MA question - phone | [![Screenshot preview of Student MULTI-FIB response controls on a phone](screenshots/student/phone/question_unanswered_multi_fib.png)](screenshots/student/phone/question_unanswered_multi_fib.png)<br>Student MULTI-FIB response controls on a phone<br>unanswered MULTI-FIB question - phone |
+| [![Screenshot preview of Student MULTI-FIB response controls after saving a response on a phone](screenshots/student/phone/question_answered_multi_fib.png)](screenshots/student/phone/question_answered_multi_fib.png)<br>Student MULTI-FIB response controls after saving a response on a phone<br>answered MULTI_FIB question - phone | [![Screenshot preview of Student WeBWorK response controls on a phone](screenshots/student/phone/question_unanswered_webwork.png)](screenshots/student/phone/question_unanswered_webwork.png)<br>Student WeBWorK response controls on a phone<br>unanswered WeBWorK question - phone | [![Screenshot preview of Student WeBWorK response controls after saving a response on a phone](screenshots/student/phone/question_answered_webwork.png)](screenshots/student/phone/question_answered_webwork.png)<br>Student WeBWorK response controls after saving a response on a phone<br>answered WEBWORK question - phone |
+| [![Screenshot preview of Student ORDER response controls on a phone](screenshots/student/phone/question_unanswered_order.png)](screenshots/student/phone/question_unanswered_order.png)<br>Student ORDER response controls on a phone<br>unanswered ORDER question - phone | [![Screenshot preview of Student ORDER response controls after saving a response on a phone](screenshots/student/phone/question_answered_order.png)](screenshots/student/phone/question_answered_order.png)<br>Student ORDER response controls after saving a response on a phone<br>answered ORDER question - phone | [![Screenshot preview of Student FIB response controls on a phone](screenshots/student/phone/question_unanswered_fib.png)](screenshots/student/phone/question_unanswered_fib.png)<br>Student FIB response controls on a phone<br>unanswered FIB question - phone |
+| [![Screenshot preview of Student FIB response controls after saving a response on a phone](screenshots/student/phone/question_answered_fib.png)](screenshots/student/phone/question_answered_fib.png)<br>Student FIB response controls after saving a response on a phone<br>answered FIB question - phone | [![Screenshot preview of Student NUM response controls on a phone](screenshots/student/phone/question_unanswered_num.png)](screenshots/student/phone/question_unanswered_num.png)<br>Student NUM response controls on a phone<br>unanswered NUM question - phone | [![Screenshot preview of Student NUM response controls after saving a response on a phone](screenshots/student/phone/question_answered_num.png)](screenshots/student/phone/question_answered_num.png)<br>Student NUM response controls after saving a response on a phone<br>answered NUM question - phone |
+| [![Screenshot preview of Student MC response controls on a tablet](screenshots/student/tablet/question_unanswered_mc.png)](screenshots/student/tablet/question_unanswered_mc.png)<br>Student MC response controls on a tablet<br>unanswered MC question - tablet | [![Screenshot preview of Student MC response controls on a square](screenshots/student/square/question_unanswered_mc.png)](screenshots/student/square/question_unanswered_mc.png)<br>Student MC response controls on a square<br>unanswered MC question - square |  |
 
 ### Authorization
 
@@ -175,117 +201,85 @@ human review.
 
 | | | |
 | --- | --- | --- |
-| [![Screenshot preview of Student authorization denial](screenshots/student/authorization_denial_laptop.png)](screenshots/student/authorization_denial_laptop.png)<br>Student authorization denial<br>denied - laptop | [![Screenshot preview of Student authorization denial on a phone](screenshots/student/authorization_denial_phone.png)](screenshots/student/authorization_denial_phone.png)<br>Student authorization denial on a phone<br>denied - phone |  |
-
-### Assessments
-
-#### Native And WeBWorK Response Practice
-
-| | | |
-| --- | --- | --- |
-| [![Screenshot preview of Student MC response controls on a laptop](screenshots/student/question_mc_laptop.png)](screenshots/student/question_mc_laptop.png)<br>Student MC response controls on a laptop<br>unanswered MC question - laptop | [![Screenshot preview of Student MC response controls on a phone](screenshots/student/question_mc_phone.png)](screenshots/student/question_mc_phone.png)<br>Student MC response controls on a phone<br>unanswered MC question - phone | [![Screenshot preview of Student MA response controls on a laptop](screenshots/student/question_ma_laptop.png)](screenshots/student/question_ma_laptop.png)<br>Student MA response controls on a laptop<br>unanswered MA question - laptop |
-| [![Screenshot preview of Student MA response controls on a phone](screenshots/student/question_ma_phone.png)](screenshots/student/question_ma_phone.png)<br>Student MA response controls on a phone<br>unanswered MA question - phone | [![Screenshot preview of Student FIB response controls on a laptop](screenshots/student/question_fib_laptop.png)](screenshots/student/question_fib_laptop.png)<br>Student FIB response controls on a laptop<br>unanswered FIB question - laptop | [![Screenshot preview of Student FIB response controls on a phone](screenshots/student/question_fib_phone.png)](screenshots/student/question_fib_phone.png)<br>Student FIB response controls on a phone<br>unanswered FIB question - phone |
-| [![Screenshot preview of Student MULTI-FIB response controls on a laptop](screenshots/student/question_multi_fib_laptop.png)](screenshots/student/question_multi_fib_laptop.png)<br>Student MULTI-FIB response controls on a laptop<br>unanswered MULTI-FIB question - laptop | [![Screenshot preview of Student MULTI-FIB response controls on a phone](screenshots/student/question_multi_fib_phone.png)](screenshots/student/question_multi_fib_phone.png)<br>Student MULTI-FIB response controls on a phone<br>unanswered MULTI-FIB question - phone | [![Screenshot preview of Student NUM response controls on a laptop](screenshots/student/question_num_laptop.png)](screenshots/student/question_num_laptop.png)<br>Student NUM response controls on a laptop<br>unanswered NUM question - laptop |
-| [![Screenshot preview of Student NUM response controls on a phone](screenshots/student/question_num_phone.png)](screenshots/student/question_num_phone.png)<br>Student NUM response controls on a phone<br>unanswered NUM question - phone | [![Screenshot preview of Student MATCH response controls on a laptop](screenshots/student/question_match_laptop.png)](screenshots/student/question_match_laptop.png)<br>Student MATCH response controls on a laptop<br>unanswered MATCH question - laptop | [![Screenshot preview of Student MATCH response controls on a phone](screenshots/student/question_match_phone.png)](screenshots/student/question_match_phone.png)<br>Student MATCH response controls on a phone<br>unanswered MATCH question - phone |
-| [![Screenshot preview of Student ORDER response controls on a laptop](screenshots/student/question_order_laptop.png)](screenshots/student/question_order_laptop.png)<br>Student ORDER response controls on a laptop<br>unanswered ORDER question - laptop | [![Screenshot preview of Student ORDER response controls on a phone](screenshots/student/question_order_phone.png)](screenshots/student/question_order_phone.png)<br>Student ORDER response controls on a phone<br>unanswered ORDER question - phone | [![Screenshot preview of Student HOTSPOT uploaded-image response controls on a laptop](screenshots/student/question_hotspot_laptop.png)](screenshots/student/question_hotspot_laptop.png)<br>Student HOTSPOT uploaded-image response controls on a laptop<br>unanswered HOTSPOT question - laptop |
-| [![Screenshot preview of Student HOTSPOT uploaded-image response controls on a phone](screenshots/student/question_hotspot_phone.png)](screenshots/student/question_hotspot_phone.png)<br>Student HOTSPOT uploaded-image response controls on a phone<br>unanswered HOTSPOT question - phone | [![Screenshot preview of Student WeBWorK response controls on a laptop](screenshots/student/question_webwork_laptop.png)](screenshots/student/question_webwork_laptop.png)<br>Student WeBWorK response controls on a laptop<br>unanswered WeBWorK question - laptop | [![Screenshot preview of Student WeBWorK response controls on a phone](screenshots/student/question_webwork_phone.png)](screenshots/student/question_webwork_phone.png)<br>Student WeBWorK response controls on a phone<br>unanswered WeBWorK question - phone |
-
-## Sysadmin
-
-### System Administration
-
-#### System Administration
-
-| | | |
-| --- | --- | --- |
-| [![Screenshot preview of System administration home](screenshots/sysadmin/system_administration_home_laptop.png)](screenshots/sysadmin/system_administration_home_laptop.png)<br>System administration home<br>system administration home - laptop<br>Featured |  |  |
-
-### Accounts
-
-#### Instructor Account Lifecycle
-
-| | | |
-| --- | --- | --- |
-| [![Screenshot preview of Instructor Accounts](screenshots/sysadmin/instructor_accounts_initial_laptop.png)](screenshots/sysadmin/instructor_accounts_initial_laptop.png)<br>Instructor Accounts<br>initial - laptop | [![Screenshot preview of Instructor Account creation validation](screenshots/sysadmin/instructor_account_validation_laptop.png)](screenshots/sysadmin/instructor_account_validation_laptop.png)<br>Instructor Account creation validation<br>creation validation - laptop | [![Screenshot preview of Created Instructor Account](screenshots/sysadmin/instructor_account_created_laptop.png)](screenshots/sysadmin/instructor_account_created_laptop.png)<br>Created Instructor Account<br>created - laptop |
-| [![Screenshot preview of Deactivated Instructor Account](screenshots/sysadmin/instructor_account_deactivated_laptop.png)](screenshots/sysadmin/instructor_account_deactivated_laptop.png)<br>Deactivated Instructor Account<br>deactivated - laptop |  |  |
+| [![Screenshot preview of Student authorization denial](screenshots/student/laptop/denial.png)](screenshots/student/laptop/denial.png)<br>Student authorization denial<br>denied - laptop | [![Screenshot preview of Student authorization denial on a phone](screenshots/student/phone/denial.png)](screenshots/student/phone/denial.png)<br>Student authorization denial on a phone<br>denied - phone |  |
 
 ## Route coverage
 
 | Surface | Status | Evidence or reason |
 | --- | --- | --- |
-| courses | deferred | The root route is only signed-in Product Role resolution; current canonical captures use their role-owned home routes. |
-| instructorHome | captured | instructor_course_list_laptop |
-| instructorInactiveCourses | captured | instructor_inactive_courses_list_laptop |
-| studentHome | captured | student_course_list_laptop, student_course_list_phone |
-| sysadminHome | captured | sysadmin_course_list_laptop |
-| profile | captured | instructor_profile_default_laptop |
-| accountSettings | deferred | Account Settings requires a fresh Live Demo capture before visual evidence is claimed. |
-| courseAssessments | captured | instructor_course_assignment_workspace_laptop |
-| assessmentOverview | captured | student_assignment_overview_unanswered_laptop, student_assignment_overview_history_laptop |
-| assessmentAttempt | captured | student_assignment_attempt_saved_laptop, student_assignment_attempt_resumed_tablet |
-| assessmentAttemptSummary | captured | student_assignment_attempt_submitted_phone, student_assignment_attempt_summary_laptop |
-| library | captured | instructor_question_library_laptop, instructor_question_pool_creation_review_laptop |
-| libraryBrowse | captured | instructor_question_library_browse_laptop |
-| libraryWatchNotifications | deferred | The private Watch notification inbox requires the next canonical Live Demo screenshot refresh before rendered evidence is claimed. |
-| questionDetail | captured | instructor_published_question_detail_laptop, instructor_webwork_generated_example_laptop, instructor_webwork_hla_genotype_laptop, instructor_webwork_monohybrid_matching_laptop, instructor_webwork_x_linked_counts_laptop, instructor_webwork_dna_structure_laptop, instructor_webwork_meiosis_prophase_laptop, instructor_webwork_chi_square_laptop, instructor_webwork_chromosome_shapes_laptop |
-| questionDrafts | captured | instructor_question_drafts_laptop |
-| questionDraftEditor | captured | instructor_draft_editor_saved_laptop, instructor_publication_review_laptop |
-| blueprintCourses | captured | instructor_blueprint_courses_laptop, instructor_blueprint_question_picker_laptop |
-| publicBlueprintSearch | captured | instructor_public_blueprint_search_laptop |
-| blueprintCourseDetail | captured | instructor_blueprint_course_detail_laptop |
 | myChangeProposals | deferred | Blueprint Change Proposals require a compiled-main two-Instructor Live Demo workflow before rendered evidence is claimed. |
 | changeProposalDetail | deferred | Blueprint Change Proposals require a compiled-main two-Instructor Live Demo workflow before rendered evidence is claimed. |
-| assessmentCreate | captured | instructor_assignment_creation_laptop |
-| assessmentWorkspaceOverview | deferred | The legacy multi-tab Assignment workspace is retired. |
-| assessmentWorkspaceQuestions | captured | instructor_assignment_release_draft_laptop |
-| assessmentWorkspacePolicies | captured | instructor_assignment_release_released_laptop |
-| assessmentWorkspaceStudentView | captured | instructor_assignment_release_preview_laptop |
-| assessmentsDueSoon | captured | instructor_assignments_due_soon_empty_laptop |
-| assessmentTemplates | deferred | Assessment Templates needs a fresh Live Demo capture before rendered evidence is claimed. |
-| gradebook | captured | instructor_gradebook_laptop |
-| courseAppearance | deferred | Course Appearance is an admitted Instructor Ribbon destination; the current atlas has no dedicated Appearance capture. The completed M11 browser scenario separately proves reload, enrolled-Student propagation, and second-Course isolation. |
+| courses | deferred | The root route is only signed-in Product Role resolution; current canonical captures use their role-owned home routes. |
+| instructorHome | captured | instructor_course_list |
+| instructorInactiveCourses | captured | instructor_inactive_courses_list |
+| studentHome | captured | student_course_list_laptop, student_course_list_phone |
+| sysadminHome | captured | sysadmin_course_list |
+| profile | captured | instructor_default |
+| accountSettings | deferred | Account Settings requires a fresh Live Demo capture before visual evidence is claimed. |
 | signIn | captured | public_sign_in_laptop, public_sign_in_phone |
-| courseRoster | captured | instructor_course_roster_active_laptop, instructor_course_roster_pending_invitation_laptop |
-| instructorAccounts | captured | sysadmin_instructor_accounts_initial_laptop, sysadmin_instructor_account_created_laptop, sysadmin_instructor_account_deactivated_laptop, sysadmin_instructor_account_validation_laptop |
-| contentDisciplines | deferred | The Sysadmin Discipline lifecycle workspace requires the next canonical Live Demo screenshot refresh before rendered evidence is claimed. |
 | pendingCourseInvitations | deferred | Pending teaching invitations are not provisioned by the current Live Demo and are not restored for screenshots. |
 | studentCourseInvitations | captured | student_invitation_index_laptop |
 | studentCourseInvitation | captured | student_invitation_detail_laptop |
-| studentCourseLanding | captured | student_course_not_started_laptop, student_course_in_progress_laptop, student_course_completed_laptop |
+| studentCourseLanding | captured | student_not_started_laptop, student_in_progress_laptop, student_completed_laptop, student_not_started_phone |
+| instructorAccounts | captured | sysadmin_accounts_initial, sysadmin_account_validation, sysadmin_account_created, sysadmin_account_deactivated |
+| contentDisciplines | deferred | The Sysadmin Discipline lifecycle workspace requires the next canonical Live Demo screenshot refresh before rendered evidence is claimed. |
+| courseAssessments | captured | instructor_course_assignment_workspace |
+| assessmentOverview | captured | student_unanswered_laptop, student_unanswered_tablet, student_overview_history_laptop |
+| assessmentAttempt | captured | student_response_selected_laptop, student_resume_selected_tablet, student_assessment_navigation_laptop, student_question_unanswered_multi_fib_laptop, student_question_answered_multi_fib_laptop, student_question_unanswered_webwork_laptop, student_question_answered_webwork_laptop, student_question_unanswered_match_laptop, student_question_answered_match_laptop, student_question_unanswered_fib_laptop, student_question_answered_fib_laptop, student_question_unanswered_hotspot_laptop, student_question_answered_hotspot_laptop, student_question_unanswered_order_laptop, student_question_answered_order_laptop, student_question_unanswered_ma_laptop, student_question_answered_ma_laptop, student_question_unanswered_num_laptop, student_question_answered_num_laptop, student_question_unanswered_mc_laptop, student_question_answered_mc_laptop, student_question_unanswered_hotspot_phone, student_question_answered_hotspot_phone, student_question_unanswered_match_phone, student_question_answered_match_phone, student_question_unanswered_mc_phone, student_question_answered_mc_phone, student_question_unanswered_ma_phone, student_question_answered_ma_phone, student_question_unanswered_multi_fib_phone, student_question_answered_multi_fib_phone, student_question_unanswered_webwork_phone, student_question_answered_webwork_phone, student_question_unanswered_order_phone, student_question_answered_order_phone, student_question_unanswered_fib_phone, student_question_answered_fib_phone, student_question_unanswered_num_phone, student_question_answered_num_phone, student_question_unanswered_mc_tablet, student_question_unanswered_mc_square |
+| assessmentAttemptSummary | captured | student_selected_history_laptop, student_submitted_phone |
+| library | captured | public_session_renewal_laptop, instructor_library_default, instructor_library_filtered, instructor_pool_creation_review, student_denial_laptop, student_denial_phone |
+| libraryBrowse | captured | instructor_library_browse |
+| libraryWatchNotifications | deferred | The private Watch notification inbox requires the next canonical Live Demo screenshot refresh before rendered evidence is claimed. |
+| questionDetail | captured | instructor_published_question_detail, instructor_webwork_generated_example, instructor_webwork_hla_genotype, instructor_webwork_monohybrid_matching, instructor_webwork_x_linked_counts, instructor_webwork_dna_structure, instructor_webwork_meiosis_prophase, instructor_webwork_chi_square, instructor_webwork_chromosome_shapes |
+| questionDrafts | captured | instructor_draft_list |
+| questionDraftEditor | captured | instructor_saved_editor, instructor_publication_review |
+| blueprintCourses | captured | instructor_blueprint_list, instructor_blueprint_question_picker |
+| publicBlueprintSearch | captured | instructor_filtered_results |
+| blueprintCourseDetail | captured | instructor_blueprint_detail |
+| assessmentsDueSoon | captured | instructor_assignments_due_soon_empty |
+| assessmentTemplates | captured | instructor_template_editor |
+| assessmentCreate | captured | instructor_assignment_creation |
+| assessmentWorkspaceOverview | deferred | The legacy multi-tab Assignment workspace is retired. |
+| assessmentWorkspaceQuestions | captured | instructor_assignment_questions_draft |
+| assessmentWorkspacePolicies | captured | instructor_assignment_policies_released |
+| assessmentWorkspaceStudentView | captured | instructor_assignment_delivery_check |
+| gradebook | captured | instructor_gradebook |
+| courseAppearance | deferred | Course Appearance is an admitted Instructor Ribbon destination; the current atlas has no dedicated Appearance capture. The completed M11 browser scenario separately proves reload, enrolled-Student propagation, and second-Course isolation. |
+| courseRoster | captured | instructor_course_roster_active, instructor_course_roster_pending_invitation |
 
 ## Ribbon destination coverage
 
 | Surface | Status | Evidence or reason |
 | --- | --- | --- |
-| tab:courses | captured | instructor_course_list_laptop, student_course_list_laptop, sysadmin_course_list_laptop |
-| tab:questions | captured | instructor_question_library_laptop, instructor_question_pool_creation_review_laptop, instructor_webwork_generated_example_laptop, instructor_webwork_hla_genotype_laptop, instructor_webwork_monohybrid_matching_laptop, instructor_webwork_x_linked_counts_laptop, instructor_webwork_dna_structure_laptop, instructor_webwork_meiosis_prophase_laptop, instructor_webwork_chi_square_laptop, instructor_webwork_chromosome_shapes_laptop |
-| tab:productAssessments | captured | instructor_assignments_due_soon_empty_laptop |
-| tab:assessments | captured | instructor_course_assignment_workspace_laptop |
-| tab:studentAssessments | captured | student_course_not_started_laptop |
-| tab:students | captured | instructor_course_roster_active_laptop |
-| tab:gradebook | captured | instructor_gradebook_laptop |
+| tab:courses | deferred | The root route is only signed-in Product Role resolution; current canonical captures use their role-owned home routes. |
+| tab:questions | captured | public_session_renewal_laptop, instructor_library_default, instructor_library_filtered, instructor_pool_creation_review, student_denial_laptop, student_denial_phone |
+| tab:productAssessments | captured | instructor_assignments_due_soon_empty |
+| tab:assessments | captured | instructor_course_assignment_workspace |
+| tab:studentAssessments | captured | student_not_started_laptop, student_in_progress_laptop, student_completed_laptop, student_not_started_phone |
+| tab:students | captured | instructor_course_roster_active, instructor_course_roster_pending_invitation |
+| tab:gradebook | captured | instructor_gradebook |
 | tab:teachingOperations | deferred | Teaching Operations is not admitted by the current Live Demo capability registry. |
 | tab:blueprintUpdates | deferred | Blueprint Updates is a future Ribbon destination without a Product Route. |
 | tab:courseSetup | deferred | Course Setup is a future Ribbon destination without a complete current workflow. |
-| tab:attempt | deferred | The separate legacy Assignment Attempt Ribbon is not exposed by the default Live Demo. |
-| tab:instructorAccounts | captured | sysadmin_instructor_accounts_initial_laptop |
+| tab:attempt | captured | student_response_selected_laptop, student_resume_selected_tablet, student_assessment_navigation_laptop, student_question_unanswered_multi_fib_laptop, student_question_answered_multi_fib_laptop, student_question_unanswered_webwork_laptop, student_question_answered_webwork_laptop, student_question_unanswered_match_laptop, student_question_answered_match_laptop, student_question_unanswered_fib_laptop, student_question_answered_fib_laptop, student_question_unanswered_hotspot_laptop, student_question_answered_hotspot_laptop, student_question_unanswered_order_laptop, student_question_answered_order_laptop, student_question_unanswered_ma_laptop, student_question_answered_ma_laptop, student_question_unanswered_num_laptop, student_question_answered_num_laptop, student_question_unanswered_mc_laptop, student_question_answered_mc_laptop, student_question_unanswered_hotspot_phone, student_question_answered_hotspot_phone, student_question_unanswered_match_phone, student_question_answered_match_phone, student_question_unanswered_mc_phone, student_question_answered_mc_phone, student_question_unanswered_ma_phone, student_question_answered_ma_phone, student_question_unanswered_multi_fib_phone, student_question_answered_multi_fib_phone, student_question_unanswered_webwork_phone, student_question_answered_webwork_phone, student_question_unanswered_order_phone, student_question_answered_order_phone, student_question_unanswered_fib_phone, student_question_answered_fib_phone, student_question_unanswered_num_phone, student_question_answered_num_phone, student_question_unanswered_mc_tablet, student_question_unanswered_mc_square |
+| tab:instructorAccounts | captured | sysadmin_accounts_initial, sysadmin_account_validation, sysadmin_account_created, sysadmin_account_deactivated |
 | tab:disciplines | deferred | The Sysadmin Disciplines tab requires the next canonical Live Demo screenshot refresh before rendered evidence is claimed. |
-| task:myBlueprintCourses | captured | instructor_blueprint_courses_laptop |
-| task:myActiveCourses | captured | instructor_course_list_laptop |
-| task:myInactiveCourses | captured | instructor_inactive_courses_list_laptop |
-| task:searchPublicBlueprintCourses | captured | instructor_public_blueprint_search_laptop |
+| task:myBlueprintCourses | captured | instructor_blueprint_list, instructor_blueprint_question_picker |
+| task:myActiveCourses | captured | instructor_course_list |
+| task:myInactiveCourses | captured | instructor_inactive_courses_list |
+| task:searchPublicBlueprintCourses | captured | instructor_filtered_results |
 | task:myQuestions | deferred | My Questions is a future Ribbon destination without a Product Route. |
-| task:myDraftQuestions | captured | instructor_question_drafts_laptop |
+| task:myDraftQuestions | captured | instructor_draft_list |
 | task:starred | deferred | Starred Questions is a future Ribbon destination without a Product Route. |
 | task:watched | deferred | Watched is an Instructor route to the private Watch inbox; its rendered checkpoint awaits the next canonical Live Demo replay. |
-| task:searchQuestionLibrary | captured | instructor_question_library_filtered_laptop |
-| task:browseQuestionLibrary | captured | instructor_question_library_laptop |
-| task:assessmentsDueSoon | captured | instructor_assignments_due_soon_empty_laptop |
-| task:assessmentTemplates | deferred | Assessment Templates needs a fresh Live Demo capture before rendered evidence is claimed. |
+| task:searchQuestionLibrary | captured | public_session_renewal_laptop, instructor_library_default, instructor_library_filtered, instructor_pool_creation_review, student_denial_laptop, student_denial_phone |
+| task:browseQuestionLibrary | captured | instructor_library_browse |
+| task:assessmentsDueSoon | captured | instructor_assignments_due_soon_empty |
+| task:assessmentTemplates | captured | instructor_template_editor |
 | task:assessmentOverview | deferred | The legacy multi-tab Assignment workspace is retired. |
-| task:assessmentQuestions | deferred | The legacy multi-tab Assignment workspace is retired. |
-| task:assessmentPolicies | deferred | The legacy multi-tab Assignment workspace is retired. |
-| task:assessmentStudentView | deferred | The answer-free release preview is the current Student-view surface. |
+| task:assessmentQuestions | captured | instructor_assignment_questions_draft |
+| task:assessmentPolicies | captured | instructor_assignment_policies_released |
+| task:assessmentStudentView | captured | instructor_assignment_delivery_check |
 | task:gradeSettings | deferred | Grade Settings is not admitted by the current Live Demo capability registry. |
 | task:appearance | deferred | Course Appearance is an admitted Instructor Ribbon task; the current atlas has no dedicated Appearance capture. The completed M11 browser scenario separately proves reload, enrolled-Student propagation, and second-Course isolation. |
-| task:backToAssessments | covered_by | tab:assessments: The destination is the same captured Course Assignment workspace. |
+| task:backToAssessments | captured | student_unanswered_laptop, student_unanswered_tablet, student_overview_history_laptop |

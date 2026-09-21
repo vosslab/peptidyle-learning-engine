@@ -90,11 +90,11 @@ fn assessment_attempt_retains_interpretation_evidence() {
 #[test]
 fn question_pool_selection_retains_exact_entries_and_issued_question_link() {
     let selection_id = QuestionPoolSelectionId::from_uuid(Uuid::from_u128(10));
-    let question_pool_id: crate::QuestionId = "7654-Z321".parse().expect("valid Pool ID");
+    let question_pool_id: crate::QuestionPoolId = "7654-Z321".parse().expect("valid Pool ID");
     let question_pool_edit_number =
         crate::QuestionPoolEditNumber::new(1).expect("positive Pool Edit Number");
-    let question_revision_tuple = QuestionRevisionTuple {
-        question_id: "1234-H567".parse().expect("valid Question ID"),
+    let published_question_revision_tuple = PublishedQuestionRevisionTuple {
+        published_question_id: "1234-H567".parse().expect("valid Question ID"),
         revision_number: crate::QuestionRevisionNumber::new(1).expect("positive version"),
     };
     let selection = QuestionPoolSelection {
@@ -108,7 +108,7 @@ fn question_pool_selection_retains_exact_entries_and_issued_question_link() {
             question_pool_id: question_pool_id.clone(),
             question_pool_edit_number,
             member_position: 0,
-            question_revision_tuple: question_revision_tuple.clone(),
+            published_question_revision_tuple: published_question_revision_tuple.clone(),
         }],
     };
     let issued_question = IssuedQuestion {
@@ -117,7 +117,7 @@ fn question_pool_selection_retains_exact_entries_and_issued_question_link() {
         assessment_entry_id: selection.question_pool_assessment_entry,
         assessment_content_entry_index: 0,
         issued_position: 0,
-        question_revision_tuple,
+        published_question_revision_tuple,
         source_selection: QuestionSourceSelection::Static,
         reproduction_details: reproduction_details(),
         point_value: crate::AssessmentPointValue::from_whole(1),

@@ -2,7 +2,7 @@
 
 import { For, Show, createEffect, createResource, createSignal, type JSX } from "solid-js";
 
-import type { QuestionId } from "../../generated/api/QuestionId";
+import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionId";
 import { useApplicationApi } from "../api/application_api";
 import { useSessionBootstrap } from "../auth/session_context";
 import type {
@@ -15,7 +15,7 @@ import "./library_discussion_panel.css";
 
 export interface LibraryDiscussionPanelProps {
   readonly kind: LibraryObjectDiscussionKind;
-  readonly publicId: QuestionId;
+  readonly publicId: PublishedQuestionId;
 }
 
 function activityAnchor(activityId: string): string {
@@ -34,7 +34,7 @@ function parseRevisionNumber(value: string): number | null {
 
 function ImpactNoticeView(props: {
   readonly kind: LibraryObjectDiscussionKind;
-  readonly publicId: QuestionId;
+  readonly publicId: PublishedQuestionId;
   readonly notice: LibraryImpactNotice;
   readonly refresh: () => unknown;
 }): JSX.Element {
@@ -78,7 +78,7 @@ function CancelledImpactNotice(props: {
 
 function ActiveImpactNotice(props: {
   readonly kind: LibraryObjectDiscussionKind;
-  readonly publicId: QuestionId;
+  readonly publicId: PublishedQuestionId;
   readonly notice: Extract<LibraryImpactNotice, { readonly state: "active" }>;
   readonly refresh: () => unknown;
 }): JSX.Element {
@@ -333,7 +333,7 @@ export function LibraryDiscussionPanel(props: LibraryDiscussionPanelProps): JSX.
 
 function ThreadView(props: {
   readonly kind: LibraryObjectDiscussionKind;
-  readonly publicId: QuestionId;
+  readonly publicId: PublishedQuestionId;
   readonly thread: LibraryImprovementThread;
   readonly refresh: () => unknown;
   readonly mayParticipate: boolean;
@@ -456,7 +456,7 @@ function ThreadView(props: {
 
 function PostView(props: {
   readonly kind: LibraryObjectDiscussionKind;
-  readonly publicId: QuestionId;
+  readonly publicId: PublishedQuestionId;
   readonly post: LibraryImprovementPost;
   readonly refresh: () => unknown;
   readonly mayEdit: boolean;

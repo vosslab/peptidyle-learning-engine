@@ -133,7 +133,7 @@ BEGIN
     RETURN QUERY
     SELECT template.assessment_template_id,
            template.template_name,
-           template.assessment_type,
+           template.assessment_type::text,
            jsonb_build_object(
                'instructions', policy.assessment_instructions,
                'assessmentAttemptTimeLimitSeconds',
@@ -224,14 +224,14 @@ BEGIN
     snapshot_id := ple_private.ensure_assessment_policy_snapshot(
         p_template_name,
         p_settings ->> 'instructions',
-        NULL, NULL, NULL,
+        NULL::timestamptz, NULL::timestamptz, NULL::timestamptz,
         (p_settings ->> 'assessmentAttemptTimeLimitSeconds')::integer,
         (p_settings ->> 'attemptLimit')::integer,
         (p_settings ->> 'lateWorkRule')::ple_data.late_work_rule,
         CASE activity_rules ->> 'questionVariationRule'
-            WHEN 'reuseVariation' THEN 'reuse_variation' ELSE 'new_variation' END,
+            WHEN 'reuseVariation' THEN 'reuse_variation' ELSE 'new_variation' END::ple_data.question_variation_rule,
         CASE activity_rules ->> 'assessmentQuestionOrderRule'
-            WHEN 'authoredOrder' THEN 'authored_order' ELSE 'shuffled' END,
+            WHEN 'authoredOrder' THEN 'authored_order' ELSE 'shuffled' END::ple_data.question_order_rule,
         (feedback_rules ->> 'score')::ple_data.feedback_release,
         (feedback_rules ->> 'per_item_correctness')::ple_data.feedback_release,
         (feedback_rules ->> 'submitted_response')::ple_data.feedback_release,
@@ -245,7 +245,7 @@ BEGIN
         assessment_template_id, owner_account_id, template_name, assessment_type,
         assessment_policy_snapshot_id
     ) VALUES (
-        p_assessment_template_id, actor_id, p_template_name, p_assessment_type, snapshot_id
+        p_assessment_template_id, actor_id, p_template_name, p_assessment_type::ple_data.assessment_type, snapshot_id
     );
 
     RETURN QUERY SELECT created.*
@@ -304,14 +304,14 @@ BEGIN
     snapshot_id := ple_private.ensure_assessment_policy_snapshot(
         p_template_name,
         p_settings ->> 'instructions',
-        NULL, NULL, NULL,
+        NULL::timestamptz, NULL::timestamptz, NULL::timestamptz,
         (p_settings ->> 'assessmentAttemptTimeLimitSeconds')::integer,
         (p_settings ->> 'attemptLimit')::integer,
         (p_settings ->> 'lateWorkRule')::ple_data.late_work_rule,
         CASE activity_rules ->> 'questionVariationRule'
-            WHEN 'reuseVariation' THEN 'reuse_variation' ELSE 'new_variation' END,
+            WHEN 'reuseVariation' THEN 'reuse_variation' ELSE 'new_variation' END::ple_data.question_variation_rule,
         CASE activity_rules ->> 'assessmentQuestionOrderRule'
-            WHEN 'authoredOrder' THEN 'authored_order' ELSE 'shuffled' END,
+            WHEN 'authoredOrder' THEN 'authored_order' ELSE 'shuffled' END::ple_data.question_order_rule,
         (feedback_rules ->> 'score')::ple_data.feedback_release,
         (feedback_rules ->> 'per_item_correctness')::ple_data.feedback_release,
         (feedback_rules ->> 'submitted_response')::ple_data.feedback_release,
@@ -324,7 +324,7 @@ BEGIN
     UPDATE ple_private.assessment_template AS template
        SET assessment_template_edit_number = template.assessment_template_edit_number + 1,
            template_name = p_template_name,
-           assessment_type = p_assessment_type,
+           assessment_type = p_assessment_type::ple_data.assessment_type,
            assessment_policy_snapshot_id = snapshot_id
      WHERE template.assessment_template_id = p_assessment_template_id
        AND template.owner_account_id = ple_api.current_session_account_id();
@@ -333,4 +333,3 @@ BEGIN
       FROM ple_api.read_assessment_template(p_assessment_template_id) AS saved;
 END
 $$;
-

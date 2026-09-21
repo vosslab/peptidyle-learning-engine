@@ -30,7 +30,7 @@ not generic `assignment`.
 | Rust modules, functions, fields, locals | `snake_case` | `assessment_attempt` |
 | Rust types, traits, enum variants | `UpperCamelCase` | `AssessmentAttempt` |
 | TypeScript functions, locals, signals, ordinary props | `lowerCamelCase` | `saveAssessment` |
-| PLE-owned JSON identity and Tuple members | camelCase | `accountId`, `courseInstanceId`, `{questionId, revisionNumber}`, `{blueprintCourseId, revisionNumber}` |
+| PLE-owned JSON identity and Tuple members | camelCase | `accountId`, `courseInstanceId`, `{publishedQuestionId, revisionNumber}`, `{blueprintCourseId, revisionNumber}` |
 | Other PLE-owned serialized fields | language-native at the owning boundary | SQL `assessment_type`; JSON may still use `snake_case` on non-identity Blueprint views |
 | TypeScript types and components | `UpperCamelCase` | `AssessmentPropertiesEditor` |
 | Python modules, functions, locals | `snake_case` | `assessment_id` |
@@ -51,7 +51,7 @@ their owner's spelling.
 | Typed internal UUID | `Uuid` / `_uuid` | `AssessmentAttemptUuid`, `assessment_attempt_uuid` |
 | Public product ID | reviewed `Id` term | `CourseInstanceId` |
 | Immutable Revision number | `RevisionNumber` | `QuestionRevisionNumber`, `BlueprintRevisionNumber` |
-| Composite exact identity | `Tuple` | `QuestionRevisionTuple`, `BlueprintRevisionTuple`, `QuestionImageAssetTuple`, `CourseRosterTuple`; JSON fields `questionRevisionTuple` / `blueprintRevisionTuple` / `questionImageAssetTuple` / `courseRosterTuple` |
+| Composite exact identity | `Tuple` | `PublishedQuestionRevisionTuple`, `BlueprintRevisionTuple`, `QuestionImageAssetTuple`, `CourseRosterTuple`; JSON fields `publishedQuestionRevisionTuple` / `blueprintRevisionTuple` / `questionImageAssetTuple` / `courseRosterTuple` |
 | Genuine indirect, scoped, or external locator | `Reference` | Use only when a simpler Id, Tuple, path, key, handle, or token is inaccurate |
 | Current-state concurrency | `EditNumber` | `AssessmentEditNumber`, `BlueprintEditNumber`, `DraftQuestionEditNumber`; JSON `assessmentEditNumber`, `draftQuestionEditNumber`, `expectedAssessmentEditNumber` |
 | Integrity value | `Checksum` | `ObjectChecksum` |
@@ -122,7 +122,9 @@ Use `Uuid` only when the physical value is a UUID. A public ID is the one
 universal, canonical human-facing identifier for a PLE object that needs one.
 Store and use an exact public ID unchanged across all boundaries; it is not a
 display form or a translated version of another identifier. The public
-Question/Pool ID remains `QuestionId`/`PoolId` because ID is its product name.
+Published Question and Question Pool identities use distinct code types:
+`PublishedQuestionId` and `QuestionPoolId`. Product prose may shorten the first
+to "Question ID," but source names keep the boundary explicit.
 
 ## Domain map
 
@@ -133,8 +135,8 @@ Question/Pool ID remains `QuestionId`/`PoolId` because ID is its product name.
 | Student record | `student_record_id` UUID under one Course Instance; FERPA-internal, not a recovery or public API field |
 | Course Roster | `CourseRosterId` and `CourseRosterTuple { courseInstanceId, rosterId }` |
 | Draft Question | `draft_question_id` UUID, optional `draft_question_edit_number` |
-| Published Question | `published_question_id` / `QuestionId` plus `QuestionRevisionTuple` |
-| Question Pool | `question_pool_id` / `PoolId` plus Pool member list and `question_pool_edit_number` |
+| Published Question | `published_question_id` / `PublishedQuestionId` plus `PublishedQuestionRevisionTuple` |
+| Question Pool | `question_pool_id` / `QuestionPoolId` plus Pool member list and `question_pool_edit_number` |
 | Blueprint Course | `blueprint_course_id` / `BlueprintCourseId`, `BlueprintRevisionTuple`, and current lifecycle |
 | Course Instance | `course_instance_id` / `CourseInstanceId` with equal co-Instructor relationships |
 | Assessment | `assessment_id` / `AssessmentId`; Blueprint Assessment or Course Instance Assessment where scope matters |

@@ -7,7 +7,7 @@
 use std::collections::BTreeSet;
 
 use async_trait::async_trait;
-use question_model::{MAX_BULK_QUESTION_METADATA_ITEMS, QuestionId};
+use question_model::{MAX_BULK_QUESTION_METADATA_ITEMS, PublishedQuestionId};
 
 use crate::{SessionTokenHash, StoreError};
 
@@ -15,7 +15,7 @@ use crate::{SessionTokenHash, StoreError};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BulkPublishedQuestionMetadataSelection {
     /// Stable Published Question identity, never a Revision or source identity.
-    pub question_id: QuestionId,
+    pub question_id: PublishedQuestionId,
     /// Current independent metadata edit number for this Question lineage.
     pub metadata_edit_number: u64,
 }
@@ -94,7 +94,7 @@ impl BulkPublishedQuestionMetadataInput {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BulkPublishedQuestionMetadataResult {
     /// Stable Published Question identity.
-    pub question_id: QuestionId,
+    pub question_id: PublishedQuestionId,
     /// Metadata edit number after the accepted command.
     pub metadata_edit_number: u64,
 }

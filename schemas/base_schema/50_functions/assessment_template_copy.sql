@@ -126,21 +126,20 @@ BEGIN
       FROM ple_data.create_assessment_from_template_values(
         p_assessment_id,
         course_instance_id,
-        template.assessment_type,
+        template.assessment_type::text,
         p_title,
         policy.assessment_instructions,
         policy.assessment_attempt_time_limit_seconds,
         policy.assessment_attempt_limit,
-        policy.late_work_rule,
-        policy.question_variation_rule,
-        policy.assessment_question_order_rule,
-        policy.feedback_score,
-        policy.feedback_per_item_correctness,
-        policy.feedback_submitted_response,
-        policy.feedback_question_answer,
-        policy.feedback_question_answer_explanation,
-        policy.feedback_class_statistics
+        policy.late_work_rule::text,
+        policy.question_variation_rule::text,
+        policy.assessment_question_order_rule::text,
+        policy.feedback_score::text,
+        policy.feedback_per_item_correctness::text,
+        policy.feedback_submitted_response::text,
+        policy.feedback_question_answer::text,
+        policy.feedback_question_answer_explanation::text,
+        policy.feedback_class_statistics::text
     ) AS created;
 END
 $$;
-

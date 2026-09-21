@@ -36,15 +36,19 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable';
     END IF;
     snapshot_id := ple_private.ensure_assessment_policy_snapshot(
-        p_title, p_instructions, NULL, NULL, NULL, NULL,
+        p_title, p_instructions, NULL::timestamptz, NULL::timestamptz, NULL::timestamptz, NULL::integer,
         CASE WHEN p_assessment_type IN ('quiz', 'exam') THEN 1 ELSE NULL END,
-        'reject', 'new_variation', 'shuffled',
-        'after_submit', 'after_submit', 'after_submit',
+        'reject'::ple_data.late_work_rule,
+        'new_variation'::ple_data.question_variation_rule,
+        'shuffled'::ple_data.question_order_rule,
+        'after_submit'::ple_data.feedback_release,
+        'after_submit'::ple_data.feedback_release,
+        'after_submit'::ple_data.feedback_release,
         CASE WHEN p_assessment_type IN ('practice_question_assignment', 'quiz', 'exam')
-             THEN 'after_submit' ELSE 'never' END,
+             THEN 'after_submit' ELSE 'never' END::ple_data.feedback_release,
         CASE WHEN p_assessment_type IN ('quiz', 'exam')
-             THEN 'after_submit' ELSE 'never' END,
-        'never',
+             THEN 'after_submit' ELSE 'never' END::ple_data.feedback_release,
+        'never'::ple_data.feedback_release,
         p_assessment_type::ple_data.assessment_type
     );
     INSERT INTO ple_data.assessment AS inserted (
@@ -54,7 +58,7 @@ BEGIN
         created_at, updated_at, assessment_type, assessment_policy_snapshot_id
     ) VALUES (
         p_assessment_id, course_row.course_instance_id, 'direct', NULL, NULL, NULL,
-        clock_timestamp(), clock_timestamp(), p_assessment_type, snapshot_id
+        clock_timestamp(), clock_timestamp(), p_assessment_type::ple_data.assessment_type, snapshot_id
     ) RETURNING inserted.assessment_id, inserted.assessment_edit_number,
         inserted.assessment_status
       INTO assessment_id, assessment_edit_number, assessment_status;
@@ -63,4 +67,3 @@ BEGIN
     RETURN NEXT;
 END
 $$;
-

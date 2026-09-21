@@ -4,7 +4,7 @@ import { For, Show, createMemo, createSignal, type JSX } from "solid-js";
 
 import type { AssessmentEntry } from "../../../generated/api/AssessmentEntry";
 import type { AssessmentQuestionPoolForkView } from "../../../generated/api/AssessmentQuestionPoolForkView";
-import type { QuestionRevisionTuple } from "../../../generated/api/QuestionRevisionTuple";
+import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
 import type { AssessmentQuestionPickerEntry } from "../../api/assessment_release";
 import { questionRevisionKey } from "./assessment_workspace_questions_model";
 import { CourseClassificationSummary } from "../../components/course_classification_summary";
@@ -17,7 +17,7 @@ export interface AssessmentPoolEntryEditorProps {
   readonly mutationsEnabled: boolean;
   readonly busy: boolean;
   readonly onSelectionCount: (selectionCount: number) => void;
-  readonly onReplaceMembers: (members: ReadonlyArray<QuestionRevisionTuple>) => void;
+  readonly onReplaceMembers: (members: ReadonlyArray<PublishedQuestionRevisionTuple>) => void;
 }
 
 /** Renders exact immutable fork members and only the two permitted Assessment-owned mutations. */
@@ -26,15 +26,18 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
   const [attested, setAttested] = createSignal(false);
   const candidates = createMemo(() => {
     const existing = new Set(
-      props.fork?.members.map((member) => questionRevisionKey(member.questionRevisionTuple)) ?? [],
+      props.fork?.members.map((member) =>
+        questionRevisionKey(member.publishedQuestionRevisionTuple),
+      ) ?? [],
     );
     return props.availableQuestions.filter(
-      (candidate) => !existing.has(questionRevisionKey(candidate.questionRevisionTuple)),
+      (candidate) => !existing.has(questionRevisionKey(candidate.publishedQuestionRevisionTuple)),
     );
   });
   const selectedCandidate = createMemo(() =>
     candidates().find(
-      (candidate) => questionRevisionKey(candidate.questionRevisionTuple) === candidateKey(),
+      (candidate) =>
+        questionRevisionKey(candidate.publishedQuestionRevisionTuple) === candidateKey(),
     ),
   );
 
@@ -55,14 +58,14 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
     const candidate = selectedCandidate();
     if (candidate === undefined || !attested() || !props.mutationsEnabled || props.busy) return;
     props.onReplaceMembers([
-      ...(props.fork?.members.map((member) => member.questionRevisionTuple) ?? []),
-      candidate.questionRevisionTuple,
+      ...(props.fork?.members.map((member) => member.publishedQuestionRevisionTuple) ?? []),
+      candidate.publishedQuestionRevisionTuple,
     ]);
     setCandidateKey("");
     setAttested(false);
   }
 
-  function replaceMembers(members: ReadonlyArray<QuestionRevisionTuple>): void {
+  function replaceMembers(members: ReadonlyArray<PublishedQuestionRevisionTuple>): void {
     if (!attested() || !props.mutationsEnabled || props.busy) return;
     props.onReplaceMembers(members);
     setAttested(false);
@@ -113,8 +116,8 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
               <For each={fork().members}>
                 {(member, index) => (
                   <li>
-                    <strong>{member.questionRevisionTuple.questionId}</strong> Revision{" "}
-                    {member.questionRevisionTuple.revisionNumber}:{" "}
+                    <strong>{member.publishedQuestionRevisionTuple.publishedQuestionId}</strong>{" "}
+                    Revision {member.publishedQuestionRevisionTuple.revisionNumber}:{" "}
                     {member.question.question_library.summary.metadata.questionTitle}
                     <fieldset disabled={!props.mutationsEnabled || props.busy || !attested()}>
                       <legend>Membership order</legend>
@@ -123,7 +126,7 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
                         disabled={index() === 0}
                         onClick={() => {
                           const members = fork().members.map(
-                            (current) => current.questionRevisionTuple,
+                            (current) => current.publishedQuestionRevisionTuple,
                           );
                           [members[index() - 1], members[index()]] = [
                             members[index()]!,
@@ -139,7 +142,7 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
                         disabled={index() === fork().members.length - 1}
                         onClick={() => {
                           const members = fork().members.map(
-                            (current) => current.questionRevisionTuple,
+                            (current) => current.publishedQuestionRevisionTuple,
                           );
                           [members[index()], members[index() + 1]] = [
                             members[index() + 1]!,
@@ -157,7 +160,7 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
                           replaceMembers(
                             fork()
                               .members.filter((_current, currentIndex) => currentIndex !== index())
-                              .map((current) => current.questionRevisionTuple),
+                              .map((current) => current.publishedQuestionRevisionTuple),
                           )
                         }
                       >
@@ -200,9 +203,10 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
                   <option value="">Choose a Question</option>
                   <For each={candidates()}>
                     {(candidate) => (
-                      <option value={questionRevisionKey(candidate.questionRevisionTuple)}>
-                        {candidate.questionRevisionTuple.questionId} Revision{" "}
-                        {candidate.questionRevisionTuple.revisionNumber}: {candidate.description}
+                      <option value={questionRevisionKey(candidate.publishedQuestionRevisionTuple)}>
+                        {candidate.publishedQuestionRevisionTuple.publishedQuestionId} Revision{" "}
+                        {candidate.publishedQuestionRevisionTuple.revisionNumber}:{" "}
+                        {candidate.description}
                       </option>
                     )}
                   </For>

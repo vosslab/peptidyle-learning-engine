@@ -1,7 +1,7 @@
 //! PostgreSQL implementation of the authenticated Question Pool Star boundary.
 
 use async_trait::async_trait;
-use question_model::QuestionId;
+use question_model::QuestionPoolId;
 use sqlx::{Postgres, Row, Transaction};
 
 use super::{Pool, connection::map_sqlx_error};
@@ -65,7 +65,7 @@ impl PostgresQuestionPoolStewardshipStore {
 
     async fn read_in(
         tx: &mut Transaction<'_, Postgres>,
-        question_pool_id: &QuestionId,
+        question_pool_id: &QuestionPoolId,
     ) -> Result<QuestionPoolStarProjection, StoreError> {
         // ASVS 8.2.1--8.3.1: this API procedure derives the subject from the
         // installed session; it accepts no Account ID or client role claim.
@@ -87,7 +87,7 @@ impl PostgresQuestionPoolStewardshipStore {
 
     async fn read_watch_in(
         tx: &mut Transaction<'_, Postgres>,
-        question_pool_id: &QuestionId,
+        question_pool_id: &QuestionPoolId,
     ) -> Result<QuestionPoolWatchProjection, StoreError> {
         // The SQL function derives and validates the actor from the installed
         // session. Its closed row has only the actor's boolean Watch state.
@@ -126,7 +126,7 @@ impl QuestionPoolStewardshipStore for PostgresQuestionPoolStewardshipStore {
     async fn question_pool_star_projection(
         &self,
         session_token_hash: SessionTokenHash,
-        question_pool_id: &QuestionId,
+        question_pool_id: &QuestionPoolId,
     ) -> Result<QuestionPoolStarProjection, StoreError> {
         let mut tx = self.begin(session_token_hash).await?;
         let projection = Self::read_in(&mut tx, question_pool_id).await?;
@@ -137,7 +137,7 @@ impl QuestionPoolStewardshipStore for PostgresQuestionPoolStewardshipStore {
     async fn set_current_question_pool_star_projection(
         &self,
         session_token_hash: SessionTokenHash,
-        question_pool_id: &QuestionId,
+        question_pool_id: &QuestionPoolId,
         starred: bool,
     ) -> Result<QuestionPoolStarProjection, StoreError> {
         let mut tx = self.begin(session_token_hash).await?;
@@ -156,7 +156,7 @@ impl QuestionPoolStewardshipStore for PostgresQuestionPoolStewardshipStore {
     async fn question_pool_watch_projection(
         &self,
         session_token_hash: SessionTokenHash,
-        question_pool_id: &QuestionId,
+        question_pool_id: &QuestionPoolId,
     ) -> Result<QuestionPoolWatchProjection, StoreError> {
         let mut tx = self.begin(session_token_hash).await?;
         let projection = Self::read_watch_in(&mut tx, question_pool_id).await?;
@@ -167,7 +167,7 @@ impl QuestionPoolStewardshipStore for PostgresQuestionPoolStewardshipStore {
     async fn set_current_question_pool_watch_projection(
         &self,
         session_token_hash: SessionTokenHash,
-        question_pool_id: &QuestionId,
+        question_pool_id: &QuestionPoolId,
         watching: bool,
     ) -> Result<QuestionPoolWatchProjection, StoreError> {
         let mut tx = self.begin(session_token_hash).await?;

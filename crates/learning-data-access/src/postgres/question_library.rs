@@ -3,11 +3,12 @@
 use async_trait::async_trait;
 use question_model::{
     BloomClassificationEditNumber, BloomClassificationView, BloomCognitiveProcess,
-    BloomKnowledgeDimension, MAX_BULK_QUESTION_METADATA_ITEMS, ObjectId,
-    PublishedQuestionSharedMetadata, QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship,
-    QuestionAvailability, QuestionAvailabilityEditNumber, QuestionBackend, QuestionId,
-    QuestionRevisionNumber, QuestionRevisionTuple, QuestionRevisionUsageStatistics, QuestionType,
-    QuestionUsageTotals, SourceObjectChecksum, Tag, Timestamp,
+    BloomKnowledgeDimension, MAX_BULK_QUESTION_METADATA_ITEMS, ObjectId, PublishedQuestionId,
+    PublishedQuestionRevisionTuple, PublishedQuestionSharedMetadata, QuestionAuthor,
+    QuestionAuthorDisplayName, QuestionAuthorship, QuestionAvailability,
+    QuestionAvailabilityEditNumber, QuestionBackend, QuestionRevisionNumber,
+    QuestionRevisionUsageStatistics, QuestionType, QuestionUsageTotals, SourceObjectChecksum, Tag,
+    Timestamp,
 };
 use sqlx::{Postgres, Row, Transaction};
 
@@ -89,7 +90,7 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
     async fn load_published_question_library_entry(
         &self,
         session_token_hash: SessionTokenHash,
-        question_id: &QuestionId,
+        question_id: &PublishedQuestionId,
     ) -> Result<PublishedQuestionLibraryEntry, StoreError> {
         let mut transaction = self
             .begin_authenticated_application_transaction(session_token_hash)
@@ -119,7 +120,7 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
     async fn load_published_question_revision_library_entry(
         &self,
         session_token_hash: SessionTokenHash,
-        question_revision_tuple: &QuestionRevisionTuple,
+        published_question_revision_tuple: &PublishedQuestionRevisionTuple,
     ) -> Result<PublishedQuestionLibraryEntry, StoreError> {
         let mut transaction = self
             .begin_authenticated_application_transaction(session_token_hash)
@@ -133,9 +134,9 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
              LEFT JOIN LATERAL ple_api.list_content_subtopics(q.content_topic_id) st ON st.content_subtopic_id = q.content_subtopic_id \
              JOIN LATERAL ple_api.list_content_subjects(q.content_discipline_id) s ON s.content_subject_id = q.content_subject_id \
              LEFT JOIN LATERAL ple_api.list_content_topics(q.content_subject_id) t ON t.content_topic_id = q.content_topic_id")
-            .bind(question_revision_tuple.question_id.as_str())
+            .bind(published_question_revision_tuple.published_question_id.as_str())
             .bind(
-                i32::try_from(question_revision_tuple.revision_number.get())
+                i32::try_from(published_question_revision_tuple.revision_number.get())
                     .map_err(|_| invalid("Question Revision Number"))?,
             )
             .fetch_optional(&mut *transaction)
@@ -146,7 +147,7 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
             .map(decode_entry)
             .transpose()?
             .ok_or(StoreError::NotFound)?;
-        if entry.question_revision_tuple != *question_revision_tuple {
+        if entry.published_question_revision_tuple != *published_question_revision_tuple {
             return Err(invalid("Question Library exact revision"));
         }
         transaction.commit().await.map_err(map_sqlx_error)?;
@@ -156,7 +157,7 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
     async fn correct_question_revision_bloom(
         &self,
         session_token_hash: SessionTokenHash,
-        question_revision_tuple: &QuestionRevisionTuple,
+        published_question_revision_tuple: &PublishedQuestionRevisionTuple,
         expected_edit_number: BloomClassificationEditNumber,
         cognitive_process: BloomCognitiveProcess,
         knowledge_dimension: BloomKnowledgeDimension,
@@ -172,9 +173,13 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
                     classification_edit_number AS bloom_classification_edit_number \
              FROM ple_api.correct_question_revision_bloom($1, $2, $3, $4, $5)",
         )
-        .bind(question_revision_tuple.question_id.as_str())
         .bind(
-            i32::try_from(question_revision_tuple.revision_number.get())
+            published_question_revision_tuple
+                .published_question_id
+                .as_str(),
+        )
+        .bind(
+            i32::try_from(published_question_revision_tuple.revision_number.get())
                 .map_err(|_| invalid("Question Revision Number"))?,
         )
         .bind(expected_edit_number.value() as i64)
@@ -192,7 +197,7 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
     async fn load_current_published_question_shared_metadata(
         &self,
         session_token_hash: SessionTokenHash,
-        question_ids: &[QuestionId],
+        question_ids: &[PublishedQuestionId],
     ) -> Result<Vec<PublishedQuestionSharedMetadata>, StoreError> {
         if question_ids.is_empty() || question_ids.len() > MAX_BULK_QUESTION_METADATA_ITEMS {
             return Err(invalid("Published Question shared metadata selection"));
@@ -239,7 +244,7 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
     async fn archive_published_question(
         &self,
         session_token_hash: SessionTokenHash,
-        question_id: &QuestionId,
+        question_id: &PublishedQuestionId,
         expected_edit_number: QuestionAvailabilityEditNumber,
         confirmation_title: &str,
     ) -> Result<PublishedQuestionAvailability, StoreError> {
@@ -256,7 +261,7 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
     async fn restore_published_question(
         &self,
         session_token_hash: SessionTokenHash,
-        question_id: &QuestionId,
+        question_id: &PublishedQuestionId,
         expected_edit_number: QuestionAvailabilityEditNumber,
     ) -> Result<PublishedQuestionAvailability, StoreError> {
         self.set_published_question_availability(
@@ -275,8 +280,8 @@ impl PostgresQuestionLibraryStore {
     pub async fn load_question_usage_statistics(
         &self,
         session_token_hash: SessionTokenHash,
-        question_ids: &[QuestionId],
-    ) -> Result<Vec<(QuestionId, QuestionUsageTotals)>, StoreError> {
+        question_ids: &[PublishedQuestionId],
+    ) -> Result<Vec<(PublishedQuestionId, QuestionUsageTotals)>, StoreError> {
         if question_ids.is_empty() {
             return Ok(Vec::new());
         }
@@ -285,7 +290,7 @@ impl PostgresQuestionLibraryStore {
             .await?;
         let ids = question_ids
             .iter()
-            .map(QuestionId::as_str)
+            .map(PublishedQuestionId::as_str)
             .map(str::to_owned)
             .collect::<Vec<_>>();
         let rows = sqlx::query(
@@ -302,7 +307,7 @@ impl PostgresQuestionLibraryStore {
             let question_id = row
                 .try_get::<String, _>("published_question_id")
                 .map_err(map_sqlx_error)?
-                .parse::<QuestionId>()
+                .parse::<PublishedQuestionId>()
                 .map_err(|_| invalid("Question ID"))?;
             items.push((question_id, decode_usage_totals(row)?));
         }
@@ -314,7 +319,7 @@ impl PostgresQuestionLibraryStore {
     pub async fn load_question_revision_usage_statistics(
         &self,
         session_token_hash: SessionTokenHash,
-        question_id: &QuestionId,
+        question_id: &PublishedQuestionId,
     ) -> Result<Vec<QuestionRevisionUsageStatistics>, StoreError> {
         let mut transaction = self
             .begin_authenticated_application_transaction(session_token_hash)
@@ -344,7 +349,7 @@ impl PostgresQuestionLibraryStore {
     async fn set_published_question_availability(
         &self,
         session_token_hash: SessionTokenHash,
-        question_id: &QuestionId,
+        question_id: &PublishedQuestionId,
         expected_edit_number: QuestionAvailabilityEditNumber,
         target_availability: &str,
         archive_confirmation_title: Option<&str>,
@@ -381,7 +386,7 @@ fn decode_entry(row: &sqlx::postgres::PgRow) -> Result<PublishedQuestionLibraryE
         .try_get("published_question_id")
         .map_err(map_sqlx_error)?;
     let question_id = question_id
-        .parse::<QuestionId>()
+        .parse::<PublishedQuestionId>()
         .map_err(|_| invalid("Question ID"))?;
     let revision_number: i32 = row.try_get("revision_number").map_err(map_sqlx_error)?;
     let revision_number = u32::try_from(revision_number)
@@ -431,8 +436,8 @@ fn decode_entry(row: &sqlx::postgres::PgRow) -> Result<PublishedQuestionLibraryE
     let published_at_millis: i64 = row.try_get("published_at_millis").map_err(map_sqlx_error)?;
     let shared_metadata = decode_shared_metadata(row)?;
     Ok(PublishedQuestionLibraryEntry {
-        question_revision_tuple: QuestionRevisionTuple {
-            question_id,
+        published_question_revision_tuple: PublishedQuestionRevisionTuple {
+            published_question_id: question_id,
             revision_number,
         },
         backend,
@@ -515,7 +520,7 @@ fn decode_shared_metadata(
     let question_id = row
         .try_get::<String, _>("published_question_id")
         .map_err(map_sqlx_error)?
-        .parse::<QuestionId>()
+        .parse::<PublishedQuestionId>()
         .map_err(|_| invalid("Question ID"))?;
     let metadata_edit_number = row
         .try_get::<i64, _>("metadata_edit_number")

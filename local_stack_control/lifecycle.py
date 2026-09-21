@@ -49,7 +49,6 @@ class LifecycleOptions:
 	build: bool
 	release: bool
 	open_browser: bool
-	without_live_demo: bool = False
 
 
 @dataclasses.dataclass(frozen=True)
@@ -421,9 +420,7 @@ def _start_lifecycle(
 	provision_installation_data = should_provision_installation_data(
 		target, initial_database_install
 	)
-	if not retains_live_demo_persona_configuration(
-		target, options
-	):
+	if not retains_live_demo_persona_configuration(target):
 		remove_live_demo_persona_configuration(selected)
 	compose_run(selected, runner, ["build", "gateway"])
 	application_services = ["api", "worker", "public-asset-publisher", "gateway"]
@@ -444,9 +441,9 @@ def _start_lifecycle(
 	if provision_installation_data:
 		report_step("provisioning installation data (Live Demo Course)")
 		provision_ready_installation_data(
-			target, runner, without_live_demo=options.without_live_demo
+			target, runner
 		)
-		if retains_live_demo_persona_configuration(target, options):
+		if retains_live_demo_persona_configuration(target):
 			report_step("recording minted Live Demo Account IDs")
 			record_live_demo_persona_account_ids(target, runner)
 			compose_run(
@@ -455,7 +452,7 @@ def _start_lifecycle(
 				["up", "-d", "--force-recreate", "--no-deps", "api"],
 			)
 			wait_for_complete_ready(target, runner, options)
-	if retains_live_demo_persona_configuration(target, options):
+	if retains_live_demo_persona_configuration(target):
 		report_step("provisioning the local sysadmin TOTP authenticator")
 		provision_local_sysadmin_totp(target, runner)
 	if options.open_browser:
@@ -757,11 +754,8 @@ def should_provision_installation_data(
 #============================================
 def retains_live_demo_persona_configuration(
 	target: LifecycleTarget,
-	options: LifecycleOptions,
 ) -> bool:
 	"""Keep the closed selector only for a default or browser-profile Live Demo."""
-	if options.without_live_demo:
-		return False
 	return (
 		local_stack_control.lifecycle_profiles.is_default_target(target_of(target))
 		or (
@@ -773,37 +767,6 @@ def retains_live_demo_persona_configuration(
 
 
 #============================================
-def require_bundled_genetics_without_live_demo(
-	target: LifecycleTarget,
-	runner: local_stack_control.process.CommandRunner,
-) -> None:
-	"""Prove the shipped Blueprint remains while the optional Demo root is absent."""
-	selected = target_of(target)
-	script = local_stack_control.live_demo_seed.bundled_without_demo_oracle_script(
-		local_stack_control.live_demo_seed.EXAMPLE_CONTENT_WORKSPACE_ID,
-		local_stack_control.live_demo_seed.LIVE_DEMO_COURSE_SHORT_NAME,
-	)
-	result = runner.run(
-		local_stack_control.compose.compose_argv(
-			selected,
-			[
-				"--profile", "migration", "run", "--rm", "--no-deps",
-				"--entrypoint", "/bin/sh", "database-migrator", "-ec", script,
-			],
-		),
-		child_environment(selected),
-		selected.repo_root,
-	)
-	private_values = local_stack_control.disposable_stack_cleanup.private_environment_values(
-		selected.env_file
-	)
-	require_command(result, "Bundled Genetics without Live Demo oracle", private_values)
-	if result.stdout.strip() != "demo_roots_absent/bundled_without_demo":
-		raise local_stack_control.models.ControllerError(
-			"installation-data oracle did not find bundled Genetics without the Live Demo Course"
-		)
-
-
 #============================================
 def status_report(
 	target: LifecycleTarget,

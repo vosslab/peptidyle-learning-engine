@@ -28,7 +28,7 @@ pub use attempt_evidence::{
 pub use grading::{GradingResult, QuestionEvaluation, QuestionEvaluationError, RecordedCredit};
 pub use source_object_checksum::{SourceObjectChecksum, SourceObjectChecksumError};
 
-use crate::QuestionRevisionTuple;
+use crate::PublishedQuestionRevisionTuple;
 use crate::assessment::{AssessmentEntryScoringRule, AssessmentPointValue};
 use crate::generation::{QuestionReproduction, QuestionSourceSelection};
 use crate::identity::ObjectId;
@@ -98,13 +98,13 @@ impl Timestamp {
 #[serde(rename_all = "camelCase")]
 pub struct QuestionPoolSelectedItem {
     /// Pool whose current membership supplied this selection.
-    pub question_pool_id: crate::QuestionId,
+    pub question_pool_id: crate::QuestionPoolId,
     /// Pool Edit Number current when this member was selected. Not a historical object.
     pub question_pool_edit_number: crate::QuestionPoolEditNumber,
     /// Zero-based position in that Pool's member list at selection.
     pub member_position: u32,
     /// Exact Published Question Revision delivered to the Student.
-    pub question_revision_tuple: QuestionRevisionTuple,
+    pub published_question_revision_tuple: PublishedQuestionRevisionTuple,
 }
 
 /// Immutable Question Pool result for one Assessment Attempt and one Question Pool Assessment Entry.
@@ -119,7 +119,7 @@ pub struct QuestionPoolSelection {
     /// Question Pool Assessment Entry that supplied the Question Pool Items.
     pub question_pool_assessment_entry: AssessmentEntryId,
     /// Pool whose current membership was sampled.
-    pub question_pool_id: crate::QuestionId,
+    pub question_pool_id: crate::QuestionPoolId,
     /// Pool Edit Number current when these items were selected. Not a historical object.
     pub question_pool_edit_number: crate::QuestionPoolEditNumber,
     /// Database-authoritative time at which the server selected these entries.
@@ -144,7 +144,7 @@ pub struct IssuedQuestion {
     /// Expanded zero-based delivery order inside this Assessment Attempt.
     pub issued_position: u32,
     /// Exact immutable Question Library version selected for delivery.
-    pub question_revision_tuple: QuestionRevisionTuple,
+    pub published_question_revision_tuple: PublishedQuestionRevisionTuple,
     /// Pre-render static or seeded source selection. A complete reproduction
     /// descriptor begins only after rendering records its parameter checksum.
     pub source_selection: QuestionSourceSelection,
@@ -162,7 +162,7 @@ pub struct IssuedQuestion {
     /// Immutable Question Pool Selection that produced this Issued Question, if it was drawn.
     pub question_pool_selection: Option<QuestionPoolSelectionId>,
     /// Pool ID when this Issued Question was drawn from a Pool.
-    pub question_pool_id: Option<crate::QuestionId>,
+    pub question_pool_id: Option<crate::QuestionPoolId>,
     /// Pool Edit Number current at selection. Not a historical membership object.
     pub question_pool_edit_number: Option<crate::QuestionPoolEditNumber>,
     /// Zero-based Pool member position at selection, if drawn from a Pool.

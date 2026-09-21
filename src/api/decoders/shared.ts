@@ -7,10 +7,10 @@ import type { Capability } from "../../../generated/api/Capability";
 import type { QuestionAvailability } from "../../../generated/api/QuestionAvailability";
 import type { QuestionLicense } from "../../../generated/api/QuestionLicense";
 import type { QuestionCitation } from "../../../generated/api/QuestionCitation";
-import type { QuestionRevisionTuple } from "../../../generated/api/QuestionRevisionTuple";
+import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
 import type { QuestionBackend } from "../../../generated/api/QuestionBackend";
 import type { AccountId } from "../../../generated/api/AccountId";
-import type { QuestionId } from "../../../generated/api/QuestionId";
+import type { PublishedQuestionId } from "../../../generated/api/PublishedQuestionId";
 import type { QuestionMetadata } from "../../../generated/api/QuestionMetadata";
 import type { AssessmentRouteId, CourseInstanceRouteId } from "../../navigation/public_route";
 import { parseAssessmentId, parseCourseInstanceId } from "../../navigation/public_route";
@@ -239,7 +239,7 @@ export function decodeIdentifier(value: unknown, path: string): string {
 }
 
 /** Decodes the canonical, browser-visible identity of an immutable question. */
-export function decodeQuestionId(value: unknown, path: string): QuestionId {
+export function decodeQuestionId(value: unknown, path: string): PublishedQuestionId {
   const questionId = decodeString(value, path);
   const canonicalQuestionId = validateCanonicalQuestionIdSyntax(questionId);
   if (canonicalQuestionId === null || canonicalQuestionId !== questionId) {
@@ -285,20 +285,23 @@ export function decodeQuestionBackendCapabilities(
   return decodeArray(value, path, decodeCapability);
 }
 
-export function decodeQuestionRevisionTuple(
+export function decodePublishedQuestionRevisionTuple(
   value: unknown,
   path: string,
   _strict = false,
-): QuestionRevisionTuple {
+): PublishedQuestionRevisionTuple {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["questionId", "revisionNumber"]);
+  requireOnlyFields(record, path, ["publishedQuestionId", "revisionNumber"]);
   const decoded = {
-    questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
+    publishedQuestionId: decodeQuestionId(
+      field(record, "publishedQuestionId", path),
+      `${path}.publishedQuestionId`,
+    ),
     revisionNumber: decodePositiveQuestionRevisionNumber(
       field(record, "revisionNumber", path),
       `${path}.revisionNumber`,
     ),
-  } satisfies QuestionRevisionTuple;
+  } satisfies PublishedQuestionRevisionTuple;
   return decoded;
 }
 

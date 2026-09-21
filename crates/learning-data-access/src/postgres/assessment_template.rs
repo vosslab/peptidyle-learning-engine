@@ -170,9 +170,6 @@ impl AssessmentTemplateStore for PostgresAssessmentTemplateStore {
         course_instance_id: CourseInstanceId,
         input: CreateAssessmentFromTemplateInput,
     ) -> Result<LiveAssessmentWorkspace, StoreError> {
-        let minted_assessment_uuid = crate::random_uuid::random_uuid_v4(|_| {
-            StoreError::Unavailable("Assessment UUID randomness unavailable".to_owned())
-        })?;
         let mut transaction = self.begin(session_token_hash).await?;
         // ASVS 1.2.4, 2.3.3, and 8.2.2: the one bound procedure authorizes
         // both source Template and destination Course before copying by value.
@@ -180,7 +177,10 @@ impl AssessmentTemplateStore for PostgresAssessmentTemplateStore {
             "SELECT assessment_id \
              FROM ple_api.create_assessment_from_template($1, $2, $3, $4)",
         )
-        .bind(minted_assessment_uuid)
+        // The database owns public Assessment-ID minting. This canonical
+        // placeholder passes the domain check and is replaced by the
+        // assessment INSERT trigger with a reserved public ID.
+        .bind("A0000000A")
         .bind(course_instance_id.as_string())
         .bind(input.template_id.as_uuid())
         .bind(input.title.as_str())

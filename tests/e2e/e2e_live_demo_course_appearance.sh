@@ -229,14 +229,14 @@ synthetic_concealed_cookie() {
 	postgres="$(service_id postgres)"
 	podman exec -i "$postgres" sh -lc 'exec psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' >/dev/null <<SQL
 INSERT INTO ple_private.account (account_id, product_role, created_at)
-VALUES ('U00000009', 'instructor', pg_catalog.clock_timestamp())
+VALUES ('U00000009', 'instructor', pg_catalog.transaction_timestamp())
 RETURNING account_id AS minted_account_id \\gset
 INSERT INTO ple_data.course_membership (course_membership_id, course_instance_id, account_id, role, joined_at)
 VALUES ('$membership_id', '$course', :'minted_account_id', 'instructor', pg_catalog.clock_timestamp());
 INSERT INTO ple_data.course_membership_event (course_membership_event_id, course_membership_id, event_kind, occurred_at, reason)
 VALUES ('$inactive_membership_end_event_id', '$membership_id', 'ended', pg_catalog.clock_timestamp(), 'disposable Course Summary refusal fixture');
 INSERT INTO ple_private.authenticated_session (session_id, account_id, product_role, token_hash, created_at, expires_at)
-VALUES ('$session_id', :'minted_account_id', 'instructor', decode('$token_hash', 'hex'), pg_catalog.clock_timestamp(), '2100-01-01 00:00:00+00')
+VALUES ('$session_id', :'minted_account_id', 'instructor', decode('$token_hash', 'hex'), pg_catalog.transaction_timestamp(), '2100-01-01 00:00:00+00')
 ON CONFLICT (token_hash) DO NOTHING;
 SQL
 	printf '__Host-ple_session=%s\n' "$token"

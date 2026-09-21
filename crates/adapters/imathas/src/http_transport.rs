@@ -283,7 +283,7 @@ impl ImathasQuestionBackendTransport for HttpImathasQuestionBackendTransport {
                 snapshot_base64: base64::engine::general_purpose::STANDARD
                     .encode(request.snapshot()),
                 version: request
-                    .question_revision_tuple()
+                    .published_question_revision_tuple()
                     .revision_number
                     .to_string(),
                 seed: request.question_seed().value(),
@@ -589,12 +589,16 @@ mod tests {
                 .render_safe(RenderTransportRequest {
                     snapshot: b"{}",
                     deployment_id: "self-hosted-imathas",
-                    question_revision_tuple: question_model::QuestionRevisionTuple {
-                        question_id: question_model::QuestionId::from_random_identifier("ABCDEFG")
-                            .expect("Question ID"),
-                        revision_number: question_model::QuestionRevisionNumber::new(1)
-                            .expect("positive version"),
-                    },
+                    published_question_revision_tuple:
+                        question_model::PublishedQuestionRevisionTuple {
+                            published_question_id:
+                                question_model::PublishedQuestionId::from_random_identifier(
+                                    "ABCDEFG"
+                                )
+                                .expect("Question ID"),
+                            revision_number: question_model::QuestionRevisionNumber::new(1)
+                                .expect("positive version"),
+                        },
                     question_seed: question_model::generation::QuestionSeed::new(7)
                 })
                 .await
@@ -614,9 +618,11 @@ mod tests {
             .unwrap();
         let binding = learning_data_access::ImathasGradingContext::new(
             question_model::QuestionAttemptId::from_uuid(uuid::Uuid::from_u128(2)),
-            question_model::QuestionRevisionTuple {
-                question_id: question_model::QuestionId::from_random_identifier("BCDEFGH")
-                    .expect("Question ID"),
+            question_model::PublishedQuestionRevisionTuple {
+                published_question_id: question_model::PublishedQuestionId::from_random_identifier(
+                    "BCDEFGH",
+                )
+                .expect("Question ID"),
                 revision_number: question_model::QuestionRevisionNumber::new(4)
                     .expect("positive version"),
             },

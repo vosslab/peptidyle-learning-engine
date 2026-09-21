@@ -10,7 +10,7 @@ import type { CourseBannerUploadReceipt } from "../../../generated/api/CourseBan
 import type { CourseInstanceId } from "../../../generated/api/CourseInstanceId";
 import type { CourseBannerId } from "../../../generated/api/CourseBannerId";
 import type { StudentRecordId } from "../../../generated/api/StudentRecordId";
-import type { QuestionId } from "../../../generated/api/QuestionId";
+import type { PublishedQuestionId } from "../../../generated/api/PublishedQuestionId";
 import type { QuestionAttemptId } from "../../../generated/api/QuestionAttemptId";
 import type { ApiClient } from "../client";
 import type {
@@ -411,7 +411,7 @@ async function removeCourseBanner(
 async function questionDetails(
   fetchImplementation: ApiFetch,
   basePath: string,
-  questionId: QuestionId,
+  questionId: PublishedQuestionId,
 ): Promise<QuestionDetails> {
   const path = `/api/questions/by-id/${encodedId(questionId)}/detail`;
   const detail = await requestJson(fetchImplementation, basePath, path, decodeQuestionDetails);
@@ -595,10 +595,10 @@ export function createResponseClient(
         decodeStudentAssessmentProgress,
       ),
     fetchCourseBanner: (bannerId) => fetchCourseBanner(fetchImplementation, basePath, bannerId),
-    questionImageUrl: (questionRevisionTuple, questionImageAssetId) =>
+    questionImageUrl: (publishedQuestionRevisionTuple, questionImageAssetId) =>
       requestPath(
         basePath,
-        `/api/questions/${encodedId(questionRevisionTuple.questionId)}/revisions/${questionRevisionTuple.revisionNumber}/images/${encodedId(questionImageAssetId)}`,
+        `/api/questions/${encodedId(publishedQuestionRevisionTuple.publishedQuestionId)}/revisions/${publishedQuestionRevisionTuple.revisionNumber}/images/${encodedId(questionImageAssetId)}`,
       ),
   };
 }

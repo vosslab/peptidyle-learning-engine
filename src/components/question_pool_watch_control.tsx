@@ -2,12 +2,12 @@
 
 import { Show, createResource, createSignal, type JSX } from "solid-js";
 
-import type { QuestionId } from "../../generated/api/QuestionId";
+import type { QuestionPoolId } from "../../generated/api/QuestionPoolId";
 import { useApplicationApi } from "../api/application_api";
 import "./question_pool_watch_control.css";
 
 export interface QuestionPoolWatchControlProps {
-  readonly poolId: QuestionId;
+  readonly poolId: QuestionPoolId;
 }
 
 /** Shows only the current active Instructor's Watch state for this Pool. */

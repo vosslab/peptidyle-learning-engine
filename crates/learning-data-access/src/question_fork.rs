@@ -6,7 +6,7 @@
 
 use async_trait::async_trait;
 use objects::{ObjectAddress, ObjectDataClass, ObjectRecord, ObjectStorageArea};
-use question_model::{QuestionImageAssetId, QuestionRevisionTuple, WorkspaceId};
+use question_model::{PublishedQuestionRevisionTuple, QuestionImageAssetId, WorkspaceId};
 use uuid::Uuid;
 
 use crate::{SessionTokenHash, StoreError};
@@ -15,7 +15,7 @@ use crate::{SessionTokenHash, StoreError};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ForkPublishedQuestionInput {
     /// Existing available immutable source Revision, resolved from the path.
-    pub source_question_revision_tuple: QuestionRevisionTuple,
+    pub source_published_question_revision_tuple: PublishedQuestionRevisionTuple,
     /// Existing owner workspace resolved through the ordinary authoring Store.
     pub workspace: WorkspaceId,
     /// Opaque server persistence identity; it never crosses the browser boundary.
@@ -57,7 +57,7 @@ impl ForkPublishedQuestionInput {
             })
             || source.storage_area != ObjectStorageArea::PrivateContent
             || source.data_class != ObjectDataClass::AuthoringContent
-            || source.question_revision_tuple.is_some()
+            || source.published_question_revision_tuple.is_some()
         {
             return Err(StoreError::InvalidRecord(
                 "Question Fork target source is not owned by its workspace".to_owned(),
@@ -74,7 +74,7 @@ impl ForkPublishedQuestionInput {
                 })
                 || record.storage_area != ObjectStorageArea::PrivateContent
                 || record.data_class != ObjectDataClass::AuthoringContent
-                || record.question_revision_tuple.is_some()
+                || record.published_question_revision_tuple.is_some()
             {
                 return Err(StoreError::InvalidRecord(
                     "Question Fork target image is not owned by its Draft".to_owned(),
@@ -106,7 +106,7 @@ pub trait QuestionForkStore: Send + Sync {
     async fn load_published_question_fork_asset(
         &self,
         session_token_hash: SessionTokenHash,
-        question_revision_tuple: &QuestionRevisionTuple,
+        published_question_revision_tuple: &PublishedQuestionRevisionTuple,
     ) -> Result<Option<PublishedQuestionForkImage>, StoreError>;
 
     /// Creates or returns the actor/key's one private Draft fork atomically.

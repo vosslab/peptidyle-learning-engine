@@ -11,7 +11,7 @@ import type { AccountTimeZone } from "../../generated/api/AccountTimeZone";
 import type { AssessmentActivityRules } from "../../generated/api/AssessmentActivityRules";
 import type { AssessmentType } from "../../generated/api/AssessmentType";
 import type { StudentFeedbackReleaseRule } from "../../generated/api/StudentFeedbackReleaseRule";
-import type { QuestionRevisionTuple } from "../../generated/api/QuestionRevisionTuple";
+import type { PublishedQuestionRevisionTuple } from "../../generated/api/PublishedQuestionRevisionTuple";
 import type { BlueprintRevisionTuple } from "../../generated/api/BlueprintRevisionTuple";
 import type { BlueprintAssessmentDefaults } from "../../generated/api/BlueprintAssessmentDefaults";
 import type { FixedQuestionAssessmentEntry } from "../../generated/api/FixedQuestionAssessmentEntry";
@@ -97,14 +97,14 @@ export interface SaveLiveAssessmentInlineInput {
 
 export interface AssessmentQuestionPickerEntry {
   /** Exact current Question Revision chosen by this picker row. */
-  readonly questionRevisionTuple: QuestionRevisionTuple;
+  readonly publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple;
   readonly description: string;
   readonly bloom: BloomClassificationView | null;
 }
 
 /** Answer-free exact Question Revision pin shown in the Instructor workspace. */
 export interface AuthoredAssessmentQuestion {
-  readonly questionRevisionTuple: QuestionRevisionTuple;
+  readonly publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple;
   readonly description: string;
   readonly bloom: BloomClassificationView | null;
 }

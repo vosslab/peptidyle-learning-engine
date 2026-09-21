@@ -301,9 +301,9 @@ BEGIN
     IF EXISTS (SELECT 1 FROM ple_private.account_authentication_email WHERE normalized_email = p_normalized_email) THEN
         RAISE EXCEPTION USING ERRCODE = '23505', MESSAGE = 'Student Authentication Email is unavailable';
     END IF;
-    INSERT INTO ple_private.account (account_id, product_role, created_at)
+    INSERT INTO ple_private.account AS new_account (account_id, product_role, created_at)
     VALUES ('U00000009', 'student', v_now)
-    RETURNING account_id INTO v_account_id;
+    RETURNING new_account.account_id INTO v_account_id;
     UPDATE ple_private.account_time_zone
        SET student_invitation_default_pending = true
      WHERE account_id = v_account_id;
@@ -336,9 +336,9 @@ BEGIN
         p_vetting_decision_id, p_normalized_email
     );
     v_created_at := pg_catalog.transaction_timestamp();
-    INSERT INTO ple_private.account (account_id, product_role, created_at)
+    INSERT INTO ple_private.account AS new_account (account_id, product_role, created_at)
     VALUES ('U00000009', 'instructor', v_created_at)
-    RETURNING account_id INTO v_account_id;
+    RETURNING new_account.account_id INTO v_account_id;
     INSERT INTO ple_private.account_authentication_email (
         account_id, normalized_email, delivery_email, verified_at, updated_at
     ) VALUES (v_account_id, p_normalized_email, p_delivery_email, v_created_at, v_created_at);
@@ -409,7 +409,7 @@ SET search_path = pg_catalog, ple_private
 AS $$
 BEGIN
     RETURN QUERY
-    SELECT account.account_id, current_state.state,
+    SELECT account.account_id::text, current_state.state::text,
            (SELECT max(session.created_at) FROM ple_private.authenticated_session AS session
              WHERE session.account_id = account.account_id)
       FROM ple_private.account AS account
@@ -481,7 +481,7 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Instructor deactivation requires a reason';
     END IF;
     INSERT INTO ple_private.account_state_event (event_id, account_id, state, occurred_at, reason)
-    VALUES (pg_catalog.gen_random_uuid(), v_account_id, p_next_state,
+    VALUES (pg_catalog.gen_random_uuid(), v_account_id, p_next_state::ple_data.account_state,
             pg_catalog.transaction_timestamp(), CASE WHEN p_next_state = 'active' THEN NULL ELSE p_reason END);
     RETURN QUERY SELECT * FROM ple_private.instructor_account_summary(v_account_id);
 END
@@ -569,4 +569,3 @@ SET search_path = pg_catalog, ple_api, ple_private
 AS $$ SELECT * FROM ple_private.change_instructor_account_state(
     p_account_id, p_next_state, p_reason
 ) $$;
-

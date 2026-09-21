@@ -1,6 +1,6 @@
 // Browser capability contract for reusable published Question Pool reads.
 
-import type { QuestionId } from "../../generated/api/QuestionId";
+import type { QuestionPoolId } from "../../generated/api/QuestionPoolId";
 import type { QuestionPoolLibrarySummary } from "../../generated/api/QuestionPoolLibrarySummary";
 import type { QuestionPoolBloomFacets } from "../../generated/api/QuestionPoolBloomFacets";
 import type { QuestionPoolView } from "../../generated/api/QuestionPoolView";
@@ -28,5 +28,5 @@ export interface QuestionPoolLibraryClient {
     pageSize?: number,
     filter?: QuestionPoolLibraryFilter,
   ) => Promise<QuestionPoolLibraryPage>;
-  readonly getQuestionPool: (questionPoolId: QuestionId) => Promise<QuestionPoolView>;
+  readonly getQuestionPool: (questionPoolId: QuestionPoolId) => Promise<QuestionPoolView>;
 }

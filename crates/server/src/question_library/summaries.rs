@@ -75,8 +75,11 @@ fn webwork_question_library_entry(
     let topic = entry.topic_name.clone();
     Ok(ResolvedQuestionLibraryEntry {
         summary: QuestionSummary {
-            question_id: entry.question_revision_tuple.question_id.clone(),
-            question_revision_tuple: entry.question_revision_tuple,
+            question_id: entry
+                .published_question_revision_tuple
+                .published_question_id
+                .clone(),
+            published_question_revision_tuple: entry.published_question_revision_tuple,
             backend: entry.backend,
             question_format: entry.question_format,
             question_type: entry.question_type,
@@ -117,7 +120,7 @@ async fn resolved_ple_question(
     }
     let source = ResolvedQuestionSource::resolve(
         objects,
-        entry.question_revision_tuple.clone(),
+        entry.published_question_revision_tuple.clone(),
         entry.source_object_id,
         entry.source_object_checksum.clone(),
     )
@@ -147,8 +150,11 @@ async fn resolved_ple_question(
     metadata.question_license = Some(entry.question_license.clone());
     Ok(ResolvedQuestionLibraryEntry {
         summary: QuestionSummary {
-            question_id: entry.question_revision_tuple.question_id.clone(),
-            question_revision_tuple: entry.question_revision_tuple,
+            question_id: entry
+                .published_question_revision_tuple
+                .published_question_id
+                .clone(),
+            published_question_revision_tuple: entry.published_question_revision_tuple,
             backend: entry.backend,
             question_format: entry.question_format,
             question_type: entry.question_type,

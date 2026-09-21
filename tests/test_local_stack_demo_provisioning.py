@@ -65,7 +65,7 @@ def test_ready_installation_data_uses_one_canonical_migrator_command_after_readi
 
 	runner = Runner()
 	local_stack_control.lifecycle.provision_ready_installation_data(
-		selected, runner, without_live_demo=False
+		selected, runner
 	)
 
 	assert len(runner.calls) == 1
@@ -74,56 +74,6 @@ def test_ready_installation_data_uses_one_canonical_migrator_command_after_readi
 		"database-migrator", "installation-data", "provision",
 	]
 	assert "apply" not in runner.calls[0]
-
-
-#============================================
-def test_explicit_demo_opt_out_keeps_bundled_content_provisioning(
-	tmp_path: pathlib.Path,
-) -> None:
-	"""The opt-out omits only the Demo graph, never bundled content."""
-	selected = lifecycle_target(tmp_path, "ple-live-demo-browser", "workspace/env.local")
-	selected.env_file.parent.mkdir()
-	selected.env_file.write_text("PLE_GATEWAY_HOST_PORT=8181\n", encoding="ascii")
-	selected.env_file.chmod(0o600)
-	disposable = local_stack_control.models.DisposableComposeTarget(
-		target=selected,
-		owner_policy="live-demo-browser",
-		capability_file=tmp_path / "capability",
-		project_prefix="ple-live-demo-browser",
-		private_environment_file=selected.env_file,
-		live_demo_profile=local_stack_control.models.LiveDemoProfile.BROWSER,
-	)
-	options = local_stack_control.lifecycle.LifecycleOptions(
-		1.0, False, False, False, without_live_demo=True
-	)
-
-	assert local_stack_control.lifecycle.should_provision_installation_data(
-		disposable, initial_database_install=True
-	)
-
-	class Runner(UnexpectedRunner):
-		def __init__(self) -> None:
-			self.call: list[str] | None = None
-
-		def run(
-			self,
-			argv: list[str],
-			environment: dict[str, str] | None = None,
-			cwd: pathlib.Path | None = None,
-			stdin: str | None = None,
-		) -> local_stack_control.models.CommandResult:
-			self.call = argv
-			return local_stack_control.models.CommandResult(tuple(argv), 0, "", "")
-
-	runner = Runner()
-	local_stack_control.lifecycle.provision_ready_installation_data(
-		disposable, runner, without_live_demo=options.without_live_demo
-	)
-	assert runner.call is not None
-	assert runner.call[-9:] == [
-		"--profile", "migration", "run", "--rm", "--no-deps",
-		"database-migrator", "installation-data", "provision", "--without-live-demo",
-	]
 
 
 #============================================
@@ -158,19 +108,11 @@ def test_only_the_browser_demo_keeps_its_closed_persona_selector(
 		private_environment_file=selected.env_file,
 		live_demo_profile=local_stack_control.models.LiveDemoProfile.BROWSER,
 	)
-	options = local_stack_control.lifecycle.LifecycleOptions(1.0, False, False, False)
-
 	assert local_stack_control.lifecycle.retains_live_demo_persona_configuration(
-		browser, options
-	)
-	assert not local_stack_control.lifecycle.retains_live_demo_persona_configuration(
-		browser,
-		local_stack_control.lifecycle.LifecycleOptions(
-			1.0, False, False, False, without_live_demo=True
-		),
+		browser
 	)
 	assert local_stack_control.lifecycle.retains_live_demo_persona_configuration(
-		browser, options
+		browser
 	)
 	non_browser = local_stack_control.models.DisposableComposeTarget(
 		target=selected,
@@ -181,5 +123,5 @@ def test_only_the_browser_demo_keeps_its_closed_persona_selector(
 		live_demo_profile=local_stack_control.models.LiveDemoProfile.WEBWORK_RENDER_RPC,
 	)
 	assert not local_stack_control.lifecycle.retains_live_demo_persona_configuration(
-		non_browser, options
+		non_browser
 	)

@@ -284,7 +284,7 @@ WITH (security_barrier = true, security_invoker = true) AS
 SELECT DISTINCT ON (published_question_id) published_question_id, owner_account_id,
     question_ownership_event_id, occurred_at
 FROM ple_data.question_ownership_event
-ORDER BY published_question_id, occurred_at DESC, question_ownership_event_id DESC;
+ORDER BY published_question_id ASC, occurred_at DESC, question_ownership_event_id DESC;
 
 CREATE TRIGGER question_revision_acceptance_is_immutable
 BEFORE UPDATE OR DELETE ON ple_data.question_revision_acceptance
@@ -363,4 +363,3 @@ CREATE FUNCTION ple_api.read_current_question_watch(
 SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT * FROM ple_data.read_current_question_watch($1)
 $$;
-

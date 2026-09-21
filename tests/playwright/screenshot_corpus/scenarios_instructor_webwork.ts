@@ -23,7 +23,7 @@ interface GeneratedExample {
 
 const GENERATED_EXAMPLES: ReadonlyArray<GeneratedExample> = [
   {
-    checkpoint: "generated_example_laptop",
+    checkpoint: "webwork_generated_example",
     title: "Genetic Disorders from Descriptions",
     search: "Genetic disorders",
     prompt: "",
@@ -32,7 +32,7 @@ const GENERATED_EXAMPLES: ReadonlyArray<GeneratedExample> = [
     caption: "Answer-free WeBWorK generated example",
   },
   {
-    checkpoint: "hla_genotype_laptop",
+    checkpoint: "webwork_hla_genotype",
     title: "Offspring HLA Genotypes (2 Markers, Black)",
     search: "Offspring HLA",
     prompt: "The mother has",
@@ -41,7 +41,7 @@ const GENERATED_EXAMPLES: ReadonlyArray<GeneratedExample> = [
     caption: "HLA offspring genotype generated example",
   },
   {
-    checkpoint: "monohybrid_matching_laptop",
+    checkpoint: "webwork_monohybrid_matching",
     title: "Matching Monohybrid Cross Genotypes to Phenotypes",
     search: "Matching Monohybrid",
     prompt: "monohybrid crosses",
@@ -50,7 +50,7 @@ const GENERATED_EXAMPLES: ReadonlyArray<GeneratedExample> = [
     caption: "Monohybrid genotype matching generated example",
   },
   {
-    checkpoint: "x_linked_counts_laptop",
+    checkpoint: "webwork_x_linked_counts",
     title: "Parent Genotypes in X-Linked Recessive Crosses",
     search: "Parent Genotypes in X-Linked",
     prompt: "red-eyed (wildtype)",
@@ -60,7 +60,7 @@ const GENERATED_EXAMPLES: ReadonlyArray<GeneratedExample> = [
     caption: "X-linked offspring count table generated example",
   },
   {
-    checkpoint: "dna_structure_laptop",
+    checkpoint: "webwork_dna_structure",
     title: "True/False Statements About DNA Structure",
     search: "DNA Structure",
     prompt: "DNA",
@@ -69,7 +69,7 @@ const GENERATED_EXAMPLES: ReadonlyArray<GeneratedExample> = [
     caption: "True/False Statements About DNA Structure generated example",
   },
   {
-    checkpoint: "meiosis_prophase_laptop",
+    checkpoint: "webwork_meiosis_prophase",
     title: "Matching Meiosis Prophase I Stages to Descriptions",
     search: "Matching Meiosis Prophase",
     prompt: "stages of meiosis prophase I",
@@ -78,7 +78,7 @@ const GENERATED_EXAMPLES: ReadonlyArray<GeneratedExample> = [
     caption: "Matching Meiosis Prophase I Stages to Descriptions generated example",
   },
   {
-    checkpoint: "chi_square_laptop",
+    checkpoint: "webwork_chi_square",
     title: "True/False Statements About Chi-Square Tests",
     search: "Chi-Square Tests",
     prompt: "chi-square",
@@ -87,7 +87,7 @@ const GENERATED_EXAMPLES: ReadonlyArray<GeneratedExample> = [
     caption: "True/False Statements About Chi-Square Tests generated example",
   },
   {
-    checkpoint: "chromosome_shapes_laptop",
+    checkpoint: "webwork_chromosome_shapes",
     title: "Matching Chromosome Shapes to Descriptions",
     search: "Matching Chromosome Shapes",
     prompt: "categories of chromosome shape",

@@ -19,7 +19,7 @@ import {
 function ReleasedBlocks(props: {
   readonly title: string;
   readonly blocks: ReadonlyArray<QuestionContentBlock> | undefined;
-  readonly questionRevisionTuple: StudentAssessmentAttemptHistory["questions"][number]["questionRevisionTuple"];
+  readonly publishedQuestionRevisionTuple: StudentAssessmentAttemptHistory["questions"][number]["publishedQuestionRevisionTuple"];
   readonly questionImageUrl: Parameters<typeof ContentBlockList>[0]["questionImageUrl"];
 }): JSX.Element {
   return (
@@ -29,7 +29,7 @@ function ReleasedBlocks(props: {
           <h4>{props.title}</h4>
           <ContentBlockList
             blocks={blocks()}
-            questionRevisionTuple={props.questionRevisionTuple}
+            publishedQuestionRevisionTuple={props.publishedQuestionRevisionTuple}
             questionImageUrl={props.questionImageUrl}
           />
         </section>
@@ -44,11 +44,14 @@ function AssessmentAttemptHistoryContent(props: {
   const applicationApi = useApplicationApi();
   const retry = useRetryRouteScope();
   function questionImageUrlForQuestion(
-    questionRevisionTuple: StudentAssessmentAttemptHistory["questions"][number]["questionRevisionTuple"],
+    publishedQuestionRevisionTuple: StudentAssessmentAttemptHistory["questions"][number]["publishedQuestionRevisionTuple"],
   ): Parameters<typeof ContentBlockList>[0]["questionImageUrl"] {
     return (asset) =>
       new URL(
-        applicationApi.client.questionImageUrl(questionRevisionTuple, asset.questionImageAssetId),
+        applicationApi.client.questionImageUrl(
+          publishedQuestionRevisionTuple,
+          asset.questionImageAssetId,
+        ),
         window.location.origin,
       );
   }
@@ -103,9 +106,9 @@ function AssessmentAttemptHistoryContent(props: {
                     {(response) => (
                       <ContentBlockList
                         blocks={response()}
-                        questionRevisionTuple={question.questionRevisionTuple}
+                        publishedQuestionRevisionTuple={question.publishedQuestionRevisionTuple}
                         questionImageUrl={questionImageUrlForQuestion(
-                          question.questionRevisionTuple,
+                          question.publishedQuestionRevisionTuple,
                         )}
                       />
                     )}
@@ -115,38 +118,50 @@ function AssessmentAttemptHistoryContent(props: {
               <ReleasedBlocks
                 title="Feedback"
                 blocks={question.choiceFeedback}
-                questionRevisionTuple={question.questionRevisionTuple}
-                questionImageUrl={questionImageUrlForQuestion(question.questionRevisionTuple)}
+                publishedQuestionRevisionTuple={question.publishedQuestionRevisionTuple}
+                questionImageUrl={questionImageUrlForQuestion(
+                  question.publishedQuestionRevisionTuple,
+                )}
               />
               <ReleasedBlocks
                 title="Feedback"
                 blocks={question.correctFeedback}
-                questionRevisionTuple={question.questionRevisionTuple}
-                questionImageUrl={questionImageUrlForQuestion(question.questionRevisionTuple)}
+                publishedQuestionRevisionTuple={question.publishedQuestionRevisionTuple}
+                questionImageUrl={questionImageUrlForQuestion(
+                  question.publishedQuestionRevisionTuple,
+                )}
               />
               <ReleasedBlocks
                 title="Feedback"
                 blocks={question.incorrectFeedback}
-                questionRevisionTuple={question.questionRevisionTuple}
-                questionImageUrl={questionImageUrlForQuestion(question.questionRevisionTuple)}
+                publishedQuestionRevisionTuple={question.publishedQuestionRevisionTuple}
+                questionImageUrl={questionImageUrlForQuestion(
+                  question.publishedQuestionRevisionTuple,
+                )}
               />
               <ReleasedBlocks
                 title="General feedback"
                 blocks={question.generalFeedback}
-                questionRevisionTuple={question.questionRevisionTuple}
-                questionImageUrl={questionImageUrlForQuestion(question.questionRevisionTuple)}
+                publishedQuestionRevisionTuple={question.publishedQuestionRevisionTuple}
+                questionImageUrl={questionImageUrlForQuestion(
+                  question.publishedQuestionRevisionTuple,
+                )}
               />
               <ReleasedBlocks
                 title="Correct answer"
                 blocks={question.questionAnswer}
-                questionRevisionTuple={question.questionRevisionTuple}
-                questionImageUrl={questionImageUrlForQuestion(question.questionRevisionTuple)}
+                publishedQuestionRevisionTuple={question.publishedQuestionRevisionTuple}
+                questionImageUrl={questionImageUrlForQuestion(
+                  question.publishedQuestionRevisionTuple,
+                )}
               />
               <ReleasedBlocks
                 title="Answer explanation"
                 blocks={question.questionAnswerExplanation}
-                questionRevisionTuple={question.questionRevisionTuple}
-                questionImageUrl={questionImageUrlForQuestion(question.questionRevisionTuple)}
+                publishedQuestionRevisionTuple={question.publishedQuestionRevisionTuple}
+                questionImageUrl={questionImageUrlForQuestion(
+                  question.publishedQuestionRevisionTuple,
+                )}
               />
               <Show when={question.backendAnswerReview === "available"}>
                 <section class="attempt-summary__disclosure">

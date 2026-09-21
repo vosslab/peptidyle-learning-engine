@@ -7,7 +7,7 @@
 use async_trait::async_trait;
 use question_model::{
     AccountId, BlueprintRevisionTuple, CourseInstanceId, CourseSummary, CourseTerm, CourseTheme,
-    QuestionId,
+    QuestionPoolId,
 };
 use serde::{Deserialize, Serialize};
 
@@ -144,7 +144,7 @@ pub struct CreatedCourseInstance {
 /// supplies this value and persistence never receives the HMAC capability.
 pub trait CourseInstancePoolIdIssuer: Send + Sync {
     /// Issues one candidate canonical Question Pool public ID.
-    fn issue_question_pool_id(&self) -> Result<QuestionId, StoreError>;
+    fn issue_question_pool_id(&self) -> Result<QuestionPoolId, StoreError>;
 }
 
 /// Persistence contract for the Course Instance and initial Teaching Team boundary.

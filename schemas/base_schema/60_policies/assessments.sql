@@ -95,31 +95,30 @@ CREATE POLICY assessment_entry_api_owner_read ON ple_data.assessment_entry
     FOR SELECT TO ple_api_owner
     USING (EXISTS (
         SELECT 1 FROM ple_data.assessment
-         WHERE assessment_id = assessment_entry.assessment_id
-           AND ple_api.current_session_account_is_course_instructor(course_instance_id)
+         WHERE assessment.assessment_id = assessment_entry.assessment_id
+           AND ple_api.current_session_account_is_course_instructor(assessment.course_instance_id)
     ));
 
 CREATE POLICY assessment_entry_question_api_owner_read ON ple_data.assessment_entry_question
     FOR SELECT TO ple_api_owner
     USING (EXISTS (
         SELECT 1 FROM ple_data.assessment
-         WHERE assessment_id = assessment_entry_question.assessment_id
-           AND ple_api.current_session_account_is_course_instructor(course_instance_id)
+         WHERE assessment.assessment_id = assessment_entry_question.assessment_id
+           AND ple_api.current_session_account_is_course_instructor(assessment.course_instance_id)
     ));
 
 CREATE POLICY assessment_entry_pool_api_owner_read ON ple_data.assessment_entry_pool
     FOR SELECT TO ple_api_owner
     USING (EXISTS (
         SELECT 1 FROM ple_data.assessment
-         WHERE assessment_id = assessment_entry_pool.assessment_id
-           AND ple_api.current_session_account_is_course_instructor(course_instance_id)
+         WHERE assessment.assessment_id = assessment_entry_pool.assessment_id
+           AND ple_api.current_session_account_is_course_instructor(assessment.course_instance_id)
     ));
 
 CREATE POLICY assessment_question_pool_fork_api_owner_read ON ple_data.assessment_question_pool_fork
     FOR SELECT TO ple_api_owner
     USING (EXISTS (
         SELECT 1 FROM ple_data.assessment
-         WHERE assessment_id = assessment_question_pool_fork.assessment_id
-           AND ple_api.current_session_account_is_course_instructor(course_instance_id)
+         WHERE assessment.assessment_id = assessment_question_pool_fork.assessment_id
+           AND ple_api.current_session_account_is_course_instructor(assessment.course_instance_id)
     ));
-

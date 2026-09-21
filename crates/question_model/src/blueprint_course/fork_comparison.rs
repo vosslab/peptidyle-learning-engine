@@ -2,7 +2,8 @@
 use super::canonical_exchange::CanonicalBlueprintAssessment;
 use crate::{
     BlueprintAssessmentEntryContent, BlueprintAssessmentId, BlueprintCourseContent,
-    BlueprintModuleId, QuestionId, QuestionPoolEditNumber, QuestionRevisionTuple,
+    BlueprintModuleId, PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionPoolEditNumber,
+    QuestionPoolId,
 };
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -29,7 +30,7 @@ pub struct BlueprintComparisonAssessment {
     /// Complete answer-free canonical reusable content.
     pub content: CanonicalBlueprintAssessment,
     /// Sorted unique fixed and exact-Pool-member Question IDs, excluding Revisions.
-    pub question_ids: Vec<QuestionId>,
+    pub question_ids: Vec<PublishedQuestionId>,
 }
 
 /// Complete side inventory in authored module and Assessment order.
@@ -49,7 +50,7 @@ pub struct BlueprintAssessmentRelationship {
     /// Assessment handle in the right inventory.
     pub right_assessment_id: BlueprintAssessmentId,
     /// Sorted unique Question IDs shared by this pair.
-    pub shared_question_ids: Vec<QuestionId>,
+    pub shared_question_ids: Vec<PublishedQuestionId>,
 }
 
 /// Answer-free comparison of two independently selected Blueprint Revisions.
@@ -62,11 +63,11 @@ pub struct BlueprintComparison {
     /// Every related pair, in left then right authored Assessment order.
     pub relationships: Vec<BlueprintAssessmentRelationship>,
     /// Sorted unique Question IDs present on both sides.
-    pub shared_question_ids: Vec<QuestionId>,
+    pub shared_question_ids: Vec<PublishedQuestionId>,
     /// Sorted unique Question IDs present only on the left.
-    pub left_only_question_ids: Vec<QuestionId>,
+    pub left_only_question_ids: Vec<PublishedQuestionId>,
     /// Sorted unique Question IDs present only on the right.
-    pub right_only_question_ids: Vec<QuestionId>,
+    pub right_only_question_ids: Vec<PublishedQuestionId>,
 }
 
 /// Cannot retain all side-local handles or resolve trusted exact Pool members.
@@ -108,7 +109,10 @@ impl std::error::Error for BlueprintComparisonError {}
 pub fn compare_blueprint_courses(
     left: &BlueprintCourseContent,
     right: &BlueprintCourseContent,
-    pool_memberships: &BTreeMap<(QuestionId, QuestionPoolEditNumber), Vec<QuestionRevisionTuple>>,
+    pool_memberships: &BTreeMap<
+        (QuestionPoolId, QuestionPoolEditNumber),
+        Vec<PublishedQuestionRevisionTuple>,
+    >,
 ) -> Result<BlueprintComparison, BlueprintComparisonError> {
     let left = inventory(left, pool_memberships)?;
     let right = inventory(right, pool_memberships)?;
@@ -146,7 +150,10 @@ pub fn compare_blueprint_courses(
 
 fn inventory(
     content: &BlueprintCourseContent,
-    pool_memberships: &BTreeMap<(QuestionId, QuestionPoolEditNumber), Vec<QuestionRevisionTuple>>,
+    pool_memberships: &BTreeMap<
+        (QuestionPoolId, QuestionPoolEditNumber),
+        Vec<PublishedQuestionRevisionTuple>,
+    >,
 ) -> Result<BlueprintComparisonInventory, BlueprintComparisonError> {
     let mut inventory = BlueprintComparisonInventory {
         modules: Vec::new(),
@@ -173,10 +180,14 @@ fn inventory(
             for entry in assessment.entries() {
                 match entry {
                     BlueprintAssessmentEntryContent::Fixed {
-                        question_revision_tuple,
+                        published_question_revision_tuple,
                         ..
                     } => {
-                        question_ids.insert(question_revision_tuple.question_id.clone());
+                        question_ids.insert(
+                            published_question_revision_tuple
+                                .published_question_id
+                                .clone(),
+                        );
                     }
                     BlueprintAssessmentEntryContent::Pool(pool) => {
                         let members = pool_memberships
@@ -187,7 +198,7 @@ fn inventory(
                             .ok_or(BlueprintComparisonError::MissingPoolMembership)?;
                         let member_ids: BTreeSet<_> = members
                             .iter()
-                            .map(|member| member.question_id.clone())
+                            .map(|member| member.published_question_id.clone())
                             .collect();
                         if members.is_empty()
                             || member_ids.len() != members.len()
@@ -211,7 +222,9 @@ fn inventory(
     Ok(inventory)
 }
 
-fn inventory_question_ids(inventory: &BlueprintComparisonInventory) -> BTreeSet<QuestionId> {
+fn inventory_question_ids(
+    inventory: &BlueprintComparisonInventory,
+) -> BTreeSet<PublishedQuestionId> {
     inventory
         .assessments
         .iter()

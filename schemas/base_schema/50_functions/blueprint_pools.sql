@@ -91,7 +91,7 @@ BEGIN
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Question Pool Edit Number is stale';
     END IF;
-    RETURN QUERY SELECT pool.question_pool_edit_number, member.published_question_id, member.question_revision_number
+    RETURN QUERY SELECT pool.question_pool_edit_number, member.published_question_id::text, member.question_revision_number
       FROM ple_data.question_pool AS pool
       JOIN ple_data.question_pool_member AS member USING (question_pool_id)
       WHERE pool.question_pool_id = p_public_pool_id
@@ -164,4 +164,3 @@ END $$;
 
 CREATE TRIGGER blueprint_revision_owned_pools BEFORE INSERT ON ple_data.blueprint_course_revision
     FOR EACH ROW EXECUTE FUNCTION ple_data.validate_blueprint_owned_pools();
-

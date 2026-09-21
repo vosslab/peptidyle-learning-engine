@@ -3,16 +3,16 @@
 import type { BloomClassificationCorrectionRequest } from "../../generated/api/BloomClassificationCorrectionRequest";
 import type { QuestionBloomCorrectionReceipt } from "../../generated/api/QuestionBloomCorrectionReceipt";
 import type { QuestionPoolBloomCorrectionReceipt } from "../../generated/api/QuestionPoolBloomCorrectionReceipt";
-import type { QuestionId } from "../../generated/api/QuestionId";
-import type { QuestionRevisionTuple } from "../../generated/api/QuestionRevisionTuple";
+import type { QuestionPoolId } from "../../generated/api/QuestionPoolId";
+import type { PublishedQuestionRevisionTuple } from "../../generated/api/PublishedQuestionRevisionTuple";
 
 export interface BloomClassificationCorrectionClient {
   readonly correctQuestionBloom: (
-    questionRevisionTuple: QuestionRevisionTuple,
+    publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple,
     request: BloomClassificationCorrectionRequest,
   ) => Promise<QuestionBloomCorrectionReceipt>;
   readonly correctQuestionPoolBloom: (
-    questionPoolId: QuestionId,
+    questionPoolId: QuestionPoolId,
     request: BloomClassificationCorrectionRequest,
   ) => Promise<QuestionPoolBloomCorrectionReceipt>;
 }

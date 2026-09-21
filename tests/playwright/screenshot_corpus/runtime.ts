@@ -33,8 +33,11 @@ export interface ScenarioRuntime {
 export function captureIdentity(
   role: ScenarioDefinition["role"],
   checkpoint: string,
+  viewport: ViewportId,
 ): { readonly id: string; readonly path: string } {
-  return { id: `${role}_${checkpoint}`, path: `${role}/${checkpoint}.png` };
+  const semanticName = checkpoint.replace(new RegExp(`_${viewport}$`, "u"), "");
+  const pathPrefix = semanticName === checkpoint ? role : `${role}/${viewport}`;
+  return { id: `${role}_${checkpoint}`, path: `${pathPrefix}/${semanticName}.png` };
 }
 
 export function requireEntryUrl(argument: string | undefined): URL {
@@ -146,7 +149,7 @@ export function createScenarioRuntime(options: {
     if (session.viewport !== declaration.viewport) {
       throw new Error(`${checkpoint} uses a session with the wrong viewport`);
     }
-    const identity = captureIdentity(options.scenario.role, checkpoint);
+    const identity = captureIdentity(options.scenario.role, checkpoint, declaration.viewport);
     const routeId = observedRoute(session.page, identity.id);
     const captureRecord: CaptureRecord = {
       id: identity.id,
@@ -206,7 +209,9 @@ export function requireProducedClosure(
   scenario: ScenarioDefinition,
 ): void {
   const expected = new Set(
-    scenario.captures.map((capture) => captureIdentity(scenario.role, capture.checkpoint).path),
+    scenario.captures.map(
+      (capture) => captureIdentity(scenario.role, capture.checkpoint, capture.viewport).path,
+    ),
   );
   const missing = [...expected].filter((artifactPath) => !runtime.producedPaths.has(artifactPath));
   const unexpected = [...runtime.producedPaths].filter(

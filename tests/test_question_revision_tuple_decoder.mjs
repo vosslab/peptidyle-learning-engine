@@ -2,27 +2,37 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { DecodeError } from "../src/api/decoder.ts";
-import { decodeQuestionRevisionTuple } from "../src/api/decoders/shared.ts";
+import { decodePublishedQuestionRevisionTuple } from "../src/api/decoders/shared.ts";
 import { blueprintRevisionTuple } from "../src/api/decoders/blueprint_course.ts";
 
-const TUPLE = { questionId: "ABCD-XEFG", revisionNumber: 1 };
+const TUPLE = { publishedQuestionId: "ABCD-XEFG", revisionNumber: 1 };
 const BLUEPRINT_TUPLE = { blueprintCourseId: "BP7K3M2QXH", revisionNumber: "1" };
 
-test("Question Revision Tuple decodes questionId plus revisionNumber", () => {
-  assert.deepEqual(decodeQuestionRevisionTuple(TUPLE, "questionRevisionTuple"), TUPLE);
+test("Published Question Revision Tuple decodes publishedQuestionId plus revisionNumber", () => {
+  assert.deepEqual(
+    decodePublishedQuestionRevisionTuple(TUPLE, "publishedQuestionRevisionTuple"),
+    TUPLE,
+  );
 });
 
 test("Question Revision Tuple rejects leftover reference JSON", () => {
   assert.throws(
-    () => decodeQuestionRevisionTuple({ reference: TUPLE }, "questionRevisionTuple"),
+    () =>
+      decodePublishedQuestionRevisionTuple({ reference: TUPLE }, "publishedQuestionRevisionTuple"),
     DecodeError,
   );
   assert.throws(
     () =>
-      decodeQuestionRevisionTuple({ ...TUPLE, reference: "ABCD-XEFG" }, "questionRevisionTuple"),
+      decodePublishedQuestionRevisionTuple(
+        { ...TUPLE, reference: "ABCD-XEFG" },
+        "publishedQuestionRevisionTuple",
+      ),
     DecodeError,
   );
-  assert.throws(() => decodeQuestionRevisionTuple(1, "questionRevisionTuple"), DecodeError);
+  assert.throws(
+    () => decodePublishedQuestionRevisionTuple(1, "publishedQuestionRevisionTuple"),
+    DecodeError,
+  );
 });
 
 test("Blueprint Revision Tuple decodes blueprintCourseId plus revisionNumber", () => {
@@ -48,7 +58,7 @@ test("Blueprint Assessment fixed entry rejects leftover published_question Tuple
     entries: [
       {
         kind: "fixed",
-        published_question: { questionId: "AAAA-2BBB", revisionNumber: 1 },
+        published_question: { publishedQuestionId: "AAAA-2BBB", revisionNumber: 1 },
         points_possible: "1",
         scoring_rule: "normal",
         question_attempt_limit: { maxAttempts: null },

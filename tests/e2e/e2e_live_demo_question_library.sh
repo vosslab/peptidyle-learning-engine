@@ -167,12 +167,12 @@ for item in items:
     if not isinstance(summary, dict):
         raise SystemExit("Question Library search omitted a Question summary")
     identifier = summary.get("questionId")
-    revision = summary.get("questionRevisionTuple")
+    revision = summary.get("publishedQuestionRevisionTuple")
     metadata = summary.get("metadata")
     availability = summary.get("availability")
     if (not isinstance(identifier, str) or question_id.fullmatch(identifier) is None
         or identifier in seen_ids or not isinstance(revision, dict)
-        or revision.get("questionId") != identifier
+        or revision.get("publishedQuestionId") != identifier
         or not isinstance(revision.get("revisionNumber"), int) or revision["revisionNumber"] < 1
         or not isinstance(metadata, dict) or metadata.get("questionTitle") not in expected_titles
         or not isinstance(availability, dict) or availability.get("availability") != "available"):
@@ -190,7 +190,7 @@ for forbidden in ("correctChoice", "correctAnswer", "studentResponse", "sourceOb
         raise SystemExit("Question Library search exposed a protected field")
 print(
     ple_item["questionId"],
-    ple_item["questionRevisionTuple"]["revisionNumber"],
+    ple_item["publishedQuestionRevisionTuple"]["revisionNumber"],
     ple_item["metadata"]["questionTitle"],
     sep="\t",
 )
@@ -300,9 +300,9 @@ payload = json.loads(sys.argv[1])
 expected_id = sys.argv[2]
 expected_revision = int(sys.argv[3])
 summary = payload.get("summary", {})
-revision = summary.get("questionRevisionTuple", {}) if isinstance(summary, dict) else {}
+revision = summary.get("publishedQuestionRevisionTuple", {}) if isinstance(summary, dict) else {}
 if (summary.get("questionId") != expected_id
-    or revision.get("questionId") != expected_id
+    or revision.get("publishedQuestionId") != expected_id
     or revision.get("revisionNumber") != expected_revision):
     raise SystemExit("Question detail did not preserve the selected exact Question Revision")
 rendered = json.dumps(payload, sort_keys=True)

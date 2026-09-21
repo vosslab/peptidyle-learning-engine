@@ -1,6 +1,6 @@
 // Strict same-origin transport for reusable published Question Pool reads.
 
-import type { QuestionId } from "../../../generated/api/QuestionId";
+import type { QuestionPoolId } from "../../../generated/api/QuestionPoolId";
 import type { QuestionPoolView } from "../../../generated/api/QuestionPoolView";
 import { validateCanonicalQuestionIdSyntax } from "../../../generated/api/QuestionIdSyntaxContract";
 import {
@@ -31,7 +31,7 @@ import { boundedResponseJson, requireNoStore } from "./response";
 const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 100;
 
-function canonicalQuestionPoolId(value: QuestionId): QuestionId {
+function canonicalQuestionPoolId(value: QuestionPoolId): QuestionPoolId {
   const canonical = validateCanonicalQuestionIdSyntax(value);
   if (canonical === null || canonical !== value) {
     throw new ApiProtocolError("Question Pool ID must be canonical");

@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use question_model::{QuestionBackend, QuestionRevisionTuple, QuestionType};
+use question_model::{PublishedQuestionRevisionTuple, QuestionBackend, QuestionType};
 
 use super::{Manifest, SourceRevisions};
 
@@ -37,7 +37,7 @@ pub(super) struct ReceiptQuestion {
     pub(super) backend: QuestionBackend,
     pub(super) question_type: QuestionType,
     pub(super) webwork_pg_path: String,
-    pub(super) question_revision_tuple: QuestionRevisionTuple,
+    pub(super) published_question_revision_tuple: PublishedQuestionRevisionTuple,
 }
 
 impl Receipt {
@@ -82,7 +82,7 @@ impl Receipt {
                         let source = sources.get(source_id.as_str()).with_context(|| {
                             format!("curriculum receipt is missing source {source_id}")
                         })?;
-                        let question_revision_tuple =
+                        let published_question_revision_tuple =
                             revisions.get(source_id).cloned().with_context(|| {
                                 format!("curriculum receipt is missing revision for {source_id}")
                             })?;
@@ -96,7 +96,7 @@ impl Receipt {
                                 source.question_type,
                             ),
                             webwork_pg_path: source.webwork_pg_path.clone(),
-                            question_revision_tuple,
+                            published_question_revision_tuple,
                         })
                     })
                     .collect::<Result<Vec<_>>>()?;

@@ -30,11 +30,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 	launch = actions.add_parser("launch")
 	launch.add_argument("--manifest", required=True, type=pathlib.Path)
 	launch.add_argument("--timeout-seconds", required=True, type=int)
-	launch.add_argument("--without-live-demo", action="store_true")
 	replay_installation_data = actions.add_parser("replay-installation-data")
 	replay_installation_data.add_argument("--manifest", required=True, type=pathlib.Path)
-	assert_live_demo_absent = actions.add_parser("assert-live-demo-absent")
-	assert_live_demo_absent.add_argument("--manifest", required=True, type=pathlib.Path)
 	restart = actions.add_parser("restart")
 	restart.add_argument("--manifest", required=True, type=pathlib.Path)
 	restart.add_argument("--service", required=True)
@@ -406,7 +403,6 @@ def main() -> None:
 					root,
 					local_stack_control.disposable_stack_adapter.lifecycle_options(
 						disposable, args.timeout_seconds,
-						without_live_demo=args.without_live_demo,
 					),
 				)
 			except local_stack_control.models.ControllerError:
@@ -420,15 +416,9 @@ def main() -> None:
 			local_stack_control.disposable_stack_adapter.require_mutating_capability(runner, disposable)
 			local_stack_control.disposable_stack_adapter.require_browser_profile(disposable)
 			local_stack_control.lifecycle.provision_ready_installation_data(
-				disposable, runner, without_live_demo=False
+				disposable, runner
 			)
 			print("Disposable installation data: provisioned")
-			raise SystemExit(0)
-		if args.action == "assert-live-demo-absent":
-			local_stack_control.disposable_stack_adapter.require_current_resource_capability(runner, disposable)
-			local_stack_control.disposable_stack_adapter.require_browser_profile(disposable)
-			local_stack_control.lifecycle.require_bundled_genetics_without_live_demo(disposable, runner)
-			print("Disposable installation data: bundled Genetics is present without the Live Demo Course")
 			raise SystemExit(0)
 		if args.action == "restart":
 			local_stack_control.disposable_stack_adapter.require_mutating_capability(runner, disposable)

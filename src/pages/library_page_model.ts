@@ -9,7 +9,7 @@ import {
 import type { QuestionFormat } from "../../generated/api/QuestionFormat";
 import type { QuestionSearchAuthorship } from "../../generated/api/QuestionSearchAuthorship";
 import type { QuestionSearchSort } from "../../generated/api/QuestionSearchSort";
-import type { QuestionRevisionTuple } from "../../generated/api/QuestionRevisionTuple";
+import type { PublishedQuestionRevisionTuple } from "../../generated/api/PublishedQuestionRevisionTuple";
 import type { BloomClassificationView } from "../../generated/api/BloomClassificationView";
 import type { QuestionStatistics } from "../../generated/api/QuestionStatistics";
 import type { BloomCognitiveProcess } from "../../generated/api/BloomCognitiveProcess";
@@ -27,7 +27,7 @@ import {
   MAX_QUESTION_SEARCH_CAPABILITY_FACETS,
   MAX_QUESTION_SEARCH_QUESTION_LICENSE_FACETS,
   QUESTION_BACKENDS,
-  decodeQuestionRevisionTuple,
+  decodePublishedQuestionRevisionTuple,
 } from "../api/decoders/shared";
 import { decodeQuestionStatistics } from "../api/decoders/question_library";
 import { decodeBloomClassificationView } from "../api/decoders/bloom_classification";
@@ -37,7 +37,7 @@ export interface QuestionLibraryBrowseRow {
   /** Copy/paste identity used by instructors and the browser deduplication key. */
   readonly displayId: string;
   /** Exact immutable revision selected by this browse result. */
-  readonly questionRevisionTuple: QuestionRevisionTuple;
+  readonly publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple;
   readonly questionTitle: string;
   readonly summary: string;
   /** Exact Revision-owned Bloom pair and its independent correction precondition, when assigned. */
@@ -351,7 +351,7 @@ function decodeRow(value: unknown, path: string): QuestionLibraryBrowseRow {
       "displayId",
       "questionLicense",
       "questionFormat",
-      "questionRevisionTuple",
+      "publishedQuestionRevisionTuple",
       "summary",
       "bloom",
       "questionTitle",
@@ -372,17 +372,19 @@ function decodeRow(value: unknown, path: string): QuestionLibraryBrowseRow {
   if (typeof disciplineIsRetired !== "boolean") {
     throw new Error(`${path}.disciplineIsRetired must be boolean`);
   }
-  const questionRevisionTuple = decodeQuestionRevisionTuple(
-    value["questionRevisionTuple"],
-    `${path}.questionRevisionTuple`,
+  const publishedQuestionRevisionTuple = decodePublishedQuestionRevisionTuple(
+    value["publishedQuestionRevisionTuple"],
+    `${path}.publishedQuestionRevisionTuple`,
     true,
   );
-  if (questionRevisionTuple.questionId !== displayId) {
-    throw new Error(`${path}.questionRevisionTuple.questionId must match displayId`);
+  if (publishedQuestionRevisionTuple.publishedQuestionId !== displayId) {
+    throw new Error(
+      `${path}.publishedQuestionRevisionTuple.publishedQuestionId must match displayId`,
+    );
   }
   return {
     displayId,
-    questionRevisionTuple,
+    publishedQuestionRevisionTuple,
     questionTitle: boundedText(value["questionTitle"], `${path}.questionTitle`),
     summary: boundedText(value["summary"], `${path}.summary`, MAX_SUMMARY_LENGTH),
     bloom:

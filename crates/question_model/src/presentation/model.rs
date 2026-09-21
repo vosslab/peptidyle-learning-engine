@@ -3,7 +3,7 @@
 use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 
-use crate::QuestionRevisionTuple;
+use crate::PublishedQuestionRevisionTuple;
 use crate::course_appearance::CourseTheme;
 use crate::question_content::{QuestionContentBlock, QuestionImageAssetTuple};
 use crate::student_work::{AssessmentId, CourseInstanceId, QuestionAttemptId, Timestamp};
@@ -317,7 +317,7 @@ pub enum QuestionPresentationResponseFormat {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionPresentation {
-    pub question_revision_tuple: QuestionRevisionTuple,
+    pub published_question_revision_tuple: PublishedQuestionRevisionTuple,
     /// PLE-generated randomness used only to bind presentation-scoped
     /// response-item IDs and authored choice order. This is not source
     /// or author-JavaScript generation input.

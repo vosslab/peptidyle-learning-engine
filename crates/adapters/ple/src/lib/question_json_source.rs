@@ -5,9 +5,9 @@ use std::fmt::Write as _;
 use objects::{ObjectStore, ResolvedQuestionSource};
 use question_model::generation::QuestionReproduction;
 use question_model::{
-    GradingResult, ObjectId, QuestionAttemptReproductionDetails, QuestionBackendVersion,
-    QuestionGraderVersion, QuestionRevisionTuple, QuestionVariation, QuestionVariationPresentation,
-    SourceObjectChecksum, StudentResponse,
+    GradingResult, ObjectId, PublishedQuestionRevisionTuple, QuestionAttemptReproductionDetails,
+    QuestionBackendVersion, QuestionGraderVersion, QuestionVariation,
+    QuestionVariationPresentation, SourceObjectChecksum, StudentResponse,
 };
 use sha2::{Digest, Sha256};
 
@@ -31,13 +31,13 @@ impl ResolvedPleQuestionJsonSource {
     /// Resolves, parses, and compiles the source attached to this exact revision.
     pub async fn resolve<S: ObjectStore>(
         store: &S,
-        question_revision_tuple: QuestionRevisionTuple,
+        published_question_revision_tuple: PublishedQuestionRevisionTuple,
         source_object_id: ObjectId,
         source_object_checksum: SourceObjectChecksum,
     ) -> Result<Self, PleQuestionBackendError> {
         let source = ResolvedQuestionSource::resolve(
             store,
-            question_revision_tuple,
+            published_question_revision_tuple,
             source_object_id,
             source_object_checksum,
         )
@@ -56,8 +56,8 @@ impl ResolvedPleQuestionJsonSource {
         Ok(Self { source, compiled })
     }
 
-    pub fn question_revision_tuple(&self) -> &QuestionRevisionTuple {
-        self.source.question_revision_tuple()
+    pub fn published_question_revision_tuple(&self) -> &PublishedQuestionRevisionTuple {
+        self.source.published_question_revision_tuple()
     }
     pub fn source_object_id(&self) -> &ObjectId {
         self.source.source_object_id()
@@ -156,7 +156,7 @@ impl PleQuestionBackend {
 fn presentation(source: &ResolvedPleQuestionJsonSource) -> QuestionVariationPresentation {
     QuestionVariationPresentation {
         variation: QuestionVariation::from_question_revision_and_reproduction(
-            source.question_revision_tuple().clone(),
+            source.published_question_revision_tuple().clone(),
             QuestionReproduction::Static,
         ),
         question_title: source.compiled.presentation().question_title().to_string(),

@@ -1,7 +1,7 @@
 // Closed browser capability for current shared Published Question metadata.
 
 import type { PublishedQuestionSharedMetadata } from "../../generated/api/PublishedQuestionSharedMetadata";
-import type { QuestionId } from "../../generated/api/QuestionId";
+import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionId";
 import type { Tag } from "../../generated/api/Tag";
 
 export interface QuestionBulkMetadataPatch {
@@ -13,7 +13,7 @@ export interface QuestionBulkMetadataPatch {
 }
 
 export interface QuestionBulkMetadataSelectionItem {
-  readonly questionId: QuestionId;
+  readonly questionId: PublishedQuestionId;
   readonly metadataEditNumber: number;
 }
 
@@ -23,14 +23,14 @@ export interface QuestionBulkMetadataUpdateRequest {
 }
 
 export interface QuestionBulkMetadataUpdateResult {
-  readonly questionId: QuestionId;
+  readonly questionId: PublishedQuestionId;
   readonly metadataEditNumber: number;
 }
 
 /** The only browser operations for reading and replacing shared search metadata. */
 export interface QuestionBulkMetadataClient {
   readonly getCurrentQuestionBulkMetadata: (
-    questionIds: ReadonlyArray<QuestionId>,
+    questionIds: ReadonlyArray<PublishedQuestionId>,
   ) => Promise<ReadonlyArray<PublishedQuestionSharedMetadata>>;
   readonly updateQuestionBulkMetadata: (
     request: QuestionBulkMetadataUpdateRequest,

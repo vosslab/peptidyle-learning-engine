@@ -8,9 +8,9 @@ use learning_data_access::{
 };
 use objects::s3::S3ObjectStore;
 use question_model::{
-    QuestionDetails, QuestionDetailsPromptView, QuestionId, QuestionRevisionTuple,
-    QuestionSearchResult, QuestionStatistics, QuestionUsageTotals, QuestionUseDetails,
-    QuestionUseSummary, ReusableQuestionView, ReusableSelectionAvailability,
+    PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionDetails,
+    QuestionDetailsPromptView, QuestionSearchResult, QuestionStatistics, QuestionUsageTotals,
+    QuestionUseDetails, QuestionUseSummary, ReusableQuestionView, ReusableSelectionAvailability,
 };
 
 use super::{
@@ -20,15 +20,18 @@ use super::{
 pub(crate) async fn answer_free_question_search_results(
     objects: &S3ObjectStore,
     entries: Vec<PublishedQuestionLibraryEntry>,
-    evidence_by_question: &BTreeMap<QuestionId, QuestionStatistics>,
-) -> Result<BTreeMap<QuestionRevisionTuple, QuestionSearchResult>, ()> {
+    evidence_by_question: &BTreeMap<PublishedQuestionId, QuestionStatistics>,
+) -> Result<BTreeMap<PublishedQuestionRevisionTuple, QuestionSearchResult>, ()> {
     let mut results = BTreeMap::new();
     for entry in entries {
-        let question_id = entry.question_revision_tuple.question_id.clone();
-        let question_revision_tuple = entry.question_revision_tuple.clone();
+        let question_id = entry
+            .published_question_revision_tuple
+            .published_question_id
+            .clone();
+        let published_question_revision_tuple = entry.published_question_revision_tuple.clone();
         let resolved = answer_free_question_library_entry(objects, entry).await?;
         results.insert(
-            question_revision_tuple,
+            published_question_revision_tuple,
             search_result(resolved, evidence_for(&question_id, evidence_by_question)),
         );
     }
@@ -44,10 +47,10 @@ pub(crate) async fn answer_free_reusable_question_view(
         question_model::QuestionAvailability::Available => ReusableSelectionAvailability::Available,
         question_model::QuestionAvailability::Archived => ReusableSelectionAvailability::Retained,
     };
-    let question_revision_tuple = entry.question_revision_tuple.clone();
+    let published_question_revision_tuple = entry.published_question_revision_tuple.clone();
     let resolved = answer_free_question_library_entry(objects, entry).await?;
     Ok(ReusableQuestionView {
-        question_revision_tuple,
+        published_question_revision_tuple,
         question_library: search_result(resolved, evidence),
         selection_availability,
     })
@@ -97,8 +100,8 @@ pub(crate) async fn bulk_question_statistics(
     store: &PostgresQuestionLibraryStore,
     session_hash: SessionTokenHash,
     is_instructor: bool,
-    question_ids: &[QuestionId],
-) -> Result<BTreeMap<QuestionId, QuestionStatistics>, Response> {
+    question_ids: &[PublishedQuestionId],
+) -> Result<BTreeMap<PublishedQuestionId, QuestionStatistics>, Response> {
     if !is_instructor {
         return Ok(BTreeMap::new());
     }
@@ -117,7 +120,7 @@ pub(super) async fn question_detail_statistics(
     store: &PostgresQuestionLibraryStore,
     session_hash: SessionTokenHash,
     is_instructor: bool,
-    question_id: &QuestionId,
+    question_id: &PublishedQuestionId,
 ) -> Result<QuestionStatistics, Response> {
     if !is_instructor {
         return Ok(QuestionStatistics::Unavailable);
@@ -139,8 +142,8 @@ pub(super) async fn question_detail_statistics(
 }
 
 pub(crate) fn evidence_for(
-    question_id: &QuestionId,
-    evidence_by_question: &BTreeMap<QuestionId, QuestionStatistics>,
+    question_id: &PublishedQuestionId,
+    evidence_by_question: &BTreeMap<PublishedQuestionId, QuestionStatistics>,
 ) -> QuestionStatistics {
     evidence_by_question
         .get(question_id)

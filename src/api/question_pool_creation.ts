@@ -1,19 +1,19 @@
 // Closed browser command for creating one reusable Published Question Pool.
 
-import type { QuestionId } from "../../generated/api/QuestionId";
-import type { QuestionRevisionTuple } from "../../generated/api/QuestionRevisionTuple";
+import type { QuestionPoolId } from "../../generated/api/QuestionPoolId";
+import type { PublishedQuestionRevisionTuple } from "../../generated/api/PublishedQuestionRevisionTuple";
 
 /** Browser-supplied content for a new current-state Published Question Pool. */
 export interface CreateQuestionPoolInput {
   readonly title: string;
   readonly description: string;
-  readonly members: ReadonlyArray<QuestionRevisionTuple>;
+  readonly members: ReadonlyArray<PublishedQuestionRevisionTuple>;
   readonly interchangeabilityAttested: true;
 }
 
 /** Server-issued Pool ID; a new Pool starts at Edit Number 1. */
 export interface CreatedQuestionPool {
-  readonly questionPoolId: QuestionId;
+  readonly questionPoolId: QuestionPoolId;
   readonly questionPoolEditNumber: 1;
 }
 

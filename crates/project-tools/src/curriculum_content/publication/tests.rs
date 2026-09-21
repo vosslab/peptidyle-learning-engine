@@ -1,10 +1,13 @@
 use super::*;
-use question_model::{QuestionId, QuestionRevisionNumber};
+use question_model::{PublishedQuestionId, QuestionRevisionNumber};
 
-fn question_revision_tuple(question_id: &str, revision_number: u32) -> QuestionRevisionTuple {
-    QuestionRevisionTuple {
-        question_id: question_id
-            .parse::<QuestionId>()
+fn published_question_revision_tuple(
+    question_id: &str,
+    revision_number: u32,
+) -> PublishedQuestionRevisionTuple {
+    PublishedQuestionRevisionTuple {
+        published_question_id: question_id
+            .parse::<PublishedQuestionId>()
             .expect("valid Question ID"),
         revision_number: QuestionRevisionNumber::new(revision_number)
             .expect("positive Question Revision Number"),
@@ -73,8 +76,8 @@ fn canonical_blueprint_uses_ordered_direct_fixed_questions() {
         .unwrap_err()
         .to_string();
     assert!(error.contains("first requires explicit authored classification"));
-    let first = question_revision_tuple("7K3M-19QX", 1);
-    let second = question_revision_tuple("8K3M-99QX", 1);
+    let first = published_question_revision_tuple("7K3M-19QX", 1);
+    let second = published_question_revision_tuple("8K3M-99QX", 1);
     let revisions = BTreeMap::from([
         ("first".to_owned(), first.clone()),
         ("second".to_owned(), second.clone()),
@@ -105,12 +108,16 @@ fn canonical_blueprint_uses_ordered_direct_fixed_questions() {
         unreachable!();
     };
     assert_eq!(
-        first_entry.question_revision_tuple.question_id,
-        first.question_id
+        first_entry
+            .published_question_revision_tuple
+            .published_question_id,
+        first.published_question_id
     );
     assert_eq!(
-        second_entry.question_revision_tuple.question_id,
-        second.question_id
+        second_entry
+            .published_question_revision_tuple
+            .published_question_id,
+        second.published_question_id
     );
 }
 
@@ -121,8 +128,14 @@ fn genetics_receipt_serializes_blueprint_revision_number() {
         1,
         &manifest(),
         &BTreeMap::from([
-            ("first".to_owned(), question_revision_tuple("7K3M-19QX", 1)),
-            ("second".to_owned(), question_revision_tuple("8K3M-99QX", 1)),
+            (
+                "first".to_owned(),
+                published_question_revision_tuple("7K3M-19QX", 1),
+            ),
+            (
+                "second".to_owned(),
+                published_question_revision_tuple("8K3M-99QX", 1),
+            ),
         ]),
     )
     .expect("receipt");
@@ -139,8 +152,8 @@ fn genetics_receipt_serializes_blueprint_revision_number() {
 #[test]
 fn exact_replay_rejects_semantic_drift() {
     let manifest = manifest();
-    let first = question_revision_tuple("7K3M-19QX", 1);
-    let second = question_revision_tuple("8K3M-99QX", 1);
+    let first = published_question_revision_tuple("7K3M-19QX", 1);
+    let second = published_question_revision_tuple("8K3M-99QX", 1);
     let revisions = BTreeMap::from([
         ("first".to_owned(), first.clone()),
         ("second".to_owned(), second.clone()),
@@ -166,13 +179,13 @@ fn exact_replay_rejects_semantic_drift() {
         question_model::AssessmentType::RegularAssignment;
     assert!(validate_loaded_content(&wrong_type, &input, &manifest, &revisions).is_err());
     let StoredBlueprintAssessmentEntry::Fixed {
-        question_revision_tuple,
+        published_question_revision_tuple,
         ..
     } = &mut stored.modules[0].assessments[0].content.entries[0]
     else {
         unreachable!();
     };
-    question_revision_tuple.revision_number =
+    published_question_revision_tuple.revision_number =
         QuestionRevisionNumber::new(2).expect("positive Question Revision Number");
     assert!(validate_loaded_content(&stored, &input, &manifest, &revisions).is_err());
 }

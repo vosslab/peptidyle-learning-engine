@@ -145,7 +145,7 @@ function publicationSummary(backend = "ple") {
   const questionFormat = backend === "ple" ? "pleQuestionJson" : "webworkPg";
   return {
     questionId: "7K3M-79QP",
-    questionRevisionTuple: { questionId: "7K3M-79QP", revisionNumber: 1 },
+    publishedQuestionRevisionTuple: { publishedQuestionId: "7K3M-79QP", revisionNumber: 1 },
     backend,
     questionFormat,
     questionType: "multipleChoice",

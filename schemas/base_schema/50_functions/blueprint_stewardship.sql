@@ -332,7 +332,7 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Blueprint Course Watch events require a Public or Archived Blueprint Course';
     END IF;
-    RETURN QUERY SELECT notification.event_kind,
+    RETURN QUERY SELECT notification.event_kind::text,
         (EXTRACT(EPOCH FROM notification.occurred_at) * 1000)::bigint
       FROM ple_private.blueprint_course_watch_notification AS notification
      WHERE notification.recipient_account_id = actor_id
@@ -416,4 +416,3 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
         (SELECT blueprint_course_id FROM ple_data.blueprint_course WHERE blueprint_course_id = $1), $2
     )
 $$;
-

@@ -81,7 +81,7 @@ BEGIN
      WHERE member.value ->> 'blueprint_assessment_id' = source_assessment_id::text;
     cannot_apply_reason := CASE
         WHEN source_assessment_content IS NULL THEN 'retained_source_missing'
-        WHEN source_assessment_content ->> 'assessment_type' <> assessment_row.assessment_type
+        WHEN source_assessment_content ->> 'assessment_type' <> assessment_row.assessment_type::text
             THEN 'assessment_type_mismatch'
         ELSE NULL END;
     RETURN NEXT;
@@ -243,7 +243,7 @@ BEGIN
             ) VALUES (
                 (entry_json ->> 'assessmentEntryId')::uuid, assessment_row.assessment_id,
                 (entry_json ->> 'authoredPosition')::integer, 'question_pool', 'retired',
-                entry_json ->> 'scoringRule',
+                (entry_json ->> 'scoringRule')::ple_data.scoring_rule,
                 NULLIF(entry_json ->> 'questionAttemptLimit', '')::integer,
                 NULLIF(entry_json ->> 'questionAttemptTimeLimitSeconds', '')::integer,
                 NULLIF(entry_json ->> 'questionAttemptGraceSeconds', '')::integer);
@@ -254,7 +254,7 @@ BEGIN
                 (entry_json ->> 'assessmentEntryId')::uuid, assessment_row.assessment_id,
                 forked.question_pool_id,
                 (entry_json ->> 'selectionCount')::integer, (entry_json ->> 'pointsPerItem')::numeric,
-                entry_json ->> 'selectedQuestionOrder');
+                (entry_json ->> 'selectedQuestionOrder')::ple_data.selected_question_order);
             INSERT INTO ple_data.assessment_question_pool_fork (
                 assessment_entry_id, assessment_id, question_pool_id
             ) VALUES ((entry_json ->> 'assessmentEntryId')::uuid, assessment_row.assessment_id,
@@ -380,11 +380,11 @@ BEGIN
         'assessmentType', destination.assessment_type,
         'cannotApplyReason', CASE
             WHEN source_member.source_content IS NULL THEN 'retainedSourceMissing'
-            WHEN source_member.source_content ->> 'assessment_type' <> destination.assessment_type
+            WHEN source_member.source_content ->> 'assessment_type' <> destination.assessment_type::text
                 THEN 'assessmentTypeMismatch' ELSE NULL END,
         'matchesSource', CASE
             WHEN source_member.source_content IS NULL
-              OR source_member.source_content ->> 'assessment_type' <> destination.assessment_type
+              OR source_member.source_content ->> 'assessment_type' <> destination.assessment_type::text
               OR projection.member IS NULL THEN false
             ELSE COALESCE(ple_data.assessment_blueprint_update_equivalent(
                 destination.assessment_id, projection.member -> 'values',
@@ -409,4 +409,3 @@ BEGIN
     RETURN NEXT;
 END
 $$;
-

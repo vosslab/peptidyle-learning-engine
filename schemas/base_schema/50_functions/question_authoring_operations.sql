@@ -27,7 +27,7 @@ BEGIN
      LIMIT 1;
     IF authoring_workspace_id IS NULL THEN
         INSERT INTO ple_private.authoring_workspace(authoring_workspace_id, owner_account_id, created_at)
-        VALUES (p_proposed_workspace_id, account_id, pg_catalog.clock_timestamp());
+        VALUES (p_proposed_workspace_id, account_id, pg_catalog.transaction_timestamp());
         authoring_workspace_id := p_proposed_workspace_id;
     END IF;
     RETURN authoring_workspace_id;
@@ -72,7 +72,6 @@ DECLARE
     expected_source_address jsonb;
     asset_count bigint;
     source_question_image_asset_id uuid;
-    source_asset_object_id uuid;
     source_asset_checksum bytea;
     source_asset_media_type text;
     source_asset_size_bytes bigint;
@@ -197,8 +196,8 @@ BEGIN
        OR p_target_media_type IS DISTINCT FROM source_record.media_type
        OR source_record.object_address IS DISTINCT FROM pg_catalog.jsonb_build_object(
            'kind', 'questionSource',
-           'questionRevisionTuple', pg_catalog.jsonb_build_object(
-               'questionId', p_source_question_id,
+           'publishedQuestionRevisionTuple', pg_catalog.jsonb_build_object(
+               'publishedQuestionId', p_source_question_id,
                'revisionNumber', p_source_question_revision_number),
            'objectId', source_binding.source_object_record_id)
        OR source_record.object_storage_area <> 'private-content'
@@ -215,10 +214,10 @@ BEGIN
             RAISE EXCEPTION USING ERRCODE = '23514',
                 MESSAGE = 'Native HOTSPOT fork requires one exact source raster';
         END IF;
-        SELECT publication.question_image_asset_id, publication.source_object_record_id,
+          SELECT publication.question_image_asset_id,
                publication.source_object_checksum, publication.verified_media_type,
                record.size_bytes, publication.intrinsic_width, publication.intrinsic_height
-          INTO STRICT source_question_image_asset_id, source_asset_object_id, source_asset_checksum,
+          INTO STRICT source_question_image_asset_id, source_asset_checksum,
                source_asset_media_type, source_asset_size_bytes,
                source_asset_width, source_asset_height
           FROM ple_private.question_image_publication AS publication
@@ -228,15 +227,15 @@ BEGIN
            AND publication.revision_number = p_source_question_revision_number
            AND record.object_address = pg_catalog.jsonb_build_object(
                'kind', 'restrictedQuestionImage',
-               'questionRevisionTuple', pg_catalog.jsonb_build_object(
-                   'questionId', p_source_question_id,
+               'publishedQuestionRevisionTuple', pg_catalog.jsonb_build_object(
+                   'publishedQuestionId', p_source_question_id,
                    'revisionNumber', p_source_question_revision_number),
                'questionImageAssetId', publication.question_image_asset_id,
                'objectId', publication.source_object_record_id)
            AND record.object_storage_area = 'private-content'
            AND record.object_data_class = 'question-image'
            AND record.sha256 = publication.source_object_checksum
-           AND record.media_type = publication.verified_media_type;
+           AND record.media_type = publication.verified_media_type::text;
         target_question_image_asset_id := (p_hotspot_question_image ->> 'questionImageAssetId')::uuid;
         target_question_image_object_id := (p_hotspot_question_image ->> 'objectId')::uuid;
         target_asset_address := p_hotspot_question_image -> 'objectAddress';
@@ -565,7 +564,7 @@ BEGIN
     UPDATE ple_private.draft_question_source_binding
        SET source_object_record_id = p_object_record_id,
            source_object_checksum = pg_catalog.encode(p_sha256, 'hex'),
-           question_type = p_question_type,
+           question_type = p_question_type::ple_data.question_type,
            updated_at = pg_catalog.clock_timestamp()
      WHERE draft_question_id = v_draft_question_uuid;
     UPDATE ple_private.draft_question_metadata
@@ -791,4 +790,3 @@ CREATE FUNCTION ple_api.delete_draft_question(
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT ple_private.delete_draft_question(p_draft_question_uuid, p_expected_draft_question_edit_number)
 $$;
-

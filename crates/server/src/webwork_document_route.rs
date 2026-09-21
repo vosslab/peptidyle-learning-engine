@@ -11,7 +11,7 @@ use learning_data_access::{
     LiveAssessmentDeliveryStore, QuestionIssuanceReproductionInput,
     StudentAssessmentAttemptHistoryEvidence, StudentAssessmentAttemptPresentationSource,
 };
-use question_model::{AssessmentAttemptId, QuestionRevisionTuple};
+use question_model::{AssessmentAttemptId, PublishedQuestionRevisionTuple};
 
 use crate::assessment_delivery::{StateData, concealed, student};
 
@@ -78,7 +78,7 @@ pub(crate) async fn answer_review(
     else {
         return concealed();
     };
-    if source.question_id != revision.question_id
+    if source.question_id != revision.published_question_id
         || source.revision_number != revision.revision_number.get()
     {
         return answer_review_unavailable();
@@ -124,7 +124,7 @@ pub(crate) async fn answer_review(
 fn permitted_answer_revision_tuple(
     evidence: &StudentAssessmentAttemptHistoryEvidence,
     position: u32,
-) -> Option<&QuestionRevisionTuple> {
+) -> Option<&PublishedQuestionRevisionTuple> {
     if evidence.submitted_at.is_none()
         || !crate::assessment_delivery::history::history_decision(evidence).question_answer
     {
@@ -135,7 +135,7 @@ fn permitted_answer_revision_tuple(
         .questions
         .iter()
         .find(|question| question.position == position)
-        .map(|question| &question.question_revision_tuple)
+        .map(|question| &question.published_question_revision_tuple)
 }
 
 fn answer_review_unavailable() -> Response {
@@ -319,9 +319,10 @@ mod tests {
                 score: None,
                 questions: vec![StudentAssessmentAttemptHistoryQuestion {
                     position: 1,
-                    question_revision_tuple: QuestionRevisionTuple {
-                        question_id: question_model::QuestionId::from_random_identifier("ABCDEF1")
-                            .unwrap(),
+                    published_question_revision_tuple: PublishedQuestionRevisionTuple {
+                        published_question_id:
+                            question_model::PublishedQuestionId::from_random_identifier("ABCDEF1")
+                                .unwrap(),
                         revision_number: question_model::QuestionRevisionNumber::new(3).unwrap(),
                     },
                     response_state: LiveAssessmentPreviousAttemptState::Closed,

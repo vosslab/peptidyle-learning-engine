@@ -32,7 +32,7 @@ Those documents must preserve the meanings established by Human Guidance.
   JSON, URLs, object storage, hashes, logs, and browser UI.
 - Use **Id** for one value that is the canonical identity of one object.
 - Use **Tuple** for multiple values that together identify one exact object, state, or version.
-  Current examples are `QuestionRevisionTuple { questionId, revisionNumber }`,
+  Current examples are `PublishedQuestionRevisionTuple { publishedQuestionId, revisionNumber }`,
   `BlueprintRevisionTuple { blueprintCourseId, revisionNumber }`,
   `QuestionImageAssetTuple { questionImageAssetId, checksum }`, and
   `CourseRosterTuple { courseInstanceId, rosterId }`.
@@ -774,8 +774,8 @@ uses its ordinary casing: SQL `account_id`, Rust/TypeScript type
 `AccountId`, Rust field `account_id`, JSON `id` or nested `accountId`.
 Do not keep a parallel UUID primary key, a `reference` JSON field for a
 public ID, or a `public_reference` SQL alias beside a public ID. Composite
-Question Revision Tuple JSON is the field `questionRevisionTuple` with members
-`{questionId, revisionNumber}`. Blueprint Revision Tuple JSON is the field
+Published Question Revision Tuple JSON is the field `publishedQuestionRevisionTuple` with members
+`{publishedQuestionId, revisionNumber}`. Blueprint Revision Tuple JSON is the field
 `blueprintRevisionTuple` with members `{blueprintCourseId, revisionNumber}`.
 Question Image Asset Tuple JSON is the field `questionImageAssetTuple` with members
 `{questionImageAssetId, checksum}`. Course Roster Tuple JSON is the field
@@ -785,8 +785,8 @@ use qualified names such as `assessmentEditNumber`, `blueprintEditNumber`,
 
 JSON `id` is only the immediate identity of a resource at its own root.
 Nested identities use the precise `...Id`, `...Tuple`, or `...Number`. An
-exact immutable Blueprint or Question revision is the named Tuple
-`blueprintRevisionTuple` or `questionRevisionTuple`, including Course
+exact immutable Blueprint or Published Question revision is the named Tuple
+`blueprintRevisionTuple` or `publishedQuestionRevisionTuple`, including Course
 Instance adoption (`blueprintRevisionTuple`) and provenance
 (`adoptedBlueprintRevisionTuple`, `currentBlueprintRevisionTuple`). An
 HTTP `ETag` is only a quoted encoding of an explicitly named Edit Number or

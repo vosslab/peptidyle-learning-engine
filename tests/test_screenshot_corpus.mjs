@@ -19,6 +19,7 @@ import {
   receiptJson,
   renderAtlas,
   verifyPublishedArtifacts,
+  writeReplayArtifacts,
 } from "./playwright/screenshot_corpus/publication";
 import { PRIVACY_PROFILES } from "./playwright/screenshot_corpus/privacy_profiles";
 
@@ -47,6 +48,7 @@ async function writeFixtureCorpus(root, manifest, salt) {
   await Promise.all(ROLE_IDS.map((role) => mkdir(path.join(root, role), { recursive: true })));
   await Promise.all(
     manifest.captures.map(async (capture) => {
+      await mkdir(path.dirname(path.join(root, capture.path)), { recursive: true });
       await writeFile(path.join(root, capture.path), fixturePng(capture, salt));
     }),
   );
@@ -59,11 +61,11 @@ function expectedPrivacyProfile(capture) {
     return capture.scenario === "sysadmin_support" ? "sysadmin_scoped_roster" : "sysadmin_account";
   }
   if (capture.scenario === "student_authorization") return "authorization_denial";
-  if (capture.checkpoint === "response_selected") return "student_selected_response";
+  if (capture.checkpoint === "response_selected_laptop") return "student_selected_response";
   if (
     (capture.scenario === "student_assignment_history" &&
-      capture.checkpoint === "selected_history") ||
-    (capture.scenario === "student_assignment_attempt" && capture.checkpoint === "submitted")
+      capture.checkpoint === "selected_history_laptop") ||
+    (capture.scenario === "student_assignment_attempt" && capture.checkpoint === "submitted_phone")
   ) {
     return "student_feedback_released";
   }
@@ -87,7 +89,7 @@ test("manifest decoding rejects procedural fields and traversal", async () => {
 
   const traversal = structuredClone(source);
   traversal["captures"][0]["path"] = "../escape.png";
-  assert.throws(() => decodeManifest(traversal), /flat semantic filename/u);
+  assert.throws(() => decodeManifest(traversal), /semantic filename/u);
 });
 
 test("the shipped manifest selects the least-data profile for each semantic surface", async () => {
@@ -159,6 +161,20 @@ test("published verification rejects a receipt that no longer binds its PNG", as
   }
 });
 
+test("replay publication requires the manifest that its receipt binds", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "ple-screenshot-replay-manifest-"));
+  try {
+    const manifest = oneCaptureManifest(await loadManifest(manifestPath));
+    await writeFixtureCorpus(root, manifest, "replay");
+    await assert.rejects(
+      writeReplayArtifacts({ outputRoot: root, manifest, digest: "a".repeat(64) }),
+      /screenshot corpus (?:required root file )?path set differs.*current_capture_manifest\.json/u,
+    );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
 test("publication restores the prior corpus when a role replacement fails", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "ple-screenshot-promotion-"));
   try {
@@ -179,6 +195,11 @@ test("publication restores the prior corpus when a role replacement fails", asyn
     await writeFile(path.join(screenshotRoot, "current_capture_receipt.json"), oldReceipt, "utf8");
     await writeFile(atlasPath, oldAtlas, "utf8");
     await writeFixtureCorpus(stagingRoot, manifest, "new");
+    await writeFile(
+      path.join(stagingRoot, "current_capture_manifest.json"),
+      `${JSON.stringify(manifest)}\n`,
+      "utf8",
+    );
     const oldPng = await readFile(path.join(screenshotRoot, manifest.captures[0].path));
 
     await assert.rejects(

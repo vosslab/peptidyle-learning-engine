@@ -143,7 +143,7 @@ impl AssessmentPoolForkStore for PostgresAssessmentPoolForkStore {
         let question_ids = input
             .members
             .iter()
-            .map(|member| member.question_id.as_str())
+            .map(|member| member.published_question_id.as_str())
             .collect::<Vec<_>>();
         let revision_numbers = input
             .members

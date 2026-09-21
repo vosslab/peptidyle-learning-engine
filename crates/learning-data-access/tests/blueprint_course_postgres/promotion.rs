@@ -39,7 +39,7 @@ pub(super) async fn promotion_boundary(
         .expect("private owner");
     let sysadmin_id: String = sqlx::query_scalar(
         "INSERT INTO ple_private.account (account_id, product_role, created_at) \
-         VALUES ('U00000009', 'sysadmin', clock_timestamp()) RETURNING account_id",
+         VALUES ('U00000009', 'sysadmin', pg_catalog.transaction_timestamp()) RETURNING account_id",
     )
     .fetch_one(&mut *transaction)
     .await
@@ -47,10 +47,10 @@ pub(super) async fn promotion_boundary(
     sqlx::query(
         "INSERT INTO ple_private.authenticated_session \
          (session_id, account_id, product_role, token_hash, created_at, expires_at) \
-         VALUES ($1, $2, 'sysadmin', decode($3, 'hex'), clock_timestamp(), \
-                 clock_timestamp() + interval '1 hour'), \
-                ($4, $5, 'student', decode($6, 'hex'), clock_timestamp(), \
-                 clock_timestamp() + interval '1 hour')",
+         VALUES ($1, $2, 'sysadmin', decode($3, 'hex'), pg_catalog.transaction_timestamp(), \
+                 pg_catalog.transaction_timestamp() + interval '1 hour'), \
+                ($4, $5, 'student', decode($6, 'hex'), pg_catalog.transaction_timestamp(), \
+                 pg_catalog.transaction_timestamp() + interval '1 hour')",
     )
     .bind(id(0xb106))
     .bind(&sysadmin_id)

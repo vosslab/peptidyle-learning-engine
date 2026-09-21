@@ -2,13 +2,13 @@
 
 use std::collections::BTreeSet;
 
-use question_model::{Capability, QuestionBackendCapabilities, QuestionRevisionTuple};
+use question_model::{Capability, PublishedQuestionRevisionTuple, QuestionBackendCapabilities};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AssessmentQuestionConfig {
-    pub question_revision_tuple: QuestionRevisionTuple,
+    pub published_question_revision_tuple: PublishedQuestionRevisionTuple,
     pub question_backend_capabilities: QuestionBackendCapabilities,
 }
 
@@ -23,7 +23,7 @@ pub struct AssessmentConfig {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Violation {
-    pub question_revision_tuple: QuestionRevisionTuple,
+    pub published_question_revision_tuple: PublishedQuestionRevisionTuple,
     pub capability: Capability,
 }
 
@@ -40,7 +40,9 @@ pub fn validate_assessment_config(config: &AssessmentConfig) -> Vec<Violation> {
                         && !selected.question_backend_capabilities.supports(*capability)
                 })
                 .map(|capability| Violation {
-                    question_revision_tuple: selected.question_revision_tuple.clone(),
+                    published_question_revision_tuple: selected
+                        .published_question_revision_tuple
+                        .clone(),
                     capability,
                 })
         })

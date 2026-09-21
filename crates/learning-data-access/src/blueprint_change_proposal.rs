@@ -118,10 +118,10 @@ pub struct BlueprintChangeProposalReview {
     pub target: StoredBlueprintRevision,
     pub pool_memberships: BTreeMap<
         (
-            question_model::QuestionId,
+            question_model::QuestionPoolId,
             question_model::QuestionPoolEditNumber,
         ),
-        Vec<question_model::QuestionRevisionTuple>,
+        Vec<question_model::PublishedQuestionRevisionTuple>,
     >,
     pub can_accept: bool,
     pub accepted: Option<AcceptedBlueprintChangeProposal>,

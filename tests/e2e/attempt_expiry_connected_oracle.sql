@@ -82,11 +82,11 @@ INSERT INTO ple_private.object_record (
     'e3000000-0000-0000-0000-000000000001',
     jsonb_build_object(
         'kind', 'questionSource',
-        'questionRevisionTuple', jsonb_build_object(
-            'questionId', current_setting('ple.test_direct_question_id'),
+        'publishedQuestionRevisionTuple', jsonb_build_object(
+            'publishedQuestionId', current_setting('ple.test_direct_question_id'),
             'revisionNumber', 1
         ),
-        'object', 'e3000000-0000-0000-0000-000000000001'::uuid
+        'objectId', 'e3000000-0000-0000-0000-000000000001'::uuid
     ),
     'private-content', 'question-source', decode(repeat('e3', 32), 'hex'), 1,
     'application/json', pg_catalog.transaction_timestamp()
@@ -104,7 +104,8 @@ INSERT INTO ple_private.question_revision_source_binding (
 -- partial submission, result, receipt, or completion behind.
 SET LOCAL ROLE ple_api_owner;
 SELECT set_config('ple.session_account_id', current_setting('ple.test_direct_other_student_id'), true);
-SELECT * FROM ple_api.start_assessment_attempt(
+SELECT assessment_attempt_id, assessment_attempt_number, resumed
+  FROM ple_api.start_assessment_attempt(
     'e3000000-0000-0000-0000-000000000010',
     '00000000-0000-0000-0000-00000000eb06',
     current_setting('ple.test_direct_assessment_id'),
@@ -123,11 +124,11 @@ INSERT INTO ple_private.question_attempt (
     delivery_toolchain_id, rendered_question_sha256
 )
 SELECT issued.course_instance_id,
-       'e3000000-0000-0000-0000-000000000031',
-       'e3000000-0000-0000-0000-000000000011',
-       clock_timestamp(),
-       ple_private.ensure_delivery_toolchain('ple', '1', NULL, NULL, 'ple', '1', 'not_applicable'),
-       decode(repeat('31', 32), 'hex')
+       'e3000000-0000-0000-0000-000000000031' AS question_attempt_id,
+       'e3000000-0000-0000-0000-000000000011' AS issued_question_id,
+       clock_timestamp() AS issued_at,
+       ple_private.ensure_delivery_toolchain('ple', '1', NULL, NULL, 'ple', '1', 'not_applicable') AS delivery_toolchain_id,
+       decode(repeat('31', 32), 'hex') AS rendered_question_sha256
   FROM ple_private.issued_question AS issued
  WHERE issued.issued_question_id = 'e3000000-0000-0000-0000-000000000011';
 SET LOCAL ROLE ple_api_owner;
@@ -343,7 +344,8 @@ ON CONFLICT (student_record_id, assessment_id) DO UPDATE
 SET LOCAL ROLE ple_api_owner;
 -- The generic baseline maps Student record eb02 to the minted Student Account.
 SELECT set_config('ple.session_account_id', current_setting('ple.test_direct_expiry_student_id'), true);
-SELECT * FROM ple_api.start_assessment_attempt(
+SELECT assessment_attempt_id, assessment_attempt_number, resumed
+  FROM ple_api.start_assessment_attempt(
     'e3000000-0000-0000-0000-000000000020',
     '00000000-0000-0000-0000-00000000eb02',
     current_setting('ple.test_direct_assessment_id'),
@@ -362,11 +364,11 @@ INSERT INTO ple_private.question_attempt (
     delivery_toolchain_id, rendered_question_sha256
 )
 SELECT issued.course_instance_id,
-       'e3000000-0000-0000-0000-000000000041',
-       'e3000000-0000-0000-0000-000000000021',
-       clock_timestamp(),
-       ple_private.ensure_delivery_toolchain('ple', '1', NULL, NULL, 'ple', '1', 'not_applicable'),
-       decode(repeat('41', 32), 'hex')
+       'e3000000-0000-0000-0000-000000000041' AS question_attempt_id,
+       'e3000000-0000-0000-0000-000000000021' AS issued_question_id,
+       clock_timestamp() AS issued_at,
+       ple_private.ensure_delivery_toolchain('ple', '1', NULL, NULL, 'ple', '1', 'not_applicable') AS delivery_toolchain_id,
+       decode(repeat('41', 32), 'hex') AS rendered_question_sha256
   FROM ple_private.issued_question AS issued
  WHERE issued.issued_question_id = 'e3000000-0000-0000-0000-000000000021';
 ALTER TABLE ple_private.assessment_attempt DISABLE TRIGGER assessment_attempt_retains_evidence;

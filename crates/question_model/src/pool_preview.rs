@@ -8,7 +8,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AssessmentEditNumber, AssessmentEntryId, AssessmentId, QuestionId, QuestionPoolSelectionRule,
+    AssessmentEditNumber, AssessmentEntryId, AssessmentId, PublishedQuestionId,
+    QuestionPoolSelectionRule,
 };
 
 /// Strict request body for an Instructor's one-off sample of a saved pool.
@@ -25,7 +26,7 @@ pub struct QuestionPoolPreviewRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionPoolPreviewItem {
-    pub question_id: QuestionId,
+    pub question_id: PublishedQuestionId,
     pub question_title: String,
 }
 
@@ -58,7 +59,7 @@ mod tests {
             )
             .is_err()
         );
-        let question_id: QuestionId = "ABCD-QEF1".parse().expect("canonical question ID");
+        let question_id: PublishedQuestionId = "ABCD-QEF1".parse().expect("canonical question ID");
         let result = QuestionPoolPreview {
             assessment_id: "A7K3M2QXF".parse().expect("Assessment ID"),
             assessment_edit_number: "3".parse().expect("Assessment Edit Number"),

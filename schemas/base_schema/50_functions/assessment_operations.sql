@@ -176,7 +176,7 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
            assessment.assessment_status,
            assessment.origin_kind,
            blueprint.blueprint_course_id,
-           assessment.source_blueprint_revision_number,
+           assessment.source_blueprint_revision_number::bigint,
            assessment.source_blueprint_assessment_id,
            assessment.assessment_type,
            policy.assessment_title,
@@ -420,4 +420,3 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
     ) AS result
       JOIN ple_data.assessment ON assessment.assessment_id = result.assessment_id
 $$;
-

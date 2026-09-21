@@ -247,7 +247,7 @@ function pickerPageOffset(cursor: string | null): number {
 function reusableQuestionLibraryRow(item: {
   readonly summary: {
     readonly questionId: string;
-    readonly questionRevisionTuple: QuestionLibraryBrowseRow["questionRevisionTuple"];
+    readonly publishedQuestionRevisionTuple: QuestionLibraryBrowseRow["publishedQuestionRevisionTuple"];
     readonly questionFormat: QuestionFormat;
     readonly metadata: {
       readonly questionTitle: string;
@@ -266,7 +266,7 @@ function reusableQuestionLibraryRow(item: {
   const evidence = item.evidence;
   return {
     displayId: summary.questionId,
-    questionRevisionTuple: summary.questionRevisionTuple,
+    publishedQuestionRevisionTuple: summary.publishedQuestionRevisionTuple,
     questionTitle: summary.metadata.questionTitle,
     summary: summary.metadata.questionDescription,
     bloom: summary.bloom,

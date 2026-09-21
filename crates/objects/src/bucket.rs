@@ -3,7 +3,8 @@
 use question_model::generation::QuestionSeed;
 use question_model::{
     CourseBannerId, CourseBannerRendition, CourseBannerUploadId, CourseInstanceId, ObjectId,
-    ProfileImageId, QuestionImageAssetId, QuestionRevisionTuple, WorkspaceId, WorkspaceImportId,
+    ProfileImageId, PublishedQuestionRevisionTuple, QuestionImageAssetId, WorkspaceId,
+    WorkspaceImportId,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -126,7 +127,7 @@ pub enum ObjectAddress {
     /// An original source package for a published version.
     QuestionSource {
         /// Exact immutable Question Revision that owns the source.
-        question_revision_tuple: QuestionRevisionTuple,
+        published_question_revision_tuple: PublishedQuestionRevisionTuple,
         /// Physical object-record identity.
         object_id: ObjectId,
     },
@@ -137,7 +138,7 @@ pub enum ObjectAddress {
     /// eligible for a signed delivery URL.
     PublishedImportArchive {
         /// Exact immutable Question Revision that owns the archive.
-        question_revision_tuple: QuestionRevisionTuple,
+        published_question_revision_tuple: PublishedQuestionRevisionTuple,
         /// Import identity which produced this published version.
         workspace_import_id: WorkspaceImportId,
         /// Physical object-record identity.
@@ -146,7 +147,7 @@ pub enum ObjectAddress {
     /// A Question Image Asset and its physical object for a published version.
     QuestionImage {
         /// Exact immutable Question Revision that owns the image.
-        question_revision_tuple: QuestionRevisionTuple,
+        published_question_revision_tuple: PublishedQuestionRevisionTuple,
         /// Question Image Asset referenced by content.
         question_image_asset_id: QuestionImageAssetId,
         /// Physical object-record identity.
@@ -160,7 +161,7 @@ pub enum ObjectAddress {
     /// published content.
     RestrictedQuestionImage {
         /// Exact immutable Question Revision that owns the image.
-        question_revision_tuple: QuestionRevisionTuple,
+        published_question_revision_tuple: PublishedQuestionRevisionTuple,
         /// Question Image Asset referenced by content.
         question_image_asset_id: QuestionImageAssetId,
         /// Physical object-record identity.
@@ -169,7 +170,7 @@ pub enum ObjectAddress {
     /// A deterministic rendered Question cached by exact Question Revision and Question Seed.
     QuestionRender {
         /// Exact immutable Question Revision that owns the rendered result.
-        question_revision_tuple: QuestionRevisionTuple,
+        published_question_revision_tuple: PublishedQuestionRevisionTuple,
         /// Question Seed that fully determines the render.
         question_seed: QuestionSeed,
         /// Physical object-record identity.
@@ -307,50 +308,60 @@ impl ObjectAddress {
                 )
             }
             Self::QuestionSource {
-                question_revision_tuple,
+                published_question_revision_tuple,
                 object_id,
             } => format!(
                 "questions/{}/versions/{}/source/{object_id}",
-                question_revision_tuple.question_id.as_str(),
-                question_revision_tuple.revision_number
+                published_question_revision_tuple
+                    .published_question_id
+                    .as_str(),
+                published_question_revision_tuple.revision_number
             ),
             Self::PublishedImportArchive {
-                question_revision_tuple,
+                published_question_revision_tuple,
                 workspace_import_id,
                 object_id,
             } => format!(
                 "questions/{}/versions/{}/imports/{workspace_import_id}/archive/{object_id}",
-                question_revision_tuple.question_id.as_str(),
-                question_revision_tuple.revision_number
+                published_question_revision_tuple
+                    .published_question_id
+                    .as_str(),
+                published_question_revision_tuple.revision_number
             ),
             Self::QuestionImage {
-                question_revision_tuple,
+                published_question_revision_tuple,
                 question_image_asset_id,
                 object_id,
             } => format!(
                 "questions/{}/versions/{}/images/{question_image_asset_id}/{object_id}",
-                question_revision_tuple.question_id.as_str(),
-                question_revision_tuple.revision_number
+                published_question_revision_tuple
+                    .published_question_id
+                    .as_str(),
+                published_question_revision_tuple.revision_number
             ),
             Self::RestrictedQuestionImage {
-                question_revision_tuple,
+                published_question_revision_tuple,
                 question_image_asset_id,
                 object_id,
             } => {
                 format!(
                     "questions/{}/versions/{}/restricted-images/{question_image_asset_id}/{object_id}",
-                    question_revision_tuple.question_id.as_str(),
-                    question_revision_tuple.revision_number
+                    published_question_revision_tuple
+                        .published_question_id
+                        .as_str(),
+                    published_question_revision_tuple.revision_number
                 )
             }
             Self::QuestionRender {
-                question_revision_tuple,
+                published_question_revision_tuple,
                 question_seed,
                 object_id,
             } => format!(
                 "questions/{}/versions/{}/renders/{}/{object_id}",
-                question_revision_tuple.question_id.as_str(),
-                question_revision_tuple.revision_number,
+                published_question_revision_tuple
+                    .published_question_id
+                    .as_str(),
+                published_question_revision_tuple.revision_number,
                 question_seed.value()
             ),
             Self::CourseBannerUpload {
@@ -428,28 +439,28 @@ impl ObjectAddress {
     }
 
     /// Exact Question Revision associated with content, when one exists.
-    pub fn question_revision_tuple(&self) -> Option<&QuestionRevisionTuple> {
+    pub fn published_question_revision_tuple(&self) -> Option<&PublishedQuestionRevisionTuple> {
         match self {
             Self::QuestionSource {
-                question_revision_tuple,
+                published_question_revision_tuple,
                 ..
             }
             | Self::PublishedImportArchive {
-                question_revision_tuple,
+                published_question_revision_tuple,
                 ..
             }
             | Self::QuestionImage {
-                question_revision_tuple,
+                published_question_revision_tuple,
                 ..
             }
             | Self::RestrictedQuestionImage {
-                question_revision_tuple,
+                published_question_revision_tuple,
                 ..
             }
             | Self::QuestionRender {
-                question_revision_tuple,
+                published_question_revision_tuple,
                 ..
-            } => Some(question_revision_tuple),
+            } => Some(published_question_revision_tuple),
             Self::WorkspaceImportSource { .. }
             | Self::DraftQuestionImage { .. }
             | Self::WorkspaceQuestionSource { .. }
@@ -486,12 +497,12 @@ impl ObjectAddress {
     /// immutable visibility.  Call this at publication time rather than
     /// reconstructing a key later from an untrusted route or browser value.
     pub fn published_question_image(
-        question_revision_tuple: QuestionRevisionTuple,
+        published_question_revision_tuple: PublishedQuestionRevisionTuple,
         question_image_asset_id: QuestionImageAssetId,
         object_id: ObjectId,
     ) -> Self {
         Self::RestrictedQuestionImage {
-            question_revision_tuple,
+            published_question_revision_tuple,
             question_image_asset_id,
             object_id,
         }
@@ -591,14 +602,24 @@ pub fn workspace_qti_archive_object_id(
 /// Only the first 16 bytes of the final SHA-256 digest become the deterministic
 /// object UUID.
 pub fn published_import_archive_object_id(
-    question_revision_tuple: &QuestionRevisionTuple,
+    published_question_revision_tuple: &PublishedQuestionRevisionTuple,
     workspace_import_id: WorkspaceImportId,
     archive_sha256: Sha256Checksum,
 ) -> ObjectId {
     let mut hasher = Sha256::new();
     hasher.update(b"ple:published-import-archive:v2\0");
-    hasher.update(question_revision_tuple.question_id.as_str().as_bytes());
-    hasher.update(question_revision_tuple.revision_number.get().to_be_bytes());
+    hasher.update(
+        published_question_revision_tuple
+            .published_question_id
+            .as_str()
+            .as_bytes(),
+    );
+    hasher.update(
+        published_question_revision_tuple
+            .revision_number
+            .get()
+            .to_be_bytes(),
+    );
     hasher.update(workspace_import_id.as_uuid().as_bytes());
     hasher.update(archive_sha256.as_bytes());
 

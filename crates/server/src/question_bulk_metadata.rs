@@ -20,7 +20,7 @@ use learning_data_access::{
     StoreError,
     postgres::{PostgresBulkPublishedQuestionMetadataStore, PostgresSessionStore},
 };
-use question_model::{MAX_BULK_QUESTION_METADATA_ITEMS, ProductRole, QuestionId};
+use question_model::{MAX_BULK_QUESTION_METADATA_ITEMS, ProductRole, PublishedQuestionId};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -142,7 +142,7 @@ fn decode_input(request: BulkMetadataRequest) -> Option<BulkPublishedQuestionMet
         .selection
         .into_iter()
         .map(|selected| {
-            let question_id = selected.question_id.parse::<QuestionId>().ok()?;
+            let question_id = selected.question_id.parse::<PublishedQuestionId>().ok()?;
             Some(BulkPublishedQuestionMetadataSelection {
                 question_id,
                 metadata_edit_number: selected.metadata_edit_number,

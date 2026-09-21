@@ -1,7 +1,7 @@
 // Compact, scan-friendly Assessment Entry presentation for the Question editor.
 
 import type { AssessmentEntry } from "../../../generated/api/AssessmentEntry";
-import type { QuestionRevisionTuple } from "../../../generated/api/QuestionRevisionTuple";
+import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
 import type { BloomClassificationView } from "../../../generated/api/BloomClassificationView";
 import type { JSX } from "solid-js";
 
@@ -37,7 +37,7 @@ function assessmentEntryScoringRuleLabel(scoringRule: AssessmentEntry["scoringRu
 export interface SelectedAssessmentEntryIdentityProps {
   readonly entry: AssessmentEntry;
   readonly entryNumber: number;
-  readonly description: (questionRevisionTuple: QuestionRevisionTuple) => string;
+  readonly description: (publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple) => string;
   readonly bloom: BloomClassificationView | undefined;
 }
 
@@ -66,11 +66,11 @@ export function SelectedAssessmentEntryIdentity(
     return (
       <>
         <h3>
-          Entry {props.entryNumber} · {question.questionRevisionTuple.questionId} · Revision{" "}
-          {question.questionRevisionTuple.revisionNumber}
+          Entry {props.entryNumber} · {question.publishedQuestionRevisionTuple.publishedQuestionId}{" "}
+          · Revision {question.publishedQuestionRevisionTuple.revisionNumber}
         </h3>
         <p class="assessment-editor-row-description">
-          {props.description(question.questionRevisionTuple)}
+          {props.description(question.publishedQuestionRevisionTuple)}
         </p>
         {bloomFacts(props.bloom)}
         <dl class="assessment-editor-row-facts">

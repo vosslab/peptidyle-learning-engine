@@ -287,7 +287,7 @@ BEGIN
     -- as ordinary Blueprint creation, including every exact Pool member pin.
     PERFORM ple_data.lock_course_blueprint_publication_questions(source_course.course_instance_id);
 
-    course_edit_number := source_course.blueprint_edit_number;
+    course_edit_number := source_course.course_edit_number;
     source_snapshot := ple_data.course_blueprint_publication_snapshot(source_course.course_instance_id);
     SELECT COALESCE(jsonb_agg(jsonb_build_object(
         'content', ple_data.course_blueprint_publication_assessment_content(
@@ -453,7 +453,7 @@ BEGIN
      WHERE assessment.course_instance_id = source_course.course_instance_id
      ORDER BY policy.due_at NULLS LAST, assessment.assessment_id
      FOR UPDATE OF assessment;
-    IF source_course.blueprint_edit_number IS DISTINCT FROM p_expected_course_edit_number
+    IF source_course.course_edit_number IS DISTINCT FROM p_expected_course_edit_number
        OR ple_data.course_blueprint_publication_snapshot(source_course.course_instance_id)
             IS DISTINCT FROM p_expected_source_snapshot THEN
         RAISE EXCEPTION USING ERRCODE = '40001',
@@ -500,4 +500,3 @@ BEGIN
     RETURN NEXT;
 END
 $$;
-

@@ -877,26 +877,26 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | course_instance_id | ple_data.course_instance_id | NOT NULL |
-| question_attempt_presentation_binding_id | uuid | NOT NULL |
+| question_attempt_id | uuid | NOT NULL |
 | presentation_response_item_id | text | NOT NULL |
 | response_item_id | text | NOT NULL |
 | created_at | timestamptz | NOT NULL |
 
 Constraints:
 
-- PRIMARY KEY (course_instance_id, question_attempt_presentation_binding_id, presentation_response_item_id)
-- UNIQUE (course_instance_id, question_attempt_presentation_binding_id, response_item_id)
+- PRIMARY KEY (course_instance_id, question_attempt_id, presentation_response_item_id)
+- UNIQUE (course_instance_id, question_attempt_id, response_item_id)
 - CHECK presentation_response_item_id: `(presentation_response_item_id ~ '^[0-9a-f]{4}$')`
 - CHECK response_item_id: `(char_length(btrim(response_item_id)) > 0)`
 
 Foreign keys:
 
-- (course_instance_id, question_attempt_presentation_binding_id) -> ple_private.question_attempt_presentation_binding (course_instance_id, question_attempt_id)
+- (course_instance_id, question_attempt_id) -> ple_private.question_attempt_presentation_binding (course_instance_id, question_attempt_id)
 
 Indexes:
 
-- ple_private.question_attempt_response_item_binding_pkey UNIQUE (course_instance_id, question_attempt_presentation_binding_id, presentation_response_item_id)
-- ple_private.question_attempt_response_item_binding_unique_0 UNIQUE (course_instance_id, question_attempt_presentation_binding_id, response_item_id)
+- ple_private.question_attempt_response_item_binding_pkey UNIQUE (course_instance_id, question_attempt_id, presentation_response_item_id)
+- ple_private.question_attempt_response_item_binding_unique_0 UNIQUE (course_instance_id, question_attempt_id, response_item_id)
 
 ### ple_private.question_attempt_presentation_asset_binding
 
@@ -933,7 +933,7 @@ Columns:
 | Name | Type | Null |
 | --- | --- | --- |
 | course_instance_id | ple_data.course_instance_id | NOT NULL |
-| question_attempt_presentation_image_binding_id | uuid | NOT NULL |
+| question_attempt_id | uuid | NOT NULL |
 | question_image_asset_id | uuid | NOT NULL |
 | question_image_checksum | bytea | NOT NULL |
 | rendition_checksum | bytea | NOT NULL |
@@ -943,7 +943,7 @@ Columns:
 
 Constraints:
 
-- PRIMARY KEY (course_instance_id, question_attempt_presentation_image_binding_id, question_image_asset_id)
+- PRIMARY KEY (course_instance_id, question_attempt_id, question_image_asset_id)
 - CHECK question_image_checksum: `(octet_length(question_image_checksum) = 32)`
 - CHECK rendition_checksum: `(octet_length(rendition_checksum) = 32)`
 - CHECK intrinsic_width: `(intrinsic_width > 0)`
@@ -951,11 +951,11 @@ Constraints:
 
 Foreign keys:
 
-- (course_instance_id, question_attempt_presentation_image_binding_id) -> ple_private.question_attempt_presentation_asset_binding (course_instance_id, question_attempt_id)
+- (course_instance_id, question_attempt_id) -> ple_private.question_attempt_presentation_asset_binding (course_instance_id, question_attempt_id)
 
 Indexes:
 
-- ple_private.question_attempt_presentation_image_rendition_pkey UNIQUE (course_instance_id, question_attempt_presentation_image_binding_id, question_image_asset_id)
+- ple_private.question_attempt_presentation_image_rendition_pkey UNIQUE (course_instance_id, question_attempt_id, question_image_asset_id)
 
 ### ple_private.grading_result
 

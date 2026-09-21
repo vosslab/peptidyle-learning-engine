@@ -123,7 +123,7 @@ async fn publish_claim<O: ObjectStore>(
     publication: &ClaimedQuestionImagePublication,
 ) -> Result<()> {
     let source_address = ObjectAddress::RestrictedQuestionImage {
-        question_revision_tuple: publication.question_revision_tuple.clone(),
+        published_question_revision_tuple: publication.published_question_revision_tuple.clone(),
         question_image_asset_id: publication.question_image_asset_id,
         object_id: publication.source_object_id,
     };
@@ -147,7 +147,7 @@ async fn publish_claim<O: ObjectStore>(
     }
 
     let public_address = ObjectAddress::QuestionImage {
-        question_revision_tuple: publication.question_revision_tuple.clone(),
+        published_question_revision_tuple: publication.published_question_revision_tuple.clone(),
         question_image_asset_id: publication.question_image_asset_id,
         object_id: publication.public_object_id,
     };
@@ -240,7 +240,8 @@ mod tests {
     use learning_data_access::{PublicAssetPublicationStore, StoreError};
     use objects::memory::MemoryObjectStore;
     use question_model::{
-        ObjectId, QuestionId, QuestionImageAssetId, QuestionRevisionNumber, QuestionRevisionTuple,
+        ObjectId, PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionImageAssetId,
+        QuestionRevisionNumber,
     };
 
     use super::*;
@@ -339,8 +340,9 @@ mod tests {
     #[tokio::test]
     async fn publisher_copies_only_its_claimed_restricted_asset_to_the_fixed_public_address() {
         let objects = MemoryObjectStore::default();
-        let question_revision_tuple = QuestionRevisionTuple {
-            question_id: QuestionId::from_random_identifier("ABCDEFG").expect("question ID"),
+        let published_question_revision_tuple = PublishedQuestionRevisionTuple {
+            published_question_id: PublishedQuestionId::from_random_identifier("ABCDEFG")
+                .expect("question ID"),
             revision_number: QuestionRevisionNumber::new(1).expect("revision number"),
         };
         let question_image_asset_id = QuestionImageAssetId::from_uuid(Uuid::from_u128(1));
@@ -348,7 +350,7 @@ mod tests {
         let public_object_id = ObjectId::from_uuid(Uuid::from_u128(3));
         let bytes = png();
         let source_address = ObjectAddress::RestrictedQuestionImage {
-            question_revision_tuple: question_revision_tuple.clone(),
+            published_question_revision_tuple: published_question_revision_tuple.clone(),
             question_image_asset_id,
             object_id: source_object_id,
         };
@@ -363,7 +365,7 @@ mod tests {
             .expect("restricted source");
         let publication = ClaimedQuestionImagePublication {
             job_id: Uuid::from_u128(4),
-            question_revision_tuple: question_revision_tuple.clone(),
+            published_question_revision_tuple: published_question_revision_tuple.clone(),
             question_image_asset_id,
             source_object_id,
             source_checksum: source_record.sha256,
@@ -382,7 +384,7 @@ mod tests {
 
         assert!(publish_one(&store, &objects).await.expect("publisher run"));
         let public_address = ObjectAddress::QuestionImage {
-            question_revision_tuple,
+            published_question_revision_tuple,
             question_image_asset_id,
             object_id: public_object_id,
         };

@@ -26,7 +26,7 @@ import {
   decodeAssessmentTitle,
   decodeBoundedArray,
   decodeQuestionId,
-  decodeQuestionRevisionTuple,
+  decodePublishedQuestionRevisionTuple,
   field,
   requireOnlyFields,
 } from "./shared";
@@ -63,7 +63,7 @@ function blueprintUpdateEntry(value: unknown, path: string): AssessmentBlueprint
     record,
     path,
     kind === "fixedQuestion"
-      ? [...sharedFields, "questionRevisionTuple", "pointsPossible"]
+      ? [...sharedFields, "publishedQuestionRevisionTuple", "pointsPossible"]
       : [
           ...sharedFields,
           "questionPoolId",
@@ -95,9 +95,9 @@ function blueprintUpdateEntry(value: unknown, path: string): AssessmentBlueprint
     return {
       kind,
       ...settings,
-      questionRevisionTuple: decodeQuestionRevisionTuple(
-        field(record, "questionRevisionTuple", path),
-        `${path}.questionRevisionTuple`,
+      publishedQuestionRevisionTuple: decodePublishedQuestionRevisionTuple(
+        field(record, "publishedQuestionRevisionTuple", path),
+        `${path}.publishedQuestionRevisionTuple`,
         true,
       ),
       pointsPossible: pointValue(field(record, "pointsPossible", path), `${path}.pointsPossible`),

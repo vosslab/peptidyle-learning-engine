@@ -119,7 +119,7 @@ impl DraftQuestionImageStore for PostgresDraftQuestionImageStore {
             )
             .map_err(|_| invalid())?,
             media_type: row.try_get("media_type").map_err(map_sqlx_error)?,
-            question_revision_tuple: None,
+            published_question_revision_tuple: None,
             created_at: Timestamp::from_unix_millis(
                 row.try_get("created_at_millis").map_err(map_sqlx_error)?,
             ),

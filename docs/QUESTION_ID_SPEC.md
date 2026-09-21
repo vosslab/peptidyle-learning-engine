@@ -1,10 +1,10 @@
-# Question ID specification
+# Published Question ID specification
 
 ## Purpose
 
-PLE uses one short, human-usable Question ID for Instructors and Sysadmins to
+PLE uses one short, human-usable Published Question ID for Instructors and Sysadmins to
 recognize, copy, communicate, and enter. It is the canonical human-facing
-identity of one stable published Question lineage. A Question ID is not a UUID,
+identity of one stable published Question lineage. A Published Question ID is not a UUID,
 sequence number, or credential.
 
 Each published `QuestionRevision` is immutable. A stable Question ID may therefore
@@ -117,7 +117,7 @@ potentially committed evidence.
 
 One Question ID names one stable published lineage. A **Question Revision** names
 one immutable published meaning within that lineage and is identified by the
-exact `QuestionRevisionTuple { question_id, revision_number }` pair. Its
+exact `PublishedQuestionRevisionTuple { published_question_id, revision_number }` pair. Its
 Question Revision Number is a positive monotonic integer assigned within that
 Question lineage. A draft has a private workspace identity, but no published
 Question ID or Question Revision Number.
@@ -131,7 +131,7 @@ meanings and [QUESTION_MODEL.md](QUESTION_MODEL.md) owns their typed model.
 ## Exact pins and evidence
 
 Every fixed Assessment entry and Question Pool item pins one exact
-`QuestionRevisionTuple`. Current browser-safe `AssignmentSummary` entries expose a
+`PublishedQuestionRevisionTuple`. Current browser-safe `AssignmentSummary` entries expose a
 Question ID through legacy `FixedQuestionAssignmentEntrySummary` and
 `QuestionPoolItemSummary`, without exposing the server-owned exact-version
 reference. Those implementation type names do not preserve Assignment as the

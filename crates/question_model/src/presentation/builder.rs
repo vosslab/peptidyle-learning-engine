@@ -472,15 +472,15 @@ fn presentation_response_item_id_input(
         &mut bytes,
         presentation
             .variation
-            .question_revision_tuple
-            .question_id
+            .published_question_revision_tuple
+            .published_question_id
             .to_string()
             .as_bytes(),
     )?;
     bytes.extend_from_slice(
         &presentation
             .variation
-            .question_revision_tuple
+            .published_question_revision_tuple
             .revision_number
             .get()
             .to_be_bytes(),

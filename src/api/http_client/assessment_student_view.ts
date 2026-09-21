@@ -2,7 +2,7 @@
 
 import type { AssessmentId } from "../../../generated/api/AssessmentId";
 import type { CourseInstanceId } from "../../../generated/api/CourseInstanceId";
-import type { QuestionRevisionTuple } from "../../../generated/api/QuestionRevisionTuple";
+import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
 import { validateCanonicalQuestionIdSyntax } from "../../../generated/api/QuestionIdSyntaxContract";
 import type { AssessmentStudentViewClient } from "../assessment_student_view";
 import { decodeInstructorStudentView } from "../decoders/assessment_student_view";
@@ -34,23 +34,25 @@ function questionPath(
   courseInstanceId: CourseInstanceId,
   assessmentId: AssessmentId,
   authoredPosition: number,
-  questionRevisionTuple: QuestionRevisionTuple,
+  publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple,
 ): string {
   const base = assessmentStudentViewPath(courseInstanceId, assessmentId);
-  const questionId = validateCanonicalQuestionIdSyntax(questionRevisionTuple.questionId);
+  const questionId = validateCanonicalQuestionIdSyntax(
+    publishedQuestionRevisionTuple.publishedQuestionId,
+  );
   if (
     !Number.isSafeInteger(authoredPosition) ||
     authoredPosition < 0 ||
     authoredPosition > 2_147_483_647 ||
     questionId === null ||
-    questionId !== questionRevisionTuple.questionId ||
-    !Number.isSafeInteger(questionRevisionTuple.revisionNumber) ||
-    questionRevisionTuple.revisionNumber < 1 ||
-    questionRevisionTuple.revisionNumber > 2_147_483_647
+    questionId !== publishedQuestionRevisionTuple.publishedQuestionId ||
+    !Number.isSafeInteger(publishedQuestionRevisionTuple.revisionNumber) ||
+    publishedQuestionRevisionTuple.revisionNumber < 1 ||
+    publishedQuestionRevisionTuple.revisionNumber > 2_147_483_647
   ) {
     throw new ApiProtocolError("Student View Question locator must be canonical and bounded");
   }
-  return `${base}/entries/${authoredPosition}/questions/${encodeURIComponent(questionId)}/revisions/${questionRevisionTuple.revisionNumber}`;
+  return `${base}/entries/${authoredPosition}/questions/${encodeURIComponent(questionId)}/revisions/${publishedQuestionRevisionTuple.revisionNumber}`;
 }
 
 function requireMatchingAssessmentEditNumber(
@@ -67,11 +69,11 @@ function requireMatchingAssessmentEditNumber(
 }
 
 function sameQuestionRevision(
-  received: QuestionRevisionTuple,
-  expected: QuestionRevisionTuple,
+  received: PublishedQuestionRevisionTuple,
+  expected: PublishedQuestionRevisionTuple,
 ): boolean {
   return (
-    received.questionId === expected.questionId &&
+    received.publishedQuestionId === expected.publishedQuestionId &&
     received.revisionNumber === expected.revisionNumber
   );
 }
@@ -98,10 +100,10 @@ async function presentationRequest(
   courseInstanceId: CourseInstanceId,
   assessmentId: AssessmentId,
   authoredPosition: number,
-  questionRevisionTuple: QuestionRevisionTuple,
+  publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple,
   expectedAssessmentEditNumber: string,
 ): ReturnType<AssessmentStudentViewClient["getInstructorStudentViewQuestion"]> {
-  const path = `${questionPath(courseInstanceId, assessmentId, authoredPosition, questionRevisionTuple)}/presentation`;
+  const path = `${questionPath(courseInstanceId, assessmentId, authoredPosition, publishedQuestionRevisionTuple)}/presentation`;
   const response = await requestSameOrigin(fetchImplementation, basePath, path, {
     headers: {
       "if-match": ifMatchHeaderForPositiveNumber(
@@ -117,7 +119,12 @@ async function presentationRequest(
   }
   if (!response.ok) throw new ApiRequestError(response.status, path);
   const presentation = decodeStudentQuestionPresentation(await boundedResponseJson(response, path));
-  if (!sameQuestionRevision(presentation.questionRevisionTuple, questionRevisionTuple)) {
+  if (
+    !sameQuestionRevision(
+      presentation.publishedQuestionRevisionTuple,
+      publishedQuestionRevisionTuple,
+    )
+  ) {
     throw new ApiProtocolError(
       `API response ${path} does not match the requested Question Revision`,
     );
@@ -138,7 +145,7 @@ export function createAssessmentStudentViewClient(
       courseInstanceId,
       assessmentId,
       authoredPosition,
-      questionRevisionTuple,
+      publishedQuestionRevisionTuple,
       expectedAssessmentEditNumber,
     ) =>
       presentationRequest(
@@ -147,17 +154,17 @@ export function createAssessmentStudentViewClient(
         courseInstanceId,
         assessmentId,
         authoredPosition,
-        questionRevisionTuple,
+        publishedQuestionRevisionTuple,
         expectedAssessmentEditNumber,
       ),
     instructorStudentViewQuestionDocumentUrl: (
       courseInstanceId,
       assessmentId,
       authoredPosition,
-      questionRevisionTuple,
+      publishedQuestionRevisionTuple,
       expectedAssessmentEditNumber,
     ): string => {
-      const path = `${questionPath(courseInstanceId, assessmentId, authoredPosition, questionRevisionTuple)}/document`;
+      const path = `${questionPath(courseInstanceId, assessmentId, authoredPosition, publishedQuestionRevisionTuple)}/document`;
       ifMatchHeaderForPositiveNumber(expectedAssessmentEditNumber, path, "Assessment Edit Number");
       const query = new URLSearchParams({ assessmentEditNumber: expectedAssessmentEditNumber });
       return requestPath(basePath, `${path}?${query.toString()}`);

@@ -21,14 +21,14 @@ use learning_data_access::{
     postgres::{PostgresQuestionPoolCreationStore, PostgresSessionStore},
 };
 use question_model::{
-    MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY, ProductRole, QuestionId, QuestionRevisionNumber,
-    QuestionRevisionTuple,
+    MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY, ProductRole, PublishedQuestionId,
+    PublishedQuestionRevisionTuple, QuestionRevisionNumber,
 };
 use serde::{Deserialize, Serialize};
 
 use crate::{
     auth::{AuthError, resolve_session},
-    question_publication::{QuestionIdIssuer, RandomQuestionIdIssuer},
+    question_publication::{QuestionPoolIdIssuer, RandomQuestionIdIssuer},
 };
 
 const MAX_CREATE_QUESTION_POOL_BYTES: usize = 128 * 1024;
@@ -39,25 +39,6 @@ struct RouteState {
     sessions: Arc<PostgresSessionStore>,
     pools: Arc<dyn QuestionPoolCreationStore>,
     question_id_issuer: Arc<dyn QuestionPoolIdIssuer>,
-}
-
-/// Trusted issuance capability for Pool IDs.
-///
-/// Production supplies the stateless random issuer. Keeping this capability at
-/// the server boundary lets an isolated proof force the otherwise improbable
-/// collision branch without making any browser-controlled value an issuer.
-trait QuestionPoolIdIssuer: Send + Sync {
-    fn issue_question_pool_id(
-        &self,
-    ) -> Result<QuestionId, crate::question_publication::QuestionIdIssuanceError>;
-}
-
-impl QuestionPoolIdIssuer for RandomQuestionIdIssuer {
-    fn issue_question_pool_id(
-        &self,
-    ) -> Result<QuestionId, crate::question_publication::QuestionIdIssuanceError> {
-        self.issue_question_id()
-    }
 }
 
 /// Registers the narrow reusable Question Pool creation command.
@@ -187,13 +168,15 @@ async fn create_question_pool(State(state): State<RouteState>, request: Request)
     )
 }
 
-fn verified_members(values: Vec<QuestionPoolMemberRequest>) -> Option<Vec<QuestionRevisionTuple>> {
+fn verified_members(
+    values: Vec<QuestionPoolMemberRequest>,
+) -> Option<Vec<PublishedQuestionRevisionTuple>> {
     let mut members = Vec::with_capacity(values.len());
     for value in values {
-        let question_id = value.question_id.parse::<QuestionId>().ok()?;
+        let question_id = value.question_id.parse::<PublishedQuestionId>().ok()?;
         let revision_number = QuestionRevisionNumber::new(value.revision_number).ok()?;
-        members.push(QuestionRevisionTuple {
-            question_id,
+        members.push(PublishedQuestionRevisionTuple {
+            published_question_id: question_id,
             revision_number,
         });
     }

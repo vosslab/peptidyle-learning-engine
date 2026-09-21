@@ -100,11 +100,11 @@ BEGIN
             MESSAGE = 'Question Image Publication Job changed during claim';
     END IF;
 
-    RETURN QUERY SELECT publication_job.job_id, publication.published_question_id,
+    RETURN QUERY SELECT publication_job.job_id, publication.published_question_id::text,
         publication.revision_number, publication.question_image_asset_id,
         publication.source_object_record_id, publication.source_object_checksum,
         publication.public_object_id, publication.public_object_checksum,
-        publication.public_byte_length, publication.verified_media_type,
+        publication.public_byte_length, publication.verified_media_type::text,
         publication.intrinsic_width, publication.intrinsic_height,
         publication.object_delivery_id;
 END $$;
@@ -168,17 +168,17 @@ BEGIN
 
     expected_public_address := jsonb_build_object(
         'kind', 'questionImage',
-        'questionRevisionTuple', jsonb_build_object(
-            'questionId', publication.published_question_id,
+        'publishedQuestionRevisionTuple', jsonb_build_object(
+            'publishedQuestionId', publication.published_question_id,
             'revisionNumber', publication.revision_number),
         'questionImageAssetId', publication.question_image_asset_id, 'objectId', publication.public_object_id);
     INSERT INTO ple_private.object_record (
         object_record_id, object_address, object_storage_area, object_data_class,
-        sha256, size_bytes, media_type, created_at
+        sha256, size_bytes, media_type, created_at, updated_at
     ) VALUES (
         publication.public_object_id, expected_public_address, 'public-assets',
         'question-image', publication.public_object_checksum,
-        publication.public_byte_length, publication.verified_media_type, activated_at
+        publication.public_byte_length, publication.verified_media_type, activated_at, activated_at
     ) ON CONFLICT (object_record_id) DO NOTHING;
     IF NOT EXISTS (
         SELECT 1 FROM ple_private.object_record AS record
@@ -281,7 +281,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
                    AND question_attempt.issued_question_id = issued.issued_question_id
                   JOIN ple_private.question_attempt_presentation_image_rendition AS presented_image
                     ON presented_image.course_instance_id = question_attempt.course_instance_id
-                   AND presented_image.question_attempt_presentation_image_binding_id
+                   AND presented_image.question_attempt_id
                         = question_attempt.question_attempt_id
                    AND presented_image.question_image_asset_id = publication.question_image_asset_id
                    AND presented_image.rendition_checksum = publication.public_object_checksum
@@ -311,4 +311,3 @@ SET search_path = pg_catalog, ple_api, ple_private AS $$
       FROM ple_private.resolve_ready_question_image_delivery(
           p_published_question_id, p_revision_number, p_question_image_asset_id)
 $$;
-

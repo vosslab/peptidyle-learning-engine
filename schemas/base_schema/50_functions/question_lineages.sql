@@ -51,7 +51,7 @@ BEGIN
          WHERE published_question_id = NEW.published_question_id
     ) INTO has_prior_event;
     IF NOT has_prior_event THEN
-        IF NEW.availability <> 'available' OR NEW.edit_number <> 1 THEN
+        IF NEW.availability::text <> 'available' OR NEW.edit_number <> 1 THEN
             RAISE EXCEPTION USING ERRCODE = '23514',
                 MESSAGE = 'Question lineage publication records Available at Edit Number 1';
         END IF;
@@ -61,7 +61,7 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '40001',
             MESSAGE = 'Published Question Availability Edit Number is stale';
     END IF;
-    IF NEW.availability = current_availability THEN
+    IF NEW.availability::text = current_availability THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Published Question Availability transition must change state';
     END IF;
@@ -131,17 +131,18 @@ BEGIN
     INSERT INTO ple_data.question_availability_event(
         event_id, published_question_id, actor_account_id, availability, edit_number, reason, occurred_at
     ) VALUES (
-        p_event_id, p_published_question_id, actor_id, p_target_availability,
+        p_event_id, p_published_question_id, actor_id, p_target_availability::ple_data.question_availability,
         p_expected_question_availability_edit_number + 1,
         CASE WHEN p_target_availability = 'archived' THEN 'archived by Question Owner' END,
         pg_catalog.clock_timestamp()
     );
     UPDATE ple_data.published_question
-       SET availability = p_target_availability,
+       SET availability = p_target_availability::ple_data.question_availability,
            availability_edit_number = p_expected_question_availability_edit_number + 1
      WHERE published_question_id = p_published_question_id
      RETURNING published_question.availability, published_question.availability_edit_number
        INTO availability, availability_edit_number;
+    availability := availability::text;
     RETURN NEXT;
 END
 $$;
@@ -158,4 +159,3 @@ SET search_path = pg_catalog, ple_data, ple_api AS $$
         p_published_question_id, p_expected_question_availability_edit_number, p_target_availability,
         p_archive_confirmation_title, p_event_id)
 $$;
-

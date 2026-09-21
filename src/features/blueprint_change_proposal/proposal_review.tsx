@@ -545,7 +545,7 @@ function AcceptedResult(props: {
                       {(entry) => (
                         <li>
                           {entry.kind === "fixed"
-                            ? `Question ${entry.question_revision_tuple.questionId}, Revision ${entry.question_revision_tuple.revisionNumber}; ${entry.points_possible} points`
+                            ? `Question ${entry.published_question_revision_tuple.publishedQuestionId}, Revision ${entry.published_question_revision_tuple.revisionNumber}; ${entry.points_possible} points`
                             : `Pool ${entry.question_pool_id}, Edit ${entry.question_pool_edit_number}; select ${entry.selection_count}; ${entry.points_per_item} points per item`}
                           <Settings value={entry} />
                         </li>

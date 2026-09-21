@@ -6,7 +6,7 @@ import { DecodeError, decodePositiveInteger, decodeRecord } from "../decoder";
 import {
   decodeBoundedArray,
   decodeQuestionId,
-  decodeQuestionRevisionTuple,
+  decodePublishedQuestionRevisionTuple,
   field,
   requireOnlyFields,
 } from "./shared";
@@ -30,11 +30,11 @@ export function decodeBlueprintPoolMembersView(
     field(record, "members", path),
     `${path}.members`,
     MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY,
-    (member, memberPath) => decodeQuestionRevisionTuple(member, memberPath, true),
+    (member, memberPath) => decodePublishedQuestionRevisionTuple(member, memberPath, true),
   );
   if (
     members.length === 0 ||
-    new Set(members.map((member) => member.questionId)).size !== members.length
+    new Set(members.map((member) => member.publishedQuestionId)).size !== members.length
   ) {
     throw new DecodeError(`${path}.members`, "nonempty Pool members with unique Question IDs");
   }

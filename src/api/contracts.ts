@@ -9,7 +9,7 @@ import type { StudentQuestionAttemptView } from "../../generated/api/StudentQues
 import type { AssessmentAttemptId } from "../../generated/api/AssessmentAttemptId";
 import type { AssessmentEntryId } from "../../generated/api/AssessmentEntryId";
 import type { IssuedQuestionId } from "../../generated/api/IssuedQuestionId";
-import type { QuestionRevisionTuple } from "../../generated/api/QuestionRevisionTuple";
+import type { PublishedQuestionRevisionTuple } from "../../generated/api/PublishedQuestionRevisionTuple";
 import type { AssessmentScoringState } from "../../generated/api/AssessmentScoringState";
 import type { AssessmentStatus } from "../../generated/api/AssessmentStatus";
 import type { Capability } from "../../generated/api/Capability";
@@ -176,7 +176,7 @@ export interface StudentIssuedQuestion {
   readonly assessmentEntryId: AssessmentEntryId;
   readonly assessmentContentEntryIndex: number;
   readonly issuedPosition: number;
-  readonly questionRevisionTuple: QuestionRevisionTuple;
+  readonly publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple;
   readonly questionStatisticsEligibility: boolean;
 }
 

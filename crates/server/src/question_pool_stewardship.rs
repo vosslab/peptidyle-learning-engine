@@ -16,7 +16,7 @@ use learning_data_access::{
     SessionTokenHash, StoreError,
     postgres::{PostgresQuestionPoolStewardshipStore, PostgresSessionStore},
 };
-use question_model::{ProductRole, QuestionId};
+use question_model::{ProductRole, QuestionPoolId};
 use serde::{Deserialize, Serialize};
 
 use crate::auth::{AuthError, resolve_session};
@@ -230,7 +230,7 @@ async fn set_watch(
 
 /// The typed parser admits only the exact canonical public ID, including its
 /// required checksum and Question-family hyphen.
-fn verified_pool_id(value: &str) -> Option<QuestionId> {
+fn verified_pool_id(value: &str) -> Option<QuestionPoolId> {
     value.parse().ok()
 }
 

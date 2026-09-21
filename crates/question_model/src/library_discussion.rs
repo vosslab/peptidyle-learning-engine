@@ -6,7 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::QuestionId;
+use crate::PublishedQuestionId;
 
 /// The two reusable Library Object lineages that can receive stewardship activity.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -23,7 +23,7 @@ pub enum LibraryObjectKind {
 #[serde(rename_all = "camelCase")]
 pub struct LibraryObjectTuple {
     pub kind: LibraryObjectKind,
-    pub public_id: QuestionId,
+    pub public_id: PublishedQuestionId,
 }
 
 /// A later-deliverable activity concerning one stable Library Object lineage.

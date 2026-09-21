@@ -8,10 +8,10 @@
 use async_trait::async_trait;
 use question_model::{
     BloomClassificationEditNumber, BloomClassificationView, BloomCognitiveProcess,
-    BloomKnowledgeDimension, ObjectId, PublishedQuestionSharedMetadata, QuestionAuthorship,
-    QuestionAvailability, QuestionAvailabilityEditNumber, QuestionBackend, QuestionFormat,
-    QuestionId, QuestionLicense, QuestionRevisionTuple, QuestionType, SourceObjectChecksum,
-    Timestamp,
+    BloomKnowledgeDimension, ObjectId, PublishedQuestionId, PublishedQuestionRevisionTuple,
+    PublishedQuestionSharedMetadata, QuestionAuthorship, QuestionAvailability,
+    QuestionAvailabilityEditNumber, QuestionBackend, QuestionFormat, QuestionLicense, QuestionType,
+    SourceObjectChecksum, Timestamp,
 };
 
 use crate::{SessionTokenHash, StoreError};
@@ -20,7 +20,7 @@ use crate::{SessionTokenHash, StoreError};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PublishedQuestionLibraryEntry {
     /// Stable Published Question and latest accepted Question Revision.
-    pub question_revision_tuple: QuestionRevisionTuple,
+    pub published_question_revision_tuple: PublishedQuestionRevisionTuple,
     /// The exact backend that must interpret the immutable source.
     pub backend: QuestionBackend,
     /// Immutable reviewed source representation. This is browser-safe metadata,
@@ -30,7 +30,7 @@ pub struct PublishedQuestionLibraryEntry {
     pub question_type: QuestionType,
     /// Database-authoritative publication time.
     pub published_at: Timestamp,
-    /// Exact Bloom Classification for `question_revision_tuple`, when assigned.
+    /// Exact Bloom Classification for `published_question_revision_tuple`, when assigned.
     pub bloom: Option<BloomClassificationView>,
     /// Current shared Published Question title.
     pub question_title: String,
@@ -105,7 +105,7 @@ pub trait QuestionLibraryStore: Send + Sync {
     async fn load_published_question_library_entry(
         &self,
         session_token_hash: SessionTokenHash,
-        question_id: &QuestionId,
+        question_id: &PublishedQuestionId,
     ) -> Result<PublishedQuestionLibraryEntry, StoreError>;
 
     /// Resolves one existing exact immutable Question Revision after the same
@@ -117,7 +117,7 @@ pub trait QuestionLibraryStore: Send + Sync {
     async fn load_published_question_revision_library_entry(
         &self,
         session_token_hash: SessionTokenHash,
-        question_revision_tuple: &QuestionRevisionTuple,
+        published_question_revision_tuple: &PublishedQuestionRevisionTuple,
     ) -> Result<PublishedQuestionLibraryEntry, StoreError>;
 
     /// Corrects both Bloom dimensions for one exact Revision through the
@@ -126,7 +126,7 @@ pub trait QuestionLibraryStore: Send + Sync {
     async fn correct_question_revision_bloom(
         &self,
         session_token_hash: SessionTokenHash,
-        question_revision_tuple: &QuestionRevisionTuple,
+        published_question_revision_tuple: &PublishedQuestionRevisionTuple,
         expected_edit_number: BloomClassificationEditNumber,
         cognitive_process: BloomCognitiveProcess,
         knowledge_dimension: BloomKnowledgeDimension,
@@ -140,7 +140,7 @@ pub trait QuestionLibraryStore: Send + Sync {
     async fn load_current_published_question_shared_metadata(
         &self,
         session_token_hash: SessionTokenHash,
-        question_ids: &[QuestionId],
+        question_ids: &[PublishedQuestionId],
     ) -> Result<Vec<PublishedQuestionSharedMetadata>, StoreError>;
 
     /// Archives one owned stable Question lineage at its exact availability
@@ -151,7 +151,7 @@ pub trait QuestionLibraryStore: Send + Sync {
     async fn archive_published_question(
         &self,
         session_token_hash: SessionTokenHash,
-        question_id: &QuestionId,
+        question_id: &PublishedQuestionId,
         expected_edit_number: QuestionAvailabilityEditNumber,
         confirmation_title: &str,
     ) -> Result<PublishedQuestionAvailability, StoreError>;
@@ -161,7 +161,7 @@ pub trait QuestionLibraryStore: Send + Sync {
     async fn restore_published_question(
         &self,
         session_token_hash: SessionTokenHash,
-        question_id: &QuestionId,
+        question_id: &PublishedQuestionId,
         expected_edit_number: QuestionAvailabilityEditNumber,
     ) -> Result<PublishedQuestionAvailability, StoreError>;
 }

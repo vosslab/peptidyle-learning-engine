@@ -641,14 +641,16 @@ mod tests {
     use crate::question_publication::{QuestionIdIssuer, RandomQuestionIdIssuer};
     use axum::http::{HeaderValue, StatusCode};
     use learning_data_access::StoreError;
-    use question_model::{QuestionId, QuestionRevisionTuple, ReusableSelectionAvailability};
+    use question_model::{
+        PublishedQuestionId, PublishedQuestionRevisionTuple, ReusableSelectionAvailability,
+    };
     use std::collections::BTreeMap;
     #[test]
     fn rejects_id_with_wrong_checksum() {
         let issuer = RandomQuestionIdIssuer::new();
         let valid = issuer.issue_question_id().expect("ID");
-        let wrong = "0000-5000".parse::<QuestionId>();
-        assert!(valid.as_str().parse::<QuestionId>().is_ok());
+        let wrong = "0000-5000".parse::<PublishedQuestionId>();
+        assert!(valid.as_str().parse::<PublishedQuestionId>().is_ok());
         assert!(wrong.is_err());
         assert!(!valid_idempotency_key(""));
         assert!(valid_idempotency_key("publish-1"));
@@ -656,21 +658,22 @@ mod tests {
 
     #[test]
     fn retained_older_question_pin_uses_its_exact_revision_and_is_not_selectable() {
-        let question_id = QuestionId::from_random_identifier("0000000").expect("Question ID");
-        let older = QuestionRevisionTuple {
-            question_id: question_id.clone(),
+        let question_id =
+            PublishedQuestionId::from_random_identifier("0000000").expect("Question ID");
+        let older = PublishedQuestionRevisionTuple {
+            published_question_id: question_id.clone(),
             revision_number: question_model::QuestionRevisionNumber::new(1).expect("revision one"),
         };
-        let current = QuestionRevisionTuple {
-            question_id: question_id.clone(),
+        let current = PublishedQuestionRevisionTuple {
+            published_question_id: question_id.clone(),
             revision_number: question_model::QuestionRevisionNumber::new(2).expect("revision two"),
         };
         let values = BTreeMap::from([(older.clone(), "older"), (current.clone(), "current")]);
-        let current_question_revision_tuples = BTreeMap::from([(question_id, current)]);
+        let current_published_question_revision_tuples = BTreeMap::from([(question_id, current)]);
 
         assert_eq!(views::exact_revision_value(&older, &values), Some(&"older"));
         assert_eq!(
-            views::selection_availability(&older, &current_question_revision_tuples),
+            views::selection_availability(&older, &current_published_question_revision_tuples),
             ReusableSelectionAvailability::Retained
         );
     }

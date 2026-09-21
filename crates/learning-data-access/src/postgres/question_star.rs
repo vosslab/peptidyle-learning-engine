@@ -1,7 +1,7 @@
 //! PostgreSQL implementation of the authenticated Question Star boundary.
 
 use async_trait::async_trait;
-use question_model::QuestionId;
+use question_model::PublishedQuestionId;
 use sqlx::{Postgres, Row, Transaction};
 
 use super::{Pool, connection::map_sqlx_error};
@@ -65,7 +65,7 @@ impl PostgresQuestionStarStore {
 
     async fn read_in(
         tx: &mut Transaction<'_, Postgres>,
-        question_id: &QuestionId,
+        question_id: &PublishedQuestionId,
     ) -> Result<QuestionStarProjection, StoreError> {
         // ASVS 8.2.1--8.3.1: this API procedure derives the subject from the
         // installed session; it accepts no Account ID or client role claim.
@@ -102,7 +102,7 @@ impl QuestionStarStore for PostgresQuestionStarStore {
     async fn question_star_projection(
         &self,
         session_token_hash: SessionTokenHash,
-        question_id: &QuestionId,
+        question_id: &PublishedQuestionId,
     ) -> Result<QuestionStarProjection, StoreError> {
         let mut tx = self.begin(session_token_hash).await?;
         let projection = Self::read_in(&mut tx, question_id).await?;
@@ -113,7 +113,7 @@ impl QuestionStarStore for PostgresQuestionStarStore {
     async fn set_current_question_star(
         &self,
         session_token_hash: SessionTokenHash,
-        question_id: &QuestionId,
+        question_id: &PublishedQuestionId,
         starred: bool,
     ) -> Result<QuestionStarProjection, StoreError> {
         let mut tx = self.begin(session_token_hash).await?;

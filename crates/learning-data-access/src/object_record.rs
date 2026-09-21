@@ -32,7 +32,7 @@ pub fn validate_workspace_question_source_object_record(
     if *object != record.id
         || record.storage_area != record.address.storage_area()
         || record.data_class != record.address.data_class()
-        || record.question_revision_tuple.is_some()
+        || record.published_question_revision_tuple.is_some()
     {
         return Err(StoreError::InvalidRecord(
             "Object Record metadata must be derived from its Workspace Question Source Object Address"
@@ -77,7 +77,7 @@ mod tests {
             sha256: Sha256Checksum::compute(b"Question Source"),
             size_bytes: 15,
             media_type: "application/json".to_string(),
-            question_revision_tuple: None,
+            published_question_revision_tuple: None,
             created_at: Timestamp::from_unix_millis(1_000),
         }
     }

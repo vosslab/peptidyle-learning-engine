@@ -67,11 +67,11 @@ INSERT INTO ple_private.object_record (
     '20000000-0000-0000-0000-000000000010',
     jsonb_build_object(
         'kind', 'questionSource',
-        'questionRevisionTuple', jsonb_build_object(
-            'questionId', :'question_id',
+        'publishedQuestionRevisionTuple', jsonb_build_object(
+            'publishedQuestionId', :'question_id',
             'revisionNumber', 1
         ),
-        'object', '20000000-0000-0000-0000-000000000010'::uuid
+        'objectId', '20000000-0000-0000-0000-000000000010'::uuid
     ),
     'private-content', 'question-source', decode(repeat('10', 32), 'hex'), 1,
     'application/json', pg_catalog.transaction_timestamp()
@@ -178,7 +178,8 @@ INSERT INTO ple_data.assessment_entry_question (
 -- destructive closure and retained anonymous statistics.
 SET LOCAL ROLE ple_app;
 SELECT set_config('ple.session_account_id', :'student_id', true);
-SELECT * FROM ple_api.start_assessment_attempt(
+SELECT assessment_attempt_id, assessment_attempt_number, resumed
+  FROM ple_api.start_assessment_attempt(
     '50000000-0000-0000-0000-000000000001',
     :'record_id',
     :'target_assessment_id',
@@ -191,7 +192,8 @@ SELECT * FROM ple_api.start_assessment_attempt(
         'revision_number', 1
     ))
 );
-SELECT * FROM ple_api.start_assessment_attempt(
+SELECT assessment_attempt_id, assessment_attempt_number, resumed
+  FROM ple_api.start_assessment_attempt(
     '50000000-0000-0000-0000-000000000002',
     :'record_id',
     :'survivor_assessment_id',
@@ -210,26 +212,33 @@ INSERT INTO ple_private.question_attempt (
     course_instance_id, question_attempt_id, issued_question_id, issued_at,
     delivery_toolchain_id, rendered_question_sha256
 )
-SELECT issued.course_instance_id, '50000000-0000-0000-0000-000000000021',
-       issued.issued_question_id, pg_catalog.transaction_timestamp(),
-       ple_private.ensure_delivery_toolchain('ple', '1', NULL, NULL, 'ple', '1', 'not_applicable'),
-       decode(repeat('b', 64), 'hex')
+SELECT issued.course_instance_id,
+       '50000000-0000-0000-0000-000000000021' AS question_attempt_id,
+       issued.issued_question_id,
+       pg_catalog.transaction_timestamp() AS issued_at,
+       ple_private.ensure_delivery_toolchain('ple', '1', NULL, NULL, 'ple', '1', 'not_applicable') AS delivery_toolchain_id,
+       decode(repeat('b', 64), 'hex') AS rendered_question_sha256
   FROM ple_private.issued_question AS issued
  WHERE issued.issued_question_id = '50000000-0000-0000-0000-000000000011';
 INSERT INTO ple_private.question_attempt (
     course_instance_id, question_attempt_id, issued_question_id, issued_at,
     delivery_toolchain_id, rendered_question_sha256
 )
-SELECT issued.course_instance_id, '50000000-0000-0000-0000-000000000022',
-       issued.issued_question_id, pg_catalog.transaction_timestamp(),
-       ple_private.ensure_delivery_toolchain('ple', '1', NULL, NULL, 'ple', '1', 'not_applicable'),
-       decode(repeat('d', 64), 'hex')
+SELECT issued.course_instance_id,
+       '50000000-0000-0000-0000-000000000022' AS question_attempt_id,
+       issued.issued_question_id,
+       pg_catalog.transaction_timestamp() AS issued_at,
+       ple_private.ensure_delivery_toolchain('ple', '1', NULL, NULL, 'ple', '1', 'not_applicable') AS delivery_toolchain_id,
+       decode(repeat('d', 64), 'hex') AS rendered_question_sha256
   FROM ple_private.issued_question AS issued
  WHERE issued.issued_question_id = '50000000-0000-0000-0000-000000000012';
 INSERT INTO ple_private.assessment_attempt_saved_response (
     course_instance_id, question_attempt_id, student_response, saved_at
 )
-SELECT attempt.course_instance_id, attempt.question_attempt_id, '{}'::jsonb, pg_catalog.transaction_timestamp()
+SELECT attempt.course_instance_id,
+       attempt.question_attempt_id,
+       '{}'::jsonb AS student_response,
+       pg_catalog.transaction_timestamp() AS saved_at
   FROM ple_private.question_attempt AS attempt
  WHERE attempt.question_attempt_id IN (
      '50000000-0000-0000-0000-000000000021',

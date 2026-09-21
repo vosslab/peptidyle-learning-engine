@@ -34,7 +34,7 @@ def lanes() -> tuple[ValidationLane, ...]:
 			EvidenceBoundary.REAL_SERVICE,
 		),
 		ValidationLane(
-			"ordinary installation-data provision and explicit opt-out",
+			"ordinary installation-data provision and replay",
 			("bash", "tests/e2e/e2e_installation_data.sh"),
 			EvidenceBoundary.REAL_SERVICE,
 		),

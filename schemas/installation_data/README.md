@@ -36,5 +36,5 @@ cargo tools installation-data provision --without-live-demo
 
 See the [Live Demo specification](../../docs/LIVE_DEMO_SPEC.md) for the
 resulting product data and [installation guide](../../docs/INSTALL.md) for the
-required publisher and storage environment. The local controller exposes the
-same opt-out through `local_stack.py start --headless --without-live-demo`.
+required publisher and storage environment. The local Live Demo launcher always
+uses the complete ordinary provisioning path.

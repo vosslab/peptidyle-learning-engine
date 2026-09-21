@@ -3,7 +3,7 @@
 import type { AssessmentId } from "../../generated/api/AssessmentId";
 import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { CourseMembershipId } from "../../generated/api/CourseMembershipId";
-import type { QuestionId } from "../../generated/api/QuestionId";
+import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionId";
 import type { AssessmentAttemptId } from "../../generated/api/AssessmentAttemptId";
 import type { WorkspaceId } from "../../generated/api/WorkspaceId";
 import type { BlueprintCourseId } from "../../generated/api/BlueprintCourseId";
@@ -112,7 +112,7 @@ export function parsePublicRouteId(value: string): PublicRouteId | null {
     parseBlueprintCourseId(value)
   );
 }
-export function questionRouteId(questionId: QuestionId): QuestionRouteId {
+export function questionRouteId(questionId: PublishedQuestionId): QuestionRouteId {
   const result = parseQuestionRouteId(questionId);
   if (result === null) throw new Error("question ID must use Crockford Base32");
   return result;

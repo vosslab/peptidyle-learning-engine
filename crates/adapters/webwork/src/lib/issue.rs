@@ -150,7 +150,7 @@ impl<R: WebworkRenderer> WebworkAdapter<R> {
             .render_answer_review(RenderRequest {
                 pg_source: source.pg_source(),
                 pg_path: source.pg_path(),
-                question_revision_tuple: source.question_revision_tuple(),
+                published_question_revision_tuple: source.published_question_revision_tuple(),
                 seed: question_seed.value(),
             })
             .await
@@ -176,7 +176,7 @@ impl<R: WebworkRenderer> WebworkAdapter<R> {
             .render(RenderRequest {
                 pg_source: source.pg_source(),
                 pg_path: source.pg_path(),
-                question_revision_tuple: source.question_revision_tuple(),
+                published_question_revision_tuple: source.published_question_revision_tuple(),
                 seed: question_seed.value(),
             })
             .await
@@ -223,7 +223,7 @@ impl<R: WebworkRenderer> WebworkAdapter<R> {
             .render_saved_response(ResumeRenderRequest {
                 pg_source: source.pg_source(),
                 pg_path: source.pg_path(),
-                question_revision_tuple: source.question_revision_tuple(),
+                published_question_revision_tuple: source.published_question_revision_tuple(),
                 seed: question_seed.value(),
                 response_payload: payload,
             })
@@ -250,7 +250,7 @@ fn issued(
     WebworkIssuedAttempt {
         presentation: QuestionVariationPresentation {
             variation: QuestionVariation::from_question_revision_and_question_seed(
-                source.question_revision_tuple().clone(),
+                source.published_question_revision_tuple().clone(),
                 question_seed,
                 generated_parameter_sha256.clone(),
             ),

@@ -9,7 +9,7 @@ use sqlx::{PgPool, postgres::PgPoolOptions};
 use uuid::Uuid;
 
 const STUDENT_RECORD: &str = "00000000-0000-0000-0000-00000000f506";
-const PUBLISHED_QUESTION: &str = "BCDE-2FGH";
+const PUBLISHED_QUESTION: &str = "HJKM-PNPQ";
 
 static STUDENT_ACCOUNT_ID: OnceLock<String> = OnceLock::new();
 static COURSE_INSTANCE_ID: OnceLock<String> = OnceLock::new();
@@ -40,7 +40,7 @@ async fn unanswered_scoring_preserves_evaluated_zero_credit_distinction() {
          (0::numeric, 'full_credit', 8::numeric, 8::numeric) \
          ) AS expected(credit, rule, points, earned) \
          LEFT JOIN LATERAL ple_private.score_recorded_credit(\
-             expected.credit, expected.rule, expected.points) AS actual ON true \
+             expected.credit, expected.rule::ple_data.scoring_rule, expected.points) AS actual ON true \
          WHERE actual.points_earned IS DISTINCT FROM expected.earned \
             OR actual.points_possible IS DISTINCT FROM expected.points",
     )
@@ -106,9 +106,46 @@ async fn seed_grading_graph(pool: &PgPool) {
         .execute(&mut *tx)
         .await
         .expect("private fixture role");
+    sqlx::query(
+        "INSERT INTO ple_private.object_record \
+         (object_record_id, object_address, object_storage_area, object_data_class, \
+          sha256, size_bytes, media_type, created_at) \
+         VALUES ($1, jsonb_build_object(\
+                    'kind', 'questionSource', \
+                    'publishedQuestionRevisionTuple', jsonb_build_object(\
+                    'publishedQuestionId', $2, 'revisionNumber', 1), \
+                    'objectId', $1), \
+                 'private-content', 'question-source', decode(repeat('51', 32), 'hex'), \
+                 1, 'application/json', pg_catalog.transaction_timestamp())",
+    )
+    .bind(Uuid::from_u128(0xf509))
+    .bind(PUBLISHED_QUESTION)
+    .execute(&mut *tx)
+    .await
+    .expect("Question source Object Record");
+    sqlx::query(
+        "INSERT INTO ple_private.question_revision_source_binding \
+         (published_question_id, revision_number, backend, question_format, \
+          source_object_record_id, source_object_checksum, created_at) \
+         VALUES ($1, 1, 'ple', 'pleQuestionJson', $2, repeat('51', 32), \
+                 pg_catalog.transaction_timestamp())",
+    )
+    .bind(PUBLISHED_QUESTION)
+    .bind(Uuid::from_u128(0xf509))
+    .execute(&mut *tx)
+    .await
+    .expect("Question source binding");
+    let instructor_id: String = sqlx::query_scalar(
+        "INSERT INTO ple_private.account (account_id, product_role, created_at) \
+         VALUES ('U0000001' || ple_private.crockford_checksum_character('U0000001'), \
+                 'instructor', pg_catalog.transaction_timestamp()) RETURNING account_id",
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .expect("Instructor Account");
     let student_id: String = sqlx::query_scalar(
         "INSERT INTO ple_private.account (account_id, product_role, created_at) \
-         VALUES ('U00000009', 'student', clock_timestamp()) RETURNING account_id",
+         VALUES ('U00000009', 'student', pg_catalog.transaction_timestamp()) RETURNING account_id",
     )
     .fetch_one(&mut *tx)
     .await
@@ -124,7 +161,7 @@ async fn seed_grading_graph(pool: &PgPool) {
          VALUES ('CI0000000' || ple_private.crockford_checksum_character('CI0000000'), \
                  'empty', 'GRADE', 'Grading lifecycle Course', \
                  '00000000-0000-0000-0000-00000000cc01', ARRAY[]::text[], \
-                 current_date, current_date + 1, clock_timestamp()) \
+                 current_date, current_date + 1, pg_catalog.transaction_timestamp()) \
          RETURNING course_instance_id",
     )
     .fetch_one(&mut *tx)
@@ -133,7 +170,7 @@ async fn seed_grading_graph(pool: &PgPool) {
     sqlx::query(
         "INSERT INTO ple_data.student_record \
          (student_record_id, course_instance_id, student_account_id, created_at) \
-         VALUES ($1, $2, $3, clock_timestamp())",
+         VALUES ($1, $2, $3, pg_catalog.transaction_timestamp())",
     )
     .bind(Uuid::parse_str(STUDENT_RECORD).unwrap())
     .bind(&course_id)
@@ -141,6 +178,17 @@ async fn seed_grading_graph(pool: &PgPool) {
     .execute(&mut *tx)
     .await
     .expect("Student Record");
+    sqlx::query(
+        "INSERT INTO ple_data.course_membership \
+         (course_membership_id, course_instance_id, account_id, role, student_record_id, \
+          joined_at) VALUES ($1, $2, $3, 'instructor', NULL, clock_timestamp())",
+    )
+    .bind(Uuid::from_u128(0xf508))
+    .bind(&course_id)
+    .bind(&instructor_id)
+    .execute(&mut *tx)
+    .await
+    .expect("Instructor membership");
     sqlx::query(
         "INSERT INTO ple_data.course_membership \
          (course_membership_id, course_instance_id, account_id, role, student_record_id, \
@@ -243,7 +291,7 @@ async fn make_attempt(
           available_at, due_at, closes_at, time_multiplier, assessment_attempt_limit, \
           created_at) VALUES ($1, $2, $3, $4, clock_timestamp() - interval '1 hour', \
           clock_timestamp() + interval '1 hour', clock_timestamp() + interval '2 hours', \
-          1, 1, clock_timestamp())",
+          1, 1, pg_catalog.transaction_timestamp())",
     )
     .bind(Uuid::from_u128(entry_id.as_u128() + 0x100))
     .bind(course_id)

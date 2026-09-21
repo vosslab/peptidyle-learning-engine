@@ -11,9 +11,9 @@ use learning_data_access::{
 };
 use question_model::{
     AssessmentEntryScoringRule, BlueprintAssessmentEntryInput, BlueprintAvailability,
-    BlueprintRevisionNumber, CreateBlueprintCourseInput, QuestionAttemptLimit,
-    QuestionAttemptTimeLimit, QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship,
-    QuestionBackend, QuestionLicense, QuestionRevisionTuple, RequestChecksum, WorkspaceId,
+    BlueprintRevisionNumber, CreateBlueprintCourseInput, PublishedQuestionRevisionTuple,
+    QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionAuthor, QuestionAuthorDisplayName,
+    QuestionAuthorship, QuestionBackend, QuestionLicense, RequestChecksum, WorkspaceId,
 };
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
@@ -29,7 +29,7 @@ pub(crate) use receipt::Receipt;
 const SESSION_HASH_ENV: &str = "PLE_CURRICULUM_PUBLICATION_SESSION_TOKEN_HASH";
 const WORKSPACE_ENV: &str = "PLE_CURRICULUM_PUBLICATION_WORKSPACE_ID";
 
-type SourceRevisions = BTreeMap<String, QuestionRevisionTuple>;
+type SourceRevisions = BTreeMap<String, PublishedQuestionRevisionTuple>;
 type PublishedIndex = BTreeMap<String, Vec<PublishedQuestionLibraryEntry>>;
 
 pub(crate) fn publish(manifest: Manifest) -> Result<()> {
@@ -223,7 +223,7 @@ fn existing_source_revisions(
             revisions
                 .insert(
                     source.source_id.clone(),
-                    entry.question_revision_tuple.clone()
+                    entry.published_question_revision_tuple.clone()
                 )
                 .is_none(),
             "canonical source identity is duplicated: {}",
@@ -334,7 +334,7 @@ fn validate_loaded_content(
         {
             let (
                 StoredBlueprintAssessmentEntry::Fixed {
-                    question_revision_tuple,
+                    published_question_revision_tuple,
                     points_possible,
                     scoring_rule,
                     question_attempt_limit,
@@ -349,8 +349,9 @@ fn validate_loaded_content(
                 format!("canonical Genetics revision is missing for source {source_id}")
             })?;
             ensure!(
-                question_revision_tuple == expected_revision_tuple
-                    && question_revision_tuple == &expected_fixed.question_revision_tuple
+                published_question_revision_tuple == expected_revision_tuple
+                    && published_question_revision_tuple
+                        == &expected_fixed.published_question_revision_tuple
                     && points_possible == &expected_fixed.points_possible
                     && scoring_rule == &AssessmentEntryScoringRule::Normal
                     && scoring_rule == &expected_fixed.scoring_rule

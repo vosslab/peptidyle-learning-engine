@@ -2,7 +2,7 @@
 
 import type { QuestionSearchRequest } from "../../generated/api/QuestionSearchRequest";
 import type { QuestionSearchAuthorship } from "../../generated/api/QuestionSearchAuthorship";
-import type { QuestionId } from "../../generated/api/QuestionId";
+import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionId";
 import type { Capability } from "../../generated/api/Capability";
 import type { QuestionLicense } from "../../generated/api/QuestionLicense";
 import type { QuestionType } from "../../generated/api/QuestionType";
@@ -57,7 +57,7 @@ const QUESTION_TYPES = [
  * or include mutable metadata before those product boundaries exist.
  */
 export interface QuestionLibraryBulkSelectionRequest {
-  readonly questionIds: ReadonlyArray<QuestionId>;
+  readonly questionIds: ReadonlyArray<PublishedQuestionId>;
 }
 
 /**
@@ -79,7 +79,7 @@ export function questionLibraryBulkSelectionRequest(
   if (normalized.some((questionId) => questionId === null)) {
     throw new Error("A Question Library bulk operation requires canonical Question IDs");
   }
-  const canonicalQuestionIds = normalized as Array<QuestionId>;
+  const canonicalQuestionIds = normalized as Array<PublishedQuestionId>;
   if (new Set(canonicalQuestionIds).size !== canonicalQuestionIds.length) {
     throw new Error("A Question Library bulk operation cannot select a Question more than once");
   }
@@ -241,7 +241,7 @@ export function createQuestionLibraryRepository(
       return {
         items: page.items.map((item) => ({
           displayId: item.summary.questionId,
-          questionRevisionTuple: item.summary.questionRevisionTuple,
+          publishedQuestionRevisionTuple: item.summary.publishedQuestionRevisionTuple,
           questionTitle: item.summary.metadata.questionTitle,
           summary: item.summary.metadata.questionDescription,
           bloom: item.summary.bloom,

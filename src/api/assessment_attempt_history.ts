@@ -6,13 +6,13 @@ import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { CourseTheme } from "../../generated/api/CourseTheme";
 import type { QuestionContentBlock } from "../../generated/api/QuestionContentBlock";
 import type { StudentFeedback } from "../../generated/api/StudentFeedback";
-import type { QuestionRevisionTuple } from "../../generated/api/QuestionRevisionTuple";
+import type { PublishedQuestionRevisionTuple } from "../../generated/api/PublishedQuestionRevisionTuple";
 import { parseAssessmentAttemptId } from "../navigation/public_route";
 
 export interface StudentAssessmentAttemptHistoryQuestion extends StudentFeedback {
   readonly position: number;
   /** Exact immutable Question Revision identity required for disclosed asset delivery. */
-  readonly questionRevisionTuple: QuestionRevisionTuple;
+  readonly publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple;
   readonly responseState: "submitted" | "closed";
   /** Readable recorded response, independently released from grading. */
   readonly response?: ReadonlyArray<QuestionContentBlock>;

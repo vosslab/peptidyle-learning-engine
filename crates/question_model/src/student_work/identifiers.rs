@@ -113,7 +113,7 @@ impl IssuedQuestionId {
     pub fn for_frozen_content(
         assessment_attempt: AssessmentAttemptId,
         assessment_entry: AssessmentEntryId,
-        pool: Option<(&crate::QuestionId, crate::QuestionPoolEditNumber, u32)>,
+        pool: Option<(&crate::QuestionPoolId, crate::QuestionPoolEditNumber, u32)>,
     ) -> Self {
         let mut name = Vec::with_capacity(96);
         name.extend_from_slice(assessment_attempt.as_uuid().as_bytes());
@@ -136,7 +136,7 @@ mod tests {
     fn issued_question_identity_is_stable_and_distinguishes_frozen_content() {
         let attempt = AssessmentAttemptId::from_uuid(Uuid::from_u128(1));
         let entry = AssessmentEntryId::from_uuid(Uuid::from_u128(2));
-        let question_pool_id: crate::QuestionId = "7654-Z321".parse().expect("valid Pool ID");
+        let question_pool_id: crate::QuestionPoolId = "7654-Z321".parse().expect("valid Pool ID");
         let question_pool_edit_number =
             crate::QuestionPoolEditNumber::new(1).expect("positive Pool Edit Number");
         let fixed = IssuedQuestionId::for_frozen_content(attempt, entry, None);

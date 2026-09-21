@@ -59,6 +59,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_dat
 DECLARE
     actor text;
     assigned text;
+    created_course_instance_id text;
     now_at timestamptz;
     blueprint ple_data.blueprint_course%ROWTYPE;
     expected_sources uuid[];
@@ -155,39 +156,39 @@ BEGIN
        ) THEN
         PERFORM ple_api.require_active_content_discipline(p_discipline);
     END IF;
-    INSERT INTO ple_data.course_instance (
+    INSERT INTO ple_data.course_instance AS inserted_course_instance (
         course_instance_id, source_kind, blueprint_course_id, blueprint_revision_number,
         course_short_name, course_long_name,
         term_starts_on, term_ends_on, created_at, active_until_at, retention_starts_at,
         content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags
     ) VALUES (
-        p_course_instance_id, p_source_kind, blueprint.blueprint_course_id, p_blueprint_revision_number,
+        p_course_instance_id, p_source_kind::ple_data.course_source_kind, blueprint.blueprint_course_id, p_blueprint_revision_number,
         p_short_name, p_long_name, p_term_start, p_term_end, now_at,
         ((now_at AT TIME ZONE 'UTC') + INTERVAL '6 months') AT TIME ZONE 'UTC',
         ((now_at AT TIME ZONE 'UTC') + INTERVAL '6 months') AT TIME ZONE 'UTC',
         p_discipline, p_subject, p_topic, p_subtopic, p_tags
-    );
+    ) RETURNING inserted_course_instance.course_instance_id INTO created_course_instance_id;
     INSERT INTO ple_data.course_origin (
         course_origin_id, course_instance_id, source_kind, blueprint_course_id,
         blueprint_revision_number, source_course_instance_id, created_at
-    ) VALUES (p_origin_id, p_course_instance_id, p_source_kind, blueprint.blueprint_course_id,
+    ) VALUES (p_origin_id, created_course_instance_id, p_source_kind::ple_data.course_source_kind, blueprint.blueprint_course_id,
               p_blueprint_revision_number, NULL, now_at);
     INSERT INTO ple_data.course_membership (course_membership_id, course_instance_id, account_id, role, joined_at)
-    VALUES (p_membership_id, p_course_instance_id, assigned, 'instructor', now_at);
+    VALUES (p_membership_id, created_course_instance_id, assigned, 'instructor', now_at);
     IF p_source_kind = 'adopted' THEN
         PERFORM ple_data.initialize_course_assessments(
-            p_course_instance_id, blueprint.blueprint_course_id, p_blueprint_revision_number, p_assessments
+            created_course_instance_id, blueprint.blueprint_course_id, p_blueprint_revision_number, p_assessments
         );
     END IF;
     PERFORM ple_audit.record_course_instance_creation_event(
-        p_event_id, p_course_instance_id, p_source_kind,
-        blueprint.blueprint_course_id, p_blueprint_revision_number, assigned, actor, now_at
+        p_event_id, created_course_instance_id, p_source_kind,
+        blueprint.blueprint_course_id::text, p_blueprint_revision_number::integer, assigned, actor, now_at
     );
-    RETURN QUERY SELECT course.course_instance_id, course.course_short_name, course.course_long_name,
+    RETURN QUERY SELECT course.course_instance_id::text, course.course_short_name, course.course_long_name,
         course.term_starts_on, course.term_ends_on, course.content_discipline_id, course.content_subject_id,
         course.content_topic_id, course.content_subtopic_id, course.tags, course.course_edit_number,
-        course.course_lifecycle_state
-        FROM ple_data.course_instance AS course WHERE course.course_instance_id = p_course_instance_id;
+        course.course_lifecycle_state::text
+        FROM ple_data.course_instance AS course WHERE course.course_instance_id = created_course_instance_id;
 END
 $$;
 
@@ -273,7 +274,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_
                AND ple_data.course_membership_is_active(teammate.course_membership_id)),
            readable_blueprint.blueprint_course_id,
            CASE WHEN readable_blueprint.blueprint_course_id IS NOT NULL
-                THEN course.blueprint_revision_number END,
+                THEN course.blueprint_revision_number::bigint END,
            readable_blueprint.current_blueprint_revision_number,
            course.content_discipline_id, course.content_subject_id, course.content_topic_id,
            course.content_subtopic_id, course.tags, course.course_edit_number, course.course_lifecycle_state
@@ -623,7 +624,7 @@ CREATE FUNCTION ple_api.import_course_roster(
 )
 RETURNS TABLE(roster_id text, roster_name text, state text)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
-DECLARE course text; actor text; student text; item integer; now_at timestamptz;
+DECLARE course text; actor text; student text; now_at timestamptz;
     retention_state text;
 BEGIN
     IF p_course_instance_id IS NULL OR coalesce(cardinality(p_normalized), 0) NOT BETWEEN 1 AND 50
@@ -841,4 +842,3 @@ BEGIN
     END IF;
 END
 $$;
-

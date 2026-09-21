@@ -13,7 +13,7 @@ import { assessmentPolicySaveInput } from "../src/pages/assessment_workspace/ass
 const fixed = {
   kind: "fixedQuestion",
   id: "00000000-0000-0000-0000-000000000001",
-  questionRevisionTuple: { questionId: "7K3M-79QP", revisionNumber: 1 },
+  publishedQuestionRevisionTuple: { publishedQuestionId: "7K3M-79QP", revisionNumber: 1 },
   pointsPossible: "1",
   availability: "available",
   scoringRule: "normal",
@@ -34,7 +34,7 @@ const pool = {
   items: [
     {
       id: "00000000-0000-0000-0000-000000000003",
-      questionRevisionTuple: { questionId: "2R5X-E7YA", revisionNumber: 3 },
+      publishedQuestionRevisionTuple: { publishedQuestionId: "2R5X-E7YA", revisionNumber: 3 },
       availability: "available",
     },
   ],
@@ -50,8 +50,8 @@ test("Questions editing retains pool identity, item pin, availability, and polic
   );
   assert.equal(moved[0], pool);
   assert.equal(moved[0].items[0], pool.items[0]);
-  assert.deepEqual(moved[0].items[0].questionRevisionTuple, {
-    questionId: "2R5X-E7YA",
+  assert.deepEqual(moved[0].items[0].publishedQuestionRevisionTuple, {
+    publishedQuestionId: "2R5X-E7YA",
     revisionNumber: 3,
   });
   assert.equal(moved[0].selectionRule.selectedQuestionOrder, "questionPoolOrder");
@@ -63,7 +63,7 @@ test("Questions picker adds an Available exact revision without flattening retai
   const added = appendAvailableFixedQuestion(
     entries,
     {
-      questionRevisionTuple: { questionId: "7K4M-69QP", revisionNumber: 4 },
+      publishedQuestionRevisionTuple: { publishedQuestionId: "7K4M-69QP", revisionNumber: 4 },
       description: "Exact revision",
       bloom: {
         cognitiveProcess: "Apply",
@@ -78,7 +78,7 @@ test("Questions picker adds an Available exact revision without flattening retai
   assert.deepEqual(added[1], {
     kind: "fixedQuestion",
     id: "00000000-0000-0000-0000-000000000004",
-    questionRevisionTuple: { questionId: "7K4M-69QP", revisionNumber: 4 },
+    publishedQuestionRevisionTuple: { publishedQuestionId: "7K4M-69QP", revisionNumber: 4 },
     pointsPossible: "1",
     availability: "available",
     scoringRule: "normal",
@@ -145,7 +145,10 @@ test("Bloom sort retains unavailable exact fixed and Pool Entries without changi
   assert.equal(sorted[1], tiedPool);
   assert.equal(sorted[1].items[0], pool.items[0]);
   assert.equal(sorted[3], laterFixed);
-  assert.deepEqual(sorted[3].questionRevisionTuple, laterFixed.questionRevisionTuple);
+  assert.deepEqual(
+    sorted[3].publishedQuestionRevisionTuple,
+    laterFixed.publishedQuestionRevisionTuple,
+  );
   assert.equal(sortAssessmentEntriesByBloom(sorted, bloomByEntryId), sorted);
   const partiallyClassified = new Map(bloomByEntryId);
   partiallyClassified.delete(tiedPool.id);
