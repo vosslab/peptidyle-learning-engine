@@ -23,8 +23,8 @@ pilot is Fall 2026.
 Assignments default to unlimited Attempts, grade themselves, and keep the highest score.
 
 <p align="center">
-  <img src="docs/screenshots/student/laptop/assessment_navigation.png" width="640" alt="Student Attempt on a laptop: numbered Question navigation with saved checkmarks, a countdown timer, and an autosave notice">
-  <img src="docs/screenshots/student/phone/question_answered_mc.png" width="220" alt="The same Student Attempt on a phone: a multiple choice Question with keyboard shortcuts 1 to 4 and a saved response">
+  <img src="docs/screenshots/student/laptop/assessment_navigation.png" width="600" height="375" alt="Student Attempt on a laptop: numbered Question navigation with saved checkmarks, a countdown timer, and an autosave notice">
+  <img src="docs/screenshots/student/phone/question_answered_mc.png" width="173" height="375" alt="The same Student Attempt on a phone: a multiple choice Question with keyboard shortcuts 1 to 4 and a saved response">
 </p>
 
 <p align="center"><em>One Question at a time, on a laptop or a phone. Saved checkmarks, a countdown, and keys 1-4 to answer.</em></p>
