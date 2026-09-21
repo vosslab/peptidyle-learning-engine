@@ -53,6 +53,11 @@
   ],
   "ribbonDestinations": [
     {
+      "id": "tab:courses",
+      "status": "deferred",
+      "reason": "The root route is only signed-in Product Role resolution; current canonical captures use their role-owned home routes."
+    },
+    {
       "id": "tab:teachingOperations",
       "status": "deferred",
       "reason": "Teaching Operations is not admitted by the current Live Demo capability registry."
