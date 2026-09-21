@@ -27,7 +27,7 @@
   "captures": [
     {
       "id": "public_sign_in_laptop",
-      "path": "public/sign_in_laptop.png",
+      "path": "public/laptop/sign_in.png",
       "role": "public",
       "routeId": "signIn",
       "area": "account",
@@ -45,7 +45,7 @@
     },
     {
       "id": "public_sign_in_phone",
-      "path": "public/sign_in_phone.png",
+      "path": "public/phone/sign_in.png",
       "role": "public",
       "routeId": "signIn",
       "area": "account",
@@ -63,7 +63,7 @@
     },
     {
       "id": "public_session_renewal_laptop",
-      "path": "public/session_renewal_laptop.png",
+      "path": "public/laptop/session_renewal.png",
       "role": "public",
       "routeId": "library",
       "area": "account",
@@ -386,15 +386,15 @@
       }
     },
     {
-      "id": "instructor_generated_example_laptop",
-      "path": "instructor/generated_example_laptop.png",
+      "id": "instructor_webwork_generated_example",
+      "path": "instructor/webwork_generated_example.png",
       "role": "instructor",
       "routeId": "questionDetail",
       "area": "question library",
       "workflow": "generated Question preview",
       "state": "rendered WeBWorK example",
       "scenario": "instructor_webwork",
-      "checkpoint": "generated_example_laptop",
+      "checkpoint": "webwork_generated_example",
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
@@ -404,15 +404,15 @@
       }
     },
     {
-      "id": "instructor_hla_genotype_laptop",
-      "path": "instructor/hla_genotype_laptop.png",
+      "id": "instructor_webwork_hla_genotype",
+      "path": "instructor/webwork_hla_genotype.png",
       "role": "instructor",
       "routeId": "questionDetail",
       "area": "question library",
       "workflow": "generated Question preview",
       "state": "HLA haplotype inheritance example",
       "scenario": "instructor_webwork",
-      "checkpoint": "hla_genotype_laptop",
+      "checkpoint": "webwork_hla_genotype",
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
@@ -422,15 +422,15 @@
       }
     },
     {
-      "id": "instructor_monohybrid_matching_laptop",
-      "path": "instructor/monohybrid_matching_laptop.png",
+      "id": "instructor_webwork_monohybrid_matching",
+      "path": "instructor/webwork_monohybrid_matching.png",
       "role": "instructor",
       "routeId": "questionDetail",
       "area": "question library",
       "workflow": "generated Question preview",
       "state": "monohybrid genotype matching example",
       "scenario": "instructor_webwork",
-      "checkpoint": "monohybrid_matching_laptop",
+      "checkpoint": "webwork_monohybrid_matching",
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
@@ -440,15 +440,15 @@
       }
     },
     {
-      "id": "instructor_x_linked_counts_laptop",
-      "path": "instructor/x_linked_counts_laptop.png",
+      "id": "instructor_webwork_x_linked_counts",
+      "path": "instructor/webwork_x_linked_counts.png",
       "role": "instructor",
       "routeId": "questionDetail",
       "area": "question library",
       "workflow": "generated Question preview",
       "state": "X-linked offspring count table example",
       "scenario": "instructor_webwork",
-      "checkpoint": "x_linked_counts_laptop",
+      "checkpoint": "webwork_x_linked_counts",
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
@@ -458,15 +458,15 @@
       }
     },
     {
-      "id": "instructor_dna_structure_laptop",
-      "path": "instructor/dna_structure_laptop.png",
+      "id": "instructor_webwork_dna_structure",
+      "path": "instructor/webwork_dna_structure.png",
       "role": "instructor",
       "routeId": "questionDetail",
       "area": "question library",
       "workflow": "generated Question preview",
       "state": "True/False Statements About DNA Structure generated example",
       "scenario": "instructor_webwork",
-      "checkpoint": "dna_structure_laptop",
+      "checkpoint": "webwork_dna_structure",
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
@@ -476,15 +476,15 @@
       }
     },
     {
-      "id": "instructor_meiosis_prophase_laptop",
-      "path": "instructor/meiosis_prophase_laptop.png",
+      "id": "instructor_webwork_meiosis_prophase",
+      "path": "instructor/webwork_meiosis_prophase.png",
       "role": "instructor",
       "routeId": "questionDetail",
       "area": "question library",
       "workflow": "generated Question preview",
       "state": "Matching Meiosis Prophase I Stages to Descriptions generated example",
       "scenario": "instructor_webwork",
-      "checkpoint": "meiosis_prophase_laptop",
+      "checkpoint": "webwork_meiosis_prophase",
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
@@ -494,15 +494,15 @@
       }
     },
     {
-      "id": "instructor_chi_square_laptop",
-      "path": "instructor/chi_square_laptop.png",
+      "id": "instructor_webwork_chi_square",
+      "path": "instructor/webwork_chi_square.png",
       "role": "instructor",
       "routeId": "questionDetail",
       "area": "question library",
       "workflow": "generated Question preview",
       "state": "True/False Statements About Chi-Square Tests generated example",
       "scenario": "instructor_webwork",
-      "checkpoint": "chi_square_laptop",
+      "checkpoint": "webwork_chi_square",
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
@@ -512,15 +512,15 @@
       }
     },
     {
-      "id": "instructor_chromosome_shapes_laptop",
-      "path": "instructor/chromosome_shapes_laptop.png",
+      "id": "instructor_webwork_chromosome_shapes",
+      "path": "instructor/webwork_chromosome_shapes.png",
       "role": "instructor",
       "routeId": "questionDetail",
       "area": "question library",
       "workflow": "generated Question preview",
       "state": "Matching Chromosome Shapes to Descriptions generated example",
       "scenario": "instructor_webwork",
-      "checkpoint": "chromosome_shapes_laptop",
+      "checkpoint": "webwork_chromosome_shapes",
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": {
@@ -675,7 +675,7 @@
     },
     {
       "id": "student_course_list_laptop",
-      "path": "student/course_list_laptop.png",
+      "path": "student/laptop/course_list.png",
       "role": "student",
       "routeId": "studentHome",
       "area": "courses",
@@ -693,7 +693,7 @@
     },
     {
       "id": "student_course_list_phone",
-      "path": "student/course_list_phone.png",
+      "path": "student/phone/course_list.png",
       "role": "student",
       "routeId": "studentHome",
       "area": "courses",
@@ -710,15 +710,15 @@
       }
     },
     {
-      "id": "student_invitation_index",
-      "path": "student/invitation_index.png",
+      "id": "student_invitation_index_laptop",
+      "path": "student/laptop/invitation_index.png",
       "role": "student",
       "routeId": "studentCourseInvitations",
       "area": "courses",
       "workflow": "course invitation",
       "state": "pending index",
       "scenario": "student_invitation",
-      "checkpoint": "invitation_index",
+      "checkpoint": "invitation_index_laptop",
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
@@ -728,15 +728,15 @@
       }
     },
     {
-      "id": "student_invitation_detail",
-      "path": "student/invitation_detail.png",
+      "id": "student_invitation_detail_laptop",
+      "path": "student/laptop/invitation_detail.png",
       "role": "student",
       "routeId": "studentCourseInvitation",
       "area": "courses",
       "workflow": "course invitation",
       "state": "review",
       "scenario": "student_invitation",
-      "checkpoint": "invitation_detail",
+      "checkpoint": "invitation_detail_laptop",
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
@@ -747,7 +747,7 @@
     },
     {
       "id": "student_not_started_laptop",
-      "path": "student/not_started_laptop.png",
+      "path": "student/laptop/not_started.png",
       "role": "student",
       "routeId": "studentCourseLanding",
       "area": "courses",
@@ -765,7 +765,7 @@
     },
     {
       "id": "student_in_progress_laptop",
-      "path": "student/in_progress_laptop.png",
+      "path": "student/laptop/in_progress.png",
       "role": "student",
       "routeId": "studentCourseLanding",
       "area": "courses",
@@ -783,7 +783,7 @@
     },
     {
       "id": "student_completed_laptop",
-      "path": "student/completed_laptop.png",
+      "path": "student/laptop/completed.png",
       "role": "student",
       "routeId": "studentCourseLanding",
       "area": "courses",
@@ -801,7 +801,7 @@
     },
     {
       "id": "student_not_started_phone",
-      "path": "student/not_started_phone.png",
+      "path": "student/phone/not_started.png",
       "role": "student",
       "routeId": "studentCourseLanding",
       "area": "courses",
@@ -819,7 +819,7 @@
     },
     {
       "id": "student_unanswered_laptop",
-      "path": "student/unanswered_laptop.png",
+      "path": "student/laptop/unanswered.png",
       "role": "student",
       "routeId": "assessmentOverview",
       "area": "assignments",
@@ -837,7 +837,7 @@
     },
     {
       "id": "student_unanswered_tablet",
-      "path": "student/unanswered_tablet.png",
+      "path": "student/tablet/unanswered.png",
       "role": "student",
       "routeId": "assessmentOverview",
       "area": "assignments",
@@ -854,15 +854,15 @@
       }
     },
     {
-      "id": "student_overview_history",
-      "path": "student/overview_history.png",
+      "id": "student_overview_history_laptop",
+      "path": "student/laptop/overview_history.png",
       "role": "student",
       "routeId": "assessmentOverview",
       "area": "assignments",
       "workflow": "assignment history",
       "state": "previous attempts",
       "scenario": "student_assignment_history",
-      "checkpoint": "overview_history",
+      "checkpoint": "overview_history_laptop",
       "viewport": "laptop",
       "privacyProfile": "student_self",
       "gallery": {
@@ -872,15 +872,15 @@
       }
     },
     {
-      "id": "student_selected_history",
-      "path": "student/selected_history.png",
+      "id": "student_selected_history_laptop",
+      "path": "student/laptop/selected_history.png",
       "role": "student",
       "routeId": "assessmentAttemptSummary",
       "area": "assignments",
       "workflow": "assignment history",
       "state": "selected previous attempt",
       "scenario": "student_assignment_history",
-      "checkpoint": "selected_history",
+      "checkpoint": "selected_history_laptop",
       "viewport": "laptop",
       "privacyProfile": "student_feedback_released",
       "gallery": {
@@ -890,15 +890,15 @@
       }
     },
     {
-      "id": "student_response_selected",
-      "path": "student/response_selected.png",
+      "id": "student_response_selected_laptop",
+      "path": "student/laptop/response_selected.png",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assignments",
       "workflow": "assignment attempt",
       "state": "saved response",
       "scenario": "student_assignment_attempt",
-      "checkpoint": "response_selected",
+      "checkpoint": "response_selected_laptop",
       "viewport": "laptop",
       "privacyProfile": "student_selected_response",
       "gallery": {
@@ -908,15 +908,15 @@
       }
     },
     {
-      "id": "student_resume_selected",
-      "path": "student/resume_selected.png",
+      "id": "student_resume_selected_tablet",
+      "path": "student/tablet/resume_selected.png",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assignments",
       "workflow": "assignment attempt",
       "state": "reloaded saved response",
       "scenario": "student_assignment_attempt",
-      "checkpoint": "resume_selected",
+      "checkpoint": "resume_selected_tablet",
       "viewport": "tablet",
       "privacyProfile": "student_self",
       "gallery": {
@@ -926,15 +926,15 @@
       }
     },
     {
-      "id": "student_submitted",
-      "path": "student/submitted.png",
+      "id": "student_submitted_phone",
+      "path": "student/phone/submitted.png",
       "role": "student",
       "routeId": "assessmentAttemptSummary",
       "area": "assignments",
       "workflow": "assignment attempt",
       "state": "submitted",
       "scenario": "student_assignment_attempt",
-      "checkpoint": "submitted",
+      "checkpoint": "submitted_phone",
       "viewport": "phone",
       "privacyProfile": "student_feedback_released",
       "gallery": {
@@ -944,98 +944,26 @@
       }
     },
     {
-      "id": "student_denial_laptop",
-      "path": "student/denial_laptop.png",
+      "id": "student_assessment_navigation_laptop",
+      "path": "student/laptop/assessment_navigation.png",
       "role": "student",
-      "routeId": "library",
-      "area": "authorization",
-      "workflow": "role denial",
-      "state": "denied",
-      "scenario": "student_authorization",
-      "checkpoint": "denial_laptop",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "assessment navigation and progress",
+      "state": "Question 2 current with one saved response",
+      "scenario": "student_assignment_attempt",
+      "checkpoint": "assessment_navigation_laptop",
       "viewport": "laptop",
-      "privacyProfile": "authorization_denial",
+      "privacyProfile": "student_self",
       "gallery": {
         "order": 52,
-        "caption": "Student authorization denial",
-        "featured": false
-      }
-    },
-    {
-      "id": "student_denial_phone",
-      "path": "student/denial_phone.png",
-      "role": "student",
-      "routeId": "library",
-      "area": "authorization",
-      "workflow": "role denial",
-      "state": "denied",
-      "scenario": "student_authorization",
-      "checkpoint": "denial_phone",
-      "viewport": "phone",
-      "privacyProfile": "authorization_denial",
-      "gallery": {
-        "order": 53,
-        "caption": "Student authorization denial on a phone",
-        "featured": false
-      }
-    },
-    {
-      "id": "student_question_unanswered_webwork_laptop",
-      "path": "student/question_unanswered_webwork_laptop.png",
-      "role": "student",
-      "routeId": "assessmentAttempt",
-      "area": "assessments",
-      "workflow": "native and WeBWorK response practice",
-      "state": "unanswered WeBWorK question",
-      "scenario": "student_question_types",
-      "checkpoint": "question_unanswered_webwork_laptop",
-      "viewport": "laptop",
-      "privacyProfile": "student_unanswered",
-      "gallery": {
-        "order": 54,
-        "caption": "Student WeBWorK response controls on a laptop",
-        "featured": false
-      }
-    },
-    {
-      "id": "student_question_unanswered_fib_laptop",
-      "path": "student/question_unanswered_fib_laptop.png",
-      "role": "student",
-      "routeId": "assessmentAttempt",
-      "area": "assessments",
-      "workflow": "native and WeBWorK response practice",
-      "state": "unanswered FIB question",
-      "scenario": "student_question_types",
-      "checkpoint": "question_unanswered_fib_laptop",
-      "viewport": "laptop",
-      "privacyProfile": "student_unanswered",
-      "gallery": {
-        "order": 55,
-        "caption": "Student FIB response controls on a laptop",
-        "featured": false
-      }
-    },
-    {
-      "id": "student_question_unanswered_match_laptop",
-      "path": "student/question_unanswered_match_laptop.png",
-      "role": "student",
-      "routeId": "assessmentAttempt",
-      "area": "assessments",
-      "workflow": "native and WeBWorK response practice",
-      "state": "unanswered MATCH question",
-      "scenario": "student_question_types",
-      "checkpoint": "question_unanswered_match_laptop",
-      "viewport": "laptop",
-      "privacyProfile": "student_unanswered",
-      "gallery": {
-        "order": 56,
-        "caption": "Student MATCH response controls on a laptop",
+        "caption": "Student Question navigation, saved progress, and countdown timer",
         "featured": false
       }
     },
     {
       "id": "student_question_unanswered_num_laptop",
-      "path": "student/question_unanswered_num_laptop.png",
+      "path": "student/laptop/question_unanswered_num.png",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -1046,14 +974,68 @@
       "viewport": "laptop",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 57,
+        "order": 53,
         "caption": "Student NUM response controls on a laptop",
         "featured": false
       }
     },
     {
+      "id": "student_question_answered_num_laptop",
+      "path": "student/laptop/question_answered_num.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "answered NUM question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_answered_num_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "student_self",
+      "gallery": {
+        "order": 54,
+        "caption": "Student NUM response controls after saving a response on a laptop",
+        "featured": false
+      }
+    },
+    {
+      "id": "student_question_unanswered_webwork_laptop",
+      "path": "student/laptop/question_unanswered_webwork.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "unanswered WeBWorK question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_unanswered_webwork_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "student_unanswered",
+      "gallery": {
+        "order": 55,
+        "caption": "Student WeBWorK response controls on a laptop",
+        "featured": false
+      }
+    },
+    {
+      "id": "student_question_answered_webwork_laptop",
+      "path": "student/laptop/question_answered_webwork.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "answered WEBWORK question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_answered_webwork_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "student_self",
+      "gallery": {
+        "order": 56,
+        "caption": "Student WeBWorK response controls after saving a response on a laptop",
+        "featured": false
+      }
+    },
+    {
       "id": "student_question_unanswered_order_laptop",
-      "path": "student/question_unanswered_order_laptop.png",
+      "path": "student/laptop/question_unanswered_order.png",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -1064,32 +1046,32 @@
       "viewport": "laptop",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 58,
+        "order": 57,
         "caption": "Student ORDER response controls on a laptop",
         "featured": false
       }
     },
     {
-      "id": "student_question_unanswered_multi_fib_laptop",
-      "path": "student/question_unanswered_multi_fib_laptop.png",
+      "id": "student_question_answered_order_laptop",
+      "path": "student/laptop/question_answered_order.png",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
       "workflow": "native and WeBWorK response practice",
-      "state": "unanswered MULTI-FIB question",
+      "state": "answered ORDER question",
       "scenario": "student_question_types",
-      "checkpoint": "question_unanswered_multi_fib_laptop",
+      "checkpoint": "question_answered_order_laptop",
       "viewport": "laptop",
-      "privacyProfile": "student_unanswered",
+      "privacyProfile": "student_self",
       "gallery": {
-        "order": 59,
-        "caption": "Student MULTI-FIB response controls on a laptop",
+        "order": 58,
+        "caption": "Student ORDER response controls after saving a response on a laptop",
         "featured": false
       }
     },
     {
       "id": "student_question_unanswered_ma_laptop",
-      "path": "student/question_unanswered_ma_laptop.png",
+      "path": "student/laptop/question_unanswered_ma.png",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -1100,14 +1082,32 @@
       "viewport": "laptop",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 60,
+        "order": 59,
         "caption": "Student MA response controls on a laptop",
         "featured": false
       }
     },
     {
+      "id": "student_question_answered_ma_laptop",
+      "path": "student/laptop/question_answered_ma.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "answered MA question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_answered_ma_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "student_self",
+      "gallery": {
+        "order": 60,
+        "caption": "Student MA response controls after saving a response on a laptop",
+        "featured": false
+      }
+    },
+    {
       "id": "student_question_unanswered_hotspot_laptop",
-      "path": "student/question_unanswered_hotspot_laptop.png",
+      "path": "student/laptop/question_unanswered_hotspot.png",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -1124,8 +1124,98 @@
       }
     },
     {
+      "id": "student_question_answered_hotspot_laptop",
+      "path": "student/laptop/question_answered_hotspot.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "answered HOTSPOT question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_answered_hotspot_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "student_self",
+      "gallery": {
+        "order": 62,
+        "caption": "Student HOTSPOT uploaded-image response controls after saving a response on a laptop",
+        "featured": false
+      }
+    },
+    {
+      "id": "student_question_unanswered_fib_laptop",
+      "path": "student/laptop/question_unanswered_fib.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "unanswered FIB question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_unanswered_fib_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "student_unanswered",
+      "gallery": {
+        "order": 63,
+        "caption": "Student FIB response controls on a laptop",
+        "featured": false
+      }
+    },
+    {
+      "id": "student_question_answered_fib_laptop",
+      "path": "student/laptop/question_answered_fib.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "answered FIB question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_answered_fib_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "student_self",
+      "gallery": {
+        "order": 64,
+        "caption": "Student FIB response controls after saving a response on a laptop",
+        "featured": false
+      }
+    },
+    {
+      "id": "student_question_unanswered_match_laptop",
+      "path": "student/laptop/question_unanswered_match.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "unanswered MATCH question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_unanswered_match_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "student_unanswered",
+      "gallery": {
+        "order": 65,
+        "caption": "Student MATCH response controls on a laptop",
+        "featured": false
+      }
+    },
+    {
+      "id": "student_question_answered_match_laptop",
+      "path": "student/laptop/question_answered_match.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "answered MATCH question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_answered_match_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "student_self",
+      "gallery": {
+        "order": 66,
+        "caption": "Student MATCH response controls after saving a response on a laptop",
+        "featured": false
+      }
+    },
+    {
       "id": "student_question_unanswered_mc_laptop",
-      "path": "student/question_unanswered_mc_laptop.png",
+      "path": "student/laptop/question_unanswered_mc.png",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -1136,32 +1226,68 @@
       "viewport": "laptop",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 62,
+        "order": 67,
         "caption": "Student MC response controls on a laptop",
         "featured": false
       }
     },
     {
-      "id": "student_question_unanswered_webwork_phone",
-      "path": "student/question_unanswered_webwork_phone.png",
+      "id": "student_question_answered_mc_laptop",
+      "path": "student/laptop/question_answered_mc.png",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
       "workflow": "native and WeBWorK response practice",
-      "state": "unanswered WeBWorK question",
+      "state": "answered MC question",
       "scenario": "student_question_types",
-      "checkpoint": "question_unanswered_webwork_phone",
-      "viewport": "phone",
+      "checkpoint": "question_answered_mc_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "student_self",
+      "gallery": {
+        "order": 68,
+        "caption": "Student MC response controls after saving a response on a laptop",
+        "featured": false
+      }
+    },
+    {
+      "id": "student_question_unanswered_multi_fib_laptop",
+      "path": "student/laptop/question_unanswered_multi_fib.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "unanswered MULTI-FIB question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_unanswered_multi_fib_laptop",
+      "viewport": "laptop",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 63,
-        "caption": "Student WeBWorK response controls on a phone",
+        "order": 69,
+        "caption": "Student MULTI-FIB response controls on a laptop",
+        "featured": false
+      }
+    },
+    {
+      "id": "student_question_answered_multi_fib_laptop",
+      "path": "student/laptop/question_answered_multi_fib.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "answered MULTI_FIB question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_answered_multi_fib_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "student_self",
+      "gallery": {
+        "order": 70,
+        "caption": "Student MULTI-FIB response controls after saving a response on a laptop",
         "featured": false
       }
     },
     {
       "id": "student_question_unanswered_fib_phone",
-      "path": "student/question_unanswered_fib_phone.png",
+      "path": "student/phone/question_unanswered_fib.png",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -1172,86 +1298,32 @@
       "viewport": "phone",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 64,
+        "order": 71,
         "caption": "Student FIB response controls on a phone",
         "featured": false
       }
     },
     {
-      "id": "student_question_unanswered_match_phone",
-      "path": "student/question_unanswered_match_phone.png",
+      "id": "student_question_answered_fib_phone",
+      "path": "student/phone/question_answered_fib.png",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
       "workflow": "native and WeBWorK response practice",
-      "state": "unanswered MATCH question",
+      "state": "answered FIB question",
       "scenario": "student_question_types",
-      "checkpoint": "question_unanswered_match_phone",
+      "checkpoint": "question_answered_fib_phone",
       "viewport": "phone",
-      "privacyProfile": "student_unanswered",
+      "privacyProfile": "student_self",
       "gallery": {
-        "order": 65,
-        "caption": "Student MATCH response controls on a phone",
-        "featured": false
-      }
-    },
-    {
-      "id": "student_question_unanswered_num_phone",
-      "path": "student/question_unanswered_num_phone.png",
-      "role": "student",
-      "routeId": "assessmentAttempt",
-      "area": "assessments",
-      "workflow": "native and WeBWorK response practice",
-      "state": "unanswered NUM question",
-      "scenario": "student_question_types",
-      "checkpoint": "question_unanswered_num_phone",
-      "viewport": "phone",
-      "privacyProfile": "student_unanswered",
-      "gallery": {
-        "order": 66,
-        "caption": "Student NUM response controls on a phone",
-        "featured": false
-      }
-    },
-    {
-      "id": "student_question_unanswered_order_phone",
-      "path": "student/question_unanswered_order_phone.png",
-      "role": "student",
-      "routeId": "assessmentAttempt",
-      "area": "assessments",
-      "workflow": "native and WeBWorK response practice",
-      "state": "unanswered ORDER question",
-      "scenario": "student_question_types",
-      "checkpoint": "question_unanswered_order_phone",
-      "viewport": "phone",
-      "privacyProfile": "student_unanswered",
-      "gallery": {
-        "order": 67,
-        "caption": "Student ORDER response controls on a phone",
-        "featured": false
-      }
-    },
-    {
-      "id": "student_question_unanswered_multi_fib_phone",
-      "path": "student/question_unanswered_multi_fib_phone.png",
-      "role": "student",
-      "routeId": "assessmentAttempt",
-      "area": "assessments",
-      "workflow": "native and WeBWorK response practice",
-      "state": "unanswered MULTI-FIB question",
-      "scenario": "student_question_types",
-      "checkpoint": "question_unanswered_multi_fib_phone",
-      "viewport": "phone",
-      "privacyProfile": "student_unanswered",
-      "gallery": {
-        "order": 68,
-        "caption": "Student MULTI-FIB response controls on a phone",
+        "order": 72,
+        "caption": "Student FIB response controls after saving a response on a phone",
         "featured": false
       }
     },
     {
       "id": "student_question_unanswered_ma_phone",
-      "path": "student/question_unanswered_ma_phone.png",
+      "path": "student/phone/question_unanswered_ma.png",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -1262,32 +1334,68 @@
       "viewport": "phone",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 69,
+        "order": 73,
         "caption": "Student MA response controls on a phone",
         "featured": false
       }
     },
     {
-      "id": "student_question_unanswered_hotspot_phone",
-      "path": "student/question_unanswered_hotspot_phone.png",
+      "id": "student_question_answered_ma_phone",
+      "path": "student/phone/question_answered_ma.png",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
       "workflow": "native and WeBWorK response practice",
-      "state": "unanswered HOTSPOT question",
+      "state": "answered MA question",
       "scenario": "student_question_types",
-      "checkpoint": "question_unanswered_hotspot_phone",
+      "checkpoint": "question_answered_ma_phone",
+      "viewport": "phone",
+      "privacyProfile": "student_self",
+      "gallery": {
+        "order": 74,
+        "caption": "Student MA response controls after saving a response on a phone",
+        "featured": false
+      }
+    },
+    {
+      "id": "student_question_unanswered_webwork_phone",
+      "path": "student/phone/question_unanswered_webwork.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "unanswered WeBWorK question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_unanswered_webwork_phone",
       "viewport": "phone",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 70,
-        "caption": "Student HOTSPOT uploaded-image response controls on a phone",
+        "order": 75,
+        "caption": "Student WeBWorK response controls on a phone",
+        "featured": false
+      }
+    },
+    {
+      "id": "student_question_answered_webwork_phone",
+      "path": "student/phone/question_answered_webwork.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "answered WEBWORK question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_answered_webwork_phone",
+      "viewport": "phone",
+      "privacyProfile": "student_self",
+      "gallery": {
+        "order": 76,
+        "caption": "Student WeBWorK response controls after saving a response on a phone",
         "featured": false
       }
     },
     {
       "id": "student_question_unanswered_mc_phone",
-      "path": "student/question_unanswered_mc_phone.png",
+      "path": "student/phone/question_unanswered_mc.png",
       "role": "student",
       "routeId": "assessmentAttempt",
       "area": "assessments",
@@ -1298,8 +1406,278 @@
       "viewport": "phone",
       "privacyProfile": "student_unanswered",
       "gallery": {
-        "order": 71,
+        "order": 77,
         "caption": "Student MC response controls on a phone",
+        "featured": false
+      }
+    },
+    {
+      "id": "student_question_answered_mc_phone",
+      "path": "student/phone/question_answered_mc.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "answered MC question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_answered_mc_phone",
+      "viewport": "phone",
+      "privacyProfile": "student_self",
+      "gallery": {
+        "order": 78,
+        "caption": "Student MC response controls after saving a response on a phone",
+        "featured": false
+      }
+    },
+    {
+      "id": "student_question_unanswered_match_phone",
+      "path": "student/phone/question_unanswered_match.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "unanswered MATCH question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_unanswered_match_phone",
+      "viewport": "phone",
+      "privacyProfile": "student_unanswered",
+      "gallery": {
+        "order": 79,
+        "caption": "Student MATCH response controls on a phone",
+        "featured": false
+      }
+    },
+    {
+      "id": "student_question_answered_match_phone",
+      "path": "student/phone/question_answered_match.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "answered MATCH question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_answered_match_phone",
+      "viewport": "phone",
+      "privacyProfile": "student_self",
+      "gallery": {
+        "order": 80,
+        "caption": "Student MATCH response controls after saving a response on a phone",
+        "featured": false
+      }
+    },
+    {
+      "id": "student_question_unanswered_order_phone",
+      "path": "student/phone/question_unanswered_order.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "unanswered ORDER question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_unanswered_order_phone",
+      "viewport": "phone",
+      "privacyProfile": "student_unanswered",
+      "gallery": {
+        "order": 81,
+        "caption": "Student ORDER response controls on a phone",
+        "featured": false
+      }
+    },
+    {
+      "id": "student_question_answered_order_phone",
+      "path": "student/phone/question_answered_order.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "answered ORDER question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_answered_order_phone",
+      "viewport": "phone",
+      "privacyProfile": "student_self",
+      "gallery": {
+        "order": 82,
+        "caption": "Student ORDER response controls after saving a response on a phone",
+        "featured": false
+      }
+    },
+    {
+      "id": "student_question_unanswered_multi_fib_phone",
+      "path": "student/phone/question_unanswered_multi_fib.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "unanswered MULTI-FIB question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_unanswered_multi_fib_phone",
+      "viewport": "phone",
+      "privacyProfile": "student_unanswered",
+      "gallery": {
+        "order": 83,
+        "caption": "Student MULTI-FIB response controls on a phone",
+        "featured": false
+      }
+    },
+    {
+      "id": "student_question_answered_multi_fib_phone",
+      "path": "student/phone/question_answered_multi_fib.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "answered MULTI_FIB question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_answered_multi_fib_phone",
+      "viewport": "phone",
+      "privacyProfile": "student_self",
+      "gallery": {
+        "order": 84,
+        "caption": "Student MULTI-FIB response controls after saving a response on a phone",
+        "featured": false
+      }
+    },
+    {
+      "id": "student_question_unanswered_num_phone",
+      "path": "student/phone/question_unanswered_num.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "unanswered NUM question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_unanswered_num_phone",
+      "viewport": "phone",
+      "privacyProfile": "student_unanswered",
+      "gallery": {
+        "order": 85,
+        "caption": "Student NUM response controls on a phone",
+        "featured": false
+      }
+    },
+    {
+      "id": "student_question_answered_num_phone",
+      "path": "student/phone/question_answered_num.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "answered NUM question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_answered_num_phone",
+      "viewport": "phone",
+      "privacyProfile": "student_self",
+      "gallery": {
+        "order": 86,
+        "caption": "Student NUM response controls after saving a response on a phone",
+        "featured": false
+      }
+    },
+    {
+      "id": "student_question_unanswered_hotspot_phone",
+      "path": "student/phone/question_unanswered_hotspot.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "unanswered HOTSPOT question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_unanswered_hotspot_phone",
+      "viewport": "phone",
+      "privacyProfile": "student_unanswered",
+      "gallery": {
+        "order": 87,
+        "caption": "Student HOTSPOT uploaded-image response controls on a phone",
+        "featured": false
+      }
+    },
+    {
+      "id": "student_question_answered_hotspot_phone",
+      "path": "student/phone/question_answered_hotspot.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "answered HOTSPOT question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_answered_hotspot_phone",
+      "viewport": "phone",
+      "privacyProfile": "student_self",
+      "gallery": {
+        "order": 88,
+        "caption": "Student HOTSPOT uploaded-image response controls after saving a response on a phone",
+        "featured": false
+      }
+    },
+    {
+      "id": "student_question_unanswered_mc_tablet",
+      "path": "student/tablet/question_unanswered_mc.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "unanswered MC question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_unanswered_mc_tablet",
+      "viewport": "tablet",
+      "privacyProfile": "student_unanswered",
+      "gallery": {
+        "order": 89,
+        "caption": "Student MC response controls on a tablet",
+        "featured": false
+      }
+    },
+    {
+      "id": "student_question_unanswered_mc_square",
+      "path": "student/square/question_unanswered_mc.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "unanswered MC question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_unanswered_mc_square",
+      "viewport": "square",
+      "privacyProfile": "student_unanswered",
+      "gallery": {
+        "order": 90,
+        "caption": "Student MC response controls on a square",
+        "featured": false
+      }
+    },
+    {
+      "id": "student_denial_laptop",
+      "path": "student/laptop/denial.png",
+      "role": "student",
+      "routeId": "library",
+      "area": "authorization",
+      "workflow": "role denial",
+      "state": "denied",
+      "scenario": "student_authorization",
+      "checkpoint": "denial_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "authorization_denial",
+      "gallery": {
+        "order": 91,
+        "caption": "Student authorization denial",
+        "featured": false
+      }
+    },
+    {
+      "id": "student_denial_phone",
+      "path": "student/phone/denial.png",
+      "role": "student",
+      "routeId": "library",
+      "area": "authorization",
+      "workflow": "role denial",
+      "state": "denied",
+      "scenario": "student_authorization",
+      "checkpoint": "denial_phone",
+      "viewport": "phone",
+      "privacyProfile": "authorization_denial",
+      "gallery": {
+        "order": 92,
+        "caption": "Student authorization denial on a phone",
         "featured": false
       }
     },
@@ -1316,7 +1694,7 @@
       "viewport": "laptop",
       "privacyProfile": "sysadmin_account",
       "gallery": {
-        "order": 72,
+        "order": 93,
         "caption": "System administration home",
         "featured": true
       }
@@ -1334,7 +1712,7 @@
       "viewport": "laptop",
       "privacyProfile": "sysadmin_account",
       "gallery": {
-        "order": 73,
+        "order": 94,
         "caption": "Instructor Accounts",
         "featured": false
       }
@@ -1352,7 +1730,7 @@
       "viewport": "laptop",
       "privacyProfile": "sysadmin_account",
       "gallery": {
-        "order": 74,
+        "order": 95,
         "caption": "Instructor Account creation validation",
         "featured": false
       }
@@ -1370,7 +1748,7 @@
       "viewport": "laptop",
       "privacyProfile": "sysadmin_account",
       "gallery": {
-        "order": 75,
+        "order": 96,
         "caption": "Created Instructor Account",
         "featured": false
       }
@@ -1388,7 +1766,7 @@
       "viewport": "laptop",
       "privacyProfile": "sysadmin_account",
       "gallery": {
-        "order": 76,
+        "order": 97,
         "caption": "Deactivated Instructor Account",
         "featured": false
       }
@@ -1469,14 +1847,14 @@
         "routeId": "studentCourseInvitations",
         "status": "captured",
         "captureIds": [
-          "student_invitation_index"
+          "student_invitation_index_laptop"
         ]
       },
       {
         "routeId": "studentCourseInvitation",
         "status": "captured",
         "captureIds": [
-          "student_invitation_detail"
+          "student_invitation_detail_laptop"
         ]
       },
       {
@@ -1517,41 +1895,62 @@
         "captureIds": [
           "student_unanswered_laptop",
           "student_unanswered_tablet",
-          "student_overview_history"
+          "student_overview_history_laptop"
         ]
       },
       {
         "routeId": "assessmentAttempt",
         "status": "captured",
         "captureIds": [
-          "student_response_selected",
-          "student_resume_selected",
-          "student_question_unanswered_webwork_laptop",
-          "student_question_unanswered_fib_laptop",
-          "student_question_unanswered_match_laptop",
+          "student_response_selected_laptop",
+          "student_resume_selected_tablet",
+          "student_assessment_navigation_laptop",
           "student_question_unanswered_num_laptop",
+          "student_question_answered_num_laptop",
+          "student_question_unanswered_webwork_laptop",
+          "student_question_answered_webwork_laptop",
           "student_question_unanswered_order_laptop",
-          "student_question_unanswered_multi_fib_laptop",
+          "student_question_answered_order_laptop",
           "student_question_unanswered_ma_laptop",
+          "student_question_answered_ma_laptop",
           "student_question_unanswered_hotspot_laptop",
+          "student_question_answered_hotspot_laptop",
+          "student_question_unanswered_fib_laptop",
+          "student_question_answered_fib_laptop",
+          "student_question_unanswered_match_laptop",
+          "student_question_answered_match_laptop",
           "student_question_unanswered_mc_laptop",
-          "student_question_unanswered_webwork_phone",
+          "student_question_answered_mc_laptop",
+          "student_question_unanswered_multi_fib_laptop",
+          "student_question_answered_multi_fib_laptop",
           "student_question_unanswered_fib_phone",
-          "student_question_unanswered_match_phone",
-          "student_question_unanswered_num_phone",
-          "student_question_unanswered_order_phone",
-          "student_question_unanswered_multi_fib_phone",
+          "student_question_answered_fib_phone",
           "student_question_unanswered_ma_phone",
+          "student_question_answered_ma_phone",
+          "student_question_unanswered_webwork_phone",
+          "student_question_answered_webwork_phone",
+          "student_question_unanswered_mc_phone",
+          "student_question_answered_mc_phone",
+          "student_question_unanswered_match_phone",
+          "student_question_answered_match_phone",
+          "student_question_unanswered_order_phone",
+          "student_question_answered_order_phone",
+          "student_question_unanswered_multi_fib_phone",
+          "student_question_answered_multi_fib_phone",
+          "student_question_unanswered_num_phone",
+          "student_question_answered_num_phone",
           "student_question_unanswered_hotspot_phone",
-          "student_question_unanswered_mc_phone"
+          "student_question_answered_hotspot_phone",
+          "student_question_unanswered_mc_tablet",
+          "student_question_unanswered_mc_square"
         ]
       },
       {
         "routeId": "assessmentAttemptSummary",
         "status": "captured",
         "captureIds": [
-          "student_selected_history",
-          "student_submitted"
+          "student_selected_history_laptop",
+          "student_submitted_phone"
         ]
       },
       {
@@ -1583,14 +1982,14 @@
         "status": "captured",
         "captureIds": [
           "instructor_published_question_detail",
-          "instructor_generated_example_laptop",
-          "instructor_hla_genotype_laptop",
-          "instructor_monohybrid_matching_laptop",
-          "instructor_x_linked_counts_laptop",
-          "instructor_dna_structure_laptop",
-          "instructor_meiosis_prophase_laptop",
-          "instructor_chi_square_laptop",
-          "instructor_chromosome_shapes_laptop"
+          "instructor_webwork_generated_example",
+          "instructor_webwork_hla_genotype",
+          "instructor_webwork_monohybrid_matching",
+          "instructor_webwork_x_linked_counts",
+          "instructor_webwork_dna_structure",
+          "instructor_webwork_meiosis_prophase",
+          "instructor_webwork_chi_square",
+          "instructor_webwork_chromosome_shapes"
         ]
       },
       {
@@ -1774,26 +2173,47 @@
         "id": "tab:attempt",
         "status": "captured",
         "captureIds": [
-          "student_response_selected",
-          "student_resume_selected",
-          "student_question_unanswered_webwork_laptop",
-          "student_question_unanswered_fib_laptop",
-          "student_question_unanswered_match_laptop",
+          "student_response_selected_laptop",
+          "student_resume_selected_tablet",
+          "student_assessment_navigation_laptop",
           "student_question_unanswered_num_laptop",
+          "student_question_answered_num_laptop",
+          "student_question_unanswered_webwork_laptop",
+          "student_question_answered_webwork_laptop",
           "student_question_unanswered_order_laptop",
-          "student_question_unanswered_multi_fib_laptop",
+          "student_question_answered_order_laptop",
           "student_question_unanswered_ma_laptop",
+          "student_question_answered_ma_laptop",
           "student_question_unanswered_hotspot_laptop",
+          "student_question_answered_hotspot_laptop",
+          "student_question_unanswered_fib_laptop",
+          "student_question_answered_fib_laptop",
+          "student_question_unanswered_match_laptop",
+          "student_question_answered_match_laptop",
           "student_question_unanswered_mc_laptop",
-          "student_question_unanswered_webwork_phone",
+          "student_question_answered_mc_laptop",
+          "student_question_unanswered_multi_fib_laptop",
+          "student_question_answered_multi_fib_laptop",
           "student_question_unanswered_fib_phone",
-          "student_question_unanswered_match_phone",
-          "student_question_unanswered_num_phone",
-          "student_question_unanswered_order_phone",
-          "student_question_unanswered_multi_fib_phone",
+          "student_question_answered_fib_phone",
           "student_question_unanswered_ma_phone",
+          "student_question_answered_ma_phone",
+          "student_question_unanswered_webwork_phone",
+          "student_question_answered_webwork_phone",
+          "student_question_unanswered_mc_phone",
+          "student_question_answered_mc_phone",
+          "student_question_unanswered_match_phone",
+          "student_question_answered_match_phone",
+          "student_question_unanswered_order_phone",
+          "student_question_answered_order_phone",
+          "student_question_unanswered_multi_fib_phone",
+          "student_question_answered_multi_fib_phone",
+          "student_question_unanswered_num_phone",
+          "student_question_answered_num_phone",
           "student_question_unanswered_hotspot_phone",
-          "student_question_unanswered_mc_phone"
+          "student_question_answered_hotspot_phone",
+          "student_question_unanswered_mc_tablet",
+          "student_question_unanswered_mc_square"
         ]
       },
       {
@@ -1937,7 +2357,7 @@
         "captureIds": [
           "student_unanswered_laptop",
           "student_unanswered_tablet",
-          "student_overview_history"
+          "student_overview_history_laptop"
         ]
       }
     ]
