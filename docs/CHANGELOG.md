@@ -71,6 +71,7 @@
 
 ### Developer Tests and Notes
 
+- Added [student_ui_stability_and_density_audit_2026-09-21.md](active_plans/audits/student_ui_stability_and_density_audit_2026-09-21.md) and its [screenshot-by-screenshot appendix](active_plans/audits/student_screenshot_breakdown_appendix_2026-09-21.md), covering every current Student PNG plus Ribbon topology, workflow rails, phone breadcrumbs, Coursework action order, terminology stability, and width-adaptive Question navigation.
 - Recorded an independent screenshot-recovery audit for the coding manager. It reviews the
   cross-layer repair batch, Question-identity naming, Student Question-format coverage, and
   acceptance evidence before changes are accepted.
