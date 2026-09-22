@@ -313,6 +313,7 @@ mod tests {
                 },
                 assessment: StudentAssessmentAttemptHistoryAssessment {
                     id: "AABCDEFG8".parse().unwrap(),
+                    assessment_type: AssessmentType::PracticeQuestionAssignment,
                     title: "Practice".into(),
                 },
                 state: LiveAssessmentPreviousAttemptState::Submitted,

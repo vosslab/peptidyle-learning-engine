@@ -5,7 +5,7 @@
 :root {
   --ple-ribbon-top-block-size: 3rem;
   --ple-ribbon-task-block-size: 2.5rem;
-  --ple-ribbon-reserved-task-size: var(--ple-ribbon-task-block-size);
+  --ple-ribbon-reserved-task-size: 0rem;
 }
 
 .ple-app-ribbon,
@@ -46,7 +46,8 @@
   );
 }
 
-/* Empty task rows keep their footprint so breadcrumbs retain their location. */
+/* A taskful Attempt earns a second Ribbon row. Taskless Student routes use a
+ * single dense row, so the shell does not spend phone space on an empty band. */
 
 /* The shell frame owns the viewport floor. This variant only replaces its
  * first content track with the Ribbon block declared by this component. */
@@ -56,6 +57,14 @@
   /* Ribbon rows own their horizontal scrollports. Keep their long inline
      control tracks from widening the document at enlarged text. */
   overflow-x: clip;
+}
+
+.ple-ribbon-shell-grid[data-ribbon-task-row="reserved"] {
+  --ple-ribbon-reserved-task-size: var(--ple-ribbon-task-block-size);
+}
+
+.ple-ribbon-shell-grid[data-ribbon-task-row="absent"] {
+  --ple-ribbon-shell-block-size: var(--ple-ribbon-top-block-size);
 }
 
 .ple-app-ribbon {
@@ -78,10 +87,16 @@
     color-mix(in srgb, var(--ple-card-surface) 96%, var(--ple-ink)),
     var(--ple-card-surface)
   );
-  border-block-end: 1px solid var(--ple-border);
+  /* The inset rule below paints the separator without adding a layout pixel
+     to either the taskful or taskless Ribbon geometry. */
+  border-block-end: 0;
   box-shadow:
     0 0.3rem 0.75rem color-mix(in srgb, var(--ple-ink) 11%, transparent),
     inset 0 -1px 0 var(--ple-ribbon-rule);
+}
+
+.ple-app-ribbon[data-ribbon-task-row="reserved"] {
+  --ple-ribbon-reserved-task-size: var(--ple-ribbon-task-block-size);
 }
 
 .ple-app-ribbon__row {
@@ -551,7 +566,9 @@
 
 @media (max-width: 40rem) {
   :root {
-    --ple-ribbon-top-block-size: 3.25rem;
+    /* Student phones use two visible navigation levels inside the top bar:
+       identity and destinations. The token names the complete bar. */
+    --ple-ribbon-top-block-size: 5.5rem;
     --ple-ribbon-task-block-size: 2.75rem;
   }
 
@@ -570,9 +587,19 @@
     grid-template-rows: auto var(--ple-ribbon-reserved-task-size);
   }
 
+  .ple-ribbon-shell-grid[data-ribbon-product-role="student"][data-ribbon-task-row="absent"] {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .ple-app-ribbon[data-ribbon-product-role="student"][data-ribbon-task-row="absent"] {
+    grid-template-rows: auto;
+  }
+
   .ple-app-ribbon[data-ribbon-product-role="student"] .ple-app-ribbon__top-bar {
     display: grid;
-    grid-template-rows: auto 2.75rem;
+    grid-template-rows:
+      minmax(0, calc(var(--ple-ribbon-top-block-size) - var(--ple-ribbon-task-block-size)))
+      var(--ple-ribbon-task-block-size);
     block-size: auto;
     gap: 0;
     padding-inline-end: var(--ple-ribbon-space-inline);
@@ -588,9 +615,10 @@
   }
 
   .ple-app-ribbon[data-ribbon-product-role="student"] .ple-app-ribbon__context-identity {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-content: center;
     gap: var(--ple-ribbon-space-tight);
+    overflow: hidden;
     min-block-size: 2.75rem;
     max-inline-size: calc(100% - 2.75rem - var(--ple-ribbon-space-control));
     padding-inline-end: var(--ple-ribbon-space-tight);
@@ -598,7 +626,16 @@
   }
 
   .ple-app-ribbon[data-ribbon-product-role="student"] .ple-app-ribbon__brand {
+    min-inline-size: 0;
+    flex: 1 1 auto;
     gap: var(--ple-ribbon-space-tight);
+  }
+
+  .ple-app-ribbon[data-ribbon-product-role="student"] .ple-app-ribbon__brand-word {
+    min-inline-size: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .ple-app-ribbon[data-ribbon-product-role="student"] .ple-app-ribbon__profile-endcap {

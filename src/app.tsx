@@ -5,6 +5,7 @@ import { Show, type JSX } from "solid-js";
 
 import { ApplicationShell } from "./application_shell";
 import { useSessionBootstrap, type SessionBootstrapState } from "./auth/session_context";
+import { assessmentTypePresentation } from "./assessment_type_presentation";
 import {
   courseRouteView,
   type CourseThemeRouteData,
@@ -36,6 +37,7 @@ function ribbonLabelsFor(
       courseShortName: context.course.shortName,
       courseLongName: context.course.longName,
       assessmentAttemptTitle: context.assessment.title,
+      assessmentTypeLabel: assessmentTypePresentation(context.assessment.assessmentType).label,
       assessmentAttemptProgress: `Attempt ${String(context.attemptNumber)}`,
     };
   }
@@ -45,6 +47,7 @@ function ribbonLabelsFor(
       courseShortName: history.course.shortName,
       courseLongName: history.course.longName,
       assessmentAttemptTitle: history.assessment.title,
+      assessmentTypeLabel: assessmentTypePresentation(history.assessment.assessmentType).label,
       assessmentAttemptProgress: `Attempt ${String(history.attemptNumber)}`,
     };
   }

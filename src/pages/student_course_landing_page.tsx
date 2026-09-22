@@ -40,6 +40,12 @@ function AssessmentCard(props: {
         <strong>{display().stateLabel}</strong>
       </p>
       <h3>{props.assessment.title}</h3>
+      <A
+        class="primary-link"
+        href={`/courses/${props.course.id}/assessments/${props.assessment.id}`}
+      >
+        {display().actionVerb} {typePresentation().label}
+      </A>
       <dl class="student-coursework-card__facts">
         <div>
           <dt>Type</dt>
@@ -78,12 +84,6 @@ function AssessmentCard(props: {
       <section class="student-coursework-card__decision" aria-label="Coursework access and timing">
         <StudentAssessmentDecisionDetails decision={props.assessment.decision} />
       </section>
-      <A
-        class="primary-link"
-        href={`/courses/${props.course.id}/assessments/${props.assessment.id}`}
-      >
-        {display().actionVerb} {typePresentation().label}
-      </A>
     </article>
   );
 }

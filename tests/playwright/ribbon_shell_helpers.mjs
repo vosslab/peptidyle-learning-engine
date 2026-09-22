@@ -45,7 +45,7 @@ export async function flush(page) {
 }
 
 export function caseLocator(page, evidenceCase) {
-  return page.locator(`[data-ribbon-case="${evidenceCase}"]`);
+  return page.locator(`[data-m10-case="${evidenceCase}"]`);
 }
 
 export async function assertBreadcrumbPreludeStyle(prelude, profile) {
@@ -106,7 +106,7 @@ export async function waitForPath(page, evidenceCase, pathname) {
   await page.waitForFunction(
     ({ evidenceCase: expectedCase, pathname: expectedPath }) =>
       document
-        .querySelector(`[data-ribbon-case="${expectedCase}"] [data-current-path]`)
+        .querySelector(`[data-m10-case="${expectedCase}"] [data-current-path]`)
         ?.getAttribute("data-current-path") === expectedPath,
     { evidenceCase, pathname },
     { timeout: 3_000 },

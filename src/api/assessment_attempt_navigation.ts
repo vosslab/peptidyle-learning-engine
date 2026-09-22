@@ -1,5 +1,6 @@
 import type { AssessmentAttemptId } from "../../generated/api/AssessmentAttemptId";
 import type { AssessmentId } from "../../generated/api/AssessmentId";
+import type { AssessmentType } from "../../generated/api/AssessmentType";
 import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { CourseTheme } from "../../generated/api/CourseTheme";
 import type { AccountTimeZone } from "../../generated/api/AccountTimeZone";
@@ -19,7 +20,7 @@ export interface StudentAssessmentAttemptProgress {
   }>;
 }
 
-/** UUID-free display context authorized with an active Student Assessment Attempt. */
+/** Strict browser-safe display context authorized with an active Student Assessment Attempt. */
 export interface StudentAssessmentAttemptContext {
   readonly assessmentAttemptId: AssessmentAttemptId;
   readonly attemptNumber: number;
@@ -34,6 +35,7 @@ export interface StudentAssessmentAttemptContext {
   };
   readonly assessment: {
     readonly id: AssessmentId;
+    readonly assessmentType: AssessmentType;
     readonly title: string;
   };
 }

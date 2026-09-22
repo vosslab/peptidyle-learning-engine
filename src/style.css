@@ -549,7 +549,11 @@ textarea:hover {
 }
 
 .assessment-attempt-page {
-  width: min(100%, 60rem);
+  width: min(100%, var(--ple-assessment-workflow-max-inline));
+}
+
+:root {
+  --ple-assessment-workflow-max-inline: 60rem;
 }
 
 .assessment-attempt-header {
@@ -650,8 +654,9 @@ textarea:hover {
 }
 
 .attempt-summary {
-  max-width: 44rem;
-  margin: 0 auto;
+  width: min(100%, var(--ple-assessment-workflow-max-inline));
+  max-width: none;
+  margin: 0;
 }
 
 .saved-notice,

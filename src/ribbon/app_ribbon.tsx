@@ -501,6 +501,9 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
             <Show when={props.model.context.assessmentLabel}>
               {(label) => <span>{label()}</span>}
             </Show>
+            <Show when={props.model.context.assessmentTypeLabel}>
+              {(label) => <span>{label()}</span>}
+            </Show>
             <Show when={props.model.context.assessmentAttemptProgress}>
               {(label) => <span>{label()}</span>}
             </Show>

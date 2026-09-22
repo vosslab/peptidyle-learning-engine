@@ -338,7 +338,7 @@ async function studentAssignmentAttempt(runtime: ScenarioRuntime): Promise<void>
     await saveCurrentResponse(submittedSession);
     await attemptQuestion(submittedSession, "Question 4: Saved, current").waitFor();
     await submittedSession.page
-      .getByRole("button", { name: "Submit Assessment", exact: true })
+      .getByRole("button", { name: "Submit Attempt", exact: true })
       .click();
     await submittedSession.page
       .locator('[data-route-surface="assessmentAttemptSummary"]')

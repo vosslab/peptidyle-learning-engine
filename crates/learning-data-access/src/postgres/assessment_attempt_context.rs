@@ -3,7 +3,8 @@
 use std::str::FromStr;
 
 use question_model::{
-    AccountTimeZone, AssessmentAttemptId, AssessmentId, CourseInstanceId, CourseTheme, Timestamp,
+    AccountTimeZone, AssessmentAttemptId, AssessmentId, AssessmentType, CourseInstanceId,
+    CourseTheme, Timestamp,
 };
 use sqlx::Row;
 
@@ -20,7 +21,7 @@ impl PostgresLiveAssessmentDeliveryStore {
         let row = sqlx::query(
             "SELECT assessment_attempt_id, assessment_attempt_number, \
                     course_instance_id, course_short_name, course_long_name, course_theme, \
-                    assessment_id, assessment_title, \
+                    assessment_id, assessment_type, assessment_title, \
                     display_time_zone, expires_at_millis, timer_remaining_milliseconds \
                FROM ple_api.read_student_assessment_attempt_context($1)",
         )
@@ -62,6 +63,11 @@ impl PostgresLiveAssessmentDeliveryStore {
             )
             .map_err(|_| StoreError::InvalidRecord("Course theme is invalid".to_string()))?,
             assessment_id: assessment_id(row.try_get("assessment_id").map_err(map_sqlx_error)?)?,
+            assessment_type: AssessmentType::parse(
+                &row.try_get::<String, _>("assessment_type")
+                    .map_err(map_sqlx_error)?,
+            )
+            .ok_or_else(|| StoreError::InvalidRecord("Assessment Type is invalid".to_string()))?,
             assessment_title: nonempty(
                 row.try_get("assessment_title").map_err(map_sqlx_error)?,
                 "Assessment title",

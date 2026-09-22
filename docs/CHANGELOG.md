@@ -6,6 +6,20 @@
 
 > September 18 entries are archived in [CHANGELOG-2026-09n.md](CHANGELOG-2026-09n.md).
 
+## 2026-09-22
+
+### Fixes and Maintenance
+
+- Tightened the Student responsive fixes after code review: phone-height Ribbon tokens no longer
+  leak onto coarse-pointer tablets, compact breadcrumb behavior covers the 393px phone corpus,
+  the Assessment Type history adapter parses its closed value once, and the Attempt context
+  comments describe the UUID-bearing browser contract accurately.
+
+### Developer Tests and Notes
+
+- Existing focused TypeScript, Rust, Node, formatting, and diff checks pass for the responsive and
+  Assessment Type fixes; the full corpus replay completed through the direct Chromium capture path.
+
 ## 2026-09-21
 
 ### Behavior or Interface Changes
@@ -21,6 +35,12 @@
 
 ### Fixes and Maintenance
 
+- Applied the Student UI stability and density audit: taskless Student routes no longer reserve an
+  empty Ribbon row; phone identity and breadcrumb rails stay within the viewport; Coursework actions
+  lead each card; active and history Attempt pages share the workflow rail and Assessment Type /
+  Attempt terminology; Question navigation adapts its numbered window to measured width; and the
+  Assessment Type contract now reaches Attempt context and history. Replayed and published the
+  complete screenshot corpus after the changes.
 - Reclassified the plan corpus using filesystem creation dates plus completion status: archived
   completed or superseded implementation plans, one-time reports, closed walkthrough workstreams,
   historical notes, the completed semantic-naming plan, the completed SQL quality audit, and the

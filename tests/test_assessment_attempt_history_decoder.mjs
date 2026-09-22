@@ -60,7 +60,11 @@ function history() {
       longName: "Molecular biology",
       theme: "forest",
     },
-    assessment: { id: "A7K3M2QAS", title: "Protein folding practice" },
+    assessment: {
+      id: "A7K3M2QAS",
+      assessmentType: "practice_question_assignment",
+      title: "Protein folding practice",
+    },
     state: "submitted",
     questions: [
       {

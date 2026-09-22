@@ -96,10 +96,15 @@
     grid-template-areas:
       "state"
       "title"
+      "action"
       "facts"
       "grade"
-      "decision"
-      "action";
+      "decision";
+  }
+
+  .student-coursework-card .primary-link {
+    justify-self: start;
+    margin-top: var(--ple-space-2);
   }
 
   .student-coursework-card__facts {

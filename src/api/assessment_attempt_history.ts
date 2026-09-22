@@ -1,6 +1,7 @@
 // Strict browser contract for one Student-owned completed Assessment Attempt.
 
 import type { AssessmentAttemptId } from "../../generated/api/AssessmentAttemptId";
+import type { AssessmentType } from "../../generated/api/AssessmentType";
 import type { AssessmentId } from "../../generated/api/AssessmentId";
 import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { CourseTheme } from "../../generated/api/CourseTheme";
@@ -44,6 +45,7 @@ export interface StudentAssessmentAttemptHistory {
   };
   readonly assessment: {
     readonly id: AssessmentId;
+    readonly assessmentType: AssessmentType;
     readonly title: string;
   };
   readonly state: "submitted" | "closed";

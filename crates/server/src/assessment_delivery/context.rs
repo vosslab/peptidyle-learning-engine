@@ -75,6 +75,7 @@ struct StudentAssessmentAttemptCourseContext {
 #[serde(rename_all = "camelCase")]
 struct StudentAssessmentAttemptAssessmentContext {
     id: AssessmentId,
+    assessment_type: question_model::AssessmentType,
     title: String,
 }
 
@@ -96,6 +97,7 @@ impl From<learning_data_access::StudentAssessmentAttemptContext>
             },
             assessment: StudentAssessmentAttemptAssessmentContext {
                 id: value.assessment_id,
+                assessment_type: value.assessment_type,
                 title: value.assessment_title,
             },
         }

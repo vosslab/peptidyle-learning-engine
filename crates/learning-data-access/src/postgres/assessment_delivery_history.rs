@@ -86,6 +86,11 @@ pub(super) async fn read(
         &questions,
         grading_is_current,
     )?;
+    let assessment_type = AssessmentType::parse(
+        &row.try_get::<String, _>("assessment_type")
+            .map_err(map_sqlx_error)?,
+    )
+    .ok_or_else(|| StoreError::InvalidRecord("Assessment Type is invalid".to_string()))?;
     let history = StudentAssessmentAttemptHistory {
         assessment_attempt_id: assessment_attempt,
         attempt_number,
@@ -107,6 +112,7 @@ pub(super) async fn read(
         },
         assessment: StudentAssessmentAttemptHistoryAssessment {
             id: assessment,
+            assessment_type,
             title: row.try_get("assessment_title").map_err(map_sqlx_error)?,
         },
         state,
@@ -115,11 +121,7 @@ pub(super) async fn read(
     };
     let result = StudentAssessmentAttemptHistoryEvidence {
         history,
-        assessment_type: AssessmentType::parse(
-            &row.try_get::<String, _>("assessment_type")
-                .map_err(map_sqlx_error)?,
-        )
-        .ok_or_else(|| StoreError::InvalidRecord("Assessment Type is invalid".to_string()))?,
+        assessment_type,
         feedback_rule,
         due_at: timestamp(row.try_get("due_at_millis").map_err(map_sqlx_error)?),
         closes_at: timestamp(row.try_get("closes_at_millis").map_err(map_sqlx_error)?),

@@ -60,20 +60,12 @@ function BreadcrumbPrelude(props: { readonly model: RibbonModel | undefined }): 
   createEffect(() => {
     const element = trail();
     if (element === undefined) return;
-    let followingTail = element.scrollLeft + element.clientWidth >= element.scrollWidth - 1;
-    const updatePosition = (): void => {
-      followingTail = element.scrollLeft + element.clientWidth >= element.scrollWidth - 1;
-    };
     const observer = new ResizeObserver(() => {
-      if (followingTail && !element.contains(document.activeElement)) {
-        element.scrollLeft = element.scrollWidth;
-      }
+      if (!element.contains(document.activeElement)) element.scrollLeft = 0;
     });
     observer.observe(element);
-    element.addEventListener("scroll", updatePosition, { passive: true });
     onCleanup(() => {
       observer.disconnect();
-      element.removeEventListener("scroll", updatePosition);
     });
   });
   createEffect(() => {
@@ -85,10 +77,11 @@ function BreadcrumbPrelude(props: { readonly model: RibbonModel | undefined }): 
     onCleanup(() => {
       cancelled = true;
     });
-    // Reveal the resolved current location without moving the page vertically.
+    // Keep the recognizable Home/Course prefix in the resting state. Keyboard
+    // focus still scrolls an individual link into view when needed.
     queueMicrotask(() => {
       if (!cancelled && focusVersion === focusRevision && trail() === element) {
-        element.scrollLeft = element.scrollWidth;
+        element.scrollLeft = 0;
       }
     });
   });
@@ -147,10 +140,7 @@ function ContentError(props: ContentErrorProps): JSX.Element {
     <section class="route-error" role="alert">
       <p class="eyebrow">This page needs another try</p>
       <h1>The learning space is still available</h1>
-      <p>
-        The current page could not load. Your navigation and active Assessment Attempt remain
-        available.
-      </p>
+      <p>The current page could not load. Your navigation and active Attempt remain available.</p>
       <div class="action-row">
         <button class="primary-action" type="button" onClick={props.reset}>
           Try this page again

@@ -303,6 +303,7 @@ mod tests {
                 },
                 assessment: StudentAssessmentAttemptHistoryAssessment {
                     id: AssessmentId::new("AABCDEFG8").expect("valid Assessment ID"),
+                    assessment_type: AssessmentType::PracticeQuestionAssignment,
                     title: "Protein folding practice".to_string(),
                 },
                 state: LiveAssessmentPreviousAttemptState::Submitted,

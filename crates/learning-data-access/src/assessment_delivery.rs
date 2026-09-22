@@ -94,6 +94,7 @@ pub struct StudentAssessmentAttemptHistoryCourse {
 #[serde(rename_all = "camelCase")]
 pub struct StudentAssessmentAttemptHistoryAssessment {
     pub id: AssessmentId,
+    pub assessment_type: AssessmentType,
     pub title: String,
 }
 
@@ -471,6 +472,7 @@ pub struct StudentAssessmentAttemptContext {
     pub course_long_name: String,
     pub course_theme: CourseTheme,
     pub assessment_id: AssessmentId,
+    pub assessment_type: AssessmentType,
     pub assessment_title: String,
     /// Authenticated Student's selected IANA display zone.
     pub display_time_zone: question_model::AccountTimeZone,

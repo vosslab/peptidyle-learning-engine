@@ -9,6 +9,7 @@ import { backendAnswerReviewDocumentUrl } from "../api/assessment_attempt_histor
 import { OpaqueWebworkPreviewFrame } from "../components/opaque_webwork_preview_frame";
 import { ContentBlockList } from "../components/student_feedback_panel";
 import { useApplicationApi } from "../api/application_api";
+import { assessmentTypePresentation } from "../assessment_type_presentation";
 import { ASSESSMENT_ATTEMPT_SUMMARY_STYLES } from "./assessment_attempt_summary_styles";
 import {
   useRetryRouteScope,
@@ -61,11 +62,12 @@ function AssessmentAttemptHistoryContent(props: {
       data-route-surface="assessmentAttemptSummary"
     >
       <style>{ASSESSMENT_ATTEMPT_SUMMARY_STYLES}</style>
-      <p class="eyebrow">Previous attempt</p>
-      <h1>{props.history.assessment.title}</h1>
-      <p>
-        Attempt {props.history.attemptNumber} is {props.history.state}.
+      <p class="eyebrow">
+        {assessmentTypePresentation(props.history.assessment.assessmentType).label} · Attempt{" "}
+        {props.history.attemptNumber}
       </p>
+      <h1>{props.history.assessment.title}</h1>
+      <p>This Attempt is {props.history.state}.</p>
       <section class="attempt-history__score" aria-labelledby="assessment-attempt-score-heading">
         <h2 id="assessment-attempt-score-heading">Score</h2>
         <Show when={props.history.score} fallback={<p>Your score is not available.</p>}>

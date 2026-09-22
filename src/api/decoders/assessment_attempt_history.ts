@@ -19,6 +19,7 @@ import {
   requireOnlyFields,
 } from "./shared";
 import { COURSE_THEME_VALUES } from "../../../generated/api/CourseTheme";
+import { ASSESSMENT_TYPE_VALUES } from "../../../generated/api/AssessmentType";
 import { decodeStringEnum } from "../decoder";
 import { parseAssessmentAttemptId } from "../../navigation/public_route";
 import { decodeQuestionContentBlock } from "./question_response_format";
@@ -53,7 +54,7 @@ export function decodeStudentAssessmentAttemptHistory(
   if (assessmentAttemptId === null)
     throw new DecodeError(`${path}.assessmentAttemptId`, "an Assessment Attempt UUID");
   const assessment = decodeRecord(field(record, "assessment", path), `${path}.assessment`);
-  requireOnlyFields(assessment, `${path}.assessment`, ["id", "title"]);
+  requireOnlyFields(assessment, `${path}.assessment`, ["id", "assessmentType", "title"]);
   const course = decodeRecord(field(record, "course", path), `${path}.course`);
   requireOnlyFields(course, `${path}.course`, ["id", "shortName", "longName", "theme"]);
   const score = optionalNestedScore(record.score, `${path}.score`);
@@ -83,6 +84,11 @@ export function decodeStudentAssessmentAttemptHistory(
       id: decodeAssessmentId(
         field(assessment, "id", `${path}.assessment`),
         `${path}.assessment.id`,
+      ),
+      assessmentType: decodeStringEnum(
+        field(assessment, "assessmentType", `${path}.assessment`),
+        `${path}.assessment.assessmentType`,
+        ASSESSMENT_TYPE_VALUES,
       ),
       title: decodeAssessmentTitle(
         field(assessment, "title", `${path}.assessment`),

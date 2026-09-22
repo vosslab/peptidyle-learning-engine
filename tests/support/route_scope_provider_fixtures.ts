@@ -44,7 +44,11 @@ export function assignmentAttemptContext(
       longName: `Course ${courseInstanceId}: Molecular Biology`,
       theme: "grass",
     },
-    assessment: { id: "A9D2RX5AF", title: "Assessment one" },
+    assessment: {
+      id: "A9D2RX5AF",
+      assessmentType: "practice_question_assignment",
+      title: "Assessment one",
+    },
   } satisfies StudentAssessmentAttemptContext;
 }
 
@@ -61,7 +65,11 @@ export function assignmentAttemptHistoryData(
       longName: `Course ${courseInstanceId}: Molecular Biology`,
       theme: "grass",
     },
-    assessment: { id: "A9D2RX5AF", title: "Assessment one" },
+    assessment: {
+      id: "A9D2RX5AF",
+      assessmentType: "practice_question_assignment",
+      title: "Assessment one",
+    },
     state: "submitted",
     questions: [],
   } satisfies StudentAssessmentAttemptHistory;

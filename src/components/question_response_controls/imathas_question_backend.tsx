@@ -123,7 +123,7 @@ function imathasQuestionBackendStatus(phase: ImathasQuestionBackendPhase): strin
     case "saving":
       return "Recording your iMathAS Question Backend response. Please wait.";
     case "saved":
-      return "Response saved. You can continue working while the Assessment Attempt is open.";
+      return "Response saved. You can continue working while the Attempt is open.";
   }
 }
 

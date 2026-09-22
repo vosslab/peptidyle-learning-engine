@@ -214,7 +214,7 @@ export async function exerciseHotspot(page: Page, input: "pointer" | "keyboard")
       throw new Error("Saved HOTSPOT selection did not survive reload.");
   }
   await saveAndReload();
-  await page.getByRole("button", { name: "Submit Assessment", exact: true }).click();
+  await page.getByRole("button", { name: "Submit Attempt", exact: true }).click();
   await page.locator('[data-route-surface="assessmentAttemptSummary"]').waitFor();
   const recorded = page.getByRole("article").filter({
     has: page.getByRole("heading", { name: `Question ${position}`, exact: true }),

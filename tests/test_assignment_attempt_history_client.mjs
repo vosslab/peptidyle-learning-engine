@@ -14,7 +14,11 @@ function history() {
       longName: "Biochemistry 301: Proteins and Peptides",
       theme: "ocean",
     },
-    assessment: { id: "A7K3M2QAS", title: "Peptide structure practice" },
+    assessment: {
+      id: "A7K3M2QAS",
+      assessmentType: "practice_question_assignment",
+      title: "Peptide structure practice",
+    },
     state: "submitted",
     questions: [
       {

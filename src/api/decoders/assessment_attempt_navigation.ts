@@ -27,6 +27,7 @@ import {
   parseAssessmentAttemptId,
 } from "../../navigation/public_route";
 import { COURSE_THEME_VALUES } from "../../../generated/api/CourseTheme";
+import { ASSESSMENT_TYPE_VALUES } from "../../../generated/api/AssessmentType";
 import { decodeAccountTimeZone } from "./student_assessment_decision";
 import { decodeStudentQuestionPresentation } from "./presentation_delivery";
 import { decodeStudentResponse } from "./question_delivery";
@@ -44,7 +45,7 @@ function decodeAssessmentAttemptId(value: unknown, path: string): AssessmentAtte
   return parsed;
 }
 
-/** Strict UUID-free Student Attempt context used by the persistent route scope. */
+/** Strict browser-safe Student Attempt context used by the persistent route scope. */
 export function decodeStudentAssessmentAttemptContext(
   value: unknown,
   path = "response",
@@ -62,7 +63,7 @@ export function decodeStudentAssessmentAttemptContext(
   const course = decodeRecord(field(record, "course", path), `${path}.course`);
   requireOnlyFields(course, `${path}.course`, ["id", "shortName", "longName", "theme"]);
   const assessment = decodeRecord(field(record, "assessment", path), `${path}.assessment`);
-  requireOnlyFields(assessment, `${path}.assessment`, ["id", "title"]);
+  requireOnlyFields(assessment, `${path}.assessment`, ["id", "assessmentType", "title"]);
   const remaining = field(record, "timerRemainingMilliseconds", path);
   const expiresAt = field(record, "expiresAt", path);
   return {
@@ -103,6 +104,11 @@ export function decodeStudentAssessmentAttemptContext(
       id: decodeAssessmentId(
         field(assessment, "id", `${path}.assessment`),
         `${path}.assessment.id`,
+      ),
+      assessmentType: decodeStringEnum(
+        field(assessment, "assessmentType", `${path}.assessment`),
+        `${path}.assessment.assessmentType`,
+        ASSESSMENT_TYPE_VALUES,
       ),
       title: decodeNonemptyString(
         field(assessment, "title", `${path}.assessment`),

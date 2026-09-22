@@ -240,7 +240,7 @@ BEGIN
 END $$;
 
 CREATE FUNCTION ple_private.read_student_assessment_attempt_context(p_assessment_attempt_id uuid)
-RETURNS TABLE (assessment_attempt_id uuid, assessment_attempt_number integer, course_instance_id text, course_short_name text, course_long_name text, course_theme text, assessment_id text, assessment_title text, display_time_zone text, expires_at_millis bigint, timer_remaining_milliseconds bigint)
+RETURNS TABLE (assessment_attempt_id uuid, assessment_attempt_number integer, course_instance_id text, course_short_name text, course_long_name text, course_theme text, assessment_id text, assessment_type text, assessment_title text, display_time_zone text, expires_at_millis bigint, timer_remaining_milliseconds bigint)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE assessment_attempt_id_value uuid;
 DECLARE evaluation_time timestamptz := pg_catalog.statement_timestamp();
@@ -261,7 +261,7 @@ BEGIN
     RETURN QUERY
     SELECT assessment_attempt.assessment_attempt_id, assessment_attempt.assessment_attempt_number, course.course_instance_id,
            course.course_short_name, course.course_long_name, course.course_theme,
-           assessment.assessment_id::text, policy.assessment_title,
+           assessment.assessment_id::text, assessment.assessment_type::text, policy.assessment_title,
            preference.time_zone,
            CASE WHEN assessment_attempt.expires_at IS NULL THEN NULL
                 ELSE floor(extract(epoch FROM assessment_attempt.expires_at) * 1000)::bigint END,
@@ -288,4 +288,4 @@ CREATE FUNCTION ple_api.read_active_student_assessment_attempt_id(text, text) RE
 
 CREATE FUNCTION ple_api.read_student_assessment_attempt_pool_selection(uuid) RETURNS TABLE (assessment_attempt_id uuid, assessment_entry_id uuid, question_pool_selection_id uuid, selection_position integer, question_pool_id text, question_pool_edit_number bigint, member_position integer, published_question_id text, revision_number integer) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$ SELECT * FROM ple_private.read_student_assessment_attempt_pool_selection($1) $$;
 
-CREATE FUNCTION ple_api.read_student_assessment_attempt_context(uuid) RETURNS TABLE (assessment_attempt_id uuid, assessment_attempt_number integer, course_instance_id text, course_short_name text, course_long_name text, course_theme text, assessment_id text, assessment_title text, display_time_zone text, expires_at_millis bigint, timer_remaining_milliseconds bigint) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$ SELECT * FROM ple_private.read_student_assessment_attempt_context($1) $$;
+CREATE FUNCTION ple_api.read_student_assessment_attempt_context(uuid) RETURNS TABLE (assessment_attempt_id uuid, assessment_attempt_number integer, course_instance_id text, course_short_name text, course_long_name text, course_theme text, assessment_id text, assessment_type text, assessment_title text, display_time_zone text, expires_at_millis bigint, timer_remaining_milliseconds bigint) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$ SELECT * FROM ple_private.read_student_assessment_attempt_context($1) $$;

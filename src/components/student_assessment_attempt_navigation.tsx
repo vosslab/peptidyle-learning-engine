@@ -6,6 +6,7 @@ import "./student_assessment_attempt_navigation.css";
 
 import {
   studentAssessmentAttemptQuestionStateLabel,
+  studentAssessmentAttemptVisiblePositionIndexes,
   type StudentAssessmentAttemptQuestionState,
 } from "./student_assessment_attempt_navigation_model";
 
@@ -36,19 +37,15 @@ export function StudentAssessmentAttemptNavigation(
     props.positions.findIndex((question) => question.position === props.currentPosition),
   );
   const visiblePositions = createMemo(() => {
-    const count = props.positions.length;
-    const slots = numberSlots();
-    if (count <= slots) return props.positions;
-    // Reserve first/last numbers and room for both omitted-range markers.
-    const rangeSize = Math.max(1, slots - 4);
-    const start = Math.max(
-      1,
-      Math.min(currentIndex() - Math.floor(rangeSize / 2), count - rangeSize - 1),
+    const indexes = studentAssessmentAttemptVisiblePositionIndexes(
+      props.positions.length,
+      currentIndex(),
+      numberSlots(),
     );
-    return props.positions.filter(
-      (_question, index) =>
-        index === 0 || index === count - 1 || (index >= start && index < start + rangeSize),
-    );
+    return indexes.flatMap((index) => {
+      const question = props.positions[index];
+      return question === undefined ? [] : [question];
+    });
   });
   const previous = (): StudentAssessmentAttemptQuestionPosition | undefined =>
     props.positions[currentIndex() - 1];
@@ -69,17 +66,38 @@ export function StudentAssessmentAttemptNavigation(
       props.onPositionActivate(question.position);
     }
   };
+  function measureNumberSlots(element: HTMLElement): number {
+    const row = element.querySelector<HTMLElement>(".student-assessment-question-navigation-row");
+    const entry = element.querySelector<HTMLElement>(
+      ".student-assessment-question-navigation-entry",
+    );
+    if (row === null || entry === null) return 5;
+    const rowStyle = getComputedStyle(row);
+    const list = element.querySelector<HTMLElement>(".student-assessment-question-navigation-list");
+    const listGap = list === null ? 0 : Number.parseFloat(getComputedStyle(list).columnGap) || 0;
+    const rowGap = Number.parseFloat(rowStyle.columnGap) || 0;
+    const moveWidth = [
+      ...element.querySelectorAll<HTMLElement>(".student-assessment-question-navigation-move"),
+    ].reduce((total, button) => total + button.getBoundingClientRect().width, 0);
+    const numberWidth = entry.getBoundingClientRect().width;
+    const markerWidth = Math.max(numberWidth * 0.35, Number.parseFloat(rowStyle.fontSize) || 16);
+    const available = element.getBoundingClientRect().width - moveWidth - rowGap * 2;
+    // Reserve the two possible omitted markers while keeping the measured
+    // number-button width as the source of the range budget.
+    return Math.max(
+      5,
+      Math.floor((available - markerWidth * 2 - listGap * 2 + listGap) / (numberWidth + listGap)),
+    );
+  }
   onMount(() => {
     if (!navigation) return;
     const observer = new ResizeObserver(([entry]) => {
       if (!entry) return;
-      // Enlarged text reduces the visible range as well as narrower containers.
-      const fontSize = Number.parseFloat(getComputedStyle(entry.target).fontSize);
-      setNumberSlots(
-        Math.max(5, Math.floor((entry.contentRect.width - 9 * fontSize) / (3.1 * fontSize))),
-      );
+      // Enlarged text and localized movement labels reduce the visible range.
+      if (entry.target instanceof HTMLElement) setNumberSlots(measureNumberSlots(entry.target));
     });
     observer.observe(navigation);
+    queueMicrotask(() => setNumberSlots(measureNumberSlots(navigation as HTMLElement)));
     onCleanup(() => observer.disconnect());
   });
   return (

@@ -227,7 +227,7 @@ try {
   await page.waitForFunction(
     () =>
       document
-        .querySelector('[data-ribbon-case="current-production"] [data-course-instance-id]')
+        .querySelector('[data-m10-case="current-production"] [data-course-instance-id]')
         ?.getAttribute("data-course-instance-id") === "CI7K3M2QAZ",
     undefined,
     { timeout: 3_000 },
@@ -383,8 +383,8 @@ try {
     "neutral evidence capture leaves the skip link unfocused and offscreen",
   );
   const courseCaptureReadiness = await page.evaluate(() => {
-    const currentCaseRoot = document.querySelector('[data-ribbon-case="current-production"]');
-    const fixtureCaseRoot = document.querySelector('[data-ribbon-case="fixture-shell"]');
+    const currentCaseRoot = document.querySelector('[data-m10-case="current-production"]');
+    const fixtureCaseRoot = document.querySelector('[data-m10-case="fixture-shell"]');
     const mainContent = currentCaseRoot?.querySelector("#main-content");
     const skipLink = currentCaseRoot?.querySelector(".skip-link");
     if (
@@ -762,7 +762,7 @@ try {
       window.ribbonShell.fixturePathname() ===
         "/instructor/courses/CI7K3M2QAZ/assessments/A9D2RX5AF" &&
       document.querySelector(
-        '[data-ribbon-case="fixture-shell"] [data-ribbon-task-row="reserved"]',
+        '[data-m10-case="fixture-shell"] [data-ribbon-task-row="reserved"]',
       ) !== null,
   );
   await flush(page);

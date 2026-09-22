@@ -22,6 +22,7 @@ import { useApplicationApi } from "../api/application_api";
 import { AuthorContentFrame } from "../components/author_content_frame";
 import { StudentAssessmentAttemptNavigation } from "../components/student_assessment_attempt_navigation";
 import type { StudentAssessmentAttemptQuestionState } from "../components/student_assessment_attempt_navigation";
+import { assessmentTypePresentation } from "../assessment_type_presentation";
 import { formatAssessmentDeliveryTime } from "../components/student_assessment_presentation";
 import { QuestionPresentationRenderer } from "../components/question_renderer";
 import { QuestionPresentationResponseControl } from "../components/question_response_controls/question_response_control";
@@ -125,7 +126,7 @@ function AttemptExperience(props: {
       }
     } catch (error: unknown) {
       if (request !== progressRequest) return;
-      setLoadError(errorMessage(error, "Could not load your Assessment Attempt."));
+      setLoadError(errorMessage(error, "Could not load your Attempt."));
     }
   }
 
@@ -268,12 +269,12 @@ function AttemptExperience(props: {
       if (error instanceof ApiRequestError && error.status === 503) {
         // ASVS 16.5.1-16.5.2: do not expose transport details; saved work remains available.
         setSubmissionError(
-          "This Assessment Attempt was not submitted. Submission is temporarily unavailable. Your saved responses are still here. Try again while time remains.",
+          "This Attempt was not submitted. Submission is temporarily unavailable. Your saved responses are still here. Try again while time remains.",
         );
         return;
       }
       setSubmissionError(
-        `This Assessment Attempt was not submitted: ${errorMessage(error, "Please review your saved responses and try again.")}`,
+        `This Attempt was not submitted: ${errorMessage(error, "Please review your saved responses and try again.")}`,
       );
     }
   }
@@ -404,7 +405,10 @@ function AttemptExperience(props: {
     <section class="page assessment-attempt-page" data-route-surface="assessmentAttempt">
       <header class="assessment-attempt-header">
         <div>
-          <p class="eyebrow">Assessment Attempt {props.context.attemptNumber}</p>
+          <p class="eyebrow">
+            {assessmentTypePresentation(props.context.assessment.assessmentType).label} · Attempt{" "}
+            {props.context.attemptNumber}
+          </p>
           <h1>{props.context.assessment.title}</h1>
         </div>
         <Show when={!isSubmitted()}>
@@ -459,7 +463,7 @@ function AttemptExperience(props: {
       <Show when={isSubmitted()}>
         <section class="attempt-summary" aria-labelledby="assessment-submitted-heading">
           <h2 id="assessment-submitted-heading">Your answers were accepted</h2>
-          <p>Your saved responses are submitted for this Assessment Attempt.</p>
+          <p>Your saved responses are submitted for this Attempt.</p>
         </section>
       </Show>
 
@@ -571,10 +575,11 @@ function AttemptExperience(props: {
           class="assessment-attempt-submit"
           aria-labelledby="assessment-attempt-submit-heading"
         >
-          <h2 id="assessment-attempt-submit-heading">Finish Assessment</h2>
+          <h2 id="assessment-attempt-submit-heading">Finish Attempt</h2>
           <p>
             Complete responses are saved before submission. Incomplete responses submit as
-            unanswered unless an earlier saved response exists.
+            unanswered unless an earlier saved response exists. This will submit your{" "}
+            {assessmentTypePresentation(props.context.assessment.assessmentType).label} Attempt.
           </p>
           <button
             class="primary-action"
@@ -583,7 +588,7 @@ function AttemptExperience(props: {
             disabled={submissionState() === "submitting"}
             onClick={() => void submitAttempt()}
           >
-            {submissionState() === "submitting" ? "Submitting Assessment..." : "Submit Assessment"}
+            {submissionState() === "submitting" ? "Submitting Attempt..." : "Submit Attempt"}
           </button>
           <Show when={submissionError()}>
             {(message) => (
@@ -616,12 +621,12 @@ export function AssessmentAttemptPage(): JSX.Element {
             when={loadState() === "rejected"}
             fallback={
               <p class="loading-state" role="status">
-                Loading your Assessment Attempt...
+                Loading your Attempt...
               </p>
             }
           >
             <p class="inline-error" role="alert">
-              Your Assessment Attempt could not be loaded.
+              Your Attempt could not be loaded.
             </p>
             <button class="quiet-action" type="button" onClick={retryScope}>
               Retry

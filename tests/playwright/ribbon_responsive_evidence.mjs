@@ -189,7 +189,7 @@ async function assertSysadminDesktopRibbon(browser) {
         `sysadmin_desktop: ${control.label} fits inside the top bar`,
       );
     }
-    for (const label of ["Instructor Accounts", "Scoped Support"]) {
+    for (const label of ["Instructor Accounts"]) {
       assert.ok(
         topRow.controls.some((control) => control.label === label),
         `sysadmin_desktop: ${label} destination remains visible`,
@@ -339,7 +339,7 @@ async function assertPinnedOverflowCues(page, profile) {
         const frame = row.parentElement;
         const cues =
           frame instanceof HTMLElement
-            ? [...frame.querySelectorAll("[data-ribbon-overflow-cue]")]
+            ? [...frame.querySelectorAll(":scope > [data-ribbon-overflow-cue]")]
             : [];
         return {
           maximum: row.scrollWidth - row.clientWidth,

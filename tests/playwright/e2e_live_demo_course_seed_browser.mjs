@@ -91,9 +91,7 @@ async function expectAttempt(page) {
   await expect(navigation.getByRole("list").getByRole("button")).toHaveCount(4);
   await expect(navigation.locator('[aria-current="step"]')).toHaveCount(1);
   await expect(attempt.locator("article.question-card")).toHaveCount(1);
-  await expect(
-    attempt.getByRole("heading", { name: "Finish Assessment", exact: true }),
-  ).toBeVisible();
+  await expect(attempt.getByRole("heading", { name: "Finish Attempt", exact: true })).toBeVisible();
 }
 
 async function resumeAttempt(page) {

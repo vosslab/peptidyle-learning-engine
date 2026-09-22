@@ -69,6 +69,7 @@ export interface RibbonContextLabels {
   readonly courseShortName?: string;
   readonly courseLongName?: string;
   readonly assessmentTitle?: string;
+  readonly assessmentTypeLabel?: string;
   readonly assessmentAttemptTitle?: string;
   readonly assessmentAttemptProgress?: string;
 }
@@ -98,6 +99,7 @@ export interface RibbonContextModel {
   readonly productLabel: "Student" | "Instructor" | "Sysadmin";
   readonly scopeLabel?: string;
   readonly assessmentLabel?: string;
+  readonly assessmentTypeLabel?: string;
   readonly assessmentAttemptProgress?: string;
   /** Account-endcap positions remain modeled while truthful admission withholds them. */
   readonly accountControls: ReadonlyArray<RibbonContextControlModel>;
@@ -413,6 +415,9 @@ function contextFor(
     productLabel: PRODUCT_LABELS[productRole],
     ...(scopeLabel === undefined ? {} : { scopeLabel }),
     ...(assessmentLabel === undefined ? {} : { assessmentLabel }),
+    ...(labels.assessmentTypeLabel === undefined
+      ? {}
+      : { assessmentTypeLabel: labels.assessmentTypeLabel }),
     ...(assessmentAttemptProgress === undefined ? {} : { assessmentAttemptProgress }),
     accountControls: accountControlsFor(productRole),
     signOutAction: SIGN_OUT_ACTION,

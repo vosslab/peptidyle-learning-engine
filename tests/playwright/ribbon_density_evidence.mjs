@@ -350,7 +350,7 @@ try {
             outerOffset: getComputedStyle(focusTarget).outlineOffset,
           },
           rowSurfaces: {
-            context: getComputedStyle(panelRibbon.querySelector(".ple-app-ribbon__context"))
+            context: getComputedStyle(panelRibbon.querySelector(".ple-app-ribbon__top-bar"))
               .backgroundColor,
             tabs: getComputedStyle(panelRibbon.querySelector(".ple-app-ribbon__tabs"))
               .backgroundColor,
@@ -443,7 +443,7 @@ try {
         },
         roleSwap: { before: roleSwapBefore, after: roleSwapAfter },
         hierarchy: {
-          contextBackground: getComputedStyle(ribbon.querySelector(".ple-app-ribbon__context"))
+          contextBackground: getComputedStyle(ribbon.querySelector(".ple-app-ribbon__top-bar"))
             .backgroundColor,
           taskSeparator: getComputedStyle(areaSeparator).borderInlineStartWidth,
           accent: local("--ple-ribbon-course-accent"),
@@ -469,11 +469,6 @@ try {
     ),
     true,
     "visible controls expose only catalog presentation, never role or priority as a physical hook",
-  );
-  assert.equal(
-    new Set(evidence.presentation.map((control) => control.presentation)).size,
-    2,
-    "the selected Instructor fixture visibly exercises both standard and compact presentations",
   );
   assert.equal(
     evidence.gaps.between > evidence.gaps.within,

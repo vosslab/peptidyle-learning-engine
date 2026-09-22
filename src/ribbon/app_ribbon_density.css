@@ -30,14 +30,9 @@
   }
 }
 
-/* Touch profiles change only the declared profile token; catalog role and
-   priority remain absent from the visual cascade. */
+/* Touch profiles enlarge controls and spacing at every viewport size; catalog
+   role and priority remain absent from the visual cascade. */
 @media (pointer: coarse) {
-  :root {
-    --ple-ribbon-top-block-size: 3.25rem;
-    --ple-ribbon-task-block-size: 2.75rem;
-  }
-
   .ple-app-ribbon {
     --ple-ribbon-space-row: var(--ple-space-2);
     --ple-ribbon-space-inline: var(--ple-space-2);
@@ -58,6 +53,16 @@
 
   .ple-app-ribbon__context-details {
     font-size: 0.82rem;
+  }
+}
+
+/* The taller token belongs to the phone topology. Keep touch tablets on the
+   ordinary single-row geometry unless their narrow width selects the phone
+   composition below. */
+@media (pointer: coarse) and (max-width: 40rem) {
+  :root {
+    --ple-ribbon-top-block-size: 5.5rem;
+    --ple-ribbon-task-block-size: 2.75rem;
   }
 }
 
@@ -216,31 +221,13 @@
   text-overflow: ellipsis;
 }
 
-/* At a phone width with enlarged text, retain the root's recognizable name
-   and allocate every remaining inline pixel to the current location. Longer
-   trails stay within the same clipped shell prelude. */
-@media (max-width: 24rem) {
+/* At a phone width, keep Home and the current leaf visible while the scoped
+   Course and Assessment links compress. Their full labels remain in the DOM
+   and become fully visible when keyboard focus reaches them. */
+@media (max-width: 25rem) {
   .ple-shell__breadcrumb-prelude {
     padding-inline: var(--ple-ribbon-space-tight);
     font-size: 0.68rem;
-  }
-
-  .ple-shell__breadcrumb-prelude ol {
-    inline-size: 100%;
-    gap: var(--ple-ribbon-space-tight);
-  }
-
-  .ple-shell__breadcrumb-prelude nav {
-    flex: 1 0 100%;
-    inline-size: 100%;
-  }
-
-  .ple-shell__breadcrumb-prelude li:first-child {
-    flex: 0 0 7ch;
-  }
-
-  .ple-shell__breadcrumb-prelude li:last-child {
-    flex: 1 1 auto;
   }
 
   .ple-shell__breadcrumb-prelude li + li::before {
@@ -271,6 +258,45 @@
 .ple-shell__breadcrumb-prelude a,
 .ple-shell__breadcrumb-prelude span {
   overflow: visible;
+}
+
+@media (max-width: 25rem) {
+  .ple-shell__breadcrumb-prelude nav {
+    flex: 1 0 100%;
+  }
+
+  .ple-shell__breadcrumb-prelude ol {
+    inline-size: 100%;
+    max-inline-size: 100%;
+    gap: var(--ple-ribbon-space-tight);
+  }
+
+  .ple-shell__breadcrumb-prelude li:first-child,
+  .ple-shell__breadcrumb-prelude li:last-child {
+    flex: 0 0 auto;
+  }
+
+  .ple-shell__breadcrumb-prelude li:not(:first-child):not(:last-child) {
+    flex: 1 1 0;
+    min-inline-size: 2ch;
+    overflow: hidden;
+  }
+
+  .ple-shell__breadcrumb-prelude li:not(:first-child):not(:last-child) a {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ple-shell__breadcrumb-prelude li:not(:first-child):not(:last-child):focus-within {
+    flex: 0 0 auto;
+    overflow: visible;
+  }
+
+  .ple-shell__breadcrumb-prelude li:not(:first-child):not(:last-child) a:focus-visible {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: nowrap;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

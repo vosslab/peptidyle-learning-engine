@@ -9,6 +9,7 @@ import { createComponent } from "solid-js";
 import { renderToString } from "solid-js/web";
 
 import { studentAssessmentAttemptQuestionStateLabel } from "../src/components/student_assessment_attempt_navigation_model.ts";
+import { studentAssessmentAttemptVisiblePositionIndexes } from "../src/components/student_assessment_attempt_navigation_model.ts";
 
 async function loadStudentAssessmentAttemptNavigationForSsr() {
   const result = await build({
@@ -39,6 +40,13 @@ test("Student Question navigation states use truthful Student-facing non-color l
   assert.equal(studentAssessmentAttemptQuestionStateLabel("unanswered"), "Not answered");
   assert.equal(studentAssessmentAttemptQuestionStateLabel("saved"), "Saved");
   assert.equal(studentAssessmentAttemptQuestionStateLabel("closed"), "Closed");
+});
+
+test("Student Question navigation spends constrained width on adjacent Questions", () => {
+  assert.deepEqual(studentAssessmentAttemptVisiblePositionIndexes(9, 3, 5), [0, 2, 3, 4, 8]);
+  assert.deepEqual(studentAssessmentAttemptVisiblePositionIndexes(9, 0, 5), [0, 1, 2, 3, 8]);
+  assert.deepEqual(studentAssessmentAttemptVisiblePositionIndexes(9, 8, 5), [0, 5, 6, 7, 8]);
+  assert.deepEqual(studentAssessmentAttemptVisiblePositionIndexes(9, 3, 7), [0, 1, 2, 3, 4, 5, 8]);
 });
 
 test("Student Question navigation renders ordered, answer-free states with one current Question", async () => {

@@ -209,7 +209,13 @@ try {
     document.documentElement.style.fontSize = "200%";
   });
   const destinationEvidence = await page.evaluate(() => {
-    const visibleControls = [...document.querySelectorAll("a, button")];
+    // The profile endcap is an overlay control, not a member of a Ribbon
+    // scrollport. Navigation destinations remain the row-visibility oracle.
+    const visibleControls = [
+      ...document.querySelectorAll(
+        "a:not([data-ribbon-context-control]), button:not([data-ribbon-context-control])",
+      ),
+    ];
     return visibleControls.map((control) => {
       const row = control.closest("[data-ribbon-row]");
       if (row === null)
