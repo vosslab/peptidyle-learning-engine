@@ -5,7 +5,7 @@ docs/archive/interface_cleanup_2026_09.md. -->
 
 ## Context
 
-[docs/active_plans/2026-09-09-notes.txt](../active_plans/2026-09-09-notes.txt)
+[2026-09-09-notes.txt](2026-09-09-notes.txt)
 records the owner's consolidated pass over the live interface, split by the rule that Student
 sections describe what Students see and do while Instructor sections describe what Instructors see
 and configure.

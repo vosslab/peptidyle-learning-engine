@@ -435,7 +435,7 @@ layout. Reaching it is milestone M0 of the plan and is the completion gate for t
 ## Part 3: remediation
 
 The fixes for every finding above are planned in
-[sql_schema_restructure_plan.md](../../archive/sql_schema_restructure_plan.md) as milestones M0
+[sql_schema_restructure_plan.md](../sql_schema_restructure_plan.md) as milestones M0
 (layered layout and catalog comments), M1 (types and identity), M2 (snapshots), M3 (derived data
 and fan-out), and M4 (measured indexes and generic immutability guards). Package letters used in
 the findings map as: package 0 = M0, A and D = M1, B = M2, C and E = M3, F = M4. This audit does
@@ -475,7 +475,7 @@ Not established here:
 
 ## Relationship to the earlier note
 
-[database_repetition_audit.md](database_repetition_audit.md) items 1, 2, 3, 4, 5, and 6 are
+  [database_repetition_audit.md](database_repetition_audit.md) items 1, 2, 3, 4, 5, and 6 are
 confirmed above as 1.5, 1.1, 1.3, 1.3, 1.3, and 1.4 respectively. One correction to that note:
 the fixed-role columns (`assigned_instructor_role` and friends) do carry information to the
 database even though they carry none to a reader; they are the composite-FK carrier that makes

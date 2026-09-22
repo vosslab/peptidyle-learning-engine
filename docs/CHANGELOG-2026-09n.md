@@ -323,7 +323,7 @@
   under-25-bullets rule per section with the tool that checks it; no section exceeds it. The
   pre-production bullets were reduced to one "no legacy" and one "fix the foundation" bullet.
 - Added a separate step-list plan for the schema style checker
-  ([schema_style_checker_plan.md](active_plans/active/schema_style_checker_plan.md)):
+  ([schema_style_checker_plan.md](archive/active/schema_style_checker_plan.md)):
   `devel/schema_catalog_lib.py` (one parser and model shared with the doc generator) and
   `devel/check_schema_style.py` (one `rule_<id>` function per mechanical checklist item, findings
   with locations, summary per rule, exit code, `--snapshot` / `--database` / `--report`). Tier 1

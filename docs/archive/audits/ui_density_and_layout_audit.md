@@ -18,8 +18,8 @@ Method: heuristic evaluation against the guideline ledger in
 [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) (Interface design, Information density and layout,
 Instructor interface, Student interface), with a cognitive walkthrough of the four scan-heavy
 Instructor tasks (find a Course, find a Question, check who has finished, check what is due).
-Comparison patterns come from [ADAPT_UI_AUDIT.md](ADAPT_UI_AUDIT.md). Prior concrete findings
-I01-I17 and S01-S08 in [UI_UX_USABILITY_AUDIT.md](UI_UX_USABILITY_AUDIT.md) remain valid; this
+Comparison patterns come from [ADAPT_UI_AUDIT.md](../../ADAPT_UI_AUDIT.md). Prior concrete findings
+I01-I17 and S01-S08 in [UI_UX_USABILITY_AUDIT.md](../../active_plans/audits/UI_UX_USABILITY_AUDIT.md) remain valid; this
 audit explains why they keep recurring and proposes the shared fix rather than per-page patches.
 
 HG rules cited by short name below:

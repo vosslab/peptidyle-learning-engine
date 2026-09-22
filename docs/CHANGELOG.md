@@ -21,6 +21,14 @@
 
 ### Fixes and Maintenance
 
+- Reclassified the plan corpus using filesystem creation dates plus completion status: archived
+  completed or superseded implementation plans, one-time reports, closed walkthrough workstreams,
+  historical notes, the completed semantic-naming plan, the completed SQL quality audit, and the
+  historical Course Appearance banner decision/specimen under `docs/archive/`. The durable ADAPT
+  comparison audit remains at `docs/ADAPT_UI_AUDIT.md`. The corpus is now 8 files in
+  `docs/active_plans/` and 162 files in `docs/archive/`; all 309 Markdown-link checks pass after
+  the path updates.
+
 - Applied the screenshot-recovery cleanup map: replay staging now requires its manifest;
   publication receipts and atlases explicitly cover the active public, Instructor, and Student
   roles while Sysadmin remains deferred; the public-ID reservation catalog asserts its ACL and

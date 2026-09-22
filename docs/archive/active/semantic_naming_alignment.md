@@ -1,6 +1,6 @@
 # System-wide semantic naming alignment
 
-> **Planning authority.** [HUMAN_GUIDANCE.md](../HUMAN_GUIDANCE.md) is the
+> **Planning authority.** [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) is the
 > product authority. This plan makes its identity, Tuple, Edit Number, and
 > Revision Number model coherent across PLE's current implementation.
 

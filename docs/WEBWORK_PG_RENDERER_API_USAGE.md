@@ -73,7 +73,7 @@ sandbox="allow-scripts allow-forms allow-same-origin"
 The document route adds a CSP that permits same-origin scripts and styles,
 same-origin or data images, and blocks base URLs, objects, form navigation,
 and external framing. This is the C2 decision recorded in
-[webwork_opaque_render_findings.md](active_plans/reports/webwork_opaque_render_findings.md).
+[webwork_opaque_render_findings.md](archive/reports/webwork_opaque_render_findings.md).
 
 ## Presentation and assets
 

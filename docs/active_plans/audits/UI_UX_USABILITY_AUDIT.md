@@ -249,7 +249,7 @@ color. Record computed-color evidence before closing any contrast finding.
 
 ## Instructor review
 
-[ADAPT_UI_AUDIT.md](ADAPT_UI_AUDIT.md) records ADAPT observations and comparison comments.
+[ADAPT_UI_AUDIT.md](../../ADAPT_UI_AUDIT.md) records ADAPT observations and comparison comments.
 HG owns PLE classification and validation decisions. PLE-specific findings remain in this audit.
 
 The review covers the 32 PNGs in `instructor`, including
@@ -742,7 +742,7 @@ strengths, not proof of the corresponding runtime guarantees.
 
 ## ADAPT comparison lessons
 
-[ADAPT_UI_AUDIT.md](ADAPT_UI_AUDIT.md) supplies the observations behind this comparison.
+[ADAPT_UI_AUDIT.md](../../ADAPT_UI_AUDIT.md) supplies the observations behind this comparison.
 Most lessons reinforce existing HG. Use them to sharpen implementation acceptance checks;
 the two suggested HG additions below remain proposals.
 
@@ -765,7 +765,7 @@ Status: catalog comparison directions; Sysadmin-only searchable boolean promotio
 with implementation and rendered verification pending.
 
 The user favors ADAPT's Public Courses, Commons, and Frameworks catalog setup as a possible
-reference for Blueprint Courses. [ADAPT_UI_AUDIT.md](ADAPT_UI_AUDIT.md) records their visible
+reference for Blueprint Courses. [ADAPT_UI_AUDIT.md](../../ADAPT_UI_AUDIT.md) records their visible
 structure and inconsistent introductory explanations.
 
 - Evaluate a consistent Blueprint discovery page with a brief purpose statement, compact filters,

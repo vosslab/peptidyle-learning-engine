@@ -309,7 +309,7 @@
   - Evidence (runtime): `schemas/base_schema/50_functions/question_publication_operations.sql` `ple_private.publish_new_question_lineage` passed the accepted C879 3-by-3 PostgreSQL publication proof: each exact source Revision license was preserved across three supported compatible CC licenses and every mismatched requested license was rejected.
 - [ ] Watching a Published Question drives in-app notifications for new Revisions, forks, improvement
   threads, and impact notices.
-  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records fresh PostgreSQL 17 actual-role proof for all four private Watch event kinds.
+  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records fresh PostgreSQL 17 actual-role proof for all four private Watch event kinds.
   - Verification pending: final connected HTTP/UI and browser notification presentation remain open.
 
 #### Published Question behavior specifications
@@ -392,7 +392,7 @@
   - Verification pending: Source-contributor audit must confirm only exact Published Question Revision members and no Pool-member input; broad runtime evidence remains pending.
 - [ ] Watching a Question Pool drives in-app notifications for new Revisions, forks, improvement
   threads, and impact notices.
-  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records fresh PostgreSQL 17 actual-role proof for all four private Watch event kinds.
+  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records fresh PostgreSQL 17 actual-role proof for all four private Watch event kinds.
   - Verification pending: final connected HTTP/UI and browser notification presentation remain open.
 
 #### Question Pool metadata
@@ -539,14 +539,14 @@
   - Verification pending: source implementation is present, but connected Instructor proof must sort mixed fixed and Pool Entries, save, reload, and show persisted order plus a concurrent-save conflict. Library discovery has source evidence but still needs connected proof, so this combined requirement remains open.
 - [ ] A Question Pool's Bloom Classification describes the intended cognitive work of the Pool as a whole.
   - Evidence (source): `schemas/base_schema/50_functions/question_bloom.sql` stores a Pool Revision's own pair by `(question_pool_id, revision_number)`, rather than deriving it from member Questions.
-  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records fresh PostgreSQL 17 actual-role proof of protected candidate/receipt binding and Pool Library admission.
+  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records fresh PostgreSQL 17 actual-role proof of protected candidate/receipt binding and Pool Library admission.
   - Verification pending: classifier/provider selection and orchestration, typed API/UI projection, and connected search/reporting remain open.
 - [ ] Bloom Classification is required before a Published Question or Question Pool enters the Question
   Library.
-  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records fresh PostgreSQL 17 actual-role proof of deferred completeness and Question plus Pool Library admission through one-use protected receipts.
+  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records fresh PostgreSQL 17 actual-role proof of deferred completeness and Question plus Pool Library admission through one-use protected receipts.
   - Verification pending: configured classifier/provider orchestration and connected publication/browser acceptance remain open.
 - [ ] AI assigns the initial Bloom Classification as part of publication.
-  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records the closed SQL preparation boundary: protected candidate/receipt binding, one use, rollback restoration, and publication admission.
+  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records the closed SQL preparation boundary: protected candidate/receipt binding, one use, rollback restoration, and publication admission.
   - Verification pending: application-owned classifier/provider selection, semantic classification, and connected publication proof remain open.
 - [ ] An **Instructor** can correct either Bloom dimension without creating a new Published Question or
   Question Pool Revision.
@@ -562,10 +562,10 @@
 #### Question Library stewardship specifications
 
 - [ ] Question Library stewardship should use a GitHub-like model.
-  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records current Question/Pool Star and Watch SQL/LDA proof plus four-event private Watch delivery.
+  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records current Question/Pool Star and Watch SQL/LDA proof plus four-event private Watch delivery.
   - Verification pending: connected Question/Pool workflows and browser presentation remain open.
 - [ ] Published Questions and Question Pools can be starred and watched.
-  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records current Question/Pool Star and private Watch persistence proof.
+  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records current Question/Pool Star and private Watch persistence proof.
   - Verification pending: connected Question/Pool controls and browser proof remain open.
 - [x] Star means favorite and visible endorsement.
   - Evidence (source): `schemas/base_schema/50_functions/question_stewardship.sql` `set_current_question_star` records an active Instructor's Star only for a Published Question; `src/components/question_star_control.tsx` `QuestionStarControl` provides the visible Star and count surface.
@@ -574,15 +574,15 @@
   Question or Question Pool.
   - Verification pending: current SQL/LDA proof covers Question/Pool stewardship persistence; connected authorized identity-list projection and browser proof remain open.
 - [ ] Watch means subscription.
-  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records current private Question/Pool Watch persistence proof.
+  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records current private Question/Pool Watch persistence proof.
   - Verification pending: connected subscription controls and browser proof remain open.
 - [ ] Watching a Published Question or Question Pool drives in-app notifications for new Revisions,
   forks, improvement threads, and impact notices.
-  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records fresh PostgreSQL 17 actual-role proof for private Revision, fork, improvement-thread, and impact-notice delivery.
+  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records fresh PostgreSQL 17 actual-role proof for private Revision, fork, improvement-thread, and impact-notice delivery.
   - Verification pending: final connected HTTP/UI and browser notification presentation remain open.
 - [ ] An **Instructor's** watch list remains private.
-  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records private Question/Pool Watch persistence and recipient delivery.
+  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records private Question/Pool Watch persistence and recipient delivery.
   - Verification pending: connected privacy and browser proof remain open.
 - [ ] **Students** and anonymous users do not receive **Instructor** identity lists or watch information.
-  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records the private recipient SQL boundary.
+  - Evidence (runtime): `docs/archive/audits/sql_human_guidance_audit.md` records the private recipient SQL boundary.
   - Verification pending: connected anonymous/Student denial and browser proof remain open.

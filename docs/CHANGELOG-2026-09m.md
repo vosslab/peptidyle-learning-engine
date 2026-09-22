@@ -189,7 +189,7 @@
 ### Decisions and Failures
 
 - Added the read-only SQL schema quality and efficiency audit
-  ([sql_schema_quality_audit.md](active_plans/audits/sql_schema_quality_audit.md)) over the
+  ([sql_schema_quality_audit.md](archive/audits/sql_schema_quality_audit.md)) over the
   146-table base schema, installed into a disposable PostgreSQL 17 container for catalog evidence
   (281 FKs, 166 without a referencing-side index; 497 CHECKs; 3 native enums against ~110
   text-plus-CHECK closed vocabularies; 92 hand-listed immutability comparisons). It confirms and
@@ -208,7 +208,7 @@
   comments and a generated `docs/SCHEMA_TABLES.md`, as the audit's completion gate. Verdict:
   readiness not established for a freeze; no code changed.
 - Added the read-only UI density and layout audit
-  ([ui_density_and_layout_audit.md](active_plans/audits/ui_density_and_layout_audit.md)) over the
+  ([ui_density_and_layout_audit.md](archive/audits/ui_density_and_layout_audit.md)) over the
   refreshed 76-capture screenshot corpus. It names four shared root causes behind the recurring
   per-page findings: a 190-260 px header stack on every page, object cards for every collection
   (`.instructor-list__row` 4.25rem floor, `.course-card` 5.75rem), stacked label/value grids that

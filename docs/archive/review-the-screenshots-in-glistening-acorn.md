@@ -162,4 +162,4 @@ the 49-path screenshot publication/semantic-privacy replay passed; five byte dif
 human-review evidence, and independent visual acceptance passed.
 
 The simultaneous Course Instance short/long-name contract belongs to the completed Interface Cleanup
-M2 Ribbon work in [interface_cleanup_2026_09.md](../archive/interface_cleanup_2026_09.md), not this focused cleanup.
+M2 Ribbon work in [interface_cleanup_2026_09.md](interface_cleanup_2026_09.md), not this focused cleanup.

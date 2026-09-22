@@ -7,7 +7,7 @@
 
 Date: 2026-09-09. Scope: the complete working-tree change from `HEAD`, including staged,
 unstaged, and untracked files, for
-[cryptic_foraging_hennessy.md](../../archive/cryptic_foraging_hennessy.md).
+[cryptic_foraging_hennessy.md](../cryptic_foraging_hennessy.md).
 
 Six fresh independent reviewers covered plan compliance, tests, implementation style,
 documentation, legacy/dead code, and comments. All six returned findings. The coordinator

@@ -1427,5 +1427,5 @@ intervals, or speculative failure machinery into additional unresolved product
 questions.
 
 See the temporary
-[COMPLIANCE_SUMMARY.md](active_plans/reports/human_guidance_compliance/COMPLIANCE_SUMMARY.md)
+[COMPLIANCE_SUMMARY.md](archive/reports/human_guidance_compliance/COMPLIANCE_SUMMARY.md)
 for the corpus review.

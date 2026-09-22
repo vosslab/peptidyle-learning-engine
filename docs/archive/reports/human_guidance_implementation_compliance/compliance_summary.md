@@ -479,7 +479,7 @@ findings; broad UI checklist rows remain open.
 
 [Human Guidance](../../../HUMAN_GUIDANCE.md) is the product authority. This report summarizes the current
 statuses in the authoritative
-[implementation checklist](../../audits/human_guidance_implementation_checklist.md), not a
+[implementation checklist](../../../active_plans/audits/human_guidance_implementation_checklist.md), not a
 replacement for it. Docs-pass compliance reports provide context only. The counts below are recomputed
 from the checklist by `devel/human_guidance_checklist.py`. Each `[x]` is required by the checklist to
 carry repository evidence, while `N/A` records document meta-guidance, human ownership, or explicitly
@@ -843,7 +843,7 @@ now have a fixed bundled glyph and a visible label.
 - [Question and assessment changes](question_and_assessment_changes.md)
 - [UI and workflow changes](ui_and_workflow_changes.md)
 - [Architecture and implementation changes](architecture_and_implementation_changes.md)
-- [Gap map](../../audits/human_guidance_gap_map.md) (implementation planning companion).
+- [Gap map](../../../active_plans/audits/human_guidance_gap_map.md) (implementation planning companion).
 
 ## Generated-evidence follow-up
 

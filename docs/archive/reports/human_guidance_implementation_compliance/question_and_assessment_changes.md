@@ -170,7 +170,7 @@ does not establish exhaustive or disjoint topical coverage; the checklist remain
 for each record's status.
 
 The authoritative exhaustive record is the
-[generated checklist](../../audits/human_guidance_implementation_checklist.md).
+[generated checklist](../../../active_plans/audits/human_guidance_implementation_checklist.md).
 
 ## Evidence updates
 

@@ -1,4 +1,4 @@
-# Terminology And Model Changes
+# Architecture And Implementation Changes
 
 ## Current heading reconciliation
 
@@ -36,53 +36,67 @@ inventories/correction IDs and superseded contradictions below are historical pr
 ## Scope
 
 This is a fresh topical implementation-audit inventory. It collects currently open
-Human Guidance checklist records relevant to terminology and the model. The bullet text is copied
-verbatim from the generated checklist, and its source location is recorded beside it. This report
-does not establish exhaustive or disjoint topical coverage; the checklist remains the authority
-for each record's status.
+Human Guidance checklist records relevant to architecture and implementation. The bullet text is
+copied verbatim from the generated checklist, and its source location is recorded beside it.
+This report does not establish exhaustive or disjoint topical coverage; the checklist remains the
+authority for each record's status.
 
 The authoritative exhaustive record is the
-[generated checklist](../../audits/human_guidance_implementation_checklist.md).
+[generated checklist](../../../active_plans/audits/human_guidance_implementation_checklist.md).
+
+## Storage composition receipt
+
+The object-storage cutover removes the direct `aws-config`/`aws.rs` fallback.
+Server composition accepts only explicit `disposable-local` MinIO configuration;
+the API/worker and publisher use separate configured credentials. The retained
+S3-compatible SDK graph follows the existing latest-first dependency policy and
+adds no dependency pin. This receipt changes no checklist status.
+
+Focused offline evidence passed: a fresh root `cargo test -p server_core --lib`
+ran 99 tests; `objects` with the `s3` feature ran 38 library tests, three
+conformance tests, and one archive test. The isolated
+`minio_object_store_conforms` run passed once against unique loopback MinIO.
+
+Container-composition evidence is separate from that object-store conformance
+result: the owned MinIO used a current locally available image with pull policy
+`never`, a read-only root, a data tmpfs, and zero persistent volumes. Its health
+check passed. Ordinary exact `stop --rm` cleanup removed the owned container and
+temporary secrets; no owned container or temporary secret remained, and the
+shared stack was untouched. This is not PLE HTTP, full-cloud, cloud IAM, or
+production-deployment evidence.
 
 ## Topical inventory
 
-### Product vocabulary
+### Development principles -- Codebase development rules
 
-- **Blueprint Course**: A reusable course used to create **Course Instances**. It has no enrolled **Students** or deadlines.
-  - Source: `docs/HUMAN_GUIDANCE.md:73`
+- PLE is pre-production with no users. Fix the design directly rather than preserving legacy behavior.
+  - Source: `docs/HUMAN_GUIDANCE.md:46`
 
-- **Course Instance**: A course used for teaching. It has **Students**, deadlines, releases, and other course settings. It may start independently with no parent **Blueprint Course**, or an **Instructor** may create it from a **Blueprint Course**.
-  - Source: `docs/HUMAN_GUIDANCE.md:75`
+- PLE is pre-production with no users or durable production data. Improve the design directly.
+  - Source: `docs/HUMAN_GUIDANCE.md:50`
 
-- **Adoption**: A connection between a **Blueprint Course** and a **Course Instance**. An **Instructor** establishes Adoption by creating a new Course Instance from a Blueprint Course or by creating a new Blueprint Course from an existing Course Instance's reusable structure.
-  - Source: `docs/HUMAN_GUIDANCE.md:76`
+- Every source file should stay below 1000 lines. Split complete capabilities into focused modules.
+  - Source: `docs/HUMAN_GUIDANCE.md:45`
 
-- **Create Blueprint from Course Instance**: Creating a new **Blueprint Course** from an existing Course Instance's reusable structure. The new Blueprint Course records the existing Course Instance as its source, and that Course Instance remains the same teaching instance.
-  - Source: `docs/HUMAN_GUIDANCE.md:77`
+- Use readable `snake_case` whenever possible; see [NAMING_CONVENTIONS.md](/docs/NAMING_CONVENTIONS.md) for details.
+  - Source: `docs/HUMAN_GUIDANCE.md:51`
 
-- **Published Question**: A validated question in the global **Question Library**, available to vetted **Instructors**.
-  - Source: `docs/HUMAN_GUIDANCE.md:76`
+- Adaptability should be a focus so the software can evolve as requirements and insights change.
+  - Source: `docs/HUMAN_GUIDANCE.md:52`
 
-- **Draft Question**: A private question being developed by an **Instructor**. It must pass validation before publication.
-  - Source: `docs/HUMAN_GUIDANCE.md:77`
+- Cargo, Node, and PyPI dependencies should use the latest versions to include security fixes.
+  - Source: `docs/HUMAN_GUIDANCE.md:53`
 
-- **Question Library**: The global collection of Published Questions and published Question Pools available to vetted **Instructors**.
-  - Source: `docs/HUMAN_GUIDANCE.md:78`
+- If an interface is measured as too slow, consider moving the slow code to Rust/WebAssembly.
+  - Source: `docs/HUMAN_GUIDANCE.md:54`
 
-- **Sysadmin**: A PLE administrator who manages the system, approves **Instructors**, creates accounts, and helps manage courses.
-  - Source: `docs/HUMAN_GUIDANCE.md:80`
+- Do not create or leave placeholder database tables, states, APIs, workers, or compatibility scaffolding before the feature has an approved product design.
+  - Source: `docs/HUMAN_GUIDANCE.md:55`
 
-- **Instructor**: An approved user who teaches courses and can browse, reuse, create, fork, and publish Questions.
-  - Source: `docs/HUMAN_GUIDANCE.md:81`
+### Development principles -- PLE development rules
 
-- **Student**: A user enrolled in a **Course Instance** who completes Assessments and other course activities.
-  - Source: `docs/HUMAN_GUIDANCE.md:82`
-
-- **Assessment Question Editor**: The **Instructor** editor for selecting, adding, removing, and ordering Questions in an Assessment.
-  - Source: `docs/HUMAN_GUIDANCE.md:83`
-
-- **Assessment Properties Editor**: The **Instructor** editor for settings that apply to the whole Assessment, such as dates, scoring, attempts, late work, and what **Students** can see.
-  - Source: `docs/HUMAN_GUIDANCE.md:84`
+- The polished PLE Live Demo is the top priority; see [LIVE_DEMO_SPEC.md](/docs/LIVE_DEMO_SPEC.md).
+  - Source: `docs/HUMAN_GUIDANCE.md:65`
 
 Latest Student response distinction rewrite: live HG requires visually distinct current Question,
 saved-response status and keyboard focus, plus response-effect labels distinguishing Save/Clear/

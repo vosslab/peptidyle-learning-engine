@@ -93,5 +93,5 @@ maps to a canonical owner.
 
 Assignments, Quizzes, and Exams share delivery mechanics but communicate
 different teaching intent. The open design is recorded in
-[assessment_type_terminology.md](../active_plans/decisions/assessment_type_terminology.md).
+[assessment_type_terminology.md](decisions/assessment_type_terminology.md).
 The terminology contract remains unchanged until that decision is accepted.

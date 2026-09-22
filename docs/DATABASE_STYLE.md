@@ -6,7 +6,7 @@ Design rules for PostgreSQL tables in this repository. This document owns how a 
 [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) is the product authority every rule here serves.
 
 The rules come from the findings of
-[docs/active_plans/audits/sql_schema_quality_audit.md](active_plans/audits/sql_schema_quality_audit.md),
+[docs/archive/audits/sql_schema_quality_audit.md](archive/audits/sql_schema_quality_audit.md),
 the PostgreSQL 17 documentation, and the design chapters of the local PostgreSQL corpus (see
 [Sources](#sources)). Cite a rule by its heading when making a schema judgment call.
 

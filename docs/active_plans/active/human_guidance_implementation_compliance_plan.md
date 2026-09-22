@@ -3,7 +3,7 @@
 ## Execution priority
 
 Complete the SQL lock and the highest-impact visible UI gates first:
-[`sql_human_guidance_audit.md`](../audits/sql_human_guidance_audit.md) and
+[`sql_human_guidance_audit.md`](../../archive/audits/sql_human_guidance_audit.md) and
 [`UI_UX_USABILITY_AUDIT.md`](../audits/UI_UX_USABILITY_AUDIT.md). Fresh subagents may run
 independent work in parallel with non-overlapping ownership and settled dependencies. Refresh the
 full screenshot corpus only after the objective interim gate under R1 passes. Audit the fresh corpus
@@ -431,7 +431,7 @@ closure, remain open; it adds no checklist-count or Human Guidance closure claim
 
 The 2026-09-14 docs pass reconciled all 295 `docs/` files against `docs/HUMAN_GUIDANCE.md` (HG).
 HG is now the product authority. That pass changed documentation; code is the next step. The compliance reports
-(`docs/active_plans/reports/human_guidance_compliance/`) already show the running system carries
+(`docs/archive/reports/human_guidance_compliance/`) already show the running system carries
 legacy concepts: `/assignments` routes and DTOs, "Policies" editor naming, old Ribbon labels,
 6:1/5:2 banner renditions, missing Student/Sysadmin Profile routes, stale generated screenshots and
 Ribbon ledger. Nobody knows yet whether the code gap is 20 items or 200.
@@ -482,7 +482,7 @@ conflicts. The checklist is a record of product evidence, not a second product s
 - When implementation details are missing, derive them from repository evidence and existing
   architecture; the product boundary is HG.
 - When a finding appears to conflict with HG, first read the current Human Guidance compliance
-  reports (`docs/active_plans/reports/human_guidance_compliance/`, especially
+  reports (`docs/archive/reports/human_guidance_compliance/`, especially
   `PRODUCT_CONFLICTS.md`, `COMPLIANCE_SUMMARY.md`, and `UNRESOLVED_OR_AMBIGUOUS_ITEMS.md`) for
   how the docs reconciliation interpreted that area. The reports are supporting context;
   `docs/HUMAN_GUIDANCE.md` remains authoritative.
@@ -512,10 +512,10 @@ conflicts. The checklist is a record of product evidence, not a second product s
 | ----------------------------------------------- | --------------------------------------------------------------------------- |
 | This plan (copied in at M1)                     | `docs/active_plans/active/human_guidance_implementation_compliance_plan.md` |
 | Checklist                                       | `docs/active_plans/audits/human_guidance_implementation_checklist.md`       |
-| Audit part files (temporary)                    | `docs/active_plans/audits/hg_checklist_parts/NN_<section>.md`               |
+| Audit part files (temporary archived snapshots) | `docs/archive/audits/hg_checklist_parts/NN_<section>.md`                    |
 | Generator and checks                            | `devel/human_guidance_checklist.py`                                         |
 | Gap map                                         | `docs/active_plans/audits/human_guidance_gap_map.md`                        |
-| Fresh implementation compliance reports (eight) | `docs/active_plans/reports/human_guidance_implementation_compliance/*.md`   |
+| Implementation compliance reports (archived snapshot) | `docs/archive/reports/human_guidance_implementation_compliance/*.md`   |
 | Correction milestones                           | appended to the plan under "Correction milestones" as the gap map grows     |
 
 Markdown under `docs/active_plans/` is exempt from the 1000-line source limit, so the checklist
@@ -643,7 +643,7 @@ Owner: manager. Scope: the generator script, the checklist file, and the plan co
 2. Run `--build`, then `--diff` (clean). The script prints HG and checklist bullet counts; equal.
 3. Copy this plan to `docs/active_plans/active/human_guidance_implementation_compliance_plan.md`.
 4. Compliance report freshness: confirm the eight reports under
-   `docs/active_plans/reports/human_guidance_compliance/` are the committed versions
+   `docs/archive/reports/human_guidance_compliance/` are the committed versions
    (`git status --short` on that folder is empty) and that `COMPLIANCE_SUMMARY.md` and
    `UNRESOLVED_OR_AMBIGUOUS_ITEMS.md` still name only the complete Student and Sysadmin Ribbon
    layouts as unlocked. When HG has changed since the reports (`--diff` against the checklist
@@ -739,11 +739,11 @@ A part that passed steps 1-3 is baseline for its section and can feed Milestone 
 
 ## Milestone B: Fresh implementation compliance reports
 
-The existing reports under `docs/active_plans/reports/human_guidance_compliance/` record the
+The existing reports under `docs/archive/reports/human_guidance_compliance/` record the
 completed documentation pass and remain evidence from that pass. The implementation audit writes
 its own set from what it finds, so the two audits stay distinct.
 
-Location: `docs/active_plans/reports/human_guidance_implementation_compliance/` (snake_case
+Location: `docs/archive/reports/human_guidance_implementation_compliance/` (snake_case
 filenames per `docs/REPO_STYLE.md` active-plans rule), mirroring the docs-pass set:
 
 - `compliance_summary.md`: method, evidence kinds, per-section counts, links to the checklist
@@ -885,7 +885,7 @@ confirmation clean; changelog entry.
   domain concepts over speculative machinery. A later measured performance issue remains eligible
   for a focused implementation plan.
 - Owned boundary: Human Guidance checklist audit classification in
-  `docs/active_plans/audits/hg_checklist_parts/01_development.md` and the generated checklist.
+  `docs/archive/audits/hg_checklist_parts/01_development.md` and the generated checklist.
 - Modules, tables, routes, and components: no production module, table, route, or component is
   changed. Add concise inherited or per-bullet N/A reasons only.
 - Dependencies: none.
@@ -900,7 +900,7 @@ confirmation clean; changelog entry.
   unverifiable runtime requirement; Live Demo behavior remains audited through its actual HG
   product bullets.
 - Owned boundary: Human Guidance checklist audit classification in
-  `docs/active_plans/audits/hg_checklist_parts/01_development.md` and the generated checklist.
+  `docs/archive/audits/hg_checklist_parts/01_development.md` and the generated checklist.
 - Modules, tables, routes, and components: no production module, table, route, or component is
   changed.
 - Dependencies: none.

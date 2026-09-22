@@ -438,7 +438,7 @@
   separate from permanent fast tests; old rebuild receipts do not require permanent probe code.
   The theme-response, expired-upload cleanup, and production-accessibility findings remain open.
 
-- The independent [Course Appearance audit](active_plans/audits/course_appearance_six_pass_review.md)
+- The independent [Course Appearance audit](archive/audits/course_appearance_six_pass_review.md)
   found that theme-save responses hide an existing banner from the page cache and expired abandoned
   uploads lack an executable cleanup consumer. Production-page accessibility coverage and a maintained
   execution owner for the focused browser checks also remain open. These findings qualify the earlier

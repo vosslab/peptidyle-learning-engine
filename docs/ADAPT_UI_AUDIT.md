@@ -10,8 +10,8 @@ The images remain conversation attachments; this document creates no repository 
 ADAPT's user population is user-provided context, not independently verified usage evidence.
 Screenshots establish presentation, not usability-study results, keyboard support, or runtime behavior.
 
-[HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) owns PLE requirements.
-[UI_UX_USABILITY_AUDIT.md](UI_UX_USABILITY_AUDIT.md) owns concrete PLE findings.
+[HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) owns PLE requirements.
+[UI_UX_USABILITY_AUDIT.md](active_plans/audits/UI_UX_USABILITY_AUDIT.md) owns concrete PLE findings.
 ADAPT provides comparison patterns for Instructor laptop workflows. Recommendations below
 preserve PLE's vocabulary, identity, authorization, and Question Backend boundaries.
 

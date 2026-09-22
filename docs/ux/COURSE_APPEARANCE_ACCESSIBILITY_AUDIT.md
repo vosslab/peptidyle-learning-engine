@@ -1,7 +1,7 @@
 # Course Appearance accessibility audit
 
 Status: component-harness evidence recorded on 2026-09-09; production-route accessibility remains
-open in the [Course Appearance audit](../active_plans/audits/course_appearance_six_pass_review.md).
+open in the [Course Appearance audit](../archive/audits/course_appearance_six_pass_review.md).
 
 This record covers the restored Instructor Course Appearance page: independent Theme and Banner
 forms rendered from the current authorized Course Appearance view. It is page-scoped evidence, not
