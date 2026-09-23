@@ -353,6 +353,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - The top Ribbon is the persistent navigation area for signed-in PLE pages.
 - The Ribbon should remain in the same location and use the same overall structure while navigating.
 - Navigation choices should remain in predictable locations as users move between related pages.
+- Each Tier 1 choice has one Tier 2 set. If Tier 1 stays the same, Tier 2 stays the same. Opening a Course,
+  Assessment, Question, or other item does not change the Tier 2 choices or their order.
+- The Student Tier 2 choices have not been decided yet. An empty Student Tier 2 is not a design decision.
 - Changing a Ribbon selection changes the content below the Ribbon without moving the main content area up or down.
 - Ribbon rows should keep their space when needed so changing selections does not make the content area jump.
 - Page actions should appear near the content they affect rather than changing the Ribbon layout.
